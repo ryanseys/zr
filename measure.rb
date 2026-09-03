@@ -77,7 +77,9 @@ Dir.mktmpdir("ze0-measure") do |dir|
     native = best_of { run(stage1, "#{name}.rb", "-o", "#{name}.clif", chdir: dir) }
     backend = best_of { run(ZEO, "backend", "#{name}.clif", "-o", "#{name}.bin", chdir: dir) }
     ze0_text = File.size(File.join(dir, "#{name}.clif"))
-    puts "| #{name} | #{source.lines.size} | #{front} | #{(jit_cold * 1000).round} | #{(jit_warm * 1000).round} | " \
+    # The recorded answer under `__END__` is not program text.
+    lines = source.split(/^__END__$/, 2).first.lines.size
+    puts "| #{name} | #{lines} | #{front} | #{(jit_cold * 1000).round} | #{(jit_warm * 1000).round} | " \
          "#{(native * 1000).round} | #{(backend * 1000).round} | #{emitter_text} | #{ze0_text} |"
   end
 end

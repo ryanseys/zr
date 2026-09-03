@@ -74,7 +74,7 @@ road.
 
 ## The differential
 
-`test/ze0/` holds 21 programs, recorded against ruby 4.0.6 like every
+`test/ze0/` holds 19 programs, recorded against ruby 4.0.6 like every
 other golden (`cargo xtask bless ze0::`). For each, `crates/zeo/tests/corpus/ze0.rs` takes
 three roads and demands one answer:
 
@@ -91,7 +91,7 @@ through a lock file. `crates/zeo/tests/suite/checks/ze0_clif.rs` pins ze0's text
 
 ## Measurements
 
-Release `zeo`, 2026-09-02, Apple Silicon. Best of three; the "cold" JIT
+Release `zeo`, 2026-09-03, Apple Silicon. Best of three; the "cold" JIT
 column is one run with the program cache off (`ZEO_CACHE=0`), which is what
 the first `zeo ze0/ze0.rb` on a machine pays to compile ze0 and prism's
 Ruby half. The Rust front end column is `parse_lower + analyze` from
@@ -100,63 +100,62 @@ ze0's output with `--emit-clif` under `ZEO_DEBUG=outline-frames`; the
 emitter's text also carries `main` and `zeo_unit_init`, which the backend
 materialises for ze0.
 
-The `ze0 text bytes` column predates the entry-block hoisting of addresses
-and constants, which took 9 to 19 percent off it (`hello` 2406 -> 2195,
-`fib` 14384 -> 12590, `generic_sends` 24352 -> 19650). `ruby ze0/measure.rb`
-takes the whole table again.
+`ruby ze0/measure.rb` takes the whole table again. Rows are comparable
+within a table and not across two of them: the timings move with the
+machine and the build, so a column read against an older table says
+nothing.
 
 | program | lines | rust front end ms | ze0 jit cold ms | ze0 jit warm ms | ze0 stage1 ms | backend ms | emitter text bytes | ze0 text bytes |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| ackermann | 11 | 17 | 801 | 21 | 13 | 135 | 25869 | 21620 |
-| arithmetic | 8 | 16 | 758 | 21 | 12 | 143 | 22407 | 21632 |
-| collatz | 15 | 16 | 787 | 21 | 13 | 136 | 30202 | 23371 |
-| compare_chains | 11 | 16 | 750 | 20 | 13 | 137 | 33301 | 29949 |
-| def_reflection | 7 | 17 | 759 | 19 | 12 | 133 | 19552 | 15929 |
-| division_by_zero | 2 | 17 | 774 | 18 | 10 | 136 | 8694 | 5232 |
-| fib | 8 | 17 | 830 | 22 | 13 | 139 | 19282 | 14384 |
-| float_mix | 9 | 18 | 786 | 22 | 13 | 134 | 35236 | 20966 |
-| generic_sends | 13 | 17 | 784 | 20 | 13 | 137 | 25677 | 24352 |
-| hello | 1 | 20 | 793 | 17 | 9 | 129 | 4073 | 2406 |
-| if_elsif_else | 20 | 15 | 761 | 22 | 14 | 136 | 27601 | 30487 |
-| locals_and_assignment | 19 | 15 | 750 | 20 | 13 | 135 | 25588 | 25090 |
-| nested_conditions | 22 | 17 | 790 | 23 | 14 | 143 | 26088 | 21963 |
-| overflow_to_bignum | 5 | 17 | 802 | 21 | 11 | 139 | 19605 | 15659 |
-| p_of_immediates | 12 | 23 | 772 | 19 | 11 | 155 | 15521 | 15906 |
-| return_inside_while | 21 | 17 | 757 | 23 | 14 | 147 | 34042 | 29379 |
-| string_methods | 11 | 19 | 792 | 22 | 14 | 148 | 26430 | 22562 |
-| tak | 8 | 16 | 777 | 20 | 12 | 134 | 22965 | 17768 |
-| unless_and_until | 15 | 15 | 753 | 20 | 12 | 133 | 20743 | 19721 |
-| while_sum | 16 | 15 | 744 | 20 | 12 | 133 | 27423 | 23386 |
-| wrong_arity | 5 | 18 | 856 | 18 | 10 | 139 | 14302 | 10368 |
-| generated_50 | 52 | 15 | 770 | 30 | 22 | 141 | 96293 | 86827 |
-| generated_200 | 208 | 16 | 805 | 67 | 59 | 146 | 375132 | 346764 |
-| generated_500 | 507 | 17 | 940 | 140 | 132 | 164 | 913965 | 847877 |
+| ackermann | 11 | 17 | 804 | 21 | 14 | 131 | 25869 | 18359 |
+| arithmetic_and_compare | 19 | 17 | 798 | 27 | 18 | 128 | 51687 | 41384 |
+| collatz | 15 | 15 | 792 | 22 | 14 | 131 | 30202 | 19610 |
+| control_flow | 84 | 18 | 808 | 37 | 29 | 132 | 88948 | 75752 |
+| def_reflection | 7 | 16 | 790 | 22 | 14 | 132 | 19552 | 13644 |
+| division_by_zero | 2 | 18 | 794 | 18 | 10 | 129 | 8694 | 4432 |
+| fib | 8 | 15 | 801 | 20 | 12 | 129 | 19282 | 12561 |
+| float_mix | 9 | 16 | 778 | 22 | 13 | 129 | 35236 | 17353 |
+| generic_sends | 13 | 16 | 799 | 24 | 15 | 132 | 25677 | 19623 |
+| hello | 1 | 17 | 790 | 18 | 10 | 126 | 4073 | 2194 |
+| locals_and_assignment | 19 | 16 | 789 | 25 | 16 | 133 | 25588 | 20154 |
+| names_and_case | 74 | 17 | 831 | 41 | 32 | 135 | 129620 | 102316 |
+| overflow_to_bignum | 5 | 17 | 805 | 22 | 14 | 133 | 19605 | 13070 |
+| p_of_immediates | 12 | 16 | 812 | 21 | 12 | 132 | 15521 | 13001 |
+| return_inside_while | 21 | 16 | 787 | 23 | 16 | 139 | 34042 | 25673 |
+| string_methods | 11 | 15 | 788 | 21 | 16 | 142 | 26430 | 18306 |
+| strings_and_collections | 40 | 16 | 808 | 35 | 26 | 137 | 81399 | 61259 |
+| tak | 8 | 16 | 801 | 22 | 15 | 143 | 22965 | 15157 |
+| wrong_arity | 5 | 16 | 810 | 20 | 13 | 139 | 14302 | 9219 |
+| generated_50 | 52 | 19 | 805 | 33 | 26 | 143 | 96293 | 73232 |
+| generated_200 | 208 | 18 | 850 | 84 | 75 | 142 | 375132 | 291107 |
+| generated_500 | 507 | 16 | 980 | 184 | 176 | 164 | 913965 | 712832 |
 
 What the numbers say:
 
 - **A warm ze0 is as fast as the Rust front end on small programs** and a
-  native ze0 is faster: 9 to 14 ms against 15 to 20 ms, because the Rust
+  native ze0 is faster: 10 to 16 ms against 15 to 19 ms, because the Rust
   path analyses the boot prelude on every compile and ze0 analyses only
-  the program. On the 500-line program the native ze0 takes 132 ms and
-  the warm JIT 140 ms, so ze0's own cost is about 0.25 ms per line.
+  the program. On the 500-line program the native ze0 takes 176 ms and
+  the warm JIT 184 ms, so ze0's own cost is about 0.35 ms per line.
 - **The cold JIT costs three quarters of a second**, all of it compiling
   ze0 and prism's Ruby half. The program cache makes every later run
   warm, and the differential harness warms it once before the corpus.
-- **`zeo backend` takes about 135 ms flat**, most of it the compile of the
+- **`zeo backend` takes about 130 ms flat**, most of it the compile of the
   empty program that gives `@boot` and `@seed` their meaning, then
   Cranelift and the link.
-- **ze0's text is 10 to 30 percent smaller** than the emitter's outlined
+- **ze0's text is 15 to 51 percent smaller** than the emitter's outlined
   text for the same program, with `main` and `zeo_unit_init` left to the
-  backend and no `TOPLEVEL_BINDING` install.
+  backend, no `TOPLEVEL_BINDING` install, and one address and one constant
+  per function rather than per use.
 - **A ze0 binary is twice the size.** `puts 1` links to 14.4 MB from ze0
   and 7.3 MB from `zeo build`, because ze0 keeps every builtin class
   table (`@all`): with no reachability analysis and a dynamic send that
   can reach any class, that is the honest choice. The emitter's analysis
   keeps 33 tables for that program.
-- **Lines.** ze0 is 1,022 lines of Ruby. The emitter's `clif/` is 27,785
+- **Lines.** ze0 is 1,543 lines of Ruby. The emitter's `clif/` is 27,818
   lines of Rust, of which the files the subset's lowering lives in
   (`binop`, `body`, `params`, `stmt`, `expr`, `call`, `frames`, `ctx`,
-  `operand`, `ownership`, `control`, `consts`) are 11,695; a per-function
+  `operand`, `ownership`, `control`, `consts`, `ivars`) are 11,875; a per-function
   attribution was not done, and those files lower far more than the
   subset. The backend verb and the sidecar are 759 lines of Rust.
 
