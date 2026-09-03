@@ -5,6 +5,8 @@ module Ze0
   # a program ze0 writes names the same functions the Rust emitter would.
   module Names
     TOPLEVEL = "zeo_toplevel"
+    # The owner of a top-level `def`.
+    OBJECT = "Object"
 
     # A Ruby name as an identifier fragment: every character an identifier
     # grammar refuses becomes its `_uXXXX_` code point, reversibly.
@@ -18,17 +20,34 @@ module Ze0
       out
     end
 
-    def self.method_symbol(name)
-      "zeo_m_Object_#{fragment(name)}"
+    # A fully-qualified owner (`Outer::Inner`) as a symbol fragment. The
+    # owner is already an identifier but for its separator.
+    def self.owner_fragment(owner)
+      owner.to_s.gsub("::", "__")
     end
 
-    def self.trampoline_symbol(name)
-      "zeo_t_Object_#{fragment(name)}"
+    # The four channels a method body reaches the runtime through: an
+    # instance method's body and its `ValueFn` trampoline, and the same
+    # pair for a class method.
+    def self.method_symbol(owner, name)
+      "zeo_m_#{owner_fragment(owner)}_#{fragment(name)}"
     end
 
-    # The frame label of a top-level `def`.
-    def self.method_label(name)
-      "Object##{name}"
+    def self.trampoline_symbol(owner, name)
+      "zeo_t_#{owner_fragment(owner)}_#{fragment(name)}"
+    end
+
+    def self.class_method_symbol(owner, name)
+      "zeo_cm_#{owner_fragment(owner)}_#{fragment(name)}"
+    end
+
+    def self.class_trampoline_symbol(owner, name)
+      "zeo_ct_#{owner_fragment(owner)}_#{fragment(name)}"
+    end
+
+    # The frame label a backtrace prints for `owner`'s method `name`.
+    def self.method_label(owner, name)
+      "#{owner}##{name}"
     end
   end
 end
