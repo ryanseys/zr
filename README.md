@@ -11,12 +11,12 @@ on zeo's own backend, and what would it take for that front end to compile
 itself?
 
 ```console
-$ ruby ze0/ze0.rb tests/ze0/fib.rb -o fib.clif      # or: zeo ze0/ze0.rb ...
+$ ruby ze0/ze0.rb test/ze0/fib.rb -o fib.clif      # or: zeo ze0/ze0.rb ...
 $ zeo backend fib.clif -o fib                       # reads fib.zeodata beside it
 $ ./fib
 6765
 $ zeo build ze0/ze0.rb -o ze0                       # stage 1
-$ ./ze0 tests/ze0/fib.rb -o fib.clif                # the same bytes
+$ ./ze0 test/ze0/fib.rb -o fib.clif                # the same bytes
 ```
 
 ## The subset
@@ -67,8 +67,8 @@ road.
 
 ## The differential
 
-`tests/ze0/` holds 21 programs, recorded against ruby 4.0.6 like every
-other golden (`cargo xtask bless ze0::`). For each, `harness/ze0.rs` takes
+`test/ze0/` holds 21 programs, recorded against ruby 4.0.6 like every
+other golden (`cargo xtask bless ze0::`). For each, `crates/zeo/tests/corpus/ze0.rs` takes
 three roads and demands one answer:
 
 1. `zeo build`, the Rust emitter, against ruby's recording;
@@ -77,9 +77,9 @@ three roads and demands one answer:
    then `zeo backend`.
 
 The three binaries must agree on stdout, stderr and the exit status.
-`cargo nextest run -p zeo --test goldens -E 'test(ze0::)'` runs it; the
+`cargo nextest run -p zeo --test corpus -E 'test(ze0::)'` runs it; the
 stage-1 binary is built once beside `zeo`, keyed by the sources, and shared
-through a lock file. `checks/ze0_clif.rs` pins ze0's text for `hello` and
+through a lock file. `crates/zeo/tests/suite/checks/ze0_clif.rs` pins ze0's text for `hello` and
 `fib` as snapshots.
 
 ## Measurements

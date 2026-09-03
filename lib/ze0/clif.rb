@@ -20,6 +20,8 @@ module Ze0
         @sigs = {}
         @callees = {}
         @blocks = []
+        @labels = {}
+        @body = {}
         @lines = {}
         @next_value = 0
         @current = nil
@@ -66,6 +68,11 @@ module Ze0
         values = params.map { value }
         name = block_named(values.zip(params).map { |v, t| "#{v}: #{t}" })
         [name, values]
+      end
+
+      # A block taking no parameters, by name alone.
+      def label
+        block.first
       end
 
       # Continue emitting into `block`. The block being left must have
@@ -137,8 +144,6 @@ module Ze0
       end
 
       def block_named(params)
-        @labels ||= {}
-        @body ||= {}
         name = "block#{@labels.size}"
         @labels[name] = params.empty? ? name : "#{name}(#{params.join(", ")})"
         name

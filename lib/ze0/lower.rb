@@ -79,7 +79,7 @@ module Ze0
       prologue
       (names + (node.locals - names)).each { |n| @locals[n] = zeroed_slot }
       status = @f.val("call #{@f.import("zeo_rt_stack_check")}()")
-      overflow, cont = @f.block.first, @f.block.first
+      overflow, cont = @f.label, @f.label
       @f.ins "brif #{status}, #{overflow}, #{cont}"
       @f.switch(overflow)
       @f.ins "return #{@f.iconst("i32", 1)}"
@@ -105,7 +105,7 @@ module Ze0
       recv, argv, argc, blk, out = f.args
       rodata = f.val("symbol_value.i64 #{f.symbol("zeo_rodata")}")
       has_block = f.val("icmp ne #{blk}, #{f.iconst("i64", 0)}")
-      release, check = f.block.first, f.block.first
+      release, check = f.label, f.label
       f.ins "brif #{has_block}, #{release}, #{check}"
       f.switch(release)
       f.ins "call #{f.import("zeo_rt_release")}(#{blk})"
@@ -113,7 +113,7 @@ module Ze0
       f.switch(check)
       n = f.iconst("i64", arity)
       fits = f.val("icmp eq #{argc}, #{n}")
-      go, wrong = f.block.first, f.block.first
+      go, wrong = f.label, f.label
       f.ins "brif #{fits}, #{go}, #{wrong}"
       f.switch(wrong)
       file, file_len = rodata_ref(f, rodata, @program.file)
@@ -164,8 +164,8 @@ module Ze0
     def prologue
       @rodata = @f.val("symbol_value.i64 #{@f.symbol("zeo_rodata")}")
       @syms = @f.val("symbol_value.i64 #{@f.symbol("zeo_syms")}")
-      @raise = @f.block.first
-      @done = @f.block.first
+      @raise = @f.label
+      @done = @f.label
       @exit, (@status,) = @f.block(["i32"])
     end
 
@@ -341,7 +341,7 @@ module Ze0
       else
         recv = node.receiver ? lower_expr(node.receiver) : @self
         out = @f.slot
-        send(borrow(recv), node.name, args.map { |a| lower_expr(a) }, addr_of(out))
+        dynamic_send(borrow(recv), node.name, args.map { |a| lower_expr(a) }, addr_of(out))
         Operand.new(out, true, false)
       end
     end
@@ -362,8 +362,9 @@ module Ze0
       Operand.new(out, false, true)
     end
 
-    # The cached dynamic send: `recv.name(*args)`.
-    def send(recv, name, operands, out)
+    # The cached dynamic send: `recv.name(*args)`. Not `send`: that would
+    # replace `Object#send` on every Lower.
+    def dynamic_send(recv, name, operands, out)
       argv = args_array(operands)
       sym_id = sym_id(name)
       site = @f.val("symbol_value.i64 #{@f.symbol("zeo_callsites")}")
@@ -400,14 +401,14 @@ module Ze0
       out_at = addr_of(out)
       int = @f.iconst("i8", Capi::TAG_INT)
       both = @f.val("band #{@f.val("icmp eq #{tag_of(la)}, #{int}")}, #{@f.val("icmp eq #{tag_of(ra)}, #{int}")}")
-      fast, slow, join = @f.block.first, @f.block.first, @f.block.first
+      fast, slow, join = @f.label, @f.label, @f.label
       @f.ins "brif #{both}, #{fast}, #{slow}"
       @f.switch(fast)
       a = @f.val("load.i64 notrap aligned #{la}+8")
       b = @f.val("load.i64 notrap aligned #{ra}+8")
       if (arith = INT_ARITH[node.name])
         result, overflowed = @f.vals("#{arith[0]} #{a}, #{b}")
-        big, small = @f.block.first, @f.block.first
+        big, small = @f.label, @f.label
         @f.ins "brif #{overflowed}, #{big}, #{small}"
         @f.switch(small)
         @f.ins "store notrap aligned #{int}, #{out_at}"
@@ -423,7 +424,7 @@ module Ze0
         @f.ins "jump #{join}"
       end
       @f.switch(slow)
-      send(la, node.name, [Operand.new(rhs.at, false, rhs.immediate)], out_at)
+      dynamic_send(la, node.name, [Operand.new(rhs.at, false, rhs.immediate)], out_at)
       @f.ins "jump #{join}"
       @f.switch(join)
       Operand.new(out, true, false)
@@ -431,7 +432,7 @@ module Ze0
 
     def lower_if(predicate, statements, otherwise, negate)
       truth = truthy(lower_expr(predicate))
-      yes, no, join = @f.block.first, @f.block.first, @f.block.first
+      yes, no, join = @f.label, @f.label, @f.label
       result = @f.slot
       @f.ins "brif #{truth}, #{negate ? no : yes}, #{negate ? yes : no}"
       @f.switch(yes)
@@ -453,7 +454,7 @@ module Ze0
 
     def lower_while(predicate, statements, negate)
       mark = @f.val("call #{@f.import("zeo_rt_pool_mark")}()")
-      head, body, done = @f.block.first, @f.block.first, @f.block.first
+      head, body, done = @f.label, @f.label, @f.label
       @f.ins "jump #{head}"
       @f.switch(head)
       status_check(@f.val("call #{@f.import("zeo_rt_check_ints")}()"))
@@ -520,7 +521,7 @@ module Ze0
     # `call sym(at)` only when the value at `at` is a heap object.
     def if_heap(at, sym)
       heap = @f.val("icmp uge #{tag_of(at)}, #{@f.iconst("i8", Capi::TAG_HEAP)}")
-      yes, no = @f.block.first, @f.block.first
+      yes, no = @f.label, @f.label
       @f.ins "brif #{heap}, #{yes}, #{no}"
       @f.switch(yes)
       @f.ins "call #{@f.import(sym)}(#{at})"
@@ -567,7 +568,7 @@ module Ze0
     end
 
     def status_check(status)
-      cont = @f.block.first
+      cont = @f.label
       @f.ins "brif #{status}, #{@raise}, #{cont}"
       @f.switch(cont)
     end

@@ -35,7 +35,13 @@ until args.empty?
 end
 usage unless input && output
 
-source = File.read(input)
+begin
+  source = File.read(input)
+rescue SystemCallError => e
+  warn "ze0: #{e.message}"
+  exit 1
+end
+
 begin
   clif, zeodata = Ze0.compile(source, input)
 rescue Ze0::Unsupported => e

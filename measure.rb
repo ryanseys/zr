@@ -14,7 +14,7 @@ require "tmpdir"
 
 ROOT = File.expand_path("..", __dir__)
 ZEO = ARGV[0] || File.join(ROOT, "target/release/zeo")
-CORPUS = Dir[File.join(ROOT, "tests/ze0/*.rb")].sort
+CORPUS = Dir[File.join(ROOT, "test/ze0/*.rb")].sort
 
 def best_of(n = 3)
   (1..n).map do
