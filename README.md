@@ -21,15 +21,21 @@ $ ./ze0 test/ze0/fib.rb -o fib.clif                # the same bytes
 
 ## The subset
 
-Integer, Float, String, Symbol, `nil`, `true`, `false`; local variables;
-`+`, `-`, `*` and the six comparisons with an inline Integer fast path;
-`if`/`unless`/`elsif`/`else`, `while`/`until`; top-level `def` with
-required parameters; `return`; `puts`; and every other call as the
-runtime's cached dynamic send, so `"ab".upcase`, `7 / 0` and `10.gcd(4)`
-all answer as ruby does, raise as ruby does, and print ruby's backtrace.
+Integer, Float, String, Symbol, `nil`, `true`, `false`; string
+interpolation; Array, Hash and Range literals; local variables, `$globals`,
+`@ivars` and constants, each with `=`, `+=`, `||=` and `&&=`; `+`, `-`, `*`
+and the six comparisons with an inline Integer fast path; `&&`, `||`, `!`
+and the ternary; `if`/`unless`/`elsif`/`else`, `while`/`until` and their
+modifier forms; `case`/`when`, with or without a subject; top-level `def`
+with required parameters; `return`; `puts`; and every other call as the
+runtime's cached dynamic send, so `"ab".upcase`, `7 / 0`, `10.gcd(4)`,
+`x.send(:+, 1)` and `x.method(:to_s)` all answer as ruby does, raise as
+ruby does, and print ruby's backtrace.
 
-Anything else is refused by name at its line (`Ze0::Unsupported`). The
-contract is zeo's: identical to CRuby, or fail.
+Anything else is refused by name at its line (`Ze0::Unsupported`) -- today
+that chiefly means classes and modules, blocks and closures, `rescue`,
+`require` and `eval`. The contract is zeo's: identical to CRuby, or fail.
+`ze0/PLAN.md` is the order the rest arrives in.
 
 ## Layout
 
@@ -37,6 +43,7 @@ contract is zeo's: identical to CRuby, or fail.
 |---|---|
 | `ze0.rb` | the command line |
 | `lib/ze0/lower.rb` | Prism nodes to CLIF: functions, statements, expressions, ownership |
+| `lib/ze0/scope.rb` | one function being lowered: its locals, its `self`, its exits |
 | `lib/ze0/clif.rb` | a function under construction: slots, symbols, callees, blocks, SSA values |
 | `lib/ze0/emit.rb` | the program: rodata, the symbol pool, call sites, `def` rows, the two files |
 | `lib/ze0/capi.rb` | the runtime rows the subset calls, transcribed from `clif/capi_names.rs` |

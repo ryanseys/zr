@@ -32,6 +32,10 @@ module Ze0
     }.freeze
     INT_COMPARE = { :< => "slt", :> => "sgt", :<= => "sle", :>= => "sge", :== => "eq" }.freeze
 
+    # The two halves of a name that an operator assignment both reads and
+    # writes.
+    Target = Struct.new(:read, :write)
+
     def initialize(program)
       @program = program
       @defs = {}
@@ -263,8 +267,28 @@ module Ze0
       when Prism::TrueNode then literal_bool(1)
       when Prism::FalseNode then literal_bool(0)
       when Prism::SymbolNode then literal_symbol(node.unescaped)
+      when Prism::InterpolatedStringNode then interpolated_string(node)
+      when Prism::ArrayNode then array_literal(node)
+      when Prism::HashNode then hash_literal(node)
+      when Prism::RangeNode then range_literal(node)
       when Prism::LocalVariableReadNode then local_read(node)
       when Prism::LocalVariableWriteNode then local_write(node)
+      when Prism::LocalVariableOperatorWriteNode, Prism::InstanceVariableOperatorWriteNode,
+           Prism::GlobalVariableOperatorWriteNode then operator_write(node)
+      when Prism::LocalVariableOrWriteNode, Prism::InstanceVariableOrWriteNode,
+           Prism::GlobalVariableOrWriteNode then conditional_write(node, false)
+      when Prism::LocalVariableAndWriteNode, Prism::InstanceVariableAndWriteNode,
+           Prism::GlobalVariableAndWriteNode then conditional_write(node, true)
+      when Prism::GlobalVariableReadNode then global_read(node)
+      when Prism::GlobalVariableWriteNode then global_write(node)
+      when Prism::InstanceVariableReadNode then ivar_read(node)
+      when Prism::InstanceVariableWriteNode then ivar_write(node)
+      when Prism::ConstantReadNode then constant_read(node)
+      when Prism::ConstantWriteNode then constant_write(node)
+      when Prism::ConstantPathNode then constant_path_read(node)
+      when Prism::AndNode then and_or(node.left, node.right, true)
+      when Prism::OrNode then and_or(node.left, node.right, false)
+      when Prism::CaseNode then lower_case(node)
       when Prism::CallNode then lower_call(node)
       when Prism::IfNode then lower_if(node.predicate, node.statements, node.subsequent, false)
       when Prism::UnlessNode then lower_if(node.predicate, node.statements, node.else_clause, true)
@@ -338,6 +362,255 @@ module Ze0
       Operand.new(slot, false, true)
     end
 
+    # A `"a#{b}c"`: a fresh empty String, then each piece appended. The
+    # destination goes to the pool at CREATION, not at the end, because an
+    # interpolated piece runs `to_s` and can raise.
+    def interpolated_string(node)
+      slot = f.slot
+      at = addr_of(slot)
+      zero = f.iconst("i64", 0)
+      f.ins "call #{f.import("zeo_rt_str_new")}(#{zero}, #{zero}, #{f.iconst("i8", Capi::UTF8)}, #{at})"
+      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      node.parts.each { |part| append_part(at, part) }
+      Operand.new(slot, false, false)
+    end
+
+    def append_part(at, part)
+      case part
+      when Prism::StringNode
+        return if part.unescaped.empty?
+
+        ptr, len = rodata_ref(part.unescaped)
+        f.ins "call #{f.import("zeo_rt_str_append_lit")}(#{at}, #{ptr}, #{len})"
+      when Prism::EmbeddedStatementsNode
+        append_value(at, lower_statements(part.statements))
+      when Prism::EmbeddedVariableNode
+        append_value(at, lower_expr(part.variable))
+      else raise Unsupported.new(part, "an interpolated piece of that shape")
+      end
+    end
+
+    def append_value(at, value)
+      status_check(f.val("call #{f.import("zeo_rt_str_append_value")}(#{at}, #{borrow(value)})"))
+    end
+
+    # `[a, b]`: the array is pooled at creation, so an element that raises
+    # mid-build strands nothing. Each element is HANDED OVER -- the array
+    # takes the reference.
+    def array_literal(node)
+      slot = f.slot
+      at = addr_of(slot)
+      f.ins "call #{f.import("zeo_rt_array_new")}(#{f.iconst("i64", node.elements.size)}, #{at})"
+      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      node.elements.each do |e|
+        raise Unsupported.new(e, "a splat in an array literal") if e.is_a?(Prism::SplatNode)
+
+        f.ins "call #{f.import("zeo_rt_array_push")}(#{at}, #{hand_over(lower_expr(e))})"
+      end
+      Operand.new(slot, false, false)
+    end
+
+    def hash_literal(node)
+      slot = f.slot
+      at = addr_of(slot)
+      f.ins "call #{f.import("zeo_rt_hash_new")}(#{at})"
+      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      node.elements.each do |e|
+        raise Unsupported.new(e, "a hash element of that shape") unless e.is_a?(Prism::AssocNode)
+
+        key = hand_over(lower_expr(e.key))
+        value = hand_over(lower_expr(e.value))
+        status_check(f.val("call #{f.import("zeo_rt_hash_set")}(#{at}, #{key}, #{value})"))
+      end
+      Operand.new(slot, false, false)
+    end
+
+    # `a..b`, `a...b`, and either end left out. Both ends go to the pool
+    # before either is handed over: lowering the second can raise while the
+    # first is still owned here.
+    def range_literal(node)
+      ends = [node.left, node.right].map do |n|
+        next if n.nil?
+
+        value = lower_expr(n)
+        borrow(value)
+        value
+      end
+      addrs = ends.map { |v| v ? hand_over(v) : f.iconst("i64", 0) }
+      slot = f.slot
+      excl = f.iconst("i8", node.exclude_end? ? 1 : 0)
+      status_check(f.val(
+        "call #{f.import("zeo_rt_range_new")}(#{addrs[0]}, #{addrs[1]}, #{excl}, #{addr_of(slot)})",
+      ))
+      Operand.new(slot, true, false)
+    end
+
+    # ---- assignment to a name that is also read ----
+
+    # `x += 1`, `x ||= 1` and `x &&= 1` are a read, an operation and a
+    # write of the same name, so each form is written once and asks the
+    # node which pair of halves it names.
+    def target_of(node)
+      name = node.name
+      case node
+      when Prism::LocalVariableOperatorWriteNode, Prism::LocalVariableOrWriteNode,
+           Prism::LocalVariableAndWriteNode
+        slot = locals.fetch(name) { raise Unsupported.new(node, "the local #{name} has no slot") }.slot
+        Target.new(-> { Operand.new(slot, false, false) }, ->(v) { store_local(slot, v) })
+      when Prism::InstanceVariableOperatorWriteNode, Prism::InstanceVariableOrWriteNode,
+           Prism::InstanceVariableAndWriteNode
+        Target.new(-> { ivar_load(name.to_s) }, ->(v) { store_ivar(name.to_s, v) })
+      else
+        Target.new(-> { global_load(name.to_s) }, ->(v) { store_global(name.to_s, v) })
+      end
+    end
+
+    def operator_write(node)
+      target = target_of(node)
+      name = node.binary_operator
+      lhs = target.read.call
+      rhs = lower_expr(node.value)
+      target.write.call(inline_binary?(name) ? binary(name, lhs, rhs) : operator_send(name, lhs, rhs))
+    end
+
+    def operator_send(name, lhs, rhs)
+      slot = f.slot
+      dynamic_send(borrow(lhs), name, [rhs], addr_of(slot))
+      Operand.new(slot, true, false)
+    end
+
+    # `x ||= v` answers `x` when it is truthy and never writes; `x &&= v`
+    # is the same with the arms the other way round.
+    def conditional_write(node, conjunction)
+      target = target_of(node)
+      current = target.read.call
+      truth = truthy(current)
+      result = f.slot
+      keep, assign, join = f.label, f.label, f.label
+      f.ins "brif #{truth}, #{conjunction ? assign : keep}, #{conjunction ? keep : assign}"
+      f.switch(keep)
+      arm(current, result, join)
+      f.switch(assign)
+      arm(target.write.call(lower_expr(node.value)), result, join)
+      f.switch(join)
+      Operand.new(result, true, false)
+    end
+
+    # ---- globals, constants and instance variables ----
+
+    # Never assigned is nil, ruby's rule, so the read cannot fail.
+    def global_read(node)
+      global_load(node.name.to_s)
+    end
+
+    def global_load(name)
+      slot = f.slot
+      ptr, len = rodata_ref(name)
+      f.ins "call #{f.import("zeo_rt_gvar_get")}(#{f.iconst("i32", Capi::MAIN_BOX)}, #{ptr}, #{len}, #{addr_of(slot)})"
+      Operand.new(slot, true, false)
+    end
+
+    # The table clones the value, so the operand keeps its own reference
+    # and the assignment answers it. A read-only global raises.
+    def global_write(node)
+      store_global(node.name.to_s, lower_expr(node.value))
+    end
+
+    def store_global(name, value)
+      at = borrow(value)
+      ptr, len = rodata_ref(name)
+      status_check(f.val(
+        "call #{f.import("zeo_rt_gvar_assign")}(#{f.iconst("i32", Capi::MAIN_BOX)}, #{ptr}, #{len}, #{at})",
+      ))
+      Operand.new(value.at, false, value.immediate)
+    end
+
+    # Name-keyed, not slot-keyed: a slot index is an offset into a class's
+    # declared ivar order, and ze0 has no classes yet.
+    def ivar_read(node)
+      ivar_load(node.name.to_s)
+    end
+
+    def ivar_load(name)
+      slot = f.slot
+      ptr, len = rodata_ref(name)
+      status_check(f.val(
+        "call #{f.import("zeo_rt_ivar_get_dyn")}(#{borrow(self_operand)}, #{ptr}, #{len}, " \
+        "#{f.iconst("i32", Capi::MAIN_BOX)}, #{addr_of(slot)})",
+      ))
+      Operand.new(slot, true, false)
+    end
+
+    def ivar_write(node)
+      store_ivar(node.name.to_s, lower_expr(node.value))
+    end
+
+    def store_ivar(name, value)
+      at = borrow(value)
+      ptr, len = rodata_ref(name)
+      status_check(f.val(
+        "call #{f.import("zeo_rt_ivar_set_dyn")}(#{borrow(self_operand)}, #{ptr}, #{len}, " \
+        "#{f.iconst("i32", Capi::MAIN_BOX)}, #{at})",
+      ))
+      Operand.new(value.at, false, value.immediate)
+    end
+
+    # A bare `Foo` walks the cref chain, which at the top level is Object
+    # alone. A miss is ruby's NameError, naming the qualified spelling.
+    def constant_read(node)
+      name = node.name.to_s
+      ids, n_ids = cid_array([Capi::OBJECT_CLASS])
+      nptr, nlen = rodata_ref(name)
+      qptr, qlen = rodata_ref(name)
+      slot = f.slot
+      status_check(f.val(
+        "call #{f.import("zeo_rt_const_get_cref")}(#{ids}, #{n_ids}, #{nptr}, #{nlen}, #{qptr}, #{qlen}, " \
+        "#{f.iconst("i8", 0)}, #{f.iconst("i32", Capi::MAIN_BOX)}, #{addr_of(slot)})",
+      ))
+      Operand.new(slot, true, false)
+    end
+
+    # `A::B`: the scope is lowered as an expression and the leaf read off
+    # the value, so a scope ze0 cannot name at compile time still works.
+    def constant_path_read(node)
+      raise Unsupported.new(node, "a constant path with no scope") if node.parent.nil?
+
+      scope = lower_expr(node.parent)
+      name = node.name.to_s
+      nptr, nlen = rodata_ref(name)
+      qptr, qlen = rodata_ref(node.slice)
+      slot = f.slot
+      status_check(f.val(
+        "call #{f.import("zeo_rt_const_get_on_value")}(#{borrow(scope)}, #{nptr}, #{nlen}, " \
+        "#{qptr}, #{qlen}, #{addr_of(slot)})",
+      ))
+      Operand.new(slot, true, false)
+    end
+
+    # The table clones the value and stamps the location
+    # `Module#const_source_location` reads back.
+    def constant_write(node)
+      value = lower_expr(node.value)
+      at = borrow(value)
+      nptr, nlen = rodata_ref(node.name.to_s)
+      fptr, flen = rodata_ref(@program.file)
+      f.ins "call #{f.import("zeo_rt_const_set_at")}(#{f.iconst("i32", Capi::OBJECT_CLASS)}, #{nptr}, #{nlen}, " \
+            "#{at}, #{fptr}, #{flen}, #{f.iconst("i32", node.location.start_line)}, " \
+            "#{f.iconst("i32", Capi::MAIN_BOX)})"
+      Operand.new(value.at, false, value.immediate)
+    end
+
+    # A class-id array in a stack slot. The runtime reads it as `*const
+    # u32`, and rodata has no alignment to give it.
+    def cid_array(ids)
+      slot = f.slot([ids.size * 4, Capi::SLOT_BYTES].max)
+      ids.each_with_index do |id, i|
+        at = i.zero? ? addr_of(slot) : f.stack_addr("#{slot}+#{i * 4}")
+        f.ins "store notrap aligned #{f.iconst("i32", id)}, #{at}"
+      end
+      [addr_of(slot), f.iconst("i64", ids.size)]
+    end
+
     # ---- locals ----
 
     # A fresh local, nil until something writes it.
@@ -351,15 +624,15 @@ module Ze0
       Operand.new(local(node).slot, false, false)
     end
 
-    # The old value goes after the new one is held, so `x = x` keeps it.
     def local_write(node)
-      value = lower_expr(node.value)
-      slot = local(node).slot
-      from = addr_of(value)
-      retain_if_heap(from) if !value.owned && !value.immediate
+      store_local(local(node).slot, lower_expr(node.value))
+    end
+
+    # The old value goes after the new one is held, so `x = x` keeps it.
+    def store_local(slot, value)
+      from = hand_over(value)
       release_if_heap(addr_of(slot))
       copy(from, addr_of(slot))
-      value.owned = false
       Operand.new(slot, false, false)
     end
 
@@ -390,8 +663,8 @@ module Ze0
         direct_call(node, args)
       elsif node.receiver.nil? && node.name == :puts
         kernel_puts(args)
-      elsif node.receiver && args.size == 1 && (INT_ARITH.key?(node.name) || INT_COMPARE.key?(node.name))
-        binary_op(node, args[0])
+      elsif node.receiver && args.size == 1 && inline_binary?(node.name)
+        binary(node.name, lower_expr(node.receiver), lower_expr(args[0]))
       else
         recv = node.receiver ? lower_expr(node.receiver) : self_operand
         result = f.slot
@@ -445,10 +718,12 @@ module Ze0
       addr_of(slot)
     end
 
+    def inline_binary?(name)
+      INT_ARITH.key?(name) || INT_COMPARE.key?(name)
+    end
+
     # `a OP b` with the Int/Int fast path inline and the send otherwise.
-    def binary_op(node, arg)
-      lhs = lower_expr(node.receiver)
-      rhs = lower_expr(arg)
+    def binary(name, lhs, rhs)
       la = borrow(lhs)
       ra = borrow(rhs)
       result = f.slot
@@ -460,7 +735,7 @@ module Ze0
       f.switch(fast)
       a = f.val("load.i64 notrap aligned #{la}+8")
       b = f.val("load.i64 notrap aligned #{ra}+8")
-      if (arith = INT_ARITH[node.name])
+      if (arith = INT_ARITH[name])
         value, overflowed = f.vals("#{arith[0]} #{a}, #{b}")
         big, small = f.label, f.label
         f.ins "brif #{overflowed}, #{big}, #{small}"
@@ -472,13 +747,13 @@ module Ze0
         f.ins "call #{f.import(arith[1])}(#{la}, #{ra}, #{out_at})"
         f.ins "jump #{join}"
       else
-        answer = f.val("icmp #{INT_COMPARE[node.name]} #{a}, #{b}")
+        answer = f.val("icmp #{INT_COMPARE[name]} #{a}, #{b}")
         f.ins "store notrap aligned #{f.iconst("i8", Capi::TAG_BOOL)}, #{out_at}"
         f.ins "store notrap aligned #{answer}, #{out_at}+8"
         f.ins "jump #{join}"
       end
       f.switch(slow)
-      dynamic_send(la, node.name, [Operand.new(rhs.at, false, rhs.immediate)], out_at)
+      dynamic_send(la, name, [Operand.new(rhs.at, false, rhs.immediate)], out_at)
       f.ins "jump #{join}"
       f.switch(join)
       Operand.new(result, true, false)
@@ -529,6 +804,72 @@ module Ze0
       f.switch(done)
       f.ins "call #{f.import("zeo_rt_pool_reset")}(#{mark})"
       literal_nil
+    end
+
+    # `a && b` and `a || b` answer one of their OPERANDS, not a boolean,
+    # so the arm that runs moves its value into the shared slot.
+    def and_or(left, right, conjunction)
+      value = lower_expr(left)
+      truth = truthy(value)
+      result = f.slot
+      short, other, join = f.label, f.label, f.label
+      f.ins "brif #{truth}, #{conjunction ? other : short}, #{conjunction ? short : other}"
+      f.switch(short)
+      arm(value, result, join)
+      f.switch(other)
+      arm(lower_expr(right), result, join)
+      f.switch(join)
+      Operand.new(result, true, false)
+    end
+
+    # `case`: each `when` value is tested with `===` against the subject,
+    # left to right, and the first hit's body answers. A subjectless
+    # `case` tests each value's own truth, ruby's if-chain sugar.
+    #
+    # Every test runs before any body, so the chain of fall-through blocks
+    # stays open until the `else` closes it and no block is left behind
+    # without a terminator.
+    def lower_case(node)
+      subject = nil
+      if node.predicate
+        subject = lower_expr(node.predicate)
+        borrow(subject)
+      end
+      result = f.slot
+      # The `===` answer's scratch byte: a whole slot, of which byte 0 is
+      # the only one written.
+      hit_at = addr_of(f.slot)
+      join = f.label
+      bodies = node.conditions.map do |arm_node|
+        body = f.label
+        arm_node.conditions.each do |value_node|
+          hit = case_test(subject, value_node, hit_at)
+          fall = f.label
+          f.ins "brif #{hit}, #{body}, #{fall}"
+          f.switch(fall)
+        end
+        [body, arm_node.statements]
+      end
+      # Nothing hit: the `else`, or nil.
+      arm(node.else_clause ? lower_statements(node.else_clause.statements) : literal_nil, result, join)
+      bodies.each do |body, statements|
+        f.switch(body)
+        arm(lower_statements(statements), result, join)
+      end
+      f.switch(join)
+      Operand.new(result, true, false)
+    end
+
+    def case_test(subject, node, hit_at)
+      raise Unsupported.new(node, "a splat in a `when`") if node.is_a?(Prism::SplatNode)
+
+      value = lower_expr(node)
+
+      return truthy(value) unless subject
+
+      at = borrow(value)
+      status_check(f.val("call #{f.import("zeo_rt_case_eq")}(#{at}, #{addr_of(subject)}, #{hit_at})"))
+      f.val("load.i8 notrap aligned #{hit_at}")
     end
 
     def lower_return(node)
@@ -594,12 +935,18 @@ module Ze0
       at
     end
 
+    # An address whose value the callee TAKES. An unowned value is
+    # retained first, because whoever held it keeps its own reference.
+    def hand_over(value)
+      at = addr_of(value)
+      retain_if_heap(at) if !value.owned && !value.immediate
+      value.owned = false
+      at
+    end
+
     # `value` into the slot at `to`, which then owns it.
     def move(value, to)
-      from = addr_of(value)
-      retain_if_heap(from) if !value.owned && !value.immediate
-      copy(from, to)
-      value.owned = false
+      copy(hand_over(value), to)
     end
 
     def discard(value)

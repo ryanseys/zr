@@ -28,6 +28,22 @@ module Ze0
       "zeo_rt_int_sub_slow" => [%w[i64 i64 i64], nil],
       "zeo_rt_int_mul_slow" => [%w[i64 i64 i64], nil],
       "zeo_rt_wrong_arity" => [%w[i64 i64 i64], "i32"],
+      "zeo_rt_str_new" => [["i64", "i64", "i8 uext", "i64"], nil],
+      "zeo_rt_str_append_lit" => [%w[i64 i64 i64], nil],
+      "zeo_rt_str_append_value" => [%w[i64 i64], "i32"],
+      "zeo_rt_array_new" => [%w[i64 i64], nil],
+      "zeo_rt_array_push" => [%w[i64 i64], nil],
+      "zeo_rt_hash_new" => [%w[i64], nil],
+      "zeo_rt_hash_set" => [%w[i64 i64 i64], "i32"],
+      "zeo_rt_range_new" => [["i64", "i64", "i8 uext", "i64"], "i32"],
+      "zeo_rt_gvar_get" => [%w[i32 i64 i64 i64], nil],
+      "zeo_rt_gvar_assign" => [%w[i32 i64 i64 i64], "i32"],
+      "zeo_rt_const_get_cref" => [["i64", "i64", "i64", "i64", "i64", "i64", "i8 uext", "i32", "i64"], "i32"],
+      "zeo_rt_const_get_on_value" => [%w[i64 i64 i64 i64 i64 i64], "i32"],
+      "zeo_rt_const_set_at" => [%w[i32 i64 i64 i64 i64 i64 i32 i32], nil],
+      "zeo_rt_ivar_get_dyn" => [%w[i64 i64 i64 i32 i64], "i32"],
+      "zeo_rt_ivar_set_dyn" => [%w[i64 i64 i64 i32 i64], "i32"],
+      "zeo_rt_case_eq" => [%w[i64 i64 i64], "i32"],
     }.freeze
 
     # A value slot: the tag byte, then the payload at +8.
@@ -44,5 +60,10 @@ module Ze0
     CALLSITE_BYTES = 56
     # The encoding index a string literal carries (UTF-8).
     UTF8 = 1
+    # `zeo_abi`'s `OBJECT_CLASS`: the whole cref chain of a top-level
+    # constant read, until classes give ze0 a chain to walk.
+    OBJECT_CLASS = 0
+    # ze0 compiles the main program, which is box 0.
+    MAIN_BOX = 0
   end
 end

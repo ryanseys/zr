@@ -7,7 +7,9 @@ module Ze0
   # in SSA form by construction.
   module Clif
     class Function
-      attr_reader :name, :args
+      # `current` is the block being emitted into: what a caller needs when
+      # it fills a block out of order and then resumes.
+      attr_reader :name, :args, :current
 
       # `params`/`ret`: CLIF types. The entry block takes the parameters
       # as v0..vN-1.
