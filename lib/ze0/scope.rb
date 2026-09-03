@@ -3,13 +3,16 @@
 module Ze0
   # Where a local variable lives.
   #
-  # `slot` is always a stack slot. `boxed` says the slot holds a pointer to
+  # `slot` is always a stack slot. `cell` says the slot holds a POINTER to
   # a heap cell rather than the value itself, which is what a name a block
   # captured needs: the cell outlives the frame and every closure over the
-  # name shares it. Every read and write goes through `Lower`, which
-  # dispatches on this.
-  Local = Struct.new(:slot, :boxed) do
-    def boxed? = boxed
+  # name shares it. `:owned` is the scope that made the cell and releases
+  # it; `:borrowed` is a block reading one out of its `ProcEnv`, whose
+  # reference the proc holds. Every read and write goes through `Lower`,
+  # which dispatches on this.
+  Local = Struct.new(:slot, :cell) do
+    def boxed? = !cell.nil?
+    def owns_cell? = cell == :owned
   end
 
   # One function being lowered: the CLIF function itself, the bases its
@@ -24,6 +27,10 @@ module Ze0
     attr_reader :f, :kind, :locals
     # The `self` of the frame, and the caller's slot a value is answered in.
     attr_accessor :self_operand, :out
+    # The call-site block this scope was handed, when it takes one. A
+    # method grows the parameter only where it uses a block; everywhere
+    # else this is nil and `yield` is refused.
+    attr_accessor :blk
     # `zeo_rodata` and `zeo_syms`, read once per function.
     attr_accessor :rodata, :syms
     # The shared exits: a raise, a normal finish, and the single block that

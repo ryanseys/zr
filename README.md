@@ -27,14 +27,15 @@ interpolation; Array, Hash and Range literals; local variables, `$globals`,
 and the six comparisons with an inline Integer fast path; `&&`, `||`, `!`
 and the ternary; `if`/`unless`/`elsif`/`else`, `while`/`until` and their
 modifier forms; `case`/`when`, with or without a subject; top-level `def`
-with required parameters; `return`; `puts`; and every other call as the
+with required parameters; `return`; blocks with required parameters,
+closing over the names they read, with `next`, `break`, `yield` and
+`block_given?`; `puts`; and every other call as the
 runtime's cached dynamic send, so `"ab".upcase`, `7 / 0`, `10.gcd(4)`,
 `x.send(:+, 1)` and `x.method(:to_s)` all answer as ruby does, raise as
 ruby does, and print ruby's backtrace.
 
 Anything else is refused by name at its line (`Ze0::Unsupported`) -- today
-that chiefly means classes and modules, blocks and closures, `rescue`,
-`require` and `eval`. The contract is zeo's: identical to CRuby, or fail.
+that chiefly means classes and modules, `rescue`, `require` and `eval`. The contract is zeo's: identical to CRuby, or fail.
 `ze0/PLAN.md` is the order the rest arrives in.
 
 ## Layout

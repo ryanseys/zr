@@ -90,13 +90,57 @@ module Ze0
       end
 
       names = params ? params.requireds.map(&:name) : []
-      @defs[node.name] = { params: names, node: node }
+      @defs[node.name] = { params: names, node: node, block: uses_block?(node.body) }
       @program.add_def(
         name: node.name,
         tramp: Names.trampoline_symbol(Names::OBJECT, node.name),
         params: names,
         line: node.location.start_line,
       )
+    end
+
+    # ---- captures ----
+    #
+    # The crude rule the Rust emitter's 1,270-line analysis exists to
+    # refine: a name is boxed when any block written in the scope mentions
+    # it. That over-boxes -- a name a block only reads and nobody assigns
+    # needs no cell -- and it is never wrong.
+
+    # The locals of this scope that a block under `nodes` names.
+    def captured_names(nodes, owned)
+      mentioned = {}
+      nodes.each { |n| blocks_under(n).each { |b| names_under(b, mentioned) } }
+      owned.select { |n| mentioned.key?(n) }
+    end
+
+    def blocks_under(node, found = [])
+      found << node if node.is_a?(Prism::BlockNode)
+      node.compact_child_nodes.each { |c| blocks_under(c, found) }
+      found
+    end
+
+    LOCAL_NODES = [
+      Prism::LocalVariableReadNode, Prism::LocalVariableWriteNode,
+      Prism::LocalVariableOperatorWriteNode, Prism::LocalVariableOrWriteNode,
+      Prism::LocalVariableAndWriteNode, Prism::LocalVariableTargetNode,
+    ].freeze
+
+    # Whether a body reaches for its call-site block. A block literal
+    # written INSIDE it has its own, so only a bare `yield` or
+    # `block_given?` counts -- and neither can appear in a nested `def`,
+    # which ze0 refuses anyway.
+    def uses_block?(node)
+      return false if node.nil?
+      return true if node.is_a?(Prism::YieldNode)
+      return true if node.is_a?(Prism::CallNode) && node.receiver.nil? && node.name == :block_given?
+
+      node.compact_child_nodes.any? { |c| uses_block?(c) }
+    end
+
+    def names_under(node, found = {})
+      found[node.name] = true if LOCAL_NODES.any? { |k| node.is_a?(k) }
+      node.compact_child_nodes.each { |c| names_under(c, found) }
+      found
     end
 
     # ---- functions ----
@@ -111,24 +155,25 @@ module Ze0
 
     def lower_def(node)
       names = @defs[node.name][:params]
+      takes_block = @defs[node.name][:block]
       body_sym = Names.method_symbol(Names::OBJECT, node.name)
-      function = Clif::Function.new(body_sym, ["i64"] * (names.size + 2), "i32")
+      arity = names.size + (takes_block ? 3 : 2)
+      function = Clif::Function.new(body_sym, ["i64"] * arity, "i32")
       in_scope(function, :body) do
         scope.self_operand = Operand.new(f.args[0], false, false)
+        scope.blk = f.args[names.size + 1] if takes_block
         scope.out = f.args.last
         prologue
-        (names + (node.locals - names)).each { |n| declare_local(n) }
+        own = names + (node.locals - names)
+        boxed = captured_names(node.body&.body || [], own)
+        own.each { |n| declare_local(n, boxed: boxed.include?(n)) }
         status = f.val("call #{f.import("zeo_rt_stack_check")}()")
         overflow, cont = f.label, f.label
         f.ins "brif #{status}, #{overflow}, #{cont}"
         f.switch(overflow)
         f.ins "return #{f.iconst("i32", 1)}"
         f.switch(cont)
-        names.each_with_index do |n, i|
-          from = f.args[i + 1]
-          retain_if_heap(from)
-          copy(from, addr_of(locals.fetch(n).slot))
-        end
+        names.each_with_index { |n, i| initialize_local(locals.fetch(n), f.args[i + 1]) }
         scope.frame_base = Names.method_label(Names::OBJECT, node.name)
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
         value = lower_statements(node.body)
@@ -143,17 +188,15 @@ module Ze0
     # The `ValueFn` the runtime dispatches to: releases a block it was
     # handed, checks the count, and calls the body on the argument slots.
     def lower_trampoline(node, arity)
+      takes_block = @defs[node.name][:block]
       function = Clif::Function.new(Names.trampoline_symbol(Names::OBJECT, node.name), ["i64"] * 5, "i32")
       in_scope(function, :trampoline) do
         recv, argv, argc, blk, into = f.args
         scope.rodata = f.val("symbol_value.i64 #{f.symbol("zeo_rodata")}")
-        has_block = f.val("icmp ne #{blk}, #{f.iconst("i64", 0)}")
-        release, check = f.label, f.label
-        f.ins "brif #{has_block}, #{release}, #{check}"
-        f.switch(release)
-        f.ins "call #{f.import("zeo_rt_release")}(#{blk})"
-        f.ins "jump #{check}"
-        f.switch(check)
+        # A body that uses a block takes it as a parameter and releases it
+        # itself; one that does not must release it here, since the block
+        # was moved in either way.
+        release_block_argument(blk) unless takes_block
         n = f.iconst("i64", arity)
         fits = f.val("icmp eq #{argc}, #{n}")
         go, wrong = f.label, f.label
@@ -164,6 +207,7 @@ module Ze0
         line = f.iconst("i32", node.location.start_line)
         end_line = f.iconst("i32", node.location.end_line)
         f.ins "call #{f.import("zeo_rt_frame_push")}(#{file}, #{file_len}, #{label}, #{label_len}, #{line}, #{end_line})"
+        release_block_argument(blk) if takes_block
         status = f.val("call #{f.import("zeo_rt_wrong_arity")}(#{argc}, #{n}, #{n})")
         f.ins "call #{f.import("zeo_rt_frame_pop")}()"
         f.ins "return #{status}"
@@ -171,8 +215,10 @@ module Ze0
         args = (0...arity).map do |i|
           i.zero? ? argv : f.val("iadd.i64 #{argv}, #{f.iconst("i64", i * Capi::SLOT_BYTES)}")
         end
-        body = f.callee(Names.method_symbol(Names::OBJECT, node.name), ["i64"] * (arity + 2), "i32")
-        status = f.val("call #{body}(#{([recv] + args + [into]).join(", ")})")
+        n_params = arity + (takes_block ? 3 : 2)
+        body = f.callee(Names.method_symbol(Names::OBJECT, node.name), ["i64"] * n_params, "i32")
+        handed = takes_block ? args + [blk] : args
+        status = f.val("call #{body}(#{([recv] + handed + [into]).join(", ")})")
         f.ins "return #{status}"
       end
       @program.add_function("trampoline", function)
@@ -183,7 +229,8 @@ module Ze0
       in_scope(function, :toplevel) do
         scope.out = f.args[0]
         prologue
-        names.each { |n| declare_local(n) }
+        boxed = captured_names(statements, names)
+        names.each { |n| declare_local(n, boxed: boxed.include?(n)) }
         scope.frame_base = "<main>"
         enter_frame(scope.frame_label, 0, 0)
         # The top-level `self`, pooled for the frame.
@@ -233,6 +280,7 @@ module Ze0
       f.ins "jump #{scope.exit_block}(#{f.iconst("i32", 1)})"
       f.switch(scope.exit_block)
       locals.each_value { |local| release_local(local) }
+      release_block_argument(scope.blk) if scope.blk
       f.ins "call #{f.import("zeo_rt_frame_pop")}()"
       f.ins "return #{scope.status}"
     end
@@ -258,15 +306,22 @@ module Ze0
       @blocks += 1
       function = Clif::Function.new(symbol, ["i64"] * 6, "i32")
       base, depth = scope.frame_base, scope.block_depth
+      # The enclosing names this block reads. Both ends read this list in
+      # the same order, so the creation site's array and the body's
+      # `ProcEnv` rows line up.
+      captures = block_captures(node, names)
       in_scope(function, :block) do
         scope.frame_base = base
         scope.block_depth = depth + 1
-        _env, slf, argv, argc, blk, into = f.args
+        env, slf, argv, argc, blk, into = f.args
         scope.self_operand = Operand.new(slf, false, false)
         scope.out = into
         prologue
         release_block_argument(blk)
-        (names + (node.locals - names)).each { |n| declare_local(n) }
+        captures.each_with_index { |n, i| declare_captured(n, env, i) }
+        own = names + (node.locals - names)
+        boxed = captured_names(node.body&.body || [], own)
+        own.each { |n| declare_local(n, boxed: boxed.include?(n)) }
         bind_block_params(names, argv, argc, auto_splat, node)
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
         value = lower_statements(node.body)
@@ -275,7 +330,14 @@ module Ze0
         epilogue
       end
       @program.add_function(symbol, function)
-      symbol
+      [symbol, captures]
+    end
+
+    # The names this block reads out of the scope that wrote it, sorted so
+    # the order is the same on both sides of the `ProcEnv`.
+    def block_captures(node, names)
+      own = names + node.locals
+      (names_under(node).keys - own).select { |n| locals.key?(n) }.sort
     end
 
     # The CALL-SITE block, moved in and so this body's to release.
@@ -315,7 +377,14 @@ module Ze0
       # then takes.
       names.each_with_index do |n, i|
         from = i.zero? ? addr_of(slots) : f.stack_addr("#{slots}+#{i * Capi::SLOT_BYTES}")
-        copy(from, addr_of(locals.fetch(n).slot))
+        local = locals.fetch(n)
+        # The binder wrote an owned value, which the slot takes as it is
+        # and a cell takes by moving.
+        if local.boxed?
+          f.ins "call #{f.import("zeo_rt_cell_store")}(#{cell_of(local)}, #{from})"
+        else
+          copy(from, addr_of(local.slot))
+        end
       end
     end
 
@@ -403,6 +472,9 @@ module Ze0
       when Prism::WhileNode then lower_while(node.predicate, node.statements, false)
       when Prism::UntilNode then lower_while(node.predicate, node.statements, true)
       when Prism::ReturnNode then lower_return(node)
+      when Prism::YieldNode then lower_yield(node)
+      when Prism::NextNode then lower_next(node)
+      when Prism::BreakNode then lower_break(node)
       when Prism::ParenthesesNode then lower_statements(node.body)
       when Prism::StatementsNode then lower_statements(node)
       when Prism::ElseNode then lower_statements(node.statements)
@@ -563,8 +635,8 @@ module Ze0
       case node
       when Prism::LocalVariableOperatorWriteNode, Prism::LocalVariableOrWriteNode,
            Prism::LocalVariableAndWriteNode
-        slot = locals.fetch(name) { raise Unsupported.new(node, "the local #{name} has no slot") }.slot
-        Target.new(-> { Operand.new(slot, false, false) }, ->(v) { store_local(slot, v) })
+        local = locals.fetch(name) { raise Unsupported.new(node, "the local #{name} has no slot") }
+        Target.new(-> { read_local(local) }, ->(v) { store_local(local, v) })
       when Prism::InstanceVariableOperatorWriteNode, Prism::InstanceVariableOrWriteNode,
            Prism::InstanceVariableAndWriteNode
         Target.new(-> { ivar_load(name.to_s) }, ->(v) { store_ivar(name.to_s, v) })
@@ -721,36 +793,88 @@ module Ze0
 
     # ---- locals ----
 
-    # A fresh local, nil until something writes it.
-    def declare_local(name)
+    # A fresh local, nil until something writes it. A name a block
+    # captures gets a heap cell instead of the slot's own bytes, because
+    # the closure outlives this frame and both must see one binding.
+    def declare_local(name, boxed: false)
       slot = f.slot
       store_nil(addr_of(slot))
-      locals[name] = Local.new(slot, false)
+      unless boxed
+        return locals[name] = Local.new(slot, nil)
+      end
+
+      cell = f.val("call #{f.import("zeo_rt_cell_new")}(#{f.iconst("i64", 0)})")
+      f.ins "store notrap aligned #{cell}, #{addr_of(slot)}"
+      locals[name] = Local.new(slot, :owned)
+    end
+
+    # A cell one of this block's `ProcEnv` rows names. The proc owns it, so
+    # this scope only borrows.
+    def declare_captured(name, env, index)
+      cells = f.val("load.i64 notrap aligned #{env}")
+      at = index.zero? ? cells : f.val("iadd.i64 #{cells}, #{f.iconst("i64", index * 8)}")
+      slot = f.slot
+      f.ins "store notrap aligned #{f.val("load.i64 notrap aligned #{at}")}, #{addr_of(slot)}"
+      locals[name] = Local.new(slot, :borrowed)
+    end
+
+    # The cell a boxed local's slot points at.
+    def cell_of(local)
+      f.val("load.i64 notrap aligned #{addr_of(local.slot)}")
     end
 
     def local_read(node)
-      Operand.new(local(node).slot, false, false)
+      read_local(local(node))
+    end
+
+    def read_local(local)
+      return Operand.new(local.slot, false, false) unless local.boxed?
+
+      slot = f.slot
+      f.ins "call #{f.import("zeo_rt_cell_load")}(#{cell_of(local)}, #{addr_of(slot)})"
+      Operand.new(slot, true, false)
     end
 
     def local_write(node)
-      store_local(local(node).slot, lower_expr(node.value))
+      store_local(local(node), lower_expr(node.value))
     end
 
     # The old value goes after the new one is held, so `x = x` keeps it.
-    def store_local(slot, value)
-      from = hand_over(value)
-      release_if_heap(addr_of(slot))
-      copy(from, addr_of(slot))
-      Operand.new(slot, false, false)
+    def store_local(local, value)
+      unless local.boxed?
+        from = hand_over(value)
+        release_if_heap(addr_of(local.slot))
+        copy(from, addr_of(local.slot))
+        return Operand.new(local.slot, false, false)
+      end
+
+      # The cell TAKES the value, so the assignment's own answer is the
+      # pooled copy rather than the slot the cell now owns.
+      at = borrow(value)
+      retain_if_heap(at)
+      f.ins "call #{f.import("zeo_rt_cell_store")}(#{cell_of(local)}, #{at})"
+      Operand.new(value.at, false, value.immediate)
+    end
+
+    # A parameter's value into its local: the caller keeps its own
+    # reference, so the copy retains first.
+    def initialize_local(local, from)
+      retain_if_heap(from)
+      if local.boxed?
+        f.ins "call #{f.import("zeo_rt_cell_store")}(#{cell_of(local)}, #{from})"
+      else
+        copy(from, addr_of(local.slot))
+      end
     end
 
     def release_local(local)
-      release_if_heap(addr_of(local.slot))
+      return release_if_heap(addr_of(local.slot)) unless local.boxed?
+      return unless local.owns_cell?
+
+      f.ins "call #{f.import("zeo_rt_cell_release")}(#{cell_of(local)})"
     end
 
     def local(node)
-      raise Unsupported.new(node, "a local of an enclosing scope") if node.depth != 0
-
       locals.fetch(node.name) { raise Unsupported.new(node, "the local #{node.name} has no slot") }
     end
 
@@ -767,10 +891,12 @@ module Ze0
           raise Unsupported.new(a, "an argument of that shape")
         end
       end
-      if node.block
-        block_send(node, args)
+      if node.receiver.nil? && node.name == :block_given? && args.empty? && node.block.nil?
+        block_given(node)
       elsif node.receiver.nil? && (d = @defs[node.name]) && d[:params].size == args.size
-        direct_call(node, args)
+        direct_call(node, args, d)
+      elsif node.block
+        block_send(node, args)
       elsif node.receiver.nil? && node.name == :puts
         kernel_puts(args)
       elsif node.receiver && args.size == 1 && inline_binary?(node.name)
@@ -787,11 +913,11 @@ module Ze0
     # receiver and every argument, because it is MOVED into the send and
     # nothing between its construction and the call may raise.
     def block_send(node, args)
-      body = lower_block(node.block)
+      body, captures = lower_block(node.block)
       recv = node.receiver ? lower_expr(node.receiver) : self_operand
       result = f.slot
-      dynamic_send(borrow(recv), node.name, args.map { |a| lower_expr(a) }, addr_of(result)) do
-        proc_new(body, node.block)
+      dynamic_send(borrow(recv), node.name, args.map { |a| lower_expr(a) }, addr_of(result), breaks: true) do
+        proc_new(body, captures, node.block)
       end
       Operand.new(result, true, false)
     end
@@ -799,20 +925,37 @@ module Ze0
     # The `Proc` the send is handed. Everything a shaped construction would
     # read from a `zeo_proc_shapes` row goes inline instead: `zeo backend`
     # defines that table with no rows, so the shaped entry is unreachable.
-    def proc_new(body, node)
+    def proc_new(body, captures, node)
       names = node.parameters&.parameters&.requireds&.map(&:name) || []
       fn = f.callee(body, ["i64"] * 6, "i32")
       address = f.val("func_addr.i64 #{fn}")
       file, file_len = rodata_ref(@program.file)
       params, n_params = param_rows(names)
+      cells, n_cells = cell_array(captures)
       slot = f.slot
       null = f.iconst("i64", 0)
-      f.ins "call #{f.import("zeo_rt_proc_new")}(#{address}, #{null}, #{null}, " \
+      f.ins "call #{f.import("zeo_rt_proc_new")}(#{address}, #{cells}, #{n_cells}, " \
             "#{borrow(self_operand)}, #{null}, #{null}, " \
             "#{f.iconst("i32", names.size)}, #{f.iconst("i32", 0)}, " \
             "#{params}, #{n_params}, #{file}, #{file_len}, " \
             "#{f.iconst("i32", node.location.start_line)}, #{null}, #{null}, #{addr_of(slot)})"
       addr_of(slot)
+    end
+
+    # The cells this block captures, as the `*const *mut Cell` array the
+    # proc reads. The proc takes its own reference to each, so this scope
+    # keeps releasing its own.
+    def cell_array(captures)
+      return [f.iconst("i64", 0), f.iconst("i64", 0)] if captures.empty?
+
+      slot = f.slot(8 * captures.size)
+      at = addr_of(slot)
+      captures.each_with_index do |n, i|
+        cell = cell_of(locals.fetch(n))
+        off = i * 8
+        f.ins "store notrap aligned #{cell}, #{at}#{off.zero? ? "" : "+#{off}"}"
+      end
+      [at, f.iconst("i64", captures.size)]
     end
 
     # The `ParamC` rows behind `Proc#parameters`, on the stack. The rows
@@ -836,12 +979,21 @@ module Ze0
       [at, f.iconst("i64", names.size)]
     end
 
-    def direct_call(node, args)
+    # A call to a `def` this program carries, straight to its body. The
+    # block, when there is one, is built LAST and moved in.
+    def direct_call(node, args, definition)
+      raise Unsupported.new(node.block, "a block for a def that does not use one") if node.block && !definition[:block]
+
       operands = args.map { |a| lower_expr(a) }
       result = f.slot
-      body = f.callee(Names.method_symbol(Names::OBJECT, node.name), ["i64"] * (args.size + 2), "i32")
-      addrs = [borrow(self_operand)] + operands.map { |o| borrow(o) } + [addr_of(result)]
-      status_check(f.val("call #{body}(#{addrs.join(", ")})"))
+      n_params = args.size + (definition[:block] ? 3 : 2)
+      body = f.callee(Names.method_symbol(Names::OBJECT, node.name), ["i64"] * n_params, "i32")
+      addrs = [borrow(self_operand)] + operands.map { |o| borrow(o) }
+      if definition[:block]
+        addrs << (node.block ? proc_new(*lower_block(node.block), node.block) : f.iconst("i64", 0))
+      end
+      status = f.val("call #{body}(#{(addrs + [addr_of(result)]).join(", ")})")
+      node.block ? catch_break(status, addr_of(result)) : status_check(status)
       Operand.new(result, true, false)
     end
 
@@ -854,7 +1006,7 @@ module Ze0
 
     # The cached dynamic send: `recv.name(*args)`. Not `send`: that would
     # replace `Object#send` on every Lower.
-    def dynamic_send(recv, name, operands, into)
+    def dynamic_send(recv, name, operands, into, breaks: false)
       argv = args_array(operands)
       blk = block_given? ? yield : f.iconst("i64", 0)
       sym_id = sym_id(name)
@@ -865,7 +1017,21 @@ module Ze0
         "call #{f.import("zeo_rt_send_value_cached")}(#{site}, #{f.iconst("i32", 0)}, #{recv}, #{sym_id}, " \
         "#{argv}, #{f.iconst("i64", operands.size)}, #{blk}, #{into})",
       )
-      status_check(status)
+      breaks ? catch_break(status, into) : status_check(status)
+    end
+
+    # A send that passed a block lands here: a `Break` signal's value IS
+    # the send's value, and every other signal is a real unwind.
+    def catch_break(status, into)
+      ok, signalled, take = f.label, f.label, f.label
+      f.ins "brif #{status}, #{signalled}, #{ok}"
+      f.switch(signalled)
+      kind = f.val("call #{f.import("zeo_rt_signal_kind")}()")
+      f.ins "brif #{f.val("icmp eq #{kind}, #{f.iconst("i8", Capi::SIGNAL_BREAK)}")}, #{take}, #{raise_block}"
+      f.switch(take)
+      f.val("call #{f.import("zeo_rt_signal_take")}(#{into})")
+      f.ins "jump #{ok}"
+      f.switch(ok)
     end
 
     # The arguments of a call, contiguous: one slot of `n` values, each
@@ -1036,16 +1202,78 @@ module Ze0
       f.val("load.i8 notrap aligned #{hit_at}")
     end
 
+    # `yield` calls the block the caller handed this method. A method with
+    # no block raises ruby's LocalJumpError, which the runtime does.
+    def lower_yield(node)
+      blk = scope.blk
+      raise Unsupported.new(node, "a yield outside a method that takes a block") if blk.nil?
+
+      args = (node.arguments&.arguments || []).map do |a|
+        raise Unsupported.new(a, "a yield argument of that shape") if a.is_a?(Prism::SplatNode)
+
+        lower_expr(a)
+      end
+      argv = args_array(args)
+      slot = f.slot
+      status_check(f.val(
+        "call #{f.import("zeo_rt_yield")}(#{blk}, #{argv}, #{f.iconst("i64", args.size)}, #{addr_of(slot)})",
+      ))
+      Operand.new(slot, true, false)
+    end
+
+    # `block_given?` is the block pointer against null -- no call at all.
+    def block_given(node)
+      blk = scope.blk
+      raise Unsupported.new(node, "a block_given? outside a method that takes a block") if blk.nil?
+
+      slot = f.slot
+      at = addr_of(slot)
+      has = f.val("icmp ne #{blk}, #{f.iconst("i64", 0)}")
+      f.ins "store notrap aligned #{f.iconst("i8", Capi::TAG_BOOL)}, #{at}"
+      f.ins "store notrap aligned #{has}, #{at}+8"
+      Operand.new(slot, false, true)
+    end
+
+    # `next` is not a signal at all: it is the block's ordinary return,
+    # with its value in the out slot.
+    def lower_next(node)
+      raise Unsupported.new(node, "a next outside a block") unless kind == :block
+
+      move(one_value(node), out)
+      f.ins "jump #{done_block}"
+      unreachable
+    end
+
+    # `break` arms the Break signal and leaves; the send that passed the
+    # block takes the value and answers it.
+    def lower_break(node)
+      raise Unsupported.new(node, "a break outside a block") unless kind == :block
+
+      value = hand_over(one_value(node))
+      f.ins "call #{f.import("zeo_rt_signal_set")}(#{f.iconst("i8", Capi::SIGNAL_BREAK)}, #{value})"
+      f.ins "jump #{raise_block}"
+      unreachable
+    end
+
+    # The single value of a `return`, `next` or `break`, or nil.
+    def one_value(node)
+      args = node.arguments&.arguments || []
+      raise Unsupported.new(node, "#{node.class.name[/\w+(?=Node)/].downcase} of several values") if args.size > 1
+
+      args.empty? ? literal_nil : lower_expr(args[0])
+    end
+
+    # Nothing runs after a jump; the slot is never written or read.
+    def unreachable
+      Operand.new(f.slot, false, true)
+    end
+
     def lower_return(node)
       raise Unsupported.new(node, "a return outside a def") unless kind == :body
 
-      args = node.arguments&.arguments || []
-      raise Unsupported.new(node, "a return of several values") if args.size > 1
-
-      move(args.empty? ? literal_nil : lower_expr(args[0]), out)
+      move(one_value(node), out)
       f.ins "jump #{done_block}"
-      # Nothing runs after the jump; the slot is never written or read.
-      Operand.new(f.slot, false, true)
+      unreachable
     end
 
     # ---- values and ownership ----

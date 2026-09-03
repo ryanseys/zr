@@ -45,6 +45,14 @@ module Ze0
       "zeo_rt_ivar_set_dyn" => [%w[i64 i64 i64 i32 i64], "i32"],
       "zeo_rt_case_eq" => [%w[i64 i64 i64], "i32"],
       "zeo_rt_bind_block_params" => [["i64", "i8 uext", "i64", "i64", "i64", "i64"], "i32"],
+      "zeo_rt_signal_set" => [["i8 uext", "i64"], nil],
+      "zeo_rt_signal_kind" => [[], "i8"],
+      "zeo_rt_signal_take" => [%w[i64], "i8"],
+      "zeo_rt_cell_new" => [%w[i64], "i64"],
+      "zeo_rt_cell_load" => [%w[i64 i64], nil],
+      "zeo_rt_cell_store" => [%w[i64 i64], nil],
+      "zeo_rt_cell_release" => [%w[i64], nil],
+      "zeo_rt_yield" => [%w[i64 i64 i64 i64], "i32"],
       "zeo_rt_proc_new" => [
         %w[i64 i64 i64 i64 i64 i64 i32 i32 i64 i64 i64 i64 i32 i64 i64 i64], nil,
       ],
@@ -74,5 +82,8 @@ module Ze0
     BLOCK_BIND_AUTO_SPLAT = 1
     # `ParamC::kind` for a required positional.
     PARAM_REQ = 0
+    # `zeo_abi::abi::SignalKind::Break`: what a `break` out of a block
+    # arms and the sending site takes.
+    SIGNAL_BREAK = 1
   end
 end
