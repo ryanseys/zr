@@ -29,11 +29,24 @@ module Ze0
     # The shared exits: a raise, a normal finish, and the single block that
     # releases the locals and answers `status`.
     attr_accessor :raise_block, :done_block, :exit_block, :status
+    # The frame a backtrace prints. `base` is the method or `<main>` a
+    # block was written in, and `depth` how many blocks deep it sits, so
+    # ruby's "block (2 levels) in Object#run" can be spelled.
+    attr_accessor :frame_base, :block_depth
 
     def initialize(f, kind)
       @f = f
       @kind = kind
       @locals = {}
+      @block_depth = 0
+    end
+
+    # The label of this scope's own frame.
+    def frame_label
+      return @frame_base if @block_depth.zero?
+      return "block in #{@frame_base}" if @block_depth == 1
+
+      "block (#{@block_depth} levels) in #{@frame_base}"
     end
   end
 end

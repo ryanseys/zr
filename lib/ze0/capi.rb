@@ -44,6 +44,10 @@ module Ze0
       "zeo_rt_ivar_get_dyn" => [%w[i64 i64 i64 i32 i64], "i32"],
       "zeo_rt_ivar_set_dyn" => [%w[i64 i64 i64 i32 i64], "i32"],
       "zeo_rt_case_eq" => [%w[i64 i64 i64], "i32"],
+      "zeo_rt_bind_block_params" => [["i64", "i8 uext", "i64", "i64", "i64", "i64"], "i32"],
+      "zeo_rt_proc_new" => [
+        %w[i64 i64 i64 i64 i64 i64 i32 i32 i64 i64 i64 i64 i32 i64 i64 i64], nil,
+      ],
     }.freeze
 
     # A value slot: the tag byte, then the payload at +8.
@@ -65,5 +69,10 @@ module Ze0
     OBJECT_CLASS = 0
     # ze0 compiles the main program, which is box 0.
     MAIN_BOX = 0
+    # `zeo_rt_bind_block_params`' flags: a single Array argument spreads
+    # over a shape with real positional structure.
+    BLOCK_BIND_AUTO_SPLAT = 1
+    # `ParamC::kind` for a required positional.
+    PARAM_REQ = 0
   end
 end

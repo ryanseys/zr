@@ -40,6 +40,7 @@ module Ze0
       @program = program
       @defs = {}
       @scopes = []
+      @blocks = 0
     end
 
     def lower(root)
@@ -128,8 +129,8 @@ module Ze0
           retain_if_heap(from)
           copy(from, addr_of(locals.fetch(n).slot))
         end
-        label = Names.method_label(Names::OBJECT, node.name)
-        enter_frame(label, node.location.start_line, node.location.end_line)
+        scope.frame_base = Names.method_label(Names::OBJECT, node.name)
+        enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
         value = lower_statements(node.body)
         move(value, out) unless f.terminated?
         f.ins "jump #{done_block}" unless f.terminated?
@@ -183,7 +184,8 @@ module Ze0
         scope.out = f.args[0]
         prologue
         names.each { |n| declare_local(n) }
-        enter_frame("<main>", 0, 0)
+        scope.frame_base = "<main>"
+        enter_frame(scope.frame_label, 0, 0)
         # The top-level `self`, pooled for the frame.
         self_slot = f.slot
         f.ins "call #{f.import("zeo_rt_main_object")}(#{addr_of(self_slot)})"
@@ -233,6 +235,112 @@ module Ze0
       locals.each_value { |local| release_local(local) }
       f.ins "call #{f.import("zeo_rt_frame_pop")}()"
       f.ins "return #{scope.status}"
+    end
+
+    # A block literal as its own CLIF function, the runtime's `BlockFn`:
+    # `(env, self, argv, argc, blk, out) -> i32`. Note the shape is NOT the
+    # five-pointer trampoline's -- a block fn prepends `env` and takes its
+    # `self` as a parameter, because `instance_exec` rebinds it per call.
+    def lower_block(node)
+      params = node.parameters&.parameters
+      if params && !(params.optionals.empty? && params.rest.nil? && params.posts.empty? &&
+                     params.keywords.empty? && params.keyword_rest.nil? && params.block.nil?)
+        raise Unsupported.new(node, "a block parameter list beyond required positionals")
+      end
+      raise Unsupported.new(node, "a block-local variable") if node.parameters&.locals&.any?
+
+      names = params ? params.requireds.map(&:name) : []
+      # ruby spreads a single Array argument over a shape with real
+      # positional structure; one bare parameter is ambiguous and never
+      # splats (`clif/params.rs`'s `auto_splats`).
+      auto_splat = names.size > 1
+      symbol = "zeo_blk_#{@blocks}"
+      @blocks += 1
+      function = Clif::Function.new(symbol, ["i64"] * 6, "i32")
+      base, depth = scope.frame_base, scope.block_depth
+      in_scope(function, :block) do
+        scope.frame_base = base
+        scope.block_depth = depth + 1
+        _env, slf, argv, argc, blk, into = f.args
+        scope.self_operand = Operand.new(slf, false, false)
+        scope.out = into
+        prologue
+        release_block_argument(blk)
+        (names + (node.locals - names)).each { |n| declare_local(n) }
+        bind_block_params(names, argv, argc, auto_splat, node)
+        enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
+        value = lower_statements(node.body)
+        move(value, out) unless f.terminated?
+        f.ins "jump #{done_block}" unless f.terminated?
+        epilogue
+      end
+      @program.add_function(symbol, function)
+      symbol
+    end
+
+    # The CALL-SITE block, moved in and so this body's to release.
+    def release_block_argument(blk)
+      has = f.val("icmp ne #{blk}, #{f.iconst("i64", 0)}")
+      yes, no = f.label, f.label
+      f.ins "brif #{has}, #{yes}, #{no}"
+      f.switch(yes)
+      f.ins "call #{f.import("zeo_rt_release")}(#{blk})"
+      f.ins "jump #{no}"
+      f.switch(no)
+    end
+
+    # Ruby's block binding is the runtime's, not a copy of it: lenient
+    # positionals, auto-splat of a single Array argument when the shape has
+    # real positional structure, and a lambda's strict arity.
+    #
+    # The binder reads a `ParamDescC`, which the Rust emitter writes into
+    # rodata. ze0 cannot: the struct holds POINTERS, and a rodata blob a
+    # sidecar carries as bytes has nowhere to put a relocation. So the
+    # struct is built in a stack slot instead, which works because the
+    # binder only reads it for the length of the call.
+    PARAM_DESC_BYTES = 88
+
+    def bind_block_params(names, argv, argc, auto_splat, node)
+      return if names.empty?
+
+      desc = param_desc(names.size, node)
+      slots = f.slot(Capi::SLOT_BYTES * names.size)
+      present = f.slot(8)
+      flags = f.iconst("i8", auto_splat ? Capi::BLOCK_BIND_AUTO_SPLAT : 0)
+      status_check(f.val(
+        "call #{f.import("zeo_rt_bind_block_params")}(#{addr_of(desc)}, #{flags}, #{argv}, #{argc}, " \
+        "#{addr_of(slots)}, #{addr_of(present)})",
+      ))
+      # The binder writes an owned value into every slot, which each local
+      # then takes.
+      names.each_with_index do |n, i|
+        from = i.zero? ? addr_of(slots) : f.stack_addr("#{slots}+#{i * Capi::SLOT_BYTES}")
+        copy(from, addr_of(locals.fetch(n).slot))
+      end
+    end
+
+    # A `zeo_abi::abi::ParamDescC` for `n` required parameters, on the
+    # stack. Offsets follow the struct's declaration order under `repr(C)`.
+    def param_desc(n, node)
+      slot = f.slot(PARAM_DESC_BYTES)
+      at = addr_of(slot)
+      zero32 = f.iconst("i32", 0)
+      zero64 = f.iconst("i64", 0)
+      store_at = ->(off, value) { f.ins "store notrap aligned #{value}, #{at}#{off.zero? ? "" : "+#{off}"}" }
+      store_at.call(0, f.iconst("i32", n))            # nreq
+      store_at.call(4, zero32)                        # nopt
+      store_at.call(8, zero32)                        # npost
+      store_at.call(12, zero32)                       # rest, kwrest, no_keywords, implicit_rest
+      store_at.call(16, zero64)                       # kws
+      store_at.call(24, zero64)                       # n_kws
+      [[32, "block"], [48, @program.file], [64, scope.frame_label]].each do |off, text|
+        ptr, len = rodata_ref(text)
+        store_at.call(off, ptr)
+        store_at.call(off + 8, len)
+      end
+      store_at.call(80, f.iconst("i32", node.location.start_line))
+      store_at.call(84, f.iconst("i32", node.location.end_line))
+      slot
     end
 
     # ---- statements ----
@@ -649,7 +757,7 @@ module Ze0
     # ---- calls ----
 
     def lower_call(node)
-      raise Unsupported.new(node, "a block") if node.block
+      raise Unsupported.new(node.block, "a block argument") if node.block.is_a?(Prism::BlockArgumentNode)
       raise Unsupported.new(node, "safe navigation") if node.call_operator_loc&.slice == "&."
 
       args = node.arguments&.arguments || []
@@ -659,7 +767,9 @@ module Ze0
           raise Unsupported.new(a, "an argument of that shape")
         end
       end
-      if node.receiver.nil? && (d = @defs[node.name]) && d[:params].size == args.size
+      if node.block
+        block_send(node, args)
+      elsif node.receiver.nil? && (d = @defs[node.name]) && d[:params].size == args.size
         direct_call(node, args)
       elsif node.receiver.nil? && node.name == :puts
         kernel_puts(args)
@@ -671,6 +781,59 @@ module Ze0
         dynamic_send(borrow(recv), node.name, args.map { |a| lower_expr(a) }, addr_of(result))
         Operand.new(result, true, false)
       end
+    end
+
+    # `recv.name(*args) { |p| .. }`. The proc is built LAST, after the
+    # receiver and every argument, because it is MOVED into the send and
+    # nothing between its construction and the call may raise.
+    def block_send(node, args)
+      body = lower_block(node.block)
+      recv = node.receiver ? lower_expr(node.receiver) : self_operand
+      result = f.slot
+      dynamic_send(borrow(recv), node.name, args.map { |a| lower_expr(a) }, addr_of(result)) do
+        proc_new(body, node.block)
+      end
+      Operand.new(result, true, false)
+    end
+
+    # The `Proc` the send is handed. Everything a shaped construction would
+    # read from a `zeo_proc_shapes` row goes inline instead: `zeo backend`
+    # defines that table with no rows, so the shaped entry is unreachable.
+    def proc_new(body, node)
+      names = node.parameters&.parameters&.requireds&.map(&:name) || []
+      fn = f.callee(body, ["i64"] * 6, "i32")
+      address = f.val("func_addr.i64 #{fn}")
+      file, file_len = rodata_ref(@program.file)
+      params, n_params = param_rows(names)
+      slot = f.slot
+      null = f.iconst("i64", 0)
+      f.ins "call #{f.import("zeo_rt_proc_new")}(#{address}, #{null}, #{null}, " \
+            "#{borrow(self_operand)}, #{null}, #{null}, " \
+            "#{f.iconst("i32", names.size)}, #{f.iconst("i32", 0)}, " \
+            "#{params}, #{n_params}, #{file}, #{file_len}, " \
+            "#{f.iconst("i32", node.location.start_line)}, #{null}, #{null}, #{addr_of(slot)})"
+      addr_of(slot)
+    end
+
+    # The `ParamC` rows behind `Proc#parameters`, on the stack. The rows
+    # themselves are read during the call, but the NAME bytes they point at
+    # are kept, so those come from rodata rather than from a slot.
+    PARAM_ROW_BYTES = 24
+
+    def param_rows(names)
+      return [f.iconst("i64", 0), f.iconst("i64", 0)] if names.empty?
+
+      slot = f.slot(PARAM_ROW_BYTES * names.size)
+      at = addr_of(slot)
+      names.each_with_index do |n, i|
+        off = i * PARAM_ROW_BYTES
+        ptr, len = rodata_ref(n.to_s)
+        # kind: the runtime renders a block's required parameter as `opt`.
+        f.ins "store notrap aligned #{f.iconst("i8", Capi::PARAM_REQ)}, #{at}#{off.zero? ? "" : "+#{off}"}"
+        f.ins "store notrap aligned #{ptr}, #{at}+#{off + 8}"
+        f.ins "store notrap aligned #{len}, #{at}+#{off + 16}"
+      end
+      [at, f.iconst("i64", names.size)]
     end
 
     def direct_call(node, args)
@@ -693,13 +856,14 @@ module Ze0
     # replace `Object#send` on every Lower.
     def dynamic_send(recv, name, operands, into)
       argv = args_array(operands)
+      blk = block_given? ? yield : f.iconst("i64", 0)
       sym_id = sym_id(name)
       site = f.val("symbol_value.i64 #{f.symbol("zeo_callsites")}")
       offset = @program.callsite * Capi::CALLSITE_BYTES
       site = f.val("iadd.i64 #{site}, #{f.iconst("i64", offset)}") unless offset.zero?
       status = f.val(
         "call #{f.import("zeo_rt_send_value_cached")}(#{site}, #{f.iconst("i32", 0)}, #{recv}, #{sym_id}, " \
-        "#{argv}, #{f.iconst("i64", operands.size)}, #{f.iconst("i64", 0)}, #{into})",
+        "#{argv}, #{f.iconst("i64", operands.size)}, #{blk}, #{into})",
       )
       status_check(status)
     end
