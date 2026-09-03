@@ -5,6 +5,11 @@ module Ze0
   # describes -- the read-only bytes the code indexes, the interned
   # symbols, the inline-cache count and the top-level `def`s.
   class Program
+    # The methods ruby makes private wherever they are defined.
+    ALWAYS_PRIVATE = %w[
+      initialize initialize_copy initialize_clone initialize_dup respond_to_missing?
+    ].freeze
+
     attr_reader :file
 
     def initialize(file)
@@ -15,6 +20,7 @@ module Ze0
       @sym_index = {}
       @callsites = 0
       @defs = []
+      @classes = []
       @functions = []
     end
 
@@ -47,9 +53,24 @@ module Ze0
       @functions << [label, function]
     end
 
-    # A top-level `def`'s dispatch and reflection row.
-    def add_def(name:, tramp:, params:, line:)
-      @defs << { name: name.to_s, tramp: tramp, params: params, line: line }
+    # A `def`'s dispatch and reflection row. An empty owner is the top
+    # level, whose `def`s are private methods of `Object`.
+    def add_def(name:, tramp:, params:, line:, owner: "", singleton: false)
+      @defs << {
+        name: name.to_s, tramp: tramp, params: params, line: line,
+        owner: owner, singleton: singleton,
+      }
+    end
+
+    # One class or module. Ids are the backend's to assign, so nothing
+    # here is a number.
+    def add_class(name:, superclass:, kind:, ivars:)
+      @classes << { name: name, superclass: superclass, kind: kind, ivars: ivars }
+    end
+
+    # The `zeo_class_ids` slot of `name`.
+    def class_slot(name)
+      @classes.index { |c| c[:name] == name } or raise "no class row for #{name}"
     end
 
     def clif
@@ -70,7 +91,20 @@ module Ze0
             "params" => d[:params].map { |p| ["req", p.to_s] },
             "file" => @file,
             "line" => d[:line],
-            "visibility" => "private",
+            # A top-level `def` is a private method of Object; one written
+            # in a class body is public, bar the names ruby makes private
+            # whatever the body says.
+            "visibility" => d[:owner].empty? || ALWAYS_PRIVATE.include?(d[:name]) ? "private" : "public",
+            "class" => d[:owner],
+            "singleton" => d[:singleton],
+          }
+        end,
+        "classes" => @classes.map do |c|
+          {
+            "name" => c[:name],
+            "superclass" => c[:superclass],
+            "kind" => c[:kind],
+            "ivars" => c[:ivars],
           }
         end,
         # A dynamic send can reach any class, and ze0 has no reachability

@@ -29,13 +29,17 @@ and the ternary; `if`/`unless`/`elsif`/`else`, `while`/`until` and their
 modifier forms; `case`/`when`, with or without a subject; top-level `def`
 with required parameters; `return`; blocks with required parameters,
 closing over the names they read, with `next`, `break`, `yield` and
-`block_given?`; `puts`; and every other call as the
+`block_given?`; `class` and `module` definitions with inheritance,
+instance methods, `def self.x`, instance variables and their own
+constants; `puts`; and every other call as the
 runtime's cached dynamic send, so `"ab".upcase`, `7 / 0`, `10.gcd(4)`,
 `x.send(:+, 1)` and `x.method(:to_s)` all answer as ruby does, raise as
 ruby does, and print ruby's backtrace.
 
 Anything else is refused by name at its line (`Ze0::Unsupported`) -- today
-that chiefly means classes and modules, `rescue`, `require` and `eval`. The contract is zeo's: identical to CRuby, or fail.
+that chiefly means `super`, `include`, `attr_reader` and the other class-body
+macros, nested classes, `class << self`, class variables, `rescue`,
+`require` and `eval`. The contract is zeo's: identical to CRuby, or fail.
 `ze0/PLAN.md` is the order the rest arrives in.
 
 ## Layout
@@ -61,7 +65,12 @@ naming the program's data by symbol (`%zeo_rodata`, `%zeo_syms`,
 rodata bytes the offsets index, the interned symbols in slot order, the
 call-site count, each `def`'s dispatch and reflection row, and two words,
 `@all` for the class tables and `@boot` for the registration rows every
-program starts with. `crates/zeo/src/backend/sidecar.rs` is the schema.
+program starts with. A program with classes adds a row per class -- its
+name, its superclass by NAME and its ivar slots -- and every `def` names
+the class it sits on. Ids are assigned when the program is LINKED, after
+the last id the empty program reaches, so ze0 never learns one: where its
+code needs an id, it reads `zeo_class_ids` the way it reads `zeo_syms` for
+an interned symbol. `crates/zeo/src/backend/sidecar.rs` is the schema.
 
 ze0 writes the emitter's *outlined* form: a frame's enter and pop, a
 line stamp, the release pool's mark and reset, and every dispatch are

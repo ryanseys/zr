@@ -154,43 +154,55 @@ the boxing rather than deciding it.
 Still refused by name: a block parameter list beyond required positionals,
 a block-local variable (`|x; y|`), `redo`, and `&block`.
 
-## Phase 3 — the sidecar extension, then classes
+## Phase 3 — the sidecar extension, then classes — DONE
 
-**The Rust half first**, roughly 150 lines across two files:
+**The Rust half.** `backend/sidecar.rs` gained a `classes` list and two
+fields on `Def` (`class`, `singleton`); `backend/clif_text.rs` reads them,
+assigns ids, linearizes each ancestry and routes every method to its
+channel -- a top-level `def` and a module's method to the VALUE channel, a
+class's instance method to the OBJECT channel, `def self.x` to the
+class-method one. Which channel is not a choice the sidecar makes: it
+follows from the class's kind and the singleton flag.
 
-- `backend/sidecar.rs`: new `classes`, `obj` and `cm` sections; `Def` gains
-  `class`; the reflection row gains `singleton`.
-- `backend/clif_text.rs:109-140`: read those sections instead of hard-wiring
-  them empty; `def_rows` (`:267-334`) stops assuming `class: 0`.
+**Ids were the real design question, and the answer generalises.** A class
+id is the compiler's own index into its class vector, which begins after
+whatever the boot prelude registered -- a number that shifts with the zeo
+build and that a front end must never guess. So the sidecar names a
+superclass rather than numbering it, the backend assigns ids at LINK time,
+and where ze0's code needs one -- a constant's cref, an assignment's owner
+-- it reads `zeo_class_ids`, exactly the indirection `zeo_syms` already
+gives an interned symbol. The sidecar also gained `first_user_class`,
+which the empty program's own compile fills, so the backend learns the
+base from a real compile rather than a constant that could drift.
 
-The `reg` array needs no change — it already carries `kind/class/a/b/f/ids/flag`,
-which is the shape `include`, `extend`, aliases, ancestries, `private_constant`
-and singleton super targets all ride on.
+The class's own-method marks (`instance_methods(false)` truth) are
+DERIVED in the backend from which class each `def` names, rather than
+asked for as rows whose `class` would have to be an id.
 
-**Then the Ruby half.** The thing to internalise is that **a class definition
-emits almost no code**. Registration is a compile-time table applied before the
-first statement; there is no `zeo_rt_define_class`. `module` versus `class` is
-one byte in the class row. `class Foo < Bar` folds the superclass into a
-linearized ancestors array. `include` and `prepend` emit no ancestry code at
-all — analyze splices the module into the ancestors and copies its methods as
-rows; only the `included`/`prepended` hook send remains at the statement site.
-`extend` is the exception and *is* positional: `zeo_rt_class_extend_at`.
+**Two things went wrong in ways worth keeping written down.**
 
-The class body becomes its own function (`zeo_cb_<n>` in the Rust emitter) with
-the class as `self`. Instance methods differ from top-level `def`s only in
-channel, symbol and row type — the body lowering is the same one phase 0
-generalised.
+A bare call inside `Animal#describe` was lowered as a direct call to
+`Animal#speak`, so `Dog`'s override never ran. Direct calls are now off in
+any program that declares a class: which method a bare name reaches is a
+run-time fact, and settling it statically needs the override analysis ze0
+does not have.
 
-Visibility is both compile-time and positional: a `def`'s own visibility is a
-row (`0 private, 1 protected, 2 public`), and a later `private :name` is a call
-(`zeo_rt_runtime_set_visibility`), because a reopen can change it.
+And a class body is full of calls that would answer differently rather
+than not at all. `attr_reader :x` compiled fine and left `x` answering
+nil; `private` left a method public; `K = 1` landed on `Object`. The
+constant is now fixed properly -- it lands on the class the cref names --
+and the rest are refused by name: `attr_*`, `include`/`extend`/`prepend`,
+the visibility verbs, `define_method`, `alias_method` and the other
+`Module` macros.
 
-`attr_reader` and `attr_accessor` produce **no body function at all** — the
-trampoline is the method, doing an arity check and a direct slot access
-(`clif/params.rs:566-698`). Instance variable slots are compile-time indices
-into the class's declared ivar order, which is why they wait for the class
-table; the name-keyed pair from phase 1 keeps working as the fallback for a
-dynamic `self`.
+**A bare `yield` written inside a block** reaches the enclosing method's
+block through `ProcEnv.lexical_blk`, which phase 2 had passed as null.
+`Stack#each` calling `@items.each { |i| yield i }` is the shape that found
+it.
+
+Still refused: `super`, nested classes, `class << self`, class variables,
+a scoped class name (`class A::B`), a builtin superclass, and every
+class-body macro above.
 
 ## Phase 4 — the long tail
 

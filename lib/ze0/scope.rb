@@ -31,8 +31,14 @@ module Ze0
     # method grows the parameter only where it uses a block; everywhere
     # else this is nil and `yield` is refused.
     attr_accessor :blk
+    # A block body's `ProcEnv`, and the enclosing method's block read out
+    # of it -- what a bare `yield` written inside a block reaches.
+    attr_accessor :env, :lexical_blk
     # `zeo_rodata` and `zeo_syms`, read once per function.
     attr_accessor :rodata, :syms
+    # The class or module whose body this is, or whose method: which
+    # table a bare call resolves against.
+    attr_accessor :owner
     # The shared exits: a raise, a normal finish, and the single block that
     # releases the locals and answers `status`.
     attr_accessor :raise_block, :done_block, :exit_block, :status
@@ -46,6 +52,7 @@ module Ze0
       @kind = kind
       @locals = {}
       @block_depth = 0
+      @owner = Names::OBJECT
     end
 
     # The label of this scope's own frame.

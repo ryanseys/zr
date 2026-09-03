@@ -45,9 +45,18 @@ module Ze0
       "zeo_ct_#{owner_fragment(owner)}_#{fragment(name)}"
     end
 
-    # The frame label a backtrace prints for `owner`'s method `name`.
+    # The frame labels a backtrace prints: an instance method, a class
+    # method, and a class or module body.
     def self.method_label(owner, name)
       "#{owner}##{name}"
+    end
+
+    def self.class_method_label(owner, name)
+      "#{owner}.#{name}"
+    end
+
+    def self.body_label(owner, kind)
+      "<#{kind}:#{owner}>"
     end
   end
 end

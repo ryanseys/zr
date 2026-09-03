@@ -38,15 +38,19 @@ module Ze0
 
     def initialize(program)
       @program = program
-      @defs = {}
+      # Methods by owner, so a class's `bar` and the top level's do not
+      # collide, and `@classes` in declaration order.
+      @defs = { Names::OBJECT => {} }
+      @classes = {}
       @scopes = []
       @blocks = 0
     end
 
     def lower(root)
       statements = root.statements&.body || []
-      declare(statements)
-      @defs.each_value { |d| lower_def(d[:node]) }
+      declare(statements, Names::OBJECT)
+      @defs.each_value { |by_name| by_name.each_value { |d| lower_def(d) } }
+      @classes.each_value { |c| lower_class_body(c) }
       lower_toplevel(statements.reject { |s| s.is_a?(Prism::DefNode) }, root.locals)
     end
 
@@ -67,6 +71,7 @@ module Ze0
     def out = @scopes.last.out
     def rodata = @scopes.last.rodata
     def syms = @scopes.last.syms
+    def owner = @scopes.last.owner
     def raise_block = @scopes.last.raise_block
     def done_block = @scopes.last.done_block
 
@@ -75,13 +80,72 @@ module Ze0
     # One walk over a body, collecting what lowering has to know before it
     # starts. Today that is the `def`s, so a call written above a
     # definition still resolves to it; classes and captures join them.
-    def declare(statements)
-      statements.each { |s| declare_def(s) if s.is_a?(Prism::DefNode) }
+    def declare(statements, owner)
+      statements.each do |s|
+        case s
+        when Prism::DefNode then declare_def(s, owner)
+        when Prism::ClassNode then declare_class(s, owner, "class")
+        when Prism::ModuleNode then declare_class(s, owner, "module")
+        end
+      end
     end
 
-    def declare_def(node)
-      raise Unsupported.new(node, "a def with a receiver") if node.receiver
-      raise Unsupported.new(node, "a def named twice") if @defs.key?(node.name)
+    # A class or module, and everything its body declares. The backend
+    # assigns the id; ze0 only ever names it.
+    def declare_class(node, owner, kind)
+      raise Unsupported.new(node, "a class inside a class") unless owner == Names::OBJECT
+      raise Unsupported.new(node, "a scoped class name") unless node.constant_path.is_a?(Prism::ConstantReadNode)
+
+      name = node.name.to_s
+      raise Unsupported.new(node, "a class named twice") if @classes.key?(name)
+
+      superclass = superclass_of(node, kind)
+      body = node.body&.body || []
+      @classes[name] = { name: name, kind: kind, node: node, body: body }
+      @defs[name] = {}
+      @program.add_class(
+        name: name,
+        superclass: superclass,
+        kind: kind,
+        ivars: ivar_names(body),
+      )
+      declare(body, name)
+    end
+
+    def superclass_of(node, kind)
+      return Names::OBJECT if kind == "module" || node.superclass.nil?
+      unless node.superclass.is_a?(Prism::ConstantReadNode) && @classes.key?(node.superclass.name.to_s)
+        raise Unsupported.new(node.superclass, "a superclass this program does not define")
+      end
+
+      node.superclass.name.to_s
+    end
+
+    # The instance variables a class body's methods name, in first-mention
+    # order: the slots the class declares.
+    def ivar_names(body)
+      found = {}
+      body.each { |n| ivars_under(n, found) }
+      found.keys
+    end
+
+    IVAR_NODES = [
+      Prism::InstanceVariableReadNode, Prism::InstanceVariableWriteNode,
+      Prism::InstanceVariableOperatorWriteNode, Prism::InstanceVariableOrWriteNode,
+      Prism::InstanceVariableAndWriteNode, Prism::InstanceVariableTargetNode,
+    ].freeze
+
+    def ivars_under(node, found)
+      found[node.name.to_s] = true if IVAR_NODES.any? { |k| node.is_a?(k) }
+      node.compact_child_nodes.each { |c| ivars_under(c, found) }
+      found
+    end
+
+    def declare_def(node, owner)
+      singleton = node.receiver.is_a?(Prism::SelfNode)
+      raise Unsupported.new(node, "a def with a receiver") if node.receiver && !singleton
+      raise Unsupported.new(node, "a def on self at the top level") if singleton && owner == Names::OBJECT
+      raise Unsupported.new(node, "a def named twice") if @defs.fetch(owner).key?(node.name)
 
       params = node.parameters
       if params && !(params.optionals.empty? && params.rest.nil? && params.posts.empty? &&
@@ -90,13 +154,30 @@ module Ze0
       end
 
       names = params ? params.requireds.map(&:name) : []
-      @defs[node.name] = { params: names, node: node, block: uses_block?(node.body) }
+      @defs[owner][node.name] = {
+        params: names, node: node, block: uses_block?(node.body),
+        owner: owner, singleton: singleton,
+      }
       @program.add_def(
         name: node.name,
-        tramp: Names.trampoline_symbol(Names::OBJECT, node.name),
+        tramp: trampoline_of(owner, node.name, singleton),
         params: names,
         line: node.location.start_line,
+        owner: owner == Names::OBJECT ? "" : owner,
+        singleton: singleton,
       )
+    end
+
+    def body_symbol_of(owner, name, singleton)
+      singleton ? Names.class_method_symbol(owner, name) : Names.method_symbol(owner, name)
+    end
+
+    def trampoline_of(owner, name, singleton)
+      singleton ? Names.class_trampoline_symbol(owner, name) : Names.trampoline_symbol(owner, name)
+    end
+
+    def label_of(owner, name, singleton)
+      singleton ? Names.class_method_label(owner, name) : Names.method_label(owner, name)
     end
 
     # ---- captures ----
@@ -143,6 +224,21 @@ module Ze0
       found
     end
 
+    # A bare call ze0 may lower as a DIRECT call to a body, skipping
+    # dispatch.
+    #
+    # Only in a program with no classes. Once one exists, the name a bare
+    # call resolves to is a run-time fact: `describe` calling `speak`
+    # inside `Animal` must reach `Dog#speak` for a Dog, and deciding that
+    # statically needs an override analysis ze0 does not have. Every call
+    # in such a program takes the dynamic send, which is slower and right.
+    def visible_def(name)
+      return nil unless @classes.empty?
+
+      found = @defs[Names::OBJECT][name]
+      found unless found.nil? || found[:singleton]
+    end
+
     # ---- functions ----
 
     # Lower `function` as a new scope, and answer it to the caller once the
@@ -153,13 +249,16 @@ module Ze0
       @scopes.pop.f
     end
 
-    def lower_def(node)
-      names = @defs[node.name][:params]
-      takes_block = @defs[node.name][:block]
-      body_sym = Names.method_symbol(Names::OBJECT, node.name)
+    def lower_def(definition)
+      node = definition[:node]
+      owner, singleton = definition[:owner], definition[:singleton]
+      names = definition[:params]
+      takes_block = definition[:block]
+      body_sym = body_symbol_of(owner, node.name, singleton)
       arity = names.size + (takes_block ? 3 : 2)
       function = Clif::Function.new(body_sym, ["i64"] * arity, "i32")
       in_scope(function, :body) do
+        scope.owner = owner
         scope.self_operand = Operand.new(f.args[0], false, false)
         scope.blk = f.args[names.size + 1] if takes_block
         scope.out = f.args.last
@@ -174,22 +273,24 @@ module Ze0
         f.ins "return #{f.iconst("i32", 1)}"
         f.switch(cont)
         names.each_with_index { |n, i| initialize_local(locals.fetch(n), f.args[i + 1]) }
-        scope.frame_base = Names.method_label(Names::OBJECT, node.name)
+        scope.frame_base = label_of(owner, node.name, singleton)
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
         value = lower_statements(node.body)
         move(value, out) unless f.terminated?
         f.ins "jump #{done_block}" unless f.terminated?
         epilogue
       end
-      @program.add_function(Names.method_label(Names::OBJECT, node.name), function)
-      lower_trampoline(node, names.size)
+      @program.add_function(label_of(owner, node.name, singleton), function)
+      lower_trampoline(definition, names.size)
     end
 
     # The `ValueFn` the runtime dispatches to: releases a block it was
     # handed, checks the count, and calls the body on the argument slots.
-    def lower_trampoline(node, arity)
-      takes_block = @defs[node.name][:block]
-      function = Clif::Function.new(Names.trampoline_symbol(Names::OBJECT, node.name), ["i64"] * 5, "i32")
+    def lower_trampoline(definition, arity)
+      node = definition[:node]
+      owner, singleton = definition[:owner], definition[:singleton]
+      takes_block = definition[:block]
+      function = Clif::Function.new(trampoline_of(owner, node.name, singleton), ["i64"] * 5, "i32")
       in_scope(function, :trampoline) do
         recv, argv, argc, blk, into = f.args
         scope.rodata = f.val("symbol_value.i64 #{f.symbol("zeo_rodata")}")
@@ -203,7 +304,7 @@ module Ze0
         f.ins "brif #{fits}, #{go}, #{wrong}"
         f.switch(wrong)
         file, file_len = rodata_ref(@program.file)
-        label, label_len = rodata_ref(Names.method_label(Names::OBJECT, node.name))
+        label, label_len = rodata_ref(label_of(owner, node.name, singleton))
         line = f.iconst("i32", node.location.start_line)
         end_line = f.iconst("i32", node.location.end_line)
         f.ins "call #{f.import("zeo_rt_frame_push")}(#{file}, #{file_len}, #{label}, #{label_len}, #{line}, #{end_line})"
@@ -216,12 +317,49 @@ module Ze0
           i.zero? ? argv : f.val("iadd.i64 #{argv}, #{f.iconst("i64", i * Capi::SLOT_BYTES)}")
         end
         n_params = arity + (takes_block ? 3 : 2)
-        body = f.callee(Names.method_symbol(Names::OBJECT, node.name), ["i64"] * n_params, "i32")
+        body = f.callee(body_symbol_of(owner, node.name, singleton), ["i64"] * n_params, "i32")
         handed = takes_block ? args + [blk] : args
         status = f.val("call #{body}(#{([recv] + handed + [into]).join(", ")})")
         f.ins "return #{status}"
       end
       @program.add_function("trampoline", function)
+    end
+
+    # A class or module body is its own function with the class as `self`,
+    # called at the statement's position. A `def` inside it registers
+    # statically and only leaves its name behind, which is what ruby
+    # answers for one.
+    def lower_class_body(entry)
+      symbol = "zeo_cb_#{Names.owner_fragment(entry[:name])}"
+      node = entry[:node]
+      function = Clif::Function.new(symbol, ["i64", "i64"], "i32")
+      in_scope(function, :class_body) do
+        scope.owner = entry[:name]
+        scope.self_operand = Operand.new(f.args[0], false, false)
+        scope.out = f.args[1]
+        prologue
+        boxed = captured_names(entry[:body], node.locals)
+        node.locals.each { |n| declare_local(n, boxed: boxed.include?(n)) }
+        scope.frame_base = Names.body_label(entry[:name], entry[:kind])
+        enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
+        value = lower_statements(node.body)
+        move(value, out) unless f.terminated?
+        f.ins "jump #{done_block}" unless f.terminated?
+        epilogue
+      end
+      entry[:symbol] = symbol
+      @program.add_function(symbol, function)
+    end
+
+    # `class Foo ... end` in statement position: the class is already
+    # registered, so this reads it and runs its body.
+    def lower_class_statement(node)
+      entry = @classes.fetch(node.name.to_s) { raise Unsupported.new(node, "a class inside a class") }
+      klass = constant_named(node.name.to_s, node.name.to_s)
+      result = f.slot
+      body = f.callee(entry[:symbol], ["i64", "i64"], "i32")
+      status_check(f.val("call #{body}(#{borrow(klass)}, #{addr_of(result)})"))
+      Operand.new(result, true, false)
     end
 
     def lower_toplevel(statements, names)
@@ -314,6 +452,7 @@ module Ze0
         scope.frame_base = base
         scope.block_depth = depth + 1
         env, slf, argv, argc, blk, into = f.args
+        scope.env = env
         scope.self_operand = Operand.new(slf, false, false)
         scope.out = into
         prologue
@@ -466,6 +605,9 @@ module Ze0
       when Prism::AndNode then and_or(node.left, node.right, true)
       when Prism::OrNode then and_or(node.left, node.right, false)
       when Prism::CaseNode then lower_case(node)
+      when Prism::ClassNode, Prism::ModuleNode then lower_class_statement(node)
+      when Prism::DefNode then literal_symbol(node.name)
+      when Prism::SelfNode then Operand.new(self_operand.at, false, self_operand.immediate)
       when Prism::CallNode then lower_call(node)
       when Prism::IfNode then lower_if(node.predicate, node.statements, node.subsequent, false)
       when Prism::UnlessNode then lower_if(node.predicate, node.statements, node.else_clause, true)
@@ -738,10 +880,17 @@ module Ze0
     # A bare `Foo` walks the cref chain, which at the top level is Object
     # alone. A miss is ruby's NameError, naming the qualified spelling.
     def constant_read(node)
-      name = node.name.to_s
-      ids, n_ids = cid_array([Capi::OBJECT_CLASS])
+      constant_named(node.name.to_s)
+    end
+
+    # A bare name searches the cref chain, which inside a class or one of
+    # its methods is that class and then Object -- and a miss names the
+    # qualified spelling, as ruby's NameError does.
+    def constant_named(name, qualified = nil)
+      qualified ||= owner == Names::OBJECT ? name : "#{owner}::#{name}"
+      ids, n_ids = cid_array(cref_ids)
       nptr, nlen = rodata_ref(name)
-      qptr, qlen = rodata_ref(name)
+      qptr, qlen = rodata_ref(qualified)
       slot = f.slot
       status_check(f.val(
         "call #{f.import("zeo_rt_const_get_cref")}(#{ids}, #{n_ids}, #{nptr}, #{nlen}, #{qptr}, #{qlen}, " \
@@ -774,10 +923,25 @@ module Ze0
       at = borrow(value)
       nptr, nlen = rodata_ref(node.name.to_s)
       fptr, flen = rodata_ref(@program.file)
-      f.ins "call #{f.import("zeo_rt_const_set_at")}(#{f.iconst("i32", Capi::OBJECT_CLASS)}, #{nptr}, #{nlen}, " \
+      f.ins "call #{f.import("zeo_rt_const_set_at")}(#{cref_ids.first}, #{nptr}, #{nlen}, " \
             "#{at}, #{fptr}, #{flen}, #{f.iconst("i32", node.location.start_line)}, " \
             "#{f.iconst("i32", Capi::MAIN_BOX)})"
       Operand.new(value.at, false, value.immediate)
+    end
+
+    # The cref a bare constant reads through, innermost first.
+    def cref_ids
+      object = f.iconst("i32", Capi::OBJECT_CLASS)
+      owner == Names::OBJECT ? [object] : [class_id(owner), object]
+    end
+
+    # A class's id, read out of `zeo_class_ids`. Ids are assigned when the
+    # program is linked, so this is the one place ze0 learns one -- the
+    # same indirection `zeo_syms` gives an interned symbol.
+    def class_id(name)
+      base = f.val("symbol_value.i64 #{f.symbol("zeo_class_ids")}")
+      at = @program.class_slot(name) * 4
+      f.val("load.i32 notrap aligned #{base}#{at.zero? ? "" : "+#{at}"}")
     end
 
     # A class-id array in a stack slot. The runtime reads it as `*const
@@ -786,7 +950,7 @@ module Ze0
       slot = f.slot([ids.size * 4, Capi::SLOT_BYTES].max)
       ids.each_with_index do |id, i|
         at = i.zero? ? addr_of(slot) : f.stack_addr("#{slot}+#{i * 4}")
-        f.ins "store notrap aligned #{f.iconst("i32", id)}, #{at}"
+        f.ins "store notrap aligned #{id}, #{at}"
       end
       [addr_of(slot), f.iconst("i64", ids.size)]
     end
@@ -880,7 +1044,22 @@ module Ze0
 
     # ---- calls ----
 
+    # The `Module` methods a class body calls to change what the class IS.
+    # ze0 registers a class statically, so each of these would answer
+    # differently from ruby rather than not at all: `attr_reader :x` left
+    # `x` undefined, and `private` left a method public.
+    CLASS_MACROS = %i[
+      attr_reader attr_writer attr_accessor include extend prepend
+      private public protected module_function define_method alias_method
+      private_constant public_constant private_class_method public_class_method
+      undef_method remove_method const_set class_eval module_eval instance_eval
+      refine using
+    ].freeze
+
     def lower_call(node)
+      if node.receiver.nil? && kind == :class_body && CLASS_MACROS.include?(node.name)
+        raise Unsupported.new(node, "`#{node.name}` in a class body")
+      end
       raise Unsupported.new(node.block, "a block argument") if node.block.is_a?(Prism::BlockArgumentNode)
       raise Unsupported.new(node, "safe navigation") if node.call_operator_loc&.slice == "&."
 
@@ -893,7 +1072,7 @@ module Ze0
       end
       if node.receiver.nil? && node.name == :block_given? && args.empty? && node.block.nil?
         block_given(node)
-      elsif node.receiver.nil? && (d = @defs[node.name]) && d[:params].size == args.size
+      elsif node.receiver.nil? && (d = visible_def(node.name)) && d[:params].size == args.size
         direct_call(node, args, d)
       elsif node.block
         block_send(node, args)
@@ -934,8 +1113,9 @@ module Ze0
       cells, n_cells = cell_array(captures)
       slot = f.slot
       null = f.iconst("i64", 0)
+      lexical = yield_block || f.iconst("i64", 0)
       f.ins "call #{f.import("zeo_rt_proc_new")}(#{address}, #{cells}, #{n_cells}, " \
-            "#{borrow(self_operand)}, #{null}, #{null}, " \
+            "#{borrow(self_operand)}, #{lexical}, #{null}, " \
             "#{f.iconst("i32", names.size)}, #{f.iconst("i32", 0)}, " \
             "#{params}, #{n_params}, #{file}, #{file_len}, " \
             "#{f.iconst("i32", node.location.start_line)}, #{null}, #{null}, #{addr_of(slot)})"
@@ -987,7 +1167,7 @@ module Ze0
       operands = args.map { |a| lower_expr(a) }
       result = f.slot
       n_params = args.size + (definition[:block] ? 3 : 2)
-      body = f.callee(Names.method_symbol(Names::OBJECT, node.name), ["i64"] * n_params, "i32")
+      body = f.callee(body_symbol_of(definition[:owner], node.name, false), ["i64"] * n_params, "i32")
       addrs = [borrow(self_operand)] + operands.map { |o| borrow(o) }
       if definition[:block]
         addrs << (node.block ? proc_new(*lower_block(node.block), node.block) : f.iconst("i64", 0))
@@ -1205,7 +1385,7 @@ module Ze0
     # `yield` calls the block the caller handed this method. A method with
     # no block raises ruby's LocalJumpError, which the runtime does.
     def lower_yield(node)
-      blk = scope.blk
+      blk = yield_block
       raise Unsupported.new(node, "a yield outside a method that takes a block") if blk.nil?
 
       args = (node.arguments&.arguments || []).map do |a|
@@ -1221,9 +1401,20 @@ module Ze0
       Operand.new(slot, true, false)
     end
 
+    # The block a bare `yield` reaches: this scope's own, or -- inside a
+    # block -- the enclosing method's, which the proc carried along as its
+    # `ProcEnv.lexical_blk`. Read once per function, and only where it is
+    # asked for.
+    def yield_block
+      return scope.blk if scope.blk
+      return nil if scope.env.nil?
+
+      scope.lexical_blk ||= f.val("load.i64 notrap aligned #{scope.env}+#{Capi::PROC_ENV_LEXICAL_BLK}")
+    end
+
     # `block_given?` is the block pointer against null -- no call at all.
     def block_given(node)
-      blk = scope.blk
+      blk = yield_block
       raise Unsupported.new(node, "a block_given? outside a method that takes a block") if blk.nil?
 
       slot = f.slot

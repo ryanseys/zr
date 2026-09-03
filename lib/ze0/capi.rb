@@ -82,6 +82,10 @@ module Ze0
     BLOCK_BIND_AUTO_SPLAT = 1
     # `ParamC::kind` for a required positional.
     PARAM_REQ = 0
+    # `ProcEnv.lexical_blk`: the enclosing method's block, which a bare
+    # `yield` written inside a block reaches. The struct is cells, n_cells,
+    # lexical_blk, binding.
+    PROC_ENV_LEXICAL_BLK = 16
     # `zeo_abi::abi::SignalKind::Break`: what a `break` out of a block
     # arms and the sending site takes.
     SIGNAL_BREAK = 1
