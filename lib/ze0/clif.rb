@@ -23,12 +23,13 @@ module Ze0
         @labels = {}
         @body = {}
         @lines = {}
+        @hoisted = {}
         @next_value = 0
         @current = nil
         @terminated = false
         @args = params.map { value }
-        entry = block_named(@args.zip(params).map { |v, t| "#{v}: #{t}" })
-        switch(entry)
+        @entry = block_named(@args.zip(params).map { |v, t| "#{v}: #{t}" })
+        switch(@entry)
       end
 
       # A fresh stack slot of `bytes`.
@@ -95,7 +96,7 @@ module Ze0
         raise "an instruction after the terminator of #{@current} in #{@name}" if @terminated
 
         (@body[@current] ||= []) << text
-        @terminated = true if text.start_with?("jump ", "brif ", "return")
+        @terminated = true if terminator?(text)
         nil
       end
 
@@ -114,8 +115,14 @@ module Ze0
         [a, b]
       end
 
+      # A constant, materialized once per function.
       def iconst(type, n)
-        val("iconst.#{type} #{n}")
+        hoisted([:iconst, type, n]) { "iconst.#{type} #{n}" }
+      end
+
+      # The address of a stack slot, materialized once per function.
+      def stack_addr(slot)
+        hoisted([:stack_addr, slot]) { "stack_addr.i64 #{slot}" }
       end
 
       def to_s
@@ -147,6 +154,28 @@ module Ze0
         name = "block#{@labels.size}"
         @labels[name] = params.empty? ? name : "#{name}(#{params.join(", ")})"
         name
+      end
+
+      # A value that is the same everywhere, defined once in the entry block.
+      #
+      # The entry block dominates every other block, so a value defined there
+      # is in scope for all of them, which is what makes one definition legal
+      # where the uses are scattered. It goes in ahead of the entry block's
+      # terminator, and no use can be earlier: this is the first time the key
+      # has been asked for.
+      def hoisted(key)
+        @hoisted[key] ||= begin
+          v = value
+          body = (@body[@entry] ||= [])
+          at = body.size
+          at -= 1 if at.positive? && terminator?(body.last)
+          body.insert(at, "#{v} = #{yield}")
+          v
+        end
+      end
+
+      def terminator?(text)
+        text.start_with?("jump ", "brif ", "return")
       end
 
       def signature(params, ret)

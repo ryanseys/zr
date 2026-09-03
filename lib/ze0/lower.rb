@@ -385,7 +385,7 @@ module Ze0
       slot = @f.slot(Capi::SLOT_BYTES * operands.size)
       operands.each_with_index do |o, i|
         from = borrow(o)
-        to = i.zero? ? addr_of(slot) : @f.val("stack_addr.i64 #{slot}+#{i * Capi::SLOT_BYTES}")
+        to = i.zero? ? addr_of(slot) : @f.stack_addr("#{slot}+#{i * Capi::SLOT_BYTES}")
         copy(from, to)
       end
       addr_of(slot)
@@ -491,7 +491,7 @@ module Ze0
 
     def addr_of(operand_or_slot)
       at = operand_or_slot.is_a?(Operand) ? operand_or_slot.at : operand_or_slot
-      at.start_with?("ss") ? @f.val("stack_addr.i64 #{at}") : at
+      at.start_with?("ss") ? @f.stack_addr(at) : at
     end
 
     def zeroed_slot

@@ -93,6 +93,11 @@ ze0's output with `--emit-clif` under `ZEO_DEBUG=outline-frames`; the
 emitter's text also carries `main` and `zeo_unit_init`, which the backend
 materialises for ze0.
 
+The `ze0 text bytes` column predates the entry-block hoisting of addresses
+and constants, which took 9 to 19 percent off it (`hello` 2406 -> 2195,
+`fib` 14384 -> 12590, `generic_sends` 24352 -> 19650). `ruby ze0/measure.rb`
+takes the whole table again.
+
 | program | lines | rust front end ms | ze0 jit cold ms | ze0 jit warm ms | ze0 stage1 ms | backend ms | emitter text bytes | ze0 text bytes |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | ackermann | 11 | 17 | 801 | 21 | 13 | 135 | 25869 | 21620 |
