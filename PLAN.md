@@ -116,62 +116,43 @@ Four sidecar fields ze0 already could write and does not: `Def.aliased_from`,
 first when `alias` lands; the rest stay unwritten and are noted here so the
 next reader does not think they were missed.
 
-## Phase 2 — blocks, procs, lambdas, closures
+## Phase 2 — blocks, procs, lambdas, closures — DONE
 
-**Start with a spike, before writing any of the rest.**
-`zeo_rt_proc_new_shaped` reads a `zeo_proc_shapes` rodata table that
-`zeo backend` defines with zero rows, so it is unreachable. The older wide
-entry `zeo_rt_proc_new` takes all sixteen arguments inline and needs no table.
-Emit one hand-written block through it and confirm `zeo backend` links and
-runs it. If it works the whole tier is Ruby-only; if it does not,
-`proc_shapes` joins the phase 3 schema change and we learn that before
-writing four hundred lines against the wrong entry point.
+The spike this phase opened with answered its question: **the sidecar is
+not in the way of blocks.** `zeo_rt_proc_new_shaped` reads a
+`zeo_proc_shapes` row and `zeo backend` defines that table with no rows, so
+it is unreachable; the older wide `zeo_rt_proc_new` takes all sixteen
+arguments inline, and it links and runs.
 
-**The block is a separate CLIF function** with a six-pointer signature —
-`(env, self, argv, argc, blk, out) -> i32`, the runtime's `BlockFn`
-(`zeo-rt/src/capi/procs.rs:18-25`). Note this is **not** ze0's existing
-five-pointer trampoline shape: a block fn prepends `env` and takes `self`
-separately.
+The second answer is the one that generalises: **a C struct the runtime only
+reads for the length of the call can be built in a STACK SLOT.** That is what
+makes `zeo_rt_bind_block_params` reachable -- its `ParamDescC` holds
+pointers, and a rodata blob carried as sidecar bytes has nowhere to put a
+relocation, but a stack copy needs none. Without the real binder,
+`{ "a" => 1 }.map { |k, v| k }` answered `[["a", 1]]`: ruby's auto-splat is
+the binder's, not something to reimplement. The same trick gives
+`Proc#parameters` its `ParamC` rows, though their NAME bytes still come from
+rodata, because the proc keeps those and the stack copy would dangle.
+`zeo_rt_proc_new_shaped` stays out for exactly that reason: the proc keeps
+the shape pointer.
 
-**Captured locals become heap cells.** `zeo_rt_cell_new` / `_load` / `_store`
-/ `_release`. The creation site stores each captured local's cell pointer into
-an `n * 8` slot and hands it to the proc; the callee loads `ProcEnv.cells` and
-registers each as an unowned cell, because the proc owns them.
+What landed: block literals as their own six-pointer `BlockFn` functions;
+captured locals as heap cells, owned by the creating scope and borrowed
+through `ProcEnv` by the block; `next` as the block's ordinary return;
+`break` as the Break signal with a catch at every block-passing send; and
+`yield`/`block_given?`, for which a method's signature grows a `blk`
+parameter -- but only where the body uses one.
 
-**Box only what is captured.** The escape analysis is the point: a name is a
-cell if it is referenced inside a block *and* either assigned outside it or a
-parameter of the enclosing method. Everything else stays in a stack slot and
-the Integer fast path keeps working. Start with the crude rule — any local
-named inside any block in a scope that contains a block — which is about fifty
-lines and correct but over-boxes, then tighten. The Rust version is
-`analyze/captures.rs`, 1,270 lines, and essentially all of it exists to *avoid*
-boxing rather than to decide correctness.
+Two things the plan expected to be hard were not. A captured loop variable
+needs no fresh cell per iteration, because `while` is ze0's only loop and
+ruby shares one binding across its iterations too, while a block parameter
+is already a local of the block's own frame. And the crude capture rule --
+a name is boxed when any block in the scope mentions it -- is enough; the
+Rust `analyze/captures.rs` is 1,270 lines almost entirely spent *avoiding*
+the boxing rather than deciding it.
 
-One subtlety worth taking early: a captured loop variable gets a **fresh cell
-each iteration** (`clif/iter.rs:871-893`), so closures made in a loop each
-capture their own binding. Getting this wrong is a bug nobody finds for months.
-
-**The block argument to a send stops being `0`.** It becomes a pointer to a
-24-byte slot holding a `Proc`, and it is **moved** — so the proc is built
-*last*, after receiver and arguments, because nothing between construction and
-the call may raise.
-
-**`yield` and `block_given?`** are nearly free once the block pointer is a body
-parameter: `zeo_rt_yield`, and `block_given?` is just `icmp ne blk, 0` with no
-call at all. Note the method signature grows a `blk` parameter **only when the
-method uses a block**, so ze0's fixed signature becomes conditional.
-
-**Non-local control flow is a status code plus a thread-local signal**, never a
-longjmp. `next` is not a signal at all — it moves its value to `out` and
-returns 0. `break` sets `Signal::Break` and returns 1, and the sending site
-catches it and takes the value. `return` from a proc resolves against the
-captured home. `redo` is a local jump. Skipping `ensure` interaction entirely
-saves the 180 lines of `clif/control.rs` and costs nothing until `rescue`
-lands.
-
-**Skip the inline iterator fusion** (`clif/iter.rs`, 1,205 lines). `arr.each { }`
-works through the generic runtime path; fusion is a pure optimization and
-lowering the body twice is a complication to earn later.
+Still refused by name: a block parameter list beyond required positionals,
+a block-local variable (`|x; y|`), `redo`, and `&block`.
 
 ## Phase 3 — the sidecar extension, then classes
 

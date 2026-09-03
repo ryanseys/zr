@@ -2,7 +2,7 @@
 
 ze0 is a Ruby program that compiles a subset of Ruby to the same Cranelift
 IR zeo's Rust emitter produces, as text, and hands it to `zeo backend` to
-link. It is about a thousand lines of Ruby and runs three ways: under ruby,
+link. It is about two thousand lines of Ruby and runs three ways: under ruby,
 under zeo's JIT, and as a native binary zeo built from it (stage 1). All
 three write the same bytes.
 
@@ -75,7 +75,7 @@ road.
 
 ## The differential
 
-`test/ze0/` holds 19 programs, recorded against ruby 4.0.6 like every
+`test/ze0/` holds 20 programs, recorded against ruby 4.0.6 like every
 other golden (`cargo xtask bless ze0::`). For each, `crates/zeo/tests/corpus/ze0.rs` takes
 three roads and demands one answer:
 
@@ -108,36 +108,37 @@ nothing.
 
 | program | lines | rust front end ms | ze0 jit cold ms | ze0 jit warm ms | ze0 stage1 ms | backend ms | emitter text bytes | ze0 text bytes |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| ackermann | 11 | 17 | 804 | 21 | 14 | 131 | 25869 | 18359 |
-| arithmetic_and_compare | 19 | 17 | 798 | 27 | 18 | 128 | 51687 | 41384 |
-| collatz | 15 | 15 | 792 | 22 | 14 | 131 | 30202 | 19610 |
-| control_flow | 84 | 18 | 808 | 37 | 29 | 132 | 88948 | 75752 |
-| def_reflection | 7 | 16 | 790 | 22 | 14 | 132 | 19552 | 13644 |
-| division_by_zero | 2 | 18 | 794 | 18 | 10 | 129 | 8694 | 4432 |
-| fib | 8 | 15 | 801 | 20 | 12 | 129 | 19282 | 12561 |
-| float_mix | 9 | 16 | 778 | 22 | 13 | 129 | 35236 | 17353 |
-| generic_sends | 13 | 16 | 799 | 24 | 15 | 132 | 25677 | 19623 |
-| hello | 1 | 17 | 790 | 18 | 10 | 126 | 4073 | 2194 |
-| locals_and_assignment | 19 | 16 | 789 | 25 | 16 | 133 | 25588 | 20154 |
-| names_and_case | 74 | 17 | 831 | 41 | 32 | 135 | 129620 | 102316 |
-| overflow_to_bignum | 5 | 17 | 805 | 22 | 14 | 133 | 19605 | 13070 |
-| p_of_immediates | 12 | 16 | 812 | 21 | 12 | 132 | 15521 | 13001 |
-| return_inside_while | 21 | 16 | 787 | 23 | 16 | 139 | 34042 | 25673 |
-| string_methods | 11 | 15 | 788 | 21 | 16 | 142 | 26430 | 18306 |
-| strings_and_collections | 40 | 16 | 808 | 35 | 26 | 137 | 81399 | 61259 |
-| tak | 8 | 16 | 801 | 22 | 15 | 143 | 22965 | 15157 |
-| wrong_arity | 5 | 16 | 810 | 20 | 13 | 139 | 14302 | 9219 |
-| generated_50 | 52 | 19 | 805 | 33 | 26 | 143 | 96293 | 73232 |
-| generated_200 | 208 | 18 | 850 | 84 | 75 | 142 | 375132 | 291107 |
-| generated_500 | 507 | 16 | 980 | 184 | 176 | 164 | 913965 | 712832 |
+| ackermann | 11 | 15 | 805 | 22 | 14 | 128 | 25869 | 18359 |
+| arithmetic_and_compare | 19 | 17 | 804 | 27 | 19 | 135 | 51687 | 41384 |
+| blocks_and_closures | 67 | 16 | 849 | 68 | 60 | 137 | 244529 | 198089 |
+| collatz | 15 | 16 | 799 | 22 | 15 | 132 | 30202 | 19610 |
+| control_flow | 84 | 16 | 816 | 39 | 32 | 133 | 88948 | 75752 |
+| def_reflection | 7 | 17 | 794 | 20 | 12 | 131 | 19552 | 13644 |
+| division_by_zero | 2 | 17 | 798 | 18 | 10 | 135 | 8694 | 4432 |
+| fib | 8 | 16 | 793 | 20 | 12 | 130 | 19282 | 12561 |
+| float_mix | 9 | 16 | 813 | 21 | 13 | 130 | 35236 | 17353 |
+| generic_sends | 13 | 15 | 781 | 22 | 14 | 127 | 25677 | 19623 |
+| hello | 1 | 17 | 807 | 18 | 10 | 128 | 4073 | 2194 |
+| locals_and_assignment | 19 | 15 | 800 | 22 | 14 | 126 | 25588 | 20154 |
+| names_and_case | 74 | 18 | 827 | 45 | 34 | 134 | 129620 | 102316 |
+| overflow_to_bignum | 5 | 15 | 824 | 20 | 12 | 128 | 19605 | 13070 |
+| p_of_immediates | 12 | 16 | 798 | 19 | 12 | 128 | 15521 | 13001 |
+| return_inside_while | 21 | 16 | 817 | 26 | 18 | 135 | 34042 | 25673 |
+| string_methods | 11 | 16 | 806 | 21 | 14 | 131 | 26430 | 18306 |
+| strings_and_collections | 40 | 17 | 864 | 36 | 28 | 139 | 81399 | 61259 |
+| tak | 8 | 16 | 817 | 21 | 14 | 128 | 22965 | 15157 |
+| wrong_arity | 5 | 15 | 796 | 19 | 11 | 128 | 14302 | 9219 |
+| generated_50 | 52 | 18 | 814 | 37 | 28 | 130 | 96293 | 73232 |
+| generated_200 | 208 | 16 | 866 | 92 | 82 | 140 | 375132 | 291107 |
+| generated_500 | 507 | 16 | 980 | 196 | 190 | 153 | 913965 | 712832 |
 
 What the numbers say:
 
 - **A warm ze0 is as fast as the Rust front end on small programs** and a
-  native ze0 is faster: 10 to 16 ms against 15 to 19 ms, because the Rust
+  native ze0 is faster: 10 to 19 ms against 15 to 18 ms, because the Rust
   path analyses the boot prelude on every compile and ze0 analyses only
-  the program. On the 500-line program the native ze0 takes 176 ms and
-  the warm JIT 184 ms, so ze0's own cost is about 0.35 ms per line.
+  the program. On the 500-line program the native ze0 takes 190 ms and
+  the warm JIT 196 ms, so ze0's own cost is about 0.37 ms per line.
 - **The cold JIT costs three quarters of a second**, all of it compiling
   ze0 and prism's Ruby half. The program cache makes every later run
   warm, and the differential harness warms it once before the corpus.
@@ -153,7 +154,7 @@ What the numbers say:
   table (`@all`): with no reachability analysis and a dynamic send that
   can reach any class, that is the honest choice. The emitter's analysis
   keeps 33 tables for that program.
-- **Lines.** ze0 is 1,543 lines of Ruby. The emitter's `clif/` is 27,818
+- **Lines.** ze0 is 1,976 lines of Ruby. The emitter's `clif/` is 27,818
   lines of Rust, of which the files the subset's lowering lives in
   (`binop`, `body`, `params`, `stmt`, `expr`, `call`, `frames`, `ctx`,
   `operand`, `ownership`, `control`, `consts`, `ivars`) are 11,875; a per-function
