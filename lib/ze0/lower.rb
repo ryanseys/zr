@@ -141,27 +141,67 @@ module Ze0
       found
     end
 
+    # A Prism parameter list as the shape the binder and the body agree
+    # on. A destructuring parameter is refused: it binds names the slot
+    # array has no room for.
+    def parse_params(node)
+      return Params.new([], [], nil, [], [], nil, nil, false) if node.nil?
+
+      node.requireds.each { |r| refuse_destructure(r) }
+      node.posts.each { |r| refuse_destructure(r) }
+      Params.new(
+        node.requireds.map(&:name),
+        node.optionals.map { |o| Params::Optional.new(o.name, o.value) },
+        rest_of(node.rest),
+        node.posts.map(&:name),
+        node.keywords.map { |k| keyword_of(k) },
+        kwrest_of(node.keyword_rest),
+        node.block&.name,
+        node.keyword_rest.is_a?(Prism::NoKeywordsParameterNode),
+      )
+    end
+
+    def refuse_destructure(node)
+      raise Unsupported.new(node, "a destructuring parameter") unless node.is_a?(Prism::RequiredParameterNode)
+    end
+
+    def rest_of(node)
+      return nil if node.nil?
+      raise Unsupported.new(node, "an implicit rest") unless node.is_a?(Prism::RestParameterNode)
+
+      Params::Star.new(node.name)
+    end
+
+    def kwrest_of(node)
+      return nil if node.nil? || node.is_a?(Prism::NoKeywordsParameterNode)
+      raise Unsupported.new(node, "a forwarding parameter") unless node.is_a?(Prism::KeywordRestParameterNode)
+
+      Params::Star.new(node.name)
+    end
+
+    def keyword_of(node)
+      case node
+      when Prism::RequiredKeywordParameterNode then Params::Keyword.new(node.name, nil, true)
+      when Prism::OptionalKeywordParameterNode then Params::Keyword.new(node.name, node.value, false)
+      else raise Unsupported.new(node, "a keyword parameter of that shape")
+      end
+    end
+
     def declare_def(node, owner)
       singleton = node.receiver.is_a?(Prism::SelfNode)
       raise Unsupported.new(node, "a def with a receiver") if node.receiver && !singleton
       raise Unsupported.new(node, "a def on self at the top level") if singleton && owner == Names::OBJECT
       raise Unsupported.new(node, "a def named twice") if @defs.fetch(owner).key?(node.name)
 
-      params = node.parameters
-      if params && !(params.optionals.empty? && params.rest.nil? && params.posts.empty? &&
-                     params.keywords.empty? && params.keyword_rest.nil? && params.block.nil?)
-        raise Unsupported.new(node, "a parameter list beyond required positionals")
-      end
-
-      names = params ? params.requireds.map(&:name) : []
+      params = parse_params(node.parameters)
       @defs[owner][node.name] = {
-        params: names, node: node, block: uses_block?(node.body),
+        params: params, node: node, block: params.takes_block?(uses_block?(node.body)),
         owner: owner, singleton: singleton,
       }
       @program.add_def(
         name: node.name,
         tramp: trampoline_of(owner, node.name, singleton),
-        params: names,
+        params: params.rows,
         line: node.location.start_line,
         owner: owner == Names::OBJECT ? "" : owner,
         singleton: singleton,
@@ -252,7 +292,8 @@ module Ze0
     def lower_def(definition)
       node = definition[:node]
       owner, singleton = definition[:owner], definition[:singleton]
-      names = definition[:params]
+      params = definition[:params]
+      names = params.slot_names
       takes_block = definition[:block]
       body_sym = body_symbol_of(owner, node.name, singleton)
       arity = names.size + (takes_block ? 3 : 2)
@@ -272,7 +313,8 @@ module Ze0
         f.switch(overflow)
         f.ins "return #{f.iconst("i32", 1)}"
         f.switch(cont)
-        names.each_with_index { |n, i| initialize_local(locals.fetch(n), f.args[i + 1]) }
+        bind_slots(params, names)
+        bind_block_parameter(params.block) if params.block
         scope.frame_base = label_of(owner, node.name, singleton)
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
         value = lower_statements(node.body)
@@ -281,7 +323,103 @@ module Ze0
         epilogue
       end
       @program.add_function(label_of(owner, node.name, singleton), function)
-      lower_trampoline(definition, names.size)
+      if params.plain?
+        lower_trampoline(definition, names.size)
+      else
+        lower_bound_trampoline(definition, params, names.size)
+      end
+    end
+
+    # The trampoline of a shape the runtime's binder has to route: it
+    # builds the slot array, hands `argv` to `zeo_rt_bind_params`, and
+    # passes one pointer per slot -- NULL where an optional was left out,
+    # so the body runs its default.
+    def lower_bound_trampoline(definition, params, n_slots)
+      node = definition[:node]
+      owner, singleton = definition[:owner], definition[:singleton]
+      takes_block = definition[:block]
+      function = Clif::Function.new(trampoline_of(owner, node.name, singleton), ["i64"] * 5, "i32")
+      in_scope(function, :trampoline) do
+        recv, argv, argc, blk, into = f.args
+        scope.rodata = f.val("symbol_value.i64 #{f.symbol("zeo_rodata")}")
+        desc = param_desc(params, node.name.to_s, label_of(owner, node.name, singleton), node)
+        slots = n_slots.zero? ? nil : f.slot(Capi::SLOT_BYTES * n_slots)
+        slots_at = slots ? addr_of(slots) : f.iconst("i64", 0)
+        present = f.slot(8)
+        status = f.val(
+          "call #{f.import("zeo_rt_bind_params")}(#{addr_of(desc)}, #{argv}, #{argc}, " \
+          "#{slots_at}, #{addr_of(present)})",
+        )
+        ok, bad = f.label, f.label
+        f.ins "brif #{status}, #{bad}, #{ok}"
+        f.switch(bad)
+        # The binder leaves every slot nil on an error, so only the block
+        # it was handed still needs releasing.
+        release_block_argument(blk)
+        f.ins "return #{f.iconst("i32", 1)}"
+        f.switch(ok)
+        release_block_argument(blk) unless takes_block
+        bits = f.val("load.i64 notrap aligned #{addr_of(present)}")
+        addresses = (0...n_slots).map do |i|
+          at = i.zero? ? slots_at : f.stack_addr("#{slots}+#{i * Capi::SLOT_BYTES}")
+          next at unless params.optional_slots.include?(i)
+
+          # An absent optional is a null pointer, which is how the body
+          # tells "left out" from "given nil".
+          got = f.val("band #{bits}, #{f.iconst("i64", 1 << i)}")
+          f.val("select #{f.val("icmp ne #{got}, #{f.iconst("i64", 0)}")}, #{at}, #{f.iconst("i64", 0)}")
+        end
+        handed = takes_block ? addresses + [blk] : addresses
+        n_params = n_slots + (takes_block ? 3 : 2)
+        body = f.callee(body_symbol_of(owner, node.name, singleton), ["i64"] * n_params, "i32")
+        status = f.val("call #{body}(#{([recv] + handed + [into]).join(", ")})")
+        # The slots hold the binder's owned copies; the body took its own.
+        (0...n_slots).each do |i|
+          at = i.zero? ? slots_at : f.stack_addr("#{slots}+#{i * Capi::SLOT_BYTES}")
+          f.ins "call #{f.import("zeo_rt_release")}(#{at})"
+        end
+        f.ins "return #{status}"
+      end
+      @program.add_function("trampoline", function)
+    end
+
+    # Each slot's value into its local. An optional slot arrives as a NULL
+    # pointer when the caller left it out, and the default expression runs
+    # here rather than at the call -- which is what lets one default read
+    # the parameter before it.
+    def bind_slots(params, names)
+      defaults = params.defaults.to_h
+      names.each_with_index do |n, i|
+        local = locals.fetch(n)
+        argument = f.args[i + 1]
+        unless defaults.key?(i)
+          initialize_local(local, argument)
+          next
+        end
+
+        given, absent, join = f.label, f.label, f.label
+        f.ins "brif #{f.val("icmp ne #{argument}, #{f.iconst("i64", 0)}")}, #{given}, #{absent}"
+        f.switch(given)
+        initialize_local(local, argument)
+        f.ins "jump #{join}"
+        f.switch(absent)
+        store_local(local, lower_expr(defaults[i]))
+        f.ins "jump #{join}" unless f.terminated?
+        f.switch(join)
+      end
+    end
+
+    # `&b`: not a slot, but the block channel itself, which is nil when
+    # the caller passed none. The body already owns the moved-in block, so
+    # the local takes a reference of its own.
+    def bind_block_parameter(name)
+      local = locals.fetch(name)
+      given, join = f.label, f.label
+      f.ins "brif #{f.val("icmp ne #{scope.blk}, #{f.iconst("i64", 0)}")}, #{given}, #{join}"
+      f.switch(given)
+      initialize_local(local, scope.blk)
+      f.ins "jump #{join}"
+      f.switch(join)
     end
 
     # The `ValueFn` the runtime dispatches to: releases a block it was
@@ -427,19 +565,15 @@ module Ze0
     # `(env, self, argv, argc, blk, out) -> i32`. Note the shape is NOT the
     # five-pointer trampoline's -- a block fn prepends `env` and takes its
     # `self` as a parameter, because `instance_exec` rebinds it per call.
-    def lower_block(node)
-      params = node.parameters&.parameters
-      if params && !(params.optionals.empty? && params.rest.nil? && params.posts.empty? &&
-                     params.keywords.empty? && params.keyword_rest.nil? && params.block.nil?)
-        raise Unsupported.new(node, "a block parameter list beyond required positionals")
-      end
+    def lower_block(node, lambda_shape = false)
       raise Unsupported.new(node, "a block-local variable") if node.parameters&.locals&.any?
 
-      names = params ? params.requireds.map(&:name) : []
+      params = parse_params(node.parameters&.parameters)
+      names = params.slot_names
       # ruby spreads a single Array argument over a shape with real
       # positional structure; one bare parameter is ambiguous and never
       # splats (`clif/params.rs`'s `auto_splats`).
-      auto_splat = names.size > 1
+      auto_splat = !lambda_shape && auto_splats?(params)
       symbol = "zeo_blk_#{@blocks}"
       @blocks += 1
       function = Clif::Function.new(symbol, ["i64"] * 6, "i32")
@@ -461,7 +595,7 @@ module Ze0
         own = names + (node.locals - names)
         boxed = captured_names(node.body&.body || [], own)
         own.each { |n| declare_local(n, boxed: boxed.include?(n)) }
-        bind_block_params(names, argv, argc, auto_splat, node)
+        bind_block_params(params, names, argv, argc, node, auto_splat, lambda_shape)
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
         value = lower_statements(node.body)
         move(value, out) unless f.terminated?
@@ -499,56 +633,113 @@ module Ze0
     # sidecar carries as bytes has nowhere to put a relocation. So the
     # struct is built in a stack slot instead, which works because the
     # binder only reads it for the length of the call.
-    PARAM_DESC_BYTES = 88
 
-    def bind_block_params(names, argv, argc, auto_splat, node)
+    # ruby spreads a single Array argument over a block whose shape has
+    # real positional structure; one bare parameter is ambiguous and never
+    # splats (`clif/params.rs`'s `auto_splats`).
+    def auto_splats?(params)
+      lead, opt, post = params.required.size, params.optional.size, params.post.size
+      ambiguous = lead == 1 && opt.zero? && post.zero? && params.rest.nil?
+      !ambiguous && (lead + post > 0 || opt > 1)
+    end
+
+    def bind_block_params(params, names, argv, argc, node, auto_splat, lambda_shape)
       return if names.empty?
 
-      desc = param_desc(names.size, node)
+      desc = param_desc(params, "block", scope.frame_label, node)
       slots = f.slot(Capi::SLOT_BYTES * names.size)
       present = f.slot(8)
-      flags = f.iconst("i8", auto_splat ? Capi::BLOCK_BIND_AUTO_SPLAT : 0)
+      bits = auto_splat ? Capi::BLOCK_BIND_AUTO_SPLAT : 0
+      bits |= Capi::BLOCK_BIND_LAMBDA if lambda_shape
+      flags = f.iconst("i8", bits)
       status_check(f.val(
         "call #{f.import("zeo_rt_bind_block_params")}(#{addr_of(desc)}, #{flags}, #{argv}, #{argc}, " \
         "#{addr_of(slots)}, #{addr_of(present)})",
       ))
-      # The binder writes an owned value into every slot, which each local
-      # then takes.
+      present_bits = f.val("load.i64 notrap aligned #{addr_of(present)}")
+      defaults = params.defaults.to_h
+      # The binder writes an owned value into every bound slot, which the
+      # local takes as it is; an unbound optional runs its default here.
       names.each_with_index do |n, i|
         from = i.zero? ? addr_of(slots) : f.stack_addr("#{slots}+#{i * Capi::SLOT_BYTES}")
         local = locals.fetch(n)
-        # The binder wrote an owned value, which the slot takes as it is
-        # and a cell takes by moving.
-        if local.boxed?
-          f.ins "call #{f.import("zeo_rt_cell_store")}(#{cell_of(local)}, #{from})"
-        else
-          copy(from, addr_of(local.slot))
+        unless defaults.key?(i)
+          take_bound_slot(local, from)
+          next
         end
+
+        given, absent, join = f.label, f.label, f.label
+        got = f.val("band #{present_bits}, #{f.iconst("i64", 1 << i)}")
+        f.ins "brif #{f.val("icmp ne #{got}, #{f.iconst("i64", 0)}")}, #{given}, #{absent}"
+        f.switch(given)
+        take_bound_slot(local, from)
+        f.ins "jump #{join}"
+        f.switch(absent)
+        store_local(local, lower_expr(defaults[i]))
+        f.ins "jump #{join}" unless f.terminated?
+        f.switch(join)
       end
     end
 
-    # A `zeo_abi::abi::ParamDescC` for `n` required parameters, on the
-    # stack. Offsets follow the struct's declaration order under `repr(C)`.
-    def param_desc(n, node)
+    # A slot the binder owns, taken by the local: a plain slot copies the
+    # bytes as they are, a cell moves them in.
+    def take_bound_slot(local, from)
+      if local.boxed?
+        f.ins "call #{f.import("zeo_rt_cell_store")}(#{cell_of(local)}, #{from})"
+      else
+        copy(from, addr_of(local.slot))
+      end
+    end
+
+    # A `zeo_abi::abi::ParamDescC` on the stack, and the `KwParamC` rows it
+    # points at. Offsets follow the structs' declaration order under
+    # `repr(C)`; the binder reads both only for the length of the call.
+    def param_desc(params, name, label, node)
+      kws, n_kws = keyword_rows(params.keywords)
       slot = f.slot(PARAM_DESC_BYTES)
       at = addr_of(slot)
-      zero32 = f.iconst("i32", 0)
-      zero64 = f.iconst("i64", 0)
-      store_at = ->(off, value) { f.ins "store notrap aligned #{value}, #{at}#{off.zero? ? "" : "+#{off}"}" }
-      store_at.call(0, f.iconst("i32", n))            # nreq
-      store_at.call(4, zero32)                        # nopt
-      store_at.call(8, zero32)                        # npost
-      store_at.call(12, zero32)                       # rest, kwrest, no_keywords, implicit_rest
-      store_at.call(16, zero64)                       # kws
-      store_at.call(24, zero64)                       # n_kws
-      [[32, "block"], [48, @program.file], [64, scope.frame_label]].each do |off, text|
+      put = ->(off, value) { f.ins "store notrap aligned #{value}, #{at}#{off.zero? ? "" : "+#{off}"}" }
+      put.call(0, f.iconst("i32", params.required.size))
+      put.call(4, f.iconst("i32", params.optional.size))
+      put.call(8, f.iconst("i32", params.post.size))
+      put.call(12, f.iconst("i8", star_of(params.rest)))
+      put.call(13, f.iconst("i8", star_of(params.kwrest)))
+      put.call(14, f.iconst("i8", params.no_keywords ? 1 : 0))
+      put.call(15, f.iconst("i8", 0))
+      put.call(16, kws)
+      put.call(24, n_kws)
+      [[32, name], [48, @program.file], [64, label]].each do |off, text|
         ptr, len = rodata_ref(text)
-        store_at.call(off, ptr)
-        store_at.call(off + 8, len)
+        put.call(off, ptr)
+        put.call(off + 8, len)
       end
-      store_at.call(80, f.iconst("i32", node.location.start_line))
-      store_at.call(84, f.iconst("i32", node.location.end_line))
+      put.call(80, f.iconst("i32", node.location.start_line))
+      put.call(84, f.iconst("i32", node.location.end_line))
       slot
+    end
+
+    PARAM_DESC_BYTES = 88
+    KW_PARAM_BYTES = 24
+
+    def star_of(star)
+      return Capi::PARAM_STAR_NONE if star.nil?
+
+      star.named? ? Capi::PARAM_STAR_NAMED : Capi::PARAM_STAR_ANON
+    end
+
+    def keyword_rows(keywords)
+      return [f.iconst("i64", 0), f.iconst("i64", 0)] if keywords.empty?
+
+      slot = f.slot(KW_PARAM_BYTES * keywords.size)
+      at = addr_of(slot)
+      keywords.each_with_index do |kw, i|
+        off = i * KW_PARAM_BYTES
+        ptr, len = rodata_ref(kw.name.to_s)
+        f.ins "store notrap aligned #{ptr}, #{at}#{off.zero? ? "" : "+#{off}"}"
+        f.ins "store notrap aligned #{len}, #{at}+#{off + 8}"
+        f.ins "store notrap aligned #{f.iconst("i8", kw.required ? 1 : 0)}, #{at}+#{off + 16}"
+      end
+      [at, f.iconst("i64", keywords.size)]
     end
 
     # ---- statements ----
@@ -605,6 +796,7 @@ module Ze0
       when Prism::AndNode then and_or(node.left, node.right, true)
       when Prism::OrNode then and_or(node.left, node.right, false)
       when Prism::CaseNode then lower_case(node)
+      when Prism::LambdaNode then lower_lambda(node)
       when Prism::ClassNode, Prism::ModuleNode then lower_class_statement(node)
       when Prism::DefNode then literal_symbol(node.name)
       when Prism::SelfNode then Operand.new(self_operand.at, false, self_operand.immediate)
@@ -1060,66 +1252,105 @@ module Ze0
       if node.receiver.nil? && kind == :class_body && CLASS_MACROS.include?(node.name)
         raise Unsupported.new(node, "`#{node.name}` in a class body")
       end
-      raise Unsupported.new(node.block, "a block argument") if node.block.is_a?(Prism::BlockArgumentNode)
       raise Unsupported.new(node, "safe navigation") if node.call_operator_loc&.slice == "&."
 
       args = node.arguments&.arguments || []
+      # A trailing `k: v` list is its own channel, not a positional Hash.
+      keywords = args.pop if args.last.is_a?(Prism::KeywordHashNode)
       args.each do |a|
         case a
         when Prism::SplatNode, Prism::KeywordHashNode, Prism::BlockArgumentNode
           raise Unsupported.new(a, "an argument of that shape")
         end
       end
-      if node.receiver.nil? && node.name == :block_given? && args.empty? && node.block.nil?
+      plain = node.block.nil? && keywords.nil?
+      if plain && node.receiver.nil? && node.name == :block_given? && args.empty?
         block_given(node)
-      elsif node.receiver.nil? && (d = visible_def(node.name)) && d[:params].size == args.size
+      elsif keywords.nil? && node.receiver.nil? && (d = visible_def(node.name)) &&
+            d[:params].plain? && d[:params].required.size == args.size
         direct_call(node, args, d)
-      elsif node.block
-        block_send(node, args)
-      elsif node.receiver.nil? && node.name == :puts
+      elsif plain && node.receiver.nil? && node.name == :puts
         kernel_puts(args)
-      elsif node.receiver && args.size == 1 && inline_binary?(node.name)
+      elsif plain && node.receiver && args.size == 1 && inline_binary?(node.name)
         binary(node.name, lower_expr(node.receiver), lower_expr(args[0]))
       else
-        recv = node.receiver ? lower_expr(node.receiver) : self_operand
-        result = f.slot
-        dynamic_send(borrow(recv), node.name, args.map { |a| lower_expr(a) }, addr_of(result))
-        Operand.new(result, true, false)
+        send_call(node, args, keywords)
       end
     end
 
-    # `recv.name(*args) { |p| .. }`. The proc is built LAST, after the
-    # receiver and every argument, because it is MOVED into the send and
-    # nothing between its construction and the call may raise.
-    def block_send(node, args)
-      body, captures = lower_block(node.block)
+    # The general send: a receiver, its positional arguments, an optional
+    # keyword channel, and an optional block. The block is built LAST --
+    # after the receiver, the arguments and the keywords -- because it is
+    # MOVED in and nothing between its construction and the call may raise.
+    def send_call(node, args, keywords)
+      builder = block_builder(node)
       recv = node.receiver ? lower_expr(node.receiver) : self_operand
       result = f.slot
-      dynamic_send(borrow(recv), node.name, args.map { |a| lower_expr(a) }, addr_of(result), breaks: true) do
-        proc_new(body, captures, node.block)
+      operands = -> { args.map { |a| lower_expr(a) } }
+      if builder
+        dynamic_send(borrow(recv), node.name, operands.call, addr_of(result),
+                     breaks: true, keywords: keywords) { builder.call }
+      else
+        dynamic_send(borrow(recv), node.name, operands.call, addr_of(result), keywords: keywords)
       end
       Operand.new(result, true, false)
+    end
+
+    # How this call's block gets made, or nil when it has none. The
+    # function a literal block compiles to is emitted here; only its
+    # `Proc` waits for the call.
+    def block_builder(node)
+      case node.block
+      when nil then nil
+      when Prism::BlockNode
+        # `lambda { }` answers the block it is handed with the lambda bit
+        # set, and the bit is not something `Kernel#lambda` can add later:
+        # the arity and the strict binding are baked in at creation.
+        lambda_shape = node.receiver.nil? && node.name == :lambda
+        body, captures = lower_block(node.block, lambda_shape)
+        -> { proc_new(body, captures, node.block, lambda_shape) }
+      when Prism::BlockArgumentNode
+        expression = node.block.expression
+        raise Unsupported.new(node.block, "an anonymous block forward") if expression.nil?
+
+        -> { block_arg_proc(expression) }
+      else raise Unsupported.new(node.block, "a block of that shape")
+      end
     end
 
     # The `Proc` the send is handed. Everything a shaped construction would
     # read from a `zeo_proc_shapes` row goes inline instead: `zeo backend`
     # defines that table with no rows, so the shaped entry is unreachable.
-    def proc_new(body, captures, node)
-      names = node.parameters&.parameters&.requireds&.map(&:name) || []
+    def proc_new(body, captures, node, lambda_shape)
+      shape = parse_params(node.parameters&.parameters)
       fn = f.callee(body, ["i64"] * 6, "i32")
       address = f.val("func_addr.i64 #{fn}")
       file, file_len = rodata_ref(@program.file)
-      params, n_params = param_rows(names)
+      params, n_params = param_rows(shape)
       cells, n_cells = cell_array(captures)
       slot = f.slot
       null = f.iconst("i64", 0)
       lexical = yield_block || f.iconst("i64", 0)
       f.ins "call #{f.import("zeo_rt_proc_new")}(#{address}, #{cells}, #{n_cells}, " \
             "#{borrow(self_operand)}, #{lexical}, #{null}, " \
-            "#{f.iconst("i32", names.size)}, #{f.iconst("i32", 0)}, " \
+            "#{f.iconst("i32", proc_arity(shape, lambda_shape))}, " \
+            "#{f.iconst("i32", lambda_shape ? Capi::PROC_LAMBDA : 0)}, " \
             "#{params}, #{n_params}, #{file}, #{file_len}, " \
             "#{f.iconst("i32", node.location.start_line)}, #{null}, #{null}, #{addr_of(slot)})"
       addr_of(slot)
+    end
+
+    # `Proc#arity`, mirroring `clif/params.rs`'s. A block's arity is
+    # NEGATIVE only when a rest can swallow more; a lambda's is negative
+    # whenever what it accepts is not exactly what it requires.
+    def proc_arity(shape, lambda_shape)
+      required = shape.required.size + shape.post.size
+      required += 1 if shape.keywords.any?(&:required)
+      most = shape.rest.nil? &&
+             shape.required.size + shape.optional.size + shape.post.size +
+             (shape.keywords.any? || shape.kwrest ? 1 : 0)
+      positive = most && (!lambda_shape || required == most)
+      positive ? required : -required - 1
     end
 
     # The cells this block captures, as the `*const *mut Cell` array the
@@ -1143,20 +1374,42 @@ module Ze0
     # are kept, so those come from rodata rather than from a slot.
     PARAM_ROW_BYTES = 24
 
-    def param_rows(names)
-      return [f.iconst("i64", 0), f.iconst("i64", 0)] if names.empty?
+    def param_rows(shape)
+      rows = shape.rows
+      return [f.iconst("i64", 0), f.iconst("i64", 0)] if rows.empty?
 
-      slot = f.slot(PARAM_ROW_BYTES * names.size)
+      slot = f.slot(PARAM_ROW_BYTES * rows.size)
       at = addr_of(slot)
-      names.each_with_index do |n, i|
+      rows.each_with_index do |(kind, name), i|
         off = i * PARAM_ROW_BYTES
-        ptr, len = rodata_ref(n.to_s)
-        # kind: the runtime renders a block's required parameter as `opt`.
-        f.ins "store notrap aligned #{f.iconst("i8", Capi::PARAM_REQ)}, #{at}#{off.zero? ? "" : "+#{off}"}"
+        ptr, len = rodata_ref(name.to_s)
+        # The runtime renders a non-lambda block's `req` as `opt`.
+        f.ins "store notrap aligned #{f.iconst("i8", Capi::PARAM_KINDS.index(kind))}, " \
+              "#{at}#{off.zero? ? "" : "+#{off}"}"
         f.ins "store notrap aligned #{ptr}, #{at}+#{off + 8}"
         f.ins "store notrap aligned #{len}, #{at}+#{off + 16}"
       end
-      [at, f.iconst("i64", names.size)]
+      [at, f.iconst("i64", rows.size)]
+    end
+
+    # `->(x) { }`: a lambda with no send around it.
+    def lower_lambda(node)
+      body, captures = lower_block(node, true)
+      slot = f.slot
+      copy(proc_new(body, captures, node, true), addr_of(slot))
+      Operand.new(slot, true, false)
+    end
+
+    # `&expr`: a Proc passes through, a Symbol becomes its proc, nil means
+    # no block, and anything else answers `to_proc`. The send spells "no
+    # block" as a null pointer, which is what the nil check is for.
+    def block_arg_proc(node)
+      value = lower_expr(node)
+      slot = f.slot
+      at = addr_of(slot)
+      status_check(f.val("call #{f.import("zeo_rt_block_arg_to_proc")}(#{borrow(value)}, #{at})"))
+      absent = f.val("icmp eq #{tag_of(at)}, #{f.iconst("i8", Capi::TAG_NIL)}")
+      f.val("select #{absent}, #{f.iconst("i64", 0)}, #{at}")
     end
 
     # A call to a `def` this program carries, straight to its body. The
@@ -1170,7 +1423,7 @@ module Ze0
       body = f.callee(body_symbol_of(definition[:owner], node.name, false), ["i64"] * n_params, "i32")
       addrs = [borrow(self_operand)] + operands.map { |o| borrow(o) }
       if definition[:block]
-        addrs << (node.block ? proc_new(*lower_block(node.block), node.block) : f.iconst("i64", 0))
+        addrs << (node.block ? proc_new(*lower_block(node.block), node.block, false) : f.iconst("i64", 0))
       end
       status = f.val("call #{body}(#{(addrs + [addr_of(result)]).join(", ")})")
       node.block ? catch_break(status, addr_of(result)) : status_check(status)
@@ -1186,16 +1439,19 @@ module Ze0
 
     # The cached dynamic send: `recv.name(*args)`. Not `send`: that would
     # replace `Object#send` on every Lower.
-    def dynamic_send(recv, name, operands, into, breaks: false)
+    def dynamic_send(recv, name, operands, into, breaks: false, keywords: nil)
       argv = args_array(operands)
+      kw = keywords ? borrow(hash_literal(keywords)) : nil
       blk = block_given? ? yield : f.iconst("i64", 0)
       sym_id = sym_id(name)
       site = f.val("symbol_value.i64 #{f.symbol("zeo_callsites")}")
       offset = @program.callsite * Capi::CALLSITE_BYTES
       site = f.val("iadd.i64 #{site}, #{f.iconst("i64", offset)}") unless offset.zero?
+      entry = kw ? "zeo_rt_send_value_kw_cached" : "zeo_rt_send_value_cached"
+      channels = kw ? "#{kw}, #{blk}" : blk.to_s
       status = f.val(
-        "call #{f.import("zeo_rt_send_value_cached")}(#{site}, #{f.iconst("i32", 0)}, #{recv}, #{sym_id}, " \
-        "#{argv}, #{f.iconst("i64", operands.size)}, #{blk}, #{into})",
+        "call #{f.import(entry)}(#{site}, #{f.iconst("i32", 0)}, #{recv}, #{sym_id}, " \
+        "#{argv}, #{f.iconst("i64", operands.size)}, #{channels}, #{into})",
       )
       breaks ? catch_break(status, into) : status_check(status)
     end

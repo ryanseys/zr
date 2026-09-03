@@ -4,6 +4,7 @@ require "prism"
 
 require_relative "ze0/capi"
 require_relative "ze0/names"
+require_relative "ze0/params"
 require_relative "ze0/scope"
 require_relative "ze0/json"
 require_relative "ze0/clif"

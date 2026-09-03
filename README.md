@@ -26,20 +26,21 @@ interpolation; Array, Hash and Range literals; local variables, `$globals`,
 `@ivars` and constants, each with `=`, `+=`, `||=` and `&&=`; `+`, `-`, `*`
 and the six comparisons with an inline Integer fast path; `&&`, `||`, `!`
 and the ternary; `if`/`unless`/`elsif`/`else`, `while`/`until` and their
-modifier forms; `case`/`when`, with or without a subject; top-level `def`
-with required parameters; `return`; blocks with required parameters,
-closing over the names they read, with `next`, `break`, `yield` and
-`block_given?`; `class` and `module` definitions with inheritance,
+modifier forms; `case`/`when`, with or without a subject; `def` and blocks with the whole
+parameter surface -- optional, rest, post, keyword, double-splat and
+block -- and `->() {}`; `return`; blocks closing over the names they
+read, with `next`, `break`, `yield` and `block_given?`; `class` and `module` definitions with inheritance,
 instance methods, `def self.x`, instance variables and their own
-constants; `puts`; and every other call as the
+constants; keyword arguments and `&block` at a call site; `puts`; and
+every other call as the
 runtime's cached dynamic send, so `"ab".upcase`, `7 / 0`, `10.gcd(4)`,
 `x.send(:+, 1)` and `x.method(:to_s)` all answer as ruby does, raise as
 ruby does, and print ruby's backtrace.
 
 Anything else is refused by name at its line (`Ze0::Unsupported`) -- today
-that chiefly means `super`, `include`, `attr_reader` and the other class-body
-macros, nested classes, `class << self`, class variables, `rescue`,
-`require` and `eval`. The contract is zeo's: identical to CRuby, or fail.
+that chiefly means splat arguments at a call site, `super`, `include`,
+`attr_reader` and the other class-body macros, nested classes,
+`class << self`, class variables, `rescue`, `require` and `eval`. The contract is zeo's: identical to CRuby, or fail.
 `ze0/PLAN.md` is the order the rest arrives in.
 
 ## Layout
@@ -49,6 +50,7 @@ macros, nested classes, `class << self`, class variables, `rescue`,
 | `ze0.rb` | the command line |
 | `lib/ze0/lower.rb` | Prism nodes to CLIF: functions, statements, expressions, ownership |
 | `lib/ze0/scope.rb` | one function being lowered: its locals, its `self`, its exits |
+| `lib/ze0/params.rb` | a parameter list, in the slot order the binder uses |
 | `lib/ze0/clif.rb` | a function under construction: slots, symbols, callees, blocks, SSA values |
 | `lib/ze0/emit.rb` | the program: rodata, the symbol pool, call sites, `def` rows, the two files |
 | `lib/ze0/capi.rb` | the runtime rows the subset calls, transcribed from `clif/capi_names.rs` |

@@ -24,6 +24,7 @@ module Ze0
       "zeo_rt_str_lit_ro" => [["i64", "i64", "i8 uext", "i64"], nil],
       "zeo_rt_kernel_puts" => [%w[i64 i64 i64], "i32"],
       "zeo_rt_send_value_cached" => [%w[i64 i32 i64 i32 i64 i64 i64 i64], "i32"],
+      "zeo_rt_send_value_kw_cached" => [%w[i64 i32 i64 i32 i64 i64 i64 i64 i64], "i32"],
       "zeo_rt_int_add_slow" => [%w[i64 i64 i64], nil],
       "zeo_rt_int_sub_slow" => [%w[i64 i64 i64], nil],
       "zeo_rt_int_mul_slow" => [%w[i64 i64 i64], nil],
@@ -45,6 +46,7 @@ module Ze0
       "zeo_rt_ivar_set_dyn" => [%w[i64 i64 i64 i32 i64], "i32"],
       "zeo_rt_case_eq" => [%w[i64 i64 i64], "i32"],
       "zeo_rt_bind_block_params" => [["i64", "i8 uext", "i64", "i64", "i64", "i64"], "i32"],
+      "zeo_rt_bind_params" => [%w[i64 i64 i64 i64 i64], "i32"],
       "zeo_rt_signal_set" => [["i8 uext", "i64"], nil],
       "zeo_rt_signal_kind" => [[], "i8"],
       "zeo_rt_signal_take" => [%w[i64], "i8"],
@@ -53,6 +55,7 @@ module Ze0
       "zeo_rt_cell_store" => [%w[i64 i64], nil],
       "zeo_rt_cell_release" => [%w[i64], nil],
       "zeo_rt_yield" => [%w[i64 i64 i64 i64], "i32"],
+      "zeo_rt_block_arg_to_proc" => [%w[i64 i64], "i32"],
       "zeo_rt_proc_new" => [
         %w[i64 i64 i64 i64 i64 i64 i32 i32 i64 i64 i64 i64 i32 i64 i64 i64], nil,
       ],
@@ -80,8 +83,18 @@ module Ze0
     # `zeo_rt_bind_block_params`' flags: a single Array argument spreads
     # over a shape with real positional structure.
     BLOCK_BIND_AUTO_SPLAT = 1
+    # `zeo_rt_bind_block_params`' other flag, and `zeo_rt_proc_new`'s: a
+    # lambda binds strictly and answers a lambda's arity.
+    BLOCK_BIND_LAMBDA = 2
+    PROC_LAMBDA = 1
     # `ParamC::kind` for a required positional.
     PARAM_REQ = 0
+    # `ParamC::kind` by name, in `zeo_abi`'s declaration order.
+    PARAM_KINDS = %w[req opt rest keyreq key keyrest block].freeze
+    # `ParamDescC`'s `rest`/`kwrest`: absent, `*`, or `*named`.
+    PARAM_STAR_NONE = 0
+    PARAM_STAR_ANON = 1
+    PARAM_STAR_NAMED = 2
     # `ProcEnv.lexical_blk`: the enclosing method's block, which a bare
     # `yield` written inside a block reaches. The struct is cells, n_cells,
     # lexical_blk, binding.

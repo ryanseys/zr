@@ -9,8 +9,8 @@
 # It lowers a subset of Ruby -- literals and string interpolation, Array,
 # Hash and Range literals, locals, globals, instance variables and
 # constants, Integer arithmetic and comparison, if/unless/while/until,
-# case/when, top-level defs with required parameters, return, blocks and
-# closures with next/break/yield, puts, and any
+# case/when, classes and modules, defs and blocks with the whole parameter
+# surface, return, closures with next/break/yield, puts, and any
 # other call as a dynamic send -- to the CLIF text zeo's Rust emitter would
 # write in its outlined form. A form outside the subset is refused by name;
 # nothing is compiled to something that answers differently from ruby.

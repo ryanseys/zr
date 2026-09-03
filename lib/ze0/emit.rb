@@ -88,7 +88,7 @@ module Ze0
           {
             "name" => d[:name],
             "tramp" => d[:tramp],
-            "params" => d[:params].map { |p| ["req", p.to_s] },
+            "params" => d[:params].map { |kind, name| [kind, name.to_s] },
             "file" => @file,
             "line" => d[:line],
             # A top-level `def` is a private method of Object; one written
