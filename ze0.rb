@@ -18,17 +18,21 @@
 require_relative "lib/ze0"
 
 def usage
-  warn "usage: ze0 <file.rb> -o <out.clif>"
+  warn "usage: ze0 [-I <dir>] <file.rb> -o <out.clif>"
   exit 2
 end
 
 input = nil
 output = nil
+roots = []
 args = ARGV.dup
 until args.empty?
   arg = args.shift
   case arg
   when "-o" then output = args.shift or usage
+  # A root a plain `require` searches, in the order given. A feature no
+  # root carries is one the runtime already holds.
+  when "-I" then roots << (args.shift or usage)
   when /\A-/ then usage
   else
     usage if input
@@ -45,7 +49,7 @@ rescue SystemCallError => e
 end
 
 begin
-  clif, zeodata = Ze0.compile(source, input)
+  clif, zeodata = Ze0.compile(source, input, roots)
 rescue Ze0::Unsupported => e
   warn "ze0: #{e.file || input}: #{e.message}"
   exit 1

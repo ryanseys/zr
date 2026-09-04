@@ -41,7 +41,7 @@ module Ze0
     # writes.
     Target = Struct.new(:read, :write)
 
-    def initialize(program)
+    def initialize(program, roots = [])
       @program = program
       # Methods by owner and then by `[name, singleton]`, so a class's
       # `bar` and the top level's do not collide, and neither do `def x`
@@ -54,6 +54,10 @@ module Ze0
       # Every name any class body marked `private_constant`. A read of a
       # name no body marks can never need the guard, whatever its scope.
       @private_constants = {}
+      # The features already required, so a second `require` of one
+      # answers false the way ruby's does.
+      @required = {}
+      @roots = roots
     end
 
     def lower(root)
@@ -114,7 +118,7 @@ module Ze0
         next if seen.key?(target)
 
         seen[target] = true
-        splice(spliced_statements(s, target), target, seen, units)
+        with_file(target) { splice(spliced_statements(s, target), target, seen, units) }
       end
       units << [file, run] unless run.empty?
     end
@@ -125,18 +129,33 @@ module Ze0
     # absolute -- CRuby's order.
     def required_file(node, file)
       return nil unless node.is_a?(Prism::CallNode) && node.receiver.nil?
-      return nil unless node.name == :require_relative
+      return nil unless node.name == :require_relative || node.name == :require
 
       args = node.arguments&.arguments || []
       unless args.size == 1 && args[0].is_a?(Prism::StringNode) && node.block.nil?
-        raise Unsupported.new(node, "a `require_relative` of that shape")
+        raise Unsupported.new(node, "a `#{node.name}` of that shape")
       end
 
-      path = File.expand_path(args[0].unescaped, File.dirname(file))
-      return path if File.file?(path)
-      return "#{path}.rb" if File.file?("#{path}.rb")
+      feature = args[0].unescaped
+      if node.name == :require_relative
+        path = with_rb(File.expand_path(feature, File.dirname(file)))
+        raise Unsupported.new(node, "`require_relative \"#{feature}\"`, which names no file") if path.nil?
 
-      raise Unsupported.new(node, "`require_relative \"#{args[0].unescaped}\"`, which names no file")
+        return path
+      end
+
+      # A plain `require` searches the roots `-I` named, in order. One no
+      # root carries names a feature the runtime already holds, and the
+      # call stays where it is: `lower_require` opens the gate there.
+      @roots.filter_map { |root| with_rb(File.expand_path(feature, root)) }.first
+    end
+
+    # A required path, with `.rb` appended AFTER it is absolute -- CRuby's
+    # order -- or nil when neither spelling names a file.
+    def with_rb(path)
+      return path if File.file?(path)
+
+      "#{path}.rb" if File.file?("#{path}.rb")
     end
 
     def spliced_statements(node, path)
@@ -1932,6 +1951,33 @@ module Ze0
       end
     end
 
+    # A `require` the roots did not carry: a feature the runtime already
+    # holds. The gated builtin's classes are registered concealed by the
+    # backend, and this is what opens the gate and reveals them -- at the
+    # require's own position, which is where ruby makes the constant
+    # exist. The answer is folded here, as ruby's is: true the first time
+    # the feature is named, false after.
+    def lower_require(node)
+      args = node.arguments&.arguments || []
+      unless args.size == 1 && args[0].is_a?(Prism::StringNode) && node.block.nil?
+        raise Unsupported.new(node, "a `require` of that shape")
+      end
+
+      feature = canonical_feature(args[0].unescaped)
+      @program.add_feature(feature)
+      eptr, elen = rodata_ref(feature)
+      f.ins "call #{f.import("zeo_rt_feature_loaded")}(#{f.iconst("i32", Capi::MAIN_BOX)}, " \
+            "#{eptr}, #{elen}, #{eptr}, #{elen})"
+      first = !@required.key?(feature)
+      @required[feature] = true
+      literal_bool(first ? 1 : 0)
+    end
+
+    # `require "prism.so"` and `require "prism"` name one feature.
+    def canonical_feature(name)
+      name.sub(/\.(so|bundle|rb)\z/, "")
+    end
+
     def symbol_array(names)
       slot = f.slot
       at = addr_of(slot)
@@ -1944,7 +1990,7 @@ module Ze0
     # The verbs that bring another file's statements into the program.
     # ze0 compiles one file, so each would run as an ordinary send and
     # then fail -- or, for `autoload`, answer a constant ruby resolves.
-    LOAD_VERBS = %i[require load autoload].freeze
+    LOAD_VERBS = %i[load autoload].freeze
 
     def lower_call(node)
       if node.receiver.nil? && kind == :class_body
@@ -1956,6 +2002,7 @@ module Ze0
       if node.receiver.nil? && LOAD_VERBS.include?(node.name)
         raise Unsupported.new(node, "`#{node.name}`")
       end
+      return lower_require(node) if node.receiver.nil? && node.name == :require
       # The splice consumes every `require_relative` written as a
       # top-level statement. One written anywhere else would have to load
       # at run time, which a compiled program cannot do.

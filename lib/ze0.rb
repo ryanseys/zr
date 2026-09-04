@@ -13,7 +13,7 @@ require_relative "ze0/lower"
 
 module Ze0
   # Compile `source` (from `file`) to `[clif text, zeodata text]`.
-  def self.compile(source, file)
+  def self.compile(source, file, roots = [])
     result = Prism.parse(source, filepath: file)
     unless result.errors.empty?
       e = result.errors.first
@@ -23,7 +23,7 @@ module Ze0
     end
 
     program = Program.new(file, frozen_string_literal: frozen_string_literal?(result))
-    Lower.new(program).lower(result.value)
+    Lower.new(program, roots).lower(result.value)
     [program.clif, program.zeodata]
   end
 

@@ -24,6 +24,13 @@ module Ze0
       @defs = []
       @classes = []
       @functions = []
+      @features = []
+    end
+
+    # A require-gated builtin feature this program loads. The backend
+    # registers the classes it gates, concealed until the `require` runs.
+    def add_feature(name)
+      @features << name unless @features.include?(name)
     end
 
     # `bytes`' offset in the rodata blob (deduplicated).
@@ -137,6 +144,7 @@ module Ze0
         end,
         # A dynamic send can reach any class, and ze0 has no reachability
         # analysis to say which; every table this build carries stays.
+        "features" => @features,
         "class_tables" => ["@all"],
         "reg" => ["@boot"],
       ) + "\n"
