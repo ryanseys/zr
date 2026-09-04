@@ -3112,13 +3112,12 @@ module Ze0
 
     # ---- calls ----
 
-    # The `Module` methods a class body calls to change what the class IS.
-    # ze0 registers a class statically, so each of these would answer
-    # differently from ruby rather than not at all: `attr_reader :x` left
-    # `x` undefined, and `private` left a method public.
-    CLASS_MACROS = %i[
-      refine using
-    ].freeze
+    # `using` turns a refinement ON for the rest of the LEXICAL scope, and
+    # which call sites see it is a compile-time fact the runtime is told
+    # rather than one it can work out from a send. `refine` alone is an
+    # ordinary call: it builds the refinement module, whose methods stay
+    # invisible until something turns them on.
+    CLASS_MACROS = %i[using].freeze
 
     # The class-body macros the declaration pass has already answered.
     # Nothing is dispatched here: what is left is the VALUE ruby gives the
@@ -3265,8 +3264,9 @@ module Ze0
 
     def lower_call(node)
       @program.eval_install! if EVAL_VERBS.include?(node.name) && node.block.nil?
+      raise Unsupported.new(node, "a `#{node.name}`") if node.receiver.nil? && CLASS_MACROS.include?(node.name)
+
       if node.receiver.nil? && kind == :class_body
-        raise Unsupported.new(node, "`#{node.name}` in a class body") if CLASS_MACROS.include?(node.name)
 
         macro = lower_class_macro(node)
         return macro if macro
