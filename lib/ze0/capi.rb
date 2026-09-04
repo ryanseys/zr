@@ -58,6 +58,9 @@ module Ze0
       "zeo_rt_signal_set" => [["i8 uext", "i64"], nil],
       "zeo_rt_signal_kind" => [[], "i8"],
       "zeo_rt_signal_take" => [%w[i64], "i8"],
+      "zeo_rt_rescue_matches_any" => [%w[i64 i64 i64], "i32"],
+      "zeo_rt_handling_push" => [%w[i64], nil],
+      "zeo_rt_handling_pop" => [[], nil],
       "zeo_rt_cell_new" => [%w[i64], "i64"],
       "zeo_rt_cell_load" => [%w[i64 i64], nil],
       "zeo_rt_cell_store" => [%w[i64 i64], nil],
@@ -120,5 +123,6 @@ module Ze0
     # `zeo_abi::abi::SignalKind::Break`: what a `break` out of a block
     # arms and the sending site takes.
     SIGNAL_BREAK = 1
+    SIGNAL_RAISE = 6
   end
 end

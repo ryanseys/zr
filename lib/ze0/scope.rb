@@ -42,6 +42,9 @@ module Ze0
     # The shared exits: a raise, a normal finish, and the single block that
     # releases the locals and answers `status`.
     attr_accessor :raise_block, :done_block, :exit_block, :status
+    # How many `rescue` clauses this path is inside. `$!` is a stack, so a
+    # jump out of one owes a pop per clause it leaves.
+    attr_accessor :handling_depth
     # The `def` this body is, which `super` needs: the class it was
     # WRITTEN in and the parameters a bare `super` forwards. nil in every
     # other kind of scope.
@@ -56,6 +59,7 @@ module Ze0
       @kind = kind
       @locals = {}
       @block_depth = 0
+      @handling_depth = 0
       @owner = Names::OBJECT
     end
 

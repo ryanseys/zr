@@ -960,11 +960,11 @@ module Ze0
     # ---- statements ----
 
     # The statements of a body. A `def` or block written with its own
-    # `rescue` clause carries a `BeginNode` here instead, and dropping
-    # its statements would answer nil where ruby runs them.
+    # `rescue` clause carries a `BeginNode` here instead of a list, and it
+    # lowers as the one statement it is.
     def body_statements(node)
       return [] if node.nil?
-      raise Unsupported.new(node, "a rescue clause on a def or block") unless node.is_a?(Prism::StatementsNode)
+      return [node] if node.is_a?(Prism::BeginNode)
 
       node.body
     end
@@ -1042,6 +1042,7 @@ module Ze0
       when Prism::ForwardingSuperNode then lower_super(node, nil)
       when Prism::NextNode then lower_next(node)
       when Prism::BreakNode then lower_break(node)
+      when Prism::BeginNode then lower_begin(node)
       when Prism::ParenthesesNode then lower_statements(node.body)
       when Prism::StatementsNode then lower_statements(node)
       when Prism::ElseNode then lower_statements(node.statements)
@@ -2117,6 +2118,129 @@ module Ze0
       Operand.new(slot, true, false)
     end
 
+    # `begin ... end`. Without a clause it is a bare grouping and the
+    # statements are the whole of it.
+    #
+    # With one, the body lowers against a landing of its own -- the one
+    # piece of state a `begin` swaps -- and every fallible call inside it
+    # arrives there. A Raise is taken and matched against the clauses;
+    # every other signal is a real unwind and propagates untouched, which
+    # is safe because `zeo_rt_signal_take` only consumes the payload of a
+    # Raise, Break, Next or Return.
+    def lower_begin(node)
+      raise Unsupported.new(node.ensure_clause, "an ensure clause") if node.ensure_clause
+      return lower_statements(node.statements) if node.rescue_clause.nil?
+
+      outer = scope.raise_block
+      landing, done = f.label, f.label
+      result = f.slot
+      store_nil(addr_of(result))
+
+      scope.raise_block = landing
+      value = lower_statements(node.statements)
+      value = lower_statements(node.else_clause&.statements) if node.else_clause
+      scope.raise_block = outer
+      unless f.terminated?
+        move(value, addr_of(result))
+        f.ins "jump #{done}"
+      end
+
+      f.switch(landing)
+      lower_rescue_clauses(node.rescue_clause, outer, result, done)
+      f.switch(done)
+      Operand.new(result, true, false)
+    end
+
+    # The begin's landing: take the exception, try each clause in turn,
+    # and re-arm the Raise when none matched.
+    def lower_rescue_clauses(clause, outer, result, done)
+      raised = f.val("icmp eq #{f.val("call #{f.import("zeo_rt_signal_kind")}()")}, #{f.iconst("i8", Capi::SIGNAL_RAISE)}")
+      take = f.label
+      f.ins "brif #{raised}, #{take}, #{outer}"
+      f.switch(take)
+      exc = f.slot
+      f.val("call #{f.import("zeo_rt_signal_take")}(#{addr_of(exc)})")
+      # The pool owns it from here; every use below borrows.
+      borrow(Operand.new(exc, true, false))
+
+      while clause
+        matched = clause_matches(clause, exc, outer)
+        body, nxt = f.label, f.label
+        f.ins "brif #{matched}, #{body}, #{nxt}"
+        f.switch(body)
+        lower_rescue_body(clause, exc, outer, result, done)
+        f.switch(nxt)
+        clause = clause.subsequent
+      end
+
+      # Nothing matched: the pool keeps its own reference, so the signal
+      # takes a fresh one before it is re-armed.
+      retain_if_heap(addr_of(exc))
+      f.ins "call #{f.import("zeo_rt_signal_set")}(#{f.iconst("i8", Capi::SIGNAL_RAISE)}, #{addr_of(exc)})"
+      f.ins "jump #{outer}"
+    end
+
+    # Whether one clause catches this exception. `rescue` matches with
+    # `Module#===`, so the listed classes are ordinary expressions and a
+    # bare clause is `StandardError` read like any other constant -- no
+    # class id is needed, and a builtin matches the same as a declared one.
+    def clause_matches(clause, exc, outer)
+      listed = clause.exceptions.map do |e|
+        raise Unsupported.new(e, "a splat in a rescue clause") if e.is_a?(Prism::SplatNode)
+
+        lower_expr(e)
+      end
+      listed = [constant_named("StandardError")] if listed.empty?
+      hit = f.slot(1)
+      status = f.val(
+        "call #{f.import("zeo_rt_rescue_matches_any")}(#{addr_of(exc)}, " \
+        "#{super_array(listed)}, #{addr_of(hit)})",
+      )
+      # A matcher can raise -- an undefined constant, or a listed value
+      # that is not a Module -- and that raise leaves this begin.
+      cont = f.label
+      f.ins "brif #{status}, #{outer}, #{cont}"
+      f.switch(cont)
+      f.val("load.i8 notrap aligned #{addr_of(hit)}")
+    end
+
+    # One clause's body, with `$!` held for its whole run. The pop happens
+    # on both exits, and `lower_return` and friends pay what they owe.
+    def lower_rescue_body(clause, exc, outer, result, done)
+      f.ins "call #{f.import("zeo_rt_handling_push")}(#{addr_of(exc)})"
+      scope.handling_depth += 1
+      bind_rescue_reference(clause.reference, exc)
+      clause_land = f.label
+      scope.raise_block = clause_land
+      value = lower_statements(clause.statements)
+      scope.raise_block = outer
+      unless f.terminated?
+        move(value, addr_of(result))
+        f.ins "call #{f.import("zeo_rt_handling_pop")}()"
+        f.ins "jump #{done}"
+      end
+      scope.handling_depth -= 1
+      f.switch(clause_land)
+      f.ins "call #{f.import("zeo_rt_handling_pop")}()"
+      f.ins "jump #{outer}"
+    end
+
+    # `rescue Foo => e` binds the exception, borrowed: the pool owns it.
+    def bind_rescue_reference(node, exc)
+      case node
+      when nil then nil
+      when Prism::LocalVariableTargetNode
+        store_local(local(node), Operand.new(exc, false, false))
+      else raise Unsupported.new(node, "a rescue binding of that shape")
+      end
+    end
+
+    # The `handling_pop`s a direct jump out of this scope owes. The
+    # lexical counter stays put: the pops are per path.
+    def pop_handling
+      scope.handling_depth.times { f.ins "call #{f.import("zeo_rt_handling_pop")}()" }
+    end
+
     # `super` resumes the MRO walk above the class the `def` was WRITTEN
     # in, never above the receiver's own class. Every class contributes a
     # row per instance method it writes, which the backend derives from
@@ -2223,6 +2347,7 @@ module Ze0
       raise Unsupported.new(node, "a next outside a block") unless kind == :block
 
       move(one_value(node), out)
+      pop_handling
       f.ins "jump #{done_block}"
       unreachable
     end
@@ -2254,7 +2379,10 @@ module Ze0
     def lower_return(node)
       raise Unsupported.new(node, "a return outside a def") unless kind == :body
 
+      # The value is read BEFORE `$!` unwinds, so `return $!.message`
+      # inside a rescue clause answers the one it caught.
       move(one_value(node), out)
+      pop_handling
       f.ins "jump #{done_block}"
       unreachable
     end
