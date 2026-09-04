@@ -529,8 +529,10 @@ module Ze0
       owned.select { |n| mentioned.key?(n) }
     end
 
+    # A literal block is a `BlockNode` and `->` is a `LambdaNode`. Both
+    # bodies outlive the frame that wrote them, so both box what they name.
     def blocks_under(node, found = [])
-      found << node if node.is_a?(Prism::BlockNode)
+      found << node if node.is_a?(Prism::BlockNode) || node.is_a?(Prism::LambdaNode)
       node.compact_child_nodes.each { |c| blocks_under(c, found) }
       found
     end
