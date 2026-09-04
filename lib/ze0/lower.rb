@@ -345,15 +345,39 @@ module Ze0
 
     def superclass_of(node, owner, kind)
       return Names::OBJECT if kind == "module" || node.superclass.nil?
-      unless node.superclass.is_a?(Prism::ConstantReadNode)
-        raise Unsupported.new(node.superclass, "a superclass of that shape")
-      end
+
+      written = written_class_name(node.superclass)
+      raise Unsupported.new(node.superclass, "a superclass of that shape") if written.nil?
 
       # A name this program does not declare goes through as written: the
       # backend resolves it against the builtin exceptions, whose ids it
       # owns, and refuses every other builtin -- `class Foo < String` is a
       # different native shape.
-      resolve_class(owner, node.superclass.name.to_s) || node.superclass.name.to_s
+      declared_class(owner, node.superclass) || written
+    end
+
+    # A superclass as it was WRITTEN, or nil for a shape that is not a
+    # name at all: `Struct.new(:a)`, a variable, an anchored `::Foo`.
+    def written_class_name(node)
+      case node
+      when Prism::ConstantReadNode then node.name.to_s
+      when Prism::ConstantPathNode
+        up = node.parent && written_class_name(node.parent)
+        "#{up}::#{node.name}" if up
+      end
+    end
+
+    # The row this program declares for that name, resolved outward from
+    # the class the `class` statement is written in, or nil when no row
+    # matches. A path's own scope has to be declared too: `A::B` names a
+    # row only when this program wrote both halves.
+    def declared_class(owner, node)
+      case node
+      when Prism::ConstantReadNode then resolve_class(owner, node.name.to_s)
+      when Prism::ConstantPathNode
+        up = node.parent && declared_class(owner, node.parent)
+        "#{up}::#{node.name}" if up && @classes.key?("#{up}::#{node.name}")
+      end
     end
 
     # A class name as written, resolved outward from `owner`: `Lower`
