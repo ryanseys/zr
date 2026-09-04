@@ -961,6 +961,86 @@ module Ze0
       Operand.new(result, true, false)
     end
 
+    # `class << obj` opens the object's SINGLETON class, which no row can
+    # name: a singleton is minted per object at run time. So the body is
+    # not lowered as a class body at all. Each `def` in it becomes
+    # `obj.define_singleton_method(:name, ->(...) { })` -- the same shape
+    # the emitter desugars this statement to -- and a `private` names the
+    # methods below it on `obj.singleton_class`, which is how ruby spells
+    # a private singleton method.
+    #
+    # The receiver is evaluated ONCE, so a side-effecting one runs the
+    # number of times it is written.
+    def lower_singleton_class(node)
+      recv = lower_expr(node.expression)
+      # Pooled up front: the receiver is read once per statement in the
+      # body, and the frame is what releases it.
+      borrow(recv)
+      mode = "public"
+      value = literal_nil
+      body_statements(node.body).each do |s|
+        raise Unsupported.new(s, "a statement in a `class << obj` body") unless s.is_a?(Prism::DefNode) ||
+                                                                               visibility_verb?(s)
+
+        if s.is_a?(Prism::DefNode)
+          value = define_singleton(recv, s, mode)
+          next
+        end
+        mode, value = singleton_visibility(recv, s, mode)
+      end
+      value
+    end
+
+    def visibility_verb?(node)
+      node.is_a?(Prism::CallNode) && node.receiver.nil? && VISIBILITY.include?(node.name.to_s)
+    end
+
+    # One `def` in a `class << obj` body, installed on the object and
+    # marked when the body is in a non-public mode.
+    def define_singleton(recv, node, mode)
+      raise Unsupported.new(node, "a def with a receiver") if node.receiver
+
+      send_value(recv, :define_singleton_method, [literal_symbol(node.name), method_proc(node)])
+      mark_singleton(recv, node.name.to_s, mode) unless mode == "public"
+      literal_symbol(node.name)
+    end
+
+    # A `private`/`public`/`protected` in a `class << obj` body: bare, it
+    # is the mode the `def`s below it are written in; with names, it
+    # retags those where it stands.
+    def singleton_visibility(recv, node, mode)
+      verb = node.name.to_s
+      args = node.arguments&.arguments || []
+      return [verb, literal_nil] if args.empty?
+
+      value = literal_nil
+      args.each do |a|
+        if a.is_a?(Prism::DefNode)
+          value = define_singleton(recv, a, verb)
+          next
+        end
+        accessor_names(node, [a]).each { |n| mark_singleton(recv, n, verb) }
+        value = lower_expr(a)
+      end
+      [mode, value]
+    end
+
+    # `obj.singleton_class.send(:private, :name)`, which is how ruby marks
+    # one singleton method. It goes through `send` because `Module#private`
+    # is itself private, so an explicit receiver would be refused.
+    def mark_singleton(recv, name, verb)
+      singleton = send_value(recv, :singleton_class)
+      send_value(singleton, :send, [literal_symbol(verb), literal_symbol(name)])
+    end
+
+    # A lambda-shaped Proc over a `def`'s body, as an owned value.
+    def method_proc(node)
+      body, captures = lower_method_body(node)
+      slot = f.slot
+      copy(proc_new(body, captures, node, true), addr_of(slot))
+      Operand.new(slot, true, false)
+    end
+
     # Every unit's statements, in load order, as one function. A unit is a
     # run of statements from one file, so the same file comes back once
     # per `require_relative` written between its own statements.
@@ -1324,6 +1404,7 @@ module Ze0
       when Prism::CaseNode then lower_case(node)
       when Prism::LambdaNode then lower_lambda(node)
       when Prism::ClassNode, Prism::ModuleNode then lower_class_statement(node)
+      when Prism::SingletonClassNode then lower_singleton_class(node)
       when Prism::DefNode then declared_def(node)
       when Prism::SelfNode then Operand.new(self_operand.at, false, self_operand.immediate)
       when Prism::CallNode then lower_call(node)
@@ -1568,7 +1649,8 @@ module Ze0
       )
     end
 
-    def send_value(recv, name, operands)
+    # An ordinary send with no keywords and no block, as an owned value.
+    def send_value(recv, name, operands = [])
       slot = f.slot
       dynamic_send(borrow(recv), name, operands, addr_of(slot))
       Operand.new(slot, true, false)
