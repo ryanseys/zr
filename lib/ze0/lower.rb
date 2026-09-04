@@ -3119,6 +3119,12 @@ module Ze0
     # invisible until something turns them on.
     CLASS_MACROS = %i[using].freeze
 
+    # The Kernel names that read the CALLER's scope. A method row cannot
+    # see it, so the runtime refuses them through a send and the compile
+    # has to answer them itself. ze0 answers `block_given?`; the other
+    # two would need a Binding over this frame's slots.
+    SCOPE_INTRINSICS = %i[binding local_variables].freeze
+
     # The class-body macros the declaration pass has already answered.
     # Nothing is dispatched here: what is left is the VALUE ruby gives the
     # statement, and, for a positional `private :x`, the retag itself --
@@ -3264,7 +3270,9 @@ module Ze0
 
     def lower_call(node)
       @program.eval_install! if EVAL_VERBS.include?(node.name) && node.block.nil?
-      raise Unsupported.new(node, "a `#{node.name}`") if node.receiver.nil? && CLASS_MACROS.include?(node.name)
+      if node.receiver.nil? && (CLASS_MACROS + SCOPE_INTRINSICS).include?(node.name)
+        raise Unsupported.new(node, "a `#{node.name}`")
+      end
 
       if node.receiver.nil? && kind == :class_body
 
