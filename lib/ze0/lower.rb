@@ -52,6 +52,7 @@ module Ze0
       # pass reached, and only a `def` written somewhere the pass does not
       # go is refused.
       @declared_defs = {}
+      @declared_macros = {}
       @classes = {}
       @scopes = []
       @blocks = 0
@@ -334,12 +335,23 @@ module Ze0
     # refusal `lower_call` gives it.
     ACCESSORS = { attr_reader: :reader, attr_writer: :writer, attr_accessor: :accessor }.freeze
     VISIBILITY = %w[public private protected].freeze
+    # Not a visibility but a mode over the `def`s below it, like a bare
+    # `private`: each one becomes a method of the module AND a private
+    # instance method the includer gets.
+    MODULE_FUNCTION = "module_function"
 
     def declare_macro(node, owner, visibility)
       return visibility if owner == Names::OBJECT || !node.receiver.nil?
 
       name = node.name.to_s
       args = node.arguments&.arguments || []
+      if name == MODULE_FUNCTION
+        @declared_macros[node.object_id] = true
+        return MODULE_FUNCTION if args.empty?
+
+        accessor_names(node, args).each { |n| declare_module_function(node, owner, n) }
+        return visibility
+      end
       if VISIBILITY.include?(name)
         # `private :x` is positional and retags one name where it is
         # written; only the bare verb is a mode. `private def x` declares
@@ -350,6 +362,7 @@ module Ze0
         return visibility
       end
       if name == "private_constant"
+        @declared_macros[node.object_id] = true
         names = accessor_names(node, args)
         names.each { |n| @private_constants[n] = true }
         @classes.fetch(owner)[:private_constants].concat(names)
@@ -359,6 +372,7 @@ module Ze0
       kind = ACCESSORS[node.name]
       return visibility unless kind
 
+      @declared_macros[node.object_id] = true
       accessor_names(node, args).each { |n| declare_accessor(node, owner, n, kind, visibility) }
       visibility
     end
@@ -684,20 +698,50 @@ module Ze0
       @declared_defs[node.object_id] = true
 
       params = parse_params(node.parameters)
-      @defs[owner][key] = {
+      definition = {
         params: params, node: node, block: params.takes_block?(uses_block?(node.body)),
         owner: owner, singleton: singleton, file: @file, cref: @cref.dup,
       }
+      @defs[owner][key] = definition
+      mixin = visibility == MODULE_FUNCTION
+      add_def_row(definition, singleton: singleton, visibility: mixin ? "private" : visibility)
+      module_function_row(definition) if mixin
+    end
+
+    # One `Def` row from a definition the declaration pass holds.
+    def add_def_row(definition, singleton:, visibility:, tramp: nil)
+      owner, node = definition[:owner], definition[:node]
       @program.add_def(
         name: node.name,
-        tramp: trampoline_of(owner, node.name, singleton),
-        params: params.rows,
+        tramp: tramp || trampoline_of(owner, node.name, singleton),
+        params: definition[:params].rows,
         line: node.location.start_line,
-        file: @file,
+        file: definition[:file],
         owner: owner == Names::OBJECT ? "" : owner,
         singleton: singleton,
         visibility: visibility,
       )
+    end
+
+    # The module's own half of a `module_function`. One body serves both
+    # halves, so this row names the INSTANCE trampoline.
+    def module_function_row(definition)
+      owner, node = definition[:owner], definition[:node]
+      add_def_row(
+        definition, singleton: true, visibility: "public",
+        tramp: trampoline_of(owner, node.name, false)
+      )
+    end
+
+    # `module_function :name`, which names a `def` already written above
+    # it. Ruby answers NameError for a name the module does not carry,
+    # and ze0 refuses one it cannot see rather than guessing.
+    def declare_module_function(node, owner, name)
+      definition = @defs[owner][[name.to_sym, false]]
+      raise Unsupported.new(node, "a `module_function` of a method this body does not define") unless definition
+
+      add_def_row(definition, singleton: false, visibility: "private")
+      module_function_row(definition)
     end
 
     # A `def` answers its own name. The declaration pass walks only the
@@ -2443,9 +2487,6 @@ module Ze0
     # differently from ruby rather than not at all: `attr_reader :x` left
     # `x` undefined, and `private` left a method public.
     CLASS_MACROS = %i[
-      module_function define_method
-      public_constant private_class_method public_class_method
-      undef_method remove_method const_set class_eval module_eval instance_eval
       refine using
     ].freeze
 
@@ -2456,10 +2497,19 @@ module Ze0
     def lower_class_macro(node)
       args = node.arguments&.arguments || []
       name = node.name.to_s
+      declared = @declared_macros[node.object_id]
       if name == "private_constant"
+        raise Unsupported.new(node, "`#{name}` outside the class body's statements") unless declared
+
         # The class row carries the names; nothing runs here.
         accessor_names(node, args)
         return Operand.new(self_operand.at, false, self_operand.immediate)
+      end
+      if name == MODULE_FUNCTION
+        raise Unsupported.new(node, "`#{name}` outside the class body's statements") unless declared
+        return literal_nil if args.empty?
+
+        return symbol_answer(accessor_names(node, args))
       end
       if VISIBILITY.include?(name)
         return literal_nil if args.empty?
@@ -2475,13 +2525,14 @@ module Ze0
             "call #{f.import("zeo_rt_runtime_set_visibility")}(#{cid}, #{sym_id(n)}, #{verb})",
           ))
         end
-        return names.size == 1 ? literal_symbol(names.first) : symbol_array(names)
+        return symbol_answer(names)
       end
 
       return lower_alias(node, args[0], args[1]) if name == "alias_method" && args.size == 2
 
       kind = ACCESSORS[node.name]
       return nil unless kind
+      raise Unsupported.new(node, "`#{name}` outside the class body's statements") unless declared
 
       defined = accessor_names(node, args).flat_map do |n|
         (kind == :writer ? [] : [n]) + (kind == :reader ? [] : ["#{n}="])
@@ -2552,6 +2603,12 @@ module Ze0
       name.sub(/\.(so|bundle|rb)\z/, "")
     end
 
+    # What `private`, `module_function` and their kin answer: one name is
+    # the Symbol itself, and several are an Array of them.
+    def symbol_answer(names)
+      names.size == 1 ? literal_symbol(names.first) : symbol_array(names)
+    end
+
     def symbol_array(names)
       slot = f.slot
       at = addr_of(slot)
@@ -2566,7 +2623,16 @@ module Ze0
     # then fail.
     LOAD_VERBS = %i[load].freeze
 
+    # The verbs that run a STRING of ruby. zeo links the eval compiler
+    # only into a program it can see reach `eval`, and a sidecar has no
+    # way to ask for it, so the block form is the whole of what ze0
+    # carries.
+    EVAL_VERBS = %i[eval class_eval module_eval instance_eval].freeze
+
     def lower_call(node)
+      if EVAL_VERBS.include?(node.name) && node.block.nil?
+        raise Unsupported.new(node, "`#{node.name}` of a string")
+      end
       if node.receiver.nil? && kind == :class_body
         raise Unsupported.new(node, "`#{node.name}` in a class body") if CLASS_MACROS.include?(node.name)
 
