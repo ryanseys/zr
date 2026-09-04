@@ -83,6 +83,14 @@ module Ze0
       # two each is. Filled before the declaration pass, so a superclass
       # written in a file that pass reads later still resolves.
       @class_kinds = {}
+      # Whether the program asks a PROC for its binding. Every scope that
+      # makes one then keeps its names in cells, because the proc's own
+      # locals do not exist until it runs.
+      @proc_binding = false
+      # Whether the main file names `TOPLEVEL_BINDING`. The constant is
+      # installed either way; naming it is what makes it carry the file's
+      # own locals rather than `main` alone.
+      @toplevel_binding = false
       # The constant LEAVES a literal `autoload` names. A read of one has
       # to run the target first, and a class the target defines is in the
       # dispatch tables from startup, so nothing can miss to ask.
@@ -114,6 +122,8 @@ module Ze0
       all = units + deferred.each_value.flat_map { |unit| unit[:runs] }
       all.each { |_file, statements| statements.each { |s| note_assigned_constants(s) } }
       all.each { |file, statements| with_file(file) { statements.each { |s| note_class_kinds(s) } } }
+      @proc_binding = all.any? { |_file, statements| statements.any? { |s| asks_a_proc?(s) } }
+      @toplevel_binding = units.any? { |_file, statements| statements.any? { |s| names_toplevel_binding?(s) } }
       all.each { |file, statements| with_file(file) { declare(statements, Names::OBJECT) } }
       @defs.each_value do |by_key|
         by_key.each_value { |d| with_file(d[:file]) { lower_def(d) } }
@@ -775,6 +785,12 @@ module Ze0
       @cref.shift
     end
 
+    def names_toplevel_binding?(node)
+      return true if node.is_a?(Prism::ConstantReadNode) && node.name == :TOPLEVEL_BINDING
+
+      node.compact_child_nodes.any? { |c| names_toplevel_binding?(c) }
+    end
+
     # Every constant this program ASSIGNS, whether or not it holds a
     # class. A superclass naming one is a value only the run time knows,
     # where a name the program neither declares nor assigns is the
@@ -1285,6 +1301,11 @@ module Ze0
     # that writes one names none of them, and the values still have to
     # outlive the frame, so such a block counts as mentioning them all.
     def captured_names(nodes, owned, forwarded = [])
+      # A cell is the only storage a `binding` can share, so a body that
+      # takes one boxes every name it has rather than only the names a
+      # block reads.
+      return owned if nodes.any? { |n| takes_binding?(n) }
+
       mentioned = {}
       nodes.each do |n|
         blocks_under(n).each do |b|
@@ -1294,6 +1315,50 @@ module Ze0
       end
       owned.select { |n| mentioned.key?(n) }
     end
+
+    # Whether a `binding` or `local_variables` written under `node` reports
+    # THIS scope's names. A nested `def` opens a scope of its own and
+    # reports none of them; a block shares them, so one written there
+    # counts.
+    def takes_binding?(node)
+      return false if node.is_a?(Prism::DefNode)
+      return true if scope_intrinsic?(node) || implicit_binding_eval?(node)
+      # A proc the program may ask for its binding carries THIS scope's
+      # names, because its own do not exist until it runs.
+      return true if @proc_binding && BLOCK_BODIES.any? { |k| node.is_a?(k) }
+
+      node.compact_child_nodes.any? { |c| takes_binding?(c) }
+    end
+
+    def scope_intrinsic?(node)
+      node.is_a?(Prism::CallNode) && node.receiver.nil? &&
+        SCOPE_INTRINSICS.include?(node.name) && node.arguments.nil? && node.block.nil?
+    end
+
+    # `eval(src)` and `eval(src, nil)` run in the CALLER's binding, which
+    # is this scope's. An explicit one is the caller's answer, not this.
+    def implicit_binding_eval?(node)
+      return false unless node.is_a?(Prism::CallNode) && node.receiver.nil? && node.name == :eval
+      return false unless node.block.nil?
+
+      args = node.arguments&.arguments || []
+      (1..4).cover?(args.size) && (args.size == 1 || args[1].is_a?(Prism::NilNode))
+    end
+
+    # Whether `node` asks a proc for its binding: `pr.binding`, or the
+    # same name sent. A `binding` with no receiver is this scope's own and
+    # is not one.
+    def asks_a_proc?(node)
+      if node.is_a?(Prism::CallNode) && node.receiver
+        args = node.arguments&.arguments || []
+        return true if node.name == :binding && args.empty?
+        return true if SEND_VERBS.include?(node.name) && args.first.is_a?(Prism::SymbolNode) &&
+                       args.first.unescaped == "binding"
+      end
+      node.compact_child_nodes.any? { |c| asks_a_proc?(c) }
+    end
+
+    SEND_VERBS = %i[send __send__ public_send].freeze
 
     # A literal block is a `BlockNode`, `->` is a `LambdaNode` and an
     # `END { }` is a `PostExecutionNode`. Every one of those bodies
@@ -1996,6 +2061,7 @@ module Ze0
         f.ins "call #{f.import("zeo_rt_main_object")}(#{addr_of(self_slot)})"
         f.ins "call #{f.import("zeo_rt_pool_push")}(#{addr_of(self_slot)})"
         scope.self_operand = Operand.new(self_slot, false, false)
+        install_toplevel_binding if symbol == Names::TOPLEVEL
         units.each do |file, run, chain|
           scope.locals = scope.locals_of(file)
           with_file(file) { lower_unit_run(file, run, chain) }
@@ -2012,8 +2078,32 @@ module Ze0
     def declare_unit(file, statements)
       scope.locals = scope.locals_of(file)
       names = @unit_locals.fetch(file)
-      boxed = captured_names(statements, names)
+      boxed = main_binding?(file) ? names : captured_names(statements, names)
       names.each { |n| declare_local(n, boxed: boxed.include?(n)) }
+    end
+
+    # Whether `file` is the one `TOPLEVEL_BINDING` reports the locals of.
+    def main_binding?(file) = @toplevel_binding && file == @program.file
+
+    # `TOPLEVEL_BINDING` names `<main>`'s own frame, and CRuby reports its
+    # location as `["<main>", 0]`. Installed whatever the program does, so
+    # `Object.constants` lists it.
+    def install_toplevel_binding
+      scope.locals = scope.locals_of(@program.file)
+      names = named_locals
+      cells, = cell_array(names)
+      strs, count = str_array(names)
+      main, main_len = rodata_ref("<main>")
+      slot = f.slot
+      at = addr_of(slot)
+      f.ins "call #{f.import("zeo_rt_binding_new")}(#{borrow(self_operand)}, #{strs}, #{cells}, " \
+            "#{count}, #{main}, #{main_len}, #{f.iconst("i32", 0)}, " \
+            "#{f.iconst("i32", Capi::MAIN_BOX)}, #{f.iconst("i32", -1)}, #{at})"
+      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      nptr, nlen = rodata_ref("TOPLEVEL_BINDING")
+      f.ins "call #{f.import("zeo_rt_const_set_at")}(#{f.iconst("i32", Capi::OBJECT_CLASS)}, " \
+            "#{nptr}, #{nlen}, #{at}, #{main}, #{main_len}, #{f.iconst("i32", 0)}, " \
+            "#{f.iconst("i32", Capi::MAIN_BOX)})"
     end
 
     # One flag per file that writes a top-level `return`, so every run of
@@ -2311,8 +2401,32 @@ module Ze0
     # the order is the same on both sides of the `ProcEnv`.
     def block_captures(node, names)
       own = names + node.locals
+      # A `binding` taken in the block reports the enclosing names too, so
+      # the block carries every one of them whether it reads them or not.
+      # In the ENCLOSING scope's own order, which is the order a binding
+      # taken in the block reports them in.
+      return named_locals - own if takes_binding?(node)
+
       read = names_under(node).keys + bare_super_names(node)
       (read - own).select { |n| locals.key?(n) }.sort
+    end
+
+    # A name a program could have written. An anonymous parameter binds a
+    # slot under its own sigil, and a destructured one under its position
+    # (`(0)`); ruby reports neither.
+    WRITTEN_NAME = /\A[a-z_][A-Za-z0-9_]*[?!]?\z/
+
+    # The scope's names as ruby reports them: its OWN first, in the order
+    # they were written, and then the enclosing names a block carries.
+    #
+    # A cell is the only storage a binding can share, so a name still in a
+    # slot is left out. Every scope that takes a binding has boxed all of
+    # them; the one that has not is `TOPLEVEL_BINDING` in a program that
+    # never names it, which is ruby's degraded form -- `self`, no locals.
+    def named_locals
+      shared = locals.select { |name, local| local.boxed? && WRITTEN_NAME.match?(name.to_s) }
+      own, carried = shared.partition { |_, local| !local.borrowed? }
+      (own + carried).map(&:first)
     end
 
     # A bare `super` written in a block forwards the enclosing method's
@@ -3651,9 +3765,65 @@ module Ze0
 
     # The Kernel names that read the CALLER's scope. A method row cannot
     # see it, so the runtime refuses them through a send and the compile
-    # has to answer them itself. ze0 answers `block_given?`; the other
-    # two would need a Binding over this frame's slots.
+    # answers them itself, out of the cells the scope's names live in.
     SCOPE_INTRINSICS = %i[binding local_variables].freeze
+
+    # `binding` and `local_variables`, both over the names THIS scope
+    # holds. Every one of them is in a cell -- `captured_names` saw the
+    # call and boxed them -- which is the storage the two can share.
+    def scope_intrinsic(node)
+      return symbol_array(named_locals.map(&:to_s)) if node.name == :local_variables
+
+      scope_binding(node)
+    end
+
+    # `eval` with the binding this scope stands for, written out: the
+    # method row cannot see the frame that called it.
+    def lower_implicit_eval(node)
+      args = node.arguments.arguments
+      operands = args.map.with_index do |a, i|
+        i == 1 ? scope_binding(node) : lower_expr(a)
+      end
+      operands.insert(1, scope_binding(node)) if args.size == 1
+      slot = f.slot
+      dynamic_send(borrow(self_operand), :eval, operands, addr_of(slot), explicit: false)
+      Operand.new(slot, true, false)
+    end
+
+    # A Binding over this scope's cells, taken at `node`'s line.
+    def scope_binding(node)
+      names = named_locals
+      cells, = cell_array(names)
+      strs, count = str_array(names)
+      fptr, flen = rodata_ref(@file)
+      slot = f.slot
+      f.ins "call #{f.import("zeo_rt_binding_new")}(#{borrow(self_operand)}, #{strs}, #{cells}, " \
+            "#{count}, #{fptr}, #{flen}, #{f.iconst("i32", node.location.start_line)}, " \
+            "#{f.iconst("i32", Capi::MAIN_BOX)}, #{binding_cref}, #{addr_of(slot)})"
+      Operand.new(slot, true, false)
+    end
+
+    # The class a constant read through the binding resolves against. A
+    # scope with no class body around it claims none, which is not the
+    # same as claiming `Object`.
+    def binding_cref
+      return f.iconst("i32", -1) if scope.definee.nil? || !keyed_class?(scope.definee)
+
+      class_id_of(scope.definee)
+    end
+
+    # `names` as an array of `Str` rows -- a rodata pointer and a length
+    # each -- which is the shape the runtime reads a name list in.
+    def str_array(names)
+      slot = f.slot([names.size * Capi::STR_BYTES, Capi::SLOT_BYTES].max)
+      names.each_with_index do |name, i|
+        ptr, len = rodata_ref(name.to_s)
+        at = i.zero? ? addr_of(slot) : f.stack_addr("#{slot}+#{i * Capi::STR_BYTES}")
+        f.ins "store notrap aligned #{ptr}, #{at}"
+        f.ins "store notrap aligned #{len}, #{at}+8"
+      end
+      [addr_of(slot), f.iconst("i64", names.size)]
+    end
 
     # The class-body macros the declaration pass has already answered.
     # Nothing is dispatched here: what is left is the VALUE ruby gives the
@@ -3820,9 +3990,11 @@ module Ze0
 
     def lower_call(node)
       @program.eval_install! if EVAL_VERBS.include?(node.name) && node.block.nil?
-      if node.receiver.nil? && (CLASS_MACROS + SCOPE_INTRINSICS).include?(node.name)
+      if node.receiver.nil? && CLASS_MACROS.include?(node.name)
         raise Unsupported.new(node, "a `#{node.name}`")
       end
+      return scope_intrinsic(node) if scope_intrinsic?(node)
+      return lower_implicit_eval(node) if implicit_binding_eval?(node)
 
       if node.receiver.nil? && kind == :class_body
 
@@ -4016,8 +4188,13 @@ module Ze0
       slot = f.slot
       null = f.iconst("i64", 0)
       lexical = yield_block || f.iconst("i64", 0)
+      # `Proc#binding` is the scope the proc was BUILT in. Only a program
+      # that can ask pays for it: without one the runtime raises ruby's
+      # own C-level-Proc ArgumentError, which is what a proc with no
+      # binding answers.
+      binding = @proc_binding ? borrow(scope_binding(node)) : null
       f.ins "call #{f.import("zeo_rt_proc_new")}(#{address}, #{cells}, #{n_cells}, " \
-            "#{borrow(self_operand)}, #{lexical}, #{null}, " \
+            "#{borrow(self_operand)}, #{lexical}, #{binding}, " \
             "#{f.iconst("i32", proc_arity(shape, lambda_shape))}, " \
             "#{f.iconst("i32", proc_flags(node, lambda_shape))}, " \
             "#{params}, #{n_params}, #{file}, #{file_len}, " \

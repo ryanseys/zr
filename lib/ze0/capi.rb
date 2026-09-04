@@ -52,6 +52,7 @@ module Ze0
       "zeo_rt_gvar_assign" => [%w[i32 i64 i64 i64], "i32"],
       "zeo_rt_autoload_touch" => [["i32", "i64", "i64"], "i32"],
       "zeo_rt_autoload_touch_value" => [%w[i64 i64 i64], "i32"],
+      "zeo_rt_binding_new" => [%w[i64 i64 i64 i64 i64 i64 i32 i32 i32 i64], nil],
       "zeo_rt_const_get_cref" => [["i64", "i64", "i64", "i64", "i64", "i64", "i8 uext", "i32", "i64"], "i32"],
       "zeo_rt_const_get_on_value" => [%w[i64 i64 i64 i64 i64 i64], "i32"],
       "zeo_rt_const_set_at" => [%w[i32 i64 i64 i64 i64 i64 i32 i32], nil],
@@ -158,6 +159,8 @@ module Ze0
 
     # A value slot: the tag byte, then the payload at +8.
     SLOT_BYTES = 24
+    # One `zeo_abi::abi::Str`: a rodata pointer, then its length.
+    STR_BYTES = 16
     # `zeo_abi`'s tags for the immediates the subset writes; anything at
     # or above HEAP is a refcounted object.
     TAG_NIL = 0

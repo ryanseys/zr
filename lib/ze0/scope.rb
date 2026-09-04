@@ -20,6 +20,7 @@ module Ze0
 
     def boxed? = !@cell.nil?
     def owns_cell? = @cell == :owned
+    def borrowed? = @cell == :borrowed
   end
 
   # One `while` or `until` being lowered, and where its two jumps go.
