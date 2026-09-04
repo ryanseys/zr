@@ -65,6 +65,10 @@ module Ze0
       # The top-level local names of each file the splice read. Each file
       # is its own scope in ruby, so each gets its own table of slots.
       @unit_locals = {}
+      # Every `autoload` read so far that no statement has reached, and
+      # the node each was written at, so a flushed unit names its line.
+      @autoloads = {}
+      @autoload_nodes = {}
       @roots = roots
     end
 
@@ -112,27 +116,77 @@ module Ze0
 
     def splice(statements, file, seen, units)
       run = []
-      deferred = []
+      mine = []
+      close = -> do
+        units << [file, run] unless run.empty?
+        run = []
+      end
+      splice_in = ->(node, path) do
+        close.call
+        read_unit(node, path, seen, units)
+      end
       statements.each do |s|
-        # An `autoload` anywhere under this statement names a file that
-        # PROVIDES its constant. Its unit goes in AFTER this file's own
-        # statements: that is where CRuby's first constant access would
-        # have reached it, and a unit is a run of TOP-LEVEL statements
-        # either way.
-        autoload_paths(s).each { |path| deferred << [s, path] }
+        mine.concat(register_autoloads(s))
+        # A pending `autoload` whose constant this statement reaches goes
+        # in BEFORE it, which is where CRuby's own first access would have
+        # loaded the file. A unit is a run of TOP-LEVEL statements, so the
+        # run so far closes first.
+        reached_autoloads(s).each { |path| splice_in.call(s, path) }
         target = required_file(s, file)
         if target.nil?
           run << s
           next
         end
 
-        units << [file, run] unless run.empty?
-        run = []
-        read_unit(s, target, seen, units)
+        splice_in.call(s, target)
       end
-      units << [file, run] unless run.empty?
-      deferred.each { |node, path| read_unit(node, path, seen, units) }
+      close.call
+      # An `autoload` no statement reached still names a file this program
+      # has to carry, and the end of the file that wrote it is where it
+      # costs the least: everything the file itself declares is in place,
+      # and nothing that requires the file has run yet.
+      #
+      # This is ze0's standing divergence, and zeo's own
+      # (`parse/loader/mod.rs`): the file runs even though the constant is
+      # never referenced, because there are no lazy units.
+      mine.each do |name|
+        path = @autoloads.delete(name)
+        read_unit(@autoload_nodes.fetch(name), path, seen, units) if path
+      end
     end
+
+    # Every `autoload` under `node`, filed by the constant it provides,
+    # and the names it added. A splice removes the entry, so each file
+    # goes in once.
+    def register_autoloads(node, added = [])
+      if autoload_call?(node) && (path = autoload_target(node))
+        name = autoload_name(node)
+        added << name unless @autoloads.key?(name)
+        @autoloads[name] ||= path
+      end
+      node.compact_child_nodes.each { |c| register_autoloads(c, added) }
+      added
+    end
+
+    # The pending autoload files `node` reaches while it RUNS, in the
+    # order the constants are written.
+    def reached_autoloads(node)
+      load_time_constants(node).uniq.filter_map { |name| @autoloads.delete(name) }
+    end
+
+    # The constants `node` can reach WHILE IT RUNS: a superclass clause,
+    # an `include`, a class body's own statements. A `def` body is not
+    # one -- it runs when it is called, which is after the program has
+    # loaded, so a constant only a method names never loads a file here.
+    def load_time_constants(node, found = [])
+      return found if node.is_a?(Prism::DefNode)
+
+      found << node.name.to_s if CONSTANT_READS.any? { |k| node.is_a?(k) }
+      node.compact_child_nodes.each { |c| load_time_constants(c, found) }
+      found
+    end
+
+    CONSTANT_READS = [Prism::ConstantReadNode, Prism::ConstantPathNode].freeze
 
     # `path`'s statements as units, once per program.
     def read_unit(node, path, seen, units)
@@ -174,19 +228,6 @@ module Ze0
       @roots.filter_map { |root| with_rb(File.expand_path(feature, root)) }.first
     end
 
-    # The files every `autoload` written under `node` names, in order.
-    #
-    # ze0 has no lazy units, so the file is spliced in and the constant is
-    # there before anything asks for it. That is the divergence zeo states
-    # for its own eager `autoload` (`parse/loader/mod.rs`): the file runs
-    # at the `autoload` statement rather than at first constant access,
-    # and even if the constant is never referenced.
-    def autoload_paths(node, found = [])
-      found << autoload_target(node) if autoload_call?(node) && autoload_target(node)
-      node.compact_child_nodes.each { |c| autoload_paths(c, found) }
-      found
-    end
-
     def autoload_call?(node)
       node.is_a?(Prism::CallNode) && node.receiver.nil? && node.name == :autoload
     end
@@ -198,6 +239,18 @@ module Ze0
     def autoload_target(node)
       feature = autoload_feature(node)
       @roots.filter_map { |root| with_rb(File.expand_path(feature, root)) }.first
+    end
+
+    # The constant one `autoload` provides. The node is kept beside it so
+    # a flushed unit still names the line that asked for the file.
+    def autoload_name(node)
+      name = node.arguments.arguments[0]
+      unless name.is_a?(Prism::SymbolNode)
+        raise Unsupported.new(node, "an `autoload` of that shape")
+      end
+
+      @autoload_nodes[name.unescaped] = node
+      name.unescaped
     end
 
     def autoload_feature(node)
