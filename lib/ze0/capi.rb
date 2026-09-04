@@ -56,6 +56,10 @@ module Ze0
       "zeo_rt_cell_release" => [%w[i64], nil],
       "zeo_rt_yield" => [%w[i64 i64 i64 i64], "i32"],
       "zeo_rt_block_arg_to_proc" => [%w[i64 i64], "i32"],
+      "zeo_rt_multi_split" => [["i64", "i64", "i8 uext", "i64", "i64"], "i32"],
+      "zeo_rt_regexp_lit" => [
+        ["i32", "i64", "i64", "i8 uext", "i8 uext", "i8 uext", "i8 uext", "i64"], "i32",
+      ],
       "zeo_rt_proc_new" => [
         %w[i64 i64 i64 i64 i64 i64 i32 i32 i64 i64 i64 i64 i32 i64 i64 i64], nil,
       ],
@@ -75,6 +79,9 @@ module Ze0
     CALLSITE_BYTES = 56
     # The encoding index a string literal carries (UTF-8).
     UTF8 = 1
+    # A regexp's encoding is its OWN scale, not a string literal's: the
+    # default is the source encoding, and the four suffixes follow.
+    REGEXP_ENCODINGS = { source: 0, none: 1, euc_jp: 2, windows_31j: 3, utf_8: 4 }.freeze
     # `zeo_abi`'s `OBJECT_CLASS`: the whole cref chain of a top-level
     # constant read, until classes give ze0 a chain to walk.
     OBJECT_CLASS = 0

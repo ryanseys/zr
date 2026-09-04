@@ -31,7 +31,8 @@ parameter surface -- optional, rest, post, keyword, double-splat and
 block -- and `->() {}`; `return`; blocks closing over the names they
 read, with `next`, `break`, `yield` and `block_given?`; `class` and `module` definitions with inheritance,
 instance methods, `def self.x`, instance variables and their own
-constants; keyword arguments and `&block` at a call site; `puts`; and
+constants, nested to any depth; multiple assignment in every shape;
+regexp literals; keyword arguments and `&block` at a call site; `puts`; and
 every other call as the
 runtime's cached dynamic send, so `"ab".upcase`, `7 / 0`, `10.gcd(4)`,
 `x.send(:+, 1)` and `x.method(:to_s)` all answer as ruby does, raise as

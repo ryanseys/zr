@@ -19,6 +19,7 @@ module Ze0
       @syms = []
       @sym_index = {}
       @callsites = 0
+      @regexp_sites = 0
       @defs = []
       @classes = []
       @functions = []
@@ -41,6 +42,14 @@ module Ze0
         @syms << name
         @syms.size - 1
       end
+    end
+
+    # A fresh regexp site. Each non-interpolated literal is one frozen
+    # object the runtime keeps per site, and ze0's code is the only caller
+    # in the program, so a plain counter names them all.
+    def regexp_site
+      @regexp_sites += 1
+      @regexp_sites - 1
     end
 
     # A fresh `zeo_callsites` slot.

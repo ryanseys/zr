@@ -91,17 +91,22 @@ module Ze0
     end
 
     # A class or module, and everything its body declares. The backend
-    # assigns the id; ze0 only ever names it.
+    # assigns the id; ze0 only ever names it, by the path it is written
+    # at -- `Ze0::Lower`, which is what `Module#name` answers.
     def declare_class(node, owner, kind)
-      raise Unsupported.new(node, "a class inside a class") unless owner == Names::OBJECT
       raise Unsupported.new(node, "a scoped class name") unless node.constant_path.is_a?(Prism::ConstantReadNode)
 
-      name = node.name.to_s
+      name = qualify(owner, node.name.to_s)
       raise Unsupported.new(node, "a class named twice") if @classes.key?(name)
 
-      superclass = superclass_of(node, kind)
+      superclass = superclass_of(node, owner, kind)
       body = node.body&.body || []
-      @classes[name] = { name: name, kind: kind, node: node, body: body }
+      # The body's symbol is settled here, not when it is lowered: an
+      # enclosing body calls it, and the two are lowered in either order.
+      @classes[name] = {
+        name: name, kind: kind, node: node, body: body,
+        symbol: "zeo_cb_#{Names.owner_fragment(name)}",
+      }
       @defs[name] = {}
       @program.add_class(
         name: name,
@@ -112,13 +117,32 @@ module Ze0
       declare(body, name)
     end
 
-    def superclass_of(node, kind)
+    # `Outer::Inner`, or the bare name at the top level.
+    def qualify(owner, name)
+      owner == Names::OBJECT ? name : "#{owner}::#{name}"
+    end
+
+    def superclass_of(node, owner, kind)
       return Names::OBJECT if kind == "module" || node.superclass.nil?
-      unless node.superclass.is_a?(Prism::ConstantReadNode) && @classes.key?(node.superclass.name.to_s)
-        raise Unsupported.new(node.superclass, "a superclass this program does not define")
+      unless node.superclass.is_a?(Prism::ConstantReadNode)
+        raise Unsupported.new(node.superclass, "a superclass of that shape")
       end
 
-      node.superclass.name.to_s
+      found = resolve_class(owner, node.superclass.name.to_s)
+      raise Unsupported.new(node.superclass, "a superclass this program does not define") if found.nil?
+
+      found
+    end
+
+    # A class name as written, resolved outward from `owner`: `Lower`
+    # inside `Ze0` is `Ze0::Lower` before it is a top-level `Lower`.
+    def resolve_class(owner, name)
+      scopes = owner == Names::OBJECT ? [] : owner.split("::")
+      scopes.size.downto(0) do |n|
+        candidate = qualify(scopes.first(n).join("::").then { |o| o.empty? ? Names::OBJECT : o }, name)
+        return candidate if @classes.key?(candidate)
+      end
+      nil
     end
 
     # The instance variables a class body's methods name, in first-mention
@@ -468,7 +492,7 @@ module Ze0
     # statically and only leaves its name behind, which is what ruby
     # answers for one.
     def lower_class_body(entry)
-      symbol = "zeo_cb_#{Names.owner_fragment(entry[:name])}"
+      symbol = entry[:symbol]
       node = entry[:node]
       function = Clif::Function.new(symbol, ["i64", "i64"], "i32")
       in_scope(function, :class_body) do
@@ -485,15 +509,15 @@ module Ze0
         f.ins "jump #{done_block}" unless f.terminated?
         epilogue
       end
-      entry[:symbol] = symbol
       @program.add_function(symbol, function)
     end
 
     # `class Foo ... end` in statement position: the class is already
     # registered, so this reads it and runs its body.
     def lower_class_statement(node)
-      entry = @classes.fetch(node.name.to_s) { raise Unsupported.new(node, "a class inside a class") }
-      klass = constant_named(node.name.to_s, node.name.to_s)
+      name = qualify(owner, node.name.to_s)
+      entry = @classes.fetch(name) { raise Unsupported.new(node, "a class this program does not declare") }
+      klass = constant_named(node.name.to_s)
       result = f.slot
       body = f.callee(entry[:symbol], ["i64", "i64"], "i32")
       status_check(f.val("call #{body}(#{borrow(klass)}, #{addr_of(result)})"))
@@ -774,24 +798,30 @@ module Ze0
       when Prism::TrueNode then literal_bool(1)
       when Prism::FalseNode then literal_bool(0)
       when Prism::SymbolNode then literal_symbol(node.unescaped)
+      when Prism::RegularExpressionNode then literal_regexp(node)
       when Prism::InterpolatedStringNode then interpolated_string(node)
       when Prism::ArrayNode then array_literal(node)
       when Prism::HashNode then hash_literal(node)
       when Prism::RangeNode then range_literal(node)
       when Prism::LocalVariableReadNode then local_read(node)
       when Prism::LocalVariableWriteNode then local_write(node)
+      when Prism::MultiWriteNode then multi_write(node)
       when Prism::LocalVariableOperatorWriteNode, Prism::InstanceVariableOperatorWriteNode,
-           Prism::GlobalVariableOperatorWriteNode then operator_write(node)
+           Prism::GlobalVariableOperatorWriteNode, Prism::IndexOperatorWriteNode,
+           Prism::CallOperatorWriteNode then operator_write(node)
       when Prism::LocalVariableOrWriteNode, Prism::InstanceVariableOrWriteNode,
-           Prism::GlobalVariableOrWriteNode then conditional_write(node, false)
+           Prism::GlobalVariableOrWriteNode, Prism::IndexOrWriteNode,
+           Prism::CallOrWriteNode then conditional_write(node, false)
       when Prism::LocalVariableAndWriteNode, Prism::InstanceVariableAndWriteNode,
-           Prism::GlobalVariableAndWriteNode then conditional_write(node, true)
+           Prism::GlobalVariableAndWriteNode, Prism::IndexAndWriteNode,
+           Prism::CallAndWriteNode then conditional_write(node, true)
       when Prism::GlobalVariableReadNode then global_read(node)
       when Prism::GlobalVariableWriteNode then global_write(node)
       when Prism::InstanceVariableReadNode then ivar_read(node)
       when Prism::InstanceVariableWriteNode then ivar_write(node)
       when Prism::ConstantReadNode then constant_read(node)
       when Prism::ConstantWriteNode then constant_write(node)
+      when Prism::ConstantPathWriteNode then constant_path_write(node)
       when Prism::ConstantPathNode then constant_path_read(node)
       when Prism::AndNode then and_or(node.left, node.right, true)
       when Prism::OrNode then and_or(node.left, node.right, false)
@@ -965,6 +995,13 @@ module Ze0
     # write of the same name, so each form is written once and asks the
     # node which pair of halves it names.
     def target_of(node)
+      case node
+      when Prism::IndexOrWriteNode, Prism::IndexAndWriteNode, Prism::IndexOperatorWriteNode
+        return index_target(node)
+      when Prism::CallOrWriteNode, Prism::CallAndWriteNode, Prism::CallOperatorWriteNode
+        return call_target(node)
+      end
+
       name = node.name
       case node
       when Prism::LocalVariableOperatorWriteNode, Prism::LocalVariableOrWriteNode,
@@ -977,6 +1014,35 @@ module Ze0
       else
         Target.new(-> { global_load(name.to_s) }, ->(v) { store_global(name.to_s, v) })
       end
+    end
+
+    # `h[k] ||= v` and `x.y ||= v` read and write through a send, and the
+    # receiver and the index are evaluated ONCE: both halves close over
+    # the operands the pool is already holding.
+    def index_target(node)
+      recv = lower_expr(node.receiver)
+      borrow(recv)
+      args = (node.arguments&.arguments || []).map { |a| lower_expr(a) }
+      args.each { |a| borrow(a) }
+      Target.new(
+        -> { send_value(recv, :[], args) },
+        ->(v) { send_value(recv, :[]=, args + [v]) },
+      )
+    end
+
+    def call_target(node)
+      recv = lower_expr(node.receiver)
+      borrow(recv)
+      Target.new(
+        -> { send_value(recv, node.read_name, []) },
+        ->(v) { send_value(recv, node.write_name, [v]) },
+      )
+    end
+
+    def send_value(recv, name, operands)
+      slot = f.slot
+      dynamic_send(borrow(recv), name, operands, addr_of(slot))
+      Operand.new(slot, true, false)
     end
 
     def operator_write(node)
@@ -1075,6 +1141,50 @@ module Ze0
       constant_named(node.name.to_s)
     end
 
+    # `Outer::Inner = value`. The scope has to be a class this program
+    # declares, because the runtime takes the owner as an id and only a
+    # compiled class has one ze0 can name.
+    def constant_path_write(node)
+      scope = node.target.parent
+      unless scope.is_a?(Prism::ConstantReadNode) && (found = resolve_class(owner, scope.name.to_s))
+        raise Unsupported.new(node, "a constant assigned into a scope this program does not define")
+      end
+
+      value = lower_expr(node.value)
+      at = borrow(value)
+      nptr, nlen = rodata_ref(node.target.name.to_s)
+      fptr, flen = rodata_ref(@program.file)
+      f.ins "call #{f.import("zeo_rt_const_set_at")}(#{class_id(found)}, #{nptr}, #{nlen}, " \
+            "#{at}, #{fptr}, #{flen}, #{f.iconst("i32", node.location.start_line)}, " \
+            "#{f.iconst("i32", Capi::MAIN_BOX)})"
+      Operand.new(value.at, false, value.immediate)
+    end
+
+    # The `/n`, `/e`, `/s` and `/u` suffixes; without one a regexp takes
+    # the source's encoding.
+    def regexp_encoding(node)
+      return Capi::REGEXP_ENCODINGS[:none] if node.ascii_8bit?
+      return Capi::REGEXP_ENCODINGS[:euc_jp] if node.euc_jp?
+      return Capi::REGEXP_ENCODINGS[:windows_31j] if node.windows_31j?
+      return Capi::REGEXP_ENCODINGS[:utf_8] if node.utf_8?
+
+      Capi::REGEXP_ENCODINGS[:source]
+    end
+
+    # A non-interpolated regexp is one frozen object per site, which the
+    # runtime keeps and every evaluation of the literal answers.
+    def literal_regexp(node)
+      slot = f.slot
+      ptr, len = rodata_ref(node.unescaped)
+      flag = ->(on) { f.iconst("i8", on ? 1 : 0) }
+      status_check(f.val(
+        "call #{f.import("zeo_rt_regexp_lit")}(#{f.iconst("i32", @program.regexp_site)}, #{ptr}, #{len}, " \
+        "#{flag.call(node.ignore_case?)}, #{flag.call(node.extended?)}, #{flag.call(node.multi_line?)}, " \
+        "#{f.iconst("i8", regexp_encoding(node))}, #{addr_of(slot)})",
+      ))
+      Operand.new(slot, true, false)
+    end
+
     # A bare name searches the cref chain, which inside a class or one of
     # its methods is that class and then Object -- and a miss names the
     # qualified spelling, as ruby's NameError does.
@@ -1111,9 +1221,12 @@ module Ze0
     # The table clones the value and stamps the location
     # `Module#const_source_location` reads back.
     def constant_write(node)
-      value = lower_expr(node.value)
+      store_constant(node.name.to_s, node, lower_expr(node.value))
+    end
+
+    def store_constant(name, node, value)
       at = borrow(value)
-      nptr, nlen = rodata_ref(node.name.to_s)
+      nptr, nlen = rodata_ref(name)
       fptr, flen = rodata_ref(@program.file)
       f.ins "call #{f.import("zeo_rt_const_set_at")}(#{cref_ids.first}, #{nptr}, #{nlen}, " \
             "#{at}, #{fptr}, #{flen}, #{f.iconst("i32", node.location.start_line)}, " \
@@ -1121,10 +1234,17 @@ module Ze0
       Operand.new(value.at, false, value.immediate)
     end
 
-    # The cref a bare constant reads through, innermost first.
+    # The cref a bare constant reads through: every enclosing scope,
+    # innermost first, and `Object` last.
     def cref_ids
-      object = f.iconst("i32", Capi::OBJECT_CLASS)
-      owner == Names::OBJECT ? [object] : [class_id(owner), object]
+      cref_path.map { |name| class_id(name) } + [f.iconst("i32", Capi::OBJECT_CLASS)]
+    end
+
+    def cref_path
+      return [] if owner == Names::OBJECT
+
+      parts = owner.split("::")
+      parts.size.downto(1).map { |n| parts.first(n).join("::") }
     end
 
     # A class's id, read out of `zeo_class_ids`. Ids are assigned when the
@@ -1232,6 +1352,83 @@ module Ze0
 
     def local(node)
       locals.fetch(node.name) { raise Unsupported.new(node, "the local #{node.name} has no slot") }
+    end
+
+    # ---- multiple assignment ----
+
+    # `a, b = 1, 2` and `a, *rest = list`. The runtime does the split --
+    # an Array destructures directly and anything else goes through
+    # ruby's `to_ary` rule -- and writes one owned value per target slot.
+    def multi_write(node)
+      splat = rest_target(node.rest)
+
+      targets = node.lefts + (splat ? [splat] : []) + node.rights
+      value = lower_expr(node.value)
+      slots = f.slot(Capi::SLOT_BYTES * targets.size)
+      at = addr_of(slots)
+      status_check(f.val(
+        "call #{f.import("zeo_rt_multi_split")}(#{borrow(value)}, #{f.iconst("i64", node.lefts.size)}, " \
+        "#{f.iconst("i8", splat ? 1 : 0)}, #{f.iconst("i64", node.rights.size)}, #{at})",
+      ))
+      targets.each_with_index do |target, i|
+        from = i.zero? ? at : f.stack_addr("#{slots}+#{i * Capi::SLOT_BYTES}")
+        assign_target(target, from)
+      end
+      # The assignment answers its right-hand side, which the split only
+      # read.
+      Operand.new(value.at, false, value.immediate)
+    end
+
+    # The rest of a multiple assignment, or nil. A trailing comma
+    # (`x, = list`) is ruby's "and drop the rest", which is the shape with
+    # no rest slot at all.
+    def rest_target(node)
+      return nil if node.nil? || node.is_a?(Prism::ImplicitRestNode)
+      raise Unsupported.new(node, "a rest of that shape") unless node.is_a?(Prism::SplatNode)
+
+      node
+    end
+
+    # One split slot into one target. The slot holds an OWNED value, so
+    # the target takes it rather than retaining a copy.
+    def assign_target(node, from)
+      node = node.expression if node.is_a?(Prism::SplatNode)
+      # `a, * = list` names nothing, so its slot is simply let go.
+      return f.ins("call #{f.import("zeo_rt_release")}(#{from})") if node.nil?
+
+      taken = Operand.new(from, true, false)
+      case node
+      when Prism::LocalVariableTargetNode then store_local(local(node), taken)
+      when Prism::InstanceVariableTargetNode then store_ivar(node.name.to_s, taken)
+      when Prism::GlobalVariableTargetNode then store_global(node.name.to_s, taken)
+      when Prism::ConstantTargetNode then store_constant(node.name.to_s, node, taken)
+      when Prism::CallTargetNode
+        recv = lower_expr(node.receiver)
+        dynamic_send(borrow(recv), node.name, [taken], addr_of(f.slot))
+      when Prism::IndexTargetNode
+        recv = lower_expr(node.receiver)
+        args = (node.arguments&.arguments || []).map { |a| lower_expr(a) }
+        dynamic_send(borrow(recv), :[]=, args + [taken], addr_of(f.slot))
+      when Prism::MultiTargetNode then multi_target(node, from)
+      else raise Unsupported.new(node, "an assignment target of that shape")
+      end
+    end
+
+    # `(a, b), c = pair, x`: the slot's own value splits again.
+    def multi_target(node, from)
+      splat = rest_target(node.rest)
+
+      targets = node.lefts + (splat ? [splat] : []) + node.rights
+      slots = f.slot(Capi::SLOT_BYTES * targets.size)
+      at = addr_of(slots)
+      status_check(f.val(
+        "call #{f.import("zeo_rt_multi_split")}(#{from}, #{f.iconst("i64", node.lefts.size)}, " \
+        "#{f.iconst("i8", splat ? 1 : 0)}, #{f.iconst("i64", node.rights.size)}, #{at})",
+      ))
+      f.ins "call #{f.import("zeo_rt_release")}(#{from})"
+      targets.each_with_index do |target, i|
+        assign_target(target, i.zero? ? at : f.stack_addr("#{slots}+#{i * Capi::SLOT_BYTES}"))
+      end
     end
 
     # ---- calls ----
