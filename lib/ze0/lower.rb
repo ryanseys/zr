@@ -112,27 +112,26 @@ module Ze0
 
     def splice(statements, file, seen, units)
       run = []
+      deferred = []
       statements.each do |s|
-        required = required_file(s, file)
         # An `autoload` anywhere under this statement names a file that
-        # PROVIDES its constant, and a unit is a run of TOP-LEVEL
-        # statements, so the file goes in ahead of the statement enclosing
-        # it. The target's own `module`s say where its contents belong.
-        loads = autoload_paths(s)
-        loads << required if required
-        if loads.empty?
+        # PROVIDES its constant. Its unit goes in AFTER this file's own
+        # statements: that is where CRuby's first constant access would
+        # have reached it, and a unit is a run of TOP-LEVEL statements
+        # either way.
+        autoload_paths(s).each { |path| deferred << [s, path] }
+        target = required_file(s, file)
+        if target.nil?
           run << s
           next
         end
 
         units << [file, run] unless run.empty?
         run = []
-        loads.each { |path| read_unit(s, path, seen, units) }
-        # The splice consumes a `require`; every other statement still runs
-        # where it stands.
-        run << s if required.nil?
+        read_unit(s, target, seen, units)
       end
       units << [file, run] unless run.empty?
+      deferred.each { |node, path| read_unit(node, path, seen, units) }
     end
 
     # `path`'s statements as units, once per program.
@@ -263,6 +262,11 @@ module Ze0
         when Prism::ClassNode then declare_class(s, owner, "class")
         when Prism::ModuleNode then declare_class(s, owner, "module")
         when Prism::CallNode then visibility = declare_macro(s, owner, visibility)
+        when Prism::IfNode, Prism::UnlessNode
+          # A guard this compile can decide has one branch that cannot
+          # run, and the other's `def`s and classes are as much a part of
+          # the program as any written beside it.
+          declare(branch_statements(live_branch(s)), owner)
         end
       end
     end
@@ -530,7 +534,7 @@ module Ze0
       return node.name if node.is_a?(Prism::RequiredParameterNode)
       raise Unsupported.new(node, "a parameter of that shape") unless node.is_a?(Prism::MultiTargetNode)
 
-      name = :"(#{destructures.size})"
+      name = "(#{destructures.size})".to_sym
       destructures[name] = node
       name
     end
@@ -1477,8 +1481,7 @@ module Ze0
       when Prism::DefNode then declared_def(node)
       when Prism::SelfNode then Operand.new(self_operand.at, false, self_operand.immediate)
       when Prism::CallNode then lower_call(node)
-      when Prism::IfNode then lower_if(node.predicate, node.statements, node.subsequent, false)
-      when Prism::UnlessNode then lower_if(node.predicate, node.statements, node.else_clause, true)
+      when Prism::IfNode, Prism::UnlessNode then lower_conditional(node)
       when Prism::WhileNode then lower_while(node.predicate, node.statements, false)
       when Prism::UntilNode then lower_while(node.predicate, node.statements, true)
       when Prism::ReturnNode then lower_return(node)
@@ -1873,9 +1876,13 @@ module Ze0
     # A bare name searches the cref chain, which inside a class or one of
     # its methods is that class and then Object -- and a miss names the
     # qualified spelling, as ruby's NameError does.
-    def constant_named(name, qualified = nil)
+    def anchored_constant(name)
+      constant_named(name, name, [f.iconst("i32", Capi::OBJECT_CLASS)])
+    end
+
+    def constant_named(name, qualified = nil, chain = nil)
       qualified ||= owner == Names::OBJECT ? name : "#{owner}::#{name}"
-      ids, n_ids = cid_array(cref_ids)
+      ids, n_ids = cid_array(chain || cref_ids)
       nptr, nlen = rodata_ref(name)
       qptr, qlen = rodata_ref(qualified)
       slot = f.slot
@@ -1889,7 +1896,9 @@ module Ze0
     # `A::B`: the scope is lowered as an expression and the leaf read off
     # the value, so a scope ze0 cannot name at compile time still works.
     def constant_path_read(node)
-      raise Unsupported.new(node, "a constant path with no scope") if node.parent.nil?
+      # `::Foo` is ANCHORED: the leading `::` means the top level, not an
+      # empty namespace, so Object's own table is the whole search.
+      return anchored_constant(node.name.to_s) if node.parent.nil?
 
       owner = static_scope(node.parent)
       name = node.name.to_s
@@ -2675,6 +2684,43 @@ module Ze0
     end
 
     # ---- control flow ----
+
+    # `if` and `unless`. A guard this compile can decide leaves only the
+    # branch that runs, so the other is never lowered -- which is what
+    # lets a program hold one written for another engine entirely.
+    def lower_conditional(node)
+      negate = node.is_a?(Prism::UnlessNode)
+      otherwise = negate ? node.else_clause : node.subsequent
+      unless Guards.static_cond(node.predicate).nil?
+        live = live_branch(node)
+        return live ? lower_expr(live) : literal_nil
+      end
+
+      lower_if(node.predicate, node.statements, otherwise, negate)
+    end
+
+    # The branch a decided guard runs, or nil when it runs neither. An
+    # `elsif` comes back as the `if` it is, decided in its own turn.
+    def live_branch(node)
+      decided = Guards.static_cond(node.predicate)
+      return nil if decided.nil?
+
+      negate = node.is_a?(Prism::UnlessNode)
+      return node.statements if negate ? !decided : decided
+
+      negate ? node.else_clause : node.subsequent
+    end
+
+    # A branch's statements, whichever shape it came in as: a bare run, an
+    # `else`, or the `if` an `elsif` is.
+    def branch_statements(node)
+      case node
+      when nil then []
+      when Prism::StatementsNode then node.body
+      when Prism::ElseNode then node.statements&.body || []
+      else [node]
+      end
+    end
 
     def lower_if(predicate, statements, otherwise, negate)
       truth = truthy(lower_expr(predicate))

@@ -3,6 +3,7 @@
 require "prism"
 
 require_relative "ze0/capi"
+require_relative "ze0/guards"
 require_relative "ze0/names"
 require_relative "ze0/params"
 require_relative "ze0/scope"
