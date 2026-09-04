@@ -406,6 +406,9 @@ module Ze0
     def block_params(node)
       case (list = node.parameters)
       when nil then parse_params(nil)
+      # A `def` lowered as a closure: its list is a method's, with no
+      # block-local names wrapped around it.
+      when Prism::ParametersNode then parse_params(list)
       when Prism::BlockParametersNode
         raise Unsupported.new(node, "a block-local variable") if list.locals.any?
 
@@ -490,17 +493,50 @@ module Ze0
       )
     end
 
-    # A `def` in statement position answers its own name, and the
-    # declaration pass has already emitted it. The pass walks only the
-    # statements of a program, class or module body, so a `def` written
+    # A `def` answers its own name. The declaration pass walks only the
+    # statements of a program, class or module body, so one written
     # anywhere else -- inside a block, an `if`, a loop or another `def` --
-    # would be DEFINED by ruby and dropped here.
+    # has no row and is installed where it stands instead.
     def declared_def(node)
-      unless @declared_defs[node.object_id]
-        raise Unsupported.new(node, "a def nested inside another statement")
-      end
+      return runtime_def(node) unless @declared_defs[node.object_id]
 
       literal_symbol(node.name)
+    end
+
+    # A `def` with no row. Which class it lands on is not known until the
+    # statement runs -- inside `Module.new { }` it is the new module, in a
+    # class body it is that class, at the top level it is `Object` -- so
+    # the body becomes a lambda-shaped Proc and the runtime resolves the
+    # definee the same way the interpreter does.
+    def runtime_def(node)
+      raise Unsupported.new(node, "a def with a receiver") if node.receiver
+
+      body, captures = lower_method_body(node)
+      proc_value = proc_new(body, captures, node, true)
+      result = f.slot
+      # A `def` written at the TOP LEVEL is a private instance method of
+      # Object however it is spelled, which is the caller's to say: where
+      # it was WRITTEN is compile-time knowledge and the definee is not.
+      private = owner == Names::OBJECT && kind != :class_body
+      status_check(f.val(
+        "call #{f.import("zeo_rt_define_in_default_definee")}(#{addr_of(cref_value)}, " \
+        "#{borrow(self_operand)}, #{sym_id(node.name)}, #{proc_value}, " \
+        "#{f.iconst("i8", private ? 1 : 0)}, #{f.iconst("i8", 0)}, #{addr_of(result)})",
+      ))
+      Operand.new(result, true, false)
+    end
+
+    # The class a `def` was WRITTEN in, as a value. The runtime compares it
+    # with the live `self` to see which definee the statement is running
+    # under, and falls back to this when none is open.
+    def cref_value
+      slot = f.slot
+      at = addr_of(slot)
+      store_nil(at)
+      f.ins "store notrap aligned #{f.iconst("i8", Capi::TAG_CLASS)}, #{at}"
+      id = owner == Names::OBJECT ? f.iconst("i32", Capi::OBJECT_CLASS) : class_id(owner)
+      f.ins "store notrap aligned #{id}, #{at}+8"
+      Operand.new(slot, false, true)
     end
 
     def body_symbol_of(owner, name, singleton)
@@ -986,6 +1022,22 @@ module Ze0
     # five-pointer trampoline's -- a block fn prepends `env` and takes its
     # `self` as a parameter, because `instance_exec` rebinds it per call.
     def lower_block(node, lambda_shape = false)
+      lower_closure(node, lambda_shape: lambda_shape)
+    end
+
+    # The body of a `def` the declaration pass did not reach, as a closure
+    # the runtime installs as a method. It is a method's scope, not a
+    # block's: it binds strictly, sees none of the names around it, its
+    # frame carries the method's own label, and its `blk` argument is the
+    # block the INSTALLED method is called with, which a bare `yield`
+    # reaches.
+    def lower_method_body(node)
+      lower_closure(node, lambda_shape: true, method: label_of(owner, node.name, false))
+    end
+
+    # The shared shape of both. `method` is the frame label when the body
+    # is a method's, and nil for an ordinary block.
+    def lower_closure(node, lambda_shape:, method: nil)
       params = block_params(node)
       names = params.slot_names
       # ruby spreads a single Array argument over a shape with real
@@ -995,20 +1047,28 @@ module Ze0
       symbol = "zeo_blk_#{@blocks}"
       @blocks += 1
       function = Clif::Function.new(symbol, ["i64"] * 6, "i32")
-      base, depth = scope.frame_base, scope.block_depth
+      base, depth, own_owner = scope.frame_base, scope.block_depth, owner
       # The enclosing names this block reads. Both ends read this list in
       # the same order, so the creation site's array and the body's
-      # `ProcEnv` rows line up.
-      captures = block_captures(node, names)
-      in_scope(function, :block) do
-        scope.frame_base = base
-        scope.block_depth = depth + 1
+      # `ProcEnv` rows line up. A method body reads none of them.
+      captures = method ? [] : block_captures(node, names)
+      in_scope(function, method ? :body : :block) do
+        scope.owner = own_owner
+        scope.frame_base = method || base
+        scope.block_depth = method ? 0 : depth + 1
         env, slf, argv, argc, blk, into = f.args
         scope.env = env
         scope.self_operand = Operand.new(slf, false, false)
         scope.out = into
         prologue
-        release_block_argument(blk)
+        # A method body keeps the call-site block, because a bare `yield`
+        # in it means the block the installed method was called with. A
+        # block body can never reach one, so it releases it here.
+        if method
+          scope.blk = blk
+        else
+          release_block_argument(blk)
+        end
         captures.each_with_index { |n, i| declare_captured(n, env, i) }
         own = names + (node.locals - names)
         boxed = captured_names(body_statements(node.body), own)

@@ -73,6 +73,9 @@ module Ze0
       "zeo_rt_cell_store" => [%w[i64 i64], nil],
       "zeo_rt_cell_release" => [%w[i64], nil],
       "zeo_rt_yield" => [%w[i64 i64 i64 i64], "i32"],
+      "zeo_rt_define_in_default_definee" => [
+        ["i64", "i64", "i32", "i64", "i8 uext", "i8 uext", "i64"], "i32",
+      ],
       "zeo_rt_block_arg_to_proc" => [%w[i64 i64], "i32"],
       "zeo_rt_multi_split" => [["i64", "i64", "i8 uext", "i64", "i64"], "i32"],
       "zeo_rt_regexp_lit" => [
@@ -92,6 +95,7 @@ module Ze0
     TAG_INT = 2
     TAG_FLOAT = 3
     TAG_SYMBOL = 4
+    TAG_CLASS = 5
     TAG_HEAP = 16
     # One inline-cache slot (`zeo_abi::abi::CALLSITE_SIZE`).
     CALLSITE_BYTES = 56
