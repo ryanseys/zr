@@ -86,6 +86,11 @@ module Ze0
       @classes.index { |c| c[:name] == name } or raise "no class row for #{name}"
     end
 
+    # The superclass `owner` was declared with, by name.
+    def superclass_of(owner)
+      @classes.fetch(class_slot(owner))[:superclass]
+    end
+
     # The slot `ivar` sits in on `owner`, which is its index in the class
     # row's declared order.
     def ivar_slot(owner, ivar)

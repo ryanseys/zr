@@ -195,10 +195,11 @@ module Ze0
         raise Unsupported.new(node.superclass, "a superclass of that shape")
       end
 
-      found = resolve_class(owner, node.superclass.name.to_s)
-      raise Unsupported.new(node.superclass, "a superclass this program does not define") if found.nil?
-
-      found
+      # A name this program does not declare goes through as written: the
+      # backend resolves it against the builtin exceptions, whose ids it
+      # owns, and refuses every other builtin -- `class Foo < String` is a
+      # different native shape.
+      resolve_class(owner, node.superclass.name.to_s) || node.superclass.name.to_s
     end
 
     # A class name as written, resolved outward from `owner`: `Lower`
@@ -461,10 +462,16 @@ module Ze0
     # trampoline, so leaving it out costs a cache hit and answers the same.
     def lower_accessor(definition)
       owner, name, writer = definition[:owner], definition[:name], definition[:accessor] == :writer
-      slot = @program.ivar_slot(owner, definition[:ivar])
+      ivar = definition[:ivar]
+      # An exception subclass's instances are the runtime's own
+      # `RubyException`, which declares no slots at all: a slot write on
+      # one is dropped. Its accessor reaches the name-keyed store, which
+      # is what the Rust emitter falls back to for a native-backed class.
+      keyed = native_backed?(owner)
       function = Clif::Function.new(trampoline_of(owner, name, false), ["i64"] * 5, "i32")
       in_scope(function, :trampoline) do
         recv, argv, argc, blk, into = f.args
+        scope.rodata = f.val("symbol_value.i64 #{f.symbol("zeo_rodata")}") if keyed
         release_block_argument(blk)
         want = f.iconst("i64", writer ? 1 : 0)
         fits = f.val("icmp eq #{argc}, #{want}")
@@ -473,21 +480,54 @@ module Ze0
         f.switch(wrong)
         f.ins "return #{f.val("call #{f.import("zeo_rt_wrong_arity")}(#{argc}, #{want}, #{want})")}"
         f.switch(go)
-        at = f.iconst("i64", slot)
-        if writer
-          status_return(f.val("call #{f.import("zeo_rt_frozen_check")}(#{recv})"))
-          # Two fresh references off the caller's borrowed argument: one
-          # moves into the slot, one is the value the writer answers.
-          retain_if_heap(argv)
-          retain_if_heap(argv)
-          copy(argv, into)
-          f.ins "return #{f.val("call #{f.import("zeo_rt_ivar_set_slot")}(#{recv}, #{at}, #{argv})")}"
+        if keyed
+          keyed_accessor(ivar, recv, argv, into, writer)
         else
-          f.ins "call #{f.import("zeo_rt_ivar_get_slot")}(#{recv}, #{at}, #{into})"
-          f.ins "return #{f.iconst("i32", 0)}"
+          slot_accessor(@program.ivar_slot(owner, ivar), recv, argv, into, writer)
         end
       end
       @program.add_function(label_of(owner, name, false), function)
+    end
+
+    def slot_accessor(slot, recv, argv, into, writer)
+      at = f.iconst("i64", slot)
+      unless writer
+        f.ins "call #{f.import("zeo_rt_ivar_get_slot")}(#{recv}, #{at}, #{into})"
+        return f.ins("return #{f.iconst("i32", 0)}")
+      end
+
+      status_return(f.val("call #{f.import("zeo_rt_frozen_check")}(#{recv})"))
+      # Two fresh references off the caller's borrowed argument: one moves
+      # into the slot, one is the value the writer answers.
+      retain_if_heap(argv)
+      retain_if_heap(argv)
+      copy(argv, into)
+      f.ins "return #{f.val("call #{f.import("zeo_rt_ivar_set_slot")}(#{recv}, #{at}, #{argv})")}"
+    end
+
+    def keyed_accessor(ivar, recv, argv, into, writer)
+      ptr, len = rodata_ref(ivar)
+      box = f.iconst("i32", Capi::MAIN_BOX)
+      unless writer
+        return f.ins("return #{f.val("call #{f.import("zeo_rt_ivar_get_dyn")}(#{recv}, #{ptr}, #{len}, #{box}, #{into})")}")
+      end
+
+      # The set BORROWS its value and does its own frozen check, so the
+      # answer takes the one fresh reference.
+      status_return(f.val("call #{f.import("zeo_rt_ivar_set_dyn")}(#{recv}, #{ptr}, #{len}, #{box}, #{argv})"))
+      retain_if_heap(argv)
+      copy(argv, into)
+      f.ins "return #{f.iconst("i32", 0)}"
+    end
+
+    # Whether instances of `owner` are a runtime type rather than a
+    # generated object with slots, which a builtin superclass makes them.
+    def native_backed?(owner)
+      entry = @classes.fetch(owner)
+      return false if entry[:kind] == "module"
+
+      up = @program.superclass_of(owner)
+      up != Names::OBJECT && (!@classes.key?(up) || native_backed?(up))
     end
 
     # Leave with the signal this status reports, or carry on. A trampoline
