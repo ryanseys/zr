@@ -2732,12 +2732,46 @@ module Ze0
     def index_target(node)
       recv = lower_expr(node.receiver)
       borrow(recv)
-      args = (node.arguments&.arguments || []).map { |a| lower_expr(a) }
+      written = node.arguments&.arguments || []
+      return splat_index_target(recv, written) if written.any?(Prism::SplatNode)
+
+      args = written.map { |a| lower_expr(a) }
       args.each { |a| borrow(a) }
       Target.new(
         -> { send_value(recv, :[], args) },
         ->(v) { written_value(send_value(recv, :[]=, args + [v]), v) },
       )
+    end
+
+    # `g[*coords] += 1`: the index spreads into ONE pooled Array, built
+    # once, and each half splats that saved Array back in -- so a
+    # side-effecting index runs the number of times it is written.
+    def splat_index_target(recv, written)
+      index = spread_index(written)
+      Target.new(
+        -> { index_send(recv, :[], index, nil) },
+        ->(v) { written_value(index_send(recv, :[]=, index, v), v) },
+      )
+    end
+
+    # The index arguments of one `[]`/`[]=`, spread into a pooled Array
+    # the runtime reads for the call.
+    def spread_index(written)
+      saved = new_array(written.size)
+      written.each { |a| push_call_argument(saved, a) }
+      Operand.new(saved, false, false)
+    end
+
+    # One `[]` or `[]=` through a saved index Array, with the assigned
+    # value pushed on last where there is one.
+    def index_send(recv, name, index, value)
+      argv = new_array(1)
+      push_splat(argv, index)
+      push_argument(argv, value) if value
+      slot = f.slot
+      zero = f.iconst("i64", 0)
+      status_check(argv_send(borrow(recv), name, argv, zero, zero, addr_of(slot)))
+      Operand.new(slot, true, false)
     end
 
     def call_target(node, recv = nil)
@@ -3388,13 +3422,19 @@ module Ze0
       when Prism::ClassVariableTargetNode then cvar_write(node, taken)
       when Prism::ConstantTargetNode then store_constant(node.name.to_s, node, taken)
       when Prism::ConstantPathTargetNode then constant_path_store(node, node, taken)
+      # The setter answers a value of its own, which this statement never
+      # reads: the pool releases it.
       when Prism::CallTargetNode
         recv = lower_expr(node.receiver)
-        dynamic_send(borrow(recv), node.name, [taken], addr_of(f.slot))
+        discard(send_value(recv, node.name, [taken]))
       when Prism::IndexTargetNode
         recv = lower_expr(node.receiver)
-        args = (node.arguments&.arguments || []).map { |a| lower_expr(a) }
-        dynamic_send(borrow(recv), :[]=, args + [taken], addr_of(f.slot))
+        written = node.arguments&.arguments || []
+        if written.any?(Prism::SplatNode)
+          discard(index_send(recv, :[]=, spread_index(written), taken))
+        else
+          discard(send_value(recv, :[]=, written.map { |a| lower_expr(a) } + [taken]))
+        end
       when Prism::MultiTargetNode then multi_target(node, from)
       else raise Unsupported.new(node, "an assignment target of that shape")
       end
@@ -3710,9 +3750,6 @@ module Ze0
     # A send whose positional arguments include a `*` splat or a `...`.
     # The runtime reads ONE Array rather than a slot array, because only
     # it can spread a value whose length this compile does not know.
-    #
-    # `unmark` is ruby's rule that a splat-expanded Hash is positional
-    # again, not a keyword channel.
     def splat_send(recv, name, args, into, keywords: nil, builder: nil, explicit: true)
       forwards = args.any?(Prism::ForwardingArgumentsNode)
       argv = new_array(args.size)
@@ -3731,7 +3768,15 @@ module Ze0
             else
               f.iconst("i64", 0)
             end
-      status = f.val(
+      status = argv_send(recv, name, argv, kw, blk, into, explicit: explicit)
+      builder ? catch_break(status, into) : status_check(status)
+    end
+
+    # The send itself, once its three channels are built. `unmark` is
+    # ruby's rule that a splat-expanded Hash is positional again, not a
+    # keyword channel.
+    def argv_send(recv, name, argv, kw, blk, into, explicit: true)
+      f.val(
         if barrier?(explicit)
           "call #{f.import("zeo_rt_send_value_explicit_args_in")}(#{f.iconst("i32", 0)}, #{recv}, " \
             "#{sym_id(name)}, #{argv}, #{f.iconst("i8", 1)}, #{kw}, #{blk}, " \
@@ -3742,7 +3787,6 @@ module Ze0
             "#{kw}, #{blk}, #{into})"
         end,
       )
-      builder ? catch_break(status, into) : status_check(status)
     end
 
     # How this call's block gets made, or nil when it has none. The
