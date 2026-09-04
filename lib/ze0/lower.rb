@@ -3036,11 +3036,21 @@ module Ze0
 
     def cvar_owner(node, name)
       here = scope.definee
-      unless here == Names::OBJECT || @classes.key?(here)
-        raise Unsupported.new(node, "a class variable in a class this program does not declare")
+      unless keyed_class?(here)
+        raise Unsupported.new(node, "a class variable in a class this program cannot name")
       end
 
       ancestry(here).reverse.find { |c| @classes[c][:cvars].include?(name) } || here
+    end
+
+    # Whether the backend can name `name` with a class id. `Object` has the
+    # ABI's own; every row this program declares has one the link assigns.
+    # A class built at RUN time and a reopened builtin have neither.
+    def keyed_class?(name)
+      return true if name == Names::OBJECT
+
+      entry = @classes[name]
+      !entry.nil? && !entry[:runtime] && !entry[:builtin]
     end
 
     # `name` and the ancestors this program declares, innermost first. The
