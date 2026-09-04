@@ -280,7 +280,10 @@ What the numbers say:
 - **Where the sidecar cannot name a thing, desugar to the runtime.** A
   class built from a runtime value has no row; nor does a singleton. Both
   become ordinary sends, which is what the Rust front end already does.
-  The one place that rule did not reach is a gated builtin's REOPEN --
+  Where the sidecar cannot name a thing but the RUNTIME can, ask it: a
+  method the runtime installs has no lexical class for a visibility
+  barrier to compare against, so those sends ask `self` for its class.
+  The one place neither rule reached is a gated builtin's REOPEN --
   `prism.rb` writing the Ruby half of a module `prism.so` created -- and
   that took a backend change: such a row resolves to the builtin's id
   instead of minting a class beside it.
@@ -319,7 +322,7 @@ This README once priced that at "about 25,000 lines of Rust" and "three
 to six engineer-months", read off the emitter's line count. The measured
 answer was twelve forms, all of them Ruby, and one backend change.
 
-Three things ze0 does not do, and states rather than hides:
+Two things ze0 does not do, and states rather than hides:
 
 - **There are no lazy units.** An `autoload` nothing reaches at load time
   still splices its file in at the end of the file that wrote it, so that
@@ -330,13 +333,6 @@ Three things ze0 does not do, and states rather than hides:
   builds of the same machine, so deciding a guard on it would make the
   answer depend on which of them ran the compiler. `RUBY_ENGINE` and
   `RUBY_VERSION` are folded, because ze0 compiled by zeo runs on zeo.
-- **An explicit receiver does not check visibility.** `b.secret` on a
-  private method answers instead of raising, where ruby and `zeo build`
-  both raise `NoMethodError`. This one is a HOLE, not a decision: a call
-  site carries the class it was written in, and ze0 writes "ask nothing"
-  into every one of them because the sidecar names call sites by a
-  link-time id it has no way to spell. It is the open item at the top of
-  `ze0/PLAN.md`.
 
 What is left is Ruby parity beyond the fixed point -- `class Foo::Bar`,
 the `rescue` modifier, `def obj.method`, class variables, `for`, `$~`,
