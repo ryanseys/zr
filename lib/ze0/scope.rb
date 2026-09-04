@@ -22,6 +22,30 @@ module Ze0
     def owns_cell? = @cell == :owned
   end
 
+  # One `while` or `until` being lowered, and where its two jumps go.
+  #
+  # `break` leaves through `done` with its value in `result`; `next`
+  # returns to `head`, resetting the pool to `mark` first, exactly as the
+  # end of an iteration does. `handling` is the `$!` depth the loop was
+  # entered at, so a jump out of a `rescue` clause opened INSIDE the loop
+  # pops only the clauses it actually leaves.
+  #
+  # The stack is per SCOPE, which is what makes ruby's rule fall out: a
+  # block written inside a loop starts an empty one, so a `break` there is
+  # the block's, and a loop written inside a block is found by the block's
+  # own `break`.
+  class Loop
+    attr_reader :head, :done, :result, :mark, :handling
+
+    def initialize(head, done, result, mark, handling)
+      @head = head
+      @done = done
+      @result = result
+      @mark = mark
+      @handling = handling
+    end
+  end
+
   # One function being lowered: the CLIF function itself, the bases its
   # code reads, its locals, its `self`, and the blocks every exit path
   # lands in.
@@ -52,6 +76,9 @@ module Ze0
     # How many `rescue` clauses this path is inside. `$!` is a stack, so a
     # jump out of one owes a pop per clause it leaves.
     attr_accessor :handling_depth
+    # The `while`s this scope is inside, innermost last. `break` and
+    # `next` read the last one before they read `kind`.
+    attr_reader :loops
     # The `def` this body is, which `super` needs: the class it was
     # WRITTEN in and the parameters a bare `super` forwards. nil in every
     # other kind of scope.
@@ -67,6 +94,7 @@ module Ze0
       @locals = {}
       @block_depth = 0
       @handling_depth = 0
+      @loops = []
       @owner = Names::OBJECT
     end
 

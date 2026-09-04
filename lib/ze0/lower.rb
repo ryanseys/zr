@@ -47,6 +47,11 @@ module Ze0
       # `bar` and the top level's do not collide, and neither do `def x`
       # and `def self.x`. `@classes` is in declaration order.
       @defs = { Names::OBJECT => {} }
+      # Every `def` node the declaration pass walked, so a redefinition --
+      # whose row the later `def` replaced -- is still known to be one the
+      # pass reached, and only a `def` written somewhere the pass does not
+      # go is refused.
+      @declared_defs = {}
       @classes = {}
       @scopes = []
       @blocks = 0
@@ -267,8 +272,6 @@ module Ze0
       writers = kind == :reader ? [] : [["#{name}=", :writer, [["req", ""]]]]
       (readers + writers).each do |method, half, params|
         key = [method.to_sym, false]
-        raise Unsupported.new(node, "a def named twice") if @defs.fetch(owner).key?(key)
-
         @defs[owner][key] = {
           accessor: half, ivar: name, owner: owner, singleton: false,
           name: method, line: node.location.start_line, file: @file,
@@ -294,7 +297,7 @@ module Ze0
 
       name = qualify(owner, node.name.to_s)
       superclass = superclass_of(node, owner, kind)
-      entry = @classes[name] || declare_fresh_class(name, kind, superclass)
+      entry = @classes[name] || declare_fresh_class(node, name, kind, superclass)
       if entry[:kind] != kind
         raise Unsupported.new(node, "a #{entry[:kind]} reopened as a #{kind}")
       end
@@ -318,7 +321,7 @@ module Ze0
       declare(body, name)
     end
 
-    def declare_fresh_class(name, kind, superclass)
+    def declare_fresh_class(node, name, kind, superclass)
       entry = {
         name: name, kind: kind, superclass: superclass,
         ivars: [], private_constants: [], bodies: [],
@@ -331,6 +334,8 @@ module Ze0
         kind: kind,
         ivars: entry[:ivars],
         private_constants: entry[:private_constants],
+        file: @file,
+        line: node.location.start_line,
       )
       entry
     end
@@ -396,8 +401,30 @@ module Ze0
     # A Prism parameter list as the shape the binder and the body agree
     # on. A destructuring parameter is refused: it binds names the slot
     # array has no room for.
+    # A block's or lambda's parameters, in whichever of prism's three
+    # shapes it was written. `_1`..`_N` and `it` are sugar for that many
+    # required positionals -- the names ruby gives them and the arity it
+    # answers -- so they need no lowering of their own.
+    def block_params(node)
+      case (list = node.parameters)
+      when nil then parse_params(nil)
+      when Prism::BlockParametersNode
+        raise Unsupported.new(node, "a block-local variable") if list.locals.any?
+
+        parse_params(list.parameters)
+      when Prism::NumberedParametersNode
+        positionals((1..list.maximum).map { |i| :"_#{i}" })
+      when Prism::ItParametersNode then positionals([:it])
+      else raise Unsupported.new(list, "a block parameter list of that shape")
+      end
+    end
+
+    def positionals(names)
+      Params.new(names, [], nil, [], [], nil, nil, false)
+    end
+
     def parse_params(node)
-      return Params.new([], [], nil, [], [], nil, nil, false) if node.nil?
+      return positionals([]) if node.nil?
 
       node.requireds.each { |r| refuse_destructure(r) }
       node.posts.each { |r| refuse_destructure(r) }
@@ -443,8 +470,10 @@ module Ze0
       singleton = node.receiver.is_a?(Prism::SelfNode)
       raise Unsupported.new(node, "a def with a receiver") if node.receiver && !singleton
       raise Unsupported.new(node, "a def on self at the top level") if singleton && owner == Names::OBJECT
+      # A redefinition keeps the LAST body, as ruby does; the row and the
+      # body symbol are the same either way.
       key = [node.name, singleton]
-      raise Unsupported.new(node, "a def named twice") if @defs.fetch(owner).key?(key)
+      @declared_defs[node.object_id] = true
 
       params = parse_params(node.parameters)
       @defs[owner][key] = {
@@ -469,9 +498,9 @@ module Ze0
     # anywhere else -- inside a block, an `if`, a loop or another `def` --
     # would be DEFINED by ruby and dropped here.
     def declared_def(node)
-      singleton = node.receiver.is_a?(Prism::SelfNode)
-      found = @defs.fetch(owner, {})[[node.name, singleton]]
-      raise Unsupported.new(node, "a def nested inside another statement") unless found&.fetch(:node).equal?(node)
+      unless @declared_defs[node.object_id]
+        raise Unsupported.new(node, "a def nested inside another statement")
+      end
 
       literal_symbol(node.name)
     end
@@ -859,11 +888,11 @@ module Ze0
     # registered, so this reads it and runs its body.
     def lower_class_statement(node)
       name = qualify(owner, node.name.to_s)
-      entry = @classes.fetch(name) { raise Unsupported.new(node, "a class this program does not declare") }
+      entry = @classes.fetch(name) { raise Unsupported.new(node, "a class nested inside another statement") }
       # Each `class Foo ... end` runs ITS body, so a reopen adds to the
       # class where the statement stands rather than all at once.
       written = entry[:bodies].find { |b| b[:node].equal?(node) }
-      raise Unsupported.new(node, "a class this program does not declare") if written.nil?
+      raise Unsupported.new(node, "a class nested inside another statement") if written.nil?
 
       klass = constant_named(node.name.to_s)
       result = f.slot
@@ -938,9 +967,7 @@ module Ze0
     # five-pointer trampoline's -- a block fn prepends `env` and takes its
     # `self` as a parameter, because `instance_exec` rebinds it per call.
     def lower_block(node, lambda_shape = false)
-      raise Unsupported.new(node, "a block-local variable") if node.parameters&.locals&.any?
-
-      params = parse_params(node.parameters&.parameters)
+      params = block_params(node)
       names = params.slot_names
       # ruby spreads a single Array argument over a shape with real
       # positional structure; one bare parameter is ambiguous and never
@@ -1162,6 +1189,10 @@ module Ze0
       when Prism::HashNode then hash_literal(node)
       when Prism::RangeNode then range_literal(node)
       when Prism::LocalVariableReadNode then local_read(node)
+      # `it` names the block's one parameter, which `block_params` gave a
+      # slot under that name.
+      when Prism::ItLocalVariableReadNode
+        read_local(locals.fetch(:it) { raise Unsupported.new(node, "an it outside a block") })
       when Prism::LocalVariableWriteNode then local_write(node)
       when Prism::MultiWriteNode then multi_write(node)
       when Prism::LocalVariableOperatorWriteNode, Prism::InstanceVariableOperatorWriteNode,
@@ -2014,7 +2045,9 @@ module Ze0
       end
       return safe_call(node) if safe_navigation?(node)
 
-      args = node.arguments&.arguments || []
+      # `dup`, because `pop` below would otherwise empty the prism node's
+      # own array.
+      args = node.arguments&.arguments&.dup || []
       # A trailing `k: v` list is its own channel, not a positional Hash.
       keywords = args.pop if args.last.is_a?(Prism::KeywordHashNode)
       args.each do |a|
@@ -2056,7 +2089,7 @@ module Ze0
       call, join = f.label, f.label
       f.ins "brif #{present}, #{call}, #{join}"
       f.switch(call)
-      args = node.arguments&.arguments || []
+      args = node.arguments&.arguments&.dup || []
       keywords = args.pop if args.last.is_a?(Prism::KeywordHashNode)
       move(send_call(node, args, keywords, recv), addr_of(result))
       f.ins "jump #{join}" unless f.terminated?
@@ -2065,6 +2098,8 @@ module Ze0
     end
 
     def send_call(node, args, keywords, recv = nil)
+      return vcall(node) if recv.nil? && node.variable_call?
+
       builder = block_builder(node, node.receiver.nil? && node.name == :lambda)
       recv ||= node.receiver ? lower_expr(node.receiver) : self_operand
       result = f.slot
@@ -2104,7 +2139,7 @@ module Ze0
     # read from a `zeo_proc_shapes` row goes inline instead: `zeo backend`
     # defines that table with no rows, so the shaped entry is unreachable.
     def proc_new(body, captures, node, lambda_shape)
-      shape = parse_params(node.parameters&.parameters)
+      shape = block_params(node)
       fn = f.callee(body, ["i64"] * 6, "i32")
       address = f.val("func_addr.i64 #{fn}")
       file, file_len = rodata_ref(@file)
@@ -2205,14 +2240,7 @@ module Ze0
       n_params = args.size + (definition[:block] ? 3 : 2)
       body = f.callee(body_symbol_of(definition[:owner], node.name, false), ["i64"] * n_params, "i32")
       addrs = [borrow(self_operand)] + operands.map { |o| borrow(o) }
-      if definition[:block]
-        addrs << if node.block
-                   body_fn, captures = lower_block(node.block)
-                   proc_new(body_fn, captures, node.block, false)
-                 else
-                   f.iconst("i64", 0)
-                 end
-      end
+      addrs << (block_builder(node)&.call || f.iconst("i64", 0)) if definition[:block]
       status = f.val("call #{body}(#{(addrs + [addr_of(result)]).join(", ")})")
       node.block ? catch_break(status, addr_of(result)) : status_check(status)
       Operand.new(result, true, false)
@@ -2232,9 +2260,7 @@ module Ze0
       kw = keywords ? borrow(hash_literal(keywords)) : nil
       blk = block_given? ? yield : f.iconst("i64", 0)
       sym_id = sym_id(name)
-      site = f.val("symbol_value.i64 #{f.symbol("zeo_callsites")}")
-      offset = @program.callsite * Capi::CALLSITE_BYTES
-      site = f.val("iadd.i64 #{site}, #{f.iconst("i64", offset)}") unless offset.zero?
+      site = callsite_ptr
       entry = kw ? "zeo_rt_send_value_kw_cached" : "zeo_rt_send_value_cached"
       channels = kw ? "#{kw}, #{blk}" : blk.to_s
       status = f.val(
@@ -2242,6 +2268,30 @@ module Ze0
         "#{argv}, #{f.iconst("i64", operands.size)}, #{channels}, #{into})",
       )
       breaks ? catch_break(status, into) : status_check(status)
+    end
+
+    # A bare name with no arguments, no parentheses and no receiver is
+    # ruby's VCALL. It dispatches exactly as a call to `self` does; only
+    # the MISS differs, and it is `NameError: undefined local variable or
+    # method`, never `NoMethodError`.
+    def vcall(node)
+      result = f.slot
+      status = f.val(
+        "call #{f.import("zeo_rt_send_value_vcall_cached")}(#{callsite_ptr}, " \
+        "#{f.iconst("i32", 0)}, #{borrow(self_operand)}, #{sym_id(node.name)}, " \
+        "#{addr_of(result)})",
+      )
+      status_check(status)
+      Operand.new(result, true, false)
+    end
+
+    # The program's next inline-cache slot, as a pointer.
+    def callsite_ptr
+      site = f.val("symbol_value.i64 #{f.symbol("zeo_callsites")}")
+      offset = @program.callsite * Capi::CALLSITE_BYTES
+      return site if offset.zero?
+
+      f.val("iadd.i64 #{site}, #{f.iconst("i64", offset)}")
     end
 
     # A send that passed a block lands here: a `Break` signal's value IS
@@ -2337,27 +2387,33 @@ module Ze0
       f.ins "jump #{join}"
     end
 
+    # A loop answers nil unless a `break` gives it a value, so the result
+    # slot is seeded before the head and only a `break` writes it.
     def lower_while(predicate, statements, negate)
       mark = f.val("call #{f.import("zeo_rt_pool_mark")}()")
       head, body, done = f.label, f.label, f.label
+      result = f.slot
+      store_nil(addr_of(result))
       f.ins "jump #{head}"
       f.switch(head)
       status_check(f.val("call #{f.import("zeo_rt_check_ints")}()"))
       truth = truthy(lower_expr(predicate))
       f.ins "brif #{truth}, #{negate ? done : body}, #{negate ? body : done}"
       f.switch(body)
+      scope.loops.push(Loop.new(head, done, result, mark, scope.handling_depth))
       body_statements(statements).each do |s|
         set_line(s)
         discard(lower_expr(s))
         break if f.terminated?
       end
+      scope.loops.pop
       unless f.terminated?
         f.ins "call #{f.import("zeo_rt_pool_reset")}(#{mark})"
         f.ins "jump #{head}"
       end
       f.switch(done)
       f.ins "call #{f.import("zeo_rt_pool_reset")}(#{mark})"
-      literal_nil
+      Operand.new(result, true, false)
     end
 
     # `a && b` and `a || b` answer one of their OPERANDS, not a boolean,
@@ -2465,8 +2521,13 @@ module Ze0
 
       scope.raise_block = landing
       value = lower_statements(node.statements)
-      value = lower_statements(node.else_clause&.statements) if node.else_clause
+      # An `else` runs only when the body finished, and it runs OUTSIDE
+      # the clauses: a raise there is not this begin's to catch.
       scope.raise_block = outer
+      if node.else_clause && !f.terminated?
+        discard(value)
+        value = lower_statements(node.else_clause.statements)
+      end
       unless f.terminated?
         move(value, addr_of(result))
         f.ins "jump #{done}"
@@ -2562,10 +2623,12 @@ module Ze0
       end
     end
 
-    # The `handling_pop`s a direct jump out of this scope owes. The
-    # lexical counter stays put: the pops are per path.
-    def pop_handling
-      scope.handling_depth.times { f.ins "call #{f.import("zeo_rt_handling_pop")}()" }
+    # The `handling_pop`s a direct jump out of this scope owes. A jump to
+    # a landing INSIDE the scope leaves only the clauses opened since,
+    # which is what `down_to` names. The lexical counter stays put: the
+    # pops are per path.
+    def pop_handling(down_to = 0)
+      (scope.handling_depth - down_to).times { f.ins "call #{f.import("zeo_rt_handling_pop")}()" }
     end
 
     # `super` resumes the MRO walk above the class the `def` was WRITTEN
@@ -2668,10 +2731,18 @@ module Ze0
       Operand.new(slot, false, true)
     end
 
-    # `next` is not a signal at all: it is the block's ordinary return,
-    # with its value in the out slot.
+    # Inside a loop, `next` starts the next iteration and its value is
+    # discarded; inside a block it is not a signal at all but the block's
+    # ordinary return, with its value in the out slot.
     def lower_next(node)
-      raise Unsupported.new(node, "a next outside a block") unless kind == :block
+      if (loop = scope.loops.last)
+        discard(one_value(node))
+        pop_handling(loop.handling)
+        f.ins "call #{f.import("zeo_rt_pool_reset")}(#{loop.mark})"
+        f.ins "jump #{loop.head}"
+        return unreachable
+      end
+      raise Unsupported.new(node, "a next outside a block or a loop") unless kind == :block
 
       move(one_value(node), out)
       pop_handling
@@ -2679,12 +2750,20 @@ module Ze0
       unreachable
     end
 
-    # `break` arms the Break signal and leaves; the send that passed the
-    # block takes the value and answers it.
+    # Inside a loop, `break` leaves it and the loop answers the value;
+    # inside a block it arms the Break signal and leaves, and the send
+    # that passed the block takes the value and answers it.
     def lower_break(node)
-      raise Unsupported.new(node, "a break outside a block") unless kind == :block
+      if (loop = scope.loops.last)
+        move(one_value(node), addr_of(loop.result))
+        pop_handling(loop.handling)
+        f.ins "jump #{loop.done}"
+        return unreachable
+      end
+      raise Unsupported.new(node, "a break outside a block or a loop") unless kind == :block
 
       value = hand_over(one_value(node))
+      pop_handling
       f.ins "call #{f.import("zeo_rt_signal_set")}(#{f.iconst("i8", Capi::SIGNAL_BREAK)}, #{value})"
       f.ins "jump #{raise_block}"
       unreachable
