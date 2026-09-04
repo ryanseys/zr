@@ -417,6 +417,7 @@ module Ze0
       # The ivar list and the private-constant list are the ones the class
       # ROW holds, so a reopen adds to what the sidecar already carries.
       ivar_names(body, superclass).each { |n| entry[:ivars] << n unless entry[:ivars].include?(n) }
+      cvar_names(body).each { |n| entry[:cvars] << n unless entry[:cvars].include?(n) }
       # A body's symbol is settled here, not when it is lowered: an
       # enclosing body calls it, and the two are lowered in either order.
       base = "zeo_cb_#{Names.owner_fragment(name)}"
@@ -452,7 +453,7 @@ module Ze0
     def declare_fresh_class(node, name, kind, superclass)
       entry = {
         name: name, kind: kind, superclass: superclass,
-        ivars: [], private_constants: [], bodies: [],
+        ivars: [], cvars: [], private_constants: [], bodies: [],
       }
       @classes[name] = entry
       @defs[name] = {}
@@ -533,6 +534,29 @@ module Ze0
       @classes[superclass]&.fetch(:ivars)&.each { |n| found[n] = true }
       body.each { |n| ivars_under(n, found) }
       found.keys
+    end
+
+    # The class variables a body names, `@@` and all. A `def` in the body
+    # counts: `@@x` in a method belongs to the class it is written in,
+    # which is what makes this a per-CLASS list and not a per-method one.
+    def cvar_names(body)
+      found = {}
+      body.each { |n| cvars_under(n, found) }
+      found.keys
+    end
+
+    CVAR_NODES = [
+      Prism::ClassVariableReadNode, Prism::ClassVariableWriteNode,
+      Prism::ClassVariableOperatorWriteNode, Prism::ClassVariableOrWriteNode,
+      Prism::ClassVariableAndWriteNode, Prism::ClassVariableTargetNode,
+    ].freeze
+
+    def cvars_under(node, found)
+      return found if NESTED_BODIES.any? { |k| node.is_a?(k) }
+
+      found[node.name.to_s.delete_prefix("@@")] = true if CVAR_NODES.any? { |k| node.is_a?(k) }
+      node.compact_child_nodes.each { |c| cvars_under(c, found) }
+      found
     end
 
     IVAR_NODES = [
@@ -1576,18 +1600,23 @@ module Ze0
       when Prism::LocalVariableWriteNode then local_write(node)
       when Prism::MultiWriteNode then multi_write(node)
       when Prism::LocalVariableOperatorWriteNode, Prism::InstanceVariableOperatorWriteNode,
+           Prism::ClassVariableOperatorWriteNode,
            Prism::GlobalVariableOperatorWriteNode, Prism::IndexOperatorWriteNode,
            Prism::CallOperatorWriteNode then operator_write(node)
       when Prism::LocalVariableOrWriteNode, Prism::InstanceVariableOrWriteNode,
+           Prism::ClassVariableOrWriteNode,
            Prism::GlobalVariableOrWriteNode, Prism::IndexOrWriteNode,
            Prism::CallOrWriteNode then conditional_write(node, false)
       when Prism::LocalVariableAndWriteNode, Prism::InstanceVariableAndWriteNode,
+           Prism::ClassVariableAndWriteNode,
            Prism::GlobalVariableAndWriteNode, Prism::IndexAndWriteNode,
            Prism::CallAndWriteNode then conditional_write(node, true)
       when Prism::GlobalVariableReadNode then global_read(node)
       when Prism::GlobalVariableWriteNode then global_write(node)
       when Prism::InstanceVariableReadNode then ivar_read(node)
       when Prism::InstanceVariableWriteNode then ivar_write(node)
+      when Prism::ClassVariableReadNode then cvar_read(node)
+      when Prism::ClassVariableWriteNode then cvar_write(node, lower_expr(node.value))
       when Prism::ConstantReadNode then constant_read(node)
       when Prism::ConstantWriteNode then constant_write(node)
       when Prism::ConstantPathWriteNode then constant_path_write(node)
@@ -1813,6 +1842,11 @@ module Ze0
       when Prism::InstanceVariableOperatorWriteNode, Prism::InstanceVariableOrWriteNode,
            Prism::InstanceVariableAndWriteNode
         Target.new(-> { ivar_load(ivar_key(name)) }, ->(v) { store_ivar(ivar_key(name), v) })
+      when Prism::ClassVariableOperatorWriteNode, Prism::ClassVariableOrWriteNode,
+           Prism::ClassVariableAndWriteNode
+        # `@@x ||= v` is the one read that tolerates an unassigned name.
+        lenient = node.is_a?(Prism::ClassVariableOrWriteNode)
+        Target.new(-> { cvar_read(node, lenient: lenient) }, ->(v) { cvar_write(node, v) })
       else
         Target.new(-> { global_load(name.to_s) }, ->(v) { store_global(name.to_s, v) })
       end
@@ -1879,6 +1913,54 @@ module Ze0
       arm(target.write.call(lower_expr(node.value)), result, join)
       f.switch(join)
       Operand.new(result, true, false)
+    end
+
+    # ---- class variables ----
+    #
+    # The runtime keys storage by ONE class id, so the compile has to name
+    # the class ruby's own lookup would have stopped at.
+
+    # The class a `@@name` belongs to: the HIGHEST ancestor this program
+    # declares whose source names it. That is where ruby's lookup stops,
+    # so a subclass writing an inherited name writes the one slot both
+    # share -- `Sub.bump` doing `@@total += 10` moves `Counter`'s.
+    # The storage key drops the sigil, which is what the runtime puts back
+    # for `class_variables` and for a NameError's message.
+    def cvar_key(node) = node.name.to_s.delete_prefix("@@")
+
+    def cvar_owner(node, name)
+      if owner == Names::OBJECT
+        raise Unsupported.new(node, "a class variable outside a class or module body")
+      end
+
+      chain = []
+      at = owner
+      while @classes.key?(at)
+        chain << at
+        at = @classes[at][:superclass]
+      end
+      chain.reverse.find { |c| @classes[c][:cvars].include?(name) } || owner
+    end
+
+    # A read. `lenient` is the `||=` half alone: every other read of a
+    # name nobody assigned is ruby's NameError.
+    def cvar_read(node, lenient: false)
+      name = cvar_key(node)
+      cid = class_id(cvar_owner(node, name))
+      nptr, nlen = rodata_ref(name)
+      slot = f.slot
+      entry = lenient ? "zeo_rt_cvar_get" : "zeo_rt_cvar_get_checked"
+      call = "call #{f.import(entry)}(#{cid}, #{nptr}, #{nlen}, #{addr_of(slot)})"
+      lenient ? f.ins(call) : status_check(f.val(call))
+      Operand.new(slot, true, false)
+    end
+
+    def cvar_write(node, value)
+      name = cvar_key(node)
+      cid = class_id(cvar_owner(node, name))
+      nptr, nlen = rodata_ref(name)
+      status_check(f.val("call #{f.import("zeo_rt_cvar_set")}(#{cid}, #{nptr}, #{nlen}, #{borrow(value)})"))
+      Operand.new(value.at, false, value.immediate)
     end
 
     # ---- globals, constants and instance variables ----
