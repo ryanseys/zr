@@ -3406,13 +3406,14 @@ module Ze0
 
     # The block a bare `yield` reaches: this scope's own, or -- inside a
     # block -- the enclosing method's, which the proc carried along as its
-    # `ProcEnv.lexical_blk`. Read once per function, and only where it is
-    # asked for.
+    # `ProcEnv.lexical_blk`. Hoisted, because the scattered uses have no
+    # block in common: a `->` in one branch and a `yield` in another both
+    # want it, and neither dominates the other.
     def yield_block
       return scope.blk if scope.blk
       return nil if scope.env.nil?
 
-      scope.lexical_blk ||= f.val("load.i64 notrap aligned #{scope.env}+#{Capi::PROC_ENV_LEXICAL_BLK}")
+      f.hoisted([:lexical_blk]) { "load.i64 notrap aligned #{scope.env}+#{Capi::PROC_ENV_LEXICAL_BLK}" }
     end
 
     # `block_given?` is the block pointer against null -- no call at all.

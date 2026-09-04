@@ -122,6 +122,24 @@ module Ze0
         hoisted([:iconst, type, n]) { "iconst.#{type} #{n}" }
       end
 
+      # A value that is the same everywhere, defined once in the entry block.
+      #
+      # The entry block dominates every other block, so a value defined there
+      # is in scope for all of them, which is what makes one definition legal
+      # where the uses are scattered. It goes in ahead of the entry block's
+      # terminator, and no use can be earlier: this is the first time the key
+      # has been asked for.
+      def hoisted(key)
+        @hoisted[key] ||= begin
+          v = value
+          body = (@body[@entry] ||= [])
+          at = body.size
+          at -= 1 if at.positive? && terminator?(body.last)
+          body.insert(at, "#{v} = #{yield}")
+          v
+        end
+      end
+
       # The address of a stack slot, materialized once per function.
       def stack_addr(slot)
         hoisted([:stack_addr, slot]) { "stack_addr.i64 #{slot}" }
@@ -156,24 +174,6 @@ module Ze0
         name = "block#{@labels.size}"
         @labels[name] = params.empty? ? name : "#{name}(#{params.join(", ")})"
         name
-      end
-
-      # A value that is the same everywhere, defined once in the entry block.
-      #
-      # The entry block dominates every other block, so a value defined there
-      # is in scope for all of them, which is what makes one definition legal
-      # where the uses are scattered. It goes in ahead of the entry block's
-      # terminator, and no use can be earlier: this is the first time the key
-      # has been asked for.
-      def hoisted(key)
-        @hoisted[key] ||= begin
-          v = value
-          body = (@body[@entry] ||= [])
-          at = body.size
-          at -= 1 if at.positive? && terminator?(body.last)
-          body.insert(at, "#{v} = #{yield}")
-          v
-        end
       end
 
       def terminator?(text)
