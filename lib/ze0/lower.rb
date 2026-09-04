@@ -1054,6 +1054,10 @@ module Ze0
       captures = method ? [] : block_captures(node, names)
       in_scope(function, method ? :body : :block) do
         scope.owner = own_owner
+        # A body the runtime installs knows its own parameters, which a
+        # bare `super` forwards, but not the class it will land on -- so
+        # the `super` target comes off the frame stack instead.
+        scope.definition = { params: params, node: node, singleton: false, runtime: true } if method
         scope.frame_base = method || base
         scope.block_depth = method ? 0 : depth + 1
         env, slf, argv, argc, blk, into = f.args
@@ -2661,7 +2665,7 @@ module Ze0
       hit = f.slot(1)
       status = f.val(
         "call #{f.import("zeo_rt_rescue_matches_any")}(#{addr_of(exc)}, " \
-        "#{super_array(listed)}, #{addr_of(hit)})",
+        "#{value_array(listed)}, #{addr_of(hit)})",
       )
       # A matcher can raise -- an undefined constant, or a listed value
       # that is not a Module -- and that raise leaves this begin.
@@ -2722,28 +2726,54 @@ module Ze0
       definition = scope.definition
       raise Unsupported.new(node, "a super outside a method body") if kind != :body || definition.nil?
       raise Unsupported.new(node, "a super in a class method") if definition[:singleton]
-      raise Unsupported.new(node, "a super at the top level") if owner == Names::OBJECT
-      raise Unsupported.new(node, "a super in a module") if @classes.fetch(owner)[:kind] == "module"
 
-      operands = args ? args.map { |a| super_argument(a) } : forwarded_arguments(definition[:params])
+      # A body the runtime installed lands on a class minted while the
+      # program ran, so its target is read off the method-frame stack
+      # rather than named here.
+      runtime = definition[:runtime]
+      raise Unsupported.new(node, "a super at the top level") if !runtime && owner == Names::OBJECT
+
       into = f.slot
       builder = block_builder(node)
-      argv = super_array(operands)
+      argv, kw = super_arguments(args, definition)
       blk = builder ? builder.call : forwarded_block
+      target = runtime ? "zeo_rt_send_super_dynamic_args" : "zeo_rt_send_super_from_args"
+      named = runtime ? "" : "#{class_id(owner)}, #{sym_id(definition[:node].name)}, "
       status = f.val(
-        "call #{f.import("zeo_rt_send_super_from_args")}(#{borrow(self_operand)}, " \
-        "#{class_id(owner)}, #{sym_id(definition[:node].name)}, #{argv}, " \
-        "#{f.iconst("i8", 0)}, #{f.iconst("i64", 0)}, #{blk}, #{addr_of(into)})",
+        "call #{f.import(target)}(#{borrow(self_operand)}, #{named}#{argv}, " \
+        "#{f.iconst("i8", 0)}, #{kw}, #{blk}, #{addr_of(into)})",
       )
       builder ? catch_break(status, addr_of(into)) : status_check(status)
       Operand.new(into, true, false)
     end
 
-    def super_argument(node)
+    # A `super`'s argument Array and its keyword Hash, or a null pointer
+    # where no keywords were written. The runtime reads an Array rather
+    # than a slot array, which is what lets a `*` splat be one different
+    # push and nothing else.
+    def super_arguments(args, definition)
+      args = args&.dup
+      keywords = args.pop if args&.last.is_a?(Prism::KeywordHashNode)
+      argv = new_array(args ? args.size : 0)
+      if args
+        args.each { |a| push_super_argument(argv, a) }
+      else
+        forwarded_arguments(definition[:params]).each { |o| push_argument(argv, o) }
+      end
+      [argv, keywords ? borrow(hash_literal(keywords)) : f.iconst("i64", 0)]
+    end
+
+    # One written `super` argument, pushed onto its Array. A `*` splat
+    # spreads its elements in; everything else is one value.
+    def push_super_argument(argv, node)
       case node
-      when Prism::SplatNode, Prism::KeywordHashNode, Prism::BlockArgumentNode
+      when Prism::SplatNode
+        raise Unsupported.new(node, "an anonymous splat") if node.expression.nil?
+
+        push_splat(argv, lower_expr(node.expression))
+      when Prism::KeywordHashNode, Prism::BlockArgumentNode
         raise Unsupported.new(node, "a super argument of that shape")
-      else lower_expr(node)
+      else push_argument(argv, lower_expr(node))
       end
     end
 
@@ -2758,15 +2788,30 @@ module Ze0
       names.map { |n| read_local(locals.fetch(n)) }
     end
 
-    # The `super` call's own Array of arguments, which the runtime reads
-    # rather than a slot array.
-    def super_array(operands)
+    # An Array of values in a pooled slot, which a runtime entry reads
+    # instead of the slot array an ordinary send takes.
+    def value_array(operands)
+      argv = new_array(operands.size)
+      operands.each { |o| push_argument(argv, o) }
+      argv
+    end
+
+    # A fresh, pooled Array with room for `size` elements.
+    def new_array(size)
       slot = f.slot
       at = addr_of(slot)
-      f.ins "call #{f.import("zeo_rt_array_new")}(#{f.iconst("i64", operands.size)}, #{at})"
+      f.ins "call #{f.import("zeo_rt_array_new")}(#{f.iconst("i64", size)}, #{at})"
       f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
-      operands.each { |o| f.ins "call #{f.import("zeo_rt_array_push")}(#{at}, #{hand_over(o)})" }
       at
+    end
+
+    def push_argument(argv, operand)
+      f.ins "call #{f.import("zeo_rt_array_push")}(#{argv}, #{hand_over(operand)})"
+    end
+
+    # `*value` spread in place, through ruby's `to_a` rule.
+    def push_splat(argv, operand)
+      status_check(f.val("call #{f.import("zeo_rt_array_push_splat")}(#{argv}, #{borrow(operand)})"))
     end
 
     # With no block written at the `super`, the method's own goes on. The
