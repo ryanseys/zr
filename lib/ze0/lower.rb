@@ -113,25 +113,39 @@ module Ze0
     def splice(statements, file, seen, units)
       run = []
       statements.each do |s|
-        target = required_file(s, file)
-        if target.nil?
+        required = required_file(s, file)
+        # An `autoload` anywhere under this statement names a file that
+        # PROVIDES its constant, and a unit is a run of TOP-LEVEL
+        # statements, so the file goes in ahead of the statement enclosing
+        # it. The target's own `module`s say where its contents belong.
+        loads = autoload_paths(s)
+        loads << required if required
+        if loads.empty?
           run << s
           next
         end
 
         units << [file, run] unless run.empty?
         run = []
-        # The entry goes in BEFORE the file is read, matching CRuby's
-        # loading table: a cycle splices nothing the second time.
-        next if seen.key?(target)
-
-        seen[target] = true
-        # Read the file where the `require` is written, so a refusal about
-        # the file names the line that asked for it.
-        statements = spliced_statements(s, target)
-        with_file(target) { splice(statements, target, seen, units) }
+        loads.each { |path| read_unit(s, path, seen, units) }
+        # The splice consumes a `require`; every other statement still runs
+        # where it stands.
+        run << s if required.nil?
       end
       units << [file, run] unless run.empty?
+    end
+
+    # `path`'s statements as units, once per program.
+    def read_unit(node, path, seen, units)
+      # The entry goes in BEFORE the file is read, matching CRuby's
+      # loading table: a cycle splices nothing the second time.
+      return if seen.key?(path)
+
+      seen[path] = true
+      # Read the file where the `require` is written, so a refusal about
+      # the file names the line that asked for it.
+      statements = spliced_statements(node, path)
+      with_file(path) { splice(statements, path, seen, units) }
     end
 
     # The absolute path a `require_relative` names, or nil for any other
@@ -159,6 +173,41 @@ module Ze0
       # root carries names a feature the runtime already holds, and the
       # call stays where it is: `lower_require` opens the gate there.
       @roots.filter_map { |root| with_rb(File.expand_path(feature, root)) }.first
+    end
+
+    # The files every `autoload` written under `node` names, in order.
+    #
+    # ze0 has no lazy units, so the file is spliced in and the constant is
+    # there before anything asks for it. That is the divergence zeo states
+    # for its own eager `autoload` (`parse/loader/mod.rs`): the file runs
+    # at the `autoload` statement rather than at first constant access,
+    # and even if the constant is never referenced.
+    def autoload_paths(node, found = [])
+      found << autoload_target(node) if autoload_call?(node) && autoload_target(node)
+      node.compact_child_nodes.each { |c| autoload_paths(c, found) }
+      found
+    end
+
+    def autoload_call?(node)
+      node.is_a?(Prism::CallNode) && node.receiver.nil? && node.name == :autoload
+    end
+
+    # The file one `autoload` names, searched the way `require` searches
+    # -- which is what ruby's `autoload` does with its second argument.
+    # nil when no root carries it: the feature is then the runtime's own,
+    # and the declaration opens its gate where it stands.
+    def autoload_target(node)
+      feature = autoload_feature(node)
+      @roots.filter_map { |root| with_rb(File.expand_path(feature, root)) }.first
+    end
+
+    def autoload_feature(node)
+      args = node.arguments&.arguments || []
+      unless args.size == 2 && args[1].is_a?(Prism::StringNode) && node.block.nil?
+        raise Unsupported.new(node, "an `autoload` of that shape")
+      end
+
+      args[1].unescaped
     end
 
     # A required path, with `.rb` appended AFTER it is absolute -- CRuby's
@@ -2185,7 +2234,13 @@ module Ze0
         raise Unsupported.new(node, "a `require` of that shape")
       end
 
-      feature = canonical_feature(args[0].unescaped)
+      require_feature(args[0].unescaped)
+    end
+
+    # One feature's gate, opened where the statement stands. The answer is
+    # ruby's: true the first time the program names it, false after.
+    def require_feature(name)
+      feature = canonical_feature(name)
       @program.add_feature(feature)
       eptr, elen = rodata_ref(feature)
       f.ins "call #{f.import("zeo_rt_feature_loaded")}(#{f.iconst("i32", Capi::MAIN_BOX)}, " \
@@ -2210,9 +2265,9 @@ module Ze0
     end
 
     # The verbs that bring another file's statements into the program.
-    # ze0 compiles one file, so each would run as an ordinary send and
-    # then fail -- or, for `autoload`, answer a constant ruby resolves.
-    LOAD_VERBS = %i[load autoload].freeze
+    # ze0 compiles one file, so this would run as an ordinary send and
+    # then fail.
+    LOAD_VERBS = %i[load].freeze
 
     def lower_call(node)
       if node.receiver.nil? && kind == :class_body
@@ -2223,6 +2278,13 @@ module Ze0
       end
       if node.receiver.nil? && LOAD_VERBS.include?(node.name)
         raise Unsupported.new(node, "`#{node.name}`")
+      end
+      # The splice consumed the file this names, so the declaration is
+      # nothing but its own nil. A feature no load path carries is the
+      # runtime's own, and this is where its gate opens.
+      if autoload_call?(node)
+        discard(require_feature(autoload_feature(node))) unless autoload_target(node)
+        return literal_nil
       end
       return lower_require(node) if node.receiver.nil? && node.name == :require
       # The splice consumes every `require_relative` written as a
