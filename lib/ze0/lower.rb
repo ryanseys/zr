@@ -45,6 +45,9 @@ module Ze0
       @classes = {}
       @scopes = []
       @blocks = 0
+      # Every name any class body marked `private_constant`. A read of a
+      # name no body marks can never need the guard, whatever its scope.
+      @private_constants = {}
     end
 
     def lower(root)
@@ -109,8 +112,18 @@ module Ze0
       args = node.arguments&.arguments || []
       if VISIBILITY.include?(name)
         # `private :x` is positional and retags one name where it is
-        # written; only the bare verb is a mode.
-        return args.empty? ? name : visibility
+        # written; only the bare verb is a mode. `private def x` declares
+        # the method at that visibility and nothing runs at all.
+        return name if args.empty?
+
+        args.each { |a| declare_def(a, owner, name) if a.is_a?(Prism::DefNode) }
+        return visibility
+      end
+      if name == "private_constant"
+        names = accessor_names(node, args)
+        names.each { |n| @private_constants[n] = true }
+        @classes.fetch(owner)[:private_constants].concat(names)
+        return visibility
       end
 
       kind = ACCESSORS[node.name]
@@ -170,8 +183,10 @@ module Ze0
       # The body's symbol is settled here, not when it is lowered: an
       # enclosing body calls it, and the two are lowered in either order.
       ivars = ivar_names(body, superclass)
+      private_constants = []
       @classes[name] = {
         name: name, kind: kind, node: node, body: body, ivars: ivars,
+        private_constants: private_constants,
         symbol: "zeo_cb_#{Names.owner_fragment(name)}",
       }
       @defs[name] = {}
@@ -180,6 +195,7 @@ module Ze0
         superclass: superclass,
         kind: kind,
         ivars: ivars,
+        private_constants: private_constants,
       )
       declare(body, name)
     end
@@ -206,11 +222,9 @@ module Ze0
     # inside `Ze0` is `Ze0::Lower` before it is a top-level `Lower`.
     def resolve_class(owner, name)
       scopes = owner == Names::OBJECT ? [] : owner.split("::")
-      scopes.size.downto(0) do |n|
-        candidate = qualify(scopes.first(n).join("::").then { |o| o.empty? ? Names::OBJECT : o }, name)
-        return candidate if @classes.key?(candidate)
-      end
-      nil
+      scopes.size.downto(0)
+            .map { |n| qualify(scopes.first(n).join("::").then { |o| o.empty? ? Names::OBJECT : o }, name) }
+            .find { |candidate| @classes.key?(candidate) }
     end
 
     # The instance variables a class declares, in slot order: the ones a
@@ -1043,6 +1057,7 @@ module Ze0
       when Prism::NextNode then lower_next(node)
       when Prism::BreakNode then lower_break(node)
       when Prism::BeginNode then lower_begin(node)
+      when Prism::AliasMethodNode then lower_alias_statement(node)
       when Prism::ParenthesesNode then lower_statements(node.body)
       when Prism::StatementsNode then lower_statements(node)
       when Prism::ElseNode then lower_statements(node.statements)
@@ -1139,6 +1154,10 @@ module Ze0
         append_value(at, lower_statements(part.statements))
       when Prism::EmbeddedVariableNode
         append_value(at, lower_expr(part.variable))
+      # Adjacent literals (`"a" "b"`, or one written over two lines) are
+      # ONE string, and prism nests them a level deeper.
+      when Prism::InterpolatedStringNode
+        part.parts.each { |inner| append_part(at, inner) }
       else raise Unsupported.new(part, "an interpolated piece of that shape")
       end
     end
@@ -1156,9 +1175,17 @@ module Ze0
       f.ins "call #{f.import("zeo_rt_array_new")}(#{f.iconst("i64", node.elements.size)}, #{at})"
       f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
       node.elements.each do |e|
-        raise Unsupported.new(e, "a splat in an array literal") if e.is_a?(Prism::SplatNode)
+        # `[*xs]` spreads through ruby's `to_a` rule, which the runtime
+        # does; anything else is one element.
+        unless e.is_a?(Prism::SplatNode)
+          f.ins "call #{f.import("zeo_rt_array_push")}(#{at}, #{hand_over(lower_expr(e))})"
+          next
+        end
+        raise Unsupported.new(e, "an anonymous splat") if e.expression.nil?
 
-        f.ins "call #{f.import("zeo_rt_array_push")}(#{at}, #{hand_over(lower_expr(e))})"
+        status_check(f.val(
+          "call #{f.import("zeo_rt_array_push_splat")}(#{at}, #{borrow(lower_expr(e.expression))})",
+        ))
       end
       Operand.new(slot, false, false)
     end
@@ -1169,6 +1196,16 @@ module Ze0
       f.ins "call #{f.import("zeo_rt_hash_new")}(#{at})"
       f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
       node.elements.each do |e|
+        # `{**h}` merges h's pairs in place, through ruby's `to_hash`
+        # rule. `**nil` is the "no keywords" spelling and adds nothing.
+        if e.is_a?(Prism::AssocSplatNode)
+          raise Unsupported.new(e, "an anonymous splat") if e.value.nil?
+
+          status_check(f.val(
+            "call #{f.import("zeo_rt_kw_splat_into")}(#{at}, #{borrow(lower_expr(e.value))})",
+          ))
+          next
+        end
         raise Unsupported.new(e, "a hash element of that shape") unless e.is_a?(Prism::AssocNode)
 
         key = hand_over(lower_expr(e.key))
@@ -1240,6 +1277,8 @@ module Ze0
     end
 
     def call_target(node)
+      raise Unsupported.new(node, "a safe navigation write") if safe_navigation?(node)
+
       recv = lower_expr(node.receiver)
       borrow(recv)
       Target.new(
@@ -1420,16 +1459,59 @@ module Ze0
     def constant_path_read(node)
       raise Unsupported.new(node, "a constant path with no scope") if node.parent.nil?
 
-      scope = lower_expr(node.parent)
+      owner = static_scope(node.parent)
       name = node.name.to_s
+      # The guard needs the owner's ID, so a scope ze0 cannot name is
+      # refused -- but only for a name some body marks private. Every
+      # other read is unguarded because nothing could guard it.
+      if owner.nil? && @private_constants.key?(name)
+        raise Unsupported.new(node, "a private constant read through a scope this program cannot name")
+      end
+
+      scope = lower_expr(node.parent)
       nptr, nlen = rodata_ref(name)
       qptr, qlen = rodata_ref(node.slice)
+      private_constant_guard(owner, name, node.slice) if owner
       slot = f.slot
       status_check(f.val(
         "call #{f.import("zeo_rt_const_get_on_value")}(#{borrow(scope)}, #{nptr}, #{nlen}, " \
         "#{qptr}, #{qlen}, #{addr_of(slot)})",
       ))
       Operand.new(slot, true, false)
+    end
+
+    # The class a constant path's scope names, when this program declares
+    # it. Only then can the read ask whether the constant is private:
+    # `zeo_rt_const_private` takes the owner's ID.
+    def static_scope(node)
+      case node
+      when Prism::ConstantReadNode then resolve_class(owner, node.name.to_s)
+      when Prism::ConstantPathNode then node.parent && qualify_path(node)
+      end
+    end
+
+    def qualify_path(node)
+      up = static_scope(node.parent)
+      up && @classes.key?("#{up}::#{node.name}") ? "#{up}::#{node.name}" : nil
+    end
+
+    # `A::B` where B is private raises, and the check is at the READ, not
+    # in the lookup -- privacy is positional, so which directive last ran
+    # is the run time's answer.
+    def private_constant_guard(scope_name, name, path)
+      return unless @classes.fetch(scope_name)[:private_constants].include?(name)
+
+      nptr, nlen = rodata_ref(name)
+      pptr, plen = rodata_ref(path)
+      cid = class_id(scope_name)
+      hidden, go = f.label, f.label
+      f.ins "brif #{f.val("call #{f.import("zeo_rt_const_private")}(#{cid}, #{nptr}, #{nlen})")}, #{hidden}, #{go}"
+      f.switch(hidden)
+      status_check(f.val(
+        "call #{f.import("zeo_rt_raise_private_constant")}(#{cid}, #{nptr}, #{nlen}, #{pptr}, #{plen})",
+      ))
+      f.ins "jump #{go}"
+      f.switch(go)
     end
 
     # The table clones the value and stamps the location
@@ -1653,8 +1735,8 @@ module Ze0
     # `x` undefined, and `private` left a method public.
     CLASS_MACROS = %i[
       include extend prepend
-      module_function define_method alias_method
-      private_constant public_constant private_class_method public_class_method
+      module_function define_method
+      public_constant private_class_method public_class_method
       undef_method remove_method const_set class_eval module_eval instance_eval
       refine using
     ].freeze
@@ -1666,8 +1748,16 @@ module Ze0
     def lower_class_macro(node)
       args = node.arguments&.arguments || []
       name = node.name.to_s
+      if name == "private_constant"
+        # The class row carries the names; nothing runs here.
+        accessor_names(node, args)
+        return Operand.new(self_operand.at, false, self_operand.immediate)
+      end
       if VISIBILITY.include?(name)
         return literal_nil if args.empty?
+        # `private def x` answers the `def`'s own value, and the row the
+        # declaration pass wrote already carries the visibility.
+        return args.map { |a| lower_expr(a) }.last if args.all?(Prism::DefNode)
 
         names = accessor_names(node, args)
         verb = f.iconst("i8", Capi::VISIBILITY_VERBS.fetch(name))
@@ -1680,6 +1770,8 @@ module Ze0
         return names.size == 1 ? literal_symbol(names.first) : symbol_array(names)
       end
 
+      return lower_alias(node, args[0], args[1]) if name == "alias_method" && args.size == 2
+
       kind = ACCESSORS[node.name]
       return nil unless kind
 
@@ -1687,6 +1779,36 @@ module Ze0
         (kind == :writer ? [] : [n]) + (kind == :reader ? [] : ["#{n}="])
       end
       symbol_array(defined)
+    end
+
+    # `alias b a` and `alias_method :b, :a` are the same thing at run
+    # time: the definee is `self`, which in a class body is the class.
+    # The runtime resolves the source, so an alias of a builtin method
+    # works exactly as it does for one the program wrote.
+    def lower_alias(node, new_name, old_name)
+      raise Unsupported.new(node, "an alias outside a class body") unless kind == :class_body
+
+      slot = f.slot
+      slf = borrow(self_operand)
+      status_check(f.val(
+        "call #{f.import("zeo_rt_alias_in_default_definee")}(#{slf}, #{slf}, " \
+        "#{borrow(alias_name(new_name))}, #{borrow(alias_name(old_name))}, #{addr_of(slot)})",
+      ))
+      Operand.new(slot, true, false)
+    end
+
+    # The `alias` KEYWORD answers nil, where `alias_method` answers the
+    # new name.
+    def lower_alias_statement(node)
+      discard(lower_alias(node, node.new_name, node.old_name))
+      literal_nil
+    end
+
+    def alias_name(node)
+      case node
+      when Prism::SymbolNode then literal_symbol(node.unescaped)
+      else raise Unsupported.new(node, "an alias name of that shape")
+      end
     end
 
     def symbol_array(names)
@@ -1713,7 +1835,7 @@ module Ze0
       if node.receiver.nil? && LOAD_VERBS.include?(node.name)
         raise Unsupported.new(node, "`#{node.name}`")
       end
-      raise Unsupported.new(node, "safe navigation") if node.call_operator_loc&.slice == "&."
+      return safe_call(node) if safe_navigation?(node)
 
       args = node.arguments&.arguments || []
       # A trailing `k: v` list is its own channel, not a positional Hash.
@@ -1743,9 +1865,31 @@ module Ze0
     # keyword channel, and an optional block. The block is built LAST --
     # after the receiver, the arguments and the keywords -- because it is
     # MOVED in and nothing between its construction and the call may raise.
-    def send_call(node, args, keywords)
+    def safe_navigation?(node) = node.call_operator_loc&.slice == "&."
+
+    # `x&.y` answers nil without calling when `x` is nil -- NIL alone, not
+    # anything falsy, so `false&.to_s` still answers "false".
+    def safe_call(node)
+      raise Unsupported.new(node, "a safe navigation write") if node.name.to_s.end_with?("=")
+
+      recv = lower_expr(node.receiver)
+      result = f.slot
+      store_nil(addr_of(result))
+      present = f.val("icmp ne #{tag_of(borrow(recv))}, #{f.iconst("i8", Capi::TAG_NIL)}")
+      call, join = f.label, f.label
+      f.ins "brif #{present}, #{call}, #{join}"
+      f.switch(call)
+      args = node.arguments&.arguments || []
+      keywords = args.pop if args.last.is_a?(Prism::KeywordHashNode)
+      move(send_call(node, args, keywords, recv), addr_of(result))
+      f.ins "jump #{join}" unless f.terminated?
+      f.switch(join)
+      Operand.new(result, true, false)
+    end
+
+    def send_call(node, args, keywords, recv = nil)
       builder = block_builder(node, node.receiver.nil? && node.name == :lambda)
-      recv = node.receiver ? lower_expr(node.receiver) : self_operand
+      recv ||= node.receiver ? lower_expr(node.receiver) : self_operand
       result = f.slot
       operands = -> { args.map { |a| lower_expr(a) } }
       if builder
@@ -1841,7 +1985,8 @@ module Ze0
 
       slot = f.slot(PARAM_ROW_BYTES * rows.size)
       at = addr_of(slot)
-      rows.each_with_index do |(kind, name), i|
+      rows.each_with_index do |row, i|
+        kind, name = row
         off = i * PARAM_ROW_BYTES
         ptr, len = rodata_ref(name.to_s)
         # The runtime renders a non-lambda block's `req` as `opt`.
@@ -1884,7 +2029,12 @@ module Ze0
       body = f.callee(body_symbol_of(definition[:owner], node.name, false), ["i64"] * n_params, "i32")
       addrs = [borrow(self_operand)] + operands.map { |o| borrow(o) }
       if definition[:block]
-        addrs << (node.block ? proc_new(*lower_block(node.block), node.block, false) : f.iconst("i64", 0))
+        addrs << if node.block
+                   body_fn, captures = lower_block(node.block)
+                   proc_new(body_fn, captures, node.block, false)
+                 else
+                   f.iconst("i64", 0)
+                 end
       end
       status = f.val("call #{body}(#{(addrs + [addr_of(result)]).join(", ")})")
       node.block ? catch_break(status, addr_of(result)) : status_check(status)

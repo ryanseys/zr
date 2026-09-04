@@ -7,9 +7,20 @@ module Ze0
   # required, optional, a named rest, post, keywords in declared order, a
   # named kwrest. An anonymous `*` or `**` takes no slot -- nothing can
   # name it -- and the block is a channel of its own, never a slot.
-  Params = Struct.new(
-    :required, :optional, :rest, :post, :keywords, :kwrest, :block, :no_keywords,
-  ) do
+  class Params
+    attr_reader :required, :optional, :rest, :post, :keywords, :kwrest, :block, :no_keywords
+
+    def initialize(required, optional, rest, post, keywords, kwrest, block, no_keywords)
+      @required = required
+      @optional = optional
+      @rest = rest
+      @post = post
+      @keywords = keywords
+      @kwrest = kwrest
+      @block = block
+      @no_keywords = no_keywords
+    end
+
     # The names the slots hold, in slot order.
     def slot_names
       required +
@@ -63,15 +74,38 @@ module Ze0
     def takes_block?(uses_yield)
       uses_yield || !block.nil?
     end
-  end
 
-  # One optional positional: its name and the expression its default is.
-  Params::Optional = Struct.new(:name, :default)
-  # One keyword: its name, its default (nil when required), and which.
-  Params::Keyword = Struct.new(:name, :default, :required)
-  # A `*`/`**` that binds nothing (`PARAM_STAR_ANON`) still changes what
-  # the binder accepts, so it is recorded with no name.
-  Params::Star = Struct.new(:name) do
-    def named? = !name.nil?
+    # One optional positional: its name and the expression its default is.
+    class Optional
+      attr_reader :name, :default
+
+      def initialize(name, default)
+        @name = name
+        @default = default
+      end
+    end
+
+    # One keyword: its name, its default (nil when required), and which.
+    class Keyword
+      attr_reader :name, :default, :required
+
+      def initialize(name, default, required)
+        @name = name
+        @default = default
+        @required = required
+      end
+    end
+
+    # A `*`/`**` that binds nothing (`PARAM_STAR_ANON`) still changes what
+    # the binder accepts, so it is recorded with no name.
+    class Star
+      attr_reader :name
+
+      def initialize(name)
+        @name = name
+      end
+
+      def named? = !@name.nil?
+    end
   end
 end

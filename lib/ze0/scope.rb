@@ -10,9 +10,16 @@ module Ze0
   # it; `:borrowed` is a block reading one out of its `ProcEnv`, whose
   # reference the proc holds. Every read and write goes through `Lower`,
   # which dispatches on this.
-  Local = Struct.new(:slot, :cell) do
-    def boxed? = !cell.nil?
-    def owns_cell? = cell == :owned
+  class Local
+    attr_reader :slot, :cell
+
+    def initialize(slot, cell)
+      @slot = slot
+      @cell = cell
+    end
+
+    def boxed? = !@cell.nil?
+    def owns_cell? = @cell == :owned
   end
 
   # One function being lowered: the CLIF function itself, the bases its

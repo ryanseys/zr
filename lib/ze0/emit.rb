@@ -77,8 +77,11 @@ module Ze0
 
     # One class or module. Ids are the backend's to assign, so nothing
     # here is a number.
-    def add_class(name:, superclass:, kind:, ivars:)
-      @classes << { name: name, superclass: superclass, kind: kind, ivars: ivars }
+    def add_class(name:, superclass:, kind:, ivars:, private_constants: [])
+      @classes << {
+        name: name, superclass: superclass, kind: kind, ivars: ivars,
+        private_constants: private_constants,
+      }
     end
 
     # The `zeo_class_ids` slot of `name`.
@@ -127,6 +130,7 @@ module Ze0
             "superclass" => c[:superclass],
             "kind" => c[:kind],
             "ivars" => c[:ivars],
+            "private_constants" => c[:private_constants],
           }
         end,
         # A dynamic send can reach any class, and ze0 has no reachability
