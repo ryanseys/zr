@@ -48,8 +48,16 @@ rescue SystemCallError => e
   exit 1
 end
 
+# The Ruby halves of the extensions the runtime carries, searched after
+# the roots `-I` named. `zeo build` splices the same files, so a plain
+# `require "json"` reaches one library on both roads. An installed ze0
+# outside the tree finds none, and the require stays the runtime's.
+def default_roots
+  Dir[File.expand_path("../crates/zeo-rt/ext/*/lib", __dir__)].sort
+end
+
 begin
-  clif, zeodata = Ze0.compile(source, input, roots)
+  clif, zeodata = Ze0.compile(source, input, roots + default_roots)
 rescue Ze0::Unsupported => e
   warn "ze0: #{e.file || input}: #{e.message}"
   exit 1

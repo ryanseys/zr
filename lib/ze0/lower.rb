@@ -29,12 +29,12 @@ module Ze0
   # release pool and every dispatch are calls into the runtime; Integer
   # arithmetic and comparison take an inline fast path when both tags say
   # Int, and every other send is the runtime's cached dynamic send.
-  # An `END { }` body, wearing the shape `lower_block` reads: no
-  # parameters, no block-local names, and its statements as the body.
-  EndBlock = Struct.new(:statements, :location) do
+  # A run of statements wearing the shape `lower_block` reads: no
+  # parameters, and its own names. What an `END { }` body and a reopened
+  # builtin's body are lowered as, neither being a block node itself.
+  BodyBlock = Struct.new(:statements, :location, :locals) do
     def parameters = nil
     def body = statements
-    def locals = []
     def compact_child_nodes = [statements].compact
   end
 
@@ -113,6 +113,8 @@ module Ze0
         by_key.each_value { |d| with_file(d[:file]) { lower_def(d) } }
       end
       @classes.each_value do |c|
+        next if c[:builtin]
+
         c[:bodies].each { |written| with_file(written[:file]) { lower_class_body(c, written) } }
       end
       lower_toplevel(units)
@@ -144,16 +146,19 @@ module Ze0
       raise
     end
 
-    def splice(statements, file, seen, units)
+    def splice(statements, file, seen, units, chain = [])
+      # The files this run is spliced INSIDE, outermost first. A top-level
+      # `return` in any of them ends this run before it starts.
+      here = chain + [file]
       run = []
       mine = []
       close = -> do
-        units << [file, run] unless run.empty?
+        units << [file, run, here] unless run.empty?
         run = []
       end
       splice_in = ->(node, path) do
         close.call
-        read_unit(node, path, seen, units)
+        read_unit(node, path, seen, units, here)
       end
       statements.each do |s|
         mine.concat(register_autoloads(s))
@@ -182,7 +187,7 @@ module Ze0
       # never referenced, because there are no lazy units.
       mine.each do |name|
         path = @autoloads.delete(name)
-        read_unit(@autoload_nodes.fetch(name), path, seen, units) if path
+        read_unit(@autoload_nodes.fetch(name), path, seen, units, here) if path
       end
     end
 
@@ -220,7 +225,7 @@ module Ze0
     CONSTANT_READS = [Prism::ConstantReadNode, Prism::ConstantPathNode].freeze
 
     # `path`'s statements as units, once per program.
-    def read_unit(node, path, seen, units)
+    def read_unit(node, path, seen, units, chain = [])
       # The entry goes in BEFORE the file is read, matching CRuby's
       # loading table: a cycle splices nothing the second time.
       return if seen.key?(path)
@@ -229,7 +234,7 @@ module Ze0
       # Read the file where the `require` is written, so a refusal about
       # the file names the line that asked for it.
       statements = spliced_statements(node, path)
-      with_file(path) { splice(statements, path, seen, units) }
+      with_file(path) { splice(statements, path, seen, units, chain) }
     end
 
     # The verbs that bring another file's statements into the program.
@@ -562,6 +567,8 @@ module Ze0
     # at -- `Ze0::Lower`, which is what `Module#name` answers.
     def declare_class(node, owner, kind, guarded: false)
       name = declared_name(node)
+      return declare_builtin_reopen(node, name, kind) if Names::ALWAYS_ON.include?(name)
+
       superclass = superclass_of(node, kind)
       entry = @classes[name] || declare_fresh_class(node, name, kind, superclass)
       entry[:guarded] ||= guarded
@@ -616,6 +623,25 @@ module Ze0
       end
 
       "#{scope}::#{node.name}"
+    end
+
+    # A `class` or `module` naming one the runtime always carries. No row
+    # is minted -- the id is the backend's -- and the body's `def`s are
+    # not declared either: the whole body runs as a `class_eval` on the
+    # constant, which installs each one where it stands.
+    def declare_builtin_reopen(node, name, kind)
+      entry = @classes[name] ||= {
+        name: name, kind: kind, superclass: Names::OBJECT, builtin: true,
+        ivars: [], cvars: [], private_constants: [], bodies: [],
+      }
+      unless entry[:builtin] && entry[:kind] == kind
+        raise Unsupported.new(node, "a #{entry[:kind]} reopened as a #{kind}")
+      end
+      written = kind == "class" ? node.superclass : nil
+      raise Unsupported.new(written, "a superclass on a reopened builtin") if written
+
+      entry[:bodies] << { node: node, body: body_statements(node.body), file: @file }
+      nil
     end
 
     def declare_fresh_class(node, name, kind, superclass)
@@ -674,6 +700,10 @@ module Ze0
       case node
       when Prism::ConstantReadNode then resolve_class(cref, node.name.to_s)
       when Prism::ConstantPathNode
+        # A lone `::Foo` anchors at the top level rather than searching
+        # the cref, so the name it gives is the bare one.
+        return node.name.to_s if node.parent.nil? && @classes.key?(node.name.to_s)
+
         up = node.parent && declared_class(cref, node.parent)
         "#{up}::#{node.name}" if up && @classes.key?("#{up}::#{node.name}")
       end
@@ -1390,6 +1420,7 @@ module Ze0
       # the row it filed the node under is the answer, name and all.
       entry = @classes.values.find { |c| c[:bodies].any? { |b| b[:node].equal?(node) } }
       raise Unsupported.new(node, "a class nested inside another statement") if entry.nil?
+      return lower_builtin_reopen(entry, node) if entry[:builtin]
       # Each `class Foo ... end` runs ITS body, so a reopen adds to the
       # class where the statement stands rather than all at once.
       written = entry[:bodies].find { |b| b[:node].equal?(node) }
@@ -1404,6 +1435,20 @@ module Ze0
       body = f.callee(written[:symbol], ["i64", "i64"], "i32")
       status_check(f.val("call #{body}(#{borrow(klass)}, #{addr_of(result)})"))
       Operand.new(result, true, false)
+    end
+
+    # A reopened builtin runs its body as `Klass.class_eval { ... }`: the
+    # block's `self` is the class, its `def`s install on it where they
+    # stand, and the answer is the body's last value, as ruby's is.
+    def lower_builtin_reopen(entry, node)
+      block = BodyBlock.new(node.body, node.location, node.locals)
+      body, captures = lower_block(block)
+      klass = constant_named(entry[:name])
+      slot = f.slot
+      dynamic_send(borrow(klass), :class_eval, [], addr_of(slot), breaks: true) do
+        proc_new(body, captures, block, false)
+      end
+      Operand.new(slot, true, false)
     end
 
     # `class << obj` opens the object's SINGLETON class, which no row can
@@ -1424,16 +1469,26 @@ module Ze0
       mode = "public"
       value = literal_nil
       body_statements(node.body).each do |s|
-        raise Unsupported.new(s, "a statement in a `class << obj` body") unless s.is_a?(Prism::DefNode) ||
-                                                                               visibility_verb?(s)
+        case s
+        when Prism::DefNode then value = define_singleton(recv, s, mode)
+        when Prism::AliasMethodNode then value = singleton_alias(recv, s)
+        else
+          raise Unsupported.new(s, "a statement in a `class << obj` body") unless visibility_verb?(s)
 
-        if s.is_a?(Prism::DefNode)
-          value = define_singleton(recv, s, mode)
-          next
+          mode, value = singleton_visibility(recv, s, mode)
         end
-        mode, value = singleton_visibility(recv, s, mode)
       end
       value
+    end
+
+    # `alias b a` in a `class << obj` body names a method of the object's
+    # SINGLETON class, which is what `alias_method` on it does. The
+    # keyword answers nil.
+    def singleton_alias(recv, node)
+      target = send_value(recv, :singleton_class)
+      names = [alias_name(node.new_name), alias_name(node.old_name)]
+      discard(send_value(target, :alias_method, names))
+      literal_nil
     end
 
     def visibility_verb?(node)
@@ -1497,14 +1552,15 @@ module Ze0
       # the statement stands it lowers to nothing. One WITHOUT a row --
       # `def obj.name`, whose object no compile can know -- is an ordinary
       # statement and stays.
-      units = units.map do |file, run|
-        [file, run.reject { |s| s.is_a?(Prism::DefNode) && @declared_defs[s.object_id] }]
+      units = units.map do |file, run, chain|
+        [file, run.reject { |s| s.is_a?(Prism::DefNode) && @declared_defs[s.object_id] }, chain || [file]]
       end
       function = Clif::Function.new(symbol, ["i64"], "i32")
       in_scope(function, :toplevel) do
         scope.out = f.args[0]
         prologue
-        units.group_by(&:first).each { |file, runs| declare_unit(file, runs.flat_map(&:last)) }
+        units.group_by(&:first).each { |file, runs| declare_unit(file, runs.flat_map { |u| u[1] }) }
+        file_return_flags(units)
         scope.frame_base = "<main>"
         enter_frame(scope.frame_label, 0, 0)
         # The top-level `self`, pooled for the frame.
@@ -1512,9 +1568,9 @@ module Ze0
         f.ins "call #{f.import("zeo_rt_main_object")}(#{addr_of(self_slot)})"
         f.ins "call #{f.import("zeo_rt_pool_push")}(#{addr_of(self_slot)})"
         scope.self_operand = Operand.new(self_slot, false, false)
-        units.each do |file, run|
+        units.each do |file, run, chain|
           scope.locals = scope.locals_of(file)
-          with_file(file) { hoist_pre_execution(run).each { |s| toplevel_statement(s) } }
+          with_file(file) { lower_unit_run(file, run, chain) }
         end
         store_nil(out)
         f.ins "jump #{done_block}"
@@ -1532,6 +1588,50 @@ module Ze0
       names.each { |n| declare_local(n, boxed: boxed.include?(n)) }
     end
 
+    # One flag per file that writes a top-level `return`, so every run of
+    # that file below it -- and every run it splices in -- is skipped.
+    def file_return_flags(units)
+      @file_returns = {}
+      units.each do |file, run, _chain|
+        @file_returns[file] ||= flag_slot if run.any? { |s| toplevel_return?(s) }
+      end
+    end
+
+    # A `return` this file's top level would run. One inside a `def`, a
+    # block or a class body belongs to that body.
+    def toplevel_return?(node)
+      return true if node.is_a?(Prism::ReturnNode)
+      return false if TOPLEVEL_RETURN_STOPS.any? { |k| node.is_a?(k) }
+
+      node.compact_child_nodes.any? { |c| toplevel_return?(c) }
+    end
+
+    TOPLEVEL_RETURN_STOPS = [
+      Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode,
+      Prism::BlockNode, Prism::LambdaNode,
+    ].freeze
+
+    # One run of one file's top-level statements, skipped outright when a
+    # file it is spliced inside has already returned.
+    def lower_unit_run(file, run, chain)
+      guards = chain.filter_map { |f| @file_returns[f] }
+      statements = hoist_pre_execution(run)
+      return statements.each { |s| toplevel_statement(s) } if guards.empty?
+
+      done = f.label
+      guards.each do |flag|
+        go = f.label
+        f.ins "brif #{flag_of(flag)}, #{done}, #{go}"
+        f.switch(go)
+      end
+      outer = scope.file_return
+      scope.file_return = [done, @file_returns[file]]
+      statements.each { |s| toplevel_statement(s) }
+      scope.file_return = outer
+      f.ins "jump #{done}" unless f.terminated?
+      f.switch(done)
+    end
+
     # `BEGIN { }` runs before the rest of the file it is written in, in
     # the order the file writes them. It shares the top-level names, so
     # the statements lower where they are moved to and nowhere else.
@@ -1543,7 +1643,7 @@ module Ze0
     # `END { }` is `at_exit { }`: the body runs at exit, last registered
     # first. prism's node is not a block node, so it is dressed as one.
     def lower_end_block(node)
-      block = EndBlock.new(node.statements, node.location)
+      block = BodyBlock.new(node.statements, node.location, [])
       body, captures = lower_block(block)
       slot = f.slot
       dynamic_send(borrow(self_operand), :at_exit, [], addr_of(slot), explicit: false) do
@@ -4638,6 +4738,19 @@ module Ze0
     # A jump that cannot reach its target from here travels as a signal
     # instead: every `ensure` between the two runs its clause, and the
     # innermost one turns the signal back into the jump it was.
+    # A `return` written at a file's top level ends THAT file and nothing
+    # else: ruby stops reading it there, and the value is dropped.
+    def toplevel_return(node)
+      raise Unsupported.new(node, "a top-level return inside an ensure") if scope.ensure_depth.positive?
+
+      discard(one_value(node))
+      done, flag = scope.file_return
+      set_flag(flag) if flag
+      pop_handling
+      f.ins "jump #{done}"
+      unreachable
+    end
+
     def signal_jump(node, signal, value: true)
       # `redo` carries nothing; the other three answer nil without one.
       payload = value ? hand_over(one_value(node)) : f.iconst("i64", 0)
@@ -4680,6 +4793,7 @@ module Ze0
     # `ensure` in the way makes even a method's own return travel, so the
     # clause runs before the caller sees the value.
     def lower_return(node)
+      return toplevel_return(node) if kind == :toplevel && scope.file_return
       raise Unsupported.new(node, "a return outside a def") unless kind == :body || kind == :block
       return signal_jump(node, Capi::SIGNAL_RETURN) if kind == :block && !scope.lambda?
       return signal_jump(node, Capi::SIGNAL_RETURN) if scope.ensure_depth.positive?

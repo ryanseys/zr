@@ -98,6 +98,9 @@ module Ze0
     # Whether this body is a lambda, which catches its own `return` and
     # `break` rather than passing either on.
     attr_writer :lambda
+    # Where a top-level `return` leaves, and the flag it sets so the
+    # file's later runs are skipped: `[label, flag]`.
+    attr_accessor :file_return
     # Where a `retry` written in a rescue clause re-enters: the top of
     # the `begin` body, so the whole thing runs again.
     attr_accessor :retry_block
