@@ -462,7 +462,14 @@ module Ze0
       Prism::InstanceVariableAndWriteNode, Prism::InstanceVariableTargetNode,
     ].freeze
 
+    # A nested class or module declares its own slots, so the walk stops
+    # at one: its `@name` names a slot on ITS instances, and counting it
+    # here would give the enclosing class a slot nothing ever reads.
+    NESTED_BODIES = [Prism::ClassNode, Prism::ModuleNode].freeze
+
     def ivars_under(node, found)
+      return found if NESTED_BODIES.any? { |k| node.is_a?(k) }
+
       found[node.name.to_s.delete_prefix("@")] = true if IVAR_NODES.any? { |k| node.is_a?(k) }
       # An `attr_reader :x` names no `@x` anywhere, and still declares its
       # slot: the generated accessor reads the slot by index.
