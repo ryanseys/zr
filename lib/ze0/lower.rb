@@ -500,6 +500,8 @@ module Ze0
     def parse_params(node)
       return positionals([]) if node.nil?
 
+      return forwarding_params if node.keyword_rest.is_a?(Prism::ForwardingParameterNode)
+
       destructures = {}
       Params.new(
         node.requireds.map { |r| positional_name(r, destructures) },
@@ -512,6 +514,13 @@ module Ze0
         node.keyword_rest.is_a?(Prism::NoKeywordsParameterNode),
         destructures,
       )
+    end
+
+    # `def f(...)` takes all three channels at once. ruby names them `*`,
+    # `**` and `&`, which is what `Method#parameters` reports and what no
+    # source can write as a local of its own.
+    def forwarding_params
+      Params.new([], [], Params::Star.new(:*), [], [], Params::Star.new(:**), :&, false)
     end
 
     # One positional parameter's slot name. A `(a, b)` destructure has no
@@ -724,7 +733,7 @@ module Ze0
         scope.blk = f.args[names.size + 1] if takes_block
         scope.out = f.args.last
         prologue
-        own = names + (node.locals - names)
+        own = (names + [params.block].compact + node.locals).uniq
         boxed = captured_names(body_statements(node.body), own)
         own.each { |n| declare_local(n, boxed: boxed.include?(n)) }
         status = f.val("call #{f.import("zeo_rt_stack_check")}()")
@@ -1236,7 +1245,7 @@ module Ze0
           release_block_argument(blk)
         end
         captures.each_with_index { |n, i| declare_captured(n, env, i) }
-        own = names + (node.locals - names)
+        own = (names + [params.block].compact + node.locals).uniq
         boxed = captured_names(body_statements(node.body), own)
         own.each { |n| declare_local(n, boxed: boxed.include?(n)) }
         bind_block_params(params, names, argv, argc, node, auto_splat, lambda_shape)
@@ -2317,14 +2326,17 @@ module Ze0
       keywords = args.pop if args.last.is_a?(Prism::KeywordHashNode)
       args.each do |a|
         case a
-        when Prism::SplatNode, Prism::KeywordHashNode, Prism::BlockArgumentNode
+        when Prism::KeywordHashNode, Prism::BlockArgumentNode
           raise Unsupported.new(a, "an argument of that shape")
         end
       end
-      plain = node.block.nil? && keywords.nil?
+      # A `*` splat or a `...` makes the count unknown here, so the send
+      # hands the runtime an Array instead of a slot array.
+      spread = args.any? { |a| a.is_a?(Prism::SplatNode) || a.is_a?(Prism::ForwardingArgumentsNode) }
+      plain = node.block.nil? && keywords.nil? && !spread
       if plain && node.receiver.nil? && node.name == :block_given? && args.empty?
         block_given(node)
-      elsif keywords.nil? && node.receiver.nil? && (d = visible_def(node.name)) &&
+      elsif plain && node.receiver.nil? && (d = visible_def(node.name)) &&
             d[:params].plain? && d[:params].required.size == args.size
         direct_call(node, args, d)
       elsif plain && node.receiver.nil? && node.name == :puts
@@ -2368,14 +2380,47 @@ module Ze0
       builder = block_builder(node, node.receiver.nil? && node.name == :lambda)
       recv ||= node.receiver ? lower_expr(node.receiver) : self_operand
       result = f.slot
-      operands = -> { args.map { |a| lower_expr(a) } }
-      if builder
-        dynamic_send(borrow(recv), node.name, operands.call, addr_of(result),
+      if args.any? { |a| a.is_a?(Prism::SplatNode) || a.is_a?(Prism::ForwardingArgumentsNode) }
+        splat_send(borrow(recv), node.name, args, addr_of(result), keywords: keywords, builder: builder)
+      elsif builder
+        dynamic_send(borrow(recv), node.name, args.map { |a| lower_expr(a) }, addr_of(result),
                      breaks: true, keywords: keywords) { builder.call }
       else
-        dynamic_send(borrow(recv), node.name, operands.call, addr_of(result), keywords: keywords)
+        dynamic_send(borrow(recv), node.name, args.map { |a| lower_expr(a) }, addr_of(result),
+                     keywords: keywords)
       end
       Operand.new(result, true, false)
+    end
+
+    # A send whose positional arguments include a `*` splat or a `...`.
+    # The runtime reads ONE Array rather than a slot array, because only
+    # it can spread a value whose length this compile does not know.
+    #
+    # `unmark` is ruby's rule that a splat-expanded Hash is positional
+    # again, not a keyword channel.
+    def splat_send(recv, name, args, into, keywords: nil, builder: nil)
+      forwards = args.any?(Prism::ForwardingArgumentsNode)
+      argv = new_array(args.size)
+      args.each { |a| push_call_argument(argv, a) }
+      kw = if keywords
+             borrow(hash_literal(keywords))
+           elsif forwards
+             borrow(read_local(locals.fetch(:**)))
+           else
+             f.iconst("i64", 0)
+           end
+      blk = if builder
+              builder.call
+            elsif forwards
+              block_arg_value(read_local(locals.fetch(:&)))
+            else
+              f.iconst("i64", 0)
+            end
+      status = f.val(
+        "call #{f.import("zeo_rt_send_value_args_cached")}(#{callsite_ptr}, #{f.iconst("i32", 0)}, " \
+        "#{recv}, #{sym_id(name)}, #{argv}, #{f.iconst("i8", 1)}, #{kw}, #{blk}, #{into})",
+      )
+      builder ? catch_break(status, into) : status_check(status)
     end
 
     # How this call's block gets made, or nil when it has none. The
@@ -2486,8 +2531,9 @@ module Ze0
     # `&expr`: a Proc passes through, a Symbol becomes its proc, nil means
     # no block, and anything else answers `to_proc`. The send spells "no
     # block" as a null pointer, which is what the nil check is for.
-    def block_arg_proc(node)
-      value = lower_expr(node)
+    def block_arg_proc(node) = block_arg_value(lower_expr(node))
+
+    def block_arg_value(value)
       slot = f.slot
       at = addr_of(slot)
       status_check(f.val("call #{f.import("zeo_rt_block_arg_to_proc")}(#{borrow(value)}, #{at})"))
@@ -3175,23 +3221,25 @@ module Ze0
       keywords = args.pop if args&.last.is_a?(Prism::KeywordHashNode)
       argv = new_array(args ? args.size : 0)
       if args
-        args.each { |a| push_super_argument(argv, a) }
+        args.each { |a| push_call_argument(argv, a) }
       else
         forwarded_arguments(definition[:params]).each { |o| push_argument(argv, o) }
       end
       [argv, keywords ? borrow(hash_literal(keywords)) : f.iconst("i64", 0)]
     end
 
-    # One written `super` argument, pushed onto its Array. A `*` splat
-    # spreads its elements in; everything else is one value.
-    def push_super_argument(argv, node)
+    # One written argument, pushed onto the call's Array. A `*` splat
+    # spreads its elements in and `...` spreads the rest it was handed;
+    # everything else is one value.
+    def push_call_argument(argv, node)
       case node
       when Prism::SplatNode
         raise Unsupported.new(node, "an anonymous splat") if node.expression.nil?
 
         push_splat(argv, lower_expr(node.expression))
+      when Prism::ForwardingArgumentsNode then push_splat(argv, read_local(locals.fetch(:*)))
       when Prism::KeywordHashNode, Prism::BlockArgumentNode
-        raise Unsupported.new(node, "a super argument of that shape")
+        raise Unsupported.new(node, "an argument of that shape")
       else push_argument(argv, lower_expr(node))
       end
     end
