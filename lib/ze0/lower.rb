@@ -2931,16 +2931,12 @@ module Ze0
       Operand.new(slot, false, false)
     end
 
-    # The verbs that run a STRING of ruby. zeo links the eval compiler
-    # only into a program it can see reach `eval`, and a sidecar has no
-    # way to ask for it, so the block form is the whole of what ze0
-    # carries.
+    # The verbs that run a STRING of ruby. The string form needs the
+    # run-time compiler, which the sidecar asks the backend to link.
     EVAL_VERBS = %i[eval class_eval module_eval instance_eval].freeze
 
     def lower_call(node)
-      if EVAL_VERBS.include?(node.name) && node.block.nil?
-        raise Unsupported.new(node, "`#{node.name}` of a string")
-      end
+      @program.eval_install! if EVAL_VERBS.include?(node.name) && node.block.nil?
       if node.receiver.nil? && kind == :class_body
         raise Unsupported.new(node, "`#{node.name}` in a class body") if CLASS_MACROS.include?(node.name)
 
