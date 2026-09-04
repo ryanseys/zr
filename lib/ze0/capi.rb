@@ -82,6 +82,9 @@ module Ze0
       "zeo_rt_signal_drop" => [%w[i64], nil],
       "zeo_rt_propagating_enter" => [%w[i64], "i8"],
       "zeo_rt_propagating_leave" => [["i8 uext"], nil],
+      "zeo_rt_home_push" => [[], nil],
+      "zeo_rt_home_pop" => [[], nil],
+      "zeo_rt_return_targets_here" => [[], "i8"],
       "zeo_rt_array_push_splat" => [%w[i64 i64], "i32"],
       "zeo_rt_kw_splat_into" => [%w[i64 i64], "i32"],
       "zeo_rt_defined_ivar" => [%w[i64 i64 i64 i64], "i32"],
@@ -142,6 +145,9 @@ module Ze0
     # lambda binds strictly and answers a lambda's arity.
     BLOCK_BIND_LAMBDA = 2
     PROC_LAMBDA = 1
+    # `zeo_rt_proc_new`'s other bit: a homed proc holds the method
+    # activation a `return` written in it unwinds to.
+    PROC_HOME = 2
     # `ParamC::kind` for a required positional.
     PARAM_REQ = 0
     # `ParamC::kind` by name, in `zeo_abi`'s declaration order.
@@ -157,9 +163,12 @@ module Ze0
     # `zeo_rt_runtime_set_visibility`'s verb, which is the runtime's
     # `mark_visibility_rows` scale.
     VISIBILITY_VERBS = { "private" => 0, "protected" => 1, "public" => 2 }.freeze
-    # `zeo_abi::abi::SignalKind::Break`: what a `break` out of a block
-    # arms and the sending site takes.
+    # `zeo_abi::abi::SignalKind`: the jump a value is travelling as. A
+    # jump arms one whenever it cannot reach its target directly -- out of
+    # a block, or across an `ensure` that owes its clause a run.
     SIGNAL_BREAK = 1
+    SIGNAL_NEXT = 2
+    SIGNAL_RETURN = 5
     SIGNAL_RAISE = 6
   end
 end

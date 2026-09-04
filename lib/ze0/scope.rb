@@ -28,21 +28,23 @@ module Ze0
   # returns to `head`, resetting the pool to `mark` first, exactly as the
   # end of an iteration does. `handling` is the `$!` depth the loop was
   # entered at, so a jump out of a `rescue` clause opened INSIDE the loop
-  # pops only the clauses it actually leaves.
+  # pops only the clauses it actually leaves, and `depth` the `ensure`
+  # depth, so a jump with a clause to run first travels as a signal.
   #
   # The stack is per SCOPE, which is what makes ruby's rule fall out: a
   # block written inside a loop starts an empty one, so a `break` there is
   # the block's, and a loop written inside a block is found by the block's
   # own `break`.
   class Loop
-    attr_reader :head, :done, :result, :mark, :handling
+    attr_reader :head, :done, :result, :mark, :handling, :depth
 
-    def initialize(head, done, result, mark, handling)
+    def initialize(head, done, result, mark, handling, depth)
       @head = head
       @done = done
       @result = result
       @mark = mark
       @handling = handling
+      @depth = depth
     end
   end
 
@@ -86,6 +88,17 @@ module Ze0
     # How many `rescue` clauses this path is inside. `$!` is a stack, so a
     # jump out of one owes a pop per clause it leaves.
     attr_accessor :handling_depth
+    # How many `ensure` clauses this path is inside, and how many jumps
+    # have travelled as a signal so far. An `ensure` reads the count
+    # AFTER its body: only a clause some jump really crossed emits the
+    # settle block, so no construct claims a signal that is not its.
+    attr_accessor :ensure_depth, :ensure_jumps
+    # Whether this body is a lambda, which catches its own `return` and
+    # `break` rather than passing either on.
+    attr_writer :lambda
+    # Whether this body pushed a non-local-return home: a `Signal::Return`
+    # aimed HERE folds into its own value at the boundary.
+    attr_accessor :catches_return
     # The `while`s this scope is inside, innermost last. `break` and
     # `next` read the last one before they read `kind`.
     attr_reader :loops
@@ -112,12 +125,16 @@ module Ze0
       @tables = { nil => @locals }
       @block_depth = 0
       @handling_depth = 0
+      @ensure_depth = 0
+      @ensure_jumps = 0
       @loops = []
       @owner = Names::OBJECT
       # A scope that never asks is `main`, an ordinary Object.
       @caller_class = Names::OBJECT
       @cref = []
     end
+
+    def lambda? = @lambda
 
     # `file`'s own table of top-level names, opened on first ask.
     def locals_of(file)

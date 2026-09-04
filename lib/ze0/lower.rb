@@ -866,6 +866,7 @@ module Ze0
         scope.cref = definition[:cref]
         scope.caller_class = caller_class_of(owner, singleton)
         scope.definition = definition
+        scope.catches_return = returns_travel?(node.body)
         scope.self_operand = Operand.new(f.args[0], false, false)
         scope.blk = f.args[names.size + 1] if takes_block
         scope.out = f.args.last
@@ -879,6 +880,8 @@ module Ze0
         f.switch(overflow)
         f.ins "return #{f.iconst("i32", 1)}"
         f.switch(cont)
+        # After the recursion guard, which leaves without an epilogue.
+        push_home if scope.catches_return
         bind_slots(params, names)
         unpack_destructures(params)
         bind_block_parameter(params.block) if params.block
@@ -1317,18 +1320,77 @@ module Ze0
       status_check(status)
     end
 
+    # A method activation a `return` written in a block it makes can
+    # unwind to. `zeo_rt_return_targets_here` reads it, which is what
+    # tells one activation of a recursive method from another.
+    def push_home
+      f.ins "call #{f.import("zeo_rt_home_push")}()"
+    end
+
     # The shared exit: a status of 0 from `done`, 1 from `raise`, then the
     # locals released, the frame popped, and the status answered.
     def epilogue
       f.switch(done_block)
       f.ins "jump #{scope.exit_block}(#{f.iconst("i32", 0)})"
       f.switch(raise_block)
+      fold_signal if scope.lambda? || scope.catches_return
       f.ins "jump #{scope.exit_block}(#{f.iconst("i32", 1)})"
       f.switch(scope.exit_block)
       scope.all_locals.each { |local| release_local(local) }
       release_block_argument(scope.blk) if scope.blk
       f.ins "call #{f.import("zeo_rt_frame_pop")}()"
+      f.ins "call #{f.import("zeo_rt_home_pop")}()" if scope.catches_return
       f.ins "return #{scope.status}"
+    end
+
+    # A signal this body answers folds into its own value; every other
+    # one is a real unwind and carries on. A lambda answers the `return`
+    # and the `break` written inside it, and a method answers a `return`
+    # the runtime says is aimed at THIS activation -- asked while the
+    # home is still on the stack.
+    def fold_signal
+      signal = f.val("call #{f.import("zeo_rt_signal_kind")}()")
+      fold, normal = f.label, f.label
+      mine = f.val("icmp eq #{signal}, #{f.iconst("i8", Capi::SIGNAL_RETURN)}")
+      if scope.lambda?
+        broke = f.val("icmp eq #{signal}, #{f.iconst("i8", Capi::SIGNAL_BREAK)}")
+        f.ins "brif #{f.val("bor #{mine}, #{broke}")}, #{fold}, #{normal}"
+      else
+        ask = f.label
+        f.ins "brif #{mine}, #{ask}, #{normal}"
+        f.switch(ask)
+        here = f.val("call #{f.import("zeo_rt_return_targets_here")}()")
+        f.ins "brif #{here}, #{fold}, #{normal}"
+      end
+      f.switch(fold)
+      f.val("call #{f.import("zeo_rt_signal_take")}(#{out})")
+      f.ins "jump #{done_block}"
+      f.switch(normal)
+    end
+
+    # Whether a `return` written under `node` travels to this body's
+    # boundary as a signal: one inside a block leaves through the proc's
+    # home, and one an `ensure` stands in front of goes the same way so
+    # the clause runs first. A nested `def` or lambda catches its own.
+    def returns_travel?(node, escaped = false)
+      return false if node.nil?
+      return escaped if node.is_a?(Prism::ReturnNode)
+      return false if node.is_a?(Prism::DefNode) || node.is_a?(Prism::LambdaNode)
+
+      escaped ||= node.is_a?(Prism::BlockNode) ||
+                  (node.is_a?(Prism::BeginNode) && !node.ensure_clause.nil?)
+      node.compact_child_nodes.any? { |child| returns_travel?(child, escaped) }
+    end
+
+    # Whether a `return` written in a block's body reaches out of it. The
+    # proc holds the activation it unwinds to, and a dead one answers
+    # LocalJumpError instead.
+    def block_returns?(node)
+      return false if node.nil?
+      return true if node.is_a?(Prism::ReturnNode)
+      return false if node.is_a?(Prism::DefNode) || node.is_a?(Prism::LambdaNode)
+
+      node.compact_child_nodes.any? { |child| block_returns?(child) }
     end
 
     # A block literal as its own CLIF function, the runtime's `BlockFn`:
@@ -1378,6 +1440,8 @@ module Ze0
         scope.definition = { params: params, node: node, singleton: false, runtime: true } if method
         scope.caller_class, inherited = enclosing
         scope.dynamic_caller = !method.nil? || inherited
+        scope.lambda = lambda_shape && method.nil?
+        scope.catches_return = !method.nil? && returns_travel?(node.body)
         scope.frame_base = method || base
         scope.block_depth = method ? 0 : depth + 1
         env, slf, argv, argc, blk, into = f.args
@@ -1397,6 +1461,7 @@ module Ze0
         own = (names + [params.block].compact + node.locals).uniq
         boxed = captured_names(body_statements(node.body), own)
         own.each { |n| declare_local(n, boxed: boxed.include?(n)) }
+        push_home if scope.catches_return
         bind_block_params(params, names, argv, argc, node, auto_splat, lambda_shape)
         unpack_destructures(params)
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
@@ -2680,10 +2745,18 @@ module Ze0
       f.ins "call #{f.import("zeo_rt_proc_new")}(#{address}, #{cells}, #{n_cells}, " \
             "#{borrow(self_operand)}, #{lexical}, #{null}, " \
             "#{f.iconst("i32", proc_arity(shape, lambda_shape))}, " \
-            "#{f.iconst("i32", lambda_shape ? Capi::PROC_LAMBDA : 0)}, " \
+            "#{f.iconst("i32", proc_flags(node, lambda_shape))}, " \
             "#{params}, #{n_params}, #{file}, #{file_len}, " \
             "#{f.iconst("i32", node.location.start_line)}, #{null}, #{null}, #{addr_of(slot)})"
       addr_of(slot)
+    end
+
+    # A lambda catches its own `return`; every other proc that writes one
+    # holds the activation it unwinds to.
+    def proc_flags(node, lambda_shape)
+      return Capi::PROC_LAMBDA if lambda_shape
+
+      block_returns?(node.body) ? Capi::PROC_HOME : 0
     end
 
     # `Proc#arity`, mirroring `clif/params.rs`'s. A block's arity is
@@ -2986,7 +3059,7 @@ module Ze0
       truth = truthy(lower_expr(predicate))
       f.ins "brif #{truth}, #{negate ? done : body}, #{negate ? body : done}"
       f.switch(body)
-      scope.loops.push(Loop.new(head, done, result, mark, scope.handling_depth))
+      scope.loops.push(Loop.new(head, done, result, mark, scope.handling_depth, scope.ensure_depth))
       body_statements(statements).each do |s|
         set_line(s)
         discard(lower_expr(s))
@@ -3258,33 +3331,20 @@ module Ze0
       lower_rescued(node)
     end
 
-    # The jump keywords an `ensure` written around them would have to
-    # settle: they leave the body without passing its normal exit.
-    JUMPS = [Prism::BreakNode, Prism::NextNode, Prism::RedoNode, Prism::ReturnNode].freeze
-    # A `while`, a block and a `def` catch their own `break`, `next` and
-    # `redo`, so one written inside never crosses the `ensure`.
-    CATCHES_JUMP = [
-      Prism::BlockNode, Prism::LambdaNode, Prism::DefNode,
-      Prism::WhileNode, Prism::UntilNode, Prism::ForNode,
-    ].freeze
-
-    # `ensure` runs its clause on the way out however the body leaves.
-    # ze0 builds the two ordinary ways -- a normal finish and a raise --
-    # and refuses a jump that crosses one, which needs a settle block
-    # that says whose signal the construct is carrying.
+    # `ensure` runs its clause on the way out however the body leaves: a
+    # normal finish, a raise, or a jump the clause stands between.
     def lower_ensure(node)
-      crossing = crossing_jump(node.statements) if node.statements
-      crossing ||= crossing_jump(node.rescue_clause) if node.rescue_clause
-      raise Unsupported.new(crossing, "a jump that leaves an ensure") if crossing
-
       clause = node.ensure_clause
       outer = scope.raise_block
       landing, done = f.label, f.label
       result = f.slot
       store_nil(addr_of(result))
+      jumps_before = scope.ensure_jumps
 
       scope.raise_block = landing
+      scope.ensure_depth += 1
       value = node.rescue_clause ? lower_rescued(node) : lower_statements(node.statements)
+      scope.ensure_depth -= 1
       scope.raise_block = outer
       unless f.terminated?
         move(value, addr_of(result))
@@ -3292,7 +3352,7 @@ module Ze0
         f.ins "jump #{done}" unless f.terminated?
       end
 
-      # The raise path. The signal is set aside so the clause runs on a
+      # The signal path. The signal is set aside so the clause runs on a
       # clear slot -- a raise of its own then WINS, as ruby's does -- and
       # `$!` names the exception being carried while it runs.
       f.switch(landing)
@@ -3300,40 +3360,83 @@ module Ze0
       pushed = f.val("call #{f.import("zeo_rt_propagating_enter")}(#{saved})")
       raised = f.label
       scope.raise_block = raised
+      scope.ensure_depth += 1
       discard(lower_statements(clause.statements))
+      scope.ensure_depth -= 1
       scope.raise_block = outer
+      # Only now is it known whether a jump really crossed this clause.
+      # Without one, nothing here may claim a signal that is passing
+      # through on its way to somebody else.
+      target = settle_target if scope.ensure_jumps > jumps_before
+      settle = f.label if target
+      after = settle || outer
       unless f.terminated?
         f.ins "call #{f.import("zeo_rt_propagating_leave")}(#{pushed})"
         f.ins "call #{f.import("zeo_rt_signal_restore")}(#{saved})"
-        f.ins "jump #{outer}"
+        f.ins "jump #{after}"
       end
       # A raise from the clause itself WINS, as ruby's does, so the one
       # being carried is dropped rather than put back.
       f.switch(raised)
       f.ins "call #{f.import("zeo_rt_propagating_leave")}(#{pushed})"
       f.ins "call #{f.import("zeo_rt_signal_drop")}(#{saved})"
-      f.ins "jump #{outer}"
+      f.ins "jump #{after}"
+      lower_settle(settle, outer, target) if settle
       f.switch(done)
       Operand.new(result, true, false)
     end
 
-    # The first jump under `node` that would leave an `ensure` written
-    # around it, or nil.
-    def crossing_jump(node)
-      return node if JUMPS.include?(node.class)
+    # Where an ensure-crossing jump lands once the clause has run, and
+    # what fills its value. A loop counts only at the SAME ensure depth:
+    # a farther one has another clause in between, and THAT one settles
+    # the jump. With no loop in reach a block's own boundary is the
+    # target, where `next` is the block's value and `break` keeps
+    # travelling -- it belongs to the call site, not to anything here.
+    Settle = Struct.new(:brk, :nxt, :mark, :handling)
 
-      node.compact_child_nodes.filter_map do |c|
-        CATCHES_JUMP.include?(c.class) ? crossing_return(c) : crossing_jump(c)
-      end.first
+    def settle_target
+      if (loop = scope.loops.last)
+        return nil unless loop.depth == scope.ensure_depth
+
+        return Settle.new([loop.done, addr_of(loop.result)], [loop.head, nil], loop.mark, loop.handling)
+      end
+      return nil unless kind == :block && scope.ensure_depth.zero?
+
+      Settle.new(nil, [done_block, out], nil, 0)
     end
 
-    # Only a `def` catches a `return`: one written in a block still
-    # unwinds the method, and the `ensure` around it.
-    def crossing_return(node)
-      return nil if node.is_a?(Prism::DefNode)
-      return node if node.is_a?(Prism::ReturnNode)
+    # Turn the signal an ensure-crossing jump armed back into the jump it
+    # was. Anything this target does not claim is a real unwind and
+    # passes through untouched.
+    def lower_settle(settle, outer, target)
+      f.switch(settle)
+      signal = f.val("call #{f.import("zeo_rt_signal_kind")}()")
+      arms = { Capi::SIGNAL_BREAK => target.brk, Capi::SIGNAL_NEXT => target.nxt }.filter_map do |kind, dest|
+        next unless dest
 
-      node.compact_child_nodes.filter_map { |c| crossing_return(c) }.first
+        taken, rest = f.label, f.label
+        is = f.val("icmp eq #{signal}, #{f.iconst("i8", kind)}")
+        f.ins "brif #{is}, #{taken}, #{rest}"
+        f.switch(rest)
+        [taken, dest, kind]
+      end
+      f.ins "jump #{outer}"
+      arms.each { |taken, (dest, at), kind| settle_arm(taken, dest, at, kind, target) }
+    end
+
+    # One arm of the settle: take the value the signal carries, put it
+    # where the jump would have, and go.
+    def settle_arm(taken, dest, at, kind, target)
+      f.switch(taken)
+      slot = f.slot
+      f.val("call #{f.import("zeo_rt_signal_take")}(#{addr_of(slot)})")
+      value = Operand.new(slot, true, false)
+      at ? move(value, at) : discard(value)
+      pop_handling(target.handling)
+      # An iteration that starts over releases what the last one made,
+      # exactly as the end of a normal one does.
+      f.ins "call #{f.import("zeo_rt_pool_reset")}(#{target.mark})" if target.mark && kind == Capi::SIGNAL_NEXT
+      f.ins "jump #{dest}"
     end
 
     def lower_rescued(node)
@@ -3650,6 +3753,8 @@ module Ze0
     # ordinary return, with its value in the out slot.
     def lower_next(node)
       if (loop = scope.loops.last)
+        return signal_jump(node, Capi::SIGNAL_NEXT) unless loop.depth == scope.ensure_depth
+
         discard(one_value(node))
         pop_handling(loop.handling)
         f.ins "call #{f.import("zeo_rt_pool_reset")}(#{loop.mark})"
@@ -3657,6 +3762,7 @@ module Ze0
         return unreachable
       end
       raise Unsupported.new(node, "a next outside a block or a loop") unless kind == :block
+      return signal_jump(node, Capi::SIGNAL_NEXT) if scope.ensure_depth.positive?
 
       move(one_value(node), out)
       pop_handling
@@ -3669,6 +3775,8 @@ module Ze0
     # that passed the block takes the value and answers it.
     def lower_break(node)
       if (loop = scope.loops.last)
+        return signal_jump(node, Capi::SIGNAL_BREAK) unless loop.depth == scope.ensure_depth
+
         move(one_value(node), addr_of(loop.result))
         pop_handling(loop.handling)
         f.ins "jump #{loop.done}"
@@ -3679,6 +3787,17 @@ module Ze0
       value = hand_over(one_value(node))
       pop_handling
       f.ins "call #{f.import("zeo_rt_signal_set")}(#{f.iconst("i8", Capi::SIGNAL_BREAK)}, #{value})"
+      f.ins "jump #{raise_block}"
+      unreachable
+    end
+
+    # A jump that cannot reach its target from here travels as a signal
+    # instead: every `ensure` between the two runs its clause, and the
+    # innermost one turns the signal back into the jump it was.
+    def signal_jump(node, signal)
+      value = hand_over(one_value(node))
+      f.ins "call #{f.import("zeo_rt_signal_set")}(#{f.iconst("i8", signal)}, #{value})"
+      scope.ensure_jumps += 1
       f.ins "jump #{raise_block}"
       unreachable
     end
@@ -3696,8 +3815,16 @@ module Ze0
       Operand.new(f.slot, false, true)
     end
 
+    # `return` leaves the method that wrote it. A lambda counts as one --
+    # its `return` is its own -- and everywhere else the value travels as
+    # a signal: the runtime aims it at the activation the proc captured,
+    # whose boundary folds it, and a dead one answers LocalJumpError. An
+    # `ensure` in the way makes even a method's own return travel, so the
+    # clause runs before the caller sees the value.
     def lower_return(node)
-      raise Unsupported.new(node, "a return outside a def") unless kind == :body
+      raise Unsupported.new(node, "a return outside a def") unless kind == :body || kind == :block
+      return signal_jump(node, Capi::SIGNAL_RETURN) if kind == :block && !scope.lambda?
+      return signal_jump(node, Capi::SIGNAL_RETURN) if scope.ensure_depth.positive?
 
       # The value is read BEFORE `$!` unwinds, so `return $!.message`
       # inside a rescue clause answers the one it caught.
