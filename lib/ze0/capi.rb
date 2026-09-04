@@ -26,6 +26,7 @@ module Ze0
       "zeo_rt_kernel_puts" => [%w[i64 i64 i64], "i32"],
       "zeo_rt_send_value_cached" => [%w[i64 i32 i64 i32 i64 i64 i64 i64], "i32"],
       "zeo_rt_send_value_kw_cached" => [%w[i64 i32 i64 i32 i64 i64 i64 i64 i64], "i32"],
+      "zeo_rt_send_value_vcall_cached" => [%w[i64 i32 i64 i32 i64], "i32"],
       "zeo_rt_int_add_slow" => [%w[i64 i64 i64], nil],
       "zeo_rt_int_sub_slow" => [%w[i64 i64 i64], nil],
       "zeo_rt_int_mul_slow" => [%w[i64 i64 i64], nil],

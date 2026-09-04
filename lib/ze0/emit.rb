@@ -73,9 +73,12 @@ module Ze0
     # A `def`'s dispatch and reflection row. An empty owner is the top
     # level, whose `def`s are private methods of `Object`. `visibility` is
     # the mode the class body was in where the `def` was written; ruby
-    # makes a handful of names private wherever they appear.
+    # makes a handful of names private wherever they appear. A second `def`
+    # of one name REPLACES the first, as ruby's redefinition does: both
+    # write the same body symbol, and only the last body is emitted.
     def add_def(name:, tramp:, params:, line:, file:, owner: "", singleton: false, visibility: "public")
       visibility = "private" if owner.empty? || ALWAYS_PRIVATE.include?(name.to_s)
+      @defs.reject! { |d| d[:name] == name.to_s && d[:owner] == owner && d[:singleton] == singleton }
       @defs << {
         name: name.to_s, tramp: tramp, params: params, line: line, file: file,
         owner: owner, singleton: singleton, visibility: visibility,
@@ -84,10 +87,10 @@ module Ze0
 
     # One class or module. Ids are the backend's to assign, so nothing
     # here is a number.
-    def add_class(name:, superclass:, kind:, ivars:, private_constants: [])
+    def add_class(name:, superclass:, kind:, ivars:, private_constants: [], file: "", line: 0)
       @classes << {
         name: name, superclass: superclass, kind: kind, ivars: ivars,
-        private_constants: private_constants,
+        private_constants: private_constants, file: file, line: line,
       }
     end
 
@@ -140,6 +143,8 @@ module Ze0
             "kind" => c[:kind],
             "ivars" => c[:ivars],
             "private_constants" => c[:private_constants],
+            "file" => c[:file],
+            "line" => c[:line],
           }
         end,
         # A dynamic send can reach any class, and ze0 has no reachability

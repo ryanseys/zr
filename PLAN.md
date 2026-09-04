@@ -587,8 +587,8 @@ the sidecar has no row for one.
 
 ## W3 -- the fixed point, and how it is gated
 
-`cargo xtask stage2`, run on demand, nothing automated -- the same trade
-the gem tests took. It builds ze0 with ze0-under-ruby, builds ze0 again
+A `stage2` xtask verb, run on demand, nothing automated -- the same trade
+the gem tests took. It does not exist yet; W3 is what adds it. It builds ze0 with ze0-under-ruby, builds ze0 again
 with that binary, and demands the two `.clif` and the two `.zeodata` be
 byte-identical. Then it runs every `test/ze0/` program through the second
 and demands the bytes the first writes: a compiler that reproduces itself
