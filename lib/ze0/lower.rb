@@ -459,12 +459,31 @@ module Ze0
         # statement beside it.
         when Prism::PreExecutionNode then declare(body_statements(s.statements), owner, guarded: guarded)
         end
+        # A `class` written in an EXPRESSION -- as an assignment's
+        # value, inside a `begin` -- runs where the statement does.
+        nested_classes(s).each do |c|
+          declare_class(c, owner, c.is_a?(Prism::ClassNode) ? "class" : "module", guarded: guarded)
+        end
         # A `class` written inside a body this walk has not opened -- a
         # block, a lambda, a `BEGIN`, a method -- runs when THAT body
         # runs, which is a run-time fact. Only the row is declared, and
         # concealed, so the constant appears where the body does.
         declare(nested_bodies(s), owner, guarded: true)
       end
+    end
+
+    # A `class` or `module` this statement runs as part of its own
+    # value. The bodies below stop the walk: a guard is `declare_branches`'s
+    # and a block's is `nested_bodies`'s, each with its own rule.
+    def nested_classes(node, found = [])
+      case node
+      when Prism::ClassNode, Prism::ModuleNode then return found << node
+      when Prism::DefNode, Prism::BlockNode, Prism::LambdaNode, Prism::SingletonClassNode,
+           Prism::PreExecutionNode, Prism::PostExecutionNode, Prism::IfNode, Prism::UnlessNode
+        return found
+      end
+      node.compact_child_nodes.each { |c| nested_classes(c, found) }
+      found
     end
 
     # The statement lists a `class` could be written in that the walk
