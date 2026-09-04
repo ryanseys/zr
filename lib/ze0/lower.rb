@@ -866,12 +866,6 @@ module Ze0
 
       written = written_class_name(node.superclass)
       raise Unsupported.new(node.superclass, "a superclass of that shape") if written.nil?
-      # A builtin's instances are the runtime's own native shape, so a
-      # subclass of one is a different object entirely. Only the
-      # exceptions, whose ids the backend owns, can be inherited.
-      if Names::ALWAYS_ON.include?(written) && written != Names::OBJECT && written != "BasicObject"
-        raise Unsupported.new(node.superclass, "a builtin superclass")
-      end
 
       # A name this program does not declare goes through as written: the
       # backend resolves it against the builtin exceptions, whose ids it
