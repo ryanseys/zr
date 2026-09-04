@@ -19,7 +19,7 @@ module Ze0
       @rodata_offsets = {}
       @syms = []
       @sym_index = {}
-      @callsites = 0
+      @callsites = []
       @regexp_sites = 0
       @defs = []
       @classes = []
@@ -60,10 +60,13 @@ module Ze0
       @regexp_sites - 1
     end
 
-    # A fresh `zeo_callsites` slot.
-    def callsite
-      @callsites += 1
-      @callsites - 1
+    # A fresh `zeo_callsites` slot, filed under the class whose body the
+    # site is written in -- what ruby's visibility barrier compares an
+    # explicit receiver's method against. `""` is a receiverless call,
+    # which asks nothing.
+    def callsite(caller)
+      @callsites << caller
+      @callsites.size - 1
     end
 
     def add_function(label, function)
@@ -120,7 +123,7 @@ module Ze0
         "abi_version" => 1,
         "rodata" => @rodata.unpack1("H*"),
         "syms" => @syms,
-        "callsites" => Array.new(@callsites, 0xFFFF_FFFF),
+        "callsites" => @callsites,
         "toplevel" => Names::TOPLEVEL,
         "defs" => @defs.map do |d|
           {

@@ -27,6 +27,12 @@ module Ze0
       "zeo_rt_send_value_cached" => [%w[i64 i32 i64 i32 i64 i64 i64 i64], "i32"],
       "zeo_rt_send_value_kw_cached" => [%w[i64 i32 i64 i32 i64 i64 i64 i64 i64], "i32"],
       "zeo_rt_send_value_vcall_cached" => [%w[i64 i32 i64 i32 i64], "i32"],
+      # The uncached shapes: the same sends with the caller class as an
+      # argument rather than in a site, for a body whose `self` only the
+      # run time knows.
+      "zeo_rt_send_value_explicit_in" => [%w[i32 i64 i32 i64 i64 i64 i32 i64], "i32"],
+      "zeo_rt_send_value_explicit_kw_in" => [%w[i32 i64 i32 i64 i64 i64 i64 i32 i64], "i32"],
+      "zeo_rt_class_of" => [%w[i64], "i32"],
       "zeo_rt_int_add_slow" => [%w[i64 i64 i64], nil],
       "zeo_rt_int_sub_slow" => [%w[i64 i64 i64], nil],
       "zeo_rt_int_mul_slow" => [%w[i64 i64 i64], nil],
@@ -52,6 +58,9 @@ module Ze0
       "zeo_rt_runtime_set_visibility" => [["i32", "i32", "i8 uext"], "i32"],
       "zeo_rt_send_value_args_cached" => [
         ["i64", "i32", "i64", "i32", "i64", "i8 uext", "i64", "i64", "i64"], "i32",
+      ],
+      "zeo_rt_send_value_explicit_args_in" => [
+        ["i32", "i64", "i32", "i64", "i8 uext", "i64", "i64", "i32", "i64"], "i32",
       ],
       "zeo_rt_send_super_from_args" => [
         ["i64", "i32", "i32", "i64", "i8 uext", "i64", "i64", "i64"], "i32",

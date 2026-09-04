@@ -88,6 +88,11 @@ module Ze0
     # WRITTEN in and the parameters a bare `super` forwards. nil in every
     # other kind of scope.
     attr_accessor :definition
+    # The class ruby's visibility barrier compares an explicit receiver's
+    # method against: the class of `self` where the site is written. A
+    # body the runtime installs has none this compile can name, and
+    # `dynamic_caller` asks `self` per call instead.
+    attr_accessor :caller_class, :dynamic_caller
     # The frame a backtrace prints. `base` is the method or `<main>` a
     # block was written in, and `depth` how many blocks deep it sits, so
     # ruby's "block (2 levels) in Object#run" can be spelled.
@@ -104,6 +109,8 @@ module Ze0
       @handling_depth = 0
       @loops = []
       @owner = Names::OBJECT
+      # A scope that never asks is `main`, an ordinary Object.
+      @caller_class = Names::OBJECT
     end
 
     # `file`'s own table of top-level names, opened on first ask.

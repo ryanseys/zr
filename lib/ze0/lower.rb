@@ -773,6 +773,19 @@ module Ze0
 
     # Lower `function` as a new scope, and answer it to the caller once the
     # body has left the stack.
+    # The class ruby's visibility barrier compares an explicit receiver's
+    # method against: the class of `self` where the site is written.
+    #
+    # In an instance method that is the enclosing class. In a class method
+    # or a class body it is `Class` -- or `Module` -- because `self` there
+    # IS the class object, and a class object is no kind of the class
+    # whose instances a protected method belongs to.
+    def caller_class_of(owner, self_is_class)
+      return owner unless self_is_class
+
+      @classes[owner]&.fetch(:kind) == "module" ? "Module" : "Class"
+    end
+
     def in_scope(function, kind)
       @scopes.push(Scope.new(function, kind))
       yield
@@ -792,6 +805,7 @@ module Ze0
       function = Clif::Function.new(body_sym, ["i64"] * arity, "i32")
       in_scope(function, :body) do
         scope.owner = owner
+        scope.caller_class = caller_class_of(owner, singleton)
         scope.definition = definition
         scope.self_operand = Operand.new(f.args[0], false, false)
         scope.blk = f.args[names.size + 1] if takes_block
@@ -1058,6 +1072,7 @@ module Ze0
       function = Clif::Function.new(symbol, ["i64", "i64"], "i32")
       in_scope(function, :class_body) do
         scope.owner = entry[:name]
+        scope.caller_class = caller_class_of(entry[:name], true)
         scope.self_operand = Operand.new(f.args[0], false, false)
         scope.out = f.args[1]
         prologue
@@ -1283,6 +1298,9 @@ module Ze0
       @blocks += 1
       function = Clif::Function.new(symbol, ["i64"] * 6, "i32")
       base, depth, own_owner = scope.frame_base, scope.block_depth, owner
+      # A block's `self` is the enclosing scope's, so its barrier is too.
+      # A body the runtime installs has neither.
+      enclosing = [scope.caller_class, scope.dynamic_caller]
       # The enclosing names this block reads. Both ends read this list in
       # the same order, so the creation site's array and the body's
       # `ProcEnv` rows line up. A method body reads none of them.
@@ -1293,6 +1311,8 @@ module Ze0
         # bare `super` forwards, but not the class it will land on -- so
         # the `super` target comes off the frame stack instead.
         scope.definition = { params: params, node: node, singleton: false, runtime: true } if method
+        scope.caller_class, inherited = enclosing
+        scope.dynamic_caller = !method.nil? || inherited
         scope.frame_base = method || base
         scope.block_depth = method ? 0 : depth + 1
         env, slf, argv, argc, blk, into = f.args
@@ -2447,16 +2467,20 @@ module Ze0
       return vcall(node) if recv.nil? && node.variable_call?
 
       builder = block_builder(node, node.receiver.nil? && node.name == :lambda)
+      # Ruby's `VM_CALL_FCALL`: a call the SOURCE wrote no receiver for
+      # asks no visibility question at all.
+      explicit = !node.receiver.nil?
       recv ||= node.receiver ? lower_expr(node.receiver) : self_operand
       result = f.slot
       if args.any? { |a| a.is_a?(Prism::SplatNode) || a.is_a?(Prism::ForwardingArgumentsNode) }
-        splat_send(borrow(recv), node.name, args, addr_of(result), keywords: keywords, builder: builder)
+        splat_send(borrow(recv), node.name, args, addr_of(result),
+                   keywords: keywords, builder: builder, explicit: explicit)
       elsif builder
         dynamic_send(borrow(recv), node.name, args.map { |a| lower_expr(a) }, addr_of(result),
-                     breaks: true, keywords: keywords) { builder.call }
+                     breaks: true, keywords: keywords, explicit: explicit) { builder.call }
       else
         dynamic_send(borrow(recv), node.name, args.map { |a| lower_expr(a) }, addr_of(result),
-                     keywords: keywords)
+                     keywords: keywords, explicit: explicit)
       end
       Operand.new(result, true, false)
     end
@@ -2467,7 +2491,7 @@ module Ze0
     #
     # `unmark` is ruby's rule that a splat-expanded Hash is positional
     # again, not a keyword channel.
-    def splat_send(recv, name, args, into, keywords: nil, builder: nil)
+    def splat_send(recv, name, args, into, keywords: nil, builder: nil, explicit: true)
       forwards = args.any?(Prism::ForwardingArgumentsNode)
       argv = new_array(args.size)
       args.each { |a| push_call_argument(argv, a) }
@@ -2486,8 +2510,15 @@ module Ze0
               f.iconst("i64", 0)
             end
       status = f.val(
-        "call #{f.import("zeo_rt_send_value_args_cached")}(#{callsite_ptr}, #{f.iconst("i32", 0)}, " \
-        "#{recv}, #{sym_id(name)}, #{argv}, #{f.iconst("i8", 1)}, #{kw}, #{blk}, #{into})",
+        if barrier?(explicit)
+          "call #{f.import("zeo_rt_send_value_explicit_args_in")}(#{f.iconst("i32", 0)}, #{recv}, " \
+            "#{sym_id(name)}, #{argv}, #{f.iconst("i8", 1)}, #{kw}, #{blk}, " \
+            "#{running_caller}, #{into})"
+        else
+          "call #{f.import("zeo_rt_send_value_args_cached")}(#{callsite_ptr(explicit)}, " \
+            "#{f.iconst("i32", 0)}, #{recv}, #{sym_id(name)}, #{argv}, #{f.iconst("i8", 1)}, " \
+            "#{kw}, #{blk}, #{into})"
+        end,
       )
       builder ? catch_break(status, into) : status_check(status)
     end
@@ -2635,19 +2666,36 @@ module Ze0
 
     # The cached dynamic send: `recv.name(*args)`. Not `send`: that would
     # replace `Object#send` on every Lower.
-    def dynamic_send(recv, name, operands, into, breaks: false, keywords: nil)
+    def dynamic_send(recv, name, operands, into, breaks: false, keywords: nil, explicit: true)
       argv = args_array(operands)
       kw = keywords ? borrow(hash_literal(keywords)) : nil
       blk = block_given? ? yield : f.iconst("i64", 0)
       sym_id = sym_id(name)
-      site = callsite_ptr
-      entry = kw ? "zeo_rt_send_value_kw_cached" : "zeo_rt_send_value_cached"
       channels = kw ? "#{kw}, #{blk}" : blk.to_s
+      count = f.iconst("i64", operands.size)
       status = f.val(
-        "call #{f.import(entry)}(#{site}, #{f.iconst("i32", 0)}, #{recv}, #{sym_id}, " \
-        "#{argv}, #{f.iconst("i64", operands.size)}, #{channels}, #{into})",
+        if barrier?(explicit)
+          entry = kw ? "zeo_rt_send_value_explicit_kw_in" : "zeo_rt_send_value_explicit_in"
+          "call #{f.import(entry)}(#{f.iconst("i32", 0)}, #{recv}, #{sym_id}, " \
+            "#{argv}, #{count}, #{channels}, #{running_caller}, #{into})"
+        else
+          entry = kw ? "zeo_rt_send_value_kw_cached" : "zeo_rt_send_value_cached"
+          "call #{f.import(entry)}(#{callsite_ptr(explicit)}, #{f.iconst("i32", 0)}, #{recv}, " \
+            "#{sym_id}, #{argv}, #{count}, #{channels}, #{into})"
+        end,
       )
       breaks ? catch_break(status, into) : status_check(status)
+    end
+
+    # Whether this send has to ask the RUN TIME for its caller class. A
+    # body the runtime installs has no lexical class to name -- the one
+    # the source wrote it in is not the one it lands on -- so the site
+    # cannot record the answer and cannot be cached either.
+    def barrier?(explicit) = explicit && scope.dynamic_caller
+
+    # `self`'s class, which is that answer.
+    def running_caller
+      f.val("call #{f.import("zeo_rt_class_of")}(#{borrow(self_operand)})")
     end
 
     # A bare name with no arguments, no parentheses and no receiver is
@@ -2657,7 +2705,7 @@ module Ze0
     def vcall(node)
       result = f.slot
       status = f.val(
-        "call #{f.import("zeo_rt_send_value_vcall_cached")}(#{callsite_ptr}, " \
+        "call #{f.import("zeo_rt_send_value_vcall_cached")}(#{callsite_ptr(false)}, " \
         "#{f.iconst("i32", 0)}, #{borrow(self_operand)}, #{sym_id(node.name)}, " \
         "#{addr_of(result)})",
       )
@@ -2665,10 +2713,12 @@ module Ze0
       Operand.new(result, true, false)
     end
 
-    # The program's next inline-cache slot, as a pointer.
-    def callsite_ptr
+    # The program's next inline-cache slot, as a pointer. The slot
+    # records the class the site is written in: a filled site was vetted
+    # when it filled, so the hot path never reads it back.
+    def callsite_ptr(explicit)
       site = f.val("symbol_value.i64 #{f.symbol("zeo_callsites")}")
-      offset = @program.callsite * Capi::CALLSITE_BYTES
+      offset = @program.callsite(explicit ? scope.caller_class : "") * Capi::CALLSITE_BYTES
       return site if offset.zero?
 
       f.val("iadd.i64 #{site}, #{f.iconst("i64", offset)}")
