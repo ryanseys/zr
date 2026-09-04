@@ -15,6 +15,7 @@ module Ze0
       "zeo_rt_check_ints" => [[], "i32"],
       "zeo_rt_stack_check" => [[], "i32"],
       "zeo_rt_main_object" => [%w[i64], nil],
+      "zeo_rt_probe_def_hook" => [["i32", "i8 uext", "i8 uext", "i32", "i64", "i64"], "i32"],
       "zeo_rt_pool_mark" => [[], "i64"],
       "zeo_rt_pool_reset" => [%w[i64], nil],
       "zeo_rt_pool_push" => [%w[i64], nil],

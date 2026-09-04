@@ -77,6 +77,7 @@ module Ze0
       # The top-level local names of each file the splice read. Each file
       # is its own scope in ruby, so each gets its own table of slots.
       @unit_locals = {}
+      @declared_bodies = {}
       # Every `autoload` read so far that no statement has reached, and
       # the node each was written at, so a flushed unit names its line.
       @autoloads = {}
@@ -453,8 +454,34 @@ module Ze0
         when Prism::ModuleNode then declare_class(s, owner, "module", guarded: guarded)
         when Prism::CallNode then visibility = declare_macro(s, owner, visibility) unless guarded
         when Prism::IfNode, Prism::UnlessNode then declare_branches(s, owner, guarded)
+        # A `BEGIN` body runs before the rest of the file, always, so
+        # what it writes is as much a part of the program as any
+        # statement beside it.
+        when Prism::PreExecutionNode then declare(body_statements(s.statements), owner, guarded: guarded)
         end
+        # A `class` written inside a body this walk has not opened -- a
+        # block, a lambda, a `BEGIN`, a method -- runs when THAT body
+        # runs, which is a run-time fact. Only the row is declared, and
+        # concealed, so the constant appears where the body does.
+        declare(nested_bodies(s), owner, guarded: true)
       end
+    end
+
+    # The statement lists a `class` could be written in that the walk
+    # above does not open itself. Each stops at the first body it finds:
+    # the recursive walk over those statements opens the next level.
+    def nested_bodies(node, found = [])
+      case node
+      when Prism::BlockNode, Prism::LambdaNode, Prism::DefNode
+        return found.concat(body_statements(node.body))
+      when Prism::PostExecutionNode
+        return found.concat(body_statements(node.statements))
+      when Prism::PreExecutionNode then return found
+      when Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode
+        return found
+      end
+      node.compact_child_nodes.each { |c| nested_bodies(c, found) }
+      found
     end
 
     # A guard this compile can decide has one branch that cannot run, and
@@ -566,6 +593,12 @@ module Ze0
     # assigns the id; ze0 only ever names it, by the path it is written
     # at -- `Ze0::Lower`, which is what `Module#name` answers.
     def declare_class(node, owner, kind, guarded: false)
+      # The walk reaches some statements twice -- a guard's branches and
+      # the bodies inside them -- and a class files ONE body per
+      # statement however many times it is seen.
+      return if @declared_bodies[node.object_id]
+
+      @declared_bodies[node.object_id] = true
       name = declared_name(node)
       return declare_builtin_reopen(node, name, kind) if Names::ALWAYS_ON.include?(name)
 
@@ -965,7 +998,41 @@ module Ze0
     def declared_def(node)
       return runtime_def(node) unless @declared_defs[node.object_id]
 
+      announce_definition(node)
       literal_symbol(node.name)
+    end
+
+    # ruby announces every definition to the class it landed on, at the
+    # definition's own position. A declared `def` is installed before the
+    # program runs, so the announcement is made HERE instead -- through a
+    # probe, which is one atomic load when nothing hooks it.
+    def announce_definition(node)
+      entry = @classes[owner]
+      return if entry.nil?
+
+      pending = pending_definitions(entry, node)
+      ptr, count = if pending.empty?
+                     [f.iconst("i64", 0), f.iconst("i64", 0)]
+                   else
+                     cid_array(pending.map { |n| sym_id(n) })
+                   end
+      status_check(f.val(
+        "call #{f.import("zeo_rt_probe_def_hook")}(#{class_id_of(owner)}, " \
+        "#{f.iconst("i8", node.receiver ? 1 : 0)}, #{f.iconst("i8", 0)}, " \
+        "#{sym_id(node.name)}, #{ptr}, #{count})",
+      ))
+    end
+
+    # The instance methods of this class still in the FUTURE at this
+    # definition. ruby's hook sees a half-built class; ze0 has every
+    # table installed before the first statement runs, so the reflection
+    # rows subtract this set while the hook body is on the stack.
+    def pending_definitions(entry, node)
+      written = entry[:bodies].flat_map { |b| b[:body].select { |s| s.is_a?(Prism::DefNode) } }
+      at = written.index { |d| d.equal?(node) }
+      return [] if at.nil?
+
+      written[(at + 1)..].reject(&:receiver).map { |d| d.name.to_s }.uniq
     end
 
     # A `def` with no row. Which class it lands on is not known until the
@@ -1453,10 +1520,36 @@ module Ze0
       # statement never runs stays a NameError.
       f.ins "call #{f.import("zeo_rt_reveal_class")}(#{class_id(entry[:name])})"
       klass = class_value(entry[:name])
+      announce_subclass(entry, written, klass)
       result = f.slot
       body = f.callee(written[:symbol], ["i64", "i64"], "i32")
       status_check(f.val("call #{body}(#{borrow(klass)}, #{addr_of(result)})"))
       Operand.new(result, true, false)
+    end
+
+    # `Super.inherited(C)` fires where the statement stands and only for
+    # the statement that MAKES the class: ruby sets the constant, fires
+    # the hook, then runs the body. A reopen makes nothing, and a module
+    # has no superclass to tell.
+    def announce_subclass(entry, written, klass)
+      return unless entry[:kind] == "class" && entry[:bodies].first.equal?(written)
+
+      parent = superclass_value(entry[:superclass])
+      # Receiverless: `Class#inherited` is private, and its default is a
+      # no-op, so the send is right whether or not anything hooks it.
+      dynamic_send(borrow(parent), :inherited, [klass], addr_of(f.slot), explicit: false)
+    end
+
+    # The superclass as a value. One this program declares reads its row;
+    # one it does not -- a builtin exception, `BasicObject` -- is read as
+    # the constant it is, segment by segment.
+    def superclass_value(name)
+      return class_value(name) if name == Names::OBJECT || @classes.key?(name)
+
+      head, *rest = name.split("::")
+      rest.reduce(anchored_constant(head)) do |scope, part|
+        send_value(scope, :const_get, [literal_symbol(part)])
+      end
     end
 
     # A reopened builtin runs its body as `Klass.class_eval { ... }`: the
