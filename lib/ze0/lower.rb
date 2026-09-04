@@ -1648,21 +1648,53 @@ module Ze0
       borrow(recv)
       mode = "public"
       value = literal_nil
+      # `class << self` in a class body writes that class's CLASS
+      # methods, which is how ruby labels their frames.
+      of_self = node.expression.is_a?(Prism::SelfNode) && kind == :class_body
+      # ruby labels a frame opened in this body `singleton class`, not
+      # by the class the statement is written in.
+      base = scope.frame_base
+      scope.frame_base = "singleton class"
       body_statements(node.body).each do |s|
+        discard(value)
         case s
-        when Prism::DefNode then value = define_singleton(recv, s, mode)
+        when Prism::DefNode then value = define_singleton(recv, s, mode, singleton: of_self)
         when Prism::AliasMethodNode then value = singleton_alias(recv, s)
         when Prism::UndefNode then value = singleton_undef(recv, s)
+        when Prism::ConstantWriteNode, Prism::ConstantPathWriteNode, Prism::SingletonClassNode
+          raise Unsupported.new(s, "a statement in a `class << obj` body")
         when Prism::CallNode
           if visibility_verb?(s)
             mode, value = singleton_visibility(recv, s, mode)
-          else
+          elsif s.receiver.nil? && !s.block
             value = singleton_macro(recv, s)
+          else
+            value = as_singleton_self(recv) { lower_expr(s) }
           end
-        else raise Unsupported.new(s, "a statement in a `class << obj` body")
+        else value = as_singleton_self(recv) { lower_expr(s) }
         end
       end
+      scope.frame_base = base
       value
+    end
+
+    # Any other statement of the body, lowered with `self` bound to the
+    # object's SINGLETON class -- which is what `self` is inside that
+    # body, and what makes `self.prepend M`, `@tag = 1` and a block
+    # written there mean what ruby means.
+    #
+    # A constant is refused: it belongs to the singleton class, and only
+    # the cref can put it there.
+    def as_singleton_self(recv)
+      singleton = send_value(recv, :singleton_class)
+      borrow(singleton)
+      outer = scope.self_operand
+      scope.self_operand = singleton
+      begin
+        yield
+      ensure
+        scope.self_operand = outer
+      end
     end
 
     # `attr_accessor :x`, `undef_method :new`, `include M`: a body
@@ -1720,8 +1752,9 @@ module Ze0
 
     # One `def` in a `class << obj` body, installed on the object and
     # marked when the body is in a non-public mode.
-    def define_singleton(recv, node, mode)
-      send_value(recv, :define_singleton_method, [literal_symbol(node.name), method_proc(node)])
+    def define_singleton(recv, node, mode, singleton: false)
+      body = method_proc(node, singleton: singleton)
+      send_value(recv, :define_singleton_method, [literal_symbol(node.name), body])
       mark_singleton(recv, node.name.to_s, mode) unless mode == "public"
       literal_symbol(node.name)
     end
@@ -1756,8 +1789,8 @@ module Ze0
     end
 
     # A lambda-shaped Proc over a `def`'s body, as an owned value.
-    def method_proc(node)
-      body, captures = lower_method_body(node)
+    def method_proc(node, singleton: false)
+      body, captures = lower_method_body(node, singleton: singleton)
       slot = f.slot
       copy(proc_new(body, captures, node, true), addr_of(slot))
       Operand.new(slot, true, false)
@@ -2028,8 +2061,8 @@ module Ze0
     # frame carries the method's own label, and its `blk` argument is the
     # block the INSTALLED method is called with, which a bare `yield`
     # reaches.
-    def lower_method_body(node)
-      lower_closure(node, lambda_shape: true, method: label_of(owner, node.name, false))
+    def lower_method_body(node, singleton: false)
+      lower_closure(node, lambda_shape: true, method: label_of(owner, node.name, singleton))
     end
 
     # The shared shape of both. `method` is the frame label when the body
