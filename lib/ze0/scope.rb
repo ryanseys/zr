@@ -96,6 +96,9 @@ module Ze0
     # Whether this body is a lambda, which catches its own `return` and
     # `break` rather than passing either on.
     attr_writer :lambda
+    # Whether this body has a `$~` slot of its own. A match it performs
+    # then never reaches the caller's `$1`.
+    attr_accessor :svars
     # Whether this body pushed a non-local-return home: a `Signal::Return`
     # aimed HERE folds into its own value at the boundary.
     attr_accessor :catches_return

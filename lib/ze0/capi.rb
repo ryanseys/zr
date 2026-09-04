@@ -82,6 +82,9 @@ module Ze0
       "zeo_rt_signal_drop" => [%w[i64], nil],
       "zeo_rt_propagating_enter" => [%w[i64], "i8"],
       "zeo_rt_propagating_leave" => [["i8 uext"], nil],
+      "zeo_rt_last_match_ref" => [["i8 uext", "i64", "i64"], nil],
+      "zeo_rt_svar_scope_push" => [[], nil],
+      "zeo_rt_svar_scope_pop" => [[], nil],
       "zeo_rt_home_push" => [[], nil],
       "zeo_rt_home_pop" => [[], nil],
       "zeo_rt_return_targets_here" => [[], "i8"],
@@ -163,6 +166,14 @@ module Ze0
     # `zeo_rt_runtime_set_visibility`'s verb, which is the runtime's
     # `mark_visibility_rows` scale.
     VISIBILITY_VERBS = { "private" => 0, "protected" => 1, "public" => 2 }.freeze
+    # `zeo_rt_last_match_ref`'s kind: which of the `$~` family to read.
+    # They all come off the one last-match slot, so `$1` is group 1 and
+    # `$&` is group 0.
+    LAST_MATCH_DATA = 0
+    LAST_MATCH_GROUP = 1
+    LAST_MATCH_PRE = 2
+    LAST_MATCH_POST = 3
+    LAST_MATCH_LAST_GROUP = 4
     # `zeo_abi::abi::SignalKind`: the jump a value is travelling as. A
     # jump arms one whenever it cannot reach its target directly -- out of
     # a block, or across an `ensure` that owes its clause a run.

@@ -911,6 +911,7 @@ module Ze0
         scope.caller_class = caller_class_of(owner, singleton)
         scope.definition = definition
         scope.catches_return = returns_travel?(node.body)
+        scope.svars = mentions_svars?(node.body)
         scope.self_operand = Operand.new(f.args[0], false, false)
         scope.blk = f.args[names.size + 1] if takes_block
         scope.out = f.args.last
@@ -1183,6 +1184,7 @@ module Ze0
         scope.self_operand = Operand.new(f.args[0], false, false)
         scope.out = f.args[1]
         prologue
+        scope.svars = mentions_svars?(written[:body])
         boxed = captured_names(written[:body], node.locals)
         node.locals.each { |n| declare_local(n, boxed: boxed.include?(n)) }
         # The label is the name as WRITTEN, not the path: ruby prints
@@ -1354,14 +1356,51 @@ module Ze0
       scope.exit_block, (scope.status,) = f.block(["i32"])
     end
 
+    # `zeo_rt_frame_enter` fuses the frame push and the interrupt
+    # checkpoint. A scope with its own `$~` splits them, because the svar
+    # push has to stand between the two: the checkpoint can raise, and
+    # the exit pops what the entry pushed.
     def enter_frame(label, line, end_line)
       file, file_len = rodata_ref(@file)
       label, label_len = rodata_ref(label)
-      status = f.val(
-        "call #{f.import("zeo_rt_frame_enter")}(#{file}, #{file_len}, #{label}, #{label_len}, " \
-        "#{f.iconst("i32", line)}, #{f.iconst("i32", end_line)})",
-      )
-      status_check(status)
+      args = "#{file}, #{file_len}, #{label}, #{label_len}, " \
+             "#{f.iconst("i32", line)}, #{f.iconst("i32", end_line)}"
+      unless scope.svars
+        return status_check(f.val("call #{f.import("zeo_rt_frame_enter")}(#{args})"))
+      end
+
+      f.ins "call #{f.import("zeo_rt_frame_push")}(#{args})"
+      f.ins "call #{f.import("zeo_rt_svar_scope_push")}()"
+      status_check(f.val("call #{f.import("zeo_rt_check_ints")}()"))
+    end
+
+    # The methods that WRITE `$~` without naming it. Names only, no
+    # receiver: a false positive costs one dead scope push, and a false
+    # negative leaks a match to the caller.
+    SVAR_WRITERS = %i[
+      =~ match match? scan sub sub! gsub gsub! split slice slice!
+      index rindex partition rpartition start_with? end_with? grep grep_v ===
+      last_match
+    ].freeze
+
+    SVAR_READS = [
+      Prism::NumberedReferenceReadNode, Prism::BackReferenceReadNode, Prism::MatchWriteNode,
+    ].freeze
+
+    # Whether this scope can touch the `$~` family and so needs a slot of
+    # its own. Blocks share their method's, so the walk goes through
+    # them; a nested `def` has its own, and the walk stops there.
+    def mentions_svars?(node)
+      return node.any? { |n| mentions_svars?(n) } if node.is_a?(Array)
+      return false if node.nil? || node.is_a?(Prism::DefNode)
+      return true if SVAR_READS.any? { |k| node.is_a?(k) }
+      return true if node.is_a?(Prism::CallNode) && SVAR_WRITERS.include?(node.name)
+
+      case node
+      when Prism::GlobalVariableReadNode, Prism::GlobalVariableWriteNode
+        return true if node.name == :$~
+      end
+      node.compact_child_nodes.any? { |child| mentions_svars?(child) }
     end
 
     # A method activation a `return` written in a block it makes can
@@ -1383,6 +1422,7 @@ module Ze0
       scope.all_locals.each { |local| release_local(local) }
       release_block_argument(scope.blk) if scope.blk
       f.ins "call #{f.import("zeo_rt_frame_pop")}()"
+      f.ins "call #{f.import("zeo_rt_svar_scope_pop")}()" if scope.svars
       f.ins "call #{f.import("zeo_rt_home_pop")}()" if scope.catches_return
       f.ins "return #{scope.status}"
     end
@@ -1486,6 +1526,7 @@ module Ze0
         scope.dynamic_caller = !method.nil? || inherited
         scope.lambda = lambda_shape && method.nil?
         scope.catches_return = !method.nil? && returns_travel?(node.body)
+        scope.svars = !method.nil? && mentions_svars?(node.body)
         scope.frame_base = method || base
         scope.block_depth = method ? 0 : depth + 1
         env, slf, argv, argc, blk, into = f.args
@@ -1722,6 +1763,9 @@ module Ze0
            Prism::CallAndWriteNode then conditional_write(node, true)
       when Prism::GlobalVariableReadNode then global_read(node)
       when Prism::GlobalVariableWriteNode then global_write(node)
+      when Prism::NumberedReferenceReadNode then last_match(Capi::LAST_MATCH_GROUP, node.number)
+      when Prism::BackReferenceReadNode then back_reference(node)
+      when Prism::MatchWriteNode then lower_match_write(node)
       when Prism::InstanceVariableReadNode then ivar_read(node)
       when Prism::InstanceVariableWriteNode then ivar_write(node)
       when Prism::ClassVariableReadNode then cvar_read(node)
@@ -2075,8 +2119,67 @@ module Ze0
     # ---- globals, constants and instance variables ----
 
     # Never assigned is nil, ruby's rule, so the read cannot fail.
+    # `$~` is not a global at all: it names the last-match slot, which is
+    # frame-local and holds every one of `$1`, `$&` and their kin.
     def global_read(node)
+      return last_match(Capi::LAST_MATCH_DATA) if node.name == :$~
+
       global_load(node.name.to_s)
+    end
+
+    # `$&`, `` $` ``, `$'` and `$+`: one node kind, told apart by name.
+    BACK_REFERENCES = {
+      "$&" => [Capi::LAST_MATCH_GROUP, 0],
+      "$`" => [Capi::LAST_MATCH_PRE, 0],
+      "$'" => [Capi::LAST_MATCH_POST, 0],
+      "$+" => [Capi::LAST_MATCH_LAST_GROUP, 0],
+    }.freeze
+
+    def back_reference(node)
+      kind, n = BACK_REFERENCES.fetch(node.name.to_s) do
+        raise Unsupported.new(node, "the `#{node.name}` back reference")
+      end
+      last_match(kind, n)
+    end
+
+    # One read off the last-match slot. It answers nil where nothing has
+    # matched, so there is nothing to check and nothing to raise.
+    def last_match(kind, number = 0)
+      slot = f.slot
+      f.ins "call #{f.import("zeo_rt_last_match_ref")}(#{f.iconst("i8", kind)}, " \
+            "#{f.iconst("i64", number)}, #{addr_of(slot)})"
+      Operand.new(slot, true, false)
+    end
+
+    # `/(?<year>\d+)/ =~ text` binds each named group to a local of that
+    # name. The match is an ordinary `=~`, which is what records `$~`,
+    # and each name then reads its own group out of the MatchData -- nil
+    # where the match failed, so a miss leaves plain nils behind.
+    def lower_match_write(node)
+      result = f.slot
+      move(lower_expr(node.call), addr_of(result))
+      node.targets.each do |target|
+        unless target.is_a?(Prism::LocalVariableTargetNode)
+          raise Unsupported.new(target, "a named capture bound to that shape")
+        end
+
+        store_local(local(target), named_capture(target.name.to_s))
+      end
+      Operand.new(result, true, false)
+    end
+
+    def named_capture(name)
+      data = last_match(Capi::LAST_MATCH_DATA)
+      slot = f.slot
+      store_nil(addr_of(slot))
+      matched = f.val("icmp ne #{tag_of(borrow(data))}, #{f.iconst("i8", Capi::TAG_NIL)}")
+      read, join = f.label, f.label
+      f.ins "brif #{matched}, #{read}, #{join}"
+      f.switch(read)
+      dynamic_send(borrow(data), :[], [literal_symbol(name)], addr_of(slot))
+      f.ins "jump #{join}"
+      f.switch(join)
+      Operand.new(slot, true, false)
     end
 
     def global_load(name)
@@ -3257,6 +3360,14 @@ module Ze0
 
     def lower_defined(node) = defined_answer(node.value)
 
+    # One of the `$1` family is defined where it holds a value: a group
+    # the pattern never declared, and every one of them before the first
+    # match, answers nil.
+    def defined_match(value)
+      present = f.val("icmp ne #{tag_of(borrow(value))}, #{f.iconst("i8", Capi::TAG_NIL)}")
+      defined_if(present, "global-variable")
+    end
+
     def defined_answer(inner)
       answer = DEFINED_STATIC[inner.class]
       answer ||= "expression" if DEFINED_EXPRESSION.include?(inner.class)
@@ -3274,10 +3385,16 @@ module Ze0
         ))
         defined_if(flag_of(hit), "instance-variable")
       when Prism::GlobalVariableReadNode
+        # `$~` always answers, even before the first match.
+        return literal_string("global-variable") if inner.name == :$~
+
         ptr, len = rodata_ref(inner.name.to_s)
         defined_if(f.val(
           "call #{f.import("zeo_rt_defined_gvar")}(#{f.iconst("i32", Capi::MAIN_BOX)}, #{ptr}, #{len})",
         ), "global-variable")
+      when Prism::NumberedReferenceReadNode
+        defined_match(last_match(Capi::LAST_MATCH_GROUP, inner.number))
+      when Prism::BackReferenceReadNode then defined_match(back_reference(inner))
       when Prism::ConstantReadNode, Prism::ConstantPathNode then defined_constant(inner)
       when Prism::CallNode then defined_call(inner)
       when Prism::YieldNode
