@@ -78,6 +78,7 @@ module Ze0
       # is its own scope in ruby, so each gets its own table of slots.
       @unit_locals = {}
       @declared_bodies = {}
+      @assigned_constants = {}
       # Every `autoload` read so far that no statement has reached, and
       # the node each was written at, so a flushed unit names its line.
       @autoloads = {}
@@ -106,15 +107,14 @@ module Ze0
       seen = {}
       splice(body_statements(root.statements), @program.file, seen, units)
       deferred = read_deferred(seen)
-      units.each { |file, statements| with_file(file) { declare(statements, Names::OBJECT) } }
-      deferred.each_value do |unit|
-        unit[:runs].each { |file, statements| with_file(file) { declare(statements, Names::OBJECT) } }
-      end
+      all = units + deferred.each_value.flat_map { |unit| unit[:runs] }
+      all.each { |_file, statements| statements.each { |s| note_assigned_constants(s) } }
+      all.each { |file, statements| with_file(file) { declare(statements, Names::OBJECT) } }
       @defs.each_value do |by_key|
         by_key.each_value { |d| with_file(d[:file]) { lower_def(d) } }
       end
       @classes.each_value do |c|
-        next if c[:builtin]
+        next if c[:builtin] || c[:runtime]
 
         c[:bodies].each { |written| with_file(written[:file]) { lower_class_body(c, written) } }
       end
@@ -601,6 +601,7 @@ module Ze0
       @declared_bodies[node.object_id] = true
       name = declared_name(node)
       return declare_builtin_reopen(node, name, kind) if Names::ALWAYS_ON.include?(name)
+      return declare_runtime_class(node, name, kind) if runtime_superclass?(node, kind)
 
       superclass = superclass_of(node, kind)
       entry = @classes[name] || declare_fresh_class(node, name, kind, superclass)
@@ -663,6 +664,48 @@ module Ze0
       raise Unsupported.new(node, "a class named in a scope of that shape") unless scope
 
       "#{scope}::#{node.name}"
+    end
+
+    # Every constant this program ASSIGNS, whether or not it holds a
+    # class. A superclass naming one is a value only the run time knows,
+    # where a name the program neither declares nor assigns is the
+    # runtime's own -- a builtin exception -- which the backend resolves.
+    def note_assigned_constants(node)
+      case node
+      when Prism::ConstantWriteNode then @assigned_constants[node.name.to_s] = true
+      when Prism::ConstantPathWriteNode
+        @assigned_constants[node.target.name.to_s] = true
+      end
+      node.compact_child_nodes.each { |c| note_assigned_constants(c) }
+    end
+
+    # A superclass no name can settle: `class Foo < base` mints its class
+    # while the program runs, and so does one whose name this program
+    # assigns rather than declares.
+    def runtime_superclass?(node, kind)
+      return false unless kind == "class" && node.superclass
+
+      written = written_class_name(node.superclass)
+      return true if written.nil?
+
+      @assigned_constants.key?(written.split("::").last) &&
+        declared_class(@cref, node.superclass).nil?
+    end
+
+    # `class Foo < <expr>` is `Foo = Class.new(expr)` with the body run on
+    # the new class. No row is minted -- the class is made at run time --
+    # so the name is an ordinary constant and the body's `def`s install
+    # where they stand.
+    def declare_runtime_class(node, name, kind)
+      entry = @classes[name]
+      raise Unsupported.new(node, "a #{kind} reopened with a runtime superclass") if entry && !entry[:runtime]
+
+      entry ||= @classes[name] = {
+        name: name, kind: kind, superclass: Names::OBJECT, runtime: true,
+        ivars: [], cvars: [], private_constants: [], bodies: [],
+      }
+      entry[:bodies] << { node: node, body: body_statements(node.body), file: @file }
+      nil
     end
 
     # A `class` or `module` naming one the runtime always carries. No row
@@ -1510,6 +1553,7 @@ module Ze0
       entry = @classes.values.find { |c| c[:bodies].any? { |b| b[:node].equal?(node) } }
       raise Unsupported.new(node, "a class nested inside another statement") if entry.nil?
       return lower_builtin_reopen(entry, node) if entry[:builtin]
+      return lower_runtime_class(entry, node) if entry[:runtime]
       # Each `class Foo ... end` runs ITS body, so a reopen adds to the
       # class where the statement stands rather than all at once.
       written = entry[:bodies].find { |b| b[:node].equal?(node) }
@@ -1552,18 +1596,35 @@ module Ze0
       end
     end
 
-    # A reopened builtin runs its body as `Klass.class_eval { ... }`: the
-    # block's `self` is the class, its `def`s install on it where they
-    # stand, and the answer is the body's last value, as ruby's is.
-    def lower_builtin_reopen(entry, node)
+    # `class Foo < <expr>`: the class is minted here, named by the
+    # constant -- which is what gives it a name at all -- and only then
+    # does the body run, which is ruby's own order.
+    def lower_runtime_class(entry, node)
+      base = lower_expr(node.superclass)
+      klass = send_value(constant_named("Class"), :new, [base])
+      borrow(klass)
+      discard(store_constant(entry[:name].split("::").last, node, klass))
+      run_body_on(klass, node)
+    end
+
+    # A body run as `klass.class_eval { ... }`: the block's `self` is the
+    # class, its `def`s install on it where they stand, and the answer is
+    # the body's last value, as ruby's is.
+    def run_body_on(klass, node)
       block = BodyBlock.new(node.body, node.location, node.locals)
       body, captures = lower_block(block)
-      klass = constant_named(entry[:name])
       slot = f.slot
       dynamic_send(borrow(klass), :class_eval, [], addr_of(slot), breaks: true) do
         proc_new(body, captures, block, false)
       end
       Operand.new(slot, true, false)
+    end
+
+    # A reopened builtin runs its body as `Klass.class_eval { ... }`: the
+    # block's `self` is the class, its `def`s install on it where they
+    # stand, and the answer is the body's last value, as ruby's is.
+    def lower_builtin_reopen(entry, node)
+      run_body_on(constant_named(entry[:name]), node)
     end
 
     # `class << obj` opens the object's SINGLETON class, which no row can
@@ -1587,6 +1648,7 @@ module Ze0
         case s
         when Prism::DefNode then value = define_singleton(recv, s, mode)
         when Prism::AliasMethodNode then value = singleton_alias(recv, s)
+        when Prism::UndefNode then value = singleton_undef(recv, s)
         when Prism::CallNode
           if visibility_verb?(s)
             mode, value = singleton_visibility(recv, s, mode)
@@ -1625,6 +1687,17 @@ module Ze0
       Prism::SplatNode, Prism::KeywordHashNode, Prism::BlockArgumentNode,
       Prism::ForwardingArgumentsNode,
     ].freeze
+
+    # `undef x` in a `class << obj` body retires the name on the object's
+    # singleton class, so a call reaches nothing even where the class
+    # itself defines one.
+    def singleton_undef(recv, node)
+      target = send_value(recv, :singleton_class)
+      borrow(target)
+      names = node.names.map { |n| alias_name(n) }
+      discard(send_value(target, :send, [literal_symbol(:undef_method)] + names))
+      literal_nil
+    end
 
     # `alias b a` in a `class << obj` body names a method of the object's
     # SINGLETON class, which is what `alias_method` on it does. The
