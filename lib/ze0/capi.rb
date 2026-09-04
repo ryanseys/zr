@@ -128,6 +128,7 @@ module Ze0
       "zeo_rt_cell_store" => [%w[i64 i64], nil],
       "zeo_rt_cell_release" => [%w[i64], nil],
       "zeo_rt_yield" => [%w[i64 i64 i64 i64], "i32"],
+      "zeo_rt_yield_args" => [%w[i64 i64 i64 i64], "i32"],
       "zeo_rt_send_super_dynamic_args" => [
         ["i64", "i64", "i8 uext", "i64", "i64", "i64"], "i32",
       ],

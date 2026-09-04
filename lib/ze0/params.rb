@@ -69,10 +69,10 @@ module Ze0
     def rows
       required.map { |n| ["req", named(n)] } +
         optional.map { |o| ["opt", o.name] } +
-        (rest ? [["rest", rest.name || ""]] : []) +
+        (rest&.named? ? [["rest", rest.name]] : []) +
         post.map { |n| ["req", named(n)] } +
         keywords.map { |k| [k.required ? "keyreq" : "key", k.name] } +
-        (kwrest ? [["keyrest", kwrest.name || ""]] : []) +
+        (kwrest&.named? ? [["keyrest", kwrest.name]] : []) +
         (block ? [["block", block]] : [])
     end
 

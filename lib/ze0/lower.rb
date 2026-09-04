@@ -755,10 +755,18 @@ module Ze0
         node.posts.map { |r| positional_name(r, destructures) },
         node.keywords.map { |k| keyword_of(k) },
         kwrest_of(node.keyword_rest),
-        node.block&.name,
+        block_param_name(node.block),
         node.keyword_rest.is_a?(Prism::NoKeywordsParameterNode),
         destructures,
       )
+    end
+
+    # The slot a `&` parameter binds. ruby names an ANONYMOUS one `&`,
+    # the same name `...` gives it, so a forward written `&` reads it.
+    def block_param_name(node)
+      return nil if node.nil?
+
+      node.name || :&
     end
 
     # `def f(...)` takes all three channels at once. ruby names them `*`,
@@ -780,18 +788,23 @@ module Ze0
       name
     end
 
+    # An `|a, |` trailing comma is prism's `ImplicitRestNode`: a rest that
+    # binds nothing and is not in the signature, but which does turn the
+    # auto-splat on. An anonymous `*` is a slot ruby names `*`, so a call
+    # written `n(*)` can forward it.
     def rest_of(node)
       return nil if node.nil?
-      raise Unsupported.new(node, "an implicit rest") unless node.is_a?(Prism::RestParameterNode)
+      return Params::Star.new(nil) if node.is_a?(Prism::ImplicitRestNode)
+      raise Unsupported.new(node, "a rest parameter of that shape") unless node.is_a?(Prism::RestParameterNode)
 
-      Params::Star.new(node.name)
+      Params::Star.new(node.name || :*)
     end
 
     def kwrest_of(node)
       return nil if node.nil? || node.is_a?(Prism::NoKeywordsParameterNode)
       raise Unsupported.new(node, "a forwarding parameter") unless node.is_a?(Prism::KeywordRestParameterNode)
 
-      Params::Star.new(node.name)
+      Params::Star.new(node.name || :**)
     end
 
     def keyword_of(node)
@@ -2116,10 +2129,10 @@ module Ze0
         # `{**h}` merges h's pairs in place, through ruby's `to_hash`
         # rule. `**nil` is the "no keywords" spelling and adds nothing.
         if e.is_a?(Prism::AssocSplatNode)
-          raise Unsupported.new(e, "an anonymous splat") if e.value.nil?
-
+          # A bare `**` forwards the anonymous keyword rest parameter.
+          from = e.value ? lower_expr(e.value) : read_local(locals.fetch(:**))
           status_check(f.val(
-            "call #{f.import("zeo_rt_kw_splat_into")}(#{at}, #{borrow(lower_expr(e.value))})",
+            "call #{f.import("zeo_rt_kw_splat_into")}(#{at}, #{borrow(from)})",
           ))
           next
         end
@@ -3088,8 +3101,10 @@ module Ze0
         body, captures = lower_block(node.block, lambda_shape)
         -> { proc_new(body, captures, node.block, lambda_shape) }
       when Prism::BlockArgumentNode
+        # A bare `&` forwards the anonymous parameter, which binds the
+        # same `&` slot a `...` does.
         expression = node.block.expression
-        raise Unsupported.new(node.block, "an anonymous block forward") if expression.nil?
+        return -> { block_arg_value(read_local(locals.fetch(:&))) } if expression.nil?
 
         -> { block_arg_proc(expression) }
       else raise Unsupported.new(node.block, "a block of that shape")
@@ -3577,17 +3592,37 @@ module Ze0
       blk = yield_block
       raise Unsupported.new(node, "a yield outside a method that takes a block") if blk.nil?
 
-      args = (node.arguments&.arguments || []).map do |a|
-        raise Unsupported.new(a, "a yield argument of that shape") if a.is_a?(Prism::SplatNode)
+      args = (node.arguments&.arguments || []).dup
+      return yield_of_args(node, blk, args) if spread_arguments?(args)
 
-        lower_expr(a)
-      end
-      argv = args_array(args)
+      argv = args_array(args.map { |a| lower_expr(a) })
       slot = f.slot
       status_check(f.val(
         "call #{f.import("zeo_rt_yield")}(#{blk}, #{argv}, #{f.iconst("i64", args.size)}, #{addr_of(slot)})",
       ))
       Operand.new(slot, true, false)
+    end
+
+    # `yield(*a)` and `yield 1, k: 2`: how many values reach the block is
+    # a run-time fact, so the list is built as an Array and the keywords
+    # as a Hash beside it, and the block binds from the contents.
+    def yield_of_args(node, blk, args)
+      keywords = args.pop if args.last.is_a?(Prism::KeywordHashNode)
+      argv = new_array(args.size)
+      args.each { |a| push_call_argument(argv, a) }
+      kw = keywords ? borrow(hash_literal(keywords)) : f.iconst("i64", 0)
+      slot = f.slot
+      status_check(f.val(
+        "call #{f.import("zeo_rt_yield_args")}(#{blk}, #{argv}, #{kw}, #{addr_of(slot)})",
+      ))
+      Operand.new(slot, true, false)
+    end
+
+    # Whether an argument list's length is only known at run time: a `*`
+    # splat, a `...`, or a keyword tail that may be empty when it runs.
+    def spread_arguments?(args)
+      args.last.is_a?(Prism::KeywordHashNode) ||
+        args.any? { |a| a.is_a?(Prism::SplatNode) || a.is_a?(Prism::ForwardingArgumentsNode) }
     end
 
     # ---- defined? ----
@@ -4120,7 +4155,9 @@ module Ze0
     def push_call_argument(argv, node)
       case node
       when Prism::SplatNode
-        raise Unsupported.new(node, "an anonymous splat") if node.expression.nil?
+        # A bare `*` forwards the anonymous rest parameter, which binds
+        # the `*` slot.
+        return push_splat(argv, read_local(locals.fetch(:*))) if node.expression.nil?
 
         push_splat(argv, lower_expr(node.expression))
       when Prism::ForwardingArgumentsNode then push_splat(argv, read_local(locals.fetch(:*)))
