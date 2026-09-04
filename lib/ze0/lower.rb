@@ -649,7 +649,10 @@ module Ze0
 
     def declare_def(node, owner, visibility = "public")
       singleton = node.receiver.is_a?(Prism::SelfNode)
-      raise Unsupported.new(node, "a def with a receiver") if node.receiver && !singleton
+      # `def obj.name` names an object no compile can know, so it has no
+      # row: the statement installs it on that object's singleton where it
+      # stands, which is where ruby installs it too.
+      return if node.receiver && !singleton
       raise Unsupported.new(node, "a def on self at the top level") if singleton && owner == Names::OBJECT
       # A redefinition keeps the LAST body, as ruby does; the row and the
       # body symbol are the same either way.
@@ -689,7 +692,7 @@ module Ze0
     # the body becomes a lambda-shaped Proc and the runtime resolves the
     # definee the same way the interpreter does.
     def runtime_def(node)
-      raise Unsupported.new(node, "a def with a receiver") if node.receiver
+      return define_singleton(lower_expr(node.receiver), node, "public") if node.receiver
 
       body, captures = lower_method_body(node)
       proc_value = proc_new(body, captures, node, true)
@@ -1179,8 +1182,6 @@ module Ze0
     # One `def` in a `class << obj` body, installed on the object and
     # marked when the body is in a non-public mode.
     def define_singleton(recv, node, mode)
-      raise Unsupported.new(node, "a def with a receiver") if node.receiver
-
       send_value(recv, :define_singleton_method, [literal_symbol(node.name), method_proc(node)])
       mark_singleton(recv, node.name.to_s, mode) unless mode == "public"
       literal_symbol(node.name)
@@ -1226,9 +1227,13 @@ module Ze0
     # run of statements from one file, so the same file comes back once
     # per `require_relative` written between its own statements.
     def lower_toplevel(units)
-      # A top-level `def` is installed before the program runs, so where
-      # the statement stands it lowers to nothing.
-      units = units.map { |file, run| [file, run.reject { |s| s.is_a?(Prism::DefNode) }] }
+      # A `def` with a ROW is installed before the program runs, so where
+      # the statement stands it lowers to nothing. One WITHOUT a row --
+      # `def obj.name`, whose object no compile can know -- is an ordinary
+      # statement and stays.
+      units = units.map do |file, run|
+        [file, run.reject { |s| s.is_a?(Prism::DefNode) && @declared_defs[s.object_id] }]
+      end
       function = Clif::Function.new(Names::TOPLEVEL, ["i64"], "i32")
       in_scope(function, :toplevel) do
         scope.out = f.args[0]
