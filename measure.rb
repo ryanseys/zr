@@ -10,6 +10,7 @@
 # of stage 1, `zeo backend` alone, and the text each front end writes. Each
 # timing is the best of three.
 
+require "fileutils"
 require "tmpdir"
 
 ROOT = File.expand_path("..", __dir__)
@@ -69,6 +70,10 @@ Dir.mktmpdir("ze0-measure") do |dir|
   programs.each do |name, source|
     rb = File.join(dir, "#{name}.rb")
     File.write(rb, source)
+    # A program with a `require_relative` needs the directory beside it,
+    # because the splice resolves against the file it is written in.
+    support = File.join(ROOT, "test/ze0", name)
+    FileUtils.cp_r(support, dir) if File.directory?(support)
     timings = run(ZEO, "--emit-clif=/dev/null", "#{name}.rb", env: { "ZEO_TIMINGS" => "1", "ZEO_CACHE" => "0" }, chdir: dir)
     front = timings[/parse_lower=(\d+)ms analyze=(\d+)ms/] ? Regexp.last_match(1).to_i + Regexp.last_match(2).to_i : -1
     emitter_text = run(ZEO, "--emit-clif", "#{name}.rb", env: { "ZEO_DEBUG" => "outline-frames", "ZEO_CACHE" => "0" }, chdir: dir).bytesize
