@@ -371,6 +371,10 @@ module Ze0
     def uses_block?(node)
       return false if node.nil?
       return true if node.is_a?(Prism::YieldNode)
+      # `super` forwards the caller's block whether or not the method
+      # names one, so the signature has to carry it here too -- without
+      # the parameter the trampoline releases it and it is gone.
+      return true if node.is_a?(Prism::SuperNode) || node.is_a?(Prism::ForwardingSuperNode)
       return true if node.is_a?(Prism::CallNode) && node.receiver.nil? && node.name == :block_given?
 
       node.compact_child_nodes.any? { |c| uses_block?(c) }
@@ -419,6 +423,7 @@ module Ze0
       function = Clif::Function.new(body_sym, ["i64"] * arity, "i32")
       in_scope(function, :body) do
         scope.owner = owner
+        scope.definition = definition
         scope.self_operand = Operand.new(f.args[0], false, false)
         scope.blk = f.args[names.size + 1] if takes_block
         scope.out = f.args.last
@@ -1033,6 +1038,8 @@ module Ze0
       when Prism::UntilNode then lower_while(node.predicate, node.statements, true)
       when Prism::ReturnNode then lower_return(node)
       when Prism::YieldNode then lower_yield(node)
+      when Prism::SuperNode then lower_super(node, node.arguments&.arguments || [])
+      when Prism::ForwardingSuperNode then lower_super(node, nil)
       when Prism::NextNode then lower_next(node)
       when Prism::BreakNode then lower_break(node)
       when Prism::ParenthesesNode then lower_statements(node.body)
@@ -1736,7 +1743,7 @@ module Ze0
     # after the receiver, the arguments and the keywords -- because it is
     # MOVED in and nothing between its construction and the call may raise.
     def send_call(node, args, keywords)
-      builder = block_builder(node)
+      builder = block_builder(node, node.receiver.nil? && node.name == :lambda)
       recv = node.receiver ? lower_expr(node.receiver) : self_operand
       result = f.slot
       operands = -> { args.map { |a| lower_expr(a) } }
@@ -1752,14 +1759,14 @@ module Ze0
     # How this call's block gets made, or nil when it has none. The
     # function a literal block compiles to is emitted here; only its
     # `Proc` waits for the call.
-    def block_builder(node)
+    # `lambda { }` answers the block it is handed with the lambda bit set,
+    # and the bit is not something `Kernel#lambda` can add later: the arity
+    # and the strict binding are baked in at creation. Only a plain call
+    # can be that `lambda`; a `super` never is.
+    def block_builder(node, lambda_shape = false)
       case node.block
       when nil then nil
       when Prism::BlockNode
-        # `lambda { }` answers the block it is handed with the lambda bit
-        # set, and the bit is not something `Kernel#lambda` can add later:
-        # the arity and the strict binding are baked in at creation.
-        lambda_shape = node.receiver.nil? && node.name == :lambda
         body, captures = lower_block(node.block, lambda_shape)
         -> { proc_new(body, captures, node.block, lambda_shape) }
       when Prism::BlockArgumentNode
@@ -2108,6 +2115,82 @@ module Ze0
         "call #{f.import("zeo_rt_yield")}(#{blk}, #{argv}, #{f.iconst("i64", args.size)}, #{addr_of(slot)})",
       ))
       Operand.new(slot, true, false)
+    end
+
+    # `super` resumes the MRO walk above the class the `def` was WRITTEN
+    # in, never above the receiver's own class. Every class contributes a
+    # row per instance method it writes, which the backend derives from
+    # the `def`s, and this call walks them.
+    #
+    # `args` is the written argument list, or nil for a bare `super`,
+    # which forwards the method's parameters -- by their CURRENT values,
+    # as ruby does, so reassigning one before the call sends the new one.
+    def lower_super(node, args)
+      definition = scope.definition
+      raise Unsupported.new(node, "a super outside a method body") if kind != :body || definition.nil?
+      raise Unsupported.new(node, "a super in a class method") if definition[:singleton]
+      raise Unsupported.new(node, "a super at the top level") if owner == Names::OBJECT
+      raise Unsupported.new(node, "a super in a module") if @classes.fetch(owner)[:kind] == "module"
+
+      operands = args ? args.map { |a| super_argument(a) } : forwarded_arguments(definition[:params])
+      into = f.slot
+      builder = block_builder(node)
+      argv = super_array(operands)
+      blk = builder ? builder.call : forwarded_block
+      status = f.val(
+        "call #{f.import("zeo_rt_send_super_from_args")}(#{borrow(self_operand)}, " \
+        "#{class_id(owner)}, #{sym_id(definition[:node].name)}, #{argv}, " \
+        "#{f.iconst("i8", 0)}, #{f.iconst("i64", 0)}, #{blk}, #{addr_of(into)})",
+      )
+      builder ? catch_break(status, addr_of(into)) : status_check(status)
+      Operand.new(into, true, false)
+    end
+
+    def super_argument(node)
+      case node
+      when Prism::SplatNode, Prism::KeywordHashNode, Prism::BlockArgumentNode
+        raise Unsupported.new(node, "a super argument of that shape")
+      else lower_expr(node)
+      end
+    end
+
+    # A bare `super`'s arguments: the method's own parameters, read back
+    # out of their locals in slot order.
+    def forwarded_arguments(params)
+      unless params.keywords.empty? && params.kwrest.nil? && params.rest.nil?
+        raise Unsupported.new(scope.definition[:node], "a bare super forwarding that shape")
+      end
+
+      names = params.required + params.optional.map(&:name) + params.post
+      names.map { |n| read_local(locals.fetch(n)) }
+    end
+
+    # The `super` call's own Array of arguments, which the runtime reads
+    # rather than a slot array.
+    def super_array(operands)
+      slot = f.slot
+      at = addr_of(slot)
+      f.ins "call #{f.import("zeo_rt_array_new")}(#{f.iconst("i64", operands.size)}, #{at})"
+      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      operands.each { |o| f.ins "call #{f.import("zeo_rt_array_push")}(#{at}, #{hand_over(o)})" }
+      at
+    end
+
+    # With no block written at the `super`, the method's own goes on. The
+    # callee consumes a reference and this frame's epilogue releases its
+    # own, so the forward takes a fresh one.
+    def forwarded_block
+      blk = scope.blk
+      return f.iconst("i64", 0) if blk.nil?
+
+      has = f.val("icmp ne #{blk}, #{f.iconst("i64", 0)}")
+      yes, no = f.label, f.label
+      f.ins "brif #{has}, #{yes}, #{no}"
+      f.switch(yes)
+      f.ins "call #{f.import("zeo_rt_retain")}(#{blk})"
+      f.ins "jump #{no}"
+      f.switch(no)
+      blk
     end
 
     # The block a bare `yield` reaches: this scope's own, or -- inside a

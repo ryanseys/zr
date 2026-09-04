@@ -42,6 +42,10 @@ module Ze0
     # The shared exits: a raise, a normal finish, and the single block that
     # releases the locals and answers `status`.
     attr_accessor :raise_block, :done_block, :exit_block, :status
+    # The `def` this body is, which `super` needs: the class it was
+    # WRITTEN in and the parameters a bare `super` forwards. nil in every
+    # other kind of scope.
+    attr_accessor :definition
     # The frame a backtrace prints. `base` is the method or `<main>` a
     # block was written in, and `depth` how many blocks deep it sits, so
     # ruby's "block (2 levels) in Object#run" can be spelled.

@@ -49,6 +49,9 @@ module Ze0
       "zeo_rt_ivar_set_slot" => [%w[i64 i64 i64], "i32"],
       "zeo_rt_frozen_check" => [%w[i64], "i32"],
       "zeo_rt_runtime_set_visibility" => [["i32", "i32", "i8 uext"], "i32"],
+      "zeo_rt_send_super_from_args" => [
+        ["i64", "i32", "i32", "i64", "i8 uext", "i64", "i64", "i64"], "i32",
+      ],
       "zeo_rt_case_eq" => [%w[i64 i64 i64], "i32"],
       "zeo_rt_bind_block_params" => [["i64", "i8 uext", "i64", "i64", "i64", "i64"], "i32"],
       "zeo_rt_bind_params" => [%w[i64 i64 i64 i64 i64], "i32"],
