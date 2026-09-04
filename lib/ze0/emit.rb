@@ -67,10 +67,10 @@ module Ze0
     # level, whose `def`s are private methods of `Object`. `visibility` is
     # the mode the class body was in where the `def` was written; ruby
     # makes a handful of names private wherever they appear.
-    def add_def(name:, tramp:, params:, line:, owner: "", singleton: false, visibility: "public")
+    def add_def(name:, tramp:, params:, line:, file:, owner: "", singleton: false, visibility: "public")
       visibility = "private" if owner.empty? || ALWAYS_PRIVATE.include?(name.to_s)
       @defs << {
-        name: name.to_s, tramp: tramp, params: params, line: line,
+        name: name.to_s, tramp: tramp, params: params, line: line, file: file,
         owner: owner, singleton: singleton, visibility: visibility,
       }
     end
@@ -117,7 +117,9 @@ module Ze0
             "name" => d[:name],
             "tramp" => d[:tramp],
             "params" => d[:params].map { |kind, name| [kind, name.to_s] },
-            "file" => @file,
+            # A `def` names the file it was WRITTEN in, which a spliced
+            # `require_relative` makes different from the program's.
+            "file" => d[:file],
             "line" => d[:line],
             "visibility" => d[:visibility],
             "class" => d[:owner],

@@ -4,6 +4,11 @@ module Ze0
   # A form the subset does not lower. The program is refused at the node,
   # never compiled to something that answers differently from ruby.
   class Unsupported < StandardError
+    # The file the node was written in, which a spliced `require_relative`
+    # makes different from the one the compile was asked for. Stamped as
+    # the refusal passes back out of the file being read.
+    attr_accessor :file
+
     def initialize(node, what = nil)
       kind = node.class.name.sub("Prism::", "").sub(/Node\z/, "")
       super("line #{node.location.start_line}: #{what || kind} is not in ze0's subset")
@@ -45,20 +50,109 @@ module Ze0
       @classes = {}
       @scopes = []
       @blocks = 0
+      @file = program.file
       # Every name any class body marked `private_constant`. A read of a
       # name no body marks can never need the guard, whatever its scope.
       @private_constants = {}
     end
 
     def lower(root)
-      statements = body_statements(root.statements)
-      declare(statements, Names::OBJECT)
-      @defs.each_value { |by_key| by_key.each_value { |d| lower_def(d) } }
-      @classes.each_value { |c| lower_class_body(c) }
+      units = []
+      # The main file is NOT seeded into the loading table: ruby has no
+      # entry for it either, so a `require_relative` that names it back
+      # loads it a second time.
+      splice(body_statements(root.statements), @program.file, {}, units)
+      units.each { |file, statements| with_file(file) { declare(statements, Names::OBJECT) } }
+      @defs.each_value do |by_key|
+        by_key.each_value { |d| with_file(d[:file]) { lower_def(d) } }
+      end
+      @classes.each_value do |c|
+        c[:bodies].each { |written| with_file(written[:file]) { lower_class_body(c, written) } }
+      end
+      statements = units.flat_map { |_, group| group }
       lower_toplevel(statements.reject { |s| s.is_a?(Prism::DefNode) }, root.locals)
     end
 
     private
+
+    # ---- the files ----
+    #
+    # `require_relative` resolves HERE, not at run time: the target is
+    # parsed and its statements are spliced in at the call's position,
+    # once per file. That is the only `require` shape ze0 has -- a real
+    # one searching a load path, and a lazily linked unit, are refused.
+    #
+    # `units` come out in load order, each a run of statements from one
+    # file, so a `def` records the file its backtrace has to name.
+
+    # The file whose statements are being read. A `def` and a class body
+    # keep theirs, because a frame names the file it was WRITTEN in.
+    def with_file(file)
+      previous = @file
+      @file = file
+      value = yield
+      @file = previous
+      value
+    rescue Unsupported => e
+      e.file = file if e.file.nil?
+      raise
+    end
+
+    def splice(statements, file, seen, units)
+      run = []
+      statements.each do |s|
+        target = required_file(s, file)
+        if target.nil?
+          run << s
+          next
+        end
+
+        units << [file, run] unless run.empty?
+        run = []
+        # The entry goes in BEFORE the file is read, matching CRuby's
+        # loading table: a cycle splices nothing the second time.
+        next if seen.key?(target)
+
+        seen[target] = true
+        splice(spliced_statements(s, target), target, seen, units)
+      end
+      units << [file, run] unless run.empty?
+    end
+
+    # The absolute path a `require_relative` names, or nil for any other
+    # statement. Resolved against the requiring FILE's directory, never
+    # the working directory, and `.rb` is appended AFTER the path is made
+    # absolute -- CRuby's order.
+    def required_file(node, file)
+      return nil unless node.is_a?(Prism::CallNode) && node.receiver.nil?
+      return nil unless node.name == :require_relative
+
+      args = node.arguments&.arguments || []
+      unless args.size == 1 && args[0].is_a?(Prism::StringNode) && node.block.nil?
+        raise Unsupported.new(node, "a `require_relative` of that shape")
+      end
+
+      path = File.expand_path(args[0].unescaped, File.dirname(file))
+      return path if File.file?(path)
+      return "#{path}.rb" if File.file?("#{path}.rb")
+
+      raise Unsupported.new(node, "`require_relative \"#{args[0].unescaped}\"`, which names no file")
+    end
+
+    def spliced_statements(node, path)
+      result = Prism.parse_file(path)
+      unless result.errors.empty?
+        error = result.errors.first
+        raise Unsupported.new(node, "a required file with a syntax error: #{error.message}")
+      end
+      # A required file's top-level locals are its own in ruby. ze0 has
+      # one top-level scope, so they would leak into the requirer.
+      unless result.value.locals.empty?
+        raise Unsupported.new(node, "a required file with top-level local variables")
+      end
+
+      body_statements(result.value.statements)
+    end
 
     # ---- the scope being lowered ----
     #
@@ -155,13 +249,14 @@ module Ze0
 
         @defs[owner][key] = {
           accessor: half, ivar: name, owner: owner, singleton: false,
-          name: method, line: node.location.start_line,
+          name: method, line: node.location.start_line, file: @file,
         }
         @program.add_def(
           name: method,
           tramp: trampoline_of(owner, method, false),
           params: params,
           line: node.location.start_line,
+          file: @file,
           owner: owner,
           singleton: false,
           visibility: visibility,
@@ -176,28 +271,46 @@ module Ze0
       raise Unsupported.new(node, "a scoped class name") unless node.constant_path.is_a?(Prism::ConstantReadNode)
 
       name = qualify(owner, node.name.to_s)
-      raise Unsupported.new(node, "a class named twice") if @classes.key?(name)
-
       superclass = superclass_of(node, owner, kind)
+      entry = @classes[name] || declare_fresh_class(name, kind, superclass)
+      if entry[:kind] != kind
+        raise Unsupported.new(node, "a #{entry[:kind]} reopened as a #{kind}")
+      end
+      written = kind == "class" ? node.superclass : nil
+      if written && entry[:superclass] != superclass
+        raise Unsupported.new(written, "a class reopened with a different superclass")
+      end
+
       body = body_statements(node.body)
-      # The body's symbol is settled here, not when it is lowered: an
+      # The ivar list and the private-constant list are the ones the class
+      # ROW holds, so a reopen adds to what the sidecar already carries.
+      ivar_names(body, superclass).each { |n| entry[:ivars] << n unless entry[:ivars].include?(n) }
+      # A body's symbol is settled here, not when it is lowered: an
       # enclosing body calls it, and the two are lowered in either order.
-      ivars = ivar_names(body, superclass)
-      private_constants = []
-      @classes[name] = {
-        name: name, kind: kind, node: node, body: body, ivars: ivars,
-        private_constants: private_constants,
-        symbol: "zeo_cb_#{Names.owner_fragment(name)}",
+      base = "zeo_cb_#{Names.owner_fragment(name)}"
+      at = entry[:bodies].size
+      entry[:bodies] << {
+        node: node, body: body, file: @file,
+        symbol: at.zero? ? base : "#{base}_#{at}",
       }
+      declare(body, name)
+    end
+
+    def declare_fresh_class(name, kind, superclass)
+      entry = {
+        name: name, kind: kind, superclass: superclass,
+        ivars: [], private_constants: [], bodies: [],
+      }
+      @classes[name] = entry
       @defs[name] = {}
       @program.add_class(
         name: name,
         superclass: superclass,
         kind: kind,
-        ivars: ivars,
-        private_constants: private_constants,
+        ivars: entry[:ivars],
+        private_constants: entry[:private_constants],
       )
-      declare(body, name)
+      entry
     end
 
     # `Outer::Inner`, or the bare name at the top level.
@@ -314,13 +427,14 @@ module Ze0
       params = parse_params(node.parameters)
       @defs[owner][key] = {
         params: params, node: node, block: params.takes_block?(uses_block?(node.body)),
-        owner: owner, singleton: singleton,
+        owner: owner, singleton: singleton, file: @file,
       }
       @program.add_def(
         name: node.name,
         tramp: trampoline_of(owner, node.name, singleton),
         params: params.rows,
         line: node.location.start_line,
+        file: @file,
         owner: owner == Names::OBJECT ? "" : owner,
         singleton: singleton,
         visibility: visibility,
@@ -670,7 +784,7 @@ module Ze0
         go, wrong = f.label, f.label
         f.ins "brif #{fits}, #{go}, #{wrong}"
         f.switch(wrong)
-        file, file_len = rodata_ref(@program.file)
+        file, file_len = rodata_ref(@file)
         label, label_len = rodata_ref(label_of(owner, node.name, singleton))
         line = f.iconst("i32", node.location.start_line)
         end_line = f.iconst("i32", node.location.end_line)
@@ -696,18 +810,20 @@ module Ze0
     # called at the statement's position. A `def` inside it registers
     # statically and only leaves its name behind, which is what ruby
     # answers for one.
-    def lower_class_body(entry)
-      symbol = entry[:symbol]
-      node = entry[:node]
+    def lower_class_body(entry, written)
+      symbol = written[:symbol]
+      node = written[:node]
       function = Clif::Function.new(symbol, ["i64", "i64"], "i32")
       in_scope(function, :class_body) do
         scope.owner = entry[:name]
         scope.self_operand = Operand.new(f.args[0], false, false)
         scope.out = f.args[1]
         prologue
-        boxed = captured_names(entry[:body], node.locals)
+        boxed = captured_names(written[:body], node.locals)
         node.locals.each { |n| declare_local(n, boxed: boxed.include?(n)) }
-        scope.frame_base = Names.body_label(entry[:name], entry[:kind])
+        # The label is the name as WRITTEN, not the path: ruby prints
+        # `<class:C>` for a `C` nested in `M`.
+        scope.frame_base = Names.body_label(node.name, entry[:kind])
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
         value = lower_statements(node.body)
         move(value, out) unless f.terminated?
@@ -722,9 +838,14 @@ module Ze0
     def lower_class_statement(node)
       name = qualify(owner, node.name.to_s)
       entry = @classes.fetch(name) { raise Unsupported.new(node, "a class this program does not declare") }
+      # Each `class Foo ... end` runs ITS body, so a reopen adds to the
+      # class where the statement stands rather than all at once.
+      written = entry[:bodies].find { |b| b[:node].equal?(node) }
+      raise Unsupported.new(node, "a class this program does not declare") if written.nil?
+
       klass = constant_named(node.name.to_s)
       result = f.slot
-      body = f.callee(entry[:symbol], ["i64", "i64"], "i32")
+      body = f.callee(written[:symbol], ["i64", "i64"], "i32")
       status_check(f.val("call #{body}(#{borrow(klass)}, #{addr_of(result)})"))
       Operand.new(result, true, false)
     end
@@ -767,7 +888,7 @@ module Ze0
     end
 
     def enter_frame(label, line, end_line)
-      file, file_len = rodata_ref(@program.file)
+      file, file_len = rodata_ref(@file)
       label, label_len = rodata_ref(label)
       status = f.val(
         "call #{f.import("zeo_rt_frame_enter")}(#{file}, #{file_len}, #{label}, #{label_len}, " \
@@ -937,7 +1058,7 @@ module Ze0
       put.call(15, f.iconst("i8", 0))
       put.call(16, kws)
       put.call(24, n_kws)
-      [[32, name], [48, @program.file], [64, label]].each do |off, text|
+      [[32, name], [48, @file], [64, label]].each do |off, text|
         ptr, len = rodata_ref(text)
         put.call(off, ptr)
         put.call(off + 8, len)
@@ -1406,7 +1527,7 @@ module Ze0
       value = lower_expr(node.value)
       at = borrow(value)
       nptr, nlen = rodata_ref(node.target.name.to_s)
-      fptr, flen = rodata_ref(@program.file)
+      fptr, flen = rodata_ref(@file)
       f.ins "call #{f.import("zeo_rt_const_set_at")}(#{class_id(found)}, #{nptr}, #{nlen}, " \
             "#{at}, #{fptr}, #{flen}, #{f.iconst("i32", node.location.start_line)}, " \
             "#{f.iconst("i32", Capi::MAIN_BOX)})"
@@ -1523,7 +1644,7 @@ module Ze0
     def store_constant(name, node, value)
       at = borrow(value)
       nptr, nlen = rodata_ref(name)
-      fptr, flen = rodata_ref(@program.file)
+      fptr, flen = rodata_ref(@file)
       f.ins "call #{f.import("zeo_rt_const_set_at")}(#{cref_ids.first}, #{nptr}, #{nlen}, " \
             "#{at}, #{fptr}, #{flen}, #{f.iconst("i32", node.location.start_line)}, " \
             "#{f.iconst("i32", Capi::MAIN_BOX)})"
@@ -1823,7 +1944,7 @@ module Ze0
     # The verbs that bring another file's statements into the program.
     # ze0 compiles one file, so each would run as an ordinary send and
     # then fail -- or, for `autoload`, answer a constant ruby resolves.
-    LOAD_VERBS = %i[require require_relative load autoload].freeze
+    LOAD_VERBS = %i[require load autoload].freeze
 
     def lower_call(node)
       if node.receiver.nil? && kind == :class_body
@@ -1834,6 +1955,12 @@ module Ze0
       end
       if node.receiver.nil? && LOAD_VERBS.include?(node.name)
         raise Unsupported.new(node, "`#{node.name}`")
+      end
+      # The splice consumes every `require_relative` written as a
+      # top-level statement. One written anywhere else would have to load
+      # at run time, which a compiled program cannot do.
+      if node.receiver.nil? && node.name == :require_relative
+        raise Unsupported.new(node, "a `require_relative` that is not a top-level statement")
       end
       return safe_call(node) if safe_navigation?(node)
 
@@ -1930,7 +2057,7 @@ module Ze0
       shape = parse_params(node.parameters&.parameters)
       fn = f.callee(body, ["i64"] * 6, "i32")
       address = f.val("func_addr.i64 #{fn}")
-      file, file_len = rodata_ref(@program.file)
+      file, file_len = rodata_ref(@file)
       params, n_params = param_rows(shape)
       cells, n_cells = cell_array(captures)
       slot = f.slot

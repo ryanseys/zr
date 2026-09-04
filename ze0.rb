@@ -47,7 +47,7 @@ end
 begin
   clif, zeodata = Ze0.compile(source, input)
 rescue Ze0::Unsupported => e
-  warn "ze0: #{input}: #{e.message}"
+  warn "ze0: #{e.file || input}: #{e.message}"
   exit 1
 rescue SyntaxError => e
   warn "ze0: #{e.message}"
