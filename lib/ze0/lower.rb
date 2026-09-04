@@ -2917,9 +2917,91 @@ module Ze0
     # is safe because `zeo_rt_signal_take` only consumes the payload of a
     # Raise, Break, Next or Return.
     def lower_begin(node)
-      raise Unsupported.new(node.ensure_clause, "an ensure clause") if node.ensure_clause
+      return lower_ensure(node) if node.ensure_clause
       return lower_statements(node.statements) if node.rescue_clause.nil?
 
+      lower_rescued(node)
+    end
+
+    # The jump keywords an `ensure` written around them would have to
+    # settle: they leave the body without passing its normal exit.
+    JUMPS = [Prism::BreakNode, Prism::NextNode, Prism::RedoNode, Prism::ReturnNode].freeze
+    # A `while`, a block and a `def` catch their own `break`, `next` and
+    # `redo`, so one written inside never crosses the `ensure`.
+    CATCHES_JUMP = [
+      Prism::BlockNode, Prism::LambdaNode, Prism::DefNode,
+      Prism::WhileNode, Prism::UntilNode, Prism::ForNode,
+    ].freeze
+
+    # `ensure` runs its clause on the way out however the body leaves.
+    # ze0 builds the two ordinary ways -- a normal finish and a raise --
+    # and refuses a jump that crosses one, which needs a settle block
+    # that says whose signal the construct is carrying.
+    def lower_ensure(node)
+      crossing = crossing_jump(node.statements) if node.statements
+      crossing ||= crossing_jump(node.rescue_clause) if node.rescue_clause
+      raise Unsupported.new(crossing, "a jump that leaves an ensure") if crossing
+
+      clause = node.ensure_clause
+      outer = scope.raise_block
+      landing, done = f.label, f.label
+      result = f.slot
+      store_nil(addr_of(result))
+
+      scope.raise_block = landing
+      value = node.rescue_clause ? lower_rescued(node) : lower_statements(node.statements)
+      scope.raise_block = outer
+      unless f.terminated?
+        move(value, addr_of(result))
+        discard(lower_statements(clause.statements))
+        f.ins "jump #{done}" unless f.terminated?
+      end
+
+      # The raise path. The signal is set aside so the clause runs on a
+      # clear slot -- a raise of its own then WINS, as ruby's does -- and
+      # `$!` names the exception being carried while it runs.
+      f.switch(landing)
+      saved = f.val("call #{f.import("zeo_rt_signal_save")}()")
+      pushed = f.val("call #{f.import("zeo_rt_propagating_enter")}(#{saved})")
+      raised = f.label
+      scope.raise_block = raised
+      discard(lower_statements(clause.statements))
+      scope.raise_block = outer
+      unless f.terminated?
+        f.ins "call #{f.import("zeo_rt_propagating_leave")}(#{pushed})"
+        f.ins "call #{f.import("zeo_rt_signal_restore")}(#{saved})"
+        f.ins "jump #{outer}"
+      end
+      # A raise from the clause itself WINS, as ruby's does, so the one
+      # being carried is dropped rather than put back.
+      f.switch(raised)
+      f.ins "call #{f.import("zeo_rt_propagating_leave")}(#{pushed})"
+      f.ins "call #{f.import("zeo_rt_signal_drop")}(#{saved})"
+      f.ins "jump #{outer}"
+      f.switch(done)
+      Operand.new(result, true, false)
+    end
+
+    # The first jump under `node` that would leave an `ensure` written
+    # around it, or nil.
+    def crossing_jump(node)
+      return node if JUMPS.include?(node.class)
+
+      node.compact_child_nodes.filter_map do |c|
+        CATCHES_JUMP.include?(c.class) ? crossing_return(c) : crossing_jump(c)
+      end.first
+    end
+
+    # Only a `def` catches a `return`: one written in a block still
+    # unwinds the method, and the `ensure` around it.
+    def crossing_return(node)
+      return nil if node.is_a?(Prism::DefNode)
+      return node if node.is_a?(Prism::ReturnNode)
+
+      node.compact_child_nodes.filter_map { |c| crossing_return(c) }.first
+    end
+
+    def lower_rescued(node)
       outer = scope.raise_block
       landing, done = f.label, f.label
       result = f.slot
