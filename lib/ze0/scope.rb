@@ -79,6 +79,11 @@ module Ze0
     # The class or module whose body this is, or whose method: which
     # table a bare call resolves against.
     attr_accessor :owner
+    # The class or module whose body this scope is lexically inside, or
+    # nil at the top level. `cref` cannot answer it: a reopened builtin
+    # has no class row, so its name never joins that chain, and a
+    # top-level `def` owns `Object` without opening a body at all.
+    attr_accessor :definee
     # The lexical scopes a bare constant searches, innermost first, with
     # `Object` left off the end. Not the owner's name split on `::`: a
     # body written `class A::B::C` searches `C` and then whatever

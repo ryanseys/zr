@@ -127,6 +127,7 @@ module Ze0
       "zeo_rt_array_push_splat" => [%w[i64 i64], "i32"],
       "zeo_rt_kw_splat_into" => [%w[i64 i64], "i32"],
       "zeo_rt_defined_ivar" => [%w[i64 i64 i64 i64], "i32"],
+      "zeo_rt_defined_cvar" => [["i32", "i64", "i64"], "i8"],
       "zeo_rt_defined_gvar" => [["i32", "i64", "i64"], "i8"],
       "zeo_rt_defined_method" => [["i64", "i32", "i8 uext", "i64"], nil],
       "zeo_rt_alias_in_default_definee" => [%w[i64 i64 i64 i64 i64], "i32"],

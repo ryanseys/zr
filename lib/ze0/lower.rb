@@ -629,12 +629,20 @@ module Ze0
 
     def name_literal?(node) = NAME_LITERALS.any? { |k| node.is_a?(k) }
 
+    # The names one name-taking macro is given. A `*` splat of a written
+    # Array spreads here -- `attr_reader(*%i[a b])` is the idiom -- and a
+    # splat of anything else names nothing this compile can read.
     def accessor_names(node, args)
-      args.map do |a|
-        raise Unsupported.new(a, "a `#{node.name}` argument of that shape") unless name_literal?(a)
+      args.flat_map { |a| written_name(node, a) }
+    end
 
-        a.unescaped
-      end
+    def written_name(node, arg)
+      return [arg.unescaped] if name_literal?(arg)
+
+      spread = arg.expression if arg.is_a?(Prism::SplatNode)
+      raise Unsupported.new(arg, "a `#{node.name}` argument of that shape") unless spread.is_a?(Prism::ArrayNode)
+
+      spread.elements.flat_map { |e| written_name(node, e) }
     end
 
     # One generated accessor: a method row like any other `def`, with no
@@ -1382,6 +1390,9 @@ module Ze0
       function = Clif::Function.new(body_sym, ["i64"] * arity, "i32")
       in_scope(function, :body) do
         scope.owner = owner
+        # Every body but a reopened builtin's heads its own cref, so a
+        # `def` written in one names the class it was written in.
+        scope.definee = definition[:cref].first
         scope.cref = definition[:cref]
         scope.caller_class = caller_class_of(owner, singleton)
         scope.definition = definition
@@ -1660,6 +1671,7 @@ module Ze0
       function = Clif::Function.new(symbol, ["i64", "i64"], "i32")
       in_scope(function, :class_body) do
         scope.owner = entry[:name]
+        scope.definee = entry[:name]
         scope.cref = written[:cref]
         scope.caller_class = caller_class_of(entry[:name], true)
         scope.self_operand = Operand.new(f.args[0], false, false)
@@ -1754,21 +1766,21 @@ module Ze0
     # does the body run, which is ruby's own order.
     def lower_runtime_class(entry, node)
       # A reopen names what the first statement already made.
-      return run_body_on(constant_named(entry[:name]), node) unless entry[:bodies].first[:node].equal?(node)
+      return run_body_on(entry[:name], constant_named(entry[:name]), node) unless entry[:bodies].first[:node].equal?(node)
 
       base = lower_expr(node.superclass)
       klass = send_value(constant_named("Class"), :new, [base])
       borrow(klass)
       discard(store_constant(entry[:name].split("::").last, node, klass))
-      run_body_on(klass, node)
+      run_body_on(entry[:name], klass, node)
     end
 
     # A body run as `klass.class_eval { ... }`: the block's `self` is the
     # class, its `def`s install on it where they stand, and the answer is
     # the body's last value, as ruby's is.
-    def run_body_on(klass, node)
+    def run_body_on(name, klass, node)
       block = BodyBlock.new(node.body, node.location, node.locals)
-      body, captures = lower_block(block)
+      body, captures = with_definee(name) { lower_block(block) }
       slot = f.slot
       dynamic_send(borrow(klass), :class_eval, [], addr_of(slot), breaks: true) do
         proc_new(body, captures, block, false)
@@ -1780,7 +1792,16 @@ module Ze0
     # block's `self` is the class, its `def`s install on it where they
     # stand, and the answer is the body's last value, as ruby's is.
     def lower_builtin_reopen(entry, node)
-      run_body_on(constant_named(entry[:name]), node)
+      run_body_on(entry[:name], constant_named(entry[:name]), node)
+    end
+
+    # The body below is that class's, however it reaches the runtime.
+    def with_definee(name)
+      outer = scope.definee
+      scope.definee = name
+      yield
+    ensure
+      scope.definee = outer
     end
 
     # `class << obj` opens the object's SINGLETON class, which no row can
@@ -1913,22 +1934,26 @@ module Ze0
 
     # A `private`/`public`/`protected` in a `class << obj` body: bare, it
     # is the mode the `def`s below it are written in; with names, it
-    # retags those where it stands.
+    # retags those where it stands and answers them, as ruby does -- one
+    # Symbol, or an Array of them.
     def singleton_visibility(recv, node, mode)
       verb = node.name.to_s
       args = node.arguments&.arguments || []
       return [verb, literal_nil] if args.empty?
 
-      value = literal_nil
-      args.each do |a|
+      named = args.flat_map do |a|
+        # `private def x` defines the method at that visibility; every
+        # other argument names one the body already has.
         if a.is_a?(Prism::DefNode)
-          value = define_singleton(recv, a, verb)
-          next
+          define_singleton(recv, a, verb)
+          next [a.name.to_s]
         end
-        accessor_names(node, [a]).each { |n| mark_singleton(recv, n, verb) }
-        value = lower_expr(a)
+
+        names = written_name(node, a)
+        names.each { |n| mark_singleton(recv, n, verb) }
+        names
       end
-      [mode, value]
+      [mode, symbol_answer(named)]
     end
 
     # `obj.singleton_class.send(:private, :name)`, which is how ruby marks
@@ -2230,6 +2255,7 @@ module Ze0
       @blocks += 1
       function = Clif::Function.new(symbol, ["i64"] * 6, "i32")
       base, depth, own_owner, own_cref = scope.frame_base, scope.block_depth, owner, cref
+      own_definee = scope.definee
       # A block's `self` is the enclosing scope's, so its barrier is too.
       # A body the runtime installs has neither.
       enclosing = [scope.caller_class, scope.dynamic_caller]
@@ -2239,6 +2265,7 @@ module Ze0
       captures = method ? [] : block_captures(node, names)
       in_scope(function, method ? :body : :block) do
         scope.owner = own_owner
+        scope.definee = own_definee
         scope.cref = own_cref
         # A body the runtime installs knows its own parameters, which a
         # bare `super` forwards, but not the class it will land on -- so
@@ -2997,25 +3024,50 @@ module Ze0
     # for `class_variables` and for a NameError's message.
     def cvar_key(node) = node.name.to_s.delete_prefix("@@")
 
+    # `@@name` outside a class body has no cref to resolve against, so
+    # ruby raises where the access stands rather than storing. The compile
+    # answers that here, which is why every `@@name` below has a class to
+    # key on.
+    def toplevel_cvar? = scope.definee.nil?
+
+    # The RuntimeError ruby raises for one. Nothing after it runs; the nil
+    # is what the unreachable fall-through answers.
+    def cvar_toplevel_raise
+      message = literal_string("class variable access from toplevel")
+      dynamic_send(borrow(self_operand), :raise,
+                   [anchored_constant("RuntimeError"), message],
+                   addr_of(f.slot), explicit: false)
+      literal_nil
+    end
+
     def cvar_owner(node, name)
-      if owner == Names::OBJECT
-        raise Unsupported.new(node, "a class variable outside a class or module body")
+      here = scope.definee
+      unless here == Names::OBJECT || @classes.key?(here)
+        raise Unsupported.new(node, "a class variable in a class this program does not declare")
       end
 
+      ancestry(here).reverse.find { |c| @classes[c][:cvars].include?(name) } || here
+    end
+
+    # `name` and the ancestors this program declares, innermost first. The
+    # walk stops on a name it has already seen: `Object`'s own row names
+    # itself as its superclass.
+    def ancestry(name)
       chain = []
-      at = owner
-      while @classes.key?(at)
-        chain << at
-        at = @classes[at][:superclass]
+      while @classes.key?(name) && !chain.include?(name)
+        chain << name
+        name = @classes[name][:superclass]
       end
-      chain.reverse.find { |c| @classes[c][:cvars].include?(name) } || owner
+      chain
     end
 
     # A read. `lenient` is the `||=` half alone: every other read of a
     # name nobody assigned is ruby's NameError.
     def cvar_read(node, lenient: false)
+      return cvar_toplevel_raise if toplevel_cvar?
+
       name = cvar_key(node)
-      cid = class_id(cvar_owner(node, name))
+      cid = class_id_of(cvar_owner(node, name))
       nptr, nlen = rodata_ref(name)
       slot = f.slot
       entry = lenient ? "zeo_rt_cvar_get" : "zeo_rt_cvar_get_checked"
@@ -3025,8 +3077,15 @@ module Ze0
     end
 
     def cvar_write(node, value)
+      # The value has already run: `setclassvariable` is the instruction
+      # that raises, not the expression feeding it.
+      if toplevel_cvar?
+        discard(value)
+        return cvar_toplevel_raise
+      end
+
       name = cvar_key(node)
-      cid = class_id(cvar_owner(node, name))
+      cid = class_id_of(cvar_owner(node, name))
       nptr, nlen = rodata_ref(name)
       status_check(f.val("call #{f.import("zeo_rt_cvar_set")}(#{cid}, #{nptr}, #{nlen}, #{borrow(value)})"))
       Operand.new(value.at, false, value.immediate)
@@ -4491,6 +4550,18 @@ module Ze0
     # One of the `$1` family is defined where it holds a value: a group
     # the pattern never declared, and every one of them before the first
     # match, answers nil.
+    # `defined?` never evaluates its operand, so a `@@name` outside a class
+    # body answers nil where a read of it would raise.
+    def defined_cvar(node)
+      return literal_nil if toplevel_cvar?
+
+      name = cvar_key(node)
+      ptr, len = rodata_ref(name)
+      defined_if(f.val(
+        "call #{f.import("zeo_rt_defined_cvar")}(#{class_id_of(cvar_owner(node, name))}, #{ptr}, #{len})",
+      ), "class variable")
+    end
+
     def defined_match(value)
       present = f.val("icmp ne #{tag_of(borrow(value))}, #{f.iconst("i8", Capi::TAG_NIL)}")
       defined_if(present, "global-variable")
@@ -4523,6 +4594,7 @@ module Ze0
       when Prism::NumberedReferenceReadNode
         defined_match(last_match(Capi::LAST_MATCH_GROUP, inner.number))
       when Prism::BackReferenceReadNode then defined_match(back_reference(inner))
+      when Prism::ClassVariableReadNode then defined_cvar(inner)
       when Prism::ConstantReadNode, Prism::ConstantPathNode then defined_constant(inner)
       when Prism::CallNode then defined_call(inner)
       when Prism::SuperNode, Prism::ForwardingSuperNode then defined_super(inner)
