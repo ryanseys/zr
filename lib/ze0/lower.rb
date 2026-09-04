@@ -602,7 +602,11 @@ module Ze0
       @declared_bodies[node.object_id] = true
       name = declared_name(node)
       return declare_builtin_reopen(node, name, kind) if Names::ALWAYS_ON.include?(name)
-      return declare_runtime_class(node, name, kind) if runtime_superclass?(node, kind)
+      # A class MADE at run time stays that way when a later statement
+      # reopens it: there is still no row to put the body's `def`s in.
+      if runtime_superclass?(node, kind) || @classes[name]&.[](:runtime)
+        return declare_runtime_class(node, name, kind)
+      end
 
       superclass = superclass_of(node, kind)
       entry = @classes[name] || declare_fresh_class(node, name, kind, superclass)
@@ -700,6 +704,7 @@ module Ze0
     def declare_runtime_class(node, name, kind)
       entry = @classes[name]
       raise Unsupported.new(node, "a #{kind} reopened with a runtime superclass") if entry && !entry[:runtime]
+      raise Unsupported.new(node.superclass, "a runtime class reopened with a superclass") if entry && node.superclass
 
       entry ||= @classes[name] = {
         name: name, kind: kind, superclass: Names::OBJECT, runtime: true,
@@ -1604,6 +1609,9 @@ module Ze0
     # constant -- which is what gives it a name at all -- and only then
     # does the body run, which is ruby's own order.
     def lower_runtime_class(entry, node)
+      # A reopen names what the first statement already made.
+      return run_body_on(constant_named(entry[:name]), node) unless entry[:bodies].first[:node].equal?(node)
+
       base = lower_expr(node.superclass)
       klass = send_value(constant_named("Class"), :new, [base])
       borrow(klass)
@@ -3358,7 +3366,9 @@ module Ze0
         store_local(local(node), taken)
       when Prism::InstanceVariableTargetNode then store_ivar(ivar_key(node.name), taken)
       when Prism::GlobalVariableTargetNode then store_global(node.name.to_s, taken)
+      when Prism::ClassVariableTargetNode then cvar_write(node, taken)
       when Prism::ConstantTargetNode then store_constant(node.name.to_s, node, taken)
+      when Prism::ConstantPathTargetNode then constant_path_store(node, node, taken)
       when Prism::CallTargetNode
         recv = lower_expr(node.receiver)
         dynamic_send(borrow(recv), node.name, [taken], addr_of(f.slot))
