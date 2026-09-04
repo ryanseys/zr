@@ -304,189 +304,140 @@ only caller of `zeo_rt_regexp_lit`.
 
 `capi.rb`, `json.rb` and `names.rb` compile end to end after this phase.
 
-## The remaining work
+## Where stage 2 stands
 
-**Where stage 2 stands.** `capi.rb`, `json.rb` and `names.rb` compile end
-to end. `clif.rb` and `emit.rb` stop at `begin` (T3), `scope.rb` at
-`attr_reader` (T1), `lower.rb` at its exception superclass (T2),
-`params.rb` at a `Struct` scope (T5), and `ze0.rb` at `begin`/`rescue`
-(T3). None of the nine files can be compiled *together* until T6.
+`ruby ze0/ze0.rb -I <prism> ze0/ze0.rb` walks all nine of ze0's own files,
+into prism, and stops in prism's polyfills. **All nine of ze0's files
+compile**; eleven of prism's twenty-eight do.
 
-Ordered by what ze0's own sources need. Each item names its evidence, so
-a reader can re-derive the order with the census rather than trust it.
+Scale is not what is left. Measured on prism's biggest file: `node.rb`'s
+19,966 lines cost ze0 1.37 s and 262 MB to write 20 MB of CLIF, and
+`zeo backend` turns that into a 19 MB binary in 0.95 s.
 
-### T1 — the class-body macros
+S0 through S8 are done and are recorded in the commits. What follows is
+what stands between here and the fixed point, with the census that names
+each item.
 
-**`attr_reader` / `attr_writer` / `attr_accessor`.** Ten uses:
-`scope.rb` (7), `clif.rb` (1), `emit.rb` (1), and more will follow.
-Compile-time: each name becomes a method row like any other `def`.
+## W1 -- `Module.new { def ... }`, and the rest of prism's syntax
 
-The shape to copy is `clif/params.rs:566-698` — a generated accessor has
-**no body function and no frame**. The trampoline IS the method: an arity
-check and a direct ivar access. That matters for the contract rather than
-for speed, because CRuby's generated accessors are iseq-less and so never
-appear in a backtrace. Desugaring to a synthetic `def` would be far less
-code and would put a frame where ruby has none, which is exactly the
-"answers differently" this plan refuses.
+prism's four polyfills are all one shape:
 
-**The visibility verbs.** `private` and `protected` with no arguments are
-a mode switch over the `def`s that follow — compile-time, and the
-sidecar's `Def.visibility` already carries the answer. `private :name` is
-positional and needs `zeo_rt_runtime_set_visibility`, because a reopen can
-change it. `clif.rb:147` and `lower.rb:57` both use the bare form.
+```ruby
+if !("".respond_to?(:byteindex))
+  String.include(Module.new { def byteindex(needle, offset = 0) ... end })
+end
+```
 
-Until both land, the macros stay refused by name, which they are.
+Every guard is false on ruby 4.0.6, which is zeo's floor, so the bodies
+are dead -- and ze0 still has to compile them.
 
-### T2 — an exception superclass, and `super`
+**This is reachable with the machinery ze0 already has, and the plan was
+wrong to call it structurally out.** `zeo_rt_define_in_default_definee`
+takes a **Proc** as the method body and installs it on whatever definee
+the runtime resolves, which is the new module inside a `Module.new`
+block. ze0 builds Procs already: the wide `zeo_rt_proc_new` takes all
+sixteen arguments inline, which is what phase 2 found for blocks. The
+`zeo_proc_shapes` row the Rust emitter uses is what ze0 cannot reach --
+and it does not need it.
 
-`lower.rb:6` is `class Unsupported < StandardError`, and `lower.rb:9`
-calls `super`. Two changes, and only the first touches Rust.
+What the work is: a block body compiled as a METHOD body rather than a
+block one. The frame is a method frame, not `block in ...`; the binding
+is strict; and a bare `super` forwards the method's own parameters, which
+is the `MethodBody::Def` / `MethodBody::DefineMethod` distinction at
+`clif/blocks.rs:303`.
 
-**The superclass.** The sidecar's `Class.kind` grows a third spelling
-alongside `class` and `module`; the backend routes it to
-`abi::CLASS_EXCEPTION`, which `capi/registry.rs` already handles through
-`register_exception_subclass`. The ancestry linearizes through the builtin
-exception chain rather than through `Object`, so `ancestors_of` needs the
-builtin ids it refuses today.
+The rest of the census, each with its file:
 
-**`super`.** A `REG_SUPER_TARGET_VALUE` row (kind 3) per own method, whose
-`f` is the method's own trampoline, plus the runtime's super entry at the
-call. `super` with no parentheses forwards the method's own parameters;
-`super()` passes none. Only the first form appears in ze0.
+| form | where |
+|---|---|
+| a `def` inside a block | the four polyfills |
+| `include` / `extend` / `prepend` | `desugar_compiler.rb`, `node_ext.rb`, `dsl.rb` |
+| `autoload` | `prism.rb`, `parse_result.rb` |
+| a required file with top-level locals | `prism.rb:86`, `serialize.rb:13` |
+| `defined?` | `dot_visitor.rb` |
+| `class << self` | `zeo.rb` |
+| `next` in a loop | `parse_result/comments.rb` |
+| an `ensure` clause | `parse_result/newlines.rb` |
+| a destructuring parameter | `pattern.rb` |
+| a superclass of that shape (`< Struct.new(...)`) | `lex_compat.rb` |
 
-### T3 — `begin` / `rescue` / `ensure` / `retry`
+Two of these are ze0 bugs rather than missing features. `next` inside a
+`while` is ordinary ruby and ze0 refuses it as "outside a block". And a
+required file's top-level locals are its own in ruby; ze0 has one
+top-level scope, so it refuses them -- the Rust loader renames them per
+file (`parse::rename`) and ze0 should key them by unit.
 
-Eight `BeginNode` and three `RescueNode`, and the phase the plan has been
-deferring since phase 2 ("skipping `ensure` interaction entirely saves the
-180 lines of `clif/control.rs` and costs nothing until `rescue` lands").
-This is that landing, and it is the most invasive item left: every exit
-path ze0 already emits — the epilogue, a block's `next`, a `break`'s
-signal, a bound trampoline's error arm — has to learn about a handler
-stack.
+## W2 -- prism's vendored tree as an overlay
 
-Two of the eight `BeginNode`s are not error handling at all but
-`x ||= begin ... end`, which is a bare grouping and needs nothing but
-lowering the body. Doing those first splits the item cheaply.
+`crates/zeo-rt/ext/prism/` is 26 files and 40,160 lines, of which
+**25 files are byte-identical to the stock gem**. Only `prism.rb`
+differs -- three hunks, 33 lines, each commented -- plus one new file,
+`prism/zeo.rb`, the native-backend seam adapted from upstream's own
+`ffi.rb`. `prism/ffi.rb` and the thirteen `prism/translation/**` files
+are deliberately absent.
 
-The runtime surface is `zeo_rt_handling_push`/`_pop`, `zeo_rt_signal_kind`
-/`_take`/`_restore`, and `$!`, which phase 1 left alone.
+So the tier should carry only what it changes: `prism.rb` and
+`prism/zeo.rb`, about 360 lines, with the other twenty-five resolved from
+the ordinary vendored gem. `EXT_TIER` already takes precedence
+(`gems/bundled.rs:50`), so the search order is right; what has to be read
+first is `xtask payload`, which flattens the tier into
+`share/zeo/lib/ruby/`, and the loader's tier walk, to be sure a PARTIAL
+tier falls through rather than shadowing.
 
-### T4 — splat arguments at a call site
+A prism version bump then touches two files instead of twenty-six.
 
-`lower.rb:1623` is `proc_new(*lower_block(node.block), node.block, false)`
-— one use, and the only one. `zeo_rt_send_value_args_cached` takes the
-argument list as a built Array with a `U8` shape byte instead of a slot
-array. Small, and unlocked by nothing else.
+**Stock prism is not an alternative to W1.** The polyfills are upstream's
+own files, byte-identical in both trees, and the stock gem also carries
+`ffi.rb` (which uses `MatchWrite`, another refused form) and the thirteen
+translation files. Using it unchanged would grow the surface, not shrink
+it -- and a ze0-emitted program cannot `dlopen` a C extension, because
+the sidecar has no row for one.
 
-### T5 — a constant assigned into a `Struct`
+## W3 -- the fixed point, and how it is gated
 
-`params.rb:69` is `Params::Optional = Struct.new(:name, :default)`, which
-needs a *value*-scoped constant assignment: `zeo_rt_const_set_at` takes a
-`u32` owner, and a `Struct.new` class is minted at run time with no id ze0
-can name.
+`cargo xtask stage2`, run on demand, nothing automated -- the same trade
+the gem tests took. It builds ze0 with ze0-under-ruby, builds ze0 again
+with that binary, and demands the two `.clif` and the two `.zeodata` be
+byte-identical. Then it runs every `test/ze0/` program through the second
+and demands the bytes the first writes: a compiler that reproduces itself
+but miscompiles is not done.
 
-**The better fix is in the Ruby, not in ze0.** Those three Structs are
-mine, and plain nested classes say the same thing with an explicit
-`initialize` — more idiomatic, and it removes a feature from this list
-rather than adding one. Do that, and re-census before building anything.
-
-### T6 — `require_relative`
-
-Nine uses, and the first item that is structural rather than syntactic.
-ze0 is nine files; stage 2 has to compile all of them as one program.
-
-Three shapes, cheapest first:
-
-1. **Splice at compile time.** ze0 resolves `require_relative` itself and
-   lowers the required file's statements inline, once per path. No runtime
-   support, no `load_path`, no `$LOADED_FEATURES` — and wrong for anything
-   but a fixed, acyclic, compile-time-known set. ze0's own tree is exactly
-   that, which is why this is the shape to build.
-2. Real `require` against `load_path` with `n_load_path_search`, two
-   sidecar fields phase 1 noted as unwritten.
-3. Lazy units, which the Rust emitter has and the sidecar does not
-   describe at all.
-
-Only (1) is in scope. Say so in the refusal message, so a program that
-needs a real `require` is refused by name rather than mis-spliced.
-
-### T7 — prism
-
-The honest one. ze0 parses with prism, so stage 2 needs prism's Ruby half
-— about 30,000 lines — to compile too, which is a far larger surface than
-ze0's own nine files and the reason the README prices stage 2 in
-engineer-months rather than weeks.
-
-Two ways out, and this plan does not yet choose:
-
-- **Compile prism's Ruby half.** Re-run the census against it, which will
-  name a much longer list than the one above. This keeps ze0 honest but is
-  most of the remaining cost.
-- **Give ze0 a parser of its own**, in the subset, and drop the prism
-  dependency for stage 2. A smaller surface to compile, a large thing to
-  write, and it would no longer be the same front end.
-
-Decide it when T1 through T6 land, with the census against prism in hand
-rather than guessed at.
-
-### Not needed, and so not built
-
-The old phase-4 list assumed a general widening. The census says ze0's own
-sources use none of these, so building them is speculation: `alias`,
-`undef`, `defined?`, `class << self`, singleton methods on an object,
-class variables, `private_constant`, `Struct` as a superclass, `redo`,
-block-local variables (`|x; y|`), and the `%w`/heredoc literal forms ze0
-happens not to write. Each stays refused by name until something needs it.
+Register it in all three places -- `commands/mod.rs`, the dispatch match,
+and the `USAGE` block -- because `checks::docs` parses the last one.
 
 ## What stays refused, by name
 
-`eval` and friends, `define_method` (it needs a block *and* a
-`proc_shapes` row, so it is the one metaprogramming verb the sidecar cannot
-reach even after phase 3), `method_missing`, refinements, `Ractor`, `Fiber`,
-`ObjectSpace`, `binding`, `callcc`, and every `require` shape but the
-compile-time splice of T6. A program using one is refused at its line, as
-today. This list is the plan's edge and it is in `README.md`'s subset
-section.
+`eval` and friends, `method_missing`, refinements, `Ractor`, `Fiber`,
+`ObjectSpace`, `binding`, `callcc`, and a run-time `require` against a
+load path. A program using one is refused at its line. This list is the
+plan's edge and it is in `README.md`'s subset section.
 
 ## Testing
 
-**Fewer programs, each doing more.** The tier costs nine processes and
-three real links per program, and was 19% of the whole suite's CPU at 21
-programs. Adding one program per feature would make ze0 the dominant cost
-of every local test run. Six overlapping programs were merged into two to
-buy the room the later phases spend.
+The tier costs nine processes and three real links per program, so each
+step adds one or two DENSE programs rather than one per feature. A
+program covering eight features costs the same as one covering one.
 
-So each phase adds **one or two dense programs**, not one per feature: a single
-`closures.rb` that exercises capture, mutation, a loop variable, `yield`,
-`block_given?`, `next`, `break` and a lambda's arity, checked against ruby's
-recorded answer like every other golden. A program that covers eight features
-costs the same nine processes as one that covers one.
-
-The three-road differential is the property worth protecting: `zeo build`, ze0
-under the JIT, and stage 1, agreeing byte for byte. Every phase re-runs it, and
-a phase is not done until all three roads agree.
-
-`ze0/measure.rb` regenerates the README's table; run it at the end of each
-phase so the cost of the widening is recorded rather than guessed.
+`crates/zeo/tests/fixtures/ze0_refused/` holds one program per form
+outside the subset, each naming the refusal it must draw on its first
+line; one ruby process compiles them all in 0.6 s. A fixture that starts
+compiling is the signal to delete it. That guard is what caught the four
+silent drops S0 fixed, and every step since has added to it.
 
 ## Verification
 
 ```
 ruby ze0/ze0.rb test/ze0/<program>.rb -o /tmp/p.clif   # ze0 under ruby
 zeo backend /tmp/p.clif -o /tmp/p && /tmp/p            # link and run
-cargo nextest run -p zeo -E 'test(ze0::) + test(ze0_clif)'
+cargo nextest run -p zeo -E 'test(ze0::) + test(ze0_clif) + test(ze0_refused)'
 cargo xtask bless ze0::<program>.rb                    # record ruby's answer
 ruby ze0/measure.rb                                    # the README's table
 ```
 
-Per phase, in order:
+Per step, in order:
 
-1. Every new form has a program in `test/ze0/` whose answer was recorded from
-   ruby, not written by hand.
-2. All three roads agree byte for byte — the differential, not just "it ran".
-3. `ZEO_RT_LEAKCHECK=1` stays clean, which is what says the ownership rules
-   were followed rather than merely not crashing.
-4. A form outside the subset is still refused **at its line, by name**. This is
-   the property that makes ze0 trustworthy and it is the easiest to lose while
-   widening: a half-supported form that compiles to something answering
-   differently from ruby is worse than one that is refused.
+1. Every new form has a program in `test/ze0/` whose answer was recorded
+   from ruby, and every new refusal has a fixture.
+2. All three roads agree byte for byte -- the differential, not "it ran".
+3. `ZEO_RT_LEAKCHECK=1` stays clean.
+4. A form outside the subset is still refused **at its line, by name**.
