@@ -83,6 +83,10 @@ module Ze0
       "zeo_rt_propagating_enter" => [%w[i64], "i8"],
       "zeo_rt_propagating_leave" => [["i8 uext"], nil],
       "zeo_rt_last_match_ref" => [["i8 uext", "i64", "i64"], nil],
+      "zeo_rt_for_begin" => [["i64", "i8 uext", "i64"], "i32"],
+      "zeo_rt_for_next" => [%w[i64 i64 i64], nil],
+      "zeo_rt_for_result" => [%w[i64 i64], nil],
+      "zeo_rt_for_end" => [%w[i64], nil],
       "zeo_rt_svar_scope_push" => [[], nil],
       "zeo_rt_svar_scope_pop" => [[], nil],
       "zeo_rt_home_push" => [[], nil],
@@ -166,6 +170,9 @@ module Ze0
     # `zeo_rt_runtime_set_visibility`'s verb, which is the runtime's
     # `mark_visibility_rows` scale.
     VISIBILITY_VERBS = { "private" => 0, "protected" => 1, "public" => 2 }.freeze
+    # `zeo_abi::abi::FOR_STATE_SIZE`: the `for` driver's state, which
+    # lives in one stack slot for the length of the loop.
+    FOR_STATE_BYTES = 96
     # `zeo_rt_last_match_ref`'s kind: which of the `$~` family to read.
     # They all come off the one last-match slot, so `$1` is group 1 and
     # `$&` is group 0.
@@ -179,6 +186,7 @@ module Ze0
     # a block, or across an `ensure` that owes its clause a run.
     SIGNAL_BREAK = 1
     SIGNAL_NEXT = 2
+    SIGNAL_REDO = 3
     SIGNAL_RETURN = 5
     SIGNAL_RAISE = 6
   end

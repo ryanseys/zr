@@ -26,7 +26,8 @@ module Ze0
   #
   # `break` leaves through `done` with its value in `result`; `next`
   # returns to `head`, resetting the pool to `mark` first, exactly as the
-  # end of an iteration does. `handling` is the `$!` depth the loop was
+  # end of an iteration does; `redo` re-enters `body`, which steps
+  # nothing. `handling` is the `$!` depth the loop was
   # entered at, so a jump out of a `rescue` clause opened INSIDE the loop
   # pops only the clauses it actually leaves, and `depth` the `ensure`
   # depth, so a jump with a clause to run first travels as a signal.
@@ -36,15 +37,16 @@ module Ze0
   # the block's, and a loop written inside a block is found by the block's
   # own `break`.
   class Loop
-    attr_reader :head, :done, :result, :mark, :handling, :depth
+    attr_reader :head, :done, :result, :mark, :handling, :depth, :body
 
-    def initialize(head, done, result, mark, handling, depth)
+    def initialize(head, done, result, mark, handling, depth, body)
       @head = head
       @done = done
       @result = result
       @mark = mark
       @handling = handling
       @depth = depth
+      @body = body
     end
   end
 
@@ -96,6 +98,9 @@ module Ze0
     # Whether this body is a lambda, which catches its own `return` and
     # `break` rather than passing either on.
     attr_writer :lambda
+    # Where a `redo` written in a block re-enters: the body, past every
+    # binding, because ruby does not re-yield.
+    attr_accessor :redo_block
     # Whether this body has a `$~` slot of its own. A match it performs
     # then never reaches the caller's `$1`.
     attr_accessor :svars

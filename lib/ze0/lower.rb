@@ -610,10 +610,10 @@ module Ze0
       # A `def` lowered as a closure: its list is a method's, with no
       # block-local names wrapped around it.
       when Prism::ParametersNode then parse_params(list)
-      when Prism::BlockParametersNode
-        raise Unsupported.new(node, "a block-local variable") if list.locals.any?
-
-        parse_params(list.parameters)
+      # A block-local (`|n; scratch|`) needs no row: prism already counts
+      # it among the block's own names, which is what keeps it out of the
+      # captures and gives it a fresh nil per invocation.
+      when Prism::BlockParametersNode then parse_params(list.parameters)
       when Prism::NumberedParametersNode
         positionals((1..list.maximum).map { |i| "_#{i}".to_sym })
       when Prism::ItParametersNode then positionals([:it])
@@ -1550,6 +1550,9 @@ module Ze0
         bind_block_params(params, names, argv, argc, node, auto_splat, lambda_shape)
         unpack_destructures(params)
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
+        scope.redo_block = f.label
+        f.ins "jump #{scope.redo_block}"
+        f.switch(scope.redo_block)
         value = lower_statements(node.body)
         move(value, out) unless f.terminated?
         f.ins "jump #{done_block}" unless f.terminated?
@@ -1793,6 +1796,8 @@ module Ze0
       when Prism::ForwardingSuperNode then lower_super(node, nil)
       when Prism::NextNode then lower_next(node)
       when Prism::BreakNode then lower_break(node)
+      when Prism::RedoNode then lower_redo(node)
+      when Prism::ForNode then lower_for(node)
       when Prism::BeginNode then lower_begin(node)
       when Prism::RescueModifierNode then lower_rescue_modifier(node)
       when Prism::AliasMethodNode then lower_alias_statement(node)
@@ -3228,7 +3233,7 @@ module Ze0
       truth = truthy(lower_expr(predicate))
       f.ins "brif #{truth}, #{negate ? done : body}, #{negate ? body : done}"
       f.switch(body)
-      scope.loops.push(Loop.new(head, done, result, mark, scope.handling_depth, scope.ensure_depth))
+      scope.loops.push(Loop.new(head, done, result, mark, scope.handling_depth, scope.ensure_depth, body))
       body_statements(statements).each do |s|
         set_line(s)
         discard(lower_expr(s))
@@ -3240,6 +3245,69 @@ module Ze0
         f.ins "jump #{head}"
       end
       f.switch(done)
+      f.ins "call #{f.import("zeo_rt_pool_reset")}(#{mark})"
+      Operand.new(result, true, false)
+    end
+
+    # `for x in coll` performs NO type dispatch: ruby compiles it to
+    # `coll.each { |x| ... }`, and the runtime driver decides per
+    # receiver -- a live Array indexes the receiver itself, an
+    # Int-bounded Range counts, and everything else walks what `each`
+    # yielded. The index is a name of the ENCLOSING scope rather than a
+    # block parameter, so it outlives the loop.
+    def lower_for(node)
+      packed = node.index.is_a?(Prism::MultiTargetNode)
+      state = f.stack_addr(f.slot(Capi::FOR_STATE_BYTES))
+      status_check(f.val(
+        "call #{f.import("zeo_rt_for_begin")}(#{borrow(lower_expr(node.collection))}, " \
+        "#{f.iconst("i8", packed ? 1 : 0)}, #{state})",
+      ))
+      mark = f.val("call #{f.import("zeo_rt_pool_mark")}()")
+      head, body, done = f.label, f.label, f.label
+      walked, landing = f.label, f.label
+      result = f.slot
+      store_nil(addr_of(result))
+      elem, more = f.slot, f.slot
+      f.ins "jump #{head}"
+
+      f.switch(head)
+      f.ins "call #{f.import("zeo_rt_for_next")}(#{state}, #{addr_of(elem)}, #{addr_of(more)})"
+      f.ins "brif #{f.val("load.i8 notrap aligned #{addr_of(more)}")}, #{body}, #{walked}"
+
+      f.switch(body)
+      packed ? split_into(node.index, addr_of(elem), take: true) : assign_target(node.index, addr_of(elem))
+      # The state holds the collection, so a raise inside the body
+      # releases it before the enclosing landing runs.
+      outer = scope.raise_block
+      scope.raise_block = landing
+      status_check(f.val("call #{f.import("zeo_rt_check_ints")}()"))
+      scope.loops.push(
+        Loop.new(head, done, result, mark, scope.handling_depth, scope.ensure_depth, body),
+      )
+      body_statements(node.statements).each do |s|
+        set_line(s)
+        discard(lower_expr(s))
+        break if f.terminated?
+      end
+      scope.loops.pop
+      scope.raise_block = outer
+      unless f.terminated?
+        f.ins "call #{f.import("zeo_rt_pool_reset")}(#{mark})"
+        f.ins "jump #{head}"
+      end
+
+      # Walked to the end: the loop answers the collection. A `break`
+      # supplies its own and jumps straight to `done`.
+      f.switch(walked)
+      f.ins "call #{f.import("zeo_rt_for_result")}(#{state}, #{addr_of(result)})"
+      f.ins "jump #{done}"
+
+      f.switch(landing)
+      f.ins "call #{f.import("zeo_rt_for_end")}(#{state})"
+      f.ins "jump #{outer}"
+
+      f.switch(done)
+      f.ins "call #{f.import("zeo_rt_for_end")}(#{state})"
       f.ins "call #{f.import("zeo_rt_pool_reset")}(#{mark})"
       Operand.new(result, true, false)
     end
@@ -3575,17 +3643,19 @@ module Ze0
     # the jump. With no loop in reach a block's own boundary is the
     # target, where `next` is the block's value and `break` keeps
     # travelling -- it belongs to the call site, not to anything here.
-    Settle = Struct.new(:brk, :nxt, :mark, :handling)
+    Settle = Struct.new(:brk, :nxt, :rdo, :mark, :handling)
 
     def settle_target
       if (loop = scope.loops.last)
         return nil unless loop.depth == scope.ensure_depth
 
-        return Settle.new([loop.done, addr_of(loop.result)], [loop.head, nil], loop.mark, loop.handling)
+        return Settle.new(
+          [loop.done, addr_of(loop.result)], [loop.head, nil], loop.body, loop.mark, loop.handling,
+        )
       end
       return nil unless kind == :block && scope.ensure_depth.zero?
 
-      Settle.new(nil, [done_block, out], nil, 0)
+      Settle.new(nil, [done_block, out], scope.redo_block, nil, 0)
     end
 
     # Turn the signal an ensure-crossing jump armed back into the jump it
@@ -3594,7 +3664,13 @@ module Ze0
     def lower_settle(settle, outer, target)
       f.switch(settle)
       signal = f.val("call #{f.import("zeo_rt_signal_kind")}()")
-      arms = { Capi::SIGNAL_BREAK => target.brk, Capi::SIGNAL_NEXT => target.nxt }.filter_map do |kind, dest|
+      # `redo` carries nothing, so clearing its slot is a save and a drop.
+      jumps = {
+        Capi::SIGNAL_BREAK => target.brk,
+        Capi::SIGNAL_NEXT => target.nxt,
+        Capi::SIGNAL_REDO => (target.rdo ? [target.rdo, nil] : nil),
+      }
+      arms = jumps.filter_map do |kind, dest|
         next unless dest
 
         taken, rest = f.label, f.label
@@ -3608,13 +3684,19 @@ module Ze0
     end
 
     # One arm of the settle: take the value the signal carries, put it
-    # where the jump would have, and go.
+    # where the jump would have, and go. `redo` carries nothing, so
+    # clearing its slot is a save and a drop rather than a take.
     def settle_arm(taken, dest, at, kind, target)
       f.switch(taken)
-      slot = f.slot
-      f.val("call #{f.import("zeo_rt_signal_take")}(#{addr_of(slot)})")
-      value = Operand.new(slot, true, false)
-      at ? move(value, at) : discard(value)
+      if kind == Capi::SIGNAL_REDO
+        saved = f.val("call #{f.import("zeo_rt_signal_save")}()")
+        f.ins "call #{f.import("zeo_rt_signal_drop")}(#{saved})"
+      else
+        slot = f.slot
+        f.val("call #{f.import("zeo_rt_signal_take")}(#{addr_of(slot)})")
+        value = Operand.new(slot, true, false)
+        at ? move(value, at) : discard(value)
+      end
       pop_handling(target.handling)
       # An iteration that starts over releases what the last one made,
       # exactly as the end of a normal one does.
@@ -3974,12 +4056,32 @@ module Ze0
       unreachable
     end
 
+    # `redo` runs the body again: a loop's without stepping, and a
+    # block's past the bindings -- ruby does not re-yield, so the
+    # parameters keep whatever the body assigned to them.
+    def lower_redo(node)
+      if (loop = scope.loops.last)
+        return signal_jump(node, Capi::SIGNAL_REDO, value: false) unless loop.depth == scope.ensure_depth
+
+        pop_handling(loop.handling)
+        f.ins "jump #{loop.body}"
+        return unreachable
+      end
+      raise Unsupported.new(node, "a redo outside a block or a loop") if scope.redo_block.nil?
+      return signal_jump(node, Capi::SIGNAL_REDO, value: false) if scope.ensure_depth.positive?
+
+      pop_handling
+      f.ins "jump #{scope.redo_block}"
+      unreachable
+    end
+
     # A jump that cannot reach its target from here travels as a signal
     # instead: every `ensure` between the two runs its clause, and the
     # innermost one turns the signal back into the jump it was.
-    def signal_jump(node, signal)
-      value = hand_over(one_value(node))
-      f.ins "call #{f.import("zeo_rt_signal_set")}(#{f.iconst("i8", signal)}, #{value})"
+    def signal_jump(node, signal, value: true)
+      # `redo` carries nothing; the other three answer nil without one.
+      payload = value ? hand_over(one_value(node)) : f.iconst("i64", 0)
+      f.ins "call #{f.import("zeo_rt_signal_set")}(#{f.iconst("i8", signal)}, #{payload})"
       scope.ensure_jumps += 1
       f.ins "jump #{raise_block}"
       unreachable
