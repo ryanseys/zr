@@ -9,8 +9,13 @@ module Ze0
   # name it -- and the block is a channel of its own, never a slot.
   class Params
     attr_reader :required, :optional, :rest, :post, :keywords, :kwrest, :block, :no_keywords
+    # The `(a, b)` parameters, by the slot name each was given. ruby
+    # reports one with no name at all, so it needs a name here that no
+    # source can write and `rows` emits the empty one.
+    attr_reader :destructures
 
-    def initialize(required, optional, rest, post, keywords, kwrest, block, no_keywords)
+    def initialize(required, optional, rest, post, keywords, kwrest, block, no_keywords,
+                   destructures = {})
       @required = required
       @optional = optional
       @rest = rest
@@ -19,6 +24,7 @@ module Ze0
       @kwrest = kwrest
       @block = block
       @no_keywords = no_keywords
+      @destructures = destructures
     end
 
     # The names the slots hold, in slot order.
@@ -61,14 +67,17 @@ module Ze0
     # `(kind, name)` per parameter in ruby's `Method#parameters` order,
     # which is the sidecar's reflection row.
     def rows
-      required.map { |n| ["req", n] } +
+      required.map { |n| ["req", named(n)] } +
         optional.map { |o| ["opt", o.name] } +
         (rest ? [["rest", rest.name || ""]] : []) +
-        post.map { |n| ["req", n] } +
+        post.map { |n| ["req", named(n)] } +
         keywords.map { |k| [k.required ? "keyreq" : "key", k.name] } +
         (kwrest ? [["keyrest", kwrest.name || ""]] : []) +
         (block ? [["block", block]] : [])
     end
+
+    # A destructuring parameter has no name in ruby's own report.
+    def named(slot) = destructures.key?(slot) ? "" : slot
 
     # Whether the callee is handed the caller's block as a parameter.
     def takes_block?(uses_yield)

@@ -500,22 +500,30 @@ module Ze0
     def parse_params(node)
       return positionals([]) if node.nil?
 
-      node.requireds.each { |r| refuse_destructure(r) }
-      node.posts.each { |r| refuse_destructure(r) }
+      destructures = {}
       Params.new(
-        node.requireds.map(&:name),
+        node.requireds.map { |r| positional_name(r, destructures) },
         node.optionals.map { |o| Params::Optional.new(o.name, o.value) },
         rest_of(node.rest),
-        node.posts.map(&:name),
+        node.posts.map { |r| positional_name(r, destructures) },
         node.keywords.map { |k| keyword_of(k) },
         kwrest_of(node.keyword_rest),
         node.block&.name,
         node.keyword_rest.is_a?(Prism::NoKeywordsParameterNode),
+        destructures,
       )
     end
 
-    def refuse_destructure(node)
-      raise Unsupported.new(node, "a destructuring parameter") unless node.is_a?(Prism::RequiredParameterNode)
+    # One positional parameter's slot name. A `(a, b)` destructure has no
+    # name of its own in ruby, so it gets one no source can write and the
+    # pattern is kept beside it.
+    def positional_name(node, destructures)
+      return node.name if node.is_a?(Prism::RequiredParameterNode)
+      raise Unsupported.new(node, "a parameter of that shape") unless node.is_a?(Prism::MultiTargetNode)
+
+      name = :"(#{destructures.size})"
+      destructures[name] = node
+      name
     end
 
     def rest_of(node)
@@ -726,6 +734,7 @@ module Ze0
         f.ins "return #{f.iconst("i32", 1)}"
         f.switch(cont)
         bind_slots(params, names)
+        unpack_destructures(params)
         bind_block_parameter(params.block) if params.block
         scope.frame_base = label_of(owner, node.name, singleton)
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
@@ -1231,6 +1240,7 @@ module Ze0
         boxed = captured_names(body_statements(node.body), own)
         own.each { |n| declare_local(n, boxed: boxed.include?(n)) }
         bind_block_params(params, names, argv, argc, node, auto_splat, lambda_shape)
+        unpack_destructures(params)
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
         value = lower_statements(node.body)
         move(value, out) unless f.terminated?
@@ -2069,23 +2079,38 @@ module Ze0
     # an Array destructures directly and anything else goes through
     # ruby's `to_ary` rule -- and writes one owned value per target slot.
     def multi_write(node)
-      splat = rest_target(node.rest)
-
-      targets = node.lefts + (splat ? [splat] : []) + node.rights
       value = lower_expr(node.value)
-      slots = f.slot(Capi::SLOT_BYTES * targets.size)
-      at = addr_of(slots)
-      status_check(f.val(
-        "call #{f.import("zeo_rt_multi_split")}(#{borrow(value)}, #{f.iconst("i64", node.lefts.size)}, " \
-        "#{f.iconst("i8", splat ? 1 : 0)}, #{f.iconst("i64", node.rights.size)}, #{at})",
-      ))
-      targets.each_with_index do |target, i|
-        from = i.zero? ? at : f.stack_addr("#{slots}+#{i * Capi::SLOT_BYTES}")
-        assign_target(target, from)
-      end
+      split_into(node, borrow(value))
       # The assignment answers its right-hand side, which the split only
       # read.
       Operand.new(value.at, false, value.immediate)
+    end
+
+    # `zeo_rt_multi_split` over the value at `from`, writing one owned
+    # value per target slot. `take` says the caller's reference passes to
+    # the split, which a nested target's slot does and a local does not.
+    def split_into(node, from, take: false)
+      splat = rest_target(node.rest)
+      targets = node.lefts + (splat ? [splat] : []) + node.rights
+      slots = f.slot(Capi::SLOT_BYTES * targets.size)
+      at = addr_of(slots)
+      status_check(f.val(
+        "call #{f.import("zeo_rt_multi_split")}(#{from}, #{f.iconst("i64", node.lefts.size)}, " \
+        "#{f.iconst("i8", splat ? 1 : 0)}, #{f.iconst("i64", node.rights.size)}, #{at})",
+      ))
+      f.ins "call #{f.import("zeo_rt_release")}(#{from})" if take
+      targets.each_with_index do |target, i|
+        assign_target(target, i.zero? ? at : f.stack_addr("#{slots}+#{i * Capi::SLOT_BYTES}"))
+      end
+    end
+
+    # The names inside a `|(a, b)|` parameter, written from the slot the
+    # binder filled. The local owns that value, so the split only borrows
+    # it.
+    def unpack_destructures(params)
+      params.destructures.each_key do |name|
+        split_into(params.destructures.fetch(name), borrow(read_local(locals.fetch(name))))
+      end
     end
 
     # The rest of a multiple assignment, or nil. A trailing comma
@@ -2107,7 +2132,10 @@ module Ze0
 
       taken = Operand.new(from, true, false)
       case node
-      when Prism::LocalVariableTargetNode then store_local(local(node), taken)
+      # A `(a, b)` parameter's inner names are parameter nodes, not
+      # targets, but they are written exactly as a local is.
+      when Prism::LocalVariableTargetNode, Prism::RequiredParameterNode
+        store_local(local(node), taken)
       when Prism::InstanceVariableTargetNode then store_ivar(ivar_key(node.name), taken)
       when Prism::GlobalVariableTargetNode then store_global(node.name.to_s, taken)
       when Prism::ConstantTargetNode then store_constant(node.name.to_s, node, taken)
@@ -2124,21 +2152,7 @@ module Ze0
     end
 
     # `(a, b), c = pair, x`: the slot's own value splits again.
-    def multi_target(node, from)
-      splat = rest_target(node.rest)
-
-      targets = node.lefts + (splat ? [splat] : []) + node.rights
-      slots = f.slot(Capi::SLOT_BYTES * targets.size)
-      at = addr_of(slots)
-      status_check(f.val(
-        "call #{f.import("zeo_rt_multi_split")}(#{from}, #{f.iconst("i64", node.lefts.size)}, " \
-        "#{f.iconst("i8", splat ? 1 : 0)}, #{f.iconst("i64", node.rights.size)}, #{at})",
-      ))
-      f.ins "call #{f.import("zeo_rt_release")}(#{from})"
-      targets.each_with_index do |target, i|
-        assign_target(target, i.zero? ? at : f.stack_addr("#{slots}+#{i * Capi::SLOT_BYTES}"))
-      end
-    end
+    def multi_target(node, from) = split_into(node, from, take: true)
 
     # ---- calls ----
 
