@@ -1991,7 +1991,6 @@ module Ze0
     # differently from ruby rather than not at all: `attr_reader :x` left
     # `x` undefined, and `private` left a method public.
     CLASS_MACROS = %i[
-      include extend prepend
       module_function define_method
       public_constant private_class_method public_class_method
       undef_method remove_method const_set class_eval module_eval instance_eval
