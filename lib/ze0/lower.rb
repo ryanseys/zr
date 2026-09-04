@@ -82,12 +82,77 @@ module Ze0
     # starts. Today that is the `def`s, so a call written above a
     # definition still resolves to it; classes and captures join them.
     def declare(statements, owner)
+      # A bare `private` or `protected` is a mode over the `def`s BELOW
+      # it, so the walk carries it. Every top-level `def` is a private
+      # method of Object, whatever the body says.
+      visibility = "public"
       statements.each do |s|
         case s
-        when Prism::DefNode then declare_def(s, owner)
+        when Prism::DefNode then declare_def(s, owner, visibility)
         when Prism::ClassNode then declare_class(s, owner, "class")
         when Prism::ModuleNode then declare_class(s, owner, "module")
+        when Prism::CallNode then visibility = declare_macro(s, owner, visibility)
         end
+      end
+    end
+
+    # `attr_reader`, its two siblings, and the visibility verbs: the class
+    # body macros ze0 answers at COMPILE time. Anything else keeps the
+    # refusal `lower_call` gives it.
+    ACCESSORS = { attr_reader: :reader, attr_writer: :writer, attr_accessor: :accessor }.freeze
+    VISIBILITY = %w[public private protected].freeze
+
+    def declare_macro(node, owner, visibility)
+      return visibility if owner == Names::OBJECT || !node.receiver.nil?
+
+      name = node.name.to_s
+      args = node.arguments&.arguments || []
+      if VISIBILITY.include?(name)
+        # `private :x` is positional and retags one name where it is
+        # written; only the bare verb is a mode.
+        return args.empty? ? name : visibility
+      end
+
+      kind = ACCESSORS[node.name]
+      return visibility unless kind
+
+      accessor_names(node, args).each { |n| declare_accessor(node, owner, n, kind, visibility) }
+      visibility
+    end
+
+    # The names an `attr_*` or positional visibility call names. Each has
+    # to be a plain Symbol: ze0 emits a method per name at compile time,
+    # so a String or a computed one has nothing to emit.
+    def accessor_names(node, args)
+      args.map do |a|
+        raise Unsupported.new(a, "a `#{node.name}` argument of that shape") unless a.is_a?(Prism::SymbolNode)
+
+        a.unescaped
+      end
+    end
+
+    # One generated accessor: a method row like any other `def`, with no
+    # body function at all. The trampoline IS the method.
+    def declare_accessor(node, owner, name, kind, visibility)
+      readers = kind == :writer ? [] : [[name, :reader, []]]
+      writers = kind == :reader ? [] : [["#{name}=", :writer, [["req", ""]]]]
+      (readers + writers).each do |method, half, params|
+        key = [method.to_sym, false]
+        raise Unsupported.new(node, "a def named twice") if @defs.fetch(owner).key?(key)
+
+        @defs[owner][key] = {
+          accessor: half, ivar: name, owner: owner, singleton: false,
+          name: method, line: node.location.start_line,
+        }
+        @program.add_def(
+          name: method,
+          tramp: trampoline_of(owner, method, false),
+          params: params,
+          line: node.location.start_line,
+          owner: owner,
+          singleton: false,
+          visibility: visibility,
+        )
       end
     end
 
@@ -104,8 +169,9 @@ module Ze0
       body = body_statements(node.body)
       # The body's symbol is settled here, not when it is lowered: an
       # enclosing body calls it, and the two are lowered in either order.
+      ivars = ivar_names(body, superclass)
       @classes[name] = {
-        name: name, kind: kind, node: node, body: body,
+        name: name, kind: kind, node: node, body: body, ivars: ivars,
         symbol: "zeo_cb_#{Names.owner_fragment(name)}",
       }
       @defs[name] = {}
@@ -113,7 +179,7 @@ module Ze0
         name: name,
         superclass: superclass,
         kind: kind,
-        ivars: ivar_names(body),
+        ivars: ivars,
       )
       declare(body, name)
     end
@@ -146,10 +212,16 @@ module Ze0
       nil
     end
 
-    # The instance variables a class body's methods name, in first-mention
-    # order: the slots the class declares.
-    def ivar_names(body)
+    # The instance variables a class declares, in slot order: the ones a
+    # superclass already declared, then the ones this body's methods name
+    # in first-mention order. Parent first, so a slot index an inherited
+    # method was compiled with still reads the same variable here.
+    #
+    # The names go in WITHOUT their `@`, which is the spelling
+    # `ClassDesc.ivar_names` holds and `instance_variables` puts back.
+    def ivar_names(body, superclass)
       found = {}
+      @classes[superclass]&.fetch(:ivars)&.each { |n| found[n] = true }
       body.each { |n| ivars_under(n, found) }
       found.keys
     end
@@ -161,7 +233,12 @@ module Ze0
     ].freeze
 
     def ivars_under(node, found)
-      found[node.name.to_s] = true if IVAR_NODES.any? { |k| node.is_a?(k) }
+      found[node.name.to_s.delete_prefix("@")] = true if IVAR_NODES.any? { |k| node.is_a?(k) }
+      # An `attr_reader :x` names no `@x` anywhere, and still declares its
+      # slot: the generated accessor reads the slot by index.
+      if node.is_a?(Prism::CallNode) && node.receiver.nil? && ACCESSORS.key?(node.name)
+        accessor_names(node, node.arguments&.arguments || []).each { |n| found[n] = true }
+      end
       node.compact_child_nodes.each { |c| ivars_under(c, found) }
       found
     end
@@ -212,7 +289,7 @@ module Ze0
       end
     end
 
-    def declare_def(node, owner)
+    def declare_def(node, owner, visibility = "public")
       singleton = node.receiver.is_a?(Prism::SelfNode)
       raise Unsupported.new(node, "a def with a receiver") if node.receiver && !singleton
       raise Unsupported.new(node, "a def on self at the top level") if singleton && owner == Names::OBJECT
@@ -231,6 +308,7 @@ module Ze0
         line: node.location.start_line,
         owner: owner == Names::OBJECT ? "" : owner,
         singleton: singleton,
+        visibility: visibility,
       )
     end
 
@@ -328,6 +406,8 @@ module Ze0
     end
 
     def lower_def(definition)
+      return lower_accessor(definition) if definition[:accessor]
+
       node = definition[:node]
       owner, singleton = definition[:owner], definition[:singleton]
       params = definition[:params]
@@ -366,6 +446,58 @@ module Ze0
       else
         lower_bound_trampoline(definition, params, names.size)
       end
+    end
+
+    # An `attr_*`-generated accessor, which in ruby is ISEQ-LESS: it holds
+    # no frame, appears in no backtrace, and its own wrong-arity raise is
+    # reported at the caller's line. So there is no body function and no
+    # frame push -- the trampoline is the whole method, an arity check and
+    # one slot access (`clif/params.rs`'s `define_accessor`).
+    #
+    # The Rust emitter also writes a `REG_ACCESSOR_SLOT` row beside it, so
+    # a call site caches the SLOT instead of this trampoline. ze0 does not:
+    # the row names its class by ID, which a front end never learns. The
+    # row is registration data and the method table still carries the
+    # trampoline, so leaving it out costs a cache hit and answers the same.
+    def lower_accessor(definition)
+      owner, name, writer = definition[:owner], definition[:name], definition[:accessor] == :writer
+      slot = @program.ivar_slot(owner, definition[:ivar])
+      function = Clif::Function.new(trampoline_of(owner, name, false), ["i64"] * 5, "i32")
+      in_scope(function, :trampoline) do
+        recv, argv, argc, blk, into = f.args
+        release_block_argument(blk)
+        want = f.iconst("i64", writer ? 1 : 0)
+        fits = f.val("icmp eq #{argc}, #{want}")
+        go, wrong = f.label, f.label
+        f.ins "brif #{fits}, #{go}, #{wrong}"
+        f.switch(wrong)
+        f.ins "return #{f.val("call #{f.import("zeo_rt_wrong_arity")}(#{argc}, #{want}, #{want})")}"
+        f.switch(go)
+        at = f.iconst("i64", slot)
+        if writer
+          status_return(f.val("call #{f.import("zeo_rt_frozen_check")}(#{recv})"))
+          # Two fresh references off the caller's borrowed argument: one
+          # moves into the slot, one is the value the writer answers.
+          retain_if_heap(argv)
+          retain_if_heap(argv)
+          copy(argv, into)
+          f.ins "return #{f.val("call #{f.import("zeo_rt_ivar_set_slot")}(#{recv}, #{at}, #{argv})")}"
+        else
+          f.ins "call #{f.import("zeo_rt_ivar_get_slot")}(#{recv}, #{at}, #{into})"
+          f.ins "return #{f.iconst("i32", 0)}"
+        end
+      end
+      @program.add_function(label_of(owner, name, false), function)
+    end
+
+    # Leave with the signal this status reports, or carry on. A trampoline
+    # has no landing block of its own: the caller's does the unwinding.
+    def status_return(status)
+      out, cont = f.label, f.label
+      f.ins "brif #{status}, #{out}, #{cont}"
+      f.switch(out)
+      f.ins "return #{f.iconst("i32", 1)}"
+      f.switch(cont)
     end
 
     # The trampoline of a shape the runtime's binder has to route: it
@@ -1039,7 +1171,7 @@ module Ze0
         Target.new(-> { read_local(local) }, ->(v) { store_local(local, v) })
       when Prism::InstanceVariableOperatorWriteNode, Prism::InstanceVariableOrWriteNode,
            Prism::InstanceVariableAndWriteNode
-        Target.new(-> { ivar_load(name.to_s) }, ->(v) { store_ivar(name.to_s, v) })
+        Target.new(-> { ivar_load(ivar_key(name)) }, ->(v) { store_ivar(ivar_key(name), v) })
       else
         Target.new(-> { global_load(name.to_s) }, ->(v) { store_global(name.to_s, v) })
       end
@@ -1134,11 +1266,16 @@ module Ze0
       Operand.new(value.at, false, value.immediate)
     end
 
-    # Name-keyed, not slot-keyed: a slot index is an offset into a class's
-    # declared ivar order, and ze0 has no classes yet.
+    # Name-keyed, not slot-keyed: only a generated accessor names a slot,
+    # and it knows its class. The name goes WITHOUT its `@`, which is the
+    # spelling `ClassDesc.ivar_names` holds -- pass `@x` and the write
+    # misses the declared slot, lands in the invented table, and
+    # `instance_variables` answers `:@@x`.
     def ivar_read(node)
-      ivar_load(node.name.to_s)
+      ivar_load(ivar_key(node.name))
     end
+
+    def ivar_key(name) = name.to_s.delete_prefix("@")
 
     def ivar_load(name)
       slot = f.slot
@@ -1151,7 +1288,7 @@ module Ze0
     end
 
     def ivar_write(node)
-      store_ivar(node.name.to_s, lower_expr(node.value))
+      store_ivar(ivar_key(node.name), lower_expr(node.value))
     end
 
     def store_ivar(name, value)
@@ -1428,7 +1565,7 @@ module Ze0
       taken = Operand.new(from, true, false)
       case node
       when Prism::LocalVariableTargetNode then store_local(local(node), taken)
-      when Prism::InstanceVariableTargetNode then store_ivar(node.name.to_s, taken)
+      when Prism::InstanceVariableTargetNode then store_ivar(ivar_key(node.name), taken)
       when Prism::GlobalVariableTargetNode then store_global(node.name.to_s, taken)
       when Prism::ConstantTargetNode then store_constant(node.name.to_s, node, taken)
       when Prism::CallTargetNode
@@ -1467,12 +1604,51 @@ module Ze0
     # differently from ruby rather than not at all: `attr_reader :x` left
     # `x` undefined, and `private` left a method public.
     CLASS_MACROS = %i[
-      attr_reader attr_writer attr_accessor include extend prepend
-      private public protected module_function define_method alias_method
+      include extend prepend
+      module_function define_method alias_method
       private_constant public_constant private_class_method public_class_method
       undef_method remove_method const_set class_eval module_eval instance_eval
       refine using
     ].freeze
+
+    # The class-body macros the declaration pass has already answered.
+    # Nothing is dispatched here: what is left is the VALUE ruby gives the
+    # statement, and, for a positional `private :x`, the retag itself --
+    # which is a run-time call because a reopen can change it.
+    def lower_class_macro(node)
+      args = node.arguments&.arguments || []
+      name = node.name.to_s
+      if VISIBILITY.include?(name)
+        return literal_nil if args.empty?
+
+        names = accessor_names(node, args)
+        verb = f.iconst("i8", Capi::VISIBILITY_VERBS.fetch(name))
+        cid = class_id(owner)
+        names.each do |n|
+          status_check(f.val(
+            "call #{f.import("zeo_rt_runtime_set_visibility")}(#{cid}, #{sym_id(n)}, #{verb})",
+          ))
+        end
+        return names.size == 1 ? literal_symbol(names.first) : symbol_array(names)
+      end
+
+      kind = ACCESSORS[node.name]
+      return nil unless kind
+
+      defined = accessor_names(node, args).flat_map do |n|
+        (kind == :writer ? [] : [n]) + (kind == :reader ? [] : ["#{n}="])
+      end
+      symbol_array(defined)
+    end
+
+    def symbol_array(names)
+      slot = f.slot
+      at = addr_of(slot)
+      f.ins "call #{f.import("zeo_rt_array_new")}(#{f.iconst("i64", names.size)}, #{at})"
+      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      names.each { |n| f.ins "call #{f.import("zeo_rt_array_push")}(#{at}, #{hand_over(literal_symbol(n))})" }
+      Operand.new(slot, false, false)
+    end
 
     # The verbs that bring another file's statements into the program.
     # ze0 compiles one file, so each would run as an ordinary send and
@@ -1480,8 +1656,11 @@ module Ze0
     LOAD_VERBS = %i[require require_relative load autoload].freeze
 
     def lower_call(node)
-      if node.receiver.nil? && kind == :class_body && CLASS_MACROS.include?(node.name)
-        raise Unsupported.new(node, "`#{node.name}` in a class body")
+      if node.receiver.nil? && kind == :class_body
+        raise Unsupported.new(node, "`#{node.name}` in a class body") if CLASS_MACROS.include?(node.name)
+
+        macro = lower_class_macro(node)
+        return macro if macro
       end
       if node.receiver.nil? && LOAD_VERBS.include?(node.name)
         raise Unsupported.new(node, "`#{node.name}`")

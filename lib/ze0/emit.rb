@@ -64,11 +64,14 @@ module Ze0
     end
 
     # A `def`'s dispatch and reflection row. An empty owner is the top
-    # level, whose `def`s are private methods of `Object`.
-    def add_def(name:, tramp:, params:, line:, owner: "", singleton: false)
+    # level, whose `def`s are private methods of `Object`. `visibility` is
+    # the mode the class body was in where the `def` was written; ruby
+    # makes a handful of names private wherever they appear.
+    def add_def(name:, tramp:, params:, line:, owner: "", singleton: false, visibility: "public")
+      visibility = "private" if owner.empty? || ALWAYS_PRIVATE.include?(name.to_s)
       @defs << {
         name: name.to_s, tramp: tramp, params: params, line: line,
-        owner: owner, singleton: singleton,
+        owner: owner, singleton: singleton, visibility: visibility,
       }
     end
 
@@ -81,6 +84,13 @@ module Ze0
     # The `zeo_class_ids` slot of `name`.
     def class_slot(name)
       @classes.index { |c| c[:name] == name } or raise "no class row for #{name}"
+    end
+
+    # The slot `ivar` sits in on `owner`, which is its index in the class
+    # row's declared order.
+    def ivar_slot(owner, ivar)
+      @classes.fetch(class_slot(owner))[:ivars].index(ivar) or
+        raise "#{owner} declares no #{ivar}"
     end
 
     def clif
@@ -101,10 +111,7 @@ module Ze0
             "params" => d[:params].map { |kind, name| [kind, name.to_s] },
             "file" => @file,
             "line" => d[:line],
-            # A top-level `def` is a private method of Object; one written
-            # in a class body is public, bar the names ruby makes private
-            # whatever the body says.
-            "visibility" => d[:owner].empty? || ALWAYS_PRIVATE.include?(d[:name]) ? "private" : "public",
+            "visibility" => d[:visibility],
             "class" => d[:owner],
             "singleton" => d[:singleton],
           }

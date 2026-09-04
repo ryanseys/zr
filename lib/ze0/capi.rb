@@ -45,6 +45,10 @@ module Ze0
       "zeo_rt_const_set_at" => [%w[i32 i64 i64 i64 i64 i64 i32 i32], nil],
       "zeo_rt_ivar_get_dyn" => [%w[i64 i64 i64 i32 i64], "i32"],
       "zeo_rt_ivar_set_dyn" => [%w[i64 i64 i64 i32 i64], "i32"],
+      "zeo_rt_ivar_get_slot" => [%w[i64 i64 i64], nil],
+      "zeo_rt_ivar_set_slot" => [%w[i64 i64 i64], "i32"],
+      "zeo_rt_frozen_check" => [%w[i64], "i32"],
+      "zeo_rt_runtime_set_visibility" => [["i32", "i32", "i8 uext"], "i32"],
       "zeo_rt_case_eq" => [%w[i64 i64 i64], "i32"],
       "zeo_rt_bind_block_params" => [["i64", "i8 uext", "i64", "i64", "i64", "i64"], "i32"],
       "zeo_rt_bind_params" => [%w[i64 i64 i64 i64 i64], "i32"],
@@ -107,6 +111,9 @@ module Ze0
     # `yield` written inside a block reaches. The struct is cells, n_cells,
     # lexical_blk, binding.
     PROC_ENV_LEXICAL_BLK = 16
+    # `zeo_rt_runtime_set_visibility`'s verb, which is the runtime's
+    # `mark_visibility_rows` scale.
+    VISIBILITY_VERBS = { "private" => 0, "protected" => 1, "public" => 2 }.freeze
     # `zeo_abi::abi::SignalKind::Break`: what a `break` out of a block
     # arms and the sending site takes.
     SIGNAL_BREAK = 1
