@@ -945,9 +945,17 @@ module Ze0
     # needs no cell -- and it is never wrong.
 
     # The locals of this scope that a block under `nodes` names.
-    def captured_names(nodes, owned)
+    # `forwarded` are the parameters a bare `super` sends on. A block
+    # that writes one names none of them, and the values still have to
+    # outlive the frame, so such a block counts as mentioning them all.
+    def captured_names(nodes, owned, forwarded = [])
       mentioned = {}
-      nodes.each { |n| blocks_under(n).each { |b| names_under(b, mentioned) } }
+      nodes.each do |n|
+        blocks_under(n).each do |b|
+          names_under(b, mentioned)
+          forwarded.each { |name| mentioned[name] = true } if bare_super?(b)
+        end
+      end
       owned.select { |n| mentioned.key?(n) }
     end
 
@@ -1047,7 +1055,7 @@ module Ze0
         scope.out = f.args.last
         prologue
         own = (names + [params.block].compact + node.locals).uniq
-        boxed = captured_names(body_statements(node.body), own)
+        boxed = captured_names(body_statements(node.body), own, names)
         own.each { |n| declare_local(n, boxed: boxed.include?(n)) }
         status = f.val("call #{f.import("zeo_rt_stack_check")}()")
         overflow, cont = f.label, f.label
@@ -1679,7 +1687,7 @@ module Ze0
         end
         captures.each_with_index { |n, i| declare_captured(n, env, i) }
         own = (names + [params.block].compact + node.locals).uniq
-        boxed = captured_names(body_statements(node.body), own)
+        boxed = captured_names(body_statements(node.body), own, names)
         own.each { |n| declare_local(n, boxed: boxed.include?(n)) }
         push_home if scope.catches_return
         bind_block_params(params, names, argv, argc, node, auto_splat, lambda_shape)
@@ -1701,7 +1709,29 @@ module Ze0
     # the order is the same on both sides of the `ProcEnv`.
     def block_captures(node, names)
       own = names + node.locals
-      (names_under(node).keys - own).select { |n| locals.key?(n) }.sort
+      read = names_under(node).keys + bare_super_names(node)
+      (read - own).select { |n| locals.key?(n) }.sort
+    end
+
+    # A bare `super` written in a block forwards the enclosing method's
+    # parameters by their current values, without naming one of them, so
+    # the block has to carry them even though nothing reads them.
+    def bare_super_names(node)
+      return [] unless bare_super?(node)
+
+      definition = enclosing_definition
+      return [] if definition.nil?
+
+      definition[:params].slot_names
+    end
+
+    # A bare `super` this block would run: one in a nested `def` belongs
+    # to that `def`, and a nested block carries its own.
+    def bare_super?(node)
+      return true if node.is_a?(Prism::ForwardingSuperNode)
+      return false if node.is_a?(Prism::DefNode)
+
+      node.compact_child_nodes.any? { |c| bare_super?(c) }
     end
 
     # The CALL-SITE block, moved in and so this body's to release.
@@ -4109,9 +4139,8 @@ module Ze0
     # which forwards the method's parameters -- by their CURRENT values,
     # as ruby does, so reassigning one before the call sends the new one.
     def lower_super(node, args)
-      definition = scope.definition
-      raise Unsupported.new(node, "a super outside a method body") if kind != :body || definition.nil?
-      raise Unsupported.new(node, "a super in a class method") if definition[:singleton]
+      definition = enclosing_definition
+      raise Unsupported.new(node, "a super outside a method body") if definition.nil?
 
       # A body the runtime installed lands on a class minted while the
       # program ran, so its target is read off the method-frame stack
@@ -4123,14 +4152,38 @@ module Ze0
       builder = block_builder(node)
       argv, kw = super_arguments(args, definition)
       blk = builder ? builder.call : forwarded_block
-      target = runtime ? "zeo_rt_send_super_dynamic_args" : "zeo_rt_send_super_from_args"
-      named = runtime ? "" : "#{class_id(owner)}, #{sym_id(definition[:node].name)}, "
-      status = f.val(
-        "call #{f.import(target)}(#{borrow(self_operand)}, #{named}#{argv}, " \
-        "#{f.iconst("i8", 0)}, #{kw}, #{blk}, #{addr_of(into)})",
-      )
+      status = f.val(super_call(definition, runtime, argv, kw, blk, addr_of(into)))
       builder ? catch_break(status, addr_of(into)) : status_check(status)
       Operand.new(into, true, false)
+    end
+
+    # The `def` a `super` written HERE belongs to. A block body has no
+    # definition of its own and a `super` in one is the enclosing
+    # method's, so the search walks out through blocks -- and stops at
+    # the top level or a class body, where ruby has no `super` either.
+    def enclosing_definition
+      @scopes.reverse_each do |s|
+        return s.definition if s.kind == :body
+        return nil unless s.kind == :block
+      end
+      nil
+    end
+
+    # Which of the three `super` entries this site takes. A class method
+    # resolves against the SINGLETON-class chain, which the runtime walks
+    # from the class the `def self.x` was written in.
+    def super_call(definition, runtime, argv, kw, blk, into)
+      tail = "#{argv}, #{f.iconst("i8", 0)}, #{kw}, #{blk}, #{into}"
+      name = sym_id(definition[:node].name)
+      if runtime
+        "call #{f.import("zeo_rt_send_super_dynamic_args")}(#{borrow(self_operand)}, #{tail})"
+      elsif definition[:singleton]
+        "call #{f.import("zeo_rt_send_super_class_from_args")}(#{class_id(owner)}, " \
+          "#{class_id(owner)}, #{name}, #{tail})"
+      else
+        "call #{f.import("zeo_rt_send_super_from_args")}(#{borrow(self_operand)}, " \
+          "#{class_id(owner)}, #{name}, #{tail})"
+      end
     end
 
     # A `super`'s argument Array and its keyword Hash, or a null pointer
@@ -4139,13 +4192,11 @@ module Ze0
     # push and nothing else.
     def super_arguments(args, definition)
       args = args&.dup
-      keywords = args.pop if args&.last.is_a?(Prism::KeywordHashNode)
-      argv = new_array(args ? args.size : 0)
-      if args
-        args.each { |a| push_call_argument(argv, a) }
-      else
-        forwarded_arguments(definition[:params]).each { |o| push_argument(argv, o) }
-      end
+      return forwarded_arguments(definition[:params]) if args.nil?
+
+      keywords = args.pop if args.last.is_a?(Prism::KeywordHashNode)
+      argv = new_array(args.size)
+      args.each { |a| push_call_argument(argv, a) }
       [argv, keywords ? borrow(hash_literal(keywords)) : f.iconst("i64", 0)]
     end
 
@@ -4168,14 +4219,38 @@ module Ze0
     end
 
     # A bare `super`'s arguments: the method's own parameters, read back
-    # out of their locals in slot order.
+    # out of their locals in slot order, by their CURRENT values. A rest
+    # spreads and the keywords rebuild the Hash the method was handed.
     def forwarded_arguments(params)
-      unless params.keywords.empty? && params.kwrest.nil? && params.rest.nil?
-        raise Unsupported.new(scope.definition[:node], "a bare super forwarding that shape")
-      end
+      argv = new_array(params.required.size + params.optional.size + params.post.size)
+      params.required.each { |n| push_argument(argv, read_local(locals.fetch(n))) }
+      params.optional.each { |o| push_argument(argv, read_local(locals.fetch(o.name))) }
+      push_splat(argv, read_local(locals.fetch(params.rest.name))) if params.rest&.named?
+      params.post.each { |n| push_argument(argv, read_local(locals.fetch(n))) }
+      [argv, forwarded_keywords(params)]
+    end
 
-      names = params.required + params.optional.map(&:name) + params.post
-      names.map { |n| read_local(locals.fetch(n)) }
+    # The keyword Hash a bare `super` rebuilds, or a null pointer where
+    # the method declares no keyword channel at all.
+    def forwarded_keywords(params)
+      return f.iconst("i64", 0) if params.keywords.empty? && !params.kwrest&.named?
+
+      slot = f.slot
+      at = addr_of(slot)
+      f.ins "call #{f.import("zeo_rt_hash_new")}(#{at})"
+      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      params.keywords.each do |k|
+        key = hand_over(literal_symbol(k.name))
+        value = hand_over(read_local(locals.fetch(k.name)))
+        status_check(f.val("call #{f.import("zeo_rt_hash_set")}(#{at}, #{key}, #{value})"))
+      end
+      if params.kwrest&.named?
+        status_check(f.val(
+          "call #{f.import("zeo_rt_kw_splat_into")}(#{at}, " \
+          "#{borrow(read_local(locals.fetch(params.kwrest.name)))})",
+        ))
+      end
+      at
     end
 
     # An Array of values in a pooled slot, which a runtime entry reads
@@ -4204,11 +4279,12 @@ module Ze0
       status_check(f.val("call #{f.import("zeo_rt_array_push_splat")}(#{argv}, #{borrow(operand)})"))
     end
 
-    # With no block written at the `super`, the method's own goes on. The
-    # callee consumes a reference and this frame's epilogue releases its
-    # own, so the forward takes a fresh one.
+    # With no block written at the `super`, the method's own goes on --
+    # which, in a block, is the enclosing method's, the same channel a
+    # bare `yield` there reads. The callee consumes a reference and this
+    # frame's epilogue releases its own, so the forward takes a fresh one.
     def forwarded_block
-      blk = scope.blk
+      blk = yield_block
       return f.iconst("i64", 0) if blk.nil?
 
       has = f.val("icmp ne #{blk}, #{f.iconst("i64", 0)}")
