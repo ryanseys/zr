@@ -1607,6 +1607,7 @@ module Ze0
       when Prism::NextNode then lower_next(node)
       when Prism::BreakNode then lower_break(node)
       when Prism::BeginNode then lower_begin(node)
+      when Prism::RescueModifierNode then lower_rescue_modifier(node)
       when Prism::AliasMethodNode then lower_alias_statement(node)
       when Prism::ParenthesesNode then lower_statements(node.body)
       when Prism::StatementsNode then lower_statements(node)
@@ -3277,30 +3278,72 @@ module Ze0
     # The begin's landing: take the exception, try each clause in turn,
     # and re-arm the Raise when none matched.
     def lower_rescue_clauses(clause, outer, result, done)
-      raised = f.val("icmp eq #{f.val("call #{f.import("zeo_rt_signal_kind")}()")}, #{f.iconst("i8", Capi::SIGNAL_RAISE)}")
-      take = f.label
-      f.ins "brif #{raised}, #{take}, #{outer}"
-      f.switch(take)
-      exc = f.slot
-      f.val("call #{f.import("zeo_rt_signal_take")}(#{addr_of(exc)})")
-      # The pool owns it from here; every use below borrows.
-      borrow(Operand.new(exc, true, false))
-
+      exc = take_raised(outer)
       while clause
         matched = clause_matches(clause, exc, outer)
         body, nxt = f.label, f.label
         f.ins "brif #{matched}, #{body}, #{nxt}"
         f.switch(body)
-        lower_rescue_body(clause, exc, outer, result, done)
+        lower_rescue_body(clause.reference, exc, outer, result, done) do
+          lower_statements(clause.statements)
+        end
         f.switch(nxt)
         clause = clause.subsequent
       end
+      rearm_raise(exc, outer)
+    end
 
-      # Nothing matched: the pool keeps its own reference, so the signal
-      # takes a fresh one before it is re-armed.
+    # The landing both `rescue` shapes share. Only a Raise is this
+    # construct's; anything else on the signal is someone else's unwind
+    # and leaves through `outer`. Taking it hands the POOL the reference,
+    # so every use of the exception below borrows.
+    def take_raised(outer)
+      kind = f.val("call #{f.import("zeo_rt_signal_kind")}()")
+      raised = f.val("icmp eq #{kind}, #{f.iconst("i8", Capi::SIGNAL_RAISE)}")
+      take = f.label
+      f.ins "brif #{raised}, #{take}, #{outer}"
+      f.switch(take)
+      exc = f.slot
+      f.val("call #{f.import("zeo_rt_signal_take")}(#{addr_of(exc)})")
+      borrow(Operand.new(exc, true, false))
+      exc
+    end
+
+    # Nothing matched: the pool keeps its own reference, so the signal
+    # takes a fresh one before it is re-armed.
+    def rearm_raise(exc, outer)
       retain_if_heap(addr_of(exc))
       f.ins "call #{f.import("zeo_rt_signal_set")}(#{f.iconst("i8", Capi::SIGNAL_RAISE)}, #{addr_of(exc)})"
       f.ins "jump #{outer}"
+    end
+
+    # `value rescue fallback`: one bare clause over one expression. A bare
+    # clause is `StandardError`, so anything above it still leaves.
+    def lower_rescue_modifier(node)
+      outer = scope.raise_block
+      landing, done = f.label, f.label
+      result = f.slot
+      store_nil(addr_of(result))
+
+      scope.raise_block = landing
+      value = lower_expr(node.expression)
+      scope.raise_block = outer
+      unless f.terminated?
+        move(value, addr_of(result))
+        f.ins "jump #{done}"
+      end
+
+      f.switch(landing)
+      exc = take_raised(outer)
+      matched = matches_any([constant_named("StandardError")], exc, outer)
+      body, miss = f.label, f.label
+      f.ins "brif #{matched}, #{body}, #{miss}"
+      f.switch(body)
+      lower_rescue_body(nil, exc, outer, result, done) { lower_expr(node.rescue_expression) }
+      f.switch(miss)
+      rearm_raise(exc, outer)
+      f.switch(done)
+      Operand.new(result, true, false)
     end
 
     # Whether one clause catches this exception. `rescue` matches with
@@ -3314,6 +3357,11 @@ module Ze0
         lower_expr(e)
       end
       listed = [constant_named("StandardError")] if listed.empty?
+      matches_any(listed, exc, outer)
+    end
+
+    # Whether any of `listed` catches `exc`, by `Module#===`.
+    def matches_any(listed, exc, outer)
       hit = f.slot(1)
       status = f.val(
         "call #{f.import("zeo_rt_rescue_matches_any")}(#{addr_of(exc)}, " \
@@ -3329,13 +3377,13 @@ module Ze0
 
     # One clause's body, with `$!` held for its whole run. The pop happens
     # on both exits, and `lower_return` and friends pay what they owe.
-    def lower_rescue_body(clause, exc, outer, result, done)
+    def lower_rescue_body(reference, exc, outer, result, done)
       f.ins "call #{f.import("zeo_rt_handling_push")}(#{addr_of(exc)})"
       scope.handling_depth += 1
-      bind_rescue_reference(clause.reference, exc)
+      bind_rescue_reference(reference, exc)
       clause_land = f.label
       scope.raise_block = clause_land
-      value = lower_statements(clause.statements)
+      value = yield
       scope.raise_block = outer
       unless f.terminated?
         move(value, addr_of(result))
