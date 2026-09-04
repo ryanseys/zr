@@ -18,6 +18,7 @@ module Ze0
 
     def initialize(file, frozen_string_literal: false)
       @file = file
+      @data_section = nil
       @frozen_string_literal = frozen_string_literal
       @rodata = "".b
       @rodata_offsets = {}
@@ -55,6 +56,13 @@ module Ze0
     # each is its own row over the one symbol.
     def add_unit(feature, symbol)
       @units << { "feature" => feature, "symbol" => symbol } unless @units.any? { |u| u["feature"] == feature }
+    end
+
+    # Where `DATA` reads from: the absolute path of the main file and the
+    # offset its `__END__` bytes start at. The binary reopens the file at
+    # startup, so the path cannot be relative to where the compile ran.
+    def data_section=(pair)
+      @data_section = pair && { "path" => pair[0], "offset" => pair[1] }
     end
 
     def add_feature(name)
@@ -157,6 +165,7 @@ module Ze0
         "syms" => @syms,
         "callsites" => @callsites,
         "toplevel" => Names::TOPLEVEL,
+        "data_section" => @data_section,
         "defs" => @defs.map do |d|
           {
             "name" => d[:name],
