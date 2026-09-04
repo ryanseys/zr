@@ -18,6 +18,7 @@ module Ze0
       "zeo_rt_pool_mark" => [[], "i64"],
       "zeo_rt_pool_reset" => [%w[i64], nil],
       "zeo_rt_pool_push" => [%w[i64], nil],
+      "zeo_rt_reveal_class" => [%w[i32], nil],
       "zeo_rt_retain" => [%w[i64], nil],
       "zeo_rt_release" => [%w[i64], nil],
       "zeo_rt_truthy" => [%w[i64], "i8"],

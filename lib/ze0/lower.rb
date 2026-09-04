@@ -1365,6 +1365,10 @@ module Ze0
       written = entry[:bodies].find { |b| b[:node].equal?(node) }
       raise Unsupported.new(node, "a class nested inside another statement") if written.nil?
 
+      # ruby makes the constant where the statement RUNS, so the row the
+      # backend registered concealed is revealed here -- and one whose
+      # statement never runs stays a NameError.
+      f.ins "call #{f.import("zeo_rt_reveal_class")}(#{class_id(entry[:name])})"
       klass = class_value(entry[:name])
       result = f.slot
       body = f.callee(written[:symbol], ["i64", "i64"], "i32")

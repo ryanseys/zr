@@ -118,6 +118,10 @@ module Ze0
 
     # One class or module. Ids are the backend's to assign, so nothing
     # here is a number.
+    # Every row registers its shape before the first statement, so the
+    # static MRO has one, and every row is CONCEALED: ruby makes the
+    # constant where the `class` statement runs, and the body's own
+    # `zeo_rt_reveal_class` is what does that.
     def add_class(name:, superclass:, kind:, ivars:, private_constants: [], file: "", line: 0)
       @classes << {
         name: name, superclass: superclass, kind: kind, ivars: ivars,
@@ -176,6 +180,7 @@ module Ze0
             "private_constants" => c[:private_constants],
             "file" => c[:file],
             "line" => c[:line],
+            "conceal" => true,
           }
         end,
         # A dynamic send can reach any class, and ze0 has no reachability
