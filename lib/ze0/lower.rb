@@ -436,25 +436,40 @@ module Ze0
     # One walk over a body, collecting what lowering has to know before it
     # starts. Today that is the `def`s, so a call written above a
     # definition still resolves to it; classes and captures join them.
-    def declare(statements, owner)
+    def declare(statements, owner, guarded: false)
       # A bare `private` or `protected` is a mode over the `def`s BELOW
       # it, so the walk carries it. Every top-level `def` is a private
       # method of Object, whatever the body says.
       visibility = "public"
       statements.each do |s|
         case s
-        when Prism::DefNode then declare_def(s, owner, visibility)
-        when Prism::ClassNode then declare_class(s, owner, "class")
-        when Prism::ModuleNode then declare_class(s, owner, "module")
-        when Prism::CallNode then visibility = declare_macro(s, owner, visibility)
-        when Prism::IfNode, Prism::UnlessNode
-          # A guard this compile can decide has one branch that cannot
-          # run, and the other's `def`s and classes are as much a part of
-          # the program as any written beside it.
-          declare(branch_statements(live_branch(s)), owner)
+        when Prism::DefNode then declare_def(s, owner, visibility) unless guarded
+        when Prism::ClassNode then declare_class(s, owner, "class", guarded: guarded)
+        when Prism::ModuleNode then declare_class(s, owner, "module", guarded: guarded)
+        when Prism::CallNode then visibility = declare_macro(s, owner, visibility) unless guarded
+        when Prism::IfNode, Prism::UnlessNode then declare_branches(s, owner, guarded)
         end
       end
     end
+
+    # A guard this compile can decide has one branch that cannot run, and
+    # the other's `def`s and classes are as much a part of the program as
+    # any written beside it.
+    #
+    # One it cannot decide names a class the row still has to carry --
+    # ids are the backend's and a class row cannot be minted while the
+    # program runs -- but the row is CONCEALED, so the constant appears
+    # only if the branch runs. A `def` there stays undeclared and the
+    # body installs it where it stands, which is ruby's own order.
+    def declare_branches(node, owner, guarded)
+      return declare(branch_statements(live_branch(node)), owner, guarded: guarded) if decided?(node)
+
+      [node.statements, node.is_a?(Prism::UnlessNode) ? node.else_clause : node.subsequent].each do |b|
+        declare(branch_statements(b), owner, guarded: true)
+      end
+    end
+
+    def decided?(node) = !Guards.static_cond(node.predicate).nil?
 
     # `attr_reader`, its two siblings, and the visibility verbs: the class
     # body macros ze0 answers at COMPILE time. Anything else keeps the
@@ -545,10 +560,11 @@ module Ze0
     # A class or module, and everything its body declares. The backend
     # assigns the id; ze0 only ever names it, by the path it is written
     # at -- `Ze0::Lower`, which is what `Module#name` answers.
-    def declare_class(node, owner, kind)
+    def declare_class(node, owner, kind, guarded: false)
       name = declared_name(node)
       superclass = superclass_of(node, kind)
       entry = @classes[name] || declare_fresh_class(node, name, kind, superclass)
+      entry[:guarded] ||= guarded
       if entry[:kind] != kind
         raise Unsupported.new(node, "a #{entry[:kind]} reopened as a #{kind}")
       end
@@ -575,6 +591,14 @@ module Ze0
         node: node, body: body, file: @file, cref: @cref.dup,
         symbol: at.zero? ? base : "#{base}_#{at}",
       }
+      # A guarded body is the whole class: the reveal at its statement is
+      # what makes the constant, and the rows the body writes are on a
+      # class nothing else can name yet. A SECOND body would install its
+      # methods whether the guard let it run or not.
+      if entry[:guarded] && entry[:bodies].size > 1
+        raise Unsupported.new(node, "a #{kind} reopened under a guard")
+      end
+
       declare(body, name)
       @cref.shift
     end
