@@ -21,8 +21,9 @@ The contract does not change. Identical to CRuby, or refused by name.
 
 ## How to know what is left
 
-One script answers it, and it is the method the remaining phases are
-ordered by:
+`ze0/census.rb` answers it over any corpus, and it is the method the
+remaining work is ordered by -- see "The census against real Ruby"
+below. The older one-file walk still serves for a quick look:
 
 ```ruby
 # Which Ruby ze0 uses that ze0 cannot yet compile.
@@ -317,6 +318,197 @@ Scale is not what is left. Measured on prism's biggest file: `node.rb`'s
 S0 through S8 are done and are recorded in the commits. What follows is
 what stands between here and the fixed point, with the census that names
 each item.
+
+## The census against real Ruby
+
+`ze0/census.rb` runs ze0 over a corpus in ONE ruby process and prints two
+things: each file's FIRST refusal, ranked by how many files it blocks,
+and every Prism node kind `lower.rb` never names -- which catches the
+forms hidden behind someone else's first refusal.
+
+```console
+$ ruby ze0/census.rb 'test/lang/**/*.rb' 'test/core/**/*.rb'
+$ ruby ze0/census.rb 'test/stdlib/**/*.rb' 'crates/zeo-rt/gems/**/*.rb'
+$ ruby ze0/census.rb 'vendor/gems/gems/*/lib/**/*.rb'
+```
+
+Run 2026-09-03, against ze0 as of S9:
+
+| corpus | files | compile | refused | crash |
+|---|---:|---:|---:|---:|
+| `test/lang` + `test/core` | 5,008 | **3,562** (71%) | 1,413 | 33 |
+| `test/stdlib` + the pure-tier gems | 477 | **305** (64%) | 170 | 2 |
+| 30 vendored gems' `lib/` | 1,476 | **247** (17%) | 1,223 | 6 |
+
+The corpus is written to test one thing per program, so 71% is a fair
+measure of the LANGUAGE ze0 covers. Real gem code is 17%, and the gap is
+almost entirely one form: `class Foo::Bar`, which the corpus rarely
+writes and every gem does.
+
+### The crashes, which are bugs and not gaps
+
+Three shapes make ze0 raise a Ruby error instead of refusing by name.
+Each is one missing `is_a?`, and each is the class of defect S0 exists to
+prevent.
+
+| count | shape |
+|---:|---|
+| 27 | `_1` / `_2` -- `NumberedParametersNode` has no `locals` |
+| 5 | `&blk` as a block's whole parameter list -- `BlockArgumentNode` has no `parameters` |
+| 1 | `it` -- `ItParametersNode` has no `locals` |
+
+### Refusals that are wrong, not missing
+
+Ordinary Ruby that ze0 turns away. These cost nothing to allow and each
+one is a divergence from the contract, since a refusal is only honest
+when the form is genuinely outside the subset.
+
+- **`next` and `break` inside a `while`** (33 files). ze0 says "outside a
+  block". Both are ordinary loop control; `lower_while` already has the
+  head and exit labels they need.
+- **A method defined twice in one class** (30 files). Ruby redefines it,
+  with a warning. ze0 refuses.
+- **`a class this program does not declare`** (25 files) -- a class body
+  reached through a path the declaration pass did not walk.
+
+### The ranked list
+
+Merged over all three corpora, by the number of files each blocks. The
+grouping is by what the work IS, since one piece of machinery usually
+clears several rows.
+
+**The class and module surface -- 800+ files, the largest single win**
+
+| files | form |
+|---:|---|
+| 401 | `class Foo::Bar` (a scoped class name) |
+| 207 | `include` in a class body |
+| 161 | a superclass that is not a plain name (`< Struct.new(...)`, `< klass`) |
+| 113 | `class << self` |
+| 120 | `def obj.method` (a def with a receiver) |
+| 71 | `extend` in a class body |
+| 40 | `module_function` |
+| 17 | `define_method` |
+| 10+ | `refine` / `using`, `private_class_method`, `undef_method`, `remove_method`, `class_eval` |
+
+`include`, `extend` and `prepend` need the ancestry the sidecar computes
+from `superclass` alone today -- a `Class.includes` field in the same
+shape as `ivars`, plus `REG_EXTENDS` and `REG_SET_ANCESTORS`. The rest
+are compile-time.
+
+**Exceptions -- 320+ files**
+
+| files | form |
+|---:|---|
+| 210 | `x = foo rescue nil` (the rescue MODIFIER) |
+| 107 | an `ensure` clause |
+| 2 | `retry` |
+
+The modifier is `begin; x; rescue StandardError; y; end` and needs
+nothing new. `ensure` is the invasive half S4 deliberately stopped short
+of: every exit path has to learn the save/run/restore bracket, and a jump
+across one travels as a signal that the construct settles back.
+
+**Blocks and procs -- 290+ files**
+
+| files | form |
+|---:|---|
+| 102 | a `def` nested inside another statement (W1) |
+| 51 | a destructuring block parameter (`\|(k, v), i\|`) |
+| 33 | `_1` / `it` (and the crash above) |
+| 7 | a block-local variable (`\|x; y\|`) |
+| 6 | an anonymous block forward (`&`) |
+| 4 | `redo` |
+
+**Pattern matching -- 90 files, and none of it exists yet**
+
+`case/in` (81 files) with `ArrayPattern`, `HashPattern`, `FindPattern`,
+`AlternationPattern`, `CapturePattern`, `PinnedVariable`,
+`PinnedExpression`, plus the one-line `in` (`MatchPredicate`, 7) and `=>`
+(`MatchRequired`, 8). This is the biggest single feature ze0 does not
+have at all, and the runtime does the work: `deconstruct` and
+`deconstruct_keys` are ordinary sends.
+
+**Arguments -- 180 files**
+
+| files | form |
+|---:|---|
+| 134 | a splat at a call site |
+| 28 | `...` forwarding (`ForwardingParameter`, `ForwardingArguments`) |
+| 8 | a bare `KeywordHash` argument |
+| 5 each | an implicit rest, a splat in a `when`, in a `rescue`, in a `yield` |
+
+**Non-local control -- 110 files**
+
+| files | form |
+|---:|---|
+| 56 | `return` from inside a block |
+| 33 | `next`/`break` in a `while` (the bug above) |
+| 21 | `for` |
+| 9 | `return`/`break` of several values |
+
+`return` from a block needs the home-push and the Return catch at the
+method boundary (`clif/body.rs:585-606`), which is the one piece of the
+signal protocol S4 did not build.
+
+**Constants and variables -- 130 files**
+
+| files | form |
+|---:|---|
+| 59 | `::Foo` (a constant path with no scope) |
+| 40 | class variables, and their operator writes |
+| 37 | `$1` (`NumberedReferenceRead`) |
+| 12 | the constant operator writes (`A::B ||= x`, `A += 1`) |
+| 5 | `$~` (`BackReferenceRead`), `MatchWrite` |
+
+**Loading -- 140 files**
+
+| files | form |
+|---:|---|
+| 78 | a required file with top-level locals (rename them per unit, as `parse::rename` does) |
+| 21 | `autoload` |
+| 19 | a `require_relative` outside statement position |
+| 15 | a computed `require` |
+| 7 | `load` |
+
+**`super` -- 110 files**
+
+| files | form |
+|---:|---|
+| 63 | `super` in a module method (the VALUE channel walk) |
+| 17 | `super` in a class method (the singleton chain) |
+| 17 | a bare `super` forwarding a rest or keywords |
+| 8 | `super` inside a block |
+
+**Literals and the small tail -- 90 files**
+
+`defined?` (122 files, and it is its own thing), an interpolated regexp
+(20), `Rational` and `Imaginary` (16), an interpolated symbol (9),
+`__FILE__` / `__LINE__` / `__ENCODING__` (24), an Integer literal past 64
+bits (12), the hash shorthand `{x:}` (6), backticks and `%x{}` (7),
+`alias $new $old` (2), `BEGIN`/`END` (4), a flip-flop (3),
+`# shareable_constant_value` (1).
+
+### What the list says about order
+
+Four items clear more than half of everything: **the scoped class name**,
+**the rescue modifier**, **`include`**, and **a superclass that is not a
+plain name**. None of them is deep -- the first three are compile-time or
+a desugaring, and the fourth is a runtime class value where ze0 assumes a
+name.
+
+The three crashes and the three wrong refusals come before any of it,
+because they are the contract rather than the subset.
+
+## W0 -- the contract, before any of the list
+
+Three crashes and three wrong refusals, named under "The census against
+real Ruby" above. They are the same class of defect S0 fixed, and they
+come first for the same reason: a refusal is only honest when the form is
+genuinely outside the subset, and a crash is never honest.
+
+Each gets a fixture in `crates/zeo/tests/fixtures/ze0_refused/`, or a
+golden in `test/ze0/` where the form joins the subset.
 
 ## W1 -- `Module.new { def ... }`, and the rest of prism's syntax
 
