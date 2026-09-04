@@ -2040,6 +2040,7 @@ module Ze0
       when Prism::BeginNode then lower_begin(node)
       when Prism::RescueModifierNode then lower_rescue_modifier(node)
       when Prism::AliasMethodNode then lower_alias_statement(node)
+      when Prism::RetryNode then lower_retry(node)
       when Prism::PostExecutionNode then lower_end_block(node)
       when Prism::PreExecutionNode then lower_statements(node.statements)
       when Prism::AliasGlobalVariableNode then lower_global_alias(node)
@@ -2304,19 +2305,22 @@ module Ze0
       args.each { |a| borrow(a) }
       Target.new(
         -> { send_value(recv, :[], args) },
-        ->(v) { send_value(recv, :[]=, args + [v]) },
+        ->(v) { written_value(send_value(recv, :[]=, args + [v]), v) },
       )
     end
 
-    def call_target(node)
-      raise Unsupported.new(node, "a safe navigation write") if safe_navigation?(node)
-
-      recv = lower_expr(node.receiver)
-      borrow(recv)
+    def call_target(node, recv = nil)
+      recv ||= borrow_receiver(node)
       Target.new(
         -> { send_value(recv, node.read_name, []) },
-        ->(v) { send_value(recv, node.write_name, [v]) },
+        ->(v) { written_value(send_value(recv, node.write_name, [v]), v) },
       )
+    end
+
+    # A write answers the value ASSIGNED, whatever the setter returns.
+    def written_value(answer, value)
+      discard(answer)
+      value
     end
 
     # An ordinary send with no keywords and no block, as an owned value.
@@ -2327,11 +2331,41 @@ module Ze0
     end
 
     def operator_write(node)
-      target = target_of(node)
-      name = node.binary_operator
-      lhs = target.read.call
-      rhs = lower_expr(node.value)
-      target.write.call(inline_binary?(name) ? binary(name, lhs, rhs) : operator_send(name, lhs, rhs))
+      with_target(node) do |target|
+        name = node.binary_operator
+        lhs = target.read.call
+        rhs = lower_expr(node.value)
+        target.write.call(inline_binary?(name) ? binary(name, lhs, rhs) : operator_send(name, lhs, rhs))
+      end
+    end
+
+    # `o&.x ||= v` and its siblings run NOTHING when the receiver is
+    # nil -- not the read, not the right-hand side -- and answer nil.
+    # The receiver itself is evaluated once, before the guard.
+    def with_target(node)
+      return yield(target_of(node)) unless safe_target?(node)
+
+      recv = borrow_receiver(node)
+      result = f.slot
+      store_nil(addr_of(result))
+      present = f.val("icmp ne #{tag_of(addr_of(recv))}, #{f.iconst("i8", Capi::TAG_NIL)}")
+      run, join = f.label, f.label
+      f.ins "brif #{present}, #{run}, #{join}"
+      f.switch(run)
+      move(yield(call_target(node, recv)), addr_of(result))
+      f.ins "jump #{join}" unless f.terminated?
+      f.switch(join)
+      Operand.new(result, true, false)
+    end
+
+    def safe_target?(node) = node.respond_to?(:safe_navigation?) && node.safe_navigation?
+
+    # The receiver of a write, held by the pool: both halves read it, and
+    # the source wrote it once.
+    def borrow_receiver(node)
+      recv = lower_expr(node.receiver)
+      borrow(recv)
+      recv
     end
 
     def operator_send(name, lhs, rhs)
@@ -2343,7 +2377,10 @@ module Ze0
     # `x ||= v` answers `x` when it is truthy and never writes; `x &&= v`
     # is the same with the arms the other way round.
     def conditional_write(node, conjunction)
-      target = target_of(node)
+      with_target(node) { |target| conditional_arms(node, target, conjunction) }
+    end
+
+    def conditional_arms(node, target, conjunction)
       current = target.read.call
       truth = truthy(current)
       result = f.slot
@@ -3084,6 +3121,7 @@ module Ze0
         return lower_require(node)
       end
       return safe_call(node) if safe_navigation?(node)
+      return attribute_write(node) if node.attribute_write?
 
       # `dup`, because `pop` below would otherwise empty the prism node's
       # own array.
@@ -3123,8 +3161,6 @@ module Ze0
     # `x&.y` answers nil without calling when `x` is nil -- NIL alone, not
     # anything falsy, so `false&.to_s` still answers "false".
     def safe_call(node)
-      raise Unsupported.new(node, "a safe navigation write") if node.name.to_s.end_with?("=")
-
       recv = lower_expr(node.receiver)
       result = f.slot
       store_nil(addr_of(result))
@@ -3132,12 +3168,35 @@ module Ze0
       call, join = f.label, f.label
       f.ins "brif #{present}, #{call}, #{join}"
       f.switch(call)
-      args = node.arguments&.arguments&.dup || []
-      keywords = args.pop if args.last.is_a?(Prism::KeywordHashNode)
-      move(send_call(node, args, keywords, recv), addr_of(result))
+      # A nil receiver evaluates NO argument, so a write's right-hand
+      # side runs only on this side of the guard.
+      if node.attribute_write?
+        move(write_arguments(node, recv), addr_of(result))
+      else
+        args = node.arguments&.arguments&.dup || []
+        keywords = args.pop if args.last.is_a?(Prism::KeywordHashNode)
+        move(send_call(node, args, keywords, recv), addr_of(result))
+      end
       f.ins "jump #{join}" unless f.terminated?
       f.switch(join)
       Operand.new(result, true, false)
+    end
+
+    # `o.x = v` and `o[k] = v`: ruby answers V, not what the setter
+    # returns, and the receiver is evaluated before either.
+    def attribute_write(node)
+      recv = lower_expr(node.receiver)
+      borrow(recv)
+      write_arguments(node, recv)
+    end
+
+    def write_arguments(node, recv)
+      args = node.arguments.arguments
+      middle = args[0..-2].map { |a| lower_expr(a) }
+      written = lower_expr(args.last)
+      # Pooled, so it outlives the send that is about to read it.
+      borrow(written)
+      written_value(send_value(recv, node.name, middle + [written]), written)
     end
 
     def send_call(node, args, keywords, recv = nil)
@@ -4054,6 +4113,10 @@ module Ze0
       result = f.slot
       store_nil(addr_of(result))
 
+      # `retry` re-runs the body from the top, so the body needs an entry
+      # a clause can jump back to. Only a clause that writes one gets it.
+      entry = retry_entry(node.rescue_clause)
+
       scope.raise_block = landing
       value = lower_statements(node.statements)
       # An `else` runs only when the body finished, and it runs OUTSIDE
@@ -4069,9 +4132,43 @@ module Ze0
       end
 
       f.switch(landing)
+      outer_retry = scope.retry_block
+      scope.retry_block = entry
       lower_rescue_clauses(node.rescue_clause, outer, result, done)
+      scope.retry_block = outer_retry
       f.switch(done)
       Operand.new(result, true, false)
+    end
+
+    # The block a `retry` jumps back to, opened here so the body that
+    # follows is inside it.
+    def retry_entry(clause)
+      return nil unless retries?(clause)
+
+      entry = f.label
+      f.ins "jump #{entry}"
+      f.switch(entry)
+      entry
+    end
+
+    # Whether any clause of this `begin` writes a `retry`. One inside a
+    # nested `def` or a nested `begin`'s own clause belongs to that one.
+    def retries?(node)
+      return false if node.nil?
+      return true if node.is_a?(Prism::RetryNode)
+      return false if node.is_a?(Prism::DefNode)
+
+      node.compact_child_nodes.any? { |c| retries?(c) }
+    end
+
+    # `retry` leaves the clause it is written in -- the `$!` that clause
+    # holds goes with it -- and runs the whole `begin` again.
+    def lower_retry(node)
+      raise Unsupported.new(node, "a retry outside a rescue clause") if scope.retry_block.nil?
+
+      f.ins "call #{f.import("zeo_rt_handling_pop")}()"
+      f.ins "jump #{scope.retry_block}"
+      unreachable
     end
 
     # The begin's landing: take the exception, try each clause in turn,
@@ -4150,21 +4247,29 @@ module Ze0
     # bare clause is `StandardError` read like any other constant -- no
     # class id is needed, and a builtin matches the same as a declared one.
     def clause_matches(clause, exc, outer)
-      listed = clause.exceptions.map do |e|
-        raise Unsupported.new(e, "a splat in a rescue clause") if e.is_a?(Prism::SplatNode)
+      return matches_any([constant_named("StandardError")], exc, outer) if clause.exceptions.empty?
 
-        lower_expr(e)
-      end
-      listed = [constant_named("StandardError")] if listed.empty?
-      matches_any(listed, exc, outer)
+      matches_at(clause_list(clause.exceptions), exc, outer)
+    end
+
+    # The Array of listed classes. A `*errs` spreads its elements in, so
+    # how many the clause names is a run-time fact.
+    def clause_list(exceptions)
+      argv = new_array(exceptions.size)
+      exceptions.each { |e| push_call_argument(argv, e) }
+      argv
     end
 
     # Whether any of `listed` catches `exc`, by `Module#===`.
     def matches_any(listed, exc, outer)
+      matches_at(value_array(listed), exc, outer)
+    end
+
+    def matches_at(listed, exc, outer)
       hit = f.slot(1)
       status = f.val(
         "call #{f.import("zeo_rt_rescue_matches_any")}(#{addr_of(exc)}, " \
-        "#{value_array(listed)}, #{addr_of(hit)})",
+        "#{listed}, #{addr_of(hit)})",
       )
       # A matcher can raise -- an undefined constant, or a listed value
       # that is not a Module -- and that raise leaves this begin.
@@ -4196,13 +4301,15 @@ module Ze0
     end
 
     # `rescue Foo => e` binds the exception, borrowed: the pool owns it.
+    # Every other target -- an ivar, a global, an attribute -- TAKES the
+    # value, so it gets a reference of its own.
     def bind_rescue_reference(node, exc)
-      case node
-      when nil then nil
-      when Prism::LocalVariableTargetNode
-        store_local(local(node), Operand.new(exc, false, false))
-      else raise Unsupported.new(node, "a rescue binding of that shape")
-      end
+      return if node.nil?
+
+      held = Operand.new(exc, false, false)
+      return store_local(local(node), held) if node.is_a?(Prism::LocalVariableTargetNode)
+
+      assign_target(node, hand_over(held))
     end
 
     # The `handling_pop`s a direct jump out of this scope owes. A jump to

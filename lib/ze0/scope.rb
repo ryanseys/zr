@@ -98,6 +98,9 @@ module Ze0
     # Whether this body is a lambda, which catches its own `return` and
     # `break` rather than passing either on.
     attr_writer :lambda
+    # Where a `retry` written in a rescue clause re-enters: the top of
+    # the `begin` body, so the whole thing runs again.
+    attr_accessor :retry_block
     # Where a `redo` written in a block re-enters: the body, past every
     # binding, because ruby does not re-yield.
     attr_accessor :redo_block
