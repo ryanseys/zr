@@ -62,6 +62,9 @@ module Ze0
       # The features already required, so a second `require` of one
       # answers false the way ruby's does.
       @required = {}
+      # The top-level local names of each file the splice read. Each file
+      # is its own scope in ruby, so each gets its own table of slots.
+      @unit_locals = {}
       @roots = roots
     end
 
@@ -70,6 +73,7 @@ module Ze0
       # The main file is NOT seeded into the loading table: ruby has no
       # entry for it either, so a `require_relative` that names it back
       # loads it a second time.
+      @unit_locals[@program.file] = root.locals
       splice(body_statements(root.statements), @program.file, {}, units)
       units.each { |file, statements| with_file(file) { declare(statements, Names::OBJECT) } }
       @defs.each_value do |by_key|
@@ -78,8 +82,7 @@ module Ze0
       @classes.each_value do |c|
         c[:bodies].each { |written| with_file(written[:file]) { lower_class_body(c, written) } }
       end
-      statements = units.flat_map { |_, group| group }
-      lower_toplevel(statements.reject { |s| s.is_a?(Prism::DefNode) }, root.locals)
+      lower_toplevel(units)
     end
 
     private
@@ -172,12 +175,7 @@ module Ze0
         error = result.errors.first
         raise Unsupported.new(node, "a required file with a syntax error: #{error.message}")
       end
-      # A required file's top-level locals are its own in ruby. ze0 has
-      # one top-level scope, so they would leak into the requirer.
-      unless result.value.locals.empty?
-        raise Unsupported.new(node, "a required file with top-level local variables")
-      end
-
+      @unit_locals[path] = result.value.locals
       body_statements(result.value.statements)
     end
 
@@ -413,7 +411,7 @@ module Ze0
 
         parse_params(list.parameters)
       when Prism::NumberedParametersNode
-        positionals((1..list.maximum).map { |i| :"_#{i}" })
+        positionals((1..list.maximum).map { |i| "_#{i}".to_sym })
       when Prism::ItParametersNode then positionals([:it])
       else raise Unsupported.new(list, "a block parameter list of that shape")
       end
@@ -901,13 +899,18 @@ module Ze0
       Operand.new(result, true, false)
     end
 
-    def lower_toplevel(statements, names)
+    # Every unit's statements, in load order, as one function. A unit is a
+    # run of statements from one file, so the same file comes back once
+    # per `require_relative` written between its own statements.
+    def lower_toplevel(units)
+      # A top-level `def` is installed before the program runs, so where
+      # the statement stands it lowers to nothing.
+      units = units.map { |file, run| [file, run.reject { |s| s.is_a?(Prism::DefNode) }] }
       function = Clif::Function.new(Names::TOPLEVEL, ["i64"], "i32")
       in_scope(function, :toplevel) do
         scope.out = f.args[0]
         prologue
-        boxed = captured_names(statements, names)
-        names.each { |n| declare_local(n, boxed: boxed.include?(n)) }
+        units.group_by(&:first).each { |file, runs| declare_unit(file, runs.flat_map(&:last)) }
         scope.frame_base = "<main>"
         enter_frame(scope.frame_label, 0, 0)
         # The top-level `self`, pooled for the frame.
@@ -915,17 +918,31 @@ module Ze0
         f.ins "call #{f.import("zeo_rt_main_object")}(#{addr_of(self_slot)})"
         f.ins "call #{f.import("zeo_rt_pool_push")}(#{addr_of(self_slot)})"
         scope.self_operand = Operand.new(self_slot, false, false)
-        statements.each do |s|
-          mark = f.val("call #{f.import("zeo_rt_pool_mark")}()")
-          set_line(s)
-          discard(lower_expr(s))
-          f.ins "call #{f.import("zeo_rt_pool_reset")}(#{mark})"
+        units.each do |file, run|
+          scope.locals = scope.locals_of(file)
+          with_file(file) { run.each { |s| toplevel_statement(s) } }
         end
         store_nil(out)
         f.ins "jump #{done_block}"
         epilogue
       end
       @program.add_function(Names::TOPLEVEL, function)
+    end
+
+    # One file's top-level names, in their own table of slots. They are
+    # all nil before the program runs, as the whole function's are.
+    def declare_unit(file, statements)
+      scope.locals = scope.locals_of(file)
+      names = @unit_locals.fetch(file)
+      boxed = captured_names(statements, names)
+      names.each { |n| declare_local(n, boxed: boxed.include?(n)) }
+    end
+
+    def toplevel_statement(node)
+      mark = f.val("call #{f.import("zeo_rt_pool_mark")}()")
+      set_line(node)
+      discard(lower_expr(node))
+      f.ins "call #{f.import("zeo_rt_pool_reset")}(#{mark})"
     end
 
     # The rodata and symbol-table bases every function reads, and the two
@@ -956,7 +973,7 @@ module Ze0
       f.switch(raise_block)
       f.ins "jump #{scope.exit_block}(#{f.iconst("i32", 1)})"
       f.switch(scope.exit_block)
-      locals.each_value { |local| release_local(local) }
+      scope.all_locals.each { |local| release_local(local) }
       release_block_argument(scope.blk) if scope.blk
       f.ins "call #{f.import("zeo_rt_frame_pop")}()"
       f.ins "return #{scope.status}"

@@ -55,7 +55,12 @@ module Ze0
   # variables.
   class Scope
     # `:toplevel` or `:body`; a class body and a block body join them.
-    attr_reader :f, :kind, :locals
+    attr_reader :f, :kind
+    # The names in scope. The top level holds one table per file -- a
+    # required file's top level is its own scope in ruby, so two files may
+    # both write `i` and get two slots -- and swaps this as one file's
+    # statements give way to the next.
+    attr_accessor :locals
     # The `self` of the frame, and the caller's slot a value is answered in.
     attr_accessor :self_operand, :out
     # The call-site block this scope was handed, when it takes one. A
@@ -92,11 +97,22 @@ module Ze0
       @f = f
       @kind = kind
       @locals = {}
+      # Every table this scope has opened, the scope's own filed under no
+      # file. Only the top level opens more.
+      @tables = { nil => @locals }
       @block_depth = 0
       @handling_depth = 0
       @loops = []
       @owner = Names::OBJECT
     end
+
+    # `file`'s own table of top-level names, opened on first ask.
+    def locals_of(file)
+      @tables[file] ||= {}
+    end
+
+    # Every name this scope holds, which the exit releases.
+    def all_locals = @tables.each_value.flat_map(&:values)
 
     # The label of this scope's own frame.
     def frame_label
