@@ -109,6 +109,9 @@ module Ze0
       case pattern
       # A bare identifier always matches, binding the scrutinee.
       when Prism::LocalVariableTargetNode then bind_pattern(pattern, scrut)
+      # `in (A | B)`: the parentheses group a PATTERN, not statements, so
+      # prism keeps the one inside.
+      when Prism::ParenthesesNode then match_pattern(pattern.body, scrut, missed)
       when Prism::AlternationPatternNode then alternation(pattern, scrut, missed)
       when Prism::CapturePatternNode
         match_pattern(pattern.value, scrut, missed)
@@ -178,7 +181,9 @@ module Ze0
         at = f.val("isub #{length}, #{f.iconst("i64", post.size - i)}")
         match_pattern(p, array_elem(array, at), missed)
       end
-      return unless pattern.rest&.expression
+      # An `[a,]` trailing comma is prism's `ImplicitRestNode`: it opens
+      # the length but binds nothing.
+      return unless pattern.rest.is_a?(Prism::SplatNode) && pattern.rest.expression
 
       to = f.val("isub #{length}, #{f.iconst("i64", post.size)}")
       bind_slice(pattern.rest.expression, array, f.iconst("i64", pre.size), to)

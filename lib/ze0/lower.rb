@@ -2316,15 +2316,18 @@ module Ze0
         read_local(locals.fetch(:it) { raise Unsupported.new(node, "an it outside a block") })
       when Prism::LocalVariableWriteNode then local_write(node)
       when Prism::MultiWriteNode then multi_write(node)
-      when Prism::LocalVariableOperatorWriteNode, Prism::InstanceVariableOperatorWriteNode,
+      when Prism::ConstantOperatorWriteNode, Prism::ConstantPathOperatorWriteNode,
+           Prism::LocalVariableOperatorWriteNode, Prism::InstanceVariableOperatorWriteNode,
            Prism::ClassVariableOperatorWriteNode,
            Prism::GlobalVariableOperatorWriteNode, Prism::IndexOperatorWriteNode,
            Prism::CallOperatorWriteNode then operator_write(node)
-      when Prism::LocalVariableOrWriteNode, Prism::InstanceVariableOrWriteNode,
+      when Prism::ConstantOrWriteNode, Prism::ConstantPathOrWriteNode,
+           Prism::LocalVariableOrWriteNode, Prism::InstanceVariableOrWriteNode,
            Prism::ClassVariableOrWriteNode,
            Prism::GlobalVariableOrWriteNode, Prism::IndexOrWriteNode,
            Prism::CallOrWriteNode then conditional_write(node, false)
-      when Prism::LocalVariableAndWriteNode, Prism::InstanceVariableAndWriteNode,
+      when Prism::ConstantAndWriteNode, Prism::ConstantPathAndWriteNode,
+           Prism::LocalVariableAndWriteNode, Prism::InstanceVariableAndWriteNode,
            Prism::ClassVariableAndWriteNode,
            Prism::GlobalVariableAndWriteNode, Prism::IndexAndWriteNode,
            Prism::CallAndWriteNode then conditional_write(node, true)
@@ -2606,6 +2609,26 @@ module Ze0
         return index_target(node)
       when Prism::CallOrWriteNode, Prism::CallAndWriteNode, Prism::CallOperatorWriteNode
         return call_target(node)
+      end
+
+      case node
+      when Prism::ConstantOperatorWriteNode, Prism::ConstantOrWriteNode,
+           Prism::ConstantAndWriteNode
+        # `A ||= v` is the one constant read that tolerates an
+        # unassigned name; the other two ask for it outright.
+        lenient = node.is_a?(Prism::ConstantOrWriteNode)
+        written = node.name.to_s
+        return Target.new(
+          -> { lenient ? constant_or_nil(written) : constant_named(written) },
+          ->(v) { store_constant(written, node, v) },
+        )
+      when Prism::ConstantPathOperatorWriteNode, Prism::ConstantPathOrWriteNode,
+           Prism::ConstantPathAndWriteNode
+        lenient = node.is_a?(Prism::ConstantPathOrWriteNode)
+        return Target.new(
+          -> { lenient ? path_constant_or_nil(node.target) : constant_path_read(node.target) },
+          ->(v) { constant_path_store(node, node.target, v) },
+        )
       end
 
       name = node.name
@@ -2907,19 +2930,44 @@ module Ze0
     # declares, because the runtime takes the owner as an id and only a
     # compiled class has one ze0 can name.
     def constant_path_write(node)
-      scope = node.target.parent
+      constant_path_store(node, node.target, lower_expr(node.value))
+    end
+
+    # `A::B = v`, with the scope resolved to a row: the runtime takes the
+    # owner as an id, and only a compiled class has one ze0 can name.
+    def constant_path_store(node, target, value)
+      scope = target.parent
       unless scope.is_a?(Prism::ConstantReadNode) && (found = resolve_class(cref, scope.name.to_s))
         raise Unsupported.new(node, "a constant assigned into a scope this program does not define")
       end
 
-      value = lower_expr(node.value)
       at = borrow(value)
-      nptr, nlen = rodata_ref(node.target.name.to_s)
+      nptr, nlen = rodata_ref(target.name.to_s)
       fptr, flen = rodata_ref(@file)
       f.ins "call #{f.import("zeo_rt_const_set_at")}(#{class_id(found)}, #{nptr}, #{nlen}, " \
             "#{at}, #{fptr}, #{flen}, #{f.iconst("i32", node.location.start_line)}, " \
             "#{f.iconst("i32", Capi::MAIN_BOX)})"
       Operand.new(value.at, false, value.immediate)
+    end
+
+    # `A ||= v` and `A::B ||= v` read a name that may not be assigned
+    # yet, and answer nil rather than raising where it is not.
+    def constant_or_nil(name)
+      unassigned { constant_named(name) }
+    end
+
+    def path_constant_or_nil(target)
+      unassigned { constant_path_read(target) }
+    end
+
+    def unassigned
+      slot = f.slot
+      store_nil(addr_of(slot))
+      swallowed do
+        move(yield, addr_of(slot))
+        nil
+      end
+      Operand.new(slot, true, false)
     end
 
     # The `/n`, `/e`, `/s` and `/u` suffixes; without one a regexp takes
