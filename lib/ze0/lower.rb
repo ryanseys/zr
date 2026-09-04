@@ -2205,6 +2205,7 @@ module Ze0
       when Prism::BeginNode then lower_begin(node)
       when Prism::RescueModifierNode then lower_rescue_modifier(node)
       when Prism::AliasMethodNode then lower_alias_statement(node)
+      when Prism::UndefNode then lower_undef(node)
       when Prism::RetryNode then lower_retry(node)
       when Prism::PostExecutionNode then lower_end_block(node)
       when Prism::PreExecutionNode then lower_statements(node.statements)
@@ -3190,6 +3191,18 @@ module Ze0
         "#{borrow(alias_name(old_name))}, #{addr_of(slot)})",
       ))
       Operand.new(slot, true, false)
+    end
+
+    # `undef a, b` leaves a tombstone on the definee: a call raises even
+    # where an ancestor defines the name. The definee is the one `alias`
+    # uses -- `self` where it is a class or a module, and the enclosing
+    # class otherwise. It goes through `send`, because `undef_method` is
+    # private on Module.
+    def lower_undef(node)
+      target = kind == :class_body ? self_operand : cref_value
+      names = node.names.map { |n| alias_name(n) }
+      discard(send_value(target, :send, [literal_symbol(:undef_method)] + names))
+      literal_nil
     end
 
     # The `alias` KEYWORD answers nil, where `alias_method` answers the
