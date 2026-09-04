@@ -69,6 +69,10 @@ module Ze0
       # the node each was written at, so a flushed unit names its line.
       @autoloads = {}
       @autoload_nodes = {}
+      # The lexical scopes a constant search walks where the declaration
+      # pass has reached, innermost first. `Object` is always last and is
+      # left out.
+      @cref = []
       @roots = roots
     end
 
@@ -296,6 +300,7 @@ module Ze0
     def rodata = @scopes.last.rodata
     def syms = @scopes.last.syms
     def owner = @scopes.last.owner
+    def cref = @scopes.last.cref
     def raise_block = @scopes.last.raise_block
     def done_block = @scopes.last.done_block
 
@@ -397,10 +402,8 @@ module Ze0
     # assigns the id; ze0 only ever names it, by the path it is written
     # at -- `Ze0::Lower`, which is what `Module#name` answers.
     def declare_class(node, owner, kind)
-      raise Unsupported.new(node, "a scoped class name") unless node.constant_path.is_a?(Prism::ConstantReadNode)
-
-      name = qualify(owner, node.name.to_s)
-      superclass = superclass_of(node, owner, kind)
+      name = declared_name(node)
+      superclass = superclass_of(node, kind)
       entry = @classes[name] || declare_fresh_class(node, name, kind, superclass)
       if entry[:kind] != kind
         raise Unsupported.new(node, "a #{entry[:kind]} reopened as a #{kind}")
@@ -418,11 +421,32 @@ module Ze0
       # enclosing body calls it, and the two are lowered in either order.
       base = "zeo_cb_#{Names.owner_fragment(name)}"
       at = entry[:bodies].size
+      # The body opens ONE cref frame, whatever the name's shape: a
+      # qualified `class A::B::C` searches `C` and then whatever encloses
+      # the statement, never `A::B`. Ruby's own rule, and the reason a
+      # cref cannot be recovered by splitting a name.
+      @cref.unshift(name)
       entry[:bodies] << {
-        node: node, body: body, file: @file,
+        node: node, body: body, file: @file, cref: @cref.dup,
         symbol: at.zero? ? base : "#{base}_#{at}",
       }
       declare(body, name)
+      @cref.shift
+    end
+
+    # The name a `class` or `module` statement declares: the path it
+    # names, resolved outward, or the bare name qualified by the class the
+    # statement is written in.
+    def declared_name(node)
+      path = node.constant_path
+      return qualify(@cref.first || Names::OBJECT, node.name.to_s) if path.is_a?(Prism::ConstantReadNode)
+
+      scope = path.parent && declared_class(@cref, path.parent)
+      unless scope
+        raise Unsupported.new(node, "a class named in a scope this program does not define")
+      end
+
+      "#{scope}::#{node.name}"
     end
 
     def declare_fresh_class(node, name, kind, superclass)
@@ -449,7 +473,7 @@ module Ze0
       owner == Names::OBJECT ? name : "#{owner}::#{name}"
     end
 
-    def superclass_of(node, owner, kind)
+    def superclass_of(node, kind)
       return Names::OBJECT if kind == "module" || node.superclass.nil?
 
       written = written_class_name(node.superclass)
@@ -459,7 +483,7 @@ module Ze0
       # backend resolves it against the builtin exceptions, whose ids it
       # owns, and refuses every other builtin -- `class Foo < String` is a
       # different native shape.
-      declared_class(owner, node.superclass) || written
+      declared_class(@cref, node.superclass) || written
     end
 
     # A superclass as it was WRITTEN, or nil for a shape that is not a
@@ -477,22 +501,24 @@ module Ze0
     # the class the `class` statement is written in, or nil when no row
     # matches. A path's own scope has to be declared too: `A::B` names a
     # row only when this program wrote both halves.
-    def declared_class(owner, node)
+    def declared_class(cref, node)
       case node
-      when Prism::ConstantReadNode then resolve_class(owner, node.name.to_s)
+      when Prism::ConstantReadNode then resolve_class(cref, node.name.to_s)
       when Prism::ConstantPathNode
-        up = node.parent && declared_class(owner, node.parent)
+        up = node.parent && declared_class(cref, node.parent)
         "#{up}::#{node.name}" if up && @classes.key?("#{up}::#{node.name}")
       end
     end
 
-    # A class name as written, resolved outward from `owner`: `Lower`
+    # A class name as written, resolved outward through `cref`: `Lower`
     # inside `Ze0` is `Ze0::Lower` before it is a top-level `Lower`.
-    def resolve_class(owner, name)
-      scopes = owner == Names::OBJECT ? [] : owner.split("::")
-      scopes.size.downto(0)
-            .map { |n| qualify(scopes.first(n).join("::").then { |o| o.empty? ? Names::OBJECT : o }, name) }
-            .find { |candidate| @classes.key?(candidate) }
+    #
+    # The cref is the LEXICAL nesting and not the name: a body written
+    # `class A::B::C` sees `C` and whatever encloses the statement, never
+    # `A::B`, so a name cannot be split back into the scopes it searches.
+    def resolve_class(cref, name)
+      (cref + [Names::OBJECT]).map { |scope| qualify(scope, name) }
+                              .find { |candidate| @classes.key?(candidate) }
     end
 
     # The instance variables a class declares, in slot order: the ones a
@@ -633,7 +659,7 @@ module Ze0
       params = parse_params(node.parameters)
       @defs[owner][key] = {
         params: params, node: node, block: params.takes_block?(uses_block?(node.body)),
-        owner: owner, singleton: singleton, file: @file,
+        owner: owner, singleton: singleton, file: @file, cref: @cref.dup,
       }
       @program.add_def(
         name: node.name,
@@ -683,12 +709,17 @@ module Ze0
     # The class a `def` was WRITTEN in, as a value. The runtime compares it
     # with the live `self` to see which definee the statement is running
     # under, and falls back to this when none is open.
-    def cref_value
+    def cref_value = class_value(owner)
+
+    # One class, as a value. The backend assigns the id, so this reads it
+    # out of `zeo_class_ids` rather than looking the constant up: the row
+    # exists whatever a constant table says.
+    def class_value(name)
       slot = f.slot
       at = addr_of(slot)
       store_nil(at)
       f.ins "store notrap aligned #{f.iconst("i8", Capi::TAG_CLASS)}, #{at}"
-      id = owner == Names::OBJECT ? f.iconst("i32", Capi::OBJECT_CLASS) : class_id(owner)
+      id = name == Names::OBJECT ? f.iconst("i32", Capi::OBJECT_CLASS) : class_id(name)
       f.ins "store notrap aligned #{id}, #{at}+8"
       Operand.new(slot, false, true)
     end
@@ -805,6 +836,7 @@ module Ze0
       function = Clif::Function.new(body_sym, ["i64"] * arity, "i32")
       in_scope(function, :body) do
         scope.owner = owner
+        scope.cref = definition[:cref]
         scope.caller_class = caller_class_of(owner, singleton)
         scope.definition = definition
         scope.self_operand = Operand.new(f.args[0], false, false)
@@ -1072,6 +1104,7 @@ module Ze0
       function = Clif::Function.new(symbol, ["i64", "i64"], "i32")
       in_scope(function, :class_body) do
         scope.owner = entry[:name]
+        scope.cref = written[:cref]
         scope.caller_class = caller_class_of(entry[:name], true)
         scope.self_operand = Operand.new(f.args[0], false, false)
         scope.out = f.args[1]
@@ -1093,14 +1126,16 @@ module Ze0
     # `class Foo ... end` in statement position: the class is already
     # registered, so this reads it and runs its body.
     def lower_class_statement(node)
-      name = qualify(owner, node.name.to_s)
-      entry = @classes.fetch(name) { raise Unsupported.new(node, "a class nested inside another statement") }
+      # The body found the statement, so the declaration pass named it:
+      # the row it filed the node under is the answer, name and all.
+      entry = @classes.values.find { |c| c[:bodies].any? { |b| b[:node].equal?(node) } }
+      raise Unsupported.new(node, "a class nested inside another statement") if entry.nil?
       # Each `class Foo ... end` runs ITS body, so a reopen adds to the
       # class where the statement stands rather than all at once.
       written = entry[:bodies].find { |b| b[:node].equal?(node) }
       raise Unsupported.new(node, "a class nested inside another statement") if written.nil?
 
-      klass = constant_named(node.name.to_s)
+      klass = class_value(entry[:name])
       result = f.slot
       body = f.callee(written[:symbol], ["i64", "i64"], "i32")
       status_check(f.val("call #{body}(#{borrow(klass)}, #{addr_of(result)})"))
@@ -1297,7 +1332,7 @@ module Ze0
       symbol = "zeo_blk_#{@blocks}"
       @blocks += 1
       function = Clif::Function.new(symbol, ["i64"] * 6, "i32")
-      base, depth, own_owner = scope.frame_base, scope.block_depth, owner
+      base, depth, own_owner, own_cref = scope.frame_base, scope.block_depth, owner, cref
       # A block's `self` is the enclosing scope's, so its barrier is too.
       # A body the runtime installs has neither.
       enclosing = [scope.caller_class, scope.dynamic_caller]
@@ -1307,6 +1342,7 @@ module Ze0
       captures = method ? [] : block_captures(node, names)
       in_scope(function, method ? :body : :block) do
         scope.owner = own_owner
+        scope.cref = own_cref
         # A body the runtime installs knows its own parameters, which a
         # bare `super` forwards, but not the class it will land on -- so
         # the `super` target comes off the frame stack instead.
@@ -1914,7 +1950,7 @@ module Ze0
     # compiled class has one ze0 can name.
     def constant_path_write(node)
       scope = node.target.parent
-      unless scope.is_a?(Prism::ConstantReadNode) && (found = resolve_class(owner, scope.name.to_s))
+      unless scope.is_a?(Prism::ConstantReadNode) && (found = resolve_class(cref, scope.name.to_s))
         raise Unsupported.new(node, "a constant assigned into a scope this program does not define")
       end
 
@@ -2006,7 +2042,7 @@ module Ze0
     # `zeo_rt_const_private` takes the owner's ID.
     def static_scope(node)
       case node
-      when Prism::ConstantReadNode then resolve_class(owner, node.name.to_s)
+      when Prism::ConstantReadNode then resolve_class(cref, node.name.to_s)
       when Prism::ConstantPathNode then node.parent && qualify_path(node)
       end
     end
@@ -2057,12 +2093,7 @@ module Ze0
       cref_path.map { |name| class_id(name) } + [f.iconst("i32", Capi::OBJECT_CLASS)]
     end
 
-    def cref_path
-      return [] if owner == Names::OBJECT
-
-      parts = owner.split("::")
-      parts.size.downto(1).map { |n| parts.first(n).join("::") }
-    end
+    def cref_path = cref
 
     # A class's id, read out of `zeo_class_ids`. Ids are assigned when the
     # program is linked, so this is the one place ze0 learns one -- the

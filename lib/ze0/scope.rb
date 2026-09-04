@@ -75,6 +75,11 @@ module Ze0
     # The class or module whose body this is, or whose method: which
     # table a bare call resolves against.
     attr_accessor :owner
+    # The lexical scopes a bare constant searches, innermost first, with
+    # `Object` left off the end. Not the owner's name split on `::`: a
+    # body written `class A::B::C` searches `C` and then whatever
+    # encloses the statement, never `A::B`.
+    attr_accessor :cref
     # The shared exits: a raise, a normal finish, and the single block that
     # releases the locals and answers `status`.
     attr_accessor :raise_block, :done_block, :exit_block, :status
@@ -111,6 +116,7 @@ module Ze0
       @owner = Names::OBJECT
       # A scope that never asks is `main`, an ordinary Object.
       @caller_class = Names::OBJECT
+      @cref = []
     end
 
     # `file`'s own table of top-level names, opened on first ask.
