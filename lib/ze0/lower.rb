@@ -957,9 +957,14 @@ module Ze0
       at = addr_of(slot)
       store_nil(at)
       f.ins "store notrap aligned #{f.iconst("i8", Capi::TAG_CLASS)}, #{at}"
-      id = name == Names::OBJECT ? f.iconst("i32", Capi::OBJECT_CLASS) : class_id(name)
-      f.ins "store notrap aligned #{id}, #{at}+8"
+      f.ins "store notrap aligned #{class_id_of(name)}, #{at}+8"
       Operand.new(slot, false, true)
+    end
+
+    # A class's id as an i32. `Object` is the one name with no row of its
+    # own: every program has it, so the ABI fixes its id.
+    def class_id_of(name)
+      name == Names::OBJECT ? f.iconst("i32", Capi::OBJECT_CLASS) : class_id(name)
     end
 
     def body_symbol_of(owner, name, singleton)
@@ -1296,12 +1301,13 @@ module Ze0
     # `&b`: not a slot, but the block channel itself, which is nil when
     # the caller passed none. The body already owns the moved-in block, so
     # the local takes a reference of its own.
-    def bind_block_parameter(name)
+    def bind_block_parameter(name, from = nil)
+      from ||= scope.blk
       local = locals.fetch(name)
       given, join = f.label, f.label
-      f.ins "brif #{f.val("icmp ne #{scope.blk}, #{f.iconst("i64", 0)}")}, #{given}, #{join}"
+      f.ins "brif #{f.val("icmp ne #{from}, #{f.iconst("i64", 0)}")}, #{given}, #{join}"
       f.switch(given)
-      initialize_local(local, scope.blk)
+      initialize_local(local, from)
       f.ins "jump #{join}"
       f.switch(join)
     end
@@ -1743,12 +1749,9 @@ module Ze0
         prologue
         # A method body keeps the call-site block, because a bare `yield`
         # in it means the block the installed method was called with. A
-        # block body can never reach one, so it releases it here.
-        if method
-          scope.blk = blk
-        else
-          release_block_argument(blk)
-        end
+        # block body can never reach one that way, so it lets go of the
+        # reference below, once a `&b` parameter has had its own.
+        scope.blk = blk if method
         captures.each_with_index { |n, i| declare_captured(n, env, i) }
         own = (names + [params.block].compact + node.locals).uniq
         boxed = captured_names(body_statements(node.body), own, names)
@@ -1756,6 +1759,11 @@ module Ze0
         push_home if scope.catches_return
         bind_block_params(params, names, argv, argc, node, auto_splat, lambda_shape)
         unpack_destructures(params)
+        # `&b` is the block channel itself, not a slot. A method the
+        # runtime installs is handed the caller's; a plain block is
+        # handed whatever `Proc#call` was given.
+        bind_block_parameter(params.block, blk) if params.block
+        release_block_argument(blk) unless method
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
         scope.redo_block = f.label
         f.ins "jump #{scope.redo_block}"
@@ -2025,6 +2033,9 @@ module Ze0
       when Prism::DefinedNode then lower_defined(node)
       when Prism::DefNode then declared_def(node)
       when Prism::SelfNode then Operand.new(self_operand.at, false, self_operand.immediate)
+      # `{ x: }` and `f(a:)` write the value as the name alone, and prism
+      # keeps the node it stands for inside.
+      when Prism::ImplicitNode then lower_expr(node.value)
       when Prism::CallNode then lower_call(node)
       when Prism::IfNode, Prism::UnlessNode then lower_conditional(node)
       when Prism::WhileNode then lower_while(node.predicate, node.statements, false)
@@ -3868,6 +3879,7 @@ module Ze0
       when Prism::BackReferenceReadNode then defined_match(back_reference(inner))
       when Prism::ConstantReadNode, Prism::ConstantPathNode then defined_constant(inner)
       when Prism::CallNode then defined_call(inner)
+      when Prism::SuperNode, Prism::ForwardingSuperNode then defined_super(inner)
       when Prism::YieldNode
         yield_block.nil? ? literal_nil : defined_if(block_present, "yield")
       else raise Unsupported.new(inner, "a `defined?` of that form")
@@ -3898,14 +3910,14 @@ module Ze0
     # too, which is the difference from `defined?(self.name)`.
     def defined_call(node)
       raise Unsupported.new(node, "a `defined?` of a call with a block") if node.block
-      # `defined?(f(a))` is "method" only when the call resolves AND each
-      # argument is itself defined. An argument whose answer is settled
-      # here costs nothing; anything else is refused rather than guessed.
-      (node.arguments&.arguments || []).each do |a|
-        raise Unsupported.new(a, "a `defined?` argument of that shape") unless DEFINED_ALWAYS.include?(a.class)
-      end
 
       hit = flag_slot
+      ok = defined_arguments(node)
+      ask, join = f.label, f.label
+      if ok
+        f.ins "brif #{ok}, #{ask}, #{join}"
+        f.switch(ask)
+      end
       swallowed do
         recv = node.receiver ? lower_expr(node.receiver) : self_operand
         all = f.iconst("i8", node.receiver ? 0 : 1)
@@ -3913,7 +3925,56 @@ module Ze0
               "#{all}, #{addr_of(hit)})"
         nil
       end
+      if ok
+        f.ins "jump #{join}" unless f.terminated?
+        f.switch(join)
+      end
       defined_if(flag_of(hit), "method")
+    end
+
+    # `defined?(f(a))` is "method" only when the call resolves AND each
+    # argument is itself defined, so `defined?(puts(Missing))` is nil.
+    # nil here means the call was written with no arguments to ask about.
+    def defined_arguments(node)
+      args = node.arguments&.arguments || []
+      return nil if args.empty?
+
+      ok = flag_slot
+      join = f.label
+      args.each do |a|
+        raise Unsupported.new(a, "a `defined?` argument of that shape") if DEFINED_SPREAD.any? { |k| a.is_a?(k) }
+
+        present = f.val("icmp ne #{tag_of(borrow(defined_answer(a)))}, #{f.iconst("i8", Capi::TAG_NIL)}")
+        nxt = f.label
+        f.ins "brif #{present}, #{nxt}, #{join}"
+        f.switch(nxt)
+      end
+      set_flag(ok)
+      f.ins "jump #{join}"
+      f.switch(join)
+      flag_of(ok)
+    end
+
+    # An argument shape `defined?` has no single answer for.
+    DEFINED_SPREAD = [
+      Prism::SplatNode, Prism::KeywordHashNode, Prism::BlockArgumentNode,
+      Prism::ForwardingArgumentsNode,
+    ].freeze
+
+    # `defined?(super)` asks whether the walk above this method finds one.
+    # Outside a method there is nothing to ask about.
+    def defined_super(node)
+      definition = enclosing_definition
+      return literal_nil if definition.nil?
+
+      slf = borrow(self_operand)
+      hit = if definition[:runtime]
+              f.val("call #{f.import("zeo_rt_super_defined_dynamic")}(#{slf})")
+            else
+              f.val("call #{f.import("zeo_rt_super_defined")}(#{slf}, #{class_id_of(owner)}, " \
+                    "#{sym_id(definition[:node].name)})")
+            end
+      defined_if(hit, "super")
     end
 
     # `answer` when `hit` is set, nil when it is not. The String is built
