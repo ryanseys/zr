@@ -4,6 +4,10 @@ module Ze0
   # One program's output: its functions, and the tables the sidecar
   # describes -- the read-only bytes the code indexes, the interned
   # symbols, the inline-cache count and the top-level `def`s.
+  # The `@all` spelling of `Sidecar::features`: every gated feature this
+  # build carries, which only the backend can name.
+  ALL_FEATURES = "@all"
+
   class Program
     # The methods ruby makes private wherever they are defined.
     ALWAYS_PRIVATE = %w[
@@ -25,10 +29,34 @@ module Ze0
       @classes = []
       @functions = []
       @features = []
+      @units = []
+      @eval_install = false
     end
 
     # A require-gated builtin feature this program loads. The backend
     # registers the classes it gates, concealed until the `require` runs.
+    # This program can reach a `load` or a require whose name only the
+    # run time builds, so it carries the compiler that reads a file the
+    # compile never saw.
+    def eval_install! = @eval_install = true
+
+    # A `require` whose feature string only the run time builds: it may
+    # name any gated builtin, and one no `require` names literally
+    # registers no class at all, so the constant would stay a NameError
+    # after a require that worked. `@all` asks the backend for every
+    # gated feature this build carries, each still CONCEALED.
+    def require_any_feature!
+      @features << ALL_FEATURES unless @features.include?(ALL_FEATURES)
+    end
+
+    # One spelling a `require` may use, and the function that runs the
+    # file it names. A file answers to several spellings -- the name as
+    # written and the absolute path `require_relative` expands to -- so
+    # each is its own row over the one symbol.
+    def add_unit(feature, symbol)
+      @units << { "feature" => feature, "symbol" => symbol } unless @units.any? { |u| u["feature"] == feature }
+    end
+
     def add_feature(name)
       @features << name unless @features.include?(name)
     end
@@ -153,6 +181,8 @@ module Ze0
         # A dynamic send can reach any class, and ze0 has no reachability
         # analysis to say which; every table this build carries stays.
         "features" => @features,
+        "units" => @units,
+        "eval_install" => @eval_install,
         "class_tables" => ["@all"],
         "reg" => ["@boot"],
       ) + "\n"

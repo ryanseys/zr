@@ -11,7 +11,7 @@ $LOAD_PATH.unshift File.expand_path("ze0/lib", Dir.pwd)
 require "ze0"
 
 files = ARGV.flat_map { |glob| Dir[glob] }.sort
-handled = File.read("ze0/lib/ze0/lower.rb").scan(/Prism::(\w+Node)/).flatten.uniq
+handled = Dir["ze0/lib/ze0/*.rb"].flat_map { |f| File.read(f).scan(/Prism::(\w+Node)/) }.flatten.uniq
 
 refusals = Hash.new { |h, k| h[k] = [] }
 nodes = Hash.new { |h, k| h[k] = [] }

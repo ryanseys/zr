@@ -77,16 +77,29 @@ module Ze0
       # left out.
       @cref = []
       @roots = roots
+      # The files a `require` the splice cannot consume names, each
+      # compiled as its own function, and the spellings that reach it.
+      @deferred = {}
+      # The require CALLS the splice did not consume, which stay where
+      # they are and ask the run time.
+      @deferred_call = {}
+      @units = 0
     end
 
     def lower(root)
+      @root = root
       units = []
       # The main file is NOT seeded into the loading table: ruby has no
       # entry for it either, so a `require_relative` that names it back
       # loads it a second time.
       @unit_locals[@program.file] = root.locals
-      splice(body_statements(root.statements), @program.file, {}, units)
+      seen = {}
+      splice(body_statements(root.statements), @program.file, seen, units)
+      deferred = read_deferred(seen)
       units.each { |file, statements| with_file(file) { declare(statements, Names::OBJECT) } }
+      deferred.each_value do |unit|
+        unit[:runs].each { |file, statements| with_file(file) { declare(statements, Names::OBJECT) } }
+      end
       @defs.each_value do |by_key|
         by_key.each_value { |d| with_file(d[:file]) { lower_def(d) } }
       end
@@ -94,6 +107,7 @@ module Ze0
         c[:bodies].each { |written| with_file(written[:file]) { lower_class_body(c, written) } }
       end
       lower_toplevel(units)
+      deferred.each_value { |unit| lower_top_scope(unit[:symbol], unit[:runs]) }
     end
 
     private
@@ -141,6 +155,7 @@ module Ze0
         reached_autoloads(s).each { |path| splice_in.call(s, path) }
         target = required_file(s, file)
         if target.nil?
+          note_deferred(s, file)
           run << s
           next
         end
@@ -208,6 +223,106 @@ module Ze0
       with_file(path) { splice(statements, path, seen, units) }
     end
 
+    # The verbs that bring another file's statements into the program.
+    LOAD_CALLS = %i[require require_relative load].freeze
+
+    # `load` runs the file EVERY time and consults no loaded-feature
+    # table, so a unit -- which runs once -- can never answer one. It
+    # reads the file at run time, which is what the compiler this asks
+    # for is there to do.
+    RELOADS = %i[load].freeze
+
+    # A `require` the splice cannot consume: one an `if` guards, one
+    # inside a method or a block, one whose name is computed. The call
+    # stays where it is, and the file it names becomes a UNIT the
+    # run-time require runs -- which is ruby's own order, since whether
+    # the call runs at all is a run-time fact.
+    def note_deferred(node, file)
+      requires_under(node).each do |call|
+        # The splice has already judged the STATEMENT itself. A literal
+        # one it left behind names a feature the runtime holds, and
+        # `lower_require` opens that gate where it stands.
+        next if call.equal?(node) && literal_feature?(call)
+
+        @deferred_call[call.object_id] = true
+        next @program.eval_install! if RELOADS.include?(call.name)
+
+        path = literal_target(call, file)
+        # A name only the run time builds names no file here: the call
+        # asks the run time, which answers from the units this program
+        # carries and reads the file itself otherwise. A plain `require`
+        # may also name any gated builtin, so every one is registered.
+        if path.nil?
+          @program.eval_install!
+          @program.require_any_feature! if call.name == :require
+          next
+        end
+
+        note_unit(path, unit_spellings(call, path))
+      end
+    end
+
+    def note_unit(path, spellings)
+      entry = (@deferred[path] ||= { spellings: [] })
+      entry[:spellings] |= spellings
+    end
+
+    # Every `require`, `require_relative` and `load` written under
+    # `node`. The splice takes only a top-level statement, so whatever
+    # this finds is one the splice left behind.
+    def requires_under(node, found = [])
+      found << node if node.is_a?(Prism::CallNode) && node.receiver.nil? && LOAD_CALLS.include?(node.name)
+      node.compact_child_nodes.each { |child| requires_under(child, found) }
+      found
+    end
+
+    # Whether the call names its file with a plain string literal.
+    def literal_feature?(node)
+      args = node.arguments&.arguments || []
+      args.size == 1 && args[0].is_a?(Prism::StringNode) && node.block.nil?
+    end
+
+    # The file one call names, or nil where only the run time can say.
+    def literal_target(node, file)
+      return nil unless literal_feature?(node)
+
+      feature = node.arguments.arguments[0].unescaped
+      return with_rb(File.expand_path(feature, File.dirname(file))) unless node.name == :require
+
+      @roots.filter_map { |root| with_rb(File.expand_path(feature, root)) }.first
+    end
+
+    # The spellings a run-time require may use for this file. The runtime
+    # strips a `.rb` suffix, so neither spelling carries one: the
+    # absolute path is what `require_relative` expands to, and the
+    # feature as written is what a load-path `require` asks for.
+    def unit_spellings(node, path)
+      spellings = [path.delete_suffix(".rb")]
+      spellings << canonical_feature(node.arguments.arguments[0].unescaped) if node.name == :require
+      spellings
+    end
+
+    # Each deferred file as its own run of statements, read once. A file
+    # the splice already took is refused rather than compiled twice: one
+    # file, one mechanism.
+    def read_deferred(seen)
+      done = {}
+      until (path = (@deferred.keys - done.keys).first).nil?
+        entry = @deferred.fetch(path)
+        raise Unsupported.new(@root, "a `require` of a file the splice already took") if seen.key?(path)
+
+        seen[path] = true
+        runs = []
+        statements = spliced_statements(@root, path)
+        with_file(path) { splice(statements, path, seen, runs) }
+        symbol = "zeo_unit_#{@units}"
+        @units += 1
+        entry[:spellings].each { |spelling| @program.add_unit(spelling, symbol) }
+        done[path] = entry.merge(symbol: symbol, runs: runs)
+      end
+      done
+    end
+
     # The absolute path a `require_relative` names, or nil for any other
     # statement. Resolved against the requiring FILE's directory, never
     # the working directory, and `.rb` is appended AFTER the path is made
@@ -216,12 +331,12 @@ module Ze0
       return nil unless node.is_a?(Prism::CallNode) && node.receiver.nil?
       return nil unless node.name == :require_relative || node.name == :require
 
-      args = node.arguments&.arguments || []
-      unless args.size == 1 && args[0].is_a?(Prism::StringNode) && node.block.nil?
-        raise Unsupported.new(node, "a `#{node.name}` of that shape")
-      end
+      # A name only the run time can build names no file here: the call
+      # stays where it is and resolves against the units this program
+      # carries.
+      return nil unless literal_feature?(node)
 
-      feature = args[0].unescaped
+      feature = node.arguments.arguments[0].unescaped
       if node.name == :require_relative
         path = with_rb(File.expand_path(feature, File.dirname(file)))
         raise Unsupported.new(node, "`require_relative \"#{feature}\"`, which names no file") if path.nil?
@@ -1301,7 +1416,12 @@ module Ze0
     # Every unit's statements, in load order, as one function. A unit is a
     # run of statements from one file, so the same file comes back once
     # per `require_relative` written between its own statements.
-    def lower_toplevel(units)
+    def lower_toplevel(units) = lower_top_scope(Names::TOPLEVEL, units)
+
+    # A top-level scope as one function: `<main>`, or one deferred file
+    # the run-time require runs. Both have their own file-isolated
+    # locals and their own frame; only the name differs.
+    def lower_top_scope(symbol, units)
       # A `def` with a ROW is installed before the program runs, so where
       # the statement stands it lowers to nothing. One WITHOUT a row --
       # `def obj.name`, whose object no compile can know -- is an ordinary
@@ -1309,7 +1429,7 @@ module Ze0
       units = units.map do |file, run|
         [file, run.reject { |s| s.is_a?(Prism::DefNode) && @declared_defs[s.object_id] }]
       end
-      function = Clif::Function.new(Names::TOPLEVEL, ["i64"], "i32")
+      function = Clif::Function.new(symbol, ["i64"], "i32")
       in_scope(function, :toplevel) do
         scope.out = f.args[0]
         prologue
@@ -1329,7 +1449,7 @@ module Ze0
         f.ins "jump #{done_block}"
         epilogue
       end
-      @program.add_function(Names::TOPLEVEL, function)
+      @program.add_function(symbol, function)
     end
 
     # One file's top-level names, in their own table of slots. They are
@@ -2775,12 +2895,7 @@ module Ze0
     # exist. The answer is folded here, as ruby's is: true the first time
     # the feature is named, false after.
     def lower_require(node)
-      args = node.arguments&.arguments || []
-      unless args.size == 1 && args[0].is_a?(Prism::StringNode) && node.block.nil?
-        raise Unsupported.new(node, "a `require` of that shape")
-      end
-
-      require_feature(args[0].unescaped)
+      require_feature(node.arguments.arguments[0].unescaped)
     end
 
     # One feature's gate, opened where the statement stands. The answer is
@@ -2816,11 +2931,6 @@ module Ze0
       Operand.new(slot, false, false)
     end
 
-    # The verbs that bring another file's statements into the program.
-    # ze0 compiles one file, so this would run as an ordinary send and
-    # then fail.
-    LOAD_VERBS = %i[load].freeze
-
     # The verbs that run a STRING of ruby. zeo links the eval compiler
     # only into a program it can see reach `eval`, and a sidecar has no
     # way to ask for it, so the block form is the whole of what ze0
@@ -2837,9 +2947,6 @@ module Ze0
         macro = lower_class_macro(node)
         return macro if macro
       end
-      if node.receiver.nil? && LOAD_VERBS.include?(node.name)
-        raise Unsupported.new(node, "`#{node.name}`")
-      end
       # The splice consumed the file this names, so the declaration is
       # nothing but its own nil. A feature no load path carries is the
       # runtime's own, and this is where its gate opens.
@@ -2847,12 +2954,12 @@ module Ze0
         discard(require_feature(autoload_feature(node))) unless autoload_target(node)
         return literal_nil
       end
-      return lower_require(node) if node.receiver.nil? && node.name == :require
-      # The splice consumes every `require_relative` written as a
-      # top-level statement. One written anywhere else would have to load
-      # at run time, which a compiled program cannot do.
-      if node.receiver.nil? && node.name == :require_relative
-        raise Unsupported.new(node, "a `require_relative` that is not a top-level statement")
+      # The splice consumes a `require` written as a top-level statement
+      # and folds it to its own answer. Every other one -- guarded,
+      # nested, or computed -- stays an ordinary send, and the run time
+      # answers it from the units this program carries.
+      if node.receiver.nil? && node.name == :require && !@deferred_call[node.object_id] && literal_feature?(node)
+        return lower_require(node)
       end
       return safe_call(node) if safe_navigation?(node)
 
