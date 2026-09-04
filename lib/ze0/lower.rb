@@ -1454,6 +1454,7 @@ module Ze0
       when Prism::LambdaNode then lower_lambda(node)
       when Prism::ClassNode, Prism::ModuleNode then lower_class_statement(node)
       when Prism::SingletonClassNode then lower_singleton_class(node)
+      when Prism::DefinedNode then lower_defined(node)
       when Prism::DefNode then declared_def(node)
       when Prism::SelfNode then Operand.new(self_operand.at, false, self_operand.immediate)
       when Prism::CallNode then lower_call(node)
@@ -2749,6 +2750,161 @@ module Ze0
         "call #{f.import("zeo_rt_yield")}(#{blk}, #{argv}, #{f.iconst("i64", args.size)}, #{addr_of(slot)})",
       ))
       Operand.new(slot, true, false)
+    end
+
+    # ---- defined? ----
+    #
+    # `defined?(expr)` answers ruby's prose for what the expression IS, or
+    # nil when it is not there. What is inside never runs for its value: a
+    # method is asked about rather than called. The parts that ARE
+    # evaluated -- a call's receiver, a constant's scope -- run under a
+    # landing that swallows a raise and answers nil, which is what makes
+    # `defined?(missing.thing)` safe to write.
+
+    # The forms whose answer is settled without running anything.
+    DEFINED_STATIC = {
+      Prism::SelfNode => "self",
+      Prism::NilNode => "nil",
+      Prism::TrueNode => "true",
+      Prism::FalseNode => "false",
+      Prism::LocalVariableReadNode => "local-variable",
+    }.freeze
+
+    # Every literal and every control-flow form is an "expression"; ruby
+    # asks nothing further about what is inside one.
+    DEFINED_EXPRESSION = [
+      Prism::IntegerNode, Prism::FloatNode, Prism::SymbolNode, Prism::StringNode,
+      Prism::InterpolatedStringNode, Prism::InterpolatedSymbolNode, Prism::ArrayNode,
+      Prism::HashNode, Prism::RangeNode, Prism::RegularExpressionNode, Prism::LambdaNode,
+      Prism::AndNode, Prism::OrNode, Prism::DefinedNode, Prism::IfNode, Prism::UnlessNode,
+      Prism::CaseNode, Prism::BeginNode, Prism::WhileNode, Prism::UntilNode,
+      Prism::DefNode, Prism::ClassNode, Prism::ModuleNode,
+    ].freeze
+
+    def lower_defined(node) = defined_answer(node.value)
+
+    def defined_answer(inner)
+      answer = DEFINED_STATIC[inner.class]
+      answer ||= "expression" if DEFINED_EXPRESSION.include?(inner.class)
+      # A write is an "assignment" whatever it writes to, and it does not
+      # run. Prism names every one of them `...WriteNode`.
+      answer ||= "assignment" if inner.class.name.end_with?("WriteNode")
+      return literal_string(answer) if answer
+
+      case inner
+      when Prism::InstanceVariableReadNode
+        hit = flag_slot
+        ptr, len = rodata_ref(ivar_key(inner.name))
+        status_check(f.val(
+          "call #{f.import("zeo_rt_defined_ivar")}(#{borrow(self_operand)}, #{ptr}, #{len}, #{addr_of(hit)})",
+        ))
+        defined_if(flag_of(hit), "instance-variable")
+      when Prism::GlobalVariableReadNode
+        ptr, len = rodata_ref(inner.name.to_s)
+        defined_if(f.val(
+          "call #{f.import("zeo_rt_defined_gvar")}(#{f.iconst("i32", Capi::MAIN_BOX)}, #{ptr}, #{len})",
+        ), "global-variable")
+      when Prism::ConstantReadNode, Prism::ConstantPathNode then defined_constant(inner)
+      when Prism::CallNode then defined_call(inner)
+      when Prism::YieldNode
+        yield_block.nil? ? literal_nil : defined_if(block_present, "yield")
+      else raise Unsupported.new(inner, "a `defined?` of that form")
+      end
+    end
+
+    # The forms nothing can leave undefined, so a call taking one as an
+    # argument answers on the method alone.
+    DEFINED_ALWAYS = (DEFINED_STATIC.keys + [
+      Prism::IntegerNode, Prism::FloatNode, Prism::SymbolNode, Prism::StringNode,
+    ]).freeze
+
+    # The cref walk is the only thing that knows where a bare constant
+    # lives, so the read runs and a miss arrives as a swallowed raise.
+    def defined_constant(node)
+      hit = flag_slot
+      swallowed do
+        value = lower_expr(node)
+        set_flag(hit)
+        value
+      end
+      defined_if(flag_of(hit), "constant")
+    end
+
+    # `defined?(recv.name)` asks whether the method is there rather than
+    # calling it. The receiver IS evaluated, under the swallowing landing.
+    # A call with no receiver asks `self` and sees its private methods
+    # too, which is the difference from `defined?(self.name)`.
+    def defined_call(node)
+      raise Unsupported.new(node, "a `defined?` of a call with a block") if node.block
+      # `defined?(f(a))` is "method" only when the call resolves AND each
+      # argument is itself defined. An argument whose answer is settled
+      # here costs nothing; anything else is refused rather than guessed.
+      (node.arguments&.arguments || []).each do |a|
+        raise Unsupported.new(a, "a `defined?` argument of that shape") unless DEFINED_ALWAYS.include?(a.class)
+      end
+
+      hit = flag_slot
+      swallowed do
+        recv = node.receiver ? lower_expr(node.receiver) : self_operand
+        all = f.iconst("i8", node.receiver ? 0 : 1)
+        f.ins "call #{f.import("zeo_rt_defined_method")}(#{borrow(recv)}, #{sym_id(node.name)}, " \
+              "#{all}, #{addr_of(hit)})"
+        nil
+      end
+      defined_if(flag_of(hit), "method")
+    end
+
+    # `answer` when `hit` is set, nil when it is not. The String is built
+    # only on the branch that answers it.
+    def defined_if(hit, answer)
+      slot = f.slot
+      store_nil(addr_of(slot))
+      taken, join = f.label, f.label
+      f.ins "brif #{hit}, #{taken}, #{join}"
+      f.switch(taken)
+      move(literal_string(answer), addr_of(slot))
+      f.ins "jump #{join}"
+      f.switch(join)
+      Operand.new(slot, true, false)
+    end
+
+    # A one-byte answer slot, false until something sets it.
+    def flag_slot
+      slot = f.slot(1)
+      f.ins "store notrap aligned #{f.iconst("i8", 0)}, #{addr_of(slot)}"
+      slot
+    end
+
+    def set_flag(slot)
+      f.ins "store notrap aligned #{f.iconst("i8", 1)}, #{addr_of(slot)}"
+    end
+
+    def flag_of(slot) = f.val("load.i8 notrap aligned #{addr_of(slot)}")
+
+    # Whether this scope was handed a block.
+    def block_present
+      f.val("icmp ne #{yield_block}, #{f.iconst("i64", 0)}")
+    end
+
+    # Run the block under a landing that eats a raise, so a part of the
+    # expression that blows up leaves `defined?` answering nil rather than
+    # unwinding out of it.
+    def swallowed
+      outer = scope.raise_block
+      landing, join = f.label, f.label
+      scope.raise_block = landing
+      value = yield
+      scope.raise_block = outer
+      discard(value) if value
+      f.ins "jump #{join}" unless f.terminated?
+      f.switch(landing)
+      # The payload is taken so the pool releases it and nothing
+      # downstream sees a raise still armed.
+      taken = f.slot
+      f.val("call #{f.import("zeo_rt_signal_take")}(#{addr_of(taken)})")
+      borrow(Operand.new(taken, true, false))
+      f.ins "jump #{join}"
+      f.switch(join)
     end
 
     # `begin ... end`. Without a clause it is a bare grouping and the
