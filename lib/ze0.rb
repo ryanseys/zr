@@ -22,8 +22,16 @@ module Ze0
       raise SyntaxError, "#{file}:#{e.location.start_line}: #{e.message}"
     end
 
-    program = Program.new(file)
+    program = Program.new(file, frozen_string_literal: frozen_string_literal?(result))
     Lower.new(program).lower(result.value)
     [program.clif, program.zeodata]
+  end
+
+  # The `# frozen_string_literal:` magic comment, which makes every
+  # non-interpolated String literal in the file one frozen object. The
+  # LAST spelling wins, as it does in ruby.
+  def self.frozen_string_literal?(result)
+    comment = result.magic_comments.reverse.find { |c| c.key == "frozen_string_literal" }
+    comment&.value == "true"
   end
 end

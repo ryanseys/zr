@@ -38,8 +38,9 @@ module Ze0
 
     def initialize(program)
       @program = program
-      # Methods by owner, so a class's `bar` and the top level's do not
-      # collide, and `@classes` in declaration order.
+      # Methods by owner and then by `[name, singleton]`, so a class's
+      # `bar` and the top level's do not collide, and neither do `def x`
+      # and `def self.x`. `@classes` is in declaration order.
       @defs = { Names::OBJECT => {} }
       @classes = {}
       @scopes = []
@@ -47,9 +48,9 @@ module Ze0
     end
 
     def lower(root)
-      statements = root.statements&.body || []
+      statements = body_statements(root.statements)
       declare(statements, Names::OBJECT)
-      @defs.each_value { |by_name| by_name.each_value { |d| lower_def(d) } }
+      @defs.each_value { |by_key| by_key.each_value { |d| lower_def(d) } }
       @classes.each_value { |c| lower_class_body(c) }
       lower_toplevel(statements.reject { |s| s.is_a?(Prism::DefNode) }, root.locals)
     end
@@ -100,7 +101,7 @@ module Ze0
       raise Unsupported.new(node, "a class named twice") if @classes.key?(name)
 
       superclass = superclass_of(node, owner, kind)
-      body = node.body&.body || []
+      body = body_statements(node.body)
       # The body's symbol is settled here, not when it is lowered: an
       # enclosing body calls it, and the two are lowered in either order.
       @classes[name] = {
@@ -215,10 +216,11 @@ module Ze0
       singleton = node.receiver.is_a?(Prism::SelfNode)
       raise Unsupported.new(node, "a def with a receiver") if node.receiver && !singleton
       raise Unsupported.new(node, "a def on self at the top level") if singleton && owner == Names::OBJECT
-      raise Unsupported.new(node, "a def named twice") if @defs.fetch(owner).key?(node.name)
+      key = [node.name, singleton]
+      raise Unsupported.new(node, "a def named twice") if @defs.fetch(owner).key?(key)
 
       params = parse_params(node.parameters)
-      @defs[owner][node.name] = {
+      @defs[owner][key] = {
         params: params, node: node, block: params.takes_block?(uses_block?(node.body)),
         owner: owner, singleton: singleton,
       }
@@ -230,6 +232,19 @@ module Ze0
         owner: owner == Names::OBJECT ? "" : owner,
         singleton: singleton,
       )
+    end
+
+    # A `def` in statement position answers its own name, and the
+    # declaration pass has already emitted it. The pass walks only the
+    # statements of a program, class or module body, so a `def` written
+    # anywhere else -- inside a block, an `if`, a loop or another `def` --
+    # would be DEFINED by ruby and dropped here.
+    def declared_def(node)
+      singleton = node.receiver.is_a?(Prism::SelfNode)
+      found = @defs.fetch(owner, {})[[node.name, singleton]]
+      raise Unsupported.new(node, "a def nested inside another statement") unless found&.fetch(:node).equal?(node)
+
+      literal_symbol(node.name)
     end
 
     def body_symbol_of(owner, name, singleton)
@@ -299,8 +314,7 @@ module Ze0
     def visible_def(name)
       return nil unless @classes.empty?
 
-      found = @defs[Names::OBJECT][name]
-      found unless found.nil? || found[:singleton]
+      @defs[Names::OBJECT][[name, false]]
     end
 
     # ---- functions ----
@@ -329,7 +343,7 @@ module Ze0
         scope.out = f.args.last
         prologue
         own = names + (node.locals - names)
-        boxed = captured_names(node.body&.body || [], own)
+        boxed = captured_names(body_statements(node.body), own)
         own.each { |n| declare_local(n, boxed: boxed.include?(n)) }
         status = f.val("call #{f.import("zeo_rt_stack_check")}()")
         overflow, cont = f.label, f.label
@@ -617,7 +631,7 @@ module Ze0
         release_block_argument(blk)
         captures.each_with_index { |n, i| declare_captured(n, env, i) }
         own = names + (node.locals - names)
-        boxed = captured_names(node.body&.body || [], own)
+        boxed = captured_names(body_statements(node.body), own)
         own.each { |n| declare_local(n, boxed: boxed.include?(n)) }
         bind_block_params(params, names, argv, argc, node, auto_splat, lambda_shape)
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
@@ -768,9 +782,19 @@ module Ze0
 
     # ---- statements ----
 
+    # The statements of a body. A `def` or block written with its own
+    # `rescue` clause carries a `BeginNode` here instead, and dropping
+    # its statements would answer nil where ruby runs them.
+    def body_statements(node)
+      return [] if node.nil?
+      raise Unsupported.new(node, "a rescue clause on a def or block") unless node.is_a?(Prism::StatementsNode)
+
+      node.body
+    end
+
     # The value of the last statement; every other one is discarded.
     def lower_statements(node)
-      body = node.is_a?(Prism::StatementsNode) ? node.body : []
+      body = body_statements(node)
       return literal_nil if body.empty?
 
       value = nil
@@ -828,7 +852,7 @@ module Ze0
       when Prism::CaseNode then lower_case(node)
       when Prism::LambdaNode then lower_lambda(node)
       when Prism::ClassNode, Prism::ModuleNode then lower_class_statement(node)
-      when Prism::DefNode then literal_symbol(node.name)
+      when Prism::DefNode then declared_def(node)
       when Prism::SelfNode then Operand.new(self_operand.at, false, self_operand.immediate)
       when Prism::CallNode then lower_call(node)
       when Prism::IfNode then lower_if(node.predicate, node.statements, node.subsequent, false)
@@ -868,10 +892,15 @@ module Ze0
       Operand.new(slot, false, true)
     end
 
+    # Under `# frozen_string_literal: true` the entry interns, so two
+    # equal literals are ONE frozen object; otherwise each evaluation
+    # mints a fresh string that BORROWS the rodata bytes until a
+    # mutation promotes the buffer.
     def literal_string(bytes)
       slot = f.slot
       ptr, len = rodata_ref(bytes)
-      f.ins "call #{f.import("zeo_rt_str_lit_ro")}(#{ptr}, #{len}, #{f.iconst("i8", Capi::UTF8)}, #{addr_of(slot)})"
+      entry = @program.frozen_string_literal ? "zeo_rt_str_lit" : "zeo_rt_str_lit_ro"
+      f.ins "call #{f.import(entry)}(#{ptr}, #{len}, #{f.iconst("i8", Capi::UTF8)}, #{addr_of(slot)})"
       Operand.new(slot, true, false)
     end
 
@@ -1445,9 +1474,17 @@ module Ze0
       refine using
     ].freeze
 
+    # The verbs that bring another file's statements into the program.
+    # ze0 compiles one file, so each would run as an ordinary send and
+    # then fail -- or, for `autoload`, answer a constant ruby resolves.
+    LOAD_VERBS = %i[require require_relative load autoload].freeze
+
     def lower_call(node)
       if node.receiver.nil? && kind == :class_body && CLASS_MACROS.include?(node.name)
         raise Unsupported.new(node, "`#{node.name}` in a class body")
+      end
+      if node.receiver.nil? && LOAD_VERBS.include?(node.name)
+        raise Unsupported.new(node, "`#{node.name}`")
       end
       raise Unsupported.new(node, "safe navigation") if node.call_operator_loc&.slice == "&."
 
@@ -1755,7 +1792,7 @@ module Ze0
       truth = truthy(lower_expr(predicate))
       f.ins "brif #{truth}, #{negate ? done : body}, #{negate ? body : done}"
       f.switch(body)
-      (statements&.body || []).each do |s|
+      body_statements(statements).each do |s|
         set_line(s)
         discard(lower_expr(s))
         break if f.terminated?

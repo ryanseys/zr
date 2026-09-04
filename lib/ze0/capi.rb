@@ -21,6 +21,7 @@ module Ze0
       "zeo_rt_retain" => [%w[i64], nil],
       "zeo_rt_release" => [%w[i64], nil],
       "zeo_rt_truthy" => [%w[i64], "i8"],
+      "zeo_rt_str_lit" => [["i64", "i64", "i8 uext", "i64"], nil],
       "zeo_rt_str_lit_ro" => [["i64", "i64", "i8 uext", "i64"], nil],
       "zeo_rt_kernel_puts" => [%w[i64 i64 i64], "i32"],
       "zeo_rt_send_value_cached" => [%w[i64 i32 i64 i32 i64 i64 i64 i64], "i32"],

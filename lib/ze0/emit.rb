@@ -10,10 +10,11 @@ module Ze0
       initialize initialize_copy initialize_clone initialize_dup respond_to_missing?
     ].freeze
 
-    attr_reader :file
+    attr_reader :file, :frozen_string_literal
 
-    def initialize(file)
+    def initialize(file, frozen_string_literal: false)
       @file = file
+      @frozen_string_literal = frozen_string_literal
       @rodata = "".b
       @rodata_offsets = {}
       @syms = []
