@@ -30,6 +30,8 @@ module Ze0
   # arithmetic and comparison take an inline fast path when both tags say
   # Int, and every other send is the runtime's cached dynamic send.
   class Lower
+    include Patterns
+
     INT_ARITH = {
       :+ => ["sadd_overflow", "zeo_rt_int_add_slow"],
       :- => ["ssub_overflow", "zeo_rt_int_sub_slow"],
@@ -1787,6 +1789,9 @@ module Ze0
       when Prism::AndNode then and_or(node.left, node.right, true)
       when Prism::OrNode then and_or(node.left, node.right, false)
       when Prism::CaseNode then lower_case(node)
+      when Prism::CaseMatchNode then lower_case_match(node)
+      when Prism::MatchPredicateNode then lower_match_predicate(node)
+      when Prism::MatchRequiredNode then lower_match_required(node)
       when Prism::LambdaNode then lower_lambda(node)
       when Prism::ClassNode, Prism::ModuleNode then lower_class_statement(node)
       when Prism::SingletonClassNode then lower_singleton_class(node)
