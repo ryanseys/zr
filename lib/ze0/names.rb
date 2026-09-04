@@ -33,6 +33,30 @@ module Ze0
       Zeo::Eval
       ].freeze
 
+      # The classes a require-gated builtin brings. A `class` or `module`
+      # naming one REOPENS it, and the backend allows the row once the
+      # feature is required -- but the LAYOUT is the runtime's, so the row
+      # declares no instance variables of its own.
+      GATED = %w[
+      Addrinfo Base64 BasicSocket BigDecimal CGI CGI::Escape CGI::EscapeExt
+      Coverage Date DateTime Digest Digest::Base Digest::Class
+      Digest::Instance Digest::MD5 Digest::SHA1 Digest::SHA2 Digest::SHA256
+      Digest::SHA384 Digest::SHA512 Etc Etc::Group Etc::Passwd FFI
+      FFI::AbstractMemory FFI::AutoPointer FFI::DynamicLibrary FFI::Function
+      FFI::MemoryPointer FFI::Pointer FFI::Struct FFI::Type FFI::Type::Builtin
+      FFI::Union FFI::VariadicInvoker Fcntl IPSocket JSON Monitor NKF OpenSSL
+      OpenSSL::BN OpenSSL::Buffering OpenSSL::Cipher OpenSSL::Digest
+      OpenSSL::Digest::MD4 OpenSSL::Digest::MD5 OpenSSL::Digest::RIPEMD160
+      OpenSSL::Digest::SHA1 OpenSSL::Digest::SHA224 OpenSSL::Digest::SHA256
+      OpenSSL::Digest::SHA384 OpenSSL::Digest::SHA512 OpenSSL::HMAC
+      OpenSSL::KDF OpenSSL::Random OpenSSL::SSL OpenSSL::SSL::SSLContext
+      OpenSSL::SSL::SSLSocket OpenSSL::SSL::SocketForwarder OpenSSL::X509
+      OpenSSL::X509::Certificate OpenSSL::X509::Name OpenSSL::X509::Store PTY
+      Prism Psych Socket Socket::Constants Socket::Option StringIO
+      StringScanner Syslog TCPServer TCPSocket UDPSocket UNIXServer UNIXSocket
+      YAML Zlib Zlib::Deflate Zlib::Inflate Zlib::ZStream
+      ].freeze
+
     TOPLEVEL = "zeo_toplevel"
     # The owner of a top-level `def`.
     OBJECT = "Object"

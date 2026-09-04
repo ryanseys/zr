@@ -583,7 +583,12 @@ module Ze0
       body = body_statements(node.body)
       # The ivar list and the private-constant list are the ones the class
       # ROW holds, so a reopen adds to what the sidecar already carries.
-      ivar_names(body, superclass).each { |n| entry[:ivars] << n unless entry[:ivars].include?(n) }
+      # A gated builtin's layout is the runtime's: the reopen may add
+      # methods to it but no slots, and every ivar read is dynamic
+      # anyway.
+      unless Names::GATED.include?(name)
+        ivar_names(body, superclass).each { |n| entry[:ivars] << n unless entry[:ivars].include?(n) }
+      end
       cvar_names(body).each { |n| entry[:cvars] << n unless entry[:cvars].include?(n) }
       # A body's symbol is settled here, not when it is lowered: an
       # enclosing body calls it, and the two are lowered in either order.
@@ -617,10 +622,12 @@ module Ze0
       path = node.constant_path
       return qualify(@cref.first || Names::OBJECT, node.name.to_s) if path.is_a?(Prism::ConstantReadNode)
 
-      scope = path.parent && declared_class(@cref, path.parent)
-      unless scope
-        raise Unsupported.new(node, "a class named in a scope this program does not define")
-      end
+      # A scope this program declares is resolved outward through the
+      # cref. One it does not -- a gated builtin like `OpenSSL`, or a
+      # module a later statement writes -- is taken AS WRITTEN, which is
+      # the fully-qualified name `Class.name` answers either way.
+      scope = path.parent && (declared_class(@cref, path.parent) || written_class_name(path.parent))
+      raise Unsupported.new(node, "a class named in a scope of that shape") unless scope
 
       "#{scope}::#{node.name}"
     end
@@ -673,6 +680,12 @@ module Ze0
 
       written = written_class_name(node.superclass)
       raise Unsupported.new(node.superclass, "a superclass of that shape") if written.nil?
+      # A builtin's instances are the runtime's own native shape, so a
+      # subclass of one is a different object entirely. Only the
+      # exceptions, whose ids the backend owns, can be inherited.
+      if Names::ALWAYS_ON.include?(written) && written != Names::OBJECT && written != "BasicObject"
+        raise Unsupported.new(node.superclass, "a builtin superclass")
+      end
 
       # A name this program does not declare goes through as written: the
       # backend resolves it against the builtin exceptions, whose ids it
@@ -687,7 +700,11 @@ module Ze0
       case node
       when Prism::ConstantReadNode then node.name.to_s
       when Prism::ConstantPathNode
-        up = node.parent && written_class_name(node.parent)
+        # A lone `::Foo` anchors at the top level, where the name is the
+        # bare one.
+        return node.name.to_s if node.parent.nil?
+
+        up = written_class_name(node.parent)
         "#{up}::#{node.name}" if up
       end
     end
@@ -1232,6 +1249,11 @@ module Ze0
     # Whether instances of `owner` are a runtime type rather than a
     # generated object with slots, which a builtin superclass makes them.
     def native_backed?(owner)
+      # A gated builtin's instances are the runtime's own shape, so its
+      # accessors reach the name-keyed store rather than a slot the row
+      # does not declare.
+      return true if Names::GATED.include?(owner)
+
       entry = @classes.fetch(owner)
       return false if entry[:kind] == "module"
 
@@ -1472,20 +1494,51 @@ module Ze0
         case s
         when Prism::DefNode then value = define_singleton(recv, s, mode)
         when Prism::AliasMethodNode then value = singleton_alias(recv, s)
-        else
-          raise Unsupported.new(s, "a statement in a `class << obj` body") unless visibility_verb?(s)
-
-          mode, value = singleton_visibility(recv, s, mode)
+        when Prism::CallNode
+          if visibility_verb?(s)
+            mode, value = singleton_visibility(recv, s, mode)
+          else
+            value = singleton_macro(recv, s)
+          end
+        else raise Unsupported.new(s, "a statement in a `class << obj` body")
         end
       end
       value
     end
+
+    # `attr_accessor :x`, `undef_method :new`, `include M`: a body
+    # statement whose receiver the source left out is a call on the
+    # SINGLETON class, which is what `self` is inside that body. It goes
+    # through `send`, because a good half of them are private on Module.
+    def singleton_macro(recv, node)
+      raise Unsupported.new(node, "a statement in a `class << obj` body") unless node.receiver.nil?
+      raise Unsupported.new(node.block, "a block in a `class << obj` body") if node.block
+
+      args = (node.arguments&.arguments || []).map do |a|
+        raise Unsupported.new(a, "an argument of that shape") if SPREAD_ARGUMENTS.any? { |k| a.is_a?(k) }
+
+        lower_expr(a)
+      end
+      target = send_value(recv, :singleton_class)
+      borrow(target)
+      answer = send_value(target, :send, [literal_symbol(node.name)] + args)
+      # The statement's value, held by the pool: only the last one in the
+      # body is answered, and the frame releases the rest.
+      borrow(answer)
+      answer
+    end
+
+    SPREAD_ARGUMENTS = [
+      Prism::SplatNode, Prism::KeywordHashNode, Prism::BlockArgumentNode,
+      Prism::ForwardingArgumentsNode,
+    ].freeze
 
     # `alias b a` in a `class << obj` body names a method of the object's
     # SINGLETON class, which is what `alias_method` on it does. The
     # keyword answers nil.
     def singleton_alias(recv, node)
       target = send_value(recv, :singleton_class)
+      borrow(target)
       names = [alias_name(node.new_name), alias_name(node.old_name)]
       discard(send_value(target, :alias_method, names))
       literal_nil
@@ -1528,7 +1581,8 @@ module Ze0
     # is itself private, so an explicit receiver would be refused.
     def mark_singleton(recv, name, verb)
       singleton = send_value(recv, :singleton_class)
-      send_value(singleton, :send, [literal_symbol(verb), literal_symbol(name)])
+      borrow(singleton)
+      discard(send_value(singleton, :send, [literal_symbol(verb), literal_symbol(name)]))
     end
 
     # A lambda-shaped Proc over a `def`'s body, as an owned value.
