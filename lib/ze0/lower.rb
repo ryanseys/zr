@@ -118,7 +118,10 @@ module Ze0
         next if seen.key?(target)
 
         seen[target] = true
-        with_file(target) { splice(spliced_statements(s, target), target, seen, units) }
+        # Read the file where the `require` is written, so a refusal about
+        # the file names the line that asked for it.
+        statements = spliced_statements(s, target)
+        with_file(target) { splice(statements, target, seen, units) }
       end
       units << [file, run] unless run.empty?
     end
