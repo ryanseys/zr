@@ -1741,6 +1741,13 @@ module Ze0
       when Prism::FalseNode then literal_bool(0)
       when Prism::SymbolNode then literal_symbol(node.unescaped)
       when Prism::RegularExpressionNode then literal_regexp(node)
+      when Prism::InterpolatedRegularExpressionNode then interpolated_regexp(node)
+      when Prism::InterpolatedSymbolNode then interpolated_symbol(node)
+      when Prism::RationalNode then literal_rational(node)
+      when Prism::ImaginaryNode then literal_imaginary(node)
+      when Prism::SourceFileNode then literal_string(@file)
+      when Prism::SourceLineNode then literal_fixnum(node.location.start_line)
+      when Prism::SourceEncodingNode then source_encoding
       when Prism::InterpolatedStringNode then interpolated_string(node)
       when Prism::ArrayNode then array_literal(node)
       when Prism::HashNode then hash_literal(node)
@@ -1808,15 +1815,57 @@ module Ze0
       end
     end
 
+    # An Integer that fits the inline payload is two stores; one past it
+    # is built from its baked digits, and the runtime demotes it back to
+    # the inline form whenever it fits again.
     def literal_int(node)
       value = node.value
-      raise Unsupported.new(node, "an Integer literal past 64 bits") unless value.bit_length < 64
+      return literal_bignum(value) unless value.bit_length < 64
 
+      literal_fixnum(value)
+    end
+
+    def literal_fixnum(value)
       slot = f.slot
       at = addr_of(slot)
       f.ins "store notrap aligned #{f.iconst("i8", Capi::TAG_INT)}, #{at}"
       f.ins "store notrap aligned #{f.iconst("i64", value)}, #{at}+8"
       Operand.new(slot, false, true)
+    end
+
+    def literal_bignum(value)
+      slot = f.slot
+      digits, n = digit_array(value)
+      f.ins "call #{f.import("zeo_rt_int_digits")}(#{sign_of(value)}, #{digits}, #{n}, #{addr_of(slot)})"
+      Operand.new(slot, true, false)
+    end
+
+    # `3r` and `1.5r`. Prism pre-rationalizes the decimal form, so both
+    # arrive as a numerator and a denominator, and the denominator is
+    # positive by syntax.
+    def literal_rational(node)
+      slot = f.slot
+      num, num_n = digit_array(node.numerator)
+      den, den_n = digit_array(node.denominator)
+      f.ins "call #{f.import("zeo_rt_rational_digits")}(#{sign_of(node.numerator)}, " \
+            "#{num}, #{num_n}, #{den}, #{den_n}, #{addr_of(slot)})"
+      Operand.new(slot, true, false)
+    end
+
+    # `4i` is `Complex(0, 4)` over the numeric written in front of it.
+    def literal_imaginary(node)
+      slot = f.slot
+      f.ins "call #{f.import("zeo_rt_complex_lit")}(#{borrow(lower_expr(node.numeric))}, #{addr_of(slot)})"
+      Operand.new(slot, true, false)
+    end
+
+    def sign_of(value) = f.iconst("i8", value.negative? ? 1 : 0)
+
+    # An Integer's magnitude as the u32 digits the runtime reads,
+    # least-significant first. The callee only reads them for the length
+    # of the call, so a stack slot holds them.
+    def digit_array(value)
+      cid_array(value.abs.digits(1 << 32).map { |d| f.iconst("i32", d) })
     end
 
     # A Float's bits as an i64 store: the same 8 bytes, with no float
@@ -2278,6 +2327,42 @@ module Ze0
       return Capi::REGEXP_ENCODINGS[:utf_8] if node.utf_8?
 
       Capi::REGEXP_ENCODINGS[:source]
+    end
+
+    # An interpolated regexp is compiled every time it is evaluated,
+    # because its pattern is not known until then. A pattern the engine
+    # rejects raises RegexpError at that point, where ruby's does.
+    def interpolated_regexp(node)
+      pattern = borrow(interpolated_string(node))
+      slot = f.slot
+      flag = ->(on) { f.iconst("i8", on ? 1 : 0) }
+      status_check(f.val(
+        "call #{f.import("zeo_rt_regexp_interp")}(#{pattern}, " \
+        "#{flag.call(node.ignore_case?)}, #{flag.call(node.extended?)}, " \
+        "#{flag.call(node.multi_line?)}, #{f.iconst("i8", regexp_encoding(node))}, #{addr_of(slot)})",
+      ))
+      Operand.new(slot, true, false)
+    end
+
+    # `__ENCODING__` names the script's own encoding. ze0 reads every
+    # source it compiles as UTF-8, so that is the constant it answers.
+    def source_encoding
+      nptr, nlen = rodata_ref("UTF_8")
+      qptr, qlen = rodata_ref("Encoding::UTF_8")
+      slot = f.slot
+      status_check(f.val(
+        "call #{f.import("zeo_rt_const_get_on_value")}(#{borrow(anchored_constant("Encoding"))}, " \
+        "#{nptr}, #{nlen}, #{qptr}, #{qlen}, #{addr_of(slot)})",
+      ))
+      Operand.new(slot, true, false)
+    end
+
+    # `:"a#{b}"` is that string, interned. Its name is not known until it
+    # runs, so there is nothing a symbol literal could do here.
+    def interpolated_symbol(node)
+      slot = f.slot
+      dynamic_send(borrow(interpolated_string(node)), :to_sym, [], addr_of(slot))
+      Operand.new(slot, true, false)
     end
 
     # A non-interpolated regexp is one frozen object per site, which the
@@ -3424,6 +3509,9 @@ module Ze0
       Prism::AndNode, Prism::OrNode, Prism::DefinedNode, Prism::IfNode, Prism::UnlessNode,
       Prism::CaseNode, Prism::BeginNode, Prism::WhileNode, Prism::UntilNode,
       Prism::DefNode, Prism::ClassNode, Prism::ModuleNode,
+      Prism::InterpolatedRegularExpressionNode, Prism::RationalNode, Prism::ImaginaryNode,
+      Prism::SourceFileNode, Prism::SourceLineNode, Prism::SourceEncodingNode,
+      Prism::ForNode,
     ].freeze
 
     def lower_defined(node) = defined_answer(node.value)
