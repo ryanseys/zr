@@ -29,6 +29,15 @@ module Ze0
   # release pool and every dispatch are calls into the runtime; Integer
   # arithmetic and comparison take an inline fast path when both tags say
   # Int, and every other send is the runtime's cached dynamic send.
+  # An `END { }` body, wearing the shape `lower_block` reads: no
+  # parameters, no block-local names, and its statements as the body.
+  EndBlock = Struct.new(:statements, :location) do
+    def parameters = nil
+    def body = statements
+    def locals = []
+    def compact_child_nodes = [statements].compact
+  end
+
   class Lower
     include Patterns
 
@@ -497,9 +506,13 @@ module Ze0
     # The names an `attr_*` or positional visibility call names. Each has
     # to be a plain Symbol: ze0 emits a method per name at compile time,
     # so a String or a computed one has nothing to emit.
+    # These verbs take a name, and ruby lets it be written as a Symbol or
+    # as a String.
+    NAME_LITERALS = [Prism::SymbolNode, Prism::StringNode].freeze
+
     def accessor_names(node, args)
       args.map do |a|
-        raise Unsupported.new(a, "a `#{node.name}` argument of that shape") unless a.is_a?(Prism::SymbolNode)
+        raise Unsupported.new(a, "a `#{node.name}` argument of that shape") unless NAME_LITERALS.any? { |k| a.is_a?(k) }
 
         a.unescaped
       end
@@ -959,10 +972,13 @@ module Ze0
       owned.select { |n| mentioned.key?(n) }
     end
 
-    # A literal block is a `BlockNode` and `->` is a `LambdaNode`. Both
-    # bodies outlive the frame that wrote them, so both box what they name.
+    # A literal block is a `BlockNode`, `->` is a `LambdaNode` and an
+    # `END { }` is a `PostExecutionNode`. Every one of those bodies
+    # outlives the frame that wrote it, so all of them box what they name.
+    BLOCK_BODIES = [Prism::BlockNode, Prism::LambdaNode, Prism::PostExecutionNode].freeze
+
     def blocks_under(node, found = [])
-      found << node if node.is_a?(Prism::BlockNode) || node.is_a?(Prism::LambdaNode)
+      found << node if BLOCK_BODIES.any? { |k| node.is_a?(k) }
       node.compact_child_nodes.each { |c| blocks_under(c, found) }
       found
     end
@@ -1464,7 +1480,7 @@ module Ze0
         scope.self_operand = Operand.new(self_slot, false, false)
         units.each do |file, run|
           scope.locals = scope.locals_of(file)
-          with_file(file) { run.each { |s| toplevel_statement(s) } }
+          with_file(file) { hoist_pre_execution(run).each { |s| toplevel_statement(s) } }
         end
         store_nil(out)
         f.ins "jump #{done_block}"
@@ -1480,6 +1496,26 @@ module Ze0
       names = @unit_locals.fetch(file)
       boxed = captured_names(statements, names)
       names.each { |n| declare_local(n, boxed: boxed.include?(n)) }
+    end
+
+    # `BEGIN { }` runs before the rest of the file it is written in, in
+    # the order the file writes them. It shares the top-level names, so
+    # the statements lower where they are moved to and nowhere else.
+    def hoist_pre_execution(statements)
+      first, rest = statements.partition { |s| s.is_a?(Prism::PreExecutionNode) }
+      first + rest
+    end
+
+    # `END { }` is `at_exit { }`: the body runs at exit, last registered
+    # first. prism's node is not a block node, so it is dressed as one.
+    def lower_end_block(node)
+      block = EndBlock.new(node.statements, node.location)
+      body, captures = lower_block(block)
+      slot = f.slot
+      dynamic_send(borrow(self_operand), :at_exit, [], addr_of(slot), explicit: false) do
+        proc_new(body, captures, block, false)
+      end
+      Operand.new(slot, true, false)
     end
 
     def toplevel_statement(node)
@@ -1976,6 +2012,9 @@ module Ze0
       when Prism::BeginNode then lower_begin(node)
       when Prism::RescueModifierNode then lower_rescue_modifier(node)
       when Prism::AliasMethodNode then lower_alias_statement(node)
+      when Prism::PostExecutionNode then lower_end_block(node)
+      when Prism::PreExecutionNode then lower_statements(node.statements)
+      when Prism::AliasGlobalVariableNode then lower_global_alias(node)
       when Prism::ParenthesesNode then lower_statements(node.body)
       when Prism::StatementsNode then lower_statements(node)
       when Prism::ElseNode then lower_statements(node.statements)
@@ -2892,8 +2931,10 @@ module Ze0
       return lower_alias(node, args[0], args[1]) if name == "alias_method" && args.size == 2
 
       kind = ACCESSORS[node.name]
-      return nil unless kind
-      raise Unsupported.new(node, "`#{name}` outside the class body's statements") unless declared
+      # One the declaration pass did not reach -- written inside another
+      # expression, or under a guard -- is an ordinary send of
+      # `Module#attr_reader`, which mints the methods where it runs.
+      return nil unless kind && declared
 
       defined = accessor_names(node, args).flat_map do |n|
         (kind == :writer ? [] : [n]) + (kind == :reader ? [] : ["#{n}="])
@@ -2902,17 +2943,16 @@ module Ze0
     end
 
     # `alias b a` and `alias_method :b, :a` are the same thing at run
-    # time: the definee is `self`, which in a class body is the class.
+    # time: the definee is `self` where `self` is a class or a module,
+    # and the enclosing class otherwise -- `Object` at the top level.
     # The runtime resolves the source, so an alias of a builtin method
     # works exactly as it does for one the program wrote.
     def lower_alias(node, new_name, old_name)
-      raise Unsupported.new(node, "an alias outside a class body") unless kind == :class_body
-
       slot = f.slot
-      slf = borrow(self_operand)
       status_check(f.val(
-        "call #{f.import("zeo_rt_alias_in_default_definee")}(#{slf}, #{slf}, " \
-        "#{borrow(alias_name(new_name))}, #{borrow(alias_name(old_name))}, #{addr_of(slot)})",
+        "call #{f.import("zeo_rt_alias_in_default_definee")}(#{borrow(cref_value)}, " \
+        "#{borrow(self_operand)}, #{borrow(alias_name(new_name))}, " \
+        "#{borrow(alias_name(old_name))}, #{addr_of(slot)})",
       ))
       Operand.new(slot, true, false)
     end
@@ -2924,11 +2964,26 @@ module Ze0
       literal_nil
     end
 
+    # `alias $new $old` aliases the STORAGE, so a write through either
+    # name is visible through both.
+    def lower_global_alias(node)
+      new_ptr, new_len = rodata_ref(global_alias_name(node.new_name))
+      old_ptr, old_len = rodata_ref(global_alias_name(node.old_name))
+      f.ins "call #{f.import("zeo_rt_gvar_alias")}(#{f.iconst("i32", Capi::MAIN_BOX)}, " \
+            "#{new_ptr}, #{new_len}, #{old_ptr}, #{old_len})"
+      literal_nil
+    end
+
+    def global_alias_name(node)
+      return node.name.to_s if node.is_a?(Prism::GlobalVariableReadNode)
+
+      raise Unsupported.new(node, "an alias name of that shape")
+    end
+
     def alias_name(node)
-      case node
-      when Prism::SymbolNode then literal_symbol(node.unescaped)
-      else raise Unsupported.new(node, "an alias name of that shape")
-      end
+      raise Unsupported.new(node, "an alias name of that shape") unless NAME_LITERALS.any? { |k| node.is_a?(k) }
+
+      literal_symbol(node.unescaped)
     end
 
     # A `require` the roots did not carry: a feature the runtime already
@@ -4396,12 +4451,25 @@ module Ze0
       unreachable
     end
 
-    # The single value of a `return`, `next` or `break`, or nil.
+    # The single value of a `return`, `next` or `break`, or nil. More
+    # than one, or a lone `*xs`, is ruby's one Array.
     def one_value(node)
       args = node.arguments&.arguments || []
-      raise Unsupported.new(node, "#{node.class.name[/\w+(?=Node)/].downcase} of several values") if args.size > 1
+      return literal_nil if args.empty?
+      return lower_expr(args[0]) if args.size == 1 && !args[0].is_a?(Prism::SplatNode)
 
-      args.empty? ? literal_nil : lower_expr(args[0])
+      values_array(args)
+    end
+
+    # The Array a jump carrying several values answers. Pooled at
+    # creation, so an element that raises mid-build strands nothing.
+    def values_array(args)
+      slot = f.slot
+      at = addr_of(slot)
+      f.ins "call #{f.import("zeo_rt_array_new")}(#{f.iconst("i64", args.size)}, #{at})"
+      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      args.each { |a| push_call_argument(at, a) }
+      Operand.new(slot, false, false)
     end
 
     # Nothing runs after a jump; the slot is never written or read.

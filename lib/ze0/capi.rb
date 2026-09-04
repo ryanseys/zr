@@ -45,6 +45,7 @@ module Ze0
       "zeo_rt_hash_new" => [%w[i64], nil],
       "zeo_rt_hash_set" => [%w[i64 i64 i64], "i32"],
       "zeo_rt_range_new" => [["i64", "i64", "i8 uext", "i64"], "i32"],
+      "zeo_rt_gvar_alias" => [%w[i32 i64 i64 i64 i64], nil],
       "zeo_rt_gvar_get" => [%w[i32 i64 i64 i64], nil],
       "zeo_rt_gvar_assign" => [%w[i32 i64 i64 i64], "i32"],
       "zeo_rt_const_get_cref" => [["i64", "i64", "i64", "i64", "i64", "i64", "i8 uext", "i32", "i64"], "i32"],
