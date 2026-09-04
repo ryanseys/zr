@@ -32,7 +32,18 @@ module Ze0
       when Prism::AndNode then both(static_cond(node.left), static_cond(node.right), false)
       when Prism::OrNode then both(static_cond(node.left), static_cond(node.right), true)
       when Prism::CallNode then static_call(node)
+      when Prism::DefinedNode then static_defined(node.value)
       end
+    end
+
+    # `defined?(C)` for a builtin that is ALWAYS on: the name exists
+    # whatever the program writes, so the guard is decided. Every other
+    # name stays -- a program may or may not write it, and where it does
+    # the answer depends on which statement has run.
+    def self.static_defined(node)
+      return nil unless node.is_a?(Prism::ConstantReadNode)
+
+      Names::ALWAYS_ON.include?(node.name.to_s) || nil
     end
 
     def self.only_statement(node)

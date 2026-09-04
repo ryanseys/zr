@@ -50,6 +50,8 @@ module Ze0
       "zeo_rt_gvar_alias" => [%w[i32 i64 i64 i64 i64], nil],
       "zeo_rt_gvar_get" => [%w[i32 i64 i64 i64], nil],
       "zeo_rt_gvar_assign" => [%w[i32 i64 i64 i64], "i32"],
+      "zeo_rt_autoload_touch" => [["i32", "i64", "i64"], "i32"],
+      "zeo_rt_autoload_touch_value" => [%w[i64 i64 i64], "i32"],
       "zeo_rt_const_get_cref" => [["i64", "i64", "i64", "i64", "i64", "i64", "i8 uext", "i32", "i64"], "i32"],
       "zeo_rt_const_get_on_value" => [%w[i64 i64 i64 i64 i64 i64], "i32"],
       "zeo_rt_const_set_at" => [%w[i32 i64 i64 i64 i64 i64 i32 i32], nil],

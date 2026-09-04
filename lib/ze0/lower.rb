@@ -79,10 +79,14 @@ module Ze0
       @unit_locals = {}
       @declared_bodies = {}
       @assigned_constants = {}
-      # Every `autoload` read so far that no statement has reached, and
-      # the node each was written at, so a flushed unit names its line.
-      @autoloads = {}
-      @autoload_nodes = {}
+      # Every class and module name this program writes, and which of the
+      # two each is. Filled before the declaration pass, so a superclass
+      # written in a file that pass reads later still resolves.
+      @class_kinds = {}
+      # The constant LEAVES a literal `autoload` names. A read of one has
+      # to run the target first, and a class the target defines is in the
+      # dispatch tables from startup, so nothing can miss to ask.
+      @autoload_consts = {}
       # The lexical scopes a constant search walks where the declaration
       # pass has reached, innermost first. `Object` is always last and is
       # left out.
@@ -109,6 +113,7 @@ module Ze0
       deferred = read_deferred(seen)
       all = units + deferred.each_value.flat_map { |unit| unit[:runs] }
       all.each { |_file, statements| statements.each { |s| note_assigned_constants(s) } }
+      all.each { |file, statements| with_file(file) { statements.each { |s| note_class_kinds(s) } } }
       all.each { |file, statements| with_file(file) { declare(statements, Names::OBJECT) } }
       @defs.each_value do |by_key|
         by_key.each_value { |d| with_file(d[:file]) { lower_def(d) } }
@@ -152,7 +157,6 @@ module Ze0
       # `return` in any of them ends this run before it starts.
       here = chain + [file]
       run = []
-      mine = []
       close = -> do
         units << [file, run, here] unless run.empty?
         run = []
@@ -162,12 +166,7 @@ module Ze0
         read_unit(node, path, seen, units, here)
       end
       statements.each do |s|
-        mine.concat(register_autoloads(s))
-        # A pending `autoload` whose constant this statement reaches goes
-        # in BEFORE it, which is where CRuby's own first access would have
-        # loaded the file. A unit is a run of TOP-LEVEL statements, so the
-        # run so far closes first.
-        reached_autoloads(s).each { |path| splice_in.call(s, path) }
+        note_autoload_units(s)
         target = required_file(s, file)
         if target.nil?
           note_deferred(s, file)
@@ -178,52 +177,55 @@ module Ze0
         splice_in.call(s, target)
       end
       close.call
-      # An `autoload` no statement reached still names a file this program
-      # has to carry, and the end of the file that wrote it is where it
-      # costs the least: everything the file itself declares is in place,
-      # and nothing that requires the file has run yet.
-      #
-      # This is ze0's standing divergence, and zeo's own
-      # (`parse/loader/mod.rs`): the file runs even though the constant is
-      # never referenced, because there are no lazy units.
-      mine.each do |name|
-        path = @autoloads.delete(name)
-        read_unit(@autoload_nodes.fetch(name), path, seen, units, here) if path
+    end
+
+    # Every `autoload` this statement declares, as a lazily linked UNIT.
+    # The call itself stays where it is: `Module#autoload` records the
+    # target, and the READ of the constant is what runs the file, which
+    # is CRuby's own order.
+    #
+    # Only the STRUCTURAL containers are walked -- a `class`, `module` or
+    # `class << self` body -- which is where the stdlib nests them. One
+    # written in a method or a block declares nothing until that runs, so
+    # it stays a call and nothing is linked for it.
+    def note_autoload_units(node)
+      if autoload_call?(node)
+        name = (node.arguments&.arguments || [])[0]
+        @autoload_consts[name.unescaped] = true if name.is_a?(Prism::SymbolNode)
+        feature = autoload_feature(node)
+        # A target only the run time can name is compiled by the run-time
+        # compiler, which the sidecar asks the backend to link.
+        return @program.eval_install! if feature.nil?
+
+        path = autoload_target(node)
+        # A feature no root carries names the runtime's own, and which
+        # one is a run-time fact: the row resolves it when the constant
+        # is read.
+        if path.nil?
+          @program.eval_install!
+          return @program.require_any_feature!
+        end
+        note_unit(path, autoload_spellings(feature, path))
+        return
+      end
+      autoload_scopes(node).each { |c| note_autoload_units(c) }
+    end
+
+    # The spellings a run-time `autoload` may name its target by: the
+    # absolute path it expands to, and the feature as written.
+    def autoload_spellings(feature, path)
+      [path.delete_suffix(".rb"), canonical_feature(feature)].uniq
+    end
+
+    # The children of `node` an `autoload` written inside still declares
+    # where the file it is written in runs.
+    def autoload_scopes(node)
+      case node
+      when Prism::StatementsNode then node.body
+      when Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode then [node.body].compact
+      else []
       end
     end
-
-    # Every `autoload` under `node`, filed by the constant it provides,
-    # and the names it added. A splice removes the entry, so each file
-    # goes in once.
-    def register_autoloads(node, added = [])
-      if autoload_call?(node) && (path = autoload_target(node))
-        name = autoload_name(node)
-        added << name unless @autoloads.key?(name)
-        @autoloads[name] ||= path
-      end
-      node.compact_child_nodes.each { |c| register_autoloads(c, added) }
-      added
-    end
-
-    # The pending autoload files `node` reaches while it RUNS, in the
-    # order the constants are written.
-    def reached_autoloads(node)
-      load_time_constants(node).uniq.filter_map { |name| @autoloads.delete(name) }
-    end
-
-    # The constants `node` can reach WHILE IT RUNS: a superclass clause,
-    # an `include`, a class body's own statements. A `def` body is not
-    # one -- it runs when it is called, which is after the program has
-    # loaded, so a constant only a method names never loads a file here.
-    def load_time_constants(node, found = [])
-      return found if node.is_a?(Prism::DefNode)
-
-      found << node.name.to_s if CONSTANT_READS.any? { |k| node.is_a?(k) }
-      node.compact_child_nodes.each { |c| load_time_constants(c, found) }
-      found
-    end
-
-    CONSTANT_READS = [Prism::ConstantReadNode, Prism::ConstantPathNode].freeze
 
     # `path`'s statements as units, once per program.
     def read_unit(node, path, seen, units, chain = [])
@@ -375,29 +377,79 @@ module Ze0
     # and the declaration opens its gate where it stands.
     def autoload_target(node)
       feature = autoload_feature(node)
+      return nil if feature.nil?
+      return with_rb(feature) if feature.start_with?("/")
+
       @roots.filter_map { |root| with_rb(File.expand_path(feature, root)) }.first
     end
 
-    # The constant one `autoload` provides. The node is kept beside it so
-    # a flushed unit still names the line that asked for the file.
-    def autoload_name(node)
-      name = node.arguments.arguments[0]
-      unless name.is_a?(Prism::SymbolNode)
-        raise Unsupported.new(node, "an `autoload` of that shape")
-      end
-
-      @autoload_nodes[name.unescaped] = node
-      name.unescaped
-    end
-
+    # The feature one `autoload` names, or nil where only the run time
+    # can build it -- a one-argument `autoload` DSL, or a path made from
+    # a value. The call then stays where it is and the runtime row reads
+    # the string the program actually builds.
     def autoload_feature(node)
       args = node.arguments&.arguments || []
-      unless args.size == 2 && args[1].is_a?(Prism::StringNode) && node.block.nil?
-        raise Unsupported.new(node, "an `autoload` of that shape")
-      end
+      return nil unless args.size == 2 && node.block.nil?
 
-      args[1].unescaped
+      compile_time_feature(args[1])
     end
+
+    # A feature whose every piece is known at compile time. Three forms,
+    # which is what the reference compiler reads: a string literal, an
+    # interpolation whose only computed part is `__dir__`, and
+    # `File.expand_path("<literal>", __dir__)`.
+    def compile_time_feature(node)
+      case node
+      when Prism::StringNode then node.unescaped
+      when Prism::InterpolatedStringNode then interpolated_feature(node)
+      else expanded_feature(node)
+      end
+    end
+
+    # `"#{__dir__}/mylib/model"`, how puma, rack and sidekiq name a
+    # sibling file. The forms COMPOSE, so a part may itself be one:
+    # rubygems writes `"#{File.expand_path("lib", __dir__)}/x"`.
+    def interpolated_feature(node)
+      parts = node.parts.map do |part|
+        next part.unescaped if part.is_a?(Prism::StringNode)
+
+        only = embedded_statement(part)
+        next source_dir if only && dir_call?(only)
+
+        only && compile_time_feature(only)
+      end
+      parts.all? ? parts.join : nil
+    end
+
+    # The one statement an interpolation holds, or nil where it holds
+    # anything else.
+    def embedded_statement(part)
+      return nil unless part.is_a?(Prism::EmbeddedStatementsNode)
+
+      body = part.statements&.body || []
+      body.size == 1 ? body.first : nil
+    end
+
+    def dir_call?(node)
+      node.is_a?(Prism::CallNode) && node.receiver.nil? && node.name == :__dir__
+    end
+
+    # `File.expand_path("<literal>", __dir__)`, which is how rubygems
+    # writes an absolute target. `__dir__` is the only base whose value
+    # this compile knows.
+    def expanded_feature(node)
+      return nil unless node.is_a?(Prism::CallNode) && node.name == :expand_path
+      return nil unless node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :File
+
+      args = node.arguments&.arguments || []
+      return nil unless args.size == 2 && args[0].is_a?(Prism::StringNode) && dir_call?(args[1])
+
+      "#{source_dir}/#{args[0].unescaped}"
+    end
+
+    # `__dir__`'s answer: the absolute directory holding the file being
+    # read, with its symlinks resolved, which is how ruby defines it.
+    def source_dir = File.dirname(File.realpath(@file))
 
     # A required path, with `.rb` appended AFTER it is absolute -- CRuby's
     # order -- or nil when neither spelling names a file.
@@ -690,6 +742,31 @@ module Ze0
       "#{scope}::#{node.name}"
     end
 
+    # Every class and module name written under `node`, filed by kind.
+    # The walk carries the cref the same way the declaration pass does,
+    # so a nested name is the qualified one. A header this program cannot
+    # name stops the walk there and nothing below it is filed.
+    def note_class_kinds(node)
+      # A guard this compile decides leaves one live branch, and a name
+      # written in the other is not one the program has.
+      if (node.is_a?(Prism::IfNode) || node.is_a?(Prism::UnlessNode)) && decided?(node)
+        return branch_statements(live_branch(node)).each { |s| note_class_kinds(s) }
+      end
+      unless node.is_a?(Prism::ClassNode) || node.is_a?(Prism::ModuleNode)
+        return node.compact_child_nodes.each { |c| note_class_kinds(c) }
+      end
+
+      name = begin
+        declared_name(node)
+      rescue Unsupported
+        return
+      end
+      @class_kinds[name] ||= node.is_a?(Prism::ClassNode) ? "class" : "module"
+      @cref.unshift(name)
+      node.compact_child_nodes.each { |c| note_class_kinds(c) }
+      @cref.shift
+    end
+
     # Every constant this program ASSIGNS, whether or not it holds a
     # class. A superclass naming one is a value only the run time knows,
     # where a name the program neither declares nor assigns is the
@@ -792,7 +869,25 @@ module Ze0
       # backend resolves it against the builtin exceptions, whose ids it
       # owns, and refuses every other builtin -- `class Foo < String` is a
       # different native shape.
-      declared_class(@cref, node.superclass) || written
+      superclass_class(node.superclass) || written
+    end
+
+    # The class a superclass clause names. A superclass names a CLASS, so
+    # a MODULE of that name is not what the clause means: the search goes
+    # on through every name the program WRITES, which reaches an inner
+    # scope declared in a file this pass has not read yet.
+    #
+    # test-unit's top-level `module Test` beside minitest's
+    # `Minitest::Test` is the pair, and which of the two files the pass
+    # reads first is a demand-order fact rather than a program fact.
+    def superclass_class(node)
+      found = declared_class(@cref, node)
+      return found unless found.nil? || @classes[found][:kind] == "module"
+      return nil unless node.is_a?(Prism::ConstantReadNode)
+
+      name = node.name.to_s
+      (@cref + [Names::OBJECT]).map { |scope| qualify(scope, name) }
+                               .find { |candidate| @class_kinds[candidate] == "class" }
     end
 
     # A superclass as it was WRITTEN, or nil for a shape that is not a
@@ -1144,6 +1239,18 @@ module Ze0
       f.ins "store notrap aligned #{f.iconst("i8", Capi::TAG_CLASS)}, #{at}"
       f.ins "store notrap aligned #{class_id_of(name)}, #{at}+8"
       Operand.new(slot, false, true)
+    end
+
+    # The `autoload` one scope still owes for `name`, run before the read
+    # resolves. One relaxed load when nothing is pending.
+    def autoload_touch(scope, nptr, nlen)
+      status_check(f.val("call #{f.import("zeo_rt_autoload_touch")}(#{scope}, #{nptr}, #{nlen})"))
+    end
+
+    def autoload_touch_value(scope, nptr, nlen)
+      status_check(f.val(
+        "call #{f.import("zeo_rt_autoload_touch_value")}(#{scope}, #{nptr}, #{nlen})",
+      ))
     end
 
     # A class's id as an i32. `Object` is the one name with no row of its
@@ -1587,6 +1694,7 @@ module Ze0
       written = entry[:bodies].find { |b| b[:node].equal?(node) }
       raise Unsupported.new(node, "a class nested inside another statement") if written.nil?
 
+      touch_superclass(entry)
       # ruby makes the constant where the statement RUNS, so the row the
       # backend registered concealed is revealed here -- and one whose
       # statement never runs stays a NameError.
@@ -1597,6 +1705,23 @@ module Ze0
       body = f.callee(written[:symbol], ["i64", "i64"], "i32")
       status_check(f.val("call #{body}(#{borrow(klass)}, #{addr_of(result)})"))
       Operand.new(result, true, false)
+    end
+
+    # `class Sub < Base` READS `Base` before anything else, and a read is
+    # what runs an `autoload` target. The superclass reaches the backend
+    # as a row rather than a constant read, so the touch is written out.
+    def touch_superclass(entry)
+      name = entry[:superclass]
+      return if name.nil? || entry[:kind] != "class"
+
+      *scope, leaf = name.split("::")
+      return unless @autoload_consts.key?(leaf)
+
+      owner = scope.empty? ? Names::OBJECT : scope.join("::")
+      return unless owner == Names::OBJECT || @classes.key?(owner)
+
+      nptr, nlen = rodata_ref(leaf)
+      autoload_touch(class_id_of(owner), nptr, nlen)
     end
 
     # `Super.inherited(C)` fires where the statement stands and only for
@@ -3150,8 +3275,13 @@ module Ze0
 
     def constant_named(name, qualified = nil, chain = nil)
       qualified ||= owner == Names::OBJECT ? name : "#{owner}::#{name}"
-      ids, n_ids = cid_array(chain || cref_ids)
+      scopes = chain || cref_ids
+      ids, n_ids = cid_array(scopes)
       nptr, nlen = rodata_ref(name)
+      # The walk below cannot miss to ask -- a cref hit is what it looks
+      # for -- so every scope it is about to consult runs its pending
+      # `autoload` first.
+      scopes.each { |scope| autoload_touch(scope, nptr, nlen) } if @autoload_consts.key?(name)
       qptr, qlen = rodata_ref(qualified)
       slot = f.slot
       status_check(f.val(
@@ -3181,6 +3311,10 @@ module Ze0
       nptr, nlen = rodata_ref(name)
       qptr, qlen = rodata_ref(node.slice)
       private_constant_guard(owner, name, node.slice) if owner
+      # The scope is a VALUE here, so the touch is too: this is the arm a
+      # target compiled as its own unit lands on, and without it the read
+      # resolves with the unit still unrun.
+      autoload_touch_value(borrow(scope), nptr, nlen) unless @autoload_consts.empty?
       slot = f.slot
       status_check(f.val(
         "call #{f.import("zeo_rt_const_get_on_value")}(#{borrow(scope)}, #{nptr}, #{nlen}, " \
@@ -3631,13 +3765,6 @@ module Ze0
 
         macro = lower_class_macro(node)
         return macro if macro
-      end
-      # The splice consumed the file this names, so the declaration is
-      # nothing but its own nil. A feature no load path carries is the
-      # runtime's own, and this is where its gate opens.
-      if autoload_call?(node)
-        discard(require_feature(autoload_feature(node))) unless autoload_target(node)
-        return literal_nil
       end
       # The splice consumes a `require` written as a top-level statement
       # and folds it to its own answer. Every other one -- guarded,
