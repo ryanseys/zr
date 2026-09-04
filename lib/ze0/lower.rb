@@ -543,23 +543,24 @@ module Ze0
       end
 
       kind = ACCESSORS[node.name]
-      return visibility unless kind
+      # A name only the run time builds has nothing to emit a method
+      # for, so the call stays an ordinary send of `Module#attr_reader`.
+      return visibility unless kind && args.all? { |a| name_literal?(a) }
 
       @declared_macros[node.object_id] = true
       accessor_names(node, args).each { |n| declare_accessor(node, owner, n, kind, visibility) }
       visibility
     end
 
-    # The names an `attr_*` or positional visibility call names. Each has
-    # to be a plain Symbol: ze0 emits a method per name at compile time,
-    # so a String or a computed one has nothing to emit.
     # These verbs take a name, and ruby lets it be written as a Symbol or
-    # as a String.
+    # as a String. Anything else is a value only the run time has.
     NAME_LITERALS = [Prism::SymbolNode, Prism::StringNode].freeze
+
+    def name_literal?(node) = NAME_LITERALS.any? { |k| node.is_a?(k) }
 
     def accessor_names(node, args)
       args.map do |a|
-        raise Unsupported.new(a, "a `#{node.name}` argument of that shape") unless NAME_LITERALS.any? { |k| a.is_a?(k) }
+        raise Unsupported.new(a, "a `#{node.name}` argument of that shape") unless name_literal?(a)
 
         a.unescaped
       end
@@ -868,7 +869,10 @@ module Ze0
       # An `attr_reader :x` names no `@x` anywhere, and still declares its
       # slot: the generated accessor reads the slot by index.
       if node.is_a?(Prism::CallNode) && node.receiver.nil? && ACCESSORS.key?(node.name)
-        accessor_names(node, node.arguments&.arguments || []).each { |n| found[n] = true }
+        args = node.arguments&.arguments || []
+        # A name only the run time builds declares no slot: the accessor
+        # it mints reads the name-keyed store instead.
+        args.select { |a| name_literal?(a) }.each { |a| found[a.unescaped] = true }
       end
       node.compact_child_nodes.each { |c| ivars_under(c, found) }
       found
@@ -2306,6 +2310,10 @@ module Ze0
       when Prism::SourceLineNode then literal_fixnum(node.location.start_line)
       when Prism::SourceEncodingNode then source_encoding
       when Prism::InterpolatedStringNode then interpolated_string(node)
+      # `` `cmd` `` runs the string through the shell, which is
+      # `Kernel#\`` over it.
+      when Prism::XStringNode then command_string(literal_string(node.unescaped))
+      when Prism::InterpolatedXStringNode then command_string(interpolated_string(node))
       when Prism::ArrayNode then array_literal(node)
       when Prism::HashNode then hash_literal(node)
       when Prism::RangeNode then range_literal(node)
@@ -2523,6 +2531,14 @@ module Ze0
         part.parts.each { |inner| append_part(at, inner) }
       else raise Unsupported.new(part, "an interpolated piece of that shape")
       end
+    end
+
+    # `` `cmd` ``: a receiverless send of `Kernel#\``, whose row is
+    # private, so the call asks no visibility question.
+    def command_string(text)
+      slot = f.slot
+      dynamic_send(borrow(self_operand), :`, [text], addr_of(slot), explicit: false)
+      Operand.new(slot, true, false)
     end
 
     def append_value(at, value)
@@ -3378,7 +3394,11 @@ module Ze0
         return symbol_answer(names)
       end
 
-      return lower_alias(node, args[0], args[1]) if name == "alias_method" && args.size == 2
+      # `alias_method` with names only the run time builds is an
+      # ordinary send: the runtime resolves both.
+      if name == "alias_method" && args.size == 2 && args.all? { |a| name_literal?(a) }
+        return lower_alias(node, args[0], args[1])
+      end
 
       kind = ACCESSORS[node.name]
       # One the declaration pass did not reach -- written inside another
@@ -3442,10 +3462,14 @@ module Ze0
       raise Unsupported.new(node, "an alias name of that shape")
     end
 
+    # A name `alias` or `undef` writes. An interpolated one is a value
+    # only the run time builds, and the runtime takes it exactly as it
+    # takes a literal.
     def alias_name(node)
-      raise Unsupported.new(node, "an alias name of that shape") unless NAME_LITERALS.any? { |k| node.is_a?(k) }
+      return literal_symbol(node.unescaped) if name_literal?(node)
+      raise Unsupported.new(node, "an alias name of that shape") unless node.is_a?(Prism::InterpolatedSymbolNode)
 
-      literal_symbol(node.unescaped)
+      lower_expr(node)
     end
 
     # A `require` the roots did not carry: a feature the runtime already
