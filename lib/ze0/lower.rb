@@ -813,8 +813,12 @@ module Ze0
       written = written_class_name(node.superclass)
       return true if written.nil?
 
-      @assigned_constants.key?(written.split("::").last) &&
-        declared_class(@cref, node.superclass).nil?
+      found = declared_class(@cref, node.superclass)
+      # A subclass of a class MADE at run time is made at run time too:
+      # its parent has no row, so neither can it.
+      return true if found && @classes[found][:runtime]
+
+      @assigned_constants.key?(written.split("::").last) && found.nil?
     end
 
     # `class Foo < <expr>` is `Foo = Class.new(expr)` with the body run on
@@ -1808,11 +1812,11 @@ module Ze0
       dynamic_send(borrow(parent), :inherited, [klass], addr_of(f.slot), explicit: false)
     end
 
-    # The superclass as a value. One this program declares reads its row;
-    # one it does not -- a builtin exception, `BasicObject` -- is read as
-    # the constant it is, segment by segment.
+    # The superclass as a value. One with a row the backend can key reads
+    # that row; one without -- a builtin exception, `BasicObject`, a class
+    # built at run time -- is read as the constant it is, segment by segment.
     def superclass_value(name)
-      return class_value(name) if name == Names::OBJECT || @classes.key?(name)
+      return class_value(name) if keyed_class?(name)
 
       head, *rest = name.split("::")
       rest.reduce(anchored_constant(head)) do |scope, part|
