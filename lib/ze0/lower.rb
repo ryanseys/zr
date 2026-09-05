@@ -861,6 +861,19 @@ module Ze0
       name = Names.singleton_of(owner)
       @classes[name] || declare_fresh_class(node, name, "class", Names::OBJECT, singleton_of: owner)
       @singleton_crefs[node.object_id] = [name, *@cref]
+      # A `class` written here belongs to the singleton, exactly as a
+      # constant does -- `class X` IS a constant write with a body -- and
+      # a `class << self` beside it opens the surrogate's own singleton.
+      # The `def`s are not declared: each installs where it stands.
+      @cref.unshift(name)
+      body_statements(node.body).each do |s|
+        case s
+        when Prism::ClassNode then declare_class(s, name, "class")
+        when Prism::ModuleNode then declare_class(s, name, "module")
+        when Prism::SingletonClassNode then declare_singleton_body(s, name)
+        end
+      end
+      @cref.shift
     end
 
     # Whether `class << ...` opens the enclosing class's own singleton.
@@ -2023,8 +2036,8 @@ module Ze0
 
     # `cref` is the surrogate's chain when the body opens the enclosing
     # class's own singleton, and nil for a per-object one.
-    def singleton_body(node, cref)
-      recv = lower_expr(node.expression)
+    def singleton_body(node, cref, recv = nil)
+      recv ||= lower_expr(node.expression)
       # Pooled up front: the receiver is read once per statement in the
       # body, and the frame is what releases it.
       borrow(recv)
@@ -2043,15 +2056,36 @@ module Ze0
       # A `def` here is a CLASS method of the enclosing class, and ruby
       # labels its frame that way; the surrogate is only its cref.
       label_owner = outer_owner
+      # The body's own locals: the statements run in the ENCLOSING
+      # function, so their slots are declared there, and nothing outside
+      # the body names them.
+      statements = body_statements(node.body)
+      boxed = captured_names(statements, node.locals)
+      node.locals.each { |n| declare_local(n, boxed: boxed.include?(n)) unless locals.key?(n) }
       if cref
         scope.cref = cref
         scope.owner = cref.first
       end
-      body_statements(node.body).each do |s|
+      # Ruby gives the whole body a backtrace frame of its own, labelled
+      # `singleton class`, whose LINE tracks the statement that is
+      # running rather than the one the body opened on.
+      file, file_len = rodata_ref(@file)
+      label, label_len = rodata_ref("singleton class")
+      f.ins "call #{f.import("zeo_rt_frame_push")}(#{file}, #{file_len}, #{label}, #{label_len}, " \
+            "#{f.iconst("i32", node.location.start_line)}, " \
+            "#{f.iconst("i32", node.location.end_line)})"
+      statements.each do |s|
+        set_line(s)
         discard(value)
         case s
         when Prism::DefNode
-          value = define_singleton(recv, s, mode, singleton: of_self, label_owner: label_owner)
+          # `def self.x` here defines on the singleton's OWN singleton --
+          # `obj.singleton_class.x` -- one level further up than a bare
+          # `def`, and ruby labels its frame by the surrogate.
+          meta = s.receiver.is_a?(Prism::SelfNode)
+          target = meta ? send_value(recv, :singleton_class) : recv
+          value = define_singleton(target, s, mode, singleton: of_self,
+                                                    label_owner: (cref&.first if meta) || label_owner)
         when Prism::AliasMethodNode then value = singleton_alias(recv, s)
         when Prism::UndefNode then value = singleton_undef(recv, s)
         when Prism::ConstantWriteNode, Prism::ConstantPathWriteNode
@@ -2059,9 +2093,15 @@ module Ze0
           # put it there: a per-object body has none.
           raise Unsupported.new(s, "a statement in a `class << obj` body") if cref.nil?
 
-          value = lower_expr(s)
+          # The cref puts the constant on the surrogate; `self` is what
+          # the VALUE runs against, and here it is the singleton.
+          value = as_singleton_self(recv) { lower_expr(s) }
         when Prism::SingletonClassNode
-          raise Unsupported.new(s, "a statement in a `class << obj` body")
+          raise Unsupported.new(s, "a statement in a `class << obj` body") if cref.nil?
+
+          # `class << self` here opens the SURROGATE's own singleton: the
+          # same construct one level deeper, on the class this body opened.
+          value = singleton_body(s, @singleton_crefs[s.object_id], send_value(recv, :singleton_class))
         when Prism::CallNode
           if visibility_verb?(s)
             mode, value = singleton_visibility(recv, s, mode)
@@ -2073,6 +2113,7 @@ module Ze0
         else value = as_singleton_self(recv) { lower_expr(s) }
         end
       end
+      f.ins "call #{f.import("zeo_rt_frame_pop")}()"
       scope.frame_base = base
       scope.cref, scope.owner = outer_cref, outer_owner
       value

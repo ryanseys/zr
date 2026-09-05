@@ -110,10 +110,12 @@ module Ze0
       out
     end
 
-    # A fully-qualified owner (`Outer::Inner`) as a symbol fragment. The
-    # owner is already an identifier but for its separator.
+    # A fully-qualified owner (`Outer::Inner`) as a symbol fragment. Each
+    # segment is an identifier but for a singleton surrogate, whose name
+    # is deliberately unspellable -- so each goes through the same escape
+    # a method name does.
     def self.owner_fragment(owner)
-      owner.to_s.gsub("::", "__")
+      owner.to_s.split("::").map { |part| fragment(part) }.join("__")
     end
 
     # The four channels a method body reaches the runtime through: an
