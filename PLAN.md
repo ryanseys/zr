@@ -500,109 +500,172 @@ name.
 The three crashes and the three wrong refusals come before any of it,
 because they are the contract rather than the subset.
 
-## W0 -- the contract, before any of the list
+## Where the frontier actually is -- measured 2026-09-04
 
-Three crashes and three wrong refusals, named under "The census against
-real Ruby" above. They are the same class of defect S0 fixed, and they
-come first for the same reason: a refusal is only honest when the form is
-genuinely outside the subset, and a crash is never honest.
+Every earlier reading of "what is left" came from `ze0/scan.rb` at its
+default limit, which was 40 and silently truncated. The numbers below
+are the whole corpus.
 
-Each gets a fixture in `crates/zeo/tests/fixtures/ze0_refused/`, or a
-golden in `test/ze0/` where the form joins the subset.
+**What ze0 COMPILES**, one ze0 compile per file over 5,392 programs:
 
-## W1 -- `Module.new { def ... }`, and the rest of prism's syntax
-
-prism's four polyfills are all one shape:
-
-```ruby
-if !("".respond_to?(:byteindex))
-  String.include(Module.new { def byteindex(needle, offset = 0) ... end })
-end
+```
+test/lang        2013 of 2065
+test/core        2822 of 2844
+test/stdlib       457 of  466
+                 ----------------
+                 98.5%
 ```
 
-Every guard is false on ruby 4.0.6, which is zeo's floor, so the bodies
-are dead -- and ze0 still has to compile them.
+**What ze0 gets RIGHT**, `cargo xtask ze0-sweep --all` over 5,934:
 
-**This is reachable with the machinery ze0 already has, and the plan was
-wrong to call it structurally out.** `zeo_rt_define_in_default_definee`
-takes a **Proc** as the method body and installs it on whatever definee
-the runtime resolves, which is the new module inside a `Module.new`
-block. ze0 builds Procs already: the wide `zeo_rt_proc_new` takes all
-sixteen arguments inline, which is what phase 2 found for blocks. The
-`zeo_proc_shapes` row the Rust emitter uses is what ze0 cannot reach --
-and it does not need it.
+```
+matched   5369
+refused     93
+backend    106
+diverged   363
+```
 
-What the work is: a block body compiled as a METHOD body rather than a
-block one. The frame is a method frame, not `block in ...`; the binding
-is strict; and a bare `super` forwards the method's own parameters, which
-is the `MethodBody::Def` / `MethodBody::DefineMethod` distinction at
-`clif/blocks.rs:303`.
+The last line is the one that matters, and nothing could see it before
+the sweep existed: every diverged program COMPILES, so a compile probe
+calls it a success. A refusal is honest; a wrong answer is not.
 
-The rest of the census, each with its file:
+The named divergence classes:
 
-| form | where |
-|---|---|
-| a `def` inside a block | the four polyfills |
-| `include` / `extend` / `prepend` | `desugar_compiler.rb`, `node_ext.rb`, `dsl.rb` |
-| `autoload` | `prism.rb`, `parse_result.rb` |
-| a required file with top-level locals | `prism.rb:86`, `serialize.rb:13` |
-| `defined?` | `dot_visitor.rb` |
-| `class << self` | `zeo.rb` |
-| `next` in a loop | `parse_result/comments.rb` |
-| an `ensure` clause | `parse_result/newlines.rb` |
-| a destructuring parameter | `pattern.rb` |
-| a superclass of that shape (`< Struct.new(...)`) | `lex_compat.rb` |
+| n | class |
+|--:|---|
+| 104 | the ambient rbconfig shim, which ze0 has no mechanism for |
+| 24 | `Ruby::Box` -- the whole of `test/lang/boxes` |
+| 19 | a dynamic `Ractor.new` (an honest runtime message, not silent) |
+| 17 | a `require` the units road cannot find |
+| 3 | a scope intrinsic reached through `send` |
+| 196 | not yet classed |
 
-Two of these are ze0 bugs rather than missing features. `next` inside a
-`while` is ordinary ruby and ze0 refuses it as "outside a block". And a
-required file's top-level locals are its own in ruby; ze0 has one
-top-level scope, so it refuses them -- the Rust loader renames them per
-file (`parse::rename`) and ze0 should key them by unit.
+The 106 `backend` failures are one shape: the sidecar names a feature
+the runtime does not carry as a builtin (`csv`, `fileutils`,
+`tempfile`), and the link reports it instead of ze0 refusing the
+`require` at its own line.
 
-## W2 -- prism's vendored tree as an overlay
+The refusals, by shape:
 
-`crates/zeo-rt/ext/prism/` is 26 files and 40,160 lines, of which
-**25 files are byte-identical to the stock gem**. Only `prism.rb`
-differs -- three hunks, 33 lines, each commented -- plus one new file,
-`prism/zeo.rb`, the native-backend seam adapted from upstream's own
-`ffi.rb`. `prism/ffi.rb` and the thirteen `prism/translation/**` files
-are deliberately absent.
+```
+  14  a class reopened under a guard
+  13  a `using`
+  13  a statement in a `class << obj` body
+   7  a def on self at the top level
+   6  a class named in a scope of that shape
+   6  a splat in a `when`
+   5  a class nested inside another statement
+   5  a module reopened under a guard
+   5  a super outside a method body
+   4  a constant assigned into a scope this program does not define
+   3  FlipFlop
+   3  a class variable in a class this program cannot name
+   2  Splat
+   2  a super at the top level
+   1  each: KeywordHash, ShareableConstant, a `module_function` of a
+       method this body does not define, a `require` of a file the
+       splice already took, the local <name> has no slot
+```
 
-So the tier should carry only what it changes: `prism.rb` and
-`prism/zeo.rb`, about 360 lines, with the other twenty-five resolved from
-the ordinary vendored gem. `EXT_TIER` already takes precedence
-(`gems/bundled.rs:50`), so the search order is right; what has to be read
-first is `xtask payload`, which flattens the tier into
-`share/zeo/lib/ruby/`, and the loader's tier walk, to be sure a PARTIAL
-tier falls through rather than shadowing.
+## W6 -- the contract, and the tool that measures it -- DONE
 
-A prism version bump then touches two files instead of twenty-six.
+A crash is not a refusal, and a refusal of a program ruby merely RAISES
+on is not one either.
 
-**Stock prism is not an alternative to W1.** The polyfills are upstream's
-own files, byte-identical in both trees, and the stock gem also carries
-`ffi.rb` (which uses `MatchWrite`, another refused form) and the thirteen
-translation files. Using it unchanged would grow the surface, not shrink
-it -- and a ze0-emitted program cannot `dlopen` a C extension, because
-the sidecar has no row for one.
+- **A runtime superclass crashed the compile.** `class Three < Two`,
+  where `Two` itself has a run-time superclass, asked `zeo_class_ids`
+  for a row `Two` never got. A class whose parent is made at run time is
+  made at run time too. Seven files.
+- **A definition ruby raises on now runs and raises.** The declare pass
+  records the `TypeError` the statement owes and files no body; the
+  statement lowers to the raise in its place, and the class stays as it
+  was. Both message lines are ruby's. A builtin's kind and parent are
+  the runtime's, so those two guards are written out rather than settled
+  at compile time. Seven files.
+- **`Names::EXCEPTIONS`** transcribes `zeo_abi::EXCEPTION_CLASSES`, so a
+  reopen of the native exception tree routes to the runtime like any
+  other builtin rather than minting a shadow row the backend refuses.
+- **`cargo xtask ze0-sweep`** is the tool this plan was missing. One
+  program costs one ze0 compile and one real link; the four buckets are
+  `refused` / `backend` / `matched` / `diverged`, and the refusals print
+  as a histogram by shape.
+- **A reopened builtin wins the call it was reopened for.** An operator
+  defined anywhere on Integer's fast-path MRO stands the inline fast
+  path down; any `puts` the program defines stands the fold down.
 
-## W3 -- the fixed point, and how it is gated
+## W7 -- the singleton class body
 
-A `stage2` xtask verb, run on demand, nothing automated -- the same trade
-the gem tests took. It does not exist yet; W3 is what adds it. It builds ze0 with ze0-under-ruby, builds ze0 again
-with that binary, and demands the two `.clif` and the two `.zeodata` be
-byte-identical. Then it runs every `test/ze0/` program through the second
-and demands the bytes the first writes: a compiler that reproduces itself
-but miscompiles is not done.
+13 files, the largest refusal bucket. `lower_singleton_class` refuses a
+constant write, a constant-path write and a nested `class << ...`; a
+nested `class X` falls through and dies as W8's refusal instead. The
+idiom is URI's `class << self; RESERVED = ...; def escape`.
 
-Register it in all three places -- `commands/mod.rs`, the dispatch match,
-and the `USAGE` block -- because `checks::docs` parses the last one.
+The Rust emitter's answer is a **named class row**, not a desugar:
+`compiler/names.rs:16` `SINGLETON_SURROGATE = "#<Class:self>"`. Every
+`class << self` body mints one, even a constant-free one, because the
+surrogate IS the body's cref. A `REG_SINGLETON_SURROGATE` row (kind 12)
+ties owner to surrogate so `Owner.singleton_class` answers the
+compile-time id.
+
+ze0's version: `declare_class` mints a row named `#<Class:Owner>`, the
+sidecar class row grows one by-name field `singleton_of`, and
+`backend/clif_text.rs` synthesizes the reg row from it -- the same trade
+`conceal`, `Class.superclass` and `CallerClass::Named` already make.
+With a cref the body's statements stop being special.
+
+`class << obj` where `obj` is not the enclosing class keeps today's
+desugar: zeo mints no surrogate there either.
+
+## W8 -- a class the compile cannot name
+
+10 files, three refusals, one cause: `declare_runtime_class` files a row
+and returns without walking the body, so nothing inside is declared.
+
+- a class nested inside another statement (5)
+- a class named in a scope of that shape (6) -- `class Foo::Bar` with a
+  runtime `Foo`
+- a class variable in a class this program cannot name (3) --
+  `crates/zeo-rt/src/cvars.rs` is keyed on a compile-time class id and
+  there is no value-keyed entry, so route it through the reflective
+  `class_variable_get` / `_set` sends the runtime already answers
+
+## W9 -- `using` and refinements
+
+13 files. `refine` is already the ordinary runtime send that mints a
+real holder; only `using` is refused.
+
+The whole-program road nominates a call site from compile-time
+`ClassId`s, which a front end never learns. **The snippet road is
+value-keyed and slot-keyed and is exactly the shape ze0 needs**:
+`zeo_rt_eval_using(module, slot)`, `zeo_rt_eval_refined_send`,
+`zeo_rt_eval_refined_send_args`, `zeo_rt_eval_reflect_dispatch`, over
+`crates/zeo-rt/src/eval.rs:250`'s `USING_SLOTS`. A slot is an integer
+ze0 assigns itself, so refinements need no class id at all.
+
+Two small Rust changes: export `reserve_using_slots`, and carry the
+singleton bit through `ClassRegistry::refinement_of`, which
+`using_activate` hardcodes to false today.
+
+## W10 -- the tail
+
+23 files, each small and independent: a splat in a `when`, `def self.x`
+at the top level, `super` and `zsuper` inside `define_method`,
+`Foo::BAR = 1` with a runtime `Foo`, `FlipFlop`, a magic
+`shareable_constant_value` comment, a keyword hash in an array literal,
+a bare splat in value position.
+
+## W11 -- what the sweep found
+
+The divergence classes above, largest first. The rbconfig shim is the
+single biggest at 104 and needs a design decision rather than a fix.
 
 ## What stays refused, by name
 
-`eval` and friends, `method_missing`, refinements, `Ractor`, `Fiber`,
-`ObjectSpace`, `binding`, `callcc`, and a run-time `require` against a
-load path. A program using one is refused at its line. This list is the
-plan's edge and it is in `README.md`'s subset section.
+`method_missing`, `Ractor`, `Fiber`, `callcc`, and a run-time `require`
+against a load path. `eval`, `binding`, `ObjectSpace` and refinements
+have all since joined the subset or are named waves above. A program
+using one is refused at its line. This list is the plan's edge and it is
+in `README.md`'s subset section.
 
 ## Testing
 
@@ -623,6 +686,7 @@ ruby ze0/ze0.rb test/ze0/<program>.rb -o /tmp/p.clif   # ze0 under ruby
 zeo backend /tmp/p.clif -o /tmp/p && /tmp/p            # link and run
 cargo nextest run -p zeo -E 'test(ze0::) + test(ze0_clif) + test(ze0_refused)'
 cargo xtask bless ze0::<program>.rb                    # record ruby's answer
+cargo xtask ze0-sweep --all                            # does it AGREE?
 ruby ze0/measure.rb                                    # the README's table
 ```
 
@@ -630,6 +694,9 @@ Per step, in order:
 
 1. Every new form has a program in `test/ze0/` whose answer was recorded
    from ruby, and every new refusal has a fixture.
-2. All three roads agree byte for byte -- the differential, not "it ran".
-3. `ZEO_RT_LEAKCHECK=1` stays clean.
-4. A form outside the subset is still refused **at its line, by name**.
+2. **`cargo xtask ze0-sweep` over the directories the change touches.** A
+   golden proves the form; the sweep proves the corpus. Every fix since
+   W6 was found by the sweep and by nothing else.
+3. All three roads agree byte for byte -- the differential, not "it ran".
+4. `ZEO_RT_LEAKCHECK=1` stays clean.
+5. A form outside the subset is still refused **at its line, by name**.
