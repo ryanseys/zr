@@ -2,16 +2,19 @@
 
 # Which files of a corpus directory ze0 compiles, and what it refuses.
 #
-#   ruby ze0/scan.rb 'test/lang/blocks/*.rb' 40
+#   ruby ze0/scan.rb 'test/lang/blocks/*.rb'
+#   ruby ze0/scan.rb 'test/lang/blocks/*.rb' 40    # the first 40 only
 #
-# One ruby process per file, and a limit, because ze0 compiling
-# thousands of files in ONE process takes the machine down. The compile
-# is all that runs: nothing is linked.
+# One ruby process per file, because ze0 compiling thousands of files in
+# ONE process takes the machine down. The compile is all that runs:
+# nothing is linked, so this says which programs ze0 REFUSES and nothing
+# about which ones it gets right -- `cargo xtask ze0-sweep` answers that.
 require "tmpdir"
 require "rbconfig"
 
 glob = ARGV[0] || abort("usage: ruby ze0/scan.rb <glob> [limit]")
-files = Dir[glob].sort.first(Integer(ARGV[1] || 40))
+found = Dir[glob].sort
+files = ARGV[1] ? found.first(Integer(ARGV[1])) : found
 out = File.join(Dir.tmpdir, "ze0-scan.clif")
 
 refusals = Hash.new(0)
@@ -29,4 +32,5 @@ files.each do |file|
 end
 
 refusals.sort_by { |_, n| -n }.each { |what, n| puts format("%4d  %s", n, what) }
-puts "#{ok} of #{files.size} compiled"
+puts "#{ok} of #{files.size} compiled" +
+     (files.size < found.size ? " (#{found.size} match the glob)" : "")
