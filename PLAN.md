@@ -519,10 +519,10 @@ test/stdlib       457 of  466
 **What ze0 gets RIGHT**, `cargo xtask ze0-sweep --all` over 5,934:
 
 ```
-matched   5369
-refused     93
+matched   5386
+refused     81
 backend    106
-diverged   363
+diverged   359
 ```
 
 The last line is the one that matters, and nothing could see it before
@@ -593,7 +593,33 @@ on is not one either.
   defined anywhere on Integer's fast-path MRO stands the inline fast
   path down; any `puts` the program defines stands the fold down.
 
-## W7 -- the singleton class body
+## W7 -- the singleton class body -- DONE
+
+`test/lang/singleton` is 91 of 91: no refusals, no divergences.
+
+The body was lowered as a run of `define_singleton_method` calls with no
+cref, so a constant written there had nowhere to land and the whole
+statement was refused -- and a constant is what the idiom is for.
+
+It now gets a row of its own, named `#<Class:Owner>`, carrying
+`singleton_of` in the sidecar so `backend/clif_text.rs` writes the
+`REG_SINGLETON_SURROGATE` row: the front end names, the backend
+resolves. The row is the body's cref AND its default definee, so a
+constant lands on the singleton, a `def` beside it reads the constant, a
+`def` in a block there installs on the singleton, and a nested `class`
+belongs to the singleton too. A `class << self` beside them opens the
+surrogate's own singleton, and `def self.x` defines one level further up
+-- on a per-object body as much as on a surrogate one. The body has the
+frame ruby gives it, labelled `singleton class`, and its own locals.
+
+`Module.nesting` folds to that chain: the runtime's own row answers an
+empty Array because a frame carries no cref.
+
+A `class << obj` on any other receiver keeps the per-object desugar --
+no row can name a singleton minted per object -- and a constant there
+is still refused.
+
+## W7 -- how it was done
 
 13 files, the largest refusal bucket. `lower_singleton_class` refuses a
 constant write, a constant-path write and a nested `class << ...`; a
