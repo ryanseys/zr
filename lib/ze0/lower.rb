@@ -79,6 +79,8 @@ module Ze0
       @unit_locals = {}
       @declared_bodies = {}
       @class_raises = {}
+      @redefined_ops = []
+      @defined_names = []
       @assigned_constants = {}
       # Every class and module name this program writes, and which of the
       # two each is. Filled before the declaration pass, so a superclass
@@ -853,7 +855,9 @@ module Ze0
         return note_kind_mismatch(node, entry, kind)
       end
 
-      entry[:bodies] << { node: node, body: body_statements(node.body), kind: kind, file: @file }
+      body = body_statements(node.body)
+      body.each { |s| note_redefined(s.name, name) if s.is_a?(Prism::DefNode) && s.receiver.nil? }
+      entry[:bodies] << { node: node, body: body, kind: kind, file: @file }
       nil
     end
 
@@ -883,6 +887,25 @@ module Ze0
     end
 
     def leaf_name(name) = name.split("::").last
+
+    # A user reopen that redefines an operator anywhere on Integer's or
+    # Float's fast-path MRO has to be honoured at EVERY call site, so the
+    # whole inline fast path stands down and the ordinary send finds the
+    # reopened row. The same seven names the Rust emitter watches.
+    FAST_PATH_MRO = %w[Integer Float Numeric Comparable Object Kernel BasicObject].freeze
+
+    def note_redefined(name, owner)
+      name = name.to_s
+      # `puts` folds to the runtime's own writer, and a receiverless call
+      # runs on whatever `self` is, so ANY class defining the name takes
+      # the fold back -- the name is what the fold is keyed on, and only
+      # a handful of programs write it.
+      @defined_names << name
+      return unless FAST_PATH_MRO.include?(owner)
+      return if name.start_with?(/[A-Za-z_]/)
+
+      @redefined_ops << name
+    end
 
     def declare_fresh_class(node, name, kind, superclass)
       entry = {
@@ -1158,6 +1181,7 @@ module Ze0
       # body symbol are the same either way.
       key = [node.name, singleton]
       @declared_defs[node.object_id] = true
+      note_redefined(node.name, owner) unless singleton
 
       params = parse_params(node.parameters)
       definition = {
@@ -4116,7 +4140,7 @@ module Ze0
       elsif plain && node.receiver.nil? && (d = visible_def(node.name)) &&
             d[:params].plain? && d[:params].required.size == args.size
         direct_call(node, args, d)
-      elsif plain && node.receiver.nil? && node.name == :puts
+      elsif plain && node.receiver.nil? && node.name == :puts && !@defined_names.include?("puts")
         kernel_puts(args)
       elsif plain && node.receiver && args.size == 1 && inline_binary?(node.name)
         binary(node.name, lower_expr(node.receiver), lower_expr(args[0]))
@@ -4486,6 +4510,8 @@ module Ze0
 
     # `a OP b` with the Int/Int fast path inline and the send otherwise.
     def binary(name, lhs, rhs)
+      return operator_send(name, lhs, rhs) if @redefined_ops.include?(name.to_s)
+
       la = borrow(lhs)
       ra = borrow(rhs)
       result = f.slot
