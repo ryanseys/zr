@@ -78,6 +78,7 @@ module Ze0
       # is its own scope in ruby, so each gets its own table of slots.
       @unit_locals = {}
       @declared_bodies = {}
+      @class_raises = {}
       @assigned_constants = {}
       # Every class and module name this program writes, and which of the
       # two each is. Filled before the declaration pass, so a superclass
@@ -690,7 +691,7 @@ module Ze0
 
       @declared_bodies[node.object_id] = true
       name = declared_name(node)
-      return declare_builtin_reopen(node, name, kind) if Names::ALWAYS_ON.include?(name)
+      return declare_builtin_reopen(node, name, kind) if Names.builtin?(name)
       # A class MADE at run time stays that way when a later statement
       # reopens it: there is still no row to put the body's `def`s in.
       if runtime_superclass?(node, kind) || @classes[name]&.[](:runtime)
@@ -700,12 +701,13 @@ module Ze0
       superclass = superclass_of(node, kind)
       entry = @classes[name] || declare_fresh_class(node, name, kind, superclass)
       entry[:guarded] ||= guarded
-      if entry[:kind] != kind
-        raise Unsupported.new(node, "a #{entry[:kind]} reopened as a #{kind}")
-      end
+      return note_kind_mismatch(node, entry, kind) if entry[:kind] != kind
+
       written = kind == "class" ? node.superclass : nil
-      if written && entry[:superclass] != superclass
-        raise Unsupported.new(written, "a class reopened with a different superclass")
+      # A gated builtin's real parent is the RUNTIME's -- the row only
+      # shadows it -- so the reopen's clause is checked where it runs.
+      if written && entry[:superclass] != superclass && !Names::GATED.include?(name)
+        return note_superclass_mismatch(node, name)
       end
 
       body = body_statements(node.body)
@@ -847,15 +849,40 @@ module Ze0
         name: name, kind: kind, superclass: Names::OBJECT, builtin: true,
         ivars: [], cvars: [], private_constants: [], bodies: [],
       }
-      unless entry[:builtin] && entry[:kind] == kind
-        raise Unsupported.new(node, "a #{entry[:kind]} reopened as a #{kind}")
+      unless entry[:builtin]
+        return note_kind_mismatch(node, entry, kind)
       end
-      written = kind == "class" ? node.superclass : nil
-      raise Unsupported.new(written, "a superclass on a reopened builtin") if written
 
-      entry[:bodies] << { node: node, body: body_statements(node.body), file: @file }
+      entry[:bodies] << { node: node, body: body_statements(node.body), kind: kind, file: @file }
       nil
     end
+
+    # A definition ruby RAISES on is a definition that runs and raises,
+    # not a program that cannot be compiled: the statement lowers to the
+    # `TypeError` in its place, and the class stays exactly as it was.
+    def note_class_raise(node, message)
+      @class_raises[node.object_id] = message
+      nil
+    end
+
+    # Ruby names the LEAF -- `module Outer::Inner` reports `Inner` -- and
+    # appends where the CONSTANT was made, which is the first declaring
+    # statement. A builtin has no such statement, so both fields are empty.
+    def note_kind_mismatch(node, entry, kind)
+      leaf = leaf_name(entry[:name])
+      first = entry[:bodies].first
+      file, line = first ? [first[:file], first[:node].location.start_line] : ["", ""]
+      note_class_raise(
+        node,
+        "#{leaf} is not a #{kind}\n#{file}:#{line}: previous definition of #{leaf} was here",
+      )
+    end
+
+    def note_superclass_mismatch(node, name)
+      note_class_raise(node, "superclass mismatch for class #{leaf_name(name)}")
+    end
+
+    def leaf_name(name) = name.split("::").last
 
     def declare_fresh_class(node, name, kind, superclass)
       entry = {
@@ -1758,6 +1785,9 @@ module Ze0
     # `class Foo ... end` in statement position: the class is already
     # registered, so this reads it and runs its body.
     def lower_class_statement(node)
+      message = @class_raises[node.object_id]
+      return class_type_error(message) if message
+
       # The body found the statement, so the declaration pass named it:
       # the row it filed the node under is the answer, name and all.
       entry = @classes.values.find { |c| c[:bodies].any? { |b| b[:node].equal?(node) } }
@@ -1769,6 +1799,7 @@ module Ze0
       written = entry[:bodies].find { |b| b[:node].equal?(node) }
       raise Unsupported.new(node, "a class nested inside another statement") if written.nil?
 
+      guard_gated_superclass(entry, node)
       touch_superclass(entry)
       # ruby makes the constant where the statement RUNS, so the row the
       # backend registered concealed is revealed here -- and one whose
@@ -1780,6 +1811,14 @@ module Ze0
       body = f.callee(written[:symbol], ["i64", "i64"], "i32")
       status_check(f.val("call #{body}(#{borrow(klass)}, #{addr_of(result)})"))
       Operand.new(result, true, false)
+    end
+
+    # The `TypeError` a definition ruby raises on raises where it stands.
+    def class_type_error(message)
+      dynamic_send(borrow(self_operand), :raise,
+                   [anchored_constant("TypeError"), literal_string(message)],
+                   addr_of(f.slot), explicit: false)
+      literal_nil
     end
 
     # `class Sub < Base` READS `Base` before anything else, and a read is
@@ -1854,8 +1893,50 @@ module Ze0
     # A reopened builtin runs its body as `Klass.class_eval { ... }`: the
     # block's `self` is the class, its `def`s install on it where they
     # stand, and the answer is the body's last value, as ruby's is.
+    # A builtin's kind and its parent are the RUNTIME's, so ruby's own two
+    # guards on a reopen are written out rather than settled here: `module
+    # String` and `class String < Parent` each raise where they stand, and
+    # `class String < Object`, which restates the real parent, does not.
     def lower_builtin_reopen(entry, node)
+      written = entry[:bodies].find { |b| b[:node].equal?(node) }
+      kind = written ? written[:kind] : entry[:kind]
+      leaf = leaf_name(entry[:name])
+      guard_or_raise(
+        send_value(constant_named(entry[:name]), kind == "module" ? :instance_of? : :is_a?,
+                   [anchored_constant(kind == "module" ? "Module" : "Class")]),
+        "#{leaf} is not a #{kind}\n:: previous definition of #{leaf} was here",
+      )
+      if kind == "class" && node.superclass
+        guard_or_raise(
+          send_value(send_value(constant_named(entry[:name]), :superclass, []),
+                     :equal?, [lower_expr(node.superclass)]),
+          "superclass mismatch for class #{leaf}",
+        )
+      end
       run_body_on(entry[:name], constant_named(entry[:name]), node)
+    end
+
+    # `class BigDecimal < Numeric` reopening a gated builtin restates a
+    # parent only the runtime knows, so ruby's guard is written out.
+    def guard_gated_superclass(entry, node)
+      return unless entry[:kind] == "class" && node.superclass
+      return unless Names::GATED.include?(entry[:name])
+
+      guard_or_raise(
+        send_value(send_value(constant_named(entry[:name]), :superclass, []),
+                   :equal?, [lower_expr(node.superclass)]),
+        "superclass mismatch for class #{leaf_name(entry[:name])}",
+      )
+    end
+
+    # `raise TypeError, message unless condition`.
+    def guard_or_raise(condition, message)
+      ok, bad = f.label, f.label
+      f.ins "brif #{truthy(condition)}, #{ok}, #{bad}"
+      f.switch(bad)
+      class_type_error(message)
+      f.ins "jump #{ok}" unless f.terminated?
+      f.switch(ok)
     end
 
     # The body below is that class's, however it reaches the runtime.

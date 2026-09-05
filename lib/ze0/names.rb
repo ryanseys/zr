@@ -33,6 +33,32 @@ module Ze0
       Zeo::Eval
       ].freeze
 
+      # The exception hierarchy the runtime carries natively. A `class` or
+      # `module` naming one REOPENS it, exactly as `ALWAYS_ON` does -- the
+      # `Errno::` block is left out because a program that reopens one
+      # does not exist and the names are the platform's.
+      EXCEPTIONS = %w[
+      Exception ScriptError NotImplementedError LoadError StandardError
+      ArgumentError EncodingError Encoding::UndefinedConversionError
+      Encoding::InvalidByteSequenceError Encoding::CompatibilityError
+      Encoding::ConverterNotFoundError IOError EOFError IndexError
+      KeyError StopIteration NameError NoMethodError RangeError
+      FloatDomainError LocalJumpError RegexpError RuntimeError FrozenError
+      NoMatchingPatternError FiberError ThreadError ClosedQueueError
+      RactorError TypeError ZeroDivisionError SystemCallError Errno
+      Math::DomainError SyntaxError UncaughtThrowError SystemExit
+      SignalException Interrupt NoMemoryError SecurityError
+      SystemStackError NoMatchingPatternKeyError Regexp::TimeoutError
+      IO::TimeoutError WeakRef::RefError Ractor::Error Ractor::ClosedError
+      Ractor::IsolationError Ractor::MovedError Ractor::RemoteError
+      Ractor::UnsafeError IO::Buffer::LockedError
+      IO::Buffer::AllocationError IO::Buffer::AccessError
+      IO::Buffer::InvalidatedError IO::Buffer::MaskError fatal
+      IO::WaitReadable IO::WaitWritable IO::EAGAINWaitReadable
+      IO::EAGAINWaitWritable IO::EINPROGRESSWaitReadable
+      IO::EINPROGRESSWaitWritable
+      ].freeze
+
       # The classes a require-gated builtin brings. A `class` or `module`
       # naming one REOPENS it, and the backend allows the row once the
       # feature is required -- but the LAYOUT is the runtime's, so the row
@@ -56,6 +82,10 @@ module Ze0
       StringScanner Syslog TCPServer TCPSocket UDPSocket UNIXServer UNIXSocket
       YAML Zlib Zlib::Deflate Zlib::Inflate Zlib::ZStream
       ].freeze
+
+      # Whether a `class` or `module` statement REOPENS what the runtime
+      # already carries, rather than defining something new.
+      def self.builtin?(name) = ALWAYS_ON.include?(name) || EXCEPTIONS.include?(name)
 
     TOPLEVEL = "zeo_toplevel"
     # The owner of a top-level `def`.
