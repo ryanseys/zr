@@ -519,10 +519,10 @@ test/stdlib       457 of  466
 **What ze0 gets RIGHT**, `cargo xtask ze0-sweep --all` over 5,934:
 
 ```
-matched   5386
-refused     81
+matched   5400
+refused     69
 backend    106
-diverged   359
+diverged   358
 ```
 
 The last line is the one that matters, and nothing could see it before
@@ -642,7 +642,28 @@ With a cref the body's statements stop being special.
 `class << obj` where `obj` is not the enclosing class keeps today's
 desugar: zeo mints no surrogate there either.
 
-## W8 -- a class the compile cannot name
+## W8 -- a class the compile cannot name -- DONE
+
+Three refusals, one cause: `declare_runtime_class` filed a row and
+returned without walking the body. Everything such a body writes now
+goes through the class VALUE -- `self` inside the body, where the
+constant that holds the class is not bound yet, and that constant in a
+`def`, where it is. A reopened builtin takes the same road: neither has
+a class id.
+
+  - a nested `class` or `module` is made at run time too, its constant
+    set on the class the enclosing body is building
+  - a constant the body writes lands on the class; a read of one, from
+    the body or from a `def` beside it, resolves through it
+  - a class variable takes the reflective `class_variable_get`/`_set`
+    family, which starts from a receiver and walks the ancestors itself
+  - `class self::Task` names no scope this compile can write into, so
+    the row takes a name of its own
+  - `class ::Module` names the top level, not an empty namespace
+
+Eleven corpus programs stopped being refused.
+
+## W8 -- how it was done
 
 10 files, three refusals, one cause: `declare_runtime_class` files a row
 and returns without walking the body, so nothing inside is declared.
