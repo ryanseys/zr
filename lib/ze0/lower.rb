@@ -726,6 +726,13 @@ module Ze0
       # A gated builtin's real parent is the RUNTIME's -- the row only
       # shadows it -- so the reopen's clause is checked where it runs.
       if written && entry[:superclass] != superclass && !Names::GATED.include?(name)
+        # Under a guard this compile cannot decide, the two parents are
+        # two BRANCHES: ruby runs one of them and raises nothing, and
+        # which one is not a fact here.
+        if guarded && entry[:guarded]
+          raise Unsupported.new(node, "a #{kind} whose branches name different superclasses")
+        end
+
         return note_superclass_mismatch(node, name)
       end
 
@@ -752,15 +759,12 @@ module Ze0
         node: node, body: body, file: @file, cref: @cref.dup,
         symbol: at.zero? ? base : "#{base}_#{at}",
       }
-      # A guarded body is the whole class: the reveal at its statement is
-      # what makes the constant, and the rows the body writes are on a
-      # class nothing else can name yet. A SECOND body would install its
-      # methods whether the guard let it run or not.
-      if entry[:guarded] && entry[:bodies].size > 1
-        raise Unsupported.new(node, "a #{kind} reopened under a guard")
-      end
-
-      declare(body, name)
+      # A `def` under a guard is REGISTERED BUT NOT PROMISED: it claims no
+      # static row and installs where it stands, so the body has to run
+      # for the method to exist. A guarded body is that same guard around
+      # every `def` it holds, which is what keeps a reopen the branch
+      # never took from adding its methods anyway.
+      declare(body, name, guarded: guarded)
       @cref.shift
     end
 
