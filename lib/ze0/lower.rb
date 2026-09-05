@@ -668,6 +668,17 @@ module Ze0
       args.flat_map { |a| written_name(node, a) }
     end
 
+    # Whether every argument is a name this compile can read: a literal,
+    # or a splat of a literal Array.
+    def written_names?(args)
+      args.all? do |a|
+        next true if name_literal?(a)
+        next false unless a.is_a?(Prism::SplatNode) && a.expression.is_a?(Prism::ArrayNode)
+
+        written_names?(a.expression.elements)
+      end
+    end
+
     def written_name(node, arg)
       return [arg.unescaped] if name_literal?(arg)
 
@@ -3145,7 +3156,7 @@ module Ze0
       flip_flop_off(node, state)
       arm(literal_bool(1), result, join)
       f.switch(test_left)
-      f.ins "brif #{truthy(lower_expr(node.left))}, #{turned_on}, #{off}"
+      f.ins "brif #{truthy(flip_flop_end(node.left))}, #{turned_on}, #{off}"
       f.switch(turned_on)
       f.ins "call #{f.import("zeo_rt_flip_flop_set")}(#{state}, #{f.iconst("i8", 1)})"
       # `...` waits for the next test before it can turn off again; `..`
@@ -3159,9 +3170,14 @@ module Ze0
       Operand.new(result, false, true)
     end
 
+    # An omitted end never fires, which is ruby's own reading of the
+    # missing operand as nil: `..(x)` never turns ON and `(x)..` never
+    # turns off again.
+    def flip_flop_end(node) = node.nil? ? literal_nil : lower_expr(node)
+
     def flip_flop_off(node, state)
       clear, done = f.label, f.label
-      f.ins "brif #{truthy(lower_expr(node.right))}, #{clear}, #{done}"
+      f.ins "brif #{truthy(flip_flop_end(node.right))}, #{clear}, #{done}"
       f.switch(clear)
       f.ins "call #{f.import("zeo_rt_flip_flop_set")}(#{state}, #{f.iconst("i8", 0)})"
       f.ins "jump #{done}"
@@ -4384,12 +4400,28 @@ module Ze0
     # method row cannot see the frame that called it.
     def lower_implicit_eval(node)
       args = node.arguments.arguments
+      return spread_implicit_eval(node, args) if args.any?(Prism::SplatNode)
+
       operands = args.map.with_index do |a, i|
         i == 1 ? scope_binding(node) : lower_expr(a)
       end
       operands.insert(1, scope_binding(node)) if args.size == 1
       slot = f.slot
       dynamic_send(borrow(self_operand), :eval, operands, addr_of(slot), explicit: false)
+      Operand.new(slot, true, false)
+    end
+
+    # `eval(src, nil, *rest)`: the file and the line arrive as a run-time
+    # list, so the whole call goes over as one Array with the binding in
+    # the second position it always takes.
+    def spread_implicit_eval(node, args)
+      argv = new_array(args.size + 1)
+      push_argument(argv, lower_expr(args[0]))
+      push_argument(argv, scope_binding(node))
+      args.drop(2).each { |a| push_call_argument(argv, a) }
+      slot = f.slot
+      status_check(argv_send(borrow(self_operand), :eval, argv, f.iconst("i64", 0),
+                             f.iconst("i64", 0), addr_of(slot), explicit: false))
       Operand.new(slot, true, false)
     end
 
@@ -4462,6 +4494,9 @@ module Ze0
         # `private def x` answers the `def`'s own value, and the row the
         # declaration pass wrote already carries the visibility.
         return args.map { |a| lower_expr(a) }.last if args.all?(Prism::DefNode)
+        # Names only the run time builds -- `private(*NAMES)` -- are the
+        # runtime's own verb, which reads the list where it stands.
+        return runtime_visibility(node, args) unless written_names?(args)
 
         names = accessor_names(node, args)
         verb = f.iconst("i8", Capi::VISIBILITY_VERBS.fetch(name))
@@ -4588,6 +4623,14 @@ module Ze0
     def runtime_module_function(names)
       dynamic_send(borrow(self_operand), MODULE_FUNCTION.to_sym,
                    names.map { |n| literal_symbol(n) }, addr_of(f.slot), explicit: false)
+    end
+
+    # `private(*names)` and its two siblings through the runtime's own
+    # verb, which answers what ruby answers.
+    def runtime_visibility(node, args)
+      result = f.slot
+      splat_send(borrow(self_operand), node.name, args, addr_of(result), explicit: false)
+      Operand.new(result, true, false)
     end
 
     def symbol_answer(names)
@@ -4723,11 +4766,27 @@ module Ze0
 
     def write_arguments(node, recv, slots = NO_SLOTS)
       args = node.arguments.arguments
+      return spread_write(node, recv, args, slots) if args[0..-2].any?(Prism::SplatNode)
+
       middle = args[0..-2].map { |a| lower_expr(a) }
       written = lower_expr(args.last)
       # Pooled, so it outlives the send that is about to read it.
       borrow(written)
       written_value(send_value(recv, node.name, middle + [written], slots: slots), written)
+    end
+
+    # `h[*keys] = v`: how many index arguments there are is a run-time
+    # number, so the setter takes one Array. The answer is still V.
+    def spread_write(node, recv, args, slots)
+      argv = new_array(args.size)
+      args[0..-2].each { |a| push_call_argument(argv, a) }
+      written = lower_expr(args.last)
+      borrow(written)
+      push_argument(argv, written)
+      slot = f.slot
+      status_check(argv_send(borrow(recv), node.name, argv, f.iconst("i64", 0),
+                             f.iconst("i64", 0), addr_of(slot), slots: slots))
+      written_value(Operand.new(slot, true, false), written)
     end
 
     def send_call(node, args, keywords, recv = nil, slots = NO_SLOTS)
