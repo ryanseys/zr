@@ -1283,8 +1283,10 @@ module Ze0
       # `def obj.name` names an object no compile can know, so it has no
       # row: the statement installs it on that object's singleton where it
       # stands, which is where ruby installs it too.
-      return if node.receiver && !singleton
-      raise Unsupported.new(node, "a def on self at the top level") if singleton && owner == Names::OBJECT
+      # `def self.name` at the TOP LEVEL names `main`, which is one object
+      # and not a class: the method lands on its singleton, exactly as
+      # `def obj.name` does, and no class row can carry it.
+      return if node.receiver && (!singleton || owner == Names::OBJECT)
       # A redefinition keeps the LAST body, as ruby does; the row and the
       # body symbol are the same either way.
       key = [node.name, singleton]
@@ -5197,15 +5199,50 @@ module Ze0
     end
 
     def case_test(subject, node, hit_at)
-      raise Unsupported.new(node, "a splat in a `when`") if node.is_a?(Prism::SplatNode)
+      return case_splat(subject, node, hit_at) if node.is_a?(Prism::SplatNode)
 
-      value = lower_expr(node)
+      one_case_test(subject, lower_expr(node), hit_at)
+    end
 
+    def one_case_test(subject, value, hit_at)
       return truthy(value) unless subject
 
       at = borrow(value)
       status_check(f.val("call #{f.import("zeo_rt_case_eq")}(#{at}, #{addr_of(subject)}, #{hit_at})"))
       f.val("load.i8 notrap aligned #{hit_at}")
+    end
+
+    # `when *list` spreads the value the way a call site's splat does and
+    # tests the elements one at a time. How MANY there are is a run-time
+    # number, so the arm is a loop where a written-out `when` is a chain.
+    def case_splat(subject, node, hit_at)
+      values = new_array(0)
+      push_call_argument(values, node)
+      length = f.val("call #{f.import("zeo_rt_pat_array_len")}(#{values})")
+      index = f.slot(8)
+      answer = f.slot(8)
+      f.ins "store notrap aligned #{f.iconst("i64", 0)}, #{f.stack_addr(index)}"
+      f.ins "store notrap aligned #{f.iconst("i8", 0)}, #{f.stack_addr(answer)}"
+      head, body, step, done = f.label, f.label, f.label, f.label
+      f.ins "jump #{head}"
+      f.switch(head)
+      at = f.val("load.i64 notrap aligned #{f.stack_addr(index)}")
+      f.ins "brif #{f.val("icmp slt #{at}, #{length}")}, #{body}, #{done}"
+      f.switch(body)
+      element = f.slot
+      f.ins "call #{f.import("zeo_rt_pat_array_get")}(#{values}, #{at}, #{addr_of(element)})"
+      hit = one_case_test(subject, Operand.new(element, true, false), hit_at)
+      found = f.label
+      f.ins "brif #{hit}, #{found}, #{step}"
+      f.switch(found)
+      f.ins "store notrap aligned #{f.iconst("i8", 1)}, #{f.stack_addr(answer)}"
+      f.ins "jump #{done}"
+      f.switch(step)
+      next_at = f.val("iadd.i64 #{at}, #{f.iconst("i64", 1)}")
+      f.ins "store notrap aligned #{next_at}, #{f.stack_addr(index)}"
+      f.ins "jump #{head}"
+      f.switch(done)
+      f.val("load.i8 notrap aligned #{f.stack_addr(answer)}")
     end
 
     # `yield` calls the block the caller handed this method. A method with
@@ -5419,12 +5456,16 @@ module Ze0
     ].freeze
 
     # `defined?(super)` asks whether the walk above this method finds one.
-    # Outside a method there is nothing to ask about.
+    # A scope with no `def` of its own may still BE a method at run time,
+    # and only the run time can tell -- the same method-frame stack the
+    # dynamic walk resumes from, empty outside a method.
     def defined_super(node)
       definition = enclosing_definition
-      return literal_nil if definition.nil?
-
       slf = borrow(self_operand)
+      if definition.nil?
+        return defined_if(f.val("call #{f.import("zeo_rt_super_defined_dynamic")}(#{slf})"), "super")
+      end
+
       hit = if definition[:runtime]
               f.val("call #{f.import("zeo_rt_super_defined_dynamic")}(#{slf})")
             else
@@ -5848,19 +5889,42 @@ module Ze0
     # as ruby does, so reassigning one before the call sends the new one.
     def lower_super(node, args)
       definition = enclosing_definition
-      raise Unsupported.new(node, "a super outside a method body") if definition.nil?
+      return homeless_super(node, args) if definition.nil?
 
       # A body the runtime installed lands on a class minted while the
       # program ran, so its target is read off the method-frame stack
       # rather than named here.
       runtime = definition[:runtime]
-      raise Unsupported.new(node, "a super at the top level") if !runtime && owner == Names::OBJECT
-
       into = f.slot
       builder = block_builder(node)
       argv, kw = super_arguments(args, definition)
       blk = builder ? builder.call : forwarded_block
       status = f.val(super_call(definition, runtime, argv, kw, blk, addr_of(into)))
+      builder ? catch_break(status, addr_of(into)) : status_check(status)
+      Operand.new(into, true, false)
+    end
+
+    # A `super` in a block with no `def` of its own. The block may still
+    # BECOME a method at run time -- `K.define_method(:m) { }`, and the
+    # same call through `send`, which no compile can read as a definition
+    # -- so an explicit-argument one takes the dynamic walk, which raises
+    # for itself where there is no method frame. A BARE one cannot: it
+    # forwards the method's parameters and a block-shaped body has none,
+    # so the run time picks which of ruby's two refusals to give.
+    def homeless_super(node, args)
+      if args.nil?
+        status_check(f.val("call #{f.import("zeo_rt_bare_super_outside_a_method")}()"))
+        return literal_nil
+      end
+
+      into = f.slot
+      builder = block_builder(node)
+      argv, kw = super_arguments(args, nil)
+      blk = builder ? builder.call : forwarded_block
+      status = f.val(
+        "call #{f.import("zeo_rt_send_super_dynamic_args")}(#{borrow(self_operand)}, " \
+        "#{argv}, #{f.iconst("i8", 0)}, #{kw}, #{blk}, #{addr_of(into)})",
+      )
       builder ? catch_break(status, addr_of(into)) : status_check(status)
       Operand.new(into, true, false)
     end
@@ -5886,11 +5950,14 @@ module Ze0
       if runtime
         "call #{f.import("zeo_rt_send_super_dynamic_args")}(#{borrow(self_operand)}, #{tail})"
       elsif definition[:singleton]
-        "call #{f.import("zeo_rt_send_super_class_from_args")}(#{class_id(owner)}, " \
-          "#{class_id(owner)}, #{name}, #{tail})"
+        "call #{f.import("zeo_rt_send_super_class_from_args")}(#{class_id_of(owner)}, " \
+          "#{class_id_of(owner)}, #{name}, #{tail})"
       else
+        # A top-level `def` is a private instance method of `Object`, so a
+        # `super` in one walks above `Object` and finds nothing, which is
+        # the NoMethodError ruby raises.
         "call #{f.import("zeo_rt_send_super_from_args")}(#{borrow(self_operand)}, " \
-          "#{class_id(owner)}, #{name}, #{tail})"
+          "#{class_id_of(owner)}, #{name}, #{tail})"
       end
     end
 

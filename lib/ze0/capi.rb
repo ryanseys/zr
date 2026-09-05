@@ -71,6 +71,7 @@ module Ze0
       "zeo_rt_send_value_explicit_args_in" => [
         ["i32", "i64", "i32", "i64", "i8 uext", "i64", "i64", "i32", "i64"], "i32",
       ],
+      "zeo_rt_bare_super_outside_a_method" => [[], "i32"],
       "zeo_rt_super_defined" => [%w[i64 i32 i32], "i8"],
       "zeo_rt_super_defined_dynamic" => [%w[i64], "i8"],
       "zeo_rt_send_super_class_from_args" => [
