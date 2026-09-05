@@ -698,7 +698,8 @@ module Ze0
       return declare_builtin_reopen(node, name, kind) if Names.builtin?(name)
       # A class MADE at run time stays that way when a later statement
       # reopens it: there is still no row to put the body's `def`s in.
-      if runtime_superclass?(node, kind) || @classes[name]&.[](:runtime)
+      if runtime_superclass?(node, kind) || name.start_with?("#<scope:") ||
+         @classes[name]&.[](:runtime)
         return declare_runtime_class(node, name, kind)
       end
 
@@ -756,14 +757,27 @@ module Ze0
       path = node.constant_path
       return qualify(@cref.first || Names::OBJECT, node.name.to_s) if path.is_a?(Prism::ConstantReadNode)
 
+      # A leading `::` means the TOP level, not an empty namespace, so
+      # `class ::Module` names `Module` and nothing else.
+      return node.name.to_s if path.parent.nil?
+
       # A scope this program declares is resolved outward through the
       # cref. One it does not -- a gated builtin like `OpenSSL`, or a
       # module a later statement writes -- is taken AS WRITTEN, which is
       # the fully-qualified name `Class.name` answers either way.
-      scope = path.parent && (declared_class(@cref, path.parent) || written_class_name(path.parent))
-      raise Unsupported.new(node, "a class named in a scope of that shape") unless scope
+      scope = declared_class(@cref, path.parent) || written_class_name(path.parent)
+      # A namespace only the run time knows -- `class self::Task` -- names
+      # no scope this compile can write into, so the row takes a name of
+      # its own and the constant is set on the value the scope answers.
+      return runtime_scoped_name(node) if scope.nil?
 
       "#{scope}::#{node.name}"
+    end
+
+    # Unspellable, and one per statement: two `class self::Task` bodies in
+    # one file are two classes.
+    def runtime_scoped_name(node)
+      "#<scope:#{node.location.start_line}:#{node.location.start_column}>::#{node.name}"
     end
 
     # Every class and module name written under `node`, filed by kind.
@@ -840,7 +854,24 @@ module Ze0
         name: name, kind: kind, superclass: Names::OBJECT, runtime: true,
         ivars: [], cvars: [], private_constants: [], bodies: [],
       }
-      entry[:bodies] << { node: node, body: body_statements(node.body), file: @file }
+      path = node.constant_path
+      entry[:scope] ||= path.parent if path.is_a?(Prism::ConstantPathNode) && name.start_with?("#<scope:")
+      body = body_statements(node.body)
+      entry[:bodies] << { node: node, body: body, file: @file }
+      entry[:consts] ||= []
+      entry[:consts].concat(body_constants(body))
+      # A class written INSIDE a body that runs on a class value has no
+      # row either: its name is a constant on a class only the run time
+      # knows. So it is made at run time too, and its constant is set on
+      # the `self` the enclosing body runs against.
+      body.each do |s|
+        next unless s.is_a?(Prism::ClassNode) || s.is_a?(Prism::ModuleNode)
+
+        kind = s.is_a?(Prism::ClassNode) ? "class" : "module"
+        child = qualify(name, s.name.to_s)
+        declare_runtime_class(s, child, kind)
+        @classes[child][:nested] = true
+      end
       nil
     end
 
@@ -886,6 +917,18 @@ module Ze0
       expr.is_a?(Prism::SelfNode) || declared_class(@cref, expr) == owner
     end
 
+    # The constants a body writes: a `Name = value`, and a nested `class`
+    # or `module`, which IS a constant write with a body.
+    def body_constants(body)
+      body.filter_map do |s|
+        case s
+        when Prism::ConstantWriteNode then s.name.to_s
+        when Prism::ClassNode, Prism::ModuleNode
+          s.name.to_s if s.constant_path.is_a?(Prism::ConstantReadNode)
+        end
+      end
+    end
+
     # A `class` or `module` naming one the runtime always carries. No row
     # is minted -- the id is the backend's -- and the body's `def`s are
     # not declared either: the whole body runs as a `class_eval` on the
@@ -901,6 +944,8 @@ module Ze0
 
       body = body_statements(node.body)
       body.each { |s| note_redefined(s.name, name) if s.is_a?(Prism::DefNode) && s.receiver.nil? }
+      entry[:consts] ||= []
+      entry[:consts].concat(body_constants(body))
       entry[:bodies] << { node: node, body: body, kind: kind, file: @file }
       nil
     end
@@ -1939,11 +1984,28 @@ module Ze0
       # A reopen names what the first statement already made.
       return run_body_on(entry[:name], constant_named(entry[:name]), node) unless entry[:bodies].first[:node].equal?(node)
 
-      base = lower_expr(node.superclass)
-      klass = send_value(constant_named("Class"), :new, [base])
+      klass = mint_runtime_class(entry, node)
       borrow(klass)
-      discard(store_constant(entry[:name].split("::").last, node, klass))
+      leaf = entry[:name].split("::").last
+      # A nested one's constant belongs to the class the enclosing body
+      # runs against, which is the `self` this statement sees.
+      answer = if entry[:scope]
+                 send_value(lower_expr(entry[:scope]), :const_set, [literal_symbol(leaf), klass])
+               elsif entry[:nested]
+                 runtime_const_set(leaf, klass)
+               else
+                 store_constant(leaf, node, klass)
+               end
+      discard(answer)
       run_body_on(entry[:name], klass, node)
+    end
+
+    # `Class.new(super)`, `Class.new` or `Module.new`, as the header says.
+    def mint_runtime_class(entry, node)
+      return send_value(constant_named("Module"), :new, []) if entry[:kind] == "module"
+
+      args = node.superclass ? [lower_expr(node.superclass)] : []
+      send_value(constant_named("Class"), :new, args)
     end
 
     # A body run as `klass.class_eval { ... }`: the block's `self` is the
@@ -1951,7 +2013,7 @@ module Ze0
     # the body's last value, as ruby's is.
     def run_body_on(name, klass, node)
       block = BodyBlock.new(node.body, node.location, node.locals)
-      body, captures = with_definee(name) { lower_block(block) }
+      body, captures = with_definee(name) { lower_block(block, class_self: true) }
       slot = f.slot
       dynamic_send(borrow(klass), :class_eval, [], addr_of(slot), breaks: true) do
         proc_new(body, captures, block, false)
@@ -2113,7 +2175,9 @@ module Ze0
         else value = as_singleton_self(recv) { lower_expr(s) }
         end
       end
-      f.ins "call #{f.import("zeo_rt_frame_pop")}()"
+      # A statement that LEFT -- a `return` out of the body -- pops the
+      # frame on its own way out.
+      f.ins "call #{f.import("zeo_rt_frame_pop")}()" unless f.terminated?
       scope.frame_base = base
       scope.cref, scope.owner = outer_cref, outer_owner
       value
@@ -2521,8 +2585,8 @@ module Ze0
     # `(env, self, argv, argc, blk, out) -> i32`. Note the shape is NOT the
     # five-pointer trampoline's -- a block fn prepends `env` and takes its
     # `self` as a parameter, because `instance_exec` rebinds it per call.
-    def lower_block(node, lambda_shape = false)
-      lower_closure(node, lambda_shape: lambda_shape)
+    def lower_block(node, lambda_shape = false, class_self: false)
+      lower_closure(node, lambda_shape: lambda_shape, class_self: class_self)
     end
 
     # The body of a `def` the declaration pass did not reach, as a closure
@@ -2538,7 +2602,7 @@ module Ze0
 
     # The shared shape of both. `method` is the frame label when the body
     # is a method's, and nil for an ordinary block.
-    def lower_closure(node, lambda_shape:, method: nil)
+    def lower_closure(node, lambda_shape:, method: nil, class_self: false)
       params = block_params(node)
       names = params.slot_names
       # ruby spreads a single Array argument over a shape with real
@@ -2561,6 +2625,7 @@ module Ze0
         scope.owner = own_owner
         scope.definee = own_definee
         scope.cref = own_cref
+        scope.class_self = class_self
         # A body the runtime installs knows its own parameters, which a
         # bare `super` forwards, but not the class it will land on -- so
         # the `super` target comes off the frame stack instead.
@@ -3360,11 +3425,25 @@ module Ze0
 
     def cvar_owner(node, name)
       here = scope.definee
-      unless keyed_class?(here)
-        raise Unsupported.new(node, "a class variable in a class this program cannot name")
-      end
-
       ancestry(here).reverse.find { |c| @classes[c][:cvars].include?(name) } || here
+    end
+
+    # A class the backend cannot key -- one built at run time, a reopened
+    # builtin -- as a VALUE. `self` is the class inside the body it runs
+    # on; a `def` reaches it through the constant that names it.
+    def unkeyed_class_value
+      scope.class_self ? self_operand : constant_named(scope.definee)
+    end
+
+    # The runtime keys cvar storage by a class id, which such a class does
+    # not have -- so the reflective family, which starts from a receiver
+    # and walks the ancestors itself, is what answers.
+    # The reflective family spells the name in full, where the storage the
+    # compile writes through keys by the bare one.
+    def unkeyed_cvar(verb, name, args = [])
+      slot = f.slot
+      dynamic_send(borrow(unkeyed_class_value), verb, [literal_symbol("@@#{name}"), *args], addr_of(slot))
+      Operand.new(slot, true, false)
     end
 
     # Whether the backend can name `name` with a class id. `Object` has the
@@ -3395,6 +3474,10 @@ module Ze0
       return cvar_toplevel_raise if toplevel_cvar?
 
       name = cvar_key(node)
+      unless keyed_class?(scope.definee)
+        return lenient ? lenient_unkeyed_cvar(name) : unkeyed_cvar(:class_variable_get, name)
+      end
+
       cid = class_id_of(cvar_owner(node, name))
       nptr, nlen = rodata_ref(name)
       slot = f.slot
@@ -3413,6 +3496,8 @@ module Ze0
       end
 
       name = cvar_key(node)
+      return unkeyed_cvar(:class_variable_set, name, [value]) unless keyed_class?(scope.definee)
+
       cid = class_id_of(cvar_owner(node, name))
       nptr, nlen = rodata_ref(name)
       status_check(f.val("call #{f.import("zeo_rt_cvar_set")}(#{cid}, #{nptr}, #{nlen}, #{borrow(value)})"))
@@ -3545,7 +3630,20 @@ module Ze0
     # A bare `Foo` walks the cref chain, which at the top level is Object
     # alone. A miss is ruby's NameError, naming the qualified spelling.
     def constant_read(node)
-      constant_named(node.name.to_s)
+      runtime_body_constant(node.name.to_s) || constant_named(node.name.to_s)
+    end
+
+    # A constant the enclosing RUNTIME class body defines is on a class no
+    # cref id can name, so the read goes through the class itself: `self`
+    # in the body, where the constant that holds the class is not bound
+    # yet, and that constant in a `def`, where it is.
+    def runtime_body_constant(name)
+      definee = scope.definee
+      entry = definee && @classes[definee]
+      return nil if entry.nil? || keyed_class?(definee) || !entry[:consts]&.include?(name)
+
+      scope_value = scope.class_self ? self_operand : constant_named(definee)
+      send_value(scope_value, :const_get, [literal_symbol(name)])
     end
 
     # `Outer::Inner = value`. The scope has to be a class this program
@@ -3751,12 +3849,28 @@ module Ze0
     end
 
     def store_constant(name, node, value)
+      return runtime_const_set(name, value) if scope.class_self && unkeyed_definee?
+
       at = borrow(value)
       nptr, nlen = rodata_ref(name)
       fptr, flen = rodata_ref(@file)
       f.ins "call #{f.import("zeo_rt_const_set_at")}(#{cref_ids.first}, #{nptr}, #{nlen}, " \
             "#{at}, #{fptr}, #{flen}, #{f.iconst("i32", node.location.start_line)}, " \
             "#{f.iconst("i32", Capi::MAIN_BOX)})"
+      Operand.new(value.at, false, value.immediate)
+    end
+
+    # A body running on a class VALUE has no cref id to write through:
+    # `self` IS the class, and `const_set` is what puts the constant on
+    # it. The answer is the value, as an ordinary write's is.
+    def unkeyed_definee?
+      definee = scope.definee
+      !definee.nil? && !keyed_class?(definee)
+    end
+
+    def runtime_const_set(name, value)
+      borrow(value)
+      discard(send_value(self_operand, :const_set, [literal_symbol(name), value]))
       Operand.new(value.at, false, value.immediate)
     end
 
@@ -4967,6 +5081,11 @@ module Ze0
       return literal_nil if toplevel_cvar?
 
       name = cvar_key(node)
+      unless keyed_class?(scope.definee)
+        answer = send_value(unkeyed_class_value, :class_variable_defined?, [literal_symbol("@@#{name}")])
+        return defined_if(truthy(answer), "class variable")
+      end
+
       ptr, len = rodata_ref(name)
       defined_if(f.val(
         "call #{f.import("zeo_rt_defined_cvar")}(#{class_id_of(cvar_owner(node, name))}, #{ptr}, #{len})",

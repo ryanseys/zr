@@ -80,6 +80,9 @@ module Ze0
     # The class or module whose body this is, or whose method: which
     # table a bare call resolves against.
     attr_accessor :owner
+    # True only in the block a runtime class body runs as: `self` IS the
+    # class there, which is what a constant written in it lands on.
+    attr_accessor :class_self
     # The class or module whose body this scope is lexically inside, or
     # nil at the top level. `cref` cannot answer it: a reopened builtin
     # has no class row, so its name never joins that chain, and a
