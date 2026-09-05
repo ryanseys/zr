@@ -112,6 +112,9 @@ module Ze0
       @deferred_call = {}
       @units = 0
       @using_slot_count = 0
+      # Every flip-flop site, numbered from zero: the latch is the run
+      # time's and the id is how a site names its own.
+      @flip_flops = 0
       # Every `using` site, as the byte range of source it covers and the
       # activation slot it fills, and the same slots by the call node that
       # fills them.
@@ -1330,11 +1333,12 @@ module Ze0
     end
 
     # `module_function :name`, which names a `def` already written above
-    # it. Ruby answers NameError for a name the module does not carry,
-    # and ze0 refuses one it cannot see rather than guessing.
+    # it. A name this body does NOT write comes from an `include`, and
+    # which ancestor carries it is the run time's own question -- so
+    # nothing is filed and the macro stays a send where it stands.
     def declare_module_function(node, owner, name)
       definition = @defs[owner][[name.to_sym, false]]
-      raise Unsupported.new(node, "a `module_function` of a method this body does not define") unless definition
+      return if definition.nil?
 
       add_def_row(definition, singleton: false, visibility: "private")
       module_function_row(definition)
@@ -2941,6 +2945,12 @@ module Ze0
       when Prism::ArrayNode then array_literal(node)
       when Prism::HashNode then hash_literal(node)
       when Prism::RangeNode then range_literal(node)
+      # `# shareable_constant_value:` marks the constant for Ractor-shareable
+      # initialization. Sharing is the RUN TIME's and this one has none, so
+      # the write is all that is left -- the reference compiler's answer too,
+      # and a divergence from CRuby, which deep-freezes the value.
+      when Prism::ShareableConstantNode then lower_expr(node.write)
+      when Prism::FlipFlopNode then lower_flip_flop(node)
       when Prism::LocalVariableReadNode then local_read(node)
       # `it` names the block's one parameter, which `block_params` gave a
       # slot under that name.
@@ -3117,6 +3127,52 @@ module Ze0
       f.val("load.i32 notrap aligned #{syms}#{sym.zero? ? "" : "+#{sym * 4}"}")
     end
 
+    # `a..b` written where a condition goes is ruby's flip-flop: a latch
+    # that turns ON where `a` is true and OFF where `b` is, answering true
+    # for every test in between. The state outlives the statement, so it
+    # lives in the runtime's own table and the site names itself by an id
+    # this compile hands out, dense from zero.
+    #
+    # Either operand may raise, so both are ordinary expressions under the
+    # latch's own branches.
+    def lower_flip_flop(node)
+      state = f.iconst("i32", new_flip_flop)
+      result = f.slot
+      on, test_left, turned_on, off, join = f.label, f.label, f.label, f.label, f.label
+      f.ins "brif #{f.val("call #{f.import("zeo_rt_flip_flop_on")}(#{state})")}, #{on}, #{test_left}"
+      # Already on: the right operand decides whether this is the last true.
+      f.switch(on)
+      flip_flop_off(node, state)
+      arm(literal_bool(1), result, join)
+      f.switch(test_left)
+      f.ins "brif #{truthy(lower_expr(node.left))}, #{turned_on}, #{off}"
+      f.switch(turned_on)
+      f.ins "call #{f.import("zeo_rt_flip_flop_set")}(#{state}, #{f.iconst("i8", 1)})"
+      # `...` waits for the next test before it can turn off again; `..`
+      # asks the right operand at once, so a one-line range ends where it
+      # started.
+      flip_flop_off(node, state) unless node.exclude_end?
+      arm(literal_bool(1), result, join)
+      f.switch(off)
+      arm(literal_bool(0), result, join)
+      f.switch(join)
+      Operand.new(result, false, true)
+    end
+
+    def flip_flop_off(node, state)
+      clear, done = f.label, f.label
+      f.ins "brif #{truthy(lower_expr(node.right))}, #{clear}, #{done}"
+      f.switch(clear)
+      f.ins "call #{f.import("zeo_rt_flip_flop_set")}(#{state}, #{f.iconst("i8", 0)})"
+      f.ins "jump #{done}"
+      f.switch(done)
+    end
+
+    def new_flip_flop
+      @flip_flops += 1
+      @flip_flops - 1
+    end
+
     def literal_bool(bit)
       slot = f.slot
       at = addr_of(slot)
@@ -3178,6 +3234,12 @@ module Ze0
       f.ins "call #{f.import("zeo_rt_array_new")}(#{f.iconst("i64", node.elements.size)}, #{at})"
       f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
       node.elements.each do |e|
+        # A bare `k: v` tail is ONE Hash element here: an array literal has
+        # no keyword channel to put it in.
+        if e.is_a?(Prism::KeywordHashNode)
+          f.ins "call #{f.import("zeo_rt_array_push")}(#{at}, #{hand_over(hash_literal(e))})"
+          next
+        end
         # `[*xs]` spreads through ruby's `to_a` rule, which the runtime
         # does; anything else is one element.
         unless e.is_a?(Prism::SplatNode)
@@ -3675,20 +3737,46 @@ module Ze0
       send_value(scope_value, :const_get, [literal_symbol(name)])
     end
 
-    # `Outer::Inner = value`. The scope has to be a class this program
-    # declares, because the runtime takes the owner as an id and only a
-    # compiled class has one ze0 can name.
+    # `Outer::Inner = value`. A scope this program declares hands the
+    # runtime an owner id; one only the run time can name is read as a
+    # VALUE, and the scope is read FIRST there -- `Missing::X = boom`
+    # raises before `boom` runs.
     def constant_path_write(node)
-      constant_path_store(node, node.target, lower_expr(node.value))
+      target = node.target
+      return constant_path_store(node, target, lower_expr(node.value)) if path_scope_row(target)
+
+      owner = scope_value_of(target)
+      borrow(owner)
+      const_set_on(owner, target, lower_expr(node.value))
+    end
+
+    # The class row a written path's scope names, or nil when only the run
+    # time can name it.
+    def path_scope_row(target)
+      scope = target.parent
+      scope.is_a?(Prism::ConstantReadNode) ? resolve_class(cref, scope.name.to_s) : nil
+    end
+
+    # The value the scope answers. A bare `::NAME` is rooted at the top
+    # level, which is `Object`.
+    def scope_value_of(target)
+      target.parent.nil? ? anchored_constant("Object") : lower_expr(target.parent)
+    end
+
+    # `owner::NAME = value` through the reflective write, which starts
+    # from a receiver and needs no id. The answer is the VALUE, as every
+    # assignment's is.
+    def const_set_on(owner, target, value)
+      borrow(value)
+      discard(send_value(owner, :const_set, [literal_symbol(target.name.to_s), value]))
+      Operand.new(value.at, false, value.immediate)
     end
 
     # `A::B = v`, with the scope resolved to a row: the runtime takes the
     # owner as an id, and only a compiled class has one ze0 can name.
     def constant_path_store(node, target, value)
-      scope = target.parent
-      unless scope.is_a?(Prism::ConstantReadNode) && (found = resolve_class(cref, scope.name.to_s))
-        raise Unsupported.new(node, "a constant assigned into a scope this program does not define")
-      end
+      found = path_scope_row(target)
+      return const_set_on(scope_value_of(target), target, value) if found.nil?
 
       at = borrow(value)
       nptr, nlen = rodata_ref(target.name.to_s)
@@ -4356,10 +4444,18 @@ module Ze0
         return Operand.new(self_operand.at, false, self_operand.immediate)
       end
       if name == MODULE_FUNCTION
-        raise Unsupported.new(node, "`#{name}` outside the class body's statements") unless declared
-        return literal_nil if args.empty?
+        return literal_nil if args.empty? && declared
 
-        return symbol_answer(accessor_names(node, args))
+        names = accessor_names(node, args)
+        # A name no row was filed for -- one an `include` supplied, or one
+        # under a guard the declaration pass does not walk -- is the
+        # runtime's `Module#module_function`, which reads the ancestry the
+        # copy comes from.
+        borrowed = declared ? names.reject { |n| filed_def?(n) } : names
+        runtime_module_function(borrowed) unless borrowed.empty?
+        return literal_nil if names.empty?
+
+        return symbol_answer(names)
       end
       if VISIBILITY.include?(name)
         return literal_nil if args.empty?
@@ -4486,6 +4582,14 @@ module Ze0
 
     # What `private`, `module_function` and their kin answer: one name is
     # the Symbol itself, and several are an Array of them.
+    # Whether the declaration pass filed a row for this body's `name`.
+    def filed_def?(name) = @defs[owner]&.key?([name.to_sym, false])
+
+    def runtime_module_function(names)
+      dynamic_send(borrow(self_operand), MODULE_FUNCTION.to_sym,
+                   names.map { |n| literal_symbol(n) }, addr_of(f.slot), explicit: false)
+    end
+
     def symbol_answer(names)
       names.size == 1 ? literal_symbol(names.first) : symbol_array(names)
     end

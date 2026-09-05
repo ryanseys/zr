@@ -117,6 +117,8 @@ module Ze0
       "zeo_rt_rational_digits" => [["i8 uext", "i64", "i64", "i64", "i64", "i64"], nil],
       "zeo_rt_complex_lit" => [%w[i64 i64], nil],
       "zeo_rt_regexp_interp" => [["i64", "i8 uext", "i8 uext", "i8 uext", "i8 uext", "i64"], "i32"],
+      "zeo_rt_flip_flop_on" => [%w[i32], "i8"],
+      "zeo_rt_flip_flop_set" => [["i32", "i8 uext"], nil],
       "zeo_rt_for_begin" => [["i64", "i8 uext", "i64"], "i32"],
       "zeo_rt_for_next" => [%w[i64 i64 i64], nil],
       "zeo_rt_for_result" => [%w[i64 i64], nil],
