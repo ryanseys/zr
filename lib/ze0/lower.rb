@@ -541,6 +541,11 @@ module Ze0
         # what it writes is as much a part of the program as any
         # statement beside it.
         when Prism::PreExecutionNode then declare(body_statements(s.statements), owner, guarded: guarded)
+        # A `begin` groups statements without opening a scope of its own,
+        # so its body's are the enclosing body's. Its `rescue`, `else` and
+        # `ensure` clauses run only on the path that reaches them, and the
+        # walk below files those as guarded.
+        when Prism::BeginNode then declare(body_statements(s.statements), owner, guarded: guarded)
         when Prism::SingletonClassNode then declare_singleton_body(s, owner)
         end
         # A `class` written in an EXPRESSION -- as an assignment's
@@ -2315,6 +2320,9 @@ module Ze0
       verb = node.name.to_s
       args = node.arguments&.arguments || []
       return [verb, literal_nil] if args.empty?
+      # Names only the run time builds go to the singleton class as one
+      # list, which is the same table the marks below write.
+      return [mode, runtime_singleton_visibility(recv, node, args)] unless written_names?(args)
 
       named = args.flat_map do |a|
         # `private def x` defines the method at that visibility; every
@@ -2329,6 +2337,15 @@ module Ze0
         names
       end
       [mode, symbol_answer(named)]
+    end
+
+    # `private(*names)` in a `class << obj` body. `Module#private` is
+    # itself private, so the send is receiverless on the singleton class.
+    def runtime_singleton_visibility(recv, node, args)
+      target = send_value(recv, :singleton_class)
+      result = f.slot
+      splat_send(borrow(target), node.name, args, addr_of(result), explicit: false)
+      Operand.new(result, true, false)
     end
 
     # `obj.singleton_class.send(:private, :name)`, which is how ruby marks
