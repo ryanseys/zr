@@ -68,6 +68,8 @@ module Ze0
       @redefined = {}
       # The visibility cursor each skipped redefinition was written under.
       @redefined_mode = {}
+      # The names an `alias` in each owner's body reads from.
+      @aliased = {}
       @declared_macros = {}
       @classes = {}
       @scopes = []
@@ -568,6 +570,7 @@ module Ze0
     # starts. Today that is the `def`s, so a call written above a
     # definition still resolves to it; classes and captures join them.
     def declare(statements, owner, guarded: false)
+      note_alias_sources(statements, owner)
       # A bare `private` or `protected` is a mode over the `def`s BELOW
       # it, so the walk carries it. Every top-level `def` is a private
       # method of Object, whatever the body says.
@@ -601,6 +604,29 @@ module Ze0
         # concealed, so the constant appears where the body does.
         declare(nested_bodies(s), owner, guarded: true)
       end
+    end
+
+    # The names an `alias` in this body reads FROM. Such a `def` has to
+    # install where it stands: the alias binds the body that exists when
+    # IT runs, and a row the boot installs is already there -- so the
+    # alias captured the class's own body where ruby captured the
+    # inherited one, or the second body where ruby captured the first.
+    def note_alias_sources(statements, owner)
+      set = (@aliased[owner] ||= {})
+      statements.each do |s|
+        case s
+        when Prism::AliasMethodNode then note_alias_source(set, s.old_name)
+        when Prism::CallNode
+          next unless s.receiver.nil? && s.name == :alias_method
+
+          args = s.arguments&.arguments || []
+          note_alias_source(set, args[1]) if args.size == 2
+        end
+      end
+    end
+
+    def note_alias_source(set, node)
+      set[node.unescaped.to_sym] = true if node && name_literal?(node)
     end
 
     # A `class` or `module` this statement runs as part of its own
@@ -1354,7 +1380,7 @@ module Ze0
       # installs itself where it runs, which is the road a `def` in a block
       # already takes.
       key = [node.name, singleton]
-      if @defs[owner].key?(key)
+      if @defs[owner].key?(key) || (!singleton && @aliased[owner]&.key?(node.name))
         @redefined[[owner, key]] = true
         # The body's cursor is the declaration pass's to know: a `private`
         # or a `module_function` above the reopen marks what it installs.
