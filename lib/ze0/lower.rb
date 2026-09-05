@@ -79,6 +79,7 @@ module Ze0
       @unit_locals = {}
       @declared_bodies = {}
       @class_raises = {}
+      @singleton_crefs = {}
       @redefined_ops = []
       @defined_names = []
       @assigned_constants = {}
@@ -523,6 +524,7 @@ module Ze0
         # what it writes is as much a part of the program as any
         # statement beside it.
         when Prism::PreExecutionNode then declare(body_statements(s.statements), owner, guarded: guarded)
+        when Prism::SingletonClassNode then declare_singleton_body(s, owner)
         end
         # A `class` written in an EXPRESSION -- as an assignment's
         # value, inside a `begin` -- runs where the statement does.
@@ -842,6 +844,35 @@ module Ze0
       nil
     end
 
+    # `class << self` in a class body opens that class's SINGLETON, which
+    # is a class in its own right: a constant written there is not the
+    # class's, `Module.nesting` reports it, and a `def` written beside it
+    # reads it through the cref. So the body gets a row of its own, named
+    # `#<Class:Owner>`.
+    #
+    # Only the runtime mints a singleton, so the row NAMES the class it is
+    # the singleton of and the backend ties the two -- the same trade
+    # `conceal` and `Class.superclass` already make. A `class << obj` on
+    # any other receiver keeps the per-object desugar: no row can name a
+    # singleton minted per object.
+    def declare_singleton_body(node, owner)
+      return unless singleton_of_self?(node, owner)
+
+      name = Names.singleton_of(owner)
+      @classes[name] || declare_fresh_class(node, name, "class", Names::OBJECT, singleton_of: owner)
+      @singleton_crefs[node.object_id] = [name, *@cref]
+    end
+
+    # Whether `class << ...` opens the enclosing class's own singleton.
+    # `class << HTTP` written inside `class HTTP` is `class << self`, and
+    # net/http spells its class-method aliases that way.
+    def singleton_of_self?(node, owner)
+      return false if owner == Names::OBJECT || !keyed_class?(owner)
+
+      expr = node.expression
+      expr.is_a?(Prism::SelfNode) || declared_class(@cref, expr) == owner
+    end
+
     # A `class` or `module` naming one the runtime always carries. No row
     # is minted -- the id is the backend's -- and the body's `def`s are
     # not declared either: the whole body runs as a `class_eval` on the
@@ -907,9 +938,9 @@ module Ze0
       @redefined_ops << name
     end
 
-    def declare_fresh_class(node, name, kind, superclass)
+    def declare_fresh_class(node, name, kind, superclass, singleton_of: nil)
       entry = {
-        name: name, kind: kind, superclass: superclass,
+        name: name, kind: kind, superclass: superclass, singleton_of: singleton_of,
         ivars: [], cvars: [], private_constants: [], bodies: [],
       }
       @classes[name] = entry
@@ -922,6 +953,7 @@ module Ze0
         private_constants: entry[:private_constants],
         file: @file,
         line: node.location.start_line,
+        singleton_of: singleton_of,
       )
       entry
     end
@@ -1983,6 +2015,15 @@ module Ze0
     # The receiver is evaluated ONCE, so a side-effecting one runs the
     # number of times it is written.
     def lower_singleton_class(node)
+      cref = @singleton_crefs[node.object_id]
+      return singleton_body(node, cref) if cref
+
+      singleton_body(node, nil)
+    end
+
+    # `cref` is the surrogate's chain when the body opens the enclosing
+    # class's own singleton, and nil for a per-object one.
+    def singleton_body(node, cref)
       recv = lower_expr(node.expression)
       # Pooled up front: the receiver is read once per statement in the
       # body, and the frame is what releases it.
@@ -1996,13 +2037,30 @@ module Ze0
       # by the class the statement is written in.
       base = scope.frame_base
       scope.frame_base = "singleton class"
+      # The surrogate is the body's cref, so a constant written here lands
+      # on it and a `def` beside it reads the constant through it.
+      outer_cref, outer_owner = scope.cref, scope.owner
+      # A `def` here is a CLASS method of the enclosing class, and ruby
+      # labels its frame that way; the surrogate is only its cref.
+      label_owner = outer_owner
+      if cref
+        scope.cref = cref
+        scope.owner = cref.first
+      end
       body_statements(node.body).each do |s|
         discard(value)
         case s
-        when Prism::DefNode then value = define_singleton(recv, s, mode, singleton: of_self)
+        when Prism::DefNode
+          value = define_singleton(recv, s, mode, singleton: of_self, label_owner: label_owner)
         when Prism::AliasMethodNode then value = singleton_alias(recv, s)
         when Prism::UndefNode then value = singleton_undef(recv, s)
-        when Prism::ConstantWriteNode, Prism::ConstantPathWriteNode, Prism::SingletonClassNode
+        when Prism::ConstantWriteNode, Prism::ConstantPathWriteNode
+          # A constant belongs to the singleton class, and only a cref can
+          # put it there: a per-object body has none.
+          raise Unsupported.new(s, "a statement in a `class << obj` body") if cref.nil?
+
+          value = lower_expr(s)
+        when Prism::SingletonClassNode
           raise Unsupported.new(s, "a statement in a `class << obj` body")
         when Prism::CallNode
           if visibility_verb?(s)
@@ -2016,6 +2074,7 @@ module Ze0
         end
       end
       scope.frame_base = base
+      scope.cref, scope.owner = outer_cref, outer_owner
       value
     end
 
@@ -2093,8 +2152,8 @@ module Ze0
 
     # One `def` in a `class << obj` body, installed on the object and
     # marked when the body is in a non-public mode.
-    def define_singleton(recv, node, mode, singleton: false)
-      body = method_proc(node, singleton: singleton)
+    def define_singleton(recv, node, mode, singleton: false, label_owner: nil)
+      body = method_proc(node, singleton: singleton, label_owner: label_owner)
       send_value(recv, :define_singleton_method, [literal_symbol(node.name), body])
       mark_singleton(recv, node.name.to_s, mode) unless mode == "public"
       literal_symbol(node.name)
@@ -2134,8 +2193,8 @@ module Ze0
     end
 
     # A lambda-shaped Proc over a `def`'s body, as an owned value.
-    def method_proc(node, singleton: false)
-      body, captures = lower_method_body(node, singleton: singleton)
+    def method_proc(node, singleton: false, label_owner: nil)
+      body, captures = lower_method_body(node, singleton: singleton, label_owner: label_owner)
       slot = f.slot
       copy(proc_new(body, captures, node, true), addr_of(slot))
       Operand.new(slot, true, false)
@@ -2431,8 +2490,9 @@ module Ze0
     # frame carries the method's own label, and its `blk` argument is the
     # block the INSTALLED method is called with, which a bare `yield`
     # reaches.
-    def lower_method_body(node, singleton: false)
-      lower_closure(node, lambda_shape: true, method: label_of(owner, node.name, singleton))
+    def lower_method_body(node, singleton: false, label_owner: nil)
+      lower_closure(node, lambda_shape: true,
+                    method: label_of(label_owner || owner, node.name, singleton))
     end
 
     # The shared shape of both. `method` is the frame label when the body
@@ -4084,6 +4144,22 @@ module Ze0
       names.size == 1 ? literal_symbol(names.first) : symbol_array(names)
     end
 
+    # `Module.nesting` is the LEXICAL chain, which only the compile knows:
+    # the runtime's own row answers an empty Array because a frame carries
+    # no cref. So the site folds to the chain it is written in.
+    def module_receiver?(recv)
+      recv.is_a?(Prism::ConstantReadNode) && recv.name == :Module
+    end
+
+    def cref_array
+      slot = f.slot
+      at = addr_of(slot)
+      f.ins "call #{f.import("zeo_rt_array_new")}(#{f.iconst("i64", cref_path.size)}, #{at})"
+      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      cref_path.each { |name| f.ins "call #{f.import("zeo_rt_array_push")}(#{at}, #{hand_over(class_value(name))})" }
+      Operand.new(slot, false, false)
+    end
+
     def symbol_array(names)
       slot = f.slot
       at = addr_of(slot)
@@ -4137,6 +4213,8 @@ module Ze0
       plain = node.block.nil? && keywords.nil? && !spread
       if plain && node.receiver.nil? && node.name == :block_given? && args.empty?
         block_given(node)
+      elsif plain && args.empty? && node.name == :nesting && module_receiver?(node.receiver)
+        cref_array
       elsif plain && node.receiver.nil? && (d = visible_def(node.name)) &&
             d[:params].plain? && d[:params].required.size == args.size
         direct_call(node, args, d)

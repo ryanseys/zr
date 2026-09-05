@@ -130,10 +130,12 @@ module Ze0
     # static MRO has one, and every row is CONCEALED: ruby makes the
     # constant where the `class` statement runs, and the body's own
     # `zeo_rt_reveal_class` is what does that.
-    def add_class(name:, superclass:, kind:, ivars:, private_constants: [], file: "", line: 0)
+    def add_class(name:, superclass:, kind:, ivars:, private_constants: [], file: "", line: 0,
+                  singleton_of: nil)
       @classes << {
         name: name, superclass: superclass, kind: kind, ivars: ivars,
         private_constants: private_constants, file: file, line: line,
+        singleton_of: singleton_of,
       }
     end
 
@@ -189,7 +191,13 @@ module Ze0
             "private_constants" => c[:private_constants],
             "file" => c[:file],
             "line" => c[:line],
-            "conceal" => true,
+            # A singleton surrogate carries no constant of its own, so
+            # there is nothing to conceal -- the row IS the cref.
+            "conceal" => c[:singleton_of].nil?,
+            # A `class << self` body's cref: the row IS `Owner`'s
+            # singleton, and the backend ties the two so
+            # `Owner.singleton_class` answers this id.
+            "singleton_of" => c[:singleton_of],
           }
         end,
         # A dynamic send can reach any class, and ze0 has no reachability

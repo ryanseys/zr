@@ -83,6 +83,13 @@ module Ze0
       YAML Zlib Zlib::Deflate Zlib::Inflate Zlib::ZStream
       ].freeze
 
+      # A `class << self` body is a class of its own -- `Owner`'s
+      # singleton -- and this is the name its row carries. No Ruby
+      # constant can collide with it, which is the point: the row exists
+      # for the cref and for `Owner.singleton_class`, never for a
+      # constant lookup.
+      def self.singleton_of(owner) = "#<Class:#{owner}>"
+
       # Whether a `class` or `module` statement REOPENS what the runtime
       # already carries, rather than defining something new.
       def self.builtin?(name) = ALWAYS_ON.include?(name) || EXCEPTIONS.include?(name)
