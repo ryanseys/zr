@@ -125,6 +125,10 @@ module Ze0
       @self_slots = {}
       # Each file's length in bytes: where a top-level `using`'s range ends.
       @file_end = {}
+      # Every file's text, which the ambient rbconfig rule reads.
+      @sources = []
+      # Each file's own `frozen_string_literal` pragma.
+      @frozen_literals = {}
     end
 
     def lower(root)
@@ -136,8 +140,10 @@ module Ze0
       @unit_locals[@program.file] = root.locals
       @file_end[@program.file] = root.statements.location.end_offset
       seen = {}
+      @sources << File.read(@program.file)
       splice(body_statements(root.statements), @program.file, seen, units)
       deferred = read_deferred(seen)
+      ambient_rbconfig(units)
       all = units + deferred.each_value.flat_map { |unit| unit[:runs] }
       all.each { |_file, statements| statements.each { |s| note_assigned_constants(s) } }
       all.each { |file, statements| with_file(file) { statements.each { |s| note_class_kinds(s) } } }
@@ -497,7 +503,38 @@ module Ze0
       end
       @unit_locals[path] = result.value.locals
       @file_end[path] = result.value.statements.location.end_offset
+      @frozen_literals[path] = Ze0.frozen_string_literal?(result)
+      @sources << result.source.source
       body_statements(result.value.statements)
+    end
+
+    # ---- the ambient rbconfig shim ----
+    #
+    # `ruby` requires rubygems before the first line, which requires
+    # `rbconfig`, so `RbConfig` is ambient in every ruby process and
+    # libraries read it without requiring it. zeo splices its own shim
+    # whenever a source names it (`parse::loader::wants_ambient_rbconfig`)
+    # and this is the same rule over the same file: the platform facts the
+    # shim derives from `RUBY_PLATFORM` are the ones zeo would render.
+    #
+    # The five INSTALL paths are the compiling zeo's, and a front end that
+    # is not that binary does not know them. They stay the environment's
+    # question -- `zeo` exports `ZEO_PREFIX` and its four siblings before
+    # it runs an `extconf.rb`, which is the only thing that reads them.
+    SHIM = File.expand_path("../../../crates/zeo/src/parse/shims/rbconfig.rb.in", __dir__)
+
+    def ambient_rbconfig(units)
+      return nil unless File.file?(SHIM)
+      return nil unless @sources.any? { |text| text.include?("RbConfig") || text.include?("rbconfig") }
+
+      source = File.read(SHIM).gsub(/@[A-Z_]+@/, "")
+      result = Prism.parse(source, filepath: SHIM)
+      return nil unless result.errors.empty?
+
+      @unit_locals[SHIM] = result.value.locals
+      @file_end[SHIM] = result.value.statements.location.end_offset
+      @frozen_literals[SHIM] = Ze0.frozen_string_literal?(result)
+      units.unshift([SHIM, body_statements(result.value.statements), [SHIM]])
     end
 
     # ---- the scope being lowered ----
@@ -3120,6 +3157,12 @@ module Ze0
       Operand.new(slot, false, true)
     end
 
+    # `# frozen_string_literal:` is a PER-FILE pragma, so a spliced file
+    # answers for its own literals and not for the one that required it.
+    def frozen_literals?
+      @frozen_literals.fetch(@file, @program.frozen_string_literal)
+    end
+
     # Under `# frozen_string_literal: true` the entry interns, so two
     # equal literals are ONE frozen object; otherwise each evaluation
     # mints a fresh string that BORROWS the rodata bytes until a
@@ -3127,7 +3170,7 @@ module Ze0
     def literal_string(bytes)
       slot = f.slot
       ptr, len = rodata_ref(bytes)
-      entry = @program.frozen_string_literal ? "zeo_rt_str_lit" : "zeo_rt_str_lit_ro"
+      entry = frozen_literals? ? "zeo_rt_str_lit" : "zeo_rt_str_lit_ro"
       f.ins "call #{f.import(entry)}(#{ptr}, #{len}, #{f.iconst("i8", Capi::UTF8)}, #{addr_of(slot)})"
       Operand.new(slot, true, false)
     end
