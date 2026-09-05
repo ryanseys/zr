@@ -676,22 +676,54 @@ and returns without walking the body, so nothing inside is declared.
   there is no value-keyed entry, so route it through the reflective
   `class_variable_get` / `_set` sends the runtime already answers
 
-## W9 -- `using` and refinements
+## W9 -- how it was done
 
-13 files. `refine` is already the ordinary runtime send that mints a
-real holder; only `using` is refused.
+13 files. `refine` was already the ordinary runtime send that mints a
+real holder; only `using` was refused.
 
 The whole-program road nominates a call site from compile-time
 `ClassId`s, which a front end never learns. **The snippet road is
 value-keyed and slot-keyed and is exactly the shape ze0 needs**:
 `zeo_rt_eval_using(module, slot)`, `zeo_rt_eval_refined_send`,
 `zeo_rt_eval_refined_send_args`, `zeo_rt_eval_reflect_dispatch`, over
-`crates/zeo-rt/src/eval.rs:250`'s `USING_SLOTS`. A slot is an integer
-ze0 assigns itself, so refinements need no class id at all.
+`crates/zeo-rt/src/eval.rs`'s `USING_SLOTS`. A slot is an integer ze0
+assigns itself, so refinements need no class id at all.
 
-Two small Rust changes: export `reserve_using_slots`, and carry the
-singleton bit through `ClassRegistry::refinement_of`, which
-`using_activate` hardcodes to false today.
+- a `using` written directly in a FILE's or a CLASS BODY's statements
+  takes a slot and a byte range: from the statement to the end of the
+  file, or to the end of the body. Every call the range covers hands its
+  slots to the runtime, ahead of every fold -- a refinement may well
+  override the name a fold answers itself
+- a `refine` block sees its own module's whole set, so one slot per body
+  serves every `refine` written in it and the body fills it as it ends,
+  by which point each of them has minted its holder
+- `send`, `public_send`, `respond_to?` and `method` at a covered site go
+  to `zeo_rt_eval_reflect_dispatch`: which name is being asked about is
+  a run-time fact
+- a `using` under a guard covers the same range either way, and one
+  whose guard does not run leaves its slot empty -- the same nothing
+  ruby activates there
+- a `using` anywhere else stays an ordinary send, and the runtime
+  answers it -- `RuntimeError: main.using is permitted only at toplevel`
+  from a method body
+
+Three Rust changes, all small.
+
+- `zeo_rt_using_slots_ensure(n)`, which reserves a program's slots at
+  boot. Nothing else has reserved by then, so the sites number
+  themselves from zero and a snippet compiled later takes the ids above
+- `using_activate` read a `refine C.singleton_class` holder as refining
+  the INSTANCE side. It reads the target back through
+  `singleton_owner_value` now, so the pair is marked singleton and
+  `refine_singleton_class.rb` answers
+- `send_as_defined_in` probed the overlay only for an Object receiver,
+  so `Method#call` on a body a RUNTIME `refine` defined for an Array or
+  a String raised NoMethodError. Both roads carried it; ze0 reaches it
+  first because it runs every `refine` at run time
+
+Filed while doing it: **#66**, `zeo build` cannot lower a `using`
+written in a method body -- the node reaches codegen with no activation
+to emit and the compile fails by name where ruby raises at run time.
 
 ## W10 -- the tail
 
@@ -710,7 +742,7 @@ single biggest at 104 and needs a design decision rather than a fix.
 
 `method_missing`, `Ractor`, `Fiber`, `callcc`, and a run-time `require`
 against a load path. `eval`, `binding`, `ObjectSpace` and refinements
-have all since joined the subset or are named waves above. A program
+have all since joined the subset. A program
 using one is refused at its line. This list is the plan's edge and it is
 in `README.md`'s subset section.
 

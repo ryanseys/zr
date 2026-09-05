@@ -152,6 +152,17 @@ module Ze0
       "zeo_rt_regexp_lit" => [
         ["i32", "i64", "i64", "i8 uext", "i8 uext", "i8 uext", "i8 uext", "i64"], "i32",
       ],
+      "zeo_rt_using_slots_ensure" => [%w[i32], nil],
+      "zeo_rt_eval_using" => [%w[i64 i32], "i32"],
+      "zeo_rt_eval_refined_send" => [
+        ["i32", "i64", "i32", "i64", "i64", "i64", "i64", "i64", "i64", "i8 uext", "i64"], "i32",
+      ],
+      "zeo_rt_eval_refined_send_args" => [
+        ["i32", "i64", "i32", "i64", "i8 uext", "i64", "i64", "i64", "i64", "i8 uext", "i64"], "i32",
+      ],
+      "zeo_rt_eval_reflect_dispatch" => [
+        ["i32", "i64", "i8 uext", "i64", "i64", "i64", "i64", "i64", "i64"], "i32",
+      ],
       "zeo_rt_proc_new" => [
         %w[i64 i64 i64 i64 i64 i64 i32 i32 i64 i64 i64 i64 i32 i64 i64 i64], nil,
       ],
@@ -218,6 +229,12 @@ module Ze0
     LAST_MATCH_PRE = 2
     LAST_MATCH_POST = 3
     LAST_MATCH_LAST_GROUP = 4
+    # `zeo_rt_eval_reflect_dispatch`'s entry: which of the four names
+    # that pick a method at RUN time the site wrote.
+    REFLECT_SEND = 0
+    REFLECT_PUBLIC_SEND = 1
+    REFLECT_RESPOND_TO = 2
+    REFLECT_METHOD = 3
     # `zeo_abi::abi::SignalKind`: the jump a value is travelling as. A
     # jump arms one whenever it cannot reach its target directly -- out of
     # a block, or across an `ensure` that owes its clause a run.

@@ -68,6 +68,13 @@ An `if` whose condition a whole-program compile can settle -- `RUBY_ENGINE`,
 `RUBY_VERSION` and their comparisons -- leaves only the branch that runs,
 so a `def` in the branch written for another engine is never compiled.
 
+`refine` and `using`, over a module the program names or one it builds at
+run time. A `using` covers the rest of the file, or the rest of the class
+body that wrote it; every call in that range asks the runtime, which is
+the only place the answer lives -- what a module refines is a run-time
+fact. `send`, `public_send`, `respond_to?` and `method` see a refinement
+too, as they do in ruby.
+
 `puts` and every other call are the runtime's cached dynamic send, so
 `"ab".upcase`, `7 / 0`, `10.gcd(4)`, `x.send(:+, 1)` and `x.method(:to_s)`
 all answer as ruby does, raise as ruby does, and print ruby's backtrace.

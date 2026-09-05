@@ -111,6 +111,17 @@ module Ze0
       # they are and ask the run time.
       @deferred_call = {}
       @units = 0
+      @using_slot_count = 0
+      # Every `using` site, as the byte range of source it covers and the
+      # activation slot it fills, and the same slots by the call node that
+      # fills them.
+      @activations = []
+      @using_slots = {}
+      # A class or module body holding a `refine`, by the one slot every
+      # `refine` written in it shares.
+      @self_slots = {}
+      # Each file's length in bytes: where a top-level `using`'s range ends.
+      @file_end = {}
     end
 
     def lower(root)
@@ -120,12 +131,14 @@ module Ze0
       # entry for it either, so a `require_relative` that names it back
       # loads it a second time.
       @unit_locals[@program.file] = root.locals
+      @file_end[@program.file] = root.statements.location.end_offset
       seen = {}
       splice(body_statements(root.statements), @program.file, seen, units)
       deferred = read_deferred(seen)
       all = units + deferred.each_value.flat_map { |unit| unit[:runs] }
       all.each { |_file, statements| statements.each { |s| note_assigned_constants(s) } }
       all.each { |file, statements| with_file(file) { statements.each { |s| note_class_kinds(s) } } }
+      all.each { |file, statements| note_activations(statements, file, @file_end.fetch(file)) }
       @proc_binding = all.any? { |_file, statements| statements.any? { |s| asks_a_proc?(s) } }
       @toplevel_binding = units.any? { |_file, statements| statements.any? { |s| names_toplevel_binding?(s) } }
       all.each { |file, statements| with_file(file) { declare(statements, Names::OBJECT) } }
@@ -480,6 +493,7 @@ module Ze0
         raise Unsupported.new(node, "a required file with a syntax error: #{error.message}")
       end
       @unit_locals[path] = result.value.locals
+      @file_end[path] = result.value.statements.location.end_offset
       body_statements(result.value.statements)
     end
 
@@ -1889,11 +1903,19 @@ module Ze0
         scope.frame_base = Names.body_label(node.name, entry[:kind])
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
         value = lower_statements(node.body)
+        fill_self_slot(node) unless f.terminated?
         move(value, out) unless f.terminated?
         f.ins "jump #{done_block}" unless f.terminated?
         epilogue
       end
       @program.add_function(symbol, function)
+    end
+
+    # A body that wrote a `refine`: turn its own refinements on, now that
+    # each of them has minted its holder.
+    def fill_self_slot(node)
+      slot = @self_slots[node.object_id]
+      activate_using(Operand.new(self_operand.at, false, self_operand.immediate), slot) if slot
     end
 
     # `class Foo ... end` in statement position: the class is already
@@ -2325,6 +2347,7 @@ module Ze0
       in_scope(function, :toplevel) do
         scope.out = f.args[0]
         prologue
+        reserve_using_slots if symbol == Names::TOPLEVEL
         units.group_by(&:first).each { |file, runs| declare_unit(file, runs.flat_map { |u| u[1] }) }
         file_return_flags(units)
         scope.frame_base = "<main>"
@@ -3324,9 +3347,9 @@ module Ze0
     end
 
     # An ordinary send with no keywords and no block, as an owned value.
-    def send_value(recv, name, operands = [])
+    def send_value(recv, name, operands = [], slots: NO_SLOTS)
       slot = f.slot
-      dynamic_send(borrow(recv), name, operands, addr_of(slot))
+      dynamic_send(borrow(recv), name, operands, addr_of(slot), slots: slots)
       Operand.new(slot, true, false)
     end
 
@@ -4080,12 +4103,174 @@ module Ze0
 
     # ---- calls ----
 
-    # `using` turns a refinement ON for the rest of the LEXICAL scope, and
-    # which call sites see it is a compile-time fact the runtime is told
-    # rather than one it can work out from a send. `refine` alone is an
-    # ordinary call: it builds the refinement module, whose methods stay
-    # invisible until something turns them on.
-    CLASS_MACROS = %i[using].freeze
+    # ---- refinements ----
+    #
+    # `using M` turns M's refinements on for the rest of the LEXICAL scope
+    # that wrote it -- the file, or the class body -- so a byte RANGE is
+    # that rule: a `def` written below the `using` is covered because its
+    # body sits inside the range, and one written above it is not.
+    #
+    # WHICH classes M refines is a run-time fact. The module is a run-time
+    # value and the holders its `refine` blocks minted live in the running
+    # program's registry, so the site names neither: it takes an activation
+    # SLOT, fills it where the `using` runs, and every call the range covers
+    # hands its slots over for the runtime to read back.
+    #
+    # `refine` itself needs nothing here. A receiverless `refine C do ...
+    # end` is an ordinary call on `Module#refine`, which mints the holder
+    # and leaves it invisible until something turns it on.
+
+    # A call with no slots at all, which is nearly every call in nearly
+    # every program.
+    NO_SLOTS = [].freeze
+
+    # The bodies a `using` may be written directly inside. One written
+    # anywhere else stays an ordinary send, and the runtime answers it --
+    # `RuntimeError: main.using is permitted only at toplevel` from a
+    # method body.
+    def activation_body(node)
+      case node
+      when Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode
+        body_statements(node.body)
+      end
+    end
+
+    def using_statement?(node)
+      node.is_a?(Prism::CallNode) && node.receiver.nil? && node.name == :using &&
+        node.arguments&.arguments&.size == 1
+    end
+
+    def note_activations(statements, file, stop, definer = nil)
+      statements.each do |s|
+        if using_statement?(s)
+          slot = @using_slots[s.object_id] = new_using_slot
+          @activations << { file: file, start: s.location.start_offset, stop: stop, slot: slot }
+        end
+        if definer && refine_statement?(s)
+          @activations << { file: file, start: s.location.start_offset,
+                            stop: s.location.end_offset, slot: self_slot(definer) }
+        end
+        body = activation_body(s)
+        if body
+          note_activations(body, file, s.location.end_offset, s)
+        else
+          note_activations(grouped_statements(s), file, stop, definer)
+        end
+      end
+    end
+
+    # The statements a group holds without opening a scope of its own. A
+    # `using` written under a guard still covers the rest of the body the
+    # guard sits in, and a guard that does not run leaves its slot empty
+    # -- which is the same nothing ruby activates there.
+    def grouped_statements(node)
+      case node
+      when Prism::IfNode
+        branch_statements(node.statements) + branch_statements(node.subsequent)
+      when Prism::UnlessNode
+        branch_statements(node.statements) + branch_statements(node.else_clause)
+      when Prism::BeginNode then branch_statements(node.statements)
+      else []
+      end
+    end
+
+    def refine_statement?(node)
+      node.is_a?(Prism::CallNode) && node.receiver.nil? && node.name == :refine &&
+        node.block.is_a?(Prism::BlockNode)
+    end
+
+    # A `refine` block sees its own module's whole set: a sibling refined
+    # method is reachable there by bare name. One slot per body serves
+    # every `refine` written in it, and the body FILLS it as it ends --
+    # by then each of them has minted its holder.
+    def self_slot(node)
+      @self_slots[node.object_id] ||= new_using_slot
+    end
+
+    def new_using_slot
+      @using_slot_count += 1
+      @using_slot_count - 1
+    end
+
+    # The slots covering `node`, outermost first -- the order
+    # `using_candidates` reads them back in, where a later `using` wins.
+    def active_slots(node)
+      return NO_SLOTS if @activations.empty?
+
+      at = node.location.start_offset
+      @activations.filter_map do |a|
+        a[:slot] if a[:file] == @file && at >= a[:start] && at < a[:stop]
+      end
+    end
+
+    # Every site's slot, reserved before the first statement runs. A
+    # program numbers its sites from zero and nothing else has reserved
+    # yet, so this call IS the reservation; a snippet compiled later takes
+    # the ids above them.
+    def reserve_using_slots
+      return if @using_slot_count.zero?
+
+      f.ins "call #{f.import("zeo_rt_using_slots_ensure")}(#{f.iconst("i32", @using_slot_count)})"
+    end
+
+    # `zeo_rt_eval_using` over a module the site names by VALUE.
+    def activate_using(module_value, slot)
+      status_check(f.val(
+        "call #{f.import("zeo_rt_eval_using")}(#{borrow(module_value)}, #{f.iconst("i32", slot)})",
+      ))
+    end
+
+    # `using M`, which answers `self` and fills this site's slot.
+    def lower_using(node, slot)
+      activate_using(lower_expr(node.arguments.arguments.first), slot)
+      Operand.new(self_operand.at, false, self_operand.immediate)
+    end
+
+    # The slot ids as one contiguous `u32` array, and their count.
+    def slot_table(slots)
+      table = f.slot(4 * slots.size)
+      slots.each_with_index do |n, i|
+        at = i.zero? ? f.stack_addr(table) : f.stack_addr("#{table}+#{i * 4}")
+        f.ins "store notrap aligned #{f.iconst("i32", n)}, #{at}"
+      end
+      [f.stack_addr(table), f.iconst("i64", slots.size)]
+    end
+
+    # The names that pick a method at RUN time. Ruby honours a refinement
+    # through every one of them, and which name is being asked about is
+    # not something this compile knows -- so a covered site hands the whole
+    # active set over and the runtime answers.
+    def reflect_entry(node, args, keywords)
+      return nil unless keywords.nil? && !args.empty? &&
+                        !node.block.is_a?(Prism::BlockArgumentNode) &&
+                        args.none?(Prism::SplatNode)
+
+      no_block = node.block.nil?
+      case node.name
+      when :send, :__send__ then Capi::REFLECT_SEND
+      when :public_send then Capi::REFLECT_PUBLIC_SEND
+      when :respond_to? then (Capi::REFLECT_RESPOND_TO if args.size <= 2 && no_block)
+      when :method then (Capi::REFLECT_METHOD if args.size == 1 && no_block)
+      end
+    end
+
+    def refined_reflect(node, entry, args, slots)
+      builder = block_builder(node)
+      recv = node.receiver ? lower_expr(node.receiver) : self_operand
+      at = borrow(recv)
+      argv = args_array(args.map { |a| lower_expr(a) })
+      blk = builder ? builder.call : f.iconst("i64", 0)
+      ids, n_ids = slot_table(slots)
+      result = f.slot
+      into = addr_of(result)
+      status = f.val(
+        "call #{f.import("zeo_rt_eval_reflect_dispatch")}(#{f.iconst("i32", 0)}, #{at}, " \
+        "#{f.iconst("i8", entry)}, #{argv}, #{f.iconst("i64", args.size)}, " \
+        "#{blk}, #{ids}, #{n_ids}, #{into})",
+      )
+      builder ? catch_break(status, into) : status_check(status)
+      Operand.new(result, true, false)
+    end
 
     # The Kernel names that read the CALLER's scope. A method row cannot
     # see it, so the runtime refuses them through a send and the compile
@@ -4330,9 +4515,8 @@ module Ze0
 
     def lower_call(node)
       @program.eval_install! if EVAL_VERBS.include?(node.name) && node.block.nil?
-      if node.receiver.nil? && CLASS_MACROS.include?(node.name)
-        raise Unsupported.new(node, "a `#{node.name}`")
-      end
+      slot = @using_slots[node.object_id]
+      return lower_using(node, slot) if slot
       return scope_intrinsic(node) if scope_intrinsic?(node)
       return lower_implicit_eval(node) if implicit_binding_eval?(node)
 
@@ -4348,8 +4532,9 @@ module Ze0
       if node.receiver.nil? && node.name == :require && !@deferred_call[node.object_id] && literal_feature?(node)
         return lower_require(node)
       end
-      return safe_call(node) if safe_navigation?(node)
-      return attribute_write(node) if node.attribute_write?
+      slots = active_slots(node)
+      return safe_call(node, slots) if safe_navigation?(node)
+      return attribute_write(node, slots) if node.attribute_write?
 
       # `dup`, because `pop` below would otherwise empty the prism node's
       # own array.
@@ -4366,7 +4551,13 @@ module Ze0
       # hands the runtime an Array instead of a slot array.
       spread = args.any? { |a| a.is_a?(Prism::SplatNode) || a.is_a?(Prism::ForwardingArgumentsNode) }
       plain = node.block.nil? && keywords.nil? && !spread
-      if plain && node.receiver.nil? && node.name == :block_given? && args.empty?
+      # A covered site goes to the runtime whole, ahead of every fold
+      # below: a refinement may well override the name one of them
+      # answers itself, and the fold would run straight past the match.
+      if !slots.empty?
+        entry = reflect_entry(node, args, keywords)
+        entry ? refined_reflect(node, entry, args, slots) : send_call(node, args, keywords, nil, slots)
+      elsif plain && node.receiver.nil? && node.name == :block_given? && args.empty?
         block_given(node)
       elsif plain && args.empty? && node.name == :nesting && module_receiver?(node.receiver)
         cref_array
@@ -4390,7 +4581,7 @@ module Ze0
 
     # `x&.y` answers nil without calling when `x` is nil -- NIL alone, not
     # anything falsy, so `false&.to_s` still answers "false".
-    def safe_call(node)
+    def safe_call(node, slots = NO_SLOTS)
       recv = lower_expr(node.receiver)
       result = f.slot
       store_nil(addr_of(result))
@@ -4401,11 +4592,11 @@ module Ze0
       # A nil receiver evaluates NO argument, so a write's right-hand
       # side runs only on this side of the guard.
       if node.attribute_write?
-        move(write_arguments(node, recv), addr_of(result))
+        move(write_arguments(node, recv, slots), addr_of(result))
       else
         args = node.arguments&.arguments&.dup || []
         keywords = args.pop if args.last.is_a?(Prism::KeywordHashNode)
-        move(send_call(node, args, keywords, recv), addr_of(result))
+        move(send_call(node, args, keywords, recv, slots), addr_of(result))
       end
       f.ins "jump #{join}" unless f.terminated?
       f.switch(join)
@@ -4414,23 +4605,23 @@ module Ze0
 
     # `o.x = v` and `o[k] = v`: ruby answers V, not what the setter
     # returns, and the receiver is evaluated before either.
-    def attribute_write(node)
+    def attribute_write(node, slots = NO_SLOTS)
       recv = lower_expr(node.receiver)
       borrow(recv)
-      write_arguments(node, recv)
+      write_arguments(node, recv, slots)
     end
 
-    def write_arguments(node, recv)
+    def write_arguments(node, recv, slots = NO_SLOTS)
       args = node.arguments.arguments
       middle = args[0..-2].map { |a| lower_expr(a) }
       written = lower_expr(args.last)
       # Pooled, so it outlives the send that is about to read it.
       borrow(written)
-      written_value(send_value(recv, node.name, middle + [written]), written)
+      written_value(send_value(recv, node.name, middle + [written], slots: slots), written)
     end
 
-    def send_call(node, args, keywords, recv = nil)
-      return vcall(node) if recv.nil? && node.variable_call?
+    def send_call(node, args, keywords, recv = nil, slots = NO_SLOTS)
+      return vcall(node) if recv.nil? && node.variable_call? && slots.empty?
 
       builder = block_builder(node, node.receiver.nil? && node.name == :lambda)
       # Ruby's `VM_CALL_FCALL`: a call the SOURCE wrote no receiver for
@@ -4440,13 +4631,13 @@ module Ze0
       result = f.slot
       if args.any? { |a| a.is_a?(Prism::SplatNode) || a.is_a?(Prism::ForwardingArgumentsNode) }
         splat_send(borrow(recv), node.name, args, addr_of(result),
-                   keywords: keywords, builder: builder, explicit: explicit)
+                   keywords: keywords, builder: builder, explicit: explicit, slots: slots)
       elsif builder
         dynamic_send(borrow(recv), node.name, args.map { |a| lower_expr(a) }, addr_of(result),
-                     breaks: true, keywords: keywords, explicit: explicit) { builder.call }
+                     breaks: true, keywords: keywords, explicit: explicit, slots: slots) { builder.call }
       else
         dynamic_send(borrow(recv), node.name, args.map { |a| lower_expr(a) }, addr_of(result),
-                     keywords: keywords, explicit: explicit)
+                     keywords: keywords, explicit: explicit, slots: slots)
       end
       Operand.new(result, true, false)
     end
@@ -4454,7 +4645,7 @@ module Ze0
     # A send whose positional arguments include a `*` splat or a `...`.
     # The runtime reads ONE Array rather than a slot array, because only
     # it can spread a value whose length this compile does not know.
-    def splat_send(recv, name, args, into, keywords: nil, builder: nil, explicit: true)
+    def splat_send(recv, name, args, into, keywords: nil, builder: nil, explicit: true, slots: NO_SLOTS)
       forwards = args.any?(Prism::ForwardingArgumentsNode)
       argv = new_array(args.size)
       args.each { |a| push_call_argument(argv, a) }
@@ -4472,24 +4663,32 @@ module Ze0
             else
               f.iconst("i64", 0)
             end
-      status = argv_send(recv, name, argv, kw, blk, into, explicit: explicit)
+      status = argv_send(recv, name, argv, kw, blk, into, explicit: explicit, slots: slots)
       builder ? catch_break(status, into) : status_check(status)
     end
 
     # The send itself, once its three channels are built. `unmark` is
     # ruby's rule that a splat-expanded Hash is positional again, not a
     # keyword channel.
-    def argv_send(recv, name, argv, kw, blk, into, explicit: true)
+    def argv_send(recv, name, argv, kw, blk, into, explicit: true, slots: NO_SLOTS)
+      if slots.empty?
+        return f.val(
+          if barrier?(explicit)
+            "call #{f.import("zeo_rt_send_value_explicit_args_in")}(#{f.iconst("i32", 0)}, #{recv}, " \
+              "#{sym_id(name)}, #{argv}, #{f.iconst("i8", 1)}, #{kw}, #{blk}, " \
+              "#{running_caller}, #{into})"
+          else
+            "call #{f.import("zeo_rt_send_value_args_cached")}(#{callsite_ptr(explicit)}, " \
+              "#{f.iconst("i32", 0)}, #{recv}, #{sym_id(name)}, #{argv}, #{f.iconst("i8", 1)}, " \
+              "#{kw}, #{blk}, #{into})"
+          end,
+        )
+      end
+      ids, n_ids = slot_table(slots)
       f.val(
-        if barrier?(explicit)
-          "call #{f.import("zeo_rt_send_value_explicit_args_in")}(#{f.iconst("i32", 0)}, #{recv}, " \
-            "#{sym_id(name)}, #{argv}, #{f.iconst("i8", 1)}, #{kw}, #{blk}, " \
-            "#{running_caller}, #{into})"
-        else
-          "call #{f.import("zeo_rt_send_value_args_cached")}(#{callsite_ptr(explicit)}, " \
-            "#{f.iconst("i32", 0)}, #{recv}, #{sym_id(name)}, #{argv}, #{f.iconst("i8", 1)}, " \
-            "#{kw}, #{blk}, #{into})"
-        end,
+        "call #{f.import("zeo_rt_eval_refined_send_args")}(#{f.iconst("i32", 0)}, #{recv}, " \
+        "#{sym_id(name)}, #{argv}, #{f.iconst("i8", 1)}, #{kw}, #{blk}, #{ids}, #{n_ids}, " \
+        "#{f.iconst("i8", explicit ? 1 : 0)}, #{into})",
       )
     end
 
@@ -4651,15 +4850,21 @@ module Ze0
 
     # The cached dynamic send: `recv.name(*args)`. Not `send`: that would
     # replace `Object#send` on every Lower.
-    def dynamic_send(recv, name, operands, into, breaks: false, keywords: nil, explicit: true)
+    def dynamic_send(recv, name, operands, into, breaks: false, keywords: nil, explicit: true,
+                     slots: NO_SLOTS)
       argv = args_array(operands)
       kw = keywords ? borrow(hash_literal(keywords)) : nil
       blk = block_given? ? yield : f.iconst("i64", 0)
       sym_id = sym_id(name)
       channels = kw ? "#{kw}, #{blk}" : blk.to_s
       count = f.iconst("i64", operands.size)
+      ids, n_ids = slots.empty? ? [nil, nil] : slot_table(slots)
       status = f.val(
-        if barrier?(explicit)
+        if ids
+          "call #{f.import("zeo_rt_eval_refined_send")}(#{f.iconst("i32", 0)}, #{recv}, " \
+            "#{sym_id}, #{argv}, #{count}, #{kw || f.iconst("i64", 0)}, #{blk}, " \
+            "#{ids}, #{n_ids}, #{f.iconst("i8", explicit ? 1 : 0)}, #{into})"
+        elsif barrier?(explicit)
           entry = kw ? "zeo_rt_send_value_explicit_kw_in" : "zeo_rt_send_value_explicit_in"
           "call #{f.import(entry)}(#{f.iconst("i32", 0)}, #{recv}, #{sym_id}, " \
             "#{argv}, #{count}, #{channels}, #{running_caller}, #{into})"
