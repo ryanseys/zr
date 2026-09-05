@@ -63,6 +63,11 @@ module Ze0
       # pass reached, and only a `def` written somewhere the pass does not
       # go is refused.
       @declared_defs = {}
+      # Every `[owner, key]` a second `def` replaces, so no call site folds
+      # to one of its bodies.
+      @redefined = {}
+      # The visibility cursor each skipped redefinition was written under.
+      @redefined_mode = {}
       @declared_macros = {}
       @classes = {}
       @scopes = []
@@ -1343,9 +1348,20 @@ module Ze0
       # and not a class: the method lands on its singleton, exactly as
       # `def obj.name` does, and no class row can carry it.
       return if node.receiver && (!singleton || owner == Names::OBJECT)
-      # A redefinition keeps the LAST body, as ruby does; the row and the
-      # body symbol are the same either way.
+      # ruby installs a `def` where it STANDS, so a call written ABOVE a
+      # redefinition answers the body above it. The FIRST `def` for a name
+      # takes the row the boot installs; a later one is left undeclared and
+      # installs itself where it runs, which is the road a `def` in a block
+      # already takes.
       key = [node.name, singleton]
+      if @defs[owner].key?(key)
+        @redefined[[owner, key]] = true
+        # The body's cursor is the declaration pass's to know: a `private`
+        # or a `module_function` above the reopen marks what it installs.
+        @redefined_mode[node.object_id] = visibility
+        return
+      end
+
       @declared_defs[node.object_id] = true
       note_redefined(node.name, owner) unless singleton
 
@@ -1461,7 +1477,23 @@ module Ze0
         "#{borrow(self_operand)}, #{sym_id(node.name)}, #{proc_value}, " \
         "#{f.iconst("i8", private ? 1 : 0)}, #{f.iconst("i8", 0)}, #{addr_of(result)})",
       ))
+      mark_runtime_def(node)
       Operand.new(result, true, false)
+    end
+
+    # The cursor a redefinition was written under. `module_function` keeps
+    # BOTH halves, so the reopen's body has to reach the singleton copy the
+    # first one made; the other two verbs retag the instance row.
+    def mark_runtime_def(node)
+      mode = @redefined_mode[node.object_id]
+      return if mode.nil? || mode == "public"
+
+      if mode == MODULE_FUNCTION
+        runtime_module_function([node.name.to_s])
+      else
+        dynamic_send(borrow(self_operand), mode.to_sym, [literal_symbol(node.name)],
+                     addr_of(f.slot), explicit: false)
+      end
     end
 
     # The class a `def` was WRITTEN in, as a value. The runtime compares it
@@ -1631,6 +1663,9 @@ module Ze0
     # in such a program takes the dynamic send, which is slower and right.
     def visible_def(name)
       return nil unless @classes.empty?
+      # A name a later `def` replaces has no ONE body to fold to: which one
+      # answers is where the call stands, which the runtime decides.
+      return nil if @redefined[[Names::OBJECT, [name, false]]]
 
       @defs[Names::OBJECT][[name, false]]
     end
