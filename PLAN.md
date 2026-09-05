@@ -780,8 +780,51 @@ in a `class << obj` body.
 
 ## W11 -- what the sweep found
 
-The divergence classes above, largest first. The rbconfig shim is the
-single biggest at 104 and needs a design decision rather than a fix.
+357 programs compiled and answered wrong when the wave began. Three
+landed; the sweep reads matched 5523, diverged 300.
+
+**The rbconfig shim** (105, and 100 of them ffi). zeo rendered it from a
+template at build time, so a front end had nothing to splice. The
+PLATFORM facts are the running program's own -- `RUBY_PLATFORM` is
+`<cpu>-<os>` and every road bakes it from the same build target -- so
+the shim derives arch, host_os, host_cpu, the vendor, the triple, the
+two object extensions and the two link flags from it in Ruby. What is
+left is the five INSTALL paths, which zeo still fills and which only
+mkmf and rubygems read. One static file, spliced by both roads.
+
+It exposed a second bug: `# frozen_string_literal:` is a PER-FILE
+pragma and ze0 read the main file's for the whole program. The shim
+declares `false` on purpose (`RbConfig.expand` writes through its values
+with `String#replace`), so ze0 compiling itself raised FrozenError.
+
+**The install timeline.** ruby installs a `def` where it STANDS, so a
+call written above a redefinition answers the body above it, and an
+`alias` binds the body the definee carries when the alias runs. ze0
+installed a class body's `def`s at boot. Two narrowings, both on the
+road a `def` in a block already took:
+
+- the FIRST `def` for a name keeps the boot row; a later one installs
+  itself where it runs, carrying the visibility cursor it was written
+  under, and the name stops folding at call sites
+- a `def` whose name an `alias` in the same body reads FROM installs
+  where it stands too
+
+Two runtime bugs came with them, both carried by BOTH roads:
+`Module#module_function :x` re-copied the compiled body rather than the
+one the module carries now, and `main.singleton_methods` answered a
+fixed pair (that one rode with W10).
+
+### What is left, largest first
+
+- **62** ffi. `layout` is a COMPILE-TIME form -- `lower/ffi/synth.rs`
+  walks the declaration, computes each field's C offset and synthesizes
+  the accessors -- and ze0 has none of it (#73)
+- **28** `Ruby::Box`. A box's `eval` defines a method the next `eval`
+  cannot find; zeo emits box-surrogate rows ze0 does not
+- **18** a dynamic `Ractor.new`
+- the rest is a `lang/methods` tail, several of which want the general
+  form of the install timeline: EVERY class-body `def` at its own line,
+  which is what `analyze::redefs` does on zeo's side
 
 ## What stays refused, by name
 
