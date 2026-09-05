@@ -79,13 +79,17 @@ too, as they do in ruby.
 `"ab".upcase`, `7 / 0`, `10.gcd(4)`, `x.send(:+, 1)` and `x.method(:to_s)`
 all answer as ruby does, raise as ruby does, and print ruby's backtrace.
 
-Anything else is refused by name at its line (`Ze0::Unsupported`). Today
-that chiefly means pattern matching (`case`/`in`), `class Foo::Bar`, the
-`rescue` modifier, `def obj.method`, a `return` from inside a block, an
-`ensure` a jump crosses, class variables, `$1` and `$~`, `for` and `redo`,
-a block-local variable, an interpolated regexp or symbol, a computed
-`require`, `load` and `eval`. The contract is zeo's: identical to CRuby, or
-refused. `ze0/PLAN.md` is the order the rest arrives in.
+Anything else is refused by name at its line (`Ze0::Unsupported`).
+`method_missing`, `Ractor`, `Fiber`, `callcc` and a run-time `require`
+against a load path are the named ones. Seven corpus programs of 5,940
+draw a refusal, each on a form its own line names: a guard this compile
+cannot decide whose two branches give a class different superclasses, a
+`require` of a file the splice already took, a private constant read
+through a scope this program cannot name, and a statement in a
+`class << obj` body.
+
+The contract is zeo's: identical to CRuby, or refused. `ze0/PLAN.md` is
+the order the rest arrives in.
 
 ## Layout
 

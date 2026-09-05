@@ -725,13 +725,58 @@ Filed while doing it: **#66**, `zeo build` cannot lower a `using`
 written in a method body -- the node reaches codegen with no activation
 to emit and the compile fails by name where ruby raises at run time.
 
-## W10 -- the tail
+## W10 -- how it was done
 
-23 files, each small and independent: a splat in a `when`, `def self.x`
-at the top level, `super` and `zsuper` inside `define_method`,
-`Foo::BAR = 1` with a runtime `Foo`, `FlipFlop`, a magic
-`shareable_constant_value` comment, a keyword hash in an array literal,
-a bare splat in value position.
+The whole tail, and the guarded reopen that led it. The corpus went from
+69 refusals to 7, and from 5400 matched to 5466.
+
+**A class body written under a guard** (20 files) was one line. A `def`
+under a guard is REGISTERED BUT NOT PROMISED -- it claims no static row
+and installs where it stands -- and `declare_class` computed the guard
+and never passed it down into the body. A guarded body is that same
+guard around every `def` it holds, which is also what made the refusal's
+own reason go away: a reopen the branch never took can no longer add its
+methods anyway.
+
+Two branches of one guard that name DIFFERENT superclasses are refused
+by name. Only one runs and which is not a fact this compile has, so the
+row's parent used to come from whichever body was declared first and the
+other raised `superclass mismatch` on a program ruby runs. The four
+guard shapes behind it are #68.
+
+The rest, each small:
+
+- `when *list` spreads its value the way a call site's splat does and
+  tests the elements one at a time -- a run-time count, so the arm is a
+  loop where a written-out `when` is a chain
+- `def self.x` at the top level names `main`, one object and not a
+  class, so the method lands on its singleton as `def obj.x` does
+- a `super` in a scope with no `def` of its own may still BE a method at
+  run time; explicit arguments take the dynamic walk and a bare one gets
+  the runtime's own refusal. `defined?(super)` asks the same stack
+- the flip-flop, a latch per site in the runtime's own table. An omitted
+  end never fires
+- a bare `k: v` tail is one Hash element inside an array literal
+- `# shareable_constant_value:` leaves the write, which is the reference
+  compiler's answer and a divergence from CRuby
+- a constant assigned into a scope only the run time can name, read as a
+  value -- and read FIRST, so `Missing::X = boom` raises before `boom`
+- `module_function` and `private`/`public`/`protected` of names this
+  body does not write are the runtime's own verbs
+- `h[*keys] = v` and `eval(src, nil, *rest)`, both one Array
+
+Three reference-compiler gaps came out of it: **#66** a `using` in a
+method body, **#70** a subjectless `case` with a splat `when`, and
+**#69**, ze0's own pre-existing leak of an owned temporary built before
+a raising operand.
+
+### What still refuses
+
+Seven programs of 5,940. Four are guards this compile cannot decide
+whose branches give a class different superclasses (#68); the other
+three are a `require` of a file the splice already took, a private
+constant read through a scope this program cannot name, and a statement
+in a `class << obj` body.
 
 ## W11 -- what the sweep found
 
