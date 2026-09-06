@@ -85,6 +85,13 @@ module Ze0
     end
 
     # One optional positional: its name and the expression its default is.
+    # Every parameter DEFAULT expression. Each is evaluated in the callee's
+    # frame, so a block written in one closes over the parameters bound
+    # before it and those have to be cells.
+    def default_expressions
+      (optional.map(&:default) + keywords.map(&:default)).compact
+    end
+
     class Optional
       attr_reader :name, :default
 

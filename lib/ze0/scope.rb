@@ -75,6 +75,10 @@ module Ze0
     # The local this body's `&block` parameter binds, when it declares
     # one. `blk.call` written on that name is a yield rather than a send.
     attr_accessor :block_name
+    # Whether a `ruby2_keywords` directive named this body's `def`. A splat
+    # written here keeps a trailing hash's keyword mark instead of clearing
+    # it, which is the whole of what the directive does.
+    attr_accessor :ruby2_keywords
     # A block body's `ProcEnv`: what a bare `yield` written inside a block
     # reads the enclosing method's block out of.
     attr_accessor :env

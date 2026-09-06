@@ -97,6 +97,8 @@ module Ze0
       @assigned_constants = {}
       # The class a top-level `CONST = <class>` names, keyed by CONST.
       @const_aliases = {}
+      # The `def` nodes a `ruby2_keywords` directive names.
+      @ruby2_keywords = {}
       # Every class and module name this program writes, and which of the
       # two each is. Filled before the declaration pass, so a superclass
       # written in a file that pass reads later still resolves.
@@ -160,6 +162,7 @@ module Ze0
       ambient_rbconfig(units)
       all = units + deferred.each_value.flat_map { |unit| unit[:runs] }
       all.each { |_file, statements| statements.each { |s| note_assigned_constants(s) } }
+      all.each { |_file, statements| statements.each { |s| note_ruby2_keywords(s) } }
       all.each { |file, statements| with_file(file) { statements.each { |s| note_class_kinds(s) } } }
       all.each { |file, statements| note_activations(statements, file, @file_end.fetch(file)) }
       @proc_binding = all.any? { |_file, statements| statements.any? { |s| asks_a_proc?(s) } }
@@ -975,6 +978,19 @@ module Ze0
     # class. A superclass naming one is a value only the run time knows,
     # where a name the program neither declares nor assigns is the
     # runtime's own -- a builtin exception -- which the backend resolves.
+    # `ruby2_keywords def fwd(*a)`: the directive names the `def` as its
+    # argument, and only the splat inside THAT body keeps a trailing hash's
+    # keyword mark. The call itself stays where it is -- it is an ordinary
+    # `Module#ruby2_keywords` send.
+    def note_ruby2_keywords(node)
+      if node.is_a?(Prism::CallNode) && node.receiver.nil? && node.name == :ruby2_keywords
+        (node.arguments&.arguments || []).each do |a|
+          @ruby2_keywords[a.object_id] = true if a.is_a?(Prism::DefNode)
+        end
+      end
+      node.compact_child_nodes.each { |c| note_ruby2_keywords(c) }
+    end
+
     def note_assigned_constants(node)
       case node
       when Prism::ConstantWriteNode
@@ -1391,7 +1407,7 @@ module Ze0
     def parse_params(node)
       return positionals([]) if node.nil?
 
-      return forwarding_params if node.keyword_rest.is_a?(Prism::ForwardingParameterNode)
+      return forwarding_params(node) if node.keyword_rest.is_a?(Prism::ForwardingParameterNode)
 
       destructures = {}
       Params.new(
@@ -1418,8 +1434,13 @@ module Ze0
     # `def f(...)` takes all three channels at once. ruby names them `*`,
     # `**` and `&`, which is what `Method#parameters` reports and what no
     # source can write as a local of its own.
-    def forwarding_params
-      Params.new([], [], Params::Star.new(:*), [], [], Params::Star.new(:**), :&, false)
+    #
+    # A LEADING parameter binds before them and is not forwarded: `def
+    # f(a, ...)` hands the callee everything after `a`.
+    def forwarding_params(node)
+      destructures = {}
+      Params.new(node.requireds.map { |r| positional_name(r, destructures) },
+                 [], Params::Star.new(:*), [], [], Params::Star.new(:**), :&, false, destructures)
     end
 
     # One positional parameter's slot name. A `(a, b)` destructure has no
@@ -1846,7 +1867,7 @@ module Ze0
         scope.out = f.args.last
         prologue
         own = (names + [params.block].compact + node.locals).uniq
-        boxed = captured_names(body_statements(node.body), own, names)
+        boxed = captured_names(params.default_expressions + body_statements(node.body), own, names)
         own.each { |n| declare_local(n, boxed: boxed.include?(n)) }
         status = f.val("call #{f.import("zeo_rt_stack_check")}()")
         overflow, cont = f.label, f.label
@@ -1862,6 +1883,7 @@ module Ze0
           bind_block_parameter(params.block)
           scope.block_name = params.block
         end
+        scope.ruby2_keywords = @ruby2_keywords.key?(node.object_id)
         scope.frame_base = label_of(owner, node.name, singleton)
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
         value = lower_statements(node.body)
@@ -2919,6 +2941,10 @@ module Ze0
         # bare `super` forwards, but not the class it will land on -- so
         # the `super` target comes off the frame stack instead.
         scope.definition = { params: params, node: node, singleton: false, runtime: true } if method
+        # `ruby2_keywords def fwd(*a)` hands the `def` to a call, so the
+        # declaration pass never files it and the body is installed at run
+        # time -- the directive still names it.
+        scope.ruby2_keywords = @ruby2_keywords.key?(node.object_id)
         scope.caller_class, inherited = enclosing
         scope.dynamic_caller = !method.nil? || inherited
         scope.lambda = lambda_shape && method.nil?
@@ -2938,7 +2964,7 @@ module Ze0
         scope.blk = blk if method
         captures.each_with_index { |n, i| declare_captured(n, env, i) }
         own = (names + [params.block].compact + node.locals).uniq
-        boxed = captured_names(body_statements(node.body), own, names)
+        boxed = captured_names(params.default_expressions + body_statements(node.body), own, names)
         own.each { |n| declare_local(n, boxed: boxed.include?(n)) }
         push_home if scope.catches_return
         bind_block_params(params, names, argv, argc, node, auto_splat, lambda_shape)
@@ -5204,15 +5230,16 @@ module Ze0
     # ruby's rule that a splat-expanded Hash is positional again, not a
     # keyword channel.
     def argv_send(recv, name, argv, kw, blk, into, explicit: true, slots: NO_SLOTS)
+      unmark = unmark_flag
       if slots.empty?
         return f.val(
           if barrier?(explicit)
             "call #{f.import("zeo_rt_send_value_explicit_args_in")}(#{f.iconst("i32", 0)}, #{recv}, " \
-              "#{sym_id(name)}, #{argv}, #{f.iconst("i8", 1)}, #{kw}, #{blk}, " \
+              "#{sym_id(name)}, #{argv}, #{unmark}, #{kw}, #{blk}, " \
               "#{running_caller}, #{into})"
           else
             "call #{f.import("zeo_rt_send_value_args_cached")}(#{callsite_ptr(explicit)}, " \
-              "#{f.iconst("i32", 0)}, #{recv}, #{sym_id(name)}, #{argv}, #{f.iconst("i8", 1)}, " \
+              "#{f.iconst("i32", 0)}, #{recv}, #{sym_id(name)}, #{argv}, #{unmark}, " \
               "#{kw}, #{blk}, #{into})"
           end,
         )
@@ -5220,10 +5247,15 @@ module Ze0
       ids, n_ids = slot_table(slots)
       f.val(
         "call #{f.import("zeo_rt_eval_refined_send_args")}(#{f.iconst("i32", 0)}, #{recv}, " \
-        "#{sym_id(name)}, #{argv}, #{f.iconst("i8", 1)}, #{kw}, #{blk}, #{ids}, #{n_ids}, " \
+        "#{sym_id(name)}, #{argv}, #{unmark}, #{kw}, #{blk}, #{ids}, #{n_ids}, " \
         "#{f.iconst("i8", explicit ? 1 : 0)}, #{into})",
       )
     end
+
+    # Whether a splat at this site CLEARS a trailing hash's keyword mark.
+    # It does, everywhere but inside a body `ruby2_keywords` named -- which
+    # is the whole reason the directive exists.
+    def unmark_flag = f.iconst("i8", scope.ruby2_keywords ? 0 : 1)
 
     # How this call's block gets made, or nil when it has none. The
     # function a literal block compiles to is emitted here; only its
@@ -6432,9 +6464,9 @@ module Ze0
       runtime = definition[:runtime]
       into = f.slot
       builder = block_builder(node)
-      argv, kw = super_arguments(args, definition)
+      argv, kw, unmark = super_arguments(args, definition)
       blk = builder ? builder.call : forwarded_block
-      status = f.val(super_call(definition, runtime, argv, kw, blk, addr_of(into)))
+      status = f.val(super_call(definition, runtime, argv, kw, blk, addr_of(into), unmark))
       builder ? catch_break(status, addr_of(into)) : status_check(status)
       Operand.new(into, true, false)
     end
@@ -6454,11 +6486,11 @@ module Ze0
 
       into = f.slot
       builder = block_builder(node)
-      argv, kw = super_arguments(args, nil)
+      argv, kw, unmark = super_arguments(args, nil)
       blk = builder ? builder.call : forwarded_block
       status = f.val(
         "call #{f.import("zeo_rt_send_super_dynamic_args")}(#{borrow(self_operand)}, " \
-        "#{argv}, #{f.iconst("i8", 0)}, #{kw}, #{blk}, #{addr_of(into)})",
+        "#{argv}, #{f.iconst("i8", unmark ? 1 : 0)}, #{kw}, #{blk}, #{addr_of(into)})",
       )
       builder ? catch_break(status, addr_of(into)) : status_check(status)
       Operand.new(into, true, false)
@@ -6479,8 +6511,8 @@ module Ze0
     # Which of the three `super` entries this site takes. A class method
     # resolves against the SINGLETON-class chain, which the runtime walks
     # from the class the `def self.x` was written in.
-    def super_call(definition, runtime, argv, kw, blk, into)
-      tail = "#{argv}, #{f.iconst("i8", 0)}, #{kw}, #{blk}, #{into}"
+    def super_call(definition, runtime, argv, kw, blk, into, unmark)
+      tail = "#{argv}, #{f.iconst("i8", unmark ? 1 : 0)}, #{kw}, #{blk}, #{into}"
       name = sym_id(definition[:node].name)
       if runtime
         "call #{f.import("zeo_rt_send_super_dynamic_args")}(#{borrow(self_operand)}, #{tail})"
@@ -6505,9 +6537,22 @@ module Ze0
       return forwarded_arguments(definition[:params]) if args.nil?
 
       keywords = args.pop if args.last.is_a?(Prism::KeywordHashNode)
+      forwards = args.any?(Prism::ForwardingArgumentsNode)
       argv = new_array(args.size)
       args.each { |a| push_call_argument(argv, a) }
-      [argv, keywords ? borrow(hash_literal(keywords)) : f.iconst("i64", 0)]
+      # `super(...)` forwards all three channels, and the keyword one is
+      # the `**` slot -- `push_call_argument` spreads only the positionals.
+      kw = if keywords
+             borrow(hash_literal(keywords))
+           elsif forwards
+             borrow(read_local(locals.fetch(:**)))
+           else
+             f.iconst("i64", 0)
+           end
+      # An Array a `*` splat spread in may carry a marked keyword tail, and
+      # a WRITTEN argument list re-decides the channels for itself -- the
+      # rule every other splatting send takes.
+      [argv, kw, true]
     end
 
     # One written argument, pushed onto the call's Array. A `*` splat
@@ -6537,7 +6582,10 @@ module Ze0
       params.optional.each { |o| push_argument(argv, read_local(locals.fetch(o.name))) }
       push_splat(argv, read_local(locals.fetch(params.rest.name))) if params.rest&.named?
       params.post.each { |n| push_argument(argv, read_local(locals.fetch(n))) }
-      [argv, forwarded_keywords(params)]
+      # A rest holding a HASH the caller wrote as keywords holds it as a
+      # plain positional Hash -- the method declared no keyword channel to
+      # peel it into -- so the mark comes off before the parent binds it.
+      [argv, forwarded_keywords(params), params.rest&.named? || false]
     end
 
     # The keyword Hash a bare `super` rebuilds, or a null pointer where
