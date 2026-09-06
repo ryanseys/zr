@@ -99,6 +99,8 @@ module Ze0
       @const_aliases = {}
       # The `def` nodes a `ruby2_keywords` directive names.
       @ruby2_keywords = {}
+      # The visibility cursor a run-time definition verb was written under.
+      @macro_mode = {}
       # Every class and module name this program writes, and which of the
       # two each is. Filled before the declaration pass, so a superclass
       # written in a file that pass reads later still resolves.
@@ -745,6 +747,16 @@ module Ze0
         @classes.fetch(owner)[:private_constants].concat(names)
         return visibility
       end
+
+      # A run-time `define_method` under a bare `private` is marked by that
+      # cursor, as a `def` there is. Its NAME may be one only the run time
+      # builds, and the call answers the Symbol it defined -- so the mark
+      # is applied to that answer rather than to a name read here.
+      @macro_mode[node.object_id] = visibility if node.name == :define_method && visibility != "public"
+      # Any other verb handed a `def` -- `private_class_method def helper`
+      # is the shape -- still DEFINES it as the body's cursor says, and
+      # takes the symbol the definition answers.
+      args.each { |a| declare_def(a, owner, visibility) if a.is_a?(Prism::DefNode) }
 
       kind = ACCESSORS[node.name]
       # A name only the run time builds has nothing to emit a method
@@ -4934,6 +4946,17 @@ module Ze0
       Operand.new(result, true, false)
     end
 
+    # A definition verb under a non-public cursor: the call runs, and the
+    # name it answers takes the mark.
+    def marked_definition(node, mode)
+      args = node.arguments&.arguments&.dup || []
+      keywords = args.pop if args.last.is_a?(Prism::KeywordHashNode)
+      defined = send_call(node, args, keywords)
+      borrow(defined)
+      dynamic_send(borrow(self_operand), mode.to_sym, [defined], addr_of(f.slot), explicit: false)
+      defined
+    end
+
     def symbol_answer(names)
       names.size == 1 ? literal_symbol(names.first) : symbol_array(names)
     end
@@ -4978,6 +5001,8 @@ module Ze0
 
         macro = lower_class_macro(node)
         return macro if macro
+        mode = @macro_mode[node.object_id]
+        return marked_definition(node, mode) if mode
       end
       # The splice consumes a `require` written as a top-level statement
       # and folds it to its own answer. Every other one -- guarded,
