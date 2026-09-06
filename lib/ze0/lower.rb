@@ -516,6 +516,7 @@ module Ze0
       @unit_locals[path] = result.value.locals
       @file_end[path] = result.value.statements.location.end_offset
       @frozen_literals[path] = Ze0.frozen_string_literal?(result)
+      @program.warn_from(result, path)
       @sources << result.source.source
       body_statements(result.value.statements)
     end
@@ -546,6 +547,7 @@ module Ze0
       @unit_locals[SHIM] = result.value.locals
       @file_end[SHIM] = result.value.statements.location.end_offset
       @frozen_literals[SHIM] = Ze0.frozen_string_literal?(result)
+      @program.warn_from(result, SHIM)
       units.unshift([SHIM, body_statements(result.value.statements), [SHIM]])
     end
 
@@ -3100,6 +3102,8 @@ module Ze0
       when Prism::SymbolNode then literal_symbol(node.unescaped)
       when Prism::RegularExpressionNode then literal_regexp(node)
       when Prism::InterpolatedRegularExpressionNode then interpolated_regexp(node)
+      when Prism::MatchLastLineNode then match_last_line(literal_regexp(node))
+      when Prism::InterpolatedMatchLastLineNode then match_last_line(interpolated_regexp(node))
       when Prism::InterpolatedSymbolNode then interpolated_symbol(node)
       when Prism::RationalNode then literal_rational(node)
       when Prism::ImaginaryNode then literal_imaginary(node)
@@ -4045,6 +4049,16 @@ module Ze0
         "#{flag.call(node.ignore_case?)}, #{flag.call(node.extended?)}, #{flag.call(node.multi_line?)}, " \
         "#{f.iconst("i8", regexp_encoding(node))}, #{addr_of(slot)})",
       ))
+      Operand.new(slot, true, false)
+    end
+
+    # A bare regexp written where a condition goes -- `if /re/` -- is
+    # `re =~ $_`, the match position or nil. Not `Regexp#~`, which spells
+    # the same idea but answers nil for a `$_` that is not a String where
+    # `=~` raises the TypeError ruby raises here.
+    def match_last_line(regexp)
+      slot = f.slot
+      dynamic_send(borrow(regexp), :=~, [global_load("$_")], addr_of(slot))
       Operand.new(slot, true, false)
     end
 

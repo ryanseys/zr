@@ -27,6 +27,7 @@ module Ze0
 
     program = Program.new(file, frozen_string_literal: frozen_string_literal?(result))
     program.data_section = data_section(result, file)
+    program.warn_from(result, file)
     Lower.new(program, roots).lower(result.value)
     [program.clif, program.zeodata]
   end
@@ -46,6 +47,18 @@ module Ze0
   end
 
   MARKER = "__END__".bytesize
+
+  # Ruby's own parse-time warnings for one file -- `key :k is duplicated and
+  # overwritten on line 24` and friends. prism already knows the rules and
+  # which line each one names, so reading its list is the one source of
+  # truth. `verbose` is the `ruby -w` tier, which a plain run never prints.
+  def self.parse_warnings(result, file)
+    result.warnings.filter_map do |w|
+      next unless w.level == :default
+
+      "#{file}:#{w.location.start_line}: warning: #{w.message}"
+    end
+  end
 
   # The `# frozen_string_literal:` magic comment, which makes every
   # non-interpolated String literal in the file one frozen object. The

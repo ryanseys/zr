@@ -32,6 +32,14 @@ module Ze0
       @features = []
       @units = []
       @eval_install = false
+      @warnings = []
+    end
+
+    # The parse warnings this program prints at startup, in the order the
+    # files were read. Ruby prints each as its file is parsed; a compile
+    # reads every file first, so they all land before the first statement.
+    def warn_from(result, file)
+      @warnings.concat(Ze0.parse_warnings(result, file))
     end
 
     # A require-gated builtin feature this program loads. The backend
@@ -205,6 +213,7 @@ module Ze0
         "features" => @features,
         "units" => @units,
         "eval_install" => @eval_install,
+        "warnings" => @warnings,
         "class_tables" => ["@all"],
         "reg" => ["@boot"],
       ) + "\n"
