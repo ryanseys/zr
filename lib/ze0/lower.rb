@@ -776,7 +776,9 @@ module Ze0
       end
 
       name = new_name.unescaped.to_sym
-      @aliases[node.object_id] = name
+      # The fold IS the install, at this statement's own position, so the
+      # walk reads no run-time install here.
+      @aliases[node.object_id] = @declared_macros[node.object_id] = name
       copy = source.merge(name: name, owner: owner)
       @defs[owner][[name, false]] = copy
       # An alias COPIES the source's method entry, visibility and all: the
