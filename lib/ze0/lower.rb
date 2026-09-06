@@ -1963,18 +1963,25 @@ module Ze0
     # the parameter before it.
     def bind_slots(params, names)
       defaults = params.defaults.to_h
+      # A repeated `_` names ONE local, and ruby binds it from the FIRST
+      # slot alone -- a later slot's argument never reaches the name. Its
+      # DEFAULT still does: ruby compiles a default as an assignment to
+      # the name, so `f(_ = 1, _ = 2)` answers 2 and `f(9, 8)` answers 9.
+      seen = {}
       names.each_with_index do |n, i|
         local = locals.fetch(n)
+        repeat = seen.key?(n)
+        seen[n] = true
         argument = f.args[i + 1]
         unless defaults.key?(i)
-          initialize_local(local, argument)
+          initialize_local(local, argument) unless repeat
           next
         end
 
         given, absent, join = f.label, f.label, f.label
         f.ins "brif #{f.val("icmp ne #{argument}, #{f.iconst("i64", 0)}")}, #{given}, #{absent}"
         f.switch(given)
-        initialize_local(local, argument)
+        initialize_local(local, argument) unless repeat
         f.ins "jump #{join}"
         f.switch(absent)
         store_local(local, lower_expr(defaults[i]))
@@ -5007,8 +5014,10 @@ module Ze0
 
       builder = block_builder(node, node.receiver.nil? && node.name == :lambda)
       # Ruby's `VM_CALL_FCALL`: a call the SOURCE wrote no receiver for
-      # asks no visibility question at all.
-      explicit = !node.receiver.nil?
+      # asks no visibility question at all -- and a LITERAL `self.` is the
+      # same call (`private_recv_p`), which is what lets `self.secret`
+      # reach a private method while `other.secret` cannot.
+      explicit = !(node.receiver.nil? || node.receiver.is_a?(Prism::SelfNode))
       recv ||= node.receiver ? lower_expr(node.receiver) : self_operand
       result = f.slot
       if args.any? { |a| a.is_a?(Prism::SplatNode) || a.is_a?(Prism::ForwardingArgumentsNode) }
