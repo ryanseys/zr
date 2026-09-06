@@ -4845,6 +4845,7 @@ module Ze0
       slots = active_slots(node)
       return safe_call(node, slots) if safe_navigation?(node)
       return attribute_write(node, slots) if node.attribute_write?
+      return ractor_new(node) if ractor_new?(node)
 
       # `dup`, because `pop` below would otherwise empty the prism node's
       # own array.
@@ -4881,6 +4882,61 @@ module Ze0
       else
         send_call(node, args, keywords)
       end
+    end
+
+    # `Ractor.new(*args, name: n) { }`: the one concurrency constructor a
+    # site decides rather than dispatch. The block IS the ractor's body,
+    # moved in whole, so it cannot go through the send road -- `Ractor`
+    # carries no `new` row for a send to find.
+    def ractor_new?(node)
+      node.name == :new && node.receiver &&
+        written_class_name(node.receiver) == "Ractor" &&
+        declared_class(cref, node.receiver).nil?
+    end
+
+    def ractor_new(node)
+      args = node.arguments&.arguments&.dup || []
+      keywords = args.pop if args.last.is_a?(Prism::KeywordHashNode)
+      if args.any? { |a| a.is_a?(Prism::SplatNode) || a.is_a?(Prism::ForwardingArgumentsNode) }
+        raise Unsupported.new(node, "a splat argument to `Ractor.new`")
+      end
+
+      name = ractor_name(node, keywords)
+      builder = block_builder(node)
+      raise Unsupported.new(node, "a `Ractor.new` with no block") if builder.nil?
+
+      operands = args.map { |a| lower_expr(a) }
+      name_ptr = name ? borrow(lower_expr(name)) : f.iconst("i64", 0)
+      argv = args_array(operands)
+      # The block is built LAST, for the reason `send_call` gives: it is
+      # moved in, and nothing between its construction and the call may
+      # raise.
+      blk = builder.call
+      # A LITERAL block's own site, which is the slot `Ractor#inspect`
+      # prints. A block ARGUMENT passes none, and the runtime reads the
+      # call site instead.
+      site = node.block.is_a?(Prism::BlockNode) ? "#{@file}:#{node.block.location.start_line}" : ""
+      where, where_len = rodata_ref(site)
+      slot = f.slot
+      status_check(f.val(
+        "call #{f.import("zeo_rt_ractor_new")}(#{blk}, #{argv}, " \
+        "#{f.iconst("i64", operands.size)}, #{name_ptr}, #{where}, #{where_len}, " \
+        "#{addr_of(slot)})",
+      ))
+      Operand.new(slot, true, false)
+    end
+
+    # `Ractor.new`'s one keyword. Every other one is refused by name: the
+    # runtime entry takes this argument alone.
+    def ractor_name(node, keywords)
+      return nil if keywords.nil?
+
+      keywords.elements.each do |e|
+        unless e.is_a?(Prism::AssocNode) && e.key.is_a?(Prism::SymbolNode) && e.key.unescaped == "name"
+          raise Unsupported.new(node, "a `Ractor.new` keyword other than `name:`")
+        end
+      end
+      keywords.elements.first.value
     end
 
     # The general send: a receiver, its positional arguments, an optional
@@ -5060,12 +5116,18 @@ module Ze0
       # own C-level-Proc ArgumentError, which is what a proc with no
       # binding answers.
       binding = @proc_binding ? borrow(scope_binding(node)) : null
+      # `Ractor.new`'s isolation verdict rides ON THE VALUE: a proc's
+      # creation site and the `Ractor.new` that refuses it meet only at
+      # run time. Ruby reports the alphabetically first outer name, which
+      # is the head of the sorted capture list.
+      outer, outer_len = rodata_ref(captures.first.to_s)
       f.ins "call #{f.import("zeo_rt_proc_new")}(#{address}, #{cells}, #{n_cells}, " \
             "#{borrow(self_operand)}, #{lexical}, #{binding}, " \
             "#{f.iconst("i32", proc_arity(shape, lambda_shape))}, " \
             "#{f.iconst("i32", proc_flags(node, lambda_shape))}, " \
             "#{params}, #{n_params}, #{file}, #{file_len}, " \
-            "#{f.iconst("i32", node.location.start_line)}, #{null}, #{null}, #{addr_of(slot)})"
+            "#{f.iconst("i32", node.location.start_line)}, #{outer}, #{outer_len}, " \
+            "#{addr_of(slot)})"
       addr_of(slot)
     end
 

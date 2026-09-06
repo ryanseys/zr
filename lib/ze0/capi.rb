@@ -166,6 +166,7 @@ module Ze0
       "zeo_rt_eval_reflect_dispatch" => [
         ["i32", "i64", "i8 uext", "i64", "i64", "i64", "i64", "i64", "i64"], "i32",
       ],
+      "zeo_rt_ractor_new" => [%w[i64 i64 i64 i64 i64 i64 i64], "i32"],
       "zeo_rt_proc_new" => [
         %w[i64 i64 i64 i64 i64 i64 i32 i32 i64 i64 i64 i64 i32 i64 i64 i64], nil,
       ],
