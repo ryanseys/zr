@@ -780,8 +780,8 @@ in a `class << obj` body.
 
 ## W11 -- what the sweep found
 
-357 programs compiled and answered wrong when the wave began. Three
-landed; the sweep reads matched 5523, diverged 300.
+357 programs compiled and answered wrong when the wave began. The sweep
+now reads matched 5588, refused 32, diverged 212.
 
 **The rbconfig shim** (105, and 100 of them ffi). zeo rendered it from a
 template at build time, so a front end had nothing to splice. The
@@ -814,21 +814,61 @@ Two runtime bugs came with them, both carried by BOTH roads:
 one the module carries now, and `main.singleton_methods` answered a
 fixed pair (that one rode with W10).
 
+### The three big forms, and what each turned out to be
+
+**ffi `layout`** (62). A compile-time form on zeo's side:
+`lower/ffi/synth.rs` walks the declaration, works out each field's C
+offset and writes the accessors as ruby source. `ze0/lib/ze0/ffi.rb`
+does the same walk and writes the same source, so a struct answers the
+same on either road. The ffi ext's ruby half gained the C typedef rows
+`CScalar::from_c_typedef` already knew and the two array proxy classes,
+which both roads need before a synthesized body can name them.
+`test/stdlib/ffi` went from 39 to 50 of 102; 25 declarations now REFUSE
+by name (a custom typedef, a splat field list, a computed element
+count, a 2-D inline array), which is the honest answer.
+
+**`Ruby::Box`** (28). Not a front-end gap at all. ze0 reaches boxes
+through the RUN-TIME road, and that road was wrong on both sides of the
+compiler: a box's `eval` compiled the snippet with the box's id but RAN
+it in main, so only constants and globals carried the box while a `def`
+-- an ordinary send -- read the ambient one. `zeo build` reproduces
+every one of these with a computed source. Four fixes, all shared: a
+snippet runs inside its box; `class Array` in a box reopens the SHARED
+class (past its surrogate a box sees master, which is where the READ
+side already ends its walk) and a class it does mint is named bare and
+marked as the box's; a run-time `define_method` writes the box's own
+record, as `remove_method` and `undef_method` already did; and the
+value-receiver overlay read consults that record first.
+`test/lang/boxes` went from 35 to 54 of 64.
+
+**`Ractor.new`** (18). A call the SITE decides, not dispatch: `Ractor`
+carries no `new` row a send could find, and the block IS the ractor's
+body, moved in whole. ze0 now reaches `zeo_rt_ractor_new`, and every
+proc it builds records the name a `Ractor.new` isolation check would
+report -- the verdict rides on the VALUE, because a proc's creation
+site and the `Ractor.new` that refuses it meet only at run time. The
+runtime's own guard gained CRuby's frozen exemption at the same time.
+`test/core/thread` went from 111 to 128 of 129.
+
 ### What is left, largest first
 
-- **62** ffi. `layout` is a COMPILE-TIME form -- `lower/ffi/synth.rs`
-  walks the declaration, computes each field's C offset and synthesizes
-  the accessors -- and ze0 has none of it (#73)
-- **28** `Ruby::Box`. A box's `eval` defines a method the next `eval`
-  cannot find; zeo emits box-surrogate rows ze0 does not
-- **18** a dynamic `Ractor.new`
-- the rest is a `lang/methods` tail, several of which want the general
-  form of the install timeline: EVERY class-body `def` at its own line,
-  which is what `analyze::redefs` does on zeo's side
+- **35** `lang/methods`. No single cause. The largest sub-shape is the
+  method-ENTRY model (#76): ze0 shares one body across an `alias`, so
+  `__callee__` answers the name the body was born as. Several others
+  want the general form of the install timeline -- EVERY class-body
+  `def` at its own line, which is what `analyze::redefs` does on zeo's
+  side
+- **27** ffi, the tail above plus `FFI::Library#callback` and `#enum`,
+  which have no runtime half on either road
+- **13** `lang/classes`, **12** `lang/exceptions`, **10**
+  `lang/constants` -- long tails
+- **9** boxes (#74): the class-method writes that are still not
+  box-keyed, and a box's `require` of a program-relative file, which
+  `zeo build` splices at compile time and ze0 leaves to the run time
 
 ## What stays refused, by name
 
-`method_missing`, `Ractor`, `Fiber`, `callcc`, and a run-time `require`
+`method_missing`, `Fiber`, `callcc`, and a run-time `require`
 against a load path. `eval`, `binding`, `ObjectSpace` and refinements
 have all since joined the subset. A program
 using one is refused at its line. This list is the plan's edge and it is

@@ -79,11 +79,17 @@ too, as they do in ruby.
 `"ab".upcase`, `7 / 0`, `10.gcd(4)`, `x.send(:+, 1)` and `x.method(:to_s)`
 all answer as ruby does, raise as ruby does, and print ruby's backtrace.
 
+`Ractor.new` is a form the SITE decides: the block is the ractor's body
+and is moved in whole, so it never reaches the send road. An `FFI::Struct`
+`layout` is decided at compile time too -- the field offsets are C facts
+this compile works out, and the accessors are generated from them.
+
 Anything else is refused by name at its line (`Ze0::Unsupported`).
-`method_missing`, `Ractor`, `Fiber`, `callcc` and a run-time `require`
-against a load path are the named ones. Seven corpus programs of 5,940
-draw a refusal, each on a form its own line names: a guard this compile
-cannot decide whose two branches give a class different superclasses, a
+`method_missing`, `Fiber`, `callcc` and a run-time `require` against a
+load path are the named ones. Thirty-two corpus programs of 5,941 draw
+a refusal, each on a form its own line names: twenty-five a `layout`
+field shape this compile cannot place, four a guard it cannot decide
+whose two branches give a class different superclasses, and one each a
 `require` of a file the splice already took, a private constant read
 through a scope this program cannot name, and a statement in a
 `class << obj` body.
