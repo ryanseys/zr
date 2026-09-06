@@ -104,6 +104,11 @@ module Ze0
       @assigned_paths = {}
       # The names an `undef` anywhere in the program takes away.
       @undefined = {}
+      # The methods whose body installs another method: a call to one of
+      # these in a class body writes names this compile cannot read.
+      @definer_methods = {}
+      # The classes a run-time install has already reached, by owner.
+      @dynamic_owners = {}
       # Whether the program calls `freeze` at all, which is what makes a
       # reopen of a frozen class reachable.
       @program_freezes = false
@@ -184,6 +189,7 @@ module Ze0
       all.each { |_file, statements| statements.each { |s| note_assigned_constants(s) } }
       all.each { |_file, statements| statements.each { |s| note_ruby2_keywords(s) } }
       all.each { |_file, statements| statements.each { |s| note_undefined(s) } }
+      all.each { |_file, statements| statements.each { |s| note_definer_methods(s) } }
       @program_freezes = all.any? { |_file, statements| statements.any? { |s| freezes?(s) } }
       @announces_constants =
         all.any? { |_file, statements| statements.any? { |s| defines_const_added?(s) } }
@@ -617,6 +623,11 @@ module Ze0
       # A bare `private` or `protected` is a mode over the `def`s BELOW
       # it, so the walk carries it. Every top-level `def` is a private
       # method of Object, whatever the body says.
+      #
+      # `dynamic` turns on where a statement may install a method under a
+      # name only the run time builds: from there down a `def` installs
+      # where it STANDS, so the run-time install cannot land on top of it.
+      dynamic = @dynamic_owners[owner] || false
       statements.each do |s|
         case s
         when Prism::DefNode
@@ -624,7 +635,11 @@ module Ze0
           # above it marks what it installs -- `module_function` written
           # over a `def` in an undecided branch is the rspec-support
           # shape.
-          guarded ? guarded_def_mode(s, visibility) : declare_def(s, owner, visibility)
+          if guarded || dynamic
+            guarded_def_mode(s, visibility)
+          else
+            declare_def(s, owner, visibility)
+          end
         when Prism::ClassNode then declare_class(s, owner, "class", guarded: guarded)
         when Prism::ModuleNode then declare_class(s, owner, "module", guarded: guarded)
         when Prism::CallNode then visibility = declare_macro(s, owner, visibility) unless guarded
@@ -659,8 +674,49 @@ module Ze0
         # has a frame -- and a cursor -- of its own.
         inner = owner == Names::OBJECT ? "public" : visibility
         declare(nested_bodies(s), owner, guarded: true, visibility: inner)
+        next unless installs_at_runtime?(s, owner)
+
+        # The mark outlives the body: a REOPEN of the same class writes
+        # `def`s the earlier body's run-time install can still land on.
+        dynamic = @dynamic_owners[owner] = true
       end
     end
+
+    # The verbs that install a method under a name a body may build only
+    # at run time.
+    DEFINERS = %i[attr_reader attr_writer attr_accessor define_method
+                  alias_method module_function].freeze
+
+    # Whether this statement may install a method whose NAME this compile
+    # cannot read -- an `attr_writer` inside a block, or a class method of
+    # this same body that expands to one. The declaration pass folds every
+    # macro it CAN read, and those install at their own position already.
+    def installs_at_runtime?(node, owner)
+      return false if node.is_a?(Prism::DefNode)
+      return true if definer_call?(node) && !@declared_macros[node.object_id]
+
+      if node.is_a?(Prism::CallNode) && node.receiver.nil?
+        return true if @definer_methods[node.name]
+        # `include M` runs `M.included(self)`, and that hook is where a
+        # macro module writes its accessors.
+        return true if @definer_methods[MIXIN_HOOKS[node.name]]
+      end
+      node.compact_child_nodes.any? { |c| installs_at_runtime?(c, owner) }
+    end
+
+    def definer_call?(node)
+      return false unless node.is_a?(Prism::CallNode)
+      return true if DEFINERS.include?(node.name)
+      # `base.send(:attr_accessor, :m)` is how a macro module reaches a
+      # verb `Module` keeps private.
+      return false unless SEND_VERBS.include?(node.name)
+
+      named = (node.arguments&.arguments || []).first
+      named.is_a?(Prism::SymbolNode) && DEFINERS.include?(named.unescaped.to_sym)
+    end
+
+    # The hook each mixin verb runs on the module it names.
+    MIXIN_HOOKS = { include: :included, extend: :extended, prepend: :prepended }.freeze
 
     # A `def` the declaration pass leaves to run time carries only the
     # cursor it was written under; `mark_runtime_def` applies it after the
@@ -1975,6 +2031,23 @@ module Ze0
       return true if node.is_a?(Prism::CallNode) && node.name == :freeze
 
       node.compact_child_nodes.any? { |c| freezes?(c) }
+    end
+
+    # Every `def` in the program whose body holds a definer verb, by
+    # name. A class body calling one -- or an `include` whose module
+    # writes `self.included` that way -- installs methods there.
+    def note_definer_methods(node)
+      if node.is_a?(Prism::DefNode) && definer_under?(node.body)
+        @definer_methods[node.name] = true
+      end
+      node.compact_child_nodes.each { |c| note_definer_methods(c) }
+    end
+
+    def definer_under?(node)
+      return false if node.nil?
+      return true if definer_call?(node)
+
+      node.compact_child_nodes.any? { |c| definer_under?(c) }
     end
 
     # The names an `undef` takes away, wherever it is written.
