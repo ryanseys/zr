@@ -105,6 +105,9 @@ module Ze0
       # Whether the program calls `freeze` at all, which is what makes a
       # reopen of a frozen class reachable.
       @program_freezes = false
+      # Whether the program writes a `const_added` hook, which is what
+      # makes announcing a constant anything but a no-op.
+      @announces_constants = false
       # The class a top-level `CONST = <class>` names, keyed by CONST.
       @const_aliases = {}
       # The `def` nodes a `ruby2_keywords` directive names.
@@ -180,6 +183,8 @@ module Ze0
       all.each { |_file, statements| statements.each { |s| note_ruby2_keywords(s) } }
       all.each { |_file, statements| statements.each { |s| note_undefined(s) } }
       @program_freezes = all.any? { |_file, statements| statements.any? { |s| freezes?(s) } }
+      @announces_constants =
+        all.any? { |_file, statements| statements.any? { |s| defines_const_added?(s) } }
       all.each { |file, statements| with_file(file) { statements.each { |s| note_class_kinds(s) } } }
       all.each { |file, statements| note_activations(statements, file, @file_end.fetch(file)) }
       @proc_binding = all.any? { |_file, statements| statements.any? { |s| asks_a_proc?(s) } }
@@ -1926,6 +1931,37 @@ module Ze0
       @defs[Names::OBJECT][[name, false]]
     end
 
+    # Whether `node` writes a `const_added` hook. `Module`'s own is a
+    # no-op, so a program with none needs no announcement at all.
+    def defines_const_added?(node)
+      return true if node.is_a?(Prism::DefNode) && node.name == :const_added
+
+      node.compact_child_nodes.any? { |c| defines_const_added?(c) }
+    end
+
+    # `owner.const_added(:name)` -- ruby announces a constant the moment it
+    # becomes readable: after the write, on the module it was set on, once
+    # per assignment.
+    def announce_constant(owner, name, at)
+      return unless @announces_constants && hook_answers?(owner, at)
+
+      # `Module#const_added` is private, and ruby's own announcement asks
+      # no visibility question.
+      discard(send_value(class_value(owner), :const_added, [literal_symbol(name)],
+                         explicit: false))
+    end
+
+    # Whether `owner`'s chain answers `const_added` by this point in the
+    # file. A hook written BELOW the write does not run for it, which is
+    # ruby's own order. One this program writes somewhere the chain cannot
+    # name is the run time's to find, so the send goes unconditionally.
+    def hook_answers?(owner, at)
+      hook = ancestry(owner).filter_map { |c| @defs[c]&.[]([:const_added, true]) }.first
+      return true if hook.nil?
+
+      hook[:file] != @file || hook[:node].location.start_line < at.location.start_line
+    end
+
     # Whether `node` holds a `freeze` call, however it is spelled.
     def freezes?(node)
       return true if node.is_a?(Prism::CallNode) && node.name == :freeze
@@ -2332,6 +2368,7 @@ module Ze0
       # statement never runs stays a NameError.
       f.ins "call #{f.import("zeo_rt_reveal_class")}(#{class_id(entry[:name])})"
       record_const_location(entry, written)
+      announce_class_constant(entry, written)
       klass = class_value(entry[:name])
       announce_subclass(entry, written, klass)
       result = f.slot
@@ -2404,6 +2441,19 @@ module Ze0
       f.ins "call #{f.import("zeo_rt_record_const_location")}(#{class_id_of(owner)}, " \
             "#{nptr}, #{nlen}, #{fptr}, #{flen}, " \
             "#{f.iconst("i32", written[:node].location.start_line)})"
+    end
+
+    # A `class` or `module` declaration announces its own name, after the
+    # constant is made and before the body runs -- `vm_declare_class`'s own
+    # order. A REOPEN makes no constant and announces nothing.
+    def announce_class_constant(entry, written)
+      return unless entry[:bodies].first.equal?(written)
+
+      *scope, leaf = entry[:name].split("::")
+      owner = scope.empty? ? Names::OBJECT : scope.join("::")
+      return unless owner == Names::OBJECT || @classes.key?(owner)
+
+      announce_constant(owner, leaf, written[:node])
     end
 
     # `Super.inherited(C)` fires where the statement stands and only for
@@ -4260,6 +4310,7 @@ module Ze0
       f.ins "call #{f.import("zeo_rt_const_set_at")}(#{class_id(found)}, #{nptr}, #{nlen}, " \
             "#{at}, #{fptr}, #{flen}, #{f.iconst("i32", node.location.start_line)}, " \
             "#{f.iconst("i32", Capi::MAIN_BOX)})"
+      announce_constant(found, target.name.to_s, node)
       Operand.new(value.at, false, value.immediate)
     end
 
@@ -4464,6 +4515,7 @@ module Ze0
       f.ins "call #{f.import("zeo_rt_const_set_at")}(#{cref_ids.first}, #{nptr}, #{nlen}, " \
             "#{at}, #{fptr}, #{flen}, #{f.iconst("i32", node.location.start_line)}, " \
             "#{f.iconst("i32", Capi::MAIN_BOX)})"
+      announce_constant(cref_path.first || Names::OBJECT, name, node)
       Operand.new(value.at, false, value.immediate)
     end
 
