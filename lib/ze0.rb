@@ -10,6 +10,7 @@ require_relative "ze0/scope"
 require_relative "ze0/json"
 require_relative "ze0/clif"
 require_relative "ze0/emit"
+require_relative "ze0/ffi"
 require_relative "ze0/patterns"
 require_relative "ze0/lower"
 

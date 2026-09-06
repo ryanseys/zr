@@ -70,6 +70,11 @@ module Ze0
       @redefined_mode = {}
       # The names an `alias` in each owner's body reads from.
       @aliased = {}
+      # A body this compile wrote statements into, by its own node.
+      @rewritten = {}
+      # Each `FFI::Struct` subclass's `(size, alignment)`, for a later
+      # layout that stores one by value.
+      @ffi_layouts = {}
       @declared_macros = {}
       @classes = {}
       @scopes = []
@@ -795,6 +800,9 @@ module Ze0
       return if @declared_bodies[node.object_id]
 
       @declared_bodies[node.object_id] = true
+      # Before the roads part: a `layout` is read the same whether the row
+      # is keyed or the class is built at run time.
+      ffi_struct_body(node)
       name = declared_name(node)
       return declare_builtin_reopen(node, name, kind) if Names.builtin?(name)
       # A class MADE at run time stays that way when a later statement
@@ -853,6 +861,33 @@ module Ze0
       # never took from adding its methods anyway.
       declare(body, name, guarded: guarded)
       @cref.shift
+    end
+
+    # `class X < FFI::Struct` with a `layout`: the field offsets are C
+    # facts this compile works out, and the accessors are generated from
+    # them. The synthesized statements join the body, so everything below
+    # -- the declaration pass, the lowering -- reads one statement list.
+    def ffi_struct_body(node)
+      return unless node.is_a?(Prism::ClassNode) && node.superclass
+
+      written = written_class_name(node.superclass)
+      return unless [Ffi::STRUCT, Ffi::UNION].include?(written)
+
+      body = body_statements(node.body)
+      call = body.find { |s| s.is_a?(Prism::CallNode) && s.receiver.nil? && s.name == :layout }
+      return if call.nil?
+
+      pairs = Ffi.declared_fields(call, @ffi_layouts)
+      raise Unsupported.new(call, "a `layout` field of that shape") if pairs.nil?
+
+      placed, total, alignment = Ffi.place(pairs, written == Ffi::UNION)
+      # A later layout may store this one BY VALUE, and then its width and
+      # alignment are what place the field after it.
+      @ffi_layouts[node.constant_path.slice] = [total, alignment]
+      # The `layout` itself runs nothing: it DECLARED, and what it declared
+      # is the source below it now.
+      rest = body.reject { |s| s.equal?(call) }
+      @rewritten[node.body.object_id] = rest + Ffi.parse(Ffi.source(placed, total, alignment), node)
     end
 
     # The name a `class` or `module` statement declares: the path it
@@ -3020,6 +3055,7 @@ module Ze0
     # lowers as the one statement it is.
     def body_statements(node)
       return [] if node.nil?
+      return @rewritten[node.object_id] if @rewritten.key?(node.object_id)
       return [node] if node.is_a?(Prism::BeginNode)
 
       node.body
