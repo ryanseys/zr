@@ -1947,7 +1947,10 @@ module Ze0
     # becomes readable: after the write, on the module it was set on, once
     # per assignment.
     def announce_constant(owner, name, at)
-      return unless @announces_constants && hook_answers?(owner, at)
+      # A class only the RUN TIME names has no row to read the owner off,
+      # and the constant it holds is written through `const_set`, which
+      # announces for itself.
+      return unless @announces_constants && keyed_class?(owner) && hook_answers?(owner, at)
 
       # `Module#const_added` is private, and ruby's own announcement asks
       # no visibility question.
@@ -2438,7 +2441,8 @@ module Ze0
 
       *scope, leaf = entry[:name].split("::")
       owner = scope.empty? ? Names::OBJECT : scope.join("::")
-      return unless owner == Names::OBJECT || @classes.key?(owner)
+      # A scope only the RUN TIME names has no row to key the record on.
+      return unless keyed_class?(owner)
 
       nptr, nlen = rodata_ref(leaf)
       fptr, flen = rodata_ref(written[:file])
@@ -2455,8 +2459,6 @@ module Ze0
 
       *scope, leaf = entry[:name].split("::")
       owner = scope.empty? ? Names::OBJECT : scope.join("::")
-      return unless owner == Names::OBJECT || @classes.key?(owner)
-
       announce_constant(owner, leaf, written[:node])
     end
 
