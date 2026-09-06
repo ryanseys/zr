@@ -33,6 +33,7 @@ module Ze0
       # argument rather than in a site, for a body whose `self` only the
       # run time knows.
       "zeo_rt_send_value_explicit_in" => [%w[i32 i64 i32 i64 i64 i64 i32 i64], "i32"],
+      "zeo_rt_proc_call_or_send" => [%w[i64 i32 i64 i64 i64 i32 i64], "i32"],
       "zeo_rt_send_value_explicit_kw_in" => [%w[i32 i64 i32 i64 i64 i64 i64 i32 i64], "i32"],
       "zeo_rt_class_of" => [%w[i64], "i32"],
       "zeo_rt_int_add_slow" => [%w[i64 i64 i64], nil],

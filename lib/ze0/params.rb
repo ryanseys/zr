@@ -107,14 +107,21 @@ module Ze0
 
     # A `*`/`**` that binds nothing (`PARAM_STAR_ANON`) still changes what
     # the binder accepts, so it is recorded with no name.
+    #
+    # An IMPLICIT star is the trailing comma of `|a, |`. It destructures and
+    # drops like an anonymous one, but it is not in the signature: it never
+    # reaches `arity`, and a lambda -- which does not destructure at all --
+    # is as strict as it would be without the comma.
     class Star
       attr_reader :name
 
-      def initialize(name)
+      def initialize(name, implicit: false)
         @name = name
+        @implicit = implicit
       end
 
       def named? = !@name.nil?
+      def implicit? = @implicit
     end
   end
 end

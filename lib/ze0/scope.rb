@@ -72,6 +72,9 @@ module Ze0
     # method grows the parameter only where it uses a block; everywhere
     # else this is nil and `yield` is refused.
     attr_accessor :blk
+    # The local this body's `&block` parameter binds, when it declares
+    # one. `blk.call` written on that name is a yield rather than a send.
+    attr_accessor :block_name
     # A block body's `ProcEnv`: what a bare `yield` written inside a block
     # reads the enclosing method's block out of.
     attr_accessor :env

@@ -1381,7 +1381,7 @@ module Ze0
     # written `n(*)` can forward it.
     def rest_of(node)
       return nil if node.nil?
-      return Params::Star.new(nil) if node.is_a?(Prism::ImplicitRestNode)
+      return Params::Star.new(nil, implicit: true) if node.is_a?(Prism::ImplicitRestNode)
       raise Unsupported.new(node, "a rest parameter of that shape") unless node.is_a?(Prism::RestParameterNode)
 
       Params::Star.new(node.name || :*)
@@ -1705,10 +1705,15 @@ module Ze0
       # names one, so the signature has to carry it here too -- without
       # the parameter the trampoline releases it and it is gone.
       return true if node.is_a?(Prism::SuperNode) || node.is_a?(Prism::ForwardingSuperNode)
-      return true if node.is_a?(Prism::CallNode) && node.receiver.nil? && node.name == :block_given?
+      return true if node.is_a?(Prism::CallNode) && node.name == :block_given? && bare_or_self?(node.receiver)
 
       node.compact_child_nodes.any? { |c| uses_block?(c) }
     end
+
+    # A receiverless call and a LITERAL `self.` one are the same call --
+    # ruby's `private_recv_p` -- which is what lets `self.block_given?`
+    # read the caller's block where `other.block_given?` cannot.
+    def bare_or_self?(receiver) = receiver.nil? || receiver.is_a?(Prism::SelfNode)
 
     def names_under(node, found = {})
       found[node.name] = true if LOCAL_NODES.any? { |k| node.is_a?(k) }
@@ -1794,7 +1799,10 @@ module Ze0
         push_home if scope.catches_return
         bind_slots(params, names)
         unpack_destructures(params)
-        bind_block_parameter(params.block) if params.block
+        if params.block
+          bind_block_parameter(params.block)
+          scope.block_name = params.block
+        end
         scope.frame_base = label_of(owner, node.name, singleton)
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
         value = lower_statements(node.body)
@@ -2961,7 +2969,7 @@ module Ze0
     def bind_block_params(params, names, argv, argc, node, auto_splat, lambda_shape)
       return if names.empty?
 
-      desc = param_desc(params, "block", scope.frame_label, node)
+      desc = param_desc(params, "block", scope.frame_label, node, lambda_shape: lambda_shape)
       slots = f.slot(Capi::SLOT_BYTES * names.size)
       present = f.slot(8)
       bits = auto_splat ? Capi::BLOCK_BIND_AUTO_SPLAT : 0
@@ -2975,11 +2983,18 @@ module Ze0
       defaults = params.defaults.to_h
       # The binder writes an owned value into every bound slot, which the
       # local takes as it is; an unbound optional runs its default here.
+      # A repeated `_` names ONE local and ruby binds it from the FIRST
+      # slot alone, so a later slot's value reaches nothing and this frame
+      # releases it. Its DEFAULT still writes the name: ruby compiles a
+      # default as an assignment to it.
+      seen = {}
       names.each_with_index do |n, i|
         from = i.zero? ? addr_of(slots) : f.stack_addr("#{slots}+#{i * Capi::SLOT_BYTES}")
         local = locals.fetch(n)
+        repeat = seen.key?(n)
+        seen[n] = true
         unless defaults.key?(i)
-          take_bound_slot(local, from)
+          repeat ? release_if_heap(from) : take_bound_slot(local, from)
           next
         end
 
@@ -2987,7 +3002,7 @@ module Ze0
         got = f.val("band #{present_bits}, #{f.iconst("i64", 1 << i)}")
         f.ins "brif #{f.val("icmp ne #{got}, #{f.iconst("i64", 0)}")}, #{given}, #{absent}"
         f.switch(given)
-        take_bound_slot(local, from)
+        repeat ? release_if_heap(from) : take_bound_slot(local, from)
         f.ins "jump #{join}"
         f.switch(absent)
         store_local(local, lower_expr(defaults[i]))
@@ -3009,7 +3024,7 @@ module Ze0
     # A `zeo_abi::abi::ParamDescC` on the stack, and the `KwParamC` rows it
     # points at. Offsets follow the structs' declaration order under
     # `repr(C)`; the binder reads both only for the length of the call.
-    def param_desc(params, name, label, node)
+    def param_desc(params, name, label, node, lambda_shape: true)
       kws, n_kws = keyword_rows(params.keywords)
       slot = f.slot(PARAM_DESC_BYTES)
       at = addr_of(slot)
@@ -3017,7 +3032,7 @@ module Ze0
       put.call(0, f.iconst("i32", params.required.size))
       put.call(4, f.iconst("i32", params.optional.size))
       put.call(8, f.iconst("i32", params.post.size))
-      put.call(12, f.iconst("i8", star_of(params.rest)))
+      put.call(12, f.iconst("i8", star_of(params.rest, lambda_shape: lambda_shape)))
       put.call(13, f.iconst("i8", star_of(params.kwrest)))
       put.call(14, f.iconst("i8", params.no_keywords ? 1 : 0))
       put.call(15, f.iconst("i8", 0))
@@ -3036,8 +3051,12 @@ module Ze0
     PARAM_DESC_BYTES = 88
     KW_PARAM_BYTES = 24
 
-    def star_of(star)
+    def star_of(star, lambda_shape: false)
       return Capi::PARAM_STAR_NONE if star.nil?
+      # A lambda binds its arguments as written and destructures nothing, so
+      # `|a, |`'s comma changes nothing there -- including the strict arity
+      # an anonymous rest would relax.
+      return Capi::PARAM_STAR_NONE if star.implicit? && lambda_shape
 
       star.named? ? Capi::PARAM_STAR_NAMED : Capi::PARAM_STAR_ANON
     end
@@ -4889,7 +4908,7 @@ module Ze0
       if !slots.empty?
         entry = reflect_entry(node, args, keywords)
         entry ? refined_reflect(node, entry, args, slots) : send_call(node, args, keywords, nil, slots)
-      elsif plain && node.receiver.nil? && node.name == :block_given? && args.empty?
+      elsif plain && node.name == :block_given? && args.empty? && bare_or_self?(node.receiver)
         block_given(node)
       elsif plain && args.empty? && node.name == :nesting && module_receiver?(node.receiver)
         cref_array
@@ -5025,6 +5044,7 @@ module Ze0
 
     def send_call(node, args, keywords, recv = nil, slots = NO_SLOTS)
       return vcall(node) if recv.nil? && node.variable_call? && slots.empty?
+      return block_param_call(node, args) if block_param_call?(node, args, keywords, recv, slots)
 
       builder = block_builder(node, node.receiver.nil? && node.name == :lambda)
       # Ruby's `VM_CALL_FCALL`: a call the SOURCE wrote no receiver for
@@ -5044,6 +5064,36 @@ module Ze0
         dynamic_send(borrow(recv), node.name, args.map { |a| lower_expr(a) }, addr_of(result),
                      keywords: keywords, explicit: explicit, slots: slots)
       end
+      Operand.new(result, true, false)
+    end
+
+    # `blk.call(a, b)` where `blk` is this body's own `&block` parameter,
+    # which holds a Proc or nil and nothing else.
+    PROC_CALL_NAMES = %i[call () [] yield ===].freeze
+
+    def block_param_call?(node, args, keywords, recv, slots)
+      recv.nil? && keywords.nil? && slots.empty? && node.block.nil? &&
+        PROC_CALL_NAMES.include?(node.name) &&
+        !scope.block_name.nil? &&
+        node.receiver.is_a?(Prism::LocalVariableReadNode) &&
+        node.receiver.name == scope.block_name &&
+        args.none? { |a| a.is_a?(Prism::SplatNode) || a.is_a?(Prism::ForwardingArgumentsNode) }
+    end
+
+    # A Proc reaches its body DIRECTLY here rather than through `Proc#call`'s
+    # dispatch row, which is what keeps a `break` inside an iterator's block
+    # the `Break` signal the iterator catches instead of the LocalJumpError a
+    # proc-closure's break raises. `Enumerable#first` driving a user `each`
+    # that forwards its block is the corpus shape.
+    def block_param_call(node, args)
+      recv = borrow(lower_expr(node.receiver))
+      operands = args.map { |a| lower_expr(a) }
+      result = f.slot
+      status_check(f.val(
+        "call #{f.import("zeo_rt_proc_call_or_send")}(#{recv}, #{sym_id(node.name)}, " \
+        "#{args_array(operands)}, #{f.iconst("i64", operands.size)}, #{f.iconst("i64", 0)}, " \
+        "#{running_caller}, #{addr_of(result)})",
+      ))
       Operand.new(result, true, false)
     end
 
@@ -5168,7 +5218,9 @@ module Ze0
     def proc_arity(shape, lambda_shape)
       required = shape.required.size + shape.post.size
       required += 1 if shape.keywords.any?(&:required)
-      most = shape.rest.nil? &&
+      # `|a, |`'s trailing comma is not in the signature: `proc { |x,| }`
+      # answers 1, as `proc { |x| }` does.
+      most = (shape.rest.nil? || shape.rest.implicit?) &&
              shape.required.size + shape.optional.size + shape.post.size +
              (shape.keywords.any? || shape.kwrest ? 1 : 0)
       positive = most && (!lambda_shape || required == most)
