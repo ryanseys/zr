@@ -1698,7 +1698,8 @@ module Ze0
       # block shares that frame; a method body opens one of its own, whose
       # cursor is public -- `def outer; def nested; end; end` writes a
       # PUBLIC `nested`.
-      private = owner == Names::OBJECT && kind != :class_body && enclosing_definition.nil?
+      private = owner == Names::OBJECT && kind != :class_body && enclosing_definition.nil? &&
+                scope.definee_value.nil?
       status_check(f.val(
         "call #{f.import("zeo_rt_define_in_default_definee")}(#{addr_of(cref_value)}, " \
         "#{borrow(self_operand)}, #{sym_id(node.name)}, #{proc_value}, " \
@@ -1726,7 +1727,7 @@ module Ze0
     # The class a `def` was WRITTEN in, as a value. The runtime compares it
     # with the live `self` to see which definee the statement is running
     # under, and falls back to this when none is open.
-    def cref_value = class_value(owner)
+    def cref_value = scope.definee_value || class_value(owner)
 
     # One class, as a value. The backend assigns the id, so this reads it
     # out of `zeo_class_ids` rather than looking the constant up: the row
@@ -2707,12 +2708,13 @@ module Ze0
     def as_singleton_self(recv)
       singleton = send_value(recv, :singleton_class)
       borrow(singleton)
-      outer = scope.self_operand
+      outer, outer_definee = scope.self_operand, scope.definee_value
       scope.self_operand = singleton
+      scope.definee_value = singleton
       begin
         yield
       ensure
-        scope.self_operand = outer
+        scope.self_operand, scope.definee_value = outer, outer_definee
       end
     end
 
@@ -2785,7 +2787,10 @@ module Ze0
     def singleton_visibility(recv, node, mode)
       verb = node.name.to_s
       args = node.arguments&.arguments || []
-      return [verb, literal_nil] if args.empty?
+      # A BARE verb is a cursor over the whole body, and the run time
+      # needs it too: a `define_method` written here is not a `def`, so
+      # only the singleton class's own recorded default can reach it.
+      return [verb, runtime_singleton_visibility(recv, node, args)] if args.empty?
       # Names only the run time builds go to the singleton class as one
       # list, which is the same table the marks below write.
       return [mode, runtime_singleton_visibility(recv, node, args)] unless written_names?(args)

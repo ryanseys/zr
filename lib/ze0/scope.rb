@@ -141,6 +141,11 @@ module Ze0
     # body the runtime installs has none this compile can name, and
     # `dynamic_caller` asks `self` per call instead.
     attr_accessor :caller_class, :dynamic_caller
+
+    # The class a `def` written HERE installs on, when it is not the one
+    # `owner` names: a `class << obj` body runs with the object's
+    # singleton class as both `self` and the definee.
+    attr_accessor :definee_value
     # The frame a backtrace prints. `base` is the method or `<main>` a
     # block was written in, and `depth` how many blocks deep it sits, so
     # ruby's "block (2 levels) in Object#run" can be spelled.
