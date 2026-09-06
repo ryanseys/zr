@@ -676,7 +676,9 @@ module Ze0
       @aliases[node.object_id] = name
       copy = source.merge(name: name, owner: owner)
       @defs[owner][[name, false]] = copy
-      add_def_row(copy, singleton: false, visibility: visibility)
+      # An alias COPIES the source's method entry, visibility and all: the
+      # cursor the `alias` statement stands under says nothing about it.
+      add_def_row(copy, singleton: false, visibility: copy[:vis] || visibility)
     end
 
     # A `class` or `module` this statement runs as part of its own
@@ -841,7 +843,7 @@ module Ze0
       (readers + writers).each do |method, half, params|
         definition = {
           accessor: half, ivar: name, owner: owner, singleton: false, node: node,
-          name: method, origin: method, rows: params, file: @file,
+          name: method, origin: method, rows: params, file: @file, vis: visibility,
         }
         @defs[owner][[method.to_sym, false]] = definition
         add_def_row(definition, singleton: false, visibility: visibility)
@@ -1574,7 +1576,8 @@ module Ze0
       }
       @defs[owner][key] = definition
       mixin = visibility == MODULE_FUNCTION
-      add_def_row(definition, singleton: singleton, visibility: mixin ? "private" : visibility)
+      definition[:vis] = mixin ? "private" : visibility
+      add_def_row(definition, singleton: singleton, visibility: definition[:vis])
       module_function_row(definition) if mixin
     end
 
@@ -1819,9 +1822,22 @@ module Ze0
     def implicit_binding_eval?(node)
       return false unless node.is_a?(Prism::CallNode) && node.receiver.nil? && node.name == :eval
       return false unless node.block.nil?
+      return false if user_method?(:eval)
 
       args = node.arguments&.arguments || []
       (1..4).cover?(args.size) && (args.size == 1 || args[1].is_a?(Prism::NilNode))
+    end
+
+    # Whether a receiverless call to `name` reaches a method THIS program
+    # writes rather than Kernel's own. Dispatch decides it, so the search
+    # is dispatch's: the enclosing class's chain, and `Object` -- whose
+    # private methods every receiverless call can reach -- behind it.
+    def user_method?(name)
+      return false if @scopes.empty?
+
+      singleton = kind == :class_body || enclosing_definition&.fetch(:singleton, false) || false
+      ancestry(owner).any? { |c| @defs[c]&.key?([name, singleton]) } ||
+        @defs[Names::OBJECT].key?([name, false])
     end
 
     # Whether `node` asks a proc for its binding: `pr.binding`, or the
@@ -3829,9 +3845,9 @@ module Ze0
     end
 
     # An ordinary send with no keywords and no block, as an owned value.
-    def send_value(recv, name, operands = [], slots: NO_SLOTS)
+    def send_value(recv, name, operands = [], slots: NO_SLOTS, explicit: true)
       slot = f.slot
-      dynamic_send(borrow(recv), name, operands, addr_of(slot), slots: slots)
+      dynamic_send(borrow(recv), name, operands, addr_of(slot), slots: slots, explicit: explicit)
       Operand.new(slot, true, false)
     end
 
@@ -5330,8 +5346,15 @@ module Ze0
       written = lower_expr(args.last)
       # Pooled, so it outlives the send that is about to read it.
       borrow(written)
-      written_value(send_value(recv, node.name, middle + [written], slots: slots), written)
+      answer = send_value(recv, node.name, middle + [written],
+                          slots: slots, explicit: explicit_receiver?(node))
+      written_value(answer, written)
     end
+
+    # Ruby's `VM_CALL_FCALL` for a WRITE: a literal `self.` receiver asks
+    # no visibility question, which is what lets `self.w = v` reach a
+    # private `w=` where `other.w = v` cannot.
+    def explicit_receiver?(node) = !node.receiver.is_a?(Prism::SelfNode)
 
     # `h[*keys] = v`: how many index arguments there are is a run-time
     # number, so the setter takes one Array. The answer is still V.
@@ -5343,7 +5366,8 @@ module Ze0
       push_argument(argv, written)
       slot = f.slot
       status_check(argv_send(borrow(recv), node.name, argv, f.iconst("i64", 0),
-                             f.iconst("i64", 0), addr_of(slot), slots: slots))
+                             f.iconst("i64", 0), addr_of(slot),
+                             slots: slots, explicit: explicit_receiver?(node)))
       written_value(Operand.new(slot, true, false), written)
     end
 
