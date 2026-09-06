@@ -123,12 +123,14 @@ module Ze0
     # makes a handful of names private wherever they appear. A second `def`
     # of one name REPLACES the first, as ruby's redefinition does: both
     # write the same body symbol, and only the last body is emitted.
-    def add_def(name:, tramp:, params:, line:, file:, owner: "", singleton: false, visibility: "public")
+    def add_def(name:, tramp:, params:, line:, file:, owner: "", singleton: false,
+                visibility: "public", aliased_from: nil)
       visibility = "private" if owner.empty? || ALWAYS_PRIVATE.include?(name.to_s)
       @defs.reject! { |d| d[:name] == name.to_s && d[:owner] == owner && d[:singleton] == singleton }
       @defs << {
         name: name.to_s, tramp: tramp, params: params, line: line, file: file,
         owner: owner, singleton: singleton, visibility: visibility,
+        aliased_from: aliased_from.to_s,
       }
     end
 
@@ -186,6 +188,9 @@ module Ze0
             "file" => d[:file],
             "line" => d[:line],
             "visibility" => d[:visibility],
+            # The name the body was BORN as, which `Method#original_name`
+            # answers and a backtrace prints; empty unless this row is an alias.
+            "aliased_from" => d[:aliased_from],
             "class" => d[:owner],
             "singleton" => d[:singleton],
           }

@@ -68,8 +68,11 @@ module Ze0
       @redefined = {}
       # The visibility cursor each skipped redefinition was written under.
       @redefined_mode = {}
-      # The names an `alias` in each owner's body reads from.
+      # The names an `alias` in each owner's body reads from, and could
+      # not fold: a `def` of one installs where it stands.
       @aliased = {}
+      # The name each folded `alias` statement installs.
+      @aliases = {}
       # A body this compile wrote statements into, by its own node.
       @rewritten = {}
       # Each `FFI::Struct` subclass's `(size, alignment)`, for a later
@@ -584,7 +587,6 @@ module Ze0
     # starts. Today that is the `def`s, so a call written above a
     # definition still resolves to it; classes and captures join them.
     def declare(statements, owner, guarded: false, visibility: "public")
-      note_alias_sources(statements, owner)
       # A bare `private` or `protected` is a mode over the `def`s BELOW
       # it, so the walk carries it. Every top-level `def` is a private
       # method of Object, whatever the body says.
@@ -599,6 +601,8 @@ module Ze0
         when Prism::ClassNode then declare_class(s, owner, "class", guarded: guarded)
         when Prism::ModuleNode then declare_class(s, owner, "module", guarded: guarded)
         when Prism::CallNode then visibility = declare_macro(s, owner, visibility) unless guarded
+        when Prism::AliasMethodNode
+          declare_alias(s, owner, s.new_name, s.old_name, visibility) unless guarded
         when Prism::IfNode, Prism::UnlessNode then declare_branches(s, owner, guarded, visibility)
         # A `BEGIN` body runs before the rest of the file, always, so
         # what it writes is as much a part of the program as any
@@ -633,27 +637,31 @@ module Ze0
       @redefined_mode[node.object_id] = visibility unless visibility == "public"
     end
 
-    # The names an `alias` in this body reads FROM. Such a `def` has to
-    # install where it stands: the alias binds the body that exists when
-    # IT runs, and a row the boot installs is already there -- so the
-    # alias captured the class's own body where ruby captured the
-    # inherited one, or the second body where ruby captured the first.
-    def note_alias_sources(statements, owner)
-      set = (@aliased[owner] ||= {})
-      statements.each do |s|
-        case s
-        when Prism::AliasMethodNode then note_alias_source(set, s.old_name)
-        when Prism::CallNode
-          next unless s.receiver.nil? && s.name == :alias_method
+    # `alias b a` and `alias_method :b, :a` where `a` is a `def` this body
+    # has already written: the alias takes its OWN copy of that body,
+    # installed under the new name. That is what makes `__callee__`
+    # answer the name the call used while the frame keeps the birth name,
+    # and it binds the body written above the alias, as ruby does.
+    #
+    # A name this body has not written yet resolves through the ancestors
+    # at run time, so the alias stays a send -- and the `def` below it
+    # must install where it STANDS, or the boot would put the class's own
+    # body where ruby found the inherited one.
+    def declare_alias(node, owner, new_name, old_name, visibility)
+      return unless name_literal?(new_name) && name_literal?(old_name)
 
-          args = s.arguments&.arguments || []
-          note_alias_source(set, args[1]) if args.size == 2
-        end
+      key = [old_name.unescaped.to_sym, false]
+      source = @defs[owner][key]
+      if source.nil? || @redefined[[owner, key]]
+        (@aliased[owner] ||= {})[key.first] = true
+        return
       end
-    end
 
-    def note_alias_source(set, node)
-      set[node.unescaped.to_sym] = true if node && name_literal?(node)
+      name = new_name.unescaped.to_sym
+      @aliases[node.object_id] = name
+      copy = source.merge(name: name, owner: owner)
+      @defs[owner][[name, false]] = copy
+      add_def_row(copy, singleton: false, visibility: visibility)
     end
 
     # A `class` or `module` this statement runs as part of its own
@@ -748,6 +756,11 @@ module Ze0
         return visibility
       end
 
+      if name == "alias_method" && args.size == 2
+        declare_alias(node, owner, args[0], args[1], visibility)
+        return visibility
+      end
+
       # A run-time `define_method` under a bare `private` is marked by that
       # cursor, as a `def` there is. Its NAME may be one only the run time
       # builds, and the call answers the Symbol it defined -- so the mark
@@ -807,21 +820,12 @@ module Ze0
       readers = kind == :writer ? [] : [[name, :reader, []]]
       writers = kind == :reader ? [] : [["#{name}=", :writer, [["req", ""]]]]
       (readers + writers).each do |method, half, params|
-        key = [method.to_sym, false]
-        @defs[owner][key] = {
-          accessor: half, ivar: name, owner: owner, singleton: false,
-          name: method, line: node.location.start_line, file: @file,
+        definition = {
+          accessor: half, ivar: name, owner: owner, singleton: false, node: node,
+          name: method, origin: method, rows: params, file: @file,
         }
-        @program.add_def(
-          name: method,
-          tramp: trampoline_of(owner, method, false),
-          params: params,
-          line: node.location.start_line,
-          file: @file,
-          owner: owner,
-          singleton: false,
-          visibility: visibility,
-        )
+        @defs[owner][[method.to_sym, false]] = definition
+        add_def_row(definition, singleton: false, visibility: visibility)
       end
     end
 
@@ -1524,6 +1528,7 @@ module Ze0
       definition = {
         params: params, node: node, block: params.takes_block?(uses_block?(node.body)),
         owner: owner, singleton: singleton, file: @file, cref: @cref.dup,
+        name: node.name, origin: node.name,
       }
       @defs[owner][key] = definition
       mixin = visibility == MODULE_FUNCTION
@@ -1533,26 +1538,28 @@ module Ze0
 
     # One `Def` row from a definition the declaration pass holds.
     def add_def_row(definition, singleton:, visibility:, tramp: nil)
-      owner, node = definition[:owner], definition[:node]
+      owner, node, name = definition[:owner], definition[:node], definition[:name]
+      origin = definition[:origin]
       @program.add_def(
-        name: node.name,
-        tramp: tramp || trampoline_of(owner, node.name, singleton),
-        params: definition[:params].rows,
+        name: name,
+        tramp: tramp || trampoline_of(owner, name, singleton),
+        params: definition[:params]&.rows || definition[:rows],
         line: node.location.start_line,
         file: definition[:file],
         owner: owner == Names::OBJECT ? "" : owner,
         singleton: singleton,
         visibility: visibility,
+        aliased_from: origin == name ? nil : origin,
       )
     end
 
     # The module's own half of a `module_function`. One body serves both
     # halves, so this row names the INSTANCE trampoline.
     def module_function_row(definition)
-      owner, node = definition[:owner], definition[:node]
+      owner = definition[:owner]
       add_def_row(
         definition, singleton: true, visibility: "public",
-        tramp: trampoline_of(owner, node.name, false)
+        tramp: trampoline_of(owner, definition[:name], false)
       )
     end
 
@@ -1744,6 +1751,24 @@ module Ze0
         SCOPE_INTRINSICS.include?(node.name) && node.arguments.nil? && node.block.nil?
     end
 
+    # `__method__` is the name the enclosing body was WRITTEN as and
+    # `__callee__` the name it was reached through, which an alias makes
+    # different. The runtime row reads the frame and the frame carries the
+    # birth name, so it can answer only the first; the compile knows both.
+    # Outside a body it knows neither, and the row's frame read is the
+    # better answer.
+    def method_name_intrinsic(node)
+      return nil unless node.is_a?(Prism::CallNode) && node.receiver.nil?
+      return nil unless METHOD_NAMES.include?(node.name) && node.arguments.nil? && node.block.nil?
+
+      definition = enclosing_definition
+      return nil if definition.nil? || definition[:runtime]
+
+      literal_symbol(definition[node.name == :__callee__ ? :name : :origin])
+    end
+
+    METHOD_NAMES = %i[__method__ __callee__].freeze
+
     # `eval(src)` and `eval(src, nil)` run in the CALLER's binding, which
     # is this scope's. An explicit one is the caller's answer, not this.
     def implicit_binding_eval?(node)
@@ -1858,10 +1883,16 @@ module Ze0
 
       node = definition[:node]
       owner, singleton = definition[:owner], definition[:singleton]
+      # `name` is what the method is INSTALLED as and `origin` what its
+      # body was written as. They differ for an alias, which is emitted as
+      # its own copy of the body: the frame keeps the birth name, which is
+      # what a backtrace prints and `__method__` answers, and the copy
+      # knows the name it answers to.
+      name, origin = definition[:name], definition[:origin]
       params = definition[:params]
       names = params.slot_names
       takes_block = definition[:block]
-      body_sym = body_symbol_of(owner, node.name, singleton)
+      body_sym = body_symbol_of(owner, name, singleton)
       arity = names.size + (takes_block ? 3 : 2)
       function = Clif::Function.new(body_sym, ["i64"] * arity, "i32")
       in_scope(function, :body) do
@@ -1896,14 +1927,14 @@ module Ze0
           scope.block_name = params.block
         end
         scope.ruby2_keywords = @ruby2_keywords.key?(node.object_id)
-        scope.frame_base = label_of(owner, node.name, singleton)
+        scope.frame_base = label_of(owner, origin, singleton)
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
         value = lower_statements(node.body)
         move(value, out) unless f.terminated?
         f.ins "jump #{done_block}" unless f.terminated?
         epilogue
       end
-      @program.add_function(label_of(owner, node.name, singleton), function)
+      @program.add_function(label_of(owner, name, singleton), function)
       if params.plain?
         lower_trampoline(definition, names.size)
       else
@@ -2014,12 +2045,13 @@ module Ze0
     def lower_bound_trampoline(definition, params, n_slots)
       node = definition[:node]
       owner, singleton = definition[:owner], definition[:singleton]
+      name, origin = definition[:name], definition[:origin]
       takes_block = definition[:block]
-      function = Clif::Function.new(trampoline_of(owner, node.name, singleton), ["i64"] * 5, "i32")
+      function = Clif::Function.new(trampoline_of(owner, name, singleton), ["i64"] * 5, "i32")
       in_scope(function, :trampoline) do
         recv, argv, argc, blk, into = f.args
         scope.rodata = f.val("symbol_value.i64 #{f.symbol("zeo_rodata")}")
-        desc = param_desc(params, node.name.to_s, label_of(owner, node.name, singleton), node)
+        desc = param_desc(params, name.to_s, label_of(owner, origin, singleton), node)
         slots = n_slots.zero? ? nil : f.slot(Capi::SLOT_BYTES * n_slots)
         slots_at = slots ? addr_of(slots) : f.iconst("i64", 0)
         present = f.slot(8)
@@ -2048,7 +2080,7 @@ module Ze0
         end
         handed = takes_block ? addresses + [blk] : addresses
         n_params = n_slots + (takes_block ? 3 : 2)
-        body = f.callee(body_symbol_of(owner, node.name, singleton), ["i64"] * n_params, "i32")
+        body = f.callee(body_symbol_of(owner, definition[:name], singleton), ["i64"] * n_params, "i32")
         status = f.val("call #{body}(#{([recv] + handed + [into]).join(", ")})")
         # The slots hold the binder's owned copies; the body took its own.
         (0...n_slots).each do |i|
@@ -2113,7 +2145,9 @@ module Ze0
       node = definition[:node]
       owner, singleton = definition[:owner], definition[:singleton]
       takes_block = definition[:block]
-      function = Clif::Function.new(trampoline_of(owner, node.name, singleton), ["i64"] * 5, "i32")
+      function = Clif::Function.new(
+        trampoline_of(owner, definition[:name], singleton), ["i64"] * 5, "i32"
+      )
       in_scope(function, :trampoline) do
         recv, argv, argc, blk, into = f.args
         scope.rodata = f.val("symbol_value.i64 #{f.symbol("zeo_rodata")}")
@@ -2127,7 +2161,7 @@ module Ze0
         f.ins "brif #{fits}, #{go}, #{wrong}"
         f.switch(wrong)
         file, file_len = rodata_ref(@file)
-        label, label_len = rodata_ref(label_of(owner, node.name, singleton))
+        label, label_len = rodata_ref(label_of(owner, definition[:origin], singleton))
         line = f.iconst("i32", node.location.start_line)
         end_line = f.iconst("i32", node.location.end_line)
         f.ins "call #{f.import("zeo_rt_frame_push")}(#{file}, #{file_len}, #{label}, #{label_len}, #{line}, #{end_line})"
@@ -2140,7 +2174,7 @@ module Ze0
           i.zero? ? argv : f.val("iadd.i64 #{argv}, #{f.iconst("i64", i * Capi::SLOT_BYTES)}")
         end
         n_params = arity + (takes_block ? 3 : 2)
-        body = f.callee(body_symbol_of(owner, node.name, singleton), ["i64"] * n_params, "i32")
+        body = f.callee(body_symbol_of(owner, definition[:name], singleton), ["i64"] * n_params, "i32")
         handed = takes_block ? args + [blk] : args
         status = f.val("call #{body}(#{([recv] + handed + [into]).join(", ")})")
         f.ins "return #{status}"
@@ -4845,7 +4879,13 @@ module Ze0
     # and the enclosing class otherwise -- `Object` at the top level.
     # The runtime resolves the source, so an alias of a builtin method
     # works exactly as it does for one the program wrote.
+    #
+    # An alias the declaration pass FOLDED is already installed, as its own
+    # copy of the body: the statement only has the hook to announce.
     def lower_alias(node, new_name, old_name)
+      folded = @aliases[node.object_id]
+      return announce_alias(folded) if folded
+
       slot = f.slot
       status_check(f.val(
         "call #{f.import("zeo_rt_alias_in_default_definee")}(#{borrow(cref_value)}, " \
@@ -4853,6 +4893,20 @@ module Ze0
         "#{borrow(alias_name(old_name))}, #{addr_of(slot)})",
       ))
       Operand.new(slot, true, false)
+    end
+
+    # The new name a folded `alias` announces to `method_added`, which
+    # ruby calls for an alias as it does for a `def`. Every method the
+    # class carries is already installed, so the hook has none pending.
+    def announce_alias(name)
+      zero = f.iconst("i64", 0)
+      if @classes.key?(owner)
+        status_check(f.val(
+          "call #{f.import("zeo_rt_probe_def_hook")}(#{class_id_of(owner)}, " \
+          "#{f.iconst("i8", 0)}, #{f.iconst("i8", 0)}, #{sym_id(name)}, #{zero}, #{zero})",
+        ))
+      end
+      literal_symbol(name)
     end
 
     # `undef a, b` leaves a tombstone on the definee: a call raises even
@@ -4995,6 +5049,8 @@ module Ze0
       slot = @using_slots[node.object_id]
       return lower_using(node, slot) if slot
       return scope_intrinsic(node) if scope_intrinsic?(node)
+      own_name = method_name_intrinsic(node)
+      return own_name if own_name
       return lower_implicit_eval(node) if implicit_binding_eval?(node)
 
       if node.receiver.nil? && kind == :class_body
