@@ -3608,12 +3608,14 @@ module Ze0
       Operand.new(slot, false, false)
     end
 
-    def hash_literal(node)
+    def hash_literal(node) = hash_of(node.elements)
+
+    def hash_of(elements)
       slot = f.slot
       at = addr_of(slot)
       f.ins "call #{f.import("zeo_rt_hash_new")}(#{at})"
       f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
-      node.elements.each do |e|
+      elements.each do |e|
         # `{**h}` merges h's pairs in place, through ruby's `to_hash`
         # rule. `**nil` is the "no keywords" spelling and adds nothing.
         if e.is_a?(Prism::AssocSplatNode)
@@ -5067,6 +5069,8 @@ module Ze0
       if node.receiver.nil? && node.name == :require && !@deferred_call[node.object_id] && literal_feature?(node)
         return lower_require(node)
       end
+      return lower_raise(node) if explicit_cause?(node)
+
       slots = active_slots(node)
       return safe_call(node, slots) if safe_navigation?(node)
       return attribute_write(node, slots) if node.attribute_write?
@@ -5107,6 +5111,60 @@ module Ze0
       else
         send_call(node, args, keywords)
       end
+    end
+
+    # `raise` is a call SHAPE, not an ordinary send: `cause:` is the one
+    # keyword it reads and every other one collapses into a positional
+    # Hash. An ABSENT `cause:` chains from `$!`, which the runtime row does
+    # for itself; an explicit one -- `cause: nil` included -- suppresses
+    # that chaining, so only this shape needs an entry of its own.
+    def explicit_cause?(node)
+      return false unless node.receiver.nil? && node.name == :raise && node.block.nil?
+
+      args = node.arguments&.arguments || []
+      return false if args.any? { |a| a.is_a?(Prism::SplatNode) || a.is_a?(Prism::ForwardingArgumentsNode) }
+
+      args.any? { |a| a.is_a?(Prism::KeywordHashNode) && a.elements.any? { |e| cause_pair?(e) } }
+    end
+
+    def cause_pair?(element)
+      element.is_a?(Prism::AssocNode) && element.key.is_a?(Prism::SymbolNode) &&
+        element.key.unescaped == "cause"
+    end
+
+    def lower_raise(node)
+      keywords, positional = node.arguments.arguments.partition { |a| a.is_a?(Prism::KeywordHashNode) }
+      cause, rest = keywords.flat_map(&:elements).partition { |e| cause_pair?(e) }
+      count = positional.size + (rest.empty? ? 0 : 1)
+      if count > 3
+        message = "wrong number of arguments (given #{count}, expected 0..3)"
+        return raise_shape_error(positional, rest, cause, message)
+      end
+      return raise_shape_error(positional, rest, cause, "only cause is given with no arguments") if count.zero?
+
+      operands = positional.map { |a| lower_expr(a) }
+      operands << hash_of(rest) unless rest.empty?
+      argv = args_array(operands)
+      at = borrow(lower_expr(cause.first.value))
+      status_check(f.val(
+        "call #{f.import("zeo_rt_raise_with_explicit_cause")}(#{argv}, " \
+        "#{f.iconst("i64", operands.size)}, #{at})",
+      ))
+      literal_nil
+    end
+
+    # The ArgumentError a `raise` of a shape ruby refuses answers. ruby
+    # checks the shape where the call RUNS, so the arguments are evaluated
+    # first, in the order they were written, and a branch nothing reaches
+    # never complains.
+    def raise_shape_error(positional, rest, cause, message)
+      positional.each { |a| discard(lower_expr(a)) }
+      discard(hash_of(rest)) unless rest.empty?
+      cause.each { |e| discard(lower_expr(e.value)) }
+      dynamic_send(borrow(self_operand), :raise,
+                   [anchored_constant("ArgumentError"), literal_string(message)],
+                   addr_of(f.slot), explicit: false)
+      literal_nil
     end
 
     # `Ractor.new(*args, name: n) { }`: the one concurrency constructor a
