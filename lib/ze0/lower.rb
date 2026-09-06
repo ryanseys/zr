@@ -100,6 +100,8 @@ module Ze0
       @assigned_constants = {}
       # The constants each body assigns, by their qualified names.
       @assigned_paths = {}
+      # The names an `undef` anywhere in the program takes away.
+      @undefined = {}
       # The class a top-level `CONST = <class>` names, keyed by CONST.
       @const_aliases = {}
       # The `def` nodes a `ruby2_keywords` directive names.
@@ -170,11 +172,16 @@ module Ze0
       all = units + deferred.each_value.flat_map { |unit| unit[:runs] }
       all.each { |_file, statements| statements.each { |s| note_assigned_constants(s) } }
       all.each { |_file, statements| statements.each { |s| note_ruby2_keywords(s) } }
+      all.each { |_file, statements| statements.each { |s| note_undefined(s) } }
       all.each { |file, statements| with_file(file) { statements.each { |s| note_class_kinds(s) } } }
       all.each { |file, statements| note_activations(statements, file, @file_end.fetch(file)) }
       @proc_binding = all.any? { |_file, statements| statements.any? { |s| asks_a_proc?(s) } }
       @toplevel_binding = units.any? { |_file, statements| statements.any? { |s| names_toplevel_binding?(s) } }
-      all.each { |file, statements| with_file(file) { declare(statements, Names::OBJECT) } }
+      # Every top-level `def` is a PRIVATE method of `Object` until a bare
+      # `public` says otherwise, so the walk starts under that cursor.
+      all.each do |file, statements|
+        with_file(file) { declare(statements, Names::OBJECT, visibility: "private") }
+      end
       @defs.each_value do |by_key|
         by_key.each_value { |d| with_file(d[:file]) { lower_def(d) } }
       end
@@ -629,7 +636,12 @@ module Ze0
         # block, a lambda, a `BEGIN`, a method -- runs when THAT body
         # runs, which is a run-time fact. Only the row is declared, and
         # concealed, so the constant appears where the body does.
-        declare(nested_bodies(s), owner, guarded: true, visibility: visibility)
+        # The top level's own cursor is not carried in: every `def` there is
+        # a private method of `Object` by the rule the RUN TIME applies
+        # where the definition lands, and a body this walk does not open
+        # has a frame -- and a cursor -- of its own.
+        inner = owner == Names::OBJECT ? "public" : visibility
+        declare(nested_bodies(s), owner, guarded: true, visibility: inner)
       end
     end
 
@@ -731,10 +743,14 @@ module Ze0
     MODULE_FUNCTION = "module_function"
 
     def declare_macro(node, owner, visibility)
-      return visibility if owner == Names::OBJECT || !node.receiver.nil?
+      return visibility unless node.receiver.nil?
 
       name = node.name.to_s
       args = node.arguments&.arguments || []
+      # A bare visibility verb is a cursor over the `def`s below it,
+      # wherever it is written. Every other macro needs a class row.
+      return name if VISIBILITY.include?(name) && args.empty?
+      return visibility if owner == Names::OBJECT
       if name == MODULE_FUNCTION
         @declared_macros[node.object_id] = true
         return MODULE_FUNCTION if args.empty?
@@ -1656,10 +1672,13 @@ module Ze0
       body, captures = lower_method_body(node)
       proc_value = proc_new(body, captures, node, true)
       result = f.slot
-      # A `def` written at the TOP LEVEL is a private instance method of
-      # Object however it is spelled, which is the caller's to say: where
-      # it was WRITTEN is compile-time knowledge and the definee is not.
-      private = owner == Names::OBJECT && kind != :class_body
+      # A `def` written in the TOP-LEVEL frame is a private instance method
+      # of Object however it is spelled, which is the caller's to say: where
+      # it was WRITTEN is compile-time knowledge and the definee is not. A
+      # block shares that frame; a method body opens one of its own, whose
+      # cursor is public -- `def outer; def nested; end; end` writes a
+      # PUBLIC `nested`.
+      private = owner == Names::OBJECT && kind != :class_body && enclosing_definition.nil?
       status_check(f.val(
         "call #{f.import("zeo_rt_define_in_default_definee")}(#{addr_of(cref_value)}, " \
         "#{borrow(self_operand)}, #{sym_id(node.name)}, #{proc_value}, " \
@@ -1875,10 +1894,20 @@ module Ze0
     def visible_def(name)
       return nil unless @classes.empty?
       # A name a later `def` replaces has no ONE body to fold to: which one
-      # answers is where the call stands, which the runtime decides.
-      return nil if @redefined[[Names::OBJECT, [name, false]]]
+      # answers is where the call stands, which the runtime decides. An
+      # `undef` takes the name away where it stands, and a folded call
+      # would reach the body it left behind.
+      return nil if @redefined[[Names::OBJECT, [name, false]]] || @undefined[name]
 
       @defs[Names::OBJECT][[name, false]]
+    end
+
+    # The names an `undef` takes away, wherever it is written.
+    def note_undefined(node)
+      if node.is_a?(Prism::UndefNode)
+        node.names.each { |n| @undefined[n.unescaped.to_sym] = true if name_literal?(n) }
+      end
+      node.compact_child_nodes.each { |c| note_undefined(c) }
     end
 
     # ---- functions ----
@@ -4306,7 +4335,10 @@ module Ze0
 
       scope = lower_expr(node.parent)
       nptr, nlen = rodata_ref(name)
-      qptr, qlen = rodata_ref(node.slice)
+      # `Object::X` names the constant ALONE in ruby's NameError: the scope
+      # is spelled out only where it is not Object.
+      written = written_class_name(node.parent)
+      qptr, qlen = rodata_ref(written == Names::OBJECT ? name : node.slice)
       private_constant_guard(owner, name, node.slice) if owner
       # The scope is a VALUE here, so the touch is too: this is the arm a
       # target compiled as its own unit lands on, and without it the read

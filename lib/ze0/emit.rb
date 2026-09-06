@@ -125,7 +125,7 @@ module Ze0
     # write the same body symbol, and only the last body is emitted.
     def add_def(name:, tramp:, params:, line:, file:, owner: "", singleton: false,
                 visibility: "public", aliased_from: nil)
-      visibility = "private" if owner.empty? || ALWAYS_PRIVATE.include?(name.to_s)
+      visibility = "private" if ALWAYS_PRIVATE.include?(name.to_s)
       @defs.reject! { |d| d[:name] == name.to_s && d[:owner] == owner && d[:singleton] == singleton }
       @defs << {
         name: name.to_s, tramp: tramp, params: params, line: line, file: file,
