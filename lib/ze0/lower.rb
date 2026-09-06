@@ -684,7 +684,20 @@ module Ze0
         # The mark outlives the body: a REOPEN of the same class writes
         # `def`s the earlier body's run-time install can still land on.
         dynamic = @dynamic_owners[owner] = true
+        # ...and it reaches a class the statement NAMES, which is where
+        # `T1.class_eval { alias_method :eql?, :== }` installs.
+        named_classes(s).each { |c| @dynamic_owners[c] = true }
       end
+    end
+
+    # The classes this statement names, by the rows this program declares.
+    def named_classes(node, found = [])
+      if node.is_a?(Prism::ConstantReadNode)
+        name = resolve_class(@cref, node.name.to_s)
+        found << name if name
+      end
+      node.compact_child_nodes.each { |c| named_classes(c, found) }
+      found
     end
 
     # The verbs that hand back a `Method` bound to the entry that exists
