@@ -95,6 +95,8 @@ module Ze0
       @redefined_ops = []
       @defined_names = []
       @assigned_constants = {}
+      # The class a top-level `CONST = <class>` names, keyed by CONST.
+      @const_aliases = {}
       # Every class and module name this program writes, and which of the
       # two each is. Filled before the declaration pass, so a superclass
       # written in a file that pass reads later still resolves.
@@ -576,28 +578,34 @@ module Ze0
     # One walk over a body, collecting what lowering has to know before it
     # starts. Today that is the `def`s, so a call written above a
     # definition still resolves to it; classes and captures join them.
-    def declare(statements, owner, guarded: false)
+    def declare(statements, owner, guarded: false, visibility: "public")
       note_alias_sources(statements, owner)
       # A bare `private` or `protected` is a mode over the `def`s BELOW
       # it, so the walk carries it. Every top-level `def` is a private
       # method of Object, whatever the body says.
-      visibility = "public"
       statements.each do |s|
         case s
-        when Prism::DefNode then declare_def(s, owner, visibility) unless guarded
+        when Prism::DefNode
+          # A GUARDED `def` installs where it stands, and the cursor
+          # above it marks what it installs -- `module_function` written
+          # over a `def` in an undecided branch is the rspec-support
+          # shape.
+          guarded ? guarded_def_mode(s, visibility) : declare_def(s, owner, visibility)
         when Prism::ClassNode then declare_class(s, owner, "class", guarded: guarded)
         when Prism::ModuleNode then declare_class(s, owner, "module", guarded: guarded)
         when Prism::CallNode then visibility = declare_macro(s, owner, visibility) unless guarded
-        when Prism::IfNode, Prism::UnlessNode then declare_branches(s, owner, guarded)
+        when Prism::IfNode, Prism::UnlessNode then declare_branches(s, owner, guarded, visibility)
         # A `BEGIN` body runs before the rest of the file, always, so
         # what it writes is as much a part of the program as any
         # statement beside it.
-        when Prism::PreExecutionNode then declare(body_statements(s.statements), owner, guarded: guarded)
+        when Prism::PreExecutionNode
+          declare(body_statements(s.statements), owner, guarded: guarded, visibility: visibility)
         # A `begin` groups statements without opening a scope of its own,
         # so its body's are the enclosing body's. Its `rescue`, `else` and
         # `ensure` clauses run only on the path that reaches them, and the
         # walk below files those as guarded.
-        when Prism::BeginNode then declare(body_statements(s.statements), owner, guarded: guarded)
+        when Prism::BeginNode
+          declare(body_statements(s.statements), owner, guarded: guarded, visibility: visibility)
         when Prism::SingletonClassNode then declare_singleton_body(s, owner)
         end
         # A `class` written in an EXPRESSION -- as an assignment's
@@ -609,8 +617,15 @@ module Ze0
         # block, a lambda, a `BEGIN`, a method -- runs when THAT body
         # runs, which is a run-time fact. Only the row is declared, and
         # concealed, so the constant appears where the body does.
-        declare(nested_bodies(s), owner, guarded: true)
+        declare(nested_bodies(s), owner, guarded: true, visibility: visibility)
       end
+    end
+
+    # A `def` the declaration pass leaves to run time carries only the
+    # cursor it was written under; `mark_runtime_def` applies it after the
+    # install. `public` is the default, so it records nothing.
+    def guarded_def_mode(node, visibility)
+      @redefined_mode[node.object_id] = visibility unless visibility == "public"
     end
 
     # The names an `alias` in this body reads FROM. Such a `def` has to
@@ -676,11 +691,14 @@ module Ze0
     # program runs -- but the row is CONCEALED, so the constant appears
     # only if the branch runs. A `def` there stays undeclared and the
     # body installs it where it stands, which is ruby's own order.
-    def declare_branches(node, owner, guarded)
-      return declare(branch_statements(live_branch(node)), owner, guarded: guarded) if decided?(node)
+    def declare_branches(node, owner, guarded, visibility = "public")
+      if decided?(node)
+        return declare(branch_statements(live_branch(node)), owner,
+                       guarded: guarded, visibility: visibility)
+      end
 
       [node.statements, node.is_a?(Prism::UnlessNode) ? node.else_clause : node.subsequent].each do |b|
-        declare(branch_statements(b), owner, guarded: true)
+        declare(branch_statements(b), owner, guarded: true, visibility: visibility)
       end
     end
 
@@ -805,7 +823,7 @@ module Ze0
       # Before the roads part: a `layout` is read the same whether the row
       # is keyed or the class is built at run time.
       ffi_struct_body(node)
-      name = declared_name(node)
+      name = aliased_class_name(node, declared_name(node))
       return declare_builtin_reopen(node, name, kind) if Names.builtin?(name)
       # A class MADE at run time stays that way when a later statement
       # reopens it: there is still no row to put the body's `def`s in.
@@ -959,11 +977,52 @@ module Ze0
     # runtime's own -- a builtin exception -- which the backend resolves.
     def note_assigned_constants(node)
       case node
-      when Prism::ConstantWriteNode then @assigned_constants[node.name.to_s] = true
+      when Prism::ConstantWriteNode
+        @assigned_constants[node.name.to_s] = true
+        target = const_alias_target(node.value)
+        @const_aliases[node.name.to_s] ||= target if target
       when Prism::ConstantPathWriteNode
         @assigned_constants[node.target.name.to_s] = true
       end
       node.compact_child_nodes.each { |c| note_assigned_constants(c) }
+    end
+
+    # The class of a literal, which `1.class` reads.
+    LITERAL_CLASSES = {
+      Prism::IntegerNode => "Integer", Prism::FloatNode => "Float",
+      Prism::StringNode => "String", Prism::SymbolNode => "Symbol",
+      Prism::ArrayNode => "Array", Prism::HashNode => "Hash",
+      Prism::NilNode => "NilClass", Prism::TrueNode => "TrueClass",
+      Prism::FalseNode => "FalseClass",
+    }.freeze
+
+    # A constant assigned a class NAMES that class, so `class CONST` reopens
+    # it rather than minting a second one -- ruby reads what the constant
+    # already holds. `INTEGER_KLASS = 1.class; class INTEGER_KLASS` is the
+    # to_words idiom.
+    def const_alias_target(value)
+      case value
+      when Prism::ConstantReadNode, Prism::ConstantPathNode then written_class_name(value)
+      when Prism::CallNode
+        return nil unless value.name == :class && value.receiver &&
+                          (value.arguments&.arguments || []).empty?
+
+        LITERAL_CLASSES[value.receiver.class]
+      end
+    end
+
+    # The name a `class CONST` body really opens. Only a BARE name written
+    # at the top level can be an alias: a qualified one names its own scope,
+    # and a superclass clause makes the statement a definition.
+    def aliased_class_name(node, name)
+      return name unless @cref.empty? && node.is_a?(Prism::ClassNode) &&
+                         node.superclass.nil? &&
+                         node.constant_path.is_a?(Prism::ConstantReadNode)
+
+      target = @const_aliases[node.name.to_s]
+      return name if target.nil? || !(Names.builtin?(target) || @classes.key?(target))
+
+      target
     end
 
     # A superclass no name can settle: `class Foo < base` mints its class
@@ -2117,6 +2176,7 @@ module Ze0
       # backend registered concealed is revealed here -- and one whose
       # statement never runs stays a NameError.
       f.ins "call #{f.import("zeo_rt_reveal_class")}(#{class_id(entry[:name])})"
+      record_const_location(entry, written)
       klass = class_value(entry[:name])
       announce_subclass(entry, written, klass)
       result = f.slot
@@ -2148,6 +2208,24 @@ module Ze0
 
       nptr, nlen = rodata_ref(leaf)
       autoload_touch(class_id_of(owner), nptr, nlen)
+    end
+
+    # Where a `class`/`module` statement BOUND its name, which is what
+    # `Module#const_source_location` answers for it: the class registry
+    # holds these constants, so nothing else records a line for them. Only
+    # the statement that MAKES the class binds anything; a reopen does not.
+    def record_const_location(entry, written)
+      return unless entry[:bodies].first.equal?(written)
+
+      *scope, leaf = entry[:name].split("::")
+      owner = scope.empty? ? Names::OBJECT : scope.join("::")
+      return unless owner == Names::OBJECT || @classes.key?(owner)
+
+      nptr, nlen = rodata_ref(leaf)
+      fptr, flen = rodata_ref(written[:file])
+      f.ins "call #{f.import("zeo_rt_record_const_location")}(#{class_id_of(owner)}, " \
+            "#{nptr}, #{nlen}, #{fptr}, #{flen}, " \
+            "#{f.iconst("i32", written[:node].location.start_line)})"
     end
 
     # `Super.inherited(C)` fires where the statement stands and only for
