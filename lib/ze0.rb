@@ -25,7 +25,11 @@ module Ze0
       raise SyntaxError, "#{file}:#{e.location.start_line}: #{e.message}"
     end
 
-    program = Program.new(file, frozen_string_literal: frozen_string_literal?(result))
+    program = Program.new(
+      file,
+      frozen_string_literal: frozen_string_literal?(result),
+      script_encoding: script_encoding(result, result.value),
+    )
     program.data_section = data_section(result, file)
     program.warn_from(result, file)
     Lower.new(program, roots).lower(result.value)
@@ -66,5 +70,28 @@ module Ze0
   def self.frozen_string_literal?(result)
     comment = result.magic_comments.reverse.find { |c| c.key == "frozen_string_literal" }
     comment&.value == "true"
+  end
+
+  # The `# encoding:`/`# coding:` magic comment's `Encoding::` constant
+  # spelling, or nil for the UTF-8 default -- which is what ze0 reads a
+  # source as when nothing says otherwise. prism finds the comment; the
+  # names are the four the runtime carries as a source encoding.
+  SOURCE_ENCODINGS = {
+    "utf8" => nil, "cp65001" => nil,
+    "usascii" => "US_ASCII", "ascii" => "US_ASCII", "ansix341968" => "US_ASCII", "646" => "US_ASCII",
+    "ascii8bit" => "ASCII_8BIT", "binary" => "ASCII_8BIT",
+    "iso88591" => "ISO_8859_1", "latin1" => "ISO_8859_1",
+  }.freeze
+
+  def self.script_encoding(result, node)
+    comment = result.magic_comments.find { |c| %w[encoding coding].include?(c.key) }
+    return nil unless comment
+
+    key = comment.value.downcase.delete("-_.")
+    unless SOURCE_ENCODINGS.key?(key)
+      raise Lower::Unsupported.new(node, "the source encoding `#{comment.value}`")
+    end
+
+    SOURCE_ENCODINGS[key]
   end
 end

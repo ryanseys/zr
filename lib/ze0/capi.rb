@@ -48,6 +48,7 @@ module Ze0
       "zeo_rt_array_push" => [%w[i64 i64], nil],
       "zeo_rt_hash_new" => [%w[i64], nil],
       "zeo_rt_hash_set" => [%w[i64 i64 i64], "i32"],
+      "zeo_rt_guard_class_reopen" => [%w[i32 i64 i64], "i32"],
       "zeo_rt_raise_with_explicit_cause" => [%w[i64 i64 i64], "i32"],
       "zeo_rt_range_new" => [["i64", "i64", "i8 uext", "i64"], "i32"],
       "zeo_rt_gvar_alias" => [%w[i32 i64 i64 i64 i64], nil],
@@ -192,6 +193,9 @@ module Ze0
     CALLSITE_BYTES = 56
     # The encoding index a string literal carries (UTF-8).
     UTF8 = 1
+    # The four source encodings a `# encoding:` comment can name, by the
+    # `Encoding::` constant it spells (`crates/zeo-rt/src/enc/registry.rs`).
+    ENCODINGS = { "ASCII_8BIT" => 0, "UTF_8" => 1, "US_ASCII" => 2, "ISO_8859_1" => 22 }.freeze
     # A regexp's encoding is its OWN scale, not a string literal's: the
     # default is the source encoding, and the four suffixes follow.
     REGEXP_ENCODINGS = { source: 0, none: 1, euc_jp: 2, windows_31j: 3, utf_8: 4 }.freeze

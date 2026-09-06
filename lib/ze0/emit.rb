@@ -14,12 +14,13 @@ module Ze0
       initialize initialize_copy initialize_clone initialize_dup respond_to_missing?
     ].freeze
 
-    attr_reader :file, :frozen_string_literal
+    attr_reader :file, :frozen_string_literal, :script_encoding
 
-    def initialize(file, frozen_string_literal: false)
+    def initialize(file, frozen_string_literal: false, script_encoding: nil)
       @file = file
       @data_section = nil
       @frozen_string_literal = frozen_string_literal
+      @script_encoding = script_encoding
       @rodata = "".b
       @rodata_offsets = {}
       @syms = []

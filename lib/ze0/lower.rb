@@ -102,6 +102,9 @@ module Ze0
       @assigned_paths = {}
       # The names an `undef` anywhere in the program takes away.
       @undefined = {}
+      # Whether the program calls `freeze` at all, which is what makes a
+      # reopen of a frozen class reachable.
+      @program_freezes = false
       # The class a top-level `CONST = <class>` names, keyed by CONST.
       @const_aliases = {}
       # The `def` nodes a `ruby2_keywords` directive names.
@@ -154,6 +157,9 @@ module Ze0
       @sources = []
       # Each file's own `frozen_string_literal` pragma.
       @frozen_literals = {}
+      # The `Encoding::` constant a `# encoding:` comment puts on every
+      # literal of one file, by path. Absent is UTF-8.
+      @script_encodings = {}
     end
 
     def lower(root)
@@ -173,6 +179,7 @@ module Ze0
       all.each { |_file, statements| statements.each { |s| note_assigned_constants(s) } }
       all.each { |_file, statements| statements.each { |s| note_ruby2_keywords(s) } }
       all.each { |_file, statements| statements.each { |s| note_undefined(s) } }
+      @program_freezes = all.any? { |_file, statements| statements.any? { |s| freezes?(s) } }
       all.each { |file, statements| with_file(file) { statements.each { |s| note_class_kinds(s) } } }
       all.each { |file, statements| note_activations(statements, file, @file_end.fetch(file)) }
       @proc_binding = all.any? { |_file, statements| statements.any? { |s| asks_a_proc?(s) } }
@@ -535,6 +542,7 @@ module Ze0
       @unit_locals[path] = result.value.locals
       @file_end[path] = result.value.statements.location.end_offset
       @frozen_literals[path] = Ze0.frozen_string_literal?(result)
+      @script_encodings[path] = Ze0.script_encoding(result, node)
       @program.warn_from(result, path)
       @sources << result.source.source
       body_statements(result.value.statements)
@@ -1918,6 +1926,13 @@ module Ze0
       @defs[Names::OBJECT][[name, false]]
     end
 
+    # Whether `node` holds a `freeze` call, however it is spelled.
+    def freezes?(node)
+      return true if node.is_a?(Prism::CallNode) && node.name == :freeze
+
+      node.compact_child_nodes.any? { |c| freezes?(c) }
+    end
+
     # The names an `undef` takes away, wherever it is written.
     def note_undefined(node)
       if node.is_a?(Prism::UndefNode)
@@ -2309,6 +2324,7 @@ module Ze0
       written = entry[:bodies].find { |b| b[:node].equal?(node) }
       raise Unsupported.new(node, "a class nested inside another statement") if written.nil?
 
+      guard_frozen_reopen(entry, written)
       guard_gated_superclass(entry, node)
       touch_superclass(entry)
       # ruby makes the constant where the statement RUNS, so the row the
@@ -2322,6 +2338,29 @@ module Ze0
       body = f.callee(written[:symbol], ["i64", "i64"], "i32")
       status_check(f.val("call #{body}(#{borrow(klass)}, #{addr_of(result)})"))
       Operand.new(result, true, false)
+    end
+
+    # A REOPEN of a frozen class raises FrozenError and its body never
+    # runs, so the methods only that body installs are retired where the
+    # statement stands -- the rows the boot already filed have to go back.
+    # Gated on the program calling `freeze` at all: without one the shape
+    # is unreachable and no name loses its static dispatch.
+    def guard_frozen_reopen(entry, written)
+      return unless @program_freezes
+
+      at = entry[:bodies].index { |b| b.equal?(written) }
+      return if at.nil? || at.zero?
+
+      earlier = entry[:bodies][0...at].flat_map { |b| installed_names(b[:body]) }
+      ptr, count = str_array((installed_names(written[:body]) - earlier).sort)
+      status_check(f.val(
+        "call #{f.import("zeo_rt_guard_class_reopen")}(#{class_id(entry[:name])}, #{ptr}, #{count})",
+      ))
+    end
+
+    # The instance methods one class body installs by writing a `def`.
+    def installed_names(body)
+      body.filter_map { |s| s.name.to_s if s.is_a?(Prism::DefNode) && s.receiver.nil? }
     end
 
     # The `TypeError` a definition ruby raises on raises where it stands.
@@ -3523,8 +3562,15 @@ module Ze0
       slot = f.slot
       ptr, len = rodata_ref(bytes)
       entry = frozen_literals? ? "zeo_rt_str_lit" : "zeo_rt_str_lit_ro"
-      f.ins "call #{f.import(entry)}(#{ptr}, #{len}, #{f.iconst("i8", Capi::UTF8)}, #{addr_of(slot)})"
+      enc = f.iconst("i8", Capi::ENCODINGS.fetch(script_encoding_name, Capi::UTF8))
+      f.ins "call #{f.import(entry)}(#{ptr}, #{len}, #{enc}, #{addr_of(slot)})"
       Operand.new(slot, true, false)
+    end
+
+    # The `Encoding::` constant this file's literals carry, `UTF_8` where
+    # no `# encoding:` comment says otherwise.
+    def script_encoding_name
+      @script_encodings.fetch(@file, @program.script_encoding) || "UTF_8"
     end
 
     def literal_nil
@@ -4263,11 +4309,12 @@ module Ze0
       Operand.new(slot, true, false)
     end
 
-    # `__ENCODING__` names the script's own encoding. ze0 reads every
-    # source it compiles as UTF-8, so that is the constant it answers.
+    # `__ENCODING__` names the script's own encoding: UTF-8, or whatever a
+    # `# encoding:` comment on the file's first line set.
     def source_encoding
-      nptr, nlen = rodata_ref("UTF_8")
-      qptr, qlen = rodata_ref("Encoding::UTF_8")
+      name = script_encoding_name
+      nptr, nlen = rodata_ref(name)
+      qptr, qlen = rodata_ref("Encoding::#{name}")
       slot = f.slot
       status_check(f.val(
         "call #{f.import("zeo_rt_const_get_on_value")}(#{borrow(anchored_constant("Encoding"))}, " \
