@@ -73,6 +73,8 @@ module Ze0
       @aliased = {}
       # The name each folded `alias` statement installs.
       @aliases = {}
+      # The blocks whose `self` a verb re-homes.
+      @rehomed = {}
       # A body this compile wrote statements into, by its own node.
       @rewritten = {}
       # Each `FFI::Struct` subclass's `(size, alignment)`, for a later
@@ -337,8 +339,10 @@ module Ze0
       requires_under(node).each do |call|
         # The splice has already judged the STATEMENT itself. A literal
         # one it left behind names a feature the runtime holds, and
-        # `lower_require` opens that gate where it stands.
-        next if call.equal?(node) && literal_feature?(call)
+        # `lower_require` opens that gate where it stands. A `load` is not
+        # one of those: it reads its file EVERY time, so it always needs
+        # the compiler the run time reads it with.
+        next if call.equal?(node) && literal_feature?(call) && !RELOADS.include?(call.name)
 
         @deferred_call[call.object_id] = true
         next @program.eval_install! if RELOADS.include?(call.name)
@@ -3156,7 +3160,7 @@ module Ze0
         # time -- the directive still names it.
         scope.ruby2_keywords = @ruby2_keywords.key?(node.object_id)
         scope.caller_class, inherited = enclosing
-        scope.dynamic_caller = !method.nil? || inherited
+        scope.dynamic_caller = !method.nil? || inherited || @rehomed.key?(node.object_id)
         scope.lambda = lambda_shape && method.nil?
         scope.catches_return = !method.nil? && returns_travel?(node.body)
         scope.svars = !method.nil? && mentions_svars?(node.body)
@@ -5588,10 +5592,18 @@ module Ze0
     # and the bit is not something `Kernel#lambda` can add later: the arity
     # and the strict binding are baked in at creation. Only a plain call
     # can be that `lambda`; a `super` never is.
+    # The verbs whose block RE-HOMES `self`. `protected` asks whether the
+    # CALLER's `self` is a kind of the method's owner, so a call written in
+    # one cannot read that class off the site: it asks per call.
+    REHOMING_VERBS = %i[instance_eval instance_exec].freeze
+
     def block_builder(node, lambda_shape = false)
       case node.block
       when nil then nil
       when Prism::BlockNode
+        # A `super` also carries a block, and names no verb of its own.
+        verb = node.is_a?(Prism::CallNode) ? node.name : nil
+        @rehomed[node.block.object_id] = true if REHOMING_VERBS.include?(verb)
         body, captures = lower_block(node.block, lambda_shape)
         -> { proc_new(body, captures, node.block, lambda_shape) }
       when Prism::BlockArgumentNode
@@ -6235,6 +6247,9 @@ module Ze0
     end
 
     def defined_answer(inner)
+      return defined_composite(inner.elements) if inner.is_a?(Prism::ArrayNode)
+      return defined_composite(hash_parts(inner)) if inner.is_a?(Prism::HashNode)
+
       answer = DEFINED_STATIC[inner.class]
       answer ||= "expression" if DEFINED_EXPRESSION.include?(inner.class)
       # A write is an "assignment" whatever it writes to, and it does not
@@ -6378,6 +6393,33 @@ module Ze0
       f.ins "jump #{join}"
       f.switch(join)
       Operand.new(slot, true, false)
+    end
+
+    # `defined?` of a composite asks each PART, never evaluating it:
+    # `defined?([1, Nope])` is nil where `defined?([1, 2])` is
+    # "expression". ruby recurses this way for an Array and a Hash, and
+    # for no other literal -- `defined?(1..Nope)` is "expression".
+    def defined_composite(parts)
+      slot = f.slot
+      store_nil(addr_of(slot))
+      join = f.label
+      parts.each do |part|
+        checked = f.label
+        f.ins "brif #{truthy(defined_answer(part))}, #{checked}, #{join}"
+        f.switch(checked)
+      end
+      move(literal_string("expression"), addr_of(slot))
+      f.ins "jump #{join}"
+      f.switch(join)
+      Operand.new(slot, true, false)
+    end
+
+    # A hash literal's parts: both halves of every pair, and the value a
+    # `**` splats.
+    def hash_parts(node)
+      node.elements.flat_map do |e|
+        e.is_a?(Prism::AssocNode) ? [e.key, e.value] : [e.value].compact
+      end
     end
 
     # A one-byte answer slot, false until something sets it.
