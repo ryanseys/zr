@@ -628,6 +628,10 @@ module Ze0
       # name only the run time builds: from there down a `def` installs
       # where it STANDS, so the run-time install cannot land on top of it.
       dynamic = @dynamic_owners[owner] || false
+      # The names a statement above CAPTURED: `Sub.method(:make)` binds the
+      # entry that exists where it runs, so a `def make` below it must not
+      # be there yet.
+      captured = {}
       statements.each do |s|
         case s
         when Prism::DefNode
@@ -635,7 +639,7 @@ module Ze0
           # above it marks what it installs -- `module_function` written
           # over a `def` in an undecided branch is the rspec-support
           # shape.
-          if guarded || dynamic
+          if guarded || dynamic || captured[s.name]
             guarded_def_mode(s, visibility)
           else
             declare_def(s, owner, visibility)
@@ -674,12 +678,25 @@ module Ze0
         # has a frame -- and a cursor -- of its own.
         inner = owner == Names::OBJECT ? "public" : visibility
         declare(nested_bodies(s), owner, guarded: true, visibility: inner)
+        note_captures(s, captured)
         next unless installs_at_runtime?(s, owner)
 
         # The mark outlives the body: a REOPEN of the same class writes
         # `def`s the earlier body's run-time install can still land on.
         dynamic = @dynamic_owners[owner] = true
       end
+    end
+
+    # The verbs that hand back a `Method` bound to the entry that exists
+    # where they run.
+    CAPTURE_VERBS = %i[method instance_method public_method singleton_method].freeze
+
+    def note_captures(node, found)
+      if node.is_a?(Prism::CallNode) && CAPTURE_VERBS.include?(node.name)
+        named = (node.arguments&.arguments || []).first
+        found[named.unescaped.to_sym] = true if named.is_a?(Prism::SymbolNode)
+      end
+      node.compact_child_nodes.each { |c| note_captures(c, found) }
     end
 
     # The verbs that install a method under a name a body may build only
@@ -1734,7 +1751,11 @@ module Ze0
       at = written.index { |d| d.equal?(node) }
       return [] if at.nil?
 
-      written[(at + 1)..].reject(&:receiver).map { |d| d.name.to_s }.uniq
+      # A name an earlier `def` already installed is not in the future,
+      # whatever a later one does to it: a redefinition does not hide the
+      # name it is redefining.
+      already = written[..at].reject(&:receiver).map { |d| d.name.to_s }
+      written[(at + 1)..].reject(&:receiver).map { |d| d.name.to_s }.uniq - already
     end
 
     # A `def` with no row. Which class it lands on is not known until the
@@ -1743,7 +1764,13 @@ module Ze0
     # the body becomes a lambda-shaped Proc and the runtime resolves the
     # definee the same way the interpreter does.
     def runtime_def(node)
-      return define_singleton(lower_expr(node.receiver), node, "public") if node.receiver
+      if node.receiver
+        # `def self.x` in a CLASS body is that class's own class method,
+        # and ruby labels its frame `C.x`. On any other object the frame
+        # names the object's class, which is the default.
+        of_self = node.receiver.is_a?(Prism::SelfNode) && kind == :class_body
+        return define_singleton(lower_expr(node.receiver), node, "public", singleton: of_self)
+      end
 
       body, captures = lower_method_body(node)
       proc_value = proc_new(body, captures, node, true)
