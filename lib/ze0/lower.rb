@@ -98,6 +98,8 @@ module Ze0
       @redefined_ops = []
       @defined_names = []
       @assigned_constants = {}
+      # The constants each body assigns, by their qualified names.
+      @assigned_paths = {}
       # The class a top-level `CONST = <class>` names, keyed by CONST.
       @const_aliases = {}
       # The `def` nodes a `ruby2_keywords` directive names.
@@ -587,6 +589,7 @@ module Ze0
     # starts. Today that is the `def`s, so a call written above a
     # definition still resolves to it; classes and captures join them.
     def declare(statements, owner, guarded: false, visibility: "public")
+      note_body_constants(statements, owner)
       # A bare `private` or `protected` is a mode over the `def`s BELOW
       # it, so the walk carries it. Every top-level `def` is a private
       # method of Object, whatever the body says.
@@ -850,6 +853,7 @@ module Ze0
          @classes[name]&.[](:runtime)
         return declare_runtime_class(node, name, kind)
       end
+      return declare_runtime_class(node, name, kind, reopen: true) if runtime_named?(node, name)
 
       superclass = superclass_of(node, kind)
       entry = @classes[name] || declare_fresh_class(node, name, kind, superclass)
@@ -1074,18 +1078,40 @@ module Ze0
       @assigned_constants.key?(written.split("::").last) && found.nil?
     end
 
+    # The constants this body ASSIGNS, by the name they are written under.
+    # A `class` statement looks its name up in the CURRENT scope only, so
+    # the qualified name is the one that answers whether the two are the
+    # same constant -- `M::ItemBase::AuthorsBase` and `M::Base::AuthorsBase`
+    # share a leaf and nothing else.
+    def note_body_constants(statements, owner)
+      statements.each do |s|
+        @assigned_paths[qualify(owner, s.name.to_s)] = true if s.is_a?(Prism::ConstantWriteNode)
+      end
+    end
+
+    # `class D` whose `D` is a constant written beside it and no `class`
+    # statement declares: ruby reopens whatever the constant already holds,
+    # which is a class only the run time knows -- `D = Data.define(:v)` is
+    # the idiom. So the body runs on that value and its `def`s install
+    # where they stand.
+    def runtime_named?(node, name)
+      return false if node.is_a?(Prism::ClassNode) && node.superclass
+
+      @classes[name].nil? && @assigned_paths.key?(name)
+    end
+
     # `class Foo < <expr>` is `Foo = Class.new(expr)` with the body run on
     # the new class. No row is minted -- the class is made at run time --
     # so the name is an ordinary constant and the body's `def`s install
     # where they stand.
-    def declare_runtime_class(node, name, kind)
+    def declare_runtime_class(node, name, kind, reopen: false)
       entry = @classes[name]
       raise Unsupported.new(node, "a #{kind} reopened with a runtime superclass") if entry && !entry[:runtime]
       raise Unsupported.new(node.superclass, "a runtime class reopened with a superclass") if entry && node.superclass
 
       entry ||= @classes[name] = {
         name: name, kind: kind, superclass: Names::OBJECT, runtime: true,
-        ivars: [], cvars: [], private_constants: [], bodies: [],
+        ivars: [], cvars: [], private_constants: [], bodies: [], reopen: reopen,
       }
       path = node.constant_path
       entry[:scope] ||= path.parent if path.is_a?(Prism::ConstantPathNode) && name.start_with?("#<scope:")
@@ -2325,8 +2351,12 @@ module Ze0
     # constant -- which is what gives it a name at all -- and only then
     # does the body run, which is ruby's own order.
     def lower_runtime_class(entry, node)
-      # A reopen names what the first statement already made.
-      return run_body_on(entry[:name], constant_named(entry[:name]), node) unless entry[:bodies].first[:node].equal?(node)
+      # A reopen names what the constant already holds -- whether an
+      # earlier `class` statement made it, or the assignment this name
+      # comes from.
+      if entry[:reopen] || !entry[:bodies].first[:node].equal?(node)
+        return run_body_on(entry[:name], constant_named(entry[:name]), node)
+      end
 
       klass = mint_runtime_class(entry, node)
       borrow(klass)
