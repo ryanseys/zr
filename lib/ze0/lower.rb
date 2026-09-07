@@ -2722,10 +2722,19 @@ module Ze0
                elsif entry[:nested]
                  runtime_const_set(leaf, klass)
                else
-                 store_constant(leaf, node, klass)
+                 store_constant(leaf, node, klass, owner: named_scope(entry[:name]))
                end
       discard(answer)
       run_body_on(entry[:name], klass, node)
+    end
+
+    # The scope a QUALIFIED name writes its leaf on, when this program
+    # declares that scope. `class NS::Item < Struct.new(:a)` is a class only
+    # the run time mints, but `NS` is a row, so the constant lands there
+    # rather than where the statement stands.
+    def named_scope(name)
+      up = name.split("::")[..-2].join("::")
+      up if !up.empty? && keyed_class?(up)
     end
 
     # `Class.new(super)`, `Class.new` or `Module.new`, as the header says.
@@ -4748,16 +4757,20 @@ module Ze0
       store_constant(node.name.to_s, node, lower_expr(node.value))
     end
 
-    def store_constant(name, node, value)
+    # `owner` names the scope the constant lands on where it is not the
+    # innermost cref: `class NS::Item` writes `Item` on `NS`, wherever the
+    # statement stands.
+    def store_constant(name, node, value, owner: nil)
       return runtime_const_set(name, value) if scope.class_self && unkeyed_definee?
 
       at = borrow(value)
       nptr, nlen = rodata_ref(name)
       fptr, flen = rodata_ref(@file)
-      f.ins "call #{f.import("zeo_rt_const_set_at")}(#{cref_ids.first}, #{nptr}, #{nlen}, " \
+      scope_id = owner ? class_id(owner) : cref_ids.first
+      f.ins "call #{f.import("zeo_rt_const_set_at")}(#{scope_id}, #{nptr}, #{nlen}, " \
             "#{at}, #{fptr}, #{flen}, #{f.iconst("i32", node.location.start_line)}, " \
             "#{f.iconst("i32", Capi::MAIN_BOX)})"
-      announce_constant(cref_path.first || Names::OBJECT, name, node)
+      announce_constant(owner || cref_path.first || Names::OBJECT, name, node)
       Operand.new(value.at, false, value.immediate)
     end
 
