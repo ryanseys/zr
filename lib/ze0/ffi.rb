@@ -61,6 +61,20 @@ module Ze0
       "caddr_t" => "pointer",
     }.freeze
 
+    # `FFI::Type::<NAME>` as the keyword it stands for. The gem spells one
+    # type three ways -- `:uint16`, `:ushort` and `FFI::Type::UINT16` -- and
+    # a program may hand a layout any of them.
+    TYPE_CONSTANTS = {
+      "POINTER" => "pointer", "STRING" => "string", "BOOL" => "bool",
+      "CHAR" => "char", "INT8" => "int8", "UCHAR" => "uchar", "UINT8" => "uint8",
+      "SHORT" => "short", "INT16" => "int16", "USHORT" => "ushort", "UINT16" => "uint16",
+      "INT" => "int", "INT32" => "int32", "UINT" => "uint", "UINT32" => "uint32",
+      "LONG_LONG" => "long_long", "INT64" => "int64",
+      "ULONG_LONG" => "ulong_long", "UINT64" => "uint64",
+      "LONG" => "long", "ULONG" => "ulong",
+      "FLOAT" => "float", "FLOAT32" => "float", "DOUBLE" => "double", "FLOAT64" => "double",
+    }.freeze
+
     # The superclasses whose body a `layout` describes. A union lays every
     # field at offset zero and is as wide as its widest.
     STRUCT = "FFI::Struct"
@@ -69,12 +83,12 @@ module Ze0
     # `[name, keyword]` for each field the call declares, or nil where the
     # shape is one this walk does not read. Both spellings the gem takes:
     # `layout :x, :int, :y, :int` and `layout x: :int, y: :int`.
-    def self.declared_fields(node, nested = {}, typedefs = {})
+    def self.declared_fields(node, nested = {}, typedefs = {}, consts = {})
       args = node.arguments&.arguments || []
       return nil if args.empty?
 
       if args.size == 1 && args[0].is_a?(Prism::KeywordHashNode)
-        return hash_fields(args[0], nested, typedefs)
+        return hash_fields(args[0], nested, typedefs, consts)
       end
       return nil unless args.size.even?
 
@@ -82,7 +96,7 @@ module Ze0
       args.each_slice(2) do |name, type|
         return nil unless name.is_a?(Prism::SymbolNode)
 
-        field = field_of(type, nested, typedefs)
+        field = field_of(type, nested, typedefs, consts)
         return nil if field.nil?
 
         pairs << [name.unescaped, field]
@@ -94,8 +108,8 @@ module Ze0
     # array, which occupies its elements in place and so is what decides
     # where the next field starts -- or the name of a struct class stored
     # BY VALUE, whose own layout says how wide it is.
-    def self.field_of(node, nested = {}, typedefs = {})
-      keyword = scalar(node, typedefs)
+    def self.field_of(node, nested = {}, typedefs = {}, consts = {})
+      keyword = scalar(node, typedefs, consts)
       return [keyword, nil] if keyword
 
       if node.is_a?(Prism::ConstantReadNode) || node.is_a?(Prism::ConstantPathNode)
@@ -105,19 +119,29 @@ module Ze0
       return nil unless node.is_a?(Prism::ArrayNode) && node.elements.size == 2
 
       elem, count = node.elements
-      keyword = scalar(elem, typedefs)
-      return nil unless keyword && count.is_a?(Prism::IntegerNode)
+      keyword = scalar(elem, typedefs, consts)
+      count = count_of(count, consts)
+      return nil unless keyword && count
 
-      [keyword, count.value]
+      [keyword, count]
     end
 
-    def self.hash_fields(node, nested = {}, typedefs = {})
+    # An inline array's element count: an Integer literal, or a constant
+    # whose value this compile read.
+    def self.count_of(node, consts = {})
+      return node.value if node.is_a?(Prism::IntegerNode)
+
+      value = constant_value(node, consts)
+      value if value.is_a?(Integer)
+    end
+
+    def self.hash_fields(node, nested = {}, typedefs = {}, consts = {})
       pairs = []
       node.elements.each do |e|
         return nil unless e.is_a?(Prism::AssocNode)
         return nil unless e.key.is_a?(Prism::SymbolNode)
 
-        field = field_of(e.value, nested, typedefs)
+        field = field_of(e.value, nested, typedefs, consts)
         return nil if field.nil?
 
         pairs << [e.key.unescaped, field]
@@ -128,8 +152,21 @@ module Ze0
     # The SCALARS keyword one type spelling stands for, or nil. A program's
     # own `typedef` answers first, then the fixed-width names, so a
     # `layout` reads one keyword whichever spelling wrote the field.
-    def self.scalar(node, typedefs = {})
-      node.is_a?(Prism::SymbolNode) ? keyword(node.unescaped, typedefs) : nil
+    def self.scalar(node, typedefs = {}, consts = {})
+      return keyword(node.unescaped, typedefs) if node.is_a?(Prism::SymbolNode)
+
+      value = constant_value(node, consts)
+      value.is_a?(String) ? keyword(value, typedefs) : nil
+    end
+
+    # What a constant this compile read stands for: a type keyword as a
+    # String, or an Integer count. `FFI::Type::X` answers for itself.
+    def self.constant_value(node, consts = {})
+      return nil unless node.is_a?(Prism::ConstantReadNode) || node.is_a?(Prism::ConstantPathNode)
+
+      path = node.slice.delete_prefix("::")
+      builtin = path.start_with?("FFI::Type::") ? path.delete_prefix("FFI::Type::") : nil
+      (builtin && TYPE_CONSTANTS[builtin]) || consts[path] || consts[path.split("::").last]
     end
 
     def self.keyword(name, typedefs = {})

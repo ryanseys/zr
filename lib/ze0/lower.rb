@@ -84,6 +84,9 @@ module Ze0
       # gem keeps one registry on the FFI module, so this is whole-program
       # too, whatever body the declaration was written in.
       @ffi_typedefs = {}
+      # Each constant a `layout` may spell a type or a count with, by the
+      # name as written and by its leaf.
+      @ffi_consts = {}
       @declared_macros = {}
       @classes = {}
       @scopes = []
@@ -195,6 +198,7 @@ module Ze0
       all.each { |_file, statements| statements.each { |s| note_undefined(s) } }
       all.each { |_file, statements| statements.each { |s| note_definer_methods(s) } }
       all.each { |_file, statements| statements.each { |s| note_ffi_typedefs(s) } }
+      all.each { |_file, statements| statements.each { |s| note_ffi_constants(s) } }
       @program_freezes = all.any? { |_file, statements| statements.any? { |s| freezes?(s) } }
       @announces_constants =
         all.any? { |_file, statements| statements.any? { |s| defines_const_added?(s) } }
@@ -1078,7 +1082,7 @@ module Ze0
       call = body.find { |s| s.is_a?(Prism::CallNode) && s.receiver.nil? && s.name == :layout }
       return if call.nil?
 
-      pairs = Ffi.declared_fields(call, @ffi_layouts, @ffi_typedefs)
+      pairs = Ffi.declared_fields(call, @ffi_layouts, @ffi_typedefs, @ffi_consts)
       raise Unsupported.new(call, "a `layout` field of that shape") if pairs.nil?
 
       placed, total, alignment = Ffi.place(pairs, written == Ffi::UNION)
@@ -2143,6 +2147,28 @@ module Ze0
         end
       end
       node.compact_child_nodes.each { |c| note_ffi_typedefs(c) }
+    end
+
+    # A constant a `layout` may name instead of a keyword or a count --
+    # ffi-ncurses declares its whole vocabulary that way above the structs
+    # that spend it. Only a value this compile can read is recorded: a
+    # Symbol, an Integer, an `FFI::Type::X`, or another such constant.
+    # A name two bodies give different values answers for neither.
+    def note_ffi_constants(node)
+      if node.is_a?(Prism::ConstantWriteNode)
+        value = ffi_constant_value(node.value)
+        name = node.name.to_s
+        @ffi_consts[name] = @ffi_consts.fetch(name, value) == value ? value : nil unless value.nil?
+      end
+      node.compact_child_nodes.each { |c| note_ffi_constants(c) }
+    end
+
+    def ffi_constant_value(node)
+      case node
+      when Prism::SymbolNode then node.unescaped
+      when Prism::IntegerNode then node.value
+      else Ffi.constant_value(node, @ffi_consts)
+      end
     end
 
     def note_definer_methods(node)
