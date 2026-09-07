@@ -1838,7 +1838,8 @@ module Ze0
         # and ruby labels its frame `C.x`. On any other object the frame
         # names the object's class, which is the default.
         of_self = node.receiver.is_a?(Prism::SelfNode) && kind == :class_body
-        return define_singleton(lower_expr(node.receiver), node, "public", singleton: of_self)
+        return define_singleton(lower_expr(node.receiver), node, "public",
+                                singleton: of_self, bare: !of_self)
       end
 
       body, captures = lower_method_body(node)
@@ -2873,7 +2874,7 @@ module Ze0
           # `def`, and ruby labels its frame by the surrogate.
           meta = s.receiver.is_a?(Prism::SelfNode)
           target = meta ? send_value(recv, :singleton_class) : recv
-          value = define_singleton(target, s, mode, singleton: of_self,
+          value = define_singleton(target, s, mode, singleton: of_self, bare: cref.nil?,
                                                     label_owner: (cref&.first if meta) || label_owner)
         when Prism::AliasMethodNode then value = singleton_alias(recv, s)
         when Prism::UndefNode then value = singleton_undef(recv, s)
@@ -2893,7 +2894,7 @@ module Ze0
           value = singleton_body(s, @singleton_crefs[s.object_id], send_value(recv, :singleton_class))
         when Prism::CallNode
           if visibility_verb?(s)
-            mode, value = singleton_visibility(recv, s, mode)
+            mode, value = singleton_visibility(recv, s, mode, bare: cref.nil?)
           elsif s.receiver.nil? && !s.block
             value = singleton_macro(recv, s)
           else
@@ -2985,8 +2986,8 @@ module Ze0
 
     # One `def` in a `class << obj` body, installed on the object and
     # marked when the body is in a non-public mode.
-    def define_singleton(recv, node, mode, singleton: false, label_owner: nil)
-      body = method_proc(node, singleton: singleton, label_owner: label_owner)
+    def define_singleton(recv, node, mode, singleton: false, label_owner: nil, bare: false)
+      body = method_proc(node, singleton: singleton, label_owner: label_owner, bare: bare)
       send_value(recv, :define_singleton_method, [literal_symbol(node.name), body])
       mark_singleton(recv, node.name.to_s, mode) unless mode == "public"
       literal_symbol(node.name)
@@ -2996,7 +2997,7 @@ module Ze0
     # is the mode the `def`s below it are written in; with names, it
     # retags those where it stands and answers them, as ruby does -- one
     # Symbol, or an Array of them.
-    def singleton_visibility(recv, node, mode)
+    def singleton_visibility(recv, node, mode, bare: false)
       verb = node.name.to_s
       args = node.arguments&.arguments || []
       # A BARE verb is a cursor over the whole body, and the run time
@@ -3011,7 +3012,7 @@ module Ze0
         # `private def x` defines the method at that visibility; every
         # other argument names one the body already has.
         if a.is_a?(Prism::DefNode)
-          define_singleton(recv, a, verb)
+          define_singleton(recv, a, verb, bare: bare)
           next [a.name.to_s]
         end
 
@@ -3041,8 +3042,9 @@ module Ze0
     end
 
     # A lambda-shaped Proc over a `def`'s body, as an owned value.
-    def method_proc(node, singleton: false, label_owner: nil)
-      body, captures = lower_method_body(node, singleton: singleton, label_owner: label_owner)
+    def method_proc(node, singleton: false, label_owner: nil, bare: false)
+      body, captures = lower_method_body(node, singleton: singleton, label_owner: label_owner,
+                                               bare: bare)
       slot = f.slot
       copy(proc_new(body, captures, node, true), addr_of(slot))
       Operand.new(slot, true, false)
@@ -3353,9 +3355,12 @@ module Ze0
     # frame carries the method's own label, and its `blk` argument is the
     # block the INSTALLED method is called with, which a bare `yield`
     # reaches.
-    def lower_method_body(node, singleton: false, label_owner: nil)
-      lower_closure(node, lambda_shape: true,
-                    method: label_of(label_owner || owner, node.name, singleton))
+    # A method whose home is a PER-OBJECT singleton is labelled by its bare
+    # name: no object has a name to qualify it with. Ruby writes `sm`, not
+    # `Object#sm`, and the iseq label reads the same string.
+    def lower_method_body(node, singleton: false, label_owner: nil, bare: false)
+      label = bare ? node.name.to_s : label_of(label_owner || owner, node.name, singleton)
+      lower_closure(node, lambda_shape: true, method: label)
     end
 
     # The shared shape of both. `method` is the frame label when the body
