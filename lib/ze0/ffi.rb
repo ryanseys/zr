@@ -36,6 +36,31 @@ module Ze0
       "buffer_inout" => [8, "pointer"],
     }.freeze
 
+    # The C99 and POSIX names whose width and signedness are the same on
+    # every target zeo emits for, each as the keyword it stands for. The
+    # runtime's own table (`ext/ffi/lib/ffi.rb`) carries the same rows, and
+    # the two have to agree or one road's field moves.
+    #
+    # A name whose width genuinely differs between targets -- `mode_t`,
+    # `clock_t` and their kind -- is deliberately absent: it stays an
+    # honest refusal at its use site rather than a guess.
+    ALIASES = {
+      "int8_t" => "int8", "int16_t" => "int16", "int32_t" => "int32", "int64_t" => "int64",
+      "uint8_t" => "uint8", "uint16_t" => "uint16", "uint32_t" => "uint32", "uint64_t" => "uint64",
+      "int_least8_t" => "int8", "int_least16_t" => "int16",
+      "int_least32_t" => "int32", "int_least64_t" => "int64",
+      "uint_least8_t" => "uint8", "uint_least16_t" => "uint16",
+      "uint_least32_t" => "uint32", "uint_least64_t" => "uint64",
+      "intptr_t" => "int64", "ptrdiff_t" => "int64", "intmax_t" => "int64",
+      "off_t" => "int64", "time_t" => "int64", "blkcnt_t" => "int64", "register_t" => "int64",
+      "uintptr_t" => "uint64", "uintmax_t" => "uint64", "ino_t" => "uint64", "rlim_t" => "uint64",
+      "pid_t" => "int32", "key_t" => "int32",
+      "uid_t" => "uint32", "gid_t" => "uint32", "id_t" => "uint32",
+      "socklen_t" => "uint32", "in_addr_t" => "uint32", "useconds_t" => "uint32",
+      "in_port_t" => "uint16",
+      "caddr_t" => "pointer",
+    }.freeze
+
     # The superclasses whose body a `layout` describes. A union lays every
     # field at offset zero and is as wide as its widest.
     STRUCT = "FFI::Struct"
@@ -44,18 +69,20 @@ module Ze0
     # `[name, keyword]` for each field the call declares, or nil where the
     # shape is one this walk does not read. Both spellings the gem takes:
     # `layout :x, :int, :y, :int` and `layout x: :int, y: :int`.
-    def self.declared_fields(node, nested = {})
+    def self.declared_fields(node, nested = {}, typedefs = {})
       args = node.arguments&.arguments || []
       return nil if args.empty?
 
-      return hash_fields(args[0], nested) if args.size == 1 && args[0].is_a?(Prism::KeywordHashNode)
+      if args.size == 1 && args[0].is_a?(Prism::KeywordHashNode)
+        return hash_fields(args[0], nested, typedefs)
+      end
       return nil unless args.size.even?
 
       pairs = []
       args.each_slice(2) do |name, type|
         return nil unless name.is_a?(Prism::SymbolNode)
 
-        field = field_of(type, nested)
+        field = field_of(type, nested, typedefs)
         return nil if field.nil?
 
         pairs << [name.unescaped, field]
@@ -67,8 +94,9 @@ module Ze0
     # array, which occupies its elements in place and so is what decides
     # where the next field starts -- or the name of a struct class stored
     # BY VALUE, whose own layout says how wide it is.
-    def self.field_of(node, nested = {})
-      return [node.unescaped, nil] if scalar?(node)
+    def self.field_of(node, nested = {}, typedefs = {})
+      keyword = scalar(node, typedefs)
+      return [keyword, nil] if keyword
 
       if node.is_a?(Prism::ConstantReadNode) || node.is_a?(Prism::ConstantPathNode)
         found = nested[node.slice]
@@ -77,18 +105,19 @@ module Ze0
       return nil unless node.is_a?(Prism::ArrayNode) && node.elements.size == 2
 
       elem, count = node.elements
-      return nil unless scalar?(elem) && count.is_a?(Prism::IntegerNode)
+      keyword = scalar(elem, typedefs)
+      return nil unless keyword && count.is_a?(Prism::IntegerNode)
 
-      [elem.unescaped, count.value]
+      [keyword, count.value]
     end
 
-    def self.hash_fields(node, nested = {})
+    def self.hash_fields(node, nested = {}, typedefs = {})
       pairs = []
       node.elements.each do |e|
         return nil unless e.is_a?(Prism::AssocNode)
         return nil unless e.key.is_a?(Prism::SymbolNode)
 
-        field = field_of(e.value, nested)
+        field = field_of(e.value, nested, typedefs)
         return nil if field.nil?
 
         pairs << [e.key.unescaped, field]
@@ -96,8 +125,16 @@ module Ze0
       pairs
     end
 
-    def self.scalar?(node)
-      node.is_a?(Prism::SymbolNode) && SCALARS.key?(node.unescaped)
+    # The SCALARS keyword one type spelling stands for, or nil. A program's
+    # own `typedef` answers first, then the fixed-width names, so a
+    # `layout` reads one keyword whichever spelling wrote the field.
+    def self.scalar(node, typedefs = {})
+      node.is_a?(Prism::SymbolNode) ? keyword(node.unescaped, typedefs) : nil
+    end
+
+    def self.keyword(name, typedefs = {})
+      name = typedefs[name] || ALIASES[name] || name
+      name if SCALARS.key?(name)
     end
 
     # Where C puts each field: at the next offset its own width divides,

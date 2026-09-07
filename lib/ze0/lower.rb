@@ -80,6 +80,10 @@ module Ze0
       # Each `FFI::Struct` subclass's `(size, alignment)`, for a later
       # layout that stores one by value.
       @ffi_layouts = {}
+      # Each `typedef`'s alias as the scalar keyword it stands for. The
+      # gem keeps one registry on the FFI module, so this is whole-program
+      # too, whatever body the declaration was written in.
+      @ffi_typedefs = {}
       @declared_macros = {}
       @classes = {}
       @scopes = []
@@ -190,6 +194,7 @@ module Ze0
       all.each { |_file, statements| statements.each { |s| note_ruby2_keywords(s) } }
       all.each { |_file, statements| statements.each { |s| note_undefined(s) } }
       all.each { |_file, statements| statements.each { |s| note_definer_methods(s) } }
+      all.each { |_file, statements| statements.each { |s| note_ffi_typedefs(s) } }
       @program_freezes = all.any? { |_file, statements| statements.any? { |s| freezes?(s) } }
       @announces_constants =
         all.any? { |_file, statements| statements.any? { |s| defines_const_added?(s) } }
@@ -653,7 +658,12 @@ module Ze0
           end
         when Prism::ClassNode then declare_class(s, owner, "class", guarded: guarded)
         when Prism::ModuleNode then declare_class(s, owner, "module", guarded: guarded)
-        when Prism::CallNode then visibility = declare_macro(s, owner, visibility) unless guarded
+        when Prism::CallNode
+          if guarded
+            note_private_constants(s, owner)
+          else
+            visibility = declare_macro(s, owner, visibility)
+          end
         when Prism::AliasMethodNode
           declare_alias(s, owner, s.new_name, s.old_name, visibility) unless guarded
         when Prism::IfNode, Prism::UnlessNode then declare_branches(s, owner, guarded, visibility)
@@ -923,6 +933,24 @@ module Ze0
     # The names one name-taking macro is given. A `*` splat of a written
     # Array spreads here -- `attr_reader(*%i[a b])` is the idiom -- and a
     # splat of anything else names nothing this compile can read.
+    # A `private_constant` in a branch this compile cannot decide still
+    # NAMES the constant, and the name is all a READ needs to know: it
+    # decides whether the read asks the run time at all. Whether the flag
+    # is really set is the branch's own answer, which the check reads.
+    def note_private_constants(node, owner)
+      return unless node.receiver.nil? && node.name == :private_constant
+      return unless keyed_class?(owner)
+
+      args = node.arguments&.arguments || []
+      return unless written_names?(args)
+
+      accessor_names(node, args).each do |n|
+        @private_constants[n] = true
+        row = @classes.fetch(owner)[:private_constants]
+        row << n unless row.include?(n)
+      end
+    end
+
     def accessor_names(node, args)
       args.flat_map { |a| written_name(node, a) }
     end
@@ -1050,7 +1078,7 @@ module Ze0
       call = body.find { |s| s.is_a?(Prism::CallNode) && s.receiver.nil? && s.name == :layout }
       return if call.nil?
 
-      pairs = Ffi.declared_fields(call, @ffi_layouts)
+      pairs = Ffi.declared_fields(call, @ffi_layouts, @ffi_typedefs)
       raise Unsupported.new(call, "a `layout` field of that shape") if pairs.nil?
 
       placed, total, alignment = Ffi.place(pairs, written == Ffi::UNION)
@@ -2100,6 +2128,23 @@ module Ze0
     # Every `def` in the program whose body holds a definer verb, by
     # name. A class body calling one -- or an `include` whose module
     # writes `self.included` that way -- installs methods there.
+    # `FFI.typedef :existing, :alias` and the bare `typedef` an FFI
+    # library module writes: one registry the gem keeps on the FFI module,
+    # which every layout and signature after it reads. A source this walk
+    # cannot resolve -- a platform-varying name, another alias declared
+    # later -- registers nothing, so the USE site refuses rather than
+    # taking a wrong width.
+    def note_ffi_typedefs(node)
+      if node.is_a?(Prism::CallNode) && node.name == :typedef
+        args = node.arguments&.arguments || []
+        if args.size == 2 && args.all? { |a| a.is_a?(Prism::SymbolNode) }
+          keyword = Ffi.keyword(args[0].unescaped, @ffi_typedefs)
+          @ffi_typedefs[args[1].unescaped] = keyword if keyword
+        end
+      end
+      node.compact_child_nodes.each { |c| note_ffi_typedefs(c) }
+    end
+
     def note_definer_methods(node)
       if node.is_a?(Prism::DefNode) && definer_under?(node.body)
         @definer_methods[node.name] = true
@@ -5161,7 +5206,11 @@ module Ze0
       name = node.name.to_s
       declared = @declared_macros[node.object_id]
       if name == "private_constant"
-        raise Unsupported.new(node, "`#{name}` outside the class body's statements") unless declared
+        # One in a branch this compile cannot decide is not filed: the
+        # branch may never run. So it runs, and the runtime carries the
+        # flag -- which is also how a top-level one reaches the
+        # NoMethodError ruby gives it.
+        return runtime_visibility(node, args) unless declared
 
         # The class row carries the names; nothing runs here.
         accessor_names(node, args)
@@ -5344,8 +5393,8 @@ module Ze0
                    names.map { |n| literal_symbol(n) }, addr_of(f.slot), explicit: false)
     end
 
-    # `private(*names)` and its two siblings through the runtime's own
-    # verb, which answers what ruby answers.
+    # `private(*names)`, its two siblings and `private_constant` through
+    # the runtime's own verb, which answers what ruby answers.
     def runtime_visibility(node, args)
       result = f.slot
       splat_send(borrow(self_operand), node.name, args, addr_of(result), explicit: false)
