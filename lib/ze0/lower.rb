@@ -211,7 +211,9 @@ module Ze0
         c[:bodies].each { |written| with_file(written[:file]) { lower_class_body(c, written) } }
       end
       lower_toplevel(units)
-      deferred.each_value { |unit| lower_top_scope(unit[:symbol], unit[:runs]) }
+      deferred.each_value do |unit|
+        lower_top_scope(unit[:symbol], unit[:runs]) if unit[:symbol]
+      end
     end
 
     private
@@ -321,6 +323,11 @@ module Ze0
       return if seen.key?(path)
 
       seen[path] = true
+      # CRuby records a feature BEFORE it evaluates the file, which is
+      # what makes a circular require answer false rather than recurse.
+      # The marker is a run of its own so it leads the file's statements
+      # and every file the file itself brings in.
+      units << [path, [], chain + [path], true]
       # Read the file where the `require` is written, so a refusal about
       # the file names the line that asked for it.
       statements = spliced_statements(node, path)
@@ -2983,8 +2990,9 @@ module Ze0
       # the statement stands it lowers to nothing. One WITHOUT a row --
       # `def obj.name`, whose object no compile can know -- is an ordinary
       # statement and stays.
-      units = units.map do |file, run, chain|
-        [file, run.reject { |s| s.is_a?(Prism::DefNode) && @declared_defs[s.object_id] }, chain || [file]]
+      units = units.map do |file, run, chain, opens|
+        [file, run.reject { |s| s.is_a?(Prism::DefNode) && @declared_defs[s.object_id] },
+         chain || [file], opens]
       end
       function = Clif::Function.new(symbol, ["i64"], "i32")
       in_scope(function, :toplevel) do
@@ -3001,9 +3009,9 @@ module Ze0
         f.ins "call #{f.import("zeo_rt_pool_push")}(#{addr_of(self_slot)})"
         scope.self_operand = Operand.new(self_slot, false, false)
         install_toplevel_binding if symbol == Names::TOPLEVEL
-        units.each do |file, run, chain|
+        units.each do |file, run, chain, opens|
           scope.locals = scope.locals_of(file)
-          with_file(file) { lower_unit_run(file, run, chain) }
+          with_file(file) { lower_unit_run(file, run, chain, opens) }
         end
         store_nil(out)
         f.ins "jump #{done_block}"
@@ -3070,10 +3078,13 @@ module Ze0
 
     # One run of one file's top-level statements, skipped outright when a
     # file it is spliced inside has already returned.
-    def lower_unit_run(file, run, chain)
+    def lower_unit_run(file, run, chain, opens = false)
       guards = chain.filter_map { |f| @file_returns[f] }
       statements = hoist_pre_execution(run)
-      return statements.each { |s| toplevel_statement(s) } if guards.empty?
+      if guards.empty?
+        mark_feature_loaded(file) if opens
+        return statements.each { |s| toplevel_statement(s) }
+      end
 
       done = f.label
       guards.each do |flag|
@@ -3081,12 +3092,22 @@ module Ze0
         f.ins "brif #{flag_of(flag)}, #{done}, #{go}"
         f.switch(go)
       end
+      mark_feature_loaded(file) if opens
       outer = scope.file_return
       scope.file_return = [done, @file_returns[file]]
       statements.each { |s| toplevel_statement(s) }
       scope.file_return = outer
       f.ins "jump #{done}" unless f.terminated?
       f.switch(done)
+    end
+
+    # A spliced file records itself in `$LOADED_FEATURES`, which is what
+    # makes a later `require` of the same file answer false. No feature
+    # name: a file opens no gated builtin's gate.
+    def mark_feature_loaded(file)
+      ptr, len = rodata_ref(file)
+      f.ins "call #{f.import("zeo_rt_feature_loaded")}(#{f.iconst("i32", Capi::MAIN_BOX)}, " \
+            "#{ptr}, #{len}, #{ptr}, #{f.iconst("i64", 0)})"
     end
 
     # `BEGIN { }` runs before the rest of the file it is written in, in
