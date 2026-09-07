@@ -72,26 +72,22 @@ module Ze0
     comment&.value == "true"
   end
 
-  # The `# encoding:`/`# coding:` magic comment's `Encoding::` constant
-  # spelling, or nil for the UTF-8 default -- which is what ze0 reads a
-  # source as when nothing says otherwise. prism finds the comment; the
-  # names are the four the runtime carries as a source encoding.
+  # The `Encoding::` constant spelling of the source encoding, or nil for
+  # UTF-8 -- which is what ze0 reads a source as when nothing says
+  # otherwise. prism reads the `# encoding:`/`# coding:` magic comment and
+  # applies ruby's own placement rule, so a `# encoding::` inside an rdoc
+  # paragraph names nothing. The four are what the runtime carries.
   SOURCE_ENCODINGS = {
-    "utf8" => nil, "cp65001" => nil,
-    "usascii" => "US_ASCII", "ascii" => "US_ASCII", "ansix341968" => "US_ASCII", "646" => "US_ASCII",
-    "ascii8bit" => "ASCII_8BIT", "binary" => "ASCII_8BIT",
-    "iso88591" => "ISO_8859_1", "latin1" => "ISO_8859_1",
+    "UTF-8" => nil,
+    "US-ASCII" => "US_ASCII",
+    "ASCII-8BIT" => "ASCII_8BIT",
+    "ISO-8859-1" => "ISO_8859_1",
   }.freeze
 
   def self.script_encoding(result, node)
-    comment = result.magic_comments.find { |c| %w[encoding coding].include?(c.key) }
-    return nil unless comment
+    name = result.encoding.name
+    raise Unsupported.new(node, "the source encoding `#{name}`") unless SOURCE_ENCODINGS.key?(name)
 
-    key = comment.value.downcase.delete("-_.")
-    unless SOURCE_ENCODINGS.key?(key)
-      raise Lower::Unsupported.new(node, "the source encoding `#{comment.value}`")
-    end
-
-    SOURCE_ENCODINGS[key]
+    SOURCE_ENCODINGS[name]
   end
 end

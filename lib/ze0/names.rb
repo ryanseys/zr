@@ -94,6 +94,13 @@ module Ze0
       # already carries, rather than defining something new.
       def self.builtin?(name) = ALWAYS_ON.include?(name) || EXCEPTIONS.include?(name)
 
+      # The builtin rows that are a NAMESPACE only: the class itself is a
+      # Ruby file the compile splices, and the row exists so a nested
+      # constant has a scope to sit in. Its parent is the one that file's
+      # own superclass clause establishes, which is a compile-time write
+      # to the row -- so ze0, which mints no rows, cannot make it.
+      NAMESPACES = %w[WeakRef].freeze
+
     TOPLEVEL = "zeo_toplevel"
     # The owner of a top-level `def`.
     OBJECT = "Object"

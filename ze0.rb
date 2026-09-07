@@ -48,12 +48,39 @@ rescue SystemCallError => e
   exit 1
 end
 
-# The Ruby halves of the extensions the runtime carries, searched after
-# the roots `-I` named. `zeo build` splices the same files, so a plain
-# `require "json"` reaches one library on both roads. An installed ze0
-# outside the tree finds none, and the require stays the runtime's.
+# Where zeo ships a library from, highest precedence first: the Ruby halves
+# of the extensions the runtime carries, then the pure-Ruby ports of the
+# ones a build leaves out, then rubygems and bundler, then the store
+# `Gemfile.lock` resolves, whose directories are named `<name>-<version>`.
+EXT_TIER = "crates/zeo-rt/ext"
+PURE_TIER = "crates/zeo-rt/gems"
+TIERS = [EXT_TIER, PURE_TIER, "vendor/ruby", "vendor/gems/gems"].freeze
+
+# The two libraries the store unpacks that no `require` may reach. `rbs`
+# opens by loading a C extension nothing here builds, and `rubygems-update`
+# names a require path of its own that is not `lib`.
+WITHHELD = %w[rbs rubygems-update].freeze
+
+# The libraries zeo ships, searched after the roots `-I` named and in the
+# order `zeo build` searches them: one library per name, the highest tier
+# that carries it. Both roads splice the same files, so a plain
+# `require "csv"` reaches one library on either. An installed ze0 outside
+# the tree finds none, and the require stays the runtime's.
+#
+# A pure-Ruby port drops out where the extension is there: the port opens
+# `class StringIO`, which beside the builtin mints a shadow of it.
 def default_roots
-  Dir[File.expand_path("../crates/zeo-rt/ext/*/lib", __dir__)].sort
+  root = File.expand_path("..", __dir__)
+  extensions = Dir[File.join(root, EXT_TIER, "*")].map { |dir| File.basename(dir) }
+  TIERS.flat_map { |tier| Dir[File.join(root, tier, "*/lib")].sort }
+       .reject { |dir| WITHHELD.include?(library_name(dir)) }
+       .reject { |dir| dir.include?("/#{PURE_TIER}/") && extensions.include?(library_name(dir)) }
+       .uniq { |dir| library_name(dir) }
+end
+
+# The name a tier directory serves, with the store's version suffix off.
+def library_name(dir)
+  File.basename(File.dirname(dir)).sub(/-\d[^-]*\z/, "")
 end
 
 begin

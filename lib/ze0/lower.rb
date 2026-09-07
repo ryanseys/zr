@@ -1242,19 +1242,23 @@ module Ze0
       entry[:bodies] << { node: node, body: body, file: @file }
       entry[:consts] ||= []
       entry[:consts].concat(body_constants(body))
-      # A class written INSIDE a body that runs on a class value has no
-      # row either: its name is a constant on a class only the run time
-      # knows. So it is made at run time too, and its constant is set on
-      # the `self` the enclosing body runs against.
+      declare_nested_runtime_classes(body, name)
+      nil
+    end
+
+    # A class written INSIDE a body that runs on a class value has no row
+    # either: its name is a constant on a class only the run time knows. So
+    # it is made at run time too, and its constant is set on the `self` the
+    # enclosing body runs against.
+    def declare_nested_runtime_classes(body, owner)
       body.each do |s|
         next unless s.is_a?(Prism::ClassNode) || s.is_a?(Prism::ModuleNode)
 
         kind = s.is_a?(Prism::ClassNode) ? "class" : "module"
-        child = qualify(name, s.name.to_s)
+        child = qualify(owner, s.name.to_s)
         declare_runtime_class(s, child, kind)
         @classes[child][:nested] = true
       end
-      nil
     end
 
     # `class << self` in a class body opens that class's SINGLETON, which
@@ -1302,11 +1306,16 @@ module Ze0
     # The constants a body writes: a `Name = value`, and a nested `class`
     # or `module`, which IS a constant write with a body.
     def body_constants(body)
-      body.filter_map do |s|
+      body.flat_map do |s|
         case s
         when Prism::ConstantWriteNode then s.name.to_s
         when Prism::ClassNode, Prism::ModuleNode
-          s.name.to_s if s.constant_path.is_a?(Prism::ConstantReadNode)
+          s.constant_path.is_a?(Prism::ConstantReadNode) ? s.name.to_s : []
+        when Prism::SingletonClassNode
+          # A per-object `class << obj` body has no cref to hold a
+          # constant, so the one written there hoists to this scope.
+          s.expression.is_a?(Prism::SelfNode) ? [] : body_constants(body_statements(s.body))
+        else []
         end
       end
     end
@@ -1323,12 +1332,18 @@ module Ze0
       unless entry[:builtin]
         return note_kind_mismatch(node, entry, kind)
       end
+      if Names::NAMESPACES.include?(name) && node.is_a?(Prism::ClassNode) && node.superclass
+        raise Unsupported.new(node.superclass, "a superclass on a builtin whose row leaves it open")
+      end
 
       body = body_statements(node.body)
       body.each { |s| note_redefined(s.name, name) if s.is_a?(Prism::DefNode) && s.receiver.nil? }
       entry[:consts] ||= []
       entry[:consts].concat(body_constants(body))
       entry[:bodies] << { node: node, body: body, kind: kind, file: @file }
+      # A builtin carries no row either, so a class nested in its reopen is
+      # a constant on a class the compile cannot key.
+      declare_nested_runtime_classes(body, name)
       nil
     end
 
@@ -2268,6 +2283,10 @@ module Ze0
 
       entry = @classes.fetch(owner)
       return false if entry[:kind] == "module"
+      # A class row the compile cannot key names a builtin or a class only
+      # the run time mints, and either way its instances are the runtime's
+      # own shape.
+      return true unless keyed_class?(owner)
 
       up = @program.superclass_of(owner)
       up != Names::OBJECT && (!@classes.key?(up) || native_backed?(up))
@@ -2781,13 +2800,13 @@ module Ze0
         when Prism::AliasMethodNode then value = singleton_alias(recv, s)
         when Prism::UndefNode then value = singleton_undef(recv, s)
         when Prism::ConstantWriteNode, Prism::ConstantPathWriteNode
-          # A constant belongs to the singleton class, and only a cref can
-          # put it there: a per-object body has none.
-          raise Unsupported.new(s, "a statement in a `class << obj` body") if cref.nil?
-
-          # The cref puts the constant on the surrogate; `self` is what
-          # the VALUE runs against, and here it is the singleton.
-          value = as_singleton_self(recv) { lower_expr(s) }
+          # The cref puts the constant on the surrogate, and `self` is what
+          # the VALUE runs against -- here, the singleton. A per-object
+          # body has no cref to hold it, so the constant HOISTS to the
+          # enclosing scope, which is where a `def` in this body reads it
+          # lexically anyway. `zeo build` hoists it the same way, and the
+          # divergence from ruby is that `Enclosing::MAX` reaches it too.
+          value = cref ? as_singleton_self(recv) { lower_expr(s) } : lower_expr(s)
         when Prism::SingletonClassNode
           raise Unsupported.new(s, "a statement in a `class << obj` body") if cref.nil?
 
@@ -5243,10 +5262,17 @@ module Ze0
       literal_nil
     end
 
+    # The `$`-spelling one alias name reads. prism gives a match special --
+    # `$&`, `` $` ``, `$'`, `$+`, `$1` -- a node type of its own, and the
+    # alias table keys on the spelling, which is what `require "English"`
+    # needs. The new name is always a plain global: `alias $& $x` is a
+    # SyntaxError.
     def global_alias_name(node)
-      return node.name.to_s if node.is_a?(Prism::GlobalVariableReadNode)
-
-      raise Unsupported.new(node, "an alias name of that shape")
+      case node
+      when Prism::GlobalVariableReadNode then node.name.to_s
+      when Prism::BackReferenceReadNode, Prism::NumberedReferenceReadNode then node.slice
+      else raise Unsupported.new(node, "an alias name of that shape")
+      end
     end
 
     # A name `alias` or `undef` writes. An interpolated one is a value
