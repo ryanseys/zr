@@ -1,0 +1,117 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f7374617469635f6775617264732e72624f626a656374237265706f727446617374236b696e64577261707065722e706c61696e496e7465676572577261707065722e736861646f776564577261707065723a3a496e74656765723c636c6173733a466173743e3c6d6f64756c653a577261707065723e3c6d61696e3e544f504c4556454c5f42494e44494e474661737457726170706572",
+  "syms": [
+    "ruby",
+    "kind",
+    "shadowed",
+    "plain",
+    "inherited",
+    "new",
+    "p",
+    "report",
+    "yes",
+    "no"
+  ],
+  "callsites": [
+    "",
+    "Object",
+    "Object",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/static_guards.rb",
+    "offset": 1093
+  },
+  "defs": [
+    {
+      "name": "kind",
+      "tramp": "zeo_t_Fast_kind",
+      "params": [],
+      "file": "ze0/static_guards.rb",
+      "line": 15,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Fast",
+      "singleton": false
+    },
+    {
+      "name": "report",
+      "tramp": "zeo_t_Object_report",
+      "params": [],
+      "file": "ze0/static_guards.rb",
+      "line": 21,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "plain",
+      "tramp": "zeo_ct_Wrapper_plain",
+      "params": [],
+      "file": "ze0/static_guards.rb",
+      "line": 41,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Wrapper",
+      "singleton": true
+    },
+    {
+      "name": "shadowed",
+      "tramp": "zeo_ct_Wrapper_shadowed",
+      "params": [],
+      "file": "ze0/static_guards.rb",
+      "line": 42,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Wrapper",
+      "singleton": true
+    }
+  ],
+  "classes": [
+    {
+      "name": "Fast",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/static_guards.rb",
+      "line": 14,
+      "conceal": true,
+      "singleton_of": null
+    },
+    {
+      "name": "Wrapper",
+      "superclass": "Object",
+      "kind": "module",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/static_guards.rb",
+      "line": 38,
+      "conceal": true,
+      "singleton_of": null
+    }
+  ],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

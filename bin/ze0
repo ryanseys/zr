@@ -7,6 +7,7 @@
 #   ze0 test <filter>... | --all        does ze0 answer what ruby answered?
 #   ze0 scan <glob> [limit]             which programs ze0 compiles, and what it refuses
 #   ze0 check                           the repo's own checks
+#   ze0 stage1                          ze0 compiles itself, twice, to the same bytes
 #
 # ruby is the oracle: every corpus program carries ruby 4.0.6's recorded
 # answer under `__END__`, and ze0 is held to it or refuses by name.
@@ -38,6 +39,28 @@ when "test"
   exit(sweep.report(sweep.run(cases)) ? 0 : 1)
 when "scan"
   exec(RbConfig.ruby, File.join(ROOT, "scan.rb"), *ARGV.drop(1))
+when "stage1"
+  # ze0 under ruby compiles ze0.rb twice and the bytes must agree: the
+  # self-compile stays deterministic and refusal-free with no binary in the
+  # loop. The stage-2 fixed point needs a runtime to link against.
+  require "tmpdir"
+  prism = File.join(ROOT, "vendor/ext/prism/lib")
+  Dir.mktmpdir("ze0-stage1-") do |work|
+    outs = %w[a b].map do |n|
+      out = File.join(work, "#{n}.clif")
+      system({ "RUBYOPT" => nil, "RUBYLIB" => nil }, RbConfig.ruby, File.join(ROOT, "ze0.rb"), "-I", prism,
+             "ze0.rb", "-o", out, chdir: ROOT) or abort("ze0 stage1: the self-compile failed")
+      [File.binread(out), File.binread(File.join(work, "#{n}.zeodata"))]
+    end
+    a, b = outs
+    %w[clif zeodata].each_with_index do |ext, i|
+      next if a[i] == b[i]
+
+      at = a[i].bytes.zip(b[i].bytes).index { |x, y| x != y } || [a[i].bytesize, b[i].bytesize].min
+      abort("ze0 stage1: the two .#{ext} differ: #{a[i].bytesize} and #{b[i].bytesize} bytes, first at #{at}")
+    end
+    puts "stage 1 holds: #{a[0].bytesize} bytes of CLIF, and the sidecar, the same twice"
+  end
 when "check"
   files = Dir[File.join(ROOT, "test/checks/*_test.rb")].sort
   exec(RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", "-e", files.map { |f| "require #{f.inspect}" }.join(";"))

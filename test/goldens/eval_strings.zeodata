@@ -1,0 +1,95 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f6576616c5f737472696e67732e7262436f756e74657223696e697469616c697a656e3c636c6173733a436f756e7465723e3c6d6f64756c653a546f6f6c733e3c6d61696e3e636f544f504c4556454c5f42494e44494e4731202b20325b312c20325d2e6d6170207b207c6e7c206e202a2033207d436f756e7465726465662062756d70203d20406e202b3d2031546f6f6c736465662073656c662e7477696365287829203d2078202a20324f626a656374646566206f6e6c795f6d696e65203d203a6d696e6573656c6631202b53796e7461784572726f72",
+  "syms": [
+    "initialize",
+    "eval",
+    "p",
+    "inherited",
+    "class_eval",
+    "new",
+    "bump",
+    "module_eval",
+    "twice",
+    "instance_eval",
+    "only_mine",
+    "=="
+  ],
+  "callsites": [
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/eval_strings.rb",
+    "offset": 909
+  },
+  "defs": [
+    {
+      "name": "initialize",
+      "tramp": "zeo_t_Counter_initialize",
+      "params": [],
+      "file": "ze0/eval_strings.rb",
+      "line": 12,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "Counter",
+      "singleton": false
+    }
+  ],
+  "classes": [
+    {
+      "name": "Counter",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [
+        "n"
+      ],
+      "private_constants": [],
+      "file": "ze0/eval_strings.rb",
+      "line": 11,
+      "conceal": true,
+      "singleton_of": null
+    },
+    {
+      "name": "Tools",
+      "superclass": "Object",
+      "kind": "module",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/eval_strings.rb",
+      "line": 20,
+      "conceal": true,
+      "singleton_of": null
+    }
+  ],
+  "features": [],
+  "units": [],
+  "eval_install": true,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

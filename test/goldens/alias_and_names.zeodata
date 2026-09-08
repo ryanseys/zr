@@ -1,0 +1,227 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f616c6961735f616e645f6e616d65732e72624f626a6563742368656c6c6f68694323614e616d656423696e697469616c697a6578797a4e616d65642368696464656e3c636c6173733a433e3c636c6173733a4e616d65643e3c6d61696e3e544f504c4556454c5f42494e44494e4743246669727374247365636f6e644e616d6564",
+  "syms": [
+    "h",
+    "a",
+    "b",
+    "x",
+    "y=",
+    "z",
+    "z=",
+    "w",
+    "hidden",
+    "initialize",
+    "late",
+    "attr_reader",
+    "p",
+    "howdy",
+    "inherited",
+    "new",
+    "instance_methods",
+    "sort",
+    "private_instance_methods"
+  ],
+  "callsites": [
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "Object",
+    "",
+    "",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/alias_and_names.rb",
+    "offset": 1083
+  },
+  "defs": [
+    {
+      "name": "hello",
+      "tramp": "zeo_t_Object_hello",
+      "params": [],
+      "file": "ze0/alias_and_names.rb",
+      "line": 7,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "howdy",
+      "tramp": "zeo_t_Object_howdy",
+      "params": [],
+      "file": "ze0/alias_and_names.rb",
+      "line": 7,
+      "visibility": "private",
+      "aliased_from": "hello",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "a",
+      "tramp": "zeo_t_C_a",
+      "params": [],
+      "file": "ze0/alias_and_names.rb",
+      "line": 12,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "C",
+      "singleton": false
+    },
+    {
+      "name": "b",
+      "tramp": "zeo_t_C_b",
+      "params": [],
+      "file": "ze0/alias_and_names.rb",
+      "line": 12,
+      "visibility": "public",
+      "aliased_from": "a",
+      "class": "C",
+      "singleton": false
+    },
+    {
+      "name": "x",
+      "tramp": "zeo_t_Named_x",
+      "params": [],
+      "file": "ze0/alias_and_names.rb",
+      "line": 30,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Named",
+      "singleton": false
+    },
+    {
+      "name": "y=",
+      "tramp": "zeo_t_Named_y_u003D_",
+      "params": [
+        [
+          "req",
+          ""
+        ]
+      ],
+      "file": "ze0/alias_and_names.rb",
+      "line": 31,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Named",
+      "singleton": false
+    },
+    {
+      "name": "z",
+      "tramp": "zeo_t_Named_z",
+      "params": [],
+      "file": "ze0/alias_and_names.rb",
+      "line": 32,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Named",
+      "singleton": false
+    },
+    {
+      "name": "z=",
+      "tramp": "zeo_t_Named_z_u003D_",
+      "params": [
+        [
+          "req",
+          ""
+        ]
+      ],
+      "file": "ze0/alias_and_names.rb",
+      "line": 32,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Named",
+      "singleton": false
+    },
+    {
+      "name": "w",
+      "tramp": "zeo_t_Named_w",
+      "params": [],
+      "file": "ze0/alias_and_names.rb",
+      "line": 30,
+      "visibility": "public",
+      "aliased_from": "x",
+      "class": "Named",
+      "singleton": false
+    },
+    {
+      "name": "initialize",
+      "tramp": "zeo_t_Named_initialize",
+      "params": [],
+      "file": "ze0/alias_and_names.rb",
+      "line": 35,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "Named",
+      "singleton": false
+    },
+    {
+      "name": "hidden",
+      "tramp": "zeo_t_Named_hidden",
+      "params": [],
+      "file": "ze0/alias_and_names.rb",
+      "line": 41,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Named",
+      "singleton": false
+    }
+  ],
+  "classes": [
+    {
+      "name": "C",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/alias_and_names.rb",
+      "line": 11,
+      "conceal": true,
+      "singleton_of": null
+    },
+    {
+      "name": "Named",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [
+        "x",
+        "y",
+        "z",
+        "late"
+      ],
+      "private_constants": [],
+      "file": "ze0/alias_and_names.rb",
+      "line": 29,
+      "conceal": true,
+      "singleton_of": null
+    }
+  ],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

@@ -1,0 +1,325 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f646566696e6974696f6e5f686f6f6b732e7262576174636865642e6d6574686f645f616464656461646465642057617463686564236f6e65576174636865642374776f576174636865642374687265654f7264657265642e6d6574686f645f61646465642073656573204f72646572656423614f72646572656423624f726465726564236353696e676c792e73696e676c65746f6e5f6d6574686f645f616464656473696e676c65746f6e2053696e676c792e6d61646553696e676c7923706c61696e4d6978696e2e696e636c75646564696e636c7564656420696e204d6978696e2e657874656e646564657874656e64656420506172656e742e696e68657269746564696e68657269746564206279203c636c6173733a576174636865643e3c636c6173733a4f7264657265643e3c636c6173733a53696e676c793e3c6d6f64756c653a4d6978696e3e3c636c6173733a557365723e4d6978696e557365723a3a4d6978696e3c636c6173733a506172656e743e3c636c6173733a4368696c643e3c6d61696e3e544f504c4556454c5f42494e44494e47576174636865644f72646572656453696e676c79557365724f626a656374506172656e744368696c64",
+  "syms": [
+    "instance_methods",
+    "sort",
+    "inspect",
+    "made",
+    "plain",
+    "class",
+    "one",
+    "two",
+    "three",
+    "method_added",
+    "a",
+    "b",
+    "c",
+    "singleton_method_added",
+    "included",
+    "extended",
+    "include",
+    "inherited",
+    "new",
+    "extend",
+    "p"
+  ],
+  "callsites": [
+    "",
+    "Class",
+    "Class",
+    "Module",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "Object",
+    "",
+    "",
+    "Object",
+    "Object",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/definition_hooks.rb",
+    "offset": 1344
+  },
+  "defs": [
+    {
+      "name": "method_added",
+      "tramp": "zeo_ct_Watched_method_added",
+      "params": [
+        [
+          "req",
+          "name"
+        ]
+      ],
+      "file": "ze0/definition_hooks.rb",
+      "line": 10,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Watched",
+      "singleton": true
+    },
+    {
+      "name": "one",
+      "tramp": "zeo_t_Watched_one",
+      "params": [],
+      "file": "ze0/definition_hooks.rb",
+      "line": 12,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Watched",
+      "singleton": false
+    },
+    {
+      "name": "two",
+      "tramp": "zeo_t_Watched_two",
+      "params": [],
+      "file": "ze0/definition_hooks.rb",
+      "line": 13,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Watched",
+      "singleton": false
+    },
+    {
+      "name": "three",
+      "tramp": "zeo_t_Watched_three",
+      "params": [],
+      "file": "ze0/definition_hooks.rb",
+      "line": 18,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Watched",
+      "singleton": false
+    },
+    {
+      "name": "method_added",
+      "tramp": "zeo_ct_Ordered_method_added",
+      "params": [
+        [
+          "req",
+          "name"
+        ]
+      ],
+      "file": "ze0/definition_hooks.rb",
+      "line": 24,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Ordered",
+      "singleton": true
+    },
+    {
+      "name": "a",
+      "tramp": "zeo_t_Ordered_a",
+      "params": [],
+      "file": "ze0/definition_hooks.rb",
+      "line": 28,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Ordered",
+      "singleton": false
+    },
+    {
+      "name": "b",
+      "tramp": "zeo_t_Ordered_b",
+      "params": [],
+      "file": "ze0/definition_hooks.rb",
+      "line": 29,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Ordered",
+      "singleton": false
+    },
+    {
+      "name": "c",
+      "tramp": "zeo_t_Ordered_c",
+      "params": [],
+      "file": "ze0/definition_hooks.rb",
+      "line": 30,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Ordered",
+      "singleton": false
+    },
+    {
+      "name": "singleton_method_added",
+      "tramp": "zeo_ct_Singly_singleton_method_added",
+      "params": [
+        [
+          "req",
+          "name"
+        ]
+      ],
+      "file": "ze0/definition_hooks.rb",
+      "line": 35,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Singly",
+      "singleton": true
+    },
+    {
+      "name": "made",
+      "tramp": "zeo_ct_Singly_made",
+      "params": [],
+      "file": "ze0/definition_hooks.rb",
+      "line": 37,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Singly",
+      "singleton": true
+    },
+    {
+      "name": "plain",
+      "tramp": "zeo_t_Singly_plain",
+      "params": [],
+      "file": "ze0/definition_hooks.rb",
+      "line": 38,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Singly",
+      "singleton": false
+    },
+    {
+      "name": "included",
+      "tramp": "zeo_ct_Mixin_included",
+      "params": [
+        [
+          "req",
+          "base"
+        ]
+      ],
+      "file": "ze0/definition_hooks.rb",
+      "line": 43,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Mixin",
+      "singleton": true
+    },
+    {
+      "name": "extended",
+      "tramp": "zeo_ct_Mixin_extended",
+      "params": [
+        [
+          "req",
+          "base"
+        ]
+      ],
+      "file": "ze0/definition_hooks.rb",
+      "line": 44,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Mixin",
+      "singleton": true
+    },
+    {
+      "name": "inherited",
+      "tramp": "zeo_ct_Parent_inherited",
+      "params": [
+        [
+          "req",
+          "child"
+        ]
+      ],
+      "file": "ze0/definition_hooks.rb",
+      "line": 54,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Parent",
+      "singleton": true
+    }
+  ],
+  "classes": [
+    {
+      "name": "Watched",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/definition_hooks.rb",
+      "line": 9,
+      "conceal": true,
+      "singleton_of": null
+    },
+    {
+      "name": "Ordered",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/definition_hooks.rb",
+      "line": 23,
+      "conceal": true,
+      "singleton_of": null
+    },
+    {
+      "name": "Singly",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/definition_hooks.rb",
+      "line": 34,
+      "conceal": true,
+      "singleton_of": null
+    },
+    {
+      "name": "Mixin",
+      "superclass": "Object",
+      "kind": "module",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/definition_hooks.rb",
+      "line": 42,
+      "conceal": true,
+      "singleton_of": null
+    },
+    {
+      "name": "User",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/definition_hooks.rb",
+      "line": 47,
+      "conceal": true,
+      "singleton_of": null
+    },
+    {
+      "name": "Parent",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/definition_hooks.rb",
+      "line": 53,
+      "conceal": true,
+      "singleton_of": null
+    },
+    {
+      "name": "Child",
+      "superclass": "Parent",
+      "kind": "class",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/definition_hooks.rb",
+      "line": 57,
+      "conceal": true,
+      "singleton_of": null
+    }
+  ],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

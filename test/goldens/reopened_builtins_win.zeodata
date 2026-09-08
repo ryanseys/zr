@@ -1,0 +1,107 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f72656f70656e65645f6275696c74696e735f77696e2e72624c6f6767657223707574736c6f676765643a204c6f676765722372756e68693c636c6173733a4c6f676765723e3c6d61696e3e544f504c4556454c5f42494e44494e47496e7465676572436c617373547970654572726f72496e7465676572206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f6620496e7465676572207761732068657265626c6f636b20696e203c6d61696e3e626c6f636b4f626a656374232b696e742d706c757328296f74686572436f6d70617261626c654d6f64756c65436f6d70617261626c65206973206e6f742061206d6f64756c650a3a3a2070726576696f757320646566696e6974696f6e206f6620436f6d70617261626c652077617320686572654f626a656374233c3d3e4c6f676765724b65726e656c4b65726e656c206973206e6f742061206d6f64756c650a3a3a2070726576696f757320646566696e6974696f6e206f66204b65726e656c2077617320686572654f626a6563742370757473247374646f75744b3a2c0a6162",
+  "syms": [
+    "puts",
+    "run",
+    "is_a?",
+    "raise",
+    "+",
+    "class_eval",
+    "p",
+    "-",
+    "<",
+    "instance_of?",
+    "spaceship",
+    "<=>",
+    "==",
+    "inherited",
+    "new",
+    "join",
+    "write"
+  ],
+  "callsites": [
+    "",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/reopened_builtins_win.rb",
+    "offset": 718
+  },
+  "defs": [
+    {
+      "name": "puts",
+      "tramp": "zeo_t_Logger_puts",
+      "params": [
+        [
+          "req",
+          "msg"
+        ]
+      ],
+      "file": "ze0/reopened_builtins_win.rb",
+      "line": 25,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Logger",
+      "singleton": false
+    },
+    {
+      "name": "run",
+      "tramp": "zeo_t_Logger_run",
+      "params": [],
+      "file": "ze0/reopened_builtins_win.rb",
+      "line": 27,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Logger",
+      "singleton": false
+    }
+  ],
+  "classes": [
+    {
+      "name": "Logger",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/reopened_builtins_win.rb",
+      "line": 24,
+      "conceal": true,
+      "singleton_of": null
+    }
+  ],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

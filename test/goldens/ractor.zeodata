@@ -1,0 +1,77 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f726163746f722e72624f626a65637423737061776e737061776e3c6d61696e3e6f75746572544f504c4556454c5f42494e44494e47626c6f636b626c6f636b20696e203c6d61696e3e6e7a65302f726163746f722e72623a36776f726b65727a65302f726163746f722e72623a39526163746f727a65302f726163746f722e72623a313378417267756d656e744572726f72",
+  "syms": [
+    "+",
+    "value",
+    "p",
+    "name",
+    "receive",
+    "*",
+    "send",
+    "spawn",
+    "proc",
+    "message"
+  ],
+  "callsites": [
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "Object"
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/ractor.rb",
+    "offset": 797
+  },
+  "defs": [
+    {
+      "name": "spawn",
+      "tramp": "zeo_t_Object_spawn",
+      "params": [
+        [
+          "block",
+          "blk"
+        ]
+      ],
+      "file": "ze0/ractor.rb",
+      "line": 25,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    }
+  ],
+  "classes": [],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

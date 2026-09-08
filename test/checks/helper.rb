@@ -2,6 +2,7 @@
 
 require "minitest/autorun"
 require "tmpdir"
+require "fileutils"
 require_relative "../../lib/ze0"
 
 ROOT = File.expand_path("../..", __dir__)

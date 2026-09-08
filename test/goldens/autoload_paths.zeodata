@@ -1,0 +1,137 @@
+{
+  "abi_version": 1,
+  "rodata": "2f55736572732f7279616e736579732f6465762f7a65302f746573742f7a65302f6175746f6c6f61645f70617468732f7461726765742e726250617468733a3a576964676574236b696e644b494e4450617468733a3a5769646765743a3a4b494e442f55736572732f7279616e736579732f6465762f7a65302f746573742f7a65302f6175746f6c6f61645f70617468732f626173652e72625061746842617365236c696d69744c494d495450617468426173653a3a4c494d49547a65302f6175746f6c6f61645f70617468732e72623c6d6f64756c653a50617468733e2f6175746f6c6f61645f70617468732f7461726765745769646765743c636c6173733a506174685375623e3c636c6173733a5769646765743e3c636c6173733a50617468426173653e3c6d61696e3e544f504c4556454c5f42494e44494e47506174687346696c656175746f6c6f61645f70617468732f626173656265666f726520746865207265616450617468733a3a5769646765745061746842617365506174685375627461726765742072616e626173652072616e",
+  "syms": [
+    "Widget",
+    "__dir__",
+    "autoload",
+    "inherited",
+    "widget",
+    "kind",
+    "limit",
+    "PathBase",
+    "expand_path",
+    "autoload?",
+    "!=",
+    "p",
+    "new",
+    "superclass"
+  ],
+  "callsites": [
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/autoload_paths.rb",
+    "offset": 772
+  },
+  "defs": [
+    {
+      "name": "kind",
+      "tramp": "zeo_t_Paths__Widget_kind",
+      "params": [],
+      "file": "test/ze0/autoload_paths/target.rb",
+      "line": 6,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Paths::Widget",
+      "singleton": false
+    },
+    {
+      "name": "limit",
+      "tramp": "zeo_t_PathBase_limit",
+      "params": [],
+      "file": "test/ze0/autoload_paths/base.rb",
+      "line": 5,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "PathBase",
+      "singleton": false
+    }
+  ],
+  "classes": [
+    {
+      "name": "Paths",
+      "superclass": "Object",
+      "kind": "module",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/autoload_paths.rb",
+      "line": 12,
+      "conceal": true,
+      "singleton_of": null
+    },
+    {
+      "name": "PathSub",
+      "superclass": "PathBase",
+      "kind": "class",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/autoload_paths.rb",
+      "line": 23,
+      "conceal": true,
+      "singleton_of": null
+    },
+    {
+      "name": "Paths::Widget",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [],
+      "private_constants": [],
+      "file": "test/ze0/autoload_paths/target.rb",
+      "line": 4,
+      "conceal": true,
+      "singleton_of": null
+    },
+    {
+      "name": "PathBase",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [],
+      "private_constants": [],
+      "file": "test/ze0/autoload_paths/base.rb",
+      "line": 3,
+      "conceal": true,
+      "singleton_of": null
+    }
+  ],
+  "features": [],
+  "units": [
+    {
+      "feature": "test/ze0/autoload_paths/target",
+      "symbol": "zeo_unit_0"
+    },
+    {
+      "feature": "test/ze0/autoload_paths/base",
+      "symbol": "zeo_unit_1"
+    }
+  ],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f67656e657269635f73656e64732e72623c6d61696e3e544f504c4556454c5f42494e44494e47",
+  "syms": [
+    "to_s",
+    "floor",
+    "ceil",
+    "abs",
+    "gcd",
+    "between?",
+    "zero?",
+    "even?",
+    "odd?",
+    "round",
+    "p",
+    "divmod"
+  ],
+  "callsites": [
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/generic_sends.rb",
+    "offset": 200
+  },
+  "defs": [],
+  "classes": [],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

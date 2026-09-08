@@ -1,0 +1,159 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f62696e64696e67732e72624f626a656374236d6574686f645f73636f706574776f7879624f626a656374237772697474656e5f6261636b6e4f626a656374236d616b65626c6f636b20696e204f626a656374236d616b6568696464656e486f6c64657223696e697469616c697a6576486f6c646572237065656b3c636c6173733a486f6c6465723e4c494d49543c6d61696e3e6f7574657270727a7a6862544f504c4556454c5f42494e44494e47626c6f636b626c6f636b20696e203c6d61696e3e697a7a202b20317a7a202b20327a7a202b2033486f6c6465724076",
+  "syms": [
+    "local_variables",
+    "x",
+    "local_variable_get",
+    "receiver",
+    "class",
+    "n",
+    "local_variable_set",
+    "in_make",
+    "proc",
+    "peek",
+    "initialize",
+    "method_scope",
+    "p",
+    "outer",
+    "pr",
+    "zz",
+    "hb",
+    "i",
+    "inner",
+    "each",
+    "written_back",
+    "make",
+    "binding",
+    "hidden",
+    "eval",
+    "source_location",
+    "inherited",
+    "new"
+  ],
+  "callsites": [
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "",
+    "",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/bindings.rb",
+    "offset": 1559
+  },
+  "defs": [
+    {
+      "name": "method_scope",
+      "tramp": "zeo_t_Object_method_scope",
+      "params": [],
+      "file": "ze0/bindings.rb",
+      "line": 8,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "written_back",
+      "tramp": "zeo_t_Object_written_back",
+      "params": [],
+      "file": "ze0/bindings.rb",
+      "line": 23,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "make",
+      "tramp": "zeo_t_Object_make",
+      "params": [],
+      "file": "ze0/bindings.rb",
+      "line": 32,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "initialize",
+      "tramp": "zeo_t_Holder_initialize",
+      "params": [],
+      "file": "ze0/bindings.rb",
+      "line": 51,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "Holder",
+      "singleton": false
+    },
+    {
+      "name": "peek",
+      "tramp": "zeo_t_Holder_peek",
+      "params": [],
+      "file": "ze0/bindings.rb",
+      "line": 52,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Holder",
+      "singleton": false
+    }
+  ],
+  "classes": [
+    {
+      "name": "Holder",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [
+        "v"
+      ],
+      "private_constants": [],
+      "file": "ze0/bindings.rb",
+      "line": 49,
+      "conceal": true,
+      "singleton_of": null
+    }
+  ],
+  "features": [],
+  "units": [],
+  "eval_install": true,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

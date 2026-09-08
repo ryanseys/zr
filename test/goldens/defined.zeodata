@@ -1,0 +1,131 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f646566696e65642e72624f626a65637423776974685f626c6f636b7969656c64486f6c64657223696e697469616c697a65736574486f6c646572237265706f7274696e7374616e63652d7661726961626c65756e7365746d6574686f64486f6c6465722368656c7065723c636c6173733a486f6c6465723e3c6d61696e3e544f504c4556454c5f42494e44494e476c6f63616c2d7661726961626c6573656c666e696c7472756566616c736565787072657373696f6e61737369676e6d656e74537472696e67636f6e7374616e744d697373696e67436f6d70617261626c65537472696e673a3a436f6d70617261626c655468696e674d697373696e673a3a5468696e67247374646f7574676c6f62616c2d7661726961626c65246e657665725f7365745f616e79776865726561486f6c646572626c6f636b20696e203c6d61696e3e",
+  "syms": [
+    "helper",
+    "report",
+    "initialize",
+    "p",
+    "nope",
+    "puts",
+    "upcase",
+    "nothing",
+    "here",
+    "+",
+    "between?",
+    "inherited",
+    "new",
+    "with_block",
+    "push"
+  ],
+  "callsites": [
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "Object",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/defined.rb",
+    "offset": 1363
+  },
+  "defs": [
+    {
+      "name": "initialize",
+      "tramp": "zeo_t_Holder_initialize",
+      "params": [],
+      "file": "ze0/defined.rb",
+      "line": 37,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "Holder",
+      "singleton": false
+    },
+    {
+      "name": "report",
+      "tramp": "zeo_t_Holder_report",
+      "params": [],
+      "file": "ze0/defined.rb",
+      "line": 39,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Holder",
+      "singleton": false
+    },
+    {
+      "name": "helper",
+      "tramp": "zeo_t_Holder_helper",
+      "params": [],
+      "file": "ze0/defined.rb",
+      "line": 45,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "Holder",
+      "singleton": false
+    },
+    {
+      "name": "with_block",
+      "tramp": "zeo_t_Object_with_block",
+      "params": [],
+      "file": "ze0/defined.rb",
+      "line": 50,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    }
+  ],
+  "classes": [
+    {
+      "name": "Holder",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [
+        "set",
+        "unset"
+      ],
+      "private_constants": [],
+      "file": "ze0/defined.rb",
+      "line": 36,
+      "conceal": true,
+      "singleton_of": null
+    }
+  ],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

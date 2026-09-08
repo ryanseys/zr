@@ -1,0 +1,49 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f6669622e72624f626a656374236669623c6d61696e3e544f504c4556454c5f42494e44494e47",
+  "syms": [
+    "<",
+    "-",
+    "+"
+  ],
+  "callsites": [
+    "Object",
+    "Object",
+    "Object",
+    "Object"
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/fib.rb",
+    "offset": 94
+  },
+  "defs": [
+    {
+      "name": "fib",
+      "tramp": "zeo_t_Object_fib",
+      "params": [
+        [
+          "req",
+          "n"
+        ]
+      ],
+      "file": "ze0/fib.rb",
+      "line": 1,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    }
+  ],
+  "classes": [],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

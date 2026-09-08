@@ -1,0 +1,172 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f6c6f6f705f636f6e74726f6c2e72624f626a6563742366697273745f7371756172655f6f7665724f626a656374236f6464735f62656c6f77547769636523616e737765723c636c6173733a54776963653e626c6f636b5f783c6d61696e3e696e544f504c4556454c5f42494e44494e47626c6f636b20696e203c6d61696e3e7873746f705374616e646172644572726f7261626364626f6f6d5477696365",
+  "syms": [
+    "+",
+    "*",
+    ">",
+    "<",
+    "%",
+    "==",
+    "<<",
+    "answer",
+    "first_square_over",
+    "p",
+    "odds_below",
+    "map",
+    "early",
+    "modifier",
+    "each",
+    "raise",
+    "rescued",
+    "else_ran",
+    "inherited",
+    "new",
+    "instance_method",
+    "arity"
+  ],
+  "callsites": [
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/loop_control.rb",
+    "offset": 1840
+  },
+  "defs": [
+    {
+      "name": "first_square_over",
+      "tramp": "zeo_t_Object_first_square_over",
+      "params": [
+        [
+          "req",
+          "limit"
+        ]
+      ],
+      "file": "ze0/loop_control.rb",
+      "line": 4,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "odds_below",
+      "tramp": "zeo_t_Object_odds_below",
+      "params": [
+        [
+          "req",
+          "n"
+        ]
+      ],
+      "file": "ze0/loop_control.rb",
+      "line": 14,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "answer",
+      "tramp": "zeo_t_Twice_answer",
+      "params": [],
+      "file": "ze0/loop_control.rb",
+      "line": 92,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Twice",
+      "singleton": false
+    }
+  ],
+  "classes": [
+    {
+      "name": "Twice",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/loop_control.rb",
+      "line": 91,
+      "conceal": true,
+      "singleton_of": null
+    }
+  ],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

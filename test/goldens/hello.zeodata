@@ -1,0 +1,23 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f68656c6c6f2e72623c6d61696e3e544f504c4556454c5f42494e44494e4748656c6c6f2c20776f726c6421",
+  "syms": [],
+  "callsites": [],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/hello.rb",
+    "offset": 29
+  },
+  "defs": [],
+  "classes": [],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

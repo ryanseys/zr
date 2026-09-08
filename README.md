@@ -19,6 +19,7 @@ $ bin/ze0 test ze0::                       # the ze0 corpus against ruby's recor
 $ bin/ze0 test lang/blocks/ --show 40      # any corpus directory
 $ bin/ze0 scan 'test/lang/**/*.rb'         # what compiles, what is refused
 $ bin/ze0 check                            # the repo's own checks
+$ bin/ze0 stage1                           # ze0 compiles itself twice to the same bytes
 ```
 
 ## Layout
@@ -33,6 +34,7 @@ test/lang, core, ...     the corpus: one program per file, ruby's answer under _
 test/ze0/                the programs ze0's own subset is held to
 test/refused/            one fixture per named refusal
 test/snapshots/          ze0's text for two programs, pinned
+test/goldens/            ze0's text and sidecar for every test/ze0 program, pinned
 test/checks/             minitest checks (`bin/ze0 check`)
 ```
 

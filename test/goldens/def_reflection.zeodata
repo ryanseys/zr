@@ -1,0 +1,57 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f6465665f7265666c656374696f6e2e72624f626a6563742374776963653c6d61696e3e544f504c4556454c5f42494e44494e47",
+  "syms": [
+    "*",
+    "twice",
+    "respond_to?",
+    "method",
+    "arity",
+    "p",
+    "parameters"
+  ],
+  "callsites": [
+    "Object",
+    "",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/def_reflection.rb",
+    "offset": 129
+  },
+  "defs": [
+    {
+      "name": "twice",
+      "tramp": "zeo_t_Object_twice",
+      "params": [
+        [
+          "req",
+          "n"
+        ]
+      ],
+      "file": "ze0/def_reflection.rb",
+      "line": 1,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    }
+  ],
+  "classes": [],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

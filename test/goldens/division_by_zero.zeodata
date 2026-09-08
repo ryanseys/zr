@@ -1,0 +1,28 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f6469766973696f6e5f62795f7a65726f2e72623c6d61696e3e544f504c4556454c5f42494e44494e47",
+  "syms": [
+    "/"
+  ],
+  "callsites": [
+    "Object",
+    "Object"
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/division_by_zero.rb",
+    "offset": 30
+  },
+  "defs": [],
+  "classes": [],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

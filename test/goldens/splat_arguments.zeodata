@@ -1,0 +1,142 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f73706c61745f617267756d656e74732e72624f626a656374237265706f72747265706f72744f626a65637423666f7277617264666f72776172644f626a65637423706f736974696f6e616c3c6d61696e3e544f504c4556454c5f42494e44494e47626c6f636b20696e203c6d61696e3e25732d25736162",
+  "syms": [
+    "nil?",
+    "call",
+    "report",
+    "p",
+    "x",
+    "y",
+    "blocked",
+    "push",
+    "%",
+    "forward",
+    "method",
+    "parameters",
+    "arity",
+    "z",
+    "positional"
+  ],
+  "callsites": [
+    "Object",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/splat_arguments.rb",
+    "offset": 959
+  },
+  "defs": [
+    {
+      "name": "report",
+      "tramp": "zeo_t_Object_report",
+      "params": [
+        [
+          "rest",
+          "a"
+        ],
+        [
+          "keyrest",
+          "k"
+        ],
+        [
+          "block",
+          "b"
+        ]
+      ],
+      "file": "ze0/splat_arguments.rb",
+      "line": 8,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "forward",
+      "tramp": "zeo_t_Object_forward",
+      "params": [
+        [
+          "rest",
+          "*"
+        ],
+        [
+          "keyrest",
+          "**"
+        ],
+        [
+          "block",
+          "&"
+        ]
+      ],
+      "file": "ze0/splat_arguments.rb",
+      "line": 22,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "positional",
+      "tramp": "zeo_t_Object_positional",
+      "params": [
+        [
+          "req",
+          "a"
+        ]
+      ],
+      "file": "ze0/splat_arguments.rb",
+      "line": 31,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    }
+  ],
+  "classes": [],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

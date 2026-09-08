@@ -1,0 +1,427 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f706172616d65746572732e72624f626a656374236f70746f70744f626a6563742372657374726573744f626a65637423706f7374706f73744f626a656374236b7761626b774f626a656374236b77726573746b77726573744f626a65637423626c6f636b70626c6f636b704f626a6563742365766572797468696e676b6a65766572797468696e67626f78426f7823696e697469616c697a6576616c75656c6162656c696e697469616c697a65426f7823746f5f733d426f78237769746877697468426f7823656163685f70616972626c6f636b626c6f636b20696e20426f7823656163685f70616972763c636c6173733a426f783e3c6d61696e3e74616c6c79544f504c4556454c5f42494e44494e47426f78626c6f636b20696e203c6d61696e3e6e78797274776f3a6c5f315f326974",
+  "syms": [
+    "+",
+    "nil?",
+    "none",
+    "call",
+    "each",
+    "to_s",
+    "with",
+    "each_pair",
+    "initialize",
+    "inherited",
+    "opt",
+    "p",
+    "rest",
+    "post",
+    "a",
+    "kw",
+    "b",
+    "kwrest",
+    "x",
+    "y",
+    "blockp",
+    "*",
+    "k",
+    "everything",
+    "j",
+    "extra",
+    "method",
+    "parameters",
+    "arity",
+    "map",
+    "[]",
+    "lambda?",
+    "upcase",
+    "proc",
+    "lambda",
+    "new",
+    "label"
+  ],
+  "callsites": [
+    "Object",
+    "Object",
+    "Object",
+    "Box",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/parameters.rb",
+    "offset": 2024
+  },
+  "defs": [
+    {
+      "name": "opt",
+      "tramp": "zeo_t_Object_opt",
+      "params": [
+        [
+          "req",
+          "a"
+        ],
+        [
+          "opt",
+          "b"
+        ],
+        [
+          "opt",
+          "c"
+        ]
+      ],
+      "file": "ze0/parameters.rb",
+      "line": 1,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "rest",
+      "tramp": "zeo_t_Object_rest",
+      "params": [
+        [
+          "req",
+          "a"
+        ],
+        [
+          "rest",
+          "r"
+        ]
+      ],
+      "file": "ze0/parameters.rb",
+      "line": 5,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "post",
+      "tramp": "zeo_t_Object_post",
+      "params": [
+        [
+          "req",
+          "a"
+        ],
+        [
+          "rest",
+          "m"
+        ],
+        [
+          "req",
+          "z"
+        ]
+      ],
+      "file": "ze0/parameters.rb",
+      "line": 9,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "kw",
+      "tramp": "zeo_t_Object_kw",
+      "params": [
+        [
+          "keyreq",
+          "a"
+        ],
+        [
+          "key",
+          "b"
+        ]
+      ],
+      "file": "ze0/parameters.rb",
+      "line": 13,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "kwrest",
+      "tramp": "zeo_t_Object_kwrest",
+      "params": [
+        [
+          "req",
+          "a"
+        ],
+        [
+          "keyrest",
+          "o"
+        ]
+      ],
+      "file": "ze0/parameters.rb",
+      "line": 17,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "blockp",
+      "tramp": "zeo_t_Object_blockp",
+      "params": [
+        [
+          "req",
+          "a"
+        ],
+        [
+          "block",
+          "b"
+        ]
+      ],
+      "file": "ze0/parameters.rb",
+      "line": 21,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "everything",
+      "tramp": "zeo_t_Object_everything",
+      "params": [
+        [
+          "req",
+          "a"
+        ],
+        [
+          "opt",
+          "b"
+        ],
+        [
+          "rest",
+          "m"
+        ],
+        [
+          "req",
+          "z"
+        ],
+        [
+          "keyreq",
+          "k"
+        ],
+        [
+          "key",
+          "j"
+        ],
+        [
+          "keyrest",
+          "o"
+        ],
+        [
+          "block",
+          "blk"
+        ]
+      ],
+      "file": "ze0/parameters.rb",
+      "line": 25,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "initialize",
+      "tramp": "zeo_t_Box_initialize",
+      "params": [
+        [
+          "req",
+          "value"
+        ],
+        [
+          "key",
+          "label"
+        ]
+      ],
+      "file": "ze0/parameters.rb",
+      "line": 30,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "Box",
+      "singleton": false
+    },
+    {
+      "name": "to_s",
+      "tramp": "zeo_t_Box_to_s",
+      "params": [],
+      "file": "ze0/parameters.rb",
+      "line": 35,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Box",
+      "singleton": false
+    },
+    {
+      "name": "with",
+      "tramp": "zeo_t_Box_with",
+      "params": [
+        [
+          "rest",
+          "extra"
+        ],
+        [
+          "keyrest",
+          "opts"
+        ]
+      ],
+      "file": "ze0/parameters.rb",
+      "line": 39,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Box",
+      "singleton": false
+    },
+    {
+      "name": "each_pair",
+      "tramp": "zeo_t_Box_each_pair",
+      "params": [],
+      "file": "ze0/parameters.rb",
+      "line": 43,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Box",
+      "singleton": false
+    }
+  ],
+  "classes": [
+    {
+      "name": "Box",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [
+        "value",
+        "label"
+      ],
+      "private_constants": [],
+      "file": "ze0/parameters.rb",
+      "line": 29,
+      "conceal": true,
+      "singleton_of": null
+    }
+  ],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

@@ -1,0 +1,146 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f666f725f616e645f7265646f2e72624f626a6563742366697273745f6f7665724f626a65637423677561726465643c6d61696e3e6e73746570736c6f67617474656d707473736372617463687365656e6b657074726f756e6473544f504c4556454c5f42494e44494e4720417267756d656e744572726f7273746f704e6f4d6574686f644572726f72626c6f636b626c6f636b20696e203c6d61696e3e765f",
+  "syms": [
+    ">",
+    "none",
+    "==",
+    "<<",
+    "e",
+    "print",
+    "p",
+    "one",
+    "two",
+    "three",
+    "*",
+    "x",
+    "y",
+    "raise",
+    "message",
+    "<",
+    "+",
+    "each",
+    "outer"
+  ],
+  "callsites": [
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "Object",
+    "",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    "",
+    "",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    "Object",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/for_and_redo.rb",
+    "offset": 2778
+  },
+  "defs": [
+    {
+      "name": "first_over",
+      "tramp": "zeo_t_Object_first_over",
+      "params": [
+        [
+          "req",
+          "list"
+        ],
+        [
+          "req",
+          "limit"
+        ]
+      ],
+      "file": "ze0/for_and_redo.rb",
+      "line": 77,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "guarded",
+      "tramp": "zeo_t_Object_guarded",
+      "params": [
+        [
+          "req",
+          "list"
+        ]
+      ],
+      "file": "ze0/for_and_redo.rb",
+      "line": 87,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    }
+  ],
+  "classes": [],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

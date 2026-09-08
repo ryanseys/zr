@@ -13,3 +13,4 @@ jobs:
           ruby-version: .ruby-version
       - run: bin/ze0 check
       - run: bin/ze0 test ze0::
+      - run: bin/ze0 stage1

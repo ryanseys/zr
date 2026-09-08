@@ -1,0 +1,224 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f7265736375655f616e645f7772697465732e72624f626a65637423666c616b79417267756d656e744572726f72486f6c6465722372756e68656c645374616e646172644572726f72486f6c6465723a3a5374616e646172644572726f7265426f7823773d76426f78235b5d3d3c636c6173733a486f6c6465723e3c636c6173733a426f783e3c6d61696e3e544f504c4556454c5f42494e44494e47626f6f6d547970654572726f72626164706c61696e486f6c646572676c6f62616c24636175676874426f78",
+  "syms": [
+    "+",
+    "<",
+    "raise",
+    "message",
+    "ignored",
+    "e",
+    "run",
+    "v",
+    "v=",
+    "[]=",
+    "w=",
+    "ok",
+    "p",
+    "flaky",
+    "caught",
+    "class",
+    "never",
+    "standard",
+    "inherited",
+    "new"
+  ],
+  "callsites": [
+    "Object",
+    "Object",
+    "",
+    "",
+    "Holder",
+    "Object",
+    "Object",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Object",
+    "Object",
+    "",
+    "",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/rescue_and_writes.rb",
+    "offset": 1376
+  },
+  "defs": [
+    {
+      "name": "flaky",
+      "tramp": "zeo_t_Object_flaky",
+      "params": [],
+      "file": "ze0/rescue_and_writes.rb",
+      "line": 15,
+      "visibility": "private",
+      "aliased_from": "",
+      "class": "",
+      "singleton": false
+    },
+    {
+      "name": "e",
+      "tramp": "zeo_t_Holder_e",
+      "params": [],
+      "file": "ze0/rescue_and_writes.rb",
+      "line": 47,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Holder",
+      "singleton": false
+    },
+    {
+      "name": "run",
+      "tramp": "zeo_t_Holder_run",
+      "params": [],
+      "file": "ze0/rescue_and_writes.rb",
+      "line": 49,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Holder",
+      "singleton": false
+    },
+    {
+      "name": "v",
+      "tramp": "zeo_t_Box_v",
+      "params": [],
+      "file": "ze0/rescue_and_writes.rb",
+      "line": 67,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Box",
+      "singleton": false
+    },
+    {
+      "name": "v=",
+      "tramp": "zeo_t_Box_v_u003D_",
+      "params": [
+        [
+          "req",
+          ""
+        ]
+      ],
+      "file": "ze0/rescue_and_writes.rb",
+      "line": 67,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Box",
+      "singleton": false
+    },
+    {
+      "name": "w=",
+      "tramp": "zeo_t_Box_w_u003D_",
+      "params": [
+        [
+          "req",
+          "x"
+        ]
+      ],
+      "file": "ze0/rescue_and_writes.rb",
+      "line": 69,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Box",
+      "singleton": false
+    },
+    {
+      "name": "[]=",
+      "tramp": "zeo_t_Box__u005B__u005D__u003D_",
+      "params": [
+        [
+          "req",
+          "_k"
+        ],
+        [
+          "req",
+          "x"
+        ]
+      ],
+      "file": "ze0/rescue_and_writes.rb",
+      "line": 74,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Box",
+      "singleton": false
+    }
+  ],
+  "classes": [
+    {
+      "name": "Holder",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [
+        "e"
+      ],
+      "private_constants": [],
+      "file": "ze0/rescue_and_writes.rb",
+      "line": 46,
+      "conceal": true,
+      "singleton_of": null
+    },
+    {
+      "name": "Box",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [
+        "v"
+      ],
+      "private_constants": [],
+      "file": "ze0/rescue_and_writes.rb",
+      "line": 66,
+      "conceal": true,
+      "singleton_of": null
+    }
+  ],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}

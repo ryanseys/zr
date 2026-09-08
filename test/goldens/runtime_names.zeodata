@@ -1,0 +1,158 @@
+{
+  "abi_version": 1,
+  "rodata": "7a65302f72756e74696d655f6e616d65732e72624e616d656423626173655265746972656423676f6e655265746972656423676f6e65323c636c6173733a4669656c64733e626c6f636b626c6f636b20696e203c636c6173733a4669656c64733e6e4669656c647323696e697469616c697a6561624669656c6473236f726967434f50594669656c64733a3a434f50593c636c6173733a4e616d65643e626173653c636c6173733a526574697265643e676f6e653c6d61696e3e544f504c4556454c5f42494e44494e474669656c64734e616d6564526574697265646563686f206f6e6574776f6563686f20243f",
+  "syms": [
+    "base",
+    "gone",
+    "gone2",
+    "attr_accessor",
+    "a",
+    "b",
+    "each",
+    "initialize",
+    "orig",
+    "copy",
+    "alias_method",
+    "to_sym",
+    "undef_method",
+    "send",
+    "inherited",
+    "new",
+    "p",
+    "a=",
+    "instance_methods",
+    "sort",
+    "base1",
+    "respond_to?",
+    "`",
+    "strip",
+    "success?"
+  ],
+  "callsites": [
+    "",
+    "Class",
+    "",
+    "Class",
+    "Class",
+    "Class",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "",
+    "Object",
+    "Object",
+    "",
+    "",
+    "Object",
+    "Object",
+    "",
+    "Object",
+    "Object",
+    "",
+    "",
+    "Object",
+    "",
+    "",
+    "Object",
+    "",
+    "Object",
+    ""
+  ],
+  "toplevel": "zeo_toplevel",
+  "data_section": {
+    "path": "test/ze0/runtime_names.rb",
+    "offset": 961
+  },
+  "defs": [
+    {
+      "name": "base",
+      "tramp": "zeo_t_Named_base",
+      "params": [],
+      "file": "ze0/runtime_names.rb",
+      "line": 30,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Named",
+      "singleton": false
+    },
+    {
+      "name": "gone",
+      "tramp": "zeo_t_Retired_gone",
+      "params": [],
+      "file": "ze0/runtime_names.rb",
+      "line": 39,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Retired",
+      "singleton": false
+    },
+    {
+      "name": "gone2",
+      "tramp": "zeo_t_Retired_gone2",
+      "params": [],
+      "file": "ze0/runtime_names.rb",
+      "line": 41,
+      "visibility": "public",
+      "aliased_from": "",
+      "class": "Retired",
+      "singleton": false
+    }
+  ],
+  "classes": [
+    {
+      "name": "Fields",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [
+        "a",
+        "b"
+      ],
+      "private_constants": [],
+      "file": "ze0/runtime_names.rb",
+      "line": 7,
+      "conceal": true,
+      "singleton_of": null
+    },
+    {
+      "name": "Named",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/runtime_names.rb",
+      "line": 29,
+      "conceal": true,
+      "singleton_of": null
+    },
+    {
+      "name": "Retired",
+      "superclass": "Object",
+      "kind": "class",
+      "ivars": [],
+      "private_constants": [],
+      "file": "ze0/runtime_names.rb",
+      "line": 38,
+      "conceal": true,
+      "singleton_of": null
+    }
+  ],
+  "features": [],
+  "units": [],
+  "eval_install": false,
+  "warnings": [],
+  "class_tables": [
+    "@all"
+  ],
+  "reg": [
+    "@boot"
+  ]
+}
