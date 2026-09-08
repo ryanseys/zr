@@ -30,6 +30,7 @@ ze0.rb, bin/ze0          the CLI; ze0.rb is the compiler's entry point
 lib/ze0/                 the compiler (lower.rb, clif.rb, scope.rb, ...)
 lib/ze0/harness/         the corpus runner: the test-file format and the sweep
 lib/ze0/native/          the native roads; cranelift.rb drives clif2obj and cc
+lib/ze0/obj/             the object model every backend produces, and the Mach-O writer
 clif2obj/                the one Rust crate: CLIF text and a data sidecar to a Mach-O object
 lib/ze0/shims/           the ambient rbconfig shim
 vendor/ext/<gem>/lib     the Ruby halves of the libraries a program may require
