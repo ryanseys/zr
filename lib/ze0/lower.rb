@@ -3227,10 +3227,22 @@ module Ze0
     end
 
     def toplevel_statement(node)
-      mark = f.val("call #{f.import("zeo_rt_pool_mark")}()")
+      # A `return` this file's top level already took ends the file, so
+      # what follows it never runs -- and its block is terminated.
+      return if f.terminated?
+
+      outer = @stmt_pool
+      @stmt_pool = f.val("call #{f.import("zeo_rt_pool_mark")}()")
       set_line(node)
       discard(lower_expr(node))
-      f.ins "call #{f.import("zeo_rt_pool_reset")}(#{mark})"
+      pool_reset unless f.terminated?
+      @stmt_pool = outer
+    end
+
+    # The top level's pool drains at every statement boundary, and at a
+    # `return` that leaves one early.
+    def pool_reset
+      f.ins "call #{f.import("zeo_rt_pool_reset")}(#{@stmt_pool})"
     end
 
     # The rodata and symbol-table bases every function reads, and the two
@@ -7404,6 +7416,7 @@ module Ze0
       done, flag = scope.file_return
       set_flag(flag) if flag
       pop_handling
+      pool_reset
       f.ins "jump #{done}"
       unreachable
     end
