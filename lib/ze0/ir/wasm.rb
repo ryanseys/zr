@@ -80,7 +80,7 @@ module Ze0
       end
 
       def signature(f)
-        [f.params.map { |t| TYPE.fetch(t.split.first) }, f.ret ? [TYPE.fetch(f.ret)] : []]
+        [f.params.map { |t| TYPE.fetch(t.split.first) }, f.ret_type ? [TYPE.fetch(f.ret_type)] : []]
       end
 
       def type_index(t)
@@ -139,8 +139,8 @@ module Ze0
         code = +"".b
         main.params.each { |t| code << (TYPE[t] == 0x7E ? "\x42\x00".b : "\x41\x00".b) }
         code << "\x10".b << leb(function_index("main"))
-        code << (main.ret == "i64" ? "\xA7".b : "".b) if main.ret
-        code << (main.ret ? "".b : i32c(0))
+        code << (main.ret_type == "i64" ? "\xA7".b : "".b) if main.ret_type
+        code << (main.ret_type ? "".b : i32c(0))
         code << "\x10".b << leb(function_index("proc_exit")) << "\x0B".b
         vec_bytes(vec([]) + code)
       end

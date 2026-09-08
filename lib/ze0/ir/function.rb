@@ -32,7 +32,7 @@ module Ze0
     class Function
       # `current` is the block being emitted into: what a caller needs when
       # it fills a block out of order and then resumes.
-      attr_reader :name, :params, :ret, :args, :current, :slots, :globals, :sigs, :callees, :blocks
+      attr_reader :name, :params, :ret_type, :args, :current, :slots, :globals, :sigs, :callees, :blocks
 
       # `params`/`ret`: CLIF types. The entry block takes the parameters
       # as v0..vN-1.
@@ -128,12 +128,11 @@ module Ze0
         @current.terminated?
       end
 
-      # An instruction with no result. `text` is the CLIF spelling today;
-      # an `Inst` is taken as it is.
+      # An instruction with no result. `text` is the CLIF spelling; an
+      # `Inst` is taken as it is. Kept for tests: the lowering builds `Inst`s
+      # directly, through the methods below.
       def ins(text)
-        raise "an instruction after the terminator of #{@current.name} in #{@name}" if @current.terminated?
-
-        @current.insts << (text.is_a?(Inst) ? text : Inst.parse(text))
+        emit(text.is_a?(Inst) ? text : Inst.parse(text))
         nil
       end
 
@@ -152,9 +151,109 @@ module Ze0
         [a, b]
       end
 
+      # A call with no result.
+      def call(fn, args = [])
+        emit(Inst.new(:call, callee: fn, args: args))
+        nil
+      end
+
+      # A call with one result, answered.
+      def call_val(fn, args = [])
+        v = value
+        emit(Inst.new(:call, results: [v], callee: fn, args: args))
+        v
+      end
+
+      # An unconditional jump, carrying `args` to the target block's params.
+      def jump(block, args = [])
+        emit(Inst.new(:jump, targets: [[block, args]]))
+        nil
+      end
+
+      # A branch on `cond`: to `a` when it holds, `b` otherwise.
+      def brif(cond, a, b)
+        emit(Inst.new(:brif, args: [cond], targets: [[a, []], [b, []]]))
+        nil
+      end
+
+      # A return, with or without a value.
+      def ret(value = nil)
+        emit(Inst.new(:return, args: value.nil? ? [] : [value]))
+        nil
+      end
+
+      # A store of `value` to `addr` (+`offset`), untrapped and aligned: the
+      # only flags the lowering ever writes.
+      def store(value, addr, offset = 0)
+        emit(Inst.new(:store, args: [value, addr], offset: offset, flags: "notrap aligned"))
+        nil
+      end
+
+      # A load of `type` from `addr` (+`offset`), answered. Named `fetch`,
+      # not `load`: `Kernel#load` already exists.
+      def fetch(type, addr, offset = 0)
+        v = value
+        emit(Inst.new(:load, type: type, results: [v], args: [addr], offset: offset, flags: "notrap aligned"))
+        v
+      end
+
+      # An integer comparison; `cond` is CLIF's spelling (`"ne"`, `"eq"`, ...).
+      def icmp(cond, a, b)
+        v = value
+        emit(Inst.new(:icmp, results: [v], cond: cond, args: [a, b]))
+        v
+      end
+
+      def iadd(a, b, type: nil)
+        v = value
+        emit(Inst.new(:iadd, type: type, results: [v], args: [a, b]))
+        v
+      end
+
+      def isub(a, b, type: nil)
+        v = value
+        emit(Inst.new(:isub, type: type, results: [v], args: [a, b]))
+        v
+      end
+
+      def band(a, b, type: nil)
+        v = value
+        emit(Inst.new(:band, type: type, results: [v], args: [a, b]))
+        v
+      end
+
+      def bor(a, b, type: nil)
+        v = value
+        emit(Inst.new(:bor, type: type, results: [v], args: [a, b]))
+        v
+      end
+
+      # CLIF's `select`; named `csel` because `Kernel#select` already exists.
+      def csel(cond, a, b)
+        v = value
+        emit(Inst.new(:select, results: [v], args: [cond, a, b]))
+        v
+      end
+
+      def sadd_overflow(a, b) = pair_overflow(:sadd_overflow, a, b)
+      def ssub_overflow(a, b) = pair_overflow(:ssub_overflow, a, b)
+      def smul_overflow(a, b) = pair_overflow(:smul_overflow, a, b)
+
+      def symbol_value(gv)
+        v = value
+        emit(Inst.new(:symbol_value, type: "i64", results: [v], args: [gv]))
+        v
+      end
+
+      def func_addr(fn)
+        v = value
+        emit(Inst.new(:func_addr, type: "i64", results: [v], args: [fn]))
+        v
+      end
+
       # A constant, materialized once per function.
       def iconst(type, n)
-        hoisted([:iconst, type, n]) { "iconst.#{type} #{n}" }
+        hoisted([:iconst, type, n]) { Inst.new(:iconst, type: type, args: [n]) }
       end
 
       # A value that is the same everywhere, defined once in the entry block.
@@ -163,21 +262,24 @@ module Ze0
       # is in scope for all of them, which is what makes one definition legal
       # where the uses are scattered. It goes in ahead of the entry block's
       # terminator, and no use can be earlier: this is the first time the key
-      # has been asked for.
+      # has been asked for. The block yields an `Inst` with no result; this
+      # fills one in and inserts it.
       def hoisted(key)
         @hoisted[key] ||= begin
           v = value
+          inst = yield
+          inst.results = [v]
           insts = @entry_block.insts
           at = insts.size
           at -= 1 if at.positive? && insts.last.terminator?
-          insts.insert(at, Inst.parse("#{v} = #{yield}"))
+          insts.insert(at, inst)
           v
         end
       end
 
       # The address of a stack slot, materialized once per function.
       def stack_addr(slot)
-        hoisted([:stack_addr, slot]) { "stack_addr.i64 #{slot}" }
+        hoisted([:stack_addr, slot]) { Inst.new(:stack_addr, type: "i64", args: [slot]) }
       end
 
       def to_s
@@ -191,7 +293,7 @@ module Ze0
       def reset(name, params, ret)
         @name = name
         @params = params
-        @ret = ret
+        @ret_type = ret
         @slots = []
         @globals = []
         @global_of = {}
@@ -206,6 +308,21 @@ module Ze0
         @next_value = 0
         @current = nil
         @args = []
+      end
+
+      # An instruction after the current block's terminator is a bug in the
+      # lowering, never a legal program: this is the one place that appends.
+      def emit(inst)
+        raise "an instruction after the terminator of #{@current.name} in #{@name}" if @current.terminated?
+
+        @current.insts << inst
+      end
+
+      def pair_overflow(op, a, b)
+        lo = value
+        hi = value
+        emit(Inst.new(op, results: [lo, hi], args: [a, b]))
+        [lo, hi]
       end
 
       def value
