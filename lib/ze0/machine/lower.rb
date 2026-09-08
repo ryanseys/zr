@@ -268,15 +268,20 @@ module Ze0
       end
 
       OPERATORS = {
-        :+ => "iadd", :- => "isub", :& => "band", :| => "bor",
-        :< => "lt", :<= => "le", :> => "gt", :>= => "ge", :== => "eq", :!= => "ne"
+        :+ => "iadd", :- => "isub", :* => "imul", :& => "band", :| => "bor", :^ => "bxor", :<< => "ishl",
+        :< => "lt", :<= => "le", :> => "gt", :>= => "ge", :== => "eq", :!= => "ne",
+        :/ => nil, :% => nil, :>> => nil
       }.freeze
 
       def binary(node, op, lhs, lt, rhs, rt)
         refuse(node, "#{op} on #{lt} and #{rt}") unless lt == rt && clif(lt)
         case op
-        when :+, :-, :&, :|
+        when :+, :-, :*, :&, :|, :^, :<<
           [@f.val("#{OPERATORS[op]} #{lhs}, #{rhs}"), lt]
+        when :/, :%, :>>
+          unsigned = UNSIGNED.include?(lt)
+          mnemonic = { :/ => "div", :% => "rem", :>> => "shr" }[op]
+          [@f.val("#{unsigned ? "u" : "s"}#{mnemonic} #{lhs}, #{rhs}"), lt]
         when :==, :!=
           [@f.val("icmp #{OPERATORS[op]} #{lhs}, #{rhs}"), "Bool"]
         when :<, :<=, :>, :>=
@@ -333,6 +338,9 @@ module Ze0
           name, size = args
           refuse(node, "Machine.static takes a symbol and a size") unless name.is_a?(Prism::SymbolNode) && size.is_a?(Prism::IntegerNode)
           [@f.val("symbol_value.i64 #{@f.symbol(@unit.static(node, name.unescaped, size.value))}"), "Ptr"]
+        when :i32, :i8, :word, :sword, :ptr, :value
+          value, type = expr(args.first)
+          convert(node, node.name, value, type)
         when :addr
           name = args.first
           refuse(node, "Machine.addr takes the symbol of a machine def") unless name.is_a?(Prism::SymbolNode)
@@ -344,13 +352,28 @@ module Ze0
         end
       end
 
+      # A width or a reading change: `Machine.i32(x)` narrows, `word`
+      # zero-extends, `sword` sign-extends, `ptr`/`value`/`word` between
+      # 64-bit types is only a reading.
+      def convert(node, to, value, type)
+        target = { i32: "I32", i8: "I8", word: "Word", sword: "Word", ptr: "Ptr", value: "Value" }[to]
+        from, into = clif(type), clif(target)
+        refuse(node, "Machine.#{to} of a #{type}") if from.nil? || from == "f64"
+        return [value, target] if from == into
+        return [@f.val("ireduce.#{into} #{value}"), target] if from == "i64" || (from == "i32" && into == "i8")
+
+        [@f.val("#{to == :sword ? "sextend" : "uextend"}.#{into} #{value}"), target]
+      end
+
       def condition(node)
         value, type = expr(node.predicate)
         refuse(node.predicate, "a condition that is a #{type}") unless %w[Bool I8 I32 Word Ptr Value].include?(type)
         value
       end
 
-      # `if` as a value when both arms agree on a type, else Void.
+      # `if` as a value when both arms agree on a type, else Void. Each arm
+      # is lowered before the merge block's shape is known, so the arms'
+      # jumps are written last.
       def branch(node, want)
         cond = condition(node)
         then_b = @f.label
@@ -358,13 +381,9 @@ module Ze0
         @f.ins "brif #{cond}, #{then_b}, #{else_b}"
         @f.switch(then_b)
         tv, tt = node.statements ? statements(node.statements, want) : [nil, "Void"]
-        then_end = @f.terminated?
-        merge = nil
-        unless then_end
-          merge, params = merge_block(tt)
-          @f.ins "jump #{merge}#{params.empty? ? "" : "(#{tv})"}"
-        end
-        @f.switch(else_b)
+        then_open = !@f.terminated?
+        then_end = @f.current.name
+        @f.switch(else_b, open: true)
         ev, et = if node.subsequent.is_a?(Prism::ElseNode)
                    node.subsequent.statements ? statements(node.subsequent.statements, want) : [nil, "Void"]
                  elsif node.subsequent
@@ -372,24 +391,16 @@ module Ze0
                  else
                    [nil, "Void"]
                  end
-        else_end = @f.terminated?
-        return [nil, "Void"] if then_end && else_end
+        else_open = !@f.terminated?
+        else_end = @f.current.name
+        return [nil, "Void"] if !then_open && !else_open
 
-        joined = !then_end && !else_end && tt == et && tt != "Void" ? tt : "Void"
-        merge ||= merge_block(joined).first
-        merge, params = merge_block(joined) if joined == "Void" && merge.nil?
-        unless else_end
-          @f.ins "jump #{merge}#{joined == "Void" ? "" : "(#{ev})"}"
-        end
-        @f.switch(merge)
-        [joined == "Void" ? nil : @merge_params[merge].first, joined]
-      end
-
-      def merge_block(type)
-        @merge_params ||= {}
-        name, params = type == "Void" ? @f.block : @f.block([clif(type)])
-        @merge_params[name] = params
-        [name, params]
+        joined = then_open && else_open && tt == et && tt != "Void" ? tt : "Void"
+        merge, params = joined == "Void" ? @f.block : @f.block([clif(joined)])
+        @f.finish(then_end, "jump #{merge}#{joined == "Void" ? "" : "(#{tv})"}") if then_open
+        @f.finish(else_end, "jump #{merge}#{joined == "Void" ? "" : "(#{ev})"}") if else_open
+        @f.switch(merge, open: true)
+        [joined == "Void" ? nil : params.first, joined]
       end
 
       def loop_while(node)

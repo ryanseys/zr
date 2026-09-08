@@ -68,14 +68,14 @@ module Ze0
           new(op, type: type, results: results, args: [mm[2]], offset: mm[3].to_i, flags: mm[1].strip)
         when :iconst
           new(op, type: type, results: results, args: [Integer(rest)])
-        when :stack_addr, :symbol_value, :func_addr
+        when :stack_addr, :symbol_value, :func_addr, :ireduce, :uextend, :sextend
           new(op, type: type, results: results, args: [rest])
         when :icmp
           cond, a, b = rest.split(/[ ,]+/, 3)
           raise ArgumentError, "an icmp condition: #{text}" unless CONDS.include?(cond)
 
           new(op, type: type, results: results, cond: cond, args: [a, b])
-        when :iadd, :isub, :band, :bor, :select, *PAIRS
+        when :iadd, :isub, :imul, :udiv, :sdiv, :urem, :srem, :band, :bor, :bxor, :ishl, :ushr, :sshr, :select, *PAIRS
           new(op, type: type, results: results, args: rest.split(", "))
         else
           raise ArgumentError, "ze0 does not emit `#{op}`: #{text}"

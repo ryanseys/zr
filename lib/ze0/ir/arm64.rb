@@ -64,7 +64,7 @@ module Ze0
             next if i.results.empty?
 
             t = case i.op
-                when :iconst, :load then i.type
+                when :iconst, :load, :ireduce, :uextend, :sextend then i.type
                 when :call then sig_of(i.callee).ret
                 when :icmp then "i8"
                 when :stack_addr, :symbol_value, :func_addr then "i64"
@@ -218,7 +218,17 @@ module Ze0
           @asm.cmp reg_for(i.args[0], X9), reg_for(i.args[0], X10)
           @asm.cset X11, CONDS.fetch(i.cond)
           store_value(i.results[0], X11)
-        when :iadd, :isub, :band, :bor then emit_binop(i)
+        when :iadd, :isub, :imul, :udiv, :sdiv, :band, :bor, :bxor, :ishl, :ushr, :sshr then emit_binop(i)
+        when :urem, :srem then emit_rem(i)
+        when :ireduce, :uextend
+          # A narrower value reads the low bits of its slot; a wider one
+          # needs the high bits clear, which the narrow load gives.
+          load_value(i.args[0], X9)
+          store_value(i.results[0], X9)
+        when :sextend
+          load_value(i.args[0], X9)
+          type_of(i.args[0]) == "i8" ? @asm.sxtb(X9, W9) : @asm.sxtw(X9, W9)
+          store_value(i.results[0], X9)
         when :select
           load_value(i.args[0], X9)
           load_value(i.args[1], X10)
@@ -300,9 +310,26 @@ module Ze0
         case i.op
         when :iadd then @asm.add d, a, b
         when :isub then @asm.sub d, a, b
+        when :imul then @asm.mul d, a, b
+        when :udiv then @asm.udiv d, a, b
+        when :sdiv then @asm.sdiv d, a, b
         when :band then @asm.and d, a, b
         when :bor then @asm.orr d, a, b
+        when :bxor then @asm.eor d, a, b
+        when :ishl then @asm.lsl d, a, b
+        when :ushr then @asm.lsr d, a, b
+        when :sshr then @asm.asr d, a, b
         end
+        store_value(i.results[0], X11)
+      end
+
+      # `a - (a / b) * b`, as arm64 spells a remainder.
+      def emit_rem(i)
+        load_value(i.args[0], X9)
+        load_value(i.args[1], X10)
+        d, a, b = [X11, X9, X10].map { |x| reg_for(i.args[0], x) }
+        i.op == :urem ? @asm.udiv(d, a, b) : @asm.sdiv(d, a, b)
+        @asm.msub d, d, b, a
         store_value(i.results[0], X11)
       end
 

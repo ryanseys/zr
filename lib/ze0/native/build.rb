@@ -2,6 +2,7 @@
 
 require "json"
 require_relative "../ir"
+require_relative "../ir/verify"
 require_relative "cranelift"
 require_relative "ruby"
 
@@ -21,6 +22,7 @@ module Ze0
 
       # Answers nil, or the message of the step that refused.
       def binary(functions, data, out, road:, work:, raw: [])
+        functions.each { |f| IR::Verify.check(f) }
         obj = File.join(work, "unit.o")
         if road.is_a?(Ruby)
           unit = Obj::Unit.new

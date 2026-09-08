@@ -105,12 +105,22 @@ module Ze0
       end
 
       # Continue emitting into `block`. The block being left must have
-      # ended in a jump, a branch or a return.
-      def switch(block)
-        raise "#{@current.name} of #{@name} was left without a terminator" if @current && !@current.terminated?
+      # ended in a jump, a branch or a return, unless the caller says it
+      # will `finish` it later.
+      def switch(block, open: false)
+        raise "#{@current.name} of #{@name} was left without a terminator" if @current && !open && !@current.terminated?
 
         @current = @block_of.fetch(block)
         @blocks << @current
+      end
+
+      # The terminator of a block left open by `switch(open: true)`.
+      def finish(block, text)
+        b = @block_of.fetch(block)
+        raise "#{block} of #{@name} already has a terminator" if b.terminated?
+
+        b.insts << (text.is_a?(Inst) ? text : Inst.parse(text))
+        nil
       end
 
       # Whether the current block has already ended.
