@@ -36,6 +36,7 @@ module Ze0
         body =
           case i.op
           when :call then "#{head} #{i.callee}(#{i.args.join(", ")})"
+          when :call_indirect then "#{head} #{i.callee}, #{i.args[0]}(#{i.args[1..].join(", ")})"
           when :jump then "#{head} #{target(i.targets[0])}"
           when :brif then "#{head} #{i.args[0]}, #{target(i.targets[0])}, #{target(i.targets[1])}"
           when :return then i.args.empty? ? head : "#{head} #{i.args[0]}"

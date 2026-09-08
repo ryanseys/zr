@@ -53,6 +53,9 @@ module Ze0
         when :call
           m = rest.match(/\A(fn\d+)\((.*)\)\z/) or raise ArgumentError, "a call is `call fnN(args)`: #{text}"
           new(op, results: results, callee: m[1], args: m[2].empty? ? [] : m[2].split(", "))
+        when :call_indirect
+          m = rest.match(/\A(sig\d+), (v\d+)\((.*)\)\z/) or raise ArgumentError, "a call_indirect is `call_indirect sigN, vP(args)`: #{text}"
+          new(op, results: results, callee: m[1], args: [m[2]] + (m[3].empty? ? [] : m[3].split(", ")))
         when :jump
           new(op, targets: [target(rest)])
         when :brif

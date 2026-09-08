@@ -66,6 +66,7 @@ module Ze0
             t = case i.op
                 when :iconst, :load, :ireduce, :uextend, :sextend then i.type
                 when :call then sig_of(i.callee).ret
+                when :call_indirect then sig_named(i.callee).ret
                 when :icmp then "i8"
                 when :stack_addr, :symbol_value, :func_addr then "i64"
                 when :select then type_of(i.args[1])
@@ -112,7 +113,11 @@ module Ze0
 
       def sig_of(fn)
         callee = @f.callees.find { |c| c.fn == fn } or raise Refused, "#{@f.name}: no callee #{fn}"
-        @f.sigs.find { |s| s.sig == callee.sig }
+        sig_named(callee.sig)
+      end
+
+      def sig_named(sig)
+        @f.sigs.find { |s| s.sig == sig } or raise Refused, "#{@f.name}: no signature #{sig}"
       end
 
       def callee_of(fn)
@@ -212,6 +217,7 @@ module Ze0
           c = callee_of(i.args[0])
           emit_symbol(i.results[0], c.symbol, @defined.include?(c.symbol))
         when :call then emit_call(i)
+        when :call_indirect then emit_call_indirect(i)
         when :icmp
           load_value(i.args[0], X9)
           load_value(i.args[1], X10)
@@ -299,6 +305,22 @@ module Ze0
         return if i.results.empty?
 
         # A 32-bit or narrower result has undefined bits above: clear them.
+        @asm.mov W0, W0 unless sig.ret == "i64"
+        store_value(i.results[0], X0)
+      end
+
+      # The pointer goes to x9 after the arguments are in place: no
+      # argument load touches it.
+      def emit_call_indirect(i)
+        sig = sig_named(i.callee)
+        ptr, *args = i.args
+        raise Refused, "#{@f.name}: a call with more than eight arguments" if args.size > 8
+
+        args.each_with_index { |v, n| load_value(v, AArch64::Registers.const_get(:"X#{n}")) }
+        load_value(ptr, X9)
+        @asm.blr X9
+        return if i.results.empty?
+
         @asm.mov W0, W0 unless sig.ret == "i64"
         store_value(i.results[0], X0)
       end

@@ -14,7 +14,9 @@ module Ze0
     # block sets the index of its successor and branches to the loop.
     # Stack slots live in a shadow stack in linear memory under a global
     # stack pointer. `write` and `exit` are the two libSystem calls the
-    # programs make, and become `fd_write` and `proc_exit` shims.
+    # programs make, and become `fd_write` and `proc_exit` shims. A
+    # function's address is its index in the one table, from 1 so that a
+    # pointer is never zero; `call_indirect` goes through that table.
     class Wasm
       class Refused < StandardError; end
 
@@ -59,6 +61,7 @@ module Ze0
         unknown = used - @shims.keys
         raise Refused, "no wasm shim for #{unknown.join(", ")}" unless unknown.empty?
 
+        @table = @functions.flat_map { |f| f.blocks.flat_map(&:insts).select { |i| i.op == :func_addr }.map { |i| f.callees.find { |c| c.fn == i.args[0] }.symbol } }.uniq
         bodies = @shims.map { |name, _| shim(name) } + @functions.map { |f| Body.new(self, f).emit } + [start_body]
         types = @imports.map { |(_, _, p, r)| [p, r] } + @shims.values + @functions.map { |f| signature(f) } + [[[], []]]
         types.each { |t| type_index(t) }
@@ -67,10 +70,12 @@ module Ze0
         out << section(1, vec(@types.map { |p, r| "\x60".b + vec(p.map(&:chr)) + vec(r.map(&:chr)) }))
         out << section(2, vec(@imports.map { |(mod, name, p, r)| name(mod) + name(name) + "\0".b + leb(type_index([p, r])) }))
         out << section(3, vec((@shims.values + @functions.map { |f| signature(f) } + [[[], []]]).map { |t| leb(type_index(t)) }))
+        out << section(4, vec(["\x70\x00".b + leb(@table.size + 1)])) unless @table.empty?
         out << section(5, vec(["\0".b + leb(STACK_PAGES + 1)]))
         stack_base = align(@data_end, 16)
         out << section(6, vec(["\x7F\x01".b + "\x41".b + sleb(stack_base) + "\x0B".b]))
         out << section(7, vec([name("memory") + "\x02".b + leb(0), name("_start") + "\0".b + leb(@index["_start"])]))
+        out << section(9, vec(["\0".b + i32c(1) + "\x0B".b + vec(@table.map { |n| leb(function_index(n)) })])) unless @table.empty?
         out << section(10, vec(bodies))
         segments = @data.reject { |d| d.section == :bss }.map do |d|
           "\0".b + "\x41".b + sleb(@data_at[d.name]) + "\x0B".b + vec_bytes(d.bytes)
@@ -97,6 +102,16 @@ module Ze0
 
         f = @functions.find { |x| x.name == name }
         f ? signature(f) : @imports.find { |(_, n, *)| n == name }[2..3]
+      end
+
+      # The table index that stands for `name`'s address.
+      def table_index(name)
+        @table.index(name) + 1
+      end
+
+      # The wasm type of an IR signature.
+      def sig_type(s)
+        [s.params.map { |t| TYPE.fetch(t) }, s.ret ? [TYPE.fetch(s.ret)] : []]
       end
 
       def data_address(name)
@@ -251,6 +266,7 @@ module Ze0
           case i.op
           when :iconst, :load, :ireduce, :uextend, :sextend then i.type
           when :call then @f.sigs.find { |s| s.sig == callee(i.callee).sig }.ret
+          when :call_indirect then @f.sigs.find { |s| s.sig == i.callee }.ret
           when :icmp then "i8"
           when :stack_addr, :symbol_value, :func_addr then "i64"
           when :select then @type[i.args[1]]
@@ -337,6 +353,16 @@ module Ze0
             g = @f.globals.find { |x| x.gv == i.args[0] }
             @code << "\x42".b << @m.sleb(@m.data_address(g.symbol))
             set(i.results[0])
+          when :func_addr
+            @code << "\x42".b << @m.sleb(@m.table_index(callee(i.args[0]).symbol))
+            set(i.results[0])
+          when :call_indirect
+            ptr, *args = i.args
+            args.each { |a| get(a) }
+            get(ptr)
+            @code << "\xA7".b
+            @code << "\x11".b << @m.leb(@m.type_index(@m.sig_type(@f.sigs.find { |s| s.sig == i.callee }))) << "\x00".b
+            set(i.results[0]) unless i.results.empty?
           when :call
             # A libSystem call's text signature may say i64 where the shim
             # takes i32: the width follows the callee.

@@ -164,6 +164,24 @@ module Ze0
         v
       end
 
+      # A call through `ptr` with the signature `sig` names, no result.
+      def call_indirect(sig, ptr, args = [])
+        emit(Inst.new(:call_indirect, callee: sig, args: [ptr] + args))
+        nil
+      end
+
+      # A call through `ptr`, its one result answered.
+      def call_indirect_val(sig, ptr, args = [])
+        v = value
+        emit(Inst.new(:call_indirect, results: [v], callee: sig, args: [ptr] + args))
+        v
+      end
+
+      # The signature `params -> ret`, named once per function.
+      def sig(params, ret)
+        signature(params, ret)
+      end
+
       # An unconditional jump, carrying `args` to the target block's params.
       def jump(block, args = [])
         emit(Inst.new(:jump, targets: [[block, args]]))
