@@ -11,6 +11,8 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: .ruby-version
+      - uses: dtolnay/rust-toolchain@stable
+      - run: bin/ze0 native build
       - run: bin/ze0 check
       - run: bin/ze0 test ze0::
       - run: bin/ze0 stage1

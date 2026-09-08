@@ -1,0 +1,16 @@
+function %main(i32, i64) -> i32 system_v {
+    gv0 = symbol colocated %msg
+    sig0 = (i32, i64, i64) -> i64 system_v
+    sig1 = (i32) system_v
+    fn0 = %write sig0
+    fn1 = %exit sig1
+
+block0(v0: i32, v1: i64):
+    v2 = symbol_value.i64 gv0
+    v3 = iconst.i32 1
+    v4 = iconst.i64 12
+    v5 = call fn0(v3, v2, v4)
+    v6 = iconst.i32 0
+    call fn1(v6)
+    return v6
+}

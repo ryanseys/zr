@@ -8,6 +8,7 @@
 #   ze0 scan <glob> [limit]             which programs ze0 compiles, and what it refuses
 #   ze0 check                           the repo's own checks
 #   ze0 stage1                          ze0 compiles itself, twice, to the same bytes
+#   ze0 native build                    build the clif2obj crate (the Cranelift road)
 #
 # ruby is the oracle: every corpus program carries ruby 4.0.6's recorded
 # answer under `__END__`, and ze0 is held to it or refuses by name.
@@ -37,6 +38,10 @@ when "test"
   abort "ze0 test: no program matches #{args.inspect}" if cases.empty?
   warn "ze0 test: #{cases.size} program(s)"
   exit(sweep.report(sweep.run(cases)) ? 0 : 1)
+when "native"
+  require_relative "../lib/ze0/native/cranelift"
+  usage unless ARGV[1] == "build"
+  puts Ze0::Native::Cranelift.new(ROOT).build!
 when "scan"
   exec(RbConfig.ruby, File.join(ROOT, "scan.rb"), *ARGV.drop(1))
 when "stage1"

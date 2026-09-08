@@ -20,6 +20,7 @@ $ bin/ze0 test lang/blocks/ --show 40      # any corpus directory
 $ bin/ze0 scan 'test/lang/**/*.rb'         # what compiles, what is refused
 $ bin/ze0 check                            # the repo's own checks
 $ bin/ze0 stage1                           # ze0 compiles itself twice to the same bytes
+$ bin/ze0 native build                     # build clif2obj, the Cranelift road (needs cargo)
 ```
 
 ## Layout
@@ -28,6 +29,8 @@ $ bin/ze0 stage1                           # ze0 compiles itself twice to the sa
 ze0.rb, bin/ze0          the CLI; ze0.rb is the compiler's entry point
 lib/ze0/                 the compiler (lower.rb, clif.rb, scope.rb, ...)
 lib/ze0/harness/         the corpus runner: the test-file format and the sweep
+lib/ze0/native/          the native roads; cranelift.rb drives clif2obj and cc
+clif2obj/                the one Rust crate: CLIF text and a data sidecar to a Mach-O object
 lib/ze0/shims/           the ambient rbconfig shim
 vendor/ext/<gem>/lib     the Ruby halves of the libraries a program may require
 test/lang, core, ...     the corpus: one program per file, ruby's answer under __END__
@@ -36,6 +39,7 @@ test/refused/            one fixture per named refusal
 test/snapshots/          ze0's text for two programs, pinned
 test/goldens/            ze0's text and sidecar for every test/ze0 program, pinned
 test/checks/             minitest checks (`bin/ze0 check`)
+test/native/             hand-written CLIF that must link against libSystem alone and print
 ```
 
 `vendor/ruby` and `vendor/gems` (rubygems, bundler, the gem store) are
@@ -51,4 +55,4 @@ not read `DATA` or `__FILE__`: ruby would hand it its own trailer.
 
 ## Requirements
 
-ruby 4.0.6 (`.ruby-version`), macOS on Apple Silicon. Nothing else yet.
+ruby 4.0.6 (`.ruby-version`), macOS on Apple Silicon, and `cc`. cargo only to build `clif2obj`, which `bin/ze0 check` skips when it is absent.
