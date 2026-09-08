@@ -100,7 +100,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/superclasses.rb",
+    "path": "<root>/test/ze0/superclasses.rb",
     "offset": 1956
   },
   "defs": [

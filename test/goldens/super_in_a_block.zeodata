@@ -70,7 +70,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/super_in_a_block.rb",
+    "path": "<root>/test/ze0/super_in_a_block.rb",
     "offset": 1864
   },
   "defs": [

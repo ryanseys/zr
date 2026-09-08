@@ -44,7 +44,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/definition_hooks.rb",
+    "path": "<root>/test/ze0/definition_hooks.rb",
     "offset": 1344
   },
   "defs": [

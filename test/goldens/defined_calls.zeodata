@@ -58,7 +58,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/defined_calls.rb",
+    "path": "<root>/test/ze0/defined_calls.rb",
     "offset": 1109
   },
   "defs": [

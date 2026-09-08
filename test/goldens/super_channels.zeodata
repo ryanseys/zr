@@ -74,7 +74,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/super_channels.rb",
+    "path": "<root>/test/ze0/super_channels.rb",
     "offset": 1730
   },
   "defs": [

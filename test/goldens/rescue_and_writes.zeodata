@@ -82,7 +82,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/rescue_and_writes.rb",
+    "path": "<root>/test/ze0/rescue_and_writes.rb",
     "offset": 1376
   },
   "defs": [

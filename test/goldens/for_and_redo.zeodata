@@ -91,7 +91,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/for_and_redo.rb",
+    "path": "<root>/test/ze0/for_and_redo.rb",
     "offset": 2778
   },
   "defs": [

@@ -73,7 +73,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/match_globals.rb",
+    "path": "<root>/test/ze0/match_globals.rb",
     "offset": 1749
   },
   "defs": [

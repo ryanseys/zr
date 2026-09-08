@@ -14,7 +14,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/fib.rb",
+    "path": "<root>/test/ze0/fib.rb",
     "offset": 94
   },
   "defs": [

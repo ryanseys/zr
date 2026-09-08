@@ -13,7 +13,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/tak.rb",
+    "path": "<root>/test/ze0/tak.rb",
     "offset": 141
   },
   "defs": [

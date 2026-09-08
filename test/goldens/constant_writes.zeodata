@@ -30,7 +30,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/constant_writes.rb",
+    "path": "<root>/test/ze0/constant_writes.rb",
     "offset": 771
   },
   "defs": [

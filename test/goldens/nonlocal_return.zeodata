@@ -67,7 +67,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/nonlocal_return.rb",
+    "path": "<root>/test/ze0/nonlocal_return.rb",
     "offset": 1957
   },
   "defs": [

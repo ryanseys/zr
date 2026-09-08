@@ -145,7 +145,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/singleton_body_cref.rb",
+    "path": "<root>/test/ze0/singleton_body_cref.rb",
     "offset": 3523
   },
   "defs": [

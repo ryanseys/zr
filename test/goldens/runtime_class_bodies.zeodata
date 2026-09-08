@@ -128,7 +128,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/runtime_class_bodies.rb",
+    "path": "<root>/test/ze0/runtime_class_bodies.rb",
     "offset": 1975
   },
   "defs": [

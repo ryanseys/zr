@@ -65,7 +65,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/destructuring_parameters.rb",
+    "path": "<root>/test/ze0/destructuring_parameters.rb",
     "offset": 1025
   },
   "defs": [

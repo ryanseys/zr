@@ -156,7 +156,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/class_macros.rb",
+    "path": "<root>/test/ze0/class_macros.rb",
     "offset": 2873
   },
   "defs": [

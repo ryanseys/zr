@@ -49,7 +49,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/reopened_builtins_win.rb",
+    "path": "<root>/test/ze0/reopened_builtins_win.rb",
     "offset": 718
   },
   "defs": [

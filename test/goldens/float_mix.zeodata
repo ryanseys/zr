@@ -22,7 +22,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/float_mix.rb",
+    "path": "<root>/test/ze0/float_mix.rb",
     "offset": 113
   },
   "defs": [],

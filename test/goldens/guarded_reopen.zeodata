@@ -73,7 +73,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/guarded_reopen.rb",
+    "path": "<root>/test/ze0/guarded_reopen.rb",
     "offset": 1642
   },
   "defs": [

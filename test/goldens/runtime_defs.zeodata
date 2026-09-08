@@ -133,7 +133,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/runtime_defs.rb",
+    "path": "<root>/test/ze0/runtime_defs.rb",
     "offset": 2357
   },
   "defs": [

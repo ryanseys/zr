@@ -116,7 +116,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/strings_and_collections.rb",
+    "path": "<root>/test/ze0/strings_and_collections.rb",
     "offset": 1477
   },
   "defs": [

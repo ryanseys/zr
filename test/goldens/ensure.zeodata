@@ -123,7 +123,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/ensure.rb",
+    "path": "<root>/test/ze0/ensure.rb",
     "offset": 3402
   },
   "defs": [

@@ -22,7 +22,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/def_reflection.rb",
+    "path": "<root>/test/ze0/def_reflection.rb",
     "offset": 129
   },
   "defs": [

@@ -34,7 +34,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/generic_sends.rb",
+    "path": "<root>/test/ze0/generic_sends.rb",
     "offset": 200
   },
   "defs": [],

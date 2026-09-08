@@ -55,7 +55,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/bundled_libraries.rb",
+    "path": "<root>/test/ze0/bundled_libraries.rb",
     "offset": 1154
   },
   "defs": [

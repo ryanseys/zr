@@ -16,7 +16,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/p_of_immediates.rb",
+    "path": "<root>/test/ze0/p_of_immediates.rb",
     "offset": 95
   },
   "defs": [],

@@ -70,7 +70,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/literals.rb",
+    "path": "<root>/test/ze0/literals.rb",
     "offset": 1543
   },
   "defs": [

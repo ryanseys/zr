@@ -49,7 +49,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/alias_and_names.rb",
+    "path": "<root>/test/ze0/alias_and_names.rb",
     "offset": 1083
   },
   "defs": [

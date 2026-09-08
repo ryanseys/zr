@@ -70,7 +70,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/splat_index.rb",
+    "path": "<root>/test/ze0/splat_index.rb",
     "offset": 1047
   },
   "defs": [

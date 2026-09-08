@@ -80,7 +80,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/mixins.rb",
+    "path": "<root>/test/ze0/mixins.rb",
     "offset": 1286
   },
   "defs": [

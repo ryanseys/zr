@@ -64,7 +64,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/guarded_definitions.rb",
+    "path": "<root>/test/ze0/guarded_definitions.rb",
     "offset": 1345
   },
   "defs": [

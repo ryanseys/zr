@@ -40,7 +40,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/eval_strings.rb",
+    "path": "<root>/test/ze0/eval_strings.rb",
     "offset": 909
   },
   "defs": [

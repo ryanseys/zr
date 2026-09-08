@@ -92,7 +92,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/tail_forms_two.rb",
+    "path": "<root>/test/ze0/tail_forms_two.rb",
     "offset": 2403
   },
   "defs": [

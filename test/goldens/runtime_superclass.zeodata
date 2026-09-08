@@ -117,7 +117,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/runtime_superclass.rb",
+    "path": "<root>/test/ze0/runtime_superclass.rb",
     "offset": 2352
   },
   "defs": [

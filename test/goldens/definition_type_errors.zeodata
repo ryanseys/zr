@@ -90,7 +90,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/definition_type_errors.rb",
+    "path": "<root>/test/ze0/definition_type_errors.rb",
     "offset": 2103
   },
   "defs": [

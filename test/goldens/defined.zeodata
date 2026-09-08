@@ -53,7 +53,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/defined.rb",
+    "path": "<root>/test/ze0/defined.rb",
     "offset": 1363
   },
   "defs": [

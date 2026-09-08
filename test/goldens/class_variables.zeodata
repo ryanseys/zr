@@ -90,7 +90,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/class_variables.rb",
+    "path": "<root>/test/ze0/class_variables.rb",
     "offset": 1549
   },
   "defs": [

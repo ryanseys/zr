@@ -10,7 +10,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/division_by_zero.rb",
+    "path": "<root>/test/ze0/division_by_zero.rb",
     "offset": 30
   },
   "defs": [],

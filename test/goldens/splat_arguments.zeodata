@@ -59,7 +59,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/splat_arguments.rb",
+    "path": "<root>/test/ze0/splat_arguments.rb",
     "offset": 959
   },
   "defs": [

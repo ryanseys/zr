@@ -38,7 +38,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/refinements.rb",
+    "path": "<root>/test/ze0/refinements.rb",
     "offset": 1937
   },
   "defs": [

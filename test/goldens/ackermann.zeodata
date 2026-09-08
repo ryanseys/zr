@@ -16,7 +16,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/ackermann.rb",
+    "path": "<root>/test/ze0/ackermann.rb",
     "offset": 154
   },
   "defs": [

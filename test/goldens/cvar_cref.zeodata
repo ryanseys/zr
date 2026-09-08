@@ -88,7 +88,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/cvar_cref.rb",
+    "path": "<root>/test/ze0/cvar_cref.rb",
     "offset": 1592
   },
   "defs": [

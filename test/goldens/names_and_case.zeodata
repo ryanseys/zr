@@ -79,7 +79,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/names_and_case.rb",
+    "path": "<root>/test/ze0/names_and_case.rb",
     "offset": 991
   },
   "defs": [

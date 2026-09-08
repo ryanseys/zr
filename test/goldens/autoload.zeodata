@@ -1,6 +1,6 @@
 {
   "abi_version": 1,
-  "rodata": "2f55736572732f7279616e736579732f6465762f7a65302f76656e646f722f6578742f6a736f6e2f6c69622f6a736f6e2e72624a534f4e2e6372656174655f69646a736f6e5f636c6173734a534f4e3a3a467261676d656e7423696e697469616c697a656a736f6e4a534f4e3a3a467261676d656e7423746f5f6a736f6e746f5f6a736f6e4a534f4e3a3a47656e657269634f626a65637423696e697469616c697a657461626c65626c6f636b626c6f636b20696e204a534f4e3a3a47656e657269634f626a65637423696e697469616c697a656b76696e697469616c697a654a534f4e3a3a47656e657269634f626a656374235b5d4a534f4e3a3a47656e657269634f626a656374235b5d3d4a534f4e3a3a47656e657269634f626a65637423746f5f684a534f4e3a3a47656e657269634f626a65637423746f5f6a736f6e4a534f4e4a534f4e3a3a47656e657269634f626a6563743a3a4a534f4e4a534f4e3a3a47656e657269634f626a656374236d6574686f645f6d697373696e673d6d6574686f645f6d697373696e674a534f4e3a3a47656e657269634f626a65637423726573706f6e645f746f5f6d697373696e673f726573706f6e645f746f5f6d697373696e673f4a534f4e3a3a4578743a3a47656e657261746f723a3a53746174652e66726f6d5f7374617465486173684a534f4e3a3a4578743a3a47656e657261746f723a3a53746174653a3a486173684a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523696e697469616c697a6561727261795f6e6c6f626a6563745f6e6c73706163655f6265666f72657370616365696e64656e747374726963747363726970745f7361666561736369695f6f6e6c79616c6c6f775f6e616e736f72745f6b65797361735f6a736f6e6d61785f6e657374696e6764657074686275666665725f696e697469616c5f6c656e6774684a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523636f6e666967757265626c6f636b20696e204a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523636f6e6669677572654a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523616c6c6f775f6e616e3f4a534f4e3a3a4578743a3a47656e657261746f723a3a53746174652361736369695f6f6e6c793f4a534f4e3a3a4578743a3a47656e657261746f723a3a5374617465237363726970745f736166653f4a534f4e3a3a4578743a3a47656e657261746f723a3a5374617465237374726963743f4a534f4e3a3a4578743a3a47656e657261746f723a3a5374617465237374726963744a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523636865636b5f63697263756c61723f4a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523736f72745f6b6579733d44454641554c545f534f52544a534f4e3a3a4578743a3a47656e657261746f723a3a53746174653a3a44454641554c545f534f52544a534f4e3a3a4578743a3a47656e657261746f723a3a53746174652361735f6a736f6e3d53796d626f6c4a534f4e3a3a4578743a3a47656e657261746f723a3a53746174653a3a53796d626f6c4a534f4e3a3a4578743a3a47656e657261746f723a3a5374617465235b5d404a534f4e3a3a4578743a3a47656e657261746f723a3a5374617465235b5d3d4a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523746f5f68626c6f636b20696e204a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523746f5f6841545452534a534f4e3a3a4578743a3a47656e657261746f723a3a53746174653a3a4154545253614a534f4e3a3a4578743a3a47656e657261746f723a3a53746174652367656e65726174654a534f4e3a3a4578743a3a47656e657261746f723a3a53746174653a3a4a534f4e3c6d6f64756c653a4a534f4e3e322e32312e3256455253494f4e4a534f4e5f4c4f414445444e614e496e66696e6974794a534f4e3a3a496e66696e6974794d696e7573496e66696e6974794a534f4e4572726f725374616e646172644572726f725061727365724572726f724e657374696e674572726f7247656e657261746f724572726f724d697373696e67556e69636f6465537570706f7274467261676d656e7447656e657269634f626a6563744578744a534f4e3a3a45787447656e657261746f724578743a3a47656e657261746f7253746174654578743a3a47656e657261746f723a3a537461746573696e676c65746f6e20636c6173734a534f4e2e64756d70496e7465676572233c436c6173733a4a534f4e3e3a3a496e7465676572233c436c6173733a4a534f4e3e3a3a4a534f4e4a534f4e3a3a4e657374696e674572726f72417267756d656e744572726f72233c436c6173733a4a534f4e3e3a3a417267756d656e744572726f72657863656564206465707468206c696d69746f626a616e494f6c696d69746f7074734a534f4e2e6c6f61646f7074696f6e73203a73796d626f6c697a655f6e616d657320616e64203a6372656174655f6164646974696f6e732063616e6e6f7420626520207573656420696e20636f6e6a756e6374696f6e736f7572636570726f636f7074696f6e734a534f4e2e726563757273655f70726f634172726179233c436c6173733a4a534f4e3e3a3a4172726179233c436c6173733a4a534f4e3e3a3a48617368626c6f636b20696e204a534f4e2e726563757273655f70726f6378726573756c744a534f4e2e666173745f67656e65726174653c636c6173733a4a534f4e4572726f723e3c636c6173733a5061727365724572726f723e3c636c6173733a4e657374696e674572726f723e3c636c6173733a47656e657261746f724572726f723e3c636c6173733a4d697373696e67556e69636f6465537570706f72743e3c636c6173733a467261676d656e743e3c636c6173733a47656e657269634f626a6563743e3c6d6f64756c653a4578743e3c6d6f64756c653a47656e657261746f723e3c636c6173733a53746174653e626c6f636b20696e203c636c6173733a53746174653e686173687a65302f6175746f6c6f61642e72623c6d61696e3e544f504c4556454c5f42494e44494e474d6f64756c654f626a656374436c617373547970654572726f724f626a656374206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f66204f626a656374207761732068657265626c6f636b20696e203c6d61696e3e4f626a65637423746f5f6a736f6e2a48617368206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f66204861736820776173206865726573746174654172726179206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f66204172726179207761732068657265537472696e67537472696e67206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f6620537472696e67207761732068657265496e7465676572206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f6620496e7465676572207761732068657265466c6f6174466c6f6174206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f6620466c6f617420776173206865726553796d626f6c206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f662053796d626f6c2077617320686572654e696c436c6173734e696c436c617373206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f66204e696c436c6173732077617320686572656e756c6c54727565436c61737354727565436c617373206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f662054727565436c6173732077617320686572657472756546616c7365436c61737346616c7365436c617373206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f662046616c7365436c61737320776173206865726566616c7365",
+  "rodata": "<root-hex>2f76656e646f722f6578742f6a736f6e2f6c69622f6a736f6e2e72624a534f4e2e6372656174655f69646a736f6e5f636c6173734a534f4e3a3a467261676d656e7423696e697469616c697a656a736f6e4a534f4e3a3a467261676d656e7423746f5f6a736f6e746f5f6a736f6e4a534f4e3a3a47656e657269634f626a65637423696e697469616c697a657461626c65626c6f636b626c6f636b20696e204a534f4e3a3a47656e657269634f626a65637423696e697469616c697a656b76696e697469616c697a654a534f4e3a3a47656e657269634f626a656374235b5d4a534f4e3a3a47656e657269634f626a656374235b5d3d4a534f4e3a3a47656e657269634f626a65637423746f5f684a534f4e3a3a47656e657269634f626a65637423746f5f6a736f6e4a534f4e4a534f4e3a3a47656e657269634f626a6563743a3a4a534f4e4a534f4e3a3a47656e657269634f626a656374236d6574686f645f6d697373696e673d6d6574686f645f6d697373696e674a534f4e3a3a47656e657269634f626a65637423726573706f6e645f746f5f6d697373696e673f726573706f6e645f746f5f6d697373696e673f4a534f4e3a3a4578743a3a47656e657261746f723a3a53746174652e66726f6d5f7374617465486173684a534f4e3a3a4578743a3a47656e657261746f723a3a53746174653a3a486173684a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523696e697469616c697a6561727261795f6e6c6f626a6563745f6e6c73706163655f6265666f72657370616365696e64656e747374726963747363726970745f7361666561736369695f6f6e6c79616c6c6f775f6e616e736f72745f6b65797361735f6a736f6e6d61785f6e657374696e6764657074686275666665725f696e697469616c5f6c656e6774684a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523636f6e666967757265626c6f636b20696e204a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523636f6e6669677572654a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523616c6c6f775f6e616e3f4a534f4e3a3a4578743a3a47656e657261746f723a3a53746174652361736369695f6f6e6c793f4a534f4e3a3a4578743a3a47656e657261746f723a3a5374617465237363726970745f736166653f4a534f4e3a3a4578743a3a47656e657261746f723a3a5374617465237374726963743f4a534f4e3a3a4578743a3a47656e657261746f723a3a5374617465237374726963744a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523636865636b5f63697263756c61723f4a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523736f72745f6b6579733d44454641554c545f534f52544a534f4e3a3a4578743a3a47656e657261746f723a3a53746174653a3a44454641554c545f534f52544a534f4e3a3a4578743a3a47656e657261746f723a3a53746174652361735f6a736f6e3d53796d626f6c4a534f4e3a3a4578743a3a47656e657261746f723a3a53746174653a3a53796d626f6c4a534f4e3a3a4578743a3a47656e657261746f723a3a5374617465235b5d404a534f4e3a3a4578743a3a47656e657261746f723a3a5374617465235b5d3d4a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523746f5f68626c6f636b20696e204a534f4e3a3a4578743a3a47656e657261746f723a3a537461746523746f5f6841545452534a534f4e3a3a4578743a3a47656e657261746f723a3a53746174653a3a4154545253614a534f4e3a3a4578743a3a47656e657261746f723a3a53746174652367656e65726174654a534f4e3a3a4578743a3a47656e657261746f723a3a53746174653a3a4a534f4e3c6d6f64756c653a4a534f4e3e322e32312e3256455253494f4e4a534f4e5f4c4f414445444e614e496e66696e6974794a534f4e3a3a496e66696e6974794d696e7573496e66696e6974794a534f4e4572726f725374616e646172644572726f725061727365724572726f724e657374696e674572726f7247656e657261746f724572726f724d697373696e67556e69636f6465537570706f7274467261676d656e7447656e657269634f626a6563744578744a534f4e3a3a45787447656e657261746f724578743a3a47656e657261746f7253746174654578743a3a47656e657261746f723a3a537461746573696e676c65746f6e20636c6173734a534f4e2e64756d70496e7465676572233c436c6173733a4a534f4e3e3a3a496e7465676572233c436c6173733a4a534f4e3e3a3a4a534f4e4a534f4e3a3a4e657374696e674572726f72417267756d656e744572726f72233c436c6173733a4a534f4e3e3a3a417267756d656e744572726f72657863656564206465707468206c696d69746f626a616e494f6c696d69746f7074734a534f4e2e6c6f61646f7074696f6e73203a73796d626f6c697a655f6e616d657320616e64203a6372656174655f6164646974696f6e732063616e6e6f7420626520207573656420696e20636f6e6a756e6374696f6e736f7572636570726f636f7074696f6e734a534f4e2e726563757273655f70726f634172726179233c436c6173733a4a534f4e3e3a3a4172726179233c436c6173733a4a534f4e3e3a3a48617368626c6f636b20696e204a534f4e2e726563757273655f70726f6378726573756c744a534f4e2e666173745f67656e65726174653c636c6173733a4a534f4e4572726f723e3c636c6173733a5061727365724572726f723e3c636c6173733a4e657374696e674572726f723e3c636c6173733a47656e657261746f724572726f723e3c636c6173733a4d697373696e67556e69636f6465537570706f72743e3c636c6173733a467261676d656e743e3c636c6173733a47656e657269634f626a6563743e3c6d6f64756c653a4578743e3c6d6f64756c653a47656e657261746f723e3c636c6173733a53746174653e626c6f636b20696e203c636c6173733a53746174653e686173687a65302f6175746f6c6f61642e72623c6d61696e3e544f504c4556454c5f42494e44494e474d6f64756c654f626a656374436c617373547970654572726f724f626a656374206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f66204f626a656374207761732068657265626c6f636b20696e203c6d61696e3e4f626a65637423746f5f6a736f6e2a48617368206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f66204861736820776173206865726573746174654172726179206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f66204172726179207761732068657265537472696e67537472696e67206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f6620537472696e67207761732068657265496e7465676572206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f6620496e7465676572207761732068657265466c6f6174466c6f6174206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f6620466c6f617420776173206865726553796d626f6c206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f662053796d626f6c2077617320686572654e696c436c6173734e696c436c617373206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f66204e696c436c6173732077617320686572656e756c6c54727565436c61737354727565436c617373206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f662054727565436c6173732077617320686572657472756546616c7365436c61737346616c7365436c617373206973206e6f74206120636c6173730a3a3a2070726576696f757320646566696e6974696f6e206f662046616c7365436c61737320776173206865726566616c7365",
   "syms": [
     "to_s",
     "to_sym",
@@ -232,7 +232,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/autoload.rb",
+    "path": "<root>/test/ze0/autoload.rb",
     "offset": 632
   },
   "defs": [
@@ -240,7 +240,7 @@
       "name": "create_id",
       "tramp": "zeo_ct_JSON_create_id",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 34,
       "visibility": "public",
       "aliased_from": "",
@@ -251,7 +251,7 @@
       "name": "json",
       "tramp": "zeo_t_JSON__Fragment_json",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 39,
       "visibility": "public",
       "aliased_from": "",
@@ -267,7 +267,7 @@
           "json"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 41,
       "visibility": "private",
       "aliased_from": "",
@@ -283,7 +283,7 @@
           "*"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 45,
       "visibility": "public",
       "aliased_from": "",
@@ -299,7 +299,7 @@
           "hash"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 52,
       "visibility": "private",
       "aliased_from": "",
@@ -315,7 +315,7 @@
           "name"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 57,
       "visibility": "public",
       "aliased_from": "",
@@ -335,7 +335,7 @@
           "value"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 58,
       "visibility": "public",
       "aliased_from": "",
@@ -346,7 +346,7 @@
       "name": "to_h",
       "tramp": "zeo_t_JSON__GenericObject_to_h",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 61,
       "visibility": "public",
       "aliased_from": "",
@@ -366,7 +366,7 @@
           "*"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 62,
       "visibility": "public",
       "aliased_from": "",
@@ -386,7 +386,7 @@
           "args"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 64,
       "visibility": "public",
       "aliased_from": "",
@@ -406,7 +406,7 @@
           "include_private"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 72,
       "visibility": "private",
       "aliased_from": "",
@@ -417,7 +417,7 @@
       "name": "indent",
       "tramp": "zeo_t_JSON__Ext__Generator__State_indent",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 94,
       "visibility": "public",
       "aliased_from": "",
@@ -428,7 +428,7 @@
       "name": "space",
       "tramp": "zeo_t_JSON__Ext__Generator__State_space",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 94,
       "visibility": "public",
       "aliased_from": "",
@@ -439,7 +439,7 @@
       "name": "space_before",
       "tramp": "zeo_t_JSON__Ext__Generator__State_space_before",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 94,
       "visibility": "public",
       "aliased_from": "",
@@ -450,7 +450,7 @@
       "name": "object_nl",
       "tramp": "zeo_t_JSON__Ext__Generator__State_object_nl",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 94,
       "visibility": "public",
       "aliased_from": "",
@@ -461,7 +461,7 @@
       "name": "array_nl",
       "tramp": "zeo_t_JSON__Ext__Generator__State_array_nl",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 94,
       "visibility": "public",
       "aliased_from": "",
@@ -472,7 +472,7 @@
       "name": "as_json",
       "tramp": "zeo_t_JSON__Ext__Generator__State_as_json",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 94,
       "visibility": "public",
       "aliased_from": "",
@@ -483,7 +483,7 @@
       "name": "max_nesting",
       "tramp": "zeo_t_JSON__Ext__Generator__State_max_nesting",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 94,
       "visibility": "public",
       "aliased_from": "",
@@ -494,7 +494,7 @@
       "name": "script_safe",
       "tramp": "zeo_t_JSON__Ext__Generator__State_script_safe",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 94,
       "visibility": "public",
       "aliased_from": "",
@@ -505,7 +505,7 @@
       "name": "depth",
       "tramp": "zeo_t_JSON__Ext__Generator__State_depth",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 94,
       "visibility": "public",
       "aliased_from": "",
@@ -516,7 +516,7 @@
       "name": "buffer_initial_length",
       "tramp": "zeo_t_JSON__Ext__Generator__State_buffer_initial_length",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 94,
       "visibility": "public",
       "aliased_from": "",
@@ -527,7 +527,7 @@
       "name": "sort_keys",
       "tramp": "zeo_t_JSON__Ext__Generator__State_sort_keys",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 94,
       "visibility": "public",
       "aliased_from": "",
@@ -543,7 +543,7 @@
           ""
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 99,
       "visibility": "public",
       "aliased_from": "",
@@ -559,7 +559,7 @@
           ""
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 99,
       "visibility": "public",
       "aliased_from": "",
@@ -575,7 +575,7 @@
           ""
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 99,
       "visibility": "public",
       "aliased_from": "",
@@ -591,7 +591,7 @@
           ""
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 99,
       "visibility": "public",
       "aliased_from": "",
@@ -607,7 +607,7 @@
           ""
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 99,
       "visibility": "public",
       "aliased_from": "",
@@ -623,7 +623,7 @@
           ""
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 99,
       "visibility": "public",
       "aliased_from": "",
@@ -639,7 +639,7 @@
           ""
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 99,
       "visibility": "public",
       "aliased_from": "",
@@ -655,7 +655,7 @@
           ""
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 99,
       "visibility": "public",
       "aliased_from": "",
@@ -671,7 +671,7 @@
           ""
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 99,
       "visibility": "public",
       "aliased_from": "",
@@ -687,7 +687,7 @@
           ""
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 99,
       "visibility": "public",
       "aliased_from": "",
@@ -703,7 +703,7 @@
           ""
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 99,
       "visibility": "public",
       "aliased_from": "",
@@ -719,7 +719,7 @@
           ""
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 99,
       "visibility": "public",
       "aliased_from": "",
@@ -735,7 +735,7 @@
           "opts"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 107,
       "visibility": "public",
       "aliased_from": "",
@@ -751,7 +751,7 @@
           "opts"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 121,
       "visibility": "private",
       "aliased_from": "",
@@ -767,7 +767,7 @@
           "opts"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 131,
       "visibility": "public",
       "aliased_from": "",
@@ -783,7 +783,7 @@
           "opts"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 131,
       "visibility": "public",
       "aliased_from": "configure",
@@ -794,7 +794,7 @@
       "name": "allow_nan?",
       "tramp": "zeo_t_JSON__Ext__Generator__State_allow_nan_u003F_",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 137,
       "visibility": "public",
       "aliased_from": "",
@@ -805,7 +805,7 @@
       "name": "ascii_only?",
       "tramp": "zeo_t_JSON__Ext__Generator__State_ascii_only_u003F_",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 138,
       "visibility": "public",
       "aliased_from": "",
@@ -816,7 +816,7 @@
       "name": "script_safe?",
       "tramp": "zeo_t_JSON__Ext__Generator__State_script_safe_u003F_",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 139,
       "visibility": "public",
       "aliased_from": "",
@@ -827,7 +827,7 @@
       "name": "strict?",
       "tramp": "zeo_t_JSON__Ext__Generator__State_strict_u003F_",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 140,
       "visibility": "public",
       "aliased_from": "",
@@ -838,7 +838,7 @@
       "name": "strict",
       "tramp": "zeo_t_JSON__Ext__Generator__State_strict",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 141,
       "visibility": "public",
       "aliased_from": "",
@@ -849,7 +849,7 @@
       "name": "escape_slash",
       "tramp": "zeo_t_JSON__Ext__Generator__State_escape_slash",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 94,
       "visibility": "public",
       "aliased_from": "script_safe",
@@ -860,7 +860,7 @@
       "name": "escape_slash?",
       "tramp": "zeo_t_JSON__Ext__Generator__State_escape_slash_u003F_",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 139,
       "visibility": "public",
       "aliased_from": "script_safe?",
@@ -876,7 +876,7 @@
           ""
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 99,
       "visibility": "public",
       "aliased_from": "script_safe=",
@@ -887,7 +887,7 @@
       "name": "check_circular?",
       "tramp": "zeo_t_JSON__Ext__Generator__State_check_circular_u003F_",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 151,
       "visibility": "public",
       "aliased_from": "",
@@ -903,7 +903,7 @@
           "v"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 155,
       "visibility": "public",
       "aliased_from": "",
@@ -919,7 +919,7 @@
           "v"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 159,
       "visibility": "public",
       "aliased_from": "",
@@ -935,7 +935,7 @@
           "name"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 167,
       "visibility": "public",
       "aliased_from": "",
@@ -955,7 +955,7 @@
           "value"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 171,
       "visibility": "public",
       "aliased_from": "",
@@ -966,7 +966,7 @@
       "name": "to_h",
       "tramp": "zeo_t_JSON__Ext__Generator__State_to_h",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 180,
       "visibility": "public",
       "aliased_from": "",
@@ -977,7 +977,7 @@
       "name": "to_hash",
       "tramp": "zeo_t_JSON__Ext__Generator__State_to_hash",
       "params": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 180,
       "visibility": "public",
       "aliased_from": "to_h",
@@ -993,7 +993,7 @@
           "obj"
         ]
       ],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 185,
       "visibility": "public",
       "aliased_from": "",
@@ -1008,7 +1008,7 @@
       "kind": "module",
       "ivars": [],
       "private_constants": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 5,
       "conceal": true,
       "singleton_of": null
@@ -1019,7 +1019,7 @@
       "kind": "class",
       "ivars": [],
       "private_constants": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 27,
       "conceal": true,
       "singleton_of": null
@@ -1030,7 +1030,7 @@
       "kind": "class",
       "ivars": [],
       "private_constants": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 28,
       "conceal": true,
       "singleton_of": null
@@ -1041,7 +1041,7 @@
       "kind": "class",
       "ivars": [],
       "private_constants": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 29,
       "conceal": true,
       "singleton_of": null
@@ -1052,7 +1052,7 @@
       "kind": "class",
       "ivars": [],
       "private_constants": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 30,
       "conceal": true,
       "singleton_of": null
@@ -1063,7 +1063,7 @@
       "kind": "class",
       "ivars": [],
       "private_constants": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 31,
       "conceal": true,
       "singleton_of": null
@@ -1076,7 +1076,7 @@
         "json"
       ],
       "private_constants": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 38,
       "conceal": true,
       "singleton_of": null
@@ -1089,7 +1089,7 @@
         "table"
       ],
       "private_constants": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 51,
       "conceal": true,
       "singleton_of": null
@@ -1100,7 +1100,7 @@
       "kind": "module",
       "ivars": [],
       "private_constants": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 83,
       "conceal": true,
       "singleton_of": null
@@ -1111,7 +1111,7 @@
       "kind": "module",
       "ivars": [],
       "private_constants": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 84,
       "conceal": true,
       "singleton_of": null
@@ -1137,7 +1137,7 @@
         "strict"
       ],
       "private_constants": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 85,
       "conceal": true,
       "singleton_of": null
@@ -1148,7 +1148,7 @@
       "kind": "class",
       "ivars": [],
       "private_constants": [],
-      "file": "vendor/ext/json/lib/json.rb",
+      "file": "<root>/vendor/ext/json/lib/json.rb",
       "line": 192,
       "conceal": false,
       "singleton_of": "JSON"
@@ -1159,7 +1159,7 @@
   ],
   "units": [
     {
-      "feature": "vendor/ext/json/lib/json",
+      "feature": "<root>/vendor/ext/json/lib/json",
       "symbol": "zeo_unit_0"
     },
     {

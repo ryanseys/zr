@@ -71,7 +71,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/bindings.rb",
+    "path": "<root>/test/ze0/bindings.rb",
     "offset": 1559
   },
   "defs": [

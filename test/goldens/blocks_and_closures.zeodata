@@ -126,7 +126,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/blocks_and_closures.rb",
+    "path": "<root>/test/ze0/blocks_and_closures.rb",
     "offset": 1744
   },
   "defs": [

@@ -159,7 +159,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/parameters.rb",
+    "path": "<root>/test/ze0/parameters.rb",
     "offset": 2024
   },
   "defs": [

@@ -13,7 +13,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/locals_and_assignment.rb",
+    "path": "<root>/test/ze0/locals_and_assignment.rb",
     "offset": 160
   },
   "defs": [],

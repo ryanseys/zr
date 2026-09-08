@@ -30,7 +30,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/class_reveal.rb",
+    "path": "<root>/test/ze0/class_reveal.rb",
     "offset": 714
   },
   "defs": [

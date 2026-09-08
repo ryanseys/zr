@@ -31,7 +31,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/static_guards.rb",
+    "path": "<root>/test/ze0/static_guards.rb",
     "offset": 1093
   },
   "defs": [

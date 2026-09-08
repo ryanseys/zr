@@ -15,7 +15,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/begin_and_end.rb",
+    "path": "<root>/test/ze0/begin_and_end.rb",
     "offset": 686
   },
   "defs": [],

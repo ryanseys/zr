@@ -11,7 +11,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/wrong_arity.rb",
+    "path": "<root>/test/ze0/wrong_arity.rb",
     "offset": 61
   },
   "defs": [

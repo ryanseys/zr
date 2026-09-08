@@ -16,7 +16,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/overflow_to_bignum.rb",
+    "path": "<root>/test/ze0/overflow_to_bignum.rb",
     "offset": 84
   },
   "defs": [],

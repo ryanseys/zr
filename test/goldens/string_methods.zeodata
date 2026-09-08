@@ -29,7 +29,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/string_methods.rb",
+    "path": "<root>/test/ze0/string_methods.rb",
     "offset": 194
   },
   "defs": [],

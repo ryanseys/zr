@@ -150,7 +150,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/pattern_matching.rb",
+    "path": "<root>/test/ze0/pattern_matching.rb",
     "offset": 4130
   },
   "defs": [

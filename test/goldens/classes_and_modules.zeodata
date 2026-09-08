@@ -328,7 +328,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/classes_and_modules.rb",
+    "path": "<root>/test/ze0/classes_and_modules.rb",
     "offset": 5731
   },
   "defs": [

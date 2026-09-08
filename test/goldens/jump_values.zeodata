@@ -23,7 +23,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/jump_values.rb",
+    "path": "<root>/test/ze0/jump_values.rb",
     "offset": 602
   },
   "defs": [

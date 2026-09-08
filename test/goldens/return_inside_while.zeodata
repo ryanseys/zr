@@ -17,7 +17,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/return_inside_while.rb",
+    "path": "<root>/test/ze0/return_inside_while.rb",
     "offset": 265
   },
   "defs": [

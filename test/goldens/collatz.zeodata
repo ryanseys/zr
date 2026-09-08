@@ -20,7 +20,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/collatz.rb",
+    "path": "<root>/test/ze0/collatz.rb",
     "offset": 203
   },
   "defs": [

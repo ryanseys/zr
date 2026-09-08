@@ -106,7 +106,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/nesting_and_assignment.rb",
+    "path": "<root>/test/ze0/nesting_and_assignment.rb",
     "offset": 1691
   },
   "defs": [

@@ -38,7 +38,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/arithmetic_and_compare.rb",
+    "path": "<root>/test/ze0/arithmetic_and_compare.rb",
     "offset": 248
   },
   "defs": [],

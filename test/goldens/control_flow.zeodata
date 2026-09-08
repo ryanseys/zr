@@ -130,7 +130,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/control_flow.rb",
+    "path": "<root>/test/ze0/control_flow.rb",
     "offset": 2327
   },
   "defs": [

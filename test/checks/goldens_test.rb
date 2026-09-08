@@ -8,9 +8,16 @@ require "rbconfig"
 # `ZE0_BLESS=1` rewrites them; a diff is a reviewed change to the lowering.
 #
 # Each program compiles in its own ruby from `test/`, named `ze0/<name>.rb`,
-# so the paths in the text never move.
+# so the paths in the text never move; the absolute root, which reaches
+# the sidecar through required files and `DATA`, is written as a
+# placeholder so the goldens hold on any checkout.
 class GoldensTest < Minitest::Test
   GOLDENS = File.join(ROOT, "test/goldens")
+  ROOT_HEX = ROOT.unpack1("H*")
+
+  def self.portable(text)
+    text.gsub(ROOT, "<root>").gsub(ROOT_HEX, "<root-hex>")
+  end
 
   def self.compile(rb)
     Dir.mktmpdir("ze0-golden-") do |dir|
@@ -19,7 +26,7 @@ class GoldensTest < Minitest::Test
                      chdir: File.join(ROOT, "test"), err: %i[child out], &:read)
       raise "#{rb}: #{log}" unless $?.success?
 
-      [File.binread(out), File.binread(File.join(dir, "p.zeodata"))]
+      [portable(File.binread(out)), portable(File.binread(File.join(dir, "p.zeodata")))]
     end
   end
 

@@ -157,7 +157,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/singleton_class.rb",
+    "path": "<root>/test/ze0/singleton_class.rb",
     "offset": 2702
   },
   "defs": [

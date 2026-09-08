@@ -98,7 +98,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/loop_control.rb",
+    "path": "<root>/test/ze0/loop_control.rb",
     "offset": 1840
   },
   "defs": [

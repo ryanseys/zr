@@ -77,7 +77,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/scoped_names.rb",
+    "path": "<root>/test/ze0/scoped_names.rb",
     "offset": 1639
   },
   "defs": [

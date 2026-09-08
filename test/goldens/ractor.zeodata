@@ -42,7 +42,7 @@
   ],
   "toplevel": "zeo_toplevel",
   "data_section": {
-    "path": "test/ze0/ractor.rb",
+    "path": "<root>/test/ze0/ractor.rb",
     "offset": 797
   },
   "defs": [
