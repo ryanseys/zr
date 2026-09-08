@@ -20,7 +20,7 @@ module Ze0
       subject = borrow(lower_expr(node.predicate))
       # Only the shape that READS a key miss pays to clear the record.
       single = node.conditions.size == 1
-      f.ins "call #{f.import("zeo_rt_pat_key_miss_clear")}()" if single
+      f.call(f.import("zeo_rt_pat_key_miss_clear")) if single
       result = f.slot
       store_nil(addr_of(result))
       done = f.label
@@ -43,10 +43,10 @@ module Ze0
       missed, done = f.label, f.label
       match_pattern(node.pattern, subject, missed)
       move(literal_bool(1), addr_of(result))
-      f.ins "jump #{done}"
+      f.jump(done)
       f.switch(missed)
       move(literal_bool(0), addr_of(result))
-      f.ins "jump #{done}"
+      f.jump(done)
       f.switch(done)
       Operand.new(result, true, false)
     end
@@ -55,13 +55,13 @@ module Ze0
     # false. Its own value is nil.
     def lower_match_required(node)
       subject = borrow(lower_expr(node.value))
-      f.ins "call #{f.import("zeo_rt_pat_key_miss_clear")}()"
+      f.call(f.import("zeo_rt_pat_key_miss_clear"))
       missed, done = f.label, f.label
       match_pattern(node.pattern, subject, missed)
-      f.ins "jump #{done}"
+      f.jump(done)
       f.switch(missed)
-      status_check(f.val("call #{f.import("zeo_rt_pat_match_error")}(#{subject})"))
-      f.ins "jump #{done}"
+      status_check(f.call_val(f.import("zeo_rt_pat_match_error"), [subject]))
+      f.jump(done)
       f.switch(done)
       literal_nil
     end
@@ -85,10 +85,10 @@ module Ze0
     def check_guard(predicate, negated, missed)
       truth = truthy(lower_expr(predicate))
       held, rejected = f.label, f.label
-      f.ins "brif #{truth}, #{negated ? rejected : held}, #{negated ? held : rejected}"
+      f.brif(truth, negated ? rejected : held, negated ? held : rejected)
       f.switch(rejected)
-      f.ins "call #{f.import("zeo_rt_pat_fail_guard")}()"
-      f.ins "jump #{missed}"
+      f.call(f.import("zeo_rt_pat_fail_guard"))
+      f.jump(missed)
       f.switch(held)
     end
 
@@ -99,8 +99,8 @@ module Ze0
       return arm(lower_statements(node.else_clause.statements), result, done) if node.else_clause
 
       verb = single ? "zeo_rt_pat_match_error" : "zeo_rt_pat_match_error_bare"
-      status_check(f.val("call #{f.import(verb)}(#{subject})"))
-      f.ins "jump #{done}"
+      status_check(f.call_val(f.import(verb), [subject]))
+      f.jump(done)
     end
 
     # `pattern`'s checks against the value at `scrut`: a mismatch jumps to
@@ -139,10 +139,10 @@ module Ze0
       [pattern.left, pattern.right].each do |side|
         other = f.label
         match_pattern(side, scrut, other)
-        f.ins "jump #{hit}"
+        f.jump(hit)
         f.switch(other)
       end
-      f.ins "jump #{missed}"
+      f.jump(missed)
       f.switch(hit)
     end
 
@@ -150,13 +150,13 @@ module Ze0
     # rejects. Every leaf pattern comes here.
     def case_eq_check(pat, scrut, missed)
       answer = f.slot
-      status_check(f.val("call #{f.import("zeo_rt_case_eq")}(#{pat}, #{scrut}, #{addr_of(answer)})"))
-      matched = f.val("load.i8 notrap aligned #{addr_of(answer)}")
+      status_check(f.call_val(f.import("zeo_rt_case_eq"), [pat, scrut, addr_of(answer)]))
+      matched = f.fetch("i8", addr_of(answer))
       held, rejected = f.label, f.label
-      f.ins "brif #{matched}, #{held}, #{rejected}"
+      f.brif(matched, held, rejected)
       f.switch(rejected)
-      f.ins "call #{f.import("zeo_rt_pat_fail_case_eq")}(#{pat}, #{scrut})"
-      f.ins "jump #{missed}"
+      f.call(f.import("zeo_rt_pat_fail_case_eq"), [pat, scrut])
+      f.jump(missed)
       f.switch(held)
     end
 
@@ -172,20 +172,20 @@ module Ze0
     def array_pattern(pattern, scrut, missed)
       constant_guard(pattern, scrut, missed)
       array = deconstruct(scrut, missed)
-      length = f.val("call #{f.import("zeo_rt_pat_array_len")}(#{array})")
+      length = f.call_val(f.import("zeo_rt_pat_array_len"), [array])
       pre, post = pattern.requireds, pattern.posts
       open = !pattern.rest.nil?
       check_length(array, length, pre.size + post.size, open, missed)
       pre.each_with_index { |p, i| match_pattern(p, array_elem(array, f.iconst("i64", i)), missed) }
       post.each_with_index do |p, i|
-        at = f.val("isub #{length}, #{f.iconst("i64", post.size - i)}")
+        at = f.isub(length, f.iconst("i64", post.size - i))
         match_pattern(p, array_elem(array, at), missed)
       end
       # An `[a,]` trailing comma is prism's `ImplicitRestNode`: it opens
       # the length but binds nothing.
       return unless pattern.rest.is_a?(Prism::SplatNode) && pattern.rest.expression
 
-      to = f.val("isub #{length}, #{f.iconst("i64", post.size)}")
+      to = f.isub(length, f.iconst("i64", post.size))
       bind_slice(pattern.rest.expression, array, f.iconst("i64", pre.size), to)
     end
 
@@ -193,13 +193,12 @@ module Ze0
     # exactly that. The mismatch names the DECONSTRUCTED array, not the
     # subject.
     def check_length(array, length, least, open, missed)
-      fits = f.val("icmp #{open ? "uge" : "eq"} #{length}, #{f.iconst("i64", least)}")
+      fits = f.icmp(open ? "uge" : "eq", length, f.iconst("i64", least))
       held, wrong = f.label, f.label
-      f.ins "brif #{fits}, #{held}, #{wrong}"
+      f.brif(fits, held, wrong)
       f.switch(wrong)
-      f.ins "call #{f.import("zeo_rt_pat_fail_length")}(#{array}, #{f.iconst("i64", least)}, " \
-            "#{f.iconst("i8", open ? 1 : 0)})"
-      f.ins "jump #{missed}"
+      f.call(f.import("zeo_rt_pat_fail_length"), [array, f.iconst("i64", least), f.iconst("i8", open ? 1 : 0)])
+      f.jump(missed)
       f.switch(held)
     end
 
@@ -208,39 +207,39 @@ module Ze0
     def find_pattern(pattern, scrut, missed)
       constant_guard(pattern, scrut, missed)
       array = deconstruct(scrut, missed)
-      length = f.val("call #{f.import("zeo_rt_pat_array_len")}(#{array})")
+      length = f.call_val(f.import("zeo_rt_pat_array_len"), [array])
       mid = pattern.requireds
       width = f.iconst("i64", mid.size)
       start = f.slot
       head, body, none, hit = f.label, f.label, f.label, f.label
-      f.ins "store notrap aligned #{f.iconst("i64", 0)}, #{addr_of(start)}"
-      f.ins "brif #{f.val("icmp uge #{length}, #{width}")}, #{head}, #{none}"
+      f.store(f.iconst("i64", 0), addr_of(start))
+      f.brif(f.icmp("uge", length, width), head, none)
 
       f.switch(none)
-      f.ins "call #{f.import("zeo_rt_pat_fail_find")}(#{array})"
-      f.ins "jump #{missed}"
+      f.call(f.import("zeo_rt_pat_fail_find"), [array])
+      f.jump(missed)
 
       f.switch(head)
-      at = f.val("load.i64 notrap aligned #{addr_of(start)}")
-      last = f.val("isub #{length}, #{width}")
-      f.ins "brif #{f.val("icmp ule #{at}, #{last}")}, #{body}, #{none}"
+      at = f.fetch("i64", addr_of(start))
+      last = f.isub(length, width)
+      f.brif(f.icmp("ule", at, last), body, none)
 
       f.switch(body)
       step = f.label
       mid.each_with_index do |p, i|
-        idx = i.zero? ? at : f.val("iadd #{at}, #{f.iconst("i64", i)}")
+        idx = i.zero? ? at : f.iadd(at, f.iconst("i64", i))
         match_pattern(p, array_elem(array, idx), step)
       end
-      f.ins "jump #{hit}"
+      f.jump(hit)
       f.switch(step)
-      f.ins "store notrap aligned #{f.val("iadd #{at}, #{f.iconst("i64", 1)}")}, #{addr_of(start)}"
-      f.ins "jump #{head}"
+      f.store(f.iadd(at, f.iconst("i64", 1)), addr_of(start))
+      f.jump(head)
 
       f.switch(hit)
       bind_slice(pattern.left.expression, array, f.iconst("i64", 0), at) if pattern.left.expression
       return unless pattern.right.expression
 
-      bind_slice(pattern.right.expression, array, f.val("iadd #{at}, #{width}"), length)
+      bind_slice(pattern.right.expression, array, f.iadd(at, width), length)
     end
 
     # `{key: pattern, ..., **rest}`: `#deconstruct_keys`, then per-key
@@ -278,17 +277,17 @@ module Ze0
       no_more = pattern.rest.is_a?(Prism::NoKeywordsParameterNode)
       return unless empty || no_more
 
-      size = f.val("call #{f.import("zeo_rt_pat_hash_len")}(#{hash})")
-      exact = f.val("icmp eq #{size}, #{f.iconst("i64", empty ? 0 : keys.size)}")
+      size = f.call_val(f.import("zeo_rt_pat_hash_len"), [hash])
+      exact = f.icmp("eq", size, f.iconst("i64", empty ? 0 : keys.size))
       held, wrong = f.label, f.label
-      f.ins "brif #{exact}, #{held}, #{wrong}"
+      f.brif(exact, held, wrong)
       f.switch(wrong)
       if no_more && !keys.empty?
-        f.ins "call #{f.import("zeo_rt_pat_fail_not_empty")}(#{hash_except(hash, keys)}, #{f.iconst("i8", 1)})"
+        f.call(f.import("zeo_rt_pat_fail_not_empty"), [hash_except(hash, keys), f.iconst("i8", 1)])
       else
-        f.ins "call #{f.import("zeo_rt_pat_fail_not_empty")}(#{hash}, #{f.iconst("i8", 0)})"
+        f.call(f.import("zeo_rt_pat_fail_not_empty"), [hash, f.iconst("i8", 0)])
       end
-      f.ins "jump #{missed}"
+      f.jump(missed)
       f.switch(held)
     end
 
@@ -298,16 +297,16 @@ module Ze0
     # itself.
     def hash_pair(pair, key, hash, missed)
       sym = sym_id(key)
-      present = f.val("call #{f.import("zeo_rt_pat_hash_has_key")}(#{hash}, #{sym})")
+      present = f.call_val(f.import("zeo_rt_pat_hash_has_key"), [hash, sym])
       held, absent = f.label, f.label
-      f.ins "brif #{present}, #{held}, #{absent}"
+      f.brif(present, held, absent)
       f.switch(absent)
-      f.ins "call #{f.import("zeo_rt_pat_key_miss_record")}(#{sym}, #{hash})"
-      f.ins "jump #{missed}"
+      f.call(f.import("zeo_rt_pat_key_miss_record"), [sym, hash])
+      f.jump(missed)
       f.switch(held)
 
       value = f.slot
-      f.ins "call #{f.import("zeo_rt_pat_hash_get")}(#{hash}, #{sym}, #{addr_of(value)})"
+      f.call(f.import("zeo_rt_pat_hash_get"), [hash, sym, addr_of(value)])
       at = borrow(Operand.new(value, true, false))
       # `{key:}` shorthand binds a local of that name directly.
       return store_local(locals.fetch(key.to_sym), Operand.new(at, false, false)) if pair.value.is_a?(Prism::ImplicitNode)
@@ -319,7 +318,7 @@ module Ze0
     def hash_except(hash, keys)
       names, count = cid_array(keys.map { |k| sym_id(k) })
       slot = f.slot
-      f.ins "call #{f.import("zeo_rt_pat_hash_except")}(#{hash}, #{names}, #{count}, #{addr_of(slot)})"
+      f.call(f.import("zeo_rt_pat_hash_except"), [hash, names, count, addr_of(slot)])
       borrow(Operand.new(slot, true, false))
     end
 
@@ -329,9 +328,7 @@ module Ze0
     # owns; every sub-pattern only borrows it.
     def deconstruct(scrut, missed)
       slot, matched = f.slot, f.slot
-      status_check(f.val(
-        "call #{f.import("zeo_rt_pat_deconstruct")}(#{scrut}, #{addr_of(slot)}, #{addr_of(matched)})",
-      ))
+      status_check(f.call_val(f.import("zeo_rt_pat_deconstruct"), [scrut, addr_of(slot), addr_of(matched)]))
       deconstructed(slot, matched, missed)
     end
 
@@ -340,16 +337,16 @@ module Ze0
       # take everything, and what such a `deconstruct_keys` reads.
       names, count = keys.empty? ? [f.iconst("i64", 0), f.iconst("i64", 0)] : cid_array(keys.map { |k| sym_id(k) })
       slot, matched = f.slot, f.slot
-      status_check(f.val(
-        "call #{f.import("zeo_rt_pat_deconstruct_keys")}(#{scrut}, #{names}, #{count}, " \
-        "#{addr_of(slot)}, #{addr_of(matched)})",
+      status_check(f.call_val(
+        f.import("zeo_rt_pat_deconstruct_keys"),
+        [scrut, names, count, addr_of(slot), addr_of(matched)],
       ))
       deconstructed(slot, matched, missed)
     end
 
     def deconstructed(slot, matched, missed)
       held = f.label
-      f.ins "brif #{f.val("load.i8 notrap aligned #{addr_of(matched)}")}, #{held}, #{missed}"
+      f.brif(f.fetch("i8", addr_of(matched)), held, missed)
       f.switch(held)
       borrow(Operand.new(slot, true, false))
     end
@@ -357,7 +354,7 @@ module Ze0
     # One element of the deconstructed array, in a pooled slot.
     def array_elem(array, index)
       slot = f.slot
-      f.ins "call #{f.import("zeo_rt_pat_array_get")}(#{array}, #{index}, #{addr_of(slot)})"
+      f.call(f.import("zeo_rt_pat_array_get"), [array, index, addr_of(slot)])
       borrow(Operand.new(slot, true, false))
     end
 
@@ -365,7 +362,7 @@ module Ze0
     # `*` names.
     def bind_slice(target, array, from, to)
       slot = f.slot
-      f.ins "call #{f.import("zeo_rt_pat_array_slice")}(#{array}, #{from}, #{to}, #{addr_of(slot)})"
+      f.call(f.import("zeo_rt_pat_array_slice"), [array, from, to, addr_of(slot)])
       store_local(local(target), Operand.new(borrow(Operand.new(slot, true, false)), false, false))
     end
   end
