@@ -1809,10 +1809,9 @@ module Ze0
                    else
                      cid_array(pending.map { |n| sym_id(n) })
                    end
-      status_check(f.val(
-        "call #{f.import("zeo_rt_probe_def_hook")}(#{class_id_of(owner)}, " \
-        "#{f.iconst("i8", node.receiver ? 1 : 0)}, #{f.iconst("i8", 0)}, " \
-        "#{sym_id(node.name)}, #{ptr}, #{count})",
+      status_check(f.call_val(
+        f.import("zeo_rt_probe_def_hook"),
+        [class_id_of(owner), f.iconst("i8", node.receiver ? 1 : 0), f.iconst("i8", 0), sym_id(node.name), ptr, count],
       ))
     end
 
@@ -1858,10 +1857,17 @@ module Ze0
       # PUBLIC `nested`.
       private = owner == Names::OBJECT && kind != :class_body && enclosing_definition.nil? &&
                 scope.definee_value.nil?
-      status_check(f.val(
-        "call #{f.import("zeo_rt_define_in_default_definee")}(#{addr_of(cref_value)}, " \
-        "#{borrow(self_operand)}, #{sym_id(node.name)}, #{proc_value}, " \
-        "#{f.iconst("i8", private ? 1 : 0)}, #{f.iconst("i8", 0)}, #{addr_of(result)})",
+      status_check(f.call_val(
+        f.import("zeo_rt_define_in_default_definee"),
+        [
+          addr_of(cref_value),
+          borrow(self_operand),
+          sym_id(node.name),
+          proc_value,
+          f.iconst("i8", private ? 1 : 0),
+          f.iconst("i8", 0),
+          addr_of(result),
+        ],
       ))
       mark_runtime_def(node)
       Operand.new(result, true, false)
@@ -1894,21 +1900,19 @@ module Ze0
       slot = f.slot
       at = addr_of(slot)
       store_nil(at)
-      f.ins "store notrap aligned #{f.iconst("i8", Capi::TAG_CLASS)}, #{at}"
-      f.ins "store notrap aligned #{class_id_of(name)}, #{at}+8"
+      f.store(f.iconst("i8", Capi::TAG_CLASS), at)
+      f.store(class_id_of(name), at, 8)
       Operand.new(slot, false, true)
     end
 
     # The `autoload` one scope still owes for `name`, run before the read
     # resolves. One relaxed load when nothing is pending.
     def autoload_touch(scope, nptr, nlen)
-      status_check(f.val("call #{f.import("zeo_rt_autoload_touch")}(#{scope}, #{nptr}, #{nlen})"))
+      status_check(f.call_val(f.import("zeo_rt_autoload_touch"), [scope, nptr, nlen]))
     end
 
     def autoload_touch_value(scope, nptr, nlen)
-      status_check(f.val(
-        "call #{f.import("zeo_rt_autoload_touch_value")}(#{scope}, #{nptr}, #{nlen})",
-      ))
+      status_check(f.call_val(f.import("zeo_rt_autoload_touch_value"), [scope, nptr, nlen]))
     end
 
     # A class's id as an i32. `Object` is the one name with no row of its
@@ -2265,11 +2269,11 @@ module Ze0
         own = (names + [params.block].compact + node.locals).uniq
         boxed = captured_names(params.default_expressions + body_statements(node.body), own, names)
         own.each { |n| declare_local(n, boxed: boxed.include?(n)) }
-        status = f.val("call #{f.import("zeo_rt_stack_check")}()")
+        status = f.call_val(f.import("zeo_rt_stack_check"))
         overflow, cont = f.label, f.label
-        f.ins "brif #{status}, #{overflow}, #{cont}"
+        f.brif(status, overflow, cont)
         f.switch(overflow)
-        f.ins "return #{f.iconst("i32", 1)}"
+        f.ret(f.iconst("i32", 1))
         f.switch(cont)
         # After the recursion guard, which leaves without an epilogue.
         push_home if scope.catches_return
@@ -2284,7 +2288,7 @@ module Ze0
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
         value = lower_statements(node.body)
         move(value, out) unless f.terminated?
-        f.ins "jump #{done_block}" unless f.terminated?
+        f.jump(done_block) unless f.terminated?
         epilogue
       end
       @program.add_function(label_of(owner, name, singleton), function)
@@ -2317,14 +2321,14 @@ module Ze0
       function = Clif::Function.new(trampoline_of(owner, name, false), ["i64"] * 5, "i32")
       in_scope(function, :trampoline) do
         recv, argv, argc, blk, into = f.args
-        scope.rodata = f.val("symbol_value.i64 #{f.symbol("zeo_rodata")}") if keyed
+        scope.rodata = f.symbol_value(f.symbol("zeo_rodata")) if keyed
         release_block_argument(blk)
         want = f.iconst("i64", writer ? 1 : 0)
-        fits = f.val("icmp eq #{argc}, #{want}")
+        fits = f.icmp("eq", argc, want)
         go, wrong = f.label, f.label
-        f.ins "brif #{fits}, #{go}, #{wrong}"
+        f.brif(fits, go, wrong)
         f.switch(wrong)
-        f.ins "return #{f.val("call #{f.import("zeo_rt_wrong_arity")}(#{argc}, #{want}, #{want})")}"
+        f.ret(f.call_val(f.import("zeo_rt_wrong_arity"), [argc, want, want]))
         f.switch(go)
         if keyed
           keyed_accessor(ivar, recv, argv, into, writer)
@@ -2338,32 +2342,32 @@ module Ze0
     def slot_accessor(slot, recv, argv, into, writer)
       at = f.iconst("i64", slot)
       unless writer
-        f.ins "call #{f.import("zeo_rt_ivar_get_slot")}(#{recv}, #{at}, #{into})"
-        return f.ins("return #{f.iconst("i32", 0)}")
+        f.call(f.import("zeo_rt_ivar_get_slot"), [recv, at, into])
+        return f.ret(f.iconst("i32", 0))
       end
 
-      status_return(f.val("call #{f.import("zeo_rt_frozen_check")}(#{recv})"))
+      status_return(f.call_val(f.import("zeo_rt_frozen_check"), [recv]))
       # Two fresh references off the caller's borrowed argument: one moves
       # into the slot, one is the value the writer answers.
       retain_if_heap(argv)
       retain_if_heap(argv)
       copy(argv, into)
-      f.ins "return #{f.val("call #{f.import("zeo_rt_ivar_set_slot")}(#{recv}, #{at}, #{argv})")}"
+      f.ret(f.call_val(f.import("zeo_rt_ivar_set_slot"), [recv, at, argv]))
     end
 
     def keyed_accessor(ivar, recv, argv, into, writer)
       ptr, len = rodata_ref(ivar)
       box = f.iconst("i32", Capi::MAIN_BOX)
       unless writer
-        return f.ins("return #{f.val("call #{f.import("zeo_rt_ivar_get_dyn")}(#{recv}, #{ptr}, #{len}, #{box}, #{into})")}")
+        return f.ret(f.call_val(f.import("zeo_rt_ivar_get_dyn"), [recv, ptr, len, box, into]))
       end
 
       # The set BORROWS its value and does its own frozen check, so the
       # answer takes the one fresh reference.
-      status_return(f.val("call #{f.import("zeo_rt_ivar_set_dyn")}(#{recv}, #{ptr}, #{len}, #{box}, #{argv})"))
+      status_return(f.call_val(f.import("zeo_rt_ivar_set_dyn"), [recv, ptr, len, box, argv]))
       retain_if_heap(argv)
       copy(argv, into)
-      f.ins "return #{f.iconst("i32", 0)}"
+      f.ret(f.iconst("i32", 0))
     end
 
     # Whether instances of `owner` are a runtime type rather than a
@@ -2389,9 +2393,9 @@ module Ze0
     # has no landing block of its own: the caller's does the unwinding.
     def status_return(status)
       out, cont = f.label, f.label
-      f.ins "brif #{status}, #{out}, #{cont}"
+      f.brif(status, out, cont)
       f.switch(out)
-      f.ins "return #{f.iconst("i32", 1)}"
+      f.ret(f.iconst("i32", 1))
       f.switch(cont)
     end
 
@@ -2407,44 +2411,41 @@ module Ze0
       function = Clif::Function.new(trampoline_of(owner, name, singleton), ["i64"] * 5, "i32")
       in_scope(function, :trampoline) do
         recv, argv, argc, blk, into = f.args
-        scope.rodata = f.val("symbol_value.i64 #{f.symbol("zeo_rodata")}")
+        scope.rodata = f.symbol_value(f.symbol("zeo_rodata"))
         desc = param_desc(params, name.to_s, label_of(owner, origin, singleton), node)
         slots = n_slots.zero? ? nil : f.slot(Capi::SLOT_BYTES * n_slots)
         slots_at = slots ? addr_of(slots) : f.iconst("i64", 0)
         present = f.slot(8)
-        status = f.val(
-          "call #{f.import("zeo_rt_bind_params")}(#{addr_of(desc)}, #{argv}, #{argc}, " \
-          "#{slots_at}, #{addr_of(present)})",
-        )
+        status = f.call_val(f.import("zeo_rt_bind_params"), [addr_of(desc), argv, argc, slots_at, addr_of(present)])
         ok, bad = f.label, f.label
-        f.ins "brif #{status}, #{bad}, #{ok}"
+        f.brif(status, bad, ok)
         f.switch(bad)
         # The binder leaves every slot nil on an error, so only the block
         # it was handed still needs releasing.
         release_block_argument(blk)
-        f.ins "return #{f.iconst("i32", 1)}"
+        f.ret(f.iconst("i32", 1))
         f.switch(ok)
         release_block_argument(blk) unless takes_block
-        bits = f.val("load.i64 notrap aligned #{addr_of(present)}")
+        bits = f.fetch("i64", addr_of(present))
         addresses = (0...n_slots).map do |i|
           at = i.zero? ? slots_at : f.stack_addr("#{slots}+#{i * Capi::SLOT_BYTES}")
           next at unless params.optional_slots.include?(i)
 
           # An absent optional is a null pointer, which is how the body
           # tells "left out" from "given nil".
-          got = f.val("band #{bits}, #{f.iconst("i64", 1 << i)}")
-          f.val("select #{f.val("icmp ne #{got}, #{f.iconst("i64", 0)}")}, #{at}, #{f.iconst("i64", 0)}")
+          got = f.band(bits, f.iconst("i64", 1 << i))
+          f.csel(f.icmp("ne", got, f.iconst("i64", 0)), at, f.iconst("i64", 0))
         end
         handed = takes_block ? addresses + [blk] : addresses
         n_params = n_slots + (takes_block ? 3 : 2)
         body = f.callee(body_symbol_of(owner, definition[:name], singleton), ["i64"] * n_params, "i32")
-        status = f.val("call #{body}(#{([recv] + handed + [into]).join(", ")})")
+        status = f.call_val(body, ([recv] + handed + [into]))
         # The slots hold the binder's owned copies; the body took its own.
         (0...n_slots).each do |i|
           at = i.zero? ? slots_at : f.stack_addr("#{slots}+#{i * Capi::SLOT_BYTES}")
-          f.ins "call #{f.import("zeo_rt_release")}(#{at})"
+          f.call(f.import("zeo_rt_release"), [at])
         end
-        f.ins "return #{status}"
+        f.ret(status)
       end
       @program.add_function("trampoline", function)
     end
@@ -2471,13 +2472,13 @@ module Ze0
         end
 
         given, absent, join = f.label, f.label, f.label
-        f.ins "brif #{f.val("icmp ne #{argument}, #{f.iconst("i64", 0)}")}, #{given}, #{absent}"
+        f.brif(f.icmp("ne", argument, f.iconst("i64", 0)), given, absent)
         f.switch(given)
         initialize_local(local, argument) unless repeat
-        f.ins "jump #{join}"
+        f.jump(join)
         f.switch(absent)
         store_local(local, lower_expr(defaults[i]))
-        f.ins "jump #{join}" unless f.terminated?
+        f.jump(join) unless f.terminated?
         f.switch(join)
       end
     end
@@ -2489,10 +2490,10 @@ module Ze0
       from ||= scope.blk
       local = locals.fetch(name)
       given, join = f.label, f.label
-      f.ins "brif #{f.val("icmp ne #{from}, #{f.iconst("i64", 0)}")}, #{given}, #{join}"
+      f.brif(f.icmp("ne", from, f.iconst("i64", 0)), given, join)
       f.switch(given)
       initialize_local(local, from)
-      f.ins "jump #{join}"
+      f.jump(join)
       f.switch(join)
     end
 
@@ -2507,34 +2508,34 @@ module Ze0
       )
       in_scope(function, :trampoline) do
         recv, argv, argc, blk, into = f.args
-        scope.rodata = f.val("symbol_value.i64 #{f.symbol("zeo_rodata")}")
+        scope.rodata = f.symbol_value(f.symbol("zeo_rodata"))
         # A body that uses a block takes it as a parameter and releases it
         # itself; one that does not must release it here, since the block
         # was moved in either way.
         release_block_argument(blk) unless takes_block
         n = f.iconst("i64", arity)
-        fits = f.val("icmp eq #{argc}, #{n}")
+        fits = f.icmp("eq", argc, n)
         go, wrong = f.label, f.label
-        f.ins "brif #{fits}, #{go}, #{wrong}"
+        f.brif(fits, go, wrong)
         f.switch(wrong)
         file, file_len = rodata_ref(@file)
         label, label_len = rodata_ref(label_of(owner, definition[:origin], singleton))
         line = f.iconst("i32", node.location.start_line)
         end_line = f.iconst("i32", node.location.end_line)
-        f.ins "call #{f.import("zeo_rt_frame_push")}(#{file}, #{file_len}, #{label}, #{label_len}, #{line}, #{end_line})"
+        f.call(f.import("zeo_rt_frame_push"), [file, file_len, label, label_len, line, end_line])
         release_block_argument(blk) if takes_block
-        status = f.val("call #{f.import("zeo_rt_wrong_arity")}(#{argc}, #{n}, #{n})")
-        f.ins "call #{f.import("zeo_rt_frame_pop")}()"
-        f.ins "return #{status}"
+        status = f.call_val(f.import("zeo_rt_wrong_arity"), [argc, n, n])
+        f.call(f.import("zeo_rt_frame_pop"))
+        f.ret(status)
         f.switch(go)
         args = (0...arity).map do |i|
-          i.zero? ? argv : f.val("iadd.i64 #{argv}, #{f.iconst("i64", i * Capi::SLOT_BYTES)}")
+          i.zero? ? argv : f.iadd(argv, f.iconst("i64", i * Capi::SLOT_BYTES), type: "i64")
         end
         n_params = arity + (takes_block ? 3 : 2)
         body = f.callee(body_symbol_of(owner, definition[:name], singleton), ["i64"] * n_params, "i32")
         handed = takes_block ? args + [blk] : args
-        status = f.val("call #{body}(#{([recv] + handed + [into]).join(", ")})")
-        f.ins "return #{status}"
+        status = f.call_val(body, ([recv] + handed + [into]))
+        f.ret(status)
       end
       @program.add_function("trampoline", function)
     end
@@ -2565,7 +2566,7 @@ module Ze0
         value = lower_statements(node.body)
         fill_self_slot(node) unless f.terminated?
         move(value, out) unless f.terminated?
-        f.ins "jump #{done_block}" unless f.terminated?
+        f.jump(done_block) unless f.terminated?
         epilogue
       end
       @program.add_function(symbol, function)
@@ -2601,14 +2602,14 @@ module Ze0
       # ruby makes the constant where the statement RUNS, so the row the
       # backend registered concealed is revealed here -- and one whose
       # statement never runs stays a NameError.
-      f.ins "call #{f.import("zeo_rt_reveal_class")}(#{class_id(entry[:name])})"
+      f.call(f.import("zeo_rt_reveal_class"), [class_id(entry[:name])])
       record_const_location(entry, written)
       announce_class_constant(entry, written)
       klass = class_value(entry[:name])
       announce_subclass(entry, written, klass)
       result = f.slot
       body = f.callee(written[:symbol], ["i64", "i64"], "i32")
-      status_check(f.val("call #{body}(#{borrow(klass)}, #{addr_of(result)})"))
+      status_check(f.call_val(body, [borrow(klass), addr_of(result)]))
       Operand.new(result, true, false)
     end
 
@@ -2625,9 +2626,7 @@ module Ze0
 
       earlier = entry[:bodies][0...at].flat_map { |b| installed_names(b[:body]) }
       ptr, count = str_array((installed_names(written[:body]) - earlier).sort)
-      status_check(f.val(
-        "call #{f.import("zeo_rt_guard_class_reopen")}(#{class_id(entry[:name])}, #{ptr}, #{count})",
-      ))
+      status_check(f.call_val(f.import("zeo_rt_guard_class_reopen"), [class_id(entry[:name]), ptr, count]))
     end
 
     # The instance methods one class body installs by writing a `def`.
@@ -2674,9 +2673,10 @@ module Ze0
 
       nptr, nlen = rodata_ref(leaf)
       fptr, flen = rodata_ref(written[:file])
-      f.ins "call #{f.import("zeo_rt_record_const_location")}(#{class_id_of(owner)}, " \
-            "#{nptr}, #{nlen}, #{fptr}, #{flen}, " \
-            "#{f.iconst("i32", written[:node].location.start_line)})"
+      f.call(
+        f.import("zeo_rt_record_const_location"),
+        [class_id_of(owner), nptr, nlen, fptr, flen, f.iconst("i32", written[:node].location.start_line)],
+      )
     end
 
     # A `class` or `module` declaration announces its own name, after the
@@ -2814,10 +2814,10 @@ module Ze0
     # `raise TypeError, message unless condition`.
     def guard_or_raise(condition, message)
       ok, bad = f.label, f.label
-      f.ins "brif #{truthy(condition)}, #{ok}, #{bad}"
+      f.brif(truthy(condition), ok, bad)
       f.switch(bad)
       class_type_error(message)
-      f.ins "jump #{ok}" unless f.terminated?
+      f.jump(ok) unless f.terminated?
       f.switch(ok)
     end
 
@@ -2884,9 +2884,17 @@ module Ze0
       # running rather than the one the body opened on.
       file, file_len = rodata_ref(@file)
       label, label_len = rodata_ref("singleton class")
-      f.ins "call #{f.import("zeo_rt_frame_push")}(#{file}, #{file_len}, #{label}, #{label_len}, " \
-            "#{f.iconst("i32", node.location.start_line)}, " \
-            "#{f.iconst("i32", node.location.end_line)})"
+      f.call(
+        f.import("zeo_rt_frame_push"),
+        [
+          file,
+          file_len,
+          label,
+          label_len,
+          f.iconst("i32", node.location.start_line),
+          f.iconst("i32", node.location.end_line),
+        ],
+      )
       statements.each do |s|
         set_line(s)
         discard(value)
@@ -2928,7 +2936,7 @@ module Ze0
       end
       # A statement that LEFT -- a `return` out of the body -- pops the
       # frame on its own way out.
-      f.ins "call #{f.import("zeo_rt_frame_pop")}()" unless f.terminated?
+      f.call(f.import("zeo_rt_frame_pop")) unless f.terminated?
       scope.frame_base = base
       scope.cref, scope.owner = outer_cref, outer_owner
       value
@@ -3101,8 +3109,8 @@ module Ze0
         enter_frame(scope.frame_label, 0, 0)
         # The top-level `self`, pooled for the frame.
         self_slot = f.slot
-        f.ins "call #{f.import("zeo_rt_main_object")}(#{addr_of(self_slot)})"
-        f.ins "call #{f.import("zeo_rt_pool_push")}(#{addr_of(self_slot)})"
+        f.call(f.import("zeo_rt_main_object"), [addr_of(self_slot)])
+        f.call(f.import("zeo_rt_pool_push"), [addr_of(self_slot)])
         scope.self_operand = Operand.new(self_slot, false, false)
         install_toplevel_binding if symbol == Names::TOPLEVEL
         units.each do |file, run, chain, opens|
@@ -3110,7 +3118,7 @@ module Ze0
           with_file(file) { lower_unit_run(file, run, chain, opens) }
         end
         store_nil(out)
-        f.ins "jump #{done_block}"
+        f.jump(done_block)
         epilogue
       end
       @program.add_function(symbol, function)
@@ -3139,14 +3147,36 @@ module Ze0
       main, main_len = rodata_ref("<main>")
       slot = f.slot
       at = addr_of(slot)
-      f.ins "call #{f.import("zeo_rt_binding_new")}(#{borrow(self_operand)}, #{strs}, #{cells}, " \
-            "#{count}, #{main}, #{main_len}, #{f.iconst("i32", 0)}, " \
-            "#{f.iconst("i32", Capi::MAIN_BOX)}, #{f.iconst("i32", -1)}, #{at})"
-      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      f.call(
+        f.import("zeo_rt_binding_new"),
+        [
+          borrow(self_operand),
+          strs,
+          cells,
+          count,
+          main,
+          main_len,
+          f.iconst("i32", 0),
+          f.iconst("i32", Capi::MAIN_BOX),
+          f.iconst("i32", -1),
+          at,
+        ],
+      )
+      f.call(f.import("zeo_rt_pool_push"), [at])
       nptr, nlen = rodata_ref("TOPLEVEL_BINDING")
-      f.ins "call #{f.import("zeo_rt_const_set_at")}(#{f.iconst("i32", Capi::OBJECT_CLASS)}, " \
-            "#{nptr}, #{nlen}, #{at}, #{main}, #{main_len}, #{f.iconst("i32", 0)}, " \
-            "#{f.iconst("i32", Capi::MAIN_BOX)})"
+      f.call(
+        f.import("zeo_rt_const_set_at"),
+        [
+          f.iconst("i32", Capi::OBJECT_CLASS),
+          nptr,
+          nlen,
+          at,
+          main,
+          main_len,
+          f.iconst("i32", 0),
+          f.iconst("i32", Capi::MAIN_BOX),
+        ],
+      )
     end
 
     # One flag per file that writes a top-level `return`, so every run of
@@ -3185,7 +3215,7 @@ module Ze0
       done = f.label
       guards.each do |flag|
         go = f.label
-        f.ins "brif #{flag_of(flag)}, #{done}, #{go}"
+        f.brif(flag_of(flag), done, go)
         f.switch(go)
       end
       mark_feature_loaded(file) if opens
@@ -3193,7 +3223,7 @@ module Ze0
       scope.file_return = [done, @file_returns[file]]
       statements.each { |s| toplevel_statement(s) }
       scope.file_return = outer
-      f.ins "jump #{done}" unless f.terminated?
+      f.jump(done) unless f.terminated?
       f.switch(done)
     end
 
@@ -3202,8 +3232,7 @@ module Ze0
     # name: a file opens no gated builtin's gate.
     def mark_feature_loaded(file)
       ptr, len = rodata_ref(file)
-      f.ins "call #{f.import("zeo_rt_feature_loaded")}(#{f.iconst("i32", Capi::MAIN_BOX)}, " \
-            "#{ptr}, #{len}, #{ptr}, #{f.iconst("i64", 0)})"
+      f.call(f.import("zeo_rt_feature_loaded"), [f.iconst("i32", Capi::MAIN_BOX), ptr, len, ptr, f.iconst("i64", 0)])
     end
 
     # `BEGIN { }` runs before the rest of the file it is written in, in
@@ -3232,7 +3261,7 @@ module Ze0
       return if f.terminated?
 
       outer = @stmt_pool
-      @stmt_pool = f.val("call #{f.import("zeo_rt_pool_mark")}()")
+      @stmt_pool = f.call_val(f.import("zeo_rt_pool_mark"))
       set_line(node)
       discard(lower_expr(node))
       pool_reset unless f.terminated?
@@ -3242,14 +3271,14 @@ module Ze0
     # The top level's pool drains at every statement boundary, and at a
     # `return` that leaves one early.
     def pool_reset
-      f.ins "call #{f.import("zeo_rt_pool_reset")}(#{@stmt_pool})"
+      f.call(f.import("zeo_rt_pool_reset"), [@stmt_pool])
     end
 
     # The rodata and symbol-table bases every function reads, and the two
     # blocks every status check can land in.
     def prologue
-      scope.rodata = f.val("symbol_value.i64 #{f.symbol("zeo_rodata")}")
-      scope.syms = f.val("symbol_value.i64 #{f.symbol("zeo_syms")}")
+      scope.rodata = f.symbol_value(f.symbol("zeo_rodata"))
+      scope.syms = f.symbol_value(f.symbol("zeo_syms"))
       scope.raise_block = f.label
       scope.done_block = f.label
       scope.exit_block, (scope.status,) = f.block(["i32"])
@@ -3262,15 +3291,14 @@ module Ze0
     def enter_frame(label, line, end_line)
       file, file_len = rodata_ref(@file)
       label, label_len = rodata_ref(label)
-      args = "#{file}, #{file_len}, #{label}, #{label_len}, " \
-             "#{f.iconst("i32", line)}, #{f.iconst("i32", end_line)}"
+      args = [file, file_len, label, label_len, f.iconst("i32", line), f.iconst("i32", end_line)]
       unless scope.svars
-        return status_check(f.val("call #{f.import("zeo_rt_frame_enter")}(#{args})"))
+        return status_check(f.call_val(f.import("zeo_rt_frame_enter"), args))
       end
 
-      f.ins "call #{f.import("zeo_rt_frame_push")}(#{args})"
-      f.ins "call #{f.import("zeo_rt_svar_scope_push")}()"
-      status_check(f.val("call #{f.import("zeo_rt_check_ints")}()"))
+      f.call(f.import("zeo_rt_frame_push"), args)
+      f.call(f.import("zeo_rt_svar_scope_push"))
+      status_check(f.call_val(f.import("zeo_rt_check_ints")))
     end
 
     # The methods that WRITE `$~` without naming it. Names only, no
@@ -3306,24 +3334,24 @@ module Ze0
     # unwind to. `zeo_rt_return_targets_here` reads it, which is what
     # tells one activation of a recursive method from another.
     def push_home
-      f.ins "call #{f.import("zeo_rt_home_push")}()"
+      f.call(f.import("zeo_rt_home_push"))
     end
 
     # The shared exit: a status of 0 from `done`, 1 from `raise`, then the
     # locals released, the frame popped, and the status answered.
     def epilogue
       f.switch(done_block)
-      f.ins "jump #{scope.exit_block}(#{f.iconst("i32", 0)})"
+      f.jump(scope.exit_block, [f.iconst("i32", 0)])
       f.switch(raise_block)
       fold_signal if scope.lambda? || scope.catches_return
-      f.ins "jump #{scope.exit_block}(#{f.iconst("i32", 1)})"
+      f.jump(scope.exit_block, [f.iconst("i32", 1)])
       f.switch(scope.exit_block)
       scope.all_locals.each { |local| release_local(local) }
       release_block_argument(scope.blk) if scope.blk
-      f.ins "call #{f.import("zeo_rt_frame_pop")}()"
-      f.ins "call #{f.import("zeo_rt_svar_scope_pop")}()" if scope.svars
-      f.ins "call #{f.import("zeo_rt_home_pop")}()" if scope.catches_return
-      f.ins "return #{scope.status}"
+      f.call(f.import("zeo_rt_frame_pop"))
+      f.call(f.import("zeo_rt_svar_scope_pop")) if scope.svars
+      f.call(f.import("zeo_rt_home_pop")) if scope.catches_return
+      f.ret(scope.status)
     end
 
     # A signal this body answers folds into its own value; every other
@@ -3332,22 +3360,22 @@ module Ze0
     # the runtime says is aimed at THIS activation -- asked while the
     # home is still on the stack.
     def fold_signal
-      signal = f.val("call #{f.import("zeo_rt_signal_kind")}()")
+      signal = f.call_val(f.import("zeo_rt_signal_kind"))
       fold, normal = f.label, f.label
-      mine = f.val("icmp eq #{signal}, #{f.iconst("i8", Capi::SIGNAL_RETURN)}")
+      mine = f.icmp("eq", signal, f.iconst("i8", Capi::SIGNAL_RETURN))
       if scope.lambda?
-        broke = f.val("icmp eq #{signal}, #{f.iconst("i8", Capi::SIGNAL_BREAK)}")
-        f.ins "brif #{f.val("bor #{mine}, #{broke}")}, #{fold}, #{normal}"
+        broke = f.icmp("eq", signal, f.iconst("i8", Capi::SIGNAL_BREAK))
+        f.brif(f.bor(mine, broke), fold, normal)
       else
         ask = f.label
-        f.ins "brif #{mine}, #{ask}, #{normal}"
+        f.brif(mine, ask, normal)
         f.switch(ask)
-        here = f.val("call #{f.import("zeo_rt_return_targets_here")}()")
-        f.ins "brif #{here}, #{fold}, #{normal}"
+        here = f.call_val(f.import("zeo_rt_return_targets_here"))
+        f.brif(here, fold, normal)
       end
       f.switch(fold)
-      f.val("call #{f.import("zeo_rt_signal_take")}(#{out})")
-      f.ins "jump #{done_block}"
+      f.call_val(f.import("zeo_rt_signal_take"), [out])
+      f.jump(done_block)
       f.switch(normal)
     end
 
@@ -3463,11 +3491,11 @@ module Ze0
         release_block_argument(blk) unless method
         enter_frame(scope.frame_label, node.location.start_line, node.location.end_line)
         scope.redo_block = f.label
-        f.ins "jump #{scope.redo_block}"
+        f.jump(scope.redo_block)
         f.switch(scope.redo_block)
         value = lower_statements(node.body)
         move(value, out) unless f.terminated?
-        f.ins "jump #{done_block}" unless f.terminated?
+        f.jump(done_block) unless f.terminated?
         epilogue
       end
       @program.add_function(symbol, function)
@@ -3529,12 +3557,12 @@ module Ze0
 
     # The CALL-SITE block, moved in and so this body's to release.
     def release_block_argument(blk)
-      has = f.val("icmp ne #{blk}, #{f.iconst("i64", 0)}")
+      has = f.icmp("ne", blk, f.iconst("i64", 0))
       yes, no = f.label, f.label
-      f.ins "brif #{has}, #{yes}, #{no}"
+      f.brif(has, yes, no)
       f.switch(yes)
-      f.ins "call #{f.import("zeo_rt_release")}(#{blk})"
-      f.ins "jump #{no}"
+      f.call(f.import("zeo_rt_release"), [blk])
+      f.jump(no)
       f.switch(no)
     end
 
@@ -3566,11 +3594,11 @@ module Ze0
       bits = auto_splat ? Capi::BLOCK_BIND_AUTO_SPLAT : 0
       bits |= Capi::BLOCK_BIND_LAMBDA if lambda_shape
       flags = f.iconst("i8", bits)
-      status_check(f.val(
-        "call #{f.import("zeo_rt_bind_block_params")}(#{addr_of(desc)}, #{flags}, #{argv}, #{argc}, " \
-        "#{addr_of(slots)}, #{addr_of(present)})",
+      status_check(f.call_val(
+        f.import("zeo_rt_bind_block_params"),
+        [addr_of(desc), flags, argv, argc, addr_of(slots), addr_of(present)],
       ))
-      present_bits = f.val("load.i64 notrap aligned #{addr_of(present)}")
+      present_bits = f.fetch("i64", addr_of(present))
       defaults = params.defaults.to_h
       # The binder writes an owned value into every bound slot, which the
       # local takes as it is; an unbound optional runs its default here.
@@ -3590,14 +3618,14 @@ module Ze0
         end
 
         given, absent, join = f.label, f.label, f.label
-        got = f.val("band #{present_bits}, #{f.iconst("i64", 1 << i)}")
-        f.ins "brif #{f.val("icmp ne #{got}, #{f.iconst("i64", 0)}")}, #{given}, #{absent}"
+        got = f.band(present_bits, f.iconst("i64", 1 << i))
+        f.brif(f.icmp("ne", got, f.iconst("i64", 0)), given, absent)
         f.switch(given)
         repeat ? release_if_heap(from) : take_bound_slot(local, from)
-        f.ins "jump #{join}"
+        f.jump(join)
         f.switch(absent)
         store_local(local, lower_expr(defaults[i]))
-        f.ins "jump #{join}" unless f.terminated?
+        f.jump(join) unless f.terminated?
         f.switch(join)
       end
     end
@@ -3606,7 +3634,7 @@ module Ze0
     # bytes as they are, a cell moves them in.
     def take_bound_slot(local, from)
       if local.boxed?
-        f.ins "call #{f.import("zeo_rt_cell_store")}(#{cell_of(local)}, #{from})"
+        f.call(f.import("zeo_rt_cell_store"), [cell_of(local), from])
       else
         copy(from, addr_of(local.slot))
       end
@@ -3619,7 +3647,7 @@ module Ze0
       kws, n_kws = keyword_rows(params.keywords)
       slot = f.slot(PARAM_DESC_BYTES)
       at = addr_of(slot)
-      put = ->(off, value) { f.ins "store notrap aligned #{value}, #{at}#{off.zero? ? "" : "+#{off}"}" }
+      put = ->(off, value) { f.store(value, at, off) }
       put.call(0, f.iconst("i32", params.required.size))
       put.call(4, f.iconst("i32", params.optional.size))
       put.call(8, f.iconst("i32", params.post.size))
@@ -3660,9 +3688,9 @@ module Ze0
       keywords.each_with_index do |kw, i|
         off = i * KW_PARAM_BYTES
         ptr, len = rodata_ref(kw.name.to_s)
-        f.ins "store notrap aligned #{ptr}, #{at}#{off.zero? ? "" : "+#{off}"}"
-        f.ins "store notrap aligned #{len}, #{at}+#{off + 8}"
-        f.ins "store notrap aligned #{f.iconst("i8", kw.required ? 1 : 0)}, #{at}+#{off + 16}"
+        f.store(ptr, at, off)
+        f.store(len, at, off + 8)
+        f.store(f.iconst("i8", kw.required ? 1 : 0), at, off + 16)
       end
       [at, f.iconst("i64", keywords.size)]
     end
@@ -3696,7 +3724,7 @@ module Ze0
     end
 
     def set_line(node)
-      f.ins "call #{f.import("zeo_rt_set_line")}(#{f.iconst("i32", node.location.start_line)})"
+      f.call(f.import("zeo_rt_set_line"), [f.iconst("i32", node.location.start_line)])
     end
 
     # ---- expressions ----
@@ -3824,15 +3852,15 @@ module Ze0
     def literal_fixnum(value)
       slot = f.slot
       at = addr_of(slot)
-      f.ins "store notrap aligned #{f.iconst("i8", Capi::TAG_INT)}, #{at}"
-      f.ins "store notrap aligned #{f.iconst("i64", value)}, #{at}+8"
+      f.store(f.iconst("i8", Capi::TAG_INT), at)
+      f.store(f.iconst("i64", value), at, 8)
       Operand.new(slot, false, true)
     end
 
     def literal_bignum(value)
       slot = f.slot
       digits, n = digit_array(value)
-      f.ins "call #{f.import("zeo_rt_int_digits")}(#{sign_of(value)}, #{digits}, #{n}, #{addr_of(slot)})"
+      f.call(f.import("zeo_rt_int_digits"), [sign_of(value), digits, n, addr_of(slot)])
       Operand.new(slot, true, false)
     end
 
@@ -3843,15 +3871,14 @@ module Ze0
       slot = f.slot
       num, num_n = digit_array(node.numerator)
       den, den_n = digit_array(node.denominator)
-      f.ins "call #{f.import("zeo_rt_rational_digits")}(#{sign_of(node.numerator)}, " \
-            "#{num}, #{num_n}, #{den}, #{den_n}, #{addr_of(slot)})"
+      f.call(f.import("zeo_rt_rational_digits"), [sign_of(node.numerator), num, num_n, den, den_n, addr_of(slot)])
       Operand.new(slot, true, false)
     end
 
     # `4i` is `Complex(0, 4)` over the numeric written in front of it.
     def literal_imaginary(node)
       slot = f.slot
-      f.ins "call #{f.import("zeo_rt_complex_lit")}(#{borrow(lower_expr(node.numeric))}, #{addr_of(slot)})"
+      f.call(f.import("zeo_rt_complex_lit"), [borrow(lower_expr(node.numeric)), addr_of(slot)])
       Operand.new(slot, true, false)
     end
 
@@ -3870,8 +3897,8 @@ module Ze0
       slot = f.slot
       at = addr_of(slot)
       bits = [value].pack("G").unpack1("q>")
-      f.ins "store notrap aligned #{f.iconst("i8", Capi::TAG_FLOAT)}, #{at}"
-      f.ins "store notrap aligned #{f.iconst("i64", bits)}, #{at}+8"
+      f.store(f.iconst("i8", Capi::TAG_FLOAT), at)
+      f.store(f.iconst("i64", bits), at, 8)
       Operand.new(slot, false, true)
     end
 
@@ -3890,7 +3917,7 @@ module Ze0
       ptr, len = rodata_ref(bytes)
       entry = frozen_literals? ? "zeo_rt_str_lit" : "zeo_rt_str_lit_ro"
       enc = f.iconst("i8", Capi::ENCODINGS.fetch(script_encoding_name, Capi::UTF8))
-      f.ins "call #{f.import(entry)}(#{ptr}, #{len}, #{enc}, #{addr_of(slot)})"
+      f.call(f.import(entry), [ptr, len, enc, addr_of(slot)])
       Operand.new(slot, true, false)
     end
 
@@ -3912,15 +3939,15 @@ module Ze0
       slot = f.slot
       at = addr_of(slot)
       store_nil(at)
-      f.ins "store notrap aligned #{f.iconst("i8", Capi::TAG_SYMBOL)}, #{at}"
-      f.ins "store notrap aligned #{sym_id(name)}, #{at}+8"
+      f.store(f.iconst("i8", Capi::TAG_SYMBOL), at)
+      f.store(sym_id(name), at, 8)
       Operand.new(slot, false, true)
     end
 
     # The id of `name` in the symbol table, as an i32.
     def sym_id(name)
       sym = @program.sym(name)
-      f.val("load.i32 notrap aligned #{syms}#{sym.zero? ? "" : "+#{sym * 4}"}")
+      f.fetch("i32", syms, sym * 4)
     end
 
     # `a..b` written where a condition goes is ruby's flip-flop: a latch
@@ -3935,15 +3962,15 @@ module Ze0
       state = f.iconst("i32", new_flip_flop)
       result = f.slot
       on, test_left, turned_on, off, join = f.label, f.label, f.label, f.label, f.label
-      f.ins "brif #{f.val("call #{f.import("zeo_rt_flip_flop_on")}(#{state})")}, #{on}, #{test_left}"
+      f.brif(f.call_val(f.import("zeo_rt_flip_flop_on"), [state]), on, test_left)
       # Already on: the right operand decides whether this is the last true.
       f.switch(on)
       flip_flop_off(node, state)
       arm(literal_bool(1), result, join)
       f.switch(test_left)
-      f.ins "brif #{truthy(flip_flop_end(node.left))}, #{turned_on}, #{off}"
+      f.brif(truthy(flip_flop_end(node.left)), turned_on, off)
       f.switch(turned_on)
-      f.ins "call #{f.import("zeo_rt_flip_flop_set")}(#{state}, #{f.iconst("i8", 1)})"
+      f.call(f.import("zeo_rt_flip_flop_set"), [state, f.iconst("i8", 1)])
       # `...` waits for the next test before it can turn off again; `..`
       # asks the right operand at once, so a one-line range ends where it
       # started.
@@ -3962,10 +3989,10 @@ module Ze0
 
     def flip_flop_off(node, state)
       clear, done = f.label, f.label
-      f.ins "brif #{truthy(flip_flop_end(node.right))}, #{clear}, #{done}"
+      f.brif(truthy(flip_flop_end(node.right)), clear, done)
       f.switch(clear)
-      f.ins "call #{f.import("zeo_rt_flip_flop_set")}(#{state}, #{f.iconst("i8", 0)})"
-      f.ins "jump #{done}"
+      f.call(f.import("zeo_rt_flip_flop_set"), [state, f.iconst("i8", 0)])
+      f.jump(done)
       f.switch(done)
     end
 
@@ -3977,8 +4004,8 @@ module Ze0
     def literal_bool(bit)
       slot = f.slot
       at = addr_of(slot)
-      f.ins "store notrap aligned #{f.iconst("i8", Capi::TAG_BOOL)}, #{at}"
-      f.ins "store notrap aligned #{f.iconst("i8", bit)}, #{at}+8"
+      f.store(f.iconst("i8", Capi::TAG_BOOL), at)
+      f.store(f.iconst("i8", bit), at, 8)
       Operand.new(slot, false, true)
     end
 
@@ -3989,8 +4016,8 @@ module Ze0
       slot = f.slot
       at = addr_of(slot)
       zero = f.iconst("i64", 0)
-      f.ins "call #{f.import("zeo_rt_str_new")}(#{zero}, #{zero}, #{f.iconst("i8", Capi::UTF8)}, #{at})"
-      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      f.call(f.import("zeo_rt_str_new"), [zero, zero, f.iconst("i8", Capi::UTF8), at])
+      f.call(f.import("zeo_rt_pool_push"), [at])
       node.parts.each { |part| append_part(at, part) }
       Operand.new(slot, false, false)
     end
@@ -4001,7 +4028,7 @@ module Ze0
         return if part.unescaped.empty?
 
         ptr, len = rodata_ref(part.unescaped)
-        f.ins "call #{f.import("zeo_rt_str_append_lit")}(#{at}, #{ptr}, #{len})"
+        f.call(f.import("zeo_rt_str_append_lit"), [at, ptr, len])
       when Prism::EmbeddedStatementsNode
         append_value(at, lower_statements(part.statements))
       when Prism::EmbeddedVariableNode
@@ -4023,7 +4050,7 @@ module Ze0
     end
 
     def append_value(at, value)
-      status_check(f.val("call #{f.import("zeo_rt_str_append_value")}(#{at}, #{borrow(value)})"))
+      status_check(f.call_val(f.import("zeo_rt_str_append_value"), [at, borrow(value)]))
     end
 
     # `[a, b]`: the array is pooled at creation, so an element that raises
@@ -4032,26 +4059,24 @@ module Ze0
     def array_literal(node)
       slot = f.slot
       at = addr_of(slot)
-      f.ins "call #{f.import("zeo_rt_array_new")}(#{f.iconst("i64", node.elements.size)}, #{at})"
-      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      f.call(f.import("zeo_rt_array_new"), [f.iconst("i64", node.elements.size), at])
+      f.call(f.import("zeo_rt_pool_push"), [at])
       node.elements.each do |e|
         # A bare `k: v` tail is ONE Hash element here: an array literal has
         # no keyword channel to put it in.
         if e.is_a?(Prism::KeywordHashNode)
-          f.ins "call #{f.import("zeo_rt_array_push")}(#{at}, #{hand_over(hash_literal(e))})"
+          f.call(f.import("zeo_rt_array_push"), [at, hand_over(hash_literal(e))])
           next
         end
         # `[*xs]` spreads through ruby's `to_a` rule, which the runtime
         # does; anything else is one element.
         unless e.is_a?(Prism::SplatNode)
-          f.ins "call #{f.import("zeo_rt_array_push")}(#{at}, #{hand_over(lower_expr(e))})"
+          f.call(f.import("zeo_rt_array_push"), [at, hand_over(lower_expr(e))])
           next
         end
         raise Unsupported.new(e, "an anonymous splat") if e.expression.nil?
 
-        status_check(f.val(
-          "call #{f.import("zeo_rt_array_push_splat")}(#{at}, #{borrow(lower_expr(e.expression))})",
-        ))
+        status_check(f.call_val(f.import("zeo_rt_array_push_splat"), [at, borrow(lower_expr(e.expression))]))
       end
       Operand.new(slot, false, false)
     end
@@ -4061,24 +4086,22 @@ module Ze0
     def hash_of(elements)
       slot = f.slot
       at = addr_of(slot)
-      f.ins "call #{f.import("zeo_rt_hash_new")}(#{at})"
-      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      f.call(f.import("zeo_rt_hash_new"), [at])
+      f.call(f.import("zeo_rt_pool_push"), [at])
       elements.each do |e|
         # `{**h}` merges h's pairs in place, through ruby's `to_hash`
         # rule. `**nil` is the "no keywords" spelling and adds nothing.
         if e.is_a?(Prism::AssocSplatNode)
           # A bare `**` forwards the anonymous keyword rest parameter.
           from = e.value ? lower_expr(e.value) : read_local(locals.fetch(:**))
-          status_check(f.val(
-            "call #{f.import("zeo_rt_kw_splat_into")}(#{at}, #{borrow(from)})",
-          ))
+          status_check(f.call_val(f.import("zeo_rt_kw_splat_into"), [at, borrow(from)]))
           next
         end
         raise Unsupported.new(e, "a hash element of that shape") unless e.is_a?(Prism::AssocNode)
 
         key = hand_over(lower_expr(e.key))
         value = hand_over(lower_expr(e.value))
-        status_check(f.val("call #{f.import("zeo_rt_hash_set")}(#{at}, #{key}, #{value})"))
+        status_check(f.call_val(f.import("zeo_rt_hash_set"), [at, key, value]))
       end
       Operand.new(slot, false, false)
     end
@@ -4097,9 +4120,7 @@ module Ze0
       addrs = ends.map { |v| v ? hand_over(v) : f.iconst("i64", 0) }
       slot = f.slot
       excl = f.iconst("i8", node.exclude_end? ? 1 : 0)
-      status_check(f.val(
-        "call #{f.import("zeo_rt_range_new")}(#{addrs[0]}, #{addrs[1]}, #{excl}, #{addr_of(slot)})",
-      ))
+      status_check(f.call_val(f.import("zeo_rt_range_new"), [addrs[0], addrs[1], excl, addr_of(slot)]))
       Operand.new(slot, true, false)
     end
 
@@ -4242,12 +4263,12 @@ module Ze0
       recv = borrow_receiver(node)
       result = f.slot
       store_nil(addr_of(result))
-      present = f.val("icmp ne #{tag_of(addr_of(recv))}, #{f.iconst("i8", Capi::TAG_NIL)}")
+      present = f.icmp("ne", tag_of(addr_of(recv)), f.iconst("i8", Capi::TAG_NIL))
       run, join = f.label, f.label
-      f.ins "brif #{present}, #{run}, #{join}"
+      f.brif(present, run, join)
       f.switch(run)
       move(yield(call_target(node, recv)), addr_of(result))
-      f.ins "jump #{join}" unless f.terminated?
+      f.jump(join) unless f.terminated?
       f.switch(join)
       Operand.new(result, true, false)
     end
@@ -4279,7 +4300,7 @@ module Ze0
       truth = truthy(current)
       result = f.slot
       keep, assign, join = f.label, f.label, f.label
-      f.ins "brif #{truth}, #{conjunction ? assign : keep}, #{conjunction ? keep : assign}"
+      f.brif(truth, conjunction ? assign : keep, conjunction ? keep : assign)
       f.switch(keep)
       arm(current, result, join)
       f.switch(assign)
@@ -4376,8 +4397,9 @@ module Ze0
       nptr, nlen = rodata_ref(name)
       slot = f.slot
       entry = lenient ? "zeo_rt_cvar_get" : "zeo_rt_cvar_get_checked"
-      call = "call #{f.import(entry)}(#{cid}, #{nptr}, #{nlen}, #{addr_of(slot)})"
-      lenient ? f.ins(call) : status_check(f.val(call))
+      fn = f.import(entry)
+      args = [cid, nptr, nlen, addr_of(slot)]
+      lenient ? f.call(fn, args) : status_check(f.call_val(fn, args))
       Operand.new(slot, true, false)
     end
 
@@ -4394,7 +4416,7 @@ module Ze0
 
       cid = class_id_of(cvar_owner(node, name))
       nptr, nlen = rodata_ref(name)
-      status_check(f.val("call #{f.import("zeo_rt_cvar_set")}(#{cid}, #{nptr}, #{nlen}, #{borrow(value)})"))
+      status_check(f.call_val(f.import("zeo_rt_cvar_set"), [cid, nptr, nlen, borrow(value)]))
       Operand.new(value.at, false, value.immediate)
     end
 
@@ -4428,8 +4450,7 @@ module Ze0
     # matched, so there is nothing to check and nothing to raise.
     def last_match(kind, number = 0)
       slot = f.slot
-      f.ins "call #{f.import("zeo_rt_last_match_ref")}(#{f.iconst("i8", kind)}, " \
-            "#{f.iconst("i64", number)}, #{addr_of(slot)})"
+      f.call(f.import("zeo_rt_last_match_ref"), [f.iconst("i8", kind), f.iconst("i64", number), addr_of(slot)])
       Operand.new(slot, true, false)
     end
 
@@ -4454,12 +4475,12 @@ module Ze0
       data = last_match(Capi::LAST_MATCH_DATA)
       slot = f.slot
       store_nil(addr_of(slot))
-      matched = f.val("icmp ne #{tag_of(borrow(data))}, #{f.iconst("i8", Capi::TAG_NIL)}")
+      matched = f.icmp("ne", tag_of(borrow(data)), f.iconst("i8", Capi::TAG_NIL))
       read, join = f.label, f.label
-      f.ins "brif #{matched}, #{read}, #{join}"
+      f.brif(matched, read, join)
       f.switch(read)
       dynamic_send(borrow(data), :[], [literal_symbol(name)], addr_of(slot))
-      f.ins "jump #{join}"
+      f.jump(join)
       f.switch(join)
       Operand.new(slot, true, false)
     end
@@ -4467,7 +4488,7 @@ module Ze0
     def global_load(name)
       slot = f.slot
       ptr, len = rodata_ref(name)
-      f.ins "call #{f.import("zeo_rt_gvar_get")}(#{f.iconst("i32", Capi::MAIN_BOX)}, #{ptr}, #{len}, #{addr_of(slot)})"
+      f.call(f.import("zeo_rt_gvar_get"), [f.iconst("i32", Capi::MAIN_BOX), ptr, len, addr_of(slot)])
       Operand.new(slot, true, false)
     end
 
@@ -4480,9 +4501,7 @@ module Ze0
     def store_global(name, value)
       at = borrow(value)
       ptr, len = rodata_ref(name)
-      status_check(f.val(
-        "call #{f.import("zeo_rt_gvar_assign")}(#{f.iconst("i32", Capi::MAIN_BOX)}, #{ptr}, #{len}, #{at})",
-      ))
+      status_check(f.call_val(f.import("zeo_rt_gvar_assign"), [f.iconst("i32", Capi::MAIN_BOX), ptr, len, at]))
       Operand.new(value.at, false, value.immediate)
     end
 
@@ -4500,9 +4519,9 @@ module Ze0
     def ivar_load(name)
       slot = f.slot
       ptr, len = rodata_ref(name)
-      status_check(f.val(
-        "call #{f.import("zeo_rt_ivar_get_dyn")}(#{borrow(self_operand)}, #{ptr}, #{len}, " \
-        "#{f.iconst("i32", Capi::MAIN_BOX)}, #{addr_of(slot)})",
+      status_check(f.call_val(
+        f.import("zeo_rt_ivar_get_dyn"),
+        [borrow(self_operand), ptr, len, f.iconst("i32", Capi::MAIN_BOX), addr_of(slot)],
       ))
       Operand.new(slot, true, false)
     end
@@ -4514,9 +4533,9 @@ module Ze0
     def store_ivar(name, value)
       at = borrow(value)
       ptr, len = rodata_ref(name)
-      status_check(f.val(
-        "call #{f.import("zeo_rt_ivar_set_dyn")}(#{borrow(self_operand)}, #{ptr}, #{len}, " \
-        "#{f.iconst("i32", Capi::MAIN_BOX)}, #{at})",
+      status_check(f.call_val(
+        f.import("zeo_rt_ivar_set_dyn"),
+        [borrow(self_operand), ptr, len, f.iconst("i32", Capi::MAIN_BOX), at],
       ))
       Operand.new(value.at, false, value.immediate)
     end
@@ -4584,9 +4603,19 @@ module Ze0
       at = borrow(value)
       nptr, nlen = rodata_ref(target.name.to_s)
       fptr, flen = rodata_ref(@file)
-      f.ins "call #{f.import("zeo_rt_const_set_at")}(#{class_id(found)}, #{nptr}, #{nlen}, " \
-            "#{at}, #{fptr}, #{flen}, #{f.iconst("i32", node.location.start_line)}, " \
-            "#{f.iconst("i32", Capi::MAIN_BOX)})"
+      f.call(
+        f.import("zeo_rt_const_set_at"),
+        [
+          class_id(found),
+          nptr,
+          nlen,
+          at,
+          fptr,
+          flen,
+          f.iconst("i32", node.location.start_line),
+          f.iconst("i32", Capi::MAIN_BOX),
+        ],
+      )
       announce_constant(found, target.name.to_s, node)
       Operand.new(value.at, false, value.immediate)
     end
@@ -4629,10 +4658,16 @@ module Ze0
       pattern = borrow(interpolated_string(node))
       slot = f.slot
       flag = ->(on) { f.iconst("i8", on ? 1 : 0) }
-      status_check(f.val(
-        "call #{f.import("zeo_rt_regexp_interp")}(#{pattern}, " \
-        "#{flag.call(node.ignore_case?)}, #{flag.call(node.extended?)}, " \
-        "#{flag.call(node.multi_line?)}, #{f.iconst("i8", regexp_encoding(node))}, #{addr_of(slot)})",
+      status_check(f.call_val(
+        f.import("zeo_rt_regexp_interp"),
+        [
+          pattern,
+          flag.call(node.ignore_case?),
+          flag.call(node.extended?),
+          flag.call(node.multi_line?),
+          f.iconst("i8", regexp_encoding(node)),
+          addr_of(slot),
+        ],
       ))
       Operand.new(slot, true, false)
     end
@@ -4644,9 +4679,9 @@ module Ze0
       nptr, nlen = rodata_ref(name)
       qptr, qlen = rodata_ref("Encoding::#{name}")
       slot = f.slot
-      status_check(f.val(
-        "call #{f.import("zeo_rt_const_get_on_value")}(#{borrow(anchored_constant("Encoding"))}, " \
-        "#{nptr}, #{nlen}, #{qptr}, #{qlen}, #{addr_of(slot)})",
+      status_check(f.call_val(
+        f.import("zeo_rt_const_get_on_value"),
+        [borrow(anchored_constant("Encoding")), nptr, nlen, qptr, qlen, addr_of(slot)],
       ))
       Operand.new(slot, true, false)
     end
@@ -4665,10 +4700,18 @@ module Ze0
       slot = f.slot
       ptr, len = rodata_ref(node.unescaped)
       flag = ->(on) { f.iconst("i8", on ? 1 : 0) }
-      status_check(f.val(
-        "call #{f.import("zeo_rt_regexp_lit")}(#{f.iconst("i32", @program.regexp_site)}, #{ptr}, #{len}, " \
-        "#{flag.call(node.ignore_case?)}, #{flag.call(node.extended?)}, #{flag.call(node.multi_line?)}, " \
-        "#{f.iconst("i8", regexp_encoding(node))}, #{addr_of(slot)})",
+      status_check(f.call_val(
+        f.import("zeo_rt_regexp_lit"),
+        [
+          f.iconst("i32", @program.regexp_site),
+          ptr,
+          len,
+          flag.call(node.ignore_case?),
+          flag.call(node.extended?),
+          flag.call(node.multi_line?),
+          f.iconst("i8", regexp_encoding(node)),
+          addr_of(slot),
+        ],
       ))
       Operand.new(slot, true, false)
     end
@@ -4701,9 +4744,9 @@ module Ze0
       scopes.each { |scope| autoload_touch(scope, nptr, nlen) } if @autoload_consts.key?(name)
       qptr, qlen = rodata_ref(qualified)
       slot = f.slot
-      status_check(f.val(
-        "call #{f.import("zeo_rt_const_get_cref")}(#{ids}, #{n_ids}, #{nptr}, #{nlen}, #{qptr}, #{qlen}, " \
-        "#{f.iconst("i8", 0)}, #{f.iconst("i32", Capi::MAIN_BOX)}, #{addr_of(slot)})",
+      status_check(f.call_val(
+        f.import("zeo_rt_const_get_cref"),
+        [ids, n_ids, nptr, nlen, qptr, qlen, f.iconst("i8", 0), f.iconst("i32", Capi::MAIN_BOX), addr_of(slot)],
       ))
       Operand.new(slot, true, false)
     end
@@ -4736,9 +4779,9 @@ module Ze0
       # resolves with the unit still unrun.
       autoload_touch_value(borrow(scope), nptr, nlen) unless @autoload_consts.empty?
       slot = f.slot
-      status_check(f.val(
-        "call #{f.import("zeo_rt_const_get_on_value")}(#{borrow(scope)}, #{nptr}, #{nlen}, " \
-        "#{qptr}, #{qlen}, #{addr_of(slot)})",
+      status_check(f.call_val(
+        f.import("zeo_rt_const_get_on_value"),
+        [borrow(scope), nptr, nlen, qptr, qlen, addr_of(slot)],
       ))
       Operand.new(slot, true, false)
     end
@@ -4776,12 +4819,10 @@ module Ze0
       pptr, plen = rodata_ref(path)
       cid = class_id(scope_name)
       hidden, go = f.label, f.label
-      f.ins "brif #{f.val("call #{f.import("zeo_rt_const_private")}(#{cid}, #{nptr}, #{nlen})")}, #{hidden}, #{go}"
+      f.brif(f.call_val(f.import("zeo_rt_const_private"), [cid, nptr, nlen]), hidden, go)
       f.switch(hidden)
-      status_check(f.val(
-        "call #{f.import("zeo_rt_raise_private_constant")}(#{cid}, #{nptr}, #{nlen}, #{pptr}, #{plen})",
-      ))
-      f.ins "jump #{go}"
+      status_check(f.call_val(f.import("zeo_rt_raise_private_constant"), [cid, nptr, nlen, pptr, plen]))
+      f.jump(go)
       f.switch(go)
     end
 
@@ -4801,9 +4842,19 @@ module Ze0
       nptr, nlen = rodata_ref(name)
       fptr, flen = rodata_ref(@file)
       scope_id = owner ? class_id(owner) : cref_ids.first
-      f.ins "call #{f.import("zeo_rt_const_set_at")}(#{scope_id}, #{nptr}, #{nlen}, " \
-            "#{at}, #{fptr}, #{flen}, #{f.iconst("i32", node.location.start_line)}, " \
-            "#{f.iconst("i32", Capi::MAIN_BOX)})"
+      f.call(
+        f.import("zeo_rt_const_set_at"),
+        [
+          scope_id,
+          nptr,
+          nlen,
+          at,
+          fptr,
+          flen,
+          f.iconst("i32", node.location.start_line),
+          f.iconst("i32", Capi::MAIN_BOX),
+        ],
+      )
       announce_constant(owner || cref_path.first || Names::OBJECT, name, node)
       Operand.new(value.at, false, value.immediate)
     end
@@ -4834,9 +4885,9 @@ module Ze0
     # program is linked, so this is the one place ze0 learns one -- the
     # same indirection `zeo_syms` gives an interned symbol.
     def class_id(name)
-      base = f.val("symbol_value.i64 #{f.symbol("zeo_class_ids")}")
+      base = f.symbol_value(f.symbol("zeo_class_ids"))
       at = @program.class_slot(name) * 4
-      f.val("load.i32 notrap aligned #{base}#{at.zero? ? "" : "+#{at}"}")
+      f.fetch("i32", base, at)
     end
 
     # A class-id array in a stack slot. The runtime reads it as `*const
@@ -4845,7 +4896,7 @@ module Ze0
       slot = f.slot([ids.size * 4, Capi::SLOT_BYTES].max)
       ids.each_with_index do |id, i|
         at = i.zero? ? addr_of(slot) : f.stack_addr("#{slot}+#{i * 4}")
-        f.ins "store notrap aligned #{id}, #{at}"
+        f.store(id, at)
       end
       [addr_of(slot), f.iconst("i64", ids.size)]
     end
@@ -4862,24 +4913,24 @@ module Ze0
         return locals[name] = Local.new(slot, nil)
       end
 
-      cell = f.val("call #{f.import("zeo_rt_cell_new")}(#{f.iconst("i64", 0)})")
-      f.ins "store notrap aligned #{cell}, #{addr_of(slot)}"
+      cell = f.call_val(f.import("zeo_rt_cell_new"), [f.iconst("i64", 0)])
+      f.store(cell, addr_of(slot))
       locals[name] = Local.new(slot, :owned)
     end
 
     # A cell one of this block's `ProcEnv` rows names. The proc owns it, so
     # this scope only borrows.
     def declare_captured(name, env, index)
-      cells = f.val("load.i64 notrap aligned #{env}")
-      at = index.zero? ? cells : f.val("iadd.i64 #{cells}, #{f.iconst("i64", index * 8)}")
+      cells = f.fetch("i64", env)
+      at = index.zero? ? cells : f.iadd(cells, f.iconst("i64", index * 8), type: "i64")
       slot = f.slot
-      f.ins "store notrap aligned #{f.val("load.i64 notrap aligned #{at}")}, #{addr_of(slot)}"
+      f.store(f.fetch("i64", at), addr_of(slot))
       locals[name] = Local.new(slot, :borrowed)
     end
 
     # The cell a boxed local's slot points at.
     def cell_of(local)
-      f.val("load.i64 notrap aligned #{addr_of(local.slot)}")
+      f.fetch("i64", addr_of(local.slot))
     end
 
     def local_read(node)
@@ -4890,7 +4941,7 @@ module Ze0
       return Operand.new(local.slot, false, false) unless local.boxed?
 
       slot = f.slot
-      f.ins "call #{f.import("zeo_rt_cell_load")}(#{cell_of(local)}, #{addr_of(slot)})"
+      f.call(f.import("zeo_rt_cell_load"), [cell_of(local), addr_of(slot)])
       Operand.new(slot, true, false)
     end
 
@@ -4911,7 +4962,7 @@ module Ze0
       # pooled copy rather than the slot the cell now owns.
       at = borrow(value)
       retain_if_heap(at)
-      f.ins "call #{f.import("zeo_rt_cell_store")}(#{cell_of(local)}, #{at})"
+      f.call(f.import("zeo_rt_cell_store"), [cell_of(local), at])
       Operand.new(value.at, false, value.immediate)
     end
 
@@ -4920,7 +4971,7 @@ module Ze0
     def initialize_local(local, from)
       retain_if_heap(from)
       if local.boxed?
-        f.ins "call #{f.import("zeo_rt_cell_store")}(#{cell_of(local)}, #{from})"
+        f.call(f.import("zeo_rt_cell_store"), [cell_of(local), from])
       else
         copy(from, addr_of(local.slot))
       end
@@ -4930,7 +4981,7 @@ module Ze0
       return release_if_heap(addr_of(local.slot)) unless local.boxed?
       return unless local.owns_cell?
 
-      f.ins "call #{f.import("zeo_rt_cell_release")}(#{cell_of(local)})"
+      f.call(f.import("zeo_rt_cell_release"), [cell_of(local)])
     end
 
     def local(node)
@@ -4958,11 +5009,11 @@ module Ze0
       targets = node.lefts + (splat ? [splat] : []) + node.rights
       slots = f.slot(Capi::SLOT_BYTES * targets.size)
       at = addr_of(slots)
-      status_check(f.val(
-        "call #{f.import("zeo_rt_multi_split")}(#{from}, #{f.iconst("i64", node.lefts.size)}, " \
-        "#{f.iconst("i8", splat ? 1 : 0)}, #{f.iconst("i64", node.rights.size)}, #{at})",
+      status_check(f.call_val(
+        f.import("zeo_rt_multi_split"),
+        [from, f.iconst("i64", node.lefts.size), f.iconst("i8", splat ? 1 : 0), f.iconst("i64", node.rights.size), at],
       ))
-      f.ins "call #{f.import("zeo_rt_release")}(#{from})" if take
+      f.call(f.import("zeo_rt_release"), [from]) if take
       targets.each_with_index do |target, i|
         assign_target(target, i.zero? ? at : f.stack_addr("#{slots}+#{i * Capi::SLOT_BYTES}"))
       end
@@ -4992,7 +5043,7 @@ module Ze0
     def assign_target(node, from)
       node = node.expression if node.is_a?(Prism::SplatNode)
       # `a, * = list` names nothing, so its slot is simply let go.
-      return f.ins("call #{f.import("zeo_rt_release")}(#{from})") if node.nil?
+      return f.call(f.import("zeo_rt_release"), [from]) if node.nil?
 
       taken = Operand.new(from, true, false)
       case node
@@ -5135,14 +5186,12 @@ module Ze0
     def reserve_using_slots
       return if @using_slot_count.zero?
 
-      f.ins "call #{f.import("zeo_rt_using_slots_ensure")}(#{f.iconst("i32", @using_slot_count)})"
+      f.call(f.import("zeo_rt_using_slots_ensure"), [f.iconst("i32", @using_slot_count)])
     end
 
     # `zeo_rt_eval_using` over a module the site names by VALUE.
     def activate_using(module_value, slot)
-      status_check(f.val(
-        "call #{f.import("zeo_rt_eval_using")}(#{borrow(module_value)}, #{f.iconst("i32", slot)})",
-      ))
+      status_check(f.call_val(f.import("zeo_rt_eval_using"), [borrow(module_value), f.iconst("i32", slot)]))
     end
 
     # `using M`, which answers `self` and fills this site's slot.
@@ -5156,7 +5205,7 @@ module Ze0
       table = f.slot(4 * slots.size)
       slots.each_with_index do |n, i|
         at = i.zero? ? f.stack_addr(table) : f.stack_addr("#{table}+#{i * 4}")
-        f.ins "store notrap aligned #{f.iconst("i32", n)}, #{at}"
+        f.store(f.iconst("i32", n), at)
       end
       [f.stack_addr(table), f.iconst("i64", slots.size)]
     end
@@ -5188,10 +5237,9 @@ module Ze0
       ids, n_ids = slot_table(slots)
       result = f.slot
       into = addr_of(result)
-      status = f.val(
-        "call #{f.import("zeo_rt_eval_reflect_dispatch")}(#{f.iconst("i32", 0)}, #{at}, " \
-        "#{f.iconst("i8", entry)}, #{argv}, #{f.iconst("i64", args.size)}, " \
-        "#{blk}, #{ids}, #{n_ids}, #{into})",
+      status = f.call_val(
+        f.import("zeo_rt_eval_reflect_dispatch"),
+        [f.iconst("i32", 0), at, f.iconst("i8", entry), argv, f.iconst("i64", args.size), blk, ids, n_ids, into],
       )
       builder ? catch_break(status, into) : status_check(status)
       Operand.new(result, true, false)
@@ -5247,9 +5295,21 @@ module Ze0
       strs, count = str_array(names)
       fptr, flen = rodata_ref(@file)
       slot = f.slot
-      f.ins "call #{f.import("zeo_rt_binding_new")}(#{borrow(self_operand)}, #{strs}, #{cells}, " \
-            "#{count}, #{fptr}, #{flen}, #{f.iconst("i32", node.location.start_line)}, " \
-            "#{f.iconst("i32", Capi::MAIN_BOX)}, #{binding_cref}, #{addr_of(slot)})"
+      f.call(
+        f.import("zeo_rt_binding_new"),
+        [
+          borrow(self_operand),
+          strs,
+          cells,
+          count,
+          fptr,
+          flen,
+          f.iconst("i32", node.location.start_line),
+          f.iconst("i32", Capi::MAIN_BOX),
+          binding_cref,
+          addr_of(slot),
+        ],
+      )
       Operand.new(slot, true, false)
     end
 
@@ -5269,8 +5329,8 @@ module Ze0
       names.each_with_index do |name, i|
         ptr, len = rodata_ref(name.to_s)
         at = i.zero? ? addr_of(slot) : f.stack_addr("#{slot}+#{i * Capi::STR_BYTES}")
-        f.ins "store notrap aligned #{ptr}, #{at}"
-        f.ins "store notrap aligned #{len}, #{at}+8"
+        f.store(ptr, at)
+        f.store(len, at, 8)
       end
       [addr_of(slot), f.iconst("i64", names.size)]
     end
@@ -5321,9 +5381,7 @@ module Ze0
         verb = f.iconst("i8", Capi::VISIBILITY_VERBS.fetch(name))
         cid = class_id(owner)
         names.each do |n|
-          status_check(f.val(
-            "call #{f.import("zeo_rt_runtime_set_visibility")}(#{cid}, #{sym_id(n)}, #{verb})",
-          ))
+          status_check(f.call_val(f.import("zeo_rt_runtime_set_visibility"), [cid, sym_id(n), verb]))
         end
         return symbol_answer(names)
       end
@@ -5359,10 +5417,15 @@ module Ze0
       return announce_alias(folded) if folded
 
       slot = f.slot
-      status_check(f.val(
-        "call #{f.import("zeo_rt_alias_in_default_definee")}(#{borrow(cref_value)}, " \
-        "#{borrow(self_operand)}, #{borrow(alias_name(new_name))}, " \
-        "#{borrow(alias_name(old_name))}, #{addr_of(slot)})",
+      status_check(f.call_val(
+        f.import("zeo_rt_alias_in_default_definee"),
+        [
+          borrow(cref_value),
+          borrow(self_operand),
+          borrow(alias_name(new_name)),
+          borrow(alias_name(old_name)),
+          addr_of(slot),
+        ],
       ))
       Operand.new(slot, true, false)
     end
@@ -5373,9 +5436,9 @@ module Ze0
     def announce_alias(name)
       zero = f.iconst("i64", 0)
       if @classes.key?(owner)
-        status_check(f.val(
-          "call #{f.import("zeo_rt_probe_def_hook")}(#{class_id_of(owner)}, " \
-          "#{f.iconst("i8", 0)}, #{f.iconst("i8", 0)}, #{sym_id(name)}, #{zero}, #{zero})",
+        status_check(f.call_val(
+          f.import("zeo_rt_probe_def_hook"),
+          [class_id_of(owner), f.iconst("i8", 0), f.iconst("i8", 0), sym_id(name), zero, zero],
         ))
       end
       literal_symbol(name)
@@ -5405,8 +5468,7 @@ module Ze0
     def lower_global_alias(node)
       new_ptr, new_len = rodata_ref(global_alias_name(node.new_name))
       old_ptr, old_len = rodata_ref(global_alias_name(node.old_name))
-      f.ins "call #{f.import("zeo_rt_gvar_alias")}(#{f.iconst("i32", Capi::MAIN_BOX)}, " \
-            "#{new_ptr}, #{new_len}, #{old_ptr}, #{old_len})"
+      f.call(f.import("zeo_rt_gvar_alias"), [f.iconst("i32", Capi::MAIN_BOX), new_ptr, new_len, old_ptr, old_len])
       literal_nil
     end
 
@@ -5449,8 +5511,7 @@ module Ze0
       feature = canonical_feature(name)
       @program.add_feature(feature)
       eptr, elen = rodata_ref(feature)
-      f.ins "call #{f.import("zeo_rt_feature_loaded")}(#{f.iconst("i32", Capi::MAIN_BOX)}, " \
-            "#{eptr}, #{elen}, #{eptr}, #{elen})"
+      f.call(f.import("zeo_rt_feature_loaded"), [f.iconst("i32", Capi::MAIN_BOX), eptr, elen, eptr, elen])
       first = !@required.key?(feature)
       @required[feature] = true
       literal_bool(first ? 1 : 0)
@@ -5504,18 +5565,18 @@ module Ze0
     def cref_array
       slot = f.slot
       at = addr_of(slot)
-      f.ins "call #{f.import("zeo_rt_array_new")}(#{f.iconst("i64", cref_path.size)}, #{at})"
-      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
-      cref_path.each { |name| f.ins "call #{f.import("zeo_rt_array_push")}(#{at}, #{hand_over(class_value(name))})" }
+      f.call(f.import("zeo_rt_array_new"), [f.iconst("i64", cref_path.size), at])
+      f.call(f.import("zeo_rt_pool_push"), [at])
+      cref_path.each { |name| f.call(f.import("zeo_rt_array_push"), [at, hand_over(class_value(name))]) }
       Operand.new(slot, false, false)
     end
 
     def symbol_array(names)
       slot = f.slot
       at = addr_of(slot)
-      f.ins "call #{f.import("zeo_rt_array_new")}(#{f.iconst("i64", names.size)}, #{at})"
-      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
-      names.each { |n| f.ins "call #{f.import("zeo_rt_array_push")}(#{at}, #{hand_over(literal_symbol(n))})" }
+      f.call(f.import("zeo_rt_array_new"), [f.iconst("i64", names.size), at])
+      f.call(f.import("zeo_rt_pool_push"), [at])
+      names.each { |n| f.call(f.import("zeo_rt_array_push"), [at, hand_over(literal_symbol(n))]) }
       Operand.new(slot, false, false)
     end
 
@@ -5623,10 +5684,7 @@ module Ze0
       operands << hash_of(rest) unless rest.empty?
       argv = args_array(operands)
       at = borrow(lower_expr(cause.first.value))
-      status_check(f.val(
-        "call #{f.import("zeo_rt_raise_with_explicit_cause")}(#{argv}, " \
-        "#{f.iconst("i64", operands.size)}, #{at})",
-      ))
+      status_check(f.call_val(f.import("zeo_rt_raise_with_explicit_cause"), [argv, f.iconst("i64", operands.size), at]))
       literal_nil
     end
 
@@ -5678,10 +5736,9 @@ module Ze0
       site = node.block.is_a?(Prism::BlockNode) ? "#{@file}:#{node.block.location.start_line}" : ""
       where, where_len = rodata_ref(site)
       slot = f.slot
-      status_check(f.val(
-        "call #{f.import("zeo_rt_ractor_new")}(#{blk}, #{argv}, " \
-        "#{f.iconst("i64", operands.size)}, #{name_ptr}, #{where}, #{where_len}, " \
-        "#{addr_of(slot)})",
+      status_check(f.call_val(
+        f.import("zeo_rt_ractor_new"),
+        [blk, argv, f.iconst("i64", operands.size), name_ptr, where, where_len, addr_of(slot)],
       ))
       Operand.new(slot, true, false)
     end
@@ -5711,9 +5768,9 @@ module Ze0
       recv = lower_expr(node.receiver)
       result = f.slot
       store_nil(addr_of(result))
-      present = f.val("icmp ne #{tag_of(borrow(recv))}, #{f.iconst("i8", Capi::TAG_NIL)}")
+      present = f.icmp("ne", tag_of(borrow(recv)), f.iconst("i8", Capi::TAG_NIL))
       call, join = f.label, f.label
-      f.ins "brif #{present}, #{call}, #{join}"
+      f.brif(present, call, join)
       f.switch(call)
       # A nil receiver evaluates NO argument, so a write's right-hand
       # side runs only on this side of the guard.
@@ -5724,7 +5781,7 @@ module Ze0
         keywords = args.pop if args.last.is_a?(Prism::KeywordHashNode)
         move(send_call(node, args, keywords, recv, slots), addr_of(result))
       end
-      f.ins "jump #{join}" unless f.terminated?
+      f.jump(join) unless f.terminated?
       f.switch(join)
       Operand.new(result, true, false)
     end
@@ -5817,10 +5874,17 @@ module Ze0
       recv = borrow(lower_expr(node.receiver))
       operands = args.map { |a| lower_expr(a) }
       result = f.slot
-      status_check(f.val(
-        "call #{f.import("zeo_rt_proc_call_or_send")}(#{recv}, #{sym_id(node.name)}, " \
-        "#{args_array(operands)}, #{f.iconst("i64", operands.size)}, #{f.iconst("i64", 0)}, " \
-        "#{running_caller}, #{addr_of(result)})",
+      status_check(f.call_val(
+        f.import("zeo_rt_proc_call_or_send"),
+        [
+          recv,
+          sym_id(node.name),
+          args_array(operands),
+          f.iconst("i64", operands.size),
+          f.iconst("i64", 0),
+          running_caller,
+          addr_of(result),
+        ],
       ))
       Operand.new(result, true, false)
     end
@@ -5856,23 +5920,36 @@ module Ze0
     def argv_send(recv, name, argv, kw, blk, into, explicit: true, slots: NO_SLOTS)
       unmark = unmark_flag
       if slots.empty?
-        return f.val(
+        return(
           if barrier?(explicit)
-            "call #{f.import("zeo_rt_send_value_explicit_args_in")}(#{f.iconst("i32", 0)}, #{recv}, " \
-              "#{sym_id(name)}, #{argv}, #{unmark}, #{kw}, #{blk}, " \
-              "#{running_caller}, #{into})"
+            f.call_val(
+              f.import("zeo_rt_send_value_explicit_args_in"),
+              [f.iconst("i32", 0), recv, sym_id(name), argv, unmark, kw, blk, running_caller, into],
+            )
           else
-            "call #{f.import("zeo_rt_send_value_args_cached")}(#{callsite_ptr(explicit)}, " \
-              "#{f.iconst("i32", 0)}, #{recv}, #{sym_id(name)}, #{argv}, #{unmark}, " \
-              "#{kw}, #{blk}, #{into})"
-          end,
+            f.call_val(
+              f.import("zeo_rt_send_value_args_cached"),
+              [callsite_ptr(explicit), f.iconst("i32", 0), recv, sym_id(name), argv, unmark, kw, blk, into],
+            )
+          end
         )
       end
       ids, n_ids = slot_table(slots)
-      f.val(
-        "call #{f.import("zeo_rt_eval_refined_send_args")}(#{f.iconst("i32", 0)}, #{recv}, " \
-        "#{sym_id(name)}, #{argv}, #{unmark}, #{kw}, #{blk}, #{ids}, #{n_ids}, " \
-        "#{f.iconst("i8", explicit ? 1 : 0)}, #{into})",
+      f.call_val(
+        f.import("zeo_rt_eval_refined_send_args"),
+        [
+          f.iconst("i32", 0),
+          recv,
+          sym_id(name),
+          argv,
+          unmark,
+          kw,
+          blk,
+          ids,
+          n_ids,
+          f.iconst("i8", explicit ? 1 : 0),
+          into,
+        ],
       )
     end
 
@@ -5919,7 +5996,7 @@ module Ze0
     def proc_new(body, captures, node, lambda_shape)
       shape = block_params(node)
       fn = f.callee(body, ["i64"] * 6, "i32")
-      address = f.val("func_addr.i64 #{fn}")
+      address = f.func_addr(fn)
       file, file_len = rodata_ref(@file)
       params, n_params = param_rows(shape)
       cells, n_cells = cell_array(captures)
@@ -5936,13 +6013,27 @@ module Ze0
       # run time. Ruby reports the alphabetically first outer name, which
       # is the head of the sorted capture list.
       outer, outer_len = rodata_ref(captures.first.to_s)
-      f.ins "call #{f.import("zeo_rt_proc_new")}(#{address}, #{cells}, #{n_cells}, " \
-            "#{borrow(self_operand)}, #{lexical}, #{binding}, " \
-            "#{f.iconst("i32", proc_arity(shape, lambda_shape))}, " \
-            "#{f.iconst("i32", proc_flags(node, lambda_shape))}, " \
-            "#{params}, #{n_params}, #{file}, #{file_len}, " \
-            "#{f.iconst("i32", node.location.start_line)}, #{outer}, #{outer_len}, " \
-            "#{addr_of(slot)})"
+      f.call(
+        f.import("zeo_rt_proc_new"),
+        [
+          address,
+          cells,
+          n_cells,
+          borrow(self_operand),
+          lexical,
+          binding,
+          f.iconst("i32", proc_arity(shape, lambda_shape)),
+          f.iconst("i32", proc_flags(node, lambda_shape)),
+          params,
+          n_params,
+          file,
+          file_len,
+          f.iconst("i32", node.location.start_line),
+          outer,
+          outer_len,
+          addr_of(slot),
+        ],
+      )
       addr_of(slot)
     end
 
@@ -5980,7 +6071,7 @@ module Ze0
       captures.each_with_index do |n, i|
         cell = cell_of(locals.fetch(n))
         off = i * 8
-        f.ins "store notrap aligned #{cell}, #{at}#{off.zero? ? "" : "+#{off}"}"
+        f.store(cell, at, off)
       end
       [at, f.iconst("i64", captures.size)]
     end
@@ -6001,10 +6092,9 @@ module Ze0
         off = i * PARAM_ROW_BYTES
         ptr, len = rodata_ref(name.to_s)
         # The runtime renders a non-lambda block's `req` as `opt`.
-        f.ins "store notrap aligned #{f.iconst("i8", Capi::PARAM_KINDS.index(kind))}, " \
-              "#{at}#{off.zero? ? "" : "+#{off}"}"
-        f.ins "store notrap aligned #{ptr}, #{at}+#{off + 8}"
-        f.ins "store notrap aligned #{len}, #{at}+#{off + 16}"
+        f.store(f.iconst("i8", Capi::PARAM_KINDS.index(kind)), at, off)
+        f.store(ptr, at, off + 8)
+        f.store(len, at, off + 16)
       end
       [at, f.iconst("i64", rows.size)]
     end
@@ -6025,9 +6115,9 @@ module Ze0
     def block_arg_value(value)
       slot = f.slot
       at = addr_of(slot)
-      status_check(f.val("call #{f.import("zeo_rt_block_arg_to_proc")}(#{borrow(value)}, #{at})"))
-      absent = f.val("icmp eq #{tag_of(at)}, #{f.iconst("i8", Capi::TAG_NIL)}")
-      f.val("select #{absent}, #{f.iconst("i64", 0)}, #{at}")
+      status_check(f.call_val(f.import("zeo_rt_block_arg_to_proc"), [borrow(value), at]))
+      absent = f.icmp("eq", tag_of(at), f.iconst("i8", Capi::TAG_NIL))
+      f.csel(absent, f.iconst("i64", 0), at)
     end
 
     # A call to a `def` this program carries, straight to its body. The
@@ -6041,7 +6131,7 @@ module Ze0
       body = f.callee(body_symbol_of(definition[:owner], node.name, false), ["i64"] * n_params, "i32")
       addrs = [borrow(self_operand)] + operands.map { |o| borrow(o) }
       addrs << (block_builder(node)&.call || f.iconst("i64", 0)) if definition[:block]
-      status = f.val("call #{body}(#{(addrs + [addr_of(result)]).join(", ")})")
+      status = f.call_val(body, (addrs + [addr_of(result)]))
       node.block ? catch_break(status, addr_of(result)) : status_check(status)
       Operand.new(result, true, false)
     end
@@ -6049,7 +6139,7 @@ module Ze0
     def kernel_puts(args)
       argv = args_array(args.map { |a| lower_expr(a) })
       result = f.slot
-      status_check(f.val("call #{f.import("zeo_rt_kernel_puts")}(#{argv}, #{f.iconst("i64", args.size)}, #{addr_of(result)})"))
+      status_check(f.call_val(f.import("zeo_rt_kernel_puts"), [argv, f.iconst("i64", args.size), addr_of(result)]))
       Operand.new(result, false, true)
     end
 
@@ -6061,24 +6151,37 @@ module Ze0
       kw = keywords ? borrow(hash_literal(keywords)) : nil
       blk = block_given? ? yield : f.iconst("i64", 0)
       sym_id = sym_id(name)
-      channels = kw ? "#{kw}, #{blk}" : blk.to_s
+      channels = kw ? [kw, blk] : [blk]
       count = f.iconst("i64", operands.size)
       ids, n_ids = slots.empty? ? [nil, nil] : slot_table(slots)
-      status = f.val(
+      status =
         if ids
-          "call #{f.import("zeo_rt_eval_refined_send")}(#{f.iconst("i32", 0)}, #{recv}, " \
-            "#{sym_id}, #{argv}, #{count}, #{kw || f.iconst("i64", 0)}, #{blk}, " \
-            "#{ids}, #{n_ids}, #{f.iconst("i8", explicit ? 1 : 0)}, #{into})"
+          f.call_val(
+            f.import("zeo_rt_eval_refined_send"),
+            [
+              f.iconst("i32", 0),
+              recv,
+              sym_id,
+              argv,
+              count,
+              kw || f.iconst("i64", 0),
+              blk,
+              ids,
+              n_ids,
+              f.iconst("i8", explicit ? 1 : 0),
+              into,
+            ],
+          )
         elsif barrier?(explicit)
           entry = kw ? "zeo_rt_send_value_explicit_kw_in" : "zeo_rt_send_value_explicit_in"
-          "call #{f.import(entry)}(#{f.iconst("i32", 0)}, #{recv}, #{sym_id}, " \
-            "#{argv}, #{count}, #{channels}, #{running_caller}, #{into})"
+          f.call_val(f.import(entry), [f.iconst("i32", 0), recv, sym_id, argv, count, *channels, running_caller, into])
         else
           entry = kw ? "zeo_rt_send_value_kw_cached" : "zeo_rt_send_value_cached"
-          "call #{f.import(entry)}(#{callsite_ptr(explicit)}, #{f.iconst("i32", 0)}, #{recv}, " \
-            "#{sym_id}, #{argv}, #{count}, #{channels}, #{into})"
-        end,
-      )
+          f.call_val(
+            f.import(entry),
+            [callsite_ptr(explicit), f.iconst("i32", 0), recv, sym_id, argv, count, *channels, into],
+          )
+        end
       breaks ? catch_break(status, into) : status_check(status)
     end
 
@@ -6090,7 +6193,7 @@ module Ze0
 
     # `self`'s class, which is that answer.
     def running_caller
-      f.val("call #{f.import("zeo_rt_class_of")}(#{borrow(self_operand)})")
+      f.call_val(f.import("zeo_rt_class_of"), [borrow(self_operand)])
     end
 
     # A bare name with no arguments, no parentheses and no receiver is
@@ -6099,10 +6202,9 @@ module Ze0
     # method`, never `NoMethodError`.
     def vcall(node)
       result = f.slot
-      status = f.val(
-        "call #{f.import("zeo_rt_send_value_vcall_cached")}(#{callsite_ptr(false)}, " \
-        "#{f.iconst("i32", 0)}, #{borrow(self_operand)}, #{sym_id(node.name)}, " \
-        "#{addr_of(result)})",
+      status = f.call_val(
+        f.import("zeo_rt_send_value_vcall_cached"),
+        [callsite_ptr(false), f.iconst("i32", 0), borrow(self_operand), sym_id(node.name), addr_of(result)],
       )
       status_check(status)
       Operand.new(result, true, false)
@@ -6112,24 +6214,24 @@ module Ze0
     # records the class the site is written in: a filled site was vetted
     # when it filled, so the hot path never reads it back.
     def callsite_ptr(explicit)
-      site = f.val("symbol_value.i64 #{f.symbol("zeo_callsites")}")
+      site = f.symbol_value(f.symbol("zeo_callsites"))
       offset = @program.callsite(explicit ? scope.caller_class : "") * Capi::CALLSITE_BYTES
       return site if offset.zero?
 
-      f.val("iadd.i64 #{site}, #{f.iconst("i64", offset)}")
+      f.iadd(site, f.iconst("i64", offset), type: "i64")
     end
 
     # A send that passed a block lands here: a `Break` signal's value IS
     # the send's value, and every other signal is a real unwind.
     def catch_break(status, into)
       ok, signalled, take = f.label, f.label, f.label
-      f.ins "brif #{status}, #{signalled}, #{ok}"
+      f.brif(status, signalled, ok)
       f.switch(signalled)
-      kind = f.val("call #{f.import("zeo_rt_signal_kind")}()")
-      f.ins "brif #{f.val("icmp eq #{kind}, #{f.iconst("i8", Capi::SIGNAL_BREAK)}")}, #{take}, #{raise_block}"
+      kind = f.call_val(f.import("zeo_rt_signal_kind"))
+      f.brif(f.icmp("eq", kind, f.iconst("i8", Capi::SIGNAL_BREAK)), take, raise_block)
       f.switch(take)
-      f.val("call #{f.import("zeo_rt_signal_take")}(#{into})")
-      f.ins "jump #{ok}"
+      f.call_val(f.import("zeo_rt_signal_take"), [into])
+      f.jump(ok)
       f.switch(ok)
     end
 
@@ -6160,32 +6262,32 @@ module Ze0
       result = f.slot
       out_at = addr_of(result)
       int = f.iconst("i8", Capi::TAG_INT)
-      both = f.val("band #{f.val("icmp eq #{tag_of(la)}, #{int}")}, #{f.val("icmp eq #{tag_of(ra)}, #{int}")}")
+      both = f.band(f.icmp("eq", tag_of(la), int), f.icmp("eq", tag_of(ra), int))
       fast, slow, join = f.label, f.label, f.label
-      f.ins "brif #{both}, #{fast}, #{slow}"
+      f.brif(both, fast, slow)
       f.switch(fast)
-      a = f.val("load.i64 notrap aligned #{la}+8")
-      b = f.val("load.i64 notrap aligned #{ra}+8")
+      a = f.fetch("i64", la, 8)
+      b = f.fetch("i64", ra, 8)
       if (arith = INT_ARITH[name])
-        value, overflowed = f.vals("#{arith[0]} #{a}, #{b}")
+        value, overflowed = f.public_send(arith[0], a, b)
         big, small = f.label, f.label
-        f.ins "brif #{overflowed}, #{big}, #{small}"
+        f.brif(overflowed, big, small)
         f.switch(small)
-        f.ins "store notrap aligned #{int}, #{out_at}"
-        f.ins "store notrap aligned #{value}, #{out_at}+8"
-        f.ins "jump #{join}"
+        f.store(int, out_at)
+        f.store(value, out_at, 8)
+        f.jump(join)
         f.switch(big)
-        f.ins "call #{f.import(arith[1])}(#{la}, #{ra}, #{out_at})"
-        f.ins "jump #{join}"
+        f.call(f.import(arith[1]), [la, ra, out_at])
+        f.jump(join)
       else
-        answer = f.val("icmp #{INT_COMPARE[name]} #{a}, #{b}")
-        f.ins "store notrap aligned #{f.iconst("i8", Capi::TAG_BOOL)}, #{out_at}"
-        f.ins "store notrap aligned #{answer}, #{out_at}+8"
-        f.ins "jump #{join}"
+        answer = f.icmp(INT_COMPARE[name], a, b)
+        f.store(f.iconst("i8", Capi::TAG_BOOL), out_at)
+        f.store(answer, out_at, 8)
+        f.jump(join)
       end
       f.switch(slow)
       dynamic_send(la, name, [Operand.new(rhs.at, false, rhs.immediate)], out_at)
-      f.ins "jump #{join}"
+      f.jump(join)
       f.switch(join)
       Operand.new(result, true, false)
     end
@@ -6233,7 +6335,7 @@ module Ze0
       truth = truthy(lower_expr(predicate))
       yes, no, join = f.label, f.label, f.label
       result = f.slot
-      f.ins "brif #{truth}, #{negate ? no : yes}, #{negate ? yes : no}"
+      f.brif(truth, negate ? no : yes, negate ? yes : no)
       f.switch(yes)
       arm(lower_statements(statements), result, join)
       f.switch(no)
@@ -6248,21 +6350,21 @@ module Ze0
       return if f.terminated?
 
       move(value, addr_of(result))
-      f.ins "jump #{join}"
+      f.jump(join)
     end
 
     # A loop answers nil unless a `break` gives it a value, so the result
     # slot is seeded before the head and only a `break` writes it.
     def lower_while(predicate, statements, negate)
-      mark = f.val("call #{f.import("zeo_rt_pool_mark")}()")
+      mark = f.call_val(f.import("zeo_rt_pool_mark"))
       head, body, done = f.label, f.label, f.label
       result = f.slot
       store_nil(addr_of(result))
-      f.ins "jump #{head}"
+      f.jump(head)
       f.switch(head)
-      status_check(f.val("call #{f.import("zeo_rt_check_ints")}()"))
+      status_check(f.call_val(f.import("zeo_rt_check_ints")))
       truth = truthy(lower_expr(predicate))
-      f.ins "brif #{truth}, #{negate ? done : body}, #{negate ? body : done}"
+      f.brif(truth, negate ? done : body, negate ? body : done)
       f.switch(body)
       scope.loops.push(Loop.new(head, done, result, mark, scope.handling_depth, scope.ensure_depth, body))
       body_statements(statements).each do |s|
@@ -6272,11 +6374,11 @@ module Ze0
       end
       scope.loops.pop
       unless f.terminated?
-        f.ins "call #{f.import("zeo_rt_pool_reset")}(#{mark})"
-        f.ins "jump #{head}"
+        f.call(f.import("zeo_rt_pool_reset"), [mark])
+        f.jump(head)
       end
       f.switch(done)
-      f.ins "call #{f.import("zeo_rt_pool_reset")}(#{mark})"
+      f.call(f.import("zeo_rt_pool_reset"), [mark])
       Operand.new(result, true, false)
     end
 
@@ -6289,21 +6391,21 @@ module Ze0
     def lower_for(node)
       packed = node.index.is_a?(Prism::MultiTargetNode)
       state = f.stack_addr(f.slot(Capi::FOR_STATE_BYTES))
-      status_check(f.val(
-        "call #{f.import("zeo_rt_for_begin")}(#{borrow(lower_expr(node.collection))}, " \
-        "#{f.iconst("i8", packed ? 1 : 0)}, #{state})",
+      status_check(f.call_val(
+        f.import("zeo_rt_for_begin"),
+        [borrow(lower_expr(node.collection)), f.iconst("i8", packed ? 1 : 0), state],
       ))
-      mark = f.val("call #{f.import("zeo_rt_pool_mark")}()")
+      mark = f.call_val(f.import("zeo_rt_pool_mark"))
       head, body, done = f.label, f.label, f.label
       walked, landing = f.label, f.label
       result = f.slot
       store_nil(addr_of(result))
       elem, more = f.slot, f.slot
-      f.ins "jump #{head}"
+      f.jump(head)
 
       f.switch(head)
-      f.ins "call #{f.import("zeo_rt_for_next")}(#{state}, #{addr_of(elem)}, #{addr_of(more)})"
-      f.ins "brif #{f.val("load.i8 notrap aligned #{addr_of(more)}")}, #{body}, #{walked}"
+      f.call(f.import("zeo_rt_for_next"), [state, addr_of(elem), addr_of(more)])
+      f.brif(f.fetch("i8", addr_of(more)), body, walked)
 
       f.switch(body)
       packed ? split_into(node.index, addr_of(elem), take: true) : assign_target(node.index, addr_of(elem))
@@ -6311,7 +6413,7 @@ module Ze0
       # releases it before the enclosing landing runs.
       outer = scope.raise_block
       scope.raise_block = landing
-      status_check(f.val("call #{f.import("zeo_rt_check_ints")}()"))
+      status_check(f.call_val(f.import("zeo_rt_check_ints")))
       scope.loops.push(
         Loop.new(head, done, result, mark, scope.handling_depth, scope.ensure_depth, body),
       )
@@ -6323,23 +6425,23 @@ module Ze0
       scope.loops.pop
       scope.raise_block = outer
       unless f.terminated?
-        f.ins "call #{f.import("zeo_rt_pool_reset")}(#{mark})"
-        f.ins "jump #{head}"
+        f.call(f.import("zeo_rt_pool_reset"), [mark])
+        f.jump(head)
       end
 
       # Walked to the end: the loop answers the collection. A `break`
       # supplies its own and jumps straight to `done`.
       f.switch(walked)
-      f.ins "call #{f.import("zeo_rt_for_result")}(#{state}, #{addr_of(result)})"
-      f.ins "jump #{done}"
+      f.call(f.import("zeo_rt_for_result"), [state, addr_of(result)])
+      f.jump(done)
 
       f.switch(landing)
-      f.ins "call #{f.import("zeo_rt_for_end")}(#{state})"
-      f.ins "jump #{outer}"
+      f.call(f.import("zeo_rt_for_end"), [state])
+      f.jump(outer)
 
       f.switch(done)
-      f.ins "call #{f.import("zeo_rt_for_end")}(#{state})"
-      f.ins "call #{f.import("zeo_rt_pool_reset")}(#{mark})"
+      f.call(f.import("zeo_rt_for_end"), [state])
+      f.call(f.import("zeo_rt_pool_reset"), [mark])
       Operand.new(result, true, false)
     end
 
@@ -6350,7 +6452,7 @@ module Ze0
       truth = truthy(value)
       result = f.slot
       short, other, join = f.label, f.label, f.label
-      f.ins "brif #{truth}, #{conjunction ? other : short}, #{conjunction ? short : other}"
+      f.brif(truth, conjunction ? other : short, conjunction ? short : other)
       f.switch(short)
       arm(value, result, join)
       f.switch(other)
@@ -6382,7 +6484,7 @@ module Ze0
         arm_node.conditions.each do |value_node|
           hit = case_test(subject, value_node, hit_at)
           fall = f.label
-          f.ins "brif #{hit}, #{body}, #{fall}"
+          f.brif(hit, body, fall)
           f.switch(fall)
         end
         [body, arm_node.statements]
@@ -6407,8 +6509,8 @@ module Ze0
       return truthy(value) unless subject
 
       at = borrow(value)
-      status_check(f.val("call #{f.import("zeo_rt_case_eq")}(#{at}, #{addr_of(subject)}, #{hit_at})"))
-      f.val("load.i8 notrap aligned #{hit_at}")
+      status_check(f.call_val(f.import("zeo_rt_case_eq"), [at, addr_of(subject), hit_at]))
+      f.fetch("i8", hit_at)
     end
 
     # `when *list` spreads the value the way a call site's splat does and
@@ -6417,31 +6519,31 @@ module Ze0
     def case_splat(subject, node, hit_at)
       values = new_array(0)
       push_call_argument(values, node)
-      length = f.val("call #{f.import("zeo_rt_pat_array_len")}(#{values})")
+      length = f.call_val(f.import("zeo_rt_pat_array_len"), [values])
       index = f.slot(8)
       answer = f.slot(8)
-      f.ins "store notrap aligned #{f.iconst("i64", 0)}, #{f.stack_addr(index)}"
-      f.ins "store notrap aligned #{f.iconst("i8", 0)}, #{f.stack_addr(answer)}"
+      f.store(f.iconst("i64", 0), f.stack_addr(index))
+      f.store(f.iconst("i8", 0), f.stack_addr(answer))
       head, body, step, done = f.label, f.label, f.label, f.label
-      f.ins "jump #{head}"
+      f.jump(head)
       f.switch(head)
-      at = f.val("load.i64 notrap aligned #{f.stack_addr(index)}")
-      f.ins "brif #{f.val("icmp slt #{at}, #{length}")}, #{body}, #{done}"
+      at = f.fetch("i64", f.stack_addr(index))
+      f.brif(f.icmp("slt", at, length), body, done)
       f.switch(body)
       element = f.slot
-      f.ins "call #{f.import("zeo_rt_pat_array_get")}(#{values}, #{at}, #{addr_of(element)})"
+      f.call(f.import("zeo_rt_pat_array_get"), [values, at, addr_of(element)])
       hit = one_case_test(subject, Operand.new(element, true, false), hit_at)
       found = f.label
-      f.ins "brif #{hit}, #{found}, #{step}"
+      f.brif(hit, found, step)
       f.switch(found)
-      f.ins "store notrap aligned #{f.iconst("i8", 1)}, #{f.stack_addr(answer)}"
-      f.ins "jump #{done}"
+      f.store(f.iconst("i8", 1), f.stack_addr(answer))
+      f.jump(done)
       f.switch(step)
-      next_at = f.val("iadd.i64 #{at}, #{f.iconst("i64", 1)}")
-      f.ins "store notrap aligned #{next_at}, #{f.stack_addr(index)}"
-      f.ins "jump #{head}"
+      next_at = f.iadd(at, f.iconst("i64", 1), type: "i64")
+      f.store(next_at, f.stack_addr(index))
+      f.jump(head)
       f.switch(done)
-      f.val("load.i8 notrap aligned #{f.stack_addr(answer)}")
+      f.fetch("i8", f.stack_addr(answer))
     end
 
     # `yield` calls the block the caller handed this method. A method with
@@ -6455,9 +6557,7 @@ module Ze0
 
       argv = args_array(args.map { |a| lower_expr(a) })
       slot = f.slot
-      status_check(f.val(
-        "call #{f.import("zeo_rt_yield")}(#{blk}, #{argv}, #{f.iconst("i64", args.size)}, #{addr_of(slot)})",
-      ))
+      status_check(f.call_val(f.import("zeo_rt_yield"), [blk, argv, f.iconst("i64", args.size), addr_of(slot)]))
       Operand.new(slot, true, false)
     end
 
@@ -6470,9 +6570,7 @@ module Ze0
       args.each { |a| push_call_argument(argv, a) }
       kw = keywords ? borrow(hash_literal(keywords)) : f.iconst("i64", 0)
       slot = f.slot
-      status_check(f.val(
-        "call #{f.import("zeo_rt_yield_args")}(#{blk}, #{argv}, #{kw}, #{addr_of(slot)})",
-      ))
+      status_check(f.call_val(f.import("zeo_rt_yield_args"), [blk, argv, kw, addr_of(slot)]))
       Operand.new(slot, true, false)
     end
 
@@ -6532,13 +6630,14 @@ module Ze0
       end
 
       ptr, len = rodata_ref(name)
-      defined_if(f.val(
-        "call #{f.import("zeo_rt_defined_cvar")}(#{class_id_of(cvar_owner(node, name))}, #{ptr}, #{len})",
+      defined_if(f.call_val(
+        f.import("zeo_rt_defined_cvar"),
+        [class_id_of(cvar_owner(node, name)), ptr, len],
       ), "class variable")
     end
 
     def defined_match(value)
-      present = f.val("icmp ne #{tag_of(borrow(value))}, #{f.iconst("i8", Capi::TAG_NIL)}")
+      present = f.icmp("ne", tag_of(borrow(value)), f.iconst("i8", Capi::TAG_NIL))
       defined_if(present, "global-variable")
     end
 
@@ -6557,17 +6656,16 @@ module Ze0
       when Prism::InstanceVariableReadNode
         hit = flag_slot
         ptr, len = rodata_ref(ivar_key(inner.name))
-        status_check(f.val(
-          "call #{f.import("zeo_rt_defined_ivar")}(#{borrow(self_operand)}, #{ptr}, #{len}, #{addr_of(hit)})",
-        ))
+        status_check(f.call_val(f.import("zeo_rt_defined_ivar"), [borrow(self_operand), ptr, len, addr_of(hit)]))
         defined_if(flag_of(hit), "instance-variable")
       when Prism::GlobalVariableReadNode
         # `$~` always answers, even before the first match.
         return literal_string("global-variable") if inner.name == :$~
 
         ptr, len = rodata_ref(inner.name.to_s)
-        defined_if(f.val(
-          "call #{f.import("zeo_rt_defined_gvar")}(#{f.iconst("i32", Capi::MAIN_BOX)}, #{ptr}, #{len})",
+        defined_if(f.call_val(
+          f.import("zeo_rt_defined_gvar"),
+          [f.iconst("i32", Capi::MAIN_BOX), ptr, len],
         ), "global-variable")
       when Prism::NumberedReferenceReadNode
         defined_match(last_match(Capi::LAST_MATCH_GROUP, inner.number))
@@ -6611,18 +6709,17 @@ module Ze0
       ok = defined_arguments(node)
       ask, join = f.label, f.label
       if ok
-        f.ins "brif #{ok}, #{ask}, #{join}"
+        f.brif(ok, ask, join)
         f.switch(ask)
       end
       swallowed do
         recv = node.receiver ? lower_expr(node.receiver) : self_operand
         all = f.iconst("i8", node.receiver ? 0 : 1)
-        f.ins "call #{f.import("zeo_rt_defined_method")}(#{borrow(recv)}, #{sym_id(node.name)}, " \
-              "#{all}, #{addr_of(hit)})"
+        f.call(f.import("zeo_rt_defined_method"), [borrow(recv), sym_id(node.name), all, addr_of(hit)])
         nil
       end
       if ok
-        f.ins "jump #{join}" unless f.terminated?
+        f.jump(join) unless f.terminated?
         f.switch(join)
       end
       defined_if(flag_of(hit), "method")
@@ -6640,13 +6737,13 @@ module Ze0
       args.each do |a|
         raise Unsupported.new(a, "a `defined?` argument of that shape") if DEFINED_SPREAD.any? { |k| a.is_a?(k) }
 
-        present = f.val("icmp ne #{tag_of(borrow(defined_answer(a)))}, #{f.iconst("i8", Capi::TAG_NIL)}")
+        present = f.icmp("ne", tag_of(borrow(defined_answer(a))), f.iconst("i8", Capi::TAG_NIL))
         nxt = f.label
-        f.ins "brif #{present}, #{nxt}, #{join}"
+        f.brif(present, nxt, join)
         f.switch(nxt)
       end
       set_flag(ok)
-      f.ins "jump #{join}"
+      f.jump(join)
       f.switch(join)
       flag_of(ok)
     end
@@ -6665,14 +6762,13 @@ module Ze0
       definition = enclosing_definition
       slf = borrow(self_operand)
       if definition.nil?
-        return defined_if(f.val("call #{f.import("zeo_rt_super_defined_dynamic")}(#{slf})"), "super")
+        return defined_if(f.call_val(f.import("zeo_rt_super_defined_dynamic"), [slf]), "super")
       end
 
       hit = if definition[:runtime]
-              f.val("call #{f.import("zeo_rt_super_defined_dynamic")}(#{slf})")
+              f.call_val(f.import("zeo_rt_super_defined_dynamic"), [slf])
             else
-              f.val("call #{f.import("zeo_rt_super_defined")}(#{slf}, #{class_id_of(owner)}, " \
-                    "#{sym_id(definition[:node].name)})")
+              f.call_val(f.import("zeo_rt_super_defined"), [slf, class_id_of(owner), sym_id(definition[:node].name)])
             end
       defined_if(hit, "super")
     end
@@ -6683,10 +6779,10 @@ module Ze0
       slot = f.slot
       store_nil(addr_of(slot))
       taken, join = f.label, f.label
-      f.ins "brif #{hit}, #{taken}, #{join}"
+      f.brif(hit, taken, join)
       f.switch(taken)
       move(literal_string(answer), addr_of(slot))
-      f.ins "jump #{join}"
+      f.jump(join)
       f.switch(join)
       Operand.new(slot, true, false)
     end
@@ -6701,11 +6797,11 @@ module Ze0
       join = f.label
       parts.each do |part|
         checked = f.label
-        f.ins "brif #{truthy(defined_answer(part))}, #{checked}, #{join}"
+        f.brif(truthy(defined_answer(part)), checked, join)
         f.switch(checked)
       end
       move(literal_string("expression"), addr_of(slot))
-      f.ins "jump #{join}"
+      f.jump(join)
       f.switch(join)
       Operand.new(slot, true, false)
     end
@@ -6721,19 +6817,19 @@ module Ze0
     # A one-byte answer slot, false until something sets it.
     def flag_slot
       slot = f.slot(1)
-      f.ins "store notrap aligned #{f.iconst("i8", 0)}, #{addr_of(slot)}"
+      f.store(f.iconst("i8", 0), addr_of(slot))
       slot
     end
 
     def set_flag(slot)
-      f.ins "store notrap aligned #{f.iconst("i8", 1)}, #{addr_of(slot)}"
+      f.store(f.iconst("i8", 1), addr_of(slot))
     end
 
-    def flag_of(slot) = f.val("load.i8 notrap aligned #{addr_of(slot)}")
+    def flag_of(slot) = f.fetch("i8", addr_of(slot))
 
     # Whether this scope was handed a block.
     def block_present
-      f.val("icmp ne #{yield_block}, #{f.iconst("i64", 0)}")
+      f.icmp("ne", yield_block, f.iconst("i64", 0))
     end
 
     # Run the block under a landing that eats a raise, so a part of the
@@ -6746,14 +6842,14 @@ module Ze0
       value = yield
       scope.raise_block = outer
       discard(value) if value
-      f.ins "jump #{join}" unless f.terminated?
+      f.jump(join) unless f.terminated?
       f.switch(landing)
       # The payload is taken so the pool releases it and nothing
       # downstream sees a raise still armed.
       taken = f.slot
-      f.val("call #{f.import("zeo_rt_signal_take")}(#{addr_of(taken)})")
+      f.call_val(f.import("zeo_rt_signal_take"), [addr_of(taken)])
       borrow(Operand.new(taken, true, false))
-      f.ins "jump #{join}"
+      f.jump(join)
       f.switch(join)
     end
 
@@ -6791,15 +6887,15 @@ module Ze0
       unless f.terminated?
         move(value, addr_of(result))
         discard(lower_statements(clause.statements))
-        f.ins "jump #{done}" unless f.terminated?
+        f.jump(done) unless f.terminated?
       end
 
       # The signal path. The signal is set aside so the clause runs on a
       # clear slot -- a raise of its own then WINS, as ruby's does -- and
       # `$!` names the exception being carried while it runs.
       f.switch(landing)
-      saved = f.val("call #{f.import("zeo_rt_signal_save")}()")
-      pushed = f.val("call #{f.import("zeo_rt_propagating_enter")}(#{saved})")
+      saved = f.call_val(f.import("zeo_rt_signal_save"))
+      pushed = f.call_val(f.import("zeo_rt_propagating_enter"), [saved])
       raised = f.label
       scope.raise_block = raised
       scope.ensure_depth += 1
@@ -6813,16 +6909,16 @@ module Ze0
       settle = f.label if target
       after = settle || outer
       unless f.terminated?
-        f.ins "call #{f.import("zeo_rt_propagating_leave")}(#{pushed})"
-        f.ins "call #{f.import("zeo_rt_signal_restore")}(#{saved})"
-        f.ins "jump #{after}"
+        f.call(f.import("zeo_rt_propagating_leave"), [pushed])
+        f.call(f.import("zeo_rt_signal_restore"), [saved])
+        f.jump(after)
       end
       # A raise from the clause itself WINS, as ruby's does, so the one
       # being carried is dropped rather than put back.
       f.switch(raised)
-      f.ins "call #{f.import("zeo_rt_propagating_leave")}(#{pushed})"
-      f.ins "call #{f.import("zeo_rt_signal_drop")}(#{saved})"
-      f.ins "jump #{after}"
+      f.call(f.import("zeo_rt_propagating_leave"), [pushed])
+      f.call(f.import("zeo_rt_signal_drop"), [saved])
+      f.jump(after)
       lower_settle(settle, outer, target) if settle
       f.switch(done)
       Operand.new(result, true, false)
@@ -6854,7 +6950,7 @@ module Ze0
     # passes through untouched.
     def lower_settle(settle, outer, target)
       f.switch(settle)
-      signal = f.val("call #{f.import("zeo_rt_signal_kind")}()")
+      signal = f.call_val(f.import("zeo_rt_signal_kind"))
       # `redo` carries nothing, so clearing its slot is a save and a drop.
       jumps = {
         Capi::SIGNAL_BREAK => target.brk,
@@ -6865,12 +6961,12 @@ module Ze0
         next unless dest
 
         taken, rest = f.label, f.label
-        is = f.val("icmp eq #{signal}, #{f.iconst("i8", kind)}")
-        f.ins "brif #{is}, #{taken}, #{rest}"
+        is = f.icmp("eq", signal, f.iconst("i8", kind))
+        f.brif(is, taken, rest)
         f.switch(rest)
         [taken, dest, kind]
       end
-      f.ins "jump #{outer}"
+      f.jump(outer)
       arms.each { |taken, (dest, at), kind| settle_arm(taken, dest, at, kind, target) }
     end
 
@@ -6880,19 +6976,19 @@ module Ze0
     def settle_arm(taken, dest, at, kind, target)
       f.switch(taken)
       if kind == Capi::SIGNAL_REDO
-        saved = f.val("call #{f.import("zeo_rt_signal_save")}()")
-        f.ins "call #{f.import("zeo_rt_signal_drop")}(#{saved})"
+        saved = f.call_val(f.import("zeo_rt_signal_save"))
+        f.call(f.import("zeo_rt_signal_drop"), [saved])
       else
         slot = f.slot
-        f.val("call #{f.import("zeo_rt_signal_take")}(#{addr_of(slot)})")
+        f.call_val(f.import("zeo_rt_signal_take"), [addr_of(slot)])
         value = Operand.new(slot, true, false)
         at ? move(value, at) : discard(value)
       end
       pop_handling(target.handling)
       # An iteration that starts over releases what the last one made,
       # exactly as the end of a normal one does.
-      f.ins "call #{f.import("zeo_rt_pool_reset")}(#{target.mark})" if target.mark && kind == Capi::SIGNAL_NEXT
-      f.ins "jump #{dest}"
+      f.call(f.import("zeo_rt_pool_reset"), [target.mark]) if target.mark && kind == Capi::SIGNAL_NEXT
+      f.jump(dest)
     end
 
     def lower_rescued(node)
@@ -6916,7 +7012,7 @@ module Ze0
       end
       unless f.terminated?
         move(value, addr_of(result))
-        f.ins "jump #{done}"
+        f.jump(done)
       end
 
       f.switch(landing)
@@ -6934,7 +7030,7 @@ module Ze0
       return nil unless retries?(clause)
 
       entry = f.label
-      f.ins "jump #{entry}"
+      f.jump(entry)
       f.switch(entry)
       entry
     end
@@ -6954,8 +7050,8 @@ module Ze0
     def lower_retry(node)
       raise Unsupported.new(node, "a retry outside a rescue clause") if scope.retry_block.nil?
 
-      f.ins "call #{f.import("zeo_rt_handling_pop")}()"
-      f.ins "jump #{scope.retry_block}"
+      f.call(f.import("zeo_rt_handling_pop"))
+      f.jump(scope.retry_block)
       unreachable
     end
 
@@ -6966,7 +7062,7 @@ module Ze0
       while clause
         matched = clause_matches(clause, exc, outer)
         body, nxt = f.label, f.label
-        f.ins "brif #{matched}, #{body}, #{nxt}"
+        f.brif(matched, body, nxt)
         f.switch(body)
         lower_rescue_body(clause.reference, exc, outer, result, done) do
           lower_statements(clause.statements)
@@ -6982,13 +7078,13 @@ module Ze0
     # and leaves through `outer`. Taking it hands the POOL the reference,
     # so every use of the exception below borrows.
     def take_raised(outer)
-      kind = f.val("call #{f.import("zeo_rt_signal_kind")}()")
-      raised = f.val("icmp eq #{kind}, #{f.iconst("i8", Capi::SIGNAL_RAISE)}")
+      kind = f.call_val(f.import("zeo_rt_signal_kind"))
+      raised = f.icmp("eq", kind, f.iconst("i8", Capi::SIGNAL_RAISE))
       take = f.label
-      f.ins "brif #{raised}, #{take}, #{outer}"
+      f.brif(raised, take, outer)
       f.switch(take)
       exc = f.slot
-      f.val("call #{f.import("zeo_rt_signal_take")}(#{addr_of(exc)})")
+      f.call_val(f.import("zeo_rt_signal_take"), [addr_of(exc)])
       borrow(Operand.new(exc, true, false))
       exc
     end
@@ -6997,8 +7093,8 @@ module Ze0
     # takes a fresh one before it is re-armed.
     def rearm_raise(exc, outer)
       retain_if_heap(addr_of(exc))
-      f.ins "call #{f.import("zeo_rt_signal_set")}(#{f.iconst("i8", Capi::SIGNAL_RAISE)}, #{addr_of(exc)})"
-      f.ins "jump #{outer}"
+      f.call(f.import("zeo_rt_signal_set"), [f.iconst("i8", Capi::SIGNAL_RAISE), addr_of(exc)])
+      f.jump(outer)
     end
 
     # `value rescue fallback`: one bare clause over one expression. A bare
@@ -7014,14 +7110,14 @@ module Ze0
       scope.raise_block = outer
       unless f.terminated?
         move(value, addr_of(result))
-        f.ins "jump #{done}"
+        f.jump(done)
       end
 
       f.switch(landing)
       exc = take_raised(outer)
       matched = matches_any([constant_named("StandardError")], exc, outer)
       body, miss = f.label, f.label
-      f.ins "brif #{matched}, #{body}, #{miss}"
+      f.brif(matched, body, miss)
       f.switch(body)
       lower_rescue_body(nil, exc, outer, result, done) { lower_expr(node.rescue_expression) }
       f.switch(miss)
@@ -7055,22 +7151,19 @@ module Ze0
 
     def matches_at(listed, exc, outer)
       hit = f.slot(1)
-      status = f.val(
-        "call #{f.import("zeo_rt_rescue_matches_any")}(#{addr_of(exc)}, " \
-        "#{listed}, #{addr_of(hit)})",
-      )
+      status = f.call_val(f.import("zeo_rt_rescue_matches_any"), [addr_of(exc), listed, addr_of(hit)])
       # A matcher can raise -- an undefined constant, or a listed value
       # that is not a Module -- and that raise leaves this begin.
       cont = f.label
-      f.ins "brif #{status}, #{outer}, #{cont}"
+      f.brif(status, outer, cont)
       f.switch(cont)
-      f.val("load.i8 notrap aligned #{addr_of(hit)}")
+      f.fetch("i8", addr_of(hit))
     end
 
     # One clause's body, with `$!` held for its whole run. The pop happens
     # on both exits, and `lower_return` and friends pay what they owe.
     def lower_rescue_body(reference, exc, outer, result, done)
-      f.ins "call #{f.import("zeo_rt_handling_push")}(#{addr_of(exc)})"
+      f.call(f.import("zeo_rt_handling_push"), [addr_of(exc)])
       scope.handling_depth += 1
       bind_rescue_reference(reference, exc)
       clause_land = f.label
@@ -7079,13 +7172,13 @@ module Ze0
       scope.raise_block = outer
       unless f.terminated?
         move(value, addr_of(result))
-        f.ins "call #{f.import("zeo_rt_handling_pop")}()"
-        f.ins "jump #{done}"
+        f.call(f.import("zeo_rt_handling_pop"))
+        f.jump(done)
       end
       scope.handling_depth -= 1
       f.switch(clause_land)
-      f.ins "call #{f.import("zeo_rt_handling_pop")}()"
-      f.ins "jump #{outer}"
+      f.call(f.import("zeo_rt_handling_pop"))
+      f.jump(outer)
     end
 
     # `rescue Foo => e` binds the exception, borrowed: the pool owns it.
@@ -7105,7 +7198,7 @@ module Ze0
     # which is what `down_to` names. The lexical counter stays put: the
     # pops are per path.
     def pop_handling(down_to = 0)
-      (scope.handling_depth - down_to).times { f.ins "call #{f.import("zeo_rt_handling_pop")}()" }
+      (scope.handling_depth - down_to).times { f.call(f.import("zeo_rt_handling_pop")) }
     end
 
     # `super` resumes the MRO walk above the class the `def` was WRITTEN
@@ -7128,7 +7221,7 @@ module Ze0
       builder = block_builder(node)
       argv, kw, unmark = super_arguments(args, definition)
       blk = builder ? builder.call : forwarded_block
-      status = f.val(super_call(definition, runtime, argv, kw, blk, addr_of(into), unmark))
+      status = f.call_val(*super_call(definition, runtime, argv, kw, blk, addr_of(into), unmark))
       builder ? catch_break(status, addr_of(into)) : status_check(status)
       Operand.new(into, true, false)
     end
@@ -7142,7 +7235,7 @@ module Ze0
     # so the run time picks which of ruby's two refusals to give.
     def homeless_super(node, args)
       if args.nil?
-        status_check(f.val("call #{f.import("zeo_rt_bare_super_outside_a_method")}()"))
+        status_check(f.call_val(f.import("zeo_rt_bare_super_outside_a_method")))
         return literal_nil
       end
 
@@ -7150,9 +7243,9 @@ module Ze0
       builder = block_builder(node)
       argv, kw, unmark = super_arguments(args, nil)
       blk = builder ? builder.call : forwarded_block
-      status = f.val(
-        "call #{f.import("zeo_rt_send_super_dynamic_args")}(#{borrow(self_operand)}, " \
-        "#{argv}, #{f.iconst("i8", unmark ? 1 : 0)}, #{kw}, #{blk}, #{addr_of(into)})",
+      status = f.call_val(
+        f.import("zeo_rt_send_super_dynamic_args"),
+        [borrow(self_operand), argv, f.iconst("i8", unmark ? 1 : 0), kw, blk, addr_of(into)],
       )
       builder ? catch_break(status, addr_of(into)) : status_check(status)
       Operand.new(into, true, false)
@@ -7174,19 +7267,17 @@ module Ze0
     # resolves against the SINGLETON-class chain, which the runtime walks
     # from the class the `def self.x` was written in.
     def super_call(definition, runtime, argv, kw, blk, into, unmark)
-      tail = "#{argv}, #{f.iconst("i8", unmark ? 1 : 0)}, #{kw}, #{blk}, #{into}"
+      tail = [argv, f.iconst("i8", unmark ? 1 : 0), kw, blk, into]
       name = sym_id(definition[:node].name)
       if runtime
-        "call #{f.import("zeo_rt_send_super_dynamic_args")}(#{borrow(self_operand)}, #{tail})"
+        [f.import("zeo_rt_send_super_dynamic_args"), [borrow(self_operand), *tail]]
       elsif definition[:singleton]
-        "call #{f.import("zeo_rt_send_super_class_from_args")}(#{class_id_of(owner)}, " \
-          "#{class_id_of(owner)}, #{name}, #{tail})"
+        [f.import("zeo_rt_send_super_class_from_args"), [class_id_of(owner), class_id_of(owner), name, *tail]]
       else
         # A top-level `def` is a private instance method of `Object`, so a
         # `super` in one walks above `Object` and finds nothing, which is
         # the NoMethodError ruby raises.
-        "call #{f.import("zeo_rt_send_super_from_args")}(#{borrow(self_operand)}, " \
-          "#{class_id_of(owner)}, #{name}, #{tail})"
+        [f.import("zeo_rt_send_super_from_args"), [borrow(self_operand), class_id_of(owner), name, *tail]]
       end
     end
 
@@ -7257,17 +7348,17 @@ module Ze0
 
       slot = f.slot
       at = addr_of(slot)
-      f.ins "call #{f.import("zeo_rt_hash_new")}(#{at})"
-      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      f.call(f.import("zeo_rt_hash_new"), [at])
+      f.call(f.import("zeo_rt_pool_push"), [at])
       params.keywords.each do |k|
         key = hand_over(literal_symbol(k.name))
         value = hand_over(read_local(locals.fetch(k.name)))
-        status_check(f.val("call #{f.import("zeo_rt_hash_set")}(#{at}, #{key}, #{value})"))
+        status_check(f.call_val(f.import("zeo_rt_hash_set"), [at, key, value]))
       end
       if params.kwrest&.named?
-        status_check(f.val(
-          "call #{f.import("zeo_rt_kw_splat_into")}(#{at}, " \
-          "#{borrow(read_local(locals.fetch(params.kwrest.name)))})",
+        status_check(f.call_val(
+          f.import("zeo_rt_kw_splat_into"),
+          [at, borrow(read_local(locals.fetch(params.kwrest.name)))],
         ))
       end
       at
@@ -7285,18 +7376,18 @@ module Ze0
     def new_array(size)
       slot = f.slot
       at = addr_of(slot)
-      f.ins "call #{f.import("zeo_rt_array_new")}(#{f.iconst("i64", size)}, #{at})"
-      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      f.call(f.import("zeo_rt_array_new"), [f.iconst("i64", size), at])
+      f.call(f.import("zeo_rt_pool_push"), [at])
       at
     end
 
     def push_argument(argv, operand)
-      f.ins "call #{f.import("zeo_rt_array_push")}(#{argv}, #{hand_over(operand)})"
+      f.call(f.import("zeo_rt_array_push"), [argv, hand_over(operand)])
     end
 
     # `*value` spread in place, through ruby's `to_a` rule.
     def push_splat(argv, operand)
-      status_check(f.val("call #{f.import("zeo_rt_array_push_splat")}(#{argv}, #{borrow(operand)})"))
+      status_check(f.call_val(f.import("zeo_rt_array_push_splat"), [argv, borrow(operand)]))
     end
 
     # With no block written at the `super`, the method's own goes on --
@@ -7307,12 +7398,12 @@ module Ze0
       blk = yield_block
       return f.iconst("i64", 0) if blk.nil?
 
-      has = f.val("icmp ne #{blk}, #{f.iconst("i64", 0)}")
+      has = f.icmp("ne", blk, f.iconst("i64", 0))
       yes, no = f.label, f.label
-      f.ins "brif #{has}, #{yes}, #{no}"
+      f.brif(has, yes, no)
       f.switch(yes)
-      f.ins "call #{f.import("zeo_rt_retain")}(#{blk})"
-      f.ins "jump #{no}"
+      f.call(f.import("zeo_rt_retain"), [blk])
+      f.jump(no)
       f.switch(no)
       blk
     end
@@ -7338,9 +7429,9 @@ module Ze0
 
       slot = f.slot
       at = addr_of(slot)
-      has = f.val("icmp ne #{blk}, #{f.iconst("i64", 0)}")
-      f.ins "store notrap aligned #{f.iconst("i8", Capi::TAG_BOOL)}, #{at}"
-      f.ins "store notrap aligned #{has}, #{at}+8"
+      has = f.icmp("ne", blk, f.iconst("i64", 0))
+      f.store(f.iconst("i8", Capi::TAG_BOOL), at)
+      f.store(has, at, 8)
       Operand.new(slot, false, true)
     end
 
@@ -7353,8 +7444,8 @@ module Ze0
 
         discard(one_value(node))
         pop_handling(loop.handling)
-        f.ins "call #{f.import("zeo_rt_pool_reset")}(#{loop.mark})"
-        f.ins "jump #{loop.head}"
+        f.call(f.import("zeo_rt_pool_reset"), [loop.mark])
+        f.jump(loop.head)
         return unreachable
       end
       raise Unsupported.new(node, "a next outside a block or a loop") unless kind == :block
@@ -7362,7 +7453,7 @@ module Ze0
 
       move(one_value(node), out)
       pop_handling
-      f.ins "jump #{done_block}"
+      f.jump(done_block)
       unreachable
     end
 
@@ -7375,15 +7466,15 @@ module Ze0
 
         move(one_value(node), addr_of(loop.result))
         pop_handling(loop.handling)
-        f.ins "jump #{loop.done}"
+        f.jump(loop.done)
         return unreachable
       end
       raise Unsupported.new(node, "a break outside a block or a loop") unless kind == :block
 
       value = hand_over(one_value(node))
       pop_handling
-      f.ins "call #{f.import("zeo_rt_signal_set")}(#{f.iconst("i8", Capi::SIGNAL_BREAK)}, #{value})"
-      f.ins "jump #{raise_block}"
+      f.call(f.import("zeo_rt_signal_set"), [f.iconst("i8", Capi::SIGNAL_BREAK), value])
+      f.jump(raise_block)
       unreachable
     end
 
@@ -7395,14 +7486,14 @@ module Ze0
         return signal_jump(node, Capi::SIGNAL_REDO, value: false) unless loop.depth == scope.ensure_depth
 
         pop_handling(loop.handling)
-        f.ins "jump #{loop.body}"
+        f.jump(loop.body)
         return unreachable
       end
       raise Unsupported.new(node, "a redo outside a block or a loop") if scope.redo_block.nil?
       return signal_jump(node, Capi::SIGNAL_REDO, value: false) if scope.ensure_depth.positive?
 
       pop_handling
-      f.ins "jump #{scope.redo_block}"
+      f.jump(scope.redo_block)
       unreachable
     end
 
@@ -7419,16 +7510,16 @@ module Ze0
       set_flag(flag) if flag
       pop_handling
       pool_reset
-      f.ins "jump #{done}"
+      f.jump(done)
       unreachable
     end
 
     def signal_jump(node, signal, value: true)
       # `redo` carries nothing; the other three answer nil without one.
       payload = value ? hand_over(one_value(node)) : f.iconst("i64", 0)
-      f.ins "call #{f.import("zeo_rt_signal_set")}(#{f.iconst("i8", signal)}, #{payload})"
+      f.call(f.import("zeo_rt_signal_set"), [f.iconst("i8", signal), payload])
       scope.ensure_jumps += 1
-      f.ins "jump #{raise_block}"
+      f.jump(raise_block)
       unreachable
     end
 
@@ -7447,8 +7538,8 @@ module Ze0
     def values_array(args)
       slot = f.slot
       at = addr_of(slot)
-      f.ins "call #{f.import("zeo_rt_array_new")}(#{f.iconst("i64", args.size)}, #{at})"
-      f.ins "call #{f.import("zeo_rt_pool_push")}(#{at})"
+      f.call(f.import("zeo_rt_array_new"), [f.iconst("i64", args.size), at])
+      f.call(f.import("zeo_rt_pool_push"), [at])
       args.each { |a| push_call_argument(at, a) }
       Operand.new(slot, false, false)
     end
@@ -7474,7 +7565,7 @@ module Ze0
       # inside a rescue clause answers the one it caught.
       move(one_value(node), out)
       pop_handling
-      f.ins "jump #{done_block}"
+      f.jump(done_block)
       unreachable
     end
 
@@ -7487,30 +7578,30 @@ module Ze0
 
     def store_nil(at)
       zero = f.iconst("i64", 0)
-      f.ins "store notrap aligned #{zero}, #{at}"
-      f.ins "store notrap aligned #{zero}, #{at}+8"
-      f.ins "store notrap aligned #{zero}, #{at}+16"
+      f.store(zero, at)
+      f.store(zero, at, 8)
+      f.store(zero, at, 16)
     end
 
     def copy(from, to)
       [0, 8, 16].each do |off|
-        word = f.val("load.i64 notrap aligned #{from}#{off.zero? ? "" : "+#{off}"}")
-        f.ins "store notrap aligned #{word}, #{to}#{off.zero? ? "" : "+#{off}"}"
+        word = f.fetch("i64", from, off)
+        f.store(word, to, off)
       end
     end
 
     def tag_of(at)
-      f.val("load.i8 notrap aligned #{at}")
+      f.fetch("i8", at)
     end
 
     # `call sym(at)` only when the value at `at` is a heap object.
     def if_heap(at, sym)
-      heap = f.val("icmp uge #{tag_of(at)}, #{f.iconst("i8", Capi::TAG_HEAP)}")
+      heap = f.icmp("uge", tag_of(at), f.iconst("i8", Capi::TAG_HEAP))
       yes, no = f.label, f.label
-      f.ins "brif #{heap}, #{yes}, #{no}"
+      f.brif(heap, yes, no)
       f.switch(yes)
-      f.ins "call #{f.import(sym)}(#{at})"
-      f.ins "jump #{no}"
+      f.call(f.import(sym), [at])
+      f.jump(no)
       f.switch(no)
     end
 
@@ -7548,19 +7639,19 @@ module Ze0
     end
 
     def truthy(value)
-      f.val("call #{f.import("zeo_rt_truthy")}(#{borrow(value)})")
+      f.call_val(f.import("zeo_rt_truthy"), [borrow(value)])
     end
 
     # A pointer into rodata and the byte length, for `text`.
     def rodata_ref(text)
       off = @program.intern(text)
-      ptr = off.zero? ? rodata : f.val("iadd.i64 #{rodata}, #{f.iconst("i64", off)}")
+      ptr = off.zero? ? rodata : f.iadd(rodata, f.iconst("i64", off), type: "i64")
       [ptr, f.iconst("i64", text.bytesize)]
     end
 
     def status_check(status)
       cont = f.label
-      f.ins "brif #{status}, #{raise_block}, #{cont}"
+      f.brif(status, raise_block, cont)
       f.switch(cont)
     end
   end
