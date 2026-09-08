@@ -597,7 +597,7 @@ module Ze0
     # is not that binary does not know them. They stay the environment's
     # question -- `zeo` exports `ZEO_PREFIX` and its four siblings before
     # it runs an `extconf.rb`, which is the only thing that reads them.
-    SHIM = File.expand_path("../../../crates/zeo/src/parse/shims/rbconfig.rb.in", __dir__)
+    SHIM = File.expand_path("shims/rbconfig.rb.in", __dir__)
 
     def ambient_rbconfig(units)
       return nil unless File.file?(SHIM)

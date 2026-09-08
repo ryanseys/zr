@@ -1,0 +1,11 @@
+# Fetched tiers, never committed (rubygems, bundler, the gem store).
+/vendor/ruby/
+/vendor/gems/
+/vendor/bundle/
+# Build output.
+/target/
+/clif2obj/target/
+/tmp/
+*.clif.tmp
+.bundle/
+Gemfile.lock
