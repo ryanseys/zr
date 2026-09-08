@@ -6,12 +6,14 @@ require_relative "../obj/model"
 require_relative "stub"
 
 module Ze0
-  # The kernel dialect: Ruby syntax, machine semantics. A file of
-  # `Machine.import` declarations and `sig`-typed `machine def`s lowers
+  # The kernel dialect: Ruby syntax, machine semantics. A unit of one or
+  # more files holds `Machine.import`, `Machine.struct`, `Machine.sig`
+  # and constant declarations, and `sig`-typed `machine def`s, which lower
   # straight to IR, one function per def. Types are `I8 I32 Word Ptr Value
   # F64 Bool Void`; every local takes its type from its first assignment
   # and lives in a frame slot; a call names an import or a def of the same
-  # file. A form outside the dialect is refused by name at its line.
+  # unit, or goes through a pointer with `Machine.call`. A form outside
+  # the dialect is refused by name at its line.
   module Machine
     class Refused < StandardError
       attr_reader :line
@@ -33,21 +35,33 @@ module Ze0
     Def = Struct.new(:name, :params, :ret, :node)
     # A function delivered as machine code: `Machine.raw "zr_switch"`.
     Raw = Struct.new(:name, :params, :ret)
+    # A signature `Machine.call` goes through: `Machine.sig :name, [types] => type`.
+    Signature = Struct.new(:name, :params, :ret)
+    # `Machine.struct :Name, field: Type, ...`: fields as `name => [offset, type]`.
+    Layout = Struct.new(:name, :fields, :size, :align)
 
     # `source` to `[functions, data, raw]`: IR functions, the data objects
     # they name, and the raw functions they call.
     def self.compile(source, file)
-      Lower.new(source, file).run
+      Lower.new([[source, file]]).run
+    end
+
+    # Several files as one unit: every declaration is visible to every
+    # file after it, and a def may call a def of any file.
+    def self.compile_unit(paths)
+      Lower.new(paths.map { |path| [File.read(path), path] }).run
     end
 
     class Lower
       attr_reader :functions, :data, :raw
 
-      def initialize(source, file)
-        @source = source
-        @file = file
+      def initialize(sources)
+        @sources = sources
         @imports = {}
         @defs = {}
+        @consts = {}
+        @structs = {}
+        @sigs = {}
         @functions = []
         @data = []
         @raw = []
@@ -56,23 +70,46 @@ module Ze0
       end
 
       def run
-        result = Prism.parse(@source, filepath: @file)
-        unless result.errors.empty?
-          e = result.errors.first
-          raise SyntaxError, "#{@file}:#{e.location.start_line}: #{e.message}"
-        end
+        @sources.each do |source, file|
+          result = Prism.parse(source, filepath: file)
+          unless result.errors.empty?
+            e = result.errors.first
+            raise SyntaxError, "#{file}:#{e.location.start_line}: #{e.message}"
+          end
 
-        declare(result.value.statements.body)
+          declare(result.value.statements.body)
+        end
         @defs.each_value { |d| @functions << Function.new(self, d).lower }
         [@functions, @data, @raw]
       end
 
-      # The file's declarations: imports, and each `sig` with its def.
+      # The file's declarations: imports, structs, signatures, constants,
+      # and each `sig` with its def.
       def declare(statements)
         pending_sig = nil
         statements.each do |node|
-          refuse(node, "a statement that is not an import, a sig or a machine def") unless node.is_a?(Prism::CallNode)
+          if node.is_a?(Prism::ConstantWriteNode)
+            name = node.name.to_s
+            refuse(node, "#{name} is already a constant") if @consts.key?(name)
+            refuse(node, "#{name} is already a struct") if @structs.key?(name)
+            @consts[name] = fold(node.value)
+            next
+          end
+          refuse(node, "a statement that is not a declaration or a machine def") unless node.is_a?(Prism::CallNode)
           case node.name
+          when :struct
+            refuse(node, "a struct is `Machine.struct :Name, field: Type, ...`") unless machine?(node.receiver)
+            layout(node)
+          when :sig
+            if machine?(node.receiver)
+              name, sig = node.arguments&.arguments
+              refuse(node, "a named signature is `Machine.sig :name, [types] => type`") unless name.is_a?(Prism::SymbolNode) && sig
+              params, ret = signature(sig)
+              @sigs[name.unescaped] = Signature.new(name.unescaped, params, ret)
+            else
+              refuse(node, "a sig is `sig [types] => type`") unless node.receiver.nil?
+              pending_sig = signature(node.arguments.arguments.first)
+            end
           when :import
             refuse(node, "an import is `Machine.import \"name\", [types] => type`") unless machine?(node.receiver)
             name, sig = node.arguments.arguments
@@ -84,9 +121,6 @@ module Ze0
             params, ret = Stub::ALL.fetch(name) { refuse(node, "no raw function named #{name}") }
             @imports[name] = Raw.new(name, params.map(&:to_s), ret.to_s)
             @raw << Stub.public_send(name.delete_prefix("zr_"))
-          when :sig
-            refuse(node, "a sig is `sig [types] => type`") unless node.receiver.nil?
-            pending_sig = signature(node.arguments.arguments.first)
           when :machine
             d = node.arguments&.arguments&.first
             refuse(node, "`machine` takes a def") unless d.is_a?(Prism::DefNode)
@@ -116,6 +150,62 @@ module Ze0
         node.name.to_s
       end
 
+      # A constant's value: an integer, a constant, a struct's size, or an
+      # operator over those, folded here.
+      def fold(node)
+        case node
+        when Prism::IntegerNode then node.value
+        when Prism::ParenthesesNode then fold(node.body.body.first)
+        when Prism::ConstantReadNode
+          @consts.fetch(node.name.to_s) { refuse(node, "#{node.name} is not a constant here") }
+        when Prism::CallNode
+          if node.receiver.is_a?(Prism::ConstantReadNode) && @structs.key?(node.receiver.name.to_s) && node.name == :size
+            @structs[node.receiver.name.to_s].size
+          elsif node.receiver && node.arguments&.arguments&.size == 1 && %i[+ - * << >> | & ^].include?(node.name)
+            fold(node.receiver).public_send(node.name, fold(node.arguments.arguments.first))
+          else
+            refuse(node, "a constant is an integer, a constant, a struct's size, or an operator over those")
+          end
+        else
+          refuse(node, "a constant is an integer, a constant, a struct's size, or an operator over those")
+        end
+      end
+
+      # Each field at its natural alignment; a field of a struct type is
+      # embedded in place.
+      def layout(node)
+        name, fields = node.arguments&.arguments
+        refuse(node, "a struct is `Machine.struct :Name, field: Type, ...`") unless name.is_a?(Prism::SymbolNode) && fields.is_a?(Prism::KeywordHashNode)
+        refuse(node, "#{name.unescaped} is already a struct") if @structs.key?(name.unescaped)
+        refuse(node, "#{name.unescaped} is already a constant") if @consts.key?(name.unescaped)
+        off = 0
+        align = 1
+        rows = fields.elements.to_h do |pair|
+          refuse(pair, "a field is `name: Type`") unless pair.is_a?(Prism::AssocNode) && pair.key.is_a?(Prism::SymbolNode) && pair.value.is_a?(Prism::ConstantReadNode)
+          type = pair.value.name.to_s
+          size, a = field_shape(pair.value, type)
+          off = (off + a - 1) & ~(a - 1)
+          align = [align, a].max
+          at = off
+          off += size
+          [pair.key.unescaped, [at, type]]
+        end
+        size = (off + align - 1) & ~(align - 1)
+        @structs[name.unescaped] = Layout.new(name.unescaped, rows, size, align)
+      end
+
+      # `[size, align]` of a field of `type`.
+      def field_shape(node, type)
+        return [@structs[type].size, @structs[type].align] if @structs.key?(type)
+
+        case TYPES.fetch(type) { refuse(node, "a field's type is a type or a struct declared above it") }
+        when "i8" then [1, 1]
+        when "i32" then [4, 4]
+        when nil then refuse(node, "a field cannot be Void")
+        else [8, 8]
+        end
+      end
+
       def machine?(node)
         node.is_a?(Prism::ConstantReadNode) && node.name == :Machine
       end
@@ -126,6 +216,18 @@ module Ze0
 
       def def_for(name)
         @defs[name]
+      end
+
+      def const_for(name)
+        @consts[name]
+      end
+
+      def struct_for(name)
+        @structs[name]
+      end
+
+      def sig_for(name)
+        @sigs[name]
       end
 
       # A read-only byte string, as a data object this unit carries.
@@ -210,10 +312,12 @@ module Ze0
         case node
         when Prism::StatementsNode then statements(node, want)
         when Prism::ParenthesesNode then node.body ? statements(node.body, want) : [nil, "Void"]
-        when Prism::IntegerNode
-          type = want || "Word"
-          refuse(node, "an integer where a #{type} is wanted") if clif(type).nil? || clif(type) == "f64"
-          [@f.iconst(clif(type), node.value), type]
+        when Prism::IntegerNode then literal(node, node.value, want)
+        when Prism::ConstantReadNode
+          value = @unit.const_for(node.name.to_s) or refuse(node, "#{node.name} is not a constant here")
+          literal(node, value, want)
+        when Prism::AndNode then logical(node, :and)
+        when Prism::OrNode then logical(node, :or)
         when Prism::TrueNode then [@f.iconst("i8", 1), "Bool"]
         when Prism::FalseNode then [@f.iconst("i8", 0), "Bool"]
         when Prism::NilNode then [nil, "Void"]
@@ -234,7 +338,9 @@ module Ze0
           @f.ins "store notrap aligned #{value}, #{local[:addr]}"
           [value, type]
         when Prism::CallNode then call(node, want)
-        when Prism::IfNode then branch(node, want)
+        when Prism::IfNode
+          branch(node, want, node.statements, node.subsequent.is_a?(Prism::ElseNode) ? node.subsequent.statements : node.subsequent)
+        when Prism::UnlessNode then branch(node, want, node.else_clause&.statements, node.statements)
         when Prism::WhileNode then loop_while(node)
         when Prism::ReturnNode
           value, type = node.arguments ? expr(node.arguments.arguments.first, @d.ret) : [nil, "Void"]
@@ -246,25 +352,84 @@ module Ze0
         end
       end
 
+      # A size or an offset: an integer, a constant, or an operator over
+      # those, folded at compile time.
+      def immediate(node)
+        @unit.fold(node)
+      end
+
+      # An integer literal, or a constant, takes the type wanted here.
+      def literal(node, n, want)
+        type = want || "Word"
+        refuse(node, "an integer where a #{type} is wanted") if clif(type).nil? || clif(type) == "f64"
+        [@f.iconst(clif(type), n), type]
+      end
+
       def call(node, want)
         args = node.arguments&.arguments || []
         if node.receiver.nil?
-          return binary_call(node, want) if node.name.to_s.match?(/\A[+\-&|<>=!]/)
-
           target(node, node.name.to_s, args)
         elsif @unit.machine?(node.receiver)
-          intrinsic(node, args)
-        elsif node.arguments&.arguments&.size == 1 && OPERATORS.key?(node.name)
+          intrinsic(node, args, want)
+        elsif node.name == :! && args.empty?
+          value, type = condition_value(node.receiver)
+          [@f.icmp("eq", value, @f.iconst(clif(type), 0)), "Bool"]
+        elsif node.name == :-@ && args.empty?
+          value, type = expr(node.receiver, want)
+          refuse(node, "a negation of a #{type}") unless clif(type) && clif(type) != "f64"
+          [@f.isub(@f.iconst(clif(type), 0), value), type]
+        elsif node.receiver.is_a?(Prism::ConstantReadNode) && (layout = @unit.struct_for(node.receiver.name.to_s))
+          field(node, layout, args, want)
+        elsif args.size == 1 && OPERATORS.key?(node.name)
           lhs, lt = expr(node.receiver, want)
           rhs, rt = expr(args.first, lt)
           binary(node, node.name, lhs, lt, rhs, rt)
         else
-          refuse(node, "a call with a receiver that is not Machine")
+          refuse(node, "a call with a receiver that is not Machine or a struct")
         end
       end
 
-      def binary_call(node, want)
-        refuse(node, "an operator with no receiver")
+      # `Name.size`, `Name.field(p)` and `Name.set_field(p, v)`; a field
+      # of a struct type answers its address.
+      def field(node, layout, args, want)
+        name = node.name.to_s
+        return literal(node, layout.size, want) if name == "size" && args.empty?
+
+        writer = name.start_with?("set_")
+        fname = writer ? name.delete_prefix("set_") : name
+        off, type = layout.fields.fetch(fname) { refuse(node, "#{layout.name} has no field #{fname}") }
+        refuse(node, "#{layout.name}.#{name} takes #{writer ? "a pointer and a value" : "a pointer"}") if args.size != (writer ? 2 : 1)
+        ptr, pt = expr(args[0])
+        refuse(args[0], "#{layout.name}.#{name} of a #{pt}") unless %w[Ptr Word Value].include?(pt)
+        if @unit.struct_for(type)
+          refuse(node, "#{fname} is a #{type}; set its fields instead") if writer
+          [off.zero? ? ptr : @f.iadd(ptr, @f.iconst("i64", off)), "Ptr"]
+        elsif writer
+          value, vt = expr(args[1], type)
+          refuse(args[1], "#{layout.name}.#{fname} is a #{type}, not a #{vt}") unless clif(vt) == clif(type)
+          @f.store(value, ptr, off)
+          [nil, "Void"]
+        else
+          [@f.fetch(clif(type), ptr, off), type]
+        end
+      end
+
+      # `a && b` and `a || b`, the right side lowered only when the left
+      # decides nothing; the result is a Bool.
+      def logical(node, op)
+        left, lt = condition_value(node.left)
+        bit = @f.icmp("ne", left, @f.iconst(clif(lt), 0))
+        rest = @f.label
+        skip = @f.label
+        merge, params = @f.block(["i8"])
+        op == :and ? @f.brif(bit, rest, skip) : @f.brif(bit, skip, rest)
+        @f.switch(skip)
+        @f.jump(merge, [bit])
+        @f.switch(rest)
+        right, rt = condition_value(node.right)
+        @f.jump(merge, [@f.icmp("ne", right, @f.iconst(clif(rt), 0))])
+        @f.switch(merge)
+        [params.first, "Bool"]
       end
 
       OPERATORS = {
@@ -324,8 +489,25 @@ module Ze0
         end
       end
 
-      def intrinsic(node, args)
+      def intrinsic(node, args, want)
         case node.name
+        when :call
+          name = args.first
+          refuse(node, "Machine.call takes the name of a Machine.sig, a pointer and the arguments") unless name.is_a?(Prism::SymbolNode)
+          s = @unit.sig_for(name.unescaped) or refuse(node, "#{name.unescaped} is not a Machine.sig here")
+          ptr, pt = expr(args[1] || refuse(node, "Machine.call takes a pointer after the signature"), "Ptr")
+          refuse(args[1], "Machine.call through a #{pt}") unless fits?("Ptr", pt)
+          rest = args[2..]
+          refuse(node, "#{name.unescaped} takes #{s.params.size} arguments, not #{rest.size}") if rest.size != s.params.size
+          values = rest.zip(s.params).map do |arg, type|
+            value, got = expr(arg, type)
+            refuse(arg, "#{name.unescaped} wants a #{type} here, not a #{got}") unless fits?(type, got)
+            value
+          end
+          sig = @f.sig(s.params.map { |t| clif(t) }, clif(s.ret))
+          return [@f.call_indirect(sig, ptr, values), "Void"] if s.ret == "Void"
+
+          [@f.call_indirect_val(sig, ptr, values), s.ret]
         when :bytes
           s = args.first
           refuse(node, "Machine.bytes takes a string literal") unless s.is_a?(Prism::StringNode)
@@ -333,24 +515,24 @@ module Ze0
         when :load64, :load32, :load8
           width = { load64: "i64", load32: "i32", load8: "i8" }[node.name]
           ptr, pt = expr(args[0], "Ptr")
-          refuse(node, "#{node.name} takes a Ptr and an offset") unless fits?("Ptr", pt) && args[1].is_a?(Prism::IntegerNode)
+          refuse(node, "#{node.name} takes a Ptr and an offset") unless fits?("Ptr", pt) && args.size == 2
           type = { load64: "Word", load32: "I32", load8: "I8" }[node.name]
-          [@f.val("load.#{width} notrap aligned #{ptr}#{args[1].value.zero? ? "" : "+#{args[1].value}"}"), type]
+          [@f.fetch(width, ptr, immediate(args[1])), type]
         when :store64, :store32, :store8
           ptr, pt = expr(args[0], "Ptr")
-          refuse(node, "#{node.name} takes a Ptr, an offset and a value") unless fits?("Ptr", pt) && args[1].is_a?(Prism::IntegerNode)
+          refuse(node, "#{node.name} takes a Ptr, an offset and a value") unless fits?("Ptr", pt) && args.size == 3
           type = { store64: "Word", store32: "I32", store8: "I8" }[node.name]
           value, vt = expr(args[2], type)
           refuse(node, "#{node.name} stores a #{type}, not a #{vt}") unless clif(vt) == clif(type)
-          @f.ins "store notrap aligned #{value}, #{ptr}#{args[1].value.zero? ? "" : "+#{args[1].value}"}"
+          @f.store(value, ptr, immediate(args[1]))
           [nil, "Void"]
         when :slot
-          refuse(node, "Machine.slot takes a size") unless args.first.is_a?(Prism::IntegerNode)
-          [@f.stack_addr(@f.slot(args.first.value)), "Ptr"]
+          refuse(node, "Machine.slot takes a size") unless args.size == 1
+          [@f.stack_addr(@f.slot(immediate(args.first))), "Ptr"]
         when :static
           name, size = args
-          refuse(node, "Machine.static takes a symbol and a size") unless name.is_a?(Prism::SymbolNode) && size.is_a?(Prism::IntegerNode)
-          [@f.val("symbol_value.i64 #{@f.symbol(@unit.static(node, name.unescaped, size.value))}"), "Ptr"]
+          refuse(node, "Machine.static takes a symbol and a size") unless name.is_a?(Prism::SymbolNode) && size
+          [@f.val("symbol_value.i64 #{@f.symbol(@unit.static(node, name.unescaped, immediate(size)))}"), "Ptr"]
         when :i32, :i8, :word, :sword, :ptr, :value
           value, type = expr(args.first)
           convert(node, node.name, value, type)
@@ -379,31 +561,31 @@ module Ze0
       end
 
       def condition(node)
-        value, type = expr(node.predicate)
-        refuse(node.predicate, "a condition that is a #{type}") unless %w[Bool I8 I32 Word Ptr Value].include?(type)
-        value
+        condition_value(node.predicate).first
+      end
+
+      # `[value, type]` of an expression a branch may test: any integer.
+      def condition_value(node)
+        value, type = expr(node)
+        refuse(node, "a condition that is a #{type}") unless %w[Bool I8 I32 Word Ptr Value].include?(type)
+        [value, type]
       end
 
       # `if` as a value when both arms agree on a type, else Void. Each arm
       # is lowered before the merge block's shape is known, so the arms'
-      # jumps are written last.
-      def branch(node, want)
+      # jumps are written last. `then_stmts` is the then arm; `else_part`
+      # is the else arm's statements, an elsif, or nil.
+      def branch(node, want, then_stmts, else_part)
         cond = condition(node)
         then_b = @f.label
         else_b = @f.label
         @f.ins "brif #{cond}, #{then_b}, #{else_b}"
         @f.switch(then_b)
-        tv, tt = node.statements ? statements(node.statements, want) : [nil, "Void"]
+        tv, tt = then_stmts ? statements(then_stmts, want) : [nil, "Void"]
         then_open = !@f.terminated?
         then_end = @f.current.name
         @f.switch(else_b, open: true)
-        ev, et = if node.subsequent.is_a?(Prism::ElseNode)
-                   node.subsequent.statements ? statements(node.subsequent.statements, want) : [nil, "Void"]
-                 elsif node.subsequent
-                   expr(node.subsequent, want)
-                 else
-                   [nil, "Void"]
-                 end
+        ev, et = else_part ? expr(else_part, want) : [nil, "Void"]
         else_open = !@f.terminated?
         else_end = @f.current.name
         return [nil, "Void"] if !then_open && !else_open
