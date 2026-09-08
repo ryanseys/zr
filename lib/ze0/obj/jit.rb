@@ -28,7 +28,7 @@ module Ze0
       attr_reader :symbols
 
       def self.load(unit)
-        new.load(unit)
+        new.place(unit)
       end
 
       def initialize
@@ -39,7 +39,7 @@ module Ze0
         @symbols = {}
       end
 
-      def load(unit)
+      def place(unit)
         code = layout(unit.functions, 16)
         imports = unit.imports
         stubs = imports.each_with_index.to_h { |name, i| [name, code[:size] + (i * 16)] }
