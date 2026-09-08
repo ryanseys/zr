@@ -31,7 +31,7 @@ lib/ze0/                 the compiler (lower.rb, clif.rb, scope.rb, ...)
 lib/ze0/harness/         the corpus runner: the test-file format and the sweep
 lib/ze0/native/          the two native roads: ruby.rb (IR::Arm64, pure Ruby) and cranelift.rb (clif2obj); both end in cc
 lib/ze0/ir/arm64.rb      the aarch64 backend: spill-everything code over the aarch64 gem
-lib/ze0/obj/             the object model every backend produces, and the Mach-O writer
+lib/ze0/obj/             the object model every backend produces, the Mach-O writer, and the JIT loader
 clif2obj/                the one Rust crate: CLIF text and a data sidecar to a Mach-O object
 lib/ze0/shims/           the ambient rbconfig shim
 vendor/ext/<gem>/lib     the Ruby halves of the libraries a program may require
