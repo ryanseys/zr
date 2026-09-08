@@ -1,0 +1,48 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# ze0: a Ruby compiler written in Ruby.
+#
+#   ze0 <file.rb> -o <out.clif>         compile one program to CLIF text
+#   ze0 test <filter>... | --all        does ze0 answer what ruby answered?
+#   ze0 scan <glob> [limit]             which programs ze0 compiles, and what it refuses
+#   ze0 check                           the repo's own checks
+#
+# ruby is the oracle: every corpus program carries ruby 4.0.6's recorded
+# answer under `__END__`, and ze0 is held to it or refuses by name.
+
+ROOT = File.expand_path("..", __dir__)
+
+def usage
+  warn File.read(__FILE__).lines.grep(/\A#   /).map { |l| l.delete_prefix("#   ") }.join
+  exit 2
+end
+
+case ARGV.first
+when "test"
+  require_relative "../lib/ze0/harness/sweep"
+  require "etc"
+  args = ARGV.drop(1)
+  usage if args.include?("-h") || args.include?("--help")
+  all = args.delete("--all")
+  show = 10
+  if (i = args.index("--show"))
+    show = Integer(args[i + 1]) rescue usage
+    args.slice!(i, 2)
+  end
+  usage if args.any? { |a| a.start_with?("--") } || (args.empty? && !all)
+  sweep = Ze0::Harness::Sweep.new(ROOT, native: nil, show: show)
+  cases = sweep.select(args, all: all)
+  abort "ze0 test: no program matches #{args.inspect}" if cases.empty?
+  warn "ze0 test: #{cases.size} program(s)"
+  exit(sweep.report(sweep.run(cases)) ? 0 : 1)
+when "scan"
+  exec(RbConfig.ruby, File.join(ROOT, "scan.rb"), *ARGV.drop(1))
+when "check"
+  files = Dir[File.join(ROOT, "test/checks/*_test.rb")].sort
+  exec(RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", "-e", files.map { |f| "require #{f.inspect}" }.join(";"))
+when nil, "-h", "--help"
+  usage
+else
+  exec(RbConfig.ruby, File.join(ROOT, "ze0.rb"), *ARGV)
+end
