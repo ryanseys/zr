@@ -1,3 +1,4 @@
+# Every integer operator of the dialect, one bit of the exit status each.
 Machine.import "exit", [I32] => Void
 sig [I32, Ptr] => I32
 machine def main(argc, argv)
