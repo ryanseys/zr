@@ -246,6 +246,25 @@ module Ze0
         v
       end
 
+      # The other two-operand integer instructions, by opcode.
+      def binop(op, a, b, type: nil)
+        raise ArgumentError, "not a binary opcode: #{op}" unless Inst::BINOPS.include?(op)
+
+        v = value
+        emit(Inst.new(op, type: type, results: [v], args: [a, b]))
+        v
+      end
+
+      def imul(a, b) = binop(:imul, a, b)
+      def bxor(a, b) = binop(:bxor, a, b)
+      def ishl(a, b) = binop(:ishl, a, b)
+      def ushr(a, b) = binop(:ushr, a, b)
+      def sshr(a, b) = binop(:sshr, a, b)
+      def sdiv(a, b) = binop(:sdiv, a, b)
+      def udiv(a, b) = binop(:udiv, a, b)
+      def srem(a, b) = binop(:srem, a, b)
+      def urem(a, b) = binop(:urem, a, b)
+
       # CLIF's `select`; named `csel` because `Kernel#select` already exists.
       def csel(cond, a, b)
         v = value

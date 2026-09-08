@@ -1,0 +1,171 @@
+(seq
+  (send self puts
+    (send +
+      (int 7)
+      (int 5))
+    (send -
+      (int 7)
+      (int 5))
+    (send *
+      (int 7)
+      (int 5))
+    (send /
+      (int 7)
+      (int 2))
+    (send /
+      (int -7)
+      (int 2))
+    (send %
+      (int 7)
+      (int 3))
+    (send %
+      (int -7)
+      (int 3))
+    (send %
+      (int 7)
+      (int -3)))
+  (send self puts
+    (send <
+      (int 7)
+      (int 5))
+    (send <=
+      (int 7)
+      (int 7))
+    (send >
+      (int 7)
+      (int 5))
+    (send >=
+      (int 7)
+      (int 8))
+    (send ==
+      (int 7)
+      (int 7))
+    (send !=
+      (int 7)
+      (int 7))
+    (send ==
+      (int 7)
+      (sym :seven)))
+  (send self puts
+    (send -
+      (int 4611686018427387903)
+      (int 1))
+    (send +
+      (int -4611686018427387904)
+      (int 1)))
+  (assign x
+    (int 10))
+  (assign x
+    (send +
+      (local x)
+      (int 5)))
+  (assign x
+    (send -
+      (local x)
+      (int 1)))
+  (assign x
+    (send *
+      (local x)
+      (int 2)))
+  (send self puts
+    (local x))
+  (assign i
+    (int 0))
+  (assign sum
+    (int 0))
+  (while
+    (send <
+      (local i)
+      (int 10))
+    (seq
+      (assign sum
+        (send +
+          (local sum)
+          (local i)))
+      (assign i
+        (send +
+          (local i)
+          (int 1)))))
+  (send self puts
+    (local sum))
+  (while
+    (not
+      (send ==
+        (local i)
+        (int 0)))
+    (seq
+      (assign i
+        (send -
+          (local i)
+          (int 1)))))
+  (send self puts
+    (local i))
+  (send self puts
+    (not
+      (const nil))
+    (not
+      (const false))
+    (not
+      (int 0))
+    (not
+      (not
+        (const nil))))
+  (send self puts
+    (and
+      (const nil)
+      (int 1))
+    (and
+      (int 2)
+      (int 3))
+    (or
+      (const nil)
+      (int 4))
+    (or
+      (int 5)
+      (int 6))
+    (or
+      (const false)
+      (const nil)))
+  (assign y
+    (const nil))
+  (assign y
+    (or
+      (local y)
+      (int 8)))
+  (assign y
+    (and
+      (local y)
+      (send +
+        (local y)
+        (int 1))))
+  (send self puts
+    (local y))
+  (def early (n) locals (n)
+    (seq
+      (if
+        (send <
+          (local n)
+          (int 3))
+        (seq
+          (return
+            (sym :small)))
+        (none))
+      (sym :big)))
+  (send self puts
+    (send self early
+      (int 1))
+    (send self early
+      (int 5)))
+  (send self puts
+    (if
+      (const false)
+      (seq
+        (int 1))
+      (none)))
+  (send self puts
+    (def m () locals ()
+      (const nil)))
+  (send self puts
+    (send /
+      (int 1)
+      (int 0))))

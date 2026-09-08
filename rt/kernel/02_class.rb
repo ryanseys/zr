@@ -13,8 +13,50 @@ machine def zr_class_new(name, sup)
   c
 end
 
+# The gate bit an operator's redefinition sets, or 0.
+sig [Value, Word] => Word
+machine def zr_gate_bit(klass, mid)
+  if klass == zr_global(G_INTEGER)
+    if mid == Machine.id(:+)
+      GATE_PLUS
+    elsif mid == Machine.id(:-)
+      GATE_MINUS
+    elsif mid == Machine.id(:*)
+      GATE_MUL
+    elsif mid == Machine.id(:/)
+      GATE_DIV
+    elsif mid == Machine.id(:%)
+      GATE_MOD
+    elsif mid == Machine.id(:<)
+      GATE_LT
+    elsif mid == Machine.id(:<=)
+      GATE_LE
+    elsif mid == Machine.id(:>)
+      GATE_GT
+    elsif mid == Machine.id(:>=)
+      GATE_GE
+    elsif mid == Machine.id(:==)
+      GATE_EQ
+    elsif mid == Machine.id(:!=)
+      GATE_NE
+    else
+      0
+    end
+  elsif mid == Machine.id(:!)
+    GATE_NOT
+  else
+    0
+  end
+end
+
+# A definition; the first one of each builtin operator is the runtime's
+# own and leaves the gate clear, a later one sets it.
 sig [Value, Word, Ptr, Word] => Void
 machine def zr_define_method(klass, mid, fn, arity)
+  if zr_find_method(klass, mid) != 0
+    g = zr_gates()
+    Machine.store64(g, 0, Machine.load64(g, 0) | zr_gate_bit(klass, mid))
+  end
   n = RClass.mlen(klass)
   if n == RClass.mcap(klass)
     cap = n * 2

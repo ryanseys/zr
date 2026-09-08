@@ -77,3 +77,8 @@ machine def zr_obj_to_s(recv, argc, argv)
   Machine.store8(buf + at, 0, Machine.i8(62))
   zr_str_new(buf, at + 1)
 end
+
+sig [Value, Word, Ptr] => Value
+machine def zr_obj_not(recv, argc, argv)
+  zr_bool(recv == QNIL || recv == QFALSE)
+end

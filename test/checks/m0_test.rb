@@ -29,7 +29,7 @@ class M0Test < Minitest::Test
   # snippet with carets follows; the runtime prints the message alone
   # until exceptions and backtraces exist.
   def scrub(err)
-    err.lines.first.to_s.sub(/\A\S+:\d+:in '<main>': /, "")
+    err.lines.first.to_s.sub(/\A\S+:\d+:in '[^']*': /, "")
   end
 
   def check(label, name, env, argv, want)

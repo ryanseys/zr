@@ -13,6 +13,8 @@ module Ze0
       TERMINATORS = %i[jump brif return].freeze
       # Opcodes with two results.
       PAIRS = %i[sadd_overflow ssub_overflow smul_overflow].freeze
+      # The two-operand integer opcodes with one result.
+      BINOPS = %i[iadd isub imul udiv sdiv urem srem band bor bxor ishl ushr sshr].freeze
       # The comparison conditions, as CLIF spells them.
       CONDS = %w[eq ne slt sle sgt sge ult ule ugt uge].freeze
 
@@ -78,7 +80,7 @@ module Ze0
           raise ArgumentError, "an icmp condition: #{text}" unless CONDS.include?(cond)
 
           new(op, type: type, results: results, cond: cond, args: [a, b])
-        when :iadd, :isub, :imul, :udiv, :sdiv, :urem, :srem, :band, :bor, :bxor, :ishl, :ushr, :sshr, :select, *PAIRS
+        when *BINOPS, :select, *PAIRS
           new(op, type: type, results: results, args: rest.split(", "))
         else
           raise ArgumentError, "ze0 does not emit `#{op}`: #{text}"

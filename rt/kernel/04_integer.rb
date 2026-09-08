@@ -1,4 +1,23 @@
-# Integer: fixnums only, for now.
+# Integer: fixnums only, for now. Compiled code inlines the fixnum fast
+# path of each operator below while its gate bit is clear; a redefinition
+# sets the bit (see zr_define_method) and every site takes the call.
+GATE_PLUS = 1
+GATE_MINUS = 2
+GATE_MUL = 4
+GATE_DIV = 8
+GATE_MOD = 16
+GATE_LT = 32
+GATE_LE = 64
+GATE_GT = 128
+GATE_GE = 256
+GATE_EQ = 512
+GATE_NE = 1024
+GATE_NOT = 2048
+
+sig [] => Ptr
+machine def zr_gates
+  Machine.static(:gates, 8)
+end
 
 # The decimal digits of `n` into `buf`, answering how many bytes they
 # take, ahead of a buffer of 24.
@@ -32,4 +51,116 @@ machine def zr_int_to_s(recv, argc, argv)
   buf = Machine.slot(24)
   n = zr_long_digits(zr_fix2long(recv), buf)
   zr_str_new(buf, n)
+end
+
+# The operand of an Integer operator, which must be an Integer until
+# coercion and Float exist.
+sig [Value, Ptr] => Word
+machine def zr_int_operand(recv, argv)
+  other = Machine.value(Machine.load64(argv, 0))
+  unless zr_fixnum_p(other)
+    zr_write_err(Machine.bytes("can't be coerced into Integer (TypeError)\n"), 42)
+    exit(1)
+  end
+  zr_fix2long(other)
+end
+
+# A result outside the fixnum range: bignums are not implemented yet,
+# and a wrong answer must not slip out.
+sig [Word] => Value
+machine def zr_int_result(n)
+  if n > 4611686018427387903 || n < 0 - 4611686018427387904
+    zr_bug(Machine.bytes("Integer overflow: bignums are not implemented yet\n"), 50)
+  end
+  zr_fix(n)
+end
+
+sig [Value, Word, Ptr] => Value
+machine def zr_int_plus(recv, argc, argv)
+  zr_int_result(zr_fix2long(recv) + zr_int_operand(recv, argv))
+end
+
+sig [Value, Word, Ptr] => Value
+machine def zr_int_minus(recv, argc, argv)
+  zr_int_result(zr_fix2long(recv) - zr_int_operand(recv, argv))
+end
+
+sig [Value, Word, Ptr] => Value
+machine def zr_int_mul(recv, argc, argv)
+  a = zr_fix2long(recv)
+  b = zr_int_operand(recv, argv)
+  r = a * b
+  if a != 0 && r / a != b
+    zr_bug(Machine.bytes("Integer overflow: bignums are not implemented yet\n"), 50)
+  end
+  zr_int_result(r)
+end
+
+# Floored division and modulo, as Ruby defines them.
+sig [Word, Word] => Word
+machine def zr_floor_div(a, b)
+  if b == 0
+    zr_write_err(Machine.bytes("divided by 0 (ZeroDivisionError)\n"), 33)
+    exit(1)
+  end
+  q = a / b
+  if (a % b != 0) && ((a < 0) != (b < 0))
+    q -= 1
+  end
+  q
+end
+
+sig [Word, Word] => Word
+machine def zr_floor_mod(a, b)
+  a - (zr_floor_div(a, b) * b)
+end
+
+sig [Value, Word, Ptr] => Value
+machine def zr_int_div(recv, argc, argv)
+  zr_int_result(zr_floor_div(zr_fix2long(recv), zr_int_operand(recv, argv)))
+end
+
+sig [Value, Word, Ptr] => Value
+machine def zr_int_mod(recv, argc, argv)
+  zr_fix(zr_floor_mod(zr_fix2long(recv), zr_int_operand(recv, argv)))
+end
+
+sig [Bool] => Value
+machine def zr_bool(b)
+  if b
+    Machine.value(QTRUE)
+  else
+    Machine.value(QFALSE)
+  end
+end
+
+sig [Value, Word, Ptr] => Value
+machine def zr_int_lt(recv, argc, argv)
+  zr_bool(zr_fix2long(recv) < zr_int_operand(recv, argv))
+end
+
+sig [Value, Word, Ptr] => Value
+machine def zr_int_le(recv, argc, argv)
+  zr_bool(zr_fix2long(recv) <= zr_int_operand(recv, argv))
+end
+
+sig [Value, Word, Ptr] => Value
+machine def zr_int_gt(recv, argc, argv)
+  zr_bool(zr_fix2long(recv) > zr_int_operand(recv, argv))
+end
+
+sig [Value, Word, Ptr] => Value
+machine def zr_int_ge(recv, argc, argv)
+  zr_bool(zr_fix2long(recv) >= zr_int_operand(recv, argv))
+end
+
+# Equality takes any operand: a non-Integer is simply not equal.
+sig [Value, Word, Ptr] => Value
+machine def zr_int_eq(recv, argc, argv)
+  zr_bool(recv == Machine.value(Machine.load64(argv, 0)))
+end
+
+sig [Value, Word, Ptr] => Value
+machine def zr_int_ne(recv, argc, argv)
+  zr_bool(recv != Machine.value(Machine.load64(argv, 0)))
 end
