@@ -1,0 +1,2 @@
+7
+undefined method 'frobnicate' for an instance of Integer (NoMethodError)

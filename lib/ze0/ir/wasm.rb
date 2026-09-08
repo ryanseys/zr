@@ -83,7 +83,7 @@ module Ze0
         out << section(9, vec(["\0".b + i32c(1) + "\x0B".b + vec(@table.map { |n| leb(function_index(n)) })])) unless @table.empty?
         out << section(10, vec(bodies))
         segments = @data.reject { |d| d.section == :bss }.map do |d|
-          "\0".b + "\x41".b + sleb(@data_at[d.name]) + "\x0B".b + vec_bytes(d.bytes)
+          "\0".b + "\x41".b + sleb(@data_at[d.name]) + "\x0B".b + vec_bytes(patched(d))
         end
         out << section(11, vec(segments))
         out
@@ -117,6 +117,17 @@ module Ze0
       # The wasm type of an IR signature.
       def sig_type(s)
         [s.params.map { |t| TYPE.fetch(t) }, s.ret ? [TYPE.fetch(s.ret)] : []]
+      end
+
+      # A data object's bytes with every absolute relocation filled in.
+      def patched(d)
+        bytes = d.bytes.dup
+        d.relocs.each do |r|
+          raise Refused, "#{d.name}: a #{r.kind} relocation in data" unless r.kind == :abs64
+
+          bytes[r.offset, 8] = [data_address(r.symbol) + r.addend].pack("Q<")
+        end
+        bytes
       end
 
       def data_address(name)

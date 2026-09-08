@@ -18,9 +18,9 @@ module Ze0
     class Refused < StandardError
       attr_reader :line
 
-      def initialize(node, message)
+      def initialize(node, message, file = nil)
         @line = node.location.start_line
-        super("line #{@line}: #{message}")
+        super("#{file ? "#{file}:" : "line "}#{@line}: #{message}")
       end
     end
 
@@ -32,7 +32,7 @@ module Ze0
     UNSIGNED = %w[Ptr].freeze
 
     Import = Struct.new(:name, :params, :ret)
-    Def = Struct.new(:name, :params, :ret, :node)
+    Def = Struct.new(:name, :params, :ret, :node, :file)
     # A function delivered as machine code: `Machine.raw "zr_switch"`.
     Raw = Struct.new(:name, :params, :ret)
     # A signature `Machine.call` goes through: `Machine.sig :name, [types] => type`.
@@ -94,6 +94,7 @@ module Ze0
             raise SyntaxError, "#{file}:#{e.location.start_line}: #{e.message}"
           end
 
+          @file = file
           declare(result.value.statements.body)
         end
         @defs.each_value { |d| @functions << Function.new(self, d).lower }
@@ -147,7 +148,7 @@ module Ze0
             names = (d.parameters&.requireds || []).map { |p| p.name.to_s }
             refuse(d, "the sig has #{params.size} types for #{names.size} parameters") if names.size != params.size
             refuse(d, "a machine def takes required parameters only") if d.parameters && d.parameters.child_nodes.compact.size != names.size
-            @defs[d.name.to_s] = Def.new(d.name.to_s, names.zip(params), ret, d)
+            @defs[d.name.to_s] = Def.new(d.name.to_s, names.zip(params), ret, d, @file)
           else
             refuse(node, "`#{node.name}` is not in the kernel dialect at the top level")
           end
@@ -239,6 +240,11 @@ module Ze0
         @consts[name]
       end
 
+      # Whether this is a unit of several files, whose refusals name the file.
+      def unit?
+        @sources.size > 1
+      end
+
       def struct_for(name)
         @structs[name]
       end
@@ -267,7 +273,7 @@ module Ze0
       end
 
       def refuse(node, message)
-        raise Refused.new(node, message)
+        raise Refused.new(node, message, @sources.size > 1 ? @file : nil)
       end
     end
 
@@ -301,7 +307,7 @@ module Ze0
       private
 
       def refuse(node, message)
-        raise Refused.new(node, message)
+        raise Refused.new(node, message, @unit.unit? ? @d.file : nil)
       end
 
       def declare_local(node, name, type)
