@@ -52,4 +52,16 @@ class WasmTest < Minitest::Test
       end
     end
   end
+
+  Dir[File.join(ROOT, "test/zr/units/*/")].sort.each do |unit|
+    name = File.basename(unit)
+    define_method("test_zr_unit_#{name}") do
+      functions, data, raw = Ze0::Machine.compile_unit(Dir[File.join(unit, "*.rb")].sort)
+      Dir.mktmpdir("ze0-wasm-") do |dir|
+        wasm = File.join(dir, "#{name}.wasm")
+        assert_nil Ze0::Native::Build.wasm(functions, data, wasm, raw: raw)
+        run_module(wasm, File.binread(File.join(unit, "stdout")))
+      end
+    end
+  end
 end
