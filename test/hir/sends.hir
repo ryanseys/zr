@@ -1,0 +1,26 @@
+(seq
+  (send self puts
+    (int 1))
+  (send self puts
+    (str "two")
+    (sym :three)
+    (const nil)
+    (const true)
+    (const false))
+  (vcall self puts)
+  (send self puts
+    (send to_s
+      (int 4))
+    (send to_s
+      (sym :five)))
+  (send self puts
+    (self))
+  (send baz
+    (send bar
+      (send self foo
+        (int 1))
+      (int 2)
+      (str "x")))
+  (seq
+    (send self puts
+      (int 6))))
