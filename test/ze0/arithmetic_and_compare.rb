@@ -1,0 +1,39 @@
+puts 1 + 2
+puts 7 - 10
+puts 6 * 7
+puts 7 / 2
+puts -7 / 2
+puts 7 % 3
+puts 2 ** 10
+puts (1 + 2) * 3
+puts 1 < 2
+puts 2 < 1
+puts 3 <= 3
+puts 3 >= 4
+puts 5 == 5
+puts 5 == 6
+puts 1 == 1.0
+puts 1.5 < 2
+puts "a" == "a"
+puts "a" == "b"
+puts 2 > 1.5
+__END__
+3
+-3
+42
+3
+-4
+1
+1024
+9
+true
+false
+true
+false
+true
+false
+true
+true
+true
+false
+true
