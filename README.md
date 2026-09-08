@@ -21,6 +21,7 @@ $ bin/ze0 scan 'test/lang/**/*.rb'         # what compiles, what is refused
 $ bin/ze0 check                            # the repo's own checks
 $ bin/ze0 stage1                           # ze0 compiles itself twice to the same bytes
 $ bin/ze0 native build                     # build clif2obj, the Cranelift road (needs cargo)
+$ bin/ze0 zr build test/zr/hello.rb -o hello # a kernel-dialect file to a binary (--native ruby|cranelift)
 ```
 
 ## Layout
@@ -31,6 +32,7 @@ lib/ze0/                 the compiler (lower.rb, clif.rb, scope.rb, ...)
 lib/ze0/harness/         the corpus runner: the test-file format and the sweep
 lib/ze0/native/          the two native roads: ruby.rb (IR::Arm64, pure Ruby) and cranelift.rb (clif2obj); both end in cc
 lib/ze0/ir/arm64.rb      the aarch64 backend: spill-everything code over the aarch64 gem
+lib/ze0/machine/         the kernel dialect: typed Ruby that lowers straight to IR (the runtime's language)
 lib/ze0/obj/             the object model every backend produces, the Mach-O writer, and the JIT loader
 clif2obj/                the one Rust crate: CLIF text and a data sidecar to a Mach-O object
 lib/ze0/shims/           the ambient rbconfig shim
@@ -42,6 +44,7 @@ test/snapshots/          ze0's text for two programs, pinned
 test/goldens/            ze0's text and sidecar for every test/ze0 program, pinned
 test/checks/             minitest checks (`bin/ze0 check`)
 test/native/             hand-written CLIF that must link against libSystem alone and print
+test/zr/                 kernel-dialect programs, on both roads; test/zr/refused/ names each refusal
 ```
 
 `vendor/ruby` and `vendor/gems` (rubygems, bundler, the gem store) are

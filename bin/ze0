@@ -9,6 +9,8 @@
 #   ze0 check                           the repo's own checks
 #   ze0 stage1                          ze0 compiles itself, twice, to the same bytes
 #   ze0 native build                    build the clif2obj crate (the Cranelift road)
+#   ze0 zr build <file.rb> -o <bin>     compile a kernel-dialect file to a binary
+#                [--native ruby|cranelift]
 #
 # ruby is the oracle: every corpus program carries ruby 4.0.6's recorded
 # answer under `__END__`, and ze0 is held to it or refuses by name.
@@ -38,6 +40,34 @@ when "test"
   abort "ze0 test: no program matches #{args.inspect}" if cases.empty?
   warn "ze0 test: #{cases.size} program(s)"
   exit(sweep.report(sweep.run(cases)) ? 0 : 1)
+when "zr"
+  require "tmpdir"
+  require_relative "../lib/ze0/machine/lower"
+  require_relative "../lib/ze0/native/build"
+  args = ARGV.drop(1)
+  usage unless args.shift == "build"
+  input = output = nil
+  native = "ruby"
+  until args.empty?
+    case (a = args.shift)
+    when "-o" then output = args.shift or usage
+    when "--native" then native = args.shift or usage
+    when /\A-/ then usage
+    else usage if input; input = a
+    end
+  end
+  usage unless input && output
+  begin
+    functions, data = Ze0::Machine.compile(File.read(input), input)
+  rescue Ze0::Machine::Refused => e
+    abort "ze0: #{input}: #{e.message}"
+  end
+  road = Ze0::Native::Build.road(native, ROOT)
+  abort "ze0: the #{native} road is not built (ze0 native build)" unless road.available?
+  Dir.mktmpdir("ze0-zr-") do |work|
+    why = Ze0::Native::Build.binary(functions, data, File.expand_path(output), road: road, work: work)
+    abort "ze0: #{why}" if why
+  end
 when "native"
   require_relative "../lib/ze0/native/cranelift"
   usage unless ARGV[1] == "build"
