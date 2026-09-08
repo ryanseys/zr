@@ -29,7 +29,8 @@ $ bin/ze0 native build                     # build clif2obj, the Cranelift road 
 ze0.rb, bin/ze0          the CLI; ze0.rb is the compiler's entry point
 lib/ze0/                 the compiler (lower.rb, clif.rb, scope.rb, ...)
 lib/ze0/harness/         the corpus runner: the test-file format and the sweep
-lib/ze0/native/          the native roads; cranelift.rb drives clif2obj and cc
+lib/ze0/native/          the two native roads: ruby.rb (IR::Arm64, pure Ruby) and cranelift.rb (clif2obj); both end in cc
+lib/ze0/ir/arm64.rb      the aarch64 backend: spill-everything code over the aarch64 gem
 lib/ze0/obj/             the object model every backend produces, and the Mach-O writer
 clif2obj/                the one Rust crate: CLIF text and a data sidecar to a Mach-O object
 lib/ze0/shims/           the ambient rbconfig shim
@@ -56,4 +57,4 @@ not read `DATA` or `__FILE__`: ruby would hand it its own trailer.
 
 ## Requirements
 
-ruby 4.0.6 (`.ruby-version`), macOS on Apple Silicon, and `cc`. cargo only to build `clif2obj`, which `bin/ze0 check` skips when it is absent.
+ruby 4.0.6 (`.ruby-version`) with the `aarch64` gem, macOS on Apple Silicon, and `cc`. cargo only to build `clif2obj`, which `bin/ze0 check` skips when it is absent.

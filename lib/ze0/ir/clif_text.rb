@@ -61,3 +61,43 @@ module Ze0
     end
   end
 end
+
+module Ze0
+  module IR
+    module ClifText
+      # The functions in `text`, the reverse of `render`: what a
+      # hand-written `.clif` or a golden holds, as IR.
+      def self.parse(text)
+        functions = []
+        f = nil
+        block = nil
+        text.each_line do |raw|
+          line = raw.strip
+          next if line.empty? || line.start_with?(";")
+
+          if (m = line.match(/\Afunction %(\S+)\((.*?)\)(?: -> (\S+))? system_v \{\z/))
+            f = Function.bare(m[1], m[2].empty? ? [] : m[2].split(", "), m[3])
+            block = nil
+          elsif line == "}"
+            functions << f
+            f = nil
+          elsif (m = line.match(/\Ass(\d+) = explicit_slot (\d+), align = (\d+)\z/))
+            f.slots << Slot.new(Integer(m[2]), Integer(m[3]))
+          elsif (m = line.match(/\A(gv\d+) = symbol (colocated )?%(\S+)\z/))
+            f.globals << Global.new(m[1], m[3], !m[2].nil?)
+          elsif (m = line.match(/\A(sig\d+) = \((.*?)\)(?: -> (\S+))? system_v\z/))
+            f.sigs << Sig.new(m[1], m[2].empty? ? [] : m[2].split(", "), m[3])
+          elsif (m = line.match(/\A(fn\d+) = (colocated )?%(\S+) (sig\d+)\z/))
+            f.callees << Callee.new(m[1], m[3], m[4], !m[2].nil?)
+          elsif (m = line.match(/\A(block\d+)(?:\((.*)\))?:\z/))
+            params = (m[2] || "").split(", ").map { |p| p.split(": ") }
+            block = f.add_block(m[1], params)
+          else
+            block.insts << Inst.parse(line)
+          end
+        end
+        functions
+      end
+    end
+  end
+end

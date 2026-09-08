@@ -37,25 +37,28 @@ module Ze0
       # `params`/`ret`: CLIF types. The entry block takes the parameters
       # as v0..vN-1.
       def initialize(name, params, ret)
-        @name = name
-        @params = params
-        @ret = ret
-        @slots = []
-        @globals = []
-        @global_of = {}
-        @sigs = []
-        @sig_of = {}
-        @callees = []
-        @callee_of = {}
-        @blocks = []
-        @block_of = {}
-        @next_block = 0
-        @hoisted = {}
-        @next_value = 0
-        @current = nil
+        reset(name, params, ret)
         @args = params.map { value }
         @entry = block_named(@args.zip(params))
         switch(@entry)
+      end
+
+      # A function with nothing in it yet, for a parser or another producer
+      # that names its own blocks and values.
+      def self.bare(name, params, ret)
+        f = allocate
+        f.send(:reset, name, params, ret)
+        f
+      end
+
+      # A block by name, as a parser names it. `params` are `[value, type]`.
+      def add_block(name, params)
+        b = Block.new(name, params)
+        @block_of[name] = b
+        @blocks << b
+        @entry_block ||= b
+        @current = b
+        b
       end
 
       # A fresh stack slot of `bytes`.
@@ -174,6 +177,26 @@ module Ze0
       end
 
       private
+
+      def reset(name, params, ret)
+        @name = name
+        @params = params
+        @ret = ret
+        @slots = []
+        @globals = []
+        @global_of = {}
+        @sigs = []
+        @sig_of = {}
+        @callees = []
+        @callee_of = {}
+        @blocks = []
+        @block_of = {}
+        @next_block = 0
+        @hoisted = {}
+        @next_value = 0
+        @current = nil
+        @args = []
+      end
 
       def value
         v = "v#{@next_value}"

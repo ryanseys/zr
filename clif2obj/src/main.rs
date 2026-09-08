@@ -284,10 +284,20 @@ fn compile(text: &str, sidecar: &Sidecar) -> Result<Vec<u8>, String> {
         ctx.func = f;
         module
             .define_function(id, &mut ctx)
-            .map_err(|e| format!("{name}: {e}"))?;
+            .map_err(|e| format!("{name}: {}", explain(e, &ctx.func)))?;
     }
     let product = module.finish();
     product.emit().map_err(|e| e.to_string())
+}
+
+/// A module error with the verifier's own lines when it has them.
+fn explain(e: cranelift_module::ModuleError, func: &ir::Function) -> String {
+    match e {
+        cranelift_module::ModuleError::Compilation(cranelift_codegen::CodegenError::Verifier(errors)) => {
+            format!("verifier errors\n{}", cranelift_codegen::print_errors::pretty_verifier_error(func, None, errors))
+        }
+        other => other.to_string(),
+    }
 }
 
 /// The plain name behind `function %name(...)` in the text.
