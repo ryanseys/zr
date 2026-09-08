@@ -58,14 +58,14 @@ when "zr"
   end
   usage unless input && output
   begin
-    functions, data = Ze0::Machine.compile(File.read(input), input)
+    functions, data, raw = Ze0::Machine.compile(File.read(input), input)
   rescue Ze0::Machine::Refused => e
     abort "ze0: #{input}: #{e.message}"
   end
   road = Ze0::Native::Build.road(native, ROOT)
   abort "ze0: the #{native} road is not built (ze0 native build)" unless road.available?
   Dir.mktmpdir("ze0-zr-") do |work|
-    why = Ze0::Native::Build.binary(functions, data, File.expand_path(output), road: road, work: work)
+    why = Ze0::Native::Build.binary(functions, data, File.expand_path(output), road: road, work: work, raw: raw)
     abort "ze0: #{why}" if why
   end
 when "native"

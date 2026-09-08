@@ -16,10 +16,10 @@ class ZrTest < Minitest::Test
       define_method("test_#{label}_#{name}") do
         skip "clif2obj is not built (bin/ze0 native build)" unless road.available?
 
-        functions, data = Ze0::Machine.compile(File.read(rb), rb)
+        functions, data, raw = Ze0::Machine.compile(File.read(rb), rb)
         Dir.mktmpdir("ze0-zr-") do |dir|
           bin = File.join(dir, name)
-          assert_nil Ze0::Native::Build.binary(functions, data, bin, road: road, work: dir)
+          assert_nil Ze0::Native::Build.binary(functions, data, bin, road: road, work: dir, raw: raw)
           out = IO.popen([bin], &:read)
           assert_equal 0, $?.exitstatus, "#{name} on the #{label} road exited #{$?.exitstatus}"
           assert_equal File.binread(rb.sub(/\.rb\z/, ".stdout")), out

@@ -20,19 +20,22 @@ module Ze0
       end
 
       # Answers nil, or the message of the step that refused.
-      def binary(functions, data, out, road:, work:)
+      def binary(functions, data, out, road:, work:, raw: [])
         obj = File.join(work, "unit.o")
         if road.is_a?(Ruby)
           unit = Obj::Unit.new
-          defined = functions.map(&:name) + data.map(&:name)
+          defined = functions.map(&:name) + data.map(&:name) + raw.map(&:name)
           functions.each { |f| unit.functions << IR::Arm64.new(f, defined: defined).compile }
+          raw.each { |r| unit.functions << r }
           data.each { |d| unit.data << d }
           File.binwrite(obj, Obj::MachO.write(unit))
         else
           clif = File.join(work, "unit.clif")
           sidecar = File.join(work, "unit.json")
           File.write(clif, functions.map { |f| IR::ClifText.render(f) }.join("\n"))
-          File.write(sidecar, JSON.generate({ "data" => data.map { |d| sidecar_row(d) } }))
+          rows = { "data" => data.map { |d| sidecar_row(d) },
+                   "raw_functions" => raw.map { |r| { "name" => r.name, "bytes" => r.bytes.unpack1("H*"), "align" => r.align } } }
+          File.write(sidecar, JSON.generate(rows))
           (why = road.compile(clif, obj, data: sidecar)) and return why
         end
         road.link([obj], out)

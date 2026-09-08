@@ -3,6 +3,7 @@
 require "prism"
 require_relative "../ir"
 require_relative "../obj/model"
+require_relative "stub"
 
 module Ze0
   # The kernel dialect: Ruby syntax, machine semantics. A file of
@@ -30,15 +31,17 @@ module Ze0
 
     Import = Struct.new(:name, :params, :ret)
     Def = Struct.new(:name, :params, :ret, :node)
+    # A function delivered as machine code: `Machine.raw "zr_switch"`.
+    Raw = Struct.new(:name, :params, :ret)
 
-    # `source` to `[functions, data]`: IR functions and the data objects
-    # they name.
+    # `source` to `[functions, data, raw]`: IR functions, the data objects
+    # they name, and the raw functions they call.
     def self.compile(source, file)
       Lower.new(source, file).run
     end
 
     class Lower
-      attr_reader :functions, :data
+      attr_reader :functions, :data, :raw
 
       def initialize(source, file)
         @source = source
@@ -47,7 +50,9 @@ module Ze0
         @defs = {}
         @functions = []
         @data = []
+        @raw = []
         @next_bytes = 0
+        @statics = {}
       end
 
       def run
@@ -59,7 +64,7 @@ module Ze0
 
         declare(result.value.statements.body)
         @defs.each_value { |d| @functions << Function.new(self, d).lower }
-        [@functions, @data]
+        [@functions, @data, @raw]
       end
 
       # The file's declarations: imports, and each `sig` with its def.
@@ -73,6 +78,12 @@ module Ze0
             name, sig = node.arguments.arguments
             params, ret = signature(sig)
             @imports[name.unescaped] = Import.new(name.unescaped, params, ret)
+          when :raw
+            refuse(node, "a raw function is `Machine.raw \"name\"`") unless machine?(node.receiver)
+            name = node.arguments.arguments.first.unescaped
+            params, ret = Stub::ALL.fetch(name) { refuse(node, "no raw function named #{name}") }
+            @imports[name] = Raw.new(name, params.map(&:to_s), ret.to_s)
+            @raw << Stub.public_send(name.delete_prefix("zr_"))
           when :sig
             refuse(node, "a sig is `sig [types] => type`") unless node.receiver.nil?
             pending_sig = signature(node.arguments.arguments.first)
@@ -123,6 +134,17 @@ module Ze0
         @next_bytes += 1
         @data << Obj::Data.new(name, :text_const, string, align: 1)
         name
+      end
+
+      # A zeroed, writable area this unit carries, one per name.
+      def static(node, name, size)
+        if @statics.key?(name)
+          refuse(node, "#{name} is #{@statics[name]} bytes, not #{size}") if @statics[name] != size
+        else
+          @statics[name] = size
+          @data << Obj::Data.new("zr_static_#{name}", :bss, size, align: 16)
+        end
+        "zr_static_#{name}"
       end
 
       def refuse(node, message)
@@ -269,13 +291,13 @@ module Ze0
       def target(node, name, args)
         callee = @unit.import_for(name) || @unit.def_for(name) or refuse(node, "#{name} is not an import or a machine def here")
         refuse(node, "#{name} takes #{callee.params.size} arguments, not #{args.size}") if args.size != callee.params.size
-        types = callee.is_a?(Import) ? callee.params : callee.params.map(&:last)
+        types = callee.is_a?(Def) ? callee.params.map(&:last) : callee.params
         values = args.zip(types).map do |arg, type|
           value, got = expr(arg, type)
           refuse(arg, "#{name} wants a #{type} here, not a #{got}") unless got == type
           value
         end
-        fn = @f.callee(name, types.map { |t| clif(t) }, clif(callee.ret), colocated: callee.is_a?(Def))
+        fn = @f.callee(name, types.map { |t| clif(t) }, clif(callee.ret), colocated: !callee.is_a?(Import))
         if callee.ret == "Void"
           @f.ins "call #{fn}(#{values.join(", ")})"
           [nil, "Void"]
@@ -307,6 +329,16 @@ module Ze0
         when :slot
           refuse(node, "Machine.slot takes a size") unless args.first.is_a?(Prism::IntegerNode)
           [@f.stack_addr(@f.slot(args.first.value)), "Ptr"]
+        when :static
+          name, size = args
+          refuse(node, "Machine.static takes a symbol and a size") unless name.is_a?(Prism::SymbolNode) && size.is_a?(Prism::IntegerNode)
+          [@f.val("symbol_value.i64 #{@f.symbol(@unit.static(node, name.unescaped, size.value))}"), "Ptr"]
+        when :addr
+          name = args.first
+          refuse(node, "Machine.addr takes the symbol of a machine def") unless name.is_a?(Prism::SymbolNode)
+          d = @unit.def_for(name.unescaped) or refuse(node, "#{name.unescaped} is not a machine def here")
+          fn = @f.callee(d.name, d.params.map { |_, t| clif(t) }, clif(d.ret), colocated: true)
+          [@f.val("func_addr.i64 #{fn}"), "Ptr"]
         else
           refuse(node, "Machine.#{node.name} is not an intrinsic")
         end
