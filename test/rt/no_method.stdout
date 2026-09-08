@@ -1,2 +1,2 @@
 7
-undefined local variable or method 'frobnicate' for an instance of Integer (NameError)
+no_method.rb:9:in '<main>': undefined local variable or method 'frobnicate' for an instance of Integer (NameError)

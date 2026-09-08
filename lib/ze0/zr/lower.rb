@@ -11,7 +11,10 @@ module Ze0
     # Every function keeps a frame record in its frame: its locals, and
     # the slots a send fills with its receiver and arguments while the
     # next argument is evaluated, so the collector sees every Value the
-    # function holds across a call.
+    # function holds across a call. The record names its FrameMeta and
+    # carries the current line, for backtraces. A call answering `undef`
+    # means an exception is pending: the function leaves through its
+    # landing block, answering `undef` itself.
     class Lower
       class Refused < StandardError; end
 
@@ -43,6 +46,20 @@ module Ze0
       def literal(bytes)
         name = "zr_lit_#{@data.size}"
         @data << Obj::Data.new(name, :text_const, bytes.b, align: 1)
+        name
+      end
+
+      # The FrameMeta of function `fn`: writable, since the runtime fills
+      # in the owner and name at definition.
+      def meta(fn, kind, line)
+        layout = layout("FrameMeta")
+        file = @file_bytes ||= literal(@program.file)
+        bytes = ("\0" * layout.size).b
+        bytes[layout.fields.fetch("file_len").first, 8] = [@program.file.bytesize].pack("Q<")
+        bytes[layout.fields.fetch("kind").first, 8] = [const(kind)].pack("Q<")
+        bytes[layout.fields.fetch("line").first, 8] = [line].pack("Q<")
+        name = "zr_meta_#{fn}"
+        @data << Obj::Data.new(name, :data, bytes, relocs: [Obj::Reloc.new(layout.fields.fetch("file").first, :abs64, file)], align: 8)
         name
       end
 
@@ -87,7 +104,10 @@ module Ze0
           @prev = @f.fetch("i64", @task_addr, off(@task, "top"))
           @f.store(@prev, @rec, off(@frame, "prev"))
           zero = @f.iconst("i64", 0)
-          %w[meta line serial].each { |name| @f.store(zero, @rec, off(@frame, name)) }
+          @meta = @l.meta(@name, method ? "KIND_DEF" : "KIND_MAIN", method ? @def.line : 1)
+          @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
+          @f.store(@f.iconst("i64", method ? @def.line : 1), @rec, off(@frame, "line"))
+          @f.store(zero, @rec, off(@frame, "serial"))
           @self = method ? @f.args[0] : @f.fetch("i64", @f.symbol_value(@f.symbol("zr_static_globals")), 8 * @l.const("G_MAIN"))
           @f.store(@self, @rec, off(@frame, "self"))
           @f.store(@f.iconst("i64", @nvalues), @rec, off(@frame, "nvalues"))
@@ -96,8 +116,13 @@ module Ze0
           params.times { |i| @f.store(@f.fetch("i64", @f.args[2], 8 * i), @rec, value_offset(i)) }
           (params...@nvalues).each { |i| @f.store(@qnil, @rec, value_offset(i)) }
           @f.store(@rec, @task_addr, off(@task, "top"))
+          @landing = nil
           last = expr(@body)
           leave(last) unless @f.terminated?
+          if @landing
+            @f.switch(@landing, open: true)
+            leave(@f.iconst("i64", @l.const("QUNDEF")))
+          end
           @l.functions << @f
           @f
         end
@@ -115,6 +140,24 @@ module Ze0
         def leave(value)
           @f.store(@prev, @task_addr, off(@task, "top"))
           @f.ret(value)
+        end
+
+        # A call's answer, after the test for a pending exception: `undef`
+        # takes the landing block.
+        def checked(value)
+          @landing ||= @f.label
+          go = @f.label
+          @f.brif(@f.icmp("eq", value, @f.iconst("i64", @l.const("QUNDEF"))), @landing, go)
+          @f.switch(go)
+          value
+        end
+
+        # The line a backtrace reports for what runs next.
+        def at_line(line)
+          return if line == @line
+
+          @line = line
+          @f.store(@f.iconst("i64", line), @rec, off(@frame, "line"))
         end
 
         # How many record slots the sends under `node` need at once, past
@@ -160,8 +203,10 @@ module Ze0
             fn = @l.define(node)
             klass = @f.fetch("i64", @f.symbol_value(@f.symbol("zr_static_globals")), 8 * @l.const("G_OBJECT"))
             addr = @f.func_addr(@f.callee(fn, %w[i64 i64 i64], "i64"))
-            define = @f.callee("zr_define_method", %w[i64 i64 i64 i64], nil)
-            @f.call(define, [klass, @f.iconst("i64", @l.symbols.id(node.name)), addr, @f.iconst("i64", node.params.size)])
+            define = @f.callee("zr_define_method", %w[i64 i64 i64 i64 i64 i64], nil)
+            meta = @f.symbol_value(@f.symbol("zr_meta_#{fn}"))
+            @f.call(define, [klass, @f.iconst("i64", @l.symbols.id(node.name)), addr, @f.iconst("i64", node.params.size),
+                             @f.iconst("i64", @l.const("KIND_DEF")), meta])
             symbol(node.name)
           when Hir::If then branch(node)
           when Hir::While then loop_while(node)
@@ -210,7 +255,8 @@ module Ze0
 
         def dispatch(node, recv, argv)
           fn = @f.callee(node.vcall ? "zr_vcall" : "zr_send", %w[i64 i64 i64 i64], "i64")
-          @f.call_val(fn, [recv, @f.iconst("i64", @l.symbols.id(node.name)), @f.iconst("i64", node.args.size), argv])
+          at_line(node.line)
+          checked(@f.call_val(fn, [recv, @f.iconst("i64", @l.symbols.id(node.name)), @f.iconst("i64", node.args.size), argv]))
         end
 
         def call(node)
@@ -269,6 +315,9 @@ module Ze0
             # -2^62 / -1 leaves the fixnum range: that pair takes the call.
             x = @f.sshr(a, one)
             y = @f.sshr(b, one)
+            ok = @f.label
+            @f.brif(@f.icmp("eq", y, @f.iconst("i64", 0)), slow, ok)
+            @f.switch(ok)
             if op == :/
               ok = @f.label
               @f.brif(@f.icmp("eq", y, @f.iconst("i64", -1)), slow, ok)
@@ -351,7 +400,8 @@ module Ze0
           @f.switch(slow)
           fn = @f.callee("zr_send", %w[i64 i64 i64 i64], "i64")
           argv = @f.iadd(@rec, @f.iconst("i64", value_offset(base + 1)))
-          @f.jump(merge, [@f.call_val(fn, [v, @f.iconst("i64", @l.symbols.id(:!)), @f.iconst("i64", 0), argv])])
+          at_line(node.line)
+          @f.jump(merge, [checked(@f.call_val(fn, [v, @f.iconst("i64", @l.symbols.id(:!)), @f.iconst("i64", 0), argv]))])
           @f.switch(merge)
           @sp = base
           result

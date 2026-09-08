@@ -6,7 +6,7 @@ module Ze0
   module Obj
     # A relocatable Mach-O 64 for arm64 (`MH_OBJECT`), from an `Obj::Unit`.
     # One unnamed segment holds `__TEXT,__text`, `__TEXT,__const`,
-    # `__DATA,__const` and `__DATA,__bss`; then `LC_BUILD_VERSION`,
+    # `__DATA,__const`, `__DATA,__data` and `__DATA,__bss`; then `LC_BUILD_VERSION`,
     # `LC_SYMTAB` and `LC_DYSYMTAB`. Symbols are ordered local, exported,
     # imported, each group by name, which is the order `ld` reads. The
     # layout follows <mach-o/loader.h>, <mach-o/nlist.h> and
@@ -45,7 +45,8 @@ module Ze0
       SECTIONS = [
         ["__text", "__TEXT", S_REGULAR | S_ATTR_PURE_INSTRUCTIONS | S_ATTR_SOME_INSTRUCTIONS, [:function]],
         ["__const", "__TEXT", S_REGULAR, [:text_const]],
-        ["__const", "__DATA", S_REGULAR, [:data_const, :data]],
+        ["__const", "__DATA", S_REGULAR, [:data_const]],
+        ["__data", "__DATA", S_REGULAR, [:data]],
         ["__bss", "__DATA", S_ZEROFILL, [:bss]]
       ].freeze
 

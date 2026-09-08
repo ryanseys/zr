@@ -2,11 +2,12 @@
 
 # One line for `v`: its bytes when it is a String, else its `to_s`, and
 # a newline unless the bytes end in one.
-sig [Value] => Void
+sig [Value] => Value
 machine def zr_puts_value(v)
   s = v
   if zr_type(v) != T_STRING
     s = zr_send(v, Machine.id(:to_s), 0, 0)
+    return s if s == QUNDEF
   end
   len = RString.len(s)
   ptr = RString.ptr(s)
@@ -14,6 +15,7 @@ machine def zr_puts_value(v)
   if len == 0 || Machine.load8(ptr + len - 1, 0) != 10
     zr_write_out(Machine.bytes("\n"), 1)
   end
+  Machine.value(QNIL)
 end
 
 sig [Value, Word, Ptr] => Value
@@ -23,7 +25,8 @@ machine def zr_puts(recv, argc, argv)
   end
   i = 0
   while i < argc
-    zr_puts_value(Machine.value(Machine.load64(argv + (i * 8), 0)))
+    r = zr_puts_value(Machine.value(Machine.load64(argv + (i * 8), 0)))
+    return r if r == QUNDEF
     i += 1
   end
   Machine.value(QNIL)

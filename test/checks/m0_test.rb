@@ -3,11 +3,13 @@
 require_relative "helper"
 require_relative "../../lib/ze0/zr"
 require_relative "../../lib/ze0/native/build"
+require_relative "../../lib/ze0/harness/case"
 
 # Ruby programs on the zr runtime: each `test/m0/<name>.rb` runs under
 # ruby, the oracle, and then compiled with the kernel on both native
 # roads (plain and with a collection at every allocation) and under
-# wasmtime; stdout, stderr and the exit status must agree.
+# wasmtime; stdout, stderr and the exit status must agree. The oracle
+# runs without error_highlight, as the corpus was recorded.
 class M0Test < Minitest::Test
   ROADS = { ruby: Ze0::Native::Build.road("ruby", ROOT), cranelift: Ze0::Native::Build.road("cranelift", ROOT) }.freeze
   WASMTIME = ENV["WASMTIME"] || "wasmtime"
@@ -22,21 +24,18 @@ class M0Test < Minitest::Test
   end
 
   def oracle(rb)
-    capture({}, [RbConfig.ruby, rb])
+    capture({}, [RbConfig.ruby, "--disable-error_highlight", rb])
   end
 
-  # CRuby's error line starts with `file:line:in '<main>': `, and a
-  # snippet with carets follows; the runtime prints the message alone
-  # until exceptions and backtraces exist.
-  def scrub(err)
-    err.lines.first.to_s.sub(/\A\S+:\d+:in '[^']*': /, "")
+  def scrub(text, rb)
+    Ze0::Harness::Normalize.bytes(text, rb, File.dirname(rb))
   end
 
-  def check(label, name, env, argv, want)
+  def check(label, name, env, argv, want, rb)
     out, err, status = capture(env, argv)
     assert_equal want[2], status, "#{name} on the #{label} road (#{env}) exited #{status}: #{out}#{err}"
     assert_equal want[0], out
-    assert_equal scrub(want[1]), err
+    assert_equal scrub(want[1], rb), scrub(err, rb)
   end
 
   Dir[File.join(ROOT, "test/m0/*.rb")].sort.each do |rb|
@@ -50,7 +49,7 @@ class M0Test < Minitest::Test
         Dir.mktmpdir("ze0-m0-") do |dir|
           bin = File.join(dir, name)
           assert_nil Ze0::Native::Build.binary(functions, data, bin, road: road, work: dir, raw: raw)
-          [{}, { "ZR_GC_STRESS" => "1" }].each { |env| check(label, name, env, [bin], want) }
+          [{}, { "ZR_GC_STRESS" => "1" }].each { |env| check(label, name, env, [bin], want, rb) }
         end
       end
     end
@@ -63,7 +62,7 @@ class M0Test < Minitest::Test
       Dir.mktmpdir("ze0-m0-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
         assert_nil Ze0::Native::Build.wasm(functions, data, wasm, raw: raw)
-        check(:wasm, name, {}, [WASMTIME, wasm], want)
+        check(:wasm, name, {}, [WASMTIME, wasm], want, rb)
       end
     end
   end

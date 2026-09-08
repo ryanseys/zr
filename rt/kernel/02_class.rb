@@ -2,7 +2,7 @@
 # rows searched in order. Method code takes `(recv, argc, argv)` and
 # answers a Value.
 Machine.struct :RClass, basic: RBasic, name: Word, superclass: Value, mtab: Ptr, mlen: Word, mcap: Word
-Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word
+Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr
 Machine.sig :method, [Value, Word, Ptr] => Value
 
 sig [Word, Value] => Value
@@ -50,9 +50,19 @@ machine def zr_gate_bit(klass, mid)
 end
 
 # A definition; the first one of each builtin operator is the runtime's
-# own and leaves the gate clear, a later one sets it.
-sig [Value, Word, Ptr, Word] => Void
-machine def zr_define_method(klass, mid, fn, arity)
+# own and leaves the gate clear, a later one sets it. `meta` is the
+# compiled def's own FrameMeta, or 0 for a builtin, which gets one here.
+sig [Value, Word, Ptr, Word, Word, Ptr] => Void
+machine def zr_define_method(klass, mid, fn, arity, kind, meta)
+  if meta == 0
+    meta = malloc(FrameMeta.size)
+    FrameMeta.set_file(meta, 0)
+    FrameMeta.set_file_len(meta, 0)
+    FrameMeta.set_kind(meta, kind)
+    FrameMeta.set_line(meta, 0)
+  end
+  FrameMeta.set_name(meta, mid)
+  FrameMeta.set_owner(meta, klass)
   if zr_find_method(klass, mid) != 0
     g = zr_gates()
     Machine.store64(g, 0, Machine.load64(g, 0) | zr_gate_bit(klass, mid))
@@ -76,6 +86,8 @@ machine def zr_define_method(klass, mid, fn, arity)
   MEntry.set_mid(e, mid)
   MEntry.set_fn(e, fn)
   MEntry.set_arity(e, arity)
+  MEntry.set_kind(e, kind)
+  MEntry.set_meta(e, meta)
   RClass.set_mlen(klass, n + 1)
 end
 
@@ -121,6 +133,8 @@ machine def zr_mark_children(v)
   t = RBasic.flags(v) & T_MASK
   if t == T_CLASS || t == T_MODULE
     zr_mark(RClass.superclass(v))
+  elsif t == T_EXCEPTION
+    zr_mark(RException.message(v))
   end
 end
 
@@ -135,6 +149,10 @@ machine def zr_release(v)
   elsif t == T_STRING
     if RString.ptr(v) != 0
       free(RString.ptr(v))
+    end
+  elsif t == T_EXCEPTION
+    if RException.rows(v) != 0
+      free(RException.rows(v))
     end
   end
 end

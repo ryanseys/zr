@@ -53,16 +53,20 @@ machine def zr_int_to_s(recv, argc, argv)
   zr_str_new(buf, n)
 end
 
-# The operand of an Integer operator, which must be an Integer until
-# coercion and Float exist.
-sig [Value, Ptr] => Word
-machine def zr_int_operand(recv, argv)
+# The operand of an Integer operator into `out`, which must be an
+# Integer until coercion and Float exist; else the TypeError, raised.
+sig [Ptr, Ptr] => Value
+machine def zr_int_operand(argv, out)
   other = Machine.value(Machine.load64(argv, 0))
   unless zr_fixnum_p(other)
-    zr_write_err(Machine.bytes("can't be coerced into Integer (TypeError)\n"), 42)
-    exit(1)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_sym(b, RClass.name(zr_class_of(other)))
+    zr_buf_push(b, Machine.bytes(" can't be coerced into Integer"), 30)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
-  zr_fix2long(other)
+  Machine.store64(out, 0, zr_fix2long(other))
+  Machine.value(QNIL)
 end
 
 # A result outside the fixnum range: bignums are not implemented yet,
@@ -77,32 +81,40 @@ end
 
 sig [Value, Word, Ptr] => Value
 machine def zr_int_plus(recv, argc, argv)
-  zr_int_result(zr_fix2long(recv) + zr_int_operand(recv, argv))
+  out = Machine.slot(8)
+  r = zr_int_operand(argv, out)
+  return r if r == QUNDEF
+  b = Machine.load64(out, 0)
+  zr_int_result(zr_fix2long(recv) + b)
 end
 
 sig [Value, Word, Ptr] => Value
 machine def zr_int_minus(recv, argc, argv)
-  zr_int_result(zr_fix2long(recv) - zr_int_operand(recv, argv))
+  out = Machine.slot(8)
+  r = zr_int_operand(argv, out)
+  return r if r == QUNDEF
+  b = Machine.load64(out, 0)
+  zr_int_result(zr_fix2long(recv) - b)
 end
 
 sig [Value, Word, Ptr] => Value
 machine def zr_int_mul(recv, argc, argv)
+  out = Machine.slot(8)
+  r = zr_int_operand(argv, out)
+  return r if r == QUNDEF
+  b = Machine.load64(out, 0)
   a = zr_fix2long(recv)
-  b = zr_int_operand(recv, argv)
-  r = a * b
-  if a != 0 && r / a != b
+  p = a * b
+  if a != 0 && p / a != b
     zr_bug(Machine.bytes("Integer overflow: bignums are not implemented yet\n"), 50)
   end
-  zr_int_result(r)
+  zr_int_result(p)
 end
 
-# Floored division and modulo, as Ruby defines them.
+# Floored division and modulo, as Ruby defines them; the caller has
+# ruled out a zero divisor.
 sig [Word, Word] => Word
 machine def zr_floor_div(a, b)
-  if b == 0
-    zr_write_err(Machine.bytes("divided by 0 (ZeroDivisionError)\n"), 33)
-    exit(1)
-  end
   q = a / b
   if (a % b != 0) && ((a < 0) != (b < 0))
     q -= 1
@@ -117,12 +129,22 @@ end
 
 sig [Value, Word, Ptr] => Value
 machine def zr_int_div(recv, argc, argv)
-  zr_int_result(zr_floor_div(zr_fix2long(recv), zr_int_operand(recv, argv)))
+  out = Machine.slot(8)
+  r = zr_int_operand(argv, out)
+  return r if r == QUNDEF
+  b = Machine.load64(out, 0)
+  return zr_raise_msg(zr_global(G_ZERO_DIVISION_ERROR), Machine.bytes("divided by 0"), 12) if b == 0
+  zr_int_result(zr_floor_div(zr_fix2long(recv), b))
 end
 
 sig [Value, Word, Ptr] => Value
 machine def zr_int_mod(recv, argc, argv)
-  zr_fix(zr_floor_mod(zr_fix2long(recv), zr_int_operand(recv, argv)))
+  out = Machine.slot(8)
+  r = zr_int_operand(argv, out)
+  return r if r == QUNDEF
+  b = Machine.load64(out, 0)
+  return zr_raise_msg(zr_global(G_ZERO_DIVISION_ERROR), Machine.bytes("divided by 0"), 12) if b == 0
+  zr_fix(zr_floor_mod(zr_fix2long(recv), b))
 end
 
 sig [Bool] => Value
@@ -136,22 +158,38 @@ end
 
 sig [Value, Word, Ptr] => Value
 machine def zr_int_lt(recv, argc, argv)
-  zr_bool(zr_fix2long(recv) < zr_int_operand(recv, argv))
+  out = Machine.slot(8)
+  r = zr_int_operand(argv, out)
+  return r if r == QUNDEF
+  b = Machine.load64(out, 0)
+  zr_bool(zr_fix2long(recv) < b)
 end
 
 sig [Value, Word, Ptr] => Value
 machine def zr_int_le(recv, argc, argv)
-  zr_bool(zr_fix2long(recv) <= zr_int_operand(recv, argv))
+  out = Machine.slot(8)
+  r = zr_int_operand(argv, out)
+  return r if r == QUNDEF
+  b = Machine.load64(out, 0)
+  zr_bool(zr_fix2long(recv) <= b)
 end
 
 sig [Value, Word, Ptr] => Value
 machine def zr_int_gt(recv, argc, argv)
-  zr_bool(zr_fix2long(recv) > zr_int_operand(recv, argv))
+  out = Machine.slot(8)
+  r = zr_int_operand(argv, out)
+  return r if r == QUNDEF
+  b = Machine.load64(out, 0)
+  zr_bool(zr_fix2long(recv) > b)
 end
 
 sig [Value, Word, Ptr] => Value
 machine def zr_int_ge(recv, argc, argv)
-  zr_bool(zr_fix2long(recv) >= zr_int_operand(recv, argv))
+  out = Machine.slot(8)
+  r = zr_int_operand(argv, out)
+  return r if r == QUNDEF
+  b = Machine.load64(out, 0)
+  zr_bool(zr_fix2long(recv) >= b)
 end
 
 # Equality takes any operand: a non-Integer is simply not equal.
