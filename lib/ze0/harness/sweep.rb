@@ -9,12 +9,15 @@ module Ze0
   module Harness
     # `ze0 test`: does ze0 answer what ruby answered?
     #
-    # One program costs one ze0 compile, one native build and one run. A
-    # program lands in one bucket, and only the last three are defects:
+    # One program costs one ze0 compile, one native build and one run. On
+    # the `zr` road (the default) `ze0 zr build` does all three in one
+    # child; on the `legacy` road the old text lowering runs and nothing
+    # links. A program lands in one bucket, and only the last three are
+    # defects:
     #
     #   skipped    no recording, or a directive that opts the program out
     #   refused    ze0 named a form outside its subset, at its line
-    #   backend    the text produced no binary (or no native road exists yet)
+    #   backend    the compile produced no binary (or no native road exists yet)
     #   matched    the binary said what ruby said
     #   diverged   the binary said something else
     #   crashed    the binary died on a signal ruby did not
@@ -37,11 +40,14 @@ module Ze0
 
       Row = Struct.new(:rb, :bucket, :why)
 
-      def initialize(root, native:, show: 10, jobs: nil)
+      # `road`: "zr" (a binary through `ze0 zr build --native <native>`)
+      # or "legacy" (the text lowering; `native` then builds the text).
+      def initialize(root, native:, show: 10, jobs: nil, road: "zr")
         @root = root
         @native = native
         @show = show
         @jobs = jobs || Etc.nprocessors
+        @road = road
       end
 
       # Every recorded program whose path contains one of `filters` (or all
@@ -93,17 +99,22 @@ module Ze0
 
         cwd = File.join(@root, "test")
         rel = rb.delete_prefix("#{cwd}/")
-        clif = File.join(work, "p.clif")
         bin = File.join(work, "p")
         File.delete(bin) if File.exist?(bin)
 
-        out = bounded([RbConfig.ruby, File.join(@root, "ze0.rb"), rel, "-o", clif], cwd, nil)
-        return Row.new(rb, :refused, first_line(out)) unless out.code == 0
+        if @road == "zr"
+          out = bounded([RbConfig.ruby, File.join(@root, "bin/ze0"), "zr", "build", rel, "-o", bin, "--native", @native.to_s], cwd, nil)
+          return Row.new(rb, :refused, first_line(out).sub(/\Aze0: /, "")) if out.code == 3
+          return Row.new(rb, :backend, first_line(out)) unless out.code == 0
+        else
+          clif = File.join(work, "p.clif")
+          out = bounded([RbConfig.ruby, File.join(@root, "ze0.rb"), rel, "-o", clif], cwd, nil)
+          return Row.new(rb, :refused, first_line(out)) unless out.code == 0
+          return Row.new(rb, :backend, "no native road yet") if @native.nil?
 
-        return Row.new(rb, :backend, "no native road yet") if @native.nil?
-
-        built = @native.build(clif, bin)
-        return Row.new(rb, :backend, built) if built.is_a?(String)
+          built = @native.build(clif, bin)
+          return Row.new(rb, :backend, built) if built.is_a?(String)
+        end
 
         stdin = kase.directives.stdin && File.binread(File.join(File.dirname(rb), kase.directives.stdin))
         env = kase.directives.env.merge(kase.directives.zeo_env)

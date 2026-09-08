@@ -5,6 +5,7 @@
 #
 #   ze0 <file.rb> -o <out.clif>         compile one program to CLIF text
 #   ze0 test <filter>... | --all        does ze0 answer what ruby answered?
+#                [--native ruby|cranelift] [--road zr|legacy] [--show N]
 #   ze0 scan <glob> [limit]             which programs ze0 compiles, and what it refuses
 #   ze0 check                           the repo's own checks
 #   ze0 stage1                          ze0 compiles itself, twice, to the same bytes
@@ -32,12 +33,23 @@ when "test"
   usage if args.include?("-h") || args.include?("--help")
   all = args.delete("--all")
   show = 10
+  native = "ruby"
+  road = "zr"
   if (i = args.index("--show"))
     show = Integer(args[i + 1]) rescue usage
     args.slice!(i, 2)
   end
+  if (i = args.index("--native"))
+    native = args[i + 1] or usage
+    args.slice!(i, 2)
+  end
+  if (i = args.index("--road"))
+    road = args[i + 1] or usage
+    args.slice!(i, 2)
+  end
   usage if args.any? { |a| a.start_with?("--") } || (args.empty? && !all)
-  sweep = Ze0::Harness::Sweep.new(ROOT, native: nil, show: show)
+  usage unless %w[zr legacy].include?(road) && %w[ruby cranelift].include?(native)
+  sweep = Ze0::Harness::Sweep.new(ROOT, native: road == "zr" ? native : nil, show: show, road: road)
   cases = sweep.select(args, all: all)
   abort "ze0 test: no program matches #{args.inspect}" if cases.empty?
   warn "ze0 test: #{cases.size} program(s)"
@@ -69,7 +81,9 @@ when "zr"
     source = File.read(input)
     functions, data, raw = verb == "machine" ? Ze0::Machine.compile(source, input) : Ze0::Zr.program(source, input)
   rescue Ze0::Machine::Refused, Ze0::Hir::Refused, Ze0::Zr::Lower::Refused => e
-    abort "ze0: #{e.message}"
+    # Status 3 is a refusal by name; the sweep tells it from a defect.
+    warn "ze0: #{e.message}"
+    exit 3
   end
   Dir.mktmpdir("ze0-zr-") do |work|
     out = verb == "run" ? File.join(work, "program") : File.expand_path(output)
