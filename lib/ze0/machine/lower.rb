@@ -40,23 +40,40 @@ module Ze0
     # `Machine.struct :Name, field: Type, ...`: fields as `name => [offset, type]`.
     Layout = Struct.new(:name, :fields, :size, :align)
 
+    # The symbol ids a unit names with `Machine.id(:name)`: the compiler
+    # owns the table, and a unit compiled alone numbers names as it meets
+    # them.
+    class Symbols
+      attr_reader :ids
+
+      def initialize(names = [])
+        @ids = {}
+        names.each { |n| id(n) }
+      end
+
+      def id(name)
+        @ids[name.to_s] ||= @ids.size
+      end
+    end
+
     # `source` to `[functions, data, raw]`: IR functions, the data objects
     # they name, and the raw functions they call.
-    def self.compile(source, file)
-      Lower.new([[source, file]]).run
+    def self.compile(source, file, symbols: Symbols.new)
+      Lower.new([[source, file]], symbols).run
     end
 
     # Several files as one unit: every declaration is visible to every
     # file after it, and a def may call a def of any file.
-    def self.compile_unit(paths)
-      Lower.new(paths.map { |path| [File.read(path), path] }).run
+    def self.compile_unit(paths, symbols: Symbols.new)
+      Lower.new(paths.map { |path| [File.read(path), path] }, symbols).run
     end
 
     class Lower
-      attr_reader :functions, :data, :raw
+      attr_reader :functions, :data, :raw, :symbols
 
-      def initialize(sources)
+      def initialize(sources, symbols = Symbols.new)
         @sources = sources
+        @symbols = symbols
         @imports = {}
         @defs = {}
         @consts = {}
@@ -491,6 +508,18 @@ module Ze0
 
       def intrinsic(node, args, want)
         case node.name
+        when :id
+          name = args.first
+          refuse(node, "Machine.id takes a symbol") unless name.is_a?(Prism::SymbolNode) && args.size == 1
+          literal(node, @unit.symbols.id(name.unescaped), want)
+        when :bytesize
+          s = args.first
+          refuse(node, "Machine.bytesize takes a string literal") unless s.is_a?(Prism::StringNode)
+          literal(node, s.unescaped.bytesize, want)
+        when :extern
+          name = args.first
+          refuse(node, "Machine.extern takes the symbol of a data object another unit defines") unless name.is_a?(Prism::SymbolNode)
+          [@f.symbol_value(@f.symbol(name.unescaped, colocated: false)), "Ptr"]
         when :call
           name = args.first
           refuse(node, "Machine.call takes the name of a Machine.sig, a pointer and the arguments") unless name.is_a?(Prism::SymbolNode)

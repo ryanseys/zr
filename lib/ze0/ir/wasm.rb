@@ -14,7 +14,9 @@ module Ze0
     # block sets the index of its successor and branches to the loop.
     # Stack slots live in a shadow stack in linear memory under a global
     # stack pointer. `write` and `exit` are the two libSystem calls the
-    # programs make, and become `fd_write` and `proc_exit` shims. A
+    # programs make, and become `fd_write` and `proc_exit` shims; `malloc`
+    # bumps a heap pointer above the shadow stack and grows the memory,
+    # `free` does nothing, and `getenv` finds nothing. A
     # function's address is its index in the one table, from 1 so that a
     # pointer is never zero; `call_indirect` goes through that table.
     class Wasm
@@ -53,7 +55,8 @@ module Ze0
         @index = {}
         @types = []
         @imports.each_with_index { |(_, name, params, results), i| @index[name] = i }
-        @shims = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]], "exit" => [[0x7F], []], "abort" => [[], []] }
+        @shims = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]], "exit" => [[0x7F], []], "abort" => [[], []],
+                   "malloc" => [[0x7E], [0x7E]], "free" => [[0x7E], []], "getenv" => [[0x7E], [0x7E]] }
         @shims.each_key.with_index { |name, i| @index[name] = @imports.size + i }
         @functions.each_with_index { |f, i| @index[f.name] = @imports.size + @shims.size + i }
         @index["_start"] = @imports.size + @shims.size + @functions.size
@@ -71,9 +74,11 @@ module Ze0
         out << section(2, vec(@imports.map { |(mod, name, p, r)| name(mod) + name(name) + "\0".b + leb(type_index([p, r])) }))
         out << section(3, vec((@shims.values + @functions.map { |f| signature(f) } + [[[], []]]).map { |t| leb(type_index(t)) }))
         out << section(4, vec(["\x70\x00".b + leb(@table.size + 1)])) unless @table.empty?
-        out << section(5, vec(["\0".b + leb(STACK_PAGES + 1)]))
+        out << section(5, vec(["\0".b + leb(STACK_PAGES + 2)]))
         stack_base = align(@data_end, 16)
-        out << section(6, vec(["\x7F\x01".b + "\x41".b + sleb(stack_base) + "\x0B".b]))
+        heap_base = align(stack_base + (STACK_PAGES * PAGE), 16)
+        out << section(6, vec(["\x7F\x01".b + "\x41".b + sleb(stack_base) + "\x0B".b,
+                               "\x7F\x01".b + "\x41".b + sleb(heap_base) + "\x0B".b]))
         out << section(7, vec([name("memory") + "\x02".b + leb(0), name("_start") + "\0".b + leb(@index["_start"])]))
         out << section(9, vec(["\0".b + i32c(1) + "\x0B".b + vec(@table.map { |n| leb(function_index(n)) })])) unless @table.empty?
         out << section(10, vec(bodies))
@@ -143,9 +148,25 @@ module Ze0
           code << "\x20\x00".b << "\x10".b << leb(function_index("proc_exit"))
         when "abort"
           code << "\x00".b
+        when "malloc"
+          # r = heap; heap += n rounded to 16; grow when heap passes the
+          # memory's end; answer r.
+          code << "\x23\x01".b << "\x21\x01".b
+          code << "\x23\x01".b << "\x20\x00".b << "\xA7".b << i32c(15) << "\x6A".b << i32c(-16) << "\x71".b << "\x6A".b << "\x24\x01".b
+          code << "\x23\x01".b << "\x3F\x00".b << i32c(16) << "\x74".b << "\x4B".b
+          code << "\x04\x40".b
+          code << "\x23\x01".b << "\x3F\x00".b << i32c(16) << "\x74".b << "\x6B".b << i32c(PAGE - 1) << "\x6A".b << i32c(16) << "\x76".b
+          code << "\x40\x00".b << "\x1A".b
+          code << "\x0B".b
+          code << "\x20\x01".b << "\xAD".b
+        when "free"
+          code << "".b
+        when "getenv"
+          code << "\x42\x00".b
         end
         code << "\x0B".b
-        vec_bytes(vec([]) + code)
+        locals = name == "malloc" ? vec([leb(1) + "\x7F".b]) : vec([])
+        vec_bytes(locals + code)
       end
 
       # `_start`: main(0, 0), then proc_exit with what it answered.
