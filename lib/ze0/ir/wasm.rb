@@ -1,0 +1,461 @@
+# frozen_string_literal: true
+
+require_relative "function"
+require_relative "../obj/model"
+
+module Ze0
+  module IR
+    # The wasm32 emitter: IR functions and data objects to one WASI module.
+    #
+    # Every value is a local of its type (an i8 is an i32 local; an i64
+    # stays i64, so a pointer is a 64-bit value whose address wraps to 32
+    # bits at every memory access). Control flow is one `loop` around a
+    # ladder of `block`s and a `br_table` on a block-index local: each IR
+    # block sets the index of its successor and branches to the loop.
+    # Stack slots live in a shadow stack in linear memory under a global
+    # stack pointer. `write` and `exit` are the two libSystem calls the
+    # programs make, and become `fd_write` and `proc_exit` shims.
+    class Wasm
+      class Refused < StandardError; end
+
+      PAGE = 65_536
+      # The bottom of linear memory: the iovec scratch, then data objects,
+      # then the shadow stack growing up from its base.
+      SCRATCH = 16
+      DATA_BASE = 64
+      STACK_PAGES = 16
+
+      TYPE = { "i8" => 0x7F, "i32" => 0x7F, "i64" => 0x7E, "f64" => 0x7C }.freeze
+      OP = {
+        "i32" => { const: 0x41, add: 0x6A, sub: 0x6B, mul: 0x6C, div_s: 0x6D, div_u: 0x6E, rem_s: 0x6F, rem_u: 0x70,
+                   and: 0x71, or: 0x72, xor: 0x73, shl: 0x74, shr_s: 0x75, shr_u: 0x76,
+                   eq: 0x46, ne: 0x47, lt_s: 0x48, lt_u: 0x49, gt_s: 0x4A, gt_u: 0x4B, le_s: 0x4C, le_u: 0x4D, ge_s: 0x4E, ge_u: 0x4F },
+        "i64" => { const: 0x42, add: 0x7C, sub: 0x7D, mul: 0x7E, div_s: 0x7F, div_u: 0x80, rem_s: 0x81, rem_u: 0x82,
+                   and: 0x83, or: 0x84, xor: 0x85, shl: 0x86, shr_s: 0x87, shr_u: 0x88,
+                   eq: 0x51, ne: 0x52, lt_s: 0x53, lt_u: 0x54, gt_s: 0x55, gt_u: 0x56, le_s: 0x57, le_u: 0x58, ge_s: 0x59, ge_u: 0x5A }
+      }.freeze
+      COND = { "eq" => :eq, "ne" => :ne, "slt" => :lt_s, "sle" => :le_s, "sgt" => :gt_s, "sge" => :ge_s,
+               "ult" => :lt_u, "ule" => :le_u, "ugt" => :gt_u, "uge" => :ge_u }.freeze
+
+      def initialize(functions, data)
+        @functions = functions
+        @data = data
+      end
+
+      # The module's bytes.
+      def emit
+        place_data
+        # Function index space: imports first, then the shims, then ours.
+        @imports = [["wasi_snapshot_preview1", "fd_write", [0x7F, 0x7F, 0x7F, 0x7F], [0x7F]],
+                    ["wasi_snapshot_preview1", "proc_exit", [0x7F], []]]
+        @index = {}
+        @types = []
+        @imports.each_with_index { |(_, name, params, results), i| @index[name] = i }
+        @shims = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]], "exit" => [[0x7F], []], "abort" => [[], []] }
+        @shims.each_key.with_index { |name, i| @index[name] = @imports.size + i }
+        @functions.each_with_index { |f, i| @index[f.name] = @imports.size + @shims.size + i }
+        @index["_start"] = @imports.size + @shims.size + @functions.size
+        used = (@functions.flat_map { |f| f.callees.map(&:symbol) } - @functions.map(&:name)).uniq
+        unknown = used - @shims.keys
+        raise Refused, "no wasm shim for #{unknown.join(", ")}" unless unknown.empty?
+
+        bodies = @shims.map { |name, _| shim(name) } + @functions.map { |f| Body.new(self, f).emit } + [start_body]
+        types = @imports.map { |(_, _, p, r)| [p, r] } + @shims.values + @functions.map { |f| signature(f) } + [[[], []]]
+        types.each { |t| type_index(t) }
+
+        out = +"\0asm\x01\0\0\0".b
+        out << section(1, vec(@types.map { |p, r| "\x60".b + vec(p.map(&:chr)) + vec(r.map(&:chr)) }))
+        out << section(2, vec(@imports.map { |(mod, name, p, r)| name(mod) + name(name) + "\0".b + leb(type_index([p, r])) }))
+        out << section(3, vec((@shims.values + @functions.map { |f| signature(f) } + [[[], []]]).map { |t| leb(type_index(t)) }))
+        out << section(5, vec(["\0".b + leb(STACK_PAGES + 1)]))
+        stack_base = align(@data_end, 16)
+        out << section(6, vec(["\x7F\x01".b + "\x41".b + sleb(stack_base) + "\x0B".b]))
+        out << section(7, vec([name("memory") + "\x02".b + leb(0), name("_start") + "\0".b + leb(@index["_start"])]))
+        out << section(10, vec(bodies))
+        segments = @data.reject { |d| d.section == :bss }.map do |d|
+          "\0".b + "\x41".b + sleb(@data_at[d.name]) + "\x0B".b + vec_bytes(d.bytes)
+        end
+        out << section(11, vec(segments))
+        out
+      end
+
+      def signature(f)
+        [f.params.map { |t| TYPE.fetch(t.split.first) }, f.ret ? [TYPE.fetch(f.ret)] : []]
+      end
+
+      def type_index(t)
+        @types.index(t) || (@types << t).size - 1
+      end
+
+      def function_index(name)
+        @index.fetch(name) { raise Refused, "no function named #{name}" }
+      end
+
+      # The wasm parameter and result types a call to `name` must match.
+      def function_type(name)
+        return @shims[name] if @shims.key?(name)
+
+        f = @functions.find { |x| x.name == name }
+        f ? signature(f) : @imports.find { |(_, n, *)| n == name }[2..3]
+      end
+
+      def data_address(name)
+        @data_at.fetch(name) { raise Refused, "no data named #{name}" }
+      end
+
+      def place_data
+        @data_at = {}
+        at = DATA_BASE
+        @data.each do |d|
+          at = align(at, [d.align, 1].max)
+          @data_at[d.name] = at
+          at += d.size
+        end
+        @data_end = at
+      end
+
+      # `write(fd, ptr, len)`: an iovec in the scratch area, then fd_write.
+      def shim(name)
+        code = +"".b
+        case name
+        when "write"
+          # iov.buf = ptr, iov.len = len (both i32 in memory)
+          code << i32c(SCRATCH) << "\x20\x01".b << "\xA7".b << "\x36\x02\x00".b
+          code << i32c(SCRATCH) << "\x20\x02".b << "\xA7".b << "\x36\x02\x04".b
+          code << "\x20\x00".b << i32c(SCRATCH) << i32c(1) << i32c(SCRATCH + 8) << "\x10".b << leb(function_index("fd_write")) << "\x1A".b
+          code << i32c(SCRATCH + 8) << "\x28\x02\x00".b << "\xAD".b
+        when "exit"
+          code << "\x20\x00".b << "\x10".b << leb(function_index("proc_exit"))
+        when "abort"
+          code << "\x00".b
+        end
+        code << "\x0B".b
+        vec_bytes(vec([]) + code)
+      end
+
+      # `_start`: main(0, 0), then proc_exit with what it answered.
+      def start_body
+        main = @functions.find { |f| f.name == "main" } or raise Refused, "no main"
+        code = +"".b
+        main.params.each { |t| code << (TYPE[t] == 0x7E ? "\x42\x00".b : "\x41\x00".b) }
+        code << "\x10".b << leb(function_index("main"))
+        code << (main.ret == "i64" ? "\xA7".b : "".b) if main.ret
+        code << (main.ret ? "".b : i32c(0))
+        code << "\x10".b << leb(function_index("proc_exit")) << "\x0B".b
+        vec_bytes(vec([]) + code)
+      end
+
+      # --- encoding ---------------------------------------------------
+
+      def leb(n)
+        out = +"".b
+        loop do
+          byte = n & 0x7F
+          n >>= 7
+          if n.zero?
+            out << byte.chr
+            return out
+          end
+          out << (byte | 0x80).chr
+        end
+      end
+
+      def sleb(n)
+        out = +"".b
+        loop do
+          byte = n & 0x7F
+          n >>= 7
+          done = (n.zero? && (byte & 0x40).zero?) || (n == -1 && (byte & 0x40) != 0)
+          out << (done ? byte : byte | 0x80).chr
+          return out if done
+        end
+      end
+
+      def i32c(n)
+        "\x41".b + sleb(n)
+      end
+
+      def vec(items)
+        leb(items.size) + items.join
+      end
+
+      def vec_bytes(bytes)
+        leb(bytes.bytesize) + bytes
+      end
+
+      def name(s)
+        vec_bytes(s.b)
+      end
+
+      def section(id, payload)
+        id.chr + vec_bytes(payload)
+      end
+
+      def align(n, a)
+        (n + a - 1) & ~(a - 1)
+      end
+
+      # One function's body.
+      class Body
+        def initialize(mod, f)
+          @m = mod
+          @f = f
+          @local = {}
+          @type = {}
+          @code = +"".b
+        end
+
+        def emit
+          assign
+          prologue
+          dispatch
+          @code << "\x0B".b
+          locals = @locals.chunk_while { |a, b| a == b }.map { |run| @m.leb(run.size) + run.first.chr }
+          @m.vec_bytes(@m.vec(locals) + @code)
+        end
+
+        private
+
+        # Parameters first, then every value, then the block index and the
+        # frame base.
+        def assign
+          n = 0
+          @f.blocks.each { |b| b.params.each { |v, t| @type[v] = t } }
+          @f.blocks.first.params.each { |v, _| @local[v] = n; n += 1 }
+          @locals = []
+          @f.blocks.each_with_index do |b, bi|
+            b.params.each do |v, t|
+              next if bi.zero?
+
+              @local[v] = n + @locals.size
+              @locals << Wasm::TYPE.fetch(t)
+            end
+            b.insts.each do |i|
+              i.results.each_with_index do |v, k|
+                @type[v] = result_type(i, k)
+                @local[v] = n + @locals.size
+                @locals << Wasm::TYPE.fetch(@type[v])
+              end
+            end
+          end
+          @bb = n + @locals.size
+          @locals << 0x7F
+          @fp = n + @locals.size
+          @locals << 0x7F
+          off = 0
+          @slot_at = @f.slots.map { |s| off = @m.align(off, [s.align, 8].max); at = off; off += s.bytes; at }
+          @frame = @m.align(off, 16)
+        end
+
+        def result_type(i, k)
+          case i.op
+          when :iconst, :load, :ireduce, :uextend, :sextend then i.type
+          when :call then @f.sigs.find { |s| s.sig == callee(i.callee).sig }.ret
+          when :icmp then "i8"
+          when :stack_addr, :symbol_value, :func_addr then "i64"
+          when :select then @type[i.args[1]]
+          when :sadd_overflow, :ssub_overflow, :smul_overflow then k.zero? ? @type[i.args[0]] : "i8"
+          else i.type || @type[i.args[0]]
+          end
+        end
+
+        def callee(fn)
+          @f.callees.find { |c| c.fn == fn }
+        end
+
+        def wide?(v)
+          @type.fetch(v) == "i64"
+        end
+
+        def ops(v)
+          Wasm::OP.fetch(wide?(v) ? "i64" : "i32")
+        end
+
+        def get(v)
+          @code << "\x20".b << @m.leb(@local.fetch(v))
+        end
+
+        def set(v)
+          @code << "\x21".b << @m.leb(@local.fetch(v))
+        end
+
+        # The frame: global 0 is the stack pointer, saved in the frame
+        # base local and bumped past the slots.
+        def prologue
+          @code << "\x23\x00".b << "\x22".b << @m.leb(@fp)
+          @code << @m.i32c(@frame) << "\x6A".b << "\x24\x00".b
+          @code << @m.i32c(0) << "\x21".b << @m.leb(@bb)
+        end
+
+        def epilogue
+          @code << "\x20".b << @m.leb(@fp) << "\x24\x00".b
+        end
+
+        # loop { block ... block { br_table } body0 end body1 end ... }
+        def dispatch
+          n = @f.blocks.size
+          @code << "\x03\x40".b
+          n.times { @code << "\x02\x40".b }
+          @code << "\x20".b << @m.leb(@bb) << "\x0E".b << @m.leb(n)
+          n.times { |i| @code << @m.leb(i) }
+          @code << @m.leb(0)
+          @code << "\x0B".b
+          @f.blocks.each_with_index do |b, i|
+            @loop_depth = n - 1 - i
+            b.insts.each { |inst| emit_inst(inst) }
+            @code << "\x0B".b
+          end
+          # Every block ends in a branch or a return; the loop's end is
+          # never reached, and `unreachable` tells the validator so.
+          @code << "\x00".b
+        end
+
+        def go(name)
+          @code << @m.i32c(@f.blocks.index { |b| b.name == name }) << "\x21".b << @m.leb(@bb)
+          @code << "\x0C".b << @m.leb(@loop_depth)
+        end
+
+        def emit_inst(i)
+          case i.op
+          when :iconst
+            @code << (i.type == "i64" ? "\x42".b : "\x41".b) << @m.sleb(i.args[0])
+            set(i.results[0])
+          when :load
+            get(i.args[0])
+            @code << "\xA7".b
+            @code << { "i64" => "\x29\x03".b, "i32" => "\x28\x02".b, "i8" => "\x2D\x00".b }.fetch(i.type) << @m.leb(i.offset)
+            set(i.results[0])
+          when :store
+            get(i.args[1])
+            @code << "\xA7".b
+            get(i.args[0])
+            @code << { "i64" => "\x37\x03".b, "i32" => "\x36\x02".b, "i8" => "\x3A\x00".b }.fetch(@type[i.args[0]]) << @m.leb(i.offset)
+          when :stack_addr
+            @code << "\x20".b << @m.leb(@fp) << @m.i32c(@slot_at[Integer(i.args[0].delete_prefix("ss"))]) << "\x6A".b << "\xAD".b
+            set(i.results[0])
+          when :symbol_value
+            g = @f.globals.find { |x| x.gv == i.args[0] }
+            @code << "\x42".b << @m.sleb(@m.data_address(g.symbol))
+            set(i.results[0])
+          when :call
+            # A libSystem call's text signature may say i64 where the shim
+            # takes i32: the width follows the callee.
+            name = callee(i.callee).symbol
+            params, results = @m.function_type(name)
+            i.args.zip(params).each do |a, want|
+              get(a)
+              @code << "\xA7".b if wide?(a) && want == 0x7F
+              @code << "\xAD".b if !wide?(a) && want == 0x7E
+            end
+            @code << "\x10".b << @m.leb(@m.function_index(name))
+            unless i.results.empty?
+              @code << "\xA7".b if results.first == 0x7E && !wide?(i.results[0])
+              @code << "\xAD".b if results.first == 0x7F && wide?(i.results[0])
+              set(i.results[0])
+            end
+          when :icmp
+            get(i.args[0])
+            get(i.args[1])
+            @code << ops(i.args[0]).fetch(Wasm::COND.fetch(i.cond)).chr
+            set(i.results[0])
+          when :iadd, :isub, :imul, :udiv, :sdiv, :urem, :srem, :band, :bor, :bxor, :ishl, :ushr, :sshr
+            get(i.args[0])
+            get(i.args[1])
+            @code << ops(i.args[0]).fetch({ iadd: :add, isub: :sub, imul: :mul, udiv: :div_u, sdiv: :div_s, urem: :rem_u, srem: :rem_s,
+                                            band: :and, bor: :or, bxor: :xor, ishl: :shl, ushr: :shr_u, sshr: :shr_s }[i.op]).chr
+            set(i.results[0])
+          when :select
+            get(i.args[1])
+            get(i.args[2])
+            get(i.args[0])
+            @code << "\xAD".b if wide?(i.args[0])
+            @code << "\xAC".b if wide?(i.args[0])
+            @code << "\x1B".b
+            set(i.results[0])
+          when :ireduce
+            get(i.args[0])
+            @code << "\xA7".b if wide?(i.args[0])
+            set(i.results[0])
+          when :uextend
+            get(i.args[0])
+            @code << "\xAD".b if i.type == "i64"
+            set(i.results[0])
+          when :sextend
+            get(i.args[0])
+            @code << "\xAC".b if i.type == "i64"
+            set(i.results[0])
+          when :sadd_overflow, :ssub_overflow
+            # r = a op b; overflow when the sign of r differs from a and (for
+            # add) b, or from a and not b (for sub).
+            get(i.args[0])
+            get(i.args[1])
+            @code << ops(i.args[0]).fetch(i.op == :sadd_overflow ? :add : :sub).chr
+            set(i.results[0])
+            get(i.args[0])
+            get(i.results[0])
+            @code << ops(i.args[0]).fetch(:xor).chr
+            get(i.args[1])
+            get(i.results[0])
+            @code << ops(i.args[0]).fetch(:xor).chr
+            if i.op == :ssub_overflow
+              @code << (wide?(i.args[0]) ? "\x42\x7F".b : "\x41\x7F".b) << ops(i.args[0]).fetch(:xor).chr
+            end
+            @code << ops(i.args[0]).fetch(:and).chr
+            @code << (wide?(i.args[0]) ? "\x42\x00".b : "\x41\x00".b) << ops(i.args[0]).fetch(:lt_s).chr
+            set(i.results[1])
+          when :smul_overflow
+            raise Refused, "smul_overflow on i32" unless wide?(i.args[0])
+
+            get(i.args[0])
+            get(i.args[1])
+            @code << "\x7E".b
+            set(i.results[0])
+            # overflow when a != 0 and r / a != b, or a == -1 and b == MIN
+            get(i.args[0])
+            @code << "\x50".b
+            @code << "\x04\x7F".b
+            @code << "\x41\x00".b
+            @code << "\x05".b
+            get(i.args[0])
+            @code << "\x42\x7F".b << "\x51".b
+            @code << "\x04\x7F".b
+            get(i.args[1])
+            @code << "\x42".b << @m.sleb(-(2**63)) << "\x51".b
+            @code << "\x05".b
+            get(i.results[0])
+            get(i.args[0])
+            @code << "\x7F".b
+            get(i.args[1])
+            @code << "\x52".b
+            @code << "\x0B\x0B".b
+            set(i.results[1])
+          when :brif
+            get(i.args[0])
+            @code << (wide?(i.args[0]) ? "\x50".b : "\x45".b)
+            # The value on the stack is 1 when the condition is false, and
+            # the `if` adds one label between here and the loop.
+            @code << "\x04\x40".b
+            @loop_depth += 1
+            go(i.targets[1][0])
+            @code << "\x05".b
+            go(i.targets[0][0])
+            @loop_depth -= 1
+            @code << "\x0B".b
+          when :jump
+            name, args = i.targets[0]
+            params = @f.blocks.find { |b| b.name == name }.params
+            args.each { |a| get(a) }
+            args.each_index.reverse_each { |k| set(params[k][0]) }
+            go(name)
+          when :return
+            epilogue
+            get(i.args[0]) unless i.args.empty?
+            @code << "\x0F".b
+          else
+            raise Refused, "no wasm lowering for #{i.op}"
+          end
+        end
+      end
+    end
+  end
+end

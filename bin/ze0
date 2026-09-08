@@ -10,7 +10,7 @@
 #   ze0 stage1                          ze0 compiles itself, twice, to the same bytes
 #   ze0 native build                    build the clif2obj crate (the Cranelift road)
 #   ze0 zr build <file.rb> -o <bin>     compile a kernel-dialect file to a binary
-#                [--native ruby|cranelift]
+#                [--native ruby|cranelift] [--emit wasm]
 #
 # ruby is the oracle: every corpus program carries ruby 4.0.6's recorded
 # answer under `__END__`, and ze0 is held to it or refuses by name.
@@ -48,10 +48,12 @@ when "zr"
   usage unless args.shift == "build"
   input = output = nil
   native = "ruby"
+  emit = nil
   until args.empty?
     case (a = args.shift)
     when "-o" then output = args.shift or usage
     when "--native" then native = args.shift or usage
+    when "--emit" then emit = args.shift or usage
     when /\A-/ then usage
     else usage if input; input = a
     end
@@ -61,6 +63,11 @@ when "zr"
     functions, data, raw = Ze0::Machine.compile(File.read(input), input)
   rescue Ze0::Machine::Refused => e
     abort "ze0: #{input}: #{e.message}"
+  end
+  if emit == "wasm"
+    why = Ze0::Native::Build.wasm(functions, data, File.expand_path(output), raw: raw)
+    abort "ze0: #{why}" if why
+    exit 0
   end
   road = Ze0::Native::Build.road(native, ROOT)
   abort "ze0: the #{native} road is not built (ze0 native build)" unless road.available?

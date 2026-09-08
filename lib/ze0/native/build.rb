@@ -5,6 +5,7 @@ require_relative "../ir"
 require_relative "../ir/verify"
 require_relative "cranelift"
 require_relative "ruby"
+require_relative "../ir/wasm"
 
 module Ze0
   module Native
@@ -41,6 +42,18 @@ module Ze0
           (why = road.compile(clif, obj, data: sidecar)) and return why
         end
         road.link([obj], out)
+      end
+
+      # The same functions and data as one WASI module. Raw functions have
+      # no wasm form; a program that names one is refused.
+      def wasm(functions, data, out, raw: [])
+        return "#{raw.map(&:name).join(", ")}: a raw function has no wasm form" unless raw.empty?
+
+        functions.each { |f| IR::Verify.check(f) }
+        File.binwrite(out, IR::Wasm.new(functions, data).emit)
+        nil
+      rescue IR::Wasm::Refused => e
+        e.message
       end
 
       def sidecar_row(d)
