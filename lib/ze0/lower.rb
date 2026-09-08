@@ -7326,7 +7326,9 @@ module Ze0
       return scope.blk if scope.blk
       return nil if scope.env.nil?
 
-      f.hoisted([:lexical_blk]) { "load.i64 notrap aligned #{scope.env}+#{Capi::PROC_ENV_LEXICAL_BLK}" }
+      f.hoisted([:lexical_blk]) do
+        IR::Inst.new(:load, type: "i64", args: [scope.env], offset: Capi::PROC_ENV_LEXICAL_BLK, flags: "notrap aligned")
+      end
     end
 
     # `block_given?` is the block pointer against null -- no call at all.

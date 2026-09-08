@@ -9,7 +9,7 @@ module Ze0
 
       def render(f)
         out = +"function %#{f.name}(#{f.params.join(", ")})"
-        out << " -> #{f.ret}" if f.ret
+        out << " -> #{f.ret_type}" if f.ret_type
         out << " system_v {\n"
         f.slots.each_with_index { |s, i| out << "    ss#{i} = explicit_slot #{s.bytes}, align = #{s.align}\n" }
         f.globals.each { |g| out << "    #{g.gv} = symbol #{g.colocated ? "colocated " : ""}%#{g.symbol}\n" }
