@@ -116,7 +116,7 @@ Gate for the Part: `ze0 test --all --native ruby` matches the corpus wherever `-
 
 ### Part C: the runtime in Ruby (`rt/`)
 
-- **C0 Experiments, in order.** C0.1 kernel spike: `machine def main` calling `write(2)` and `exit(2)` through IR → both native emitters → binary. C0.2 raw-function spike: the context-switch stub, two stacks ping-ponging 1e6 times. C0.3 shadow-stack spike: allocate in a loop with a frame record; collect under `ZR_GC_STRESS=1` with `ZR_GC_VERIFY=1` (section 8.6). C0.4 wasm spike: C0.1 through `IR::Wasm` and wasmtime with `fd_write`. Each spike becomes a permanent test.
+- **C0 Experiments, in order.** C0.1 kernel spike: `machine def main` calling `write(2)` and `exit(2)` through IR → both native emitters → binary (DONE: `test/zr/hello.rb`). C0.2 raw-function spike: the context-switch stub, two stacks ping-ponging 1e6 times (DONE: `test/zr/switch.rb`, ~10 ms). C0.3 shadow-stack spike: allocate in a loop with a frame record; collect under stress (DONE: `test/zr/gc.rb`, section 8.6 revised from what it found). C0.4 wasm spike: C0.1 through `IR::Wasm` and wasmtime with `fd_write`. Each spike is a permanent test.
 - **C1 The kernel dialect.** `lib/ze0/machine/` per section 8.5: types, signatures, intrinsics, `Machine.struct`, `Machine.import`, `defer`, the transitive effects and the rules the compiler enforces. Verify: golden IR per intrinsic; every rule has a refusal fixture.
 - **C2 Object model and dispatch core.** Section 8.7 and 8.8: values, headers, shapes, classes, method tables, caches, symbols, strings (UTF-8/US-ASCII/BINARY first), arrays, hashes, ranges, procs and envs, exceptions, frames and backtraces, `puts`/`p`/`inspect`, `ruby_qsort`. The `zr` lowering (`hir/lower_zr/`) lands beside the legacy one here and takes over `ze0 test`; the legacy lowering, its goldens and `capi.rb` go to branch `archive/legacy-lowering` when M1 passes. Corpus: `puts 1` (M0), `test/ze0/`, then ladder M1.
 - **C3 GC.** Section 8.6. Corpus: M1 in three columns.
@@ -251,7 +251,7 @@ Heap. Per ractor: 64 KiB pages from `mmap` (darwin) or `memory.grow` (wasm), siz
 
 Collection runs only inside an allocation: the threshold (adaptive on bytes allocated since the last collection), `GC.start`, or every allocation under `ZR_GC_STRESS=1`. Roots: every task's frame chain (a suspended fiber's chain is traced when its Fiber object is marked, not as a global root), ractor globals, constants, the symbol table, at_exit procs, the program's data slots. Mark with an explicit stack; trace by type descriptor. Weak refs, `WeakMap`, finalizers (run on the owning ractor's thread at a safepoint, never in the sweep), `ObjectSpace.each_object` by heap enumeration, `object_id` as a monotone counter in a side table.
 
-Checkers, from the first allocation: `ZR_GC_STRESS=1` collects at every allocation; `ZR_GC_VERIFY=1` scans every task's machine stack conservatively at each collection (bounds are known: per-task mmap'd stacks) and aborts on a heap pointer precise marking did not mark. Every corpus program becomes a root-precision test. Freed cells are poisoned in debug builds.
+Checkers, from the first allocation (the shape C0.3 settled on 2026-09-08): `ZR_GC_STRESS=1` collects at every allocation AND hands out freed cells last (the free list starts just past the last cell allocated, so a stale pointer meets poison, not a reused cell); freed cells are poisoned; `mark` aborts on a reference to a poisoned cell, which is the invariant that matters: no live object points at a freed one. A conservative scan of the machine stack (the earlier `ZR_GC_VERIFY` idea) is NOT a checker: Cranelift's allocator leaves stale copies of dead pointers in spill slots and callee-saved registers, and the spike aborted on one within seconds. `ZR_GC_VERIFY=1` therefore means the kernel's own accessors assert their cell is allocated. Every corpus program becomes a root-precision test under stress.
 
 ### 8.7 Values, headers, shapes
 
@@ -317,7 +317,7 @@ Command surface: `ze0 test [dirs | --all] [--native cranelift|ruby|ruby:<filter>
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| A `Value` in a register across an allocating call | use-after-free | the 8.5 effect rules are compiler errors; `ZR_GC_STRESS` and `ZR_GC_VERIFY` on the whole corpus in CI; poisoned cells |
+| A `Value` in a register across an allocating call | use-after-free | the 8.5 effect rules are compiler errors; `ZR_GC_STRESS` (collect every allocation, reuse freed cells last) on the whole corpus in CI; poisoned cells and a mark-time abort, proven by C0.3's deliberately broken program |
 | A kernel loop leaves an object poisoned on the `Qundef` path (`iter_lev`, temp locks) | permanent errors | `defer { }` is the only cleanup form; an early `return Qundef` outside it is refused |
 | A blocking syscall stalls a whole ractor | `thread`, `io`, `timeout` divergences | the helper pool ships in the first threaded milestone, before kqueue readiness |
 | Compiled-Ruby corelib too slow (the 8x finding) | priority 3 | tagged words, no refcounts, inline caches, kernel primitives for hot paths; measured at C5; Part F |

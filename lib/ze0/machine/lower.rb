@@ -93,7 +93,7 @@ module Ze0
             refuse(d, "a machine def has no sig ahead of it") if pending_sig.nil?
             params, ret = pending_sig
             pending_sig = nil
-            names = (d.parameters&.requireds || []).map(&:name)
+            names = (d.parameters&.requireds || []).map { |p| p.name.to_s }
             refuse(d, "the sig has #{params.size} types for #{names.size} parameters") if names.size != params.size
             refuse(d, "a machine def takes required parameters only") if d.parameters && d.parameters.child_nodes.compact.size != names.size
             @defs[d.name.to_s] = Def.new(d.name.to_s, names.zip(params), ret, d)
@@ -173,7 +173,7 @@ module Ze0
         if @d.ret == "Void"
           @f.ins "return"
         else
-          refuse(@d.node, "the body ends in #{type}, and the sig says #{@d.ret}") unless type == @d.ret
+          refuse(@d.node, "the body ends in #{type}, and the sig says #{@d.ret}") unless fits?(@d.ret, type)
           @f.ins "return #{value}"
         end
         @f
@@ -186,7 +186,7 @@ module Ze0
       end
 
       def declare_local(node, name, type)
-        refuse(node, "#{name} is already a #{@locals[name][:type]}") if @locals.key?(name) && @locals[name][:type] != type
+        refuse(node, "#{name} is already a #{@locals[name][:type]}") if @locals.key?(name) && !fits?(@locals[name][:type], type)
         @locals[name] ||= { type: type, addr: @f.stack_addr(@f.slot(8)) }
       end
 
@@ -238,7 +238,7 @@ module Ze0
         when Prism::WhileNode then loop_while(node)
         when Prism::ReturnNode
           value, type = node.arguments ? expr(node.arguments.arguments.first, @d.ret) : [nil, "Void"]
-          refuse(node, "a return of #{type} from a def whose sig says #{@d.ret}") unless type == @d.ret
+          refuse(node, "a return of #{type} from a def whose sig says #{@d.ret}") unless fits?(@d.ret, type)
           @f.ins(type == "Void" ? "return" : "return #{value}")
           [nil, "Void"]
         else
@@ -273,23 +273,36 @@ module Ze0
         :/ => nil, :% => nil, :>> => nil
       }.freeze
 
+      # Word and Ptr mix: a Ptr plus or minus a Word is a Ptr, a Ptr minus
+      # a Ptr is a Word, and a comparison with a Ptr on either side is
+      # unsigned. Value never mixes.
       def binary(node, op, lhs, lt, rhs, rt)
-        refuse(node, "#{op} on #{lt} and #{rt}") unless lt == rt && clif(lt)
+        refuse(node, "#{op} on #{lt} and #{rt}") unless clif(lt) && (lt == rt || (PLAIN.include?(lt) && PLAIN.include?(rt)))
+        ptr = lt == "Ptr" || rt == "Ptr"
+        result = if ptr && op == :- && lt == rt then "Word"
+                 elsif ptr then "Ptr"
+                 else lt
+                 end
         case op
         when :+, :-, :*, :&, :|, :^, :<<
-          [@f.val("#{OPERATORS[op]} #{lhs}, #{rhs}"), lt]
+          [@f.val("#{OPERATORS[op]} #{lhs}, #{rhs}"), result]
         when :/, :%, :>>
-          unsigned = UNSIGNED.include?(lt)
           mnemonic = { :/ => "div", :% => "rem", :>> => "shr" }[op]
-          [@f.val("#{unsigned ? "u" : "s"}#{mnemonic} #{lhs}, #{rhs}"), lt]
+          [@f.val("#{ptr ? "u" : "s"}#{mnemonic} #{lhs}, #{rhs}"), result]
         when :==, :!=
           [@f.val("icmp #{OPERATORS[op]} #{lhs}, #{rhs}"), "Bool"]
         when :<, :<=, :>, :>=
-          cond = (UNSIGNED.include?(lt) ? "u" : "s") + OPERATORS[op]
+          cond = (ptr ? "u" : "s") + OPERATORS[op]
           [@f.val("icmp #{cond} #{lhs}, #{rhs}"), "Bool"]
         else
           refuse(node, "#{op} is not in the kernel dialect")
         end
+      end
+
+      PLAIN = %w[Word Ptr].freeze
+
+      def fits?(want, got)
+        want == got || (PLAIN.include?(want) && PLAIN.include?(got))
       end
 
       # A call to an import or to a def of this file.
@@ -299,7 +312,7 @@ module Ze0
         types = callee.is_a?(Def) ? callee.params.map(&:last) : callee.params
         values = args.zip(types).map do |arg, type|
           value, got = expr(arg, type)
-          refuse(arg, "#{name} wants a #{type} here, not a #{got}") unless got == type
+          refuse(arg, "#{name} wants a #{type} here, not a #{got}") unless fits?(type, got)
           value
         end
         fn = @f.callee(name, types.map { |t| clif(t) }, clif(callee.ret), colocated: !callee.is_a?(Import))
@@ -320,12 +333,12 @@ module Ze0
         when :load64, :load32, :load8
           width = { load64: "i64", load32: "i32", load8: "i8" }[node.name]
           ptr, pt = expr(args[0], "Ptr")
-          refuse(node, "#{node.name} takes a Ptr and an offset") unless pt == "Ptr" && args[1].is_a?(Prism::IntegerNode)
+          refuse(node, "#{node.name} takes a Ptr and an offset") unless fits?("Ptr", pt) && args[1].is_a?(Prism::IntegerNode)
           type = { load64: "Word", load32: "I32", load8: "I8" }[node.name]
           [@f.val("load.#{width} notrap aligned #{ptr}#{args[1].value.zero? ? "" : "+#{args[1].value}"}"), type]
         when :store64, :store32, :store8
           ptr, pt = expr(args[0], "Ptr")
-          refuse(node, "#{node.name} takes a Ptr, an offset and a value") unless pt == "Ptr" && args[1].is_a?(Prism::IntegerNode)
+          refuse(node, "#{node.name} takes a Ptr, an offset and a value") unless fits?("Ptr", pt) && args[1].is_a?(Prism::IntegerNode)
           type = { store64: "Word", store32: "I32", store8: "I8" }[node.name]
           value, vt = expr(args[2], type)
           refuse(node, "#{node.name} stores a #{type}, not a #{vt}") unless clif(vt) == clif(type)

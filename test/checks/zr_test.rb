@@ -28,6 +28,33 @@ class ZrTest < Minitest::Test
     end
   end
 
+  # The collector under stress: the same answer with a collection at every
+  # allocation, and a program that drops a root out of its record aborts.
+  ROADS.each do |label, road|
+    define_method("test_#{label}_gc_under_stress") do
+      skip "clif2obj is not built (bin/ze0 native build)" unless road.available?
+
+      source = File.read(File.join(ROOT, "test/zr/gc.rb"))
+      bad = source.sub("    Machine.store64(rec, 24, leaf)\n    leaf = 0\n", "    Machine.store64(rec, 24, 0)\n")
+                  .sub("    Machine.store64(pair, 8, Machine.load64(rec, 24))", "    Machine.store64(pair, 8, leaf)")
+      refute_equal source, bad
+      Dir.mktmpdir("ze0-zr-") do |dir|
+        { "good" => source, "bad" => bad }.each do |name, text|
+          functions, data, raw = Ze0::Machine.compile(text, "gc.rb")
+          bin = File.join(dir, name)
+          assert_nil Ze0::Native::Build.binary(functions, data, bin, road: road, work: dir, raw: raw)
+          out = IO.popen([bin, "stress"], err: %i[child out], &:read)
+          if name == "good"
+            assert_equal File.binread(File.join(ROOT, "test/zr/gc.stdout")), out
+          else
+            assert_equal "a live object points at a freed cell\n", out
+            assert_equal Signal.list["ABRT"], $?.termsig, "the missed root did not abort"
+          end
+        end
+      end
+    end
+  end
+
   Dir[File.join(ROOT, "test/zr/refused/*.rb")].sort.each do |rb|
     define_method("test_refused_#{File.basename(rb, ".rb")}") do
       source = File.read(rb)
