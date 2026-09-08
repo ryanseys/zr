@@ -65,7 +65,15 @@ module Ze0
     # Several files as one unit: every declaration is visible to every
     # file after it, and a def may call a def of any file.
     def self.compile_unit(paths, symbols: Symbols.new)
-      Lower.new(paths.map { |path| [File.read(path), path] }, symbols).run
+      unit(paths, symbols: symbols).then { |u| [u.functions, u.data, u.raw] }
+    end
+
+    # The compiled unit itself, whose layouts and constants another
+    # lowering may read.
+    def self.unit(paths, symbols: Symbols.new)
+      u = Lower.new(paths.map { |path| [File.read(path), path] }, symbols)
+      u.run
+      u
     end
 
     class Lower

@@ -1,2 +1,2 @@
 7
-undefined method 'frobnicate' for an instance of Integer (NoMethodError)
+undefined local variable or method 'frobnicate' for an instance of Integer (NameError)

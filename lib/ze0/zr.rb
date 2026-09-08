@@ -2,6 +2,8 @@
 
 require_relative "machine/lower"
 require_relative "obj/model"
+require_relative "hir"
+require_relative "zr/lower"
 
 module Ze0
   # The `zr` runtime: the kernel files, and the data the compiler lays
@@ -10,6 +12,15 @@ module Ze0
     KERNEL = Dir[File.join(__dir__, "../../rt/kernel/*.rb")].sort.freeze
 
     module_function
+
+    # A Ruby program with the kernel as one unit: `[functions, data, raw]`
+    # ready for `Native::Build`.
+    def program(source, file)
+      symbols = Machine::Symbols.new
+      unit = Machine.unit(KERNEL, symbols: symbols)
+      functions, data = Lower.new(Hir.build(source, file), unit, symbols).run
+      [unit.functions + functions, unit.data + data + symbol_names(symbols), unit.raw]
+    end
 
     # `zr_symbol_names`: a row of (bytes, length) per symbol id, the bytes
     # in their own read-only objects.

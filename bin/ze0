@@ -9,7 +9,9 @@
 #   ze0 check                           the repo's own checks
 #   ze0 stage1                          ze0 compiles itself, twice, to the same bytes
 #   ze0 native build                    build the clif2obj crate (the Cranelift road)
-#   ze0 zr build <file.rb> -o <bin>     compile a kernel-dialect file to a binary
+#   ze0 zr run <file.rb> [args]         compile a Ruby program with the zr runtime, and run it
+#   ze0 zr build <file.rb> -o <bin>     compile a Ruby program with the zr runtime
+#   ze0 zr machine <file.rb> -o <bin>   compile a kernel-dialect file alone
 #                [--native ruby|cranelift] [--emit wasm]
 #
 # ruby is the oracle: every corpus program carries ruby 4.0.6's recorded
@@ -42,38 +44,49 @@ when "test"
   exit(sweep.report(sweep.run(cases)) ? 0 : 1)
 when "zr"
   require "tmpdir"
-  require_relative "../lib/ze0/machine/lower"
+  require_relative "../lib/ze0/zr"
   require_relative "../lib/ze0/native/build"
   args = ARGV.drop(1)
-  usage unless args.shift == "build"
+  verb = args.shift
+  usage unless %w[run build machine].include?(verb)
   input = output = nil
   native = "ruby"
   emit = nil
+  rest = []
   until args.empty?
     case (a = args.shift)
     when "-o" then output = args.shift or usage
     when "--native" then native = args.shift or usage
     when "--emit" then emit = args.shift or usage
     when /\A-/ then usage
-    else usage if input; input = a
+    else
+      if input then rest << a else input = a end
     end
   end
-  usage unless input && output
+  usage unless input && (verb == "run" ? output.nil? : output)
+  usage if verb != "run" && !rest.empty?
   begin
-    functions, data, raw = Ze0::Machine.compile(File.read(input), input)
-  rescue Ze0::Machine::Refused => e
-    abort "ze0: #{input}: #{e.message}"
+    source = File.read(input)
+    functions, data, raw = verb == "machine" ? Ze0::Machine.compile(source, input) : Ze0::Zr.program(source, input)
+  rescue Ze0::Machine::Refused, Ze0::Hir::Refused, Ze0::Zr::Lower::Refused => e
+    abort "ze0: #{e.message}"
   end
-  if emit == "wasm"
-    why = Ze0::Native::Build.wasm(functions, data, File.expand_path(output), raw: raw)
-    abort "ze0: #{why}" if why
-    exit 0
-  end
-  road = Ze0::Native::Build.road(native, ROOT)
-  abort "ze0: the #{native} road is not built (ze0 native build)" unless road.available?
   Dir.mktmpdir("ze0-zr-") do |work|
-    why = Ze0::Native::Build.binary(functions, data, File.expand_path(output), road: road, work: work, raw: raw)
+    out = verb == "run" ? File.join(work, "program") : File.expand_path(output)
+    if emit == "wasm"
+      why = Ze0::Native::Build.wasm(functions, data, out, raw: raw)
+      abort "ze0: #{why}" if why
+      exec("wasmtime", out, *rest) if verb == "run"
+      exit 0
+    end
+    road = Ze0::Native::Build.road(native, ROOT)
+    abort "ze0: the #{native} road is not built (ze0 native build)" unless road.available?
+    why = Ze0::Native::Build.binary(functions, data, out, road: road, work: work, raw: raw)
     abort "ze0: #{why}" if why
+    if verb == "run"
+      system(out, *rest)
+      exit($?.exitstatus || 1)
+    end
   end
 when "native"
   require_relative "../lib/ze0/native/cranelift"

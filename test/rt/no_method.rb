@@ -9,6 +9,6 @@ machine def zr_toplevel
   argv = rec + Frame.size
   Machine.store64(argv, 0, Machine.word(zr_fix(7)))
   zr_send(zr_global(G_MAIN), Machine.id(:puts), 1, argv)
-  zr_send(zr_fix(7), Machine.id(:frobnicate), 0, argv)
+  zr_vcall(zr_fix(7), Machine.id(:frobnicate), 0, argv)
   Machine.value(QNIL)
 end

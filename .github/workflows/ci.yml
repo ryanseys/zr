@@ -13,6 +13,7 @@ jobs:
           ruby-version: .ruby-version
           bundler-cache: true
       - uses: dtolnay/rust-toolchain@stable
+      - uses: bytecodealliance/actions/wasmtime/setup@v1
       - run: bin/ze0 native build
       - run: bin/ze0 check
       - run: bin/ze0 test ze0::
