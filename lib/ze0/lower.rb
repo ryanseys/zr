@@ -92,6 +92,10 @@ module Ze0
       @scopes = []
       @blocks = 0
       @file = program.file
+      # Whether this program can run a STRING of ruby. A snippet may mark
+      # a constant private, so every explicit-scope read asks the run time
+      # rather than folding one.
+      @evals = false
       # Every name any class body marked `private_constant`. A read of a
       # name no body marks can never need the guard, whatever its scope.
       @private_constants = {}
@@ -197,6 +201,7 @@ module Ze0
       all.each { |_file, statements| statements.each { |s| note_ruby2_keywords(s) } }
       all.each { |_file, statements| statements.each { |s| note_undefined(s) } }
       all.each { |_file, statements| statements.each { |s| note_definer_methods(s) } }
+      @evals ||= all.any? { |_file, statements| statements.any? { |s| evals?(s) } }
       all.each { |_file, statements| statements.each { |s| note_ffi_typedefs(s) } }
       all.each { |_file, statements| statements.each { |s| note_ffi_constants(s) } }
       @program_freezes = all.any? { |_file, statements| statements.any? { |s| freezes?(s) } }
@@ -2170,6 +2175,15 @@ module Ze0
       when Prism::IntegerNode then node.value
       else Ffi.constant_value(node, @ffi_consts)
       end
+    end
+
+    # Whether `node` reaches the run-time compiler: a verb that runs a
+    # string of ruby. Read before the lowering, because the answer decides
+    # what a constant READ written above the `eval` compiles to.
+    def evals?(node)
+      return true if node.is_a?(Prism::CallNode) && EVAL_VERBS.include?(node.name) && node.block.nil?
+
+      node.compact_child_nodes.any? { |c| evals?(c) }
     end
 
     def note_definer_methods(node)
@@ -4736,7 +4750,15 @@ module Ze0
     # in the lookup -- privacy is positional, so which directive last ran
     # is the run time's answer.
     def private_constant_guard(scope_name, name, path)
-      return unless @classes.fetch(scope_name)[:private_constants].include?(name)
+      # A program that can `eval` may mark this constant private in a
+      # snippet the compile never reads, so the READ asks the run time --
+      # which is where privacy lives -- rather than folding one. The check
+      # takes the scope's ID, so a scope with no row of its own keeps the
+      # unguarded read: nothing here could name it.
+      return unless keyed_class?(scope_name)
+      unless @evals || @classes.fetch(scope_name)[:private_constants].include?(name)
+        return
+      end
 
       nptr, nlen = rodata_ref(name)
       pptr, plen = rodata_ref(path)
