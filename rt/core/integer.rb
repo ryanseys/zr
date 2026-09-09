@@ -181,8 +181,10 @@ class Integer
   end
 
   def digits(base = 10)
-    raise Math::DomainError, "out of domain" if negative?
+    base = Primitive.zr_index_operand_m(base)
+    raise ArgumentError, "negative radix" if base < 0
     raise ArgumentError, "invalid radix #{base}" if base < 2
+    raise Math::DomainError, "out of domain" if negative?
 
     return [0] if zero?
 

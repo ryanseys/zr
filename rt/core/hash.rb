@@ -205,7 +205,7 @@ class Hash
 
   def dig(key, *rest)
     v = self[key]
-    rest.empty? || v.nil? ? v : v.dig(*rest)
+    rest.empty? || v.nil? ? v : Primitive.zr_dig_into(v, rest)
   end
 
   def fetch_values(*keys, &block)
@@ -249,6 +249,7 @@ class Hash
   end
 
   def flatten(depth = 1)
+    depth = Primitive.zr_index_operand_m(depth)
     return to_a if depth <= 0
 
     out = []

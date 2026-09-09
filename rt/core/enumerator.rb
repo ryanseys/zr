@@ -780,3 +780,63 @@ end
 class Enumerator
   def +(other) = Enumerator::Chain.new(self, other)
 end
+
+# `Enumerator.product(a, b)`: every combination, the last enumerable
+# varying fastest.
+class Enumerator::Product < Enumerator
+  def initialize(*enums)
+    @enums = enums
+  end
+
+  def each(&block)
+    return to_enum(:each) unless block
+
+    walk(0, [], &block)
+    self
+  end
+
+  def size
+    total = 1
+    @enums.each do |e|
+      n = e.respond_to?(:size) ? e.size : nil
+      return nil if n.nil?
+      return n if n.is_a?(Float) && n.infinite?
+
+      total *= n
+    end
+    total
+  end
+
+  def rewind
+    @enums.reverse_each { |e| e.rewind if e.respond_to?(:rewind) }
+    self
+  end
+
+  def inspect = "#<Enumerator::Product: #{@enums.inspect}>"
+
+  alias to_s inspect
+
+  private
+
+  def walk(depth, picked, &block)
+    return yield(picked.dup) if depth == @enums.size
+
+    @enums[depth].each_entry do |x|
+      picked << x
+      walk(depth + 1, picked, &block)
+      picked.pop
+    end
+  end
+end
+
+class Enumerator
+  def self.product(*enums, **nothing, &block)
+    raise ArgumentError, "unknown keywords: #{nothing.keys.map(&:inspect).join(', ')}" unless nothing.empty?
+
+    product = Enumerator::Product.new(*enums)
+    return product unless block
+
+    product.each(&block)
+    nil
+  end
+end

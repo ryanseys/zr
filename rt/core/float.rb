@@ -39,6 +39,8 @@ class Float
     (self / other).floor
   end
 
+  alias to_int to_i
+
   def coerce(other)
     return [other, self] if other.is_a?(Float)
     return [other.to_f, self] if other.is_a?(Integer) || other.is_a?(Rational)

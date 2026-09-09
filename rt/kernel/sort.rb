@@ -257,6 +257,9 @@ end
 # old one, and the sweep frees it.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_sort_bang(recv, argc, argv, cref, blk)
+  if zr_frozen_p(recv)
+    return zr_frozen_error(recv)
+  end
   tmp = zr_ary_sort_copy(zr_ary_of(RArray.len(recv), RArray.ptr(recv)), blk)
   return tmp if tmp == QUNDEF
   p = RArray.ptr(recv)

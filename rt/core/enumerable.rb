@@ -64,8 +64,15 @@ module Enumerable
     ifnone&.call
   end
 
-  def any?
-    if block_given?
+  def any?(*pattern)
+    raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
+    if !pattern.empty?
+      each do |*x|
+        x = Primitive.zr_enum_value(x)
+        return true if pattern[0] === x
+        nil
+      end
+    elsif block_given?
       each do |*x|
         x = Primitive.zr_enum_value(x)
         return true if yield(x)
@@ -81,8 +88,15 @@ module Enumerable
     false
   end
 
-  def all?
-    if block_given?
+  def all?(*pattern)
+    raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
+    if !pattern.empty?
+      each do |*x|
+        x = Primitive.zr_enum_value(x)
+        return false unless pattern[0] === x
+        nil
+      end
+    elsif block_given?
       each do |*x|
         x = Primitive.zr_enum_value(x)
         return false unless yield(x)
@@ -98,8 +112,15 @@ module Enumerable
     true
   end
 
-  def none?
-    if block_given?
+  def none?(*pattern)
+    raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
+    if !pattern.empty?
+      each do |*x|
+        x = Primitive.zr_enum_value(x)
+        return false if pattern[0] === x
+        nil
+      end
+    elsif block_given?
       each do |*x|
         x = Primitive.zr_enum_value(x)
         return false if yield(x)
@@ -336,11 +357,18 @@ module Enumerable
     to_a.max(n, &blk)
   end
 
-  def minmax = [min, max]
+  def minmax(&block) = [min(&block), max(&block)]
 
-  def one?
+  def one?(*pattern)
+    raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
     seen = 0
-    if block_given?
+    if !pattern.empty?
+      each do |*x|
+        x = Primitive.zr_enum_value(x)
+        seen += 1 if pattern[0] === x
+        nil
+      end
+    elsif block_given?
       each do |*x|
         x = Primitive.zr_enum_value(x)
         seen += 1 if yield(x)

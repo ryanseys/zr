@@ -32,7 +32,7 @@ class Random < random_base
     @default ||= new
   end
 
-  def self.rand(max = 0) = default.rand(max)
+  def self.rand(max = nil) = default.rand(max)
   def self.bytes(size) = default.bytes(size)
   def self.seed = default.seed
 
@@ -43,8 +43,9 @@ class Random < random_base
   end
 
   # `rand(n)`, `rand(a..b)`; a Float bound or no bound is a Float draw.
-  def rand(max = 0)
+  def rand(max = nil)
     case max
+    when nil then unit_float
     when Integer
       raise ArgumentError, "invalid argument - #{max}" if max <= 0
 
@@ -53,14 +54,22 @@ class Random < random_base
       low = max.begin
       high = max.end
       raise Errno::EDOM, "Numerical argument out of domain" if low.nil? || high.nil?
-      Primitive.zr_unimplemented("Random#rand with a Float range") unless low.is_a?(Integer) && high.is_a?(Integer)
+      if low.is_a?(Float) || high.is_a?(Float)
+        span = high.to_f - low.to_f
+        raise ArgumentError, "invalid argument - #{max}" if span < 0 || (span == 0 && max.exclude_end?)
+        return low.to_f + span * unit_float if max.exclude_end?
+
+        return low.to_f + span * unit_float_closed
+      end
 
       high -= 1 if max.exclude_end?
       raise ArgumentError, "invalid argument - #{max}" if high < low
 
       low + limited(high - low)
     when Float
-      Primitive.zr_unimplemented("Random#rand with a Float")
+      raise ArgumentError, "invalid argument - #{max}" if max <= 0
+
+      max * unit_float
     else
       raise ArgumentError, "invalid argument - #{max.inspect}"
     end
@@ -87,6 +96,26 @@ class Random < random_base
       end
     end
     out
+  end
+
+  # A double in [0, 1) from 53 random bits, as MT's genrand_res53.
+  def unit_float
+    Primitive.attr! :hidden
+    a = next_int32 >> 5
+    b = next_int32 >> 6
+    (a * 67108864.0 + b) * (1.0 / 9007199254740992.0)
+  end
+
+  # A double in [0, 1] as CRuby's int_pair_to_real_inclusive: the 64
+  # random bits scaled by 2**53 + 1 and the high word kept.
+  def unit_float_closed
+    Primitive.attr! :hidden
+    a = next_int32
+    b = next_int32
+    high = (a << 21) | (b >> 11)
+    low = b & 0x7FF
+    high += 1 if (a >> 21) >= 2048 - low
+    high / 9007199254740992.0
   end
 
   # A draw in 0..limit, by rejection from as many 32-bit words as the
@@ -212,7 +241,18 @@ module Random::Formatter; end
 Random::Base.include(Random::Formatter)
 
 module Kernel
-  def rand(max = 0) = Random.rand(max)
+  # Kernel#rand: nil or 0 gives a Float, a Float or negative bound is
+  # taken as its Integer size.
+  def rand(max = 0)
+    generator = Random.default
+    case max
+    when nil then generator.send(:unit_float)
+    when Float, Integer
+      n = max.to_i.abs
+      n == 0 ? generator.send(:unit_float) : generator.rand(n)
+    else generator.rand(max)
+    end
+  end
   def srand(seed = Random.new_seed) = Random.srand(seed)
   private :rand, :srand
   module_function :rand, :srand

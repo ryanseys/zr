@@ -1,0 +1,18 @@
+a = [1]; a << a; b = [1]; b << b
+p a == b, (a <=> b), a.inspect, a == a.dup, a.hash == b.hash, a.eql?(b), (a.join(",") rescue $!.message), a.flatten(1).size, (a.flatten rescue $!.message)
+c = [1]; c << c; d = [1]; d << d << 3
+p((c <=> d), (d <=> c), ([[1, 2], 3] <=> [[1, 2], 4]), ([1, 2] <=> [1, 3]), ([1] <=> [1, 2]), ([1] <=> "x"))
+p [1, 2, 3].at(1), [1, 2, 3].at(-1), [1, 2].at(5), ([1].at("x") rescue $!.message), [1, 2, 3].pop(2), [1, 2, 3].shift(2), [1, 2, 3].pop(0), ([1].pop(-1) rescue $!.message), [1, 2, 3].values_at(1.5), [1, 2, 3].first(1.9), (([1, 2, 3][-5, 2] = 9) rescue $!.message), [3, 1, 2].minmax { |x, y| y <=> x }, ([1, 2].first("x") rescue $!.message), ([1, 2].take(nil) rescue $!.message), ([1, 2].fetch("x") rescue $!.message), ([1, 2].rotate(nil) rescue $!.message), ([1, 2].insert("x", 9) rescue $!.message), [1, 2].rotate(1.5), ([1, 2].drop(true) rescue $!.message)
+p [0.1, 0.2, 0.3].sum, [0.1, 0.2, 0.3].sum(0.0), [1, 0.1, 0.2, 0.3].sum, [0.1, 0.2, 0.3].sum(1), [0.1, Rational(1, 2)].sum, [3, 0.3, 0.3].sum, [1e100, 1.0, -1e100].sum, [Float::INFINITY, 1.0].sum, [1.0, Float::NAN].sum.nan?, [0.1, 0.2, "x"].sum("") rescue p $!.class
+p [0.1, 0.2].sum { |x| x * 2 }, [1, 2].sum(0.0), [Rational(1, 3), 0.5].sum, [0.1] * 10 == [0.1] * 10, ([0.1] * 10).sum, [1, 2].sum(Rational(1, 2))
+p ([1].dig(0, 0) rescue $!.message), ({ a: 1 }.dig(:a, :b) rescue $!.message), (Struct.new(:a).new(1).dig(:zz)), ({ a: { b: [1, 2] } }.dig(:a, :b, 1)), [[1, [2]]].dig(0, 1, 0), ({ a: "s" }.dig(:a, 0) rescue $!.message)
+D3 = Data.define(:v)
+p (([D3.new(2)].dig(0, :v)) rescue $!.class), (D3.new(2).dig(:v) rescue $!.class), ({ k: D3.new(2) }.dig(:k, :v) rescue $!.class), [Struct.new(:w).new(3)].dig(0, :w)
+p({ a: [1, 2], b: 3 }.flatten(2), { a: [1, [2]] }.flatten(3), (1.digits(-5) rescue $!.message), (1.digits(1) rescue $!.message), [1, 2].all?(Integer), [1, 2].any?(3), [nil].none?(NilClass), [1, 2].one?(1), [1, "a"].all?(Integer), ([1].any?(1, 2) rescue $!.message))
+p Enumerator.product([1, 2], [3]).to_a, Enumerator.product([1, 2], [3]).class, Enumerator.product([1, 2], [3]).size, Enumerator.product.to_a, Enumerator.product([1, 2], [3]) { |x| p x }.class, Enumerator::Product.new([1], [2]).inspect, Enumerator.product([1, 2], 1..2).size, Enumerator.product([1], []).to_a, Enumerator.product([1, 2], [3, 4]).lazy.map { |x, y| x * y }.first(2), Enumerator.product([1, 2], [3]).each.class, (Enumerator.product(1).to_a rescue $!.message), Enumerator.product([1, 2], [3]).rewind.class
+f = [1, 2, 3].freeze
+p (f.sort! rescue $!.message), (f.shuffle! rescue $!.class), (f.reverse! rescue $!.class), (f.rotate!(1) rescue $!.class), (f.pop(1) rescue $!.class), (f.flatten! rescue $!.class), (f.sort_by! { |x| x } rescue $!.class)
+class Pair; def to_ary = [1, 2]; end
+p [Pair.new].flatten, [Pair.new].flatten(1), [0] + Pair.new, [[Pair.new]].flatten, [Pair.new, 3].join("-"), ([1] + 1 rescue $!.message), [[1, [2, [3]]]].flatten(1), [[1, [2, [3]]]].flatten(-1), ([1].flatten("x") rescue $!.message), [[1, [2]]].flatten(nil)
+r = Random.new(42); p r.rand, r.rand(1.0..2.0), r.rand(1.0...2.0), r.rand(2.5), Random.new(7).rand(1..2), Random.new(3).rand(1.0..1.0), Random.new(3).rand(-1.0..1.0), Random.new(5).rand(0.0..1.0), Random.new(5).rand(0.0...1.0), Random.new(5).rand, rand(1.0..2.0).class, (Random.new(1).rand(-1.5) rescue $!.message), Random.new(1).rand(1.5).class, rand(0).class, rand(nil).class, rand(-1), (Random.rand(0) rescue $!.message), rand(2.5).class, rand(-1.5).class
+p [[1, 2], [3, 4]].assoc(3), [[], [1], (1..2)].assoc(nil), [[], [1], (1..2)].rassoc(nil), [[1, 2], [3, 4]].rassoc(9)

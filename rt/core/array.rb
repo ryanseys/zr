@@ -15,6 +15,8 @@ class Array
 
   def last(n = nil)
     return self[-1] if n.nil?
+
+    n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "negative array size" if n < 0
 
     from = size - n
@@ -29,6 +31,8 @@ class Array
 
   def first(n = nil)
     return self[0] if n.nil?
+
+    n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "negative array size" if n < 0
 
     out = []
@@ -40,17 +44,24 @@ class Array
     out
   end
 
+  # A comparison already in flight on this Array compares as equal.
   def <=>(other)
     return nil unless other.is_a?(Array)
+    return 0 if equal?(other)
+    return 0 if Primitive.zr_recursive_enter(self, :<=>)
 
-    i = 0
-    while i < size && i < other.size
-      c = self[i] <=> other[i]
-      return c if c != 0
+    begin
+      i = 0
+      while i < size && i < other.size
+        c = self[i] <=> other[i]
+        return c if c != 0
 
-      i += 1
+        i += 1
+      end
+      size <=> other.size
+    ensure
+      Primitive.zr_recursive_leave(self, :<=>)
     end
-    size <=> other.size
   end
 
   def dup
@@ -64,6 +75,7 @@ class Array
   end
 
   def +(other)
+    other = Array.try_convert(other) || raise(TypeError, "no implicit conversion of #{other.nil? ? 'nil' : other.class} into Array")
     out = dup
     i = 0
     while i < other.size
@@ -73,17 +85,36 @@ class Array
     out
   end
 
+  def at(index) = self[Primitive.zr_index_operand_m(index)]
+
   def join(sep = nil)
-    sep = sep.nil? ? "" : sep.to_str
-    s = +""
-    i = 0
-    while i < size
-      s << sep if i > 0
-      x = self[i]
-      s << (x.is_a?(Array) ? x.join(sep) : x.to_s)
-      i += 1
+    sep = $, if sep.nil?
+    sep = sep.nil? ? "" : Primitive.zr_str_operand(sep)
+    raise ArgumentError, "recursive array join" if Primitive.zr_recursive_enter(self, :join)
+
+    begin
+      s = +""
+      i = 0
+      while i < size
+        s << sep if i > 0
+        x = self[i]
+        s << if x.is_a?(Array)
+               x.join(sep)
+             elsif x.is_a?(String)
+               x
+             elsif x.respond_to?(:to_str)
+               x.to_str
+             elsif x.respond_to?(:to_ary)
+               x.to_ary.join(sep)
+             else
+               x.to_s
+             end
+        i += 1
+      end
+      s
+    ensure
+      Primitive.zr_recursive_leave(self, :join)
     end
-    s
   end
 
   def compact
@@ -108,11 +139,17 @@ class Array
     nil
   end
 
+  # Floats add with Kahan-Babuska compensation, as CRuby's sum does,
+  # from the first Float met while the sum is still a Float.
   def sum(init = 0)
     acc = init
     i = 0
     while i < size
-      acc += block_given? ? yield(self[i]) : self[i]
+      x = block_given? ? yield(self[i]) : self[i]
+      if acc.is_a?(Float) || (x.is_a?(Float) && (acc.is_a?(Integer) || acc.is_a?(Rational)))
+        return float_sum(acc.to_f, x, i + 1) { |j| block_given? ? yield(self[j]) : self[j] }
+      end
+      acc += x
       i += 1
     end
     acc
@@ -143,6 +180,7 @@ class Array
   end
 
   def rotate!(n = 1)
+    n = Primitive.zr_index_operand_m(n)
     replace(rotate(n))
   end
 
@@ -239,12 +277,14 @@ class Array
   end
 
   def take(n)
+    n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "attempt to take negative size" if n < 0
 
     first(n)
   end
 
   def drop(n)
+    n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "attempt to drop negative size" if n < 0
 
     out = []
@@ -302,29 +342,53 @@ class Array
 
   def eql?(other)
     return false unless other.is_a?(Array) && size == other.size
+    return true if equal?(other) || Primitive.zr_recursive_enter(self, :eql?)
 
-    i = 0
-    while i < size
-      return false unless self[i].eql?(other[i])
+    begin
+      i = 0
+      while i < size
+        return false unless self[i].eql?(other[i])
 
-      i += 1
+        i += 1
+      end
+      true
+    ensure
+      Primitive.zr_recursive_leave(self, :eql?)
     end
-    true
   end
 
   def hash
     mask = 72057594037927935
-    h = 7
-    i = 0
-    while i < size
-      h = (h * 31 + (self[i].hash & mask)) & mask
-      i += 1
+    return 7 if Primitive.zr_recursive_enter(self, :hash)
+
+    begin
+      h = 7
+      i = 0
+      while i < size
+        h = (h * 31 + (self[i].hash & mask)) & mask
+        i += 1
+      end
+      h
+    ensure
+      Primitive.zr_recursive_leave(self, :hash)
     end
-    h
   end
 
   def to_a = self
   def count(*args, &block) = args.empty? && !block ? size : super
+
+  # `pop(n)` takes the last n.
+  def pop(n = nil)
+    return Primitive.zr_ary_pop_m(self) if n.nil?
+
+    n = Primitive.zr_index_operand_m(n)
+    raise ArgumentError, "negative array size" if n < 0
+    Primitive.zr_frozen_error(self) if frozen?
+
+    out = last(n)
+    Primitive.zr_ary_splice(self, size - out.size, out.size, [])
+    out
+  end
 
   def shift(n = nil)
     if n.nil?
@@ -334,6 +398,7 @@ class Array
       Primitive.zr_ary_splice(self, 0, 1, [])
       return first
     end
+    n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "negative array size" if n < 0
 
     out = first(n)
@@ -350,6 +415,7 @@ class Array
   def append(*vals) = push(*vals)
 
   def insert(index, *vals)
+    index = Primitive.zr_index_operand_m(index)
     return self if vals.empty?
 
     index = size + index + 1 if index < 0
@@ -505,18 +571,23 @@ class Array
     replace(reverse)
   end
 
+  # Nested Arrays (and what `to_ary` answers) spread out `depth` levels;
+  # a recursive Array is an error only when the depth is unbounded.
   def flatten(depth = -1)
+    depth = Primitive.zr_index_operand_m(depth) unless depth.nil?
+    depth = -1 if depth.nil?
     out = []
     seen = []
     walk = lambda do |a, d|
-      raise ArgumentError, "tried to flatten recursive array" if seen.any? { |s| s.equal?(a) }
+      raise ArgumentError, "tried to flatten recursive array" if d < 0 && seen.any? { |s| s.equal?(a) }
 
       seen << a
       i = 0
       while i < a.size
         x = a[i]
-        if x.is_a?(Array) && d != 0
-          walk.call(x, d - 1)
+        inner = x.is_a?(Array) ? x : (d != 0 && x.respond_to?(:to_ary) ? Array.try_convert(x) : nil)
+        if inner && d != 0
+          walk.call(inner, d - 1)
         else
           out << x
         end
@@ -529,7 +600,8 @@ class Array
   end
 
   def flatten!(depth = -1)
-    return nil if none? { |x| x.is_a?(Array) }
+    Primitive.zr_frozen_error(self) if frozen?
+    return nil if none? { |x| x.is_a?(Array) || x.respond_to?(:to_ary) }
 
     replace(flatten(depth))
   end
@@ -559,6 +631,7 @@ class Array
   end
 
   def rotate(n = 1)
+    n = Primitive.zr_index_operand_m(n)
     return dup if empty?
 
     n %= size
@@ -568,7 +641,7 @@ class Array
   # A Range past the end pads with nils up to its end.
   def values_at(*indexes)
     indexes.flat_map do |i|
-      next [self[i]] unless i.is_a?(Range)
+      next [self[Primitive.zr_index_operand_m(i)]] unless i.is_a?(Range)
 
       first = i.begin || 0
       first += size if first < 0
@@ -585,12 +658,13 @@ class Array
 
   def dig(index, *rest)
     v = self[index]
-    rest.empty? || v.nil? ? v : v.dig(*rest)
+    rest.empty? || v.nil? ? v : Primitive.zr_dig_into(v, rest)
   end
 
   def fetch(index, *default)
     raise ArgumentError, "wrong number of arguments (given #{default.size + 1}, expected 1..2)" if default.size > 1
 
+    index = Primitive.zr_index_operand_m(index)
     i = index < 0 ? index + size : index
     return self[i] if i >= 0 && i < size
     return yield(index) if block_given?
@@ -600,7 +674,7 @@ class Array
   end
 
   def assoc(key)
-    each { |x| return x if x.is_a?(Array) && x[0] == key }
+    each { |x| return x if x.is_a?(Array) && x.size > 0 && x[0] == key }
     nil
   end
 
@@ -740,11 +814,40 @@ class Array
     h
   end
 
-  def minmax = [min, max]
+  def minmax(&block) = [min(&block), max(&block)]
 end
 
 class Array
   private
+
+  # The rest of a Float sum from element `from`, compensated as CRuby's
+  # ary_add_one/Kahan-Babuska walk does; a non-Float element switches
+  # to plain addition of the rest.
+  def float_sum(f, x, from)
+    c = 0.0
+    i = from - 1
+    loop do
+      if x.is_a?(Float) || x.is_a?(Integer) || x.is_a?(Rational)
+        v = x.to_f
+        if v.nan? || v.infinite? || f.nan? || f.infinite?
+          f += v
+        else
+          t = f + v
+          c += (f.abs >= v.abs) ? (f - t) + v : (v - t) + f
+          f = t
+        end
+      else
+        rest = f + c + x
+        (i + 1...size).each { |j| rest += yield(j) }
+        return rest
+      end
+      i += 1
+      break if i >= size
+
+      x = yield(i)
+    end
+    f + c
+  end
 
   def pick_repeated(k, from, chosen, &block)
     return yield(chosen.dup) if chosen.size == k

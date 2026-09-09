@@ -910,3 +910,19 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_attr_accessor(recv, argc, argv, cref, blk)
   zr_attr(recv, argc, argv, 3)
 end
+
+# `dig` continued into `v` with `rest`: CRuby's rb_obj_dig asks only
+# an Array, Hash, Struct or an object with a public `dig`.
+sig [Value, Value] => Value
+machine def zr_dig_into(v, rest)
+  klass = zr_class_of(v)
+  e = zr_find_method(klass, Machine.id(:dig))
+  if e == 0 || MEntry.vis(e) != VIS_PUBLIC
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_str(b, zr_class_name_of(v))
+    zr_buf_push(b, Machine.bytes(" does not have #dig method"), 26)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+  zr_send(v, Machine.id(:dig), RArray.len(rest), RArray.ptr(rest))
+end

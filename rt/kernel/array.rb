@@ -189,8 +189,12 @@ machine def zr_index_operand(v, out)
   unless zr_fixnum_p(v)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
+    if v == QNIL
+      zr_buf_push(b, Machine.bytes("no implicit conversion from nil to integer"), 42)
+      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+    end
     zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
-    if v == QNIL || v == QTRUE || v == QFALSE
+    if v == QTRUE || v == QFALSE
       s = zr_send(v, Machine.id(:inspect), 0, 0)
       return s if s == QUNDEF
       zr_buf_str(b, s)
@@ -394,17 +398,29 @@ machine def zr_ary_eq(recv, argc, argv, cref, blk)
   if RArray.len(recv) != RArray.len(other)
     return Machine.value(QFALSE)
   end
+  if recv == other
+    return Machine.value(QTRUE)
+  end
+  # a comparison already in flight on this Array is a recursion: equal
+  if zr_guard_enter(recv, Machine.id(:==))
+    return Machine.value(QTRUE)
+  end
   i = 0
   while i < RArray.len(recv)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(zr_ary_at(other, i)))
     r = zr_send(zr_ary_at(recv, i), Machine.id(:==), 1, slot)
-    return r if r == QUNDEF
+    if r == QUNDEF
+      zr_guard_leave(recv, Machine.id(:==))
+      return r
+    end
     if r == QNIL || r == QFALSE
+      zr_guard_leave(recv, Machine.id(:==))
       return Machine.value(QFALSE)
     end
     i += 1
   end
+  zr_guard_leave(recv, Machine.id(:==))
   Machine.value(QTRUE)
 end
 
@@ -559,7 +575,7 @@ machine def zr_index_operand_m(v)
   if zr_fixnum_p(v)
     return v
   end
-  if !zr_special_p(v) && zr_find_method(zr_class_of(v), Machine.id(:to_int)) != 0
+  if zr_find_method(zr_class_of(v), Machine.id(:to_int)) != 0
     r = zr_send(v, Machine.id(:to_int), 0, 0)
     return r if r == QUNDEF
     if zr_fixnum_p(r)
@@ -568,4 +584,10 @@ machine def zr_index_operand_m(v)
   end
   out = Machine.slot(8)
   zr_index_operand(v, out)
+end
+
+# `pop` for the core.
+sig [Value] => Value
+machine def zr_ary_pop_m(recv)
+  zr_ary_pop(recv, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
 end

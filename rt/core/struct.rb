@@ -145,8 +145,10 @@ class Struct
   def values_at(*indexes) = to_a.values_at(*indexes)
 
   def dig(key, *rest)
-    v = self[key]
-    rest.empty? || v.nil? ? v : v.dig(*rest)
+    v = key.is_a?(Integer) || members.include?(key.to_sym) ? self[key] : nil
+    return v if rest.empty? || v.nil?
+
+    Primitive.zr_dig_into(v, rest)
   end
 
   def select(&block)
