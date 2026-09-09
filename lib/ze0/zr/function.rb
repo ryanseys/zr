@@ -40,8 +40,8 @@ module Ze0
       include Targets
       include Defined
 
-      KINDS = { main: "KIND_MAIN", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK" }.freeze
-      ABI = { main: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64] }.freeze
+      KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK" }.freeze
+      ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64] }.freeze
 
       attr_reader :meta, :outer, :kind
 
@@ -100,7 +100,7 @@ module Ze0
       # The program's toplevel names its file to the runtime for `$0`.
       def program_start
         file = @f.symbol_value(@f.symbol(@l.file_bytes))
-        kernel("zr_program_start", file, imm(@l.program.file.bytesize))
+        kernel("zr_program_start", file, imm(@l.file.bytesize))
       end
 
       # A core helper that CRuby has no method for opens with
@@ -137,12 +137,12 @@ module Ze0
         @proc = @f.args[0] if @kind == :block
         @qnil = imm(@l.const("QNIL"))
         @self = case @kind
-                when :main then global("G_MAIN")
+                when :main, :top then global("G_MAIN")
                 when :block then proc_field("self")
                 else @f.args[0]
                 end
         @cref = case @kind
-                when :main then global("G_TOP_CREF")
+                when :main, :top then global("G_TOP_CREF")
                 when :def then @f.args[3]
                 when :block then proc_field("cref")
                 else @f.args[1]
@@ -182,7 +182,7 @@ module Ze0
       # it is a `return` from a block of this method, whose value is ours.
       def land
         switch(@landing, open: true)
-        if %i[def main].include?(@kind) && @has_env
+        if %i[def main top].include?(@kind) && @has_env
           caught = kernel("zr_catch_return", @rec)
           done = @f.label
           none = @f.label

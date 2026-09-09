@@ -19,6 +19,8 @@ $DEBUG = false
 $-w = false
 $FILENAME = "-"
 $$ = Primitive.zr_process_id
+$LOAD_PATH = []
+$LOADED_FEATURES = []
 
 # The process environment, read and written through libSystem.
 ENV = Object.new
@@ -105,10 +107,7 @@ module Kernel
     return nil if file.nil?
     return "." if file == "-e"
 
-    path = file.start_with?("/") ? file : "#{Primitive.zr_getcwd}/#{file}"
-    parts = path.split("/").reject { |part| part.empty? || part == "." }
-    parts.pop
-    "/" + parts.join("/")
+    File.dirname(File.expand_path(file))
   end
 end
 

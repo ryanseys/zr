@@ -7,7 +7,14 @@ module Ze0
   # of a scope, parameters first.
   module Hir
     # `frozen` holds when the file's magic comment freezes string literals.
-    Program = Struct.new(:file, :locals, :body, :frozen)
+    # `units` are the files a require or load reaches, each a toplevel
+    # of its own, in the order they were first named.
+    Program = Struct.new(:file, :locals, :body, :frozen, :units)
+    Unit = Struct.new(:file, :locals, :body, :frozen)
+    # `require`, `require_relative` or `load` of a literal name: `path`
+    # is the file it resolved to and `unit` that file's index, or both
+    # nil when no file answers.
+    Require = Struct.new(:kind, :feature, :path, :unit, :line)
     # A statement list; its value is the last statement's.
     Seq = Struct.new(:stmts, :line)
     # A method call. `recv` is nil for an implicit self; `vcall` marks a

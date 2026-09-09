@@ -10,19 +10,108 @@ module Ze0
     # Prism to HIR. A form the HIR does not hold yet is refused by name at
     # its line: the contract is CRuby-identical or refused, never a guess.
     class Build
-      def self.program(source, file)
-        result = Prism.parse(source, filepath: file)
-        unless result.errors.empty?
-          e = result.errors.first
-          raise SyntaxError, "#{file}:#{e.location.start_line}: #{e.message}"
-        end
-
-        frozen = result.magic_comments.any? { |c| c.key == "frozen_string_literal" && c.value == "true" }
-        Program.new(file, result.value.locals, new(file).seq(result.value.statements), frozen)
+      def self.program(source, file, roots: [])
+        loader = Loader.new(roots)
+        main = loader.unit(file, source)
+        Program.new(main.file, main.locals, main.body, main.frozen, loader.units)
       end
 
-      def initialize(file)
+      # The files a program reaches through require, require_relative
+      # and load, each parsed and built once. A require searches the
+      # roots: the -I roots, and the directories a file adds to
+      # $LOAD_PATH with a literal (`$LOAD_PATH.unshift(File.expand_path
+      # ("lib", __dir__))` and the like), read before the file's body.
+      class Loader
+        attr_reader :units
+
+        def initialize(roots)
+          @roots = roots.map { |r| File.expand_path(r) }
+          @units = []
+          @index = {}
+        end
+
+        def unit(file, source = File.read(file))
+          result = Prism.parse(source, filepath: file)
+          unless result.errors.empty?
+            e = result.errors.first
+            raise SyntaxError, "#{file}:#{e.location.start_line}: #{e.message}"
+          end
+
+          @roots.concat(load_path_roots(result.value, file))
+          frozen = result.magic_comments.any? { |c| c.key == "frozen_string_literal" && c.value == "true" }
+          Unit.new(file, result.value.locals, Build.new(file, self).seq(result.value.statements), frozen)
+        end
+
+        # The index of `path`'s unit, built on first sight.
+        def require(path)
+          @index[path] ||= begin
+            i = @units.size
+            @units << nil
+            @units[i] = unit(path)
+            i
+          end
+        end
+
+        # The file `feature` names from `from`, or nil.
+        def resolve(kind, feature, from)
+          if kind == :require_relative
+            candidate(File.expand_path(feature, File.dirname(from)))
+          elsif feature.start_with?("/", "./", "../", "~")
+            candidate(File.expand_path(feature))
+          else
+            @roots.each do |root|
+              found = candidate(File.join(root, feature))
+              return found if found
+            end
+            nil
+          end
+        end
+
+        def candidate(path)
+          return path if path.end_with?(".rb") && File.file?(path)
+
+          File.file?("#{path}.rb") ? "#{path}.rb" : nil
+        end
+
+        def load_path_roots(node, file)
+          roots = []
+          walk = lambda do |n|
+            if n.is_a?(Prism::CallNode) && n.receiver.is_a?(Prism::GlobalVariableReadNode) && %i[$LOAD_PATH $:].include?(n.receiver.name) &&
+               %i[unshift push <<].include?(n.name) && n.arguments
+              n.arguments.arguments.each { |a| (r = literal_path(a, file)) && roots << r }
+            end
+            n.compact_child_nodes.each { |c| walk.call(c) }
+          end
+          walk.call(node)
+          roots
+        end
+
+        # A path a literal names, absolute: a String, `File.expand_path(str,
+        # __dir__)` or `File.join(__dir__, str...)`; nil for anything else.
+        def literal_path(node, file)
+          dir = File.dirname(file)
+          case node
+          when Prism::StringNode then File.expand_path(node.unescaped)
+          when Prism::CallNode
+            return nil unless node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :File && node.arguments
+
+            args = node.arguments.arguments
+            if node.name == :expand_path && args.size == 2 && args[0].is_a?(Prism::StringNode) && dir_call?(args[1])
+              File.expand_path(args[0].unescaped, dir)
+            elsif node.name == :join && dir_call?(args[0]) && args[1..].all?(Prism::StringNode)
+              File.join(dir, *args[1..].map(&:unescaped))
+            end
+          end
+        end
+
+        def dir_call?(node)
+          node.is_a?(Prism::CallNode) && node.name == :__dir__ && node.receiver.nil? && node.arguments.nil?
+        end
+      end
+
+      def initialize(file, loader = nil)
         @file = file
+        @loader = loader
         @block_depth = 0
       end
 
@@ -48,9 +137,12 @@ module Ze0
         @block_depth, @def_params = was
       end
 
-      # `$PROGRAM_NAME` is the other name of `$0`.
+      GVAR_ALIASES = { :$PROGRAM_NAME => :$0, :$: => :$LOAD_PATH, :$" => :$LOADED_FEATURES }.freeze
+
+      # `$PROGRAM_NAME`, `$:` and `$"` are the other names of `$0`,
+      # `$LOAD_PATH` and `$LOADED_FEATURES`.
       def gvar_name(name)
-        name == :$PROGRAM_NAME ? :$0 : name
+        GVAR_ALIASES.fetch(name, name)
       end
 
       # The parts of an interpolated string, each a String or the value
@@ -390,13 +482,37 @@ module Ze0
         end
       end
 
+      REQUIRES = %i[require require_relative load].freeze
+
       def call(node)
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil?
+        return require(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && literal_feature(node)
 
         args, kwargs, forwarded = arguments(node.arguments)
         opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
         Send.new(node.receiver && expr(node.receiver), node.name, args, node.location.start_line, node.variable_call?, opt,
                  node.block ? block(node.block) : forwarded, kwargs, node.call_operator == "&.", node.attribute_write?)
+      end
+
+      # The name a require names at compile time: a String literal, or a
+      # path built from `__dir__` with a literal.
+      def literal_feature(node)
+        args = node.arguments&.arguments
+        return nil unless args&.size == 1
+
+        args[0].is_a?(Prism::StringNode) ? args[0].unescaped : @loader.literal_path(args[0], @file)
+      end
+
+      # A require of a literal name resolves now: the file becomes a unit
+      # of the program. A name no root answers is refused, since a
+      # library of ruby's own would answer it; a relative name with no
+      # file is a LoadError when it runs.
+      def require(node)
+        line = node.location.start_line
+        feature = literal_feature(node)
+        path = @loader.resolve(node.name, feature, @file)
+        refuse(node, "#{node.name} of #{feature.inspect}, which no load path root holds, is not lowered yet") if path.nil? && node.name != :require_relative
+        Require.new(node.name, feature, path || File.expand_path(feature, File.dirname(@file)), path && @loader.require(path), line)
       end
 
       # `defined?(value)`: the form decides at compile time; only an

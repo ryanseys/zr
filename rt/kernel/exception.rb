@@ -18,6 +18,8 @@ KIND_SCLASS = 6
 # A frame of the runtime's own Ruby (a block in a builtin written in
 # Ruby): no row in a backtrace.
 KIND_HIDDEN = 7
+# The toplevel of a required file.
+KIND_TOP = 8
 
 Machine.struct :BtRow, meta: Ptr, file: Ptr, file_len: Word, line: Word
 # `bt` is a backtrace the program set, else nil and the captured rows
@@ -337,6 +339,8 @@ machine def zr_buf_label(b, meta)
     zr_buf_label(b, outer)
   elsif FrameMeta.kind(meta) == KIND_MAIN
     zr_buf_push(b, Machine.bytes("<main>"), 6)
+  elsif FrameMeta.kind(meta) == KIND_TOP
+    zr_buf_push(b, Machine.bytes("<top (required)>"), 16)
   elsif FrameMeta.kind(meta) == KIND_SCLASS
     zr_buf_push(b, Machine.bytes("singleton class"), 15)
   elsif FrameMeta.kind(meta) == KIND_CLASS || FrameMeta.kind(meta) == KIND_MODULE

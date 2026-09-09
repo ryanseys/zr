@@ -13,7 +13,7 @@ module Ze0
     class Lower
       class Refused < StandardError; end
 
-      attr_reader :program, :unit, :symbols, :data, :functions
+      attr_reader :program, :unit, :symbols, :data, :functions, :file, :frozen
 
       def internal?
         @internal
@@ -27,15 +27,29 @@ module Ze0
         @symbols = symbols
         @entry = entry
         @internal = internal
+        @file = program.file
+        @frozen = program.frozen
         @data = []
         @functions = []
         @next = 0
       end
 
-      # `[functions, data]`.
+      # `[functions, data]`: the program's toplevel, then one function
+      # per required file, each with its own file name for backtraces.
       def run
         Function.new(self, @entry, @program.locals, @program.body, nil, :main).lower
+        (@program.units || []).each_with_index do |u, i|
+          @file = u.file
+          @frozen = u.frozen
+          Function.new(self, unit_entry(i), u.locals, u.body, nil, :top).lower
+        end
+        @file = @program.file
+        @frozen = @program.frozen
         [@functions, @data]
+      end
+
+      def unit_entry(index)
+        "#{@entry}_unit_#{index}"
       end
 
       # The FrameMeta kind a function of `kind` gets here.
@@ -59,7 +73,7 @@ module Ze0
       end
 
       def refuse(node, message)
-        raise Refused, "#{@program.file}:#{node.line}: #{message}"
+        raise Refused, "#{@file}:#{node.line}: #{message}"
       end
 
       # A read-only string literal, as data this unit carries.
@@ -73,9 +87,10 @@ module Ze0
       # in the owner and name at definition. A class body's name is the
       # class's, set here; a def or block carries its arity and its
       # parameter rows, and a block its function, so a Proc finds both.
-      # The program's file name as bytes in the object.
+      # The current unit's file name as bytes in the object.
       def file_bytes
-        @file_bytes ||= literal(@program.file)
+        @file_bytes ||= {}
+        @file_bytes[@file] ||= literal(@file)
       end
 
       def meta(fn, kind, line, name = 0, parent = nil, params = nil)
@@ -84,7 +99,7 @@ module Ze0
         bytes = ("\0" * layout.size).b
         word = ->(field, value) { bytes[layout.fields.fetch(field).first, 8] = [value].pack("q<") }
         word.call("name", name)
-        word.call("file_len", @program.file.bytesize)
+        word.call("file_len", @file.bytesize)
         word.call("kind", const(kind))
         word.call("line", line)
         word.call("arity", params ? params.arity : 0)

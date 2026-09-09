@@ -157,6 +157,8 @@ machine def zr_caller_file
 end
 
 Machine.import "getpid", [] => I32
+Machine.import "access", [Ptr, I32] => I32
+Machine.import "stat", [Ptr, Ptr] => I32
 Machine.import "arc4random", [] => I32
 
 sig [] => Value
@@ -170,4 +172,112 @@ machine def zr_random_seed
   high = Machine.word(arc4random()) & 4294967295
   low = Machine.word(arc4random()) & 4294967295
   zr_fix(((high << 30) | (low >> 2)) & 4611686018427387903)
+end
+
+Machine.sig :top, [] => Value
+
+# `require`, `require_relative` (kind 0 and 1) and `load` (2) of the
+# file at `path`, whose toplevel is `fn`: a require runs it once, as
+# $LOADED_FEATURES records; a failed run leaves no record.
+sig [Value, Ptr, Word] => Value
+machine def zr_require(path, fn, kind)
+  features = zr_gvar_get(Machine.id(:$LOADED_FEATURES))
+  if kind != 2
+    if zr_ary_has_string(features, path)
+      return Machine.value(QFALSE)
+    end
+    zr_ary_push(features, path)
+  end
+  r = zr_run_top(fn, kind == 0 ? Machine.id(:require) : (kind == 1 ? Machine.id(:require_relative) : Machine.id(:load)))
+  if r == QUNDEF
+    if kind != 2
+      zr_ary_pop(features, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
+    end
+    return r
+  end
+  Machine.value(QTRUE)
+end
+
+# The file's toplevel, run under the frame of the Kernel method `mid`,
+# as a backtrace through a require shows it.
+sig [Ptr, Word] => Value
+machine def zr_run_top(fn, mid)
+  e = zr_find_method(zr_global(G_KERNEL), mid)
+  rec = Machine.slot(Frame.size)
+  t = zr_task()
+  Frame.set_prev(rec, Task.top(t))
+  Frame.set_meta(rec, MEntry.meta(e))
+  Frame.set_line(rec, 0)
+  Frame.set_serial(rec, 0)
+  Frame.set_self(rec, zr_global(G_MAIN))
+  Frame.set_cref(rec, Machine.value(QNIL))
+  Frame.set_blk(rec, Machine.value(QNIL))
+  Frame.set_nvalues(rec, 0)
+  Frame.set_mid(rec, 0)
+  Task.set_top(t, rec)
+  r = Machine.call(:top, fn)
+  Task.set_top(t, Frame.prev(rec))
+  r
+end
+
+sig [Value, Value] => Bool
+machine def zr_ary_has_string(a, s)
+  i = 0
+  while i < RArray.len(a)
+    e = zr_ary_at(a, i)
+    if !zr_special_p(e) && zr_type(e) == T_STRING && zr_bytes_eq(RString.ptr(e), RString.len(e), RString.ptr(s), RString.len(s))
+      return true
+    end
+    i += 1
+  end
+  false
+end
+
+# A LoadError for a file nothing answers, with CRuby's message, raised
+# under Kernel#require_relative's frame.
+sig [Ptr, Word] => Value
+machine def zr_load_error(path, len)
+  e = zr_find_method(zr_global(G_KERNEL), Machine.id(:require_relative))
+  rec = Machine.slot(Frame.size)
+  t = zr_task()
+  Frame.set_prev(rec, Task.top(t))
+  Frame.set_meta(rec, MEntry.meta(e))
+  Frame.set_line(rec, 0)
+  Frame.set_serial(rec, 0)
+  Frame.set_self(rec, zr_global(G_MAIN))
+  Frame.set_cref(rec, Machine.value(QNIL))
+  Frame.set_blk(rec, Machine.value(QNIL))
+  Frame.set_nvalues(rec, 0)
+  Frame.set_mid(rec, 0)
+  Task.set_top(t, rec)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("cannot load such file -- "), 25)
+  zr_buf_push(b, path, len)
+  exc = zr_exc_new(zr_core_class(Machine.id(:LoadError)), zr_buf_take(b))
+  zr_ivar_set(exc, Machine.id(:@path), zr_str_new(path, len))
+  r = zr_raise(exc)
+  Task.set_top(t, Frame.prev(rec))
+  r
+end
+
+# Whether a path exists, and what it is: 0 for nothing, 1 for a
+# directory, 2 for a regular file, 3 for anything else. Darwin's stat
+# keeps st_mode as 16 bits at offset 4.
+sig [Value] => Value
+machine def zr_path_kind(path)
+  buf = malloc(256)
+  r = Machine.word(stat(RString.ptr(path), buf))
+  mode = Machine.word(Machine.load8(buf + 5, 0)) & 240
+  free(buf)
+  if r != 0
+    return zr_fix(0)
+  end
+  if mode == 64
+    return zr_fix(1)
+  end
+  if mode == 128
+    return zr_fix(2)
+  end
+  zr_fix(3)
 end

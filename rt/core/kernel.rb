@@ -29,6 +29,12 @@ module Kernel
     raise SystemExit.new(1, message)
   end
 
+  # A literal name is resolved when the program is compiled; a computed
+  # one has no file to answer it yet.
+  def require(name) = Primitive.zr_unimplemented("require with a computed name")
+  def require_relative(name) = Primitive.zr_unimplemented("require_relative with a computed name")
+  def load(name, wrap = false) = Primitive.zr_unimplemented("load with a computed name")
+
   def at_exit(&block)
     raise ArgumentError, "called without a block" unless block
 
@@ -192,7 +198,7 @@ module Kernel
 end
 
 module Kernel
-  private :Integer, :String, :Array, :sleep, :warn, :catch, :throw, :loop, :exit, :abort, :at_exit
+  private :Integer, :String, :Array, :sleep, :warn, :catch, :throw, :loop, :exit, :abort, :at_exit, :require, :require_relative, :load
 end
 
 module Kernel

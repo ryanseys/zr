@@ -24,6 +24,7 @@ module Ze0
           when Hir::Break then jump_out(node, :break)
           when Hir::Next then jump_out(node, :next)
           when Hir::Return then return_from(node)
+          when Hir::Require then require_unit(node)
           when Hir::Def then define_method(node)
           when Hir::ClassDef, Hir::ModuleDef then class_body(node)
           when Hir::SingletonClassDef then singleton_class_body(node)
@@ -113,7 +114,7 @@ module Ze0
             imm((v << 1) | 1)
           when Symbol then symbol(v)
           when String
-            fn = @l.program.frozen ? "zr_str_frozen" : "zr_str_new"
+            fn = @l.frozen ? "zr_str_frozen" : "zr_str_new"
             kernel(fn, @f.symbol_value(@f.symbol(@l.literal(v))), imm(v.bytesize))
           when nil then @qnil
           when true then imm(@l.const("QTRUE"))
@@ -125,7 +126,7 @@ module Ze0
         # `$!` is the task's, and any other lives in the globals table.
         # The globals the runtime does not answer yet: IO, require and
         # regexp state. The rest are plain globals the core sets at boot.
-        SPECIAL_GLOBALS = %i[$stdout $stderr $stdin $: $LOAD_PATH $" $LOADED_FEATURES $~ $_ $. $< $> $?].freeze
+        SPECIAL_GLOBALS = %i[$stdout $stderr $stdin $~ $_ $. $< $> $?].freeze
 
         def gvar_read(node)
           return kernel("zr_errinfo") if node.name == :$!

@@ -145,6 +145,20 @@ module Ze0
           @qnil
         end
 
+        REQUIRE_KINDS = { require: 0, require_relative: 1, load: 2 }.freeze
+
+        # A require of a file the program holds runs that file's toplevel,
+        # once unless it is a load; a relative name with no file is a
+        # LoadError.
+        def require_unit(node)
+          at_line(node.line)
+          path = @f.symbol_value(@f.symbol(@l.literal(node.path)))
+          return checked(kernel("zr_load_error", path, imm(node.path.bytesize))) unless node.unit
+
+          fn = @f.func_addr(@f.callee(@l.unit_entry(node.unit), [], "i64"))
+          checked(kernel("zr_require", kernel("zr_str_new", path, imm(node.path.bytesize)), fn, imm(REQUIRE_KINDS.fetch(node.kind))))
+        end
+
         # `break`/`next`: out of the innermost loop when one encloses the
         # statement, else out of the block.
         def jump_out(node, kind)
