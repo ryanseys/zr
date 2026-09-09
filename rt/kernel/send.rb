@@ -45,6 +45,21 @@ machine def zr_wrong_arity(given, expected)
   zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
 end
 
+# `wrong number of arguments (given 3, expected 1..2)`.
+sig [Word, Word, Word] => Value
+machine def zr_wrong_arity_range(given, min, max)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("wrong number of arguments (given "), 33)
+  zr_buf_long(b, given)
+  zr_buf_push(b, Machine.bytes(", expected "), 11)
+  zr_buf_long(b, min)
+  zr_buf_push(b, Machine.bytes(".."), 2)
+  zr_buf_long(b, max)
+  zr_buf_byte(b, 41)
+  zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+end
+
 # `argv` points at `argc` Values the caller keeps rooted.
 # A builtin runs under a frame pushed here, so a backtrace names it; a
 # compiled method pushes its own.

@@ -1,0 +1,530 @@
+(seq
+  (assign h
+    (hash
+      (sym :a)
+      (int 1)
+      (str "b")
+      (int 2)
+      (int 3)
+      (sym :three)
+      (const nil)
+      (int 0)))
+  (send self p
+    (local h))
+  (send self p
+    (send []
+      (local h)
+      (sym :a))
+    (send []
+      (local h)
+      (str "b"))
+    (send []
+      (local h)
+      (int 3))
+    (send []
+      (local h)
+      (const nil))
+    (send []
+      (local h)
+      (sym :zzz)))
+  (send []=
+    (local h)
+    (sym :c)
+    (int 4))
+  (send []=
+    (local h)
+    (str "b")
+    (int 20))
+  (send self p
+    (send size
+      (local h))
+    (send length
+      (local h))
+    (send empty?
+      (local h))
+    (send empty?
+      (hash)))
+  (send self p
+    (send key?
+      (local h)
+      (sym :a))
+    (send key?
+      (local h)
+      (sym :q))
+    (send has_key?
+      (local h)
+      (str "b"))
+    (send include?
+      (local h)
+      (int 3))
+    (send member?
+      (local h)
+      (const nil)))
+  (send self p
+    (send keys
+      (local h))
+    (send values
+      (local h)))
+  (send each
+    (local h)
+    (block (k v) locals (k v)
+      (seq
+        (send self puts
+          (interp
+            (seq
+              (send inspect
+                (local k)))
+            (str "=")
+            (seq
+              (send inspect
+                (local v))))))))
+  (send each_pair
+    (local h)
+    (block (pair) locals (pair)
+      (seq
+        (send self p
+          (local pair)))))
+  (send self p
+    (send delete
+      (local h)
+      (sym :a))
+    (send delete
+      (local h)
+      (sym :nope))
+    (send keys
+      (local h)))
+  (send self p
+    (send fetch
+      (local h)
+      (str "b")))
+  (begin
+    (seq
+      (send fetch
+        (local h)
+        (sym :missing)))
+    (rescue => e
+      (const KeyError)
+      (seq
+        (send self p
+          (local e))))
+    (none)
+    (none))
+  (send self p
+    (send fetch
+      (local h)
+      (sym :missing)
+      (str "default")))
+  (send self p
+    (send fetch
+      (local h)
+      (sym :missing)
+      (block (k) locals (k)
+        (seq
+          (interp
+            (str "block ")
+            (seq
+              (local k)))))))
+  (assign s
+    (str "key"))
+  (assign h2
+    (hash
+      (local s)
+      (int 1)))
+  (send self p
+    (send frozen?
+      (send first
+        (send keys
+          (local h2))))
+    (send frozen?
+      (local s))
+    (send equal?
+      (send first
+        (send keys
+          (local h2)))
+      (local s)))
+  (send []=
+    (local h2)
+    (str "key")
+    (int 2))
+  (send self p
+    (local h2))
+  (assign e
+    (hash))
+  (send self p
+    (local e)
+    (send []
+      (local e)
+      (sym :x))
+    (send to_a
+      (local e)))
+  (send self p
+    (send ==
+      (local h)
+      (hash
+        (str "b")
+        (int 20)
+        (int 3)
+        (sym :three)
+        (const nil)
+        (int 0)
+        (sym :c)
+        (int 4)))
+    (send ==
+      (local h)
+      (hash))
+    (send ==
+      (hash)
+      (hash)))
+  (send self p
+    (send to_a
+      (local h)))
+  (send self p
+    (send inspect
+      (hash
+        (int 1)
+        (int 2)))
+    (hash
+      (str "s")
+      (array
+        (int 1)
+        (hash
+          (sym :x)
+          (const nil)))))
+  (assign h3
+    (hash
+      (array
+        (int 1)
+        (int 2))
+      (str "array key")))
+  (send self p
+    (send []
+      (local h3)
+      (array
+        (int 1)
+        (int 2)))
+    (send []
+      (local h3)
+      (array
+        (int 1)
+        (int 3))))
+  (send self p
+    (send map
+      (local h)
+      (block (k v) locals (k v)
+        (seq
+          (array
+            (local k)
+            (local v))))))
+  (assign count
+    (int 0))
+  (send each
+    (local h)
+    (block (k v) locals (k v)
+      (seq
+        (assign count ^1
+          (send +
+            (local count ^1)
+            (int 1))))))
+  (send self p
+    (local count))
+  (send self p
+    (send equal?
+      (send to_h
+        (local h))
+      (local h))
+    (send new
+      (const Hash))
+    (send []
+      (send new
+        (const Hash)
+        (int 5))
+      (sym :x)))
+  (assign d
+    (send new
+      (const Hash)
+      (block (hash key) locals (hash key)
+        (seq
+          (send []=
+            (local hash)
+            (local key)
+            (send *
+              (send to_s
+                (local key))
+              (int 2)))))))
+  (send self p
+    (send []
+      (local d)
+      (sym :ab))
+    (local d))
+  (send self p
+    (send any?
+      (local h))
+    (send any?
+      (hash))
+    (send select
+      (local h)
+      (block (k v) locals (k v)
+        (seq
+          (send ==
+            (local v)
+            (int 20)))))
+    (send size
+      (send reject
+        (local h)
+        (block (k v) locals (k v)
+          (seq
+            (send ==
+              (local v)
+              (int 20)))))))
+  (send self p
+    (send merge
+      (local h)
+      (hash
+        (sym :z)
+        (int 26)))
+    (send key
+      (local h)
+      (int 20))
+    (send invert
+      (local h)))
+  (send self p
+    (send first
+      (local h))
+    (send count
+      (local h))
+    (send sum
+      (local h)
+      (block (k v) locals (k v)
+        (seq
+          (int 1)))))
+  (send self p
+    (send transform_values
+      (local h)
+      (block (v) locals (v)
+        (seq
+          (send to_s
+            (local v)))))
+    (send filter_map
+      (local h)
+      (block (k v) locals (k v)
+        (seq
+          (if
+            (send ==
+              (local v)
+              (int 20))
+            (seq
+              (local k))
+            (none))))))
+  (send self p
+    (send find
+      (local h)
+      (block (k v) locals (k v)
+        (seq
+          (send ==
+            (local v)
+            (int 4)))))
+    (send is_a?
+      (local h)
+      (const Enumerable))
+    (send include?
+      (const Hash)
+      (const Enumerable))
+    (send include?
+      (local h)
+      (int 3)))
+  (send each_with_index
+    (local h)
+    (block (pair i) locals (pair i)
+      (seq
+        (send self p
+          (array
+            (local pair)
+            (local i))))))
+  (send each_key
+    (local h)
+    (block (k) locals (k)
+      (seq
+        (send self p
+          (local k)))))
+  (send self p
+    (send value?
+      (local h)
+      (int 20))
+    (send value?
+      (local h)
+      (int 99))
+    (send all?
+      (local h)
+      (block (k v) locals (k v)
+        (seq
+          (local v))))
+    (send none?
+      (local h)
+      (block (k v) locals (k v)
+        (seq
+          (send ==
+            (local v)
+            (int 0))))))
+  (begin
+    (seq
+      (send new
+        (const Hash)
+        (int 1)
+        (int 2)))
+    (rescue => e
+      (const ArgumentError)
+      (seq
+        (send self p
+          (local e))))
+    (none)
+    (none))
+  (begin
+    (seq
+      (send fetch
+        (local h)))
+    (rescue => e
+      (const ArgumentError)
+      (seq
+        (send self p
+          (local e))
+        (send self puts
+          (send backtrace
+            (local e)))))
+    (none)
+    (none))
+  (begin
+    (send map
+      (hash
+        (sym :q)
+        (int 1))
+      (block (k v) locals (k v)
+        (seq
+          (send self raise
+            (str "in map")))))
+    (rescue
+      (send self puts
+        (send backtrace
+          (gvar $!))))
+    (none)
+    (none))
+  (begin
+    (send each
+      (hash
+        (sym :q)
+        (int 1))
+      (block (k v) locals (k v)
+        (seq
+          (send self raise
+            (str "in each")))))
+    (rescue
+      (send self puts
+        (send backtrace
+          (gvar $!))))
+    (none)
+    (none))
+  (class Foo
+    (seq
+      (send self include
+        (const Enumerable))
+      (def each () locals ()
+        (seq
+          (yield
+            (int 1))
+          (yield
+            (int 2))
+          (yield
+            (int 3))))))
+  (send self p
+    (send map
+      (send new
+        (const Foo))
+      (block (x) locals (x)
+        (seq
+          (send *
+            (local x)
+            (int 2))))))
+  (send self p
+    (send select
+      (send new
+        (const Foo))
+      (block (x) locals (x)
+        (seq
+          (send >
+            (local x)
+            (int 1)))))
+    (send to_a
+      (send new
+        (const Foo)))
+    (send first
+      (send new
+        (const Foo)))
+    (send include?
+      (send new
+        (const Foo))
+      (int 2))
+    (send count
+      (send new
+        (const Foo)))
+    (send inject
+      (send new
+        (const Foo))
+      (int 10)
+      (block (a x) locals (a x)
+        (seq
+          (send +
+            (local a)
+            (local x))))))
+  (send self p
+    (send is_a?
+      (send new
+        (const Foo))
+      (const Enumerable))
+    (send superclass
+      (const Foo))
+    (send class
+      (send new
+        (const Foo))))
+  (module M
+    (seq
+      (def m () locals ()
+        (seq
+          (sym :m)))))
+  (module N
+    (seq
+      (send self include
+        (const M))
+      (def n () locals ()
+        (seq
+          (sym :n)))))
+  (class Bar
+    (seq
+      (send self include
+        (const N))))
+  (send self p
+    (send m
+      (send new
+        (const Bar)))
+    (send n
+      (send new
+        (const Bar)))
+    (send is_a?
+      (send new
+        (const Bar))
+      (const M))
+    (send include?
+      (const Bar)
+      (const M))
+    (send superclass
+      (const Bar)))
+  (begin
+    (seq
+      (send include
+        (const Bar)
+        (const Foo)))
+    (rescue => e
+      (const TypeError)
+      (seq
+        (send self p
+          (local e))))
+    (none)
+    (none)))

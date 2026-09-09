@@ -109,6 +109,13 @@ module Ze0
         when Prism::ArrayNode
           refuse(node, "a splat in an array literal is not lowered yet") if node.elements.any?(Prism::SplatNode)
           ArrayLit.new(node.elements.map { |e| expr(e) }, line)
+        when Prism::HashNode
+          pairs = node.elements.flat_map do |e|
+            refuse(e, "a double splat in a hash literal is not lowered yet") unless e.is_a?(Prism::AssocNode)
+            refuse(e, "a hash shorthand `{x:}` is not lowered yet") if e.value.is_a?(Prism::ImplicitNode)
+            [expr(e.key), expr(e.value)]
+          end
+          HashLit.new(pairs, line)
         when Prism::IndexOperatorWriteNode, Prism::IndexOrWriteNode, Prism::IndexAndWriteNode
           refuse(node, "an operator assignment through [] is not lowered yet")
         when Prism::InstanceVariableReadNode then IvarRead.new(node.name, line)

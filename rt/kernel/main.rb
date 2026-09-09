@@ -1,5 +1,7 @@
-# Boot and the C entry point. The program supplies `zr_toplevel`.
+# Boot and the C entry point. The compiler supplies `zr_prelude`, the
+# core library's toplevels, and `zr_toplevel`, the program's.
 Machine.import "zr_toplevel", [] => Value
+Machine.import "zr_prelude", [] => Value
 
 
 sig [Word, Word, Value] => Value
@@ -54,6 +56,8 @@ machine def zr_boot
   zr_boot_class(G_FROZEN_ERROR, Machine.id(:FrozenError), zr_global(G_RUNTIME_ERROR))
   zr_boot_class(G_LOCAL_JUMP_ERROR, Machine.id(:LocalJumpError), zr_global(G_STANDARD_ERROR))
   zr_boot_class(G_PROC, Machine.id(:Proc), zr_global(G_OBJECT))
+  zr_boot_class(G_HASH, Machine.id(:Hash), zr_global(G_OBJECT))
+  zr_boot_class(G_KEY_ERROR, Machine.id(:KeyError), zr_global(G_INDEX_ERROR))
   zr_boot_name(G_BASIC_OBJECT, Machine.id(:BasicObject))
   zr_boot_name(G_OBJECT, Machine.id(:Object))
   zr_boot_name(G_MODULE, Machine.id(:Module))
@@ -77,6 +81,8 @@ machine def zr_boot
   zr_boot_name(G_FROZEN_ERROR, Machine.id(:FrozenError))
   zr_boot_name(G_LOCAL_JUMP_ERROR, Machine.id(:LocalJumpError))
   zr_boot_name(G_PROC, Machine.id(:Proc))
+  zr_boot_name(G_HASH, Machine.id(:Hash))
+  zr_boot_name(G_KEY_ERROR, Machine.id(:KeyError))
   zr_set_global(G_MAIN, zr_obj_alloc(zr_global(G_OBJECT)))
   zr_set_global(G_TOP_CREF, zr_cref_push(zr_global(G_OBJECT), Machine.value(QNIL)))
   # Kernel's methods sit on Object until modules arrive.
@@ -113,6 +119,8 @@ machine def zr_boot
   zr_builtin(zr_global(G_CLASS), Machine.id(:new), Machine.addr(:zr_class_new_instance), 0 - 1)
   zr_builtin(zr_global(G_CLASS), Machine.id(:superclass), Machine.addr(:zr_class_superclass), 0)
   zr_builtin(zr_global(G_MODULE), Machine.id(:name), Machine.addr(:zr_class_name), 0)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:include), Machine.addr(:zr_mod_include), 0 - 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:include?), Machine.addr(:zr_mod_include_p), 1)
   zr_builtin(zr_global(G_MODULE), Machine.id(:to_s), Machine.addr(:zr_class_to_s), 0)
   zr_builtin(zr_global(G_MODULE), Machine.id(:inspect), Machine.addr(:zr_class_to_s), 0)
   zr_builtin(zr_global(G_MODULE), Machine.id(:attr_reader), Machine.addr(:zr_mod_attr_reader), 0 - 1)
@@ -178,11 +186,36 @@ machine def zr_boot
   zr_builtin(zr_global(G_EXCEPTION), Machine.id(:to_s), Machine.addr(:zr_exc_message), 0)
   zr_builtin(zr_global(G_EXCEPTION), Machine.id(:inspect), Machine.addr(:zr_exc_inspect), 0)
   zr_builtin(zr_global(G_EXCEPTION), Machine.id(:backtrace), Machine.addr(:zr_exc_backtrace), 0)
+  zr_builtin(zr_singleton_class(zr_global(G_HASH)), Machine.id(:new), Machine.addr(:zr_hash_s_new), 0 - 1)
+  zr_builtin(zr_global(G_HASH), Machine.id(:[]), Machine.addr(:zr_hash_aref), 1)
+  zr_builtin(zr_global(G_HASH), Machine.id(:[]=), Machine.addr(:zr_hash_aset), 2)
+  zr_builtin(zr_global(G_HASH), Machine.id(:fetch), Machine.addr(:zr_hash_fetch), 0 - 1)
+  zr_builtin(zr_global(G_HASH), Machine.id(:key?), Machine.addr(:zr_hash_key_p), 1)
+  zr_builtin(zr_global(G_HASH), Machine.id(:has_key?), Machine.addr(:zr_hash_key_p), 1)
+  zr_builtin(zr_global(G_HASH), Machine.id(:include?), Machine.addr(:zr_hash_key_p), 1)
+  zr_builtin(zr_global(G_HASH), Machine.id(:member?), Machine.addr(:zr_hash_key_p), 1)
+  zr_builtin(zr_global(G_HASH), Machine.id(:delete), Machine.addr(:zr_hash_delete), 1)
+  zr_builtin(zr_global(G_HASH), Machine.id(:size), Machine.addr(:zr_hash_size), 0)
+  zr_builtin(zr_global(G_HASH), Machine.id(:length), Machine.addr(:zr_hash_size), 0)
+  zr_builtin(zr_global(G_HASH), Machine.id(:empty?), Machine.addr(:zr_hash_empty_p), 0)
+  zr_builtin(zr_global(G_HASH), Machine.id(:keys), Machine.addr(:zr_hash_keys), 0)
+  zr_builtin(zr_global(G_HASH), Machine.id(:values), Machine.addr(:zr_hash_values), 0)
+  zr_builtin(zr_global(G_HASH), Machine.id(:each), Machine.addr(:zr_hash_each), 0)
+  zr_builtin(zr_global(G_HASH), Machine.id(:each_pair), Machine.addr(:zr_hash_each), 0)
+  zr_builtin(zr_global(G_HASH), Machine.id(:to_a), Machine.addr(:zr_hash_to_a), 0)
+  zr_builtin(zr_global(G_HASH), Machine.id(:inspect), Machine.addr(:zr_hash_inspect), 0)
+  zr_builtin(zr_global(G_HASH), Machine.id(:to_s), Machine.addr(:zr_hash_inspect), 0)
+  zr_builtin(zr_global(G_HASH), Machine.id(:==), Machine.addr(:zr_hash_eq), 1)
+  zr_builtin(zr_global(G_HASH), Machine.id(:default), Machine.addr(:zr_hash_default_m), 0)
 end
 
 sig [I32, Ptr] => I32
 machine def main(argc, argv)
   zr_boot()
+  r = zr_prelude()
+  if r == QUNDEF
+    zr_report(Task.pending(zr_task()))
+  end
   r = zr_toplevel()
   if r == QUNDEF
     zr_report(Task.pending(zr_task()))

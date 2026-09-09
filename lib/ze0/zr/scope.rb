@@ -33,6 +33,7 @@ module Ze0
           [top, node.recv ? staging(node.recv, top) : base, *node.args.map { |a| staging(a, top) }].max
         when Hir::Yield then row(node.args, base)
         when Hir::ArrayLit then row(node.elements, base)
+        when Hir::HashLit then row(node.pairs, base)
         when Hir::Interp then row(node.parts, base)
         when Hir::Assign, Hir::Not, Hir::IvarWrite, Hir::ConstWrite then staging(node.value, base)
         when Hir::Break, Hir::Next, Hir::Return then staging(node.value, base + 1)

@@ -51,6 +51,8 @@ module Ze0
     GvarRead = Struct.new(:name, :line)
     IvarWrite = Struct.new(:name, :value, :line)
     ArrayLit = Struct.new(:elements, :line)
+    # `{k => v, ...}`: `pairs` is a flat list, key then value.
+    HashLit = Struct.new(:pairs, :line)
     # `"a#{b}c"`: literal and expression parts in order.
     Interp = Struct.new(:parts, :line)
     # `begin body rescue ... else else_body ensure ensure_body end`. The

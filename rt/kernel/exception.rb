@@ -15,6 +15,9 @@ KIND_CLASS = 3
 KIND_MODULE = 4
 KIND_BLOCK = 5
 KIND_SCLASS = 6
+# A frame of the runtime's own Ruby (a block in a builtin written in
+# Ruby): no row in a backtrace.
+KIND_HIDDEN = 7
 
 Machine.struct :BtRow, meta: Ptr, file: Ptr, file_len: Word, line: Word
 Machine.struct :RException, basic: RBasic, message: Value, rows: Ptr, nrows: Word
@@ -32,7 +35,7 @@ G_RUNTIME_ERROR = 23
 # The nearest frame at or outside `rec` that has a file of its own.
 sig [Ptr] => Ptr
 machine def zr_frame_with_file(rec)
-  while rec != 0 && FrameMeta.kind(Frame.meta(rec)) == KIND_BUILTIN
+  while rec != 0 && (FrameMeta.kind(Frame.meta(rec)) == KIND_BUILTIN || FrameMeta.kind(Frame.meta(rec)) == KIND_HIDDEN)
     rec = Frame.prev(rec)
   end
   rec
@@ -44,27 +47,31 @@ machine def zr_backtrace_capture(exc, top)
   n = 0
   rec = top
   while rec != 0
-    n += 1
+    if FrameMeta.kind(Frame.meta(rec)) != KIND_HIDDEN
+      n += 1
+    end
     rec = Frame.prev(rec)
   end
   rows = malloc(n * BtRow.size)
   i = 0
   rec = top
   while rec != 0
-    row = rows + (i * BtRow.size)
     meta = Frame.meta(rec)
-    BtRow.set_meta(row, meta)
-    source = zr_frame_with_file(rec)
-    if source == 0
-      BtRow.set_file(row, 0)
-      BtRow.set_file_len(row, 0)
-      BtRow.set_line(row, 0)
-    else
-      BtRow.set_file(row, FrameMeta.file(Frame.meta(source)))
-      BtRow.set_file_len(row, FrameMeta.file_len(Frame.meta(source)))
-      BtRow.set_line(row, Frame.line(source))
+    if FrameMeta.kind(meta) != KIND_HIDDEN
+      row = rows + (i * BtRow.size)
+      BtRow.set_meta(row, meta)
+      source = zr_frame_with_file(rec)
+      if source == 0
+        BtRow.set_file(row, 0)
+        BtRow.set_file_len(row, 0)
+        BtRow.set_line(row, 0)
+      else
+        BtRow.set_file(row, FrameMeta.file(Frame.meta(source)))
+        BtRow.set_file_len(row, FrameMeta.file_len(Frame.meta(source)))
+        BtRow.set_line(row, Frame.line(source))
+      end
+      i += 1
     end
-    i += 1
     rec = Frame.prev(rec)
   end
   RException.set_rows(exc, rows)

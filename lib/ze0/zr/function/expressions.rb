@@ -26,6 +26,7 @@ module Ze0
           when Hir::ConstRead then const_read(node)
           when Hir::ConstWrite then const_write(node)
           when Hir::ArrayLit then staged(node.elements) { |argv| kernel("zr_ary_of", imm(node.elements.size), argv) }
+          when Hir::HashLit then staged(node.pairs) { |argv| kernel("zr_hash_of", imm(node.pairs.size / 2), argv) }
           when Hir::Interp then staged(node.parts) { |argv| checked(kernel("zr_str_interp", imm(node.parts.size), argv)) }
           when Hir::IvarRead then kernel("zr_ivar_get", @self, imm(sym_id(node.name)))
           when Hir::GvarRead then gvar_read(node)

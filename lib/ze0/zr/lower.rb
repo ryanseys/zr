@@ -15,10 +15,14 @@ module Ze0
 
       attr_reader :program, :unit, :symbols, :data, :functions
 
-      def initialize(program, unit, symbols)
+      # `internal` marks the core library: its methods are builtins to a
+      # backtrace, and its blocks and bodies leave no row at all.
+      def initialize(program, unit, symbols, entry: "zr_toplevel", internal: false)
         @program = program
         @unit = unit
         @symbols = symbols
+        @entry = entry
+        @internal = internal
         @data = []
         @functions = []
         @next = 0
@@ -26,8 +30,15 @@ module Ze0
 
       # `[functions, data]`.
       def run
-        Function.new(self, "zr_toplevel", @program.locals, @program.body, nil, :main).lower
+        Function.new(self, @entry, @program.locals, @program.body, nil, :main).lower
         [@functions, @data]
+      end
+
+      # The FrameMeta kind a function of `kind` gets here.
+      def frame_kind(kind)
+        return Function::KINDS.fetch(kind) unless @internal
+
+        kind == :def ? "KIND_BUILTIN" : "KIND_HIDDEN"
       end
 
       def const(name)
@@ -49,7 +60,7 @@ module Ze0
 
       # A read-only string literal, as data this unit carries.
       def literal(bytes)
-        name = "zr_lit_#{@data.size}"
+        name = "#{@entry}_lit_#{@data.size}"
         @data << Obj::Data.new(name, :text_const, bytes.b, align: 1)
         name
       end
@@ -74,7 +85,7 @@ module Ze0
 
       # The function a def becomes, lowered now and named for the site.
       def define(node)
-        name = "zr_def_#{number}_#{node.name.to_s.gsub(/[^A-Za-z0-9_]/, "")}"
+        name = "#{@entry}_def_#{number}_#{node.name.to_s.gsub(/[^A-Za-z0-9_]/, "")}"
         Function.new(self, name, node.locals, node.body, node, :def).lower
         name
       end
@@ -82,7 +93,7 @@ module Ze0
       # The function a class, module or singleton class body becomes.
       def body(node)
         kind = { Hir::ClassDef => :class, Hir::ModuleDef => :module, Hir::SingletonClassDef => :sclass }.fetch(node.class)
-        name = "zr_body_#{number}_#{kind == :sclass ? "singleton" : node.name}"
+        name = "#{@entry}_body_#{number}_#{kind == :sclass ? "singleton" : node.name}"
         Function.new(self, name, node.locals, node.body, node, kind).lower
         name
       end
@@ -90,7 +101,7 @@ module Ze0
       # The function a block literal becomes; `outer` is the Function it
       # is written in.
       def block(node, outer)
-        name = "zr_blk_#{number}"
+        name = "#{@entry}_blk_#{number}"
         Function.new(self, name, node.locals, node.body, node, :block, outer: outer).lower
         name
       end

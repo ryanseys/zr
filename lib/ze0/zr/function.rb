@@ -96,7 +96,7 @@ module Ze0
         @f.store(@prev, @rec, off(@frame, "prev"))
         line = @def ? @def.line : 1
         name = @def && %i[class module].include?(@kind) ? sym_id(@def.name) : 0
-        @meta = @l.meta(@name, KINDS.fetch(@kind), line, name, @outer&.meta)
+        @meta = @l.meta(@name, @l.frame_kind(@kind), line, name, @outer&.meta)
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @f.store(imm(line), @rec, off(@frame, "line"))
         serial = @f.iadd(@f.fetch("i64", @task_addr, off(@task, "serial")), imm(1))

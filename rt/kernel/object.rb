@@ -386,7 +386,11 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_class_superclass(recv, argc, argv, cref, blk)
-  RClass.superclass(recv)
+  k = RClass.superclass(recv)
+  while k != QNIL && zr_type(k) == T_ICLASS
+    k = RClass.superclass(k)
+  end
+  k
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value

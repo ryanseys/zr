@@ -85,7 +85,8 @@ machine def zr_uninitialized_constant(scope, id)
   zr_raise_buf(zr_global(G_NAME_ERROR), b)
 end
 
-# A bare constant under `cref`.
+# A bare constant under `cref`: the lexical scopes, then the innermost
+# scope's ancestors, then Object when that scope is a module.
 sig [Value, Word] => Value
 machine def zr_const_get(cref, id)
   c = cref
@@ -97,6 +98,9 @@ machine def zr_const_get(cref, id)
     c = RCref.next(c)
   end
   e = zr_const_row_in(RCref.klass(cref), id, false)
+  if e == 0 && zr_type(RCref.klass(cref)) == T_MODULE
+    e = zr_const_row_in(zr_global(G_OBJECT), id, false)
+  end
   if e == 0
     return zr_uninitialized_constant(RCref.klass(cref), id)
   end

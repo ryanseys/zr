@@ -15,8 +15,9 @@ class RtTest < Minitest::Test
 
   def compile(rb)
     symbols = Ze0::Machine::Symbols.new
-    functions, data, raw = Ze0::Machine.compile_unit(Ze0::Zr::KERNEL + [rb], symbols: symbols)
-    [functions, data + Ze0::Zr.symbol_names(symbols), raw]
+    unit = Ze0::Machine.unit(Ze0::Zr::KERNEL + [rb], symbols: symbols)
+    functions, data = Ze0::Zr.core(unit, symbols)
+    [unit.functions + functions, unit.data + data + Ze0::Zr.symbol_names(symbols), unit.raw]
   end
 
   Dir[File.join(ROOT, "test/rt/*.rb")].sort.each do |rb|

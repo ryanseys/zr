@@ -1,6 +1,8 @@
 # Classes and modules: a name, a superclass, and an extension outside
 # the arena holding the method table (id, code, arity, kind, meta,
 # cref rows searched in order) and the constant table (id, value rows).
+# An included module sits in the superclass chain as a proxy (T_ICLASS)
+# that shares the module's extension and names it as `attached`.
 # Method code takes `(recv, argc, argv, cref)` and answers a Value; the
 # cref is the lexical class chain the method was defined under.
 Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr, attached: Value
@@ -45,6 +47,71 @@ machine def zr_class_new(sup)
   c = zr_class_boot(sup)
   zr_make_metaclass(c)
   c
+end
+
+T_ICLASS = 28
+
+# Whether `klass`'s chain holds `mod`, itself or as a proxy.
+sig [Value, Value] => Bool
+machine def zr_chain_includes(klass, mod)
+  k = klass
+  while k != QNIL
+    if k == mod || (zr_type(k) == T_ICLASS && RClass.attached(k) == mod)
+      return true
+    end
+    k = RClass.superclass(k)
+  end
+  false
+end
+
+# `include`: a proxy for `mod`, and for each module it includes, goes
+# in right after `klass`, unless the chain holds it already.
+sig [Value, Value] => Void
+machine def zr_include_module(klass, mod)
+  c = klass
+  m = mod
+  while m != QNIL
+    origin = zr_type(m) == T_ICLASS ? RClass.attached(m) : m
+    unless zr_chain_includes(klass, origin)
+      ic = zr_alloc(T_ICLASS, origin)
+      RClass.set_name(ic, Machine.value(QNIL))
+      RClass.set_superclass(ic, RClass.superclass(c))
+      RClass.set_ext(ic, RClass.ext(origin))
+      RClass.set_attached(ic, origin)
+      RClass.set_superclass(c, ic)
+      c = ic
+    end
+    m = RClass.superclass(m)
+  end
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_include(recv, argc, argv, cref, blk)
+  i = argc - 1
+  while i >= 0
+    m = Machine.value(Machine.load64(argv + (i * 8), 0))
+    if zr_special_p(m) || zr_type(m) != T_MODULE
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
+      zr_buf_str(b, zr_class_name_of(m))
+      zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
+      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+    end
+    zr_include_module(recv, m)
+    i -= 1
+  end
+  recv
+end
+
+# `Module#include?`: `mod` is in the chain, other than as itself.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_include_p(recv, argc, argv, cref, blk)
+  m = Machine.value(Machine.load64(argv, 0))
+  if zr_special_p(m) || zr_type(m) != T_MODULE
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("wrong argument type Class (expected Module)"), 43)
+  end
+  zr_bool(m != recv && zr_chain_includes(recv, m))
 end
 
 sig [Value] => Bool
@@ -252,16 +319,10 @@ machine def zr_class_of(v)
   end
 end
 
-# Whether `klass` is `target` or inherits from it.
+# Whether `klass` is `target` or inherits from it, or includes it.
 sig [Value, Value] => Bool
 machine def zr_class_inherits(klass, target)
-  while klass != QNIL
-    if klass == target
-      return true
-    end
-    klass = RClass.superclass(klass)
-  end
-  false
+  zr_chain_includes(klass, target)
 end
 
 sig [Value, Value] => Bool
@@ -273,7 +334,10 @@ end
 sig [Value] => Void
 machine def zr_mark_children(v)
   t = RBasic.flags(v) & T_MASK
-  if t == T_CLASS || t == T_MODULE
+  if t == T_ICLASS
+    zr_mark(RClass.superclass(v))
+    zr_mark(RClass.attached(v))
+  elsif t == T_CLASS || t == T_MODULE
     zr_mark(RClass.name(v))
     zr_mark(RClass.superclass(v))
     zr_mark(RClass.attached(v))
@@ -297,6 +361,8 @@ machine def zr_mark_children(v)
     zr_mark_ivtab(RObject.iv(v))
   elsif t == T_ARRAY
     zr_mark_ary(v)
+  elsif t == T_HASH
+    zr_mark_hash(v)
   elsif t == T_CREF
     zr_mark(RCref.klass(v))
     zr_mark(RCref.next(v))
@@ -333,6 +399,10 @@ machine def zr_release(v)
     zr_release_ivtab(RObject.iv(v))
   elsif t == T_ARRAY
     free(RArray.ptr(v))
+  elsif t == T_HASH
+    if RHash.entries(v) != 0
+      free(RHash.entries(v))
+    end
   elsif t == T_ENV
     free(REnv.slots(v))
   end
