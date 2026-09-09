@@ -1,6 +1,26 @@
-# Hash over the kernel's table.
+# Hash over the kernel's table: each, [], []=, fetch, delete, keys and
+# values come from the kernel; the rest is written over them.
 class Hash
   include Enumerable
+
+  def self.[](*args)
+    return args[0].to_h if args.size == 1 && args[0].respond_to?(:to_hash)
+    if args.size == 1 && args[0].is_a?(Array)
+      out = {}
+      args[0].each do |pair|
+        raise ArgumentError, "wrong element type #{pair.class} (expected array)" unless pair.is_a?(Array)
+        raise ArgumentError, "invalid number of elements (#{pair.size} for 1..2)" unless pair.size.between?(1, 2)
+
+        out[pair[0]] = pair[1]
+      end
+      return out
+    end
+    raise ArgumentError, "odd number of arguments for Hash" if args.size.odd?
+
+    out = {}
+    args.each_slice(2) { |k, v| out[k] = v }
+    out
+  end
 
   def each_key
     return to_enum(:each_key) { size } unless block_given?
@@ -23,6 +43,7 @@ class Hash
     each { |k, v| out[k] = v if yield(k, v) }
     out
   end
+  alias filter select
 
   def reject
     return to_enum(:reject) { size } unless block_given?
@@ -32,16 +53,77 @@ class Hash
     out
   end
 
-  def to_h
+  def select!
+    return to_enum(:select!) { size } unless block_given?
+
+    before = size
+    keys.each { |k| delete(k) unless yield(k, self[k]) }
+    size == before ? nil : self
+  end
+  alias filter! select!
+
+  def keep_if(&block)
+    return to_enum(:keep_if) { size } unless block
+
+    select!(&block)
     self
   end
 
-  def merge(other)
+  def reject!
+    return to_enum(:reject!) { size } unless block_given?
+
+    before = size
+    keys.each { |k| delete(k) if yield(k, self[k]) }
+    size == before ? nil : self
+  end
+
+  def delete_if(&block)
+    return to_enum(:delete_if) { size } unless block
+
+    reject!(&block)
+    self
+  end
+
+  def to_h
+    return self unless block_given?
+
     out = {}
-    each { |k, v| out[k] = v }
-    other.each { |k, v| out[k] = v }
+    each do |k, v|
+      pair = yield(k, v)
+      raise TypeError, "wrong element type #{pair.class} (expected array)" unless pair.is_a?(Array)
+      raise ArgumentError, "element has wrong array length (expected 2, was #{pair.size})" unless pair.size == 2
+
+      out[pair[0]] = pair[1]
+    end
     out
   end
+
+  def to_hash = self
+
+  def to_a
+    out = []
+    each { |k, v| out << [k, v] }
+    out
+  end
+  alias entries to_a
+
+  def merge(*others, &block)
+    out = dup
+    others.each { |other| out.merge!(other, &block) }
+    out
+  end
+
+  def merge!(*others)
+    others.each do |other|
+      other.each do |k, v|
+        self[k] = block_given? && key?(k) ? yield(k, self[k], v) : v
+      end
+    end
+    self
+  end
+  alias update merge!
+
+  def store(key, value) = self[key] = value
 
   def key(value)
     each { |k, v| return k if v == value }
@@ -52,21 +134,12 @@ class Hash
     each { |_, v| return true if v == value }
     false
   end
+  alias has_value? value?
 
   def invert
     out = {}
     each { |k, v| out[v] = k }
     out
-  end
-
-  def filter
-    out = {}
-    each { |k, v| out[k] = v if yield(k, v) }
-    out
-  end
-
-  def has_value?(value)
-    value?(value)
   end
 
   def transform_values
@@ -76,4 +149,295 @@ class Hash
     each { |k, v| out[k] = yield(v) }
     out
   end
+
+  def transform_values!
+    return to_enum(:transform_values!) { size } unless block_given?
+
+    keys.each { |k| self[k] = yield(self[k]) }
+    self
+  end
+
+  def transform_keys(mapping = nil)
+    return to_enum(:transform_keys) { size } unless mapping || block_given?
+
+    out = {}
+    each do |k, v|
+      new_key = if mapping&.key?(k) then mapping[k]
+                elsif block_given? then yield(k)
+                else k
+                end
+      out[new_key] = v
+    end
+    out
+  end
+
+  def transform_keys!(mapping = nil, &block)
+    return to_enum(:transform_keys!) { size } unless mapping || block
+
+    replace(transform_keys(mapping, &block))
+  end
+
+  def replace(other)
+    clear
+    other.each { |k, v| self[k] = v }
+    self
+  end
+
+  def clear = Primitive.zr_hash_clear(self)
+
+  def default=(value)
+    Primitive.zr_hash_set_default(self, value)
+  end
+
+  def default_proc = Primitive.zr_hash_default_proc(self)
+
+  def default_proc=(pr)
+    unless pr.nil? || pr.is_a?(Proc)
+      raise TypeError, "wrong default_proc type #{pr.class} (expected Proc)"
+    end
+    if pr&.lambda? && pr.arity != 2 && (pr.arity >= 0 || pr.arity < -3)
+      raise TypeError, "default_proc takes two arguments (2 for #{pr.arity})"
+    end
+
+    Primitive.zr_hash_set_default_proc(self, pr)
+  end
+
+  def dig(key, *rest)
+    v = self[key]
+    rest.empty? || v.nil? ? v : v.dig(*rest)
+  end
+
+  def fetch_values(*keys, &block)
+    keys.map { |k| fetch(k, &block) }
+  end
+
+  def values_at(*keys)
+    keys.map { |k| self[k] }
+  end
+
+  def slice(*keys)
+    out = {}
+    keys.each { |k| out[k] = self[k] if key?(k) }
+    out
+  end
+
+  def except(*keys)
+    out = dup
+    keys.each { |k| out.delete(k) }
+    out
+  end
+
+  def filter_map
+    return to_enum(:filter_map) { size } unless block_given?
+
+    out = []
+    each do |k, v|
+      r = yield(k, v)
+      out << r if r
+    end
+    out
+  end
+
+  def any?(*args)
+    return super if args.size == 1
+    return !empty? unless block_given?
+
+    each { |k, v| return true if yield(k, v) }
+    false
+  end
+
+  def all?(*args)
+    return super if args.size == 1
+    return true unless block_given?
+
+    each { |k, v| return false unless yield(k, v) }
+    true
+  end
+
+  def none?(*args)
+    return super if args.size == 1
+    return empty? unless block_given?
+
+    each { |k, v| return false if yield(k, v) }
+    true
+  end
+
+  def count(*args)
+    return super if args.size == 1
+    return size unless block_given?
+
+    n = 0
+    each { |k, v| n += 1 if yield(k, v) }
+    n
+  end
+
+  def find(&block)
+    return to_enum(:find) unless block
+
+    each { |k, v| return [k, v] if yield(k, v) }
+    nil
+  end
+  alias detect find
+
+  def find_all(&block)
+    return to_enum(:find_all) { size } unless block
+
+    to_a.select { |k, v| yield(k, v) }
+  end
+
+  def map
+    return to_enum(:map) { size } unless block_given?
+
+    out = []
+    each { |k, v| out << yield(k, v) }
+    out
+  end
+  alias collect map
+
+  def flat_map
+    return to_enum(:flat_map) { size } unless block_given?
+
+    out = []
+    each do |k, v|
+      r = yield(k, v)
+      r.is_a?(Array) ? out.concat(r) : out << r
+    end
+    out
+  end
+
+  def partition
+    return to_enum(:partition) { size } unless block_given?
+
+    yes = []
+    no = []
+    each { |k, v| (yield(k, v) ? yes : no) << [k, v] }
+    [yes, no]
+  end
+
+  def group_by
+    return to_enum(:group_by) { size } unless block_given?
+
+    out = {}
+    each { |k, v| (out[yield(k, v)] ||= []) << [k, v] }
+    out
+  end
+
+  def sort_by(&block)
+    return to_enum(:sort_by) { size } unless block
+
+    to_a.sort_by { |k, v| yield(k, v) }
+  end
+
+  def min_by(&block)
+    return to_enum(:min_by) { size } unless block
+
+    to_a.min_by { |k, v| yield(k, v) }
+  end
+
+  def max_by(&block)
+    return to_enum(:max_by) { size } unless block
+
+    to_a.max_by { |k, v| yield(k, v) }
+  end
+
+  def sum(init = 0)
+    return to_a.sum(init) unless block_given?
+
+    total = init
+    each { |k, v| total += yield(k, v) }
+    total
+  end
+
+  def each_with_object(memo)
+    return to_enum(:each_with_object, memo) { size } unless block_given?
+
+    each { |k, v| yield([k, v], memo) }
+    memo
+  end
+
+  def each_with_index
+    return to_enum(:each_with_index) { size } unless block_given?
+
+    i = 0
+    each do |k, v|
+      yield([k, v], i)
+      i += 1
+    end
+    self
+  end
+
+  def reduce(*args, &block) = to_a.reduce(*args, &block)
+  alias inject reduce
+
+  def first(*args)
+    return to_a.first(*args) unless args.empty?
+
+    each { |k, v| return [k, v] }
+    nil
+  end
+
+  def min(*args, &block) = to_a.min(*args, &block)
+
+  def max(*args, &block) = to_a.max(*args, &block)
+
+  def sort(&block) = to_a.sort(&block)
+
+  def compact
+    out = {}
+    each { |k, v| out[k] = v unless v.nil? }
+    out
+  end
+
+  def compact!
+    before = size
+    keys.each { |k| delete(k) if self[k].nil? }
+    size == before ? nil : self
+  end
+
+  def assoc(key)
+    each { |k, v| return [k, v] if k == key }
+    nil
+  end
+
+  def rassoc(value)
+    each { |k, v| return [k, v] if v == value }
+    nil
+  end
+
+  def shift
+    each do |k, v|
+      delete(k)
+      return [k, v]
+    end
+    nil
+  end
+
+  def eql?(other)
+    return false unless other.is_a?(Hash) && size == other.size
+
+    each { |k, v| return false unless other.key?(k) && v.eql?(other[k]) }
+    true
+  end
+
+  def hash = to_a.map { |k, v| [k.hash, v.hash] }.hash
+
+  def <=(other) = all? { |k, v| other.key?(k) && other[k] == v }
+
+  def <(other) = size < other.size && self <= other
+
+  def >=(other) = other <= self
+
+  def >(other) = other < self
+
+  def to_proc
+    h = self
+    Primitive.zr_proc_anonymous(lambda { |k| h[k] })
+  end
+
+  def deconstruct_keys(keys) = self
+
+  def compare_by_identity = Primitive.zr_unimplemented("Hash#compare_by_identity")
+
+  def compare_by_identity? = false
+
 end

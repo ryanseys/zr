@@ -15,6 +15,7 @@ G_LOCAL_JUMP_ERROR = 29
 PENDING_RAISE = 0
 PENDING_BREAK = 1
 PENDING_RETURN = 2
+PENDING_THROW = 3
 
 sig [Value, Word] => Value
 machine def zr_env_new(parent, n)
@@ -495,4 +496,29 @@ machine def zr_enum_value(values)
     return Machine.value(QNIL)
   end
   values
+end
+
+# A proc made by a core method, as `curry` and `>>` make: its
+# parameters read `[[:rest]]` and its arity -1, whatever the block
+# behind it takes, as CRuby's C-made procs do.
+sig [] => Ptr
+machine def zr_anonymous_meta
+  meta = Machine.static(:anonymous_meta, FrameMeta.size)
+  if FrameMeta.params(meta) == 0
+    table = malloc(24)
+    Machine.store64(table, 0, 1)
+    Machine.store64(table, 8, PARAM_REST)
+    Machine.store64(table, 16, 0)
+    FrameMeta.set_params(meta, table)
+    FrameMeta.set_arity(meta, 0 - 1)
+    FrameMeta.set_kind(meta, KIND_BLOCK)
+    FrameMeta.set_owner(meta, Machine.value(QNIL))
+  end
+  meta
+end
+
+sig [Value] => Value
+machine def zr_proc_anonymous(p)
+  RProc.set_meta(p, zr_anonymous_meta())
+  p
 end

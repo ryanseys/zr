@@ -59,6 +59,8 @@ machine def zr_boot
   Task.set_errinfo(zr_task(), Machine.value(QNIL))
   Task.set_kw(zr_task(), 0)
   Task.set_guards(zr_task(), Machine.value(QNIL))
+  Task.set_catches(zr_task(), Machine.value(QNIL))
+  Task.set_throw_tag(zr_task(), Machine.value(QNIL))
   # The four that form a cycle come first, with no class; then each
   # gets Class as its class. Names wait for String.
   zr_boot_class(G_BASIC_OBJECT, Machine.id(:BasicObject), Machine.value(QNIL))
@@ -141,6 +143,8 @@ machine def zr_boot
   end
   zr_set_global(G_MAIN, zr_obj_alloc(zr_global(G_OBJECT)))
   zr_set_global(G_TOP_CREF, zr_cref_push(zr_global(G_OBJECT), Machine.value(QNIL)))
+  # A top-level def is private, as CRuby's toplevel scope makes it.
+  RCref.set_vis(zr_global(G_TOP_CREF), VIS_PRIVATE)
   # Kernel holds what CRuby's Kernel does; BasicObject has its few.
   zr_builtin_private(zr_global(G_KERNEL), Machine.id(:puts), Machine.addr(:zr_puts), 0 - 1)
   zr_builtin_private(zr_global(G_KERNEL), Machine.id(:raise), Machine.addr(:zr_kernel_raise), 0 - 1)
@@ -359,6 +363,16 @@ machine def zr_boot
   zr_builtin(zr_global(G_HASH), Machine.id(:to_s), Machine.addr(:zr_hash_inspect), 0)
   zr_builtin(zr_global(G_HASH), Machine.id(:==), Machine.addr(:zr_hash_eq), 1)
   zr_builtin(zr_global(G_HASH), Machine.id(:default), Machine.addr(:zr_hash_default_m), 0)
+  zr_builtin(zr_global(G_METHOD), Machine.id(:super_method), Machine.addr(:zr_method_super_method), 0)
+  zr_builtin(zr_global(G_UNBOUND_METHOD), Machine.id(:super_method), Machine.addr(:zr_method_super_method), 0)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:included_modules), Machine.addr(:zr_mod_included_modules), 0)
+  zr_builtin(zr_singleton_class(zr_global(G_MODULE)), Machine.id(:nesting), Machine.addr(:zr_mod_nesting), 0)
+  zr_builtin_private(zr_global(G_KERNEL), Machine.id(:__method__), Machine.addr(:zr_kernel_method_name), 0)
+  zr_builtin(zr_global(G_PROC), Machine.id(:source_location), Machine.addr(:zr_proc_source_location), 0)
+  main = zr_singleton_class(zr_global(G_MAIN))
+  zr_builtin(main, Machine.id(:include), Machine.addr(:zr_main_include), 0 - 1)
+  zr_builtin(main, Machine.id(:public), Machine.addr(:zr_main_public), 0 - 1)
+  zr_builtin(main, Machine.id(:private), Machine.addr(:zr_main_private), 0 - 1)
 end
 
 sig [I32, Ptr] => I32

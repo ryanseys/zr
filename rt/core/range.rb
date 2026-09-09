@@ -99,13 +99,17 @@ class Range
   def member?(v) = cover?(v)
   def ===(v) = cover?(v)
 
-  def step(n)
-    return to_enum(:step, n) unless block_given?
+  def step(n = 1, &block)
+    Primitive.zr_unimplemented("Range#step over non-Integers") unless @begin.is_a?(Integer) && (@end.nil? || @end.is_a?(Integer)) && n.is_a?(Integer)
+    raise ArgumentError, "step can't be 0" if n.zero?
 
-    out = []
-    each_with_index { |v, i| out << v if i % n == 0 }
-    out
+    seq = Enumerator::ArithmeticSequence.for(@begin, @end, n, @excl, self)
+    return seq unless block
+
+    seq.each(&block)
+    self
   end
+  alias % step
 
   def ==(other)
     other.is_a?(Range) && @begin == other.begin && @end == other.end && @excl == other.exclude_end?

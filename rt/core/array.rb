@@ -413,6 +413,17 @@ class Array
     rest.empty? || v.nil? ? v : v.dig(*rest)
   end
 
+  def fetch(index, *default)
+    raise ArgumentError, "wrong number of arguments (given #{default.size + 1}, expected 1..2)" if default.size > 1
+
+    i = index < 0 ? index + size : index
+    return self[i] if i >= 0 && i < size
+    return yield(index) if block_given?
+    return default[0] unless default.empty?
+
+    raise IndexError, "index #{index} outside of array bounds: #{-size}...#{size}"
+  end
+
   def assoc(key)
     each { |x| return x if x.is_a?(Array) && x[0] == key }
     nil

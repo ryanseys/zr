@@ -9,7 +9,7 @@ class Module
   def <(other)
     raise TypeError, "compared with non class/module" unless other.is_a?(Module)
     return false if equal?(other)
-    return true if include?(other) || ancestors.include?(other)
+    return true if ancestors.include?(other)
 
     other.ancestors.include?(self) ? false : nil
   end

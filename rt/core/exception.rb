@@ -78,6 +78,10 @@ class NoMatchingPatternKeyError < NoMatchingPatternError
 end
 class RangeError < StandardError; end
 class FloatDomainError < RangeError; end
+
+module Math
+  class DomainError < ArgumentError; end
+end
 class RegexpError < StandardError; end
 class SystemCallError < StandardError; end
 class ThreadError < StandardError; end

@@ -28,7 +28,7 @@ end
 # The frame chain the collector walks: a record is a Frame followed by
 # `nvalues` Values.
 Machine.struct :Frame, prev: Ptr, meta: Ptr, line: Word, serial: Word, self: Value, cref: Value, blk: Value, nvalues: Word
-Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word, kw: Word, stack_limit: Ptr, guards: Value
+Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word, kw: Word, stack_limit: Ptr, guards: Value, catches: Value, throw_tag: Value
 
 sig [] => Ptr
 machine def zr_task
@@ -204,6 +204,8 @@ machine def zr_mark_roots
   zr_mark(Task.pending(zr_task()))
   zr_mark(Task.errinfo(zr_task()))
   zr_mark(Task.guards(zr_task()))
+  zr_mark(Task.catches(zr_task()))
+  zr_mark(Task.throw_tag(zr_task()))
   Machine.store64(zr_marking(), 0, Machine.word(zr_fix(3)))
   zr_mark_kernel_roots()
   rec = Task.top(zr_task())

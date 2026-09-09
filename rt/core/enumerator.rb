@@ -150,3 +150,88 @@ module Kernel
     Enumerator.for(self, method, args, {}, size)
   end
 end
+
+# `1.step(10, 3)` and `(1..10).step(3)` without a block: an Enumerator
+# that also answers its bounds and step.
+class Enumerator::ArithmeticSequence < Enumerator
+  attr_reader :begin, :end, :step
+
+  def self.for(first, last, step, exclude_end, range = nil)
+    seq = allocate
+    seq.send(:sequence, first, last, step, exclude_end, range)
+    seq
+  end
+
+  def exclude_end? = @exclude_end
+
+  def each
+    return self unless block_given?
+
+    i = @begin
+    return self if @range && @step < 0
+    if @step > 0
+      while @end.nil? || (@exclude_end ? i < @end : i <= @end)
+        yield i
+        i += @step
+      end
+    else
+      while @end.nil? || (@exclude_end ? i > @end : i >= @end)
+        yield i
+        i += @step
+      end
+    end
+    self
+  end
+
+  def size
+    return Primitive.zr_unimplemented("an endless ArithmeticSequence's size, which is Infinity") if @end.nil?
+    return 0 if @range && @step < 0
+
+    span = @end - @begin
+    n = span / @step
+    n -= 1 if @exclude_end && span % @step == 0
+    n < 0 ? 0 : n + 1
+  end
+
+  def first(n = nil)
+    return take(n) unless n.nil?
+
+    each { |v| return v }
+    nil
+  end
+
+  def last(n = nil)
+    all = to_a
+    n.nil? ? all.last : all.last(n)
+  end
+
+  def ==(other)
+    other.is_a?(Enumerator::ArithmeticSequence) && @begin == other.begin && @end == other.end && @step == other.step && @exclude_end == other.exclude_end?
+  end
+  alias eql? ==
+  alias === ==
+
+  def hash = [@begin, @end, @step, @exclude_end].hash
+
+  def inspect
+    return "((#{@range.inspect}).step(#{@step}))" if @range
+
+    "(#{@begin.inspect}.step(#{@end.inspect}#{@step == 1 ? '' : ", #{@step.inspect}"}))"
+  end
+  alias to_s inspect
+
+  private
+
+  def sequence(first, last, step, exclude_end, range)
+    @begin = first
+    @end = last
+    @step = step
+    @exclude_end = exclude_end
+    @range = range
+    @receiver = self
+    @method = :each
+    @args = []
+    @kwargs = {}
+    @size = nil
+  end
+end

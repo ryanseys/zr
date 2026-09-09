@@ -610,3 +610,45 @@ machine def zr_hash_update(h, other)
   end
   h
 end
+
+# The primitives rt/core/hash.rb builds on.
+sig [Value] => Value
+machine def zr_hash_default_proc(h)
+  RHash.default_proc(h)
+end
+
+sig [Value, Value] => Value
+machine def zr_hash_set_default(h, v)
+  if zr_frozen_p(h)
+    return zr_frozen_error(h)
+  end
+  RHash.set_default(h, v)
+  RHash.set_default_proc(h, Machine.value(QNIL))
+  v
+end
+
+sig [Value, Value] => Value
+machine def zr_hash_set_default_proc(h, p)
+  if zr_frozen_p(h)
+    return zr_frozen_error(h)
+  end
+  RHash.set_default_proc(h, p)
+  RHash.set_default(h, Machine.value(QNIL))
+  p
+end
+
+# Every entry dropped; the defaults stay.
+sig [Value] => Value
+machine def zr_hash_clear(h)
+  if zr_frozen_p(h)
+    return zr_frozen_error(h)
+  end
+  i = 0
+  while i < RHash.len(h)
+    HEntry.set_live(RHash.entries(h) + (i * HEntry.size), 0)
+    i += 1
+  end
+  RHash.set_len(h, 0)
+  RHash.set_live(h, 0)
+  h
+end

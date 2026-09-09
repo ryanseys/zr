@@ -105,3 +105,45 @@ module Kernel
     sign * n
   end
 end
+
+class NilClass
+  def to_i = 0
+  def to_a = []
+  def to_h = {}
+  def &(other) = false
+  def |(other) = other ? true : false
+  def ^(other) = other ? true : false
+  def nil? = true
+end
+
+class TrueClass
+  def &(other) = other ? true : false
+  def |(other) = true
+  def ^(other) = other ? false : true
+end
+
+class FalseClass
+  def &(other) = false
+  def |(other) = other ? true : false
+  def ^(other) = other ? true : false
+end
+
+module Kernel
+  def catch(tag = Object.new, &block)
+    raise LocalJumpError, "no block given (yield)" unless block
+
+    Primitive.zr_catch(tag, block)
+  end
+
+  def throw(tag, value = nil)
+    unless Primitive.zr_catch_tag_p(tag)
+      raise UncaughtThrowError.new(tag, value, "uncaught throw #{tag.inspect}")
+    end
+
+    Primitive.zr_throw(tag, value)
+  end
+end
+
+module Kernel
+  private :Integer, :String, :Array, :format, :sprintf, :printf, :rand, :sleep, :warn, :catch, :throw
+end

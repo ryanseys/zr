@@ -263,3 +263,101 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_protected_method_defined(recv, argc, argv, cref, blk)
   zr_mod_method_defined_vis(recv, argc, argv, VIS_PROTECTED)
 end
+
+# `Method#super_method`: the method past this one's owner in the
+# receiver's chain, bound the same way, or nil.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_method_super_method(recv, argc, argv, cref, blk)
+  owner = RMethod.owner(recv)
+  mid = MEntry.mid(RMethod.entry(recv))
+  k = RMethod.klass(recv)
+  while k != QNIL && !(k == owner || (zr_type(k) == T_ICLASS && RClass.attached(k) == owner))
+    k = RClass.superclass(k)
+  end
+  if k == QNIL
+    return Machine.value(QNIL)
+  end
+  sup = RClass.superclass(k)
+  if sup == QNIL
+    return Machine.value(QNIL)
+  end
+  e = zr_find_method(sup, mid)
+  if e == 0 || MEntry.kind(e) == KIND_UNDEF
+    return Machine.value(QNIL)
+  end
+  zr_method_new(RMethod.recv(recv), sup, mid)
+end
+
+# `Module#included_modules`: the modules in the chain, nearest first.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_included_modules(recv, argc, argv, cref, blk)
+  out = zr_ary_new(8)
+  k = RClass.superclass(recv)
+  while k != QNIL
+    if zr_type(k) == T_ICLASS && RClass.origin(k) == QNIL && zr_type(RClass.attached(k)) == T_MODULE
+      zr_ary_push(out, RClass.attached(k))
+    end
+    k = RClass.superclass(k)
+  end
+  out
+end
+
+# `Module.nesting`: the classes and modules whose bodies enclose the
+# caller, innermost first; an eval's cref is not lexical and is skipped.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_nesting(recv, argc, argv, cref, blk)
+  out = zr_ary_new(4)
+  c = Frame.cref(Frame.prev(Task.top(zr_task())))
+  while c != QNIL && c != zr_global(G_TOP_CREF)
+    if RCref.eval(c) == 0
+      zr_ary_push(out, RCref.klass(c))
+    end
+    c = RCref.next(c)
+  end
+  out
+end
+
+# `__method__`: the name of the method the caller is in, through any
+# blocks, or nil at the top level or in a class body.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_kernel_method_name(recv, argc, argv, cref, blk)
+  meta = Frame.meta(Frame.prev(Task.top(zr_task())))
+  while FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN
+    meta = FrameMeta.parent(meta)
+  end
+  if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BMETHOD
+    return Machine.value(QNIL)
+  end
+  zr_sym(FrameMeta.name(meta))
+end
+
+# `Proc#source_location`: where the block was written, or nil for one
+# the runtime made.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_proc_source_location(recv, argc, argv, cref, blk)
+  meta = RProc.meta(recv)
+  if meta == 0 || FrameMeta.file_len(meta) == 0
+    return Machine.value(QNIL)
+  end
+  out = zr_ary_new(2)
+  zr_ary_push(out, zr_str_new(FrameMeta.file(meta), FrameMeta.file_len(meta)))
+  zr_ary_push(out, zr_fix(FrameMeta.line(meta)))
+  out
+end
+
+# The main object's own verbs: `include`, `public` and `private` act
+# on Object.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_main_include(recv, argc, argv, cref, blk)
+  zr_mod_include(zr_global(G_OBJECT), argc, argv, cref, blk)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_main_public(recv, argc, argv, cref, blk)
+  zr_set_visibility(zr_global(G_OBJECT), argc, argv, blk, VIS_PUBLIC, 0)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_main_private(recv, argc, argv, cref, blk)
+  zr_set_visibility(zr_global(G_OBJECT), argc, argv, blk, VIS_PRIVATE, 0)
+end
