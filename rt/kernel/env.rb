@@ -304,3 +304,23 @@ machine def zr_nanosleep(ns)
   nanosleep(ts, 0)
   Machine.value(QNIL)
 end
+
+Machine.import "tzset", [] => Void
+Machine.import "localtime_r", [Ptr, Ptr] => Ptr
+
+# The local zone at `secs` since the epoch: its offset east of UTC in
+# seconds, whether daylight time is in effect, and its abbreviation.
+sig [Value] => Value
+machine def zr_time_local(secs)
+  tzset()
+  t = Machine.slot(8)
+  Machine.store64(t, 0, zr_fix2long(secs))
+  tm = Machine.slot(64)
+  localtime_r(t, tm)
+  out = zr_ary_new(3)
+  zr_ary_push(out, zr_fix(Machine.load64(tm, 40)))
+  zr_ary_push(out, zr_bool(Machine.word(Machine.load32(tm, 32)) > 0))
+  zone = Machine.ptr(Machine.load64(tm, 48))
+  zr_ary_push(out, zr_str_new(zone, zr_cstr_len(zone)))
+  out
+end
