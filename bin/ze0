@@ -80,7 +80,7 @@ when "zr"
   usage if verb != "run" && !rest.empty?
   begin
     source = File.read(input)
-    functions, data, raw = verb == "machine" ? Ze0::Machine.compile(source, input) : Ze0::Zr.program(source, input)
+    program = verb == "machine" ? Ze0::Machine.compile(source, input) : Ze0::Zr.program(source, input)
   rescue Ze0::Machine::Refused, Ze0::Hir::Refused, Ze0::Zr::Lower::Refused => e
     # Status 3 is a refusal by name; the sweep tells it from a defect.
     warn "ze0: #{e.message}"
@@ -89,14 +89,24 @@ when "zr"
   Dir.mktmpdir("ze0-zr-") do |work|
     out = verb == "run" ? File.join(work, "program") : File.expand_path(output)
     if emit == "wasm"
-      why = Ze0::Native::Build.wasm(functions, data, out, raw: raw)
+      why = if program.is_a?(Ze0::Zr::Program)
+              Ze0::Native::Build.wasm_program(program, out)
+            else
+              functions, data, raw = program
+              Ze0::Native::Build.wasm(functions, data, out, raw: raw)
+            end
       abort "ze0: #{why}" if why
       exec("wasmtime", out, *rest) if verb == "run"
       exit 0
     end
     road = Ze0::Native::Build.road(native, ROOT)
     abort "ze0: the #{native} road is not built (ze0 native build)" unless road.available?
-    why = Ze0::Native::Build.binary(functions, data, out, road: road, work: work, raw: raw)
+    why = if program.is_a?(Ze0::Zr::Program)
+            Ze0::Native::Build.program(program, out, road: road, work: work)
+          else
+            functions, data, raw = program
+            Ze0::Native::Build.binary(functions, data, out, road: road, work: work, raw: raw)
+          end
     abort "ze0: #{why}" if why
     if verb == "run"
       system(out, *rest)

@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+require "digest"
+require "fileutils"
+require "json"
+require "tmpdir"
 require_relative "machine/lower"
 require_relative "obj/model"
 require_relative "hir"
@@ -14,26 +18,114 @@ module Ze0
     # before the classes that include it.
     CORE = %w[module exception enumerable enumerator comparable integer array hash range struct string kernel float proc format io process env file data gc random thread monitor time set pack regexp_pattern regexp rational complex].map { |name| File.join(__dir__, "../../rt/core/#{name}.rb") }.freeze
 
-    module_function
+    # Where the runtime's built forms live, keyed on the digest of
+    # everything they depend on: the runtime sources and the compiler.
+    CACHE = File.expand_path("../../tmp/rt", __dir__)
 
-    # A Ruby program with the kernel and the core library as one unit:
-    # `[functions, data, raw]` ready for `Native::Build`.
-    def program(source, file)
-      unit, core_functions, core_data, core_symbols = runtime
-      symbols = Machine::Symbols.new(core_symbols.ids.keys, sites: core_symbols.sites)
-      functions, data = Lower.new(Hir.build(source, file), unit, symbols).run
-      [unit.functions + core_functions + functions, unit.data + core_data + data + symbol_names(symbols), unit.raw]
+    # The kernel and the core library, lowered once per process, and as
+    # little of them as a build needs: a program's lowering reads the
+    # kernel unit and the symbol table; only a build with no cached
+    # runtime object reads the core's functions and data.
+    class Runtime
+      attr_reader :unit
+
+      def initialize
+        @unit = Machine.unit(KERNEL, symbols: kernel_symbols)
+      end
+
+      def raw = unit.raw
+
+      def digest
+        @digest ||= Digest::SHA256.new.tap { |d| Zr.sources.each { |path| d << File.binread(path) } }.hexdigest
+      end
+
+      # The symbol table after the core library: from the cache when the
+      # core was lowered before under this digest.
+      def symbols
+        cached.fetch(:symbols)
+      end
+
+      # The function and data symbols the runtime names and does not
+      # define, for a program to define: `{ functions:, data: }`.
+      def wants
+        cached.fetch(:wants)
+      end
+
+      def functions = unit.functions + lowered.first
+
+      def data = unit.data + lowered.last
+
+      private
+
+      def kernel_symbols
+        @kernel_symbols ||= Machine::Symbols.new
+      end
+
+      # The symbol table and the wanted symbols, read from the cache or
+      # found by lowering the core and then cached.
+      def cached
+        @cached ||= begin
+          path = File.join(CACHE, "symbols-#{digest}.json")
+          if File.exist?(path)
+            rows = JSON.parse(File.read(path))
+            { symbols: Machine::Symbols.new(rows.fetch("names"), sites: rows.fetch("sites")),
+              wants: { functions: rows.fetch("functions"), data: rows.fetch("data") } }
+          else
+            lowered
+            defined = functions.map(&:name)
+            wanted_functions = (functions.flat_map { |f| f.callees.map(&:symbol) }.uniq - defined).sort
+            wanted_data = (functions.flat_map { |f| f.globals.reject(&:colocated).map(&:symbol) }.uniq - data.map(&:name)).sort
+            Zr.write_cache(path, JSON.generate({ "names" => kernel_symbols.ids.keys, "sites" => kernel_symbols.sites,
+                                                 "functions" => wanted_functions, "data" => wanted_data }))
+            { symbols: kernel_symbols, wants: { functions: wanted_functions, data: wanted_data } }
+          end
+        end
+      end
+
+      # The core library's `[functions, data]`, lowered over the kernel.
+      def lowered
+        @lowered ||= Zr.core(unit, kernel_symbols)
+      end
     end
 
-    # The kernel and the core library, lowered once per process: a
-    # program only adds to the symbol table, and reads the unit.
+    # A program's own functions and data over its runtime. Destructures
+    # as `[functions, data, raw]` with the runtime included, for a build
+    # that takes everything as one unit.
+    Program = Struct.new(:runtime, :functions, :data) do
+      def raw = runtime.raw
+
+      def to_ary = [runtime.functions + functions, runtime.data + data, raw]
+    end
+
+    module_function
+
+    def program(source, file)
+      rt = runtime
+      symbols = Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
+      functions, data = Lower.new(Hir.build(source, file), rt.unit, symbols).run
+      Program.new(rt, functions, data + symbol_names(symbols))
+    end
+
     def runtime
-      @runtime ||= begin
-        symbols = Machine::Symbols.new
-        unit = Machine.unit(KERNEL, symbols: symbols)
-        core_functions, core_data = core(unit, symbols)
-        [unit, core_functions, core_data, symbols]
+      @runtime ||= Runtime.new
+    end
+
+    # The files the runtime is lowered from, and the compiler that lowers
+    # them.
+    def sources
+      KERNEL + CORE + Dir[File.join(__dir__, "**/*.rb")].sort
+    end
+
+    # `content` at `path` under the cache, written whole: a parallel
+    # build never reads a half-written file.
+    def write_cache(path, content)
+      FileUtils.mkdir_p(CACHE)
+      Dir.mktmpdir("ze0-rt-", CACHE) do |work|
+        fresh = File.join(work, File.basename(path))
+        File.binwrite(fresh, content)
+        File.rename(fresh, path)
       end
+      path
     end
 
     # The core library over the kernel `unit`: `[functions, data]`, the

@@ -49,10 +49,10 @@ class ProgramsTest < Minitest::Test
         skip "clif2obj is not built (bin/ze0 native build)" unless road.available?
 
         want = oracle(rb)
-        functions, data, raw = Ze0::Zr.program(File.read(rb), rb)
+        program = Ze0::Zr.program(File.read(rb), rb)
         Dir.mktmpdir("ze0-programs-") do |dir|
           bin = File.join(dir, name)
-          assert_nil Ze0::Native::Build.binary(functions, data, bin, road: road, work: dir, raw: raw)
+          assert_nil Ze0::Native::Build.program(program, bin, road: road, work: dir)
           check(label, name, {}, [bin], want, rb)
           check(label, name, { "ZR_GC_STRESS" => "1" }, [bin], want, rb) if label == :cranelift
         end
@@ -64,10 +64,10 @@ class ProgramsTest < Minitest::Test
       skip "the program reads the host" if File.open(rb, &:readline).include?("native only")
 
       want = oracle(rb)
-      functions, data, raw = Ze0::Zr.program(File.read(rb), rb)
+      program = Ze0::Zr.program(File.read(rb), rb)
       Dir.mktmpdir("ze0-programs-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
-        assert_nil Ze0::Native::Build.wasm(functions, data, wasm, raw: raw)
+        assert_nil Ze0::Native::Build.wasm_program(program, wasm)
         check(:wasm, name, {}, [WASMTIME, wasm], want, rb)
       end
     end

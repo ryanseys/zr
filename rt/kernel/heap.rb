@@ -238,6 +238,10 @@ machine def zr_free_cell(i)
   flags = Machine.load64(cell, 0)
   if (flags & FL_MARK) != 0
     Machine.store64(cell, 0, flags & (0 - (FL_MARK + 1)))
+  elsif flags == POISON
+    # Freed before: its poison stands, so only the link is written.
+    Machine.store64(cell, 8, Heap.free(h))
+    Heap.set_free(h, cell)
   else
     if (flags & FL_ALLOCATED) != 0
       zr_release(Machine.value(cell))

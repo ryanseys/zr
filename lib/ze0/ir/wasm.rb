@@ -49,39 +49,51 @@ module Ze0
       COND = { "eq" => :eq, "ne" => :ne, "slt" => :lt_s, "sle" => :le_s, "sgt" => :gt_s, "sge" => :ge_s,
                "ult" => :lt_u, "ule" => :le_u, "ugt" => :gt_u, "uge" => :ge_u }.freeze
 
-      def initialize(functions, data)
+      # The runtime's half of a module, emitted once and kept: its
+      # function names and signatures, their bodies, the types they use,
+      # its data placed and patched, its table, and the symbols it names
+      # that a program defines, at the indices and addresses promised to
+      # its bodies. A program's module lays its own part after this one
+      # and must honour the promises (`pending`).
+      Prelude = Struct.new(:sigs, :bodies, :types, :data_at, :data_end, :segments, :table, :pending) do
+        # `pending`: `{ functions: [names], data: { name => address } }`.
+        def functions = sigs.keys
+      end
+
+      # `prelude`: a Prelude this module extends. `pending`: when emitting
+      # a prelude, the function names and the data names another module
+      # will define, in the order it must define them.
+      def initialize(functions, data, prelude: nil, pending: nil)
         @functions = functions
         @data = data
+        @prelude = prelude
+        @pending = pending
+      end
+
+      # A Prelude of these functions and data, for modules to extend.
+      def prelude
+        layout
+        bodies = @functions.map { |f| Body.new(self, f).emit }
+        Prelude.new(@functions.to_h { |f| [f.name, signature(f)] }, bodies, @types, @data_at, @data_end,
+                    @data.reject { |d| d.section == :bss }.map { |d| [@data_at[d.name], patched(d)] }, @table, @promised)
       end
 
       # The module's bytes.
       def emit
-        place_data
-        # Function index space: imports first, then the shims, then ours.
-        @imports = [["wasi_snapshot_preview1", "fd_write", [0x7F, 0x7F, 0x7F, 0x7F], [0x7F]],
-                    ["wasi_snapshot_preview1", "proc_exit", [0x7F], []]]
-        @index = {}
-        @types = []
-        @imports.each_with_index { |(_, name, params, results), i| @index[name] = i }
-        @shims = SHIMS
-        @shims.each_key.with_index { |name, i| @index[name] = @imports.size + i }
-        @functions.each_with_index { |f, i| @index[f.name] = @imports.size + @shims.size + i }
-        @index["_start"] = @imports.size + @shims.size + @functions.size
-        used = (@functions.flat_map { |f| f.callees.map(&:symbol) } - @functions.map(&:name)).uniq
-        unknown = used - @shims.keys
-        raise Refused, "no wasm shim for #{unknown.join(", ")}" unless unknown.empty?
+        layout
+        pre = @prelude
+        raise Refused, "no _start without a prelude or a main" unless pre || @functions.any? { |f| f.name == "main" }
 
-        taken = @functions.flat_map { |f| f.blocks.flat_map(&:insts).select { |i| i.op == :func_addr }.map { |i| f.callees.find { |c| c.fn == i.args[0] }.symbol } }
-        named = @data.flat_map { |d| d.relocs.map(&:symbol) }.select { |name| @index.key?(name) }
-        @table = (taken + named).uniq
-        bodies = @shims.map { |name, _| shim(name) } + @functions.map { |f| Body.new(self, f).emit } + [start_body]
-        types = @imports.map { |(_, _, p, r)| [p, r] } + @shims.values + @functions.map { |f| signature(f) } + [[[], []]]
-        types.each { |t| type_index(t) }
+        @index["_start"] = @index.size
+        own = @functions.map { |f| Body.new(self, f).emit }
+        bodies = @shims.map { |name, _| shim(name) } + (pre ? pre.bodies : []) + own + [start_body]
+        sigs = (pre ? pre.sigs.values : []) + @functions.map { |f| signature(f) } + [[[], []]]
+        (@imports.map { |(_, _, p, r)| [p, r] } + @shims.values + sigs).each { |t| type_index(t) }
 
         out = +"\0asm\x01\0\0\0".b
         out << section(1, vec(@types.map { |p, r| "\x60".b + vec(p.map(&:chr)) + vec(r.map(&:chr)) }))
         out << section(2, vec(@imports.map { |(mod, name, p, r)| name(mod) + name(name) + "\0".b + leb(type_index([p, r])) }))
-        out << section(3, vec((@shims.values + @functions.map { |f| signature(f) } + [[[], []]]).map { |t| leb(type_index(t)) }))
+        out << section(3, vec((@shims.values + sigs).map { |t| leb(type_index(t)) }))
         out << section(4, vec(["\x70\x00".b + leb(@table.size + 1)])) unless @table.empty?
         stack_base = align(@data_end, 16)
         heap_base = align(stack_base + (STACK_PAGES * PAGE), 16)
@@ -91,11 +103,67 @@ module Ze0
         out << section(7, vec([name("memory") + "\x02".b + leb(0), name("_start") + "\0".b + leb(@index["_start"])]))
         out << section(9, vec(["\0".b + i32c(1) + "\x0B".b + vec(@table.map { |n| leb(function_index(n)) })])) unless @table.empty?
         out << section(10, vec(bodies))
-        segments = @data.reject { |d| d.section == :bss }.map do |d|
-          "\0".b + "\x41".b + sleb(@data_at[d.name]) + "\x0B".b + vec_bytes(patched(d))
-        end
-        out << section(11, vec(segments))
+        segments = (pre ? pre.segments : []) + @data.reject { |d| d.section == :bss }.map { |d| [@data_at[d.name], patched(d)] }
+        out << section(11, vec(segments.map { |at, bytes| "\0".b + "\x41".b + sleb(at) + "\x0B".b + vec_bytes(bytes) }))
         out
+      end
+
+      # Function index space: imports first, then the shims, then the
+      # prelude's functions, then ours (the prelude's pending ones first,
+      # where it promised them). Data after the prelude's, the pending
+      # objects first, at the addresses promised. Types and the table
+      # continue the prelude's.
+      def layout
+        pre = @prelude
+        @imports = [["wasi_snapshot_preview1", "fd_write", [0x7F, 0x7F, 0x7F, 0x7F], [0x7F]],
+                    ["wasi_snapshot_preview1", "proc_exit", [0x7F], []]]
+        @shims = SHIMS
+        @index = {}
+        @imports.each_with_index { |(_, name, *), i| @index[name] = i }
+        @shims.each_key { |name| @index[name] = @index.size }
+        pre&.functions&.each { |name| @index[name] = @index.size }
+        if pre
+          missing = pre.pending[:functions] - @functions.map(&:name)
+          raise Refused, "the prelude waits for #{missing.join(", ")}" unless missing.empty?
+
+          first = pre.pending[:functions]
+          @functions = @functions.sort_by.with_index { |f, i| [first.index(f.name) || first.size, i] }
+          first = pre.pending[:data].keys
+          @data = @data.sort_by.with_index { |d, i| [first.index(d.name) || first.size, i] }
+        end
+        @functions.each { |f| @index[f.name] = @index.size }
+        @types = pre ? pre.types.dup : []
+        place_data(pre ? pre.data_end : DATA_BASE, pre ? pre.data_at.dup : {})
+        pre&.pending&.[](:data)&.each do |name, at|
+          raise Refused, "#{name} is at #{@data_at[name].inspect}, not the #{at} the prelude promised" unless @data_at[name] == at
+        end
+
+        used = (@functions.flat_map { |f| f.callees.map(&:symbol) } - @index.keys).uniq
+        promise(used)
+        unknown = used - @shims.keys - @promised[:functions]
+        raise Refused, "no wasm shim for #{unknown.join(", ")}" unless unknown.empty?
+
+        taken = @functions.flat_map { |f| f.blocks.flat_map(&:insts).select { |i| i.op == :func_addr }.map { |i| f.callees.find { |c| c.fn == i.args[0] }.symbol } }
+        named = @data.flat_map { |d| d.relocs.map(&:symbol) }.select { |name| @index.key?(name) }
+        @table = ((pre ? pre.table : []) + taken + named).uniq
+      end
+
+      # When emitting a prelude, the pending functions take the indices
+      # right after ours, and the pending data the addresses right after
+      # ours, each eight bytes wide but the last, which may be any size.
+      def promise(used)
+        @promised = { functions: [], data: {} }
+        return unless @pending
+
+        @pending[:functions].each { |name| @index[name] = @index.size }
+        @promised[:functions] = @pending[:functions]
+        at = @data_end
+        @pending[:data].each do |name|
+          at = align(at, 8)
+          @promised[:data][name] = at
+          @data_at[name] = at
+          at += 8
+        end
       end
 
       def signature(f)
@@ -111,11 +179,16 @@ module Ze0
       end
 
       # The wasm parameter and result types a call to `name` must match.
+      # The wasm parameter and result types a call to `name` must match;
+      # nil for a function this module has not seen.
       def function_type(name)
         return @shims[name] if @shims.key?(name)
+        return @prelude.sigs[name] if @prelude&.sigs&.key?(name)
 
         f = @functions.find { |x| x.name == name }
-        f ? signature(f) : @imports.find { |(_, n, *)| n == name }[2..3]
+        return signature(f) if f
+
+        @imports.find { |(_, n, *)| n == name }&.[](2..3)
       end
 
       # The table index that stands for `name`'s address.
@@ -145,9 +218,8 @@ module Ze0
         @data_at.fetch(name) { raise Refused, "no data named #{name}" }
       end
 
-      def place_data
-        @data_at = {}
-        at = DATA_BASE
+      def place_data(at, placed)
+        @data_at = placed
         @data.each do |d|
           at = align(at, [d.align, 1].max)
           @data_at[d.name] = at
@@ -197,12 +269,13 @@ module Ze0
 
       # `_start`: main(0, 0), then proc_exit with what it answered.
       def start_body
-        main = @functions.find { |f| f.name == "main" } or raise Refused, "no main"
+        params, results = function_type("main")
+        raise Refused, "no main" unless params
         code = +"".b
-        main.params.each { |t| code << (TYPE[t] == 0x7E ? "\x42\x00".b : "\x41\x00".b) }
+        params.each { |t| code << (t == 0x7E ? "\x42\x00".b : "\x41\x00".b) }
         code << "\x10".b << leb(function_index("main"))
-        code << (main.ret_type == "i64" ? "\xA7".b : "".b) if main.ret_type
-        code << (main.ret_type ? "".b : i32c(0))
+        code << (results.first == 0x7E ? "\xA7".b : "".b) unless results.empty?
+        code << (results.empty? ? i32c(0) : "".b)
         code << "\x10".b << leb(function_index("proc_exit")) << "\x0B".b
         vec_bytes(vec([]) + code)
       end
@@ -419,7 +492,7 @@ module Ze0
             # A libSystem call's text signature may say i64 where the shim
             # takes i32: the width follows the callee.
             name = callee(i.callee).symbol
-            params, results = @m.function_type(name)
+            params, results = @m.function_type(name) || @m.sig_type(@f.sigs.find { |s| s.sig == callee(i.callee).sig })
             i.args.zip(params).each do |a, want|
               get(a)
               @code << "\xA7".b if wide?(a) && want == 0x7F
