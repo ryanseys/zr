@@ -16,7 +16,6 @@ module Ze0
         when Hir::Send, Hir::Super
           node.block.is_a?(Hir::Block) || holds_block?(node.kwargs) || holds_block?(node.block) || node.args.any? { |a| holds_block?(a) } ||
             (node.is_a?(Hir::Send) && holds_block?(node.recv))
-        when Hir::ZSuper then node.block.is_a?(Hir::Block) || holds_block?(node.block)
         when Hir::Lambda then true
         when Hir::Def then holds_block?(node.receiver)
         when Hir::ClassDef, Hir::ModuleDef, nil then false
@@ -28,7 +27,9 @@ module Ze0
 
       # How many record slots the sends under `node` need at once, past
       # `base`: a send holds its receiver and arguments while an
-      # argument's own sends run above them.
+      # argument's own sends run above them. An ensure body may run from
+      # a jump anywhere inside its region, above the value the jump
+      # carries.
       def staging(node, base = 0)
         case node
         when Hir::Seq then node.stmts.map { |s| staging(s, base) }.max || base
@@ -40,7 +41,6 @@ module Ze0
           extra = (node.kwargs ? 1 : 0) + (node.block ? 1 : 0)
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
           [top, staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
-        when Hir::ZSuper then [base + 3 + (node.block ? 1 : 0), staging(node.block, base + 3)].max
         when Hir::Lambda then base + 1
         when Hir::Splat, Hir::HashSplat, Hir::BlockPass then staging(node.value, base)
         when Hir::Yield
@@ -50,7 +50,8 @@ module Ze0
         when Hir::HashLit then spread?(node.pairs) ? gathered(node.pairs, base) : row(node.pairs, base)
         when Hir::RangeLit then row([node.low, node.high], base)
         when Hir::Interp then row(node.parts, base)
-        when Hir::Assign, Hir::Not, Hir::IvarWrite, Hir::ConstWrite, Hir::GvarWrite, Hir::CvarWrite then staging(node.value, base)
+        when Hir::Assign, Hir::IvarWrite, Hir::ConstWrite, Hir::GvarWrite, Hir::CvarWrite then staging(node.value, base)
+        when Hir::Not then gathered([node.value], base)
         when Hir::ConstOrWrite then [staging(node.scope, base), staging(node.value, base)].max
         when Hir::Defined then staging(node.target, base + 1)
         when Hir::Slot then base
@@ -69,7 +70,8 @@ module Ze0
         when Hir::Break, Hir::Next, Hir::Return then staging(node.value, base + 1)
         when Hir::Begin
           top = base + (node.rescues.empty? ? 0 : 2) + (node.ensure_body ? 2 : 0)
-          [top, staging(node.body, top), *node.rescues.map { |r| staging(r, top) }, staging(node.else_body, top), staging(node.ensure_body, top)].max
+          inside = [top, staging(node.body, top), *node.rescues.map { |r| staging(r, top) }, staging(node.else_body, top)].max
+          [inside, staging(node.ensure_body, inside + 1)].max
         when Hir::Rescue then [staging(node.body, base + 2), staging(node.target, base + 1), *node.classes.map { |c| staging(c, base) }].max
         when Hir::ClassDef then [staging(node.scope, base), staging(node.superclass, base)].max
         when Hir::SingletonClassDef then staging(node.target, base)

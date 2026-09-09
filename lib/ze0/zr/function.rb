@@ -244,8 +244,7 @@ module Ze0
       # after them; the block gets the address of the first slot and its
       # index, and the slots are free again after it.
       def staged(nodes, extra = 0)
-        base = @sp
-        @sp += nodes.size + extra
+        base = reserve(nodes.size + extra)
         nodes.each_with_index { |n, i| @f.store(expr(n), @rec, value_offset(base + i)) }
         result = yield(@f.iadd(@rec, imm(value_offset(base))), base)
         @sp = base

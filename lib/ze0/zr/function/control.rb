@@ -78,9 +78,12 @@ module Ze0
             hit = @f.label
             values.each do |value|
               miss = @f.label
-              cond = if value.is_a?(Hir::Splat)
+              cond = if value.is_a?(Hir::Splat) && node.subject
                        at_line(value.line)
                        truthy(checked(kernel("zr_case_any", @f.fetch("i64", @rec, subject_at), expr(value.value))))
+                     elsif value.is_a?(Hir::Splat)
+                       at_line(value.line)
+                       truthy(checked(kernel("zr_any_truthy", expr(value.value))))
                      elsif node.subject
                        staged([value, Hir::Slot.new(base, value.line)]) do |slots|
                          at_line(value.line)

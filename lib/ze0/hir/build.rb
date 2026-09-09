@@ -40,11 +40,12 @@ module Ze0
 
       # `body` lowered in a fresh scope: a def or a class body.
       def in_scope
-        was = @block_depth
+        was = [@block_depth, @def_params]
         @block_depth = 0
+        @def_params = nil
         yield
       ensure
-        @block_depth = was
+        @block_depth, @def_params = was
       end
 
       def seq(node)
@@ -88,7 +89,7 @@ module Ze0
         when Prism::SuperNode
           args, kwargs, forwarded = arguments(node.arguments)
           Super.new(args, kwargs, node.block ? block(node.block) : forwarded, line)
-        when Prism::ForwardingSuperNode then ZSuper.new(node.block && block(node.block), line)
+        when Prism::ForwardingSuperNode then zsuper(node, line)
         when Prism::YieldNode
           args, kwargs, = arguments(node.arguments)
           Yield.new(args, line, kwargs)
@@ -250,10 +251,28 @@ module Ze0
         receiver = node.receiver && expr(node.receiver)
         in_scope do
           params = parameters(node.parameters)
+          @def_params = params
           body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
           locals = node.locals + (params.names - node.locals)
           Def.new(node.name, params, locals, body, node.location.start_line, receiver)
         end
+      end
+
+      # A bare `super`: the method's parameters passed on as they stand,
+      # a `Super` with the locals of the def this block sits in.
+      def zsuper(node, line)
+        p = @def_params or return ZSuper.new(node.block && block(node.block), line)
+
+        refuse(node, "a bare super with a destructuring parameter is not lowered yet") if (p.required + p.post).any?(MultiTarget)
+        local = ->(name) { Local.new(name, @block_depth, line) }
+        positional = (p.required + p.optional.map(&:first)).map(&local)
+        positional << Splat.new(local.call(p.rest), line) if p.rest && p.rest != :implicit
+        positional += p.post.map(&local)
+        pairs = p.keywords.flat_map { |name, _| [Literal.new(name, line), local.call(name)] }
+        pairs += [HashSplat.new(local.call(p.kwrest), line), nil] if p.kwrest
+        kwargs = pairs.empty? ? nil : HashLit.new(pairs, line)
+        block = node.block ? block(node.block) : (p.block && BlockPass.new(local.call(p.block), line))
+        Super.new(positional, kwargs, block, line)
       end
 
       # A ParametersNode as one Params.

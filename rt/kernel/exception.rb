@@ -163,6 +163,24 @@ machine def zr_case_any(subject, list)
   Machine.value(QFALSE)
 end
 
+# `when *list` with no subject: whether any of the candidates is
+# truthy; a plain value is the one candidate, nil none.
+sig [Value] => Value
+machine def zr_any_truthy(list)
+  if zr_special_p(list) || zr_type(list) != T_ARRAY
+    return zr_bool(list != QNIL && list != QFALSE)
+  end
+  i = 0
+  while i < RArray.len(list)
+    v = zr_ary_at(list, i)
+    if v != QNIL && v != QFALSE
+      return Machine.value(QTRUE)
+    end
+    i += 1
+  end
+  Machine.value(QFALSE)
+end
+
 # Entering a rescue clause: the exception leaves the pending slot and
 # becomes `$!`. The previous `$!` is answered, for the clause's end.
 sig [] => Value

@@ -192,9 +192,12 @@ module Ze0
           @f.fetch("i64", @rec, at)
         end
 
+        # `n` fresh record slots; the scope's budget must cover them.
         def reserve(n)
           base = @sp
           @sp += n
+          raise ArgumentError, "#{@name}: #{@sp} record slots used of the #{@nvalues} the scope counted" if @sp > @nvalues
+
           base
         end
       end

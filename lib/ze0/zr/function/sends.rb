@@ -205,22 +205,10 @@ module Ze0
 
         # The bare `super`: the enclosing method's parameters, as they
         # stand now, become the arguments.
+        # A bare `super` the builder could not expand: one with no def
+        # around it.
         def zsuper(node)
-          fn = self
-          depth = 0
-          until fn.kind == :def
-            @l.refuse(node, "super outside a method is not lowered yet") if fn.outer.nil?
-            fn = fn.outer
-            depth += 1
-          end
-          p = fn.def_node.params
-          local = ->(name) { Hir::Local.new(name, depth, node.line) }
-          positional = (p.required + p.optional.map(&:first)).map(&local) + [p.rest && p.rest != :implicit ? Hir::Splat.new(local.call(p.rest), node.line) : nil].compact + p.post.map(&local)
-          pairs = p.keywords.flat_map { |name, _| [Hir::Literal.new(name, node.line), local.call(name)] }
-          pairs += [Hir::HashSplat.new(local.call(p.kwrest), node.line), nil] if p.kwrest
-          kwargs = pairs.empty? ? nil : Hir::HashLit.new(pairs, node.line)
-          block = node.block || (p.block && Hir::BlockPass.new(local.call(p.block), node.line))
-          super_call(Hir::Super.new(positional, kwargs, block, node.line))
+          @l.refuse(node, "super outside a method is not lowered yet")
         end
 
         # An Integer operator: the fixnum fast path inline when both sides

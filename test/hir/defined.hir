@@ -28,7 +28,7 @@
         (seq
           (array
             (defined? super)
-            (zsuper))))))
+            (super))))))
   (send self p
     (defined? local x)
     (defined? method

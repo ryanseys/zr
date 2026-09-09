@@ -35,16 +35,25 @@
           (send <<
             (local r)
             (sym :b))
-          (zsuper)))
+          (super
+            (local x)
+            (local y)
+            (splat
+              (local r))
+            (hash
+              (sym :k)
+              (local k))
+            (block-pass
+              (local b)))))
       (def plain () locals ()
         (seq
           (array
-            (zsuper)
+            (super)
             (super)
             (sym :B))))
       (def blk () locals ()
         (seq
-          (zsuper
+          (super
             (block (v) locals (v)
               (seq
                 (array
@@ -60,7 +69,7 @@
                   (sym :outer)))))))
       (def nope () locals ()
         (seq
-          (zsuper)))))
+          (super)))))
   (send self p
     (send hi
       (send new
@@ -112,7 +121,9 @@
         (seq
           (array
             (sym :M)
-            (zsuper))))))
+            (super
+              (splat
+                (local a))))))))
   (class C
     (const B)
     (seq
@@ -160,7 +171,8 @@
         (seq
           (assign x
             (int 99))
-          (zsuper)))))
+          (super
+            (local x))))))
   (send self p
     (send hi
       (send new
@@ -182,7 +194,7 @@
         (seq
           (array
             (sym :G)
-            (zsuper))))))
+            (super))))))
   (send self p
     (send make
       (const G))))
