@@ -113,6 +113,7 @@ module Ze0
             @l.refuse(node, "a bignum literal is not lowered yet") unless v.bit_length < 63
 
             imm((v << 1) | 1)
+          when Float then kernel("zr_float_from_bits", imm([v].pack("E").unpack1("q<")))
           when Symbol then symbol(v)
           when String
             fn = @l.frozen ? "zr_str_frozen" : "zr_str_new"

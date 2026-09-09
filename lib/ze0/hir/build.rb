@@ -175,7 +175,7 @@ module Ze0
         case node
         when Prism::StatementsNode then seq(node)
         when Prism::ParenthesesNode then node.body ? expr(node.body) : Literal.new(nil, line)
-        when Prism::IntegerNode then Literal.new(node.value, line)
+        when Prism::IntegerNode, Prism::FloatNode then Literal.new(node.value, line)
         when Prism::StringNode then Literal.new(node.unescaped, line)
         when Prism::SymbolNode then Literal.new(node.unescaped.to_sym, line)
         when Prism::NilNode then Literal.new(nil, line)

@@ -95,6 +95,8 @@ machine def zr_type(v)
     T_FALSE
   elsif zr_symbol_p(v)
     T_SYMBOL
+  elsif zr_flonum_p(v)
+    T_FLOAT
   else
     RBasic.flags(v) & T_MASK
   end

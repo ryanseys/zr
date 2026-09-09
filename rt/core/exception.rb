@@ -80,7 +80,7 @@ class RangeError < StandardError; end
 class FloatDomainError < RangeError; end
 
 module Math
-  class DomainError < ArgumentError; end
+  class DomainError < StandardError; end
 end
 class RegexpError < StandardError; end
 class SystemCallError < StandardError; end

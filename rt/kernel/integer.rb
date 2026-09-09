@@ -131,6 +131,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_plus(recv, argc, argv, cref, blk)
+  if zr_float_p(Machine.value(Machine.load64(argv, 0)))
+    return zr_float_new(Machine.to_f64(zr_fix2long(recv)) + zr_float_value(Machine.value(Machine.load64(argv, 0))))
+  end
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -140,6 +143,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_minus(recv, argc, argv, cref, blk)
+  if zr_float_p(Machine.value(Machine.load64(argv, 0)))
+    return zr_float_new(Machine.to_f64(zr_fix2long(recv)) - zr_float_value(Machine.value(Machine.load64(argv, 0))))
+  end
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -149,6 +155,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_mul(recv, argc, argv, cref, blk)
+  if zr_float_p(Machine.value(Machine.load64(argv, 0)))
+    return zr_float_new(Machine.to_f64(zr_fix2long(recv)) * zr_float_value(Machine.value(Machine.load64(argv, 0))))
+  end
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -179,6 +188,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_div(recv, argc, argv, cref, blk)
+  if zr_float_p(Machine.value(Machine.load64(argv, 0)))
+    return zr_float_new(Machine.to_f64(zr_fix2long(recv)) / zr_float_value(Machine.value(Machine.load64(argv, 0))))
+  end
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -189,6 +201,13 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_mod(recv, argc, argv, cref, blk)
+  if zr_float_p(Machine.value(Machine.load64(argv, 0)))
+    y = zr_float_value(Machine.value(Machine.load64(argv, 0)))
+    if y == Machine.f64(0)
+      return zr_raise_msg(zr_global(G_ZERO_DIVISION_ERROR), Machine.bytes("divided by 0"), 12)
+    end
+    return zr_float_new(zr_float_mod(Machine.to_f64(zr_fix2long(recv)), y))
+  end
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -274,6 +293,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_lt(recv, argc, argv, cref, blk)
+  if zr_float_p(Machine.value(Machine.load64(argv, 0)))
+    return zr_int_float_relate(zr_fix2long(recv), zr_float_value(Machine.value(Machine.load64(argv, 0))), 0)
+  end
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -283,6 +305,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_le(recv, argc, argv, cref, blk)
+  if zr_float_p(Machine.value(Machine.load64(argv, 0)))
+    return zr_int_float_relate(zr_fix2long(recv), zr_float_value(Machine.value(Machine.load64(argv, 0))), 1)
+  end
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -292,6 +317,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_gt(recv, argc, argv, cref, blk)
+  if zr_float_p(Machine.value(Machine.load64(argv, 0)))
+    return zr_int_float_relate(zr_fix2long(recv), zr_float_value(Machine.value(Machine.load64(argv, 0))), 2)
+  end
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -301,6 +329,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_ge(recv, argc, argv, cref, blk)
+  if zr_float_p(Machine.value(Machine.load64(argv, 0)))
+    return zr_int_float_relate(zr_fix2long(recv), zr_float_value(Machine.value(Machine.load64(argv, 0))), 3)
+  end
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -308,13 +339,85 @@ machine def zr_int_ge(recv, argc, argv, cref, blk)
   zr_bool(zr_fix2long(recv) >= b)
 end
 
-# Equality takes any operand: a non-Integer is simply not equal.
+# Equality takes any operand: a Float compares exactly, and a
+# non-Integer is simply not equal.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_eq(recv, argc, argv, cref, blk)
-  zr_bool(recv == Machine.value(Machine.load64(argv, 0)))
+  other = Machine.value(Machine.load64(argv, 0))
+  if zr_float_p(other)
+    return zr_bool(zr_int_float_cmp(zr_fix2long(recv), zr_float_value(other)) == 0)
+  end
+  zr_bool(recv == other)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_ne(recv, argc, argv, cref, blk)
-  zr_bool(recv != Machine.value(Machine.load64(argv, 0)))
+  other = Machine.value(Machine.load64(argv, 0))
+  if zr_float_p(other)
+    return zr_bool(zr_int_float_cmp(zr_fix2long(recv), zr_float_value(other)) != 0)
+  end
+  zr_bool(recv != other)
+end
+
+# An Integer against a double, exactly: -1, 0, 1, or 2 for NaN. The
+# double's integer part fits a fixnum, or its sign alone decides.
+sig [Word, F64] => Word
+machine def zr_int_float_cmp(n, d)
+  if zr_nan_p(d)
+    return 2
+  end
+  if d >= Machine.f64(4886405595696988160)
+    return 0 - 1
+  end
+  if d <= -Machine.f64(4886405595696988160)
+    return 1
+  end
+  t = Machine.trunc(d)
+  ti = Machine.to_int(t)
+  if n < ti
+    return 0 - 1
+  end
+  if n > ti
+    return 1
+  end
+  if d > t
+    return 0 - 1
+  end
+  if d < t
+    return 1
+  end
+  0
+end
+
+sig [Word, F64, Word] => Value
+machine def zr_int_float_relate(n, d, want)
+  c = zr_int_float_cmp(n, d)
+  if c == 2
+    return Machine.value(QFALSE)
+  end
+  if want == 0
+    return zr_bool(c < 0)
+  end
+  if want == 1
+    return zr_bool(c <= 0)
+  end
+  if want == 2
+    return zr_bool(c > 0)
+  end
+  zr_bool(c >= 0)
+end
+
+# `Integer#<=>` with a Float: nil for NaN.
+sig [Value, Value] => Value
+machine def zr_int_float_spaceship(recv, other)
+  c = zr_int_float_cmp(zr_fix2long(recv), zr_float_value(other))
+  if c == 2
+    return Machine.value(QNIL)
+  end
+  zr_fix(c)
+end
+
+sig [Value] => Value
+machine def zr_float_check_p(v)
+  zr_bool(zr_float_p(v))
 end

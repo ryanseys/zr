@@ -862,6 +862,8 @@ machine def zr_class_of(v)
     zr_global(G_FALSE)
   elsif zr_symbol_p(v)
     zr_global(G_SYMBOL)
+  elsif zr_flonum_p(v)
+    zr_global(G_FLOAT)
   else
     RBasic.klass(v)
   end

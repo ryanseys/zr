@@ -273,6 +273,7 @@ module Ze0
       def kind(value)
         case value
         when Integer then "int"
+        when Float then "float"
         when String then "str"
         when Symbol then "sym"
         else "const"

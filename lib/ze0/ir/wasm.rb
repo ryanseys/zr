@@ -382,7 +382,11 @@ module Ze0
         def emit_inst(i)
           case i.op
           when :iconst
-            @code << (i.type == "i64" ? "\x42".b : "\x41".b) << @m.sleb(i.args[0])
+            # A constant written unsigned wraps to its signed bits.
+            n = i.args[0]
+            n -= 1 << 64 if i.type == "i64" && n >= 1 << 63
+            n -= 1 << 32 if i.type != "i64" && n >= 1 << 31
+            @code << (i.type == "i64" ? "\x42".b : "\x41".b) << @m.sleb(n)
             set(i.results[0])
           when :load
             get(i.args[0])

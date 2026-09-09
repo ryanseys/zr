@@ -47,6 +47,7 @@ end
 
 class Integer
   def <=>(other)
+    return Primitive.zr_int_float_spaceship(self, other) if other.is_a?(Float)
     return nil unless other.is_a?(Integer)
 
     self < other ? -1 : (self > other ? 1 : 0)
@@ -74,6 +75,7 @@ class Integer
   def integer? = true
 
   def **(other)
+    return to_f**other if other.is_a?(Float)
     Primitive.zr_unimplemented("Integer#** with a non-Integer exponent") unless other.is_a?(Integer)
     Primitive.zr_unimplemented("Integer#** with a negative exponent, which answers a Rational") if other < 0
 
@@ -121,9 +123,14 @@ class Integer
 
   def ord = self
 
-  def divmod(other) = [div(other), modulo(other)]
+  def divmod(other)
+    return to_f.divmod(other) if other.is_a?(Float)
+
+    [div(other), modulo(other)]
+  end
 
   def div(other)
+    return (to_f / other).floor if other.is_a?(Float)
     Primitive.zr_unimplemented("Integer#div with a non-Integer") unless other.is_a?(Integer)
 
     self / other
@@ -138,9 +145,7 @@ class Integer
     r != 0 && (self < 0) != (other < 0) ? r - other : r
   end
 
-  def fdiv(other) = Primitive.zr_unimplemented("Integer#fdiv")
-
-  def to_f = Primitive.zr_unimplemented("Integer#to_f")
+  def fdiv(other) = to_f / other
 
   def abs2 = self * self
 
@@ -224,6 +229,7 @@ class Integer
   def size = 8
 
   def coerce(other)
+    return [other, to_f] if other.is_a?(Float)
     Primitive.zr_unimplemented("Integer#coerce with a non-Integer") unless other.is_a?(Integer)
 
     [other, self]
