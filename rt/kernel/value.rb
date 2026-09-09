@@ -122,3 +122,16 @@ machine def zr_memcpy(to, from, n)
     i += 1
   end
 end
+
+# A stop for a core method that reaches a case it does not answer
+# yet: the program aborts naming it, never with a wrong answer.
+sig [Value] => Value
+machine def zr_unimplemented(what)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("ze0: "), 5)
+  zr_buf_str(b, what)
+  zr_buf_push(b, Machine.bytes(" is not implemented yet\n"), 24)
+  zr_bug(Buf.ptr(b), Buf.len(b))
+  Machine.value(QNIL)
+end

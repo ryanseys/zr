@@ -85,21 +85,44 @@ class ThreadError < StandardError; end
 class NameError
   attr_reader :name, :receiver
 
+  def initialize(message = nil, name = nil, receiver: nil)
+    super(message)
+    @name = name
+    @receiver = receiver
+  end
+
   def local_variables = []
 end
 
 class NoMethodError
   attr_reader :args
 
+  def initialize(message = nil, name = nil, args = [], private_call = false, receiver: nil)
+    super(message, name, receiver: receiver)
+    @args = args
+    @private_call = private_call
+  end
+
   def private_call? = @private_call == true
 end
 
 class KeyError
   attr_reader :key, :receiver
+
+  def initialize(message = nil, receiver: nil, key: nil)
+    super(message)
+    @receiver = receiver
+    @key = key
+  end
 end
 
 class FrozenError
   attr_reader :receiver
+
+  def initialize(message = nil, receiver: nil)
+    super(message)
+    @receiver = receiver
+  end
 end
 
 class LocalJumpError

@@ -94,3 +94,11 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_not(recv, argc, argv, cref, blk)
   zr_bool(recv == QNIL || recv == QFALSE)
 end
+
+# A line on stderr: `warn`'s output.
+sig [Value] => Value
+machine def zr_warn_line(s)
+  zr_write_err(RString.ptr(s), RString.len(s))
+  zr_write_err(Machine.bytes("\n"), 1)
+  Machine.value(QNIL)
+end

@@ -135,6 +135,25 @@ machine def zr_ivar_get(obj, id)
   v
 end
 
+# A hidden instance variable: one whose name has no `@`, which
+# `instance_variables` and `inspect` leave out and no Ruby name can
+# reach. Struct keeps its members and values in them, as CRuby does.
+sig [Value, Value] => Value
+machine def zr_hidden_get(obj, name)
+  zr_ivar_get(obj, zr_sym2id(name))
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_hidden_set(obj, name, v)
+  zr_ivar_set(obj, zr_sym2id(name), v)
+end
+
+# Whether an instance variable's name shows: it starts with `@`.
+sig [Word] => Bool
+machine def zr_ivar_id_visible_p(id)
+  Machine.word(Machine.load8(zr_symbol_name_ptr(id), 0)) == 64
+end
+
 sig [Value, Word, Value] => Value
 machine def zr_ivar_set(obj, id, v)
   t = zr_ivtab_for_write(obj)
@@ -390,18 +409,22 @@ machine def zr_obj_inspect(recv, argc, argv, cref, blk)
   zr_buf_init(b)
   zr_buf_obj_head(b, recv)
   i = 0
+  shown = 0
   while i < IvTab.len(RObject.iv(recv))
     e = IvTab.rows(RObject.iv(recv)) + (i * IvEntry.size)
-    zr_buf_push(b, i == 0 ? Machine.bytes(" ") : Machine.bytes(", "), i == 0 ? 1 : 2)
-    zr_buf_sym(b, IvEntry.id(e))
-    zr_buf_byte(b, 61)
-    s = zr_send(IvEntry.value(e), Machine.id(:inspect), 0, 0)
-    if s == QUNDEF
-      free(Buf.ptr(b))
-      return s
-    end
-    zr_buf_str(b, s)
     i += 1
+    if zr_ivar_id_visible_p(IvEntry.id(e))
+      zr_buf_push(b, shown == 0 ? Machine.bytes(" ") : Machine.bytes(", "), shown == 0 ? 1 : 2)
+      shown += 1
+      zr_buf_sym(b, IvEntry.id(e))
+      zr_buf_byte(b, 61)
+      s = zr_send(IvEntry.value(e), Machine.id(:inspect), 0, 0)
+      if s == QUNDEF
+        free(Buf.ptr(b))
+        return s
+      end
+      zr_buf_str(b, s)
+    end
   end
   zr_buf_byte(b, 62)
   zr_buf_take(b)

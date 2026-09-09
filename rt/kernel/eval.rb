@@ -156,11 +156,12 @@ machine def zr_mod_define_method(recv, argc, argv, cref, blk)
   mid = Machine.load64(slot, 0)
   body = blk
   caller = Frame.prev(Task.top(zr_task()))
+  cref = zr_cref_in_context(caller, recv)
   if argc > 1
     body = Machine.value(Machine.load64(argv, 8))
     if !zr_special_p(body) && zr_type(body) == T_METHOD
       e = RMethod.entry(body)
-      zr_method_add_vis(recv, mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e), zr_definition_vis(mid, Frame.cref(caller)))
+      zr_method_add_vis(recv, mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e), zr_definition_vis(mid, cref))
       r = zr_method_added(recv, mid)
       return r if r == QUNDEF
       return zr_sym(mid)
@@ -176,9 +177,30 @@ machine def zr_mod_define_method(recv, argc, argv, cref, blk)
   elsif blk == QNIL
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("tried to create Proc object without a block"), 43)
   end
-  r = zr_define_bmethod(recv, mid, zr_meta_at(caller), body, Frame.cref(caller))
+  r = zr_define_bmethod(recv, mid, zr_meta_at(caller), body, cref)
   return r if r == QUNDEF
   zr_sym(mid)
+end
+
+# The cref whose visibility a `define_method` into `mod` takes: the
+# calling frame's, only when that frame is `mod`'s own body; from
+# anywhere else the method is public.
+sig [Ptr, Value] => Value
+machine def zr_cref_in_context(frame, mod)
+  cref = Frame.cref(frame)
+  if Frame.self(frame) != mod || cref == QNIL || RCref.klass(cref) != mod
+    return Machine.value(QNIL)
+  end
+  cref
+end
+
+# `define_singleton_method(name) { }`: the same, on the singleton class.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_define_singleton_method(recv, argc, argv, cref, blk)
+  if zr_special_p(recv)
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't define singleton"), 21)
+  end
+  zr_mod_define_method(zr_singleton_class(recv), argc, argv, cref, blk)
 end
 
 # The call of a method made by `define_method`: the block as a lambda

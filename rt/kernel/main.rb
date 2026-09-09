@@ -58,6 +58,7 @@ machine def zr_boot
   Task.set_serial(zr_task(), 0)
   Task.set_errinfo(zr_task(), Machine.value(QNIL))
   Task.set_kw(zr_task(), 0)
+  Task.set_guards(zr_task(), Machine.value(QNIL))
   # The four that form a cycle come first, with no class; then each
   # gets Class as its class. Names wait for String.
   zr_boot_class(G_BASIC_OBJECT, Machine.id(:BasicObject), Machine.value(QNIL))
@@ -211,6 +212,7 @@ machine def zr_boot
   zr_builtin(zr_global(G_MODULE), Machine.id(:class_exec), Machine.addr(:zr_mod_class_exec), 0 - 1)
   zr_builtin(zr_global(G_MODULE), Machine.id(:module_exec), Machine.addr(:zr_mod_class_exec), 0 - 1)
   zr_builtin(zr_global(G_MODULE), Machine.id(:define_method), Machine.addr(:zr_mod_define_method), 0 - 1)
+  zr_builtin(zr_global(G_KERNEL), Machine.id(:define_singleton_method), Machine.addr(:zr_obj_define_singleton_method), 0 - 1)
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:instance_eval), Machine.addr(:zr_obj_instance_eval), 0 - 1)
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:instance_exec), Machine.addr(:zr_obj_instance_exec), 0 - 1)
   zr_boot_method_class(zr_global(G_METHOD))

@@ -47,20 +47,22 @@ class Enumerator
     @receiver = @generator
     @method = :each
     @args = []
+    @kwargs = {}
     @size = size
   end
 
-  # `to_enum(:method, *args)`, with a size or a proc that answers it.
-  def self.for(receiver, method, args, size)
+  # `to_enum(:method, *args, **kwargs)`, with a size or a proc that
+  # answers it.
+  def self.for(receiver, method, args, kwargs, size)
     e = allocate
-    e.send(:enumerate, receiver, method, args, size)
+    e.send(:enumerate, receiver, method, args, kwargs, size)
     e
   end
 
   def each(*extra, &block)
     return self unless block
 
-    @receiver.__send__(@method, *@args, *extra, &block)
+    @receiver.__send__(@method, *@args, *extra, **@kwargs, &block)
   end
 
   def size
@@ -117,7 +119,8 @@ class Enumerator
   end
 
   def inspect
-    args = @args.empty? ? "" : "(#{@args.map(&:inspect).join(', ')})"
+    parts = @args.map(&:inspect) + @kwargs.map { |k, v| "#{k}: #{v.inspect}" }
+    args = parts.empty? ? "" : "(#{parts.join(', ')})"
     "#<Enumerator: #{@receiver.inspect}:#{@method}#{args}>"
   end
 
@@ -125,17 +128,18 @@ class Enumerator
 
   private
 
-  def enumerate(receiver, method, args, size)
+  def enumerate(receiver, method, args, kwargs, size)
     @receiver = receiver
     @method = method
     @args = args
+    @kwargs = kwargs
     @size = size
   end
 end
 
 module Kernel
-  def to_enum(method = :each, *args, &size)
-    Enumerator.for(self, method, args, size)
+  def to_enum(method = :each, *args, **kwargs, &size)
+    Enumerator.for(self, method, args, kwargs, size)
   end
 
   alias enum_for to_enum
@@ -143,6 +147,6 @@ module Kernel
   # What a builtin iterator answers without a block: its count comes
   # last.
   private def enum_with_size(method, *args, size)
-    Enumerator.for(self, method, args, size)
+    Enumerator.for(self, method, args, {}, size)
   end
 end

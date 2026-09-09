@@ -48,6 +48,19 @@ module Ze0
         @block_depth, @def_params = was
       end
 
+      # The parts of an interpolated string, each a String or the value
+      # of an embedded expression.
+      def interpolation(node, line)
+        parts = node.parts.map do |part|
+          case part
+          when Prism::StringNode then Literal.new(part.unescaped, part.location.start_line)
+          when Prism::EmbeddedStatementsNode then part.statements ? seq(part.statements) : Literal.new(nil, line)
+          else refuse(part, "#{part.class.name.split("::").last.delete_suffix("Node")} in a string is not lowered yet")
+          end
+        end
+        Interp.new(parts, line)
+      end
+
       def seq(node)
         return Seq.new([], 1) if node.nil?
 
@@ -128,15 +141,8 @@ module Ze0
         when Prism::ConstantPathWriteNode
           scope, name = constant_path(node.target)
           ConstWrite.new(scope, name, expr(node.value), line)
-        when Prism::InterpolatedStringNode
-          parts = node.parts.map do |part|
-            case part
-            when Prism::StringNode then Literal.new(part.unescaped, part.location.start_line)
-            when Prism::EmbeddedStatementsNode then part.statements ? seq(part.statements) : Literal.new(nil, line)
-            else refuse(part, "#{part.class.name.split("::").last.delete_suffix("Node")} in a string is not lowered yet")
-            end
-          end
-          Interp.new(parts, line)
+        when Prism::InterpolatedStringNode then interpolation(node, line)
+        when Prism::InterpolatedSymbolNode then Send.new(interpolation(node, line), :to_sym, [], line, false)
         when Prism::ArrayNode
           ArrayLit.new(node.elements.map { |e| e.is_a?(Prism::SplatNode) ? Splat.new(expr(e.expression), line) : expr(e) }, line)
         when Prism::HashNode then HashLit.new(hash_pairs(node.elements), line)

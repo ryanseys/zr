@@ -350,6 +350,12 @@ end
 # re-read by index.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_inspect(recv, argc, argv, cref, blk)
+  if RArray.len(recv) == 0
+    return zr_str_new(Machine.bytes("[]"), 2)
+  end
+  if zr_guard_enter(recv, Machine.id(:inspect))
+    return zr_str_new(Machine.bytes("[...]"), 5)
+  end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_byte(b, 91)
@@ -361,12 +367,14 @@ machine def zr_ary_inspect(recv, argc, argv, cref, blk)
     s = zr_send(zr_ary_at(recv, i), Machine.id(:inspect), 0, 0)
     if s == QUNDEF
       free(Buf.ptr(b))
+      zr_guard_leave(recv, Machine.id(:inspect))
       return s
     end
     zr_buf_str(b, s)
     i += 1
   end
   zr_buf_byte(b, 93)
+  zr_guard_leave(recv, Machine.id(:inspect))
   zr_buf_take(b)
 end
 

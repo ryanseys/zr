@@ -464,3 +464,95 @@ machine def zr_opt_ltlt(recv, mid, argc, argv)
   end
   zr_call(recv, mid, argc, argv)
 end
+
+# The primitives rt/core/string.rb builds its methods on. Bytes are
+# characters until encodings arrive: a method that would read a
+# non-ASCII byte as a character stops loudly first.
+
+sig [Value] => Value
+machine def zr_str_ascii_check(s)
+  zr_ascii_only(s)
+  Machine.value(QNIL)
+end
+
+sig [Value] => Value
+machine def zr_str_bytesize(s)
+  zr_fix(RString.len(s))
+end
+
+# The byte at `i`, or nil past the end.
+sig [Value, Value] => Value
+machine def zr_str_byte_at(s, i)
+  n = zr_fix2long(i)
+  if n < 0
+    n += RString.len(s)
+  end
+  if n < 0 || n >= RString.len(s)
+    return Machine.value(QNIL)
+  end
+  zr_fix(Machine.word(Machine.load8(RString.ptr(s) + n, 0)))
+end
+
+# A new String of `len` bytes from `off`, both already in range.
+sig [Value, Value, Value] => Value
+machine def zr_str_byteslice(s, off, len)
+  zr_str_new(RString.ptr(s) + zr_fix2long(off), zr_fix2long(len))
+end
+
+# The receiver's bytes replaced by `other`'s.
+sig [Value, Value] => Value
+machine def zr_str_replace(s, other)
+  if zr_frozen_p(s)
+    return zr_frozen_error(s)
+  end
+  n = RString.len(other)
+  buf = malloc(n + 1)
+  zr_memcpy(buf, RString.ptr(other), n)
+  Machine.store8(buf + n, 0, Machine.i8(0))
+  free(RString.ptr(s))
+  RString.set_ptr(s, buf)
+  RString.set_len(s, n)
+  RString.set_capa(s, n)
+  s
+end
+
+# `setbyte`: the byte at `i` becomes `byte` modulo 256.
+sig [Value, Value, Value] => Value
+machine def zr_str_setbyte(s, i, byte)
+  if zr_frozen_p(s)
+    return zr_frozen_error(s)
+  end
+  n = zr_fix2long(i)
+  if n < 0
+    n += RString.len(s)
+  end
+  if n < 0 || n >= RString.len(s)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("index "), 6)
+    zr_buf_long(b, zr_fix2long(i))
+    zr_buf_push(b, Machine.bytes(" out of string"), 14)
+    return zr_raise_buf(zr_global(G_INDEX_ERROR), b)
+  end
+  Machine.store8(RString.ptr(s) + n, 0, Machine.i8(zr_fix2long(byte) & 255))
+  byte
+end
+
+# A String of one byte.
+sig [Value] => Value
+machine def zr_str_from_byte(byte)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_byte(b, zr_fix2long(byte) & 255)
+  zr_buf_take(b)
+end
+
+# The byte index of `needle` at or after `start`, or nil.
+sig [Value, Value, Value] => Value
+machine def zr_str_find_from(s, needle, start)
+  i = zr_str_find(s, needle, zr_fix2long(start))
+  if i < 0
+    return Machine.value(QNIL)
+  end
+  zr_fix(i)
+end

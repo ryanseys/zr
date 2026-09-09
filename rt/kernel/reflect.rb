@@ -51,13 +51,14 @@ machine def zr_check_cvar_name(id)
 end
 
 # The names in a variable table, as Symbols, each once, after those
-# already in `out`.
+# already in `out`; a hidden one stays out.
 sig [Ptr, Value] => Void
 machine def zr_ivtab_names(t, out)
   i = 0
   while i < IvTab.len(t)
-    name = zr_sym(IvEntry.id(IvTab.rows(t) + (i * IvEntry.size)))
-    if zr_ary_index_of(out, name) < 0
+    id = IvEntry.id(IvTab.rows(t) + (i * IvEntry.size))
+    name = zr_sym(id)
+    if zr_ivar_id_visible_p(id) && zr_ary_index_of(out, name) < 0
       zr_ary_push(out, name)
     end
     i += 1

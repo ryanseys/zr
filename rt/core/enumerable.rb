@@ -115,9 +115,16 @@ module Enumerable
     true
   end
 
-  def count
+  def count(*args)
     n = 0
-    if block_given?
+    if !args.empty?
+      item = args[0]
+      each do |*x|
+        x = Primitive.zr_enum_value(x)
+        n += 1 if x == item
+        nil
+      end
+    elsif block_given?
       each do |*x|
         x = Primitive.zr_enum_value(x)
         n += 1 if yield(x)

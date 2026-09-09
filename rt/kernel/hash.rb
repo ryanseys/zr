@@ -354,6 +354,9 @@ machine def zr_hash_inspect(recv, argc, argv, cref, blk)
   if RHash.live(recv) == 0
     return zr_str_new(Machine.bytes("{}"), 2)
   end
+  if zr_guard_enter(recv, Machine.id(:inspect))
+    return zr_str_new(Machine.bytes("{...}"), 5)
+  end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_byte(b, 123)
@@ -378,6 +381,7 @@ machine def zr_hash_inspect(recv, argc, argv, cref, blk)
         s = zr_send(key, Machine.id(:inspect), 0, 0)
         if s == QUNDEF
           free(Buf.ptr(b))
+          zr_guard_leave(recv, Machine.id(:inspect))
           return s
         end
         zr_buf_str(b, s)
@@ -387,6 +391,7 @@ machine def zr_hash_inspect(recv, argc, argv, cref, blk)
       s = zr_send(HEntry.value(e), Machine.id(:inspect), 0, 0)
       if s == QUNDEF
         free(Buf.ptr(b))
+        zr_guard_leave(recv, Machine.id(:inspect))
         return s
       end
       zr_buf_str(b, s)
@@ -394,6 +399,7 @@ machine def zr_hash_inspect(recv, argc, argv, cref, blk)
     i += 1
   end
   zr_buf_byte(b, 125)
+  zr_guard_leave(recv, Machine.id(:inspect))
   zr_buf_take(b)
 end
 
