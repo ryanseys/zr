@@ -26,13 +26,15 @@ module Ze0
           recv_node = node.recv || Hir::SelfRef.new(node.line)
           args = node.args + [node.kwargs].compact
           if args.any?(Hir::Splat)
+            @l.refuse(node, "a splat in an attribute write is not lowered yet") if node.write
             staged([recv_node], 1 + (node.block ? 1 : 0)) do |slots, base|
               ary = gather(args, base + 1)
               send_staged(node, @f.fetch("i64", slots), array_ptr(ary), array_len(ary), base + 2)
             end
           else
             staged([recv_node, *args], node.block ? 1 : 0) do |slots, base|
-              send_staged(node, @f.fetch("i64", slots), @f.iadd(slots, imm(8)), imm(args.size), base + 1 + args.size)
+              r = send_staged(node, @f.fetch("i64", slots), @f.iadd(slots, imm(8)), imm(args.size), base + 1 + args.size)
+              node.write ? @f.fetch("i64", slots, 8 * node.args.size) : r
             end
           end
         end
@@ -43,7 +45,7 @@ module Ze0
           base = @sp
           slot = reserve(1)
           @f.store(expr(node.recv), @rec, value_offset(slot))
-          plain = Hir::Send.new(Hir::Slot.new(slot, node.line), node.name, node.args, node.line, false, node.opt, node.block, node.kwargs, false)
+          plain = Hir::Send.new(Hir::Slot.new(slot, node.line), node.name, node.args, node.line, false, node.opt, node.block, node.kwargs, false, node.write)
           is_nil = @f.label
           go = @f.label
           merge, (result,) = @f.block(["i64"])

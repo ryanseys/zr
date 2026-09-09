@@ -49,3 +49,43 @@ h[:x], h[:y] = 1, 2
 p h
 a, * = 1, 2, 3
 p a
+class Store
+  def []=(k, v)
+    :ignored_return
+  end
+
+  def value=(v)
+    :also_ignored
+  end
+
+  private def secret=(v)
+    :also_ignored
+  end
+
+  def set = (self.secret = 3)
+
+  def order
+    self[(puts "index"; 1)] = (puts "value"; 2)
+  end
+end
+
+s = Store.new
+p(s[:k] = 42)
+p(s.value = 7)
+x = (s[:k] = "chain")
+p x
+a = b = (s[:k] = 1)
+p [a, b]
+h = {}
+p(h[:k] = 5)
+p s.set
+p s.order
+p(s[1, 2] = 3)
+n = nil
+p(n&.value = 4)
+begin
+  s.missing = 1
+rescue NoMethodError => e
+  puts e.message
+end
+p(s&.value = 4)

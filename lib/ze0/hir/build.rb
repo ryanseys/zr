@@ -396,7 +396,7 @@ module Ze0
         args, kwargs, forwarded = arguments(node.arguments)
         opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
         Send.new(node.receiver && expr(node.receiver), node.name, args, node.location.start_line, node.variable_call?, opt,
-                 node.block ? block(node.block) : forwarded, kwargs, node.call_operator == "&.")
+                 node.block ? block(node.block) : forwarded, kwargs, node.call_operator == "&.", node.attribute_write?)
       end
 
       # `defined?(value)`: the form decides at compile time; only an
