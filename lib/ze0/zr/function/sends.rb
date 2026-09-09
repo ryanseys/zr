@@ -79,17 +79,35 @@ module Ze0
         # The send with a block: a Proc for a block literal, with the
         # site's own `break` caught on the way out, or the `&value`.
         def call_with_block(node, recv, argv, argc, slot)
-          return call_passing_block(node, recv, argv, argc) if node.block.is_a?(Hir::BlockPass)
+          if node.block.is_a?(Hir::BlockPass)
+            proc = checked(kernel("zr_block_pass", expr(node.block.value)))
+            at_line(node.line)
+            kernel("zr_kw_pass") if node.kwargs
+            return checked(kernel("zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc))
+          end
 
-          fn = @l.block(node.block, self)
+          site, proc = make_proc(node.block, slot)
+          at_line(node.line)
+          kernel("zr_kw_pass") if node.kwargs
+          catching_break(site) { kernel("zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc) }
+        end
+
+        # A Proc for the block literal, kept in the record slot `slot`,
+        # and its site number.
+        def make_proc(block, slot)
+          fn = @l.block(block, self)
           site = (@sites += 1)
           ret_home = @kind == :block ? proc_field("ret_home") : @rec
           proc = kernel("zr_proc_new", @f.func_addr(@f.callee(fn, ABI.fetch(:block), "i64")), @env, @self, @cref, @blk, @rec,
-                        imm((site << 32) | (node.block.params.spread? ? 1 : 0)), ret_home)
+                        imm((site << 32) | (block.params.spread? ? 1 : 0)), ret_home)
           @f.store(proc, @rec, value_offset(slot))
-          at_line(node.line)
-          kernel("zr_kw_pass") if node.kwargs
-          r = kernel("zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc)
+          [site, proc]
+        end
+
+        # The block's call answered; a `break` from the block literal at
+        # `site` is the answer, any other signal takes the landing block.
+        def catching_break(site)
+          r = yield
           fine = @f.label
           signal = @f.label
           merge, (result,) = @f.block(["i64"])
@@ -106,11 +124,53 @@ module Ze0
           result
         end
 
-        def call_passing_block(node, recv, argv, argc)
-          proc = checked(kernel("zr_block_pass", expr(node.block.value)))
+        # `super(args)`: the arguments staged as for a send, then the
+        # runtime finds the next method past this frame's owner.
+        def super_call(node)
+          args = node.args + [node.kwargs].compact
+          if args.any?(Hir::Splat)
+            staged([], 1 + (node.block ? 1 : 0)) do |_, base|
+              ary = gather(args, base)
+              super_staged(node, array_ptr(ary), array_len(ary), base + 1)
+            end
+          else
+            staged(args, node.block ? 1 : 0) { |slots, base| super_staged(node, slots, imm(args.size), base + args.size) }
+          end
+        end
+
+        def super_staged(node, argv, argc, block_slot)
+          site = nil
+          blk = case node.block
+                when nil then @blk
+                when Hir::BlockPass then checked(kernel("zr_block_pass", expr(node.block.value)))
+                else
+                  site, proc = make_proc(node.block, block_slot)
+                  proc
+                end
           at_line(node.line)
           kernel("zr_kw_pass") if node.kwargs
-          checked(kernel("zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc))
+          call = -> { kernel("zr_super", @rec, argc, argv, blk) }
+          site ? catching_break(site, &call) : checked(call.call)
+        end
+
+        # The bare `super`: the enclosing method's parameters, as they
+        # stand now, become the arguments.
+        def zsuper(node)
+          fn = self
+          depth = 0
+          until fn.kind == :def
+            @l.refuse(node, "super outside a method is not lowered yet") if fn.outer.nil?
+            fn = fn.outer
+            depth += 1
+          end
+          p = fn.def_node.params
+          local = ->(name) { Hir::Local.new(name, depth, node.line) }
+          positional = (p.required + p.optional.map(&:first)).map(&local) + [p.rest && p.rest != :implicit ? Hir::Splat.new(local.call(p.rest), node.line) : nil].compact + p.post.map(&local)
+          pairs = p.keywords.flat_map { |name, _| [Hir::Literal.new(name, node.line), local.call(name)] }
+          pairs += [Hir::HashSplat.new(local.call(p.kwrest), node.line), nil] if p.kwrest
+          kwargs = pairs.empty? ? nil : Hir::HashLit.new(pairs, node.line)
+          block = node.block || (p.block && Hir::BlockPass.new(local.call(p.block), node.line))
+          super_call(Hir::Super.new(positional, kwargs, block, node.line))
         end
 
         # An Integer operator: the fixnum fast path inline when both sides

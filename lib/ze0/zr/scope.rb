@@ -13,8 +13,11 @@ module Ze0
       # a nested def or body, which is its own scope).
       def holds_block?(node)
         case node
-        when Hir::Send
-          node.block.is_a?(Hir::Block) || holds_block?(node.recv) || holds_block?(node.kwargs) || holds_block?(node.block) || node.args.any? { |a| holds_block?(a) }
+        when Hir::Send, Hir::Super
+          node.block.is_a?(Hir::Block) || holds_block?(node.kwargs) || holds_block?(node.block) || node.args.any? { |a| holds_block?(a) } ||
+            (node.is_a?(Hir::Send) && holds_block?(node.recv))
+        when Hir::ZSuper then node.block.is_a?(Hir::Block) || holds_block?(node.block)
+        when Hir::Lambda then true
         when Hir::Def then holds_block?(node.receiver)
         when Hir::ClassDef, Hir::ModuleDef, nil then false
         when Hir::SingletonClassDef then holds_block?(node.target)
@@ -33,6 +36,12 @@ module Ze0
           extra = (node.kwargs ? 1 : 0) + (node.block ? 1 : 0)
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
           [top, staging(node.recv, top), staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
+        when Hir::Super
+          extra = (node.kwargs ? 1 : 0) + (node.block ? 1 : 0)
+          top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
+          [top, staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
+        when Hir::ZSuper then [base + 3 + (node.block ? 1 : 0), staging(node.block, base + 3)].max
+        when Hir::Lambda then base + 1
         when Hir::Splat, Hir::HashSplat, Hir::BlockPass then staging(node.value, base)
         when Hir::Yield then spread?(node.args) ? gathered(node.args, base) : row(node.args, base)
         when Hir::ArrayLit then spread?(node.elements) ? gathered(node.elements, base) : row(node.elements, base)

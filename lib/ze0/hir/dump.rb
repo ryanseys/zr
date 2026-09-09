@@ -48,6 +48,20 @@ module Ze0
           lines[-1] += ")"
         when nil
           lines << "#{pad}(none)"
+        when Lambda
+          lines << "#{pad}(lambda"
+          node(n.block, depth + 1, lines)
+          lines[-1] += ")"
+        when Super
+          lines << "#{pad}(super"
+          n.args.each { |a| node(a, depth + 1, lines) }
+          node(n.kwargs, depth + 1, lines) if n.kwargs
+          node(n.block, depth + 1, lines) if n.block
+          lines[-1] += ")"
+        when ZSuper
+          lines << "#{pad}(zsuper"
+          node(n.block, depth + 1, lines) if n.block
+          lines[-1] += ")"
         when Yield
           lines << "#{pad}(yield"
           n.args.each { |a| node(a, depth + 1, lines) }

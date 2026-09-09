@@ -87,8 +87,10 @@ module Ze0
         def return_from(node)
           v = expr(node.value)
           if @kind == :block
-            at_line(node.line)
-            checked(kernel("zr_return", @proc, v))
+            unless_lambda(v) do
+              at_line(node.line)
+              checked(kernel("zr_return", @proc, v))
+            end
           else
             leave(through_ensures(v))
           end
@@ -109,8 +111,10 @@ module Ze0
           if kind == :next
             leave(through_ensures(v))
           else
-            at_line(node.line)
-            checked(kernel("zr_break", @proc, v))
+            unless_lambda(v) do
+              at_line(node.line)
+              checked(kernel("zr_break", @proc, v))
+            end
           end
           @qnil
         end

@@ -26,6 +26,8 @@ module Ze0
     # A block literal: its parameters, every local of its scope
     # (parameters first), and its body.
     Block = Struct.new(:params, :locals, :body, :line)
+    # `-> (params) { body }`: a Block that is a lambda from the start.
+    Lambda = Struct.new(:block, :line)
     # The one parameter shape: `required` and `post` are names,
     # `optional` and `keywords` are `[name, default]` pairs (a keyword
     # with no default is required), `rest`, `kwrest` and `block` are a
@@ -51,6 +53,10 @@ module Ze0
       end
     end
     Yield = Struct.new(:args, :line)
+    # `super(args)`; `block` as a Send's. `ZSuper` is the bare `super`,
+    # passing the method's own parameters on as they stand.
+    Super = Struct.new(:args, :kwargs, :block, :line)
+    ZSuper = Struct.new(:block, :line)
     Break = Struct.new(:value, :line)
     Next = Struct.new(:value, :line)
     # An Integer, String, Symbol, nil, true or false.

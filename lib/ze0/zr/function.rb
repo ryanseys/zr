@@ -41,7 +41,12 @@ module Ze0
       KINDS = { main: "KIND_MAIN", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK" }.freeze
       ABI = { main: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64] }.freeze
 
-      attr_reader :meta, :outer
+      attr_reader :meta, :outer, :kind
+
+      # The Def, Block or body node this function came from.
+      def def_node
+        @def
+      end
 
       def initialize(lower, name, locals, body, node, kind, outer: nil)
         @l = lower
@@ -161,7 +166,7 @@ module Ze0
 
         p = @def.params
         nested = (p.required + p.post).grep(Hir::MultiTarget).map { |t| Scope.targets(t) }.max || 0
-        (@kind == :def && keywords?(p) ? 1 : 0) + nested
+        (keywords?(p) ? 1 : 0) + nested
       end
 
       def leave(value)
@@ -255,6 +260,23 @@ module Ze0
 
       def proc_field(name)
         @f.fetch("i64", @proc, off(@proc_layout, name))
+      end
+
+      # In a block function: whether this Proc is a lambda.
+      def lambda?
+        @f.icmp("ne", proc_field("lambda"), imm(0))
+      end
+
+      # In a block function: `return`, `break` and `next` leave a lambda
+      # itself with `v`; a plain block does what the block does.
+      def unless_lambda(v)
+        plain = @f.label
+        own = @f.label
+        @f.brif(lambda?, own, plain)
+        switch(own)
+        leave(through_ensures(v))
+        switch(plain)
+        yield
       end
 
       def off(layout, field)

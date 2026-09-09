@@ -18,21 +18,42 @@ module Ze0
         end
 
         def bind_method(p, argc, argv)
-          argc, kwargs_at = take_keywords(argc, argv) if keywords?(p)
+          if keywords?(p)
+            argc, kwargs_at = take_keywords(argc, argv)
+          else
+            @f.store(imm(0), @task_addr, off(@task, "kw"))
+          end
           check_arity(p, argc)
           bind_positional(p, argc, argv, strict: true)
           bind_keywords(p, kwargs_at) if keywords?(p)
           write_local(slot_of(p.block), 0, @blk) if p.block
         end
 
+        # A lambda checks its arity and never spreads; the same function
+        # serves either way, so the Proc's flag decides at run time.
         def bind_block(p)
-          return if p.names.empty?
+          return if p.names.empty? && p.plain?
 
+          argc = @f.args[1]
+          argv = @f.args[2]
+          if keywords?(p)
+            argc, kwargs_at = take_keywords(argc, argv)
+          else
+            @f.store(imm(0), @task_addr, off(@task, "kw"))
+          end
+          go = @f.label
+          strict = @f.label
+          @f.brif(lambda?, strict, go)
+          switch(strict)
+          check_arity(p, argc)
+          @f.jump(go)
+          switch(go)
           out = @f.stack_addr(@f.slot(8))
-          argc = kernel("zr_block_args", @f.args[1], @f.args[2], imm(p.spread? ? 1 : 0), out)
+          spread = p.spread? ? @f.csel(lambda?, imm(0), imm(1)) : imm(0)
+          argc = kernel("zr_block_args", argc, argv, spread, out)
           argv = @f.fetch("i64", out)
           bind_positional(p, argc, argv, strict: false)
-          bind_keywords(p, nil) if keywords?(p)
+          bind_keywords(p, kwargs_at) if keywords?(p)
           write_local(slot_of(p.block), 0, @f.args[3]) if p.block
         end
 
@@ -45,7 +66,8 @@ module Ze0
         end
 
         # The keywords Hash, when the call flagged one, leaves the
-        # positional arguments; it waits in a record slot.
+        # positional arguments; it waits in a record slot. A method that
+        # declares none clears the flag, so it cannot leak to a later send.
         def take_keywords(argc, argv)
           at = value_offset(reserve(1))
           have = @f.label

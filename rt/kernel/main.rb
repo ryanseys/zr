@@ -89,6 +89,13 @@ machine def zr_boot
   # Kernel's methods sit on Object until modules arrive.
   zr_builtin(zr_global(G_OBJECT), Machine.id(:puts), Machine.addr(:zr_puts), 0 - 1)
   zr_builtin(zr_global(G_OBJECT), Machine.id(:raise), Machine.addr(:zr_kernel_raise), 0 - 1)
+  zr_builtin(zr_global(G_OBJECT), Machine.id(:proc), Machine.addr(:zr_kernel_proc), 0)
+  zr_builtin(zr_global(G_OBJECT), Machine.id(:lambda), Machine.addr(:zr_kernel_lambda), 0)
+  zr_builtin(zr_singleton_class(zr_global(G_PROC)), Machine.id(:new), Machine.addr(:zr_kernel_proc), 0)
+  zr_define_method(zr_global(G_PROC), Machine.id(:call), Machine.addr(:zr_proc_call), 0 - 1, KIND_FRAMELESS, 0, Machine.value(QNIL))
+  zr_define_method(zr_global(G_PROC), Machine.id(:[]), Machine.addr(:zr_proc_call), 0 - 1, KIND_FRAMELESS, 0, Machine.value(QNIL))
+  zr_define_method(zr_global(G_PROC), Machine.id(:yield), Machine.addr(:zr_proc_call), 0 - 1, KIND_FRAMELESS, 0, Machine.value(QNIL))
+  zr_builtin(zr_global(G_PROC), Machine.id(:lambda?), Machine.addr(:zr_proc_lambda_p), 0)
   zr_builtin(zr_global(G_OBJECT), Machine.id(:p), Machine.addr(:zr_p), 0 - 1)
   zr_builtin(zr_global(G_OBJECT), Machine.id(:block_given?), Machine.addr(:zr_block_given_p), 0)
   zr_builtin(zr_global(G_OBJECT), Machine.id(:loop), Machine.addr(:zr_loop), 0)

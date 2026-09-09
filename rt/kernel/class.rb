@@ -14,6 +14,9 @@ Machine.sig :method, [Value, Word, Ptr, Value, Value] => Value
 # ivar's id in `fn`.
 KIND_ATTR_READER = 3
 KIND_ATTR_WRITER = 4
+# A builtin that leaves no frame of its own: `Proc#call`, which CRuby
+# keeps out of a backtrace.
+KIND_FRAMELESS = 5
 
 sig [Word, Value, Value] => Value
 machine def zr_class_alloc(type, sup, klass)

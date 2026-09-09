@@ -2,12 +2,14 @@
 # entry's code pointer. A miss is a NoMethodError.
 
 # CRuby's message. A bare identifier (`vcall`) is a NameError, and
-# names main as `main`.
-sig [Value, Word, Bool] => Value
-machine def zr_no_method(recv, mid, vcall)
+# names main as `main`; a `super` with nothing above says so.
+sig [Value, Word, Bool, Bool] => Value
+machine def zr_no_method_from(recv, mid, vcall, from_super)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
-  if vcall
+  if from_super
+    zr_buf_push(b, Machine.bytes("super: no superclass method '"), 29)
+  elsif vcall
     zr_buf_push(b, Machine.bytes("undefined local variable or method '"), 36)
   else
     zr_buf_push(b, Machine.bytes("undefined method '"), 18)
@@ -89,6 +91,11 @@ machine def zr_kw_take
   kw
 end
 
+sig [Value, Word, Bool] => Value
+machine def zr_no_method(recv, mid, vcall)
+  zr_no_method_from(recv, mid, vcall, false)
+end
+
 # `argv` points at `argc` Values the caller keeps rooted.
 # A builtin runs under a frame pushed here, so a backtrace names it; a
 # compiled method pushes its own.
@@ -99,6 +106,40 @@ machine def zr_dispatch(recv, mid, argc, argv, vcall, blk)
   if e == 0
     return zr_no_method(recv, mid, vcall)
   end
+  zr_invoke(e, recv, argc, argv, blk, kw)
+end
+
+# `super`: the next method named as the frame's is, past the frame's
+# owner in the receiver's chain; the frame's block passes on unless
+# `blk` is one of its own.
+sig [Ptr, Word, Ptr, Value] => Value
+machine def zr_super(rec, argc, argv, blk)
+  kw = zr_kw_take()
+  meta = Frame.meta(rec)
+  while FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN
+    meta = FrameMeta.parent(meta)
+  end
+  owner = FrameMeta.owner(meta)
+  mid = FrameMeta.name(meta)
+  recv = Frame.self(rec)
+  k = zr_class_of(recv)
+  while k != QNIL && !(k == owner || (zr_type(k) == T_ICLASS && RClass.attached(k) == owner))
+    k = RClass.superclass(k)
+  end
+  e = 0
+  if k != QNIL
+    e = zr_find_method(RClass.superclass(k), mid)
+  end
+  if e == 0
+    return zr_no_method_from(recv, mid, false, true)
+  end
+  zr_invoke(e, recv, argc, argv, blk, kw)
+end
+
+# The call through the entry `e`: a compiled def gets the keywords flag
+# back and pushes its own frame; a builtin runs under one pushed here.
+sig [Ptr, Value, Word, Ptr, Value, Word] => Value
+machine def zr_invoke(e, recv, argc, argv, blk, kw)
   if MEntry.kind(e) == KIND_DEF
     arity = MEntry.arity(e)
     if arity >= 0 && argc != arity
@@ -118,6 +159,10 @@ machine def zr_dispatch(recv, mid, argc, argv, vcall, blk)
       return zr_wrong_arity_in(argc, 1, e, recv)
     end
     return zr_ivar_set(recv, Machine.word(MEntry.fn(e)), Machine.value(Machine.load64(argv, 0)))
+  end
+  if MEntry.kind(e) == KIND_FRAMELESS
+    Task.set_kw(zr_task(), kw)
+    return Machine.call(:method, MEntry.fn(e), recv, argc, argv, Machine.value(QNIL), blk)
   end
   rec = Machine.slot(Frame.size)
   t = zr_task()

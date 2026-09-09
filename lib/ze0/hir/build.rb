@@ -54,6 +54,18 @@ module Ze0
           Assign.new(node.name, node.depth, And.new(Local.new(node.name, node.depth, line), expr(node.value), line), line)
         when Prism::LocalVariableOrWriteNode
           Assign.new(node.name, node.depth, Or.new(Local.new(node.name, node.depth, line), expr(node.value), line), line)
+        when Prism::LambdaNode
+          params = Params.new([], [], nil, [], [], nil, nil)
+          if node.parameters
+            refuse(node.parameters, "a numbered or `it` parameter is not lowered yet") unless node.parameters.is_a?(Prism::BlockParametersNode)
+            params = parameters(node.parameters.parameters)
+            refuse(node.parameters, "a block-local variable is not lowered yet") unless node.parameters.locals.empty?
+          end
+          Lambda.new(Block.new(params, node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line), line)
+        when Prism::SuperNode
+          args, kwargs = arguments(node.arguments)
+          Super.new(args, kwargs, node.block && block(node.block), line)
+        when Prism::ForwardingSuperNode then ZSuper.new(node.block && block(node.block), line)
         when Prism::YieldNode
           args = node.arguments&.arguments || []
           refuse(node, "keywords in a yield are not lowered yet") if args.any?(Prism::KeywordHashNode)
@@ -264,8 +276,17 @@ module Ze0
         refuse(node, "a safe-navigation call is not lowered yet") if node.call_operator == "&."
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil?
 
+        args, kwargs = arguments(node.arguments)
+        opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
+        Send.new(node.receiver && expr(node.receiver), node.name, args, node.location.start_line, node.variable_call?, opt,
+                 node.block && block(node.block), kwargs)
+      end
+
+      # `[args, kwargs]` of an argument list: Splats among the args, the
+      # keywords as one HashLit or nil.
+      def arguments(node)
         kwargs = nil
-        args = (node.arguments&.arguments || []).filter_map do |a|
+        args = (node&.arguments || []).filter_map do |a|
           case a
           when Prism::SplatNode then Splat.new(expr(a.expression), a.location.start_line)
           when Prism::KeywordHashNode
@@ -274,9 +295,7 @@ module Ze0
           else expr(a)
           end
         end
-        opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
-        Send.new(node.receiver && expr(node.receiver), node.name, args, node.location.start_line, node.variable_call?, opt,
-                 node.block && block(node.block), kwargs)
+        [args, kwargs]
       end
 
       # A hash's elements as a flat pair list; a `**value` is a HashSplat

@@ -122,6 +122,46 @@ machine def zr_sym_to_proc(sym)
   p
 end
 
+sig [Value] => Value
+machine def zr_proc_lambda(p)
+  RProc.set_lambda(p, 1)
+  RProc.set_home(p, 0)
+  p
+end
+
+# `Proc#call`: the block with the arguments, and a block of its own.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_proc_call(recv, argc, argv, cref, blk)
+  Machine.call(:block, RProc.fn(recv), recv, argc, argv, blk)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_proc_lambda_p(recv, argc, argv, cref, blk)
+  zr_bool(RProc.lambda(recv) != 0)
+end
+
+# `proc { }` and `Proc.new { }`: the block's Proc, with no call site
+# for a `break` to reach any more.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_kernel_proc(recv, argc, argv, cref, blk)
+  if blk == QNIL
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("tried to create Proc object without a block"), 43)
+  end
+  RProc.set_home(blk, 0)
+  blk
+end
+
+# `lambda { }`: the block's Proc, strict about its arguments and with
+# `return` leaving the lambda itself.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_kernel_lambda(recv, argc, argv, cref, blk)
+  if blk == QNIL
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("tried to create Proc object without a block"), 43)
+  end
+  RProc.set_lambda(blk, 1)
+  blk
+end
+
 # `&value` at a call: nil passes no block, a Proc itself, a Symbol its
 # Proc; anything else must answer `to_proc`.
 sig [Value] => Value

@@ -18,6 +18,9 @@ module Ze0
           when Hir::Assign then write_local(slot_at(node), node.depth, expr(node.value))
           when Hir::MultiAssign then multi_assign(node)
           when Hir::Yield then yield_block(node)
+          when Hir::Super then super_call(node)
+          when Hir::Lambda then lambda_literal(node)
+          when Hir::ZSuper then zsuper(node)
           when Hir::Break then jump_out(node, :break)
           when Hir::Next then jump_out(node, :next)
           when Hir::Return then return_from(node)
@@ -40,6 +43,15 @@ module Ze0
           when Hir::Retry then retry_region(node)
           else @l.refuse(node, "#{node.class.name.split("::").last} is not lowered yet")
           end
+        end
+
+        # `-> { }`: a Proc marked a lambda; its `break` and `return` stay
+        # inside it, so it has no call site to answer to.
+        def lambda_literal(node)
+          slot = reserve(1)
+          _, proc = make_proc(node.block, slot)
+          @sp = slot
+          kernel("zr_proc_lambda", proc)
         end
 
         def array_literal(node)
