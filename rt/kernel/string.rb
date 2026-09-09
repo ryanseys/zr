@@ -1,5 +1,24 @@
-# String methods. Bytes are ASCII until encodings arrive: a method that
-# would change a non-ASCII byte stops loudly instead of answering wrong.
+# Strings: a length, a capacity and a buffer outside the arena.
+Machine.struct :RString, basic: RBasic, len: Word, capa: Word, ptr: Ptr
+
+sig [Ptr, Word] => Value
+machine def zr_str_new(bytes, len)
+  s = zr_alloc(T_STRING, zr_global(G_STRING))
+  buf = malloc(len + 1)
+  zr_memcpy(buf, bytes, len)
+  Machine.store8(buf + len, 0, Machine.i8(0))
+  RString.set_ptr(s, buf)
+  RString.set_len(s, len)
+  RString.set_capa(s, len)
+  s
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_to_s(recv, argc, argv, cref, blk)
+  recv
+end
+
+# Bytes are ASCII until encodings arrive: a method that would change a non-ASCII byte stops loudly instead of answering wrong.
 G_FROZEN_ERROR = 27
 
 sig [Value] => Bool

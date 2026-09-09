@@ -1,22 +1,7 @@
-# Strings: a length, a capacity and a buffer outside the arena.
-Machine.struct :RString, basic: RBasic, len: Word, capa: Word, ptr: Ptr
-
-sig [Ptr, Word] => Value
-machine def zr_str_new(bytes, len)
-  s = zr_alloc(T_STRING, zr_global(G_STRING))
-  buf = malloc(len + 1)
-  zr_memcpy(buf, bytes, len)
-  Machine.store8(buf + len, 0, Machine.i8(0))
-  RString.set_ptr(s, buf)
-  RString.set_len(s, len)
-  RString.set_capa(s, len)
-  s
-end
-
-# The name of the symbol `id`: the compiler lays every static name out
-# in `zr_symbol_names`, a table of (bytes, length) rows, `zr_symbol_count`
-# of them; names interned at run time follow in a table of the same
-# shape outside the arena.
+# Symbols: the id sits in the tagged word, the name in a table. The
+# compiler lays every static name out in `zr_symbol_names`, a table of
+# (bytes, length) rows, `zr_symbol_count` of them; names interned at run
+# time follow in a table of the same shape outside the arena.
 Machine.struct :Symtab, rows: Ptr, len: Word, capa: Word
 
 sig [] => Ptr
@@ -98,11 +83,6 @@ machine def zr_intern(p, n)
   Machine.store64(row, 8, n)
   Symtab.set_len(t, k + 1)
   total
-end
-
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_str_to_s(recv, argc, argv, cref, blk)
-  recv
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value

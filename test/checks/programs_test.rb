@@ -5,18 +5,18 @@ require_relative "../../lib/ze0/zr"
 require_relative "../../lib/ze0/native/build"
 require_relative "../../lib/ze0/harness/case"
 
-# Ruby programs on the zr runtime: each `test/m0/<name>.rb` runs under
+# Ruby programs on the zr runtime: each `test/programs/<name>.rb` runs under
 # ruby, the oracle, and then compiled with the kernel on both native
 # roads (plain and with a collection at every allocation) and under
 # wasmtime; stdout, stderr and the exit status must agree. The oracle
 # runs without error_highlight or did_you_mean, as the corpus was recorded.
-class M0Test < Minitest::Test
+class ProgramsTest < Minitest::Test
   ROADS = { ruby: Ze0::Native::Build.road("ruby", ROOT), cranelift: Ze0::Native::Build.road("cranelift", ROOT) }.freeze
   WASMTIME = ENV["WASMTIME"] || "wasmtime"
 
   # `[stdout, stderr, status]` of `argv` under `env`.
   def capture(env, argv)
-    Dir.mktmpdir("ze0-m0-err-") do |dir|
+    Dir.mktmpdir("ze0-programs-err-") do |dir|
       err = File.join(dir, "err")
       out = IO.popen(env, argv, err: err, &:read)
       [out, File.read(err), $?.exitstatus]
@@ -38,7 +38,7 @@ class M0Test < Minitest::Test
     assert_equal scrub(want[1], rb), scrub(err, rb)
   end
 
-  Dir[File.join(ROOT, "test/m0/*.rb")].sort.each do |rb|
+  Dir[File.join(ROOT, "test/programs/*.rb")].sort.each do |rb|
     name = File.basename(rb, ".rb")
     ROADS.each do |label, road|
       define_method("test_#{label}_#{name}") do
@@ -46,7 +46,7 @@ class M0Test < Minitest::Test
 
         want = oracle(rb)
         functions, data, raw = Ze0::Zr.program(File.read(rb), rb)
-        Dir.mktmpdir("ze0-m0-") do |dir|
+        Dir.mktmpdir("ze0-programs-") do |dir|
           bin = File.join(dir, name)
           assert_nil Ze0::Native::Build.binary(functions, data, bin, road: road, work: dir, raw: raw)
           [{}, { "ZR_GC_STRESS" => "1" }].each { |env| check(label, name, env, [bin], want, rb) }
@@ -59,7 +59,7 @@ class M0Test < Minitest::Test
 
       want = oracle(rb)
       functions, data, raw = Ze0::Zr.program(File.read(rb), rb)
-      Dir.mktmpdir("ze0-m0-") do |dir|
+      Dir.mktmpdir("ze0-programs-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
         assert_nil Ze0::Native::Build.wasm(functions, data, wasm, raw: raw)
         check(:wasm, name, {}, [WASMTIME, wasm], want, rb)

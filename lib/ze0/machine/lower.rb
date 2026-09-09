@@ -63,7 +63,7 @@ module Ze0
     end
 
     # Several files as one unit: every declaration is visible to every
-    # file after it, and a def may call a def of any file.
+    # file, in any order, and a def may call a def of any file.
     def self.compile_unit(paths, symbols: Symbols.new)
       unit(paths, symbols: symbols).then { |u| [u.functions, u.data, u.raw] }
     end
@@ -86,6 +86,9 @@ module Ze0
         @defs = {}
         @consts = {}
         @structs = {}
+        @const_values = {}
+        @layouts = {}
+        @resolving = []
         @sigs = {}
         @functions = []
         @data = []
@@ -105,6 +108,8 @@ module Ze0
           @file = file
           declare(result.value.statements.body)
         end
+        @consts.each_key { |name| const_for(name) }
+        @structs.each_key { |name| struct_for(name) }
         @defs.each_value { |d| @functions << Function.new(self, d).lower }
         [@functions, @data, @raw]
       end
@@ -118,14 +123,14 @@ module Ze0
             name = node.name.to_s
             refuse(node, "#{name} is already a constant") if @consts.key?(name)
             refuse(node, "#{name} is already a struct") if @structs.key?(name)
-            @consts[name] = fold(node.value)
+            @consts[name] = [node.value, @file]
             next
           end
           refuse(node, "a statement that is not a declaration or a machine def") unless node.is_a?(Prism::CallNode)
           case node.name
           when :struct
             refuse(node, "a struct is `Machine.struct :Name, field: Type, ...`") unless machine?(node.receiver)
-            layout(node)
+            declare_struct(node)
           when :sig
             if machine?(node.receiver)
               name, sig = node.arguments&.arguments
@@ -184,10 +189,10 @@ module Ze0
         when Prism::IntegerNode then node.value
         when Prism::ParenthesesNode then fold(node.body.body.first)
         when Prism::ConstantReadNode
-          @consts.fetch(node.name.to_s) { refuse(node, "#{node.name} is not a constant here") }
+          const_for(node.name.to_s) or refuse(node, "#{node.name} is not a constant here")
         when Prism::CallNode
-          if node.receiver.is_a?(Prism::ConstantReadNode) && @structs.key?(node.receiver.name.to_s) && node.name == :size
-            @structs[node.receiver.name.to_s].size
+          if node.receiver.is_a?(Prism::ConstantReadNode) && node.name == :size && (layout = struct_for(node.receiver.name.to_s))
+            layout.size
           elsif node.receiver && node.arguments&.arguments&.size == 1 && %i[+ - * << >> | & ^].include?(node.name)
             fold(node.receiver).public_send(node.name, fold(node.arguments.arguments.first))
           else
@@ -198,13 +203,18 @@ module Ze0
         end
       end
 
-      # Each field at its natural alignment; a field of a struct type is
-      # embedded in place.
-      def layout(node)
+      def declare_struct(node)
         name, fields = node.arguments&.arguments
         refuse(node, "a struct is `Machine.struct :Name, field: Type, ...`") unless name.is_a?(Prism::SymbolNode) && fields.is_a?(Prism::KeywordHashNode)
         refuse(node, "#{name.unescaped} is already a struct") if @structs.key?(name.unescaped)
         refuse(node, "#{name.unescaped} is already a constant") if @consts.key?(name.unescaped)
+        @structs[name.unescaped] = [node, @file]
+      end
+
+      # Each field at its natural alignment; a field of a struct type is
+      # embedded in place.
+      def layout(name, node)
+        fields = node.arguments.arguments.last
         off = 0
         align = 1
         rows = fields.elements.to_h do |pair|
@@ -218,14 +228,16 @@ module Ze0
           [pair.key.unescaped, [at, type]]
         end
         size = (off + align - 1) & ~(align - 1)
-        @structs[name.unescaped] = Layout.new(name.unescaped, rows, size, align)
+        Layout.new(name, rows, size, align)
       end
 
       # `[size, align]` of a field of `type`.
       def field_shape(node, type)
-        return [@structs[type].size, @structs[type].align] if @structs.key?(type)
+        if (layout = struct_for(type))
+          return [layout.size, layout.align]
+        end
 
-        case TYPES.fetch(type) { refuse(node, "a field's type is a type or a struct declared above it") }
+        case TYPES.fetch(type) { refuse(node, "a field's type is a type or a struct") }
         when "i8" then [1, 1]
         when "i32" then [4, 4]
         when nil then refuse(node, "a field cannot be Void")
@@ -245,17 +257,32 @@ module Ze0
         @defs[name]
       end
 
+      # A constant's value, folded on first use so a declaration may name
+      # one from a later file.
       def const_for(name)
-        @consts[name]
+        resolve(@consts, @const_values, name) { |node| fold(node) }
+      end
+
+      def struct_for(name)
+        resolve(@structs, @layouts, name) { |node| layout(name, node) }
+      end
+
+      def resolve(declared, resolved, name)
+        return resolved[name] if resolved.key?(name)
+        return unless (node, file = declared[name])
+
+        refuse(node, "#{name} depends on itself") if @resolving.include?(name)
+        @resolving << name
+        was, @file = @file, file
+        resolved[name] = yield(node)
+      ensure
+        @file = was if was
+        @resolving.delete(name)
       end
 
       # Whether this is a unit of several files, whose refusals name the file.
       def unit?
         @sources.size > 1
-      end
-
-      def struct_for(name)
-        @structs[name]
       end
 
       def sig_for(name)
