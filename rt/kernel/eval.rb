@@ -161,7 +161,7 @@ machine def zr_mod_define_method(recv, argc, argv, cref, blk)
     body = Machine.value(Machine.load64(argv, 8))
     if !zr_special_p(body) && zr_type(body) == T_METHOD
       e = RMethod.entry(body)
-      zr_method_add_vis(recv, mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e), zr_definition_vis(mid, cref))
+      zr_method_add_vis(recv, mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), zr_meta_owned_by(MEntry.meta(e), recv), MEntry.cref(e), zr_definition_vis(mid, cref))
       r = zr_method_added(recv, mid)
       return r if r == QUNDEF
       return zr_sym(mid)
@@ -180,6 +180,20 @@ machine def zr_mod_define_method(recv, argc, argv, cref, blk)
   r = zr_define_bmethod(recv, mid, zr_meta_at(caller), body, cref)
   return r if r == QUNDEF
   zr_sym(mid)
+end
+
+# A copy of `meta` with `owner` as its owner and the name it had: what
+# a method copied by `define_method(name, method)` shows in a
+# backtrace, as CRuby labels it.
+sig [Ptr, Value] => Ptr
+machine def zr_meta_owned_by(meta, owner)
+  if meta == 0
+    return 0
+  end
+  copy = malloc(FrameMeta.size)
+  zr_memcpy(copy, meta, FrameMeta.size)
+  FrameMeta.set_owner(copy, zr_origin(owner))
+  copy
 end
 
 # The cref whose visibility a `define_method` into `mod` takes: the

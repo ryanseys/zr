@@ -36,8 +36,10 @@ machine def zr_mark_hash(h)
   end
 end
 
-# Whether two keys are the same key: `eql?` for the builtin kinds, and
-# identity for everything else.
+# Whether two keys are the same key: `eql?` for the builtin kinds
+# here, the object's own `eql?` for an object with an ivar table
+# (Struct, Data and the program's classes), identity for the rest. An
+# `eql?` that raises stops the program: a lookup cannot carry a signal.
 sig [Value, Value] => Bool
 machine def zr_key_eql(a, b)
   if a == b
@@ -65,6 +67,15 @@ machine def zr_key_eql(a, b)
       i += 1
     end
     return true
+  end
+  if t == T_OBJECT
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(b))
+    r = zr_send(a, Machine.id(:eql?), 1, slot)
+    if r == QUNDEF
+      zr_bug(Machine.bytes("an eql? that raises inside a Hash lookup is not supported yet\n"), 62)
+    end
+    return r != QNIL && r != QFALSE
   end
   false
 end

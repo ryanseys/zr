@@ -156,10 +156,10 @@ end
 
 sig [Value, Word, Value] => Value
 machine def zr_ivar_set(obj, id, v)
-  t = zr_ivtab_for_write(obj)
-  if t == 0
+  if zr_frozen_p(obj)
     return zr_frozen_error(obj)
   end
+  t = zr_ivtab_for_write(obj)
   zr_ivtab_set(t, id, v)
   v
 end
