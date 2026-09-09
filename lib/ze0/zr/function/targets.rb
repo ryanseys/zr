@@ -111,6 +111,7 @@ module Ze0
           case target
           when Hir::Assign then write_local(slot_at(target), target.depth, v)
           when Hir::IvarWrite then kernel("zr_ivar_set", @self, imm(sym_id(target.name)), v)
+          when Hir::GvarWrite then kernel("zr_gvar_set", imm(sym_id(target.name)), v)
           when Hir::MultiTarget then destructure(target, v, prepared)
           when Hir::Send
             slot = prepared.fetch(target)

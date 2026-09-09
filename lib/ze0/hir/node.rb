@@ -59,7 +59,7 @@ module Ze0
         positionals + optional.map(&:first) + [rest].compact + keywords.map(&:first) + [kwrest, block].compact - [:implicit]
       end
     end
-    Yield = Struct.new(:args, :line)
+    Yield = Struct.new(:args, :line, :kwargs)
     # `super(args)`; `block` as a Send's. `ZSuper` is the bare `super`,
     # passing the method's own parameters on as they stand.
     Super = Struct.new(:args, :kwargs, :block, :line)
@@ -120,6 +120,8 @@ module Ze0
     ConstOrWrite = Struct.new(:scope, :name, :value, :line)
     # `alias new old`.
     Alias = Struct.new(:new_name, :old_name, :line)
+    # `undef name, ...`.
+    Undef = Struct.new(:names, :line)
     # `defined?(...)`: `kind` names the form (:local, :ivar, :gvar,
     # :cvar, :const, :method, :yield, :super, :self, :nil, :true, :false,
     # :assignment, :expression); `target` is the name, the ConstRead, or
@@ -142,10 +144,11 @@ module Ze0
     # `ensure_body` may be nil. A `rescue` modifier is a Begin with one
     # clause and no classes.
     Begin = Struct.new(:body, :rescues, :else_body, :ensure_body, :line)
-    # One clause: the exception classes (none means StandardError), the
-    # local that takes the exception (`=> e`, as a name and depth) or
-    # nil, and the handler.
-    Rescue = Struct.new(:classes, :name, :depth, :body, :line)
+    # One clause: the exception classes (none means StandardError; one
+    # may be a Splat), the target that takes the exception (`=> e`, an
+    # Assign, IvarWrite or Send target with a nil value) or nil, and the
+    # handler.
+    Rescue = Struct.new(:classes, :target, :body, :line)
     # `retry`: the begin body again, from a rescue clause.
     Retry = Struct.new(:line)
   end

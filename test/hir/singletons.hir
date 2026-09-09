@@ -29,7 +29,9 @@
     (seq
       (send baz
         (const Foo)))
-    (rescue => e
+    (rescue
+      (into
+        (assign e))
       (seq
         (send self puts
           (send backtrace
@@ -40,7 +42,9 @@
     (seq
       (send hi
         (local o)))
-    (rescue => e
+    (rescue
+      (into
+        (assign e))
       (seq
         (send self puts
           (send backtrace

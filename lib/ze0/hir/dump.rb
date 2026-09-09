@@ -65,6 +65,7 @@ module Ze0
         when Yield
           lines << "#{pad}(yield"
           n.args.each { |a| node(a, depth + 1, lines) }
+          node(n.kwargs, depth + 1, lines) if n.kwargs
           lines[-1] += ")"
         when Break, Next
           lines << "#{pad}(#{n.is_a?(Break) ? "break" : "next"}"
@@ -121,11 +122,17 @@ module Ze0
           [n.else_body, n.ensure_body].each { |arm| arm ? node(arm, depth + 1, lines) : lines << "#{pad}  (none)" }
           lines[-1] += ")"
         when Rescue
-          into = n.name ? " => #{n.name}#{n.depth.zero? ? "" : " ^#{n.depth}"}" : ""
-          lines << "#{pad}(rescue#{into}"
+          lines << "#{pad}(rescue"
           n.classes.each { |c| node(c, depth + 1, lines) }
+          if n.target
+            lines << "#{pad}  (into"
+            node(n.target, depth + 2, lines)
+            lines[-1] += ")"
+          end
           node(n.body, depth + 1, lines)
           lines[-1] += ")"
+        when Undef
+          lines << "#{pad}(undef #{n.names.join(" ")})"
         when Retry
           lines << "#{pad}(retry)"
         when Return

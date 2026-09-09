@@ -39,8 +39,10 @@
       (send call
         (local add)
         (int 1)))
-    (rescue => e
+    (rescue
       (const ArgumentError)
+      (into
+        (assign e))
       (seq
         (send self puts
           (send message
@@ -64,8 +66,10 @@
         (array
           (int 1)
           (int 2))))
-    (rescue => e
+    (rescue
       (const ArgumentError)
+      (into
+        (assign e))
       (seq
         (send self puts
           (send message
@@ -159,8 +163,10 @@
     (seq
       (send call
         (vcall self outer_proc)))
-    (rescue => e
+    (rescue
       (const LocalJumpError)
+      (into
+        (assign e))
       (seq
         (send self puts
           (send message
@@ -171,8 +177,10 @@
     (seq
       (send new
         (const Proc)))
-    (rescue => e
+    (rescue
       (const ArgumentError)
+      (into
+        (assign e))
       (seq
         (send self puts
           (send message

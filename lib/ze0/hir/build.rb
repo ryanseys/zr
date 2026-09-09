@@ -23,6 +23,28 @@ module Ze0
 
       def initialize(file)
         @file = file
+        @block_depth = 0
+      end
+
+      # The names of the anonymous parameters `*`, `**`, `&` and `...`,
+      # as locals of the def that declares them.
+      ANONYMOUS = { rest: :*, kwrest: :**, block: :& }.freeze
+
+      # `body` lowered one block scope deeper.
+      def in_block
+        @block_depth += 1
+        yield
+      ensure
+        @block_depth -= 1
+      end
+
+      # `body` lowered in a fresh scope: a def or a class body.
+      def in_scope
+        was = @block_depth
+        @block_depth = 0
+        yield
+      ensure
+        @block_depth = was
       end
 
       def seq(node)
@@ -55,21 +77,21 @@ module Ze0
         when Prism::LocalVariableOrWriteNode
           Assign.new(node.name, node.depth, Or.new(Local.new(node.name, node.depth, line), expr(node.value), line), line)
         when Prism::LambdaNode
-          params = Params.new([], [], nil, [], [], nil, nil)
-          if node.parameters
-            refuse(node.parameters, "a numbered or `it` parameter is not lowered yet") unless node.parameters.is_a?(Prism::BlockParametersNode)
-            params = parameters(node.parameters.parameters)
-            refuse(node.parameters, "a block-local variable is not lowered yet") unless node.parameters.locals.empty?
+          in_block do
+            params, extra = block_params(node.parameters)
+            Lambda.new(Block.new(params, node.locals + extra, node.body ? expr(node.body) : Literal.new(nil, line), line), line)
           end
-          Lambda.new(Block.new(params, node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line), line)
+        when Prism::ItLocalVariableReadNode then Local.new(:it, 0, line)
+        when Prism::UndefNode
+          names = node.names.map { |n| n.is_a?(Prism::SymbolNode) ? n.unescaped.to_sym : refuse(n, "an undef of a dynamic symbol is not lowered yet") }
+          Undef.new(names, line)
         when Prism::SuperNode
-          args, kwargs = arguments(node.arguments)
-          Super.new(args, kwargs, node.block && block(node.block), line)
+          args, kwargs, forwarded = arguments(node.arguments)
+          Super.new(args, kwargs, node.block ? block(node.block) : forwarded, line)
         when Prism::ForwardingSuperNode then ZSuper.new(node.block && block(node.block), line)
         when Prism::YieldNode
-          args = node.arguments&.arguments || []
-          refuse(node, "keywords in a yield are not lowered yet") if args.any?(Prism::KeywordHashNode)
-          Yield.new(args.map { |a| a.is_a?(Prism::SplatNode) ? Splat.new(expr(a.expression), line) : expr(a) }, line)
+          args, kwargs, = arguments(node.arguments)
+          Yield.new(args, line, kwargs)
         when Prism::BreakNode, Prism::NextNode
           value = jump_value(node.arguments, line)
           node.is_a?(Prism::BreakNode) ? Break.new(value, line) : Next.new(value, line)
@@ -89,12 +111,14 @@ module Ze0
         when Prism::OrNode then Or.new(expr(node.left), expr(node.right), line)
         when Prism::ClassNode
           scope, name = constant_path(node.constant_path)
-          ClassDef.new(scope, name, node.superclass && expr(node.superclass), node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line)
+          superclass = node.superclass && expr(node.superclass)
+          in_scope { ClassDef.new(scope, name, superclass, node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line) }
         when Prism::ModuleNode
           scope, name = constant_path(node.constant_path)
-          ModuleDef.new(scope, name, node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line)
+          in_scope { ModuleDef.new(scope, name, node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line) }
         when Prism::SingletonClassNode
-          SingletonClassDef.new(expr(node.expression), node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line)
+          target = expr(node.expression)
+          in_scope { SingletonClassDef.new(target, node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line) }
         when Prism::ConstantReadNode then ConstRead.new(nil, node.name, line)
         when Prism::ConstantPathNode
           scope, name = constant_path(node)
@@ -138,7 +162,7 @@ module Ze0
           Alias.new(node.new_name.unescaped.to_sym, node.old_name.unescaped.to_sym, line)
         when Prism::CaseNode
           clauses = node.conditions.map do |w|
-            values = w.conditions.map { |c| c.is_a?(Prism::SplatNode) ? refuse(c, "a splat in a when is not lowered yet") : expr(c) }
+            values = w.conditions.map { |c| c.is_a?(Prism::SplatNode) ? Splat.new(expr(c.expression), line) : expr(c) }
             [values, w.statements ? seq(w.statements) : Literal.new(nil, line)]
           end
           Case.new(node.predicate && expr(node.predicate), clauses, node.else_clause && expr(node.else_clause), line)
@@ -169,7 +193,7 @@ module Ze0
           IvarWrite.new(node.name, And.new(IvarRead.new(node.name, line), expr(node.value), line), line)
         when Prism::BeginNode then protected_region(node)
         when Prism::RescueModifierNode
-          clause = Rescue.new([], nil, nil, expr(node.rescue_expression), line)
+          clause = Rescue.new([], nil, expr(node.rescue_expression), line)
           Begin.new(expr(node.expression), [clause], nil, nil, line)
         when Prism::RetryNode then Retry.new(line)
         else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
@@ -195,14 +219,8 @@ module Ze0
 
       def rescue_clause(node)
         line = node.location.start_line
-        refuse(node, "a splat in a rescue clause is not lowered yet") if node.exceptions.any?(Prism::SplatNode)
-        name = depth = nil
-        if node.reference
-          refuse(node.reference, "a rescue into anything but a local is not lowered yet") unless node.reference.is_a?(Prism::LocalVariableTargetNode)
-          name = node.reference.name
-          depth = node.reference.depth
-        end
-        Rescue.new(node.exceptions.map { |e| expr(e) }, name, depth, node.statements ? seq(node.statements) : Literal.new(nil, line), line)
+        classes = node.exceptions.map { |e| e.is_a?(Prism::SplatNode) ? Splat.new(expr(e.expression), line) : expr(e) }
+        Rescue.new(classes, node.reference && target(node.reference), node.statements ? seq(node.statements) : Literal.new(nil, line), line)
       end
 
       # What `return`, `break` and `next` carry: nothing is nil, one
@@ -229,8 +247,13 @@ module Ze0
       end
 
       def define(node)
-        body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
-        Def.new(node.name, parameters(node.parameters), node.locals, body, node.location.start_line, node.receiver && expr(node.receiver))
+        receiver = node.receiver && expr(node.receiver)
+        in_scope do
+          params = parameters(node.parameters)
+          body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
+          locals = node.locals + (params.names - node.locals)
+          Def.new(node.name, params, locals, body, node.location.start_line, receiver)
+        end
       end
 
       # A ParametersNode as one Params.
@@ -248,7 +271,13 @@ module Ze0
           end
         end
         kwrest = node.keyword_rest && rest_name(node.keyword_rest)
-        block = node.block && (node.block.name or refuse(node.block, "an anonymous block parameter is not lowered yet"))
+        if node.keyword_rest.is_a?(Prism::ForwardingParameterNode)
+          rest = ANONYMOUS[:rest]
+          kwrest = ANONYMOUS[:kwrest]
+          block = ANONYMOUS[:block]
+        else
+          block = node.block && (node.block.name || ANONYMOUS[:block])
+        end
         Params.new(required, optional, rest, post, keywords, kwrest, block)
       end
 
@@ -276,6 +305,7 @@ module Ze0
         case node
         when Prism::LocalVariableTargetNode, Prism::RequiredParameterNode then Assign.new(node.name, node.respond_to?(:depth) ? node.depth : 0, nil, line)
         when Prism::InstanceVariableTargetNode then IvarWrite.new(node.name, nil, line)
+        when Prism::GlobalVariableTargetNode then GvarWrite.new(node.name, nil, line)
         when Prism::MultiTargetNode then multi_target(node)
         when Prism::IndexTargetNode
           args = (node.arguments&.arguments || []).map { |a| a.is_a?(Prism::SplatNode) ? refuse(a, "a splat in an index target is not lowered yet") : expr(a) }
@@ -292,32 +322,48 @@ module Ze0
       def rest_name(node)
         case node
         when Prism::ImplicitRestNode then :implicit
-        when Prism::RestParameterNode, Prism::KeywordRestParameterNode
-          node.name or refuse(node, "an anonymous rest parameter is not lowered yet")
+        when Prism::RestParameterNode then node.name || ANONYMOUS[:rest]
+        when Prism::KeywordRestParameterNode then node.name || ANONYMOUS[:kwrest]
+        when Prism::ForwardingParameterNode then ANONYMOUS[:kwrest]
         else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
         end
       end
 
       # A block literal, or the `&value` a call passes on.
       def block(node)
-        return BlockPass.new(node.expression ? expr(node.expression) : refuse(node, "an anonymous block argument is not lowered yet"), node.location.start_line) if node.is_a?(Prism::BlockArgumentNode)
+        line = node.location.start_line
+        return BlockPass.new(node.expression ? expr(node.expression) : Local.new(ANONYMOUS[:block], @block_depth, line), line) if node.is_a?(Prism::BlockArgumentNode)
 
-        params = Params.new([], [], nil, [], [], nil, nil)
-        if node.parameters
-          refuse(node.parameters, "a numbered or `it` parameter is not lowered yet") unless node.parameters.is_a?(Prism::BlockParametersNode)
-          params = parameters(node.parameters.parameters)
-          refuse(node.parameters, "a block-local variable is not lowered yet") unless node.parameters.locals.empty?
+        in_block do
+          params, extra = block_params(node.parameters)
+          Block.new(params, node.locals + extra, node.body ? expr(node.body) : Literal.new(nil, line), line)
         end
-        Block.new(params, node.locals, node.body ? expr(node.body) : Literal.new(nil, node.location.start_line), node.location.start_line)
+      end
+
+      # A block's Params and the locals prism leaves implicit: `it`, or
+      # the numbered parameters.
+      def block_params(node)
+        none = Params.new([], [], nil, [], [], nil, nil)
+        case node
+        when nil then [none, []]
+        when Prism::ItParametersNode then [Params.new([:it], [], nil, [], [], nil, nil), [:it]]
+        when Prism::NumberedParametersNode
+          names = (1..node.maximum).map { |i| :"_#{i}" }
+          [Params.new(names, [], nil, [], [], nil, nil), []]
+        when Prism::BlockParametersNode
+          refuse(node, "a block-local variable is not lowered yet") unless node.locals.empty?
+          [parameters(node.parameters), []]
+        else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
+        end
       end
 
       def call(node)
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil?
 
-        args, kwargs = arguments(node.arguments)
+        args, kwargs, forwarded = arguments(node.arguments)
         opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
         Send.new(node.receiver && expr(node.receiver), node.name, args, node.location.start_line, node.variable_call?, opt,
-                 node.block && block(node.block), kwargs, node.call_operator == "&.")
+                 node.block ? block(node.block) : forwarded, kwargs, node.call_operator == "&.")
       end
 
       # `defined?(value)`: the form decides at compile time; only an
@@ -389,20 +435,27 @@ module Ze0
         end
       end
 
-      # `[args, kwargs]` of an argument list: Splats among the args, the
-      # keywords as one HashLit or nil.
+      # `[args, kwargs, block]` of an argument list: Splats among the
+      # args, the keywords as one HashLit or nil, and the block `...`
+      # forwards, or nil.
       def arguments(node)
         kwargs = nil
+        block = nil
         args = (node&.arguments || []).filter_map do |a|
+          line = a.location.start_line
           case a
-          when Prism::SplatNode then Splat.new(expr(a.expression), a.location.start_line)
+          when Prism::SplatNode then Splat.new(a.expression ? expr(a.expression) : Local.new(ANONYMOUS[:rest], @block_depth, line), line)
           when Prism::KeywordHashNode
-            kwargs = HashLit.new(hash_pairs(a.elements), a.location.start_line)
+            kwargs = HashLit.new(hash_pairs(a.elements), line)
             nil
+          when Prism::ForwardingArgumentsNode
+            kwargs = HashLit.new([HashSplat.new(Local.new(ANONYMOUS[:kwrest], @block_depth, line), line), nil], line)
+            block = BlockPass.new(Local.new(ANONYMOUS[:block], @block_depth, line), line)
+            Splat.new(Local.new(ANONYMOUS[:rest], @block_depth, line), line)
           else expr(a)
           end
         end
-        [args, kwargs]
+        [args, kwargs, block]
       end
 
       # A hash's elements as a flat pair list; a `**value` is a HashSplat
@@ -411,10 +464,9 @@ module Ze0
         elements.flat_map do |e|
           case e
           when Prism::AssocNode
-            refuse(e, "a hash shorthand `{x:}` is not lowered yet") if e.value.is_a?(Prism::ImplicitNode)
-            [expr(e.key), expr(e.value)]
+            [expr(e.key), expr(e.value.is_a?(Prism::ImplicitNode) ? e.value.value : e.value)]
           when Prism::AssocSplatNode
-            [HashSplat.new(e.value ? expr(e.value) : refuse(e, "an anonymous double splat is not lowered yet"), e.location.start_line), nil]
+            [HashSplat.new(e.value ? expr(e.value) : Local.new(ANONYMOUS[:kwrest], @block_depth, e.location.start_line), e.location.start_line), nil]
           end
         end
       end

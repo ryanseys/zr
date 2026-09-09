@@ -125,6 +125,44 @@ machine def zr_exc_match(exc, klass)
   zr_bool(zr_is_a(exc, klass))
 end
 
+# `rescue *list`: whether any class in the Array takes `exc`.
+sig [Value, Value] => Value
+machine def zr_exc_match_any(exc, list)
+  if zr_special_p(list) || zr_type(list) != T_ARRAY
+    return zr_exc_match(exc, list)
+  end
+  i = 0
+  while i < RArray.len(list)
+    r = zr_exc_match(exc, zr_ary_at(list, i))
+    return r if r == QUNDEF
+    if r == QTRUE
+      return r
+    end
+    i += 1
+  end
+  Machine.value(QFALSE)
+end
+
+# `when *list`: whether any element answers `=== subject` truthily.
+sig [Value, Value] => Value
+machine def zr_case_any(subject, list)
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(subject))
+  if zr_special_p(list) || zr_type(list) != T_ARRAY
+    return zr_send(list, Machine.id(:===), 1, slot)
+  end
+  i = 0
+  while i < RArray.len(list)
+    r = zr_send(zr_ary_at(list, i), Machine.id(:===), 1, slot)
+    return r if r == QUNDEF
+    if r != QNIL && r != QFALSE
+      return r
+    end
+    i += 1
+  end
+  Machine.value(QFALSE)
+end
+
 # Entering a rescue clause: the exception leaves the pending slot and
 # becomes `$!`. The previous `$!` is answered, for the clause's end.
 sig [] => Value

@@ -78,7 +78,10 @@ module Ze0
             hit = @f.label
             values.each do |value|
               miss = @f.label
-              cond = if node.subject
+              cond = if value.is_a?(Hir::Splat)
+                       at_line(value.line)
+                       truthy(checked(kernel("zr_case_any", @f.fetch("i64", @rec, subject_at), expr(value.value))))
+                     elsif node.subject
                        staged([value, Hir::Slot.new(base, value.line)]) do |slots|
                          at_line(value.line)
                          truthy(checked(kernel("zr_send", @f.fetch("i64", slots), imm(sym_id(:===)), imm(1), @f.iadd(slots, imm(8)))))
@@ -104,18 +107,21 @@ module Ze0
         end
 
         def yield_block(node)
-          if node.args.any?(Hir::Splat)
+          parts = node.args + [node.kwargs].compact
+          if parts.any?(Hir::Splat)
             slot = reserve(1)
-            ary = gather(node.args, slot)
+            ary = gather(parts, slot)
             at_line(node.line)
+            kernel("zr_kw_pass") if node.kwargs
             r = checked(kernel("zr_yield", @blk, array_len(ary), array_ptr(ary)))
             @sp = slot
             return r
           end
 
-          staged(node.args) do |argv|
+          staged(parts) do |argv|
             at_line(node.line)
-            checked(kernel("zr_yield", @blk, imm(node.args.size), argv))
+            kernel("zr_kw_pass") if node.kwargs
+            checked(kernel("zr_yield", @blk, imm(parts.size), argv))
           end
         end
 

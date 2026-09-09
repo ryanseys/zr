@@ -25,7 +25,9 @@
       (send raiser2
         (send new
           (const Foo))))
-    (rescue => e
+    (rescue
+      (into
+        (assign e))
       (seq
         (send self puts
           (send first
@@ -171,8 +173,10 @@
       (send x
         (send new
           (const NoCvar))))
-    (rescue => e
+    (rescue
       (const NameError)
+      (into
+        (assign e))
       (seq
         (send self puts
           (send message

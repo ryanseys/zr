@@ -141,6 +141,7 @@ machine def zr_boot
   zr_builtin(zr_global(G_MODULE), Machine.id(:include), Machine.addr(:zr_mod_include), 0 - 1)
   zr_builtin(zr_global(G_MODULE), Machine.id(:include?), Machine.addr(:zr_mod_include_p), 1)
   zr_builtin(zr_global(G_MODULE), Machine.id(:alias_method), Machine.addr(:zr_mod_alias_method), 2)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:undef_method), Machine.addr(:zr_mod_undef_method), 0 - 1)
   zr_builtin(zr_global(G_MODULE), Machine.id(:===), Machine.addr(:zr_mod_eqq), 1)
   zr_builtin(zr_global(G_OBJECT), Machine.id(:===), Machine.addr(:zr_obj_eqq), 1)
   zr_builtin(zr_global(G_MODULE), Machine.id(:to_s), Machine.addr(:zr_class_to_s), 0)

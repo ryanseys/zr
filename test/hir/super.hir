@@ -93,8 +93,10 @@
       (send nope
         (send new
           (const B))))
-    (rescue => e
+    (rescue
       (const NoMethodError)
+      (into
+        (assign e))
       (seq
         (send self puts
           (send message

@@ -41,6 +41,7 @@ module Ze0
           when Hir::CvarWrite then cvar_write(node)
           when Hir::ConstOrWrite then const_or_write(node)
           when Hir::Alias then alias_method(node)
+          when Hir::Undef then undef_methods(node)
           when Hir::Defined then defined(node)
           when Hir::Case then case_when(node)
           when Hir::IndexOpAssign then index_op_assign(node)
@@ -134,6 +135,12 @@ module Ze0
         def cvar_read(node)
           at_line(node.line)
           checked(kernel("zr_cvar_get", @cref, imm(sym_id(node.name))))
+        end
+
+        def undef_methods(node)
+          at_line(node.line)
+          node.names.each { |name| checked(kernel("zr_undef", cref_class, imm(sym_id(name)))) }
+          @qnil
         end
 
         def alias_method(node)

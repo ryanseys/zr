@@ -6,7 +6,9 @@
   (begin
     (seq
       (vcall self f))
-    (rescue => e
+    (rescue
+      (into
+        (assign e))
       (seq
         (send self puts
           (send message
@@ -20,8 +22,10 @@
     (seq
       (send self raise
         (const E)))
-    (rescue => e
+    (rescue
       (const E)
+      (into
+        (assign e))
       (seq
         (send self p
           (local e))
@@ -36,8 +40,10 @@
       (send self raise
         (const E)
         (str "with message")))
-    (rescue => e
+    (rescue
       (const StandardError)
+      (into
+        (assign e))
       (seq
         (send self p
           (local e))))
@@ -107,8 +113,10 @@
     (seq
       (send self raise
         (int 42)))
-    (rescue => e
+    (rescue
       (const TypeError)
+      (into
+        (assign e))
       (seq
         (send self p
           (local e))))
@@ -117,9 +125,11 @@
   (begin
     (seq
       (vcall self nope))
-    (rescue => e
+    (rescue
       (const NoMethodError)
       (const NameError)
+      (into
+        (assign e))
       (seq
         (send self p
           (send class
@@ -156,7 +166,9 @@
         (seq
           (send self puts
             (str "inner ensure")))))
-    (rescue => e
+    (rescue
+      (into
+        (assign e))
       (seq
         (send self puts
           (interp
@@ -169,8 +181,10 @@
   (begin
     (seq
       (vcall self raise))
-    (rescue => e
+    (rescue
       (const RuntimeError)
+      (into
+        (assign e))
       (seq
         (send self p
           (local e))))
@@ -180,8 +194,10 @@
     (begin
       (seq
         (yield))
-      (rescue => e
+      (rescue
         (const ZeroDivisionError)
+        (into
+          (assign e))
         (seq
           (send self puts
             (interp
@@ -252,13 +268,17 @@
         (seq
           (send self raise
             (str "a")))
-        (rescue => e
+        (rescue
+          (into
+            (assign e))
           (seq
             (send self raise
               (str "b"))))
         (none)
         (none)))
-    (rescue => e2
+    (rescue
+      (into
+        (assign e2))
       (seq
         (send self p
           (local e2))))

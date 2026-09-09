@@ -90,7 +90,10 @@ module Ze0
           handlers.each do |handler, clause|
             switch(handler)
             @f.store(kernel("zr_rescue_enter"), @rec, prev_at)
-            write_local(slot_at(clause), clause.depth, @f.fetch("i64", @rec, exc_at)) if clause.name
+            if clause.target
+              prepared = clause.target.is_a?(Hir::Send) ? prepare(Hir::MultiTarget.new([clause.target], nil, [], clause.line)) : {}
+              assign_target(clause.target, @f.fetch("i64", @rec, exc_at), prepared)
+            end
             @retries << [head, prev_at, @regions.size]
             v = expr(clause.body)
             @retries.pop
@@ -133,9 +136,12 @@ module Ze0
           handler = @f.label
           classes = clause.classes.empty? ? [nil] : clause.classes
           classes.each do |c|
-            klass = c ? expr(c) : global("G_STANDARD_ERROR")
             at_line(clause.line)
-            matched = checked(kernel("zr_exc_match", @f.fetch("i64", @rec, exc_at), klass))
+            matched = if c.is_a?(Hir::Splat)
+                        checked(kernel("zr_exc_match_any", @f.fetch("i64", @rec, exc_at), expr(c.value)))
+                      else
+                        checked(kernel("zr_exc_match", @f.fetch("i64", @rec, exc_at), c ? expr(c) : global("G_STANDARD_ERROR")))
+                      end
             miss = @f.label
             @f.brif(truthy(matched), handler, miss)
             switch(miss)

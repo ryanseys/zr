@@ -29,8 +29,10 @@
   (begin
     (seq
       (vcall self i))
-    (rescue => e
+    (rescue
       (const ArgumentError)
+      (into
+        (assign e))
       (seq
         (send self p
           (send message
@@ -55,8 +57,10 @@
         (int 1)
         (int 2)
         (int 3)))
-    (rescue => e
+    (rescue
       (const ArgumentError)
+      (into
+        (assign e))
       (seq
         (send self p
           (send message
@@ -96,8 +100,10 @@
       (send self l
         (int 1)
         (int 2)))
-    (rescue => e
+    (rescue
       (const ArgumentError)
+      (into
+        (assign e))
       (seq
         (send self p
           (send message
@@ -155,8 +161,10 @@
         (hash
           (sym :b)
           (int 1))))
-    (rescue => e
+    (rescue
       (const ArgumentError)
+      (into
+        (assign e))
       (seq
         (send self p
           (send message
@@ -166,8 +174,10 @@
   (begin
     (seq
       (vcall self f))
-    (rescue => e
+    (rescue
       (const ArgumentError)
+      (into
+        (assign e))
       (seq
         (send self p
           (send message
@@ -179,8 +189,10 @@
   (begin
     (seq
       (vcall self g))
-    (rescue => e
+    (rescue
       (const ArgumentError)
+      (into
+        (assign e))
       (seq
         (send self p
           (send message
@@ -199,8 +211,10 @@
           (int 1)
           (sym :y)
           (int 2))))
-    (rescue => e
+    (rescue
       (const ArgumentError)
+      (into
+        (assign e))
       (seq
         (send self p
           (send message
@@ -396,8 +410,10 @@
           (int 1))
         (block-pass
           (int 5))))
-    (rescue => e
+    (rescue
       (const TypeError)
+      (into
+        (assign e))
       (seq
         (send self p
           (send message

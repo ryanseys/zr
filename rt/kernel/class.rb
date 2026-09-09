@@ -17,6 +17,8 @@ KIND_ATTR_WRITER = 4
 # A builtin that leaves no frame of its own: `Proc#call`, which CRuby
 # keeps out of a backtrace.
 KIND_FRAMELESS = 5
+# An `undef`: the name answers nothing from here on down the chain.
+KIND_UNDEF = 6
 
 sig [Word, Value, Value] => Value
 machine def zr_class_alloc(type, sup, klass)
@@ -137,6 +139,39 @@ machine def zr_mod_alias_method(recv, argc, argv, cref, blk)
   r = zr_alias(recv, zr_sym2id(new_name), zr_sym2id(old_name))
   return r if r == QUNDEF
   new_name
+end
+
+# `undef name`: an entry that stops the search, so the name is gone
+# from this class and its subclasses even where an ancestor has it.
+sig [Value, Word] => Value
+machine def zr_undef(klass, id)
+  if zr_find_method(klass, id) == 0
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("undefined method '"), 18)
+    zr_buf_sym(b, id)
+    zr_buf_push(b, zr_type(klass) == T_MODULE ? Machine.bytes("' for module '") : Machine.bytes("' for class '"), zr_type(klass) == T_MODULE ? 14 : 13)
+    zr_buf_str(b, RClass.name(klass))
+    zr_buf_byte(b, 39)
+    return zr_raise_buf(zr_global(G_NAME_ERROR), b)
+  end
+  zr_method_add(klass, id, 0, 0, KIND_UNDEF, 0, Machine.value(QNIL))
+  Machine.value(QNIL)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_undef_method(recv, argc, argv, cref, blk)
+  i = 0
+  while i < argc
+    name = Machine.value(Machine.load64(argv + (i * 8), 0))
+    unless zr_symbol_p(name)
+      zr_bug(Machine.bytes("undef_method with a String name is not implemented yet\n"), 55)
+    end
+    r = zr_undef(recv, zr_sym2id(name))
+    return r if r == QUNDEF
+    i += 1
+  end
+  recv
 end
 
 # `Module#===`: whether the object is one of the module's.
@@ -407,12 +442,16 @@ machine def zr_find_method_at(klass, mid)
   0
 end
 
-# The entry for `mid` on `klass` or an ancestor, or 0.
+# The entry for `mid` on `klass` or an ancestor, or 0; an undef on the
+# way is 0 too.
 sig [Value, Word] => Ptr
 machine def zr_find_method(klass, mid)
   while klass != QNIL
     e = zr_find_method_at(klass, mid)
     if e != 0
+      if MEntry.kind(e) == KIND_UNDEF
+        return 0
+      end
       return e
     end
     klass = RClass.superclass(klass)
