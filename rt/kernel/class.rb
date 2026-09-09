@@ -8,9 +8,10 @@
 # `origin` is the proxy that holds a prepended class's own methods,
 # placed below the prepended modules, or nil.
 Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr, attached: Value, origin: Value
-Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab
+# `serial` counts classes in creation order, which `subclasses` reads.
+Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word
 Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word
-Machine.struct :CEntry, id: Word, value: Value, file: Ptr, file_len: Word, line: Word
+Machine.struct :CEntry, id: Word, value: Value, file: Ptr, file_len: Word, line: Word, private: Word
 Machine.sig :method, [Value, Word, Ptr, Value, Value] => Value
 # Method kinds beyond a compiled def and a builtin: accessors keep the
 # ivar's id in `fn`.
@@ -38,6 +39,9 @@ machine def zr_class_alloc(type, sup, klass)
   ClassExt.set_ccap(ext, 0)
   zr_ivtab_init(ClassExt.iv(ext))
   zr_ivtab_init(ClassExt.cv(ext))
+  counter = Machine.static(:class_serial, 8)
+  Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
+  ClassExt.set_serial(ext, Machine.load64(counter, 0))
   RClass.set_ext(c, ext)
   c
 end

@@ -496,3 +496,69 @@ sig [Value, Word, Value] => Void
 machine def zr_exc_detail(exc, id, v)
   zr_ivar_set(exc, id, v)
 end
+
+# `file:line:in 'label'` for the live frame `rec`.
+sig [Ptr, Ptr] => Void
+machine def zr_buf_frame(b, rec)
+  source = zr_frame_with_file(rec)
+  if source != 0
+    zr_buf_push(b, FrameMeta.file(Frame.meta(source)), FrameMeta.file_len(Frame.meta(source)))
+    zr_buf_byte(b, 58)
+    zr_buf_long(b, Frame.line(source))
+  end
+  zr_buf_push(b, Machine.bytes(":in '"), 5)
+  zr_buf_label(b, Frame.meta(rec))
+  zr_buf_byte(b, 39)
+end
+
+# `Kernel#caller(start = 1, length = nil)`: the rows outward from the
+# caller's frame, the first `start` of them skipped.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_kernel_caller(recv, argc, argv, cref, blk)
+  if argc > 2
+    return zr_wrong_arity_range(argc, 0, 2)
+  end
+  start = 1
+  limit = 0 - 1
+  if argc > 0
+    start = zr_fix2long(Machine.value(Machine.load64(argv, 0)))
+    if start < 0
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("negative level ("), 16)
+      zr_buf_long(b, start)
+      zr_buf_byte(b, 41)
+      return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+    end
+  end
+  if argc > 1 && Machine.value(Machine.load64(argv, 8)) != QNIL
+    limit = zr_fix2long(Machine.value(Machine.load64(argv, 8)))
+    if limit < 0
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("negative size ("), 15)
+      zr_buf_long(b, limit)
+      zr_buf_byte(b, 41)
+      return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+    end
+  end
+  out = zr_ary_new(8)
+  rec = Frame.prev(Task.top(zr_task()))
+  while rec != 0 && (limit < 0 || RArray.len(out) < limit)
+    if FrameMeta.kind(Frame.meta(rec)) != KIND_HIDDEN
+      if start > 0
+        start -= 1
+      else
+        b = Machine.slot(Buf.size)
+        zr_buf_init(b)
+        zr_buf_frame(b, rec)
+        zr_ary_push(out, zr_buf_take(b))
+      end
+    end
+    rec = Frame.prev(rec)
+  end
+  if start > 0
+    return Machine.value(QNIL)
+  end
+  out
+end

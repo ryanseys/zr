@@ -361,3 +361,132 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_main_private(recv, argc, argv, cref, blk)
   zr_set_visibility(zr_global(G_OBJECT), argc, argv, blk, VIS_PRIVATE, 0)
 end
+
+# `Module#remove_method`: the entry must be the module's own.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_remove_method(recv, argc, argv, cref, blk)
+  i = 0
+  while i < argc
+    slot = Machine.slot(8)
+    r = zr_name_id(Machine.value(Machine.load64(argv + (i * 8), 0)), slot)
+    return r if r == QUNDEF
+    mid = Machine.load64(slot, 0)
+    klass = zr_origin(recv)
+    e = zr_find_method_at(klass, mid)
+    if e == 0 || MEntry.kind(e) == KIND_UNDEF
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("method '"), 8)
+      zr_buf_sym(b, mid)
+      zr_buf_push(b, Machine.bytes("' not defined in "), 17)
+      zr_buf_str(b, zr_class_to_s(recv, 0, 0, Machine.value(QNIL), Machine.value(QNIL)))
+      exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+      zr_exc_detail(exc, Machine.id(:@name), zr_sym(mid))
+      zr_exc_detail(exc, Machine.id(:@receiver), recv)
+      return zr_raise(exc)
+    end
+    ext = RClass.ext(klass)
+    last = ClassExt.mtab(ext) + ((ClassExt.mlen(ext) - 1) * MEntry.size)
+    if e != last
+      zr_memmove(e, e + MEntry.size, last - e)
+    end
+    ClassExt.set_mlen(ext, ClassExt.mlen(ext) - 1)
+    r = zr_method_removed(recv, mid)
+    return r if r == QUNDEF
+    i += 1
+  end
+  recv
+end
+
+# The `method_removed` or `singleton_method_removed` hook, when the
+# program defines one.
+sig [Value, Word] => Value
+machine def zr_method_removed(klass, mid)
+  if zr_singleton_p(klass)
+    recv = RClass.attached(klass)
+    hook = Machine.id(:singleton_method_removed)
+  else
+    recv = klass
+    hook = Machine.id(:method_removed)
+  end
+  if zr_find_method(zr_class_of(recv), hook) == 0
+    return Machine.value(QNIL)
+  end
+  zr_hook(recv, hook, zr_sym(mid))
+end
+
+# `remove_instance_variable(name)`: the value, and the row is gone.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_remove_instance_variable(recv, argc, argv, cref, blk)
+  slot = Machine.slot(8)
+  r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
+  return r if r == QUNDEF
+  id = Machine.load64(slot, 0)
+  r = zr_check_ivar_name(id)
+  return r if r == QUNDEF
+  if zr_frozen_p(recv)
+    return zr_frozen_error(recv)
+  end
+  t = zr_ivtab(recv)
+  e = 0
+  if t != 0
+    e = zr_ivtab_row(t, id)
+  end
+  if e == 0
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("instance variable "), 18)
+    zr_buf_sym(b, id)
+    zr_buf_push(b, Machine.bytes(" not defined"), 12)
+    exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+    zr_exc_detail(exc, Machine.id(:@name), zr_sym(id))
+    zr_exc_detail(exc, Machine.id(:@receiver), recv)
+    return zr_raise(exc)
+  end
+  v = IvEntry.value(e)
+  last = IvTab.rows(t) + ((IvTab.len(t) - 1) * IvEntry.size)
+  if e != last
+    zr_memmove(e, e + IvEntry.size, last - e)
+  end
+  IvTab.set_len(t, IvTab.len(t) - 1)
+  v
+end
+
+# `Class#subclasses`: the classes whose superclass is this one, newest
+# first, singleton classes left out; read off the arena and ordered by
+# creation serial.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_class_subclasses(recv, argc, argv, cref, blk)
+  out = zr_ary_new(4)
+  i = 0
+  while i < CELLS
+    cell = zr_arena() + (i * CELL)
+    flags = Machine.load64(cell, 0)
+    if (flags & FL_ALLOCATED) != 0 && (flags & T_MASK) == T_CLASS && (flags & FL_SINGLETON) == 0
+      k = Machine.value(cell)
+      if k != recv && zr_real_superclass(k) == recv
+        zr_ary_insert_by_serial(out, k)
+      end
+    end
+    i += 1
+  end
+  out
+end
+
+# `k` placed before the first class made earlier than it.
+sig [Value, Value] => Void
+machine def zr_ary_insert_by_serial(out, k)
+  serial = ClassExt.serial(RClass.ext(k))
+  n = RArray.len(out)
+  zr_ary_push(out, k)
+  i = 0
+  while i < n && ClassExt.serial(RClass.ext(zr_ary_at(out, i))) > serial
+    i += 1
+  end
+  j = n
+  while j > i
+    zr_ary_store(out, j, zr_ary_at(out, j - 1))
+    j -= 1
+  end
+  zr_ary_store(out, i, k)
+end

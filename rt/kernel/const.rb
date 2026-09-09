@@ -85,6 +85,7 @@ machine def zr_const_set(klass, id, v)
     end
     e = ClassExt.ctab(ext) + (n * CEntry.size)
     CEntry.set_id(e, id)
+    CEntry.set_private(e, 0)
     ClassExt.set_clen(ext, n + 1)
   end
   CEntry.set_value(e, v)
@@ -203,10 +204,68 @@ machine def zr_const_lookup_at(scope, id)
     return Machine.value(QUNDEF)
   end
   e = zr_const_row_in(scope, id, scope != zr_global(G_OBJECT))
-  if e == 0
+  if e == 0 || CEntry.private(e) != 0
     return Machine.value(QUNDEF)
   end
   CEntry.value(e)
+end
+
+# `private constant Foo::BAR referenced`.
+sig [Value, Word] => Value
+machine def zr_private_constant(scope, id)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("private constant "), 17)
+  if scope != zr_global(G_OBJECT)
+    zr_buf_str(b, zr_class_to_s(scope, 0, 0, Machine.value(QNIL), Machine.value(QNIL)))
+    zr_buf_push(b, Machine.bytes("::"), 2)
+  end
+  zr_buf_sym(b, id)
+  zr_buf_push(b, Machine.bytes(" referenced"), 11)
+  exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+  zr_exc_detail(exc, Machine.id(:@name), zr_sym(id))
+  zr_exc_detail(exc, Machine.id(:@receiver), scope)
+  zr_raise(exc)
+end
+
+# `private_constant(*names)` and `public_constant(*names)`: the flag on
+# the module's own rows.
+sig [Value, Word, Ptr, Word] => Value
+machine def zr_mod_constant_visibility(recv, argc, argv, private)
+  i = 0
+  while i < argc
+    slot = Machine.slot(8)
+    r = zr_const_name_id(Machine.value(Machine.load64(argv + (i * 8), 0)), slot)
+    return r if r == QUNDEF
+    id = Machine.load64(slot, 0)
+    e = zr_const_row(recv, id)
+    if e == 0
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("constant "), 9)
+      zr_buf_str(b, zr_class_to_s(recv, 0, 0, Machine.value(QNIL), Machine.value(QNIL)))
+      zr_buf_push(b, Machine.bytes("::"), 2)
+      zr_buf_sym(b, id)
+      zr_buf_push(b, Machine.bytes(" not defined"), 12)
+      exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+      zr_exc_detail(exc, Machine.id(:@name), zr_sym(id))
+      zr_exc_detail(exc, Machine.id(:@receiver), recv)
+      return zr_raise(exc)
+    end
+    CEntry.set_private(e, private)
+    i += 1
+  end
+  Machine.value(QNIL)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_private_constant(recv, argc, argv, cref, blk)
+  zr_mod_constant_visibility(recv, argc, argv, 1)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_public_constant(recv, argc, argv, cref, blk)
+  zr_mod_constant_visibility(recv, argc, argv, 0)
 end
 
 # `scope::Name`.
@@ -224,6 +283,9 @@ machine def zr_const_get_at(scope, id)
   e = zr_const_row_in(scope, id, scope != zr_global(G_OBJECT))
   if e == 0
     return zr_uninitialized_constant(scope, id)
+  end
+  if CEntry.private(e) != 0
+    return zr_private_constant(scope, id)
   end
   CEntry.value(e)
 end
@@ -397,8 +459,9 @@ machine def zr_mod_constants(recv, argc, argv, cref, blk)
       ext = RClass.ext(k)
       i = 0
       while i < ClassExt.clen(ext)
-        name = zr_sym(CEntry.id(ClassExt.ctab(ext) + (i * CEntry.size)))
-        if zr_ary_index_of(out, name) < 0
+        e = ClassExt.ctab(ext) + (i * CEntry.size)
+        name = zr_sym(CEntry.id(e))
+        if CEntry.private(e) == 0 && zr_ary_index_of(out, name) < 0
           zr_ary_push(out, name)
         end
         i += 1
