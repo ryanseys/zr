@@ -6,6 +6,7 @@ Machine.import "_NSGetEnviron", [] => Ptr
 Machine.import "getcwd", [Ptr, Word] => Ptr
 
 G_ARGV = 36
+G_AT_EXIT = 37
 
 # `ARGV` from the C arguments, the program's own name left out.
 sig [I32, Ptr] => Void
@@ -32,6 +33,61 @@ end
 sig [] => Value
 machine def zr_program_args
   zr_global(G_ARGV)
+end
+
+# `at_exit`: the handlers, run last first when the program ends.
+sig [Value] => Value
+machine def zr_at_exit_add(blk)
+  hooks = zr_global(G_AT_EXIT)
+  if zr_special_p(hooks)
+    hooks = zr_ary_new(4)
+    zr_set_global(G_AT_EXIT, hooks)
+  end
+  zr_ary_push(hooks, blk)
+  blk
+end
+
+# The exit status of the program: the handlers run in reverse, each
+# one's error printed and passed over; then the uncaught exception
+# `exc`, if any, is printed, unless it is a SystemExit. A handler's
+# own `exit` sets the status.
+sig [Value] => Word
+machine def zr_program_end(exc)
+  status = 0
+  if exc != QUNDEF
+    status = zr_system_exit_p(exc) ? zr_exit_status(exc) : 1
+  end
+  hooks = zr_global(G_AT_EXIT)
+  if !zr_special_p(hooks)
+    while RArray.len(hooks) > 0
+      blk = zr_ary_pop(hooks, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
+      r = zr_yield(blk, 0, 0)
+      if r == QUNDEF
+        raised = Task.pending(zr_task())
+        Task.set_pending(zr_task(), Machine.value(QNIL))
+        if zr_system_exit_p(raised)
+          status = zr_exit_status(raised)
+        else
+          zr_error_print(raised)
+        end
+      end
+    end
+  end
+  if exc != QUNDEF && !zr_system_exit_p(exc)
+    zr_error_print(exc)
+  end
+  status
+end
+
+sig [Value] => Word
+machine def zr_exit_status(exc)
+  zr_fix2long(zr_send(exc, Machine.id(:status), 0, 0))
+end
+
+sig [Value] => Bool
+machine def zr_system_exit_p(exc)
+  e = zr_const_row_in(zr_global(G_OBJECT), Machine.id(:SystemExit), false)
+  !zr_special_p(exc) && zr_is_a(exc, CEntry.value(e))
 end
 
 # The program's entry: `$0` and `$PROGRAM_NAME` name its file.

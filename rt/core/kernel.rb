@@ -14,6 +14,27 @@ module Kernel
     end
   end
 
+  def exit(status = true)
+    raise SystemExit.new(exit_status(status), "exit")
+  end
+
+  # The message goes to stderr at once; the SystemExit carries it.
+  def abort(*args)
+    raise SystemExit.new(1, "exit") if args.empty?
+
+    message = args[0]
+    raise TypeError, "no implicit conversion of #{message.nil? ? "nil" : message.class} into String" unless message.is_a?(String)
+
+    Primitive.zr_warn_line(message)
+    raise SystemExit.new(1, message)
+  end
+
+  def at_exit(&block)
+    raise ArgumentError, "called without a block" unless block
+
+    Primitive.zr_at_exit_add(block)
+  end
+
   def tap
     yield self
     self
@@ -76,6 +97,16 @@ module Kernel
   end
 
   private
+
+  def exit_status(status)
+    Primitive.attr! :hidden
+    return 0 if status == true
+    return 1 if status == false
+    return status if status.is_a?(Integer)
+    raise TypeError, "no implicit conversion from nil to integer" if status.nil?
+
+    raise TypeError, "no implicit conversion of #{status.class} into Integer"
+  end
 
   # The strict form: whitespace around, a sign, a `0x`, `0b`, `0o` or
   # `0d` prefix, digits with single underscores between them; nil on
@@ -162,7 +193,7 @@ module Kernel
 end
 
 module Kernel
-  private :Integer, :String, :Array, :rand, :sleep, :warn, :catch, :throw, :loop
+  private :Integer, :String, :Array, :rand, :sleep, :warn, :catch, :throw, :loop, :exit, :abort, :at_exit
 end
 
 module Kernel

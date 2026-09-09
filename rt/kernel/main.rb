@@ -236,6 +236,7 @@ machine def zr_boot
   zr_builtin(zr_global(G_KERNEL), Machine.id(:protected_methods), Machine.addr(:zr_obj_protected_methods), 0 - 1)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:instance_variables), Machine.addr(:zr_obj_instance_variables), 0)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:object_id), Machine.addr(:zr_obj_object_id), 0)
+  zr_alias(zr_global(G_KERNEL), Machine.id(:fail), Machine.id(:raise))
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:__id__), Machine.addr(:zr_obj_object_id), 0)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:instance_variable_get), Machine.addr(:zr_obj_instance_variable_get), 1)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:instance_variable_set), Machine.addr(:zr_obj_instance_variable_set), 2)
@@ -398,8 +399,10 @@ machine def main(argc, argv)
     zr_report(Task.pending(zr_task()))
   end
   r = zr_toplevel()
+  exc = Machine.value(QUNDEF)
   if r == QUNDEF
-    zr_report(Task.pending(zr_task()))
+    exc = Task.pending(zr_task())
+    Task.set_pending(zr_task(), Machine.value(QNIL))
   end
-  0
+  Machine.i32(zr_program_end(exc))
 end

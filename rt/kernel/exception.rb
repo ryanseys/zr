@@ -394,12 +394,18 @@ machine def zr_exc_backtrace(recv, argc, argv, cref, blk)
   out
 end
 
-# An uncaught exception on stderr, as CRuby prints it, then exit 1:
-# the exception's own `detailed_message` after the first row. A
-# SystemStackError past 18 rows shows the first 9 and the last 4, with
-# the count of the levels between.
+# An uncaught exception on stderr, as CRuby prints it, then exit 1.
 sig [Value] => Void
 machine def zr_report(exc)
+  zr_error_print(exc)
+  exit(1)
+end
+
+# An exception on stderr: the exception's own `detailed_message` after
+# the first row. A SystemStackError past 18 rows shows the first 9 and
+# the last 4, with the count of the levels between.
+sig [Value] => Void
+machine def zr_error_print(exc)
   detail = zr_send(exc, Machine.id(:detailed_message), 0, 0)
   if detail == QUNDEF || zr_special_p(detail) || zr_type(detail) != T_STRING
     detail = zr_class_name_of(exc)
@@ -440,7 +446,6 @@ machine def zr_report(exc)
   end
   zr_write_err(Buf.ptr(b), Buf.len(b))
   free(Buf.ptr(b))
-  exit(1)
 end
 
 G_SYSTEM_STACK_ERROR = 35
