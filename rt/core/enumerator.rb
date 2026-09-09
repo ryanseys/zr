@@ -735,3 +735,48 @@ class Enumerator::Lazy < Enumerator
     nil
   end
 end
+
+# `a.chain(b, c)`: the enumerables one after another.
+class Enumerator::Chain < Enumerator
+  def initialize(*enums)
+    @enums = enums
+  end
+
+  # Without a block, CRuby wraps the chain twice.
+  def each(*args, &block)
+    return to_enum(:each, *args).to_enum(:each) unless block
+
+    @enums.each { |e| e.each(*args, &block) }
+    self
+  end
+
+  # The sizes added; nil when one is unknown, Infinity when one is.
+  def size
+    total = 0
+    @enums.each do |e|
+      n = e.respond_to?(:size) ? e.size : nil
+      return nil if n.nil?
+      return n if n.is_a?(Float) && n.infinite?
+
+      total += n
+    end
+    total
+  end
+
+  def rewind
+    @enums.reverse_each { |e| e.rewind if e.respond_to?(:rewind) }
+    self
+  end
+
+  def +(other) = Enumerator::Chain.new(self, other)
+
+  def inspect = "#<Enumerator::Chain: #{@enums.inspect}>"
+
+  alias to_s inspect
+
+  undef_method :next, :peek, :next_values, :peek_values, :with_object
+end
+
+class Enumerator
+  def +(other) = Enumerator::Chain.new(self, other)
+end

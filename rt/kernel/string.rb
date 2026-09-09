@@ -130,23 +130,43 @@ end
 
 # Whether the join of two strings is binary: when both are, or when
 # one is and the other holds only ASCII. A binary string of ASCII
-# beside non-ASCII text joins as text; non-ASCII on both sides is
-# CRuby's incompatibility error, not written yet.
+# beside non-ASCII text joins as text; the caller has refused
+# non-ASCII on both sides already.
 sig [Value, Value] => Bool
 machine def zr_str_join_binary_p(a, b)
   if zr_str_binary_p(a) == zr_str_binary_p(b)
     return zr_str_binary_p(a)
   end
   text = zr_str_binary_p(a) ? b : a
-  if zr_str_bytes_are_chars(text)
-    return true
-  end
-  binary = zr_str_binary_p(a) ? a : b
-  if zr_str_ascii_bytes_p(binary)
+  zr_str_bytes_are_chars(text)
+end
+
+# Whether joining `a` and `b` is CRuby's compatibility error: a binary
+# String with non-ASCII bytes against text with non-ASCII characters.
+sig [Value, Value] => Bool
+machine def zr_str_join_incompatible_p(a, b)
+  if zr_str_binary_p(a) == zr_str_binary_p(b)
     return false
   end
-  zr_unimplemented(zr_str_new(Machine.bytes("joining a binary String with non-ASCII text"), 43))
-  true
+  text = zr_str_binary_p(a) ? b : a
+  binary = zr_str_binary_p(a) ? a : b
+  !zr_str_bytes_are_chars(text) && !zr_str_ascii_bytes_p(binary)
+end
+
+# The error, the receiver's encoding named first.
+sig [Value, Value] => Value
+machine def zr_str_join_incompatible(a, b)
+  buf = Machine.slot(Buf.size)
+  zr_buf_init(buf)
+  zr_buf_push(buf, Machine.bytes("incompatible character encodings: "), 34)
+  if zr_str_binary_p(a)
+    zr_buf_push(buf, Machine.bytes("BINARY (ASCII-8BIT) and UTF-8"), 29)
+  else
+    zr_buf_push(buf, Machine.bytes("UTF-8 and BINARY (ASCII-8BIT)"), 29)
+  end
+  klass = zr_const_get_at(zr_core_class(Machine.id(:Encoding)), Machine.id(:CompatibilityError))
+  return klass if klass == QUNDEF
+  zr_raise_buf(klass, buf)
 end
 
 sig [Value] => Bool
@@ -166,6 +186,9 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_plus(recv, argc, argv, cref, blk)
   other = zr_str_operand(Machine.value(Machine.load64(argv, 0)))
   return other if other == QUNDEF
+  if zr_str_join_incompatible_p(recv, other)
+    return zr_str_join_incompatible(recv, other)
+  end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_str(b, recv)
@@ -247,6 +270,9 @@ machine def zr_str_concat(recv, argc, argv, cref, blk)
   end
   other = zr_str_operand(Machine.value(Machine.load64(argv, 0)))
   return other if other == QUNDEF
+  if zr_str_join_incompatible_p(recv, other)
+    return zr_str_join_incompatible(recv, other)
+  end
   binary = zr_str_join_binary_p(recv, other)
   n = RString.len(recv) + RString.len(other)
   if n + 1 > RString.capa(recv)

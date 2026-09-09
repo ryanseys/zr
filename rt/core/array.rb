@@ -258,6 +258,18 @@ class Array
 
   def deconstruct = self
 
+  def slice(*args) = self[*args]
+
+  def self.try_convert(object)
+    return object if object.is_a?(Array)
+    return nil unless object.respond_to?(:to_ary)
+
+    converted = object.to_ary
+    raise TypeError, "can't convert #{object.class} to Array (#{object.class}#to_ary gives #{converted.class})" unless converted.nil? || converted.is_a?(Array)
+
+    converted
+  end
+
   def to_ary = self
 
   # Membership here is by `hash` and `eql?`, as CRuby's set

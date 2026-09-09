@@ -109,6 +109,7 @@ class Range
   def ===(v) = cover?(v)
 
   def step(n = 1, &block)
+    return stepped(n, :step, &block) if @begin.is_a?(String) || (@begin.nil? && @end.is_a?(String))
     Primitive.zr_unimplemented("Range#step over non-Numerics") unless @begin.is_a?(Numeric) && (@end.nil? || @end.is_a?(Numeric)) && n.is_a?(Numeric)
     raise ArgumentError, "step can't be 0" if n.zero?
 
@@ -118,7 +119,27 @@ class Range
     seq.each(&block)
     self
   end
-  alias % step
+  def %(n, &block)
+    return stepped(n, :%, &block) if @begin.is_a?(String) || (@begin.nil? && @end.is_a?(String))
+
+    step(n, &block)
+  end
+
+  # Every `n`th element of a String range, by succ; the checks wait for
+  # the walk.
+  def stepped(n, name)
+    Primitive.attr! :hidden
+    return to_enum(name, n) unless block_given?
+    raise ArgumentError, "step can't be negative" if n.is_a?(Integer) && n < 0
+    raise ArgumentError, "step can't be 0" if n == 0
+
+    i = 0
+    each do |v|
+      yield v if i % n == 0
+      i += 1
+    end
+    self
+  end
 
   def ==(other)
     other.is_a?(Range) && @begin == other.begin && @end == other.end && @excl == other.exclude_end?

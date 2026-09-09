@@ -139,15 +139,15 @@ class Integer
 
   def div(other)
     return (to_f / other).floor if other.is_a?(Float)
-    Primitive.zr_unimplemented("Integer#div with a non-Integer") unless other.is_a?(Integer)
+    return self / other if other.is_a?(Integer)
 
-    self / other
+    (Primitive.zr_num_coerce_m(self, other, :/, 0)).floor
   end
 
   def modulo(other) = self % other
 
   def remainder(other)
-    Primitive.zr_unimplemented("Integer#remainder with a non-Integer") unless other.is_a?(Integer)
+    return self - other * (self / other).truncate unless other.is_a?(Integer)
 
     r = self % other
     r != 0 && (self < 0) != (other < 0) ? r - other : r

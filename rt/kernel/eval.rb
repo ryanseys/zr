@@ -161,6 +161,17 @@ machine def zr_mod_define_method(recv, argc, argv, cref, blk)
     body = Machine.value(Machine.load64(argv, 8))
     if !zr_special_p(body) && zr_type(body) == T_METHOD
       e = RMethod.entry(body)
+      owner = FrameMeta.owner(MEntry.meta(e))
+      if MEntry.meta(e) != 0 && owner != recv && zr_type(owner) != T_MODULE && !zr_class_inherits(recv, owner)
+        if zr_singleton_p(owner)
+          return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't bind singleton method to a different class"), 47)
+        end
+        b = Machine.slot(Buf.size)
+        zr_buf_init(b)
+        zr_buf_push(b, Machine.bytes("bind argument must be a subclass of "), 36)
+        zr_buf_str(b, RClass.name(owner))
+        return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+      end
       zr_method_add_vis(recv, mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), zr_meta_owned_by(MEntry.meta(e), recv), MEntry.cref(e), zr_definition_vis(mid, cref))
       r = zr_method_added(recv, mid)
       return r if r == QUNDEF
@@ -222,6 +233,10 @@ end
 sig [Ptr, Value, Word, Ptr, Value] => Value
 machine def zr_bmethod_call(e, recv, argc, argv, blk)
   body = MEntry.cref(e)
+  if RProc.meta(body) == 0
+    # a Symbol's or Method's Proc works on its arguments alone
+    return Machine.call(:block, RProc.fn(body), body, argc, argv, blk)
+  end
   cref = zr_cref_push_eval(FrameMeta.owner(MEntry.meta(e)), RProc.cref(body))
   RCref.set_entry(cref, e)
   p = zr_proc_under(body, recv, cref)

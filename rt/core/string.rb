@@ -77,7 +77,7 @@ class String
         Primitive.zr_backref_set(match)
         next !match.nil?
       end
-      raise TypeError, "no implicit conversion of #{prefix.class} into String" unless prefix.is_a?(String)
+      prefix = Primitive.zr_str_operand(prefix)
 
       prefix.bytesize <= bytesize && byteslice_of(0, prefix.bytesize) == prefix
     end
@@ -132,7 +132,7 @@ class String
         length = args[1]
         raise IndexError, "negative length #{length}" if length < 0
 
-        length = count - start if start + length > count
+        length = count - start if length > count - start
       else
         length = start == count ? 0 : 1
       end
@@ -157,7 +157,7 @@ class String
       raise TypeError, "no implicit conversion of #{index.class} into Integer"
     end
     from = Primitive.zr_str_char_offset_m(self, start)
-    to = Primitive.zr_str_char_offset_m(self, [start + length, count].min)
+    to = Primitive.zr_str_char_offset_m(self, length > count - start ? count : start + length)
     replace(byteslice_of(0, from) + value + byteslice_of(to, bytesize - to))
     value
   end
@@ -259,22 +259,35 @@ class String
     out
   end
 
-  def lines(separator = "\n", chomp: false)
-    Primitive.zr_unimplemented("String#lines with a separator") unless separator == "\n"
+  # The lines up to and including `separator`: nil keeps the whole
+  # text, "" splits paragraphs at blank lines (extra blank lines are
+  # dropped), `chomp` strips the separator.
+  def lines(separator = $/, chomp: false)
+    return [] if empty?
+    return [dup] if separator.nil?
 
+    separator = Primitive.zr_str_operand(separator)
+    paragraph = separator.empty?
+    separator = "\n\n" if paragraph
     out = []
     start = 0
     while start < bytesize
-      stop = index("\n", start)
-      stop = stop ? stop + 1 : bytesize
-      line = byteslice_of(start, stop - start)
-      out << (chomp ? line.chomp : line)
+      stop = byte_index(separator, start)
+      if stop.nil?
+        out << (chomp && !paragraph ? byteslice_of(start, bytesize - start).chomp(separator == "\n" ? nil : separator) : byteslice_of(start, bytesize - start))
+        break
+      end
+      stop += separator.bytesize
+      line = byteslice_of(start, chomp ? stop - start - separator.bytesize : stop - start)
+      line = line.chomp if chomp && separator == "\n" && line.end_with?("\r")
+      out << line
+      stop += 1 while paragraph && stop < bytesize && getbyte(stop) == 10
       start = stop
     end
     out
   end
 
-  def each_line(separator = "\n", chomp: false, &block)
+  def each_line(separator = $/, chomp: false, &block)
     return to_enum(:each_line, separator, chomp: chomp) unless block
 
     lines(separator, chomp: chomp).each(&block)
@@ -372,6 +385,7 @@ class String
       Primitive.zr_backref_set(match)
       return match && match.begin(0)
     end
+    needle = Primitive.zr_str_operand(needle)
     i = [from, bytesize - needle.bytesize].min
     while i >= 0
       return Primitive.zr_str_byte_to_char(self, i) if byteslice_of(i, needle.bytesize) == needle
@@ -398,6 +412,92 @@ class String
   end
 
   def tr(from, to) = translate(from, to, false)
+
+  def tr!(from, to)
+    out = translate(from, to, false)
+    out == self ? nil : mutate(out)
+  end
+
+  def tr_s!(from, to)
+    out = translate(from, to, true)
+    out == self ? nil : mutate(out)
+  end
+
+  def succ!
+    mutate(succ)
+  end
+
+  alias next! succ!
+
+  def delete_prefix!(prefix)
+    start_with?(prefix) ? mutate(delete_prefix(prefix)) : nil
+  end
+
+  def delete_suffix!(suffix)
+    end_with?(suffix) ? mutate(delete_suffix(suffix)) : nil
+  end
+
+  def each_codepoint(&block)
+    return to_enum(:each_codepoint) { size } unless block
+
+    each_char { |c| yield c.ord }
+    self
+  end
+
+  # `-string`: the one frozen String of these bytes, from the table.
+  def -@
+    table = Primitive.zr_hidden_get(String, :__interned__) || Primitive.zr_hidden_set(String, :__interned__, {})
+    return table[self] if table.key?(self)
+
+    held = frozen? ? self : dup.freeze
+    table[held] = held
+  end
+
+  def dedup = -self
+
+  # The bytes from `start` (`length` of them, or a Range) replaced by
+  # `text`'s, in place; the ends must sit on character boundaries.
+  def bytesplice(*args)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2..5)" unless (2..5).cover?(args.size)
+
+    if args[0].is_a?(Range)
+      start, length = byte_range(args[0])
+      text = args[1]
+      rest = args[2..]
+    else
+      start, length, text = args[0], args[1], args[2]
+      rest = args[3..]
+      raise IndexError, "index #{start} out of string" if start > bytesize || start < -bytesize
+      start += bytesize if start < 0
+      raise IndexError, "negative length #{length}" if length < 0
+      length = bytesize - start if start + length > bytesize
+    end
+    text = Primitive.zr_str_operand(text)
+    unless rest.empty?
+      if rest[0].is_a?(Range)
+        from, count = text.send(:byte_range, rest[0])
+      else
+        from, count = rest[0], rest[1]
+        from += text.bytesize if from < 0
+        count = text.bytesize - from if from + count > text.bytesize
+      end
+      text = text.byteslice(from, count)
+    end
+    raise IndexError, "offset #{start} does not land on character boundary" unless char_boundary?(start)
+    raise IndexError, "offset #{start + length} does not land on character boundary" unless char_boundary?(start + length)
+
+    mutate(byteslice_of(0, start) + text + byteslice_of(start + length, bytesize - start - length))
+  end
+
+  def self.try_convert(object)
+    return object if object.is_a?(String)
+    return nil unless object.respond_to?(:to_str)
+
+    converted = object.to_str
+    raise TypeError, "can't convert #{object.class} to String (#{object.class}#to_str gives #{converted.class})" unless converted.nil? || converted.is_a?(String)
+
+    converted
+  end
 
   def tr_s(from, to) = translate(from, to, true)
 
@@ -495,7 +595,7 @@ class String
     start += size if start < 0
     return nil if start < 0 || start > size
 
-    length = size - start if start + length > size
+    length = size - start if length > size - start
     byteslice_of(start, length)
   end
 
@@ -550,9 +650,68 @@ class String
       i += n
     end
     out << "\""
+    out.force_encoding(encoding)
   end
 
-  def undump = Primitive.zr_unimplemented("String#undump")
+  # The text `dump` wrote, read back; a trailing `.force_encoding(...)`
+  # names the encoding.
+  def undump
+    text = self
+    encoding = nil
+    if (m = /\A(".*")\.force_encoding\("([^"]+)"\)\z/m.match(text))
+      text = m[1]
+      encoding = m[2]
+    end
+    raise RuntimeError, "invalid dumped string; not wrapped with '\"' nor '\"...\".force_encoding(\"...\")' form" unless text.size >= 2 && text.start_with?("\"") && text.end_with?("\"")
+
+    out = "".b
+    i = 1
+    stop = text.bytesize - 1
+    while i < stop
+      b = text.getbyte(i)
+      if b != 92
+        raise RuntimeError, "invalid dumped string; not wrapped with '\"' nor '\"...\".force_encoding(\"...\")' form" if b == 34
+
+        out << b
+        i += 1
+        next
+      end
+      raise RuntimeError, "invalid escape" if i + 1 >= stop
+
+      c = text.getbyte(i + 1)
+      i += 2
+      case c
+      when 110 then out << 10
+      when 116 then out << 9
+      when 114 then out << 13
+      when 101 then out << 27
+      when 97 then out << 7
+      when 98 then out << 8
+      when 102 then out << 12
+      when 118 then out << 11
+      when 120
+        hex = text.byteslice(i, 2)
+        raise RuntimeError, "invalid hex escape" unless hex.match?(/\A[0-9a-fA-F]{1,2}\z/)
+
+        out << hex.to_i(16)
+        i += hex.size
+      when 117
+        if text.getbyte(i) == 123
+          close = text.index("}", i)
+          raise RuntimeError, "unterminated Unicode escape" if close.nil?
+
+          text[(i + 1)...close].split.each { |code| out << code.to_i(16).chr(Encoding::UTF_8).b }
+          i = close + 1
+        else
+          out << text.byteslice(i, 4).to_i(16).chr(Encoding::UTF_8).b
+          i += 4
+        end
+      else
+        out << c
+      end
+    end
+    out.force_encoding(encoding || self.encoding)
+  end
 
   def hex = lenient_integer(16)
 
@@ -1015,8 +1174,23 @@ class String
   end
 
   # The byte offset of `needle` at or after byte `start`, or nil.
+  # A Range of byte offsets as [start, length] within the text.
+  def byte_range(range)
+    Primitive.attr! :hidden
+    first = range.begin || 0
+    first += bytesize if first < 0
+    raise RangeError, "#{range} out of range" if first < 0 || first > bytesize
+
+    last = range.end.nil? ? bytesize - 1 : range.end
+    last += bytesize if last < 0
+    last -= 1 if range.exclude_end? && !range.end.nil?
+    last = bytesize - 1 if last >= bytesize
+    [first, [last - first + 1, 0].max]
+  end
+
   def byte_index(needle, start)
     Primitive.attr! :hidden
+    needle = Primitive.zr_str_operand(needle)
     return nil if start.nil? || start > bytesize
 
     Primitive.zr_str_find_from(self, needle, start)
@@ -1061,6 +1235,12 @@ class Symbol
   include Comparable
 
   def to_sym = self
+
+  def intern = self
+
+  def casecmp(other) = other.is_a?(Symbol) ? to_s.casecmp(other.to_s) : nil
+
+  def casecmp?(other) = other.is_a?(Symbol) ? to_s.casecmp?(other.to_s) : nil
   alias id2name to_s
   alias name to_s
 end
@@ -1068,6 +1248,11 @@ end
 # The encodings a String can be in: UTF-8 (the default), binary, and
 # US-ASCII, kept as flags on the string.
 class Encoding
+  class CompatibilityError < EncodingError; end
+  class UndefinedConversionError < EncodingError; end
+  class InvalidByteSequenceError < EncodingError; end
+  class ConverterNotFoundError < EncodingError; end
+
   attr_reader :name, :names
 
   def initialize(name, *aliases)

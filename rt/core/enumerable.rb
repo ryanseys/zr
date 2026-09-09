@@ -691,7 +691,7 @@ module Enumerable
     Enumerator.new { |y| out.compact.each { |pair| y << pair } }
   end
 
-  def chain(*others) = Primitive.zr_unimplemented("Enumerable#chain")
+  def chain(*others) = Enumerator::Chain.new(self, *others)
 
   def lazy = Enumerator::Lazy.from(self)
 

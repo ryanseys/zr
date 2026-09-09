@@ -309,6 +309,16 @@ class Hash
 
   def deconstruct_keys(keys) = self
 
+  def self.try_convert(object)
+    return object if object.is_a?(Hash)
+    return nil unless object.respond_to?(:to_hash)
+
+    converted = object.to_hash
+    raise TypeError, "can't convert #{object.class} to Hash (#{object.class}#to_hash gives #{converted.class})" unless converted.nil? || converted.is_a?(Hash)
+
+    converted
+  end
+
   def compare_by_identity = Primitive.zr_hash_compare_by_identity(self)
 
   def compare_by_identity? = Primitive.zr_hash_identity_p(self)

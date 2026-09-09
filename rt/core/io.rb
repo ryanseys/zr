@@ -7,6 +7,25 @@ class IO
   SEEK_SET = 0
   SEEK_CUR = 1
   SEEK_END = 2
+  NULL = "/dev/null"
+
+  # A pipe's read and write ends, closed after the block when one is
+  # given.
+  def self.pipe
+    ends = Primitive.zr_io_pipe
+    raise SystemCallError.new(nil, -ends) if ends.is_a?(Integer)
+
+    reader = IO.new(ends[0], "r")
+    writer = IO.new(ends[1], "w")
+    return [reader, writer] unless block_given?
+
+    begin
+      yield reader, writer
+    ensure
+      reader.close unless reader.closed?
+      writer.close unless writer.closed?
+    end
+  end
 
   def initialize(fd, mode = "r", path: nil, name: nil)
     @fd = fd

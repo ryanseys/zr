@@ -206,7 +206,7 @@ machine def zr_ary_subseq(a, beg, len)
   if beg > n || beg < 0 || len < 0
     return Machine.value(QNIL)
   end
-  if n < beg + len
+  if len > n - beg
     len = n - beg
   end
   zr_ary_of(len, RArray.ptr(a) + (beg * 8))
