@@ -156,7 +156,10 @@ module Kernel
       when 115 then pad(precision ? value.to_s[0, precision] : value.to_s, flags, width)
       when 112 then pad(precision ? value.inspect[0, precision] : value.inspect, flags, width)
       when 99 then character(value, flags, width)
-      when 102, 101, 69, 103, 71, 97, 65 then Primitive.zr_unimplemented("Kernel#format with a Float directive")
+      when 102 then float(value, flags, width, precision, :f, false)
+      when 101, 69 then float(value, flags, width, precision, :e, b == 69)
+      when 103, 71 then float(value, flags, width, precision, :g, b == 71)
+      when 97, 65 then Primitive.zr_unimplemented("Kernel#format with %a")
       else raise ArgumentError, "malformed format string - %#{Primitive.zr_str_from_byte(b)}"
       end
     end
@@ -233,9 +236,126 @@ module Kernel
 
     def pad(text, flags, width)
       Primitive.attr! :hidden
-      return text if width.nil? || text.bytesize >= width
+      return text if width.nil? || text.size >= width
 
       flags.include?("-") ? text.ljust(width) : text.rjust(width)
+    end
+
+    # %f, %e and %g round the shortest round-trip digits half to even,
+    # as CRuby's dtoa comes out; past those digits, and when the
+    # rounding place comes before the first digit, the exact value
+    # decides.
+    def float(value, flags, width, precision, style, upper)
+      Primitive.attr! :hidden
+      x = Float(value)
+      negative = x.negative? || (x.zero? && (1.0 / x).negative?)
+      sign = negative ? "-" : (flags.include?("+") ? "+" : (flags.include?(" ") ? " " : ""))
+      if x.nan? || x.infinite?
+        text = x.nan? ? "NaN" : "Inf"
+        text = "+NaN" if x.nan? && flags.include?("+")
+        text = " NaN" if x.nan? && flags.include?(" ") && !flags.include?("+")
+        text = sign + text unless x.nan?
+        return pad(text, flags.delete("0"), width)
+      end
+      x = x.abs
+      body = case style
+             when :f then fixed_text(x, precision || 6, flags)
+             when :e then exponent_text(x, precision || 6, flags, upper)
+             else general_text(x, precision, flags, upper)
+             end
+      if flags.include?("0") && !flags.include?("-") && width && sign.size + body.size < width
+        body = "0" * (width - sign.size - body.size) + body
+      end
+      pad(sign + body, flags, width)
+    end
+
+    def fixed_text(x, precision, flags)
+      Primitive.attr! :hidden
+      return zero_text(precision, flags) if x.zero?
+
+      digits, point = Primitive.zr_float_shortest(x)
+      k = point + precision
+      if k <= 0
+        exact, _, _ = Primitive.zr_float_digits(x, 800, false)
+        exact = exact[0, exact.size - 1] while exact.end_with?("0")
+        return zero_text(precision, flags) unless k == 0 && exact > "5"
+
+        digits = "1"
+        point = 1 - precision
+      else
+        digits, point = rounded_digits(x, digits, point, k)
+      end
+      whole = point <= 0 ? "0" : (digits[0, point] + "0" * [point - digits.size, 0].max)
+      fraction = point >= 0 ? digits[point..].to_s : "0" * -point + digits
+      fraction = fraction[0, precision] + "0" * [precision - fraction.size, 0].max
+      precision == 0 && !flags.include?("#") ? whole : "#{whole}.#{fraction}"
+    end
+
+    # The first k digits of x: the shortest digits rounded half to
+    # even when they are longer, else the exact digits.
+    def rounded_digits(x, digits, point, k)
+      Primitive.attr! :hidden
+      return Primitive.zr_float_digits(x, k, false).first(2) if digits.size < k
+      return [digits, point] if digits.size == k
+
+      kept = digits[0, k]
+      rest = digits[k..]
+      n = kept.to_i
+      n += 1 if rest[0] > "5" || (rest[0] == "5" && (rest[1..].delete("0") != "" || n.odd?))
+      digits = n.to_s
+      if digits.size > k
+        digits = digits[0, k]
+        point += 1
+      end
+      [digits, point]
+    end
+
+    def zero_text(precision, flags)
+      Primitive.attr! :hidden
+      precision == 0 && !flags.include?("#") ? "0" : "0." + "0" * precision
+    end
+
+    def exponent_text(x, precision, flags, upper)
+      Primitive.attr! :hidden
+      if x.zero?
+        digits = "0" * (precision + 1)
+        exponent = 0
+      else
+        digits, point = Primitive.zr_float_shortest(x)
+        digits, point = rounded_digits(x, digits, point, precision + 1)
+        digits += "0" * (precision + 1 - digits.size)
+        exponent = point - 1
+      end
+      mantissa = precision == 0 && !flags.include?("#") ? digits[0] : "#{digits[0]}.#{digits[1..]}"
+      "#{mantissa}#{upper ? 'E' : 'e'}#{exponent < 0 ? '-' : '+'}#{format('%02d', exponent.abs)}"
+    end
+
+    def general_text(x, precision, flags, upper)
+      Primitive.attr! :hidden
+      precision = 6 if precision.nil?
+      precision = 1 if precision == 0
+      exponent = x.zero? ? 0 : rounded_digits(x, *Primitive.zr_float_shortest(x), precision)[1] - 1
+      text = if exponent < -4 || exponent >= precision
+               exponent_text(x, precision - 1, flags, upper)
+             else
+               fixed_text(x, precision - 1 - exponent, flags)
+             end
+      return text if flags.include?("#")
+
+      trim_zeros(text)
+    end
+
+    # Trailing zeros of a fraction go, and the point after them.
+    def trim_zeros(text)
+      Primitive.attr! :hidden
+      e = text.index("e") || text.index("E")
+      mantissa = e ? text[0, e] : text
+      tail = e ? text[e..] : ""
+      return text unless mantissa.include?(".")
+
+      mantissa = mantissa[0, mantissa.size - 1] while mantissa.end_with?("0")
+      mantissa = mantissa[0, mantissa.size - 1] if mantissa.end_with?(".")
+      mantissa + tail
     end
   end
 

@@ -998,3 +998,49 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_flo_prev_float(recv, argc, argv, cref, blk)
   zr_float_adjacent(recv, 0)
 end
+
+Machine.import "fcvt", [F64, I32, Ptr, Ptr] => Ptr
+Machine.import "ecvt", [F64, I32, Ptr, Ptr] => Ptr
+
+# The correctly rounded decimal digits of a double, as libSystem's
+# fcvt (`ndigit` past the point) or ecvt (`ndigit` in all) give them:
+# the digit string, the position of the point, and the sign.
+sig [Value, Value, Value] => Value
+machine def zr_float_digits(v, ndigit, fixed)
+  d = zr_float_value(v)
+  decpt = Machine.slot(8)
+  sign = Machine.slot(8)
+  p = fixed == QTRUE ? fcvt(d, Machine.i32(zr_fix2long(ndigit)), decpt, sign) : ecvt(d, Machine.i32(zr_fix2long(ndigit)), decpt, sign)
+  out = zr_ary_new(3)
+  zr_ary_push(out, zr_str_new(p, zr_cstr_len(p)))
+  point = Machine.word(Machine.load32(decpt, 0))
+  if point >= 2147483648
+    point -= 4294967296
+  end
+  zr_ary_push(out, zr_fix(point))
+  zr_ary_push(out, zr_bool(Machine.word(Machine.load32(sign, 0)) != 0))
+  out
+end
+
+# The shortest digits that read back as the double, and where the
+# decimal point falls among them: `0.d1d2... * 10^point`.
+sig [Value] => Value
+machine def zr_float_shortest(v)
+  d = zr_float_value(v)
+  if d < Machine.f64(0)
+    d = -d
+  end
+  out = zr_ary_new(2)
+  if d == Machine.f64(0)
+    zr_ary_push(out, zr_str_new(Machine.bytes("0"), 1))
+    zr_ary_push(out, zr_fix(1))
+    return out
+  end
+  pair = Machine.slot(16)
+  zr_ryu(d, pair)
+  digits = Machine.slot(24)
+  n = zr_digits_of(Machine.load64(pair, 0), digits)
+  zr_ary_push(out, zr_str_new(digits, n))
+  zr_ary_push(out, zr_fix(Machine.load64(pair, 8) + n))
+  out
+end
