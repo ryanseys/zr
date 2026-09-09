@@ -152,6 +152,11 @@ class Time
 
         sec_ns = float_ns(sec - sec.floor, NS)
         sec = sec.floor
+      elsif sec.is_a?(Rational)
+        raise ArgumentError, "sec out of range" if sec < 0 || sec >= 61
+
+        sec_ns = ((sec - sec.floor) * NS).floor
+        sec = sec.floor
       else
         sec = int_arg(sec, 0, 0, 60, "sec")
       end
@@ -245,12 +250,16 @@ class Time
   alias tv_usec usec
   def nsec = @ns % NS
   alias tv_nsec nsec
-  def subsec = Primitive.zr_unimplemented("Time#subsec")
+  # The fraction of a second: 0 on a whole second, else a Rational.
+  def subsec
+    rest = @ns % NS
+    rest.zero? ? 0 : Rational(rest, NS)
+  end
 
   def to_i = @ns.div(NS)
   alias tv_sec to_i
   def to_f = @ns.to_f / NS
-  def to_r = Primitive.zr_unimplemented("Time#to_r")
+  def to_r = Rational(@ns, NS)
 
   def utc? = @kind == :utc
   alias gmt? utc?

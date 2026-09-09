@@ -222,8 +222,8 @@ end
 # `define_singleton_method(name) { }`: the same, on the singleton class.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_define_singleton_method(recv, argc, argv, cref, blk)
-  if zr_special_p(recv)
-    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't define singleton"), 21)
+  if zr_special_p(recv) && recv != QNIL && recv != QTRUE && recv != QFALSE
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't define singleton"), 22)
   end
   zr_mod_define_method(zr_singleton_class(recv), argc, argv, cref, blk)
 end

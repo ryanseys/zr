@@ -16,7 +16,7 @@ machine def zr_no_method_from(recv, mid, vcall, from_super)
   end
   zr_buf_sym(b, mid)
   zr_buf_push(b, Machine.bytes("' for "), 6)
-  r = zr_buf_receiver(b, recv, vcall)
+  r = zr_buf_receiver(b, recv)
   return r if r == QUNDEF
   e = zr_exc_new(zr_global(vcall ? G_NAME_ERROR : G_NO_METHOD_ERROR), zr_buf_take(b))
   zr_exc_detail(e, Machine.id(:@name), zr_sym(mid))
@@ -153,7 +153,7 @@ machine def zr_hidden_method(recv, mid, vis)
   zr_buf_push(b, vis == VIS_PRIVATE ? Machine.bytes("private method '") : Machine.bytes("protected method '"), vis == VIS_PRIVATE ? 16 : 18)
   zr_buf_sym(b, mid)
   zr_buf_push(b, Machine.bytes("' called for "), 13)
-  r = zr_buf_receiver(b, recv, false)
+  r = zr_buf_receiver(b, recv)
   return r if r == QUNDEF
   e = zr_exc_new(zr_global(G_NO_METHOD_ERROR), zr_buf_take(b))
   zr_exc_detail(e, Machine.id(:@name), zr_sym(mid))
@@ -165,14 +165,10 @@ end
 
 # How a message names the receiver: main, a special constant, its
 # `#<Foo:0x...>` when it has a singleton class, else `an instance of Foo`.
-sig [Ptr, Value, Bool] => Value
-machine def zr_buf_receiver(b, recv, vcall)
+sig [Ptr, Value] => Value
+machine def zr_buf_receiver(b, recv)
   if recv == zr_global(G_MAIN)
-    if vcall
-      zr_buf_push(b, Machine.bytes("main"), 4)
-    else
-      zr_buf_push(b, Machine.bytes("main:Object"), 11)
-    end
+    zr_buf_push(b, Machine.bytes("main"), 4)
   elsif recv == QNIL
     zr_buf_push(b, Machine.bytes("nil"), 3)
   elsif recv == QTRUE
@@ -195,16 +191,21 @@ machine def zr_buf_receiver(b, recv, vcall)
 end
 
 # Whether a call from the frame on top may reach `e` with `mode` (0 an
-# implicit or self receiver, 2 an explicit one): a private method only
+# implicit or self receiver, 2 an explicit one, 3 `public_send`, whose
+# caller is the frame below its own): a private method only
 # implicitly, a protected one when the caller's self is of the owner.
 sig [Ptr, Value, Word, Word] => Value
 machine def zr_check_visibility(e, recv, mid, mode)
-  if mode != 2 || MEntry.vis(e) == VIS_PUBLIC
+  if mode < 2 || MEntry.vis(e) == VIS_PUBLIC
     return Machine.value(QNIL)
   end
   if MEntry.vis(e) == VIS_PROTECTED
     owner = FrameMeta.owner(MEntry.meta(e))
-    if zr_is_a(Frame.self(Task.top(zr_task())), owner)
+    caller = Task.top(zr_task())
+    if mode == 3
+      caller = Frame.prev(caller)
+    end
+    if caller != 0 && zr_is_a(Frame.self(caller), owner)
       return Machine.value(QNIL)
     end
   end

@@ -31,15 +31,17 @@ module Process
   CLOCK_PROCESS_CPUTIME_ID = 12
   CLOCK_THREAD_CPUTIME_ID = 16
 
-  def self.pid = Primitive.zr_process_id
+  def pid = Primitive.zr_process_id
 
-  def self.clock_gettime(id, unit = :float_second)
-    in_unit(Primitive.zr_clock_ns(id), unit)
+  def clock_gettime(id, unit = :float_second)
+    Process.send(:in_unit, Primitive.zr_clock_ns(id), unit)
   end
 
-  def self.clock_getres(id, unit = :float_second)
-    in_unit(Primitive.zr_clock_res_ns(id), unit)
+  def clock_getres(id, unit = :float_second)
+    Process.send(:in_unit, Primitive.zr_clock_res_ns(id), unit)
   end
+
+  module_function :pid, :clock_gettime, :clock_getres
 
   def self.in_unit(ns, unit)
     Primitive.attr! :hidden

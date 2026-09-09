@@ -121,6 +121,8 @@ machine def zr_raise_from(exc, top)
   t = zr_task()
   if RException.cause(exc) == QUNDEF
     cause = Task.errinfo(t)
+    r = zr_exc_check_cause(exc, cause)
+    return r if r == QUNDEF
     RException.set_cause(exc, cause == exc ? Machine.value(QNIL) : cause)
   end
   Task.set_pending_kind(t, PENDING_RAISE)
@@ -147,9 +149,17 @@ end
 # Whether a rescue clause naming `klass` takes `exc`.
 sig [Value, Value] => Value
 machine def zr_exc_match(exc, klass)
-  t = zr_type(klass)
-  unless t == T_CLASS || t == T_MODULE
+  if zr_special_p(klass) || (zr_type(klass) != T_CLASS && zr_type(klass) != T_MODULE)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("class or module required for rescue clause"), 42)
+  end
+  e = zr_find_method(zr_class_of(klass), Machine.id(:===))
+  if e != 0 && FrameMeta.owner(MEntry.meta(e)) != zr_global(G_MODULE)
+    # The class answers `===` itself, so it decides.
+    arg = Machine.slot(8)
+    Machine.store64(arg, 0, Machine.word(exc))
+    r = zr_send(klass, Machine.id(:===), 1, arg)
+    return r if r == QUNDEF
+    return zr_bool(r != QNIL && r != QFALSE)
   end
   zr_bool(zr_is_a(exc, klass))
 end
@@ -266,18 +276,28 @@ machine def zr_kernel_raise(recv, argc, argv, cref, blk)
   top = Frame.prev(Task.top(zr_task()))
   cause = Machine.value(QUNDEF)
   if zr_kw_take() != 0
+    # `cause:` is raise's own; any other keywords go on to `exception`
+    # as one Hash argument.
     opts = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
-    argc -= 1
-    known = Machine.slot(8)
-    Machine.store64(known, 0, Machine.id(:cause))
-    r = zr_kw_unknown(opts, known, 1)
-    return r if r == QUNDEF
     cause = zr_hash_lookup(opts, zr_sym(Machine.id(:cause)))
     if cause != QUNDEF && cause != QNIL && (zr_special_p(cause) || zr_type(cause) != T_EXCEPTION)
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
     end
+    if cause != QUNDEF
+      rest = zr_hash_new()
+      zr_hash_update(rest, opts)
+      zr_hash_delete_m(rest, zr_sym(Machine.id(:cause)))
+      if RHash.live(rest) == 0
+        argc -= 1
+      else
+        Machine.store64(argv + ((argc - 1) * 8), 0, Machine.word(rest))
+      end
+    end
   end
   if argc == 0
+    if cause != QUNDEF
+      return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("only cause is given with no arguments"), 37)
+    end
     e = Task.errinfo(zr_task())
     if e == QNIL
       e = zr_exc_new(zr_global(G_RUNTIME_ERROR), zr_str_new(Machine.bytes(""), 0))
@@ -305,9 +325,28 @@ machine def zr_kernel_raise(recv, argc, argv, cref, blk)
     end
   end
   if cause != QUNDEF
-    RException.set_cause(e, cause)
+    r = zr_exc_check_cause(e, cause)
+    return r if r == QUNDEF
+    RException.set_cause(e, cause == e ? Machine.value(QNIL) : cause)
   end
   zr_raise_from(e, top)
+end
+
+# `circular causes` when `e` is among the causes of `cause`; an
+# exception as its own cause simply has none.
+sig [Value, Value] => Value
+machine def zr_exc_check_cause(e, cause)
+  if cause == e
+    return Machine.value(QNIL)
+  end
+  c = cause
+  while c != QNIL && c != QUNDEF
+    if c == e
+      return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("circular causes"), 15)
+    end
+    c = RException.cause(c)
+  end
+  Machine.value(QNIL)
 end
 
 sig [Value, Ptr, Word] => Value

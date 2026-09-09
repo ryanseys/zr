@@ -74,6 +74,9 @@ module Ze0
           prev_at = value_offset(region.slot + 1)
           head = @f.label
           merge, (result,) = @f.block(["i64"])
+          # `$!` goes back to what it was here when a clause ends, not to
+          # what an ensure on the way out left in it.
+          @f.store(kernel("zr_errinfo"), @rec, prev_at)
           @f.jump(head)
           switch(head)
           @regions << region
@@ -95,7 +98,7 @@ module Ze0
 
           handlers.each do |handler, clause|
             switch(handler)
-            @f.store(kernel("zr_rescue_enter"), @rec, prev_at)
+            kernel("zr_rescue_enter")
             if clause.target
               prepared = clause.target.is_a?(Hir::Send) ? prepare(Hir::MultiTarget.new([clause.target], nil, [], clause.line)) : {}
               assign_target(clause.target, @f.fetch("i64", @rec, exc_at), prepared)

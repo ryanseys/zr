@@ -207,6 +207,12 @@ machine def zr_mod_include(recv, argc, argv, cref, blk)
     m = Machine.value(Machine.load64(argv + (i * 8), 0))
     r = zr_check_module(m)
     return r if r == QUNDEF
+    if zr_frozen_p(recv)
+      return zr_frozen_error(recv)
+    end
+    if m == recv || zr_chain_includes(m, recv)
+      return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("cyclic include detected"), 23)
+    end
     zr_include_module(recv, m)
     r = zr_hook(m, Machine.id(:included), recv)
     return r if r == QUNDEF
@@ -243,7 +249,12 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_extend_object(recv, argc, argv, cref, blk)
   obj = Machine.value(Machine.load64(argv, 0))
-  zr_include_module(zr_singleton_class(obj), recv)
+  s = zr_singleton_class(obj)
+  return s if s == QUNDEF
+  if !zr_special_p(obj) && zr_frozen_p(obj)
+    return zr_frozen_error(obj)
+  end
+  zr_include_module(s, recv)
   obj
 end
 
@@ -441,11 +452,11 @@ machine def zr_make_metaclass(klass)
   meta
 end
 
-# The singleton class of `v`, made on first use. An Integer or a Symbol
-# has none; nil, true and false answer their own class.
+# The singleton class of `v`, made on first use. An Integer, a Float or
+# a Symbol has none; nil, true and false answer their own class.
 sig [Value] => Value
 machine def zr_singleton_class(v)
-  if zr_fixnum_p(v) || zr_symbol_p(v)
+  if zr_special_p(v) && v != QNIL && v != QTRUE && v != QFALSE
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't define singleton"), 22)
   end
   if zr_special_p(v)
@@ -547,6 +558,9 @@ end
 sig [Value, Word, Ptr, Word, Word, Ptr, Value, Word] => Value
 machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
   klass = zr_origin(klass)
+  if zr_frozen_p(klass)
+    return zr_frozen_error(klass)
+  end
   if meta == 0
     meta = malloc(FrameMeta.size)
     FrameMeta.set_file(meta, 0)

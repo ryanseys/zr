@@ -61,7 +61,7 @@ module Process
     pid
   end
 
-  def self.wait(pid = -1, flags = 0)
+  def wait(pid = -1, flags = 0)
     result = Primitive.zr_proc_wait(pid, flags)
     raise SystemCallError.new(nil, -result) if result.is_a?(Integer)
 
@@ -72,27 +72,27 @@ module Process
     child
   end
 
-  def self.waitpid(pid = -1, flags = 0) = wait(pid, flags)
+  def waitpid(pid = -1, flags = 0) = Process.wait(pid, flags)
 
-  def self.wait2(pid = -1, flags = 0)
-    child = wait(pid, flags)
+  def wait2(pid = -1, flags = 0)
+    child = Process.wait(pid, flags)
     child && [child, $?]
   end
 
-  def self.waitpid2(pid = -1, flags = 0) = wait2(pid, flags)
+  def waitpid2(pid = -1, flags = 0) = Process.wait2(pid, flags)
 
   def self.last_status = $?
 
-  def self.ppid = Primitive.zr_proc_ppid
+  def ppid = Primitive.zr_proc_ppid
 
   Tms = Struct.new(:utime, :stime, :cutime, :cstime)
 
   # This process's times, then its waited-for children's.
-  def self.times
+  def times
     Tms.new(*Primitive.zr_proc_rusage(0), *Primitive.zr_proc_rusage(-1))
   end
 
-  def self.kill(signal, *pids)
+  def kill(signal, *pids)
     number = signal.is_a?(Integer) ? signal : SIGNALS.fetch(signal.to_s.delete_prefix("SIG")) { raise ArgumentError, "unsupported signal 'SIG#{signal.to_s.delete_prefix('SIG')}'" }
     pids.each do |pid|
       result = Primitive.zr_proc_kill(pid, number)
@@ -101,6 +101,10 @@ module Process
     pids.size
   end
 
+  def daemon(*) = Primitive.zr_unimplemented("Process.daemon")
+
+  module_function :wait, :waitpid, :wait2, :waitpid2, :ppid, :times, :kill, :daemon
+
   def self.exit(status = true) = Kernel.exit(status)
 
   def self.exit!(status = false) = Kernel.exit!(status)
@@ -108,8 +112,6 @@ module Process
   def self.abort(*args) = Kernel.abort(*args)
 
   def self.fork(*) = Primitive.zr_unimplemented("Process.fork")
-
-  def self.daemon(*) = Primitive.zr_unimplemented("Process.daemon")
 
   def self.signal_number(name) = SIGNALS[name]
 

@@ -27,7 +27,7 @@ sig [Word, Ptr, Word, Ptr, Word] => Value
 machine def zr_bad_variable_name(id, sigil, siglen, kind, kindlen)
   p = zr_symbol_name_ptr(id)
   n = zr_symbol_name_len(id)
-  if n > siglen && zr_bytes_eq(p, siglen, sigil, siglen) && Machine.word(Machine.load8(p + siglen, 0)) != 64
+  if n > siglen && zr_bytes_eq(p, siglen, sigil, siglen) && zr_ident_p(p + siglen, n - siglen)
     return Machine.value(QNIL)
   end
   b = Machine.slot(Buf.size)
@@ -38,6 +38,25 @@ machine def zr_bad_variable_name(id, sigil, siglen, kind, kindlen)
   zr_buf_push(b, kind, kindlen)
   zr_buf_push(b, Machine.bytes(" variable name"), 14)
   zr_raise_buf(zr_global(G_NAME_ERROR), b)
+end
+
+# An identifier: a letter, underscore or byte past ASCII, then those
+# and digits.
+sig [Ptr, Word] => Bool
+machine def zr_ident_p(p, n)
+  if n == 0
+    return false
+  end
+  i = 0
+  while i < n
+    c = Machine.word(Machine.load8(p + i, 0))
+    alpha = (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c == 95 || c >= 128
+    unless alpha || (i > 0 && c >= 48 && c <= 57)
+      return false
+    end
+    i += 1
+  end
+  true
 end
 
 sig [Word] => Value

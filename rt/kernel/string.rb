@@ -558,6 +558,12 @@ machine def zr_str_upcase(recv, argc, argv, cref, blk)
   zr_str_map_case(recv, 1)
 end
 
+# The core's own case mapping, past any String method a program adds.
+sig [Value, Value] => Value
+machine def zr_str_map_case_m(s, how)
+  zr_str_map_case(s, zr_fix2long(how))
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_downcase(recv, argc, argv, cref, blk)
   zr_str_map_case(recv, 2)

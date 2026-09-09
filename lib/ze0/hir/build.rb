@@ -350,6 +350,17 @@ module Ze0
         when Prism::DefinedNode then defined(node.value, line)
         when Prism::ClassVariableAndWriteNode then CvarWrite.new(node.name, And.new(CvarRead.new(node.name, line), expr(node.value), line), line)
         when Prism::ConstantOrWriteNode then ConstOrWrite.new(nil, node.name, expr(node.value), line)
+        when Prism::ConstantPathOrWriteNode then ConstOrWrite.new(*constant_scope(node.target), expr(node.value), line)
+        when Prism::ConstantAndWriteNode
+          ConstWrite.new(nil, node.name, And.new(ConstRead.new(nil, node.name, line), expr(node.value), line), line)
+        when Prism::ConstantPathAndWriteNode
+          scope, name = constant_scope(node.target)
+          ConstWrite.new(scope, name, And.new(ConstRead.new(scope, name, line), expr(node.value), line), line)
+        when Prism::ConstantOperatorWriteNode
+          ConstWrite.new(nil, node.name, Send.new(ConstRead.new(nil, node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
+        when Prism::ConstantPathOperatorWriteNode
+          scope, name = constant_scope(node.target)
+          ConstWrite.new(scope, name, Send.new(ConstRead.new(scope, name, line), node.binary_operator, [expr(node.value)], line, false), line)
         when Prism::AliasMethodNode
           refuse(node, "an alias of a dynamic symbol is not lowered yet") unless node.new_name.is_a?(Prism::SymbolNode) && node.old_name.is_a?(Prism::SymbolNode)
           Alias.new(node.new_name.unescaped.to_sym, node.old_name.unescaped.to_sym, line)
@@ -437,6 +448,18 @@ module Ze0
           [node.parent ? expr(node.parent) : :top, node.name]
         else refuse(node, "a dynamic constant path is not lowered yet")
         end
+      end
+
+      # The scope of a constant read twice by `A::B op= v`: only a path
+      # of constants, whose second evaluation is the same as its first.
+      def constant_scope(node)
+        scope, name = constant_path(node)
+        refuse(node, "a constant op-assign under a computed scope is not lowered yet") unless scope.nil? || scope == :top || constant_only?(scope)
+        [scope, name]
+      end
+
+      def constant_only?(scope)
+        scope.is_a?(ConstRead) && (scope.scope.nil? || scope.scope == :top || constant_only?(scope.scope))
       end
 
       def define(node)

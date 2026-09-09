@@ -1243,10 +1243,11 @@ class Symbol
   def length = to_s.length
   alias size length
 
-  def upcase = to_s.upcase.to_sym
-  def downcase = to_s.downcase.to_sym
-  def capitalize = to_s.capitalize.to_sym
-  def swapcase = to_s.swapcase.to_sym
+  # The case mappings are String's own, past any a program adds to it.
+  def upcase = Primitive.zr_str_map_case_m(to_s, 1).to_sym
+  def downcase = Primitive.zr_str_map_case_m(to_s, 2).to_sym
+  def capitalize = Primitive.zr_str_map_case_m(to_s, 3).to_sym
+  def swapcase = String.instance_method(:swapcase).bind_call(to_s).to_sym
   def succ = to_s.succ.to_sym
 
   def start_with?(*prefixes) = to_s.start_with?(*prefixes)

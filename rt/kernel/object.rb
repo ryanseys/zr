@@ -380,7 +380,7 @@ machine def zr_obj_public_send(recv, argc, argv, cref, blk)
   if blk != QNIL
     RProc.set_passed(blk, 1)
   end
-  zr_call_blk(recv, Machine.load64(slot, 0), argc - 1, argv + 8, blk)
+  zr_dispatch(recv, Machine.load64(slot, 0), argc - 1, argv + 8, 3, blk)
 end
 
 # `Object#===`: `==`.
@@ -920,9 +920,10 @@ machine def zr_meta_at(rec)
 end
 
 # `attr_reader`, `attr_writer`, `attr_accessor`: one entry per name,
-# with the visibility the class body is at.
+# with the visibility the class body is at; the names defined answer.
 sig [Value, Word, Ptr, Word] => Value
 machine def zr_attr(klass, argc, argv, which)
+  defined = zr_ary_new(argc * 2)
   i = 0
   while i < argc
     slot = Machine.slot(8)
@@ -931,30 +932,47 @@ machine def zr_attr(klass, argc, argv, which)
     id = Machine.load64(slot, 0)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
+    unless zr_ident_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
+      zr_buf_push(b, Machine.bytes("invalid attribute name '"), 24)
+      zr_buf_sym(b, id)
+      zr_buf_byte(b, 39)
+      exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+      zr_exc_detail(exc, Machine.id(:@name), zr_sym(id))
+      zr_exc_detail(exc, Machine.id(:@receiver), klass)
+      return zr_raise(exc)
+    end
     zr_buf_byte(b, 64)
     zr_buf_sym(b, id)
     ivar = zr_intern(Buf.ptr(b), Buf.len(b))
     caller = Frame.prev(Task.top(zr_task()))
+    # The scope's visibility verb applies only inside this class's own
+    # body; from anywhere else the attribute is public.
+    cref = Frame.cref(caller)
+    if cref != QNIL && RCref.klass(zr_cref_lexical(cref)) != klass
+      cref = Machine.value(QNIL)
+    end
     if which != 2
-      r = zr_define_method(klass, id, Machine.ptr(ivar), 0, KIND_ATTR_READER, zr_meta_at(caller), Frame.cref(caller))
+      r = zr_define_method(klass, id, Machine.ptr(ivar), 0, KIND_ATTR_READER, zr_meta_at(caller), cref)
       if r == QUNDEF
         free(Buf.ptr(b))
         return r
       end
+      zr_ary_push(defined, zr_sym(id))
     end
     if which != 1
       zr_buf_byte(b, 61)
       setter = zr_intern(Buf.ptr(b) + 1, Buf.len(b) - 1)
-      r = zr_define_method(klass, setter, Machine.ptr(ivar), 1, KIND_ATTR_WRITER, zr_meta_at(caller), Frame.cref(caller))
+      r = zr_define_method(klass, setter, Machine.ptr(ivar), 1, KIND_ATTR_WRITER, zr_meta_at(caller), cref)
       if r == QUNDEF
         free(Buf.ptr(b))
         return r
       end
+      zr_ary_push(defined, zr_sym(setter))
     end
     free(Buf.ptr(b))
     i += 1
   end
-  Machine.value(QNIL)
+  defined
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
