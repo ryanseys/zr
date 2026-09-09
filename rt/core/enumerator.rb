@@ -95,21 +95,19 @@ class Enumerator
   alias each_with_object with_object
 
   def next
-    buffer = @buffer ||= to_a
-    @position ||= 0
-    raise StopIteration, "iteration reached an end" if @position >= buffer.size
+    fill unless @buffer
+    raise_stop if @position >= @buffer.size
 
-    value = buffer[@position]
+    value = @buffer[@position]
     @position += 1
     value
   end
 
   def peek
-    buffer = @buffer ||= to_a
-    @position ||= 0
-    raise StopIteration, "iteration reached an end" if @position >= buffer.size
+    fill unless @buffer
+    raise_stop if @position >= @buffer.size
 
-    buffer[@position]
+    @buffer[@position]
   end
 
   def rewind
@@ -127,6 +125,23 @@ class Enumerator
   alias to_s inspect
 
   private
+
+  # External iteration reads a buffer the whole iteration fills; the
+  # value the iteration answered is the StopIteration's result.
+  def fill
+    Primitive.attr! :hidden
+    buffer = []
+    @result = each { |*values| buffer << (values.size <= 1 ? values[0] : values) }
+    @buffer = buffer
+    @position = 0
+  end
+
+  def raise_stop
+    Primitive.attr! :hidden
+    e = StopIteration.new("iteration reached an end")
+    Primitive.zr_hidden_set(e, :result, @result)
+    raise e
+  end
 
   def enumerate(receiver, method, args, kwargs, size)
     @receiver = receiver

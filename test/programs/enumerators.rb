@@ -27,3 +27,34 @@ p gen.map(&:to_s), gen.first, gen.first(1), gen.include?(:b), gen.count, gen.to_
 p [1, 2, 3].each_with_index.select { |x, i| i > 0 }, [1, 2, 3].each.with_object(:memo).to_a, [[1, 2], [3, 4]].each_with_index.map { |(a, b), i| a + b + i }
 p({ a: 1, b: 2 }.each_with_index.map { |(k, v), i| [k, v, i] })
 p [1, 2, 3].select.with_index { |x, i| i.even? }
+e = [1, 2].each
+p loop { e.next }
+e2 = (1..3).each
+p loop { e2.next }
+p loop { break 5 }
+p [3, 4].each_with_index.next
+e3 = [[1, 2], 3].each
+p e3.next, e3.peek, e3.next
+begin
+  e3.next
+rescue StopIteration => x
+  p x.message, x.result, x.instance_variables
+end
+p 3.loop rescue p $!
+def m = loop
+p m.class
+i = 0
+loop do
+  i += 1
+  break if i > 3
+end
+p i
+def n
+  loop { return 9 }
+end
+p n
+begin
+  loop { raise "in loop" }
+rescue => err
+  puts err.backtrace
+end

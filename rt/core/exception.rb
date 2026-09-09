@@ -69,7 +69,7 @@ class FiberError < StandardError; end
 class IOError < StandardError; end
 class EOFError < IOError; end
 class StopIteration < IndexError
-  attr_reader :result
+  def result = Primitive.zr_hidden_get(self, :result)
 end
 class ClosedQueueError < StopIteration; end
 class NoMatchingPatternError < StandardError; end

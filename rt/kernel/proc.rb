@@ -363,19 +363,6 @@ machine def zr_int_downto(recv, argc, argv, cref, blk)
   recv
 end
 
-# `loop`: until a break; a StopIteration comes with Enumerator.
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_loop(recv, argc, argv, cref, blk)
-  if blk == QNIL
-    return zr_enum_for(recv, Machine.id(:loop), argc, argv, Machine.value(QNIL))
-  end
-  while true
-    r = zr_yield(blk, 0, 0)
-    return r if r == QUNDEF
-  end
-  Machine.value(QNIL)
-end
-
 # A builtin iterator called with no block: `to_enum(:name, *args)`,
 # with the count of what it would yield, or nil when that is unknown.
 sig [Value, Word, Word, Ptr, Value] => Value

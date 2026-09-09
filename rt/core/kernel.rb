@@ -2,6 +2,18 @@
 module Kernel
   def <=>(other) = equal?(other) || self == other ? 0 : nil
 
+  def loop
+    return to_enum(:loop) { Primitive.zr_unimplemented("the size of loop's enumerator, which is Infinity") } unless block_given?
+
+    begin
+      while true
+        yield
+      end
+    rescue StopIteration => e
+      e.result
+    end
+  end
+
   def tap
     yield self
     self
@@ -150,7 +162,7 @@ module Kernel
 end
 
 module Kernel
-  private :Integer, :String, :Array, :rand, :sleep, :warn, :catch, :throw
+  private :Integer, :String, :Array, :rand, :sleep, :warn, :catch, :throw, :loop
 end
 
 module Kernel

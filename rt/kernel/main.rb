@@ -180,7 +180,6 @@ machine def zr_boot
   zr_builtin(zr_global(G_MODULE), Machine.id(:protected_instance_methods), Machine.addr(:zr_mod_protected_instance_methods), 0 - 1)
   zr_builtin(zr_global(G_STRING), Machine.id(:<=>), Machine.addr(:zr_str_cmp), 1)
   zr_builtin_private(zr_global(G_KERNEL), Machine.id(:block_given?), Machine.addr(:zr_block_given_p), 0)
-  zr_builtin_private(zr_global(G_KERNEL), Machine.id(:loop), Machine.addr(:zr_loop), 0)
   zr_builtin(zr_global(G_INTEGER), Machine.id(:times), Machine.addr(:zr_int_times), 0)
   zr_builtin(zr_global(G_INTEGER), Machine.id(:upto), Machine.addr(:zr_int_upto), 1)
   zr_builtin(zr_global(G_INTEGER), Machine.id(:downto), Machine.addr(:zr_int_downto), 1)
