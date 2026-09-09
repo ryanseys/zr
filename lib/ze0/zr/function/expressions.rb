@@ -34,7 +34,7 @@ module Ze0
           when Hir::ArrayLit then array_literal(node)
           when Hir::HashLit then hash_literal(node)
           when Hir::RangeLit
-            staged([node.low, node.high]) { |argv| kernel("zr_range_new", @f.fetch("i64", argv), @f.fetch("i64", argv, 8), imm(node.exclusive ? 1 : 0)) }
+            staged([node.low, node.high]) { |argv| checked(kernel("zr_range_new", @f.fetch("i64", argv), @f.fetch("i64", argv, 8), imm(node.exclusive ? 1 : 0))) }
           when Hir::Interp then staged(node.parts) { |argv| checked(kernel("zr_str_interp", imm(node.parts.size), argv)) }
           when Hir::RegexpLit
             checked(kernel("zr_regexp_literal", imm(@l.regexp_index), @f.symbol_value(@f.symbol(@l.literal(node.source))), imm(node.source.bytesize), imm(node.options)))

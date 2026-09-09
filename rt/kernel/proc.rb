@@ -147,6 +147,36 @@ machine def zr_proc_call(recv, argc, argv, cref, blk)
   Machine.call(:block, RProc.fn(recv), recv, argc, argv, blk)
 end
 
+# `#<Proc:0x... file:line (lambda)>`; a Symbol's Proc shows `(&:sym)`
+# and a core-made or Method Proc no location.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_proc_inspect(recv, argc, argv, cref, blk)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_obj_head(b, recv)
+  meta = RProc.meta(recv)
+  if RProc.fn(recv) == Machine.addr(:zr_symbol_block)
+    zr_buf_push(b, Machine.bytes("(&"), 2)
+    s = zr_send(RProc.self(recv), Machine.id(:inspect), 0, 0)
+    if s == QUNDEF
+      free(Buf.ptr(b))
+      return s
+    end
+    zr_buf_str(b, s)
+    zr_buf_byte(b, 41)
+  elsif meta != 0 && FrameMeta.file(meta) != 0
+    zr_buf_byte(b, 32)
+    zr_buf_push(b, FrameMeta.file(meta), FrameMeta.file_len(meta))
+    zr_buf_byte(b, 58)
+    zr_buf_long(b, FrameMeta.line(meta))
+  end
+  if RProc.lambda(recv) != 0
+    zr_buf_push(b, Machine.bytes(" (lambda)"), 9)
+  end
+  zr_buf_byte(b, 62)
+  zr_buf_take(b)
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_proc_lambda_p(recv, argc, argv, cref, blk)
   zr_bool(RProc.lambda(recv) != 0)

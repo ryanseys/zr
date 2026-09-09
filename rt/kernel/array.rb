@@ -191,9 +191,18 @@ sig [Value, Ptr] => Value
 machine def zr_index_operand(v, out)
   unless zr_fixnum_p(v)
     if zr_float_p(v)
-      n = zr_float_to_int(zr_float_value(v))
-      return n if n == QUNDEF
-      Machine.store64(out, 0, zr_fix2long(n))
+      d = zr_float_value(v)
+      if zr_nan_p(d) || zr_inf_p(d)
+        b = Machine.slot(Buf.size)
+        zr_buf_init(b)
+        zr_buf_float(b, d)
+        return zr_raise_buf(zr_core_class(Machine.id(:FloatDomainError)), b)
+      end
+      t = Machine.trunc(d)
+      if Machine.fabs(t) >= Machine.f64(4890909195324358656)
+        return zr_send(v, Machine.id(:index_range_error), 0, 0)
+      end
+      Machine.store64(out, 0, Machine.to_int(t))
       return Machine.value(QNIL)
     end
     if !zr_special_p(v) && zr_find_method(zr_class_of(v), Machine.id(:to_int)) != 0

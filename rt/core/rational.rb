@@ -311,8 +311,7 @@ class Rational < Numeric
 
   def compare(other, op)
     c = self <=> other
-    raise ArgumentError, "comparison of Rational with #{other.inspect} failed" if c.nil? && (other.nil? || other == true || other == false)
-    raise ArgumentError, "comparison of Rational with #{other.class} failed" if c.nil?
+    Primitive.zr_cmperr(self, other) if c.nil?
 
     c
   end

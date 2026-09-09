@@ -1,6 +1,13 @@
 # Float: the constants, and the methods written over the kernel's
 # arithmetic.
 class Float
+  # NUM2LONG's refusal of a Float past the machine word.
+  def index_range_error
+    Primitive.attr! :hidden
+    raise RangeError, format("float %-.10g out of range of integer", self)
+  end
+  private :index_range_error
+
   INFINITY = 1.0 / 0.0
   NAN = 0.0 / 0.0
   EPSILON = 2.220446049250313e-16

@@ -227,16 +227,26 @@ machine def zr_ivtab_set(t, id, v)
   IvEntry.set_value(e, v)
 end
 
-# A Range is a plain object of class Range with three ivars; its
-# methods are the core library's.
+# A Range is a plain frozen object of class Range with three ivars;
+# its methods are the core library's.
 G_RANGE = 12
 
 sig [Value, Value, Word] => Value
 machine def zr_range_new(low, high, excl)
+  if low != QNIL && high != QNIL && !(zr_fixnum_p(low) && zr_fixnum_p(high))
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(high))
+    c = zr_send(low, Machine.id(:<=>), 1, slot)
+    return c if c == QUNDEF
+    if c == QNIL
+      return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("bad value for range"), 19)
+    end
+  end
   r = zr_obj_alloc(zr_global(G_RANGE))
   zr_ivar_set(r, Machine.id(:@begin), low)
   zr_ivar_set(r, Machine.id(:@end), high)
   zr_ivar_set(r, Machine.id(:@excl), zr_bool(excl != 0))
+  RBasic.set_flags(r, RBasic.flags(r) | FL_FREEZE)
   r
 end
 

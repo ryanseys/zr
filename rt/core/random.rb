@@ -65,7 +65,7 @@ class Random < random_base
     when Range
       low = max.begin
       high = max.end
-      raise Errno::EDOM, "Numerical argument out of domain" if low.nil? || high.nil?
+      raise Errno::EDOM if low.nil? || high.nil?
       if low.is_a?(Float) || high.is_a?(Float)
         span = high.to_f - low.to_f
         raise ArgumentError, "invalid argument - #{max}" if span < 0 || (span == 0 && max.exclude_end?)
@@ -268,7 +268,11 @@ module Kernel
       n = max.to_i.abs
       n == 0 ? generator.send(:unit_float) : generator.rand(n)
     when Range
-      return nil if max.begin.is_a?(Integer) && max.end.is_a?(Integer) && (max.exclude_end? ? max.end <= max.begin : max.end < max.begin)
+      low = max.begin
+      high = max.end
+      if low.is_a?(Numeric) && high.is_a?(Numeric)
+        return nil if max.exclude_end? ? high <= low : high < low
+      end
 
       generator.rand(max)
     else generator.rand(max)

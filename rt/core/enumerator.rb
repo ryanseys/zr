@@ -51,6 +51,38 @@ class Enumerator
     @size = size
   end
 
+  # `Enumerator.produce(initial) { |prev| }`: the initial value, then
+  # each block answer, until the block raises StopIteration.
+  class Producer
+    def initialize(initial, has_initial, block)
+      @initial = initial
+      @has_initial = has_initial
+      @block = block
+    end
+
+    def each
+      value = @initial
+      if @has_initial
+        yield value
+      else
+        value = @block.call(nil)
+        yield value
+      end
+      loop do
+        value = @block.call(value)
+        yield value
+      end
+      self
+    end
+  end
+
+  def self.produce(*initial, &block)
+    raise ArgumentError, "wrong number of arguments (given #{initial.size}, expected 0..1)" if initial.size > 1
+    raise ArgumentError, "no block given" unless block
+
+    Producer.new(initial[0], !initial.empty?, block).to_enum(:each) { Float::INFINITY }
+  end
+
   # `to_enum(:method, *args, **kwargs)`, with a size or a proc that
   # answers it.
   def self.for(receiver, method, args, kwargs, size)

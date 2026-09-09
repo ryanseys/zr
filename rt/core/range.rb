@@ -2,43 +2,103 @@
 class Range
   include Enumerable
 
+  # A plain Range is frozen from birth; a subclass's instance is not.
   def initialize(low, high, exclude_end = false)
+    raise ArgumentError, "bad value for range" if !low.nil? && !high.nil? && (low <=> high).nil?
+
     @begin = low
     @end = high
     @excl = exclude_end ? true : false
+    freeze if instance_of?(Range)
   end
 
   def begin = @begin
   def end = @end
+
   def first(n = nil)
-    return @begin if n.nil?
+    if n.nil?
+      raise RangeError, "cannot get the first element of beginless range" if @begin.nil?
+
+      return @begin
+    end
+    n = Primitive.zr_index_operand_m(n)
+    raise ArgumentError, "negative array size (or size too big)" if n < 0
 
     out = []
-    each do |v|
-      break if out.size >= n
+    return out if n == 0
 
+    each do |v|
       out << v
+      break if out.size >= n
     end
     out
   end
 
   def last(n = nil)
+    raise RangeError, "cannot get the last element of endless range" if @end.nil?
     return @end if n.nil?
+
+    n = Primitive.zr_index_operand_m(n)
+    raise ArgumentError, "negative array size" if n < 0
 
     to_a.last(n)
   end
 
   def min(n = nil, &block)
-    return to_a.min(n, &block) if n || block
+    raise RangeError, "cannot get the minimum of beginless range" if @begin.nil?
+    if block
+      raise RangeError, "cannot get the minimum of endless range with custom comparison method" if @end.nil?
 
-    @excl && @begin == @end ? nil : first
+      return super
+    end
+    return first(n) unless n.nil?
+
+    c = @end.nil? ? -1 : (@begin <=> @end)
+    c.nil? || c > 0 || (c == 0 && @excl) ? nil : @begin
   end
 
   def max(n = nil, &block)
-    return to_a.max(n, &block) if n || block
+    raise RangeError, "cannot get the maximum of endless range" if @end.nil?
+    if block || n || (@excl && !@end.is_a?(Numeric))
+      if @begin.nil?
+        raise RangeError, "cannot get the maximum of beginless range with custom comparison method" if block
+        raise TypeError, "can't iterate from NilClass" unless @end.is_a?(Integer)
 
-    @excl ? (@end.is_a?(Integer) ? @end - 1 : raise(TypeError, "cannot exclude non Integer end value")) : @end
+        return counted_down(n)
+      end
+      raise ArgumentError, "negative array size (or size too big)" if n && n < 0
+
+      return super
+    end
+
+    c = @begin.nil? ? -1 : (@begin <=> @end)
+    return nil if c.nil? || c > 0
+    if @excl
+      raise TypeError, "cannot exclude non Integer end value" unless @end.is_a?(Integer)
+      return nil if c == 0
+      raise TypeError, "cannot exclude end value with non Integer begin value" unless @begin.nil? || @begin.is_a?(Integer)
+
+      return @end - 1
+    end
+    @end
   end
+
+  def minmax(&block)
+    return super if block
+
+    [min, max]
+  end
+
+  # `n` values down from an Integer end, for a beginless range.
+  def counted_down(n)
+    Primitive.attr! :hidden
+    n = Primitive.zr_index_operand_m(n)
+    raise ArgumentError, "negative array size (or size too big)" if n < 0
+
+    top = @excl ? @end - 1 : @end
+    Array.new(n) { |i| top - i }
+  end
+
   def exclude_end? = @excl
 
   def each
@@ -73,12 +133,31 @@ class Range
     self
   end
 
+  # Integer ends count down without an Array, which a beginless range
+  # needs; anything else walks the Array.
   def reverse_each(&block)
     return to_enum(:reverse_each) { size } unless block
+    raise TypeError, "can't iterate from #{@end.class}" if @end.nil? || (@begin.nil? && !@end.is_a?(Integer))
+
+    if @end.is_a?(Integer) && (@begin.nil? || @begin.is_a?(Integer))
+      v = @excl ? @end - 1 : @end
+      while @begin.nil? || v >= @begin
+        yield v
+        v -= 1
+      end
+      return self
+    end
 
     to_a.reverse.each(&block)
     self
   end
+
+  def to_a
+    raise RangeError, "cannot convert endless range to an array" if @end.nil?
+
+    super
+  end
+  alias entries to_a
 
   # Counted only from an Integer: a Float or nil start cannot iterate,
   # any other start has no size.
@@ -103,12 +182,21 @@ class Range
   end
 
   def count(*args, &block)
-    return size if args.empty? && !block
+    return size if args.empty? && !block && @begin.is_a?(Integer)
 
     super
   end
 
+  # A Range argument is covered as a whole; `===`, include? and
+  # member? compare a Range like any other value.
   def cover?(v)
+    return covers_range?(v) if v.is_a?(Range)
+
+    covers_value?(v)
+  end
+
+  def covers_value?(v)
+    Primitive.attr! :hidden
     return false if @begin && (v <=> @begin).nil?
     return false if @begin && (v <=> @begin) < 0
     return true if @end.nil?
@@ -121,15 +209,15 @@ class Range
 
   # A String range covers single characters by order and walks the rest.
   def include?(v)
-    return cover?(v) unless @begin.is_a?(String) || @end.is_a?(String)
-    return cover?(v) if v.is_a?(String) && v.size == 1 && (@begin.nil? || @begin.size == 1) && (@end.nil? || @end.size == 1)
+    return covers_value?(v) unless @begin.is_a?(String) || @end.is_a?(String)
+    return covers_value?(v) if v.is_a?(String) && v.size == 1 && (@begin.nil? || @begin.size == 1) && (@end.nil? || @end.size == 1)
     return false unless v.is_a?(String)
 
     each { |x| return true if x == v }
     false
   end
   alias member? include?
-  def ===(v) = cover?(v)
+  def ===(v) = covers_value?(v)
 
   def step(n = 1, &block)
     return stepped(n, :step, &block) if @begin.is_a?(String) || @begin.is_a?(Symbol) || (@begin.nil? && (@end.is_a?(String) || @end.is_a?(Symbol)))
@@ -218,6 +306,37 @@ class Range
   def hash = [@begin, @end, @excl].hash
 
   private
+
+  # CRuby's r_cover_range_p: `v` must start inside and end no later,
+  # an exclusive end short of an inclusive one by at least one value.
+  def covers_range?(v)
+    Primitive.attr! :hidden
+    return false if !@end.nil? && v.end.nil?
+    return false if !@begin.nil? && v.begin.nil?
+    return false if !v.begin.nil? && !v.end.nil? && ordered(v.begin, v.end) > (v.exclude_end? ? -1 : 0)
+    return false if !v.begin.nil? && !cover?(v.begin)
+
+    cmp_end = @end.nil? ? 1 : ordered(@end, v.end)
+    return cmp_end >= 0 if @excl == v.exclude_end?
+    return cmp_end > 0 if @excl
+    return true if cmp_end >= 0
+
+    v_max = begin
+      v.max
+    rescue TypeError
+      nil
+    end
+    return false if v_max.nil?
+
+    ordered(@end, v_max) >= 0
+  end
+
+  # `a <=> b` as an Integer; incomparable counts as far greater.
+  def ordered(a, b)
+    Primitive.attr! :hidden
+    c = a <=> b
+    c.nil? ? 2**31 : c
+  end
 
   def empty_range?
     Primitive.attr! :hidden

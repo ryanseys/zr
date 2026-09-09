@@ -32,7 +32,7 @@ module Comparable
 
   def compare_to(other)
     c = self <=> other
-    raise ArgumentError, "comparison of #{self.class} with #{other.inspect} failed" if c.nil?
+    Primitive.zr_cmperr(self, other) if c.nil?
 
     c
   end

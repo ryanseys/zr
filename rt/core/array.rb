@@ -151,7 +151,7 @@ class Array
     best = nil
     i = 0
     while i < size
-      best = self[i] if i == 0 || (block ? yield(self[i], best) : self[i] <=> best) < 0
+      best = self[i] if i == 0 || compared(self[i], best, block) < 0
       i += 1
     end
     best
@@ -163,10 +163,20 @@ class Array
     best = nil
     i = 0
     while i < size
-      best = self[i] if i == 0 || (block ? yield(self[i], best) : self[i] <=> best) > 0
+      best = self[i] if i == 0 || compared(self[i], best, block) > 0
       i += 1
     end
     best
+  end
+
+  # `a <=> b`, or the block's answer, as an Integer; nil fails as
+  # ruby's comparison does.
+  def compared(a, b, block)
+    Primitive.attr! :hidden
+    c = block ? block.call(a, b) : (a <=> b)
+    Primitive.zr_cmperr(a, b) if c.nil?
+
+    c
   end
 
   def rotate!(n = 1)

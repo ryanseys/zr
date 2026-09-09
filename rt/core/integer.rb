@@ -107,12 +107,47 @@ class Integer
     result
   end
 
-  def [](bit)
-    Primitive.zr_unimplemented("Integer#[] with a range") unless bit.is_a?(Integer)
+  # `n[i]` is bit i; `n[i, len]` and `n[i..j]` are the bits from i as
+  # an Integer, as CRuby's int_aref reads them.
+  def [](bit, len = nil)
+    unless len.nil?
+      bit = Primitive.zr_index_operand_m(bit)
+      len = Primitive.zr_index_operand_m(len)
+      return (self >> bit) & ((1 << len) - 1)
+    end
+    if bit.is_a?(Range)
+      low = bit.begin
+      high = bit.end
+      if low.nil?
+        return 0 if high < 0
+
+        high += 1 unless bit.exclude_end?
+        return 0 if (self & ((1 << high) - 1)) == 0
+
+        raise ArgumentError, "The beginless range for Integer#[] results in infinity"
+      end
+      shifted = self >> low
+      return shifted if high.nil? || low > high
+      if low == high
+        return 0 if bit.exclude_end?
+
+        return bit_at(low)
+      end
+      span = high - low
+      span += 1 unless bit.exclude_end?
+      return shifted & ((1 << span) - 1)
+    end
+
+    bit_at(Primitive.zr_index_operand_m(bit))
+  end
+
+  def bit_at(bit)
+    Primitive.attr! :hidden
     return 0 if bit < 0
 
     (self >> bit) & 1
   end
+  private :bit_at
 
   # Without an encoding: US-ASCII below 128, else one binary byte.
   def chr(encoding = nil)

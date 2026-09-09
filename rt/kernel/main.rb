@@ -157,6 +157,8 @@ machine def zr_boot
   zr_define_method(zr_global(G_PROC), Machine.id(:[]), Machine.addr(:zr_proc_call), 0 - 1, KIND_FRAMELESS, 0, Machine.value(QNIL))
   zr_define_method(zr_global(G_PROC), Machine.id(:yield), Machine.addr(:zr_proc_call), 0 - 1, KIND_FRAMELESS, 0, Machine.value(QNIL))
   zr_builtin(zr_global(G_PROC), Machine.id(:lambda?), Machine.addr(:zr_proc_lambda_p), 0)
+  zr_builtin(zr_global(G_PROC), Machine.id(:inspect), Machine.addr(:zr_proc_inspect), 0)
+  zr_builtin(zr_global(G_PROC), Machine.id(:to_s), Machine.addr(:zr_proc_inspect), 0)
   zr_builtin(zr_global(G_PROC), Machine.id(:arity), Machine.addr(:zr_proc_arity), 0)
   zr_builtin(zr_global(G_PROC), Machine.id(:parameters), Machine.addr(:zr_proc_parameters), 0)
   zr_builtin_private(zr_global(G_KERNEL), Machine.id(:p), Machine.addr(:zr_p), 0 - 1)
