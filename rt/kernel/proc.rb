@@ -6,7 +6,7 @@
 # `return` leaves. A `break` or `return` is a signal beside `raise`:
 # the task's pending kind says which.
 Machine.struct :REnv, basic: RBasic, parent: Value, slots: Ptr, nslots: Word
-Machine.struct :RProc, basic: RBasic, fn: Ptr, meta: Ptr, env: Value, self: Value, cref: Value, blk: Value, home: Ptr, serial: Word, site: Word, ret_home: Ptr, ret_serial: Word, spread: Word, lambda: Word
+Machine.struct :RProc, basic: RBasic, fn: Ptr, meta: Ptr, env: Value, self: Value, cref: Value, blk: Value, home: Ptr, serial: Word, site: Word, ret_home: Ptr, ret_serial: Word, spread: Word, lambda: Word, passed: Word
 Machine.sig :block, [Value, Word, Ptr, Value] => Value
 T_ENV = 26
 T_PROC = 27
@@ -93,6 +93,7 @@ machine def zr_proc_new(meta, env, self_, cref, blk, home, site_and_spread, ret_
   RProc.set_ret_serial(p, Frame.serial(ret_home))
   RProc.set_spread(p, spread)
   RProc.set_lambda(p, 0)
+  RProc.set_passed(p, 0)
   p
 end
 
@@ -129,6 +130,7 @@ machine def zr_native_proc(fn, self_)
   RProc.set_ret_serial(p, 0)
   RProc.set_spread(p, 0)
   RProc.set_lambda(p, 1)
+  RProc.set_passed(p, 1)
   p
 end
 
@@ -168,12 +170,16 @@ machine def zr_kernel_lambda(recv, argc, argv, cref, blk)
   if blk == QNIL
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("tried to create Proc object without a block"), 43)
   end
+  if RProc.passed(blk) != 0
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("the lambda method requires a literal block"), 42)
+  end
   RProc.set_lambda(blk, 1)
   blk
 end
 
-# `&value` at a call: nil passes no block, a Proc itself, a Symbol its
-# Proc; anything else must answer `to_proc`.
+# `&value` at a call: nil passes no block, a Proc itself (marked as
+# passed: no longer a literal block, which `lambda` refuses), a Symbol
+# its Proc; anything else must answer `to_proc`.
 sig [Value] => Value
 machine def zr_block_pass(v)
   if v == QNIL || zr_symbol_p(v)
@@ -183,6 +189,7 @@ machine def zr_block_pass(v)
     return v
   end
   if !zr_special_p(v) && zr_type(v) == T_PROC
+    RProc.set_passed(v, 1)
     return v
   end
   if zr_find_method(zr_class_of(v), Machine.id(:to_proc)) == 0
@@ -193,7 +200,20 @@ machine def zr_block_pass(v)
     zr_buf_push(b, Machine.bytes(" into Proc"), 10)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
-  zr_send(v, Machine.id(:to_proc), 0, 0)
+  pr = zr_send(v, Machine.id(:to_proc), 0, 0)
+  if pr == QUNDEF || (!zr_special_p(pr) && zr_type(pr) == T_PROC)
+    return pr
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("can't convert "), 14)
+  zr_buf_str(b, zr_class_name_of(v))
+  zr_buf_push(b, Machine.bytes(" to Proc ("), 10)
+  zr_buf_str(b, zr_class_name_of(v))
+  zr_buf_push(b, Machine.bytes("#to_proc gives "), 15)
+  zr_buf_str(b, zr_class_name_of(pr))
+  zr_buf_push(b, Machine.bytes(")"), 1)
+  zr_raise_buf(zr_global(G_TYPE_ERROR), b)
 end
 
 # Call the block with `argc` arguments.
@@ -220,20 +240,42 @@ machine def zr_yield2(blk, a, b)
   zr_yield(blk, 2, slot)
 end
 
-# The arguments a block binds: a lone Array spreads over the parameters
-# when the block's shape asks for it; missing ones are nil, extra ones
-# dropped. Answers the argument count to read from `argv_out`.
-sig [Word, Ptr, Word, Ptr] => Word
+# The arguments a block binds: a lone Array, or a value whose `to_ary`
+# answers one, spreads over the parameters when the block's shape asks
+# for it; missing ones are nil, extra ones dropped. Answers the
+# argument count (a fixnum) to read from `argv_out`, or QUNDEF when
+# `to_ary` raised.
+sig [Word, Ptr, Word, Ptr] => Value
 machine def zr_block_args(argc, argv, spread, argv_out)
   if spread != 0 && argc == 1
     v = Machine.value(Machine.load64(argv, 0))
     if !zr_special_p(v) && zr_type(v) == T_ARRAY
       Machine.store64(argv_out, 0, RArray.ptr(v))
-      return RArray.len(v)
+      return zr_fix(RArray.len(v))
+    end
+    if !zr_special_p(v) && zr_find_method(zr_class_of(v), Machine.id(:to_ary)) != 0
+      a = zr_send(v, Machine.id(:to_ary), 0, 0)
+      return a if a == QUNDEF
+      if !zr_special_p(a) && zr_type(a) == T_ARRAY
+        Machine.store64(argv_out, 0, RArray.ptr(a))
+        return zr_fix(RArray.len(a))
+      end
+      if a != QNIL
+        b = Machine.slot(Buf.size)
+        zr_buf_init(b)
+        zr_buf_push(b, Machine.bytes("can't convert "), 14)
+        zr_buf_str(b, zr_class_name_of(v))
+        zr_buf_push(b, Machine.bytes(" to Array ("), 11)
+        zr_buf_str(b, zr_class_name_of(v))
+        zr_buf_push(b, Machine.bytes("#to_ary gives "), 14)
+        zr_buf_str(b, zr_class_name_of(a))
+        zr_buf_push(b, Machine.bytes(")"), 1)
+        return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+      end
     end
   end
   Machine.store64(argv_out, 0, argv)
-  argc
+  zr_fix(argc)
 end
 
 # Whether the frame `home` with `serial` is still on the stack.

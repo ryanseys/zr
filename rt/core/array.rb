@@ -683,6 +683,8 @@ class Array
 
   def *(other)
     return join(other) if other.is_a?(String)
+
+    other = Primitive.zr_index_operand_m(other)
     raise ArgumentError, "negative argument" if other < 0
 
     out = []

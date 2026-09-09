@@ -50,7 +50,7 @@ module Ze0
           switch(go)
           out = @f.stack_addr(@f.slot(8))
           spread = p.spread? ? @f.csel(lambda?, imm(0), imm(1)) : imm(0)
-          argc = kernel("zr_block_args", argc, argv, spread, out)
+          argc = @f.sshr(checked(kernel("zr_block_args", argc, argv, spread, out)), imm(1))
           argv = @f.fetch("i64", out)
           bind_positional(p, argc, argv, strict: false)
           bind_keywords(p, kwargs_at) if keywords?(p)

@@ -96,6 +96,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_method_call(recv, argc, argv, cref, blk)
+  if blk != QNIL
+    RProc.set_passed(blk, 1)
+  end
   zr_invoke(RMethod.entry(recv), RMethod.recv(recv), argc, argv, blk, zr_kw_take())
 end
 

@@ -150,8 +150,8 @@ end
 
 # `object_id`: a fixnum's is 2n + 1, nil's 4, true's 20, false's 0;
 # a heap object's comes from a counter (8, 16, 24, ...) at its first
-# call, kept in a hidden ivar. A symbol's is CRuby's symbol-table
-# position, which is not reproduced.
+# call, kept in a hidden ivar. A symbol's or a flonum's is its word,
+# as CRuby answers, so a symbol's differs from CRuby's by the id.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_object_id(recv, argc, argv, cref, blk)
   if zr_fixnum_p(recv)
@@ -167,7 +167,11 @@ machine def zr_obj_object_id(recv, argc, argv, cref, blk)
     return zr_fix(0)
   end
   if zr_special_p(recv)
-    zr_bug(Machine.bytes("object_id of a symbol or a flonum is not implemented yet\n"), 57)
+    w = Machine.word(recv)
+    if w >= 2305843009213693952 || w < -2305843009213693952
+      zr_bug(Machine.bytes("object_id of this flonum is not implemented yet\n"), 48)
+    end
+    return zr_fix(w)
   end
   t = zr_ivtab_for_write(recv)
   id = zr_ivtab_get(t, Machine.id(:__object_id__))
@@ -363,6 +367,9 @@ machine def zr_obj_public_send(recv, argc, argv, cref, blk)
   slot = Machine.slot(8)
   r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
   return r if r == QUNDEF
+  if blk != QNIL
+    RProc.set_passed(blk, 1)
+  end
   zr_call_blk(recv, Machine.load64(slot, 0), argc - 1, argv + 8, blk)
 end
 

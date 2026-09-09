@@ -190,6 +190,30 @@ end
 sig [Value, Ptr] => Value
 machine def zr_index_operand(v, out)
   unless zr_fixnum_p(v)
+    if zr_float_p(v)
+      n = zr_float_to_int(zr_float_value(v))
+      return n if n == QUNDEF
+      Machine.store64(out, 0, zr_fix2long(n))
+      return Machine.value(QNIL)
+    end
+    if !zr_special_p(v) && zr_find_method(zr_class_of(v), Machine.id(:to_int)) != 0
+      r = zr_send(v, Machine.id(:to_int), 0, 0)
+      return r if r == QUNDEF
+      if zr_fixnum_p(r)
+        Machine.store64(out, 0, zr_fix2long(r))
+        return Machine.value(QNIL)
+      end
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("can't convert "), 14)
+      zr_buf_str(b, zr_class_name_of(v))
+      zr_buf_push(b, Machine.bytes(" to Integer ("), 13)
+      zr_buf_str(b, zr_class_name_of(v))
+      zr_buf_push(b, Machine.bytes("#to_int gives "), 14)
+      zr_buf_str(b, zr_class_name_of(r))
+      zr_buf_push(b, Machine.bytes(")"), 1)
+      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+    end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     if v == QNIL
@@ -578,15 +602,10 @@ machine def zr_index_operand_m(v)
   if zr_fixnum_p(v)
     return v
   end
-  if zr_find_method(zr_class_of(v), Machine.id(:to_int)) != 0
-    r = zr_send(v, Machine.id(:to_int), 0, 0)
-    return r if r == QUNDEF
-    if zr_fixnum_p(r)
-      return r
-    end
-  end
   out = Machine.slot(8)
-  zr_index_operand(v, out)
+  r = zr_index_operand(v, out)
+  return r if r == QUNDEF
+  zr_fix(Machine.load64(out, 0))
 end
 
 # `pop` for the core.

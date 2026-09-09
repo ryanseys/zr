@@ -136,10 +136,32 @@ module Process
     command.split(" ")
   end
 
-  private_class_method :spawn_command, :command_words
+  # The words a command runs as, for exec.
+  def self.exec_words(args, options)
+    Primitive.zr_unimplemented("exec with options") unless options.empty?
+    args = args.dup
+    args.shift if args.first.is_a?(Hash) && Primitive.zr_unimplemented("exec with an environment")
+    raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if args.empty?
+
+    words = args.size == 1 ? command_words(args.first) : args.map { |arg| arg.is_a?(Array) ? arg.first : arg }
+    words.each { |word| raise TypeError, "no implicit conversion of #{word.class} into String" unless word.is_a?(String) }
+    words.each { |word| raise ArgumentError, "string contains null byte" if word.include?("\0") }
+    words
+  end
+
+  private_class_method :spawn_command, :command_words, :exec_words
 end
 
 module Kernel
+  # The process becomes the command; only a failure to start returns.
+  def exec(*args, **options)
+    words = Process.send(:exec_words, args, options)
+    result = words.empty? ? -2 : Primitive.zr_proc_exec(words)
+    raise SystemCallError.new(words.first || args.first, -result)
+  end
+  private :exec
+  module_function :exec
+
   def system(*args, exception: false, **options)
     pid = Process.send(:spawn_command, args, options, nil)
     if pid.nil?

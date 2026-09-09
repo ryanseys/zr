@@ -9,6 +9,7 @@ Machine.import "waitpid", [I32, Ptr, I32] => I32
 Machine.import "pipe", [Ptr] => I32
 Machine.import "getppid", [] => I32
 Machine.import "kill", [I32, I32] => I32
+Machine.import "execvp", [Ptr, Ptr] => I32
 
 # Spawn `words` (an Array of Strings, the program first) with the
 # parent's environment; `out` is a descriptor the child writes its
@@ -40,6 +41,23 @@ machine def zr_proc_spawn(words, out)
     return zr_fix(0 - Machine.word(r))
   end
   zr_fix(Machine.word(Machine.load32(pid, 0)))
+end
+
+# execvp: the process becomes the command; answers only when it could
+# not, with the negated errno.
+sig [Value] => Value
+machine def zr_proc_exec(words)
+  n = RArray.len(words)
+  argv = malloc((n + 1) * 8)
+  i = 0
+  while i < n
+    Machine.store64(argv + (i * 8), 0, Machine.word(RString.ptr(zr_ary_at(words, i))))
+    i += 1
+  end
+  Machine.store64(argv + (n * 8), 0, 0)
+  execvp(RString.ptr(zr_ary_at(words, 0)), argv)
+  free(argv)
+  zr_fix(0 - zr_errno())
 end
 
 # waitpid: [pid, raw status], or the negated errno.

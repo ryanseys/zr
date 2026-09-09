@@ -20,7 +20,8 @@ $-w = false
 $FILENAME = "-"
 $$ = Primitive.zr_process_id
 $LOAD_PATH = []
-$LOADED_FEATURES = []
+# What ruby loads before the program, spelled as ruby records it.
+$LOADED_FEATURES = %w[enumerator.so thread.rb fiber.so rational.so complex.so pathname.so ruby2_keywords.rb set.rb]
 
 # The process environment, read and written through libSystem.
 ENV = Object.new

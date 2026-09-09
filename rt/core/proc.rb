@@ -51,16 +51,16 @@ class Proc
   private
 
   def compose(as_lambda, &body)
-    Primitive.zr_proc_anonymous(as_lambda ? lambda(&body) : proc(&body))
+    Primitive.zr_proc_anonymous(as_lambda ? Primitive.zr_proc_lambda(body) : proc(&body))
   end
 
   def curried(arity, collected)
     original = self
-    body = proc do |*args|
+    body = proc do |*args, &blk|
       all = collected + args
-      all.size >= arity ? original.call(*all) : original.send(:curried, arity, all)
+      all.size >= arity ? original.call(*all, &blk) : original.send(:curried, arity, all)
     end
-    Primitive.zr_proc_anonymous(lambda? ? lambda(&body) : body)
+    Primitive.zr_proc_anonymous(lambda? ? Primitive.zr_proc_lambda(body) : body)
   end
 end
 

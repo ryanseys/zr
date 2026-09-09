@@ -579,11 +579,14 @@ machine def zr_kernel_caller(recv, argc, argv, cref, blk)
   end
   out = zr_ary_new(8)
   rec = Frame.prev(Task.top(zr_task()))
-  while rec != 0 && (limit < 0 || RArray.len(out) < limit)
+  while rec != 0
     if FrameMeta.kind(Frame.meta(rec)) != KIND_HIDDEN
       if start > 0
         start -= 1
       else
+        if limit >= 0 && RArray.len(out) >= limit
+          return out
+        end
         b = Machine.slot(Buf.size)
         zr_buf_init(b)
         zr_buf_frame(b, rec)

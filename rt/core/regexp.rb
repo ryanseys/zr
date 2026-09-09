@@ -161,7 +161,15 @@ class Regexp
     index.nil? || match.nil? ? match : match[index]
   end
 
-  def self.try_convert(object) = object.is_a?(Regexp) ? object : nil
+  def self.try_convert(object)
+    return object if object.is_a?(Regexp)
+    return nil unless object.respond_to?(:to_regexp)
+
+    converted = object.to_regexp
+    raise TypeError, "can't convert #{object.class} to Regexp (#{object.class}#to_regexp gives #{converted.class})" unless converted.nil? || converted.is_a?(Regexp)
+
+    converted
+  end
 
   def source = Primitive.zr_regexp_source(self)
 
