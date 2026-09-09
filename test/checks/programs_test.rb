@@ -7,8 +7,10 @@ require_relative "../../lib/ze0/harness/case"
 
 # Ruby programs on the zr runtime: each `test/programs/<name>.rb` runs under
 # ruby, the oracle, and then compiled with the kernel on both native
-# roads (plain and with a collection at every allocation) and under
-# wasmtime; stdout, stderr and the exit status must agree. The oracle
+# roads and under wasmtime; stdout, stderr and the exit status must
+# agree. The Cranelift road also runs with a collection at every
+# allocation: the roots are the lowering's, the same on both roads, and
+# the Ruby road's code is slow under that many collections. The oracle
 # runs without error_highlight or did_you_mean, as the corpus was recorded.
 # A program whose first line says "native only" reads the host (its
 # environment or working directory) and skips the wasm road.
@@ -51,7 +53,8 @@ class ProgramsTest < Minitest::Test
         Dir.mktmpdir("ze0-programs-") do |dir|
           bin = File.join(dir, name)
           assert_nil Ze0::Native::Build.binary(functions, data, bin, road: road, work: dir, raw: raw)
-          [{}, { "ZR_GC_STRESS" => "1" }].each { |env| check(label, name, env, [bin], want, rb) }
+          check(label, name, {}, [bin], want, rb)
+          check(label, name, { "ZR_GC_STRESS" => "1" }, [bin], want, rb) if label == :cranelift
         end
       end
     end

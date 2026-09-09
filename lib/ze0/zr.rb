@@ -19,11 +19,21 @@ module Ze0
     # A Ruby program with the kernel and the core library as one unit:
     # `[functions, data, raw]` ready for `Native::Build`.
     def program(source, file)
-      symbols = Machine::Symbols.new
-      unit = Machine.unit(KERNEL, symbols: symbols)
-      core_functions, core_data = core(unit, symbols)
+      unit, core_functions, core_data, core_symbols = runtime
+      symbols = Machine::Symbols.new(core_symbols.ids.keys)
       functions, data = Lower.new(Hir.build(source, file), unit, symbols).run
       [unit.functions + core_functions + functions, unit.data + core_data + data + symbol_names(symbols), unit.raw]
+    end
+
+    # The kernel and the core library, lowered once per process: a
+    # program only adds to the symbol table, and reads the unit.
+    def runtime
+      @runtime ||= begin
+        symbols = Machine::Symbols.new
+        unit = Machine.unit(KERNEL, symbols: symbols)
+        core_functions, core_data = core(unit, symbols)
+        [unit, core_functions, core_data, symbols]
+      end
     end
 
     # The core library over the kernel `unit`: `[functions, data]`, the
