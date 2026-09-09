@@ -258,7 +258,7 @@ machine def zr_alias(klass, new_id, old_id)
     zr_buf_push(b, Machine.bytes("undefined method '"), 18)
     zr_buf_sym(b, old_id)
     zr_buf_push(b, zr_type(klass) == T_MODULE ? Machine.bytes("' for module '") : Machine.bytes("' for class '"), zr_type(klass) == T_MODULE ? 14 : 13)
-    zr_buf_str(b, RClass.name(klass))
+    zr_buf_class(b, klass)
     zr_buf_byte(b, 39)
     return zr_raise_buf(zr_global(G_NAME_ERROR), b)
   end
@@ -288,7 +288,7 @@ machine def zr_undef(klass, id)
     zr_buf_push(b, Machine.bytes("undefined method '"), 18)
     zr_buf_sym(b, id)
     zr_buf_push(b, zr_type(klass) == T_MODULE ? Machine.bytes("' for module '") : Machine.bytes("' for class '"), zr_type(klass) == T_MODULE ? 14 : 13)
-    zr_buf_str(b, RClass.name(klass))
+    zr_buf_class(b, klass)
     zr_buf_byte(b, 39)
     return zr_raise_buf(zr_global(G_NAME_ERROR), b)
   end
@@ -362,7 +362,7 @@ machine def zr_cvar_get(cref, id)
     zr_buf_push(b, Machine.bytes("uninitialized class variable "), 29)
     zr_buf_sym(b, id)
     zr_buf_push(b, Machine.bytes(" in "), 4)
-    zr_buf_str(b, RClass.name(base))
+    zr_buf_class(b, base)
     return zr_raise_buf(zr_global(G_NAME_ERROR), b)
   end
   zr_ivtab_get(ClassExt.cv(RClass.ext(owner)), id)
@@ -537,10 +537,10 @@ machine def zr_define_method(klass, mid, fn, arity, kind, meta, cref)
   zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, zr_definition_vis(mid, cref))
 end
 
-# `def obj.name`: a singleton def is public whatever its body's
-# visibility verb says, except the initialize family.
+# `def obj.name`, and a def inside a method body: public whatever the
+# scope's visibility verb says, except the initialize family.
 sig [Value, Word, Ptr, Word, Word, Ptr, Value] => Value
-machine def zr_define_singleton_def(klass, mid, fn, arity, kind, meta, cref)
+machine def zr_define_method_public(klass, mid, fn, arity, kind, meta, cref)
   zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, zr_definition_vis(mid, Machine.value(QNIL)))
 end
 
@@ -557,6 +557,12 @@ machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
     FrameMeta.set_arity(meta, arity)
     FrameMeta.set_params(meta, 0)
     FrameMeta.set_fn(meta, 0)
+  elsif Machine.word(FrameMeta.owner(meta)) != 0 && FrameMeta.owner(meta) != klass
+    # The same def run under another class (a class body in a block
+    # that runs twice) gets a meta of its own, so each keeps its owner.
+    copy = malloc(FrameMeta.size)
+    zr_memcpy(copy, meta, FrameMeta.size)
+    meta = copy
   end
   FrameMeta.set_name(meta, mid)
   FrameMeta.set_owner(meta, klass)
@@ -704,7 +710,7 @@ machine def zr_set_method_visibility(klass, mid, vis, modfn)
     zr_buf_push(b, Machine.bytes("undefined method '"), 18)
     zr_buf_sym(b, mid)
     zr_buf_push(b, zr_type(klass) == T_MODULE ? Machine.bytes("' for module '") : Machine.bytes("' for class '"), zr_type(klass) == T_MODULE ? 14 : 13)
-    zr_buf_str(b, RClass.name(klass))
+    zr_buf_class(b, klass)
     zr_buf_byte(b, 39)
     return zr_raise_buf(zr_global(G_NAME_ERROR), b)
   end
@@ -932,6 +938,11 @@ machine def zr_mark_children(v)
     zr_mark_ivtab(ClassExt.cv(ext))
   elsif t == T_EXCEPTION
     zr_mark(RException.message(v))
+    zr_mark(RException.bt(v))
+    if RException.cause(v) != QUNDEF
+      zr_mark(RException.cause(v))
+    end
+    zr_mark_backtrace_rows(v)
   elsif t == T_OBJECT
     zr_mark_ivtab(RObject.iv(v))
   elsif t == T_ARRAY

@@ -22,9 +22,17 @@ module Ze0
           meta = @f.symbol_value(@f.symbol("zr_meta_#{fn}"))
           checked_arity = node.params.plain? ? node.params.required.size : -1
           at_line(node.line)
-          entry = node.receiver ? "zr_define_singleton_def" : "zr_define_method"
+          entry = node.receiver || inside_method? ? "zr_define_method_public" : "zr_define_method"
           checked(kernel(entry, owner, imm(sym_id(node.name)), addr, imm(checked_arity), imm(@l.const("KIND_DEF")), meta, @cref))
           symbol(node.name)
+        end
+
+        # A def in a method body (or a block in one) is public whatever
+        # the class body's visibility verb was.
+        def inside_method?
+          fn = self
+          fn = fn.outer while fn && fn.kind == :block
+          fn&.kind == :def
         end
 
         # `class << target`: the singleton class is self and the definee.

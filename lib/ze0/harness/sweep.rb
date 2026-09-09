@@ -128,6 +128,9 @@ module Ze0
         actual = Normalize.answer(out, rb, cwd)
         expected = Normalize.answer(kase.expected, rb, cwd)
         return Row.new(rb, :matched, nil) if actual == expected
+        if (stop = actual.stderr[/^(?:ze0: )?(.* is not implemented yet)$/, 1])
+          return Row.new(rb, :refused, "#{File.basename(rb)}: run time: #{stop}")
+        end
         return Row.new(rb, :crashed, "signal #{actual.signal}") if actual.signal && !expected.signal
 
         Row.new(rb, :diverged, diff(expected, actual))
@@ -227,7 +230,7 @@ module Ze0
         counts = Hash.new(0)
         refused.each do |row|
           why = row.why
-          shape = (why[/: line \d+: (.*)\z/, 1] || why).delete_suffix(" is not in ze0's subset")
+          shape = (why[/: (?:line \d+|run time): (.*)\z/, 1] || why).delete_suffix(" is not in ze0's subset")
           counts[shape] += 1
         end
         counts.sort_by { |what, n| [-n, what] }

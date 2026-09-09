@@ -273,7 +273,7 @@ machine def zr_class_allocate(recv)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("allocator undefined for "), 24)
-    zr_buf_str(b, RClass.name(recv))
+    zr_buf_class(b, recv)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   else
     return zr_obj_alloc(recv)
@@ -294,7 +294,7 @@ machine def zr_class_new_instance(recv, argc, argv, cref, blk)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("undefined method 'new' for class "), 33)
-    zr_buf_str(b, RClass.name(recv))
+    zr_buf_class(b, recv)
     return zr_raise_buf(zr_global(G_NO_METHOD_ERROR), b)
   end
   o = zr_class_allocate(recv)
@@ -725,6 +725,20 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_class_name(recv, argc, argv, cref, blk)
   RClass.name(recv)
+end
+
+# A class's name in a message, or its `#<Class:0x...>` form when it has
+# none; QUNDEF when an inspect along the way raised.
+sig [Ptr, Value] => Value
+machine def zr_buf_class(b, klass)
+  if RClass.name(klass) != QNIL && !zr_singleton_p(klass)
+    zr_buf_str(b, RClass.name(klass))
+    return Machine.value(QNIL)
+  end
+  s = zr_class_to_s(klass, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
+  return s if s == QUNDEF
+  zr_buf_str(b, s)
+  Machine.value(QNIL)
 end
 
 # An anonymous class prints as `#<Class:0x...>`, a singleton class as

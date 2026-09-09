@@ -125,36 +125,72 @@ machine def zr_marking
   Machine.static(:marking, 8)
 end
 
+# The cells marked but not yet traced: a growable stack, so a long
+# chain of objects costs no machine stack.
+Machine.struct :MarkStack, ptr: Ptr, len: Word, capa: Word
+
+sig [] => Ptr
+machine def zr_mark_stack
+  Machine.static(:mark_stack, MarkStack.size)
+end
+
+# Mark `v` and queue it for tracing; a freed cell here is a root the
+# discipline missed, and the abort names what pointed at it.
 sig [Value] => Void
 machine def zr_mark(v)
-  unless zr_special_p(v)
-    flags = RBasic.flags(v)
-    if (flags & FL_ALLOCATED) == 0
-      b = Machine.slot(Buf.size)
-      zr_buf_init(b)
-      zr_buf_push(b, Machine.bytes("a live object points at a freed cell: from a cell of type "), 58)
-      parent = Machine.value(Machine.load64(zr_marking(), 0))
-      if parent == QNIL
-        zr_buf_push(b, Machine.bytes("root"), 4)
-      elsif zr_fixnum_p(parent)
-        zr_buf_push(b, Machine.bytes("root "), 5)
-        zr_buf_long(b, zr_fix2long(parent))
-      else
-        zr_buf_long(b, RBasic.flags(parent) & T_MASK)
-      end
-      zr_buf_byte(b, 10)
-      zr_bug(Buf.ptr(b), Buf.len(b))
+  if zr_special_p(v)
+    return
+  end
+  flags = RBasic.flags(v)
+  if (flags & FL_ALLOCATED) == 0
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("a live object points at a freed cell: from a cell of type "), 58)
+    parent = Machine.value(Machine.load64(zr_marking(), 0))
+    if parent == QNIL
+      zr_buf_push(b, Machine.bytes("root"), 4)
+    elsif zr_fixnum_p(parent)
+      zr_buf_push(b, Machine.bytes("root "), 5)
+      zr_buf_long(b, zr_fix2long(parent))
+    else
+      zr_buf_long(b, RBasic.flags(parent) & T_MASK)
     end
-    if (flags & FL_MARK) == 0
-      RBasic.set_flags(v, flags | FL_MARK)
-      zr_mark(RBasic.klass(v))
-      was = Machine.load64(zr_marking(), 0)
-      Machine.store64(zr_marking(), 0, Machine.word(v))
-      zr_mark_children(v)
-      Machine.store64(zr_marking(), 0, was)
-      if (flags & FL_EXIVAR) != 0
-        zr_mark_ivtab(zr_exivar_tab(v))
-      end
+    zr_buf_byte(b, 10)
+    zr_bug(Buf.ptr(b), Buf.len(b))
+  end
+  if (flags & FL_MARK) != 0
+    return
+  end
+  RBasic.set_flags(v, flags | FL_MARK)
+  s = zr_mark_stack()
+  n = MarkStack.len(s)
+  if n == MarkStack.capa(s)
+    capa = n == 0 ? 1024 : n * 2
+    grown = malloc(capa * 8)
+    if n > 0
+      zr_memcpy(grown, MarkStack.ptr(s), n * 8)
+      free(MarkStack.ptr(s))
+    end
+    MarkStack.set_ptr(s, grown)
+    MarkStack.set_capa(s, capa)
+  end
+  Machine.store64(MarkStack.ptr(s) + (n * 8), 0, Machine.word(v))
+  MarkStack.set_len(s, n + 1)
+end
+
+# Trace every queued cell: its class, its children, its exivars.
+sig [] => Void
+machine def zr_mark_drain
+  s = zr_mark_stack()
+  while MarkStack.len(s) > 0
+    n = MarkStack.len(s) - 1
+    MarkStack.set_len(s, n)
+    v = Machine.value(Machine.load64(MarkStack.ptr(s) + (n * 8), 0))
+    Machine.store64(zr_marking(), 0, Machine.word(v))
+    zr_mark(RBasic.klass(v))
+    zr_mark_children(v)
+    if (RBasic.flags(v) & FL_EXIVAR) != 0
+      zr_mark_ivtab(zr_exivar_tab(v))
     end
   end
 end
@@ -335,6 +371,7 @@ machine def zr_collect
   Heap.set_collections(h, Heap.collections(h) + 1)
   Machine.store64(zr_marking(), 0, QNIL)
   zr_mark_roots()
+  zr_mark_drain()
   zr_sweep()
   n = Heap.arenas(h)
   if Heap.freed(h) * 2 < n * CELLS

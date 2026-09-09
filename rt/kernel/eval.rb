@@ -169,7 +169,7 @@ machine def zr_mod_define_method(recv, argc, argv, cref, blk)
         b = Machine.slot(Buf.size)
         zr_buf_init(b)
         zr_buf_push(b, Machine.bytes("bind argument must be a subclass of "), 36)
-        zr_buf_str(b, RClass.name(owner))
+        zr_buf_class(b, owner)
         return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
       end
       zr_method_add_vis(recv, mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), zr_meta_owned_by(MEntry.meta(e), recv), MEntry.cref(e), zr_definition_vis(mid, cref))

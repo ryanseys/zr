@@ -141,7 +141,7 @@ machine def zr_mod_class_variable_get(recv, argc, argv, cref, blk)
     zr_buf_push(b, Machine.bytes("uninitialized class variable "), 29)
     zr_buf_sym(b, id)
     zr_buf_push(b, Machine.bytes(" in "), 4)
-    zr_buf_str(b, RClass.name(recv))
+    zr_buf_class(b, recv)
     return zr_raise_buf(zr_global(G_NAME_ERROR), b)
   end
   zr_ivtab_get(ClassExt.cv(RClass.ext(owner)), id)

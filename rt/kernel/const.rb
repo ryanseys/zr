@@ -176,7 +176,7 @@ machine def zr_uninitialized_constant(scope, id)
   zr_buf_init(b)
   zr_buf_push(b, Machine.bytes("uninitialized constant "), 23)
   if scope != QNIL && scope != zr_global(G_OBJECT)
-    zr_buf_str(b, RClass.name(scope))
+    zr_buf_class(b, scope)
     zr_buf_push(b, Machine.bytes("::"), 2)
   end
   zr_buf_sym(b, id)
@@ -186,38 +186,30 @@ machine def zr_uninitialized_constant(scope, id)
   zr_raise(e)
 end
 
-# A bare constant under `cref`: the lexical scopes, then the innermost
-# scope's ancestors, then Object when that scope is a module.
+# A bare constant under `cref`, or `uninitialized constant`.
 sig [Value, Word] => Value
 machine def zr_const_get(cref, id)
   cref = zr_cref_lexical(cref)
-  c = cref
-  while RCref.next(c) != QNIL
-    e = zr_const_row(RCref.klass(c), id)
-    if e != 0
-      return zr_const_value(e)
-    end
-    c = RCref.next(c)
-  end
-  e = zr_const_row_in(RCref.klass(cref), id, false)
-  if e == 0 && zr_type(RCref.klass(cref)) == T_MODULE
-    e = zr_const_row_in(zr_global(G_OBJECT), id, false)
-  end
+  e = zr_const_row_under(cref, id)
   if e == 0
     return zr_uninitialized_constant(RCref.klass(cref), id)
   end
   zr_const_value(e)
 end
 
-# The row a bare constant under `cref` names, or 0.
+# The row a bare constant under `cref` names, or 0: the lexical scopes
+# (an eval's cref is not one), then the innermost scope's ancestors,
+# then Object when that scope is a module.
 sig [Value, Word] => Ptr
 machine def zr_const_row_under(cref, id)
   cref = zr_cref_lexical(cref)
   c = cref
   while RCref.next(c) != QNIL
-    e = zr_const_row(RCref.klass(c), id)
-    if e != 0
-      return e
+    if RCref.eval(c) == 0
+      e = zr_const_row(RCref.klass(c), id)
+      if e != 0
+        return e
+      end
     end
     c = RCref.next(c)
   end

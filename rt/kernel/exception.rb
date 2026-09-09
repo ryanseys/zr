@@ -36,6 +36,18 @@ G_TYPE_ERROR = 21
 G_ZERO_DIVISION_ERROR = 22
 G_RUNTIME_ERROR = 23
 
+# A captured row's label reads its method's owner, so the rows keep
+# those classes alive until the backtrace is printed or replaced.
+sig [Value] => Void
+machine def zr_mark_backtrace_rows(exc)
+  rows = RException.rows(exc)
+  i = 0
+  while i < RException.nrows(exc)
+    zr_mark(FrameMeta.owner(BtRow.meta(rows + (i * BtRow.size))))
+    i += 1
+  end
+end
+
 # The nearest frame at or outside `rec` that has a file of its own.
 sig [Ptr] => Ptr
 machine def zr_frame_with_file(rec)
