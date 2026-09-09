@@ -192,7 +192,7 @@ machine def zr_include_singleton(copy, meta)
   i = 0
   while i < ClassExt.mlen(ext)
     e = ClassExt.mtab(ext) + (i * MEntry.size)
-    zr_method_add_vis(own, MEntry.mid(e), MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e), MEntry.vis(e))
+    zr_method_copy(own, MEntry.mid(e), e, MEntry.meta(e), MEntry.vis(e))
     i += 1
   end
   k = RClass.superclass(meta)

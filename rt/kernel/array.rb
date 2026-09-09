@@ -65,6 +65,15 @@ machine def zr_ary_push(a, v)
   RArray.set_len(a, n + 1)
 end
 
+sig [Value, Value] => Void
+machine def zr_ary_unshift(a, v)
+  n = RArray.len(a)
+  zr_ary_reserve(a, n + 1)
+  zr_memmove(RArray.ptr(a) + 8, RArray.ptr(a), n * 8)
+  Machine.store64(RArray.ptr(a), 0, Machine.word(v))
+  RArray.set_len(a, n + 1)
+end
+
 # `a[i] = v`, filling with nil past the end.
 sig [Value, Word, Value] => Value
 machine def zr_ary_store(a, i, v)

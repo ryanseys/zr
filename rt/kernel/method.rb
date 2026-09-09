@@ -98,6 +98,7 @@ machine def zr_method_missing_new(recv, klass, mid)
   MEntry.set_meta(e, 0)
   MEntry.set_cref(e, Machine.value(QNIL))
   MEntry.set_vis(e, VIS_PUBLIC)
+  MEntry.set_orig(e, mid)
   m
 end
 
@@ -346,7 +347,19 @@ machine def zr_method_original_id(e)
   if MEntry.kind(e) == KIND_DEF
     return FrameMeta.name(MEntry.meta(e))
   end
-  MEntry.mid(e)
+  MEntry.orig(e)
+end
+
+# The module the entry was defined in: an alias's source, else the
+# method's owner.
+sig [Value] => Value
+machine def zr_method_defined_in(m)
+  e = RMethod.entry(m)
+  if MEntry.kind(e) == KIND_DEF && MEntry.meta(e) != 0 && FrameMeta.owner(MEntry.meta(e)) != QNIL
+    owner = FrameMeta.owner(MEntry.meta(e))
+    return zr_type(owner) == T_ICLASS ? RClass.attached(owner) : owner
+  end
+  RMethod.owner(m)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -364,12 +377,15 @@ machine def zr_method_unbind(recv, argc, argv, cref, blk)
   m
 end
 
-# `bind(obj)`: the receiver must be of the owner, or the module it is
-# extended with.
+# `bind(obj)`: the receiver must be of a class owner; a module's
+# method binds to anything.
 sig [Value, Value] => Value
 machine def zr_method_bind_to(m, obj)
   owner = RMethod.owner(m)
-  if !zr_is_a(obj, owner)
+  if zr_type(owner) != T_MODULE && !zr_is_a(obj, owner)
+    if zr_singleton_p(owner)
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("singleton method called for a different object"), 46)
+    end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("bind argument must be an instance of "), 37)
@@ -533,15 +549,16 @@ machine def zr_method_inspect(recv, argc, argv, cref, blk)
     while zr_singleton_p(klass) || zr_type(klass) == T_ICLASS
       klass = RClass.superclass(klass)
     end
+    defined = zr_method_defined_in(recv)
     if RMethod.recv(recv) == QUNDEF
-      klass = owner
+      klass = defined
     end
     s = zr_send(klass, Machine.id(:inspect), 0, 0)
     return s if s == QUNDEF
     zr_buf_str(b, s)
-    if klass != owner
+    if klass != defined
       zr_buf_byte(b, 40)
-      s = zr_send(owner, Machine.id(:inspect), 0, 0)
+      s = zr_send(defined, Machine.id(:inspect), 0, 0)
       return s if s == QUNDEF
       zr_buf_str(b, s)
       zr_buf_byte(b, 41)

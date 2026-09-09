@@ -10,7 +10,9 @@
 Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr, attached: Value, origin: Value
 # `serial` counts classes in creation order, which `subclasses` reads.
 Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word
-Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word
+# `orig` is the name the method was first defined under, which an
+# alias keeps.
+Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word
 Machine.struct :CEntry, id: Word, value: Value, file: Ptr, file_len: Word, line: Word, private: Word
 Machine.sig :method, [Value, Word, Ptr, Value, Value] => Value
 # Method kinds beyond a compiled def and a builtin: accessors keep the
@@ -80,13 +82,15 @@ machine def zr_chain_includes(klass, mod)
   false
 end
 
-# A proxy standing for `mod` in a chain, ahead of `sup`.
+# A proxy standing for the chain node `node` (a module, or a proxy of
+# one) ahead of `sup`, sharing the node's tables.
 sig [Value, Value] => Value
-machine def zr_iclass_new(mod, sup)
+machine def zr_iclass_new(node, sup)
+  mod = zr_type(node) == T_ICLASS ? RClass.attached(node) : node
   ic = zr_alloc(T_ICLASS, mod)
   RClass.set_name(ic, Machine.value(QNIL))
   RClass.set_superclass(ic, sup)
-  RClass.set_ext(ic, RClass.ext(mod))
+  RClass.set_ext(ic, RClass.ext(node))
   RClass.set_attached(ic, mod)
   RClass.set_origin(ic, Machine.value(QNIL))
   ic
@@ -102,79 +106,157 @@ machine def zr_origin(klass)
   klass
 end
 
-# `include`: a proxy for `mod`, and for each module it includes, goes
-# in right after `klass`'s origin, unless the chain holds it already.
-sig [Value, Value] => Void
-machine def zr_include_module(klass, mod)
-  c = zr_origin(klass)
+# CRuby's include_modules_at: a proxy for each node of `mod`'s chain
+# spliced in after `at`, but for a node whose tables `klass`'s chain
+# already holds. An include (`whole`) searches the whole chain and
+# moves the splice point to the node it finds, unless a superclass
+# holds it; a prepend searches only down to `klass`'s origin. The
+# proxy of a module's origin becomes the origin of the proxy of its
+# head, as in the module itself.
+sig [Value, Value, Value, Bool] => Void
+machine def zr_splice_modules(klass, at, mod, whole)
+  klass_origin = zr_origin(klass)
+  c = at
+  heads = zr_ary_new(2)
   m = mod
   while m != QNIL
-    origin = zr_type(m) == T_ICLASS ? RClass.attached(m) : m
-    unless zr_chain_includes(klass, origin)
-      ic = zr_iclass_new(origin, RClass.superclass(c))
+    found = false
+    if klass_origin != c || whole
+      c_seen = klass == c
+      class_seen = false
+      p = RClass.superclass(klass)
+      while p != QNIL && !found
+        if klass_origin == p && !whole
+          p = Machine.value(QNIL)
+        else
+          c_seen = true if c == p
+          if zr_type(p) == T_ICLASS
+            if RClass.ext(p) == RClass.ext(m)
+              c = p if c_seen && !class_seen
+              found = true
+            end
+          elsif zr_type(p) == T_CLASS
+            class_seen = true
+          end
+          p = RClass.superclass(p) unless found
+        end
+      end
+    end
+    unless found
+      ic = zr_iclass_new(m, RClass.superclass(c))
       RClass.set_superclass(c, ic)
       c = ic
+      n = RArray.len(heads)
+      if RClass.origin(m) != QNIL
+        zr_ary_push(heads, ic)
+        zr_ary_push(heads, RClass.origin(m))
+      elsif n > 0 && zr_ary_at(heads, n - 1) == m
+        RClass.set_origin(zr_ary_at(heads, n - 2), ic)
+        RArray.set_len(heads, n - 2)
+      end
     end
     m = RClass.superclass(m)
   end
 end
 
-# `prepend`: the class's methods move to an origin proxy under the
-# prepended modules, whose proxies go in right after the class. The
-# moved methods now belong to the origin, so their `super` starts
-# below it.
-sig [Value, Value] => Void
-machine def zr_prepend_module(klass, mod)
-  if RClass.origin(klass) == QNIL
-    o = zr_iclass_new(klass, RClass.superclass(klass))
-    ext = malloc(ClassExt.size)
-    zr_memcpy(ext, RClass.ext(klass), ClassExt.size)
-    ClassExt.set_ctab(ext, 0)
-    ClassExt.set_clen(ext, 0)
-    ClassExt.set_ccap(ext, 0)
-    zr_ivtab_init(ClassExt.iv(ext))
-    zr_ivtab_init(ClassExt.cv(ext))
-    RClass.set_ext(o, ext)
-    ClassExt.set_mtab(RClass.ext(klass), 0)
-    ClassExt.set_mlen(RClass.ext(klass), 0)
-    ClassExt.set_mcap(RClass.ext(klass), 0)
+# The proxies standing for `mod` in other chains, newest first, as
+# CRuby's subclass list of a module runs.
+sig [Value] => Value
+machine def zr_proxies_of(mod)
+  out = zr_ary_new(4)
+  a = 0
+  while a < Heap.arenas(zr_heap())
+    base = zr_arena_at(a)
     i = 0
-    while i < ClassExt.mlen(ext)
-      e = ClassExt.mtab(ext) + (i * MEntry.size)
-      if MEntry.meta(e) != 0 && FrameMeta.owner(MEntry.meta(e)) == klass
-        FrameMeta.set_owner(MEntry.meta(e), o)
+    while i < CELLS
+      cell = base + (i * CELL)
+      flags = Machine.load64(cell, 0)
+      if (flags & FL_ALLOCATED) != 0 && (flags & T_MASK) == T_ICLASS
+        ic = Machine.value(cell)
+        if RClass.attached(ic) == mod && RClass.origin(mod) != ic
+          zr_ary_unshift(out, ic)
+        end
       end
       i += 1
     end
-    RClass.set_superclass(klass, o)
-    RClass.set_origin(klass, o)
+    a += 1
   end
-  c = klass
-  m = mod
-  while m != QNIL
-    origin = zr_type(m) == T_ICLASS ? RClass.attached(m) : m
-    unless zr_prepended_p(klass, origin)
-      ic = zr_iclass_new(origin, RClass.superclass(c))
-      RClass.set_superclass(c, ic)
-      c = ic
+  out
+end
+
+# `include`: `mod`'s chain after `klass`'s origin, and after each
+# proxy of a module `klass` already in another chain that lacks it.
+sig [Value, Value] => Void
+machine def zr_include_module(klass, mod)
+  zr_splice_modules(klass, zr_origin(klass), mod, true)
+  if zr_type(klass) != T_MODULE
+    return
+  end
+  proxies = zr_proxies_of(klass)
+  i = 0
+  while i < RArray.len(proxies)
+    ic = zr_ary_at(proxies, i)
+    unless zr_chain_includes(ic, mod)
+      zr_splice_modules(ic, zr_origin(ic), mod, true)
     end
-    m = RClass.superclass(m)
+    i += 1
   end
 end
 
-# Whether `mod` already stands between `klass` and its origin: only
-# those count against a prepend, not an include further down.
-sig [Value, Value] => Bool
-machine def zr_prepended_p(klass, mod)
-  k = RClass.superclass(klass)
-  stop = RClass.origin(klass)
-  while k != QNIL && k != stop
-    if zr_type(k) == T_ICLASS && RClass.attached(k) == mod
-      return true
-    end
-    k = RClass.superclass(k)
+# The class's methods moved to an origin proxy right under it, where
+# `super` from them starts; nothing when it has one.
+sig [Value] => Bool
+machine def zr_ensure_origin(klass)
+  if RClass.origin(klass) != QNIL
+    return false
   end
-  false
+  o = zr_iclass_new(klass, RClass.superclass(klass))
+  ext = malloc(ClassExt.size)
+  zr_memcpy(ext, RClass.ext(klass), ClassExt.size)
+  ClassExt.set_ctab(ext, 0)
+  ClassExt.set_clen(ext, 0)
+  ClassExt.set_ccap(ext, 0)
+  zr_ivtab_init(ClassExt.iv(ext))
+  zr_ivtab_init(ClassExt.cv(ext))
+  RClass.set_ext(o, ext)
+  ClassExt.set_mtab(RClass.ext(klass), 0)
+  ClassExt.set_mlen(RClass.ext(klass), 0)
+  ClassExt.set_mcap(RClass.ext(klass), 0)
+  i = 0
+  while i < ClassExt.mlen(ext)
+    e = ClassExt.mtab(ext) + (i * MEntry.size)
+    if MEntry.meta(e) != 0 && FrameMeta.owner(MEntry.meta(e)) == klass
+      FrameMeta.set_owner(MEntry.meta(e), o)
+    end
+    i += 1
+  end
+  RClass.set_superclass(klass, o)
+  RClass.set_origin(klass, o)
+  true
+end
+
+# `prepend`: `mod`'s chain between `klass` and its origin, and between
+# each proxy of a module `klass` and that proxy's origin, which a
+# proxy made before the module had one gets here.
+sig [Value, Value] => Void
+machine def zr_prepend_module(klass, mod)
+  fresh = zr_ensure_origin(klass)
+  zr_splice_modules(klass, klass, mod, false)
+  if zr_type(klass) != T_MODULE
+    return
+  end
+  proxies = zr_proxies_of(klass)
+  i = 0
+  while i < RArray.len(proxies)
+    ic = zr_ary_at(proxies, i)
+    if fresh && RClass.origin(ic) == QNIL
+      o = zr_iclass_new(RClass.origin(klass), RClass.superclass(ic))
+      RClass.set_superclass(ic, o)
+      RClass.set_origin(ic, o)
+    end
+    zr_splice_modules(ic, ic, mod, false)
+    i += 1
+  end
 end
 
 # `prepend_features(base)`: the module (self) ahead of `base`'s own
@@ -297,7 +379,7 @@ machine def zr_alias(klass, new_id, old_id)
     zr_buf_byte(b, 39)
     return zr_raise_buf(zr_global(G_NAME_ERROR), b)
   end
-  zr_method_add_vis(klass, new_id, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e), MEntry.vis(e))
+  zr_method_copy(klass, new_id, e, MEntry.meta(e), MEntry.vis(e))
   zr_method_added(klass, new_id)
 end
 
@@ -697,7 +779,17 @@ machine def zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
   MEntry.set_meta(e, meta)
   MEntry.set_cref(e, cref)
   MEntry.set_vis(e, vis)
+  MEntry.set_orig(e, mid)
   ClassExt.set_mlen(ext, n + 1)
+end
+
+# The entry `e` again on `klass` as `mid`, keeping the name it was
+# first defined under.
+sig [Value, Word, Ptr, Ptr, Word] => Void
+machine def zr_method_copy(klass, mid, e, meta, vis)
+  orig = MEntry.orig(e)
+  zr_method_add_vis(klass, mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), meta, MEntry.cref(e), vis)
+  MEntry.set_orig(zr_find_method_at(zr_origin(klass), mid), orig)
 end
 
 # `private`, `public`, `protected` and `module_function` as a class
@@ -753,13 +845,13 @@ machine def zr_set_method_visibility(klass, mid, vis, modfn)
     return zr_raise_buf(zr_global(G_NAME_ERROR), b)
   end
   if modfn != 0
-    zr_method_add_vis(zr_singleton_class(klass), mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e), VIS_PUBLIC)
+    zr_method_copy(zr_singleton_class(klass), mid, e, MEntry.meta(e), VIS_PUBLIC)
     vis = VIS_PRIVATE
   end
   if zr_find_method_at(zr_origin(klass), mid) == e
     MEntry.set_vis(e, vis)
   else
-    zr_method_add_vis(zr_origin(klass), mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e), vis)
+    zr_method_copy(zr_origin(klass), mid, e, MEntry.meta(e), vis)
   end
   Machine.value(QNIL)
 end

@@ -313,7 +313,7 @@ machine def zr_mod_included_modules(recv, argc, argv, cref, blk)
   out = zr_ary_new(8)
   k = RClass.superclass(recv)
   while k != QNIL
-    if zr_type(k) == T_ICLASS && RClass.origin(k) == QNIL && zr_type(RClass.attached(k)) == T_MODULE
+    if zr_type(k) == T_ICLASS && RClass.origin(k) == QNIL && k != RClass.origin(recv) && zr_type(RClass.attached(k)) == T_MODULE
       zr_ary_push(out, RClass.attached(k))
     end
     k = RClass.superclass(k)

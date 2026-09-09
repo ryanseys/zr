@@ -172,7 +172,7 @@ machine def zr_mod_define_method(recv, argc, argv, cref, blk)
         zr_buf_class(b, owner)
         return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
       end
-      zr_method_add_vis(recv, mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), zr_meta_owned_by(MEntry.meta(e), recv), MEntry.cref(e), zr_definition_vis(mid, cref))
+      zr_method_copy(recv, mid, e, zr_meta_owned_by(MEntry.meta(e), recv), zr_definition_vis(mid, cref))
       r = zr_method_added(recv, mid)
       return r if r == QUNDEF
       return zr_sym(mid)
