@@ -1,3 +1,4 @@
+# native only: external iteration runs on a fiber
 p [1, 2].each.inspect, [1, 2].each_slice(2).inspect, [1, 2].map.inspect, [1, 2].each.size, [1, 2].each_slice(2).size, (1..3).each.size, 3.times.size
 p [1, 2].each_with_index.to_a, [1, 2].each.with_index(1).to_a, [1, 2].map.with_index { |x, i| x * i }, [1, 2].each_with_object([]).to_a, { a: 1 }.each.to_a, { a: 1 }.map.with_index.to_a, %w[a b].each_with_index.map { |s, i| s * (i + 1) }
 e = [1, 2].each

@@ -1,8 +1,8 @@
 # Enumerator: an iteration held as an object. One made by `to_enum`
 # sends its method with the block it is given; one made with a block
 # runs the block with a Yielder. External iteration (`next`, `peek`)
-# reads a buffer the whole iteration fills, so it does not suit an
-# endless one.
+# runs the iteration on its own fiber, one value per resume, so an
+# endless iteration is fine.
 class Enumerator
   include Enumerable
 
@@ -95,24 +95,34 @@ class Enumerator
   alias each_with_object with_object
 
   def next
-    fill unless @buffer
-    raise_stop if @position >= @buffer.size
-
-    value = @buffer[@position]
-    @position += 1
-    value
+    values = next_values
+    values.size <= 1 ? values[0] : values
   end
 
   def peek
-    fill unless @buffer
-    raise_stop if @position >= @buffer.size
+    values = peek_values
+    values.size <= 1 ? values[0] : values
+  end
 
-    @buffer[@position]
+  def next_values
+    if @lookahead
+      values = @lookahead
+      @lookahead = nil
+      return values
+    end
+
+    take_next
+  end
+
+  def peek_values
+    @lookahead ||= take_next
+    @lookahead.dup
   end
 
   def rewind
-    @buffer = nil
-    @position = 0
+    @fiber = nil
+    @lookahead = nil
+    @stop = nil
     self
   end
 
@@ -126,21 +136,36 @@ class Enumerator
 
   private
 
-  # External iteration reads a buffer the whole iteration fills; the
-  # value the iteration answered is the StopIteration's result.
-  def fill
+  # Each `next` resumes the fiber that runs the iteration; the block
+  # yields every value set back as an array. When the iteration ends,
+  # its answer becomes the StopIteration's result, and every later
+  # `next` raises a fresh StopIteration caused by the first.
+  def take_next
     Primitive.attr! :hidden
-    buffer = []
-    @result = each { |*values| buffer << (values.size <= 1 ? values[0] : values) }
-    @buffer = buffer
-    @position = 0
+    raise_stop if @stop
+    @fiber = Fiber.new { run } unless @fiber&.alive?
+    values = @fiber.resume
+    if @stop
+      @fiber = nil
+      @lookahead = nil
+      raise @stop
+    end
+    values
+  end
+
+  def run
+    Primitive.attr! :hidden
+    result = each { |*values| Fiber.yield(values) }
+    @stop = StopIteration.new("iteration reached an end")
+    Primitive.zr_hidden_set(@stop, :result, result)
+    nil
   end
 
   def raise_stop
     Primitive.attr! :hidden
-    e = StopIteration.new("iteration reached an end")
-    Primitive.zr_hidden_set(e, :result, @result)
-    raise e
+    e = StopIteration.new(@stop.message)
+    Primitive.zr_hidden_set(e, :result, @stop.result)
+    raise e, cause: @stop
   end
 
   def enumerate(receiver, method, args, kwargs, size)
