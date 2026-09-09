@@ -648,10 +648,15 @@ machine def zr_str_succ(recv, argc, argv, cref, blk)
       if break_here
         return zr_buf_take(b)
       end
-      # a carry past the leftmost alphanumeric inserts a new one
+      # a carry past the leftmost alphanumeric inserts a new one; so
+      # does one that would cross a gap into the other kind (a letter
+      # after a digit, or a digit after a letter)
       j = i - 1
       while j >= 0 && !zr_alnum_p(Machine.word(Machine.load8(p + j, 0)))
         j -= 1
+      end
+      if j >= 0 && j < i - 1 && (c <= 57) != (Machine.word(Machine.load8(p + j, 0)) <= 57)
+        j = 0 - 1
       end
       if j < 0
         first = c == 122 ? 97 : (c == 90 ? 65 : 49)

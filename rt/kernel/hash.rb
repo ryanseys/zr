@@ -68,6 +68,9 @@ machine def zr_key_eql(a, b)
     end
     return true
   end
+  if t == T_REGEXP
+    return RRegexp.options(a) == RRegexp.options(b) && zr_key_eql(RRegexp.source(a), RRegexp.source(b))
+  end
   if t == T_OBJECT
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(b))

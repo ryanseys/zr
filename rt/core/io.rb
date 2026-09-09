@@ -192,10 +192,11 @@ class IO
     check_readable
     separator, limit = $/, separator if separator.is_a?(Integer)
     line = read_line(separator, limit)
+    $_ = nil
     return nil if line.nil?
 
     @lineno += 1
-    chomp ? chomp_line(line, separator) : line
+    $_ = chomp ? chomp_line(line, separator) : line
   end
 
   def readline(*args, **options)

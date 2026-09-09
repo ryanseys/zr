@@ -50,3 +50,26 @@ p /#{x}/.source, /a#{1 + 1}b/.match("a2b")[0], /#{x}/i.options, /#{"."}/.source,
 GC.start
 big = ("ab" * 1000)
 p big.scan(/ab/).size, big.gsub(/b/, "").size, big.match(/(ab)+/)[0].size, big =~ /b\z/, 100.times.map { |i| "x#{i}y".match(/\d+/)[0].to_i }.sum
+r = Regexp.new('a\Kb')
+p r =~ "ab", r.match("ab").begin(0), "ab".index(r), "ab" =~ r, "ab".sub(r, "Z"), "ab".scan(r), "ab".split(Regexp.new('a\K'))
+p "abc".split(//, -1), "abc".split(//, 2), "a,b,,".split(/,/, -1), "a1b2c3".split(/(\d)/, 2), "".split(/,/), "".split(",", -1), "1a2b".split(/(\d)/), " one two  three ".split(" ", 2), " one two  three ".split(" ", -1), "   ".split(" ", -1), "trail   ".split(" ", 3), "a b".split(" ", 1), "abc".split("", -1), "abc".split(/(?=b)/), "a".split("a")
+p "abc".gsub(/$/, "!"), "x\ny".gsub(/$/, "!"), "a\nb".gsub(/^/, ">"), "hello world".gsub(/\b/, "|"), "abc".sub(/$/, "!")
+m = "hello".match(/(l)(o)/)
+p m[-1], m[-2], m[-3], m[..1], m[1..], m[0, 2], (m.begin(5) rescue $!.class), (m.begin(-1) rescue $!.message), m.bytebegin(1), m.byteend(2), m.values_at(1..2), m.values_at(1..9), m.values_at(0, -1), m.deconstruct_keys([:x, :y]), ("ab".match(/(?<a>a)/).deconstruct_keys(["a"]) rescue $!.class), "ab".match(/(?<a>a)/).deconstruct_keys([:a, :b]), m.instance_variables
+p(/ab/.hash == /ab/i.hash, { /ab/ => 1 }[Regexp.new("ab")], [/a/, /a/, /b/].uniq, Regexp.new("a", "ii").options, (Regexp.new("a", "z") rescue $!.message), (Regexp.new("[z-a]", Regexp::IGNORECASE | Regexp::MULTILINE) rescue $!.message))
+p "ab".sub(/(?<x>b)/, "[\\1]"), "ab".sub(/(?<x>b)/, "[\\k<x>]"), "ab".sub(/(a)(b)?/, '\+'), "a.".sub(/(a)(b)?/, '\+'), Regexp.new("a\0b").to_s, Regexp.new("a\0b").inspect, Regexp.new("a/b").to_s, Regexp.new("a\tb").inspect
+class Tag < String; end
+tag = Tag.new("abc-123")
+re = /\A[a-z]+-\d+\z/
+p re === tag, re === 42, $~, re === :abc, $~, (/b/ === :abc), $~[0]
+$_ = "the year 2026 arrives"
+p(~ /(\d+)/, $1, (~ /x/), /a/.timeout, Regexp.timeout)
+p "日本語" =~ /\w/, "日本語" =~ /\W/, "λx" =~ /\b/, "日本語" =~ /[[:word:]]/, "日" =~ /(?u)\w/, "λx" =~ /(?a)\b/, "日" =~ /(?a)[[:word:]]/, "日" =~ /(?a)\p{Word}/, " " =~ /\s/, " " =~ /[[:space:]]/, "1２" =~ /\d+/, "x" =~ /[^\W]/, "日" =~ /[\W]/, "é" =~ /\p{Upper}/i, "É" =~ /\p{^Lower}/i, "ǆ" =~ /\p{Lt}/i, "aé".match(/\w+/)[0], "ſ" =~ /\w/i, /(?u)\w/i.inspect, Regexp.union(/\w/, /(?a)\b/).source
+p Regexp.new("\\C-a") =~ "\x01", Regexp.new("\\cA") =~ "\x01", Regexp.new("\\C-a").source.bytes, (Regexp.new("\\M-a") rescue $!.message), (Regexp.new("\\M-\\C-a") rescue $!.message), (Regexp.new("\\M") rescue $!.message), (Regexp.new("\\C-\\C-a") rescue $!.message), (Regexp.new("\\C-\\xZZ") rescue $!.message), Regexp.new("\\\\M-a") =~ "\\M-a", /\u{61 62}/.match("ab")[0], /A/ =~ "A", (Regexp.new("\\u{zz}") rescue $!.message)
+p Regexp.linear_time?(/(a+)+/), Regexp.linear_time?(/(a)\1/), Regexp.linear_time?(/(?<x>a)\k<x>/), Regexp.linear_time?(/(?~a)/), Regexp.linear_time?("a*")
+s = "\xff".dup.force_encoding("UTF-8")
+p((s =~ /a/ rescue [$!.class, $!.message]), (s.match?(/a/) rescue $!.class), (s.gsub(/a/, "b") rescue $!.class), ("\xff".b =~ /a/))
+p "a-9".succ, "Az".succ, "zz".succ, "a9".succ, "-9".succ, "1-z".succ, "1.9".succ, "Zz".succ
+p "hello".byteindex("l"), "héllo".byteindex("l"), "héllo".byteindex(/l/, 3), ("héllo".byteindex("l", 2) rescue $!.message), "héllo".byterindex("l"), "héllo".byterindex(/l/, 4), "ab\xffc".b.scrub, "ab\xffc".dup.force_encoding("UTF-8").scrub, "ab\xffc".dup.force_encoding("UTF-8").scrub("?"), "ab\xffc".dup.force_encoding("UTF-8").scrub { |b| "<#{b.unpack1('H*')}>" }
+p :b.between?(:a, :c), :b.clamp(:c, :d), [1, 2].repeated_combination(2).to_a, [1, 2, 3].repeated_combination(2).size, [1, 2].repeated_permutation(2).to_a, [1, 2].repeated_permutation(0).to_a, "ff".to_i(16), "0x1f".to_i(16), "z".to_i(36), "12".to_i(2), ("1".to_i(1) rescue $!.message), [1, 2, 3].values_at(1..9), [1, 2, 3].values_at(-2..), [1, 2, 3].values_at(0...1, 5..6)
+p((begin; [1].fetch(-2); rescue IndexError => e; e.message; end), (begin; [].first(-1); rescue ArgumentError => e; e.message; end), (begin; [][-1, 0] = 1; rescue IndexError => e; e.message; end))

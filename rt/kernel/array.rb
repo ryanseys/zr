@@ -70,8 +70,8 @@ machine def zr_ary_store(a, i, v)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("index "), 6)
       zr_buf_long(b, i - n)
-      zr_buf_push(b, Machine.bytes(" too small for array; minimum: -"), 32)
-      zr_buf_long(b, n)
+      zr_buf_push(b, Machine.bytes(" too small for array; minimum: "), 31)
+      zr_buf_long(b, 0 - n)
       return zr_raise_buf(zr_global(G_INDEX_ERROR), b)
     end
   end
@@ -490,8 +490,8 @@ machine def zr_ary_splice(a, beg_v, len_v, vals)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("index "), 6)
       zr_buf_long(b, beg - n)
-      zr_buf_push(b, Machine.bytes(" too small for array; minimum: -"), 32)
-      zr_buf_long(b, n)
+      zr_buf_push(b, Machine.bytes(" too small for array; minimum: "), 31)
+      zr_buf_long(b, 0 - n)
       return zr_raise_buf(zr_global(G_INDEX_ERROR), b)
     end
   end

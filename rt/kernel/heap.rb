@@ -28,7 +28,7 @@ end
 # The frame chain the collector walks: a record is a Frame followed by
 # `nvalues` Values.
 # `mid` is the name a method frame was called by, an alias's own.
-Machine.struct :Frame, prev: Ptr, meta: Ptr, line: Word, serial: Word, self: Value, cref: Value, blk: Value, nvalues: Word, mid: Word, svar: Value
+Machine.struct :Frame, prev: Ptr, meta: Ptr, line: Word, serial: Word, self: Value, cref: Value, blk: Value, nvalues: Word, mid: Word, svar: Value, lastline: Value
 Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word, kw: Word, stack_limit: Ptr, guards: Value, catches: Value, throw_tag: Value, mid: Word
 
 # The runtime's own roots: the core classes and the main object.
@@ -219,6 +219,7 @@ machine def zr_mark_task(t)
     zr_mark(Frame.cref(rec))
     zr_mark(Frame.blk(rec))
     zr_mark(Frame.svar(rec))
+    zr_mark(Frame.lastline(rec))
     n = Frame.nvalues(rec)
     i = 0
     while i < n

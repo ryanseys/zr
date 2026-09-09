@@ -14,8 +14,6 @@ Machine.import "onig_foreach_name", [Ptr, Ptr, Ptr] => I32
 
 Machine.struct :RRegexp, basic: RBasic, source: Value, options: Word, reg: Ptr, names: Value
 T_REGEXP = 31
-# ONIG_OPTION_WORD_IS_ASCII | DIGIT_IS_ASCII | SPACE_IS_ASCII: Ruby's \w, \d, \s and \b stay ASCII.
-ASCII_CLASSES = 458752
 G_REGEXP = 42
 G_REGEXP_LITERALS = 43
 
@@ -31,11 +29,12 @@ machine def zr_onig_ready
   end
 end
 
-# The pattern `source` compiled with `options` (Ruby's bits, which
-# are oniguruma's): the Regexp, or [error code, the text the error
-# points at] for the core to raise.
-sig [Value, Value, Value] => Value
-machine def zr_regexp_compile(klass, source, options)
+# The pattern `source` (what the engine reads), compiled with `options`
+# (Ruby's bits, which are oniguruma's): the Regexp, or [error code, the
+# text the error points at] for the core to raise. `shown` is the text
+# as written, which the Regexp reports as its source.
+sig [Value, Value, Value, Value] => Value
+machine def zr_regexp_compile(klass, source, shown, options)
   zr_onig_ready()
   reg = Machine.slot(8)
   info = Machine.slot(24)
@@ -43,7 +42,7 @@ machine def zr_regexp_compile(klass, source, options)
   Machine.store64(info, 8, 0)
   Machine.store64(info, 16, 0)
   enc = zr_str_binary_p(source) ? Machine.extern(:OnigEncodingASCII) : Machine.extern(:OnigEncodingUTF8)
-  r = onig_new(reg, RString.ptr(source), RString.ptr(source) + RString.len(source), Machine.i32((zr_fix2long(options) & 7) | ASCII_CLASSES), enc, Machine.extern(:OnigSyntaxRuby), info)
+  r = onig_new(reg, RString.ptr(source), RString.ptr(source) + RString.len(source), Machine.i32(zr_fix2long(options) & 7), enc, Machine.extern(:OnigSyntaxRuby), info)
   if r != Machine.i32(0)
     out = zr_ary_new(2)
     code = Machine.word(r)
@@ -57,15 +56,16 @@ machine def zr_regexp_compile(klass, source, options)
     return out
   end
   re = zr_alloc(T_REGEXP, klass)
-  RRegexp.set_source(re, source)
+  RRegexp.set_source(re, shown)
   RRegexp.set_options(re, zr_fix2long(options))
   RRegexp.set_reg(re, Machine.ptr(Machine.load64(reg, 0)))
   RRegexp.set_names(re, Machine.value(QNIL))
   re
 end
 
-# A regexp literal: compiled the first time its site runs, then the
-# same frozen object, held in the literal table by the site's index.
+# A regexp literal: compiled by the core the first time its site runs,
+# then the same frozen object, held in the literal table by the site's
+# index.
 sig [Word, Ptr, Word, Word] => Value
 machine def zr_regexp_literal(index, bytes, len, options)
   table = zr_global(G_REGEXP_LITERALS)
@@ -80,11 +80,11 @@ machine def zr_regexp_literal(index, bytes, len, options)
   if re != QNIL
     return re
   end
-  source = zr_str_frozen(bytes, len)
-  re = zr_regexp_compile(zr_global(G_REGEXP), source, zr_fix(options))
-  if zr_type(re) == T_ARRAY
-    return zr_raise_msg(zr_core_class(Machine.id(:RegexpError)), Machine.bytes("regexp literal"), 14)
-  end
+  slot = Machine.slot(16)
+  Machine.store64(slot, 0, Machine.word(zr_str_frozen(bytes, len)))
+  Machine.store64(slot, 8, Machine.word(zr_fix(options)))
+  re = zr_send(zr_global(G_REGEXP), Machine.id(:literal), 2, slot)
+  return re if re == QUNDEF
   RBasic.set_flags(re, RBasic.flags(re) | FL_FREEZE)
   zr_ary_store(table, index, re)
   re
@@ -140,8 +140,9 @@ machine def zr_regexp_name_row(name, name_end, count, groups, reg, arg)
 end
 
 # Search `str` from byte `start` (backwards to it when `backward`):
-# nil, or the byte offsets [begin0, end0, begin1, end1, ...], -1 for
-# a group that did not take part.
+# nil, or [position, begin0, end0, begin1, end1, ...]: the byte the
+# match started at (before a `\K`), then every group's offsets, -1
+# for a group that did not take part.
 sig [Value, Value, Value, Value] => Value
 machine def zr_regexp_search(re, str, start, backward)
   region = onig_region_new()
@@ -155,7 +156,7 @@ machine def zr_regexp_search(re, str, start, backward)
     onig_region_free(region, Machine.i32(1))
     return Machine.value(QNIL)
   end
-  out = zr_region_offsets(region)
+  out = zr_region_offsets(region, code)
   onig_region_free(region, Machine.i32(1))
   out
 end
@@ -172,17 +173,18 @@ machine def zr_regexp_match_at(re, str, start)
     onig_region_free(region, Machine.i32(1))
     return Machine.value(QNIL)
   end
-  out = zr_region_offsets(region)
+  out = zr_region_offsets(region, zr_fix2long(start))
   onig_region_free(region, Machine.i32(1))
   out
 end
 
-sig [Ptr] => Value
-machine def zr_region_offsets(region)
+sig [Ptr, Word] => Value
+machine def zr_region_offsets(region, position)
   n = Machine.word(Machine.load32(region, 4))
   begs = Machine.ptr(Machine.load64(region, 8))
   ends = Machine.ptr(Machine.load64(region, 16))
-  out = zr_ary_new(n * 2)
+  out = zr_ary_new(n * 2 + 1)
+  zr_ary_push(out, zr_fix(position))
   i = 0
   while i < n
     b = Machine.word(Machine.load32(begs + (i * 4), 0))
@@ -255,4 +257,20 @@ sig [] => Value
 machine def zr_backref_get
   home = zr_backref_home()
   home == 0 ? Machine.value(QNIL) : Frame.svar(home)
+end
+
+# `$_`, the last line read, lives beside `$~`.
+sig [Value] => Value
+machine def zr_lastline_set(v)
+  home = zr_backref_home()
+  if home != 0
+    Frame.set_lastline(home, v)
+  end
+  v
+end
+
+sig [] => Value
+machine def zr_lastline_get
+  home = zr_backref_home()
+  home == 0 ? Machine.value(QNIL) : Frame.lastline(home)
 end

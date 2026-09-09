@@ -58,21 +58,39 @@ class Regexp
            when true then IGNORECASE
            when Integer then options & 7
            when String
-             options.each_char.sum do |c|
-               { "i" => IGNORECASE, "x" => EXTENDED, "m" => MULTILINE }.fetch(c) { raise ArgumentError, "unknown regexp option: #{options}" }
+             options.each_char.reduce(0) do |acc, c|
+               acc | { "i" => IGNORECASE, "x" => EXTENDED, "m" => MULTILINE }.fetch(c) { raise ArgumentError, "unknown regexp option: #{options}" }
              end
            else raise TypeError, "no implicit conversion of #{options.class} into Integer"
            end
-    raise RegexpError, "upper is smaller than lower in repeat range: /#{source}/" if inverted_interval?(source)
+    compile_source(source, bits)
+  end
 
-    result = Primitive.zr_regexp_compile(self, source.frozen? ? source : source.dup.freeze, bits)
+  # A literal's Regexp, for the kernel's literal table.
+  def self.literal(source, bits) = compile_source(source, bits)
+  private_class_method :literal
+
+  # `source` compiled with the option `bits`; a RegexpError names the
+  # reason, then the pattern as written with its flags.
+  def self.compile_source(source, bits)
+    source = source.dup.freeze unless source.frozen?
+    written = "/#{source}/#{(bits & MULTILINE != 0 ? 'm' : '')}#{(bits & IGNORECASE != 0 ? 'i' : '')}#{(bits & EXTENDED != 0 ? 'x' : '')}"
+    raise RegexpError, "upper is smaller than lower in repeat range: #{written}" if inverted_interval?(source)
+
+    begin
+      text = Pattern.engine_text(source, bits & EXTENDED != 0, source.encoding == Encoding::BINARY)
+    rescue RegexpError => e
+      raise RegexpError, "#{e.message}: #{written}"
+    end
+    result = Primitive.zr_regexp_compile(self, text.frozen? ? text : text.dup.freeze, source, bits)
     if result.is_a?(Array)
       code, at = result
-      text = (ERRORS[code] || "regexp error #{code}").sub("%n", at.to_s)
-      raise RegexpError, "#{text}: /#{source}/"
+      reason = (ERRORS[code] || "regexp error #{code}").sub("%n", at.to_s)
+      raise RegexpError, "#{reason}: #{written}"
     end
     result
   end
+  private_class_method :compile_source
 
   # `a{2,1}`: an interval whose upper bound is below its lower one, which
   # Ruby refuses where oniguruma would read it as possessive.
@@ -163,17 +181,11 @@ class Regexp
     on = +""
     off = +""
     { "m" => MULTILINE, "i" => IGNORECASE, "x" => EXTENDED }.each { |letter, bit| (options & bit != 0 ? on : off) << letter }
-    "(?#{on}#{off.empty? ? '' : "-#{off}"}:#{source})"
+    "(?#{on}#{off.empty? ? '' : "-#{off}"}:#{shown_source})"
   end
 
   def inspect
-    text = +"/"
-    escaped = false
-    source.each_char do |c|
-      text << (c == "/" && !escaped ? "\\/" : c)
-      escaped = c == "\\" && !escaped
-    end
-    text << "/"
+    text = "/#{shown_source}/"
     text << "m" if options & MULTILINE != 0
     text << "i" if options & IGNORECASE != 0
     text << "x" if options & EXTENDED != 0
@@ -208,22 +220,70 @@ class Regexp
     text = text.to_s if text.is_a?(Symbol)
     pos += text.size if pos < 0
     return false if pos < 0 || pos > text.size
+    raise ArgumentError, "invalid byte sequence in #{text.encoding}" unless text.valid_encoding?
 
     !Primitive.zr_regexp_search(self, text, Primitive.zr_str_char_offset_m(text, pos), false).nil?
   end
 
+  # The character the search matched at (before a `\K`), or nil.
   def =~(text)
     result = match(text)
-    result && result.begin(0)
+    result && Primitive.zr_str_byte_to_char(result.string, result.send(:position))
   end
 
   def ===(text)
-    return false unless text.is_a?(String) || text.is_a?(Symbol)
+    unless text.is_a?(String) || text.is_a?(Symbol)
+      Primitive.zr_backref_set(nil)
+      return false
+    end
 
     !match(text).nil?
   end
 
+  # `~ re`: the match against `$_`.
+  def ~
+    line = $_
+    return match(nil) unless line.is_a?(String)
+
+    self =~ line
+  end
+
+  # False for what memoization cannot cover: backreferences, subexp
+  # calls and the absence operator.
+  def self.linear_time?(regexp, options = nil, timeout: nil)
+    regexp = new(regexp, options) unless regexp.is_a?(Regexp)
+    !regexp.source.match?(/\\(?:[1-9]|k<|k'|g<|g')|\(\?~/)
+  end
+
+  def self.timeout = nil
+
+  def self.timeout=(seconds)
+    Primitive.zr_unimplemented("Regexp.timeout=") unless seconds.nil?
+
+    nil
+  end
+
   private
+
+  # The source as inspect and to_s show it: a bare `/` escaped, a
+  # control character as `\xHH`, whitespace as itself.
+  def shown_source
+    Primitive.attr! :hidden
+    text = +""
+    escaped = false
+    source.each_char do |c|
+      code = c.ord
+      if c == "/" && !escaped
+        text << "\\/"
+      elsif code < 0x20 && !" \t\n\v\f\r".include?(c) || code == 0x7f
+        text << format("\\x%02X", code)
+      else
+        text << c
+      end
+      escaped = c == "\\" && !escaped
+    end
+    text
+  end
 
   # The named groups in definition order: [[name, [group numbers]], ...].
   def name_rows
@@ -234,12 +294,16 @@ class Regexp
   # The match at byte `from`, searching forward, or backward to it.
   def search(text, from, backward)
     Primitive.attr! :hidden
+    raise ArgumentError, "invalid byte sequence in #{text.encoding}" unless text.valid_encoding?
+
     offsets = Primitive.zr_regexp_search(self, text, from, backward)
     offsets && MatchData.send(:for, self, text, offsets)
   end
 
   def match_at(text, from)
     Primitive.attr! :hidden
+    raise ArgumentError, "invalid byte sequence in #{text.encoding}" unless text.valid_encoding?
+
     offsets = Primitive.zr_regexp_match_at(self, text, from)
     offsets && MatchData.send(:for, self, text, offsets)
   end
@@ -253,63 +317,86 @@ class MatchData
   end
   private_class_method :for
 
-  def regexp = @regexp
+  def regexp = Primitive.zr_hidden_get(self, :regexp)
 
-  def string = @string
+  def string = Primitive.zr_hidden_get(self, :string)
 
-  def names = @regexp.is_a?(Regexp) ? @regexp.names : []
+  def names = regexp.is_a?(Regexp) ? regexp.names : []
 
-  def size = @offsets.size / 2
+  def size = offsets.size / 2
 
   alias length size
 
-  def to_a = (0...size).map { |i| self[i] }
+  def to_a = (0...size).map { |i| group(i) }
 
   def captures = to_a.drop(1)
 
   alias deconstruct captures
 
   def named_captures(symbolize_names: false)
-    return {} unless @regexp.is_a?(Regexp)
+    return {} unless regexp.is_a?(Regexp)
 
-    @regexp.send(:name_rows).to_h do |name, groups|
+    regexp.send(:name_rows).to_h do |name, groups|
       value = groups.reverse.map { |g| group(g) }.find { |v| !v.nil? }
       [symbolize_names ? name.to_sym : name, value]
     end
   end
 
+  # More keys than named groups answer an empty Hash; a key with no
+  # group ends the walk.
   def deconstruct_keys(keys)
+    raise TypeError, "wrong argument type #{keys.class} (expected Array or nil)" unless keys.nil? || keys.is_a?(Array)
+
     all = named_captures(symbolize_names: true)
-    keys.nil? ? all : all.slice(*keys)
+    return all if keys.nil?
+    return {} if keys.size > all.size
+
+    out = {}
+    keys.each do |key|
+      raise TypeError, "wrong argument type #{key.class} (expected Symbol)" unless key.is_a?(Symbol)
+      break unless all.key?(key)
+
+      out[key] = all[key]
+    end
+    out
   end
 
+  # A group by number (a negative one counts back over the groups, never
+  # reaching the whole match), by name, or a run of them.
   def [](index, length = nil)
     return to_a[index, length] if length
     case index
     when Integer
-      i = index < 0 ? index + size : index
-      i >= 0 && i < size ? group(i) : nil
+      if index < 0
+        index += size
+        return nil if index <= 0
+      end
+      index < size ? group(index) : nil
     when String, Symbol then group(named_group(index))
     when Range then to_a[index]
     else raise TypeError, "no implicit conversion of #{index.class} into Integer"
     end
   end
 
-  def values_at(*indexes) = indexes.map { |i| i.is_a?(Integer) ? self[i] : self[i] }
+  def values_at(*indexes) = indexes.flat_map { |i| i.is_a?(Range) ? to_a.values_at(i) : [self[i]] }
 
   def begin(index)
     b = byte_begin(index)
-    b && Primitive.zr_str_byte_to_char(@string, b)
+    b && Primitive.zr_str_byte_to_char(string, b)
   end
 
   def end(index)
     e = byte_end(index)
-    e && Primitive.zr_str_byte_to_char(@string, e)
+    e && Primitive.zr_str_byte_to_char(string, e)
   end
 
   def offset(index)
     [self.begin(index), self.end(index)]
   end
+
+  def bytebegin(index) = byte_begin(index)
+
+  def byteend(index) = byte_end(index)
 
   def byteoffset(index)
     [byte_begin(index), byte_end(index)]
@@ -322,48 +409,61 @@ class MatchData
     value && value.size
   end
 
-  def pre_match = @string.byteslice(0, @offsets[0])
+  def pre_match = string.byteslice(0, offsets[0])
 
-  def post_match = @string.byteslice(@offsets[1], @string.bytesize - @offsets[1])
+  def post_match = string.byteslice(offsets[1], string.bytesize - offsets[1])
 
   # `$+`: the last group that took part.
   def last_group
     captures.reverse.find { |c| !c.nil? }
   end
 
-  def to_s = self[0]
+  def to_s = group(0)
 
   def ==(other)
-    other.is_a?(MatchData) && @regexp == other.regexp && @string == other.string && @offsets == other.instance_variable_get(:@offsets)
+    other.is_a?(MatchData) && regexp == other.regexp && string == other.string && offsets == other.send(:offsets)
   end
 
   alias eql? ==
 
-  def hash = [@regexp, @string, @offsets].hash
+  def hash = [regexp, string, offsets].hash
 
   def inspect
     labels = Array.new(size - 1) { |i| (i + 1).to_s }
-    @regexp.send(:name_rows).each { |name, groups| groups.each { |g| labels[g - 1] = name } } if @regexp.is_a?(Regexp)
-    parts = [self[0].inspect]
-    labels.each_with_index { |label, i| parts << "#{label}:#{self[i + 1].inspect}" }
+    regexp.send(:name_rows).each { |name, groups| groups.each { |g| labels[g - 1] = name } } if regexp.is_a?(Regexp)
+    parts = [group(0).inspect]
+    labels.each_with_index { |label, i| parts << "#{label}:#{group(i + 1).inspect}" }
     "#<MatchData #{parts.join(' ')}>"
   end
 
   private
 
+  # `offsets` is [position, begin0, end0, begin1, end1, ...]: the byte
+  # the search matched at, then every group's byte span.
   def matched(regexp, text, offsets)
     Primitive.attr! :hidden
-    @regexp = regexp
-    @string = text.frozen? ? text : text.dup.freeze
-    @offsets = offsets
+    Primitive.zr_hidden_set(self, :regexp, regexp)
+    Primitive.zr_hidden_set(self, :string, text.frozen? ? text : text.dup.freeze)
+    Primitive.zr_hidden_set(self, :position, offsets[0])
+    Primitive.zr_hidden_set(self, :offsets, offsets.drop(1))
+  end
+
+  def offsets
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :offsets)
+  end
+
+  # The byte the search matched at, which a `\K` may leave before the
+  # match's own beginning.
+  def position
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :position)
   end
 
   def group(index)
     Primitive.attr! :hidden
-    raise IndexError, "index #{index} out of matches" if index.nil? || index < 0 || index >= size
-
-    b = @offsets[index * 2]
-    b < 0 ? nil : @string.byteslice(b, @offsets[index * 2 + 1] - b)
+    b = offsets[index * 2]
+    b < 0 ? nil : string.byteslice(b, offsets[index * 2 + 1] - b)
   end
 
   def byte_begin(index)
@@ -371,7 +471,7 @@ class MatchData
     index = named_group(index) unless index.is_a?(Integer)
     raise IndexError, "index #{index} out of matches" if index < 0 || index >= size
 
-    b = @offsets[index * 2]
+    b = offsets[index * 2]
     b < 0 ? nil : b
   end
 
@@ -380,16 +480,16 @@ class MatchData
     index = named_group(index) unless index.is_a?(Integer)
     raise IndexError, "index #{index} out of matches" if index < 0 || index >= size
 
-    e = @offsets[index * 2 + 1]
+    e = offsets[index * 2 + 1]
     e < 0 ? nil : e
   end
 
   def named_group(name)
     Primitive.attr! :hidden
-    row = @regexp.is_a?(Regexp) ? @regexp.send(:name_rows).find { |n, _| n == name.to_s } : nil
+    row = regexp.is_a?(Regexp) ? regexp.send(:name_rows).find { |n, _| n == name.to_s } : nil
     raise IndexError, "undefined group name reference: #{name}" unless row
 
-    row[1].reverse.find { |g| @offsets[g * 2] >= 0 } || row[1].last
+    row[1].reverse.find { |g| offsets[g * 2] >= 0 } || row[1].last
   end
 end
 

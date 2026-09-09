@@ -281,21 +281,26 @@ class String
     self
   end
 
+  # CRuby's four splits: awk (nil or " "), characters (""), a String
+  # and a Regexp. A positive limit caps the pieces; a negative one keeps
+  # trailing empty pieces; zero drops them.
   def split(pattern = nil, limit = 0)
-    return split_words(limit) if pattern.nil? || pattern == " "
-    return split_by_regexp(pattern, limit) if pattern.is_a?(Regexp)
-    raise TypeError, "wrong argument type #{pattern.class} (expected Regexp)" unless pattern.is_a?(String)
-    return split_chars(limit) if pattern.empty?
-
-    out = []
-    start = 0
-    while (limit <= 0 || out.size < limit - 1) && (i = byte_index(pattern, start))
-      out << byteslice_of(start, i - start)
-      start = i + pattern.bytesize
+    limit = limit.to_int unless limit.is_a?(Integer)
+    if limit == 1
+      return block_given? ? (yield dup; self) : (empty? ? [] : [dup])
     end
-    out << byteslice_of(start, bytesize - start)
+    pattern = $; if pattern.nil?
+    out = if pattern.nil? || pattern == " " then split_words(limit)
+          elsif pattern.is_a?(Regexp) then split_by_regexp(pattern, limit)
+          elsif !pattern.is_a?(String) then raise TypeError, "wrong argument type #{pattern.class} (expected Regexp)"
+          elsif pattern.empty? then split_chars(limit)
+          else split_by_string(pattern, limit)
+          end
     out.pop while limit == 0 && !out.empty? && out.last.empty?
-    out
+    return out unless block_given?
+
+    out.each { |piece| yield piece }
+    self
   end
 
   # `sub`: the first match replaced by `replacement` with its `\1`,
@@ -323,18 +328,17 @@ class String
       Primitive.zr_backref_set(match)
       from, to = match.byteoffset(0)
       out << byteslice_of(start, from - start) << replacement_for(match, replacement, &block)
+      start = to
       if to == from
-        break if from >= bytesize
+        break if to >= bytesize
 
-        step = Primitive.zr_str_char_len_at_m(self, from)
-        out << byteslice_of(from, step)
-        start = from + step
-      else
-        start = to
+        step = Primitive.zr_str_char_len_at_m(self, to)
+        out << byteslice_of(to, step)
+        start = to + step
       end
     end
     Primitive.zr_backref_set(last)
-    out << byteslice_of(start, bytesize - start) if start <= bytesize
+    out << byteslice_of(start, bytesize - start) if bytesize > start
     out
   end
 
@@ -561,7 +565,9 @@ class String
   def rjust(width, pad = " ") = justify(width, pad, :right)
 
   def to_i(base = 10)
-    Primitive.zr_unimplemented("String#to_i with a base other than 10") unless base == 10
+    raise ArgumentError, "invalid radix #{base}" if base < 0 || base == 1 || base > 36
+    return lenient_integer(base) if base != 10
+
     i = 0
     i += 1 while i < bytesize && space_byte?(Primitive.zr_str_byte_at(self, i))
     sign = 1
@@ -643,6 +649,63 @@ class String
   end
 
   def valid_encoding? = Primitive.zr_str_valid_p(self)
+
+  # Every invalid byte replaced by `replacement` (U+FFFD, or the
+  # block's answer for the bad bytes).
+  def scrub(replacement = nil)
+    return dup if valid_encoding?
+
+    replacement = "\uFFFD" if replacement.nil? && !block_given?
+    out = +""
+    i = 0
+    while i < bytesize
+      step = Primitive.zr_str_char_len_at_m(self, i)
+      piece = byteslice(i, step)
+      if piece.valid_encoding?
+        out << piece
+      else
+        out << (block_given? ? yield(piece) : replacement)
+      end
+      i += step
+    end
+    out
+  end
+
+  def scrub!(replacement = nil, &block) = mutate(scrub(replacement, &block))
+
+  # Whether byte `at` starts a character (or ends the text).
+  def char_boundary?(at)
+    Primitive.attr! :hidden
+    at >= bytesize || (getbyte(at) & 0xC0) != 0x80
+  end
+
+  def byteindex(needle, start = 0)
+    start += bytesize if start < 0
+    return nil if start < 0 || start > bytesize
+    raise IndexError, "offset #{start} does not land on character boundary" unless char_boundary?(start)
+
+    if needle.is_a?(Regexp)
+      match = needle.send(:search, self, start, false)
+      return match && match.byteoffset(0)[0]
+    end
+    byte_index(needle, start)
+  end
+
+  def byterindex(needle, start = bytesize)
+    start += bytesize if start < 0
+    return nil if start < 0
+
+    start = bytesize if start > bytesize
+    raise IndexError, "offset #{start} does not land on character boundary" unless char_boundary?(start)
+
+    if needle.is_a?(Regexp)
+      match = needle.send(:search, self, start, true)
+      return match && match.byteoffset(0)[0]
+    end
+    i = [start, bytesize - needle.bytesize].min
+    i -= 1 while i >= 0 && byteslice_of(i, needle.bytesize) != needle
+    i >= 0 ? i : nil
+  end
 
   def unicode_normalize(*) = Primitive.zr_unimplemented("String#unicode_normalize")
 
@@ -798,29 +861,67 @@ class String
 
   def split_words(limit)
     out = []
+    beg = 0
+    stop = 0
+    skip = true
+    pieces = 1
     i = 0
-    i += 1 while i < bytesize && space_byte?(Primitive.zr_str_byte_at(self, i))
     while i < bytesize
-      if limit > 0 && out.size == limit - 1
-        out << byteslice_of(i, bytesize - i)
-        return out
+      space = space_byte?(Primitive.zr_str_byte_at(self, i))
+      i += 1
+      if skip
+        if space
+          beg = i
+        else
+          stop = i
+          skip = false
+          break if limit > 0 && limit <= pieces
+        end
+      elsif space
+        out << byteslice_of(beg, stop - beg)
+        skip = true
+        beg = i
+        pieces += 1
+      else
+        stop = i
       end
-      stop = i
-      stop += 1 while stop < bytesize && !space_byte?(Primitive.zr_str_byte_at(self, stop))
-      out << byteslice_of(i, stop - i)
-      i = stop
-      i += 1 while i < bytesize && space_byte?(Primitive.zr_str_byte_at(self, i))
     end
-    out
+    split_tail(out, beg, limit)
   end
 
   def split_chars(limit)
-    return chars if limit <= 0
-    return [dup] if limit == 1
+    out = []
+    beg = 0
+    pieces = 1
+    while beg < bytesize
+      step = Primitive.zr_str_char_len_at_m(self, beg)
+      out << byteslice_of(beg, step)
+      beg += step
+      pieces += 1
+      break if limit > 0 && limit <= pieces
+    end
+    split_tail(out, beg, limit)
+  end
 
-    out = chars.first(limit - 1)
-    rest = Primitive.zr_str_char_offset_m(self, limit - 1)
-    out << byteslice_of(rest, bytesize - rest) if rest && rest < bytesize
+  def split_by_string(pattern, limit)
+    out = []
+    beg = 0
+    pieces = 1
+    while (i = byte_index(pattern, beg))
+      break if limit > 0 && limit <= pieces
+
+      out << byteslice_of(beg, i - beg)
+      beg = i + pattern.bytesize
+      pieces += 1
+    end
+    split_tail(out, beg, limit)
+  end
+
+  # The text after the last piece: kept under a limit, or when it is
+  # not empty.
+  def split_tail(out, beg, limit)
+    Primitive.attr! :hidden
+    out << byteslice_of(beg, bytesize - beg) if bytesize > 0 && (limit != 0 || bytesize > beg)
     out
   end
 
@@ -832,7 +933,7 @@ class String
     raise TypeError, "wrong argument type #{pattern.class} (expected Regexp)" unless pattern.is_a?(String)
 
     at = byte_index(pattern, start)
-    at && MatchData.send(:for, pattern, self, [at, at + pattern.bytesize])
+    at && MatchData.send(:for, pattern, self, [at, at, at + pattern.bytesize])
   end
 
   # What replaces one match: the block's answer, the Hash's entry, or
@@ -845,6 +946,7 @@ class String
     text = replacement.to_str
     return text unless text.include?("\\")
 
+    numbered = !match.regexp.is_a?(Regexp) || match.regexp.names.empty?
     out = +""
     i = 0
     while i < text.bytesize
@@ -858,7 +960,8 @@ class String
       i += 2
       case d
       when "0", "&" then out << match[0]
-      when "1".."9" then out << (d.to_i < match.size ? match[d.to_i].to_s : "")
+      when "1".."9" then out << (numbered && d.to_i < match.size ? match[d.to_i].to_s : "")
+      when "+" then out << match.send(:last_group).to_s
       when "\\" then out << "\\"
       when "`" then out << match.pre_match
       when "'" then out << match.post_match
@@ -876,37 +979,39 @@ class String
     out
   end
 
-  # split by a Regexp: the text between matches, with the groups
-  # between them; an empty match splits characters.
+  # split by a Regexp, as CRuby walks it: the text between matches with
+  # the groups after each; an empty match at the search start skips one
+  # character, and splits the next time it is seen there.
   def split_by_regexp(pattern, limit)
     Primitive.attr! :hidden
     out = []
+    beg = 0
     start = 0
-    search_from = 0
-    while (limit <= 0 || out.size < limit - 1) && search_from <= bytesize && (match = pattern.send(:search, self, search_from, false))
+    last_null = false
+    pieces = 1
+    while (match = pattern.send(:search, self, start, false))
       from, to = match.byteoffset(0)
-      if to == from
-        if from >= bytesize
+      if start == from && from == to
+        if bytesize == 0
+          out << ""
           break
-        end
-        step = Primitive.zr_str_char_len_at_m(self, from)
-        if from == start
-          search_from = from + step
+        elsif last_null
+          out << byteslice_of(beg, Primitive.zr_str_char_len_at_m(self, beg))
+          beg = start
+        else
+          start += start == bytesize ? 1 : Primitive.zr_str_char_len_at_m(self, start)
+          last_null = true
           next
         end
-        out << byteslice_of(start, from - start)
-        start = from
-        search_from = from + step
       else
-        out << byteslice_of(start, from - start)
-        start = to
-        search_from = to
+        out << byteslice_of(beg, from - beg)
+        beg = start = to
       end
+      last_null = false
       match.captures.each { |c| out << c unless c.nil? }
+      break if limit > 0 && limit <= (pieces += 1)
     end
-    out << byteslice_of(start, bytesize - start)
-    out.pop while limit == 0 && !out.empty? && out.last.empty?
-    out
+    split_tail(out, beg, limit)
   end
 
   # The byte offset of `needle` at or after byte `start`, or nil.
@@ -953,6 +1058,8 @@ class Symbol
 end
 
 class Symbol
+  include Comparable
+
   def to_sym = self
   alias id2name to_s
   alias name to_s

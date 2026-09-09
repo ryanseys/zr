@@ -15,6 +15,7 @@ class Array
 
   def last(n = nil)
     return self[-1] if n.nil?
+    raise ArgumentError, "negative array size" if n < 0
 
     from = size - n
     from = 0 if from < 0
@@ -28,6 +29,7 @@ class Array
 
   def first(n = nil)
     return self[0] if n.nil?
+    raise ArgumentError, "negative array size" if n < 0
 
     out = []
     i = 0
@@ -191,6 +193,28 @@ class Array
   def difference(*others) = others.inject(self) { |acc, other| acc - other }
 
   def intersect?(other) = !(self & other).empty?
+
+  def repeated_combination(k)
+    return to_enum(:repeated_combination, k) { k < 0 ? 0 : (k == 0 ? 1 : (size + k - 1).downto(size).inject(1) { |a, b| a * b } / (1..k).inject(1) { |a, b| a * b }) } unless block_given?
+
+    if k == 0
+      yield []
+    elsif k > 0 && !empty?
+      pick_repeated(k, 0, []) { |c| yield c }
+    end
+    self
+  end
+
+  def repeated_permutation(k)
+    return to_enum(:repeated_permutation, k) { k < 0 ? 0 : size**k } unless block_given?
+
+    if k == 0
+      yield []
+    elsif k > 0 && !empty?
+      place_repeated(k, []) { |c| yield c }
+    end
+    self
+  end
 
   def combination(k)
     return to_enum(:combination, k) { k < 0 || k > size ? 0 : (1..size).inject(1) { |a, b| a * b } / ((1..k).inject(1) { |a, b| a * b } * (1..size - k).inject(1) { |a, b| a * b }) } unless block_given?
@@ -516,8 +540,22 @@ class Array
     self[n, size - n] + self[0, n]
   end
 
+  # A Range past the end pads with nils up to its end.
   def values_at(*indexes)
-    indexes.map { |i| i.is_a?(Range) ? self[i] : self[i] }.flatten(1)
+    indexes.flat_map do |i|
+      next [self[i]] unless i.is_a?(Range)
+
+      first = i.begin || 0
+      first += size if first < 0
+      raise RangeError, "#{i} out of range" if first < 0
+
+      last = i.end || size - 1
+      last += size if last < 0
+      last -= 1 if i.exclude_end? && i.end
+      next [] if last < first
+
+      (first..last).map { |j| self[j] }
+    end
   end
 
   def dig(index, *rest)
@@ -666,6 +704,26 @@ end
 
 class Array
   private
+
+  def pick_repeated(k, from, chosen, &block)
+    return yield(chosen.dup) if chosen.size == k
+
+    (from...size).each do |i|
+      chosen << self[i]
+      pick_repeated(k, i, chosen, &block)
+      chosen.pop
+    end
+  end
+
+  def place_repeated(k, chosen, &block)
+    return yield(chosen.dup) if chosen.size == k
+
+    each do |x|
+      chosen << x
+      place_repeated(k, chosen, &block)
+      chosen.pop
+    end
+  end
 
   # The `n` smallest (`direction` 1) or largest (-1) elements, in
   # sorted order.

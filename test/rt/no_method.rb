@@ -13,6 +13,7 @@ machine def zr_toplevel
   Frame.set_cref(rec, Machine.value(QNIL))
   Frame.set_blk(rec, Machine.value(QNIL))
   Frame.set_svar(rec, Machine.value(QNIL))
+  Frame.set_lastline(rec, Machine.value(QNIL))
   Frame.set_nvalues(rec, 1)
   Task.set_top(zr_task(), rec)
   argv = rec + Frame.size

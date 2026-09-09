@@ -40,7 +40,7 @@ module Ze0
             checked(kernel("zr_regexp_literal", imm(@l.regexp_index), @f.symbol_value(@f.symbol(@l.literal(node.source))), imm(node.source.bytesize), imm(node.options)))
           when Hir::IvarRead then kernel("zr_ivar_get", @self, imm(sym_id(node.name)))
           when Hir::GvarRead then gvar_read(node)
-          when Hir::GvarWrite then kernel("zr_gvar_set", imm(sym_id(node.name)), expr(node.value))
+          when Hir::GvarWrite then gvar_write(node.name, expr(node.value))
           when Hir::CvarRead then cvar_read(node)
           when Hir::CvarWrite then cvar_write(node)
           when Hir::ConstOrWrite then const_or_write(node)
@@ -130,14 +130,23 @@ module Ze0
         # `$!` is the task's, and any other lives in the globals table.
         # The globals the runtime does not answer yet: IO, require and
         # regexp state. The rest are plain globals the core sets at boot.
-        SPECIAL_GLOBALS = %i[$_ $. $<].freeze
+        SPECIAL_GLOBALS = %i[$. $<].freeze
 
         def gvar_read(node)
           return kernel("zr_errinfo") if node.name == :$!
           return kernel("zr_backref_get") if node.name == :$~
+          return kernel("zr_lastline_get") if node.name == :$_
 
           @l.refuse(node, "#{node.name} is not lowered yet") if SPECIAL_GLOBALS.include?(node.name)
           kernel("zr_gvar_get", imm(sym_id(node.name)))
+        end
+
+        # `$~` and `$_` live in the frame; the rest are plain globals.
+        def gvar_write(name, v)
+          return kernel("zr_backref_set", v) if name == :$~
+          return kernel("zr_lastline_set", v) if name == :$_
+
+          kernel("zr_gvar_set", imm(sym_id(name)), v)
         end
 
         def cvar_read(node)
