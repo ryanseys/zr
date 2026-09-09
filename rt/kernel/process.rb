@@ -1,5 +1,6 @@
 # Child processes: posix_spawn, which is not variadic, with a pipe
 # for the output backticks collect, and waitpid for the status.
+Machine.import "getrusage", [I32, Ptr] => I32
 Machine.import "posix_spawnp", [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr] => I32
 Machine.import "posix_spawn_file_actions_init", [Ptr] => I32
 Machine.import "posix_spawn_file_actions_adddup2", [Ptr, I32, I32] => I32
@@ -85,6 +86,18 @@ machine def zr_io_pipe
   out = zr_ary_new(2)
   zr_ary_push(out, zr_fix(Machine.word(Machine.load32(fds, 0))))
   zr_ary_push(out, zr_fix(Machine.word(Machine.load32(fds, 4))))
+  out
+end
+
+# `who`'s user and system time in seconds, `[utime, stime]`: a
+# rusage's two leading timevals (seconds, then microseconds).
+sig [Value] => Value
+machine def zr_proc_rusage(who)
+  ru = Machine.slot(144)
+  getrusage(Machine.i32(zr_fix2long(who)), ru)
+  out = zr_ary_new(2)
+  zr_ary_push(out, zr_float_new(Machine.to_f64(Machine.load64(ru, 0)) + (Machine.to_f64(Machine.word(Machine.load32(ru, 8))) / Machine.to_f64(1000000))))
+  zr_ary_push(out, zr_float_new(Machine.to_f64(Machine.load64(ru, 16)) + (Machine.to_f64(Machine.word(Machine.load32(ru, 24))) / Machine.to_f64(1000000))))
   out
 end
 

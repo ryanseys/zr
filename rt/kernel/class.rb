@@ -22,6 +22,9 @@ KIND_ATTR_WRITER = 4
 KIND_FRAMELESS = 5
 # An `undef`: the name answers nothing from here on down the chain.
 KIND_UNDEF = 6
+# A Method for a name `respond_to_missing?` claimed: a call goes to
+# `method_missing`.
+KIND_MISSING = 9
 
 sig [Word, Value, Value] => Value
 machine def zr_class_alloc(type, sup, klass)

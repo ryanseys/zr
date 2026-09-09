@@ -437,6 +437,12 @@ machine def zr_hash_size(recv, argc, argv, cref, blk)
   zr_fix(RHash.live(recv))
 end
 
+# The live count as a fixnum, for core code that must not dispatch.
+sig [Value] => Value
+machine def zr_hash_len_m(h)
+  zr_fix(RHash.live(h))
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_hash_empty_p(recv, argc, argv, cref, blk)
   zr_bool(RHash.live(recv) == 0)

@@ -49,7 +49,7 @@ machine def zr_cmperr(x, y)
   zr_buf_push(b, Machine.bytes("comparison of "), 14)
   zr_buf_str(b, zr_class_name_of(x))
   zr_buf_push(b, Machine.bytes(" with "), 6)
-  if zr_special_p(y)
+  if zr_special_p(y) || zr_float_p(y)
     s = zr_send(y, Machine.id(:inspect), 0, 0)
     return s if s == QUNDEF
     zr_buf_str(b, s)

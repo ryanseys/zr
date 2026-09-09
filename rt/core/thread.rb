@@ -388,6 +388,56 @@ class Thread
   send(:boot)
 end
 
+class Fiber
+  class << self
+    # A fiber starts with a copy of its maker's storage, its own Hash,
+    # or none.
+    def new(storage: true, &block)
+      f = __new__(&block)
+      table = case storage
+              when true then current.storage
+              when nil, false then {}
+              when Hash then storage.dup
+              else raise TypeError, "wrong argument type #{storage.class} (expected Hash)"
+              end
+      Primitive.zr_hidden_set(f, :__storage__, table)
+      f
+    end
+
+    def [](key)
+      current.send(:storage_table)[storage_key(key)]
+    end
+
+    def []=(key, value)
+      current.send(:storage_table)[storage_key(key)] = value
+    end
+
+    private
+
+    def storage_key(key)
+      return key.to_sym if key.is_a?(String)
+      raise TypeError, "#{key.inspect} is not a symbol nor a string" unless key.is_a?(Symbol)
+
+      key
+    end
+  end
+
+  def storage = storage_table.dup
+
+  def storage=(hash)
+    Primitive.zr_warn_here_m("Fiber#storage= is experimental and may be removed in the future!")
+    raise TypeError, "wrong argument type #{hash.class} (expected Hash)" unless hash.is_a?(Hash) || hash.nil?
+
+    Primitive.zr_hidden_set(self, :__storage__, hash ? hash.dup : {})
+  end
+
+  private
+
+  def storage_table
+    Primitive.zr_hidden_get(self, :__storage__) || Primitive.zr_hidden_set(self, :__storage__, {})
+  end
+end
+
 class Thread::Mutex
   def initialize
     @owner = nil

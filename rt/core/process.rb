@@ -85,6 +85,13 @@ module Process
 
   def self.ppid = Primitive.zr_proc_ppid
 
+  Tms = Struct.new(:utime, :stime, :cutime, :cstime)
+
+  # This process's times, then its waited-for children's.
+  def self.times
+    Tms.new(*Primitive.zr_proc_rusage(0), *Primitive.zr_proc_rusage(-1))
+  end
+
   def self.kill(signal, *pids)
     number = signal.is_a?(Integer) ? signal : SIGNALS.fetch(signal.to_s.delete_prefix("SIG")) { raise ArgumentError, "unsupported signal 'SIG#{signal.to_s.delete_prefix('SIG')}'" }
     pids.each do |pid|

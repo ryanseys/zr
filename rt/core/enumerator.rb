@@ -151,7 +151,16 @@ class Enumerator
     @fiber = nil
     @lookahead = nil
     @stop = nil
+    @feed = nil
     self
+  end
+
+  # The value the paused `yield` answers at the next `next`.
+  def feed(value)
+    raise TypeError, "feed value already set" if @feed
+
+    @feed = [value]
+    nil
   end
 
   def inspect
@@ -159,8 +168,6 @@ class Enumerator
     args = parts.empty? ? "" : "(#{parts.join(', ')})"
     "#<Enumerator: #{@receiver.inspect}:#{@method}#{args}>"
   end
-
-  alias to_s inspect
 
   private
 
@@ -181,7 +188,9 @@ class Enumerator
     Primitive.attr! :hidden
     raise_stop if @stop
     @fiber = Fiber.new { run } unless @fiber&.alive?
-    values = @fiber.resume
+    fed = @feed
+    @feed = nil
+    values = @fiber.resume(fed&.first)
     if @stop
       @fiber = nil
       @lookahead = nil
@@ -501,11 +510,16 @@ class Enumerator::Lazy < Enumerator
     step(:with_index, block ? :run_with_index_each : :run_with_index, block, [offset], check: false, sized: true)
   end
 
-  def chunk(&block) = Primitive.zr_unimplemented("Enumerator::Lazy#chunk")
-  def chunk_while(&block) = Primitive.zr_unimplemented("Enumerator::Lazy#chunk_while")
-  def slice_when(&block) = Primitive.zr_unimplemented("Enumerator::Lazy#slice_when")
-  def slice_before(*, &block) = Primitive.zr_unimplemented("Enumerator::Lazy#slice_before")
-  def slice_after(*, &block) = Primitive.zr_unimplemented("Enumerator::Lazy#slice_after")
+  # The chunking methods stay Enumerable's, their enumerator made lazy.
+  def chunk(&block) = Enumerator::Lazy.from(super)
+
+  def chunk_while(&block) = Enumerator::Lazy.from(super)
+
+  def slice_when(&block) = Enumerator::Lazy.from(super)
+
+  def slice_before(*, &block) = Enumerator::Lazy.from(super)
+
+  def slice_after(*, &block) = Enumerator::Lazy.from(super)
 
   def inspect
     parts = @args.map(&:inspect)
@@ -514,7 +528,13 @@ class Enumerator::Lazy < Enumerator
     "#<Enumerator::Lazy: #{@receiver.inspect}#{method}#{args}>"
   end
 
-  alias to_s inspect
+  # The eager forms, under the names CRuby keeps them by.
+  %i[map collect flat_map collect_concat select filter find_all filter_map reject grep grep_v zip take take_while drop drop_while uniq].each do |name|
+    define_method(:"_enumerable_#{name}", Enumerable.instance_method(name))
+    private :"_enumerable_#{name}"
+  end
+  define_method(:_enumerable_with_index, Enumerator.instance_method(:with_index))
+  private :_enumerable_with_index
 
   private
 

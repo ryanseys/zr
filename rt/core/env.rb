@@ -70,6 +70,20 @@ class << ENV
   end
   alias each_pair each
 
+  def each_key(&block)
+    return to_enum(:each_key) { size } unless block
+
+    keys.each(&block)
+    self
+  end
+
+  def each_value(&block)
+    return to_enum(:each_value) { size } unless block
+
+    values.each(&block)
+    self
+  end
+
   def to_h(&block)
     pairs = Primitive.zr_environment_list.map do |entry|
       i = entry.index("=") || entry.bytesize

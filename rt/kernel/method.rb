@@ -67,6 +67,9 @@ sig [Value, Value, Word] => Value
 machine def zr_method_new(recv, klass, mid)
   e = zr_find_method(klass, mid)
   if e == 0
+    if recv != QUNDEF && zr_respond_to_missing_p(recv, mid)
+      return zr_method_missing_new(recv, klass, mid)
+    end
     return zr_undefined_method(klass, mid)
   end
   owner = zr_method_owner(klass, mid)
@@ -75,6 +78,25 @@ machine def zr_method_new(recv, klass, mid)
   RMethod.set_klass(m, klass)
   RMethod.set_owner(m, owner)
   zr_memcpy(RMethod.entry(m), e, MEntry.size)
+  m
+end
+
+# A Method for a name the receiver only answers through
+# `method_missing`: owned by its class, any number of arguments.
+sig [Value, Value, Word] => Value
+machine def zr_method_missing_new(recv, klass, mid)
+  m = zr_alloc(T_METHOD, zr_global(G_METHOD))
+  RMethod.set_recv(m, recv)
+  RMethod.set_klass(m, klass)
+  RMethod.set_owner(m, zr_real_class(recv))
+  e = RMethod.entry(m)
+  MEntry.set_mid(e, mid)
+  MEntry.set_fn(e, 0)
+  MEntry.set_arity(e, 0 - 1)
+  MEntry.set_kind(e, KIND_MISSING)
+  MEntry.set_meta(e, 0)
+  MEntry.set_cref(e, Machine.value(QNIL))
+  MEntry.set_vis(e, VIS_PUBLIC)
   m
 end
 
@@ -197,7 +219,9 @@ sig [Value] => Value
 machine def zr_method_rows(m)
   e = RMethod.entry(m)
   meta = zr_method_meta(e)
-  if meta != 0 && FrameMeta.file_len(meta) > 0
+  # A core def answers as C does; a define_method body, the core's
+  # included, answers its block's table.
+  if meta != 0 && (FrameMeta.file_len(meta) > 0 || MEntry.kind(e) == KIND_BMETHOD)
     return zr_param_rows(FrameMeta.params(meta), false)
   end
   zr_arity_rows(zr_method_arity_of(m))

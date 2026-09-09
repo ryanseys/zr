@@ -107,10 +107,16 @@ module Ze0
           end
         end
 
+        # A frozen receiver refuses the write at this line.
+        def ivar_write(node, v)
+          at_line(node.line)
+          checked(kernel("zr_ivar_set", @self, imm(sym_id(node.name)), v))
+        end
+
         def assign_target(target, v, prepared)
           case target
           when Hir::Assign then write_local(slot_at(target), target.depth, v)
-          when Hir::IvarWrite then checked(kernel("zr_ivar_set", @self, imm(sym_id(target.name)), v))
+          when Hir::IvarWrite then ivar_write(target, v)
           when Hir::GvarWrite then gvar_write(target.name, v)
           when Hir::MultiTarget then destructure(target, v, prepared)
           when Hir::Send

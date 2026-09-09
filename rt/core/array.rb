@@ -171,7 +171,7 @@ class Array
 
   # `a <=> b`, or the block's answer, as an Integer; nil fails as
   # ruby's comparison does.
-  def compared(a, b, block)
+  def compared(a, b, block = nil)
     Primitive.attr! :hidden
     c = block ? block.call(a, b) : (a <=> b)
     Primitive.zr_cmperr(a, b) if c.nil?
@@ -382,7 +382,11 @@ class Array
 
   # A subclass answers a plain Array.
   def to_a = instance_of?(Array) ? self : Array.new(self)
-  def count(*args, &block) = args.empty? && !block ? size : super
+  def count(item = (none = true), &block)
+    return size if none && !block
+
+    none ? super(&block) : super(item, &block)
+  end
 
   # `pop(n)` takes the last n.
   def pop(n = nil)
@@ -824,7 +828,8 @@ class Array
     h
   end
 
-  def minmax(&block) = [min(&block), max(&block)]
+  # With a block, the one pass Enumerable makes.
+  def minmax(&block) = block ? super : [min, max]
 end
 
 class Array

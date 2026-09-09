@@ -409,10 +409,20 @@ machine def zr_int_times(recv, argc, argv, cref, blk)
   recv
 end
 
+# The size of `upto` or `downto` between two fixnums, else nil.
+sig [Value, Word, Ptr, Word] => Value
+machine def zr_int_step_size(recv, argc, argv, dir)
+  if argc != 1 || !zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
+    return Machine.value(QNIL)
+  end
+  n = ((zr_fix2long(Machine.value(Machine.load64(argv, 0))) - zr_fix2long(recv)) * dir) + 1
+  zr_fix(n < 0 ? 0 : n)
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_upto(recv, argc, argv, cref, blk)
   if blk == QNIL
-    return zr_enum_for(recv, Machine.id(:upto), argc, argv, Machine.value(QNIL))
+    return zr_enum_for(recv, Machine.id(:upto), argc, argv, zr_int_step_size(recv, argc, argv, 1))
   end
   out = Machine.slot(8)
   r = zr_int_operand(recv, argv, out, 0, 3)
@@ -430,7 +440,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_downto(recv, argc, argv, cref, blk)
   if blk == QNIL
-    return zr_enum_for(recv, Machine.id(:downto), argc, argv, Machine.value(QNIL))
+    return zr_enum_for(recv, Machine.id(:downto), argc, argv, zr_int_step_size(recv, argc, argv, 0 - 1))
   end
   out = Machine.slot(8)
   r = zr_int_operand(recv, argv, out, 0, 3)

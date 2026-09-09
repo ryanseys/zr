@@ -52,7 +52,7 @@ module Ze0
           when Hir::IndexOpAssign then index_op_assign(node)
           when Hir::AttrOpAssign then attr_op_assign(node)
           when Hir::Slot then @f.fetch("i64", @rec, value_offset(node.index))
-          when Hir::IvarWrite then checked(kernel("zr_ivar_set", @self, imm(sym_id(node.name)), expr(node.value)))
+          when Hir::IvarWrite then ivar_write(node, expr(node.value))
           when Hir::If then branch(node)
           when Hir::While then loop_while(node)
           when Hir::And, Hir::Or then logical(node)

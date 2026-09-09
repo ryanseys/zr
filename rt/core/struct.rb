@@ -28,16 +28,26 @@ class Struct
         k = k.superclass until Primitive.zr_hidden_get(k, :__members__)
         Primitive.zr_hidden_get(k, :__keyword_init__)
       end
-      klass.define_singleton_method(:inspect) { to_s }
+      klass.define_singleton_method(:inspect) { keyword_init? ? "#{self}(keyword_init: true)" : to_s }
       members.each_with_index do |member, i|
         klass.define_method(member) { Primitive.zr_hidden_get(self, :__values__)[i] }
-        klass.define_method(:"#{member}=") do |value|
+        klass.define_method(:"#{member}=") do |_|
           Primitive.zr_frozen_error(self) if frozen?
-          Primitive.zr_hidden_get(self, :__values__)[i] = value
+          Primitive.zr_hidden_get(self, :__values__)[i] = _
         end
       end
       klass.class_eval(&body) if body
       klass
+    end
+
+    # A member that inspects as a bare name: letters, digits and
+    # underscores, not starting with a digit.
+    def plain_member?(name)
+      Primitive.attr! :hidden
+      text = name.to_s
+      return false if text.empty? || text.getbyte(0) >= 48 && text.getbyte(0) <= 57
+
+      text.each_byte.all? { |b| (b >= 48 && b <= 57) || (b >= 65 && b <= 90) || (b >= 97 && b <= 122) || b == 95 }
     end
 
     private
@@ -60,24 +70,30 @@ class Struct
     end
   end
 
+  # Sizes come from the kernel: a program that patches Array#size or
+  # Hash#empty? cannot reach inside the constructor, as it cannot in
+  # CRuby's C.
   def initialize(*args, **keywords)
-    members = self.class.members
-    values = Array.new(members.size)
+    members = Primitive.zr_real_class(self).members
+    count = Primitive.zr_ary_len_m(members)
+    values = Array.new(count)
     Primitive.zr_hidden_set(self, :__values__, values)
-    keyword_init = self.class.keyword_init?
-    if keyword_init == false && !keywords.empty?
+    keyword_init = Primitive.zr_real_class(self).keyword_init?
+    given = Primitive.zr_ary_len_m(args)
+    if keyword_init == false && Primitive.zr_hash_len_m(keywords) > 0
       args << keywords
       keywords = {}
+      given += 1
     end
-    if keyword_init || (args.empty? && !keywords.empty?)
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0)" unless args.empty?
+    if keyword_init || (given == 0 && Primitive.zr_hash_len_m(keywords) > 0)
+      raise ArgumentError, "wrong number of arguments (given #{given}, expected 0)" unless given == 0
 
       unknown = keywords.keys - members
-      raise ArgumentError, "unknown keywords: #{unknown.join(', ')}" unless unknown.empty?
+      raise ArgumentError, "unknown keywords: #{unknown.join(', ')}" if Primitive.zr_ary_len_m(unknown) > 0
 
       keywords.each { |k, v| values[members.index(k)] = v }
     else
-      raise ArgumentError, "struct size differs" if args.size > members.size
+      raise ArgumentError, "struct size differs" if given > count
 
       args.each_with_index { |v, i| values[i] = v }
     end
@@ -88,7 +104,8 @@ class Struct
     Primitive.zr_hidden_set(self, :__values__, Primitive.zr_hidden_get(other, :__values__).dup)
   end
 
-  def members = self.class.members
+  # A member may be named `class`, so the class comes from the kernel.
+  def members = Primitive.zr_real_class(self).members
 
   def to_a = Primitive.zr_hidden_get(self, :__values__).dup
   alias deconstruct to_a
@@ -117,7 +134,7 @@ class Struct
     return to_enum(:each_pair) { size } unless block_given?
 
     values = Primitive.zr_hidden_get(self, :__values__)
-    members.each_with_index { |m, i| yield m, values[i] }
+    members.each_with_index { |m, i| yield [m, values[i]] }
     self
   end
 
@@ -160,28 +177,28 @@ class Struct
 
   def ==(other)
     return true if equal?(other)
-    return false unless other.class == self.class
+    return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
 
     Primitive.zr_hidden_get(self, :__values__) == Primitive.zr_hidden_get(other, :__values__)
   end
 
   def eql?(other)
     return true if equal?(other)
-    return false unless other.class == self.class
+    return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
 
     Primitive.zr_hidden_get(self, :__values__).eql?(Primitive.zr_hidden_get(other, :__values__))
   end
 
-  def hash = [self.class, Primitive.zr_hidden_get(self, :__values__)].hash
+  def hash = [Primitive.zr_real_class(self), Primitive.zr_hidden_get(self, :__values__)].hash
 
   def inspect
-    name = self.class.name
+    name = Primitive.zr_real_class(self).name
     head = name ? "#<struct #{name}" : "#<struct"
     return "#{head}:...>" if Primitive.zr_recursive_enter(self, :inspect)
 
     begin
-      pairs = members.zip(Primitive.zr_hidden_get(self, :__values__)).map { |m, v| "#{plain_member?(m) ? m : m.inspect}=#{v.inspect}" }
-      "#{head} #{pairs.join(', ')}>"
+      pairs = members.zip(Primitive.zr_hidden_get(self, :__values__)).map { |m, v| "#{Struct.plain_member?(m) ? m : m.inspect}=#{v.inspect}" }
+      pairs.empty? && name ? "#{head}>" : "#{head} #{pairs.join(', ')}>"
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
     end
@@ -189,15 +206,6 @@ class Struct
   alias to_s inspect
 
   private
-
-  # A member that inspects as a bare name: letters, digits and
-  # underscores, not starting with a digit.
-  def plain_member?(name)
-    text = name.to_s
-    return false if text.empty? || text.getbyte(0) >= 48 && text.getbyte(0) <= 57
-
-    text.each_byte.all? { |b| (b >= 48 && b <= 57) || (b >= 65 && b <= 90) || (b >= 97 && b <= 122) || b == 95 }
-  end
 
   # The index a member name or position names, or the error CRuby
   # raises for one that is out of range.

@@ -15,6 +15,12 @@ machine def zr_ary_new(capa)
   a
 end
 
+# The length as a fixnum, for core code that must not dispatch.
+sig [Value] => Value
+machine def zr_ary_len_m(a)
+  zr_fix(RArray.len(a))
+end
+
 sig [Value] => Void
 machine def zr_mark_ary(a)
   n = RArray.len(a)

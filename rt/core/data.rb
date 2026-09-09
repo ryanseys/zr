@@ -36,21 +36,28 @@ class Data
 
 
   def initialize(**kwargs)
-    members = self.class.members
+    members = Primitive.zr_real_class(self).members
     missing = members - kwargs.keys
-    unless missing.empty?
-      raise ArgumentError, "missing keyword#{missing.size > 1 ? 's' : ''}: #{missing.map(&:inspect).join(', ')}"
+    if Primitive.zr_ary_len_m(missing) > 0
+      raise ArgumentError, "missing keyword#{Primitive.zr_ary_len_m(missing) > 1 ? 's' : ''}: #{missing.map(&:inspect).join(', ')}"
     end
     unknown = kwargs.keys - members
-    unless unknown.empty?
-      raise ArgumentError, "unknown keyword#{unknown.size > 1 ? 's' : ''}: #{unknown.map(&:inspect).join(', ')}"
+    if Primitive.zr_ary_len_m(unknown) > 0
+      raise ArgumentError, "unknown keyword#{Primitive.zr_ary_len_m(unknown) > 1 ? 's' : ''}: #{unknown.map(&:inspect).join(', ')}"
     end
 
     Primitive.zr_hidden_set(self, :__values__, members.map { |m| kwargs[m] }.freeze)
     freeze
   end
 
-  def members = self.class.members
+  # A copy stays frozen, whatever `clone` was asked.
+  def initialize_copy(other)
+    super
+    freeze
+  end
+
+  # A member may be named `class`, so the class comes from the kernel.
+  def members = Primitive.zr_real_class(self).members
 
   def to_h(&block)
     pairs = members.zip(Primitive.zr_hidden_get(self, :__values__))
@@ -78,33 +85,33 @@ class Data
   def with(**kwargs)
     return self if kwargs.empty?
 
-    self.class.new(**to_h.merge(kwargs))
+    Primitive.zr_real_class(self).new(**to_h.merge(kwargs))
   end
 
   def ==(other)
     return true if equal?(other)
-    return false unless other.class == self.class
+    return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
 
     Primitive.zr_hidden_get(self, :__values__) == Primitive.zr_hidden_get(other, :__values__)
   end
 
   def eql?(other)
     return true if equal?(other)
-    return false unless other.class == self.class
+    return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
 
     Primitive.zr_hidden_get(self, :__values__).eql?(Primitive.zr_hidden_get(other, :__values__))
   end
 
-  def hash = [self.class, Primitive.zr_hidden_get(self, :__values__)].hash
+  def hash = [Primitive.zr_real_class(self), Primitive.zr_hidden_get(self, :__values__)].hash
 
   def inspect
-    name = self.class.name
+    name = Primitive.zr_real_class(self).name
     head = name ? "#<data #{name}" : "#<data"
     return "#{head}:...>" if Primitive.zr_recursive_enter(self, :inspect)
 
     begin
-      pairs = members.zip(Primitive.zr_hidden_get(self, :__values__)).map { |m, v| "#{m}=#{v.inspect}" }
-      pairs.empty? ? "#{head}>" : "#{head} #{pairs.join(', ')}>"
+      pairs = members.zip(Primitive.zr_hidden_get(self, :__values__)).map { |m, v| "#{Struct.plain_member?(m) ? m : m.inspect}=#{v.inspect}" }
+      pairs.empty? && name ? "#{head}>" : "#{head} #{pairs.join(', ')}>"
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
     end

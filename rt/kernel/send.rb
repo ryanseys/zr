@@ -106,6 +106,40 @@ machine def zr_kw_take
   kw
 end
 
+# A miss goes to the receiver's `method_missing` with the name in
+# front of the arguments; the base one raises as a plain miss does.
+sig [Value, Word, Word, Ptr, Value, Word, Word] => Value
+machine def zr_method_missing(recv, mid, argc, argv, blk, kw, mode)
+  e = zr_find_method(zr_class_of(recv), Machine.id(:method_missing))
+  if e == 0 || MEntry.fn(e) == Machine.addr(:zr_obj_method_missing)
+    return zr_no_method(recv, mid, mode == 1)
+  end
+  args = malloc((argc + 1) * 8)
+  Machine.store64(args, 0, Machine.word(zr_sym(mid)))
+  zr_memcpy(args + 8, argv, argc * 8)
+  # The base method_missing reads how the miss came about.
+  Task.set_missing(zr_task(), mode + 1)
+  r = zr_invoke(e, recv, argc + 1, args, blk, kw)
+  free(args)
+  r
+end
+
+# `BasicObject#method_missing`: the NoMethodError a miss raises.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_method_missing(recv, argc, argv, cref, blk)
+  if argc < 1
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("no method name given"), 20)
+  end
+  m = Machine.value(Machine.load64(argv, 0))
+  unless zr_symbol_p(m)
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("no id given"), 11)
+  end
+  t = zr_task()
+  reason = Task.missing(t)
+  Task.set_missing(t, 0)
+  zr_no_method(recv, zr_sym2id(m), reason == 2)
+end
+
 sig [Value, Word, Bool] => Value
 machine def zr_no_method(recv, mid, vcall)
   zr_no_method_from(recv, mid, vcall, false)
@@ -186,7 +220,7 @@ machine def zr_dispatch(recv, mid, argc, argv, mode, blk)
   kw = zr_kw_take()
   e = zr_find_method(zr_class_of(recv), mid)
   if e == 0
-    return zr_no_method(recv, mid, mode == 1)
+    return zr_method_missing(recv, mid, argc, argv, blk, kw, mode)
   end
   r = zr_check_visibility(e, recv, mid, mode)
   return r if r == QUNDEF
@@ -318,6 +352,9 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
   if MEntry.kind(e) == KIND_BMETHOD
     Task.set_kw(zr_task(), kw)
     return zr_bmethod_call(e, recv, argc, argv, blk)
+  end
+  if MEntry.kind(e) == KIND_MISSING
+    return zr_method_missing(recv, MEntry.mid(e), argc, argv, blk, kw, 2)
   end
   rec = Machine.slot(Frame.size)
   t = zr_task()

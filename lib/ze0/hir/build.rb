@@ -655,8 +655,19 @@ module Ze0
         line = node.location.start_line
         target = deepen(target(node.index), 0)
         body = node.statements ? deepen(seq(node.statements), 0) : Literal.new(nil, line)
-        bind = target.is_a?(MultiTarget) ? MultiAssign.new(target, Local.new(:"*for", 0, line), line) : target.tap { |t| t.value = Local.new(:"*for", 0, line) }
-        params = Params.new([:"*for"], [], nil, [], [], nil, nil)
+        value = Local.new(:"*for", 0, line)
+        if target.is_a?(MultiTarget)
+          # `for a, b in o` takes every value yielded, as `|a, b|` does:
+          # the block collects them, and one alone stands for itself.
+          got = Local.new(:"*for", 0, line)
+          one = Send.new(Send.new(got, :size, [], line, false, false, nil, nil, false, false), :==, [Literal.new(1, line)], line, false, false, nil, nil, false, false)
+          first = Send.new(got, :[], [Literal.new(0, line)], line, false, false, nil, nil, false, false)
+          bind = MultiAssign.new(target, If.new(one, first, got, line), line)
+          params = Params.new([], [], :"*for", [], [], nil, nil)
+        else
+          bind = target.is_a?(Send) ? target.tap { |t| t.args << value } : target.tap { |t| t.value = value }
+          params = Params.new([:"*for"], [], nil, [], [], nil, nil)
+        end
         block = Block.new(params, [:"*for"], Seq.new([bind, body], line), line)
         Send.new(expr(node.collection), :each, [], line, false, false, block, nil, false)
       end

@@ -9,12 +9,12 @@ machine def zr_data_new(recv, argc, argv, cref, blk)
     kwargs = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
     argc -= 1
   end
+  members = zr_send(recv, Machine.id(:members), 0, 0)
+  return members if members == QUNDEF
   if argc > 0
     if kwargs != QNIL
       return zr_wrong_arity(argc + 1, 0)
     end
-    members = zr_send(recv, Machine.id(:members), 0, 0)
-    return members if members == QUNDEF
     if argc > RArray.len(members)
       return zr_wrong_arity_range(argc, 0, RArray.len(members))
     end
@@ -30,6 +30,15 @@ machine def zr_data_new(recv, argc, argv, cref, blk)
   end
   o = zr_class_allocate(recv)
   return o if o == QUNDEF
+  # Every member reads nil until `initialize` sets it, as it does when a
+  # subclass's initialize never calls super.
+  values = zr_ary_new(RArray.len(members))
+  i = 0
+  while i < RArray.len(members)
+    zr_ary_push(values, Machine.value(QNIL))
+    i += 1
+  end
+  zr_ivar_set(o, Machine.id(:__values__), values)
   slot = Machine.slot(8)
   Machine.store64(slot, 0, Machine.word(kwargs))
   Task.set_kw(zr_task(), 1)

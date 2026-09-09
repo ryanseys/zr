@@ -407,6 +407,29 @@ machine def zr_obj_ne(recv, argc, argv, cref, blk)
   zr_bool(r == QNIL || r == QFALSE)
 end
 
+# Whether the receiver's own `respond_to_missing?` claims `mid`.
+sig [Value, Word] => Bool
+machine def zr_respond_to_missing_p(recv, mid)
+  e = zr_find_method(zr_class_of(recv), Machine.id(:respond_to_missing?))
+  if e == 0 || MEntry.fn(e) == Machine.addr(:zr_obj_respond_to_missing)
+    return false
+  end
+  pair = Machine.slot(16)
+  Machine.store64(pair, 0, Machine.word(zr_sym(mid)))
+  Machine.store64(pair, 8, QTRUE)
+  r = zr_invoke(e, recv, 2, pair, Machine.value(QNIL), 0)
+  r != QUNDEF && r != QNIL && r != QFALSE
+end
+
+# `Object#respond_to_missing?`: false, for a subclass to override.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_respond_to_missing(recv, argc, argv, cref, blk)
+  if argc != 2
+    return zr_wrong_arity(argc, 2)
+  end
+  Machine.value(QFALSE)
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_respond_to(recv, argc, argv, cref, blk)
   if argc < 1 || argc > 2
@@ -425,11 +448,11 @@ machine def zr_obj_respond_to(recv, argc, argv, cref, blk)
     zr_buf_push(b, Machine.bytes(" is not a symbol nor a string"), 29)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
+  all = argc == 2 && Machine.value(Machine.load64(argv, 8)) != QNIL && Machine.value(Machine.load64(argv, 8)) != QFALSE
   e = zr_find_method(zr_class_of(recv), zr_sym2id(m))
   if e == 0
-    return Machine.value(QFALSE)
+    return zr_bool(zr_respond_to_missing_p(recv, zr_sym2id(m)))
   end
-  all = argc == 2 && Machine.value(Machine.load64(argv, 8)) != QNIL && Machine.value(Machine.load64(argv, 8)) != QFALSE
   zr_bool(all || MEntry.vis(e) == VIS_PUBLIC)
 end
 
@@ -456,9 +479,16 @@ end
 # so the table is re-read after each.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_inspect(recv, argc, argv, cref, blk)
+  # As rb_obj_inspect: only a plain object shows its instance
+  # variables; anything else (a fixnum under a redefined Integer#inspect
+  # calling super) takes the address form.
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_obj_head(b, recv)
+  if zr_special_p(recv) || zr_type(recv) != T_OBJECT
+    zr_buf_byte(b, 62)
+    return zr_buf_take(b)
+  end
   i = 0
   shown = 0
   while i < IvTab.len(RObject.iv(recv))

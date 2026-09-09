@@ -136,10 +136,9 @@ module Enumerable
     true
   end
 
-  def count(*args)
+  def count(item = (none = true))
     n = 0
-    if !args.empty?
-      item = args[0]
+    if !none
       each do |*x|
         x = Primitive.zr_enum_value(x)
         n += 1 if x == item
@@ -320,7 +319,7 @@ module Enumerable
     each do |*x|
       x = Primitive.zr_enum_value(x)
       k = yield(x)
-      if first || (k <=> key) < 0
+      if first || compared(k, key) < 0
         best = x
         key = k
         first = false
@@ -341,7 +340,7 @@ module Enumerable
     each do |*x|
       x = Primitive.zr_enum_value(x)
       k = yield(x)
-      if first || (k <=> key) > 0
+      if first || compared(k, key) > 0
         best = x
         key = k
         first = false
@@ -359,7 +358,55 @@ module Enumerable
     to_a.max(n, &blk)
   end
 
-  def minmax(&block) = [min(&block), max(&block)]
+  # One pass, as CRuby makes it: the elements in pairs, each pair
+  # ordered once, then its low against the low so far and its high
+  # against the high.
+  def minmax(&block)
+    low = nil
+    high = nil
+    held = nil
+    pending = false
+    seen = false
+    each do |*x|
+      x = Primitive.zr_enum_value(x)
+      unless pending
+        held = x
+        pending = true
+        next
+      end
+      pending = false
+      a = held
+      b = x
+      a, b = b, a if compared(a, b, block) > 0
+      if seen
+        low = a if compared(a, low, block) < 0
+        high = b if compared(b, high, block) > 0
+      else
+        low = a
+        high = b
+        seen = true
+      end
+      nil
+    end
+    if pending && seen
+      low = held if compared(held, low, block) < 0
+      high = held if compared(held, high, block) > 0
+    elsif pending
+      low = held
+      high = held
+    end
+    [low, high]
+  end
+
+  # `a <=> b` through `block` when given, refused as CRuby refuses an
+  # answer of nil.
+  def compared(a, b, block = nil)
+    Primitive.attr! :hidden
+    c = block ? block.call(a, b) : (a <=> b)
+    Primitive.zr_cmperr(a, b) if c.nil?
+
+    c
+  end
 
   def one?(*pattern)
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
@@ -647,91 +694,117 @@ module Enumerable
     out
   end
 
-  def chunk_while
-    raise ArgumentError, "tried to create Proc object without a block" unless block_given?
+  # The slicing methods stream: each answers an enumerator that reads
+  # its source as it runs, so an endless source still gives its first
+  # slices.
+  def chunk_while(&block)
+    raise ArgumentError, "tried to create Proc object without a block" unless block
 
-    items = to_a
-    out = []
-    items.each_with_index do |x, i|
-      if i.zero? || !yield(items[i - 1], x)
-        out << [x]
-      else
-        out.last << x
-      end
-    end
-    Enumerator.new { |y| out.each { |slice| y << slice } }
+    sliced { |before, x| !block.call(before, x) }
   end
 
-  def slice_when
-    raise ArgumentError, "tried to create Proc object without a block" unless block_given?
+  def slice_when(&block)
+    raise ArgumentError, "tried to create Proc object without a block" unless block
 
-    items = to_a
-    out = []
-    items.each_with_index do |x, i|
-      if i.zero? || yield(items[i - 1], x)
-        out << [x]
-      else
-        out.last << x
-      end
-    end
-    Enumerator.new { |y| out.each { |slice| y << slice } }
+    sliced { |before, x| block.call(before, x) }
   end
 
   def slice_before(pattern = nil, &block)
     raise ArgumentError, "wrong number of arguments (given 0, expected 1)" if pattern.nil? && block.nil?
 
     test = pattern ? ->(x) { pattern === x } : block
-    out = []
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
-      if out.empty? || test.call(x)
-        out << [x]
-      else
-        out.last << x
+    source = self
+    Enumerator.new do |y|
+      slice = nil
+      source.each do |*x|
+        x = Primitive.zr_enum_value(x)
+        if slice.nil? || test.call(x)
+          y << slice if slice
+          slice = [x]
+        else
+          slice << x
+        end
+        nil
       end
-      nil
+      y << slice if slice
     end
-    Enumerator.new { |y| out.each { |slice| y << slice } }
   end
 
   def slice_after(pattern = nil, &block)
     raise ArgumentError, "wrong number of arguments (given 0, expected 1)" if pattern.nil? && block.nil?
 
     test = pattern ? ->(x) { pattern === x } : block
-    out = []
-    open = false
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
-      if open
-        out.last << x
-      else
-        out << [x]
+    source = self
+    Enumerator.new do |y|
+      slice = nil
+      source.each do |*x|
+        x = Primitive.zr_enum_value(x)
+        slice = slice ? slice << x : [x]
+        if test.call(x)
+          y << slice
+          slice = nil
+        end
+        nil
       end
-      open = !test.call(x)
-      nil
+      y << slice if slice
     end
-    Enumerator.new { |y| out.each { |slice| y << slice } }
   end
 
   def chunk
     return to_enum(:chunk) unless block_given?
 
-    out = []
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
-      key = yield(x)
-      if key.nil? || key == :_separator
-        out << nil unless out.empty? || out.last.nil?
-      elsif key == :_alone
-        out << [key, [x]]
-      elsif !out.empty? && !out.last.nil? && out.last[0] == key && key != :_alone
-        out.last[1] << x
-      else
-        out << [key, [x]]
+    source = self
+    Enumerator.new do |y|
+      key = nil
+      slice = nil
+      source.each do |*x|
+        x = Primitive.zr_enum_value(x)
+        k = yield(x)
+        if k.nil? || k == :_separator
+          y << [key, slice] if slice
+          slice = nil
+        elsif k == :_alone
+          y << [key, slice] if slice
+          y << [:_alone, [x]]
+          slice = nil
+        elsif k.is_a?(Symbol) && k.start_with?("_")
+          raise RuntimeError, "symbols beginning with an underscore are reserved"
+        elsif slice && key == k
+          slice << x
+        else
+          y << [key, slice] if slice
+          key = k
+          slice = [x]
+        end
+        nil
       end
-      nil
+      y << [key, slice] if slice
     end
-    Enumerator.new { |y| out.compact.each { |pair| y << pair } }
+  end
+
+  # An enumerator of runs, a new run starting where the block says
+  # the previous element and this one part.
+  def sliced(&part)
+    Primitive.attr! :hidden
+    source = self
+    Enumerator.new do |y|
+      slice = nil
+      before = nil
+      source.each do |*x|
+        x = Primitive.zr_enum_value(x)
+        if slice.nil?
+          slice = [x]
+        elsif part.call(before, x)
+          y << slice
+          slice = [x]
+        else
+          slice << x
+        end
+        before = x
+        nil
+      end
+      y << slice if slice
+    end
   end
 
   def chain(*others) = Enumerator::Chain.new(self, *others)

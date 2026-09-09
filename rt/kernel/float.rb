@@ -375,7 +375,7 @@ end
 # that crossed the number.
 sig [F64, Word, Word] => Value
 machine def zr_float_round_digits(d, digits, how)
-  if zr_nan_p(d) || zr_inf_p(d) || zr_float_round_overflow(d, digits)
+  if d == Machine.f64(0) || zr_nan_p(d) || zr_inf_p(d) || zr_float_round_overflow(d, digits)
     return zr_float_new(d)
   end
   if zr_float_round_underflow(d, digits) && (how == 0 || (how == 1 && d > Machine.f64(0)) || (how == 2 && d < Machine.f64(0)))

@@ -29,7 +29,7 @@ end
 # `nvalues` Values.
 # `mid` is the name a method frame was called by, an alias's own.
 Machine.struct :Frame, prev: Ptr, meta: Ptr, line: Word, serial: Word, self: Value, cref: Value, blk: Value, nvalues: Word, mid: Word, svar: Value, lastline: Value
-Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word, kw: Word, stack_limit: Ptr, guards: Value, catches: Value, throw_tag: Value, mid: Word
+Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word, kw: Word, stack_limit: Ptr, guards: Value, catches: Value, throw_tag: Value, mid: Word, missing: Word
 
 # The runtime's own roots: the core classes and the main object.
 G_BASIC_OBJECT = 0
