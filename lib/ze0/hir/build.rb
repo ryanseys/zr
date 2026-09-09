@@ -248,6 +248,8 @@ module Ze0
         when Prism::SourceFileNode then Literal.new(@file, line)
         when Prism::SourceLineNode then Literal.new(line, line)
         when Prism::InterpolatedSymbolNode then Send.new(interpolation(node, line), :to_sym, [], line, false)
+        when Prism::XStringNode then Send.new(nil, :`, [Literal.new(node.unescaped, line)], line, false)
+        when Prism::InterpolatedXStringNode then Send.new(nil, :`, [interpolation(node, line)], line, false)
         when Prism::ArrayNode
           ArrayLit.new(node.elements.map { |e| e.is_a?(Prism::SplatNode) ? Splat.new(expr(e.expression), line) : expr(e) }, line)
         when Prism::HashNode then HashLit.new(hash_pairs(node.elements), line)

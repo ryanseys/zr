@@ -128,16 +128,36 @@ machine def zr_str_set_encoding(s, kind)
   s
 end
 
-# Whether the join of two strings is binary: it is when either is,
-# and the other holds only ASCII; text with high bytes beside binary
-# has no encoding yet.
+# Whether the join of two strings is binary: when both are, or when
+# one is and the other holds only ASCII. A binary string of ASCII
+# beside non-ASCII text joins as text; non-ASCII on both sides is
+# CRuby's incompatibility error, not written yet.
 sig [Value, Value] => Bool
 machine def zr_str_join_binary_p(a, b)
   if zr_str_binary_p(a) == zr_str_binary_p(b)
     return zr_str_binary_p(a)
   end
-  if !zr_str_bytes_are_chars(zr_str_binary_p(a) ? b : a)
-    zr_unimplemented(zr_str_new(Machine.bytes("joining a binary String with non-ASCII text"), 43))
+  text = zr_str_binary_p(a) ? b : a
+  if zr_str_bytes_are_chars(text)
+    return true
+  end
+  binary = zr_str_binary_p(a) ? a : b
+  if zr_str_ascii_bytes_p(binary)
+    return false
+  end
+  zr_unimplemented(zr_str_new(Machine.bytes("joining a binary String with non-ASCII text"), 43))
+  true
+end
+
+sig [Value] => Bool
+machine def zr_str_ascii_bytes_p(s)
+  n = RString.len(s)
+  i = 0
+  while i < n
+    if Machine.word(Machine.load8(RString.ptr(s) + i, 0)) >= 128
+      return false
+    end
+    i += 1
   end
   true
 end
@@ -245,6 +265,8 @@ machine def zr_str_concat(recv, argc, argv, cref, blk)
   Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
   if binary
     zr_str_set_binary(recv)
+  elsif zr_str_binary_p(recv)
+    RBasic.set_flags(recv, RBasic.flags(recv) & (0 - (FL_BINARY + 1)))
   elsif (RBasic.flags(recv) & FL_USASCII) != 0 && !zr_str_bytes_are_chars(other)
     RBasic.set_flags(recv, RBasic.flags(recv) & (0 - (FL_USASCII + 1)))
   end
