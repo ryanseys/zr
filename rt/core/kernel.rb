@@ -16,8 +16,7 @@ module Kernel
 
   def Integer(value, base = nil, exception: true)
     if value.is_a?(String)
-      Primitive.zr_unimplemented("Integer() with a base") if base
-      n = parse_integer(value)
+      n = parse_integer(value, base || 0)
       return n if n || !exception
 
       raise ArgumentError, "invalid value for Integer(): #{value.inspect}"
@@ -69,20 +68,29 @@ module Kernel
   # The strict form: whitespace around, a sign, a `0x`, `0b`, `0o` or
   # `0d` prefix, digits with single underscores between them; nil on
   # anything else.
-  def parse_integer(text)
+  def parse_integer(text, base)
     Primitive.zr_str_ascii_check(text)
+    base = -base if base < 0
+    raise ArgumentError, "invalid radix #{base}" if base == 1 || base > 36
+
     s = text.strip
     sign = 1
     if s.start_with?("-", "+")
       sign = -1 if s.start_with?("-")
       s = s[1..]
     end
-    base = 10
-    if s.start_with?("0x", "0X") then base = 16; s = s[2..]
-    elsif s.start_with?("0b", "0B") then base = 2; s = s[2..]
-    elsif s.start_with?("0o", "0O") then base = 8; s = s[2..]
-    elsif s.start_with?("0d", "0D") then s = s[2..]
-    elsif s.start_with?("0") && s.bytesize > 1 then base = 8; s = s[1..]
+    if base == 0
+      base = 10
+      if s.start_with?("0x", "0X") then base = 16; s = s[2..]
+      elsif s.start_with?("0b", "0B") then base = 2; s = s[2..]
+      elsif s.start_with?("0o", "0O") then base = 8; s = s[2..]
+      elsif s.start_with?("0d", "0D") then s = s[2..]
+      elsif s.start_with?("0") && s.bytesize > 1 then base = 8
+      end
+    elsif base == 16 && s.start_with?("0x", "0X") then s = s[2..]
+    elsif base == 2 && s.start_with?("0b", "0B") then s = s[2..]
+    elsif base == 8 && s.start_with?("0o", "0O") then s = s[2..]
+    elsif base == 10 && s.start_with?("0d", "0D") then s = s[2..]
     end
     return nil if s.empty? || s.start_with?("_") || s.end_with?("_") || s.include?("__")
 

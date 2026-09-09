@@ -26,6 +26,10 @@ begin; Integer("abc"); rescue => e; puts "#{e.class}: #{e.message}"; end
 begin; Integer(nil); rescue => e; puts "#{e.class}: #{e.message}"; end
 begin; Integer([]); rescue => e; puts "#{e.class}: #{e.message}"; end
 begin; Integer(42, 10); rescue => e; puts "#{e.class}: #{e.message}"; end
+p Integer("ff", 16), Integer("0xff", 16), Integer("0b11", 16), Integer("0b11", 2), Integer("0o17", 8), Integer("017", 8), Integer("017", 10), Integer("017", 16), Integer("z", 36), Integer("0x12", 0), Integer("-0xff", 16), Integer("ff", -16), Integer("1_0", 2), Integer("0d19", 16), Integer("0_17"), Integer("0x1f", 10, exception: false), Integer("0x", 16, exception: false)
+begin; Integer("ff", 1); rescue => e; puts "#{e.class}: #{e.message}"; end
+begin; Integer("ff", -37, exception: false); rescue => e; puts "#{e.class}: #{e.message}"; end
+begin; Integer("0x_ff", 16); rescue => e; puts "#{e.class}: #{e.message}"; end
 p String(1), String(:a), String(nil), Array(nil), Array([1]), Array(1..3), Array(1), Array(a: 1)
 p 5.tap { |x| x + 1 }, 5.then { |x| x + 1 }, 5.yield_self { |x| x * 2 }, 5.then.class
 warn "to stderr"
