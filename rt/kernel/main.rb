@@ -128,6 +128,16 @@ machine def zr_boot
   zr_boot_name(G_NUMERIC, Machine.id(:Numeric))
   zr_boot_name(G_KEY_ERROR, Machine.id(:KeyError))
   zr_boot_name(G_SYSTEM_STACK_ERROR, Machine.id(:SystemStackError))
+  # Every boot class gets its metaclass, so a singleton method defined
+  # on an ancestor reaches it.
+  i = G_BASIC_OBJECT
+  while i < G_COUNT
+    k = zr_global(i)
+    if k != QNIL && !zr_special_p(k) && zr_type(k) == T_CLASS
+      zr_singleton_class(k)
+    end
+    i += 1
+  end
   zr_set_global(G_MAIN, zr_obj_alloc(zr_global(G_OBJECT)))
   zr_set_global(G_TOP_CREF, zr_cref_push(zr_global(G_OBJECT), Machine.value(QNIL)))
   # Kernel holds what CRuby's Kernel does; BasicObject has its few.
@@ -144,12 +154,13 @@ machine def zr_boot
   zr_builtin(zr_global(G_PROC), Machine.id(:parameters), Machine.addr(:zr_proc_parameters), 0)
   zr_builtin_private(zr_global(G_KERNEL), Machine.id(:p), Machine.addr(:zr_p), 0 - 1)
   zr_builtin_private(zr_global(G_KERNEL), Machine.id(:print), Machine.addr(:zr_print), 0 - 1)
-  zr_builtin(zr_global(G_KERNEL), Machine.id(:send), Machine.addr(:zr_obj_send), 0 - 1)
+  # `send` and `__send__` leave no backtrace row, as CRuby's do.
+  zr_define_method(zr_global(G_KERNEL), Machine.id(:send), Machine.addr(:zr_obj_send), 0 - 1, KIND_FRAMELESS, 0, Machine.value(QNIL))
   zr_builtin(zr_global(G_KERNEL), Machine.id(:eql?), Machine.addr(:zr_obj_eql_p), 1)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:hash), Machine.addr(:zr_obj_hash), 0)
   zr_builtin(zr_global(G_STRING), Machine.id(:hash), Machine.addr(:zr_str_hash), 0)
   zr_builtin(zr_global(G_STRING), Machine.id(:eql?), Machine.addr(:zr_str_eq), 1)
-  zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:__send__), Machine.addr(:zr_obj_send), 0 - 1)
+  zr_define_method(zr_global(G_BASIC_OBJECT), Machine.id(:__send__), Machine.addr(:zr_obj_send), 0 - 1, KIND_FRAMELESS, 0, Machine.value(QNIL))
   zr_builtin(zr_global(G_KERNEL), Machine.id(:public_send), Machine.addr(:zr_obj_public_send), 0 - 1)
   zr_builtin(zr_global(G_MODULE), Machine.id(:private), Machine.addr(:zr_mod_private), 0 - 1)
   zr_builtin(zr_global(G_MODULE), Machine.id(:public), Machine.addr(:zr_mod_public), 0 - 1)
@@ -235,6 +246,7 @@ machine def zr_boot
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:equal?), Machine.addr(:zr_obj_eq), 1)
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:!=), Machine.addr(:zr_obj_ne), 1)
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:!), Machine.addr(:zr_obj_not), 0)
+  zr_builtin(zr_global(G_CLASS), Machine.id(:allocate), Machine.addr(:zr_class_allocate_m), 0)
   zr_builtin(zr_global(G_CLASS), Machine.id(:new), Machine.addr(:zr_class_new_instance), 0 - 1)
   zr_builtin(zr_global(G_CLASS), Machine.id(:superclass), Machine.addr(:zr_class_superclass), 0)
   zr_builtin(zr_global(G_MODULE), Machine.id(:name), Machine.addr(:zr_class_name), 0)
@@ -317,10 +329,12 @@ machine def zr_boot
   zr_builtin(zr_global(G_ARRAY), Machine.id(:to_s), Machine.addr(:zr_ary_inspect), 0)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:==), Machine.addr(:zr_ary_eq), 1)
   zr_builtin(zr_global(G_EXCEPTION), Machine.id(:initialize), Machine.addr(:zr_exc_initialize), 0 - 1)
-  zr_builtin(zr_global(G_EXCEPTION), Machine.id(:message), Machine.addr(:zr_exc_message), 0)
-  zr_builtin(zr_global(G_EXCEPTION), Machine.id(:to_s), Machine.addr(:zr_exc_message), 0)
   zr_builtin(zr_global(G_EXCEPTION), Machine.id(:inspect), Machine.addr(:zr_exc_inspect), 0)
   zr_builtin(zr_global(G_EXCEPTION), Machine.id(:backtrace), Machine.addr(:zr_exc_backtrace), 0)
+  zr_builtin(zr_global(G_EXCEPTION), Machine.id(:set_backtrace), Machine.addr(:zr_exc_set_backtrace), 1)
+  zr_builtin(zr_global(G_EXCEPTION), Machine.id(:cause), Machine.addr(:zr_exc_cause), 0)
+  zr_builtin(zr_global(G_KERNEL), Machine.id(:dup), Machine.addr(:zr_obj_dup), 0)
+  zr_builtin(zr_global(G_KERNEL), Machine.id(:clone), Machine.addr(:zr_obj_clone), 0 - 1)
   zr_builtin(zr_global(G_HASH), Machine.id(:initialize), Machine.addr(:zr_hash_initialize), 0 - 1)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:initialize), Machine.addr(:zr_ary_initialize), 0 - 1)
   zr_builtin(zr_global(G_HASH), Machine.id(:[]), Machine.addr(:zr_hash_aref), 1)

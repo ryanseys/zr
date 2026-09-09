@@ -123,6 +123,11 @@ module Ze0
                   end
           at_line(node.line)
           argc = kernel("zr_kw_argc", argc, argv) if node.kwargs
+          if node.name == :new
+            mode = node.vcall ? 1 : (explicit?(node) ? 2 : 0)
+            return checked(kernel("zr_new", recv, argc, argv, imm(mode)))
+          end
+
           checked(kernel(entry, recv, imm(sym_id(node.name)), argc, argv))
         end
 

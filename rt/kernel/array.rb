@@ -291,6 +291,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_aset(recv, argc, argv, cref, blk)
+  if zr_frozen_p(recv)
+    return zr_frozen_error(recv)
+  end
   out = Machine.slot(8)
   r = zr_index_operand(Machine.value(Machine.load64(argv, 0)), out)
   return r if r == QUNDEF
@@ -299,6 +302,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_push_m(recv, argc, argv, cref, blk)
+  if zr_frozen_p(recv)
+    return zr_frozen_error(recv)
+  end
   i = 0
   while i < argc
     zr_ary_push(recv, Machine.value(Machine.load64(argv + (i * 8), 0)))
@@ -309,6 +315,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_pop(recv, argc, argv, cref, blk)
+  if zr_frozen_p(recv)
+    return zr_frozen_error(recv)
+  end
   n = RArray.len(recv)
   if n == 0
     return Machine.value(QNIL)
@@ -452,4 +461,78 @@ machine def zr_masgn_right(ary, nlefts, nrights, i)
     start = nlefts
   end
   zr_ary_at(ary, start + i)
+end
+
+# `a[beg, len] = vals`, the one edit every mutation is: the `len`
+# elements from `beg` leave and `vals`'s elements take their place. A
+# start past the end fills with nil first.
+sig [Value, Value, Value, Value] => Value
+machine def zr_ary_splice(a, beg_v, len_v, vals)
+  if zr_frozen_p(a)
+    return zr_frozen_error(a)
+  end
+  beg = zr_fix2long(beg_v)
+  len = zr_fix2long(len_v)
+  n = RArray.len(a)
+  if beg < 0
+    beg += n
+    if beg < 0
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("index "), 6)
+      zr_buf_long(b, beg - n)
+      zr_buf_push(b, Machine.bytes(" too small for array; minimum: -"), 32)
+      zr_buf_long(b, n)
+      return zr_raise_buf(zr_global(G_INDEX_ERROR), b)
+    end
+  end
+  if len < 0
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("negative length ("), 17)
+    zr_buf_long(b, len)
+    zr_buf_byte(b, 41)
+    return zr_raise_buf(zr_global(G_INDEX_ERROR), b)
+  end
+  if beg > n
+    zr_ary_store(a, beg - 1, Machine.value(QNIL))
+    n = beg
+  end
+  if beg + len > n
+    len = n - beg
+  end
+  m = RArray.len(vals)
+  tail = n - beg - len
+  zr_ary_reserve(a, n - len + m)
+  p = RArray.ptr(a)
+  if m != len
+    zr_memmove(p + ((beg + m) * 8), p + ((beg + len) * 8), tail * 8)
+  end
+  zr_memcpy(p + (beg * 8), RArray.ptr(vals), m * 8)
+  RArray.set_len(a, n - len + m)
+  a
+end
+
+# Bytes moved between overlapping ranges, in whichever order keeps
+# them intact.
+sig [Ptr, Ptr, Word] => Void
+machine def zr_memmove(to, from, n)
+  if to < from
+    zr_memcpy(to, from, n)
+  else
+    i = n
+    while i > 0
+      i -= 1
+      Machine.store8(to + i, 0, Machine.load8(from + i, 0))
+    end
+  end
+end
+
+sig [Value, Value] => Value
+machine def zr_ary_clear(a, unused)
+  if zr_frozen_p(a)
+    return zr_frozen_error(a)
+  end
+  RArray.set_len(a, 0)
+  a
 end

@@ -145,7 +145,10 @@ machine def zr_uninitialized_constant(scope, id)
     zr_buf_push(b, Machine.bytes("::"), 2)
   end
   zr_buf_sym(b, id)
-  zr_raise_buf(zr_global(G_NAME_ERROR), b)
+  e = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+  zr_exc_detail(e, Machine.id(:@name), zr_sym(id))
+  zr_exc_detail(e, Machine.id(:@receiver), scope == QNIL ? zr_global(G_OBJECT) : scope)
+  zr_raise(e)
 end
 
 # A bare constant under `cref`: the lexical scopes, then the innermost

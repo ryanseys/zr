@@ -18,7 +18,13 @@ machine def zr_no_method_from(recv, mid, vcall, from_super)
   zr_buf_push(b, Machine.bytes("' for "), 6)
   r = zr_buf_receiver(b, recv, vcall)
   return r if r == QUNDEF
-  zr_raise_buf(zr_global(vcall ? G_NAME_ERROR : G_NO_METHOD_ERROR), b)
+  e = zr_exc_new(zr_global(vcall ? G_NAME_ERROR : G_NO_METHOD_ERROR), zr_buf_take(b))
+  zr_exc_detail(e, Machine.id(:@name), zr_sym(mid))
+  zr_exc_detail(e, Machine.id(:@receiver), recv)
+  if !vcall
+    zr_exc_detail(e, Machine.id(:@args), zr_ary_new(0))
+  end
+  zr_raise(e)
 end
 
 # `wrong number of arguments (given 3, expected 1..2)`: `max` is the
@@ -113,8 +119,14 @@ machine def zr_hidden_method(recv, mid, vis)
   zr_buf_push(b, vis == VIS_PRIVATE ? Machine.bytes("private method '") : Machine.bytes("protected method '"), vis == VIS_PRIVATE ? 16 : 18)
   zr_buf_sym(b, mid)
   zr_buf_push(b, Machine.bytes("' called for "), 13)
-  zr_buf_receiver(b, recv, false)
-  zr_raise_buf(zr_global(G_NO_METHOD_ERROR), b)
+  r = zr_buf_receiver(b, recv, false)
+  return r if r == QUNDEF
+  e = zr_exc_new(zr_global(G_NO_METHOD_ERROR), zr_buf_take(b))
+  zr_exc_detail(e, Machine.id(:@name), zr_sym(mid))
+  zr_exc_detail(e, Machine.id(:@receiver), recv)
+  zr_exc_detail(e, Machine.id(:@args), zr_ary_new(0))
+  zr_exc_detail(e, Machine.id(:@private_call), zr_bool(vis == VIS_PRIVATE))
+  zr_raise(e)
 end
 
 # How a message names the receiver: main, a special constant, its
@@ -326,6 +338,19 @@ end
 sig [Value, Word, Word, Ptr, Value] => Value
 machine def zr_send_blk(recv, mid, argc, argv, blk)
   zr_dispatch(recv, mid, argc, argv, 0, blk)
+end
+
+# A `new` call with no block, CRuby's `opt_new`: the builtin `Class#new`
+# reached as a public method runs with no frame of its own, so a
+# backtrace goes from `initialize` straight to the caller. Any other
+# `new` is an ordinary send with `mode`.
+sig [Value, Word, Ptr, Word] => Value
+machine def zr_new(recv, argc, argv, mode)
+  e = zr_find_method(zr_class_of(recv), Machine.id(:new))
+  if e != 0 && MEntry.fn(e) == Machine.addr(:zr_class_new_instance) && MEntry.vis(e) == VIS_PUBLIC
+    return zr_class_new_instance(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
+  end
+  zr_dispatch(recv, Machine.id(:new), argc, argv, mode, Machine.value(QNIL))
 end
 
 # A bare identifier: the same dispatch, a NameError on a miss.

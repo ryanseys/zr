@@ -33,6 +33,8 @@ class Range
   def exclude_end? = @excl
 
   def each
+    return to_enum(:each) { size } unless block_given?
+
     v = @begin
     if v.is_a?(Integer)
       if @end.nil?
@@ -98,6 +100,8 @@ class Range
   def ===(v) = cover?(v)
 
   def step(n)
+    return to_enum(:step, n) unless block_given?
+
     out = []
     each_with_index { |v, i| out << v if i % n == 0 }
     out

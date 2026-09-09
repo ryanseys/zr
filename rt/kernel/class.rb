@@ -16,8 +16,8 @@ Machine.sig :method, [Value, Word, Ptr, Value, Value] => Value
 # ivar's id in `fn`.
 KIND_ATTR_READER = 3
 KIND_ATTR_WRITER = 4
-# A builtin that leaves no frame of its own: `Proc#call`, which CRuby
-# keeps out of a backtrace.
+# A builtin that leaves no frame of its own: `Proc#call` and `send`,
+# which CRuby keeps out of a backtrace.
 KIND_FRAMELESS = 5
 # An `undef`: the name answers nothing from here on down the chain.
 KIND_UNDEF = 6

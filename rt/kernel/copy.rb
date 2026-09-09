@@ -1,0 +1,161 @@
+# `dup` and `clone`: a fresh cell with the same contents, its own
+# copies of what the cell owns outside the arena, then
+# `initialize_copy`. A clone keeps the frozen bit and the singleton
+# class; a dup keeps neither.
+
+# The rows of one ivar table copied into another, fresh, table.
+sig [Ptr, Ptr] => Void
+machine def zr_ivtab_copy(to, from)
+  zr_ivtab_init(to)
+  i = 0
+  while i < IvTab.len(from)
+    e = IvTab.rows(from) + (i * IvEntry.size)
+    zr_ivtab_set(to, IvEntry.id(e), IvEntry.value(e))
+    i += 1
+  end
+end
+
+# What the copy owns: buffers and tables of its own, with the same
+# contents.
+sig [Value, Value] => Value
+machine def zr_copy_payload(copy, orig)
+  t = zr_type(orig)
+  if t == T_OBJECT
+    zr_ivtab_copy(RObject.iv(copy), RObject.iv(orig))
+  elsif t == T_STRING
+    buf = malloc(RString.len(orig) + 1)
+    zr_memcpy(buf, RString.ptr(orig), RString.len(orig) + 1)
+    RString.set_ptr(copy, buf)
+    RString.set_capa(copy, RString.len(orig) + 1)
+  elsif t == T_ARRAY
+    n = RArray.len(orig)
+    capa = n < 4 ? 4 : n
+    buf = malloc(capa * 8)
+    zr_memcpy(buf, RArray.ptr(orig), n * 8)
+    RArray.set_ptr(copy, buf)
+    RArray.set_capa(copy, capa)
+  elsif t == T_HASH
+    if RHash.entries(orig) != 0
+      entries = malloc(RHash.cap(orig) * HEntry.size)
+      zr_memcpy(entries, RHash.entries(orig), RHash.cap(orig) * HEntry.size)
+      RHash.set_entries(copy, entries)
+    end
+  elsif t == T_EXCEPTION
+    if RException.rows(orig) != 0
+      rows = malloc(RException.nrows(orig) * BtRow.size)
+      zr_memcpy(rows, RException.rows(orig), RException.nrows(orig) * BtRow.size)
+      RException.set_rows(copy, rows)
+    end
+  elsif t != T_PROC && t != T_METHOD
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't copy this kind of object"), 30)
+  end
+  if (RBasic.flags(orig) & FL_EXIVAR) != 0
+    zr_ivtab_copy(zr_exivar_tab_for_write(copy), zr_exivar_tab(orig))
+  end
+  copy
+end
+
+# The cell copied, the payload its own, the class the real one; the
+# frozen and singleton facts are the caller's to keep or drop.
+sig [Value] => Value
+machine def zr_copy_cell(orig)
+  copy = zr_alloc(zr_type(orig), zr_real_class(orig))
+  zr_memcpy(Machine.ptr(copy) + RBasic.size, Machine.ptr(orig) + RBasic.size, CELL - RBasic.size)
+  zr_copy_payload(copy, orig)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_dup(recv, argc, argv, cref, blk)
+  if zr_special_p(recv)
+    return recv
+  end
+  if zr_type(recv) == T_CLASS || zr_type(recv) == T_MODULE
+    zr_bug(Machine.bytes("dup of a class or module is not implemented yet\n"), 48)
+  end
+  copy = zr_copy_cell(recv)
+  return copy if copy == QUNDEF
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(recv))
+  r = zr_send(copy, Machine.id(:initialize_dup), 1, slot)
+  return r if r == QUNDEF
+  copy
+end
+
+# `clone(freeze: nil)`: the singleton class's methods come along, and
+# the frozen bit unless `freeze: false`, or with `freeze: true`.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_clone(recv, argc, argv, cref, blk)
+  freeze = Machine.value(QNIL)
+  if zr_kw_take() != 0
+    opts = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
+    argc -= 1
+    known = Machine.slot(8)
+    Machine.store64(known, 0, Machine.id(:freeze))
+    r = zr_kw_unknown(opts, known, 1)
+    return r if r == QUNDEF
+    freeze = zr_hash_lookup(opts, zr_sym(Machine.id(:freeze)))
+    if freeze == QUNDEF
+      freeze = Machine.value(QNIL)
+    elsif freeze != QNIL && freeze != QTRUE && freeze != QFALSE
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("unexpected value for freeze: "), 29)
+      zr_buf_str(b, zr_class_name_of(freeze))
+      return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+    end
+  end
+  if argc > 0
+    return zr_wrong_arity(argc, 0)
+  end
+  if zr_special_p(recv)
+    if freeze == QFALSE
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("can't unfreeze "), 15)
+      zr_buf_str(b, zr_class_name_of(recv))
+      return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+    end
+    return recv
+  end
+  if zr_type(recv) == T_CLASS || zr_type(recv) == T_MODULE
+    zr_bug(Machine.bytes("clone of a class or module is not implemented yet\n"), 50)
+  end
+  copy = zr_copy_cell(recv)
+  return copy if copy == QUNDEF
+  if zr_singleton_p(RBasic.klass(recv))
+    zr_include_singleton(copy, RBasic.klass(recv))
+  end
+  slot = Machine.slot(16)
+  Machine.store64(slot, 0, Machine.word(recv))
+  r = zr_send(copy, Machine.id(:initialize_clone), 1, slot)
+  return r if r == QUNDEF
+  if freeze == QTRUE || (freeze == QNIL && zr_frozen_p(recv))
+    RBasic.set_flags(copy, RBasic.flags(copy) | FL_FREEZE)
+  end
+  copy
+end
+
+# The clone's own singleton class, with the original's methods and
+# extended modules.
+sig [Value, Value] => Void
+machine def zr_include_singleton(copy, meta)
+  own = zr_singleton_class(copy)
+  ext = RClass.ext(meta)
+  i = 0
+  while i < ClassExt.mlen(ext)
+    e = ClassExt.mtab(ext) + (i * MEntry.size)
+    zr_method_add_vis(own, MEntry.mid(e), MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e), MEntry.vis(e))
+    i += 1
+  end
+  k = RClass.superclass(meta)
+  mods = zr_ary_new(4)
+  while k != QNIL && zr_type(k) == T_ICLASS
+    zr_ary_push(mods, RClass.attached(k))
+    k = RClass.superclass(k)
+  end
+  i = RArray.len(mods) - 1
+  while i >= 0
+    zr_include_module(own, zr_ary_at(mods, i))
+    i -= 1
+  end
+end

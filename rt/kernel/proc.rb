@@ -314,7 +314,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_times(recv, argc, argv, cref, blk)
   if blk == QNIL
-    zr_bug(Machine.bytes("times without a block needs Enumerator\n"), 39)
+    return zr_enum_for(recv, Machine.id(:times), argc, argv, recv)
   end
   n = zr_fix2long(recv)
   i = 0
@@ -329,7 +329,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_upto(recv, argc, argv, cref, blk)
   if blk == QNIL
-    zr_bug(Machine.bytes("upto without a block needs Enumerator\n"), 38)
+    return zr_enum_for(recv, Machine.id(:upto), argc, argv, Machine.value(QNIL))
   end
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
@@ -347,7 +347,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_downto(recv, argc, argv, cref, blk)
   if blk == QNIL
-    zr_bug(Machine.bytes("downto without a block needs Enumerator\n"), 40)
+    return zr_enum_for(recv, Machine.id(:downto), argc, argv, Machine.value(QNIL))
   end
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
@@ -366,7 +366,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_loop(recv, argc, argv, cref, blk)
   if blk == QNIL
-    zr_bug(Machine.bytes("loop without a block needs Enumerator\n"), 38)
+    return zr_enum_for(recv, Machine.id(:loop), argc, argv, Machine.value(QNIL))
   end
   while true
     r = zr_yield(blk, 0, 0)
@@ -375,11 +375,26 @@ machine def zr_loop(recv, argc, argv, cref, blk)
   Machine.value(QNIL)
 end
 
+# A builtin iterator called with no block: `to_enum(:name, *args)`,
+# with the count of what it would yield, or nil when that is unknown.
+sig [Value, Word, Word, Ptr, Value] => Value
+machine def zr_enum_for(recv, mid, argc, argv, size)
+  args = zr_ary_new(argc + 2)
+  zr_ary_push(args, zr_sym(mid))
+  i = 0
+  while i < argc
+    zr_ary_push(args, Machine.value(Machine.load64(argv + (i * 8), 0)))
+    i += 1
+  end
+  zr_ary_push(args, size)
+  zr_send(recv, Machine.id(:enum_with_size), RArray.len(args), RArray.ptr(args))
+end
+
 # The Array's length is re-read every step: the block may change it.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_each(recv, argc, argv, cref, blk)
   if blk == QNIL
-    zr_bug(Machine.bytes("each without a block needs Enumerator\n"), 38)
+    return zr_enum_for(recv, Machine.id(:each), argc, argv, zr_fix(RArray.len(recv)))
   end
   i = 0
   while i < RArray.len(recv)
@@ -393,7 +408,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_each_with_index(recv, argc, argv, cref, blk)
   if blk == QNIL
-    zr_bug(Machine.bytes("each_with_index without a block needs Enumerator\n"), 49)
+    return zr_enum_for(recv, Machine.id(:each_with_index), argc, argv, zr_fix(RArray.len(recv)))
   end
   i = 0
   while i < RArray.len(recv)
@@ -407,7 +422,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_each_index(recv, argc, argv, cref, blk)
   if blk == QNIL
-    zr_bug(Machine.bytes("each_index without a block needs Enumerator\n"), 44)
+    return zr_enum_for(recv, Machine.id(:each_index), argc, argv, zr_fix(RArray.len(recv)))
   end
   i = 0
   while i < RArray.len(recv)
@@ -423,7 +438,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_map(recv, argc, argv, cref, blk)
   if blk == QNIL
-    zr_bug(Machine.bytes("map without a block needs Enumerator\n"), 37)
+    return zr_enum_for(recv, Machine.id(:map), argc, argv, zr_fix(RArray.len(recv)))
   end
   out = zr_ary_new(RArray.len(recv))
   i = 0
@@ -456,7 +471,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_select(recv, argc, argv, cref, blk)
   if blk == QNIL
-    zr_bug(Machine.bytes("select without a block needs Enumerator\n"), 40)
+    return zr_enum_for(recv, Machine.id(:select), argc, argv, zr_fix(RArray.len(recv)))
   end
   zr_ary_filter(recv, blk, true)
 end
@@ -464,7 +479,20 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_reject(recv, argc, argv, cref, blk)
   if blk == QNIL
-    zr_bug(Machine.bytes("reject without a block needs Enumerator\n"), 40)
+    return zr_enum_for(recv, Machine.id(:reject), argc, argv, zr_fix(RArray.len(recv)))
   end
   zr_ary_filter(recv, blk, false)
+end
+
+# What a block passed on to `each` sees as the element: the one value
+# yielded, or the several as an Array.
+sig [Value] => Value
+machine def zr_enum_value(values)
+  if RArray.len(values) == 1
+    return zr_ary_at(values, 0)
+  end
+  if RArray.len(values) == 0
+    return Machine.value(QNIL)
+  end
+  values
 end

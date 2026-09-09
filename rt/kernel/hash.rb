@@ -166,6 +166,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_hash_aset(recv, argc, argv, cref, blk)
+  if zr_frozen_p(recv)
+    return zr_frozen_error(recv)
+  end
   value = Machine.value(Machine.load64(argv, 8))
   zr_hash_store(recv, Machine.value(Machine.load64(argv, 0)), value)
   value
@@ -194,7 +197,10 @@ machine def zr_hash_fetch(recv, argc, argv, cref, blk)
   zr_buf_init(b)
   zr_buf_push(b, Machine.bytes("key not found: "), 15)
   zr_buf_str(b, s)
-  zr_raise_buf(zr_global(G_KEY_ERROR), b)
+  e = zr_exc_new(zr_global(G_KEY_ERROR), zr_buf_take(b))
+  zr_exc_detail(e, Machine.id(:@key), key)
+  zr_exc_detail(e, Machine.id(:@receiver), recv)
+  zr_raise(e)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -204,6 +210,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_hash_delete(recv, argc, argv, cref, blk)
+  if zr_frozen_p(recv)
+    return zr_frozen_error(recv)
+  end
   e = zr_hash_entry(recv, Machine.value(Machine.load64(argv, 0)))
   if e == 0
     return Machine.value(QNIL)
@@ -281,7 +290,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_hash_each(recv, argc, argv, cref, blk)
   if blk == QNIL
-    zr_bug(Machine.bytes("Hash#each without a block needs Enumerator\n"), 43)
+    return zr_enum_for(recv, Machine.id(:each), argc, argv, zr_fix(RHash.live(recv)))
   end
   i = 0
   while i < RHash.len(recv)

@@ -183,34 +183,55 @@ machine def zr_range_new(low, high, excl)
   r
 end
 
-# `Class#new`: allocate the shape the class's builtin ancestor gives,
-# then `initialize` with the arguments.
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_class_new_instance(recv, argc, argv, cref, blk)
+# `Class#allocate`: the shape the class's builtin ancestor gives, not
+# yet initialized.
+sig [Value] => Value
+machine def zr_class_allocate(recv)
   if recv == zr_global(G_CLASS)
-    o = zr_class_alloc(T_CLASS, Machine.value(QNIL), zr_global(G_CLASS))
-  elsif recv == zr_global(G_MODULE)
-    o = zr_module_new()
-  elsif zr_class_inherits(recv, zr_global(G_EXCEPTION))
-    o = zr_exc_new(recv, Machine.value(QNIL))
-  elsif zr_class_inherits(recv, zr_global(G_ARRAY))
+    return zr_class_alloc(T_CLASS, Machine.value(QNIL), zr_global(G_CLASS))
+  end
+  if recv == zr_global(G_MODULE)
+    return zr_module_new()
+  end
+  if zr_class_inherits(recv, zr_global(G_EXCEPTION))
+    return zr_exc_new(recv, Machine.value(QNIL))
+  end
+  if zr_class_inherits(recv, zr_global(G_ARRAY))
     o = zr_ary_new(4)
-    RBasic.set_klass(o, recv)
   elsif zr_class_inherits(recv, zr_global(G_HASH))
     o = zr_hash_new()
-    RBasic.set_klass(o, recv)
   elsif zr_class_inherits(recv, zr_global(G_STRING))
     o = zr_str_new(Machine.bytes(""), 0)
-    RBasic.set_klass(o, recv)
   elsif zr_class_inherits(recv, zr_global(G_INTEGER)) || zr_class_inherits(recv, zr_global(G_SYMBOL)) || zr_class_inherits(recv, zr_global(G_NIL)) || zr_class_inherits(recv, zr_global(G_TRUE)) || zr_class_inherits(recv, zr_global(G_FALSE))
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("allocator undefined for "), 24)
+    zr_buf_str(b, RClass.name(recv))
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  else
+    return zr_obj_alloc(recv)
+  end
+  RBasic.set_klass(o, recv)
+  o
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_class_allocate_m(recv, argc, argv, cref, blk)
+  zr_class_allocate(recv)
+end
+
+# `Class#new`: allocate, then `initialize` with the arguments.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_class_new_instance(recv, argc, argv, cref, blk)
+  if zr_class_inherits(recv, zr_global(G_INTEGER)) || zr_class_inherits(recv, zr_global(G_SYMBOL)) || zr_class_inherits(recv, zr_global(G_NIL)) || zr_class_inherits(recv, zr_global(G_TRUE)) || zr_class_inherits(recv, zr_global(G_FALSE))
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("undefined method 'new' for class "), 33)
     zr_buf_str(b, RClass.name(recv))
     return zr_raise_buf(zr_global(G_NO_METHOD_ERROR), b)
-  else
-    o = zr_obj_alloc(recv)
   end
+  o = zr_class_allocate(recv)
+  return o if o == QUNDEF
   r = zr_send_blk(o, Machine.id(:initialize), argc, argv, blk)
   return r if r == QUNDEF
   o
@@ -598,21 +619,64 @@ machine def zr_class_superclass(recv, argc, argv, cref, blk)
   zr_real_superclass(recv)
 end
 
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_exc_message(recv, argc, argv, cref, blk)
+# `Exception#to_s`: the message, or the class name when there is none;
+# a message that is not a String is `to_s`ed.
+sig [Value] => Value
+machine def zr_exc_to_s(recv)
   m = RException.message(recv)
   if m == QNIL
     return zr_class_name_of(recv)
   end
+  if zr_special_p(m) || zr_type(m) != T_STRING
+    return zr_send(m, Machine.id(:to_s), 0, 0)
+  end
   m
 end
 
-# `#<Klass: message>`, or the class name alone when the message is empty.
+sig [Value, Value] => Value
+machine def zr_exc_set_message(recv, m)
+  RException.set_message(recv, m)
+  m
+end
+
+# `detailed_message`: `message (Class)`, the class after the first
+# line; `unhandled exception` for an empty message.
+sig [Value] => Value
+machine def zr_exc_detailed_message(recv)
+  m = zr_send(recv, Machine.id(:message), 0, 0)
+  return m if m == QUNDEF
+  if zr_special_p(m) || zr_type(m) != T_STRING
+    m = zr_send(m, Machine.id(:to_s), 0, 0)
+    return m if m == QUNDEF
+  end
+  if RString.len(m) == 0
+    return zr_str_new(Machine.bytes("unhandled exception"), 19)
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  p = RString.ptr(m)
+  n = RString.len(m)
+  first = 0
+  while first < n && Machine.word(Machine.load8(p + first, 0)) != 10
+    first += 1
+  end
+  zr_buf_push(b, p, first)
+  zr_buf_push(b, Machine.bytes(" ("), 2)
+  zr_buf_str(b, zr_class_name_of(recv))
+  zr_buf_byte(b, 41)
+  zr_buf_push(b, p + first, n - first)
+  zr_buf_take(b)
+end
+
+# `#<Klass: to_s>`, or the class name alone when `to_s` is empty; a
+# message with a newline is shown inspected.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_exc_inspect(recv, argc, argv, cref, blk)
-  m = RException.message(recv)
-  if m == QNIL
-    m = zr_class_name_of(recv)
+  m = zr_send(recv, Machine.id(:to_s), 0, 0)
+  return m if m == QUNDEF
+  if zr_special_p(m) || zr_type(m) != T_STRING
+    m = zr_send(m, Machine.id(:to_s), 0, 0)
+    return m if m == QUNDEF
   end
   if RString.len(m) == 0
     return zr_class_name_of(recv)
@@ -621,15 +685,35 @@ machine def zr_exc_inspect(recv, argc, argv, cref, blk)
   zr_buf_init(b)
   zr_buf_push(b, Machine.bytes("#<"), 2)
   zr_buf_str(b, zr_class_name_of(recv))
-  zr_buf_push(b, Machine.bytes(": "), 2)
-  zr_buf_str(b, m)
+  if zr_bytes_index(RString.ptr(m), RString.len(m), 10) >= 0
+    zr_buf_byte(b, 58)
+    zr_buf_str_escaped(b, RString.ptr(m), RString.len(m))
+  else
+    zr_buf_push(b, Machine.bytes(": "), 2)
+    zr_buf_str(b, m)
+  end
   zr_buf_byte(b, 62)
   zr_buf_take(b)
 end
 
-# `Exception#initialize(message = nil)`.
+# The byte `c` in `n` bytes at `p`: its index, or -1.
+sig [Ptr, Word, Word] => Word
+machine def zr_bytes_index(p, n, c)
+  i = 0
+  while i < n
+    if Machine.word(Machine.load8(p + i, 0)) == c
+      return i
+    end
+    i += 1
+  end
+  0 - 1
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_exc_initialize(recv, argc, argv, cref, blk)
+  if argc > 1
+    return zr_wrong_arity_range(argc, 0, 1)
+  end
   if argc > 0
     RException.set_message(recv, Machine.value(Machine.load64(argv, 0)))
   end

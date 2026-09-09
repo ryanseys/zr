@@ -3,22 +3,30 @@ class Hash
   include Enumerable
 
   def each_key
+    return to_enum(:each_key) { size } unless block_given?
+
     each { |k, _| yield(k) }
     self
   end
 
   def each_value
+    return to_enum(:each_value) { size } unless block_given?
+
     each { |_, v| yield(v) }
     self
   end
 
   def select
+    return to_enum(:select) { size } unless block_given?
+
     out = {}
     each { |k, v| out[k] = v if yield(k, v) }
     out
   end
 
   def reject
+    return to_enum(:reject) { size } unless block_given?
+
     out = {}
     each { |k, v| out[k] = v unless yield(k, v) }
     out
@@ -62,6 +70,8 @@ class Hash
   end
 
   def transform_values
+    return to_enum(:transform_values) { size } unless block_given?
+
     out = {}
     each { |k, v| out[k] = yield(v) }
     out

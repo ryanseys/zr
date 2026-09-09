@@ -29,7 +29,8 @@ module Ze0
       # `base`: a send holds its receiver and arguments while an
       # argument's own sends run above them. An ensure body may run from
       # a jump anywhere inside its region, above the value the jump
-      # carries.
+      # carries. An operator assignment keeps its receiver, arguments
+      # and current value while the read and the write are sent.
       def staging(node, base = 0)
         case node
         when Hir::Seq then node.stmts.map { |s| staging(s, base) }.max || base
@@ -59,11 +60,11 @@ module Ze0
           top = base + 3
           [top, staging(node.subject, top), staging(node.else_body, top), *node.clauses.flat_map { |values, body| [staging(body, top), *values.map { |v| staging(v, top) }] }].max
         when Hir::IndexOpAssign
-          top = base + 3 + node.args.size
-          [top, staging(node.recv, top), staging(node.value, top), *node.args.map { |a| staging(a, top) }].max
+          top = base + 2 + node.args.size
+          [top + 2 + node.args.size, staging(node.recv, top), staging(node.value, top), *node.args.map { |a| staging(a, top) }].max
         when Hir::AttrOpAssign
-          top = base + 3
-          [top, staging(node.recv, top), staging(node.value, top)].max
+          top = base + 2
+          [top + 2, staging(node.recv, top), staging(node.value, top)].max
         when Hir::MultiAssign
           top = base + 1 + prepared(node.target)
           [staging(node.value, top), top + targets(node.target), *sends_in(node.target).map { |s| staging(s, top) }].max

@@ -94,6 +94,8 @@ class Array
   end
 
   def index(v = nil)
+    return to_enum(:index) if v.nil? && !block_given?
+
     i = 0
     while i < size
       return i if block_given? ? yield(self[i]) : self[i] == v
@@ -117,7 +119,7 @@ class Array
     best = nil
     i = 0
     while i < size
-      best = self[i] if i == 0 || (self[i] <=> best) < 0
+      best = self[i] if i == 0 || (block_given? ? yield(self[i], best) : self[i] <=> best) < 0
       i += 1
     end
     best
@@ -127,13 +129,25 @@ class Array
     best = nil
     i = 0
     while i < size
-      best = self[i] if i == 0 || (self[i] <=> best) > 0
+      best = self[i] if i == 0 || (block_given? ? yield(self[i], best) : self[i] <=> best) > 0
       i += 1
     end
     best
   end
 
   def take(n) = first(n)
+
+  def drop(n)
+    raise ArgumentError, "attempt to drop negative size" if n < 0
+
+    out = []
+    i = n
+    while i < size
+      out << self[i]
+      i += 1
+    end
+    out
+  end
 
   def uniq
     out = []
@@ -179,4 +193,344 @@ class Array
 
   def to_a = self
   def count(*args, &block) = args.empty? && !block ? size : super
+
+  def shift(n = nil)
+    if n.nil?
+      return nil if empty?
+
+      first = self[0]
+      Primitive.zr_ary_splice(self, 0, 1, [])
+      return first
+    end
+    raise ArgumentError, "negative array size" if n < 0
+
+    out = first(n)
+    Primitive.zr_ary_splice(self, 0, out.size, [])
+    out
+  end
+
+  def unshift(*vals)
+    Primitive.zr_ary_splice(self, 0, 0, vals)
+  end
+
+  def prepend(*vals) = unshift(*vals)
+
+  def append(*vals) = push(*vals)
+
+  def insert(index, *vals)
+    return self if vals.empty?
+
+    index = size + index + 1 if index < 0
+    Primitive.zr_ary_splice(self, index, 0, vals)
+  end
+
+  def concat(*others)
+    others.each { |o| Primitive.zr_ary_splice(self, size, 0, o) }
+    self
+  end
+
+  def delete_at(index)
+    index += size if index < 0
+    return nil if index < 0 || index >= size
+
+    v = self[index]
+    Primitive.zr_ary_splice(self, index, 1, [])
+    v
+  end
+
+  def delete(v)
+    found = nil
+    i = 0
+    while i < size
+      if self[i] == v
+        found = self[i]
+        Primitive.zr_ary_splice(self, i, 1, [])
+      else
+        i += 1
+      end
+    end
+    found.nil? && block_given? ? yield(v) : found
+  end
+
+  def delete_if
+    return to_enum(:delete_if) { size } unless block_given?
+
+    i = 0
+    while i < size
+      if yield(self[i])
+        Primitive.zr_ary_splice(self, i, 1, [])
+      else
+        i += 1
+      end
+    end
+    self
+  end
+
+  def reject!
+    return to_enum(:reject!) { size } unless block_given?
+
+    before = size
+    delete_if { |x| yield(x) }
+    size == before ? nil : self
+  end
+
+  def select!
+    return to_enum(:select!) { size } unless block_given?
+
+    before = size
+    delete_if { |x| !yield(x) }
+    size == before ? nil : self
+  end
+
+  def keep_if
+    select! { |x| yield(x) }
+    self
+  end
+
+  def filter! = select! { |x| yield(x) }
+
+  def clear = Primitive.zr_ary_clear(self, nil)
+
+  def replace(other)
+    Primitive.zr_ary_splice(self, 0, size, other)
+  end
+
+  def slice!(start, len = nil)
+    if len.nil?
+      if start.is_a?(Range)
+        part = self[start]
+        return nil if part.nil?
+
+        from = start.begin || 0
+        from += size if from < 0
+        Primitive.zr_ary_splice(self, from, part.size, [])
+        return part
+      end
+      return delete_at(start)
+    end
+    part = self[start, len]
+    return nil if part.nil?
+
+    start += size if start < 0
+    Primitive.zr_ary_splice(self, start, part.size, [])
+    part
+  end
+
+  def map!
+    return to_enum(:map!) { size } unless block_given?
+
+    i = 0
+    while i < size
+      self[i] = yield(self[i])
+      i += 1
+    end
+    self
+  end
+
+  def collect! = map! { |x| yield(x) }
+
+  def compact!
+    before = size
+    delete_if(&:nil?)
+    size == before ? nil : self
+  end
+
+  def uniq!
+    before = size
+    replace(uniq)
+    size == before ? nil : self
+  end
+
+  def reverse!
+    replace(reverse)
+  end
+
+  def flatten(depth = -1)
+    out = []
+    seen = []
+    walk = lambda do |a, d|
+      raise ArgumentError, "tried to flatten recursive array" if seen.any? { |s| s.equal?(a) }
+
+      seen << a
+      i = 0
+      while i < a.size
+        x = a[i]
+        if x.is_a?(Array) && d != 0
+          walk.call(x, d - 1)
+        else
+          out << x
+        end
+        i += 1
+      end
+      seen.pop
+    end
+    walk.call(self, depth)
+    out
+  end
+
+  def flatten!(depth = -1)
+    return nil if none? { |x| x.is_a?(Array) }
+
+    replace(flatten(depth))
+  end
+
+  def reverse_each
+    return to_enum(:reverse_each) { size } unless block_given?
+
+    i = size - 1
+    while i >= 0
+      yield self[i]
+      i -= 1
+    end
+    self
+  end
+
+  def each_slice(n)
+    raise ArgumentError, "invalid slice size" if n <= 0
+    return to_enum(:each_slice, n) { (size + n - 1) / n } unless block_given?
+
+    i = 0
+    while i < size
+      yield self[i, n]
+      i += n
+    end
+    self
+  end
+
+  def rotate(n = 1)
+    return dup if empty?
+
+    n %= size
+    self[n, size - n] + self[0, n]
+  end
+
+  def values_at(*indexes)
+    indexes.map { |i| i.is_a?(Range) ? self[i] : self[i] }.flatten(1)
+  end
+
+  def dig(index, *rest)
+    v = self[index]
+    rest.empty? || v.nil? ? v : v.dig(*rest)
+  end
+
+  def assoc(key)
+    each { |x| return x if x.is_a?(Array) && x[0] == key }
+    nil
+  end
+
+  def *(other)
+    return join(other) if other.is_a?(String)
+    raise ArgumentError, "negative argument" if other < 0
+
+    out = []
+    other.times { out.concat(self) }
+    out
+  end
+
+  def -(other)
+    reject { |x| other.include?(x) }
+  end
+
+  def &(other)
+    uniq.select { |x| other.include?(x) }
+  end
+
+  def |(other)
+    (self + other).uniq
+  end
+
+  def zip(*others)
+    out = []
+    i = 0
+    while i < size
+      row = [self[i]]
+      others.each { |o| row << o[i] }
+      out << row
+      i += 1
+    end
+    out
+  end
+
+  def product(*others)
+    return map { |x| [x] } if others.empty?
+
+    rest = others[0].product(*others[1..])
+    flat_map { |x| rest.map { |r| [x] + r } }
+  end
+
+  def transpose
+    return [] if empty?
+
+    n = self[0].size
+    each { |row| raise IndexError, "element size differs (#{row.size} should be #{n})" if row.size != n }
+    (0...n).map { |i| map { |row| row[i] } }
+  end
+
+  def fill(value = nil, start = 0, length = nil)
+    if block_given?
+      i = start
+      stop = length ? start + length : size
+      while i < stop
+        self[i] = yield(i)
+        i += 1
+      end
+    else
+      i = start
+      stop = length ? start + length : size
+      while i < stop
+        self[i] = value
+        i += 1
+      end
+    end
+    self
+  end
+
+  def sort_by!
+    return to_enum(:sort_by!) { size } unless block_given?
+
+    replace(sort_by { |x| yield(x) })
+  end
+
+  def find_index(v = nil)
+    return to_enum(:find_index) if v.nil? && !block_given?
+
+    block_given? ? index { |x| yield(x) } : index(v)
+  end
+
+  def rindex(v = nil)
+    i = size - 1
+    while i >= 0
+      return i if block_given? ? yield(self[i]) : self[i] == v
+
+      i -= 1
+    end
+    nil
+  end
+
+  def cycle(n = nil)
+    return to_enum(:cycle, *[n].compact) { n.nil? ? (empty? ? 0 : Float::INFINITY) : size * n } unless block_given?
+
+    if n.nil?
+      loop { each { |x| yield x } } unless empty?
+    else
+      n.times { each { |x| yield x } }
+    end
+    nil
+  end
+
+  def to_h
+    h = {}
+    i = 0
+    while i < size
+      pair = block_given? ? yield(self[i]) : self[i]
+      raise TypeError, "wrong element type #{pair.class} at #{i} (expected array)" unless pair.is_a?(Array)
+      raise ArgumentError, "wrong array length at #{i} (expected 2, was #{pair.size})" unless pair.size == 2
+
+      h[pair[0]] = pair[1]
+      i += 1
+    end
+    h
+  end
+
+  def minmax = [min, max]
 end

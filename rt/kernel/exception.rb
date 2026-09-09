@@ -20,7 +20,9 @@ KIND_SCLASS = 6
 KIND_HIDDEN = 7
 
 Machine.struct :BtRow, meta: Ptr, file: Ptr, file_len: Word, line: Word
-Machine.struct :RException, basic: RBasic, message: Value, rows: Ptr, nrows: Word
+# `bt` is a backtrace the program set, else nil and the captured rows
+# stand; `cause` is undef until the raise decides it.
+Machine.struct :RException, basic: RBasic, message: Value, rows: Ptr, nrows: Word, bt: Value, cause: Value
 T_EXCEPTION = 24
 
 G_EXCEPTION = 16
@@ -82,6 +84,10 @@ sig [Value, Value] => Value
 machine def zr_exc_new(klass, message)
   e = zr_alloc(T_EXCEPTION, klass)
   RException.set_message(e, message)
+  RException.set_rows(e, 0)
+  RException.set_nrows(e, 0)
+  RException.set_bt(e, Machine.value(QNIL))
+  RException.set_cause(e, Machine.value(QUNDEF))
   e
 end
 
@@ -90,10 +96,19 @@ end
 # `undef` answered for the caller to pass on.
 sig [Value, Ptr] => Value
 machine def zr_raise_from(exc, top)
-  if RException.rows(exc) == 0
+  if RException.rows(exc) == 0 && RException.bt(exc) == QNIL
     zr_backtrace_capture(exc, top)
   end
+  if RException.bt(exc) != QNIL && RException.rows(exc) != 0
+    free(RException.rows(exc))
+    RException.set_rows(exc, 0)
+    RException.set_nrows(exc, 0)
+  end
   t = zr_task()
+  if RException.cause(exc) == QUNDEF
+    cause = Task.errinfo(t)
+    RException.set_cause(exc, cause == exc ? Machine.value(QNIL) : cause)
+  end
   Task.set_pending_kind(t, PENDING_RAISE)
   Task.set_pending(t, exc)
   Machine.value(QUNDEF)
@@ -228,39 +243,57 @@ end
 # `Kernel#raise`: `$!` again with no arguments; a String makes a
 # RuntimeError; a class is sent `new` with the message; an exception is
 # raised as it is. The frame of `raise` itself is not in the backtrace.
+# `Kernel#raise`: nothing re-raises `$!`; a String is a RuntimeError;
+# anything else answers `exception` with the message, as a class does
+# through `new`; a third argument is the backtrace; `cause:` sets the
+# cause, else `$!` is.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_kernel_raise(recv, argc, argv, cref, blk)
   top = Frame.prev(Task.top(zr_task()))
+  cause = Machine.value(QUNDEF)
+  if zr_kw_take() != 0
+    opts = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
+    argc -= 1
+    known = Machine.slot(8)
+    Machine.store64(known, 0, Machine.id(:cause))
+    r = zr_kw_unknown(opts, known, 1)
+    return r if r == QUNDEF
+    cause = zr_hash_lookup(opts, zr_sym(Machine.id(:cause)))
+    if cause != QUNDEF && cause != QNIL && (zr_special_p(cause) || zr_type(cause) != T_EXCEPTION)
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
+    end
+  end
   if argc == 0
     e = Task.errinfo(zr_task())
     if e == QNIL
       e = zr_exc_new(zr_global(G_RUNTIME_ERROR), zr_str_new(Machine.bytes(""), 0))
     end
-    return zr_raise_from(e, top)
-  end
-  if argc > 2
-    zr_bug(Machine.bytes("raise with a backtrace is not implemented\n"), 42)
-  end
-  first = Machine.value(Machine.load64(argv, 0))
-  t = zr_type(first)
-  if t == T_STRING && argc == 1
-    return zr_raise_from(zr_exc_new(zr_global(G_RUNTIME_ERROR), first), top)
-  end
-  if t == T_CLASS && zr_class_inherits(first, zr_global(G_EXCEPTION))
-    e = zr_send(first, Machine.id(:new), argc - 1, argv + 8)
-    return e if e == QUNDEF
-    if zr_type(e) != T_EXCEPTION
-      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
+  else
+    if argc > 3
+      return zr_wrong_arity_range(argc, 0, 3)
     end
-    return zr_raise_from(e, top)
-  end
-  if t == T_EXCEPTION
-    if argc == 2
-      zr_bug(Machine.bytes("raise of an exception with a new message is not implemented\n"), 60)
+    first = Machine.value(Machine.load64(argv, 0))
+    if !zr_special_p(first) && zr_type(first) == T_STRING && argc == 1
+      e = zr_exc_new(zr_global(G_RUNTIME_ERROR), first)
+    else
+      if zr_find_method(zr_class_of(first), Machine.id(:exception)) == 0
+        return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception class/object expected"), 31)
+      end
+      e = zr_send(first, Machine.id(:exception), argc > 1 ? 1 : 0, argv + 8)
+      return e if e == QUNDEF
+      if zr_special_p(e) || zr_type(e) != T_EXCEPTION
+        return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
+      end
     end
-    return zr_raise_from(first, top)
+    if argc == 3
+      r = zr_exc_set_backtrace_value(e, Machine.value(Machine.load64(argv, 16)))
+      return r if r == QUNDEF
+    end
   end
-  zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception class/object expected"), 31)
+  if cause != QUNDEF
+    RException.set_cause(e, cause)
+  end
+  zr_raise_from(e, top)
 end
 
 sig [Value, Ptr, Word] => Value
@@ -341,6 +374,9 @@ end
 # nil before the exception is raised.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_exc_backtrace(recv, argc, argv, cref, blk)
+  if RException.bt(recv) != QNIL
+    return RException.bt(recv)
+  end
   rows = RException.rows(recv)
   if rows == 0
     return Machine.value(QNIL)
@@ -411,4 +447,52 @@ G_SYSTEM_STACK_ERROR = 35
 sig [] => Value
 machine def zr_stack_overflow
   zr_raise_msg(zr_global(G_SYSTEM_STACK_ERROR), Machine.bytes("stack level too deep"), 20)
+end
+
+# `set_backtrace`: an Array of Strings, one String, or nil.
+sig [Value, Value] => Value
+machine def zr_exc_set_backtrace_value(exc, bt)
+  if bt == QNIL
+    RException.set_bt(exc, bt)
+    return bt
+  end
+  if !zr_special_p(bt) && zr_type(bt) == T_STRING
+    a = zr_ary_new(1)
+    zr_ary_push(a, bt)
+    bt = a
+  end
+  if zr_special_p(bt) || zr_type(bt) != T_ARRAY
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("backtrace must be an Array of String or an Array of Thread::Backtrace::Location"), 79)
+  end
+  i = 0
+  while i < RArray.len(bt)
+    v = zr_ary_at(bt, i)
+    if zr_special_p(v) || zr_type(v) != T_STRING
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("backtrace must be an Array of String or an Array of Thread::Backtrace::Location"), 79)
+    end
+    i += 1
+  end
+  RException.set_bt(exc, bt)
+  bt
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_exc_set_backtrace(recv, argc, argv, cref, blk)
+  zr_exc_set_backtrace_value(recv, Machine.value(Machine.load64(argv, 0)))
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_exc_cause(recv, argc, argv, cref, blk)
+  c = RException.cause(recv)
+  if c == QUNDEF
+    return Machine.value(QNIL)
+  end
+  c
+end
+
+# An exception's details as the program reads them: `NameError#name`
+# and the like live in ivars the raise sets.
+sig [Value, Word, Value] => Void
+machine def zr_exc_detail(exc, id, v)
+  zr_ivar_set(exc, id, v)
 end

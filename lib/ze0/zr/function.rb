@@ -99,7 +99,7 @@ module Ze0
       # when a block needs one.
       def enter
         @base = @has_env ? 1 : @locals.size
-        @nvalues = @base + Scope.staging(@body) + prologue_slots
+        @nvalues = @base + [Scope.staging(@body), *default_expressions.map { |e| Scope.staging(e) }].max + prologue_slots
         @sp = @base
         @record = @f.slot(@frame.size + (8 * @nvalues))
         @rec = @f.stack_addr(@record)
@@ -173,6 +173,14 @@ module Ze0
           switch(none)
         end
         leave(qundef)
+      end
+
+      # A parameter's default runs in the prologue, staging like the body.
+      def default_expressions
+        return [] unless %i[def block].include?(@kind)
+
+        p = @def.params
+        p.optional.map(&:last) + p.keywords.map(&:last).compact
       end
 
       # The record slots the prologue keeps for itself: one for a

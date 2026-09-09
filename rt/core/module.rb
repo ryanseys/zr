@@ -49,3 +49,14 @@ end
 class BasicObject
   private def singleton_method_added(name) = nil
 end
+
+module Kernel
+  private def initialize_copy(orig)
+    raise TypeError, "initialize_copy should take same class object" unless orig.instance_of?(self.class)
+
+    self
+  end
+
+  private def initialize_dup(orig) = initialize_copy(orig)
+  private def initialize_clone(orig, freeze: nil) = initialize_copy(orig)
+end
