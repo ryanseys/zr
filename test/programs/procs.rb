@@ -24,3 +24,16 @@ p lambda { |a, b| [a, b] }.call(1, 2)
 sq = proc { |x| x * x }
 p [1, 2, 3].map(&sq)
 
+p proc { |m, *n, o| [m, n, o] }.call
+p proc { |m, *n, o| [m, n, o] }.call(7)
+p proc { |m, *n, o| [m, n, o] }.call(7, 8)
+p proc { |m, *n, o| [m, n, o] }.call(7, 8, 9, 10)
+p proc { |*n, o| [n, o] }.call
+p proc { |a, b = 5, c| [a, b, c] }.call(1, 2, 3, 4)
+p proc { |a, b = 5, c| [a, b, c] }.call(1)
+p proc { |a, b = 5, c| [a, b, c] }.call(1, 2)
+p proc { |a, b = 5, c| [a, b, c] }.call
+p proc { |a, *r, c, d| [a, r, c, d] }.call(1, 2)
+p proc { |a, *r, c, d| [a, r, c, d] }.call(1, 2, 3)
+[[1, 2, 3]].each { |a, *r, c| p [a, r, c] }
+[[1]].each { |a, *r, c| p [a, r, c] }

@@ -115,9 +115,12 @@ module Ze0
         end
 
         # Required, optional, rest and post parameters in order. A block
-        # (`strict` false) takes nil for what is missing and drops extras.
+        # (`strict` false) takes nil for what is missing and drops extras;
+        # its post parameters take what is left after the required ones
+        # when the count falls short.
         def bind_positional(p, argc, argv, strict:)
           req = p.required.size + p.post.size
+          argc = @f.csel(@f.icmp("sgt", argc, imm(req + p.optional.size)), imm(req + p.optional.size), argc) if !strict && !p.rest
           p.required.each_with_index do |name, i|
             v = strict ? arg_at(argv, imm(i)) : arg_or_nil(argc, argv, imm(i))
             bind(name, v)
@@ -135,8 +138,13 @@ module Ze0
           end
           p.post.each_with_index do |name, i|
             index = @f.iadd(@f.isub(argc, imm(p.post.size)), imm(i))
-            v = strict ? arg_at(argv, index) : arg_or_nil(argc, argv, index)
-            bind(name, v)
+            if strict
+              bind(name, arg_at(argv, index))
+            else
+              short = @f.icmp("slt", argc, imm(req))
+              index = @f.csel(short, imm(p.required.size + i), index)
+              bind(name, arg_or_nil(argc, argv, index))
+            end
           end
         end
 

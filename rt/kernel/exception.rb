@@ -394,20 +394,24 @@ machine def zr_exc_backtrace(recv, argc, argv, cref, blk)
   out
 end
 
-# An uncaught exception on stderr, as CRuby prints it, then exit 1. A
+# An uncaught exception on stderr, as CRuby prints it, then exit 1:
+# the exception's own `detailed_message` after the first row. A
 # SystemStackError past 18 rows shows the first 9 and the last 4, with
 # the count of the levels between.
 sig [Value] => Void
 machine def zr_report(exc)
+  detail = zr_send(exc, Machine.id(:detailed_message), 0, 0)
+  if detail == QUNDEF || zr_special_p(detail) || zr_type(detail) != T_STRING
+    detail = zr_class_name_of(exc)
+    Task.set_pending(zr_task(), Machine.value(QNIL))
+  end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   rows = RException.rows(exc)
   n = RException.nrows(exc)
   if n == 0
-    zr_buf_str(b, RException.message(exc))
-    zr_buf_push(b, Machine.bytes(" ("), 2)
-    zr_buf_str(b, zr_class_name_of(exc))
-    zr_buf_push(b, Machine.bytes(")\n"), 2)
+    zr_buf_str(b, detail)
+    zr_buf_byte(b, 10)
   end
   skip_at = 0 - 1
   if zr_class_of(exc) == zr_global(G_SYSTEM_STACK_ERROR) && n > 18
@@ -425,10 +429,8 @@ machine def zr_report(exc)
     if i == 0
       zr_buf_row(b, row)
       zr_buf_push(b, Machine.bytes(": "), 2)
-      zr_buf_str(b, RException.message(exc))
-      zr_buf_push(b, Machine.bytes(" ("), 2)
-      zr_buf_str(b, zr_class_name_of(exc))
-      zr_buf_push(b, Machine.bytes(")\n"), 2)
+      zr_buf_str(b, detail)
+      zr_buf_byte(b, 10)
     else
       zr_buf_push(b, Machine.bytes("\tfrom "), 6)
       zr_buf_row(b, row)

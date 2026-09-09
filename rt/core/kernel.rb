@@ -1,5 +1,7 @@
 # Kernel's conversion and convenience methods.
 module Kernel
+  def <=>(other) = equal?(other) || self == other ? 0 : nil
+
   def tap
     yield self
     self

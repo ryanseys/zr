@@ -53,15 +53,15 @@ module Enumerable
     out
   end
 
-  def find
-    return to_enum(:find) unless block_given?
+  def find(ifnone = nil)
+    return to_enum(:find, ifnone) unless block_given?
 
     each do |*x|
       x = Primitive.zr_enum_value(x)
       return x if yield(x)
       nil
     end
-    nil
+    ifnone&.call
   end
 
   def any?
@@ -506,4 +506,182 @@ module Enumerable
     end
     acc
   end
+end
+
+module Enumerable
+  alias collect map
+  alias filter select
+  alias find_all select
+  alias detect find
+  alias member? include?
+
+  def to_h(&block)
+    out = {}
+    each do |*x|
+      pair = Primitive.zr_enum_value(x)
+      pair = yield(pair) if block
+      raise TypeError, "wrong element type #{pair.class} (expected array)" unless pair.is_a?(Array)
+      raise ArgumentError, "element has wrong array length (expected 2, was #{pair.size})" unless pair.size == 2
+
+      out[pair[0]] = pair[1]
+      nil
+    end
+    out
+  end
+
+  def compact
+    out = []
+    each do |*x|
+      x = Primitive.zr_enum_value(x)
+      out << x unless x.nil?
+      nil
+    end
+    out
+  end
+
+  def reverse_each(&block)
+    return to_enum(:reverse_each) unless block
+
+    to_a.reverse_each(&block)
+    self
+  end
+
+  def cycle(n = nil)
+    return to_enum(:cycle, n) unless block_given?
+
+    items = to_a
+    return nil if items.empty?
+
+    if n.nil?
+      while true
+        items.each { |x| yield x }
+      end
+    else
+      n.times { items.each { |x| yield x } }
+      nil
+    end
+  end
+
+  def minmax_by(&block)
+    return to_enum(:minmax_by) unless block
+
+    [min_by(&block), max_by(&block)]
+  end
+
+  def grep(pattern)
+    out = []
+    each do |*x|
+      x = Primitive.zr_enum_value(x)
+      if pattern === x
+        out << (block_given? ? yield(x) : x)
+      end
+      nil
+    end
+    out
+  end
+
+  def grep_v(pattern)
+    out = []
+    each do |*x|
+      x = Primitive.zr_enum_value(x)
+      unless pattern === x
+        out << (block_given? ? yield(x) : x)
+      end
+      nil
+    end
+    out
+  end
+
+  def chunk_while
+    raise ArgumentError, "tried to create Proc object without a block" unless block_given?
+
+    items = to_a
+    out = []
+    items.each_with_index do |x, i|
+      if i.zero? || !yield(items[i - 1], x)
+        out << [x]
+      else
+        out.last << x
+      end
+    end
+    Enumerator.new { |y| out.each { |slice| y << slice } }
+  end
+
+  def slice_when
+    raise ArgumentError, "tried to create Proc object without a block" unless block_given?
+
+    items = to_a
+    out = []
+    items.each_with_index do |x, i|
+      if i.zero? || yield(items[i - 1], x)
+        out << [x]
+      else
+        out.last << x
+      end
+    end
+    Enumerator.new { |y| out.each { |slice| y << slice } }
+  end
+
+  def slice_before(pattern = nil, &block)
+    raise ArgumentError, "wrong number of arguments (given 0, expected 1)" if pattern.nil? && block.nil?
+
+    test = pattern ? ->(x) { pattern === x } : block
+    out = []
+    each do |*x|
+      x = Primitive.zr_enum_value(x)
+      if out.empty? || test.call(x)
+        out << [x]
+      else
+        out.last << x
+      end
+      nil
+    end
+    Enumerator.new { |y| out.each { |slice| y << slice } }
+  end
+
+  def slice_after(pattern = nil, &block)
+    raise ArgumentError, "wrong number of arguments (given 0, expected 1)" if pattern.nil? && block.nil?
+
+    test = pattern ? ->(x) { pattern === x } : block
+    out = []
+    open = false
+    each do |*x|
+      x = Primitive.zr_enum_value(x)
+      if open
+        out.last << x
+      else
+        out << [x]
+      end
+      open = !test.call(x)
+      nil
+    end
+    Enumerator.new { |y| out.each { |slice| y << slice } }
+  end
+
+  def chunk
+    return to_enum(:chunk) unless block_given?
+
+    out = []
+    each do |*x|
+      x = Primitive.zr_enum_value(x)
+      key = yield(x)
+      if key.nil? || key == :_separator
+        out << nil unless out.empty? || out.last.nil?
+      elsif key == :_alone
+        out << [key, [x]]
+      elsif !out.empty? && !out.last.nil? && out.last[0] == key && key != :_alone
+        out.last[1] << x
+      else
+        out << [key, [x]]
+      end
+      nil
+    end
+    Enumerator.new { |y| out.compact.each { |pair| y << pair } }
+  end
+
+  def chain(*others) = Primitive.zr_unimplemented("Enumerable#chain")
+
+  def lazy = Primitive.zr_unimplemented("Enumerable#lazy")
+
+  def to_set = Primitive.zr_unimplemented("Enumerable#to_set")
 end
