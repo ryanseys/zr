@@ -178,6 +178,7 @@ module Ze0
           n.pairs.each { |e| node(e, depth + 1, lines) }
           lines[-1] += ")"
         when RegexpLit then lines << "#{pad}(regexp #{n.source.inspect} #{n.options})"
+        when FrozenString then lines << "#{pad}(frozen #{n.value.inspect})"
         when Interp
           lines << "#{pad}(interp"
           n.parts.each { |e| node(e, depth + 1, lines) }

@@ -58,16 +58,15 @@ class Range
         v += 1
       end
     elsif v.is_a?(String)
-      return self if @end.is_a?(String) && v.length > @end.length
-
-      while true
-        break if @excl && v == @end
-
-        yield v
-        break if v == @end || (@end.is_a?(String) && v.length >= @end.length && v.succ.length > @end.length)
-
-        v = v.succ
+      if @end.nil?
+        while true
+          yield v
+          v = v.succ
+        end
       end
+      v.upto(@end, @excl) { |s| yield s }
+    elsif v.is_a?(Symbol)
+      Range.new(v.to_s, @end&.to_s, @excl).each { |s| yield s.to_sym }
     else
       raise TypeError, "can't iterate from #{v.class}"
     end
@@ -104,12 +103,20 @@ class Range
     @excl ? c < 0 : c <= 0
   end
 
-  def include?(v) = cover?(v)
-  def member?(v) = cover?(v)
+  # A String range covers single characters by order and walks the rest.
+  def include?(v)
+    return cover?(v) unless @begin.is_a?(String) || @end.is_a?(String)
+    return cover?(v) if v.is_a?(String) && v.size == 1 && (@begin.nil? || @begin.size == 1) && (@end.nil? || @end.size == 1)
+    return false unless v.is_a?(String)
+
+    each { |x| return true if x == v }
+    false
+  end
+  alias member? include?
   def ===(v) = cover?(v)
 
   def step(n = 1, &block)
-    return stepped(n, :step, &block) if @begin.is_a?(String) || (@begin.nil? && @end.is_a?(String))
+    return stepped(n, :step, &block) if @begin.is_a?(String) || @begin.is_a?(Symbol) || (@begin.nil? && (@end.is_a?(String) || @end.is_a?(Symbol)))
     Primitive.zr_unimplemented("Range#step over non-Numerics") unless @begin.is_a?(Numeric) && (@end.nil? || @end.is_a?(Numeric)) && n.is_a?(Numeric)
     raise ArgumentError, "step can't be 0" if n.zero?
 
@@ -120,7 +127,7 @@ class Range
     self
   end
   def %(n, &block)
-    return stepped(n, :%, &block) if @begin.is_a?(String) || (@begin.nil? && @end.is_a?(String))
+    return stepped(n, :%, &block) if @begin.is_a?(String) || @begin.is_a?(Symbol) || (@begin.nil? && (@end.is_a?(String) || @end.is_a?(Symbol)))
 
     step(n, &block)
   end

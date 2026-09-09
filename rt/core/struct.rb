@@ -178,7 +178,7 @@ class Struct
     return "#{head}:...>" if Primitive.zr_recursive_enter(self, :inspect)
 
     begin
-      pairs = members.zip(Primitive.zr_hidden_get(self, :__values__)).map { |m, v| "#{m}=#{v.inspect}" }
+      pairs = members.zip(Primitive.zr_hidden_get(self, :__values__)).map { |m, v| "#{plain_member?(m) ? m : m.inspect}=#{v.inspect}" }
       "#{head} #{pairs.join(', ')}>"
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
@@ -187,6 +187,15 @@ class Struct
   alias to_s inspect
 
   private
+
+  # A member that inspects as a bare name: letters, digits and
+  # underscores, not starting with a digit.
+  def plain_member?(name)
+    text = name.to_s
+    return false if text.empty? || text.getbyte(0) >= 48 && text.getbyte(0) <= 57
+
+    text.each_byte.all? { |b| (b >= 48 && b <= 57) || (b >= 65 && b <= 90) || (b >= 97 && b <= 122) || b == 95 }
+  end
 
   # The index a member name or position names, or the error CRuby
   # raises for one that is out of range.

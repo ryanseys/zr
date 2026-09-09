@@ -243,6 +243,7 @@ module Enumerable
   end
 
   def each_cons(n)
+    n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "invalid size" if n <= 0
     return to_enum(:each_cons, n) { [count - n + 1, 0].max } unless block_given?
 
@@ -258,6 +259,7 @@ module Enumerable
   end
 
   def each_slice(n)
+    n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "invalid slice size" if n <= 0
     return to_enum(:each_slice, n) { (count + n - 1) / n } unless block_given?
 

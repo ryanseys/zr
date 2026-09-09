@@ -287,6 +287,8 @@ machine def zr_path_kind(path)
 end
 
 Machine.import "clock_gettime", [I32, Ptr] => I32
+Machine.import "clock_getres", [I32, Ptr] => I32
+Machine.import "crypt", [Ptr, Ptr] => Ptr
 Machine.import "nanosleep", [Ptr, Ptr] => I32
 
 # Nanoseconds on the clock `id` names (darwin: 0 real time, 6
@@ -296,6 +298,24 @@ machine def zr_clock_ns(id)
   ts = Machine.slot(16)
   clock_gettime(Machine.i32(zr_fix2long(id)), ts)
   zr_fix(Machine.load64(ts, 0) * 1000000000 + Machine.load64(ts, 8))
+end
+
+# The clock's resolution in nanoseconds.
+sig [Value] => Value
+machine def zr_clock_res_ns(id)
+  ts = Machine.slot(16)
+  clock_getres(Machine.i32(zr_fix2long(id)), ts)
+  zr_fix(Machine.load64(ts, 0) * 1000000000 + Machine.load64(ts, 8))
+end
+
+# crypt(3) of the text with the salt.
+sig [Value, Value] => Value
+machine def zr_str_crypt(text, salt)
+  out = crypt(RString.ptr(text), RString.ptr(salt))
+  if out == 0
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("invalid salt"), 12)
+  end
+  zr_str_new(out, zr_cstr_len(out))
 end
 
 # The whole process sleeps `ns` nanoseconds.

@@ -554,7 +554,7 @@ machine def zr_operator_name_p(p, n)
   elsif n == 2
     c = Machine.word(Machine.load8(p, 0))
     d = Machine.word(Machine.load8(p, 1))
-    (c == 60 && (d == 60 || d == 61)) || (c == 62 && (d == 62 || d == 61)) || (c == 61 && (d == 61 || d == 126)) || (c == 33 && (d == 61 || d == 126)) || (c == 42 && d == 42) || (c == 91 && d == 93)
+    (c == 60 && (d == 60 || d == 61)) || (c == 62 && (d == 62 || d == 61)) || (c == 61 && (d == 61 || d == 126)) || (c == 33 && (d == 61 || d == 126)) || (c == 42 && d == 42) || (c == 91 && d == 93) || ((c == 43 || c == 45) && d == 64)
   elsif n == 3
     c = Machine.word(Machine.load8(p, 0))
     d = Machine.word(Machine.load8(p, 1))

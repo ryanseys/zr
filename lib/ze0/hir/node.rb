@@ -176,6 +176,8 @@ module Ze0
     Interp = Struct.new(:parts, :line)
     # A regexp literal: its source and option bits; one object per site.
     RegexpLit = Struct.new(:source, :options, :line)
+    # `"text".freeze`: the one frozen String of that text.
+    FrozenString = Struct.new(:value, :line)
     # `begin body rescue ... else else_body ensure ensure_body end`. The
     # else arm runs after a body that raised nothing; the ensure arm on
     # every way out. `rescues` are Rescue nodes in order; `else_body` and

@@ -356,8 +356,14 @@ class Array
     Primitive.zr_ary_splice(self, index, 0, vals)
   end
 
+  # The arguments are read before any is appended, so `a.concat(a, a)`
+  # triples it.
   def concat(*others)
-    others.each { |o| Primitive.zr_ary_splice(self, size, 0, o) }
+    pieces = others.map do |o|
+      ary = Array.try_convert(o) || raise(TypeError, "no implicit conversion of #{o.nil? ? 'nil' : o.class} into Array")
+      ary.equal?(self) ? ary.dup : ary
+    end
+    pieces.each { |o| Primitive.zr_ary_splice(self, size, 0, o) }
     self
   end
 
@@ -540,6 +546,7 @@ class Array
   end
 
   def each_slice(n)
+    n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "invalid slice size" if n <= 0
     return to_enum(:each_slice, n) { (size + n - 1) / n } unless block_given?
 
@@ -637,10 +644,16 @@ class Array
   end
 
   def product(*others)
-    return map { |x| [x] } if others.empty?
+    combos = if others.empty?
+               map { |x| [x] }
+             else
+               rest = others[0].product(*others[1..])
+               flat_map { |x| rest.map { |r| [x] + r } }
+             end
+    return combos unless block_given?
 
-    rest = others[0].product(*others[1..])
-    flat_map { |x| rest.map { |r| [x] + r } }
+    combos.each { |c| yield c }
+    self
   end
 
   def transpose
@@ -651,21 +664,31 @@ class Array
     (0...n).map { |i| map { |row| row[i] } }
   end
 
-  def fill(value = nil, start = 0, length = nil)
-    if block_given?
-      i = start
-      stop = length ? start + length : size
-      while i < stop
-        self[i] = yield(i)
-        i += 1
-      end
+  # `fill(value)`, `fill(value, start [, length])`, `fill(value, range)`,
+  # each with a block in place of the value.
+  def fill(*args)
+    value = block_given? ? nil : args.shift
+    raise ArgumentError, "wrong number of arguments (given #{args.size + (block_given? ? 0 : 1)}, expected #{block_given? ? '0..2' : '1..3'})" if args.size > 2
+
+    if args[0].is_a?(Range)
+      first = args[0].begin || 0
+      first += size if first < 0
+      raise RangeError, "#{args[0]} out of range" if first < 0
+
+      last = args[0].end.nil? ? size - 1 : args[0].end
+      last += size if last < 0
+      last -= 1 if args[0].exclude_end? && !args[0].end.nil?
+      stop = last + 1
     else
-      i = start
-      stop = length ? start + length : size
-      while i < stop
-        self[i] = value
-        i += 1
-      end
+      first = args[0].nil? ? 0 : Primitive.zr_index_operand_m(args[0])
+      first += size if first < 0
+      first = 0 if first < 0
+      stop = args[1].nil? ? size : first + Primitive.zr_index_operand_m(args[1])
+    end
+    i = first
+    while i < stop
+      self[i] = block_given? ? yield(i) : value
+      i += 1
     end
     self
   end

@@ -85,8 +85,7 @@ class String
 
   def end_with?(*suffixes)
     suffixes.any? do |suffix|
-      raise TypeError, "no implicit conversion of #{suffix.class} into String" unless suffix.is_a?(String)
-
+      suffix = Primitive.zr_str_operand(suffix)
       suffix.bytesize <= bytesize && byteslice_of(bytesize - suffix.bytesize, suffix.bytesize) == suffix
     end
   end
@@ -119,7 +118,7 @@ class String
 
     Primitive.zr_frozen_error(self) if frozen?
     value = args.pop
-    raise TypeError, "no implicit conversion of #{value.class} into String" unless value.is_a?(String)
+    value = Primitive.zr_str_operand(value)
 
     index = args[0]
     count = size
@@ -203,6 +202,7 @@ class String
   def capitalize! = mutate(capitalize)
   def swapcase! = mutate(swapcase)
   def reverse! = replace(reverse)
+  def delete!(*sets) = mutate(delete(*sets))
   def strip! = mutate(strip)
   def lstrip! = mutate(lstrip)
   def rstrip! = mutate(rstrip)
@@ -303,6 +303,7 @@ class String
       return block_given? ? (yield dup; self) : (empty? ? [] : [dup])
     end
     pattern = $; if pattern.nil?
+    pattern = Primitive.zr_str_operand(pattern) if !pattern.nil? && !pattern.is_a?(String) && !pattern.is_a?(Regexp) && pattern.respond_to?(:to_str)
     out = if pattern.nil? || pattern == " " then split_words(limit)
           elsif pattern.is_a?(Regexp) then split_by_regexp(pattern, limit)
           elsif !pattern.is_a?(String) then raise TypeError, "wrong argument type #{pattern.class} (expected Regexp)"
@@ -413,18 +414,21 @@ class String
 
   def tr(from, to) = translate(from, to, false)
 
+  # nil when no character of `from` occurs, even if nothing changed.
   def tr!(from, to)
-    out = translate(from, to, false)
-    out == self ? nil : mutate(out)
+    return nil unless count(from) > 0
+
+    replace(translate(from, to, false))
   end
 
   def tr_s!(from, to)
-    out = translate(from, to, true)
-    out == self ? nil : mutate(out)
+    return nil unless count(from) > 0
+
+    replace(translate(from, to, true))
   end
 
   def succ!
-    mutate(succ)
+    replace(succ)
   end
 
   alias next! succ!
@@ -437,20 +441,31 @@ class String
     end_with?(suffix) ? mutate(delete_suffix(suffix)) : nil
   end
 
+  # Bytes and Strings appended as they are, whatever the encodings.
+  def append_as_bytes(*parts)
+    parts.each do |part|
+      if part.is_a?(Integer)
+        Primitive.zr_str_push_byte(self, part & 0xFF)
+      else
+        Primitive.zr_str_operand(part).each_byte { |b| Primitive.zr_str_push_byte(self, b) }
+      end
+    end
+    self
+  end
+
+  def crypt(salt)
+    salt = Primitive.zr_str_operand(salt)
+    raise ArgumentError, "salt too short (need >=2 bytes)" if salt.bytesize < 2
+    raise ArgumentError, "string contains null byte" if include?("\0") || salt.include?("\0")
+
+    Primitive.zr_str_crypt(self, salt)
+  end
+
   def each_codepoint(&block)
     return to_enum(:each_codepoint) { size } unless block
 
     each_char { |c| yield c.ord }
     self
-  end
-
-  # `-string`: the one frozen String of these bytes, from the table.
-  def -@
-    table = Primitive.zr_hidden_get(String, :__interned__) || Primitive.zr_hidden_set(String, :__interned__, {})
-    return table[self] if table.key?(self)
-
-    held = frozen? ? self : dup.freeze
-    table[held] = held
   end
 
   def dedup = -self
@@ -504,7 +519,7 @@ class String
   def upto(last, exclusive = false, &block)
     return to_enum(:upto, last, exclusive) unless block
 
-    last = last.to_str
+    last = Primitive.zr_str_operand(last)
     if bytesize == 1 && last.bytesize == 1
       b = getbyte(0)
       finish = last.getbyte(0)
@@ -515,6 +530,7 @@ class String
       end
       return self
     end
+    return self if bytesize > last.bytesize
     if digits? && last.send(:digits?)
       n = to_i
       finish = last.to_i
@@ -725,7 +741,7 @@ class String
 
   def to_i(base = 10)
     raise ArgumentError, "invalid radix #{base}" if base < 0 || base == 1 || base > 36
-    return lenient_integer(base) if base != 10
+    return lenient_integer(base == 0 ? -10 : base) if base != 10
 
     i = 0
     i += 1 while i < bytesize && space_byte?(Primitive.zr_str_byte_at(self, i))
@@ -937,6 +953,7 @@ class String
         last = nil
         next
       end
+      at = source.rindex(b) unless negated
       mapped = negated ? target[-1] : (target[at] || target[-1])
       out << Primitive.zr_str_from_byte(mapped) unless squeeze && mapped == last
       last = mapped
@@ -967,6 +984,9 @@ class String
       if chosen && (base < 0 || chosen == base)
         base = chosen
         i += 2
+      elsif base == -10
+        base = 8
+        i += 1
       end
     end
     base = -base if base < 0

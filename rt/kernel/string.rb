@@ -75,10 +75,28 @@ machine def zr_frozen_error(v)
   zr_raise(e)
 end
 
-# The String operand of a String method, else CRuby's TypeError.
+# The String operand of a String method: a String, or what `to_str`
+# answers, else CRuby's TypeError.
 sig [Value] => Value
 machine def zr_str_operand(v)
   if zr_special_p(v) || zr_type(v) != T_STRING
+    if !zr_special_p(v) && zr_find_method(zr_class_of(v), Machine.id(:to_str)) != 0
+      s = zr_send(v, Machine.id(:to_str), 0, 0)
+      return s if s == QUNDEF
+      if !zr_special_p(s) && zr_type(s) == T_STRING
+        return s
+      end
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("can't convert "), 14)
+      zr_buf_str(b, zr_class_name_of(v))
+      zr_buf_push(b, Machine.bytes(" to String ("), 12)
+      zr_buf_str(b, zr_class_name_of(v))
+      zr_buf_push(b, Machine.bytes("#to_str gives "), 14)
+      zr_buf_str(b, zr_class_name_of(s))
+      zr_buf_push(b, Machine.bytes(")"), 1)
+      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+    end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
@@ -447,7 +465,9 @@ machine def zr_str_char_slice(s, start, len)
     to += zr_str_char_len_at(s, to)
     count -= 1
   end
-  zr_str_new(RString.ptr(s) + from, to - from)
+  out = zr_str_new(RString.ptr(s) + from, to - from)
+  RBasic.set_flags(out, RBasic.flags(out) | (RBasic.flags(s) & (FL_BINARY | FL_USASCII)))
+  out
 end
 
 sig [Value, Value] => Value
@@ -559,7 +579,9 @@ machine def zr_str_reverse(recv, argc, argv, cref, blk)
     zr_buf_push(b, RString.ptr(recv) + start, end_ - start)
     end_ = start
   end
-  zr_buf_take(b)
+  out = zr_buf_take(b)
+  RBasic.set_flags(out, RBasic.flags(out) | (RBasic.flags(recv) & (FL_BINARY | FL_USASCII)))
+  out
 end
 
 # The byte index of `needle` in `hay` from `from`, or -1.
@@ -623,9 +645,9 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_uminus(recv, argc, argv, cref, blk)
   if zr_frozen_p(recv)
-    return recv
+    return zr_str_intern(recv)
   end
-  zr_str_frozen(RString.ptr(recv), RString.len(recv))
+  zr_str_intern(zr_str_new(RString.ptr(recv), RString.len(recv)))
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -748,8 +770,31 @@ end
 # A frozen literal: the same String object at every evaluation.
 sig [Ptr, Word] => Value
 machine def zr_str_frozen(bytes, len)
-  s = zr_str_new(bytes, len)
+  zr_str_intern(zr_str_new(bytes, len))
+end
+
+G_FSTRINGS = 44
+
+# CRuby's fstring table: the one frozen String of these bytes. A
+# String not yet in the table is frozen and kept; a binary String is
+# frozen but not shared, since the table keys on bytes alone.
+sig [Value] => Value
+machine def zr_str_intern(s)
+  if zr_str_binary_p(s)
+    RBasic.set_flags(s, RBasic.flags(s) | FL_FREEZE)
+    return s
+  end
+  table = zr_global(G_FSTRINGS)
+  if zr_special_p(table)
+    table = zr_hash_new()
+    zr_set_global(G_FSTRINGS, table)
+  end
+  found = zr_hash_lookup(table, s)
+  if found != QUNDEF
+    return found
+  end
   RBasic.set_flags(s, RBasic.flags(s) | FL_FREEZE)
+  zr_hash_store(table, s, s)
   s
 end
 
@@ -862,4 +907,31 @@ machine def zr_str_find_from(s, needle, start)
     return Machine.value(QNIL)
   end
   zr_fix(i)
+end
+
+# One byte appended as it is, the flags untouched (`append_as_bytes`).
+sig [Value, Value] => Value
+machine def zr_str_push_byte(recv, byte)
+  if zr_frozen_p(recv)
+    return zr_frozen_error(recv)
+  end
+  n = RString.len(recv) + 1
+  if n + 1 > RString.capa(recv)
+    capa = RString.capa(recv) * 2
+    if capa < n + 1
+      capa = n + 1
+    end
+    p = malloc(capa)
+    zr_memcpy(p, RString.ptr(recv), RString.len(recv))
+    free(RString.ptr(recv))
+    RString.set_ptr(recv, p)
+    RString.set_capa(recv, capa)
+  end
+  Machine.store8(RString.ptr(recv) + RString.len(recv), 0, Machine.i8(zr_fix2long(byte)))
+  RString.set_len(recv, n)
+  Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
+  if (RBasic.flags(recv) & FL_USASCII) != 0 && zr_fix2long(byte) >= 128
+    RBasic.set_flags(recv, RBasic.flags(recv) & (0 - (FL_USASCII + 1)))
+  end
+  recv
 end

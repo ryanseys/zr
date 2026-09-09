@@ -190,7 +190,13 @@ machine def zr_index_operand(v, out)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
-    zr_buf_str(b, zr_class_name_of(v))
+    if v == QNIL || v == QTRUE || v == QFALSE
+      s = zr_send(v, Machine.id(:inspect), 0, 0)
+      return s if s == QUNDEF
+      zr_buf_str(b, s)
+    else
+      zr_buf_str(b, zr_class_name_of(v))
+    end
     zr_buf_push(b, Machine.bytes(" into Integer"), 13)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
@@ -544,4 +550,22 @@ machine def zr_ary_clear(a, unused)
   end
   RArray.set_len(a, 0)
   a
+end
+
+# An Integer index for the core: the Integer, its `to_int`, or CRuby's
+# TypeError.
+sig [Value] => Value
+machine def zr_index_operand_m(v)
+  if zr_fixnum_p(v)
+    return v
+  end
+  if !zr_special_p(v) && zr_find_method(zr_class_of(v), Machine.id(:to_int)) != 0
+    r = zr_send(v, Machine.id(:to_int), 0, 0)
+    return r if r == QUNDEF
+    if zr_fixnum_p(r)
+      return r
+    end
+  end
+  out = Machine.slot(8)
+  zr_index_operand(v, out)
 end

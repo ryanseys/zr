@@ -561,6 +561,7 @@ module Ze0
 
       def call(node)
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil?
+        return FrozenString.new(node.receiver.unescaped, node.location.start_line) if node.name == :freeze && node.receiver.is_a?(Prism::StringNode) && node.arguments.nil? && node.block.nil?
         return require_node(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && literal_feature(node)
         return autoload_node(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
 

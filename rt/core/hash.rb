@@ -192,6 +192,7 @@ class Hash
   def default_proc = Primitive.zr_hash_default_proc(self)
 
   def default_proc=(pr)
+    pr = pr.to_proc if !pr.nil? && !pr.is_a?(Proc) && pr.respond_to?(:to_proc)
     unless pr.nil? || pr.is_a?(Proc)
       raise TypeError, "wrong default_proc type #{pr.class} (expected Proc)"
     end

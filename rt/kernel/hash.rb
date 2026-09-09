@@ -71,7 +71,7 @@ machine def zr_key_eql(a, b)
   if t == T_REGEXP
     return RRegexp.options(a) == RRegexp.options(b) && zr_key_eql(RRegexp.source(a), RRegexp.source(b))
   end
-  if t == T_OBJECT
+  if t == T_OBJECT || t == T_METHOD || t == T_FLOAT || t == T_HASH || t == T_PROC
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(b))
     r = zr_send(a, Machine.id(:eql?), 1, slot)
@@ -147,7 +147,9 @@ machine def zr_hash_store(h, key, value)
     return
   end
   if !zr_special_p(key) && zr_type(key) == T_STRING && !zr_frozen_p(key) && (RBasic.flags(h) & FL_IDENTITY) == 0
-    key = zr_str_new(RString.ptr(key), RString.len(key))
+    copy = zr_str_new(RString.ptr(key), RString.len(key))
+    RBasic.set_flags(copy, RBasic.flags(copy) | (RBasic.flags(key) & (FL_BINARY | FL_USASCII)))
+    key = copy
     RBasic.set_flags(key, RBasic.flags(key) | FL_FREEZE)
   end
   zr_hash_reserve(h)

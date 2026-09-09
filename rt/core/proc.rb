@@ -65,6 +65,8 @@ class Proc
 end
 
 class Method
+  def hash = [owner, name, receiver.object_id].hash
+
   def >>(other)
     other = Proc.callable(other)
     first = self

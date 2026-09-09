@@ -40,3 +40,25 @@ begin; "é".b + "é"; rescue Encoding::CompatibilityError => e; puts "plus: #{e.
 begin; ("é".b) << "é"; rescue Encoding::CompatibilityError => e; puts "shovel: #{e.message}"; end
 begin; "é" + "é".b; rescue Encoding::CompatibilityError => e; puts "text first: #{e.message}"; end
 p ("a".b + "é").encoding, ("é" + "a".b).encoding, ("é".b + "a").encoding, Encoding::CompatibilityError.superclass, Encoding::CompatibilityError.ancestors.include?(StandardError)
+p "0xff".to_i(0), "12".to_i(0), "012".to_i(0), "0b11".to_i(0), "0o17".to_i(0), "-0x10".to_i(0), "09".to_i(0), "0_9".to_i(0), "1_000".to_i(0), "0x".to_i(0), "x".to_i(0)
+p ("hi".ljust(5, "") rescue $!.message), "y".upto("ab").to_a, "a".upto("e", true).to_a, "9".upto("11").to_a, "az".upto("bc").to_a, ("y".."ab").to_a
+p ("a".."z").include?("bb"), ("a".."z").include?("b"), ("aa".."zz").include?("bb"), ("aa".."zz").include?("b"), ("a".."z").cover?("bb"), ("a".."z") === "bb", (:a..:e).to_a, (:a..:e).include?(:c), (:a..:e).step(2).to_a
+p "abc".crypt("ab"), Process.clock_getres(Process::CLOCK_MONOTONIC), Process.clock_getres(Process::CLOCK_MONOTONIC, :nanosecond), ("abc".crypt("a") rescue $!.message)
+p "".reverse!, "".succ!, (+"Hello").tr!("l", "l"), (+"Hello").tr!("z", "y"), "aaa".tr("aa", ".-"), "abc".tr("a-c", "x"), 200.chr.encoding, 200.chr.ord, (0.chr + 0xc8.chr).encoding, (0.chr + 0xc8.chr)[1].ord, "x".append_as_bytes("é", 255).bytes, "x".append_as_bytes(0x41).bytes, "x".append_as_bytes("é").encoding, (+"heelloo").delete!("e"), (+"abc").delete!("z")
+p 1.5.coerce("2"), (1.5.coerce("x") rescue $!.message), 1.5.coerce(Rational(1, 2)), (1.5.coerce(nil) rescue $!.message), 1.5.coerce(2), 1.5 + Rational(1, 2), Rational(1, 2) + 1.5
+a = [1, 2]; a.concat(a, a); p a
+b = [1]; b.concat(b); p b
+r = []; ret = [1, 2].product([3, 4]) { |t| r << t }; p r, ret
+p [1, 2, 3].each_slice(2) { }, [1, 2, 3].each_cons(2) { }, ([1].each_cons("l") rescue $!.message), ([1].each_slice(:a) rescue $!.message), ([1].each_slice(0) rescue $!.message)
+p ([0] * 5).fill(1..2) { |i| i + 100 }, ([0] * 5).fill(7, 1..2), ([0] * 3).fill(5, 1, 5), ([0] * 3).fill { |i| i }, (([0] * 3).fill(1, "x") rescue $!.message), ([0] * 3).fill(1, -1), ([0] * 3).fill(1, 5), ([0] * 3).fill(1, -5)
+h = {}; p h.public_send(:default_proc=, :a).class, h.default_proc.class
+class M2; def self.foo; end; end
+p M2.method(:foo).hash == M2.method(:foo).hash, { M2.method(:foo) => 1 }[M2.method(:foo)], M2.method(:foo).eql?(M2.method(:foo))
+S2 = Struct.new(:verbose?, :name, :Const)
+p S2.new(true, "x", 1).inspect, :+@.inspect, :-@.inspect, :[].inspect, :"a b".inspect, :a?.inspect
+p "lit".freeze.equal?("lit".freeze), (-"lit").equal?(-"lit"), (-"lit").equal?("lit".freeze), "x".dedup.equal?("x".freeze)
+class Sep; def to_str = "-"; end
+p "a" + Sep.new, "a-b".split(Sep.new), "a".include?(Sep.new), "a-".end_with?(Sep.new), ("a".index(Sep.new)), "abc".delete(Sep.new), ("a" + 1 rescue $!.message)
+class BadSep; def to_str = 1; end
+p ("a" + BadSep.new rescue $!.message)
+k = "k".b; h = { k => 1 }; p h.keys[0].encoding, h.keys[0].frozen?, h.keys[0].equal?(k)

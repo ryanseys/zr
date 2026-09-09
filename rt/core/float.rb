@@ -41,9 +41,12 @@ class Float
 
   def coerce(other)
     return [other, self] if other.is_a?(Float)
-    return [other.to_f, self] if other.is_a?(Integer)
+    return [other.to_f, self] if other.is_a?(Integer) || other.is_a?(Rational)
+    raise TypeError, "can't convert nil into Float" if other.nil?
+    return [Float(other), self] if other.is_a?(String)
+    raise TypeError, "#{other.class} can't be coerced into Float" unless other.respond_to?(:to_f)
 
-    raise TypeError, "#{other.class} can't be coerced into Float"
+    [other.to_f, self]
   end
 
   def rationalize(*args) = Primitive.zr_unimplemented("Float#rationalize")

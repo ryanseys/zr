@@ -34,7 +34,15 @@ module Process
   def self.pid = Primitive.zr_process_id
 
   def self.clock_gettime(id, unit = :float_second)
-    ns = Primitive.zr_clock_ns(id)
+    in_unit(Primitive.zr_clock_ns(id), unit)
+  end
+
+  def self.clock_getres(id, unit = :float_second)
+    in_unit(Primitive.zr_clock_res_ns(id), unit)
+  end
+
+  def self.in_unit(ns, unit)
+    Primitive.attr! :hidden
     case unit
     when :float_second then ns.to_f / 1e9
     when :float_millisecond then ns.to_f / 1e6
@@ -46,4 +54,5 @@ module Process
     else raise ArgumentError, "unexpected unit: #{unit}"
     end
   end
+  private_class_method :in_unit
 end
