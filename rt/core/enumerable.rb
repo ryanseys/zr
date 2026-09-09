@@ -191,7 +191,7 @@ module Enumerable
   end
 
   def each_with_object(memo)
-    return to_enum(:each_with_object, memo) unless block_given?
+    return to_enum(:each_with_object, memo) { respond_to?(:size) ? size : nil } unless block_given?
 
     each do |*x|
       x = Primitive.zr_enum_value(x)
@@ -362,8 +362,8 @@ module Enumerable
     out
   end
 
-  def zip(*others)
-    to_a.zip(*others)
+  def zip(*others, &block)
+    to_a.zip(*others, &block)
   end
 
   def take(n)
@@ -420,7 +420,17 @@ module Enumerable
       end
       return nil
     end
-    take(n)
+
+    out = []
+    return out if n == 0
+
+    each do |*x|
+      x = Primitive.zr_enum_value(x)
+      out << x
+      break if out.size >= n
+      nil
+    end
+    out
   end
 
   def to_a
@@ -681,7 +691,7 @@ module Enumerable
 
   def chain(*others) = Primitive.zr_unimplemented("Enumerable#chain")
 
-  def lazy = Primitive.zr_unimplemented("Enumerable#lazy")
+  def lazy = Enumerator::Lazy.from(self)
 
   def to_set = Primitive.zr_unimplemented("Enumerable#to_set")
 end

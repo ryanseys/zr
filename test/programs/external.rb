@@ -71,3 +71,14 @@ gc = Enumerator.new { |y| 20.times { |i| GC.start; y << i.to_s * 3 } }
 p 20.times.map { gc.next }.last
 inner = Enumerator.new { |y| outer = [1, 2].each; y << outer.next; y << outer.next; y << (outer.next rescue :end) }
 p inner.next, inner.next, inner.next
+inf = Enumerator.new { |y| i = 0; loop { y << (i += 1) } }.lazy
+p [1, 2].lazy.zip(inf).to_a, [1, 2].lazy.zip(inf, [7]).first(1), inf.zip(inf.map { |x| -x }).first(2)
+e = [1, 2, 3].lazy.map { |x| x * 2 }
+p e.next, e.next, e.peek, e.next
+begin
+  e.next
+rescue StopIteration => x
+  p x.message
+end
+p e.rewind.next
+p [4, 5].lazy.take(1).eager.next

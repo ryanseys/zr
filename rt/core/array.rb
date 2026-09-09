@@ -473,15 +473,17 @@ class Array
   end
 
   def zip(*others)
+    columns = []
+    columns << zip_column(others[columns.size], size) while columns.size < others.size
     out = []
     i = 0
     while i < size
       row = [self[i]]
-      others.each { |o| row << o[i] }
-      out << row
+      columns.each { |column| row << column[i] }
+      block_given? ? yield(row) : out << row
       i += 1
     end
-    out
+    block_given? ? nil : out
   end
 
   def product(*others)
@@ -594,4 +596,24 @@ class Array
     len = 0 if len < 0
     [start, len]
   end
+
+  # The first n items of one zip argument: an Array as it is, else
+  # what its `each` yields.
+  def zip_column(other, n)
+    Primitive.attr! :hidden
+    return other if other.is_a?(Array)
+    return other.to_ary if other.respond_to?(:to_ary)
+    return [] if n == 0
+    raise TypeError, "wrong argument type #{other.class} (must respond to :each)" unless other.respond_to?(:each)
+
+    out = []
+    other.each do |*x|
+      out << Primitive.zr_enum_value(x)
+      break if out.size == n
+
+      nil
+    end
+    out
+  end
+
 end

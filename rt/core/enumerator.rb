@@ -69,20 +69,16 @@ class Enumerator
     @size.is_a?(Proc) ? @size.call : @size
   end
 
-  def with_index(offset = 0)
-    return to_enum(:with_index, offset) { size } unless block_given?
+  def with_index(offset = 0, &block)
+    return to_enum(:with_index, offset) { size } unless block
 
-    i = offset - 1
-    each do |*values|
-      i += 1
-      yield(values.size <= 1 ? values[0] : values, i)
-    end
+    indexed(offset, &block)
   end
 
   def each_with_index(&block)
     return to_enum(:each_with_index) { size } unless block
 
-    with_index(0, &block)
+    indexed(0, &block)
   end
 
   def with_object(memo)
@@ -135,6 +131,15 @@ class Enumerator
   alias to_s inspect
 
   private
+
+  def indexed(offset)
+    Primitive.attr! :hidden
+    i = offset - 1
+    each do |*values|
+      i += 1
+      yield(values.size <= 1 ? values[0] : values, i)
+    end
+  end
 
   # Each `next` resumes the fiber that runs the iteration; the block
   # yields every value set back as an array. When the iteration ends,
@@ -273,5 +278,401 @@ class Enumerator::ArithmeticSequence < Enumerator
     @args = []
     @kwargs = {}
     @size = nil
+  end
+end
+
+# A lazy enumerator is a chain of nodes. Each node reads its receiver,
+# shows the method and arguments it was made with, and streams what
+# it produces through the Yielder `each` is given; a node that stops
+# early breaks out of its receiver's `each`. What a node yields keeps
+# the receiver's value packing unless CRuby's node passes one value.
+class Enumerator::Lazy < Enumerator
+  def self.from(receiver)
+    lazy = allocate
+    lazy.send(:node, receiver, nil, [], :run_each, nil) { receiver.respond_to?(:size) ? receiver.size : nil }
+    lazy
+  end
+
+  def initialize(receiver, size = nil, &block)
+    raise ArgumentError, "tried to call lazy new without a block" unless block
+
+    node(receiver, :each, [], :run_new, block) { size }
+  end
+
+  def each(&block)
+    return self unless block
+
+    __send__(@runner, Yielder.new(&block))
+  end
+
+  def size = @size.call
+
+  def lazy = self
+
+  def force(*) = to_a
+
+  def eager
+    Enumerator.for(self, :each, [], {}, proc { size })
+  end
+
+  def to_enum(method = :each, *args, **kwargs, &size)
+    lazy = Enumerator::Lazy.allocate
+    lazy.send(:node, self, method, args, :run_send, nil, kwargs) { size&.call }
+    lazy
+  end
+
+  alias enum_for to_enum
+
+  def map(&block)
+    step(:map, :run_map, block, sized: true)
+  end
+
+  alias collect map
+
+  def flat_map(&block)
+    step(:flat_map, :run_flat_map, block)
+  end
+
+  alias collect_concat flat_map
+
+  def select(&block)
+    step(:select, :run_select, block)
+  end
+
+  alias filter select
+  alias find_all select
+
+  def filter_map(&block)
+    step(:filter_map, :run_filter_map, block)
+  end
+
+  def reject(&block)
+    step(:reject, :run_reject, block)
+  end
+
+  def take_while(&block)
+    step(:take_while, :run_take_while, block)
+  end
+
+  def drop_while(&block)
+    step(:drop_while, :run_drop_while, block)
+  end
+
+  def take(n)
+    n = implicit_integer(n)
+    raise ArgumentError, "attempt to take negative size" if n < 0
+
+    step(:take, :run_take, nil, [n], check: false) do
+      s = @receiver.size
+      s.nil? ? nil : (s > n ? n : s)
+    end
+  end
+
+  def drop(n)
+    n = implicit_integer(n)
+    raise ArgumentError, "attempt to drop negative size" if n < 0
+
+    step(:drop, :run_drop, nil, [n], check: false) do
+      s = @receiver.size
+      s.nil? ? nil : (s > n ? s - n : 0)
+    end
+  end
+
+  def grep(pattern, &block)
+    step(:grep, block ? :run_grep_map : :run_grep, block, [pattern], check: false)
+  end
+
+  def grep_v(pattern, &block)
+    step(:grep_v, block ? :run_grep_v_map : :run_grep_v, block, [pattern], check: false)
+  end
+
+  def zip(*others, &block)
+    return super if block
+
+    others.each do |other|
+      next if other.is_a?(Array) || other.respond_to?(:each)
+
+      raise TypeError, "wrong argument type #{other.class} (must respond to :each)"
+    end
+    step(:zip, :run_zip, nil, others, check: false, sized: true)
+  end
+
+  def uniq(&block)
+    step(:uniq, :run_uniq, block, check: false)
+  end
+
+  def compact
+    step(:compact, :run_compact, nil, check: false)
+  end
+
+  def with_index(offset = 0, &block)
+    offset = 0 if offset.nil?
+    step(:with_index, block ? :run_with_index_each : :run_with_index, block, [offset], check: false, sized: true)
+  end
+
+  def chunk(&block) = Primitive.zr_unimplemented("Enumerator::Lazy#chunk")
+  def chunk_while(&block) = Primitive.zr_unimplemented("Enumerator::Lazy#chunk_while")
+  def slice_when(&block) = Primitive.zr_unimplemented("Enumerator::Lazy#slice_when")
+  def slice_before(*, &block) = Primitive.zr_unimplemented("Enumerator::Lazy#slice_before")
+  def slice_after(*, &block) = Primitive.zr_unimplemented("Enumerator::Lazy#slice_after")
+
+  def inspect
+    parts = @args.map(&:inspect)
+    args = parts.empty? ? "" : "(#{parts.join(', ')})"
+    method = @method ? ":#{@method}" : ""
+    "#<Enumerator::Lazy: #{@receiver.inspect}#{method}#{args}>"
+  end
+
+  alias to_s inspect
+
+  private
+
+  def node(receiver, method, args, runner, block, kwargs = {}, &size)
+    @receiver = receiver
+    @method = method
+    @args = args
+    @kwargs = kwargs
+    @runner = runner
+    @block = block
+    @size = size
+  end
+
+  # The node one lazy method adds: named after that method, sized
+  # like its receiver when `sized`, and refused without a block when
+  # `check`.
+  def step(method, runner, block, args = [], check: true, sized: false, &size)
+    Primitive.attr! :hidden
+    raise ArgumentError, "tried to call lazy #{method} without a block" if check && block.nil?
+
+    size ||= sized ? proc { @receiver.size } : proc { nil }
+    lazy = Enumerator::Lazy.allocate
+    lazy.send(:node, self, method, args, runner, block, &size)
+    lazy
+  end
+
+  def run_each(y)
+    Primitive.attr! :hidden
+    @receiver.each { |*values| y.yield(*values) }
+  end
+
+  def run_new(y)
+    Primitive.attr! :hidden
+    block = @block
+    @receiver.each { |*values| block.call(y, *values); nil }
+    nil
+  end
+
+  def run_send(y)
+    Primitive.attr! :hidden
+    @receiver.__send__(@method, *@args, **@kwargs) { |*values| y.yield(*values); nil }
+  end
+
+  def run_map(y)
+    Primitive.attr! :hidden
+    block = @block
+    @receiver.each { |*values| y << block.call(*values); nil }
+    nil
+  end
+
+  def run_flat_map(y)
+    Primitive.attr! :hidden
+    block = @block
+    @receiver.each do |*values|
+      result = block.call(*values)
+      if result.is_a?(Array) || (result.respond_to?(:force) && result.respond_to?(:each))
+        result.each { |v| y << v }
+      else
+        y << result
+      end
+      nil
+    end
+    nil
+  end
+
+  def run_select(y)
+    Primitive.attr! :hidden
+    block = @block
+    @receiver.each { |*values| y.yield(*values) if block.call(*values); nil }
+    nil
+  end
+
+  def run_filter_map(y)
+    Primitive.attr! :hidden
+    block = @block
+    @receiver.each do |*values|
+      result = block.call(*values)
+      y << result if result
+      nil
+    end
+    nil
+  end
+
+  def run_reject(y)
+    Primitive.attr! :hidden
+    block = @block
+    @receiver.each { |*values| y.yield(*values) unless block.call(*values); nil }
+    nil
+  end
+
+  def run_take_while(y)
+    Primitive.attr! :hidden
+    block = @block
+    @receiver.each do |*values|
+      break unless block.call(*values)
+
+      y.yield(*values)
+      nil
+    end
+    nil
+  end
+
+  def run_drop_while(y)
+    Primitive.attr! :hidden
+    block = @block
+    dropping = true
+    @receiver.each do |*values|
+      dropping = false if dropping && !block.call(*values)
+      y.yield(*values) unless dropping
+      nil
+    end
+    nil
+  end
+
+  def run_take(y)
+    Primitive.attr! :hidden
+    n = @args[0]
+    return nil if n == 0
+
+    taken = 0
+    @receiver.each do |*values|
+      y.yield(*values)
+      taken += 1
+      break if taken == n
+
+      nil
+    end
+    nil
+  end
+
+  def run_drop(y)
+    Primitive.attr! :hidden
+    n = @args[0]
+    seen = 0
+    @receiver.each do |*values|
+      y.yield(*values) if seen >= n
+      seen += 1
+      nil
+    end
+    nil
+  end
+
+  def run_grep(y)
+    Primitive.attr! :hidden
+    pattern = @args[0]
+    @receiver.each { |*values| y.yield(*values) if pattern === Primitive.zr_enum_value(values); nil }
+    nil
+  end
+
+  def run_grep_map(y)
+    Primitive.attr! :hidden
+    pattern = @args[0]
+    block = @block
+    @receiver.each do |*values|
+      x = Primitive.zr_enum_value(values)
+      y << block.call(x) if pattern === x
+      nil
+    end
+    nil
+  end
+
+  def run_grep_v(y)
+    Primitive.attr! :hidden
+    pattern = @args[0]
+    @receiver.each { |*values| y.yield(*values) unless pattern === Primitive.zr_enum_value(values); nil }
+    nil
+  end
+
+  def run_grep_v_map(y)
+    Primitive.attr! :hidden
+    pattern = @args[0]
+    block = @block
+    @receiver.each do |*values|
+      x = Primitive.zr_enum_value(values)
+      y << block.call(x) unless pattern === x
+      nil
+    end
+    nil
+  end
+
+  # Arrays are read by index; anything else is read with `next`, and
+  # answers nil once it stops.
+  def run_zip(y)
+    Primitive.attr! :hidden
+    cursors = @args.map { |other| other.is_a?(Array) ? other : other.to_enum }
+    i = 0
+    @receiver.each do |*values|
+      row = [Primitive.zr_enum_value(values)]
+      cursors.each do |cursor|
+        row << if cursor.is_a?(Array)
+                 cursor[i]
+               else
+                 begin
+                   cursor.next
+                 rescue StopIteration
+                   nil
+                 end
+               end
+      end
+      y << row
+      i += 1
+      nil
+    end
+    nil
+  end
+
+  def run_uniq(y)
+    Primitive.attr! :hidden
+    block = @block
+    seen = {}
+    @receiver.each do |*values|
+      key = block ? block.call(*values) : Primitive.zr_enum_value(values)
+      unless seen.key?(key)
+        seen[key] = true
+        y.yield(*values)
+      end
+      nil
+    end
+    nil
+  end
+
+  def run_compact(y)
+    Primitive.attr! :hidden
+    @receiver.each { |*values| y.yield(*values) unless Primitive.zr_enum_value(values).nil?; nil }
+    nil
+  end
+
+  def run_with_index(y)
+    Primitive.attr! :hidden
+    i = @args[0]
+    @receiver.each do |*values|
+      y << [Primitive.zr_enum_value(values), i]
+      i = implicit_integer(i) + 1
+      nil
+    end
+    nil
+  end
+
+  def run_with_index_each(y)
+    Primitive.attr! :hidden
+    block = @block
+    i = @args[0]
+    @receiver.each do |*values|
+      x = Primitive.zr_enum_value(values)
+      block.call(x, i)
+      y << x
+      i = implicit_integer(i) + 1
+      nil
+    end
+    nil
   end
 end

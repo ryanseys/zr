@@ -95,6 +95,8 @@ module Kernel
 
   def sleep(*args) = Primitive.zr_unimplemented("Kernel#sleep")
 
+  def itself = self
+
   def warn(*messages, uplevel: nil, category: nil)
     Primitive.zr_unimplemented("Kernel#warn with uplevel") if uplevel
     messages.flatten.each { |m| Primitive.zr_warn_line(m.to_s) }
@@ -102,6 +104,17 @@ module Kernel
   end
 
   private
+
+  # An Integer argument as CRuby's NUM2LONG reads one: an Integer, a
+  # Float truncated, or whatever `to_int` answers.
+  def implicit_integer(value)
+    Primitive.attr! :hidden
+    return value if value.is_a?(Integer)
+    raise TypeError, "no implicit conversion from nil to integer" if value.nil?
+    raise TypeError, "no implicit conversion of #{value.class} into Integer" unless value.respond_to?(:to_int)
+
+    value.to_int
+  end
 
   def exit_status(status)
     Primitive.attr! :hidden
