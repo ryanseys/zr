@@ -64,6 +64,72 @@ end
 class Module
   # A literal feature is resolved when the program is compiled.
   def autoload(name, feature) = Primitive.zr_unimplemented("autoload with a computed feature")
+
+  # A String name may be a `::` path, a leading `::` starting at Object;
+  # each segment after the first is read without Object's constants.
+  def const_get(name, inherit = true)
+    name = const_name(name)
+    return Primitive.zr_mod_const_get_m(self, name, inherit, false) unless name.is_a?(String) && name.include?("::")
+
+    walk_const_path(name) do |scope, segment, later|
+      Primitive.zr_mod_const_get_m(scope, segment, inherit, later)
+    end
+  end
+
+  def const_defined?(name, inherit = true)
+    name = const_name(name)
+    return Primitive.zr_mod_const_defined_m(self, name, inherit, false) unless name.is_a?(String) && name.include?("::")
+
+    walk_const_path(name) do |scope, segment, later|
+      return false unless Primitive.zr_mod_const_defined_m(scope, segment, inherit, later)
+
+      Primitive.zr_mod_const_get_m(scope, segment, inherit, later)
+    end
+    true
+  end
+
+  def const_source_location(name, inherit = true)
+    name = const_name(name)
+    return Primitive.zr_mod_const_source_location_m(self, name, inherit, false) unless name.is_a?(String) && name.include?("::")
+
+    *scopes, last = name.split("::", -1)
+    scope = walk_const_path(name, scopes) do |inner, segment, later|
+      Primitive.zr_mod_const_get_m(inner, segment, inherit, later)
+    end
+    Primitive.zr_mod_const_source_location_m(scope, last, inherit, scopes.any? { |s| !s.empty? })
+  end
+
+  private
+
+  # A Symbol, a String, or what to_str makes of the name.
+  def const_name(name)
+    Primitive.attr! :hidden
+    return name if name.is_a?(Symbol) || name.is_a?(String)
+
+    String.try_convert(name) or raise TypeError, "no implicit conversion of #{conversion_name(name)} into String"
+  end
+
+  # Each segment of the path `name` resolved by the block from the
+  # scope before it, told whether an earlier segment resolved; the last
+  # value answers.
+  def walk_const_path(name, segments = name.split("::", -1))
+    Primitive.attr! :hidden
+    scope = self
+    seen = 0
+    segments.each_with_index do |segment, i|
+      if segment.empty?
+        raise NameError.new("wrong constant name #{name}", name, receiver: self) unless i.zero?
+
+        scope = Object
+      else
+        raise TypeError, "#{scope.inspect} does not refer to class/module" unless scope.is_a?(Module)
+
+        scope = yield(scope, segment, seen.positive?)
+        seen += 1
+      end
+    end
+    scope
+  end
 end
 
 module Kernel

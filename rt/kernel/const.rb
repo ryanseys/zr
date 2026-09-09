@@ -89,6 +89,8 @@ machine def zr_const_set(klass, id, v)
     CEntry.set_id(e, id)
     CEntry.set_private(e, 0)
     ClassExt.set_clen(ext, n + 1)
+  elsif CEntry.value(e) != QUNDEF
+    zr_warn_reassigned_constant(klass, id, e)
   end
   CEntry.set_value(e, v)
   if !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) && (RClass.name(v) == QNIL || (RBasic.flags(v) & FL_TEMP_NAME) != 0)
@@ -105,6 +107,35 @@ machine def zr_const_set(klass, id, v)
     CEntry.set_file_len(e, FrameMeta.file_len(Frame.meta(top)))
     CEntry.set_line(e, Frame.line(top))
   end
+end
+
+# `already initialized constant M::X`, and where the first definition
+# was when a file is known; nothing while the runtime itself boots.
+sig [Value, Word, Ptr] => Void
+machine def zr_warn_reassigned_constant(klass, id, e)
+  if Task.top(zr_task()) == 0 || zr_gvar_get(Machine.id(:$VERBOSE)) == QNIL
+    return
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("already initialized constant "), 29)
+  if klass != zr_global(G_OBJECT)
+    zr_buf_str(b, zr_class_to_s(klass, 0, 0, Machine.value(QNIL), Machine.value(QNIL)))
+    zr_buf_push(b, Machine.bytes("::"), 2)
+  end
+  zr_buf_sym(b, id)
+  zr_warn_here(Buf.ptr(b), Buf.len(b))
+  if CEntry.file_len(e) > 0
+    Buf.set_len(b, 0)
+    zr_buf_push(b, CEntry.file(e), CEntry.file_len(e))
+    zr_buf_byte(b, 58)
+    zr_buf_long(b, CEntry.line(e))
+    zr_buf_push(b, Machine.bytes(": warning: previous definition of "), 34)
+    zr_buf_sym(b, id)
+    zr_buf_push(b, Machine.bytes(" was here\n"), 10)
+    zr_write_err(Buf.ptr(b), Buf.len(b))
+  end
+  free(Buf.ptr(b))
 end
 
 # `\nfile:line: previous definition of Name was here` after a message
@@ -261,7 +292,7 @@ machine def zr_mod_constant_visibility(recv, argc, argv, private)
   i = 0
   while i < argc
     slot = Machine.slot(8)
-    r = zr_const_name_id(Machine.value(Machine.load64(argv + (i * 8), 0)), slot)
+    r = zr_const_name_id(recv, Machine.value(Machine.load64(argv + (i * 8), 0)), slot)
     return r if r == QUNDEF
     id = Machine.load64(slot, 0)
     e = zr_const_row(recv, id)
@@ -281,7 +312,7 @@ machine def zr_mod_constant_visibility(recv, argc, argv, private)
     CEntry.set_private(e, private)
     i += 1
   end
-  Machine.value(QNIL)
+  recv
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -409,31 +440,125 @@ machine def zr_module_define(scope, id)
 end
 
 # A constant's name given as a Symbol or String, as its id in `out`;
-# `wrong constant name x` otherwise.
-sig [Value, Ptr] => Value
-machine def zr_const_name_id(name, out)
+# `wrong constant name x` otherwise: an upper-case letter, then letters,
+# digits, underscores or bytes past ASCII.
+sig [Value, Value, Ptr] => Value
+machine def zr_const_name_id(recv, name, out)
   r = zr_name_id(name, out)
   return r if r == QUNDEF
   id = Machine.load64(out, 0)
-  c = Machine.word(Machine.load8(zr_symbol_name_ptr(id), 0))
-  if c < 65 || c > 90
+  unless zr_const_name_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("wrong constant name "), 20)
     zr_buf_sym(b, id)
-    return zr_raise_buf(zr_global(G_NAME_ERROR), b)
+    exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+    zr_exc_detail(exc, Machine.id(:@name), name)
+    zr_exc_detail(exc, Machine.id(:@receiver), recv)
+    return zr_raise(exc)
   end
   Machine.value(QNIL)
 end
 
-# Whether the second argument, when given, is not false or nil.
-sig [Word, Ptr] => Bool
-machine def zr_inherit_flag(argc, argv)
-  if argc < 2
-    return true
+sig [Ptr, Word] => Bool
+machine def zr_const_name_p(p, n)
+  if n == 0
+    return false
   end
-  v = Machine.value(Machine.load64(argv, 8))
-  v != QFALSE && v != QNIL
+  c = Machine.word(Machine.load8(p, 0))
+  if c < 65 || c > 90
+    return false
+  end
+  i = 1
+  while i < n
+    c = Machine.word(Machine.load8(p + i, 0))
+    alpha = (c >= 65 && c <= 90) || (c >= 97 && c <= 122)
+    unless alpha || (c >= 48 && c <= 57) || c == 95 || c >= 128
+      return false
+    end
+    i += 1
+  end
+  true
+end
+
+# The row one segment of a `const_get` path names: the first segment
+# as `const_get` finds it, a later one without Object's constants.
+sig [Value, Word, Value, Value] => Ptr
+machine def zr_const_row_segment(recv, id, inherit, later)
+  if inherit == QFALSE || inherit == QNIL
+    return zr_const_row(recv, id)
+  end
+  if later == QTRUE
+    return zr_const_row_in(recv, id, recv != zr_global(G_OBJECT))
+  end
+  zr_const_row_for(recv, id, true)
+end
+
+sig [Value, Value, Value, Value] => Value
+machine def zr_mod_const_get_m(recv, name, inherit, later)
+  slot = Machine.slot(8)
+  r = zr_const_name_id(recv, name, slot)
+  return r if r == QUNDEF
+  id = Machine.load64(slot, 0)
+  e = zr_const_row_segment(recv, id, inherit, later)
+  if e == 0
+    return zr_uninitialized_constant(recv, id)
+  end
+  zr_const_value(e)
+end
+
+# `[file, line]` of the row, `[]` for one the runtime made, nil for
+# none.
+sig [Value, Value, Value, Value] => Value
+machine def zr_mod_const_source_location_m(recv, name, inherit, later)
+  slot = Machine.slot(8)
+  r = zr_const_name_id(recv, name, slot)
+  return r if r == QUNDEF
+  e = zr_const_row_segment(recv, Machine.load64(slot, 0), inherit, later)
+  if e == 0
+    return Machine.value(QNIL)
+  end
+  out = zr_ary_new(2)
+  if CEntry.file_len(e) > 0
+    zr_ary_push(out, zr_str_new(CEntry.file(e), CEntry.file_len(e)))
+    zr_ary_push(out, zr_fix(CEntry.line(e)))
+  end
+  out
+end
+
+sig [Value, Value, Value, Value] => Value
+machine def zr_mod_const_defined_m(recv, name, inherit, later)
+  slot = Machine.slot(8)
+  r = zr_const_name_id(recv, name, slot)
+  return r if r == QUNDEF
+  zr_bool(zr_const_row_segment(recv, Machine.load64(slot, 0), inherit, later) != 0)
+end
+
+# `remove_const(name)`: the module's own row goes, and its value
+# answers.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_remove_const(recv, argc, argv, cref, blk)
+  slot = Machine.slot(8)
+  r = zr_const_name_id(recv, Machine.value(Machine.load64(argv, 0)), slot)
+  return r if r == QUNDEF
+  id = Machine.load64(slot, 0)
+  e = zr_const_row(recv, id)
+  if e == 0
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("constant "), 9)
+    zr_buf_str(b, zr_class_to_s(recv, 0, 0, Machine.value(QNIL), Machine.value(QNIL)))
+    zr_buf_push(b, Machine.bytes("::"), 2)
+    zr_buf_sym(b, id)
+    zr_buf_push(b, Machine.bytes(" not defined"), 12)
+    exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+    zr_exc_detail(exc, Machine.id(:@name), zr_sym(id))
+    zr_exc_detail(exc, Machine.id(:@receiver), recv)
+    return zr_raise(exc)
+  end
+  v = CEntry.value(e)
+  zr_const_remove(recv, id)
+  v
 end
 
 # The row `const_get` and `const_defined?` find: the module's own, its
@@ -451,30 +576,9 @@ machine def zr_const_row_for(mod, id, inherit)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_mod_const_get(recv, argc, argv, cref, blk)
-  slot = Machine.slot(8)
-  r = zr_const_name_id(Machine.value(Machine.load64(argv, 0)), slot)
-  return r if r == QUNDEF
-  id = Machine.load64(slot, 0)
-  e = zr_const_row_for(recv, id, zr_inherit_flag(argc, argv))
-  if e == 0
-    return zr_uninitialized_constant(recv, id)
-  end
-  zr_const_value(e)
-end
-
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_mod_const_defined(recv, argc, argv, cref, blk)
-  slot = Machine.slot(8)
-  r = zr_const_name_id(Machine.value(Machine.load64(argv, 0)), slot)
-  return r if r == QUNDEF
-  zr_bool(zr_const_row_for(recv, Machine.load64(slot, 0), zr_inherit_flag(argc, argv)) != 0)
-end
-
-sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_const_set(recv, argc, argv, cref, blk)
   slot = Machine.slot(8)
-  r = zr_const_name_id(Machine.value(Machine.load64(argv, 0)), slot)
+  r = zr_const_name_id(recv, Machine.value(Machine.load64(argv, 0)), slot)
   return r if r == QUNDEF
   v = Machine.value(Machine.load64(argv, 8))
   zr_const_set(recv, Machine.load64(slot, 0), v)
@@ -617,7 +721,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_autoload_p(recv, argc, argv, cref, blk)
   slot = Machine.slot(8)
-  r = zr_const_name_id(Machine.value(Machine.load64(argv, 0)), slot)
+  r = zr_const_name_id(recv, Machine.value(Machine.load64(argv, 0)), slot)
   return r if r == QUNDEF
   zr_autoload_feature(recv, Machine.load64(slot, 0))
 end

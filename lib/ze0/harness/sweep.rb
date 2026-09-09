@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "fileutils"
 require "rbconfig"
 require "tmpdir"
 require "timeout"
@@ -42,12 +43,14 @@ module Ze0
 
       # `road`: "zr" (a binary through `ze0 zr build --native <native>`)
       # or "legacy" (the text lowering; `native` then builds the text).
-      def initialize(root, native:, show: 10, jobs: nil, road: "zr")
+      # `gc`: "plain", or "stress" for a collection at every allocation.
+      def initialize(root, native:, show: 10, jobs: nil, road: "zr", gc: "plain")
         @root = root
         @native = native
         @show = show
         @jobs = jobs || Etc.nprocessors
         @road = road
+        @gc = gc
       end
 
       # Every recorded program whose path contains one of `filters` (or all
@@ -118,6 +121,7 @@ module Ze0
 
         stdin = kase.directives.stdin && File.binread(File.join(File.dirname(rb), kase.directives.stdin))
         env = kase.directives.env.merge(kase.directives.zeo_env)
+        env["ZR_GC_STRESS"] = "1" if @gc == "stress"
         out = bounded([bin, *kase.directives.args], cwd, stdin, env)
         return Row.new(rb, :timeout, "ran past #{LIMIT}s") if out.code == :timeout
 
@@ -201,7 +205,21 @@ module Ze0
           end
         end
         io.puts "  ... #{shown - @show} more (--show N)" if shown > @show
+        io.puts "  every row: #{save(rows)}"
         %i[diverged crashed timeout].sum { |b| (by[b] || []).size }.zero?
+      end
+
+      # Every row but the matched ones, kept under tmp/ so a sweep's list
+      # outlives its terminal.
+      def save(rows)
+        path = File.join(@root, "tmp", "sweep.txt")
+        FileUtils.mkdir_p(File.dirname(path))
+        File.open(path, "w") do |f|
+          rows.reject { |row| row.bucket == :matched }.each do |row|
+            f.puts "#{row.bucket} #{row.rb.delete_prefix("#{@root}/")}\n    #{row.why}"
+          end
+        end
+        path
       end
 
       # The refusals counted by SHAPE: the sentence names the gap.

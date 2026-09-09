@@ -5,7 +5,7 @@
 #
 #   ze0 <file.rb> -o <out.clif>         compile one program to CLIF text
 #   ze0 test <filter>... | --all        does ze0 answer what ruby answered?
-#                [--native ruby|cranelift] [--road zr|legacy] [--show N]
+#                [--native ruby|cranelift] [--road zr|legacy] [--gc plain|stress] [--show N]
 #   ze0 scan <glob> [limit]             which programs ze0 compiles, and what it refuses
 #   ze0 check                           the repo's own checks
 #   ze0 stage1                          ze0 compiles itself, twice, to the same bytes
@@ -48,9 +48,14 @@ when "test"
     road = args[i + 1] or usage
     args.slice!(i, 2)
   end
+  gc = "plain"
+  if (i = args.index("--gc"))
+    gc = args[i + 1] or usage
+    args.slice!(i, 2)
+  end
   usage if args.any? { |a| a.start_with?("--") } || (args.empty? && !all)
-  usage unless %w[zr legacy].include?(road) && %w[ruby cranelift].include?(native)
-  sweep = Ze0::Harness::Sweep.new(ROOT, native: road == "zr" ? native : nil, show: show, road: road)
+  usage unless %w[zr legacy].include?(road) && %w[ruby cranelift].include?(native) && %w[plain stress].include?(gc)
+  sweep = Ze0::Harness::Sweep.new(ROOT, native: road == "zr" ? native : nil, show: show, road: road, gc: gc)
   cases = sweep.select(args, all: all)
   abort "ze0 test: no program matches #{args.inspect}" if cases.empty?
   warn "ze0 test: #{cases.size} program(s)"
