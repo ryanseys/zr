@@ -6,6 +6,7 @@ require_relative "../ir/verify"
 require_relative "cranelift"
 require_relative "ruby"
 require_relative "../ir/wasm"
+require_relative "../machine/lower"
 
 module Ze0
   module Native
@@ -44,16 +45,29 @@ module Ze0
         road.link([obj], out)
       end
 
-      # The same functions and data as one WASI module. Raw functions have
-      # no wasm form; a program that names one is refused.
+      # The same functions and data as one WASI module. A raw function
+      # has no wasm form: its place is taken by a function that stops by
+      # name when called.
       def wasm(functions, data, out, raw: [])
-        return "#{raw.map(&:name).join(", ")}: a raw function has no wasm form" unless raw.empty?
-
-        functions.each { |f| IR::Verify.check(f) }
-        File.binwrite(out, IR::Wasm.new(functions, data).emit)
+        data = data.dup
+        stops = raw.map { |r| raw_stop(r, data) }
+        (functions + stops).each { |f| IR::Verify.check(f) }
+        File.binwrite(out, IR::Wasm.new(functions + stops, data).emit)
         nil
       rescue IR::Wasm::Refused => e
         e.message
+      end
+
+      def raw_stop(r, data)
+        message = "ze0: #{r.name} has no wasm form\n"
+        name = "zr_raw_stop_#{r.name}"
+        data << Obj::Data.new(name, :text_const, message.b, align: 1)
+        params, ret = Machine::Stub::ALL.fetch(r.name)
+        f = IR::Function.new(r.name, params.map { |t| Machine::TYPES.fetch(t.to_s) }, Machine::TYPES.fetch(ret.to_s))
+        f.call(f.callee("write", %w[i32 i64 i64], "i64", colocated: false), [f.iconst("i32", 2), f.symbol_value(f.symbol(name)), f.iconst("i64", message.bytesize)])
+        f.call(f.callee("abort", [], nil, colocated: false), [])
+        f.ret(ret == :Void ? nil : f.iconst(Machine::TYPES.fetch(ret.to_s), 0))
+        f
       end
 
       def sidecar_row(d)

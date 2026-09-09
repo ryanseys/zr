@@ -119,7 +119,7 @@ module Ze0
         @sp = @base
         @record = @f.slot(@frame.size + (8 * @nvalues))
         @rec = @f.stack_addr(@record)
-        @task_addr = @f.symbol_value(@f.symbol("zr_static_task"))
+        @task_addr = @f.fetch("i64", @f.symbol_value(@f.symbol("zr_static_current_task")), 0)
         stack_check
         @prev = @f.fetch("i64", @task_addr, off(@task, "top"))
         @f.store(@prev, @rec, off(@frame, "prev"))

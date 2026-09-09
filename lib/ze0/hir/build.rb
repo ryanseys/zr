@@ -43,7 +43,7 @@ module Ze0
         end
 
         # The index of `path`'s unit, built on first sight.
-        def require(path)
+        def add(path)
           @index[path] ||= begin
             i = @units.size
             @units << nil
@@ -492,8 +492,8 @@ module Ze0
 
       def call(node)
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil?
-        return require(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && literal_feature(node)
-        return autoload(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
+        return require_node(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && literal_feature(node)
+        return autoload_node(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
 
         args, kwargs, forwarded = arguments(node.arguments)
         opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
@@ -514,12 +514,12 @@ module Ze0
       # of the program. A name no root answers is refused, since a
       # library of ruby's own would answer it; a relative name with no
       # file is a LoadError when it runs.
-      def require(node)
+      def require_node(node)
         line = node.location.start_line
         feature = literal_feature(node)
         path = @loader.resolve(node.name, feature, @file)
         refuse(node, "#{node.name} of #{feature.inspect}, which no load path root holds, is not lowered yet") if path.nil? && node.name != :require_relative
-        Require.new(node.name, feature, path || File.expand_path(feature, File.dirname(@file)), path && @loader.require(path), line)
+        Require.new(node.name, feature, path || File.expand_path(feature, File.dirname(@file)), path && @loader.add(path), line)
       end
 
       def literal_autoload?(node)
@@ -529,13 +529,13 @@ module Ze0
 
       # `autoload :Name, "feature"` resolves the feature as a require
       # would, so the file is a unit of the program.
-      def autoload(node)
+      def autoload_node(node)
         line = node.location.start_line
         name_node, path_node = node.arguments.arguments
         feature = path_node.is_a?(Prism::StringNode) ? path_node.unescaped : @loader.literal_path(path_node, @file)
         path = @loader.resolve(:require, feature, @file)
         refuse(node, "autoload of #{feature.inspect}, which no load path root holds, is not lowered yet") if path.nil?
-        Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, path, @loader.require(path), line)
+        Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, path, @loader.add(path), line)
       end
 
       # `defined?(value)`: the form decides at compile time; only an

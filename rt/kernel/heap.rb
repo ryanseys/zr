@@ -31,11 +31,6 @@ end
 Machine.struct :Frame, prev: Ptr, meta: Ptr, line: Word, serial: Word, self: Value, cref: Value, blk: Value, nvalues: Word, mid: Word
 Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word, kw: Word, stack_limit: Ptr, guards: Value, catches: Value, throw_tag: Value, mid: Word
 
-sig [] => Ptr
-machine def zr_task
-  Machine.static(:task, Task.size)
-end
-
 # The runtime's own roots: the core classes and the main object.
 G_BASIC_OBJECT = 0
 G_OBJECT = 1
@@ -50,7 +45,7 @@ G_TRUE = 9
 G_FALSE = 10
 G_MAIN = 11
 G_NUMERIC = 13
-G_COUNT = 39
+G_COUNT = 40
 
 sig [] => Ptr
 machine def zr_globals
@@ -202,14 +197,21 @@ machine def zr_mark_roots
   end
   Machine.store64(zr_marking(), 0, Machine.word(zr_fix(2)))
   zr_mark_ivtab(zr_gvars())
-  zr_mark(Task.pending(zr_task()))
-  zr_mark(Task.errinfo(zr_task()))
-  zr_mark(Task.guards(zr_task()))
-  zr_mark(Task.catches(zr_task()))
-  zr_mark(Task.throw_tag(zr_task()))
+  zr_mark(Machine.value(Machine.load64(Machine.static(:current_fiber, 8), 0)))
+  zr_mark_task(zr_task())
   Machine.store64(zr_marking(), 0, Machine.word(zr_fix(3)))
   zr_mark_kernel_roots()
-  rec = Task.top(zr_task())
+end
+
+# A task's roots: its slots and its frame chain.
+sig [Ptr] => Void
+machine def zr_mark_task(t)
+  zr_mark(Task.pending(t))
+  zr_mark(Task.errinfo(t))
+  zr_mark(Task.guards(t))
+  zr_mark(Task.catches(t))
+  zr_mark(Task.throw_tag(t))
+  rec = Task.top(t)
   while rec != 0
     Machine.store64(zr_marking(), 0, Machine.word(zr_fix(4)))
     zr_mark(Frame.self(rec))
@@ -371,7 +373,11 @@ end
 
 sig [] => Void
 machine def zr_mark_kernel_roots
-  frame = Machine.ptr(Machine.load64(zr_kroots(), 0))
+  zr_mark_kernel_roots_from(Machine.ptr(Machine.load64(zr_kroots(), 0)))
+end
+
+sig [Ptr] => Void
+machine def zr_mark_kernel_roots_from(frame)
   while frame != 0
     n = Machine.load64(frame, 8)
     i = 0

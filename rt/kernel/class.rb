@@ -930,6 +930,8 @@ machine def zr_mark_children(v)
     zr_mark_proc(v)
   elsif t == T_METHOD
     zr_mark_method(v)
+  elsif t == T_FIBER
+    zr_mark_fiber(v)
   end
 end
 
@@ -971,6 +973,8 @@ machine def zr_release(v)
     if RHash.entries(v) != 0
       free(RHash.entries(v))
     end
+  elsif t == T_FIBER
+    zr_release_fiber(v)
   elsif t == T_ENV
     free(REnv.slots(v))
   end
