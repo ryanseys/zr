@@ -286,8 +286,9 @@ module Enumerable
     self
   end
 
-  def min_by
-    return to_enum(:min_by) unless block_given?
+  def min_by(n = nil, &block)
+    return to_enum(:min_by, n) unless block
+    return sort_by(&block).first(n) unless n.nil?
 
     best = nil
     key = nil
@@ -305,8 +306,9 @@ module Enumerable
     best
   end
 
-  def max_by
-    return to_enum(:max_by) unless block_given?
+  def max_by(n = nil, &block)
+    return to_enum(:max_by, n) unless block
+    return sort_by(&block).reverse.first(n) unless n.nil?
 
     best = nil
     key = nil
@@ -324,12 +326,12 @@ module Enumerable
     best
   end
 
-  def min(&blk)
-    to_a.min(&blk)
+  def min(n = nil, &blk)
+    to_a.min(n, &blk)
   end
 
-  def max(&blk)
-    to_a.max(&blk)
+  def max(n = nil, &blk)
+    to_a.max(n, &blk)
   end
 
   def minmax = [min, max]

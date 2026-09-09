@@ -247,6 +247,21 @@ class Hash
     size == before ? nil : self
   end
 
+  def flatten(depth = 1)
+    return to_a if depth <= 0
+
+    out = []
+    each { |k, v| out << k << v }
+    depth > 1 ? out.flatten(depth - 1) : out
+  end
+
+  def rehash
+    entries = to_a
+    clear
+    entries.each { |k, v| self[k] = v }
+    self
+  end
+
   def assoc(key)
     each { |k, v| return [k, v] if k == key }
     nil

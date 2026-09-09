@@ -970,3 +970,31 @@ machine def zr_math_call(which, x, y)
   end
   zr_float_new(acos(a))
 end
+
+# The adjacent double: `up` moves toward +Infinity. The zeros meet at
+# the smallest subnormal; an infinity stays; NaN stays NaN.
+sig [Value, Word] => Value
+machine def zr_float_adjacent(recv, up)
+  d = zr_float_value(recv)
+  if zr_nan_p(d) || zr_inf_p(d)
+    return recv
+  end
+  bits = Machine.bits(d)
+  if d == Machine.f64(0)
+    return zr_float_from_bits(up != 0 ? 1 : 0 - 9223372036854775807)
+  end
+  if (d > Machine.f64(0)) == (up != 0)
+    return zr_float_from_bits(bits + 1)
+  end
+  zr_float_from_bits(bits - 1)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_flo_next_float(recv, argc, argv, cref, blk)
+  zr_float_adjacent(recv, 1)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_flo_prev_float(recv, argc, argv, cref, blk)
+  zr_float_adjacent(recv, 0)
+end

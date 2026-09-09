@@ -57,9 +57,6 @@ class Integer
     self >= low && self <= high
   end
 
-  def clamp(low, high)
-    self < low ? low : (self > high ? high : self)
-  end
 end
 
 class Integer
@@ -189,29 +186,17 @@ class Integer
 
   def ceil(digits = 0) = round_to(digits, :ceil)
 
+  def truncate(digits = 0) = round_to(digits, :truncate)
+
+  def allbits?(mask) = self & mask == mask
+  def anybits?(mask) = self & mask != 0
+  def nobits?(mask) = self & mask == 0
+
+  def ceildiv(other) = -(-self).div(other)
+
   def floor(digits = 0) = round_to(digits, :floor)
 
   def round(digits = 0, half: nil) = round_to(digits, :round)
-
-  def step(limit = nil, step = 1)
-    Primitive.zr_unimplemented("Integer#step with a non-Integer") unless (limit.nil? || limit.is_a?(Integer)) && step.is_a?(Integer)
-    raise ArgumentError, "step can't be 0" if step.zero?
-    return Enumerator::ArithmeticSequence.for(self, limit, step, false) unless block_given?
-
-    i = self
-    if step > 0
-      while limit.nil? || i <= limit
-        yield i
-        i += step
-      end
-    else
-      while limit.nil? || i >= limit
-        yield i
-        i += step
-      end
-    end
-    self
-  end
 
   def self.sqrt(n)
     raise Math::DomainError, 'Numerical argument is out of domain - "isqrt"' if n < 0
@@ -246,10 +231,32 @@ class Integer
     low = self - self % unit
     return low if how == :floor
     return low == self ? self : low + unit if how == :ceil
+    return negative? ? -(-self - (-self) % unit) : low if how == :truncate
 
     rem = abs % unit
     nearest = abs - rem
     nearest += unit if rem * 2 >= unit
     negative? ? -nearest : nearest
+  end
+end
+
+class Numeric
+  # `step(limit, step)` or `step(by:, to:)`: an ArithmeticSequence, or
+  # each value up to `limit`. A Float anywhere makes every value a
+  # Float, spaced as CRuby's float step is.
+  def step(limit = nil, step = nil, by: nil, to: nil, &block)
+    raise ArgumentError, "to is given twice" if to && !limit.nil?
+    raise ArgumentError, "step is given twice" if by && !step.nil?
+
+    limit = to if to
+    step = by if by
+    raise ArgumentError, "step can't be 0" if step == 0 && !by.nil?
+    step = 1 if step.nil?
+    raise ArgumentError, "step can't be 0" if step == 0
+    raise ArgumentError, "step must be numeric" unless step.is_a?(Numeric)
+    return Enumerator::ArithmeticSequence.for(self, limit, step, false) unless block
+
+    Enumerator::ArithmeticSequence.for(self, limit, step, false).each(&block)
+    self
   end
 end

@@ -115,24 +115,102 @@ class Array
     acc
   end
 
-  def min
+  def min(n = nil, &block)
+    return ranked(n, block, 1) unless n.nil?
+
     best = nil
     i = 0
     while i < size
-      best = self[i] if i == 0 || (block_given? ? yield(self[i], best) : self[i] <=> best) < 0
+      best = self[i] if i == 0 || (block ? yield(self[i], best) : self[i] <=> best) < 0
       i += 1
     end
     best
   end
 
-  def max
+  def max(n = nil, &block)
+    return ranked(n, block, -1) unless n.nil?
+
     best = nil
     i = 0
     while i < size
-      best = self[i] if i == 0 || (block_given? ? yield(self[i], best) : self[i] <=> best) > 0
+      best = self[i] if i == 0 || (block ? yield(self[i], best) : self[i] <=> best) > 0
       i += 1
     end
     best
+  end
+
+  def rotate!(n = 1)
+    replace(rotate(n))
+  end
+
+  def rassoc(value)
+    each { |row| return row if row.is_a?(Array) && row.size > 1 && row[1] == value }
+    nil
+  end
+
+  def bsearch(&block)
+    return to_enum(:bsearch) unless block
+
+    at = bsearch_index(&block)
+    at && self[at]
+  end
+
+  # Binary search in find-minimum mode (the block answers true or
+  # false) or find-any mode (the block answers a number's sign).
+  def bsearch_index
+    return to_enum(:bsearch_index) unless block_given?
+
+    low = 0
+    high = size
+    found = nil
+    while low < high
+      mid = low + (high - low) / 2
+      answer = yield(self[mid])
+      case answer
+      when true
+        found = mid
+        high = mid
+      when false, nil
+        low = mid + 1
+      when Numeric
+        return mid if answer == 0
+
+        answer < 0 ? high = mid : low = mid + 1
+      else
+        raise TypeError, "wrong argument type #{answer.class} (must be numeric, true, false or nil)"
+      end
+    end
+    found
+  end
+
+  def intersection(*others) = others.inject(self) { |acc, other| acc & other }
+
+  def union(*others) = others.inject(uniq) { |acc, other| acc | other }
+
+  def difference(*others) = others.inject(self) { |acc, other| acc - other }
+
+  def intersect?(other) = !(self & other).empty?
+
+  def combination(k)
+    return to_enum(:combination, k) { k < 0 || k > size ? 0 : (1..size).inject(1) { |a, b| a * b } / ((1..k).inject(1) { |a, b| a * b } * (1..size - k).inject(1) { |a, b| a * b }) } unless block_given?
+
+    if k == 0
+      yield []
+    elsif k > 0 && k <= size
+      combine(k, 0, []) { |c| yield c }
+    end
+    self
+  end
+
+  def permutation(k = size)
+    return to_enum(:permutation, k) { k < 0 || k > size ? 0 : (size - k + 1..size).inject(1) { |a, b| a * b } } unless block_given?
+
+    if k == 0
+      yield []
+    elsif k > 0 && k <= size
+      permute(k, [], Array.new(size, false)) { |c| yield c }
+    end
+    self
   end
 
   def take(n) = first(n)
@@ -149,11 +227,21 @@ class Array
     out
   end
 
+  def to_ary = self
+
+  # Membership here is by `hash` and `eql?`, as CRuby's set
+  # operations decide it.
   def uniq
+    seen = {}
     out = []
     i = 0
     while i < size
-      out << self[i] unless out.include?(self[i])
+      x = self[i]
+      key = block_given? ? yield(x) : x
+      unless seen.key?(key)
+        seen[key] = true
+        out << x
+      end
       i += 1
     end
     out
@@ -461,15 +549,19 @@ class Array
   end
 
   def -(other)
-    reject { |x| other.include?(x) }
+    members = {}
+    other.to_ary.each { |x| members[x] = true }
+    reject { |x| members.key?(x) }
   end
 
   def &(other)
-    uniq.select { |x| other.include?(x) }
+    members = {}
+    other.to_ary.each { |x| members[x] = true }
+    uniq.select { |x| members.key?(x) }
   end
 
   def |(other)
-    (self + other).uniq
+    (self + other.to_ary).uniq
   end
 
   def zip(*others)
@@ -572,6 +664,50 @@ end
 
 class Array
   private
+
+  # The `n` smallest (`direction` 1) or largest (-1) elements, in
+  # sorted order.
+  def ranked(n, block, direction)
+    Primitive.attr! :hidden
+    raise ArgumentError, "negative size (#{n})" if n < 0
+
+    ordered = block ? sort { |a, b| direction * block.call(a, b) } : sort { |a, b| direction * (a <=> b) }
+    ordered.first(n)
+  end
+
+  def combine(k, start, chosen, &block)
+    Primitive.attr! :hidden
+    if chosen.size == k
+      yield chosen.dup
+      return
+    end
+    i = start
+    while i <= size - (k - chosen.size)
+      chosen << self[i]
+      combine(k, i + 1, chosen, &block)
+      chosen.pop
+      i += 1
+    end
+  end
+
+  def permute(k, chosen, used, &block)
+    Primitive.attr! :hidden
+    if chosen.size == k
+      yield chosen.dup
+      return
+    end
+    i = 0
+    while i < size
+      unless used[i]
+        used[i] = true
+        chosen << self[i]
+        permute(k, chosen, used, &block)
+        chosen.pop
+        used[i] = false
+      end
+      i += 1
+    end
+  end
 
   # A Range over this Array's indexes as a start and a length; a start
   # before the first element is out of range.

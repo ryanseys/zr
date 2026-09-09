@@ -306,6 +306,21 @@ machine def zr_method_name(recv, argc, argv, cref, blk)
   zr_sym(MEntry.mid(RMethod.entry(recv)))
 end
 
+# The name the method was defined with: an alias answers the def's
+# own.
+sig [Ptr] => Word
+machine def zr_method_original_id(e)
+  if MEntry.kind(e) == KIND_DEF
+    return FrameMeta.name(MEntry.meta(e))
+  end
+  MEntry.mid(e)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_method_original_name(recv, argc, argv, cref, blk)
+  zr_sym(zr_method_original_id(RMethod.entry(recv)))
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_method_unbind(recv, argc, argv, cref, blk)
   m = zr_alloc(T_METHOD, zr_global(G_UNBOUND_METHOD))
@@ -494,6 +509,12 @@ machine def zr_method_inspect(recv, argc, argv, cref, blk)
   end
   e = RMethod.entry(recv)
   zr_buf_sym(b, MEntry.mid(e))
+  original = zr_method_original_id(e)
+  if original != MEntry.mid(e)
+    zr_buf_byte(b, 40)
+    zr_buf_sym(b, original)
+    zr_buf_byte(b, 41)
+  end
   zr_buf_method_params(b, recv)
   meta = zr_method_location(e)
   if meta != 0

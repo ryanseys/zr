@@ -209,8 +209,9 @@ class Enumerator::ArithmeticSequence < Enumerator
 
   def exclude_end? = @exclude_end
 
-  def each
-    return self unless block_given?
+  def each(&block)
+    return self unless block
+    return float_each(&block) if float?
 
     i = @begin
     return self if @range && @step < 0
@@ -230,6 +231,7 @@ class Enumerator::ArithmeticSequence < Enumerator
 
   def size
     return Primitive.zr_unimplemented("an endless ArithmeticSequence's size, which is Infinity") if @end.nil?
+    return float_size if float?
     return 0 if @range && @step < 0
 
     span = @end - @begin
@@ -266,6 +268,63 @@ class Enumerator::ArithmeticSequence < Enumerator
   alias to_s inspect
 
   private
+
+  def float?
+    Primitive.attr! :hidden
+    @begin.is_a?(Float) || @end.is_a?(Float) || @step.is_a?(Float)
+  end
+
+  # CRuby's float step: the count allows for rounding in the last
+  # value, and each value is `begin + i * step`, held to `end`.
+  def float_size
+    Primitive.attr! :hidden
+    first = @begin.to_f
+    last = @end.to_f
+    unit = @step.to_f
+    return Float::INFINITY if unit == 0
+    return (unit > 0 ? first <= last : first >= last) ? 1 : 0 if unit.infinite?
+
+    n = (last - first) / unit
+    err = (first.abs + last.abs + (last - first).abs) / unit.abs * Float::EPSILON
+    err = 0.5 if err > 0.5
+    if @exclude_end
+      return 0 if n <= 0
+
+      n = n < 1 ? 0 : (n - err).floor
+      d = (n + 1) * unit + first
+      n += 1 if first < last ? d < last : (first > last && d > last)
+    else
+      return 0 if n < 0
+
+      n = (n + err).floor
+    end
+    n + 1
+  end
+
+  def float_each
+    Primitive.attr! :hidden
+    first = @begin.to_f
+    unit = @step.to_f
+    if @end.nil?
+      i = 0
+      while true
+        yield first + i * unit
+        i += 1
+      end
+    end
+    last = @end.to_f
+    return self if @range && @step < 0
+
+    count = float_size
+    i = 0
+    while i < count
+      d = i * unit + first
+      d = last if unit >= 0 ? last < d : d < last
+      yield d
+      i += 1
+    end
+    self
+  end
 
   def sequence(first, last, step, exclude_end, range)
     @begin = first

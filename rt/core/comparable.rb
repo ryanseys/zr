@@ -14,9 +14,16 @@ module Comparable
 
   def between?(low, high) = self >= low && self <= high
 
-  def clamp(low, high)
-    return low if self < low
-    return high if self > high
+  def clamp(low, high = nil)
+    if high.nil? && low.is_a?(Range)
+      raise ArgumentError, "cannot clamp with an exclusive range" if low.exclude_end? && !low.end.nil?
+
+      high = low.end
+      low = low.begin
+    end
+    raise ArgumentError, "min argument must be less than or equal to max argument" if !low.nil? && !high.nil? && (low <=> high) > 0
+    return low if !low.nil? && self < low
+    return high if !high.nil? && self > high
 
     self
   end

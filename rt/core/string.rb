@@ -234,11 +234,12 @@ class String
     byteslice_of(0, bytesize - 1)
   end
 
-  def squeeze
+  def squeeze(*sets)
+    member = sets.empty? ? nil : charset_test(sets)
     out = +""
     last = nil
     each_byte do |b|
-      out << Primitive.zr_str_from_byte(b) unless b == last
+      out << Primitive.zr_str_from_byte(b) unless b == last && (member.nil? || member.call(b))
       last = b
     end
     out
@@ -336,29 +337,151 @@ class String
 
   def count(*sets)
     raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if sets.empty?
-    Primitive.zr_unimplemented("String#count with a character set") if sets.any? { |s| s.bytesize != 1 || s.start_with?("^") }
 
-    each_byte.count { |b| sets.any? { |s| s.getbyte(0) == b } }
+    member = charset_test(sets)
+    each_byte.count { |b| member.call(b) }
   end
 
   def delete(*sets)
     raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if sets.empty?
-    Primitive.zr_unimplemented("String#delete with a character set") if sets.any? { |s| s.bytesize != 1 || s.start_with?("^") }
 
+    member = charset_test(sets)
     out = +""
-    each_byte { |b| out << Primitive.zr_str_from_byte(b) unless sets.any? { |s| s.getbyte(0) == b } }
+    each_byte { |b| out << Primitive.zr_str_from_byte(b) unless member.call(b) }
     out
   end
 
-  def tr(from, to)
-    Primitive.zr_unimplemented("String#tr with a range or a negation") if from.include?("-") || from.start_with?("^") || to.include?("-")
-    out = +""
-    each_byte do |b|
-      i = from.index(Primitive.zr_str_from_byte(b))
-      out << (i ? (to[i] || to[-1] || "") : Primitive.zr_str_from_byte(b))
+  def tr(from, to) = translate(from, to, false)
+
+  def tr_s(from, to) = translate(from, to, true)
+
+  def upto(last, exclusive = false, &block)
+    return to_enum(:upto, last, exclusive) unless block
+
+    last = last.to_str
+    if bytesize == 1 && last.bytesize == 1
+      b = getbyte(0)
+      finish = last.getbyte(0)
+      finish -= 1 if exclusive
+      while b <= finish
+        yield Primitive.zr_str_from_byte(b)
+        b += 1
+      end
+      return self
     end
-    out
+    if digits? && last.send(:digits?)
+      n = to_i
+      finish = last.to_i
+      finish -= 1 if exclusive
+      width = bytesize
+      while n <= finish
+        text = n.to_s
+        yield text.bytesize < width ? "0" * (width - text.bytesize) + text : text
+        n += 1
+      end
+      return self
+    end
+    order = self <=> last
+    return self if order > 0 || (exclusive && order == 0)
+
+    after = last.succ
+    current = dup
+    until current == after
+      following = exclusive || current != last ? current.succ : nil
+      yield current
+      break if following.nil?
+
+      current = following
+      break if exclusive && current == last
+      break if current.bytesize > last.bytesize || current.empty?
+    end
+    self
   end
+
+  def partition(sep)
+    at = index(sep)
+    at ? [self[0, at], sep.dup, self[at + sep.bytesize..]] : [dup, "", ""]
+  end
+
+  def rpartition(sep)
+    at = rindex(sep)
+    at ? [self[0, at], sep.dup, self[at + sep.bytesize..]] : ["", "", dup]
+  end
+
+  def sum(bits = 16)
+    total = 0
+    each_byte { |b| total += b }
+    bits > 0 ? total & ((1 << bits) - 1) : total
+  end
+
+  def byteslice(start, length = nil)
+    size = bytesize
+    if start.is_a?(Range)
+      from, count = range_span(start, size)
+      return from && byteslice_of(from, count)
+    end
+    if length.nil?
+      return nil if start >= size || start < -size
+
+      return byteslice_of(start < 0 ? start + size : start, 1)
+    end
+    return nil if length < 0
+
+    start += size if start < 0
+    return nil if start < 0 || start > size
+
+    length = size - start if start + length > size
+    byteslice_of(start, length)
+  end
+
+  def codepoints
+    Primitive.zr_str_ascii_check(self)
+    bytes
+  end
+
+  def scan(pattern)
+    Primitive.zr_unimplemented("String#scan with a Regexp") unless pattern.is_a?(String)
+    Primitive.zr_str_ascii_check(self)
+    found = []
+    at = 0
+    while at <= bytesize && (hit = index(pattern, at))
+      found << pattern.dup
+      at = hit + [pattern.bytesize, 1].max
+    end
+    return found unless block_given?
+
+    found.each { |m| yield m }
+    self
+  end
+
+  DUMP_ESCAPES = { 7 => "\\a", 8 => "\\b", 9 => "\\t", 10 => "\\n", 11 => "\\v", 12 => "\\f", 13 => "\\r", 27 => "\\e", 34 => "\\\"", 92 => "\\\\" }.freeze
+  private_constant :DUMP_ESCAPES
+
+  # Every byte outside printable ASCII escaped, so the result reads
+  # back as the same bytes.
+  def dump
+    Primitive.zr_str_ascii_check(self)
+    out = +"\""
+    bytes = each_byte.to_a
+    bytes.each_with_index do |b, i|
+      if DUMP_ESCAPES.key?(b)
+        out << DUMP_ESCAPES[b]
+      elsif b == 35 && [123, 36, 64].include?(bytes[i + 1])
+        out << "\\#"
+      elsif b < 32 || b >= 127
+        out << format("\\x%02X", b)
+      else
+        out << Primitive.zr_str_from_byte(b)
+      end
+    end
+    out << "\""
+  end
+
+  def undump = Primitive.zr_unimplemented("String#undump")
+
+  def hex = lenient_integer(16)
+
+  def oct = lenient_integer(-8)
 
   def center(width, pad = " ") = justify(width, pad, :center)
 
@@ -407,15 +530,14 @@ class String
 
   def chr = empty? ? "" : self[0]
 
-  def hex = Primitive.zr_unimplemented("String#hex")
+  def =~(other)
+    raise TypeError, "wrong argument type String (expected Regexp)" if other.is_a?(String)
+    return other =~ self if other.respond_to?(:=~) && !other.is_a?(String)
 
-  def oct = Primitive.zr_unimplemented("String#oct")
-
-  def =~(other) = Primitive.zr_unimplemented("String#=~")
+    Primitive.zr_unimplemented("String#=~ with a Regexp")
+  end
 
   def match?(other) = Primitive.zr_unimplemented("String#match?")
-
-  def scan(other) = Primitive.zr_unimplemented("String#scan")
 
   def unpack(fmt) = Primitive.zr_unimplemented("String#unpack")
 
@@ -436,6 +558,120 @@ class String
   def byteslice_of(start, length) = Primitive.zr_str_byteslice(self, start, length)
 
   private
+
+  # Membership in the intersection of `sets`, each a tr-style spec:
+  # characters, `a-z` ranges, and a leading `^` for the complement.
+  def charset_test(sets)
+    Primitive.attr! :hidden
+    tests = sets.map do |spec|
+      spec = spec.to_str
+      Primitive.zr_str_ascii_check(spec)
+      chars, negated = charset(spec)
+      negated ? ->(b) { !chars.include?(b) } : ->(b) { chars.include?(b) }
+    end
+    ->(b) { tests.all? { |test| test.call(b) } }
+  end
+
+  # The bytes a tr spec names, in order, and whether it is negated.
+  def charset(spec)
+    Primitive.attr! :hidden
+    bytes = spec.bytes
+    negated = bytes.size > 1 && bytes[0] == 94
+    bytes.shift if negated
+    out = []
+    i = 0
+    while i < bytes.size
+      if bytes[i] == 92 && i + 1 < bytes.size
+        out << bytes[i + 1]
+        i += 2
+      elsif i + 2 < bytes.size && bytes[i + 1] == 45
+        raise ArgumentError, "invalid range \"#{Primitive.zr_str_from_byte(bytes[i])}-#{Primitive.zr_str_from_byte(bytes[i + 2])}\" in string transliteration" if bytes[i] > bytes[i + 2]
+
+        (bytes[i]..bytes[i + 2]).each { |b| out << b }
+        i += 3
+      else
+        out << bytes[i]
+        i += 1
+      end
+    end
+    [out, negated]
+  end
+
+  # tr: each byte in `from` becomes the byte at the same place in
+  # `to`, the last one standing in for the rest; a negated `from`
+  # maps every other byte to the last of `to`. `squeeze` collapses
+  # runs of one translated byte.
+  def translate(from, to, squeeze)
+    Primitive.attr! :hidden
+    Primitive.zr_str_ascii_check(self)
+    source, negated = charset(from.to_str)
+    target, _ = charset(to.to_str)
+    out = +""
+    last = nil
+    each_byte do |b|
+      at = source.index(b)
+      hit = negated ? at.nil? : !at.nil?
+      unless hit
+        out << Primitive.zr_str_from_byte(b)
+        last = nil
+        next
+      end
+      if target.empty?
+        last = nil
+        next
+      end
+      mapped = negated ? target[-1] : (target[at] || target[-1])
+      out << Primitive.zr_str_from_byte(mapped) unless squeeze && mapped == last
+      last = mapped
+    end
+    out
+  end
+
+  def digits?
+    Primitive.attr! :hidden
+    !empty? && each_byte.all? { |b| b >= 48 && b <= 57 }
+  end
+
+  # An Integer read the way `hex` and `oct` read one: whitespace, a
+  # sign, a base prefix, digits with single underscores, and nothing
+  # past the first stray byte. A negative base means the prefix picks
+  # the base.
+  def lenient_integer(base)
+    Primitive.attr! :hidden
+    Primitive.zr_str_ascii_check(self)
+    text = lstrip
+    i = 0
+    sign = 1
+    if text[i] == "-" || text[i] == "+"
+      sign = -1 if text[i] == "-"
+      i += 1
+    end
+    if text[i] == "0" && text[i + 1]
+      prefix = text[i + 1].downcase
+      chosen = { "x" => 16, "b" => 2, "o" => 8, "d" => 10 }[prefix]
+      if chosen && (base < 0 || chosen == base)
+        base = chosen
+        i += 2
+      end
+    end
+    base = -base if base < 0
+    value = 0
+    seen = false
+    while i < text.bytesize
+      ch = text[i]
+      if ch == "_" && seen && text[i + 1] && !(text[i + 1] == "_")
+        i += 1
+        next
+      end
+      digit = ch.between?("0", "9") ? ch.ord - 48 : (ch.downcase.between?("a", "z") ? ch.downcase.ord - 87 : 99)
+      break if digit >= base
+
+      value = value * base + digit
+      seen = true
+      i += 1
+    end
+    sign * value
+  end
 
   def mutate(result)
     return nil if result == self

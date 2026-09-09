@@ -531,3 +531,13 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_main_to_s(recv, argc, argv, cref, blk)
   zr_str_new(Machine.bytes("main"), 4)
 end
+
+# `attached_object`: the object a singleton class belongs to; a plain
+# class has none.
+sig [Value] => Value
+machine def zr_mod_attached(klass)
+  if !zr_singleton_p(klass)
+    return Machine.value(QNIL)
+  end
+  RClass.attached(klass)
+end

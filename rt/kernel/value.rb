@@ -43,6 +43,9 @@ FL_SINGLETON = 1 << 12
 # A String of bytes (CRuby's ASCII-8BIT): each byte is a character,
 # and `inspect` spells the high ones in hex.
 FL_BINARY = 1 << 13
+# A module whose name is temporary (`set_temporary_name`): a constant
+# assignment still names it.
+FL_TEMP_NAME = 1 << 14
 
 Machine.struct :RBasic, flags: Word, klass: Value
 

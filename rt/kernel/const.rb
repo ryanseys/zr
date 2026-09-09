@@ -91,7 +91,8 @@ machine def zr_const_set(klass, id, v)
     ClassExt.set_clen(ext, n + 1)
   end
   CEntry.set_value(e, v)
-  if !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) && RClass.name(v) == QNIL
+  if !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) && (RClass.name(v) == QNIL || (RBasic.flags(v) & FL_TEMP_NAME) != 0)
+    RBasic.set_flags(v, RBasic.flags(v) & (0 - (FL_TEMP_NAME + 1)))
     RClass.set_name(v, zr_class_name_under(klass, id))
   end
   top = Task.top(zr_task())

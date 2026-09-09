@@ -46,11 +46,8 @@ class Float
     raise TypeError, "#{other.class} can't be coerced into Float"
   end
 
-  def step(*args, **kwargs, &block) = Primitive.zr_unimplemented("Float#step")
   def rationalize(*args) = Primitive.zr_unimplemented("Float#rationalize")
   def to_r = Primitive.zr_unimplemented("Float#to_r")
-  def next_float = Primitive.zr_unimplemented("Float#next_float")
-  def prev_float = Primitive.zr_unimplemented("Float#prev_float")
 end
 
 module Kernel

@@ -981,3 +981,20 @@ machine def zr_release(v)
     free(REnv.slots(v))
   end
 end
+
+# `set_temporary_name`: a name a later constant assignment replaces;
+# nil clears it. The answer says whether the module had a permanent
+# name, which cannot change.
+sig [Value, Value] => Value
+machine def zr_mod_set_temporary_name(mod, name)
+  if RClass.name(mod) != QNIL && (RBasic.flags(mod) & FL_TEMP_NAME) == 0
+    return Machine.value(QFALSE)
+  end
+  RClass.set_name(mod, name)
+  if name == QNIL
+    RBasic.set_flags(mod, RBasic.flags(mod) & (0 - (FL_TEMP_NAME + 1)))
+  else
+    RBasic.set_flags(mod, RBasic.flags(mod) | FL_TEMP_NAME)
+  end
+  Machine.value(QTRUE)
+end

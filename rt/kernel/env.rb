@@ -324,3 +324,12 @@ machine def zr_time_local(secs)
   zr_ary_push(out, zr_str_new(zone, zr_cstr_len(zone)))
   out
 end
+
+Machine.import "_exit", [I32] => Void
+
+# `exit!`: the process ends now, with no handler run.
+sig [Value] => Value
+machine def zr_exit_now(status)
+  _exit(Machine.i32(zr_fix2long(status)))
+  Machine.value(QNIL)
+end

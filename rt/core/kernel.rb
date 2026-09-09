@@ -199,6 +199,10 @@ class TrueClass
   def ^(other) = other ? false : true
 end
 
+class NilClass
+  def =~(other) = nil
+end
+
 class FalseClass
   def &(other) = false
   def |(other) = other ? true : false
@@ -233,4 +237,99 @@ end
 class Module
   def ruby2_keywords(*names) = Primitive.zr_unimplemented("ruby2_keywords")
   private :ruby2_keywords
+end
+
+module Kernel
+  def putc(char)
+    if char.is_a?(String)
+      print char[0]
+    else
+      print (Integer(char) & 255).chr
+    end
+    char
+  end
+
+  # `pp` prints inspect on a line each, as `p` does; a wide inspect
+  # would wrap, which is not written yet.
+  def pp(*objects)
+    objects.each do |object|
+      text = object.inspect
+      Primitive.zr_unimplemented("pp of an object whose inspect is 80 columns or wider") if text.size >= 80
+      puts text
+    end
+    objects.size <= 1 ? objects[0] : objects
+  end
+
+  def Hash(value)
+    return {} if value.nil? || (value.is_a?(Array) && value.empty?)
+    return value if value.is_a?(Hash)
+    return value.to_hash if value.respond_to?(:to_hash)
+
+    raise TypeError, "can't convert #{value.class} into Hash"
+  end
+
+  def display(port = nil)
+    Primitive.zr_unimplemented("Kernel#display with a port") unless port.nil?
+
+    print to_s
+    nil
+  end
+
+  def public_method(name)
+    m = method(name)
+    raise NameError.new("method '#{name}' for class '#{self.class}' is private", name) if self.class.private_method_defined?(name)
+    raise NameError.new("method '#{name}' for class '#{self.class}' is protected", name) if self.class.protected_method_defined?(name)
+
+    m
+  end
+
+  def singleton_method(name)
+    raise NameError.new("undefined singleton method '#{name}' for '#{inspect}'", name) unless singleton_methods.include?(name.to_sym)
+
+    method(name)
+  end
+
+  def exit!(status = false)
+    Primitive.zr_exit_now(status == true ? 0 : (status == false ? 1 : status))
+  end
+
+  def !~(other) = !(self =~ other)
+
+  private :putc, :pp, :Hash, :exit!
+  module_function :putc, :pp, :Hash, :exit!
+end
+
+class Module
+  alias attr attr_reader
+
+  def set_temporary_name(name)
+    if name.nil?
+      Primitive.zr_mod_set_temporary_name(self, nil)
+      return self
+    end
+    name = name.to_str
+    raise ArgumentError, "empty class/module name" if name.empty?
+    raise ArgumentError, "the temporary name must not be a constant path to avoid confusion" if name.split("::").all? { |part| constant_name?(part) }
+    raise RuntimeError, "can't change permanent name" unless Primitive.zr_mod_set_temporary_name(self, name)
+
+    self
+  end
+end
+
+class Module
+  private
+
+  def constant_name?(part)
+    Primitive.attr! :hidden
+    !part.empty? && part[0].between?("A", "Z") && part.chars.all? { |c| c.between?("A", "Z") || c.between?("a", "z") || c.between?("0", "9") || c == "_" }
+  end
+end
+
+class Class
+  def attached_object
+    object = Primitive.zr_mod_attached(self)
+    raise TypeError, "'#{inspect}' is not a singleton class" if object.nil?
+
+    object
+  end
 end
