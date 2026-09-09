@@ -61,11 +61,13 @@ module Ze0
           top = base + 3
           [top, staging(node.subject, top), staging(node.else_body, top), *node.clauses.flat_map { |values, body| [staging(body, top), *values.map { |v| staging(v, top) }] }].max
         when Hir::IndexOpAssign
+          # The receiver, the arguments and the current value keep slots;
+          # the operator send (`current op value`) stages two more above.
           top = base + 2 + node.args.size
-          [top + 2 + node.args.size, staging(node.recv, top), staging(node.value, top), *node.args.map { |a| staging(a, top) }].max
+          [top + 2 + node.args.size, staging(node.recv, top), staging(node.value, top + 2), *node.args.map { |a| staging(a, top) }].max
         when Hir::AttrOpAssign
           top = base + 2
-          [top + 2, staging(node.recv, top), staging(node.value, top)].max
+          [top + 2, staging(node.recv, top), staging(node.value, top + 2)].max
         when Hir::MultiAssign
           top = base + 1 + prepared(node.target)
           [staging(node.value, top), top + targets(node.target), *sends_in(node.target).map { |s| staging(s, top) }].max
@@ -74,7 +76,11 @@ module Ze0
           top = base + (node.rescues.empty? ? 0 : 2) + (node.ensure_body ? 2 : 0)
           inside = [top, staging(node.body, top), *node.rescues.map { |r| staging(r, top) }, staging(node.else_body, top)].max
           [inside, staging(node.ensure_body, inside + 1)].max
-        when Hir::Rescue then [staging(node.body, base + 2), staging(node.target, base + 1), *node.classes.map { |c| staging(c, base) }].max
+        when Hir::Rescue
+          # A `rescue => a.b` or `=> h[k]` target holds its receiver,
+          # arguments and value in slots under the clause's own two.
+          held = node.target.is_a?(Hir::Send) ? 2 + node.target.args.size : 0
+          [staging(node.target, base), staging(node.body, base + held + 2), *node.classes.map { |c| staging(c, base) }].max
         when Hir::ClassDef then [staging(node.scope, base), staging(node.superclass, base)].max
         when Hir::SingletonClassDef then staging(node.target, base)
         when Hir::Def then staging(node.receiver, base)

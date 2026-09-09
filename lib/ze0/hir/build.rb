@@ -266,7 +266,7 @@ module Ze0
           in_block do
             params, extra = block_params(node.parameters)
             body = node.body ? expr(node.body) : Literal.new(nil, line)
-            Lambda.new(Block.new(params, with_temps(node.locals + extra), body, line), line)
+            Lambda.new(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line), line)
           end
         when Prism::ItLocalVariableReadNode then Local.new(:it, 0, line)
         when Prism::UndefNode
@@ -601,7 +601,7 @@ module Ze0
         in_block do
           params, extra = block_params(node.parameters)
           body = node.body ? expr(node.body) : Literal.new(nil, line)
-          Block.new(params, with_temps(node.locals + extra), body, line)
+          Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line)
         end
       end
 

@@ -63,7 +63,7 @@ module Ze0
         @cref_layout = lower.layout("RCref")
         @proc_layout = lower.layout("RProc")
         @slot_of = locals.each_with_index.to_h
-        @has_env = Scope.holds_block?(body)
+        @has_env = Scope.holds_block?(body) || default_expressions.any? { |d| Scope.holds_block?(d) }
         @sites = 0
         @loops = []
         @regions = []
