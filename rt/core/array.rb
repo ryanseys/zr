@@ -666,6 +666,7 @@ class Array
   def fetch(index, *default)
     raise ArgumentError, "wrong number of arguments (given #{default.size + 1}, expected 1..2)" if default.size > 1
 
+    Primitive.zr_warn_here_m("block supersedes default value argument") if block_given? && !default.empty?
     index = Primitive.zr_index_operand_m(index)
     i = index < 0 ? index + size : index
     return self[i] if i >= 0 && i < size

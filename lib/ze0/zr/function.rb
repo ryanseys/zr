@@ -103,6 +103,14 @@ module Ze0
         kernel("zr_program_start", file, imm(@l.file.bytesize))
       end
 
+      # The file's parse-time warnings, on stderr as the file starts.
+      def parse_warnings
+        @l.warnings.each do |line|
+          text = "#{line}\n"
+          kernel("zr_write_err", @f.symbol_value(@f.symbol(@l.literal(text))), imm(text.bytesize))
+        end
+      end
+
       # A core helper that CRuby has no method for opens with
       # `Primitive.attr! :hidden`, and leaves no backtrace row.
       def hidden_def?
@@ -159,6 +167,7 @@ module Ze0
         @f.store(imm(@l.unit.const_for("QNIL")), @rec, off(@frame, "svar"))
         @f.store(imm(@l.unit.const_for("QNIL")), @rec, off(@frame, "lastline"))
         program_start if @kind == :main && !@l.internal?
+        parse_warnings if %i[main top].include?(@kind) && !@l.internal?
         (0...@nvalues).each { |i| @f.store(@qnil, @rec, value_offset(i)) }
         @f.store(@rec, @task_addr, off(@task, "top"))
         return unless @has_env

@@ -332,6 +332,7 @@ module Enumerable
 
   def max_by(n = nil, &block)
     return to_enum(:max_by, n) unless block
+    raise ArgumentError, "negative size (#{n})" if !n.nil? && n < 0
     return sort_by(&block).reverse.first(n) unless n.nil?
 
     best = nil

@@ -92,6 +92,14 @@ class Regexp
   end
   private_class_method :compile_source
 
+  # A dup or clone compiles its own pattern from the same source.
+  def recompile
+    Primitive.attr! :hidden
+    text = Pattern.engine_text(source, options & EXTENDED != 0, source.encoding == Encoding::BINARY)
+    Primitive.zr_regexp_recompile(self, text.frozen? ? text : text.dup.freeze)
+  end
+  private :recompile
+
   # `a{2,1}`: an interval whose upper bound is below its lower one, which
   # Ruby refuses where oniguruma would read it as possessive.
   def self.inverted_interval?(source)

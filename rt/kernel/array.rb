@@ -157,9 +157,12 @@ machine def zr_ary_initialize(recv, argc, argv, cref, blk)
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("negative array size"), 19)
   end
   fill = argc == 2 ? Machine.value(Machine.load64(argv, 8)) : Machine.value(QNIL)
+  if blk != QNIL && argc == 2
+    zr_warn_here(Machine.bytes("block supersedes default value argument"), 39)
+  end
   i = 0
   while i < n
-    if blk != QNIL && argc == 1
+    if blk != QNIL
       v = zr_yield1(blk, zr_fix(i))
       return v if v == QUNDEF
       zr_ary_push(recv, v)

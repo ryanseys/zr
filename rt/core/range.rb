@@ -80,11 +80,25 @@ class Range
     self
   end
 
+  # Counted only from an Integer: a Float or nil start cannot iterate,
+  # any other start has no size.
   def size
-    return nil unless @begin.is_a?(Integer)
+    unless @begin.is_a?(Integer)
+      raise TypeError, "can't iterate from #{@begin.class}" if @begin.nil? || @begin.is_a?(Float)
+
+      return nil
+    end
     return Float::INFINITY if @end.nil?
 
-    n = @end - @begin + (@excl ? 0 : 1)
+    n = if @end.is_a?(Float)
+          return Float::INFINITY if @end.infinite? && @end > 0
+
+          Enumerator::ArithmeticSequence.for(@begin, @end, 1, @excl, self).size
+        else
+          delta = @end - @begin
+          whole = delta.floor
+          @excl && whole == delta ? whole : whole + 1
+        end
     n < 0 ? 0 : n
   end
 

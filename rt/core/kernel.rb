@@ -185,6 +185,7 @@ end
 
 class NilClass
   def to_i = 0
+  def to_f = 0.0
   def to_a = []
   def to_h = {}
   def &(other) = false

@@ -12,6 +12,7 @@ Machine.import "rename", [Ptr, Ptr] => I32
 Machine.import "isatty", [I32] => I32
 Machine.import "mkdir", [Ptr, I32] => I32
 Machine.import "rmdir", [Ptr] => I32
+Machine.import "chdir", [Ptr] => I32
 Machine.import "opendir", [Ptr] => Ptr
 Machine.import "readdir", [Ptr] => Ptr
 Machine.import "closedir", [Ptr] => I32
@@ -123,6 +124,11 @@ end
 sig [Value] => Value
 machine def zr_io_rmdir(path)
   zr_io_status(rmdir(RString.ptr(path)))
+end
+
+sig [Value] => Value
+machine def zr_io_chdir(path)
+  zr_io_status(chdir(RString.ptr(path)))
 end
 
 # The names in a directory, `.` and `..` among them, in the order the

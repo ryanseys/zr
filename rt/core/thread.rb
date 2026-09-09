@@ -240,6 +240,7 @@ class Thread
     locals = @locals[Fiber.current] || {}
     return locals.fetch(key.to_sym, *default) unless block_given?
 
+    Primitive.zr_warn_here_m("block supersedes default value argument") unless default.empty?
     locals.fetch(key.to_sym) { |k| yield k }
   end
 

@@ -13,7 +13,7 @@ module Ze0
       def self.program(source, file, roots: [])
         loader = Loader.new(roots)
         main = loader.unit(file, source)
-        Program.new(main.file, main.locals, main.body, main.frozen, loader.units)
+        Program.new(main.file, main.locals, main.body, main.frozen, loader.units, main.warnings)
       end
 
       # The files a program reaches through require, require_relative
@@ -41,7 +41,19 @@ module Ze0
           frozen = result.magic_comments.any? { |c| c.key == "frozen_string_literal" && c.value == "true" }
           build = Build.new(file, self)
           body = build.seq(result.value.statements)
-          Unit.new(file, result.value.locals + build.temps, body, frozen)
+          Unit.new(file, result.value.locals + build.temps, body, frozen, warnings(result, file))
+        end
+
+        # Ruby's parse-time warnings for the file, `key :k is duplicated
+        # and overwritten on line 24` and friends, as ruby prints them.
+        # prism knows the rules and the line each one names; `-w` tier
+        # warnings are not printed by a plain run.
+        def warnings(result, file)
+          result.warnings.filter_map do |w|
+            next unless w.level == :default
+
+            "#{file}:#{w.location.start_line}: warning: #{w.message}"
+          end
         end
 
         # The index of `path`'s unit, built on first sight.

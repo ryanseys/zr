@@ -53,6 +53,10 @@ machine def zr_copy_payload(copy, orig)
       zr_memcpy(rows, RException.rows(orig), RException.nrows(orig) * BtRow.size)
       RException.set_rows(copy, rows)
     end
+  elsif t == T_REGEXP
+    RRegexp.set_reg(copy, 0)
+    r = zr_send(copy, Machine.id(:recompile), 0, 0)
+    return r if r == QUNDEF
   elsif t != T_PROC && t != T_METHOD
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't copy this kind of object"), 30)
   end

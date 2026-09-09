@@ -374,6 +374,9 @@ machine def zr_hash_fetch(recv, argc, argv, cref, blk)
   if argc < 1 || argc > 2
     return zr_wrong_arity_range(argc, 1, 2)
   end
+  if blk != QNIL && argc == 2
+    zr_warn_here(Machine.bytes("block supersedes default value argument"), 39)
+  end
   key = Machine.value(Machine.load64(argv, 0))
   v = zr_hash_lookup(recv, key)
   if v == QUNDEF && zr_hash_raised()
@@ -805,6 +808,23 @@ machine def zr_hash_update(h, other)
     return h
   end
   if zr_special_p(other) || zr_type(other) != T_HASH
+    if !zr_special_p(other) && zr_find_method(zr_class_of(other), Machine.id(:to_hash)) != 0
+      converted = zr_send(other, Machine.id(:to_hash), 0, 0)
+      return converted if converted == QUNDEF
+      if !zr_special_p(converted) && zr_type(converted) == T_HASH
+        return zr_hash_update(h, converted)
+      end
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("can't convert "), 14)
+      zr_buf_str(b, zr_class_name_of(other))
+      zr_buf_push(b, Machine.bytes(" to Hash ("), 10)
+      zr_buf_str(b, zr_class_name_of(other))
+      zr_buf_push(b, Machine.bytes("#to_hash gives "), 15)
+      zr_buf_str(b, zr_class_name_of(converted))
+      zr_buf_push(b, Machine.bytes(")"), 1)
+      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+    end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)

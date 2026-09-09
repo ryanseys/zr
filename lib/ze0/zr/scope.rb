@@ -49,7 +49,7 @@ module Ze0
           parts = node.args + [node.kwargs].compact
           spread?(parts) ? gathered(parts, base) : row(parts, base)
         when Hir::ArrayLit then spread?(node.elements) ? gathered(node.elements, base) : row(node.elements, base)
-        when Hir::HashLit then spread?(node.pairs) ? gathered(node.pairs, base) : row(node.pairs, base)
+        when Hir::HashLit then spread?(node.pairs) ? spread_pairs(node.pairs, base) : row(node.pairs, base)
         when Hir::RangeLit then row([node.low, node.high], base)
         when Hir::Interp then row(node.parts, base)
         when Hir::Assign, Hir::IvarWrite, Hir::ConstWrite, Hir::GvarWrite, Hir::CvarWrite then staging(node.value, base)
@@ -118,6 +118,15 @@ module Ze0
       # slot: the form a splat takes.
       def gathered(parts, base)
         [base + 1, *parts.map { |p| staging(p, base + 1) }].max
+      end
+
+      # A hash literal with a `**`: the hash in one slot, each plain pair
+      # staged as a row of two above it, each spread evaluated there.
+      def spread_pairs(pairs, base)
+        tops = pairs.each_slice(2).map do |key, value|
+          key.is_a?(Hir::HashSplat) ? staging(key.value, base + 1) : row([key, value], base + 1)
+        end
+        [base + 1, *tops].max
       end
 
       def spread?(parts)

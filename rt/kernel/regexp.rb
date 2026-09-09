@@ -63,6 +63,21 @@ machine def zr_regexp_compile(klass, source, shown, options)
   re
 end
 
+# A copy's own compiled pattern, from the engine text the core rebuilds
+# for it; the text compiled once already, so it compiles again.
+sig [Value, Value] => Value
+machine def zr_regexp_recompile(re, text)
+  reg = Machine.slot(8)
+  info = Machine.slot(24)
+  Machine.store64(info, 0, 0)
+  Machine.store64(info, 8, 0)
+  Machine.store64(info, 16, 0)
+  enc = zr_str_binary_p(text) ? Machine.extern(:OnigEncodingASCII) : Machine.extern(:OnigEncodingUTF8)
+  onig_new(reg, RString.ptr(text), RString.ptr(text) + RString.len(text), Machine.i32(RRegexp.options(re) & 7), enc, Machine.extern(:OnigSyntaxRuby), info)
+  RRegexp.set_reg(re, Machine.ptr(Machine.load64(reg, 0)))
+  re
+end
+
 # A regexp literal: compiled by the core the first time its site runs,
 # then the same frozen object, held in the literal table by the site's
 # index.

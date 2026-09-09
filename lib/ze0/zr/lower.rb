@@ -13,7 +13,7 @@ module Ze0
     class Lower
       class Refused < StandardError; end
 
-      attr_reader :program, :unit, :symbols, :data, :functions, :file, :frozen
+      attr_reader :program, :unit, :symbols, :data, :functions, :file, :frozen, :warnings
 
       def internal?
         @internal
@@ -29,6 +29,7 @@ module Ze0
         @internal = internal
         @file = program.file
         @frozen = program.frozen
+        @warnings = program.warnings || []
         @data = []
         @functions = []
         @next = 0
@@ -41,10 +42,12 @@ module Ze0
         (@program.units || []).each_with_index do |u, i|
           @file = u.file
           @frozen = u.frozen
+          @warnings = u.warnings || []
           Function.new(self, unit_entry(i), u.locals, u.body, nil, :top).lower
         end
         @file = @program.file
         @frozen = @program.frozen
+        @warnings = @program.warnings || []
         [@functions, @data]
       end
 

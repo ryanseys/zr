@@ -273,7 +273,33 @@ class Dir
 
   def self.glob(*) = Primitive.zr_unimplemented("Dir.glob")
   def self.[](*) = Primitive.zr_unimplemented("Dir[]")
-  def self.chdir(*) = Primitive.zr_unimplemented("Dir.chdir")
+  # With a block, the directory changes back afterwards; without one
+  # it stays. No argument means the home directory.
+  def self.chdir(path = nil)
+    if path.nil?
+      path = ENV["HOME"] || ENV["LOGDIR"]
+      raise ArgumentError, "HOME/LOGDIR not set" if path.nil?
+    end
+    path = path.to_path if path.respond_to?(:to_path)
+    return move_to(path) unless block_given?
+
+    before = pwd
+    move_to(path)
+    begin
+      yield path
+    ensure
+      move_to(before)
+    end
+  end
+
+  def self.move_to(path)
+    Primitive.attr! :hidden
+    result = Primitive.zr_io_chdir(path)
+    raise SystemCallError.new("@ chdir_path - #{path}", -result) if result < 0
+
+    0
+  end
+  private_class_method :move_to
   def self.home(*) = Primitive.zr_unimplemented("Dir.home")
   def self.tmpdir = Primitive.zr_unimplemented("Dir.tmpdir")
 end

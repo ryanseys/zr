@@ -33,6 +33,7 @@ class << ENV
   end
 
   def fetch(name, *default)
+    Primitive.zr_warn_here_m("block supersedes default value argument") if block_given? && !default.empty?
     value = self[name]
     return value if value
     return yield(name) if block_given?
@@ -46,8 +47,11 @@ class << ENV
   end
   alias store []=
 
+  # The value removed; a block answers for a name that was not set.
   def delete(name)
     value = self[name]
+    return yield(name) if value.nil? && block_given?
+
     self[name] = nil
     value
   end
@@ -85,7 +89,15 @@ class << ENV
   def select(&block) = to_h.select(&block)
   alias filter select
   def reject(&block) = to_h.reject(&block)
-  def update(other) = other.each { |k, v| self[k] = v } && self
+  def update(*others)
+    others.each do |other|
+      other.each do |k, v|
+        k = variable_name(k)
+        self[k] = block_given? && key?(k) ? yield(k, self[k], v) : v
+      end
+    end
+    self
+  end
   alias merge! update
   def inspect = to_h.inspect
   def to_s = "ENV"

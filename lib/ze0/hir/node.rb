@@ -8,9 +8,10 @@ module Ze0
   module Hir
     # `frozen` holds when the file's magic comment freezes string literals.
     # `units` are the files a require or load reaches, each a toplevel
-    # of its own, in the order they were first named.
-    Program = Struct.new(:file, :locals, :body, :frozen, :units)
-    Unit = Struct.new(:file, :locals, :body, :frozen)
+    # of its own, in the order they were first named. `warnings` are the
+    # parse-time warnings ruby prints for the file, printed when it runs.
+    Program = Struct.new(:file, :locals, :body, :frozen, :units, :warnings)
+    Unit = Struct.new(:file, :locals, :body, :frozen, :warnings)
     # `require`, `require_relative` or `load` of a literal name: `path`
     # is the file it resolved to and `unit` that file's index, or both
     # nil when no file answers.

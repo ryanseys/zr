@@ -96,6 +96,37 @@ machine def zr_warn_line(s)
   Machine.value(QNIL)
 end
 
+# `rb_warn`: `file:line: warning: message` on stderr, naming the
+# nearest frame with a file, unless `$VERBOSE` is nil.
+sig [Ptr, Word] => Void
+machine def zr_warn_here(bytes, n)
+  if zr_gvar_get(Machine.id(:$VERBOSE)) == QNIL
+    return
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  rec = zr_frame_with_file(Task.top(zr_task()))
+  if rec != 0
+    meta = Frame.meta(rec)
+    zr_buf_push(b, FrameMeta.file(meta), FrameMeta.file_len(meta))
+    zr_buf_byte(b, 58)
+    zr_buf_long(b, Frame.line(rec))
+    zr_buf_push(b, Machine.bytes(": "), 2)
+  end
+  zr_buf_push(b, Machine.bytes("warning: "), 9)
+  zr_buf_push(b, bytes, n)
+  zr_buf_byte(b, 10)
+  s = zr_buf_take(b)
+  zr_write_err(RString.ptr(s), RString.len(s))
+end
+
+# The core's `rb_warn`.
+sig [Value] => Value
+machine def zr_warn_here_m(s)
+  zr_warn_here(RString.ptr(s), RString.len(s))
+  Machine.value(QNIL)
+end
+
 # `#<Thread:0x...` without the closing bracket, for an inspect that
 # adds more.
 sig [Value] => Value

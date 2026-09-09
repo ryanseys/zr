@@ -222,8 +222,10 @@ class Hash
     out
   end
 
+  # A plain Hash: the default and default proc do not carry over.
   def except(*keys)
-    out = dup
+    out = {}
+    each { |k, v| out[k] = v }
     keys.each { |k| out.delete(k) }
     out
   end
