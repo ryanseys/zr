@@ -5,7 +5,7 @@
 sig [] => Value
 machine def zr_toplevel
   rec = Machine.slot(Frame.size + 32)
-  meta = Machine.static(:meta, 64)
+  meta = Machine.static(:meta, FrameMeta.size)
   FrameMeta.set_kind(meta, KIND_MAIN)
   Frame.set_meta(rec, meta)
   Frame.set_prev(rec, Task.top(zr_task()))

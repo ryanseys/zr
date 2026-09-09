@@ -2,7 +2,7 @@
 sig [] => Value
 machine def zr_toplevel
   rec = Machine.slot(Frame.size + 8)
-  meta = Machine.static(:meta, 64)
+  meta = Machine.static(:meta, FrameMeta.size)
   FrameMeta.set_file(meta, Machine.bytes("arity.rb"))
   FrameMeta.set_file_len(meta, 8)
   FrameMeta.set_kind(meta, KIND_MAIN)
@@ -16,7 +16,7 @@ machine def zr_toplevel
   Task.set_top(zr_task(), rec)
   argv = rec + Frame.size
   Machine.store64(argv, 0, Machine.word(zr_fix(7)))
-  r = zr_send(zr_fix(7), Machine.id(:to_s), 1, argv)
-  return r if r == QUNDEF
-  Machine.value(QNIL)
+  r = zr_send(zr_fix(7), Machine.id(:succ), 1, argv)
+  Task.set_top(zr_task(), Frame.prev(rec))
+  r
 end
