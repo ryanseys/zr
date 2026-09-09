@@ -42,7 +42,11 @@ machine def zr_copy_payload(copy, orig)
       entries = malloc(RHash.cap(orig) * HEntry.size)
       zr_memcpy(entries, RHash.entries(orig), RHash.cap(orig) * HEntry.size)
       RHash.set_entries(copy, entries)
+      bins = malloc(RHash.nbins(orig) * 8)
+      zr_memcpy(bins, RHash.bins(orig), RHash.nbins(orig) * 8)
+      RHash.set_bins(copy, bins)
     end
+    RHash.set_iter(copy, 0)
   elsif t == T_EXCEPTION
     if RException.rows(orig) != 0
       rows = malloc(RException.nrows(orig) * BtRow.size)

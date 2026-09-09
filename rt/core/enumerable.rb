@@ -311,6 +311,7 @@ module Enumerable
 
   def min_by(n = nil, &block)
     return to_enum(:min_by, n) unless block
+    raise ArgumentError, "negative size (#{n})" if !n.nil? && n < 0
     return sort_by(&block).first(n) unless n.nil?
 
     best = nil
@@ -384,7 +385,18 @@ module Enumerable
     seen == 1
   end
 
-  def tally
+  def tally(counts = nil)
+    unless counts.nil?
+      raise TypeError, "no implicit conversion of #{counts.class} into Hash" unless counts.is_a?(Hash)
+      Primitive.zr_frozen_error(counts) if counts.frozen?
+
+      each do |*x|
+        x = Primitive.zr_enum_value(x)
+        counts[x] = (counts[x] || 0) + 1
+        nil
+      end
+      return counts
+    end
     out = {}
     each do |*x|
       x = Primitive.zr_enum_value(x)

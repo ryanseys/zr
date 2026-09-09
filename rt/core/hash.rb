@@ -228,17 +228,39 @@ class Hash
     out
   end
 
+  # The block sees each pair as one value, which a two-parameter block
+  # takes apart.
   def any?(*args)
     return super if args.size == 1
     return !empty? unless block_given?
 
-    each { |k, v| return true if yield(k, v) }
+    each { |k, v| return true if yield([k, v]) }
     false
+  end
+
+  # `default` alone answers the default value; with a key, what a
+  # default proc would answer for it.
+  def default(*key)
+    raise ArgumentError, "wrong number of arguments (given #{key.size}, expected 0..1)" if key.size > 1
+    return Primitive.zr_hash_default_value(self) if key.empty?
+
+    proc = default_proc
+    proc ? proc.call(self, key[0]) : Primitive.zr_hash_default_value(self)
+  end
+
+  # `delete(key) { |key| }`: the block's answer for a missing key.
+  def delete(key)
+    Primitive.zr_frozen_error(self) if frozen?
+    return Primitive.zr_hash_delete_m(self, key) if key?(key) || !block_given?
+
+    yield key
   end
 
   def compact
     out = {}
     each { |k, v| out[k] = v unless v.nil? }
+    out.default = default
+    out.default_proc = default_proc if default_proc
     out
   end
 
@@ -257,12 +279,7 @@ class Hash
     depth > 1 ? out.flatten(depth - 1) : out
   end
 
-  def rehash
-    entries = to_a
-    clear
-    entries.each { |k, v| self[k] = v }
-    self
-  end
+  def rehash = Primitive.zr_hash_rehash(self)
 
   def assoc(key)
     each { |k, v| return [k, v] if k == key }

@@ -74,6 +74,8 @@ class Range
   end
 
   def reverse_each(&block)
+    return to_enum(:reverse_each) { size } unless block
+
     to_a.reverse.each(&block)
     self
   end

@@ -157,6 +157,8 @@ class Integer
 
   def abs2 = self * self
 
+  def gcdlcm(other) = [gcd(other), lcm(other)]
+
   def gcd(other)
     a = abs
     b = other.abs

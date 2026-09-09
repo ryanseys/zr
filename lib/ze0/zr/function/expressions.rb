@@ -84,7 +84,7 @@ module Ze0
         # `{k => v, **h}`: pairs stored one by one into a Hash kept in a
         # record slot when a double splat is among them.
         def hash_literal(node)
-          return staged(node.pairs) { |argv| kernel("zr_hash_of", imm(node.pairs.size / 2), argv) } unless node.pairs.any?(Hir::HashSplat)
+          return staged(node.pairs) { |argv| checked(kernel("zr_hash_of", imm(node.pairs.size / 2), argv)) } unless node.pairs.any?(Hir::HashSplat)
 
           slot = reserve(1)
           at = value_offset(slot)

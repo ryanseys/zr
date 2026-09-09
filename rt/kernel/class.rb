@@ -977,6 +977,9 @@ machine def zr_release(v)
     if RHash.entries(v) != 0
       free(RHash.entries(v))
     end
+    if RHash.bins(v) != 0
+      free(RHash.bins(v))
+    end
   elsif t == T_FIBER
     zr_release_fiber(v)
   elsif t == T_REGEXP

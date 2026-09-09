@@ -315,6 +315,8 @@ class Array
   # Membership here is by `hash` and `eql?`, as CRuby's set
   # operations decide it.
   def uniq
+    return dup if size <= 1 && !block_given?
+
     seen = {}
     out = []
     i = 0
