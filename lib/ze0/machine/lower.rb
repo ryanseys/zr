@@ -153,6 +153,7 @@ module Ze0
             refuse(d, "a machine def has no sig ahead of it") if pending_sig.nil?
             params, ret = pending_sig
             pending_sig = nil
+            refuse(d, "a machine def's name is letters, digits and underscores") unless d.name.to_s.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
             names = (d.parameters&.requireds || []).map { |p| p.name.to_s }
             refuse(d, "the sig has #{params.size} types for #{names.size} parameters") if names.size != params.size
             refuse(d, "a machine def takes required parameters only") if d.parameters && d.parameters.child_nodes.compact.size != names.size

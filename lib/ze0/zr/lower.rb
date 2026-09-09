@@ -207,6 +207,9 @@ module Ze0
           when Hir::ArrayLit
             top = base + node.elements.size
             [top, *node.elements.map { |e| values_needed(e, top) }].max
+          when Hir::Interp
+            top = base + node.parts.size
+            [top, *node.parts.map { |e| values_needed(e, top) }].max
           when Hir::If then [values_needed(node.cond, base), *[node.yes, node.no].compact.map { |n| values_needed(n, base) }].max
           when Hir::While then [values_needed(node.cond, base), node.body ? values_needed(node.body, base) : base].max
           when Hir::And, Hir::Or then [values_needed(node.left, base), values_needed(node.right, base)].max
@@ -259,6 +262,13 @@ module Ze0
             argv = @f.iadd(@rec, @f.iconst("i64", value_offset(base)))
             @sp = base
             @f.call_val(@f.callee("zr_ary_of", %w[i64 i64], "i64"), [@f.iconst("i64", node.elements.size), argv])
+          when Hir::Interp
+            base = @sp
+            @sp += node.parts.size
+            node.parts.each_with_index { |e, i| @f.store(expr(e), @rec, value_offset(base + i)) }
+            argv = @f.iadd(@rec, @f.iconst("i64", value_offset(base)))
+            @sp = base
+            checked(@f.call_val(@f.callee("zr_str_interp", %w[i64 i64], "i64"), [@f.iconst("i64", node.parts.size), argv]))
           when Hir::IvarRead
             @f.call_val(@f.callee("zr_ivar_get", %w[i64 i64], "i64"), [@self, @f.iconst("i64", @l.symbols.id(node.name))])
           when Hir::IvarWrite
@@ -329,7 +339,7 @@ module Ze0
             @f.iconst("i64", (v << 1) | 1)
           when Symbol then symbol(v)
           when String
-            fn = @f.callee("zr_str_new", %w[i64 i64], "i64")
+            fn = @f.callee(@l.program.frozen ? "zr_str_frozen" : "zr_str_new", %w[i64 i64], "i64")
             @f.call_val(fn, [@f.symbol_value(@f.symbol(@l.literal(v))), @f.iconst("i64", v.bytesize)])
           when nil then @qnil
           when true then @f.iconst("i64", @l.const("QTRUE"))
@@ -348,7 +358,7 @@ module Ze0
 
         def dispatch(node, recv, argv)
           entry = if node.vcall then "zr_vcall"
-                  elsif node.index then node.name == :[] ? "zr_opt_aref" : "zr_opt_aset"
+                  elsif node.opt then { :[] => "zr_opt_aref", :[]= => "zr_opt_aset", :<< => "zr_opt_ltlt" }.fetch(node.name)
                   else "zr_send"
                   end
           fn = @f.callee(entry, %w[i64 i64 i64 i64], "i64")

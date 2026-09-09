@@ -1,0 +1,135 @@
+(seq
+  (send self puts
+    (send upcase
+      (str "abc"))
+    (send downcase
+      (str "ABC"))
+    (send length
+      (str "abc"))
+    (send reverse
+      (str "abc"))
+    (send +
+      (str "a")
+      (str "b"))
+    (send *
+      (str "ab")
+      (int 3)))
+  (assign s
+    (str "hello"))
+  (send self puts
+    (send capitalize
+      (local s))
+    (send include?
+      (local s)
+      (str "ell"))
+    (send index
+      (local s)
+      (str "l"))
+    (send inspect
+      (send index
+        (local s)
+        (str "zz"))))
+  (send self p
+    (send succ
+      (str "x"))
+    (send succ
+      (str "az"))
+    (send succ
+      (str "zz"))
+    (send succ
+      (str "a9"))
+    (send succ
+      (str "Zz"))
+    (send succ
+      (str "1.9"))
+    (send succ
+      (str "-"))
+    (send succ
+      (str "")))
+  (assign name
+    (str "world"))
+  (assign count
+    (int 3))
+  (def wrap (x) locals (x)
+    (seq
+      (interp
+        (str "<")
+        (seq
+          (local x))
+        (str ">"))))
+  (send self puts
+    (interp
+      (str "hello, ")
+      (seq
+        (local name))
+      (str "! ")
+      (seq
+        (local count))
+      (str " ")
+      (seq
+        (send *
+          (local count)
+          (int 2)))
+      (str " ")
+      (seq
+        (send +
+          (int 1)
+          (int 2)))))
+  (send self puts
+    (interp
+      (seq
+        (send self wrap
+          (int 1)))
+      (str " ")
+      (seq
+        (send self wrap
+          (str "two")))
+      (str " ")
+      (seq
+        (send self wrap
+          (const nil)))
+      (str " ")
+      (seq
+        (array
+          (int 1)
+          (sym :a)))))
+  (assign t
+    (str "x"))
+  (assign t
+    (send +
+      (local t)
+      (str "y")))
+  (send self p
+    (local t)
+    (send ==
+      (local t)
+      (str "xy"))
+    (send !=
+      (local t)
+      (str "xy"))
+    (send empty?
+      (local t))
+    (send empty?
+      (str ""))
+    (send to_sym
+      (str "ab"))
+    (send frozen?
+      (local s))
+    (send frozen?
+      (local t))
+    (send frozen?
+      (send dup
+        (local s))))
+  (assign u
+    (send dup
+      (str "a")))
+  (send <<
+    (send <<
+      (local u)
+      (str "b"))
+    (str "c"))
+  (send self p
+    (local u))
+  (send <<
+    (local s)
+    (str "!")))

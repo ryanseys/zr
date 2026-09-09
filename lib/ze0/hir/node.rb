@@ -6,13 +6,15 @@ module Ze0
   # per kind; `line` is where the node starts; `locals` lists every local
   # of a scope, parameters first.
   module Hir
-    Program = Struct.new(:file, :locals, :body)
+    # `frozen` holds when the file's magic comment freezes string literals.
+    Program = Struct.new(:file, :locals, :body, :frozen)
     # A statement list; its value is the last statement's.
     Seq = Struct.new(:stmts, :line)
     # A method call. `recv` is nil for an implicit self; `vcall` marks a
     # bare identifier, which is a NameError when nothing answers; `index`
-    # marks `recv[args]` and `recv[args] = value` syntax.
-    Send = Struct.new(:recv, :name, :args, :line, :vcall, :index)
+    # marks the operator syntax `recv[i]`, `recv[i] = v` and `recv << v`,
+    # which CRuby runs without a frame on its builtin receivers.
+    Send = Struct.new(:recv, :name, :args, :line, :vcall, :opt)
     # An Integer, String, Symbol, nil, true or false.
     Literal = Struct.new(:value, :line)
     SelfRef = Struct.new(:line)
@@ -37,5 +39,7 @@ module Ze0
     IvarRead = Struct.new(:name, :line)
     IvarWrite = Struct.new(:name, :value, :line)
     ArrayLit = Struct.new(:elements, :line)
+    # `"a#{b}c"`: literal and expression parts in order.
+    Interp = Struct.new(:parts, :line)
   end
 end

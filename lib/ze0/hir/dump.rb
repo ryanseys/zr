@@ -79,6 +79,10 @@ module Ze0
           node(n.scope, depth + 1, lines) if n.scope.is_a?(Struct)
           node(n.value, depth + 1, lines)
           lines[-1] += ")"
+        when Interp
+          lines << "#{pad}(interp"
+          n.parts.each { |e| node(e, depth + 1, lines) }
+          lines[-1] += ")"
         when ArrayLit
           lines << "#{pad}(array"
           n.elements.each { |e| node(e, depth + 1, lines) }

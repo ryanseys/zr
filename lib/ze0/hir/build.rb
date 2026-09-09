@@ -17,7 +17,8 @@ module Ze0
           raise SyntaxError, "#{file}:#{e.location.start_line}: #{e.message}"
         end
 
-        Program.new(file, result.value.locals, new(file).seq(result.value.statements))
+        frozen = result.magic_comments.any? { |c| c.key == "frozen_string_literal" && c.value == "true" }
+        Program.new(file, result.value.locals, new(file).seq(result.value.statements), frozen)
       end
 
       def initialize(file)
@@ -84,6 +85,15 @@ module Ze0
         when Prism::ConstantPathWriteNode
           scope, name = constant_path(node.target)
           ConstWrite.new(scope, name, expr(node.value), line)
+        when Prism::InterpolatedStringNode
+          parts = node.parts.map do |part|
+            case part
+            when Prism::StringNode then Literal.new(part.unescaped, part.location.start_line)
+            when Prism::EmbeddedStatementsNode then part.statements ? seq(part.statements) : Literal.new(nil, line)
+            else refuse(part, "#{part.class.name.split("::").last.delete_suffix("Node")} in a string is not lowered yet")
+            end
+          end
+          Interp.new(parts, line)
         when Prism::ArrayNode
           refuse(node, "a splat in an array literal is not lowered yet") if node.elements.any?(Prism::SplatNode)
           ArrayLit.new(node.elements.map { |e| expr(e) }, line)
@@ -136,8 +146,8 @@ module Ze0
           else expr(a)
           end
         end
-        Send.new(node.receiver && expr(node.receiver), node.name, args, node.location.start_line, node.variable_call?,
-                 %i[[] []=].include?(node.name) && node.opening == "[")
+        opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
+        Send.new(node.receiver && expr(node.receiver), node.name, args, node.location.start_line, node.variable_call?, opt)
       end
 
       def refuse(node, message)

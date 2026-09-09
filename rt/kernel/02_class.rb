@@ -72,6 +72,8 @@ machine def zr_gate_bit(klass, mid)
     GATE_AREF
   elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:[]=)
     GATE_ASET
+  elsif (klass == zr_global(G_ARRAY) || klass == zr_global(G_STRING)) && mid == Machine.id(:<<)
+    GATE_LTLT
   elsif mid == Machine.id(:!)
     GATE_NOT
   else
