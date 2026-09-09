@@ -80,6 +80,18 @@ machine def zr_kw_pass
   Task.set_kw(zr_task(), 1)
 end
 
+# The count a send passes when its last argument is the keywords
+# Hash: an empty one, as `**{}` makes, is not passed at all.
+sig [Word, Ptr] => Word
+machine def zr_kw_argc(argc, argv)
+  h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
+  if RHash.live(h) == 0
+    return argc - 1
+  end
+  zr_kw_pass()
+  argc
+end
+
 sig [] => Word
 machine def zr_kw_take
   t = zr_task()
@@ -179,6 +191,9 @@ machine def zr_super(rec, argc, argv, blk)
   while FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN
     meta = FrameMeta.parent(meta)
   end
+  if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BUILTIN
+    zr_bug(Machine.bytes("super inside define_method or an eval block is not implemented yet\n"), 66)
+  end
   owner = FrameMeta.owner(meta)
   mid = FrameMeta.name(meta)
   recv = Frame.self(rec)
@@ -244,6 +259,10 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
   if MEntry.kind(e) == KIND_FRAMELESS
     Task.set_kw(zr_task(), kw)
     return Machine.call(:method, MEntry.fn(e), recv, argc, argv, Machine.value(QNIL), blk)
+  end
+  if MEntry.kind(e) == KIND_BMETHOD
+    Task.set_kw(zr_task(), kw)
+    return zr_bmethod_call(e, recv, argc, argv, blk)
   end
   rec = Machine.slot(Frame.size)
   t = zr_task()

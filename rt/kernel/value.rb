@@ -8,6 +8,9 @@ Machine.import "abort", [] => Void
 Machine.import "malloc", [Word] => Ptr
 Machine.import "free", [Ptr] => Void
 Machine.import "getenv", [Ptr] => Ptr
+Machine.import "pthread_self", [] => Ptr
+Machine.import "pthread_get_stackaddr_np", [Ptr] => Ptr
+Machine.import "pthread_get_stacksize_np", [Ptr] => Word
 
 QFALSE = 0
 QNIL = 8

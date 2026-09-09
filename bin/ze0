@@ -99,7 +99,8 @@ when "zr"
     abort "ze0: #{why}" if why
     if verb == "run"
       system(out, *rest)
-      exit($?.exitstatus || 1)
+      abort "ze0: the program died with signal #{$?.termsig}" if $?.signaled?
+      exit($?.exitstatus)
     end
   end
 when "native"

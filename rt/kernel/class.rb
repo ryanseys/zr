@@ -5,10 +5,12 @@
 # that shares the module's extension and names it as `attached`.
 # Method code takes `(recv, argc, argv, cref)` and answers a Value; the
 # cref is the lexical class chain the method was defined under.
-Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr, attached: Value
+# `origin` is the proxy that holds a prepended class's own methods,
+# placed below the prepended modules, or nil.
+Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr, attached: Value, origin: Value
 Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab
 Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word
-Machine.struct :CEntry, id: Word, value: Value
+Machine.struct :CEntry, id: Word, value: Value, file: Ptr, file_len: Word, line: Word
 Machine.sig :method, [Value, Word, Ptr, Value, Value] => Value
 # Method kinds beyond a compiled def and a builtin: accessors keep the
 # ivar's id in `fn`.
@@ -26,6 +28,7 @@ machine def zr_class_alloc(type, sup, klass)
   RClass.set_name(c, Machine.value(QNIL))
   RClass.set_superclass(c, sup)
   RClass.set_attached(c, Machine.value(QNIL))
+  RClass.set_origin(c, Machine.value(QNIL))
   ext = malloc(ClassExt.size)
   ClassExt.set_mtab(ext, 0)
   ClassExt.set_mlen(ext, 0)
@@ -70,25 +73,101 @@ machine def zr_chain_includes(klass, mod)
   false
 end
 
+# A proxy standing for `mod` in a chain, ahead of `sup`.
+sig [Value, Value] => Value
+machine def zr_iclass_new(mod, sup)
+  ic = zr_alloc(T_ICLASS, mod)
+  RClass.set_name(ic, Machine.value(QNIL))
+  RClass.set_superclass(ic, sup)
+  RClass.set_ext(ic, RClass.ext(mod))
+  RClass.set_attached(ic, mod)
+  RClass.set_origin(ic, Machine.value(QNIL))
+  ic
+end
+
+# Where a class's own methods live: its origin proxy once something is
+# prepended, else the class itself.
+sig [Value] => Value
+machine def zr_origin(klass)
+  if RClass.origin(klass) != QNIL
+    return RClass.origin(klass)
+  end
+  klass
+end
+
 # `include`: a proxy for `mod`, and for each module it includes, goes
-# in right after `klass`, unless the chain holds it already.
+# in right after `klass`'s origin, unless the chain holds it already.
 sig [Value, Value] => Void
 machine def zr_include_module(klass, mod)
-  c = klass
+  c = zr_origin(klass)
   m = mod
   while m != QNIL
     origin = zr_type(m) == T_ICLASS ? RClass.attached(m) : m
     unless zr_chain_includes(klass, origin)
-      ic = zr_alloc(T_ICLASS, origin)
-      RClass.set_name(ic, Machine.value(QNIL))
-      RClass.set_superclass(ic, RClass.superclass(c))
-      RClass.set_ext(ic, RClass.ext(origin))
-      RClass.set_attached(ic, origin)
+      ic = zr_iclass_new(origin, RClass.superclass(c))
       RClass.set_superclass(c, ic)
       c = ic
     end
     m = RClass.superclass(m)
   end
+end
+
+# `prepend`: the class's methods move to an origin proxy under the
+# prepended modules, whose proxies go in right after the class. The
+# moved methods now belong to the origin, so their `super` starts
+# below it.
+sig [Value, Value] => Void
+machine def zr_prepend_module(klass, mod)
+  if RClass.origin(klass) == QNIL
+    o = zr_iclass_new(klass, RClass.superclass(klass))
+    ext = malloc(ClassExt.size)
+    zr_memcpy(ext, RClass.ext(klass), ClassExt.size)
+    ClassExt.set_ctab(ext, 0)
+    ClassExt.set_clen(ext, 0)
+    ClassExt.set_ccap(ext, 0)
+    zr_ivtab_init(ClassExt.iv(ext))
+    zr_ivtab_init(ClassExt.cv(ext))
+    RClass.set_ext(o, ext)
+    ClassExt.set_mtab(RClass.ext(klass), 0)
+    ClassExt.set_mlen(RClass.ext(klass), 0)
+    ClassExt.set_mcap(RClass.ext(klass), 0)
+    i = 0
+    while i < ClassExt.mlen(ext)
+      e = ClassExt.mtab(ext) + (i * MEntry.size)
+      if MEntry.meta(e) != 0 && FrameMeta.owner(MEntry.meta(e)) == klass
+        FrameMeta.set_owner(MEntry.meta(e), o)
+      end
+      i += 1
+    end
+    RClass.set_superclass(klass, o)
+    RClass.set_origin(klass, o)
+  end
+  c = klass
+  m = mod
+  while m != QNIL
+    origin = zr_type(m) == T_ICLASS ? RClass.attached(m) : m
+    unless zr_chain_includes(klass, origin)
+      ic = zr_iclass_new(origin, RClass.superclass(c))
+      RClass.set_superclass(c, ic)
+      c = ic
+    end
+    m = RClass.superclass(m)
+  end
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_prepend(recv, argc, argv, cref, blk)
+  i = argc - 1
+  while i >= 0
+    m = Machine.value(Machine.load64(argv + (i * 8), 0))
+    r = zr_check_module(m)
+    return r if r == QUNDEF
+    zr_prepend_module(recv, m)
+    r = zr_hook(m, Machine.id(:prepended), recv)
+    return r if r == QUNDEF
+    i -= 1
+  end
+  recv
 end
 
 # A hook such as `included` or `inherited`: `recv.mid(arg)`, private
@@ -165,7 +244,7 @@ machine def zr_alias(klass, new_id, old_id)
     return zr_raise_buf(zr_global(G_NAME_ERROR), b)
   end
   zr_method_add_vis(klass, new_id, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e), MEntry.vis(e))
-  Machine.value(QNIL)
+  zr_method_added(klass, new_id)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -220,14 +299,19 @@ machine def zr_mod_eqq(recv, argc, argv, cref, blk)
 end
 
 # The class a class variable belongs to under `cref`: the innermost
-# class, past a singleton class to what it is attached to.
+# class, past a singleton class to what it is attached to. The
+# toplevel has none, though a `class Object` body does.
 sig [Value] => Value
 machine def zr_cvar_base(cref)
+  cref = zr_cref_lexical(cref)
+  if cref == zr_global(G_TOP_CREF)
+    return Machine.value(QNIL)
+  end
   k = RCref.klass(cref)
   while zr_singleton_p(k)
     k = RClass.attached(k)
     if zr_special_p(k) || (zr_type(k) != T_CLASS && zr_type(k) != T_MODULE)
-      return zr_global(G_OBJECT)
+      return Machine.value(QNIL)
     end
   end
   k
@@ -249,7 +333,7 @@ end
 sig [Value, Word] => Value
 machine def zr_cvar_get(cref, id)
   base = zr_cvar_base(cref)
-  if base == zr_global(G_OBJECT)
+  if base == QNIL
     return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("class variable access from toplevel"), 35)
   end
   owner = zr_cvar_owner(base, id)
@@ -269,7 +353,7 @@ end
 sig [Value, Word] => Value
 machine def zr_cvar_defined(cref, id)
   base = zr_cvar_base(cref)
-  if base == zr_global(G_OBJECT)
+  if base == QNIL
     return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("class variable access from toplevel"), 35)
   end
   zr_bool(zr_cvar_owner(base, id) != QNIL)
@@ -278,7 +362,7 @@ end
 sig [Value, Word, Value] => Value
 machine def zr_cvar_set(cref, id, v)
   base = zr_cvar_base(cref)
-  if base == zr_global(G_OBJECT)
+  if base == QNIL
     return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("class variable access from toplevel"), 35)
   end
   owner = zr_cvar_owner(base, id)
@@ -295,7 +379,9 @@ machine def zr_mod_ancestors(recv, argc, argv, cref, blk)
   out = zr_ary_new(8)
   k = recv
   while k != QNIL
-    zr_ary_push(out, zr_type(k) == T_ICLASS ? RClass.attached(k) : k)
+    if RClass.origin(k) == QNIL
+      zr_ary_push(out, zr_type(k) == T_ICLASS ? RClass.attached(k) : k)
+    end
     k = RClass.superclass(k)
   end
   out
@@ -427,8 +513,9 @@ end
 # A definition; the first one of each builtin operator is the runtime's
 # own and leaves the gate clear, a later one sets it. `meta` is the
 # compiled def's own FrameMeta, or 0 for a builtin, which gets one here.
-sig [Value, Word, Ptr, Word, Word, Ptr, Value] => Void
+sig [Value, Word, Ptr, Word, Word, Ptr, Value] => Value
 machine def zr_define_method(klass, mid, fn, arity, kind, meta, cref)
+  klass = zr_origin(klass)
   if meta == 0
     meta = malloc(FrameMeta.size)
     FrameMeta.set_file(meta, 0)
@@ -442,18 +529,59 @@ machine def zr_define_method(klass, mid, fn, arity, kind, meta, cref)
   end
   FrameMeta.set_name(meta, mid)
   FrameMeta.set_owner(meta, klass)
-  vis = VIS_PUBLIC
-  if cref != QNIL
-    vis = RCref.vis(cref)
-    if RCref.modfn(cref) != 0
-      zr_method_add_vis(zr_singleton_class(klass), mid, fn, arity, kind, meta, cref, VIS_PUBLIC)
-      vis = VIS_PRIVATE
-    end
+  if cref != QNIL && RCref.modfn(cref) != 0
+    zr_method_add_vis(zr_singleton_class(klass), mid, fn, arity, kind, meta, cref, VIS_PUBLIC)
   end
+  zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, zr_definition_vis(mid, cref))
+  zr_method_added(klass, mid)
+end
+
+# The visibility a definition under `cref` gets: the body's current
+# one, private under `module_function`, and always private for
+# `initialize` and its kin.
+sig [Word, Value] => Word
+machine def zr_definition_vis(mid, cref)
   if mid == Machine.id(:initialize) || mid == Machine.id(:initialize_copy) || mid == Machine.id(:respond_to_missing?)
-    vis = VIS_PRIVATE
+    return VIS_PRIVATE
   end
-  zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
+  if cref == QNIL
+    return VIS_PUBLIC
+  end
+  if RCref.modfn(cref) != 0
+    return VIS_PRIVATE
+  end
+  RCref.vis(cref)
+end
+
+# A method whose body is the Proc `body`, kept in the entry's cref
+# slot; `cref` gives the visibility.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_define_bmethod(klass, mid, meta, body, cref)
+  klass = zr_origin(klass)
+  FrameMeta.set_name(meta, mid)
+  FrameMeta.set_owner(meta, klass)
+  zr_method_add_vis(klass, mid, 0, 0 - 1, KIND_BMETHOD, meta, body, zr_definition_vis(mid, cref))
+  zr_method_added(klass, mid)
+end
+
+# The `method_added` hook, or `singleton_method_added` on the object
+# a singleton class is attached to; nothing until the hooks exist.
+sig [Value, Word] => Value
+machine def zr_method_added(klass, mid)
+  if zr_type(klass) == T_ICLASS
+    klass = RClass.attached(klass)
+  end
+  if zr_singleton_p(klass)
+    recv = RClass.attached(klass)
+    hook = Machine.id(:singleton_method_added)
+  else
+    recv = klass
+    hook = Machine.id(:method_added)
+  end
+  if zr_find_method(zr_class_of(recv), hook) == 0
+    return Machine.value(QNIL)
+  end
+  zr_hook(recv, hook, zr_sym(mid))
 end
 
 sig [Value, Word, Ptr, Word, Word, Ptr, Value] => Void
@@ -465,6 +593,7 @@ end
 # original's name).
 sig [Value, Word, Ptr, Word, Word, Ptr, Value, Word] => Void
 machine def zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
+  klass = zr_origin(klass)
   if zr_find_method(klass, mid) != 0
     g = zr_gates()
     Machine.store64(g, 0, Machine.load64(g, 0) | zr_gate_bit(klass, mid))
@@ -552,10 +681,10 @@ machine def zr_set_method_visibility(klass, mid, vis, modfn)
     zr_method_add_vis(zr_singleton_class(klass), mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e), VIS_PUBLIC)
     vis = VIS_PRIVATE
   end
-  if zr_find_method_at(klass, mid) == e
+  if zr_find_method_at(zr_origin(klass), mid) == e
     MEntry.set_vis(e, vis)
   else
-    zr_method_add_vis(klass, mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e), vis)
+    zr_method_add_vis(zr_origin(klass), mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e), vis)
   end
   Machine.value(QNIL)
 end
@@ -590,18 +719,19 @@ machine def zr_mod_public_class_method(recv, argc, argv, cref, blk)
   zr_set_visibility(zr_singleton_class(recv), argc, argv, blk, VIS_PUBLIC, 0)
 end
 
-# The names in `klass`'s own table that `klass` still answers with,
-# filtered by `vis` (a visibility, or -1 for all but private), after
-# those already in `out`.
+# The names in one level's table, filtered by `vis` (a visibility, or
+# -1 for all but private), into `out`. A name met at an earlier level
+# is `seen` and decided there, an undef among them.
 sig [Value, Value, Value, Word] => Void
-machine def zr_level_method_names(klass, level, out, vis)
+machine def zr_level_method_names(level, out, seen, vis)
   ext = RClass.ext(level)
   i = 0
   while i < ClassExt.mlen(ext)
     e = ClassExt.mtab(ext) + (i * MEntry.size)
-    if MEntry.kind(e) != KIND_UNDEF && (vis < 0 ? MEntry.vis(e) != VIS_PRIVATE : MEntry.vis(e) == vis) && zr_find_method(klass, MEntry.mid(e)) == e
-      name = zr_sym(MEntry.mid(e))
-      if zr_ary_index_of(out, name) < 0
+    name = zr_sym(MEntry.mid(e))
+    if zr_ary_index_of(seen, name) < 0
+      zr_ary_push(seen, name)
+      if MEntry.kind(e) != KIND_UNDEF && (vis < 0 ? MEntry.vis(e) != VIS_PRIVATE : MEntry.vis(e) == vis)
         zr_ary_push(out, name)
       end
     end
@@ -615,15 +745,16 @@ end
 sig [Value, Word, Word, Bool] => Value
 machine def zr_method_names(klass, all, vis, object)
   out = zr_ary_new(8)
-  k = klass
+  seen = zr_ary_new(8)
+  k = all == 0 ? zr_origin(klass) : klass
   if object
     while k != QNIL && (zr_singleton_p(k) || zr_type(k) == T_ICLASS)
-      zr_level_method_names(klass, k, out, vis)
+      zr_level_method_names(k, out, seen, vis)
       k = RClass.superclass(k)
     end
   end
   while k != QNIL
-    zr_level_method_names(klass, k, out, vis)
+    zr_level_method_names(k, out, seen, vis)
     if all == 0 && zr_type(k) != T_ICLASS
       k = Machine.value(QNIL)
     else
@@ -666,7 +797,7 @@ end
 sig [Value, Word, Ptr, Word] => Void
 machine def zr_builtin_private(klass, mid, fn, arity)
   zr_builtin(klass, mid, fn, arity)
-  MEntry.set_vis(zr_find_method_at(klass, mid), VIS_PRIVATE)
+  MEntry.set_vis(zr_find_method_at(zr_origin(klass), mid), VIS_PRIVATE)
 end
 
 # The entry for `mid` on `klass` alone, or 0; the last definition wins.
@@ -731,6 +862,17 @@ machine def zr_is_a(v, klass)
   zr_class_inherits(zr_class_of(v), klass)
 end
 
+# A method table's crefs, and the Procs of the methods a block made.
+sig [Ptr] => Void
+machine def zr_mark_mtab(ext)
+  n = ClassExt.mlen(ext)
+  i = 0
+  while i < n
+    zr_mark(MEntry.cref(ClassExt.mtab(ext) + (i * MEntry.size)))
+    i += 1
+  end
+end
+
 # What a cell holds besides its class: marked by type.
 sig [Value] => Void
 machine def zr_mark_children(v)
@@ -738,17 +880,15 @@ machine def zr_mark_children(v)
   if t == T_ICLASS
     zr_mark(RClass.superclass(v))
     zr_mark(RClass.attached(v))
+    if RClass.origin(RClass.attached(v)) == v
+      zr_mark_mtab(RClass.ext(v))
+    end
   elsif t == T_CLASS || t == T_MODULE
     zr_mark(RClass.name(v))
     zr_mark(RClass.superclass(v))
     zr_mark(RClass.attached(v))
     ext = RClass.ext(v)
-    n = ClassExt.mlen(ext)
-    i = 0
-    while i < n
-      zr_mark(MEntry.cref(ClassExt.mtab(ext) + (i * MEntry.size)))
-      i += 1
-    end
+    zr_mark_mtab(ext)
     n = ClassExt.clen(ext)
     i = 0
     while i < n
@@ -781,7 +921,14 @@ end
 sig [Value] => Void
 machine def zr_release(v)
   t = RBasic.flags(v) & T_MASK
-  if t == T_CLASS || t == T_MODULE
+  if t == T_ICLASS
+    if RClass.origin(RClass.attached(v)) == v
+      if ClassExt.mtab(RClass.ext(v)) != 0
+        free(ClassExt.mtab(RClass.ext(v)))
+      end
+      free(RClass.ext(v))
+    end
+  elsif t == T_CLASS || t == T_MODULE
     ext = RClass.ext(v)
     if ClassExt.mtab(ext) != 0
       free(ClassExt.mtab(ext))

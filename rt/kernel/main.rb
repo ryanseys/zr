@@ -32,6 +32,23 @@ machine def zr_boot_method_class(klass)
   zr_builtin(klass, Machine.id(:eql?), Machine.addr(:zr_method_eq), 1)
 end
 
+# The machine stack ends here for Ruby frames: a margin above the
+# thread's guard page keeps room for the kernel's own frames and the
+# report. Zero, as under wasm, never trips.
+STACK_MARGIN = 262144
+
+sig [] => Void
+machine def zr_stack_limit_init
+  me = pthread_self()
+  size = pthread_get_stacksize_np(me)
+  top = pthread_get_stackaddr_np(me)
+  if top == 0
+    Task.set_stack_limit(zr_task(), 0)
+  else
+    Task.set_stack_limit(zr_task(), top - size + STACK_MARGIN)
+  end
+end
+
 sig [] => Void
 machine def zr_boot
   zr_heap_init()
@@ -77,6 +94,7 @@ machine def zr_boot
   zr_boot_class(G_UNBOUND_METHOD, Machine.id(:UnboundMethod), zr_global(G_OBJECT))
   zr_boot_class(G_RANGE, Machine.id(:Range), zr_global(G_OBJECT))
   zr_boot_class(G_KEY_ERROR, Machine.id(:KeyError), zr_global(G_INDEX_ERROR))
+  zr_boot_class(G_SYSTEM_STACK_ERROR, Machine.id(:SystemStackError), zr_global(G_EXCEPTION))
   zr_set_global(G_KERNEL, zr_module_new())
   zr_boot_name(G_KERNEL, Machine.id(:Kernel))
   zr_include_module(zr_global(G_OBJECT), zr_global(G_KERNEL))
@@ -109,6 +127,7 @@ machine def zr_boot
   zr_boot_name(G_RANGE, Machine.id(:Range))
   zr_boot_name(G_NUMERIC, Machine.id(:Numeric))
   zr_boot_name(G_KEY_ERROR, Machine.id(:KeyError))
+  zr_boot_name(G_SYSTEM_STACK_ERROR, Machine.id(:SystemStackError))
   zr_set_global(G_MAIN, zr_obj_alloc(zr_global(G_OBJECT)))
   zr_set_global(G_TOP_CREF, zr_cref_push(zr_global(G_OBJECT), Machine.value(QNIL)))
   # Kernel holds what CRuby's Kernel does; BasicObject has its few.
@@ -165,6 +184,24 @@ machine def zr_boot
   zr_builtin(zr_global(G_KERNEL), Machine.id(:extend), Machine.addr(:zr_obj_extend), 0 - 1)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:method), Machine.addr(:zr_obj_method), 1)
   zr_builtin(zr_global(G_MODULE), Machine.id(:instance_method), Machine.addr(:zr_mod_instance_method), 1)
+  zr_builtin_private(zr_global(G_CLASS), Machine.id(:initialize), Machine.addr(:zr_class_initialize), 0 - 1)
+  zr_builtin_private(zr_global(G_MODULE), Machine.id(:initialize), Machine.addr(:zr_module_initialize), 0)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:prepend), Machine.addr(:zr_mod_prepend), 0 - 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:method_defined?), Machine.addr(:zr_mod_method_defined), 0 - 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:public_method_defined?), Machine.addr(:zr_mod_public_method_defined), 0 - 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:private_method_defined?), Machine.addr(:zr_mod_private_method_defined), 0 - 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:protected_method_defined?), Machine.addr(:zr_mod_protected_method_defined), 0 - 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:const_get), Machine.addr(:zr_mod_const_get), 0 - 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:const_defined?), Machine.addr(:zr_mod_const_defined), 0 - 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:const_set), Machine.addr(:zr_mod_const_set), 2)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:constants), Machine.addr(:zr_mod_constants), 0 - 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:class_eval), Machine.addr(:zr_mod_class_eval), 0 - 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:module_eval), Machine.addr(:zr_mod_class_eval), 0 - 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:class_exec), Machine.addr(:zr_mod_class_exec), 0 - 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:module_exec), Machine.addr(:zr_mod_class_exec), 0 - 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:define_method), Machine.addr(:zr_mod_define_method), 0 - 1)
+  zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:instance_eval), Machine.addr(:zr_obj_instance_eval), 0 - 1)
+  zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:instance_exec), Machine.addr(:zr_obj_instance_exec), 0 - 1)
   zr_boot_method_class(zr_global(G_METHOD))
   zr_boot_method_class(zr_global(G_UNBOUND_METHOD))
   zr_builtin(zr_global(G_METHOD), Machine.id(:call), Machine.addr(:zr_method_call), 0 - 1)
@@ -311,6 +348,7 @@ end
 sig [I32, Ptr] => I32
 machine def main(argc, argv)
   zr_boot()
+  zr_stack_limit_init()
   r = zr_prelude()
   if r == QUNDEF
     zr_report(Task.pending(zr_task()))

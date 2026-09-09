@@ -91,7 +91,8 @@ module Ze0
             switch(next_test)
           end
           recv = send.recv ? expr(send.recv) : @self
-          @f.jump(merge, [truth(kernel("zr_method_defined", recv, imm(sym_id(send.name))))])
+          explicit = imm_bool(!(send.recv.nil? || send.recv.is_a?(Hir::SelfRef)))
+          @f.jump(merge, [truth(kernel("zr_method_defined", recv, imm(sym_id(send.name)), explicit))])
           switch(merge)
           ok
         end

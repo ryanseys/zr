@@ -6,7 +6,7 @@ Machine.struct :Symtab, rows: Ptr, len: Word, capa: Word
 
 sig [] => Ptr
 machine def zr_symtab
-  Machine.static(:symtab, 32)
+  Machine.static(:symtab, Symtab.size)
 end
 
 sig [] => Word

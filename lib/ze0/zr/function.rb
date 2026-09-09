@@ -94,8 +94,9 @@ module Ze0
 
       private
 
-      # The prologue: link the record into the task's chain, fill its
-      # header, nil the slots, and make the Env when a block needs one.
+      # The prologue: the stack check, then link the record into the
+      # task's chain, fill its header, nil the slots, and make the Env
+      # when a block needs one.
       def enter
         @base = @has_env ? 1 : @locals.size
         @nvalues = @base + Scope.staging(@body) + prologue_slots
@@ -103,6 +104,7 @@ module Ze0
         @record = @f.slot(@frame.size + (8 * @nvalues))
         @rec = @f.stack_addr(@record)
         @task_addr = @f.symbol_value(@f.symbol("zr_static_task"))
+        stack_check
         @prev = @f.fetch("i64", @task_addr, off(@task, "top"))
         @f.store(@prev, @rec, off(@frame, "prev"))
         line = @def ? @def.line : 1
@@ -143,6 +145,18 @@ module Ze0
         parent = @kind == :block ? proc_field("env") : @qnil
         @env = kernel("zr_env_new", parent, imm(@locals.size))
         @f.store(@env, @rec, value_offset(0))
+      end
+
+      # SystemStackError when the record would sit below the task's stack
+      # limit; nothing is linked yet, so the answer leaves at once.
+      def stack_check
+        limit = @f.fetch("i64", @task_addr, off(@task, "stack_limit"))
+        over = @f.label
+        ok = @f.label
+        @f.brif(@f.icmp("ult", @rec, limit), over, ok)
+        switch(over)
+        @f.ret(kernel("zr_stack_overflow"))
+        switch(ok)
       end
 
       # The landing block: a pending signal leaves the function, unless

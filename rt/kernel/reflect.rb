@@ -175,11 +175,13 @@ machine def zr_mod_class_variable_defined(recv, argc, argv, cref, blk)
 end
 
 # `Object#singleton_methods`: the singleton class's own public and
-# protected methods, and with `all` those of the modules it extends.
+# protected methods, and with `all` those of the modules it extends
+# and, for a class, of its superclasses' singleton classes.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_singleton_methods(recv, argc, argv, cref, blk)
   all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
   out = zr_ary_new(4)
+  seen = zr_ary_new(4)
   if zr_special_p(recv)
     return out
   end
@@ -187,11 +189,11 @@ machine def zr_obj_singleton_methods(recv, argc, argv, cref, blk)
   if !zr_singleton_p(k)
     return out
   end
-  zr_level_method_names(k, k, out, 0 - 1)
+  zr_level_method_names(k, out, seen, 0 - 1)
   if all
     k = RClass.superclass(k)
-    while k != QNIL && zr_type(k) == T_ICLASS
-      zr_level_method_names(k, k, out, 0 - 1)
+    while k != QNIL && (zr_type(k) == T_ICLASS || zr_singleton_p(k))
+      zr_level_method_names(k, out, seen, 0 - 1)
       k = RClass.superclass(k)
     end
   end
@@ -224,4 +226,39 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_protected_methods(recv, argc, argv, cref, blk)
   all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
   zr_method_names(zr_class_of(recv), all ? 1 : 0, VIS_PROTECTED, true)
+end
+
+# `method_defined?` and the three by visibility: whether the module or
+# an ancestor answers the name with that visibility.
+sig [Value, Word, Ptr, Word] => Value
+machine def zr_mod_method_defined_vis(recv, argc, argv, vis)
+  slot = Machine.slot(8)
+  r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
+  return r if r == QUNDEF
+  inherit = argc < 2 || (Machine.value(Machine.load64(argv, 8)) != QFALSE && Machine.value(Machine.load64(argv, 8)) != QNIL)
+  e = inherit ? zr_find_method(recv, Machine.load64(slot, 0)) : zr_find_method_at(recv, Machine.load64(slot, 0))
+  if e == 0 || MEntry.kind(e) == KIND_UNDEF
+    return Machine.value(QFALSE)
+  end
+  zr_bool(vis < 0 ? MEntry.vis(e) != VIS_PRIVATE : MEntry.vis(e) == vis)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_method_defined(recv, argc, argv, cref, blk)
+  zr_mod_method_defined_vis(recv, argc, argv, 0 - 1)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_public_method_defined(recv, argc, argv, cref, blk)
+  zr_mod_method_defined_vis(recv, argc, argv, VIS_PUBLIC)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_private_method_defined(recv, argc, argv, cref, blk)
+  zr_mod_method_defined_vis(recv, argc, argv, VIS_PRIVATE)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_protected_method_defined(recv, argc, argv, cref, blk)
+  zr_mod_method_defined_vis(recv, argc, argv, VIS_PROTECTED)
 end

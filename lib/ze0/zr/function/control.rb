@@ -112,16 +112,18 @@ module Ze0
             slot = reserve(1)
             ary = gather(parts, slot)
             at_line(node.line)
-            kernel("zr_kw_pass") if node.kwargs
-            r = checked(kernel("zr_yield", @blk, array_len(ary), array_ptr(ary)))
+            argc = array_len(ary)
+            argc = kernel("zr_kw_argc", argc, array_ptr(ary)) if node.kwargs
+            r = checked(kernel("zr_yield", @blk, argc, array_ptr(ary)))
             @sp = slot
             return r
           end
 
           staged(parts) do |argv|
             at_line(node.line)
-            kernel("zr_kw_pass") if node.kwargs
-            checked(kernel("zr_yield", @blk, imm(parts.size), argv))
+            argc = imm(parts.size)
+            argc = kernel("zr_kw_argc", argc, argv) if node.kwargs
+            checked(kernel("zr_yield", @blk, argc, argv))
           end
         end
 

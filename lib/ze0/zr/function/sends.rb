@@ -122,7 +122,7 @@ module Ze0
                   else "zr_send"
                   end
           at_line(node.line)
-          kernel("zr_kw_pass") if node.kwargs
+          argc = kernel("zr_kw_argc", argc, argv) if node.kwargs
           checked(kernel(entry, recv, imm(sym_id(node.name)), argc, argv))
         end
 
@@ -132,13 +132,13 @@ module Ze0
           if node.block.is_a?(Hir::BlockPass)
             proc = checked(kernel("zr_block_pass", expr(node.block.value)))
             at_line(node.line)
-            kernel("zr_kw_pass") if node.kwargs
+            argc = kernel("zr_kw_argc", argc, argv) if node.kwargs
             return checked(kernel(explicit?(node) ? "zr_call_blk" : "zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc))
           end
 
           site, proc = make_proc(node.block, slot)
           at_line(node.line)
-          kernel("zr_kw_pass") if node.kwargs
+          argc = kernel("zr_kw_argc", argc, argv) if node.kwargs
           catching_break(site) { kernel(explicit?(node) ? "zr_call_blk" : "zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc) }
         end
 
@@ -198,7 +198,7 @@ module Ze0
                   proc
                 end
           at_line(node.line)
-          kernel("zr_kw_pass") if node.kwargs
+          argc = kernel("zr_kw_argc", argc, argv) if node.kwargs
           call = -> { kernel("zr_super", @rec, argc, argv, blk) }
           site ? catching_break(site, &call) : checked(call.call)
         end

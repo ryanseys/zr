@@ -4,7 +4,10 @@
 # ancestor), then the innermost class's ancestors.
 # `vis` is the visibility a def under the cref gets (VIS_*), and
 # `modfn` whether `module_function` is on.
-Machine.struct :RCref, basic: RBasic, klass: Value, next: Value, vis: Word, modfn: Word
+# A cref pushed by `class_eval`, `instance_eval` or `Class.new` (`eval`
+# set) is where a `def` lands, but constants and class variables look
+# through it to the lexical scope.
+Machine.struct :RCref, basic: RBasic, klass: Value, next: Value, vis: Word, modfn: Word, eval: Word
 T_CREF = 25
 VIS_PUBLIC = 0
 VIS_PRIVATE = 1
@@ -18,7 +21,29 @@ machine def zr_cref_push(klass, outer)
   RCref.set_next(c, outer)
   RCref.set_vis(c, VIS_PUBLIC)
   RCref.set_modfn(c, 0)
+  RCref.set_eval(c, 0)
   c
+end
+
+sig [Value, Value] => Value
+machine def zr_cref_push_eval(klass, outer)
+  c = zr_cref_push(klass, outer)
+  RCref.set_eval(c, 1)
+  c
+end
+
+# The innermost cref that names a lexical scope.
+sig [Value] => Value
+machine def zr_cref_lexical(cref)
+  while RCref.eval(cref) != 0
+    cref = RCref.next(cref)
+  end
+  cref
+end
+
+sig [Value] => Value
+machine def zr_cref_lexical_class(cref)
+  RCref.klass(zr_cref_lexical(cref))
 end
 
 # The constant row for `id` on `klass` alone, or 0.
@@ -37,6 +62,8 @@ machine def zr_const_row(klass, id)
   0
 end
 
+# A constant stored under `klass`; an anonymous class or module takes
+# the constant's name.
 sig [Value, Word, Value] => Void
 machine def zr_const_set(klass, id, v)
   e = zr_const_row(klass, id)
@@ -61,6 +88,35 @@ machine def zr_const_set(klass, id, v)
     ClassExt.set_clen(ext, n + 1)
   end
   CEntry.set_value(e, v)
+  if !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) && RClass.name(v) == QNIL
+    RClass.set_name(v, zr_class_name_under(klass, id))
+  end
+  top = Task.top(zr_task())
+  if top == 0
+    CEntry.set_file(e, 0)
+    CEntry.set_file_len(e, 0)
+    CEntry.set_line(e, 0)
+  else
+    CEntry.set_file(e, FrameMeta.file(Frame.meta(top)))
+    CEntry.set_file_len(e, FrameMeta.file_len(Frame.meta(top)))
+    CEntry.set_line(e, Frame.line(top))
+  end
+end
+
+# `\nfile:line: previous definition of Name was here` after a message
+# about a constant; one the runtime set has no file and no line, and
+# CRuby prints them empty.
+sig [Ptr, Ptr, Word] => Void
+machine def zr_buf_previous_definition(b, e, id)
+  zr_buf_byte(b, 10)
+  zr_buf_push(b, CEntry.file(e), CEntry.file_len(e))
+  zr_buf_byte(b, 58)
+  if CEntry.file_len(e) > 0
+    zr_buf_long(b, CEntry.line(e))
+  end
+  zr_buf_push(b, Machine.bytes(": previous definition of "), 25)
+  zr_buf_sym(b, id)
+  zr_buf_push(b, Machine.bytes(" was here"), 9)
 end
 
 # The row for `id` on `klass` or an ancestor, or 0; `skip_object` leaves
@@ -96,6 +152,7 @@ end
 # scope's ancestors, then Object when that scope is a module.
 sig [Value, Word] => Value
 machine def zr_const_get(cref, id)
+  cref = zr_cref_lexical(cref)
   c = cref
   while RCref.next(c) != QNIL
     e = zr_const_row(RCref.klass(c), id)
@@ -118,6 +175,7 @@ end
 # undef with nothing raised.
 sig [Value, Word] => Value
 machine def zr_const_lookup(cref, id)
+  cref = zr_cref_lexical(cref)
   c = cref
   while RCref.next(c) != QNIL
     e = zr_const_row(RCref.klass(c), id)
@@ -197,9 +255,10 @@ machine def zr_class_define(scope, id, sup)
       zr_buf_init(b)
       zr_buf_sym(b, id)
       zr_buf_push(b, Machine.bytes(" is not a class"), 15)
+      zr_buf_previous_definition(b, e, id)
       return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
     end
-    if sup != QUNDEF && RClass.superclass(k) != sup
+    if sup != QUNDEF && zr_real_superclass(k) != sup
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("superclass mismatch for class "), 30)
@@ -239,6 +298,7 @@ machine def zr_module_define(scope, id)
       zr_buf_init(b)
       zr_buf_sym(b, id)
       zr_buf_push(b, Machine.bytes(" is not a module"), 16)
+      zr_buf_previous_definition(b, e, id)
       return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
     end
     return m
@@ -247,4 +307,105 @@ machine def zr_module_define(scope, id)
   RClass.set_name(m, zr_class_name_under(scope, id))
   zr_const_set(scope, id, m)
   m
+end
+
+# A constant's name given as a Symbol or String, as its id in `out`;
+# `wrong constant name x` otherwise.
+sig [Value, Ptr] => Value
+machine def zr_const_name_id(name, out)
+  r = zr_name_id(name, out)
+  return r if r == QUNDEF
+  id = Machine.load64(out, 0)
+  c = Machine.word(Machine.load8(zr_symbol_name_ptr(id), 0))
+  if c < 65 || c > 90
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("wrong constant name "), 20)
+    zr_buf_sym(b, id)
+    return zr_raise_buf(zr_global(G_NAME_ERROR), b)
+  end
+  Machine.value(QNIL)
+end
+
+# Whether the second argument, when given, is not false or nil.
+sig [Word, Ptr] => Bool
+machine def zr_inherit_flag(argc, argv)
+  if argc < 2
+    return true
+  end
+  v = Machine.value(Machine.load64(argv, 8))
+  v != QFALSE && v != QNIL
+end
+
+# The row `const_get` and `const_defined?` find: the module's own, its
+# ancestors' when `inherit`, and Object's for a module either way.
+sig [Value, Word, Bool] => Ptr
+machine def zr_const_row_for(mod, id, inherit)
+  if inherit
+    e = zr_const_row_in(mod, id, false)
+    if e == 0 && zr_type(mod) == T_MODULE
+      e = zr_const_row_in(zr_global(G_OBJECT), id, false)
+    end
+    return e
+  end
+  zr_const_row(mod, id)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_const_get(recv, argc, argv, cref, blk)
+  slot = Machine.slot(8)
+  r = zr_const_name_id(Machine.value(Machine.load64(argv, 0)), slot)
+  return r if r == QUNDEF
+  id = Machine.load64(slot, 0)
+  e = zr_const_row_for(recv, id, zr_inherit_flag(argc, argv))
+  if e == 0
+    return zr_uninitialized_constant(recv, id)
+  end
+  CEntry.value(e)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_const_defined(recv, argc, argv, cref, blk)
+  slot = Machine.slot(8)
+  r = zr_const_name_id(Machine.value(Machine.load64(argv, 0)), slot)
+  return r if r == QUNDEF
+  zr_bool(zr_const_row_for(recv, Machine.load64(slot, 0), zr_inherit_flag(argc, argv)) != 0)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_const_set(recv, argc, argv, cref, blk)
+  slot = Machine.slot(8)
+  r = zr_const_name_id(Machine.value(Machine.load64(argv, 0)), slot)
+  return r if r == QUNDEF
+  v = Machine.value(Machine.load64(argv, 8))
+  zr_const_set(recv, Machine.load64(slot, 0), v)
+  v
+end
+
+# `constants`: the module's own names, then its ancestors' but
+# Object's, each once.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_constants(recv, argc, argv, cref, blk)
+  inherit = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
+  out = zr_ary_new(8)
+  k = recv
+  while k != QNIL
+    if k != zr_global(G_OBJECT) || recv == zr_global(G_OBJECT)
+      ext = RClass.ext(k)
+      i = 0
+      while i < ClassExt.clen(ext)
+        name = zr_sym(CEntry.id(ClassExt.ctab(ext) + (i * CEntry.size)))
+        if zr_ary_index_of(out, name) < 0
+          zr_ary_push(out, name)
+        end
+        i += 1
+      end
+    end
+    if inherit
+      k = RClass.superclass(k)
+    else
+      k = Machine.value(QNIL)
+    end
+  end
+  out
 end

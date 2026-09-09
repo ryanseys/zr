@@ -17,7 +17,7 @@ Machine.struct :Heap, free: Ptr, allocated: Word, collections: Word, stress: Wor
 
 sig [] => Ptr
 machine def zr_heap
-  Machine.static(:heap, 64)
+  Machine.static(:heap, Heap.size)
 end
 
 sig [] => Ptr
@@ -28,11 +28,11 @@ end
 # The frame chain the collector walks: a record is a Frame followed by
 # `nvalues` Values.
 Machine.struct :Frame, prev: Ptr, meta: Ptr, line: Word, serial: Word, self: Value, cref: Value, blk: Value, nvalues: Word
-Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word, kw: Word
+Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word, kw: Word, stack_limit: Ptr
 
 sig [] => Ptr
 machine def zr_task
-  Machine.static(:task, 64)
+  Machine.static(:task, Task.size)
 end
 
 # The runtime's own roots: the core classes and the main object.
@@ -49,7 +49,7 @@ G_TRUE = 9
 G_FALSE = 10
 G_MAIN = 11
 G_NUMERIC = 13
-G_COUNT = 35
+G_COUNT = 36
 
 sig [] => Ptr
 machine def zr_globals
@@ -86,17 +86,40 @@ machine def zr_heap_init
   end
 end
 
+# The object whose children are being marked, so the abort below can
+# name what pointed at a freed cell.
+sig [] => Ptr
+machine def zr_marking
+  Machine.static(:marking, 8)
+end
+
 sig [Value] => Void
 machine def zr_mark(v)
   unless zr_special_p(v)
     flags = RBasic.flags(v)
     if (flags & FL_ALLOCATED) == 0
-      zr_bug(Machine.bytes("a live object points at a freed cell\n"), 37)
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("a live object points at a freed cell: from a cell of type "), 58)
+      parent = Machine.value(Machine.load64(zr_marking(), 0))
+      if parent == QNIL
+        zr_buf_push(b, Machine.bytes("root"), 4)
+      elsif zr_fixnum_p(parent)
+        zr_buf_push(b, Machine.bytes("root "), 5)
+        zr_buf_long(b, zr_fix2long(parent))
+      else
+        zr_buf_long(b, RBasic.flags(parent) & T_MASK)
+      end
+      zr_buf_byte(b, 10)
+      zr_bug(Buf.ptr(b), Buf.len(b))
     end
     if (flags & FL_MARK) == 0
       RBasic.set_flags(v, flags | FL_MARK)
       zr_mark(RBasic.klass(v))
+      was = Machine.load64(zr_marking(), 0)
+      Machine.store64(zr_marking(), 0, Machine.word(v))
       zr_mark_children(v)
+      Machine.store64(zr_marking(), 0, was)
       if (flags & FL_EXIVAR) != 0
         zr_mark_ivtab(zr_exivar_tab(v))
       end
@@ -172,21 +195,26 @@ sig [] => Void
 machine def zr_mark_roots
   i = 0
   while i < G_COUNT
+    Machine.store64(zr_marking(), 0, Machine.word(zr_fix(1000 + i)))
     zr_mark(zr_global(i))
     i += 1
   end
+  Machine.store64(zr_marking(), 0, Machine.word(zr_fix(2)))
   zr_mark_ivtab(zr_gvars())
   zr_mark(Task.pending(zr_task()))
   zr_mark(Task.errinfo(zr_task()))
+  Machine.store64(zr_marking(), 0, Machine.word(zr_fix(3)))
   zr_mark_kernel_roots()
   rec = Task.top(zr_task())
   while rec != 0
+    Machine.store64(zr_marking(), 0, Machine.word(zr_fix(4)))
     zr_mark(Frame.self(rec))
     zr_mark(Frame.cref(rec))
     zr_mark(Frame.blk(rec))
     n = Frame.nvalues(rec)
     i = 0
     while i < n
+      Machine.store64(zr_marking(), 0, Machine.word(zr_fix(100 + i)))
       zr_mark(Machine.value(Machine.load64(rec + Frame.size + (i * 8), 0)))
       i += 1
     end
@@ -242,6 +270,7 @@ sig [] => Void
 machine def zr_collect
   h = zr_heap()
   Heap.set_collections(h, Heap.collections(h) + 1)
+  Machine.store64(zr_marking(), 0, QNIL)
   zr_mark_roots()
   zr_sweep()
 end

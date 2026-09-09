@@ -103,9 +103,22 @@ machine def zr_ivar_defined(obj, id)
   zr_bool(zr_ivtab_row(t, id) != 0)
 end
 
-sig [Value, Word] => Value
-machine def zr_method_defined(recv, id)
-  zr_bool(zr_find_method(zr_class_of(recv), id) != 0)
+# `defined?(recv.name)`: a method the call could reach, so not a
+# private one with an explicit receiver, nor a protected one from
+# outside the owner.
+sig [Value, Word, Bool] => Value
+machine def zr_method_defined(recv, id, explicit)
+  e = zr_find_method(zr_class_of(recv), id)
+  if e == 0
+    return Machine.value(QFALSE)
+  end
+  if explicit && MEntry.vis(e) == VIS_PRIVATE
+    return Machine.value(QFALSE)
+  end
+  if explicit && MEntry.vis(e) == VIS_PROTECTED && !zr_is_a(Frame.self(Task.top(zr_task())), FrameMeta.owner(MEntry.meta(e)))
+    return Machine.value(QFALSE)
+  end
+  Machine.value(QTRUE)
 end
 
 # A receiver with no table reads nil.
@@ -174,7 +187,11 @@ end
 # then `initialize` with the arguments.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_class_new_instance(recv, argc, argv, cref, blk)
-  if zr_class_inherits(recv, zr_global(G_EXCEPTION))
+  if recv == zr_global(G_CLASS)
+    o = zr_class_alloc(T_CLASS, Machine.value(QNIL), zr_global(G_CLASS))
+  elsif recv == zr_global(G_MODULE)
+    o = zr_module_new()
+  elsif zr_class_inherits(recv, zr_global(G_EXCEPTION))
     o = zr_exc_new(recv, Machine.value(QNIL))
   elsif zr_class_inherits(recv, zr_global(G_ARRAY))
     o = zr_ary_new(4)
@@ -566,13 +583,19 @@ machine def zr_class_to_s(recv, argc, argv, cref, blk)
   RClass.name(recv)
 end
 
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_class_superclass(recv, argc, argv, cref, blk)
-  k = RClass.superclass(recv)
+# The superclass past the proxies of included modules.
+sig [Value] => Value
+machine def zr_real_superclass(klass)
+  k = RClass.superclass(klass)
   while k != QNIL && zr_type(k) == T_ICLASS
     k = RClass.superclass(k)
   end
   k
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_class_superclass(recv, argc, argv, cref, blk)
+  zr_real_superclass(recv)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -668,12 +691,20 @@ machine def zr_attr(klass, argc, argv, which)
     ivar = zr_intern(Buf.ptr(b), Buf.len(b))
     caller = Frame.prev(Task.top(zr_task()))
     if which != 2
-      zr_define_method(klass, id, Machine.ptr(ivar), 0, KIND_ATTR_READER, zr_meta_at(caller), Frame.cref(caller))
+      r = zr_define_method(klass, id, Machine.ptr(ivar), 0, KIND_ATTR_READER, zr_meta_at(caller), Frame.cref(caller))
+      if r == QUNDEF
+        free(Buf.ptr(b))
+        return r
+      end
     end
     if which != 1
       zr_buf_byte(b, 61)
       setter = zr_intern(Buf.ptr(b) + 1, Buf.len(b) - 1)
-      zr_define_method(klass, setter, Machine.ptr(ivar), 1, KIND_ATTR_WRITER, zr_meta_at(caller), Frame.cref(caller))
+      r = zr_define_method(klass, setter, Machine.ptr(ivar), 1, KIND_ATTR_WRITER, zr_meta_at(caller), Frame.cref(caller))
+      if r == QUNDEF
+        free(Buf.ptr(b))
+        return r
+      end
     end
     free(Buf.ptr(b))
     i += 1

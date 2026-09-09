@@ -21,7 +21,8 @@ module Ze0
           addr = @f.func_addr(@f.callee(fn, ABI.fetch(:def), "i64"))
           meta = @f.symbol_value(@f.symbol("zr_meta_#{fn}"))
           checked_arity = node.params.plain? ? node.params.required.size : -1
-          kernel("zr_define_method", owner, imm(sym_id(node.name)), addr, imm(checked_arity), imm(@l.const("KIND_DEF")), meta, @cref)
+          at_line(node.line)
+          checked(kernel("zr_define_method", owner, imm(sym_id(node.name)), addr, imm(checked_arity), imm(@l.const("KIND_DEF")), meta, @cref))
           symbol(node.name)
         end
 
@@ -51,11 +52,11 @@ module Ze0
           checked(@f.call_val(@f.callee(fn, ABI.fetch(:class), "i64"), [klass, cref]))
         end
 
-        # The class a constant path's scope names: the cref's class for a
+        # The class a constant path's scope names: the lexical scope for a
         # bare name, Object for `::`, else the expression's value.
         def scope_class(scope)
           case scope
-          when nil then cref_class
+          when nil then kernel("zr_cref_lexical_class", @cref)
           when :top then global("G_OBJECT")
           else expr(scope)
           end
@@ -71,9 +72,12 @@ module Ze0
           end
         end
 
+        # The line is the constant's location, which a later mistaken
+        # `class Name` names.
         def const_write(node)
           scope = scope_class(node.scope)
           v = expr(node.value)
+          at_line(node.line)
           kernel("zr_const_set", scope, imm(sym_id(node.name)), v)
           v
         end

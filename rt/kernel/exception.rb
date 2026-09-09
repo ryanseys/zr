@@ -291,6 +291,9 @@ end
 # alone for an object's singleton method or an anonymous owner.
 sig [Ptr, Value, Word] => Void
 machine def zr_buf_method_label(b, owner, name)
+  if zr_type(owner) == T_ICLASS
+    owner = RClass.attached(owner)
+  end
   if zr_singleton_p(owner)
     attached = RClass.attached(owner)
     t = zr_type(attached)
@@ -337,7 +340,9 @@ machine def zr_exc_backtrace(recv, argc, argv, cref, blk)
   out
 end
 
-# An uncaught exception on stderr, as CRuby prints it, then exit 1.
+# An uncaught exception on stderr, as CRuby prints it, then exit 1. A
+# SystemStackError past 18 rows shows the first 9 and the last 4, with
+# the count of the levels between.
 sig [Value] => Void
 machine def zr_report(exc)
   b = Machine.slot(Buf.size)
@@ -350,8 +355,18 @@ machine def zr_report(exc)
     zr_buf_str(b, zr_class_name_of(exc))
     zr_buf_push(b, Machine.bytes(")\n"), 2)
   end
+  skip_at = 0 - 1
+  if zr_class_of(exc) == zr_global(G_SYSTEM_STACK_ERROR) && n > 18
+    skip_at = 9
+  end
   i = 0
   while i < n
+    if i == skip_at
+      zr_buf_push(b, Machine.bytes("\t ... "), 6)
+      zr_buf_long(b, n - 13)
+      zr_buf_push(b, Machine.bytes(" levels...\n"), 11)
+      i += n - 13
+    end
     row = rows + (i * BtRow.size)
     if i == 0
       zr_buf_row(b, row)
@@ -370,4 +385,12 @@ machine def zr_report(exc)
   zr_write_err(Buf.ptr(b), Buf.len(b))
   free(Buf.ptr(b))
   exit(1)
+end
+
+G_SYSTEM_STACK_ERROR = 35
+
+# A Ruby frame about to start below the task's stack limit.
+sig [] => Value
+machine def zr_stack_overflow
+  zr_raise_msg(zr_global(G_SYSTEM_STACK_ERROR), Machine.bytes("stack level too deep"), 20)
 end

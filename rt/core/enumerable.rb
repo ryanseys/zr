@@ -87,6 +87,31 @@ module Enumerable
     Primitive.zr_sort_by(pairs)
   end
 
+  def take_while
+    out = []
+    each do |x|
+      break unless yield(x)
+
+      out << x
+    end
+    out
+  end
+
+  def drop_while
+    out = []
+    dropping = true
+    each do |x|
+      dropping = false if dropping && !yield(x)
+      out << x unless dropping
+    end
+    out
+  end
+
+  def each_with_object(memo)
+    each { |x| yield(x, memo) }
+    memo
+  end
+
   def to_a
     out = []
     each { |x| out << x }

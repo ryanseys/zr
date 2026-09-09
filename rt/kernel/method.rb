@@ -111,13 +111,28 @@ machine def zr_method_to_proc(recv, argc, argv, cref, blk)
   zr_native_proc(Machine.addr(:zr_method_block), recv)
 end
 
+# The meta whose parameters, arity and location a method entry has:
+# its own for a def, its block's for a `define_method` body, and none
+# (0) for a builtin.
+sig [Ptr] => Ptr
+machine def zr_method_meta(e)
+  if MEntry.kind(e) == KIND_DEF
+    return MEntry.meta(e)
+  end
+  if MEntry.kind(e) == KIND_BMETHOD
+    return RProc.meta(MEntry.cref(e))
+  end
+  0
+end
+
 # A compiled def carries the arity its parameters give; a builtin's is
 # its entry's.
 sig [Value] => Word
 machine def zr_method_arity_of(m)
   e = RMethod.entry(m)
-  if MEntry.kind(e) == KIND_DEF
-    return FrameMeta.arity(MEntry.meta(e))
+  meta = zr_method_meta(e)
+  if meta != 0
+    return FrameMeta.arity(meta)
   end
   MEntry.arity(e)
 end
@@ -175,8 +190,9 @@ end
 sig [Value] => Value
 machine def zr_method_rows(m)
   e = RMethod.entry(m)
-  if MEntry.kind(e) == KIND_DEF
-    return zr_param_rows(FrameMeta.params(MEntry.meta(e)), false)
+  meta = zr_method_meta(e)
+  if meta != 0
+    return zr_param_rows(FrameMeta.params(meta), false)
   end
   zr_arity_rows(MEntry.arity(e))
 end
@@ -335,20 +351,24 @@ machine def zr_method_bind_call(recv, argc, argv, cref, blk)
   zr_invoke(RMethod.entry(bound), RMethod.recv(bound), argc - 1, argv + 8, blk, zr_kw_take())
 end
 
-# Whether a method entry was written in a Ruby file: a def, or an
-# attribute a class body declared.
-sig [Ptr] => Bool
-machine def zr_method_located_p(e)
-  MEntry.kind(e) == KIND_DEF || ((MEntry.kind(e) == KIND_ATTR_READER || MEntry.kind(e) == KIND_ATTR_WRITER) && FrameMeta.file_len(MEntry.meta(e)) > 0)
+# The meta that locates a method entry in a Ruby file, or 0: a def's
+# or a block's own, an attribute's the class body's.
+sig [Ptr] => Ptr
+machine def zr_method_location(e)
+  meta = zr_method_meta(e)
+  if meta == 0 && (MEntry.kind(e) == KIND_ATTR_READER || MEntry.kind(e) == KIND_ATTR_WRITER) && FrameMeta.file_len(MEntry.meta(e)) > 0
+    meta = MEntry.meta(e)
+  end
+  meta
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_method_source_location(recv, argc, argv, cref, blk)
   e = RMethod.entry(recv)
-  if !zr_method_located_p(e)
+  meta = zr_method_location(e)
+  if meta == 0
     return Machine.value(QNIL)
   end
-  meta = MEntry.meta(e)
   out = zr_ary_new(2)
   zr_ary_push(out, zr_str_new(FrameMeta.file(meta), FrameMeta.file_len(meta)))
   zr_ary_push(out, zr_fix(FrameMeta.line(meta)))
@@ -397,8 +417,9 @@ sig [Ptr, Value] => Void
 machine def zr_buf_method_params(b, m)
   e = RMethod.entry(m)
   zr_buf_byte(b, 40)
-  if MEntry.kind(e) == KIND_DEF
-    table = FrameMeta.params(MEntry.meta(e))
+  meta = zr_method_meta(e)
+  if meta != 0
+    table = FrameMeta.params(meta)
     n = Machine.load64(table, 0)
     i = 0
     while i < n
@@ -474,8 +495,8 @@ machine def zr_method_inspect(recv, argc, argv, cref, blk)
   e = RMethod.entry(recv)
   zr_buf_sym(b, MEntry.mid(e))
   zr_buf_method_params(b, recv)
-  if zr_method_located_p(e)
-    meta = MEntry.meta(e)
+  meta = zr_method_location(e)
+  if meta != 0
     zr_buf_byte(b, 32)
     zr_buf_push(b, FrameMeta.file(meta), FrameMeta.file_len(meta))
     zr_buf_byte(b, 58)

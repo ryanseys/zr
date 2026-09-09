@@ -45,3 +45,7 @@ end
 class Class
   private def inherited(subclass) = nil
 end
+
+class BasicObject
+  private def singleton_method_added(name) = nil
+end
