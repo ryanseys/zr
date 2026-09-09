@@ -966,8 +966,9 @@ machine def zr_str_to_f_strict(s)
   end
   p = RString.ptr(s)
   len = RString.len(s)
-  if n + 1 < len && Machine.word(Machine.load8(p + n, 0)) == 120 && zr_buf_last_is_zero(b)
-    zr_bug(Machine.bytes("Float() of a hexadecimal text is not implemented yet\n"), 53)
+  if n + 1 < len && (Machine.word(Machine.load8(p + n, 0)) == 120 || Machine.word(Machine.load8(p + n, 0)) == 88) && zr_buf_last_is_zero(b)
+    free(Buf.ptr(b))
+    return zr_hex_to_f(s)
   end
   while n < len && (Machine.word(Machine.load8(p + n, 0)) == 32 || (Machine.word(Machine.load8(p + n, 0)) >= 9 && Machine.word(Machine.load8(p + n, 0)) <= 13))
     n += 1
@@ -977,6 +978,36 @@ machine def zr_str_to_f_strict(s)
     return Machine.value(QNIL)
   end
   zr_float_new(zr_buf_strtod(b))
+end
+
+# `Float("0x1p+3")`: strtod reads the hex form itself, so the whole
+# text goes to it and the end pointer says whether it read all of it.
+sig [Value] => Value
+machine def zr_hex_to_f(s)
+  p = RString.ptr(s)
+  len = RString.len(s)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  i = 0
+  while i < len
+    c = Machine.word(Machine.load8(p + i, 0))
+    if c != 95
+      zr_buf_byte(b, c)
+    end
+    i += 1
+  end
+  zr_buf_byte(b, 0)
+  last = Machine.slot(8)
+  Machine.store64(last, 0, 0)
+  d = strtod(Buf.ptr(b), last)
+  stop = Machine.ptr(Machine.load64(last, 0))
+  read = stop == 0 ? 0 : stop - Buf.ptr(b)
+  while read > 0 && read < Buf.len(b) - 1 && (Machine.word(Machine.load8(Buf.ptr(b) + read, 0)) == 32 || (Machine.word(Machine.load8(Buf.ptr(b) + read, 0)) >= 9 && Machine.word(Machine.load8(Buf.ptr(b) + read, 0)) <= 13))
+    read += 1
+  end
+  ok = read > 0 && read == Buf.len(b) - 1
+  free(Buf.ptr(b))
+  ok ? zr_float_new(d) : Machine.value(QNIL)
 end
 
 sig [Ptr] => Bool

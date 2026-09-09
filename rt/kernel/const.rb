@@ -181,7 +181,10 @@ end
 sig [Value, Word] => Value
 machine def zr_uninitialized_constant(scope, id)
   home = scope == QNIL ? zr_global(G_OBJECT) : scope
-  if zr_find_method(zr_class_of(home), Machine.id(:const_missing)) != 0
+  entry = zr_find_method(zr_class_of(home), Machine.id(:const_missing))
+  # Only a const_missing the program wrote gets a frame of its own; the
+  # one Module carries raises right here, as ruby's does.
+  if entry != 0 && entry != zr_find_method_at(zr_global(G_MODULE), Machine.id(:const_missing))
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(zr_sym(id)))
     return zr_send(home, Machine.id(:const_missing), 1, slot)
