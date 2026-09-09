@@ -200,7 +200,7 @@ end
 sig [Value, Word, Ptr] => Value
 machine def zr_yield(blk, argc, argv)
   if blk == QNIL
-    return zr_raise_msg(zr_global(G_LOCAL_JUMP_ERROR), Machine.bytes("no block given (yield)"), 22)
+    return zr_local_jump_error(Machine.bytes("no block given (yield)"), 22, Machine.id(:noreason), Machine.value(QNIL))
   end
   Machine.call(:block, RProc.fn(blk), blk, argc, argv, Machine.value(QNIL))
 end
@@ -259,11 +259,21 @@ machine def zr_signal(kind, value, home, site)
   Machine.value(QUNDEF)
 end
 
+# A LocalJumpError with its reason (`:break`, `:return`, `:noreason`)
+# and the value the jump carried.
+sig [Ptr, Word, Word, Value] => Value
+machine def zr_local_jump_error(bytes, len, reason, v)
+  exc = zr_exc_new(zr_global(G_LOCAL_JUMP_ERROR), zr_str_new(bytes, len))
+  zr_ivar_set(exc, Machine.id(:@exit_value), v)
+  zr_ivar_set(exc, Machine.id(:@reason), zr_sym(reason))
+  zr_raise(exc)
+end
+
 # `break v` in the block `p`.
 sig [Value, Value] => Value
 machine def zr_break(p, v)
   unless zr_frame_live(RProc.home(p), RProc.serial(p))
-    return zr_raise_msg(zr_global(G_LOCAL_JUMP_ERROR), Machine.bytes("break from proc-closure"), 23)
+    return zr_local_jump_error(Machine.bytes("break from proc-closure"), 23, Machine.id(:break), v)
   end
   zr_signal(PENDING_BREAK, v, RProc.home(p), RProc.site(p))
 end
@@ -272,7 +282,7 @@ end
 sig [Value, Value] => Value
 machine def zr_return(p, v)
   unless zr_frame_live(RProc.ret_home(p), RProc.ret_serial(p))
-    return zr_raise_msg(zr_global(G_LOCAL_JUMP_ERROR), Machine.bytes("unexpected return"), 17)
+    return zr_local_jump_error(Machine.bytes("unexpected return"), 17, Machine.id(:return), v)
   end
   zr_signal(PENDING_RETURN, v, RProc.ret_home(p), 0)
 end

@@ -37,3 +37,9 @@ p proc { |a, *r, c, d| [a, r, c, d] }.call(1, 2)
 p proc { |a, *r, c, d| [a, r, c, d] }.call(1, 2, 3)
 [[1, 2, 3]].each { |a, *r, c| p [a, r, c] }
 [[1]].each { |a, *r, c| p [a, r, c] }
+def o = proc { break 1 }
+begin; o.call; rescue LocalJumpError => e; p e.instance_variables, e.reason, e.exit_value; end
+def r = proc { return 2 }
+begin; r.call; rescue LocalJumpError => e; p e.reason, e.exit_value, e.message; end
+def y = yield
+begin; y; rescue LocalJumpError => e; p e.reason, e.exit_value, e.message; end
