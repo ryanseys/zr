@@ -55,8 +55,8 @@ end
 
 # A Float or Integer operand as a double, or undef with a TypeError
 # for anything else (`coerce` is not consulted yet).
-sig [Value, Ptr] => Value
-machine def zr_float_operand(v, out)
+sig [Value, Value, Ptr, Word, Word] => Value
+machine def zr_float_operand(recv, v, out, mid, kind)
   if zr_fixnum_p(v)
     Machine.store64(out, 0, Machine.bits(Machine.to_f64(zr_fix2long(v))))
     return Machine.value(QNIL)
@@ -65,17 +65,7 @@ machine def zr_float_operand(v, out)
     Machine.store64(out, 0, Machine.bits(zr_float_value(v)))
     return Machine.value(QNIL)
   end
-  b = Machine.slot(Buf.size)
-  zr_buf_init(b)
-  if v == QNIL || v == QTRUE || v == QFALSE
-    s = zr_send(v, Machine.id(:inspect), 0, 0)
-    return s if s == QUNDEF
-    zr_buf_str(b, s)
-  else
-    zr_buf_str(b, zr_class_name_of(v))
-  end
-  zr_buf_push(b, Machine.bytes(" can't be coerced into Float"), 28)
-  zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  zr_num_coerce(recv, v, mid, kind)
 end
 
 sig [F64] => Bool
@@ -93,32 +83,32 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_flo_plus(recv, argc, argv, cref, blk)
   out = Machine.slot(8)
-  r = zr_float_operand(Machine.value(Machine.load64(argv, 0)), out)
-  return r if r == QUNDEF
+  r = zr_float_operand(recv, Machine.value(Machine.load64(argv, 0)), out, Machine.id(:+), 0)
+  return r if r != QNIL
   zr_float_new(zr_float_value(recv) + Machine.f64(Machine.load64(out, 0)))
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_flo_minus(recv, argc, argv, cref, blk)
   out = Machine.slot(8)
-  r = zr_float_operand(Machine.value(Machine.load64(argv, 0)), out)
-  return r if r == QUNDEF
+  r = zr_float_operand(recv, Machine.value(Machine.load64(argv, 0)), out, Machine.id(:-), 0)
+  return r if r != QNIL
   zr_float_new(zr_float_value(recv) - Machine.f64(Machine.load64(out, 0)))
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_flo_mul(recv, argc, argv, cref, blk)
   out = Machine.slot(8)
-  r = zr_float_operand(Machine.value(Machine.load64(argv, 0)), out)
-  return r if r == QUNDEF
+  r = zr_float_operand(recv, Machine.value(Machine.load64(argv, 0)), out, Machine.id(:*), 0)
+  return r if r != QNIL
   zr_float_new(zr_float_value(recv) * Machine.f64(Machine.load64(out, 0)))
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_flo_div(recv, argc, argv, cref, blk)
   out = Machine.slot(8)
-  r = zr_float_operand(Machine.value(Machine.load64(argv, 0)), out)
-  return r if r == QUNDEF
+  r = zr_float_operand(recv, Machine.value(Machine.load64(argv, 0)), out, Machine.id(:/), 0)
+  return r if r != QNIL
   zr_float_new(zr_float_value(recv) / Machine.f64(Machine.load64(out, 0)))
 end
 
@@ -142,8 +132,8 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_flo_mod(recv, argc, argv, cref, blk)
   out = Machine.slot(8)
-  r = zr_float_operand(Machine.value(Machine.load64(argv, 0)), out)
-  return r if r == QUNDEF
+  r = zr_float_operand(recv, Machine.value(Machine.load64(argv, 0)), out, Machine.id(:%), 0)
+  return r if r != QNIL
   y = Machine.f64(Machine.load64(out, 0))
   if y == Machine.f64(0)
     return zr_raise_msg(zr_global(G_ZERO_DIVISION_ERROR), Machine.bytes("divided by 0"), 12)
@@ -177,8 +167,8 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_flo_pow(recv, argc, argv, cref, blk)
   out = Machine.slot(8)
-  r = zr_float_operand(Machine.value(Machine.load64(argv, 0)), out)
-  return r if r == QUNDEF
+  r = zr_float_operand(recv, Machine.value(Machine.load64(argv, 0)), out, Machine.id(:**), 0)
+  return r if r != QNIL
   x = zr_float_value(recv)
   y = Machine.f64(Machine.load64(out, 0))
   if x < Machine.f64(0) && y != Machine.nearest(y)
@@ -214,7 +204,7 @@ machine def zr_flo_eq(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))
   if zr_fixnum_p(other) || zr_float_p(other)
     out = Machine.slot(8)
-    zr_float_operand(other, out)
+    zr_float_operand(recv, other, out, 0, 3)
     return zr_bool(zr_float_value(recv) == Machine.f64(Machine.load64(out, 0)))
   end
   slot = Machine.slot(8)
@@ -226,10 +216,10 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_flo_cmp(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))
   if !zr_fixnum_p(other) && !zr_float_p(other)
-    return Machine.value(QNIL)
+    return zr_num_coerce(recv, other, Machine.id(:<=>), 2)
   end
   out = Machine.slot(8)
-  zr_float_operand(other, out)
+  zr_float_operand(recv, other, out, 0, 3)
   c = zr_float_cmp(zr_float_value(recv), Machine.f64(Machine.load64(out, 0)))
   if c == 2
     return Machine.value(QNIL)
@@ -242,10 +232,19 @@ end
 sig [Value, Value, Word] => Value
 machine def zr_flo_relate(recv, other, want)
   if !zr_fixnum_p(other) && !zr_float_p(other)
-    return zr_cmp_failed(recv, other)
+    if want == 0
+      return zr_num_coerce(recv, other, Machine.id(:<), 1)
+    end
+    if want == 1
+      return zr_num_coerce(recv, other, Machine.id(:<=), 1)
+    end
+    if want == 2
+      return zr_num_coerce(recv, other, Machine.id(:>), 1)
+    end
+    return zr_num_coerce(recv, other, Machine.id(:>=), 1)
   end
   out = Machine.slot(8)
-  zr_float_operand(other, out)
+  zr_float_operand(recv, other, out, 0, 3)
   c = zr_float_cmp(zr_float_value(recv), Machine.f64(Machine.load64(out, 0)))
   if c == 2
     return Machine.value(QFALSE)
@@ -1059,4 +1058,32 @@ end
 sig [Value, Value] => Value
 machine def zr_float_of_halves(low, high)
   zr_float_from_bits((zr_fix2long(high) << 32) | zr_fix2long(low))
+end
+
+# CRuby's float_decode_internal: [mantissa, exponent] with the double
+# equal to mantissa * 2**exponent, the mantissa an Integer of 53 bits
+# (with the sign) so a Rational can hold the exact value.
+sig [Value] => Value
+machine def zr_float_decode(v)
+  bits = Machine.ptr(Machine.bits(zr_float_value(v)))
+  negative = (bits >> 63) != 0
+  biased = (bits >> 52) & 2047
+  fraction = bits & 4503599627370495
+  mantissa = 0
+  exponent = 0
+  if biased == 0
+    mantissa = fraction
+    exponent = 0 - 1074
+  else
+    mantissa = fraction | 4503599627370496
+    exponent = biased - 1075
+  end
+  while mantissa != 0 && (mantissa & 1) == 0
+    mantissa = mantissa >> 1
+    exponent += 1
+  end
+  out = zr_ary_new(2)
+  zr_ary_push(out, zr_fix(negative ? 0 - Machine.word(mantissa) : Machine.word(mantissa)))
+  zr_ary_push(out, zr_fix(exponent))
+  out
 end

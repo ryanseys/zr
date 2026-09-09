@@ -501,8 +501,8 @@ module Enumerable
 
   def reduce(*args, &block) = inject(*args, &block)
 
-  def sum
-    acc = 0
+  def sum(init = 0)
+    acc = init
     if block_given?
       each do |*x|
         x = Primitive.zr_enum_value(x)

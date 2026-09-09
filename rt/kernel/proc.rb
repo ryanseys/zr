@@ -343,7 +343,7 @@ machine def zr_int_upto(recv, argc, argv, cref, blk)
     return zr_enum_for(recv, Machine.id(:upto), argc, argv, Machine.value(QNIL))
   end
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
+  r = zr_int_operand(recv, argv, out, 0, 3)
   return r if r == QUNDEF
   i = zr_fix2long(recv)
   last = Machine.load64(out, 0)
@@ -361,7 +361,7 @@ machine def zr_int_downto(recv, argc, argv, cref, blk)
     return zr_enum_for(recv, Machine.id(:downto), argc, argv, Machine.value(QNIL))
   end
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
+  r = zr_int_operand(recv, argv, out, 0, 3)
   return r if r == QUNDEF
   i = zr_fix2long(recv)
   last = Machine.load64(out, 0)

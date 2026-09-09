@@ -17,6 +17,8 @@ class Regexp
     }.freeze
     BYTE_ESCAPES = { "n" => 0x0a, "t" => 0x09, "r" => 0x0d, "f" => 0x0c, "v" => 0x0b, "a" => 0x07, "e" => 0x1b, "\\" => 0x5c }.freeze
     Frame = Struct.new(:mode, :extended)
+    MODE_ESCAPES = %w[\\w \\W \\d \\D \\s \\S \\b \\B \\p \\P].freeze
+    OPTION_LETTERS = "imxdau-".bytes.freeze
 
     module_function
 
@@ -90,7 +92,7 @@ class Regexp
       return source unless source.include?("\\")
 
       b = source.bytes
-      out = []
+      out = "".b
       i = 0
       while i < b.size
         if b[i] != 0x5c || i + 1 >= b.size
@@ -98,14 +100,14 @@ class Regexp
           i += 1
           next
         end
-        if [0x4d, 0x43, 0x63].include?(b[i + 1])
+        if b[i + 1] == 0x4d || b[i + 1] == 0x43 || b[i + 1] == 0x63
           i = escaped_char(b, i, binary, out)
         else
           out << b[i] << b[i + 1]
           i += 2
         end
       end
-      out.pack("C*").force_encoding(source.encoding)
+      out.force_encoding(source.encoding)
     end
 
     # The escape run at `i`, spliced into `out` as the character it
@@ -125,9 +127,9 @@ class Regexp
         raise RegexpError, "invalid multibyte escape" unless bytes.pack("C*").force_encoding(Encoding::UTF_8).valid_encoding?
       end
       if bytes.size > 1 || bytes[0] >= 0x80
-        out.concat(bytes)
+        bytes.each { |x| out << x }
       else
-        out.concat(format("\\x%02X", bytes[0]).bytes)
+        out << format("\\x%02X", bytes[0]).b
       end
       i
     end
@@ -171,7 +173,7 @@ class Regexp
         elsif ch == "x"
           code = 0
           n = 0
-          while n < 2 && b[i] && b[i].chr.match?(/[0-9a-fA-F]/)
+          while n < 2 && b[i] && hex_byte?(b[i])
             code = code * 16 + b[i].chr.to_i(16)
             i += 1
             n += 1
@@ -220,10 +222,10 @@ class Regexp
     # ASCII escapes as bracket classes, `(?a)` boundaries as look-arounds,
     # a bare property as a class (so it folds under /i).
     def range_modes(source, extended)
-      return source unless source.include?("\\") || source.include?("(?") || source.include?("[:")
+      return source unless source.include?("(?") || source.include?("[:") || MODE_ESCAPES.any? { |e| source.include?(e) }
 
       b = source.bytes
-      out = []
+      out = "".b
       stack = [Frame.new(:default, extended)]
       touched = false
       i = 0
@@ -252,11 +254,11 @@ class Regexp
                 check_range_position(b, i, stop + 2)
                 push_nested(out, body, negated)
               else
-                out.concat(b[i..stop + 1])
+                append(out, b, i, stop + 2)
               end
               i = stop + 2
             elsif stop
-              out.concat(b[i..stop + 1])
+              append(out, b, i, stop + 2)
               i = stop + 2
             else
               depth += 1
@@ -281,23 +283,23 @@ class Regexp
           e = b[i + 1]
           if (body = escape_class_body(e, top.mode))
             touched = true
-            out.concat("(?-i:[".bytes)
+            out << "(?-i:[".b
             out << 0x5e if e < 0x61
-            out.concat(body.bytes)
-            out.concat("])".bytes)
+            out << body.b
+            out << "])".b
             i += 2
           elsif (e == 0x62 || e == 0x42) && top.mode == :ascii
             touched = true
             w = "[#{WORD}]"
             text = e == 0x62 ? "(?-i:(?<=#{w})(?!#{w})|(?<!#{w})(?=#{w}))" : "(?-i:(?<=#{w})(?=#{w})|(?<!#{w})(?!#{w}))"
-            out.concat(text.bytes)
+            out << text.b
             i += 2
           elsif (e == 0x70 || e == 0x50) && b[i + 2] == 0x7b && (close = find_byte(b, 0x7d, i))
             touched = true
             caret = b[i + 3] == 0x5e
             negated = (e == 0x50) != caret
-            out.concat((negated ? "[^\\p{" : "[\\p{").bytes)
-            out.concat(b[(caret ? i + 4 : i + 3)..close])
+            out << (negated ? "[^\\p{" : "[\\p{").b
+            append(out, b, caret ? i + 4 : i + 3, close + 1)
             out << 0x5d
             i = close + 1
           else
@@ -318,18 +320,18 @@ class Regexp
           end
         elsif c == 0x23 && top.extended
           stop = find_byte(b, 0x0a, i) || b.size
-          out.concat(b[i...stop])
+          append(out, b, i, stop)
           i = stop
         elsif c == 0x28 && b[i + 1] == 0x3f
           if b[i + 2] == 0x23
             stop = find_byte(b, 0x29, i)
             stop = stop ? stop + 1 : b.size
-            out.concat(b[i...stop])
+            append(out, b, i, stop)
             i = stop
             next
           end
           j = i + 2
-          j += 1 while j < b.size && "imxdau-".bytes.include?(b[j])
+          j += 1 while j < b.size && OPTION_LETTERS.include?(b[j])
           letters = b[(i + 2)...j]
           terminator = b[j]
           unless !letters.empty? && (terminator == 0x3a || terminator == 0x29)
@@ -359,13 +361,13 @@ class Regexp
             stack[-1] = frame
             unless kept.all? { |l| l == 0x2d }
               out << 0x28 << 0x3f
-              out.concat(kept)
+              kept.each { |l| out << l }
               out << 0x29
             end
           else
             stack.push(frame)
             out << 0x28 << 0x3f
-            out.concat(kept)
+            kept.each { |l| out << l }
             out << 0x3a
           end
           i = j + 1
@@ -382,7 +384,7 @@ class Regexp
           i += 1
         end
       end
-      touched ? out.pack("C*").force_encoding(source.encoding) : source
+      touched ? out.force_encoding(source.encoding) : source
     end
 
     # A class member that is a set may neither close a pending `X-` nor
@@ -404,19 +406,32 @@ class Regexp
     end
 
     def push_nested(out, body, negated)
-      out.concat((negated ? "[^" : "[").bytes)
-      out.concat(body.bytes)
+      out << (negated ? "[^" : "[").b
+      out << body.b
       out << 0x5d
+    end
+
+    # The bytes of `b` from `from` up to `stop`, appended to `out`.
+    def append(out, b, from, stop)
+      j = from
+      while j < stop
+        out << b[j]
+        j += 1
+      end
+    end
+
+    def hex_byte?(x)
+      (x >= 0x30 && x <= 0x39) || (x >= 0x41 && x <= 0x46) || (x >= 0x61 && x <= 0x66)
     end
 
     # The bracket body an ASCII-range escape stands for under `mode`.
     def escape_class_body(e, mode)
       return nil if mode == :unicode
 
-      case e.chr
-      when "w", "W" then WORD
-      when "d", "D" then DIGIT
-      when "s", "S" then SPACE
+      case e
+      when 0x77, 0x57 then WORD
+      when 0x64, 0x44 then DIGIT
+      when 0x73, 0x53 then SPACE
       end
     end
 
@@ -426,7 +441,7 @@ class Regexp
       j = start + 2
       j += 1 if b[j] == 0x5e
       name_start = j
-      j += 1 while j < b.size && b[j].chr.match?(/[A-Za-z]/)
+      j += 1 while j < b.size && ((b[j] >= 0x41 && b[j] <= 0x5a) || (b[j] >= 0x61 && b[j] <= 0x7a))
       j > name_start && b[j] == 0x3a && b[j + 1] == 0x5d ? j : nil
     end
   end

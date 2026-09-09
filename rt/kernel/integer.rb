@@ -57,8 +57,8 @@ machine def zr_int_to_s(recv, argc, argv, cref, blk)
   base = 10
   if argc == 1
     out = Machine.slot(8)
-    r = zr_int_operand(argv, out)
-    return r if r == QUNDEF
+    r = zr_int_operand(recv, argv, out, Machine.id(:to_s), 3)
+    return r if r != QNIL
     base = Machine.load64(out, 0)
     if base < 2 || base > 36
       b = Machine.slot(Buf.size)
@@ -97,26 +97,73 @@ machine def zr_int_to_s(recv, argc, argv, cref, blk)
   zr_str_new(buf + at, 72 - at)
 end
 
-# The operand of an Integer operator into `out`, which must be an
-# Integer until coercion and Float exist; else the TypeError, raised.
-sig [Ptr, Ptr] => Value
-machine def zr_int_operand(argv, out)
+# The operand of an Integer operator into `out` when it is an Integer;
+# else the answer of `other.coerce(recv)` sent `mid` (`kind` 0), or the
+# comparison failure (`kind` 1), or nil (`kind` 2), or the TypeError
+# alone (`kind` 3). QNIL means the operand is in `out`.
+sig [Value, Ptr, Ptr, Word, Word] => Value
+machine def zr_int_operand(recv, argv, out, mid, kind)
   other = Machine.value(Machine.load64(argv, 0))
   unless zr_fixnum_p(other)
-    b = Machine.slot(Buf.size)
-    zr_buf_init(b)
-    if zr_special_p(other)
-      s = zr_send(other, Machine.id(:inspect), 0, 0)
-      return s if s == QUNDEF
-      zr_buf_str(b, s)
-    else
-      zr_buf_str(b, zr_class_name_of(other))
-    end
-    zr_buf_push(b, Machine.bytes(" can't be coerced into Integer"), 30)
-    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+    return zr_num_coerce(recv, other, mid, kind)
   end
   Machine.store64(out, 0, zr_fix2long(other))
   Machine.value(QNIL)
+end
+
+# CRuby's rb_num_coerce_bin / relop / cmp: `other.coerce(recv)` answers
+# [a, b], and the operator runs as `a mid b`. Without a coerce, `kind`
+# decides: 0 and 3 raise the TypeError, 1 the comparison failure, 2
+# answers nil.
+sig [Value, Value, Word, Word] => Value
+machine def zr_num_coerce(recv, other, mid, kind)
+  if kind != 3 && !zr_special_p(other)
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(Machine.value(zr_sym(Machine.id(:coerce)))))
+    responds = zr_send(other, Machine.id(:respond_to?), 1, slot)
+    return responds if responds == QUNDEF
+    if responds != QNIL && responds != QFALSE
+      Machine.store64(slot, 0, Machine.word(recv))
+      pair = zr_send(other, Machine.id(:coerce), 1, slot)
+      return pair if pair == QUNDEF
+      if zr_special_p(pair) || zr_type(pair) != T_ARRAY || RArray.len(pair) != 2
+        return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("coerce must return [x, y]"), 25)
+      end
+      Machine.store64(slot, 0, Machine.word(zr_ary_at(pair, 1)))
+      return zr_send(zr_ary_at(pair, 0), mid, 1, slot)
+    end
+  end
+  if kind == 2
+    return Machine.value(QNIL)
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  if kind == 1
+    zr_buf_push(b, Machine.bytes("comparison of "), 14)
+    zr_buf_str(b, zr_class_name_of(recv))
+    zr_buf_push(b, Machine.bytes(" with "), 6)
+  end
+  if zr_special_p(other)
+    s = zr_send(other, Machine.id(:inspect), 0, 0)
+    return s if s == QUNDEF
+    zr_buf_str(b, s)
+  else
+    zr_buf_str(b, zr_class_name_of(other))
+  end
+  if kind == 1
+    zr_buf_push(b, Machine.bytes(" failed"), 7)
+    return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+  end
+  zr_buf_push(b, Machine.bytes(" can't be coerced into "), 23)
+  zr_buf_str(b, zr_class_name_of(recv))
+  zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+end
+
+# `zr_num_coerce` for the core: the operator as a Symbol, the kind as
+# an Integer.
+sig [Value, Value, Value, Value] => Value
+machine def zr_num_coerce_m(recv, other, mid, kind)
+  zr_num_coerce(recv, other, zr_sym2id(mid), zr_fix2long(kind))
 end
 
 # A result outside the fixnum range: bignums are not implemented yet,
@@ -135,8 +182,8 @@ machine def zr_int_plus(recv, argc, argv, cref, blk)
     return zr_float_new(Machine.to_f64(zr_fix2long(recv)) + zr_float_value(Machine.value(Machine.load64(argv, 0))))
   end
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
-  return r if r == QUNDEF
+  r = zr_int_operand(recv, argv, out, Machine.id(:+), 0)
+  return r if r != QNIL
   b = Machine.load64(out, 0)
   zr_int_result(zr_fix2long(recv) + b)
 end
@@ -147,8 +194,8 @@ machine def zr_int_minus(recv, argc, argv, cref, blk)
     return zr_float_new(Machine.to_f64(zr_fix2long(recv)) - zr_float_value(Machine.value(Machine.load64(argv, 0))))
   end
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
-  return r if r == QUNDEF
+  r = zr_int_operand(recv, argv, out, Machine.id(:-), 0)
+  return r if r != QNIL
   b = Machine.load64(out, 0)
   zr_int_result(zr_fix2long(recv) - b)
 end
@@ -159,8 +206,8 @@ machine def zr_int_mul(recv, argc, argv, cref, blk)
     return zr_float_new(Machine.to_f64(zr_fix2long(recv)) * zr_float_value(Machine.value(Machine.load64(argv, 0))))
   end
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
-  return r if r == QUNDEF
+  r = zr_int_operand(recv, argv, out, Machine.id(:*), 0)
+  return r if r != QNIL
   b = Machine.load64(out, 0)
   a = zr_fix2long(recv)
   p = a * b
@@ -192,8 +239,8 @@ machine def zr_int_div(recv, argc, argv, cref, blk)
     return zr_float_new(Machine.to_f64(zr_fix2long(recv)) / zr_float_value(Machine.value(Machine.load64(argv, 0))))
   end
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
-  return r if r == QUNDEF
+  r = zr_int_operand(recv, argv, out, Machine.id(:/), 0)
+  return r if r != QNIL
   b = Machine.load64(out, 0)
   return zr_raise_msg(zr_global(G_ZERO_DIVISION_ERROR), Machine.bytes("divided by 0"), 12) if b == 0
   zr_int_result(zr_floor_div(zr_fix2long(recv), b))
@@ -209,8 +256,8 @@ machine def zr_int_mod(recv, argc, argv, cref, blk)
     return zr_float_new(zr_float_mod(Machine.to_f64(zr_fix2long(recv)), y))
   end
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
-  return r if r == QUNDEF
+  r = zr_int_operand(recv, argv, out, Machine.id(:%), 0)
+  return r if r != QNIL
   b = Machine.load64(out, 0)
   return zr_raise_msg(zr_global(G_ZERO_DIVISION_ERROR), Machine.bytes("divided by 0"), 12) if b == 0
   zr_fix(zr_floor_mod(zr_fix2long(recv), b))
@@ -221,24 +268,24 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_and(recv, argc, argv, cref, blk)
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
-  return r if r == QUNDEF
+  r = zr_int_operand(recv, argv, out, Machine.id(:&), 0)
+  return r if r != QNIL
   zr_fix(zr_fix2long(recv) & Machine.load64(out, 0))
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_or(recv, argc, argv, cref, blk)
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
-  return r if r == QUNDEF
+  r = zr_int_operand(recv, argv, out, Machine.id(:|), 0)
+  return r if r != QNIL
   zr_fix(zr_fix2long(recv) | Machine.load64(out, 0))
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_xor(recv, argc, argv, cref, blk)
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
-  return r if r == QUNDEF
+  r = zr_int_operand(recv, argv, out, Machine.id(:^), 0)
+  return r if r != QNIL
   zr_fix(zr_fix2long(recv) ^ Machine.load64(out, 0))
 end
 
@@ -250,8 +297,8 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_lshift(recv, argc, argv, cref, blk)
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
-  return r if r == QUNDEF
+  r = zr_int_operand(recv, argv, out, Machine.id(:<<), 0)
+  return r if r != QNIL
   n = Machine.load64(out, 0)
   a = zr_fix2long(recv)
   if n < 0
@@ -266,8 +313,8 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_rshift(recv, argc, argv, cref, blk)
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
-  return r if r == QUNDEF
+  r = zr_int_operand(recv, argv, out, Machine.id(:>>), 0)
+  return r if r != QNIL
   n = Machine.load64(out, 0)
   a = zr_fix2long(recv)
   if n < 0
@@ -297,8 +344,8 @@ machine def zr_int_lt(recv, argc, argv, cref, blk)
     return zr_int_float_relate(zr_fix2long(recv), zr_float_value(Machine.value(Machine.load64(argv, 0))), 0)
   end
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
-  return r if r == QUNDEF
+  r = zr_int_operand(recv, argv, out, Machine.id(:<), 1)
+  return r if r != QNIL
   b = Machine.load64(out, 0)
   zr_bool(zr_fix2long(recv) < b)
 end
@@ -309,8 +356,8 @@ machine def zr_int_le(recv, argc, argv, cref, blk)
     return zr_int_float_relate(zr_fix2long(recv), zr_float_value(Machine.value(Machine.load64(argv, 0))), 1)
   end
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
-  return r if r == QUNDEF
+  r = zr_int_operand(recv, argv, out, Machine.id(:<=), 1)
+  return r if r != QNIL
   b = Machine.load64(out, 0)
   zr_bool(zr_fix2long(recv) <= b)
 end
@@ -321,8 +368,8 @@ machine def zr_int_gt(recv, argc, argv, cref, blk)
     return zr_int_float_relate(zr_fix2long(recv), zr_float_value(Machine.value(Machine.load64(argv, 0))), 2)
   end
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
-  return r if r == QUNDEF
+  r = zr_int_operand(recv, argv, out, Machine.id(:>), 1)
+  return r if r != QNIL
   b = Machine.load64(out, 0)
   zr_bool(zr_fix2long(recv) > b)
 end
@@ -333,8 +380,8 @@ machine def zr_int_ge(recv, argc, argv, cref, blk)
     return zr_int_float_relate(zr_fix2long(recv), zr_float_value(Machine.value(Machine.load64(argv, 0))), 3)
   end
   out = Machine.slot(8)
-  r = zr_int_operand(argv, out)
-  return r if r == QUNDEF
+  r = zr_int_operand(recv, argv, out, Machine.id(:>=), 1)
+  return r if r != QNIL
   b = Machine.load64(out, 0)
   zr_bool(zr_fix2long(recv) >= b)
 end
@@ -347,7 +394,14 @@ machine def zr_int_eq(recv, argc, argv, cref, blk)
   if zr_float_p(other)
     return zr_bool(zr_int_float_cmp(zr_fix2long(recv), zr_float_value(other)) == 0)
   end
-  zr_bool(recv == other)
+  if zr_fixnum_p(other) || zr_special_p(other)
+    return zr_bool(recv == other)
+  end
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(recv))
+  r = zr_send(other, Machine.id(:==), 1, slot)
+  return r if r == QUNDEF
+  zr_bool(r != QNIL && r != QFALSE)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -356,7 +410,14 @@ machine def zr_int_ne(recv, argc, argv, cref, blk)
   if zr_float_p(other)
     return zr_bool(zr_int_float_cmp(zr_fix2long(recv), zr_float_value(other)) != 0)
   end
-  zr_bool(recv != other)
+  if zr_fixnum_p(other) || zr_special_p(other)
+    return zr_bool(recv != other)
+  end
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(recv))
+  r = zr_send(other, Machine.id(:==), 1, slot)
+  return r if r == QUNDEF
+  zr_bool(r == QNIL || r == QFALSE)
 end
 
 # An Integer against a double, exactly: -1, 0, 1, or 2 for NaN. The

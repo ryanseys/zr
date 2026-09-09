@@ -219,6 +219,8 @@ module Ze0
         when Prism::StatementsNode then seq(node)
         when Prism::ParenthesesNode then node.body ? expr(node.body) : Literal.new(nil, line)
         when Prism::IntegerNode, Prism::FloatNode then Literal.new(node.value, line)
+        when Prism::RationalNode then Send.new(nil, :Rational, [Literal.new(node.numerator, line), Literal.new(node.denominator, line)], line, false)
+        when Prism::ImaginaryNode then Send.new(nil, :Complex, [Literal.new(0, line), expr(node.numeric)], line, false)
         when Prism::StringNode then Literal.new(node.unescaped, line)
         when Prism::SymbolNode then Literal.new(node.unescaped.to_sym, line)
         when Prism::NilNode then Literal.new(nil, line)
@@ -581,9 +583,15 @@ module Ze0
       # of the program. A name no root answers is refused, since a
       # library of ruby's own would answer it; a relative name with no
       # file is a LoadError when it runs.
+      # The features ruby loads before a program starts, so a require of
+      # one answers false.
+      PRELOADED = %w[set set.rb].freeze
+
       def require_node(node)
         line = node.location.start_line
         feature = literal_feature(node)
+        return Literal.new(false, line) if node.name == :require && PRELOADED.include?(feature)
+
         path = @loader.resolve(node.name, feature, @file)
         refuse(node, "#{node.name} of #{feature.inspect}, which no load path root holds, is not lowered yet") if path.nil? && node.name != :require_relative
         Require.new(node.name, feature, path || File.expand_path(feature, File.dirname(@file)), path && @loader.add(path), line)

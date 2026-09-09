@@ -48,7 +48,7 @@ end
 class Integer
   def <=>(other)
     return Primitive.zr_int_float_spaceship(self, other) if other.is_a?(Float)
-    return nil unless other.is_a?(Integer)
+    return Primitive.zr_num_coerce_m(self, other, :<=>, 2) unless other.is_a?(Integer)
 
     self < other ? -1 : (self > other ? 1 : 0)
   end
@@ -73,8 +73,11 @@ class Integer
 
   def **(other)
     return to_f**other if other.is_a?(Float)
-    Primitive.zr_unimplemented("Integer#** with a non-Integer exponent") unless other.is_a?(Integer)
-    Primitive.zr_unimplemented("Integer#** with a negative exponent, which answers a Rational") if other < 0
+    other = other.numerator if other.is_a?(Rational) && other.denominator == 1
+    return Rational(self, 1)**other if other.is_a?(Rational)
+    return Complex(self, 0)**other if other.is_a?(Complex)
+    return Primitive.zr_num_coerce_m(self, other, :**, 0) unless other.is_a?(Integer)
+    return Rational(1, 1) / (self**-other) if other < 0
 
     result = 1
     base = self
@@ -223,9 +226,9 @@ class Integer
 
   def coerce(other)
     return [other, to_f] if other.is_a?(Float)
-    Primitive.zr_unimplemented("Integer#coerce with a non-Integer") unless other.is_a?(Integer)
+    return [other, self] if other.is_a?(Integer)
 
-    [other, self]
+    [Float(other), to_f]
   end
 
   private

@@ -253,5 +253,13 @@ class Range
 
     "#{@begin.inspect unless @begin.nil?}#{dots}#{@end.inspect unless @end.nil?}"
   end
-  def sum = inject(0) { |a, b| a + b }
+  # Integer ends add in closed form; anything else, or a block, walks.
+  def sum(init = 0, &block)
+    return super if block || !self.begin.is_a?(Integer) || !self.end.is_a?(Integer)
+
+    last = exclude_end? ? self.end - 1 : self.end
+    return init if last < self.begin
+
+    init + (self.begin + last) * (last - self.begin + 1) / 2
+  end
 end
