@@ -28,12 +28,18 @@ sig [Value] => Void
 machine def zr_mark_hash(h)
   zr_mark(RHash.default(h))
   zr_mark(RHash.default_proc(h))
+  if (RBasic.flags(h) & FL_WEAK) != 0
+    return
+  end
+  keys = (RBasic.flags(h) & FL_WEAKKEY) == 0
   n = RHash.len(h)
   i = 0
   while i < n
     e = RHash.entries(h) + (i * HEntry.size)
     if HEntry.live(e) != 0
-      zr_mark(HEntry.key(e))
+      if keys
+        zr_mark(HEntry.key(e))
+      end
       zr_mark(HEntry.value(e))
     end
     i += 1
@@ -308,7 +314,7 @@ machine def zr_hash_store(h, key, value)
     HEntry.set_value(e, value)
     return
   end
-  if !zr_special_p(key) && zr_type(key) == T_STRING && !zr_frozen_p(key) && (RBasic.flags(h) & FL_IDENTITY) == 0
+  if !zr_special_p(key) && zr_type(key) == T_STRING && !zr_frozen_p(key) && (RBasic.flags(h) & (FL_IDENTITY | FL_WEAKKEY)) == 0
     copy = zr_str_new(RString.ptr(key), RString.len(key))
     RBasic.set_flags(copy, RBasic.flags(copy) | (RBasic.flags(key) & (FL_BINARY | FL_USASCII)))
     key = copy

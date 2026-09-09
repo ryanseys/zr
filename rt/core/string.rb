@@ -915,7 +915,10 @@ class String
     out
   end
 
-  def scrub!(replacement = nil, &block) = mutate(scrub(replacement, &block))
+  def scrub!(replacement = nil, &block)
+    mutate(scrub(replacement, &block))
+    self
+  end
 
   # Whether byte `at` starts a character (or ends the text).
   def char_boundary?(at)

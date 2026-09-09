@@ -21,6 +21,18 @@ module GC
     raise ArgumentError, "unknown key: #{key}"
   end
 
+  # The one collector here runs a full mark and sweep every time.
+  def self.latest_gc_info(key = nil)
+    info = {
+      major_by: :force, need_major_by: nil, gc_by: :method, have_finalizer: false,
+      immediate_sweep: true, state: :none, weak_references_count: 0, retained_weak_references_count: 0
+    }
+    return info if key.nil?
+    return info.fetch(key) if info.key?(key)
+
+    raise ArgumentError, "unknown key: #{key}"
+  end
+
   def start(full_mark: true, immediate_mark: true, immediate_sweep: true) = Primitive.zr_gc_start
   def garbage_collect(full_mark: true, immediate_mark: true, immediate_sweep: true) = Primitive.zr_gc_start
 end

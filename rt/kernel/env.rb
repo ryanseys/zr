@@ -76,6 +76,7 @@ machine def zr_program_end(exc)
   if exc != QUNDEF && !zr_system_exit_p(exc)
     zr_error_print(exc)
   end
+  zr_finalizers_at_exit()
   status
 end
 

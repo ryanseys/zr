@@ -93,7 +93,7 @@ G_TRUE = 9
 G_FALSE = 10
 G_MAIN = 11
 G_NUMERIC = 13
-G_COUNT = 45
+G_COUNT = 46
 
 sig [] => Ptr
 machine def zr_globals
@@ -290,6 +290,7 @@ machine def zr_mark_roots
   zr_mark_task(zr_task())
   Machine.store64(zr_marking(), 0, Machine.word(zr_fix(3)))
   zr_mark_kernel_roots()
+  zr_mark_finalizer_queue()
 end
 
 # A task's roots: its slots and its frame chain.
@@ -394,6 +395,7 @@ machine def zr_collect
   Machine.store64(zr_marking(), 0, QNIL)
   zr_mark_roots()
   zr_mark_drain()
+  zr_weak_prune()
   zr_sweep()
   n = Heap.arenas(h)
   if Heap.freed(h) * 2 < n * CELLS
@@ -410,7 +412,7 @@ end
 sig [] => Value
 machine def zr_gc_start
   zr_collect()
-  Machine.value(QNIL)
+  zr_finalizers_run()
 end
 
 sig [] => Value

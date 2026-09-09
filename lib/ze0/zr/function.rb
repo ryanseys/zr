@@ -291,8 +291,15 @@ module Ze0
         base = reserve(nodes.size + extra)
         nodes.each_with_index { |n, i| @f.store(expr(n), @rec, value_offset(base + i)) }
         result = yield(@f.iadd(@rec, imm(value_offset(base))), base)
-        @sp = base
+        release(base)
         result
+      end
+
+      # The slots from `base` up are free again, and hold nothing the
+      # collector would keep alive.
+      def release(base)
+        (base...@sp).each { |i| @f.store(@qnil, @rec, value_offset(i)) } unless @f.terminated?
+        @sp = base
       end
 
       # A call into the kernel, typed from the def's own signature.

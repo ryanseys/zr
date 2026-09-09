@@ -450,6 +450,9 @@ module Enumerable
   end
 
   def take(n)
+    n = Primitive.zr_index_operand_m(n)
+    raise ArgumentError, "attempt to take negative size" if n < 0
+
     out = []
     return out if n == 0
 
@@ -502,6 +505,9 @@ module Enumerable
       end
       return nil
     end
+
+    n = Primitive.zr_index_operand_m(n)
+    raise ArgumentError, "attempt to take negative size" if n < 0
 
     out = []
     return out if n == 0

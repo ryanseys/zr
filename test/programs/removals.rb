@@ -56,7 +56,8 @@ class A; end
 class B < A; end
 class C < A; end
 class D < B; end
-p A.subclasses, B.subclasses, D.subclasses, Integer.subclasses, Class.new(A).superclass
+anon = Class.new(A)
+p A.subclasses, B.subclasses, D.subclasses, Integer.subclasses, anon.superclass
 o = Object.new
 def o.x = 1
 p A.subclasses.map(&:name)

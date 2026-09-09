@@ -136,3 +136,18 @@ machine def zr_obj_head(recv)
   zr_buf_obj_head(b, recv)
   zr_buf_take(b)
 end
+
+# CRuby's rb_any_to_s: `#<Class:0x...>` for any object.
+sig [Value] => Value
+machine def zr_any_to_s(recv)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_obj_head(b, recv)
+  zr_buf_byte(b, 62)
+  zr_buf_take(b)
+end
+
+sig [Value] => Value
+machine def zr_special_p_m(v)
+  zr_bool(zr_special_p(v))
+end
