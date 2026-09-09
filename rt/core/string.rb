@@ -533,10 +533,6 @@ class String
 
   def match?(other) = Primitive.zr_unimplemented("String#match?")
 
-  def unpack(fmt) = Primitive.zr_unimplemented("String#unpack")
-
-  def unpack1(fmt) = Primitive.zr_unimplemented("String#unpack1")
-
   def encoding = Encoding::KINDS[Primitive.zr_str_encoding_kind(self)]
 
   def force_encoding(encoding)

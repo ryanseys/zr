@@ -1044,3 +1044,19 @@ machine def zr_float_shortest(v)
   zr_ary_push(out, zr_fix(Machine.load64(pair, 8) + n))
   out
 end
+
+# The IEEE 754 bit patterns of a double, as two 32-bit halves (low
+# first), so the core can pack it without a bignum.
+sig [Value] => Value
+machine def zr_float_halves(v)
+  bits = Machine.ptr(Machine.bits(zr_float_value(v)))
+  out = zr_ary_new(2)
+  zr_ary_push(out, zr_fix(Machine.word(bits & 4294967295)))
+  zr_ary_push(out, zr_fix(Machine.word(bits >> 32)))
+  out
+end
+
+sig [Value, Value] => Value
+machine def zr_float_of_halves(low, high)
+  zr_float_from_bits((zr_fix2long(high) << 32) | zr_fix2long(low))
+end

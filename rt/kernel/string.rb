@@ -227,6 +227,7 @@ machine def zr_str_concat(recv, argc, argv, cref, blk)
   end
   other = zr_str_operand(Machine.value(Machine.load64(argv, 0)))
   return other if other == QUNDEF
+  binary = zr_str_join_binary_p(recv, other)
   n = RString.len(recv) + RString.len(other)
   if n + 1 > RString.capa(recv)
     capa = RString.capa(recv) * 2
@@ -242,7 +243,7 @@ machine def zr_str_concat(recv, argc, argv, cref, blk)
   zr_memcpy(RString.ptr(recv) + RString.len(recv), RString.ptr(other), RString.len(other))
   RString.set_len(recv, n)
   Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
-  if zr_str_join_binary_p(recv, other)
+  if binary
     zr_str_set_binary(recv)
   elsif (RBasic.flags(recv) & FL_USASCII) != 0 && !zr_str_bytes_are_chars(other)
     RBasic.set_flags(recv, RBasic.flags(recv) & (0 - (FL_USASCII + 1)))
@@ -743,7 +744,9 @@ end
 # A new String of `len` bytes from `off`, both already in range.
 sig [Value, Value, Value] => Value
 machine def zr_str_byteslice(s, off, len)
-  zr_str_new(RString.ptr(s) + zr_fix2long(off), zr_fix2long(len))
+  out = zr_str_new(RString.ptr(s) + zr_fix2long(off), zr_fix2long(len))
+  RBasic.set_flags(out, RBasic.flags(out) | (RBasic.flags(s) & (FL_BINARY | FL_USASCII)))
+  out
 end
 
 # The receiver's bytes replaced by `other`'s.
