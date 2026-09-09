@@ -11,8 +11,11 @@ Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr,
 # `serial` counts classes in creation order, which `subclasses` reads.
 Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word
 # `orig` is the name the method was first defined under, which an
-# alias keeps.
-Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word
+# alias keeps. `from` is the chain node the entry an alias or a
+# visibility change copied was found on, where `super` in the body
+# continues from as CRuby's alias and zsuper entries do; nil for a
+# definition.
+Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word, from: Value
 Machine.struct :CEntry, id: Word, value: Value, file: Ptr, file_len: Word, line: Word, private: Word
 Machine.sig :method, [Value, Word, Ptr, Value, Value] => Value
 # Method kinds beyond a compiled def and a builtin: accessors keep the
@@ -379,7 +382,7 @@ machine def zr_alias(klass, new_id, old_id)
     zr_buf_byte(b, 39)
     return zr_raise_buf(zr_global(G_NAME_ERROR), b)
   end
-  zr_method_copy(klass, new_id, e, MEntry.meta(e), MEntry.vis(e))
+  zr_method_copy(klass, new_id, e, MEntry.meta(e), MEntry.vis(e), true)
   zr_method_added(klass, new_id)
 end
 
@@ -639,6 +642,8 @@ machine def zr_gate_bit(klass, mid)
     GATE_ASET
   elsif (klass == zr_global(G_ARRAY) || klass == zr_global(G_STRING)) && mid == Machine.id(:<<)
     GATE_LTLT
+  elsif klass == zr_global(G_STRING) && mid == Machine.id(:freeze)
+    GATE_FREEZE
   elsif mid == Machine.id(:!)
     GATE_NOT
   else
@@ -780,16 +785,24 @@ machine def zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
   MEntry.set_cref(e, cref)
   MEntry.set_vis(e, vis)
   MEntry.set_orig(e, mid)
+  MEntry.set_from(e, Machine.value(QNIL))
   ClassExt.set_mlen(ext, n + 1)
 end
 
 # The entry `e` again on `klass` as `mid`, keeping the name it was
-# first defined under.
-sig [Value, Word, Ptr, Ptr, Word] => Void
-machine def zr_method_copy(klass, mid, e, meta, vis)
+# first defined under and, when `e` was just found by `zr_find_method`
+# (`found`), the chain node it came from.
+sig [Value, Word, Ptr, Ptr, Word, Bool] => Void
+machine def zr_method_copy(klass, mid, e, meta, vis, found)
   orig = MEntry.orig(e)
+  from = MEntry.from(e)
+  if found && from == QNIL
+    from = Task.found(zr_task())
+  end
   zr_method_add_vis(klass, mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), meta, MEntry.cref(e), vis)
-  MEntry.set_orig(zr_find_method_at(zr_origin(klass), mid), orig)
+  e = zr_find_method_at(zr_origin(klass), mid)
+  MEntry.set_orig(e, orig)
+  MEntry.set_from(e, from)
 end
 
 # `private`, `public`, `protected` and `module_function` as a class
@@ -845,13 +858,13 @@ machine def zr_set_method_visibility(klass, mid, vis, modfn)
     return zr_raise_buf(zr_global(G_NAME_ERROR), b)
   end
   if modfn != 0
-    zr_method_copy(zr_singleton_class(klass), mid, e, MEntry.meta(e), VIS_PUBLIC)
+    zr_method_copy(zr_singleton_class(klass), mid, e, MEntry.meta(e), VIS_PUBLIC, false)
     vis = VIS_PRIVATE
   end
   if zr_find_method_at(zr_origin(klass), mid) == e
     MEntry.set_vis(e, vis)
   else
-    zr_method_copy(zr_origin(klass), mid, e, MEntry.meta(e), vis)
+    zr_method_copy(zr_origin(klass), mid, e, MEntry.meta(e), vis, true)
   end
   Machine.value(QNIL)
 end
@@ -1041,6 +1054,7 @@ machine def zr_mark_mtab(ext)
   i = 0
   while i < n
     zr_mark(MEntry.cref(ClassExt.mtab(ext) + (i * MEntry.size)))
+    zr_mark(MEntry.from(ClassExt.mtab(ext) + (i * MEntry.size)))
     i += 1
   end
 end

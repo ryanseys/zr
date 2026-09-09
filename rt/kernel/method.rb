@@ -21,6 +21,7 @@ machine def zr_mark_method(m)
   zr_mark(RMethod.klass(m))
   zr_mark(RMethod.owner(m))
   zr_mark(MEntry.cref(RMethod.entry(m)))
+  zr_mark(MEntry.from(RMethod.entry(m)))
 end
 
 # The module in `klass`'s chain whose own table answers `mid`, or nil.
@@ -99,6 +100,7 @@ machine def zr_method_missing_new(recv, klass, mid)
   MEntry.set_cref(e, Machine.value(QNIL))
   MEntry.set_vis(e, VIS_PUBLIC)
   MEntry.set_orig(e, mid)
+  MEntry.set_from(e, Machine.value(QNIL))
   m
 end
 
@@ -123,13 +125,20 @@ machine def zr_method_call(recv, argc, argv, cref, blk)
   if blk != QNIL
     RProc.set_passed(blk, 1)
   end
-  zr_invoke(RMethod.entry(recv), RMethod.recv(recv), argc, argv, blk, zr_kw_take())
+  zr_method_invoke(recv, argc, argv, blk)
 end
 
 # The block function of `Method#to_proc`: the Proc's self is the Method.
 sig [Value, Word, Ptr, Value] => Value
 machine def zr_method_block(p, argc, argv, blk)
-  m = RProc.self(p)
+  zr_method_invoke(RProc.self(p), argc, argv, blk)
+end
+
+# The Method's entry on its receiver; the chain node the name is found
+# on is what `super` in the body continues from.
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_method_invoke(m, argc, argv, blk)
+  zr_find_method(RMethod.klass(m), MEntry.mid(RMethod.entry(m)))
   zr_invoke(RMethod.entry(m), RMethod.recv(m), argc, argv, blk, zr_kw_take())
 end
 
@@ -412,7 +421,7 @@ machine def zr_method_bind_call(recv, argc, argv, cref, blk)
   end
   bound = zr_method_bind_to(recv, Machine.value(Machine.load64(argv, 0)))
   return bound if bound == QUNDEF
-  zr_invoke(RMethod.entry(bound), RMethod.recv(bound), argc - 1, argv + 8, blk, zr_kw_take())
+  zr_method_invoke(bound, argc - 1, argv + 8, blk)
 end
 
 # The meta that locates a method entry in a Ruby file, or 0: a def's
@@ -457,31 +466,63 @@ machine def zr_method_eq(recv, argc, argv, cref, blk)
   zr_bool(RMethod.recv(recv) == RMethod.recv(other) && RMethod.owner(recv) == RMethod.owner(other) && MEntry.fn(a) == MEntry.fn(b) && MEntry.kind(a) == MEntry.kind(b))
 end
 
-# One parameter row as `inspect` shows it: `a`, `b=...`, `*r`, `k:`,
-# `o: ...`, `**kw`, `&blk`; an unnamed row is `_`, `*` or `**`.
-sig [Ptr, Word, Word] => Void
-machine def zr_buf_param(b, kind, id)
+# One parameter row as `inspect` shows it, CRuby's way: `a`, `b=...`,
+# `*r`, `k:`, `o: ...`, `**kw`, `&blk`, `**nil`; an unnamed row is `_`,
+# `*` or `**`; an anonymous block is `...`, which also stands for the
+# whole `(*, **, &)` triple (`forwarding`); an anonymous `**` after
+# another row drops itself and the separator before it.
+sig [Ptr, Word, Word, Word, Bool] => Void
+machine def zr_buf_param(b, kind, id, i, forwarding)
   if kind == PARAM_REST
-    zr_buf_byte(b, 42)
+    if id == Machine.id(:*)
+      zr_buf_push(b, forwarding ? Machine.bytes("...") : Machine.bytes("*"), forwarding ? 3 : 1)
+    else
+      zr_buf_byte(b, 42)
+      zr_buf_sym(b, id)
+    end
   elsif kind == PARAM_KEYREST
-    zr_buf_push(b, Machine.bytes("**"), 2)
+    if id != Machine.id(:**)
+      zr_buf_push(b, Machine.bytes("**"), 2)
+      zr_buf_sym(b, id)
+    elsif i > 0
+      Buf.set_len(b, Buf.len(b) - 2)
+    else
+      zr_buf_push(b, Machine.bytes("**"), 2)
+    end
+  elsif kind == PARAM_BLOCK
+    if id != Machine.id(:&)
+      zr_buf_byte(b, 38)
+      zr_buf_sym(b, id)
+    elsif forwarding
+      Buf.set_len(b, Buf.len(b) - 2)
+    else
+      zr_buf_push(b, Machine.bytes("..."), 3)
+    end
   elsif kind == PARAM_NOKEY
     zr_buf_push(b, Machine.bytes("**nil"), 5)
-  elsif kind == PARAM_BLOCK
-    zr_buf_byte(b, 38)
+  else
+    if id != 0
+      zr_buf_sym(b, id)
+    else
+      zr_buf_byte(b, 95)
+    end
+    if kind == PARAM_OPT
+      zr_buf_push(b, Machine.bytes("=..."), 4)
+    elsif kind == PARAM_KEYREQ
+      zr_buf_byte(b, 58)
+    elsif kind == PARAM_KEY
+      zr_buf_push(b, Machine.bytes(": ..."), 5)
+    end
   end
-  if id != 0
-    zr_buf_sym(b, id)
-  elsif kind == PARAM_REQ || kind == PARAM_OPT
-    zr_buf_byte(b, 95)
-  end
-  if kind == PARAM_OPT
-    zr_buf_push(b, Machine.bytes("=..."), 4)
-  elsif kind == PARAM_KEYREQ
-    zr_buf_byte(b, 58)
-  elsif kind == PARAM_KEY
-    zr_buf_push(b, Machine.bytes(": ..."), 5)
-  end
+end
+
+# Whether the table is the `(*, **, &)` of a `(...)` parameter.
+sig [Ptr] => Bool
+machine def zr_params_forwarding_p(table)
+  Machine.load64(table, 0) == 3 &&
+    Machine.load64(table + 8, 0) == PARAM_REST && Machine.load64(table + 16, 0) == Machine.id(:*) &&
+    Machine.load64(table + 24, 0) == PARAM_KEYREST && Machine.load64(table + 32, 0) == Machine.id(:**) &&
+    Machine.load64(table + 40, 0) == PARAM_BLOCK && Machine.load64(table + 48, 0) == Machine.id(:&)
 end
 
 sig [Ptr, Value] => Void
@@ -493,12 +534,13 @@ machine def zr_buf_method_params(b, m)
   if meta != 0 && FrameMeta.file_len(meta) > 0
     table = FrameMeta.params(meta)
     n = Machine.load64(table, 0)
+    forwarding = zr_params_forwarding_p(table)
     i = 0
     while i < n
       if i > 0
         zr_buf_push(b, Machine.bytes(", "), 2)
       end
-      zr_buf_param(b, Machine.load64(table + 8 + (i * 16), 0), Machine.load64(table + 16 + (i * 16), 0))
+      zr_buf_param(b, Machine.load64(table + 8 + (i * 16), 0), Machine.load64(table + 16 + (i * 16), 0), i, forwarding)
       i += 1
     end
   elsif arity < 0

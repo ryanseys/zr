@@ -474,6 +474,7 @@ class Array
   def delete_if
     return to_enum(:delete_if) { size } unless block_given?
 
+    Primitive.zr_frozen_error(self) if frozen?
     i = 0
     while i < size
       if yield(self[i])
@@ -488,6 +489,7 @@ class Array
   def reject!
     return to_enum(:reject!) { size } unless block_given?
 
+    Primitive.zr_frozen_error(self) if frozen?
     before = size
     delete_if { |x| yield(x) }
     size == before ? nil : self
@@ -496,12 +498,15 @@ class Array
   def select!
     return to_enum(:select!) { size } unless block_given?
 
+    Primitive.zr_frozen_error(self) if frozen?
     before = size
     delete_if { |x| !yield(x) }
     size == before ? nil : self
   end
 
   def keep_if
+    return to_enum(:keep_if) { size } unless block_given?
+
     select! { |x| yield(x) }
     self
   end
@@ -571,6 +576,7 @@ class Array
   def collect! = map! { |x| yield(x) }
 
   def compact!
+    Primitive.zr_frozen_error(self) if frozen?
     before = size
     delete_if(&:nil?)
     size == before ? nil : self

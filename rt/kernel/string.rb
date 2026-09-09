@@ -777,6 +777,18 @@ machine def zr_str_frozen(bytes, len)
   zr_str_intern(zr_str_new(bytes, len))
 end
 
+# `"lit".freeze`: the shared frozen String, unless the program has
+# redefined String#freeze, which then runs as any send.
+sig [Ptr, Word] => Value
+machine def zr_str_literal_freeze(bytes, len)
+  if (Machine.load64(zr_gates(), 0) & GATE_FREEZE) != 0
+    return zr_send(zr_str_new(bytes, len), Machine.id(:freeze), 0, 0)
+  end
+  zr_str_frozen(bytes, len)
+end
+
+GATE_FREEZE = 32768
+
 G_FSTRINGS = 44
 
 # CRuby's fstring table: the one frozen String of these bytes. A

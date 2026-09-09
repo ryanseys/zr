@@ -42,6 +42,10 @@ module Ze0
         # `recv&.name(args)`: nil when the receiver is, with the arguments
         # left unevaluated; else the send.
         def safe_call(node)
+          # `self&.x` is `self.x`: self is never nil, and the receiver
+          # stays a literal self for the visibility rule.
+          return call(node.dup.tap { |n| n.safe = false }) if node.recv.is_a?(Hir::SelfRef)
+
           base = @sp
           slot = reserve(1)
           @f.store(expr(node.recv), @rec, value_offset(slot))

@@ -4,14 +4,15 @@
 # class; a dup keeps neither.
 
 # The rows of one ivar table copied into another, fresh, table; the
-# object id stays with the original.
+# object id and the mark a core class puts on a cell it has built
+# stay with the original.
 sig [Ptr, Ptr] => Void
 machine def zr_ivtab_copy(to, from)
   zr_ivtab_init(to)
   i = 0
   while i < IvTab.len(from)
     e = IvTab.rows(from) + (i * IvEntry.size)
-    if IvEntry.id(e) != Machine.id(:__object_id__)
+    if IvEntry.id(e) != Machine.id(:__object_id__) && IvEntry.id(e) != Machine.id(:__built__)
       zr_ivtab_set(to, IvEntry.id(e), IvEntry.value(e))
     end
     i += 1
@@ -192,7 +193,7 @@ machine def zr_include_singleton(copy, meta)
   i = 0
   while i < ClassExt.mlen(ext)
     e = ClassExt.mtab(ext) + (i * MEntry.size)
-    zr_method_copy(own, MEntry.mid(e), e, MEntry.meta(e), MEntry.vis(e))
+    zr_method_copy(own, MEntry.mid(e), e, zr_meta_owned_by(MEntry.meta(e), own), MEntry.vis(e), false)
     i += 1
   end
   k = RClass.superclass(meta)

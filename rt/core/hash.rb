@@ -56,6 +56,7 @@ class Hash
   def select!
     return to_enum(:select!) { size } unless block_given?
 
+    Primitive.zr_frozen_error(self) if frozen?
     before = size
     keys.each { |k| delete(k) unless yield(k, self[k]) }
     size == before ? nil : self
@@ -72,6 +73,7 @@ class Hash
   def reject!
     return to_enum(:reject!) { size } unless block_given?
 
+    Primitive.zr_frozen_error(self) if frozen?
     before = size
     keys.each { |k| delete(k) if yield(k, self[k]) }
     size == before ? nil : self
@@ -276,6 +278,7 @@ class Hash
   end
 
   def compact!
+    Primitive.zr_frozen_error(self) if frozen?
     before = size
     keys.each { |k| delete(k) if self[k].nil? }
     size == before ? nil : self

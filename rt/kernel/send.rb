@@ -157,22 +157,42 @@ machine def zr_kw_take
   kw
 end
 
+# Why a call reached `method_missing`, which the base one turns into
+# the message: nothing defined the name (called with a receiver, as a
+# bare identifier, or explicitly), or the method was private or
+# protected.
+MISS_IMPLICIT = 1
+MISS_VCALL = 2
+MISS_EXPLICIT = 3
+MISS_PRIVATE = 4
+MISS_PROTECTED = 5
+
 # A miss goes to the receiver's `method_missing` with the name in
 # front of the arguments; the base one raises as a plain miss does.
 sig [Value, Word, Word, Ptr, Value, Word, Word] => Value
-machine def zr_method_missing(recv, mid, argc, argv, blk, kw, mode)
+machine def zr_method_missing(recv, mid, argc, argv, blk, kw, reason)
   e = zr_find_method(zr_class_of(recv), Machine.id(:method_missing))
   if e == 0 || MEntry.fn(e) == Machine.addr(:zr_obj_method_missing)
-    return zr_no_method(recv, mid, mode == 1)
+    return zr_miss_error(recv, mid, reason)
   end
   args = malloc((argc + 1) * 8)
   Machine.store64(args, 0, Machine.word(zr_sym(mid)))
   zr_memcpy(args + 8, argv, argc * 8)
-  # The base method_missing reads how the miss came about.
-  Task.set_missing(zr_task(), mode + 1)
+  Task.set_missing(zr_task(), reason)
   r = zr_invoke(e, recv, argc + 1, args, blk, kw)
   free(args)
   r
+end
+
+sig [Value, Word, Word] => Value
+machine def zr_miss_error(recv, mid, reason)
+  if reason == MISS_PRIVATE
+    return zr_hidden_method(recv, mid, VIS_PRIVATE)
+  end
+  if reason == MISS_PROTECTED
+    return zr_hidden_method(recv, mid, VIS_PROTECTED)
+  end
+  zr_no_method(recv, mid, reason == MISS_VCALL)
 end
 
 # `BasicObject#method_missing`: the NoMethodError a miss raises.
@@ -188,7 +208,7 @@ machine def zr_obj_method_missing(recv, argc, argv, cref, blk)
   t = zr_task()
   reason = Task.missing(t)
   Task.set_missing(t, 0)
-  zr_no_method(recv, zr_sym2id(m), reason == 2)
+  zr_miss_error(recv, zr_sym2id(m), reason)
 end
 
 sig [Value, Word, Bool] => Value
@@ -245,22 +265,20 @@ end
 # implicit or self receiver, 2 an explicit one, 3 `public_send`, whose
 # caller is the frame below its own): a private method only
 # implicitly, a protected one when the caller's self is of the owner.
-sig [Ptr, Value, Word, Word] => Value
-machine def zr_check_visibility(e, recv, mid, mode)
+# Answers 0, or the visibility that refused the call.
+sig [Ptr, Word] => Word
+machine def zr_visibility_refused(e, mode)
   if mode < 2 || MEntry.vis(e) == VIS_PUBLIC
-    return Machine.value(QNIL)
+    return 0
   end
-  if MEntry.vis(e) == VIS_PROTECTED
+  if MEntry.vis(e) == VIS_PROTECTED && mode != 3
     owner = FrameMeta.owner(MEntry.meta(e))
     caller = Task.top(zr_task())
-    if mode == 3
-      caller = Frame.prev(caller)
-    end
     if caller != 0 && zr_is_a(Frame.self(caller), owner)
-      return Machine.value(QNIL)
+      return 0
     end
   end
-  zr_hidden_method(recv, mid, MEntry.vis(e))
+  MEntry.vis(e)
 end
 
 # `argv` points at `argc` Values the caller keeps rooted. `mode` is 0
@@ -272,10 +290,12 @@ machine def zr_dispatch(recv, mid, argc, argv, mode, blk)
   kw = zr_kw_take()
   e = zr_find_method(zr_class_of(recv), mid)
   if e == 0
-    return zr_method_missing(recv, mid, argc, argv, blk, kw, mode)
+    return zr_method_missing(recv, mid, argc, argv, blk, kw, mode == 1 ? MISS_VCALL : (mode == 0 ? MISS_IMPLICIT : MISS_EXPLICIT))
   end
-  r = zr_check_visibility(e, recv, mid, mode)
-  return r if r == QUNDEF
+  vis = zr_visibility_refused(e, mode)
+  if vis != 0
+    return zr_method_missing(recv, mid, argc, argv, blk, kw, vis == VIS_PRIVATE ? MISS_PRIVATE : MISS_PROTECTED)
+  end
   zr_invoke(e, recv, argc, argv, blk, kw)
 end
 
@@ -310,10 +330,10 @@ machine def zr_super(rec, argc, argv, blk)
   zr_invoke(e, recv, argc, argv, blk, kw)
 end
 
-# Where the method the frame runs in (through its blocks) was found,
-# when that node is `owner` or a proxy for it; else nil.
-sig [Ptr, Value] => Value
-machine def zr_frame_defined(rec, owner)
+# The chain node the method the frame runs in (through its blocks)
+# was found on; nil for a frame the kernel pushed.
+sig [Ptr] => Value
+machine def zr_frame_defined(rec)
   meta = zr_method_meta_of(rec)
   r = rec
   while r != 0 && Frame.meta(r) != meta
@@ -322,11 +342,7 @@ machine def zr_frame_defined(rec, owner)
   if r == 0
     return Machine.value(QNIL)
   end
-  k = Frame.defined(r)
-  if k == QNIL || k == owner || (zr_type(k) == T_ICLASS && RClass.attached(k) == owner)
-    return k
-  end
-  Machine.value(QNIL)
+  Frame.defined(r)
 end
 
 # The entry of the `define_method` method the frame runs in, or 0.
@@ -381,7 +397,7 @@ end
 # chain; nil when there is none.
 sig [Ptr, Value, Value] => Value
 machine def zr_super_from(rec, recv, owner)
-  k = zr_frame_defined(rec, owner)
+  k = zr_frame_defined(rec)
   if k != QNIL
     return k
   end
@@ -413,6 +429,9 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
     end
     Task.set_kw(zr_task(), kw)
     Task.set_mid(zr_task(), MEntry.mid(e))
+    if MEntry.from(e) != QNIL
+      Task.set_found(zr_task(), MEntry.from(e))
+    end
     return Machine.call(:method, MEntry.fn(e), recv, argc, argv, MEntry.cref(e), blk)
   end
   if MEntry.kind(e) == KIND_ATTR_READER
@@ -436,7 +455,7 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
     return zr_bmethod_call(e, recv, argc, argv, blk)
   end
   if MEntry.kind(e) == KIND_MISSING
-    return zr_method_missing(recv, MEntry.mid(e), argc, argv, blk, kw, 2)
+    return zr_method_missing(recv, MEntry.mid(e), argc, argv, blk, kw, MISS_EXPLICIT)
   end
   rec = Machine.slot(Frame.size)
   t = zr_task()

@@ -97,6 +97,10 @@ module Kernel
     self
   end
 
+  # nil shows every instance variable in `inspect`; an Array names
+  # the ones to show.
+  private def instance_variables_to_inspect = nil
+
   private def initialize_dup(orig) = initialize_copy(orig)
   private def initialize_clone(orig, freeze: nil) = initialize_copy(orig)
 end

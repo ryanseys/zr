@@ -110,7 +110,7 @@ sig [Value, Word, Bool] => Value
 machine def zr_method_defined(recv, id, explicit)
   e = zr_find_method(zr_class_of(recv), id)
   if e == 0
-    return Machine.value(QFALSE)
+    return zr_bool(zr_respond_to_missing_p(recv, id))
   end
   if explicit && MEntry.vis(e) == VIS_PRIVATE
     return Machine.value(QFALSE)
@@ -489,12 +489,25 @@ machine def zr_obj_inspect(recv, argc, argv, cref, blk)
     zr_buf_byte(b, 62)
     return zr_buf_take(b)
   end
+  filter = zr_send(recv, Machine.id(:instance_variables_to_inspect), 0, 0)
+  if filter == QUNDEF
+    free(Buf.ptr(b))
+    return filter
+  end
+  if filter != QNIL && (zr_special_p(filter) || zr_type(filter) != T_ARRAY)
+    free(Buf.ptr(b))
+    m = Machine.slot(Buf.size)
+    zr_buf_init(m)
+    zr_buf_push(m, Machine.bytes("Expected #instance_variables_to_inspect to return an Array or nil, but it returned "), 83)
+    zr_buf_str(m, zr_class_name_of(filter))
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), m)
+  end
   i = 0
   shown = 0
   while i < IvTab.len(RObject.iv(recv))
     e = IvTab.rows(RObject.iv(recv)) + (i * IvEntry.size)
     i += 1
-    if zr_ivar_id_visible_p(IvEntry.id(e))
+    if zr_ivar_id_visible_p(IvEntry.id(e)) && (filter == QNIL || zr_ary_index_of(filter, zr_sym(IvEntry.id(e))) >= 0)
       zr_buf_push(b, shown == 0 ? Machine.bytes(" ") : Machine.bytes(", "), shown == 0 ? 1 : 2)
       shown += 1
       zr_buf_sym(b, IvEntry.id(e))

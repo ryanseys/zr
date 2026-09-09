@@ -398,7 +398,17 @@ class Time
 
   private
 
+  # The hidden `__built__` mark stays behind on a copy, so only a Time
+  # built by `set` refuses.
+  def initialize_copy(other)
+    raise TypeError, "already initialized Time" if Primitive.zr_hidden_get(self, :__built__)
+
+    super
+    Primitive.zr_hidden_set(self, :__built__, true)
+  end
+
   def set(ns, kind)
+    Primitive.zr_hidden_set(self, :__built__, true)
     @ns = ns
     @kind = kind
     @fields = nil

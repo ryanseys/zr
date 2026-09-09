@@ -1082,6 +1082,7 @@ class String
   end
 
   def mutate(result)
+    Primitive.zr_frozen_error(self) if frozen?
     return nil if result == self
 
     replace(result)
