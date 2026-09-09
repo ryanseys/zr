@@ -1,0 +1,66 @@
+# frozen_string_literal: true
+
+module Ze0
+  module Zr
+    class Function
+      # Methods, classes, modules and constants: what a scope defines.
+      module Definitions
+        private
+
+        # `def`: the body becomes its own function, registered on the
+        # cref's class; the value is the name.
+        def define_method(node)
+          fn = @l.define(node)
+          addr = @f.func_addr(@f.callee(fn, ABI.fetch(:def), "i64"))
+          meta = @f.symbol_value(@f.symbol("zr_meta_#{fn}"))
+          kernel("zr_define_method", cref_class, imm(sym_id(node.name)), addr, imm(node.params.size), imm(@l.const("KIND_DEF")), meta, @cref)
+          symbol(node.name)
+        end
+
+        # `class`/`module`: define or reopen under the scope, push a cref,
+        # run the body function with the class as self.
+        def class_body(node)
+          fn = @l.body(node)
+          scope = scope_class(node.scope)
+          id = imm(sym_id(node.name))
+          at_line(node.line)
+          klass = if node.is_a?(Hir::ClassDef)
+                    sup = node.superclass ? expr(node.superclass) : qundef
+                    checked(kernel("zr_class_define", scope, id, sup))
+                  else
+                    checked(kernel("zr_module_define", scope, id))
+                  end
+          cref = kernel("zr_cref_push", klass, @cref)
+          checked(@f.call_val(@f.callee(fn, ABI.fetch(:class), "i64"), [klass, cref]))
+        end
+
+        # The class a constant path's scope names: the cref's class for a
+        # bare name, Object for `::`, else the expression's value.
+        def scope_class(scope)
+          case scope
+          when nil then cref_class
+          when :top then global("G_OBJECT")
+          else expr(scope)
+          end
+        end
+
+        def const_read(node)
+          id = imm(sym_id(node.name))
+          at_line(node.line)
+          if node.scope.nil?
+            checked(kernel("zr_const_get", @cref, id))
+          else
+            checked(kernel("zr_const_get_at", scope_class(node.scope), id))
+          end
+        end
+
+        def const_write(node)
+          scope = scope_class(node.scope)
+          v = expr(node.value)
+          kernel("zr_const_set", scope, imm(sym_id(node.name)), v)
+          v
+        end
+      end
+    end
+  end
+end
