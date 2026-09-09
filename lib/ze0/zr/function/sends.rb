@@ -55,16 +55,15 @@ module Ze0
           signal = @f.label
           merge, (result,) = @f.block(["i64"])
           @f.brif(@f.icmp("eq", r, qundef), signal, fine)
-          @f.switch(fine)
+          switch(fine)
           @f.jump(merge, [r])
-          @f.switch(signal)
+          switch(signal)
           caught = kernel("zr_catch_break", @rec, imm(site))
-          @landing ||= @f.label
           ours = @f.label
-          @f.brif(@f.icmp("eq", caught, qundef), @landing, ours)
-          @f.switch(ours)
+          @f.brif(@f.icmp("eq", caught, qundef), landing, ours)
+          switch(ours)
           @f.jump(merge, [caught])
-          @f.switch(merge)
+          switch(merge)
           result
         end
 
@@ -80,12 +79,12 @@ module Ze0
           slow = @f.label
           merge, (result,) = @f.block(["i64"])
           @f.brif(ok, fast, slow)
-          @f.switch(fast)
+          switch(fast)
           value = fast_path(node.name, recv, arg, slow)
           @f.jump(merge, [value])
-          @f.switch(slow)
+          switch(slow)
           @f.jump(merge, [dispatch(node, recv, argv)])
-          @f.switch(merge)
+          switch(merge)
           result
         end
 
@@ -114,13 +113,13 @@ module Ze0
         def unless_equal(value, n, escape)
           ok = @f.label
           @f.brif(@f.icmp("eq", value, imm(n)), escape, ok)
-          @f.switch(ok)
+          switch(ok)
         end
 
         def overflow_or((value, flag), slow)
           ok = @f.label
           @f.brif(flag, slow, ok)
-          @f.switch(ok)
+          switch(ok)
           value
         end
 
@@ -137,12 +136,12 @@ module Ze0
             slow = @f.label
             merge, (result,) = @f.block(["i64"])
             @f.brif(gate_clear("GATE_NOT"), fast, slow)
-            @f.switch(fast)
+            switch(fast)
             @f.jump(merge, [@f.csel(truthy(v), imm(@l.const("QFALSE")), imm(@l.const("QTRUE")))])
-            @f.switch(slow)
+            switch(slow)
             at_line(node.line)
             @f.jump(merge, [checked(kernel("zr_send", v, imm(sym_id(:!)), imm(0), @f.iadd(slots, imm(8))))])
-            @f.switch(merge)
+            switch(merge)
             result
           end
         end

@@ -32,8 +32,12 @@ module Ze0
         when Hir::Yield then row(node.args, base)
         when Hir::ArrayLit then row(node.elements, base)
         when Hir::Interp then row(node.parts, base)
-        when Hir::Break, Hir::Next, Hir::Assign, Hir::Return, Hir::Not, Hir::IvarWrite, Hir::ConstWrite
-          staging(node.value, base)
+        when Hir::Assign, Hir::Not, Hir::IvarWrite, Hir::ConstWrite then staging(node.value, base)
+        when Hir::Break, Hir::Next, Hir::Return then staging(node.value, base + 1)
+        when Hir::Begin
+          top = base + (node.rescues.empty? ? 0 : 2) + (node.ensure_body ? 2 : 0)
+          [top, staging(node.body, top), *node.rescues.map { |r| staging(r, top) }, staging(node.else_body, top), staging(node.ensure_body, top)].max
+        when Hir::Rescue then [staging(node.body, base), *node.classes.map { |c| staging(c, base) }].max
         when Hir::ClassDef then [staging(node.scope, base), staging(node.superclass, base)].max
         when Hir::ModuleDef, Hir::ConstRead then staging(node.scope, base)
         when Hir::If then [staging(node.cond, base), staging(node.yes, base), staging(node.no, base)].max

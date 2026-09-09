@@ -109,6 +109,7 @@ module Ze0
         when Prism::IndexOperatorWriteNode, Prism::IndexOrWriteNode, Prism::IndexAndWriteNode
           refuse(node, "an operator assignment through [] is not lowered yet")
         when Prism::InstanceVariableReadNode then IvarRead.new(node.name, line)
+        when Prism::GlobalVariableReadNode then GvarRead.new(node.name, line)
         when Prism::InstanceVariableWriteNode then IvarWrite.new(node.name, expr(node.value), line)
         when Prism::InstanceVariableOperatorWriteNode
           IvarWrite.new(node.name, Send.new(IvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
@@ -116,8 +117,42 @@ module Ze0
           IvarWrite.new(node.name, Or.new(IvarRead.new(node.name, line), expr(node.value), line), line)
         when Prism::InstanceVariableAndWriteNode
           IvarWrite.new(node.name, And.new(IvarRead.new(node.name, line), expr(node.value), line), line)
+        when Prism::BeginNode then protected_region(node)
+        when Prism::RescueModifierNode
+          clause = Rescue.new([], nil, nil, expr(node.rescue_expression), line)
+          Begin.new(expr(node.expression), [clause], nil, nil, line)
+        when Prism::RetryNode then Retry.new(line)
         else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
         end
+      end
+
+      # `begin ... end` with its clauses; a bare `begin ... end` is its body.
+      def protected_region(node)
+        line = node.location.start_line
+        body = node.statements ? seq(node.statements) : Literal.new(nil, line)
+        return body if node.rescue_clause.nil? && node.ensure_clause.nil?
+
+        rescues = []
+        clause = node.rescue_clause
+        while clause
+          rescues << rescue_clause(clause)
+          clause = clause.subsequent
+        end
+        else_body = node.else_clause && (node.else_clause.statements ? seq(node.else_clause.statements) : Literal.new(nil, line))
+        ensure_body = node.ensure_clause && (node.ensure_clause.statements ? seq(node.ensure_clause.statements) : Literal.new(nil, line))
+        Begin.new(body, rescues, else_body, ensure_body, line)
+      end
+
+      def rescue_clause(node)
+        line = node.location.start_line
+        refuse(node, "a splat in a rescue clause is not lowered yet") if node.exceptions.any?(Prism::SplatNode)
+        name = depth = nil
+        if node.reference
+          refuse(node.reference, "a rescue into anything but a local is not lowered yet") unless node.reference.is_a?(Prism::LocalVariableTargetNode)
+          name = node.reference.name
+          depth = node.reference.depth
+        end
+        Rescue.new(node.exceptions.map { |e| expr(e) }, name, depth, node.statements ? seq(node.statements) : Literal.new(nil, line), line)
       end
 
       # `[scope, name]` of a constant path: nil for a bare name, :top for

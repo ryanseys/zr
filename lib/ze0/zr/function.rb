@@ -7,6 +7,7 @@ require_relative "function/expressions"
 require_relative "function/definitions"
 require_relative "function/sends"
 require_relative "function/control"
+require_relative "function/regions"
 
 module Ze0
   module Zr
@@ -31,6 +32,7 @@ module Ze0
       include Definitions
       include Sends
       include Control
+      include Regions
 
       KINDS = { main: "KIND_MAIN", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", block: "KIND_BLOCK" }.freeze
       ABI = { main: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], block: %w[i64 i64 i64 i64] }.freeze
@@ -53,6 +55,8 @@ module Ze0
         @has_env = Scope.holds_block?(body)
         @sites = 0
         @loops = []
+        @regions = []
+        @retries = []
       end
 
       def lower
@@ -132,15 +136,15 @@ module Ze0
       # The landing block: a pending signal leaves the function, unless
       # it is a `return` from a block of this method, whose value is ours.
       def land
-        @f.switch(@landing, open: true)
+        switch(@landing, open: true)
         if %i[def main].include?(@kind) && @has_env
           caught = kernel("zr_catch_return", @rec)
           done = @f.label
           none = @f.label
           @f.brif(@f.icmp("eq", caught, qundef), none, done)
-          @f.switch(done)
+          switch(done)
           leave(caught)
-          @f.switch(none)
+          switch(none)
         end
         leave(qundef)
       end
@@ -163,11 +167,11 @@ module Ze0
             miss = @f.label
             merge, (v,) = @f.block(["i64"])
             @f.brif(@f.icmp("slt", imm(i), count), have, miss)
-            @f.switch(have)
+            switch(have)
             @f.jump(merge, [@f.fetch("i64", argv, 8 * i)])
-            @f.switch(miss)
+            switch(miss)
             @f.jump(merge, [@qnil])
-            @f.switch(merge)
+            switch(merge)
             write_local(i, 0, v)
           end
         end
@@ -178,14 +182,20 @@ module Ze0
         @f.ret(value)
       end
 
-      # A call's answer, after the test for a pending signal: `qundef`
+      # A call's answer, after the test for a pending signal: `undef`
       # takes the landing block.
       def checked(value)
-        @landing ||= @f.label
         go = @f.label
-        @f.brif(@f.icmp("eq", value, qundef), @landing, go)
-        @f.switch(go)
+        @f.brif(@f.icmp("eq", value, qundef), landing, go)
+        switch(go)
         value
+      end
+
+      # Continue in `block`. The line the record carries is unknown
+      # again, since more than one path may arrive.
+      def switch(block, open: false)
+        @f.switch(block, open: open)
+        @line = nil
       end
 
       # The line a backtrace reports for what runs next.

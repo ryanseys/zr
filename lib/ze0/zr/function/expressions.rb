@@ -27,11 +27,14 @@ module Ze0
           when Hir::ArrayLit then staged(node.elements) { |argv| kernel("zr_ary_of", imm(node.elements.size), argv) }
           when Hir::Interp then staged(node.parts) { |argv| checked(kernel("zr_str_interp", imm(node.parts.size), argv)) }
           when Hir::IvarRead then kernel("zr_ivar_get", @self, imm(sym_id(node.name)))
+          when Hir::GvarRead then gvar_read(node)
           when Hir::IvarWrite then kernel("zr_ivar_set", @self, imm(sym_id(node.name)), expr(node.value))
           when Hir::If then branch(node)
           when Hir::While then loop_while(node)
           when Hir::And, Hir::Or then logical(node)
           when Hir::Not then negate(node)
+          when Hir::Begin then protect(node)
+          when Hir::Retry then retry_region(node)
           else @l.refuse(node, "#{node.class.name.split("::").last} is not lowered yet")
           end
         end
@@ -60,6 +63,13 @@ module Ze0
           when true then imm(@l.const("QTRUE"))
           when false then imm(@l.const("QFALSE"))
           end
+        end
+
+        # `$!` is the task's; every other global waits for the table.
+        def gvar_read(node)
+          @l.refuse(node, "#{node.name} is not lowered yet") unless node.name == :$!
+
+          kernel("zr_errinfo")
         end
 
         def symbol(name)

@@ -64,6 +64,20 @@ module Ze0
           node(n.cond, depth + 1, lines)
           n.body ? node(n.body, depth + 1, lines) : lines << "#{pad}  (none)"
           lines[-1] += ")"
+        when Begin
+          lines << "#{pad}(begin"
+          node(n.body, depth + 1, lines)
+          n.rescues.each { |r| node(r, depth + 1, lines) }
+          [n.else_body, n.ensure_body].each { |arm| arm ? node(arm, depth + 1, lines) : lines << "#{pad}  (none)" }
+          lines[-1] += ")"
+        when Rescue
+          into = n.name ? " => #{n.name}#{n.depth.zero? ? "" : " ^#{n.depth}"}" : ""
+          lines << "#{pad}(rescue#{into}"
+          n.classes.each { |c| node(c, depth + 1, lines) }
+          node(n.body, depth + 1, lines)
+          lines[-1] += ")"
+        when Retry
+          lines << "#{pad}(retry)"
         when Return
           lines << "#{pad}(return"
           node(n.value, depth + 1, lines)
@@ -102,6 +116,8 @@ module Ze0
           lines[-1] += ")"
         when IvarRead
           lines << "#{pad}(ivar #{n.name})"
+        when GvarRead
+          lines << "#{pad}(gvar #{n.name})"
         when IvarWrite
           lines << "#{pad}(ivar-set #{n.name}"
           node(n.value, depth + 1, lines)

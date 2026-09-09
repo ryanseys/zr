@@ -44,9 +44,22 @@ module Ze0
     ConstRead = Struct.new(:scope, :name, :line)
     ConstWrite = Struct.new(:scope, :name, :value, :line)
     IvarRead = Struct.new(:name, :line)
+    GvarRead = Struct.new(:name, :line)
     IvarWrite = Struct.new(:name, :value, :line)
     ArrayLit = Struct.new(:elements, :line)
     # `"a#{b}c"`: literal and expression parts in order.
     Interp = Struct.new(:parts, :line)
+    # `begin body rescue ... else else_body ensure ensure_body end`. The
+    # else arm runs after a body that raised nothing; the ensure arm on
+    # every way out. `rescues` are Rescue nodes in order; `else_body` and
+    # `ensure_body` may be nil. A `rescue` modifier is a Begin with one
+    # clause and no classes.
+    Begin = Struct.new(:body, :rescues, :else_body, :ensure_body, :line)
+    # One clause: the exception classes (none means StandardError), the
+    # local that takes the exception (`=> e`, as a name and depth) or
+    # nil, and the handler.
+    Rescue = Struct.new(:classes, :name, :depth, :body, :line)
+    # `retry`: the begin body again, from a rescue clause.
+    Retry = Struct.new(:line)
   end
 end

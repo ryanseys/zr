@@ -37,18 +37,18 @@ machine def zr_frame_with_file(rec)
   rec
 end
 
-# One row per frame, innermost first, into a fresh buffer.
-sig [Value] => Void
-machine def zr_backtrace_capture(exc)
+# One row per frame from `top` outward, into a fresh buffer.
+sig [Value, Ptr] => Void
+machine def zr_backtrace_capture(exc, top)
   n = 0
-  rec = Task.top(zr_task())
+  rec = top
   while rec != 0
     n += 1
     rec = Frame.prev(rec)
   end
   rows = malloc(n * BtRow.size)
   i = 0
-  rec = Task.top(zr_task())
+  rec = top
   while rec != 0
     row = rows + (i * BtRow.size)
     meta = Frame.meta(rec)
@@ -77,15 +77,126 @@ machine def zr_exc_new(klass, message)
   e
 end
 
-# Raise `exc`: the backtrace is captured here, the exception parked in
-# the task, and `undef` answered for the caller to pass on.
+# Raise `exc` from the frame `top`: the backtrace is captured here
+# unless the exception has one, the exception parked in the task, and
+# `undef` answered for the caller to pass on.
+sig [Value, Ptr] => Value
+machine def zr_raise_from(exc, top)
+  if RException.rows(exc) == 0
+    zr_backtrace_capture(exc, top)
+  end
+  t = zr_task()
+  Task.set_pending_kind(t, PENDING_RAISE)
+  Task.set_pending(t, exc)
+  Machine.value(QUNDEF)
+end
+
 sig [Value] => Value
 machine def zr_raise(exc)
-  if RException.rows(exc) == 0
-    zr_backtrace_capture(exc)
+  zr_raise_from(exc, Task.top(zr_task()))
+end
+
+# In a landing block with a rescue clause: the pending exception when
+# the signal is a raise, else undef (a break or return passes through).
+sig [] => Value
+machine def zr_rescuable
+  t = zr_task()
+  if Task.pending_kind(t) == PENDING_RAISE
+    return Task.pending(t)
   end
-  Task.set_pending(zr_task(), exc)
   Machine.value(QUNDEF)
+end
+
+# Whether a rescue clause naming `klass` takes `exc`.
+sig [Value, Value] => Value
+machine def zr_exc_match(exc, klass)
+  t = zr_type(klass)
+  unless t == T_CLASS || t == T_MODULE
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("class or module required for rescue clause"), 42)
+  end
+  zr_bool(zr_is_a(exc, klass))
+end
+
+# Entering a rescue clause: the exception leaves the pending slot and
+# becomes `$!`. The previous `$!` is answered, for the clause's end.
+sig [] => Value
+machine def zr_rescue_enter
+  t = zr_task()
+  prev = Task.errinfo(t)
+  Task.set_errinfo(t, Task.pending(t))
+  Task.set_pending(t, Machine.value(QNIL))
+  prev
+end
+
+sig [] => Value
+machine def zr_errinfo
+  Task.errinfo(zr_task())
+end
+
+sig [Value] => Void
+machine def zr_errinfo_set(v)
+  Task.set_errinfo(zr_task(), v)
+end
+
+# An ensure body runs with the signal set aside: the pending value is
+# answered, for the caller's record, and the kind, home and site go to
+# `out`, three words. A raise stays visible as `$!` meanwhile.
+sig [Ptr] => Value
+machine def zr_signal_take(out)
+  t = zr_task()
+  v = Task.pending(t)
+  Machine.store64(out, 0, Task.pending_kind(t))
+  Machine.store64(out, 8, Task.pending_home(t))
+  Machine.store64(out, 16, Task.pending_site(t))
+  if Task.pending_kind(t) == PENDING_RAISE
+    Task.set_errinfo(t, v)
+  end
+  Task.set_pending(t, Machine.value(QNIL))
+  Task.set_pending_kind(t, PENDING_RAISE)
+  v
+end
+
+sig [Value, Ptr] => Value
+machine def zr_signal_restore(v, out)
+  zr_signal(Machine.load64(out, 0), v, Machine.ptr(Machine.load64(out, 8)), Machine.load64(out, 16))
+end
+
+# `Kernel#raise`: `$!` again with no arguments; a String makes a
+# RuntimeError; a class is sent `new` with the message; an exception is
+# raised as it is. The frame of `raise` itself is not in the backtrace.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_kernel_raise(recv, argc, argv, cref, blk)
+  top = Frame.prev(Task.top(zr_task()))
+  if argc == 0
+    e = Task.errinfo(zr_task())
+    if e == QNIL
+      e = zr_exc_new(zr_global(G_RUNTIME_ERROR), zr_str_new(Machine.bytes(""), 0))
+    end
+    return zr_raise_from(e, top)
+  end
+  if argc > 2
+    zr_bug(Machine.bytes("raise with a backtrace is not implemented\n"), 42)
+  end
+  first = Machine.value(Machine.load64(argv, 0))
+  t = zr_type(first)
+  if t == T_STRING && argc == 1
+    return zr_raise_from(zr_exc_new(zr_global(G_RUNTIME_ERROR), first), top)
+  end
+  if t == T_CLASS && zr_class_inherits(first, zr_global(G_EXCEPTION))
+    e = zr_send(first, Machine.id(:new), argc - 1, argv + 8)
+    return e if e == QUNDEF
+    if zr_type(e) != T_EXCEPTION
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
+    end
+    return zr_raise_from(e, top)
+  end
+  if t == T_EXCEPTION
+    if argc == 2
+      zr_bug(Machine.bytes("raise of an exception with a new message is not implemented\n"), 60)
+    end
+    return zr_raise_from(first, top)
+  end
+  zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception class/object expected"), 31)
 end
 
 sig [Value, Ptr, Word] => Value

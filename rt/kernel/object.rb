@@ -350,11 +350,14 @@ machine def zr_exc_message(recv, argc, argv, cref, blk)
   m
 end
 
-# `#<Klass: message>`, or the class name alone when the message is it.
+# `#<Klass: message>`, or the class name alone when the message is empty.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_exc_inspect(recv, argc, argv, cref, blk)
   m = RException.message(recv)
-  if m == QNIL || RString.len(m) == 0
+  if m == QNIL
+    m = RClass.name(zr_class_of(recv))
+  end
+  if RString.len(m) == 0
     return RClass.name(zr_class_of(recv))
   end
   b = Machine.slot(Buf.size)

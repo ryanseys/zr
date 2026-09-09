@@ -19,30 +19,34 @@ module Ze0
           else_b = @f.label
           merge, (result,) = @f.block(["i64"])
           @f.brif(cond, then_b, else_b)
-          @f.switch(then_b)
+          switch(then_b)
           v = node.yes ? expr(node.yes) : @qnil
           @f.jump(merge, [v]) unless @f.terminated?
-          @f.switch(else_b, open: !@f.terminated?)
+          switch(else_b, open: !@f.terminated?)
           v = node.no ? expr(node.no) : @qnil
           @f.jump(merge, [v]) unless @f.terminated?
-          @f.switch(merge)
+          switch(merge)
           result
         end
 
+        # `while`: nil when the condition ends it, else the `break` value.
         def loop_while(node)
           head = @f.label
           body = @f.label
-          done = @f.label
+          out = @f.label
+          done, (result,) = @f.block(["i64"])
           @f.jump(head)
-          @f.switch(head)
-          @f.brif(truthy(expr(node.cond)), body, done)
-          @f.switch(body)
-          @loops << { head: head, done: done }
+          switch(head)
+          @f.brif(truthy(expr(node.cond)), body, out)
+          switch(out)
+          @f.jump(done, [@qnil])
+          switch(body)
+          @loops << { head: head, done: done, depth: @regions.size }
           expr(node.body) if node.body
           @loops.pop
           @f.jump(head) unless @f.terminated?
-          @f.switch(done)
-          @qnil
+          switch(done)
+          result
         end
 
         # `a && b` answers `a` when it is falsy, else `b`; `||` the reverse.
@@ -53,12 +57,12 @@ module Ze0
           merge, (result,) = @f.block(["i64"])
           cond = truthy(left)
           node.is_a?(Hir::And) ? @f.brif(cond, rest, skip) : @f.brif(cond, skip, rest)
-          @f.switch(skip)
+          switch(skip)
           @f.jump(merge, [left])
-          @f.switch(rest)
+          switch(rest)
           right = expr(node.right)
           @f.jump(merge, [right]) unless @f.terminated?
-          @f.switch(merge)
+          switch(merge)
           result
         end
 
@@ -77,7 +81,7 @@ module Ze0
             at_line(node.line)
             checked(kernel("zr_return", @proc, v))
           else
-            leave(v)
+            leave(through_ensures(v))
           end
           @qnil
         end
@@ -87,13 +91,14 @@ module Ze0
         def jump_out(node, kind)
           v = expr(node.value)
           if (loop = @loops.last)
-            @f.jump(kind == :break ? loop[:done] : loop[:head])
-            @f.switch(@f.label, open: true)
+            v = through_ensures(v, loop[:depth])
+            kind == :break ? @f.jump(loop[:done], [v]) : @f.jump(loop[:head])
+            switch(@f.label, open: true)
             return @qnil
           end
           @l.refuse(node, "#{kind} outside a block or loop is not lowered yet") unless @kind == :block
           if kind == :next
-            leave(v)
+            leave(through_ensures(v))
           else
             at_line(node.line)
             checked(kernel("zr_break", @proc, v))

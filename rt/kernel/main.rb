@@ -81,6 +81,7 @@ machine def zr_boot
   zr_set_global(G_TOP_CREF, zr_cref_push(zr_global(G_OBJECT), Machine.value(QNIL)))
   # Kernel's methods sit on Object until modules arrive.
   zr_builtin(zr_global(G_OBJECT), Machine.id(:puts), Machine.addr(:zr_puts), 0 - 1)
+  zr_builtin(zr_global(G_OBJECT), Machine.id(:raise), Machine.addr(:zr_kernel_raise), 0 - 1)
   zr_builtin(zr_global(G_OBJECT), Machine.id(:p), Machine.addr(:zr_p), 0 - 1)
   zr_builtin(zr_global(G_OBJECT), Machine.id(:block_given?), Machine.addr(:zr_block_given_p), 0)
   zr_builtin(zr_global(G_OBJECT), Machine.id(:loop), Machine.addr(:zr_loop), 0)

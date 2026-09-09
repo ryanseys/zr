@@ -1,0 +1,274 @@
+(seq
+  (def f () locals ()
+    (seq
+      (send self raise
+        (str "boom"))))
+  (begin
+    (seq
+      (vcall self f))
+    (rescue => e
+      (seq
+        (send self puts
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (class E
+    (const StandardError)
+    (const nil))
+  (begin
+    (seq
+      (send self raise
+        (const E)))
+    (rescue => e
+      (const E)
+      (seq
+        (send self p
+          (local e))
+        (send self p
+          (gvar $!))))
+    (none)
+    (none))
+  (send self p
+    (gvar $!))
+  (begin
+    (seq
+      (send self raise
+        (const E)
+        (str "with message")))
+    (rescue => e
+      (const StandardError)
+      (seq
+        (send self p
+          (local e))))
+    (none)
+    (none))
+  (assign x
+    (begin
+      (seq
+        (int 1))
+      (rescue
+        (seq
+          (int 2)))
+      (seq
+        (int 3))
+      (seq
+        (send self puts
+          (str "ensure")))))
+  (send self p
+    (local x))
+  (def g () locals ()
+    (begin
+      (seq
+        (return
+          (int 1)))
+      (none)
+      (seq
+        (send self puts
+          (str "g ensure")))))
+  (send self p
+    (vcall self g))
+  (assign n
+    (int 0))
+  (begin
+    (seq
+      (assign n
+        (send +
+          (local n)
+          (int 1)))
+      (if
+        (send <
+          (local n)
+          (int 3))
+        (seq
+          (send self raise
+            (str "again")))
+        (none))
+      (send self puts
+        (interp
+          (str "n=")
+          (seq
+            (local n)))))
+    (rescue
+      (seq
+        (retry)))
+    (none)
+    (none))
+  (send self p
+    (seq
+      (begin
+        (send self raise
+          (str "m"))
+        (rescue
+          (str "rescued"))
+        (none)
+        (none))))
+  (begin
+    (seq
+      (send self raise
+        (int 42)))
+    (rescue => e
+      (const TypeError)
+      (seq
+        (send self p
+          (local e))))
+    (none)
+    (none))
+  (begin
+    (seq
+      (vcall self nope))
+    (rescue => e
+      (const NoMethodError)
+      (const NameError)
+      (seq
+        (send self p
+          (send class
+            (local e)))))
+    (none)
+    (none))
+  (def h () locals ()
+    (begin
+      (seq
+        (yield))
+      (none)
+      (seq
+        (send self puts
+          (str "h ensure")))))
+  (send each
+    (array
+      (int 1))
+    (block (i) locals (i)
+      (seq
+        (send self h
+          (block () locals ()
+            (seq
+              (break
+                (const nil))))))))
+  (send self puts
+    (str "after"))
+  (begin
+    (seq
+      (begin
+        (seq
+          (send self raise
+            (str "inner")))
+        (none)
+        (seq
+          (send self puts
+            (str "inner ensure")))))
+    (rescue => e
+      (seq
+        (send self puts
+          (interp
+            (str "outer ")
+            (seq
+              (send message
+                (local e)))))))
+    (none)
+    (none))
+  (begin
+    (seq
+      (vcall self raise))
+    (rescue => e
+      (const RuntimeError)
+      (seq
+        (send self p
+          (local e))))
+    (none)
+    (none))
+  (def k () locals (e)
+    (begin
+      (seq
+        (yield))
+      (rescue => e
+        (const ZeroDivisionError)
+        (seq
+          (send self puts
+            (interp
+              (str "k: ")
+              (seq
+                (send message
+                  (local e)))))
+          (sym :k)))
+      (none)
+      (none)))
+  (send self p
+    (send self k
+      (block () locals ()
+        (seq
+          (send /
+            (int 1)
+            (int 0))))))
+  (assign i
+    (int 0))
+  (assign r
+    (while
+      (const true)
+      (seq
+        (assign i
+          (send +
+            (local i)
+            (int 1)))
+        (begin
+          (seq
+            (if
+              (send ==
+                (local i)
+                (int 3))
+              (seq
+                (break
+                  (send *
+                    (local i)
+                    (int 10))))
+              (none)))
+          (none)
+          (seq
+            (send self puts
+              (interp
+                (str "loop ensure ")
+                (seq
+                  (local i)))))))))
+  (send self p
+    (local r))
+  (begin
+    (seq
+      (send self raise
+        (const E)))
+    (rescue
+      (const Integer)
+      (seq
+        (send self puts
+          (str "no"))))
+    (rescue
+      (const E)
+      (seq
+        (send self puts
+          (str "yes"))))
+    (none)
+    (none))
+  (begin
+    (seq
+      (begin
+        (seq
+          (send self raise
+            (str "a")))
+        (rescue => e
+          (seq
+            (send self raise
+              (str "b"))))
+        (none)
+        (none)))
+    (rescue => e2
+      (seq
+        (send self p
+          (local e2))))
+    (none)
+    (none))
+  (begin
+    (seq
+      (send self raise
+        (str "q")))
+    (none)
+    (seq
+      (send self p
+        (gvar $!)))))
