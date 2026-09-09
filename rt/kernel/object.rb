@@ -148,6 +148,40 @@ machine def zr_hidden_set(obj, name, v)
   zr_ivar_set(obj, zr_sym2id(name), v)
 end
 
+# `object_id`: a fixnum's is 2n + 1, nil's 4, true's 20, false's 0;
+# a heap object's comes from a counter (8, 16, 24, ...) at its first
+# call, kept in a hidden ivar. A symbol's is CRuby's symbol-table
+# position, which is not reproduced.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_object_id(recv, argc, argv, cref, blk)
+  if zr_fixnum_p(recv)
+    return zr_fix((zr_fix2long(recv) * 2) + 1)
+  end
+  if recv == QNIL
+    return zr_fix(4)
+  end
+  if recv == QTRUE
+    return zr_fix(20)
+  end
+  if recv == QFALSE
+    return zr_fix(0)
+  end
+  if zr_special_p(recv)
+    zr_bug(Machine.bytes("object_id of a symbol or a flonum is not implemented yet\n"), 57)
+  end
+  t = zr_ivtab_for_write(recv)
+  id = zr_ivtab_get(t, Machine.id(:__object_id__))
+  if id != QUNDEF
+    return id
+  end
+  counter = Machine.static(:object_id_counter, 8)
+  n = Machine.load64(counter, 0) + 8
+  Machine.store64(counter, 0, n)
+  id = zr_fix(n)
+  zr_ivtab_set(t, Machine.id(:__object_id__), id)
+  id
+end
+
 # Whether an instance variable's name shows: it starts with `@`.
 sig [Word] => Bool
 machine def zr_ivar_id_visible_p(id)

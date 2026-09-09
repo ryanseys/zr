@@ -235,6 +235,8 @@ machine def zr_boot
   zr_builtin(zr_global(G_KERNEL), Machine.id(:private_methods), Machine.addr(:zr_obj_private_methods), 0 - 1)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:protected_methods), Machine.addr(:zr_obj_protected_methods), 0 - 1)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:instance_variables), Machine.addr(:zr_obj_instance_variables), 0)
+  zr_builtin(zr_global(G_KERNEL), Machine.id(:object_id), Machine.addr(:zr_obj_object_id), 0)
+  zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:__id__), Machine.addr(:zr_obj_object_id), 0)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:instance_variable_get), Machine.addr(:zr_obj_instance_variable_get), 1)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:instance_variable_set), Machine.addr(:zr_obj_instance_variable_set), 2)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:instance_variable_defined?), Machine.addr(:zr_obj_instance_variable_defined), 1)

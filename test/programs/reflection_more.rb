@@ -84,3 +84,15 @@ begin; a.fetch(-5); rescue => e; puts "#{e.class}: #{e.message}"; end
 p (1..10).step(3), (1..10).step(3).to_a, (1...10).step(3).to_a, ((1..10) % 3).to_a, (1..10).step(3).size, (1..).step(2).first(3), (1..10).step(3) { |x| print x }, 1.step(10, 3).first(2), 1.step(10, 3).last, 1.step(10, 3).size, 1.step(3) == 1.step(3), 1.step(nil, 2).inspect
 p (1..10).step(-1), (1..10).step(-1).to_a, (1..10).step(-2).size
 begin; (1..10).step(0); rescue => e; puts "#{e.class}: #{e.message}"; end
+a = "x"
+p a.object_id, a.object_id, Object.new.object_id, 2.object_id, -1.object_id, nil.object_id, true.object_id, false.object_id
+b = a.dup
+p b.object_id, a.object_id, a.__id__, b.clone.object_id
+p a.instance_variables, a.inspect
+f = "frozen".freeze
+p f.object_id
+class Foo; end
+p Foo.object_id, Foo.new.object_id, [1].object_id, {a: 1}.object_id, (1..2).object_id
+p 1.object_id == 1.object_id, "s".object_id == "s".object_id
+def ident(v) = v&.object_id
+p ident(nil).nil?, ident("abc").nil?

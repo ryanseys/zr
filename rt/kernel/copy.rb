@@ -3,14 +3,17 @@
 # `initialize_copy`. A clone keeps the frozen bit and the singleton
 # class; a dup keeps neither.
 
-# The rows of one ivar table copied into another, fresh, table.
+# The rows of one ivar table copied into another, fresh, table; the
+# object id stays with the original.
 sig [Ptr, Ptr] => Void
 machine def zr_ivtab_copy(to, from)
   zr_ivtab_init(to)
   i = 0
   while i < IvTab.len(from)
     e = IvTab.rows(from) + (i * IvEntry.size)
-    zr_ivtab_set(to, IvEntry.id(e), IvEntry.value(e))
+    if IvEntry.id(e) != Machine.id(:__object_id__)
+      zr_ivtab_set(to, IvEntry.id(e), IvEntry.value(e))
+    end
     i += 1
   end
 end
