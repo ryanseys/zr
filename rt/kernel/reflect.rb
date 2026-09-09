@@ -487,17 +487,22 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_class_subclasses(recv, argc, argv, cref, blk)
   out = zr_ary_new(4)
-  i = 0
-  while i < CELLS
-    cell = zr_arena() + (i * CELL)
-    flags = Machine.load64(cell, 0)
-    if (flags & FL_ALLOCATED) != 0 && (flags & T_MASK) == T_CLASS && (flags & FL_SINGLETON) == 0
-      k = Machine.value(cell)
-      if k != recv && zr_real_superclass(k) == recv
-        zr_ary_insert_by_serial(out, k)
+  a = 0
+  while a < Heap.arenas(zr_heap())
+    base = zr_arena_at(a)
+    i = 0
+    while i < CELLS
+      cell = base + (i * CELL)
+      flags = Machine.load64(cell, 0)
+      if (flags & FL_ALLOCATED) != 0 && (flags & T_MASK) == T_CLASS && (flags & FL_SINGLETON) == 0
+        k = Machine.value(cell)
+        if k != recv && zr_real_superclass(k) == recv
+          zr_ary_insert_by_serial(out, k)
+        end
       end
+      i += 1
     end
-    i += 1
+    a += 1
   end
   out
 end

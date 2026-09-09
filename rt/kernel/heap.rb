@@ -1,19 +1,26 @@
-# The heap: cells of one size from a static arena through a free list;
-# a precise mark-sweep collector rooted in the task's frame records and
+# The heap: cells of one size from arenas through a free list; a
+# precise mark-sweep collector rooted in the task's frame records and
 # the globals. A freed cell is poisoned and loses FL_ALLOCATED, and
 # marking aborts on a reference to one: a live object pointing at a
 # freed cell is a root the discipline missed. Under ZR_GC_STRESS every
 # allocation collects first, and the free list starts just past the
 # last cell handed out, so a stale pointer meets the poison, not a new
 # object.
+#
+# An arena is ARENA_BYTES of cells aligned to its own size, so a cell's
+# arena is its address with the low bits cleared; the arena's exivar
+# slots follow its cells. The collector runs when the free list is
+# empty, and the heap doubles when a collection frees less than half.
 CELL = 128
 CELLS = 32768
 ARENA_BYTES = CELL * CELLS
+ARENA_ALLOC = ARENA_BYTES * 2 + CELLS * 8
+ARENA_LIMIT = 1024
 POISON = 57005 << 8
 
 # Heap state: free head, allocations, collections, stress flag, the
-# index of the last cell handed out.
-Machine.struct :Heap, free: Ptr, allocated: Word, collections: Word, stress: Word, last: Word, disabled: Word
+# last cell handed out, the arena count, the cells the last sweep freed.
+Machine.struct :Heap, free: Ptr, allocated: Word, collections: Word, stress: Word, last: Ptr, disabled: Word, arenas: Word, freed: Word
 
 sig [] => Ptr
 machine def zr_heap
@@ -21,8 +28,47 @@ machine def zr_heap
 end
 
 sig [] => Ptr
-machine def zr_arena
-  Machine.static(:arena, ARENA_BYTES)
+machine def zr_arenas
+  Machine.static(:arenas, ARENA_LIMIT * 8)
+end
+
+sig [Word] => Ptr
+machine def zr_arena_at(i)
+  Machine.ptr(Machine.load64(zr_arenas() + (i * 8), 0))
+end
+
+sig [Value] => Ptr
+machine def zr_arena_of(v)
+  Machine.ptr(Machine.word(v) & (0 - ARENA_BYTES))
+end
+
+# A new arena of poisoned cells pushed onto the free list in address
+# order.
+sig [] => Void
+machine def zr_arena_add
+  h = zr_heap()
+  n = Heap.arenas(h)
+  if n == ARENA_LIMIT
+    zr_bug(Machine.bytes("out of cells\n"), 13)
+  end
+  raw = malloc(ARENA_ALLOC)
+  if raw == 0
+    zr_bug(Machine.bytes("out of memory\n"), 14)
+  end
+  a = (raw + (ARENA_BYTES - 1)) & (0 - ARENA_BYTES)
+  Machine.store64(zr_arenas() + (n * 8), 0, Machine.word(a))
+  Heap.set_arenas(h, n + 1)
+  head = Heap.free(h)
+  i = CELLS - 1
+  while i >= 0
+    cell = a + (i * CELL)
+    Machine.store64(cell, 0, POISON)
+    Machine.store64(cell, 8, head)
+    Machine.store64(a + ARENA_BYTES + (i * 8), 0, 0)
+    head = cell
+    i -= 1
+  end
+  Heap.set_free(h, head)
 end
 
 # The frame chain the collector walks: a record is a Frame followed by
@@ -65,18 +111,8 @@ end
 sig [] => Void
 machine def zr_heap_init
   h = zr_heap()
-  a = zr_arena()
-  i = 0
-  head = 0
-  while i < CELLS
-    cell = a + (i * CELL)
-    Machine.store64(cell, 0, POISON)
-    Machine.store64(cell, 8, head)
-    head = cell
-    i += 1
-  end
-  Heap.set_free(h, head)
-  Heap.set_last(h, CELLS - 1)
+  zr_arena_add()
+  Heap.set_last(h, zr_arena_at(0) + ((CELLS - 1) * CELL))
   if getenv(Machine.bytes("ZR_GC_STRESS\0")) != 0
     Heap.set_stress(h, 1)
   end
@@ -124,15 +160,11 @@ machine def zr_mark(v)
 end
 
 # The ivar tables of objects whose kind has none of its own: one slot
-# per cell, holding a table or 0.
-sig [] => Ptr
-machine def zr_exivars
-  Machine.static(:exivars, CELLS * 8)
-end
-
+# per cell after its arena's cells, holding a table or 0.
 sig [Value] => Ptr
 machine def zr_exivar_slot(v)
-  zr_exivars() + (((Machine.word(v) - zr_arena()) / CELL) * 8)
+  a = zr_arena_of(v)
+  a + ARENA_BYTES + (((Machine.word(v) - a) / CELL) * 8)
 end
 
 sig [Value] => Ptr
@@ -231,10 +263,9 @@ machine def zr_mark_task(t)
   end
 end
 
-sig [Word] => Void
-machine def zr_free_cell(i)
+sig [Ptr] => Void
+machine def zr_free_cell(cell)
   h = zr_heap()
-  cell = zr_arena() + (i * CELL)
   flags = Machine.load64(cell, 0)
   if (flags & FL_MARK) != 0
     Machine.store64(cell, 0, flags & (0 - (FL_MARK + 1)))
@@ -242,6 +273,7 @@ machine def zr_free_cell(i)
     # Freed before: its poison stands, so only the link is written.
     Machine.store64(cell, 8, Heap.free(h))
     Heap.set_free(h, cell)
+    Heap.set_freed(h, Heap.freed(h) + 1)
   else
     if (flags & FL_ALLOCATED) != 0
       zr_release(Machine.value(cell))
@@ -257,28 +289,46 @@ machine def zr_free_cell(i)
       j += 8
     end
     Heap.set_free(h, cell)
+    Heap.set_freed(h, Heap.freed(h) + 1)
   end
 end
 
-# Push the cells in reverse, so the list pops in address order from the
-# cell after the last one handed out.
+# The cells of an arena from `stop` down to `start`, pushed in reverse
+# so the list pops in address order.
+sig [Ptr, Word, Word] => Void
+machine def zr_sweep_arena(a, start, stop)
+  i = stop
+  while i >= start
+    zr_free_cell(a + (i * CELL))
+    i -= 1
+  end
+end
+
+# Every arena's cells, the list starting at the cell after the last one
+# handed out: its arena's tail, then the other arenas, then its arena's
+# head.
 sig [] => Void
 machine def zr_sweep
   h = zr_heap()
   last = Heap.last(h)
+  home = zr_arena_of(Machine.value(last))
+  split = (last - home) / CELL
+  n = Heap.arenas(h)
   Heap.set_free(h, 0)
-  i = last
+  Heap.set_freed(h, 0)
+  zr_sweep_arena(home, 0, split)
+  i = n - 1
   while i >= 0
-    zr_free_cell(i)
+    a = zr_arena_at(i)
+    if a != home
+      zr_sweep_arena(a, 0, CELLS - 1)
+    end
     i -= 1
   end
-  i = CELLS - 1
-  while i > last
-    zr_free_cell(i)
-    i -= 1
-  end
+  zr_sweep_arena(home, split + 1, CELLS - 1)
 end
 
+# Collect; when less than half of the cells came free, double the heap.
 sig [] => Void
 machine def zr_collect
   h = zr_heap()
@@ -286,6 +336,13 @@ machine def zr_collect
   Machine.store64(zr_marking(), 0, QNIL)
   zr_mark_roots()
   zr_sweep()
+  n = Heap.arenas(h)
+  if Heap.freed(h) * 2 < n * CELLS
+    while n > 0 && Heap.arenas(h) < ARENA_LIMIT
+      zr_arena_add()
+      n -= 1
+    end
+  end
 end
 
 # The GC module's view of the heap. `disable` and `enable` answer
@@ -310,12 +367,17 @@ end
 sig [] => Value
 machine def zr_gc_live_slots
   n = 0
-  i = 0
-  while i < CELLS
-    if (Machine.load64(zr_arena() + (i * CELL), 0) & FL_ALLOCATED) != 0
-      n += 1
+  a = 0
+  while a < Heap.arenas(zr_heap())
+    base = zr_arena_at(a)
+    i = 0
+    while i < CELLS
+      if (Machine.load64(base + (i * CELL), 0) & FL_ALLOCATED) != 0
+        n += 1
+      end
+      i += 1
     end
-    i += 1
+    a += 1
   end
   zr_fix(n)
 end
@@ -354,10 +416,11 @@ machine def zr_alloc(type, klass)
   end
   cell = Heap.free(h)
   if cell == 0
-    zr_bug(Machine.bytes("out of cells\n"), 13)
+    zr_arena_add()
+    cell = Heap.free(h)
   end
   Heap.set_free(h, Machine.load64(cell, 8))
-  Heap.set_last(h, (cell - zr_arena()) / CELL)
+  Heap.set_last(h, cell)
   Heap.set_allocated(h, Heap.allocated(h) + 1)
   Machine.store64(cell, 0, type | FL_ALLOCATED)
   Machine.store64(cell, 8, Machine.word(klass))

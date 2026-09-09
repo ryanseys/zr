@@ -13,7 +13,9 @@ require_relative "../../lib/ze0/harness/case"
 # the Ruby road's code is slow under that many collections. The oracle
 # runs without error_highlight or did_you_mean, as the corpus was recorded.
 # A program whose first line says "native only" reads the host (its
-# environment or working directory) and skips the wasm road.
+# environment or working directory) and skips the wasm road; one whose
+# first line says "no stress" allocates too much for a collection at
+# every allocation and skips that column.
 class ProgramsTest < Minitest::Test
   ROADS = { ruby: Ze0::Native::Build.road("ruby", ROOT), cranelift: Ze0::Native::Build.road("cranelift", ROOT) }.freeze
   WASMTIME = ENV["WASMTIME"] || "wasmtime"
@@ -54,7 +56,8 @@ class ProgramsTest < Minitest::Test
           bin = File.join(dir, name)
           assert_nil Ze0::Native::Build.program(program, bin, road: road, work: dir)
           check(label, name, {}, [bin], want, rb)
-          check(label, name, { "ZR_GC_STRESS" => "1" }, [bin], want, rb) if label == :cranelift
+          stress = label == :cranelift && !File.open(rb, &:readline).include?("no stress")
+          check(label, name, { "ZR_GC_STRESS" => "1" }, [bin], want, rb) if stress
         end
       end
     end
