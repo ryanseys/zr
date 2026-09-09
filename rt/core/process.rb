@@ -215,7 +215,10 @@ end
 module Signal
   def self.list = Process.send(:const_get, :SIGNALS).dup.merge("EXIT" => 0)
 
-  def self.signame(number) = number == 0 ? "EXIT" : Process.signal_name(number)
+  def self.signame(number)
+    number = Primitive.zr_index_operand_m(number)
+    number == 0 ? "EXIT" : Process.signal_name(number)
+  end
 
   def self.trap(*) = Primitive.zr_unimplemented("Signal.trap")
 end

@@ -18,12 +18,20 @@ module Kernel
     raise SystemExit.new(exit_status(status), "exit")
   end
 
+  # How a conversion message names a value: nil, true and false by
+  # name, anything else by its class.
+  def conversion_name(value)
+    Primitive.attr! :hidden
+    value.nil? || value == true || value == false ? value.inspect : value.class.name
+  end
+  private :conversion_name
+
   # The message goes to stderr at once; the SystemExit carries it.
   def abort(*args)
     raise SystemExit.new(1, "exit") if args.empty?
 
     message = args[0]
-    raise TypeError, "no implicit conversion of #{message.nil? ? "nil" : message.class} into String" unless message.is_a?(String)
+    raise TypeError, "no implicit conversion of #{conversion_name(message)} into String" unless message.is_a?(String)
 
     Primitive.zr_warn_line(message)
     raise SystemExit.new(1, message)
@@ -72,7 +80,7 @@ module Kernel
     return value.to_i if value.respond_to?(:to_i)
     return nil unless exception
 
-    raise TypeError, "can't convert #{value.class} into Integer"
+    raise TypeError, "can't convert #{conversion_name(value)} into Integer"
   end
 
   def String(value)

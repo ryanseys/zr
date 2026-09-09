@@ -375,6 +375,12 @@ class Float
       mantissa, exponent = Primitive.zr_float_decode(self)
       return Rational.send(:build, mantissa * (1 << exponent), 1) if exponent >= 0
 
+      # The interval is a half unit of the full 53-bit mantissa either
+      # way, as CRuby's frexp-based decode gives it.
+      while mantissa.abs < (1 << 52)
+        mantissa *= 2
+        exponent -= 1
+      end
       low = Rational.send(:build, 2 * mantissa - 1, 1 << (1 - exponent))
       high = Rational.send(:build, 2 * mantissa + 1, 1 << (1 - exponent))
       Rational.send(:simplest, low, high)
@@ -384,9 +390,10 @@ class Float
     end
   end
 
-  def numerator = to_r.numerator
+  # An infinity or NaN is its own numerator over one.
+  def numerator = finite? ? to_r.numerator : self
 
-  def denominator = to_r.denominator
+  def denominator = finite? ? to_r.denominator : 1
 end
 
 class String

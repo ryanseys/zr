@@ -255,7 +255,6 @@ class Enumerator::ArithmeticSequence < Enumerator
     return float_each(&block) if float?
 
     i = @begin
-    return self if @range && @step < 0
     if @step > 0
       while @end.nil? || (@exclude_end ? i < @end : i <= @end)
         yield i
@@ -273,7 +272,6 @@ class Enumerator::ArithmeticSequence < Enumerator
   def size
     return Primitive.zr_unimplemented("an endless ArithmeticSequence's size, which is Infinity") if @end.nil?
     return float_size if float?
-    return 0 if @range && @step < 0
 
     span = @end - @begin
     n = span / @step

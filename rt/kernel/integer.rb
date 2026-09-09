@@ -159,6 +159,20 @@ machine def zr_int_from_word(n)
   zr_send(zr_global(G_INTEGER), Machine.id(:big_from_word), 2, pair)
 end
 
+# A shift count into `out`: a bignum routes, anything else converts
+# through to_int (a Float truncates), as rb_to_int does.
+sig [Value, Ptr, Ptr, Word] => Value
+machine def zr_shift_operand(recv, argv, out, mid)
+  other = Machine.value(Machine.load64(argv, 0))
+  if zr_fixnum_p(other) || zr_big_p(other)
+    return zr_int_operand(recv, argv, out, mid, 0)
+  end
+  if other == QNIL
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("no implicit conversion of nil into Integer"), 42)
+  end
+  zr_index_operand(other, out)
+end
+
 # The operand of an Integer operator into `out` when it is an Integer;
 # else the answer of `other.coerce(recv)` sent `mid` (`kind` 0), or the
 # comparison failure (`kind` 1), or nil (`kind` 2), or the TypeError
@@ -389,7 +403,7 @@ machine def zr_int_lshift(recv, argc, argv, cref, blk)
     return zr_big_route(recv, Machine.id(:<<), argc, argv)
   end
   out = Machine.slot(8)
-  r = zr_int_operand(recv, argv, out, Machine.id(:<<), 0)
+  r = zr_shift_operand(recv, argv, out, Machine.id(:<<))
   return r if r != QNIL
   n = Machine.load64(out, 0)
   a = zr_fix2long(recv)
@@ -408,7 +422,7 @@ machine def zr_int_rshift(recv, argc, argv, cref, blk)
     return zr_big_route(recv, Machine.id(:>>), argc, argv)
   end
   out = Machine.slot(8)
-  r = zr_int_operand(recv, argv, out, Machine.id(:>>), 0)
+  r = zr_shift_operand(recv, argv, out, Machine.id(:>>))
   return r if r != QNIL
   n = Machine.load64(out, 0)
   a = zr_fix2long(recv)

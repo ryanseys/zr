@@ -552,8 +552,10 @@ class Integer
       when :/ then to_f / other
       when :% then to_f % other
       when :<, :<=, :>, :>=
+        # Nothing orders against NaN: every relation is false.
         c = Integer.send(:big_cmp_float, self, other)
-        Primitive.zr_cmperr(self, other) if c.nil?
+        return false if c.nil?
+
         op == :< ? c < 0 : (op == :<= ? c <= 0 : (op == :> ? c > 0 : c >= 0))
       else raise TypeError, "no implicit conversion from Float"
       end

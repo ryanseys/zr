@@ -412,13 +412,45 @@ machine def zr_int_times(recv, argc, argv, cref, blk)
   recv
 end
 
+# The bound of `upto` (dir 1) or `downto` (dir -1) into `out`: a
+# fixnum as it is, a Float as its floor or ceiling; anything else
+# coerces or fails as an Integer operand does.
+sig [Value, Ptr, Ptr, Word] => Value
+machine def zr_int_bound(recv, argv, out, dir)
+  other = Machine.value(Machine.load64(argv, 0))
+  if zr_float_p(other)
+    d = zr_float_value(other)
+    if zr_nan_p(d)
+      # Nothing compares with NaN: an empty walk.
+      Machine.store64(out, 0, zr_fix2long(recv) - dir)
+      return Machine.value(QNIL)
+    end
+    d = dir > 0 ? Machine.floor(d) : Machine.ceil(d)
+    if d > Machine.f64(4890909195324358656)
+      d = Machine.f64(4890909195324358656)
+    elsif d < Machine.f64(0) - Machine.f64(4890909195324358656)
+      d = Machine.f64(0) - Machine.f64(4890909195324358656)
+    end
+    Machine.store64(out, 0, Machine.to_int(d))
+    return Machine.value(QNIL)
+  end
+  zr_int_operand(recv, argv, out, 0, 3)
+end
+
 # The size of `upto` or `downto` between two fixnums, else nil.
 sig [Value, Word, Ptr, Word] => Value
 machine def zr_int_step_size(recv, argc, argv, dir)
-  if argc != 1 || !zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
+  if argc != 1
     return Machine.value(QNIL)
   end
-  n = ((zr_fix2long(Machine.value(Machine.load64(argv, 0))) - zr_fix2long(recv)) * dir) + 1
+  other = Machine.value(Machine.load64(argv, 0))
+  if !zr_fixnum_p(other) && !zr_float_p(other)
+    return Machine.value(QNIL)
+  end
+  out = Machine.slot(8)
+  r = zr_int_bound(recv, argv, out, dir)
+  return r if r == QUNDEF
+  n = ((Machine.load64(out, 0) - zr_fix2long(recv)) * dir) + 1
   zr_fix(n < 0 ? 0 : n)
 end
 
@@ -431,7 +463,7 @@ machine def zr_int_upto(recv, argc, argv, cref, blk)
     return zr_enum_for(recv, Machine.id(:upto), argc, argv, zr_int_step_size(recv, argc, argv, 1))
   end
   out = Machine.slot(8)
-  r = zr_int_operand(recv, argv, out, 0, 3)
+  r = zr_int_bound(recv, argv, out, 1)
   return r if r == QUNDEF
   i = zr_fix2long(recv)
   last = Machine.load64(out, 0)
@@ -452,7 +484,7 @@ machine def zr_int_downto(recv, argc, argv, cref, blk)
     return zr_enum_for(recv, Machine.id(:downto), argc, argv, zr_int_step_size(recv, argc, argv, 0 - 1))
   end
   out = Machine.slot(8)
-  r = zr_int_operand(recv, argv, out, 0, 3)
+  r = zr_int_bound(recv, argv, out, 0 - 1)
   return r if r == QUNDEF
   i = zr_fix2long(recv)
   last = Machine.load64(out, 0)

@@ -8,7 +8,8 @@ class String
   def [](index, length = nil)
     case index
     when Integer
-      return Primitive.zr_str_char_slice(self, index, length) if length
+      raise RangeError, "bignum too big to convert into 'long'" unless Primitive.zr_fixnum_p_m(index)
+      return Primitive.zr_str_char_slice(self, index, Primitive.zr_index_operand_m(length)) if length
 
       count = size
       index += count if index < 0
@@ -28,9 +29,7 @@ class String
     when String
       include?(index) ? index.dup : nil
     else
-      raise TypeError, "no implicit conversion of #{index.class} into Integer" unless index.respond_to?(:to_int)
-
-      self[index.to_int, *[length].compact]
+      self[Primitive.zr_index_operand_m(index), *[length].compact]
     end
   end
   alias slice []
@@ -153,7 +152,8 @@ class String
 
       length = match.end(group) - start
     else
-      raise TypeError, "no implicit conversion of #{index.class} into Integer"
+      args[0] = Primitive.zr_index_operand_m(index)
+      return send(:[]=, *args, value)
     end
     from = Primitive.zr_str_char_offset_m(self, start)
     to = Primitive.zr_str_char_offset_m(self, length > count - start ? count : start + length)
@@ -740,8 +740,9 @@ class String
   def rjust(width, pad = " ") = justify(width, pad, :right)
 
   def to_i(base = 10)
+    base = Primitive.zr_index_operand_m(base)
     raise ArgumentError, "invalid radix #{base}" if base < 0 || base == 1 || base > 36
-    return lenient_integer(base == 0 ? -10 : base) if base != 10
+    return lenient_integer(base == 0 ? -10 : base) if base != 10 || include?("0d") || include?("0D")
 
     i = 0
     i += 1 while i < bytesize && space_byte?(Primitive.zr_str_byte_at(self, i))
@@ -1025,11 +1026,11 @@ class String
   # The start and length a Range names in a string of `size` bytes,
   # or nil when it starts past the end.
   def range_span(range, size)
-    first = range.begin || 0
+    first = range.begin.nil? ? 0 : Primitive.zr_index_operand_m(range.begin)
     first += size if first < 0
     return nil if first < 0 || first > size
 
-    last = range.end || size
+    last = range.end.nil? ? size : Primitive.zr_index_operand_m(range.end)
     last += size if last < 0
     last -= 1 if range.exclude_end? && range.end
     length = last - first + 1
@@ -1217,6 +1218,8 @@ class String
   end
 
   def justify(width, pad, side)
+    width = Primitive.zr_index_operand_m(width)
+    pad = Primitive.zr_str_operand(pad)
     raise ArgumentError, "zero width padding" if pad.empty?
     count = size
     return dup if width <= count

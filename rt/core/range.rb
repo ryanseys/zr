@@ -221,13 +221,29 @@ class Range
 
   def step(n = 1, &block)
     return stepped(n, :step, &block) if @begin.is_a?(String) || @begin.is_a?(Symbol) || (@begin.nil? && (@end.is_a?(String) || @end.is_a?(Symbol)))
-    Primitive.zr_unimplemented("Range#step over non-Numerics") unless @begin.is_a?(Numeric) && (@end.nil? || @end.is_a?(Numeric)) && n.is_a?(Numeric)
+    return added(n, &block) unless @begin.is_a?(Numeric) && (@end.nil? || @end.is_a?(Numeric)) && n.is_a?(Numeric)
     raise ArgumentError, "step can't be 0" if n.zero?
+    raise ArgumentError, "#step iteration for beginless ranges is meaningless" if @begin.nil? && block
 
     seq = Enumerator::ArithmeticSequence.for(@begin, @end, n, @excl, self)
     return seq unless block
 
     seq.each(&block)
+    self
+  end
+
+  # A step of any kind: each value is the last plus the step, until
+  # the end.
+  def added(n)
+    Primitive.attr! :hidden
+    return to_enum(:step, n) unless block_given?
+    raise ArgumentError, "#step iteration for beginless ranges is meaningless" if @begin.nil?
+
+    v = @begin
+    while @end.nil? || (@excl ? v < @end : v <= @end)
+      yield v
+      v += n
+    end
     self
   end
   def %(n, &block)
@@ -238,10 +254,11 @@ class Range
 
   # Every `n`th element of a String range, by succ; the checks wait for
   # the walk.
-  def stepped(n, name)
+  def stepped(n, name, &block)
     Primitive.attr! :hidden
-    return to_enum(name, n) unless block_given?
-    raise ArgumentError, "step can't be negative" if n.is_a?(Integer) && n < 0
+    return added(n, &block) unless n.is_a?(Integer)
+    return to_enum(name, n) unless block
+    raise ArgumentError, "step can't be negative" if n < 0
     raise ArgumentError, "step can't be 0" if n == 0
 
     i = 0

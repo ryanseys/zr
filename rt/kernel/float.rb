@@ -67,6 +67,13 @@ machine def zr_float_operand(recv, v, out, mid, kind)
     Machine.store64(out, 0, Machine.bits(zr_float_value(v)))
     return Machine.value(QNIL)
   end
+  if zr_big_p(v)
+    # Arithmetic with a bignum runs on its nearest double.
+    f = zr_send(v, Machine.id(:to_f), 0, 0)
+    return f if f == QUNDEF
+    Machine.store64(out, 0, Machine.bits(zr_float_value(f)))
+    return Machine.value(QNIL)
+  end
   zr_num_coerce(recv, v, mid, kind)
 end
 
@@ -228,10 +235,8 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_flo_eq(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))
-  if zr_fixnum_p(other) || zr_float_p(other)
-    out = Machine.slot(8)
-    zr_float_operand(recv, other, out, 0, 3)
-    return zr_bool(zr_float_value(recv) == Machine.f64(Machine.load64(out, 0)))
+  if zr_fixnum_p(other) || zr_float_p(other) || zr_big_p(other)
+    return zr_bool(zr_float_cmp_value(recv, other) == 0)
   end
   slot = Machine.slot(8)
   Machine.store64(slot, 0, Machine.word(recv))
@@ -241,23 +246,42 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_flo_cmp(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))
-  if !zr_fixnum_p(other) && !zr_float_p(other)
+  if !zr_fixnum_p(other) && !zr_float_p(other) && !zr_big_p(other)
     return zr_num_coerce(recv, other, Machine.id(:<=>), 2)
   end
-  out = Machine.slot(8)
-  zr_float_operand(recv, other, out, 0, 3)
-  c = zr_float_cmp(zr_float_value(recv), Machine.f64(Machine.load64(out, 0)))
+  c = zr_float_cmp_value(recv, other)
   if c == 2
     return Machine.value(QNIL)
   end
   zr_fix(c)
 end
 
+# `recv <=> other` for a Float against a fixnum, a Float or a bignum:
+# -1, 0, 1, or 2 when they do not compare. A bignum compares exactly,
+# through the Integer side, never through a rounded double.
+sig [Value, Value] => Word
+machine def zr_float_cmp_value(recv, other)
+  if zr_fixnum_p(other)
+    c = zr_int_float_cmp(zr_fix2long(other), zr_float_value(recv))
+    return c == 2 ? 2 : 0 - c
+  end
+  if zr_big_p(other)
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(recv))
+    r = zr_send(other, Machine.id(:<=>), 1, slot)
+    if r == QUNDEF || r == QNIL
+      return 2
+    end
+    return 0 - zr_fix2long(r)
+  end
+  zr_float_cmp(zr_float_value(recv), zr_float_value(other))
+end
+
 # `<`, `<=`, `>`, `>=` with a Float or Integer; anything else fails
 # to compare.
 sig [Value, Value, Word] => Value
 machine def zr_flo_relate(recv, other, want)
-  if !zr_fixnum_p(other) && !zr_float_p(other)
+  if !zr_fixnum_p(other) && !zr_float_p(other) && !zr_big_p(other)
     if want == 0
       return zr_num_coerce(recv, other, Machine.id(:<), 1)
     end
@@ -269,9 +293,7 @@ machine def zr_flo_relate(recv, other, want)
     end
     return zr_num_coerce(recv, other, Machine.id(:>=), 1)
   end
-  out = Machine.slot(8)
-  zr_float_operand(recv, other, out, 0, 3)
-  c = zr_float_cmp(zr_float_value(recv), Machine.f64(Machine.load64(out, 0)))
+  c = zr_float_cmp_value(recv, other)
   if c == 2
     return Machine.value(QFALSE)
   end
@@ -823,6 +845,15 @@ Machine.import "log2", [F64] => F64
 Machine.import "log10", [F64] => F64
 Machine.import "asin", [F64] => F64
 Machine.import "acos", [F64] => F64
+Machine.import "asinh", [F64] => F64
+Machine.import "acosh", [F64] => F64
+Machine.import "atanh", [F64] => F64
+Machine.import "tgamma", [F64] => F64
+Machine.import "lgamma_r", [F64, Ptr] => F64
+Machine.import "erf", [F64] => F64
+Machine.import "erfc", [F64] => F64
+Machine.import "ldexp", [F64, I32] => F64
+Machine.import "frexp", [F64, Ptr] => F64
 
 sig [Ptr, Word] => Bool
 machine def zr_digit_at(p, i)
@@ -966,7 +997,10 @@ sig [Value, Value, Value] => Value
 machine def zr_math_call(which, x, y)
   w = zr_fix2long(which)
   a = zr_float_value(x)
-  c = zr_float_value(y)
+  c = Machine.f64(0)
+  if zr_float_p(y)
+    c = zr_float_value(y)
+  end
   if w == 1
     return zr_float_new(cbrt(a))
   elsif w == 2
@@ -997,8 +1031,49 @@ machine def zr_math_call(which, x, y)
     return zr_float_new(log10(a))
   elsif w == 15
     return zr_float_new(asin(a))
+  elsif w == 16
+    return zr_float_new(acos(a))
+  elsif w == 17
+    return zr_float_new(asinh(a))
+  elsif w == 18
+    return zr_float_new(acosh(a))
+  elsif w == 19
+    return zr_float_new(atanh(a))
+  elsif w == 20
+    return zr_float_new(tgamma(a))
+  elsif w == 21
+    return zr_float_new(erf(a))
+  elsif w == 22
+    return zr_float_new(erfc(a))
+  elsif w == 23
+    return zr_float_new(ldexp(a, Machine.i32(zr_fix2long(y))))
   end
-  zr_float_new(acos(a))
+  zr_float_new(lgamma_r(a, Machine.slot(4)))
+end
+
+# `[mantissa, exponent]` of frexp: the fraction in [0.5, 1) and the
+# power of two.
+sig [Value] => Value
+machine def zr_math_frexp(x)
+  e = Machine.slot(4)
+  Machine.store32(e, 0, Machine.i32(0))
+  m = frexp(zr_float_value(x), e)
+  out = zr_ary_new(2)
+  zr_ary_push(out, zr_float_new(m))
+  zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(e, 0))))
+  out
+end
+
+# `[log|gamma|, sign]` of lgamma.
+sig [Value] => Value
+machine def zr_math_lgamma(x)
+  s = Machine.slot(4)
+  Machine.store32(s, 0, Machine.i32(1))
+  v = lgamma_r(zr_float_value(x), s)
+  out = zr_ary_new(2)
+  zr_ary_push(out, zr_float_new(v))
+  zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(s, 0))))
+  out
 end
 
 # The adjacent double: `up` moves toward +Infinity. The zeros meet at

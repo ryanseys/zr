@@ -26,7 +26,18 @@ class Float
   def zero? = self == 0.0
   def positive? = self > 0.0
   def negative? = self < 0.0
-  def truncate(digits = 0) = digits > 0 ? Primitive.zr_unimplemented("Float#truncate with digits") : to_i
+  # A negative count of digits rounds the Integer the value becomes.
+  def floor(digits = 0)
+    digits = Primitive.zr_index_operand_m(digits)
+    digits < 0 ? __floor__.floor(digits) : __floor__(digits)
+  end
+
+  def ceil(digits = 0)
+    digits = Primitive.zr_index_operand_m(digits)
+    digits < 0 ? __ceil__.ceil(digits) : __ceil__(digits)
+  end
+
+  def truncate(digits = 0) = self > 0 ? floor(digits) : ceil(digits)
   def fdiv(other) = self / other
   def quo(other) = self / other
 
@@ -48,14 +59,13 @@ class Float
 
   alias to_int to_i
 
+  # `Float(other)` beside self, so a String parses and anything with
+  # no to_f is refused as Float() refuses it.
   def coerce(other)
     return [other, self] if other.is_a?(Float)
     return [other.to_f, self] if other.is_a?(Integer) || other.is_a?(Rational)
-    raise TypeError, "can't convert nil into Float" if other.nil?
-    return [Float(other), self] if other.is_a?(String)
-    raise TypeError, "#{other.class} can't be coerced into Float" unless other.respond_to?(:to_f)
 
-    [other.to_f, self]
+    [Float(other), self]
   end
 
   def rationalize(*args) = Primitive.zr_unimplemented("Float#rationalize")
@@ -74,10 +84,10 @@ module Kernel
       return result if result || !exception
 
       raise ArgumentError, "invalid value for Float(): #{value.inspect}"
-    when nil
+    when nil, true, false
       return nil unless exception
 
-      raise TypeError, "can't convert nil into Float"
+      raise TypeError, "can't convert #{value.inspect} into Float"
     else
       return value.to_f if value.respond_to?(:to_f)
       return nil unless exception
@@ -102,6 +112,7 @@ module Math
   def self.sqrt(x)
     x = check(x, "sqrt")
     raise DomainError, "Numerical argument is out of domain - sqrt" if x < 0.0
+    return 0.0 if x == 0.0
 
     Primitive.zr_math_sqrt(x)
   end
@@ -119,25 +130,33 @@ module Math
   def self.tanh(x) = Primitive.zr_math_call(11, check(x, "tanh"), 0.0)
 
   def self.log(x, base = nil)
+    x, bits = split(x)
     x = check(x, "log")
     raise DomainError, "Numerical argument is out of domain - log" if x < 0.0
-    return Primitive.zr_math_call(12, x, 0.0) if base.nil?
 
-    Primitive.zr_math_call(12, x, 0.0) / Primitive.zr_math_call(12, check(base, "log"), 0.0)
+    value = Primitive.zr_math_call(12, x, 0.0) + bits * 0.6931471805599453
+    return value if base.nil?
+
+    base = check(base, "log")
+    raise DomainError, "Numerical argument is out of domain - log" if base < 0.0
+
+    value / Primitive.zr_math_call(12, base, 0.0)
   end
 
   def self.log2(x)
+    x, bits = split(x)
     x = check(x, "log2")
     raise DomainError, "Numerical argument is out of domain - log2" if x < 0.0
 
-    Primitive.zr_math_call(13, x, 0.0)
+    Primitive.zr_math_call(13, x, 0.0) + bits
   end
 
   def self.log10(x)
+    x, bits = split(x)
     x = check(x, "log10")
     raise DomainError, "Numerical argument is out of domain - log10" if x < 0.0
 
-    Primitive.zr_math_call(14, x, 0.0)
+    Primitive.zr_math_call(14, x, 0.0) + bits * 0.3010299956639812
   end
 
   def self.asin(x)
@@ -154,6 +173,64 @@ module Math
     Primitive.zr_math_call(16, x, 0.0)
   end
 
+  def self.asinh(x) = Primitive.zr_math_call(17, check(x, "asinh"), 0.0)
+
+  def self.acosh(x)
+    x = check(x, "acosh")
+    raise DomainError, "Numerical argument is out of domain - acosh" if x < 1.0
+
+    Primitive.zr_math_call(18, x, 0.0)
+  end
+
+  def self.atanh(x)
+    x = check(x, "atanh")
+    raise DomainError, "Numerical argument is out of domain - atanh" if x < -1.0 || x > 1.0
+
+    Primitive.zr_math_call(19, x, 0.0)
+  end
+
+  # Gamma is exact at the small positive integers, and refused at zero's
+  # negative side and the negative integers.
+  def self.gamma(x)
+    x = check(x, "gamma")
+    if x.infinite? && x < 0 || (x < 0 && x.finite? && x == x.floor) || (x == 0 && 1.0 / x < 0)
+      raise DomainError, "Numerical argument is out of domain - gamma"
+    end
+    return FACTORIALS[x.to_i - 1] if x == x.floor && x >= 1 && x <= FACTORIALS.size
+
+    Primitive.zr_math_call(20, x, 0.0)
+  end
+
+  # (n - 1)! for n from 1 to 23: gamma's exact answers.
+  FACTORIALS = (0..22).map { |n| (1..n).reduce(1.0) { |m, i| m * i } }.freeze
+  private_constant :FACTORIALS
+
+  def self.lgamma(x)
+    x = check(x, "lgamma")
+    raise DomainError, "Numerical argument is out of domain - lgamma" if x.infinite? && x < 0
+    return [Float::INFINITY, 1] if x.infinite? || (x < 0 && x == x.floor) || x == 0
+
+    Primitive.zr_math_lgamma(x)
+  end
+
+  def self.erf(x) = Primitive.zr_math_call(21, check(x, "erf"), 0.0)
+
+  def self.erfc(x) = Primitive.zr_math_call(22, check(x, "erfc"), 0.0)
+
+  def self.frexp(x)
+    x = check(x, "frexp")
+    return [x, 0] if x.nan? || x.infinite?
+
+    Primitive.zr_math_frexp(x)
+  end
+
+  def self.ldexp(fraction, exponent)
+    fraction = check(fraction, "ldexp")
+    exponent = Primitive.zr_index_operand_m(exponent)
+    exponent = exponent.clamp(-100_000, 100_000)
+    Primitive.zr_math_call(23, fraction, exponent)
+  end
+
   def self.check(x, name)
     Primitive.attr! :hidden
     return x.to_f if x.is_a?(Integer)
@@ -163,9 +240,41 @@ module Math
     x.to_f
   end
   private_class_method :check
+
+  # A bignum too wide for a double logs through its top bits: the
+  # rest is a count of doublings.
+  def self.split(x)
+    Primitive.attr! :hidden
+    return [x, 0] unless x.is_a?(Integer) && x > 0 && x.bit_length >= 1024
+
+    bits = x.bit_length - 53
+    [x >> bits, bits]
+  end
+  private_class_method :split
+
+  # The functions read as bare names too, as `include Math` gives them.
+  singleton_methods(false).each do |name|
+    define_method(name) { |*args| Math.send(name, *args) }
+    private name
+  end
 end
 
 class Float
+  # `half:` decides a tie: :up (the default), :even, or :down. A tie is
+  # a scaled value whose fraction is exactly one half in the double.
+  def round(digits = 0, half: nil)
+    digits = Primitive.zr_index_operand_m(digits)
+    mode = Numeric.send(:half_mode, half)
+    return __round__(digits) if mode == :up || !finite?
+
+    scaled = digits > 0 ? self * 10.0**digits : (digits < 0 ? self / 10.0**-digits : self)
+    return __round__(digits) unless scaled.finite? && scaled - scaled.floor == 0.5
+
+    base = scaled.floor
+    n = mode == :down ? (self > 0 ? base : base + 1) : (base.even? ? base : base + 1)
+    digits > 0 ? n / 10.0**digits : (digits < 0 ? n * 10**-digits : n)
+  end
+
   # A number is its own copy.
   def dup = self
 

@@ -47,7 +47,11 @@ end
 
 class Integer
   def <=>(other)
-    return Primitive.zr_int_float_spaceship(self, other) if other.is_a?(Float)
+    if other.is_a?(Float)
+      return Primitive.zr_int_float_spaceship(self, other) if Primitive.zr_fixnum_p_m(self)
+
+      return Integer.send(:big_cmp_float, self, other)
+    end
     return Primitive.zr_num_coerce_m(self, other, :<=>, 2) unless other.is_a?(Integer)
 
     self < other ? -1 : (self > other ? 1 : 0)
@@ -100,7 +104,7 @@ class Integer
     return self**exponent if modulus.nil?
     Primitive.zr_unimplemented("Integer#pow with a non-Integer modulus") unless modulus.is_a?(Integer)
     raise ZeroDivisionError, "divided by 0" if modulus.zero?
-    Primitive.zr_unimplemented("Integer#pow with a negative exponent") if exponent < 0
+    raise RangeError, "Integer#pow() 1st argument cannot be negative when 2nd argument specified" if exponent < 0
 
     result = 1
     base = self % modulus
@@ -187,13 +191,6 @@ class Integer
 
   def modulo(other) = self % other
 
-  def remainder(other)
-    return self - other * (self / other).truncate unless other.is_a?(Integer)
-
-    r = self % other
-    r != 0 && (self < 0) != (other < 0) ? r - other : r
-  end
-
   def fdiv(other) = to_f / other
 
   def abs2 = self * self
@@ -201,6 +198,8 @@ class Integer
   def gcdlcm(other) = [gcd(other), lcm(other)]
 
   def gcd(other)
+    raise TypeError, "not an integer" unless other.is_a?(Integer)
+
     a = abs
     b = other.abs
     a, b = b, a % b until b.zero?
@@ -208,6 +207,7 @@ class Integer
   end
 
   def lcm(other)
+    raise TypeError, "not an integer" unless other.is_a?(Integer)
     return 0 if zero? || other.zero?
 
     (self * other).abs / gcd(other)
@@ -244,15 +244,41 @@ class Integer
 
   def truncate(digits = 0) = round_to(digits, :truncate)
 
-  def allbits?(mask) = self & mask == mask
-  def anybits?(mask) = self & mask != 0
-  def nobits?(mask) = self & mask == 0
+  def allbits?(mask)
+    mask = bit_mask(mask)
+    self & mask == mask
+  end
+
+  def anybits?(mask) = self & bit_mask(mask) != 0
+
+  def nobits?(mask) = self & bit_mask(mask) == 0
+
+  # A mask is any Integer, or what to_int makes of the argument.
+  def bit_mask(mask)
+    Primitive.attr! :hidden
+    mask.is_a?(Integer) ? mask : Primitive.zr_index_operand_m(mask)
+  end
+  private :bit_mask
+
+  alias magnitude abs
 
   def ceildiv(other) = -(-self).div(other)
 
   def floor(digits = 0) = round_to(digits, :floor)
 
-  def round(digits = 0, half: nil) = round_to(digits, :round)
+  def round(digits = 0, half: nil)
+    mode = Numeric.send(:half_mode, half)
+    digits = Primitive.zr_index_operand_m(digits)
+    return self if digits >= 0
+
+    unit = 10**-digits
+    rem = abs % unit
+    nearest = abs - rem
+    if rem * 2 > unit || (rem * 2 == unit && (mode == :up || (mode == :even && (nearest / unit).odd?)))
+      nearest += unit
+    end
+    negative? ? -nearest : nearest
+  end
 
   def self.sqrt(n)
     raise Math::DomainError, 'Numerical argument is out of domain - "isqrt"' if n < 0
@@ -298,6 +324,88 @@ class Integer
 end
 
 class Numeric
+  # CRuby's rule: the modulo, moved back by the divisor when the signs
+  # differ, so the remainder takes the receiver's sign.
+  def remainder(other)
+    z = self % other
+    return z if z == 0
+
+    (self < 0 && other > 0) || (self > 0 && other < 0) ? z - other : z
+  end
+
+  def nonzero? = zero? ? nil : self
+
+  def magnitude = abs
+
+  # The defaults a Numeric subclass inherits, each through the
+  # operators and conversions the subclass defines.
+  def abs = self < 0 ? -self : self
+
+  def -@ = coerce(0).reduce(:-)
+
+  def +@ = self
+
+  def zero? = self == 0
+
+  def positive? = self > 0
+
+  def negative? = self < 0
+
+  def integer? = false
+
+  def finite? = true
+
+  def infinite? = nil
+
+  def div(other)
+    raise ZeroDivisionError, "divided by 0" if other == 0
+
+    (self / other).floor
+  end
+
+  def modulo(other) = self - other * div(other)
+
+  alias % modulo
+
+  def divmod(other) = [div(other), modulo(other)]
+
+  def quo(other) = to_r / other
+
+  def fdiv(other) = to_f / other
+
+  def to_int = self.to_i
+
+  def numerator = to_r.numerator
+
+  def denominator = to_r.denominator
+
+  def floor(digits = 0) = to_f.floor(digits)
+
+  def ceil(digits = 0) = to_f.ceil(digits)
+
+  def round(digits = 0, half: nil) = to_f.round(digits, half: half)
+
+  def truncate(digits = 0) = to_f.truncate(digits)
+
+  def coerce(other)
+    return [other, self] if other.instance_of?(self.class)
+
+    [Float(other), Float(self)]
+  end
+
+  # The `half:` keyword as one of :up, :even, :down.
+  def self.half_mode(half)
+    Primitive.attr! :hidden
+    return :up if half.nil?
+
+    name = half.is_a?(String) ? half : half.to_s
+    raise ArgumentError, "invalid rounding mode: #{half}" unless half.is_a?(Symbol) || half.is_a?(String)
+    return name.to_sym if %w[up even down].include?(name)
+
+    raise ArgumentError, "invalid rounding mode: #{half}"
+  end
+  private_class_method :half_mode
+
   # `step(limit, step)` or `step(by:, to:)`: an ArithmeticSequence, or
   # each value up to `limit`. A Float anywhere makes every value a
   # Float, spaced as CRuby's float step is.

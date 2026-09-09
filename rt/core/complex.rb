@@ -138,7 +138,19 @@ class Complex < Numeric
 
   alias rect rectangular
 
-  def abs = Math.hypot(real, imaginary)
+  # Exact along an axis, as CRuby keeps it: a Float on the other axis
+  # only makes the answer a Float.
+  def abs
+    if real == 0
+      a = imaginary.abs
+      return real.is_a?(Float) && !imaginary.is_a?(Float) ? a.to_f : a
+    end
+    if imaginary == 0
+      a = real.abs
+      return imaginary.is_a?(Float) && !real.is_a?(Float) ? a.to_f : a
+    end
+    Math.hypot(real, imaginary)
+  end
 
   alias magnitude abs
 
@@ -271,6 +283,14 @@ class Complex < Numeric
     end
   end
 
+  # Over the common denominator of both parts.
+  def denominator = real.denominator.lcm(imaginary.denominator)
+
+  def numerator
+    d = denominator
+    Complex.send(:build, real.numerator * (d / real.denominator), imaginary.numerator * (d / imaginary.denominator))
+  end
+
   def finite? = !(real.is_a?(Float) && !real.finite?) && !(imaginary.is_a?(Float) && !imaginary.finite?)
 
   def infinite? = finite? ? nil : 1
@@ -379,6 +399,16 @@ class Numeric
   def i = Complex.send(:build, 0, self)
 
   def to_c = Complex.send(:build, self, 0)
+
+  # A number's singleton is refused, as every Numeric is a value.
+  def singleton_method_added(name)
+    singleton_class.send(:remove_method, name)
+    raise TypeError, "can't define singleton method \"#{name}\" for #{self.class}"
+  end
+end
+
+class Complex
+  undef_method :i
 end
 
 class Float

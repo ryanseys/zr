@@ -65,7 +65,7 @@ class Array
   end
 
   def +(other)
-    other = Array.try_convert(other) || raise(TypeError, "no implicit conversion of #{other.nil? ? 'nil' : other.class} into Array")
+    other = Array.try_convert(other) || raise(TypeError, "no implicit conversion of #{conversion_name(other)} into Array")
     out = Array.new(self)
     i = 0
     while i < other.size
@@ -122,7 +122,8 @@ class Array
 
     i = 0
     while i < size
-      return i if block_given? ? yield(self[i]) : self[i] == v
+      x = self[i]
+      return i if block_given? ? yield(x) : (x.equal?(v) || x == v)
 
       i += 1
     end
@@ -336,10 +337,13 @@ class Array
     out
   end
 
+  # The same object counts as found before == is asked, so NaN finds
+  # itself.
   def include?(v)
     i = 0
     while i < size
-      return true if self[i] == v
+      x = self[i]
+      return true if x.equal?(v) || x == v
 
       i += 1
     end
@@ -437,7 +441,7 @@ class Array
   # triples it.
   def concat(*others)
     pieces = others.map do |o|
-      ary = Array.try_convert(o) || raise(TypeError, "no implicit conversion of #{o.nil? ? 'nil' : o.class} into Array")
+      ary = Array.try_convert(o) || raise(TypeError, "no implicit conversion of #{conversion_name(o)} into Array")
       ary.equal?(self) ? ary.dup : ary
     end
     pieces.each { |o| Primitive.zr_ary_splice(self, size, 0, o) }
@@ -522,8 +526,8 @@ class Array
       start, len = range_span(index)
     when 3
       start, len, value = args
-      raise TypeError, "no implicit conversion of #{start.class} into Integer" unless start.is_a?(Integer)
-      raise TypeError, "no implicit conversion of #{len.class} into Integer" unless len.is_a?(Integer)
+      start = Primitive.zr_index_operand_m(start)
+      len = Primitive.zr_index_operand_m(len)
     else
       raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2..3)"
     end
@@ -932,10 +936,8 @@ class Array
   # before the first element is out of range.
   def range_span(range)
     Primitive.attr! :hidden
-    start = range.begin || 0
-    stop = range.end
-    raise TypeError, "no implicit conversion of #{start.class} into Integer" unless start.is_a?(Integer)
-    raise TypeError, "no implicit conversion of #{stop.class} into Integer" unless stop.nil? || stop.is_a?(Integer)
+    start = range.begin.nil? ? 0 : Primitive.zr_index_operand_m(range.begin)
+    stop = range.end.nil? ? nil : Primitive.zr_index_operand_m(range.end)
 
     n = size
     start += n if start < 0

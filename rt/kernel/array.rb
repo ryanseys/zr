@@ -211,6 +211,9 @@ machine def zr_index_operand(v, out)
       Machine.store64(out, 0, Machine.to_int(t))
       return Machine.value(QNIL)
     end
+    if zr_big_p(v)
+      return zr_raise_msg(zr_core_class(Machine.id(:RangeError)), Machine.bytes("bignum too big to convert into 'long'"), 37)
+    end
     if !zr_special_p(v) && zr_find_method(zr_class_of(v), Machine.id(:to_int)) != 0
       r = zr_send(v, Machine.id(:to_int), 0, 0)
       return r if r == QUNDEF
@@ -449,16 +452,19 @@ machine def zr_ary_eq(recv, argc, argv, cref, blk)
   end
   i = 0
   while i < RArray.len(recv)
-    slot = Machine.slot(8)
-    Machine.store64(slot, 0, Machine.word(zr_ary_at(other, i)))
-    r = zr_send(zr_ary_at(recv, i), Machine.id(:==), 1, slot)
-    if r == QUNDEF
-      zr_guard_leave(recv, Machine.id(:==))
-      return r
-    end
-    if r == QNIL || r == QFALSE
-      zr_guard_leave(recv, Machine.id(:==))
-      return Machine.value(QFALSE)
+    # The same object is equal before == is asked, as rb_equal has it.
+    if zr_ary_at(recv, i) != zr_ary_at(other, i)
+      slot = Machine.slot(8)
+      Machine.store64(slot, 0, Machine.word(zr_ary_at(other, i)))
+      r = zr_send(zr_ary_at(recv, i), Machine.id(:==), 1, slot)
+      if r == QUNDEF
+        zr_guard_leave(recv, Machine.id(:==))
+        return r
+      end
+      if r == QNIL || r == QFALSE
+        zr_guard_leave(recv, Machine.id(:==))
+        return Machine.value(QFALSE)
+      end
     end
     i += 1
   end
