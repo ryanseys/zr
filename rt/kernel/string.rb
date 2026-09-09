@@ -306,6 +306,24 @@ machine def zr_str_dup(recv, argc, argv, cref, blk)
   zr_str_new(RString.ptr(recv), RString.len(recv))
 end
 
+# `+str`: the string itself unless frozen, then a copy that is not.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_uplus(recv, argc, argv, cref, blk)
+  if zr_frozen_p(recv)
+    return zr_str_new(RString.ptr(recv), RString.len(recv))
+  end
+  recv
+end
+
+# `-str`: the string itself when frozen, else a frozen copy.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_uminus(recv, argc, argv, cref, blk)
+  if zr_frozen_p(recv)
+    return recv
+  end
+  zr_str_frozen(RString.ptr(recv), RString.len(recv))
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_freeze(recv, argc, argv, cref, blk)
   unless zr_special_p(recv)

@@ -97,8 +97,49 @@ machine def zr_mark(v)
       RBasic.set_flags(v, flags | FL_MARK)
       zr_mark(RBasic.klass(v))
       zr_mark_children(v)
+      if (flags & FL_EXIVAR) != 0
+        zr_mark_ivtab(zr_exivar_tab(v))
+      end
     end
   end
+end
+
+# The ivar tables of objects whose kind has none of its own: one slot
+# per cell, holding a table or 0.
+sig [] => Ptr
+machine def zr_exivars
+  Machine.static(:exivars, CELLS * 8)
+end
+
+sig [Value] => Ptr
+machine def zr_exivar_slot(v)
+  zr_exivars() + (((Machine.word(v) - zr_arena()) / CELL) * 8)
+end
+
+sig [Value] => Ptr
+machine def zr_exivar_tab(v)
+  Machine.ptr(Machine.load64(zr_exivar_slot(v), 0))
+end
+
+# The table for `v`, made on first use.
+sig [Value] => Ptr
+machine def zr_exivar_tab_for_write(v)
+  t = zr_exivar_tab(v)
+  if t == 0
+    t = malloc(IvTab.size)
+    zr_ivtab_init(t)
+    Machine.store64(zr_exivar_slot(v), 0, Machine.word(t))
+    RBasic.set_flags(v, RBasic.flags(v) | FL_EXIVAR)
+  end
+  t
+end
+
+sig [Value] => Void
+machine def zr_exivar_free(v)
+  t = zr_exivar_tab(v)
+  zr_release_ivtab(t)
+  free(t)
+  Machine.store64(zr_exivar_slot(v), 0, 0)
 end
 
 # Global variables: one table of (id, value) rows.
@@ -163,6 +204,9 @@ machine def zr_free_cell(i)
   else
     if (flags & FL_ALLOCATED) != 0
       zr_release(Machine.value(cell))
+      if (flags & FL_EXIVAR) != 0
+        zr_exivar_free(Machine.value(cell))
+      end
     end
     Machine.store64(cell, 0, POISON)
     Machine.store64(cell, 8, Heap.free(h))

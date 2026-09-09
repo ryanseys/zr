@@ -251,6 +251,8 @@ machine def zr_boot
   zr_builtin(zr_global(G_STRING), Machine.id(:empty?), Machine.addr(:zr_str_empty_p), 0)
   zr_builtin(zr_global(G_STRING), Machine.id(:to_sym), Machine.addr(:zr_str_to_sym), 0)
   zr_builtin(zr_global(G_STRING), Machine.id(:dup), Machine.addr(:zr_str_dup), 0)
+  zr_builtin(zr_global(G_STRING), Machine.id(:+@), Machine.addr(:zr_str_uplus), 0)
+  zr_builtin(zr_global(G_STRING), Machine.id(:-@), Machine.addr(:zr_str_uminus), 0)
   zr_builtin(zr_global(G_STRING), Machine.id(:succ), Machine.addr(:zr_str_succ), 0)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:freeze), Machine.addr(:zr_obj_freeze), 0)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:frozen?), Machine.addr(:zr_obj_frozen_p), 0)

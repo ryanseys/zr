@@ -12,7 +12,8 @@ machine def zr_ivtab_init(t)
   IvTab.set_cap(t, 0)
 end
 
-# The ivar table of `v`, or 0 when its kind carries none.
+# The ivar table of `v`, or 0 when it has none yet: an object's or a
+# class's own, else the one kept beside the arena.
 sig [Value] => Ptr
 machine def zr_ivtab(v)
   if zr_special_p(v)
@@ -23,9 +24,25 @@ machine def zr_ivtab(v)
     RObject.iv(v)
   elsif t == T_CLASS || t == T_MODULE
     ClassExt.iv(RClass.ext(v))
+  elsif (RBasic.flags(v) & FL_EXIVAR) != 0
+    zr_exivar_tab(v)
   else
     0
   end
+end
+
+# The table a write goes to: made now when the kind has none of its
+# own. A special constant is frozen.
+sig [Value] => Ptr
+machine def zr_ivtab_for_write(v)
+  t = zr_ivtab(v)
+  if t != 0
+    return t
+  end
+  if zr_special_p(v)
+    return 0
+  end
+  zr_exivar_tab_for_write(v)
 end
 
 sig [Ptr] => Void
@@ -107,9 +124,9 @@ end
 
 sig [Value, Word, Value] => Value
 machine def zr_ivar_set(obj, id, v)
-  t = zr_ivtab(obj)
+  t = zr_ivtab_for_write(obj)
   if t == 0
-    zr_bug(Machine.bytes("an ivar on an Integer, Symbol, String or Array is not implemented yet\n"), 70)
+    return zr_frozen_error(obj)
   end
   zr_ivtab_set(t, id, v)
   v
