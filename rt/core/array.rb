@@ -238,7 +238,11 @@ class Array
     self
   end
 
-  def take(n) = first(n)
+  def take(n)
+    raise ArgumentError, "attempt to take negative size" if n < 0
+
+    first(n)
+  end
 
   def drop(n)
     raise ArgumentError, "attempt to drop negative size" if n < 0
@@ -251,6 +255,8 @@ class Array
     end
     out
   end
+
+  def deconstruct = self
 
   def to_ary = self
 

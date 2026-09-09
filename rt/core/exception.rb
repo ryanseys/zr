@@ -74,7 +74,24 @@ end
 class ClosedQueueError < StopIteration; end
 class NoMatchingPatternError < StandardError; end
 class NoMatchingPatternKeyError < NoMatchingPatternError
-  attr_reader :key, :matchee
+  def initialize(message = nil, **options)
+    super(message)
+    Primitive.zr_hidden_set(self, :__matchee__, options[:matchee]) if options.key?(:matchee)
+    Primitive.zr_hidden_set(self, :__key__, options[:key]) if options.key?(:key)
+    Primitive.zr_hidden_set(self, :__given__, options.key?(:key))
+  end
+
+  def matchee
+    raise ArgumentError, "no matchee is available" unless Primitive.zr_hidden_get(self, :__given__)
+
+    Primitive.zr_hidden_get(self, :__matchee__)
+  end
+
+  def key
+    raise ArgumentError, "no key is available" unless Primitive.zr_hidden_get(self, :__given__)
+
+    Primitive.zr_hidden_get(self, :__key__)
+  end
 end
 class RangeError < StandardError; end
 class FloatDomainError < RangeError; end

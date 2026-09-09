@@ -39,7 +39,9 @@ module Ze0
 
           @roots.concat(load_path_roots(result.value, file))
           frozen = result.magic_comments.any? { |c| c.key == "frozen_string_literal" && c.value == "true" }
-          Unit.new(file, result.value.locals, Build.new(file, self).seq(result.value.statements), frozen)
+          build = Build.new(file, self)
+          body = build.seq(result.value.statements)
+          Unit.new(file, result.value.locals + build.temps, body, frozen)
         end
 
         # The index of `path`'s unit, built on first sight.
@@ -119,7 +121,11 @@ module Ze0
         @file = file
         @loader = loader
         @block_depth = 0
+        @temps = [[]]
       end
+
+      # The hidden locals the toplevel scope needs.
+      def temps = @temps.first
 
       # The names of the anonymous parameters `*`, `**`, `&` and `...`,
       # as locals of the def that declares them.
@@ -128,9 +134,11 @@ module Ze0
       # `body` lowered one block scope deeper.
       def in_block
         @block_depth += 1
+        @temps.push([])
         yield
       ensure
         @block_depth -= 1
+        @temps.pop
       end
 
       # `body` lowered in a fresh scope: a def or a class body.
@@ -138,10 +146,15 @@ module Ze0
         was = [@block_depth, @def_params]
         @block_depth = 0
         @def_params = nil
+        @temps.push([])
         yield
       ensure
         @block_depth, @def_params = was
+        @temps.pop
       end
+
+      # A scope's locals: the parser's, then the hidden ones its body made.
+      def with_temps(locals) = locals + @temps.last
 
       GVAR_ALIASES = { :$PROGRAM_NAME => :$0, :$: => :$LOAD_PATH, :$" => :$LOADED_FEATURES, :$> => :$stdout }.freeze
 
@@ -226,7 +239,8 @@ module Ze0
         when Prism::LambdaNode
           in_block do
             params, extra = block_params(node.parameters)
-            Lambda.new(Block.new(params, node.locals + extra, node.body ? expr(node.body) : Literal.new(nil, line), line), line)
+            body = node.body ? expr(node.body) : Literal.new(nil, line)
+            Lambda.new(Block.new(params, with_temps(node.locals + extra), body, line), line)
           end
         when Prism::ItLocalVariableReadNode then Local.new(:it, 0, line)
         when Prism::UndefNode
@@ -244,6 +258,10 @@ module Ze0
           node.is_a?(Prism::BreakNode) ? Break.new(value, line) : Next.new(value, line)
         when Prism::IfNode
           If.new(expr(node.predicate), node.statements && seq(node.statements), node.subsequent && expr(node.subsequent), line)
+        when Prism::CaseMatchNode then case_match(node)
+        when Prism::MatchRequiredNode then match_required(node)
+        when Prism::MatchPredicateNode then match_predicate(node)
+        when Prism::MatchWriteNode then match_write(node)
         when Prism::UnlessNode
           If.new(expr(node.predicate), node.else_clause && seq(node.else_clause.statements), node.statements && seq(node.statements), line)
         when Prism::ElseNode then node.statements ? seq(node.statements) : Literal.new(nil, line)
@@ -259,13 +277,22 @@ module Ze0
         when Prism::ClassNode
           scope, name = constant_path(node.constant_path)
           superclass = node.superclass && expr(node.superclass)
-          in_scope { ClassDef.new(scope, name, superclass, node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line) }
+          in_scope do
+            body = node.body ? expr(node.body) : Literal.new(nil, line)
+            ClassDef.new(scope, name, superclass, with_temps(node.locals), body, line)
+          end
         when Prism::ModuleNode
           scope, name = constant_path(node.constant_path)
-          in_scope { ModuleDef.new(scope, name, node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line) }
+          in_scope do
+            body = node.body ? expr(node.body) : Literal.new(nil, line)
+            ModuleDef.new(scope, name, with_temps(node.locals), body, line)
+          end
         when Prism::SingletonClassNode
           target = expr(node.expression)
-          in_scope { SingletonClassDef.new(target, node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line) }
+          in_scope do
+            body = node.body ? expr(node.body) : Literal.new(nil, line)
+            SingletonClassDef.new(target, with_temps(node.locals), body, line)
+          end
         when Prism::ConstantReadNode then ConstRead.new(nil, node.name, line)
         when Prism::ConstantPathNode
           scope, name = constant_path(node)
@@ -404,7 +431,7 @@ module Ze0
           params = parameters(node.parameters)
           @def_params = params
           body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
-          locals = node.locals + (params.names - node.locals)
+          locals = with_temps(node.locals + (params.names - node.locals))
           Def.new(node.name, params, locals, body, node.location.start_line, receiver)
         end
       end
@@ -506,7 +533,8 @@ module Ze0
 
         in_block do
           params, extra = block_params(node.parameters)
-          Block.new(params, node.locals + extra, node.body ? expr(node.body) : Literal.new(nil, line), line)
+          body = node.body ? expr(node.body) : Literal.new(nil, line)
+          Block.new(params, with_temps(node.locals + extra), body, line)
         end
       end
 
