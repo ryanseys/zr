@@ -15,3 +15,4 @@ p $;, $,, $/, $\, $VERBOSE, $DEBUG, $-w, $FILENAME, $$.class, $$ > 0, $@
 begin; raise "x"; rescue; p $@.class, $@.first; end
 $0 = "renamed"
 p $0, $PROGRAM_NAME
+p Process.pid.is_a?(Integer), Process.pid > 0, Process.pid == $$

@@ -13,7 +13,7 @@ POISON = 57005 << 8
 
 # Heap state: free head, allocations, collections, stress flag, the
 # index of the last cell handed out.
-Machine.struct :Heap, free: Ptr, allocated: Word, collections: Word, stress: Word, last: Word
+Machine.struct :Heap, free: Ptr, allocated: Word, collections: Word, stress: Word, last: Word, disabled: Word
 
 sig [] => Ptr
 machine def zr_heap
@@ -279,13 +279,65 @@ machine def zr_collect
   zr_sweep()
 end
 
+# The GC module's view of the heap. `disable` and `enable` answer
+# whether collection was disabled before; a disabled collector still
+# runs when the cells run out.
+sig [] => Value
+machine def zr_gc_start
+  zr_collect()
+  Machine.value(QNIL)
+end
+
+sig [] => Value
+machine def zr_gc_count
+  zr_fix(Heap.collections(zr_heap()))
+end
+
+sig [] => Value
+machine def zr_gc_allocated
+  zr_fix(Heap.allocated(zr_heap()))
+end
+
+sig [] => Value
+machine def zr_gc_live_slots
+  n = 0
+  i = 0
+  while i < CELLS
+    if (Machine.load64(zr_arena() + (i * CELL), 0) & FL_ALLOCATED) != 0
+      n += 1
+    end
+    i += 1
+  end
+  zr_fix(n)
+end
+
+sig [Value] => Value
+machine def zr_gc_set_disabled(flag)
+  h = zr_heap()
+  was = zr_bool(Heap.disabled(h) != 0)
+  Heap.set_disabled(h, flag == QTRUE ? 1 : 0)
+  was
+end
+
+sig [Value] => Value
+machine def zr_gc_set_stress(flag)
+  h = zr_heap()
+  Heap.set_stress(h, flag == QNIL || flag == QFALSE ? 0 : 1)
+  flag
+end
+
+sig [] => Value
+machine def zr_gc_stress
+  zr_bool(Heap.stress(zr_heap()) != 0)
+end
+
 # A cell of `type` whose class is `klass`, zeroed past the header. The
 # caller stores the result to its frame record before anything else can
 # allocate.
 sig [Word, Value] => Value
 machine def zr_alloc(type, klass)
   h = zr_heap()
-  if Heap.stress(h) != 0
+  if Heap.stress(h) != 0 && Heap.disabled(h) == 0
     zr_collect()
   end
   if Heap.free(h) == 0
