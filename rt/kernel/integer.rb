@@ -51,6 +51,9 @@ end
 # `Integer#to_s(base = 10)`: digits in any base from 2 to 36.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_to_s(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:to_s), argc, argv)
+  end
   if argc > 1
     return zr_wrong_arity_range(argc, 0, 1)
   end
@@ -97,6 +100,40 @@ machine def zr_int_to_s(recv, argc, argv, cref, blk)
   zr_str_new(buf + at, 72 - at)
 end
 
+# A bignum is a plain object of class Integer: its limbs live in
+# hidden instance variables and its arithmetic in the core library
+# (`Integer#big_op`). Every fixnum builtin routes there when either
+# side is one.
+sig [Value] => Bool
+machine def zr_big_p(v)
+  !zr_special_p(v) && zr_type(v) == T_OBJECT && RBasic.klass(v) == zr_global(G_INTEGER)
+end
+
+# `recv.big_op(:mid, *argv)`.
+sig [Value, Word, Word, Ptr] => Value
+machine def zr_big_route(recv, mid, argc, argv)
+  args = malloc((argc + 1) * 8)
+  Machine.store64(args, 0, Machine.word(zr_sym(mid)))
+  zr_memcpy(args + 8, argv, argc * 8)
+  r = zr_send(recv, Machine.id(:big_op), argc + 1, args)
+  free(args)
+  r
+end
+
+# A machine word that may lie past the fixnum range: a fixnum when it
+# fits, else the bignum `Integer.big_from_word(high, low)` builds from
+# its two halves.
+sig [Word] => Value
+machine def zr_int_from_word(n)
+  if n <= 4611686018427387903 && n >= 0 - 4611686018427387904
+    return zr_fix(n)
+  end
+  pair = Machine.slot(16)
+  Machine.store64(pair, 0, Machine.word(zr_fix(n >> 32)))
+  Machine.store64(pair, 8, Machine.word(zr_fix(n & 4294967295)))
+  zr_send(zr_global(G_INTEGER), Machine.id(:big_from_word), 2, pair)
+end
+
 # The operand of an Integer operator into `out` when it is an Integer;
 # else the answer of `other.coerce(recv)` sent `mid` (`kind` 0), or the
 # comparison failure (`kind` 1), or nil (`kind` 2), or the TypeError
@@ -105,6 +142,9 @@ sig [Value, Ptr, Ptr, Word, Word] => Value
 machine def zr_int_operand(recv, argv, out, mid, kind)
   other = Machine.value(Machine.load64(argv, 0))
   unless zr_fixnum_p(other)
+    if zr_big_p(other)
+      return zr_big_route(recv, mid, 1, argv)
+    end
     return zr_num_coerce(recv, other, mid, kind)
   end
   Machine.store64(out, 0, zr_fix2long(other))
@@ -170,14 +210,14 @@ end
 # and a wrong answer must not slip out.
 sig [Word] => Value
 machine def zr_int_result(n)
-  if n > 4611686018427387903 || n < 0 - 4611686018427387904
-    zr_bug(Machine.bytes("Integer overflow: bignums are not implemented yet\n"), 50)
-  end
-  zr_fix(n)
+  zr_int_from_word(n)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_plus(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:+), argc, argv)
+  end
   if zr_float_p(Machine.value(Machine.load64(argv, 0)))
     return zr_float_new(Machine.to_f64(zr_fix2long(recv)) + zr_float_value(Machine.value(Machine.load64(argv, 0))))
   end
@@ -190,6 +230,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_minus(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:-), argc, argv)
+  end
   if zr_float_p(Machine.value(Machine.load64(argv, 0)))
     return zr_float_new(Machine.to_f64(zr_fix2long(recv)) - zr_float_value(Machine.value(Machine.load64(argv, 0))))
   end
@@ -202,6 +245,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_mul(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:*), argc, argv)
+  end
   if zr_float_p(Machine.value(Machine.load64(argv, 0)))
     return zr_float_new(Machine.to_f64(zr_fix2long(recv)) * zr_float_value(Machine.value(Machine.load64(argv, 0))))
   end
@@ -212,7 +258,7 @@ machine def zr_int_mul(recv, argc, argv, cref, blk)
   a = zr_fix2long(recv)
   p = a * b
   if a != 0 && p / a != b
-    zr_bug(Machine.bytes("Integer overflow: bignums are not implemented yet\n"), 50)
+    return zr_big_route(recv, Machine.id(:*), 1, argv)
   end
   zr_int_result(p)
 end
@@ -235,6 +281,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_div(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:/), argc, argv)
+  end
   if zr_float_p(Machine.value(Machine.load64(argv, 0)))
     return zr_float_new(Machine.to_f64(zr_fix2long(recv)) / zr_float_value(Machine.value(Machine.load64(argv, 0))))
   end
@@ -248,6 +297,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_mod(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:%), argc, argv)
+  end
   if zr_float_p(Machine.value(Machine.load64(argv, 0)))
     y = zr_float_value(Machine.value(Machine.load64(argv, 0)))
     if y == Machine.f64(0)
@@ -267,6 +319,9 @@ end
 # stops loudly until bignums arrive.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_and(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:&), argc, argv)
+  end
   out = Machine.slot(8)
   r = zr_int_operand(recv, argv, out, Machine.id(:&), 0)
   return r if r != QNIL
@@ -275,6 +330,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_or(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:|), argc, argv)
+  end
   out = Machine.slot(8)
   r = zr_int_operand(recv, argv, out, Machine.id(:|), 0)
   return r if r != QNIL
@@ -283,6 +341,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_xor(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:^), argc, argv)
+  end
   out = Machine.slot(8)
   r = zr_int_operand(recv, argv, out, Machine.id(:^), 0)
   return r if r != QNIL
@@ -291,11 +352,17 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_not(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:~), argc, argv)
+  end
   zr_fix(0 - zr_fix2long(recv) - 1)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_lshift(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:<<), argc, argv)
+  end
   out = Machine.slot(8)
   r = zr_int_operand(recv, argv, out, Machine.id(:<<), 0)
   return r if r != QNIL
@@ -305,21 +372,24 @@ machine def zr_int_lshift(recv, argc, argv, cref, blk)
     return zr_fix(a >> (0 - n))
   end
   if n >= 62 || (a != 0 && ((a << n) >> n) != a)
-    zr_bug(Machine.bytes("a shift past the fixnum range needs bignums\n"), 44)
+    return zr_big_route(recv, Machine.id(:<<), 1, argv)
   end
   zr_int_result(a << n)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_rshift(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:>>), argc, argv)
+  end
   out = Machine.slot(8)
   r = zr_int_operand(recv, argv, out, Machine.id(:>>), 0)
   return r if r != QNIL
   n = Machine.load64(out, 0)
   a = zr_fix2long(recv)
   if n < 0
-    if (0 - n) >= 62
-      zr_bug(Machine.bytes("a shift past the fixnum range needs bignums\n"), 44)
+    if (0 - n) >= 62 || (a != 0 && ((a << (0 - n)) >> (0 - n)) != a)
+      return zr_big_route(recv, Machine.id(:>>), 1, argv)
     end
     return zr_int_result(a << (0 - n))
   end
@@ -340,6 +410,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_lt(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:<), argc, argv)
+  end
   if zr_float_p(Machine.value(Machine.load64(argv, 0)))
     return zr_int_float_relate(zr_fix2long(recv), zr_float_value(Machine.value(Machine.load64(argv, 0))), 0)
   end
@@ -352,6 +425,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_le(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:<=), argc, argv)
+  end
   if zr_float_p(Machine.value(Machine.load64(argv, 0)))
     return zr_int_float_relate(zr_fix2long(recv), zr_float_value(Machine.value(Machine.load64(argv, 0))), 1)
   end
@@ -364,6 +440,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_gt(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:>), argc, argv)
+  end
   if zr_float_p(Machine.value(Machine.load64(argv, 0)))
     return zr_int_float_relate(zr_fix2long(recv), zr_float_value(Machine.value(Machine.load64(argv, 0))), 2)
   end
@@ -376,6 +455,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_ge(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:>=), argc, argv)
+  end
   if zr_float_p(Machine.value(Machine.load64(argv, 0)))
     return zr_int_float_relate(zr_fix2long(recv), zr_float_value(Machine.value(Machine.load64(argv, 0))), 3)
   end
@@ -390,6 +472,9 @@ end
 # non-Integer is simply not equal.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_eq(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:==), argc, argv)
+  end
   other = Machine.value(Machine.load64(argv, 0))
   if zr_float_p(other)
     return zr_bool(zr_int_float_cmp(zr_fix2long(recv), zr_float_value(other)) == 0)
@@ -406,6 +491,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_ne(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:!=), argc, argv)
+  end
   other = Machine.value(Machine.load64(argv, 0))
   if zr_float_p(other)
     return zr_bool(zr_int_float_cmp(zr_fix2long(recv), zr_float_value(other)) != 0)

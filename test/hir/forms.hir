@@ -297,13 +297,21 @@
       (array
         (int 3)
         (int 4)))
-    (block (*for) locals (*for)
+    (block (**for) locals (*for)
       (seq
         (masgn
           (targets
             (assign a ^1)
             (assign b ^1))
-          (local *for))
+          (if
+            (send ==
+              (send size
+                (local *for))
+              (int 1))
+            (send []
+              (local *for)
+              (int 0))
+            (local *for)))
         (seq
           (send self p
             (array

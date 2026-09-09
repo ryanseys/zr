@@ -498,6 +498,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_to_f(recv, argc, argv, cref, blk)
+  if !zr_fixnum_p(recv)
+    return zr_big_route(recv, Machine.id(:to_f), argc, argv)
+  end
   zr_float_new(Machine.to_f64(zr_fix2long(recv)))
 end
 

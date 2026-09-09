@@ -110,7 +110,7 @@ class Data
     return "#{head}:...>" if Primitive.zr_recursive_enter(self, :inspect)
 
     begin
-      pairs = members.zip(Primitive.zr_hidden_get(self, :__values__)).map { |m, v| "#{Struct.plain_member?(m) ? m : m.inspect}=#{v.inspect}" }
+      pairs = members.zip(Primitive.zr_hidden_get(self, :__values__)).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }
       pairs.empty? && name ? "#{head}>" : "#{head} #{pairs.join(', ')}>"
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
