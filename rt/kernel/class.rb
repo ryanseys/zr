@@ -153,7 +153,7 @@ machine def zr_prepend_module(klass, mod)
   m = mod
   while m != QNIL
     origin = zr_type(m) == T_ICLASS ? RClass.attached(m) : m
-    unless zr_chain_includes(klass, origin)
+    unless zr_prepended_p(klass, origin)
       ic = zr_iclass_new(origin, RClass.superclass(c))
       RClass.set_superclass(c, ic)
       c = ic
@@ -162,18 +162,41 @@ machine def zr_prepend_module(klass, mod)
   end
 end
 
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_mod_prepend(recv, argc, argv, cref, blk)
-  i = argc - 1
-  while i >= 0
-    m = Machine.value(Machine.load64(argv + (i * 8), 0))
-    r = zr_check_module(m)
-    return r if r == QUNDEF
-    zr_prepend_module(recv, m)
-    r = zr_hook(m, Machine.id(:prepended), recv)
-    return r if r == QUNDEF
-    i -= 1
+# Whether `mod` already stands between `klass` and its origin: only
+# those count against a prepend, not an include further down.
+sig [Value, Value] => Bool
+machine def zr_prepended_p(klass, mod)
+  k = RClass.superclass(klass)
+  stop = RClass.origin(klass)
+  while k != QNIL && k != stop
+    if zr_type(k) == T_ICLASS && RClass.attached(k) == mod
+      return true
+    end
+    k = RClass.superclass(k)
   end
+  false
+end
+
+# `prepend_features(base)`: the module (self) ahead of `base`'s own
+# methods; the core's `prepend` calls it per module, then `prepended`.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_prepend_features(recv, argc, argv, cref, blk)
+  base = Machine.value(Machine.load64(argv, 0))
+  if zr_special_p(base) || (zr_type(base) != T_CLASS && zr_type(base) != T_MODULE)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
+    zr_buf_str(b, zr_class_name_of(base))
+    zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+  if zr_frozen_p(base)
+    return zr_frozen_error(base)
+  end
+  if recv == base || zr_chain_includes(recv, base)
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("cyclic prepend detected"), 23)
+  end
+  zr_prepend_module(base, recv)
   recv
 end
 
@@ -199,25 +222,26 @@ machine def zr_check_module(m)
   Machine.value(QNIL)
 end
 
-# `include`: each module, last first, then its `included` hook.
+# `append_features(base)`: the module (self) spliced into `base`; the
+# core's `include` calls it per module, then `included`.
 sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_mod_include(recv, argc, argv, cref, blk)
-  i = argc - 1
-  while i >= 0
-    m = Machine.value(Machine.load64(argv + (i * 8), 0))
-    r = zr_check_module(m)
-    return r if r == QUNDEF
-    if zr_frozen_p(recv)
-      return zr_frozen_error(recv)
-    end
-    if m == recv || zr_chain_includes(m, recv)
-      return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("cyclic include detected"), 23)
-    end
-    zr_include_module(recv, m)
-    r = zr_hook(m, Machine.id(:included), recv)
-    return r if r == QUNDEF
-    i -= 1
+machine def zr_mod_append_features(recv, argc, argv, cref, blk)
+  base = Machine.value(Machine.load64(argv, 0))
+  if zr_special_p(base) || (zr_type(base) != T_CLASS && zr_type(base) != T_MODULE)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
+    zr_buf_str(b, zr_class_name_of(base))
+    zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
+  if zr_frozen_p(base)
+    return zr_frozen_error(base)
+  end
+  if recv == base || zr_chain_includes(recv, base)
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("cyclic include detected"), 23)
+  end
+  zr_include_module(base, recv)
   recv
 end
 
@@ -305,18 +329,17 @@ machine def zr_undef(klass, id)
     return zr_raise_buf(zr_global(G_NAME_ERROR), b)
   end
   zr_method_add(klass, id, 0, 0, KIND_UNDEF, 0, Machine.value(QNIL))
-  Machine.value(QNIL)
+  zr_method_undefined(klass, id)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_undef_method(recv, argc, argv, cref, blk)
+  slot = Machine.slot(8)
   i = 0
   while i < argc
-    name = Machine.value(Machine.load64(argv + (i * 8), 0))
-    unless zr_symbol_p(name)
-      zr_bug(Machine.bytes("undef_method with a String name is not implemented yet\n"), 55)
-    end
-    r = zr_undef(recv, zr_sym2id(name))
+    r = zr_name_id(Machine.value(Machine.load64(argv + (i * 8), 0)), slot)
+    return r if r == QUNDEF
+    r = zr_undef(recv, Machine.load64(slot, 0))
     return r if r == QUNDEF
     i += 1
   end
@@ -783,6 +806,7 @@ machine def zr_level_method_names(level, out, seen, vis)
     name = zr_sym(MEntry.mid(e))
     if zr_ary_index_of(seen, name) < 0
       zr_ary_push(seen, name)
+      e = zr_find_method_at(level, MEntry.mid(e))
       if MEntry.kind(e) != KIND_UNDEF && (vis < 0 ? MEntry.vis(e) != VIS_PRIVATE : MEntry.vis(e) == vis)
         zr_ary_push(out, name)
       end
@@ -879,6 +903,8 @@ machine def zr_find_method(klass, mid)
       if MEntry.kind(e) == KIND_UNDEF
         return 0
       end
+      # The frame the call pushes takes this as where it was defined.
+      Task.set_found(zr_task(), klass)
       return e
     end
     klass = RClass.superclass(klass)

@@ -299,10 +299,7 @@ machine def zr_super(rec, argc, argv, blk)
     owner = FrameMeta.owner(meta)
     mid = FrameMeta.name(meta)
   end
-  k = zr_class_of(recv)
-  while k != QNIL && !(k == owner || (zr_type(k) == T_ICLASS && RClass.attached(k) == owner))
-    k = RClass.superclass(k)
-  end
+  k = zr_super_from(rec, recv, owner)
   e = 0
   if k != QNIL
     e = zr_find_method(RClass.superclass(k), mid)
@@ -311,6 +308,25 @@ machine def zr_super(rec, argc, argv, blk)
     return zr_no_method_from(recv, mid, false, true)
   end
   zr_invoke(e, recv, argc, argv, blk, kw)
+end
+
+# Where the method the frame runs in (through its blocks) was found,
+# when that node is `owner` or a proxy for it; else nil.
+sig [Ptr, Value] => Value
+machine def zr_frame_defined(rec, owner)
+  meta = zr_method_meta_of(rec)
+  r = rec
+  while r != 0 && Frame.meta(r) != meta
+    r = Frame.prev(r)
+  end
+  if r == 0
+    return Machine.value(QNIL)
+  end
+  k = Frame.defined(r)
+  if k == QNIL || k == owner || (zr_type(k) == T_ICLASS && RClass.attached(k) == owner)
+    return k
+  end
+  Machine.value(QNIL)
 end
 
 # The entry of the `define_method` method the frame runs in, or 0.
@@ -352,14 +368,28 @@ machine def zr_super_defined(rec)
     owner = FrameMeta.owner(meta)
     mid = FrameMeta.name(meta)
   end
-  k = zr_class_of(Frame.self(rec))
-  while k != QNIL && !(k == owner || (zr_type(k) == T_ICLASS && RClass.attached(k) == owner))
-    k = RClass.superclass(k)
-  end
+  k = zr_super_from(rec, Frame.self(rec), owner)
   if k == QNIL
     return Machine.value(QFALSE)
   end
   zr_bool(zr_find_method(RClass.superclass(k), mid) != 0)
+end
+
+# The node a `super` in the frame continues past: the method frame's
+# own defining node when it stands for `owner` (a module included
+# twice has two), else the first node of `owner` in the receiver's
+# chain; nil when there is none.
+sig [Ptr, Value, Value] => Value
+machine def zr_super_from(rec, recv, owner)
+  k = zr_frame_defined(rec, owner)
+  if k != QNIL
+    return k
+  end
+  k = zr_class_of(recv)
+  while k != QNIL && !(k == owner || (zr_type(k) == T_ICLASS && RClass.attached(k) == owner))
+    k = RClass.superclass(k)
+  end
+  k
 end
 
 # A bare `super` with no def around it: in a method `define_method`
@@ -421,6 +451,7 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
   Frame.set_mid(rec, 0)
   Frame.set_svar(rec, Machine.value(QNIL))
   Frame.set_lastline(rec, Machine.value(QNIL))
+  Frame.set_defined(rec, Machine.value(QNIL))
   Task.set_top(t, rec)
   Task.set_kw(t, kw)
   arity = MEntry.arity(e)
@@ -451,6 +482,7 @@ machine def zr_wrong_arity_in(given, expected, e, recv)
   Frame.set_mid(rec, 0)
   Frame.set_svar(rec, Machine.value(QNIL))
   Frame.set_lastline(rec, Machine.value(QNIL))
+  Frame.set_defined(rec, Machine.value(QNIL))
   Task.set_top(t, rec)
   r = zr_wrong_arity(given, expected)
   Task.set_top(t, Frame.prev(rec))

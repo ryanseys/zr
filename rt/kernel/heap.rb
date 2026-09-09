@@ -74,8 +74,10 @@ end
 # The frame chain the collector walks: a record is a Frame followed by
 # `nvalues` Values.
 # `mid` is the name a method frame was called by, an alias's own.
-Machine.struct :Frame, prev: Ptr, meta: Ptr, line: Word, serial: Word, self: Value, cref: Value, blk: Value, nvalues: Word, mid: Word, svar: Value, lastline: Value
-Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word, kw: Word, stack_limit: Ptr, guards: Value, catches: Value, throw_tag: Value, mid: Word, missing: Word
+# `defined` is the class or proxy the method was found in, which `super`
+# continues from (a module included twice has two proxies).
+Machine.struct :Frame, prev: Ptr, meta: Ptr, line: Word, serial: Word, self: Value, cref: Value, blk: Value, nvalues: Word, mid: Word, svar: Value, lastline: Value, defined: Value
+Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word, kw: Word, stack_limit: Ptr, guards: Value, catches: Value, throw_tag: Value, mid: Word, missing: Word, found: Value
 
 # The runtime's own roots: the core classes and the main object.
 G_BASIC_OBJECT = 0
@@ -298,6 +300,7 @@ machine def zr_mark_task(t)
   zr_mark(Task.guards(t))
   zr_mark(Task.catches(t))
   zr_mark(Task.throw_tag(t))
+  zr_mark(Task.found(t))
   rec = Task.top(t)
   while rec != 0
     Machine.store64(zr_marking(), 0, Machine.word(zr_fix(4)))
@@ -306,6 +309,7 @@ machine def zr_mark_task(t)
     zr_mark(Frame.blk(rec))
     zr_mark(Frame.svar(rec))
     zr_mark(Frame.lastline(rec))
+    zr_mark(Frame.defined(rec))
     n = Frame.nvalues(rec)
     i = 0
     while i < n

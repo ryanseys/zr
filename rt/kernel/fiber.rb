@@ -38,6 +38,7 @@ machine def zr_task_init(t)
   Task.set_throw_tag(t, Machine.value(QNIL))
   Task.set_mid(t, 0)
   Task.set_missing(t, 0)
+  Task.set_found(t, Machine.value(QNIL))
 end
 
 # The fiber running now; the root fiber stands for the main task.

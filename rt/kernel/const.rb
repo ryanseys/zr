@@ -97,7 +97,7 @@ machine def zr_const_set(klass, id, v)
     RBasic.set_flags(v, RBasic.flags(v) & (0 - (FL_TEMP_NAME + 1)))
     RClass.set_name(v, zr_class_name_under(klass, id))
   end
-  top = Task.top(zr_task())
+  top = zr_frame_with_file(Task.top(zr_task()))
   if top == 0
     CEntry.set_file(e, 0)
     CEntry.set_file_len(e, 0)
@@ -577,32 +577,54 @@ machine def zr_mod_const_set(recv, argc, argv, cref, blk)
   v
 end
 
-# `constants`: the module's own names, then its ancestors' but
-# Object's, each once.
+# The public constant names `klass` itself holds, each once into `out`.
+sig [Value, Value] => Void
+machine def zr_const_names_at(klass, out)
+  ext = RClass.ext(klass)
+  i = 0
+  while i < ClassExt.clen(ext)
+    e = ClassExt.ctab(ext) + (i * CEntry.size)
+    name = zr_sym(CEntry.id(e))
+    if CEntry.private(e) == 0 && zr_ary_index_of(out, name) < 0
+      zr_ary_push(out, name)
+    end
+    i += 1
+  end
+end
+
+# `mod`'s own names, then its ancestors' up to Object, which only
+# Object itself includes.
+sig [Value, Value, Bool] => Void
+machine def zr_const_names_of(mod, out, inherit)
+  k = mod
+  while k != QNIL
+    if k != zr_global(G_OBJECT) || mod == zr_global(G_OBJECT)
+      zr_const_names_at(k, out)
+    end
+    k = inherit ? RClass.superclass(k) : Machine.value(QNIL)
+  end
+end
+
+# `constants`: the receiver's names, or, for a bare `Module.constants`,
+# the names each lexical scope holds and then the innermost scope's
+# ancestors'.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_constants(recv, argc, argv, cref, blk)
-  inherit = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
   out = zr_ary_new(8)
-  k = recv
-  while k != QNIL
-    if k != zr_global(G_OBJECT) || recv == zr_global(G_OBJECT)
-      ext = RClass.ext(k)
-      i = 0
-      while i < ClassExt.clen(ext)
-        e = ClassExt.ctab(ext) + (i * CEntry.size)
-        name = zr_sym(CEntry.id(e))
-        if CEntry.private(e) == 0 && zr_ary_index_of(out, name) < 0
-          zr_ary_push(out, name)
-        end
-        i += 1
+  if argc == 0 && recv == zr_global(G_MODULE)
+    c = zr_cref_lexical(Frame.cref(Frame.prev(Task.top(zr_task()))))
+    inner = RCref.klass(c)
+    while c != QNIL
+      if RCref.eval(c) == 0
+        zr_const_names_at(RCref.klass(c), out)
       end
+      c = RCref.next(c)
     end
-    if inherit
-      k = RClass.superclass(k)
-    else
-      k = Machine.value(QNIL)
-    end
+    zr_const_names_of(inner, out, true)
+    return out
   end
+  inherit = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
+  zr_const_names_of(recv, out, inherit)
   out
 end
 

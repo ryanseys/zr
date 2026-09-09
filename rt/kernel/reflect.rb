@@ -397,7 +397,7 @@ end
 # on Object.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_main_include(recv, argc, argv, cref, blk)
-  zr_mod_include(zr_global(G_OBJECT), argc, argv, cref, blk)
+  zr_send(zr_global(G_OBJECT), Machine.id(:include), argc, argv)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -450,12 +450,22 @@ end
 # program defines one.
 sig [Value, Word] => Value
 machine def zr_method_removed(klass, mid)
+  zr_method_hook(klass, mid, Machine.id(:method_removed), Machine.id(:singleton_method_removed))
+end
+
+sig [Value, Word] => Value
+machine def zr_method_undefined(klass, mid)
+  zr_method_hook(klass, mid, Machine.id(:method_undefined), Machine.id(:singleton_method_undefined))
+end
+
+# `hook` on the class, or `singleton_hook` on what a singleton class
+# is attached to, when the program defines one.
+sig [Value, Word, Word, Word] => Value
+machine def zr_method_hook(klass, mid, hook, singleton_hook)
+  recv = klass
   if zr_singleton_p(klass)
     recv = RClass.attached(klass)
-    hook = Machine.id(:singleton_method_removed)
-  else
-    recv = klass
-    hook = Machine.id(:method_removed)
+    hook = singleton_hook
   end
   if zr_find_method(zr_class_of(recv), hook) == 0
     return Machine.value(QNIL)

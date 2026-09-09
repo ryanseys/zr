@@ -5,6 +5,44 @@ class Module
   private def extended(base) = nil
   private def prepended(base) = nil
   private def method_added(name) = nil
+  private def method_removed(name) = nil
+  private def method_undefined(name) = nil
+  private def const_added(name) = nil
+
+  # Every argument is checked before any is spliced; then each module,
+  # last first, splices itself through `append_features` and hears
+  # `included`. Index loops over the kernel's length: the Array
+  # iterators are not defined yet when the core's own includes run,
+  # and a program may prepend over Array#size itself.
+  def include(*modules)
+    mixin(modules, :append_features, :included)
+  end
+
+  def prepend(*modules)
+    mixin(modules, :prepend_features, :prepended)
+  end
+
+  def mixin(modules, splice, hook)
+    Primitive.attr! :hidden
+    n = Primitive.zr_ary_len_m(modules)
+    raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if n == 0
+
+    i = 0
+    while i < n
+      mod = modules[i]
+      raise TypeError, "wrong argument type #{mod.class} (expected Module)" unless mod.is_a?(Module) && !mod.is_a?(Class)
+
+      i += 1
+    end
+    i = n - 1
+    while i >= 0
+      modules[i].send(splice, self)
+      modules[i].send(hook, self)
+      i -= 1
+    end
+    self
+  end
+  private :mixin
 
   def <(other)
     raise TypeError, "compared with non class/module" unless other.is_a?(Module)
@@ -48,6 +86,8 @@ end
 
 class BasicObject
   private def singleton_method_added(name) = nil
+  private def singleton_method_removed(name) = nil
+  private def singleton_method_undefined(name) = nil
 end
 
 module Kernel
