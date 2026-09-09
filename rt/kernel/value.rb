@@ -49,6 +49,8 @@ FL_TEMP_NAME = 1 << 14
 # A String in US-ASCII (`Integer#chr` makes one): UTF-8 in every
 # way but its name, until non-ASCII text joins it.
 FL_USASCII = 1 << 16
+# A Hash that compares keys by identity (`compare_by_identity`).
+FL_IDENTITY = 1 << 17
 
 Machine.struct :RBasic, flags: Word, klass: Value
 

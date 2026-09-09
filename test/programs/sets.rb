@@ -1,0 +1,20 @@
+s = Set.new([3, 1, 2, 1])
+p s, s.class, s.size, s.length, s.to_a, s.include?(1), s.include?(9), s.member?(2), s === 3, s.empty?, Set.new.empty?, Set[1, 2], Set[], Set.new([1]) == Set.new([1]), Set[1, 2] == Set[2, 1], Set[1] == [1], Set[1].eql?(Set[1]), Set[1, 2].hash == Set[2, 1].hash
+p s.add(4), s.add(1).equal?(s), s << 5, s.add?(6), s.add?(1), s.delete(1), s.delete(99).equal?(s), s.delete?(2), s.delete?(2), s.to_a, s.first, s.first(2), s.min, s.max, s.sort, s.sum, s.map { |x| x * 2 }, s.map { |x| x * 2 }.class, s.select(&:even?), s.select(&:even?).class, s.reject(&:even?).class, s.each { }.equal?(s), s.each.class, s.to_set.equal?(s), s.dup == s, s.dup.equal?(s)
+a = Set[1, 2, 3]
+b = Set[3, 4]
+p a | b, a.union(b), a + b, a & b, a.intersection(b), a - b, a.difference(b), a ^ b, a | [9], a & [1, 9], a - [1], a ^ [1, 9], a.subset?(Set[1, 2, 3, 4]), a <= Set[1, 2, 3], a < Set[1, 2, 3], a.proper_subset?(Set[1, 2, 3, 4]), a.superset?(Set[1]), a >= Set[1, 2, 3], a > Set[1, 2, 3], a.proper_superset?(Set[1]), a.disjoint?(b), a.disjoint?(Set[9]), a.intersect?(b), a.intersect?([3]), a <=> Set[1, 2], a <=> Set[1, 2, 3, 4], a <=> a, a <=> Set[9], (a <=> 1)
+p a.inspect, a.to_s, Set[Set[1]], Set["a", :b, nil, 1.5], Set[[1, 2]], Set[1].freeze.frozen?, Set[1, [2, 3]].flatten, Set[Set[1], Set[Set[2]]].flatten, Set[1, 2].to_a.class, Set.new(1..3), Set.new([1, 2]) { |x| x * 10 }, Set.new("a".."c"), Set.new({ a: 1 }), Set.new(nil), (Set.new(1) rescue $!.class)
+c = Set[1, 2, 3, 4]
+p c.merge([5, 6]), c.merge(Set[7], [8]), c.subtract([1, 2]), c.delete_if(&:even?), c.keep_if { |x| x > 3 }, c.select! { |x| x > 5 }, c.select! { true }, c.reject! { false }, c.reject! { |x| x == 7 }, c, c.clear, c.empty?, c.replace([1, 2]), c.map! { |x| x + 1 }, c.collect! { |x| x * 2 }, c.filter! { |x| x > 4 }, c, c.add(4).add(6).size
+p Set[1, 2, 3].classify(&:odd?), Set[1, 2, 3, 4].partition(&:even?), Set[1, 2, 3].group_by(&:odd?), Set[3, 1].sort_by { |x| -x }, Set[1, 2].each_slice(1).to_a, Set[1, 2].zip([3, 4]), Set[1, 2].include?(1.0), Set[1, 2].to_a.include?(1.0), Set[1.0].include?(1), Set["a"].include?("a"), Set[[1]].include?([1]), Set[1, 2].count, Set[1, 2].any? { |x| x > 1 }, Set[1, 2].find { |x| x > 1 }, Set[1, 2].inject(:+), Set[1, 2].reduce(0) { |s2, x| s2 + x }, Set[1, 2].each_with_index.to_a, Set[1, 2].each_with_object([]) { |x, m| m << x }, Set[1, 2].min_by { |x| -x }, Set[2, 1].sort.class, Set[1, 2].entries
+d = Set[1, 2]
+d2 = d.dup
+d2 << 3
+p d, d2, d.equal?(d2), d.clone == d, d.compare_by_identity.compare_by_identity?, Set[1].compare_by_identity?, Set["a"].compare_by_identity.include?("a".dup), Set[1, 2].disjoint?([3]), (Set[1, 2].superset?([1]) rescue $!.message), (Set[1].subset?([1, 2]) rescue $!.message), Set[1] == Set[1.0], Set[1, 2].join("-"), Set[1, 2].join, Set[1].add(nil).size, Set[nil].include?(nil), Set[1, 2].filter_map { |x| x if x > 1 }, Set[1, 2].flat_map { |x| [x, x] }, Set[1, 2].to_h { |x| [x, x] }, Set[1, 2].tally, Set[1, 2, 3].each_cons(2).to_a, Set[1, 2].lazy.map { |x| x }.to_a, Set[1, 2].sum { |x| x * 2 }, Set[1, 2].minmax
+p [1, 2, 2].to_set, [1, 2].to_set.class, (1..3).to_set, { a: 1 }.to_set, [1, 2].to_set { |x| x * 2 }, [1, 2].each.to_set, Set[1, 2].divide { |x, y| (x - y).abs == 1 }, Set[1, 2, 4].divide { |x, y| (x - y).abs == 1 }, Set[1, 2, 3].divide(&:odd?), Set[1, 2] <=> [1, 2], Set.new([1, 2]).reset.class
+e = Set[1, 2]
+e.each { |x| e.add(x + 10) rescue p $!.class } rescue p $!.class
+p e.size, Set[1] <=> Set[1], Set[1, 2].disjoint?(Set[]), Set[].disjoint?(Set[]), Set[1, 2].subset?(Set[1, 2]), Set[].subset?(Set[]), Set[1, 2].proper_subset?(Set[1, 2]), Set[1] == 1, Set[1].eql?([1]), (Set[1] | 1 rescue $!.message), (Set[1].merge(1) rescue $!.message), Set[1, 2].delete_if { |x| x == 1 }.class, Set[1] ^ Set[1], Set[1, 2] ^ Set[2, 3], Set[1, 2, 3].select.with_index { |x, i| i.even? }, Set[1, 2, 3].to_a.frozen?
+GC.start
+p (1..200).to_set.size, (1..200).to_set.include?(150), (1..200).to_set.sum, Set[Set[1, 2], Set[1, 2]].size, Set[[1], [1]].size, Set["a", "a".dup].size

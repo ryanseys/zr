@@ -12,7 +12,7 @@ module Ze0
     KERNEL = Dir[File.join(__dir__, "../../rt/kernel/*.rb")].sort.freeze
     # The core library files, in the order their toplevels run: a module
     # before the classes that include it.
-    CORE = %w[module exception enumerable enumerator comparable integer array hash range struct string kernel float proc format env file data gc random thread time].map { |name| File.join(__dir__, "../../rt/core/#{name}.rb") }.freeze
+    CORE = %w[module exception enumerable enumerator comparable integer array hash range struct string kernel float proc format env file data gc random thread time set].map { |name| File.join(__dir__, "../../rt/core/#{name}.rb") }.freeze
 
     module_function
 

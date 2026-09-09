@@ -287,7 +287,12 @@ class Hash
     true
   end
 
-  def hash = to_a.map { |k, v| [k.hash, v.hash] }.hash
+  # Order does not matter: the pairs' hashes combine by a sum.
+  def hash
+    total = size
+    each { |k, v| total = (total + [k, v].hash) & 0x3FFFFFFFFFFFFFFF }
+    total
+  end
 
   def <=(other) = all? { |k, v| other.key?(k) && other[k] == v }
 
@@ -304,8 +309,8 @@ class Hash
 
   def deconstruct_keys(keys) = self
 
-  def compare_by_identity = Primitive.zr_unimplemented("Hash#compare_by_identity")
+  def compare_by_identity = Primitive.zr_hash_compare_by_identity(self)
 
-  def compare_by_identity? = false
+  def compare_by_identity? = Primitive.zr_hash_identity_p(self)
 
 end

@@ -71,7 +71,8 @@ class Array
     out
   end
 
-  def join(sep = "")
+  def join(sep = nil)
+    sep = sep.nil? ? "" : sep.to_str
     s = +""
     i = 0
     while i < size

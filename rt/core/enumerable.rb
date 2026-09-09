@@ -695,5 +695,5 @@ module Enumerable
 
   def lazy = Enumerator::Lazy.from(self)
 
-  def to_set = Primitive.zr_unimplemented("Enumerable#to_set")
+  def to_set(&block) = Set.new(self, &block)
 end

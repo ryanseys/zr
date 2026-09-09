@@ -84,10 +84,11 @@ end
 sig [Value, Value] => Ptr
 machine def zr_hash_entry(h, key)
   n = RHash.len(h)
+  identity = (RBasic.flags(h) & FL_IDENTITY) != 0
   i = 0
   while i < n
     e = RHash.entries(h) + (i * HEntry.size)
-    if HEntry.live(e) != 0 && zr_key_eql(HEntry.key(e), key)
+    if HEntry.live(e) != 0 && (identity ? HEntry.key(e) == key : zr_key_eql(HEntry.key(e), key))
       return e
     end
     i += 1
@@ -142,7 +143,7 @@ machine def zr_hash_store(h, key, value)
     HEntry.set_value(e, value)
     return
   end
-  if !zr_special_p(key) && zr_type(key) == T_STRING && !zr_frozen_p(key)
+  if !zr_special_p(key) && zr_type(key) == T_STRING && !zr_frozen_p(key) && (RBasic.flags(h) & FL_IDENTITY) == 0
     key = zr_str_new(RString.ptr(key), RString.len(key))
     RBasic.set_flags(key, RBasic.flags(key) | FL_FREEZE)
   end
@@ -662,4 +663,19 @@ machine def zr_hash_clear(h)
   RHash.set_len(h, 0)
   RHash.set_live(h, 0)
   h
+end
+
+# `compare_by_identity`: from now on a key matches only itself.
+sig [Value] => Value
+machine def zr_hash_compare_by_identity(h)
+  if zr_frozen_p(h)
+    return zr_frozen_error(h)
+  end
+  RBasic.set_flags(h, RBasic.flags(h) | FL_IDENTITY)
+  h
+end
+
+sig [Value] => Value
+machine def zr_hash_identity_p(h)
+  zr_bool((RBasic.flags(h) & FL_IDENTITY) != 0)
 end
