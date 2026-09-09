@@ -268,8 +268,46 @@ class Regexp
   # calls and the absence operator.
   def self.linear_time?(regexp, options = nil, timeout: nil)
     regexp = new(regexp, options) unless regexp.is_a?(Regexp)
-    !regexp.source.match?(/\\(?:[1-9]|k<|k'|g<|g')|\(\?~/)
+    !backref?(regexp.source, Primitive.zr_regexp_captures(regexp))
   end
+
+  # The linear matcher gives up on a backreference, a subexpression call
+  # or the absent operator. Inside a `[...]` class `\1` is an octal
+  # escape and `\k` is a literal k, so a class holds none of them.
+  def self.backref?(source, captures)
+    in_class = false
+    i = 0
+    while i < source.size
+      c = source[i]
+      if c == "\\"
+        return true if !in_class && backref_escape?(source, i + 1, captures)
+
+        i += 1
+      elsif c == "["
+        in_class = true
+      elsif c == "]"
+        in_class = false
+      elsif c == "(" && !in_class && source[i, 3] == "(?~"
+        return true
+      end
+      i += 1
+    end
+    false
+  end
+  private_class_method :backref?
+
+  # `\k<n>`, `\k'n'`, `\g<n>`, `\g'n'`, and a digit run that names a
+  # group the pattern has. A run past the last group, or one that starts
+  # with a zero, is an octal escape.
+  def self.backref_escape?(source, i, captures)
+    c = source[i]
+    return (source[i + 1] == "<" || source[i + 1] == "'") if c == "k" || c == "g"
+    return false unless c && c >= "1" && c <= "9"
+
+    digits = source[i..].slice(/\A\d+/)
+    digits.to_i <= captures
+  end
+  private_class_method :backref_escape?
 
   def self.timeout = nil
 

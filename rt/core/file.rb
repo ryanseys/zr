@@ -327,17 +327,10 @@ class File < IO
         out << nodot if at_start
         out << one
       when "["
-        close = pattern.index("]", i + 2)
-        if close.nil?
-          out << "\\["
-        else
-          out << nodot if at_start
-          set = pattern[(i + 1)...close]
-          set = "^#{set[1..]}" if set.start_with?("!")
-          set = set.gsub("\\", "\\\\\\\\") if escape
-          out << "[#{set}]"
-          i = close
-        end
+        source, close = char_class(pattern, i, escape, one)
+        out << nodot if at_start && close
+        out << source
+        i = close if close
       when "\\"
         if escape && i + 1 < pattern.size
           i += 1
@@ -354,6 +347,34 @@ class File < IO
     Regexp.new("#{out}\\z", (flags & FNM_CASEFOLD).zero? ? 0 : Regexp::IGNORECASE)
   end
   private_class_method :fnmatch_regexp
+
+  # An atom no character matches: an empty set, and a `[` that never
+  # closes, both of which fnmatch reads as a pattern nothing satisfies.
+  NOTHING = "[^\\s\\S]"
+  private_constant :NOTHING
+
+  # A `[...]` set as fnmatch reads it: `!` or `^` right after the bracket
+  # negates, the first `]` closes even with nothing before it, `\` escapes
+  # unless FNM_NOESCAPE, and `[:name:]` is six ordinary characters.
+  # Answers the regexp source and the closing bracket's index.
+  def self.char_class(pattern, open, escape, one)
+    Primitive.attr! :hidden
+    i = open + 1
+    negated = pattern[i] == "!" || pattern[i] == "^"
+    i += 1 if negated
+    body = +""
+    while i < pattern.size && pattern[i] != "]"
+      i += 1 if escape && pattern[i] == "\\" && i + 1 < pattern.size
+      body << (pattern[i] == "-" ? "-" : Regexp.escape(pattern[i]))
+      i += 1
+    end
+    return [NOTHING, nil] if i >= pattern.size
+    return [negated ? one : NOTHING, i] if body.empty?
+
+    ["(?#{negated ? '!' : '='}[#{body}])#{one}", i]
+  end
+  private_class_method :char_class
+
 
   def self.stat(path) = Stat.new(path_of(path))
   def self.lstat(path) = Stat.link(path_of(path))
