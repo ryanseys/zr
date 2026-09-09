@@ -4,7 +4,7 @@ Machine.import "zr_toplevel", [] => Value
 
 sig [Word, Word, Value] => Value
 machine def zr_boot_class(g, name, sup)
-  c = zr_class_new(sup)
+  c = zr_class_boot(sup)
   zr_set_global(g, c)
   c
 end
@@ -99,6 +99,7 @@ machine def zr_boot
   zr_builtin(zr_global(G_OBJECT), Machine.id(:to_s), Machine.addr(:zr_obj_to_s), 0)
   zr_builtin(zr_global(G_OBJECT), Machine.id(:inspect), Machine.addr(:zr_obj_inspect), 0)
   zr_builtin(zr_global(G_OBJECT), Machine.id(:class), Machine.addr(:zr_obj_class), 0)
+  zr_builtin(zr_global(G_OBJECT), Machine.id(:singleton_class), Machine.addr(:zr_obj_singleton_class), 0)
   zr_builtin(zr_global(G_OBJECT), Machine.id(:is_a?), Machine.addr(:zr_obj_is_a), 1)
   zr_builtin(zr_global(G_OBJECT), Machine.id(:kind_of?), Machine.addr(:zr_obj_is_a), 1)
   zr_builtin(zr_global(G_OBJECT), Machine.id(:instance_of?), Machine.addr(:zr_obj_instance_of), 1)
@@ -176,6 +177,7 @@ machine def zr_boot
   zr_builtin(zr_global(G_EXCEPTION), Machine.id(:message), Machine.addr(:zr_exc_message), 0)
   zr_builtin(zr_global(G_EXCEPTION), Machine.id(:to_s), Machine.addr(:zr_exc_message), 0)
   zr_builtin(zr_global(G_EXCEPTION), Machine.id(:inspect), Machine.addr(:zr_exc_inspect), 0)
+  zr_builtin(zr_global(G_EXCEPTION), Machine.id(:backtrace), Machine.addr(:zr_exc_backtrace), 0)
 end
 
 sig [I32, Ptr] => I32

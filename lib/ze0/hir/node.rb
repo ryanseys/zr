@@ -24,8 +24,9 @@ module Ze0
     # An Integer, String, Symbol, nil, true or false.
     Literal = Struct.new(:value, :line)
     SelfRef = Struct.new(:line)
-    # `def name(params) body end`; its value is the name.
-    Def = Struct.new(:name, :params, :locals, :body, :line)
+    # `def name(params) body end`; its value is the name. `receiver` is
+    # the expression of a singleton def (`def self.x`, `def obj.x`), or nil.
+    Def = Struct.new(:name, :params, :locals, :body, :line, :receiver)
     # `depth` counts block scopes up to the one that holds the local.
     Local = Struct.new(:name, :depth, :line)
     Assign = Struct.new(:name, :depth, :value, :line)
@@ -41,6 +42,9 @@ module Ze0
     # name, `:top` for `::Name`, else the expression before `::`.
     ClassDef = Struct.new(:scope, :name, :superclass, :locals, :body, :line)
     ModuleDef = Struct.new(:scope, :name, :locals, :body, :line)
+    # `class << target; body; end`: the body runs with the singleton
+    # class as self and as the definee.
+    SingletonClassDef = Struct.new(:target, :locals, :body, :line)
     ConstRead = Struct.new(:scope, :name, :line)
     ConstWrite = Struct.new(:scope, :name, :value, :line)
     IvarRead = Struct.new(:name, :line)

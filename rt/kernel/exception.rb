@@ -14,6 +14,7 @@ KIND_BUILTIN = 2
 KIND_CLASS = 3
 KIND_MODULE = 4
 KIND_BLOCK = 5
+KIND_SCLASS = 6
 
 Machine.struct :BtRow, meta: Ptr, file: Ptr, file_len: Word, line: Word
 Machine.struct :RException, basic: RBasic, message: Value, rows: Ptr, nrows: Word
@@ -230,15 +231,33 @@ machine def zr_buf_label(b, meta)
     zr_buf_label(b, outer)
   elsif FrameMeta.kind(meta) == KIND_MAIN
     zr_buf_push(b, Machine.bytes("<main>"), 6)
+  elsif FrameMeta.kind(meta) == KIND_SCLASS
+    zr_buf_push(b, Machine.bytes("singleton class"), 15)
   elsif FrameMeta.kind(meta) == KIND_CLASS || FrameMeta.kind(meta) == KIND_MODULE
     zr_buf_push(b, FrameMeta.kind(meta) == KIND_CLASS ? Machine.bytes("<class:") : Machine.bytes("<module:"), FrameMeta.kind(meta) == KIND_CLASS ? 7 : 8)
     zr_buf_sym(b, FrameMeta.name(meta))
     zr_buf_byte(b, 62)
   else
-    zr_buf_str(b, RClass.name(FrameMeta.owner(meta)))
-    zr_buf_byte(b, 35)
-    zr_buf_sym(b, FrameMeta.name(meta))
+    zr_buf_method_label(b, FrameMeta.owner(meta), FrameMeta.name(meta))
   end
+end
+
+# `Owner#name`; `Owner.name` for a class's singleton method; the name
+# alone for an object's singleton method or an anonymous owner.
+sig [Ptr, Value, Word] => Void
+machine def zr_buf_method_label(b, owner, name)
+  if zr_singleton_p(owner)
+    attached = RClass.attached(owner)
+    t = zr_type(attached)
+    if (t == T_CLASS || t == T_MODULE) && RClass.name(attached) != QNIL
+      zr_buf_str(b, RClass.name(attached))
+      zr_buf_byte(b, 46)
+    end
+  elsif RClass.name(owner) != QNIL
+    zr_buf_str(b, RClass.name(owner))
+    zr_buf_byte(b, 35)
+  end
+  zr_buf_sym(b, name)
 end
 
 # `file:line:in 'label'` for one row.
@@ -250,6 +269,27 @@ machine def zr_buf_row(b, row)
   zr_buf_push(b, Machine.bytes(":in '"), 5)
   zr_buf_label(b, BtRow.meta(row))
   zr_buf_byte(b, 39)
+end
+
+# `Exception#backtrace`: one `file:line:in 'label'` String per row, or
+# nil before the exception is raised.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_exc_backtrace(recv, argc, argv, cref, blk)
+  rows = RException.rows(recv)
+  if rows == 0
+    return Machine.value(QNIL)
+  end
+  n = RException.nrows(recv)
+  out = zr_ary_new(n)
+  i = 0
+  while i < n
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_row(b, rows + (i * BtRow.size))
+    zr_ary_push(out, zr_buf_take(b))
+    i += 1
+  end
+  out
 end
 
 # An uncaught exception on stderr, as CRuby prints it, then exit 1.
@@ -267,7 +307,7 @@ machine def zr_report(exc)
       zr_buf_push(b, Machine.bytes(": "), 2)
       zr_buf_str(b, RException.message(exc))
       zr_buf_push(b, Machine.bytes(" ("), 2)
-      zr_buf_str(b, RClass.name(zr_class_of(exc)))
+      zr_buf_str(b, zr_class_name_of(exc))
       zr_buf_push(b, Machine.bytes(")\n"), 2)
     else
       zr_buf_push(b, Machine.bytes("\tfrom "), 6)

@@ -22,6 +22,7 @@ module Ze0
           when Hir::Return then return_from(node)
           when Hir::Def then define_method(node)
           when Hir::ClassDef, Hir::ModuleDef then class_body(node)
+          when Hir::SingletonClassDef then singleton_class_body(node)
           when Hir::ConstRead then const_read(node)
           when Hir::ConstWrite then const_write(node)
           when Hir::ArrayLit then staged(node.elements) { |argv| kernel("zr_ary_of", imm(node.elements.size), argv) }

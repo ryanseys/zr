@@ -28,7 +28,7 @@ machine def zr_no_method(recv, mid, vcall)
     zr_buf_push(b, Machine.bytes("false"), 5)
   else
     zr_buf_push(b, Machine.bytes("an instance of "), 15)
-    zr_buf_str(b, RClass.name(zr_class_of(recv)))
+    zr_buf_str(b, zr_class_name_of(recv))
   end
   zr_raise_buf(zr_global(vcall ? G_NAME_ERROR : G_NO_METHOD_ERROR), b)
 end

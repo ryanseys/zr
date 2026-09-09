@@ -45,7 +45,8 @@ module Ze0
         when SelfRef
           lines << "#{pad}(self)"
         when Def
-          lines << "#{pad}(def #{n.name} (#{n.params.join(" ")}) locals (#{n.locals.join(" ")})"
+          lines << "#{pad}(#{n.receiver ? "sdef" : "def"} #{n.name} (#{n.params.join(" ")}) locals (#{n.locals.join(" ")})"
+          node(n.receiver, depth + 1, lines) if n.receiver
           node(n.body, depth + 1, lines)
           lines[-1] += ")"
         when Local
@@ -95,6 +96,11 @@ module Ze0
           lines << "#{pad}(#{n.is_a?(ClassDef) ? "class" : "module"} #{scope(n.scope)}#{n.name}"
           node(n.scope, depth + 1, lines) if n.scope.is_a?(Struct)
           node(n.superclass, depth + 1, lines) if n.is_a?(ClassDef) && n.superclass
+          node(n.body, depth + 1, lines)
+          lines[-1] += ")"
+        when SingletonClassDef
+          lines << "#{pad}(sclass"
+          node(n.target, depth + 1, lines)
           node(n.body, depth + 1, lines)
           lines[-1] += ")"
         when ConstRead

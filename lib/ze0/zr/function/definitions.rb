@@ -8,13 +8,29 @@ module Ze0
         private
 
         # `def`: the body becomes its own function, registered on the
-        # cref's class; the value is the name.
+        # cref's class, or on the receiver's singleton class; the value
+        # is the name.
         def define_method(node)
           fn = @l.define(node)
+          owner = if node.receiver
+                    at_line(node.line)
+                    checked(kernel("zr_singleton_class", expr(node.receiver)))
+                  else
+                    cref_class
+                  end
           addr = @f.func_addr(@f.callee(fn, ABI.fetch(:def), "i64"))
           meta = @f.symbol_value(@f.symbol("zr_meta_#{fn}"))
-          kernel("zr_define_method", cref_class, imm(sym_id(node.name)), addr, imm(node.params.size), imm(@l.const("KIND_DEF")), meta, @cref)
+          kernel("zr_define_method", owner, imm(sym_id(node.name)), addr, imm(node.params.size), imm(@l.const("KIND_DEF")), meta, @cref)
           symbol(node.name)
+        end
+
+        # `class << target`: the singleton class is self and the definee.
+        def singleton_class_body(node)
+          fn = @l.body(node)
+          at_line(node.line)
+          klass = checked(kernel("zr_singleton_class", expr(node.target)))
+          cref = kernel("zr_cref_push", klass, @cref)
+          checked(@f.call_val(@f.callee(fn, ABI.fetch(:sclass), "i64"), [klass, cref]))
         end
 
         # `class`/`module`: define or reopen under the scope, push a cref,

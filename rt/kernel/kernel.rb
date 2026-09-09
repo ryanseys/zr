@@ -4,6 +4,18 @@
 # a newline unless the bytes end in one.
 sig [Value] => Value
 machine def zr_puts_value(v)
+  if zr_type(v) == T_ARRAY
+    i = 0
+    while i < RArray.len(v)
+      r = zr_puts_value(zr_ary_at(v, i))
+      return r if r == QUNDEF
+      i += 1
+    end
+    if RArray.len(v) == 0
+      zr_write_out(Machine.bytes("\n"), 1)
+    end
+    return Machine.value(QNIL)
+  end
   s = v
   if zr_type(v) != T_STRING
     s = zr_send(v, Machine.id(:to_s), 0, 0)

@@ -68,7 +68,7 @@ machine def zr_int_operand(argv, out)
       return s if s == QUNDEF
       zr_buf_str(b, s)
     else
-      zr_buf_str(b, RClass.name(zr_class_of(other)))
+      zr_buf_str(b, zr_class_name_of(other))
     end
     zr_buf_push(b, Machine.bytes(" can't be coerced into Integer"), 30)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)

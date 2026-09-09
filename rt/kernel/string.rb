@@ -35,7 +35,7 @@ machine def zr_frozen_error(v)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_push(b, Machine.bytes("can't modify frozen "), 20)
-  zr_buf_str(b, RClass.name(zr_class_of(v)))
+  zr_buf_str(b, zr_class_name_of(v))
   zr_buf_push(b, Machine.bytes(": "), 2)
   s = zr_send(v, Machine.id(:inspect), 0, 0)
   if s == QUNDEF
@@ -58,7 +58,7 @@ machine def zr_str_operand(v)
       return s if s == QUNDEF
       zr_buf_str(b, s)
     else
-      zr_buf_str(b, RClass.name(zr_class_of(v)))
+      zr_buf_str(b, zr_class_name_of(v))
     end
     zr_buf_push(b, Machine.bytes(" into String"), 12)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)

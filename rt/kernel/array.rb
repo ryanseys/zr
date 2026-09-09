@@ -103,7 +103,7 @@ machine def zr_index_operand(v, out)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
-    zr_buf_str(b, RClass.name(zr_class_of(v)))
+    zr_buf_str(b, zr_class_name_of(v))
     zr_buf_push(b, Machine.bytes(" into Integer"), 13)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end

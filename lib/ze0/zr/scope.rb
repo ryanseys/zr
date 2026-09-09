@@ -14,7 +14,9 @@ module Ze0
       def holds_block?(node)
         case node
         when Hir::Send then !node.block.nil? || (node.recv && holds_block?(node.recv)) || node.args.any? { |a| holds_block?(a) }
-        when Hir::Def, Hir::ClassDef, Hir::ModuleDef, nil then false
+        when Hir::Def then holds_block?(node.receiver)
+        when Hir::ClassDef, Hir::ModuleDef, nil then false
+        when Hir::SingletonClassDef then holds_block?(node.target)
         when Struct then node.to_a.any? { |v| v.is_a?(Struct) ? holds_block?(v) : v.is_a?(Array) && v.any? { |e| holds_block?(e) } }
         else false
         end
@@ -39,6 +41,8 @@ module Ze0
           [top, staging(node.body, top), *node.rescues.map { |r| staging(r, top) }, staging(node.else_body, top), staging(node.ensure_body, top)].max
         when Hir::Rescue then [staging(node.body, base), *node.classes.map { |c| staging(c, base) }].max
         when Hir::ClassDef then [staging(node.scope, base), staging(node.superclass, base)].max
+        when Hir::SingletonClassDef then staging(node.target, base)
+        when Hir::Def then staging(node.receiver, base)
         when Hir::ModuleDef, Hir::ConstRead then staging(node.scope, base)
         when Hir::If then [staging(node.cond, base), staging(node.yes, base), staging(node.no, base)].max
         when Hir::While then [staging(node.cond, base), staging(node.body, base)].max

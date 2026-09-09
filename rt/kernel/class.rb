@@ -3,8 +3,8 @@
 # cref rows searched in order) and the constant table (id, value rows).
 # Method code takes `(recv, argc, argv, cref)` and answers a Value; the
 # cref is the lexical class chain the method was defined under.
-Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr
-Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word
+Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr, attached: Value
+Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab
 Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value
 Machine.struct :CEntry, id: Word, value: Value
 Machine.sig :method, [Value, Word, Ptr, Value, Value] => Value
@@ -18,6 +18,7 @@ machine def zr_class_alloc(type, sup, klass)
   c = zr_alloc(type, klass)
   RClass.set_name(c, Machine.value(QNIL))
   RClass.set_superclass(c, sup)
+  RClass.set_attached(c, Machine.value(QNIL))
   ext = malloc(ClassExt.size)
   ClassExt.set_mtab(ext, 0)
   ClassExt.set_mlen(ext, 0)
@@ -25,13 +26,86 @@ machine def zr_class_alloc(type, sup, klass)
   ClassExt.set_ctab(ext, 0)
   ClassExt.set_clen(ext, 0)
   ClassExt.set_ccap(ext, 0)
+  zr_ivtab_init(ClassExt.iv(ext))
   RClass.set_ext(c, ext)
   c
 end
 
+# A class without a metaclass yet: a builtin class gets one on first
+# use, the way `zr_singleton_class` makes any.
+sig [Value] => Value
+machine def zr_class_boot(sup)
+  zr_class_alloc(T_CLASS, sup, zr_global(G_CLASS))
+end
+
+# A class with its metaclass, as CRuby makes every class: the metaclass
+# inherits from the superclass's, so class methods do too.
 sig [Value] => Value
 machine def zr_class_new(sup)
-  zr_class_alloc(T_CLASS, sup, zr_global(G_CLASS))
+  c = zr_class_boot(sup)
+  zr_make_metaclass(c)
+  c
+end
+
+sig [Value] => Bool
+machine def zr_singleton_p(klass)
+  (RBasic.flags(klass) & FL_SINGLETON) != 0
+end
+
+# The singleton class of the class `klass`: its superclass's, or Class
+# for a root; `klass` itself has it as its class from here on.
+sig [Value] => Value
+machine def zr_make_metaclass(klass)
+  sup = RClass.superclass(klass)
+  if sup == QNIL
+    msup = zr_global(G_CLASS)
+  else
+    msup = zr_singleton_class(sup)
+  end
+  meta = zr_class_alloc(T_CLASS, msup, zr_global(G_CLASS))
+  RBasic.set_flags(meta, RBasic.flags(meta) | FL_SINGLETON)
+  RClass.set_attached(meta, klass)
+  RBasic.set_klass(klass, meta)
+  meta
+end
+
+# The singleton class of `v`, made on first use. An Integer or a Symbol
+# has none; nil, true and false answer their own class.
+sig [Value] => Value
+machine def zr_singleton_class(v)
+  if zr_fixnum_p(v) || zr_symbol_p(v)
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't define singleton"), 22)
+  end
+  if zr_special_p(v)
+    return zr_class_of(v)
+  end
+  k = RBasic.klass(v)
+  if zr_singleton_p(k) && RClass.attached(k) == v
+    return k
+  end
+  if zr_type(v) == T_CLASS
+    return zr_make_metaclass(v)
+  end
+  s = zr_class_alloc(T_CLASS, k, zr_global(G_CLASS))
+  RBasic.set_flags(s, RBasic.flags(s) | FL_SINGLETON)
+  RClass.set_attached(s, v)
+  RBasic.set_klass(v, s)
+  s
+end
+
+# The class `v.class` answers: past any singleton class.
+sig [Value] => Value
+machine def zr_real_class(v)
+  k = zr_class_of(v)
+  while zr_singleton_p(k)
+    k = RClass.superclass(k)
+  end
+  k
+end
+
+sig [Value] => Value
+machine def zr_class_name_of(v)
+  RClass.name(zr_real_class(v))
 end
 
 sig [] => Value
@@ -202,6 +276,7 @@ machine def zr_mark_children(v)
   if t == T_CLASS || t == T_MODULE
     zr_mark(RClass.name(v))
     zr_mark(RClass.superclass(v))
+    zr_mark(RClass.attached(v))
     ext = RClass.ext(v)
     n = ClassExt.mlen(ext)
     i = 0
@@ -215,10 +290,11 @@ machine def zr_mark_children(v)
       zr_mark(CEntry.value(ClassExt.ctab(ext) + (i * CEntry.size)))
       i += 1
     end
+    zr_mark_ivtab(ClassExt.iv(ext))
   elsif t == T_EXCEPTION
     zr_mark(RException.message(v))
   elsif t == T_OBJECT
-    zr_mark_ivars(v)
+    zr_mark_ivtab(RObject.iv(v))
   elsif t == T_ARRAY
     zr_mark_ary(v)
   elsif t == T_CREF
@@ -243,6 +319,7 @@ machine def zr_release(v)
     if ClassExt.ctab(ext) != 0
       free(ClassExt.ctab(ext))
     end
+    zr_release_ivtab(ClassExt.iv(ext))
     free(ext)
   elsif t == T_STRING
     if RString.ptr(v) != 0
@@ -253,9 +330,7 @@ machine def zr_release(v)
       free(RException.rows(v))
     end
   elsif t == T_OBJECT
-    if RObject.ivars(v) != 0
-      free(RObject.ivars(v))
-    end
+    zr_release_ivtab(RObject.iv(v))
   elsif t == T_ARRAY
     free(RArray.ptr(v))
   elsif t == T_ENV

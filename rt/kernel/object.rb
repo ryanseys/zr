@@ -1,34 +1,64 @@
-# Objects: a class and an ivar table (id, value rows) outside the arena.
+# Objects: a class and an ivar table (id, value rows) outside the
+# arena; a class or module keeps the same table in its extension.
 # Reflection, identity, inspect and p live here too.
-Machine.struct :RObject, basic: RBasic, ivars: Ptr, nivars: Word, icap: Word
+Machine.struct :IvTab, rows: Ptr, len: Word, cap: Word
 Machine.struct :IvEntry, id: Word, value: Value
+Machine.struct :RObject, basic: RBasic, iv: IvTab
 
-sig [Value] => Void
-machine def zr_mark_ivars(v)
-  n = RObject.nivars(v)
+sig [Ptr] => Void
+machine def zr_ivtab_init(t)
+  IvTab.set_rows(t, 0)
+  IvTab.set_len(t, 0)
+  IvTab.set_cap(t, 0)
+end
+
+# The ivar table of `v`, or 0 when its kind carries none.
+sig [Value] => Ptr
+machine def zr_ivtab(v)
+  if zr_special_p(v)
+    return 0
+  end
+  t = zr_type(v)
+  if t == T_OBJECT
+    RObject.iv(v)
+  elsif t == T_CLASS || t == T_MODULE
+    ClassExt.iv(RClass.ext(v))
+  else
+    0
+  end
+end
+
+sig [Ptr] => Void
+machine def zr_mark_ivtab(t)
+  n = IvTab.len(t)
   i = 0
   while i < n
-    zr_mark(IvEntry.value(RObject.ivars(v) + (i * IvEntry.size)))
+    zr_mark(IvEntry.value(IvTab.rows(t) + (i * IvEntry.size)))
     i += 1
+  end
+end
+
+sig [Ptr] => Void
+machine def zr_release_ivtab(t)
+  if IvTab.rows(t) != 0
+    free(IvTab.rows(t))
   end
 end
 
 sig [Value] => Value
 machine def zr_obj_alloc(klass)
   o = zr_alloc(T_OBJECT, klass)
-  RObject.set_ivars(o, 0)
-  RObject.set_nivars(o, 0)
-  RObject.set_icap(o, 0)
+  zr_ivtab_init(RObject.iv(o))
   o
 end
 
-# The ivar row for `id` on `obj`, or 0.
-sig [Value, Word] => Ptr
-machine def zr_ivar_row(obj, id)
-  n = RObject.nivars(obj)
+# The row for `id` in the table `t`, or 0.
+sig [Ptr, Word] => Ptr
+machine def zr_ivtab_row(t, id)
+  n = IvTab.len(t)
   i = 0
   while i < n
-    e = RObject.ivars(obj) + (i * IvEntry.size)
+    e = IvTab.rows(t) + (i * IvEntry.size)
     if IvEntry.id(e) == id
       return e
     end
@@ -37,13 +67,14 @@ machine def zr_ivar_row(obj, id)
   0
 end
 
-# Only plain objects carry ivars so far; every other receiver reads nil.
+# A receiver with no table reads nil.
 sig [Value, Word] => Value
 machine def zr_ivar_get(obj, id)
-  if zr_special_p(obj) || zr_type(obj) != T_OBJECT
+  t = zr_ivtab(obj)
+  if t == 0
     return Machine.value(QNIL)
   end
-  e = zr_ivar_row(obj, id)
+  e = zr_ivtab_row(t, id)
   if e == 0
     Machine.value(QNIL)
   else
@@ -53,28 +84,29 @@ end
 
 sig [Value, Word, Value] => Value
 machine def zr_ivar_set(obj, id, v)
-  if zr_special_p(obj) || zr_type(obj) != T_OBJECT
-    zr_bug(Machine.bytes("an ivar on something that is not a plain object is not implemented yet\n"), 71)
+  t = zr_ivtab(obj)
+  if t == 0
+    zr_bug(Machine.bytes("an ivar on an Integer, Symbol, String or Array is not implemented yet\n"), 70)
   end
-  e = zr_ivar_row(obj, id)
+  e = zr_ivtab_row(t, id)
   if e == 0
-    n = RObject.nivars(obj)
-    if n == RObject.icap(obj)
+    n = IvTab.len(t)
+    if n == IvTab.cap(t)
       cap = n * 2
       if cap < 4
         cap = 4
       end
-      tab = malloc(cap * IvEntry.size)
-      if RObject.ivars(obj) != 0
-        zr_memcpy(tab, RObject.ivars(obj), n * IvEntry.size)
-        free(RObject.ivars(obj))
+      rows = malloc(cap * IvEntry.size)
+      if IvTab.rows(t) != 0
+        zr_memcpy(rows, IvTab.rows(t), n * IvEntry.size)
+        free(IvTab.rows(t))
       end
-      RObject.set_ivars(obj, tab)
-      RObject.set_icap(obj, cap)
+      IvTab.set_rows(t, rows)
+      IvTab.set_cap(t, cap)
     end
-    e = RObject.ivars(obj) + (n * IvEntry.size)
+    e = IvTab.rows(t) + (n * IvEntry.size)
     IvEntry.set_id(e, id)
-    RObject.set_nivars(obj, n + 1)
+    IvTab.set_len(t, n + 1)
   end
   IvEntry.set_value(e, v)
   v
@@ -100,7 +132,12 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_class(recv, argc, argv, cref, blk)
-  zr_class_of(recv)
+  zr_real_class(recv)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_singleton_class(recv, argc, argv, cref, blk)
+  zr_singleton_class(recv)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -114,7 +151,7 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_instance_of(recv, argc, argv, cref, blk)
-  zr_bool(zr_class_of(recv) == Machine.value(Machine.load64(argv, 0)))
+  zr_bool(zr_real_class(recv) == Machine.value(Machine.load64(argv, 0)))
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -148,7 +185,7 @@ end
 sig [Ptr, Value] => Void
 machine def zr_buf_obj_head(b, obj)
   zr_buf_push(b, Machine.bytes("#<"), 2)
-  zr_buf_str(b, RClass.name(zr_class_of(obj)))
+  zr_buf_str(b, zr_class_name_of(obj))
   zr_buf_push(b, Machine.bytes(":0x"), 3)
   w = Machine.word(obj)
   i = 0
@@ -171,8 +208,8 @@ machine def zr_obj_inspect(recv, argc, argv, cref, blk)
   zr_buf_init(b)
   zr_buf_obj_head(b, recv)
   i = 0
-  while i < RObject.nivars(recv)
-    e = RObject.ivars(recv) + (i * IvEntry.size)
+  while i < IvTab.len(RObject.iv(recv))
+    e = IvTab.rows(RObject.iv(recv)) + (i * IvEntry.size)
     zr_buf_push(b, i == 0 ? Machine.bytes(" ") : Machine.bytes(", "), i == 0 ? 1 : 2)
     zr_buf_sym(b, IvEntry.id(e))
     zr_buf_byte(b, 61)
@@ -323,9 +360,20 @@ machine def zr_class_name(recv, argc, argv, cref, blk)
   RClass.name(recv)
 end
 
-# An anonymous class prints as `#<Class:0x...>`.
+# An anonymous class prints as `#<Class:0x...>`, a singleton class as
+# `#<Class:` around what it is attached to.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_class_to_s(recv, argc, argv, cref, blk)
+  if zr_singleton_p(recv)
+    inner = zr_send(RClass.attached(recv), Machine.id(:inspect), 0, 0)
+    return inner if inner == QUNDEF
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("#<Class:"), 8)
+    zr_buf_str(b, inner)
+    zr_buf_byte(b, 62)
+    return zr_buf_take(b)
+  end
   if RClass.name(recv) == QNIL
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -345,7 +393,7 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_exc_message(recv, argc, argv, cref, blk)
   m = RException.message(recv)
   if m == QNIL
-    return RClass.name(zr_class_of(recv))
+    return zr_class_name_of(recv)
   end
   m
 end
@@ -355,15 +403,15 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_exc_inspect(recv, argc, argv, cref, blk)
   m = RException.message(recv)
   if m == QNIL
-    m = RClass.name(zr_class_of(recv))
+    m = zr_class_name_of(recv)
   end
   if RString.len(m) == 0
-    return RClass.name(zr_class_of(recv))
+    return zr_class_name_of(recv)
   end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_push(b, Machine.bytes("#<"), 2)
-  zr_buf_str(b, RClass.name(zr_class_of(recv)))
+  zr_buf_str(b, zr_class_name_of(recv))
   zr_buf_push(b, Machine.bytes(": "), 2)
   zr_buf_str(b, m)
   zr_buf_byte(b, 62)

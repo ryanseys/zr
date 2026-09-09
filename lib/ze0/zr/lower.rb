@@ -79,10 +79,11 @@ module Ze0
         name
       end
 
-      # The function a class or module body becomes.
+      # The function a class, module or singleton class body becomes.
       def body(node)
-        name = "zr_body_#{number}_#{node.name}"
-        Function.new(self, name, node.locals, node.body, node, node.is_a?(Hir::ClassDef) ? :class : :module).lower
+        kind = { Hir::ClassDef => :class, Hir::ModuleDef => :module, Hir::SingletonClassDef => :sclass }.fetch(node.class)
+        name = "zr_body_#{number}_#{kind == :sclass ? "singleton" : node.name}"
+        Function.new(self, name, node.locals, node.body, node, kind).lower
         name
       end
 

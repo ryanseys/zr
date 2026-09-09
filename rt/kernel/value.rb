@@ -32,6 +32,8 @@ T_MASK = 31
 FL_ALLOCATED = 1 << 5
 FL_MARK = 1 << 6
 FL_FREEZE = 1 << 11
+# A singleton class: one object's own, `attached`, ahead of its class.
+FL_SINGLETON = 1 << 12
 
 Machine.struct :RBasic, flags: Word, klass: Value
 

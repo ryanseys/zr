@@ -1,0 +1,100 @@
+(seq
+  (class Foo
+    (seq
+      (sdef bar () locals ()
+        (self)
+        (seq
+          (yield)))
+      (sclass
+        (self)
+        (seq
+          (def baz () locals ()
+            (seq
+              (send self bar
+                (block () locals ()
+                  (seq
+                    (send self raise
+                      (str "x")))))))
+          (send self attr_accessor
+            (sym :count))))))
+  (assign o
+    (send new
+      (const Object)))
+  (sdef hi () locals ()
+    (local o)
+    (seq
+      (send self raise
+        (str "hi"))))
+  (begin
+    (seq
+      (send baz
+        (const Foo)))
+    (rescue => e
+      (seq
+        (send self puts
+          (send backtrace
+            (local e)))))
+    (none)
+    (none))
+  (begin
+    (seq
+      (send hi
+        (local o)))
+    (rescue => e
+      (seq
+        (send self puts
+          (send backtrace
+            (local e)))))
+    (none)
+    (none))
+  (send self p
+    (send singleton_class
+      (const Foo))
+    (send singleton_class
+      (local o))
+    (send superclass
+      (send singleton_class
+        (const Foo)))
+    (send singleton_class
+      (send singleton_class
+        (const Foo))))
+  (send self p
+    (send class
+      (const Foo))
+    (send class
+      (local o))
+    (send class
+      (send singleton_class
+        (const Foo))))
+  (class Sub
+    (const Foo)
+    (const nil))
+  (begin
+    (send self p
+      (send baz
+        (const Sub)))
+    (rescue
+      (send self p
+        (gvar $!)))
+    (none)
+    (none))
+  (send count=
+    (const Foo)
+    (int 3))
+  (send self p
+    (send count
+      (const Foo))
+    (send count
+      (const Sub)))
+  (send self p
+    (send superclass
+      (send singleton_class
+        (const Sub))))
+  (sdef each () locals ()
+    (const Foo)
+    (const nil))
+  (sclass
+    (local o)
+    (seq
+      (send self raise
+        (str "in sclass")))))

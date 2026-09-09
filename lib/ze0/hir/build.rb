@@ -86,6 +86,9 @@ module Ze0
         when Prism::ModuleNode
           scope, name = constant_path(node.constant_path)
           ModuleDef.new(scope, name, node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line)
+        when Prism::SingletonClassNode
+          refuse(node, "a singleton class body with locals is not lowered yet") unless node.locals.empty?
+          SingletonClassDef.new(expr(node.expression), node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line)
         when Prism::ConstantReadNode then ConstRead.new(nil, node.name, line)
         when Prism::ConstantPathNode
           scope, name = constant_path(node)
@@ -167,7 +170,6 @@ module Ze0
       end
 
       def define(node)
-        refuse(node, "a singleton def is not lowered yet") if node.receiver
         params = node.parameters
         if params
           other = params.child_nodes.compact - params.requireds
@@ -175,7 +177,8 @@ module Ze0
           refuse(params, "a destructuring parameter is not lowered yet") unless params.requireds.all?(Prism::RequiredParameterNode)
         end
         names = params ? params.requireds.map(&:name) : []
-        Def.new(node.name, names, node.locals, node.body ? expr(node.body) : Literal.new(nil, node.location.start_line), node.location.start_line)
+        body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
+        Def.new(node.name, names, node.locals, body, node.location.start_line, node.receiver && expr(node.receiver))
       end
 
       # A block literal's parameters: required names only, so far.

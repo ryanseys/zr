@@ -20,9 +20,9 @@ module Ze0
     # the slots a send fills with its receiver and arguments while the
     # next argument is evaluated, so the collector sees every Value the
     # function holds across a call. The record names its FrameMeta and
-    # carries the current line, for backtraces. A call answering `qundef`
+    # carries the current line, for backtraces. A call answering `undef`
     # means a signal is pending: the function leaves through its landing
-    # block, answering `qundef` itself.
+    # block, answering `undef` itself.
     #
     # A scope that holds a block keeps its locals in an Env cell, kept in
     # the record's first slot, so the block reads and writes them there; a
@@ -34,8 +34,8 @@ module Ze0
       include Control
       include Regions
 
-      KINDS = { main: "KIND_MAIN", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", block: "KIND_BLOCK" }.freeze
-      ABI = { main: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], block: %w[i64 i64 i64 i64] }.freeze
+      KINDS = { main: "KIND_MAIN", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK" }.freeze
+      ABI = { main: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64] }.freeze
 
       attr_reader :meta, :outer
 
