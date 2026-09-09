@@ -515,6 +515,18 @@ end
 # compiled def's own FrameMeta, or 0 for a builtin, which gets one here.
 sig [Value, Word, Ptr, Word, Word, Ptr, Value] => Value
 machine def zr_define_method(klass, mid, fn, arity, kind, meta, cref)
+  zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, zr_definition_vis(mid, cref))
+end
+
+# `def obj.name`: a singleton def is public whatever its body's
+# visibility verb says, except the initialize family.
+sig [Value, Word, Ptr, Word, Word, Ptr, Value] => Value
+machine def zr_define_singleton_def(klass, mid, fn, arity, kind, meta, cref)
+  zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, zr_definition_vis(mid, Machine.value(QNIL)))
+end
+
+sig [Value, Word, Ptr, Word, Word, Ptr, Value, Word] => Value
+machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
   klass = zr_origin(klass)
   if meta == 0
     meta = malloc(FrameMeta.size)
@@ -532,7 +544,7 @@ machine def zr_define_method(klass, mid, fn, arity, kind, meta, cref)
   if cref != QNIL && RCref.modfn(cref) != 0
     zr_method_add_vis(zr_singleton_class(klass), mid, fn, arity, kind, meta, cref, VIS_PUBLIC)
   end
-  zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, zr_definition_vis(mid, cref))
+  zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
   zr_method_added(klass, mid)
 end
 
