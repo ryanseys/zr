@@ -289,15 +289,16 @@ machine def zr_ary_aref(recv, argc, argv, cref, blk)
   zr_ary_at(recv, Machine.load64(out, 0))
 end
 
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_ary_aset(recv, argc, argv, cref, blk)
+# `a[i] = v` for one index.
+sig [Value, Value, Value] => Value
+machine def zr_ary_aset_at(recv, index, v)
   if zr_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   out = Machine.slot(8)
-  r = zr_index_operand(Machine.value(Machine.load64(argv, 0)), out)
+  r = zr_index_operand(index, out)
   return r if r == QUNDEF
-  zr_ary_store(recv, Machine.load64(out, 0), Machine.value(Machine.load64(argv, 8)))
+  zr_ary_store(recv, Machine.load64(out, 0), v)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -414,8 +415,8 @@ end
 # `recv[i] = v` likewise, for an Integer index.
 sig [Value, Word, Word, Ptr] => Value
 machine def zr_opt_aset(recv, mid, argc, argv)
-  if !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_ASET) == 0 && zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
-    return zr_ary_aset(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
+  if argc == 2 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_ASET) == 0 && zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
+    return zr_ary_aset_at(recv, Machine.value(Machine.load64(argv, 0)), Machine.value(Machine.load64(argv, 8)))
   end
   zr_call(recv, mid, argc, argv)
 end

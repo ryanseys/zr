@@ -295,6 +295,28 @@ class Array
     Primitive.zr_ary_splice(self, 0, size, other)
   end
 
+  # `a[i] = v`, `a[start, len] = v` and `a[range] = v`: the span's
+  # elements leave and the value's elements, or the value, take their
+  # place.
+  def []=(*args)
+    case args.size
+    when 2
+      index, value = args
+      return Primitive.zr_ary_aset_at(self, index, value) unless index.is_a?(Range)
+
+      start, len = range_span(index)
+    when 3
+      start, len, value = args
+      raise TypeError, "no implicit conversion of #{start.class} into Integer" unless start.is_a?(Integer)
+      raise TypeError, "no implicit conversion of #{len.class} into Integer" unless len.is_a?(Integer)
+    else
+      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2..3)"
+    end
+    items = value.is_a?(Array) ? value : (value.respond_to?(:to_ary) ? value.to_ary : [value])
+    Primitive.zr_ary_splice(self, start, len, items)
+    value
+  end
+
   def slice!(start, len = nil)
     if len.nil?
       if start.is_a?(Range)
@@ -544,4 +566,32 @@ class Array
   end
 
   def minmax = [min, max]
+end
+
+class Array
+  private
+
+  # A Range over this Array's indexes as a start and a length; a start
+  # before the first element is out of range.
+  def range_span(range)
+    Primitive.attr! :hidden
+    start = range.begin || 0
+    stop = range.end
+    raise TypeError, "no implicit conversion of #{start.class} into Integer" unless start.is_a?(Integer)
+    raise TypeError, "no implicit conversion of #{stop.class} into Integer" unless stop.nil? || stop.is_a?(Integer)
+
+    n = size
+    start += n if start < 0
+    raise RangeError, "#{range.inspect} out of range" if start < 0
+
+    if stop.nil?
+      stop = n
+    else
+      stop += n if stop < 0
+      stop += 1 unless range.exclude_end?
+    end
+    len = stop - start
+    len = 0 if len < 0
+    [start, len]
+  end
 end

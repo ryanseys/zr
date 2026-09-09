@@ -62,3 +62,66 @@ p (1..6).each_cons(3).to_a rescue (1..6).each_cons(3) { |c| p c }
 p %w[a bb c].min_by(&:size), %w[a bb c].max_by(&:size), [1, 2, 3].one? { |x| x > 2 }, [1, nil].one?, %w[a b a].tally, (1..3).zip([4, 5, 6])
 p (1..10).take(3), (1..10).drop(8), (1..3).find_index(2), (1..3).first, (1..3).first(2), [4, 5].each_with_object([]) { |x, m| m << x }
 p [3, 1, 2].min, [3, 1, 2].max, (1..4).min, (1..4).max, [3, 1].min { |a, b| b <=> a }, [3, 1, 2].each_entry.to_a rescue p $!
+a = [1, 2, 3, 4]
+begin; a[-9..1] = 1; rescue => e; p e; end
+begin; a[1..-9] = 1; rescue => e; p e; end
+a[6..] = 9
+p a
+b = [1, 2]
+b[5..7] = [:a]
+p b
+c = [1, 2, 3]
+c[1..] = []
+p c
+d = [1, 2, 3]
+d[3..1] = :z
+p d
+e = [1, 2, 3]
+p((e[1, 2] = nil), e)
+f = [1, 2, 3]
+f[0..1] = [[1]]
+p f
+g = [1]
+begin; g["a"] = 1; rescue => x; p x; end
+begin; g[1, "a"] = 1; rescue => x; p x; end
+begin; g[1, -1] = 1; rescue => x; p x; end
+begin; g[-5, 1] = 1; rescue => x; p x; end
+begin; g[1, 2, 3, 4] = 1; rescue => x; p x; end
+begin; g[1] = 1, 2; rescue => x; p x; end
+h = [1, 2, 3]
+h[1, 2] += ["x"]
+p h
+i = [1, 2, 3]
+i[0, 2] ||= 9
+p i
+j = [1, 2, 3]
+j[1..] += [8]
+p j
+k = [1, 2, 3, 4]
+k[1, 2] = [:x, :y, :z]
+p k
+k[1, 0] = [:ins]
+p k
+k[1...3] = [:e]
+p k
+k[0, 2] = :scalar
+p k
+p(k[0, 1] = [:v])
+fr = [1].freeze
+begin; fr[0, 1] = 2; rescue => x; p x; end
+begin; fr[0..1] = 2; rescue => x; p x; end
+begin; fr[0] = 2; rescue => x; p x; end
+p [].method(:[]=).arity
+m = [1, 2, 3]
+m[5] = 6
+p m
+m[-1] = 7
+p m
+begin; m[-10] = 1; rescue => x; p x; end
+class T; def to_ary = [:t1, :t2]; end
+n = [1, 2, 3]
+n[0, 1] = T.new
+p n
+o = [1, 2, 3]
+o[0..0] = T.new
+p o

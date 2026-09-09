@@ -325,7 +325,6 @@ machine def zr_boot
   zr_builtin(zr_global(G_FALSE), Machine.id(:to_s), Machine.addr(:zr_false_to_s), 0)
   zr_builtin(zr_global(G_FALSE), Machine.id(:inspect), Machine.addr(:zr_false_inspect), 0)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:[]), Machine.addr(:zr_ary_aref), 0 - 1)
-  zr_builtin(zr_global(G_ARRAY), Machine.id(:[]=), Machine.addr(:zr_ary_aset), 2)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:<<), Machine.addr(:zr_ary_push_m), 1)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:push), Machine.addr(:zr_ary_push_m), 0 - 1)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:pop), Machine.addr(:zr_ary_pop), 0)
