@@ -83,6 +83,16 @@ module Ze0
         name
       end
 
+      # A read-only table of symbol ids: the keywords a def declares.
+      def keyword_table(ids)
+        @keyword_tables ||= {}
+        @keyword_tables[ids] ||= begin
+          name = "#{@entry}_kw_#{@data.size}"
+          @data << Obj::Data.new(name, :text_const, ids.pack("Q<*"), align: 8)
+          name
+        end
+      end
+
       # The function a def becomes, lowered now and named for the site.
       def define(node)
         name = "#{@entry}_def_#{number}_#{node.name.to_s.gsub(/[^A-Za-z0-9_]/, "")}"

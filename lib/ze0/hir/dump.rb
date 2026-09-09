@@ -26,12 +26,28 @@ module Ze0
           lines << "#{pad}(#{n.vcall ? "vcall" : "send"} #{n.recv ? "" : "self "}#{n.name}"
           node(n.recv, depth + 1, lines) if n.recv
           n.args.each { |a| node(a, depth + 1, lines) }
+          node(n.kwargs, depth + 1, lines) if n.kwargs
           node(n.block, depth + 1, lines) if n.block
           lines[-1] += ")"
         when Block
-          lines << "#{pad}(block (#{n.params.join(" ")}) locals (#{n.locals.join(" ")})"
+          lines << "#{pad}(block (#{params(n.params)}) locals (#{n.locals.join(" ")})"
+          defaults(n.params, depth, lines)
           node(n.body, depth + 1, lines)
           lines[-1] += ")"
+        when Splat
+          lines << "#{pad}(splat"
+          node(n.value, depth + 1, lines)
+          lines[-1] += ")"
+        when HashSplat
+          lines << "#{pad}(double-splat"
+          node(n.value, depth + 1, lines)
+          lines[-1] += ")"
+        when BlockPass
+          lines << "#{pad}(block-pass"
+          node(n.value, depth + 1, lines)
+          lines[-1] += ")"
+        when nil
+          lines << "#{pad}(none)"
         when Yield
           lines << "#{pad}(yield"
           n.args.each { |a| node(a, depth + 1, lines) }
@@ -45,7 +61,8 @@ module Ze0
         when SelfRef
           lines << "#{pad}(self)"
         when Def
-          lines << "#{pad}(#{n.receiver ? "sdef" : "def"} #{n.name} (#{n.params.join(" ")}) locals (#{n.locals.join(" ")})"
+          lines << "#{pad}(#{n.receiver ? "sdef" : "def"} #{n.name} (#{params(n.params)}) locals (#{n.locals.join(" ")})"
+          defaults(n.params, depth, lines)
           node(n.receiver, depth + 1, lines) if n.receiver
           node(n.body, depth + 1, lines)
           lines[-1] += ")"
@@ -135,6 +152,17 @@ module Ze0
         else
           raise ArgumentError, "no dump for #{n.class}"
         end
+      end
+
+      # `a b= *r c k: k2:= **kw &blk`: each parameter as its syntax.
+      def params(p)
+        [*p.required, *p.optional.map { |name, _| "#{name}=" }, p.rest && "*#{p.rest == :implicit ? "" : p.rest}", *p.post,
+         *p.keywords.map { |name, default| "#{name}:#{default ? "=" : ""}" }, p.kwrest && "**#{p.kwrest}", p.block && "&#{p.block}"].compact.join(" ")
+      end
+
+      # The default expressions, optional then keyword, as child nodes.
+      def defaults(p, depth, lines)
+        (p.optional + p.keywords).each { |_, default| node(default, depth + 1, lines) if default }
       end
 
       def scope(s)

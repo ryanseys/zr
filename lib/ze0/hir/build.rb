@@ -55,12 +55,10 @@ module Ze0
           Assign.new(node.name, node.depth, Or.new(Local.new(node.name, node.depth, line), expr(node.value), line), line)
         when Prism::YieldNode
           args = node.arguments&.arguments || []
-          refuse(node, "a splat in a yield is not lowered yet") if args.any? { |a| a.is_a?(Prism::SplatNode) || a.is_a?(Prism::KeywordHashNode) }
-          Yield.new(args.map { |a| expr(a) }, line)
+          refuse(node, "keywords in a yield are not lowered yet") if args.any?(Prism::KeywordHashNode)
+          Yield.new(args.map { |a| a.is_a?(Prism::SplatNode) ? Splat.new(expr(a.expression), line) : expr(a) }, line)
         when Prism::BreakNode, Prism::NextNode
-          args = node.arguments&.arguments || []
-          refuse(node, "a #{node.is_a?(Prism::BreakNode) ? "break" : "next"} of several values is not lowered yet") if args.size > 1
-          value = args.empty? ? Literal.new(nil, line) : expr(args.first)
+          value = jump_value(node.arguments, line)
           node.is_a?(Prism::BreakNode) ? Break.new(value, line) : Next.new(value, line)
         when Prism::IfNode
           If.new(expr(node.predicate), node.statements && seq(node.statements), node.subsequent && expr(node.subsequent), line)
@@ -73,10 +71,7 @@ module Ze0
         when Prism::UntilNode
           refuse(node, "a do-until loop is not lowered yet") if node.begin_modifier?
           While.new(Not.new(expr(node.predicate), line), node.statements && seq(node.statements), line)
-        when Prism::ReturnNode
-          args = node.arguments&.arguments || []
-          refuse(node, "a return of several values is not lowered yet") if args.size > 1
-          Return.new(args.empty? ? Literal.new(nil, line) : expr(args.first), line)
+        when Prism::ReturnNode then Return.new(jump_value(node.arguments, line), line)
         when Prism::AndNode then And.new(expr(node.left), expr(node.right), line)
         when Prism::OrNode then Or.new(expr(node.left), expr(node.right), line)
         when Prism::ClassNode
@@ -107,15 +102,8 @@ module Ze0
           end
           Interp.new(parts, line)
         when Prism::ArrayNode
-          refuse(node, "a splat in an array literal is not lowered yet") if node.elements.any?(Prism::SplatNode)
-          ArrayLit.new(node.elements.map { |e| expr(e) }, line)
-        when Prism::HashNode
-          pairs = node.elements.flat_map do |e|
-            refuse(e, "a double splat in a hash literal is not lowered yet") unless e.is_a?(Prism::AssocNode)
-            refuse(e, "a hash shorthand `{x:}` is not lowered yet") if e.value.is_a?(Prism::ImplicitNode)
-            [expr(e.key), expr(e.value)]
-          end
-          HashLit.new(pairs, line)
+          ArrayLit.new(node.elements.map { |e| e.is_a?(Prism::SplatNode) ? Splat.new(expr(e.expression), line) : expr(e) }, line)
+        when Prism::HashNode then HashLit.new(hash_pairs(node.elements), line)
         when Prism::IndexOperatorWriteNode, Prism::IndexOrWriteNode, Prism::IndexAndWriteNode
           refuse(node, "an operator assignment through [] is not lowered yet")
         when Prism::InstanceVariableReadNode then IvarRead.new(node.name, line)
@@ -165,6 +153,18 @@ module Ze0
         Rescue.new(node.exceptions.map { |e| expr(e) }, name, depth, node.statements ? seq(node.statements) : Literal.new(nil, line), line)
       end
 
+      # What `return`, `break` and `next` carry: nothing is nil, one
+      # value is itself, several are an Array.
+      def jump_value(arguments, line)
+        args = arguments&.arguments || []
+        return Literal.new(nil, line) if args.empty?
+
+        elements = args.map { |a| a.is_a?(Prism::SplatNode) ? Splat.new(expr(a.expression), line) : expr(a) }
+        return elements.first if elements.size == 1 && !elements.first.is_a?(Splat)
+
+        ArrayLit.new(elements, line)
+      end
+
       # `[scope, name]` of a constant path: nil for a bare name, :top for
       # `::Name`, else the expression before the last `::`.
       def constant_path(node)
@@ -177,30 +177,53 @@ module Ze0
       end
 
       def define(node)
-        params = node.parameters
-        if params
-          other = params.child_nodes.compact - params.requireds
-          refuse(other.first, "#{other.first.class.name.split("::").last.delete_suffix("Node")} is not lowered yet") unless other.empty?
-          refuse(params, "a destructuring parameter is not lowered yet") unless params.requireds.all?(Prism::RequiredParameterNode)
-        end
-        names = params ? params.requireds.map(&:name) : []
         body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
-        Def.new(node.name, names, node.locals, body, node.location.start_line, node.receiver && expr(node.receiver))
+        Def.new(node.name, parameters(node.parameters), node.locals, body, node.location.start_line, node.receiver && expr(node.receiver))
       end
 
-      # A block literal's parameters: required names only, so far.
+      # A ParametersNode as one Params.
+      def parameters(node)
+        return Params.new([], [], nil, [], [], nil, nil) if node.nil?
+
+        required = node.requireds.map { |p| name_of(p) }
+        optional = node.optionals.map { |p| [p.name, expr(p.value)] }
+        rest = node.rest && rest_name(node.rest)
+        post = node.posts.map { |p| name_of(p) }
+        keywords = node.keywords.map do |k|
+          case k
+          when Prism::RequiredKeywordParameterNode then [k.name, nil]
+          when Prism::OptionalKeywordParameterNode then [k.name, expr(k.value)]
+          end
+        end
+        kwrest = node.keyword_rest && rest_name(node.keyword_rest)
+        block = node.block && (node.block.name or refuse(node.block, "an anonymous block parameter is not lowered yet"))
+        Params.new(required, optional, rest, post, keywords, kwrest, block)
+      end
+
+      def name_of(param)
+        refuse(param, "a destructuring parameter is not lowered yet") unless param.is_a?(Prism::RequiredParameterNode)
+        param.name
+      end
+
+      # A rest parameter's name; `|a, |` has an implicit one that binds
+      # nothing.
+      def rest_name(node)
+        case node
+        when Prism::ImplicitRestNode then :implicit
+        when Prism::RestParameterNode, Prism::KeywordRestParameterNode
+          node.name or refuse(node, "an anonymous rest parameter is not lowered yet")
+        else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
+        end
+      end
+
+      # A block literal, or the `&value` a call passes on.
       def block(node)
-        refuse(node, "a block argument is not lowered yet") if node.is_a?(Prism::BlockArgumentNode)
-        params = []
+        return BlockPass.new(node.expression ? expr(node.expression) : refuse(node, "an anonymous block argument is not lowered yet"), node.location.start_line) if node.is_a?(Prism::BlockArgumentNode)
+
+        params = Params.new([], [], nil, [], [], nil, nil)
         if node.parameters
           refuse(node.parameters, "a numbered or `it` parameter is not lowered yet") unless node.parameters.is_a?(Prism::BlockParametersNode)
-          inner = node.parameters.parameters
-          if inner
-            other = inner.child_nodes.compact - inner.requireds
-            refuse(other.first, "#{other.first.class.name.split("::").last.delete_suffix("Node")} is not lowered yet") unless other.empty?
-            refuse(inner, "a destructuring block parameter is not lowered yet") unless inner.requireds.all?(Prism::RequiredParameterNode)
-            params = inner.requireds.map(&:name)
-          end
+          params = parameters(node.parameters.parameters)
           refuse(node.parameters, "a block-local variable is not lowered yet") unless node.parameters.locals.empty?
         end
         Block.new(params, node.locals, node.body ? expr(node.body) : Literal.new(nil, node.location.start_line), node.location.start_line)
@@ -210,16 +233,33 @@ module Ze0
         refuse(node, "a safe-navigation call is not lowered yet") if node.call_operator == "&."
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil?
 
-        args = (node.arguments&.arguments || []).map do |a|
+        kwargs = nil
+        args = (node.arguments&.arguments || []).filter_map do |a|
           case a
-          when Prism::SplatNode, Prism::KeywordHashNode, Prism::BlockArgumentNode
-            refuse(a, "#{a.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
+          when Prism::SplatNode then Splat.new(expr(a.expression), a.location.start_line)
+          when Prism::KeywordHashNode
+            kwargs = HashLit.new(hash_pairs(a.elements), a.location.start_line)
+            nil
           else expr(a)
           end
         end
         opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
         Send.new(node.receiver && expr(node.receiver), node.name, args, node.location.start_line, node.variable_call?, opt,
-                 node.block && block(node.block))
+                 node.block && block(node.block), kwargs)
+      end
+
+      # A hash's elements as a flat pair list; a `**value` is a HashSplat
+      # key with a nil value.
+      def hash_pairs(elements)
+        elements.flat_map do |e|
+          case e
+          when Prism::AssocNode
+            refuse(e, "a hash shorthand `{x:}` is not lowered yet") if e.value.is_a?(Prism::ImplicitNode)
+            [expr(e.key), expr(e.value)]
+          when Prism::AssocSplatNode
+            [HashSplat.new(e.value ? expr(e.value) : refuse(e, "an anonymous double splat is not lowered yet"), e.location.start_line), nil]
+          end
+        end
       end
 
       def refuse(node, message)

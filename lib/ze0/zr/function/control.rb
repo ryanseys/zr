@@ -67,6 +67,15 @@ module Ze0
         end
 
         def yield_block(node)
+          if node.args.any?(Hir::Splat)
+            slot = reserve(1)
+            ary = gather(node.args, slot)
+            at_line(node.line)
+            r = checked(kernel("zr_yield", @blk, array_len(ary), array_ptr(ary)))
+            @sp = slot
+            return r
+          end
+
           staged(node.args) do |argv|
             at_line(node.line)
             checked(kernel("zr_yield", @blk, imm(node.args.size), argv))

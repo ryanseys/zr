@@ -26,6 +26,7 @@ machine def zr_boot
   Task.set_pending_kind(zr_task(), PENDING_RAISE)
   Task.set_serial(zr_task(), 0)
   Task.set_errinfo(zr_task(), Machine.value(QNIL))
+  Task.set_kw(zr_task(), 0)
   # The four that form a cycle come first, with no class; then each
   # gets Class as its class. Names wait for String.
   zr_boot_class(G_BASIC_OBJECT, Machine.id(:BasicObject), Machine.value(QNIL))

@@ -60,11 +60,41 @@ machine def zr_wrong_arity_range(given, min, max)
   zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
 end
 
+# `wrong number of arguments (given 0, expected 1+)`.
+sig [Word, Word] => Value
+machine def zr_wrong_arity_min(given, min)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("wrong number of arguments (given "), 33)
+  zr_buf_long(b, given)
+  zr_buf_push(b, Machine.bytes(", expected "), 11)
+  zr_buf_long(b, min)
+  zr_buf_push(b, Machine.bytes("+)"), 2)
+  zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+end
+
+# A call passing keywords sets the task's flag right before the send;
+# the callee that declares keywords takes it, and any other sees the
+# keywords as a trailing Hash.
+sig [] => Void
+machine def zr_kw_pass
+  Task.set_kw(zr_task(), 1)
+end
+
+sig [] => Word
+machine def zr_kw_take
+  t = zr_task()
+  kw = Task.kw(t)
+  Task.set_kw(t, 0)
+  kw
+end
+
 # `argv` points at `argc` Values the caller keeps rooted.
 # A builtin runs under a frame pushed here, so a backtrace names it; a
 # compiled method pushes its own.
 sig [Value, Word, Word, Ptr, Bool, Value] => Value
 machine def zr_dispatch(recv, mid, argc, argv, vcall, blk)
+  kw = zr_kw_take()
   e = zr_find_method(zr_class_of(recv), mid)
   if e == 0
     return zr_no_method(recv, mid, vcall)
@@ -74,6 +104,7 @@ machine def zr_dispatch(recv, mid, argc, argv, vcall, blk)
     if arity >= 0 && argc != arity
       return zr_wrong_arity_in(argc, arity, e, recv)
     end
+    Task.set_kw(zr_task(), kw)
     return Machine.call(:method, MEntry.fn(e), recv, argc, argv, MEntry.cref(e), blk)
   end
   if MEntry.kind(e) == KIND_ATTR_READER

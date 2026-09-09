@@ -25,8 +25,8 @@ module Ze0
           when Hir::SingletonClassDef then singleton_class_body(node)
           when Hir::ConstRead then const_read(node)
           when Hir::ConstWrite then const_write(node)
-          when Hir::ArrayLit then staged(node.elements) { |argv| kernel("zr_ary_of", imm(node.elements.size), argv) }
-          when Hir::HashLit then staged(node.pairs) { |argv| kernel("zr_hash_of", imm(node.pairs.size / 2), argv) }
+          when Hir::ArrayLit then array_literal(node)
+          when Hir::HashLit then hash_literal(node)
           when Hir::Interp then staged(node.parts) { |argv| checked(kernel("zr_str_interp", imm(node.parts.size), argv)) }
           when Hir::IvarRead then kernel("zr_ivar_get", @self, imm(sym_id(node.name)))
           when Hir::GvarRead then gvar_read(node)
@@ -39,6 +39,34 @@ module Ze0
           when Hir::Retry then retry_region(node)
           else @l.refuse(node, "#{node.class.name.split("::").last} is not lowered yet")
           end
+        end
+
+        def array_literal(node)
+          return staged(node.elements) { |argv| kernel("zr_ary_of", imm(node.elements.size), argv) } unless node.elements.any?(Hir::Splat)
+
+          slot = reserve(1)
+          ary = gather(node.elements, slot)
+          @sp = slot
+          ary
+        end
+
+        # `{k => v, **h}`: pairs stored one by one into a Hash kept in a
+        # record slot when a double splat is among them.
+        def hash_literal(node)
+          return staged(node.pairs) { |argv| kernel("zr_hash_of", imm(node.pairs.size / 2), argv) } unless node.pairs.any?(Hir::HashSplat)
+
+          slot = reserve(1)
+          at = value_offset(slot)
+          @f.store(kernel("zr_hash_new"), @rec, at)
+          node.pairs.each_slice(2) do |key, value|
+            if key.is_a?(Hir::HashSplat)
+              checked(kernel("zr_hash_update", @f.fetch("i64", @rec, at), expr(key.value)))
+            else
+              staged([key, value]) { |argv| kernel("zr_hash_store", @f.fetch("i64", @rec, at), @f.fetch("i64", argv), @f.fetch("i64", argv, 8)) }
+            end
+          end
+          @sp = slot
+          @f.fetch("i64", @rec, at)
         end
 
         def seq(node)

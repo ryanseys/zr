@@ -8,6 +8,7 @@ require_relative "function/definitions"
 require_relative "function/sends"
 require_relative "function/control"
 require_relative "function/regions"
+require_relative "function/params"
 
 module Ze0
   module Zr
@@ -33,6 +34,7 @@ module Ze0
       include Sends
       include Control
       include Regions
+      include Params
 
       KINDS = { main: "KIND_MAIN", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK" }.freeze
       ABI = { main: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64] }.freeze
@@ -87,7 +89,7 @@ module Ze0
       # header, nil the slots, and make the Env when a block needs one.
       def enter
         @base = @has_env ? 1 : @locals.size
-        @nvalues = @base + Scope.staging(@body)
+        @nvalues = @base + Scope.staging(@body) + prologue_slots
         @sp = @base
         @record = @f.slot(@frame.size + (8 * @nvalues))
         @rec = @f.stack_addr(@record)
@@ -149,32 +151,10 @@ module Ze0
         leave(qundef)
       end
 
-      # Parameters into their locals: a method's from argv, a block's
-      # through the block-argument rules.
-      def bind_params
-        case @kind
-        when :def
-          @def.params.each_with_index { |_, i| write_local(i, 0, @f.fetch("i64", @f.args[2], 8 * i)) }
-        when :block
-          n = @def.params.size
-          return if n.zero?
-
-          out = @f.stack_addr(@f.slot(8))
-          count = kernel("zr_block_args", @f.args[1], @f.args[2], imm(n), out)
-          argv = @f.fetch("i64", out)
-          n.times do |i|
-            have = @f.label
-            miss = @f.label
-            merge, (v,) = @f.block(["i64"])
-            @f.brif(@f.icmp("slt", imm(i), count), have, miss)
-            switch(have)
-            @f.jump(merge, [@f.fetch("i64", argv, 8 * i)])
-            switch(miss)
-            @f.jump(merge, [@qnil])
-            switch(merge)
-            write_local(i, 0, v)
-          end
-        end
+      # The record slots the prologue keeps for itself: one for a
+      # method's keyword Hash.
+      def prologue_slots
+        @kind == :def && keywords?(@def.params) ? 1 : 0
       end
 
       def leave(value)

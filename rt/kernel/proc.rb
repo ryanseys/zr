@@ -6,7 +6,7 @@
 # `return` leaves. A `break` or `return` is a signal beside `raise`:
 # the task's pending kind says which.
 Machine.struct :REnv, basic: RBasic, parent: Value, slots: Ptr, nslots: Word
-Machine.struct :RProc, basic: RBasic, fn: Ptr, env: Value, self: Value, cref: Value, blk: Value, home: Ptr, serial: Word, site: Word, ret_home: Ptr, ret_serial: Word, nparams: Word, lambda: Word
+Machine.struct :RProc, basic: RBasic, fn: Ptr, env: Value, self: Value, cref: Value, blk: Value, home: Ptr, serial: Word, site: Word, ret_home: Ptr, ret_serial: Word, spread: Word, lambda: Word
 Machine.sig :block, [Value, Word, Ptr, Value] => Value
 T_ENV = 26
 T_PROC = 27
@@ -72,12 +72,12 @@ machine def zr_mark_proc(p)
 end
 
 # A Proc for a block written in the frame `home` (the call site
-# `site`, packed above the parameter count), whose method's frame is
-# `ret_home`.
+# `site`, packed above the spread flag: whether a lone Array argument
+# spreads over the parameters), whose method's frame is `ret_home`.
 sig [Ptr, Value, Value, Value, Value, Ptr, Word, Ptr] => Value
-machine def zr_proc_new(fn, env, self_, cref, blk, home, site_and_nparams, ret_home)
-  site = site_and_nparams >> 32
-  nparams = site_and_nparams & 4294967295
+machine def zr_proc_new(fn, env, self_, cref, blk, home, site_and_spread, ret_home)
+  site = site_and_spread >> 32
+  spread = site_and_spread & 4294967295
   p = zr_alloc(T_PROC, zr_global(G_PROC))
   RProc.set_fn(p, fn)
   RProc.set_env(p, env)
@@ -89,9 +89,61 @@ machine def zr_proc_new(fn, env, self_, cref, blk, home, site_and_nparams, ret_h
   RProc.set_site(p, site)
   RProc.set_ret_home(p, ret_home)
   RProc.set_ret_serial(p, Frame.serial(ret_home))
-  RProc.set_nparams(p, nparams)
+  RProc.set_spread(p, spread)
   RProc.set_lambda(p, 0)
   p
+end
+
+# `&:name`: a Proc sending `name` to its first argument. The block
+# function reads the Symbol from the Proc's self.
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_symbol_block(p, argc, argv, blk)
+  if argc == 0
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("no receiver given"), 17)
+  end
+  zr_send_blk(Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc.self(p)), argc - 1, argv + 8, blk)
+end
+
+sig [Value] => Value
+machine def zr_sym_to_proc(sym)
+  p = zr_alloc(T_PROC, zr_global(G_PROC))
+  RProc.set_fn(p, Machine.addr(:zr_symbol_block))
+  RProc.set_env(p, Machine.value(QNIL))
+  RProc.set_self(p, sym)
+  RProc.set_cref(p, Machine.value(QNIL))
+  RProc.set_blk(p, Machine.value(QNIL))
+  RProc.set_home(p, 0)
+  RProc.set_serial(p, 0)
+  RProc.set_site(p, 0)
+  RProc.set_ret_home(p, 0)
+  RProc.set_ret_serial(p, 0)
+  RProc.set_spread(p, 0)
+  RProc.set_lambda(p, 1)
+  p
+end
+
+# `&value` at a call: nil passes no block, a Proc itself, a Symbol its
+# Proc; anything else must answer `to_proc`.
+sig [Value] => Value
+machine def zr_block_pass(v)
+  if v == QNIL || zr_symbol_p(v)
+    if zr_symbol_p(v)
+      return zr_sym_to_proc(v)
+    end
+    return v
+  end
+  if !zr_special_p(v) && zr_type(v) == T_PROC
+    return v
+  end
+  if zr_find_method(zr_class_of(v), Machine.id(:to_proc)) == 0
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
+    zr_buf_str(b, zr_class_name_of(v))
+    zr_buf_push(b, Machine.bytes(" into Proc"), 10)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+  zr_send(v, Machine.id(:to_proc), 0, 0)
 end
 
 # Call the block with `argc` arguments.
@@ -118,12 +170,12 @@ machine def zr_yield2(blk, a, b)
   zr_yield(blk, 2, slot)
 end
 
-# The arguments a block binds: a lone Array spreads over several
-# parameters; missing ones are nil, extra ones dropped. Answers the
-# argument count to read from `argv_out`.
+# The arguments a block binds: a lone Array spreads over the parameters
+# when the block's shape asks for it; missing ones are nil, extra ones
+# dropped. Answers the argument count to read from `argv_out`.
 sig [Word, Ptr, Word, Ptr] => Word
-machine def zr_block_args(argc, argv, nparams, argv_out)
-  if nparams > 1 && argc == 1
+machine def zr_block_args(argc, argv, spread, argv_out)
+  if spread != 0 && argc == 1
     v = Machine.value(Machine.load64(argv, 0))
     if !zr_special_p(v) && zr_type(v) == T_ARRAY
       Machine.store64(argv_out, 0, RArray.ptr(v))

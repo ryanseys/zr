@@ -452,3 +452,147 @@ machine def zr_hash_of(n, argv)
   end
   h
 end
+
+# The keywords a method declares come as `n` symbol ids at `ids`; the
+# call's keywords are `hash`, or nil when none were passed.
+sig [Value, Word] => Value
+machine def zr_kw_get(hash, id)
+  if hash == QNIL
+    return Machine.value(QUNDEF)
+  end
+  zr_hash_lookup(hash, zr_sym(id))
+end
+
+sig [Ptr, Word, Word] => Bool
+machine def zr_kw_declared(ids, n, id)
+  i = 0
+  while i < n
+    if Machine.load64(ids + (i * 8), 0) == id
+      return true
+    end
+    i += 1
+  end
+  false
+end
+
+# `missing keyword: :a` or `missing keywords: :a, :b` for the required
+# keywords `hash` lacks; nil when it has them all.
+sig [Value, Ptr, Word] => Value
+machine def zr_kw_missing(hash, ids, n)
+  count = 0
+  i = 0
+  while i < n
+    if zr_kw_get(hash, Machine.load64(ids + (i * 8), 0)) == QUNDEF
+      count += 1
+    end
+    i += 1
+  end
+  if count == 0
+    return Machine.value(QNIL)
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, count == 1 ? Machine.bytes("missing keyword: ") : Machine.bytes("missing keywords: "), count == 1 ? 17 : 18)
+  seen = 0
+  i = 0
+  while i < n
+    id = Machine.load64(ids + (i * 8), 0)
+    if zr_kw_get(hash, id) == QUNDEF
+      if seen > 0
+        zr_buf_push(b, Machine.bytes(", "), 2)
+      end
+      zr_buf_byte(b, 58)
+      zr_buf_sym(b, id)
+      seen += 1
+    end
+    i += 1
+  end
+  zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+end
+
+# `unknown keyword: :x` or `unknown keywords: :x, :y` for the keys of
+# `hash` the method does not declare; nil when there are none.
+sig [Value, Ptr, Word] => Value
+machine def zr_kw_unknown(hash, ids, n)
+  if hash == QNIL
+    return Machine.value(QNIL)
+  end
+  count = 0
+  i = 0
+  while i < RHash.len(hash)
+    e = RHash.entries(hash) + (i * HEntry.size)
+    if HEntry.live(e) != 0 && !(zr_symbol_p(HEntry.key(e)) && zr_kw_declared(ids, n, zr_sym2id(HEntry.key(e))))
+      count += 1
+    end
+    i += 1
+  end
+  if count == 0
+    return Machine.value(QNIL)
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, count == 1 ? Machine.bytes("unknown keyword: ") : Machine.bytes("unknown keywords: "), count == 1 ? 17 : 18)
+  seen = 0
+  i = 0
+  while i < RHash.len(hash)
+    e = RHash.entries(hash) + (i * HEntry.size)
+    if HEntry.live(e) != 0 && !(zr_symbol_p(HEntry.key(e)) && zr_kw_declared(ids, n, zr_sym2id(HEntry.key(e))))
+      if seen > 0
+        zr_buf_push(b, Machine.bytes(", "), 2)
+      end
+      s = zr_send(HEntry.key(RHash.entries(hash) + (i * HEntry.size)), Machine.id(:inspect), 0, 0)
+      if s == QUNDEF
+        free(Buf.ptr(b))
+        return s
+      end
+      zr_buf_str(b, s)
+      seen += 1
+    end
+    i += 1
+  end
+  zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+end
+
+# `**rest`: the keywords of `hash` the method does not declare.
+sig [Value, Ptr, Word] => Value
+machine def zr_kw_rest(hash, ids, n)
+  out = zr_hash_new()
+  if hash == QNIL
+    return out
+  end
+  i = 0
+  while i < RHash.len(hash)
+    e = RHash.entries(hash) + (i * HEntry.size)
+    if HEntry.live(e) != 0 && !(zr_symbol_p(HEntry.key(e)) && zr_kw_declared(ids, n, zr_sym2id(HEntry.key(e))))
+      zr_hash_store(out, HEntry.key(e), HEntry.value(e))
+    end
+    i += 1
+  end
+  out
+end
+
+# `**value` in a hash literal or a call: the value's pairs, which must
+# be a Hash (nil adds nothing).
+sig [Value, Value] => Value
+machine def zr_hash_update(h, other)
+  if other == QNIL
+    return h
+  end
+  if zr_special_p(other) || zr_type(other) != T_HASH
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
+    zr_buf_str(b, zr_class_name_of(other))
+    zr_buf_push(b, Machine.bytes(" into Hash"), 10)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+  i = 0
+  while i < RHash.len(other)
+    e = RHash.entries(other) + (i * HEntry.size)
+    if HEntry.live(e) != 0
+      zr_hash_store(h, HEntry.key(e), HEntry.value(e))
+    end
+    i += 1
+  end
+  h
+end

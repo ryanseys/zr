@@ -1,0 +1,414 @@
+(seq
+  (def i (x y= *r z k:= **kw &b) locals (x y r z k kw b)
+    (int 2)
+    (int 0)
+    (seq
+      (array
+        (local x)
+        (local y)
+        (local r)
+        (local z)
+        (local k)
+        (local kw)
+        (local b))))
+  (send self p
+    (send self i
+      (int 1)
+      (int 9))
+    (send self i
+      (int 1)
+      (int 2)
+      (int 3)
+      (int 4)
+      (int 5)
+      (hash
+        (sym :k)
+        (int 6)
+        (sym :m)
+        (int 7))))
+  (begin
+    (seq
+      (vcall self i))
+    (rescue => e
+      (const ArgumentError)
+      (seq
+        (send self p
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (def j (x y=) locals (x y)
+    (int 1)
+    (seq
+      (array
+        (local x)
+        (local y))))
+  (send self p
+    (send self j
+      (int 1))
+    (send self j
+      (int 1)
+      (int 2)))
+  (begin
+    (seq
+      (send self j
+        (int 1)
+        (int 2)
+        (int 3)))
+    (rescue => e
+      (const ArgumentError)
+      (seq
+        (send self p
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (def k (h) locals (h)
+    (seq
+      (local h)))
+  (send self p
+    (send self k
+      (hash
+        (sym :a)
+        (int 1)))
+    (send self k
+      (hash
+        (sym :a)
+        (int 1))))
+  (def l (a k:=) locals (a k)
+    (int 1)
+    (seq
+      (array
+        (local a)
+        (local k))))
+  (send self p
+    (send self l
+      (hash
+        (sym :z)
+        (int 1)))
+    (send self l
+      (int 1)
+      (hash
+        (sym :k)
+        (int 2))))
+  (begin
+    (seq
+      (send self l
+        (int 1)
+        (int 2)))
+    (rescue => e
+      (const ArgumentError)
+      (seq
+        (send self p
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (def m (**kw) locals (kw)
+    (seq
+      (local kw)))
+  (send self p
+    (vcall self m)
+    (send self m
+      (hash
+        (sym :a)
+        (int 1)))
+    (send self m
+      (hash
+        (double-splat
+          (hash
+            (sym :b)
+            (int 2)))
+        (none)
+        (sym :c)
+        (int 3))))
+  (send self p
+    (array
+      (int 1)
+      (splat
+        (array
+          (int 2)
+          (int 3)))
+      (splat
+        (const nil))
+      (int 4)))
+  (def n (*a) locals (a)
+    (seq
+      (local a)))
+  (send self p
+    (send self n
+      (splat
+        (array
+          (int 1)
+          (int 2)))
+      (int 3))
+    (send self n
+      (splat
+        (const nil)))
+    (vcall self n))
+  (def f (a:) locals (a)
+    (seq
+      (local a)))
+  (begin
+    (seq
+      (send self f
+        (hash
+          (sym :b)
+          (int 1))))
+    (rescue => e
+      (const ArgumentError)
+      (seq
+        (send self p
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (begin
+    (seq
+      (vcall self f))
+    (rescue => e
+      (const ArgumentError)
+      (seq
+        (send self p
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (def g (a: b:) locals (a b)
+    (const nil))
+  (begin
+    (seq
+      (vcall self g))
+    (rescue => e
+      (const ArgumentError)
+      (seq
+        (send self p
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (def h (a:=) locals (a)
+    (int 1)
+    (seq
+      (local a)))
+  (begin
+    (seq
+      (send self h
+        (hash
+          (sym :x)
+          (int 1)
+          (sym :y)
+          (int 2))))
+    (rescue => e
+      (const ArgumentError)
+      (seq
+        (send self p
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (send self p
+    (vcall self h)
+    (send self h
+      (hash
+        (sym :a)
+        (int 5))))
+  (def yielder () locals ()
+    (seq
+      (yield
+        (int 1)
+        (int 2)
+        (int 3))))
+  (send self yielder
+    (block (a *r) locals (a r)
+      (seq
+        (send self p
+          (array
+            (local a)
+            (local r))))))
+  (send self yielder
+    (block (a b= c d) locals (a b c d)
+      (int 9)
+      (seq
+        (send self p
+          (array
+            (local a)
+            (local b)
+            (local c)
+            (local d))))))
+  (send each
+    (array
+      (array
+        (int 1)
+        (int 2)))
+    (block (a b) locals (a b)
+      (seq
+        (send self p
+          (array
+            (local a)
+            (local b))))))
+  (send each
+    (array
+      (array
+        (int 1)
+        (int 2)))
+    (block (a) locals (a)
+      (seq
+        (send self p
+          (local a)))))
+  (send each
+    (array
+      (array
+        (int 1)
+        (int 2)))
+    (block (*a) locals (a)
+      (seq
+        (send self p
+          (local a)))))
+  (send each
+    (array
+      (array
+        (int 1)
+        (int 2)))
+    (block (a *) locals (a)
+      (seq
+        (send self p
+          (local a)))))
+  (def with_block (&b) locals (b)
+    (seq
+      (local b)))
+  (send self p
+    (send nil?
+      (vcall self with_block))
+    (send class
+      (send self with_block
+        (block () locals ()
+          (seq
+            (int 1))))))
+  (def pass (&b) locals (b)
+    (seq
+      (send map
+        (array
+          (int 1)
+          (int 2))
+        (block-pass
+          (local b)))))
+  (send self p
+    (send self pass
+      (block (x) locals (x)
+        (seq
+          (send *
+            (local x)
+            (int 3)))))
+    (send map
+      (array
+        (int 1)
+        (int 2))
+      (block-pass
+        (sym :to_s)))
+    (send map
+      (array
+        (str "a")
+        (str "b"))
+      (block-pass
+        (sym :upcase))))
+  (def spl (*args) locals (args)
+    (seq
+      (yield
+        (splat
+          (local args)))))
+  (send self p
+    (send self spl
+      (int 1)
+      (int 2)
+      (block (a b) locals (a b)
+        (seq
+          (send +
+            (local a)
+            (local b))))))
+  (def r2 () locals ()
+    (seq
+      (return
+        (array
+          (int 1)
+          (int 2)))))
+  (send self p
+    (vcall self r2))
+  (send self p
+    (send each
+      (array
+        (int 1)
+        (int 2))
+      (block (x) locals (x)
+        (seq
+          (if
+            (send ==
+              (local x)
+              (int 2))
+            (seq
+              (break
+                (array
+                  (local x)
+                  (local x))))
+            (none))))))
+  (def opt_ref (a b= c=) locals (a b c)
+    (send *
+      (local a)
+      (int 2))
+    (send +
+      (local b)
+      (int 1))
+    (seq
+      (array
+        (local a)
+        (local b)
+        (local c))))
+  (send self p
+    (send self opt_ref
+      (int 1))
+    (send self opt_ref
+      (int 1)
+      (int 5))
+    (send self opt_ref
+      (int 1)
+      (int 5)
+      (int 9)))
+  (assign x
+    (hash
+      (double-splat
+        (hash
+          (sym :a)
+          (int 1)))
+      (none)
+      (sym :b)
+      (int 2)
+      (double-splat
+        (hash
+          (sym :c)
+          (int 3)))
+      (none)))
+  (send self p
+    (local x))
+  (begin
+    (seq
+      (send map
+        (array
+          (int 1))
+        (block-pass
+          (int 5))))
+    (rescue => e
+      (const TypeError)
+      (seq
+        (send self p
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (send self p
+    (send select
+      (array
+        (int 3)
+        (int 1)
+        (int 2))
+      (block-pass
+        (sym :odd?)))))

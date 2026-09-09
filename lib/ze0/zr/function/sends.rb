@@ -16,41 +16,80 @@ module Ze0
 
         private
 
+        # The receiver and arguments wait in record slots (a splat gathers
+        # them into one Array there), keywords last as a Hash the task
+        # flags, then the send.
         def call(node)
           recv_node = node.recv || Hir::SelfRef.new(node.line)
-          staged([recv_node, *node.args], node.block ? 1 : 0) do |slots, base|
-            recv = @f.fetch("i64", @rec, value_offset(base))
-            argv = @f.iadd(slots, imm(8))
-            if node.block
-              call_with_block(node, recv, argv, base + 1 + node.args.size)
-            elsif node.args.size == 1 && OPS.key?(node.name) && !node.vcall
-              operator(node, recv, argv)
-            else
-              dispatch(node, recv, argv)
+          args = node.args + [node.kwargs].compact
+          if args.any?(Hir::Splat)
+            staged([recv_node], 1 + (node.block ? 1 : 0)) do |slots, base|
+              ary = gather(args, base + 1)
+              send_staged(node, @f.fetch("i64", slots), array_ptr(ary), array_len(ary), base + 2)
+            end
+          else
+            staged([recv_node, *args], node.block ? 1 : 0) do |slots, base|
+              send_staged(node, @f.fetch("i64", slots), @f.iadd(slots, imm(8)), imm(args.size), base + 1 + args.size)
             end
           end
         end
 
-        def dispatch(node, recv, argv)
+        def send_staged(node, recv, argv, argc, block_slot)
+          if node.block
+            call_with_block(node, recv, argv, argc, block_slot)
+          elsif node.args.size == 1 && node.kwargs.nil? && OPS.key?(node.name) && !node.vcall
+            operator(node, recv, argv)
+          else
+            dispatch(node, recv, argv, argc)
+          end
+        end
+
+        # `parts` pushed one by one into an Array kept in the record slot
+        # `slot`; a Splat spreads its value. Answers the Array.
+        def gather(parts, slot)
+          @f.store(kernel("zr_ary_new", imm(parts.size)), @rec, value_offset(slot))
+          parts.each do |part|
+            if part.is_a?(Hir::Splat)
+              checked(kernel("zr_ary_splat", @f.fetch("i64", @rec, value_offset(slot)), expr(part.value)))
+            else
+              kernel("zr_ary_push", @f.fetch("i64", @rec, value_offset(slot)), expr(part))
+            end
+          end
+          @f.fetch("i64", @rec, value_offset(slot))
+        end
+
+        def array_ptr(ary)
+          @f.fetch("i64", ary, off(@l.layout("RArray"), "ptr"))
+        end
+
+        def array_len(ary)
+          @f.fetch("i64", ary, off(@l.layout("RArray"), "len"))
+        end
+
+        def dispatch(node, recv, argv, argc)
           entry = if node.vcall then "zr_vcall"
                   elsif node.opt then OPT_ENTRIES.fetch(node.name)
                   else "zr_send"
                   end
           at_line(node.line)
-          checked(kernel(entry, recv, imm(sym_id(node.name)), imm(node.args.size), argv))
+          kernel("zr_kw_pass") if node.kwargs
+          checked(kernel(entry, recv, imm(sym_id(node.name)), argc, argv))
         end
 
-        # A Proc for the block in the record slot `slot`, the send with it,
-        # and the site's own `break` caught on the way out.
-        def call_with_block(node, recv, argv, slot)
+        # The send with a block: a Proc for a block literal, with the
+        # site's own `break` caught on the way out, or the `&value`.
+        def call_with_block(node, recv, argv, argc, slot)
+          return call_passing_block(node, recv, argv, argc) if node.block.is_a?(Hir::BlockPass)
+
           fn = @l.block(node.block, self)
           site = (@sites += 1)
           ret_home = @kind == :block ? proc_field("ret_home") : @rec
           proc = kernel("zr_proc_new", @f.func_addr(@f.callee(fn, ABI.fetch(:block), "i64")), @env, @self, @cref, @blk, @rec,
-                        imm((site << 32) | node.block.params.size), ret_home)
+                        imm((site << 32) | (node.block.params.spread? ? 1 : 0)), ret_home)
           @f.store(proc, @rec, value_offset(slot))
           at_line(node.line)
-          r = kernel("zr_send_blk", recv, imm(sym_id(node.name)), imm(node.args.size), argv, proc)
+          kernel("zr_kw_pass") if node.kwargs
+          r = kernel("zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc)
           fine = @f.label
           signal = @f.label
           merge, (result,) = @f.block(["i64"])
@@ -65,6 +104,13 @@ module Ze0
           @f.jump(merge, [caught])
           switch(merge)
           result
+        end
+
+        def call_passing_block(node, recv, argv, argc)
+          proc = checked(kernel("zr_block_pass", expr(node.block.value)))
+          at_line(node.line)
+          kernel("zr_kw_pass") if node.kwargs
+          checked(kernel("zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc))
         end
 
         # An Integer operator: the fixnum fast path inline when both sides
@@ -83,7 +129,7 @@ module Ze0
           value = fast_path(node.name, recv, arg, slow)
           @f.jump(merge, [value])
           switch(slow)
-          @f.jump(merge, [dispatch(node, recv, argv)])
+          @f.jump(merge, [dispatch(node, recv, argv, imm(1))])
           switch(merge)
           result
         end

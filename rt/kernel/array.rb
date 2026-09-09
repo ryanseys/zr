@@ -97,6 +97,33 @@ machine def zr_ary_of(argc, argv)
   a
 end
 
+# `*value` in an argument list or an Array literal: an Array's elements,
+# nothing for nil, else `to_a`'s elements, or the value itself when it
+# has no `to_a`.
+sig [Value, Value] => Value
+machine def zr_ary_splat(a, v)
+  if v == QNIL
+    return a
+  end
+  if zr_special_p(v) || zr_type(v) != T_ARRAY
+    if zr_find_method(zr_class_of(v), Machine.id(:to_a)) == 0
+      zr_ary_push(a, v)
+      return a
+    end
+    v = zr_send(v, Machine.id(:to_a), 0, 0)
+    return v if v == QUNDEF
+    if zr_special_p(v) || zr_type(v) != T_ARRAY
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't convert to Array (to_a gives something else)"), 50)
+    end
+  end
+  i = 0
+  while i < RArray.len(v)
+    zr_ary_push(a, zr_ary_at(v, i))
+    i += 1
+  end
+  a
+end
+
 sig [Value, Ptr] => Value
 machine def zr_index_operand(v, out)
   unless zr_fixnum_p(v)

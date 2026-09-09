@@ -13,7 +13,8 @@ module Ze0
       # a nested def or body, which is its own scope).
       def holds_block?(node)
         case node
-        when Hir::Send then !node.block.nil? || (node.recv && holds_block?(node.recv)) || node.args.any? { |a| holds_block?(a) }
+        when Hir::Send
+          node.block.is_a?(Hir::Block) || holds_block?(node.recv) || holds_block?(node.kwargs) || holds_block?(node.block) || node.args.any? { |a| holds_block?(a) }
         when Hir::Def then holds_block?(node.receiver)
         when Hir::ClassDef, Hir::ModuleDef, nil then false
         when Hir::SingletonClassDef then holds_block?(node.target)
@@ -29,11 +30,13 @@ module Ze0
         case node
         when Hir::Seq then node.stmts.map { |s| staging(s, base) }.max || base
         when Hir::Send
-          top = base + 1 + node.args.size + (node.block ? 1 : 0)
-          [top, node.recv ? staging(node.recv, top) : base, *node.args.map { |a| staging(a, top) }].max
-        when Hir::Yield then row(node.args, base)
-        when Hir::ArrayLit then row(node.elements, base)
-        when Hir::HashLit then row(node.pairs, base)
+          extra = (node.kwargs ? 1 : 0) + (node.block ? 1 : 0)
+          top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
+          [top, staging(node.recv, top), staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
+        when Hir::Splat, Hir::HashSplat, Hir::BlockPass then staging(node.value, base)
+        when Hir::Yield then spread?(node.args) ? gathered(node.args, base) : row(node.args, base)
+        when Hir::ArrayLit then spread?(node.elements) ? gathered(node.elements, base) : row(node.elements, base)
+        when Hir::HashLit then spread?(node.pairs) ? gathered(node.pairs, base) : row(node.pairs, base)
         when Hir::Interp then row(node.parts, base)
         when Hir::Assign, Hir::Not, Hir::IvarWrite, Hir::ConstWrite then staging(node.value, base)
         when Hir::Break, Hir::Next, Hir::Return then staging(node.value, base + 1)
@@ -56,6 +59,16 @@ module Ze0
       def row(parts, base)
         top = base + parts.size
         [top, *parts.map { |p| staging(p, top) }].max
+      end
+
+      # `parts` pushed one after another into one collection kept in a
+      # slot: the form a splat takes.
+      def gathered(parts, base)
+        [base + 1, *parts.map { |p| staging(p, base + 1) }].max
+      end
+
+      def spread?(parts)
+        parts.any? { |p| p.is_a?(Hir::Splat) || p.is_a?(Hir::HashSplat) }
       end
     end
   end

@@ -11,21 +11,53 @@ module Ze0
     # A statement list; its value is the last statement's.
     Seq = Struct.new(:stmts, :line)
     # A method call. `recv` is nil for an implicit self; `vcall` marks a
-    # bare identifier, which is a NameError when nothing answers; `index`
+    # bare identifier, which is a NameError when nothing answers; `opt`
     # marks the operator syntax `recv[i]`, `recv[i] = v` and `recv << v`,
-    # which CRuby runs without a frame on its builtin receivers.
-    Send = Struct.new(:recv, :name, :args, :line, :vcall, :opt, :block)
+    # which CRuby runs without a frame on its builtin receivers. An
+    # argument may be a Splat; `kwargs` is a HashLit passed as keywords,
+    # or nil; `block` is a Block literal, a BlockPass, or nil.
+    Send = Struct.new(:recv, :name, :args, :line, :vcall, :opt, :block, :kwargs)
+    # `*value` among arguments or elements.
+    Splat = Struct.new(:value, :line)
+    # `**value` among a hash literal's pairs: the key, with a nil value.
+    HashSplat = Struct.new(:value, :line)
+    # `&value`: the block a call passes on.
+    BlockPass = Struct.new(:value, :line)
     # A block literal: its parameters, every local of its scope
     # (parameters first), and its body.
     Block = Struct.new(:params, :locals, :body, :line)
+    # The one parameter shape: `required` and `post` are names,
+    # `optional` and `keywords` are `[name, default]` pairs (a keyword
+    # with no default is required), `rest`, `kwrest` and `block` are a
+    # name or nil; a block's `|a, |` has the rest `:implicit`.
+    Params = Struct.new(:required, :optional, :rest, :post, :keywords, :kwrest, :block) do
+      def positional
+        required.size + optional.size + post.size
+      end
+
+      # Whether a lone Array argument spreads over the parameters.
+      def spread?
+        positional > 1 || (positional == 1 && !rest.nil?)
+      end
+
+      # Only required parameters: the exact arity a dispatcher may check.
+      def plain?
+        optional.empty? && rest.nil? && post.empty? && keywords.empty? && kwrest.nil?
+      end
+
+      def names
+        required + optional.map(&:first) + [rest].compact + post + keywords.map(&:first) + [kwrest, block].compact - [:implicit]
+      end
+    end
     Yield = Struct.new(:args, :line)
     Break = Struct.new(:value, :line)
     Next = Struct.new(:value, :line)
     # An Integer, String, Symbol, nil, true or false.
     Literal = Struct.new(:value, :line)
     SelfRef = Struct.new(:line)
-    # `def name(params) body end`; its value is the name. `receiver` is
-    # the expression of a singleton def (`def self.x`, `def obj.x`), or nil.
+    # `def name(params) body end`; its value is the name. `params` is a
+    # Params; `receiver` is the expression of a singleton def
+    # (`def self.x`, `def obj.x`), or nil.
     Def = Struct.new(:name, :params, :locals, :body, :line, :receiver)
     # `depth` counts block scopes up to the one that holds the local.
     Local = Struct.new(:name, :depth, :line)
