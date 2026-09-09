@@ -356,25 +356,11 @@ module Packing
     end
   end
 
-  # An unsigned 8-byte value past the fixnum range, or a signed one
-  # below it, would need a bignum.
   def self.unpack_integer(chunk, signed, big)
     bytes = big ? chunk.bytes : chunk.bytes.reverse
-    if bytes.size == 8
-      top = bytes[0]
-      if signed
-        negative = top >= 128
-        bytes = bytes.map { |b| negative ? 255 - b : b }
-        Primitive.zr_unimplemented("unpacking a 64-bit integer past the fixnum range") if bytes[0] >= 64
-        n = 0
-        bytes.each { |b| n = (n << 8) | b }
-        return negative ? -n - 1 : n
-      end
-      Primitive.zr_unimplemented("unpacking a 64-bit integer past the fixnum range") if top >= 64
-    end
     n = 0
     bytes.each { |b| n = (n << 8) | b }
-    n -= 1 << (bytes.size * 8) if signed && bytes.size < 8 && n >= 1 << (bytes.size * 8 - 1)
+    n -= 1 << (bytes.size * 8) if signed && n >= 1 << (bytes.size * 8 - 1)
     n
   end
 

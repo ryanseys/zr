@@ -164,3 +164,14 @@ module Math
   end
   private_class_method :check
 end
+
+class Float
+  # A number is its own copy.
+  def dup = self
+
+  def clone(freeze: nil)
+    raise ArgumentError, "can't unfreeze Float" if freeze == false
+
+    self
+  end
+end

@@ -3,6 +3,8 @@
 # to_s layout; the arithmetic and comparisons, Integer mixed in.
 Machine.import "fmod", [F64, F64] => F64
 Machine.import "pow", [F64, F64] => F64
+Machine.import "__cospi", [F64] => F64
+Machine.import "__sinpi", [F64] => F64
 
 Machine.struct :RFloat, basic: RBasic, bits: Word
 T_FLOAT = 4
@@ -164,6 +166,30 @@ machine def zr_float_quotient(x, y)
   d
 end
 
+# CRuby's rb_dbl_complex_new_polar_pi: the Complex at angle `ang`
+# turns of pi, exact on the axes, else through cospi and sinpi.
+sig [F64, F64] => Value
+machine def zr_complex_polar_pi(abs, ang)
+  whole = Machine.trunc(ang)
+  fr = ang - whole
+  pair = Machine.slot(16)
+  half_turn = Machine.f64(4602678819172646912)
+  if fr == half_turn || fr == Machine.f64(0) - half_turn
+    # An odd number of quarter turns: on the imaginary axis.
+    half = whole / Machine.f64(4611686018427387904)
+    odd = (half - Machine.trunc(half)) != Machine.f64(0)
+    if odd != (fr > Machine.f64(0))
+      abs = Machine.f64(0) - abs
+    end
+    Machine.store64(pair, 0, Machine.word(zr_float_new(Machine.f64(0))))
+    Machine.store64(pair, 8, Machine.word(zr_float_new(abs)))
+  else
+    Machine.store64(pair, 0, Machine.word(zr_float_new(abs * __cospi(ang))))
+    Machine.store64(pair, 8, Machine.word(zr_float_new(abs * __sinpi(ang))))
+  end
+  zr_send(zr_core_class(Machine.id(:Complex)), Machine.id(:rectangular), 2, pair)
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_flo_pow(recv, argc, argv, cref, blk)
   out = Machine.slot(8)
@@ -172,7 +198,7 @@ machine def zr_flo_pow(recv, argc, argv, cref, blk)
   x = zr_float_value(recv)
   y = Machine.f64(Machine.load64(out, 0))
   if x < Machine.f64(0) && y != Machine.nearest(y)
-    zr_bug(Machine.bytes("a negative Float to a fractional power is a Complex, which is not implemented yet\n"), 80)
+    return zr_complex_polar_pi(pow(Machine.f64(0) - x, y), y)
   end
   zr_float_new(pow(x, y))
 end
@@ -318,7 +344,9 @@ machine def zr_float_to_int(d)
   end
   t = Machine.trunc(d)
   if Machine.fabs(t) >= Machine.f64(4886405595696988160)
-    zr_bug(Machine.bytes("a Float past the fixnum range needs bignums\n"), 44)
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(zr_float_new(t)))
+    return zr_send(zr_global(G_INTEGER), Machine.id(:big_from_float), 1, slot)
   end
   zr_fix(Machine.to_int(t))
 end

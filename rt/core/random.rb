@@ -23,6 +23,9 @@ class Random < random_base
       key << (v & 0xffffffff)
       v >>= 32
     end
+    # CRuby drops a top word that is exactly one, as its packer's
+    # leading-zero guard.
+    key.pop if key.size > 1 && key.last == 1
     key.size <= 1 ? init_genrand(key[0] || 0) : init_by_array(key)
   end
 

@@ -61,7 +61,9 @@ end
 
 class Integer
   def eql?(other) = other.is_a?(Integer) && self == other
-  def hash = self
+
+  # A bignum's hash folds its limbs; a fixnum is its own.
+  def hash = Primitive.zr_fixnum_p_m(self) ? self : [Primitive.zr_hidden_get(self, :__neg__), Primitive.zr_hidden_get(self, :__limbs__)].hash
 end
 
 class Integer
@@ -70,6 +72,10 @@ class Integer
   alias truncate to_i
 
   def integer? = true
+
+  def finite? = true
+
+  def infinite? = nil
 
   def **(other)
     return to_f**other if other.is_a?(Float)
@@ -153,13 +159,13 @@ class Integer
   def chr(encoding = nil)
     if encoding
       encoding = Encoding.find(encoding) unless encoding.is_a?(Encoding)
-      raise RangeError, "#{self} out of char range" if self < 0
+      raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0
       return Primitive.zr_str_set_encoding(+"" << self, 0) if encoding == Encoding::UTF_8
-      raise RangeError, "#{self} out of char range" if self > 255
+      raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self > 255
 
       return Primitive.zr_str_set_encoding(Primitive.zr_str_from_byte(self), encoding == Encoding::BINARY ? 1 : 2)
     end
-    raise RangeError, "#{self} out of char range" if self < 0 || self > 255
+    raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0 || self > 255
 
     Primitive.zr_str_set_encoding(Primitive.zr_str_from_byte(self), self < 128 ? 2 : 1)
   end
@@ -261,7 +267,8 @@ class Integer
     x
   end
 
-  def size = 8
+  # The bytes a bignum's magnitude takes; a fixnum's word.
+  def size = Primitive.zr_fixnum_p_m(self) ? 8 : (bit_length + 7) / 8
 
   def coerce(other)
     return [other, to_f] if other.is_a?(Float)
@@ -307,6 +314,17 @@ class Numeric
     return Enumerator::ArithmeticSequence.for(self, limit, step, false) unless block
 
     Enumerator::ArithmeticSequence.for(self, limit, step, false).each(&block)
+    self
+  end
+end
+
+class Integer
+  # A number is its own copy.
+  def dup = self
+
+  def clone(freeze: nil)
+    raise ArgumentError, "can't unfreeze Integer" if freeze == false
+
     self
   end
 end

@@ -109,15 +109,40 @@ machine def zr_big_p(v)
   !zr_special_p(v) && zr_type(v) == T_OBJECT && RBasic.klass(v) == zr_global(G_INTEGER)
 end
 
-# `recv.big_op(:mid, *argv)`.
-sig [Value, Word, Word, Ptr] => Value
-machine def zr_big_route(recv, mid, argc, argv)
+# A fresh bignum shell for the core to fill.
+sig [] => Value
+machine def zr_big_alloc
+  zr_obj_alloc(zr_global(G_INTEGER))
+end
+
+sig [Value] => Value
+machine def zr_fixnum_p_m(v)
+  zr_bool(zr_fixnum_p(v))
+end
+
+# A literal past the fixnum range: its decimal digits, parsed by the
+# core at the site.
+sig [Ptr, Word] => Value
+machine def zr_big_literal(bytes, n)
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(zr_str_new(bytes, n)))
+  zr_send(zr_global(G_INTEGER), Machine.id(:big_parse), 1, slot)
+end
+
+# `recv.big_op(:mid, *argv)`, with the builtin's block.
+sig [Value, Word, Word, Ptr, Value] => Value
+machine def zr_big_route_blk(recv, mid, argc, argv, blk)
   args = malloc((argc + 1) * 8)
   Machine.store64(args, 0, Machine.word(zr_sym(mid)))
   zr_memcpy(args + 8, argv, argc * 8)
-  r = zr_send(recv, Machine.id(:big_op), argc + 1, args)
+  r = zr_send_blk(recv, Machine.id(:big_op), argc + 1, args, blk)
   free(args)
   r
+end
+
+sig [Value, Word, Word, Ptr] => Value
+machine def zr_big_route(recv, mid, argc, argv)
+  zr_big_route_blk(recv, mid, argc, argv, Machine.value(QNIL))
 end
 
 # A machine word that may lie past the fixnum range: a fixnum when it

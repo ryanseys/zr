@@ -113,9 +113,12 @@ module Ze0
           v = node.value
           case v
           when Integer
-            @l.refuse(node, "a bignum literal is not lowered yet") unless v.bit_length < 63
-
-            imm((v << 1) | 1)
+            if v.bit_length < 63
+              imm((v << 1) | 1)
+            else
+              text = v.to_s
+              checked(kernel("zr_big_literal", @f.symbol_value(@f.symbol(@l.literal(text))), imm(text.bytesize)))
+            end
           when Float then kernel("zr_float_from_bits", imm([v].pack("E").unpack1("q<")))
           when Symbol then symbol(v)
           when String

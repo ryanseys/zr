@@ -397,7 +397,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_times(recv, argc, argv, cref, blk)
   if !zr_fixnum_p(recv)
-    return zr_big_route(recv, Machine.id(:times), argc, argv)
+    return zr_big_route_blk(recv, Machine.id(:times), argc, argv, blk)
   end
   if blk == QNIL
     return zr_enum_for(recv, Machine.id(:times), argc, argv, recv)
@@ -425,7 +425,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_upto(recv, argc, argv, cref, blk)
   if !zr_fixnum_p(recv)
-    return zr_big_route(recv, Machine.id(:upto), argc, argv)
+    return zr_big_route_blk(recv, Machine.id(:upto), argc, argv, blk)
   end
   if blk == QNIL
     return zr_enum_for(recv, Machine.id(:upto), argc, argv, zr_int_step_size(recv, argc, argv, 1))
@@ -446,7 +446,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_downto(recv, argc, argv, cref, blk)
   if !zr_fixnum_p(recv)
-    return zr_big_route(recv, Machine.id(:downto), argc, argv)
+    return zr_big_route_blk(recv, Machine.id(:downto), argc, argv, blk)
   end
   if blk == QNIL
     return zr_enum_for(recv, Machine.id(:downto), argc, argv, zr_int_step_size(recv, argc, argv, 0 - 1))
