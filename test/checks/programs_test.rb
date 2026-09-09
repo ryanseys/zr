@@ -10,6 +10,8 @@ require_relative "../../lib/ze0/harness/case"
 # roads (plain and with a collection at every allocation) and under
 # wasmtime; stdout, stderr and the exit status must agree. The oracle
 # runs without error_highlight or did_you_mean, as the corpus was recorded.
+# A program whose first line says "native only" reads the host (its
+# environment or working directory) and skips the wasm road.
 class ProgramsTest < Minitest::Test
   ROADS = { ruby: Ze0::Native::Build.road("ruby", ROOT), cranelift: Ze0::Native::Build.road("cranelift", ROOT) }.freeze
   WASMTIME = ENV["WASMTIME"] || "wasmtime"
@@ -56,6 +58,7 @@ class ProgramsTest < Minitest::Test
 
     define_method("test_wasm_#{name}") do
       skip "wasmtime is not installed" unless system(WASMTIME, "--version", out: File::NULL, err: File::NULL)
+      skip "the program reads the host" if File.open(rb, &:readline).include?("native only")
 
       want = oracle(rb)
       functions, data, raw = Ze0::Zr.program(File.read(rb), rb)

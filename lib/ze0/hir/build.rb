@@ -48,6 +48,11 @@ module Ze0
         @block_depth, @def_params = was
       end
 
+      # `$PROGRAM_NAME` is the other name of `$0`.
+      def gvar_name(name)
+        name == :$PROGRAM_NAME ? :$0 : name
+      end
+
       # The parts of an interpolated string, each a String or the value
       # of an embedded expression.
       def interpolation(node, line)
@@ -142,6 +147,8 @@ module Ze0
           scope, name = constant_path(node.target)
           ConstWrite.new(scope, name, expr(node.value), line)
         when Prism::InterpolatedStringNode then interpolation(node, line)
+        when Prism::SourceFileNode then Literal.new(@file, line)
+        when Prism::SourceLineNode then Literal.new(line, line)
         when Prism::InterpolatedSymbolNode then Send.new(interpolation(node, line), :to_sym, [], line, false)
         when Prism::ArrayNode
           ArrayLit.new(node.elements.map { |e| e.is_a?(Prism::SplatNode) ? Splat.new(expr(e.expression), line) : expr(e) }, line)
@@ -149,8 +156,9 @@ module Ze0
         when Prism::RangeNode
           RangeLit.new(node.left ? expr(node.left) : Literal.new(nil, line), node.right ? expr(node.right) : Literal.new(nil, line), node.exclude_end?, line)
         when Prism::InstanceVariableReadNode then IvarRead.new(node.name, line)
-        when Prism::GlobalVariableReadNode then GvarRead.new(node.name, line)
-        when Prism::GlobalVariableWriteNode then GvarWrite.new(node.name, expr(node.value), line)
+        when Prism::GlobalVariableReadNode
+          node.name == :$@ ? Send.new(GvarRead.new(:$!, line), :backtrace, [], line, false, nil, nil, nil, true) : GvarRead.new(gvar_name(node.name), line)
+        when Prism::GlobalVariableWriteNode then GvarWrite.new(gvar_name(node.name), expr(node.value), line)
         when Prism::GlobalVariableOperatorWriteNode
           GvarWrite.new(node.name, Send.new(GvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
         when Prism::GlobalVariableOrWriteNode then GvarWrite.new(node.name, Or.new(GvarRead.new(node.name, line), expr(node.value), line), line)

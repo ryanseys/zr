@@ -97,6 +97,12 @@ module Ze0
       # The prologue: the stack check, then link the record into the
       # task's chain, fill its header, nil the slots, and make the Env
       # when a block needs one.
+      # The program's toplevel names its file to the runtime for `$0`.
+      def program_start
+        file = @f.symbol_value(@f.symbol(@l.file_bytes))
+        kernel("zr_program_start", file, imm(@l.program.file.bytesize))
+      end
+
       # A core helper that CRuby has no method for opens with
       # `Primitive.attr! :hidden`, and leaves no backtrace row.
       def hidden_def?
@@ -149,6 +155,7 @@ module Ze0
         @f.store(@cref, @rec, off(@frame, "cref"))
         @f.store(@blk, @rec, off(@frame, "blk"))
         @f.store(imm(@nvalues), @rec, off(@frame, "nvalues"))
+        program_start if @kind == :main && !@l.internal?
         (0...@nvalues).each { |i| @f.store(@qnil, @rec, value_offset(i)) }
         @f.store(@rec, @task_addr, off(@task, "top"))
         return unless @has_env

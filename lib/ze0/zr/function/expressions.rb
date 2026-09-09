@@ -123,7 +123,9 @@ module Ze0
 
         # The globals with meanings of their own wait for their objects;
         # `$!` is the task's, and any other lives in the globals table.
-        SPECIAL_GLOBALS = %i[$stdout $stderr $stdin $0 $PROGRAM_NAME $: $LOAD_PATH $" $LOADED_FEATURES $; $, $/ $\ $@ $~ $_ $. $< $> $$ $? $* $-w $VERBOSE $DEBUG $FILENAME].freeze
+        # The globals the runtime does not answer yet: IO, require and
+        # regexp state. The rest are plain globals the core sets at boot.
+        SPECIAL_GLOBALS = %i[$stdout $stderr $stdin $: $LOAD_PATH $" $LOADED_FEATURES $~ $_ $. $< $> $?].freeze
 
         def gvar_read(node)
           return kernel("zr_errinfo") if node.name == :$!

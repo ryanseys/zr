@@ -385,6 +385,7 @@ sig [I32, Ptr] => I32
 machine def main(argc, argv)
   zr_boot()
   zr_stack_limit_init()
+  zr_args_init(argc, argv)
   r = zr_prelude()
   if r == QUNDEF
     zr_report(Task.pending(zr_task()))

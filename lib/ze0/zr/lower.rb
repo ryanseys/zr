@@ -73,9 +73,14 @@ module Ze0
       # in the owner and name at definition. A class body's name is the
       # class's, set here; a def or block carries its arity and its
       # parameter rows, and a block its function, so a Proc finds both.
+      # The program's file name as bytes in the object.
+      def file_bytes
+        @file_bytes ||= literal(@program.file)
+      end
+
       def meta(fn, kind, line, name = 0, parent = nil, params = nil)
         layout = layout("FrameMeta")
-        file = @file_bytes ||= literal(@program.file)
+        file = file_bytes
         bytes = ("\0" * layout.size).b
         word = ->(field, value) { bytes[layout.fields.fetch(field).first, 8] = [value].pack("q<") }
         word.call("name", name)

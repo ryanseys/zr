@@ -16,7 +16,8 @@ module Ze0
     # stack pointer. `write` and `exit` are the two libSystem calls the
     # programs make, and become `fd_write` and `proc_exit` shims; `malloc`
     # bumps a heap pointer above the shadow stack and grows the memory,
-    # `free` does nothing, and `getenv` finds nothing. A
+    # `free` does nothing, and the environment and working directory
+    # calls find nothing. A
     # function's address is its index in the one table, from 1 so that a
     # pointer is never zero; `call_indirect` goes through that table.
     class Wasm
@@ -57,7 +58,8 @@ module Ze0
         @imports.each_with_index { |(_, name, params, results), i| @index[name] = i }
         @shims = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]], "exit" => [[0x7F], []], "abort" => [[], []],
                    "malloc" => [[0x7E], [0x7E]], "free" => [[0x7E], []], "getenv" => [[0x7E], [0x7E]],
-                   "pthread_self" => [[], [0x7E]], "pthread_get_stackaddr_np" => [[0x7E], [0x7E]], "pthread_get_stacksize_np" => [[0x7E], [0x7E]] }
+                   "pthread_self" => [[], [0x7E]], "pthread_get_stackaddr_np" => [[0x7E], [0x7E]], "pthread_get_stacksize_np" => [[0x7E], [0x7E]],
+                   "setenv" => [[0x7E, 0x7E, 0x7F], [0x7F]], "unsetenv" => [[0x7E], [0x7F]], "_NSGetEnviron" => [[], [0x7E]], "getcwd" => [[0x7E, 0x7E], [0x7E]], "getpid" => [[], [0x7F]] }
         @shims.each_key.with_index { |name, i| @index[name] = @imports.size + i }
         @functions.each_with_index { |f, i| @index[f.name] = @imports.size + @shims.size + i }
         @index["_start"] = @imports.size + @shims.size + @functions.size
@@ -177,8 +179,10 @@ module Ze0
           code << "\x20\x01".b << "\xAD".b
         when "free"
           code << "".b
-        when "getenv", "pthread_self", "pthread_get_stackaddr_np", "pthread_get_stacksize_np"
+        when "getenv", "pthread_self", "pthread_get_stackaddr_np", "pthread_get_stacksize_np", "_NSGetEnviron", "getcwd"
           code << "\x42\x00".b
+        when "setenv", "unsetenv", "getpid"
+          code << "\x41\x00".b
         end
         code << "\x0B".b
         locals = name == "malloc" ? vec([leb(1) + "\x7F".b]) : vec([])
