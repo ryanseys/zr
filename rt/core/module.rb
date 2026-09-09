@@ -60,3 +60,14 @@ module Kernel
   private def initialize_dup(orig) = initialize_copy(orig)
   private def initialize_clone(orig, freeze: nil) = initialize_copy(orig)
 end
+
+class Module
+  # A literal feature is resolved when the program is compiled.
+  def autoload(name, feature) = Primitive.zr_unimplemented("autoload with a computed feature")
+end
+
+module Kernel
+  def autoload(name, feature) = Primitive.zr_unimplemented("autoload with a computed feature")
+  def autoload?(name, inherit = true) = Object.autoload?(name)
+  private :autoload, :autoload?
+end

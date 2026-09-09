@@ -68,10 +68,10 @@ module Ze0
         # own failure means nil.
         def const_defined(read)
           if read.scope.nil?
-            @f.icmp("ne", kernel("zr_const_lookup", @cref, imm(sym_id(read.name))), qundef)
+            truthy(kernel("zr_const_defined", @cref, imm(sym_id(read.name))))
           else
             scope = read.scope == :top ? global("G_OBJECT") : expr(read.scope)
-            @f.icmp("ne", kernel("zr_const_lookup_at", scope, imm(sym_id(read.name))), qundef)
+            truthy(kernel("zr_const_defined_at", scope, imm(sym_id(read.name))))
           end
         end
 

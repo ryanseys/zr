@@ -15,6 +15,9 @@ module Ze0
     # is the file it resolved to and `unit` that file's index, or both
     # nil when no file answers.
     Require = Struct.new(:kind, :feature, :path, :unit, :line)
+    # `autoload :Name, "feature"` on `recv` (nil for self): the file is
+    # `path`, unit `unit`; it runs when the constant is first read.
+    Autoload = Struct.new(:recv, :name, :feature, :path, :unit, :line)
     # A statement list; its value is the last statement's.
     Seq = Struct.new(:stmts, :line)
     # A method call. `recv` is nil for an implicit self; `vcall` marks a

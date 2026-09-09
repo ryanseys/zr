@@ -159,6 +159,16 @@ module Ze0
           checked(kernel("zr_require", kernel("zr_str_new", path, imm(node.path.bytesize)), fn, imm(REQUIRE_KINDS.fetch(node.kind))))
         end
 
+        # `autoload :Name, "feature"`: the constant's row waits for the
+        # unit, which its first read runs.
+        def autoload_unit(node)
+          at_line(node.line)
+          recv = node.recv ? expr(node.recv) : @self
+          feature = kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(node.feature))), imm(node.feature.bytesize))
+          fn = @f.func_addr(@f.callee(@l.unit_entry(node.unit), [], "i64"))
+          checked(kernel("zr_autoload", recv, imm(sym_id(node.name)), feature, fn, @cref))
+        end
+
         # `break`/`next`: out of the innermost loop when one encloses the
         # statement, else out of the block.
         def jump_out(node, kind)

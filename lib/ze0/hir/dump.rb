@@ -230,6 +230,10 @@ module Ze0
           lines[-1] += ")"
         when Require
           lines << "#{pad}(#{n.kind} #{n.feature.inspect}#{n.unit ? " unit #{n.unit}" : " missing"})"
+        when Autoload
+          lines << "#{pad}(autoload #{n.name} #{n.feature.inspect} unit #{n.unit}"
+          node(n.recv, depth + 1, lines) if n.recv
+          lines[-1] += ")"
         when IvarWrite
           lines << "#{pad}(ivar-set #{n.name}"
           node(n.value, depth + 1, lines) if n.value

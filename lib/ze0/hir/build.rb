@@ -92,6 +92,12 @@ module Ze0
           dir = File.dirname(file)
           case node
           when Prism::StringNode then File.expand_path(node.unescaped)
+          when Prism::InterpolatedStringNode
+            parts = node.parts
+            return nil unless parts.size == 2 && parts[0].is_a?(Prism::EmbeddedStatementsNode) && parts[0].statements&.body&.size == 1 &&
+                              dir_call?(parts[0].statements.body[0]) && parts[1].is_a?(Prism::StringNode)
+
+            File.expand_path(dir + parts[1].unescaped)
           when Prism::CallNode
             return nil unless node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :File && node.arguments
 
@@ -487,6 +493,7 @@ module Ze0
       def call(node)
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil?
         return require(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && literal_feature(node)
+        return autoload(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
 
         args, kwargs, forwarded = arguments(node.arguments)
         opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
@@ -513,6 +520,22 @@ module Ze0
         path = @loader.resolve(node.name, feature, @file)
         refuse(node, "#{node.name} of #{feature.inspect}, which no load path root holds, is not lowered yet") if path.nil? && node.name != :require_relative
         Require.new(node.name, feature, path || File.expand_path(feature, File.dirname(@file)), path && @loader.require(path), line)
+      end
+
+      def literal_autoload?(node)
+        args = node.arguments&.arguments
+        args&.size == 2 && args[0].is_a?(Prism::SymbolNode) && (args[1].is_a?(Prism::StringNode) || @loader.literal_path(args[1], @file))
+      end
+
+      # `autoload :Name, "feature"` resolves the feature as a require
+      # would, so the file is a unit of the program.
+      def autoload(node)
+        line = node.location.start_line
+        name_node, path_node = node.arguments.arguments
+        feature = path_node.is_a?(Prism::StringNode) ? path_node.unescaped : @loader.literal_path(path_node, @file)
+        path = @loader.resolve(:require, feature, @file)
+        refuse(node, "autoload of #{feature.inspect}, which no load path root holds, is not lowered yet") if path.nil?
+        Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, path, @loader.require(path), line)
       end
 
       # `defined?(value)`: the form decides at compile time; only an

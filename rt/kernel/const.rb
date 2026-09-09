@@ -163,7 +163,7 @@ machine def zr_const_get(cref, id)
   while RCref.next(c) != QNIL
     e = zr_const_row(RCref.klass(c), id)
     if e != 0
-      return CEntry.value(e)
+      return zr_const_value(e)
     end
     c = RCref.next(c)
   end
@@ -174,19 +174,18 @@ machine def zr_const_get(cref, id)
   if e == 0
     return zr_uninitialized_constant(RCref.klass(cref), id)
   end
-  CEntry.value(e)
+  zr_const_value(e)
 end
 
-# A bare constant under `cref` for `defined?` and `||=`: the value, or
-# undef with nothing raised.
-sig [Value, Word] => Value
-machine def zr_const_lookup(cref, id)
+# The row a bare constant under `cref` names, or 0.
+sig [Value, Word] => Ptr
+machine def zr_const_row_under(cref, id)
   cref = zr_cref_lexical(cref)
   c = cref
   while RCref.next(c) != QNIL
     e = zr_const_row(RCref.klass(c), id)
     if e != 0
-      return CEntry.value(e)
+      return e
     end
     c = RCref.next(c)
   end
@@ -194,10 +193,18 @@ machine def zr_const_lookup(cref, id)
   if e == 0 && zr_type(RCref.klass(cref)) == T_MODULE
     e = zr_const_row_in(zr_global(G_OBJECT), id, false)
   end
+  e
+end
+
+# A bare constant under `cref` for `||=`: the value, or undef with
+# nothing raised.
+sig [Value, Word] => Value
+machine def zr_const_lookup(cref, id)
+  e = zr_const_row_under(cref, id)
   if e == 0
     return Machine.value(QUNDEF)
   end
-  CEntry.value(e)
+  zr_const_value(e)
 end
 
 sig [Value, Word] => Value
@@ -209,7 +216,23 @@ machine def zr_const_lookup_at(scope, id)
   if e == 0 || CEntry.private(e) != 0
     return Machine.value(QUNDEF)
   end
-  CEntry.value(e)
+  zr_const_value(e)
+end
+
+# `defined?` of a constant: true when a row exists, an autoload's
+# included, with nothing loaded.
+sig [Value, Word] => Value
+machine def zr_const_defined(cref, id)
+  zr_bool(zr_const_row_under(cref, id) != 0)
+end
+
+sig [Value, Word] => Value
+machine def zr_const_defined_at(scope, id)
+  if zr_special_p(scope) || (zr_type(scope) != T_CLASS && zr_type(scope) != T_MODULE)
+    return Machine.value(QFALSE)
+  end
+  e = zr_const_row_in(scope, id, scope != zr_global(G_OBJECT))
+  zr_bool(e != 0 && CEntry.private(e) == 0)
 end
 
 # `private constant Foo::BAR referenced`.
@@ -289,7 +312,7 @@ machine def zr_const_get_at(scope, id)
   if CEntry.private(e) != 0
     return zr_private_constant(scope, id)
   end
-  CEntry.value(e)
+  zr_const_value(e)
 end
 
 # The name a class gets under `scope`: `Outer::Name` unless the scope
@@ -315,8 +338,12 @@ machine def zr_class_define(scope, id, sup)
   if e == 0 && scope == zr_global(G_OBJECT)
     e = zr_const_row_in(scope, id, false)
   end
+  if e != 0 && CEntry.value(e) == QUNDEF && zr_autoload_row(scope, id) < 0
+    e = 0
+  end
   if e != 0
-    k = CEntry.value(e)
+    k = zr_const_value(e)
+    return k if k == QUNDEF
     if zr_special_p(k) || zr_type(k) != T_CLASS
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
@@ -358,8 +385,12 @@ machine def zr_module_define(scope, id)
   if e == 0 && scope == zr_global(G_OBJECT)
     e = zr_const_row_in(scope, id, false)
   end
+  if e != 0 && CEntry.value(e) == QUNDEF && zr_autoload_row(scope, id) < 0
+    e = 0
+  end
   if e != 0
-    m = CEntry.value(e)
+    m = zr_const_value(e)
+    return m if m == QUNDEF
     if zr_special_p(m) || zr_type(m) != T_MODULE
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
@@ -428,7 +459,7 @@ machine def zr_mod_const_get(recv, argc, argv, cref, blk)
   if e == 0
     return zr_uninitialized_constant(recv, id)
   end
-  CEntry.value(e)
+  zr_const_value(e)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -476,4 +507,116 @@ machine def zr_mod_constants(recv, argc, argv, cref, blk)
     end
   end
   out
+end
+
+# The row for `id` taken out of `klass`'s own table.
+sig [Value, Word] => Void
+machine def zr_const_remove(klass, id)
+  ext = RClass.ext(klass)
+  n = ClassExt.clen(ext)
+  i = 0
+  while i < n
+    e = ClassExt.ctab(ext) + (i * CEntry.size)
+    if CEntry.id(e) == id
+      zr_memmove(e, e + CEntry.size, (n - i - 1) * CEntry.size)
+      ClassExt.set_clen(ext, n - 1)
+      return
+    end
+    i += 1
+  end
+end
+
+G_AUTOLOADS = 38
+
+# Autoload: a constant row whose value is undef until its file runs.
+# The rows of G_AUTOLOADS hold, four words each, the module, the name,
+# the feature and the unit's function as a fixnum.
+# `Kernel#autoload` and `Kernel.autoload` register on the caller's
+# class, as CRuby's rb_f_autoload does.
+sig [Value, Word, Value, Ptr, Value] => Value
+machine def zr_autoload(mod, id, feature, fn, cref)
+  if mod == zr_global(G_MAIN) || mod == zr_global(G_KERNEL)
+    mod = RCref.klass(zr_cref_lexical(cref))
+  end
+  if zr_const_row(mod, id) != 0
+    return Machine.value(QNIL)
+  end
+  zr_const_set(mod, id, Machine.value(QUNDEF))
+  rows = zr_global(G_AUTOLOADS)
+  if zr_special_p(rows)
+    rows = zr_ary_new(4)
+    zr_set_global(G_AUTOLOADS, rows)
+  end
+  zr_ary_push(rows, mod)
+  zr_ary_push(rows, zr_sym(id))
+  zr_ary_push(rows, feature)
+  zr_ary_push(rows, zr_fix(Machine.word(fn)))
+  Machine.value(QNIL)
+end
+
+# The autoload row index for `mod` and `id`, or -1.
+sig [Value, Word] => Word
+machine def zr_autoload_row(mod, id)
+  rows = zr_global(G_AUTOLOADS)
+  if zr_special_p(rows)
+    return 0 - 1
+  end
+  i = 0
+  while i < RArray.len(rows)
+    if zr_ary_at(rows, i) == mod && zr_ary_at(rows, i + 1) == zr_sym(id)
+      return i
+    end
+    i += 4
+  end
+  0 - 1
+end
+
+# `autoload?(name)`: the feature still to load, or nil.
+sig [Value, Word] => Value
+machine def zr_autoload_feature(mod, id)
+  i = zr_autoload_row(mod, id)
+  if i < 0
+    return Machine.value(QNIL)
+  end
+  zr_ary_at(zr_global(G_AUTOLOADS), i + 2)
+end
+
+# The value of a constant row: an autoload's file runs first, and the
+# constant it defined answers; a file that defines nothing leaves the
+# name uninitialized.
+sig [Ptr] => Value
+machine def zr_const_value(e)
+  v = CEntry.value(e)
+  if v != QUNDEF
+    return v
+  end
+  rows = zr_global(G_AUTOLOADS)
+  i = 0
+  while i < RArray.len(rows)
+    mod = zr_ary_at(rows, i)
+    id = zr_sym2id(zr_ary_at(rows, i + 1))
+    if zr_const_row(mod, id) == e
+      feature = zr_ary_at(rows, i + 2)
+      fn = Machine.ptr(zr_fix2long(zr_ary_at(rows, i + 3)))
+      zr_ary_splice(rows, zr_fix(i), zr_fix(4), zr_ary_new(0))
+      r = zr_require(feature, fn, 0)
+      return r if r == QUNDEF
+      e = zr_const_row(mod, id)
+      if e == 0 || CEntry.value(e) == QUNDEF
+        zr_const_remove(mod, id)
+        return zr_uninitialized_constant(mod, id)
+      end
+      return CEntry.value(e)
+    end
+    i += 4
+  end
+  zr_uninitialized_constant(Machine.value(QNIL), CEntry.id(e))
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_autoload_p(recv, argc, argv, cref, blk)
+  slot = Machine.slot(8)
+  r = zr_const_name_id(Machine.value(Machine.load64(argv, 0)), slot)
+  return r if r == QUNDEF
+  zr_autoload_feature(recv, Machine.load64(slot, 0))
 end
