@@ -13,6 +13,7 @@ class Random < random_base
   attr_reader :seed
 
   def initialize(seed = Random.new_seed)
+    seed = seed.to_i if seed.is_a?(Float)
     raise TypeError, "no implicit conversion of #{seed.class} into Integer" unless seed.is_a?(Integer)
 
     @seed = seed
@@ -34,6 +35,17 @@ class Random < random_base
 
   def self.rand(max = nil) = default.rand(max)
   def self.bytes(size) = default.bytes(size)
+
+  # Bytes from the system's own source, not the seeded stream.
+  def self.urandom(size)
+    raise ArgumentError, "negative string size (or size too big)" if size < 0
+
+    out = "".b
+    out << (Primitive.zr_random_seed & 0xff) while out.bytesize < size
+    out
+  end
+
+  def self.random_number(max = nil) = default.rand(max)
   def self.seed = default.seed
 
   def self.srand(seed = new_seed)
@@ -152,6 +164,9 @@ class Random < random_base
 
   def ==(other) = other.is_a?(Random) && @seed == other.seed && @mti == other.send(:mti) && @mt == other.send(:mt)
 
+  # The state is hidden, as CRuby's is.
+  def inspect = to_s
+
   private
 
   attr_reader :mt, :mti
@@ -243,6 +258,8 @@ Random::Base.include(Random::Formatter)
 module Kernel
   # Kernel#rand: nil or 0 gives a Float, a Float or negative bound is
   # taken as its Integer size.
+  # Kernel#rand is lenient where Random#rand raises: a bound's sign is
+  # dropped, and an empty range answers nil.
   def rand(max = 0)
     generator = Random.default
     case max
@@ -250,6 +267,10 @@ module Kernel
     when Float, Integer
       n = max.to_i.abs
       n == 0 ? generator.send(:unit_float) : generator.rand(n)
+    when Range
+      return nil if max.begin.is_a?(Integer) && max.end.is_a?(Integer) && (max.exclude_end? ? max.end <= max.begin : max.end < max.begin)
+
+      generator.rand(max)
     else generator.rand(max)
     end
   end

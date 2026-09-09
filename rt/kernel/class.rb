@@ -224,12 +224,24 @@ machine def zr_obj_extend(recv, argc, argv, cref, blk)
     m = Machine.value(Machine.load64(argv + (i * 8), 0))
     r = zr_check_module(m)
     return r if r == QUNDEF
-    zr_include_module(zr_singleton_class(recv), m)
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(recv))
+    r = zr_send(m, Machine.id(:extend_object), 1, slot)
+    return r if r == QUNDEF
     r = zr_hook(m, Machine.id(:extended), recv)
     return r if r == QUNDEF
     i -= 1
   end
   recv
+end
+
+# `Module#extend_object`: the module into the object's singleton class;
+# a module may override it to see each object it extends.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_extend_object(recv, argc, argv, cref, blk)
+  obj = Machine.value(Machine.load64(argv, 0))
+  zr_include_module(zr_singleton_class(obj), recv)
+  obj
 end
 
 # `alias new old` and `alias_method`: the old entry again under the new

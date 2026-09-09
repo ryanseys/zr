@@ -547,7 +547,7 @@ class String
     return self if order > 0 || (exclusive && order == 0)
 
     after = last.succ
-    current = dup
+    current = String.new(self)
     until current == after
       following = exclusive || current != last ? current.succ : nil
       yield current

@@ -64,19 +64,9 @@ class Array
     end
   end
 
-  def dup
-    out = []
-    i = 0
-    while i < size
-      out << self[i]
-      i += 1
-    end
-    out
-  end
-
   def +(other)
     other = Array.try_convert(other) || raise(TypeError, "no implicit conversion of #{other.nil? ? 'nil' : other.class} into Array")
-    out = dup
+    out = Array.new(self)
     i = 0
     while i < other.size
       out << other[i]
@@ -233,6 +223,7 @@ class Array
   def intersect?(other) = !(self & other).empty?
 
   def repeated_combination(k)
+    k = Primitive.zr_index_operand_m(k)
     return to_enum(:repeated_combination, k) { k < 0 ? 0 : (k == 0 ? 1 : (size + k - 1).downto(size).inject(1) { |a, b| a * b } / (1..k).inject(1) { |a, b| a * b }) } unless block_given?
 
     if k == 0
@@ -244,6 +235,7 @@ class Array
   end
 
   def repeated_permutation(k)
+    k = Primitive.zr_index_operand_m(k)
     return to_enum(:repeated_permutation, k) { k < 0 ? 0 : size**k } unless block_given?
 
     if k == 0
@@ -255,6 +247,7 @@ class Array
   end
 
   def combination(k)
+    k = Primitive.zr_index_operand_m(k)
     return to_enum(:combination, k) { k < 0 || k > size ? 0 : (1..size).inject(1) { |a, b| a * b } / ((1..k).inject(1) { |a, b| a * b } * (1..size - k).inject(1) { |a, b| a * b }) } unless block_given?
 
     if k == 0
@@ -266,6 +259,7 @@ class Array
   end
 
   def permutation(k = size)
+    k = Primitive.zr_index_operand_m(k)
     return to_enum(:permutation, k) { k < 0 || k > size ? 0 : (size - k + 1..size).inject(1) { |a, b| a * b } } unless block_given?
 
     if k == 0
@@ -315,7 +309,7 @@ class Array
   # Membership here is by `hash` and `eql?`, as CRuby's set
   # operations decide it.
   def uniq
-    return dup if size <= 1 && !block_given?
+    return Array.new(self) if size <= 1 && !block_given?
 
     seen = {}
     out = []
@@ -376,7 +370,8 @@ class Array
     end
   end
 
-  def to_a = self
+  # A subclass answers a plain Array.
+  def to_a = instance_of?(Array) ? self : Array.new(self)
   def count(*args, &block) = args.empty? && !block ? size : super
 
   # `pop(n)` takes the last n.
@@ -634,7 +629,7 @@ class Array
 
   def rotate(n = 1)
     n = Primitive.zr_index_operand_m(n)
-    return dup if empty?
+    return Array.new(self) if empty?
 
     n %= size
     self[n, size - n] + self[0, n]

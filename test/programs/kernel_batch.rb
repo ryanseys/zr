@@ -78,3 +78,25 @@ p r.private_methods.include?(:exec), r.public_methods.include?(:exec), r.exec(1)
 class Bare; end
 p Bare.new.private_methods.include?(:exec), Bare.new.public_methods.include?(:exec)
 begin; exec("/no/such/cmd"); rescue SystemCallError => e; p e.class, e.message; end
+class S < String; end
+class A < Array; end
+class H < Hash; end
+s = S.new("x"); a = A.new([1]); h = H.new(5)
+puts s.to_s.class, s.to_str.class, a.to_a.class, h.to_h.class, h.to_h.default, a.to_ary.class, h.to_hash.class
+puts a.dup.push(2).class, s.dup.concat("y").class, s.upcase.class, a.map { |v| v }.class
+p s.to_s.equal?(s), "x".to_s.frozen?, a.to_a.equal?(a), [1].to_a.equal?([1]), h.to_h.equal?(h)
+x = "plain"; p x.to_s.equal?(x); y = [1]; p y.to_a.equal?(y); z = {}; p z.to_h.equal?(z)
+class Backwards < String
+  def <=>(o); o.to_s <=> to_s; end
+end
+p [Backwards.new("aaa"), Backwards.new("bbb")].sort.map(&:to_s)
+class A2 < Array
+  def initialize_copy(o)
+    super
+    @c = 1
+  end
+end
+p A2.new([1]).dup.instance_variable_get(:@c), A2.new([1]).dup.class
+str = "q"
+str.instance_variable_set(:@q, 1)
+p str.dup.instance_variable_get(:@q), str.dup.frozen?, "y".freeze.dup.frozen?, "y".freeze.clone.frozen?

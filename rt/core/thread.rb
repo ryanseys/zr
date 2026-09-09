@@ -351,11 +351,14 @@ class Thread
 
   # Sleep until `wakeup`, or until `deadline` nanoseconds on the
   # monotonic clock. A deadly wait counts toward a deadlock.
+  # Sleeps until woken or the deadline; answers false on the deadline.
   def wait(deadline, deadly)
     Primitive.attr! :hidden
     @status = :sleep
+    @timed_out = false
     Thread.send(:sleep_until, self, deadline) if deadline
     Thread.send(:switch, deadly && deadline.nil?)
+    !@timed_out
   end
 
   # Wait on a list whose owner wakes its members.
@@ -372,6 +375,7 @@ class Thread
   def timed_out
     Primitive.attr! :hidden
     @status = :run
+    @timed_out = true
   end
 
   def make_exception(klass, message = nil, backtrace = nil)
@@ -427,14 +431,15 @@ class Thread::Mutex
     end
   end
 
-  # Release the lock, sleep, and take it back.
+  # Release the lock, sleep, and take it back: the seconds slept, or
+  # nil when the timeout ran out.
   def sleep(timeout = nil)
     unlock
     begin
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
       deadline = timeout.nil? ? nil : started + (timeout * 1e9).to_i
-      Thread.current.send(:wait, deadline, true)
-      ((Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) - started) / 1e9).round
+      woken = Thread.current.send(:wait, deadline, true)
+      woken ? ((Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) - started) / 1e9).round : nil
     ensure
       lock
     end
@@ -446,15 +451,17 @@ class Thread::ConditionVariable
     @waiters = []
   end
 
+  # What Mutex#sleep answers: the seconds slept, or nil on the timeout.
   def wait(mutex, timeout = nil)
-    deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).to_i
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
+    deadline = timeout.nil? ? nil : started + (timeout * 1e9).to_i
     mutex.unlock
     begin
-      Thread.current.send(:wait_on, @waiters, deadline, true)
+      woken = Thread.current.send(:wait_on, @waiters, deadline, true)
     ensure
       mutex.lock
     end
-    self
+    woken ? ((Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) - started) / 1e9).round : nil
   end
 
   def signal

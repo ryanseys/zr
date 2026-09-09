@@ -598,7 +598,7 @@ module Ze0
       # file is a LoadError when it runs.
       # The features ruby loads before a program starts, so a require of
       # one answers false.
-      PRELOADED = %w[set set.rb].freeze
+      PRELOADED = %w[set set.rb monitor monitor.rb].freeze
 
       def require_node(node)
         line = node.location.start_line

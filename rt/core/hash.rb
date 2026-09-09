@@ -84,8 +84,17 @@ class Hash
     self
   end
 
+  # A subclass answers a plain Hash with the same default.
   def to_h
-    return self unless block_given?
+    unless block_given?
+      return self if instance_of?(Hash)
+
+      out = {}
+      each { |k, v| out[k] = v }
+      out.default_proc = default_proc if default_proc
+      out.default = default unless default_proc
+      return out
+    end
 
     out = {}
     each do |k, v|

@@ -42,6 +42,9 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_to_s(recv, argc, argv, cref, blk)
+  if zr_real_class(recv) != zr_global(G_STRING)
+    return zr_str_new(RString.ptr(recv), RString.len(recv))
+  end
   recv
 end
 
@@ -625,11 +628,6 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_to_sym(recv, argc, argv, cref, blk)
   zr_sym(zr_intern(RString.ptr(recv), RString.len(recv)))
-end
-
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_str_dup(recv, argc, argv, cref, blk)
-  zr_str_new(RString.ptr(recv), RString.len(recv))
 end
 
 # `+str`: the string itself unless frozen, then a copy that is not.
