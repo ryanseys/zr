@@ -5,7 +5,7 @@ Machine.raw "zr_switch"
 Machine.import "mmap", [Ptr, Word, I32, I32, I32, Word] => Ptr
 Machine.import "munmap", [Ptr, Word] => I32
 
-Machine.struct :RFiber, basic: RBasic, task: Ptr, ctx: Ptr, stack: Ptr, kroots: Ptr, blk: Value, status: Word, prev: Value, value: Value
+Machine.struct :RFiber, basic: RBasic, task: Ptr, ctx: Ptr, stack: Ptr, kroots: Ptr, blk: Value, status: Word, prev: Value, resuming: Value, value: Value, yielding: Word, transferred: Word
 T_FIBER = 30
 G_FIBER = 39
 FIBER_CREATED = 0
@@ -52,8 +52,12 @@ machine def zr_fiber_current
     RFiber.set_blk(f, Machine.value(QNIL))
     RFiber.set_status(f, FIBER_RESUMED)
     RFiber.set_prev(f, Machine.value(QNIL))
+    RFiber.set_resuming(f, Machine.value(QNIL))
     RFiber.set_value(f, Machine.value(QNIL))
+    RFiber.set_yielding(f, 0)
+    RFiber.set_transferred(f, 0)
     Machine.store64(slot, 0, Machine.word(f))
+    Machine.store64(Machine.static(:root_fiber, 8), 0, Machine.word(f))
   end
   f
 end
@@ -74,7 +78,10 @@ machine def zr_fiber_new(recv, argc, argv, cref, blk)
   RFiber.set_blk(f, blk)
   RFiber.set_status(f, FIBER_CREATED)
   RFiber.set_prev(f, Machine.value(QNIL))
+  RFiber.set_resuming(f, Machine.value(QNIL))
   RFiber.set_value(f, Machine.value(QNIL))
+  RFiber.set_yielding(f, 0)
+  RFiber.set_transferred(f, 0)
   RFiber.set_kroots(f, 0)
   t = malloc(Task.size)
   zr_task_init(t)
@@ -129,20 +136,83 @@ machine def zr_fiber_resume(recv, argc, argv, cref, blk)
   if recv == cur
     return zr_fiber_error(Machine.bytes("attempt to resume the current fiber"), 35)
   end
+  if RFiber.resuming(recv) != QNIL
+    return zr_fiber_error(Machine.bytes("attempt to resume a resuming fiber"), 34)
+  end
   if RFiber.status(recv) == FIBER_RESUMED
     return zr_fiber_error(Machine.bytes("attempt to resume a resumed fiber (double resume)"), 49)
   end
-  if RFiber.status(recv) == FIBER_CREATED
-    RFiber.set_value(recv, zr_ary_of(argc, argv))
-  else
-    RFiber.set_value(recv, zr_fiber_transfer_value(argc, argv))
+  if RFiber.transferred(recv) != 0
+    return zr_fiber_error(Machine.bytes("attempt to resume a transferring fiber"), 38)
   end
   RFiber.set_prev(recv, cur)
-  RFiber.set_status(recv, FIBER_RESUMED)
-  zr_fiber_switch(cur, recv)
-  v = RFiber.value(recv)
-  RFiber.set_value(recv, Machine.value(QNIL))
+  RFiber.set_resuming(cur, recv)
+  RFiber.set_yielding(recv, 0)
+  zr_fiber_run(cur, recv, argc, argv)
+end
+
+# `transfer(*args)`: control moves to the fiber with no way back but
+# another transfer; when it ends, control returns to the root fiber's
+# deepest resumed fiber.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_fiber_transfer(recv, argc, argv, cref, blk)
+  cur = zr_fiber_current()
+  if RFiber.resuming(recv) != QNIL
+    return zr_fiber_error(Machine.bytes("attempt to transfer to a resuming fiber"), 39)
+  end
+  if RFiber.yielding(recv) != 0
+    return zr_fiber_error(Machine.bytes("attempt to transfer to a yielding fiber"), 39)
+  end
+  if RFiber.status(recv) == FIBER_TERMINATED
+    return zr_fiber_error(Machine.bytes("dead fiber called"), 17)
+  end
+  if recv == cur
+    return zr_fiber_transfer_value(argc, argv)
+  end
+  RFiber.set_transferred(cur, 1)
+  RFiber.set_status(cur, FIBER_SUSPENDED)
+  zr_fiber_run(cur, recv, argc, argv)
+end
+
+# Hand `argc` arguments to `to` and run it until control comes back to
+# `from`; the answer is the value or the pending signal it left.
+sig [Value, Value, Word, Ptr] => Value
+machine def zr_fiber_run(from, to, argc, argv)
+  if RFiber.status(to) == FIBER_CREATED
+    RFiber.set_value(to, zr_ary_of(argc, argv))
+  else
+    RFiber.set_value(to, zr_fiber_transfer_value(argc, argv))
+  end
+  RFiber.set_status(to, FIBER_RESUMED)
+  zr_fiber_switch(from, to)
+  v = RFiber.value(from)
+  RFiber.set_value(from, Machine.value(QNIL))
   v
+end
+
+# Where control goes when the current fiber yields or ends: its
+# resumer, else the deepest fiber the root fiber is resuming.
+sig [Value, Word] => Value
+machine def zr_fiber_return_to(cur, terminating)
+  prev = RFiber.prev(cur)
+  if prev != QNIL
+    RFiber.set_prev(cur, Machine.value(QNIL))
+    RFiber.set_resuming(prev, Machine.value(QNIL))
+    return prev
+  end
+  if terminating == 0
+    return zr_fiber_error(Machine.bytes("attempt to yield on a not resumed fiber"), 39)
+  end
+  f = zr_fiber_root()
+  while RFiber.resuming(f) != QNIL
+    f = RFiber.resuming(f)
+  end
+  f
+end
+
+sig [] => Value
+machine def zr_fiber_root
+  Machine.value(Machine.load64(Machine.static(:root_fiber, 8), 0))
 end
 
 # `Fiber.yield(*args)`: back to the resumer with a value; the next
@@ -150,14 +220,16 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_fiber_yield(recv, argc, argv, cref, blk)
   cur = zr_fiber_current()
-  prev = RFiber.prev(cur)
-  if prev == QNIL
-    return zr_fiber_error(Machine.bytes("attempt to yield on a not resumed fiber"), 39)
+  to = zr_fiber_return_to(cur, 0)
+  if to == QUNDEF
+    return Machine.value(QUNDEF)
   end
-  RFiber.set_value(cur, zr_fiber_transfer_value(argc, argv))
+  RFiber.set_value(to, zr_fiber_transfer_value(argc, argv))
   RFiber.set_status(cur, FIBER_SUSPENDED)
-  RFiber.set_prev(cur, Machine.value(QNIL))
-  zr_fiber_switch(cur, prev)
+  RFiber.set_yielding(cur, 1)
+  RFiber.set_status(to, FIBER_RESUMED)
+  zr_fiber_switch(cur, to)
+  RFiber.set_yielding(cur, 0)
   v = RFiber.value(cur)
   RFiber.set_value(cur, Machine.value(QNIL))
   v
@@ -165,25 +237,25 @@ end
 
 # A fresh fiber's first instruction: the block with the first resume's
 # arguments; when it ends, its value or its pending signal goes to the
-# resumer, and the stack is never returned to.
+# fiber control returns to, and the stack is never returned to.
 sig [] => Void
 machine def zr_fiber_start
   cur = zr_fiber_current()
   args = RFiber.value(cur)
   r = zr_yield(RFiber.blk(cur), RArray.len(args), RArray.ptr(args))
-  prev = RFiber.prev(cur)
+  to = zr_fiber_return_to(cur, 1)
   if r == QUNDEF
     t = zr_task()
-    Task.set_pending(RFiber.task(prev), Task.pending(t))
-    Task.set_pending_kind(RFiber.task(prev), Task.pending_kind(t))
-    Task.set_pending_home(RFiber.task(prev), Task.pending_home(t))
-    Task.set_pending_site(RFiber.task(prev), Task.pending_site(t))
+    Task.set_pending(RFiber.task(to), Task.pending(t))
+    Task.set_pending_kind(RFiber.task(to), Task.pending_kind(t))
+    Task.set_pending_home(RFiber.task(to), Task.pending_home(t))
+    Task.set_pending_site(RFiber.task(to), Task.pending_site(t))
     Task.set_pending(t, Machine.value(QNIL))
   end
-  RFiber.set_value(cur, r)
+  RFiber.set_value(to, r)
   RFiber.set_status(cur, FIBER_TERMINATED)
-  RFiber.set_prev(cur, Machine.value(QNIL))
-  zr_fiber_switch(cur, prev)
+  RFiber.set_status(to, FIBER_RESUMED)
+  zr_fiber_switch(cur, to)
   zr_bug(Machine.bytes("a terminated fiber ran again\n"), 29)
 end
 
@@ -198,6 +270,7 @@ sig [Value] => Void
 machine def zr_mark_fiber(f)
   zr_mark(RFiber.blk(f))
   zr_mark(RFiber.prev(f))
+  zr_mark(RFiber.resuming(f))
   zr_mark(RFiber.value(f))
   if Machine.word(f) != Machine.load64(Machine.static(:current_fiber, 8), 0)
     zr_mark_task(RFiber.task(f))

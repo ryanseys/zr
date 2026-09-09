@@ -198,6 +198,7 @@ machine def zr_mark_roots
   Machine.store64(zr_marking(), 0, Machine.word(zr_fix(2)))
   zr_mark_ivtab(zr_gvars())
   zr_mark(Machine.value(Machine.load64(Machine.static(:current_fiber, 8), 0)))
+  zr_mark(Machine.value(Machine.load64(Machine.static(:root_fiber, 8), 0)))
   zr_mark_task(zr_task())
   Machine.store64(zr_marking(), 0, Machine.word(zr_fix(3)))
   zr_mark_kernel_roots()

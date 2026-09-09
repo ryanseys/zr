@@ -412,6 +412,7 @@ machine def zr_boot
   zr_builtin(fiber, Machine.id(:yield), Machine.addr(:zr_fiber_yield), 0 - 1)
   zr_builtin(fiber, Machine.id(:current), Machine.addr(:zr_fiber_current_m), 0)
   zr_builtin(zr_global(G_FIBER), Machine.id(:resume), Machine.addr(:zr_fiber_resume), 0 - 1)
+  zr_builtin(zr_global(G_FIBER), Machine.id(:transfer), Machine.addr(:zr_fiber_transfer), 0 - 1)
   zr_builtin(zr_global(G_FIBER), Machine.id(:alive?), Machine.addr(:zr_fiber_alive_p), 0)
   main = zr_singleton_class(zr_global(G_MAIN))
   zr_builtin_private(main, Machine.id(:include), Machine.addr(:zr_main_include), 0 - 1)
