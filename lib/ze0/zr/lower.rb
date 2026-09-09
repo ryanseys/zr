@@ -118,7 +118,7 @@ module Ze0
         name
       end
 
-      PARAM_KINDS = %i[req opt rest keyreq key keyrest block].each_with_index.to_h.freeze
+      PARAM_KINDS = %i[req opt rest keyreq key keyrest block nokey].each_with_index.to_h.freeze
 
       # `Method#parameters` as data: the row count, then a kind and a
       # name id per row, 0 for a row with no name.

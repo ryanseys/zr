@@ -9,8 +9,7 @@ module Enumerable
 
     out = []
     each do |*x|
-      x = Primitive.zr_enum_value(x)
-      out << yield(x)
+      out << yield(*x)
       nil
     end
     out
@@ -45,8 +44,7 @@ module Enumerable
 
     out = []
     each do |*x|
-      x = Primitive.zr_enum_value(x)
-      v = yield(x)
+      v = yield(*x)
       out << v if v
       nil
     end
@@ -74,8 +72,7 @@ module Enumerable
       end
     elsif block_given?
       each do |*x|
-        x = Primitive.zr_enum_value(x)
-        return true if yield(x)
+        return true if yield(*x)
         nil
       end
     else
@@ -98,8 +95,7 @@ module Enumerable
       end
     elsif block_given?
       each do |*x|
-        x = Primitive.zr_enum_value(x)
-        return false unless yield(x)
+        return false unless yield(*x)
         nil
       end
     else
@@ -122,8 +118,7 @@ module Enumerable
       end
     elsif block_given?
       each do |*x|
-        x = Primitive.zr_enum_value(x)
-        return false if yield(x)
+        return false if yield(*x)
         nil
       end
     else
@@ -146,8 +141,7 @@ module Enumerable
       end
     elsif block_given?
       each do |*x|
-        x = Primitive.zr_enum_value(x)
-        n += 1 if yield(x)
+        n += 1 if yield(*x)
         nil
       end
     else
@@ -187,10 +181,9 @@ module Enumerable
 
     out = []
     each do |*x|
-      x = Primitive.zr_enum_value(x)
-      break unless yield(x)
+      break unless yield(*x)
 
-      out << x
+      out << Primitive.zr_enum_value(x)
       nil
     end
     out
@@ -226,15 +219,14 @@ module Enumerable
 
     out = []
     each do |*x|
-      x = Primitive.zr_enum_value(x)
-      v = yield(x)
+      v = yield(*x)
       v.is_a?(Array) ? out.concat(v) : out << v
       nil
     end
     out
   end
 
-  def collect_concat = flat_map { |x| yield(x) }
+  def collect_concat(&block) = flat_map(&block)
 
   def group_by
     return to_enum(:group_by) unless block_given?
@@ -298,7 +290,7 @@ module Enumerable
   end
 
   def each_entry
-    return to_enum(:each_entry) unless block_given?
+    return to_enum(:each_entry) { respond_to?(:size) ? size : nil } unless block_given?
 
     each do |*x|
       x = Primitive.zr_enum_value(x)
@@ -419,8 +411,7 @@ module Enumerable
       end
     elsif block_given?
       each do |*x|
-        x = Primitive.zr_enum_value(x)
-        seen += 1 if yield(x)
+        seen += 1 if yield(*x)
         nil
       end
     else
@@ -488,8 +479,7 @@ module Enumerable
 
     i = 0
     each do |*x|
-      x = Primitive.zr_enum_value(x)
-      return i if block_given? ? yield(x) : x == v
+      return i if block_given? ? yield(*x) : Primitive.zr_enum_value(x) == v
 
       i += 1
       nil

@@ -72,8 +72,28 @@ module Ze0
           @f.store(expr(node.recv), @rec, value_offset(slot))
           recv = Hir::Slot.new(slot, node.line)
           read = Hir::Send.new(recv, node.name, [], node.line, false, false, nil, nil, false)
-          result = op_assign(node, read) { |v| Hir::Send.new(recv, :"#{node.name}=", [v], node.line, false, false, nil, nil, false) }
+          write = ->(v) { Hir::Send.new(recv, :"#{node.name}=", [v], node.line, false, false, nil, nil, false) }
+          result = if node.safe
+                     unless_nil(@f.fetch("i64", @rec, value_offset(slot))) { op_assign(node, read, &write) }
+                   else
+                     op_assign(node, read, &write)
+                   end
           @sp = base
+          result
+        end
+
+        # The block's value, or nil without running it when `v` is nil.
+        def unless_nil(v)
+          run = @f.label
+          skip = @f.label
+          merge, (result,) = @f.block(["i64"])
+          @f.brif(@f.icmp("eq", v, @qnil), skip, run)
+          switch(skip)
+          @f.jump(merge, [@qnil])
+          switch(run)
+          got = yield
+          @f.jump(merge, [got]) unless @f.terminated?
+          switch(merge)
           result
         end
 
@@ -118,6 +138,12 @@ module Ze0
           when Hir::Assign then write_local(slot_at(target), target.depth, v)
           when Hir::IvarWrite then ivar_write(target, v)
           when Hir::GvarWrite then gvar_write(target.name, v)
+          when Hir::CvarWrite
+            at_line(target.line)
+            checked(kernel("zr_cvar_set", @cref, imm(sym_id(target.name)), v))
+          when Hir::ConstWrite
+            at_line(target.line)
+            kernel("zr_const_set", scope_class(target.scope), imm(sym_id(target.name)), v)
           when Hir::MultiTarget then destructure(target, v, prepared)
           when Hir::Send
             slot = prepared.fetch(target)

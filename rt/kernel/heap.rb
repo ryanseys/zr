@@ -235,9 +235,27 @@ machine def zr_gvars
   Machine.static(:gvars, IvTab.size)
 end
 
+# `alias $new $old`: the alias names the same row; the table maps an
+# alias to the name it stands for, already resolved.
+sig [] => Ptr
+machine def zr_gvar_aliases
+  Machine.static(:gvar_aliases, IvTab.size)
+end
+
+sig [Word] => Word
+machine def zr_gvar_resolve(id)
+  target = zr_ivtab_get(zr_gvar_aliases(), id)
+  target == QUNDEF ? id : zr_fix2long(target)
+end
+
+sig [Word, Word] => Void
+machine def zr_gvar_alias(new_id, old_id)
+  zr_ivtab_set(zr_gvar_aliases(), new_id, zr_fix(zr_gvar_resolve(old_id)))
+end
+
 sig [Word] => Value
 machine def zr_gvar_get(id)
-  v = zr_ivtab_get(zr_gvars(), id)
+  v = zr_ivtab_get(zr_gvars(), zr_gvar_resolve(id))
   if v == QUNDEF
     return Machine.value(QNIL)
   end
@@ -246,12 +264,12 @@ end
 
 sig [Word] => Value
 machine def zr_gvar_defined(id)
-  zr_bool(zr_ivtab_row(zr_gvars(), id) != 0)
+  zr_bool(zr_ivtab_row(zr_gvars(), zr_gvar_resolve(id)) != 0)
 end
 
 sig [Word, Value] => Value
 machine def zr_gvar_set(id, v)
-  zr_ivtab_set(zr_gvars(), id, v)
+  zr_ivtab_set(zr_gvars(), zr_gvar_resolve(id), v)
   v
 end
 

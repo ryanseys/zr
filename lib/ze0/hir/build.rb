@@ -40,7 +40,7 @@ module Ze0
           @roots.concat(load_path_roots(result.value, file))
           frozen = result.magic_comments.any? { |c| c.key == "frozen_string_literal" && c.value == "true" }
           build = Build.new(file, self)
-          body = build.seq(result.value.statements)
+          body = build.seq(result.value.statements, hoist: true)
           Unit.new(file, result.value.locals + build.temps, body, frozen, warnings(result, file))
         end
 
@@ -196,6 +196,12 @@ module Ze0
 
       # ruby, the oracle, checks the pattern: one it refuses is a syntax
       # error here too.
+      def interpolated_regexp(node, line)
+        refuse(node, "a regexp literal with the o flag is not lowered yet") if node.once?
+        built = Send.new(ConstRead.new(nil, :Regexp, line), :new, [interpolation(node, line), Literal.new(regexp_options(node), line)], line, false)
+        Send.new(built, :freeze, [], line, false)
+      end
+
       def regexp_literal(node, line)
         refuse(node, "a regexp literal with an encoding flag is not lowered yet") if node.ascii_8bit? || node.euc_jp? || node.windows_31j? || node.utf_8?
         begin
@@ -213,16 +219,22 @@ module Ze0
           case part
           when Prism::StringNode then Literal.new(part.unescaped, part.location.start_line)
           when Prism::EmbeddedStatementsNode then part.statements ? seq(part.statements) : Literal.new(nil, line)
+          when Prism::EmbeddedVariableNode then expr(part.variable)
+          when Prism::InterpolatedStringNode then interpolation(part, line)
           else refuse(part, "#{part.class.name.split("::").last.delete_suffix("Node")} in a string is not lowered yet")
           end
         end
         Interp.new(parts, line)
       end
 
-      def seq(node)
+      # `hoist` puts the `BEGIN { }` blocks of a file first, in their
+      # order, before anything else runs.
+      def seq(node, hoist: false)
         return Seq.new([], 1) if node.nil?
 
-        Seq.new(node.body.map { |s| expr(s) }, node.location.start_line)
+        body = node.body
+        body = body.partition { |s| s.is_a?(Prism::PreExecutionNode) }.flatten if hoist
+        Seq.new(body.map { |s| expr(s) }, node.location.start_line)
       end
 
       def expr(node)
@@ -280,11 +292,9 @@ module Ze0
           If.new(expr(node.predicate), node.else_clause && seq(node.else_clause.statements), node.statements && seq(node.statements), line)
         when Prism::ElseNode then node.statements ? seq(node.statements) : Literal.new(nil, line)
         when Prism::WhileNode
-          refuse(node, "a do-while loop is not lowered yet") if node.begin_modifier?
-          While.new(expr(node.predicate), node.statements && seq(node.statements), line)
+          While.new(expr(node.predicate), node.statements && seq(node.statements), line, node.begin_modifier?)
         when Prism::UntilNode
-          refuse(node, "a do-until loop is not lowered yet") if node.begin_modifier?
-          While.new(Not.new(expr(node.predicate), line), node.statements && seq(node.statements), line)
+          While.new(Not.new(expr(node.predicate), line), node.statements && seq(node.statements), line, node.begin_modifier?)
         when Prism::ReturnNode then Return.new(jump_value(node.arguments, line), line)
         when Prism::AndNode then And.new(expr(node.left), expr(node.right), line)
         when Prism::OrNode then Or.new(expr(node.left), expr(node.right), line)
@@ -323,10 +333,12 @@ module Ze0
         when Prism::NumberedReferenceReadNode then Send.new(GvarRead.new(:$~, line), :[], [Literal.new(node.number, line)], line, false, nil, nil, nil, true)
         when Prism::BackReferenceReadNode then back_reference(node, line)
         when Prism::RegularExpressionNode then regexp_literal(node, line)
-        when Prism::InterpolatedRegularExpressionNode
-          refuse(node, "a regexp literal with the o flag is not lowered yet") if node.once?
-          built = Send.new(ConstRead.new(nil, :Regexp, line), :new, [interpolation(node, line), Literal.new(regexp_options(node), line)], line, false)
-          Send.new(built, :freeze, [], line, false)
+        when Prism::InterpolatedRegularExpressionNode then interpolated_regexp(node, line)
+        when Prism::MatchLastLineNode
+          # A bare regexp as a condition matches `$_`.
+          Send.new(regexp_literal(node, line), :=~, [GvarRead.new(:$_, line)], line, false)
+        when Prism::InterpolatedMatchLastLineNode
+          Send.new(interpolated_regexp(node, line), :=~, [GvarRead.new(:$_, line)], line, false)
         when Prism::InterpolatedXStringNode then Send.new(nil, :`, [interpolation(node, line)], line, false)
         when Prism::ArrayNode
           ArrayLit.new(node.elements.map { |e| e.is_a?(Prism::SplatNode) ? Splat.new(expr(e.expression), line) : expr(e) }, line)
@@ -364,6 +376,9 @@ module Ze0
         when Prism::AliasMethodNode
           refuse(node, "an alias of a dynamic symbol is not lowered yet") unless node.new_name.is_a?(Prism::SymbolNode) && node.old_name.is_a?(Prism::SymbolNode)
           Alias.new(node.new_name.unescaped.to_sym, node.old_name.unescaped.to_sym, line)
+        when Prism::AliasGlobalVariableNode
+          refuse(node, "an alias of a special global is not lowered yet") unless node.new_name.is_a?(Prism::GlobalVariableReadNode) && node.old_name.is_a?(Prism::GlobalVariableReadNode)
+          GvarAlias.new(node.new_name.name, node.old_name.name, line)
         when Prism::CaseNode
           clauses = node.conditions.map do |w|
             values = w.conditions.map { |c| c.is_a?(Prism::SplatNode) ? Splat.new(expr(c.expression), line) : expr(c) }
@@ -380,14 +395,22 @@ module Ze0
                end
           IndexOpAssign.new(expr(node.receiver), args, op, expr(node.value), line)
         when Prism::CallOperatorWriteNode, Prism::CallOrWriteNode, Prism::CallAndWriteNode
-          refuse(node, "a safe-navigation attribute assignment is not lowered yet") if node.call_operator == "&."
           op = case node
                when Prism::CallOperatorWriteNode then node.binary_operator
                when Prism::CallOrWriteNode then :or
                else :and
                end
-          AttrOpAssign.new(expr(node.receiver), node.read_name, op, expr(node.value), line)
+          AttrOpAssign.new(expr(node.receiver), node.read_name, op, expr(node.value), line, node.call_operator == "&.")
         when Prism::ForNode then for_loop(node)
+        when Prism::PostExecutionNode
+          # `END { }` shares the enclosing scope, so its body reads one
+          # block deeper as an at_exit block.
+          body = deepen(node.statements ? seq(node.statements) : Literal.new(nil, line), 0)
+          block = Block.new(Params.new([], [], nil, [], [], nil, nil), [], body, line)
+          Send.new(nil, :at_exit, [], line, false, false, block, nil, false)
+        when Prism::PreExecutionNode
+          refuse(node, "BEGIN { } outside the toplevel is not lowered yet") unless @block_depth.zero?
+          node.statements ? seq(node.statements) : Literal.new(nil, line)
         when Prism::InstanceVariableWriteNode then IvarWrite.new(node.name, expr(node.value), line)
         when Prism::InstanceVariableOperatorWriteNode
           IvarWrite.new(node.name, Send.new(IvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
@@ -400,6 +423,7 @@ module Ze0
           clause = Rescue.new([], nil, expr(node.rescue_expression), line)
           Begin.new(expr(node.expression), [clause], nil, nil, line)
         when Prism::RetryNode then Retry.new(line)
+        when Prism::RedoNode then Redo.new(line)
         else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
         end
       end
@@ -444,7 +468,7 @@ module Ze0
       def constant_path(node)
         case node
         when Prism::ConstantReadNode then [nil, node.name]
-        when Prism::ConstantPathNode
+        when Prism::ConstantPathNode, Prism::ConstantPathTargetNode
           [node.parent ? expr(node.parent) : :top, node.name]
         else refuse(node, "a dynamic constant path is not lowered yet")
         end
@@ -484,7 +508,7 @@ module Ze0
         positional << Splat.new(local.call(p.rest), line) if p.rest && p.rest != :implicit
         positional += p.post.map(&local)
         pairs = p.keywords.flat_map { |name, _| [Literal.new(name, line), local.call(name)] }
-        pairs += [HashSplat.new(local.call(p.kwrest), line), nil] if p.kwrest
+        pairs += [HashSplat.new(local.call(p.kwrest), line), nil] if p.kwrest && p.kwrest != :nokey
         kwargs = pairs.empty? ? nil : HashLit.new(pairs, line)
         block = node.block ? block(node.block) : (p.block && BlockPass.new(local.call(p.block), line))
         Super.new(positional, kwargs, block, line)
@@ -540,6 +564,11 @@ module Ze0
         when Prism::LocalVariableTargetNode, Prism::RequiredParameterNode then Assign.new(node.name, node.respond_to?(:depth) ? node.depth : 0, nil, line)
         when Prism::InstanceVariableTargetNode then IvarWrite.new(node.name, nil, line)
         when Prism::GlobalVariableTargetNode then GvarWrite.new(node.name, nil, line)
+        when Prism::ClassVariableTargetNode then CvarWrite.new(node.name, nil, line)
+        when Prism::ConstantTargetNode then ConstWrite.new(nil, node.name, nil, line)
+        when Prism::ConstantPathTargetNode
+          scope, name = constant_path(node)
+          ConstWrite.new(scope, name, nil, line)
         when Prism::MultiTargetNode then multi_target(node)
         when Prism::IndexTargetNode
           args = (node.arguments&.arguments || []).map { |a| a.is_a?(Prism::SplatNode) ? refuse(a, "a splat in an index target is not lowered yet") : expr(a) }
@@ -559,6 +588,7 @@ module Ze0
         when Prism::RestParameterNode then node.name || ANONYMOUS[:rest]
         when Prism::KeywordRestParameterNode then node.name || ANONYMOUS[:kwrest]
         when Prism::ForwardingParameterNode then ANONYMOUS[:kwrest]
+        when Prism::NoKeywordsParameterNode then :nokey
         else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
         end
       end
@@ -586,7 +616,8 @@ module Ze0
           names = (1..node.maximum).map { |i| :"_#{i}" }
           [Params.new(names, [], nil, [], [], nil, nil), []]
         when Prism::BlockParametersNode
-          refuse(node, "a block-local variable is not lowered yet") unless node.locals.empty?
+          # A block-local (`|x; y|`) is already among the block's locals,
+          # where prism resolves it at depth 0, fresh each call.
           [parameters(node.parameters), []]
         else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
         end

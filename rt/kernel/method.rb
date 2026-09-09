@@ -13,6 +13,7 @@ PARAM_KEYREQ = 3
 PARAM_KEY = 4
 PARAM_KEYREST = 5
 PARAM_BLOCK = 6
+PARAM_NOKEY = 7
 
 sig [Value] => Void
 machine def zr_mark_method(m)
@@ -316,6 +317,8 @@ machine def zr_param_kind_name(kind)
     Machine.id(:key)
   elsif kind == PARAM_KEYREST
     Machine.id(:keyrest)
+  elsif kind == PARAM_NOKEY
+    Machine.id(:nokey)
   else
     Machine.id(:block)
   end
@@ -446,6 +449,8 @@ machine def zr_buf_param(b, kind, id)
     zr_buf_byte(b, 42)
   elsif kind == PARAM_KEYREST
     zr_buf_push(b, Machine.bytes("**"), 2)
+  elsif kind == PARAM_NOKEY
+    zr_buf_push(b, Machine.bytes("**nil"), 5)
   elsif kind == PARAM_BLOCK
     zr_buf_byte(b, 38)
   end

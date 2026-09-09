@@ -46,6 +46,7 @@ module Ze0
           when Hir::CvarWrite then cvar_write(node)
           when Hir::ConstOrWrite then const_or_write(node)
           when Hir::Alias then alias_method(node)
+          when Hir::GvarAlias then alias_global(node)
           when Hir::Undef then undef_methods(node)
           when Hir::Defined then defined(node)
           when Hir::Case then case_when(node)
@@ -59,6 +60,7 @@ module Ze0
           when Hir::Not then negate(node)
           when Hir::Begin then protect(node)
           when Hir::Retry then retry_region(node)
+          when Hir::Redo then redo_body(node)
           else @l.refuse(node, "#{node.class.name.split("::").last} is not lowered yet")
           end
         end
@@ -167,6 +169,11 @@ module Ze0
         def alias_method(node)
           at_line(node.line)
           checked(kernel("zr_alias", cref_class, imm(sym_id(node.new_name)), imm(sym_id(node.old_name))))
+        end
+
+        def alias_global(node)
+          kernel("zr_gvar_alias", imm(sym_id(node.new_name)), imm(sym_id(node.old_name)))
+          @qnil
         end
 
         def cvar_write(node)

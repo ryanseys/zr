@@ -74,6 +74,11 @@ module Ze0
         @f = IR::Function.new(@name, ABI.fetch(@kind), "i64")
         enter
         bind_params
+        if @kind == :block
+          @body_label = @f.label
+          @f.jump(@body_label)
+          switch(@body_label)
+        end
         last = expr(@body)
         leave(last) unless @f.terminated?
         land if @landing

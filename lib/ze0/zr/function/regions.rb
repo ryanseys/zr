@@ -192,6 +192,9 @@ module Ze0
           @f.store(v, @rec, at)
           unwind(depth)
           @sp -= 1
+          # An ensure body that itself returned or jumped ended the block;
+          # what follows is unreachable and goes in a block of its own.
+          switch(@f.label, open: true) if @f.terminated?
           @f.fetch("i64", @rec, at)
         end
 

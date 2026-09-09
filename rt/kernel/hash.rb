@@ -748,6 +748,16 @@ end
 # `unknown keyword: :x` or `unknown keywords: :x, :y` for the keys of
 # `hash` the method does not declare; nil when there are none.
 sig [Value, Ptr, Word] => Value
+# `**nil`: any keyword at all is refused.
+sig [Value] => Value
+machine def zr_kw_none(hash)
+  if hash == QNIL || RHash.live(hash) == 0
+    return Machine.value(QNIL)
+  end
+  zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("no keywords accepted"), 20)
+end
+
+sig [Value, Ptr, Word] => Value
 machine def zr_kw_unknown(hash, ids, n)
   if hash == QNIL
     return Machine.value(QNIL)

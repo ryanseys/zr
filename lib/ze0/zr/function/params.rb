@@ -26,7 +26,7 @@ module Ze0
           check_arity(p, argc)
           bind_positional(p, argc, argv, strict: true)
           bind_keywords(p, kwargs_at) if keywords?(p)
-          write_local(slot_of(p.block), 0, @blk) if p.block
+          bind(p.block, @blk) if p.block
         end
 
         # A lambda checks its arity and never spreads; the same function
@@ -54,7 +54,7 @@ module Ze0
           argv = @f.fetch("i64", out)
           bind_positional(p, argc, argv, strict: false)
           bind_keywords(p, kwargs_at) if keywords?(p)
-          write_local(slot_of(p.block), 0, @f.args[3]) if p.block
+          bind(p.block, @f.args[3]) if p.block
         end
 
         def keywords?(p)
@@ -89,8 +89,9 @@ module Ze0
         # with optionals, and the required keywords named after.
         def check_arity(p, argc)
           req = p.required.size + p.post.size
-          max = p.rest ? -1 : req + p.optional.size
-          ok = if p.rest
+          rest = p.rest && p.rest != :implicit
+          max = rest ? -1 : req + p.optional.size
+          ok = if rest
                  @f.icmp("sge", argc, imm(req))
                elsif p.optional.empty?
                  @f.icmp("eq", argc, imm(req))
@@ -128,13 +129,13 @@ module Ze0
           avail = @f.isub(argc, imm(req))
           avail = @f.csel(@f.icmp("slt", avail, imm(0)), imm(0), avail) unless strict
           p.optional.each_with_index do |(name, default), j|
-            write_local(slot_of(name), 0, arg_or_default(argv, imm(p.required.size + j), @f.icmp("slt", imm(j), avail)) { expr(default) })
+            bind(name, arg_or_default(argv, imm(p.required.size + j), @f.icmp("slt", imm(j), avail)) { expr(default) })
           end
           given_opt = @f.csel(@f.icmp("slt", avail, imm(p.optional.size)), avail, imm(p.optional.size))
           if p.rest && p.rest != :implicit
             start = @f.iadd(imm(p.required.size), given_opt)
             count = @f.isub(avail, given_opt)
-            write_local(slot_of(p.rest), 0, kernel("zr_ary_of", count, @f.iadd(argv, @f.ishl(start, imm(3)))))
+            bind(p.rest, kernel("zr_ary_of", count, @f.iadd(argv, @f.ishl(start, imm(3)))))
           end
           p.post.each_with_index do |name, i|
             index = @f.iadd(@f.isub(argc, imm(p.post.size)), imm(i))
@@ -149,10 +150,14 @@ module Ze0
         end
 
         # `v` into the parameter `name`, or apart into a `(a, b)` target.
+        # A name that repeats (`_`, `_x`) keeps its first binding.
         def bind(name, v)
           if name.is_a?(Hir::MultiTarget)
             destructure(name, v, {})
+          elsif (@bound ||= []).include?(name)
+            v
           else
+            @bound << name
             write_local(slot_of(name), 0, v)
           end
         end
@@ -190,6 +195,10 @@ module Ze0
             checked(kernel("zr_kw_missing", hash.call, ids, n))
           end
           ids, n = keyword_ids(declared)
+          if p.kwrest == :nokey
+            checked(kernel("zr_kw_none", hash.call))
+            return
+          end
           checked(kernel("zr_kw_unknown", hash.call, ids, n)) unless p.kwrest
           p.keywords.each do |name, default|
             v = kernel("zr_kw_get", hash.call, imm(sym_id(name)))
@@ -205,9 +214,9 @@ module Ze0
               switch(merge)
               v = bound
             end
-            write_local(slot_of(name), 0, v)
+            bind(name, v)
           end
-          write_local(slot_of(p.kwrest), 0, kernel("zr_kw_rest", hash.call, ids, n)) if p.kwrest
+          bind(p.kwrest, kernel("zr_kw_rest", hash.call, ids, n)) if p.kwrest
         end
 
         # The ids of `names` as a read-only table, and its length.

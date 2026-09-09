@@ -35,13 +35,13 @@ module Ze0
           body = @f.label
           out = @f.label
           done, (result,) = @f.block(["i64"])
-          @f.jump(head)
+          @f.jump(node.body_first ? body : head)
           switch(head)
           @f.brif(truthy(expr(node.cond)), body, out)
           switch(out)
           @f.jump(done, [@qnil])
           switch(body)
-          @loops << { head: head, done: done, depth: @regions.size }
+          @loops << { head: head, body: body, done: done, depth: @regions.size }
           expr(node.body) if node.body
           @loops.pop
           @f.jump(head) unless @f.terminated?
@@ -167,6 +167,21 @@ module Ze0
           feature = kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(node.feature))), imm(node.feature.bytesize))
           fn = @f.func_addr(@f.callee(@l.unit_entry(node.unit), [], "i64"))
           checked(kernel("zr_autoload", recv, imm(sym_id(node.name)), feature, fn, @cref))
+        end
+
+        # `redo`: the innermost loop's body again without its test, or the
+        # block's body again with the parameters as they are.
+        def redo_body(node)
+          if (loop = @loops.last)
+            through_ensures(@qnil, loop[:depth])
+            @f.jump(loop[:body])
+          else
+            @l.refuse(node, "redo outside a block or loop is not lowered yet") unless @kind == :block
+            through_ensures(@qnil)
+            @f.jump(@body_label)
+          end
+          switch(@f.label, open: true)
+          @qnil
         end
 
         # `break`/`next`: out of the innermost loop when one encloses the

@@ -34,7 +34,9 @@ module Ze0
     # `recv[args] op= value` and `recv.name op= value`, the receiver and
     # arguments evaluated once; `op` is an operator, or :or / :and.
     IndexOpAssign = Struct.new(:recv, :args, :op, :value, :line)
-    AttrOpAssign = Struct.new(:recv, :name, :op, :value, :line)
+    # `safe` is `recv&.name op= value`: nil, with nothing else run,
+    # when the receiver is nil.
+    AttrOpAssign = Struct.new(:recv, :name, :op, :value, :line, :safe)
     # `*value` among arguments or elements.
     Splat = Struct.new(:value, :line)
     # `**value` among a hash literal's pairs: the key, with a nil value.
@@ -55,9 +57,16 @@ module Ze0
         required.size + optional.size + post.size
       end
 
-      # Whether a lone Array argument spreads over the parameters.
+      # Whether a lone Array argument spreads over the parameters, as
+      # CRuby's block setup decides: a required parameter or two or more
+      # optional ones ask for it; a lone `|a|` does not, nor keywords
+      # beside exactly one positional and no rest.
       def spread?
-        positional > 1 || (positional == 1 && !rest.nil?)
+        min = required.size + post.size
+        keyworded = !keywords.empty? || !kwrest.nil?
+        return false if positional == 1 && rest.nil? && (min == 1 || keyworded)
+
+        min.positive? || optional.size > 1
       end
 
       # Only required parameters: the exact arity a dispatcher may check.
@@ -67,7 +76,7 @@ module Ze0
 
       def names
         positionals = (required + post).flat_map { |r| r.is_a?(MultiTarget) ? r.names : [r] }
-        positionals + optional.map(&:first) + [rest].compact + keywords.map(&:first) + [kwrest, block].compact - [:implicit]
+        positionals + optional.map(&:first) + [rest].compact + keywords.map(&:first) + [kwrest, block].compact - %i[implicit nokey]
       end
 
       # `Method#arity`: the required count, negative less one when the
@@ -77,7 +86,7 @@ module Ze0
         min = required.size + post.size + (keywords.any? { |_, default| default.nil? } ? 1 : 0)
         return -min - 1 if rest && rest != :implicit
 
-        max = required.size + optional.size + post.size + (keywords.any? || kwrest ? 1 : 0)
+        max = required.size + optional.size + post.size + (keywords.any? || (kwrest && kwrest != :nokey) ? 1 : 0)
         min == max ? min : -min - 1
       end
 
@@ -91,7 +100,7 @@ module Ze0
           *(rest && rest != :implicit ? [[:rest, rest]] : []),
           *post.map(&positional),
           *keywords.map { |name, default| [default.nil? ? :keyreq : :key, name] },
-          *(kwrest ? [[:keyrest, kwrest]] : []),
+          *(kwrest == :nokey ? [[:nokey]] : kwrest ? [[:keyrest, kwrest]] : []),
           *(block ? [[:block, block]] : [])
         ]
       end
@@ -133,7 +142,9 @@ module Ze0
     end
     # `if`; `unless` arrives with its arms swapped. An arm may be nil.
     If = Struct.new(:cond, :yes, :no, :line)
-    While = Struct.new(:cond, :body, :line)
+    # `body_first` is a `begin ... end while cond`: the body runs once
+    # before the first test.
+    While = Struct.new(:cond, :body, :line, :body_first)
     Return = Struct.new(:value, :line)
     # `a && b`, `a || b`, `!a`: on truthiness, short circuit.
     And = Struct.new(:left, :right, :line)
@@ -157,6 +168,8 @@ module Ze0
     ConstOrWrite = Struct.new(:scope, :name, :value, :line)
     # `alias new old`.
     Alias = Struct.new(:new_name, :old_name, :line)
+    # `alias $new $old`: one global under two names.
+    GvarAlias = Struct.new(:new_name, :old_name, :line)
     # `undef name, ...`.
     Undef = Struct.new(:names, :line)
     # `defined?(...)`: `kind` names the form (:local, :ivar, :gvar,
@@ -192,5 +205,8 @@ module Ze0
     Rescue = Struct.new(:classes, :target, :body, :line)
     # `retry`: the begin body again, from a rescue clause.
     Retry = Struct.new(:line)
+    # `redo`: the loop body or block body again, without a new test or
+    # new arguments.
+    Redo = Struct.new(:line)
   end
 end

@@ -111,7 +111,7 @@ module Ze0
           [n.yes, n.no].each { |arm| arm ? node(arm, depth + 1, lines) : lines << "#{pad}  (none)" }
           lines[-1] += ")"
         when While
-          lines << "#{pad}(while"
+          lines << "#{pad}(#{n.body_first ? "do-while" : "while"}"
           node(n.cond, depth + 1, lines)
           n.body ? node(n.body, depth + 1, lines) : lines << "#{pad}  (none)"
           lines[-1] += ")"
@@ -135,6 +135,8 @@ module Ze0
           lines << "#{pad}(undef #{n.names.join(" ")})"
         when Retry
           lines << "#{pad}(retry)"
+        when Redo
+          lines << "#{pad}(redo)"
         when Return
           lines << "#{pad}(return"
           node(n.value, depth + 1, lines)
@@ -202,7 +204,7 @@ module Ze0
           node(n.scope, depth + 1, lines) if n.scope.is_a?(Struct)
           node(n.value, depth + 1, lines)
           lines[-1] += ")"
-        when Alias
+        when Alias, GvarAlias
           lines << "#{pad}(alias #{n.new_name} #{n.old_name})"
         when Defined
           lines << "#{pad}(defined? #{n.kind}#{n.target.is_a?(Symbol) ? " #{n.target}" : ""}"
