@@ -34,7 +34,7 @@ class M0Test < Minitest::Test
   def check(label, name, env, argv, want, rb)
     out, err, status = capture(env, argv)
     assert_equal want[2], status, "#{name} on the #{label} road (#{env}) exited #{status}: #{out}#{err}"
-    assert_equal want[0], out
+    assert_equal scrub(want[0], rb), scrub(out, rb)
     assert_equal scrub(want[1], rb), scrub(err, rb)
   end
 

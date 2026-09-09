@@ -64,8 +64,41 @@ module Ze0
           lines << "#{pad}(not"
           node(n.value, depth + 1, lines)
           lines[-1] += ")"
+        when ClassDef, ModuleDef
+          lines << "#{pad}(#{n.is_a?(ClassDef) ? "class" : "module"} #{scope(n.scope)}#{n.name}"
+          node(n.scope, depth + 1, lines) if n.scope.is_a?(Struct)
+          node(n.superclass, depth + 1, lines) if n.is_a?(ClassDef) && n.superclass
+          node(n.body, depth + 1, lines)
+          lines[-1] += ")"
+        when ConstRead
+          lines << "#{pad}(const #{scope(n.scope)}#{n.name}"
+          node(n.scope, depth + 1, lines) if n.scope.is_a?(Struct)
+          lines[-1] += ")"
+        when ConstWrite
+          lines << "#{pad}(const-set #{scope(n.scope)}#{n.name}"
+          node(n.scope, depth + 1, lines) if n.scope.is_a?(Struct)
+          node(n.value, depth + 1, lines)
+          lines[-1] += ")"
+        when ArrayLit
+          lines << "#{pad}(array"
+          n.elements.each { |e| node(e, depth + 1, lines) }
+          lines[-1] += ")"
+        when IvarRead
+          lines << "#{pad}(ivar #{n.name})"
+        when IvarWrite
+          lines << "#{pad}(ivar-set #{n.name}"
+          node(n.value, depth + 1, lines)
+          lines[-1] += ")"
         else
           raise ArgumentError, "no dump for #{n.class}"
+        end
+      end
+
+      def scope(s)
+        case s
+        when nil then ""
+        when :top then "::"
+        else "(scope)::"
         end
       end
 

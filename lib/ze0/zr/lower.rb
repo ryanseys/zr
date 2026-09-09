@@ -30,7 +30,7 @@ module Ze0
 
       # `[functions, data]`.
       def run
-        Fn.new(self, "zr_toplevel", @program.locals, @program.body, nil).lower
+        Fn.new(self, "zr_toplevel", @program.locals, @program.body, nil, :main).lower
         [@functions, @data]
       end
 
@@ -50,11 +50,13 @@ module Ze0
       end
 
       # The FrameMeta of function `fn`: writable, since the runtime fills
-      # in the owner and name at definition.
-      def meta(fn, kind, line)
+      # in the owner and name at definition. A class body's name is the
+      # class's, set here.
+      def meta(fn, kind, line, name = 0)
         layout = layout("FrameMeta")
         file = @file_bytes ||= literal(@program.file)
         bytes = ("\0" * layout.size).b
+        bytes[layout.fields.fetch("name").first, 8] = [name].pack("Q<")
         bytes[layout.fields.fetch("file_len").first, 8] = [@program.file.bytesize].pack("Q<")
         bytes[layout.fields.fetch("kind").first, 8] = [const(kind)].pack("Q<")
         bytes[layout.fields.fetch("line").first, 8] = [line].pack("Q<")
@@ -70,7 +72,14 @@ module Ze0
       # The function a def becomes, lowered now and named for the site.
       def define(node)
         name = "zr_def_#{@functions.size}_#{node.name.to_s.gsub(/[^A-Za-z0-9_]/, "")}"
-        Fn.new(self, name, node.locals, node.body, node).lower
+        Fn.new(self, name, node.locals, node.body, node, :def).lower
+        name
+      end
+
+      # The function a class or module body becomes.
+      def body(node)
+        name = "zr_body_#{@functions.size}_#{node.name}"
+        Fn.new(self, name, node.locals, node.body, node, node.is_a?(Hir::ClassDef) ? :class : :module).lower
         name
       end
 
@@ -80,22 +89,29 @@ module Ze0
         :< => "GATE_LT", :<= => "GATE_LE", :> => "GATE_GT", :>= => "GATE_GE", :== => "GATE_EQ", :!= => "GATE_NE"
       }.freeze
 
-      # One function: the toplevel, or a method.
+      # One function: the toplevel (`kind` :main, no parameters), a method
+      # (:def, the method ABI) or a class or module body (:class or
+      # :module, taking the class and the cref).
       class Fn
-        def initialize(lower, name, locals, body, node)
+        KINDS = { main: "KIND_MAIN", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE" }.freeze
+
+        def initialize(lower, name, locals, body, node, kind)
           @l = lower
           @name = name
           @locals = locals
           @body = body
           @def = node
+          @kind = kind
           @frame = lower.layout("Frame")
           @task = lower.layout("Task")
+          @cref_layout = lower.layout("RCref")
           @slot_of = locals.each_with_index.to_h
         end
 
         def lower
-          method = !@def.nil?
-          @f = IR::Function.new(@name, method ? %w[i64 i64 i64] : [], "i64")
+          method = @kind == :def
+          params_types = { main: [], def: %w[i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64] }.fetch(@kind)
+          @f = IR::Function.new(@name, params_types, "i64")
           @nvalues = @locals.size + values_needed(@body, 0)
           @sp = @locals.size
           @record = @f.slot(@frame.size + (8 * @nvalues))
@@ -104,12 +120,19 @@ module Ze0
           @prev = @f.fetch("i64", @task_addr, off(@task, "top"))
           @f.store(@prev, @rec, off(@frame, "prev"))
           zero = @f.iconst("i64", 0)
-          @meta = @l.meta(@name, method ? "KIND_DEF" : "KIND_MAIN", method ? @def.line : 1)
+          line = @def ? @def.line : 1
+          @meta = @l.meta(@name, KINDS.fetch(@kind), line, @def && !method ? @l.symbols.id(@def.name) : 0)
           @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
-          @f.store(@f.iconst("i64", method ? @def.line : 1), @rec, off(@frame, "line"))
+          @f.store(@f.iconst("i64", line), @rec, off(@frame, "line"))
           @f.store(zero, @rec, off(@frame, "serial"))
-          @self = method ? @f.args[0] : @f.fetch("i64", @f.symbol_value(@f.symbol("zr_static_globals")), 8 * @l.const("G_MAIN"))
+          @self = @kind == :main ? @f.fetch("i64", globals, 8 * @l.const("G_MAIN")) : @f.args[0]
           @f.store(@self, @rec, off(@frame, "self"))
+          @cref = case @kind
+                  when :main then @f.fetch("i64", globals, 8 * @l.const("G_TOP_CREF"))
+                  when :def then @f.args[3]
+                  else @f.args[1]
+                  end
+          @f.store(@cref, @rec, off(@frame, "cref"))
           @f.store(@f.iconst("i64", @nvalues), @rec, off(@frame, "nvalues"))
           @qnil = @f.iconst("i64", @l.const("QNIL"))
           params = method ? @def.params.size : 0
@@ -131,6 +154,15 @@ module Ze0
 
         def off(layout, field)
           layout.fields.fetch(field).first
+        end
+
+        def globals
+          @f.symbol_value(@f.symbol("zr_static_globals"))
+        end
+
+        # The class the cref names innermost: where a def or a constant lands.
+        def cref_class
+          @f.fetch("i64", @cref, off(@cref_layout, "klass"))
         end
 
         def value_offset(i)
@@ -169,7 +201,12 @@ module Ze0
           when Hir::Send
             top = base + 1 + node.args.size
             [top, node.recv ? values_needed(node.recv, base) : base, *node.args.map { |a| values_needed(a, top) }].max
-          when Hir::Assign, Hir::Return, Hir::Not then values_needed(node.value, base)
+          when Hir::Assign, Hir::Return, Hir::Not, Hir::IvarWrite, Hir::ConstWrite then values_needed(node.value, base)
+          when Hir::ClassDef then [node.scope.is_a?(Struct) ? values_needed(node.scope, base) : base, node.superclass ? values_needed(node.superclass, base) : base].max
+          when Hir::ModuleDef, Hir::ConstRead then node.scope.is_a?(Struct) ? values_needed(node.scope, base) : base
+          when Hir::ArrayLit
+            top = base + node.elements.size
+            [top, *node.elements.map { |e| values_needed(e, top) }].max
           when Hir::If then [values_needed(node.cond, base), *[node.yes, node.no].compact.map { |n| values_needed(n, base) }].max
           when Hir::While then [values_needed(node.cond, base), node.body ? values_needed(node.body, base) : base].max
           when Hir::And, Hir::Or then [values_needed(node.left, base), values_needed(node.right, base)].max
@@ -201,13 +238,32 @@ module Ze0
             v
           when Hir::Def
             fn = @l.define(node)
-            klass = @f.fetch("i64", @f.symbol_value(@f.symbol("zr_static_globals")), 8 * @l.const("G_OBJECT"))
-            addr = @f.func_addr(@f.callee(fn, %w[i64 i64 i64], "i64"))
-            define = @f.callee("zr_define_method", %w[i64 i64 i64 i64 i64 i64], nil)
+            addr = @f.func_addr(@f.callee(fn, %w[i64 i64 i64 i64], "i64"))
+            define = @f.callee("zr_define_method", %w[i64 i64 i64 i64 i64 i64 i64], nil)
             meta = @f.symbol_value(@f.symbol("zr_meta_#{fn}"))
-            @f.call(define, [klass, @f.iconst("i64", @l.symbols.id(node.name)), addr, @f.iconst("i64", node.params.size),
-                             @f.iconst("i64", @l.const("KIND_DEF")), meta])
+            @f.call(define, [cref_class, @f.iconst("i64", @l.symbols.id(node.name)), addr, @f.iconst("i64", node.params.size),
+                             @f.iconst("i64", @l.const("KIND_DEF")), meta, @cref])
             symbol(node.name)
+          when Hir::ClassDef, Hir::ModuleDef then class_body(node)
+          when Hir::ConstRead then const_read(node)
+          when Hir::ConstWrite
+            scope = scope_class(node.scope)
+            v = expr(node.value)
+            @f.call(@f.callee("zr_const_set", %w[i64 i64 i64], nil), [scope, @f.iconst("i64", @l.symbols.id(node.name)), v])
+            v
+          when Hir::ArrayLit
+            # Elements wait in record slots, then become one Array.
+            base = @sp
+            @sp += node.elements.size
+            node.elements.each_with_index { |e, i| @f.store(expr(e), @rec, value_offset(base + i)) }
+            argv = @f.iadd(@rec, @f.iconst("i64", value_offset(base)))
+            @sp = base
+            @f.call_val(@f.callee("zr_ary_of", %w[i64 i64], "i64"), [@f.iconst("i64", node.elements.size), argv])
+          when Hir::IvarRead
+            @f.call_val(@f.callee("zr_ivar_get", %w[i64 i64], "i64"), [@self, @f.iconst("i64", @l.symbols.id(node.name))])
+          when Hir::IvarWrite
+            v = expr(node.value)
+            @f.call_val(@f.callee("zr_ivar_set", %w[i64 i64 i64], "i64"), [@self, @f.iconst("i64", @l.symbols.id(node.name)), v])
           when Hir::If then branch(node)
           when Hir::While then loop_while(node)
           when Hir::Return
@@ -217,6 +273,43 @@ module Ze0
           when Hir::Not then negate(node)
           else @l.refuse(node, "#{node.class.name.split("::").last} is not lowered yet")
           end
+        end
+
+        # The class a constant path's scope names: the cref's class for a
+        # bare name, Object for `::`, else the expression's value.
+        def scope_class(scope)
+          case scope
+          when nil then cref_class
+          when :top then @f.fetch("i64", globals, 8 * @l.const("G_OBJECT"))
+          else expr(scope)
+          end
+        end
+
+        def const_read(node)
+          id = @f.iconst("i64", @l.symbols.id(node.name))
+          at_line(node.line)
+          if node.scope.nil?
+            checked(@f.call_val(@f.callee("zr_const_get", %w[i64 i64], "i64"), [@cref, id]))
+          else
+            checked(@f.call_val(@f.callee("zr_const_get_at", %w[i64 i64], "i64"), [scope_class(node.scope), id]))
+          end
+        end
+
+        # `class`/`module`: define or reopen under the scope, push a cref,
+        # run the body function with the class as self.
+        def class_body(node)
+          fn = @l.body(node)
+          scope = scope_class(node.scope)
+          id = @f.iconst("i64", @l.symbols.id(node.name))
+          at_line(node.line)
+          klass = if node.is_a?(Hir::ClassDef)
+                    sup = node.superclass ? expr(node.superclass) : @f.iconst("i64", @l.const("QUNDEF"))
+                    checked(@f.call_val(@f.callee("zr_class_define", %w[i64 i64 i64], "i64"), [scope, id, sup]))
+                  else
+                    checked(@f.call_val(@f.callee("zr_module_define", %w[i64 i64], "i64"), [scope, id]))
+                  end
+          cref = @f.call_val(@f.callee("zr_cref_push", %w[i64 i64], "i64"), [klass, @cref])
+          checked(@f.call_val(@f.callee(fn, %w[i64 i64], "i64"), [klass, cref]))
         end
 
         def slot(node)
@@ -254,7 +347,11 @@ module Ze0
         end
 
         def dispatch(node, recv, argv)
-          fn = @f.callee(node.vcall ? "zr_vcall" : "zr_send", %w[i64 i64 i64 i64], "i64")
+          entry = if node.vcall then "zr_vcall"
+                  elsif node.index then node.name == :[] ? "zr_opt_aref" : "zr_opt_aset"
+                  else "zr_send"
+                  end
+          fn = @f.callee(entry, %w[i64 i64 i64 i64], "i64")
           at_line(node.line)
           checked(@f.call_val(fn, [recv, @f.iconst("i64", @l.symbols.id(node.name)), @f.iconst("i64", node.args.size), argv]))
         end

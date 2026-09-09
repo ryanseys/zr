@@ -33,7 +33,8 @@ module Ze0
         relocs << Obj::Reloc.new(i * 16, :abs64, "zr_symname_#{i}")
         table << [0, name.bytesize].pack("Q<Q<")
       end
-      bytes + [Obj::Data.new("zr_symbol_names", :data_const, table, relocs: relocs, align: 8, linkage: :export)]
+      bytes + [Obj::Data.new("zr_symbol_names", :data_const, table, relocs: relocs, align: 8, linkage: :export),
+               Obj::Data.new("zr_symbol_count", :data_const, [names.size].pack("Q<"), align: 8, linkage: :export)]
     end
   end
 end

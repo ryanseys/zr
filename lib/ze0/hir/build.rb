@@ -69,7 +69,46 @@ module Ze0
           Return.new(args.empty? ? Literal.new(nil, line) : expr(args.first), line)
         when Prism::AndNode then And.new(expr(node.left), expr(node.right), line)
         when Prism::OrNode then Or.new(expr(node.left), expr(node.right), line)
+        when Prism::ClassNode
+          refuse(node, "a class body with locals is not lowered yet") unless node.locals.empty?
+          scope, name = constant_path(node.constant_path)
+          ClassDef.new(scope, name, node.superclass && expr(node.superclass), node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line)
+        when Prism::ModuleNode
+          scope, name = constant_path(node.constant_path)
+          ModuleDef.new(scope, name, node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line)
+        when Prism::ConstantReadNode then ConstRead.new(nil, node.name, line)
+        when Prism::ConstantPathNode
+          scope, name = constant_path(node)
+          ConstRead.new(scope, name, line)
+        when Prism::ConstantWriteNode then ConstWrite.new(nil, node.name, expr(node.value), line)
+        when Prism::ConstantPathWriteNode
+          scope, name = constant_path(node.target)
+          ConstWrite.new(scope, name, expr(node.value), line)
+        when Prism::ArrayNode
+          refuse(node, "a splat in an array literal is not lowered yet") if node.elements.any?(Prism::SplatNode)
+          ArrayLit.new(node.elements.map { |e| expr(e) }, line)
+        when Prism::IndexOperatorWriteNode, Prism::IndexOrWriteNode, Prism::IndexAndWriteNode
+          refuse(node, "an operator assignment through [] is not lowered yet")
+        when Prism::InstanceVariableReadNode then IvarRead.new(node.name, line)
+        when Prism::InstanceVariableWriteNode then IvarWrite.new(node.name, expr(node.value), line)
+        when Prism::InstanceVariableOperatorWriteNode
+          IvarWrite.new(node.name, Send.new(IvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
+        when Prism::InstanceVariableOrWriteNode
+          IvarWrite.new(node.name, Or.new(IvarRead.new(node.name, line), expr(node.value), line), line)
+        when Prism::InstanceVariableAndWriteNode
+          IvarWrite.new(node.name, And.new(IvarRead.new(node.name, line), expr(node.value), line), line)
         else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
+        end
+      end
+
+      # `[scope, name]` of a constant path: nil for a bare name, :top for
+      # `::Name`, else the expression before the last `::`.
+      def constant_path(node)
+        case node
+        when Prism::ConstantReadNode then [nil, node.name]
+        when Prism::ConstantPathNode
+          [node.parent ? expr(node.parent) : :top, node.name]
+        else refuse(node, "a dynamic constant path is not lowered yet")
         end
       end
 
@@ -97,7 +136,8 @@ module Ze0
           else expr(a)
           end
         end
-        Send.new(node.receiver && expr(node.receiver), node.name, args, node.location.start_line, node.variable_call?)
+        Send.new(node.receiver && expr(node.receiver), node.name, args, node.location.start_line, node.variable_call?,
+                 %i[[] []=].include?(node.name) && node.opening == "[")
       end
 
       def refuse(node, message)

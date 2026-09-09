@@ -1,0 +1,442 @@
+# Objects: a class and an ivar table (id, value rows) outside the arena.
+# Reflection, identity, inspect and p live here too.
+Machine.struct :RObject, basic: RBasic, ivars: Ptr, nivars: Word, icap: Word
+Machine.struct :IvEntry, id: Word, value: Value
+
+sig [Value] => Void
+machine def zr_mark_ivars(v)
+  n = RObject.nivars(v)
+  i = 0
+  while i < n
+    zr_mark(IvEntry.value(RObject.ivars(v) + (i * IvEntry.size)))
+    i += 1
+  end
+end
+
+sig [Value] => Value
+machine def zr_obj_alloc(klass)
+  o = zr_alloc(T_OBJECT, klass)
+  RObject.set_ivars(o, 0)
+  RObject.set_nivars(o, 0)
+  RObject.set_icap(o, 0)
+  o
+end
+
+# The ivar row for `id` on `obj`, or 0.
+sig [Value, Word] => Ptr
+machine def zr_ivar_row(obj, id)
+  n = RObject.nivars(obj)
+  i = 0
+  while i < n
+    e = RObject.ivars(obj) + (i * IvEntry.size)
+    if IvEntry.id(e) == id
+      return e
+    end
+    i += 1
+  end
+  0
+end
+
+# Only plain objects carry ivars so far; every other receiver reads nil.
+sig [Value, Word] => Value
+machine def zr_ivar_get(obj, id)
+  if zr_special_p(obj) || zr_type(obj) != T_OBJECT
+    return Machine.value(QNIL)
+  end
+  e = zr_ivar_row(obj, id)
+  if e == 0
+    Machine.value(QNIL)
+  else
+    IvEntry.value(e)
+  end
+end
+
+sig [Value, Word, Value] => Value
+machine def zr_ivar_set(obj, id, v)
+  if zr_special_p(obj) || zr_type(obj) != T_OBJECT
+    zr_bug(Machine.bytes("an ivar on something that is not a plain object is not implemented yet\n"), 71)
+  end
+  e = zr_ivar_row(obj, id)
+  if e == 0
+    n = RObject.nivars(obj)
+    if n == RObject.icap(obj)
+      cap = n * 2
+      if cap < 4
+        cap = 4
+      end
+      tab = malloc(cap * IvEntry.size)
+      if RObject.ivars(obj) != 0
+        zr_memcpy(tab, RObject.ivars(obj), n * IvEntry.size)
+        free(RObject.ivars(obj))
+      end
+      RObject.set_ivars(obj, tab)
+      RObject.set_icap(obj, cap)
+    end
+    e = RObject.ivars(obj) + (n * IvEntry.size)
+    IvEntry.set_id(e, id)
+    RObject.set_nivars(obj, n + 1)
+  end
+  IvEntry.set_value(e, v)
+  v
+end
+
+# `Class#new`: allocate, then `initialize` with the arguments.
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_class_new_instance(recv, argc, argv, cref)
+  if zr_class_inherits(recv, zr_global(G_EXCEPTION))
+    o = zr_exc_new(recv, Machine.value(QNIL))
+  else
+    o = zr_obj_alloc(recv)
+  end
+  r = zr_send(o, Machine.id(:initialize), argc, argv)
+  return r if r == QUNDEF
+  o
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_obj_initialize(recv, argc, argv, cref)
+  Machine.value(QNIL)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_obj_class(recv, argc, argv, cref)
+  zr_class_of(recv)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_obj_is_a(recv, argc, argv, cref)
+  k = Machine.value(Machine.load64(argv, 0))
+  if zr_special_p(k) || (zr_type(k) != T_CLASS && zr_type(k) != T_MODULE)
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("class or module required"), 24)
+  end
+  zr_bool(zr_is_a(recv, k))
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_obj_instance_of(recv, argc, argv, cref)
+  zr_bool(zr_class_of(recv) == Machine.value(Machine.load64(argv, 0)))
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_obj_nil_p(recv, argc, argv, cref)
+  zr_bool(recv == QNIL)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_obj_eq(recv, argc, argv, cref)
+  zr_bool(recv == Machine.value(Machine.load64(argv, 0)))
+end
+
+# `!=` asks `==`, so a class that defines `==` gets `!=` for free.
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_obj_ne(recv, argc, argv, cref)
+  r = zr_send(recv, Machine.id(:==), 1, argv)
+  return r if r == QUNDEF
+  zr_bool(r == QNIL || r == QFALSE)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_obj_respond_to(recv, argc, argv, cref)
+  m = Machine.value(Machine.load64(argv, 0))
+  unless zr_symbol_p(m)
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("is not a symbol nor a string"), 28)
+  end
+  zr_bool(zr_find_method(zr_class_of(recv), zr_sym2id(m)) != 0)
+end
+
+# `#<Name:0x...` with sixteen hex digits, into `b`.
+sig [Ptr, Value] => Void
+machine def zr_buf_obj_head(b, obj)
+  zr_buf_push(b, Machine.bytes("#<"), 2)
+  zr_buf_str(b, RClass.name(zr_class_of(obj)))
+  zr_buf_push(b, Machine.bytes(":0x"), 3)
+  w = Machine.word(obj)
+  i = 0
+  while i < 16
+    d = (w >> (60 - (i * 4))) & 15
+    if d < 10
+      zr_buf_byte(b, 48 + d)
+    else
+      zr_buf_byte(b, 87 + d)
+    end
+    i += 1
+  end
+end
+
+# `#<Name:0x... @a=1, @b=2>`; the ivar values' `inspect` may run Ruby,
+# so the table is re-read after each.
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_obj_inspect(recv, argc, argv, cref)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_obj_head(b, recv)
+  i = 0
+  while i < RObject.nivars(recv)
+    e = RObject.ivars(recv) + (i * IvEntry.size)
+    zr_buf_push(b, i == 0 ? Machine.bytes(" ") : Machine.bytes(", "), i == 0 ? 1 : 2)
+    zr_buf_sym(b, IvEntry.id(e))
+    zr_buf_byte(b, 61)
+    s = zr_send(IvEntry.value(e), Machine.id(:inspect), 0, 0)
+    if s == QUNDEF
+      free(Buf.ptr(b))
+      return s
+    end
+    zr_buf_str(b, s)
+    i += 1
+  end
+  zr_buf_byte(b, 62)
+  zr_buf_take(b)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_nil_inspect(recv, argc, argv, cref)
+  zr_str_new(Machine.bytes("nil"), 3)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_int_inspect(recv, argc, argv, cref)
+  zr_int_to_s(recv, argc, argv, cref)
+end
+
+sig [Word] => Bool
+machine def zr_ident_byte_p(c)
+  (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || (c >= 48 && c <= 57) || c == 95 || c >= 128
+end
+
+# `:name`, quoted when the name is not a plain identifier or operator.
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_sym_inspect(recv, argc, argv, cref)
+  id = zr_sym2id(recv)
+  p = zr_symbol_name_ptr(id)
+  n = zr_symbol_name_len(id)
+  plain = n > 0
+  i = 0
+  while i < n
+    c = Machine.word(Machine.load8(p + i, 0))
+    unless zr_ident_byte_p(c) || (i == n - 1 && (c == 63 || c == 33 || c == 61)) || (i == 0 && c == 64)
+      plain = false
+    end
+    i += 1
+  end
+  if Machine.word(Machine.load8(p, 0)) >= 48 && Machine.word(Machine.load8(p, 0)) <= 57
+    plain = false
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_byte(b, 58)
+  if plain || zr_operator_name_p(p, n)
+    zr_buf_push(b, p, n)
+  else
+    zr_buf_str_escaped(b, p, n)
+  end
+  zr_buf_take(b)
+end
+
+sig [Ptr, Word] => Bool
+machine def zr_operator_name_p(p, n)
+  if n == 1
+    c = Machine.word(Machine.load8(p, 0))
+    c == 43 || c == 45 || c == 42 || c == 47 || c == 37 || c == 60 || c == 62 || c == 33 || c == 38 || c == 124 || c == 94 || c == 126
+  elsif n == 2
+    c = Machine.word(Machine.load8(p, 0))
+    d = Machine.word(Machine.load8(p, 1))
+    (c == 60 && (d == 60 || d == 61)) || (c == 62 && (d == 62 || d == 61)) || (c == 61 && (d == 61 || d == 126)) || (c == 33 && (d == 61 || d == 126)) || (c == 42 && d == 42) || (c == 91 && d == 93)
+  elsif n == 3
+    c = Machine.word(Machine.load8(p, 0))
+    d = Machine.word(Machine.load8(p, 1))
+    e = Machine.word(Machine.load8(p, 2))
+    (c == 60 && d == 61 && e == 62) || (c == 61 && d == 61 && e == 61) || (c == 91 && d == 93 && e == 61)
+  else
+    false
+  end
+end
+
+# A double-quoted, escaped rendering of `n` bytes, as String#inspect.
+sig [Ptr, Ptr, Word] => Void
+machine def zr_buf_str_escaped(b, p, n)
+  zr_buf_byte(b, 34)
+  i = 0
+  while i < n
+    c = Machine.word(Machine.load8(p + i, 0))
+    if c == 34 || c == 92
+      zr_buf_byte(b, 92)
+      zr_buf_byte(b, c)
+    elsif c == 10
+      zr_buf_push(b, Machine.bytes("\\n"), 2)
+    elsif c == 9
+      zr_buf_push(b, Machine.bytes("\\t"), 2)
+    elsif c == 13
+      zr_buf_push(b, Machine.bytes("\\r"), 2)
+    elsif c == 27
+      zr_buf_push(b, Machine.bytes("\\e"), 2)
+    elsif c == 7
+      zr_buf_push(b, Machine.bytes("\\a"), 2)
+    elsif c == 8
+      zr_buf_push(b, Machine.bytes("\\b"), 2)
+    elsif c == 12
+      zr_buf_push(b, Machine.bytes("\\f"), 2)
+    elsif c == 11
+      zr_buf_push(b, Machine.bytes("\\v"), 2)
+    elsif c == 35 && i + 1 < n && (Machine.word(Machine.load8(p + i, 1)) == 123 || Machine.word(Machine.load8(p + i, 1)) == 36 || Machine.word(Machine.load8(p + i, 1)) == 64)
+      zr_buf_push(b, Machine.bytes("\\#"), 2)
+    elsif c < 32 || c == 127
+      zr_buf_push(b, Machine.bytes("\\x"), 2)
+      zr_buf_byte(b, zr_hex_digit(c >> 4))
+      zr_buf_byte(b, zr_hex_digit(c & 15))
+    else
+      zr_buf_byte(b, c)
+    end
+    i += 1
+  end
+  zr_buf_byte(b, 34)
+end
+
+sig [Word] => Word
+machine def zr_hex_digit(d)
+  if d < 10
+    48 + d
+  else
+    55 + d
+  end
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_str_inspect(recv, argc, argv, cref)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_str_escaped(b, RString.ptr(recv), RString.len(recv))
+  zr_buf_take(b)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_true_inspect(recv, argc, argv, cref)
+  zr_str_new(Machine.bytes("true"), 4)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_false_inspect(recv, argc, argv, cref)
+  zr_str_new(Machine.bytes("false"), 5)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_class_name(recv, argc, argv, cref)
+  RClass.name(recv)
+end
+
+# An anonymous class prints as `#<Class:0x...>`.
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_class_to_s(recv, argc, argv, cref)
+  if RClass.name(recv) == QNIL
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_obj_head(b, recv)
+    zr_buf_byte(b, 62)
+    return zr_buf_take(b)
+  end
+  RClass.name(recv)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_class_superclass(recv, argc, argv, cref)
+  RClass.superclass(recv)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_exc_message(recv, argc, argv, cref)
+  m = RException.message(recv)
+  if m == QNIL
+    return RClass.name(zr_class_of(recv))
+  end
+  m
+end
+
+# `#<Klass: message>`, or the class name alone when the message is it.
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_exc_inspect(recv, argc, argv, cref)
+  m = RException.message(recv)
+  if m == QNIL || RString.len(m) == 0
+    return RClass.name(zr_class_of(recv))
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("#<"), 2)
+  zr_buf_str(b, RClass.name(zr_class_of(recv)))
+  zr_buf_push(b, Machine.bytes(": "), 2)
+  zr_buf_str(b, m)
+  zr_buf_byte(b, 62)
+  zr_buf_take(b)
+end
+
+# `Exception#initialize(message = nil)`.
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_exc_initialize(recv, argc, argv, cref)
+  if argc > 0
+    RException.set_message(recv, Machine.value(Machine.load64(argv, 0)))
+  end
+  Machine.value(QNIL)
+end
+
+# `p`: each argument's inspect on its own line; answers the argument,
+# or an Array of several.
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_p(recv, argc, argv, cref)
+  i = 0
+  while i < argc
+    s = zr_send(Machine.value(Machine.load64(argv + (i * 8), 0)), Machine.id(:inspect), 0, 0)
+    return s if s == QUNDEF
+    zr_write_out(RString.ptr(s), RString.len(s))
+    zr_write_out(Machine.bytes("\n"), 1)
+    i += 1
+  end
+  if argc == 0
+    return Machine.value(QNIL)
+  end
+  if argc > 1
+    return zr_ary_of(argc, argv)
+  end
+  Machine.value(Machine.load64(argv, 0))
+end
+
+# `attr_reader`, `attr_writer`, `attr_accessor`: one entry per name.
+sig [Value, Word, Ptr, Word] => Value
+machine def zr_attr(klass, argc, argv, which)
+  i = 0
+  while i < argc
+    name = Machine.value(Machine.load64(argv + (i * 8), 0))
+    unless zr_symbol_p(name)
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("is not a symbol nor a string"), 28)
+    end
+    id = zr_sym2id(name)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_byte(b, 64)
+    zr_buf_sym(b, id)
+    ivar = zr_intern(Buf.ptr(b), Buf.len(b))
+    if which != 2
+      zr_define_method(klass, id, Machine.ptr(ivar), 0, KIND_ATTR_READER, 0, Machine.value(QNIL))
+    end
+    if which != 1
+      zr_buf_byte(b, 61)
+      setter = zr_intern(Buf.ptr(b) + 1, Buf.len(b) - 1)
+      zr_define_method(klass, setter, Machine.ptr(ivar), 1, KIND_ATTR_WRITER, 0, Machine.value(QNIL))
+    end
+    free(Buf.ptr(b))
+    i += 1
+  end
+  Machine.value(QNIL)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_mod_attr_reader(recv, argc, argv, cref)
+  zr_attr(recv, argc, argv, 1)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_mod_attr_writer(recv, argc, argv, cref)
+  zr_attr(recv, argc, argv, 2)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_mod_attr_accessor(recv, argc, argv, cref)
+  zr_attr(recv, argc, argv, 3)
+end

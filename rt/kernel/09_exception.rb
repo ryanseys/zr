@@ -11,6 +11,8 @@ Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, 
 KIND_MAIN = 0
 KIND_DEF = 1
 KIND_BUILTIN = 2
+KIND_CLASS = 3
+KIND_MODULE = 4
 
 Machine.struct :BtRow, meta: Ptr, file: Ptr, file_len: Word, line: Word
 Machine.struct :RException, basic: RBasic, message: Value, rows: Ptr, nrows: Word
@@ -100,8 +102,12 @@ sig [Ptr, Ptr] => Void
 machine def zr_buf_label(b, meta)
   if FrameMeta.kind(meta) == KIND_MAIN
     zr_buf_push(b, Machine.bytes("<main>"), 6)
+  elsif FrameMeta.kind(meta) == KIND_CLASS || FrameMeta.kind(meta) == KIND_MODULE
+    zr_buf_push(b, FrameMeta.kind(meta) == KIND_CLASS ? Machine.bytes("<class:") : Machine.bytes("<module:"), FrameMeta.kind(meta) == KIND_CLASS ? 7 : 8)
+    zr_buf_sym(b, FrameMeta.name(meta))
+    zr_buf_byte(b, 62)
   else
-    zr_buf_sym(b, RClass.name(FrameMeta.owner(meta)))
+    zr_buf_str(b, RClass.name(FrameMeta.owner(meta)))
     zr_buf_byte(b, 35)
     zr_buf_sym(b, FrameMeta.name(meta))
   end
@@ -133,7 +139,7 @@ machine def zr_report(exc)
       zr_buf_push(b, Machine.bytes(": "), 2)
       zr_buf_str(b, RException.message(exc))
       zr_buf_push(b, Machine.bytes(" ("), 2)
-      zr_buf_sym(b, RClass.name(zr_class_of(exc)))
+      zr_buf_str(b, RClass.name(zr_class_of(exc)))
       zr_buf_push(b, Machine.bytes(")\n"), 2)
     else
       zr_buf_push(b, Machine.bytes("\tfrom "), 6)

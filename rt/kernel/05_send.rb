@@ -1,12 +1,6 @@
 # Dispatch: the receiver's class chain, then the call through the
 # entry's code pointer. A miss is a NoMethodError.
 
-sig [Value] => Void
-machine def zr_write_class_name(klass)
-  id = RClass.name(klass)
-  zr_write_err(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
-end
-
 # CRuby's message. A bare identifier (`vcall`) is a NameError, and
 # names main as `main`.
 sig [Value, Word, Bool] => Value
@@ -34,7 +28,7 @@ machine def zr_no_method(recv, mid, vcall)
     zr_buf_push(b, Machine.bytes("false"), 5)
   else
     zr_buf_push(b, Machine.bytes("an instance of "), 15)
-    zr_buf_sym(b, RClass.name(zr_class_of(recv)))
+    zr_buf_str(b, RClass.name(zr_class_of(recv)))
   end
   zr_raise_buf(zr_global(vcall ? G_NAME_ERROR : G_NO_METHOD_ERROR), b)
 end
@@ -65,7 +59,19 @@ machine def zr_dispatch(recv, mid, argc, argv, vcall)
     if arity >= 0 && argc != arity
       return zr_wrong_arity_in(argc, arity, e, recv)
     end
-    return Machine.call(:method, MEntry.fn(e), recv, argc, argv)
+    return Machine.call(:method, MEntry.fn(e), recv, argc, argv, MEntry.cref(e))
+  end
+  if MEntry.kind(e) == KIND_ATTR_READER
+    if argc != 0
+      return zr_wrong_arity_in(argc, 0, e, recv)
+    end
+    return zr_ivar_get(recv, Machine.word(MEntry.fn(e)))
+  end
+  if MEntry.kind(e) == KIND_ATTR_WRITER
+    if argc != 1
+      return zr_wrong_arity_in(argc, 1, e, recv)
+    end
+    return zr_ivar_set(recv, Machine.word(MEntry.fn(e)), Machine.value(Machine.load64(argv, 0)))
   end
   rec = Machine.slot(Frame.size)
   t = zr_task()
@@ -74,13 +80,14 @@ machine def zr_dispatch(recv, mid, argc, argv, vcall)
   Frame.set_line(rec, 0)
   Frame.set_serial(rec, 0)
   Frame.set_self(rec, recv)
+  Frame.set_cref(rec, Machine.value(QNIL))
   Frame.set_nvalues(rec, 0)
   Task.set_top(t, rec)
   arity = MEntry.arity(e)
   if arity >= 0 && argc != arity
     r = zr_wrong_arity(argc, arity)
   else
-    r = Machine.call(:method, MEntry.fn(e), recv, argc, argv)
+    r = Machine.call(:method, MEntry.fn(e), recv, argc, argv, Machine.value(QNIL))
   end
   Task.set_top(t, Frame.prev(rec))
   r
@@ -97,6 +104,7 @@ machine def zr_wrong_arity_in(given, expected, e, recv)
   Frame.set_line(rec, FrameMeta.line(MEntry.meta(e)))
   Frame.set_serial(rec, 0)
   Frame.set_self(rec, recv)
+  Frame.set_cref(rec, Machine.value(QNIL))
   Frame.set_nvalues(rec, 0)
   Task.set_top(t, rec)
   r = zr_wrong_arity(given, expected)

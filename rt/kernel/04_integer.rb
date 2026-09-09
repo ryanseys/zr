@@ -13,6 +13,8 @@ GATE_GE = 256
 GATE_EQ = 512
 GATE_NE = 1024
 GATE_NOT = 2048
+GATE_AREF = 4096
+GATE_ASET = 8192
 
 sig [] => Ptr
 machine def zr_gates
@@ -46,8 +48,8 @@ machine def zr_long_digits(n, buf)
   24 - at
 end
 
-sig [Value, Word, Ptr] => Value
-machine def zr_int_to_s(recv, argc, argv)
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_int_to_s(recv, argc, argv, cref)
   buf = Machine.slot(24)
   n = zr_long_digits(zr_fix2long(recv), buf)
   zr_str_new(buf, n)
@@ -61,7 +63,13 @@ machine def zr_int_operand(argv, out)
   unless zr_fixnum_p(other)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    zr_buf_sym(b, RClass.name(zr_class_of(other)))
+    if zr_special_p(other)
+      s = zr_send(other, Machine.id(:inspect), 0, 0)
+      return s if s == QUNDEF
+      zr_buf_str(b, s)
+    else
+      zr_buf_str(b, RClass.name(zr_class_of(other)))
+    end
     zr_buf_push(b, Machine.bytes(" can't be coerced into Integer"), 30)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
@@ -79,8 +87,8 @@ machine def zr_int_result(n)
   zr_fix(n)
 end
 
-sig [Value, Word, Ptr] => Value
-machine def zr_int_plus(recv, argc, argv)
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_int_plus(recv, argc, argv, cref)
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -88,8 +96,8 @@ machine def zr_int_plus(recv, argc, argv)
   zr_int_result(zr_fix2long(recv) + b)
 end
 
-sig [Value, Word, Ptr] => Value
-machine def zr_int_minus(recv, argc, argv)
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_int_minus(recv, argc, argv, cref)
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -97,8 +105,8 @@ machine def zr_int_minus(recv, argc, argv)
   zr_int_result(zr_fix2long(recv) - b)
 end
 
-sig [Value, Word, Ptr] => Value
-machine def zr_int_mul(recv, argc, argv)
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_int_mul(recv, argc, argv, cref)
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -127,8 +135,8 @@ machine def zr_floor_mod(a, b)
   a - (zr_floor_div(a, b) * b)
 end
 
-sig [Value, Word, Ptr] => Value
-machine def zr_int_div(recv, argc, argv)
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_int_div(recv, argc, argv, cref)
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -137,8 +145,8 @@ machine def zr_int_div(recv, argc, argv)
   zr_int_result(zr_floor_div(zr_fix2long(recv), b))
 end
 
-sig [Value, Word, Ptr] => Value
-machine def zr_int_mod(recv, argc, argv)
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_int_mod(recv, argc, argv, cref)
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -156,8 +164,8 @@ machine def zr_bool(b)
   end
 end
 
-sig [Value, Word, Ptr] => Value
-machine def zr_int_lt(recv, argc, argv)
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_int_lt(recv, argc, argv, cref)
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -165,8 +173,8 @@ machine def zr_int_lt(recv, argc, argv)
   zr_bool(zr_fix2long(recv) < b)
 end
 
-sig [Value, Word, Ptr] => Value
-machine def zr_int_le(recv, argc, argv)
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_int_le(recv, argc, argv, cref)
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -174,8 +182,8 @@ machine def zr_int_le(recv, argc, argv)
   zr_bool(zr_fix2long(recv) <= b)
 end
 
-sig [Value, Word, Ptr] => Value
-machine def zr_int_gt(recv, argc, argv)
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_int_gt(recv, argc, argv, cref)
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -183,8 +191,8 @@ machine def zr_int_gt(recv, argc, argv)
   zr_bool(zr_fix2long(recv) > b)
 end
 
-sig [Value, Word, Ptr] => Value
-machine def zr_int_ge(recv, argc, argv)
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_int_ge(recv, argc, argv, cref)
   out = Machine.slot(8)
   r = zr_int_operand(argv, out)
   return r if r == QUNDEF
@@ -193,12 +201,12 @@ machine def zr_int_ge(recv, argc, argv)
 end
 
 # Equality takes any operand: a non-Integer is simply not equal.
-sig [Value, Word, Ptr] => Value
-machine def zr_int_eq(recv, argc, argv)
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_int_eq(recv, argc, argv, cref)
   zr_bool(recv == Machine.value(Machine.load64(argv, 0)))
 end
 
-sig [Value, Word, Ptr] => Value
-machine def zr_int_ne(recv, argc, argv)
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_int_ne(recv, argc, argv, cref)
   zr_bool(recv != Machine.value(Machine.load64(argv, 0)))
 end

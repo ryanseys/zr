@@ -10,8 +10,9 @@ module Ze0
     # A statement list; its value is the last statement's.
     Seq = Struct.new(:stmts, :line)
     # A method call. `recv` is nil for an implicit self; `vcall` marks a
-    # bare identifier, which is a NameError when nothing answers.
-    Send = Struct.new(:recv, :name, :args, :line, :vcall)
+    # bare identifier, which is a NameError when nothing answers; `index`
+    # marks `recv[args]` and `recv[args] = value` syntax.
+    Send = Struct.new(:recv, :name, :args, :line, :vcall, :index)
     # An Integer, String, Symbol, nil, true or false.
     Literal = Struct.new(:value, :line)
     SelfRef = Struct.new(:line)
@@ -27,5 +28,14 @@ module Ze0
     And = Struct.new(:left, :right, :line)
     Or = Struct.new(:left, :right, :line)
     Not = Struct.new(:value, :line)
+    # `class Name < superclass; body; end`. `scope` is nil for a bare
+    # name, `:top` for `::Name`, else the expression before `::`.
+    ClassDef = Struct.new(:scope, :name, :superclass, :locals, :body, :line)
+    ModuleDef = Struct.new(:scope, :name, :locals, :body, :line)
+    ConstRead = Struct.new(:scope, :name, :line)
+    ConstWrite = Struct.new(:scope, :name, :value, :line)
+    IvarRead = Struct.new(:name, :line)
+    IvarWrite = Struct.new(:name, :value, :line)
+    ArrayLit = Struct.new(:elements, :line)
   end
 end
