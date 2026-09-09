@@ -344,7 +344,9 @@ machine def zr_obj_hash(recv, argc, argv, cref, blk)
   zr_fix((Machine.word(recv) >> 3) & 4611686018427387903)
 end
 
-# `String#hash`: FNV-1a over the bytes, kept in the fixnum range.
+# `String#hash`: FNV-1a over the bytes, and over the encoding too when
+# the bytes are not all ASCII, so that two strings which do not
+# compare do not share a code.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_hash(recv, argc, argv, cref, blk)
   h = 1469598103934665603
@@ -352,6 +354,9 @@ machine def zr_str_hash(recv, argc, argv, cref, blk)
   while i < RString.len(recv)
     h = (h ^ Machine.word(Machine.load8(RString.ptr(recv) + i, 0))) * 1099511628211
     i += 1
+  end
+  if !zr_str_ascii_only(recv)
+    h = (h ^ zr_str_encoding_index(recv)) * 1099511628211
   end
   zr_fix(h & 4611686018427387903)
 end

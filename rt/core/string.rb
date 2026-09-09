@@ -510,8 +510,10 @@ class String
     parts.each do |part|
       if part.is_a?(Integer)
         Primitive.zr_str_push_byte(self, part & 0xFF)
+      elsif part.is_a?(String)
+        part.each_byte { |b| Primitive.zr_str_push_byte(self, b) }
       else
-        Primitive.zr_str_operand(part).each_byte { |b| Primitive.zr_str_push_byte(self, b) }
+        raise TypeError, "wrong argument type #{part.class} (expected String or Integer)"
       end
     end
     self
@@ -522,7 +524,7 @@ class String
     raise ArgumentError, "salt too short (need >=2 bytes)" if salt.bytesize < 2
     raise ArgumentError, "string contains null byte" if include?("\0") || salt.include?("\0")
 
-    Primitive.zr_str_crypt(self, salt)
+    Primitive.zr_str_set_binary(Primitive.zr_str_crypt(self, salt))
   end
 
   def each_codepoint(&block)
@@ -866,6 +868,7 @@ class String
   def encoding = Encoding.walked(Primitive.zr_str_encoding_kind(self))
 
   def force_encoding(encoding)
+    Primitive.zr_frozen_error(self) if frozen?
     encoding = Encoding.find(encoding) unless encoding.is_a?(Encoding)
     kind = Encoding.walked_index(encoding)
     Primitive.zr_unimplemented("a String in the #{encoding} encoding") if kind.nil?
@@ -881,12 +884,24 @@ class String
     Primitive.zr_unimplemented("String#encode to the #{target} encoding") if Encoding.walked_index(target).nil?
 
     copy = dup
-    return copy if target == encoding || ascii_only?
-    return copy.force_encoding(target) if target == Encoding::BINARY
+    return copy.force_encoding(target) if target == encoding || ascii_only? || target == Encoding::BINARY
 
     bad = each_byte.find { |b| b >= 128 }
     raise Encoding::UndefinedConversionError, "\"\\x#{format('%02X', bad)}\" from #{encoding} to #{target}" if encoding == Encoding::BINARY
     raise Encoding::UndefinedConversionError, "U+#{format('%04X', each_char.find { |c| c.ord >= 128 }.ord)} from UTF-8 to US-ASCII"
+  end
+
+  # `String.new(source, encoding:, capacity:)`. The room asked for is
+  # not held: the buffer grows as the bytes arrive.
+  def initialize(source = nil, encoding: nil, capacity: nil)
+    Primitive.zr_str_initialize_m(self, source)
+    Primitive.zr_str_set_binary(self) if source.nil? && encoding.nil?
+    force_encoding(encoding) if encoding
+    self
+  end
+
+  def encode!(*args, **options)
+    replace(encode(*args, **options))
   end
 
   def ascii_only?
@@ -1406,10 +1421,10 @@ class Symbol
   def match?(*args) = to_s.match?(*args)
 
   # The case mappings are String's own, past any a program adds to it.
-  def upcase = Primitive.zr_str_map_case_m(to_s, 1).to_sym
-  def downcase = Primitive.zr_str_map_case_m(to_s, 2).to_sym
-  def capitalize = Primitive.zr_str_map_case_m(to_s, 3).to_sym
-  def swapcase = String.instance_method(:swapcase).bind_call(to_s).to_sym
+  def upcase(*options) = String.instance_method(:upcase).bind_call(to_s, *options).to_sym
+  def downcase(*options) = String.instance_method(:downcase).bind_call(to_s, *options).to_sym
+  def capitalize(*options) = String.instance_method(:capitalize).bind_call(to_s, *options).to_sym
+  def swapcase(*options) = String.instance_method(:swapcase).bind_call(to_s, *options).to_sym
   def succ = to_s.succ.to_sym
   alias next succ
 
@@ -1523,11 +1538,13 @@ class Encoding
   def self.find(name)
     return name if name.is_a?(Encoding)
 
-    name = name.to_str
-    found = LIST.find { |encoding| encoding.names.any? { |n| n.casecmp?(name) } }
+    text = String.try_convert(name)
+    raise TypeError, "no implicit conversion of #{name.class} into String" if text.nil?
+
+    found = LIST.find { |encoding| encoding.names.any? { |n| n.casecmp?(text) } }
     return found.send(:load) if found
 
-    raise ArgumentError, "unknown encoding name - #{name}"
+    raise ArgumentError, "unknown encoding name - #{text}"
   end
 
   def self.default_external = UTF_8

@@ -167,7 +167,12 @@ class Integer
       kind = Encoding.walked_index(encoding)
       Primitive.zr_unimplemented("Integer#chr in the #{encoding} encoding") if kind.nil?
       raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0
-      return Primitive.zr_str_set_encoding(+"" << self, 0) if kind == 0
+      raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if kind == 0 && self > 0x10FFFF
+      if kind == 0
+        raise RangeError, "invalid codepoint 0x#{format("%04X", self)} in UTF-8" if self >= 0xD800 && self <= 0xDFFF
+
+        return Primitive.zr_str_set_encoding(+"" << self, 0)
+      end
       raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self > 255
 
       return Primitive.zr_str_set_encoding(Primitive.zr_str_from_byte(self), kind)

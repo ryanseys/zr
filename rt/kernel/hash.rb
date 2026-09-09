@@ -66,7 +66,7 @@ machine def zr_key_eql(a, b)
     return false
   end
   if t == T_STRING
-    return zr_bytes_eq(RString.ptr(a), RString.len(a), RString.ptr(b), RString.len(b))
+    return zr_bytes_eq(RString.ptr(a), RString.len(a), RString.ptr(b), RString.len(b)) && zr_str_comparable(a, b)
   end
   if t == T_ARRAY
     if RArray.len(a) != RArray.len(b)
@@ -143,7 +143,7 @@ machine def zr_key_hash(h, key)
   end
   t = zr_type(key)
   if t == T_STRING
-    return zr_hash_mix(zr_bytes_hash(RString.ptr(key), RString.len(key)))
+    return zr_hash_mix(zr_bytes_hash(RString.ptr(key), RString.len(key)) ^ (zr_str_ascii_only(key) ? 0 : zr_str_encoding_index(key) + 1))
   end
   if t == T_REGEXP
     return zr_hash_mix(zr_key_hash(h, RRegexp.source(key)) + RRegexp.options(key))

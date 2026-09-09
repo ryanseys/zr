@@ -13,31 +13,38 @@ machine def zr_str_new(bytes, len)
   s
 end
 
-# `String#initialize(str = "")`: the bytes copied in.
+# `String#initialize(source)`: the source's bytes and encoding copied
+# in; a nil source leaves the receiver empty.
+sig [Value, Value] => Value
+machine def zr_str_initialize_m(recv, src)
+  if src == QNIL
+    return recv
+  end
+  if zr_special_p(src) || zr_type(src) != T_STRING
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
+    zr_buf_str(b, zr_class_name_of(src))
+    zr_buf_push(b, Machine.bytes(" into String"), 12)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+  buf = malloc(RString.len(src) + 1)
+  zr_memcpy(buf, RString.ptr(src), RString.len(src))
+  Machine.store8(buf + RString.len(src), 0, Machine.i8(0))
+  free(RString.ptr(recv))
+  RString.set_ptr(recv, buf)
+  RString.set_len(recv, RString.len(src))
+  RString.set_capa(recv, RString.len(src))
+  RBasic.set_flags(recv, (RBasic.flags(recv) & (0 - (FL_BINARY + 1)) & (0 - (FL_USASCII + 1))) | (RBasic.flags(src) & (FL_BINARY | FL_USASCII)))
+  recv
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_initialize(recv, argc, argv, cref, blk)
   if argc > 1
     return zr_wrong_arity_range(argc, 0, 1)
   end
-  if argc == 1
-    src = Machine.value(Machine.load64(argv, 0))
-    if zr_special_p(src) || zr_type(src) != T_STRING
-      b = Machine.slot(Buf.size)
-      zr_buf_init(b)
-      zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
-      zr_buf_str(b, zr_class_name_of(src))
-      zr_buf_push(b, Machine.bytes(" into String"), 12)
-      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
-    end
-    buf = malloc(RString.len(src) + 1)
-    zr_memcpy(buf, RString.ptr(src), RString.len(src))
-    Machine.store8(buf + RString.len(src), 0, Machine.i8(0))
-    free(RString.ptr(recv))
-    RString.set_ptr(recv, buf)
-    RString.set_len(recv, RString.len(src))
-    RString.set_capa(recv, RString.len(src))
-  end
-  recv
+  zr_str_initialize_m(recv, argc == 1 ? Machine.value(Machine.load64(argv, 0)) : Machine.value(QNIL))
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -215,12 +222,19 @@ machine def zr_str_plus(recv, argc, argv, cref, blk)
   zr_buf_str(b, recv)
   zr_buf_str(b, other)
   s = zr_buf_take(b)
-  if zr_str_join_binary_p(recv, other)
-    zr_str_set_binary(s)
-  elsif (RBasic.flags(recv) & FL_USASCII) != 0 && (RBasic.flags(other) & FL_USASCII) != 0
-    RBasic.set_flags(s, RBasic.flags(s) | FL_USASCII)
+  # The join takes the encoding of whichever side is not plain ASCII,
+  # which is ruby's own compatibility rule.
+  zr_str_set_encoding(s, zr_fix(zr_str_kind_of_index(zr_str_ascii_only(other) ? zr_str_encoding_index(recv) : zr_str_encoding_index(other))))
+end
+
+# The number `zr_str_set_encoding` takes, from ruby's own index: 0
+# ASCII-8BIT, 1 UTF-8, 2 US-ASCII.
+sig [Word] => Word
+machine def zr_str_kind_of_index(index)
+  if index == 0
+    return 1
   end
-  s
+  index == 2 ? 2 : 0
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -239,7 +253,9 @@ machine def zr_str_times(recv, argc, argv, cref, blk)
     zr_buf_str(b, recv)
     i += 1
   end
-  zr_buf_take(b)
+  out2 = zr_buf_take(b)
+  RBasic.set_flags(out2, RBasic.flags(out2) | (RBasic.flags(recv) & (FL_BINARY | FL_USASCII)))
+  out2
 end
 
 # An Integer appended as a character: a byte of a binary string, a
@@ -347,7 +363,41 @@ machine def zr_str_cmp(recv, argc, argv, cref, blk)
   if zr_special_p(other) || zr_type(other) != T_STRING
     return Machine.value(QNIL)
   end
-  zr_fix(zr_bytes_cmp(RString.ptr(recv), RString.len(recv), RString.ptr(other), RString.len(other)))
+  r = zr_bytes_cmp(RString.ptr(recv), RString.len(recv), RString.ptr(other), RString.len(other))
+  if r != 0 || zr_str_comparable(recv, other)
+    return zr_fix(r)
+  end
+  a = zr_str_encoding_index(recv)
+  b = zr_str_encoding_index(other)
+  zr_fix(a < b ? 0 - 1 : 1)
+end
+
+# Two strings compare only when they hold one encoding, or when both
+# are ASCII throughout. `ASCII-8BIT` is 0, `UTF-8` 1, `US-ASCII` 2, as
+# ruby numbers them.
+sig [Value] => Word
+machine def zr_str_encoding_index(s)
+  if zr_str_binary_p(s)
+    return 0
+  end
+  (RBasic.flags(s) & FL_USASCII) != 0 ? 2 : 1
+end
+
+sig [Value, Value] => Bool
+machine def zr_str_comparable(a, b)
+  zr_str_encoding_index(a) == zr_str_encoding_index(b) || (zr_str_ascii_only(a) && zr_str_ascii_only(b))
+end
+
+sig [Value] => Bool
+machine def zr_str_ascii_only(s)
+  i = 0
+  while i < RString.len(s)
+    if Machine.word(Machine.load8(RString.ptr(s) + i, 0)) >= 128
+      return false
+    end
+    i += 1
+  end
+  true
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -356,7 +406,7 @@ machine def zr_str_eq(recv, argc, argv, cref, blk)
   if zr_special_p(other) || zr_type(other) != T_STRING
     return Machine.value(QFALSE)
   end
-  zr_bool(zr_bytes_eq(RString.ptr(recv), RString.len(recv), RString.ptr(other), RString.len(other)))
+  zr_bool(zr_bytes_eq(RString.ptr(recv), RString.len(recv), RString.ptr(other), RString.len(other)) && zr_str_comparable(recv, other))
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -877,6 +927,7 @@ machine def zr_str_replace(s, other)
   RString.set_ptr(s, buf)
   RString.set_len(s, n)
   RString.set_capa(s, n)
+  RBasic.set_flags(s, (RBasic.flags(s) & (0 - (FL_BINARY + 1)) & (0 - (FL_USASCII + 1))) | (RBasic.flags(other) & (FL_BINARY | FL_USASCII)))
   s
 end
 
@@ -950,4 +1001,10 @@ machine def zr_str_push_byte(recv, byte)
     RBasic.set_flags(recv, RBasic.flags(recv) & (0 - (FL_USASCII + 1)))
   end
   recv
+end
+
+# Where a string's bytes sit, for the `p` and `P` pack directives.
+sig [Value] => Value
+machine def zr_str_bytes_address(s)
+  zr_fix(Machine.word(RString.ptr(s)))
 end
