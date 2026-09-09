@@ -40,6 +40,9 @@ FL_FREEZE = 1 << 11
 FL_EXIVAR = 1 << 10
 # A singleton class: one object's own, `attached`, ahead of its class.
 FL_SINGLETON = 1 << 12
+# A String of bytes (CRuby's ASCII-8BIT): each byte is a character,
+# and `inspect` spells the high ones in hex.
+FL_BINARY = 1 << 13
 
 Machine.struct :RBasic, flags: Word, klass: Value
 

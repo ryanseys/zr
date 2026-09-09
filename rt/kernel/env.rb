@@ -86,8 +86,7 @@ end
 
 sig [Value] => Bool
 machine def zr_system_exit_p(exc)
-  e = zr_const_row_in(zr_global(G_OBJECT), Machine.id(:SystemExit), false)
-  !zr_special_p(exc) && zr_is_a(exc, CEntry.value(e))
+  !zr_special_p(exc) && zr_is_a(exc, zr_core_class(Machine.id(:SystemExit)))
 end
 
 # The program's entry: `$0` and `$PROGRAM_NAME` name its file.
@@ -158,8 +157,17 @@ machine def zr_caller_file
 end
 
 Machine.import "getpid", [] => I32
+Machine.import "arc4random", [] => I32
 
 sig [] => Value
 machine def zr_process_id
   zr_fix(Machine.word(getpid()))
+end
+
+# 62 random bits from the system, for a seed nobody chose.
+sig [] => Value
+machine def zr_random_seed
+  high = Machine.word(arc4random()) & 4294967295
+  low = Machine.word(arc4random()) & 4294967295
+  zr_fix(((high << 30) | (low >> 2)) & 4611686018427387903)
 end

@@ -150,6 +150,9 @@ class String
     value
   end
 
+  # A copy whose bytes are its characters (CRuby's ASCII-8BIT).
+  def b = Primitive.zr_str_set_binary(dup)
+
   def clear = replace("")
 
   def concat(*others)

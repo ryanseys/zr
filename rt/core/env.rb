@@ -117,5 +117,5 @@ end
 module Kernel
   module_function :Array, :Integer, :String, :__callee__, :__dir__, :__method__, :abort, :at_exit, :block_given?, :caller,
                   :caller_locations, :catch, :exit, :fail, :format, :lambda, :loop, :p, :print, :printf, :proc, :puts,
-                  :raise, :rand, :sleep, :sprintf, :throw, :warn
+                  :raise, :sleep, :sprintf, :throw, :warn
 end

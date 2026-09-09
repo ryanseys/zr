@@ -59,7 +59,7 @@ module Ze0
         @shims = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]], "exit" => [[0x7F], []], "abort" => [[], []],
                    "malloc" => [[0x7E], [0x7E]], "free" => [[0x7E], []], "getenv" => [[0x7E], [0x7E]],
                    "pthread_self" => [[], [0x7E]], "pthread_get_stackaddr_np" => [[0x7E], [0x7E]], "pthread_get_stacksize_np" => [[0x7E], [0x7E]],
-                   "setenv" => [[0x7E, 0x7E, 0x7F], [0x7F]], "unsetenv" => [[0x7E], [0x7F]], "_NSGetEnviron" => [[], [0x7E]], "getcwd" => [[0x7E, 0x7E], [0x7E]], "getpid" => [[], [0x7F]] }
+                   "setenv" => [[0x7E, 0x7E, 0x7F], [0x7F]], "unsetenv" => [[0x7E], [0x7F]], "_NSGetEnviron" => [[], [0x7E]], "getcwd" => [[0x7E, 0x7E], [0x7E]], "getpid" => [[], [0x7F]], "arc4random" => [[], [0x7F]] }
         @shims.each_key.with_index { |name, i| @index[name] = @imports.size + i }
         @functions.each_with_index { |f, i| @index[f.name] = @imports.size + @shims.size + i }
         @index["_start"] = @imports.size + @shims.size + @functions.size
@@ -181,7 +181,7 @@ module Ze0
           code << "".b
         when "getenv", "pthread_self", "pthread_get_stackaddr_np", "pthread_get_stacksize_np", "_NSGetEnviron", "getcwd"
           code << "\x42\x00".b
-        when "setenv", "unsetenv", "getpid"
+        when "setenv", "unsetenv", "getpid", "arc4random"
           code << "\x41\x00".b
         end
         code << "\x0B".b

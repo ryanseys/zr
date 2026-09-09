@@ -307,6 +307,16 @@ machine def zr_raise_buf(klass, b)
   zr_raise(zr_exc_new(klass, zr_buf_take(b)))
 end
 
+# A class the core library defines, by its constant's name.
+sig [Word] => Value
+machine def zr_core_class(id)
+  e = zr_const_row_in(zr_global(G_OBJECT), id, false)
+  if e == 0
+    zr_bug(Machine.bytes("a core class is missing at boot\n"), 32)
+  end
+  CEntry.value(e)
+end
+
 # `block in label`, or `block (N levels) in label` for a nested block.
 sig [Ptr, Ptr] => Void
 machine def zr_buf_label(b, meta)

@@ -385,7 +385,7 @@ machine def zr_hash_inspect(recv, argc, argv, cref, blk)
         if zr_symbol_key_simple_p(key)
           zr_buf_sym(b, zr_sym2id(key))
         else
-          zr_buf_str_escaped(b, zr_symbol_name_ptr(zr_sym2id(key)), zr_symbol_name_len(zr_sym2id(key)))
+          zr_buf_str_escaped(b, zr_symbol_name_ptr(zr_sym2id(key)), zr_symbol_name_len(zr_sym2id(key)), false)
         end
         zr_buf_push(b, Machine.bytes(": "), 2)
       else

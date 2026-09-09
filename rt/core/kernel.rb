@@ -86,7 +86,6 @@ module Kernel
     [value]
   end
 
-  def rand(*args) = Primitive.zr_unimplemented("Kernel#rand")
 
   def sleep(*args) = Primitive.zr_unimplemented("Kernel#sleep")
 
@@ -193,7 +192,7 @@ module Kernel
 end
 
 module Kernel
-  private :Integer, :String, :Array, :rand, :sleep, :warn, :catch, :throw, :loop, :exit, :abort, :at_exit
+  private :Integer, :String, :Array, :sleep, :warn, :catch, :throw, :loop, :exit, :abort, :at_exit
 end
 
 module Kernel

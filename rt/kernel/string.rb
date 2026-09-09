@@ -95,6 +95,29 @@ machine def zr_str_operand(v)
   v
 end
 
+sig [Value] => Bool
+machine def zr_str_binary_p(s)
+  (RBasic.flags(s) & FL_BINARY) != 0
+end
+
+sig [Value] => Value
+machine def zr_str_set_binary(s)
+  RBasic.set_flags(s, RBasic.flags(s) | FL_BINARY)
+  s
+end
+
+# Whether the join of two strings is binary: it is when either is,
+# and the other holds only ASCII; text with high bytes beside binary
+# has no encoding yet.
+sig [Value, Value] => Bool
+machine def zr_str_join_binary_p(a, b)
+  if zr_str_binary_p(a) == zr_str_binary_p(b)
+    return zr_str_binary_p(a)
+  end
+  zr_ascii_only(zr_str_binary_p(a) ? b : a)
+  true
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_plus(recv, argc, argv, cref, blk)
   other = zr_str_operand(Machine.value(Machine.load64(argv, 0)))
@@ -103,7 +126,11 @@ machine def zr_str_plus(recv, argc, argv, cref, blk)
   zr_buf_init(b)
   zr_buf_str(b, recv)
   zr_buf_str(b, other)
-  zr_buf_take(b)
+  s = zr_buf_take(b)
+  if zr_str_join_binary_p(recv, other)
+    zr_str_set_binary(s)
+  end
+  s
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -125,11 +152,52 @@ machine def zr_str_times(recv, argc, argv, cref, blk)
   zr_buf_take(b)
 end
 
+# An Integer appended as a character: a byte of a binary string, a
+# UTF-8 sequence of a text one.
+sig [Value, Word] => Value
+machine def zr_str_concat_codepoint(recv, c)
+  limit = zr_str_binary_p(recv) ? 255 : 1114111
+  if c < 0 || c > limit
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_long(b, c)
+    zr_buf_push(b, Machine.bytes(" out of char range"), 18)
+    return zr_raise_buf(zr_core_class(Machine.id(:RangeError)), b)
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  if c < 128 || zr_str_binary_p(recv)
+    zr_buf_byte(b, c)
+  elsif c < 2048
+    zr_buf_byte(b, 192 | (c >> 6))
+    zr_buf_byte(b, 128 | (c & 63))
+  elsif c < 65536
+    zr_buf_byte(b, 224 | (c >> 12))
+    zr_buf_byte(b, 128 | ((c >> 6) & 63))
+    zr_buf_byte(b, 128 | (c & 63))
+  else
+    zr_buf_byte(b, 240 | (c >> 18))
+    zr_buf_byte(b, 128 | ((c >> 12) & 63))
+    zr_buf_byte(b, 128 | ((c >> 6) & 63))
+    zr_buf_byte(b, 128 | (c & 63))
+  end
+  s = zr_buf_take(b)
+  if zr_str_binary_p(recv)
+    zr_str_set_binary(s)
+  end
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(s))
+  zr_str_concat(recv, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
+end
+
 # `<<` appends in place; a frozen receiver raises.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_concat(recv, argc, argv, cref, blk)
   if zr_frozen_p(recv)
     return zr_frozen_error(recv)
+  end
+  if zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
+    return zr_str_concat_codepoint(recv, zr_fix2long(Machine.value(Machine.load64(argv, 0))))
   end
   other = zr_str_operand(Machine.value(Machine.load64(argv, 0)))
   return other if other == QUNDEF
@@ -148,6 +216,9 @@ machine def zr_str_concat(recv, argc, argv, cref, blk)
   zr_memcpy(RString.ptr(recv) + RString.len(recv), RString.ptr(other), RString.len(other))
   RString.set_len(recv, n)
   Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
+  if zr_str_join_binary_p(recv, other)
+    zr_str_set_binary(recv)
+  end
   recv
 end
 
@@ -198,6 +269,9 @@ end
 
 sig [Value] => Void
 machine def zr_ascii_only(s)
+  if zr_str_binary_p(s)
+    return
+  end
   n = RString.len(s)
   i = 0
   while i < n
@@ -544,7 +618,11 @@ machine def zr_str_from_byte(byte)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_byte(b, zr_fix2long(byte) & 255)
-  zr_buf_take(b)
+  s = zr_buf_take(b)
+  if zr_fix2long(byte) >= 128
+    zr_str_set_binary(s)
+  end
+  s
 end
 
 # The byte index of `needle` at or after `start`, or nil.

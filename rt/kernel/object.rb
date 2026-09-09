@@ -541,7 +541,7 @@ machine def zr_sym_inspect(recv, argc, argv, cref, blk)
   if zr_symname_plain_p(p, n)
     zr_buf_push(b, p, n)
   else
-    zr_buf_str_escaped(b, p, n)
+    zr_buf_str_escaped(b, p, n, false)
   end
   zr_buf_take(b)
 end
@@ -565,14 +565,57 @@ machine def zr_operator_name_p(p, n)
   end
 end
 
-# A double-quoted, escaped rendering of `n` bytes, as String#inspect.
-sig [Ptr, Ptr, Word] => Void
-machine def zr_buf_str_escaped(b, p, n)
+# The length of the valid UTF-8 sequence at `p`, or 0 when the byte
+# does not start one.
+sig [Ptr, Word] => Word
+machine def zr_utf8_char_len(p, n)
+  c = Machine.word(Machine.load8(p, 0))
+  if c < 128
+    return 1
+  end
+  len = 0
+  if c >= 194 && c <= 223
+    len = 2
+  elsif c >= 224 && c <= 239
+    len = 3
+  elsif c >= 240 && c <= 244
+    len = 4
+  end
+  if len == 0 || len > n
+    return 0
+  end
+  i = 1
+  while i < len
+    d = Machine.word(Machine.load8(p + i, 0))
+    if d < 128 || d > 191
+      return 0
+    end
+    i += 1
+  end
+  len
+end
+
+# A double-quoted, escaped rendering of `n` bytes, as String#inspect:
+# a binary string spells every high byte in hex; a text string keeps a
+# valid UTF-8 character and spells the rest in hex.
+sig [Ptr, Ptr, Word, Bool] => Void
+machine def zr_buf_str_escaped(b, p, n, binary)
   zr_buf_byte(b, 34)
   i = 0
   while i < n
     c = Machine.word(Machine.load8(p + i, 0))
-    if c == 34 || c == 92
+    if c >= 128
+      len = binary ? 0 : zr_utf8_char_len(p + i, n - i)
+      if len == 0
+        zr_buf_push(b, Machine.bytes("\\x"), 2)
+        zr_buf_byte(b, zr_hex_digit(c >> 4))
+        zr_buf_byte(b, zr_hex_digit(c & 15))
+        i += 1
+      else
+        zr_buf_push(b, p + i, len)
+        i += len
+      end
+    elsif c == 34 || c == 92
       zr_buf_byte(b, 92)
       zr_buf_byte(b, c)
     elsif c == 10
@@ -600,7 +643,7 @@ machine def zr_buf_str_escaped(b, p, n)
     else
       zr_buf_byte(b, c)
     end
-    i += 1
+    i += 1 if c < 128
   end
   zr_buf_byte(b, 34)
 end
@@ -618,7 +661,7 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_inspect(recv, argc, argv, cref, blk)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
-  zr_buf_str_escaped(b, RString.ptr(recv), RString.len(recv))
+  zr_buf_str_escaped(b, RString.ptr(recv), RString.len(recv), zr_str_binary_p(recv))
   zr_buf_take(b)
 end
 
@@ -744,7 +787,7 @@ machine def zr_exc_inspect(recv, argc, argv, cref, blk)
   zr_buf_str(b, zr_class_name_of(recv))
   if zr_bytes_index(RString.ptr(m), RString.len(m), 10) >= 0
     zr_buf_byte(b, 58)
-    zr_buf_str_escaped(b, RString.ptr(m), RString.len(m))
+    zr_buf_str_escaped(b, RString.ptr(m), RString.len(m), zr_str_binary_p(m))
   else
     zr_buf_push(b, Machine.bytes(": "), 2)
     zr_buf_str(b, m)

@@ -64,6 +64,7 @@ sig [Value] => Value
 machine def zr_copy_cell(orig)
   copy = zr_alloc(zr_type(orig), zr_real_class(orig))
   zr_memcpy(Machine.ptr(copy) + RBasic.size, Machine.ptr(orig) + RBasic.size, CELL - RBasic.size)
+  RBasic.set_flags(copy, RBasic.flags(copy) | (RBasic.flags(orig) & FL_BINARY))
   zr_copy_payload(copy, orig)
 end
 
