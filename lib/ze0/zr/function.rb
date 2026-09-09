@@ -97,6 +97,16 @@ module Ze0
       # The prologue: the stack check, then link the record into the
       # task's chain, fill its header, nil the slots, and make the Env
       # when a block needs one.
+      # A core helper that CRuby has no method for opens with
+      # `Primitive.attr! :hidden`, and leaves no backtrace row.
+      def hidden_def?
+        return false unless @l.internal? && @kind == :def
+
+        first = @body.is_a?(Hir::Seq) ? @body.stmts.first : @body
+        first.is_a?(Hir::Send) && first.name == :attr! && first.recv.is_a?(Hir::ConstRead) && first.recv.name == :Primitive &&
+          first.args.first.is_a?(Hir::Literal) && first.args.first.value == :hidden
+      end
+
       def enter
         @base = @has_env ? 1 : @locals.size
         @nvalues = @base + [Scope.staging(@body), *default_expressions.map { |e| Scope.staging(e) }].max + prologue_slots
@@ -110,7 +120,8 @@ module Ze0
         line = @def ? @def.line : 1
         name = @def && %i[class module].include?(@kind) ? sym_id(@def.name) : 0
         params = @def.params if %i[def block].include?(@kind)
-        @meta = @l.meta(@name, @l.frame_kind(@kind), line, name, @outer&.meta, params)
+        kind = hidden_def? ? "KIND_HIDDEN" : @l.frame_kind(@kind)
+        @meta = @l.meta(@name, kind, line, name, @outer&.meta, params)
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @f.store(imm(line), @rec, off(@frame, "line"))
         serial = @f.iadd(@f.fetch("i64", @task_addr, off(@task, "serial")), imm(1))

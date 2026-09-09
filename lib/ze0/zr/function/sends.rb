@@ -65,6 +65,8 @@ module Ze0
         end
 
         def primitive(node)
+          return @qnil if node.name == :attr!
+
           d = @l.kernel_def(node.name.to_s)
           @l.refuse(node, "Primitive.#{node.name} takes #{d.params.size} arguments, not #{node.args.size}") if d.params.size != node.args.size
           @l.refuse(node, "Primitive.#{node.name} takes a block or keywords") if node.block || node.kwargs
@@ -208,12 +210,11 @@ module Ze0
           site ? catching_break(site, &call) : checked(call.call)
         end
 
-        # The bare `super`: the enclosing method's parameters, as they
-        # stand now, become the arguments.
-        # A bare `super` the builder could not expand: one with no def
-        # around it.
+        # A bare `super` the builder could not expand, one with no def
+        # around it: the runtime raises for it.
         def zsuper(node)
-          @l.refuse(node, "super outside a method is not lowered yet")
+          at_line(node.line)
+          checked(kernel("zr_zsuper_outside", @rec))
         end
 
         # An Integer operator: the fixnum fast path inline when both sides

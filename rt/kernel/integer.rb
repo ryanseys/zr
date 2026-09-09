@@ -48,11 +48,53 @@ machine def zr_long_digits(n, buf)
   24 - at
 end
 
+# `Integer#to_s(base = 10)`: digits in any base from 2 to 36.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_int_to_s(recv, argc, argv, cref, blk)
-  buf = Machine.slot(24)
-  n = zr_long_digits(zr_fix2long(recv), buf)
-  zr_str_new(buf, n)
+  if argc > 1
+    return zr_wrong_arity_range(argc, 0, 1)
+  end
+  base = 10
+  if argc == 1
+    out = Machine.slot(8)
+    r = zr_int_operand(argv, out)
+    return r if r == QUNDEF
+    base = Machine.load64(out, 0)
+    if base < 2 || base > 36
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("invalid radix "), 14)
+      zr_buf_long(b, base)
+      return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+    end
+  end
+  if base == 10
+    buf = Machine.slot(24)
+    n = zr_long_digits(zr_fix2long(recv), buf)
+    return zr_str_new(buf, n)
+  end
+  v = zr_fix2long(recv)
+  negative = v < 0
+  if negative
+    v = 0 - v
+  end
+  buf = Machine.slot(72)
+  at = 72
+  if v == 0
+    at -= 1
+    Machine.store8(buf + at, 0, Machine.i8(48))
+  end
+  while v > 0
+    d = v % base
+    at -= 1
+    Machine.store8(buf + at, 0, Machine.i8(d < 10 ? 48 + d : 87 + d))
+    v /= base
+  end
+  if negative
+    at -= 1
+    Machine.store8(buf + at, 0, Machine.i8(45))
+  end
+  zr_str_new(buf + at, 72 - at)
 end
 
 # The operand of an Integer operator into `out`, which must be an

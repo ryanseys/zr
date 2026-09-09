@@ -357,8 +357,6 @@ class String
 
   def scan(other) = Primitive.zr_unimplemented("String#scan")
 
-  def %(args) = Primitive.zr_unimplemented("String#%")
-
   def unpack(fmt) = Primitive.zr_unimplemented("String#unpack")
 
   def unpack1(fmt) = Primitive.zr_unimplemented("String#unpack1")

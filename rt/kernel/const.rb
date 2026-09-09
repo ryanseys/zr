@@ -6,8 +6,9 @@
 # `modfn` whether `module_function` is on.
 # A cref pushed by `class_eval`, `instance_eval` or `Class.new` (`eval`
 # set) is where a `def` lands, but constants and class variables look
-# through it to the lexical scope.
-Machine.struct :RCref, basic: RBasic, klass: Value, next: Value, vis: Word, modfn: Word, eval: Word
+# through it to the lexical scope. The cref of a method `define_method`
+# made names its entry, which `super` in the body resolves from.
+Machine.struct :RCref, basic: RBasic, klass: Value, next: Value, vis: Word, modfn: Word, eval: Word, entry: Ptr
 T_CREF = 25
 VIS_PUBLIC = 0
 VIS_PRIVATE = 1
@@ -22,6 +23,7 @@ machine def zr_cref_push(klass, outer)
   RCref.set_vis(c, VIS_PUBLIC)
   RCref.set_modfn(c, 0)
   RCref.set_eval(c, 0)
+  RCref.set_entry(c, 0)
   c
 end
 

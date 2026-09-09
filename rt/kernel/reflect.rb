@@ -322,7 +322,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_kernel_method_name(recv, argc, argv, cref, blk)
   meta = Frame.meta(Frame.prev(Task.top(zr_task())))
-  while FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN
+  while (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN) && FrameMeta.parent(meta) != 0
     meta = FrameMeta.parent(meta)
   end
   if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BMETHOD

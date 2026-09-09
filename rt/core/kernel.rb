@@ -52,11 +52,6 @@ module Kernel
     [value]
   end
 
-  def format(*args) = Primitive.zr_unimplemented("Kernel#format")
-  alias sprintf format
-
-  def printf(*args) = Primitive.zr_unimplemented("Kernel#printf")
-
   def rand(*args) = Primitive.zr_unimplemented("Kernel#rand")
 
   def sleep(*args) = Primitive.zr_unimplemented("Kernel#sleep")
@@ -145,5 +140,5 @@ module Kernel
 end
 
 module Kernel
-  private :Integer, :String, :Array, :format, :sprintf, :printf, :rand, :sleep, :warn, :catch, :throw
+  private :Integer, :String, :Array, :rand, :sleep, :warn, :catch, :throw
 end

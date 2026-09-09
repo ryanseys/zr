@@ -195,20 +195,24 @@ end
 
 # `super`: the next method named as the frame's is, past the frame's
 # owner in the receiver's chain; the frame's block passes on unless
-# `blk` is one of its own.
+# `blk` is one of its own. In a method `define_method` made, the
+# name and owner are the entry's.
 sig [Ptr, Word, Ptr, Value] => Value
 machine def zr_super(rec, argc, argv, blk)
   kw = zr_kw_take()
-  meta = Frame.meta(rec)
-  while FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN
-    meta = FrameMeta.parent(meta)
-  end
-  if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BUILTIN
-    zr_bug(Machine.bytes("super inside define_method or an eval block is not implemented yet\n"), 66)
-  end
-  owner = FrameMeta.owner(meta)
-  mid = FrameMeta.name(meta)
   recv = Frame.self(rec)
+  entry = zr_bmethod_entry(rec)
+  if entry != 0
+    owner = FrameMeta.owner(MEntry.meta(entry))
+    mid = MEntry.mid(entry)
+  else
+    meta = zr_method_meta_of(rec)
+    if meta == 0
+      return zr_raise_msg(zr_global(G_NO_METHOD_ERROR), Machine.bytes("super called outside of method"), 30)
+    end
+    owner = FrameMeta.owner(meta)
+    mid = FrameMeta.name(meta)
+  end
   k = zr_class_of(recv)
   while k != QNIL && !(k == owner || (zr_type(k) == T_ICLASS && RClass.attached(k) == owner))
     k = RClass.superclass(k)
@@ -223,17 +227,45 @@ machine def zr_super(rec, argc, argv, blk)
   zr_invoke(e, recv, argc, argv, blk, kw)
 end
 
-# `defined?(super)`: whether a method waits past this frame's owner.
-sig [Ptr] => Value
-machine def zr_super_defined(rec)
+# The entry of the `define_method` method the frame runs in, or 0.
+sig [Ptr] => Ptr
+machine def zr_bmethod_entry(rec)
+  cref = Frame.cref(rec)
+  if cref == QNIL || RCref.eval(cref) == 0
+    return 0
+  end
+  RCref.entry(cref)
+end
+
+# The meta of the def the frame is in, through its blocks, or 0 in a
+# class body or at the top level.
+sig [Ptr] => Ptr
+machine def zr_method_meta_of(rec)
   meta = Frame.meta(rec)
-  while FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN
+  while (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN) && FrameMeta.parent(meta) != 0
     meta = FrameMeta.parent(meta)
   end
   if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BUILTIN
-    return Machine.value(QFALSE)
+    return 0
   end
-  owner = FrameMeta.owner(meta)
+  meta
+end
+
+# `defined?(super)`: whether a method waits past this frame's owner.
+sig [Ptr] => Value
+machine def zr_super_defined(rec)
+  entry = zr_bmethod_entry(rec)
+  if entry != 0
+    owner = FrameMeta.owner(MEntry.meta(entry))
+    mid = MEntry.mid(entry)
+  else
+    meta = zr_method_meta_of(rec)
+    if meta == 0
+      return Machine.value(QFALSE)
+    end
+    owner = FrameMeta.owner(meta)
+    mid = FrameMeta.name(meta)
+  end
   k = zr_class_of(Frame.self(rec))
   while k != QNIL && !(k == owner || (zr_type(k) == T_ICLASS && RClass.attached(k) == owner))
     k = RClass.superclass(k)
@@ -241,7 +273,17 @@ machine def zr_super_defined(rec)
   if k == QNIL
     return Machine.value(QFALSE)
   end
-  zr_bool(zr_find_method(RClass.superclass(k), FrameMeta.name(meta)) != 0)
+  zr_bool(zr_find_method(RClass.superclass(k), mid) != 0)
+end
+
+# A bare `super` with no def around it: in a method `define_method`
+# made, CRuby refuses implicit arguments; elsewhere there is no method.
+sig [Ptr] => Value
+machine def zr_zsuper_outside(rec)
+  if zr_bmethod_entry(rec) != 0
+    return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("implicit argument passing of super from method defined by define_method() is not supported. Specify all arguments explicitly."), 125)
+  end
+  zr_raise_msg(zr_global(G_NO_METHOD_ERROR), Machine.bytes("super called outside of method"), 30)
 end
 
 # The call through the entry `e`: a compiled def gets the keywords flag

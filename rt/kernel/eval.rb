@@ -208,7 +208,9 @@ end
 sig [Ptr, Value, Word, Ptr, Value] => Value
 machine def zr_bmethod_call(e, recv, argc, argv, blk)
   body = MEntry.cref(e)
-  p = zr_proc_under(body, recv, zr_cref_push_eval(FrameMeta.owner(MEntry.meta(e)), RProc.cref(body)))
+  cref = zr_cref_push_eval(FrameMeta.owner(MEntry.meta(e)), RProc.cref(body))
+  RCref.set_entry(cref, e)
+  p = zr_proc_under(body, recv, cref)
   RProc.set_lambda(p, 1)
   RProc.set_home(p, 0)
   Machine.call(:block, RProc.fn(p), p, argc, argv, blk)
