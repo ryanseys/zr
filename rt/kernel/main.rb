@@ -75,6 +75,7 @@ machine def zr_boot
   zr_boot_class(G_TRUE, Machine.id(:TrueClass), zr_global(G_OBJECT))
   zr_boot_class(G_FALSE, Machine.id(:FalseClass), zr_global(G_OBJECT))
   zr_boot_class(G_EXCEPTION, Machine.id(:Exception), zr_global(G_OBJECT))
+  zr_boot_class(G_FATAL, Machine.id(:fatal), zr_global(G_EXCEPTION))
   zr_boot_class(G_STANDARD_ERROR, Machine.id(:StandardError), zr_global(G_EXCEPTION))
   zr_boot_class(G_ARGUMENT_ERROR, Machine.id(:ArgumentError), zr_global(G_STANDARD_ERROR))
   zr_boot_class(G_NAME_ERROR, Machine.id(:NameError), zr_global(G_STANDARD_ERROR))
@@ -126,6 +127,7 @@ machine def zr_boot
   zr_boot_name(G_RANGE, Machine.id(:Range))
   zr_boot_name(G_NUMERIC, Machine.id(:Numeric))
   zr_boot_name(G_FLOAT, Machine.id(:Float))
+  RClass.set_name(zr_global(G_FATAL), zr_str_new(Machine.bytes("fatal"), 5))
   zr_boot_name(G_KEY_ERROR, Machine.id(:KeyError))
   zr_boot_name(G_SYSTEM_STACK_ERROR, Machine.id(:SystemStackError))
   # Every boot class gets its metaclass, so a singleton method defined
@@ -289,6 +291,7 @@ machine def zr_boot
   zr_builtin(zr_global(G_INTEGER), Machine.id(:==), Machine.addr(:zr_int_eq), 1)
   zr_builtin(zr_global(G_INTEGER), Machine.id(:!=), Machine.addr(:zr_int_ne), 1)
   zr_builtin(zr_global(G_STRING), Machine.id(:to_s), Machine.addr(:zr_str_to_s), 0)
+  zr_builtin(zr_global(G_STRING), Machine.id(:to_str), Machine.addr(:zr_str_to_s), 0)
   zr_builtin(zr_global(G_STRING), Machine.id(:inspect), Machine.addr(:zr_str_inspect), 0)
   zr_builtin(zr_global(G_STRING), Machine.id(:+), Machine.addr(:zr_str_plus), 1)
   zr_builtin(zr_global(G_STRING), Machine.id(:*), Machine.addr(:zr_str_times), 1)

@@ -286,3 +286,15 @@ machine def zr_release_fiber(f)
     free(RFiber.task(f))
   end
 end
+
+# The thread scheduler's switch: control moves to `to` with no rule
+# checked and no flag set, so the fibers on either side keep the
+# resume and transfer state they had.
+sig [Value] => Value
+machine def zr_fiber_scheduler_switch(to)
+  cur = zr_fiber_current()
+  if to == cur
+    return Machine.value(QNIL)
+  end
+  zr_fiber_run(cur, to, 0, 0)
+end

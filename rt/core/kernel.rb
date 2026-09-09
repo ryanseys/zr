@@ -93,7 +93,18 @@ module Kernel
   end
 
 
-  def sleep(*args) = Primitive.zr_unimplemented("Kernel#sleep")
+  # The current thread sleeps `duration` seconds, or until `wakeup`
+  # without one; the answer is the seconds slept, rounded.
+  def sleep(duration = nil)
+    unless duration.nil?
+      raise TypeError, "can't convert #{duration.class} into time interval" unless duration.is_a?(Numeric)
+      raise ArgumentError, "time interval must not be negative" if duration < 0
+    end
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
+    deadline = duration.nil? ? nil : started + (duration * 1e9).to_i
+    Thread.current.send(:wait, deadline, false)
+    ((Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) - started) / 1e9).round
+  end
 
   def itself = self
 

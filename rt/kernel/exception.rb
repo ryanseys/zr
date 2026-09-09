@@ -408,6 +408,20 @@ machine def zr_exc_backtrace(recv, argc, argv, cref, blk)
   out
 end
 
+# The class of an error no rescue sees by name: a deadlock.
+G_FATAL = 41
+
+sig [] => Value
+machine def zr_fatal_class
+  zr_global(G_FATAL)
+end
+
+sig [Value] => Value
+machine def zr_error_print_m(exc)
+  zr_error_print(exc)
+  Machine.value(QNIL)
+end
+
 # An uncaught exception on stderr, as CRuby prints it, then exit 1.
 sig [Value] => Void
 machine def zr_report(exc)

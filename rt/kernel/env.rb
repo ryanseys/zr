@@ -281,3 +281,26 @@ machine def zr_path_kind(path)
   end
   zr_fix(3)
 end
+
+Machine.import "clock_gettime", [I32, Ptr] => I32
+Machine.import "nanosleep", [Ptr, Ptr] => I32
+
+# Nanoseconds on the clock `id` names (darwin: 0 real time, 6
+# monotonic).
+sig [Value] => Value
+machine def zr_clock_ns(id)
+  ts = Machine.slot(16)
+  clock_gettime(Machine.i32(zr_fix2long(id)), ts)
+  zr_fix(Machine.load64(ts, 0) * 1000000000 + Machine.load64(ts, 8))
+end
+
+# The whole process sleeps `ns` nanoseconds.
+sig [Value] => Value
+machine def zr_nanosleep(ns)
+  n = zr_fix2long(ns)
+  ts = Machine.slot(16)
+  Machine.store64(ts, 0, n / 1000000000)
+  Machine.store64(ts, 8, n % 1000000000)
+  nanosleep(ts, 0)
+  Machine.value(QNIL)
+end

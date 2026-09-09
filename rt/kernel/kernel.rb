@@ -98,3 +98,13 @@ machine def zr_warn_line(s)
   zr_write_err(Machine.bytes("\n"), 1)
   Machine.value(QNIL)
 end
+
+# `#<Thread:0x...` without the closing bracket, for an inspect that
+# adds more.
+sig [Value] => Value
+machine def zr_obj_head(recv)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_obj_head(b, recv)
+  zr_buf_take(b)
+end

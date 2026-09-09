@@ -26,6 +26,24 @@ module GC
 end
 
 module Process
+  CLOCK_REALTIME = 0
+  CLOCK_MONOTONIC = 6
+  CLOCK_PROCESS_CPUTIME_ID = 12
+  CLOCK_THREAD_CPUTIME_ID = 16
+
   def self.pid = Primitive.zr_process_id
-  def self.clock_gettime(id, unit = :float_second) = Primitive.zr_unimplemented("Process.clock_gettime")
+
+  def self.clock_gettime(id, unit = :float_second)
+    ns = Primitive.zr_clock_ns(id)
+    case unit
+    when :float_second then ns.to_f / 1e9
+    when :float_millisecond then ns.to_f / 1e6
+    when :float_microsecond then ns.to_f / 1e3
+    when :second then ns / 1_000_000_000
+    when :millisecond then ns / 1_000_000
+    when :microsecond then ns / 1000
+    when :nanosecond then ns
+    else raise ArgumentError, "unexpected unit: #{unit}"
+    end
+  end
 end

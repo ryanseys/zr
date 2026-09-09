@@ -45,7 +45,7 @@ G_TRUE = 9
 G_FALSE = 10
 G_MAIN = 11
 G_NUMERIC = 13
-G_COUNT = 41
+G_COUNT = 42
 
 sig [] => Ptr
 machine def zr_globals
