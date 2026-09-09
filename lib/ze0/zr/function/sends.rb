@@ -148,7 +148,7 @@ module Ze0
           fn = @l.block(block, self)
           site = (@sites += 1)
           ret_home = @kind == :block ? proc_field("ret_home") : @rec
-          proc = kernel("zr_proc_new", @f.func_addr(@f.callee(fn, ABI.fetch(:block), "i64")), @env, @self, @cref, @blk, @rec,
+          proc = kernel("zr_proc_new", @f.symbol_value(@f.symbol("zr_meta_#{fn}")), @env, @self, @cref, @blk, @rec,
                         imm((site << 32) | (block.params.spread? ? 1 : 0)), ret_home)
           @f.store(proc, @rec, value_offset(slot))
           [site, proc]

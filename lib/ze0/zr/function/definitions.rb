@@ -20,8 +20,8 @@ module Ze0
                   end
           addr = @f.func_addr(@f.callee(fn, ABI.fetch(:def), "i64"))
           meta = @f.symbol_value(@f.symbol("zr_meta_#{fn}"))
-          arity = node.params.plain? ? node.params.required.size : -1
-          kernel("zr_define_method", owner, imm(sym_id(node.name)), addr, imm(arity), imm(@l.const("KIND_DEF")), meta, @cref)
+          checked_arity = node.params.plain? ? node.params.required.size : -1
+          kernel("zr_define_method", owner, imm(sym_id(node.name)), addr, imm(checked_arity), imm(@l.const("KIND_DEF")), meta, @cref)
           symbol(node.name)
         end
 

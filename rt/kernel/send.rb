@@ -21,44 +21,55 @@ machine def zr_no_method_from(recv, mid, vcall, from_super)
   zr_raise_buf(zr_global(vcall ? G_NAME_ERROR : G_NO_METHOD_ERROR), b)
 end
 
+# `wrong number of arguments (given 3, expected 1..2)`: `max` is the
+# same as `min` for an exact count, and -1 for no limit. A def with
+# required keywords names them after the count.
+sig [Word, Word, Word, Ptr, Word] => Value
+machine def zr_wrong_arity_kw(given, min, max, ids, nkw)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("wrong number of arguments (given "), 33)
+  zr_buf_long(b, given)
+  zr_buf_push(b, Machine.bytes(", expected "), 11)
+  zr_buf_long(b, min)
+  if max < 0
+    zr_buf_byte(b, 43)
+  elsif max != min
+    zr_buf_push(b, Machine.bytes(".."), 2)
+    zr_buf_long(b, max)
+  end
+  if nkw > 0
+    zr_buf_push(b, Machine.bytes("; required keyword"), 18)
+    if nkw > 1
+      zr_buf_byte(b, 115)
+    end
+    zr_buf_push(b, Machine.bytes(": "), 2)
+    i = 0
+    while i < nkw
+      if i > 0
+        zr_buf_push(b, Machine.bytes(", "), 2)
+      end
+      zr_buf_sym(b, Machine.load64(ids + (i * 8), 0))
+      i += 1
+    end
+  end
+  zr_buf_byte(b, 41)
+  zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+end
+
 sig [Word, Word] => Value
 machine def zr_wrong_arity(given, expected)
-  b = Machine.slot(Buf.size)
-  zr_buf_init(b)
-  zr_buf_push(b, Machine.bytes("wrong number of arguments (given "), 33)
-  zr_buf_long(b, given)
-  zr_buf_push(b, Machine.bytes(", expected "), 11)
-  zr_buf_long(b, expected)
-  zr_buf_byte(b, 41)
-  zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+  zr_wrong_arity_kw(given, expected, expected, 0, 0)
 end
 
-# `wrong number of arguments (given 3, expected 1..2)`.
 sig [Word, Word, Word] => Value
 machine def zr_wrong_arity_range(given, min, max)
-  b = Machine.slot(Buf.size)
-  zr_buf_init(b)
-  zr_buf_push(b, Machine.bytes("wrong number of arguments (given "), 33)
-  zr_buf_long(b, given)
-  zr_buf_push(b, Machine.bytes(", expected "), 11)
-  zr_buf_long(b, min)
-  zr_buf_push(b, Machine.bytes(".."), 2)
-  zr_buf_long(b, max)
-  zr_buf_byte(b, 41)
-  zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+  zr_wrong_arity_kw(given, min, max, 0, 0)
 end
 
-# `wrong number of arguments (given 0, expected 1+)`.
 sig [Word, Word] => Value
 machine def zr_wrong_arity_min(given, min)
-  b = Machine.slot(Buf.size)
-  zr_buf_init(b)
-  zr_buf_push(b, Machine.bytes("wrong number of arguments (given "), 33)
-  zr_buf_long(b, given)
-  zr_buf_push(b, Machine.bytes(", expected "), 11)
-  zr_buf_long(b, min)
-  zr_buf_push(b, Machine.bytes("+)"), 2)
-  zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+  zr_wrong_arity_kw(given, min, 0 - 1, 0, 0)
 end
 
 # A call passing keywords sets the task's flag right before the send;

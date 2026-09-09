@@ -436,6 +436,9 @@ machine def zr_define_method(klass, mid, fn, arity, kind, meta, cref)
     FrameMeta.set_kind(meta, KIND_BUILTIN)
     FrameMeta.set_line(meta, 0)
     FrameMeta.set_parent(meta, 0)
+    FrameMeta.set_arity(meta, arity)
+    FrameMeta.set_params(meta, 0)
+    FrameMeta.set_fn(meta, 0)
   end
   FrameMeta.set_name(meta, mid)
   FrameMeta.set_owner(meta, klass)
@@ -659,6 +662,13 @@ machine def zr_builtin(klass, mid, fn, arity)
   zr_define_method(klass, mid, fn, arity, KIND_BUILTIN, 0, Machine.value(QNIL))
 end
 
+# A builtin that is private, as Kernel's `puts` and `raise` are.
+sig [Value, Word, Ptr, Word] => Void
+machine def zr_builtin_private(klass, mid, fn, arity)
+  zr_builtin(klass, mid, fn, arity)
+  MEntry.set_vis(zr_find_method_at(klass, mid), VIS_PRIVATE)
+end
+
 # The entry for `mid` on `klass` alone, or 0; the last definition wins.
 sig [Value, Word] => Ptr
 machine def zr_find_method_at(klass, mid)
@@ -762,6 +772,8 @@ machine def zr_mark_children(v)
     zr_mark_env(v)
   elsif t == T_PROC
     zr_mark_proc(v)
+  elsif t == T_METHOD
+    zr_mark_method(v)
   end
 end
 

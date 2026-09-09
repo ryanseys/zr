@@ -102,3 +102,8 @@ machine def zr_sym_cmp(recv, argc, argv, cref, blk)
   b = zr_sym2id(other)
   zr_fix(zr_bytes_cmp(zr_symbol_name_ptr(a), zr_symbol_name_len(a), zr_symbol_name_ptr(b), zr_symbol_name_len(b)))
 end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_sym_to_proc_m(recv, argc, argv, cref, blk)
+  zr_sym_to_proc(recv)
+end

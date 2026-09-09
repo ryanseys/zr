@@ -58,6 +58,32 @@ module Ze0
         positionals = (required + post).flat_map { |r| r.is_a?(MultiTarget) ? r.names : [r] }
         positionals + optional.map(&:first) + [rest].compact + keywords.map(&:first) + [kwrest, block].compact - [:implicit]
       end
+
+      # `Method#arity`: the required count, negative less one when the
+      # count may vary. A required keyword counts as one argument; any
+      # other keyword form allows one more.
+      def arity
+        min = required.size + post.size + (keywords.any? { |_, default| default.nil? } ? 1 : 0)
+        return -min - 1 if rest && rest != :implicit
+
+        max = required.size + optional.size + post.size + (keywords.any? || kwrest ? 1 : 0)
+        min == max ? min : -min - 1
+      end
+
+      # `Method#parameters`, in CRuby's order: `[kind, name]` rows, a
+      # destructuring parameter with no name.
+      def rows
+        positional = ->(p) { p.is_a?(MultiTarget) ? [:req] : [:req, p] }
+        [
+          *required.map(&positional),
+          *optional.map { |name, _| [:opt, name] },
+          *(rest && rest != :implicit ? [[:rest, rest]] : []),
+          *post.map(&positional),
+          *keywords.map { |name, default| [default.nil? ? :keyreq : :key, name] },
+          *(kwrest ? [[:keyrest, kwrest]] : []),
+          *(block ? [[:block, block]] : [])
+        ]
+      end
     end
     Yield = Struct.new(:args, :line, :kwargs)
     # `super(args)`; `block` as a Send's. `ZSuper` is the bare `super`,

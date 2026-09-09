@@ -617,7 +617,25 @@ machine def zr_p(recv, argc, argv, cref, blk)
   Machine.value(Machine.load64(argv, 0))
 end
 
-# `attr_reader`, `attr_writer`, `attr_accessor`: one entry per name.
+# A FrameMeta placed where the frame `rec` stands now: the file and
+# line an attribute is declared at.
+sig [Ptr] => Ptr
+machine def zr_meta_at(rec)
+  from = Frame.meta(rec)
+  meta = malloc(FrameMeta.size)
+  FrameMeta.set_file(meta, FrameMeta.file(from))
+  FrameMeta.set_file_len(meta, FrameMeta.file_len(from))
+  FrameMeta.set_kind(meta, KIND_BUILTIN)
+  FrameMeta.set_line(meta, Frame.line(rec))
+  FrameMeta.set_parent(meta, 0)
+  FrameMeta.set_arity(meta, 0)
+  FrameMeta.set_params(meta, 0)
+  FrameMeta.set_fn(meta, 0)
+  meta
+end
+
+# `attr_reader`, `attr_writer`, `attr_accessor`: one entry per name,
+# with the visibility the class body is at.
 sig [Value, Word, Ptr, Word] => Value
 machine def zr_attr(klass, argc, argv, which)
   i = 0
@@ -631,13 +649,14 @@ machine def zr_attr(klass, argc, argv, which)
     zr_buf_byte(b, 64)
     zr_buf_sym(b, id)
     ivar = zr_intern(Buf.ptr(b), Buf.len(b))
+    caller = Frame.prev(Task.top(zr_task()))
     if which != 2
-      zr_define_method(klass, id, Machine.ptr(ivar), 0, KIND_ATTR_READER, 0, Machine.value(QNIL))
+      zr_define_method(klass, id, Machine.ptr(ivar), 0, KIND_ATTR_READER, zr_meta_at(caller), Frame.cref(caller))
     end
     if which != 1
       zr_buf_byte(b, 61)
       setter = zr_intern(Buf.ptr(b) + 1, Buf.len(b) - 1)
-      zr_define_method(klass, setter, Machine.ptr(ivar), 1, KIND_ATTR_WRITER, 0, Machine.value(QNIL))
+      zr_define_method(klass, setter, Machine.ptr(ivar), 1, KIND_ATTR_WRITER, zr_meta_at(caller), Frame.cref(caller))
     end
     free(Buf.ptr(b))
     i += 1

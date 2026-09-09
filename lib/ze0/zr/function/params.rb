@@ -86,17 +86,21 @@ module Ze0
         end
 
         # CRuby's messages: an exact count, `min+` with a rest, `min..max`
-        # with optionals.
+        # with optionals, and the required keywords named after.
         def check_arity(p, argc)
           req = p.required.size + p.post.size
-          if p.rest
-            fail_unless(@f.icmp("sge", argc, imm(req))) { kernel("zr_wrong_arity_min", argc, imm(req)) }
-          elsif p.optional.empty?
-            fail_unless(@f.icmp("eq", argc, imm(req))) { kernel("zr_wrong_arity", argc, imm(req)) }
-          else
-            max = req + p.optional.size
-            ok = @f.band(@f.icmp("sge", argc, imm(req)), @f.icmp("sle", argc, imm(max)))
-            fail_unless(ok) { kernel("zr_wrong_arity_range", argc, imm(req), imm(max)) }
+          max = p.rest ? -1 : req + p.optional.size
+          ok = if p.rest
+                 @f.icmp("sge", argc, imm(req))
+               elsif p.optional.empty?
+                 @f.icmp("eq", argc, imm(req))
+               else
+                 @f.band(@f.icmp("sge", argc, imm(req)), @f.icmp("sle", argc, imm(max)))
+               end
+          required = p.keywords.select { |_, default| default.nil? }.map(&:first)
+          fail_unless(ok) do
+            ids, n = required.empty? ? [imm(0), imm(0)] : keyword_ids(required)
+            kernel("zr_wrong_arity_kw", argc, imm(req), imm(max), ids, n)
           end
         end
 

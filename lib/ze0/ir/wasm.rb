@@ -64,7 +64,9 @@ module Ze0
         unknown = used - @shims.keys
         raise Refused, "no wasm shim for #{unknown.join(", ")}" unless unknown.empty?
 
-        @table = @functions.flat_map { |f| f.blocks.flat_map(&:insts).select { |i| i.op == :func_addr }.map { |i| f.callees.find { |c| c.fn == i.args[0] }.symbol } }.uniq
+        taken = @functions.flat_map { |f| f.blocks.flat_map(&:insts).select { |i| i.op == :func_addr }.map { |i| f.callees.find { |c| c.fn == i.args[0] }.symbol } }
+        named = @data.flat_map { |d| d.relocs.map(&:symbol) }.select { |name| @index.key?(name) }
+        @table = (taken + named).uniq
         bodies = @shims.map { |name, _| shim(name) } + @functions.map { |f| Body.new(self, f).emit } + [start_body]
         types = @imports.map { |(_, _, p, r)| [p, r] } + @shims.values + @functions.map { |f| signature(f) } + [[[], []]]
         types.each { |t| type_index(t) }
@@ -119,13 +121,15 @@ module Ze0
         [s.params.map { |t| TYPE.fetch(t) }, s.ret ? [TYPE.fetch(s.ret)] : []]
       end
 
-      # A data object's bytes with every absolute relocation filled in.
+      # A data object's bytes with every absolute relocation filled in: a
+      # function's address is its table index, as `func_addr` answers.
       def patched(d)
         bytes = d.bytes.dup
         d.relocs.each do |r|
           raise Refused, "#{d.name}: a #{r.kind} relocation in data" unless r.kind == :abs64
 
-          bytes[r.offset, 8] = [data_address(r.symbol) + r.addend].pack("Q<")
+          address = @index.key?(r.symbol) ? table_index(r.symbol) : data_address(r.symbol)
+          bytes[r.offset, 8] = [address + r.addend].pack("Q<")
         end
         bytes
       end

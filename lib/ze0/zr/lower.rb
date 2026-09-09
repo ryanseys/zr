@@ -71,19 +71,35 @@ module Ze0
 
       # The FrameMeta of function `fn`: writable, since the runtime fills
       # in the owner and name at definition. A class body's name is the
-      # class's, set here.
-      def meta(fn, kind, line, name = 0, parent = nil)
+      # class's, set here; a def or block carries its arity and its
+      # parameter rows, and a block its function, so a Proc finds both.
+      def meta(fn, kind, line, name = 0, parent = nil, params = nil)
         layout = layout("FrameMeta")
         file = @file_bytes ||= literal(@program.file)
         bytes = ("\0" * layout.size).b
-        bytes[layout.fields.fetch("name").first, 8] = [name].pack("Q<")
-        bytes[layout.fields.fetch("file_len").first, 8] = [@program.file.bytesize].pack("Q<")
-        bytes[layout.fields.fetch("kind").first, 8] = [const(kind)].pack("Q<")
-        bytes[layout.fields.fetch("line").first, 8] = [line].pack("Q<")
+        word = ->(field, value) { bytes[layout.fields.fetch(field).first, 8] = [value].pack("q<") }
+        word.call("name", name)
+        word.call("file_len", @program.file.bytesize)
+        word.call("kind", const(kind))
+        word.call("line", line)
+        word.call("arity", params ? params.arity : 0)
         relocs = [Obj::Reloc.new(layout.fields.fetch("file").first, :abs64, file)]
         relocs << Obj::Reloc.new(layout.fields.fetch("parent").first, :abs64, parent) if parent
+        relocs << Obj::Reloc.new(layout.fields.fetch("params").first, :abs64, param_table(fn, params)) if params
+        relocs << Obj::Reloc.new(layout.fields.fetch("fn").first, :abs64, fn) if kind == "KIND_BLOCK" || kind == "KIND_HIDDEN"
         name = "zr_meta_#{fn}"
         @data << Obj::Data.new(name, :data, bytes, relocs: relocs, align: 8)
+        name
+      end
+
+      PARAM_KINDS = %i[req opt rest keyreq key keyrest block].each_with_index.to_h.freeze
+
+      # `Method#parameters` as data: the row count, then a kind and a
+      # name id per row, 0 for a row with no name.
+      def param_table(fn, params)
+        rows = params.rows.flat_map { |kind, name| [PARAM_KINDS.fetch(kind), name ? @symbols.id(name) : 0] }
+        name = "zr_params_#{fn}"
+        @data << Obj::Data.new(name, :text_const, [params.rows.size, *rows].pack("q<*"), align: 8)
         name
       end
 

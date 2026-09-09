@@ -7,7 +7,7 @@
 # Every frame record carries a FrameMeta: what the backtrace prints for
 # it. A builtin method's frame is pushed by dispatch and borrows the
 # file and line of the nearest Ruby frame outside it.
-Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr
+Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr
 KIND_MAIN = 0
 KIND_DEF = 1
 KIND_BUILTIN = 2

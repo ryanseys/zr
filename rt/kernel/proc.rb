@@ -6,7 +6,7 @@
 # `return` leaves. A `break` or `return` is a signal beside `raise`:
 # the task's pending kind says which.
 Machine.struct :REnv, basic: RBasic, parent: Value, slots: Ptr, nslots: Word
-Machine.struct :RProc, basic: RBasic, fn: Ptr, env: Value, self: Value, cref: Value, blk: Value, home: Ptr, serial: Word, site: Word, ret_home: Ptr, ret_serial: Word, spread: Word, lambda: Word
+Machine.struct :RProc, basic: RBasic, fn: Ptr, meta: Ptr, env: Value, self: Value, cref: Value, blk: Value, home: Ptr, serial: Word, site: Word, ret_home: Ptr, ret_serial: Word, spread: Word, lambda: Word
 Machine.sig :block, [Value, Word, Ptr, Value] => Value
 T_ENV = 26
 T_PROC = 27
@@ -75,11 +75,12 @@ end
 # `site`, packed above the spread flag: whether a lone Array argument
 # spreads over the parameters), whose method's frame is `ret_home`.
 sig [Ptr, Value, Value, Value, Value, Ptr, Word, Ptr] => Value
-machine def zr_proc_new(fn, env, self_, cref, blk, home, site_and_spread, ret_home)
+machine def zr_proc_new(meta, env, self_, cref, blk, home, site_and_spread, ret_home)
   site = site_and_spread >> 32
   spread = site_and_spread & 4294967295
   p = zr_alloc(T_PROC, zr_global(G_PROC))
-  RProc.set_fn(p, fn)
+  RProc.set_fn(p, FrameMeta.fn(meta))
+  RProc.set_meta(p, meta)
   RProc.set_env(p, env)
   RProc.set_self(p, self_)
   RProc.set_cref(p, cref)
@@ -106,10 +107,18 @@ end
 
 sig [Value] => Value
 machine def zr_sym_to_proc(sym)
+  zr_native_proc(Machine.addr(:zr_symbol_block), sym)
+end
+
+# A lambda whose body is the kernel function `fn`, with `self_` as
+# what it works on: a Symbol's or a Method's Proc.
+sig [Ptr, Value] => Value
+machine def zr_native_proc(fn, self_)
   p = zr_alloc(T_PROC, zr_global(G_PROC))
-  RProc.set_fn(p, Machine.addr(:zr_symbol_block))
+  RProc.set_fn(p, fn)
+  RProc.set_meta(p, 0)
   RProc.set_env(p, Machine.value(QNIL))
-  RProc.set_self(p, sym)
+  RProc.set_self(p, self_)
   RProc.set_cref(p, Machine.value(QNIL))
   RProc.set_blk(p, Machine.value(QNIL))
   RProc.set_home(p, 0)
