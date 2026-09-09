@@ -36,6 +36,8 @@ module Ze0
           when Hir::RangeLit
             staged([node.low, node.high]) { |argv| kernel("zr_range_new", @f.fetch("i64", argv), @f.fetch("i64", argv, 8), imm(node.exclusive ? 1 : 0)) }
           when Hir::Interp then staged(node.parts) { |argv| checked(kernel("zr_str_interp", imm(node.parts.size), argv)) }
+          when Hir::RegexpLit
+            checked(kernel("zr_regexp_literal", imm(@l.regexp_index), @f.symbol_value(@f.symbol(@l.literal(node.source))), imm(node.source.bytesize), imm(node.options)))
           when Hir::IvarRead then kernel("zr_ivar_get", @self, imm(sym_id(node.name)))
           when Hir::GvarRead then gvar_read(node)
           when Hir::GvarWrite then kernel("zr_gvar_set", imm(sym_id(node.name)), expr(node.value))
@@ -128,10 +130,11 @@ module Ze0
         # `$!` is the task's, and any other lives in the globals table.
         # The globals the runtime does not answer yet: IO, require and
         # regexp state. The rest are plain globals the core sets at boot.
-        SPECIAL_GLOBALS = %i[$~ $_ $. $<].freeze
+        SPECIAL_GLOBALS = %i[$_ $. $<].freeze
 
         def gvar_read(node)
           return kernel("zr_errinfo") if node.name == :$!
+          return kernel("zr_backref_get") if node.name == :$~
 
           @l.refuse(node, "#{node.name} is not lowered yet") if SPECIAL_GLOBALS.include?(node.name)
           kernel("zr_gvar_get", imm(sym_id(node.name)))

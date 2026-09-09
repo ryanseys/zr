@@ -3,6 +3,7 @@
 /vendor/gems/
 /vendor/bundle/
 # Build output.
+/vendor/build/
 /target/
 /clif2obj/target/
 /tmp/

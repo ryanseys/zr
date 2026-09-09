@@ -1,10 +1,12 @@
 # frozen_string_literal: true
 
 require "json"
+require "fileutils"
 require_relative "../ir"
 require_relative "../ir/verify"
 require_relative "cranelift"
 require_relative "ruby"
+require_relative "../deps"
 require_relative "../ir/wasm"
 require_relative "../machine/lower"
 
@@ -42,14 +44,21 @@ module Ze0
           File.write(sidecar, JSON.generate(rows))
           (why = road.compile(clif, obj, data: sidecar)) and return why
         end
-        road.link([obj], out)
+        road.link([obj], out, archives: Deps.build(road.root))
       end
 
       # The same functions and data as one WASI module. A raw function,
       # or a libSystem call the module has no shim for, has no wasm form:
       # its place is taken by a function that stops by name when called.
+      # Data another library defines (an oniguruma encoding) has none
+      # either: its place is a zero word, since every call that reads it
+      # is a stop.
       def wasm(functions, data, out, raw: [])
         data = data.dup
+        named = data.map(&:name) + functions.map(&:name)
+        functions.flat_map { |f| f.globals.reject(&:colocated).map(&:symbol) }.uniq.each do |symbol|
+          data << Obj::Data.new(symbol, :data_const, "\0".b * 8, align: 8) unless named.include?(symbol)
+        end
         stops = raw.map { |r| params, ret = Machine::Stub::ALL.fetch(r.name); stop(r.name, params.map { |t| Machine::TYPES.fetch(t.to_s) }, Machine::TYPES.fetch(ret.to_s), data) }
         defined = functions.map(&:name) + stops.map(&:name) + IR::Wasm::SHIMS.keys
         functions.each do |f|

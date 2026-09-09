@@ -18,6 +18,13 @@ class String
     when Range
       start, length = range_span(index, size)
       start && Primitive.zr_str_char_slice(self, start, length)
+    when Regexp
+      match = index.send(:search, self, 0, false)
+      Primitive.zr_backref_set(match)
+      return nil unless match
+      return match[0] if length.nil?
+
+      match[length]
     when String
       include?(index) ? index.dup : nil
     else
@@ -65,13 +72,21 @@ class String
 
   def start_with?(*prefixes)
     prefixes.any? do |prefix|
-      Primitive.zr_unimplemented("String#start_with? with a Regexp") unless prefix.is_a?(String)
+      if prefix.is_a?(Regexp)
+        match = prefix.send(:match_at, self, 0)
+        Primitive.zr_backref_set(match)
+        next !match.nil?
+      end
+      raise TypeError, "no implicit conversion of #{prefix.class} into String" unless prefix.is_a?(String)
+
       prefix.bytesize <= bytesize && byteslice_of(0, prefix.bytesize) == prefix
     end
   end
 
   def end_with?(*suffixes)
     suffixes.any? do |suffix|
+      raise TypeError, "no implicit conversion of #{suffix.class} into String" unless suffix.is_a?(String)
+
       suffix.bytesize <= bytesize && byteslice_of(bytesize - suffix.bytesize, suffix.bytesize) == suffix
     end
   end
@@ -88,6 +103,7 @@ class String
     return nil if part.nil?
 
     start = if args[0].is_a?(String) then byte_index(args[0], 0)
+            elsif args[0].is_a?(Regexp) then $~.byteoffset(args[1] || 0)[0]
             elsif args[0].is_a?(Range) then Primitive.zr_str_char_offset_m(self, range_span(args[0], size).first)
             else
               Primitive.zr_str_char_offset_m(self, args[0])
@@ -128,6 +144,15 @@ class String
       raise IndexError, "string not matched" unless start
 
       length = index.size
+    when Regexp
+      match = index.send(:search, self, 0, false)
+      raise IndexError, "regexp not matched" unless match
+
+      group = args.size == 2 ? args[1] : 0
+      start = match.begin(group)
+      raise IndexError, "regexp group #{group} not matched" if start.nil?
+
+      length = match.end(group) - start
     else
       raise TypeError, "no implicit conversion of #{index.class} into Integer"
     end
@@ -257,8 +282,9 @@ class String
   end
 
   def split(pattern = nil, limit = 0)
-    Primitive.zr_unimplemented("String#split with a Regexp") unless pattern.nil? || pattern.is_a?(String)
     return split_words(limit) if pattern.nil? || pattern == " "
+    return split_by_regexp(pattern, limit) if pattern.is_a?(Regexp)
+    raise TypeError, "wrong argument type #{pattern.class} (expected Regexp)" unless pattern.is_a?(String)
     return split_chars(limit) if pattern.empty?
 
     out = []
@@ -272,27 +298,44 @@ class String
     out
   end
 
+  # `sub`: the first match replaced by `replacement` with its `\1`,
+  # `\k<name>`, `\0` and `\&` filled in, by the Hash's entry for the
+  # match, or by what the block answers with `$~` set.
   def sub(pattern, replacement = nil, &block)
-    Primitive.zr_unimplemented("String#sub with a Regexp") unless pattern.is_a?(String)
-    i = byte_index(pattern, 0)
-    return dup unless i
+    raise ArgumentError, "wrong number of arguments (given 1, expected 2)" if replacement.nil? && block.nil?
 
-    with = block ? yield(pattern).to_s : replacement
-    byteslice_of(0, i) + with + byteslice_of(i + pattern.bytesize, bytesize - i - pattern.bytesize)
+    match = first_match(pattern, 0)
+    Primitive.zr_backref_set(match)
+    return dup unless match
+
+    at = match.byteoffset(0)
+    byteslice_of(0, at[0]) + replacement_for(match, replacement, &block) + byteslice_of(at[1], bytesize - at[1])
   end
 
   def gsub(pattern, replacement = nil, &block)
-    Primitive.zr_unimplemented("String#gsub with a Regexp") unless pattern.is_a?(String)
-    return dup if pattern.empty?
+    return to_enum(:gsub, pattern) if replacement.nil? && block.nil?
 
     out = +""
     start = 0
-    while (i = byte_index(pattern, start))
-      out << byteslice_of(start, i - start)
-      out << (block ? yield(pattern).to_s : replacement)
-      start = i + pattern.bytesize
+    last = nil
+    while start <= bytesize && (match = first_match(pattern, start))
+      last = match
+      Primitive.zr_backref_set(match)
+      from, to = match.byteoffset(0)
+      out << byteslice_of(start, from - start) << replacement_for(match, replacement, &block)
+      if to == from
+        break if from >= bytesize
+
+        step = Primitive.zr_str_char_len_at_m(self, from)
+        out << byteslice_of(from, step)
+        start = from + step
+      else
+        start = to
+      end
     end
-    out << byteslice_of(start, bytesize - start)
+    Primitive.zr_backref_set(last)
+    out << byteslice_of(start, bytesize - start) if start <= bytesize
+    out
   end
 
   def sub!(pattern, replacement = nil, &block) = mutate(sub(pattern, replacement, &block))
@@ -300,22 +343,31 @@ class String
   def gsub!(pattern, replacement = nil, &block) = mutate(gsub(pattern, replacement, &block))
 
   def index(needle, start = 0)
-    Primitive.zr_unimplemented("String#index with a Regexp") unless needle.is_a?(String)
     count = size
     start += count if start < 0
     return nil if start < 0 || start > count
 
-    at = byte_index(needle, Primitive.zr_str_char_offset_m(self, start))
+    from = Primitive.zr_str_char_offset_m(self, start)
+    if needle.is_a?(Regexp)
+      match = needle.send(:search, self, from, false)
+      Primitive.zr_backref_set(match)
+      return match && match.begin(0)
+    end
+    at = byte_index(needle, from)
     at && Primitive.zr_str_byte_to_char(self, at)
   end
 
   def rindex(needle, start = size)
-    Primitive.zr_unimplemented("String#rindex with a Regexp") unless needle.is_a?(String)
     count = size
     start += count if start < 0
     return nil if start < 0
 
     from = Primitive.zr_str_char_offset_m(self, [start, count].min)
+    if needle.is_a?(Regexp)
+      match = needle.send(:search, self, from, true)
+      Primitive.zr_backref_set(match)
+      return match && match.begin(0)
+    end
     i = [from, bytesize - needle.bytesize].min
     while i >= 0
       return Primitive.zr_str_byte_to_char(self, i) if byteslice_of(i, needle.bytesize) == needle
@@ -389,11 +441,27 @@ class String
   end
 
   def partition(sep)
+    if sep.is_a?(Regexp)
+      match = sep.send(:search, self, 0, false)
+      Primitive.zr_backref_set(match)
+      return [dup, "", ""] unless match
+
+      from, to = match.byteoffset(0)
+      return [byteslice_of(0, from), match[0], byteslice_of(to, bytesize - to)]
+    end
     at = byte_index(sep, 0)
     at ? [byteslice_of(0, at), sep.dup, byteslice_of(at + sep.bytesize, bytesize - at - sep.bytesize)] : [dup, "", ""]
   end
 
   def rpartition(sep)
+    if sep.is_a?(Regexp)
+      match = sep.send(:search, self, bytesize, true)
+      Primitive.zr_backref_set(match)
+      return ["", "", dup] unless match
+
+      from, to = match.byteoffset(0)
+      return [byteslice_of(0, from), match[0], byteslice_of(to, bytesize - to)]
+    end
     at = rindex(sep)
     return ["", "", dup] unless at
 
@@ -429,18 +497,26 @@ class String
 
   def codepoints = each_char.map(&:ord)
 
+  # Every match in turn: the matched text, or the groups when the
+  # pattern has any; an empty match steps one character.
   def scan(pattern)
-    Primitive.zr_unimplemented("String#scan with a Regexp") unless pattern.is_a?(String)
     found = []
+    last = nil
     at = 0
-    while at <= bytesize && (hit = byte_index(pattern, at))
-      found << pattern.dup
-      at = hit + [pattern.bytesize, 1].max
+    while at <= bytesize && (match = first_match(pattern, at))
+      last = match
+      item = match.size > 1 ? match.captures : match[0]
+      from, to = match.byteoffset(0)
+      if block_given?
+        Primitive.zr_backref_set(match)
+        yield item
+      else
+        found << item
+      end
+      at = to == from ? to + (to < bytesize ? Primitive.zr_str_char_len_at_m(self, to) : 1) : to
     end
-    return found unless block_given?
-
-    found.each { |m| yield m }
-    self
+    Primitive.zr_backref_set(last)
+    block_given? ? self : found
   end
 
   DUMP_ESCAPES = { 7 => "\\a", 8 => "\\b", 9 => "\\t", 10 => "\\n", 11 => "\\v", 12 => "\\f", 13 => "\\r", 27 => "\\e", 34 => "\\\"", 92 => "\\\\" }.freeze
@@ -526,12 +602,20 @@ class String
 
   def =~(other)
     raise TypeError, "wrong argument type String (expected Regexp)" if other.is_a?(String)
-    return other =~ self if other.respond_to?(:=~) && !other.is_a?(String)
+    return other.send(:=~, self) if other.is_a?(Regexp)
 
-    Primitive.zr_unimplemented("String#=~ with a Regexp")
+    other =~ self
   end
 
-  def match?(other) = Primitive.zr_unimplemented("String#match?")
+  def match(pattern, pos = 0, &block)
+    pattern = Regexp.new(pattern) unless pattern.is_a?(Regexp)
+    pattern.match(self, pos, &block)
+  end
+
+  def match?(pattern, pos = 0)
+    pattern = Regexp.new(pattern) unless pattern.is_a?(Regexp)
+    pattern.match?(self, pos)
+  end
 
   def encoding = Encoding::KINDS[Primitive.zr_str_encoding_kind(self)]
 
@@ -737,6 +821,91 @@ class String
     out = chars.first(limit - 1)
     rest = Primitive.zr_str_char_offset_m(self, limit - 1)
     out << byteslice_of(rest, bytesize - rest) if rest && rest < bytesize
+    out
+  end
+
+  # The first match of a Regexp or String pattern at or after byte
+  # `start`, as a MatchData; a String pattern matches its bytes.
+  def first_match(pattern, start)
+    Primitive.attr! :hidden
+    return pattern.send(:search, self, start, false) if pattern.is_a?(Regexp)
+    raise TypeError, "wrong argument type #{pattern.class} (expected Regexp)" unless pattern.is_a?(String)
+
+    at = byte_index(pattern, start)
+    at && MatchData.send(:for, pattern, self, [at, at + pattern.bytesize])
+  end
+
+  # What replaces one match: the block's answer, the Hash's entry, or
+  # the replacement text with its backreferences filled in.
+  def replacement_for(match, replacement, &block)
+    Primitive.attr! :hidden
+    return yield(match[0]).to_s if block
+    return replacement[match[0]].to_s if replacement.is_a?(Hash)
+
+    text = replacement.to_str
+    return text unless text.include?("\\")
+
+    out = +""
+    i = 0
+    while i < text.bytesize
+      c = text[i]
+      if c != "\\" || i + 1 >= text.bytesize
+        out << c
+        i += 1
+        next
+      end
+      d = text[i + 1]
+      i += 2
+      case d
+      when "0", "&" then out << match[0]
+      when "1".."9" then out << (d.to_i < match.size ? match[d.to_i].to_s : "")
+      when "\\" then out << "\\"
+      when "`" then out << match.pre_match
+      when "'" then out << match.post_match
+      when "k"
+        close = text.index(">", i)
+        if text[i] == "<" && close
+          out << match[text[i + 1...close]].to_s
+          i = close + 1
+        else
+          out << "\\k"
+        end
+      else out << "\\" << d
+      end
+    end
+    out
+  end
+
+  # split by a Regexp: the text between matches, with the groups
+  # between them; an empty match splits characters.
+  def split_by_regexp(pattern, limit)
+    Primitive.attr! :hidden
+    out = []
+    start = 0
+    search_from = 0
+    while (limit <= 0 || out.size < limit - 1) && search_from <= bytesize && (match = pattern.send(:search, self, search_from, false))
+      from, to = match.byteoffset(0)
+      if to == from
+        if from >= bytesize
+          break
+        end
+        step = Primitive.zr_str_char_len_at_m(self, from)
+        if from == start
+          search_from = from + step
+          next
+        end
+        out << byteslice_of(start, from - start)
+        start = from
+        search_from = from + step
+      else
+        out << byteslice_of(start, from - start)
+        start = to
+        search_from = to
+      end
+      match.captures.each { |c| out << c unless c.nil? }
+    end
+    out << byteslice_of(start, bytesize - start)
+    out.pop while limit == 0 && !out.empty? && out.last.empty?
     out
   end
 

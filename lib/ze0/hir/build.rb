@@ -151,6 +151,36 @@ module Ze0
         GVAR_ALIASES.fetch(name, name)
       end
 
+      # `$&`, `` $` ``, `$'` and `$+`: what the last match answers, nil
+      # without one.
+      def back_reference(node, line)
+        match = GvarRead.new(:$~, line)
+        case node.name
+        when :$& then Send.new(match, :[], [Literal.new(0, line)], line, false, nil, nil, nil, true)
+        when :$` then Send.new(match, :pre_match, [], line, false, nil, nil, nil, true)
+        when :$' then Send.new(match, :post_match, [], line, false, nil, nil, nil, true)
+        when :$+ then Send.new(match, :last_group, [], line, false, nil, nil, nil, true)
+        else refuse(node, "#{node.name} is not lowered yet")
+        end
+      end
+
+      # A regexp literal's option bits, as Regexp.new takes them.
+      def regexp_options(node)
+        (node.ignore_case? ? 1 : 0) | (node.extended? ? 2 : 0) | (node.multi_line? ? 4 : 0)
+      end
+
+      # ruby, the oracle, checks the pattern: one it refuses is a syntax
+      # error here too.
+      def regexp_literal(node, line)
+        refuse(node, "a regexp literal with an encoding flag is not lowered yet") if node.ascii_8bit? || node.euc_jp? || node.windows_31j? || node.utf_8?
+        begin
+          Regexp.new(node.unescaped, regexp_options(node))
+        rescue RegexpError => e
+          refuse(node, "#{e.message.sub(/: \/.*\z/m, "")}: /#{node.unescaped}/")
+        end
+        RegexpLit.new(node.unescaped, regexp_options(node), line)
+      end
+
       # The parts of an interpolated string, each a String or the value
       # of an embedded expression.
       def interpolation(node, line)
@@ -249,6 +279,13 @@ module Ze0
         when Prism::SourceLineNode then Literal.new(line, line)
         when Prism::InterpolatedSymbolNode then Send.new(interpolation(node, line), :to_sym, [], line, false)
         when Prism::XStringNode then Send.new(nil, :`, [Literal.new(node.unescaped, line)], line, false)
+        when Prism::NumberedReferenceReadNode then Send.new(GvarRead.new(:$~, line), :[], [Literal.new(node.number, line)], line, false, nil, nil, nil, true)
+        when Prism::BackReferenceReadNode then back_reference(node, line)
+        when Prism::RegularExpressionNode then regexp_literal(node, line)
+        when Prism::InterpolatedRegularExpressionNode
+          refuse(node, "a regexp literal with the o flag is not lowered yet") if node.once?
+          built = Send.new(ConstRead.new(nil, :Regexp, line), :new, [interpolation(node, line), Literal.new(regexp_options(node), line)], line, false)
+          Send.new(built, :freeze, [], line, false)
         when Prism::InterpolatedXStringNode then Send.new(nil, :`, [interpolation(node, line)], line, false)
         when Prism::ArrayNode
           ArrayLit.new(node.elements.map { |e| e.is_a?(Prism::SplatNode) ? Splat.new(expr(e.expression), line) : expr(e) }, line)

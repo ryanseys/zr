@@ -177,6 +177,7 @@ module Ze0
           lines << "#{pad}(hash"
           n.pairs.each { |e| node(e, depth + 1, lines) }
           lines[-1] += ")"
+        when RegexpLit then lines << "#{pad}(regexp #{n.source.inspect} #{n.options})"
         when Interp
           lines << "#{pad}(interp"
           n.parts.each { |e| node(e, depth + 1, lines) }

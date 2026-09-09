@@ -83,6 +83,9 @@ module Ze0
         name
       end
 
+      # Each regexp literal site's slot in the runtime's table of them.
+      def regexp_index = @symbols.site
+
       # The FrameMeta of function `fn`: writable, since the runtime fills
       # in the owner and name at definition. A class body's name is the
       # class's, set here; a def or block carries its arity and its

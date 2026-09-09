@@ -271,10 +271,11 @@ class Array
   end
 
   def hash
+    mask = 72057594037927935
     h = 7
     i = 0
     while i < size
-      h = (h * 31 + self[i].hash) & 4611686018427387903
+      h = (h * 31 + (self[i].hash & mask)) & mask
       i += 1
     end
     h

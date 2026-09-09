@@ -10,6 +10,7 @@
 #   ze0 check                           the repo's own checks
 #   ze0 stage1                          ze0 compiles itself, twice, to the same bytes
 #   ze0 native build                    build the clif2obj crate (the Cranelift road)
+#   ze0 deps build                      build the vendored C dependencies (oniguruma)
 #   ze0 zr run <file.rb> [args]         compile a Ruby program with the zr runtime, and run it
 #   ze0 zr build <file.rb> -o <bin>     compile a Ruby program with the zr runtime
 #   ze0 zr machine <file.rb> -o <bin>   compile a kernel-dialect file alone
@@ -107,6 +108,11 @@ when "native"
   require_relative "../lib/ze0/native/cranelift"
   usage unless ARGV[1] == "build"
   puts Ze0::Native::Cranelift.new(ROOT).build!
+when "deps"
+  require "fileutils"
+  require_relative "../lib/ze0/deps"
+  usage unless ARGV[1] == "build"
+  puts Ze0::Deps.build(ROOT)
 when "scan"
   exec(RbConfig.ruby, File.join(ROOT, "scan.rb"), *ARGV.drop(1))
 when "stage1"

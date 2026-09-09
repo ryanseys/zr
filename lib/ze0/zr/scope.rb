@@ -20,7 +20,8 @@ module Ze0
         when Hir::Def then holds_block?(node.receiver)
         when Hir::ClassDef, Hir::ModuleDef, nil then false
         when Hir::SingletonClassDef then holds_block?(node.target)
-        when Struct then node.to_a.any? { |v| v.is_a?(Struct) ? holds_block?(v) : v.is_a?(Array) && v.any? { |e| holds_block?(e) } }
+        when Struct then node.to_a.any? { |v| holds_block?(v) }
+        when Array then node.any? { |v| holds_block?(v) }
         else false
         end
       end

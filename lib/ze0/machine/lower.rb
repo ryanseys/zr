@@ -44,15 +44,24 @@ module Ze0
     # owns the table, and a unit compiled alone numbers names as it meets
     # them.
     class Symbols
-      attr_reader :ids
+      attr_reader :ids, :sites
 
-      def initialize(names = [])
+      def initialize(names = [], sites: 0)
         @ids = {}
+        @sites = sites
         names.each { |n| id(n) }
       end
 
       def id(name)
         @ids[name.to_s] ||= @ids.size
+      end
+
+      # A fresh index for a code site that owns a run-time slot (a regexp
+      # literal's cached object), unique across every lowering that shares
+      # this table or descends from it.
+      def site
+        @sites += 1
+        @sites - 1
       end
     end
 

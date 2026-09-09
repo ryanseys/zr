@@ -156,6 +156,7 @@ module Ze0
         @f.store(@cref, @rec, off(@frame, "cref"))
         @f.store(@blk, @rec, off(@frame, "blk"))
         @f.store(imm(@nvalues), @rec, off(@frame, "nvalues"))
+        @f.store(imm(@l.unit.const_for("QNIL")), @rec, off(@frame, "svar"))
         program_start if @kind == :main && !@l.internal?
         (0...@nvalues).each { |i| @f.store(@qnil, @rec, value_offset(i)) }
         @f.store(@rec, @task_addr, off(@task, "top"))

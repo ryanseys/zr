@@ -934,6 +934,8 @@ machine def zr_mark_children(v)
     zr_mark_method(v)
   elsif t == T_FIBER
     zr_mark_fiber(v)
+  elsif t == T_REGEXP
+    zr_mark_regexp(v)
   end
 end
 
@@ -977,6 +979,8 @@ machine def zr_release(v)
     end
   elsif t == T_FIBER
     zr_release_fiber(v)
+  elsif t == T_REGEXP
+    zr_release_regexp(v)
   elsif t == T_ENV
     free(REnv.slots(v))
   end

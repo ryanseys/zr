@@ -12,7 +12,7 @@ module Ze0
     KERNEL = Dir[File.join(__dir__, "../../rt/kernel/*.rb")].sort.freeze
     # The core library files, in the order their toplevels run: a module
     # before the classes that include it.
-    CORE = %w[module exception enumerable enumerator comparable integer array hash range struct string kernel float proc format io process env file data gc random thread time set pack].map { |name| File.join(__dir__, "../../rt/core/#{name}.rb") }.freeze
+    CORE = %w[module exception enumerable enumerator comparable integer array hash range struct string kernel float proc format io process env file data gc random thread time set pack regexp].map { |name| File.join(__dir__, "../../rt/core/#{name}.rb") }.freeze
 
     module_function
 
@@ -20,7 +20,7 @@ module Ze0
     # `[functions, data, raw]` ready for `Native::Build`.
     def program(source, file)
       unit, core_functions, core_data, core_symbols = runtime
-      symbols = Machine::Symbols.new(core_symbols.ids.keys)
+      symbols = Machine::Symbols.new(core_symbols.ids.keys, sites: core_symbols.sites)
       functions, data = Lower.new(Hir.build(source, file), unit, symbols).run
       [unit.functions + core_functions + functions, unit.data + core_data + data + symbol_names(symbols), unit.raw]
     end
