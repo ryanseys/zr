@@ -182,25 +182,21 @@ class String
     replace(byteslice_of(0, at) + other + byteslice_of(at, bytesize - at))
   end
 
-  def swapcase
-    Primitive.zr_unimplemented("String#swapcase on a non-ASCII String") unless Primitive.zr_str_ascii_check(self)
-    out = +""
-    each_byte do |b|
-      if b >= 65 && b <= 90
-        b += 32
-      elsif b >= 97 && b <= 122
-        b -= 32
-      end
-      out << Primitive.zr_str_from_byte(b)
-    end
-    out
-  end
+  # The four case mappings, each character through the Unicode tables.
+  # `:ascii` leaves everything above 127 alone, `:turkic` gives the
+  # dotted and dotless i their own rules, and `:fold` is downcasing
+  # for comparison. `:lithuanian` reads as the plain mapping, as it
+  # does in ruby.
+  def upcase(*options) = mapped_case(:up, options)
+  def downcase(*options) = mapped_case(:down, options)
+  def capitalize(*options) = mapped_case(:title, options)
+  def swapcase(*options) = mapped_case(:swap, options)
 
   # The bang forms answer nil when nothing changed.
-  def upcase! = mutate(upcase)
-  def downcase! = mutate(downcase)
-  def capitalize! = mutate(capitalize)
-  def swapcase! = mutate(swapcase)
+  def upcase!(*options) = mutate(upcase(*options))
+  def downcase!(*options) = mutate(downcase(*options))
+  def capitalize!(*options) = mutate(capitalize(*options))
+  def swapcase!(*options) = mutate(swapcase(*options))
   def reverse! = replace(reverse)
   def delete!(*sets) = mutate(delete(*sets))
   def strip! = mutate(strip)
@@ -959,9 +955,22 @@ class String
     i >= 0 ? i : nil
   end
 
-  def unicode_normalize(*) = Primitive.zr_unimplemented("String#unicode_normalize")
+  def unicode_normalize(form = :nfc) = Primitive.zr_unimplemented("String#unicode_normalize")
 
-  def each_grapheme_cluster(&block) = Primitive.zr_unimplemented("String#each_grapheme_cluster")
+  def unicode_normalize!(form = :nfc) = Primitive.zr_unimplemented("String#unicode_normalize!")
+
+  def unicode_normalized?(form = :nfc) = Primitive.zr_unimplemented("String#unicode_normalized?")
+
+  # A grapheme cluster is what the regex engine's `\\X` matches, which
+  # is how ruby reads them too.
+  def each_grapheme_cluster(&block)
+    return to_enum(:each_grapheme_cluster) { grapheme_clusters.size } unless block
+
+    grapheme_clusters.each(&block)
+    self
+  end
+
+  def grapheme_clusters = scan(/\X/)
 
   protected
 
@@ -1284,6 +1293,77 @@ class String
     last -= 1 if range.exclude_end? && !range.end.nil?
     last = bytesize - 1 if last >= bytesize
     [first, [last - first + 1, 0].max]
+  end
+
+  # The one option each case method takes, checked as ruby checks it.
+  # `:lithuanian` names no mapping of its own.
+  def case_mode(options, kind)
+    Primitive.attr! :hidden
+    raise ArgumentError, "too many options" if options.size > 2
+
+    if options.size == 2
+      first, second = options
+      raise ArgumentError, "too many options" unless first == :turkic || first == :lithuanian
+      raise ArgumentError, "invalid second option" unless second == (first == :turkic ? :lithuanian : :turkic)
+
+      return :turkic
+    end
+
+    mode = options.first
+    return :full if mode.nil? || mode == :lithuanian
+    raise ArgumentError, "option :fold only allowed for downcasing" if mode == :fold && kind != :down
+    raise ArgumentError, "invalid option" unless mode == :ascii || mode == :turkic || mode == :fold
+
+    mode
+  end
+
+  # Each character mapped: the first through the title table for
+  # `capitalize`, the rest through the lowercase one.
+  def mapped_case(kind, options)
+    Primitive.attr! :hidden
+    mode = case_mode(options, kind)
+    return Primitive.zr_str_map_case_m(self, KERNEL_CASE[kind]) if mode != :turkic && KERNEL_CASE.key?(kind) && Primitive.zr_str_ascii_check(self)
+
+    out = +""
+    each_char.with_index do |char, i|
+      step = kind == :title ? (i.zero? ? :title : :down) : kind
+      out << case_char(char, step, mode)
+    end
+    out
+  end
+
+  def case_char(char, kind, mode)
+    Primitive.attr! :hidden
+    code = char.ord
+    return char if mode == :ascii && code > 127
+    return TURKIC.fetch(kind).fetch(code).chr(Encoding::UTF_8) if mode == :turkic && TURKIC.fetch(kind).key?(code)
+
+    kind = :fold if mode == :fold
+    mapped = CASE_MULTI.fetch(kind)[code]
+    return mapped.pack("U*") if mapped
+
+    moved = case_delta(CASE_RUNS.fetch(kind), code)
+    moved.zero? ? char : (code + moved).chr(Encoding::UTF_8)
+  end
+
+  # How far `code` moves in a table of (first, how many, how far)
+  # triples, found by halving.
+  def case_delta(runs, code)
+    Primitive.attr! :hidden
+    low = 0
+    high = (runs.size / 3) - 1
+    while low <= high
+      middle = (low + high) / 2
+      first = runs[middle * 3]
+      if code < first
+        high = middle - 1
+      elsif code >= first + runs[(middle * 3) + 1]
+        low = middle + 1
+      else
+        return runs[(middle * 3) + 2]
+      end
+    end
+    0
   end
 
   def byte_index(needle, start)
