@@ -24,6 +24,7 @@ module Kernel
       @spec = spec
       @args = args
       @next = 0
+      @numbered = false
       @out = +""
     end
 
@@ -67,6 +68,7 @@ module Kernel
           i += 1
           if @spec.getbyte(i) == 42
             precision = Integer(take_next)
+            precision = nil if precision < 0
           else
             precision, i = number(i)
             precision ||= 0
@@ -85,14 +87,14 @@ module Kernel
           stop = @spec.index(">", i)
           raise ArgumentError, "malformed name - unmatched parenthesis" unless stop
 
-          value = named(@spec[i + 1...stop])
+          value = named(@spec[i + 1...stop], "<", ">")
           have_value = true
           i = stop
         when 123
           stop = @spec.index("}", i)
           raise ArgumentError, "malformed name - unmatched parenthesis" unless stop
 
-          @out << named(@spec[i + 1...stop]).to_s
+          @out << named(@spec[i + 1...stop], "{", "}").to_s
           return stop + 1
         when 37
           raise ArgumentError, "invalid format character - %" unless flags.empty? && width.nil?
@@ -118,8 +120,11 @@ module Kernel
       [n, i]
     end
 
+    # An argument taken in order. A template names its arguments one
+    # way or the other, never both.
     def take_next
       Primitive.attr! :hidden
+      raise ArgumentError, "unnumbered(#{@next + 1}) mixed with numbered" if @numbered
       raise ArgumentError, "too few arguments" if @next >= @args.size
 
       v = @args[@next]
@@ -129,18 +134,22 @@ module Kernel
 
     def positional(n)
       Primitive.attr! :hidden
+      raise ArgumentError, "numbered(#{n}) after unnumbered(#{@next})" if @next.positive?
       raise ArgumentError, "invalid index - #{n}$" if n < 1 || n > @args.size
 
+      @numbered = true
       @args[n - 1]
     end
 
-    def named(name)
+    # The message names the key inside the brackets the program wrote.
+    def named(name, open, close)
       Primitive.attr! :hidden
+      raise ArgumentError, "named#{open}#{name}#{close} after unnumbered(#{@next})" if @next.positive?
       raise ArgumentError, "one hash required" unless @args.size == 1 && @args[0].is_a?(Hash)
 
       hash = @args[0]
       key = name.to_sym
-      raise KeyError.new("key<#{name}> not found", receiver: hash, key: key) unless hash.key?(key)
+      raise KeyError.new("key#{open}#{name}#{close} not found", receiver: hash, key: key) unless hash.key?(key)
 
       hash[key]
     end
@@ -188,7 +197,7 @@ module Kernel
       if n < 0 && !signed
         digits = complement(-n, base)
         fill = (base - 1).to_s(base)
-        digits = fill * (precision - digits.bytesize) + digits if precision && digits.bytesize < precision
+        digits = fill * (precision - 2 - digits.bytesize) + digits if precision && digits.bytesize < precision - 2
         body = ".." + digits
         prefix = base_prefix(base, flags, n)
         if flags.include?("0") && !flags.include?("-") && width && prefix.bytesize + body.bytesize < width && precision.nil?
@@ -202,6 +211,7 @@ module Kernel
       digits = n.abs.to_s(base)
       digits = "" if precision == 0 && n == 0
       digits = "0" * (precision - digits.bytesize) + digits if precision && digits.bytesize < precision
+      digits = "0" + digits if base == 8 && flags.include?("#") && !digits.start_with?("0")
       sign = if n < 0 then "-"
              elsif flags.include?("+") then "+"
              elsif flags.include?(" ") then " "
@@ -217,11 +227,13 @@ module Kernel
       pad(result, flags, width)
     end
 
+    # `#` writes the base's own prefix. Octal's prefix is a leading
+    # zero the digits carry themselves, so it is not one of these.
     def base_prefix(base, flags, n)
       Primitive.attr! :hidden
       return "" unless flags.include?("#") && n != 0
 
-      { 16 => "0x", 8 => "0", 2 => "0b" }.fetch(base, "")
+      { 16 => "0x", 2 => "0b" }.fetch(base, "")
     end
 
     def complement(m, base)

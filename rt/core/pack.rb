@@ -19,7 +19,7 @@ module Packing
       i += 1
       next if c == " " || c == "\n" || c == "\t"
 
-      raise ArgumentError, "unknown #{kind} directive '#{c}' in '#{template}'" unless "CcSsLlQqJjIinNvVUwaAZHhBbmxX@dDeEfFgG".include?(c)
+      raise ArgumentError, "unknown #{kind} directive '#{c}' in '#{template}'" unless "CcSsLlQqJjIinNvVUwaAZHhBbmMuxX@dDeEfFgGpP".include?(c)
 
       big = nil
       native = false
@@ -45,13 +45,128 @@ module Packing
     out
   end
 
-  # The result is binary, US-ASCII after an `m`, UTF-8 when `U`
-  # comes first.
+  # Quoted printable: a byte outside the printable ASCII range, and
+  # `=` itself, become `=XX`; a newline passes through and starts the
+  # line again; each line takes `count + 1` characters and ends with a
+  # soft break, as does the whole text.
+  def self.quoted_printable(bytes, count)
+    Primitive.attr! :hidden
+    width = (count.nil? || count == :all || count <= 1 ? 72 : count) + 1
+    out = "".b
+    column = 0
+    bytes.each_byte do |byte|
+      if byte == 10
+        out << "\n"
+        column = 0
+        next
+      end
+
+      piece = byte == 61 || byte < 32 || byte > 126 ? format("=%02X", byte) : byte.chr
+      if column + piece.bytesize > width
+        out << "=\n"
+        column = 0
+      end
+      out << piece
+      column += piece.bytesize
+    end
+    out << "=\n"
+  end
+
+  def self.decode_quoted_printable(text)
+    Primitive.attr! :hidden
+    out = "".b
+    i = 0
+    while i < text.bytesize
+      if text.getbyte(i) != 61
+        out << text.getbyte(i).chr
+        i += 1
+      elsif text.byteslice(i + 1, 1) == "\n"
+        i += 2
+      elsif text.byteslice(i + 1, 2) =~ /\A\h\h\z/
+        out << text.byteslice(i + 1, 2).to_i(16).chr
+        i += 3
+      else
+        out << "="
+        i += 1
+      end
+    end
+    out
+  end
+  private_class_method :quoted_printable, :decode_quoted_printable
+
+  # The bytes an unpack reads, from `offset` on.
+  def self.from(text, offset)
+    raise ArgumentError, "offset can't be negative" if offset < 0
+    raise ArgumentError, "offset outside of string" if offset > text.bytesize
+
+    text.b.byteslice(offset, text.bytesize - offset) || "".b
+  end
+
+  # Uuencoding: a line holds `count` bytes rounded down to a multiple
+  # of three, and starts with its own length; each three bytes become
+  # four characters of six bits over a space, with a zero as a
+  # backquote.
+  def self.uuencode(bytes, count)
+    Primitive.attr! :hidden
+    line = count.nil? || count == :all || count <= 2 ? 45 : [count, 63].min / 3 * 3
+    out = +""
+    i = 0
+    while i < bytes.bytesize
+      chunk = bytes.byteslice(i, line)
+      out << uuchar(chunk.bytesize)
+      j = 0
+      while j < chunk.bytesize
+        a = chunk.getbyte(j)
+        b = chunk.getbyte(j + 1) || 0
+        c = chunk.getbyte(j + 2) || 0
+        out << uuchar(a >> 2) << uuchar(((a & 3) << 4) | (b >> 4)) << uuchar(((b & 15) << 2) | (c >> 6)) << uuchar(c & 63)
+        j += 3
+      end
+      out << "\n"
+      i += line
+    end
+    out
+  end
+
+  def self.uuchar(value)
+    Primitive.attr! :hidden
+    (value.zero? ? 0x60 : value + 0x20).chr
+  end
+
+  def self.uudecode(text)
+    Primitive.attr! :hidden
+    out = "".b
+    text.each_line do |line|
+      want = (line.getbyte(0).to_i - 0x20) & 63
+      break if want.zero?
+
+      body = line.byteslice(1, line.bytesize - 1).delete("\n")
+      j = 0
+      while j < body.bytesize && out.bytesize < want
+        values = (0..3).map { |k| ((body.getbyte(j + k) || 0x60) - 0x20) & 63 }
+        [(values[0] << 2) | (values[1] >> 4), ((values[1] & 15) << 4) | (values[2] >> 2), ((values[2] & 3) << 6) | values[3]].each do |byte|
+          out << byte.chr if out.bytesize < want
+        end
+        j += 4
+      end
+    end
+    out
+  end
+  private_class_method :uuencode, :uuchar, :uudecode
+
+  # The result is US-ASCII while every directive writes ASCII (`m`, `M`,
+  # `u` and none at all), UTF-8 once a `U` widens that, and binary as
+  # soon as one directive writes arbitrary bytes.
   def self.pack(items, template)
     out = "".b
     at = 0
     list = directives(template, "pack")
-    encoding = list.first&.first == "U" ? Encoding::UTF_8 : (list.any? { |c, _, _| c == "m" } ? Encoding::US_ASCII : Encoding::BINARY)
+    encoding = list.reduce(Encoding::US_ASCII) do |so_far, (c, _, _)|
+      if "mMu".include?(c) then so_far
+      elsif c == "U" then so_far == Encoding::US_ASCII ? Encoding::UTF_8 : so_far
+      else Encoding::BINARY
+      end
+    end
     list.each do |c, count, big|
       case c
       when "x"
@@ -85,6 +200,24 @@ module Packing
         item = items[at]
         at += 1
         out << base64(item.to_s.b, count)
+      when "M"
+        raise ArgumentError, "too few arguments" if at >= items.size
+
+        item = items[at]
+        at += 1
+        out << quoted_printable(item.to_s.b, count)
+      when "u"
+        raise ArgumentError, "too few arguments" if at >= items.size
+
+        item = items[at]
+        at += 1
+        out << uuencode(item.to_s.b, count)
+      when "p", "P"
+        raise ArgumentError, "too few arguments" if at >= items.size
+
+        item = items[at]
+        at += 1
+        out << (item.nil? ? "\0" * 8 : [Primitive.zr_str_bytes_address(Primitive.zr_str_operand(item))].pack("J"))
       when "U"
         each_item(items, at, count) { |item| out << (+"" << Integer(item)).b }
         at += count == :all ? items.size - at : (count || 1)
@@ -306,6 +439,16 @@ module Packing
         rest = bytes.byteslice(at, bytes.bytesize - at) || "".b
         out << decode_base64(rest, count == 0)
         at = bytes.bytesize
+      when "M"
+        rest = bytes.byteslice(at, bytes.bytesize - at) || "".b
+        out << decode_quoted_printable(rest)
+        at = bytes.bytesize
+      when "u"
+        rest = bytes.byteslice(at, bytes.bytesize - at) || "".b
+        out << uudecode(rest)
+        at = bytes.bytesize
+      when "p", "P"
+        Primitive.zr_unimplemented("String#unpack with the '#{c}' directive, which reads a pointer")
       when "U"
         n = count == :all ? nil : (count || 1)
         text = bytes.dup.force_encoding("UTF-8")
@@ -452,10 +595,10 @@ end
 
 class String
   def unpack(template, offset: 0)
-    Packing.unpack(b.byteslice(offset, bytesize - offset) || "".b, template.to_str, false)
+    Packing.unpack(Packing.from(self, offset), template.to_str, false)
   end
 
   def unpack1(template, offset: 0)
-    Packing.unpack(b.byteslice(offset, bytesize - offset) || "".b, template.to_str, true).first
+    Packing.unpack(Packing.from(self, offset), template.to_str, true).first
   end
 end
