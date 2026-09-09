@@ -110,6 +110,46 @@ class String
     part
   end
 
+  # `s[i] = t`, `s[start, len] = t`, `s[range] = t` and `s[sub] = t`:
+  # the span leaves and `t` takes its place.
+  def []=(*args)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2..3)" unless args.size == 2 || args.size == 3
+
+    Primitive.zr_str_ascii_check(self)
+    Primitive.zr_frozen_error(self) if frozen?
+    value = args.pop
+    raise TypeError, "no implicit conversion of #{value.class} into String" unless value.is_a?(String)
+
+    index = args[0]
+    size = bytesize
+    case index
+    when Integer
+      start = index < 0 ? index + size : index
+      raise IndexError, "index #{index} out of string" if start < 0 || start > size
+
+      if args.size == 2
+        length = args[1]
+        raise IndexError, "negative length #{length}" if length < 0
+
+        length = size - start if start + length > size
+      else
+        length = start == size ? 0 : 1
+      end
+    when Range
+      start, length = range_span(index, size)
+      raise RangeError, "#{index.inspect} out of range" unless start
+    when String
+      start = self.index(index)
+      raise IndexError, "string not matched" unless start
+
+      length = index.bytesize
+    else
+      raise TypeError, "no implicit conversion of #{index.class} into Integer"
+    end
+    replace(byteslice_of(0, start) + value + byteslice_of(start + length, size - start - length))
+    value
+  end
+
   def clear = replace("")
 
   def concat(*others)

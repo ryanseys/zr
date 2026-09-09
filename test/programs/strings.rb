@@ -41,3 +41,38 @@ begin; "abc".setbyte(5, 1); rescue => e; puts "#{e.class}: #{e.message}"; end
 begin; "".ord; rescue => e; puts "#{e.class}: #{e.message}"; end
 begin; "hi".center(5, ""); rescue => e; puts "#{e.class}: #{e.message}"; end
 begin; "hi".count; rescue => e; puts "#{e.class}: #{e.message}"; end
+s = "abcdef"
+s[0] = "z"
+p s
+s[1, 2] = "XY"
+p s
+s[1..2] = "q"
+p s
+s["z"] = "A"
+p s
+begin; s["nope"] = "x"; rescue => e; p e; end
+s[-1] = "!"
+p s
+begin; s[9] = "x"; rescue => e; p e; end
+s[2, 0] = "ins"
+p s
+s[1..] = ""
+p s
+begin; s[0] = 1; rescue => e; p e; end
+s = "abcdef"
+[[9], [-10], [1, -1], [9, 1], [6], [6, 0], [9..], [-9..1], [2..1], [1...1]].each do |a|
+  t = s.dup
+  begin
+    t.send(:[]=, *a, "x")
+    p t
+  rescue => e
+    p e
+  end
+end
+f = "abc".freeze
+begin; f[0] = "z"; rescue => e; p e, e.receiver.equal?(f); end
+begin; s[0, 1, 2] = "x"; rescue => e; p e; end
+p(s[0] = "Q")
+begin; f[0] = "z"; rescue FrozenError => e; puts e.send(:message); end
+puts f
+p (9..).inspect, (..9).inspect, (nil..nil).inspect, (9..).to_s, (..9).to_s, (nil..nil).to_s, (nil...nil).inspect, ("a"..).to_s, ("a"..).inspect

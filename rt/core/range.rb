@@ -122,6 +122,14 @@ class Range
   def hash = [@begin, @end, @excl].hash
 
   def to_s = "#{@begin}#{@excl ? "..." : ".."}#{@end}"
-  def inspect = "#{@begin.inspect}#{@excl ? "..." : ".."}#{@end.inspect}"
+
+  # An endless or beginless range leaves that side blank; only a range
+  # with neither end spells its nils.
+  def inspect
+    dots = @excl ? "..." : ".."
+    return "nil#{dots}nil" if @begin.nil? && @end.nil?
+
+    "#{@begin.inspect unless @begin.nil?}#{dots}#{@end.inspect unless @end.nil?}"
+  end
   def sum = inject(0) { |a, b| a + b }
 end
