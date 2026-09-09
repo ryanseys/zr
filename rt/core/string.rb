@@ -93,6 +93,23 @@ class String
 
   def replace(other) = Primitive.zr_str_replace(self, other)
 
+  # `slice!`: the part `[]` would answer, cut out of the receiver.
+  def slice!(*args)
+    Primitive.zr_str_ascii_check(self)
+    part = self[*args]
+    return nil if part.nil?
+
+    start = if args[0].is_a?(String) then index(args[0])
+            elsif args[0].is_a?(Range) then range_span(args[0], bytesize)&.first
+            else
+              i = args[0]
+              i += bytesize if i < 0
+              i
+            end
+    replace(byteslice_of(0, start) + byteslice_of(start + part.bytesize, bytesize - start - part.bytesize))
+    part
+  end
+
   def clear = replace("")
 
   def concat(*others)

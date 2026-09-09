@@ -61,6 +61,7 @@ machine def zr_boot
   Task.set_guards(zr_task(), Machine.value(QNIL))
   Task.set_catches(zr_task(), Machine.value(QNIL))
   Task.set_throw_tag(zr_task(), Machine.value(QNIL))
+  Task.set_mid(zr_task(), 0)
   # The four that form a cycle come first, with no class; then each
   # gets Class as its class. Names wait for String.
   zr_boot_class(G_BASIC_OBJECT, Machine.id(:BasicObject), Machine.value(QNIL))
@@ -375,10 +376,15 @@ machine def zr_boot
   zr_builtin(zr_global(G_CLASS), Machine.id(:subclasses), Machine.addr(:zr_class_subclasses), 0)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:remove_instance_variable), Machine.addr(:zr_obj_remove_instance_variable), 1)
   zr_builtin_private(zr_global(G_KERNEL), Machine.id(:caller), Machine.addr(:zr_kernel_caller), 0 - 1)
+  zr_builtin_private(zr_global(G_KERNEL), Machine.id(:__callee__), Machine.addr(:zr_kernel_callee), 0)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:singleton_class?), Machine.addr(:zr_mod_singleton_class_p), 0)
   main = zr_singleton_class(zr_global(G_MAIN))
-  zr_builtin(main, Machine.id(:include), Machine.addr(:zr_main_include), 0 - 1)
-  zr_builtin(main, Machine.id(:public), Machine.addr(:zr_main_public), 0 - 1)
-  zr_builtin(main, Machine.id(:private), Machine.addr(:zr_main_private), 0 - 1)
+  zr_builtin_private(main, Machine.id(:include), Machine.addr(:zr_main_include), 0 - 1)
+  zr_builtin_private(main, Machine.id(:public), Machine.addr(:zr_main_public), 0 - 1)
+  zr_builtin_private(main, Machine.id(:private), Machine.addr(:zr_main_private), 0 - 1)
+  zr_builtin_private(main, Machine.id(:define_method), Machine.addr(:zr_main_define_method), 0 - 1)
+  zr_builtin(main, Machine.id(:to_s), Machine.addr(:zr_main_to_s), 0)
+  zr_builtin(main, Machine.id(:inspect), Machine.addr(:zr_main_to_s), 0)
 end
 
 sig [I32, Ptr] => I32

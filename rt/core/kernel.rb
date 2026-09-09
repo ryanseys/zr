@@ -144,3 +144,13 @@ end
 module Kernel
   private :Integer, :String, :Array, :rand, :sleep, :warn, :catch, :throw
 end
+
+module Kernel
+  def ruby2_keywords(*names) = Primitive.zr_unimplemented("ruby2_keywords")
+  private :ruby2_keywords
+end
+
+class Module
+  def ruby2_keywords(*names) = Primitive.zr_unimplemented("ruby2_keywords")
+  private :ruby2_keywords
+end

@@ -132,3 +132,88 @@ end
 class LocalJumpError
   attr_reader :exit_value, :reason
 end
+
+class SignalException
+  SIGNALS = { "HUP" => 1, "INT" => 2, "QUIT" => 3, "ABRT" => 6, "KILL" => 9, "SEGV" => 11, "PIPE" => 13,
+              "ALRM" => 14, "TERM" => 15, "CHLD" => 20, "USR1" => 30, "USR2" => 31 }.freeze
+  private_constant :SIGNALS
+
+  attr_reader :signo
+
+  def initialize(sig = nil, message = nil)
+    raise ArgumentError, "wrong number of arguments (given 0, expected 1)" if sig.nil? && instance_of?(SignalException)
+
+    if sig.is_a?(Integer)
+      name = SIGNALS.key(sig)
+      raise ArgumentError, "invalid signal number (#{sig})" unless name
+
+      @signo = sig
+      super(message || "SIG#{name}")
+    elsif sig.nil?
+      @signo = 2
+      super(message)
+    else
+      name = sig.to_s.delete_prefix("SIG")
+      raise ArgumentError, "unsupported signal 'SIG#{name}'" unless SIGNALS.key?(name)
+
+      @signo = SIGNALS[name]
+      super("SIG#{name}")
+    end
+  end
+
+  def signm = message
+end
+
+class Interrupt
+  def initialize(message = "Interrupt")
+    super(2, message)
+  end
+end
+
+class Thread
+  class Backtrace
+    # One row of `caller_locations`, parsed from its `file:line:in
+    # 'label'` form.
+    class Location
+      attr_reader :path, :lineno, :label
+
+      def initialize(row)
+        at = row.index(":in '")
+        head = row[0, at]
+        colon = head.rindex(":")
+        @path = head[0, colon]
+        @lineno = head[colon + 1..].to_i
+        @label = row[at + 5...-1]
+        @row = row
+      end
+
+      # The method's own name: no block prefix, no owner.
+      def base_label
+        at = @label.rindex(" in ")
+        name = at ? @label[at + 4..] : @label
+        return name if name.start_with?("<")
+
+        cut = [name.rindex("#"), name.rindex(".")].compact.max
+        cut ? name[cut + 1..] : name
+      end
+
+      def absolute_path
+        return @path if @path.start_with?("/")
+        return nil if @path == "-e"
+
+        parts = "#{Primitive.zr_getcwd}/#{@path}".split("/").reject { |part| part.empty? || part == "." }
+        "/" + parts.join("/")
+      end
+      def to_s = @row
+      def inspect = @row.inspect
+    end
+  end
+end
+
+module Kernel
+  def caller_locations(start = 1, length = nil)
+    rows = caller(start + 1, length)
+    rows&.map { |row| Thread::Backtrace::Location.new(row) }
+  end
+  private :caller_locations
+end

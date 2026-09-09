@@ -331,6 +331,35 @@ machine def zr_kernel_method_name(recv, argc, argv, cref, blk)
   zr_sym(FrameMeta.name(meta))
 end
 
+# `__callee__`: the name the method was called by, an alias's own.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_kernel_callee(recv, argc, argv, cref, blk)
+  rec = Frame.prev(Task.top(zr_task()))
+  meta = Frame.meta(rec)
+  while (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN) && FrameMeta.parent(meta) != 0
+    meta = FrameMeta.parent(meta)
+    rec = Frame.prev(rec)
+    while rec != 0 && Frame.meta(rec) != meta
+      rec = Frame.prev(rec)
+    end
+    if rec == 0
+      return Machine.value(QNIL)
+    end
+  end
+  if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BMETHOD
+    return Machine.value(QNIL)
+  end
+  if Frame.mid(rec) == 0
+    return zr_sym(FrameMeta.name(meta))
+  end
+  zr_sym(Frame.mid(rec))
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_singleton_class_p(recv, argc, argv, cref, blk)
+  zr_bool(zr_singleton_p(recv))
+end
+
 # `Proc#source_location`: where the block was written, or nil for one
 # the runtime made.
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -489,4 +518,16 @@ machine def zr_ary_insert_by_serial(out, k)
     j -= 1
   end
   zr_ary_store(out, i, k)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_main_define_method(recv, argc, argv, cref, blk)
+  zr_mod_define_method(zr_global(G_OBJECT), argc, argv, cref, blk)
+end
+
+# The main object's `to_s` and `inspect`: `main`, as its own singleton
+# methods.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_main_to_s(recv, argc, argv, cref, blk)
+  zr_str_new(Machine.bytes("main"), 4)
 end

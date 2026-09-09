@@ -133,6 +133,7 @@ module Ze0
         serial = @f.iadd(@f.fetch("i64", @task_addr, off(@task, "serial")), imm(1))
         @f.store(serial, @task_addr, off(@task, "serial"))
         @f.store(serial, @rec, off(@frame, "serial"))
+        @f.store(@kind == :def ? @f.fetch("i64", @task_addr, off(@task, "mid")) : imm(0), @rec, off(@frame, "mid"))
         @proc = @f.args[0] if @kind == :block
         @qnil = imm(@l.const("QNIL"))
         @self = case @kind
