@@ -637,7 +637,7 @@ machine def zr_buf_str_escaped(b, p, n, binary)
     elsif c == 35 && i + 1 < n && (Machine.word(Machine.load8(p + i, 1)) == 123 || Machine.word(Machine.load8(p + i, 1)) == 36 || Machine.word(Machine.load8(p + i, 1)) == 64)
       zr_buf_push(b, Machine.bytes("\\#"), 2)
     elsif c < 32 || c == 127
-      zr_buf_push(b, Machine.bytes("\\x"), 2)
+      zr_buf_push(b, binary ? Machine.bytes("\\x") : Machine.bytes("\\u00"), binary ? 2 : 4)
       zr_buf_byte(b, zr_hex_digit(c >> 4))
       zr_buf_byte(b, zr_hex_digit(c & 15))
     else

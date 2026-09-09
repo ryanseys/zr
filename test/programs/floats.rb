@@ -41,3 +41,4 @@ x = 0.0
 p x, x == 1.0, (x - 1.0).abs < Float::EPSILON * 10
 p 2.5.to_s, 2.5.inspect, "#{2.5}", 1e100.to_s, 1.0e-100.inspect, [1.5, [2.5]].inspect, {a: 1.5}.to_s
 p 1.5.frozen?, 1.5.dup.equal?(1.5), 1e300.frozen?, (1e300 * 10).equal?(Float::INFINITY), 1e300.class, 1e300.object_id == 1e300.object_id
+p "1.5ñ".to_f, "ñ1.5".to_f

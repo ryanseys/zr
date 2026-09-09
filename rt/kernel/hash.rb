@@ -343,13 +343,13 @@ machine def zr_symbol_key_simple_p(key)
     return false
   end
   c = Machine.word(Machine.load8(p, 0))
-  unless (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || c == 95
+  unless (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || c == 95 || c >= 128
     return false
   end
   i = 1
   while i < n
     c = Machine.word(Machine.load8(p + i, 0))
-    unless zr_alnum_p(c) || c == 95
+    unless zr_alnum_p(c) || c == 95 || c >= 128
       if i == n - 1 && (c == 63 || c == 33)
         return true
       end

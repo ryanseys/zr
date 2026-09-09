@@ -1,30 +1,24 @@
-# String methods written over the byte primitives. Every character
-# method first checks the string is ASCII, so a multibyte string stops
-# loudly instead of getting a byte answer.
+# String methods written over the byte primitives. Character indexes
+# map to byte offsets through the kernel, which reads UTF-8; a binary
+# string's bytes are its characters. Case mapping, succ and character
+# sets stop on non-ASCII text.
 class String
   include Comparable
 
   def [](index, length = nil)
-    Primitive.zr_str_ascii_check(self)
-    size = bytesize
     case index
     when Integer
-      if length
-        return nil if length < 0
+      return Primitive.zr_str_char_slice(self, index, length) if length
 
-        start = index < 0 ? index + size : index
-        return nil if start < 0 || start > size
+      count = size
+      index += count if index < 0
+      return nil if index < 0 || index >= count
 
-        length = size - start if start + length > size
-        return byteslice_of(start, length)
-      end
-      byte = Primitive.zr_str_byte_at(self, index)
-      byte && Primitive.zr_str_from_byte(byte)
+      Primitive.zr_str_char_slice(self, index, 1)
     when Range
       start, length = range_span(index, size)
-      start && byteslice_of(start, length)
+      start && Primitive.zr_str_char_slice(self, start, length)
     when String
-      Primitive.zr_str_ascii_check(index)
       include?(index) ? index.dup : nil
     else
       raise TypeError, "no implicit conversion of #{index.class} into Integer" unless index.respond_to?(:to_int)
@@ -39,11 +33,11 @@ class String
   def each_char
     return to_enum(:each_char) { size } unless block_given?
 
-    Primitive.zr_str_ascii_check(self)
     i = 0
     while i < bytesize
-      yield Primitive.zr_str_from_byte(Primitive.zr_str_byte_at(self, i))
-      i += 1
+      n = Primitive.zr_str_char_len_at_m(self, i)
+      yield byteslice_of(i, n)
+      i += n
     end
     self
   end
@@ -67,12 +61,7 @@ class String
 
   def setbyte(i, byte) = Primitive.zr_str_setbyte(self, i, byte)
 
-  def ord
-    raise ArgumentError, "empty string" if empty?
-
-    Primitive.zr_str_ascii_check(self)
-    Primitive.zr_str_byte_at(self, 0)
-  end
+  def ord = Primitive.zr_str_ord(self)
 
   def start_with?(*prefixes)
     prefixes.any? do |prefix|
@@ -95,16 +84,13 @@ class String
 
   # `slice!`: the part `[]` would answer, cut out of the receiver.
   def slice!(*args)
-    Primitive.zr_str_ascii_check(self)
     part = self[*args]
     return nil if part.nil?
 
-    start = if args[0].is_a?(String) then index(args[0])
-            elsif args[0].is_a?(Range) then range_span(args[0], bytesize)&.first
+    start = if args[0].is_a?(String) then byte_index(args[0], 0)
+            elsif args[0].is_a?(Range) then Primitive.zr_str_char_offset_m(self, range_span(args[0], size).first)
             else
-              i = args[0]
-              i += bytesize if i < 0
-              i
+              Primitive.zr_str_char_offset_m(self, args[0])
             end
     replace(byteslice_of(0, start) + byteslice_of(start + part.bytesize, bytesize - start - part.bytesize))
     part
@@ -115,38 +101,39 @@ class String
   def []=(*args)
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2..3)" unless args.size == 2 || args.size == 3
 
-    Primitive.zr_str_ascii_check(self)
     Primitive.zr_frozen_error(self) if frozen?
     value = args.pop
     raise TypeError, "no implicit conversion of #{value.class} into String" unless value.is_a?(String)
 
     index = args[0]
-    size = bytesize
+    count = size
     case index
     when Integer
-      start = index < 0 ? index + size : index
-      raise IndexError, "index #{index} out of string" if start < 0 || start > size
+      start = index < 0 ? index + count : index
+      raise IndexError, "index #{index} out of string" if start < 0 || start > count
 
       if args.size == 2
         length = args[1]
         raise IndexError, "negative length #{length}" if length < 0
 
-        length = size - start if start + length > size
+        length = count - start if start + length > count
       else
-        length = start == size ? 0 : 1
+        length = start == count ? 0 : 1
       end
     when Range
-      start, length = range_span(index, size)
+      start, length = range_span(index, count)
       raise RangeError, "#{index.inspect} out of range" unless start
     when String
       start = self.index(index)
       raise IndexError, "string not matched" unless start
 
-      length = index.bytesize
+      length = index.size
     else
       raise TypeError, "no implicit conversion of #{index.class} into Integer"
     end
-    replace(byteslice_of(0, start) + value + byteslice_of(start + length, size - start - length))
+    from = Primitive.zr_str_char_offset_m(self, start)
+    to = Primitive.zr_str_char_offset_m(self, [start + length, count].min)
+    replace(byteslice_of(0, from) + value + byteslice_of(to, bytesize - to))
     value
   end
 
@@ -163,14 +150,16 @@ class String
   def prepend(*others) = replace(others.join + self)
 
   def insert(index, other)
-    index += bytesize + 1 if index < 0
-    raise IndexError, "index #{index} out of string" if index < 0 || index > bytesize
+    count = size
+    index += count + 1 if index < 0
+    raise IndexError, "index #{index} out of string" if index < 0 || index > count
 
-    replace(byteslice_of(0, index) + other + byteslice_of(index, bytesize - index))
+    at = Primitive.zr_str_char_offset_m(self, index)
+    replace(byteslice_of(0, at) + other + byteslice_of(at, bytesize - at))
   end
 
   def swapcase
-    Primitive.zr_str_ascii_check(self)
+    Primitive.zr_unimplemented("String#swapcase on a non-ASCII String") unless Primitive.zr_str_ascii_check(self)
     out = +""
     each_byte do |b|
       if b >= 65 && b <= 90
@@ -231,7 +220,7 @@ class String
     return "" if empty?
     return byteslice_of(0, bytesize - 2) if end_with?("\r\n")
 
-    byteslice_of(0, bytesize - 1)
+    byteslice_of(0, Primitive.zr_str_char_offset_m(self, -1))
   end
 
   def squeeze(*sets)
@@ -269,13 +258,12 @@ class String
 
   def split(pattern = nil, limit = 0)
     Primitive.zr_unimplemented("String#split with a Regexp") unless pattern.nil? || pattern.is_a?(String)
-    Primitive.zr_str_ascii_check(self)
     return split_words(limit) if pattern.nil? || pattern == " "
     return split_chars(limit) if pattern.empty?
 
     out = []
     start = 0
-    while (limit <= 0 || out.size < limit - 1) && (i = index(pattern, start))
+    while (limit <= 0 || out.size < limit - 1) && (i = byte_index(pattern, start))
       out << byteslice_of(start, i - start)
       start = i + pattern.bytesize
     end
@@ -286,7 +274,7 @@ class String
 
   def sub(pattern, replacement = nil, &block)
     Primitive.zr_unimplemented("String#sub with a Regexp") unless pattern.is_a?(String)
-    i = index(pattern)
+    i = byte_index(pattern, 0)
     return dup unless i
 
     with = block ? yield(pattern).to_s : replacement
@@ -299,7 +287,7 @@ class String
 
     out = +""
     start = 0
-    while (i = index(pattern, start))
+    while (i = byte_index(pattern, start))
       out << byteslice_of(start, i - start)
       out << (block ? yield(pattern).to_s : replacement)
       start = i + pattern.bytesize
@@ -313,22 +301,24 @@ class String
 
   def index(needle, start = 0)
     Primitive.zr_unimplemented("String#index with a Regexp") unless needle.is_a?(String)
-    Primitive.zr_str_ascii_check(self)
-    start += bytesize if start < 0
-    return nil if start < 0 || start > bytesize
+    count = size
+    start += count if start < 0
+    return nil if start < 0 || start > count
 
-    Primitive.zr_str_find_from(self, needle, start)
+    at = byte_index(needle, Primitive.zr_str_char_offset_m(self, start))
+    at && Primitive.zr_str_byte_to_char(self, at)
   end
 
-  def rindex(needle, start = bytesize)
+  def rindex(needle, start = size)
     Primitive.zr_unimplemented("String#rindex with a Regexp") unless needle.is_a?(String)
-    Primitive.zr_str_ascii_check(self)
-    start += bytesize if start < 0
+    count = size
+    start += count if start < 0
     return nil if start < 0
 
-    i = [start, bytesize - needle.bytesize].min
+    from = Primitive.zr_str_char_offset_m(self, [start, count].min)
+    i = [from, bytesize - needle.bytesize].min
     while i >= 0
-      return i if byteslice_of(i, needle.bytesize) == needle
+      return Primitive.zr_str_byte_to_char(self, i) if byteslice_of(i, needle.bytesize) == needle
 
       i -= 1
     end
@@ -399,13 +389,16 @@ class String
   end
 
   def partition(sep)
-    at = index(sep)
-    at ? [self[0, at], sep.dup, self[at + sep.bytesize..]] : [dup, "", ""]
+    at = byte_index(sep, 0)
+    at ? [byteslice_of(0, at), sep.dup, byteslice_of(at + sep.bytesize, bytesize - at - sep.bytesize)] : [dup, "", ""]
   end
 
   def rpartition(sep)
     at = rindex(sep)
-    at ? [self[0, at], sep.dup, self[at + sep.bytesize..]] : ["", "", dup]
+    return ["", "", dup] unless at
+
+    at = Primitive.zr_str_char_offset_m(self, at)
+    [byteslice_of(0, at), sep.dup, byteslice_of(at + sep.bytesize, bytesize - at - sep.bytesize)]
   end
 
   def sum(bits = 16)
@@ -434,17 +427,13 @@ class String
     byteslice_of(start, length)
   end
 
-  def codepoints
-    Primitive.zr_str_ascii_check(self)
-    bytes
-  end
+  def codepoints = each_char.map(&:ord)
 
   def scan(pattern)
     Primitive.zr_unimplemented("String#scan with a Regexp") unless pattern.is_a?(String)
-    Primitive.zr_str_ascii_check(self)
     found = []
     at = 0
-    while at <= bytesize && (hit = index(pattern, at))
+    while at <= bytesize && (hit = byte_index(pattern, at))
       found << pattern.dup
       at = hit + [pattern.bytesize, 1].max
     end
@@ -457,22 +446,28 @@ class String
   DUMP_ESCAPES = { 7 => "\\a", 8 => "\\b", 9 => "\\t", 10 => "\\n", 11 => "\\v", 12 => "\\f", 13 => "\\r", 27 => "\\e", 34 => "\\\"", 92 => "\\\\" }.freeze
   private_constant :DUMP_ESCAPES
 
-  # Every byte outside printable ASCII escaped, so the result reads
-  # back as the same bytes.
+  # Everything outside printable ASCII escaped, so the result reads
+  # back as the same bytes: a whole character as \u, a stray byte as
+  # \x.
   def dump
-    Primitive.zr_str_ascii_check(self)
     out = +"\""
-    bytes = each_byte.to_a
-    bytes.each_with_index do |b, i|
-      if DUMP_ESCAPES.key?(b)
+    i = 0
+    while i < bytesize
+      b = getbyte(i)
+      n = Primitive.zr_str_char_len_at_m(self, i)
+      if n > 1
+        cp = byteslice_of(i, n).ord
+        out << (cp > 0xFFFF ? format("\\u{%X}", cp) : format("\\u%04X", cp))
+      elsif DUMP_ESCAPES.key?(b)
         out << DUMP_ESCAPES[b]
-      elsif b == 35 && [123, 36, 64].include?(bytes[i + 1])
+      elsif b == 35 && [123, 36, 64].include?(getbyte(i + 1))
         out << "\\#"
       elsif b < 32 || b >= 127
         out << format("\\x%02X", b)
       else
         out << Primitive.zr_str_from_byte(b)
       end
+      i += n
     end
     out << "\""
   end
@@ -491,7 +486,6 @@ class String
 
   def to_i(base = 10)
     Primitive.zr_unimplemented("String#to_i with a base other than 10") unless base == 10
-    Primitive.zr_str_ascii_check(self)
     i = 0
     i += 1 while i < bytesize && space_byte?(Primitive.zr_str_byte_at(self, i))
     sign = 1
@@ -543,15 +537,36 @@ class String
 
   def unpack1(fmt) = Primitive.zr_unimplemented("String#unpack1")
 
-  def encoding = Primitive.zr_unimplemented("String#encoding")
+  def encoding = Encoding::KINDS[Primitive.zr_str_encoding_kind(self)]
 
-  def force_encoding(enc) = Primitive.zr_unimplemented("String#force_encoding")
+  def force_encoding(encoding)
+    encoding = Encoding.find(encoding) unless encoding.is_a?(Encoding)
+    Primitive.zr_str_set_encoding(self, Encoding::KINDS.index(encoding))
+  end
+
+  # A copy in `target`: the same bytes when they read the same in
+  # both, else an error for the first byte that does not.
+  def encode(target = Encoding.default_internal || Encoding.default_external, *rest, **options)
+    Primitive.zr_unimplemented("String#encode with a source encoding or options") unless rest.empty? && options.empty?
+    target = Encoding.find(target) unless target.is_a?(Encoding)
+    copy = dup
+    return copy if target == encoding || ascii_only?
+    return copy.force_encoding(target) if target == Encoding::BINARY
+
+    bad = each_byte.find { |b| b >= 128 }
+    raise Encoding::UndefinedConversionError, "\"\\x#{format('%02X', bad)}\" from #{encoding} to #{target}" if encoding == Encoding::BINARY
+    raise Encoding::UndefinedConversionError, "U+#{format('%04X', each_char.find { |c| c.ord >= 128 }.ord)} from UTF-8 to US-ASCII"
+  end
 
   def ascii_only?
     each_byte.all? { |b| b < 128 }
   end
 
-  def valid_encoding? = ascii_only? || Primitive.zr_unimplemented("String#valid_encoding? on a non-ASCII string")
+  def valid_encoding? = Primitive.zr_str_valid_p(self)
+
+  def unicode_normalize(*) = Primitive.zr_unimplemented("String#unicode_normalize")
+
+  def each_grapheme_cluster(&block) = Primitive.zr_unimplemented("String#each_grapheme_cluster")
 
   protected
 
@@ -638,17 +653,15 @@ class String
   # the base.
   def lenient_integer(base)
     Primitive.attr! :hidden
-    Primitive.zr_str_ascii_check(self)
     text = lstrip
     i = 0
     sign = 1
-    if text[i] == "-" || text[i] == "+"
-      sign = -1 if text[i] == "-"
+    if text.getbyte(i) == 45 || text.getbyte(i) == 43
+      sign = -1 if text.getbyte(i) == 45
       i += 1
     end
-    if text[i] == "0" && text[i + 1]
-      prefix = text[i + 1].downcase
-      chosen = { "x" => 16, "b" => 2, "o" => 8, "d" => 10 }[prefix]
+    if text.getbyte(i) == 48 && text.getbyte(i + 1)
+      chosen = { 120 => 16, 88 => 16, 98 => 2, 66 => 2, 111 => 8, 79 => 8, 100 => 10, 68 => 10 }[text.getbyte(i + 1)]
       if chosen && (base < 0 || chosen == base)
         base = chosen
         i += 2
@@ -658,12 +671,16 @@ class String
     value = 0
     seen = false
     while i < text.bytesize
-      ch = text[i]
-      if ch == "_" && seen && text[i + 1] && !(text[i + 1] == "_")
+      b = text.getbyte(i)
+      if b == 95 && seen && i + 1 < text.bytesize && text.getbyte(i + 1) != 95
         i += 1
         next
       end
-      digit = ch.between?("0", "9") ? ch.ord - 48 : (ch.downcase.between?("a", "z") ? ch.downcase.ord - 87 : 99)
+      digit = if b >= 48 && b <= 57 then b - 48
+              elsif b >= 97 && b <= 122 then b - 87
+              elsif b >= 65 && b <= 90 then b - 55
+              else 99
+              end
       break if digit >= base
 
       value = value * base + digit
@@ -722,15 +739,25 @@ class String
     return [dup] if limit == 1
 
     out = chars.first(limit - 1)
-    out << byteslice_of(limit - 1, bytesize - limit + 1) if limit - 1 < bytesize
+    rest = Primitive.zr_str_char_offset_m(self, limit - 1)
+    out << byteslice_of(rest, bytesize - rest) if rest && rest < bytesize
     out
+  end
+
+  # The byte offset of `needle` at or after byte `start`, or nil.
+  def byte_index(needle, start)
+    Primitive.attr! :hidden
+    return nil if start.nil? || start > bytesize
+
+    Primitive.zr_str_find_from(self, needle, start)
   end
 
   def justify(width, pad, side)
     raise ArgumentError, "zero width padding" if pad.empty?
-    return dup if width <= bytesize
+    count = size
+    return dup if width <= count
 
-    fill = width - bytesize
+    fill = width - count
     left = side == :left ? 0 : (side == :right ? fill : fill / 2)
     right = fill - left
     padding(left, pad) + self + padding(right, pad)
@@ -738,8 +765,8 @@ class String
 
   def padding(n, pad)
     out = +""
-    out << pad while out.bytesize < n
-    out.byteslice_of(0, n)
+    out << pad while out.size < n
+    out[0, n]
   end
 end
 
@@ -764,4 +791,74 @@ class Symbol
   def to_sym = self
   alias id2name to_s
   alias name to_s
+end
+
+# The encodings a String can be in: UTF-8 (the default), binary, and
+# US-ASCII, kept as flags on the string.
+class Encoding
+  attr_reader :name, :names
+
+  def initialize(name, *aliases)
+    @name = name
+    @names = [name, *aliases]
+  end
+
+  def to_s = @name
+
+  def inspect = @name == "BINARY" ? "#<Encoding:BINARY (ASCII-8BIT)>" : "#<Encoding:#{@name}>"
+
+  def ascii_compatible? = true
+
+  def dummy? = false
+
+  UTF_8 = new("UTF-8", "CP65001")
+  BINARY = new("BINARY", "ASCII-8BIT")
+  ASCII_8BIT = BINARY
+  US_ASCII = new("US-ASCII", "ASCII", "ANSI_X3.4-1968", "646")
+  KINDS = [UTF_8, BINARY, US_ASCII].freeze
+
+  def self.list = KINDS.dup
+
+  def self.name_list = KINDS.flat_map(&:names)
+
+  def self.find(name)
+    return name if name.is_a?(Encoding)
+
+    name = name.to_str
+    found = KINDS.find { |encoding| encoding.names.any? { |n| n.casecmp?(name) } }
+    return found if found
+
+    Primitive.zr_unimplemented("the #{name} encoding") if %w[ISO-8859-1 Shift_JIS EUC-JP UTF-16 UTF-16LE UTF-16BE UTF-32 Windows-1252 locale external filesystem].any? { |n| n.casecmp?(name) }
+    raise ArgumentError, "unknown encoding name - #{name}"
+  end
+
+  def self.default_external = UTF_8
+
+  def self.default_internal = nil
+
+  def self.default_external=(encoding)
+    Primitive.zr_unimplemented("Encoding.default_external=")
+  end
+
+  def self.default_internal=(encoding)
+    Primitive.zr_unimplemented("Encoding.default_internal=")
+  end
+
+  def self.compatible?(a, b)
+    return nil unless a.is_a?(String) && b.is_a?(String)
+    return a.encoding if a.encoding == b.encoding
+    return b.encoding if a.ascii_only?
+    return a.encoding if b.ascii_only?
+
+    nil
+  end
+
+  class CompatibilityError < EncodingError; end
+  class UndefinedConversionError < EncodingError; end
+  class InvalidByteSequenceError < EncodingError; end
+  class ConverterNotFoundError < EncodingError; end
+end
+
+class Symbol
+  def encoding = to_s.encoding
 end

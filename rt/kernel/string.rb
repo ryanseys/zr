@@ -106,6 +106,28 @@ machine def zr_str_set_binary(s)
   s
 end
 
+# The encoding as a number: 0 UTF-8, 1 binary, 2 US-ASCII.
+sig [Value] => Value
+machine def zr_str_encoding_kind(s)
+  if zr_str_binary_p(s)
+    return zr_fix(1)
+  end
+  zr_fix((RBasic.flags(s) & FL_USASCII) != 0 ? 2 : 0)
+end
+
+sig [Value, Value] => Value
+machine def zr_str_set_encoding(s, kind)
+  flags = RBasic.flags(s) & (0 - (FL_BINARY + 1)) & (0 - (FL_USASCII + 1))
+  k = zr_fix2long(kind)
+  if k == 1
+    flags = flags | FL_BINARY
+  elsif k == 2
+    flags = flags | FL_USASCII
+  end
+  RBasic.set_flags(s, flags)
+  s
+end
+
 # Whether the join of two strings is binary: it is when either is,
 # and the other holds only ASCII; text with high bytes beside binary
 # has no encoding yet.
@@ -114,7 +136,9 @@ machine def zr_str_join_binary_p(a, b)
   if zr_str_binary_p(a) == zr_str_binary_p(b)
     return zr_str_binary_p(a)
   end
-  zr_ascii_only(zr_str_binary_p(a) ? b : a)
+  if !zr_str_bytes_are_chars(zr_str_binary_p(a) ? b : a)
+    zr_unimplemented(zr_str_new(Machine.bytes("joining a binary String with non-ASCII text"), 43))
+  end
   true
 end
 
@@ -129,6 +153,8 @@ machine def zr_str_plus(recv, argc, argv, cref, blk)
   s = zr_buf_take(b)
   if zr_str_join_binary_p(recv, other)
     zr_str_set_binary(s)
+  elsif (RBasic.flags(recv) & FL_USASCII) != 0 && (RBasic.flags(other) & FL_USASCII) != 0
+    RBasic.set_flags(s, RBasic.flags(s) | FL_USASCII)
   end
   s
 end
@@ -218,6 +244,8 @@ machine def zr_str_concat(recv, argc, argv, cref, blk)
   Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
   if zr_str_join_binary_p(recv, other)
     zr_str_set_binary(recv)
+  elsif (RBasic.flags(recv) & FL_USASCII) != 0 && !zr_str_bytes_are_chars(other)
+    RBasic.set_flags(recv, RBasic.flags(recv) & (0 - (FL_USASCII + 1)))
   end
   recv
 end
@@ -263,29 +291,178 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_length(recv, argc, argv, cref, blk)
-  zr_ascii_only(recv)
-  zr_fix(RString.len(recv))
+  zr_fix(zr_str_char_count(recv))
 end
 
-sig [Value] => Void
-machine def zr_ascii_only(s)
+# Whether every byte is a character of its own: a binary string, or
+# one with no byte past ASCII.
+sig [Value] => Bool
+machine def zr_str_bytes_are_chars(s)
   if zr_str_binary_p(s)
-    return
+    return true
   end
   n = RString.len(s)
   i = 0
   while i < n
     if Machine.word(Machine.load8(RString.ptr(s) + i, 0)) >= 128
-      zr_bug(Machine.bytes("a non-ASCII String is not supported yet\n"), 40)
+      return false
     end
     i += 1
+  end
+  true
+end
+
+sig [Value] => Value
+machine def zr_str_ascii_check(s)
+  zr_bool(zr_str_bytes_are_chars(s))
+end
+
+# The byte length of the character at byte `off`: a whole UTF-8
+# sequence, else the one byte.
+sig [Value, Word] => Word
+machine def zr_str_char_len_at(s, off)
+  if zr_str_binary_p(s)
+    return 1
+  end
+  len = zr_utf8_char_len(RString.ptr(s) + off, RString.len(s) - off)
+  len == 0 ? 1 : len
+end
+
+sig [Value] => Word
+machine def zr_str_char_count(s)
+  n = RString.len(s)
+  count = 0
+  i = 0
+  while i < n
+    i += zr_str_char_len_at(s, i)
+    count += 1
+  end
+  count
+end
+
+# The byte offset of character `index` (negative counts from the
+# end); the count itself maps to the end; past that, -1.
+sig [Value, Word] => Word
+machine def zr_str_char_offset(s, index)
+  n = RString.len(s)
+  if index < 0
+    index += zr_str_char_count(s)
+    if index < 0
+      return 0 - 1
+    end
+  end
+  i = 0
+  while index > 0
+    if i >= n
+      return 0 - 1
+    end
+    i += zr_str_char_len_at(s, i)
+    index -= 1
+  end
+  i
+end
+
+sig [Value, Value] => Value
+machine def zr_str_char_offset_m(s, index)
+  off = zr_str_char_offset(s, zr_fix2long(index))
+  off < 0 ? Machine.value(QNIL) : zr_fix(off)
+end
+
+# The character index of byte `off`.
+sig [Value, Value] => Value
+machine def zr_str_byte_to_char(s, off)
+  stop = zr_fix2long(off)
+  i = 0
+  count = 0
+  while i < stop
+    i += zr_str_char_len_at(s, i)
+    count += 1
+  end
+  zr_fix(count)
+end
+
+# `len` characters from character `start`, or nil past the end.
+sig [Value, Value, Value] => Value
+machine def zr_str_char_slice(s, start, len)
+  count = zr_fix2long(len)
+  if count < 0
+    return Machine.value(QNIL)
+  end
+  from = zr_str_char_offset(s, zr_fix2long(start))
+  if from < 0
+    return Machine.value(QNIL)
+  end
+  to = from
+  n = RString.len(s)
+  while count > 0 && to < n
+    to += zr_str_char_len_at(s, to)
+    count -= 1
+  end
+  zr_str_new(RString.ptr(s) + from, to - from)
+end
+
+sig [Value, Value] => Value
+machine def zr_str_char_len_at_m(s, off)
+  zr_fix(zr_str_char_len_at(s, zr_fix2long(off)))
+end
+
+# The code point of the first character.
+sig [Value] => Value
+machine def zr_str_ord(s)
+  n = RString.len(s)
+  if n == 0
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("empty string"), 12)
+  end
+  p = RString.ptr(s)
+  c = Machine.word(Machine.load8(p, 0))
+  if zr_str_binary_p(s) || c < 128
+    return zr_fix(c)
+  end
+  len = zr_utf8_char_len(p, n)
+  if len == 0
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("invalid byte sequence in UTF-8"), 30)
+  end
+  cp = c & ((1 << (7 - len)) - 1)
+  i = 1
+  while i < len
+    cp = (cp << 6) | (Machine.word(Machine.load8(p + i, 0)) & 63)
+    i += 1
+  end
+  zr_fix(cp)
+end
+
+sig [Value] => Value
+machine def zr_str_valid_p(s)
+  if zr_str_binary_p(s)
+    return Machine.value(QTRUE)
+  end
+  n = RString.len(s)
+  i = 0
+  while i < n
+    if Machine.word(Machine.load8(RString.ptr(s) + i, 0)) >= 128 && zr_utf8_char_len(RString.ptr(s) + i, n - i) == 0
+      return Machine.value(QFALSE)
+    end
+    i += zr_str_char_len_at(s, i)
+  end
+  Machine.value(QTRUE)
+end
+
+sig [Value, Ptr, Word] => Void
+machine def zr_non_ascii_stop(s, what, len)
+  if !zr_str_bytes_are_chars(s)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("String#"), 7)
+    zr_buf_push(b, what, len)
+    zr_buf_push(b, Machine.bytes(" on a non-ASCII String"), 22)
+    zr_unimplemented(zr_buf_take(b))
   end
 end
 
 # A copy with each byte mapped: 1 upcases, 2 downcases, 3 capitalizes.
 sig [Value, Word] => Value
 machine def zr_str_map_case(s, how)
-  zr_ascii_only(s)
+  zr_non_ascii_stop(s, Machine.bytes("upcase, downcase or capitalize"), 30)
   n = RString.len(s)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
@@ -321,14 +498,17 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_reverse(recv, argc, argv, cref, blk)
-  zr_ascii_only(recv)
   n = RString.len(recv)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
-  i = n - 1
-  while i >= 0
-    zr_buf_byte(b, Machine.word(Machine.load8(RString.ptr(recv) + i, 0)))
-    i -= 1
+  end_ = n
+  while end_ > 0
+    start = end_ - 1
+    while start > 0 && zr_str_char_len_at(recv, start) == 1 && (Machine.word(Machine.load8(RString.ptr(recv) + start, 0)) & 192) == 128
+      start -= 1
+    end
+    zr_buf_push(b, RString.ptr(recv) + start, end_ - start)
+    end_ = start
   end
   zr_buf_take(b)
 end
@@ -359,12 +539,11 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_index(recv, argc, argv, cref, blk)
   other = zr_str_operand(Machine.value(Machine.load64(argv, 0)))
   return other if other == QUNDEF
-  zr_ascii_only(recv)
   i = zr_str_find(recv, other, 0)
   if i < 0
     return Machine.value(QNIL)
   end
-  zr_fix(i)
+  zr_str_byte_to_char(recv, zr_fix(i))
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -417,7 +596,7 @@ end
 # CRuby does; a string with no alphanumerics bumps its last byte.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_succ(recv, argc, argv, cref, blk)
-  zr_ascii_only(recv)
+  zr_non_ascii_stop(recv, Machine.bytes("succ"), 4)
   n = RString.len(recv)
   if n == 0
     return zr_str_new(Machine.bytes(""), 0)
@@ -542,12 +721,6 @@ end
 # The primitives rt/core/string.rb builds its methods on. Bytes are
 # characters until encodings arrive: a method that would read a
 # non-ASCII byte as a character stops loudly first.
-
-sig [Value] => Value
-machine def zr_str_ascii_check(s)
-  zr_ascii_only(s)
-  Machine.value(QNIL)
-end
 
 sig [Value] => Value
 machine def zr_str_bytesize(s)

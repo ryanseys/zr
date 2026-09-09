@@ -111,11 +111,19 @@ class Integer
     (self >> bit) & 1
   end
 
-  def chr
-    raise RangeError, "#{self} out of char range" if self < 0 || self > 255
-    Primitive.zr_unimplemented("Integer#chr above 127, which needs an encoding") if self > 127
+  # Without an encoding: US-ASCII below 128, else one binary byte.
+  def chr(encoding = nil)
+    if encoding
+      encoding = Encoding.find(encoding) unless encoding.is_a?(Encoding)
+      raise RangeError, "#{self} out of char range" if self < 0
+      return Primitive.zr_str_set_encoding(+"" << self, 0) if encoding == Encoding::UTF_8
+      raise RangeError, "#{self} out of char range" if self > 255
 
-    Primitive.zr_str_from_byte(self)
+      return Primitive.zr_str_set_encoding(Primitive.zr_str_from_byte(self), encoding == Encoding::BINARY ? 1 : 2)
+    end
+    raise RangeError, "#{self} out of char range" if self < 0 || self > 255
+
+    Primitive.zr_str_set_encoding(Primitive.zr_str_from_byte(self), self < 128 ? 2 : 1)
   end
 
   def ord = self

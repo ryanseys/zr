@@ -46,6 +46,9 @@ FL_BINARY = 1 << 13
 # A module whose name is temporary (`set_temporary_name`): a constant
 # assignment still names it.
 FL_TEMP_NAME = 1 << 14
+# A String in US-ASCII (`Integer#chr` makes one): UTF-8 in every
+# way but its name, until non-ASCII text joins it.
+FL_USASCII = 1 << 16
 
 Machine.struct :RBasic, flags: Word, klass: Value
 
