@@ -199,7 +199,7 @@ module Ze0
           @f.jump(merge, [current])
           switch(set)
           v = expr(node.value)
-          kernel("zr_const_set", scope_class(node.scope), imm(sym_id(node.name)), v)
+          checked(kernel("zr_const_set", scope_class(node.scope), imm(sym_id(node.name)), v))
           @f.jump(merge, [v])
           switch(merge)
           result

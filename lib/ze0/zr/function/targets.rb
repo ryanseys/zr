@@ -143,7 +143,7 @@ module Ze0
             checked(kernel("zr_cvar_set", @cref, imm(sym_id(target.name)), v))
           when Hir::ConstWrite
             at_line(target.line)
-            kernel("zr_const_set", scope_class(target.scope), imm(sym_id(target.name)), v)
+            checked(kernel("zr_const_set", scope_class(target.scope), imm(sym_id(target.name)), v))
           when Hir::MultiTarget then destructure(target, v, prepared)
           when Hir::Send
             slot = prepared.fetch(target)

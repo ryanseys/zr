@@ -87,7 +87,7 @@ module Ze0
           scope = scope_class(node.scope)
           v = expr(node.value)
           at_line(node.line)
-          kernel("zr_const_set", scope, imm(sym_id(node.name)), v)
+          checked(kernel("zr_const_set", scope, imm(sym_id(node.name)), v))
           v
         end
       end

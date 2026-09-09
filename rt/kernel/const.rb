@@ -64,9 +64,10 @@ machine def zr_const_row(klass, id)
   0
 end
 
-# A constant stored under `klass`; an anonymous class or module takes
-# the constant's name.
-sig [Value, Word, Value] => Void
+# A constant stored under `klass`, then the `const_added` hook; an
+# anonymous class or module takes the constant's name. Answers `v`,
+# or undef when the hook raises.
+sig [Value, Word, Value] => Value
 machine def zr_const_set(klass, id, v)
   e = zr_const_row(klass, id)
   if e == 0
@@ -107,6 +108,11 @@ machine def zr_const_set(klass, id, v)
     CEntry.set_file_len(e, FrameMeta.file_len(Frame.meta(top)))
     CEntry.set_line(e, Frame.line(top))
   end
+  if top != 0 && zr_find_method(zr_class_of(klass), Machine.id(:const_added)) != 0
+    r = zr_hook(klass, Machine.id(:const_added), zr_sym(id))
+    return r if r == QUNDEF
+  end
+  v
 end
 
 # `already initialized constant M::X`, and where the first definition
@@ -397,7 +403,8 @@ machine def zr_class_define(scope, id, sup)
   end
   k = zr_class_new(sup)
   RClass.set_name(k, zr_class_name_under(scope, id))
-  zr_const_set(scope, id, k)
+  r = zr_const_set(scope, id, k)
+  return r if r == QUNDEF
   r = zr_hook(sup, Machine.id(:inherited), k)
   return r if r == QUNDEF
   k
@@ -428,7 +435,6 @@ machine def zr_module_define(scope, id)
   m = zr_module_new()
   RClass.set_name(m, zr_class_name_under(scope, id))
   zr_const_set(scope, id, m)
-  m
 end
 
 # A constant's name given as a Symbol or String, as its id in `out`;
@@ -572,9 +578,7 @@ machine def zr_mod_const_set(recv, argc, argv, cref, blk)
   slot = Machine.slot(8)
   r = zr_const_name_id(recv, Machine.value(Machine.load64(argv, 0)), slot)
   return r if r == QUNDEF
-  v = Machine.value(Machine.load64(argv, 8))
-  zr_const_set(recv, Machine.load64(slot, 0), v)
-  v
+  zr_const_set(recv, Machine.load64(slot, 0), Machine.value(Machine.load64(argv, 8)))
 end
 
 # The public constant names `klass` itself holds, each once into `out`.
