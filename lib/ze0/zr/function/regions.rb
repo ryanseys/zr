@@ -104,6 +104,29 @@ module Ze0
           result
         end
 
+        # The block's value, or nil when a raise leaves it: `defined?`
+        # asks about a receiver this way.
+        def guarded
+          region = Region.new(@f.label, nil, reserve(1))
+          prev_at = value_offset(region.slot)
+          merge, (result,) = @f.block(["i64"])
+          @regions << region
+          v = yield
+          @regions.pop
+          @f.jump(merge, [v]) unless @f.terminated?
+          switch(region.landing, open: true)
+          exc = kernel("zr_rescuable")
+          give_up = @f.label
+          @f.brif(@f.icmp("eq", exc, qundef), landing, give_up)
+          switch(give_up)
+          @f.store(kernel("zr_rescue_enter"), @rec, prev_at)
+          kernel("zr_errinfo_set", @f.fetch("i64", @rec, prev_at))
+          @f.jump(merge, [@qnil])
+          switch(merge)
+          @sp = region.slot
+          result
+        end
+
         # The tests for one clause, each a branch to the handler block
         # answered here; a miss falls through to the next test.
         def rescue_test(clause, exc_at)

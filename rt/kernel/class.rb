@@ -6,7 +6,7 @@
 # Method code takes `(recv, argc, argv, cref)` and answers a Value; the
 # cref is the lexical class chain the method was defined under.
 Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr, attached: Value
-Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab
+Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab
 Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value
 Machine.struct :CEntry, id: Word, value: Value
 Machine.sig :method, [Value, Word, Ptr, Value, Value] => Value
@@ -32,6 +32,7 @@ machine def zr_class_alloc(type, sup, klass)
   ClassExt.set_clen(ext, 0)
   ClassExt.set_ccap(ext, 0)
   zr_ivtab_init(ClassExt.iv(ext))
+  zr_ivtab_init(ClassExt.cv(ext))
   RClass.set_ext(c, ext)
   c
 end
@@ -105,6 +106,113 @@ machine def zr_mod_include(recv, argc, argv, cref, blk)
     i -= 1
   end
   recv
+end
+
+# `alias new old` and `alias_method`: the old entry again under the new
+# name, keeping its meta, so a backtrace names the original.
+sig [Value, Word, Word] => Value
+machine def zr_alias(klass, new_id, old_id)
+  e = zr_find_method(klass, old_id)
+  if e == 0
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("undefined method '"), 18)
+    zr_buf_sym(b, old_id)
+    zr_buf_push(b, zr_type(klass) == T_MODULE ? Machine.bytes("' for module '") : Machine.bytes("' for class '"), zr_type(klass) == T_MODULE ? 14 : 13)
+    zr_buf_str(b, RClass.name(klass))
+    zr_buf_byte(b, 39)
+    return zr_raise_buf(zr_global(G_NAME_ERROR), b)
+  end
+  zr_method_add(klass, new_id, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e))
+  Machine.value(QNIL)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_alias_method(recv, argc, argv, cref, blk)
+  new_name = Machine.value(Machine.load64(argv, 0))
+  old_name = Machine.value(Machine.load64(argv, 8))
+  unless zr_symbol_p(new_name) && zr_symbol_p(old_name)
+    zr_bug(Machine.bytes("alias_method with a String name is not implemented yet\n"), 55)
+  end
+  r = zr_alias(recv, zr_sym2id(new_name), zr_sym2id(old_name))
+  return r if r == QUNDEF
+  new_name
+end
+
+# `Module#===`: whether the object is one of the module's.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_eqq(recv, argc, argv, cref, blk)
+  zr_bool(zr_is_a(Machine.value(Machine.load64(argv, 0)), recv))
+end
+
+# The class a class variable belongs to under `cref`: the innermost
+# class, past a singleton class to what it is attached to.
+sig [Value] => Value
+machine def zr_cvar_base(cref)
+  k = RCref.klass(cref)
+  while zr_singleton_p(k)
+    k = RClass.attached(k)
+    if zr_special_p(k) || (zr_type(k) != T_CLASS && zr_type(k) != T_MODULE)
+      return zr_global(G_OBJECT)
+    end
+  end
+  k
+end
+
+# The class in `klass`'s chain whose table holds `id`, or nil.
+sig [Value, Word] => Value
+machine def zr_cvar_owner(klass, id)
+  k = klass
+  while k != QNIL
+    if zr_ivtab_row(ClassExt.cv(RClass.ext(k)), id) != 0
+      return k
+    end
+    k = RClass.superclass(k)
+  end
+  Machine.value(QNIL)
+end
+
+sig [Value, Word] => Value
+machine def zr_cvar_get(cref, id)
+  base = zr_cvar_base(cref)
+  if base == zr_global(G_OBJECT)
+    return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("class variable access from toplevel"), 35)
+  end
+  owner = zr_cvar_owner(base, id)
+  if owner == QNIL
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("uninitialized class variable "), 29)
+    zr_buf_sym(b, id)
+    zr_buf_push(b, Machine.bytes(" in "), 4)
+    zr_buf_str(b, RClass.name(base))
+    return zr_raise_buf(zr_global(G_NAME_ERROR), b)
+  end
+  zr_ivtab_get(ClassExt.cv(RClass.ext(owner)), id)
+end
+
+# Whether `@@id` is set under `cref`.
+sig [Value, Word] => Value
+machine def zr_cvar_defined(cref, id)
+  base = zr_cvar_base(cref)
+  if base == zr_global(G_OBJECT)
+    return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("class variable access from toplevel"), 35)
+  end
+  zr_bool(zr_cvar_owner(base, id) != QNIL)
+end
+
+sig [Value, Word, Value] => Value
+machine def zr_cvar_set(cref, id, v)
+  base = zr_cvar_base(cref)
+  if base == zr_global(G_OBJECT)
+    return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("class variable access from toplevel"), 35)
+  end
+  owner = zr_cvar_owner(base, id)
+  if owner == QNIL
+    owner = base
+  end
+  zr_ivtab_set(ClassExt.cv(RClass.ext(owner)), id, v)
+  v
 end
 
 # `Module#include?`: `mod` is in the chain, other than as itself.
@@ -240,6 +348,13 @@ machine def zr_define_method(klass, mid, fn, arity, kind, meta, cref)
   end
   FrameMeta.set_name(meta, mid)
   FrameMeta.set_owner(meta, klass)
+  zr_method_add(klass, mid, fn, arity, kind, meta, cref)
+end
+
+# The entry into the table, the meta as it is (an alias keeps the
+# original's name).
+sig [Value, Word, Ptr, Word, Word, Ptr, Value] => Void
+machine def zr_method_add(klass, mid, fn, arity, kind, meta, cref)
   if zr_find_method(klass, mid) != 0
     g = zr_gates()
     Machine.store64(g, 0, Machine.load64(g, 0) | zr_gate_bit(klass, mid))
@@ -358,6 +473,7 @@ machine def zr_mark_children(v)
       i += 1
     end
     zr_mark_ivtab(ClassExt.iv(ext))
+    zr_mark_ivtab(ClassExt.cv(ext))
   elsif t == T_EXCEPTION
     zr_mark(RException.message(v))
   elsif t == T_OBJECT
@@ -389,6 +505,7 @@ machine def zr_release(v)
       free(ClassExt.ctab(ext))
     end
     zr_release_ivtab(ClassExt.iv(ext))
+    zr_release_ivtab(ClassExt.cv(ext))
     free(ext)
   elsif t == T_STRING
     if RString.ptr(v) != 0

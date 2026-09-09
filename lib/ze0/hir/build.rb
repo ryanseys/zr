@@ -88,14 +88,12 @@ module Ze0
         when Prism::AndNode then And.new(expr(node.left), expr(node.right), line)
         when Prism::OrNode then Or.new(expr(node.left), expr(node.right), line)
         when Prism::ClassNode
-          refuse(node, "a class body with locals is not lowered yet") unless node.locals.empty?
           scope, name = constant_path(node.constant_path)
           ClassDef.new(scope, name, node.superclass && expr(node.superclass), node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line)
         when Prism::ModuleNode
           scope, name = constant_path(node.constant_path)
           ModuleDef.new(scope, name, node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line)
         when Prism::SingletonClassNode
-          refuse(node, "a singleton class body with locals is not lowered yet") unless node.locals.empty?
           SingletonClassDef.new(expr(node.expression), node.locals, node.body ? expr(node.body) : Literal.new(nil, line), line)
         when Prism::ConstantReadNode then ConstRead.new(nil, node.name, line)
         when Prism::ConstantPathNode
@@ -117,10 +115,49 @@ module Ze0
         when Prism::ArrayNode
           ArrayLit.new(node.elements.map { |e| e.is_a?(Prism::SplatNode) ? Splat.new(expr(e.expression), line) : expr(e) }, line)
         when Prism::HashNode then HashLit.new(hash_pairs(node.elements), line)
-        when Prism::IndexOperatorWriteNode, Prism::IndexOrWriteNode, Prism::IndexAndWriteNode
-          refuse(node, "an operator assignment through [] is not lowered yet")
         when Prism::InstanceVariableReadNode then IvarRead.new(node.name, line)
         when Prism::GlobalVariableReadNode then GvarRead.new(node.name, line)
+        when Prism::GlobalVariableWriteNode then GvarWrite.new(node.name, expr(node.value), line)
+        when Prism::GlobalVariableOperatorWriteNode
+          GvarWrite.new(node.name, Send.new(GvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
+        when Prism::GlobalVariableOrWriteNode then GvarWrite.new(node.name, Or.new(GvarRead.new(node.name, line), expr(node.value), line), line)
+        when Prism::GlobalVariableAndWriteNode then GvarWrite.new(node.name, And.new(GvarRead.new(node.name, line), expr(node.value), line), line)
+        when Prism::ClassVariableReadNode then CvarRead.new(node.name, line)
+        when Prism::ClassVariableWriteNode then CvarWrite.new(node.name, expr(node.value), line)
+        when Prism::ClassVariableOperatorWriteNode
+          CvarWrite.new(node.name, Send.new(CvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
+        when Prism::ClassVariableOrWriteNode
+          If.new(Defined.new(:cvar, node.name, line), Or.new(CvarRead.new(node.name, line), CvarWrite.new(node.name, expr(node.value), line), line), CvarWrite.new(node.name, expr(node.value), line), line)
+        when Prism::DefinedNode then defined(node.value, line)
+        when Prism::ClassVariableAndWriteNode then CvarWrite.new(node.name, And.new(CvarRead.new(node.name, line), expr(node.value), line), line)
+        when Prism::ConstantOrWriteNode then ConstOrWrite.new(nil, node.name, expr(node.value), line)
+        when Prism::AliasMethodNode
+          refuse(node, "an alias of a dynamic symbol is not lowered yet") unless node.new_name.is_a?(Prism::SymbolNode) && node.old_name.is_a?(Prism::SymbolNode)
+          Alias.new(node.new_name.unescaped.to_sym, node.old_name.unescaped.to_sym, line)
+        when Prism::CaseNode
+          clauses = node.conditions.map do |w|
+            values = w.conditions.map { |c| c.is_a?(Prism::SplatNode) ? refuse(c, "a splat in a when is not lowered yet") : expr(c) }
+            [values, w.statements ? seq(w.statements) : Literal.new(nil, line)]
+          end
+          Case.new(node.predicate && expr(node.predicate), clauses, node.else_clause && expr(node.else_clause), line)
+        when Prism::IndexOperatorWriteNode, Prism::IndexOrWriteNode, Prism::IndexAndWriteNode
+          refuse(node, "a block in an index target is not lowered yet") if node.block
+          args = (node.arguments&.arguments || []).map { |a| a.is_a?(Prism::SplatNode) ? refuse(a, "a splat in an index target is not lowered yet") : expr(a) }
+          op = case node
+               when Prism::IndexOperatorWriteNode then node.binary_operator
+               when Prism::IndexOrWriteNode then :or
+               else :and
+               end
+          IndexOpAssign.new(expr(node.receiver), args, op, expr(node.value), line)
+        when Prism::CallOperatorWriteNode, Prism::CallOrWriteNode, Prism::CallAndWriteNode
+          refuse(node, "a safe-navigation attribute assignment is not lowered yet") if node.call_operator == "&."
+          op = case node
+               when Prism::CallOperatorWriteNode then node.binary_operator
+               when Prism::CallOrWriteNode then :or
+               else :and
+               end
+          AttrOpAssign.new(expr(node.receiver), node.read_name, op, expr(node.value), line)
+        when Prism::ForNode then for_loop(node)
         when Prism::InstanceVariableWriteNode then IvarWrite.new(node.name, expr(node.value), line)
         when Prism::InstanceVariableOperatorWriteNode
           IvarWrite.new(node.name, Send.new(IvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
@@ -273,13 +310,81 @@ module Ze0
       end
 
       def call(node)
-        refuse(node, "a safe-navigation call is not lowered yet") if node.call_operator == "&."
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil?
 
         args, kwargs = arguments(node.arguments)
         opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
         Send.new(node.receiver && expr(node.receiver), node.name, args, node.location.start_line, node.variable_call?, opt,
-                 node.block && block(node.block), kwargs)
+                 node.block && block(node.block), kwargs, node.call_operator == "&.")
+      end
+
+      # `defined?(value)`: the form decides at compile time; only an
+      # ivar, gvar, cvar, constant, method, yield or super asks at run time.
+      def defined(node, line)
+        case node
+        when Prism::LocalVariableReadNode then Defined.new(:local, node.name, line)
+        when Prism::InstanceVariableReadNode then Defined.new(:ivar, node.name, line)
+        when Prism::GlobalVariableReadNode then Defined.new(:gvar, node.name, line)
+        when Prism::ClassVariableReadNode then Defined.new(:cvar, node.name, line)
+        when Prism::ConstantReadNode, Prism::ConstantPathNode then Defined.new(:const, expr(node), line)
+        when Prism::CallNode then Defined.new(:method, call(node), line)
+        when Prism::YieldNode then Defined.new(:yield, nil, line)
+        when Prism::SuperNode, Prism::ForwardingSuperNode then Defined.new(:super, nil, line)
+        when Prism::SelfNode then Defined.new(:self, nil, line)
+        when Prism::NilNode then Defined.new(:nil, nil, line)
+        when Prism::TrueNode then Defined.new(:true, nil, line)
+        when Prism::FalseNode then Defined.new(:false, nil, line)
+        when Prism::LocalVariableWriteNode, Prism::InstanceVariableWriteNode, Prism::GlobalVariableWriteNode, Prism::ClassVariableWriteNode,
+             Prism::ConstantWriteNode, Prism::MultiWriteNode, Prism::LocalVariableOperatorWriteNode, Prism::InstanceVariableOperatorWriteNode
+          Defined.new(:assignment, nil, line)
+        else Defined.new(:expression, nil, line)
+        end
+      end
+
+      # `for x in list; body; end` is `list.each { |x| body }` with the
+      # body in the enclosing scope: its locals move one scope out.
+      def for_loop(node)
+        line = node.location.start_line
+        target = deepen(target(node.index), 0)
+        body = node.statements ? deepen(seq(node.statements), 0) : Literal.new(nil, line)
+        bind = target.is_a?(MultiTarget) ? MultiAssign.new(target, Local.new(:"*for", 0, line), line) : target.tap { |t| t.value = Local.new(:"*for", 0, line) }
+        params = Params.new([:"*for"], [], nil, [], [], nil, nil)
+        block = Block.new(params, [:"*for"], Seq.new([bind, body], line), line)
+        Send.new(expr(node.collection), :each, [], line, false, false, block, nil, false)
+      end
+
+      # `node` as it reads one block scope deeper: every local that
+      # reaches `level` or beyond is one further out.
+      def deepen(node, level)
+        case node
+        when Local, Assign
+          node.depth += 1 if node.depth >= level
+          node.value = deepen(node.value, level) if node.is_a?(Assign) && node.value
+          node
+        when Block
+          node.body = deepen(node.body, level + 1)
+          node.params.optional.each { |pair| pair[1] = deepen(pair[1], level + 1) }
+          node.params.keywords.each { |pair| pair[1] = deepen(pair[1], level + 1) if pair[1] }
+          node
+        when Def
+          node.receiver = deepen(node.receiver, level) if node.receiver
+          node
+        when ClassDef
+          node.scope = deepen(node.scope, level) if node.scope.is_a?(Struct)
+          node.superclass = deepen(node.superclass, level) if node.superclass
+          node
+        when ModuleDef
+          node.scope = deepen(node.scope, level) if node.scope.is_a?(Struct)
+          node
+        when SingletonClassDef
+          node.target = deepen(node.target, level)
+          node
+        when Struct
+          node.each_pair { |k, v| node[k] = deepen(v, level) if v.is_a?(Struct) || v.is_a?(Array) }
+          node
+        when Array then node.map! { |v| v.is_a?(Struct) || v.is_a?(Array) ? deepen(v, level) : v }
+        else node
+        end
       end
 
       # `[args, kwargs]` of an argument list: Splats among the args, the

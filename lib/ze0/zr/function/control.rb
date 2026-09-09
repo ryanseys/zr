@@ -66,6 +66,43 @@ module Ze0
           result
         end
 
+        # `case`: the subject waits in a record slot; each `when` value
+        # asks `value === subject` (or is tested itself when there is no
+        # subject), and the first truthy one's body answers.
+        def case_when(node)
+          base = @sp
+          subject_at = value_offset(reserve(1))
+          @f.store(expr(node.subject), @rec, subject_at) if node.subject
+          merge, (result,) = @f.block(["i64"])
+          node.clauses.each do |values, body|
+            hit = @f.label
+            values.each do |value|
+              miss = @f.label
+              cond = if node.subject
+                       staged([value, Hir::Slot.new(base, value.line)]) do |slots|
+                         at_line(value.line)
+                         truthy(checked(kernel("zr_send", @f.fetch("i64", slots), imm(sym_id(:===)), imm(1), @f.iadd(slots, imm(8)))))
+                       end
+                     else
+                       truthy(expr(value))
+                     end
+              @f.brif(cond, hit, miss)
+              switch(miss)
+            end
+            after = @f.label
+            @f.jump(after)
+            switch(hit)
+            v = expr(body)
+            @f.jump(merge, [v]) unless @f.terminated?
+            switch(after)
+          end
+          v = node.else_body ? expr(node.else_body) : @qnil
+          @f.jump(merge, [v]) unless @f.terminated?
+          switch(merge)
+          @sp = base
+          result
+        end
+
         def yield_block(node)
           if node.args.any?(Hir::Splat)
             slot = reserve(1)

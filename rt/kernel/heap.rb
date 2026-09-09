@@ -100,6 +100,32 @@ machine def zr_mark(v)
   end
 end
 
+# Global variables: one table of (id, value) rows.
+sig [] => Ptr
+machine def zr_gvars
+  Machine.static(:gvars, IvTab.size)
+end
+
+sig [Word] => Value
+machine def zr_gvar_get(id)
+  v = zr_ivtab_get(zr_gvars(), id)
+  if v == QUNDEF
+    return Machine.value(QNIL)
+  end
+  v
+end
+
+sig [Word] => Value
+machine def zr_gvar_defined(id)
+  zr_bool(zr_ivtab_row(zr_gvars(), id) != 0)
+end
+
+sig [Word, Value] => Value
+machine def zr_gvar_set(id, v)
+  zr_ivtab_set(zr_gvars(), id, v)
+  v
+end
+
 sig [] => Void
 machine def zr_mark_roots
   i = 0
@@ -107,6 +133,7 @@ machine def zr_mark_roots
     zr_mark(zr_global(i))
     i += 1
   end
+  zr_mark_ivtab(zr_gvars())
   zr_mark(Task.pending(zr_task()))
   zr_mark(Task.errinfo(zr_task()))
   zr_mark_kernel_roots()

@@ -10,6 +10,7 @@ require_relative "function/control"
 require_relative "function/regions"
 require_relative "function/params"
 require_relative "function/targets"
+require_relative "function/defined"
 
 module Ze0
   module Zr
@@ -37,6 +38,7 @@ module Ze0
       include Regions
       include Params
       include Targets
+      include Defined
 
       KINDS = { main: "KIND_MAIN", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK" }.freeze
       ABI = { main: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64] }.freeze

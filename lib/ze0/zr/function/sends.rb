@@ -20,6 +20,8 @@ module Ze0
         # them into one Array there), keywords last as a Hash the task
         # flags, then the send.
         def call(node)
+          return safe_call(node) if node.safe
+
           recv_node = node.recv || Hir::SelfRef.new(node.line)
           args = node.args + [node.kwargs].compact
           if args.any?(Hir::Splat)
@@ -32,6 +34,27 @@ module Ze0
               send_staged(node, @f.fetch("i64", slots), @f.iadd(slots, imm(8)), imm(args.size), base + 1 + args.size)
             end
           end
+        end
+
+        # `recv&.name(args)`: nil when the receiver is, with the arguments
+        # left unevaluated; else the send.
+        def safe_call(node)
+          base = @sp
+          slot = reserve(1)
+          @f.store(expr(node.recv), @rec, value_offset(slot))
+          plain = Hir::Send.new(Hir::Slot.new(slot, node.line), node.name, node.args, node.line, false, node.opt, node.block, node.kwargs, false)
+          is_nil = @f.label
+          go = @f.label
+          merge, (result,) = @f.block(["i64"])
+          @f.brif(@f.icmp("eq", @f.fetch("i64", @rec, value_offset(slot)), @qnil), is_nil, go)
+          switch(is_nil)
+          @f.jump(merge, [@qnil])
+          switch(go)
+          v = call(plain)
+          @f.jump(merge, [v]) unless @f.terminated?
+          switch(merge)
+          @sp = base
+          result
         end
 
         def send_staged(node, recv, argv, argc, block_slot)

@@ -23,7 +23,7 @@ module Ze0
           n.stmts.each { |s| node(s, depth + 1, lines) }
           lines[-1] += ")"
         when Send
-          lines << "#{pad}(#{n.vcall ? "vcall" : "send"} #{n.recv ? "" : "self "}#{n.name}"
+          lines << "#{pad}(#{n.vcall ? "vcall" : "send"}#{n.safe ? " safe" : ""} #{n.recv ? "" : "self "}#{n.name}"
           node(n.recv, depth + 1, lines) if n.recv
           n.args.each { |a| node(a, depth + 1, lines) }
           node(n.kwargs, depth + 1, lines) if n.kwargs
@@ -177,6 +177,45 @@ module Ze0
           lines << "#{pad}(ivar #{n.name})"
         when GvarRead
           lines << "#{pad}(gvar #{n.name})"
+        when GvarWrite, CvarWrite
+          lines << "#{pad}(#{n.is_a?(GvarWrite) ? "gvar" : "cvar"}-set #{n.name}"
+          node(n.value, depth + 1, lines)
+          lines[-1] += ")"
+        when CvarRead
+          lines << "#{pad}(cvar #{n.name})"
+        when ConstOrWrite
+          lines << "#{pad}(const-or-set #{scope(n.scope)}#{n.name}"
+          node(n.scope, depth + 1, lines) if n.scope.is_a?(Struct)
+          node(n.value, depth + 1, lines)
+          lines[-1] += ")"
+        when Alias
+          lines << "#{pad}(alias #{n.new_name} #{n.old_name})"
+        when Defined
+          lines << "#{pad}(defined? #{n.kind}#{n.target.is_a?(Symbol) ? " #{n.target}" : ""}"
+          node(n.target, depth + 1, lines) if n.target.is_a?(Struct)
+          lines[-1] += ")"
+        when Case
+          lines << "#{pad}(case"
+          n.subject ? node(n.subject, depth + 1, lines) : lines << "#{pad}  (none)"
+          n.clauses.each do |values, body|
+            lines << "#{pad}  (when"
+            values.each { |v| node(v, depth + 2, lines) }
+            node(body, depth + 2, lines)
+            lines[-1] += ")"
+          end
+          n.else_body ? node(n.else_body, depth + 1, lines) : lines << "#{pad}  (none)"
+          lines[-1] += ")"
+        when IndexOpAssign
+          lines << "#{pad}(index-op-assign #{n.op}"
+          node(n.recv, depth + 1, lines)
+          n.args.each { |a| node(a, depth + 1, lines) }
+          node(n.value, depth + 1, lines)
+          lines[-1] += ")"
+        when AttrOpAssign
+          lines << "#{pad}(attr-op-assign #{n.name} #{n.op}"
+          node(n.recv, depth + 1, lines)
+          node(n.value, depth + 1, lines)
+          lines[-1] += ")"
         when IvarWrite
           lines << "#{pad}(ivar-set #{n.name}"
           node(n.value, depth + 1, lines) if n.value

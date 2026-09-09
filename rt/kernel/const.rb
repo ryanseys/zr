@@ -107,6 +107,40 @@ machine def zr_const_get(cref, id)
   CEntry.value(e)
 end
 
+# A bare constant under `cref` for `defined?` and `||=`: the value, or
+# undef with nothing raised.
+sig [Value, Word] => Value
+machine def zr_const_lookup(cref, id)
+  c = cref
+  while RCref.next(c) != QNIL
+    e = zr_const_row(RCref.klass(c), id)
+    if e != 0
+      return CEntry.value(e)
+    end
+    c = RCref.next(c)
+  end
+  e = zr_const_row_in(RCref.klass(cref), id, false)
+  if e == 0 && zr_type(RCref.klass(cref)) == T_MODULE
+    e = zr_const_row_in(zr_global(G_OBJECT), id, false)
+  end
+  if e == 0
+    return Machine.value(QUNDEF)
+  end
+  CEntry.value(e)
+end
+
+sig [Value, Word] => Value
+machine def zr_const_lookup_at(scope, id)
+  if zr_special_p(scope) || (zr_type(scope) != T_CLASS && zr_type(scope) != T_MODULE)
+    return Machine.value(QUNDEF)
+  end
+  e = zr_const_row_in(scope, id, scope != zr_global(G_OBJECT))
+  if e == 0
+    return Machine.value(QUNDEF)
+  end
+  CEntry.value(e)
+end
+
 # `scope::Name`.
 sig [Value, Word] => Value
 machine def zr_const_get_at(scope, id)

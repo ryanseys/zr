@@ -1,0 +1,106 @@
+(seq
+  (assign x
+    (int 1))
+  (ivar-set @iv
+    (int 2))
+  (gvar-set $gv
+    (int 3))
+  (class K
+    (seq
+      (cvar-set @@cv
+        (int 4))
+      (def m () locals ()
+        (seq
+          (defined? cvar @@cv)))
+      (def n () locals ()
+        (seq
+          (defined? super)))
+      (def o () locals ()
+        (seq
+          (defined? yield)))
+      (def p2 () locals ()
+        (seq
+          (defined? ivar @nope)))))
+  (class L
+    (const K)
+    (seq
+      (def m () locals ()
+        (seq
+          (array
+            (defined? super)
+            (zsuper))))))
+  (send self p
+    (defined? local x)
+    (defined? method
+      (vcall self y))
+    (defined? ivar @iv)
+    (defined? ivar @nope)
+    (defined? gvar $gv)
+    (defined? gvar $nope))
+  (send self p
+    (defined? const
+      (const String))
+    (defined? const
+      (const Nope))
+    (defined? const
+      (const (scope)::Nope
+        (const K)))
+    (defined? method
+      (vcall self puts))
+    (defined? method
+      (vcall self nope_method))
+    (defined? method
+      (send to_s
+        (local x)))
+    (defined? method
+      (send nope
+        (local x))))
+  (send self p
+    (defined? self)
+    (defined? nil)
+    (defined? true)
+    (defined? assignment)
+    (defined? assignment)
+    (defined? method
+      (send +
+        (int 1)
+        (int 1)))
+    (defined? yield)
+    (defined? super))
+  (send self p
+    (send m
+      (send new
+        (const K)))
+    (send n
+      (send new
+        (const K)))
+    (send o
+      (send new
+        (const K)))
+    (send o
+      (send new
+        (const K))
+      (block () locals ()
+        (const nil)))
+    (send p2
+      (send new
+        (const K)))
+    (send m
+      (send new
+        (const L))))
+  (send self p
+    (defined? method
+      (send bar
+        (vcall self nope)))
+    (defined? const
+      (const (scope)::X
+        (const Nope)))
+    (defined? method
+      (send nope
+        (send to_s
+          (local x))))
+    (defined? const
+      (const ::String))
+    (defined? const
+      (const (scope)::X
+        (const K)))))

@@ -34,6 +34,16 @@ module Ze0
           when Hir::Interp then staged(node.parts) { |argv| checked(kernel("zr_str_interp", imm(node.parts.size), argv)) }
           when Hir::IvarRead then kernel("zr_ivar_get", @self, imm(sym_id(node.name)))
           when Hir::GvarRead then gvar_read(node)
+          when Hir::GvarWrite then kernel("zr_gvar_set", imm(sym_id(node.name)), expr(node.value))
+          when Hir::CvarRead then cvar_read(node)
+          when Hir::CvarWrite then cvar_write(node)
+          when Hir::ConstOrWrite then const_or_write(node)
+          when Hir::Alias then alias_method(node)
+          when Hir::Defined then defined(node)
+          when Hir::Case then case_when(node)
+          when Hir::IndexOpAssign then index_op_assign(node)
+          when Hir::AttrOpAssign then attr_op_assign(node)
+          when Hir::Slot then @f.fetch("i64", @rec, value_offset(node.index))
           when Hir::IvarWrite then kernel("zr_ivar_set", @self, imm(sym_id(node.name)), expr(node.value))
           when Hir::If then branch(node)
           when Hir::While then loop_while(node)
@@ -108,11 +118,54 @@ module Ze0
           end
         end
 
-        # `$!` is the task's; every other global waits for the table.
-        def gvar_read(node)
-          @l.refuse(node, "#{node.name} is not lowered yet") unless node.name == :$!
+        # The globals with meanings of their own wait for their objects;
+        # `$!` is the task's, and any other lives in the globals table.
+        SPECIAL_GLOBALS = %i[$stdout $stderr $stdin $0 $PROGRAM_NAME $: $LOAD_PATH $" $LOADED_FEATURES $; $, $/ $\ $@ $~ $_ $. $< $> $$ $? $* $-w $VERBOSE $DEBUG $FILENAME].freeze
 
-          kernel("zr_errinfo")
+        def gvar_read(node)
+          return kernel("zr_errinfo") if node.name == :$!
+
+          @l.refuse(node, "#{node.name} is not lowered yet") if SPECIAL_GLOBALS.include?(node.name)
+          kernel("zr_gvar_get", imm(sym_id(node.name)))
+        end
+
+        def cvar_read(node)
+          at_line(node.line)
+          checked(kernel("zr_cvar_get", @cref, imm(sym_id(node.name))))
+        end
+
+        def alias_method(node)
+          at_line(node.line)
+          checked(kernel("zr_alias", cref_class, imm(sym_id(node.new_name)), imm(sym_id(node.old_name))))
+        end
+
+        def cvar_write(node)
+          v = expr(node.value)
+          at_line(node.line)
+          checked(kernel("zr_cvar_set", @cref, imm(sym_id(node.name)), v))
+        end
+
+        # `Name ||= value`: the constant when it is set and truthy, else
+        # the assignment.
+        def const_or_write(node)
+          at_line(node.line)
+          current = if node.scope.nil?
+                      kernel("zr_const_lookup", @cref, imm(sym_id(node.name)))
+                    else
+                      kernel("zr_const_lookup_at", scope_class(node.scope), imm(sym_id(node.name)))
+                    end
+          have = @f.label
+          set = @f.label
+          merge, (result,) = @f.block(["i64"])
+          @f.brif(@f.band(@f.icmp("ne", current, qundef), truthy(current)), have, set)
+          switch(have)
+          @f.jump(merge, [current])
+          switch(set)
+          v = expr(node.value)
+          kernel("zr_const_set", scope_class(node.scope), imm(sym_id(node.name)), v)
+          @f.jump(merge, [v])
+          switch(merge)
+          result
         end
 
         def symbol(name)

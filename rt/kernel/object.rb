@@ -67,6 +67,30 @@ machine def zr_ivtab_row(t, id)
   0
 end
 
+# The value for `id` in the table, or undef.
+sig [Ptr, Word] => Value
+machine def zr_ivtab_get(t, id)
+  e = zr_ivtab_row(t, id)
+  if e == 0
+    return Machine.value(QUNDEF)
+  end
+  IvEntry.value(e)
+end
+
+sig [Value, Word] => Value
+machine def zr_ivar_defined(obj, id)
+  t = zr_ivtab(obj)
+  if t == 0
+    return Machine.value(QFALSE)
+  end
+  zr_bool(zr_ivtab_row(t, id) != 0)
+end
+
+sig [Value, Word] => Value
+machine def zr_method_defined(recv, id)
+  zr_bool(zr_find_method(zr_class_of(recv), id) != 0)
+end
+
 # A receiver with no table reads nil.
 sig [Value, Word] => Value
 machine def zr_ivar_get(obj, id)
@@ -74,12 +98,11 @@ machine def zr_ivar_get(obj, id)
   if t == 0
     return Machine.value(QNIL)
   end
-  e = zr_ivtab_row(t, id)
-  if e == 0
-    Machine.value(QNIL)
-  else
-    IvEntry.value(e)
+  v = zr_ivtab_get(t, id)
+  if v == QUNDEF
+    return Machine.value(QNIL)
   end
+  v
 end
 
 sig [Value, Word, Value] => Value
@@ -88,6 +111,12 @@ machine def zr_ivar_set(obj, id, v)
   if t == 0
     zr_bug(Machine.bytes("an ivar on an Integer, Symbol, String or Array is not implemented yet\n"), 70)
   end
+  zr_ivtab_set(t, id, v)
+  v
+end
+
+sig [Ptr, Word, Value] => Void
+machine def zr_ivtab_set(t, id, v)
   e = zr_ivtab_row(t, id)
   if e == 0
     n = IvTab.len(t)
@@ -109,7 +138,6 @@ machine def zr_ivar_set(obj, id, v)
     IvTab.set_len(t, n + 1)
   end
   IvEntry.set_value(e, v)
-  v
 end
 
 # `Class#new`: allocate, then `initialize` with the arguments.
@@ -152,6 +180,12 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_instance_of(recv, argc, argv, cref, blk)
   zr_bool(zr_real_class(recv) == Machine.value(Machine.load64(argv, 0)))
+end
+
+# `Object#===`: `==`.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_eqq(recv, argc, argv, cref, blk)
+  zr_send(recv, Machine.id(:==), 1, argv)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value

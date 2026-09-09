@@ -136,6 +136,27 @@ machine def zr_super(rec, argc, argv, blk)
   zr_invoke(e, recv, argc, argv, blk, kw)
 end
 
+# `defined?(super)`: whether a method waits past this frame's owner.
+sig [Ptr] => Value
+machine def zr_super_defined(rec)
+  meta = Frame.meta(rec)
+  while FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN
+    meta = FrameMeta.parent(meta)
+  end
+  if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BUILTIN
+    return Machine.value(QFALSE)
+  end
+  owner = FrameMeta.owner(meta)
+  k = zr_class_of(Frame.self(rec))
+  while k != QNIL && !(k == owner || (zr_type(k) == T_ICLASS && RClass.attached(k) == owner))
+    k = RClass.superclass(k)
+  end
+  if k == QNIL
+    return Machine.value(QFALSE)
+  end
+  zr_bool(zr_find_method(RClass.superclass(k), FrameMeta.name(meta)) != 0)
+end
+
 # The call through the entry `e`: a compiled def gets the keywords flag
 # back and pushes its own frame; a builtin runs under one pushed here.
 sig [Ptr, Value, Word, Ptr, Value, Word] => Value

@@ -16,7 +16,14 @@ module Ze0
     # which CRuby runs without a frame on its builtin receivers. An
     # argument may be a Splat; `kwargs` is a HashLit passed as keywords,
     # or nil; `block` is a Block literal, a BlockPass, or nil.
-    Send = Struct.new(:recv, :name, :args, :line, :vcall, :opt, :block, :kwargs)
+    Send = Struct.new(:recv, :name, :args, :line, :vcall, :opt, :block, :kwargs, :safe)
+    # A value the lowering has already put in record slot `index`: the
+    # lowering's own node, for a receiver or argument evaluated once.
+    Slot = Struct.new(:index, :line)
+    # `recv[args] op= value` and `recv.name op= value`, the receiver and
+    # arguments evaluated once; `op` is an operator, or :or / :and.
+    IndexOpAssign = Struct.new(:recv, :args, :op, :value, :line)
+    AttrOpAssign = Struct.new(:recv, :name, :op, :value, :line)
     # `*value` among arguments or elements.
     Splat = Struct.new(:value, :line)
     # `**value` among a hash literal's pairs: the key, with a nil value.
@@ -106,6 +113,21 @@ module Ze0
     ConstWrite = Struct.new(:scope, :name, :value, :line)
     IvarRead = Struct.new(:name, :line)
     GvarRead = Struct.new(:name, :line)
+    GvarWrite = Struct.new(:name, :value, :line)
+    CvarRead = Struct.new(:name, :line)
+    CvarWrite = Struct.new(:name, :value, :line)
+    # `Name ||= value`: set only when unset or falsy.
+    ConstOrWrite = Struct.new(:scope, :name, :value, :line)
+    # `alias new old`.
+    Alias = Struct.new(:new_name, :old_name, :line)
+    # `defined?(...)`: `kind` names the form (:local, :ivar, :gvar,
+    # :cvar, :const, :method, :yield, :super, :self, :nil, :true, :false,
+    # :assignment, :expression); `target` is the name, the ConstRead, or
+    # the Send the form asks about.
+    Defined = Struct.new(:kind, :target, :line)
+    # `case subject; when a, b then body; ... else else_body end`. Each
+    # clause is `[values, body]`; a nil subject tests each value itself.
+    Case = Struct.new(:subject, :clauses, :else_body, :line)
     IvarWrite = Struct.new(:name, :value, :line)
     ArrayLit = Struct.new(:elements, :line)
     # `{k => v, ...}`: `pairs` is a flat list, key then value.

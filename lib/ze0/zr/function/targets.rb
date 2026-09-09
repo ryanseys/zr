@@ -50,6 +50,63 @@ module Ze0
           @sp -= 1
         end
 
+        # `recv[args] op= value`: receiver and arguments evaluated once
+        # into slots, then `[]`, the operation, and `[]=` as sends.
+        def index_op_assign(node)
+          base = @sp
+          slots = reserve(1 + node.args.size)
+          @f.store(expr(node.recv), @rec, value_offset(slots))
+          node.args.each_with_index { |a, i| @f.store(expr(a), @rec, value_offset(slots + 1 + i)) }
+          recv = Hir::Slot.new(slots, node.line)
+          args = node.args.each_index.map { |i| Hir::Slot.new(slots + 1 + i, node.line) }
+          read = Hir::Send.new(recv, :[], args, node.line, false, true, nil, nil, false)
+          result = op_assign(node, read) { |v| Hir::Send.new(recv, :[]=, args + [v], node.line, false, true, nil, nil, false) }
+          @sp = base
+          result
+        end
+
+        # `recv.name op= value` likewise.
+        def attr_op_assign(node)
+          base = @sp
+          slot = reserve(1)
+          @f.store(expr(node.recv), @rec, value_offset(slot))
+          recv = Hir::Slot.new(slot, node.line)
+          read = Hir::Send.new(recv, node.name, [], node.line, false, false, nil, nil, false)
+          result = op_assign(node, read) { |v| Hir::Send.new(recv, :"#{node.name}=", [v], node.line, false, false, nil, nil, false) }
+          @sp = base
+          result
+        end
+
+        # The current value read, the operation (`||=` and `&&=` short
+        # circuit), and the write the block builds around the new value,
+        # itself kept in a slot.
+        def op_assign(node, read)
+          slot = reserve(1)
+          current_at = value_offset(slot)
+          @f.store(expr(read), @rec, current_at)
+          current = Hir::Slot.new(slot, node.line)
+          case node.op
+          when :or, :and
+            keep = @f.label
+            write = @f.label
+            merge, (result,) = @f.block(["i64"])
+            cond = truthy(@f.fetch("i64", @rec, current_at))
+            node.op == :or ? @f.brif(cond, keep, write) : @f.brif(cond, write, keep)
+            switch(keep)
+            @f.jump(merge, [@f.fetch("i64", @rec, current_at)])
+            switch(write)
+            @f.store(expr(node.value), @rec, current_at)
+            expr(yield(current))
+            @f.jump(merge, [@f.fetch("i64", @rec, current_at)])
+            switch(merge)
+            result
+          else
+            @f.store(expr(Hir::Send.new(current, node.op, [node.value], node.line, false, false, nil, nil, false)), @rec, current_at)
+            expr(yield(current))
+            @f.fetch("i64", @rec, current_at)
+          end
+        end
+
         def assign_target(target, v, prepared)
           case target
           when Hir::Assign then write_local(slot_at(target), target.depth, v)

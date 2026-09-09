@@ -33,7 +33,7 @@ module Ze0
         case node
         when Hir::Seq then node.stmts.map { |s| staging(s, base) }.max || base
         when Hir::Send
-          extra = (node.kwargs ? 1 : 0) + (node.block ? 1 : 0)
+          extra = (node.kwargs ? 1 : 0) + (node.block ? 1 : 0) + (node.safe ? 1 : 0)
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
           [top, staging(node.recv, top), staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
         when Hir::Super
@@ -47,7 +47,19 @@ module Ze0
         when Hir::ArrayLit then spread?(node.elements) ? gathered(node.elements, base) : row(node.elements, base)
         when Hir::HashLit then spread?(node.pairs) ? gathered(node.pairs, base) : row(node.pairs, base)
         when Hir::Interp then row(node.parts, base)
-        when Hir::Assign, Hir::Not, Hir::IvarWrite, Hir::ConstWrite then staging(node.value, base)
+        when Hir::Assign, Hir::Not, Hir::IvarWrite, Hir::ConstWrite, Hir::GvarWrite, Hir::CvarWrite then staging(node.value, base)
+        when Hir::ConstOrWrite then [staging(node.scope, base), staging(node.value, base)].max
+        when Hir::Defined then staging(node.target, base + 1)
+        when Hir::Slot then base
+        when Hir::Case
+          top = base + 3
+          [top, staging(node.subject, top), staging(node.else_body, top), *node.clauses.flat_map { |values, body| [staging(body, top), *values.map { |v| staging(v, top) }] }].max
+        when Hir::IndexOpAssign
+          top = base + 3 + node.args.size
+          [top, staging(node.recv, top), staging(node.value, top), *node.args.map { |a| staging(a, top) }].max
+        when Hir::AttrOpAssign
+          top = base + 3
+          [top, staging(node.recv, top), staging(node.value, top)].max
         when Hir::MultiAssign
           top = base + 1 + prepared(node.target)
           [staging(node.value, top), top + targets(node.target), *sends_in(node.target).map { |s| staging(s, top) }].max
