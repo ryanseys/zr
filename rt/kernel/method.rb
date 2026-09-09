@@ -132,6 +132,9 @@ machine def zr_method_arity_of(m)
   e = RMethod.entry(m)
   meta = zr_method_meta(e)
   if meta != 0
+    if FrameMeta.file_len(meta) == 0 && FrameMeta.arity(meta) < 0
+      return 0 - 1
+    end
     return FrameMeta.arity(meta)
   end
   MEntry.arity(e)
@@ -191,10 +194,10 @@ sig [Value] => Value
 machine def zr_method_rows(m)
   e = RMethod.entry(m)
   meta = zr_method_meta(e)
-  if meta != 0
+  if meta != 0 && FrameMeta.file_len(meta) > 0
     return zr_param_rows(FrameMeta.params(meta), false)
   end
-  zr_arity_rows(MEntry.arity(e))
+  zr_arity_rows(zr_method_arity_of(m))
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -368,11 +371,16 @@ end
 
 # The meta that locates a method entry in a Ruby file, or 0: a def's
 # or a block's own, an attribute's the class body's.
+# A core method, whose meta names no file, is a builtin to
+# reflection: no location, a C method's arity and parameters.
 sig [Ptr] => Ptr
 machine def zr_method_location(e)
   meta = zr_method_meta(e)
   if meta == 0 && (MEntry.kind(e) == KIND_ATTR_READER || MEntry.kind(e) == KIND_ATTR_WRITER) && FrameMeta.file_len(MEntry.meta(e)) > 0
     meta = MEntry.meta(e)
+  end
+  if meta != 0 && FrameMeta.file_len(meta) == 0
+    return 0
   end
   meta
 end
@@ -433,7 +441,8 @@ machine def zr_buf_method_params(b, m)
   e = RMethod.entry(m)
   zr_buf_byte(b, 40)
   meta = zr_method_meta(e)
-  if meta != 0
+  arity = zr_method_arity_of(m)
+  if meta != 0 && FrameMeta.file_len(meta) > 0
     table = FrameMeta.params(meta)
     n = Machine.load64(table, 0)
     i = 0
@@ -444,11 +453,11 @@ machine def zr_buf_method_params(b, m)
       zr_buf_param(b, Machine.load64(table + 8 + (i * 16), 0), Machine.load64(table + 16 + (i * 16), 0))
       i += 1
     end
-  elsif MEntry.arity(e) < 0
+  elsif arity < 0
     zr_buf_byte(b, 42)
   else
     i = 0
-    while i < MEntry.arity(e)
+    while i < arity
       if i > 0
         zr_buf_push(b, Machine.bytes(", "), 2)
       end

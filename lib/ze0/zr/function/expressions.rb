@@ -128,7 +128,7 @@ module Ze0
         # `$!` is the task's, and any other lives in the globals table.
         # The globals the runtime does not answer yet: IO, require and
         # regexp state. The rest are plain globals the core sets at boot.
-        SPECIAL_GLOBALS = %i[$stdout $stderr $stdin $~ $_ $. $< $> $?].freeze
+        SPECIAL_GLOBALS = %i[$~ $_ $. $< $?].freeze
 
         def gvar_read(node)
           return kernel("zr_errinfo") if node.name == :$!

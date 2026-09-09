@@ -99,7 +99,7 @@ module Ze0
         bytes = ("\0" * layout.size).b
         word = ->(field, value) { bytes[layout.fields.fetch(field).first, 8] = [value].pack("q<") }
         word.call("name", name)
-        word.call("file_len", @file.bytesize)
+        word.call("file_len", @internal ? 0 : @file.bytesize)
         word.call("kind", const(kind))
         word.call("line", line)
         word.call("arity", params ? params.arity : 0)

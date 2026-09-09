@@ -11,9 +11,6 @@ machine def zr_puts_value(v)
       return r if r == QUNDEF
       i += 1
     end
-    if RArray.len(v) == 0
-      zr_write_out(Machine.bytes("\n"), 1)
-    end
     return Machine.value(QNIL)
   end
   s = v

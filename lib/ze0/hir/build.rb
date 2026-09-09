@@ -143,7 +143,7 @@ module Ze0
         @block_depth, @def_params = was
       end
 
-      GVAR_ALIASES = { :$PROGRAM_NAME => :$0, :$: => :$LOAD_PATH, :$" => :$LOADED_FEATURES }.freeze
+      GVAR_ALIASES = { :$PROGRAM_NAME => :$0, :$: => :$LOAD_PATH, :$" => :$LOADED_FEATURES, :$> => :$stdout }.freeze
 
       # `$PROGRAM_NAME`, `$:` and `$"` are the other names of `$0`,
       # `$LOAD_PATH` and `$LOADED_FEATURES`.
