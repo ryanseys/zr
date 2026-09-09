@@ -81,8 +81,8 @@ machine def zr_ivar_set(obj, id, v)
 end
 
 # `Class#new`: allocate, then `initialize` with the arguments.
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_class_new_instance(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_class_new_instance(recv, argc, argv, cref, blk)
   if zr_class_inherits(recv, zr_global(G_EXCEPTION))
     o = zr_exc_new(recv, Machine.value(QNIL))
   else
@@ -93,18 +93,18 @@ machine def zr_class_new_instance(recv, argc, argv, cref)
   o
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_obj_initialize(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_initialize(recv, argc, argv, cref, blk)
   Machine.value(QNIL)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_obj_class(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_class(recv, argc, argv, cref, blk)
   zr_class_of(recv)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_obj_is_a(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_is_a(recv, argc, argv, cref, blk)
   k = Machine.value(Machine.load64(argv, 0))
   if zr_special_p(k) || (zr_type(k) != T_CLASS && zr_type(k) != T_MODULE)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("class or module required"), 24)
@@ -112,31 +112,31 @@ machine def zr_obj_is_a(recv, argc, argv, cref)
   zr_bool(zr_is_a(recv, k))
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_obj_instance_of(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_instance_of(recv, argc, argv, cref, blk)
   zr_bool(zr_class_of(recv) == Machine.value(Machine.load64(argv, 0)))
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_obj_nil_p(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_nil_p(recv, argc, argv, cref, blk)
   zr_bool(recv == QNIL)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_obj_eq(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_eq(recv, argc, argv, cref, blk)
   zr_bool(recv == Machine.value(Machine.load64(argv, 0)))
 end
 
 # `!=` asks `==`, so a class that defines `==` gets `!=` for free.
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_obj_ne(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_ne(recv, argc, argv, cref, blk)
   r = zr_send(recv, Machine.id(:==), 1, argv)
   return r if r == QUNDEF
   zr_bool(r == QNIL || r == QFALSE)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_obj_respond_to(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_respond_to(recv, argc, argv, cref, blk)
   m = Machine.value(Machine.load64(argv, 0))
   unless zr_symbol_p(m)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("is not a symbol nor a string"), 28)
@@ -165,8 +165,8 @@ end
 
 # `#<Name:0x... @a=1, @b=2>`; the ivar values' `inspect` may run Ruby,
 # so the table is re-read after each.
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_obj_inspect(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_inspect(recv, argc, argv, cref, blk)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_obj_head(b, recv)
@@ -188,14 +188,14 @@ machine def zr_obj_inspect(recv, argc, argv, cref)
   zr_buf_take(b)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_nil_inspect(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_nil_inspect(recv, argc, argv, cref, blk)
   zr_str_new(Machine.bytes("nil"), 3)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_int_inspect(recv, argc, argv, cref)
-  zr_int_to_s(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_int_inspect(recv, argc, argv, cref, blk)
+  zr_int_to_s(recv, argc, argv, cref, blk)
 end
 
 sig [Word] => Bool
@@ -204,8 +204,8 @@ machine def zr_ident_byte_p(c)
 end
 
 # `:name`, quoted when the name is not a plain identifier or operator.
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_sym_inspect(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_sym_inspect(recv, argc, argv, cref, blk)
   id = zr_sym2id(recv)
   p = zr_symbol_name_ptr(id)
   n = zr_symbol_name_len(id)
@@ -300,32 +300,32 @@ machine def zr_hex_digit(d)
   end
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_inspect(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_inspect(recv, argc, argv, cref, blk)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_str_escaped(b, RString.ptr(recv), RString.len(recv))
   zr_buf_take(b)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_true_inspect(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_true_inspect(recv, argc, argv, cref, blk)
   zr_str_new(Machine.bytes("true"), 4)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_false_inspect(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_false_inspect(recv, argc, argv, cref, blk)
   zr_str_new(Machine.bytes("false"), 5)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_class_name(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_class_name(recv, argc, argv, cref, blk)
   RClass.name(recv)
 end
 
 # An anonymous class prints as `#<Class:0x...>`.
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_class_to_s(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_class_to_s(recv, argc, argv, cref, blk)
   if RClass.name(recv) == QNIL
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -336,13 +336,13 @@ machine def zr_class_to_s(recv, argc, argv, cref)
   RClass.name(recv)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_class_superclass(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_class_superclass(recv, argc, argv, cref, blk)
   RClass.superclass(recv)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_exc_message(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_exc_message(recv, argc, argv, cref, blk)
   m = RException.message(recv)
   if m == QNIL
     return RClass.name(zr_class_of(recv))
@@ -351,8 +351,8 @@ machine def zr_exc_message(recv, argc, argv, cref)
 end
 
 # `#<Klass: message>`, or the class name alone when the message is it.
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_exc_inspect(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_exc_inspect(recv, argc, argv, cref, blk)
   m = RException.message(recv)
   if m == QNIL || RString.len(m) == 0
     return RClass.name(zr_class_of(recv))
@@ -368,8 +368,8 @@ machine def zr_exc_inspect(recv, argc, argv, cref)
 end
 
 # `Exception#initialize(message = nil)`.
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_exc_initialize(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_exc_initialize(recv, argc, argv, cref, blk)
   if argc > 0
     RException.set_message(recv, Machine.value(Machine.load64(argv, 0)))
   end
@@ -378,8 +378,8 @@ end
 
 # `p`: each argument's inspect on its own line; answers the argument,
 # or an Array of several.
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_p(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_p(recv, argc, argv, cref, blk)
   i = 0
   while i < argc
     s = zr_send(Machine.value(Machine.load64(argv + (i * 8), 0)), Machine.id(:inspect), 0, 0)
@@ -426,17 +426,17 @@ machine def zr_attr(klass, argc, argv, which)
   Machine.value(QNIL)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_mod_attr_reader(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_attr_reader(recv, argc, argv, cref, blk)
   zr_attr(recv, argc, argv, 1)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_mod_attr_writer(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_attr_writer(recv, argc, argv, cref, blk)
   zr_attr(recv, argc, argv, 2)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_mod_attr_accessor(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_attr_accessor(recv, argc, argv, cref, blk)
   zr_attr(recv, argc, argv, 3)
 end

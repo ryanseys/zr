@@ -45,14 +45,23 @@ module Ze0
         when Prism::SelfNode then SelfRef.new(line)
         when Prism::CallNode then call(node)
         when Prism::DefNode then define(node)
-        when Prism::LocalVariableReadNode then Local.new(node.name, line)
-        when Prism::LocalVariableWriteNode then Assign.new(node.name, expr(node.value), line)
+        when Prism::LocalVariableReadNode then Local.new(node.name, node.depth, line)
+        when Prism::LocalVariableWriteNode then Assign.new(node.name, node.depth, expr(node.value), line)
         when Prism::LocalVariableOperatorWriteNode
-          Assign.new(node.name, Send.new(Local.new(node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
+          Assign.new(node.name, node.depth, Send.new(Local.new(node.name, node.depth, line), node.binary_operator, [expr(node.value)], line, false), line)
         when Prism::LocalVariableAndWriteNode
-          Assign.new(node.name, And.new(Local.new(node.name, line), expr(node.value), line), line)
+          Assign.new(node.name, node.depth, And.new(Local.new(node.name, node.depth, line), expr(node.value), line), line)
         when Prism::LocalVariableOrWriteNode
-          Assign.new(node.name, Or.new(Local.new(node.name, line), expr(node.value), line), line)
+          Assign.new(node.name, node.depth, Or.new(Local.new(node.name, node.depth, line), expr(node.value), line), line)
+        when Prism::YieldNode
+          args = node.arguments&.arguments || []
+          refuse(node, "a splat in a yield is not lowered yet") if args.any? { |a| a.is_a?(Prism::SplatNode) || a.is_a?(Prism::KeywordHashNode) }
+          Yield.new(args.map { |a| expr(a) }, line)
+        when Prism::BreakNode, Prism::NextNode
+          args = node.arguments&.arguments || []
+          refuse(node, "a #{node.is_a?(Prism::BreakNode) ? "break" : "next"} of several values is not lowered yet") if args.size > 1
+          value = args.empty? ? Literal.new(nil, line) : expr(args.first)
+          node.is_a?(Prism::BreakNode) ? Break.new(value, line) : Next.new(value, line)
         when Prism::IfNode
           If.new(expr(node.predicate), node.statements && seq(node.statements), node.subsequent && expr(node.subsequent), line)
         when Prism::UnlessNode
@@ -134,8 +143,25 @@ module Ze0
         Def.new(node.name, names, node.locals, node.body ? expr(node.body) : Literal.new(nil, node.location.start_line), node.location.start_line)
       end
 
+      # A block literal's parameters: required names only, so far.
+      def block(node)
+        refuse(node, "a block argument is not lowered yet") if node.is_a?(Prism::BlockArgumentNode)
+        params = []
+        if node.parameters
+          refuse(node.parameters, "a numbered or `it` parameter is not lowered yet") unless node.parameters.is_a?(Prism::BlockParametersNode)
+          inner = node.parameters.parameters
+          if inner
+            other = inner.child_nodes.compact - inner.requireds
+            refuse(other.first, "#{other.first.class.name.split("::").last.delete_suffix("Node")} is not lowered yet") unless other.empty?
+            refuse(inner, "a destructuring block parameter is not lowered yet") unless inner.requireds.all?(Prism::RequiredParameterNode)
+            params = inner.requireds.map(&:name)
+          end
+          refuse(node.parameters, "a block-local variable is not lowered yet") unless node.parameters.locals.empty?
+        end
+        Block.new(params, node.locals, node.body ? expr(node.body) : Literal.new(nil, node.location.start_line), node.location.start_line)
+      end
+
       def call(node)
-        refuse(node, "a block is not lowered yet") if node.block
         refuse(node, "a safe-navigation call is not lowered yet") if node.call_operator == "&."
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil?
 
@@ -147,7 +173,8 @@ module Ze0
           end
         end
         opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
-        Send.new(node.receiver && expr(node.receiver), node.name, args, node.location.start_line, node.variable_call?, opt)
+        Send.new(node.receiver && expr(node.receiver), node.name, args, node.location.start_line, node.variable_call?, opt,
+                 node.block && block(node.block))
       end
 
       def refuse(node, message)

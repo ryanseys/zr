@@ -6,8 +6,8 @@
 # allocation collects first, and the free list starts just past the
 # last cell handed out, so a stale pointer meets the poison, not a new
 # object.
-CELL = 64
-CELLS = 16384
+CELL = 128
+CELLS = 32768
 ARENA_BYTES = CELL * CELLS
 POISON = 57005 << 8
 
@@ -27,8 +27,8 @@ end
 
 # The frame chain the collector walks: a record is a Frame followed by
 # `nvalues` Values.
-Machine.struct :Frame, prev: Ptr, meta: Ptr, line: Word, serial: Word, self: Value, cref: Value, nvalues: Word
-Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value
+Machine.struct :Frame, prev: Ptr, meta: Ptr, line: Word, serial: Word, self: Value, cref: Value, blk: Value, nvalues: Word
+Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word
 
 sig [] => Ptr
 machine def zr_task
@@ -109,10 +109,12 @@ machine def zr_mark_roots
   end
   zr_mark(Task.pending(zr_task()))
   zr_mark(Task.errinfo(zr_task()))
+  zr_mark_kernel_roots()
   rec = Task.top(zr_task())
   while rec != 0
     zr_mark(Frame.self(rec))
     zr_mark(Frame.cref(rec))
+    zr_mark(Frame.blk(rec))
     n = Frame.nvalues(rec)
     i = 0
     while i < n
@@ -199,4 +201,43 @@ machine def zr_alloc(type, klass)
     j += 8
   end
   Machine.value(cell)
+end
+
+# Kernel code that must keep a fresh object alive across a call into
+# Ruby pushes the slot holding it here; the collector reads the slots.
+Machine.struct :Roots, slots: Ptr, len: Word
+ROOT_SLOTS = 256
+
+sig [] => Ptr
+machine def zr_roots
+  Machine.static(:roots, ROOT_SLOTS * 8 + 16)
+end
+
+sig [Ptr] => Void
+machine def zr_root_push(slot)
+  r = zr_roots()
+  n = Machine.load64(r, 0)
+  if n >= ROOT_SLOTS
+    zr_bug(Machine.bytes("too many kernel roots\n"), 22)
+  end
+  Machine.store64(r + 16 + (n * 8), 0, slot)
+  Machine.store64(r, 0, n + 1)
+end
+
+sig [] => Void
+machine def zr_root_pop
+  r = zr_roots()
+  Machine.store64(r, 0, Machine.load64(r, 0) - 1)
+end
+
+sig [] => Void
+machine def zr_mark_kernel_roots
+  r = zr_roots()
+  n = Machine.load64(r, 0)
+  i = 0
+  while i < n
+    slot = Machine.load64(r + 16 + (i * 8), 0)
+    zr_mark(Machine.value(Machine.load64(slot, 0)))
+    i += 1
+  end
 end

@@ -7,12 +7,13 @@
 # Every frame record carries a FrameMeta: what the backtrace prints for
 # it. A builtin method's frame is pushed by dispatch and borrows the
 # file and line of the nearest Ruby frame outside it.
-Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word
+Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr
 KIND_MAIN = 0
 KIND_DEF = 1
 KIND_BUILTIN = 2
 KIND_CLASS = 3
 KIND_MODULE = 4
+KIND_BLOCK = 5
 
 Machine.struct :BtRow, meta: Ptr, file: Ptr, file_len: Word, line: Word
 Machine.struct :RException, basic: RBasic, message: Value, rows: Ptr, nrows: Word
@@ -98,9 +99,25 @@ machine def zr_raise_buf(klass, b)
   zr_raise(zr_exc_new(klass, zr_buf_take(b)))
 end
 
+# `block in label`, or `block (N levels) in label` for a nested block.
 sig [Ptr, Ptr] => Void
 machine def zr_buf_label(b, meta)
-  if FrameMeta.kind(meta) == KIND_MAIN
+  if FrameMeta.kind(meta) == KIND_BLOCK
+    levels = 1
+    outer = FrameMeta.parent(meta)
+    while FrameMeta.kind(outer) == KIND_BLOCK
+      levels += 1
+      outer = FrameMeta.parent(outer)
+    end
+    zr_buf_push(b, Machine.bytes("block "), 6)
+    if levels > 1
+      zr_buf_byte(b, 40)
+      zr_buf_long(b, levels)
+      zr_buf_push(b, Machine.bytes(" levels) "), 9)
+    end
+    zr_buf_push(b, Machine.bytes("in "), 3)
+    zr_buf_label(b, outer)
+  elsif FrameMeta.kind(meta) == KIND_MAIN
     zr_buf_push(b, Machine.bytes("<main>"), 6)
   elsif FrameMeta.kind(meta) == KIND_CLASS || FrameMeta.kind(meta) == KIND_MODULE
     zr_buf_push(b, FrameMeta.kind(meta) == KIND_CLASS ? Machine.bytes("<class:") : Machine.bytes("<module:"), FrameMeta.kind(meta) == KIND_CLASS ? 7 : 8)

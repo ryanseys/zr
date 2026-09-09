@@ -18,8 +18,8 @@ machine def zr_puts_value(v)
   Machine.value(QNIL)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_puts(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_puts(recv, argc, argv, cref, blk)
   if argc == 0
     zr_write_out(Machine.bytes("\n"), 1)
   end
@@ -32,25 +32,25 @@ machine def zr_puts(recv, argc, argv, cref)
   Machine.value(QNIL)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_nil_to_s(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_nil_to_s(recv, argc, argv, cref, blk)
   zr_str_new(Machine.bytes(""), 0)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_true_to_s(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_true_to_s(recv, argc, argv, cref, blk)
   zr_str_new(Machine.bytes("true"), 4)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_false_to_s(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_false_to_s(recv, argc, argv, cref, blk)
   zr_str_new(Machine.bytes("false"), 5)
 end
 
 # `#<Name:0x` and sixteen hex digits of the address, as CRuby prints;
 # the main object prints as `main`.
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_obj_to_s(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_to_s(recv, argc, argv, cref, blk)
   if recv == zr_global(G_MAIN)
     return zr_str_new(Machine.bytes("main"), 4)
   end
@@ -61,7 +61,7 @@ machine def zr_obj_to_s(recv, argc, argv, cref)
   zr_buf_take(b)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_obj_not(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_not(recv, argc, argv, cref, blk)
   zr_bool(recv == QNIL || recv == QFALSE)
 end

@@ -14,14 +14,21 @@ module Ze0
     # bare identifier, which is a NameError when nothing answers; `index`
     # marks the operator syntax `recv[i]`, `recv[i] = v` and `recv << v`,
     # which CRuby runs without a frame on its builtin receivers.
-    Send = Struct.new(:recv, :name, :args, :line, :vcall, :opt)
+    Send = Struct.new(:recv, :name, :args, :line, :vcall, :opt, :block)
+    # A block literal: its parameters, every local of its scope
+    # (parameters first), and its body.
+    Block = Struct.new(:params, :locals, :body, :line)
+    Yield = Struct.new(:args, :line)
+    Break = Struct.new(:value, :line)
+    Next = Struct.new(:value, :line)
     # An Integer, String, Symbol, nil, true or false.
     Literal = Struct.new(:value, :line)
     SelfRef = Struct.new(:line)
     # `def name(params) body end`; its value is the name.
     Def = Struct.new(:name, :params, :locals, :body, :line)
-    Local = Struct.new(:name, :line)
-    Assign = Struct.new(:name, :value, :line)
+    # `depth` counts block scopes up to the one that holds the local.
+    Local = Struct.new(:name, :depth, :line)
+    Assign = Struct.new(:name, :depth, :value, :line)
     # `if`; `unless` arrives with its arms swapped. An arm may be nil.
     If = Struct.new(:cond, :yes, :no, :line)
     While = Struct.new(:cond, :body, :line)

@@ -74,9 +74,9 @@ module Ze0
         out << section(2, vec(@imports.map { |(mod, name, p, r)| name(mod) + name(name) + "\0".b + leb(type_index([p, r])) }))
         out << section(3, vec((@shims.values + @functions.map { |f| signature(f) } + [[[], []]]).map { |t| leb(type_index(t)) }))
         out << section(4, vec(["\x70\x00".b + leb(@table.size + 1)])) unless @table.empty?
-        out << section(5, vec(["\0".b + leb(STACK_PAGES + 2)]))
         stack_base = align(@data_end, 16)
         heap_base = align(stack_base + (STACK_PAGES * PAGE), 16)
+        out << section(5, vec(["\0".b + leb((heap_base / PAGE) + 2)]))
         out << section(6, vec(["\x7F\x01".b + "\x41".b + sleb(stack_base) + "\x0B".b,
                                "\x7F\x01".b + "\x41".b + sleb(heap_base) + "\x0B".b]))
         out << section(7, vec([name("memory") + "\x02".b + leb(0), name("_start") + "\0".b + leb(@index["_start"])]))
@@ -406,7 +406,10 @@ module Ze0
               @code << "\xAD".b if !wide?(a) && want == 0x7E
             end
             @code << "\x10".b << @m.leb(@m.function_index(name))
-            unless i.results.empty?
+            if i.results.empty?
+              # An answer the text does not name is dropped.
+              @code << "\x1A".b unless results.empty?
+            else
               @code << "\xA7".b if results.first == 0x7E && !wide?(i.results[0])
               @code << "\xAD".b if results.first == 0x7F && wide?(i.results[0])
               set(i.results[0])

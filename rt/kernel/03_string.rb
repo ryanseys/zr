@@ -100,13 +100,13 @@ machine def zr_intern(p, n)
   total
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_to_s(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_to_s(recv, argc, argv, cref, blk)
   recv
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_sym_to_s(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_sym_to_s(recv, argc, argv, cref, blk)
   id = zr_sym2id(recv)
   zr_str_new(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
 end

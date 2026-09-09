@@ -24,6 +24,13 @@ module Ze0
         @symbols = symbols
         @data = []
         @functions = []
+        @next = 0
+      end
+
+      # A fresh function number: functions nest, so the count of finished
+      # ones does not name them.
+      def number
+        @next += 1
       end
 
       attr_reader :program, :unit, :symbols, :data, :functions
@@ -52,7 +59,7 @@ module Ze0
       # The FrameMeta of function `fn`: writable, since the runtime fills
       # in the owner and name at definition. A class body's name is the
       # class's, set here.
-      def meta(fn, kind, line, name = 0)
+      def meta(fn, kind, line, name = 0, parent = nil)
         layout = layout("FrameMeta")
         file = @file_bytes ||= literal(@program.file)
         bytes = ("\0" * layout.size).b
@@ -60,8 +67,10 @@ module Ze0
         bytes[layout.fields.fetch("file_len").first, 8] = [@program.file.bytesize].pack("Q<")
         bytes[layout.fields.fetch("kind").first, 8] = [const(kind)].pack("Q<")
         bytes[layout.fields.fetch("line").first, 8] = [line].pack("Q<")
+        relocs = [Obj::Reloc.new(layout.fields.fetch("file").first, :abs64, file)]
+        relocs << Obj::Reloc.new(layout.fields.fetch("parent").first, :abs64, parent) if parent
         name = "zr_meta_#{fn}"
-        @data << Obj::Data.new(name, :data, bytes, relocs: [Obj::Reloc.new(layout.fields.fetch("file").first, :abs64, file)], align: 8)
+        @data << Obj::Data.new(name, :data, bytes, relocs: relocs, align: 8)
         name
       end
 
@@ -71,15 +80,23 @@ module Ze0
 
       # The function a def becomes, lowered now and named for the site.
       def define(node)
-        name = "zr_def_#{@functions.size}_#{node.name.to_s.gsub(/[^A-Za-z0-9_]/, "")}"
+        name = "zr_def_#{number}_#{node.name.to_s.gsub(/[^A-Za-z0-9_]/, "")}"
         Fn.new(self, name, node.locals, node.body, node, :def).lower
         name
       end
 
       # The function a class or module body becomes.
       def body(node)
-        name = "zr_body_#{@functions.size}_#{node.name}"
+        name = "zr_body_#{number}_#{node.name}"
         Fn.new(self, name, node.locals, node.body, node, node.is_a?(Hir::ClassDef) ? :class : :module).lower
+        name
+      end
+
+      # The function a block literal becomes; `outer` is the Fn it is
+      # written in.
+      def block(node, outer)
+        name = "zr_blk_#{number}"
+        Fn.new(self, name, node.locals, node.body, node, :block, outer: outer).lower
         name
       end
 
@@ -90,64 +107,187 @@ module Ze0
       }.freeze
 
       # One function: the toplevel (`kind` :main, no parameters), a method
-      # (:def, the method ABI) or a class or module body (:class or
-      # :module, taking the class and the cref).
+      # (:def, the method ABI), a class or module body (:class or
+      # :module, taking the class and the cref) or a block (:block,
+      # taking its Proc, the arguments and a block).
+      #
+      # A scope that holds a block keeps its locals in an Env cell, kept
+      # in the record's first slot, so the block reads and writes them
+      # there; a block reaches outer locals through its Proc's env chain.
       class Fn
-        KINDS = { main: "KIND_MAIN", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE" }.freeze
+        KINDS = { main: "KIND_MAIN", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", block: "KIND_BLOCK" }.freeze
+        ABI = { main: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], block: %w[i64 i64 i64 i64] }.freeze
 
-        def initialize(lower, name, locals, body, node, kind)
+        attr_reader :meta, :has_env
+
+        def initialize(lower, name, locals, body, node, kind, outer: nil)
           @l = lower
           @name = name
           @locals = locals
           @body = body
           @def = node
           @kind = kind
+          @outer = outer
           @frame = lower.layout("Frame")
           @task = lower.layout("Task")
           @cref_layout = lower.layout("RCref")
+          @proc_layout = lower.layout("RProc")
           @slot_of = locals.each_with_index.to_h
+          @has_env = holds_block?(body)
+          @sites = 0
+          @loops = []
         end
 
         def lower
-          method = @kind == :def
-          params_types = { main: [], def: %w[i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64] }.fetch(@kind)
-          @f = IR::Function.new(@name, params_types, "i64")
-          @nvalues = @locals.size + values_needed(@body, 0)
-          @sp = @locals.size
+          @f = IR::Function.new(@name, ABI.fetch(@kind), "i64")
+          @base = @has_env ? 1 : @locals.size
+          @nvalues = @base + values_needed(@body, 0)
+          @sp = @base
           @record = @f.slot(@frame.size + (8 * @nvalues))
           @rec = @f.stack_addr(@record)
           @task_addr = @f.symbol_value(@f.symbol("zr_static_task"))
           @prev = @f.fetch("i64", @task_addr, off(@task, "top"))
           @f.store(@prev, @rec, off(@frame, "prev"))
-          zero = @f.iconst("i64", 0)
           line = @def ? @def.line : 1
-          @meta = @l.meta(@name, KINDS.fetch(@kind), line, @def && !method ? @l.symbols.id(@def.name) : 0)
+          name = @def && %i[class module].include?(@kind) ? @l.symbols.id(@def.name) : 0
+          @meta = @l.meta(@name, KINDS.fetch(@kind), line, name, @outer&.meta)
           @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
           @f.store(@f.iconst("i64", line), @rec, off(@frame, "line"))
-          @f.store(zero, @rec, off(@frame, "serial"))
-          @self = @kind == :main ? @f.fetch("i64", globals, 8 * @l.const("G_MAIN")) : @f.args[0]
+          serial = @f.iadd(@f.fetch("i64", @task_addr, off(@task, "serial")), @f.iconst("i64", 1))
+          @f.store(serial, @task_addr, off(@task, "serial"))
+          @f.store(serial, @rec, off(@frame, "serial"))
+          @proc = @f.args[0] if @kind == :block
+          @self = case @kind
+                  when :main then @f.fetch("i64", globals, 8 * @l.const("G_MAIN"))
+                  when :block then proc_field("self")
+                  else @f.args[0]
+                  end
           @f.store(@self, @rec, off(@frame, "self"))
           @cref = case @kind
                   when :main then @f.fetch("i64", globals, 8 * @l.const("G_TOP_CREF"))
                   when :def then @f.args[3]
+                  when :block then proc_field("cref")
                   else @f.args[1]
                   end
           @f.store(@cref, @rec, off(@frame, "cref"))
-          @f.store(@f.iconst("i64", @nvalues), @rec, off(@frame, "nvalues"))
           @qnil = @f.iconst("i64", @l.const("QNIL"))
-          params = method ? @def.params.size : 0
-          params.times { |i| @f.store(@f.fetch("i64", @f.args[2], 8 * i), @rec, value_offset(i)) }
-          (params...@nvalues).each { |i| @f.store(@qnil, @rec, value_offset(i)) }
+          @blk = case @kind
+                 when :def then @f.args[4]
+                 when :block then proc_field("blk")
+                 else @qnil
+                 end
+          @f.store(@blk, @rec, off(@frame, "blk"))
+          @f.store(@f.iconst("i64", @nvalues), @rec, off(@frame, "nvalues"))
+          (0...@nvalues).each { |i| @f.store(@qnil, @rec, value_offset(i)) }
           @f.store(@rec, @task_addr, off(@task, "top"))
+          if @has_env
+            parent = @kind == :block ? proc_field("env") : @qnil
+            @env = @f.call_val(@f.callee("zr_env_new", %w[i64 i64], "i64"), [parent, @f.iconst("i64", @locals.size)])
+            @f.store(@env, @rec, value_offset(0))
+          end
+          bind_params
           @landing = nil
           last = expr(@body)
           leave(last) unless @f.terminated?
           if @landing
             @f.switch(@landing, open: true)
+            if %i[def main].include?(@kind) && @has_env
+              caught = @f.call_val(@f.callee("zr_catch_return", %w[i64], "i64"), [@rec])
+              done = @f.label
+              none = @f.label
+              @f.brif(@f.icmp("eq", caught, @f.iconst("i64", @l.const("QUNDEF"))), none, done)
+              @f.switch(done)
+              leave(caught)
+              @f.switch(none)
+            end
             leave(@f.iconst("i64", @l.const("QUNDEF")))
           end
           @l.functions << @f
           @f
+        end
+
+        # Whether `node` holds a block literal of this scope (not one
+        # inside a nested def or body, which is its own scope).
+        def holds_block?(node)
+          case node
+          when Hir::Send then !node.block.nil? || (node.recv && holds_block?(node.recv)) || node.args.any? { |a| holds_block?(a) }
+          when Hir::Def, Hir::ClassDef, Hir::ModuleDef, nil then false
+          when Struct then node.to_a.any? { |v| v.is_a?(Struct) ? holds_block?(v) : v.is_a?(Array) && v.any? { |e| holds_block?(e) } }
+          else false
+          end
+        end
+
+        def proc_field(name)
+          @f.fetch("i64", @proc, off(@proc_layout, name))
+        end
+
+        # Parameters into their locals: a method's from argv, a block's
+        # through the block-argument rules.
+        def bind_params
+          case @kind
+          when :def
+            @def.params.each_with_index { |_, i| write_local(i, 0, @f.fetch("i64", @f.args[2], 8 * i)) }
+          when :block
+            n = @def.params.size
+            return if n.zero?
+
+            out = @f.stack_addr(@f.slot(8))
+            count = @f.call_val(@f.callee("zr_block_args", %w[i64 i64 i64 i64], "i64"), [@f.args[1], @f.args[2], @f.iconst("i64", n), out])
+            argv = @f.fetch("i64", out)
+            n.times do |i|
+              have = @f.label
+              miss = @f.label
+              merge, (v,) = @f.block(["i64"])
+              @f.brif(@f.icmp("slt", @f.iconst("i64", i), count), have, miss)
+              @f.switch(have)
+              @f.jump(merge, [@f.fetch("i64", argv, 8 * i)])
+              @f.switch(miss)
+              @f.jump(merge, [@qnil])
+              @f.switch(merge)
+              write_local(i, 0, v)
+            end
+          end
+        end
+
+        # The Env `depth` scopes up: this scope's own, or the Proc's chain.
+        def env_at(depth)
+          if @has_env
+            depth.zero? ? @env : @f.call_val(@f.callee("zr_env_up", %w[i64 i64], "i64"), [@env, @f.iconst("i64", depth)])
+          else
+            base = proc_field("env")
+            depth == 1 ? base : @f.call_val(@f.callee("zr_env_up", %w[i64 i64], "i64"), [base, @f.iconst("i64", depth - 1)])
+          end
+        end
+
+        def read_local(i, depth)
+          return @f.fetch("i64", @rec, value_offset(i)) if depth.zero? && !@has_env
+
+          @f.call_val(@f.callee("zr_env_get", %w[i64 i64], "i64"), [env_at(depth), @f.iconst("i64", i)])
+        end
+
+        def write_local(i, depth, v)
+          if depth.zero? && !@has_env
+            @f.store(v, @rec, value_offset(i))
+          else
+            @f.call_val(@f.callee("zr_env_set", %w[i64 i64 i64], "i64"), [env_at(depth), @f.iconst("i64", i), v])
+          end
+          v
+        end
+
+        # The slot of a local `depth` scopes up: the outer scopes' locals
+        # are known from the Fn chain.
+        def slot_at(node)
+          fn = self
+          node.depth.times { fn = fn.outer_fn }
+          fn.slot_index(node)
+        end
+
+        def outer_fn
+          @outer
+        end
+
+        def slot_index(node)
+          @slot_of.fetch(node.name) { @l.refuse(node, "#{node.name} is not a local of this scope") }
         end
 
         private
@@ -199,8 +339,12 @@ module Ze0
           case node
           when Hir::Seq then node.stmts.map { |s| values_needed(s, base) }.max || base
           when Hir::Send
-            top = base + 1 + node.args.size
-            [top, node.recv ? values_needed(node.recv, base) : base, *node.args.map { |a| values_needed(a, top) }].max
+            top = base + 1 + node.args.size + (node.block ? 1 : 0)
+            [top, node.recv ? values_needed(node.recv, top) : base, *node.args.map { |a| values_needed(a, top) }].max
+          when Hir::Yield
+            top = base + node.args.size
+            [top, *node.args.map { |a| values_needed(a, top) }].max
+          when Hir::Break, Hir::Next then values_needed(node.value, base)
           when Hir::Assign, Hir::Return, Hir::Not, Hir::IvarWrite, Hir::ConstWrite then values_needed(node.value, base)
           when Hir::ClassDef then [node.scope.is_a?(Struct) ? values_needed(node.scope, base) : base, node.superclass ? values_needed(node.superclass, base) : base].max
           when Hir::ModuleDef, Hir::ConstRead then node.scope.is_a?(Struct) ? values_needed(node.scope, base) : base
@@ -234,11 +378,11 @@ module Ze0
           when Hir::Literal then literal(node)
           when Hir::SelfRef then @self
           when Hir::Send then call(node)
-          when Hir::Local then @f.fetch("i64", @rec, value_offset(slot(node)))
-          when Hir::Assign
-            v = expr(node.value)
-            @f.store(v, @rec, value_offset(slot(node)))
-            v
+          when Hir::Local then read_local(slot_at(node), node.depth)
+          when Hir::Assign then write_local(slot_at(node), node.depth, expr(node.value))
+          when Hir::Yield then yield_block(node)
+          when Hir::Break then jump_out(node, :break)
+          when Hir::Next then jump_out(node, :next)
           when Hir::Def
             fn = @l.define(node)
             addr = @f.func_addr(@f.callee(fn, %w[i64 i64 i64 i64], "i64"))
@@ -277,7 +421,13 @@ module Ze0
           when Hir::If then branch(node)
           when Hir::While then loop_while(node)
           when Hir::Return
-            leave(expr(node.value))
+            v = expr(node.value)
+            if @kind == :block
+              at_line(node.line)
+              checked(@f.call_val(@f.callee("zr_return", %w[i64 i64], "i64"), [@proc, v]))
+            else
+              leave(v)
+            end
             @qnil
           when Hir::And, Hir::Or then logical(node)
           when Hir::Not then negate(node)
@@ -322,8 +472,33 @@ module Ze0
           checked(@f.call_val(@f.callee(fn, %w[i64 i64], "i64"), [klass, cref]))
         end
 
-        def slot(node)
-          @slot_of.fetch(node.name) { @l.refuse(node, "#{node.name} is not a local of this scope") }
+        def yield_block(node)
+          base = @sp
+          @sp += node.args.size
+          node.args.each_with_index { |a, i| @f.store(expr(a), @rec, value_offset(base + i)) }
+          argv = @f.iadd(@rec, @f.iconst("i64", value_offset(base)))
+          @sp = base
+          at_line(node.line)
+          checked(@f.call_val(@f.callee("zr_yield", %w[i64 i64 i64], "i64"), [@blk, @f.iconst("i64", node.args.size), argv]))
+        end
+
+        # `break`/`next`: out of the innermost loop when one encloses the
+        # statement, else out of the block.
+        def jump_out(node, kind)
+          v = expr(node.value)
+          if (loop = @loops.last)
+            @f.jump(kind == :break ? loop[:done] : loop[:head])
+            @f.switch(@f.label, open: true)
+            return @qnil
+          end
+          @l.refuse(node, "#{kind} outside a block or loop is not lowered yet") unless @kind == :block
+          if kind == :next
+            leave(v)
+          else
+            at_line(node.line)
+            checked(@f.call_val(@f.callee("zr_break", %w[i64 i64], "i64"), [@proc, v]))
+          end
+          @qnil
         end
 
         def symbol(name)
@@ -368,14 +543,47 @@ module Ze0
 
         def call(node)
           base = @sp
-          @sp += 1 + node.args.size
+          @sp += 1 + node.args.size + (node.block ? 1 : 0)
           recv, argv = stage(node, base)
-          result = if node.args.size == 1 && OPS.key?(node.name) && !node.vcall
+          result = if node.block
+                     call_with_block(node, recv, argv, base + 1 + node.args.size)
+                   elsif node.args.size == 1 && OPS.key?(node.name) && !node.vcall
                      operator(node, recv, argv)
                    else
                      dispatch(node, recv, argv)
                    end
           @sp = base
+          result
+        end
+
+        # A Proc for the block in the record slot `slot`, the send with it,
+        # and the site's own `break` caught on the way out.
+        def call_with_block(node, recv, argv, slot)
+          fn = @l.block(node.block, self)
+          site = (@sites += 1)
+          ret_home = @kind == :block ? proc_field("ret_home") : @rec
+          proc = @f.call_val(@f.callee("zr_proc_new", %w[i64 i64 i64 i64 i64 i64 i64 i64], "i64"),
+                             [@f.func_addr(@f.callee(fn, ABI.fetch(:block), "i64")), @env, @self, @cref, @blk, @rec,
+                              @f.iconst("i64", (site << 32) | node.block.params.size), ret_home])
+          @f.store(proc, @rec, value_offset(slot))
+          at_line(node.line)
+          r = @f.call_val(@f.callee("zr_send_blk", %w[i64 i64 i64 i64 i64], "i64"),
+                          [recv, @f.iconst("i64", @l.symbols.id(node.name)), @f.iconst("i64", node.args.size), argv, proc])
+          sentinel = @f.iconst("i64", @l.const("QUNDEF"))
+          fine = @f.label
+          signal = @f.label
+          merge, (result,) = @f.block(["i64"])
+          @f.brif(@f.icmp("eq", r, sentinel), signal, fine)
+          @f.switch(fine)
+          @f.jump(merge, [r])
+          @f.switch(signal)
+          caught = @f.call_val(@f.callee("zr_catch_break", %w[i64 i64], "i64"), [@rec, @f.iconst("i64", site)])
+          @landing ||= @f.label
+          ours = @f.label
+          @f.brif(@f.icmp("eq", caught, sentinel), @landing, ours)
+          @f.switch(ours)
+          @f.jump(merge, [caught])
+          @f.switch(merge)
           result
         end
 
@@ -469,7 +677,9 @@ module Ze0
           @f.switch(head)
           @f.brif(truthy(expr(node.cond)), body, done)
           @f.switch(body)
+          @loops << { head: head, done: done }
           expr(node.body) if node.body
+          @loops.pop
           @f.jump(head) unless @f.terminated?
           @f.switch(done)
           @qnil

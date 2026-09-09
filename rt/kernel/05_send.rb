@@ -48,8 +48,8 @@ end
 # `argv` points at `argc` Values the caller keeps rooted.
 # A builtin runs under a frame pushed here, so a backtrace names it; a
 # compiled method pushes its own.
-sig [Value, Word, Word, Ptr, Bool] => Value
-machine def zr_dispatch(recv, mid, argc, argv, vcall)
+sig [Value, Word, Word, Ptr, Bool, Value] => Value
+machine def zr_dispatch(recv, mid, argc, argv, vcall, blk)
   e = zr_find_method(zr_class_of(recv), mid)
   if e == 0
     return zr_no_method(recv, mid, vcall)
@@ -59,7 +59,7 @@ machine def zr_dispatch(recv, mid, argc, argv, vcall)
     if arity >= 0 && argc != arity
       return zr_wrong_arity_in(argc, arity, e, recv)
     end
-    return Machine.call(:method, MEntry.fn(e), recv, argc, argv, MEntry.cref(e))
+    return Machine.call(:method, MEntry.fn(e), recv, argc, argv, MEntry.cref(e), blk)
   end
   if MEntry.kind(e) == KIND_ATTR_READER
     if argc != 0
@@ -81,13 +81,14 @@ machine def zr_dispatch(recv, mid, argc, argv, vcall)
   Frame.set_serial(rec, 0)
   Frame.set_self(rec, recv)
   Frame.set_cref(rec, Machine.value(QNIL))
+  Frame.set_blk(rec, blk)
   Frame.set_nvalues(rec, 0)
   Task.set_top(t, rec)
   arity = MEntry.arity(e)
   if arity >= 0 && argc != arity
     r = zr_wrong_arity(argc, arity)
   else
-    r = Machine.call(:method, MEntry.fn(e), recv, argc, argv, Machine.value(QNIL))
+    r = Machine.call(:method, MEntry.fn(e), recv, argc, argv, Machine.value(QNIL), blk)
   end
   Task.set_top(t, Frame.prev(rec))
   r
@@ -105,6 +106,7 @@ machine def zr_wrong_arity_in(given, expected, e, recv)
   Frame.set_serial(rec, 0)
   Frame.set_self(rec, recv)
   Frame.set_cref(rec, Machine.value(QNIL))
+  Frame.set_blk(rec, Machine.value(QNIL))
   Frame.set_nvalues(rec, 0)
   Task.set_top(t, rec)
   r = zr_wrong_arity(given, expected)
@@ -114,11 +116,16 @@ end
 
 sig [Value, Word, Word, Ptr] => Value
 machine def zr_send(recv, mid, argc, argv)
-  zr_dispatch(recv, mid, argc, argv, false)
+  zr_dispatch(recv, mid, argc, argv, false, Machine.value(QNIL))
+end
+
+sig [Value, Word, Word, Ptr, Value] => Value
+machine def zr_send_blk(recv, mid, argc, argv, blk)
+  zr_dispatch(recv, mid, argc, argv, false, blk)
 end
 
 # A bare identifier: the same dispatch, a NameError on a miss.
 sig [Value, Word, Word, Ptr] => Value
 machine def zr_vcall(recv, mid, argc, argv)
-  zr_dispatch(recv, mid, argc, argv, true)
+  zr_dispatch(recv, mid, argc, argv, true, Machine.value(QNIL))
 end

@@ -47,8 +47,8 @@ machine def zr_str_operand(v)
   v
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_plus(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_plus(recv, argc, argv, cref, blk)
   other = zr_str_operand(Machine.value(Machine.load64(argv, 0)))
   return other if other == QUNDEF
   b = Machine.slot(Buf.size)
@@ -58,8 +58,8 @@ machine def zr_str_plus(recv, argc, argv, cref)
   zr_buf_take(b)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_times(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_times(recv, argc, argv, cref, blk)
   out = Machine.slot(8)
   r = zr_index_operand(Machine.value(Machine.load64(argv, 0)), out)
   return r if r == QUNDEF
@@ -78,8 +78,8 @@ machine def zr_str_times(recv, argc, argv, cref)
 end
 
 # `<<` appends in place; a frozen receiver raises.
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_concat(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_concat(recv, argc, argv, cref, blk)
   if zr_frozen_p(recv)
     return zr_frozen_error(recv)
   end
@@ -103,8 +103,8 @@ machine def zr_str_concat(recv, argc, argv, cref)
   recv
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_eq(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_eq(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))
   if zr_special_p(other) || zr_type(other) != T_STRING
     return Machine.value(QFALSE)
@@ -112,8 +112,8 @@ machine def zr_str_eq(recv, argc, argv, cref)
   zr_bool(zr_bytes_eq(RString.ptr(recv), RString.len(recv), RString.ptr(other), RString.len(other)))
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_length(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_length(recv, argc, argv, cref, blk)
   zr_ascii_only(recv)
   zr_fix(RString.len(recv))
 end
@@ -152,23 +152,23 @@ machine def zr_str_map_case(s, how)
   zr_buf_take(b)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_upcase(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_upcase(recv, argc, argv, cref, blk)
   zr_str_map_case(recv, 1)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_downcase(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_downcase(recv, argc, argv, cref, blk)
   zr_str_map_case(recv, 2)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_capitalize(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_capitalize(recv, argc, argv, cref, blk)
   zr_str_map_case(recv, 3)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_reverse(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_reverse(recv, argc, argv, cref, blk)
   zr_ascii_only(recv)
   n = RString.len(recv)
   b = Machine.slot(Buf.size)
@@ -196,15 +196,15 @@ machine def zr_str_find(hay, needle, from)
   0 - 1
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_include_p(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_include_p(recv, argc, argv, cref, blk)
   other = zr_str_operand(Machine.value(Machine.load64(argv, 0)))
   return other if other == QUNDEF
   zr_bool(zr_str_find(recv, other, 0) >= 0)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_index(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_index(recv, argc, argv, cref, blk)
   other = zr_str_operand(Machine.value(Machine.load64(argv, 0)))
   return other if other == QUNDEF
   zr_ascii_only(recv)
@@ -215,38 +215,38 @@ machine def zr_str_index(recv, argc, argv, cref)
   zr_fix(i)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_empty_p(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_empty_p(recv, argc, argv, cref, blk)
   zr_bool(RString.len(recv) == 0)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_to_sym(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_to_sym(recv, argc, argv, cref, blk)
   zr_sym(zr_intern(RString.ptr(recv), RString.len(recv)))
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_dup(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_dup(recv, argc, argv, cref, blk)
   zr_str_new(RString.ptr(recv), RString.len(recv))
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_obj_freeze(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_freeze(recv, argc, argv, cref, blk)
   unless zr_special_p(recv)
     RBasic.set_flags(recv, RBasic.flags(recv) | FL_FREEZE)
   end
   recv
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_obj_frozen_p(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_frozen_p(recv, argc, argv, cref, blk)
   zr_bool(zr_frozen_p(recv))
 end
 
 # `succ`: the rightmost alphanumeric run counts up with carries, as
 # CRuby does; a string with no alphanumerics bumps its last byte.
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_str_succ(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_succ(recv, argc, argv, cref, blk)
   zr_ascii_only(recv)
   n = RString.len(recv)
   if n == 0
@@ -360,10 +360,10 @@ machine def zr_opt_ltlt(recv, mid, argc, argv)
     k = RBasic.klass(recv)
     other = Machine.value(Machine.load64(argv, 0))
     if k == zr_global(G_STRING) && !zr_special_p(other) && RBasic.klass(other) == zr_global(G_STRING)
-      return zr_str_concat(recv, argc, argv, Machine.value(QNIL))
+      return zr_str_concat(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
     end
     if k == zr_global(G_ARRAY)
-      return zr_ary_push_m(recv, argc, argv, Machine.value(QNIL))
+      return zr_ary_push_m(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
     end
   end
   zr_send(recv, mid, argc, argv)

@@ -26,6 +26,19 @@ module Ze0
           lines << "#{pad}(#{n.vcall ? "vcall" : "send"} #{n.recv ? "" : "self "}#{n.name}"
           node(n.recv, depth + 1, lines) if n.recv
           n.args.each { |a| node(a, depth + 1, lines) }
+          node(n.block, depth + 1, lines) if n.block
+          lines[-1] += ")"
+        when Block
+          lines << "#{pad}(block (#{n.params.join(" ")}) locals (#{n.locals.join(" ")})"
+          node(n.body, depth + 1, lines)
+          lines[-1] += ")"
+        when Yield
+          lines << "#{pad}(yield"
+          n.args.each { |a| node(a, depth + 1, lines) }
+          lines[-1] += ")"
+        when Break, Next
+          lines << "#{pad}(#{n.is_a?(Break) ? "break" : "next"}"
+          node(n.value, depth + 1, lines)
           lines[-1] += ")"
         when Literal
           lines << "#{pad}(#{kind(n.value)} #{n.value.inspect})"
@@ -36,9 +49,9 @@ module Ze0
           node(n.body, depth + 1, lines)
           lines[-1] += ")"
         when Local
-          lines << "#{pad}(local #{n.name})"
+          lines << "#{pad}(local #{n.name}#{n.depth.zero? ? "" : " ^#{n.depth}"})"
         when Assign
-          lines << "#{pad}(assign #{n.name}"
+          lines << "#{pad}(assign #{n.name}#{n.depth.zero? ? "" : " ^#{n.depth}"}"
           node(n.value, depth + 1, lines)
           lines[-1] += ")"
         when If

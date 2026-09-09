@@ -111,24 +111,24 @@ machine def zr_index_operand(v, out)
   Machine.value(QNIL)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_ary_aref(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_aref(recv, argc, argv, cref, blk)
   out = Machine.slot(8)
   r = zr_index_operand(Machine.value(Machine.load64(argv, 0)), out)
   return r if r == QUNDEF
   zr_ary_at(recv, Machine.load64(out, 0))
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_ary_aset(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_aset(recv, argc, argv, cref, blk)
   out = Machine.slot(8)
   r = zr_index_operand(Machine.value(Machine.load64(argv, 0)), out)
   return r if r == QUNDEF
   zr_ary_store(recv, Machine.load64(out, 0), Machine.value(Machine.load64(argv, 8)))
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_ary_push_m(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_push_m(recv, argc, argv, cref, blk)
   i = 0
   while i < argc
     zr_ary_push(recv, Machine.value(Machine.load64(argv + (i * 8), 0)))
@@ -137,8 +137,8 @@ machine def zr_ary_push_m(recv, argc, argv, cref)
   recv
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_ary_pop(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_pop(recv, argc, argv, cref, blk)
   n = RArray.len(recv)
   if n == 0
     return Machine.value(QNIL)
@@ -147,30 +147,30 @@ machine def zr_ary_pop(recv, argc, argv, cref)
   Machine.value(Machine.load64(RArray.ptr(recv) + ((n - 1) * 8), 0))
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_ary_length(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_length(recv, argc, argv, cref, blk)
   zr_fix(RArray.len(recv))
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_ary_empty_p(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_empty_p(recv, argc, argv, cref, blk)
   zr_bool(RArray.len(recv) == 0)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_ary_first(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_first(recv, argc, argv, cref, blk)
   zr_ary_at(recv, 0)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_ary_last(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_last(recv, argc, argv, cref, blk)
   zr_ary_at(recv, 0 - 1)
 end
 
 # `[1, 2]`: each element's inspect may run Ruby, so the buffer is
 # re-read by index.
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_ary_inspect(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_inspect(recv, argc, argv, cref, blk)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_byte(b, 91)
@@ -191,8 +191,8 @@ machine def zr_ary_inspect(recv, argc, argv, cref)
   zr_buf_take(b)
 end
 
-sig [Value, Word, Ptr, Value] => Value
-machine def zr_ary_eq(recv, argc, argv, cref)
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_eq(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))
   if zr_special_p(other) || zr_type(other) != T_ARRAY
     return Machine.value(QFALSE)
@@ -219,7 +219,7 @@ end
 sig [Value, Word, Word, Ptr] => Value
 machine def zr_opt_aref(recv, mid, argc, argv)
   if !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_AREF) == 0
-    return zr_ary_aref(recv, argc, argv, Machine.value(QNIL))
+    return zr_ary_aref(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
   end
   zr_send(recv, mid, argc, argv)
 end
@@ -228,7 +228,7 @@ end
 sig [Value, Word, Word, Ptr] => Value
 machine def zr_opt_aset(recv, mid, argc, argv)
   if !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_ASET) == 0 && zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
-    return zr_ary_aset(recv, argc, argv, Machine.value(QNIL))
+    return zr_ary_aset(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
   end
   zr_send(recv, mid, argc, argv)
 end

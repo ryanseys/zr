@@ -9,7 +9,7 @@ require_relative "../../lib/ze0/harness/case"
 # ruby, the oracle, and then compiled with the kernel on both native
 # roads (plain and with a collection at every allocation) and under
 # wasmtime; stdout, stderr and the exit status must agree. The oracle
-# runs without error_highlight, as the corpus was recorded.
+# runs without error_highlight or did_you_mean, as the corpus was recorded.
 class M0Test < Minitest::Test
   ROADS = { ruby: Ze0::Native::Build.road("ruby", ROOT), cranelift: Ze0::Native::Build.road("cranelift", ROOT) }.freeze
   WASMTIME = ENV["WASMTIME"] || "wasmtime"
@@ -24,7 +24,7 @@ class M0Test < Minitest::Test
   end
 
   def oracle(rb)
-    capture({}, [RbConfig.ruby, "--disable-error_highlight", rb])
+    capture({}, [RbConfig.ruby, "--disable-error_highlight", "--disable-did_you_mean", rb])
   end
 
   def scrub(text, rb)

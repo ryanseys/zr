@@ -7,7 +7,7 @@ Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr
 Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word
 Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value
 Machine.struct :CEntry, id: Word, value: Value
-Machine.sig :method, [Value, Word, Ptr, Value] => Value
+Machine.sig :method, [Value, Word, Ptr, Value, Value] => Value
 # Method kinds beyond a compiled def and a builtin: accessors keep the
 # ivar's id in `fn`.
 KIND_ATTR_READER = 3
@@ -92,6 +92,7 @@ machine def zr_define_method(klass, mid, fn, arity, kind, meta, cref)
     FrameMeta.set_file_len(meta, 0)
     FrameMeta.set_kind(meta, KIND_BUILTIN)
     FrameMeta.set_line(meta, 0)
+    FrameMeta.set_parent(meta, 0)
   end
   FrameMeta.set_name(meta, mid)
   FrameMeta.set_owner(meta, klass)
@@ -223,6 +224,10 @@ machine def zr_mark_children(v)
   elsif t == T_CREF
     zr_mark(RCref.klass(v))
     zr_mark(RCref.next(v))
+  elsif t == T_ENV
+    zr_mark_env(v)
+  elsif t == T_PROC
+    zr_mark_proc(v)
   end
 end
 
@@ -253,5 +258,7 @@ machine def zr_release(v)
     end
   elsif t == T_ARRAY
     free(RArray.ptr(v))
+  elsif t == T_ENV
+    free(REnv.slots(v))
   end
 end
