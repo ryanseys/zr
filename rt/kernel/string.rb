@@ -122,6 +122,31 @@ machine def zr_str_concat(recv, argc, argv, cref, blk)
   recv
 end
 
+# `String#<=>`: bytewise, nil against anything else.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_cmp(recv, argc, argv, cref, blk)
+  other = Machine.value(Machine.load64(argv, 0))
+  if zr_special_p(other) || zr_type(other) != T_STRING
+    return Machine.value(QNIL)
+  end
+  a = RString.ptr(recv)
+  b = RString.ptr(other)
+  n = RString.len(recv) < RString.len(other) ? RString.len(recv) : RString.len(other)
+  i = 0
+  while i < n
+    x = Machine.word(Machine.load8(a + i, 0))
+    y = Machine.word(Machine.load8(b + i, 0))
+    if x != y
+      return zr_fix(x < y ? 0 - 1 : 1)
+    end
+    i += 1
+  end
+  if RString.len(recv) == RString.len(other)
+    return zr_fix(0)
+  end
+  zr_fix(RString.len(recv) < RString.len(other) ? 0 - 1 : 1)
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_eq(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))

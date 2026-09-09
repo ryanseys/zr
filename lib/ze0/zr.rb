@@ -10,7 +10,9 @@ module Ze0
   # Ruby over them, and the data the compiler lays out beside them.
   module Zr
     KERNEL = Dir[File.join(__dir__, "../../rt/kernel/*.rb")].sort.freeze
-    CORE = Dir[File.join(__dir__, "../../rt/core/*.rb")].sort.freeze
+    # The core library files, in the order their toplevels run: a module
+    # before the classes that include it.
+    CORE = %w[enumerable integer array hash range].map { |name| File.join(__dir__, "../../rt/core/#{name}.rb") }.freeze
 
     module_function
 

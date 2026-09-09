@@ -140,6 +140,19 @@ machine def zr_ivtab_set(t, id, v)
   IvEntry.set_value(e, v)
 end
 
+# A Range is a plain object of class Range with three ivars; its
+# methods are the core library's.
+G_RANGE = 12
+
+sig [Value, Value, Word] => Value
+machine def zr_range_new(low, high, excl)
+  r = zr_obj_alloc(zr_global(G_RANGE))
+  zr_ivar_set(r, Machine.id(:@begin), low)
+  zr_ivar_set(r, Machine.id(:@end), high)
+  zr_ivar_set(r, Machine.id(:@excl), zr_bool(excl != 0))
+  r
+end
+
 # `Class#new`: allocate, then `initialize` with the arguments.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_class_new_instance(recv, argc, argv, cref, blk)
@@ -180,6 +193,51 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_instance_of(recv, argc, argv, cref, blk)
   zr_bool(zr_real_class(recv) == Machine.value(Machine.load64(argv, 0)))
+end
+
+# `Object#eql?`: identity; `Object#hash`: a number the identity gives.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_eql_p(recv, argc, argv, cref, blk)
+  zr_bool(recv == Machine.value(Machine.load64(argv, 0)))
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_hash(recv, argc, argv, cref, blk)
+  zr_fix((Machine.word(recv) >> 3) & 4611686018427387903)
+end
+
+# `String#hash`: FNV-1a over the bytes, kept in the fixnum range.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_hash(recv, argc, argv, cref, blk)
+  h = 1469598103934665603
+  i = 0
+  while i < RString.len(recv)
+    h = (h ^ Machine.word(Machine.load8(RString.ptr(recv) + i, 0))) * 1099511628211
+    i += 1
+  end
+  zr_fix(h & 4611686018427387903)
+end
+
+# `Object#send`: the method named by the first argument, with the rest.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_send(recv, argc, argv, cref, blk)
+  if argc == 0
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("no method name given"), 20)
+  end
+  name = Machine.value(Machine.load64(argv, 0))
+  if !zr_special_p(name) && zr_type(name) == T_STRING
+    name = zr_sym(zr_intern(RString.ptr(name), RString.len(name)))
+  end
+  unless zr_symbol_p(name)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    s = zr_send(name, Machine.id(:inspect), 0, 0)
+    return s if s == QUNDEF
+    zr_buf_str(b, s)
+    zr_buf_push(b, Machine.bytes(" is not a symbol nor a string"), 29)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+  zr_send_blk(recv, zr_sym2id(name), argc - 1, argv + 8, blk)
 end
 
 # `Object#===`: `==`.

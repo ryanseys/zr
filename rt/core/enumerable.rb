@@ -95,11 +95,35 @@ module Enumerable
     self
   end
 
-  def inject(initial)
-    acc = initial
-    each { |x| acc = yield(acc, x) }
+  def inject(*args)
+    acc = args.empty? ? nil : args.first
+    op = args.size == 2 ? args.last : (args.size == 1 && !block_given? ? args.first : nil)
+    if op
+      acc = args.size == 2 ? args.first : nil
+      first = args.size != 2
+      each do |x|
+        if first
+          acc = x
+          first = false
+        else
+          acc = acc.send(op, x)
+        end
+      end
+      return acc
+    end
+    first = args.empty?
+    each do |x|
+      if first
+        acc = x
+        first = false
+      else
+        acc = yield(acc, x)
+      end
+    end
     acc
   end
+
+  def reduce(*args, &block) = inject(*args, &block)
 
   def sum
     acc = 0

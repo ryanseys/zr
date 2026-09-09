@@ -161,6 +161,11 @@ module Ze0
           node(n.scope, depth + 1, lines) if n.scope.is_a?(Struct)
           node(n.value, depth + 1, lines)
           lines[-1] += ")"
+        when RangeLit
+          lines << "#{pad}(range#{n.exclusive ? " exclusive" : ""}"
+          node(n.low, depth + 1, lines)
+          node(n.high, depth + 1, lines)
+          lines[-1] += ")"
         when HashLit
           lines << "#{pad}(hash"
           n.pairs.each { |e| node(e, depth + 1, lines) }

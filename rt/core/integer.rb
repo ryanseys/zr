@@ -36,3 +36,24 @@ class Integer
     self < 0 ? -self : self
   end
 end
+
+class Integer
+  def <=>(other)
+    return nil unless other.is_a?(Integer)
+
+    self < other ? -1 : (self > other ? 1 : 0)
+  end
+
+  def between?(low, high)
+    self >= low && self <= high
+  end
+
+  def clamp(low, high)
+    self < low ? low : (self > high ? high : self)
+  end
+end
+
+class Integer
+  def eql?(other) = other.is_a?(Integer) && self == other
+  def hash = self
+end

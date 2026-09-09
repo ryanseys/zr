@@ -31,6 +31,8 @@ module Ze0
           when Hir::ConstWrite then const_write(node)
           when Hir::ArrayLit then array_literal(node)
           when Hir::HashLit then hash_literal(node)
+          when Hir::RangeLit
+            staged([node.low, node.high]) { |argv| kernel("zr_range_new", @f.fetch("i64", argv), @f.fetch("i64", argv, 8), imm(node.exclusive ? 1 : 0)) }
           when Hir::Interp then staged(node.parts) { |argv| checked(kernel("zr_str_interp", imm(node.parts.size), argv)) }
           when Hir::IvarRead then kernel("zr_ivar_get", @self, imm(sym_id(node.name)))
           when Hir::GvarRead then gvar_read(node)

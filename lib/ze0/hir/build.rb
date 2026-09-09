@@ -115,6 +115,8 @@ module Ze0
         when Prism::ArrayNode
           ArrayLit.new(node.elements.map { |e| e.is_a?(Prism::SplatNode) ? Splat.new(expr(e.expression), line) : expr(e) }, line)
         when Prism::HashNode then HashLit.new(hash_pairs(node.elements), line)
+        when Prism::RangeNode
+          RangeLit.new(node.left ? expr(node.left) : Literal.new(nil, line), node.right ? expr(node.right) : Literal.new(nil, line), node.exclude_end?, line)
         when Prism::InstanceVariableReadNode then IvarRead.new(node.name, line)
         when Prism::GlobalVariableReadNode then GvarRead.new(node.name, line)
         when Prism::GlobalVariableWriteNode then GvarWrite.new(node.name, expr(node.value), line)

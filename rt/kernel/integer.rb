@@ -155,6 +155,72 @@ machine def zr_int_mod(recv, argc, argv, cref, blk)
   zr_fix(zr_floor_mod(zr_fix2long(recv), b))
 end
 
+# The bit operators; a shift past 62 bits leaves the fixnum range and
+# stops loudly until bignums arrive.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_int_and(recv, argc, argv, cref, blk)
+  out = Machine.slot(8)
+  r = zr_int_operand(argv, out)
+  return r if r == QUNDEF
+  zr_fix(zr_fix2long(recv) & Machine.load64(out, 0))
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_int_or(recv, argc, argv, cref, blk)
+  out = Machine.slot(8)
+  r = zr_int_operand(argv, out)
+  return r if r == QUNDEF
+  zr_fix(zr_fix2long(recv) | Machine.load64(out, 0))
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_int_xor(recv, argc, argv, cref, blk)
+  out = Machine.slot(8)
+  r = zr_int_operand(argv, out)
+  return r if r == QUNDEF
+  zr_fix(zr_fix2long(recv) ^ Machine.load64(out, 0))
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_int_not(recv, argc, argv, cref, blk)
+  zr_fix(0 - zr_fix2long(recv) - 1)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_int_lshift(recv, argc, argv, cref, blk)
+  out = Machine.slot(8)
+  r = zr_int_operand(argv, out)
+  return r if r == QUNDEF
+  n = Machine.load64(out, 0)
+  a = zr_fix2long(recv)
+  if n < 0
+    return zr_fix(a >> (0 - n))
+  end
+  if n >= 62 || (a != 0 && ((a << n) >> n) != a)
+    zr_bug(Machine.bytes("a shift past the fixnum range needs bignums\n"), 44)
+  end
+  zr_int_result(a << n)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_int_rshift(recv, argc, argv, cref, blk)
+  out = Machine.slot(8)
+  r = zr_int_operand(argv, out)
+  return r if r == QUNDEF
+  n = Machine.load64(out, 0)
+  a = zr_fix2long(recv)
+  if n < 0
+    if (0 - n) >= 62
+      zr_bug(Machine.bytes("a shift past the fixnum range needs bignums\n"), 44)
+    end
+    return zr_int_result(a << (0 - n))
+  end
+  if n >= 63
+    return zr_fix(a < 0 ? 0 - 1 : 0)
+  end
+  zr_fix(a >> n)
+end
+
 sig [Bool] => Value
 machine def zr_bool(b)
   if b

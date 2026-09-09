@@ -306,6 +306,12 @@ machine def zr_report(exc)
   zr_buf_init(b)
   rows = RException.rows(exc)
   n = RException.nrows(exc)
+  if n == 0
+    zr_buf_str(b, RException.message(exc))
+    zr_buf_push(b, Machine.bytes(" ("), 2)
+    zr_buf_str(b, zr_class_name_of(exc))
+    zr_buf_push(b, Machine.bytes(")\n"), 2)
+  end
   i = 0
   while i < n
     row = rows + (i * BtRow.size)

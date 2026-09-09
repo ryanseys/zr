@@ -132,6 +132,8 @@ module Ze0
     ArrayLit = Struct.new(:elements, :line)
     # `{k => v, ...}`: `pairs` is a flat list, key then value.
     HashLit = Struct.new(:pairs, :line)
+    # `low..high` / `low...high`; a missing bound is nil.
+    RangeLit = Struct.new(:low, :high, :exclusive, :line)
     # `"a#{b}c"`: literal and expression parts in order.
     Interp = Struct.new(:parts, :line)
     # `begin body rescue ... else else_body ensure ensure_body end`. The

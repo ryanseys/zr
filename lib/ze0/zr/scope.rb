@@ -46,6 +46,7 @@ module Ze0
         when Hir::Yield then spread?(node.args) ? gathered(node.args, base) : row(node.args, base)
         when Hir::ArrayLit then spread?(node.elements) ? gathered(node.elements, base) : row(node.elements, base)
         when Hir::HashLit then spread?(node.pairs) ? gathered(node.pairs, base) : row(node.pairs, base)
+        when Hir::RangeLit then row([node.low, node.high], base)
         when Hir::Interp then row(node.parts, base)
         when Hir::Assign, Hir::Not, Hir::IvarWrite, Hir::ConstWrite, Hir::GvarWrite, Hir::CvarWrite then staging(node.value, base)
         when Hir::ConstOrWrite then [staging(node.scope, base), staging(node.value, base)].max
