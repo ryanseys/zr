@@ -143,6 +143,29 @@ class Module
     Primitive.zr_mod_const_source_location_m(scope, last, inherit, scopes.any? { |s| !s.empty? })
   end
 
+  # What a constant lookup reaches when nothing holds the name. A
+  # program overrides it to make one up.
+  def const_missing(name)
+    raise NameError.new("uninitialized constant #{self == Object ? name : "#{self}::#{name}"}", name, receiver: self)
+  end
+
+  # `instance_method`, refused when the name is not public.
+  def public_instance_method(name)
+    method = instance_method(name)
+    return method if public_method_defined?(name)
+
+    kind = private_method_defined?(name) ? "private" : "protected"
+    raise NameError.new("method '#{method.name}' for #{is_a?(Class) ? "class" : "module"} '#{self}' is #{kind}", method.name, receiver: self)
+  end
+
+  # Refinements are not written yet, so a module holds none and none
+  # is ever in use.
+  def refinements = []
+
+  def self.used_modules = []
+
+  def self.used_refinements = []
+
   private
 
   # A Symbol, a String, or what to_str makes of the name.

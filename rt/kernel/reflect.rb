@@ -183,6 +183,39 @@ machine def zr_mod_class_variable_set(recv, argc, argv, cref, blk)
   v
 end
 
+# `Module#remove_class_variable`: the row leaves the owning module's
+# table, and its value is the answer.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_remove_class_variable(recv, argc, argv, cref, blk)
+  slot = Machine.slot(8)
+  r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
+  return r if r == QUNDEF
+  id = Machine.load64(slot, 0)
+  r = zr_check_cvar_name(id)
+  return r if r == QUNDEF
+  t = ClassExt.cv(RClass.ext(recv))
+  e = zr_ivtab_row(t, id)
+  if e == 0
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("class variable "), 15)
+    zr_buf_sym(b, id)
+    zr_buf_push(b, Machine.bytes(" not defined for "), 17)
+    zr_buf_class(b, recv)
+    exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+    zr_exc_detail(exc, Machine.id(:@name), zr_sym(id))
+    zr_exc_detail(exc, Machine.id(:@receiver), recv)
+    return zr_raise(exc)
+  end
+  v = IvEntry.value(e)
+  last = IvTab.rows(t) + ((IvTab.len(t) - 1) * IvEntry.size)
+  if e != last
+    zr_memmove(e, e + IvEntry.size, last - e)
+  end
+  IvTab.set_len(t, IvTab.len(t) - 1)
+  v
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_class_variable_defined(recv, argc, argv, cref, blk)
   slot = Machine.slot(8)

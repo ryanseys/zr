@@ -270,7 +270,7 @@ class Enumerator::ArithmeticSequence < Enumerator
   end
 
   def size
-    return Primitive.zr_unimplemented("an endless ArithmeticSequence's size, which is Infinity") if @end.nil?
+    return Float::INFINITY if @end.nil?
     return float_size if float?
 
     span = @end - @begin

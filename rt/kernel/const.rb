@@ -89,6 +89,8 @@ machine def zr_const_set(klass, id, v)
     e = ClassExt.ctab(ext) + (n * CEntry.size)
     CEntry.set_id(e, id)
     CEntry.set_private(e, 0)
+    CEntry.set_deprecated(e, 0)
+    CEntry.set_owner(e, klass)
     ClassExt.set_clen(ext, n + 1)
   elsif CEntry.value(e) != QUNDEF
     zr_warn_reassigned_constant(klass, id, e)
@@ -178,6 +180,12 @@ end
 
 sig [Value, Word] => Value
 machine def zr_uninitialized_constant(scope, id)
+  home = scope == QNIL ? zr_global(G_OBJECT) : scope
+  if zr_find_method(zr_class_of(home), Machine.id(:const_missing)) != 0
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(zr_sym(id)))
+    return zr_send(home, Machine.id(:const_missing), 1, slot)
+  end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_push(b, Machine.bytes("uninitialized constant "), 23)
@@ -200,6 +208,8 @@ machine def zr_const_get(cref, id)
   if e == 0
     return zr_uninitialized_constant(RCref.klass(cref), id)
   end
+  r = zr_const_deprecated(e, id)
+  return r if r == QUNDEF
   zr_const_value(e)
 end
 
@@ -283,8 +293,30 @@ machine def zr_private_constant(scope, id)
   zr_raise(exc)
 end
 
-# `private_constant(*names)` and `public_constant(*names)`: the flag on
-# the module's own rows.
+# The one warning a deprecated constant answers with, sent to
+# `Warning` so a program can catch or silence it.
+sig [Ptr, Word] => Value
+machine def zr_const_deprecated(e, id)
+  if CEntry.deprecated(e) == 0
+    return Machine.value(QNIL)
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("constant "), 9)
+  owner = CEntry.owner(e)
+  if owner != zr_global(G_OBJECT)
+    zr_buf_str(b, zr_class_to_s(owner, 0, 0, Machine.value(QNIL), Machine.value(QNIL)))
+    zr_buf_push(b, Machine.bytes("::"), 2)
+  end
+  zr_buf_sym(b, id)
+  zr_buf_push(b, Machine.bytes(" is deprecated"), 14)
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(zr_buf_take(b)))
+  zr_send(zr_const_get_at(zr_global(G_OBJECT), Machine.id(:Warning)), Machine.id(:deprecated), 1, slot)
+end
+
+# `private_constant(*names)`, `public_constant(*names)` and
+# `deprecate_constant(*names)`: a flag on the module's own rows.
 sig [Value, Word, Ptr, Word] => Value
 machine def zr_mod_constant_visibility(recv, argc, argv, private)
   i = 0
@@ -307,7 +339,11 @@ machine def zr_mod_constant_visibility(recv, argc, argv, private)
       zr_exc_detail(exc, Machine.id(:@receiver), recv)
       return zr_raise(exc)
     end
-    CEntry.set_private(e, private)
+    if private < 0
+      CEntry.set_deprecated(e, 1)
+    else
+      CEntry.set_private(e, private)
+    end
     i += 1
   end
   recv
@@ -321,6 +357,11 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_public_constant(recv, argc, argv, cref, blk)
   zr_mod_constant_visibility(recv, argc, argv, 0)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_deprecate_constant(recv, argc, argv, cref, blk)
+  zr_mod_constant_visibility(recv, argc, argv, 0 - 1)
 end
 
 # `scope::Name`.
@@ -342,6 +383,8 @@ machine def zr_const_get_at(scope, id)
   if CEntry.private(e) != 0
     return zr_private_constant(scope, id)
   end
+  r = zr_const_deprecated(e, id)
+  return r if r == QUNDEF
   zr_const_value(e)
 end
 
@@ -629,6 +672,21 @@ machine def zr_mod_constants(recv, argc, argv, cref, blk)
   end
   inherit = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
   zr_const_names_of(recv, out, inherit)
+  out
+end
+
+# `Module.nesting`: the lexical scopes open where the call was made,
+# innermost first. The chain's last node is Object, which is not one.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_nesting(recv, argc, argv, cref, blk)
+  out = zr_ary_new(4)
+  c = zr_cref_lexical(Frame.cref(Frame.prev(Task.top(zr_task()))))
+  while RCref.next(c) != QNIL
+    if RCref.eval(c) == 0
+      zr_ary_push(out, RCref.klass(c))
+    end
+    c = RCref.next(c)
+  end
   out
 end
 

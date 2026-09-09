@@ -159,7 +159,7 @@ module Kernel
       when 102 then float(value, flags, width, precision, :f, false)
       when 101, 69 then float(value, flags, width, precision, :e, b == 69)
       when 103, 71 then float(value, flags, width, precision, :g, b == 71)
-      when 97, 65 then Primitive.zr_unimplemented("Kernel#format with %a")
+      when 97, 65 then float(value, flags, width, precision, :a, b == 65)
       else raise ArgumentError, "malformed format string - %#{Primitive.zr_str_from_byte(b)}"
       end
     end
@@ -258,15 +258,60 @@ module Kernel
         return pad(text, flags.delete("0"), width)
       end
       x = x.abs
+      prefix = style == :a ? (upper ? "0X" : "0x") : ""
       body = case style
              when :f then fixed_text(x, precision || 6, flags)
              when :e then exponent_text(x, precision || 6, flags, upper)
+             when :a then hex_text(x, precision, flags, upper)
              else general_text(x, precision, flags, upper)
              end
-      if flags.include?("0") && !flags.include?("-") && width && sign.size + body.size < width
-        body = "0" * (width - sign.size - body.size) + body
+      if flags.include?("0") && !flags.include?("-") && width && sign.size + prefix.size + body.size < width
+        body = "0" * (width - sign.size - prefix.size - body.size) + body
       end
-      pad(sign + body, flags, width)
+      pad(sign + prefix + body, flags, width)
+    end
+
+    # `%a` without its `0x`: the exact value in hexadecimal, one digit
+    # before the point. A subnormal is normalized first, so that digit
+    # is 1 for every number but zero.
+    def hex_text(x, precision, flags, upper)
+      Primitive.attr! :hidden
+      low, high = Primitive.zr_float_halves(x)
+      bits = (high << 32) | low
+      biased = (bits >> 52) & 0x7ff
+      fraction = bits & 0xf_ffff_ffff_ffff
+      lead = biased == 0 && fraction == 0 ? 0 : 1
+      power = biased - 1023
+      if biased == 0
+        shift = 53 - fraction.bit_length
+        fraction = (fraction << shift) & 0xf_ffff_ffff_ffff
+        power = lead.zero? ? 0 : -1022 - shift
+      end
+      digits = fraction.to_s(16).rjust(13, "0")
+      if precision.nil?
+        digits = digits.sub(/0+\z/, "")
+      else
+        lead, digits, power = round_hex(lead, digits, precision, power)
+      end
+      point = digits.empty? ? (flags.include?("#") ? "." : "") : ".#{digits}"
+      text = "#{lead}#{point}p#{power.negative? ? '-' : '+'}#{power.abs}"
+      upper ? text.upcase : text
+    end
+
+    # The hexadecimal digits kept to `precision`, rounded half to even.
+    # A carry past the leading digit halves it and lifts the exponent.
+    def round_hex(lead, digits, precision, power)
+      Primitive.attr! :hidden
+      return [lead, digits.ljust(precision, "0"), power] if precision >= digits.size
+
+      rest = digits[precision..]
+      n = (lead.to_s(16) + digits[0, precision]).to_i(16)
+      up = rest[0].to_i(16)
+      n += 1 if up > 8 || (up == 8 && (rest[1..].delete("0") != "" || n.odd?))
+      text = n.to_s(16).rjust(precision + 1, "0")
+      return [1, "0" * precision, power + 1] if text[0] == "2"
+
+      [text[0].to_i(16), text[1..], power]
     end
 
     def fixed_text(x, precision, flags)

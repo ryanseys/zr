@@ -3,6 +3,9 @@
 class Exception
   def self.exception(*args) = new(*args)
 
+  # Whether the report an uncaught error prints goes to a terminal.
+  def self.to_tty? = Primitive.zr_io_tty_p(2)
+
   def message = to_s
 
   def to_s = Primitive.zr_exc_to_s(self)

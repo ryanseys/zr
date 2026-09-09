@@ -682,6 +682,19 @@ class Array
     rest.empty? || v.nil? ? v : Primitive.zr_dig_into(v, rest)
   end
 
+  # Each index fetched, a block answering for one out of bounds.
+  def fetch_values(*indexes, &block)
+    indexes.map { |i| block ? fetch(i, &block) : fetch(i) }
+  end
+
+  # The last element the block accepts, or nil.
+  def rfind
+    return to_enum(:rfind) { size } unless block_given?
+
+    reverse_each { |v| return v if yield(v) }
+    nil
+  end
+
   def fetch(index, *default)
     raise ArgumentError, "wrong number of arguments (given #{default.size + 1}, expected 1..2)" if default.size > 1
 

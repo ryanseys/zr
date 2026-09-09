@@ -3,7 +3,7 @@ module Kernel
   def <=>(other) = equal?(other) || self == other ? 0 : nil
 
   def loop
-    return to_enum(:loop) { Primitive.zr_unimplemented("the size of loop's enumerator, which is Infinity") } unless block_given?
+    return to_enum(:loop) { Float::INFINITY } unless block_given?
 
     begin
       while true
@@ -116,9 +116,19 @@ module Kernel
 
   def itself = self
 
+  # Every message on its own line, the first carrying the position
+  # `uplevel` frames above this call. A category the program turned off
+  # says nothing at all.
   def warn(*messages, uplevel: nil, category: nil)
-    Primitive.zr_unimplemented("Kernel#warn with uplevel") if uplevel
-    messages.flatten.each { |m| Primitive.zr_warn_line(m.to_s) }
+    return nil if messages.empty?
+    return nil if category && !Warning[category]
+
+    text = messages.flatten.map { |m| m.to_s.end_with?("\n") ? m.to_s : "#{m}\n" }.join
+    unless uplevel.nil?
+      frame = caller(implicit_integer(uplevel) + 1, 1)&.first
+      text = "#{frame ? "#{frame.sub(/:in .*\z/, '')}: " : ''}warning: #{text}"
+    end
+    Warning.warn(text, category: category)
     nil
   end
 
@@ -285,10 +295,8 @@ module Kernel
     raise TypeError, "can't convert #{value.class} into Hash"
   end
 
-  def display(port = nil)
-    Primitive.zr_unimplemented("Kernel#display with a port") unless port.nil?
-
-    print to_s
+  def display(port = $>)
+    port.write(to_s)
     nil
   end
 

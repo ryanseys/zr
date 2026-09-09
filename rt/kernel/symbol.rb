@@ -107,3 +107,16 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_sym_to_proc_m(recv, argc, argv, cref, blk)
   zr_sym_to_proc(recv)
 end
+
+# Every symbol interned so far, static names first.
+sig [] => Value
+machine def zr_all_symbols
+  total = zr_static_symbol_count() + Symtab.len(zr_symtab())
+  out = zr_ary_new(total)
+  id = 0
+  while id < total
+    zr_ary_push(out, zr_sym(id))
+    id += 1
+  end
+  out
+end

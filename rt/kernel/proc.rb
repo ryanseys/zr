@@ -642,3 +642,20 @@ machine def zr_proc_anonymous(p)
   RProc.set_meta(p, zr_anonymous_meta())
   p
 end
+
+# Two Procs are the same when they wrap one block over one scope, as
+# `dup` and `clone` make them.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_proc_eq(recv, argc, argv, cref, blk)
+  other = Machine.value(Machine.load64(argv, 0))
+  if zr_special_p(other) || zr_type(other) != T_PROC
+    return Machine.value(QFALSE)
+  end
+  zr_bool(RProc.fn(recv) == RProc.fn(other) && RProc.env(recv) == RProc.env(other) &&
+          RProc.self(recv) == RProc.self(other) && RProc.lambda(recv) == RProc.lambda(other))
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_proc_hash(recv, argc, argv, cref, blk)
+  zr_fix(zr_hash_mix(Machine.word(RProc.fn(recv)) ^ Machine.word(RProc.env(recv))) & 4611686018427387903)
+end

@@ -102,7 +102,8 @@ class Integer
 
   def pow(exponent, modulus = nil)
     return self**exponent if modulus.nil?
-    Primitive.zr_unimplemented("Integer#pow with a non-Integer modulus") unless modulus.is_a?(Integer)
+    raise TypeError, "Integer#pow() 2nd argument not allowed unless a 1st argument is integer" unless exponent.is_a?(Integer)
+    raise TypeError, "Integer#pow() 2nd argument not allowed unless all arguments are integers" unless modulus.is_a?(Integer)
     raise ZeroDivisionError, "divided by 0" if modulus.zero?
     raise RangeError, "Integer#pow() 1st argument cannot be negative when 2nd argument specified" if exponent < 0
 
@@ -163,11 +164,13 @@ class Integer
   def chr(encoding = nil)
     if encoding
       encoding = Encoding.find(encoding) unless encoding.is_a?(Encoding)
+      kind = Encoding.walked_index(encoding)
+      Primitive.zr_unimplemented("Integer#chr in the #{encoding} encoding") if kind.nil?
       raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0
-      return Primitive.zr_str_set_encoding(+"" << self, 0) if encoding == Encoding::UTF_8
+      return Primitive.zr_str_set_encoding(+"" << self, 0) if kind == 0
       raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self > 255
 
-      return Primitive.zr_str_set_encoding(Primitive.zr_str_from_byte(self), encoding == Encoding::BINARY ? 1 : 2)
+      return Primitive.zr_str_set_encoding(Primitive.zr_str_from_byte(self), kind)
     end
     raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0 || self > 255
 
@@ -280,6 +283,15 @@ class Integer
     negative? ? -nearest : nearest
   end
 
+  # An Integer through `to_int` alone, or nil: `String` is not a form
+  # this conversion reads.
+  def self.try_convert(value)
+    return value if value.is_a?(Integer)
+    return nil unless value.respond_to?(:to_int)
+
+    value.to_int
+  end
+
   def self.sqrt(n)
     raise Math::DomainError, 'Numerical argument is out of domain - "isqrt"' if n < 0
     return n if n < 2
@@ -324,6 +336,21 @@ class Integer
 end
 
 class Numeric
+  # A number never copies: `clone` and `dup` answer the receiver. The
+  # default `<=>` knows only that a number equals itself; a subclass
+  # that orders its values writes its own.
+  def clone(freeze: true)
+    raise ArgumentError, "can't unfreeze #{self.class}" if freeze == false
+
+    self
+  end
+
+  def dup = self
+
+  def <=>(other) = equal?(other) ? 0 : nil
+
+  def eql?(other) = self.class == other.class && self == other
+
   # CRuby's rule: the modulo, moved back by the divisor when the signs
   # differ, so the remainder takes the receiver's sign.
   def remainder(other)

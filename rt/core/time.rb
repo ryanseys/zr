@@ -358,6 +358,23 @@ class Time
   def ctime = strftime("%a %b %e %H:%M:%S %Y")
   alias asctime ctime
 
+  # ISO 8601: `Z` for UTC, the offset otherwise, and `digits` places of
+  # the fraction when asked for.
+  def iso8601(digits = 0)
+    text = strftime("%Y-%m-%dT%H:%M:%S")
+    text = "#{text}.#{format("%09d", nsec)[0, digits]}" if digits > 0
+    "#{text}#{utc? ? 'Z' : strftime('%:z')}"
+  end
+  alias xmlschema iso8601
+
+  def deconstruct_keys(keys)
+    all = { year: year, month: month, day: day, yday: yday, wday: wday,
+            hour: hour, min: min, sec: sec, subsec: subsec, dst: dst?, zone: zone }
+    return all if keys.nil?
+
+    all.slice(*keys)
+  end
+
   def strftime(pattern)
     out = +""
     i = 0

@@ -379,3 +379,21 @@ machine def zr_exit_now(status)
   _exit(Machine.i32(zr_fix2long(status)))
   Machine.value(QNIL)
 end
+
+Machine.import "getpwnam", [Ptr] => Ptr
+Machine.import "getpwuid", [I32] => Ptr
+
+# A user's home directory (`pw_dir`, 48 bytes into darwin's passwd),
+# or nil where no such user exists. A nil name asks for this process's.
+sig [Value] => Value
+machine def zr_home_dir(name)
+  pw = name == QNIL ? getpwuid(getuid()) : getpwnam(RString.ptr(name))
+  if pw == 0
+    return Machine.value(QNIL)
+  end
+  dir = Machine.ptr(Machine.load64(pw, 48))
+  if dir == 0
+    return Machine.value(QNIL)
+  end
+  zr_str_new(dir, zr_cstr_len(dir))
+end

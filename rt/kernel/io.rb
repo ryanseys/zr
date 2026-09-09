@@ -6,6 +6,7 @@ Machine.import "fileno", [Ptr] => I32
 Machine.import "fclose", [Ptr] => I32
 Machine.import "read", [I32, Ptr, Word] => Word
 Machine.import "close", [I32] => I32
+Machine.import "fsync", [I32] => I32
 Machine.import "lseek", [I32, Word, I32] => Word
 Machine.import "unlink", [Ptr] => I32
 Machine.import "rename", [Ptr, Ptr] => I32
@@ -96,6 +97,11 @@ machine def zr_io_close(fd)
   zr_io_status(close(Machine.i32(zr_fix2long(fd))))
 end
 
+sig [Value] => Value
+machine def zr_io_fsync(fd)
+  zr_io_status(fsync(Machine.i32(zr_fix2long(fd))))
+end
+
 sig [Value, Value, Value] => Value
 machine def zr_io_seek(fd, offset, whence)
   zr_io_failed(lseek(Machine.i32(zr_fix2long(fd)), zr_fix2long(offset), Machine.i32(zr_fix2long(whence))))
@@ -170,6 +176,87 @@ end
 Machine.import "lstat", [Ptr, Ptr] => I32
 Machine.import "realpath", [Ptr, Ptr] => Ptr
 Machine.import "chmod", [Ptr, I32] => I32
+Machine.import "fchmod", [I32, I32] => I32
+Machine.import "chown", [Ptr, I32, I32] => I32
+Machine.import "lchown", [Ptr, I32, I32] => I32
+Machine.import "lchmod", [Ptr, I32] => I32
+Machine.import "link", [Ptr, Ptr] => I32
+Machine.import "symlink", [Ptr, Ptr] => I32
+Machine.import "readlink", [Ptr, Ptr, Word] => Word
+Machine.import "mkfifo", [Ptr, I32] => I32
+Machine.import "truncate", [Ptr, Word] => I32
+Machine.import "ftruncate", [I32, Word] => I32
+Machine.import "umask", [I32] => I32
+Machine.import "utimes", [Ptr, Ptr] => I32
+Machine.import "flock", [I32, I32] => I32
+
+# One path and one small number: chown's owner, truncate's length, and
+# the rest. `which` picks the call; the answer is 0 or a negative
+# errno.
+sig [Value, Value, Value, Value] => Value
+machine def zr_fs_call(which, path, a, b)
+  w = zr_fix2long(which)
+  r = Machine.i32(0)
+  if w == 0
+    r = chown(RString.ptr(path), Machine.i32(zr_fix2long(a)), Machine.i32(zr_fix2long(b)))
+  elsif w == 1
+    r = lchown(RString.ptr(path), Machine.i32(zr_fix2long(a)), Machine.i32(zr_fix2long(b)))
+  elsif w == 2
+    r = link(RString.ptr(path), RString.ptr(a))
+  elsif w == 3
+    r = symlink(RString.ptr(path), RString.ptr(a))
+  elsif w == 4
+    r = mkfifo(RString.ptr(path), Machine.i32(zr_fix2long(a)))
+  elsif w == 5
+    r = truncate(RString.ptr(path), zr_fix2long(a))
+  elsif w == 6
+    r = ftruncate(Machine.i32(zr_fix2long(a)), zr_fix2long(b))
+  elsif w == 7
+    r = fchmod(Machine.i32(zr_fix2long(a)), Machine.i32(zr_fix2long(b)))
+  elsif w == 8
+    r = flock(Machine.i32(zr_fix2long(a)), Machine.i32(zr_fix2long(b)))
+  elsif w == 9
+    r = lchmod(RString.ptr(path), Machine.i32(zr_fix2long(a)))
+  end
+  zr_io_status(r)
+end
+
+# The two microsecond timevals utimes(2) takes.
+sig [Value, Value, Value] => Value
+machine def zr_utimes_m(path, atime_us, mtime_us)
+  times = Machine.slot(32)
+  Machine.store64(times, 0, zr_fix2long(atime_us) / 1000000)
+  Machine.store64(times, 8, zr_fix2long(atime_us) % 1000000)
+  Machine.store64(times, 16, zr_fix2long(mtime_us) / 1000000)
+  Machine.store64(times, 24, zr_fix2long(mtime_us) % 1000000)
+  zr_io_status(utimes(RString.ptr(path), times))
+end
+
+# umask(2): the mask that was in force, and the new one when `mask` is
+# not nil.
+sig [Value] => Value
+machine def zr_umask_m(mask)
+  if mask == QNIL
+    was = umask(Machine.i32(0))
+    umask(was)
+    return zr_fix(Machine.word(was))
+  end
+  zr_fix(Machine.word(umask(Machine.i32(zr_fix2long(mask)))))
+end
+
+# readlink(2): where the symlink points, or a negative errno.
+sig [Value] => Value
+machine def zr_readlink_m(path)
+  buf = malloc(4096)
+  n = readlink(RString.ptr(path), buf, 4095)
+  if n < 0
+    free(buf)
+    return zr_fix(0 - zr_errno())
+  end
+  s = zr_str_new(buf, n)
+  free(buf)
+  s
+end
 
 # stat(2) (or lstat when `follow` is false) as fixnums in an Array:
 # dev, ino, mode, nlink, uid, gid, rdev, size, blksize, blocks, then

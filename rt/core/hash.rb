@@ -3,6 +3,20 @@
 class Hash
   include Enumerable
 
+  # The flag a `ruby2_keywords` method sets on the Hash it took from
+  # keywords, so a later splat passes it on as keywords again.
+  def self.ruby2_keywords_hash(hash)
+    raise TypeError, "no implicit conversion of #{hash.class} into Hash" unless hash.is_a?(Hash)
+
+    Primitive.zr_ruby2_hash_new(hash)
+  end
+
+  def self.ruby2_keywords_hash?(hash)
+    raise TypeError, "no implicit conversion of #{hash.class} into Hash" unless hash.is_a?(Hash)
+
+    Primitive.zr_ruby2_hash_p(hash)
+  end
+
   def self.[](*args)
     return args[0].to_h if args.size == 1 && args[0].respond_to?(:to_hash)
     if args.size == 1 && args[0].is_a?(Array)

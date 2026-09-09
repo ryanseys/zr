@@ -16,7 +16,7 @@ Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Wo
 # continues from as CRuby's alias and zsuper entries do; nil for a
 # definition.
 Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word, from: Value
-Machine.struct :CEntry, id: Word, value: Value, file: Ptr, file_len: Word, line: Word, private: Word
+Machine.struct :CEntry, id: Word, value: Value, file: Ptr, file_len: Word, line: Word, private: Word, deprecated: Word, owner: Value
 Machine.sig :method, [Value, Word, Ptr, Value, Value] => Value
 # Method kinds beyond a compiled def and a builtin: accessors keep the
 # ivar's id in `fn`.
@@ -918,6 +918,23 @@ machine def zr_level_method_names(level, out, seen, vis)
     end
     i += 1
   end
+end
+
+# `undefined_instance_methods`: the names this module's own table
+# undefined, so a call over them stops at the module.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_undefined_instance_methods(recv, argc, argv, cref, blk)
+  ext = RClass.ext(zr_origin(recv))
+  out = zr_ary_new(4)
+  i = 0
+  while i < ClassExt.mlen(ext)
+    e = ClassExt.mtab(ext) + (i * MEntry.size)
+    if MEntry.kind(e) == KIND_UNDEF && zr_ary_index_of(out, zr_sym(MEntry.mid(e))) < 0
+      zr_ary_push(out, zr_sym(MEntry.mid(e)))
+    end
+    i += 1
+  end
+  out
 end
 
 # `instance_methods` and the three by visibility, on a module (`all`

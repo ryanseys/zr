@@ -27,6 +27,28 @@ class IO
     end
   end
 
+  def self.binread(path, length = nil, offset = nil) = File.read(path, length, offset).b
+
+  def self.binwrite(path, content, offset = nil) = File.write(path, content, offset)
+
+  def self.foreach(path, *args, **options, &block) = File.foreach(path, *args, **options, &block)
+
+  def self.readlines(path, *args, **options) = File.readlines(path, *args, **options)
+
+  def self.read(path, length = nil, offset = nil, **options) = File.read(path, length, offset, **options)
+
+  def self.write(path, content, offset = nil, **options) = File.write(path, content, offset, **options)
+
+  def self.for_fd(fd, mode = "r", **options) = new(fd, mode, **options)
+
+  def self.try_convert(object) = object.respond_to?(:to_io) ? object.to_io : nil
+
+  # Everything one stream holds, written to the other.
+  def self.copy_stream(from, to, length = nil, offset = nil)
+    text = from.is_a?(IO) ? from.read(length) : File.read(from, length, offset)
+    to.is_a?(IO) ? to.write(text) : File.write(to, text)
+  end
+
   def initialize(fd, mode = "r", path: nil, name: nil)
     @fd = fd
     @mode = mode
@@ -79,11 +101,76 @@ class IO
     self
   end
 
-  def fsync = Primitive.zr_unimplemented("IO#fsync")
+  def fsync
+    check_open
+    Primitive.zr_io_fsync(@fd)
+    0
+  end
 
   def binmode = self
 
   def binmode? = false
+
+  def fdatasync = fsync
+
+  def to_path = path
+
+  def stat = File.stat(path)
+
+  # A pipe's other end has no pid here: nothing forks behind an IO.
+  def pid = nil
+
+  def autoclose? = @fd > 2
+
+  def autoclose=(flag)
+    flag
+  end
+
+  # A descriptor ruby opens closes itself across an exec.
+  def close_on_exec? = true
+
+  def close_on_exec=(flag)
+    flag
+  end
+
+  def close_read = close
+
+  def close_write = close
+
+  def each_codepoint(&block)
+    return to_enum(:each_codepoint) unless block
+
+    read.each_codepoint(&block)
+    self
+  end
+
+  alias codepoints each_codepoint
+
+  # `pread` and `pwrite` leave the descriptor's own offset alone.
+  def pread(length, offset, buffer = nil)
+    here = seek(0, SEEK_CUR)
+    begin
+      seek(offset, SEEK_SET)
+      text = read(length)
+      raise EOFError, "end of file reached" if text.nil?
+
+      buffer ? buffer.replace(text) : text
+    ensure
+      seek(here, SEEK_SET)
+    end
+  end
+
+  def pwrite(text, offset)
+    here = seek(0, SEEK_CUR)
+    begin
+      seek(offset, SEEK_SET)
+      write(text)
+    ensure
+      seek(here, SEEK_SET)
+    end
+  end
+
+  def sysseek(offset, whence = SEEK_SET) = seek(offset, whence)
 
   def external_encoding = @mode.start_with?("r") || @mode.include?("+") ? Encoding.default_external : nil
 
@@ -398,6 +485,8 @@ STDERR.sync = true
 $stdin = STDIN
 $stdout = STDOUT
 $stderr = STDERR
+alias $> $stdout
+alias $PROGRAM_NAME $0
 
 # Kernel's output goes to `$stdout`: through its own methods when it
 # is an IO, else through its `write`, as CRuby does with any object

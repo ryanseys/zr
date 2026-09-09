@@ -33,6 +33,47 @@ module GC
     raise ArgumentError, "unknown key: #{key}"
   end
 
+  # Nothing moves here, so a compaction considers no object at all.
+  def self.compact = { considered: {}, moved: {}, moved_up: {}, moved_down: {} }
+
+  def self.verify_compaction_references(**options) = compact
+
+  def self.auto_compact = false
+
+  def self.auto_compact=(flag)
+    flag
+  end
+
+  def self.verify_internal_consistency = nil
+
+  # The nanoseconds the collector has spent, measured on the monotonic
+  # clock around every mark and sweep.
+  def self.total_time = Primitive.zr_gc_nanoseconds
+
+  @measure_total_time = true
+
+  def self.measure_total_time = @measure_total_time
+
+  def self.measure_total_time=(flag)
+    @measure_total_time = flag
+  end
+
+  def self.config(**options) = { rgengc_allow_full_mark: true, implementation: "default" }
+
+  # One pool of one cell size holds every object.
+  def self.stat_heap(pool = nil, out = {})
+    stats = {
+      slot_size: 128,
+      heap_live_slots: Primitive.zr_gc_live_slots,
+      heap_free_slots: 0,
+      total_allocated_objects: Primitive.zr_gc_allocated
+    }
+    return out.merge!(0 => stats) if pool.nil?
+    raise RangeError, "pool index out of range" unless pool == 0
+
+    out.merge!(stats)
+  end
+
   def start(full_mark: true, immediate_mark: true, immediate_sweep: true) = Primitive.zr_gc_start
   def garbage_collect(full_mark: true, immediate_mark: true, immediate_sweep: true) = Primitive.zr_gc_start
 end

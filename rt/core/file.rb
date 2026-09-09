@@ -57,8 +57,9 @@ class File < IO
 
   def self.expand_path(path, dir = nil)
     raise TypeError, "no implicit conversion of #{path.class} into String" unless path.is_a?(String)
-    Primitive.zr_unimplemented("File.expand_path with a home directory") if path.start_with?("~") || (dir && dir.start_with?("~"))
 
+    path = expand_home(path)
+    dir = expand_home(dir) if dir
     base = if path.start_with?("/") then ""
            elsif dir.nil? then Dir.pwd
            elsif dir.start_with?("/") then dir
@@ -74,6 +75,18 @@ class File < IO
     end
     "/" + parts.join("/")
   end
+
+  # `~` and `~user` at the front name a home directory.
+  def self.expand_home(path)
+    Primitive.attr! :hidden
+    return path unless path.start_with?("~")
+
+    name = path[1..].split("/", 2).first
+    home = name.nil? || name.empty? ? Dir.home : Dir.home(name)
+    rest = path[(name.nil? ? 1 : name.size + 1)..]
+    rest.nil? || rest.empty? ? home : "#{home}#{rest}"
+  end
+  private_class_method :expand_home
 
   def self.absolute_path(path, dir = nil) = expand_path(path, dir)
 
@@ -359,12 +372,147 @@ class File < IO
     result
   end
 
-  def self.chmod(mode, *paths)
+  def self.chmod(mode, *paths) = each_path(paths) { |path| Primitive.zr_chmod_m(path, mode) }
+
+  def self.lchmod(mode, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(9, path, mode, 0) }
+
+  def self.chown(owner, group, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(0, path, owner || -1, group || -1) }
+
+  def self.lchown(owner, group, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(1, path, owner || -1, group || -1) }
+
+  # utime takes its times in seconds, as Integers, Floats or Times.
+  def self.utime(atime, mtime, *paths)
+    a = microseconds(atime)
+    m = microseconds(mtime)
+    each_path(paths) { |path| Primitive.zr_utimes_m(path, a, m) }
+  end
+
+  def self.microseconds(time)
+    Primitive.attr! :hidden
+    (time.is_a?(Time) ? time.to_r : Rational(time)).*(1_000_000).round
+  end
+  private_class_method :microseconds
+
+  # The block over each path, answering how many it touched; the first
+  # failure raises with CRuby's own `apply2files` label.
+  def self.each_path(paths)
+    Primitive.attr! :hidden
     paths.each do |path|
-      result = Primitive.zr_chmod_m(path_of(path), mode)
+      result = yield(path_of(path))
       raise SystemCallError.new("@ apply2files - #{path}", -result) if result < 0
     end
     paths.size
+  end
+  private_class_method :each_path
+
+  def self.link(from, to)
+    result = Primitive.zr_fs_call(2, path_of(from), path_of(to), 0)
+    raise SystemCallError.new("@ rb_file_s_link - (#{from}, #{to})", -result) if result < 0
+
+    0
+  end
+
+  def self.symlink(from, to)
+    result = Primitive.zr_fs_call(3, path_of(from), path_of(to), 0)
+    raise SystemCallError.new("@ rb_file_s_symlink - (#{from}, #{to})", -result) if result < 0
+
+    0
+  end
+
+  def self.readlink(path)
+    result = Primitive.zr_readlink_m(path_of(path))
+    raise SystemCallError.new("@ rb_readlink - #{path}", -result) if result.is_a?(Integer)
+
+    result
+  end
+
+  def self.mkfifo(path, mode = 0o666)
+    result = Primitive.zr_fs_call(4, path_of(path), mode, 0)
+    raise SystemCallError.new("@ mkfifo - #{path}", -result) if result < 0
+
+    0
+  end
+
+  def self.truncate(path, length)
+    result = Primitive.zr_fs_call(5, path_of(path), length, 0)
+    raise SystemCallError.new("@ rb_file_s_truncate - #{path}", -result) if result < 0
+
+    0
+  end
+
+  def self.umask(mask = nil) = Primitive.zr_umask_m(mask)
+
+  def self.birthtime(path) = stat(path).birthtime
+
+  def self.blockdev?(path) = mode_kind?(path, 0o060000)
+  def self.chardev?(path) = mode_kind?(path, 0o020000)
+  def self.pipe?(path) = mode_kind?(path, 0o010000)
+  def self.socket?(path) = mode_kind?(path, 0o140000)
+
+  def self.mode_kind?(path, kind)
+    Primitive.attr! :hidden
+    fields = Primitive.zr_stat_m(path_of(path), true)
+    fields.is_a?(Array) && (fields[2] & 0o170000) == kind
+  end
+  private_class_method :mode_kind?
+
+  # The permission bits when everyone may read (or write) the file,
+  # else nil.
+  def self.world_readable?(path) = mode_when(path, 0o004)
+  def self.world_writable?(path) = mode_when(path, 0o002)
+
+  def self.mode_when(path, bit)
+    Primitive.attr! :hidden
+    fields = Primitive.zr_stat_m(path_of(path), true)
+    return nil unless fields.is_a?(Array) && (fields[2] & bit) != 0
+
+    fields[2] & 0o7777
+  end
+  private_class_method :mode_when
+
+  def self.setuid?(path) = mode_set?(path, 0o4000)
+  def self.setgid?(path) = mode_set?(path, 0o2000)
+  def self.sticky?(path) = mode_set?(path, 0o1000)
+
+  def self.mode_set?(path, bit)
+    Primitive.attr! :hidden
+    fields = Primitive.zr_stat_m(path_of(path), true)
+    fields.is_a?(Array) && (fields[2] & bit) != 0
+  end
+  private_class_method :mode_set?
+
+  def self.owned?(path) = stat_field(path, 4) == Process.uid
+  def self.grpowned?(path) = stat_field(path, 5) == Process.gid
+
+  def self.stat_field(path, index)
+    Primitive.attr! :hidden
+    fields = Primitive.zr_stat_m(path_of(path), true)
+    fields.is_a?(Array) ? fields[index] : nil
+  end
+  private_class_method :stat_field
+
+  # The same file: one device and one inode.
+  def self.identical?(a, b)
+    left = Primitive.zr_stat_m(path_of(a), true)
+    right = Primitive.zr_stat_m(path_of(b), true)
+    left.is_a?(Array) && right.is_a?(Array) && left[0] == right[0] && left[1] == right[1]
+  end
+
+  # `access(2)` answers for the real user, which is the one the plain
+  # forms ask about too.
+  def self.readable_real?(path) = readable?(path)
+  def self.writable_real?(path) = writable?(path)
+  def self.executable_real?(path) = executable?(path)
+
+  def self.path(object) = path_of(object)
+
+  # `realpath` where the last name need not exist.
+  def self.realdirpath(path, dir = nil)
+    path = path_of(path)
+    path = File.join(path_of(dir), path) if dir && !path.start_with?("/")
+    return realpath(path) if exist?(path)
+
+    File.join(realpath(dirname(path)), basename(path))
   end
 
   # A path argument: a String, or what `to_path` or `to_str` answers.
@@ -380,6 +528,47 @@ class File < IO
   def size = File.size(path)
 
   def to_path = path
+
+  def stat = File.stat(path)
+  def lstat = File.lstat(path)
+  def atime = stat.atime
+  def mtime = stat.mtime
+  def ctime = stat.ctime
+  def birthtime = stat.birthtime
+
+  def chmod(mode)
+    result = Primitive.zr_fs_call(7, "", fileno, mode)
+    raise SystemCallError.new("@ rb_file_chmod - #{path}", -result) if result < 0
+
+    0
+  end
+
+  def chown(owner, group)
+    File.chown(owner, group, path)
+    0
+  end
+
+  def truncate(length)
+    result = Primitive.zr_fs_call(6, "", fileno, length)
+    raise SystemCallError.new("@ rb_file_truncate - #{path}", -result) if result < 0
+
+    0
+  end
+
+  # flock(2): LOCK_SH 1, LOCK_EX 2, LOCK_UN 8, with LOCK_NB 4 added.
+  LOCK_SH = 1
+  LOCK_EX = 2
+  LOCK_NB = 4
+  LOCK_UN = 8
+
+  def flock(operation)
+    result = Primitive.zr_fs_call(8, "", fileno, operation)
+    return false if result == -Errno::EWOULDBLOCK::Errno
+
+    raise SystemCallError.new("@ rb_file_flock - #{path}", -result) if result < 0
+
+    0
+  end
 
   class << self
     private
@@ -405,6 +594,93 @@ class File < IO
 end
 
 class Dir
+  include Enumerable
+
+  # A Dir is the directory's names and a cursor over them, read once
+  # when it opens.
+  def initialize(path, encoding: nil)
+    @path = File.path(path)
+    names = Primitive.zr_io_dir_names(@path)
+    raise SystemCallError.new("@ dir_initialize - #{@path}", -names) if names.is_a?(Integer)
+
+    @names = names
+    @pos = 0
+  end
+
+  def self.open(path, **options)
+    dir = new(path, **options)
+    return dir unless block_given?
+
+    begin
+      yield dir
+    ensure
+      dir.close
+    end
+  end
+
+  attr_reader :path
+  alias to_path path
+
+  def inspect = "#<Dir:#{@path}>"
+
+  def close
+    @names = nil
+    nil
+  end
+
+  def read
+    open_names[@pos].tap { @pos += 1 if @pos < open_names.size }
+  end
+
+  # The cursor is the index of the next name. CRuby answers whatever
+  # `telldir` gives, which is a cookie for `seek` and nothing more.
+  def pos = @pos
+
+  def tell = @pos
+
+  def pos=(where)
+    @pos = where
+    where
+  end
+
+  def seek(where)
+    @pos = where
+    self
+  end
+
+  def rewind
+    @pos = 0
+    self
+  end
+
+  def each(&block)
+    return to_enum(:each) { open_names.size } unless block
+
+    rewind
+    while (name = read)
+      yield name
+    end
+    self
+  end
+
+  def children = open_names.reject { |name| name == "." || name == ".." }
+
+  def each_child(&block)
+    return to_enum(:each_child) { children.size } unless block
+
+    children.each(&block)
+    self
+  end
+
+  def fileno = Primitive.zr_unimplemented("Dir#fileno")
+
+  # The names, or the error a closed directory answers with.
+  def open_names
+    Primitive.attr! :hidden
+    @names or raise IOError, "closed directory"
+  end
+  private :open_names
+
   def self.pwd = Primitive.zr_getcwd
   def self.getwd = pwd
   def self.exist?(path) = Primitive.zr_path_kind(path) == 1
@@ -624,6 +900,52 @@ class Dir
     0
   end
   private_class_method :move_to
-  def self.home(*) = Primitive.zr_unimplemented("Dir.home")
-  def self.tmpdir = Primitive.zr_unimplemented("Dir.tmpdir")
+  # This process's home from the environment, a named user's from the
+  # password file.
+  def self.home(user = nil)
+    return Primitive.zr_home_dir(nil) if user.nil? && ENV["HOME"].nil?
+    return ENV["HOME"] if user.nil?
+
+    raise TypeError, "no implicit conversion of #{user.class} into String" unless user.is_a?(String)
+
+    Primitive.zr_home_dir(user) || raise(ArgumentError, "user #{user} doesn't exist")
+  end
+end
+
+module Kernel
+  # `test(command, file, other = nil)`: one letter naming the question
+  # to ask about a file, as the shell's own test does.
+  def test(command, file, other = nil)
+    command = command.is_a?(String) ? command : command.chr
+    case command
+    when "b" then File.blockdev?(file)
+    when "c" then File.chardev?(file)
+    when "d" then File.directory?(file)
+    when "e" then File.exist?(file)
+    when "f" then File.file?(file)
+    when "g" then File.setgid?(file)
+    when "G" then File.grpowned?(file)
+    when "k" then File.sticky?(file)
+    when "l" then File.symlink?(file)
+    when "o" then File.owned?(file)
+    when "O" then File.owned?(file)
+    when "p" then File.pipe?(file)
+    when "r", "R" then File.readable?(file)
+    when "S" then File.socket?(file)
+    when "s" then File.size?(file)
+    when "u" then File.setuid?(file)
+    when "w", "W" then File.writable?(file)
+    when "x", "X" then File.executable?(file)
+    when "z" then File.zero?(file)
+    when "A" then File.atime(file)
+    when "C" then File.ctime(file)
+    when "M" then File.mtime(file)
+    when "-" then File.identical?(file, other)
+    when "=" then File.mtime(file) == File.mtime(other)
+    when "<" then File.mtime(file) < File.mtime(other)
+    when ">" then File.mtime(file) > File.mtime(other)
+    else raise ArgumentError, "unknown command '#{command}'"
+    end
+  end
+  private :test
 end

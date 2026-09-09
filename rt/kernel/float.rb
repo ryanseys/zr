@@ -852,6 +852,8 @@ Machine.import "tgamma", [F64] => F64
 Machine.import "lgamma_r", [F64, Ptr] => F64
 Machine.import "erf", [F64] => F64
 Machine.import "erfc", [F64] => F64
+Machine.import "expm1", [F64] => F64
+Machine.import "log1p", [F64] => F64
 Machine.import "ldexp", [F64, I32] => F64
 Machine.import "frexp", [F64, Ptr] => F64
 
@@ -1047,6 +1049,10 @@ machine def zr_math_call(which, x, y)
     return zr_float_new(erfc(a))
   elsif w == 23
     return zr_float_new(ldexp(a, Machine.i32(zr_fix2long(y))))
+  elsif w == 24
+    return zr_float_new(expm1(a))
+  elsif w == 25
+    return zr_float_new(log1p(a))
   end
   zr_float_new(lgamma_r(a, Machine.slot(4)))
 end

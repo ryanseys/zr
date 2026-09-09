@@ -547,3 +547,18 @@ sig [Value, Word, Word, Ptr] => Value
 machine def zr_vcall(recv, mid, argc, argv)
   zr_dispatch(recv, mid, argc, argv, 1, Machine.value(QNIL))
 end
+
+# `Hash.ruby2_keywords_hash`: a copy carrying the flag, and the test
+# for it.
+sig [Value] => Value
+machine def zr_ruby2_hash_new(h)
+  copy = zr_hash_new()
+  zr_hash_update(copy, h)
+  RBasic.set_flags(copy, RBasic.flags(copy) | FL_RUBY2)
+  copy
+end
+
+sig [Value] => Value
+machine def zr_ruby2_hash_p(h)
+  zr_bool(!zr_special_p(h) && zr_type(h) == T_HASH && (RBasic.flags(h) & FL_RUBY2) != 0)
+end

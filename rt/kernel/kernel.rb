@@ -121,6 +121,29 @@ machine def zr_warn_here(bytes, n)
 end
 
 # The core's `rb_warn`.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_kernel_global_variables(recv, argc, argv, cref, blk)
+  zr_global_variables()
+end
+
+# `file:line: ` for the program frame a warning came from, or empty
+# where the runtime itself is the only frame.
+sig [] => Value
+machine def zr_warn_position
+  rec = zr_frame_with_file(Task.top(zr_task()))
+  if rec == 0
+    return zr_str_new(0, 0)
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  meta = Frame.meta(rec)
+  zr_buf_push(b, FrameMeta.file(meta), FrameMeta.file_len(meta))
+  zr_buf_byte(b, 58)
+  zr_buf_long(b, Frame.line(rec))
+  zr_buf_push(b, Machine.bytes(": "), 2)
+  zr_buf_take(b)
+end
+
 sig [Value] => Value
 machine def zr_warn_here_m(s)
   zr_warn_here(RString.ptr(s), RString.len(s))

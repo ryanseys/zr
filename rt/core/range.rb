@@ -289,11 +289,14 @@ class Range
 
     low = @begin
     high = @end.nil? ? nil : (@excl ? @end - 1 : @end)
-    Primitive.zr_unimplemented("Range#bsearch on a beginless range") if low.nil?
     if high.nil?
       span = 1
       span *= 2 until bsearch_hit?(yield(low + span))
       high = low + span
+    elsif low.nil?
+      span = 1
+      span *= 2 while bsearch_hit?(yield(high - span))
+      low = high - span
     end
     found = nil
     while low <= high
@@ -377,48 +380,50 @@ class Range
     answer == true || (answer.is_a?(Numeric) && answer <= 0)
   end
 
-  # Bisection by value until the two ends are adjacent doubles, which
-  # lands on the same double a search over the bit order finds.
+  # Bisection over the order the double bits give, so each step halves
+  # the doubles left, not the span. An open end is an infinity.
   def float_bsearch
     Primitive.attr! :hidden
-    Primitive.zr_unimplemented("Range#bsearch over Floats with an open end") if @begin.nil? || @end.nil?
+    first = @begin.nil? ? -Float::INFINITY : @begin.to_f
+    last = @end.nil? ? Float::INFINITY : @end.to_f
+    return nil if first > last || (@excl && first == last)
 
-    low = @begin.to_f
-    high = @end.to_f
+    low = float_order(first)
+    high = float_order(last) - (@excl ? 1 : 0)
     found = nil
-    return nil if low > high || (@excl && low == high)
-
-    high = high.prev_float if @excl
     while low <= high
       mid = low + (high - low) / 2
-      answer = yield(mid)
+      answer = yield(float_of_order(mid))
       case answer
       when true
         found = mid
-        break if mid == low
-
-        high = mid.prev_float
+        high = mid - 1
       when false, nil
-        break if mid == high
-
-        low = mid.next_float
+        low = mid + 1
       when Numeric
-        return mid if answer == 0
+        return float_of_order(mid) if answer == 0
 
-        if answer < 0
-          break if mid == low
-
-          high = mid.prev_float
-        else
-          break if mid == high
-
-          low = mid.next_float
-        end
+        answer < 0 ? high = mid - 1 : low = mid + 1
       else
         raise TypeError, "wrong argument type #{answer.class} (must be numeric, true, false or nil)"
       end
     end
-    found
+    found.nil? ? nil : float_of_order(found)
+  end
+
+  # Doubles in ascending order as integers: the bits of a positive one,
+  # the bits of a negative one mirrored below zero.
+  def float_order(f)
+    Primitive.attr! :hidden
+    low, high = Primitive.zr_float_halves(f)
+    bits = (high << 32) | low
+    bits < (1 << 63) ? bits : -(bits - (1 << 63))
+  end
+
+  def float_of_order(n)
+    Primitive.attr! :hidden
+    bits = n >= 0 ? n : (1 << 63) - n
+    Primitive.zr_float_of_halves(bits & 0xffff_ffff, bits >> 32)
   end
 
   public

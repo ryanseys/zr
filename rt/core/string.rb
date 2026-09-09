@@ -867,11 +867,14 @@ class String
     pattern.match?(self, pos)
   end
 
-  def encoding = Encoding::KINDS[Primitive.zr_str_encoding_kind(self)]
+  def encoding = Encoding.walked(Primitive.zr_str_encoding_kind(self))
 
   def force_encoding(encoding)
     encoding = Encoding.find(encoding) unless encoding.is_a?(Encoding)
-    Primitive.zr_str_set_encoding(self, Encoding::KINDS.index(encoding))
+    kind = Encoding.walked_index(encoding)
+    Primitive.zr_unimplemented("a String in the #{encoding} encoding") if kind.nil?
+
+    Primitive.zr_str_set_encoding(self, kind)
   end
 
   # A copy in `target`: the same bytes when they read the same in
@@ -879,6 +882,8 @@ class String
   def encode(target = Encoding.default_internal || Encoding.default_external, *rest, **options)
     Primitive.zr_unimplemented("String#encode with a source encoding or options") unless rest.empty? && options.empty?
     target = Encoding.find(target) unless target.is_a?(Encoding)
+    Primitive.zr_unimplemented("String#encode to the #{target} encoding") if Encoding.walked_index(target).nil?
+
     copy = dup
     return copy if target == encoding || ascii_only?
     return copy.force_encoding(target) if target == Encoding::BINARY
@@ -1311,9 +1316,14 @@ end
 
 class Symbol
   def [](*args) = to_s[*args]
+  alias slice []
 
   def length = to_s.length
   alias size length
+
+  def =~(other) = to_s =~ other
+  def match(*args, &block) = to_s.match(*args, &block)
+  def match?(*args) = to_s.match?(*args)
 
   # The case mappings are String's own, past any a program adds to it.
   def upcase = Primitive.zr_str_map_case_m(to_s, 1).to_sym
@@ -1321,6 +1331,7 @@ class Symbol
   def capitalize = Primitive.zr_str_map_case_m(to_s, 3).to_sym
   def swapcase = String.instance_method(:swapcase).bind_call(to_s).to_sym
   def succ = to_s.succ.to_sym
+  alias next succ
 
   def start_with?(*prefixes) = to_s.start_with?(*prefixes)
   def end_with?(*suffixes) = to_s.end_with?(*suffixes)
@@ -1339,49 +1350,103 @@ class Symbol
   def casecmp?(other) = other.is_a?(Symbol) ? to_s.casecmp?(other.to_s) : nil
   alias id2name to_s
   alias name to_s
+
+  def self.all_symbols = Primitive.zr_all_symbols
 end
 
-# The encodings a String can be in: UTF-8 (the default), binary, and
-# US-ASCII, kept as flags on the string.
+# Every encoding ruby registers is named here; a String carries one of
+# the three the runtime walks: UTF-8, ASCII-8BIT and US-ASCII.
 class Encoding
   class CompatibilityError < EncodingError; end
   class UndefinedConversionError < EncodingError; end
   class InvalidByteSequenceError < EncodingError; end
   class ConverterNotFoundError < EncodingError; end
 
-  attr_reader :name, :names
+  # Transcoding between two encodings is not written yet.
+  class Converter
+    def initialize(*) = Primitive.zr_unimplemented("Encoding::Converter")
 
-  def initialize(name, *aliases)
-    @name = name
-    @names = [name, *aliases]
+    def self.search_convpath(*) = Primitive.zr_unimplemented("Encoding::Converter.search_convpath")
+    def self.asciicompat_encoding(*) = Primitive.zr_unimplemented("Encoding::Converter.asciicompat_encoding")
   end
 
-  def to_s = @name
+  attr_reader :names
 
-  def inspect = @name == "BINARY" ? "#<Encoding:BINARY (ASCII-8BIT)>" : "#<Encoding:#{@name}>"
+  def initialize(names, dummy, ascii, loaded)
+    @names = names.freeze
+    @dummy = dummy
+    @ascii = ascii
+    @loaded = loaded
+  end
 
-  def ascii_compatible? = true
+  def name = @names.first
+  alias to_s name
 
-  def dummy? = false
+  # BINARY is the name the report shows, ASCII-8BIT the one it answers.
+  # An encoding whose table a fresh ruby has not read says so.
+  def inspect
+    shown = @names[1] == "BINARY" ? "BINARY (ASCII-8BIT)" : name
+    @loaded ? "#<Encoding:#{shown}>" : "#<Encoding:#{shown} (autoload)>"
+  end
 
-  UTF_8 = new("UTF-8", "CP65001")
-  BINARY = new("BINARY", "ASCII-8BIT")
-  ASCII_8BIT = BINARY
-  US_ASCII = new("US-ASCII", "ASCII", "ANSI_X3.4-1968", "646")
-  KINDS = [UTF_8, BINARY, US_ASCII].freeze
+  def ascii_compatible?
+    @loaded = true
+    @ascii
+  end
 
-  def self.list = KINDS.dup
+  def dummy?
+    @loaded = true
+    @dummy
+  end
 
-  def self.name_list = KINDS.flat_map(&:names)
+  # Asking for an encoding by name is what reads its table.
+  def load
+    Primitive.attr! :hidden
+    @loaded = true
+    self
+  end
+
+  LIST = ROWS.map { |names, dummy, ascii, loaded| new(names, dummy, ascii, loaded) }.freeze
+  private_constant :LIST
+
+  BY_NAME = LIST.each_with_object({}) { |encoding, out| encoding.names.each { |name| out[name] = encoding } }.freeze
+  private_constant :BY_NAME
+
+  CONSTANTS.each { |const, name| const_set(const, BY_NAME.fetch(name)) }
+
+  # The three the runtime walks, by the number a String carries.
+  WALKED = [UTF_8, ASCII_8BIT, US_ASCII].freeze
+  private_constant :WALKED
+
+  def self.walked(kind)
+    Primitive.attr! :hidden
+    WALKED[kind]
+  end
+
+  def self.walked_index(encoding)
+    Primitive.attr! :hidden
+    WALKED.index(encoding)
+  end
+
+  def self.list = LIST.dup
+
+  # Every name, and `internal` for the encoding a read converts to.
+  def self.name_list = LIST.flat_map(&:names) << "internal"
+
+  # Every name but the first of each encoding, pointing at the first.
+  def self.aliases
+    LIST.each_with_object({}) { |encoding, out| encoding.names.drop(1).each { |name| out[name] = encoding.name } }
+  end
+
+  def self.locale_charmap = "UTF-8"
 
   def self.find(name)
     return name if name.is_a?(Encoding)
 
     name = name.to_str
-    found = KINDS.find { |encoding| encoding.names.any? { |n| n.casecmp?(name) } }
-    return found if found
+    found = LIST.find { |encoding| encoding.names.any? { |n| n.casecmp?(name) } }
+    return found.send(:load) if found
 
-    Primitive.zr_unimplemented("the #{name} encoding") if %w[ISO-8859-1 Shift_JIS EUC-JP UTF-16 UTF-16LE UTF-16BE UTF-32 Windows-1252 locale external filesystem].any? { |n| n.casecmp?(name) }
     raise ArgumentError, "unknown encoding name - #{name}"
   end
 
@@ -1400,16 +1465,11 @@ class Encoding
   def self.compatible?(a, b)
     return nil unless a.is_a?(String) && b.is_a?(String)
     return a.encoding if a.encoding == b.encoding
-    return b.encoding if a.ascii_only?
     return a.encoding if b.ascii_only?
+    return b.encoding if a.ascii_only?
 
     nil
   end
-
-  class CompatibilityError < EncodingError; end
-  class UndefinedConversionError < EncodingError; end
-  class InvalidByteSequenceError < EncodingError; end
-  class ConverterNotFoundError < EncodingError; end
 end
 
 class Symbol

@@ -20,7 +20,7 @@ POISON = 57005 << 8
 
 # Heap state: free head, allocations, collections, stress flag, the
 # last cell handed out, the arena count, the cells the last sweep freed.
-Machine.struct :Heap, free: Ptr, allocated: Word, collections: Word, stress: Word, last: Ptr, disabled: Word, arenas: Word, freed: Word
+Machine.struct :Heap, free: Ptr, allocated: Word, collections: Word, stress: Word, last: Ptr, disabled: Word, arenas: Word, freed: Word, nanoseconds: Word
 
 sig [] => Ptr
 machine def zr_heap
@@ -391,6 +391,7 @@ end
 sig [] => Void
 machine def zr_collect
   h = zr_heap()
+  started = zr_fix2long(zr_clock_ns(zr_fix(6)))
   Heap.set_collections(h, Heap.collections(h) + 1)
   Machine.store64(zr_marking(), 0, QNIL)
   zr_mark_roots()
@@ -404,6 +405,13 @@ machine def zr_collect
       n -= 1
     end
   end
+  Heap.set_nanoseconds(h, Heap.nanoseconds(h) + (zr_fix2long(zr_clock_ns(zr_fix(6))) - started))
+end
+
+# The nanoseconds every collection so far has taken.
+sig [] => Value
+machine def zr_gc_nanoseconds
+  zr_fix(Heap.nanoseconds(zr_heap()))
 end
 
 # The GC module's view of the heap. `disable` and `enable` answer
@@ -518,4 +526,13 @@ machine def zr_mark_kernel_roots_from(frame)
     end
     frame = Machine.ptr(Machine.load64(frame, 0))
   end
+end
+
+# `global_variables`: every name with a row, and every alias of one.
+sig [] => Value
+machine def zr_global_variables
+  out = zr_ary_new(16)
+  zr_ivtab_names(zr_gvars(), out)
+  zr_ivtab_names(zr_gvar_aliases(), out)
+  out
 end

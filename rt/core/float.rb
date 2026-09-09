@@ -67,9 +67,6 @@ class Float
 
     [Float(other), self]
   end
-
-  def rationalize(*args) = Primitive.zr_unimplemented("Float#rationalize")
-  def to_r = Primitive.zr_unimplemented("Float#to_r")
 end
 
 module Kernel
@@ -128,6 +125,14 @@ module Math
   def self.sinh(x) = Primitive.zr_math_call(9, check(x, "sinh"), 0.0)
   def self.cosh(x) = Primitive.zr_math_call(10, check(x, "cosh"), 0.0)
   def self.tanh(x) = Primitive.zr_math_call(11, check(x, "tanh"), 0.0)
+  def self.expm1(x) = Primitive.zr_math_call(24, check(x, "expm1"), 0.0)
+
+  def self.log1p(x)
+    x = check(x, "log1p")
+    raise DomainError, "Numerical argument is out of domain - log1p" if x < -1.0
+
+    Primitive.zr_math_call(25, x, 0.0)
+  end
 
   def self.log(x, base = nil)
     x, bits = split(x)
