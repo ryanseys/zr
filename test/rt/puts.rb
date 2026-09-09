@@ -10,6 +10,8 @@ machine def zr_toplevel
   Frame.set_meta(rec, meta)
   Frame.set_prev(rec, Task.top(zr_task()))
   Frame.set_self(rec, zr_global(G_MAIN))
+  Frame.set_cref(rec, Machine.value(QNIL))
+  Frame.set_blk(rec, Machine.value(QNIL))
   Frame.set_nvalues(rec, 4)
   Task.set_top(zr_task(), rec)
   argv = rec + Frame.size

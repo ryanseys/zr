@@ -80,7 +80,7 @@ machine def zr_heap_init
   end
   Heap.set_free(h, head)
   Heap.set_last(h, CELLS - 1)
-  if getenv(Machine.bytes("ZR_GC_STRESS")) != 0
+  if getenv(Machine.bytes("ZR_GC_STRESS\0")) != 0
     Heap.set_stress(h, 1)
   end
 end
@@ -203,41 +203,25 @@ machine def zr_alloc(type, klass)
   Machine.value(cell)
 end
 
-# Kernel code that must keep a fresh object alive across a call into
-# Ruby pushes the slot holding it here; the collector reads the slots.
-Machine.struct :Roots, slots: Ptr, len: Word
-ROOT_SLOTS = 256
+# Every kernel function that may run the collector keeps its Values in
+# a root frame (`prev, n, values...`) the compiler links from here.
+Machine.collects :zr_collect
 
 sig [] => Ptr
-machine def zr_roots
-  Machine.static(:roots, ROOT_SLOTS * 8 + 16)
-end
-
-sig [Ptr] => Void
-machine def zr_root_push(slot)
-  r = zr_roots()
-  n = Machine.load64(r, 0)
-  if n >= ROOT_SLOTS
-    zr_bug(Machine.bytes("too many kernel roots\n"), 22)
-  end
-  Machine.store64(r + 16 + (n * 8), 0, slot)
-  Machine.store64(r, 0, n + 1)
-end
-
-sig [] => Void
-machine def zr_root_pop
-  r = zr_roots()
-  Machine.store64(r, 0, Machine.load64(r, 0) - 1)
+machine def zr_kroots
+  Machine.static(:kroots, 8)
 end
 
 sig [] => Void
 machine def zr_mark_kernel_roots
-  r = zr_roots()
-  n = Machine.load64(r, 0)
-  i = 0
-  while i < n
-    slot = Machine.load64(r + 16 + (i * 8), 0)
-    zr_mark(Machine.value(Machine.load64(slot, 0)))
-    i += 1
+  frame = Machine.ptr(Machine.load64(zr_kroots(), 0))
+  while frame != 0
+    n = Machine.load64(frame, 8)
+    i = 0
+    while i < n
+      zr_mark(Machine.value(Machine.load64(frame + 16 + (i * 8), 0)))
+      i += 1
+    end
+    frame = Machine.ptr(Machine.load64(frame, 0))
   end
 end

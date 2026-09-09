@@ -95,6 +95,8 @@ module Ze0
         @raw = []
         @next_bytes = 0
         @statics = {}
+        @collectors = []
+        @collects = nil
       end
 
       def run
@@ -110,8 +112,51 @@ module Ze0
         end
         @consts.each_key { |name| const_for(name) }
         @structs.each_key { |name| struct_for(name) }
+        @collects = collecting_defs
+        static(nil, ROOTS, 8) unless @collects.empty?
         @defs.each_value { |d| @functions << Function.new(self, d).lower }
         [@functions, @data, @raw]
+      end
+
+      # The static word that heads the chain of kernel root frames.
+      ROOTS = "kroots"
+
+      # Whether a call to `name` may run the collector: it is declared
+      # with `Machine.collects`, or it reaches one that is, or it calls
+      # through a pointer.
+      def collects?(name)
+        @collects.include?(name)
+      end
+
+      # The defs that may run the collector, by fixpoint over the calls
+      # each body makes.
+      def collecting_defs
+        calls = @defs.transform_values { |d| calls_in(d.node.body) }
+        set = @collectors.to_set
+        set << :indirect
+        loop do
+          grown = @defs.each_key.select { |name| !set.include?(name) && calls.fetch(name).any? { |c| set.include?(c) } }
+          break if grown.empty?
+
+          set.merge(grown)
+        end
+        set
+      end
+
+      # The names a body calls: defs by name, and `:indirect` for a
+      # `Machine.call`.
+      def calls_in(node, into = [])
+        return into if node.nil?
+
+        if node.is_a?(Prism::CallNode)
+          if node.receiver.nil? && @defs.key?(node.name.to_s)
+            into << node.name.to_s
+          elsif node.name == :call && machine?(node.receiver)
+            into << :indirect
+          end
+        end
+        node.compact_child_nodes.each { |c| calls_in(c, into) }
+        into
       end
 
       # The file's declarations: imports, structs, signatures, constants,
@@ -146,6 +191,9 @@ module Ze0
             name, sig = node.arguments.arguments
             params, ret = signature(sig)
             @imports[name.unescaped] = Import.new(name.unescaped, params, ret)
+          when :collects
+            refuse(node, "`Machine.collects` takes the symbol of a machine def") unless machine?(node.receiver) && node.arguments&.arguments&.first.is_a?(Prism::SymbolNode)
+            @collectors << node.arguments.arguments.first.unescaped
           when :raw
             refuse(node, "a raw function is `Machine.raw \"name\"`") unless machine?(node.receiver)
             name = node.arguments.arguments.first.unescaped
@@ -313,31 +361,68 @@ module Ze0
       end
     end
 
-    # One machine def to one IR function.
+    # One machine def to one IR function. A def that may run the
+    # collector keeps a root frame in its frame: `prev, n, values...`,
+    # linked from the unit's static head, holding every Value it has (a
+    # parameter, a local, or a call's answer passed on to another call),
+    # so a collection under any call it makes sees them all.
     class Function
       def initialize(unit, d)
         @unit = unit
         @d = d
         @f = IR::Function.new(d.name, d.params.map { |_, t| TYPES.fetch(t) }, TYPES.fetch(d.ret))
         @locals = {}
+        @roots = nil
       end
 
       def lower
+        enter_roots if @unit.collects?(@d.name)
         @d.params.each_with_index do |(name, type), i|
           local = declare_local(@d.node, name, type)
           @f.ins "store notrap aligned #{@f.args[i]}, #{local[:addr]}"
         end
         body = @d.node.body
         value, type = body ? statements(body, @d.ret) : [nil, "Void"]
-        return @f if @f.terminated?
-
-        if @d.ret == "Void"
-          @f.ins "return"
-        else
-          refuse(@d.node, "the body ends in #{type}, and the sig says #{@d.ret}") unless fits?(@d.ret, type)
-          @f.ins "return #{value}"
+        unless @f.terminated?
+          refuse(@d.node, "the body ends in #{type}, and the sig says #{@d.ret}") unless @d.ret == "Void" || fits?(@d.ret, type)
+          ret(@d.ret == "Void" ? nil : value)
         end
+        leave_roots if @roots
         @f
+      end
+
+      # The root frame: linked in ahead of the body, its slot count and
+      # zero fill filled in once the body has asked for every slot.
+      def enter_roots
+        slot = @f.slot(16)
+        @roots = { slot: slot, addr: @f.stack_addr(slot), n: 0, zero: @f.iconst("i64", 0) }
+        @head = @f.symbol_value(@f.symbol("zr_static_#{Lower::ROOTS}"))
+        @f.store(@f.fetch("i64", @head), @roots[:addr], 0)
+        count, @roots[:count] = @f.iconst_later("i64")
+        @f.store(count, @roots[:addr], 8)
+        @f.store(@roots[:addr], @head, 0)
+        @roots[:fill_at] = @f.entry_block.insts.size
+      end
+
+      def leave_roots
+        n = @roots[:n]
+        @roots[:count].args[0] = n
+        @f.slots[@roots[:slot].delete_prefix("ss").to_i].bytes = 16 + (8 * n)
+        fill = (0...n).map { |i| IR::Inst.new(:store, args: [@roots[:zero], @roots[:addr]], offset: 16 + (8 * i), flags: "notrap aligned") }
+        @f.entry_block.insts.insert(@roots[:fill_at], *fill)
+      end
+
+      # A fresh root slot's address and offset.
+      def root_slot
+        at = 16 + (8 * @roots[:n])
+        @roots[:n] += 1
+        at
+      end
+
+      # `return`: the root frame is unlinked first.
+      def ret(value)
+        @f.store(@f.fetch("i64", @roots[:addr]), @head, 0) if @roots
+        @f.ins(value ? "return #{value}" : "return")
       end
 
       private
@@ -346,9 +431,19 @@ module Ze0
         raise Refused.new(node, message, @unit.unit? ? @d.file : nil)
       end
 
+      # A local lives in a slot of its own; a Value in a rooted function
+      # lives in the root frame.
       def declare_local(node, name, type)
         refuse(node, "#{name} is already a #{@locals[name][:type]}") if @locals.key?(name) && !fits?(@locals[name][:type], type)
-        @locals[name] ||= { type: type, addr: @f.stack_addr(@f.slot(8)) }
+        @locals[name] ||= { type: type, addr: local_addr(type) }
+      end
+
+      def local_addr(type)
+        return @f.stack_addr(@f.slot(8)) unless @roots && type == "Value"
+
+        at = root_slot
+        off = @f.iconst("i64", at)
+        @f.hoisted([:root_slot, at]) { IR::Inst.new(:iadd, type: "i64", args: [@roots[:addr], off]) }
       end
 
       def clif(type)
@@ -404,7 +499,7 @@ module Ze0
         when Prism::ReturnNode
           value, type = node.arguments ? expr(node.arguments.arguments.first, @d.ret) : [nil, "Void"]
           refuse(node, "a return of #{type} from a def whose sig says #{@d.ret}") unless fits?(@d.ret, type)
-          @f.ins(type == "Void" ? "return" : "return #{value}")
+          ret(type == "Void" ? nil : value)
           [nil, "Void"]
         else
           refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} is not in the kernel dialect")
@@ -537,7 +632,7 @@ module Ze0
         values = args.zip(types).map do |arg, type|
           value, got = expr(arg, type)
           refuse(arg, "#{name} wants a #{type} here, not a #{got}") unless fits?(type, got)
-          value
+          rooted(arg, value, got)
         end
         fn = @f.callee(name, types.map { |t| clif(t) }, clif(callee.ret), colocated: !callee.is_a?(Import))
         if callee.ret == "Void"
@@ -546,6 +641,15 @@ module Ze0
         else
           [@f.val("call #{fn}(#{values.join(", ")})"), callee.ret]
         end
+      end
+
+      # A Value a call answered stays alive across the calls that follow
+      # it in the same argument list: it gets a root slot of its own.
+      def rooted(node, value, type)
+        return value unless @roots && type == "Value" && node.is_a?(Prism::CallNode) && node.receiver.nil?
+
+        @f.store(value, @roots[:addr], root_slot)
+        value
       end
 
       def intrinsic(node, args, want)
@@ -573,7 +677,7 @@ module Ze0
           values = rest.zip(s.params).map do |arg, type|
             value, got = expr(arg, type)
             refuse(arg, "#{name.unescaped} wants a #{type} here, not a #{got}") unless fits?(type, got)
-            value
+            rooted(arg, value, got)
           end
           sig = @f.sig(s.params.map { |t| clif(t) }, clif(s.ret))
           return [@f.call_indirect(sig, ptr, values), "Void"] if s.ret == "Void"

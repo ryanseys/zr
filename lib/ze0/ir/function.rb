@@ -32,7 +32,7 @@ module Ze0
     class Function
       # `current` is the block being emitted into: what a caller needs when
       # it fills a block out of order and then resumes.
-      attr_reader :name, :params, :ret_type, :args, :current, :slots, :globals, :sigs, :callees, :blocks
+      attr_reader :name, :params, :ret_type, :args, :current, :slots, :globals, :sigs, :callees, :blocks, :entry_block
 
       # `params`/`ret`: CLIF types. The entry block takes the parameters
       # as v0..vN-1.
@@ -286,6 +286,15 @@ module Ze0
         v = value
         emit(Inst.new(:func_addr, type: "i64", results: [v], args: [fn]))
         v
+      end
+
+      # A constant whose immediate a producer fills in later: the value,
+      # and the instruction whose first argument to set.
+      def iconst_later(type)
+        v = value
+        inst = Inst.new(:iconst, type: type, results: [v], args: [0])
+        emit(inst)
+        [v, inst]
       end
 
       # A constant, materialized once per function.

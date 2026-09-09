@@ -324,45 +324,31 @@ machine def zr_ary_map(recv, argc, argv, cref, blk)
   if blk == QNIL
     zr_bug(Machine.bytes("map without a block needs Enumerator\n"), 37)
   end
-  keep = Machine.slot(8)
   out = zr_ary_new(RArray.len(recv))
-  Machine.store64(keep, 0, Machine.word(out))
-  zr_root_push(keep)
   i = 0
   while i < RArray.len(recv)
     r = zr_yield1(blk, zr_ary_at(recv, i))
-    if r == QUNDEF
-      zr_root_pop()
-      return r
-    end
+    return r if r == QUNDEF
     zr_ary_push(out, r)
     i += 1
   end
-  zr_root_pop()
   out
 end
 
 # `select`/`reject`: `keep` says which answers keep the element.
 sig [Value, Value, Bool] => Value
 machine def zr_ary_filter(recv, blk, keep)
-  slot = Machine.slot(8)
   out = zr_ary_new(4)
-  Machine.store64(slot, 0, Machine.word(out))
-  zr_root_push(slot)
   i = 0
   while i < RArray.len(recv)
     v = zr_ary_at(recv, i)
     r = zr_yield1(blk, v)
-    if r == QUNDEF
-      zr_root_pop()
-      return r
-    end
+    return r if r == QUNDEF
     if (r != QNIL && r != QFALSE) == keep
       zr_ary_push(out, zr_ary_at(recv, i))
     end
     i += 1
   end
-  zr_root_pop()
   out
 end
 
