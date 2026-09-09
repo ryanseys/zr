@@ -419,21 +419,20 @@ machine def zr_hash_eq(recv, argc, argv, cref, blk)
   Machine.value(QTRUE)
 end
 
-# `Hash.new`, `Hash.new(default)`, `Hash.new { |hash, key| }`.
+# `Hash#initialize`: `Hash.new`, `Hash.new(default)`, `Hash.new { |hash, key| }`.
 sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_hash_s_new(recv, argc, argv, cref, blk)
+machine def zr_hash_initialize(recv, argc, argv, cref, blk)
   if argc > 1
     return zr_wrong_arity_range(argc, 0, 1)
   end
-  h = zr_hash_new()
   if argc == 1
     if blk != QNIL
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("wrong number of arguments (given 1, expected 0)"), 47)
     end
-    RHash.set_default(h, Machine.value(Machine.load64(argv, 0)))
+    RHash.set_default(recv, Machine.value(Machine.load64(argv, 0)))
   end
-  RHash.set_default_proc(h, blk)
-  h
+  RHash.set_default_proc(recv, blk)
+  recv
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value

@@ -16,22 +16,8 @@ machine def zr_no_method_from(recv, mid, vcall, from_super)
   end
   zr_buf_sym(b, mid)
   zr_buf_push(b, Machine.bytes("' for "), 6)
-  if recv == zr_global(G_MAIN)
-    if vcall
-      zr_buf_push(b, Machine.bytes("main"), 4)
-    else
-      zr_buf_push(b, Machine.bytes("main:Object"), 11)
-    end
-  elsif recv == QNIL
-    zr_buf_push(b, Machine.bytes("nil"), 3)
-  elsif recv == QTRUE
-    zr_buf_push(b, Machine.bytes("true"), 4)
-  elsif recv == QFALSE
-    zr_buf_push(b, Machine.bytes("false"), 5)
-  else
-    zr_buf_push(b, Machine.bytes("an instance of "), 15)
-    zr_buf_str(b, zr_class_name_of(recv))
-  end
+  r = zr_buf_receiver(b, recv, vcall)
+  return r if r == QUNDEF
   zr_raise_buf(zr_global(vcall ? G_NAME_ERROR : G_NO_METHOD_ERROR), b)
 end
 
@@ -96,16 +82,80 @@ machine def zr_no_method(recv, mid, vcall)
   zr_no_method_from(recv, mid, vcall, false)
 end
 
-# `argv` points at `argc` Values the caller keeps rooted.
-# A builtin runs under a frame pushed here, so a backtrace names it; a
-# compiled method pushes its own.
-sig [Value, Word, Word, Ptr, Bool, Value] => Value
-machine def zr_dispatch(recv, mid, argc, argv, vcall, blk)
+# `private method 'x' called for ...`, or protected.
+sig [Value, Word, Word] => Value
+machine def zr_hidden_method(recv, mid, vis)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, vis == VIS_PRIVATE ? Machine.bytes("private method '") : Machine.bytes("protected method '"), vis == VIS_PRIVATE ? 16 : 18)
+  zr_buf_sym(b, mid)
+  zr_buf_push(b, Machine.bytes("' called for "), 13)
+  zr_buf_receiver(b, recv, false)
+  zr_raise_buf(zr_global(G_NO_METHOD_ERROR), b)
+end
+
+# How a message names the receiver: main, a special constant, its
+# inspect when it has a singleton class, else `an instance of Foo`.
+sig [Ptr, Value, Bool] => Value
+machine def zr_buf_receiver(b, recv, vcall)
+  if recv == zr_global(G_MAIN)
+    if vcall
+      zr_buf_push(b, Machine.bytes("main"), 4)
+    else
+      zr_buf_push(b, Machine.bytes("main:Object"), 11)
+    end
+  elsif recv == QNIL
+    zr_buf_push(b, Machine.bytes("nil"), 3)
+  elsif recv == QTRUE
+    zr_buf_push(b, Machine.bytes("true"), 4)
+  elsif recv == QFALSE
+    zr_buf_push(b, Machine.bytes("false"), 5)
+  elsif !zr_special_p(recv) && (zr_type(recv) == T_CLASS || zr_type(recv) == T_MODULE)
+    zr_buf_push(b, zr_type(recv) == T_CLASS ? Machine.bytes("class ") : Machine.bytes("module "), zr_type(recv) == T_CLASS ? 6 : 7)
+    s = zr_send(recv, Machine.id(:inspect), 0, 0)
+    return s if s == QUNDEF
+    zr_buf_str(b, s)
+  elsif !zr_special_p(recv) && zr_singleton_p(RBasic.klass(recv))
+    s = zr_send(recv, Machine.id(:inspect), 0, 0)
+    return s if s == QUNDEF
+    zr_buf_str(b, s)
+  else
+    zr_buf_push(b, Machine.bytes("an instance of "), 15)
+    zr_buf_str(b, zr_class_name_of(recv))
+  end
+  Machine.value(QNIL)
+end
+
+# Whether a call from the frame on top may reach `e` with `mode` (0 an
+# implicit or self receiver, 2 an explicit one): a private method only
+# implicitly, a protected one when the caller's self is of the owner.
+sig [Ptr, Value, Word, Word] => Value
+machine def zr_check_visibility(e, recv, mid, mode)
+  if mode != 2 || MEntry.vis(e) == VIS_PUBLIC
+    return Machine.value(QNIL)
+  end
+  if MEntry.vis(e) == VIS_PROTECTED
+    owner = FrameMeta.owner(MEntry.meta(e))
+    if zr_is_a(Frame.self(Task.top(zr_task())), owner)
+      return Machine.value(QNIL)
+    end
+  end
+  zr_hidden_method(recv, mid, MEntry.vis(e))
+end
+
+# `argv` points at `argc` Values the caller keeps rooted. `mode` is 0
+# for an implicit or self receiver, 1 for a bare identifier, 2 for an
+# explicit receiver. A builtin runs under a frame pushed here, so a
+# backtrace names it; a compiled method pushes its own.
+sig [Value, Word, Word, Ptr, Word, Value] => Value
+machine def zr_dispatch(recv, mid, argc, argv, mode, blk)
   kw = zr_kw_take()
   e = zr_find_method(zr_class_of(recv), mid)
   if e == 0
-    return zr_no_method(recv, mid, vcall)
+    return zr_no_method(recv, mid, mode == 1)
   end
+  r = zr_check_visibility(e, recv, mid, mode)
+  return r if r == QUNDEF
   zr_invoke(e, recv, argc, argv, blk, kw)
 end
 
@@ -196,12 +246,14 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
   Frame.set_blk(rec, blk)
   Frame.set_nvalues(rec, 0)
   Task.set_top(t, rec)
+  Task.set_kw(t, kw)
   arity = MEntry.arity(e)
   if arity >= 0 && argc != arity
     r = zr_wrong_arity(argc, arity)
   else
     r = Machine.call(:method, MEntry.fn(e), recv, argc, argv, Machine.value(QNIL), blk)
   end
+  Task.set_kw(t, 0)
   Task.set_top(t, Frame.prev(rec))
   r
 end
@@ -228,16 +280,27 @@ end
 
 sig [Value, Word, Word, Ptr] => Value
 machine def zr_send(recv, mid, argc, argv)
-  zr_dispatch(recv, mid, argc, argv, false, Machine.value(QNIL))
+  zr_dispatch(recv, mid, argc, argv, 0, Machine.value(QNIL))
+end
+
+# A send with an explicit receiver: visibility applies.
+sig [Value, Word, Word, Ptr] => Value
+machine def zr_call(recv, mid, argc, argv)
+  zr_dispatch(recv, mid, argc, argv, 2, Machine.value(QNIL))
+end
+
+sig [Value, Word, Word, Ptr, Value] => Value
+machine def zr_call_blk(recv, mid, argc, argv, blk)
+  zr_dispatch(recv, mid, argc, argv, 2, blk)
 end
 
 sig [Value, Word, Word, Ptr, Value] => Value
 machine def zr_send_blk(recv, mid, argc, argv, blk)
-  zr_dispatch(recv, mid, argc, argv, false, blk)
+  zr_dispatch(recv, mid, argc, argv, 0, blk)
 end
 
 # A bare identifier: the same dispatch, a NameError on a miss.
 sig [Value, Word, Word, Ptr] => Value
 machine def zr_vcall(recv, mid, argc, argv)
-  zr_dispatch(recv, mid, argc, argv, true, Machine.value(QNIL))
+  zr_dispatch(recv, mid, argc, argv, 1, Machine.value(QNIL))
 end

@@ -13,6 +13,33 @@ machine def zr_str_new(bytes, len)
   s
 end
 
+# `String#initialize(str = "")`: the bytes copied in.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_initialize(recv, argc, argv, cref, blk)
+  if argc > 1
+    return zr_wrong_arity_range(argc, 0, 1)
+  end
+  if argc == 1
+    src = Machine.value(Machine.load64(argv, 0))
+    if zr_special_p(src) || zr_type(src) != T_STRING
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
+      zr_buf_str(b, zr_class_name_of(src))
+      zr_buf_push(b, Machine.bytes(" into String"), 12)
+      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+    end
+    buf = malloc(RString.len(src) + 1)
+    zr_memcpy(buf, RString.ptr(src), RString.len(src))
+    Machine.store8(buf + RString.len(src), 0, Machine.i8(0))
+    free(RString.ptr(recv))
+    RString.set_ptr(recv, buf)
+    RString.set_len(recv, RString.len(src))
+    RString.set_capa(recv, RString.len(src))
+  end
+  recv
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_to_s(recv, argc, argv, cref, blk)
   recv
@@ -410,5 +437,5 @@ machine def zr_opt_ltlt(recv, mid, argc, argv)
       return zr_ary_push_m(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
     end
   end
-  zr_send(recv, mid, argc, argv)
+  zr_call(recv, mid, argc, argv)
 end

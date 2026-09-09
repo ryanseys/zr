@@ -7,7 +7,7 @@
 # cref is the lexical class chain the method was defined under.
 Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr, attached: Value
 Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab
-Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value
+Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word
 Machine.struct :CEntry, id: Word, value: Value
 Machine.sig :method, [Value, Word, Ptr, Value, Value] => Value
 # Method kinds beyond a compiled def and a builtin: accessors keep the
@@ -125,7 +125,7 @@ machine def zr_alias(klass, new_id, old_id)
     zr_buf_byte(b, 39)
     return zr_raise_buf(zr_global(G_NAME_ERROR), b)
   end
-  zr_method_add(klass, new_id, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e))
+  zr_method_add_vis(klass, new_id, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e), MEntry.vis(e))
   Machine.value(QNIL)
 end
 
@@ -250,6 +250,18 @@ machine def zr_cvar_set(cref, id, v)
   v
 end
 
+# `Module#ancestors`: the chain, proxies as the modules they stand for.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_ancestors(recv, argc, argv, cref, blk)
+  out = zr_ary_new(8)
+  k = recv
+  while k != QNIL
+    zr_ary_push(out, zr_type(k) == T_ICLASS ? RClass.attached(k) : k)
+    k = RClass.superclass(k)
+  end
+  out
+end
+
 # `Module#include?`: `mod` is in the chain, other than as itself.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_include_p(recv, argc, argv, cref, blk)
@@ -270,6 +282,9 @@ end
 sig [Value] => Value
 machine def zr_make_metaclass(klass)
   sup = RClass.superclass(klass)
+  while sup != QNIL && zr_type(sup) == T_ICLASS
+    sup = RClass.superclass(sup)
+  end
   if sup == QNIL
     msup = zr_global(G_CLASS)
   else
@@ -383,13 +398,29 @@ machine def zr_define_method(klass, mid, fn, arity, kind, meta, cref)
   end
   FrameMeta.set_name(meta, mid)
   FrameMeta.set_owner(meta, klass)
-  zr_method_add(klass, mid, fn, arity, kind, meta, cref)
+  vis = VIS_PUBLIC
+  if cref != QNIL
+    vis = RCref.vis(cref)
+    if RCref.modfn(cref) != 0
+      zr_method_add_vis(zr_singleton_class(klass), mid, fn, arity, kind, meta, cref, VIS_PUBLIC)
+      vis = VIS_PRIVATE
+    end
+  end
+  if mid == Machine.id(:initialize) || mid == Machine.id(:initialize_copy) || mid == Machine.id(:respond_to_missing?)
+    vis = VIS_PRIVATE
+  end
+  zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
+end
+
+sig [Value, Word, Ptr, Word, Word, Ptr, Value] => Void
+machine def zr_method_add(klass, mid, fn, arity, kind, meta, cref)
+  zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, VIS_PUBLIC)
 end
 
 # The entry into the table, the meta as it is (an alias keeps the
 # original's name).
-sig [Value, Word, Ptr, Word, Word, Ptr, Value] => Void
-machine def zr_method_add(klass, mid, fn, arity, kind, meta, cref)
+sig [Value, Word, Ptr, Word, Word, Ptr, Value, Word] => Void
+machine def zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
   if zr_find_method(klass, mid) != 0
     g = zr_gates()
     Machine.store64(g, 0, Machine.load64(g, 0) | zr_gate_bit(klass, mid))
@@ -417,7 +448,154 @@ machine def zr_method_add(klass, mid, fn, arity, kind, meta, cref)
   MEntry.set_kind(e, kind)
   MEntry.set_meta(e, meta)
   MEntry.set_cref(e, cref)
+  MEntry.set_vis(e, vis)
   ClassExt.set_mlen(ext, n + 1)
+end
+
+# `private`, `public`, `protected` and `module_function` as a class
+# body's verbs: with no names they set what later defs get, through the
+# caller's cref; with names they change those methods on `klass`.
+sig [Value, Word, Ptr, Value, Word, Word] => Value
+machine def zr_set_visibility(klass, argc, argv, blk, vis, modfn)
+  if argc == 0
+    cref = Frame.cref(Frame.prev(Task.top(zr_task())))
+    if cref == QNIL
+      zr_bug(Machine.bytes("a visibility verb outside a class body is not implemented yet\n"), 62)
+    end
+    if modfn != 0
+      RCref.set_modfn(cref, 1)
+    else
+      RCref.set_vis(cref, vis)
+      RCref.set_modfn(cref, 0)
+    end
+    return Machine.value(QNIL)
+  end
+  i = 0
+  while i < argc
+    name = Machine.value(Machine.load64(argv + (i * 8), 0))
+    if !zr_special_p(name) && zr_type(name) == T_ARRAY
+      r = zr_set_visibility(klass, RArray.len(name), RArray.ptr(name), blk, vis, modfn)
+      return r if r == QUNDEF
+    else
+      unless zr_symbol_p(name)
+        zr_bug(Machine.bytes("a visibility verb with a String name is not implemented yet\n"), 60)
+      end
+      r = zr_set_method_visibility(klass, zr_sym2id(name), vis, modfn)
+      return r if r == QUNDEF
+    end
+    i += 1
+  end
+  if argc == 1
+    return Machine.value(Machine.load64(argv, 0))
+  end
+  zr_ary_of(argc, argv)
+end
+
+sig [Value, Word, Word, Word] => Value
+machine def zr_set_method_visibility(klass, mid, vis, modfn)
+  e = zr_find_method(klass, mid)
+  if e == 0
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("undefined method '"), 18)
+    zr_buf_sym(b, mid)
+    zr_buf_push(b, zr_type(klass) == T_MODULE ? Machine.bytes("' for module '") : Machine.bytes("' for class '"), zr_type(klass) == T_MODULE ? 14 : 13)
+    zr_buf_str(b, RClass.name(klass))
+    zr_buf_byte(b, 39)
+    return zr_raise_buf(zr_global(G_NAME_ERROR), b)
+  end
+  if modfn != 0
+    zr_method_add_vis(zr_singleton_class(klass), mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e), VIS_PUBLIC)
+    vis = VIS_PRIVATE
+  end
+  if zr_find_method_at(klass, mid) == e
+    MEntry.set_vis(e, vis)
+  else
+    zr_method_add_vis(klass, mid, MEntry.fn(e), MEntry.arity(e), MEntry.kind(e), MEntry.meta(e), MEntry.cref(e), vis)
+  end
+  Machine.value(QNIL)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_private(recv, argc, argv, cref, blk)
+  zr_set_visibility(recv, argc, argv, blk, VIS_PRIVATE, 0)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_public(recv, argc, argv, cref, blk)
+  zr_set_visibility(recv, argc, argv, blk, VIS_PUBLIC, 0)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_protected(recv, argc, argv, cref, blk)
+  zr_set_visibility(recv, argc, argv, blk, VIS_PROTECTED, 0)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_module_function(recv, argc, argv, cref, blk)
+  zr_set_visibility(recv, argc, argv, blk, VIS_PRIVATE, 1)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_private_class_method(recv, argc, argv, cref, blk)
+  zr_set_visibility(zr_singleton_class(recv), argc, argv, blk, VIS_PRIVATE, 0)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_public_class_method(recv, argc, argv, cref, blk)
+  zr_set_visibility(zr_singleton_class(recv), argc, argv, blk, VIS_PUBLIC, 0)
+end
+
+# `instance_methods(false)` and the two by visibility: the class's own
+# names, or with its ancestors' when `all` is true; each name once.
+sig [Value, Word, Word] => Value
+machine def zr_method_names(klass, all, vis)
+  out = zr_ary_new(8)
+  k = klass
+  while k != QNIL
+    ext = RClass.ext(k)
+    i = 0
+    while i < ClassExt.mlen(ext)
+      e = ClassExt.mtab(ext) + (i * MEntry.size)
+      if MEntry.kind(e) != KIND_UNDEF && (vis < 0 ? MEntry.vis(e) != VIS_PRIVATE : MEntry.vis(e) == vis) && zr_find_method_at(k, MEntry.mid(e)) == e
+        name = zr_sym(MEntry.mid(e))
+        if zr_ary_index_of(out, name) < 0 && zr_find_method(klass, MEntry.mid(e)) == e
+          zr_ary_push(out, name)
+        end
+      end
+      i += 1
+    end
+    if all == 0
+      k = Machine.value(QNIL)
+    else
+      k = RClass.superclass(k)
+    end
+  end
+  out
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_instance_methods(recv, argc, argv, cref, blk)
+  all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
+  zr_method_names(recv, all ? 1 : 0, 0 - 1)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_public_instance_methods(recv, argc, argv, cref, blk)
+  all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
+  zr_method_names(recv, all ? 1 : 0, VIS_PUBLIC)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_private_instance_methods(recv, argc, argv, cref, blk)
+  all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
+  zr_method_names(recv, all ? 1 : 0, VIS_PRIVATE)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_protected_instance_methods(recv, argc, argv, cref, blk)
+  all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
+  zr_method_names(recv, all ? 1 : 0, VIS_PROTECTED)
 end
 
 sig [Value, Word, Ptr, Word] => Void

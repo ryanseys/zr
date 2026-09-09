@@ -124,6 +124,66 @@ machine def zr_ary_splat(a, v)
   a
 end
 
+# `Array#initialize`: nothing, `(size, fill = nil)`, `(size) { |i| }`
+# or `(array)`.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_initialize(recv, argc, argv, cref, blk)
+  if argc > 2
+    return zr_wrong_arity_range(argc, 0, 2)
+  end
+  RArray.set_len(recv, 0)
+  if argc == 0
+    return recv
+  end
+  first = Machine.value(Machine.load64(argv, 0))
+  if argc == 1 && !zr_special_p(first) && zr_type(first) == T_ARRAY
+    i = 0
+    while i < RArray.len(first)
+      zr_ary_push(recv, zr_ary_at(first, i))
+      i += 1
+    end
+    return recv
+  end
+  unless zr_fixnum_p(first)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
+    zr_buf_str(b, zr_class_name_of(first))
+    zr_buf_push(b, Machine.bytes(" into Integer"), 13)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+  n = zr_fix2long(first)
+  if n < 0
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("negative array size"), 19)
+  end
+  fill = argc == 2 ? Machine.value(Machine.load64(argv, 8)) : Machine.value(QNIL)
+  i = 0
+  while i < n
+    if blk != QNIL && argc == 1
+      v = zr_yield1(blk, zr_fix(i))
+      return v if v == QUNDEF
+      zr_ary_push(recv, v)
+    else
+      zr_ary_push(recv, fill)
+    end
+    i += 1
+  end
+  recv
+end
+
+# The index of `v` in `a` by identity, or -1.
+sig [Value, Value] => Word
+machine def zr_ary_index_of(a, v)
+  i = 0
+  while i < RArray.len(a)
+    if zr_ary_at(a, i) == v
+      return i
+    end
+    i += 1
+  end
+  0 - 1
+end
+
 sig [Value, Ptr] => Value
 machine def zr_index_operand(v, out)
   unless zr_fixnum_p(v)
@@ -248,7 +308,7 @@ machine def zr_opt_aref(recv, mid, argc, argv)
   if !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_AREF) == 0
     return zr_ary_aref(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
   end
-  zr_send(recv, mid, argc, argv)
+  zr_call(recv, mid, argc, argv)
 end
 
 # `recv[i] = v` likewise, for an Integer index.
@@ -257,7 +317,7 @@ machine def zr_opt_aset(recv, mid, argc, argv)
   if !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_ASET) == 0 && zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
     return zr_ary_aset(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
   end
-  zr_send(recv, mid, argc, argv)
+  zr_call(recv, mid, argc, argv)
 end
 
 # The Array a multiple assignment takes apart: the value itself, its

@@ -2,8 +2,13 @@
 # the cref outside it; the toplevel's is Object alone. A constant read
 # looks through the lexical chain (Object last, and only as an
 # ancestor), then the innermost class's ancestors.
-Machine.struct :RCref, basic: RBasic, klass: Value, next: Value
+# `vis` is the visibility a def under the cref gets (VIS_*), and
+# `modfn` whether `module_function` is on.
+Machine.struct :RCref, basic: RBasic, klass: Value, next: Value, vis: Word, modfn: Word
 T_CREF = 25
+VIS_PUBLIC = 0
+VIS_PRIVATE = 1
+VIS_PROTECTED = 2
 G_TOP_CREF = 24
 
 sig [Value, Value] => Value
@@ -11,6 +16,8 @@ machine def zr_cref_push(klass, outer)
   c = zr_alloc(T_CREF, Machine.value(QNIL))
   RCref.set_klass(c, klass)
   RCref.set_next(c, outer)
+  RCref.set_vis(c, VIS_PUBLIC)
+  RCref.set_modfn(c, 0)
   c
 end
 

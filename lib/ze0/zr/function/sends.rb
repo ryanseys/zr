@@ -57,6 +57,10 @@ module Ze0
           result
         end
 
+        def explicit?(node)
+          !(node.recv.nil? || node.recv.is_a?(Hir::SelfRef))
+        end
+
         def send_staged(node, recv, argv, argc, block_slot)
           if node.block
             call_with_block(node, recv, argv, argc, block_slot)
@@ -89,9 +93,12 @@ module Ze0
           @f.fetch("i64", ary, off(@l.layout("RArray"), "len"))
         end
 
+        # A bare identifier, an implicit or `self` receiver, or an explicit
+        # one, which visibility applies to.
         def dispatch(node, recv, argv, argc)
           entry = if node.vcall then "zr_vcall"
                   elsif node.opt then OPT_ENTRIES.fetch(node.name)
+                  elsif explicit?(node) then "zr_call"
                   else "zr_send"
                   end
           at_line(node.line)
@@ -106,13 +113,13 @@ module Ze0
             proc = checked(kernel("zr_block_pass", expr(node.block.value)))
             at_line(node.line)
             kernel("zr_kw_pass") if node.kwargs
-            return checked(kernel("zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc))
+            return checked(kernel(explicit?(node) ? "zr_call_blk" : "zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc))
           end
 
           site, proc = make_proc(node.block, slot)
           at_line(node.line)
           kernel("zr_kw_pass") if node.kwargs
-          catching_break(site) { kernel("zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc) }
+          catching_break(site) { kernel(explicit?(node) ? "zr_call_blk" : "zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc) }
         end
 
         # A Proc for the block literal, kept in the record slot `slot`,

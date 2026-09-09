@@ -153,15 +153,31 @@ machine def zr_range_new(low, high, excl)
   r
 end
 
-# `Class#new`: allocate, then `initialize` with the arguments.
+# `Class#new`: allocate the shape the class's builtin ancestor gives,
+# then `initialize` with the arguments.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_class_new_instance(recv, argc, argv, cref, blk)
   if zr_class_inherits(recv, zr_global(G_EXCEPTION))
     o = zr_exc_new(recv, Machine.value(QNIL))
+  elsif zr_class_inherits(recv, zr_global(G_ARRAY))
+    o = zr_ary_new(4)
+    RBasic.set_klass(o, recv)
+  elsif zr_class_inherits(recv, zr_global(G_HASH))
+    o = zr_hash_new()
+    RBasic.set_klass(o, recv)
+  elsif zr_class_inherits(recv, zr_global(G_STRING))
+    o = zr_str_new(Machine.bytes(""), 0)
+    RBasic.set_klass(o, recv)
+  elsif zr_class_inherits(recv, zr_global(G_INTEGER)) || zr_class_inherits(recv, zr_global(G_SYMBOL)) || zr_class_inherits(recv, zr_global(G_NIL)) || zr_class_inherits(recv, zr_global(G_TRUE)) || zr_class_inherits(recv, zr_global(G_FALSE))
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("undefined method 'new' for class "), 33)
+    zr_buf_str(b, RClass.name(recv))
+    return zr_raise_buf(zr_global(G_NO_METHOD_ERROR), b)
   else
     o = zr_obj_alloc(recv)
   end
-  r = zr_send(o, Machine.id(:initialize), argc, argv)
+  r = zr_send_blk(o, Machine.id(:initialize), argc, argv, blk)
   return r if r == QUNDEF
   o
 end
@@ -240,6 +256,19 @@ machine def zr_obj_send(recv, argc, argv, cref, blk)
   zr_send_blk(recv, zr_sym2id(name), argc - 1, argv + 8, blk)
 end
 
+# `public_send`: as `send`, with visibility applied.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_public_send(recv, argc, argv, cref, blk)
+  if argc == 0
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("no method name given"), 20)
+  end
+  name = Machine.value(Machine.load64(argv, 0))
+  unless zr_symbol_p(name)
+    zr_bug(Machine.bytes("public_send with a String name is not implemented yet\n"), 54)
+  end
+  zr_call_blk(recv, zr_sym2id(name), argc - 1, argv + 8, blk)
+end
+
 # `Object#===`: `==`.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_eqq(recv, argc, argv, cref, blk)
@@ -266,11 +295,28 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_respond_to(recv, argc, argv, cref, blk)
-  m = Machine.value(Machine.load64(argv, 0))
-  unless zr_symbol_p(m)
-    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("is not a symbol nor a string"), 28)
+  if argc < 1 || argc > 2
+    return zr_wrong_arity_range(argc, 1, 2)
   end
-  zr_bool(zr_find_method(zr_class_of(recv), zr_sym2id(m)) != 0)
+  m = Machine.value(Machine.load64(argv, 0))
+  if !zr_special_p(m) && zr_type(m) == T_STRING
+    m = zr_sym(zr_intern(RString.ptr(m), RString.len(m)))
+  end
+  unless zr_symbol_p(m)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    s = zr_send(m, Machine.id(:inspect), 0, 0)
+    return s if s == QUNDEF
+    zr_buf_str(b, s)
+    zr_buf_push(b, Machine.bytes(" is not a symbol nor a string"), 29)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+  e = zr_find_method(zr_class_of(recv), zr_sym2id(m))
+  if e == 0
+    return Machine.value(QFALSE)
+  end
+  all = argc == 2 && Machine.value(Machine.load64(argv, 8)) != QNIL && Machine.value(Machine.load64(argv, 8)) != QFALSE
+  zr_bool(all || MEntry.vis(e) == VIS_PUBLIC)
 end
 
 # `#<Name:0x...` with sixteen hex digits, into `b`.

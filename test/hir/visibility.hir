@@ -1,0 +1,238 @@
+(seq
+  (class A
+    (seq
+      (send self private
+        (def f () locals ()
+          (seq
+            (int 1))))
+      (send self protected
+        (def g () locals ()
+          (seq
+            (int 2))))))
+  (class B
+    (const A)
+    (seq
+      (def h (o) locals (o)
+        (seq
+          (send g
+            (local o))))
+      (def i () locals ()
+        (seq
+          (send f
+            (self))))
+      (def j (o) locals (o)
+        (seq
+          (send f
+            (local o))))))
+  (begin
+    (seq
+      (send f
+        (send new
+          (const A))))
+    (rescue
+      (const NoMethodError)
+      (into
+        (assign e))
+      (seq
+        (send self puts
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (begin
+    (seq
+      (send g
+        (send new
+          (const A))))
+    (rescue
+      (const NoMethodError)
+      (into
+        (assign e))
+      (seq
+        (send self puts
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (send self p
+    (send h
+      (send new
+        (const B))
+      (send new
+        (const B)))
+    (send i
+      (send new
+        (const B))))
+  (begin
+    (seq
+      (send j
+        (send new
+          (const B))
+        (send new
+          (const A))))
+    (rescue
+      (const NoMethodError)
+      (into
+        (assign e))
+      (seq
+        (send self puts
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (module M
+    (seq
+      (vcall self module_function)
+      (def mf () locals ()
+        (seq
+          (sym :mf)))))
+  (send self p
+    (send mf
+      (const M)))
+  (class C
+    (seq
+      (def x () locals ()
+        (seq
+          (int 1)))
+      (send self private
+        (sym :x))
+      (vcall self public)
+      (def y () locals ()
+        (seq
+          (int 2)))))
+  (send self p
+    (send private_instance_methods
+      (const C)
+      (const false))
+    (send public_instance_methods
+      (const C)
+      (const false)))
+  (begin
+    (seq
+      (send x
+        (send new
+          (const C))))
+    (rescue
+      (const NoMethodError)
+      (into
+        (assign e))
+      (seq
+        (send self puts
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (send self p
+    (send send
+      (send new
+        (const C))
+      (sym :x))
+    (send respond_to?
+      (send new
+        (const C))
+      (sym :x))
+    (send respond_to?
+      (send new
+        (const C))
+      (sym :x)
+      (const true)))
+  (begin
+    (seq
+      (send public_send
+        (send new
+          (const C))
+        (sym :x)))
+    (rescue
+      (const NoMethodError)
+      (into
+        (assign e))
+      (seq
+        (send self puts
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (class D
+    (seq
+      (vcall self private)
+      (def a () locals ()
+        (seq
+          (int 1)))
+      (vcall self public)
+      (def b () locals ()
+        (seq
+          (vcall self a)))
+      (send self private
+        (sym :b))
+      (def c () locals ()
+        (seq
+          (vcall self b)))))
+  (send self p
+    (send c
+      (send new
+        (const D)))
+    (send instance_methods
+      (const D)
+      (const false))
+    (send private_instance_methods
+      (const D)
+      (const false)))
+  (class E
+    (seq
+      (def initialize () locals ()
+        (const nil))))
+  (begin
+    (seq
+      (send initialize
+        (send new
+          (const E))))
+    (rescue
+      (const NoMethodError)
+      (into
+        (assign e))
+      (seq
+        (send self puts
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (begin
+    (seq
+      (send f
+        (const A)))
+    (rescue
+      (const NoMethodError)
+      (into
+        (assign e))
+      (seq
+        (send self puts
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (begin
+    (seq
+      (send nope
+        (const M)))
+    (rescue
+      (const NoMethodError)
+      (into
+        (assign e))
+      (seq
+        (send self puts
+          (send message
+            (local e)))))
+    (none)
+    (none))
+  (send self p
+    (send respond_to?
+      (send new
+        (const A))
+      (sym :f))
+    (send respond_to?
+      (send new
+        (const A))
+      (sym :g))
+    (send respond_to?
+      (int 5)
+      (str "+"))))

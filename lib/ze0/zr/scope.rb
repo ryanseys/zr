@@ -70,7 +70,7 @@ module Ze0
         when Hir::Begin
           top = base + (node.rescues.empty? ? 0 : 2) + (node.ensure_body ? 2 : 0)
           [top, staging(node.body, top), *node.rescues.map { |r| staging(r, top) }, staging(node.else_body, top), staging(node.ensure_body, top)].max
-        when Hir::Rescue then [staging(node.body, base), staging(node.target, base + 1), *node.classes.map { |c| staging(c, base) }].max
+        when Hir::Rescue then [staging(node.body, base + 2), staging(node.target, base + 1), *node.classes.map { |c| staging(c, base) }].max
         when Hir::ClassDef then [staging(node.scope, base), staging(node.superclass, base)].max
         when Hir::SingletonClassDef then staging(node.target, base)
         when Hir::Def then staging(node.receiver, base)

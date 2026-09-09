@@ -28,9 +28,11 @@ module Ze0
           with_ensure(node.ensure_body) { rescue_region(node) }
         end
 
-        # The ensure body runs after the block's code on the normal way
-        # out, and in the landing block on the signal's way out.
-        def with_ensure(body)
+        # The ensure body (a node, or a block of the lowering's own) runs
+        # after the block's code on the normal way out, and in the
+        # landing block on the signal's way out, where a raise shows as
+        # `$!` meanwhile unless `errinfo` is false.
+        def with_ensure(body, errinfo: true)
           region = Region.new(@f.label, body, reserve(2))
           value_at = value_offset(region.slot)
           prev_at = value_offset(region.slot + 1)
@@ -41,21 +43,25 @@ module Ze0
           @regions.pop
           unless @f.terminated?
             @f.store(v, @rec, value_at)
-            expr(body)
+            run_ensure(body)
             @f.jump(merge, [@f.fetch("i64", @rec, value_at)]) unless @f.terminated?
           end
           switch(region.landing, open: true)
-          @f.store(kernel("zr_errinfo"), @rec, prev_at)
+          @f.store(kernel("zr_errinfo"), @rec, prev_at) if errinfo
           @f.store(kernel("zr_signal_take", signal), @rec, value_at)
-          expr(body)
+          run_ensure(body)
           unless @f.terminated?
-            kernel("zr_errinfo_set", @f.fetch("i64", @rec, prev_at))
+            kernel("zr_errinfo_set", @f.fetch("i64", @rec, prev_at)) if errinfo
             kernel("zr_signal_restore", @f.fetch("i64", @rec, value_at), signal)
             @f.jump(landing)
           end
           switch(merge)
           @sp = region.slot
           result
+        end
+
+        def run_ensure(body)
+          body.is_a?(Proc) ? body.call : expr(body)
         end
 
         # The body under its rescue clauses, and the else arm after a
@@ -94,13 +100,14 @@ module Ze0
               prepared = clause.target.is_a?(Hir::Send) ? prepare(Hir::MultiTarget.new([clause.target], nil, [], clause.line)) : {}
               assign_target(clause.target, @f.fetch("i64", @rec, exc_at), prepared)
             end
-            @retries << [head, prev_at, @regions.size]
-            v = expr(clause.body)
-            @retries.pop
-            next if @f.terminated?
-
-            kernel("zr_errinfo_set", @f.fetch("i64", @rec, prev_at))
-            @f.jump(merge, [v])
+            restore = -> { kernel("zr_errinfo_set", @f.fetch("i64", @rec, prev_at)) }
+            v = with_ensure(restore, errinfo: false) do
+              @retries << [head, prev_at, @regions.size]
+              body = expr(clause.body)
+              @retries.pop
+              body
+            end
+            @f.jump(merge, [v]) unless @f.terminated?
           end
           switch(merge)
           @sp = region.slot
@@ -168,7 +175,7 @@ module Ze0
           while @regions.size > depth && !@f.terminated?
             region = @regions.pop
             left.unshift(region)
-            expr(region.ensure_body) if region.ensure_body
+            run_ensure(region.ensure_body) if region.ensure_body
           end
           @regions.concat(left)
         end
