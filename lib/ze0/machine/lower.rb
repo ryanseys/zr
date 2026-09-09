@@ -536,7 +536,9 @@ module Ze0
           [@f.icmp("eq", value, @f.iconst(clif(type), 0)), "Bool"]
         elsif node.name == :-@ && args.empty?
           value, type = expr(node.receiver, want)
-          refuse(node, "a negation of a #{type}") unless clif(type) && clif(type) != "f64"
+          return [@f.funop(:fneg, value), type] if type == "F64"
+
+          refuse(node, "a negation of a #{type}") unless clif(type)
           [@f.isub(@f.iconst(clif(type), 0), value), type]
         elsif node.receiver.is_a?(Prism::ConstantReadNode) && (layout = @unit.struct_for(node.receiver.name.to_s))
           field(node, layout, args, want)
@@ -603,6 +605,8 @@ module Ze0
       # unsigned. Value never mixes.
       def binary(node, op, lhs, lt, rhs, rt)
         refuse(node, "#{op} on #{lt} and #{rt}") unless clif(lt) && (lt == rt || (PLAIN.include?(lt) && PLAIN.include?(rt)))
+        return float_binary(node, op, lhs, rhs) if lt == "F64"
+
         ptr = lt == "Ptr" || rt == "Ptr"
         result = if ptr && op == :- && lt == rt then "Word"
                  elsif ptr then "Ptr"
@@ -622,6 +626,18 @@ module Ze0
         else
           refuse(node, "#{op} is not in the kernel dialect")
         end
+      end
+
+      FLOAT_OPS = { :+ => :fadd, :- => :fsub, :* => :fmul, :/ => :fdiv }.freeze
+      FLOAT_CONDS = { :== => "eq", :!= => "ne", :< => "lt", :<= => "le", :> => "gt", :>= => "ge" }.freeze
+
+      # F64 arithmetic and comparison; a comparison with NaN on either
+      # side is false, except `!=`.
+      def float_binary(node, op, lhs, rhs)
+        return [@f.fbinop(FLOAT_OPS[op], lhs, rhs), "F64"] if FLOAT_OPS.key?(op)
+        return [@f.fcmp(FLOAT_CONDS[op], lhs, rhs), "Bool"] if FLOAT_CONDS.key?(op)
+
+        refuse(node, "#{op} on an F64")
       end
 
       PLAIN = %w[Word Ptr].freeze
@@ -717,6 +733,13 @@ module Ze0
         when :i32, :i8, :word, :sword, :ptr, :value
           value, type = expr(args.first)
           convert(node, node.name, value, type)
+        when :f64, :bits, :to_f64, :to_int
+          value, type = expr(args.first)
+          float_convert(node, node.name, value, type)
+        when :sqrt, :floor, :ceil, :trunc, :nearest, :fabs
+          value, type = expr(args.first)
+          refuse(node, "Machine.#{node.name} of a #{type}") unless type == "F64"
+          [@f.funop(node.name, value), "F64"]
         when :addr
           name = args.first
           refuse(node, "Machine.addr takes the symbol of a machine def") unless name.is_a?(Prism::SymbolNode)
@@ -739,6 +762,26 @@ module Ze0
         return [@f.val("ireduce.#{into} #{value}"), target] if from == "i64" || (from == "i32" && into == "i8")
 
         [@f.val("#{to == :sword ? "sextend" : "uextend"}.#{into} #{value}"), target]
+      end
+
+      # `Machine.f64(word)` and `Machine.bits(f)` read the same 64 bits
+      # as the other type; `to_f64` and `to_int` convert by value, the
+      # latter saturating.
+      def float_convert(node, to, value, type)
+        case to
+        when :f64
+          refuse(node, "Machine.f64 of a #{type}") unless %w[Word Ptr Value].include?(type)
+          [@f.bitcast("f64", value), "F64"]
+        when :bits
+          refuse(node, "Machine.bits of a #{type}") unless type == "F64"
+          [@f.bitcast("i64", value), "Word"]
+        when :to_f64
+          refuse(node, "Machine.to_f64 of a #{type}") unless %w[Word Ptr Value].include?(type)
+          [@f.fcvt_from_sint(value), "F64"]
+        when :to_int
+          refuse(node, "Machine.to_int of a #{type}") unless type == "F64"
+          [@f.fcvt_to_sint_sat(value), "Word"]
+        end
       end
 
       def condition(node)

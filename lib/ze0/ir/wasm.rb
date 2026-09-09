@@ -39,6 +39,13 @@ module Ze0
                    and: 0x83, or: 0x84, xor: 0x85, shl: 0x86, shr_s: 0x87, shr_u: 0x88,
                    eq: 0x51, ne: 0x52, lt_s: 0x53, lt_u: 0x54, gt_s: 0x55, gt_u: 0x56, le_s: 0x57, le_u: 0x58, ge_s: 0x59, ge_u: 0x5A }
       }.freeze
+      # The libSystem calls the module answers itself.
+      SHIMS = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]], "exit" => [[0x7F], []], "abort" => [[], []],
+                "malloc" => [[0x7E], [0x7E]], "free" => [[0x7E], []], "getenv" => [[0x7E], [0x7E]],
+                "pthread_self" => [[], [0x7E]], "pthread_get_stackaddr_np" => [[0x7E], [0x7E]], "pthread_get_stacksize_np" => [[0x7E], [0x7E]],
+                "setenv" => [[0x7E, 0x7E, 0x7F], [0x7F]], "unsetenv" => [[0x7E], [0x7F]], "_NSGetEnviron" => [[], [0x7E]], "getcwd" => [[0x7E, 0x7E], [0x7E]], "getpid" => [[], [0x7F]], "arc4random" => [[], [0x7F]], "access" => [[0x7E, 0x7F], [0x7F]], "stat" => [[0x7E, 0x7E], [0x7F]],
+                "mmap" => [[0x7E, 0x7E, 0x7F, 0x7F, 0x7F, 0x7E], [0x7E]], "munmap" => [[0x7E, 0x7E], [0x7F]] }.freeze
+
       COND = { "eq" => :eq, "ne" => :ne, "slt" => :lt_s, "sle" => :le_s, "sgt" => :gt_s, "sge" => :ge_s,
                "ult" => :lt_u, "ule" => :le_u, "ugt" => :gt_u, "uge" => :ge_u }.freeze
 
@@ -56,11 +63,7 @@ module Ze0
         @index = {}
         @types = []
         @imports.each_with_index { |(_, name, params, results), i| @index[name] = i }
-        @shims = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]], "exit" => [[0x7F], []], "abort" => [[], []],
-                   "malloc" => [[0x7E], [0x7E]], "free" => [[0x7E], []], "getenv" => [[0x7E], [0x7E]],
-                   "pthread_self" => [[], [0x7E]], "pthread_get_stackaddr_np" => [[0x7E], [0x7E]], "pthread_get_stacksize_np" => [[0x7E], [0x7E]],
-                   "setenv" => [[0x7E, 0x7E, 0x7F], [0x7F]], "unsetenv" => [[0x7E], [0x7F]], "_NSGetEnviron" => [[], [0x7E]], "getcwd" => [[0x7E, 0x7E], [0x7E]], "getpid" => [[], [0x7F]], "arc4random" => [[], [0x7F]], "access" => [[0x7E, 0x7F], [0x7F]], "stat" => [[0x7E, 0x7E], [0x7F]],
-                   "mmap" => [[0x7E, 0x7E, 0x7F, 0x7F, 0x7F, 0x7E], [0x7E]], "munmap" => [[0x7E, 0x7E], [0x7F]] }
+        @shims = SHIMS
         @shims.each_key.with_index { |name, i| @index[name] = @imports.size + i }
         @functions.each_with_index { |f, i| @index[f.name] = @imports.size + @shims.size + i }
         @index["_start"] = @imports.size + @shims.size + @functions.size
@@ -311,8 +314,9 @@ module Ze0
           when :iconst, :load, :ireduce, :uextend, :sextend then i.type
           when :call then @f.sigs.find { |s| s.sig == callee(i.callee).sig }.ret
           when :call_indirect then @f.sigs.find { |s| s.sig == i.callee }.ret
-          when :icmp then "i8"
+          when :icmp, :fcmp then "i8"
           when :stack_addr, :symbol_value, :func_addr then "i64"
+          when *Inst::FBINOPS, *Inst::FUNOPS then "f64"
           when :select then @type[i.args[1]]
           when :sadd_overflow, :ssub_overflow, :smul_overflow then k.zero? ? @type[i.args[0]] : "i8"
           else i.type || @type[i.args[0]]
@@ -383,13 +387,13 @@ module Ze0
           when :load
             get(i.args[0])
             @code << "\xA7".b
-            @code << { "i64" => "\x29\x03".b, "i32" => "\x28\x02".b, "i8" => "\x2D\x00".b }.fetch(i.type) << @m.leb(i.offset)
+            @code << { "i64" => "\x29\x03".b, "i32" => "\x28\x02".b, "i8" => "\x2D\x00".b, "f64" => "\x2B\x03".b }.fetch(i.type) << @m.leb(i.offset)
             set(i.results[0])
           when :store
             get(i.args[1])
             @code << "\xA7".b
             get(i.args[0])
-            @code << { "i64" => "\x37\x03".b, "i32" => "\x36\x02".b, "i8" => "\x3A\x00".b }.fetch(@type[i.args[0]]) << @m.leb(i.offset)
+            @code << { "i64" => "\x37\x03".b, "i32" => "\x36\x02".b, "i8" => "\x3A\x00".b, "f64" => "\x39\x03".b }.fetch(@type[i.args[0]]) << @m.leb(i.offset)
           when :stack_addr
             @code << "\x20".b << @m.leb(@fp) << @m.i32c(@slot_at[Integer(i.args[0].delete_prefix("ss"))]) << "\x6A".b << "\xAD".b
             set(i.results[0])
@@ -415,7 +419,7 @@ module Ze0
             i.args.zip(params).each do |a, want|
               get(a)
               @code << "\xA7".b if wide?(a) && want == 0x7F
-              @code << "\xAD".b if !wide?(a) && want == 0x7E
+              @code << "\xAD".b if !wide?(a) && want == 0x7E && @type[a] != "f64"
             end
             @code << "\x10".b << @m.leb(@m.function_index(name))
             if i.results.empty?
@@ -430,6 +434,32 @@ module Ze0
             get(i.args[0])
             get(i.args[1])
             @code << ops(i.args[0]).fetch(Wasm::COND.fetch(i.cond)).chr
+            set(i.results[0])
+          when :fcmp
+            get(i.args[0])
+            get(i.args[1])
+            @code << { "eq" => 0x61, "ne" => 0x62, "lt" => 0x63, "gt" => 0x64, "le" => 0x65, "ge" => 0x66 }.fetch(i.cond).chr
+            set(i.results[0])
+          when *Inst::FBINOPS
+            get(i.args[0])
+            get(i.args[1])
+            @code << { fadd: 0xA0, fsub: 0xA1, fmul: 0xA2, fdiv: 0xA3 }.fetch(i.op).chr
+            set(i.results[0])
+          when *Inst::FUNOPS
+            get(i.args[0])
+            @code << { fabs: 0x99, fneg: 0x9A, ceil: 0x9B, floor: 0x9C, trunc: 0x9D, nearest: 0x9E, sqrt: 0x9F }.fetch(i.op).chr
+            set(i.results[0])
+          when :fcvt_from_sint
+            get(i.args[0])
+            @code << "\xB9".b
+            set(i.results[0])
+          when :fcvt_to_sint_sat
+            get(i.args[0])
+            @code << "\xFC\x06".b
+            set(i.results[0])
+          when :bitcast
+            get(i.args[0])
+            @code << (i.type == "f64" ? "\xBF".b : "\xBD".b)
             set(i.results[0])
           when :iadd, :isub, :imul, :udiv, :sdiv, :urem, :srem, :band, :bor, :bxor, :ishl, :ushr, :sshr
             get(i.args[0])

@@ -42,7 +42,8 @@ module Ze0
           when :return then i.args.empty? ? head : "#{head} #{i.args[0]}"
           when :store then "#{head} #{flags(i)}#{i.args[0]}, #{i.args[1]}#{offset(i)}"
           when :load then "#{head} #{flags(i)}#{i.args[0]}#{offset(i)}"
-          when :icmp then "#{head} #{i.cond} #{i.args.join(", ")}"
+          when :icmp, :fcmp then "#{head} #{i.cond} #{i.args.join(", ")}"
+          when :bitcast then "#{head} little #{i.args[0]}"
           else "#{head} #{i.args.join(", ")}"
           end
         lhs + body

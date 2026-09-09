@@ -45,12 +45,22 @@ module Ze0
         road.link([obj], out)
       end
 
-      # The same functions and data as one WASI module. A raw function
-      # has no wasm form: its place is taken by a function that stops by
-      # name when called.
+      # The same functions and data as one WASI module. A raw function,
+      # or a libSystem call the module has no shim for, has no wasm form:
+      # its place is taken by a function that stops by name when called.
       def wasm(functions, data, out, raw: [])
         data = data.dup
-        stops = raw.map { |r| raw_stop(r, data) }
+        stops = raw.map { |r| params, ret = Machine::Stub::ALL.fetch(r.name); stop(r.name, params.map { |t| Machine::TYPES.fetch(t.to_s) }, Machine::TYPES.fetch(ret.to_s), data) }
+        defined = functions.map(&:name) + stops.map(&:name) + IR::Wasm::SHIMS.keys
+        functions.each do |f|
+          f.callees.each do |c|
+            next if defined.include?(c.symbol)
+
+            sig = f.sigs.find { |x| x.sig == c.sig }
+            stops << stop(c.symbol, sig.params, sig.ret, data)
+            defined << c.symbol
+          end
+        end
         (functions + stops).each { |f| IR::Verify.check(f) }
         File.binwrite(out, IR::Wasm.new(functions + stops, data).emit)
         nil
@@ -58,15 +68,14 @@ module Ze0
         e.message
       end
 
-      def raw_stop(r, data)
-        message = "ze0: #{r.name} has no wasm form\n"
-        name = "zr_raw_stop_#{r.name}"
-        data << Obj::Data.new(name, :text_const, message.b, align: 1)
-        params, ret = Machine::Stub::ALL.fetch(r.name)
-        f = IR::Function.new(r.name, params.map { |t| Machine::TYPES.fetch(t.to_s) }, Machine::TYPES.fetch(ret.to_s))
-        f.call(f.callee("write", %w[i32 i64 i64], "i64", colocated: false), [f.iconst("i32", 2), f.symbol_value(f.symbol(name)), f.iconst("i64", message.bytesize)])
+      def stop(name, params, ret, data)
+        message = "ze0: #{name} has no wasm form\n"
+        bytes = "zr_stop_#{name}"
+        data << Obj::Data.new(bytes, :text_const, message.b, align: 1)
+        f = IR::Function.new(name, params, ret)
+        f.call(f.callee("write", %w[i32 i64 i64], "i64", colocated: false), [f.iconst("i32", 2), f.symbol_value(f.symbol(bytes)), f.iconst("i64", message.bytesize)])
         f.call(f.callee("abort", [], nil, colocated: false), [])
-        f.ret(ret == :Void ? nil : f.iconst(Machine::TYPES.fetch(ret.to_s), 0))
+        f.ret(ret.nil? ? nil : (ret == "f64" ? f.bitcast("f64", f.iconst("i64", 0)) : f.iconst(ret, 0)))
         f
       end
 

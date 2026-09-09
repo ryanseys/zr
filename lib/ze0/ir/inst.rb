@@ -17,6 +17,13 @@ module Ze0
       BINOPS = %i[iadd isub imul udiv sdiv urem srem band bor bxor ishl ushr sshr].freeze
       # The comparison conditions, as CLIF spells them.
       CONDS = %w[eq ne slt sle sgt sge ult ule ugt uge].freeze
+      # The two-operand and one-operand f64 opcodes.
+      FBINOPS = %i[fadd fsub fmul fdiv].freeze
+      FUNOPS = %i[fneg fabs sqrt floor ceil trunc nearest].freeze
+      # Float comparisons: false when either side is NaN, except `ne`.
+      FCONDS = %w[eq ne lt le gt ge].freeze
+      # The conversions between i64 and f64: by value, and by bits.
+      CONVERSIONS = %i[fcvt_from_sint fcvt_to_sint_sat bitcast].freeze
 
       attr_accessor :op, :type, :args, :results, :cond, :offset, :targets, :callee, :flags
 
@@ -80,7 +87,14 @@ module Ze0
           raise ArgumentError, "an icmp condition: #{text}" unless CONDS.include?(cond)
 
           new(op, type: type, results: results, cond: cond, args: [a, b])
-        when *BINOPS, :select, *PAIRS
+        when :fcmp
+          cond, a, b = rest.split(/[ ,]+/, 3)
+          raise ArgumentError, "an fcmp condition: #{text}" unless FCONDS.include?(cond)
+
+          new(op, type: type, results: results, cond: cond, args: [a, b])
+        when :bitcast
+          new(op, type: type, results: results, args: [rest.delete_prefix("little ")])
+        when *BINOPS, :select, *PAIRS, *FBINOPS, *FUNOPS, :fcvt_from_sint, :fcvt_to_sint_sat
           new(op, type: type, results: results, args: rest.split(", "))
         else
           raise ArgumentError, "ze0 does not emit `#{op}`: #{text}"

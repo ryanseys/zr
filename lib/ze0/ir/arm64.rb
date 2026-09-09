@@ -28,6 +28,36 @@ module Ze0
         "eq" => :eq, "ne" => :ne, "slt" => :lt, "sle" => :le, "sgt" => :gt, "sge" => :ge,
         "ult" => :lo, "ule" => :ls, "ugt" => :hi, "uge" => :hs
       }.freeze
+      # Float comparisons after fcmp: NaN on either side sets C and V and
+      # clears N and Z, which every condition but `ne` reads as false.
+      FCONDS = { "eq" => :eq, "ne" => :ne, "lt" => :mi, "le" => :ls, "gt" => :gt, "ge" => :ge }.freeze
+
+      # The floating-point instructions the `aarch64` gem does not encode,
+      # as words: `FMOV Dd, Xn`, `FMOV Xd, Dn`, the arithmetic and the
+      # conversions, with d16..d19 as scratch.
+      module FP
+        Word = Struct.new(:word) do
+          def encode(_position) = word
+        end
+
+        module_function
+
+        def to_d(d, x) = Word.new(0x9E670000 | (x << 5) | d)
+        def to_x(x, d) = Word.new(0x9E660000 | (d << 5) | x)
+        def binop(op, d, n, m)
+          base = { fadd: 0x1E602800, fsub: 0x1E603800, fmul: 0x1E600800, fdiv: 0x1E601800 }.fetch(op)
+          Word.new(base | (m << 16) | (n << 5) | d)
+        end
+
+        def unop(op, d, n)
+          base = { fneg: 0x1E614000, fabs: 0x1E60C000, sqrt: 0x1E61C000, floor: 0x1E654000, ceil: 0x1E64C000, trunc: 0x1E65C000, nearest: 0x1E644000 }.fetch(op)
+          Word.new(base | (n << 5) | d)
+        end
+
+        def cmp(n, m) = Word.new(0x1E602000 | (m << 16) | (n << 5))
+        def scvtf(d, x) = Word.new(0x9E620000 | (x << 5) | d)
+        def fcvtzs(x, d) = Word.new(0x9E780000 | (d << 5) | x)
+      end
 
       class Refused < StandardError; end
 
@@ -67,8 +97,9 @@ module Ze0
                 when :iconst, :load, :ireduce, :uextend, :sextend then i.type
                 when :call then sig_of(i.callee).ret
                 when :call_indirect then sig_named(i.callee).ret
-                when :icmp then "i8"
+                when :icmp, :fcmp then "i8"
                 when :stack_addr, :symbol_value, :func_addr then "i64"
+                when *Inst::FBINOPS, *Inst::FUNOPS then "f64"
                 when :select then type_of(i.args[1])
                 when :sadd_overflow, :ssub_overflow, :smul_overflow then type_of(i.args[0])
                 else i.type || type_of(i.args[0])
@@ -140,10 +171,12 @@ module Ze0
         [X15, off & 0xFFF]
       end
 
+      # An f64 value lives in its slot as bits and moves through the
+      # integer registers.
       def load_value(v, reg)
         off = @home.fetch(v)
         case type_of(v)
-        when "i64" then @asm.ldr reg, address(off, 8)
+        when "i64", "f64" then @asm.ldr reg, address(off, 8)
         when "i32" then @asm.ldr w(reg), address(off, 4)
         when "i8" then @asm.ldrb w(reg), address(off, 1)
         else raise Refused, "#{@f.name}: a #{type_of(v)} value"
@@ -158,7 +191,7 @@ module Ze0
       def store_param(v, reg)
         off = @home.fetch(v)
         case type_of(v)
-        when "i64" then @asm.str reg, address(off, 8)
+        when "i64", "f64" then @asm.str reg, address(off, 8)
         when "i32" then @asm.str w(reg), address(off, 4)
         when "i8" then @asm.strb w(reg), address(off, 1)
         else raise Refused, "#{@f.name}: a #{type_of(v)} parameter"
@@ -170,7 +203,11 @@ module Ze0
       end
 
       def wide?(v)
-        type_of(v) == "i64"
+        type_of(v) == "i64" || type_of(v) == "f64"
+      end
+
+      def float?(v)
+        type_of(v) == "f64"
       end
 
       def reg_for(v, x)
@@ -186,8 +223,17 @@ module Ze0
         entry = @f.blocks.first
         raise Refused, "#{@f.name}: more than eight parameters" if entry.params.size > 8
 
-        entry.params.each_with_index do |(v, _), i|
-          store_param(v, AArch64::Registers.const_get(:"X#{i}"))
+        ints = 0
+        floats = 0
+        entry.params.each do |v, t|
+          if t == "f64"
+            @asm << FP.to_x(9, floats)
+            floats += 1
+            store_param(v, X9)
+          else
+            store_param(v, AArch64::Registers.const_get(:"X#{ints}"))
+            ints += 1
+          end
         end
       end
 
@@ -244,13 +290,42 @@ module Ze0
           store_value(i.results[0], X12)
         when :sadd_overflow, :ssub_overflow then emit_overflow(i)
         when :smul_overflow then emit_mul_overflow(i)
+        when *Inst::FBINOPS
+          load_value(i.args[0], X9)
+          load_value(i.args[1], X10)
+          @asm << FP.to_d(16, 9) << FP.to_d(17, 10) << FP.binop(i.op, 18, 16, 17) << FP.to_x(11, 18)
+          store_value(i.results[0], X11)
+        when *Inst::FUNOPS
+          load_value(i.args[0], X9)
+          @asm << FP.to_d(16, 9) << FP.unop(i.op, 17, 16) << FP.to_x(11, 17)
+          store_value(i.results[0], X11)
+        when :fcmp
+          load_value(i.args[0], X9)
+          load_value(i.args[1], X10)
+          @asm << FP.to_d(16, 9) << FP.to_d(17, 10) << FP.cmp(16, 17)
+          @asm.cset X11, FCONDS.fetch(i.cond)
+          store_value(i.results[0], X11)
+        when :fcvt_from_sint
+          load_value(i.args[0], X9)
+          @asm << FP.scvtf(16, 9) << FP.to_x(11, 16)
+          store_value(i.results[0], X11)
+        when :fcvt_to_sint_sat
+          load_value(i.args[0], X9)
+          @asm << FP.to_d(16, 9) << FP.fcvtzs(11, 16)
+          store_value(i.results[0], X11)
+        when :bitcast
+          load_value(i.args[0], X9)
+          store_value(i.results[0], X9)
         when :brif
           load_value(i.args[0], X9)
           @asm.cbnz reg_for(i.args[0], X9), @labels.fetch(i.targets[0][0])
           @asm.b @labels.fetch(i.targets[1][0])
         when :jump then emit_jump(i)
         when :return
-          load_value(i.args[0], X0) unless i.args.empty?
+          unless i.args.empty?
+            load_value(i.args[0], X0)
+            @asm << FP.to_d(0, 0) if float?(i.args[0])
+          end
           epilogue
         else raise Refused, "#{@f.name}: no lowering for #{i.op}"
         end
@@ -259,7 +334,7 @@ module Ze0
       def emit_load(i)
         load_value(i.args[0], X9)
         case i.type
-        when "i64" then @asm.ldr X10, [X9, i.offset]
+        when "i64", "f64" then @asm.ldr X10, [X9, i.offset]
         when "i32" then @asm.ldr W10, [X9, i.offset]
         when "i8" then @asm.ldrb W10, [X9, i.offset]
         else raise Refused, "#{@f.name}: load.#{i.type}"
@@ -271,7 +346,7 @@ module Ze0
         load_value(i.args[0], X9)
         load_value(i.args[1], X10)
         case type_of(i.args[0])
-        when "i64" then @asm.str X9, [X10, i.offset]
+        when "i64", "f64" then @asm.str X9, [X10, i.offset]
         when "i32" then @asm.str W9, [X10, i.offset]
         when "i8" then @asm.strb W9, [X10, i.offset]
         end
@@ -299,14 +374,40 @@ module Ze0
         sig = sig_of(i.callee)
         raise Refused, "#{@f.name}: a call with more than eight arguments" if i.args.size > 8
 
-        i.args.each_with_index { |v, n| load_value(v, AArch64::Registers.const_get(:"X#{n}")) }
+        load_args(i.args)
         reloc(:branch26, c.symbol)
         @asm.bl 0
         return if i.results.empty?
 
-        # A 32-bit or narrower result has undefined bits above: clear them.
-        @asm.mov W0, W0 unless sig.ret == "i64"
-        store_value(i.results[0], X0)
+        store_result(i.results[0], sig.ret)
+      end
+
+      # Integer arguments take x0.. and float arguments d0.., each in
+      # its own order, as the ABI says.
+      def load_args(args)
+        ints = 0
+        floats = 0
+        args.each do |v|
+          if float?(v)
+            load_value(v, X9)
+            @asm << FP.to_d(floats, 9)
+            floats += 1
+          else
+            load_value(v, AArch64::Registers.const_get(:"X#{ints}"))
+            ints += 1
+          end
+        end
+      end
+
+      # A 32-bit or narrower result has undefined bits above: clear them.
+      # A float result comes back in d0.
+      def store_result(v, ret)
+        if ret == "f64"
+          @asm << FP.to_x(0, 0)
+        elsif ret != "i64"
+          @asm.mov W0, W0
+        end
+        store_value(v, X0)
       end
 
       # The pointer goes to x9 after the arguments are in place: no
@@ -316,13 +417,12 @@ module Ze0
         ptr, *args = i.args
         raise Refused, "#{@f.name}: a call with more than eight arguments" if args.size > 8
 
-        args.each_with_index { |v, n| load_value(v, AArch64::Registers.const_get(:"X#{n}")) }
+        load_args(args)
         load_value(ptr, X9)
         @asm.blr X9
         return if i.results.empty?
 
-        @asm.mov W0, W0 unless sig.ret == "i64"
-        store_value(i.results[0], X0)
+        store_result(i.results[0], sig.ret)
       end
 
       def emit_binop(i)

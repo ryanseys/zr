@@ -255,6 +255,51 @@ module Ze0
         v
       end
 
+      # The f64 instructions: arithmetic, one-operand math, comparison
+      # (an i8), and the conversions to and from i64.
+      def fbinop(op, a, b)
+        raise ArgumentError, "not an f64 binary opcode: #{op}" unless Inst::FBINOPS.include?(op)
+
+        v = value
+        emit(Inst.new(op, results: [v], args: [a, b]))
+        v
+      end
+
+      def funop(op, a)
+        raise ArgumentError, "not an f64 unary opcode: #{op}" unless Inst::FUNOPS.include?(op)
+
+        v = value
+        emit(Inst.new(op, results: [v], args: [a]))
+        v
+      end
+
+      def fcmp(cond, a, b)
+        raise ArgumentError, "not an fcmp condition: #{cond}" unless Inst::FCONDS.include?(cond)
+
+        v = value
+        emit(Inst.new(:fcmp, results: [v], cond: cond, args: [a, b]))
+        v
+      end
+
+      def fcvt_from_sint(a)
+        v = value
+        emit(Inst.new(:fcvt_from_sint, type: "f64", results: [v], args: [a]))
+        v
+      end
+
+      def fcvt_to_sint_sat(a)
+        v = value
+        emit(Inst.new(:fcvt_to_sint_sat, type: "i64", results: [v], args: [a]))
+        v
+      end
+
+      # The same bits as the other type: `type` is "f64" or "i64".
+      def bitcast(type, a)
+        v = value
+        emit(Inst.new(:bitcast, type: type, results: [v], args: [a]))
+        v
+      end
+
       def imul(a, b) = binop(:imul, a, b)
       def bxor(a, b) = binop(:bxor, a, b)
       def ishl(a, b) = binop(:ishl, a, b)
