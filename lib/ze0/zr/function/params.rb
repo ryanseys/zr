@@ -94,7 +94,7 @@ module Ze0
           req = p.required.size + p.post.size
           p.required.each_with_index do |name, i|
             v = strict ? arg_at(argv, imm(i)) : arg_or_nil(argc, argv, imm(i))
-            write_local(slot_of(name), 0, v)
+            bind(name, v)
           end
           avail = @f.isub(argc, imm(req))
           avail = @f.csel(@f.icmp("slt", avail, imm(0)), imm(0), avail) unless strict
@@ -110,6 +110,15 @@ module Ze0
           p.post.each_with_index do |name, i|
             index = @f.iadd(@f.isub(argc, imm(p.post.size)), imm(i))
             v = strict ? arg_at(argv, index) : arg_or_nil(argc, argv, index)
+            bind(name, v)
+          end
+        end
+
+        # `v` into the parameter `name`, or apart into a `(a, b)` target.
+        def bind(name, v)
+          if name.is_a?(Hir::MultiTarget)
+            destructure(name, v, {})
+          else
             write_local(slot_of(name), 0, v)
           end
         end

@@ -16,6 +16,7 @@ module Ze0
           when Hir::Send then call(node)
           when Hir::Local then read_local(slot_at(node), node.depth)
           when Hir::Assign then write_local(slot_at(node), node.depth, expr(node.value))
+          when Hir::MultiAssign then multi_assign(node)
           when Hir::Yield then yield_block(node)
           when Hir::Break then jump_out(node, :break)
           when Hir::Next then jump_out(node, :next)

@@ -46,7 +46,8 @@ module Ze0
       end
 
       def names
-        required + optional.map(&:first) + [rest].compact + post + keywords.map(&:first) + [kwrest, block].compact - [:implicit]
+        positionals = (required + post).flat_map { |r| r.is_a?(MultiTarget) ? r.names : [r] }
+        positionals + optional.map(&:first) + [rest].compact + keywords.map(&:first) + [kwrest, block].compact - [:implicit]
       end
     end
     Yield = Struct.new(:args, :line)
@@ -62,6 +63,24 @@ module Ze0
     # `depth` counts block scopes up to the one that holds the local.
     Local = Struct.new(:name, :depth, :line)
     Assign = Struct.new(:name, :depth, :value, :line)
+    # `a, (b, *c), *d, e = value`; its value is the right-hand side's.
+    MultiAssign = Struct.new(:target, :value, :line)
+    # The targets before the rest, the rest (a target, `:implicit` for a
+    # bare `*`, or nil) and the targets after it. A target is an Assign
+    # or IvarWrite with a nil value, a Send with the value to append
+    # (`h[k]`, `o.attr`), or a nested MultiTarget. As a block parameter,
+    # a MultiTarget stands among the required names.
+    MultiTarget = Struct.new(:lefts, :rest, :rights, :line) do
+      def names
+        (lefts + [rest] + rights).flat_map do |t|
+          case t
+          when Assign then [t.name]
+          when MultiTarget then t.names
+          else []
+          end
+        end
+      end
+    end
     # `if`; `unless` arrives with its arms swapped. An arm may be nil.
     If = Struct.new(:cond, :yes, :no, :line)
     While = Struct.new(:cond, :body, :line)

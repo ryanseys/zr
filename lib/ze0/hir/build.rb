@@ -47,6 +47,7 @@ module Ze0
         when Prism::DefNode then define(node)
         when Prism::LocalVariableReadNode then Local.new(node.name, node.depth, line)
         when Prism::LocalVariableWriteNode then Assign.new(node.name, node.depth, expr(node.value), line)
+        when Prism::MultiWriteNode then MultiAssign.new(multi_target(node), expr(node.value), line)
         when Prism::LocalVariableOperatorWriteNode
           Assign.new(node.name, node.depth, Send.new(Local.new(node.name, node.depth, line), node.binary_operator, [expr(node.value)], line, false), line)
         when Prism::LocalVariableAndWriteNode
@@ -200,9 +201,39 @@ module Ze0
         Params.new(required, optional, rest, post, keywords, kwrest, block)
       end
 
+      # A required parameter: its name, or a MultiTarget for `(a, b)`.
       def name_of(param)
-        refuse(param, "a destructuring parameter is not lowered yet") unless param.is_a?(Prism::RequiredParameterNode)
+        return multi_target(param) if param.is_a?(Prism::MultiTargetNode)
+
         param.name
+      end
+
+      def multi_target(node)
+        line = node.location.start_line
+        rest = case node.rest
+               when nil then nil
+               when Prism::ImplicitRestNode then :implicit
+               when Prism::SplatNode then node.rest.expression ? target(node.rest.expression) : :implicit
+               else refuse(node.rest, "#{node.rest.class.name.split("::").last.delete_suffix("Node")} is not lowered yet")
+               end
+        MultiTarget.new(node.lefts.map { |t| target(t) }, rest, node.rights.map { |t| target(t) }, line)
+      end
+
+      # One target of a multiple assignment.
+      def target(node)
+        line = node.location.start_line
+        case node
+        when Prism::LocalVariableTargetNode, Prism::RequiredParameterNode then Assign.new(node.name, node.respond_to?(:depth) ? node.depth : 0, nil, line)
+        when Prism::InstanceVariableTargetNode then IvarWrite.new(node.name, nil, line)
+        when Prism::MultiTargetNode then multi_target(node)
+        when Prism::IndexTargetNode
+          args = (node.arguments&.arguments || []).map { |a| a.is_a?(Prism::SplatNode) ? refuse(a, "a splat in an index target is not lowered yet") : expr(a) }
+          Send.new(expr(node.receiver), :[]=, args, line, false, true, nil, nil)
+        when Prism::CallTargetNode
+          refuse(node, "a safe-navigation target is not lowered yet") if node.call_operator == "&."
+          Send.new(expr(node.receiver), node.name, [], line, false, false, nil, nil)
+        else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} as an assignment target is not lowered yet")
+        end
       end
 
       # A rest parameter's name; `|a, |` has an implicit one that binds

@@ -39,6 +39,9 @@ module Ze0
         when Hir::HashLit then spread?(node.pairs) ? gathered(node.pairs, base) : row(node.pairs, base)
         when Hir::Interp then row(node.parts, base)
         when Hir::Assign, Hir::Not, Hir::IvarWrite, Hir::ConstWrite then staging(node.value, base)
+        when Hir::MultiAssign
+          top = base + 1 + prepared(node.target)
+          [staging(node.value, top), top + targets(node.target), *sends_in(node.target).map { |s| staging(s, top) }].max
         when Hir::Break, Hir::Next, Hir::Return then staging(node.value, base + 1)
         when Hir::Begin
           top = base + (node.rescues.empty? ? 0 : 2) + (node.ensure_body ? 2 : 0)
@@ -53,6 +56,28 @@ module Ze0
         when Hir::And, Hir::Or then [staging(node.left, base), staging(node.right, base)].max
         else base
         end
+      end
+
+      # The slots a MultiTarget's Send targets stage ahead of the value:
+      # a receiver and arguments each.
+      def prepared(target)
+        sends_in(target).sum { |s| 2 + s.args.size }
+      end
+
+      def sends_in(target)
+        (target.lefts + [target.rest] + target.rights).flat_map do |t|
+          case t
+          when Hir::Send then [t]
+          when Hir::MultiTarget then sends_in(t)
+          else []
+          end
+        end
+      end
+
+      # The slots destructuring into `target` takes: one Array per level.
+      def targets(target)
+        nested = (target.lefts + [target.rest] + target.rights).grep(Hir::MultiTarget).map { |t| targets(t) }.max || 0
+        1 + nested
       end
 
       # `parts` evaluated one after another into consecutive slots.

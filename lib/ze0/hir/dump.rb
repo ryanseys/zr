@@ -70,7 +70,25 @@ module Ze0
           lines << "#{pad}(local #{n.name}#{n.depth.zero? ? "" : " ^#{n.depth}"})"
         when Assign
           lines << "#{pad}(assign #{n.name}#{n.depth.zero? ? "" : " ^#{n.depth}"}"
+          node(n.value, depth + 1, lines) if n.value
+          lines[-1] += ")"
+        when MultiAssign
+          lines << "#{pad}(masgn"
+          node(n.target, depth + 1, lines)
           node(n.value, depth + 1, lines)
+          lines[-1] += ")"
+        when MultiTarget
+          lines << "#{pad}(targets"
+          n.lefts.each { |t| node(t, depth + 1, lines) }
+          case n.rest
+          when nil then nil
+          when :implicit then lines << "#{pad}  (rest)"
+          else
+            lines << "#{pad}  (rest"
+            node(n.rest, depth + 2, lines)
+            lines[-1] += ")"
+          end
+          n.rights.each { |t| node(t, depth + 1, lines) }
           lines[-1] += ")"
         when If
           lines << "#{pad}(if"
@@ -147,7 +165,7 @@ module Ze0
           lines << "#{pad}(gvar #{n.name})"
         when IvarWrite
           lines << "#{pad}(ivar-set #{n.name}"
-          node(n.value, depth + 1, lines)
+          node(n.value, depth + 1, lines) if n.value
           lines[-1] += ")"
         else
           raise ArgumentError, "no dump for #{n.class}"
@@ -156,8 +174,16 @@ module Ze0
 
       # `a b= *r c k: k2:= **kw &blk`: each parameter as its syntax.
       def params(p)
-        [*p.required, *p.optional.map { |name, _| "#{name}=" }, p.rest && "*#{p.rest == :implicit ? "" : p.rest}", *p.post,
+        [*p.required.map { |r| param_name(r) }, *p.optional.map { |name, _| "#{name}=" }, p.rest && "*#{p.rest == :implicit ? "" : p.rest}", *p.post.map { |r| param_name(r) },
          *p.keywords.map { |name, default| "#{name}:#{default ? "=" : ""}" }, p.kwrest && "**#{p.kwrest}", p.block && "&#{p.block}"].compact.join(" ")
+      end
+
+      def param_name(r)
+        return r.name if r.is_a?(Assign)
+        return r unless r.is_a?(MultiTarget)
+
+        inner = (r.lefts + (r.rest ? [r.rest == :implicit ? "*" : "*#{param_name(r.rest)}"] : []) + r.rights).map { |t| t.is_a?(String) ? t : param_name(t) }
+        "(#{inner.join(" ")})"
       end
 
       # The default expressions, optional then keyword, as child nodes.

@@ -9,6 +9,7 @@ require_relative "function/sends"
 require_relative "function/control"
 require_relative "function/regions"
 require_relative "function/params"
+require_relative "function/targets"
 
 module Ze0
   module Zr
@@ -35,6 +36,7 @@ module Ze0
       include Control
       include Regions
       include Params
+      include Targets
 
       KINDS = { main: "KIND_MAIN", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK" }.freeze
       ABI = { main: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64] }.freeze
@@ -152,9 +154,14 @@ module Ze0
       end
 
       # The record slots the prologue keeps for itself: one for a
-      # method's keyword Hash.
+      # method's keyword Hash, and one per level of a destructuring
+      # parameter.
       def prologue_slots
-        @kind == :def && keywords?(@def.params) ? 1 : 0
+        return 0 unless %i[def block].include?(@kind)
+
+        p = @def.params
+        nested = (p.required + p.post).grep(Hir::MultiTarget).map { |t| Scope.targets(t) }.max || 0
+        (@kind == :def && keywords?(p) ? 1 : 0) + nested
       end
 
       def leave(value)

@@ -259,3 +259,54 @@ machine def zr_opt_aset(recv, mid, argc, argv)
   end
   zr_send(recv, mid, argc, argv)
 end
+
+# The Array a multiple assignment takes apart: the value itself, its
+# `to_ary` when it has one, else the value alone.
+sig [Value] => Value
+machine def zr_masgn_ary(v)
+  if !zr_special_p(v) && zr_type(v) == T_ARRAY
+    return v
+  end
+  if !zr_special_p(v) && zr_find_method(zr_class_of(v), Machine.id(:to_ary)) != 0
+    a = zr_send(v, Machine.id(:to_ary), 0, 0)
+    return a if a == QUNDEF
+    if !zr_special_p(a) && zr_type(a) == T_ARRAY
+      return a
+    end
+    if a != QNIL
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't convert to Array (to_ary gives something else)"), 52)
+    end
+  end
+  a = zr_ary_new(1)
+  zr_ary_push(a, v)
+  a
+end
+
+# `a, *rest, b = ary`: the elements between the first `nlefts` and the
+# last `nrights`, or none.
+sig [Value, Word, Word] => Value
+machine def zr_masgn_rest(ary, nlefts, nrights)
+  from = nlefts
+  to = RArray.len(ary) - nrights
+  if to < from
+    to = from
+  end
+  out = zr_ary_new(to - from)
+  i = from
+  while i < to
+    zr_ary_push(out, zr_ary_at(ary, i))
+    i += 1
+  end
+  out
+end
+
+# The `i`th of the `nrights` targets after a rest: from the end when
+# the Array is long enough, else right after the `nlefts`.
+sig [Value, Word, Word, Word] => Value
+machine def zr_masgn_right(ary, nlefts, nrights, i)
+  start = RArray.len(ary) - nrights
+  if start < nlefts
+    start = nlefts
+  end
+  zr_ary_at(ary, start + i)
+end
