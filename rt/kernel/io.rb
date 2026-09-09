@@ -167,6 +167,61 @@ machine def zr_io_file_size(path)
   zr_fix(Machine.load64(buf, 96))
 end
 
+Machine.import "lstat", [Ptr, Ptr] => I32
+Machine.import "realpath", [Ptr, Ptr] => Ptr
+Machine.import "chmod", [Ptr, I32] => I32
+
+# stat(2) (or lstat when `follow` is false) as fixnums in an Array:
+# dev, ino, mode, nlink, uid, gid, rdev, size, blksize, blocks, then
+# atime, mtime and ctime as seconds and nanoseconds; a negative errno
+# on failure. The offsets are darwin's 64-bit-inode struct stat.
+sig [Value, Value] => Value
+machine def zr_stat_m(path, follow)
+  buf = Machine.slot(160)
+  r = follow == QFALSE ? lstat(RString.ptr(path), buf) : stat(RString.ptr(path), buf)
+  if r < Machine.i32(0)
+    return zr_fix(0 - zr_errno())
+  end
+  out = zr_ary_new(16)
+  zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(buf, 0))))
+  zr_ary_push(out, zr_fix(Machine.load64(buf, 8)))
+  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 4)) & 65535))
+  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 4)) >> 16))
+  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 16))))
+  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 20))))
+  zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(buf, 24))))
+  zr_ary_push(out, zr_fix(Machine.load64(buf, 96)))
+  zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(buf, 112))))
+  zr_ary_push(out, zr_fix(Machine.load64(buf, 104)))
+  zr_ary_push(out, zr_fix(Machine.load64(buf, 32)))
+  zr_ary_push(out, zr_fix(Machine.load64(buf, 40)))
+  zr_ary_push(out, zr_fix(Machine.load64(buf, 48)))
+  zr_ary_push(out, zr_fix(Machine.load64(buf, 56)))
+  zr_ary_push(out, zr_fix(Machine.load64(buf, 64)))
+  zr_ary_push(out, zr_fix(Machine.load64(buf, 72)))
+  out
+end
+
+# realpath(3): the resolved path, or a negative errno.
+sig [Value] => Value
+machine def zr_realpath_m(path)
+  p = realpath(RString.ptr(path), 0)
+  if p == 0
+    return zr_fix(0 - zr_errno())
+  end
+  s = zr_str_new(p, zr_cstr_len(p))
+  free(p)
+  s
+end
+
+sig [Value, Value] => Value
+machine def zr_chmod_m(path, mode)
+  if chmod(RString.ptr(path), Machine.i32(zr_fix2long(mode))) < Machine.i32(0)
+    return zr_fix(0 - zr_errno())
+  end
+  zr_fix(0)
+end
+
 # access(2): whether the process may use the file as `mode` asks (4
 # read, 2 write, 1 execute).
 sig [Value, Value] => Value

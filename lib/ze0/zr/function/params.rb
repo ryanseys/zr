@@ -20,6 +20,10 @@ module Ze0
         def bind_method(p, argc, argv)
           if keywords?(p)
             argc, kwargs_at = take_keywords(argc, argv)
+          elsif p.rest && p.rest != :implicit
+            # A ruby2_keywords method flags the keywords Hash it takes
+            # into its rest.
+            kernel("zr_kw_ruby2_in", argc, argv, @f.func_addr(@f.callee(@name, ABI.fetch(:def), "i64")))
           else
             @f.store(imm(0), @task_addr, off(@task, "kw"))
           end
@@ -38,6 +42,8 @@ module Ze0
           argv = @f.args[2]
           if keywords?(p)
             argc, kwargs_at = take_keywords(argc, argv)
+          elsif p.rest && p.rest != :implicit
+            kernel("zr_kw_ruby2_in", argc, argv, @f.func_addr(@f.callee(@name, ABI.fetch(:block), "i64")))
           else
             @f.store(imm(0), @task_addr, off(@task, "kw"))
           end

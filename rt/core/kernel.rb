@@ -238,13 +238,21 @@ module Kernel
   private :Integer, :String, :Array, :sleep, :warn, :catch, :throw, :loop, :exit, :abort, :at_exit, :require, :require_relative, :load
 end
 
+# A `ruby2_keywords` method keeps the keywords it took into its rest
+# flagged, so a `*rest` call passes them on as keywords.
 module Kernel
-  def ruby2_keywords(*names) = Primitive.zr_unimplemented("ruby2_keywords")
+  def ruby2_keywords(*names)
+    names.each { |name| Primitive.zr_ruby2_mark_m(Object, name) }
+    nil
+  end
   private :ruby2_keywords
 end
 
 class Module
-  def ruby2_keywords(*names) = Primitive.zr_unimplemented("ruby2_keywords")
+  def ruby2_keywords(*names)
+    names.each { |name| Primitive.zr_ruby2_mark_m(self, name) }
+    nil
+  end
   private :ruby2_keywords
 end
 

@@ -667,11 +667,11 @@ machine def zr_obj_frozen_p(recv, argc, argv, cref, blk)
   zr_bool(zr_frozen_p(recv))
 end
 
-# `succ`: the rightmost alphanumeric run counts up with carries, as
-# CRuby does; a string with no alphanumerics bumps its last byte.
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_str_succ(recv, argc, argv, cref, blk)
-  zr_non_ascii_stop(recv, Machine.bytes("succ"), 4)
+# `succ` of an ASCII string: the rightmost alphanumeric run counts up
+# with carries, as CRuby does; a string with no alphanumerics bumps
+# its last byte. The core handles other strings.
+sig [Value] => Value
+machine def zr_str_succ_ascii(recv)
   n = RString.len(recv)
   if n == 0
     return zr_str_new(Machine.bytes(""), 0)

@@ -279,14 +279,15 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_alias_method(recv, argc, argv, cref, blk)
-  new_name = Machine.value(Machine.load64(argv, 0))
-  old_name = Machine.value(Machine.load64(argv, 8))
-  unless zr_symbol_p(new_name) && zr_symbol_p(old_name)
-    zr_bug(Machine.bytes("alias_method with a String name is not implemented yet\n"), 55)
-  end
-  r = zr_alias(recv, zr_sym2id(new_name), zr_sym2id(old_name))
+  slot = Machine.slot(16)
+  r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
   return r if r == QUNDEF
-  new_name
+  r = zr_name_id(Machine.value(Machine.load64(argv, 8)), slot + 8)
+  return r if r == QUNDEF
+  new_id = Machine.load64(slot, 0)
+  r = zr_alias(recv, new_id, Machine.load64(slot, 8))
+  return r if r == QUNDEF
+  zr_sym(new_id)
 end
 
 # `undef name`: an entry that stops the search, so the name is gone
@@ -701,10 +702,10 @@ machine def zr_set_visibility(klass, argc, argv, blk, vis, modfn)
       r = zr_set_visibility(klass, RArray.len(name), RArray.ptr(name), blk, vis, modfn)
       return r if r == QUNDEF
     else
-      unless zr_symbol_p(name)
-        zr_bug(Machine.bytes("a visibility verb with a String name is not implemented yet\n"), 60)
-      end
-      r = zr_set_method_visibility(klass, zr_sym2id(name), vis, modfn)
+      slot = Machine.slot(8)
+      r = zr_name_id(name, slot)
+      return r if r == QUNDEF
+      r = zr_set_method_visibility(klass, Machine.load64(slot, 0), vis, modfn)
       return r if r == QUNDEF
     end
     i += 1

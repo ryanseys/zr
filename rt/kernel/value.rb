@@ -51,6 +51,8 @@ FL_TEMP_NAME = 1 << 14
 FL_USASCII = 1 << 16
 # A Hash that compares keys by identity (`compare_by_identity`).
 FL_IDENTITY = 1 << 17
+# A Hash a `ruby2_keywords` method took from keywords into its rest.
+FL_RUBY2 = 1 << 18
 
 Machine.struct :RBasic, flags: Word, klass: Value
 

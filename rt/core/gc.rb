@@ -41,7 +41,12 @@ module Process
     Process.send(:in_unit, Primitive.zr_clock_res_ns(id), unit)
   end
 
-  module_function :pid, :clock_gettime, :clock_getres
+  def uid = Primitive.zr_process_ids(0)
+  def euid = Primitive.zr_process_ids(1)
+  def gid = Primitive.zr_process_ids(2)
+  def egid = Primitive.zr_process_ids(3)
+
+  module_function :pid, :clock_gettime, :clock_getres, :uid, :euid, :gid, :egid
 
   def self.in_unit(ns, unit)
     Primitive.attr! :hidden

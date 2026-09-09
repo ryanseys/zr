@@ -427,11 +427,79 @@ class String
     replace(translate(from, to, true))
   end
 
+  # The next string: the rightmost run of letters or digits counts up
+  # with carries, a carry past its start adds a first letter or digit;
+  # with none, the last character moves on. Beyond ASCII a character
+  # counts as a letter or digit by its Unicode class, and steps by
+  # codepoint.
+  def succ
+    return Primitive.zr_str_succ_ascii(self) if ascii_only?
+
+    chars = self.chars
+    carry_at = nil
+    carry = nil
+    last = nil
+    i = chars.size - 1
+    while i >= 0
+      c = chars[i]
+      break if last && ascii_kind(last) && ascii_kind(c) && ascii_kind(last) != ascii_kind(c)
+
+      if c.match?(/[[:alnum:]]/)
+        stepped, wrapped = step_alnum(c)
+        chars[i] = stepped
+        return chars.join unless wrapped
+
+        carry_at = i
+        carry = stepped
+        last = c
+      end
+      i -= 1
+    end
+    if last.nil?
+      chars[-1] = (chars[-1].ord + 1).chr(Encoding::UTF_8)
+    else
+      chars.insert(carry_at, carry)
+    end
+    chars.join
+  end
+
+  alias next succ
+
   def succ!
     replace(succ)
   end
 
   alias next! succ!
+
+  def ascii_kind(c)
+    Primitive.attr! :hidden
+    return nil if c.ord >= 128
+
+    c.match?(/[[:digit:]]/) ? :digit : (c.match?(/[[:alpha:]]/) ? :alpha : nil)
+  end
+  private :ascii_kind
+
+  # A letter or digit stepped once: the next of its kind, or its
+  # kind's first with a carry.
+  def step_alnum(c)
+    Primitive.attr! :hidden
+    case c
+    when "z" then ["a", true]
+    when "Z" then ["A", true]
+    when "9" then ["0", true]
+    else
+      return [(c.ord + 1).chr, false] if c.ord < 128
+
+      kind = c.match?(/[[:digit:]]/) ? /[[:digit:]]/ : /[[:alpha:]]/
+      stepped = (c.ord + 1).chr(Encoding::UTF_8)
+      return [stepped, false] if stepped.match?(kind)
+
+      first = c.ord
+      first -= 1 while first > 0 && (first - 1).chr(Encoding::UTF_8).match?(kind)
+      [first.chr(Encoding::UTF_8), true]
+    end
+  end
+  private :step_alnum
 
   def delete_prefix!(prefix)
     start_with?(prefix) ? mutate(delete_prefix(prefix)) : nil

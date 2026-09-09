@@ -4,6 +4,18 @@ class Proc
 
   def to_proc = self
 
+  # Only a proc with a rest and no keywords or post parameters can
+  # carry keywords in its rest; any other shape is warned about.
+  def ruby2_keywords
+    kinds = parameters.map(&:first)
+    rest_at = kinds.index(:rest)
+    if rest_at.nil? || kinds.include?(:key) || kinds.include?(:keyreq) || kinds.include?(:keyrest) || kinds.include?(:nokey) || kinds[(rest_at + 1)..].include?(:req)
+      Primitive.zr_warn_here_m("Skipping set of ruby2_keywords flag for proc (proc accepts keywords or post arguments or proc does not accept argument splat)")
+      return self
+    end
+    Primitive.zr_ruby2_mark_proc(self)
+  end
+
   # `f >> g` calls f then g; `f << g` calls g then f. The result is a
   # lambda when the proc whose arguments it takes first is one, or when
   # that is any other callable.

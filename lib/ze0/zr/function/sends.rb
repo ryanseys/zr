@@ -117,6 +117,15 @@ module Ze0
           @f.fetch("i64", ary, off(@l.layout("RArray"), "len"))
         end
 
+        # The count the callee sees: a keywords Hash goes last and flags
+        # the task; a splat's last element may be a ruby2_keywords Hash.
+        def keyword_argc(node, argc, argv)
+          return kernel("zr_kw_argc", argc, argv) if node.kwargs
+          return kernel("zr_kw_ruby2_out", argc, argv) if node.args.any?(Hir::Splat)
+
+          argc
+        end
+
         # A bare identifier, an implicit or `self` receiver, or an explicit
         # one, which visibility applies to.
         def dispatch(node, recv, argv, argc)
@@ -126,7 +135,7 @@ module Ze0
                   else "zr_send"
                   end
           at_line(node.line)
-          argc = kernel("zr_kw_argc", argc, argv) if node.kwargs
+          argc = keyword_argc(node, argc, argv)
           if node.name == :new
             mode = node.vcall ? 1 : (explicit?(node) ? 2 : 0)
             return checked(kernel("zr_new", recv, argc, argv, imm(mode)))
@@ -141,13 +150,13 @@ module Ze0
           if node.block.is_a?(Hir::BlockPass)
             proc = checked(kernel("zr_block_pass", expr(node.block.value)))
             at_line(node.line)
-            argc = kernel("zr_kw_argc", argc, argv) if node.kwargs
+            argc = keyword_argc(node, argc, argv)
             return checked(kernel(explicit?(node) ? "zr_call_blk" : "zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc))
           end
 
           site, proc = make_proc(node.block, slot)
           at_line(node.line)
-          argc = kernel("zr_kw_argc", argc, argv) if node.kwargs
+          argc = keyword_argc(node, argc, argv)
           catching_break(site) { kernel(explicit?(node) ? "zr_call_blk" : "zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc) }
         end
 
@@ -207,7 +216,7 @@ module Ze0
                   proc
                 end
           at_line(node.line)
-          argc = kernel("zr_kw_argc", argc, argv) if node.kwargs
+          argc = keyword_argc(node, argc, argv)
           call = -> { kernel("zr_super", @rec, argc, argv, blk) }
           site ? catching_break(site, &call) : checked(call.call)
         end

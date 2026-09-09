@@ -166,6 +166,25 @@ machine def zr_process_id
   zr_fix(Machine.word(getpid()))
 end
 
+Machine.import "getuid", [] => I32
+Machine.import "geteuid", [] => I32
+Machine.import "getgid", [] => I32
+Machine.import "getegid", [] => I32
+
+# The process's ids: 0 uid, 1 euid, 2 gid, 3 egid.
+sig [Value] => Value
+machine def zr_process_ids(which)
+  w = zr_fix2long(which)
+  if w == 0
+    return zr_fix(Machine.word(getuid()))
+  elsif w == 1
+    return zr_fix(Machine.word(geteuid()))
+  elsif w == 2
+    return zr_fix(Machine.word(getgid()))
+  end
+  zr_fix(Machine.word(getegid()))
+end
+
 # 62 random bits from the system, for a seed nobody chose.
 sig [] => Value
 machine def zr_random_seed

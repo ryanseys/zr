@@ -98,6 +98,57 @@ machine def zr_kw_argc(argc, argv)
   argc
 end
 
+# `ruby2_keywords`: the methods marked, by their function address.
+sig [] => Ptr
+machine def zr_ruby2_fns
+  Machine.static(:ruby2_fns, IvTab.size)
+end
+
+sig [Value, Value] => Value
+machine def zr_ruby2_mark_m(klass, name)
+  slot = Machine.slot(8)
+  r = zr_name_id(name, slot)
+  return r if r == QUNDEF
+  e = zr_find_method(klass, Machine.load64(slot, 0))
+  if e != 0 && MEntry.fn(e) != 0
+    zr_ivtab_set(zr_ruby2_fns(), Machine.word(MEntry.fn(e)), Machine.value(QTRUE))
+  end
+  Machine.value(QNIL)
+end
+
+sig [Value] => Value
+machine def zr_ruby2_mark_proc(pr)
+  zr_ivtab_set(zr_ruby2_fns(), Machine.word(RProc.fn(pr)), Machine.value(QTRUE))
+  pr
+end
+
+# A marked method taking keywords into its rest: the Hash carries the
+# flag, so a later `*rest` passes it on as keywords again.
+sig [Word, Ptr, Ptr] => Void
+machine def zr_kw_ruby2_in(argc, argv, fn)
+  if zr_kw_take() != 0 && argc > 0 && zr_ivtab_get(zr_ruby2_fns(), Machine.word(fn)) != QUNDEF
+    h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
+    RBasic.set_flags(h, RBasic.flags(h) | FL_RUBY2)
+  end
+end
+
+# A splat whose last element is a flagged Hash passes it as keywords,
+# as a fresh Hash without the flag.
+sig [Word, Ptr] => Word
+machine def zr_kw_ruby2_out(argc, argv)
+  if argc == 0
+    return argc
+  end
+  h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
+  if zr_special_p(h) || zr_type(h) != T_HASH || (RBasic.flags(h) & FL_RUBY2) == 0
+    return argc
+  end
+  copy = zr_hash_new()
+  zr_hash_update(copy, h)
+  Machine.store64(argv + ((argc - 1) * 8), 0, Machine.word(copy))
+  zr_kw_argc(argc, argv)
+end
+
 sig [] => Word
 machine def zr_kw_take
   t = zr_task()

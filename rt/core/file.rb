@@ -190,11 +190,192 @@ class File < IO
     0
   end
 
-  def self.mtime(path) = Primitive.zr_unimplemented("File.mtime")
-  def self.stat(path) = Primitive.zr_unimplemented("File.stat")
-  def self.symlink?(path) = Primitive.zr_unimplemented("File.symlink?")
-  def self.realpath(path, dir = nil) = Primitive.zr_unimplemented("File.realpath")
-  def self.chmod(mode, *paths) = Primitive.zr_unimplemented("File.chmod")
+  # The fields of stat(2) at one moment, read once.
+  class Stat
+    include Comparable
+
+    FIELDS = %i[dev ino mode nlink uid gid rdev size blksize blocks].freeze
+    attr_reader(*FIELDS)
+
+    def initialize(path)
+      fields = Primitive.zr_stat_m(path, true)
+      raise SystemCallError.new("@ rb_file_s_stat - #{path}", -fields) if fields.is_a?(Integer)
+
+      take(fields)
+    end
+
+    def atime = Time.at(@atime_s, @atime_ns, :nsec)
+    def mtime = Time.at(@mtime_s, @mtime_ns, :nsec)
+    def ctime = Time.at(@ctime_s, @ctime_ns, :nsec)
+    def birthtime = ctime
+
+    def ftype
+      case @mode & 0o170000
+      when 0o040000 then "directory"
+      when 0o100000 then "file"
+      when 0o120000 then "link"
+      when 0o020000 then "characterSpecial"
+      when 0o060000 then "blockSpecial"
+      when 0o010000 then "fifo"
+      when 0o140000 then "socket"
+      else "unknown"
+      end
+    end
+
+    def directory? = ftype == "directory"
+    def file? = ftype == "file"
+    def symlink? = ftype == "link"
+    def pipe? = ftype == "fifo"
+    def socket? = ftype == "socket"
+    def chardev? = ftype == "characterSpecial"
+    def blockdev? = ftype == "blockSpecial"
+    def size? = @size.zero? ? nil : @size
+    def zero? = @size.zero?
+    def readable? = (@mode & 0o444) != 0
+    def writable? = (@mode & 0o222) != 0
+    def executable? = (@mode & 0o111) != 0
+    def setuid? = (@mode & 0o4000) != 0
+    def setgid? = (@mode & 0o2000) != 0
+    def sticky? = (@mode & 0o1000) != 0
+    def owned? = @uid == Process.uid
+
+    def <=>(other)
+      return nil unless other.is_a?(Stat)
+
+      mtime <=> other.mtime
+    end
+
+    def inspect
+      "#<File::Stat dev=0x#{@dev.to_s(16)}, ino=#{@ino}, mode=0#{@mode.to_s(8)}, nlink=#{@nlink}, uid=#{@uid}, gid=#{@gid}, " \
+        "rdev=0x#{@rdev.to_s(16)}, size=#{@size}, blksize=#{@blksize}, blocks=#{@blocks}, " \
+        "atime=#{atime}, mtime=#{mtime}, ctime=#{ctime}, birthtime=#{birthtime}>"
+    end
+
+    private
+
+    def take(fields)
+      @dev, @ino, @mode, @nlink, @uid, @gid, @rdev, @size, @blksize, @blocks,
+        @atime_s, @atime_ns, @mtime_s, @mtime_ns, @ctime_s, @ctime_ns = fields
+    end
+
+    # Made from lstat(2), which does not follow a symbolic link.
+    def self.link(path)
+      fields = Primitive.zr_stat_m(path, false)
+      raise SystemCallError.new("@ rb_file_s_lstat - #{path}", -fields) if fields.is_a?(Integer)
+
+      allocate.tap { |stat| stat.send(:take, fields) }
+    end
+  end
+
+  FNM_NOESCAPE = 1
+  FNM_PATHNAME = 2
+  FNM_DOTMATCH = 4
+  FNM_CASEFOLD = 8
+  FNM_EXTGLOB = 16
+  FNM_SYSCASE = 0
+  FNM_SHORTNAME = 0
+
+  # A shell pattern against a path: `*`, `?` and `[...]` never cross a
+  # `/` under FNM_PATHNAME, where `**/` also stands for any run of
+  # directories; a leading dot needs FNM_DOTMATCH; `\` escapes unless
+  # FNM_NOESCAPE; braces alternate under FNM_EXTGLOB.
+  def self.fnmatch(pattern, path, flags = 0)
+    pattern = path_of(pattern)
+    path = path_of(path)
+    patterns = (flags & FNM_EXTGLOB).zero? ? [pattern] : Dir.const_get(:Glob).expand_braces(pattern)
+    patterns.any? { |p| fnmatch_regexp(p, flags).match?(path) }
+  end
+
+  def self.fnmatch?(pattern, path, flags = 0) = fnmatch(pattern, path, flags)
+
+  def self.fnmatch_regexp(pattern, flags)
+    Primitive.attr! :hidden
+    pathname = (flags & FNM_PATHNAME) != 0
+    dotmatch = (flags & FNM_DOTMATCH) != 0
+    escape = (flags & FNM_NOESCAPE).zero?
+    one = pathname ? "[^/]" : "."
+    nodot = dotmatch ? "" : "(?!\\.)"
+    out = +"\\A"
+    i = 0
+    at_start = true
+    while i < pattern.size
+      c = pattern[i]
+      case c
+      when "*"
+        if pathname && pattern[i, 3] == "**/" && (i.zero? || pattern[i - 1] == "/")
+          out << (dotmatch ? "(?:[^/]*/)*" : "(?:(?!\\.)[^/]*/)*")
+          i += 3
+          at_start = true
+          next
+        end
+        out << nodot if at_start
+        out << "#{one}*"
+      when "?"
+        out << nodot if at_start
+        out << one
+      when "["
+        close = pattern.index("]", i + 2)
+        if close.nil?
+          out << "\\["
+        else
+          out << nodot if at_start
+          set = pattern[(i + 1)...close]
+          set = "^#{set[1..]}" if set.start_with?("!")
+          set = set.gsub("\\", "\\\\\\\\") if escape
+          out << "[#{set}]"
+          i = close
+        end
+      when "\\"
+        if escape && i + 1 < pattern.size
+          i += 1
+          out << Regexp.escape(pattern[i])
+        else
+          out << "\\\\"
+        end
+      else
+        out << Regexp.escape(c)
+      end
+      at_start = c == "/" && pathname
+      i += 1
+    end
+    Regexp.new("#{out}\\z", (flags & FNM_CASEFOLD).zero? ? 0 : Regexp::IGNORECASE)
+  end
+  private_class_method :fnmatch_regexp
+
+  def self.stat(path) = Stat.new(path_of(path))
+  def self.lstat(path) = Stat.link(path_of(path))
+  def self.mtime(path) = stat(path).mtime
+  def self.atime(path) = stat(path).atime
+  def self.ctime(path) = stat(path).ctime
+  def self.ftype(path) = lstat(path).ftype
+  def self.symlink?(path) = Primitive.zr_stat_m(path_of(path), false).then { |f| f.is_a?(Array) && (f[2] & 0o170000) == 0o120000 }
+
+  def self.realpath(path, dir = nil)
+    path = path_of(path)
+    path = File.join(path_of(dir), path) if dir && !path.start_with?("/")
+    result = Primitive.zr_realpath_m(path)
+    raise SystemCallError.new("@ rb_check_realpath_internal - #{path}", -result) if result.is_a?(Integer)
+
+    result
+  end
+
+  def self.chmod(mode, *paths)
+    paths.each do |path|
+      result = Primitive.zr_chmod_m(path_of(path), mode)
+      raise SystemCallError.new("@ apply2files - #{path}", -result) if result < 0
+    end
+    paths.size
+  end
+
+  # A path argument: a String, or what `to_path` or `to_str` answers.
+  def self.path_of(path)
+    Primitive.attr! :hidden
+    return path if path.is_a?(String)
+    return path.to_path if path.respond_to?(:to_path)
+
+    String.try_convert(path) or raise TypeError, "no implicit conversion of #{path.class} into String"
+  end
+  private_class_method :path_of
 
   def size = File.size(path)
 
@@ -271,8 +452,151 @@ class Dir
 
   def self.empty?(path) = children(path).empty?
 
-  def self.glob(*) = Primitive.zr_unimplemented("Dir.glob")
-  def self.[](*) = Primitive.zr_unimplemented("Dir[]")
+  # `glob(patterns, flags, base:, sort:)`: every path a pattern names,
+  # per pattern in order, each pattern's matches sorted. A pattern is
+  # split on `/`; `**` walks every directory below; braces expand
+  # first; the other pieces match a name as File.fnmatch does with
+  # FNM_PATHNAME, hidden names only under FNM_DOTMATCH or a literal dot.
+  def self.glob(patterns, flags = 0, base: nil, sort: true)
+    patterns = Array(patterns)
+    found = patterns.flat_map do |pattern|
+      pattern = File.send(:path_of, pattern)
+      Glob.expand_braces(pattern).flat_map { |p| Glob.new(p, flags, base).run }.uniq
+    end
+    return found unless block_given?
+
+    found.each { |path| yield path }
+    nil
+  end
+
+  def self.[](*patterns, base: nil, sort: true)
+    glob(patterns, base: base, sort: sort)
+  end
+
+  # One brace-free pattern matched against the file system.
+  class Glob
+    def initialize(pattern, flags, base)
+      @flags = flags
+      @base = base && !pattern.start_with?("/") ? File.send(:path_of, base) : nil
+      @root = pattern.start_with?("/") ? "/" : (@base || ".")
+      @dirs_only = pattern.end_with?("/")
+      @segments = pattern.split("/").reject(&:empty?)
+    end
+
+    # The paths found, relative to the base when one was given, sorted.
+    def run
+      return [] if @segments.empty?
+
+      out = []
+      walk(@root, 0, out)
+      out.map! { |path| path.delete_prefix("#{@base}/") } if @base
+      out.sort
+    end
+
+    def self.expand_braces(pattern)
+      open = pattern.index("{")
+      return [pattern] if open.nil?
+
+      depth = 0
+      close = nil
+      (open...pattern.size).each do |i|
+        depth += 1 if pattern[i] == "{"
+        depth -= 1 if pattern[i] == "}"
+        if depth.zero?
+          close = i
+          break
+        end
+      end
+      return [pattern] if close.nil?
+
+      choices = []
+      depth = 0
+      piece = +""
+      pattern[(open + 1)...close].each_char do |c|
+        depth += 1 if c == "{"
+        depth -= 1 if c == "}"
+        if c == "," && depth.zero?
+          choices << piece
+          piece = +""
+        else
+          piece << c
+        end
+      end
+      choices << piece
+      choices.flat_map { |choice| expand_braces(pattern[0...open] + choice + pattern[(close + 1)..]) }
+    end
+
+    private
+
+    # The paths under `dir` that match the segments from `i` on. A
+    # `**` before more segments stands for zero or more directories; a
+    # last `**` matches like `*`.
+    def walk(dir, i, out)
+      segment = @segments[i]
+      last = i == @segments.size - 1
+      if segment == "**" && (!last || @dirs_only)
+        walk(dir, i + 1, out) unless last
+        each_entry(dir) do |_, path|
+          next unless File.directory?(path) && !File.symlink?(path)
+
+          found(path, out) if last
+          walk(path, i, out)
+        end
+      elsif literal?(segment)
+        path = join(dir, segment)
+        return unless File.exist?(path) || File.symlink?(path)
+
+        last ? found(path, out) : walk(path, i + 1, out)
+      else
+        pattern = segment == "**" ? "*" : segment
+        each_entry(dir, last) do |name, path|
+          next unless File.fnmatch?(pattern, name, @flags | File::FNM_PATHNAME)
+
+          if last
+            found(path, out)
+          elsif File.directory?(path)
+            walk(path, i + 1, out)
+          end
+        end
+      end
+    end
+
+    # A match goes out; a pattern ending in `/` wants only directories,
+    # each with its slash.
+    def found(path, out)
+      return out << path unless @dirs_only
+
+      out << "#{path}/" if File.directory?(path)
+    end
+
+    # The names in `dir`, hidden ones only under FNM_DOTMATCH, which
+    # also offers `.` itself to a last segment.
+    def each_entry(dir, last = false)
+      names = begin
+        Dir.children(dir)
+      rescue SystemCallError
+        return
+      end
+      names.unshift(".") if last && dotmatch?
+      names.sort.each do |name|
+        next if name.start_with?(".") && !dotmatch?
+
+        yield name, join(dir, name)
+      end
+    end
+
+    def literal?(segment) = !segment.match?(/[*?\[\\]/)
+
+    def dotmatch? = (@flags & File::FNM_DOTMATCH) != 0
+
+    def join(dir, name)
+      return name if dir == "."
+      return "/#{name}" if dir == "/"
+
+      "#{dir}/#{name}"
+    end
+  end
+  private_constant :Glob
   # With a block, the directory changes back afterwards; without one
   # it stays. No argument means the home directory.
   def self.chdir(path = nil)
