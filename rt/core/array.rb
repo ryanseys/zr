@@ -38,6 +38,19 @@ class Array
     out
   end
 
+  def <=>(other)
+    return nil unless other.is_a?(Array)
+
+    i = 0
+    while i < size && i < other.size
+      c = self[i] <=> other[i]
+      return c if c != 0
+
+      i += 1
+    end
+    size <=> other.size
+  end
+
   def dup
     out = []
     i = 0

@@ -95,7 +95,7 @@ machine def zr_hidden_method(recv, mid, vis)
 end
 
 # How a message names the receiver: main, a special constant, its
-# inspect when it has a singleton class, else `an instance of Foo`.
+# `#<Foo:0x...>` when it has a singleton class, else `an instance of Foo`.
 sig [Ptr, Value, Bool] => Value
 machine def zr_buf_receiver(b, recv, vcall)
   if recv == zr_global(G_MAIN)
@@ -116,9 +116,8 @@ machine def zr_buf_receiver(b, recv, vcall)
     return s if s == QUNDEF
     zr_buf_str(b, s)
   elsif !zr_special_p(recv) && zr_singleton_p(RBasic.klass(recv))
-    s = zr_send(recv, Machine.id(:inspect), 0, 0)
-    return s if s == QUNDEF
-    zr_buf_str(b, s)
+    zr_buf_obj_head(b, recv)
+    zr_buf_byte(b, 62)
   else
     zr_buf_push(b, Machine.bytes("an instance of "), 15)
     zr_buf_str(b, zr_class_name_of(recv))

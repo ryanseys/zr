@@ -20,6 +20,14 @@ class Integer
     self < 0
   end
 
+  def -@
+    0 - self
+  end
+
+  def +@
+    self
+  end
+
   def succ
     self + 1
   end

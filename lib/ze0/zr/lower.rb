@@ -15,6 +15,10 @@ module Ze0
 
       attr_reader :program, :unit, :symbols, :data, :functions
 
+      def internal?
+        @internal
+      end
+
       # `internal` marks the core library: its methods are builtins to a
       # backtrace, and its blocks and bodies leave no row at all.
       def initialize(program, unit, symbols, entry: "zr_toplevel", internal: false)

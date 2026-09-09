@@ -372,6 +372,7 @@ module Ze0
         @d = d
         @f = IR::Function.new(d.name, d.params.map { |_, t| TYPES.fetch(t) }, TYPES.fetch(d.ret))
         @locals = {}
+        @loops = []
         @roots = nil
       end
 
@@ -496,6 +497,11 @@ module Ze0
           branch(node, want, node.statements, node.subsequent.is_a?(Prism::ElseNode) ? node.subsequent.statements : node.subsequent)
         when Prism::UnlessNode then branch(node, want, node.else_clause&.statements, node.statements)
         when Prism::WhileNode then loop_while(node)
+        when Prism::BreakNode
+          refuse(node, "a break outside a while") if @loops.empty?
+          refuse(node, "a break with a value") if node.arguments
+          @f.ins "jump #{@loops.last}"
+          [nil, "Void"]
         when Prism::ReturnNode
           value, type = node.arguments ? expr(node.arguments.arguments.first, @d.ret) : [nil, "Void"]
           refuse(node, "a return of #{type} from a def whose sig says #{@d.ret}") unless fits?(@d.ret, type)
@@ -782,7 +788,9 @@ module Ze0
         cond = condition(node)
         @f.ins "brif #{cond}, #{body}, #{done}"
         @f.switch(body)
+        @loops.push(done)
         statements(node.statements) if node.statements
+        @loops.pop
         @f.ins "jump #{head}" unless @f.terminated?
         @f.switch(done)
         [nil, "Void"]

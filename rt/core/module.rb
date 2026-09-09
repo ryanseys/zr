@@ -1,5 +1,11 @@
-# Module's comparisons over the ancestor chain.
+# Module's comparisons over the ancestor chain, and the hooks a program
+# may override, which do nothing here.
 class Module
+  private def included(base) = nil
+  private def extended(base) = nil
+  private def prepended(base) = nil
+  private def method_added(name) = nil
+
   def <(other)
     raise TypeError, "compared with non class/module" unless other.is_a?(Module)
     return false if equal?(other)
@@ -34,4 +40,8 @@ class Module
 
     nil
   end
+end
+
+class Class
+  private def inherited(subclass) = nil
 end

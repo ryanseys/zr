@@ -91,20 +91,59 @@ machine def zr_include_module(klass, mod)
   end
 end
 
+# A hook such as `included` or `inherited`: `recv.mid(arg)`, private
+# or not.
+sig [Value, Word, Value] => Value
+machine def zr_hook(recv, mid, arg)
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(arg))
+  zr_send(recv, mid, 1, slot)
+end
+
+sig [Value] => Value
+machine def zr_check_module(m)
+  if zr_special_p(m) || zr_type(m) != T_MODULE
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
+    zr_buf_str(b, zr_class_name_of(m))
+    zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+  Machine.value(QNIL)
+end
+
+# `include`: each module, last first, then its `included` hook.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_include(recv, argc, argv, cref, blk)
   i = argc - 1
   while i >= 0
     m = Machine.value(Machine.load64(argv + (i * 8), 0))
-    if zr_special_p(m) || zr_type(m) != T_MODULE
-      b = Machine.slot(Buf.size)
-      zr_buf_init(b)
-      zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
-      zr_buf_str(b, zr_class_name_of(m))
-      zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
-      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
-    end
+    r = zr_check_module(m)
+    return r if r == QUNDEF
     zr_include_module(recv, m)
+    r = zr_hook(m, Machine.id(:included), recv)
+    return r if r == QUNDEF
+    i -= 1
+  end
+  recv
+end
+
+# `extend`: each module into the singleton class, then its `extended`
+# hook.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_extend(recv, argc, argv, cref, blk)
+  if argc == 0
+    return zr_wrong_arity_min(0, 1)
+  end
+  i = argc - 1
+  while i >= 0
+    m = Machine.value(Machine.load64(argv + (i * 8), 0))
+    r = zr_check_module(m)
+    return r if r == QUNDEF
+    zr_include_module(zr_singleton_class(recv), m)
+    r = zr_hook(m, Machine.id(:extended), recv)
+    return r if r == QUNDEF
     i -= 1
   end
   recv
@@ -322,10 +361,12 @@ machine def zr_singleton_class(v)
 end
 
 # The class `v.class` answers: past any singleton class.
+# The class an object answers `class` with: past its singleton class
+# and the proxies of the modules it extends.
 sig [Value] => Value
 machine def zr_real_class(v)
   k = zr_class_of(v)
-  while zr_singleton_p(k)
+  while zr_singleton_p(k) || zr_type(k) == T_ICLASS
     k = RClass.superclass(k)
   end
   k
@@ -546,26 +587,41 @@ machine def zr_mod_public_class_method(recv, argc, argv, cref, blk)
   zr_set_visibility(zr_singleton_class(recv), argc, argv, blk, VIS_PUBLIC, 0)
 end
 
-# `instance_methods(false)` and the two by visibility: the class's own
-# names, or with its ancestors' when `all` is true; each name once.
-sig [Value, Word, Word] => Value
-machine def zr_method_names(klass, all, vis)
+# The names in `klass`'s own table that `klass` still answers with,
+# filtered by `vis` (a visibility, or -1 for all but private), after
+# those already in `out`.
+sig [Value, Value, Value, Word] => Void
+machine def zr_level_method_names(klass, level, out, vis)
+  ext = RClass.ext(level)
+  i = 0
+  while i < ClassExt.mlen(ext)
+    e = ClassExt.mtab(ext) + (i * MEntry.size)
+    if MEntry.kind(e) != KIND_UNDEF && (vis < 0 ? MEntry.vis(e) != VIS_PRIVATE : MEntry.vis(e) == vis) && zr_find_method(klass, MEntry.mid(e)) == e
+      name = zr_sym(MEntry.mid(e))
+      if zr_ary_index_of(out, name) < 0
+        zr_ary_push(out, name)
+      end
+    end
+    i += 1
+  end
+end
+
+# `instance_methods` and the three by visibility, on a module (`all`
+# for the ancestors too) or, for `methods` on an object, on its class
+# chain: the singleton class and the modules it extends come first.
+sig [Value, Word, Word, Bool] => Value
+machine def zr_method_names(klass, all, vis, object)
   out = zr_ary_new(8)
   k = klass
-  while k != QNIL
-    ext = RClass.ext(k)
-    i = 0
-    while i < ClassExt.mlen(ext)
-      e = ClassExt.mtab(ext) + (i * MEntry.size)
-      if MEntry.kind(e) != KIND_UNDEF && (vis < 0 ? MEntry.vis(e) != VIS_PRIVATE : MEntry.vis(e) == vis) && zr_find_method_at(k, MEntry.mid(e)) == e
-        name = zr_sym(MEntry.mid(e))
-        if zr_ary_index_of(out, name) < 0 && zr_find_method(klass, MEntry.mid(e)) == e
-          zr_ary_push(out, name)
-        end
-      end
-      i += 1
+  if object
+    while k != QNIL && (zr_singleton_p(k) || zr_type(k) == T_ICLASS)
+      zr_level_method_names(klass, k, out, vis)
+      k = RClass.superclass(k)
     end
-    if all == 0
+  end
+  while k != QNIL
+    zr_level_method_names(klass, k, out, vis)
+    if all == 0 && zr_type(k) != T_ICLASS
       k = Machine.value(QNIL)
     else
       k = RClass.superclass(k)
@@ -577,25 +633,25 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_instance_methods(recv, argc, argv, cref, blk)
   all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
-  zr_method_names(recv, all ? 1 : 0, 0 - 1)
+  zr_method_names(recv, all ? 1 : 0, 0 - 1, false)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_public_instance_methods(recv, argc, argv, cref, blk)
   all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
-  zr_method_names(recv, all ? 1 : 0, VIS_PUBLIC)
+  zr_method_names(recv, all ? 1 : 0, VIS_PUBLIC, false)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_private_instance_methods(recv, argc, argv, cref, blk)
   all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
-  zr_method_names(recv, all ? 1 : 0, VIS_PRIVATE)
+  zr_method_names(recv, all ? 1 : 0, VIS_PRIVATE, false)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_protected_instance_methods(recv, argc, argv, cref, blk)
   all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
-  zr_method_names(recv, all ? 1 : 0, VIS_PROTECTED)
+  zr_method_names(recv, all ? 1 : 0, VIS_PROTECTED, false)
 end
 
 sig [Value, Word, Ptr, Word] => Void

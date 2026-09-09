@@ -211,11 +211,18 @@ machine def zr_class_define(scope, id, sup)
   if sup == QUNDEF
     sup = zr_global(G_OBJECT)
   elsif zr_special_p(sup) || zr_type(sup) != T_CLASS
-    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("superclass must be an instance of Class (given an instance of "), 62)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("superclass must be an instance of Class (given an instance of "), 62)
+    zr_buf_str(b, zr_class_name_of(sup))
+    zr_buf_byte(b, 41)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
   k = zr_class_new(sup)
   RClass.set_name(k, zr_class_name_under(scope, id))
   zr_const_set(scope, id, k)
+  r = zr_hook(sup, Machine.id(:inherited), k)
+  return r if r == QUNDEF
   k
 end
 

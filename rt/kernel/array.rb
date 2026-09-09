@@ -198,10 +198,93 @@ machine def zr_index_operand(v, out)
   Machine.value(QNIL)
 end
 
+# `a[beg, len]`: a new Array of the elements from `beg`, or nil past
+# the end; a start at the end answers an empty Array.
+sig [Value, Word, Word] => Value
+machine def zr_ary_subseq(a, beg, len)
+  n = RArray.len(a)
+  if beg > n || beg < 0 || len < 0
+    return Machine.value(QNIL)
+  end
+  if n < beg + len
+    len = n - beg
+  end
+  zr_ary_of(len, RArray.ptr(a) + (beg * 8))
+end
+
+# A Range as a start and a length against `n` elements, into `out`:
+# false when the start is out of range.
+sig [Value, Word, Ptr] => Value
+machine def zr_range_beg_len(range, n, out)
+  low = zr_ivar_get(range, Machine.id(:@begin))
+  high = zr_ivar_get(range, Machine.id(:@end))
+  slot = Machine.slot(8)
+  if low == QNIL
+    beg = 0
+  else
+    r = zr_index_operand(low, slot)
+    return r if r == QUNDEF
+    beg = Machine.load64(slot, 0)
+  end
+  if high == QNIL
+    stop = n
+  else
+    r = zr_index_operand(high, slot)
+    return r if r == QUNDEF
+    stop = Machine.load64(slot, 0)
+  end
+  if beg < 0
+    beg += n
+    if beg < 0
+      return Machine.value(QFALSE)
+    end
+  end
+  if stop < 0
+    stop += n
+  end
+  if high != QNIL && zr_ivar_get(range, Machine.id(:@excl)) != QTRUE
+    stop += 1
+  end
+  len = stop - beg
+  if len < 0
+    len = 0
+  end
+  if beg > n
+    return Machine.value(QFALSE)
+  end
+  Machine.store64(out, 0, beg)
+  Machine.store64(out, 8, len)
+  Machine.value(QTRUE)
+end
+
+# `a[i]`, `a[beg, len]` and `a[range]`.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_aref(recv, argc, argv, cref, blk)
-  out = Machine.slot(8)
-  r = zr_index_operand(Machine.value(Machine.load64(argv, 0)), out)
+  out = Machine.slot(16)
+  first = Machine.value(Machine.load64(argv, 0))
+  if argc == 2
+    r = zr_index_operand(first, out)
+    return r if r == QUNDEF
+    r = zr_index_operand(Machine.value(Machine.load64(argv, 8)), out + 8)
+    return r if r == QUNDEF
+    beg = Machine.load64(out, 0)
+    if beg < 0
+      beg += RArray.len(recv)
+    end
+    return zr_ary_subseq(recv, beg, Machine.load64(out, 8))
+  end
+  if argc != 1
+    return zr_wrong_arity_range(argc, 1, 2)
+  end
+  if !zr_special_p(first) && zr_class_of(first) == zr_global(G_RANGE)
+    r = zr_range_beg_len(first, RArray.len(recv), out)
+    return r if r == QUNDEF
+    if r == QFALSE
+      return Machine.value(QNIL)
+    end
+    return zr_ary_subseq(recv, Machine.load64(out, 0), Machine.load64(out, 8))
+  end
+  r = zr_index_operand(first, out)
   return r if r == QUNDEF
   zr_ary_at(recv, Machine.load64(out, 0))
 end

@@ -90,3 +90,15 @@ machine def zr_sym_to_s(recv, argc, argv, cref, blk)
   id = zr_sym2id(recv)
   zr_str_new(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
 end
+
+# `Symbol#<=>`: the names bytewise, nil against anything else.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_sym_cmp(recv, argc, argv, cref, blk)
+  other = Machine.value(Machine.load64(argv, 0))
+  if !zr_symbol_p(other)
+    return Machine.value(QNIL)
+  end
+  a = zr_sym2id(recv)
+  b = zr_sym2id(other)
+  zr_fix(zr_bytes_cmp(zr_symbol_name_ptr(a), zr_symbol_name_len(a), zr_symbol_name_ptr(b), zr_symbol_name_len(b)))
+end

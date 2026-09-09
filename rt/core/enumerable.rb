@@ -75,6 +75,18 @@ module Enumerable
     nil
   end
 
+  def sort(&blk)
+    out = []
+    each { |x| out << x }
+    Primitive.zr_ary_sort_copy(out, blk)
+  end
+
+  def sort_by
+    pairs = []
+    each { |x| pairs << yield(x) << x }
+    Primitive.zr_sort_by(pairs)
+  end
+
   def to_a
     out = []
     each { |x| out << x }

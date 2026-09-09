@@ -12,7 +12,7 @@ module Ze0
     KERNEL = Dir[File.join(__dir__, "../../rt/kernel/*.rb")].sort.freeze
     # The core library files, in the order their toplevels run: a module
     # before the classes that include it.
-    CORE = %w[enumerable comparable module integer array hash range].map { |name| File.join(__dir__, "../../rt/core/#{name}.rb") }.freeze
+    CORE = %w[module enumerable comparable integer array hash range].map { |name| File.join(__dir__, "../../rt/core/#{name}.rb") }.freeze
 
     module_function
 

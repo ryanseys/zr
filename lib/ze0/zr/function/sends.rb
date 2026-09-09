@@ -21,6 +21,7 @@ module Ze0
         # flags, then the send.
         def call(node)
           return safe_call(node) if node.safe
+          return primitive(node) if primitive?(node)
 
           recv_node = node.recv || Hir::SelfRef.new(node.line)
           args = node.args + [node.kwargs].compact
@@ -55,6 +56,25 @@ module Ze0
           switch(merge)
           @sp = base
           result
+        end
+
+        # In the core library, `Primitive.zr_name(args)` is the kernel def
+        # itself, called directly with Values.
+        def primitive?(node)
+          @l.internal? && node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Primitive && node.recv.scope.nil?
+        end
+
+        def primitive(node)
+          d = @l.kernel_def(node.name.to_s)
+          @l.refuse(node, "Primitive.#{node.name} takes #{d.params.size} arguments, not #{node.args.size}") if d.params.size != node.args.size
+          @l.refuse(node, "Primitive.#{node.name} takes a block or keywords") if node.block || node.kwargs
+          d.params.each { |name, type| @l.refuse(node, "Primitive.#{node.name}'s #{name} is a #{type}, not a Value") unless type == "Value" }
+          @l.refuse(node, "Primitive.#{node.name} answers a #{d.ret}, not a Value") unless d.ret == "Value"
+          at_line(node.line)
+          staged(node.args) do |slots, base|
+            args = node.args.each_index.map { |i| @f.fetch("i64", @rec, value_offset(base + i)) }
+            checked(kernel(node.name.to_s, *args))
+          end
         end
 
         def explicit?(node)

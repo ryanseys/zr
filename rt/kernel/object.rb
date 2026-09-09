@@ -240,20 +240,10 @@ machine def zr_obj_send(recv, argc, argv, cref, blk)
   if argc == 0
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("no method name given"), 20)
   end
-  name = Machine.value(Machine.load64(argv, 0))
-  if !zr_special_p(name) && zr_type(name) == T_STRING
-    name = zr_sym(zr_intern(RString.ptr(name), RString.len(name)))
-  end
-  unless zr_symbol_p(name)
-    b = Machine.slot(Buf.size)
-    zr_buf_init(b)
-    s = zr_send(name, Machine.id(:inspect), 0, 0)
-    return s if s == QUNDEF
-    zr_buf_str(b, s)
-    zr_buf_push(b, Machine.bytes(" is not a symbol nor a string"), 29)
-    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
-  end
-  zr_send_blk(recv, zr_sym2id(name), argc - 1, argv + 8, blk)
+  slot = Machine.slot(8)
+  r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
+  return r if r == QUNDEF
+  zr_send_blk(recv, Machine.load64(slot, 0), argc - 1, argv + 8, blk)
 end
 
 # `public_send`: as `send`, with visibility applied.
@@ -262,11 +252,10 @@ machine def zr_obj_public_send(recv, argc, argv, cref, blk)
   if argc == 0
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("no method name given"), 20)
   end
-  name = Machine.value(Machine.load64(argv, 0))
-  unless zr_symbol_p(name)
-    zr_bug(Machine.bytes("public_send with a String name is not implemented yet\n"), 54)
-  end
-  zr_call_blk(recv, zr_sym2id(name), argc - 1, argv + 8, blk)
+  slot = Machine.slot(8)
+  r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
+  return r if r == QUNDEF
+  zr_call_blk(recv, Machine.load64(slot, 0), argc - 1, argv + 8, blk)
 end
 
 # `Object#===`: `==`.
@@ -378,28 +367,66 @@ machine def zr_ident_byte_p(c)
   (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || (c >= 48 && c <= 57) || c == 95 || c >= 128
 end
 
+# Whether `n` bytes are a symbol literal's plain name: an identifier
+# that may end in `?`, `!` or `=`, or one with a `@`, `@@` or `$`
+# sigil (then without the suffix), or an operator.
+sig [Ptr, Word] => Bool
+machine def zr_symname_plain_p(p, n)
+  if n == 0
+    return false
+  end
+  c = Machine.word(Machine.load8(p, 0))
+  i = 0
+  if c == 64
+    i = 1
+    if n > 1 && Machine.word(Machine.load8(p, 1)) == 64
+      i = 2
+    end
+  elsif c == 36
+    i = 1
+  end
+  if i > 0
+    if i >= n
+      return false
+    end
+    first = Machine.word(Machine.load8(p + i, 0))
+    if first >= 48 && first <= 57
+      return false
+    end
+    while i < n
+      if !zr_ident_byte_p(Machine.word(Machine.load8(p + i, 0)))
+        return false
+      end
+      i += 1
+    end
+    return true
+  end
+  if c >= 48 && c <= 57
+    return false
+  end
+  if !zr_ident_byte_p(c)
+    return zr_operator_name_p(p, n)
+  end
+  while i < n
+    c = Machine.word(Machine.load8(p + i, 0))
+    if !zr_ident_byte_p(c)
+      return i == n - 1 && (c == 63 || c == 33 || c == 61)
+    end
+    i += 1
+  end
+  true
+end
+
 # `:name`, quoted when the name is not a plain identifier or operator.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_sym_inspect(recv, argc, argv, cref, blk)
   id = zr_sym2id(recv)
   p = zr_symbol_name_ptr(id)
   n = zr_symbol_name_len(id)
-  plain = n > 0
-  i = 0
-  while i < n
-    c = Machine.word(Machine.load8(p + i, 0))
-    unless zr_ident_byte_p(c) || (i == n - 1 && (c == 63 || c == 33 || c == 61)) || (i == 0 && c == 64)
-      plain = false
-    end
-    i += 1
-  end
-  if Machine.word(Machine.load8(p, 0)) >= 48 && Machine.word(Machine.load8(p, 0)) <= 57
-    plain = false
-  end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_byte(b, 58)
-  if plain || zr_operator_name_p(p, n)
+  if zr_symname_plain_p(p, n)
     zr_buf_push(b, p, n)
   else
     zr_buf_str_escaped(b, p, n)
@@ -595,11 +622,10 @@ sig [Value, Word, Ptr, Word] => Value
 machine def zr_attr(klass, argc, argv, which)
   i = 0
   while i < argc
-    name = Machine.value(Machine.load64(argv + (i * 8), 0))
-    unless zr_symbol_p(name)
-      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("is not a symbol nor a string"), 28)
-    end
-    id = zr_sym2id(name)
+    slot = Machine.slot(8)
+    r = zr_name_id(Machine.value(Machine.load64(argv + (i * 8), 0)), slot)
+    return r if r == QUNDEF
+    id = Machine.load64(slot, 0)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_byte(b, 64)
