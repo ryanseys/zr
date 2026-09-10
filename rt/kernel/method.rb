@@ -295,8 +295,8 @@ machine def zr_proc_arity(recv, argc, argv, cref, blk)
   zr_fix(zr_params_rest_p(FrameMeta.params(meta)) ? 0 - min - 1 : min)
 end
 
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_proc_parameters(recv, argc, argv, cref, blk)
+sig [Value, Value] => Value
+machine def zr_proc_param_rows(recv, lenient)
   meta = RProc.meta(recv)
   if meta == 0
     if RProc.fn(recv) == Machine.addr(:zr_method_block)
@@ -311,7 +311,7 @@ machine def zr_proc_parameters(recv, argc, argv, cref, blk)
     zr_ary_push(out, row)
     return out
   end
-  zr_param_rows(FrameMeta.params(meta), RProc.lambda(recv) == 0)
+  zr_param_rows(FrameMeta.params(meta), lenient != QFALSE)
 end
 
 sig [Word] => Word

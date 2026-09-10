@@ -5,6 +5,13 @@ class Proc
 
   alias === call
 
+  # `lambda: true` reports a plain positional as :req and `false` as
+  # :opt; nil takes the view this proc has of its own.
+  def parameters(lambda: nil)
+    lenient = lambda.nil? ? !self.lambda? : !lambda
+    Primitive.zr_proc_param_rows(self, lenient)
+  end
+
   def to_proc = self
 
   # Only a proc with a rest and no keywords or post parameters can

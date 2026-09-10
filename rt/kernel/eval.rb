@@ -173,9 +173,19 @@ machine def zr_mod_define_method(recv, argc, argv, cref, blk)
         zr_buf_class(b, owner)
         return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
       end
+      # A bare `module_function` is a mode: the copy takes both halves,
+      # as a `def` under it does.
+      modfn = cref != QNIL && RCref.modfn(cref) != 0
+      if modfn
+        zr_method_copy(zr_singleton_class(recv), mid, e, zr_meta_owned_by(MEntry.meta(e), recv), VIS_PUBLIC, false)
+      end
       zr_method_copy(recv, mid, e, zr_meta_owned_by(MEntry.meta(e), recv), zr_definition_vis(mid, cref), false)
       r = zr_method_added(recv, mid)
       return r if r == QUNDEF
+      if modfn
+        r = zr_method_added(zr_singleton_class(recv), mid)
+        return r if r == QUNDEF
+      end
       return zr_sym(mid)
     end
     if zr_special_p(body) || zr_type(body) != T_PROC

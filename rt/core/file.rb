@@ -994,4 +994,5 @@ module Kernel
     end
   end
   private :test
+  module_function :test
 end

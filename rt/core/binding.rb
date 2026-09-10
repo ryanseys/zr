@@ -75,4 +75,7 @@ end
 module Kernel
   # The scope this call stands in.
   def binding = Primitive.zr_binding
+
+  # The names the caller's scope holds, which is what its Binding names.
+  def local_variables = Primitive.zr_binding.local_variables
 end

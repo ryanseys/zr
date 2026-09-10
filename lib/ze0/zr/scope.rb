@@ -27,17 +27,23 @@ module Ze0
       end
 
       # The sends that make a scope keep its locals in an Env: an eval
-      # reads and writes them there, and a Binding holds them after the
-      # frame is gone.
-      OPEN_FORMS = %i[eval binding].freeze
+      # reads and writes them there, a Binding holds them after the frame
+      # is gone, and `local_variables` names them.
+      OPEN_FORMS = %i[eval binding local_variables].freeze
 
-      # Whether `node` names one of those in this scope's own body. A
-      # scope that holds a block already has an Env, so a block body is
-      # not walked: it answers for itself.
+      # The sends that carry a method name as their first argument, so
+      # `send(:binding)` opens the scope that `binding` would.
+      BY_NAME = %i[send __send__ public_send method public_method].freeze
+
+      # Whether `node` names one of those in this scope's own body. The
+      # receiver is not read: `Kernel.binding` and `self.binding` answer
+      # for this scope as the bare form does. A scope that holds a block
+      # already has an Env, so a block body is not walked: it answers for
+      # itself.
       def opens_locals?(node)
         case node
         when Hir::Send
-          (node.recv.nil? && OPEN_FORMS.include?(node.name)) || node.to_a.any? { |v| opens_locals?(v) }
+          OPEN_FORMS.include?(node.name) || named_open_form?(node) || node.to_a.any? { |v| opens_locals?(v) }
         when Hir::Block, Hir::Lambda, Hir::ClassDef, Hir::ModuleDef, nil then false
         when Hir::Def then opens_locals?(node.receiver)
         when Hir::SingletonClassDef then opens_locals?(node.target)
@@ -45,6 +51,15 @@ module Ze0
         when Array then node.any? { |v| opens_locals?(v) }
         else false
         end
+      end
+
+      # `send(:binding)` and the rest of BY_NAME, where the name is a
+      # symbol the compile can read.
+      def named_open_form?(node)
+        return false unless BY_NAME.include?(node.name)
+
+        first = node.args.first
+        first.is_a?(Hir::Literal) && OPEN_FORMS.include?(first.value)
       end
 
       # How many record slots the sends under `node` need at once, past

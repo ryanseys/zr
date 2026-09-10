@@ -142,7 +142,10 @@ end
 # CRuby's module functions of Kernel: the same methods, public on
 # Kernel itself.
 module Kernel
-  module_function :Array, :Integer, :String, :__callee__, :__dir__, :__method__, :abort, :at_exit, :block_given?, :caller,
-                  :caller_locations, :catch, :exit, :fail, :format, :lambda, :loop, :p, :print, :printf, :proc, :puts,
-                  :raise, :sleep, :sprintf, :throw, :warn
+  module_function :Array, :Float, :Hash, :Integer, :String, :__callee__, :__dir__, :__method__, :abort, :at_exit,
+                  :autoload, :autoload?, :binding, :block_given?, :caller, :caller_locations, :catch, :eval, :exec,
+                  :exit, :exit!, :fail, :format, :gets, :global_variables, :iterator?, :lambda, :load,
+                  :local_variables, :loop, :open, :p, :print, :printf, :proc, :putc, :puts, :raise, :readline,
+                  :readlines, :require, :require_relative, :sleep, :spawn, :sprintf, :system, :throw, :trap, :warn,
+                  :`
 end

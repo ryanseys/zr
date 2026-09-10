@@ -534,7 +534,7 @@ end
 sig [] => Value
 machine def zr_global_variables
   out = zr_ary_new(16)
-  zr_ivtab_names(zr_gvars(), out)
-  zr_ivtab_names(zr_gvar_aliases(), out)
+  zr_ivtab_names(zr_gvars(), out, 36)
+  zr_ivtab_names(zr_gvar_aliases(), out, 36)
   out
 end

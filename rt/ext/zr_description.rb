@@ -132,6 +132,9 @@ module Ze0
         d zr_builtin Void klass:Value mid:Word fn:Ptr arity:Word
         d zr_builtin_private Void klass:Value mid:Word fn:Ptr arity:Word
         d zr_find_method_at Ptr klass:Value mid:Word
+        d zr_mcache_init Void
+        d zr_methods_changed Void
+        d zr_search_method Ptr klass:Value mid:Word
         d zr_find_method Ptr klass:Value mid:Word
         d zr_class_of Value v:Value
         d zr_class_inherits Bool klass:Value target:Value
@@ -549,6 +552,7 @@ module Ze0
         d zr_realpath_m Value path:Value
         d zr_chmod_m Value path:Value mode:Value
         d zr_path_access Value path:Value mode:Value
+        d zr_io_wait Value fd:Value events:Value milliseconds:Value
         d zr_jit_map Value size:Value exec:Value hint:Value
         d zr_jit_symbol Value name:Value
         d zr_jit_write_data Value at:Value bytes:Value
@@ -601,7 +605,7 @@ module Ze0
         d zr_params_min Word table:Ptr
         d zr_params_rest_p Bool table:Ptr
         d zr_proc_arity Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
-        d zr_proc_parameters Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_proc_param_rows Value recv:Value lenient:Value
         d zr_param_kind_name Word kind:Word
         d zr_method_owner_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_method_receiver Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -745,7 +749,8 @@ module Ze0
         d zr_proc_anonymous Value p:Value
         d zr_proc_eq Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_proc_hash Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
-        d zr_proc_spawn Value words:Value out:Value
+        d zr_spawn_vector Ptr words:Value
+        d zr_proc_spawn Value words:Value dups:Value closes:Value env:Value chdir:Value
         d zr_proc_exec Value words:Value
         d zr_proc_wait Value pid:Value flags:Value
         d zr_io_pipe Value
@@ -761,7 +766,7 @@ module Ze0
         d zr_ident_p Bool p:Ptr n:Word
         d zr_check_ivar_name Value id:Word
         d zr_check_cvar_name Value id:Word
-        d zr_ivtab_names Void t:Ptr out:Value
+        d zr_ivtab_names Void t:Ptr out:Value lead:Word
         d zr_obj_instance_variables Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_instance_variable_get Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_instance_variable_set Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -863,6 +868,25 @@ module Ze0
         d zr_vcall Value recv:Value mid:Word argc:Word argv:Ptr
         d zr_ruby2_hash_new Value h:Value
         d zr_ruby2_hash_p Value h:Value
+        d zr_sock_socket Value domain:Value type:Value protocol:Value
+        d zr_sock_bind Value fd:Value addr:Value
+        d zr_sock_connect Value fd:Value addr:Value
+        d zr_sock_listen Value fd:Value backlog:Value
+        d zr_sock_shutdown Value fd:Value how:Value
+        d zr_sock_accept Value fd:Value
+        d zr_sock_send Value fd:Value text:Value flags:Value
+        d zr_sock_sendto Value fd:Value text:Value flags:Value addr:Value
+        d zr_sock_recv Value fd:Value count:Value flags:Value
+        d zr_sock_recvfrom Value fd:Value count:Value flags:Value
+        d zr_sock_getsockname Value fd:Value
+        d zr_sock_getpeername Value fd:Value
+        d zr_sock_getsockopt Value fd:Value level:Value name:Value size:Value
+        d zr_sock_setsockopt Value fd:Value level:Value name:Value text:Value
+        d zr_sock_socketpair Value domain:Value type:Value protocol:Value
+        d zr_sock_hostname Value
+        d zr_sock_getaddrinfo Value host:Value service:Value family:Value socktype:Value protocol:Value flags:Value
+        d zr_sock_getnameinfo Value addr:Value flags:Value
+        d zr_sock_gai_message Value code:Value
         d zr_cmpint Value r:Value x:Value y:Value
         d zr_cmperr Value x:Value y:Value
         d zr_sort_at Value st:Ptr i:Word
@@ -1012,6 +1036,9 @@ module Ze0
         c KIND_UNDEF 6
         c KIND_MISSING 9
         c T_ICLASS 28
+        c MCACHE_ROWS 2048
+        c MCACHE_OFF 1
+        c MCACHE_VERIFY 2
         c T_CREF 25
         c VIS_PUBLIC 0
         c VIS_PRIVATE 1
@@ -1060,7 +1087,7 @@ module Ze0
         c CELL 128
         c CELLS 32768
         c ARENA_BYTES 4194304
-        c ARENA_ALLOC 8650752
+        c ARENA_ALLOC 4456448
         c ARENA_LIMIT 1024
         c POISON 14593280
         c G_BASIC_OBJECT 0
@@ -1091,6 +1118,10 @@ module Ze0
         c GATE_NOT 2048
         c GATE_AREF 4096
         c GATE_ASET 8192
+        c GATE_AND 65536
+        c GATE_OR 131072
+        c GATE_XOR 262144
+        c GATE_SHR 524288
         c PROT_READ_WRITE 3
         c PROT_READ_WRITE_EXEC 7
         c MAP_ANON_PRIVATE 4098
@@ -1130,6 +1161,7 @@ module Ze0
         c MISS_EXPLICIT 3
         c MISS_PRIVATE 4
         c MISS_PROTECTED 5
+        c SOCKADDR_MAX 128
         c G_FROZEN_ERROR 27
         c GATE_FREEZE 32768
         c G_FSTRINGS 44
@@ -1175,6 +1207,7 @@ module Ze0
         s ClassExt 104 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word
         s MEntry 72 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value
         s CEntry 64 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value
+        s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word
         s RCref 64 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr
         s FrameMeta 96 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr locals:80:Ptr env:88:Word
         s BtRow 32 8 meta:0:Ptr file:8:Ptr file_len:16:Word line:24:Word

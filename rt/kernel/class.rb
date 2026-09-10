@@ -724,11 +724,17 @@ machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
   end
   FrameMeta.set_name(meta, mid)
   FrameMeta.set_owner(meta, klass)
-  if cref != QNIL && RCref.modfn(cref) != 0
+  modfn = cref != QNIL && RCref.modfn(cref) != 0
+  if modfn
     zr_method_add_vis(zr_singleton_class(klass), mid, fn, arity, kind, meta, cref, VIS_PUBLIC)
   end
   zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
-  zr_method_added(klass, mid)
+  # Under `module_function` one def makes two methods, and ruby reports
+  # both of them.
+  r = zr_method_added(klass, mid)
+  return r if r == QUNDEF || !modfn
+
+  zr_method_added(zr_singleton_class(klass), mid)
 end
 
 # The visibility a definition under `cref` gets: the body's current
@@ -755,8 +761,15 @@ machine def zr_define_bmethod(klass, mid, meta, body, cref)
   klass = zr_origin(klass)
   FrameMeta.set_name(meta, mid)
   FrameMeta.set_owner(meta, klass)
+  modfn = cref != QNIL && RCref.modfn(cref) != 0
+  if modfn
+    zr_method_add_vis(zr_singleton_class(klass), mid, 0, 0 - 1, KIND_BMETHOD, meta, body, VIS_PUBLIC)
+  end
   zr_method_add_vis(klass, mid, 0, 0 - 1, KIND_BMETHOD, meta, body, zr_definition_vis(mid, cref))
-  zr_method_added(klass, mid)
+  r = zr_method_added(klass, mid)
+  return r if r == QUNDEF || !modfn
+
+  zr_method_added(zr_singleton_class(klass), mid)
 end
 
 # The `method_added` hook, or `singleton_method_added` on the object
@@ -904,11 +917,25 @@ machine def zr_set_method_visibility(klass, mid, vis, modfn)
     zr_method_copy(zr_singleton_class(klass), mid, e, MEntry.meta(e), VIS_PUBLIC, false)
     vis = VIS_PRIVATE
   end
-  if zr_find_method_at(zr_origin(klass), mid) == e
+  # A verb that finds the method on an ancestor makes a row here, and a
+  # new row is a definition: it takes the hook. A verb that changes the
+  # row this class already holds takes none.
+  copied = zr_find_method_at(zr_origin(klass), mid) != e
+  if copied
+    zr_method_copy(zr_origin(klass), mid, e, MEntry.meta(e), vis, true)
+  else
     MEntry.set_vis(e, vis)
     zr_methods_changed()
-  else
-    zr_method_copy(zr_origin(klass), mid, e, MEntry.meta(e), vis, true)
+  end
+  # The hooks run last: one can define a method, which moves the table
+  # the entry sits in.
+  if modfn != 0
+    r = zr_method_added(zr_singleton_class(klass), mid)
+    return r if r == QUNDEF
+  end
+  if copied
+    r = zr_method_added(zr_origin(klass), mid)
+    return r if r == QUNDEF
   end
   Machine.value(QNIL)
 end

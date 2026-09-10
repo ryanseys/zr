@@ -305,6 +305,14 @@ class Array
 
   def slice(*args) = self[*args]
 
+  # `Array[1, 2]` is the constructor spelling of `[1, 2]`. A subclass
+  # takes its own instance, which is what `Array[...].class` answers.
+  def self.[](*args)
+    return args if self == Array
+
+    new.replace(args)
+  end
+
   def self.try_convert(object)
     return object if object.is_a?(Array)
     return nil unless object.respond_to?(:to_ary)

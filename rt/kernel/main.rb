@@ -162,7 +162,6 @@ machine def zr_boot
   zr_builtin(zr_global(G_PROC), Machine.id(:inspect), Machine.addr(:zr_proc_inspect), 0)
   zr_builtin(zr_global(G_PROC), Machine.id(:to_s), Machine.addr(:zr_proc_inspect), 0)
   zr_builtin(zr_global(G_PROC), Machine.id(:arity), Machine.addr(:zr_proc_arity), 0)
-  zr_builtin(zr_global(G_PROC), Machine.id(:parameters), Machine.addr(:zr_proc_parameters), 0)
   zr_builtin(zr_global(G_PROC), Machine.id(:==), Machine.addr(:zr_proc_eq), 1)
   zr_builtin(zr_global(G_PROC), Machine.id(:eql?), Machine.addr(:zr_proc_eq), 1)
   zr_builtin(zr_global(G_PROC), Machine.id(:hash), Machine.addr(:zr_proc_hash), 0)
