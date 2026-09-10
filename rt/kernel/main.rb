@@ -53,6 +53,8 @@ end
 sig [] => Void
 machine def zr_boot
   zr_heap_init()
+  zr_mcache_init()
+  zr_mcache_init()
   Machine.store64(zr_current_task_slot(), 0, Machine.word(Machine.static(:task, Task.size)))
   zr_task_init(zr_task())
   # The four that form a cycle come first, with no class; then each

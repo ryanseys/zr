@@ -51,6 +51,7 @@ machine def zr_class_alloc(type, sup, klass)
   Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
   ClassExt.set_serial(ext, Machine.load64(counter, 0))
   RClass.set_ext(c, ext)
+  zr_methods_changed()
   c
 end
 
@@ -96,6 +97,7 @@ machine def zr_iclass_new(node, sup)
   RClass.set_ext(ic, RClass.ext(node))
   RClass.set_attached(ic, mod)
   RClass.set_origin(ic, Machine.value(QNIL))
+  zr_methods_changed()
   ic
 end
 
@@ -160,6 +162,7 @@ machine def zr_splice_modules(klass, at, mod, whole)
     end
     m = RClass.superclass(m)
   end
+  zr_methods_changed()
 end
 
 # The proxies standing for `mod` in other chains, newest first, as
@@ -235,6 +238,7 @@ machine def zr_ensure_origin(klass)
   end
   RClass.set_superclass(klass, o)
   RClass.set_origin(klass, o)
+  zr_methods_changed()
   true
 end
 
@@ -792,23 +796,31 @@ machine def zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
     g = zr_gates()
     Machine.store64(g, 0, Machine.load64(g, 0) | bit)
   end
+  zr_methods_changed()
   ext = RClass.ext(klass)
-  n = ClassExt.mlen(ext)
-  if n == ClassExt.mcap(ext)
-    cap = n * 2
-    if cap < 8
-      cap = 8
+  # A redefinition takes the row the name already has, which is where
+  # ruby keeps it: `instance_methods` shows it in the place it was first
+  # defined, and a later `remove_method` leaves nothing behind.
+  e = zr_find_method_at(klass, mid)
+  if e == 0
+    n = ClassExt.mlen(ext)
+    if n == ClassExt.mcap(ext)
+      cap = n * 2
+      if cap < 8
+        cap = 8
+      end
+      tab = malloc(cap * MEntry.size)
+      old = ClassExt.mtab(ext)
+      if old != 0
+        zr_memcpy(tab, old, n * MEntry.size)
+        free(old)
+      end
+      ClassExt.set_mtab(ext, tab)
+      ClassExt.set_mcap(ext, cap)
     end
-    tab = malloc(cap * MEntry.size)
-    old = ClassExt.mtab(ext)
-    if old != 0
-      zr_memcpy(tab, old, n * MEntry.size)
-      free(old)
-    end
-    ClassExt.set_mtab(ext, tab)
-    ClassExt.set_mcap(ext, cap)
+    e = ClassExt.mtab(ext) + (n * MEntry.size)
+    ClassExt.set_mlen(ext, n + 1)
   end
-  e = ClassExt.mtab(ext) + (n * MEntry.size)
   MEntry.set_mid(e, mid)
   MEntry.set_fn(e, fn)
   MEntry.set_arity(e, arity)
@@ -818,7 +830,6 @@ machine def zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
   MEntry.set_vis(e, vis)
   MEntry.set_orig(e, mid)
   MEntry.set_from(e, Machine.value(QNIL))
-  ClassExt.set_mlen(ext, n + 1)
 end
 
 # The entry `e` again on `klass` as `mid`, keeping the name it was
@@ -895,6 +906,7 @@ machine def zr_set_method_visibility(klass, mid, vis, modfn)
   end
   if zr_find_method_at(zr_origin(klass), mid) == e
     MEntry.set_vis(e, vis)
+    zr_methods_changed()
   else
     zr_method_copy(zr_origin(klass), mid, e, MEntry.meta(e), vis, true)
   end
@@ -1028,6 +1040,7 @@ sig [Value, Word, Ptr, Word] => Void
 machine def zr_builtin_private(klass, mid, fn, arity)
   zr_builtin(klass, mid, fn, arity)
   MEntry.set_vis(zr_find_method_at(zr_origin(klass), mid), VIS_PRIVATE)
+  zr_methods_changed()
 end
 
 # The entry for `mid` on `klass` alone, or 0; the last definition wins.
@@ -1047,10 +1060,43 @@ machine def zr_find_method_at(klass, mid)
   0
 end
 
+# The answer a walk of the chain gave for one (class, name): the entry
+# and the chain node it sat on, and the stamp the answer held under.
+Machine.struct :MCache, klass: Value, mid: Word, entry: Ptr, found: Value, stamp: Word
+MCACHE_ROWS = 2048
+# `ZR_MCACHE=0` answers every send from the walk, and `ZR_MCACHE=verify`
+# takes both answers and stops on a disagreement, which is what says no
+# change to a method table or a chain moves the stamp too late.
+MCACHE_OFF = 1
+MCACHE_VERIFY = 2
+
+sig [] => Void
+machine def zr_mcache_init
+  v = getenv(Machine.bytes("ZR_MCACHE\0"))
+  if v != 0
+    first = Machine.word(Machine.load8(v, 0))
+    if first == 48
+      Machine.store64(Machine.static(:mcache_mode, 8), 0, MCACHE_OFF)
+    elsif first == 118
+      Machine.store64(Machine.static(:mcache_mode, 8), 0, MCACHE_VERIFY)
+    end
+  end
+end
+
+# A definition, an alias, an undef, a visibility change, a module
+# spliced into a chain, a class whose superclass is set -- and a
+# collection, since a swept class can hand its address to a new one and
+# a row names classes by address.
+sig [] => Void
+machine def zr_methods_changed
+  s = Machine.static(:mcache_stamp, 8)
+  Machine.store64(s, 0, Machine.load64(s, 0) + 1)
+end
+
 # The entry for `mid` on `klass` or an ancestor, or 0; an undef on the
 # way is 0 too.
 sig [Value, Word] => Ptr
-machine def zr_find_method(klass, mid)
+machine def zr_search_method(klass, mid)
   while klass != QNIL
     e = zr_find_method_at(klass, mid)
     if e != 0
@@ -1064,6 +1110,38 @@ machine def zr_find_method(klass, mid)
     klass = RClass.superclass(klass)
   end
   0
+end
+
+# The same answer as a walk, from the cache while the cache still holds
+# one. Every send comes through here, so the statics are read where they
+# are used: a helper for each would cost more than it saves.
+sig [Value, Word] => Ptr
+machine def zr_find_method(klass, mid)
+  mode = Machine.load64(Machine.static(:mcache_mode, 8), 0)
+  if mode == MCACHE_OFF
+    return zr_search_method(klass, mid)
+  end
+  # A cell is CELL-aligned, so its low bits carry nothing.
+  h = ((Machine.word(klass) / CELL) ^ (mid * 31)) & (MCACHE_ROWS - 1)
+  row = Machine.static(:mcache, MCACHE_ROWS * MCache.size) + (h * MCache.size)
+  stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
+  if MCache.stamp(row) == stamp && MCache.klass(row) == klass && MCache.mid(row) == mid
+    e = MCache.entry(row)
+    if e != 0
+      Task.set_found(zr_task(), MCache.found(row))
+    end
+    if mode == MCACHE_VERIFY && e != zr_search_method(klass, mid)
+      zr_bug(Machine.bytes("the method cache answered what the chain does not\n"), 50)
+    end
+    return e
+  end
+  e = zr_search_method(klass, mid)
+  MCache.set_klass(row, klass)
+  MCache.set_mid(row, mid)
+  MCache.set_entry(row, e)
+  MCache.set_found(row, e == 0 ? Machine.value(QNIL) : Task.found(zr_task()))
+  MCache.set_stamp(row, stamp)
+  e
 end
 
 sig [Value] => Value

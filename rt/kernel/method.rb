@@ -101,6 +101,7 @@ machine def zr_method_missing_new(recv, klass, mid)
   MEntry.set_vis(e, VIS_PUBLIC)
   MEntry.set_orig(e, mid)
   MEntry.set_from(e, Machine.value(QNIL))
+  zr_methods_changed()
   m
 end
 

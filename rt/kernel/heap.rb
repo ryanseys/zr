@@ -401,6 +401,7 @@ machine def zr_collect
   zr_mark_drain()
   zr_weak_prune()
   zr_sweep()
+  zr_methods_changed()
   live = (Heap.arenas(h) * CELLS) - Heap.freed(h)
   want = ((live * 2) + (CELLS - 1)) / CELLS
   while Heap.arenas(h) < want && Heap.arenas(h) < ARENA_LIMIT

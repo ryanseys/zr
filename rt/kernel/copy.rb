@@ -95,6 +95,7 @@ machine def zr_class_copy(orig)
     zr_memcpy(tab, ClassExt.mtab(from), ClassExt.mlen(from) * MEntry.size)
     ClassExt.set_mtab(ext, tab)
     ClassExt.set_mlen(ext, ClassExt.mlen(from))
+    zr_methods_changed()
     ClassExt.set_mcap(ext, ClassExt.mlen(from))
   end
   if ClassExt.clen(from) > 0
