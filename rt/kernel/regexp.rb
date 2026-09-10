@@ -295,7 +295,8 @@ machine def zr_release_regexp(re)
 end
 
 # The frame record whose `$~` the running code sees: a block's is its
-# method's; a core method's is its caller's.
+# method's, an eval's is the scope that asked, and a core method's is
+# its caller's.
 sig [] => Ptr
 machine def zr_backref_home
   rec = Task.top(zr_task())
@@ -306,7 +307,7 @@ machine def zr_backref_home
     end
     if FrameMeta.file_len(meta) == 0
       rec = Frame.prev(rec)
-    elsif (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN) && FrameMeta.parent(meta) != 0
+    elsif (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN || FrameMeta.kind(meta) == KIND_EVAL) && FrameMeta.parent(meta) != 0
       parent = FrameMeta.parent(meta)
       up = Frame.prev(rec)
       while up != 0 && Frame.meta(up) != parent

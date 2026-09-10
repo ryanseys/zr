@@ -81,3 +81,18 @@ a_method
 counter = 3
 1.times { eval("counter += 1") }
 p counter
+
+eval("'hello' =~ /l(l)o/")
+p $~ && $~[0], $1
+"xyz" =~ /y/
+p eval("$~[0]"), eval("$&")
+
+def a_match
+  eval("'abc' =~ /b/")
+  p $~[0]
+end
+a_match
+
+held = binding
+eval("'qqq' =~ /q+/", held)
+p $~[0]
