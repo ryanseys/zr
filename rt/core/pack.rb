@@ -10,8 +10,10 @@ module Packing
   private_constant :INTEGERS, :BASE64
 
   # The template as [directive, count, big?] triples; count is nil
-  # for none, :all for `*`.
-  def self.directives(template, kind)
+  # for none, :all for `*`. `check` off keeps an unknown directive, so
+  # a caller that reads the template as it goes refuses in ruby's
+  # order.
+  def self.directives(template, kind, check: true)
     out = []
     i = 0
     while i < template.bytesize
@@ -19,7 +21,9 @@ module Packing
       i += 1
       next if c == " " || c == "\n" || c == "\t"
 
-      raise ArgumentError, "unknown #{kind} directive '#{c}' in '#{template}'" unless "CcSsLlQqJjIinNvVUwaAZHhBbmMuxX@dDeEfFgGpP".include?(c)
+      if check && !"CcSsLlQqJjIinNvVUwaAZHhBbmMuxX@dDeEfFgGpP".include?(c)
+        raise ArgumentError, "unknown #{kind} directive '#{c}' in '#{template}'"
+      end
 
       big = nil
       native = false
@@ -160,7 +164,7 @@ module Packing
   def self.pack(items, template)
     out = "".b
     at = 0
-    list = directives(template, "pack")
+    list = directives(template, "pack", check: false)
     encoding = list.reduce(Encoding::US_ASCII) do |so_far, (c, _, _)|
       if "mMu".include?(c) then so_far
       elsif c == "U" then so_far == Encoding::US_ASCII ? Encoding::UTF_8 : so_far
@@ -231,6 +235,8 @@ module Packing
         each_item(items, at, count) { |item| out << pack_single(Float(item), c == "g") }
         at += count == :all ? items.size - at : (count || 1)
       else
+        raise ArgumentError, "unknown pack directive '#{c}' in '#{template}'" unless INTEGERS.key?(c)
+
         size, _, order = INTEGERS.fetch(c)
         big = order == :big if order
         each_item(items, at, count) do |item|
