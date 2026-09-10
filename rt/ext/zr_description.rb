@@ -63,6 +63,8 @@ module Ze0
         d zr_toplevel_binding Value env:Value self_:Value cref:Value meta:Ptr
         d zr_box_register Value klass:Value
         d zr_box_current Value
+        d zr_box_reach Value
+        d zr_box_compiled Value meta:Value
         d zr_box_stamp Value metas:Value b:Value
         d zr_box_slot Value
         d zr_box_view Value klass:Value
@@ -1109,6 +1111,7 @@ module Ze0
         c KIND_HIDDEN 7
         c KIND_TOP 8
         c KIND_EVAL 9
+        c KIND_COMPILED 10
         c T_EXCEPTION 24
         c G_EXCEPTION 16
         c G_STANDARD_ERROR 17

@@ -28,6 +28,8 @@ KIND_TOP = 8
 # The toplevel of an eval, which shows the label of the frame that
 # asked for it: `parent` is that frame's meta, written at the call.
 KIND_EVAL = 9
+# A snippet a box ran, which names itself rather than its caller.
+KIND_COMPILED = 10
 
 Machine.struct :BtRow, meta: Ptr, file: Ptr, file_len: Word, line: Word
 # `bt` is a backtrace the program set, else nil and the captured rows
@@ -399,6 +401,8 @@ machine def zr_buf_label(b, meta)
     zr_buf_push(b, Machine.bytes("<top (required)>"), 16)
   elsif FrameMeta.kind(meta) == KIND_EVAL
     zr_buf_label(b, FrameMeta.parent(meta))
+  elsif FrameMeta.kind(meta) == KIND_COMPILED
+    zr_buf_push(b, Machine.bytes("<compiled>"), 10)
   elsif FrameMeta.kind(meta) == KIND_SCLASS
     zr_buf_push(b, Machine.bytes("singleton class"), 15)
   elsif FrameMeta.kind(meta) == KIND_CLASS || FrameMeta.kind(meta) == KIND_MODULE

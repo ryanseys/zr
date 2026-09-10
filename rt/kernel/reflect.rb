@@ -239,7 +239,7 @@ machine def zr_obj_singleton_methods(recv, argc, argv, cref, blk)
   if zr_special_p(recv)
     return out
   end
-  k = zr_class_of(recv)
+  k = zr_box_view(zr_class_of(recv))
   if !zr_singleton_p(k)
     return out
   end

@@ -113,7 +113,7 @@ machine def zr_obj_method(recv, argc, argv, cref, blk)
   slot = Machine.slot(8)
   r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
   return r if r == QUNDEF
-  zr_method_new(recv, zr_class_of(recv), Machine.load64(slot, 0))
+  zr_method_new(recv, zr_box_view(zr_class_of(recv)), Machine.load64(slot, 0))
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value

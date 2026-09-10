@@ -31,6 +31,32 @@ machine def zr_box_current
   Machine.word(b) == 0 ? Machine.value(QNIL) : b
 end
 
+# The box a call REACHES from: a builtin runs inside whoever called
+# it, the way a C method does, so the walk goes past every one.
+sig [] => Value
+machine def zr_box_reach
+  f = Task.top(zr_task())
+  while f != 0
+    m = Frame.meta(f)
+    if m == 0
+      return Machine.value(QNIL)
+    end
+    if FrameMeta.kind(m) != KIND_BUILTIN && FrameMeta.kind(m) != KIND_HIDDEN
+      b = FrameMeta.box(m)
+      return Machine.word(b) == 0 ? Machine.value(QNIL) : b
+    end
+    f = Frame.prev(f)
+  end
+  Machine.value(QNIL)
+end
+
+# The snippet's own toplevel names itself in a backtrace.
+sig [Value] => Value
+machine def zr_box_compiled(meta)
+  FrameMeta.set_kind(Machine.ptr(zr_fix2long(meta)), KIND_COMPILED)
+  Machine.value(QNIL)
+end
+
 # Every function of a box's own unit names the box, so its reach is
 # the code the box holds and nothing else.
 sig [Value, Value] => Value
@@ -63,7 +89,7 @@ machine def zr_box_view(klass)
   if a == QNIL
     return klass
   end
-  b = zr_box_current()
+  b = zr_box_reach()
   if b == QNIL
     return klass
   end
@@ -156,8 +182,11 @@ end
 # it has none. Anything else is itself.
 sig [Value] => Value
 machine def zr_box_seen(v)
+  if zr_box_shared_p(v) != QTRUE
+    return v
+  end
   b = zr_box_current()
-  if b == QNIL || zr_box_shared_p(v) != QTRUE
+  if b == QNIL
     return v
   end
   s = zr_box_view(v)

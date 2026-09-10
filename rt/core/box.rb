@@ -25,7 +25,7 @@ module Ruby
 
     # The box the running code belongs to. Ruby counts the box the
     # program itself runs in as one, so main is a box too.
-    def self.current = Primitive.zr_box_current || (enabled? ? main : nil)
+    def self.current = Primitive.zr_box_reach || (enabled? ? main : nil)
 
     def initialize
       raise RuntimeError, "Ruby::Box is disabled" unless Box.enabled?
@@ -103,7 +103,9 @@ module Ruby
     # The snippet runs IN the box: what it defines, what it reads and
     # what it writes are the box's own until the call is over.
     def run(code, _path)
+      Primitive.attr! :hidden
       Primitive.zr_box_stamp(code[4], self)
+      Primitive.zr_box_compiled(code[1])
       Primitive.zr_eval_run(code, @main, @cref, nil)
     end
 
