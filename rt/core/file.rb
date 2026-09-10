@@ -251,6 +251,12 @@ class File < IO
     def setgid? = (@mode & 0o2000) != 0
     def sticky? = (@mode & 0o1000) != 0
     def owned? = @uid == Process.uid
+    def grpowned? = @gid == Process.gid
+    def world_readable? = (@mode & 0o004) != 0 ? @mode & 0o777 : nil
+    def world_writable? = (@mode & 0o002) != 0 ? @mode & 0o777 : nil
+    def readable_real? = readable?
+    def writable_real? = writable?
+    def executable_real? = executable?
 
     def <=>(other)
       return nil unless other.is_a?(Stat)
@@ -613,6 +619,20 @@ class File < IO
     end
   end
 end
+
+# `FileTest` asks the same questions File does, as a module a program can
+# mix in. Ruby gives both the one set of answers.
+module FileTest
+  module_function
+
+  %i[blockdev? chardev? directory? empty? executable? executable_real? exist? file? grpowned?
+     identical? owned? pipe? readable? readable_real? setgid? setuid? size size? socket? sticky?
+     symlink? world_readable? world_writable? writable? writable_real? zero?].each do |name|
+    define_method(name) { |*args| File.public_send(name, *args) }
+    module_function name
+  end
+end
+
 
 class Dir
   include Enumerable
