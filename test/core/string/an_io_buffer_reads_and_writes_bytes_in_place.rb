@@ -2,6 +2,7 @@
 # `for` a String reads and writes that String's bytes in place, which is
 # what ruby means by locking the string for the block. Addresses in the
 # report are the object's, so this file scrubs them.
+$stderr.reopen(IO::NULL)
 p IO::Buffer::PAGE_SIZE.class
 p IO::Buffer::DEFAULT_SIZE
 p [IO::Buffer::EXTERNAL, IO::Buffer::INTERNAL, IO::Buffer::MAPPED, IO::Buffer::SHARED, IO::Buffer::LOCKED, IO::Buffer::PRIVATE, IO::Buffer::READONLY]
@@ -61,7 +62,7 @@ Integer
 [8, false, true, false, true, false]
 4660
 "\x124\x00\x00\x00\x00\x00\x00"
-"#<IO::Buffer 0x0000000973196000+8 INTERNAL>"
+"#<IO::Buffer 0x000000090f3356c0+8 INTERNAL>"
 "#<IO::Buffer 0xADDR+8 INTERNAL>\n0x00000000  12 34 00 00 00 00 00 00                         .4......"
 "hi"
 "\x124"

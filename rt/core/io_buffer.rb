@@ -13,6 +13,7 @@ class IO
     INTERNAL = 2
     MAPPED = 4
     SHARED = 8
+    SLICE = 16
     LOCKED = 32
     PRIVATE = 64
     READONLY = 128
@@ -39,6 +40,8 @@ class IO
       u16: [2, false, true, false], s16: [2, true, true, false],
       u32: [4, false, true, false], s32: [4, true, true, false],
       u64: [8, false, true, false], s64: [8, true, true, false],
+      U128: [16, false, false, false], S128: [16, true, false, false],
+      u128: [16, false, true, false], s128: [16, true, true, false],
       F32: [4, true, false, true], F64: [8, true, false, true],
       f32: [4, true, true, true], f64: [8, true, true, true]
     }.freeze
@@ -49,6 +52,15 @@ class IO
 
       row(type)[0]
     end
+
+    # Ruby says once per process that the class may still change.
+    def self.announce
+      return if @announced
+
+      @announced = true
+      warn("IO::Buffer is experimental and both the Ruby and C interface may change in the future!", uplevel: 2)
+    end
+    private_class_method :announce
 
     def self.row(type)
       Primitive.attr! :hidden
@@ -82,6 +94,10 @@ class IO
     end
 
     def initialize(size = DEFAULT_SIZE, flags = 0)
+      Buffer.send(:announce)
+      size = Primitive.zr_index_operand_m(size)
+      raise ArgumentError, "Size can't be negative!" if size < 0
+
       @bytes = "\0".b * size
       @start = 0
       @size = size
@@ -90,6 +106,16 @@ class IO
 
     attr_reader :size
 
+    # A copy owns its bytes, so it is writable even when the original
+    # is a read-only window on a String.
+    def initialize_copy(other)
+      @bytes = other.get_string
+      @start = 0
+      @size = @bytes.bytesize
+      @flags = INTERNAL
+      self
+    end
+
     def external? = @flags & EXTERNAL != 0
     def internal? = @flags & INTERNAL != 0
     def mapped? = @flags & MAPPED != 0
@@ -97,12 +123,16 @@ class IO
     def private? = @flags & PRIVATE != 0
     def readonly? = @flags & READONLY != 0
     def locked? = @flags & LOCKED != 0
-    def valid? = !@bytes.nil?
+    # A buffer stays valid over `free` and `transfer`; only a mapping
+    # that went away makes one invalid.
+    def valid? = true
     def null? = @bytes.nil? || @size.zero?
     def empty? = @size.zero?
 
     # A freed buffer keeps its object and lets go of its bytes.
     def free
+      raise LockedError, "Buffer is locked!" if locked?
+
       @bytes = nil
       @start = 0
       @size = 0
@@ -121,6 +151,7 @@ class IO
     end
 
     def resize(size)
+      raise LockedError, "Cannot resize locked buffer!" if locked?
       raise AccessError, "Cannot resize external buffer!" if external?
 
       @bytes = @bytes.byteslice(0, size).b
@@ -134,7 +165,7 @@ class IO
       length = @size - offset if length.nil?
       bounds(offset, length)
       part = allocate_like
-      part.send(:window, @bytes, @start + offset, length, @flags)
+      part.send(:window, @bytes, @start + offset, length, (@flags & ~INTERNAL) | SLICE)
       part
     end
 
@@ -185,7 +216,7 @@ class IO
         @bytes.setbyte(@start + offset + (host ? i : width - 1 - i), (value >> (i * 8)) & 0xff)
         i += 1
       end
-      value
+      offset + width
     end
 
     def get_values(types, offset = 0)
@@ -246,15 +277,25 @@ class IO
 
     # `copy` reads from `source` into this buffer.
     def copy(source, offset = 0, length = nil, source_offset = 0)
-      set_string(source.is_a?(Buffer) ? source.get_string : source, offset, length, source_offset)
+      raise TypeError, "wrong argument type #{source.class} (expected IO::Buffer)" unless source.is_a?(Buffer)
+
+      set_string(source.get_string, offset, length, source_offset)
     end
 
-    def <=>(other) = other.is_a?(Buffer) ? get_string <=> other.get_string : nil
+    def <=>(other)
+      raise TypeError, "wrong argument type #{other.class} (expected IO::Buffer)" unless other.is_a?(Buffer)
+
+      get_string <=> other.get_string
+    end
 
     def &(other) = combine(other) { |a, b| a & b }
     def |(other) = combine(other) { |a, b| a | b }
     def ^(other) = combine(other) { |a, b| a ^ b }
-    def ~ = Buffer.for(get_string.bytes.map { |b| (~b) & 0xff }.pack("C*"))
+    def ~
+      out = Buffer.new(@size)
+      out.set_string(get_string.bytes.map { |b| (~b) & 0xff }.pack("C*")) unless @size.zero?
+      out
+    end
 
     def and!(other) = in_place(other) { |a, b| a & b }
     def or!(other) = in_place(other) { |a, b| a | b }
@@ -270,19 +311,17 @@ class IO
       self
     end
 
-    def read(io, length = nil, offset = 0) = io.read(length || @size - offset)&.then { |text| set_string(text, offset) }
+    # `length` is the least ruby insists on moving; the transfer covers
+    # the rest of the buffer, which is what ruby's own loop does. The
+    # p-forms name a file position and leave the stream's own where it
+    # was.
+    def read(io, length = nil, offset = 0) = set_string(io.read(@size - offset).to_s, offset)
 
-    def write(io, length = nil, offset = 0) = io.write(get_string(offset, length))
+    def write(io, length = nil, offset = 0) = io.write(get_string(offset, @size - offset))
 
-    def pread(io, from, length = nil, offset = 0)
-      io.seek(from)
-      read(io, length, offset)
-    end
+    def pread(io, from, length = nil, offset = 0) = at(io, from) { read(io, length, offset) }
 
-    def pwrite(io, from, length = nil, offset = 0)
-      io.seek(from)
-      write(io, length, offset)
-    end
+    def pwrite(io, from, length = nil, offset = 0) = at(io, from) { write(io, length, offset) }
 
     def transfer
       other = Buffer.allocate
@@ -299,13 +338,18 @@ class IO
               else
                 [internal? ? "INTERNAL" : nil, external? ? "EXTERNAL" : nil, mapped? ? "MAPPED" : nil,
                  shared? ? "SHARED" : nil, locked? ? "LOCKED" : nil, private? ? "PRIVATE" : nil,
-                 readonly? ? "READONLY" : nil].compact
+                 readonly? ? "READONLY" : nil, @flags & SLICE != 0 ? "SLICE" : nil].compact
               end
       "#<IO::Buffer #{format('0x%016x', object_id)}+#{@size}#{shown.empty? ? '' : " #{shown.join(' ')}"}>"
     end
 
-    # A small buffer shows its bytes under the header.
-    def inspect = null? || @size > 256 ? to_s : "#{to_s}\n#{hexdump}"
+    # The bytes go under the header, up to the first 256 of them.
+    def inspect
+      return to_s if null?
+      return "#{to_s}\n#{hexdump}" if @size <= 256
+
+      "#{to_s}\n#{hexdump(0, 256)}\n(and #{@size - 256} more bytes not printed)"
+    end
 
     # 16 bytes a row: the offset, the bytes in hex in a column of a
     # fixed width, then the printable text.
@@ -321,12 +365,23 @@ class IO
 
     private
 
+    def at(io, from)
+      Primitive.attr! :hidden
+      held = io.tell
+      begin
+        io.seek(from)
+        yield
+      ensure
+        io.seek(held)
+      end
+    end
+
     def external(string, readonly)
       Primitive.attr! :hidden
       @bytes = string
       @start = 0
       @size = string.bytesize
-      @flags = EXTERNAL | (readonly ? READONLY : 0)
+      @flags = EXTERNAL | SLICE | (readonly ? READONLY : 0)
       self
     end
 
@@ -361,24 +416,38 @@ class IO
       raise ArgumentError, "Specified offset+length is bigger than the buffer size!"
     end
 
-    def combine(other)
+    # A mask repeats over the buffer, so a shorter one is fine and only
+    # an empty one is refused.
+    def mask(other)
       Primitive.attr! :hidden
-      raise MaskError, "Mask size differs from buffer size!" unless other.size == @size
+      raise MaskError, "Zero-length mask given!" if other.size.zero?
 
-      Buffer.for(get_string.bytes.zip(other.get_string.bytes).map { |a, b| yield(a, b) }.pack("C*"))
+      other.get_string.bytes
+    end
+
+    def combine(other, &block)
+      Primitive.attr! :hidden
+      out = Buffer.new(@size)
+      out.set_string(masked(other, &block)) unless @size.zero?
+      out
     end
 
     def in_place(other, &block)
       Primitive.attr! :hidden
-      raise MaskError, "Mask size differs from buffer size!" unless other.size == @size
-
+      text = masked(other, &block)
       writable
       i = 0
       while i < @size
-        @bytes.setbyte(@start + i, yield(@bytes.getbyte(@start + i), other.get_value(:U8, i)))
+        @bytes.setbyte(@start + i, text.getbyte(i))
         i += 1
       end
       self
+    end
+
+    def masked(other)
+      Primitive.attr! :hidden
+      bytes = mask(other)
+      get_string.bytes.each_with_index.map { |b, i| yield(b, bytes[i % bytes.size]) }.pack("C*")
     end
   end
 end
