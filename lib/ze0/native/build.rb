@@ -22,6 +22,10 @@ module Ze0
 
       ROADS = { "ruby" => Ruby, "cranelift" => Cranelift }.freeze
 
+      # The main thread's stack, which holds ruby frames as native
+      # frames. `rt/kernel/fiber.rb` sizes every other task's.
+      STACK_FLAGS = ["-Wl,-stack_size,0x4000000"].freeze
+
       def road(name, root)
         ROADS.fetch(name) { raise ArgumentError, "no native road named #{name.inspect} (ruby, cranelift)" }.new(root)
       end
@@ -31,7 +35,7 @@ module Ze0
       def binary(functions, data, out, road:, work:, raw: [], objects: [])
         obj = File.join(work, "unit.o")
         (why = object(functions, data, obj, road: road, raw: raw, export: !objects.empty?)) and return why
-        road.link(objects + [obj], out, archives: Deps.build(road.root))
+        road.link(objects + [obj], out, archives: Deps.build(road.root), flags: STACK_FLAGS)
       end
 
       # A `Zr::Program` to a binary: its runtime from the cache, its own

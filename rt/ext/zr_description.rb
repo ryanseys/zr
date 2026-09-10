@@ -1095,7 +1095,7 @@ module Ze0
         c FIBER_RESUMED 1
         c FIBER_SUSPENDED 2
         c FIBER_TERMINATED 3
-        c FIBER_STACK_BYTES 1048576
+        c FIBER_STACK_BYTES 67108864
         c CONTEXT_BYTES 176
         c T_FLOAT 4
         c G_FLOAT 40

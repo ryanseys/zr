@@ -12,7 +12,11 @@ FIBER_CREATED = 0
 FIBER_RESUMED = 1
 FIBER_SUSPENDED = 2
 FIBER_TERMINATED = 3
-FIBER_STACK_BYTES = 1048576
+# A task's own machine stack. Ruby frames are native frames here, so
+# the depth ruby reaches on its VM stack needs room: 10,000 frames of
+# a plain method measure about 36 MiB. The pages arrive only as the
+# stack grows into them.
+FIBER_STACK_BYTES = 67108864
 CONTEXT_BYTES = 176
 
 sig [] => Ptr
