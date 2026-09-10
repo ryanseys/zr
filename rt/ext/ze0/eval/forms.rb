@@ -9,9 +9,14 @@ module Kernel
   # Ruby run where this call stands: under the self and the cref of the
   # frame that asked, which is what an eval with no binding gets.
   def eval(source, binding = nil, file = nil, line = 1)
-    Primitive.zr_unimplemented("eval with a binding") unless binding.nil?
-    code = Ze0::Eval.current.compile(source, file || Primitive.zr_eval_source_name, line)
-    Primitive.zr_eval_run(code, Primitive.zr_eval_self, Primitive.zr_eval_cref)
+    unless binding.nil?
+      raise TypeError, "wrong argument type #{binding.class} (expected binding)" unless binding.is_a?(Binding)
+
+      code = Ze0::Eval.current.compile(source, file || Primitive.zr_eval_source_name, line, Primitive.zr_binding_scopes(binding))
+      return Primitive.zr_binding_run(code, binding)
+    end
+    code = Ze0::Eval.current.compile(source, file || Primitive.zr_eval_source_name, line, Primitive.zr_eval_scopes)
+    Primitive.zr_eval_run(code, Primitive.zr_eval_self, Primitive.zr_eval_cref, Primitive.zr_eval_env)
   end
 end
 
@@ -26,8 +31,8 @@ class Module
     end
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)" unless (1..3).cover?(args.size)
 
-    code = Ze0::Eval.current.compile(args[0], args[1] || Primitive.zr_eval_source_name, args[2] || 1)
-    Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref_of(self))
+    code = Ze0::Eval.current.compile(args[0], args[1] || Primitive.zr_eval_source_name, args[2] || 1, Primitive.zr_eval_scopes)
+    Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref_of(self), Primitive.zr_eval_env)
   end
 
   alias module_eval class_eval
@@ -48,7 +53,7 @@ class BasicObject
       ::Kernel.raise ::ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)"
     end
 
-    code = ::Ze0::Eval.current.compile(args[0], args[1] || Primitive.zr_eval_source_name, args[2] || 1)
-    Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref_of(Primitive.zr_eval_class_of(self)))
+    code = ::Ze0::Eval.current.compile(args[0], args[1] || Primitive.zr_eval_source_name, args[2] || 1, Primitive.zr_eval_scopes)
+    Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref_of(Primitive.zr_eval_class_of(self)), Primitive.zr_eval_env)
   end
 end

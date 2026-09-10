@@ -24,14 +24,21 @@ module Ze0
     class Symbols
       attr_reader :ids, :sites
 
-      def initialize(names = [], sites: 0)
+      # `intern` is how a running program names a symbol it has not seen.
+      # Only an eval has one, and only past the names it was seeded with.
+      def initialize(names = [], sites: 0, intern: nil)
         @ids = {}
         @sites = sites
         names.each { |n| id(n) }
+        @intern = intern
       end
 
+      # With an `intern`, a name this table meets first is given to the
+      # program at once and takes the id the program's own table answers,
+      # so the two never drift apart, whatever else the program interned.
       def id(name)
-        @ids[name.to_s] ||= @ids.size
+        name = name.to_s
+        @ids.fetch(name) { @ids[name] = @intern ? @intern.call(name) : @ids.size }
       end
 
       # A fresh index for a code site that owns a run-time slot (a regexp

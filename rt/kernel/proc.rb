@@ -5,7 +5,7 @@
 # a `break` returns to (with the call site's number) and the method a
 # `return` leaves. A `break` or `return` is a signal beside `raise`:
 # the task's pending kind says which.
-Machine.struct :REnv, basic: RBasic, parent: Value, slots: Ptr, nslots: Word
+Machine.struct :REnv, basic: RBasic, parent: Value, slots: Ptr, nslots: Word, names: Ptr
 Machine.struct :RProc, basic: RBasic, fn: Ptr, meta: Ptr, env: Value, self: Value, cref: Value, blk: Value, home: Ptr, serial: Word, site: Word, ret_home: Ptr, ret_serial: Word, spread: Word, lambda: Word, passed: Word
 Machine.sig :block, [Value, Word, Ptr, Value] => Value
 T_ENV = 26
@@ -17,11 +17,12 @@ PENDING_BREAK = 1
 PENDING_RETURN = 2
 PENDING_THROW = 3
 
-sig [Value, Word] => Value
-machine def zr_env_new(parent, n)
+sig [Value, Word, Ptr] => Value
+machine def zr_env_new(parent, n, names)
   e = zr_alloc(T_ENV, Machine.value(QNIL))
   REnv.set_parent(e, parent)
   REnv.set_nslots(e, n)
+  REnv.set_names(e, names)
   slots = malloc(n * 8)
   i = 0
   while i < n

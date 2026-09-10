@@ -7,7 +7,10 @@
 # Every frame record carries a FrameMeta: what the backtrace prints for
 # it. A builtin method's frame is pushed by dispatch and borrows the
 # file and line of the nearest Ruby frame outside it.
-Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr
+# `locals` names the scope's locals in slot order (the count, then a
+# symbol id each), and `env` is 1 when the record's first slot holds
+# the Env that keeps them, which is what an eval and a Binding read.
+Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr, locals: Ptr, env: Word
 KIND_MAIN = 0
 KIND_DEF = 1
 KIND_BUILTIN = 2

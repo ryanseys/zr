@@ -7,6 +7,24 @@ require_relative "function"
 
 module Ze0
   module Zr
+    # A scope an eval runs inside: the names of its locals in the order
+    # its Env holds them, and the scope outside that one. It stands where
+    # a Function stands for a block, so a name the string did not declare
+    # resolves to the slot the asking scope keeps it in.
+    class Outer
+      attr_reader :outer
+
+      def initialize(names, outer = nil)
+        @slot_of = names.each_with_index.to_h
+        @outer = outer
+      end
+
+      def meta = nil
+
+      def slot_index(node)
+        @slot_of.fetch(node.name) { raise ArgumentError, "#{node.name} is not a local of the scope this eval runs in" }
+      end
+    end
     # HIR to IR against the `zr` runtime: one Function per scope (the
     # toplevel, each def, class body and block), the data they name, and
     # the FrameMeta rows backtraces read.
@@ -25,13 +43,14 @@ module Ze0
       # backtrace, and its blocks and bodies leave no row at all. `kind`
       # is `:top` for an eval, whose toplevel is a file's, not a
       # program's: it starts no program and prints no parse warning.
-      def initialize(program, unit, symbols, entry: "zr_toplevel", internal: false, kind: :main)
+      def initialize(program, unit, symbols, entry: "zr_toplevel", internal: false, kind: :main, outer: nil)
         @program = program
         @unit = unit
         @symbols = symbols
         @entry = entry
         @internal = internal
         @kind = kind
+        @outer = outer
         @file = program.file
         @frozen = program.frozen
         @warnings = program.warnings || []
@@ -43,7 +62,7 @@ module Ze0
       # `[functions, data]`: the program's toplevel, then one function
       # per required file, each with its own file name for backtraces.
       def run
-        Function.new(self, @entry, @program.locals, @program.body, nil, @kind).lower
+        Function.new(self, @entry, @program.locals, @program.body, nil, @kind, outer: @outer).lower
         (@program.units || []).each_with_index do |u, i|
           @file = u.file
           @frozen = u.frozen
@@ -106,7 +125,7 @@ module Ze0
         @file_bytes[@file] ||= literal(@file)
       end
 
-      def meta(fn, kind, line, name = 0, parent = nil, params = nil)
+      def meta(fn, kind, line, name = 0, parent = nil, params = nil, locals = [], env = false)
         layout = layout("FrameMeta")
         file = file_bytes
         bytes = ("\0" * layout.size).b
@@ -116,12 +135,22 @@ module Ze0
         word.call("kind", const(kind))
         word.call("line", line)
         word.call("arity", params ? params.arity : 0)
+        word.call("env", env ? 1 : 0)
         relocs = [Obj::Reloc.new(layout.fields.fetch("file").first, :abs64, file)]
         relocs << Obj::Reloc.new(layout.fields.fetch("parent").first, :abs64, parent) if parent
         relocs << Obj::Reloc.new(layout.fields.fetch("params").first, :abs64, param_table(fn, params)) if params
+        relocs << Obj::Reloc.new(layout.fields.fetch("locals").first, :abs64, local_table(fn, locals))
         relocs << Obj::Reloc.new(layout.fields.fetch("fn").first, :abs64, fn) if kind == "KIND_BLOCK" || kind == "KIND_HIDDEN"
         name = "zr_meta_#{fn}"
         @data << Obj::Data.new(name, :data, bytes, relocs: relocs, align: 8)
+        name
+      end
+
+      # The scope's locals as data: the row count, then a name id each,
+      # in slot order. An eval and a Binding read the scope's names here.
+      def local_table(fn, locals)
+        name = "zr_locals_#{fn}"
+        @data << Obj::Data.new(name, :text_const, [locals.size, *locals.map { |n| @symbols.id(n) }].pack("q<*"), align: 8)
         name
       end
 

@@ -38,6 +38,23 @@ module Ze0
         d zr_ary_clear Value a:Value unused:Value
         d zr_index_operand_m Value v:Value
         d zr_ary_pop_m Value recv:Value
+        d zr_caller_frame Ptr
+        d zr_eval_self Value
+        d zr_eval_cref Value
+        d zr_eval_source_name Value
+        d zr_eval_cref_of Value mod:Value
+        d zr_local_names Value table:Ptr
+        d zr_frame_env Value rec:Ptr
+        d zr_eval_env Value
+        d zr_eval_scopes Value
+        d zr_binding Value
+        d zr_binding_scopes Value b:Value
+        d zr_binding_receiver Value b:Value
+        d zr_binding_file Value b:Value
+        d zr_binding_line Value b:Value
+        d zr_binding_get Value b:Value depth:Value index:Value
+        d zr_binding_set Value b:Value depth:Value index:Value v:Value
+        d zr_binding_run Value code:Value b:Value
         d zr_buf_init Void b:Ptr
         d zr_buf_reserve Void b:Ptr n:Word
         d zr_buf_push Void b:Ptr bytes:Ptr n:Word
@@ -533,12 +550,7 @@ module Ze0
         d zr_jit_write_data Value at:Value bytes:Value
         d zr_jit_write_code Value at:Value bytes:Value
         d zr_jit_call Value at:Value
-        d zr_eval_caller Ptr
-        d zr_eval_self Value
-        d zr_eval_cref Value
-        d zr_eval_source_name Value
-        d zr_eval_cref_of Value mod:Value
-        d zr_eval_run Value code:Value self_:Value cref:Value
+        d zr_eval_run Value code:Value self_:Value cref:Value env:Value
         d zr_puts_value Value v:Value
         d zr_puts Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_print Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -679,7 +691,7 @@ module Ze0
         d zr_pm_parse_lex Value source:Value options:Value
         d zr_pm_parse_success Value source:Value options:Value
         d zr_pm_version Value
-        d zr_env_new Value parent:Value n:Word
+        d zr_env_new Value parent:Value n:Word names:Ptr
         d zr_env_up Value env:Value depth:Word
         d zr_env_get Value env:Value i:Word
         d zr_env_set Value env:Value i:Word v:Value
@@ -1157,7 +1169,7 @@ module Ze0
         s MEntry 72 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value
         s CEntry 64 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value
         s RCref 64 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr
-        s FrameMeta 80 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr
+        s FrameMeta 96 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr locals:80:Ptr env:88:Word
         s BtRow 32 8 meta:0:Ptr file:8:Ptr file_len:16:Word line:24:Word
         s RException 56 8 basic:0:RBasic message:16:Value rows:24:Ptr nrows:32:Word bt:40:Value cause:48:Value
         s RFiber 104 8 basic:0:RBasic task:16:Ptr ctx:24:Ptr stack:32:Ptr kroots:40:Ptr blk:48:Value status:56:Word prev:64:Value resuming:72:Value value:80:Value yielding:88:Word transferred:96:Word
@@ -1172,7 +1184,7 @@ module Ze0
         s IvTab 24 8 rows:0:Ptr len:8:Word cap:16:Word
         s IvEntry 16 8 id:0:Word value:8:Value
         s RObject 40 8 basic:0:RBasic iv:16:IvTab
-        s REnv 40 8 basic:0:RBasic parent:16:Value slots:24:Ptr nslots:32:Word
+        s REnv 48 8 basic:0:RBasic parent:16:Value slots:24:Ptr nslots:32:Word names:40:Ptr
         s RProc 128 8 basic:0:RBasic fn:16:Ptr meta:24:Ptr env:32:Value self:40:Value cref:48:Value blk:56:Value home:64:Ptr serial:72:Word site:80:Word ret_home:88:Ptr ret_serial:96:Word spread:104:Word lambda:112:Word passed:120:Word
         s RRegexp 64 8 basic:0:RBasic source:16:Value options:24:Word reg:32:Ptr names:40:Value text:48:Value alt:56:Ptr
         s Sort 32 8 base:0:Ptr stride:8:Word blk:16:Value failed:24:Word

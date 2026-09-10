@@ -26,6 +26,27 @@ module Ze0
         end
       end
 
+      # The sends that make a scope keep its locals in an Env: an eval
+      # reads and writes them there, and a Binding holds them after the
+      # frame is gone.
+      OPEN_FORMS = %i[eval binding].freeze
+
+      # Whether `node` names one of those in this scope's own body. A
+      # scope that holds a block already has an Env, so a block body is
+      # not walked: it answers for itself.
+      def opens_locals?(node)
+        case node
+        when Hir::Send
+          (node.recv.nil? && OPEN_FORMS.include?(node.name)) || node.to_a.any? { |v| opens_locals?(v) }
+        when Hir::Block, Hir::Lambda, Hir::ClassDef, Hir::ModuleDef, nil then false
+        when Hir::Def then opens_locals?(node.receiver)
+        when Hir::SingletonClassDef then opens_locals?(node.target)
+        when Struct then node.to_a.any? { |v| opens_locals?(v) }
+        when Array then node.any? { |v| opens_locals?(v) }
+        else false
+        end
+      end
+
       # How many record slots the sends under `node` need at once, past
       # `base`: a send holds its receiver and arguments while an
       # argument's own sends run above them. An ensure body may run from

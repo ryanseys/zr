@@ -59,3 +59,25 @@ begin
 rescue RuntimeError => e
   p e.backtrace.first
 end
+
+outer = 1
+begin
+  Object.class_eval("p outer")
+  Object.new.instance_eval("p outer")
+  eval("outer = 2")
+  p outer
+  eval("invented = 9")
+  p defined?(invented)
+end
+
+def a_method
+  n = 1
+  [0].each { eval("n = 5") }
+  [0].each { [0].each { eval("n += 1") } }
+  p n, eval("defined?(n)")
+end
+a_method
+
+counter = 3
+1.times { eval("counter += 1") }
+p counter

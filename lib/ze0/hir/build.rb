@@ -29,9 +29,9 @@ module Ze0
 
       # `road` is false for an eval: the program it runs inside already
       # carries the compiler, so the eval must not compile it again.
-      def self.program(source, file, roots: [], road: true, line: 1)
+      def self.program(source, file, roots: [], road: true, line: 1, scopes: nil)
         loader = Loader.new(roots + STDLIB)
-        main = loader.unit(file, source, line)
+        main = loader.unit(file, source, line, scopes)
         body = road && loader.evals? ? Seq.new([eval_road(loader), main.body], 0) : main.body
         Program.new(main.file, main.locals, body, main.frozen, loader.units, main.warnings)
       end
@@ -68,8 +68,8 @@ module Ze0
           @evals = true if name == :eval || (EVAL_FORMS.include?(name) && !args.empty?)
         end
 
-        def unit(file, source = File.read(file), line = 1)
-          result = Prism.parse(source, filepath: file, line: line)
+        def unit(file, source = File.read(file), line = 1, scopes = nil)
+          result = scopes ? Prism.parse(source, filepath: file, line: line, scopes: scopes) : Prism.parse(source, filepath: file, line: line)
           unless result.errors.empty?
             e = result.errors.first
             raise SyntaxError, "#{file}:#{e.location.start_line}: #{e.message}"

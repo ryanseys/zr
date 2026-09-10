@@ -41,7 +41,7 @@ module Ze0
       include Defined
 
       KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK", eval: "KIND_EVAL" }.freeze
-      ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64], eval: %w[i64 i64] }.freeze
+      ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64], eval: %w[i64 i64 i64] }.freeze
 
       attr_reader :meta, :outer, :kind
 
@@ -63,7 +63,8 @@ module Ze0
         @cref_layout = lower.layout("RCref")
         @proc_layout = lower.layout("RProc")
         @slot_of = locals.each_with_index.to_h
-        @has_env = Scope.holds_block?(body) || default_expressions.any? { |d| Scope.holds_block?(d) }
+        @has_env = @kind == :eval || Scope.holds_block?(body) || Scope.opens_locals?(body) ||
+                   default_expressions.any? { |d| Scope.holds_block?(d) || Scope.opens_locals?(d) }
         @sites = 0
         @loops = []
         @regions = []
@@ -92,6 +93,9 @@ module Ze0
         node.depth.times { fn = fn.outer }
         fn.slot_index(node)
       end
+
+      # The data object the meta emitted for this scope's local names.
+      def locals_table = "zr_locals_#{@name}"
 
       def slot_index(node)
         @slot_of.fetch(node.name) { @l.refuse(node, "#{node.name} is not a local of this scope") }
@@ -140,7 +144,7 @@ module Ze0
         name = @def && %i[class module].include?(@kind) ? sym_id(@def.name) : 0
         params = @def.params if %i[def block].include?(@kind)
         kind = hidden_def? ? "KIND_HIDDEN" : @l.frame_kind(@kind)
-        @meta = @l.meta(@name, kind, line, name, @outer&.meta, params)
+        @meta = @l.meta(@name, kind, line, name, @outer&.meta, params, @locals, @has_env)
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @f.store(imm(line), @rec, off(@frame, "line"))
         serial = @f.iadd(@f.fetch("i64", @task_addr, off(@task, "serial")), imm(1))
@@ -178,8 +182,12 @@ module Ze0
         @f.store(@rec, @task_addr, off(@task, "top"))
         return unless @has_env
 
-        parent = @kind == :block ? proc_field("env") : @qnil
-        @env = kernel("zr_env_new", parent, imm(@locals.size))
+        parent = case @kind
+                 when :block then proc_field("env")
+                 when :eval then @f.args[2]
+                 else @qnil
+                 end
+        @env = kernel("zr_env_new", parent, imm(@locals.size), @f.symbol_value(@f.symbol(locals_table)))
         @f.store(@env, @rec, value_offset(0))
       end
 
