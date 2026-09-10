@@ -374,6 +374,28 @@ machine def zr_catch_break(rec, site)
   Machine.value(QUNDEF)
 end
 
+# `return` written in an eval carries no home: the signal belongs to
+# the nearest method that armed the catch, which is the method the
+# eval sits in.
+sig [Value] => Value
+machine def zr_return_here(v)
+  zr_signal(PENDING_RETURN, v, 0, 0)
+end
+
+# In the landing block of a method that holds an eval: the pending
+# return's value when it carries no home of its own, else undef.
+sig [] => Value
+machine def zr_catch_return_here
+  t = zr_task()
+  if Task.pending_kind(t) == PENDING_RETURN && Task.pending_home(t) == 0
+    v = Task.pending(t)
+    Task.set_pending_kind(t, PENDING_RAISE)
+    Task.set_pending(t, Machine.value(QNIL))
+    return v
+  end
+  Machine.value(QUNDEF)
+end
+
 # In a method's landing block: the pending return's value when it is
 # this method's, else undef.
 sig [Ptr] => Value

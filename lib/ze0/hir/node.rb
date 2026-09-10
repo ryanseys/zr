@@ -123,7 +123,7 @@ module Ze0
     # `def name(params) body end`; its value is the name. `params` is a
     # Params; `receiver` is the expression of a singleton def
     # (`def self.x`, `def obj.x`), or nil.
-    Def = Struct.new(:name, :params, :locals, :body, :line, :receiver)
+    Def = Struct.new(:name, :params, :locals, :body, :line, :receiver, :evals)
     # `depth` counts block scopes up to the one that holds the local.
     Local = Struct.new(:name, :depth, :line)
     Assign = Struct.new(:name, :depth, :value, :line)

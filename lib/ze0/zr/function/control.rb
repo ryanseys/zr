@@ -139,7 +139,10 @@ module Ze0
         # to the method that made it.
         def return_from(node)
           v = expr(node.value)
-          if @kind == :block
+          if @kind == :eval
+            at_line(node.line)
+            checked(kernel("zr_return_here", v))
+          elsif @kind == :block
             unless_lambda(v) do
               at_line(node.line)
               checked(kernel("zr_return", @proc, v))

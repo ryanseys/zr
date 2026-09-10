@@ -742,6 +742,8 @@ module Ze0
         d zr_break Value p:Value v:Value
         d zr_return Value p:Value v:Value
         d zr_catch_break Value rec:Ptr site:Word
+        d zr_return_here Value v:Value
+        d zr_catch_return_here Value
         d zr_catch_return Value rec:Ptr
         d zr_block_given_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_int_times Value recv:Value argc:Word argv:Ptr cref:Value blk:Value

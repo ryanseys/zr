@@ -209,15 +209,21 @@ module Ze0
       def land
         switch(@landing, open: true)
         if %i[def main top eval].include?(@kind) && @has_env
-          caught = kernel("zr_catch_return", @rec)
-          done = @f.label
-          none = @f.label
-          @f.brif(@f.icmp("eq", caught, qundef), none, done)
-          switch(done)
-          leave(caught)
-          switch(none)
+          take(kernel("zr_catch_return", @rec))
         end
+        take(kernel("zr_catch_return_here")) if @kind == :def && @def&.evals
         leave(qundef)
+      end
+
+      # The value a landing block answers when the catch it just ran
+      # took the signal; otherwise the block goes on.
+      def take(caught)
+        done = @f.label
+        none = @f.label
+        @f.brif(@f.icmp("eq", caught, qundef), none, done)
+        switch(done)
+        leave(caught)
+        switch(none)
       end
 
       # A parameter's default runs in the prologue, staging like the body.

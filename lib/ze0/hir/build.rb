@@ -713,9 +713,20 @@ module Ze0
             @def_params = params
             body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
             locals = with_temps(node.locals + (params.names - node.locals))
-            Def.new(node.name, params, locals, body, node.location.start_line, receiver)
+            Def.new(node.name, params, locals, body, node.location.start_line, receiver, evals?(node.body))
           end
         end
+      end
+
+      # Whether an eval stands anywhere in this body, blocks included
+      # but nested defs left to themselves. A `return` an eval writes
+      # belongs to the method the eval sits in, so that method arms the
+      # catch for a signal that carries no home.
+      def evals?(node)
+        return false if node.nil? || node.is_a?(Prism::DefNode)
+        return true if node.is_a?(Prism::CallNode) && node.name == :eval
+
+        node.child_nodes.any? { |child| evals?(child) }
       end
 
       # The definee a body runs under: one step down the lexical path,
