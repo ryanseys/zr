@@ -528,6 +528,11 @@ module Ze0
         d zr_realpath_m Value path:Value
         d zr_chmod_m Value path:Value mode:Value
         d zr_path_access Value path:Value mode:Value
+        d zr_jit_map Value size:Value exec:Value hint:Value
+        d zr_jit_symbol Value name:Value
+        d zr_jit_write_data Value at:Value bytes:Value
+        d zr_jit_write_code Value at:Value bytes:Value
+        d zr_jit_call Value at:Value
         d zr_puts_value Value v:Value
         d zr_puts Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_print Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1058,6 +1063,11 @@ module Ze0
         c GATE_NOT 2048
         c GATE_AREF 4096
         c GATE_ASET 8192
+        c PROT_READ_WRITE 3
+        c PROT_READ_WRITE_EXEC 7
+        c MAP_ANON_PRIVATE 4098
+        c MAP_JIT 2048
+        c RTLD_DEFAULT -2
         c STACK_MARGIN 262144
         c T_METHOD 29
         c G_METHOD 33

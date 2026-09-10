@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "fiddle"
 require_relative "model"
 
 module Ze0
@@ -12,14 +11,12 @@ module Ze0
     #
     # A `bl` reaches 128 MB, and libSystem is not that close, so each
     # imported function gets a stub in the code region that jumps through
-    # an absolute address. Under CRuby this is Fiddle; the runtime's own
-    # loader is the same steps over the same libSystem calls.
+    # an absolute address.
+    #
+    # The system calls are a `host`: `JIT::Fiddle` under CRuby, and the
+    # runtime's own over the same libSystem functions.
     class JIT
-      PROT_READ = 1
-      PROT_WRITE = 2
-      PROT_EXEC = 4
-      MAP_PRIVATE = 2
-      MAP_ANON = 0x1000
+      MAP_ANON_PRIVATE = 0x1002
       MAP_JIT = 0x800
       PAGE = 16_384
       # `ldr x16, [pc, #8]; br x16; .quad address`
@@ -27,15 +24,22 @@ module Ze0
 
       attr_reader :symbols
 
-      def self.load(unit)
-        new.place(unit)
+      def self.load(unit, host: self.host)
+        new(host).place(unit)
       end
 
-      def initialize
-        @lib = Fiddle::Handle::DEFAULT
-        @mmap = Fiddle::Function.new(@lib["mmap"], [Fiddle::TYPE_VOIDP, Fiddle::TYPE_SIZE_T, Fiddle::TYPE_INT, Fiddle::TYPE_INT, Fiddle::TYPE_INT, Fiddle::TYPE_LONG], Fiddle::TYPE_VOIDP)
-        @protect = Fiddle::Function.new(@lib["pthread_jit_write_protect_np"], [Fiddle::TYPE_INT], Fiddle::TYPE_VOID)
-        @invalidate = Fiddle::Function.new(@lib["sys_icache_invalidate"], [Fiddle::TYPE_VOIDP, Fiddle::TYPE_SIZE_T], Fiddle::TYPE_VOID)
+      # The system half: the runtime's own inside a program it runs,
+      # Fiddle under CRuby, which is where no runtime is linked.
+      def self.host
+        require "ze0/obj/jit/runtime"
+        Runtime.new
+      rescue LoadError
+        require_relative "jit/fiddle"
+        Fiddle.new
+      end
+
+      def initialize(host)
+        @host = host
         @symbols = {}
       end
 
@@ -43,19 +47,19 @@ module Ze0
         code = layout(unit.functions, 16)
         imports = unit.imports
         stubs = imports.each_with_index.to_h { |name, i| [name, code[:size] + (i * 16)] }
-        code_size = align(code[:size] + (imports.size * 16), PAGE)
+        code_size = [align(code[:size] + (imports.size * 16), PAGE), PAGE].max
         data = layout(unit.data, 16)
         got = imports.each_with_index.to_h { |name, i| [name, data[:size] + (i * 8)] }
-        data_size = align(data[:size] + (imports.size * 8), PAGE)
+        data_size = [align(data[:size] + (imports.size * 8), PAGE), PAGE].max
 
-        code_base = map(code_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_JIT, 0)
-        data_base = map(data_size, PROT_READ | PROT_WRITE, 0, code_base + code_size)
+        code_base = map(code_size, exec: true, near: 0)
+        data_base = map(data_size, exec: false, near: code_base + code_size)
         reach = (data_base - code_base).abs
         raise "the data mapping is #{reach} bytes from the code, past adrp's reach" if reach >= (1 << 32)
 
         code[:at].each { |f, off| @symbols[f.name] = code_base + off }
         data[:at].each { |d, off| @symbols[d.name] = data_base + off }
-        addresses = imports.to_h { |name| [name, @lib[name]] }
+        addresses = imports.to_h { |name| [name, @host.symbol(name)] }
         stubs.each { |name, off| @symbols[name] = code_base + off }
 
         text = +"".b
@@ -77,11 +81,8 @@ module Ze0
           bytes << [addresses[name]].pack("Q<")
         end
 
-        Fiddle::Pointer.new(data_base)[0, bytes.bytesize] = bytes
-        @protect.call(0)
-        Fiddle::Pointer.new(code_base)[0, text.bytesize] = text
-        @protect.call(1)
-        @invalidate.call(code_base, text.bytesize)
+        @host.write_data(data_base, bytes)
+        @host.write_code(code_base, text)
         @symbols
       end
 
@@ -102,11 +103,8 @@ module Ze0
         (n + a - 1) & ~(a - 1)
       end
 
-      def map(size, prot, flags, hint)
-        p = @mmap.call(hint, size, prot, MAP_PRIVATE | MAP_ANON | flags, -1, 0).to_i
-        raise "mmap failed" if p == -1 || p.zero?
-
-        p
+      def map(size, exec:, near:)
+        @host.map(size, exec: exec, near: near) or raise "mmap of #{size} bytes failed"
       end
 
       # `item`'s bytes with every relocation applied, for the item at `base`.

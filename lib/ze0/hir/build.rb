@@ -71,14 +71,18 @@ module Ze0
           end
         end
 
-        # The index of `path`'s unit, built on first sight.
+        # The index of `path`'s unit, built on first sight. The row is
+        # claimed before the file is read, so two files that require each
+        # other end where ruby ends them: the second require answers
+        # false and the first one finishes.
         def add(path)
-          @index[path] ||= begin
-            i = @units.size
-            @units << nil
-            @units[i] = unit(path)
-            i
-          end
+          return @index[path] if @index.key?(path)
+
+          i = @units.size
+          @index[path] = i
+          @units << nil
+          @units[i] = unit(path)
+          i
         end
 
         # A unit that stops by name when it runs, which is what an
