@@ -76,15 +76,30 @@ end
 # An eval's toplevel takes the self and the cref it runs under.
 Machine.sig :eval, [Value, Value, Value] => Value
 
+# The four words the compiler answers for a string: the toplevel, its
+# FrameMeta, and the size and names of the Env it runs its own locals in.
+sig [Value, Word] => Word
+machine def zr_code_word(code, i)
+  zr_fix2long(Machine.value(Machine.load64(RArray.ptr(code) + (i * 8), 0)))
+end
+
+# The Env an eval keeps its own locals in, one scope inside `parent`.
+sig [Value, Value] => Value
+machine def zr_code_env(code, parent)
+  zr_env_new(parent, zr_code_word(code, 2), Machine.ptr(zr_code_word(code, 3)))
+end
+
 # A loaded eval toplevel, run under `self_` with `cref` for its defs and
-# its constants, over `env` for the locals of the scope that asked.
-# `code` is the pair the compiler answers: the function and its
-# FrameMeta, whose parent is written here so a backtrace row shows the
-# label of the frame that asked.
+# its constants, over `env` for its own locals. The FrameMeta's parent is
+# written here so a backtrace row shows the label of the frame that
+# asked.
 sig [Value, Value, Value, Value] => Value
-machine def zr_eval_run(code, self_, cref, env)
-  at = Machine.ptr(zr_fix2long(Machine.value(Machine.load64(RArray.ptr(code), 0))))
-  meta = Machine.ptr(zr_fix2long(Machine.value(Machine.load64(RArray.ptr(code), 8))))
-  FrameMeta.set_parent(meta, Frame.meta(zr_caller_frame()))
-  Machine.call(:eval, at, self_, cref, env)
+machine def zr_eval_at(code, self_, cref, env)
+  FrameMeta.set_parent(Machine.ptr(zr_code_word(code, 1)), Frame.meta(zr_caller_frame()))
+  Machine.call(:eval, Machine.ptr(zr_code_word(code, 0)), self_, cref, env)
+end
+
+sig [Value, Value, Value, Value] => Value
+machine def zr_eval_run(code, self_, cref, parent)
+  zr_eval_at(code, self_, cref, zr_code_env(code, parent))
 end

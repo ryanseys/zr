@@ -25,9 +25,12 @@ class Binding
     Primitive.zr_binding_get(self, at[0], at[1])
   end
 
+  # A name no scope holds becomes the Binding's own, in a scope inside
+  # the one it named, as ruby gives it.
   def local_variable_set(name, value)
     name = symbol_name(name)
-    at = place(name) or Primitive.zr_unimplemented("Binding#local_variable_set of a name the scope has no slot for")
+    Primitive.zr_binding_add(self, name.to_s) unless place(name)
+    at = place(name)
     Primitive.zr_binding_set(self, at[0], at[1], value)
   end
 

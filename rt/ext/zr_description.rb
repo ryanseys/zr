@@ -48,6 +48,8 @@ module Ze0
         d zr_eval_env Value
         d zr_eval_scopes Value
         d zr_binding Value
+        d zr_proc_binding Value p:Value
+        d zr_binding_of Value meta:Ptr env:Value self_:Value cref:Value
         d zr_binding_scopes Value b:Value
         d zr_binding_receiver Value b:Value
         d zr_binding_file Value b:Value
@@ -55,6 +57,8 @@ module Ze0
         d zr_binding_get Value b:Value depth:Value index:Value
         d zr_binding_set Value b:Value depth:Value index:Value v:Value
         d zr_binding_run Value code:Value b:Value
+        d zr_binding_add Value b:Value name:Value
+        d zr_toplevel_binding Value env:Value self_:Value cref:Value meta:Ptr
         d zr_buf_init Void b:Ptr
         d zr_buf_reserve Void b:Ptr n:Word
         d zr_buf_push Void b:Ptr bytes:Ptr n:Word
@@ -550,7 +554,10 @@ module Ze0
         d zr_jit_write_data Value at:Value bytes:Value
         d zr_jit_write_code Value at:Value bytes:Value
         d zr_jit_call Value at:Value
-        d zr_eval_run Value code:Value self_:Value cref:Value env:Value
+        d zr_code_word Word code:Value i:Word
+        d zr_code_env Value code:Value parent:Value
+        d zr_eval_at Value code:Value self_:Value cref:Value env:Value
+        d zr_eval_run Value code:Value self_:Value cref:Value parent:Value
         d zr_puts_value Value v:Value
         d zr_puts Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_print Value recv:Value argc:Word argv:Ptr cref:Value blk:Value

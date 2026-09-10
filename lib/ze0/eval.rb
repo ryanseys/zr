@@ -28,8 +28,9 @@ module Ze0
       @count = 0
     end
 
-    # The toplevel `source` compiles to: its address, and the address of
-    # its FrameMeta, which the call writes the asking frame into.
+    # What `source` compiles to: the toplevel's address, its FrameMeta,
+    # which the call writes the asking frame into, and the shape of the
+    # Env the call makes for it (how many slots, and their names).
     #
     # `scopes` are the local names the asking scope reaches, innermost
     # first. The string is parsed one scope inside them, so a name it
@@ -41,7 +42,7 @@ module Ze0
       hir = Hir.build(string(source), string(file), road: false, line: line.to_int, scopes: [*scopes.reverse, []])
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)
-      [symbols.fetch(name), symbols.fetch("zr_meta_#{name}")]
+      [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}")]
     end
 
     private

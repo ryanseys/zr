@@ -88,20 +88,40 @@ end
 
 # `Kernel#binding`: the scope the caller stands in, kept as a Proc of the
 # Binding class. Its env, self and cref are that scope's, so a read and a
-# write there are the scope's own; `serial`, which a Binding has no home
-# for, is the line the capture stands on.
+# write there are the scope's own. A Binding has no home and no call site,
+# so `serial` is the line the capture stands on and `site` marks the one
+# TOPLEVEL_BINDING, which ruby reports as `<main>` line 0.
 sig [] => Value
 machine def zr_binding
   rec = zr_caller_frame()
+  b = zr_binding_of(Frame.meta(rec), zr_frame_env(rec), Frame.self(rec), Frame.cref(rec))
+  RProc.set_serial(b, Frame.line(rec))
+  b
+end
+
+# `Proc#binding`: the scope the block was written in, which the Proc
+# already carries. The line is the block's, since a Proc holds none.
+sig [Value] => Value
+machine def zr_proc_binding(p)
+  if RProc.meta(p) == 0
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("Can't create Binding from C level Proc"), 38)
+  end
+  b = zr_binding_of(RProc.meta(p), RProc.env(p), RProc.self(p), RProc.cref(p))
+  RProc.set_serial(b, FrameMeta.line(RProc.meta(p)))
+  b
+end
+
+sig [Ptr, Value, Value, Value] => Value
+machine def zr_binding_of(meta, env, self_, cref)
   b = zr_alloc(T_PROC, zr_core_class(Machine.id(:Binding)))
   RProc.set_fn(b, 0)
-  RProc.set_meta(b, Frame.meta(rec))
-  RProc.set_env(b, zr_frame_env(rec))
-  RProc.set_self(b, Frame.self(rec))
-  RProc.set_cref(b, Frame.cref(rec))
+  RProc.set_meta(b, meta)
+  RProc.set_env(b, env)
+  RProc.set_self(b, self_)
+  RProc.set_cref(b, cref)
   RProc.set_blk(b, Machine.value(QNIL))
   RProc.set_home(b, 0)
-  RProc.set_serial(b, Frame.line(rec))
+  RProc.set_serial(b, 0)
   RProc.set_site(b, 0)
   RProc.set_ret_home(b, 0)
   RProc.set_ret_serial(b, 0)
@@ -129,6 +149,9 @@ end
 
 sig [Value] => Value
 machine def zr_binding_file(b)
+  if RProc.site(b) != 0
+    return zr_str_new(Machine.bytes("<main>"), 6)
+  end
   meta = RProc.meta(b)
   if FrameMeta.file_len(meta) == 0
     return Machine.value(QNIL)
@@ -138,6 +161,9 @@ end
 
 sig [Value] => Value
 machine def zr_binding_line(b)
+  if RProc.site(b) != 0
+    return zr_fix(0)
+  end
   zr_fix(RProc.serial(b))
 end
 
@@ -153,8 +179,30 @@ machine def zr_binding_set(b, depth, index, v)
 end
 
 # A loaded eval toplevel run in a Binding: its self, its cref and the
-# locals it holds.
+# locals it holds. The Binding keeps the Env the string ran in, so a name
+# the string wrote is one of the Binding's own from here on.
 sig [Value, Value] => Value
 machine def zr_binding_run(code, b)
-  zr_eval_run(code, RProc.self(b), RProc.cref(b), RProc.env(b))
+  e = zr_code_env(code, RProc.env(b))
+  RProc.set_env(b, e)
+  zr_eval_at(code, RProc.self(b), RProc.cref(b), e)
+end
+
+# One more name the Binding holds, in a scope of its own inside the
+# scope it named. The table is the Binding's, so it is never freed.
+sig [Value, Value] => Value
+machine def zr_binding_add(b, name)
+  table = malloc(16)
+  Machine.store64(table, 0, 1)
+  Machine.store64(table, 8, zr_intern(RString.ptr(name), RString.len(name)))
+  RProc.set_env(b, zr_env_new(RProc.env(b), 1, table))
+  Machine.value(QNIL)
+end
+
+# `TOPLEVEL_BINDING`: main's own scope, named as the program starts.
+sig [Value, Value, Value, Ptr] => Value
+machine def zr_toplevel_binding(env, self_, cref, meta)
+  b = zr_binding_of(meta, env, self_, cref)
+  RProc.set_site(b, 1)
+  zr_const_set(zr_global(G_OBJECT), Machine.id(:TOPLEVEL_BINDING), b)
 end

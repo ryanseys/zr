@@ -53,3 +53,23 @@ end
 
 later = 9
 p b.local_variable_get(:later)
+
+b.local_variable_set(:added, 7)
+p b.local_variable_get(:added)
+b.eval("evaled = 3")
+p b.local_variables, defined?(added)
+p b.eval("evaled + added")
+
+def make_proc
+  a = 1
+  proc { b = 2; a }
+end
+pb = make_proc.binding
+p pb.class, pb.local_variables, pb.local_variable_get(:a), pb.receiver.class
+begin
+  :upcase.to_proc.binding
+rescue ArgumentError => e
+  p [e.class, e.message]
+end
+
+p TOPLEVEL_BINDING.class, TOPLEVEL_BINDING.receiver, TOPLEVEL_BINDING.source_location

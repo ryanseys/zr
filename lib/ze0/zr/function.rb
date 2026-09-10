@@ -63,7 +63,7 @@ module Ze0
         @cref_layout = lower.layout("RCref")
         @proc_layout = lower.layout("RProc")
         @slot_of = locals.each_with_index.to_h
-        @has_env = @kind == :eval || Scope.holds_block?(body) || Scope.opens_locals?(body) ||
+        @has_env = %i[eval main].include?(@kind) || Scope.holds_block?(body) || Scope.opens_locals?(body) ||
                    default_expressions.any? { |d| Scope.holds_block?(d) || Scope.opens_locals?(d) }
         @sites = 0
         @loops = []
@@ -182,13 +182,14 @@ module Ze0
         @f.store(@rec, @task_addr, off(@task, "top"))
         return unless @has_env
 
-        parent = case @kind
-                 when :block then proc_field("env")
-                 when :eval then @f.args[2]
-                 else @qnil
-                 end
-        @env = kernel("zr_env_new", parent, imm(@locals.size), @f.symbol_value(@f.symbol(locals_table)))
+        if @kind == :eval
+          @env = @f.args[2]
+        else
+          parent = @kind == :block ? proc_field("env") : @qnil
+          @env = kernel("zr_env_new", parent, imm(@locals.size), @f.symbol_value(@f.symbol(locals_table)))
+        end
         @f.store(@env, @rec, value_offset(0))
+        kernel("zr_toplevel_binding", @env, @self, @cref, @f.symbol_value(@f.symbol(@meta))) if @kind == :main && !@l.internal?
       end
 
       # SystemStackError when the record would sit below the task's stack

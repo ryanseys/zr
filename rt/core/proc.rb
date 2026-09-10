@@ -1,5 +1,8 @@
 # Proc and Method: composition and currying, written over `call`.
 class Proc
+  # The scope the block was written in.
+  def binding = Primitive.zr_proc_binding(self)
+
   alias === call
 
   def to_proc = self
