@@ -542,7 +542,11 @@ class Array
     self
   end
 
-  def filter! = select! { |x| yield(x) }
+  def filter!(&block)
+    return to_enum(:filter!) { size } unless block
+
+    select!(&block)
+  end
 
   def clear = Primitive.zr_ary_clear(self, nil)
 
@@ -605,7 +609,11 @@ class Array
     self
   end
 
-  def collect! = map! { |x| yield(x) }
+  def collect!(&block)
+    return to_enum(:collect!) { size } unless block
+
+    map!(&block)
+  end
 
   def compact!
     Primitive.zr_frozen_error(self) if frozen?

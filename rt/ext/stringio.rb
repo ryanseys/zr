@@ -287,7 +287,10 @@ class StringIO
 
   def print(*parts)
     parts = [$_] if parts.empty?
-    parts.each { |part| write(part.nil? ? "" : part.to_s, $, || "") }
+    parts.each_with_index do |part, i|
+      write($,) if i.positive? && $,
+      write(part.to_s)
+    end
     write($\) if $\
     nil
   end

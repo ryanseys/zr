@@ -690,6 +690,8 @@ module Ze0
         d zr_nil_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_int_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ident_byte_p Bool c:Word
+        d zr_gvar_punct_p Bool c:Word
+        d zr_special_gvar_p Bool p:Ptr n:Word
         d zr_symname_plain_p Bool p:Ptr n:Word
         d zr_sym_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_operator_name_p Bool p:Ptr n:Word

@@ -544,6 +544,50 @@ machine def zr_ident_byte_p(c)
   (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || (c >= 48 && c <= 57) || c == 95 || c >= 128
 end
 
+# One of the punctuation marks ruby lets a global name be made of.
+sig [Word] => Bool
+machine def zr_gvar_punct_p(c)
+  c == 126 || c == 42 || c == 36 || c == 63 || c == 33 || c == 64 || c == 47 || c == 92 || c == 59 || c == 44 || c == 46 || c == 61 || c == 58 || c == 60 || c == 62 || c == 34 || c == 38 || c == 96 || c == 39 || c == 43 || c == 48
+end
+
+# A special global name, the part after the `$`: one punctuation mark,
+# a `-` and one character, or digits alone.
+sig [Ptr, Word] => Bool
+machine def zr_special_gvar_p(p, n)
+  if n == 0
+    return false
+  end
+  c = Machine.word(Machine.load8(p, 0))
+  if zr_gvar_punct_p(c)
+    return n == 1
+  end
+  if c == 45
+    if n == 1
+      return false
+    end
+    d = Machine.word(Machine.load8(p, 1))
+    len = 1
+    if d >= 128
+      len = zr_utf8_char_len(p + 1, n - 1)
+      if len == 0
+        return false
+      end
+    elsif !zr_ident_byte_p(d)
+      return false
+    end
+    return n == 1 + len
+  end
+  i = 0
+  while i < n
+    d = Machine.word(Machine.load8(p + i, 0))
+    if d < 48 || d > 57
+      return false
+    end
+    i += 1
+  end
+  true
+end
+
 # Whether `n` bytes are a symbol literal's plain name: an identifier
 # that may end in `?`, `!` or `=`, or one with a `@`, `@@` or `$`
 # sigil (then without the suffix), or an operator.
@@ -560,6 +604,9 @@ machine def zr_symname_plain_p(p, n)
       i = 2
     end
   elsif c == 36
+    if zr_special_gvar_p(p + 1, n - 1)
+      return true
+    end
     i = 1
   end
   if i > 0
