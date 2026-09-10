@@ -93,7 +93,7 @@ class Set
   end
 
   def subtract(other)
-    other.each { |x| delete(x) }
+    enumerable(other).each { |x| delete(x) }
     self
   end
 

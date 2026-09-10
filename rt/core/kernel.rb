@@ -245,7 +245,7 @@ module Kernel
 
   def throw(tag, value = nil)
     unless Primitive.zr_catch_tag_p(tag)
-      raise UncaughtThrowError.new(tag, value, "uncaught throw #{tag.inspect}")
+      raise UncaughtThrowError.new(tag, value, "uncaught throw %p")
     end
 
     Primitive.zr_throw(tag, value)

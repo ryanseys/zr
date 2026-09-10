@@ -24,8 +24,26 @@ class Exception
     copy
   end
 
+  # Ruby compares the message a raise STORED, not the one `to_s`
+  # builds, so two uncaught throws of different tags are equal.
   def ==(other)
-    other.class == self.class && other.message == message && other.backtrace == backtrace
+    return true if equal?(other)
+
+    if other.class == self.class
+      mesg = Primitive.zr_exc_raw_message(other)
+    else
+      return false unless other.respond_to?(:exception)
+
+      other = begin
+        other.exception
+      rescue StandardError
+        return false
+      end
+      return false unless other.class == self.class
+
+      mesg = other.message
+    end
+    Primitive.zr_exc_raw_message(self) == mesg && backtrace == other.backtrace
   end
 
   def detailed_message(highlight: false, **) = Primitive.zr_exc_detailed_message(self)
@@ -84,11 +102,15 @@ end
 class UncaughtThrowError < ArgumentError
   attr_reader :tag, :value
 
-  def initialize(tag, value, message = "uncaught throw #{tag.inspect}")
+  # The stored message is ruby's own format string; `to_s` puts the tag
+  # in. Two throws therefore carry the same message.
+  def initialize(tag, value, message = "uncaught throw %p")
     @tag = tag
     @value = value
     super(message)
   end
+
+  def to_s = format(super, tag)
 end
 class EncodingError < StandardError; end
 class FiberError < StandardError; end
@@ -216,6 +238,10 @@ class SignalException
       @signo = 2
       super(message)
     else
+      # A name says what the message is, so a second argument is one
+      # too many.
+      raise ArgumentError, "wrong number of arguments (given 2, expected 1)" unless message.nil?
+
       name = sig.to_s.delete_prefix("SIG")
       raise ArgumentError, "unsupported signal 'SIG#{name}'" unless SIGNALS.key?(name)
 
