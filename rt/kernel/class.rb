@@ -785,9 +785,12 @@ end
 sig [Value, Word, Ptr, Word, Word, Ptr, Value, Word] => Void
 machine def zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
   klass = zr_origin(klass)
-  if zr_find_method(klass, mid) != 0
+  # Only a handful of names have a gate, so ask for the bit before
+  # asking the chain whether this is a redefinition.
+  bit = zr_gate_bit(klass, mid)
+  if bit != 0 && zr_find_method(klass, mid) != 0
     g = zr_gates()
-    Machine.store64(g, 0, Machine.load64(g, 0) | zr_gate_bit(klass, mid))
+    Machine.store64(g, 0, Machine.load64(g, 0) | bit)
   end
   ext = RClass.ext(klass)
   n = ClassExt.mlen(ext)
