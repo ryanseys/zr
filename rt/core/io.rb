@@ -71,7 +71,7 @@ class IO
     Primitive.zr_io_close(theirs)
     if pid.nil?
       Primitive.zr_io_close(ours)
-      raise SystemCallError.new("No such file or directory - #{Array(command).first}", 2)
+      raise SystemCallError.new(Process.send(:command_words, Array(command)).first, 2)
     end
     new(ours, reading ? "r" : "w", pid: pid)
   end

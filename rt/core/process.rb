@@ -133,7 +133,7 @@ module Process
 
   def self.spawn(*args, **options)
     pid = spawn_command(args, options)
-    raise SystemCallError.new("No such file or directory - #{args.first}", 2) if pid.nil?
+    raise SystemCallError.new(command_words(args).first, 2) if pid.nil?
 
     pid
   end
@@ -270,10 +270,17 @@ module Kernel
   private :exec
   module_function :exec
 
+  def spawn(*args, **options)
+    pid = Process.send(:spawn_command, args, options)
+    raise SystemCallError.new(Process.send(:command_words, args).first, 2) if pid.nil?
+
+    pid
+  end
+
   def system(*args, exception: false, **options)
     pid = Process.send(:spawn_command, args, options)
     if pid.nil?
-      raise SystemCallError.new("No such file or directory - #{args.first}", 2) if exception
+      raise SystemCallError.new(Process.send(:command_words, args).first, 2) if exception
 
       return nil
     end
@@ -289,8 +296,8 @@ module Kernel
     IO.popen(command) { |io| io.read.force_encoding(Encoding.default_external) }
   end
 
-  private :system, :`
-  module_function :system, :`
+  private :spawn, :system, :`
+  module_function :spawn, :system, :`
 end
 
 module Signal

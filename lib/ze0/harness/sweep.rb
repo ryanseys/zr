@@ -142,7 +142,7 @@ module Ze0
         out_r, out_w = IO.pipe
         err_r, err_w = IO.pipe
         in_r, in_w = IO.pipe
-        pid = Process.spawn(env, *argv, chdir: cwd, in: in_r, out: out_w, err: err_w)
+        pid = Process.spawn(env, *argv, chdir: cwd, in: in_r, out: out_w, err: err_w, pgroup: true)
         [out_w, err_w, in_r].each(&:close)
         writer = Thread.new do
           in_w.binmode
@@ -157,7 +157,9 @@ module Ze0
         begin
           Timeout.timeout(LIMIT) { _, status = Process.wait2(pid) }
         rescue Timeout::Error
-          Process.kill("KILL", pid) rescue nil
+          # The whole group, so a child of the program does not keep the
+          # pipes open and stall the read below.
+          Process.kill("KILL", -pid) rescue nil
           Process.wait(pid) rescue nil
         end
         writer.join
