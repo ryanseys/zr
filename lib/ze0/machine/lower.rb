@@ -4,6 +4,7 @@ require "prism"
 require_relative "../ir"
 require_relative "../obj/model"
 require_relative "stub"
+require_relative "description"
 
 module Ze0
   # The kernel dialect: Ruby syntax, machine semantics. A unit of one or
@@ -30,40 +31,6 @@ module Ze0
     }.freeze
     # Comparisons that read their operands as unsigned: pointers.
     UNSIGNED = %w[Ptr].freeze
-
-    Import = Struct.new(:name, :params, :ret)
-    Def = Struct.new(:name, :params, :ret, :node, :file)
-    # A function delivered as machine code: `Machine.raw "zr_switch"`.
-    Raw = Struct.new(:name, :params, :ret)
-    # A signature `Machine.call` goes through: `Machine.sig :name, [types] => type`.
-    Signature = Struct.new(:name, :params, :ret)
-    # `Machine.struct :Name, field: Type, ...`: fields as `name => [offset, type]`.
-    Layout = Struct.new(:name, :fields, :size, :align)
-
-    # The symbol ids a unit names with `Machine.id(:name)`: the compiler
-    # owns the table, and a unit compiled alone numbers names as it meets
-    # them.
-    class Symbols
-      attr_reader :ids, :sites
-
-      def initialize(names = [], sites: 0)
-        @ids = {}
-        @sites = sites
-        names.each { |n| id(n) }
-      end
-
-      def id(name)
-        @ids[name.to_s] ||= @ids.size
-      end
-
-      # A fresh index for a code site that owns a run-time slot (a regexp
-      # literal's cached object), unique across every lowering that shares
-      # this table or descends from it.
-      def site
-        @sites += 1
-        @sites - 1
-      end
-    end
 
     # `source` to `[functions, data, raw]`: IR functions, the data objects
     # they name, and the raw functions they call.
@@ -313,6 +280,11 @@ module Ze0
       def def_for(name)
         @defs[name]
       end
+
+      # The names this unit declares, for a `Description` to read.
+      def declared_defs = @defs
+      def declared_consts = @consts.keys
+      def declared_structs = @structs.keys
 
       # A constant's value, folded on first use so a declaration may name
       # one from a later file.
