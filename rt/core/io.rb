@@ -872,6 +872,35 @@ module Errno
   end
 end
 
+# How a non-blocking call reports "would block": the error class the
+# caller rescues carries the direction as a module.
+class IO
+  module WaitReadable; end
+  module WaitWritable; end
+
+  class TimeoutError < IOError; end
+
+  class EAGAINWaitReadable < Errno::EAGAIN
+    include WaitReadable
+  end
+
+  class EAGAINWaitWritable < Errno::EAGAIN
+    include WaitWritable
+  end
+
+  class EINPROGRESSWaitReadable < Errno::EINPROGRESS
+    include WaitReadable
+  end
+
+  class EINPROGRESSWaitWritable < Errno::EINPROGRESS
+    include WaitWritable
+  end
+
+  # EWOULDBLOCK is EAGAIN on this platform, so the names are one class.
+  EWOULDBLOCKWaitReadable = EAGAINWaitReadable
+  EWOULDBLOCKWaitWritable = EAGAINWaitWritable
+end
+
 # Waiting on one descriptor, over poll(2). Named events answer the
 # stream itself; a plain events mask answers the events that came ready.
 class IO

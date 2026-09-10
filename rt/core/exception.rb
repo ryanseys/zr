@@ -1,6 +1,11 @@
 # The exception classes past the ones the kernel raises itself, and
 # what an exception answers about itself.
 class Exception
+  # An attribute a caller may leave out, which the reader then refuses
+  # rather than answering nil.
+  UNSET = Object.new
+  private_constant :UNSET
+
   def self.exception(*args) = new(*args)
 
   # Whether the report an uncaught error prints goes to a terminal.
@@ -125,12 +130,18 @@ class SystemCallError < StandardError; end
 class ThreadError < StandardError; end
 
 class NameError
-  attr_reader :name, :receiver
+  attr_reader :name
 
-  def initialize(message = nil, name = nil, receiver: nil)
+  def initialize(message = nil, name = nil, receiver: UNSET)
     super(message)
     @name = name
-    @receiver = receiver
+    @receiver = receiver unless receiver.equal?(UNSET)
+  end
+
+  def receiver
+    raise ArgumentError, "no receiver is available" unless defined?(@receiver)
+
+    @receiver
   end
 
   def local_variables = []
@@ -139,7 +150,7 @@ end
 class NoMethodError
   attr_reader :args
 
-  def initialize(message = nil, name = nil, args = [], private_call = false, receiver: nil)
+  def initialize(message = nil, name = nil, args = [], private_call = false, receiver: UNSET)
     super(message, name, receiver: receiver)
     @args = args
     @private_call = private_call
@@ -149,21 +160,35 @@ class NoMethodError
 end
 
 class KeyError
-  attr_reader :key, :receiver
-
-  def initialize(message = nil, receiver: nil, key: nil)
+  def initialize(message = nil, receiver: UNSET, key: UNSET)
     super(message)
-    @receiver = receiver
-    @key = key
+    @receiver = receiver unless receiver.equal?(UNSET)
+    @key = key unless key.equal?(UNSET)
+  end
+
+  def key
+    raise ArgumentError, "no key is available" unless defined?(@key)
+
+    @key
+  end
+
+  def receiver
+    raise ArgumentError, "no receiver is available" unless defined?(@receiver)
+
+    @receiver
   end
 end
 
 class FrozenError
-  attr_reader :receiver
-
-  def initialize(message = nil, receiver: nil)
+  def initialize(message = nil, receiver: UNSET)
     super(message)
-    @receiver = receiver
+    @receiver = receiver unless receiver.equal?(UNSET)
+  end
+
+  def receiver
+    raise ArgumentError, "no receiver is available" unless defined?(@receiver)
+
+    @receiver
   end
 end
 

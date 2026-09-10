@@ -3,6 +3,9 @@
 # character positions. The last match lives in the asking method's
 # frame (`$~`), which the kernel reads and writes.
 class Regexp
+  # What a match past `Regexp.timeout` raises.
+  class TimeoutError < RegexpError; end
+
   IGNORECASE = 1
   EXTENDED = 2
   MULTILINE = 4
