@@ -56,6 +56,17 @@ module Ze0
           @units = []
           @index = {}
           @evals = false
+          @back_refs = {}
+        end
+
+        # `alias $MATCH $&` and its family: the old name lives in the
+        # frame, not the global table, so the new name is a second
+        # spelling the lowering resolves rather than a row it writes.
+        # English.rb is where every one of them comes from.
+        def back_ref(name) = @back_refs[name]
+
+        def back_ref!(new_name, old_name)
+          @back_refs[new_name] = old_name
         end
 
         # A program that names one of these compiles ruby while it runs.
@@ -226,6 +237,10 @@ module Ze0
       # A scope's locals: the parser's, then the hidden ones its body made.
       def with_temps(locals) = locals + @temps.last
 
+      # The globals that live in the frame, not the global table: an
+      # alias of one is a second spelling the lowering resolves.
+      FRAME_GVARS = %i[$~ $_].freeze
+
       GVAR_ALIASES = { :$PROGRAM_NAME => :$0, :$: => :$LOAD_PATH, :$" => :$LOADED_FEATURES, :$> => :$stdout }.freeze
 
       # `$PROGRAM_NAME`, `$:` and `$"` are the other names of `$0`,
@@ -342,12 +357,16 @@ module Ze0
       end
 
       def regexp_literal(node, line)
+        pinned = regexp_encoding(node)
+        # `n` reads the pattern as bytes, so an escape past ASCII is
+        # legal there and nowhere else; the check must read it that way.
+        held = node.unescaped.dup.force_encoding(node.ascii_8bit? ? ::Encoding::BINARY : (pinned || node.unescaped.encoding))
         begin
-          Regexp.new(node.unescaped, regexp_options(node) & 7)
+          Regexp.new(held, regexp_options(node) & 7)
         rescue RegexpError => e
           refuse(node, "#{e.message.sub(/: \/.*\z/m, "")}: /#{node.unescaped}/")
         end
-        RegexpLit.new(node.unescaped, regexp_options(node), regexp_encoding(node), line)
+        RegexpLit.new(node.unescaped, regexp_options(node), pinned, line)
       end
 
       # The parts of an interpolated string, each a String or the value
@@ -491,7 +510,14 @@ module Ze0
           RangeLit.new(node.left ? expr(node.left) : Literal.new(nil, line), node.right ? expr(node.right) : Literal.new(nil, line), node.exclude_end?, line)
         when Prism::InstanceVariableReadNode then IvarRead.new(node.name, line)
         when Prism::GlobalVariableReadNode
-          node.name == :$@ ? Send.new(GvarRead.new(:$!, line), :backtrace, [], line, false, nil, nil, nil, true) : GvarRead.new(gvar_name(node.name), line)
+          aliased = @loader&.back_ref(node.name)
+          if aliased
+            expr(aliased)
+          elsif node.name == :$@
+            Send.new(GvarRead.new(:$!, line), :backtrace, [], line, false, nil, nil, nil, true)
+          else
+            GvarRead.new(gvar_name(node.name), line)
+          end
         when Prism::GlobalVariableWriteNode then GvarWrite.new(gvar_name(node.name), expr(node.value), line)
         when Prism::GlobalVariableOperatorWriteNode
           GvarWrite.new(node.name, Send.new(GvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
@@ -526,11 +552,12 @@ module Ze0
             AliasValue.new(expr(node.new_name), expr(node.old_name), line)
           end
         when Prism::AliasGlobalVariableNode
-          # `$&` and its family live in the frame, not the global table,
-          # so an alias of one has nothing to read.
-          refuse(node, "an alias of #{node.old_name.name} is not lowered yet") unless node.old_name.is_a?(Prism::GlobalVariableReadNode)
-
-          GvarAlias.new(node.new_name.name, node.old_name.name, line)
+          if node.old_name.is_a?(Prism::GlobalVariableReadNode) && !FRAME_GVARS.include?(node.old_name.name)
+            GvarAlias.new(node.new_name.name, node.old_name.name, line)
+          else
+            @loader&.back_ref!(node.new_name.name, node.old_name)
+            Literal.new(nil, line)
+          end
         when Prism::CaseNode
           clauses = node.conditions.map do |w|
             values = w.conditions.map { |c| c.is_a?(Prism::SplatNode) ? Splat.new(expr(c.expression), line) : expr(c) }

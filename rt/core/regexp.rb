@@ -94,7 +94,7 @@ class Regexp
     raise RegexpError, "upper is smaller than lower in repeat range: #{written}" if inverted_interval?(source)
 
     begin
-      text = Pattern.engine_text(source, bits & EXTENDED != 0, source.encoding == Encoding::BINARY)
+      text = Pattern.engine_text(source, bits & EXTENDED != 0, binary_pattern?(source, bits))
     rescue RegexpError => e
       raise RegexpError, "#{e.message}: #{written}"
     end
@@ -108,10 +108,16 @@ class Regexp
   end
   private_class_method :compile_source
 
+  # Whether the engine reads the pattern as bytes: its own encoding says
+  # so, or `/n` and a byte past ASCII in it.
+  def self.binary_pattern?(source, bits)
+    source.encoding == Encoding::BINARY || (bits & NOENCODING != 0 && Pattern.past_ascii?(source))
+  end
+
   # A dup or clone compiles its own pattern from the same source.
   def recompile
     Primitive.attr! :hidden
-    text = Pattern.engine_text(source, options & EXTENDED != 0, source.encoding == Encoding::BINARY)
+    text = Pattern.engine_text(source, options & EXTENDED != 0, Regexp.binary_pattern?(source, options))
     Primitive.zr_regexp_recompile(self, text.frozen? ? text : text.dup.freeze)
   end
   private :recompile
@@ -187,7 +193,12 @@ class Regexp
     converted
   end
 
-  def source = Primitive.zr_regexp_source(self)
+  # `/n` on an ASCII-only pattern reads it as plain ASCII, which is what
+  # the source shows too.
+  def source
+    text = Primitive.zr_regexp_source(self)
+    options & NOENCODING != 0 && text.ascii_only? ? text.dup.force_encoding(Encoding::US_ASCII).freeze : text
+  end
 
   def options = Primitive.zr_regexp_options(self)
 
@@ -199,9 +210,22 @@ class Regexp
 
   def timeout = nil
 
-  def encoding = @pinned || (source.ascii_only? ? Encoding::US_ASCII : source.encoding)
+  # `/n` reads the pattern as bytes: one that names a byte past ASCII,
+  # written out or escaped, is a binary pattern, and one that does not is
+  # plain ASCII that any string can match.
+  def encoding
+    return @pinned if @pinned
+    return Encoding::BINARY if options & NOENCODING != 0 && Pattern.past_ascii?(source)
 
-  def fixed_encoding? = !@pinned.nil? || !source.ascii_only?
+    source.ascii_only? ? Encoding::US_ASCII : source.encoding
+  end
+
+  def fixed_encoding?
+    return true unless @pinned.nil?
+    return Pattern.past_ascii?(source) if options & NOENCODING != 0
+
+    !source.ascii_only?
+  end
 
   def ==(other) = other.is_a?(Regexp) && source == other.source && options == other.options
 

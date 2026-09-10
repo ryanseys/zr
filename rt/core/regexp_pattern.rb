@@ -27,7 +27,10 @@ class Regexp
     def engine_text(source, extended, binary)
       text = unicode_escapes(source)
       text = control_escapes(text, binary)
-      range_modes(text, extended)
+      text = range_modes(text, extended)
+      # The engine reads a binary pattern byte by byte, whatever the
+      # source it was written in.
+      binary ? text.dup.force_encoding(Encoding::BINARY) : text
     end
 
     # `\u{...}` is a space-separated list of code points and `\uHHHH`
@@ -132,6 +135,35 @@ class Regexp
         out << format("\\x%02X", bytes[0]).b
       end
       i
+    end
+
+    # Whether the pattern names a byte past ASCII: written out, or as a
+    # hex, octal or meta escape. What `/n` reads as a binary pattern.
+    def past_ascii?(source)
+      return true unless source.ascii_only?
+
+      i = 0
+      b = source.bytes
+      while (i = index_of_escape(b, i))
+        return true if escape_past_ascii?(b, i)
+
+        i += 2
+      end
+      false
+    end
+
+    def index_of_escape(b, i)
+      i += 1 while i < b.size && b[i] != 0x5c
+      i + 1 < b.size ? i : nil
+    end
+
+    def escape_past_ascii?(b, i)
+      case b[i + 1]
+      when 0x78 then (b[i + 2..i + 3] || []).pack("C*").to_i(16) >= 0x80
+      when 0x4d then true
+      when 0x30..0x37 then b[i + 1, 3].pack("C*").to_i(8) >= 0x80
+      else false
+      end
     end
 
     # Whether `bytes` can still grow into one UTF-8 character.
