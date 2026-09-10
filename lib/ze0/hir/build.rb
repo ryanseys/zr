@@ -139,6 +139,7 @@ module Ze0
         @encoding = encoding
         @block_depth = 0
         @temps = [[]]
+        @scopes = [@temps.first]
       end
 
       # The hidden locals the toplevel scope needs.
@@ -164,10 +165,12 @@ module Ze0
         @block_depth = 0
         @def_params = nil
         @temps.push([])
+        @scopes.push(@temps.last)
         yield
       ensure
         @block_depth, @def_params = was
         @temps.pop
+        @scopes.pop
       end
 
       # A scope's locals: the parser's, then the hidden ones its body made.
@@ -191,6 +194,74 @@ module Ze0
         when :$' then Send.new(match, :post_match, [], line, false, nil, nil, nil, true)
         when :$+ then Send.new(match, :last_group, [], line, false, nil, nil, nil, true)
         else refuse(node, "#{node.name} is not lowered yet")
+        end
+      end
+
+      # `a..b` in a condition is a flip-flop: it answers true from the run
+      # where the left side is true to the run where the right side is. The
+      # state is a hidden local of the enclosing def, so a block shares the
+      # state of the method it hangs in, which is where ruby keeps it too.
+      def flip_flop(node, line)
+        state = flip_flop_state
+        depth = @block_depth
+        ends = -> { If.new(end_test(node.right, line), Assign.new(state, depth, Literal.new(false, line), line), nil, line) }
+        # `...` waits for the next run before it can turn off; `..` asks the
+        # right side at once, so a one-run range ends where it started.
+        started = [Assign.new(state, depth, Literal.new(true, line), line)]
+        started << ends.call unless node.exclude_end?
+        started << Literal.new(true, line)
+        If.new(Local.new(state, depth, line),
+               Seq.new([ends.call, Literal.new(true, line)], line),
+               If.new(end_test(node.left, line), Seq.new(started, line), Literal.new(false, line), line),
+               line)
+      end
+
+      # An end of a flip-flop. A missing one never fires.
+      def end_test(node, line) = node ? expr(node) : Literal.new(nil, line)
+
+      def flip_flop_state
+        @flip_flops = (@flip_flops || 0) + 1
+        name = :"%flip_flop#{@flip_flops}"
+        @scopes.last << name
+        name
+      end
+
+      # `# shareable_constant_value:` over a constant write. A value the
+      # compiler can see is a literal is deep-frozen; any other value must
+      # already be shareable, which is ruby's own split.
+      def shareable_constant(node, line)
+        write = expr(node.write)
+        ractor = ConstRead.new(nil, :Ractor, line)
+        write.value =
+          if node.literal? && !shareable_literal?(node.write.value)
+            Send.new(ractor, :ensure_shareable, [write.value, Literal.new(constant_written(node.write), line)], line, false)
+          elsif node.experimental_copy?
+            Send.new(ractor, :make_shareable, [write.value], line, false, nil, nil, HashLit.new([Literal.new(:copy, line), Literal.new(true, line)], line))
+          else
+            Send.new(ractor, :make_shareable, [write.value], line, false)
+          end
+        write
+      end
+
+      # The name a shareable constant write names, for the error.
+      def constant_written(write)
+        write.respond_to?(:name) ? write.name.to_s : write.target.name.to_s
+      end
+
+      # Whether a value is built only of literals, so freezing it can hurt
+      # nothing that the program still holds.
+      def shareable_literal?(node)
+        case node
+        when Prism::IntegerNode, Prism::FloatNode, Prism::RationalNode, Prism::ImaginaryNode,
+             Prism::SymbolNode, Prism::StringNode, Prism::NilNode, Prism::TrueNode, Prism::FalseNode,
+             Prism::RegularExpressionNode, Prism::SourceFileNode, Prism::SourceLineNode, Prism::SourceEncodingNode
+          true
+        when Prism::ArrayNode then node.elements.all? { |e| shareable_literal?(e) }
+        when Prism::HashNode
+          node.elements.all? { |e| e.is_a?(Prism::AssocNode) && shareable_literal?(e.key) && shareable_literal?(e.value) }
+        when Prism::RangeNode
+          (node.left.nil? || shareable_literal?(node.left)) && (node.right.nil? || shareable_literal?(node.right))
+        else false
         end
       end
 
@@ -362,6 +433,8 @@ module Ze0
         when Prism::ArrayNode
           ArrayLit.new(node.elements.map { |e| e.is_a?(Prism::SplatNode) ? Splat.new(expr(e.expression), line) : expr(e) }, line)
         when Prism::HashNode then HashLit.new(hash_pairs(node.elements), line)
+        when Prism::FlipFlopNode then flip_flop(node, line)
+        when Prism::ShareableConstantNode then shareable_constant(node, line)
         when Prism::RangeNode
           RangeLit.new(node.left ? expr(node.left) : Literal.new(nil, line), node.right ? expr(node.right) : Literal.new(nil, line), node.exclude_end?, line)
         when Prism::InstanceVariableReadNode then IvarRead.new(node.name, line)

@@ -593,3 +593,9 @@ class Time
     end
   end
 end
+
+class Time
+  def _dump(_limit)
+    Primitive.zr_unimplemented("Marshal.dump of a Time")
+  end
+end

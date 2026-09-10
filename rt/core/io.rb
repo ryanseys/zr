@@ -545,7 +545,8 @@ end
 # The errors libSystem answers, each a class under Errno with the
 # errno it stands for.
 class SystemCallError
-  attr_reader :errno
+  # The errno hides from reflection, as ruby's does.
+  def errno = Primitive.zr_hidden_get(self, :__errno__)
 
   # `SystemCallError.new(message, errno)` answers the Errno class for
   # the errno when one exists.
@@ -562,7 +563,7 @@ class SystemCallError
 
   def initialize(message = nil, errno = nil)
     errno = self.class::Errno if errno.nil? && self.class.const_defined?(:Errno)
-    @errno = errno
+    Primitive.zr_hidden_set(self, :__errno__, errno)
     text = errno ? Errno.text(errno) : "unknown error"
     text = message.start_with?("@") ? "#{text} #{message}" : "#{text} - #{message}" unless message.nil?
     super(text)

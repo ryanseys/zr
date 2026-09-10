@@ -1543,6 +1543,11 @@ class Encoding
   def name = @names.first
   alias to_s name
 
+  # Marshal carries an encoding by name, as ruby does.
+  def _dump(_limit) = name.dup.force_encoding(Encoding::US_ASCII)
+
+  def self._load(name) = find(name)
+
   # BINARY is the name the report shows, ASCII-8BIT the one it answers.
   # An encoding whose table a fresh ruby has not read says so.
   def inspect

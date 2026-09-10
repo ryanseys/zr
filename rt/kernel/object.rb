@@ -812,6 +812,13 @@ machine def zr_exc_to_s(recv)
   m
 end
 
+# The message as it was given, nil when the class name stands in for it.
+# Marshal needs the two apart.
+sig [Value] => Value
+machine def zr_exc_raw_message(recv)
+  RException.message(recv)
+end
+
 sig [Value, Value] => Value
 machine def zr_exc_set_message(recv, m)
   RException.set_message(recv, m)

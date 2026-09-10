@@ -405,3 +405,16 @@ class NilClass
 
   def rationalize(eps = nil) = to_r
 end
+
+class Rational
+  # What Marshal carries: the two parts, in lowest terms already.
+  def marshal_dump = [numerator, denominator]
+
+  def marshal_load(pair)
+    Primitive.zr_hidden_set(self, :__num__, pair[0])
+    Primitive.zr_hidden_set(self, :__den__, pair[1])
+    freeze
+  end
+
+  private :marshal_dump, :marshal_load
+end

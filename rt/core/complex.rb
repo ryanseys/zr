@@ -429,3 +429,15 @@ end
 class NilClass
   def to_c = Complex.send(:build, 0, 0)
 end
+
+class Complex
+  def marshal_dump = [real, imaginary]
+
+  def marshal_load(pair)
+    Primitive.zr_hidden_set(self, :__real__, pair[0])
+    Primitive.zr_hidden_set(self, :__imag__, pair[1])
+    freeze
+  end
+
+  private :marshal_dump, :marshal_load
+end

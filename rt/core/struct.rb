@@ -71,6 +71,14 @@ class Struct
     end
   end
 
+  # An allocated struct already holds one nil for each member, so a
+  # member reads and writes before any initialize runs.
+  def self.allocate
+    built = super
+    Primitive.zr_hidden_set(built, :__values__, Array.new(members.size)) if respond_to?(:members)
+    built
+  end
+
   # Sizes come from the kernel: a program that patches Array#size or
   # Hash#empty? cannot reach inside the constructor, as it cannot in
   # CRuby's C.
