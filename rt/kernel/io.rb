@@ -6,6 +6,8 @@ Machine.import "fileno", [Ptr] => I32
 Machine.import "fclose", [Ptr] => I32
 Machine.import "read", [I32, Ptr, Word] => Word
 Machine.import "close", [I32] => I32
+Machine.import "dup", [I32] => I32
+Machine.import "dup2", [I32, I32] => I32
 Machine.import "fsync", [I32] => I32
 Machine.import "lseek", [I32, Word, I32] => Word
 Machine.import "unlink", [Ptr] => I32
@@ -96,6 +98,20 @@ end
 sig [Value] => Value
 machine def zr_io_close(fd)
   zr_io_status(close(Machine.i32(zr_fix2long(fd))))
+end
+
+# dup(2): a fresh descriptor onto the same open file, or the negated
+# errno. dup2(2) puts `from`'s open file on the descriptor `to` names,
+# closing whatever was there.
+sig [Value] => Value
+machine def zr_io_dup(fd)
+  r = dup(Machine.i32(zr_fix2long(fd)))
+  r < Machine.i32(0) ? zr_fix(0 - zr_errno()) : zr_fix(Machine.sword(r))
+end
+
+sig [Value, Value] => Value
+machine def zr_io_dup2(from, to)
+  zr_io_status(dup2(Machine.i32(zr_fix2long(from)), Machine.i32(zr_fix2long(to))))
 end
 
 sig [Value] => Value

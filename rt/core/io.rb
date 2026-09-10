@@ -135,6 +135,34 @@ class IO
     nil
   end
 
+  # `dup` and `clone` open a fresh descriptor onto the same file, so a
+  # close or a reopen of one leaves the other where it was.
+  def initialize_copy(other)
+    fd = Primitive.zr_io_dup(other.fileno)
+    raise SystemCallError.new("@ rb_io_dup", -fd) if fd < 0
+
+    @fd = fd
+    @buffer = +""
+    @closed = false
+    self
+  end
+
+  # `reopen`: this stream's descriptor number comes to name the other
+  # stream's open file, so every reference already held follows along.
+  # That is what saving and restoring $stdout is built on.
+  def reopen(other, mode = nil)
+    check_open
+    other = File.open(other, mode || @mode) unless other.is_a?(IO)
+    result = Primitive.zr_io_dup2(other.fileno, @fd)
+    raise SystemCallError.new("@ rb_io_reopen - #{label}", -result) if result < 0
+
+    @path = other.path
+    @buffer = +""
+    @eof = false
+    @lineno = 0
+    self
+  end
+
   def flush
     check_open
     self

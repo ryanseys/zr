@@ -533,6 +533,8 @@ module Ze0
         d zr_io_read Value fd:Value count:Value
         d zr_io_write Value fd:Value s:Value
         d zr_io_close Value fd:Value
+        d zr_io_dup Value fd:Value
+        d zr_io_dup2 Value from:Value to:Value
         d zr_io_fsync Value fd:Value
         d zr_io_seek Value fd:Value offset:Value whence:Value
         d zr_io_tty_p Value fd:Value
