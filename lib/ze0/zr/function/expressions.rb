@@ -46,6 +46,7 @@ module Ze0
           when Hir::CvarRead then cvar_read(node)
           when Hir::CvarWrite then cvar_write(node)
           when Hir::ConstOrWrite then const_or_write(node)
+          when Hir::RegexpOnce then regexp_once(node)
           when Hir::Alias then alias_method(node)
           when Hir::AliasValue then alias_value(node)
           when Hir::UndefValue then undef_values(node)
@@ -188,6 +189,25 @@ module Ze0
         end
 
         # The names wait in record slots, since making one may collect.
+        # `/#{x}/o` runs its site once: the regexp waits in the literal
+        # table, and every later run reads it back.
+        def regexp_once(node)
+          index = @l.regexp_index
+          cached = kernel("zr_regexp_once", imm(index))
+          make = @f.label
+          have = @f.label
+          merge, (result,) = @f.block(["i64"])
+          @f.brif(@f.icmp("eq", cached, @qnil), make, have)
+          switch(have)
+          @f.jump(merge, [cached])
+          switch(make)
+          made = expr(node.value)
+          kernel("zr_regexp_once_set", imm(index), made)
+          @f.jump(merge, [made]) unless @f.terminated?
+          switch(merge)
+          result
+        end
+
         def alias_value(node)
           staged([node.new_name, node.old_name]) do |slots, _base|
             at_line(node.line)

@@ -141,6 +141,30 @@ machine def zr_regexp_literal(index, bytes, len, options, pinned)
   re
 end
 
+# `/#{x}/o`: the site's regexp, made once. nil until the site has run.
+sig [Word] => Value
+machine def zr_regexp_once(index)
+  table = zr_global(G_REGEXP_LITERALS)
+  if zr_special_p(table) || RArray.len(table) <= index
+    return Machine.value(QNIL)
+  end
+  zr_ary_at(table, index)
+end
+
+sig [Word, Value] => Value
+machine def zr_regexp_once_set(index, re)
+  table = zr_global(G_REGEXP_LITERALS)
+  if zr_special_p(table)
+    table = zr_ary_new(8)
+    zr_set_global(G_REGEXP_LITERALS, table)
+  end
+  while RArray.len(table) <= index
+    zr_ary_push(table, Machine.value(QNIL))
+  end
+  zr_ary_store(table, index, re)
+  re
+end
+
 sig [Value] => Value
 machine def zr_regexp_source(re)
   RRegexp.source(re)

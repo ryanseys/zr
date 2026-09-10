@@ -194,6 +194,9 @@ module Ze0
     # `"a#{b}c"`: literal and expression parts in order.
     Interp = Struct.new(:parts, :line)
     # A regexp literal: its source and option bits; one object per site.
+    # `/#{x}/o`: the interpolated regexp its site keeps after the first run.
+    RegexpOnce = Struct.new(:value, :line)
+
     RegexpLit = Struct.new(:source, :options, :pinned, :line)
     # `"text".freeze`: the one frozen String of that text.
     FrozenString = Struct.new(:value, :line)

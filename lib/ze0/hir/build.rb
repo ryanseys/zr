@@ -286,11 +286,11 @@ module Ze0
       # ruby, the oracle, checks the pattern: one it refuses is a syntax
       # error here too.
       def interpolated_regexp(node, line)
-        refuse(node, "a regexp literal with the o flag is not lowered yet") if node.once?
         pinned = regexp_encoding(node)
         args = [interpolation(node, line), Literal.new(regexp_options(node), line),
                 Literal.new(pinned && ::Encoding.list.index(pinned), line)]
-        Send.new(ConstRead.new(nil, :Regexp, line), :interpolated, args, line, false)
+        made = Send.new(ConstRead.new(nil, :Regexp, line), :interpolated, args, line, false)
+        node.once? ? RegexpOnce.new(made, line) : made
       end
 
       def regexp_literal(node, line)
