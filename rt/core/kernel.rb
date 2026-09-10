@@ -229,6 +229,11 @@ class FalseClass
 end
 
 module Kernel
+  # A program that names an eval carries the compiler, and the eval road
+  # defines this again over the compiler it brought. One that reaches an
+  # eval any other way stops here, by name.
+  def eval(source, binding = nil, file = "(eval)", line = 1) = Primitive.zr_unimplemented("eval reached in a program built without the compiler")
+
   def catch(tag = Object.new, &block)
     raise LocalJumpError, "no block given (yield)" unless block
 

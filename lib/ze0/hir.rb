@@ -8,8 +8,8 @@ require_relative "hir/dump"
 
 module Ze0
   module Hir
-    def self.build(source, file, roots: [])
-      Build.program(source, file, roots: roots)
+    def self.build(source, file, roots: [], road: true)
+      Build.program(source, file, roots: roots, road: road)
     end
   end
 end

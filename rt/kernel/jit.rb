@@ -72,3 +72,10 @@ sig [Value] => Value
 machine def zr_jit_call(at)
   zr_fix(Machine.word(Machine.call(:top, Machine.ptr(zr_fix2long(at)))))
 end
+
+# A loaded eval toplevel, run in a frame of its own, as a required
+# file's toplevel is.
+sig [Value] => Value
+machine def zr_eval_run(at)
+  zr_run_top(Machine.ptr(zr_fix2long(at)), Machine.id(:eval))
+end

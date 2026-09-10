@@ -22,13 +22,16 @@ module Ze0
       end
 
       # `internal` marks the core library: its methods are builtins to a
-      # backtrace, and its blocks and bodies leave no row at all.
-      def initialize(program, unit, symbols, entry: "zr_toplevel", internal: false)
+      # backtrace, and its blocks and bodies leave no row at all. `kind`
+      # is `:top` for an eval, whose toplevel is a file's, not a
+      # program's: it starts no program and prints no parse warning.
+      def initialize(program, unit, symbols, entry: "zr_toplevel", internal: false, kind: :main)
         @program = program
         @unit = unit
         @symbols = symbols
         @entry = entry
         @internal = internal
+        @kind = kind
         @file = program.file
         @frozen = program.frozen
         @warnings = program.warnings || []
@@ -40,7 +43,7 @@ module Ze0
       # `[functions, data]`: the program's toplevel, then one function
       # per required file, each with its own file name for backtraces.
       def run
-        Function.new(self, @entry, @program.locals, @program.body, nil, :main).lower
+        Function.new(self, @entry, @program.locals, @program.body, nil, @kind).lower
         (@program.units || []).each_with_index do |u, i|
           @file = u.file
           @frozen = u.frozen

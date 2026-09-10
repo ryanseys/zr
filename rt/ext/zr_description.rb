@@ -533,6 +533,7 @@ module Ze0
         d zr_jit_write_data Value at:Value bytes:Value
         d zr_jit_write_code Value at:Value bytes:Value
         d zr_jit_call Value at:Value
+        d zr_eval_run Value at:Value
         d zr_puts_value Value v:Value
         d zr_puts Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_print Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -946,6 +947,8 @@ module Ze0
         d zr_sym_cmp Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_sym_to_proc_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_all_symbols Value
+        d zr_intern_id Value name:Value
+        d zr_static_sites Value
         d zr_catches Value
         d zr_catch_tag_p Value tag:Value
         d zr_throw Value tag:Value value:Value

@@ -24,10 +24,23 @@ module Ze0
 
       STDLIB = [VENDOR, EXT, *GEMS].freeze
 
-      def self.program(source, file, roots: [])
+      # The compiler itself, which a program that evals carries.
+      EVAL_ROAD = File.expand_path("../eval.rb", __dir__)
+
+      # `road` is false for an eval: the program it runs inside already
+      # carries the compiler, so the eval must not compile it again.
+      def self.program(source, file, roots: [], road: true)
         loader = Loader.new(roots + STDLIB)
         main = loader.unit(file, source)
-        Program.new(main.file, main.locals, main.body, main.frozen, loader.units, main.warnings)
+        body = road && loader.evals? ? Seq.new([eval_road(loader), main.body], 0) : main.body
+        Program.new(main.file, main.locals, body, main.frozen, loader.units, main.warnings)
+      end
+
+      # A require of the eval road, ahead of everything the program does.
+      # Only a program that names an eval carries the compiler, so an
+      # eval-free one links nothing extra.
+      def self.eval_road(loader)
+        Require.new(:require, "ze0/eval", EVAL_ROAD, loader.add(EVAL_ROAD), 0)
       end
 
       # The files a program reaches through require, require_relative
@@ -42,6 +55,17 @@ module Ze0
           @roots = roots.map { |r| File.expand_path(r) }
           @units = []
           @index = {}
+          @evals = false
+        end
+
+        # A program that names one of these compiles ruby while it runs.
+        # The block forms do not: only a string argument needs a compiler.
+        EVAL_FORMS = %i[class_eval module_eval instance_eval].freeze
+
+        def evals? = @evals
+
+        def evals!(name, args)
+          @evals = true if name == :eval || (EVAL_FORMS.include?(name) && !args.empty?)
         end
 
         def unit(file, source = File.read(file))
@@ -778,6 +802,7 @@ module Ze0
         return autoload_node(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
 
         args, kwargs, forwarded = arguments(node.arguments)
+        @loader.evals!(node.name, args)
         opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
         Send.new(node.receiver && expr(node.receiver), node.name, args, node.location.start_line, node.variable_call?, opt,
                  node.block ? block(node.block) : forwarded, kwargs, node.call_operator == "&.", node.attribute_write?)

@@ -122,3 +122,17 @@ machine def zr_all_symbols
   end
   out
 end
+
+# The id a name has, interned if it is new: what an eval needs to make
+# the ids it compiles in agree with the ones this program runs on.
+sig [Value] => Value
+machine def zr_intern_id(name)
+  zr_fix(zr_intern(RString.ptr(name), RString.len(name)))
+end
+
+# How many regexp literal sites the program was built with, so an eval's
+# own sites start past them.
+sig [] => Value
+machine def zr_static_sites
+  zr_fix(Machine.load64(Machine.extern(:zr_site_count), 0))
+end
