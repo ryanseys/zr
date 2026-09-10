@@ -10,3 +10,4 @@
 *.clif.tmp
 .bundle/
 Gemfile.lock
+test/*.tmp

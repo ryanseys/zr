@@ -28,8 +28,8 @@ module Marshal
 
   # What holds a task, a lock, a descriptor or compiled code, which no
   # wire format can carry.
-  UNDUMPABLE = %w[Proc Method UnboundMethod Binding Enumerator Fiber Dir MatchData Ractor Thread
-                  Thread::Mutex Thread::Queue Thread::SizedQueue Thread::ConditionVariable].freeze
+  UNDUMPABLE = %w[Proc Method UnboundMethod Binding Enumerator Fiber Dir MatchData Ractor StringIO
+                  Thread Thread::Mutex Thread::Queue Thread::SizedQueue Thread::ConditionVariable].freeze
   private_constant :UNDUMPABLE
 
   # The tags, by the character each one writes.
