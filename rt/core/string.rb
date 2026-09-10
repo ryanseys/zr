@@ -48,7 +48,16 @@ class String
     self
   end
 
-  def bytes = each_byte.to_a
+  def bytes
+    out = []
+    i = 0
+    n = bytesize
+    while i < n
+      out << Primitive.zr_str_byte_at(self, i)
+      i += 1
+    end
+    out
+  end
 
   def each_byte
     return to_enum(:each_byte) { bytesize } unless block_given?

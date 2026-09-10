@@ -500,10 +500,14 @@ module Packing
   end
 
   def self.unpack_integer(chunk, signed, big)
-    bytes = big ? chunk.bytes : chunk.bytes.reverse
+    size = chunk.bytesize
     n = 0
-    bytes.each { |b| n = (n << 8) | b }
-    n -= 1 << (bytes.size * 8) if signed && n >= 1 << (bytes.size * 8 - 1)
+    i = 0
+    while i < size
+      n = (n << 8) | chunk.getbyte(big ? i : size - 1 - i)
+      i += 1
+    end
+    n -= 1 << (size * 8) if signed && n >= 1 << (size * 8 - 1)
     n
   end
 
