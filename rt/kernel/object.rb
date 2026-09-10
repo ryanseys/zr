@@ -726,7 +726,7 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_inspect(recv, argc, argv, cref, blk)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
-  zr_buf_str_escaped(b, RString.ptr(recv), RString.len(recv), zr_str_binary_p(recv))
+  zr_buf_str_escaped(b, RString.ptr(recv), RString.len(recv), !zr_str_wide_p(recv))
   zr_buf_take(b)
 end
 
@@ -866,7 +866,7 @@ machine def zr_exc_inspect(recv, argc, argv, cref, blk)
   zr_buf_str(b, zr_class_name_of(recv))
   if zr_bytes_index(RString.ptr(m), RString.len(m), 10) >= 0
     zr_buf_byte(b, 58)
-    zr_buf_str_escaped(b, RString.ptr(m), RString.len(m), zr_str_binary_p(m))
+    zr_buf_str_escaped(b, RString.ptr(m), RString.len(m), !zr_str_wide_p(m))
   else
     zr_buf_push(b, Machine.bytes(": "), 2)
     zr_buf_str(b, m)

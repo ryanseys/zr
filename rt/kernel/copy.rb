@@ -56,6 +56,7 @@ machine def zr_copy_payload(copy, orig)
     end
   elsif t == T_REGEXP
     RRegexp.set_reg(copy, 0)
+    RRegexp.set_alt(copy, 0)
     r = zr_send(copy, Machine.id(:recompile), 0, 0)
     return r if r == QUNDEF
   elsif t != T_PROC && t != T_METHOD
@@ -73,7 +74,9 @@ sig [Value] => Value
 machine def zr_copy_cell(orig)
   copy = zr_alloc(zr_type(orig), zr_real_class(orig))
   zr_memcpy(Machine.ptr(copy) + RBasic.size, Machine.ptr(orig) + RBasic.size, CELL - RBasic.size)
-  RBasic.set_flags(copy, RBasic.flags(copy) | (RBasic.flags(orig) & FL_BINARY))
+  if zr_type(orig) == T_STRING
+    zr_str_copy_encoding(copy, orig)
+  end
   zr_copy_payload(copy, orig)
 end
 

@@ -90,7 +90,7 @@ machine def zr_sym_to_s(recv, argc, argv, cref, blk)
   id = zr_sym2id(recv)
   s = zr_str_new(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
   # A name written in ASCII alone is US-ASCII, as ruby tags it.
-  zr_str_ascii_only(s) ? zr_str_set_encoding(s, zr_fix(2)) : s
+  zr_str_ascii_only(s) ? zr_str_set_index(s, ENC_USASCII) : s
 end
 
 # `Symbol#<=>`: the names bytewise, nil against anything else.

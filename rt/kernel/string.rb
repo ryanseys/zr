@@ -35,8 +35,7 @@ machine def zr_str_initialize_m(recv, src)
   RString.set_ptr(recv, buf)
   RString.set_len(recv, RString.len(src))
   RString.set_capa(recv, RString.len(src))
-  RBasic.set_flags(recv, (RBasic.flags(recv) & (0 - (FL_BINARY + 1)) & (0 - (FL_USASCII + 1))) | (RBasic.flags(src) & (FL_BINARY | FL_USASCII)))
-  recv
+  zr_str_copy_encoding(recv, src)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -123,78 +122,78 @@ machine def zr_str_operand(v)
   v
 end
 
+# The encoding `s` carries: ruby's own index into `Encoding.list`.
+sig [Value] => Word
+machine def zr_str_encoding_index(s)
+  i = (RBasic.flags(s) >> FL_ENC_SHIFT) & 255
+  i < 2 ? 1 - i : i
+end
+
+sig [Value, Word] => Value
+machine def zr_str_set_index(s, index)
+  i = index < 2 ? 1 - index : index
+  RBasic.set_flags(s, (RBasic.flags(s) & FL_ENC_KEEP) | (i << FL_ENC_SHIFT))
+  s
+end
+
+# The encoding `src` carries, onto `s`.
+sig [Value, Value] => Value
+machine def zr_str_copy_encoding(s, src)
+  zr_str_set_index(s, zr_str_encoding_index(src))
+end
+
 sig [Value] => Bool
 machine def zr_str_binary_p(s)
-  (RBasic.flags(s) & FL_BINARY) != 0
+  zr_str_encoding_index(s) == ENC_BINARY
+end
+
+# Whether one character can span bytes. Of the encodings a String
+# carries, UTF-8 alone does; every other one this runtime accepts
+# gives each byte a character of its own.
+sig [Value] => Bool
+machine def zr_str_wide_p(s)
+  zr_str_encoding_index(s) == ENC_UTF8
 end
 
 sig [Value] => Value
 machine def zr_str_set_binary(s)
-  RBasic.set_flags(s, RBasic.flags(s) | FL_BINARY)
-  s
+  zr_str_set_index(s, ENC_BINARY)
 end
 
-# The encoding as a number: 0 UTF-8, 1 binary, 2 US-ASCII.
 sig [Value] => Value
-machine def zr_str_encoding_kind(s)
-  if zr_str_binary_p(s)
-    return zr_fix(1)
-  end
-  zr_fix((RBasic.flags(s) & FL_USASCII) != 0 ? 2 : 0)
+machine def zr_str_encoding_index_m(s)
+  zr_fix(zr_str_encoding_index(s))
 end
 
 sig [Value, Value] => Value
-machine def zr_str_set_encoding(s, kind)
-  flags = RBasic.flags(s) & (0 - (FL_BINARY + 1)) & (0 - (FL_USASCII + 1))
-  k = zr_fix2long(kind)
-  if k == 1
-    flags = flags | FL_BINARY
-  elsif k == 2
-    flags = flags | FL_USASCII
-  end
-  RBasic.set_flags(s, flags)
-  s
+machine def zr_str_set_index_m(s, index)
+  zr_str_set_index(s, zr_fix2long(index))
 end
 
-# Whether the join of two strings is binary: when both are, or when
-# one is and the other holds only ASCII. A binary string of ASCII
-# beside non-ASCII text joins as text; the caller has refused
-# non-ASCII on both sides already.
-sig [Value, Value] => Bool
-machine def zr_str_join_binary_p(a, b)
-  if zr_str_binary_p(a) == zr_str_binary_p(b)
-    return zr_str_binary_p(a)
-  end
-  text = zr_str_binary_p(a) ? b : a
-  zr_str_bytes_are_chars(text)
+# The encoding a join takes: the side that is not plain ASCII, which
+# is ruby's own compatibility rule. Both sides plain ASCII gives the
+# receiver's, so `"a" + "b".b` stays text.
+sig [Value, Value] => Word
+machine def zr_str_join_index(a, b)
+  zr_str_ascii_bytes_p(b) ? zr_str_encoding_index(a) : zr_str_encoding_index(b)
 end
 
-# Whether joining `a` and `b` is CRuby's compatibility error: a binary
-# String with non-ASCII bytes against text with non-ASCII characters.
+# Whether joining `a` and `b` is ruby's compatibility error: two
+# encodings, with a byte past ASCII on each side.
 sig [Value, Value] => Bool
 machine def zr_str_join_incompatible_p(a, b)
-  if zr_str_binary_p(a) == zr_str_binary_p(b)
-    return false
-  end
-  text = zr_str_binary_p(a) ? b : a
-  binary = zr_str_binary_p(a) ? a : b
-  !zr_str_bytes_are_chars(text) && !zr_str_ascii_bytes_p(binary)
+  zr_str_encoding_index(a) != zr_str_encoding_index(b) && !zr_str_ascii_bytes_p(a) && !zr_str_ascii_bytes_p(b)
 end
 
-# The error, the receiver's encoding named first.
+# The error, the receiver's encoding named first. Encoding holds the
+# names, so it writes the message.
 sig [Value, Value] => Value
 machine def zr_str_join_incompatible(a, b)
-  buf = Machine.slot(Buf.size)
-  zr_buf_init(buf)
-  zr_buf_push(buf, Machine.bytes("incompatible character encodings: "), 34)
-  if zr_str_binary_p(a)
-    zr_buf_push(buf, Machine.bytes("BINARY (ASCII-8BIT) and UTF-8"), 29)
-  else
-    zr_buf_push(buf, Machine.bytes("UTF-8 and BINARY (ASCII-8BIT)"), 29)
-  end
-  klass = zr_const_get_at(zr_core_class(Machine.id(:Encoding)), Machine.id(:CompatibilityError))
-  return klass if klass == QUNDEF
-  zr_raise_buf(klass, buf)
+  klass = zr_core_class(Machine.id(:Encoding))
+  slot = Machine.slot(16)
+  Machine.store64(slot, 0, Machine.word(a))
+  Machine.store64(slot, 8, Machine.word(b))
+  zr_send(klass, Machine.id(:incompatible), 2, slot)
 end
 
 sig [Value] => Bool
@@ -224,17 +223,7 @@ machine def zr_str_plus(recv, argc, argv, cref, blk)
   s = zr_buf_take(b)
   # The join takes the encoding of whichever side is not plain ASCII,
   # which is ruby's own compatibility rule.
-  zr_str_set_encoding(s, zr_fix(zr_str_kind_of_index(zr_str_ascii_only(other) ? zr_str_encoding_index(recv) : zr_str_encoding_index(other))))
-end
-
-# The number `zr_str_set_encoding` takes, from ruby's own index: 0
-# ASCII-8BIT, 1 UTF-8, 2 US-ASCII.
-sig [Word] => Word
-machine def zr_str_kind_of_index(index)
-  if index == 0
-    return 1
-  end
-  index == 2 ? 2 : 0
+  zr_str_set_index(s, zr_str_ascii_only(other) ? zr_str_encoding_index(recv) : zr_str_encoding_index(other))
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -253,16 +242,14 @@ machine def zr_str_times(recv, argc, argv, cref, blk)
     zr_buf_str(b, recv)
     i += 1
   end
-  out2 = zr_buf_take(b)
-  RBasic.set_flags(out2, RBasic.flags(out2) | (RBasic.flags(recv) & (FL_BINARY | FL_USASCII)))
-  out2
+  zr_str_copy_encoding(zr_buf_take(b), recv)
 end
 
 # An Integer appended as a character: a byte of a binary string, a
 # UTF-8 sequence of a text one.
 sig [Value, Word] => Value
 machine def zr_str_concat_codepoint(recv, c)
-  limit = zr_str_binary_p(recv) ? 255 : 1114111
+  limit = zr_str_wide_p(recv) ? 1114111 : 255
   if c < 0 || c > limit
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -272,7 +259,7 @@ machine def zr_str_concat_codepoint(recv, c)
   end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
-  if c < 128 || zr_str_binary_p(recv)
+  if c < 128 || !zr_str_wide_p(recv)
     zr_buf_byte(b, c)
   elsif c < 2048
     zr_buf_byte(b, 192 | (c >> 6))
@@ -287,10 +274,7 @@ machine def zr_str_concat_codepoint(recv, c)
     zr_buf_byte(b, 128 | ((c >> 6) & 63))
     zr_buf_byte(b, 128 | (c & 63))
   end
-  s = zr_buf_take(b)
-  if zr_str_binary_p(recv)
-    zr_str_set_binary(s)
-  end
+  s = zr_str_copy_encoding(zr_buf_take(b), recv)
   slot = Machine.slot(8)
   Machine.store64(slot, 0, Machine.word(s))
   zr_str_concat(recv, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
@@ -310,7 +294,7 @@ machine def zr_str_concat(recv, argc, argv, cref, blk)
   if zr_str_join_incompatible_p(recv, other)
     return zr_str_join_incompatible(recv, other)
   end
-  binary = zr_str_join_binary_p(recv, other)
+  index = zr_str_join_index(recv, other)
   n = RString.len(recv) + RString.len(other)
   if n + 1 > RString.capa(recv)
     capa = RString.capa(recv) * 2
@@ -326,13 +310,7 @@ machine def zr_str_concat(recv, argc, argv, cref, blk)
   zr_memcpy(RString.ptr(recv) + RString.len(recv), RString.ptr(other), RString.len(other))
   RString.set_len(recv, n)
   Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
-  if binary
-    zr_str_set_binary(recv)
-  elsif zr_str_binary_p(recv)
-    RBasic.set_flags(recv, RBasic.flags(recv) & (0 - (FL_BINARY + 1)))
-  elsif (RBasic.flags(recv) & FL_USASCII) != 0 && !zr_str_bytes_are_chars(other)
-    RBasic.set_flags(recv, RBasic.flags(recv) & (0 - (FL_USASCII + 1)))
-  end
+  zr_str_set_index(recv, index)
   recv
 end
 
@@ -373,16 +351,7 @@ machine def zr_str_cmp(recv, argc, argv, cref, blk)
 end
 
 # Two strings compare only when they hold one encoding, or when both
-# are ASCII throughout. `ASCII-8BIT` is 0, `UTF-8` 1, `US-ASCII` 2, as
-# ruby numbers them.
-sig [Value] => Word
-machine def zr_str_encoding_index(s)
-  if zr_str_binary_p(s)
-    return 0
-  end
-  (RBasic.flags(s) & FL_USASCII) != 0 ? 2 : 1
-end
-
+# are ASCII throughout.
 sig [Value, Value] => Bool
 machine def zr_str_comparable(a, b)
   zr_str_encoding_index(a) == zr_str_encoding_index(b) || (zr_str_ascii_only(a) && zr_str_ascii_only(b))
@@ -414,11 +383,11 @@ machine def zr_str_length(recv, argc, argv, cref, blk)
   zr_fix(zr_str_char_count(recv))
 end
 
-# Whether every byte is a character of its own: a binary string, or
-# one with no byte past ASCII.
+# Whether every byte is a character of its own: a byte-oriented
+# encoding, or text with no byte past ASCII.
 sig [Value] => Bool
 machine def zr_str_bytes_are_chars(s)
-  if zr_str_binary_p(s)
+  if !zr_str_wide_p(s)
     return true
   end
   n = RString.len(s)
@@ -441,7 +410,7 @@ end
 # sequence, else the one byte.
 sig [Value, Word] => Word
 machine def zr_str_char_len_at(s, off)
-  if zr_str_binary_p(s)
+  if !zr_str_wide_p(s)
     return 1
   end
   len = zr_utf8_char_len(RString.ptr(s) + off, RString.len(s) - off)
@@ -518,9 +487,7 @@ machine def zr_str_char_slice(s, start, len)
     to += zr_str_char_len_at(s, to)
     count -= 1
   end
-  out = zr_str_new(RString.ptr(s) + from, to - from)
-  RBasic.set_flags(out, RBasic.flags(out) | (RBasic.flags(s) & (FL_BINARY | FL_USASCII)))
-  out
+  zr_str_copy_encoding(zr_str_new(RString.ptr(s) + from, to - from), s)
 end
 
 sig [Value, Value] => Value
@@ -537,7 +504,7 @@ machine def zr_str_ord(s)
   end
   p = RString.ptr(s)
   c = Machine.word(Machine.load8(p, 0))
-  if zr_str_binary_p(s) || c < 128
+  if c < 128 || !zr_str_wide_p(s)
     return zr_fix(c)
   end
   len = zr_utf8_char_len(p, n)
@@ -553,9 +520,14 @@ machine def zr_str_ord(s)
   zr_fix(cp)
 end
 
+# US-ASCII stops at 128, UTF-8 needs whole sequences, and every other
+# encoding this runtime carries takes any byte.
 sig [Value] => Value
 machine def zr_str_valid_p(s)
-  if zr_str_binary_p(s)
+  if zr_str_encoding_index(s) == ENC_USASCII
+    return zr_bool(zr_str_ascii_bytes_p(s))
+  end
+  if !zr_str_wide_p(s)
     return Machine.value(QTRUE)
   end
   n = RString.len(s)
@@ -600,7 +572,7 @@ machine def zr_str_map_case(s, how)
     zr_buf_byte(b, c)
     i += 1
   end
-  zr_buf_take(b)
+  zr_str_copy_encoding(zr_buf_take(b), s)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -632,15 +604,13 @@ machine def zr_str_reverse(recv, argc, argv, cref, blk)
   end_ = n
   while end_ > 0
     start = end_ - 1
-    while start > 0 && zr_str_char_len_at(recv, start) == 1 && (Machine.word(Machine.load8(RString.ptr(recv) + start, 0)) & 192) == 128
+    while start > 0 && zr_str_wide_p(recv) && (Machine.word(Machine.load8(RString.ptr(recv) + start, 0)) & 192) == 128
       start -= 1
     end
     zr_buf_push(b, RString.ptr(recv) + start, end_ - start)
     end_ = start
   end
-  out = zr_buf_take(b)
-  RBasic.set_flags(out, RBasic.flags(out) | (RBasic.flags(recv) & (FL_BINARY | FL_USASCII)))
-  out
+  zr_str_copy_encoding(zr_buf_take(b), recv)
 end
 
 # The byte index of `needle` in `hay` from `from`, or -1.
@@ -793,38 +763,69 @@ machine def zr_alnum_p(c)
 end
 
 # `"a#{b}c"`: each piece's `to_s`, joined; a `to_s` that answers no
-# String falls back to the plain object form, as CRuby's does.
+# String falls back to the plain object form, as CRuby's does. The
+# result takes the encoding of the first piece that is not plain
+# ASCII, and a second such piece in another encoding is an error.
 sig [Word, Ptr] => Value
 machine def zr_str_interp(argc, argv)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
+  index = ENC_UTF8
+  ascii = true
   i = 0
   while i < argc
     v = Machine.value(Machine.load64(argv + (i * 8), 0))
-    if !zr_special_p(v) && zr_type(v) == T_STRING
-      zr_buf_str(b, v)
-    else
+    s = v
+    if zr_special_p(v) || zr_type(v) != T_STRING
       s = zr_send(v, Machine.id(:to_s), 0, 0)
       if s == QUNDEF
         free(Buf.ptr(b))
         return s
       end
-      if !zr_special_p(s) && zr_type(s) == T_STRING
-        zr_buf_str(b, s)
-      else
-        zr_buf_obj_head(b, v)
-        zr_buf_byte(b, 62)
-      end
+    end
+    if zr_special_p(s) || zr_type(s) != T_STRING
+      zr_buf_obj_head(b, v)
+      zr_buf_byte(b, 62)
+    elsif zr_str_ascii_bytes_p(s)
+      zr_buf_str(b, s)
+    elsif ascii
+      index = zr_str_encoding_index(s)
+      ascii = false
+      zr_buf_str(b, s)
+    elsif index != zr_str_encoding_index(s)
+      return zr_str_join_incompatible(zr_str_set_index(zr_buf_take(b), index), s)
+    else
+      zr_buf_str(b, s)
     end
     i += 1
   end
-  zr_buf_take(b)
+  zr_str_set_index(zr_buf_take(b), index)
 end
 
 # A frozen literal: the same String object at every evaluation.
 sig [Ptr, Word] => Value
 machine def zr_str_frozen(bytes, len)
   zr_str_intern(zr_str_new(bytes, len))
+end
+
+# The same three, for a file whose script encoding is not UTF-8: the
+# literal takes the encoding before anything reads its bytes.
+sig [Ptr, Word, Word] => Value
+machine def zr_str_new_at(bytes, len, index)
+  zr_str_set_index(zr_str_new(bytes, len), index)
+end
+
+sig [Ptr, Word, Word] => Value
+machine def zr_str_frozen_at(bytes, len, index)
+  zr_str_intern(zr_str_new_at(bytes, len, index))
+end
+
+sig [Ptr, Word, Word] => Value
+machine def zr_str_literal_freeze_at(bytes, len, index)
+  if (Machine.load64(zr_gates(), 0) & GATE_FREEZE) != 0
+    return zr_send(zr_str_new_at(bytes, len, index), Machine.id(:freeze), 0, 0)
+  end
+  zr_str_frozen_at(bytes, len, index)
 end
 
 # `"lit".freeze`: the shared frozen String, unless the program has
@@ -842,11 +843,11 @@ GATE_FREEZE = 32768
 G_FSTRINGS = 44
 
 # CRuby's fstring table: the one frozen String of these bytes. A
-# String not yet in the table is frozen and kept; a binary String is
+# String not yet in the table is frozen and kept; one outside UTF-8 is
 # frozen but not shared, since the table keys on bytes alone.
 sig [Value] => Value
 machine def zr_str_intern(s)
-  if zr_str_binary_p(s)
+  if !zr_str_wide_p(s)
     RBasic.set_flags(s, RBasic.flags(s) | FL_FREEZE)
     return s
   end
@@ -908,9 +909,7 @@ end
 # A new String of `len` bytes from `off`, both already in range.
 sig [Value, Value, Value] => Value
 machine def zr_str_byteslice(s, off, len)
-  out = zr_str_new(RString.ptr(s) + zr_fix2long(off), zr_fix2long(len))
-  RBasic.set_flags(out, RBasic.flags(out) | (RBasic.flags(s) & (FL_BINARY | FL_USASCII)))
-  out
+  zr_str_copy_encoding(zr_str_new(RString.ptr(s) + zr_fix2long(off), zr_fix2long(len)), s)
 end
 
 # The receiver's bytes replaced by `other`'s.
@@ -927,8 +926,7 @@ machine def zr_str_replace(s, other)
   RString.set_ptr(s, buf)
   RString.set_len(s, n)
   RString.set_capa(s, n)
-  RBasic.set_flags(s, (RBasic.flags(s) & (0 - (FL_BINARY + 1)) & (0 - (FL_USASCII + 1))) | (RBasic.flags(other) & (FL_BINARY | FL_USASCII)))
-  s
+  zr_str_copy_encoding(s, other)
 end
 
 # `setbyte`: the byte at `i` becomes `byte` modulo 256.
@@ -997,8 +995,8 @@ machine def zr_str_push_byte(recv, byte)
   Machine.store8(RString.ptr(recv) + RString.len(recv), 0, Machine.i8(zr_fix2long(byte)))
   RString.set_len(recv, n)
   Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
-  if (RBasic.flags(recv) & FL_USASCII) != 0 && zr_fix2long(byte) >= 128
-    RBasic.set_flags(recv, RBasic.flags(recv) & (0 - (FL_USASCII + 1)))
+  if zr_str_encoding_index(recv) == ENC_USASCII && zr_fix2long(byte) >= 128
+    zr_str_set_index(recv, ENC_UTF8)
   end
   recv
 end

@@ -37,9 +37,10 @@ module Ze0
             staged([node.low, node.high]) { |argv| checked(kernel("zr_range_new", @f.fetch("i64", argv), @f.fetch("i64", argv, 8), imm(node.exclusive ? 1 : 0))) }
           when Hir::Interp then staged(node.parts) { |argv| checked(kernel("zr_str_interp", imm(node.parts.size), argv)) }
           when Hir::RegexpLit
-            checked(kernel("zr_regexp_literal", imm(@l.regexp_index), @f.symbol_value(@f.symbol(@l.literal(node.source))), imm(node.source.bytesize), imm(node.options)))
+            checked(kernel("zr_regexp_literal", imm(@l.regexp_index), @f.symbol_value(@f.symbol(@l.literal(node.source))), imm(node.source.bytesize), imm(node.options),
+                           imm(node.pinned ? ENCODING_INDEX.fetch(node.pinned) : -1)))
           when Hir::IvarRead then kernel("zr_ivar_get", @self, imm(sym_id(node.name)))
-          when Hir::FrozenString then checked(kernel("zr_str_literal_freeze", @f.symbol_value(@f.symbol(@l.literal(node.value))), imm(node.value.bytesize)))
+          when Hir::FrozenString then checked(string_literal(node.value, "zr_str_literal_freeze"))
           when Hir::GvarRead then gvar_read(node)
           when Hir::GvarWrite then gvar_write(node.name, expr(node.value))
           when Hir::CvarRead then cvar_read(node)
@@ -123,14 +124,27 @@ module Ze0
             end
           when Float then kernel("zr_float_from_bits", imm([v].pack("E").unpack1("q<")))
           when Symbol then symbol(v)
-          when String
-            fn = @l.frozen ? "zr_str_frozen" : "zr_str_new"
-            kernel(fn, @f.symbol_value(@f.symbol(@l.literal(v))), imm(v.bytesize))
+          when String then string_literal(v, @l.frozen ? "zr_str_frozen" : "zr_str_new")
           when nil then @qnil
           when true then imm(@l.const("QTRUE"))
           when false then imm(@l.const("QFALSE"))
           end
         end
+
+        # A String literal, built by `fn` and tagged with the script
+        # encoding the file declared. UTF-8 is the usual answer and needs
+        # no number.
+        def string_literal(text, fn)
+          bytes = @f.symbol_value(@f.symbol(@l.literal(text)))
+          index = ENCODING_INDEX.fetch(text.encoding)
+          return kernel(fn, bytes, imm(text.bytesize)) if index == ENCODING_INDEX.fetch(::Encoding::UTF_8)
+
+          kernel("#{fn}_at", bytes, imm(text.bytesize), imm(index))
+        end
+
+        # ruby's own number for an encoding, which is what a String
+        # carries at run time.
+        ENCODING_INDEX = ::Encoding.list.each_with_index.to_h.freeze
 
         # The globals with meanings of their own wait for their objects;
         # `$!` is the task's, and any other lives in the globals table.

@@ -40,15 +40,18 @@ FL_FREEZE = 1 << 11
 FL_EXIVAR = 1 << 10
 # A singleton class: one object's own, `attached`, ahead of its class.
 FL_SINGLETON = 1 << 12
-# A String of bytes (CRuby's ASCII-8BIT): each byte is a character,
-# and `inspect` spells the high ones in hex.
-FL_BINARY = 1 << 13
 # A module whose name is temporary (`set_temporary_name`): a constant
 # assignment still names it.
 FL_TEMP_NAME = 1 << 14
-# A String in US-ASCII (`Integer#chr` makes one): UTF-8 in every
-# way but its name, until non-ASCII text joins it.
-FL_USASCII = 1 << 16
+# A String's encoding, as ruby's own index into `Encoding.list`: 0
+# ASCII-8BIT, 1 UTF-8, 2 US-ASCII, then one number for each of the
+# other hundred. Eight bits over the flags hold it, with 0 and 1
+# swapped, so a String that never named an encoding reads as UTF-8.
+FL_ENC_SHIFT = 24
+FL_ENC_KEEP = 0 - ((255 << 24) + 1)
+ENC_BINARY = 0
+ENC_UTF8 = 1
+ENC_USASCII = 2
 # A Hash that compares keys by identity (`compare_by_identity`).
 FL_IDENTITY = 1 << 17
 # A Hash a `ruby2_keywords` method took from keywords into its rest.

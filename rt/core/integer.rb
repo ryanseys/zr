@@ -164,22 +164,21 @@ class Integer
   def chr(encoding = nil)
     if encoding
       encoding = Encoding.find(encoding) unless encoding.is_a?(Encoding)
-      kind = Encoding.walked_index(encoding)
-      Primitive.zr_unimplemented("Integer#chr in the #{encoding} encoding") if kind.nil?
+      index = Encoding.carried(encoding)
       raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0
-      raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if kind == 0 && self > 0x10FFFF
-      if kind == 0
+      if encoding.equal?(Encoding::UTF_8)
+        raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self > 0x10FFFF
         raise RangeError, "invalid codepoint 0x#{format("%04X", self)} in UTF-8" if self >= 0xD800 && self <= 0xDFFF
 
-        return Primitive.zr_str_set_encoding(+"" << self, 0)
+        return +"" << self
       end
       raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self > 255
 
-      return Primitive.zr_str_set_encoding(Primitive.zr_str_from_byte(self), kind)
+      return Primitive.zr_str_set_index_m(Primitive.zr_str_from_byte(self), index)
     end
     raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0 || self > 255
 
-    Primitive.zr_str_set_encoding(Primitive.zr_str_from_byte(self), self < 128 ? 2 : 1)
+    Primitive.zr_str_set_index_m(Primitive.zr_str_from_byte(self), self < 128 ? Encoding::US_ASCII.index : Encoding::BINARY.index)
   end
 
   def ord = self

@@ -66,9 +66,25 @@ class Regexp
     compile_source(source, bits)
   end
 
-  # A literal's Regexp, for the kernel's literal table.
-  def self.literal(source, bits) = compile_source(source, bits)
+  # A literal's Regexp, for the kernel's literal table. A flag letter
+  # that names an encoding pins the pattern to it.
+  def self.literal(source, bits, pinned)
+    pin(compile_source(source, bits), pinned)
+  end
   private_class_method :literal
+
+  # `/a#{b}c/u`: the same, built once each time the literal runs.
+  def self.interpolated(source, bits, pinned)
+    Primitive.attr! :hidden
+    pin(compile_source(source, bits), pinned).freeze
+  end
+
+  def self.pin(made, pinned)
+    Primitive.attr! :hidden
+    made.instance_variable_set(:@pinned, Encoding.at(pinned).send(:load)) if pinned
+    made
+  end
+  private_class_method :pin
 
   # `source` compiled with the option `bits`; a RegexpError names the
   # reason, then the pattern as written with its flags.
@@ -183,9 +199,9 @@ class Regexp
 
   def timeout = nil
 
-  def encoding = source.ascii_only? ? Encoding::US_ASCII : source.encoding
+  def encoding = @pinned || (source.ascii_only? ? Encoding::US_ASCII : source.encoding)
 
-  def fixed_encoding? = !source.ascii_only?
+  def fixed_encoding? = !@pinned.nil? || !source.ascii_only?
 
   def ==(other) = other.is_a?(Regexp) && source == other.source && options == other.options
 
@@ -205,6 +221,7 @@ class Regexp
     text << "m" if options & MULTILINE != 0
     text << "i" if options & IGNORECASE != 0
     text << "x" if options & EXTENDED != 0
+    text << "n" if options & NOENCODING != 0
     text
   end
 
@@ -236,8 +253,8 @@ class Regexp
     text = text.to_s if text.is_a?(Symbol)
     pos += text.size if pos < 0
     return false if pos < 0 || pos > text.size
-    raise ArgumentError, "invalid byte sequence in #{text.encoding}" unless text.valid_encoding?
 
+    check_subject(text)
     !Primitive.zr_regexp_search(self, text, Primitive.zr_str_char_offset_m(text, pos), false).nil?
   end
 
@@ -346,9 +363,22 @@ class Regexp
   end
 
   # The match at byte `from`, searching forward, or backward to it.
-  def search(text, from, backward)
+  # A regexp whose source holds a byte past ASCII reads one encoding
+  # alone, so a subject in another one is an error unless the subject
+  # is plain ASCII.
+  def check_subject(text)
     Primitive.attr! :hidden
     raise ArgumentError, "invalid byte sequence in #{text.encoding}" unless text.valid_encoding?
+    return unless fixed_encoding? && text.encoding != encoding && !text.ascii_only?
+
+    raise Encoding::CompatibilityError,
+          "incompatible encoding regexp match (#{Encoding.shown(encoding)} regexp with #{Encoding.shown(text.encoding)} string)"
+  end
+  private :check_subject
+
+  def search(text, from, backward)
+    Primitive.attr! :hidden
+    check_subject(text)
 
     offsets = Primitive.zr_regexp_search(self, text, from, backward)
     offsets && MatchData.send(:for, self, text, offsets)
@@ -356,7 +386,7 @@ class Regexp
 
   def match_at(text, from)
     Primitive.attr! :hidden
-    raise ArgumentError, "invalid byte sequence in #{text.encoding}" unless text.valid_encoding?
+    check_subject(text)
 
     offsets = Primitive.zr_regexp_match_at(self, text, from)
     offsets && MatchData.send(:for, self, text, offsets)

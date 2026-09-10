@@ -25,7 +25,7 @@ module Kernel
       @args = args
       @next = 0
       @numbered = false
-      @out = +""
+      @out = "".dup.force_encoding(spec.encoding)
     end
 
     def render
@@ -34,7 +34,7 @@ module Kernel
       while i < @spec.bytesize
         b = @spec.getbyte(i)
         if b != 37
-          @out << Primitive.zr_str_from_byte(b)
+          @out << @spec.byteslice(i, 1)
           i += 1
           next
         end

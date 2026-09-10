@@ -10,8 +10,12 @@ module Ze0
     # Prism to HIR. A form the HIR does not hold yet is refused by name at
     # its line: the contract is CRuby-identical or refused, never a guess.
     class Build
+      # The pure-Ruby stdlib the runtime carries, which every program
+      # can require without naming a root.
+      STDLIB = File.expand_path("../../../rt/lib", __dir__)
+
       def self.program(source, file, roots: [])
-        loader = Loader.new(roots)
+        loader = Loader.new(roots + [STDLIB])
         main = loader.unit(file, source)
         Program.new(main.file, main.locals, main.body, main.frozen, loader.units, main.warnings)
       end
@@ -39,7 +43,7 @@ module Ze0
 
           @roots.concat(load_path_roots(result.value, file))
           frozen = result.magic_comments.any? { |c| c.key == "frozen_string_literal" && c.value == "true" }
-          build = Build.new(file, self)
+          build = Build.new(file, self, result.encoding)
           body = build.seq(result.value.statements, hoist: true)
           Unit.new(file, result.value.locals + build.temps, body, frozen, warnings(result, file))
         end
@@ -129,9 +133,10 @@ module Ze0
         end
       end
 
-      def initialize(file, loader = nil)
+      def initialize(file, loader = nil, encoding = ::Encoding::UTF_8)
         @file = file
         @loader = loader
+        @encoding = encoding
         @block_depth = 0
         @temps = [[]]
       end
@@ -190,26 +195,38 @@ module Ze0
       end
 
       # A regexp literal's option bits, as Regexp.new takes them.
+      # `i`, `x` and `m`, then the two encoding bits: `n` declares the
+      # pattern encoding-agnostic, and `e`, `s` and `u` pin it to one.
       def regexp_options(node)
-        (node.ignore_case? ? 1 : 0) | (node.extended? ? 2 : 0) | (node.multi_line? ? 4 : 0)
+        (node.ignore_case? ? 1 : 0) | (node.extended? ? 2 : 0) | (node.multi_line? ? 4 : 0) |
+          (regexp_encoding(node) ? 16 : 0) | (node.ascii_8bit? ? 32 : 0)
+      end
+
+      # The encoding a flag letter pins the pattern to, or nil.
+      def regexp_encoding(node)
+        if node.euc_jp? then ::Encoding::EUC_JP
+        elsif node.windows_31j? then ::Encoding::Windows_31J
+        elsif node.utf_8? then ::Encoding::UTF_8
+        end
       end
 
       # ruby, the oracle, checks the pattern: one it refuses is a syntax
       # error here too.
       def interpolated_regexp(node, line)
         refuse(node, "a regexp literal with the o flag is not lowered yet") if node.once?
-        built = Send.new(ConstRead.new(nil, :Regexp, line), :new, [interpolation(node, line), Literal.new(regexp_options(node), line)], line, false)
-        Send.new(built, :freeze, [], line, false)
+        pinned = regexp_encoding(node)
+        args = [interpolation(node, line), Literal.new(regexp_options(node), line),
+                Literal.new(pinned && ::Encoding.list.index(pinned), line)]
+        Send.new(ConstRead.new(nil, :Regexp, line), :interpolated, args, line, false)
       end
 
       def regexp_literal(node, line)
-        refuse(node, "a regexp literal with an encoding flag is not lowered yet") if node.ascii_8bit? || node.euc_jp? || node.windows_31j? || node.utf_8?
         begin
-          Regexp.new(node.unescaped, regexp_options(node))
+          Regexp.new(node.unescaped, regexp_options(node) & 7)
         rescue RegexpError => e
           refuse(node, "#{e.message.sub(/: \/.*\z/m, "")}: /#{node.unescaped}/")
         end
-        RegexpLit.new(node.unescaped, regexp_options(node), line)
+        RegexpLit.new(node.unescaped, regexp_options(node), regexp_encoding(node), line)
       end
 
       # The parts of an interpolated string, each a String or the value
@@ -328,6 +345,8 @@ module Ze0
         when Prism::InterpolatedStringNode then interpolation(node, line)
         when Prism::SourceFileNode then Literal.new(@file, line)
         when Prism::SourceLineNode then Literal.new(line, line)
+        when Prism::SourceEncodingNode
+          Send.new(ConstRead.new(nil, :Encoding, line), :find, [Literal.new(@encoding.name, line)], line, false)
         when Prism::InterpolatedSymbolNode then Send.new(interpolation(node, line), :to_sym, [], line, false)
         when Prism::XStringNode then Send.new(nil, :`, [Literal.new(node.unescaped, line)], line, false)
         when Prism::NumberedReferenceReadNode then Send.new(GvarRead.new(:$~, line), :[], [Literal.new(node.number, line)], line, false, nil, nil, nil, true)

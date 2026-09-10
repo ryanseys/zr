@@ -16,7 +16,7 @@ module Ze0
     KERNEL = Dir[File.join(__dir__, "../../rt/kernel/*.rb")].sort.freeze
     # The core library files, in the order their toplevels run: a module
     # before the classes that include it.
-    CORE = %w[module warning encodings exception enumerable enumerator comparable integer bignum array hash range struct unicode string kernel float proc format io process env file data gc random thread monitor time set pack regexp_pattern regexp rational complex objectspace].map { |name| File.join(__dir__, "../../rt/core/#{name}.rb") }.freeze
+    CORE = %w[module warning encodings transcode exception enumerable enumerator comparable integer bignum array hash range struct unicode string kernel float proc format io process env file data gc random thread monitor time set pack regexp_pattern regexp rational complex objectspace].map { |name| File.join(__dir__, "../../rt/core/#{name}.rb") }.freeze
 
     # Where the runtime's built forms live, keyed on the digest of
     # everything they depend on: the runtime sources and the compiler.

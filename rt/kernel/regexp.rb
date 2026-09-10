@@ -12,7 +12,10 @@ Machine.import "onig_region_free", [Ptr, I32] => Void
 Machine.import "onig_number_of_captures", [Ptr] => I32
 Machine.import "onig_foreach_name", [Ptr, Ptr, Ptr] => I32
 
-Machine.struct :RRegexp, basic: RBasic, source: Value, options: Word, reg: Ptr, names: Value
+# `reg` is the pattern the source's own encoding built; `alt` is the
+# byte-oriented twin a byte-oriented subject asks for, compiled on
+# first use from `text`, the engine text.
+Machine.struct :RRegexp, basic: RBasic, source: Value, options: Word, reg: Ptr, names: Value, text: Value, alt: Ptr
 T_REGEXP = 31
 G_REGEXP = 42
 G_REGEXP_LITERALS = 43
@@ -41,7 +44,7 @@ machine def zr_regexp_compile(klass, source, shown, options)
   Machine.store64(info, 0, 0)
   Machine.store64(info, 8, 0)
   Machine.store64(info, 16, 0)
-  enc = zr_str_binary_p(source) ? Machine.extern(:OnigEncodingASCII) : Machine.extern(:OnigEncodingUTF8)
+  enc = zr_str_wide_p(source) ? Machine.extern(:OnigEncodingUTF8) : Machine.extern(:OnigEncodingASCII)
   r = onig_new(reg, RString.ptr(source), RString.ptr(source) + RString.len(source), Machine.i32(zr_fix2long(options) & 7), enc, Machine.extern(:OnigSyntaxRuby), info)
   if r != Machine.i32(0)
     out = zr_ary_new(2)
@@ -56,6 +59,8 @@ machine def zr_regexp_compile(klass, source, shown, options)
     return out
   end
   re = zr_alloc(T_REGEXP, klass)
+  RRegexp.set_text(re, source)
+  RRegexp.set_alt(re, 0)
   RRegexp.set_source(re, shown)
   RRegexp.set_options(re, zr_fix2long(options))
   RRegexp.set_reg(re, Machine.ptr(Machine.load64(reg, 0)))
@@ -72,17 +77,47 @@ machine def zr_regexp_recompile(re, text)
   Machine.store64(info, 0, 0)
   Machine.store64(info, 8, 0)
   Machine.store64(info, 16, 0)
-  enc = zr_str_binary_p(text) ? Machine.extern(:OnigEncodingASCII) : Machine.extern(:OnigEncodingUTF8)
+  enc = zr_str_wide_p(text) ? Machine.extern(:OnigEncodingUTF8) : Machine.extern(:OnigEncodingASCII)
   onig_new(reg, RString.ptr(text), RString.ptr(text) + RString.len(text), Machine.i32(RRegexp.options(re) & 7), enc, Machine.extern(:OnigSyntaxRuby), info)
+  RRegexp.set_text(re, text)
+  RRegexp.set_alt(re, 0)
   RRegexp.set_reg(re, Machine.ptr(Machine.load64(reg, 0)))
   re
+end
+
+# The pattern to search `str` with. A regexp built from ASCII source
+# reads any ASCII-compatible subject, so a byte-oriented subject gets
+# a byte-oriented pattern over the same engine text.
+sig [Value, Value] => Ptr
+machine def zr_regexp_reg_for(re, str)
+  if zr_str_wide_p(str) == zr_str_wide_p(RRegexp.text(re))
+    return RRegexp.reg(re)
+  end
+  if RRegexp.alt(re) == 0
+    reg = Machine.slot(8)
+    Machine.store64(reg, 0, 0)
+    info = Machine.slot(24)
+    Machine.store64(info, 0, 0)
+    Machine.store64(info, 8, 0)
+    Machine.store64(info, 16, 0)
+    text = RRegexp.text(re)
+    enc = zr_str_wide_p(str) ? Machine.extern(:OnigEncodingUTF8) : Machine.extern(:OnigEncodingASCII)
+    r = onig_new(reg, RString.ptr(text), RString.ptr(text) + RString.len(text), Machine.i32(RRegexp.options(re) & 7), enc, Machine.extern(:OnigSyntaxRuby), info)
+    # The text may hold bytes the other encoding refuses, and then the
+    # pattern it already has is the only one there is.
+    if r != Machine.i32(0)
+      return RRegexp.reg(re)
+    end
+    RRegexp.set_alt(re, Machine.ptr(Machine.load64(reg, 0)))
+  end
+  RRegexp.alt(re)
 end
 
 # A regexp literal: compiled by the core the first time its site runs,
 # then the same frozen object, held in the literal table by the site's
 # index.
-sig [Word, Ptr, Word, Word] => Value
-machine def zr_regexp_literal(index, bytes, len, options)
+sig [Word, Ptr, Word, Word, Word] => Value
+machine def zr_regexp_literal(index, bytes, len, options, pinned)
   table = zr_global(G_REGEXP_LITERALS)
   if zr_special_p(table)
     table = zr_ary_new(8)
@@ -95,10 +130,11 @@ machine def zr_regexp_literal(index, bytes, len, options)
   if re != QNIL
     return re
   end
-  slot = Machine.slot(16)
+  slot = Machine.slot(24)
   Machine.store64(slot, 0, Machine.word(zr_str_frozen(bytes, len)))
   Machine.store64(slot, 8, Machine.word(zr_fix(options)))
-  re = zr_send(zr_global(G_REGEXP), Machine.id(:literal), 2, slot)
+  Machine.store64(slot, 16, Machine.word(pinned < 0 ? Machine.value(QNIL) : zr_fix(pinned)))
+  re = zr_send(zr_global(G_REGEXP), Machine.id(:literal), 3, slot)
   return re if re == QUNDEF
   RBasic.set_flags(re, RBasic.flags(re) | FL_FREEZE)
   zr_ary_store(table, index, re)
@@ -165,7 +201,7 @@ machine def zr_regexp_search(re, str, start, backward)
   stop = base + RString.len(str)
   from = base + zr_fix2long(start)
   range = backward == QTRUE ? base : stop
-  r = onig_search(RRegexp.reg(re), base, stop, from, range, region, Machine.i32(0))
+  r = onig_search(zr_regexp_reg_for(re, str), base, stop, from, range, region, Machine.i32(0))
   code = Machine.word(r)
   if code >= 2147483648
     onig_region_free(region, Machine.i32(1))
@@ -182,7 +218,7 @@ machine def zr_regexp_match_at(re, str, start)
   region = onig_region_new()
   base = RString.ptr(str)
   stop = base + RString.len(str)
-  r = onig_match(RRegexp.reg(re), base, stop, base + zr_fix2long(start), region, Machine.i32(0))
+  r = onig_match(zr_regexp_reg_for(re, str), base, stop, base + zr_fix2long(start), region, Machine.i32(0))
   code = Machine.word(r)
   if code >= 2147483648
     onig_region_free(region, Machine.i32(1))
@@ -220,6 +256,7 @@ end
 sig [Value] => Void
 machine def zr_mark_regexp(re)
   zr_mark(RRegexp.source(re))
+  zr_mark(RRegexp.text(re))
   zr_mark(RRegexp.names(re))
 end
 
@@ -227,6 +264,9 @@ sig [Value] => Void
 machine def zr_release_regexp(re)
   if RRegexp.reg(re) != 0
     onig_free(RRegexp.reg(re))
+  end
+  if RRegexp.alt(re) != 0
+    onig_free(RRegexp.alt(re))
   end
 end
 

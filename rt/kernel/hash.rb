@@ -315,9 +315,7 @@ machine def zr_hash_store(h, key, value)
     return
   end
   if !zr_special_p(key) && zr_type(key) == T_STRING && !zr_frozen_p(key) && (RBasic.flags(h) & (FL_IDENTITY | FL_WEAKKEY)) == 0
-    copy = zr_str_new(RString.ptr(key), RString.len(key))
-    RBasic.set_flags(copy, RBasic.flags(copy) | (RBasic.flags(key) & (FL_BINARY | FL_USASCII)))
-    key = copy
+    key = zr_str_copy_encoding(zr_str_new(RString.ptr(key), RString.len(key)), key)
     RBasic.set_flags(key, RBasic.flags(key) | FL_FREEZE)
   end
   zr_hash_reserve(h)
