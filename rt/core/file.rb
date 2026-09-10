@@ -743,27 +743,32 @@ class Dir
   def self.unlink(path) = rmdir(path)
   def self.delete(path) = rmdir(path)
 
-  # Every name in the directory, `.` and `..` among them.
-  def self.entries(path)
+  # Every name in the directory, `.` and `..` among them. `encoding:`
+  # names what the names are read as; the runtime reads the file system
+  # in the one encoding, so the names are tagged with it.
+  def self.entries(path, encoding: nil)
     names = Primitive.zr_io_dir_names(path)
     raise SystemCallError.new("@ dir_initialize - #{path}", -names) if names.is_a?(Integer)
+    return names unless encoding
 
-    names
+    names.map { |name| name.dup.force_encoding(encoding) }
   end
 
-  def self.children(path) = entries(path).reject { |name| name == "." || name == ".." }
+  def self.children(path, encoding: nil)
+    entries(path, encoding: encoding).reject { |name| name == "." || name == ".." }
+  end
 
-  def self.each_child(path, &block)
-    return to_enum(:each_child, path) unless block
+  def self.each_child(path, encoding: nil, &block)
+    return to_enum(:each_child, path, encoding: encoding) unless block
 
-    children(path).each(&block)
+    children(path, encoding: encoding).each(&block)
     nil
   end
 
-  def self.foreach(path, &block)
-    return to_enum(:foreach, path) unless block
+  def self.foreach(path, encoding: nil, &block)
+    return to_enum(:foreach, path, encoding: encoding) unless block
 
-    entries(path).each(&block)
+    entries(path, encoding: encoding).each(&block)
     nil
   end
 
