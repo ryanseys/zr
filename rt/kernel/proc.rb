@@ -435,6 +435,9 @@ machine def zr_int_bound(recv, argv, out, dir)
     Machine.store64(out, 0, Machine.to_int(d))
     return Machine.value(QNIL)
   end
+  if !zr_fixnum_p(other) && !zr_big_p(other)
+    return zr_cmperr(recv, other)
+  end
   zr_int_operand(recv, argv, out, 0, 3)
 end
 

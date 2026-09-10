@@ -34,7 +34,7 @@ class String
   end
   alias slice []
 
-  def chars = each_char.to_a
+  def chars(&block) = block ? each_char(&block) : each_char.to_a
 
   def each_char
     return to_enum(:each_char) { size } unless block_given?
@@ -48,7 +48,9 @@ class String
     self
   end
 
-  def bytes
+  def bytes(&block)
+    return each_byte(&block) if block
+
     out = []
     i = 0
     n = bytesize
@@ -267,7 +269,8 @@ class String
   # The lines up to and including `separator`: nil keeps the whole
   # text, "" splits paragraphs at blank lines (extra blank lines are
   # dropped), `chomp` strips the separator.
-  def lines(separator = $/, chomp: false)
+  def lines(separator = $/, chomp: false, &block)
+    return each_line(separator, chomp: chomp, &block) if block
     return [] if empty?
     return [dup] if separator.nil?
 
@@ -292,8 +295,13 @@ class String
     out
   end
 
-  def each_line(separator = $/, chomp: false, &block)
-    return to_enum(:each_line, separator, chomp: chomp) unless block
+  def each_line(separator = (nosep = true), chomp: (nochomp = true), &block)
+    separator = $/ if nosep
+    chomp = false if nochomp
+    unless block
+      shown = nosep ? [] : [separator]
+      return nochomp ? to_enum(:each_line, *shown) : to_enum(:each_line, *shown, chomp: chomp)
+    end
 
     lines(separator, chomp: chomp).each(&block)
     self
@@ -690,7 +698,11 @@ class String
     byteslice_of(start, length)
   end
 
-  def codepoints = each_char.map(&:ord)
+  def codepoints
+    return each_char { |c| yield c.ord } if block_given?
+
+    each_char.map(&:ord)
+  end
 
   # Every match in turn: the matched text, or the groups when the
   # pattern has any; an empty match steps one character.
@@ -747,6 +759,8 @@ class String
   # The text `dump` wrote, read back; a trailing `.force_encoding(...)`
   # names the encoding.
   def undump
+    raise RuntimeError, "non-ASCII character detected" unless ascii_only?
+
     text = self
     encoding = nil
     if (m = /\A(".*")\.force_encoding\("([^"]+)"\)\z/m.match(text))
@@ -926,9 +940,9 @@ class String
 
   # `String.new(source, encoding:, capacity:)`. The room asked for is
   # not held: the buffer grows as the bytes arrive.
-  def initialize(source = nil, encoding: nil, capacity: nil)
-    Primitive.zr_str_initialize_m(self, source)
-    Primitive.zr_str_set_binary(self) if source.nil? && encoding.nil?
+  def initialize(source = (none = true), encoding: nil, capacity: nil)
+    Primitive.zr_str_initialize_m(self, none ? nil : Primitive.zr_str_operand(source))
+    Primitive.zr_str_set_binary(self) if none && encoding.nil?
     force_encoding(encoding) if encoding
     self
   end
@@ -1278,7 +1292,11 @@ class String
   def first_match(pattern, start)
     Primitive.attr! :hidden
     return pattern.send(:search, self, start, false) if pattern.is_a?(Regexp)
-    raise TypeError, "wrong argument type #{pattern.class} (expected Regexp)" unless pattern.is_a?(String)
+    unless pattern.is_a?(String)
+      raise TypeError, "wrong argument type #{pattern.class} (expected Regexp)" unless pattern.respond_to?(:to_str)
+
+      pattern = Primitive.zr_str_operand(pattern)
+    end
 
     at = byte_index(pattern, start)
     at && MatchData.send(:for, pattern, self, [at, at, at + pattern.bytesize])
@@ -1543,7 +1561,13 @@ class Symbol
 
   def casecmp?(other) = other.is_a?(Symbol) ? STRING[:casecmp?].bind_call(to_s, other.to_s) : nil
   alias id2name to_s
-  alias name to_s
+
+  # Ruby holds one frozen name String per symbol, so `name` answers the
+  # same object every time it is asked.
+  NAMES = Hash.new { |cache, symbol| cache[symbol] = symbol.to_s.freeze }
+  private_constant :NAMES
+
+  def name = NAMES[self]
 
   def self.all_symbols = Primitive.zr_all_symbols
 end

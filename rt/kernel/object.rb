@@ -615,7 +615,7 @@ sig [Ptr, Word] => Bool
 machine def zr_operator_name_p(p, n)
   if n == 1
     c = Machine.word(Machine.load8(p, 0))
-    c == 43 || c == 45 || c == 42 || c == 47 || c == 37 || c == 60 || c == 62 || c == 33 || c == 38 || c == 124 || c == 94 || c == 126
+    c == 43 || c == 45 || c == 42 || c == 47 || c == 37 || c == 60 || c == 62 || c == 33 || c == 38 || c == 124 || c == 94 || c == 126 || c == 96
   elsif n == 2
     c = Machine.word(Machine.load8(p, 0))
     d = Machine.word(Machine.load8(p, 1))

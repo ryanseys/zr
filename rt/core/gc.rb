@@ -120,11 +120,11 @@ module Process
   def pid = Primitive.zr_process_id
 
   def clock_gettime(id, unit = :float_second)
-    Process.send(:in_unit, Primitive.zr_clock_ns(id), unit)
+    Process.send(:in_unit, Primitive.zr_clock_ns(Process.send(:clock_id, id, "clock_gettime")), unit)
   end
 
   def clock_getres(id, unit = :float_second)
-    Process.send(:in_unit, Primitive.zr_clock_res_ns(id), unit)
+    Process.send(:in_unit, Primitive.zr_clock_res_ns(Process.send(:clock_id, id, "clock_getres")), unit)
   end
 
   def uid = Primitive.zr_process_ids(0)
@@ -133,6 +133,18 @@ module Process
   def egid = Primitive.zr_process_ids(3)
 
   module_function :pid, :clock_gettime, :clock_getres, :uid, :euid, :gid, :egid
+
+  # A clock is a raw id or the name of one of this module's own CLOCK_
+  # constants. The symbol spelling is the portable one: a platform that
+  # lacks the clock answers a rescuable Errno::EINVAL here rather than a
+  # NameError at the constant read.
+  def self.clock_id(id, verb)
+    Primitive.attr! :hidden
+    return Primitive.zr_index_operand_m(id) unless id.is_a?(Symbol)
+    raise Errno::EINVAL, "#{verb}(#{id.inspect})" unless id.start_with?("CLOCK_") && const_defined?(id)
+
+    const_get(id)
+  end
 
   def self.in_unit(ns, unit)
     Primitive.attr! :hidden

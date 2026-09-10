@@ -299,9 +299,12 @@ class Integer
   end
 
   def self.sqrt(n)
-    raise Math::DomainError, 'Numerical argument is out of domain - "isqrt"' if n < 0
-    return n if n < 2
+    value = Integer.try_convert(n)
+    raise TypeError, "no implicit conversion of #{conversion_name(n)} into Integer" if value.nil?
+    raise Math::DomainError, 'Numerical argument is out of domain - "isqrt"' if value < 0
+    return value if value < 2
 
+    n = value
     x = n
     y = (x + 1) / 2
     while y < x
