@@ -469,6 +469,15 @@ class IO
     raise IOError, "closed stream" if @closed
   end
 
+  # A read from a descriptor that is not ready would stop every green
+  # thread, so a task that shares the process with others hands the
+  # turn on until the descriptor answers. A lone task waits in the
+  # system call itself.
+  def wait_readable
+    Primitive.attr! :hidden
+    sleep 0.001 while !Thread.send(:alone?) && Primitive.zr_io_wait(@fd, 1, 0) == 0
+  end
+
   def check_readable
     Primitive.attr! :hidden
     check_open
@@ -484,6 +493,7 @@ class IO
   # More bytes into the buffer; none marks the end.
   def fill
     Primitive.attr! :hidden
+    wait_readable
     chunk = Primitive.zr_io_read(@fd, 8192)
     if chunk.nil?
       @eof = true

@@ -34,6 +34,10 @@ class Thread
       nil
     end
 
+    # Whether nothing else could run: no other task is waiting for a
+    # turn and none is asleep.
+    def alone? = @queue.empty? && @sleepers.empty?
+
     # The current thread sleeps until `wakeup`.
     def stop
       @current.send(:wait, nil, true)

@@ -254,10 +254,18 @@ module Enumerable
     [yes, no]
   end
 
+  # The count an enumerator reports: the receiver's own, so an endless
+  # source answers without being walked. A receiver with no size, or
+  # one whose size is unknown, leaves the enumerator's unknown too.
+  def enumerable_size
+    Primitive.attr! :hidden
+    respond_to?(:size) ? size : nil
+  end
+
   def each_cons(n)
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "invalid size" if n <= 0
-    return to_enum(:each_cons, n) { [count - n + 1, 0].max } unless block_given?
+    return to_enum(:each_cons, n) { (total = enumerable_size) && [total - n + 1, 0].max } unless block_given?
 
     window = []
     each do |*x|
@@ -273,7 +281,7 @@ module Enumerable
   def each_slice(n)
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "invalid slice size" if n <= 0
-    return to_enum(:each_slice, n) { (count + n - 1) / n } unless block_given?
+    return to_enum(:each_slice, n) { (total = enumerable_size) && (total + n - 1) / n } unless block_given?
 
     slice = []
     each do |*x|

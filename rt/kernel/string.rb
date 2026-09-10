@@ -235,6 +235,10 @@ machine def zr_str_times(recv, argc, argv, cref, blk)
   if n < 0
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("negative argument"), 17)
   end
+  # The size the copies would take, checked before any of them is made.
+  if n != 0 && (9223372036854775807 / n) < RString.len(recv)
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("argument too big"), 16)
+  end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   i = 0
