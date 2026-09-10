@@ -455,13 +455,9 @@ machine def zr_class_define(scope, id, sup)
   end
   if sup == QUNDEF
     sup = zr_global(G_OBJECT)
-  elsif zr_special_p(sup) || zr_type(sup) != T_CLASS
-    b = Machine.slot(Buf.size)
-    zr_buf_init(b)
-    zr_buf_push(b, Machine.bytes("superclass must be an instance of Class (given an instance of "), 62)
-    zr_buf_str(b, zr_class_name_of(sup))
-    zr_buf_byte(b, 41)
-    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  else
+    r = zr_check_inheritable(sup)
+    return r if r == QUNDEF
   end
   k = zr_class_new(sup)
   RClass.set_name(k, zr_class_name_under(scope, id))

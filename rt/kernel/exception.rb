@@ -170,12 +170,11 @@ machine def zr_exc_match(exc, klass)
   zr_bool(zr_is_a(exc, klass))
 end
 
-# `rescue *list`: whether any class in the Array takes `exc`.
+# `rescue *list`: whether any class the splat spreads takes `exc`.
 sig [Value, Value] => Value
 machine def zr_exc_match_any(exc, list)
-  if zr_special_p(list) || zr_type(list) != T_ARRAY
-    return zr_exc_match(exc, list)
-  end
+  list = zr_splat_to_a(list)
+  return list if list == QUNDEF
   i = 0
   while i < RArray.len(list)
     r = zr_exc_match(exc, zr_ary_at(list, i))
@@ -191,11 +190,10 @@ end
 # `when *list`: whether any element answers `=== subject` truthily.
 sig [Value, Value] => Value
 machine def zr_case_any(subject, list)
+  list = zr_splat_to_a(list)
+  return list if list == QUNDEF
   slot = Machine.slot(8)
   Machine.store64(slot, 0, Machine.word(subject))
-  if zr_special_p(list) || zr_type(list) != T_ARRAY
-    return zr_send(list, Machine.id(:===), 1, slot)
-  end
   i = 0
   while i < RArray.len(list)
     r = zr_send(zr_ary_at(list, i), Machine.id(:===), 1, slot)
@@ -208,13 +206,12 @@ machine def zr_case_any(subject, list)
   Machine.value(QFALSE)
 end
 
-# `when *list` with no subject: whether any of the candidates is
-# truthy; a plain value is the one candidate, nil none.
+# `when *list` with no subject: whether the splat spreads anything
+# truthy.
 sig [Value] => Value
 machine def zr_any_truthy(list)
-  if zr_special_p(list) || zr_type(list) != T_ARRAY
-    return zr_bool(list != QNIL && list != QFALSE)
-  end
+  list = zr_splat_to_a(list)
+  return list if list == QUNDEF
   i = 0
   while i < RArray.len(list)
     v = zr_ary_at(list, i)

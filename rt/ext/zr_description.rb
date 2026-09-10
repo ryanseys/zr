@@ -13,6 +13,7 @@ module Ze0
         d zr_ary_unshift Void a:Value v:Value
         d zr_ary_store Value a:Value i:Word v:Value
         d zr_ary_of Value argc:Word argv:Ptr
+        d zr_splat_to_a Value v:Value
         d zr_ary_splat Value a:Value v:Value
         d zr_ary_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_index_of Word a:Value v:Value
@@ -69,6 +70,7 @@ module Ze0
         d zr_buf_str Void b:Ptr s:Value
         d zr_buf_take Value b:Ptr
         d zr_class_alloc Value type:Word sup:Value klass:Value
+        d zr_check_inheritable Value sup:Value
         d zr_class_boot Value sup:Value
         d zr_class_new Value sup:Value
         d zr_chain_includes Bool klass:Value mod:Value

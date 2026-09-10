@@ -44,20 +44,8 @@ machine def zr_class_initialize(recv, argc, argv, cref, blk)
   sup = zr_global(G_OBJECT)
   if argc > 0
     sup = Machine.value(Machine.load64(argv, 0))
-    if zr_special_p(sup) || zr_type(sup) != T_CLASS
-      b = Machine.slot(Buf.size)
-      zr_buf_init(b)
-      zr_buf_push(b, Machine.bytes("superclass must be an instance of Class (given an instance of "), 62)
-      zr_buf_str(b, zr_class_name_of(sup))
-      zr_buf_byte(b, 41)
-      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
-    end
-    if zr_singleton_p(sup)
-      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't make subclass of singleton class"), 38)
-    end
-    if sup == zr_global(G_CLASS)
-      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't make subclass of Class"), 28)
-    end
+    r = zr_check_inheritable(sup)
+    return r if r == QUNDEF
   end
   RClass.set_superclass(recv, sup)
   zr_methods_changed()

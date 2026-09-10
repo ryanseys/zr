@@ -55,6 +55,27 @@ machine def zr_class_alloc(type, sup, klass)
   c
 end
 
+# The three superclasses ruby refuses, in `rb_check_inheritable`'s
+# order. Answers QUNDEF when it raised.
+sig [Value] => Value
+machine def zr_check_inheritable(sup)
+  if zr_special_p(sup) || zr_type(sup) != T_CLASS
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("superclass must be an instance of Class (given an instance of "), 62)
+    zr_buf_str(b, zr_class_name_of(sup))
+    zr_buf_byte(b, 41)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+  if zr_singleton_p(sup)
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't make subclass of singleton class"), 38)
+  end
+  if sup == zr_global(G_CLASS)
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't make subclass of Class"), 28)
+  end
+  Machine.value(QNIL)
+end
+
 # A class without a metaclass yet: a builtin class gets one on first
 # use, the way `zr_singleton_class` makes any.
 sig [Value] => Value
