@@ -267,7 +267,7 @@ class File < IO
 
   def self.rename(from, to)
     result = Primitive.zr_io_rename(from, to)
-    raise SystemCallError.new("@ rb_file_s_rename - (#{from}, #{to})", -result) if result < 0
+    fail2(-result, "rb_file_s_rename", from, to) if result < 0
 
     0
   end
@@ -279,9 +279,9 @@ class File < IO
     FIELDS = %i[dev ino mode nlink uid gid rdev size blksize blocks].freeze
     attr_reader(*FIELDS)
 
-    def initialize(path)
+    def initialize(path, site = "rb_file_s_stat")
       fields = Primitive.zr_stat_m(path, true)
-      raise SystemCallError.new("@ rb_file_s_stat - #{path}", -fields) if fields.is_a?(Integer)
+      raise SystemCallError.new("@ #{site} - #{path}", -fields) if fields.is_a?(Integer)
 
       take(fields)
     end
@@ -455,9 +455,9 @@ class File < IO
 
   def self.stat(path) = Stat.new(path_of(path))
   def self.lstat(path) = Stat.link(path_of(path))
-  def self.mtime(path) = stat(path).mtime
-  def self.atime(path) = stat(path).atime
-  def self.ctime(path) = stat(path).ctime
+  def self.mtime(path) = Stat.new(path_of(path), "rb_file_s_mtime").mtime
+  def self.atime(path) = Stat.new(path_of(path), "rb_file_s_atime").atime
+  def self.ctime(path) = Stat.new(path_of(path), "rb_file_s_ctime").ctime
   def self.ftype(path) = lstat(path).ftype
   def self.symlink?(path) = Primitive.zr_stat_m(path_of(path), false).then { |f| f.is_a?(Array) && (f[2] & 0o170000) == 0o120000 }
 
@@ -505,17 +505,27 @@ class File < IO
 
   def self.link(from, to)
     result = Primitive.zr_fs_call(2, path_of(from), path_of(to), 0)
-    raise SystemCallError.new("@ rb_file_s_link - (#{from}, #{to})", -result) if result < 0
+    fail2(-result, "rb_file_s_link", from, to) if result < 0
 
     0
   end
 
   def self.symlink(from, to)
     result = Primitive.zr_fs_call(3, path_of(from), path_of(to), 0)
-    raise SystemCallError.new("@ rb_file_s_symlink - (#{from}, #{to})", -result) if result < 0
+    fail2(-result, "rb_file_s_symlink", from, to) if result < 0
 
     0
   end
+
+  # Ruby names both paths, except where the entry is already there:
+  # then the message names the second path alone, under the helper that
+  # decides.
+  def self.fail2(code, site, from, to)
+    raise SystemCallError.new("@ syserr_fail2_in - #{to}", code) if code == Errno::EEXIST::Errno
+
+    raise SystemCallError.new("@ #{site} - (#{from}, #{to})", code)
+  end
+  private_class_method :fail2
 
   def self.readlink(path)
     result = Primitive.zr_readlink_m(path_of(path))
@@ -540,7 +550,7 @@ class File < IO
 
   def self.umask(mask = nil) = Primitive.zr_umask_m(mask)
 
-  def self.birthtime(path) = stat(path).birthtime
+  def self.birthtime(path) = Stat.new(path_of(path), "rb_file_s_birthtime").birthtime
 
   def self.blockdev?(path) = mode_kind?(path, 0o060000)
   def self.chardev?(path) = mode_kind?(path, 0o020000)
@@ -1037,7 +1047,7 @@ class Dir
     return move_to(path) unless block_given?
 
     before = pwd
-    move_to(path)
+    move_to(path, "dir_chdir0")
     begin
       yield path
     ensure
@@ -1045,10 +1055,10 @@ class Dir
     end
   end
 
-  def self.move_to(path)
+  def self.move_to(path, site = "chdir_path")
     Primitive.attr! :hidden
     result = Primitive.zr_io_chdir(path)
-    raise SystemCallError.new("@ chdir_path - #{path}", -result) if result < 0
+    raise SystemCallError.new("@ #{site} - #{path}", -result) if result < 0
 
     0
   end

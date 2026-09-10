@@ -696,7 +696,10 @@ class IO
     elsif chunk.is_a?(Integer)
       # A descriptor that cannot wait says "nothing yet" rather than
       # waiting, so the read comes round again.
-      raise SystemCallError.new("@ io_fillbuf - #{label}", -chunk) unless -chunk == Errno::EAGAIN::Errno
+      # A directory answers EISDIR only on the read, which ruby reports
+      # from the outer call rather than the buffer filler.
+      site = -chunk == Errno::EISDIR::Errno ? "io_fread" : "io_fillbuf"
+      raise SystemCallError.new("@ #{site} - #{label}", -chunk) unless -chunk == Errno::EAGAIN::Errno
 
       Thread.pass
     else
