@@ -8,6 +8,7 @@ source "https://rubygems.org"
 # machine on one version.
 gem "prism", "~> 1.9"
 gem "minitest", "~> 6.0"
-# The arm64 encoder the Ruby backend assembles with: pure Ruby, generated
-# from the ARM specification.
+# The arm64 encoder the checks hold ours to. It is generated from the ARM
+# specification, so it is the authority on an encoding; it builds its own
+# methods with `class_eval` on strings, so it never enters a program.
 gem "aarch64", "~> 3.0"

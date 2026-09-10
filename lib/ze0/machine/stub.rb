@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "aarch64"
+require_relative "aarch64"
 require_relative "../obj/model"
 
 module Ze0
@@ -8,7 +8,7 @@ module Ze0
     # The functions no dialect can write: machine code assembled here and
     # delivered as raw bytes on every road.
     module Stub
-      include AArch64::Registers
+      include Aarch64::Registers
 
       # The context `zr_switch` saves and restores: the callee-saved
       # registers x19..x28, the frame pair x29 and x30, sp, and d8..d15.
@@ -20,8 +20,8 @@ module Ze0
       # `zr_switch(from: Ptr, to: Ptr)`: park this stack in `from`, resume
       # the one `to` holds. A fresh context needs only x30 (where to start)
       # and sp (its stack top).
-      def switch
-        a = AArch64::Assembler.new
+      def switch(assembler: Aarch64::Assembler)
+        a = assembler.new
         pairs = [[X19, X20], [X21, X22], [X23, X24], [X25, X26], [X27, X28], [X29, X30]]
         pairs.each_with_index { |(p, q), i| a.stp p, q, [X0, 16 * i] }
         a.mov X9, SP
@@ -31,7 +31,7 @@ module Ze0
         a.mov SP, X9
         a.ret
         words = a.to_binary.unpack("L<*")
-        # The FP pairs, encoded here: the gem has no SIMD registers.
+        # The FP pairs, encoded here: the encoder has no SIMD registers.
         fp = 4.times.map { |i| [fp_pair(true, 8 + (2 * i), 0, CONTEXT[:d8] + (16 * i))] }.flatten
         fp += 4.times.map { |i| [fp_pair(false, 8 + (2 * i), 1, CONTEXT[:d8] + (16 * i))] }.flatten
         code = words[0, 7] + fp[0, 4] + words[7, 9] + fp[4, 4] + [words.last]

@@ -1,5 +1,4 @@
-# Fetched tiers, never committed. vendor/gems holds gem SOURCES we carry,
-# which are committed; a fetched gem store goes under vendor/bundle.
+# Fetched tiers, never committed.
 /vendor/ruby/
 /vendor/bundle/
 # Build output.

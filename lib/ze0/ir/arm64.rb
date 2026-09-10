@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "aarch64"
+require_relative "../machine/aarch64"
 require_relative "function"
 require_relative "../obj/model"
 
@@ -16,10 +16,10 @@ module Ze0
     # The frame is `[sp + 0 .. slots) [values)`, addressed from sp with
     # unsigned scaled offsets, and x29 keeps the frame chain.
     #
-    # Encodings come from the `aarch64` gem; relocations are recorded here
-    # at the instruction's offset.
+    # Encodings come from `Machine::Aarch64`; relocations are recorded
+    # here at the instruction's offset.
     class Arm64
-      include AArch64::Registers
+      include Machine::Aarch64::Registers
 
       SCRATCH = [X9, X10, X11, X12, X13, X14, X15].freeze
       SCRATCH_W = [W9, W10, W11, W12, W13, W14, W15].freeze
@@ -32,9 +32,9 @@ module Ze0
       # clears N and Z, which every condition but `ne` reads as false.
       FCONDS = { "eq" => :eq, "ne" => :ne, "lt" => :mi, "le" => :ls, "gt" => :gt, "ge" => :ge }.freeze
 
-      # The floating-point instructions the `aarch64` gem does not encode,
-      # as words: `FMOV Dd, Xn`, `FMOV Xd, Dn`, the arithmetic and the
-      # conversions, with d16..d19 as scratch.
+      # The floating-point instructions, as words: `FMOV Dd, Xn`,
+      # `FMOV Xd, Dn`, the arithmetic and the conversions, with d16..d19
+      # as scratch.
       module FP
         Word = Struct.new(:word) do
           def encode(_position) = word
@@ -61,10 +61,10 @@ module Ze0
 
       class Refused < StandardError; end
 
-      def initialize(function, defined: [])
+      def initialize(function, defined: [], assembler: Machine::Aarch64::Assembler)
         @f = function
         @defined = defined
-        @asm = AArch64::Assembler.new
+        @asm = assembler.new
         @relocs = []
         @type = {}
         @home = {}
@@ -199,7 +199,7 @@ module Ze0
       end
 
       def w(x)
-        AArch64::Registers.const_get(:"W#{x.to_i}")
+        Machine::Aarch64::Registers.const_get(:"W#{x.to_i}")
       end
 
       def wide?(v)
@@ -231,7 +231,7 @@ module Ze0
             floats += 1
             store_param(v, X9)
           else
-            store_param(v, AArch64::Registers.const_get(:"X#{ints}"))
+            store_param(v, Machine::Aarch64::Registers.const_get(:"X#{ints}"))
             ints += 1
           end
         end
@@ -393,7 +393,7 @@ module Ze0
             @asm << FP.to_d(floats, 9)
             floats += 1
           else
-            load_value(v, AArch64::Registers.const_get(:"X#{ints}"))
+            load_value(v, Machine::Aarch64::Registers.const_get(:"X#{ints}"))
             ints += 1
           end
         end

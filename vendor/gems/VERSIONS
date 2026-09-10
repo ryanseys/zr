@@ -1,3 +1,0 @@
-# Pure-ruby gems the runtime carries, copied from their release and never
-# edited. A file that does not run names a runtime feature we owe.
-aarch64 3.0.0
