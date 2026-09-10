@@ -46,16 +46,133 @@ class Exception
     Primitive.zr_exc_raw_message(self) == mesg && backtrace == other.backtrace
   end
 
-  def detailed_message(highlight: false, **) = Primitive.zr_exc_detailed_message(self)
+  def detailed_message(highlight: nil, **)
+    decorate(message.to_s, checked_highlight(highlight, false))
+  end
 
-  def full_message(highlight: false, order: :top)
-    lines = backtrace || []
-    head = "#{lines[0] || ''}#{lines[0] ? ': ' : ''}#{detailed_message(highlight: highlight)}\n"
-    rest = lines.drop(1).map { |l| "\tfrom #{l}\n" }
-    order == :bottom ? (rest.reverse + [head]).join : head + rest.join
+  # Ruby's `rb_error_write`: the head line, the `from` trail, then the
+  # chain this exception came from. `:bottom` puts the banner first,
+  # numbers the trail and turns the whole report around.
+  def full_message(highlight: nil, order: nil)
+    highlight = checked_highlight(highlight, true)
+    bottom = checked_order(order)
+    out = +""
+    out << "#{highlight ? "#{BOLD}Traceback#{RESET}" : 'Traceback'} (most recent call last):\n" if bottom
+    rows = backtrace
+    rows = [asked_from(caller_locations(1, 1)&.first)] if rows.nil? || rows.empty?
+    report(out, self, rows, highlight, bottom, [self])
+    out
   end
 
   def backtrace_locations = nil
+
+  private
+
+  BOLD = "\e[1m"
+  UNDERLINE = "\e[1;4m"
+  RESET = "\e[m"
+  private_constant :BOLD, :UNDERLINE, :RESET
+
+  # An exception with no backtrace hangs its head off the position that
+  # asked for the report, under this method's name, as CRuby's C frame
+  # does.
+  def asked_from(row)
+    Primitive.attr! :hidden
+    row && "#{row.path}:#{row.lineno}:in 'full_message'"
+  end
+
+  def report(out, exc, rows, highlight, bottom, shown)
+    Primitive.attr! :hidden
+    if bottom
+      chain(out, exc, highlight, bottom, shown)
+      trail(out, rows, true)
+      out << errinfo(rows, exc, highlight)
+    else
+      out << errinfo(rows, exc, highlight)
+      trail(out, rows, false)
+      chain(out, exc, highlight, bottom, shown)
+    end
+  end
+
+  def chain(out, exc, highlight, bottom, shown)
+    Primitive.attr! :hidden
+    cause = exc.cause
+    return unless cause.is_a?(Exception) && shown.none? { |seen| seen.equal?(cause) }
+
+    shown << cause
+    report(out, cause, cause.backtrace || [], highlight, bottom, shown)
+  end
+
+  def errinfo(rows, exc, highlight)
+    Primitive.attr! :hidden
+    detail = exc.detailed_message(highlight: highlight)
+    rows[0] ? "#{rows[0]}: #{detail}\n" : "#{detail}\n"
+  end
+
+  # The frames under the head, in reading order, or numbered and
+  # reversed under the Traceback banner.
+  def trail(out, rows, bottom)
+    Primitive.attr! :hidden
+    return if rows.length < 2
+
+    width = (rows.length - 1).to_s.length
+    if bottom
+      (1...rows.length).each do |i|
+        out << "\t#{(rows.length - i).to_s.rjust(width)}: from #{rows[rows.length - i]}\n"
+      end
+    else
+      rows.drop(1).each { |row| out << "\tfrom #{row}\n" }
+    end
+  end
+
+  # Ruby's `rb_decorate_message`: the class rides on the message's first
+  # line, and an empty message is the class alone.
+  def decorate(text, highlight)
+    Primitive.attr! :hidden
+    if instance_of?(RuntimeError) && text.empty?
+      return highlight ? "#{UNDERLINE}unhandled exception#{RESET}" : "unhandled exception"
+    end
+
+    path = self.class.to_s
+    return highlight ? "#{UNDERLINE}#{path}#{RESET}" : path if text.empty?
+    return highlight ? "#{BOLD}#{text}#{RESET}" : text if path.start_with?("#")
+
+    first, sep, rest = text.partition("\n")
+    out = +""
+    out << BOLD if highlight
+    out << first << " ("
+    out << UNDERLINE if highlight
+    out << path
+    out << "#{RESET}#{BOLD}" if highlight
+    out << ")"
+    out << RESET if highlight
+    return out if sep.empty?
+
+    out << "\n"
+    out << BOLD if highlight
+    out << rest
+    out << RESET if highlight
+    out
+  end
+
+  def checked_highlight(value, tty)
+    Primitive.attr! :hidden
+    unless value.nil? || value == true || value == false
+      raise ArgumentError, "expected true or false as highlight: #{value.inspect}"
+    end
+    return value unless value.nil?
+
+    tty && Exception.to_tty?
+  end
+
+  def checked_order(value)
+    Primitive.attr! :hidden
+    return Exception.to_tty? if value.nil?
+    return true if value == :bottom || value == "bottom"
+    return false if value == :top || value == "top"
+
+    raise ArgumentError, "expected :top or :bottom as order: #{value.inspect}"
+  end
 end
 
 class NoMemoryError < Exception; end
