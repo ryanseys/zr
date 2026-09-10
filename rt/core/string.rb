@@ -1469,27 +1469,33 @@ class String
 end
 
 class Symbol
-  def [](*args) = to_s[*args]
+  # The String rows as they stand at boot. Ruby reaches its own C
+  # functions from here, so a prepend or a redefinition of a String
+  # method is not one of Symbol's.
+  STRING = %i[[] length upcase downcase capitalize swapcase succ start_with? end_with? empty? casecmp casecmp?]
+             .to_h { |name| [name, String.instance_method(name)] }.freeze
+  private_constant :STRING
+
+  def [](*args) = STRING[:[]].bind_call(to_s, *args)
   alias slice []
 
-  def length = to_s.length
+  def length = STRING[:length].bind_call(to_s)
   alias size length
 
   def =~(other) = to_s =~ other
   def match(*args, &block) = to_s.match(*args, &block)
   def match?(*args) = to_s.match?(*args)
 
-  # The case mappings are String's own, past any a program adds to it.
-  def upcase(*options) = String.instance_method(:upcase).bind_call(to_s, *options).to_sym
-  def downcase(*options) = String.instance_method(:downcase).bind_call(to_s, *options).to_sym
-  def capitalize(*options) = String.instance_method(:capitalize).bind_call(to_s, *options).to_sym
-  def swapcase(*options) = String.instance_method(:swapcase).bind_call(to_s, *options).to_sym
-  def succ = to_s.succ.to_sym
+  def upcase(*options) = STRING[:upcase].bind_call(to_s, *options).to_sym
+  def downcase(*options) = STRING[:downcase].bind_call(to_s, *options).to_sym
+  def capitalize(*options) = STRING[:capitalize].bind_call(to_s, *options).to_sym
+  def swapcase(*options) = STRING[:swapcase].bind_call(to_s, *options).to_sym
+  def succ = STRING[:succ].bind_call(to_s).to_sym
   alias next succ
 
-  def start_with?(*prefixes) = to_s.start_with?(*prefixes)
-  def end_with?(*suffixes) = to_s.end_with?(*suffixes)
-  def empty? = to_s.empty?
+  def start_with?(*prefixes) = STRING[:start_with?].bind_call(to_s, *prefixes)
+  def end_with?(*suffixes) = STRING[:end_with?].bind_call(to_s, *suffixes)
+  def empty? = STRING[:empty?].bind_call(to_s)
 end
 
 class Symbol
@@ -1499,9 +1505,9 @@ class Symbol
 
   def intern = self
 
-  def casecmp(other) = other.is_a?(Symbol) ? to_s.casecmp(other.to_s) : nil
+  def casecmp(other) = other.is_a?(Symbol) ? STRING[:casecmp].bind_call(to_s, other.to_s) : nil
 
-  def casecmp?(other) = other.is_a?(Symbol) ? to_s.casecmp?(other.to_s) : nil
+  def casecmp?(other) = other.is_a?(Symbol) ? STRING[:casecmp?].bind_call(to_s, other.to_s) : nil
   alias id2name to_s
   alias name to_s
 

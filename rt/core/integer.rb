@@ -149,12 +149,14 @@ class Integer
       return shifted & ((1 << span) - 1)
     end
 
-    bit_at(Primitive.zr_index_operand_m(bit))
+    bit_at(implicit_integer(bit))
   end
 
   def bit_at(bit)
     Primitive.attr! :hidden
     return 0 if bit < 0
+    # Past the last bit every bit reads as the sign.
+    return negative? ? 1 : 0 if bit >= bit_length
 
     (self >> bit) & 1
   end
@@ -231,7 +233,7 @@ class Integer
   end
 
   def digits(base = 10)
-    base = Primitive.zr_index_operand_m(base)
+    base = implicit_integer(base)
     raise ArgumentError, "negative radix" if base < 0
     raise ArgumentError, "invalid radix #{base}" if base < 2
     raise Math::DomainError, "out of domain" if negative?

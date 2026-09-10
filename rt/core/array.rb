@@ -3,6 +3,12 @@
 class Array
   include Enumerable
 
+  # Ruby owns these on Array itself, so a later definition on Enumerable
+  # does not shadow them. The bodies are Enumerable's.
+  %i[all? any? detect drop_while none? one? take_while].each do |name|
+    define_method(name, Enumerable.instance_method(name))
+  end
+
   def reverse
     out = []
     i = size - 1
@@ -1002,5 +1008,4 @@ class Array
     end
     out
   end
-
 end
