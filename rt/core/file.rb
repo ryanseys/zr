@@ -165,6 +165,16 @@ class File < IO
 
     text = File.send(:open_mode, mode)
     made = !File.exist?(path)
+    if File.pipe?(path) && !Thread.send(:alone?)
+      # open(2) on a FIFO waits for the other end, which would stop
+      # every green thread. A task that shares the process opens the
+      # descriptor without waiting and keeps it that way: every read
+      # and write already asks the descriptor whether it is ready.
+      super(fifo_fd(path, text), text, path: path)
+      @nonblock = true
+      return
+    end
+
     stream = Primitive.zr_io_open(path, text)
     raise SystemCallError.new("@ rb_sysopen - #{path}", -stream) if stream < 0
 
@@ -173,16 +183,33 @@ class File < IO
     @stream = stream
   end
 
-  # fclose closes the descriptor with the stream.
+  # fclose closes the descriptor with the stream; a stream-less file
+  # closes its descriptor the way every other IO does.
   def close
     return nil if closed?
+    return super unless @stream
 
     stream = @stream
     @stream = nil
-    Primitive.zr_io_fclose(stream) if stream
+    Primitive.zr_io_fclose(stream)
     send(:mark_closed)
     nil
   end
+
+  # The descriptor for a FIFO, waited for a turn at a time. A write end
+  # answers ENXIO until a reader shows up; a read end opens at once.
+  def fifo_fd(path, text)
+    Primitive.attr! :hidden
+    flags = File.send(:open_flags, text) | File::NONBLOCK
+    loop do
+      fd = Primitive.zr_io_open_flags(path, flags)
+      return fd if fd >= 0
+      raise SystemCallError.new("@ rb_sysopen - #{path}", -fd) unless -fd == Errno::ENXIO::Errno
+
+      sleep 0.001
+    end
+  end
+  private :fifo_fd
 
   def self.read(path, length = nil, offset = nil, **options)
     open(path, "r", **options) do |file|
@@ -659,6 +686,18 @@ class File < IO
       raise ArgumentError, "invalid access mode #{mode}" unless MODES.include?(text)
 
       text
+    end
+
+    # The open(2) flags a fopen mode names.
+    def open_flags(text)
+      flags = if text.include?("+")
+                Constants::RDWR
+              else
+                text.start_with?("r") ? Constants::RDONLY : Constants::WRONLY
+              end
+      flags |= Constants::CREAT | Constants::TRUNC if text.start_with?("w")
+      flags |= Constants::CREAT | Constants::APPEND if text.start_with?("a")
+      flags
     end
   end
 end

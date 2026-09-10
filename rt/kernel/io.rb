@@ -151,6 +151,19 @@ machine def zr_io_write(fd, s)
   zr_fix(n)
 end
 
+# One write(2) of at most `count` bytes from `from`: the caller loops,
+# so a task that shares the process hands the turn on between the
+# calls rather than wait inside one long write.
+sig [Value, Value, Value, Value] => Value
+machine def zr_io_write_some(fd, s, from, count)
+  at = zr_fix2long(from)
+  n = RString.len(s) - at
+  if n > zr_fix2long(count)
+    n = zr_fix2long(count)
+  end
+  zr_io_failed(write(Machine.i32(zr_fix2long(fd)), RString.ptr(s) + at, n))
+end
+
 sig [Value] => Value
 machine def zr_io_close(fd)
   zr_io_status(close(Machine.i32(zr_fix2long(fd))))

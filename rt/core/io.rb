@@ -18,7 +18,10 @@ class IO
   POLL_IN = READABLE
   POLL_PRI = PRIORITY
   POLL_OUT = WRITABLE
-  private_constant :POLL_IN, :POLL_PRI, :POLL_OUT
+
+  # PIPE_BUF: the amount a ready pipe takes without waiting.
+  ATOMIC = 512
+  private_constant :POLL_IN, :POLL_PRI, :POLL_OUT, :ATOMIC
 
   # A pipe's read and write ends, closed after the block when one is
   # given.
@@ -350,10 +353,7 @@ class IO
     total = 0
     i = 0
     while i < Primitive.zr_ary_len_m(objects)
-      result = Primitive.zr_io_write(@fd, Primitive.zr_ary_at_m(objects, i).to_s)
-      raise SystemCallError.new("@ io_write - #{label}", -result) if result < 0
-
-      total += result
+      total += write_bytes(Primitive.zr_ary_at_m(objects, i).to_s)
       i += 1
     end
     total
@@ -628,13 +628,41 @@ class IO
     raise IOError, "closed stream" if @closed
   end
 
-  # A read from a descriptor that is not ready would stop every green
-  # thread, so a task that shares the process with others hands the
-  # turn on until the descriptor answers. A lone task waits in the
-  # system call itself.
-  def park_until_readable
+  # A system call on a descriptor that is not ready would stop every
+  # green thread, so a task that shares the process with others hands
+  # the turn on until the descriptor answers. A lone task waits in the
+  # system call itself, or in poll(2) when the descriptor cannot wait.
+  def park_until(event)
     Primitive.attr! :hidden
-    sleep 0.001 while !Thread.send(:alone?) && Primitive.zr_io_wait(@fd, READABLE, 0) == 0
+    until Thread.send(:alone?)
+      return if Primitive.zr_io_wait(@fd, event, 0) != 0
+
+      sleep 0.001
+    end
+    Primitive.zr_io_wait(@fd, event, -1) if @nonblock
+  end
+
+  # The bytes out, in pieces a ready descriptor takes without waiting:
+  # one write(2) of a whole 200KB string blocks until the reader drains
+  # the pipe, and a green sibling is the only one who can drain it.
+  def write_bytes(text)
+    Primitive.attr! :hidden
+    return checked_write(Primitive.zr_io_write(@fd, text)) if Thread.send(:alone?)
+
+    from = 0
+    size = text.bytesize
+    while from < size
+      park_until(WRITABLE)
+      from += checked_write(Primitive.zr_io_write_some(@fd, text, from, ATOMIC))
+    end
+    size
+  end
+
+  def checked_write(result)
+    Primitive.attr! :hidden
+    raise SystemCallError.new("@ io_write - #{label}", -result) if result < 0
+
+    result
   end
 
   # What a read answered, into `buffer` when one was given. The end of
@@ -661,12 +689,16 @@ class IO
   # More bytes into the buffer; none marks the end.
   def fill
     Primitive.attr! :hidden
-    park_until_readable
+    park_until(READABLE)
     chunk = Primitive.zr_io_read(@fd, 8192)
     if chunk.nil?
       @eof = true
     elsif chunk.is_a?(Integer)
-      raise SystemCallError.new("@ io_fillbuf - #{label}", -chunk)
+      # A descriptor that cannot wait says "nothing yet" rather than
+      # waiting, so the read comes round again.
+      raise SystemCallError.new("@ io_fillbuf - #{label}", -chunk) unless -chunk == Errno::EAGAIN::Errno
+
+      Thread.pass
     else
       @buffer << chunk
     end

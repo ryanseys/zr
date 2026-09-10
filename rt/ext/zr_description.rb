@@ -537,6 +537,7 @@ module Ze0
         d zr_io_pread Value fd:Value count:Value at:Value
         d zr_io_pwrite Value fd:Value s:Value at:Value
         d zr_io_write Value fd:Value s:Value
+        d zr_io_write_some Value fd:Value s:Value from:Value count:Value
         d zr_io_close Value fd:Value
         d zr_io_dup Value fd:Value
         d zr_io_dup2 Value from:Value to:Value
