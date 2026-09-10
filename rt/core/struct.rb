@@ -175,7 +175,9 @@ class Struct
   def values_at(*indexes) = to_a.values_at(*indexes)
 
   def dig(key, *rest)
-    v = key.is_a?(Integer) || members.include?(key.to_sym) ? self[key] : nil
+    # A member this struct does not hold is a miss, not an error, which
+    # is what makes `dig` safe to chain.
+    v = key.is_a?(Integer) ? at_or_nil(key) : (self[key] if members.include?(key.to_sym))
     return v if rest.empty? || v.nil?
 
     Primitive.zr_dig_into(v, rest)
@@ -222,6 +224,15 @@ class Struct
 
   # The index a member name or position names, or the error CRuby
   # raises for one that is out of range.
+  # The value at `index`, counted from the end when negative, or nil
+  # where the struct is shorter.
+  def at_or_nil(index)
+    Primitive.attr! :hidden
+    index += size if index.negative?
+    index.between?(0, size - 1) ? self[index] : nil
+  end
+  private :at_or_nil
+
   def member_index(key)
     members = self.members
     case key

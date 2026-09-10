@@ -255,9 +255,16 @@ class Array
   end
 
   def repeated_permutation(k)
-    k = Primitive.zr_index_operand_m(k)
-    return to_enum(:repeated_permutation, k) { k < 0 ? 0 : size**k } unless block_given?
+    # Without a block the count is not read, so a bad one raises only
+    # where the enumerator runs.
+    unless block_given?
+      return to_enum(:repeated_permutation, k) do
+        n = Primitive.zr_index_operand_m(k)
+        n.negative? ? 0 : size**n
+      end
+    end
 
+    k = Primitive.zr_index_operand_m(k)
     if k == 0
       yield []
     elsif k > 0 && !empty?
@@ -446,11 +453,18 @@ class Array
 
   def append(*vals) = push(*vals)
 
+  # A frozen receiver refuses before the index is read, and an index
+  # below `-size - 1` names no place to insert at.
   def insert(index, *vals)
+    Primitive.zr_frozen_error(self) if frozen?
     index = Primitive.zr_index_operand_m(index)
     return self if vals.empty?
 
-    index = size + index + 1 if index < 0
+    if index.negative?
+      raise IndexError, "index #{index} too small for array; minimum: #{-size - 1}" if index < -size - 1
+
+      index += size + 1
+    end
     Primitive.zr_ary_splice(self, index, 0, vals)
   end
 
@@ -533,6 +547,7 @@ class Array
   def clear = Primitive.zr_ary_clear(self, nil)
 
   def replace(other)
+    other = Array.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Array"
     Primitive.zr_ary_splice(self, 0, size, other)
   end
 
@@ -772,6 +787,9 @@ class Array
   end
 
   def product(*others)
+    others = others.map do |other|
+      Array.try_convert(other) or raise TypeError, "no implicit conversion of #{other.class} into Array"
+    end
     combos = if others.empty?
                map { |x| [x] }
              else
@@ -787,9 +805,12 @@ class Array
   def transpose
     return [] if empty?
 
-    n = self[0].size
-    each { |row| raise IndexError, "element size differs (#{row.size} should be #{n})" if row.size != n }
-    (0...n).map { |i| map { |row| row[i] } }
+    rows = map do |row|
+      Array.try_convert(row) or raise TypeError, "no implicit conversion of #{conversion_name(row)} into Array"
+    end
+    n = rows[0].size
+    rows.each { |row| raise IndexError, "element size differs (#{row.size} should be #{n})" if row.size != n }
+    (0...n).map { |i| rows.map { |row| row[i] } }
   end
 
   # `fill(value)`, `fill(value, start [, length])`, `fill(value, range)`,

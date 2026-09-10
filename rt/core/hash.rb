@@ -301,11 +301,14 @@ class Hash
 
   def flatten(depth = 1)
     depth = Primitive.zr_index_operand_m(depth)
-    return to_a if depth <= 0
+    return to_a if depth.zero?
 
     out = []
     each { |k, v| out << k << v }
-    depth > 1 ? out.flatten(depth - 1) : out
+    return out if depth == 1
+
+    # A negative depth flattens all the way down, as Array#flatten has it.
+    depth.negative? ? out.flatten : out.flatten(depth - 1)
   end
 
   def rehash = Primitive.zr_hash_rehash(self)
@@ -336,10 +339,18 @@ class Hash
   end
 
   # Order does not matter: the pairs' hashes combine by a sum.
+  # A hash that holds itself answers a fixed value for the reference
+  # back, so the walk ends.
   def hash
-    total = size
-    each { |k, v| total = (total + [k, v].hash) & 0x3FFFFFFFFFFFFFFF }
-    total
+    return 7 if Primitive.zr_recursive_enter(self, :hash)
+
+    begin
+      total = size
+      each { |k, v| total = (total + [k, v].hash) & 0x3FFFFFFFFFFFFFFF }
+      total
+    ensure
+      Primitive.zr_recursive_leave(self, :hash)
+    end
   end
 
   def <=(other) = all? { |k, v| other.key?(k) && other[k] == v }
