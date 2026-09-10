@@ -50,6 +50,8 @@ module Ze0
           spread?(parts) ? gathered(parts, base) : row(parts, base)
         when Hir::ArrayLit then spread?(node.elements) ? gathered(node.elements, base) : row(node.elements, base)
         when Hir::HashLit then spread?(node.pairs) ? spread_pairs(node.pairs, base) : row(node.pairs, base)
+        when Hir::AliasValue then row([node.new_name, node.old_name], base)
+        when Hir::UndefValue then row(node.names, base)
         when Hir::RangeLit then row([node.low, node.high], base)
         when Hir::Interp then row(node.parts, base)
         when Hir::Assign, Hir::IvarWrite, Hir::ConstWrite, Hir::GvarWrite, Hir::CvarWrite then staging(node.value, base)

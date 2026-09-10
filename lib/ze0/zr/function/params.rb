@@ -159,6 +159,7 @@ module Ze0
         # A name that repeats (`_`, `_x`) keeps its first binding.
         def bind(name, v)
           if name.is_a?(Hir::MultiTarget)
+            write_local(slot_of(name.whole), 0, v) if name.whole
             destructure(name, v, {})
           elsif (@bound ||= []).include?(name)
             v

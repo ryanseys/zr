@@ -30,10 +30,10 @@ class Struct
       end
       klass.define_singleton_method(:inspect) { keyword_init? ? "#{self}(keyword_init: true)" : to_s }
       members.each_with_index do |member, i|
-        klass.define_method(member) { Primitive.zr_hidden_get(self, :__values__)[i] }
+        klass.define_method(member) { values_store[i] }
         klass.define_method(:"#{member}=") do |_|
           Primitive.zr_frozen_error(self) if frozen?
-          Primitive.zr_hidden_get(self, :__values__)[i] = _
+          values_store[i] = _
         end
       end
       klass.class_eval(&body) if body
@@ -71,17 +71,21 @@ class Struct
     end
   end
 
-  # An allocated struct already holds one nil for each member, so a
-  # member reads and writes before any initialize runs.
-  def self.allocate
-    built = super
-    Primitive.zr_hidden_set(built, :__values__, Array.new(members.size)) if respond_to?(:members)
-    built
-  end
-
   # Sizes come from the kernel: a program that patches Array#size or
   # Hash#empty? cannot reach inside the constructor, as it cannot in
   # CRuby's C.
+  # An allocated struct has no store yet; the first read makes one, so a
+  # member answers nil before any initialize runs.
+  def values_store
+    store = Primitive.zr_hidden_get(self, :__values__)
+    return store if store
+
+    store = Array.new(Primitive.zr_ary_len_m(Primitive.zr_real_class(self).members))
+    Primitive.zr_hidden_set(self, :__values__, store)
+    store
+  end
+  private :values_store
+
   def initialize(*args, **keywords)
     members = Primitive.zr_real_class(self).members
     count = Primitive.zr_ary_len_m(members)
@@ -110,13 +114,13 @@ class Struct
 
   def initialize_copy(other)
     super
-    Primitive.zr_hidden_set(self, :__values__, Primitive.zr_hidden_get(other, :__values__).dup)
+    Primitive.zr_hidden_set(self, :__values__, other.send(:values_store).dup)
   end
 
   # A member may be named `class`, so the class comes from the kernel.
   def members = Primitive.zr_real_class(self).members
 
-  def to_a = Primitive.zr_hidden_get(self, :__values__).dup
+  def to_a = values_store.dup
   alias deconstruct to_a
   alias values to_a
 
@@ -124,31 +128,31 @@ class Struct
   alias length size
 
   def [](key)
-    Primitive.zr_hidden_get(self, :__values__)[member_index(key)]
+    values_store[member_index(key)]
   end
 
   def []=(key, value)
     Primitive.zr_frozen_error(self) if frozen?
-    Primitive.zr_hidden_get(self, :__values__)[member_index(key)] = value
+    values_store[member_index(key)] = value
   end
 
   def each(&block)
     return to_enum(:each) { size } unless block
 
-    Primitive.zr_hidden_get(self, :__values__).each(&block)
+    values_store.each(&block)
     self
   end
 
   def each_pair
     return to_enum(:each_pair) { size } unless block_given?
 
-    values = Primitive.zr_hidden_get(self, :__values__)
+    values = values_store
     members.each_with_index { |m, i| yield [m, values[i]] }
     self
   end
 
   def to_h(&block)
-    pairs = members.zip(Primitive.zr_hidden_get(self, :__values__))
+    pairs = members.zip(values_store)
     block ? pairs.to_h(&block) : pairs.to_h
   end
 
@@ -157,7 +161,7 @@ class Struct
     raise TypeError, "wrong argument type #{keys.class} (expected Array or nil)" unless keys.is_a?(Array)
     return {} if keys.size > members.size
 
-    values = Primitive.zr_hidden_get(self, :__values__)
+    values = values_store
     out = {}
     keys.each do |k|
       i = k.is_a?(Symbol) ? members.index(k) : nil
@@ -188,17 +192,17 @@ class Struct
     return true if equal?(other)
     return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
 
-    Primitive.zr_hidden_get(self, :__values__) == Primitive.zr_hidden_get(other, :__values__)
+    values_store == other.send(:values_store)
   end
 
   def eql?(other)
     return true if equal?(other)
     return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
 
-    Primitive.zr_hidden_get(self, :__values__).eql?(Primitive.zr_hidden_get(other, :__values__))
+    values_store.eql?(other.send(:values_store))
   end
 
-  def hash = [Primitive.zr_real_class(self), Primitive.zr_hidden_get(self, :__values__)].hash
+  def hash = [Primitive.zr_real_class(self), values_store].hash
 
   def inspect
     name = Primitive.zr_real_class(self).name
@@ -206,7 +210,7 @@ class Struct
     return "#{head}:...>" if Primitive.zr_recursive_enter(self, :inspect)
 
     begin
-      pairs = members.zip(Primitive.zr_hidden_get(self, :__values__)).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }
+      pairs = members.zip(values_store).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }
       pairs.empty? && name ? "#{head}>" : "#{head} #{pairs.join(', ')}>"
     ensure
       Primitive.zr_recursive_leave(self, :inspect)

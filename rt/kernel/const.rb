@@ -69,6 +69,16 @@ end
 # or undef when the hook raises.
 sig [Value, Word, Value] => Value
 machine def zr_const_set(klass, id, v)
+  # `1::WHAT = 2` reaches here with a scope that holds no constants.
+  if zr_special_p(klass) || (zr_type(klass) != T_CLASS && zr_type(klass) != T_MODULE)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    shown = zr_send(klass, Machine.id(:inspect), 0, 0)
+    return shown if shown == QUNDEF
+    zr_buf_str(b, shown)
+    zr_buf_push(b, Machine.bytes(" is not a class/module"), 22)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
   e = zr_const_row(klass, id)
   if e == 0
     ext = RClass.ext(klass)

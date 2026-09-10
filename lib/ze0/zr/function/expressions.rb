@@ -47,6 +47,8 @@ module Ze0
           when Hir::CvarWrite then cvar_write(node)
           when Hir::ConstOrWrite then const_or_write(node)
           when Hir::Alias then alias_method(node)
+          when Hir::AliasValue then alias_value(node)
+          when Hir::UndefValue then undef_values(node)
           when Hir::GvarAlias then alias_global(node)
           when Hir::Undef then undef_methods(node)
           when Hir::Defined then defined(node)
@@ -183,6 +185,24 @@ module Ze0
         def alias_method(node)
           at_line(node.line)
           checked(kernel("zr_alias", cref_class, imm(sym_id(node.new_name)), imm(sym_id(node.old_name))))
+        end
+
+        # The names wait in record slots, since making one may collect.
+        def alias_value(node)
+          staged([node.new_name, node.old_name]) do |slots, _base|
+            at_line(node.line)
+            checked(kernel("zr_alias_value", cref_class, @f.fetch("i64", slots), @f.fetch("i64", slots, 8)))
+          end
+        end
+
+        def undef_values(node)
+          staged(node.names) do |slots, _base|
+            node.names.each_index do |i|
+              at_line(node.line)
+              checked(kernel("zr_undef_value", cref_class, @f.fetch("i64", slots, 8 * i)))
+            end
+          end
+          @qnil
         end
 
         def alias_global(node)

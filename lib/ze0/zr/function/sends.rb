@@ -26,10 +26,13 @@ module Ze0
           recv_node = node.recv || Hir::SelfRef.new(node.line)
           args = node.args + [node.kwargs].compact
           if args.any?(Hir::Splat)
-            @l.refuse(node, "a splat in an attribute write is not lowered yet") if node.write
             staged([recv_node], 1 + (node.block ? 1 : 0)) do |slots, base|
               ary = gather(args, base + 1)
-              send_staged(node, @f.fetch("i64", slots), array_ptr(ary), array_len(ary), base + 2)
+              # A write answers the value it wrote, which is the last thing
+              # gathered, not whatever the writer returned.
+              last = node.write ? kernel("zr_ary_at", ary, @f.isub(array_len(ary), imm(1))) : nil
+              r = send_staged(node, @f.fetch("i64", slots), array_ptr(ary), array_len(ary), base + 2)
+              node.write ? last : r
             end
           else
             staged([recv_node, *args], node.block ? 1 : 0) do |slots, base|

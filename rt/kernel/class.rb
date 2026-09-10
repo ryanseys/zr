@@ -367,6 +367,18 @@ machine def zr_mod_extend_object(recv, argc, argv, cref, blk)
   obj
 end
 
+# `alias :"#{a}" :"#{b}"`: the names arrive as values.
+sig [Value, Value, Value] => Value
+machine def zr_alias_value(klass, new_name, old_name)
+  made = Machine.slot(8)
+  had = Machine.slot(8)
+  r = zr_name_id(new_name, made)
+  return r if r == QUNDEF
+  r = zr_name_id(old_name, had)
+  return r if r == QUNDEF
+  zr_alias(klass, Machine.load64(made, 0), Machine.load64(had, 0))
+end
+
 # `alias new old` and `alias_method`: the old entry again under the new
 # name, keeping its meta, so a backtrace names the original.
 sig [Value, Word, Word] => Value
@@ -401,6 +413,15 @@ end
 
 # `undef name`: an entry that stops the search, so the name is gone
 # from this class and its subclasses even where an ancestor has it.
+# `undef :"#{a}"`: the name arrives as a value.
+sig [Value, Value] => Value
+machine def zr_undef_value(klass, name)
+  slot = Machine.slot(8)
+  r = zr_name_id(name, slot)
+  return r if r == QUNDEF
+  zr_undef(klass, Machine.load64(slot, 0))
+end
+
 sig [Value, Word] => Value
 machine def zr_undef(klass, id)
   if zr_find_method(klass, id) == 0

@@ -129,7 +129,7 @@ module Ze0
     # or IvarWrite with a nil value, a Send with the value to append
     # (`h[k]`, `o.attr`), or a nested MultiTarget. As a block parameter,
     # a MultiTarget stands among the required names.
-    MultiTarget = Struct.new(:lefts, :rest, :rights, :line) do
+    MultiTarget = Struct.new(:lefts, :rest, :rights, :line, :whole) do
       def names
         (lefts + [rest] + rights).flat_map do |t|
           case t
@@ -172,6 +172,11 @@ module Ze0
     GvarAlias = Struct.new(:new_name, :old_name, :line)
     # `undef name, ...`.
     Undef = Struct.new(:names, :line)
+
+    # `alias :"#{a}" :"#{b}"` and `undef :"#{a}"`: the names are values.
+    AliasValue = Struct.new(:new_name, :old_name, :line)
+
+    UndefValue = Struct.new(:names, :line)
     # `defined?(...)`: `kind` names the form (:local, :ivar, :gvar,
     # :cvar, :const, :method, :yield, :super, :self, :nil, :true, :false,
     # :assignment, :expression); `target` is the name, the ConstRead, or

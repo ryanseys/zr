@@ -28,9 +28,16 @@ module Ze0
           (target.lefts + [target.rest] + target.rights).each do |t|
             case t
             when Hir::Send
-              slot = reserve(2 + t.args.size)
+              # A splat gathers the indexes into one Array beside the
+              # receiver; the value joins them at the write.
+              wide = t.args.any?(Hir::Splat)
+              slot = reserve(wide ? 2 : 2 + t.args.size)
               @f.store(expr(t.recv), @rec, value_offset(slot))
-              t.args.each_with_index { |a, i| @f.store(expr(a), @rec, value_offset(slot + 1 + i)) }
+              if wide
+                gather(t.args, slot + 1)
+              else
+                t.args.each_with_index { |a, i| @f.store(expr(a), @rec, value_offset(slot + 1 + i)) }
+              end
               prepared[t] = slot
             when Hir::MultiTarget then prepare(t, prepared)
             end
@@ -56,11 +63,17 @@ module Ze0
           base = @sp
           slots = reserve(1 + node.args.size)
           @f.store(expr(node.recv), @rec, value_offset(slots))
-          node.args.each_with_index { |a, i| @f.store(expr(a), @rec, value_offset(slots + 1 + i)) }
+          # A splat holds its array in the slot and splats it at both
+          # sends, so the indexes are evaluated once.
+          node.args.each_with_index { |a, i| @f.store(expr(a.is_a?(Hir::Splat) ? a.value : a), @rec, value_offset(slots + 1 + i)) }
           recv = Hir::Slot.new(slots, node.line)
-          args = node.args.each_index.map { |i| Hir::Slot.new(slots + 1 + i, node.line) }
-          read = Hir::Send.new(recv, :[], args, node.line, false, true, nil, nil, false)
-          result = op_assign(node, read) { |v| Hir::Send.new(recv, :[]=, args + [v], node.line, false, true, nil, nil, false) }
+          args = node.args.each_with_index.map do |a, i|
+            slot = Hir::Slot.new(slots + 1 + i, node.line)
+            a.is_a?(Hir::Splat) ? Hir::Splat.new(slot, node.line) : slot
+          end
+          opt = node.args.none?(Hir::Splat)
+          read = Hir::Send.new(recv, :[], args, node.line, false, opt, nil, nil, false)
+          result = op_assign(node, read) { |v| Hir::Send.new(recv, :[]=, args + [v], node.line, false, opt, nil, nil, false) }
           @sp = base
           result
         end
@@ -147,11 +160,17 @@ module Ze0
           when Hir::MultiTarget then destructure(target, v, prepared)
           when Hir::Send
             slot = prepared.fetch(target)
-            @f.store(v, @rec, value_offset(slot + 1 + target.args.size))
             recv = @f.fetch("i64", @rec, value_offset(slot))
-            argv = @f.iadd(@rec, imm(value_offset(slot + 1)))
+            if target.args.any?(Hir::Splat)
+              ary = @f.fetch("i64", @rec, value_offset(slot + 1))
+              kernel("zr_ary_push", ary, v)
+              argc, argv = array_len(ary), array_ptr(ary)
+            else
+              @f.store(v, @rec, value_offset(slot + 1 + target.args.size))
+              argc, argv = imm(target.args.size + 1), @f.iadd(@rec, imm(value_offset(slot + 1)))
+            end
             at_line(target.line)
-            checked(kernel(target.opt ? "zr_opt_aset" : "zr_send", recv, imm(sym_id(target.name)), imm(target.args.size + 1), argv))
+            checked(kernel(target.opt ? "zr_opt_aset" : "zr_send", recv, imm(sym_id(target.name)), argc, argv))
           end
         end
       end

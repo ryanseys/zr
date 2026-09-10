@@ -360,7 +360,9 @@ module Ze0
           end
         when Prism::ItLocalVariableReadNode then Local.new(:it, 0, line)
         when Prism::UndefNode
-          names = node.names.map { |n| n.is_a?(Prism::SymbolNode) ? n.unescaped.to_sym : refuse(n, "an undef of a dynamic symbol is not lowered yet") }
+          return UndefValue.new(node.names.map { |n| expr(n) }, line) unless node.names.all?(Prism::SymbolNode)
+
+          names = node.names.map { |n| n.unescaped.to_sym }
           Undef.new(names, line)
         when Prism::SuperNode
           args, kwargs, forwarded = arguments(node.arguments)
@@ -456,22 +458,30 @@ module Ze0
         when Prism::DefinedNode then defined(node.value, line)
         when Prism::ClassVariableAndWriteNode then CvarWrite.new(node.name, And.new(CvarRead.new(node.name, line), expr(node.value), line), line)
         when Prism::ConstantOrWriteNode then ConstOrWrite.new(nil, node.name, expr(node.value), line)
-        when Prism::ConstantPathOrWriteNode then ConstOrWrite.new(*constant_scope(node.target), expr(node.value), line)
+        when Prism::ConstantPathOrWriteNode
+          scope, name, prelude = constant_scope(node.target, line)
+          with_scope(prelude, ConstOrWrite.new(scope, name, expr(node.value), line), line)
         when Prism::ConstantAndWriteNode
           ConstWrite.new(nil, node.name, And.new(ConstRead.new(nil, node.name, line), expr(node.value), line), line)
         when Prism::ConstantPathAndWriteNode
-          scope, name = constant_scope(node.target)
-          ConstWrite.new(scope, name, And.new(ConstRead.new(scope, name, line), expr(node.value), line), line)
+          scope, name, prelude = constant_scope(node.target, line)
+          with_scope(prelude, ConstWrite.new(scope, name, And.new(ConstRead.new(scope, name, line), expr(node.value), line), line), line)
         when Prism::ConstantOperatorWriteNode
           ConstWrite.new(nil, node.name, Send.new(ConstRead.new(nil, node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
         when Prism::ConstantPathOperatorWriteNode
-          scope, name = constant_scope(node.target)
-          ConstWrite.new(scope, name, Send.new(ConstRead.new(scope, name, line), node.binary_operator, [expr(node.value)], line, false), line)
+          scope, name, prelude = constant_scope(node.target, line)
+          with_scope(prelude, ConstWrite.new(scope, name, Send.new(ConstRead.new(scope, name, line), node.binary_operator, [expr(node.value)], line, false), line), line)
         when Prism::AliasMethodNode
-          refuse(node, "an alias of a dynamic symbol is not lowered yet") unless node.new_name.is_a?(Prism::SymbolNode) && node.old_name.is_a?(Prism::SymbolNode)
-          Alias.new(node.new_name.unescaped.to_sym, node.old_name.unescaped.to_sym, line)
+          if node.new_name.is_a?(Prism::SymbolNode) && node.old_name.is_a?(Prism::SymbolNode)
+            Alias.new(node.new_name.unescaped.to_sym, node.old_name.unescaped.to_sym, line)
+          else
+            AliasValue.new(expr(node.new_name), expr(node.old_name), line)
+          end
         when Prism::AliasGlobalVariableNode
-          refuse(node, "an alias of a special global is not lowered yet") unless node.new_name.is_a?(Prism::GlobalVariableReadNode) && node.old_name.is_a?(Prism::GlobalVariableReadNode)
+          # `$&` and its family live in the frame, not the global table,
+          # so an alias of one has nothing to read.
+          refuse(node, "an alias of #{node.old_name.name} is not lowered yet") unless node.old_name.is_a?(Prism::GlobalVariableReadNode)
+
           GvarAlias.new(node.new_name.name, node.old_name.name, line)
         when Prism::CaseNode
           clauses = node.conditions.map do |w|
@@ -481,7 +491,7 @@ module Ze0
           Case.new(node.predicate && expr(node.predicate), clauses, node.else_clause && expr(node.else_clause), line)
         when Prism::IndexOperatorWriteNode, Prism::IndexOrWriteNode, Prism::IndexAndWriteNode
           refuse(node, "a block in an index target is not lowered yet") if node.block
-          args = (node.arguments&.arguments || []).map { |a| a.is_a?(Prism::SplatNode) ? refuse(a, "a splat in an index target is not lowered yet") : expr(a) }
+          args = index_args(node, line)
           op = case node
                when Prism::IndexOperatorWriteNode then node.binary_operator
                when Prism::IndexOrWriteNode then :or
@@ -568,12 +578,19 @@ module Ze0
         end
       end
 
-      # The scope of a constant read twice by `A::B op= v`: only a path
-      # of constants, whose second evaluation is the same as its first.
-      def constant_scope(node)
+      # The scope of a constant read and written by `A::B op= v`. A path
+      # of constants reads the same twice; anything computed is held in a
+      # hidden local, so the program sees it evaluated once.
+      def constant_scope(node, line)
         scope, name = constant_path(node)
-        refuse(node, "a constant op-assign under a computed scope is not lowered yet") unless scope.nil? || scope == :top || constant_only?(scope)
-        [scope, name]
+        return [scope, name, nil] if scope.nil? || scope == :top || constant_only?(scope)
+
+        slot = temp(:scope)
+        [read(slot, line), name, set(slot, scope, line)]
+      end
+
+      def with_scope(prelude, node, line)
+        prelude ? Seq.new([prelude, node], line) : node
       end
 
       def constant_only?(scope)
@@ -596,13 +613,14 @@ module Ze0
       def zsuper(node, line)
         p = @def_params or return ZSuper.new(node.block && block(node.block), line)
 
-        refuse(node, "a bare super with a destructuring parameter is not lowered yet") if (p.required + p.post).any?(MultiTarget)
-        local = ->(name) { Local.new(name, @block_depth, line) }
+        local = ->(name) { Local.new(name.is_a?(MultiTarget) ? name.whole : name, @block_depth, line) }
         positional = (p.required + p.optional.map(&:first)).map(&local)
         positional << Splat.new(local.call(p.rest), line) if p.rest && p.rest != :implicit
         positional += p.post.map(&local)
-        pairs = p.keywords.flat_map { |name, _| [Literal.new(name, line), local.call(name)] }
-        pairs += [HashSplat.new(local.call(p.kwrest), line), nil] if p.kwrest && p.kwrest != :nokey
+        # The rest goes in first, which is the order ruby's own zsuper
+        # builds the hash in.
+        pairs = p.kwrest && p.kwrest != :nokey ? [HashSplat.new(local.call(p.kwrest), line), nil] : []
+        pairs += p.keywords.flat_map { |name, _| [Literal.new(name, line), local.call(name)] }
         kwargs = pairs.empty? ? nil : HashLit.new(pairs, line)
         block = node.block ? block(node.block) : (p.block && BlockPass.new(local.call(p.block), line))
         Super.new(positional, kwargs, block, line)
@@ -634,10 +652,14 @@ module Ze0
       end
 
       # A required parameter: its name, or a MultiTarget for `(a, b)`.
+      # A bare super passes such an argument as it arrived, so the whole
+      # of it is kept in a hidden local beside the names it takes apart.
       def name_of(param)
-        return multi_target(param) if param.is_a?(Prism::MultiTargetNode)
+        return param.name unless param.is_a?(Prism::MultiTargetNode)
 
-        param.name
+        target = multi_target(param)
+        target.whole = temp(:arg)
+        target
       end
 
       def multi_target(node)
@@ -665,13 +687,19 @@ module Ze0
           ConstWrite.new(scope, name, nil, line)
         when Prism::MultiTargetNode then multi_target(node)
         when Prism::IndexTargetNode
-          args = (node.arguments&.arguments || []).map { |a| a.is_a?(Prism::SplatNode) ? refuse(a, "a splat in an index target is not lowered yet") : expr(a) }
-          Send.new(expr(node.receiver), :[]=, args, line, false, true, nil, nil)
+          args = index_args(node, line)
+          Send.new(expr(node.receiver), :[]=, args, line, false, args.none?(Splat), nil, nil)
         when Prism::CallTargetNode
           refuse(node, "a safe-navigation target is not lowered yet") if node.call_operator == "&."
           Send.new(expr(node.receiver), node.name, [], line, false, false, nil, nil)
         else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} as an assignment target is not lowered yet")
         end
+      end
+
+      # The indexes an index target names. A splat among them takes the
+      # inline `[]` path away, since the count is only known at run time.
+      def index_args(node, line)
+        (node.arguments&.arguments || []).map { |a| a.is_a?(Prism::SplatNode) ? Splat.new(expr(a.expression), line) : expr(a) }
       end
 
       # A rest parameter's name; `|a, |` has an implicit one that binds
