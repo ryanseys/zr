@@ -48,15 +48,11 @@ class Time
       civil(year, month, day, hour, min, sec, zone || option)
     end
 
-    def utc(year, month = nil, day = nil, hour = nil, min = nil, sec = nil, *rest)
-      civil(year, month, day, hour, min, sec, :utc)
-    end
+    def utc(*args) = from_fields(args, :utc)
 
     alias gm utc
 
-    def local(year, month = nil, day = nil, hour = nil, min = nil, sec = nil, *rest)
-      civil(year, month, day, hour, min, sec, nil)
-    end
+    def local(*args) = from_fields(args, nil)
 
     alias mktime local
 
@@ -138,7 +134,18 @@ class Time
       sign == "-" ? -offset : offset
     end
 
-    def civil(year, month, day, hour, min, sec, zone)
+    # `(year, month, day, hour, min, sec, usec)`, or the ten fields
+    # `Time#to_a` gives, which name the same instant backwards.
+    def from_fields(args, zone)
+      if args.size == 10
+        sec, min, hour, day, month, year = args
+        return civil(year, month, day, hour, min, sec, zone)
+      end
+      year, month, day, hour, min, sec, usec = args
+      civil(year, month, day, hour, min, sec, zone, usec)
+    end
+
+    def civil(year, month, day, hour, min, sec, zone, usec = nil)
       year = Integer(year)
       month = month_arg(month)
       day = int_arg(day, 1, 1, 31, "mday")
@@ -161,6 +168,8 @@ class Time
         sec = int_arg(sec, 0, 0, 60, "sec")
       end
       raise ArgumentError, "argument out of range" if hour == 24 && (min != 0 || sec != 0)
+
+      sec_ns += exact_ns(usec, 1000) unless usec.nil?
 
       days = days_from_civil(year, month, day)
       local_ns = ((days * 86400 + hour * 3600 + min * 60 + sec) * NS) + sec_ns

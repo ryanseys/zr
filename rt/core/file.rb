@@ -35,8 +35,10 @@ class File < IO
 
   def self.extname(path)
     name = basename(path)
+    lead = 0
+    lead += 1 while lead < name.size && name[lead] == "."
     dot = name.rindex(".")
-    return "" if dot.nil? || dot == 0 || dot == name.size - 1
+    return "" if dot.nil? || dot < lead
 
     name[dot..]
   end

@@ -217,7 +217,10 @@ class Array
       when Numeric
         return mid if answer == 0
 
-        answer < 0 ? high = mid : low = mid + 1
+        sign = answer <=> 0
+        raise ArgumentError, "comparison of #{answer.class} with 0 failed" if sign.nil?
+
+        sign < 0 ? high = mid : low = mid + 1
       else
         raise TypeError, "wrong argument type #{answer.class} (must be numeric, true, false or nil)"
       end

@@ -262,7 +262,7 @@ machine def zr_boot
   zr_builtin(zr_global(G_KERNEL), Machine.id(:respond_to?), Machine.addr(:zr_obj_respond_to), 0 - 1)
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:initialize), Machine.addr(:zr_obj_initialize), 0)
   zr_builtin_private(zr_global(G_BASIC_OBJECT), Machine.id(:method_missing), Machine.addr(:zr_obj_method_missing), 0 - 1)
-  zr_builtin_private(zr_global(G_OBJECT), Machine.id(:respond_to_missing?), Machine.addr(:zr_obj_respond_to_missing), 2)
+  zr_builtin_private(zr_global(G_KERNEL), Machine.id(:respond_to_missing?), Machine.addr(:zr_obj_respond_to_missing), 2)
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:==), Machine.addr(:zr_obj_eq), 1)
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:equal?), Machine.addr(:zr_obj_eq), 1)
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:!=), Machine.addr(:zr_obj_ne), 1)

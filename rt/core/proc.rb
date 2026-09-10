@@ -44,6 +44,7 @@ class Proc
   # A proc that collects arguments over calls until `arity` of them
   # arrived, then calls this one. A lambda's arity is checked here.
   def curry(arity = nil)
+    arity = implicit_integer(arity) unless arity.nil?
     required = self.arity >= 0 ? self.arity : -self.arity - 1
     if lambda? && arity
       most = parameters.any? { |kind, _| kind == :rest } ? nil : parameters.count { |kind, _| kind == :req || kind == :opt }

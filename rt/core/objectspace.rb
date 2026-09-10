@@ -63,6 +63,11 @@ module ObjectSpace
 
   # Keys held weakly and compared by `eql?`; values held.
   class WeakKeyMap
+    # A value the collector never reclaims cannot be a weak key: the
+    # immediates, and the numbers and symbols that live as long as the
+    # program does.
+    UNCOLLECTABLE = [Integer, Float, Symbol, NilClass, TrueClass, FalseClass].freeze
+
     def initialize
       @table = Primitive.zr_weak_table_new_m(2, false)
     end
@@ -70,6 +75,8 @@ module ObjectSpace
     def [](key) = @table[key]
 
     def []=(key, value)
+      raise ArgumentError, "WeakKeyMap keys must be garbage collectable" if UNCOLLECTABLE.any? { |kind| key.is_a?(kind) }
+
       @table[key] = value
     end
 

@@ -33,6 +33,39 @@ module GC
     raise ArgumentError, "unknown key: #{key}"
   end
 
+  # The switch a program reads before it asks for a report. The
+  # collector keeps no per-run rows, so the report is empty.
+  module Profiler
+    @enabled = false
+
+    class << self
+      def enable
+        @enabled = true
+        nil
+      end
+
+      def disable
+        @enabled = false
+        nil
+      end
+
+      def enabled? = @enabled
+
+      def clear = nil
+
+      def total_time = 0.0
+
+      def result = ""
+
+      def raw_data = nil
+
+      def report(out = $stdout)
+        out.write(result)
+        nil
+      end
+    end
+  end
+
   # Nothing moves here, so a compaction considers no object at all.
   def self.compact = { considered: {}, moved: {}, moved_up: {}, moved_down: {} }
 

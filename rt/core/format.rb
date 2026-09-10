@@ -183,7 +183,9 @@ module Kernel
         n = Integer(value)
         raise ArgumentError, "invalid character" if n < 0
 
-        pad(n.chr, flags, width)
+        # `%c` writes the code point, not the byte: past 255 that is a
+        # character of the format string's own encoding.
+        pad(n.chr(Encoding::UTF_8), flags, width)
       end
     end
 

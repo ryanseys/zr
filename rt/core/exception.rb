@@ -36,12 +36,30 @@ class Exception
 end
 
 class NoMemoryError < Exception; end
+# Ruby carries these two on Exception itself, so its own reflection
+# names them; each answers as the one it stands over does.
+class Exception
+  def method_missing(name, *args, &block) = super
+
+  private :method_missing
+
+  def respond_to_missing?(name, include_private) = super
+end
+
 class ScriptError < Exception; end
 class LoadError < ScriptError
   attr_reader :path
 end
 class NotImplementedError < ScriptError; end
-class SyntaxError < ScriptError; end
+class SyntaxError < ScriptError
+  # The file the error was read from, which only ruby's own parser
+  # fills in.
+  attr_reader :path
+
+  def initialize(message = "compile error")
+    super
+  end
+end
 class SecurityError < Exception; end
 class SignalException < Exception; end
 class Interrupt < SignalException; end
@@ -192,6 +210,9 @@ end
 
 class Thread
   class Backtrace
+    # `--backtrace-limit`, which ze0 does not take: every row shows.
+    def self.limit = -1
+
     # One row of `caller_locations`, parsed from its `file:line:in
     # 'label'` form.
     class Location

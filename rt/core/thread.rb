@@ -527,7 +527,8 @@ end
 
 class Thread::Queue
   def initialize(items = nil)
-    @items = items.nil? ? [] : items.to_a.dup
+    items = Array.try_convert(items) || raise(TypeError, "can't convert #{items.class} into Array") unless items.nil?
+    @items = items.nil? ? [] : items.dup
     @closed = false
     @waiters = []
   end

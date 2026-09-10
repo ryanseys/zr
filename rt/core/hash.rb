@@ -140,7 +140,8 @@ class Hash
 
   def merge!(*others)
     others.each do |other|
-      other.each do |k, v|
+      hash = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{other.class} into Hash"
+      hash.each do |k, v|
         self[k] = block_given? && key?(k) ? yield(k, self[k], v) : v
       end
     end
