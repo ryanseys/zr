@@ -91,6 +91,12 @@ module Ze0
           @evals = true if name == :eval || (EVAL_FORMS.include?(name) && !args.empty?)
         end
 
+        # A program that names Ruby::Box compiles ruby while it runs:
+        # everything a box holds goes through the compiler.
+        def boxes!(name)
+          @evals = true if name == :Ruby
+        end
+
         def unit(file, source = File.read(file), line = 1, scopes = nil)
           result = scopes ? Prism.parse(source, filepath: file, line: line, scopes: scopes) : Prism.parse(source, filepath: file, line: line)
           unless result.errors.empty?
@@ -559,7 +565,9 @@ module Ze0
               SingletonClassDef.new(target, with_temps(node.locals), body, line)
             end
           end
-        when Prism::ConstantReadNode then ConstRead.new(nil, node.name, line)
+        when Prism::ConstantReadNode
+          @loader&.boxes!(node.name)
+          ConstRead.new(nil, node.name, line)
         when Prism::ConstantPathNode
           scope, name = constant_path(node)
           ConstRead.new(scope, name, line)

@@ -108,7 +108,7 @@ end
 # outside the owner.
 sig [Value, Word, Bool] => Value
 machine def zr_method_defined(recv, id, explicit)
-  e = zr_find_method(zr_class_of(recv), id)
+  e = zr_find_method(zr_box_view(zr_class_of(recv)), id)
   if e == 0
     return zr_bool(zr_respond_to_missing_p(recv, id))
   end
@@ -254,11 +254,19 @@ end
 # yet initialized.
 sig [Value] => Value
 machine def zr_class_allocate(recv)
-  if recv == zr_global(G_CLASS)
-    return zr_class_alloc(T_CLASS, Machine.value(QNIL), zr_global(G_CLASS))
+  # A box shadow allocates what the class it stands over allocates, so
+  # an object a box makes is one main knows.
+  shared = zr_box_current() == QNIL ? Machine.value(QNIL) : zr_box_origin(recv)
+  if shared != QNIL
+    recv = shared
   end
-  if recv == zr_global(G_MODULE)
-    return zr_module_new()
+  # A subclass of Class or Module allocates the kind its ancestor does,
+  # never a plain object.
+  if zr_class_inherits(recv, zr_global(G_CLASS))
+    return zr_class_alloc(T_CLASS, Machine.value(QNIL), recv)
+  end
+  if zr_class_inherits(recv, zr_global(G_MODULE))
+    return zr_class_alloc(T_MODULE, Machine.value(QNIL), recv)
   end
   if zr_class_inherits(recv, zr_global(G_EXCEPTION))
     return zr_exc_new(recv, Machine.value(QNIL))
@@ -454,7 +462,7 @@ machine def zr_obj_respond_to(recv, argc, argv, cref, blk)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
   all = argc == 2 && Machine.value(Machine.load64(argv, 8)) != QNIL && Machine.value(Machine.load64(argv, 8)) != QFALSE
-  e = zr_find_method(zr_class_of(recv), zr_sym2id(m))
+  e = zr_find_method(zr_box_view(zr_class_of(recv)), zr_sym2id(m))
   if e == 0
     return zr_bool(zr_respond_to_missing_p(recv, zr_sym2id(m)))
   end

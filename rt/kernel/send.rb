@@ -171,7 +171,7 @@ MISS_PROTECTED = 5
 # front of the arguments; the base one raises as a plain miss does.
 sig [Value, Word, Word, Ptr, Value, Word, Word] => Value
 machine def zr_method_missing(recv, mid, argc, argv, blk, kw, reason)
-  e = zr_find_method(zr_class_of(recv), Machine.id(:method_missing))
+  e = zr_find_method(zr_box_view(zr_class_of(recv)), Machine.id(:method_missing))
   if e == 0 || MEntry.fn(e) == Machine.addr(:zr_obj_method_missing)
     return zr_miss_error(recv, mid, reason, argc, argv)
   end
@@ -288,7 +288,7 @@ end
 sig [Value, Word, Word, Ptr, Word, Value] => Value
 machine def zr_dispatch(recv, mid, argc, argv, mode, blk)
   kw = zr_kw_take()
-  e = zr_find_method(zr_class_of(recv), mid)
+  e = zr_find_method(zr_box_view(zr_class_of(recv)), mid)
   if e == 0
     return zr_method_missing(recv, mid, argc, argv, blk, kw, mode == 1 ? MISS_VCALL : (mode == 0 ? MISS_IMPLICIT : MISS_EXPLICIT))
   end
@@ -538,7 +538,7 @@ end
 # `new` is an ordinary send with `mode`.
 sig [Value, Word, Ptr, Word] => Value
 machine def zr_new(recv, argc, argv, mode)
-  e = zr_find_method(zr_class_of(recv), Machine.id(:new))
+  e = zr_find_method(zr_box_view(zr_class_of(recv)), Machine.id(:new))
   if e != 0 && MEntry.fn(e) == Machine.addr(:zr_class_new_instance) && MEntry.vis(e) == VIS_PUBLIC
     return zr_class_new_instance(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
   end

@@ -454,6 +454,9 @@ machine def main(argc, argv)
   if r == QUNDEF
     zr_report(Task.pending(zr_task()))
   end
+  # What a box sees of the shared world is what stands here, before
+  # the program has written anything of its own.
+  zr_box_snapshot()
   r = zr_toplevel()
   exc = Machine.value(QUNDEF)
   if r == QUNDEF

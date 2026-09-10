@@ -93,7 +93,7 @@ G_TRUE = 9
 G_FALSE = 10
 G_MAIN = 11
 G_NUMERIC = 13
-G_COUNT = 48
+G_COUNT = 50
 
 sig [] => Ptr
 machine def zr_globals
@@ -257,6 +257,11 @@ end
 
 sig [Word] => Value
 machine def zr_gvar_get(id)
+  b = zr_box_current()
+  if b != QNIL
+    v = zr_hash_lookup(zr_box_gvars(b), zr_fix(zr_gvar_resolve(id)))
+    return v == QUNDEF ? Machine.value(QNIL) : v
+  end
   v = zr_ivtab_get(zr_gvars(), zr_gvar_resolve(id))
   if v == QUNDEF
     return Machine.value(QNIL)
@@ -266,11 +271,20 @@ end
 
 sig [Word] => Value
 machine def zr_gvar_defined(id)
+  b = zr_box_current()
+  if b != QNIL
+    return zr_bool(zr_hash_lookup(zr_box_gvars(b), zr_fix(zr_gvar_resolve(id))) != QUNDEF)
+  end
   zr_bool(zr_ivtab_row(zr_gvars(), zr_gvar_resolve(id)) != 0)
 end
 
 sig [Word, Value] => Value
 machine def zr_gvar_set(id, v)
+  b = zr_box_current()
+  if b != QNIL
+    zr_hash_store(zr_box_gvars(b), zr_fix(zr_gvar_resolve(id)), v)
+    return v
+  end
   zr_ivtab_set(zr_gvars(), zr_gvar_resolve(id), v)
   v
 end

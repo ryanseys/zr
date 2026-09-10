@@ -61,6 +61,21 @@ module Ze0
         d zr_binding_run Value code:Value b:Value
         d zr_binding_add Value b:Value name:Value
         d zr_toplevel_binding Value env:Value self_:Value cref:Value meta:Ptr
+        d zr_box_register Value klass:Value
+        d zr_box_current Value
+        d zr_box_stamp Value metas:Value b:Value
+        d zr_box_slot Value
+        d zr_box_view Value klass:Value
+        d zr_box_bind Value klass:Value slot:Value shadow:Value
+        d zr_box_origin Value klass:Value
+        d zr_box_shared_p Value klass:Value
+        d zr_box_snapshot Value
+        d zr_box_master_gvars Value
+        d zr_box_const_hidden Bool klass:Value i:Word
+        d zr_box_gvars Value b:Value
+        d zr_box_seen Value v:Value
+        d zr_box_name Value klass:Value name:Value
+        d zr_box_gvar_key Value name:Value
         d zr_buf_init Void b:Ptr
         d zr_buf_reserve Void b:Ptr n:Word
         d zr_buf_push Void b:Ptr bytes:Ptr n:Word
@@ -198,6 +213,7 @@ module Ze0
         d zr_autoload_row Word mod:Value id:Word
         d zr_autoload_feature Value mod:Value id:Word
         d zr_const_value Value e:Ptr
+        d zr_const_raw_value Value e:Ptr
         d zr_mod_autoload_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ivtab_copy Void to:Ptr from:Ptr
         d zr_copy_payload Value copy:Value orig:Value
@@ -1061,6 +1077,8 @@ module Ze0
         d zr_finalizers_at_exit Void
         c G_ARRAY 25
         c G_INDEX_ERROR 26
+        c G_MASTER_GVARS 48
+        c G_BOX 49
         c KIND_ATTR_READER 3
         c KIND_ATTR_WRITER 4
         c KIND_FRAMELESS 5
@@ -1136,7 +1154,7 @@ module Ze0
         c G_FALSE 10
         c G_MAIN 11
         c G_NUMERIC 13
-        c G_COUNT 48
+        c G_COUNT 50
         c GATE_PLUS 1
         c GATE_MINUS 2
         c GATE_MUL 4
@@ -1238,12 +1256,12 @@ module Ze0
         s RArray 40 8 basic:0:RBasic len:16:Word capa:24:Word ptr:32:Ptr
         s Buf 24 8 ptr:0:Ptr len:8:Word capa:16:Word
         s RClass 56 8 basic:0:RBasic name:16:Value superclass:24:Value ext:32:Ptr attached:40:Value origin:48:Value
-        s ClassExt 120 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word refined:104:Value active:112:Value
+        s ClassExt 136 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word refined:104:Value active:112:Value boxed:120:Value shadow:128:Value
         s MEntry 72 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value
         s CEntry 64 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value
         s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word
         s RCref 64 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr
-        s FrameMeta 96 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr locals:80:Ptr env:88:Word
+        s FrameMeta 104 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr locals:80:Ptr env:88:Word box:96:Value
         s BtRow 32 8 meta:0:Ptr file:8:Ptr file_len:16:Word line:24:Word
         s RException 56 8 basic:0:RBasic message:16:Value rows:24:Ptr nrows:32:Word bt:40:Value cause:48:Value
         s RFiber 104 8 basic:0:RBasic task:16:Ptr ctx:24:Ptr stack:32:Ptr kroots:40:Ptr blk:48:Value status:56:Word prev:64:Value resuming:72:Value value:80:Value yielding:88:Word transferred:96:Word

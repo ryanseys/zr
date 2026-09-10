@@ -57,7 +57,7 @@ machine def zr_const_row(klass, id)
   while i < n
     e = ClassExt.ctab(ext) + (i * CEntry.size)
     if CEntry.id(e) == id
-      return e
+      return zr_box_const_hidden(klass, i) ? 0 : e
     end
     i += 1
   end
@@ -202,7 +202,7 @@ machine def zr_uninitialized_constant(scope, id)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_push(b, Machine.bytes("uninitialized constant "), 23)
-  if scope != QNIL && scope != zr_global(G_OBJECT)
+  if scope != QNIL && scope != zr_global(G_OBJECT) && zr_class_of(scope) != zr_global(G_BOX)
     zr_buf_class(b, scope)
     zr_buf_push(b, Machine.bytes("::"), 2)
   end
@@ -243,6 +243,12 @@ machine def zr_const_row_under(cref, id)
     c = RCref.next(c)
   end
   e = zr_const_row_in(RCref.klass(cref), id, false)
+  if e == 0
+    b = zr_box_current()
+    if b != QNIL
+      e = zr_const_row(b, id)
+    end
+  end
   if e == 0 && zr_type(RCref.klass(cref)) == T_MODULE
     e = zr_const_row_in(zr_global(G_OBJECT), id, false)
   end
@@ -396,6 +402,10 @@ machine def zr_const_get_at(scope, id)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
   e = zr_const_row_in(scope, id, scope != zr_global(G_OBJECT))
+  if e == 0 && zr_class_of(scope) == zr_global(G_BOX)
+    # `box::Name`: the box's own, else what the runtime itself holds.
+    e = zr_const_row_in(zr_global(G_OBJECT), id, false)
+  end
   if e == 0
     return zr_uninitialized_constant(scope, id)
   end
@@ -427,8 +437,8 @@ end
 sig [Value, Word, Value] => Value
 machine def zr_class_define(scope, id, sup)
   e = zr_const_row(scope, id)
-  if e == 0 && scope == zr_global(G_OBJECT)
-    e = zr_const_row_in(scope, id, false)
+  if e == 0 && (scope == zr_global(G_OBJECT) || zr_box_current() != QNIL)
+    e = zr_const_row_in(zr_global(G_OBJECT), id, false)
   end
   if e != 0 && CEntry.value(e) == QUNDEF && zr_autoload_row(scope, id) < 0
     e = 0
@@ -471,8 +481,8 @@ end
 sig [Value, Word] => Value
 machine def zr_module_define(scope, id)
   e = zr_const_row(scope, id)
-  if e == 0 && scope == zr_global(G_OBJECT)
-    e = zr_const_row_in(scope, id, false)
+  if e == 0 && (scope == zr_global(G_OBJECT) || zr_box_current() != QNIL)
+    e = zr_const_row_in(zr_global(G_OBJECT), id, false)
   end
   if e != 0 && CEntry.value(e) == QUNDEF && zr_autoload_row(scope, id) < 0
     e = 0
@@ -789,8 +799,14 @@ end
 # The value of a constant row: an autoload's file runs first, and the
 # constant it defined answers; a file that defines nothing leaves the
 # name uninitialized.
+# A shared class a box reads is the box's shadow of it.
 sig [Ptr] => Value
 machine def zr_const_value(e)
+  zr_box_seen(zr_const_raw_value(e))
+end
+
+sig [Ptr] => Value
+machine def zr_const_raw_value(e)
   v = CEntry.value(e)
   if v != QUNDEF
     return v

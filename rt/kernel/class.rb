@@ -12,7 +12,10 @@ Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr,
 # `refined` is the class a refinement holder stands over, and `active`
 # the one-item activation list that holder alone makes; both are nil on
 # an ordinary class or module.
-Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word, refined: Value, active: Value
+# `boxed` is the shadow class each box sees in place of this one,
+# indexed by box slot, and `shadow` the shared class a shadow stands
+# over; both are nil outside a box.
+Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word, refined: Value, active: Value, boxed: Value, shadow: Value
 # `orig` is the name the method was first defined under, which an
 # alias keeps. `from` is the chain node the entry an alias or a
 # visibility change copied was found on, where `super` in the body
@@ -52,6 +55,8 @@ machine def zr_class_alloc(type, sup, klass)
   zr_ivtab_init(ClassExt.cv(ext))
   ClassExt.set_refined(ext, Machine.value(QNIL))
   ClassExt.set_active(ext, Machine.value(QNIL))
+  ClassExt.set_boxed(ext, Machine.value(QNIL))
+  ClassExt.set_shadow(ext, Machine.value(QNIL))
   counter = Machine.static(:class_serial, 8)
   Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
   ClassExt.set_serial(ext, Machine.load64(counter, 0))
@@ -747,6 +752,7 @@ machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
     FrameMeta.set_arity(meta, arity)
     FrameMeta.set_params(meta, 0)
     FrameMeta.set_fn(meta, 0)
+    FrameMeta.set_box(meta, Machine.value(QNIL))
   elsif Machine.word(FrameMeta.owner(meta)) != 0 && FrameMeta.owner(meta) != klass
     # The same def run under another class (a class body in a block
     # that runs twice) gets a meta of its own, so each keeps its owner.
@@ -1241,7 +1247,14 @@ end
 
 sig [Value, Value] => Bool
 machine def zr_is_a(v, klass)
-  zr_class_inherits(zr_class_of(v), klass)
+  k = zr_box_view(zr_class_of(v))
+  if zr_class_inherits(k, klass)
+    return true
+  end
+  # A box shadow stands for the shared class, so what the shared class
+  # answers to, the shadow answers to as well.
+  o = zr_box_origin(klass)
+  o != QNIL && zr_class_inherits(k, o)
 end
 
 # A method table's crefs, and the Procs of the methods a block made.
@@ -1282,6 +1295,8 @@ machine def zr_mark_children(v)
     zr_mark_ivtab(ClassExt.cv(ext))
     zr_mark(ClassExt.refined(ext))
     zr_mark(ClassExt.active(ext))
+    zr_mark(ClassExt.boxed(ext))
+    zr_mark(ClassExt.shadow(ext))
   elsif t == T_EXCEPTION
     zr_mark(RException.message(v))
     zr_mark(RException.bt(v))

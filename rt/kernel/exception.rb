@@ -10,7 +10,9 @@
 # `locals` names the scope's locals in slot order (the count, then a
 # symbol id each), and `env` is 1 when the record's first slot holds
 # the Env that keeps them, which is what an eval and a Binding read.
-Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr, locals: Ptr, env: Word
+# `box` is the Ruby::Box the function belongs to, nil where it is
+# main's, which is what makes a box's reach the code it holds.
+Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr, locals: Ptr, env: Word, box: Value
 KIND_MAIN = 0
 KIND_DEF = 1
 KIND_BUILTIN = 2
@@ -158,7 +160,7 @@ machine def zr_exc_match(exc, klass)
   if zr_special_p(klass) || (zr_type(klass) != T_CLASS && zr_type(klass) != T_MODULE)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("class or module required for rescue clause"), 42)
   end
-  e = zr_find_method(zr_class_of(klass), Machine.id(:===))
+  e = zr_find_method(zr_box_view(zr_class_of(klass)), Machine.id(:===))
   if e != 0 && FrameMeta.owner(MEntry.meta(e)) != zr_global(G_MODULE)
     # The class answers `===` itself, so it decides.
     arg = Machine.slot(8)

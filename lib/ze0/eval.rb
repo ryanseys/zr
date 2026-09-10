@@ -42,7 +42,8 @@ module Ze0
       hir = Hir.build(string(source), string(file), road: false, line: line.to_int, scopes: [*scopes.reverse, []])
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)
-      [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}")]
+      metas = symbols.select { |symbol, _| symbol.start_with?("zr_meta_") }.values
+      [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}"), metas]
     end
 
     private
