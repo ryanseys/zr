@@ -20,7 +20,9 @@ module Ze0
 
     # Where the runtime's built forms live, keyed on the digest of
     # everything they depend on: the runtime sources and the compiler.
-    CACHE = File.expand_path("../../tmp/rt", __dir__)
+    # A stage of the bootstrap takes its own, so that it emits the
+    # runtime itself instead of reading a form another stage wrote.
+    CACHE = ENV["ZE0_CACHE"] || File.expand_path("../../tmp/rt", __dir__)
 
     # The kernel and the core library, lowered once per process, and as
     # little of them as a build needs: a program's lowering reads the

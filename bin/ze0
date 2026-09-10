@@ -9,6 +9,7 @@
 #   ze0 scan <glob> [limit]             which programs ze0 compiles, and what it refuses
 #   ze0 check                           the repo's own checks
 #   ze0 stage1                          ze0 compiles itself, twice, to the same bytes
+#   ze0 stage2 [--native ruby|cranelift]  the compiler compiled by itself is a fixed point
 #   ze0 native build                    build the clif2obj crate (the Cranelift road)
 #   ze0 deps build                      build the vendored C dependencies (oniguruma)
 #   ze0 zr run <file.rb> [args]         compile a Ruby program with the zr runtime, and run it
@@ -151,6 +152,49 @@ when "stage1"
       abort("ze0 stage1: the two .#{ext} differ: #{a[i].bytesize} and #{b[i].bytesize} bytes, first at #{at}")
     end
     puts "stage 1 holds: #{a[0].bytesize} bytes of CLIF, and the sidecar, the same twice"
+  end
+when "stage2"
+  # The stage ladder. Stage 1 is the compiler compiled by ze0 under ruby;
+  # stage 2 is the same source compiled by stage 1. The two binaries must
+  # agree byte for byte, which is what says the compiler is a fixed point.
+  # Both are written under the same base name, since the ad-hoc signature
+  # ld writes carries the output's base name.
+  require "fileutils"
+  require_relative "../lib/ze0/obj/stamps"
+  args = ARGV.drop(1)
+  native = "ruby"
+  if (i = args.index("--native"))
+    native = args[i + 1] or usage
+    args.slice!(i, 2)
+  end
+  usage unless args.empty? && %w[ruby cranelift].include?(native)
+
+  source = File.join(ROOT, "tools/stage.rb")
+  stages = (1..2).map do |n|
+    dir = File.join(ROOT, "tmp/stage#{n}")
+    FileUtils.rm_rf(dir)
+    FileUtils.mkdir_p(File.join(dir, "cache"))
+    File.join(dir, "ze0")
+  end
+  caches = stages.map { |path| { "ZE0_CACHE" => File.join(File.dirname(path), "cache") } }
+
+  started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  system(caches[0], RbConfig.ruby, __FILE__, "zr", "build", source, "-o", stages[0], "--native", native) or
+    abort("ze0 stage2: stage 1 did not build")
+  warn("stage 1: #{File.size(stages[0])} bytes")
+  system(caches[1], stages[0], source, "-o", stages[1], "--native", native) or
+    abort("ze0 stage2: stage 1 did not compile the compiler")
+
+  a, b = stages.map { |path| File.binread(path) }
+  elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+  stamps = Ze0::Obj::Stamps.of(a)
+  x, y = [a, b].map { |bytes| Ze0::Obj::Stamps.blank(bytes) }
+  if x == y
+    puts format("stage 2 holds: %d bytes, the same from stage 1 and from ruby, in %.1f s", a.bytesize, elapsed)
+    puts "the linker's own stamps are not compared: #{stamps.map { |r| "#{r.first}..#{r.last}" }.join(", ")}"
+  else
+    at = x.bytesize.times.find { |i| x.getbyte(i) != y.getbyte(i) } || [x.bytesize, y.bytesize].min
+    abort("ze0 stage2: #{a.bytesize} and #{b.bytesize} bytes, first differing at #{at}")
   end
 when "check"
   files = Dir[File.join(ROOT, "test/checks/*_test.rb")].sort
