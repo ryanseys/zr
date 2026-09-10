@@ -10,11 +10,11 @@
 # An arena is ARENA_BYTES of cells aligned to its own size, so a cell's
 # arena is its address with the low bits cleared; the arena's exivar
 # slots follow its cells. The collector runs when the free list is
-# empty, and the heap doubles when a collection frees less than half.
+# empty, and grows the heap to twice what the sweep found live.
 CELL = 128
 CELLS = 32768
 ARENA_BYTES = CELL * CELLS
-ARENA_ALLOC = ARENA_BYTES * 2 + CELLS * 8
+ARENA_ALLOC = ARENA_BYTES + CELLS * 8
 ARENA_LIMIT = 1024
 POISON = 57005 << 8
 
@@ -51,11 +51,11 @@ machine def zr_arena_add
   if n == ARENA_LIMIT
     zr_bug(Machine.bytes("out of cells\n"), 13)
   end
-  raw = malloc(ARENA_ALLOC)
-  if raw == 0
+  slot = Machine.slot(8)
+  if posix_memalign(slot, ARENA_BYTES, ARENA_ALLOC) != Machine.i32(0)
     zr_bug(Machine.bytes("out of memory\n"), 14)
   end
-  a = (raw + (ARENA_BYTES - 1)) & (0 - ARENA_BYTES)
+  a = Machine.ptr(Machine.load64(slot, 0))
   Machine.store64(zr_arenas() + (n * 8), 0, Machine.word(a))
   Heap.set_arenas(h, n + 1)
   head = Heap.free(h)
@@ -387,7 +387,10 @@ machine def zr_sweep
   zr_sweep_arena(home, split + 1, CELLS - 1)
 end
 
-# Collect; when less than half of the cells came free, double the heap.
+# Collect; then grow to twice the live set, which is the capacity that
+# leaves half the cells free for the round after this one. The sweep
+# counted what came free, so the live set is known and the heap reaches
+# the size it wants in one step, with nothing to overshoot.
 sig [] => Void
 machine def zr_collect
   h = zr_heap()
@@ -398,12 +401,10 @@ machine def zr_collect
   zr_mark_drain()
   zr_weak_prune()
   zr_sweep()
-  n = Heap.arenas(h)
-  if Heap.freed(h) * 2 < n * CELLS
-    while n > 0 && Heap.arenas(h) < ARENA_LIMIT
-      zr_arena_add()
-      n -= 1
-    end
+  live = (Heap.arenas(h) * CELLS) - Heap.freed(h)
+  want = ((live * 2) + (CELLS - 1)) / CELLS
+  while Heap.arenas(h) < want && Heap.arenas(h) < ARENA_LIMIT
+    zr_arena_add()
   end
   Heap.set_nanoseconds(h, Heap.nanoseconds(h) + (zr_fix2long(zr_clock_ns(zr_fix(6))) - started))
 end

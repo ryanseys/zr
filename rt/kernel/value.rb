@@ -6,6 +6,7 @@ Machine.import "write", [I32, Ptr, Word] => Word
 Machine.import "exit", [I32] => Void
 Machine.import "abort", [] => Void
 Machine.import "malloc", [Word] => Ptr
+Machine.import "posix_memalign", [Ptr, Word, Word] => I32
 Machine.import "free", [Ptr] => Void
 Machine.import "getenv", [Ptr] => Ptr
 Machine.import "pthread_self", [] => Ptr
