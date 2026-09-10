@@ -6,6 +6,7 @@ require_relative "ir/arm64"
 require_relative "obj/jit"
 require_relative "../../rt/ext/zr_description"
 require "ze0/eval/runtime"
+require "ze0/eval/forms"
 
 module Ze0
   # A string of ruby, compiled while the program that asked for it runs.
@@ -29,23 +30,32 @@ module Ze0
       @count = 0
     end
 
-    # `source` compiled, loaded and run; answers what its last statement
-    # answered.
-    def run(source, file)
-      @runtime.run(compile(source, file))
-    end
-
-    # The address of the toplevel `source` compiles to.
-    def compile(source, file)
+    # The toplevel `source` compiles to: its address, and the address of
+    # its FrameMeta, which the call writes the asking frame into.
+    def compile(source, file, line = 1)
       @count += 1
       name = "zr_eval_#{@count}"
-      hir = Hir.build(source, file, road: false)
-      functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :top).run
+      hir = Hir.build(string(source), string(file), road: false, line: line.to_int)
+      functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval).run
       intern_new_names
-      Obj::JIT.load(unit(functions, data), host: @host).fetch(name)
+      symbols = Obj::JIT.load(unit(functions, data), host: @host)
+      [symbols.fetch(name), symbols.fetch("zr_meta_#{name}")]
     end
 
     private
+
+    # The argument as ruby takes a string of it: a String, or anything
+    # that answers `to_str`.
+    def string(value)
+      return value if value.is_a?(String)
+      raise TypeError, "no implicit conversion of #{name_of(value)} into String" unless value.respond_to?(:to_str)
+
+      value.to_str
+    end
+
+    def name_of(value)
+      value.nil? || value == true || value == false ? value.inspect : value.class.name
+    end
 
     # A name this eval is the first to use gets its id here; the program
     # is running, so the table it interns into must answer the same id
@@ -65,12 +75,5 @@ module Ze0
       data.each { |d| unit.data << d }
       unit
     end
-  end
-end
-
-module Kernel
-  # Ruby compiled and run where this call stands.
-  def eval(source, _binding = nil, file = "(eval)", _line = 1)
-    Ze0::Eval.current.run(source, file)
   end
 end

@@ -73,9 +73,58 @@ machine def zr_jit_call(at)
   zr_fix(Machine.word(Machine.call(:top, Machine.ptr(zr_fix2long(at)))))
 end
 
-# A loaded eval toplevel, run in a frame of its own, as a required
-# file's toplevel is.
+# An eval's toplevel takes the self and the cref it runs under.
+Machine.sig :eval, [Value, Value] => Value
+
+# The frame that asked for an eval. The compiler is reached from a
+# method of the runtime's own, whose frame is on top, so the frame
+# outside it is the one that wrote the call.
+sig [] => Ptr
+machine def zr_eval_caller
+  Frame.prev(Task.top(zr_task()))
+end
+
+sig [] => Value
+machine def zr_eval_self
+  Frame.self(zr_eval_caller())
+end
+
+sig [] => Value
+machine def zr_eval_cref
+  Frame.cref(zr_eval_caller())
+end
+
+# `(eval at file:line)`: the name ruby gives an eval that names no file.
+sig [] => Value
+machine def zr_eval_source_name
+  rec = zr_frame_with_file(zr_eval_caller())
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("(eval at "), 9)
+  if rec != 0
+    zr_buf_push(b, FrameMeta.file(Frame.meta(rec)), FrameMeta.file_len(Frame.meta(rec)))
+    zr_buf_byte(b, 58)
+    zr_buf_long(b, Frame.line(rec))
+  end
+  zr_buf_byte(b, 41)
+  zr_buf_take(b)
+end
+
+# A cref an eval on a string runs under: the module alone, which is a
+# lexical scope of its own, so `Module.nesting` there is `[mod]`.
 sig [Value] => Value
-machine def zr_eval_run(at)
-  zr_run_top(Machine.ptr(zr_fix2long(at)), Machine.id(:eval))
+machine def zr_eval_cref_of(mod)
+  zr_cref_push(mod, zr_global(G_TOP_CREF))
+end
+
+# A loaded eval toplevel, run under `self_` with `cref` for its defs and
+# its constants. `code` is the pair the compiler answers: the function
+# and its FrameMeta, whose parent is written here so a backtrace row
+# shows the label of the frame that asked.
+sig [Value, Value, Value] => Value
+machine def zr_eval_run(code, self_, cref)
+  at = Machine.ptr(zr_fix2long(Machine.value(Machine.load64(RArray.ptr(code), 0))))
+  meta = Machine.ptr(zr_fix2long(Machine.value(Machine.load64(RArray.ptr(code), 8))))
+  FrameMeta.set_parent(meta, Frame.meta(zr_eval_caller()))
+  Machine.call(:eval, at, self_, cref)
 end

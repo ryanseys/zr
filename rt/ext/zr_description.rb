@@ -533,7 +533,12 @@ module Ze0
         d zr_jit_write_data Value at:Value bytes:Value
         d zr_jit_write_code Value at:Value bytes:Value
         d zr_jit_call Value at:Value
-        d zr_eval_run Value at:Value
+        d zr_eval_caller Ptr
+        d zr_eval_self Value
+        d zr_eval_cref Value
+        d zr_eval_source_name Value
+        d zr_eval_cref_of Value mod:Value
+        d zr_eval_run Value code:Value self_:Value cref:Value
         d zr_puts_value Value v:Value
         d zr_puts Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_print Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1006,6 +1011,7 @@ module Ze0
         c KIND_SCLASS 6
         c KIND_HIDDEN 7
         c KIND_TOP 8
+        c KIND_EVAL 9
         c T_EXCEPTION 24
         c G_EXCEPTION 16
         c G_STANDARD_ERROR 17

@@ -174,7 +174,7 @@
         (array
           (int 5)
           (int 6))))
-    (block (a (b c)) locals (a b c)
+    (block (a (b c)) locals (a b c %arg1)
       (seq
         (send self p
           (array
@@ -187,7 +187,7 @@
       (array
         (int 1)
         (int 2)))
-    (block (key (a b)) locals (key a b)
+    (block (key (a b)) locals (key a b %arg2)
       (seq
         (send self p
           (array
@@ -202,7 +202,7 @@
       (array
         (int 3)
         (int 4)))
-    (block ((a b) i) locals (a b i)
+    (block ((a b) i) locals (a b i %arg3)
       (seq
         (send self p
           (array

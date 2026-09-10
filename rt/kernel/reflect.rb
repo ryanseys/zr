@@ -374,7 +374,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_kernel_method_name(recv, argc, argv, cref, blk)
   meta = Frame.meta(Frame.prev(Task.top(zr_task())))
-  while (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN) && FrameMeta.parent(meta) != 0
+  while (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN || FrameMeta.kind(meta) == KIND_EVAL) && FrameMeta.parent(meta) != 0
     meta = FrameMeta.parent(meta)
   end
   if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BMETHOD
@@ -388,7 +388,7 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_kernel_callee(recv, argc, argv, cref, blk)
   rec = Frame.prev(Task.top(zr_task()))
   meta = Frame.meta(rec)
-  while (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN) && FrameMeta.parent(meta) != 0
+  while (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN || FrameMeta.kind(meta) == KIND_EVAL) && FrameMeta.parent(meta) != 0
     meta = FrameMeta.parent(meta)
     rec = Frame.prev(rec)
     while rec != 0 && Frame.meta(rec) != meta

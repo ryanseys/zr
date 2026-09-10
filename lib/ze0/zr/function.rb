@@ -40,8 +40,8 @@ module Ze0
       include Targets
       include Defined
 
-      KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK" }.freeze
-      ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64] }.freeze
+      KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK", eval: "KIND_EVAL" }.freeze
+      ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64], eval: %w[i64 i64] }.freeze
 
       attr_reader :meta, :outer, :kind
 
@@ -173,7 +173,7 @@ module Ze0
         @f.store(imm(@l.unit.const_for("QNIL")), @rec, off(@frame, "svar"))
         @f.store(imm(@l.unit.const_for("QNIL")), @rec, off(@frame, "lastline"))
         program_start if @kind == :main && !@l.internal?
-        parse_warnings if %i[main top].include?(@kind) && !@l.internal?
+        parse_warnings if %i[main top eval].include?(@kind) && !@l.internal?
         (0...@nvalues).each { |i| @f.store(@qnil, @rec, value_offset(i)) }
         @f.store(@rec, @task_addr, off(@task, "top"))
         return unless @has_env
@@ -199,7 +199,7 @@ module Ze0
       # it is a `return` from a block of this method, whose value is ours.
       def land
         switch(@landing, open: true)
-        if %i[def main top].include?(@kind) && @has_env
+        if %i[def main top eval].include?(@kind) && @has_env
           caught = kernel("zr_catch_return", @rec)
           done = @f.label
           none = @f.label
