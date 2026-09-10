@@ -342,15 +342,19 @@ class IO
     "#{text}>"
   end
 
+  # The arguments are walked without Array's own methods: a program
+  # that redefines one of those must not break the stream it writes
+  # the redefinition's report to.
   def write(*objects)
     check_writable
     total = 0
-    objects.each do |object|
-      s = object.to_s
-      result = Primitive.zr_io_write(@fd, s)
+    i = 0
+    while i < Primitive.zr_ary_len_m(objects)
+      result = Primitive.zr_io_write(@fd, Primitive.zr_ary_at_m(objects, i).to_s)
       raise SystemCallError.new("@ io_write - #{label}", -result) if result < 0
 
       total += result
+      i += 1
     end
     total
   end
@@ -407,8 +411,12 @@ class IO
   end
 
   def p(*objects)
-    objects.each { |object| write(object.inspect, "\n") }
-    objects.size <= 1 ? objects[0] : objects
+    i = 0
+    while i < Primitive.zr_ary_len_m(objects)
+      write(Primitive.zr_ary_at_m(objects, i).inspect, "\n")
+      i += 1
+    end
+    Primitive.zr_ary_len_m(objects) <= 1 ? Primitive.zr_ary_at_m(objects, 0) : objects
   end
 
   # `read(length)`: that many bytes, fewer at the end, nil past it;
@@ -740,20 +748,17 @@ module Kernel
   # `$,` goes between the objects and `$\` after the last one, which is
   # what makes `print` and `puts` differ.
   def print(*objects)
-    out = $stdout
-    objects = [$_] if objects.empty?
-    out.write(objects.map(&:to_s).join($, || ""))
-    out.write($\) if $\
-    nil
+    $stdout.print(*objects)
   end
 
   def p(*objects)
     out = $stdout
-    objects.each do |object|
-      out.write(object.inspect)
-      out.write("\n")
+    i = 0
+    while i < Primitive.zr_ary_len_m(objects)
+      out.write(Primitive.zr_ary_at_m(objects, i).inspect, "\n")
+      i += 1
     end
-    objects.size <= 1 ? objects[0] : objects
+    Primitive.zr_ary_len_m(objects) <= 1 ? Primitive.zr_ary_at_m(objects, 0) : objects
   end
 
   def printf(format = nil, *args)

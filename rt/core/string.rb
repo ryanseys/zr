@@ -80,24 +80,35 @@ class String
 
   def ord = Primitive.zr_str_ord(self)
 
+  # The arguments are walked without Array's own methods: the runtime
+  # itself asks these two, so a program that redefines Array#each must
+  # not take them with it.
   def start_with?(*prefixes)
-    prefixes.any? do |prefix|
+    i = 0
+    while i < Primitive.zr_ary_len_m(prefixes)
+      prefix = Primitive.zr_ary_at_m(prefixes, i)
       if prefix.is_a?(Regexp)
         match = prefix.send(:match_at, self, 0)
         Primitive.zr_backref_set(match)
-        next !match.nil?
+        return true if match
+      else
+        prefix = Primitive.zr_str_operand(prefix)
+        return true if prefix.bytesize <= bytesize && byteslice_of(0, prefix.bytesize) == prefix
       end
-      prefix = Primitive.zr_str_operand(prefix)
-
-      prefix.bytesize <= bytesize && byteslice_of(0, prefix.bytesize) == prefix
+      i += 1
     end
+    false
   end
 
   def end_with?(*suffixes)
-    suffixes.any? do |suffix|
-      suffix = Primitive.zr_str_operand(suffix)
-      suffix.bytesize <= bytesize && byteslice_of(bytesize - suffix.bytesize, suffix.bytesize) == suffix
+    i = 0
+    while i < Primitive.zr_ary_len_m(suffixes)
+      suffix = Primitive.zr_str_operand(Primitive.zr_ary_at_m(suffixes, i))
+      return true if suffix.bytesize <= bytesize && byteslice_of(bytesize - suffix.bytesize, suffix.bytesize) == suffix
+
+      i += 1
     end
+    false
   end
 
   def delete_prefix(prefix) = start_with?(prefix) ? byteslice_of(prefix.bytesize, bytesize - prefix.bytesize) : dup

@@ -5,6 +5,7 @@ module Ze0
       KERNEL = <<~ROWS
         d zr_ary_new Value capa:Word
         d zr_ary_len_m Value a:Value
+        d zr_ary_at_m Value a:Value i:Value
         d zr_mark_ary Void a:Value
         d zr_ary_at Value a:Value i:Word
         d zr_ary_reserve Void a:Value n:Word

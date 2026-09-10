@@ -21,6 +21,12 @@ machine def zr_ary_len_m(a)
   zr_fix(RArray.len(a))
 end
 
+# The element at `i`, for the same reason.
+sig [Value, Value] => Value
+machine def zr_ary_at_m(a, i)
+  zr_ary_at(a, zr_fix2long(i))
+end
+
 sig [Value] => Void
 machine def zr_mark_ary(a)
   n = RArray.len(a)
