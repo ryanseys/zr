@@ -763,6 +763,21 @@ end
 # `#<Class:` around what it is attached to.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_class_to_s(recv, argc, argv, cref, blk)
+  refined = ClassExt.refined(RClass.ext(recv))
+  if refined != QNIL
+    inner = zr_send(refined, Machine.id(:to_s), 0, 0)
+    return inner if inner == QUNDEF
+    origin = zr_send(zr_ivar_get(recv, Machine.id(:@__origin__)), Machine.id(:to_s), 0, 0)
+    return origin if origin == QUNDEF
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("#<refinement:"), 13)
+    zr_buf_str(b, inner)
+    zr_buf_byte(b, 64)
+    zr_buf_str(b, origin)
+    zr_buf_byte(b, 62)
+    return zr_buf_take(b)
+  end
   if zr_singleton_p(recv)
     inner = zr_send(RClass.attached(recv), Machine.id(:inspect), 0, 0)
     return inner if inner == QUNDEF

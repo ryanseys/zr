@@ -175,6 +175,8 @@ class Module
     holder
   end
 
+  private :refine
+
   def refinements = @__refinements__ ? @__refinements__.values : []
 
   # `using` does its work where it is written, which the compiler sees;
@@ -232,8 +234,23 @@ end
 class Refinement
   def target = Primitive.zr_refined_class(self)
 
-  def to_s = "#<refinement:#{target}@#{instance_variable_get(:@__origin__)}>"
-  alias inspect to_s
+  # A module's OWN methods copied in at the visibility they were
+  # declared with. Ruby copies rather than includes, so what the module
+  # inherits stays out.
+  def import_methods(*modules)
+    modules.each do |mod|
+      raise TypeError, "wrong argument type #{mod.class} (expected Module)" unless mod.instance_of?(Module)
+    end
+    modules.each do |mod|
+      mod.instance_methods(false).each { |name| define_method(name, mod.instance_method(name)) }
+      mod.private_instance_methods(false).each do |name|
+        define_method(name, mod.instance_method(name))
+        private name
+      end
+    end
+    self
+  end
+  private :import_methods
 end
 
 module Kernel

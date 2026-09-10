@@ -53,7 +53,7 @@ module Ze0
           base = @sp
           slot = reserve(1)
           @f.store(expr(node.recv), @rec, value_offset(slot))
-          plain = Hir::Send.new(Hir::Slot.new(slot, node.line), node.name, node.args, node.line, false, node.opt, node.block, node.kwargs, false, node.write)
+          plain = Hir::Send.new(Hir::Slot.new(slot, node.line), node.name, node.args, node.line, false, node.opt, node.block, node.kwargs, false, node.write, node.using)
           is_nil = @f.label
           go = @f.label
           merge, (result,) = @f.block(["i64"])

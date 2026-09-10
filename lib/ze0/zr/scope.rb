@@ -80,7 +80,7 @@ module Ze0
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
           [top, staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
         when Hir::Lambda then base + 1
-        when Hir::Splat, Hir::HashSplat, Hir::BlockPass then staging(node.value, base)
+        when Hir::Splat, Hir::HashSplat, Hir::BlockPass, Hir::Using then staging(node.value, base)
         when Hir::Yield
           parts = node.args + [node.kwargs].compact
           spread?(parts) ? gathered(parts, base) : row(parts, base)
