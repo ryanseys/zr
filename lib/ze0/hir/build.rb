@@ -17,7 +17,12 @@ module Ze0
       # the runtime, so it may name a kernel def through `Primitive`.
       EXT = File.expand_path("../../../rt/ext", __dir__)
 
-      STDLIB = [VENDOR, EXT].freeze
+      # The ruby half of an extension, as its gem ships it. A gem is on
+      # the path only once its native half answers, so a require of one
+      # we do not carry stops by name instead of failing halfway in.
+      GEMS = %w[prism].map { |name| File.expand_path("../../../vendor/ext/#{name}/lib", __dir__) }
+
+      STDLIB = [VENDOR, EXT, *GEMS].freeze
 
       def self.program(source, file, roots: [])
         loader = Loader.new(roots + STDLIB)

@@ -31,8 +31,36 @@ module Ze0
       archive
     end
 
+    # Prism, the parser ruby itself uses: the archive's path. The gem
+    # carries its own sources, and every file under src builds.
+    def prism(root)
+      src = File.join(root, "vendor/c/prism")
+      out = File.join(root, "vendor/build")
+      archive = File.join(out, "libprism.a")
+      sources = Dir[File.join(src, "src/**/*.c")].sort
+      inputs = sources + Dir[File.join(src, "include/**/*.h")] + [__FILE__]
+      return archive if File.exist?(archive) && inputs.all? { |f| File.mtime(f) <= File.mtime(archive) }
+
+      objects = File.join(out, "prism")
+      FileUtils.mkdir_p(objects)
+      names = sources.map do |file|
+        name = file.delete_prefix("#{src}/src/").delete_suffix(".c").tr("/", "_")
+        object = File.join(objects, "#{name}.o")
+        argv = ["cc", "-O2", "-std=c99", "-c", "-DPRISM_EXPORT_SYMBOLS=", "-I#{src}/include", file, "-o", object]
+        log = IO.popen(argv, err: %i[child out], &:read)
+        raise "cc failed on #{file}:\n#{log}" unless $?.success?
+
+        object
+      end
+      File.delete(archive) if File.exist?(archive)
+      log = IO.popen(["ar", "rcs", archive, *names], err: %i[child out], &:read)
+      raise "ar failed:\n#{log}" unless $?.success?
+
+      archive
+    end
+
     def build(root)
-      [onig(root)]
+      [onig(root), prism(root)]
     end
   end
 end
