@@ -654,6 +654,14 @@ machine def zr_gate_bit(klass, mid)
       GATE_EQ
     elsif mid == Machine.id(:!=)
       GATE_NE
+    elsif mid == Machine.id(:&)
+      GATE_AND
+    elsif mid == Machine.id(:|)
+      GATE_OR
+    elsif mid == Machine.id(:^)
+      GATE_XOR
+    elsif mid == Machine.id(:>>)
+      GATE_SHR
     else
       0
     end

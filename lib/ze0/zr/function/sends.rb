@@ -9,7 +9,8 @@ module Ze0
         # The operators with an inline fixnum fast path, and their gates.
         OPS = {
           :+ => "GATE_PLUS", :- => "GATE_MINUS", :* => "GATE_MUL", :/ => "GATE_DIV", :% => "GATE_MOD",
-          :< => "GATE_LT", :<= => "GATE_LE", :> => "GATE_GT", :>= => "GATE_GE", :== => "GATE_EQ", :!= => "GATE_NE"
+          :< => "GATE_LT", :<= => "GATE_LE", :> => "GATE_GT", :>= => "GATE_GE", :== => "GATE_EQ", :!= => "GATE_NE",
+          :& => "GATE_AND", :| => "GATE_OR", :^ => "GATE_XOR", :>> => "GATE_SHR"
         }.freeze
 
         OPT_ENTRIES = { :[] => "zr_opt_aref", :[]= => "zr_opt_aset", :<< => "zr_opt_ltlt" }.freeze
@@ -272,10 +273,27 @@ module Ze0
             unless_equal(y, -1, slow) if op == :/
             q = kernel(op == :/ ? "zr_floor_div" : "zr_floor_mod", x, y)
             @f.bor(@f.ishl(q, one), one)
+          when :& then @f.band(a, b)
+          when :| then @f.bor(a, b)
+          when :^ then @f.bor(@f.bxor(a, b), one)
+          when :>>
+            # A shift of 63 or more, or of a negative count, is not a
+            # shift right of a fixnum: it takes the call.
+            k = @f.sshr(b, one)
+            unless_unsigned_below(k, 63, slow)
+            @f.bor(@f.sshr(a, k), one)
           when :<, :<=, :>, :>=, :==, :!=
             cond = { :< => "slt", :<= => "sle", :> => "sgt", :>= => "sge", :== => "eq", :!= => "ne" }.fetch(op)
             @f.csel(@f.icmp(cond, a, b), imm(@l.const("QTRUE")), imm(@l.const("QFALSE")))
           end
+        end
+
+        # A negative count reads as a huge unsigned one, so one branch
+        # holds both ends of the range.
+        def unless_unsigned_below(value, n, escape)
+          ok = @f.label
+          @f.brif(@f.icmp("uge", value, imm(n)), escape, ok)
+          switch(ok)
         end
 
         def unless_equal(value, n, escape)
