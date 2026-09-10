@@ -321,18 +321,30 @@ class Complex < Numeric
     real.rationalize(eps)
   end
 
-  def to_s
+  def to_s = formatted
+
+  def inspect = "(#{formatted})"
+
+  # `a+bi`, the shape both `to_s` and `inspect` show.
+  def formatted
+    Primitive.attr! :hidden
     text = +""
     text << part_text(real)
-    positive = imaginary.is_a?(Float) ? !(imaginary < 0 || (imaginary == 0 && 1.0 / imaginary < 0)) && !imaginary.nan? || imaginary.nan? : imaginary >= 0
-    text << (positive ? "+" : "-")
+    text << (sign_bit?(imaginary) ? "-" : "+")
     imag_text = part_text(imaginary.is_a?(Float) && imaginary.nan? ? imaginary : imaginary.abs)
     text << imag_text
     text << "*" unless imag_text[-1].match?(/\d/)
     text << "i"
   end
 
-  def inspect = "(#{self})"
+  # CRuby's f_signbit: a Float shows its own sign bit, so -0.0 takes
+  # the minus and a NaN does not. Anything else is asked `< 0`.
+  def sign_bit?(v)
+    Primitive.attr! :hidden
+    return v < 0 unless v.is_a?(Float)
+
+    !v.nan? && (v.negative? || (v.zero? && 1.0 / v < 0))
+  end
 
   private
 
@@ -353,8 +365,11 @@ class Complex < Numeric
 end
 
 module Kernel
-  def Complex(real, imag = nil, exception: true)
-    if imag.nil?
+  def Complex(real, *rest, exception: true)
+    raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..2)" if rest.size > 1
+
+    imag = rest.first
+    if rest.empty?
       Complex.send(:convert, real, exception)
     elsif real.is_a?(Numeric) && real.real? && imag.is_a?(Numeric) && imag.real?
       Complex.send(:build, real, imag)

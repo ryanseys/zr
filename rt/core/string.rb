@@ -303,7 +303,7 @@ class String
   # and a Regexp. A positive limit caps the pieces; a negative one keeps
   # trailing empty pieces; zero drops them.
   def split(pattern = nil, limit = 0)
-    limit = limit.to_int unless limit.is_a?(Integer)
+    limit = Primitive.zr_index_operand_m(limit)
     if limit == 1
       return block_given? ? (yield dup; self) : (empty? ? [] : [dup])
     end

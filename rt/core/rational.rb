@@ -322,10 +322,13 @@ class Rational < Numeric
 end
 
 module Kernel
-  def Rational(a, b = nil, exception: true)
-    if b.nil?
+  def Rational(a, *rest, exception: true)
+    raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..2)" if rest.size > 1
+
+    if rest.empty?
       Rational.send(:convert, a, exception)
     else
+      b = rest.first
       x = Rational.send(:convert, a, exception)
       y = Rational.send(:convert, b, exception)
       return nil if x.nil? || y.nil?

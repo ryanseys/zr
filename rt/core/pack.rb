@@ -592,17 +592,17 @@ end
 
 class Array
   def pack(template, buffer: nil)
-    result = Packing.pack(self, template.to_str)
+    result = Packing.pack(self, Primitive.zr_str_operand(template))
     buffer ? buffer << result : result
   end
 end
 
 class String
   def unpack(template, offset: 0)
-    Packing.unpack(Packing.from(self, offset), template.to_str, false)
+    Packing.unpack(Packing.from(self, offset), Primitive.zr_str_operand(template), false)
   end
 
   def unpack1(template, offset: 0)
-    Packing.unpack(Packing.from(self, offset), template.to_str, true).first
+    Packing.unpack(Packing.from(self, offset), Primitive.zr_str_operand(template), true).first
   end
 end

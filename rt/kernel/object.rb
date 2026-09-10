@@ -1030,3 +1030,18 @@ machine def zr_dig_into(v, rest)
   end
   zr_send(v, Machine.id(:dig), RArray.len(rest), RArray.ptr(rest))
 end
+
+# CRuby's rb_equal: the same object is equal to itself and `==` is
+# never asked. Every container reads its elements this way, which is
+# what makes `[nan].include?(nan)` true while `nan == nan` is false.
+sig [Value, Value] => Value
+machine def zr_rb_equal(a, b)
+  if a == b
+    return Machine.value(QTRUE)
+  end
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(b))
+  r = zr_send(a, Machine.id(:==), 1, slot)
+  return r if r == QUNDEF
+  (r == QNIL || r == QFALSE) ? Machine.value(QFALSE) : Machine.value(QTRUE)
+end

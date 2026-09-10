@@ -313,7 +313,7 @@ class Array
 
       return self[random.send(:limited, len - 1)]
     end
-    n = args[0]
+    n = Primitive.zr_index_operand_m(args[0])
     raise ArgumentError, "negative sample number" if n < 0
 
     n = len if n > len

@@ -643,11 +643,9 @@ machine def zr_hash_eq(recv, argc, argv, cref, blk)
       if v == QUNDEF
         return Machine.value(QFALSE)
       end
-      slot = Machine.slot(8)
-      Machine.store64(slot, 0, Machine.word(v))
-      r = zr_send(HEntry.value(RHash.entries(recv) + (i * HEntry.size)), Machine.id(:==), 1, slot)
+      r = zr_rb_equal(HEntry.value(RHash.entries(recv) + (i * HEntry.size)), v)
       return r if r == QUNDEF
-      if r == QNIL || r == QFALSE
+      if r == QFALSE
         return Machine.value(QFALSE)
       end
     end

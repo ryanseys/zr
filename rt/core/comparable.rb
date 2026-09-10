@@ -33,8 +33,8 @@ module Comparable
       Primitive.zr_cmperr(low, high) if c.nil?
       raise ArgumentError, "min argument must be less than or equal to max argument" if c > 0
     end
-    return low if !low.nil? && self < low
-    return high if !high.nil? && self > high
+    return low if !low.nil? && compare_to(low) < 0
+    return high if !high.nil? && compare_to(high) > 0
 
     self
   end
@@ -42,6 +42,7 @@ module Comparable
   private
 
   def compare_to(other)
+    Primitive.attr! :hidden
     c = self <=> other
     Primitive.zr_cmperr(self, other) if c.nil?
 

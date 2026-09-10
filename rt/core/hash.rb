@@ -152,12 +152,12 @@ class Hash
   def store(key, value) = self[key] = value
 
   def key(value)
-    each { |k, v| return k if v == value }
+    each { |k, v| return k if Primitive.zr_rb_equal(v, value) }
     nil
   end
 
   def value?(value)
-    each { |_, v| return true if v == value }
+    each { |_, v| return true if Primitive.zr_rb_equal(v, value) }
     false
   end
   alias has_value? value?
@@ -319,7 +319,7 @@ class Hash
   end
 
   def rassoc(value)
-    each { |k, v| return [k, v] if v == value }
+    each { |k, v| return [k, v] if Primitive.zr_rb_equal(v, value) }
     nil
   end
 
@@ -353,13 +353,26 @@ class Hash
     end
   end
 
-  def <=(other) = all? { |k, v| other.key?(k) && other[k] == v }
+  # Each comparison reads the other side as a Hash, and names what it
+  # got when the argument is not one.
+  def <=(other)
+    other = hash_operand(other)
+    all? { |k, v| other.key?(k) && Primitive.zr_rb_equal(other[k], v) }
+  end
 
-  def <(other) = size < other.size && self <= other
+  def <(other)
+    other = hash_operand(other)
+    size < other.size && self <= other
+  end
 
-  def >=(other) = other <= self
+  def >=(other) = hash_operand(other) <= self
 
-  def >(other) = other < self
+  def >(other) = hash_operand(other) < self
+
+  def hash_operand(other)
+    Primitive.attr! :hidden
+    Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{other.class} into Hash"
+  end
 
   def to_proc
     h = self

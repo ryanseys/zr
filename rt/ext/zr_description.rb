@@ -695,6 +695,7 @@ module Ze0
         d zr_mod_attr_writer Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_attr_accessor Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_dig_into Value v:Value rest:Value
+        d zr_rb_equal Value a:Value b:Value
         d zr_pm_take Value b:Ptr
         d zr_pm_parse Value source:Value options:Value
         d zr_pm_parse_comments Value source:Value options:Value

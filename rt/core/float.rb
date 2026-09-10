@@ -29,12 +29,16 @@ class Float
   # A negative count of digits rounds the Integer the value becomes.
   def floor(digits = 0)
     digits = Primitive.zr_index_operand_m(digits)
-    digits < 0 ? __floor__.floor(digits) : __floor__(digits)
+    return __floor__.floor(digits) if digits < 0
+
+    __floor__(digits) || exactly(digits, :floor)
   end
 
   def ceil(digits = 0)
     digits = Primitive.zr_index_operand_m(digits)
-    digits < 0 ? __ceil__.ceil(digits) : __ceil__(digits)
+    return __ceil__.ceil(digits) if digits < 0
+
+    __ceil__(digits) || exactly(digits, :ceil)
   end
 
   def truncate(digits = 0) = self > 0 ? floor(digits) : ceil(digits)
@@ -213,7 +217,8 @@ module Math
   def self.lgamma(x)
     x = check(x, "lgamma")
     raise DomainError, "Numerical argument is out of domain - lgamma" if x.infinite? && x < 0
-    return [Float::INFINITY, 1] if x.infinite? || (x < 0 && x == x.floor) || x == 0
+    return [Float::INFINITY, 1.0 / x < 0 ? -1 : 1] if x == 0
+    return [Float::INFINITY, 1] if x.infinite? || (x < 0 && x == x.floor)
 
     Primitive.zr_math_lgamma(x)
   end
@@ -270,14 +275,25 @@ class Float
   def round(digits = 0, half: nil)
     digits = Primitive.zr_index_operand_m(digits)
     mode = Numeric.send(:half_mode, half)
-    return __round__(digits) if mode == :up || !finite?
+    plain = __round__(digits)
+    return exactly(digits, :round, half: mode) if plain.nil?
+    return plain if mode == :up || !finite?
 
     scaled = digits > 0 ? self * 10.0**digits : (digits < 0 ? self / 10.0**-digits : self)
-    return __round__(digits) unless scaled.finite? && scaled - scaled.floor == 0.5
+    return plain unless scaled.finite? && scaled - scaled.floor == 0.5
 
     base = scaled.floor
     n = mode == :down ? (self > 0 ? base : base + 1) : (base.even? ? base : base + 1)
     digits > 0 ? n / 10.0**digits : (digits < 0 ? n * 10**-digits : n)
+  end
+
+  # Past DBL_DIG places the power of ten the scaling wants is not
+  # exact, so ruby works from the exact value the double holds. The
+  # kernel answers nil to ask for this.
+  def exactly(digits, verb, **options)
+    Primitive.attr! :hidden
+    scale = Rational(10)**digits
+    ((to_r * scale).public_send(verb, **options) / scale).to_f
   end
 
   # A number is its own copy.

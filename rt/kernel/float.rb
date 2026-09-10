@@ -185,7 +185,7 @@ machine def zr_complex_polar_pi(abs, ang)
     # An odd number of quarter turns: on the imaginary axis.
     half = whole / Machine.f64(4611686018427387904)
     odd = (half - Machine.trunc(half)) != Machine.f64(0)
-    if odd != (fr > Machine.f64(0))
+    if odd == (fr > Machine.f64(0))
       abs = Machine.f64(0) - abs
     end
     Machine.store64(pair, 0, Machine.word(zr_float_new(Machine.f64(0))))
@@ -421,8 +421,8 @@ end
 # `round(n)`, `floor(n)` and `ceil(n)` for n > 0: `how` 0, 1, 2, as
 # CRuby's rb_float_round, rb_float_floor and rb_float_ceil do them: a
 # number with fewer digits than asked answers itself, one too small
-# for the digits is zero, and floor and ceil correct a scaled result
-# that crossed the number.
+# for the digits is zero, and floor corrects a scaled result that
+# crossed the number.
 sig [F64, Word, Word] => Value
 machine def zr_float_round_digits(d, digits, how)
   if d == Machine.f64(0) || zr_nan_p(d) || zr_inf_p(d) || zr_float_round_overflow(d, digits)
@@ -431,8 +431,10 @@ machine def zr_float_round_digits(d, digits, how)
   if zr_float_round_underflow(d, digits) && (how == 0 || (how == 1 && d > Machine.f64(0)) || (how == 2 && d < Machine.f64(0)))
     return zr_float_new(Machine.f64(0))
   end
-  if how == 0 && digits > 14
-    zr_bug(Machine.bytes("Float#round past 14 digits is not implemented yet\n"), 50)
+  # CRuby's ACCURATE_POW10: past DBL_DIG places the power of ten is
+  # not exact. nil sends the caller to the exact route.
+  if digits > 14
+    return Machine.value(QNIL)
   end
   s = pow(Machine.f64(4621819117588971520), Machine.to_f64(digits))
   if how == 0
@@ -446,12 +448,7 @@ machine def zr_float_round_digits(d, digits, how)
     end
     return zr_float_new(res)
   end
-  mul = Machine.ceil(d * s)
-  res = (mul - Machine.f64(4607182418800017408)) / s
-  if res < d
-    res = mul / s
-  end
-  zr_float_new(res)
+  zr_float_new(Machine.ceil(d * s) / s)
 end
 
 # The binary exponent frexp answers: the number is f * 2**e with f in

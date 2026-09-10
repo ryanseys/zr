@@ -136,7 +136,7 @@ module Enumerable
     if !none
       each do |*x|
         x = Primitive.zr_enum_value(x)
-        n += 1 if x == item
+        n += 1 if Primitive.zr_rb_equal(x, item)
         nil
       end
     elsif block_given?
@@ -482,7 +482,7 @@ module Enumerable
 
     i = 0
     each do |*x|
-      return i if block_given? ? yield(*x) : Primitive.zr_enum_value(x) == v
+      return i if block_given? ? yield(*x) : Primitive.zr_rb_equal(Primitive.zr_enum_value(x), v)
 
       i += 1
       nil
@@ -496,8 +496,8 @@ module Enumerable
 
   def entries = to_a
 
-  def first(n = nil)
-    if n.nil?
+  def first(n = (none = true))
+    if none
       each do |*x|
         x = Primitive.zr_enum_value(x)
         return x
@@ -534,7 +534,7 @@ module Enumerable
   def include?(target)
     each do |*x|
       x = Primitive.zr_enum_value(x)
-      return true if x == target
+      return true if Primitive.zr_rb_equal(x, target)
       nil
     end
     false

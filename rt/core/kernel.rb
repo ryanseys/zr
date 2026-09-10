@@ -159,7 +159,10 @@ module Kernel
   # `0d` prefix, digits with single underscores between them; nil on
   # anything else.
   def parse_integer(text, base)
-    Primitive.zr_str_ascii_check(text)
+    # A NUL is not a digit and `strip` would drop it, so the scan that
+    # follows would read a prefix and call the rest of the text good.
+    return nil if text.include?("\u0000")
+
     base = -base if base < 0
     raise ArgumentError, "invalid radix #{base}" if base == 1 || base > 36
 

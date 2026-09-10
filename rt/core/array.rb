@@ -19,8 +19,8 @@ class Array
     out
   end
 
-  def last(n = nil)
-    return self[-1] if n.nil?
+  def last(n = (none = true))
+    return self[-1] if none
 
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "negative array size" if n < 0
@@ -35,8 +35,8 @@ class Array
     out
   end
 
-  def first(n = nil)
-    return self[0] if n.nil?
+  def first(n = (none = true))
+    return self[0] if none
 
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "negative array size" if n < 0
@@ -129,7 +129,7 @@ class Array
     i = 0
     while i < size
       x = self[i]
-      return i if block_given? ? yield(x) : (x.equal?(v) || x == v)
+      return i if block_given? ? yield(x) : Primitive.zr_rb_equal(x, v)
 
       i += 1
     end
@@ -192,7 +192,7 @@ class Array
   end
 
   def rassoc(value)
-    each { |row| return row if row.is_a?(Array) && row.size > 1 && row[1] == value }
+    each { |row| return row if row.is_a?(Array) && row.size > 1 && Primitive.zr_rb_equal(row[1], value) }
     nil
   end
 
@@ -367,7 +367,7 @@ class Array
     i = 0
     while i < size
       x = self[i]
-      return true if x.equal?(v) || x == v
+      return true if Primitive.zr_rb_equal(x, v)
 
       i += 1
     end
@@ -417,8 +417,8 @@ class Array
   end
 
   # `pop(n)` takes the last n.
-  def pop(n = nil)
-    return Primitive.zr_ary_pop_m(self) if n.nil?
+  def pop(n = (none = true))
+    return Primitive.zr_ary_pop_m(self) if none
 
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "negative array size" if n < 0
@@ -429,8 +429,8 @@ class Array
     out
   end
 
-  def shift(n = nil)
-    if n.nil?
+  def shift(n = (none = true))
+    if none
       return nil if empty?
 
       first = self[0]
@@ -492,7 +492,7 @@ class Array
     found = nil
     i = 0
     while i < size
-      if self[i] == v
+      if Primitive.zr_rb_equal(self[i], v)
         found = self[i]
         Primitive.zr_ary_splice(self, i, 1, [])
       else
@@ -741,7 +741,7 @@ class Array
   end
 
   def assoc(key)
-    each { |x| return x if x.is_a?(Array) && x.size > 0 && x[0] == key }
+    each { |x| return x if x.is_a?(Array) && x.size > 0 && Primitive.zr_rb_equal(x[0], key) }
     nil
   end
 
@@ -857,7 +857,7 @@ class Array
   def rindex(v = nil)
     i = size - 1
     while i >= 0
-      return i if block_given? ? yield(self[i]) : self[i] == v
+      return i if block_given? ? yield(self[i]) : Primitive.zr_rb_equal(self[i], v)
 
       i -= 1
     end

@@ -279,16 +279,16 @@ class Enumerator::ArithmeticSequence < Enumerator
     n < 0 ? 0 : n + 1
   end
 
-  def first(n = nil)
-    return take(n) unless n.nil?
+  def first(n = (none = true))
+    return take(n) unless none
 
     each { |v| return v }
     nil
   end
 
-  def last(n = nil)
+  def last(n = (none = true))
     all = to_a
-    n.nil? ? all.last : all.last(n)
+    none ? all.last : all.last(n)
   end
 
   def ==(other)
@@ -317,6 +317,15 @@ class Enumerator::ArithmeticSequence < Enumerator
   # value, and each value is `begin + i * step`, held to `end`.
   def float_size
     Primitive.attr! :hidden
+    count = float_count
+    count.infinite? ? count : count.to_i
+  end
+
+  # The count as a Float, the way CRuby's ruby_float_step_size keeps
+  # it: NaN and infinity travel through, so the walk reads them as
+  # nothing to do and forever, and `size` reports them as ruby does.
+  def float_count
+    Primitive.attr! :hidden
     first = @begin.to_f
     last = @end.to_f
     unit = @step.to_f
@@ -324,20 +333,22 @@ class Enumerator::ArithmeticSequence < Enumerator
     return (unit > 0 ? first <= last : first >= last) ? 1 : 0 if unit.infinite?
 
     n = (last - first) / unit
+    return n if n.nan? || n.infinite? == 1
+
     err = (first.abs + last.abs + (last - first).abs) / unit.abs * Float::EPSILON
     err = 0.5 if err > 0.5
     if @exclude_end
-      return 0 if n <= 0
+      return 0.0 if n <= 0
 
       n = n < 1 ? 0 : (n - err).floor
       d = (n + 1) * unit + first
       n += 1 if first < last ? d < last : (first > last && d > last)
     else
-      return 0 if n < 0
+      return 0.0 if n < 0
 
       n = (n + err).floor
     end
-    n + 1
+    (n + 1).to_f
   end
 
   def float_each
@@ -352,9 +363,7 @@ class Enumerator::ArithmeticSequence < Enumerator
       end
     end
     last = @end.to_f
-    return self if @range && @step < 0
-
-    count = float_size
+    count = float_count
     i = 0
     while i < count
       d = i * unit + first
