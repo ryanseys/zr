@@ -32,7 +32,13 @@ module Ze0
     # which CRuby runs without a frame on its builtin receivers. An
     # argument may be a Splat; `kwargs` is a HashLit passed as keywords,
     # or nil; `block` is a Block literal, a BlockPass, or nil.
-    Send = Struct.new(:recv, :name, :args, :line, :vcall, :opt, :block, :kwargs, :safe, :write)
+    # `using` is the activation row in force where the call is written,
+    # nil where no refinement is.
+    Send = Struct.new(:recv, :name, :args, :line, :vcall, :opt, :block, :kwargs, :safe, :write, :using)
+
+    # `using mod`: row `id` holds what row `from` held plus every
+    # refinement `mod` carries. `from` is -1 where nothing was in use.
+    Using = Struct.new(:id, :from, :value, :line)
     # A value the lowering has already put in record slot `index`: the
     # lowering's own node, for a receiver or argument evaluated once.
     Slot = Struct.new(:index, :line)

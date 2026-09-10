@@ -158,9 +158,31 @@ class Module
     raise NameError.new("method '#{method.name}' for #{is_a?(Class) ? "class" : "module"} '#{self}' is #{kind}", method.name, receiver: self)
   end
 
-  # Refinements are not written yet, so a module holds none and none
-  # is ever in use.
-  def refinements = []
+  # `refine C do ... end`: the methods go in a holder module, never on
+  # C itself, so they stay invisible until a `using` names this module.
+  def refine(target, &block)
+    raise ArgumentError, "no block given" unless block
+    raise TypeError, "wrong argument type #{target.class} (expected Class or Module)" unless target.is_a?(Module)
+
+    table = (@__refinements__ ||= {})
+    holder = table[target]
+    unless holder
+      holder = Primitive.zr_refinement_new(target)
+      holder.instance_variable_set(:@__origin__, self)
+      table[target] = holder
+    end
+    Primitive.zr_refine_body(block, holder)
+    holder
+  end
+
+  def refinements = @__refinements__ ? @__refinements__.values : []
+
+  # `using` does its work where it is written, which the compiler sees;
+  # anywhere else it is the refusal.
+  def using(mod)
+    raise RuntimeError, "Module#using is not permitted in methods"
+  end
+  private :using
 
   def self.used_modules = []
 
@@ -203,4 +225,23 @@ module Kernel
   def autoload(name, feature) = Primitive.zr_unimplemented("autoload with a computed feature")
   def autoload?(name, inherit = true) = Object.autoload?(name)
   private :autoload, :autoload?
+end
+
+# The holder `Module#refine` makes. It has no name of its own; the pair
+# it stands for is what it shows.
+class Refinement
+  def target = Primitive.zr_refined_class(self)
+
+  def to_s = "#<refinement:#{target}@#{instance_variable_get(:@__origin__)}>"
+  alias inspect to_s
+end
+
+module Kernel
+  # Only the compiler activates a refinement, where the source writes
+  # the `using`; the method itself is the refusal every other spot gets.
+  def using(mod)
+    raise RuntimeError, "main.using is permitted only at toplevel"
+  end
+
+  private :using
 end

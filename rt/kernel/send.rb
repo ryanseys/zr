@@ -321,7 +321,10 @@ machine def zr_super(rec, argc, argv, blk)
   end
   k = zr_super_from(rec, recv, owner)
   e = 0
-  if k != QNIL
+  if k != QNIL && zr_type(k) == T_MODULE && ClassExt.refined(RClass.ext(k)) != QNIL
+    # `super` in a refined method reaches what the refinement overrode.
+    e = zr_find_method(ClassExt.refined(RClass.ext(k)), mid)
+  elsif k != QNIL
     e = zr_find_method(RClass.superclass(k), mid)
   end
   if e == 0

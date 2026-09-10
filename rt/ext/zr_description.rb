@@ -146,6 +146,14 @@ module Ze0
         d zr_mark_children Void v:Value
         d zr_release Void v:Value
         d zr_mod_set_temporary_name Value mod:Value name:Value
+        d zr_refinement_new Value klass:Value
+        d zr_refined_class Value h:Value
+        d zr_activate Value id:Word
+        d zr_activate_owner Value rec:Ptr
+        d zr_using_activate Value id:Word mod:Value from:Word
+        d zr_using_holders Value list:Value mod:Value
+        d zr_refined_entry Ptr klass:Value mid:Word
+        d zr_found_refinement Value
         d zr_cref_push Value klass:Value outer:Value
         d zr_cref_push_eval Value klass:Value outer:Value
         d zr_cref_lexical Value cref:Value
@@ -262,6 +270,7 @@ module Ze0
         d zr_cref_in_context Value frame:Ptr mod:Value
         d zr_obj_define_singleton_method Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_bmethod_call Value e:Ptr recv:Value argc:Word argv:Ptr blk:Value
+        d zr_refine_body Value blk:Value holder:Value
         d zr_mark_backtrace_rows Void exc:Value
         d zr_frame_with_file Ptr rec:Ptr
         d zr_backtrace_capture Void exc:Value top:Ptr
@@ -1059,6 +1068,8 @@ module Ze0
         c MCACHE_ROWS 2048
         c MCACHE_OFF 1
         c MCACHE_VERIFY 2
+        c G_REFINEMENT 46
+        c G_ACTIVATIONS 47
         c T_CREF 25
         c VIS_PUBLIC 0
         c VIS_PRIVATE 1
@@ -1123,7 +1134,7 @@ module Ze0
         c G_FALSE 10
         c G_MAIN 11
         c G_NUMERIC 13
-        c G_COUNT 46
+        c G_COUNT 48
         c GATE_PLUS 1
         c GATE_MINUS 2
         c GATE_MUL 4
@@ -1225,7 +1236,7 @@ module Ze0
         s RArray 40 8 basic:0:RBasic len:16:Word capa:24:Word ptr:32:Ptr
         s Buf 24 8 ptr:0:Ptr len:8:Word capa:16:Word
         s RClass 56 8 basic:0:RBasic name:16:Value superclass:24:Value ext:32:Ptr attached:40:Value origin:48:Value
-        s ClassExt 104 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word
+        s ClassExt 120 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word refined:104:Value active:112:Value
         s MEntry 72 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value
         s CEntry 64 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value
         s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word
@@ -1239,7 +1250,7 @@ module Ze0
         s HEntry 32 8 key:0:Value value:8:Value live:16:Word hash:24:Word
         s Heap 72 8 free:0:Ptr allocated:8:Word collections:16:Word stress:24:Word last:32:Ptr disabled:40:Word arenas:48:Word freed:56:Word nanoseconds:64:Word
         s Frame 96 8 prev:0:Ptr meta:8:Ptr line:16:Word serial:24:Word self:32:Value cref:40:Value blk:48:Value nvalues:56:Word mid:64:Word svar:72:Value lastline:80:Value defined:88:Value
-        s Task 120 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value mid:96:Word missing:104:Word found:112:Value
+        s Task 128 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value mid:96:Word missing:104:Word found:112:Value refine:120:Value
         s MarkStack 24 8 ptr:0:Ptr len:8:Word capa:16:Word
         s RMethod 112 8 basic:0:RBasic recv:16:Value klass:24:Value owner:32:Value entry:40:MEntry
         s IvTab 24 8 rows:0:Ptr len:8:Word cap:16:Word

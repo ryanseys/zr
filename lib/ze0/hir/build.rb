@@ -66,6 +66,11 @@ module Ze0
         # English.rb is where every one of them comes from.
         def back_ref(name) = @back_refs[name]
 
+        # The next `using` row this program holds.
+        def next_activation
+          @activations = (@activations || -1) + 1
+        end
+
         def back_ref!(new_name, old_name)
           @back_refs[new_name] = old_name
         end
@@ -226,6 +231,9 @@ module Ze0
         @path = [Object.name]
         @singleton = false
         @block_depth = 0
+        @using = nil
+        @in_def = false
+        @activations = -1
         @temps = [[]]
         @scopes = [@temps.first]
       end
@@ -240,10 +248,12 @@ module Ze0
       # `body` lowered one block scope deeper.
       def in_block
         @block_depth += 1
+        using = @using
         @temps.push([])
         yield
       ensure
         @block_depth -= 1
+        @using = using
         @temps.pop
       end
 
@@ -418,7 +428,47 @@ module Ze0
 
         body = node.body
         body = body.partition { |s| s.is_a?(Prism::PreExecutionNode) }.flatten if hoist
-        Seq.new(body.map { |s| expr(s) }, node.location.start_line)
+        Seq.new(body.map { |s| statement(s) }, node.location.start_line)
+      end
+
+      # One statement, with the activation in force where it stands
+      # written on every send it holds. A `using` moves that activation
+      # on for the statements after it.
+      def statement(node)
+        out = using_activation(node) || expr(node)
+        mark_using(out, {}) if @using
+        out
+      end
+
+      # `using mod` where ruby permits it: at toplevel or in a class or
+      # module body, never inside a method, and never as a send whose
+      # answer somebody reads.
+      def using_activation(node)
+        return nil if @in_def
+        return nil unless node.is_a?(Prism::CallNode) && node.name == :using && node.block.nil?
+        return nil unless node.receiver.nil? || node.receiver.is_a?(Prism::SelfNode)
+
+        args = node.arguments&.arguments
+        return nil unless args && args.size == 1 && !args[0].is_a?(Prism::SplatNode)
+
+        value = expr(args[0])
+        from = @using.is_a?(Integer) ? @using : -1
+        @using = @loader ? @loader.next_activation : (@activations += 1)
+        Using.new(@using, from, value, node.location.start_line)
+      end
+
+      def mark_using(node, seen)
+        return if node.nil? || seen.key?(node.object_id)
+
+        if node.is_a?(Array)
+          node.each { |child| mark_using(child, seen) }
+          return
+        end
+        return unless node.is_a?(Struct)
+
+        seen[node.object_id] = true
+        node.using = @using if node.is_a?(Send) && node.using.nil?
+        node.each_pair { |_, child| mark_using(child, seen) }
       end
 
       def expr(node)
@@ -708,6 +758,8 @@ module Ze0
       def define(node)
         receiver = node.receiver && expr(node.receiver)
         in_definee(nil, !receiver.nil?) do
+          was = @in_def
+          @in_def = true
           in_scope do
             params = parameters(node.parameters)
             @def_params = params
@@ -715,6 +767,8 @@ module Ze0
             locals = with_temps(node.locals + (params.names - node.locals))
             Def.new(node.name, params, locals, body, node.location.start_line, receiver, evals?(node.body))
           end
+        ensure
+          @in_def = was
         end
       end
 
@@ -731,14 +785,18 @@ module Ze0
 
       # The definee a body runs under: one step down the lexical path,
       # and whether it is the singleton side.
+      # A `using` written in a body reaches the rest of that body and
+      # nothing outside it.
       def in_definee(name, singleton)
         @path.push(name) if name
         was = @singleton
+        using = @using
         @singleton = singleton
         yield
       ensure
         @path.pop if name
         @singleton = was
+        @using = using
       end
 
       # A bare `super`: the method's parameters passed on as they stand,
@@ -893,8 +951,24 @@ module Ze0
         args, kwargs, forwarded = arguments(node.arguments)
         @loader.evals!(node.name, args)
         opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
-        Send.new(node.receiver && expr(node.receiver), node.name, args, message_line(node), node.variable_call?, opt,
-                 node.block ? block(node.block) : forwarded, kwargs, node.call_operator == "&.", node.attribute_write?)
+        recv = node.receiver && expr(node.receiver)
+        # A refinement is in use inside its own block, so a sibling
+        # refined method is reachable there by bare name.
+        blk = node.block ? in_refine(node.name) { block(node.block) } : forwarded
+        Send.new(recv, node.name, args, message_line(node), node.variable_call?, opt,
+                 blk, kwargs, node.call_operator == "&.", node.attribute_write?)
+      end
+
+      def in_refine(name)
+        return yield unless name == :refine
+
+        was = @using
+        @using = :owner
+        begin
+          yield
+        ensure
+          @using = was
+        end
       end
 
       # A call stands where its name does, which a receiver spread over

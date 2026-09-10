@@ -9,7 +9,10 @@
 # placed below the prepended modules, or nil.
 Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr, attached: Value, origin: Value
 # `serial` counts classes in creation order, which `subclasses` reads.
-Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word
+# `refined` is the class a refinement holder stands over, and `active`
+# the one-item activation list that holder alone makes; both are nil on
+# an ordinary class or module.
+Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word, refined: Value, active: Value
 # `orig` is the name the method was first defined under, which an
 # alias keeps. `from` is the chain node the entry an alias or a
 # visibility change copied was found on, where `super` in the body
@@ -47,6 +50,8 @@ machine def zr_class_alloc(type, sup, klass)
   ClassExt.set_ccap(ext, 0)
   zr_ivtab_init(ClassExt.iv(ext))
   zr_ivtab_init(ClassExt.cv(ext))
+  ClassExt.set_refined(ext, Machine.value(QNIL))
+  ClassExt.set_active(ext, Machine.value(QNIL))
   counter = Machine.static(:class_serial, 8)
   Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
   ClassExt.set_serial(ext, Machine.load64(counter, 0))
@@ -1174,6 +1179,14 @@ end
 # are used: a helper for each would cost more than it saves.
 sig [Value, Word] => Ptr
 machine def zr_find_method(klass, mid)
+  # A refinement in use answers first, and never from the cache: the
+  # cache is keyed by class and name alone.
+  if Task.refine(zr_task()) != QNIL
+    e = zr_refined_entry(klass, mid)
+    if e != 0
+      return e
+    end
+  end
   mode = Machine.load64(Machine.static(:mcache_mode, 8), 0)
   if mode == MCACHE_OFF
     return zr_search_method(klass, mid)
@@ -1267,6 +1280,8 @@ machine def zr_mark_children(v)
     end
     zr_mark_ivtab(ClassExt.iv(ext))
     zr_mark_ivtab(ClassExt.cv(ext))
+    zr_mark(ClassExt.refined(ext))
+    zr_mark(ClassExt.active(ext))
   elsif t == T_EXCEPTION
     zr_mark(RException.message(v))
     zr_mark(RException.bt(v))
@@ -1361,4 +1376,131 @@ machine def zr_mod_set_temporary_name(mod, name)
     RBasic.set_flags(mod, RBasic.flags(mod) | FL_TEMP_NAME)
   end
   Machine.value(QTRUE)
+end
+
+# --- refinements -------------------------------------------------------
+
+G_REFINEMENT = 46
+# One row per `using` the program holds; a call site names the row that
+# covers it.
+G_ACTIVATIONS = 47
+
+# The holder module `refine` makes: an ordinary module that remembers
+# the class it stands over, and carries the activation list it alone
+# forms so a call inside its own block costs no allocation.
+sig [Value] => Value
+machine def zr_refinement_new(klass)
+  h = zr_class_alloc(T_MODULE, Machine.value(QNIL), zr_global(G_REFINEMENT))
+  ext = RClass.ext(h)
+  ClassExt.set_refined(ext, klass)
+  a = zr_ary_new(1)
+  zr_ary_push(a, h)
+  ClassExt.set_active(ext, a)
+  h
+end
+
+sig [Value] => Value
+machine def zr_refined_class(h)
+  ClassExt.refined(RClass.ext(h))
+end
+
+# The activation list a call site names, which every send under it
+# reads. A row that no `using` has filled yet holds nil.
+sig [Word] => Value
+machine def zr_activate(id)
+  rows = zr_global(G_ACTIVATIONS)
+  list = Machine.value(QNIL)
+  if !zr_special_p(rows) && id < RArray.len(rows)
+    list = zr_ary_at(rows, id)
+  end
+  Task.set_refine(zr_task(), list)
+  Machine.value(QNIL)
+end
+
+# Inside a `refine` block the refinement being written is in use, so a
+# sibling method is reachable by bare name.
+sig [Ptr] => Value
+machine def zr_activate_owner(rec)
+  meta = zr_method_meta_of(rec)
+  list = Machine.value(QNIL)
+  if meta != 0
+    owner = FrameMeta.owner(meta)
+    if !zr_special_p(owner) && (zr_type(owner) == T_MODULE || zr_type(owner) == T_CLASS)
+      list = ClassExt.active(RClass.ext(owner))
+    end
+  end
+  Task.set_refine(zr_task(), list)
+  Machine.value(QNIL)
+end
+
+# `using mod` at row `id`: the rows `from` already held, then every
+# holder `mod` refines. `from` is -1 where nothing was in use.
+sig [Word, Value, Word] => Value
+machine def zr_using_activate(id, mod, from)
+  rows = zr_global(G_ACTIVATIONS)
+  if zr_special_p(rows)
+    rows = zr_ary_new(8)
+    zr_set_global(G_ACTIVATIONS, rows)
+  end
+  while RArray.len(rows) <= id
+    zr_ary_push(rows, Machine.value(QNIL))
+  end
+  list = zr_ary_new(4)
+  if from >= 0 && from < RArray.len(rows)
+    zr_ary_splat(list, zr_ary_at(rows, from))
+  end
+  r = zr_using_holders(list, mod)
+  return r if r == QUNDEF
+  zr_ary_store(rows, id, list)
+  Machine.value(QNIL)
+end
+
+# Every holder `mod` refines, appended to `list`. `Module#refinements`
+# answers them, so a module written in ruby takes part too.
+sig [Value, Value] => Value
+machine def zr_using_holders(list, mod)
+  if zr_special_p(mod) || (zr_type(mod) != T_MODULE && zr_type(mod) != T_CLASS)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
+    zr_buf_str(b, zr_class_name_of(mod))
+    zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+  found = zr_send(mod, Machine.id(:refinements), 0, 0)
+  return found if found == QUNDEF
+  zr_ary_splat(list, found)
+end
+
+# The entry a refinement in use answers for `mid` on `klass`, newest
+# first, or 0.
+sig [Value, Word] => Ptr
+machine def zr_refined_entry(klass, mid)
+  list = Task.refine(zr_task())
+  if zr_special_p(list) || zr_type(list) != T_ARRAY
+    return 0
+  end
+  i = RArray.len(list) - 1
+  while i >= 0
+    h = zr_ary_at(list, i)
+    if !zr_special_p(h) && zr_type(h) == T_MODULE && zr_class_inherits(klass, ClassExt.refined(RClass.ext(h)))
+      e = zr_search_method(h, mid)
+      if e != 0
+        return e
+      end
+    end
+    i -= 1
+  end
+  0
+end
+
+# The refinement the last lookup answered from, or nil. A Method built
+# from a refined name is owned by its holder.
+sig [] => Value
+machine def zr_found_refinement
+  f = Task.found(zr_task())
+  if !zr_special_p(f) && zr_type(f) == T_MODULE && ClassExt.refined(RClass.ext(f)) != QNIL
+    return f
+  end
+  Machine.value(QNIL)
 end

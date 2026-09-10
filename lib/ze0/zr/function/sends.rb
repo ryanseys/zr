@@ -96,7 +96,7 @@ module Ze0
         def send_staged(node, recv, argv, argc, block_slot)
           if node.block
             call_with_block(node, recv, argv, argc, block_slot)
-          elsif node.args.size == 1 && node.kwargs.nil? && OPS.key?(node.name) && !node.vcall
+          elsif node.args.size == 1 && node.kwargs.nil? && OPS.key?(node.name) && !node.vcall && node.using.nil?
             operator(node, recv, argv)
           else
             dispatch(node, recv, argv, argc)
@@ -136,14 +136,34 @@ module Ze0
 
         # A bare identifier, an implicit or `self` receiver, or an explicit
         # one, which visibility applies to.
+        # `using mod` fills the row it names, so every send under it
+        # reads what this module refines.
+        def using_row(node)
+          at_line(node.line)
+          checked(kernel("zr_using_activate", imm(node.id), expr(node.value), imm(node.from)))
+        end
+
+        # The refinements in force where this call is written, told to
+        # the task so the lookup sees them.
+        def activate(node)
+          return if node.using.nil?
+
+          if node.using == :owner
+            kernel("zr_activate_owner", @rec)
+          else
+            kernel("zr_activate", imm(node.using))
+          end
+        end
+
         def dispatch(node, recv, argv, argc)
           entry = if node.vcall then "zr_vcall"
-                  elsif node.opt then OPT_ENTRIES.fetch(node.name)
+                  elsif node.opt && node.using.nil? then OPT_ENTRIES.fetch(node.name)
                   elsif explicit?(node) then "zr_call"
                   else "zr_send"
                   end
           at_line(node.line)
           argc = keyword_argc(node, argc, argv)
+          activate(node)
           if node.name == :new
             mode = node.vcall ? 1 : (explicit?(node) ? 2 : 0)
             return checked(kernel("zr_new", recv, argc, argv, imm(mode)))
@@ -159,12 +179,14 @@ module Ze0
             proc = checked(kernel("zr_block_pass", expr(node.block.value)))
             at_line(node.line)
             argc = keyword_argc(node, argc, argv)
+            activate(node)
             return checked(kernel(explicit?(node) ? "zr_call_blk" : "zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc))
           end
 
           site, proc = make_proc(node.block, slot)
           at_line(node.line)
           argc = keyword_argc(node, argc, argv)
+          activate(node)
           catching_break(site) { kernel(explicit?(node) ? "zr_call_blk" : "zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc) }
         end
 

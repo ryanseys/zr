@@ -74,7 +74,10 @@ machine def zr_method_new(recv, klass, mid)
     end
     return zr_undefined_method(klass, mid)
   end
-  owner = zr_method_owner(klass, mid)
+  owner = zr_found_refinement()
+  if owner == QNIL
+    owner = zr_method_owner(klass, mid)
+  end
   m = zr_alloc(T_METHOD, zr_global(recv == QUNDEF ? G_UNBOUND_METHOD : G_METHOD))
   RMethod.set_recv(m, recv)
   RMethod.set_klass(m, klass)

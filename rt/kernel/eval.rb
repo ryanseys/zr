@@ -246,3 +246,12 @@ machine def zr_bmethod_call(e, recv, argc, argv, blk)
   RProc.set_home(p, 0)
   Machine.call(:block, RProc.fn(p), p, argc, argv, blk)
 end
+
+# The body of a `refine` block, under the holder module: a `def` in it
+# lands there, and the block is given the holder.
+sig [Value, Value] => Value
+machine def zr_refine_body(blk, holder)
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(holder))
+  zr_yield_under(blk, holder, holder, 1, slot)
+end

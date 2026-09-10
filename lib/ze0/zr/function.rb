@@ -173,6 +173,9 @@ module Ze0
         @f.store(@self, @rec, off(@frame, "self"))
         @f.store(@cref, @rec, off(@frame, "cref"))
         @f.store(@blk, @rec, off(@frame, "blk"))
+        # A refinement in use belongs to the call site, not to what the
+        # site called: a ruby frame of its own starts with none.
+        @f.store(imm(@l.const("QNIL")), @task_addr, off(@task, "refine"))
         @f.store(imm(@nvalues), @rec, off(@frame, "nvalues"))
         @f.store(imm(@l.unit.const_for("QNIL")), @rec, off(@frame, "svar"))
         @f.store(imm(@l.unit.const_for("QNIL")), @rec, off(@frame, "lastline"))

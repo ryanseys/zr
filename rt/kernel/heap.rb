@@ -77,7 +77,7 @@ end
 # `defined` is the class or proxy the method was found in, which `super`
 # continues from (a module included twice has two proxies).
 Machine.struct :Frame, prev: Ptr, meta: Ptr, line: Word, serial: Word, self: Value, cref: Value, blk: Value, nvalues: Word, mid: Word, svar: Value, lastline: Value, defined: Value
-Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word, kw: Word, stack_limit: Ptr, guards: Value, catches: Value, throw_tag: Value, mid: Word, missing: Word, found: Value
+Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word, kw: Word, stack_limit: Ptr, guards: Value, catches: Value, throw_tag: Value, mid: Word, missing: Word, found: Value, refine: Value
 
 # The runtime's own roots: the core classes and the main object.
 G_BASIC_OBJECT = 0
@@ -93,7 +93,7 @@ G_TRUE = 9
 G_FALSE = 10
 G_MAIN = 11
 G_NUMERIC = 13
-G_COUNT = 46
+G_COUNT = 48
 
 sig [] => Ptr
 machine def zr_globals
@@ -302,6 +302,7 @@ machine def zr_mark_task(t)
   zr_mark(Task.catches(t))
   zr_mark(Task.throw_tag(t))
   zr_mark(Task.found(t))
+  zr_mark(Task.refine(t))
   rec = Task.top(t)
   while rec != 0
     Machine.store64(zr_marking(), 0, Machine.word(zr_fix(4)))
