@@ -61,6 +61,34 @@ class Thread
       @threads << @main
     end
 
+    # A loop back edge in compiled Ruby comes here once the kernel's
+    # count runs out, so a thread that only computes cannot starve its
+    # siblings. A thread with nobody waiting keeps its turn.
+    def preempt
+      wake_due
+      return nil if @queue.empty?
+
+      @queue << @current
+      switch
+      nil
+    end
+
+    # Every sleeper whose deadline has passed joins the run queue.
+    # `switch` reaches a sleeper only when the run queue empties, which
+    # a thread that only computes never lets happen.
+    def wake_due
+      return nil if @sleepers.empty?
+
+      now = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
+      due, rest = @sleepers.partition { |deadline, _| deadline <= now }
+      @sleepers = rest
+      due.each do |_, thread|
+        thread.send(:timed_out)
+        enqueue(thread)
+      end
+      nil
+    end
+
     # Runs the next thread that can run: the run queue's head, else the
     # sleeper whose deadline comes first once it passes. With neither,
     # a deadly wait is a deadlock, and a plain sleep waits forever.
@@ -293,6 +321,7 @@ class Thread
     Primitive.attr! :hidden
     @site = site && site[0, site.index(":in ")]
     @fiber = Fiber.new { body }
+    Primitive.zr_preempt_arm(Thread, :preempt)
     Thread.send(:enqueue, self)
     Thread.instance_variable_get(:@threads) << self
   end

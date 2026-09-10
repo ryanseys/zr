@@ -881,6 +881,9 @@ module Ze0
         d zr_vcall Value recv:Value mid:Word argc:Word argv:Ptr
         d zr_ruby2_hash_new Value h:Value
         d zr_ruby2_hash_p Value h:Value
+        d zr_preempt_arm Value receiver:Value message:Value
+        d zr_preempt Value
+        d zr_preempt_send Value mid:Word
         d zr_sock_socket Value domain:Value type:Value protocol:Value
         d zr_sock_bind Value fd:Value addr:Value
         d zr_sock_connect Value fd:Value addr:Value
@@ -1174,6 +1177,7 @@ module Ze0
         c MISS_EXPLICIT 3
         c MISS_PRIVATE 4
         c MISS_PROTECTED 5
+        c PREEMPT_TICKS 20000
         c SOCKADDR_MAX 128
         c G_FROZEN_ERROR 27
         c GATE_FREEZE 32768

@@ -44,7 +44,12 @@ module Ze0
           @loops << { head: head, body: body, done: done, depth: @regions.size }
           expr(node.body) if node.body
           @loops.pop
-          @f.jump(head) unless @f.terminated?
+          unless @f.terminated?
+            # The back edge is where a thread that only computes hands
+            # the turn on; without it a spinner starves its siblings.
+            checked(kernel("zr_preempt"))
+            @f.jump(head)
+          end
           switch(done)
           result
         end

@@ -562,3 +562,49 @@ sig [Value] => Value
 machine def zr_ruby2_hash_p(h)
   zr_bool(!zr_special_p(h) && zr_type(h) == T_HASH && (RBasic.flags(h) & FL_RUBY2) != 0)
 end
+
+# Preemption. A green thread that only computes reaches no blocking
+# call, so nothing else would ever run. Every loop back edge in
+# compiled Ruby calls here; once the count runs out the running thread
+# hands the turn on. Thread arms the receiver and the message when a
+# second thread appears, so a one-thread program pays a count alone.
+PREEMPT_TICKS = 20_000
+
+sig [Value, Value] => Value
+machine def zr_preempt_arm(receiver, message)
+  Machine.store64(Machine.static(:preempt_mid, 8), 0, zr_sym2id(message))
+  Machine.store64(Machine.static(:preempt_to, 8), 0, Machine.word(receiver))
+  Machine.value(QNIL)
+end
+
+sig [] => Value
+machine def zr_preempt
+  count = Machine.static(:preempt_count, 8)
+  n = Machine.load64(count, 0) - 1
+  if n > 0
+    Machine.store64(count, 0, n)
+    return Machine.value(QNIL)
+  end
+  Machine.store64(count, 0, PREEMPT_TICKS)
+  mid = Machine.load64(Machine.static(:preempt_mid, 8), 0)
+  if mid == 0
+    return Machine.value(QNIL)
+  end
+  zr_preempt_send(mid)
+end
+
+# The turn goes on through the armed receiver, and never while this
+# task is already inside one of those sends: the scheduler runs
+# compiled Ruby of its own, back edges and all.
+sig [Word] => Value
+machine def zr_preempt_send(mid)
+  busy = Machine.static(:preempt_busy, 8)
+  t = Machine.word(zr_task())
+  if Machine.load64(busy, 0) == t
+    return Machine.value(QNIL)
+  end
+  Machine.store64(busy, 0, t)
+  r = zr_send(Machine.value(Machine.load64(Machine.static(:preempt_to, 8), 0)), mid, 0, Machine.ptr(0))
+  Machine.store64(busy, 0, 0)
+  r
+end
