@@ -17,6 +17,7 @@ Machine.import "chdir", [Ptr] => I32
 Machine.import "opendir", [Ptr] => Ptr
 Machine.import "readdir", [Ptr] => Ptr
 Machine.import "closedir", [Ptr] => I32
+Machine.import "select", [I32, Ptr, Ptr, Ptr, Ptr] => I32
 Machine.import "__error", [] => Ptr
 Machine.import "strerror", [I32] => Ptr
 
@@ -314,4 +315,51 @@ end
 sig [Value, Value] => Value
 machine def zr_path_access(path, mode)
   zr_bool(Machine.word(access(RString.ptr(path), Machine.i32(zr_fix2long(mode)))) == 0)
+end
+
+# select(2) on one descriptor, which is what ruby itself waits with:
+# the events that came ready, 0 when the time ran out, or the negated
+# errno. A negative time waits for good.
+sig [Value, Value, Value] => Value
+machine def zr_io_wait(fd, events, milliseconds)
+  n = zr_fix2long(fd)
+  want = zr_fix2long(events)
+  # Three descriptor sets of 128 bytes: readable, writable, urgent.
+  sets = Machine.slot(384)
+  i = 0
+  while i < 384
+    Machine.store8(sets + i, 0, 0)
+    i += 1
+  end
+  word = (n / 32) * 4
+  bit = 1 << (n % 32)
+  if (want & 1) != 0
+    Machine.store32(sets + word, 0, Machine.i32(bit))
+  end
+  if (want & 4) != 0
+    Machine.store32(sets + 128 + word, 0, Machine.i32(bit))
+  end
+  if (want & 2) != 0
+    Machine.store32(sets + 256 + word, 0, Machine.i32(bit))
+  end
+  span = Machine.slot(16)
+  ms = zr_fix2long(milliseconds)
+  Machine.store64(span, 0, ms / 1000)
+  Machine.store32(span, 8, Machine.i32((ms % 1000) * 1000))
+  Machine.store32(span, 12, Machine.i32(0))
+  r = select(Machine.i32(n + 1), sets, sets + 128, sets + 256, ms < 0 ? 0 : span)
+  if r < Machine.i32(0)
+    return zr_fix(0 - zr_errno())
+  end
+  ready = 0
+  if (Machine.word(Machine.load32(sets + word, 0)) & bit) != 0
+    ready = ready | 1
+  end
+  if (Machine.word(Machine.load32(sets + 128 + word, 0)) & bit) != 0
+    ready = ready | 4
+  end
+  if (Machine.word(Machine.load32(sets + 256 + word, 0)) & bit) != 0
+    ready = ready | 2
+  end
+  zr_fix(ready)
 end

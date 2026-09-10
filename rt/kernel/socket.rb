@@ -201,7 +201,7 @@ machine def zr_sock_getaddrinfo(host, service, family, socktype, protocol, flags
   Machine.store64(head, 0, 0)
   r = getaddrinfo(host == QNIL ? 0 : RString.ptr(host), service == QNIL ? 0 : RString.ptr(service), hints, head)
   if r != Machine.i32(0)
-    return zr_cstr_str(gai_strerror(r))
+    return zr_fix(Machine.word(r))
   end
   out = zr_ary_new(4)
   node = Machine.ptr(Machine.load64(head, 0))
@@ -229,10 +229,16 @@ machine def zr_sock_getnameinfo(addr, flags)
   r = getnameinfo(RString.ptr(addr), Machine.i32(RString.len(addr)), host, Machine.i32(1025),
                   service, Machine.i32(64), Machine.i32(zr_fix2long(flags)))
   if r != Machine.i32(0)
-    return zr_cstr_str(gai_strerror(r))
+    return zr_fix(Machine.word(r))
   end
   out = zr_ary_new(2)
   zr_ary_push(out, zr_cstr_str(host))
   zr_ary_push(out, zr_cstr_str(service))
   out
+end
+
+# What the resolver calls a failure code.
+sig [Value] => Value
+machine def zr_sock_gai_message(code)
+  zr_cstr_str(gai_strerror(Machine.i32(zr_fix2long(code))))
 end
