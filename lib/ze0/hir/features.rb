@@ -64,7 +64,7 @@ module Ze0
       "bundler/vendored_tsort", "bundler/vendored_uri", "bundler/version", "bundler/vlad",
       "bundler/worker", "bundler/yaml_serializer", "cgi", 
       "cgi/util", "complex", "continuation", "coverage",
-      "date", "date_core", "delegate", "did_you_mean",
+      "delegate", "did_you_mean",
       "did_you_mean/core_ext/name_error", "did_you_mean/experimental", "did_you_mean/formatter", "did_you_mean/formatters/plain_formatter",
       "did_you_mean/formatters/verbose_formatter", "did_you_mean/jaro_winkler", "did_you_mean/levenshtein", "did_you_mean/spell_checker",
       "did_you_mean/spell_checkers/key_error_checker", "did_you_mean/spell_checkers/method_name_checker", "did_you_mean/spell_checkers/name_error_checkers", "did_you_mean/spell_checkers/name_error_checkers/class_name_checker",

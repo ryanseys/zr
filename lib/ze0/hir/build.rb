@@ -831,9 +831,13 @@ module Ze0
         args, kwargs, forwarded = arguments(node.arguments)
         @loader.evals!(node.name, args)
         opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
-        Send.new(node.receiver && expr(node.receiver), node.name, args, node.location.start_line, node.variable_call?, opt,
+        Send.new(node.receiver && expr(node.receiver), node.name, args, message_line(node), node.variable_call?, opt,
                  node.block ? block(node.block) : forwarded, kwargs, node.call_operator == "&.", node.attribute_write?)
       end
+
+      # A call stands where its name does, which a receiver spread over
+      # several lines is not.
+      def message_line(node) = node.message_loc&.start_line || node.location.start_line
 
       # The name a require names at compile time: a String literal, or a
       # path built from `__dir__` with a literal.
