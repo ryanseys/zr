@@ -21,8 +21,8 @@ module Kernel
 end
 
 class Module
-  # The module is the self, the definee and a lexical scope of its own,
-  # so `Module.nesting` in the string is the module alone.
+  # The module is the self and the definee, and a lexical scope on top
+  # of the one the call stands in.
   def class_eval(*args, &block)
     if block
       raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0)" unless args.empty?
@@ -32,7 +32,7 @@ class Module
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)" unless (1..3).cover?(args.size)
 
     code = Ze0::Eval.current.compile(args[0], args[1] || Primitive.zr_eval_source_name, args[2] || 1, Primitive.zr_eval_scopes)
-    Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref_of(self), Primitive.zr_eval_env)
+    Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref_under(self, Primitive.zr_eval_cref), Primitive.zr_eval_env)
   end
 
   alias module_eval class_eval
@@ -54,6 +54,6 @@ class BasicObject
     end
 
     code = ::Ze0::Eval.current.compile(args[0], args[1] || Primitive.zr_eval_source_name, args[2] || 1, Primitive.zr_eval_scopes)
-    Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref_of(Primitive.zr_eval_class_of(self)), Primitive.zr_eval_env)
+    Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref_under(Primitive.zr_eval_class_of(self), Primitive.zr_eval_cref), Primitive.zr_eval_env)
   end
 end

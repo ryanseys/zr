@@ -20,7 +20,7 @@ module Ze0
       # The ruby half of an extension, as its gem ships it. A gem is on
       # the path only once its native half answers, so a require of one
       # we do not carry stops by name instead of failing halfway in.
-      GEMS = %w[prism json].map { |name| File.expand_path("../../../vendor/ext/#{name}/lib", __dir__) }.freeze
+      GEMS = %w[prism json psych].map { |name| File.expand_path("../../../vendor/ext/#{name}/lib", __dir__) }.freeze
 
       STDLIB = [VENDOR, EXT, *GEMS].freeze
 
@@ -30,7 +30,7 @@ module Ze0
       # `road` is false for an eval: the program it runs inside already
       # carries the compiler, so the eval must not compile it again.
       def self.program(source, file, roots: [], road: true, line: 1, scopes: nil)
-        loader = Loader.new(roots + STDLIB)
+        loader = Loader.new(roots + STDLIB, eval: !road)
         main = loader.unit(file, source, line, scopes)
         body = road && loader.evals? ? Seq.new([eval_road(loader), main.body], 0) : main.body
         Program.new(main.file, main.locals, body, main.frozen, loader.units, main.warnings)
@@ -51,7 +51,8 @@ module Ze0
       class Loader
         attr_reader :units
 
-        def initialize(roots)
+        def initialize(roots, eval: false)
+          @eval = eval
           @roots = roots.map { |r| File.expand_path(r) }
           @units = []
           @index = {}
@@ -75,6 +76,12 @@ module Ze0
 
         def evals? = @evals
 
+        # Whether this build is an eval. A string of ruby cannot add a
+        # unit to a program that is already linked, and it cannot see
+        # the methods of the class it runs inside, so `require` and
+        # `load` there are ordinary sends that dispatch decides.
+        def eval? = @eval
+
         def evals!(name, args)
           @evals = true if name == :eval || (EVAL_FORMS.include?(name) && !args.empty?)
         end
@@ -88,10 +95,27 @@ module Ze0
 
           @roots.concat(load_path_roots(result.value, file))
           frozen = result.magic_comments.any? { |c| c.key == "frozen_string_literal" && c.value == "true" }
-          build = Build.new(file, self, result.encoding)
+          build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value))
           body = build.seq(result.value.statements, hoist: true)
           Unit.new(file, result.value.locals + build.temps, body, frozen, warnings(result, file),
                    file.start_with?("#{EXT}/"))
+        end
+
+        # The definees this file gives a `require`, `require_relative` or
+        # `load` of its own. A call in one of them dispatches to that
+        # method, so it may not take the road that compiles a file in.
+        def shadowed(node, path = [Object.name], singleton = false, found = {})
+          case node
+          when Prism::ClassNode, Prism::ModuleNode
+            shadowed(node.body, path + [node.constant_path.slice], false, found) if node.body
+          when Prism::SingletonClassNode
+            shadowed(node.body, path, true, found) if node.body
+          when Prism::DefNode
+            found[[path.join("::"), !node.receiver.nil? || singleton, node.name]] = true if REQUIRES.include?(node.name)
+          else
+            node&.child_nodes&.each { |child| shadowed(child, path, singleton, found) }
+          end
+          found
         end
 
         # Ruby's parse-time warnings for the file, `key :k is duplicated
@@ -194,10 +218,13 @@ module Ze0
         end
       end
 
-      def initialize(file, loader = nil, encoding = ::Encoding::UTF_8)
+      def initialize(file, loader = nil, encoding = ::Encoding::UTF_8, shadowed: {})
         @file = file
         @loader = loader
         @encoding = encoding
+        @shadowed = shadowed
+        @path = [Object.name]
+        @singleton = false
         @block_depth = 0
         @temps = [[]]
         @scopes = [@temps.first]
@@ -460,21 +487,27 @@ module Ze0
         when Prism::ClassNode
           scope, name = constant_path(node.constant_path)
           superclass = node.superclass && expr(node.superclass)
-          in_scope do
-            body = node.body ? expr(node.body) : Literal.new(nil, line)
-            ClassDef.new(scope, name, superclass, with_temps(node.locals), body, line)
+          in_definee(node.constant_path.slice, false) do
+            in_scope do
+              body = node.body ? expr(node.body) : Literal.new(nil, line)
+              ClassDef.new(scope, name, superclass, with_temps(node.locals), body, line)
+            end
           end
         when Prism::ModuleNode
           scope, name = constant_path(node.constant_path)
-          in_scope do
-            body = node.body ? expr(node.body) : Literal.new(nil, line)
-            ModuleDef.new(scope, name, with_temps(node.locals), body, line)
+          in_definee(node.constant_path.slice, false) do
+            in_scope do
+              body = node.body ? expr(node.body) : Literal.new(nil, line)
+              ModuleDef.new(scope, name, with_temps(node.locals), body, line)
+            end
           end
         when Prism::SingletonClassNode
           target = expr(node.expression)
-          in_scope do
-            body = node.body ? expr(node.body) : Literal.new(nil, line)
-            SingletonClassDef.new(target, with_temps(node.locals), body, line)
+          in_definee(nil, true) do
+            in_scope do
+              body = node.body ? expr(node.body) : Literal.new(nil, line)
+              SingletonClassDef.new(target, with_temps(node.locals), body, line)
+            end
           end
         when Prism::ConstantReadNode then ConstRead.new(nil, node.name, line)
         when Prism::ConstantPathNode
@@ -674,13 +707,27 @@ module Ze0
 
       def define(node)
         receiver = node.receiver && expr(node.receiver)
-        in_scope do
-          params = parameters(node.parameters)
-          @def_params = params
-          body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
-          locals = with_temps(node.locals + (params.names - node.locals))
-          Def.new(node.name, params, locals, body, node.location.start_line, receiver)
+        in_definee(nil, !receiver.nil?) do
+          in_scope do
+            params = parameters(node.parameters)
+            @def_params = params
+            body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
+            locals = with_temps(node.locals + (params.names - node.locals))
+            Def.new(node.name, params, locals, body, node.location.start_line, receiver)
+          end
         end
+      end
+
+      # The definee a body runs under: one step down the lexical path,
+      # and whether it is the singleton side.
+      def in_definee(name, singleton)
+        @path.push(name) if name
+        was = @singleton
+        @singleton = singleton
+        yield
+      ensure
+        @path.pop if name
+        @singleton = was
       end
 
       # A bare `super`: the method's parameters passed on as they stand,
@@ -822,10 +869,14 @@ module Ze0
 
       REQUIRES = %i[require require_relative load].freeze
 
+      # Whether the definee this call stands in has a `require` or
+      # `load` of its own, which dispatch reaches before Kernel's.
+      def shadowed?(name) = @shadowed.key?([@path.join("::"), @singleton, name])
+
       def call(node)
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil?
         return FrozenString.new(node.receiver.unescaped, node.location.start_line) if node.name == :freeze && node.receiver.is_a?(Prism::StringNode) && node.arguments.nil? && node.block.nil?
-        return require_node(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && literal_feature(node)
+        return require_node(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && !shadowed?(node.name) && !@loader&.eval? && literal_feature(node)
         return autoload_node(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
 
         args, kwargs, forwarded = arguments(node.arguments)

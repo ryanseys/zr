@@ -43,7 +43,7 @@ module Ze0
         d zr_eval_self Value
         d zr_eval_cref Value
         d zr_eval_source_name Value
-        d zr_eval_cref_of Value mod:Value
+        d zr_eval_cref_under Value mod:Value outer:Value
         d zr_local_names Value table:Ptr
         d zr_frame_env Value rec:Ptr
         d zr_eval_env Value

@@ -35,11 +35,12 @@ machine def zr_eval_source_name
   zr_buf_take(b)
 end
 
-# A cref an eval on a string runs under: the module alone, which is a
-# lexical scope of its own, so `Module.nesting` there is `[mod]`.
-sig [Value] => Value
-machine def zr_eval_cref_of(mod)
-  zr_cref_push(mod, zr_global(G_TOP_CREF))
+# A cref an eval on a string runs under: the module on top of the
+# scope the call stands in, so a constant the enclosing module holds is
+# still in reach and `Module.nesting` names them both.
+sig [Value, Value] => Value
+machine def zr_eval_cref_under(mod, outer)
+  zr_cref_push(mod, outer)
 end
 
 # The names in a locals table, as symbols in slot order.

@@ -19,9 +19,45 @@ class Ractor
     Primitive.zr_unimplemented("Ractor.new")
   end
 
-  def self.current
-    Primitive.zr_unimplemented("Ractor.current")
+  # The one ractor this process runs. A ractor of its own is still a
+  # stop, so the main ractor is the whole of the story: it carries a
+  # name, its own storage, and the number 1.
+  def self.current = @current ||= allocate
+
+  def self.count = 1
+
+  def self.main = current
+
+  def self.main? = true
+
+  def self.store = @store ||= {}
+  private_class_method :store
+
+  def self.[](key) = store[key.to_sym]
+
+  def self.[]=(key, value)
+    store[key.to_sym] = value
   end
+
+  attr_reader :name
+
+  def name=(text)
+    @name = text.nil? ? nil : text.to_str.dup.freeze
+  end
+
+  def [](key) = Ractor.send(:store)[key.to_sym]
+
+  def []=(key, value)
+    Ractor.send(:store)[key.to_sym] = value
+  end
+
+  def inspect
+    text = +"#<Ractor:#1"
+    text << " " << @name if @name
+    "#{text} running>"
+  end
+
+  alias to_s inspect
 
   # Whether every object reachable from `obj` is frozen. A number, a
   # symbol, a class and the three singletons are shareable as they are.

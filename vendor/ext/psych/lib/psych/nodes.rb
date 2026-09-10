@@ -1,179 +1,78 @@
-# The parse tree `Psych.parse` hands back.
-#
-# These are plain Ruby classes, exactly as upstream psych has them, because a
-# program is allowed to BUILD one: `Psych::Nodes::Scalar.new("x")` then
-# `to_ruby` is how a generator emits YAML without writing text. The Rust half
-# constructs the same classes when it parses, and reads them back when
-# `to_ruby` is called -- so a hand-built tree and a parsed one go through one
-# walk.
-#
-# `#yaml`/`#to_yaml` emit a tree back to text through
-# `Psych::Visitors::Emitter` (visitors/emitter.rb) -- valid, round-trippable
-# YAML; libyaml's exact wrapping and style election are not reproduced.
-
-require "stringio"
+# frozen_string_literal: true
+require_relative 'nodes/node'
+require_relative 'nodes/stream'
+require_relative 'nodes/document'
+require_relative 'nodes/sequence'
+require_relative 'nodes/scalar'
+require_relative 'nodes/mapping'
+require_relative 'nodes/alias'
 
 module Psych
+  ###
+  # = Overview
+  #
+  # When using Psych.load to deserialize a YAML document, the document is
+  # translated to an intermediary AST.  That intermediary AST is then
+  # translated in to a Ruby object graph.
+  #
+  # In the opposite direction, when using Psych.dump, the Ruby object graph is
+  # translated to an intermediary AST which is then converted to a YAML
+  # document.
+  #
+  # Psych::Nodes contains all of the classes that make up the nodes of a YAML
+  # AST.  You can manually build an AST and use one of the visitors (see
+  # Psych::Visitors) to convert that AST to either a YAML document or to a
+  # Ruby object graph.
+  #
+  # Here is an example of building an AST that represents a list with one
+  # scalar:
+  #
+  #   # Create our nodes
+  #   stream = Psych::Nodes::Stream.new
+  #   doc    = Psych::Nodes::Document.new
+  #   seq    = Psych::Nodes::Sequence.new
+  #   scalar = Psych::Nodes::Scalar.new('foo')
+  #
+  #   # Build up our tree
+  #   stream.children << doc
+  #   doc.children    << seq
+  #   seq.children    << scalar
+  #
+  # The stream is the root of the tree.  We can then convert the tree to YAML:
+  #
+  #   stream.to_yaml => "---\n- foo\n"
+  #
+  # Or convert it to Ruby:
+  #
+  #   stream.to_ruby => [["foo"]]
+  #
+  # == YAML AST Requirements
+  #
+  # A valid YAML AST *must* have one Psych::Nodes::Stream at the root.  A
+  # Psych::Nodes::Stream node must have 1 or more Psych::Nodes::Document nodes
+  # as children.
+  #
+  # Psych::Nodes::Document nodes must have one and *only* one child.  That child
+  # may be one of:
+  #
+  # * Psych::Nodes::Sequence
+  # * Psych::Nodes::Mapping
+  # * Psych::Nodes::Scalar
+  #
+  # Psych::Nodes::Sequence and Psych::Nodes::Mapping nodes may have many
+  # children, but Psych::Nodes::Mapping nodes should have an even number of
+  # children.
+  #
+  # All of these are valid children for Psych::Nodes::Sequence and
+  # Psych::Nodes::Mapping nodes:
+  #
+  # * Psych::Nodes::Sequence
+  # * Psych::Nodes::Mapping
+  # * Psych::Nodes::Scalar
+  # * Psych::Nodes::Alias
+  #
+  # Psych::Nodes::Scalar and Psych::Nodes::Alias are both terminal nodes and
+  # should not have any children.
   module Nodes
-    # The shared half: children, a tag, and where the node was written.
-    #
-    # The four position readers exist and all answer 0: nothing in the load
-    # path reads them, so the tree does not carry marks yet. See
-    # tests/gaps/a_psych_scalar_node_knows_where_it_ends.rb, which records
-    # what filling them needs and the one hard part.
-    class Node
-      include Enumerable
-
-      attr_accessor :children, :tag
-      attr_accessor :start_line, :start_column, :end_line, :end_column
-
-      def initialize
-        @children = []
-        @tag = nil
-        @start_line = @start_column = @end_line = @end_column = 0
-      end
-
-      # Depth first, CHILDREN BEFORE SELF. Upstream reaches this order through
-      # `Visitors::DepthFirst`, and it is the order a rewriting visitor needs:
-      # a node is handed over only once everything inside it has been.
-      # Measured against ruby 4.0.6 -- `Psych.parse("a: [1]").each` yields
-      # Scalar, Scalar, Sequence, Mapping, Document.
-      def each(&block)
-        return enum_for(:each) unless block_given?
-
-        @children.each { |c| c.each(&block) }
-        yield self
-        self
-      end
-
-      def to_ruby(symbolize_names: false, freeze: false, strict_integer: false)
-        Psych.__node_to_ruby(self,
-                             symbolize_names: symbolize_names,
-                             freeze: freeze,
-                             strict_integer: strict_integer)
-      end
-      alias transform to_ruby
-
-      def yaml(io = nil, options = {})
-        real_io = io || StringIO.new(+"")
-        Psych::Visitors::Emitter.new(real_io, options).accept(self)
-        return real_io.string unless io
-        io
-      end
-      alias to_yaml yaml
-    end
-
-    # A whole stream: one child per document.
-    class Stream < Node
-      # libyaml's encoding enum, the values upstream re-exports from
-      # Psych::Parser. Spelled numerically: zeo has no Parser class, and
-      # the one consumer (YAMLTree's start_stream) only stores the value.
-      ANY = 0
-      UTF8 = 1
-      UTF16LE = 2
-      UTF16BE = 3
-
-      def initialize(encoding = Psych::Parser::UTF8)
-        super()
-        @encoding = encoding
-      end
-      attr_accessor :encoding
-    end
-
-    # One document, with the header and footer it was written with.
-    class Document < Node
-      # `[major, minor]`, or `[]` when the document named no `%YAML`.
-      attr_accessor :version
-      # `[[handle, prefix], ...]` from `%TAG`.
-      attr_accessor :tag_directives
-      # True when the document wrote no `---` / no `...` of its own.
-      attr_accessor :implicit, :implicit_end
-
-      def initialize(version = [], tag_directives = [], implicit = false)
-        super()
-        @version = version
-        @tag_directives = tag_directives
-        @implicit = implicit
-        @implicit_end = true
-      end
-
-      # A document holds exactly one root.
-      def root
-        @children.first
-      end
-    end
-
-    class Sequence < Node
-      ANY = 0
-      BLOCK = 1
-      FLOW = 2
-
-      attr_accessor :anchor, :implicit, :style
-
-      def initialize(anchor = nil, tag = nil, implicit = true, style = BLOCK)
-        super()
-        @anchor = anchor
-        @tag = tag
-        @implicit = implicit
-        @style = style
-      end
-    end
-
-    class Mapping < Node
-      ANY = 0
-      BLOCK = 1
-      FLOW = 2
-
-      attr_accessor :anchor, :implicit, :style
-
-      def initialize(anchor = nil, tag = nil, implicit = true, style = BLOCK)
-        super()
-        @anchor = anchor
-        @tag = tag
-        @implicit = implicit
-        @style = style
-      end
-    end
-
-    class Scalar < Node
-      ANY = 0
-      PLAIN = 1
-      SINGLE_QUOTED = 2
-      DOUBLE_QUOTED = 3
-      LITERAL = 4
-      FOLDED = 5
-
-      attr_accessor :value, :anchor, :plain, :quoted, :style
-
-      def initialize(value, anchor = nil, tag = nil, plain = true, quoted = false, style = ANY)
-        super()
-        @value = value
-        @anchor = anchor
-        @tag = tag
-        @plain = plain
-        @quoted = quoted
-        @style = style
-      end
-    end
-
-    # A `*name` reference. It has no children of its own.
-    class Alias < Node
-      attr_accessor :anchor
-
-      def initialize(anchor = nil)
-        super()
-        @anchor = anchor
-      end
-    end
-  end
-
-  # `Psych::Parser::UTF8` and friends, which `Nodes::Stream` defaults to.
-  # Upstream puts them on the parser class; nothing else of that class is
-  # modelled, so this is the constant surface and not the parser.
-  class Parser
-    ANY = 0
-    UTF8 = 1
-    UTF16LE = 2
-    UTF16BE = 3
   end
 end
