@@ -201,6 +201,10 @@ Machine.sig :top, [] => Value
 # $LOADED_FEATURES records; a failed run leaves no record.
 sig [Value, Ptr, Word] => Value
 machine def zr_require(path, fn, kind)
+  # An autoload whose feature no load path root holds carries no unit.
+  if Machine.word(fn) == 0
+    return zr_load_error(RString.ptr(path), RString.len(path))
+  end
   features = zr_gvar_get(Machine.id(:$LOADED_FEATURES))
   if kind != 2
     if zr_ary_has_string(features, path)

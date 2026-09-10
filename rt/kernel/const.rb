@@ -722,15 +722,21 @@ machine def zr_autoload(mod, id, feature, fn, cref)
   if mod == zr_global(G_MAIN) || mod == zr_global(G_KERNEL)
     mod = RCref.klass(zr_cref_lexical(cref))
   end
-  if zr_const_row(mod, id) != 0
+  # A name that already holds a value stands; a name still waiting for
+  # its file is declared again, and announces again.
+  pending = zr_autoload_row(mod, id)
+  if zr_const_row(mod, id) != 0 && pending < 0
     return Machine.value(QNIL)
   end
-  zr_const_set(mod, id, Machine.value(QUNDEF))
   rows = zr_global(G_AUTOLOADS)
   if zr_special_p(rows)
     rows = zr_ary_new(4)
     zr_set_global(G_AUTOLOADS, rows)
   end
+  if pending >= 0
+    zr_ary_splice(rows, zr_fix(pending), zr_fix(4), zr_ary_new(0))
+  end
+  zr_const_set(mod, id, Machine.value(QUNDEF))
   zr_ary_push(rows, mod)
   zr_ary_push(rows, zr_sym(id))
   zr_ary_push(rows, feature)
@@ -784,7 +790,15 @@ machine def zr_const_value(e)
       fn = Machine.ptr(zr_fix2long(zr_ary_at(rows, i + 3)))
       zr_ary_splice(rows, zr_fix(i), zr_fix(4), zr_ary_new(0))
       r = zr_require(feature, fn, 0)
-      return r if r == QUNDEF
+      # A file that did not load leaves the row in place, so the next
+      # read of the name asks the same question again.
+      if r == QUNDEF
+        zr_ary_push(rows, mod)
+        zr_ary_push(rows, zr_sym(id))
+        zr_ary_push(rows, feature)
+        zr_ary_push(rows, zr_fix(Machine.word(fn)))
+        return r
+      end
       e = zr_const_row(mod, id)
       if e == 0 || CEntry.value(e) == QUNDEF
         zr_const_remove(mod, id)

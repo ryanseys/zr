@@ -165,7 +165,7 @@ module Ze0
           at_line(node.line)
           recv = node.recv ? expr(node.recv) : @self
           feature = kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(node.feature))), imm(node.feature.bytesize))
-          fn = @f.func_addr(@f.callee(@l.unit_entry(node.unit), [], "i64"))
+          fn = node.unit ? @f.func_addr(@f.callee(@l.unit_entry(node.unit), [], "i64")) : imm(0)
           checked(kernel("zr_autoload", recv, imm(sym_id(node.name)), feature, fn, @cref))
         end
 

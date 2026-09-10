@@ -75,7 +75,9 @@ module Ze0
           if kind == :require_relative
             candidate(File.expand_path(feature, File.dirname(from)))
           elsif feature.start_with?("/", "./", "../", "~")
-            candidate(File.expand_path(feature))
+            # A name against the working directory, which the program can
+            # change; the file that names it is the second place to look.
+            candidate(File.expand_path(feature)) || candidate(File.expand_path(feature, File.dirname(from)))
           else
             @roots.each do |root|
               found = candidate(File.join(root, feature))
@@ -739,9 +741,9 @@ module Ze0
       end
 
       # A require of a literal name resolves now: the file becomes a unit
-      # of the program. A name no root answers is refused, since a
-      # library of ruby's own would answer it; a relative name with no
-      # file is a LoadError when it runs.
+      # of the program. A name ruby itself answers but no root here holds
+      # stops by name; every other name raises LoadError when it runs, as
+      # it does in ruby.
       # The features ruby loads before a program starts, so a require of
       # one answers false.
       PRELOADED = %w[set set.rb monitor monitor.rb].freeze
@@ -752,8 +754,21 @@ module Ze0
         return Literal.new(false, line) if node.name == :require && PRELOADED.include?(feature)
 
         path = @loader.resolve(node.name, feature, @file)
-        refuse(node, "#{node.name} of #{feature.inspect}, which no load path root holds, is not lowered yet") if path.nil? && node.name != :require_relative
-        Require.new(node.name, feature, path || File.expand_path(feature, File.dirname(@file)), path && @loader.add(path), line)
+        stop_for(node, feature) if path.nil? && node.name != :require_relative
+        Require.new(node.name, feature, path || missing_path(node.name, feature), path && @loader.add(path), line)
+      end
+
+      # A feature ruby carries, which this runtime has no file for.
+      def stop_for(node, feature)
+        return unless FEATURES.include?(feature.to_s.delete_suffix(".rb"))
+
+        refuse(node, "#{node.name} of #{feature.inspect} is not implemented yet")
+      end
+
+      # What a LoadError names: a require_relative shows the whole path,
+      # every other form the name the program wrote.
+      def missing_path(kind, feature)
+        kind == :require_relative ? File.expand_path(feature, File.dirname(@file)) : feature
       end
 
       def literal_autoload?(node)
@@ -768,8 +783,8 @@ module Ze0
         name_node, path_node = node.arguments.arguments
         feature = path_node.is_a?(Prism::StringNode) ? path_node.unescaped : @loader.literal_path(path_node, @file)
         path = @loader.resolve(:require, feature, @file)
-        refuse(node, "autoload of #{feature.inspect}, which no load path root holds, is not lowered yet") if path.nil?
-        Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, path, @loader.add(path), line)
+        stop_for(node, feature) if path.nil?
+        Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, path, path && @loader.add(path), line)
       end
 
       # `defined?(value)`: the form decides at compile time; only an
