@@ -25,13 +25,6 @@ module Ze0
       end
     end
 
-    TYPES = {
-      "I8" => "i8", "Bool" => "i8", "I32" => "i32", "Word" => "i64", "Ptr" => "i64",
-      "Value" => "i64", "F64" => "f64", "Void" => nil
-    }.freeze
-    # Comparisons that read their operands as unsigned: pointers.
-    UNSIGNED = %w[Ptr].freeze
-
     # `source` to `[functions, data, raw]`: IR functions, the data objects
     # they name, and the raw functions they call.
     def self.compile(source, file, symbols: Symbols.new)

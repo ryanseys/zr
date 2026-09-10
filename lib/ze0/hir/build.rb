@@ -20,7 +20,10 @@ module Ze0
       # The ruby half of an extension, as its gem ships it. A gem is on
       # the path only once its native half answers, so a require of one
       # we do not carry stops by name instead of failing halfway in.
-      GEMS = %w[prism].map { |name| File.expand_path("../../../vendor/ext/#{name}/lib", __dir__) }
+      GEMS = [
+        *%w[prism].map { |name| File.expand_path("../../../vendor/ext/#{name}/lib", __dir__) },
+        *%w[aarch64].map { |name| File.expand_path("../../../vendor/gems/#{name}/lib", __dir__) },
+      ].freeze
 
       STDLIB = [VENDOR, EXT, *GEMS].freeze
 

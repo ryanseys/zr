@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../ir"
-require_relative "../machine/lower"
+require_relative "../machine/description"
 require_relative "scope"
 require_relative "function/expressions"
 require_relative "function/definitions"

@@ -2,6 +2,13 @@
 
 module Ze0
   module Machine
+    TYPES = {
+      "I8" => "i8", "Bool" => "i8", "I32" => "i32", "Word" => "i64", "Ptr" => "i64",
+      "Value" => "i64", "F64" => "f64", "Void" => nil
+    }.freeze
+    # Comparisons that read their operands as unsigned: pointers.
+    UNSIGNED = %w[Ptr].freeze
+
     Import = Struct.new(:name, :params, :ret)
     Def = Struct.new(:name, :params, :ret, :node, :file)
     # A function delivered as machine code: `Machine.raw "zr_switch"`.
