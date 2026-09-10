@@ -71,6 +71,7 @@ class Random < random_base
       raise Errno::EDOM if low.nil? || high.nil?
       if low.is_a?(Float) || high.is_a?(Float)
         span = high.to_f - low.to_f
+        return wide_float(low.to_f, high.to_f, max.exclude_end?) if span.infinite?
         raise ArgumentError, "invalid argument - #{max}" if span < 0 || (span == 0 && max.exclude_end?)
         return low.to_f + span * unit_float if max.exclude_end?
 
@@ -82,12 +83,24 @@ class Random < random_base
 
       low + limited(high - low)
     when Float
-      raise ArgumentError, "invalid argument - #{max}" if max <= 0
+      raise Errno::EDOM unless max.finite?
+      raise ArgumentError, "invalid argument - #{max}" if max.negative?
 
-      max * unit_float
+      max.zero? ? unit_float : max * unit_float
     else
       raise ArgumentError, "invalid argument - #{max.inspect}"
     end
+  end
+
+  # A span too wide for a Float draws around the middle instead, which
+  # is how ruby keeps `-1e308..1e308` working. An endpoint that is not
+  # finite has no middle.
+  def wide_float(low, high, exclude_end)
+    raise Errno::EDOM unless low.finite? && high.finite?
+
+    half = (high / 2.0) - (low / 2.0)
+    mid = (high / 2.0) + (low / 2.0)
+    (((exclude_end ? unit_float : unit_float_closed) - 0.5) * half * 2) + mid
   end
 
   # `n` random bytes, four per draw, least significant first.

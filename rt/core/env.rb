@@ -99,9 +99,32 @@ class << ENV
   def size = to_h.size
   alias length size
   def empty? = to_h.empty?
-  def key(value) = to_h.key(value)
+  def key(value) = to_h.key(variable_name(value))
   def values_at(*names) = names.map { |n| self[n] }
-  def slice(*names) = to_h.slice(*names)
+
+  # Each name is read as a name, so a Symbol refuses here rather than
+  # quietly missing.
+  def slice(*names)
+    names.each_with_object({}) do |name, taken|
+      value = self[name]
+      taken[name] = value unless value.nil?
+    end
+  end
+
+  def assoc(name)
+    name = variable_name(name)
+    value = self[name]
+    value && [name, value]
+  end
+
+  # A value that is not a String names nothing, which is not an error.
+  def rassoc(value)
+    value = value.to_str if !value.is_a?(String) && value.respond_to?(:to_str)
+    return nil unless value.is_a?(String)
+
+    pair = to_h.find { |_, held| held == value }
+    pair && [pair[0], value]
+  end
   def select(&block) = to_h.select(&block)
   alias filter select
   def reject(&block) = to_h.reject(&block)
@@ -117,6 +140,12 @@ class << ENV
   alias merge! update
   def inspect = to_h.inspect
   def to_s = "ENV"
+
+  # ENV is the process environment itself, so there is nothing to copy
+  # or to hold still.
+  def dup = raise(TypeError, "Cannot dup ENV, use ENV.to_h to get a copy of ENV as a hash")
+  def clone(freeze: nil) = raise(TypeError, "Cannot clone ENV, use ENV.to_h to get a copy of ENV as a hash")
+  def freeze = raise(TypeError, "cannot freeze ENV")
 
   private
 
