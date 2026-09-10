@@ -5,6 +5,7 @@ Machine.import "posix_spawnp", [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr] => I32
 Machine.import "posix_spawn_file_actions_init", [Ptr] => I32
 Machine.import "posix_spawn_file_actions_adddup2", [Ptr, I32, I32] => I32
 Machine.import "posix_spawn_file_actions_addclose", [Ptr, I32] => I32
+Machine.import "posix_spawn_file_actions_addchdir_np", [Ptr, Ptr] => I32
 Machine.import "posix_spawn_file_actions_destroy", [Ptr] => I32
 Machine.import "waitpid", [I32, Ptr, I32] => I32
 Machine.import "pipe", [Ptr] => I32
@@ -12,32 +13,57 @@ Machine.import "getppid", [] => I32
 Machine.import "kill", [I32, I32] => I32
 Machine.import "execvp", [Ptr, Ptr] => I32
 
-# Spawn `words` (an Array of Strings, the program first) with the
-# parent's environment; `out` is a descriptor the child writes its
-# stdout to, or nil. The child's pid, or the errno.
-sig [Value, Value] => Value
-machine def zr_proc_spawn(words, out)
+# A NULL-ended char* vector of an Array of Strings, malloc'd.
+sig [Value] => Ptr
+machine def zr_spawn_vector(words)
   n = RArray.len(words)
-  argv = malloc((n + 1) * 8)
+  vector = malloc((n + 1) * 8)
   i = 0
   while i < n
-    Machine.store64(argv + (i * 8), 0, Machine.word(RString.ptr(zr_ary_at(words, i))))
+    Machine.store64(vector + (i * 8), 0, Machine.word(RString.ptr(zr_ary_at(words, i))))
     i += 1
   end
-  Machine.store64(argv + (n * 8), 0, 0)
+  Machine.store64(vector + (n * 8), 0, 0)
+  vector
+end
+
+# Spawn `words` (an Array of Strings, the program first). `dups` is a
+# flat Array of (child descriptor, source descriptor) pairs applied in
+# order, `closes` the child's descriptors to shut, `env` the child's
+# whole environment as "KEY=value" strings or nil to inherit it, and
+# `chdir` the child's directory or nil. The pid, or the negated errno.
+sig [Value, Value, Value, Value, Value] => Value
+machine def zr_proc_spawn(words, dups, closes, env, chdir)
+  argv = zr_spawn_vector(words)
   actions = Machine.slot(16)
   posix_spawn_file_actions_init(actions)
-  if out != QNIL
-    fd = Machine.i32(zr_fix2long(out))
-    posix_spawn_file_actions_adddup2(actions, fd, Machine.i32(1))
-    posix_spawn_file_actions_addclose(actions, fd)
+  n = RArray.len(dups)
+  i = 0
+  while i < n
+    posix_spawn_file_actions_adddup2(actions, Machine.i32(zr_fix2long(zr_ary_at(dups, i + 1))), Machine.i32(zr_fix2long(zr_ary_at(dups, i))))
+    i += 2
+  end
+  n = RArray.len(closes)
+  i = 0
+  while i < n
+    posix_spawn_file_actions_addclose(actions, Machine.i32(zr_fix2long(zr_ary_at(closes, i))))
+    i += 1
+  end
+  if chdir != QNIL
+    posix_spawn_file_actions_addchdir_np(actions, RString.ptr(chdir))
+  end
+  envp = Machine.ptr(Machine.load64(_NSGetEnviron(), 0))
+  if env != QNIL
+    envp = zr_spawn_vector(env)
   end
   pid = Machine.slot(8)
   Machine.store64(pid, 0, 0)
-  envp = Machine.ptr(Machine.load64(_NSGetEnviron(), 0))
   r = posix_spawnp(pid, RString.ptr(zr_ary_at(words, 0)), actions, 0, argv, envp)
   posix_spawn_file_actions_destroy(actions)
   free(argv)
+  if env != QNIL
+    free(envp)
+  end
   if r != Machine.i32(0)
     return zr_fix(0 - Machine.word(r))
   end
@@ -48,14 +74,7 @@ end
 # not, with the negated errno.
 sig [Value] => Value
 machine def zr_proc_exec(words)
-  n = RArray.len(words)
-  argv = malloc((n + 1) * 8)
-  i = 0
-  while i < n
-    Machine.store64(argv + (i * 8), 0, Machine.word(RString.ptr(zr_ary_at(words, i))))
-    i += 1
-  end
-  Machine.store64(argv + (n * 8), 0, 0)
+  argv = zr_spawn_vector(words)
   execvp(RString.ptr(zr_ary_at(words, 0)), argv)
   free(argv)
   zr_fix(0 - zr_errno())

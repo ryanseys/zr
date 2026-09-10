@@ -54,8 +54,85 @@ module Process
     def inspect = "#<Process::Status: #{self}>"
   end
 
+  # What a spawn's options ask the child for: `dups` are (child
+  # descriptor, source descriptor) pairs applied in order, `closes` the
+  # child's descriptors to shut, and `opened` the parent's own streams
+  # to close once the child holds copies of them.
+  class Redirects
+    STREAMS = { in: 0, out: 1, err: 2 }.freeze
+    private_constant :STREAMS
+
+    attr_reader :dups, :closes, :opened, :chdir
+
+    def initialize(options)
+      @dups = []
+      @closes = []
+      @opened = []
+      @chdir = nil
+      options.each { |key, value| add(key, value) }
+    end
+
+    private
+
+    def add(key, value)
+      case key
+      when :chdir then @chdir = path_of(value)
+      when :unsetenv_others, :close_others then nil
+      when Symbol
+        return descriptors(key).each { |fd| redirect(fd, value) } if STREAMS.key?(key)
+
+        Primitive.zr_unimplemented("Process.spawn with #{key}:")
+      else descriptors(key).each { |fd| redirect(fd, value) }
+      end
+    end
+
+    # The child's descriptors one option key names.
+    def descriptors(key)
+      case key
+      when Integer then [key]
+      when Symbol then [STREAMS.fetch(key) { raise ArgumentError, "wrong exec option symbol: #{key.inspect}" }]
+      when IO then [key.fileno]
+      when Array then key.flat_map { |one| descriptors(one) }
+      else raise ArgumentError, "wrong exec option: #{key.inspect}"
+      end
+    end
+
+    def redirect(fd, value)
+      case value
+      when Integer then dup2(fd, value)
+      when :close then @closes << fd
+      when Symbol then dup2(fd, STREAMS.fetch(value) { raise ArgumentError, "wrong exec redirect symbol: #{value.inspect}" })
+      when IO then dup2(fd, value.fileno)
+      when String then open_file(fd, value, nil, nil)
+      when Array then from_array(fd, value)
+      else raise ArgumentError, "wrong exec redirect action"
+      end
+    end
+
+    # `[:child, :out]` is the child's own descriptor, so the pair is
+    # applied in the order the options list them.
+    def from_array(fd, value)
+      return dup2(fd, descriptors(value[1]).first) if value.first == :child
+
+      open_file(fd, value[0], value[1], value[2])
+    end
+
+    def dup2(fd, source)
+      @dups << fd << source
+    end
+
+    def open_file(fd, path, mode, perm)
+      io = File.open(path_of(path), mode || (fd == 0 ? "r" : "w"), perm || 0o666)
+      @opened << io
+      dup2(fd, io.fileno)
+    end
+
+    def path_of(value) = String.try_convert(value) || value.to_path
+  end
+  private_constant :Redirects
+
   def self.spawn(*args, **options)
-    pid = spawn_command(args, options, nil)
+    pid = spawn_command(args, options)
     raise SystemCallError.new("No such file or directory - #{args.first}", 2) if pid.nil?
 
     pid
@@ -119,16 +196,13 @@ module Process
 
   # Runs the command; the child's pid, or nil when it could not start
   # (then `$?` says exit 127).
-  def self.spawn_command(args, options, out)
-    Primitive.zr_unimplemented("Process.spawn with options") unless options.empty?
+  def self.spawn_command(args, options)
     args = args.dup
-    args.shift if args.first.is_a?(Hash) && Primitive.zr_unimplemented("Process.spawn with an environment")
-    raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if args.empty?
-
-    words = args.size == 1 ? command_words(args.first) : args.map { |arg| arg.is_a?(Array) ? arg.first : arg }
-    words.each { |word| raise TypeError, "no implicit conversion of #{word.class} into String" unless word.is_a?(String) }
-    words.each { |word| raise ArgumentError, "string contains null byte" if word.include?("\0") }
-    pid = words.empty? ? -2 : Primitive.zr_proc_spawn(words, out)
+    env = args.first.is_a?(Hash) ? args.shift : nil
+    words = command_words(args)
+    redirects = Redirects.new(options)
+    pid = Primitive.zr_proc_spawn(words, redirects.dups, redirects.closes, environment(env, options), redirects.chdir)
+    redirects.opened.each(&:close)
     if pid < 0
       $? = Status.new(0, 127 << 8)
       return nil
@@ -136,7 +210,20 @@ module Process
     pid
   end
 
-  def self.command_words(command)
+  # The program and its arguments. One string goes through the shell
+  # when it holds shell syntax; a list is the argument vector itself.
+  def self.command_words(args)
+    raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if args.empty?
+
+    words = args.size == 1 ? shell_words(args.first) : args.map { |arg| arg.is_a?(Array) ? arg.first : arg }
+    words.each do |word|
+      raise TypeError, "no implicit conversion of #{word.class} into String" unless word.is_a?(String)
+      raise ArgumentError, "string contains null byte" if word.include?("\0")
+    end
+    words
+  end
+
+  def self.shell_words(command)
     raise TypeError, "no implicit conversion of #{command.class} into String" unless command.is_a?(String)
 
     first = command.split(" ").first || ""
@@ -145,20 +232,32 @@ module Process
     command.split(" ")
   end
 
+  # The child's whole environment as "KEY=value" strings, or nil to
+  # inherit the parent's.
+  def self.environment(env, options)
+    return nil if env.nil? && !options[:unsetenv_others]
+
+    table = options[:unsetenv_others] ? {} : ENV.to_h
+    env&.each do |key, value|
+      key = String.try_convert(key) or raise TypeError, "no implicit conversion of #{key.class} into String"
+      if value.nil?
+        table.delete(key)
+      else
+        table[key] = String.try_convert(value) or raise TypeError, "no implicit conversion of #{value.class} into String"
+      end
+    end
+    table.map { |key, value| "#{key}=#{value}" }
+  end
+
   # The words a command runs as, for exec.
   def self.exec_words(args, options)
     Primitive.zr_unimplemented("exec with options") unless options.empty?
     args = args.dup
     args.shift if args.first.is_a?(Hash) && Primitive.zr_unimplemented("exec with an environment")
-    raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if args.empty?
-
-    words = args.size == 1 ? command_words(args.first) : args.map { |arg| arg.is_a?(Array) ? arg.first : arg }
-    words.each { |word| raise TypeError, "no implicit conversion of #{word.class} into String" unless word.is_a?(String) }
-    words.each { |word| raise ArgumentError, "string contains null byte" if word.include?("\0") }
-    words
+    command_words(args)
   end
 
-  private_class_method :spawn_command, :command_words, :exec_words
+  private_class_method :spawn_command, :command_words, :shell_words, :environment, :exec_words
 end
 
 module Kernel
@@ -172,7 +271,7 @@ module Kernel
   module_function :exec
 
   def system(*args, exception: false, **options)
-    pid = Process.send(:spawn_command, args, options, nil)
+    pid = Process.send(:spawn_command, args, options)
     if pid.nil?
       raise SystemCallError.new("No such file or directory - #{args.first}", 2) if exception
 
@@ -185,29 +284,9 @@ module Kernel
     false
   end
 
-  # Backticks: the command's stdout, read through a pipe.
+  # Backticks: the command's standard output, read through a pipe.
   def `(command)
-    ends = Primitive.zr_io_pipe
-    raise SystemCallError.new(nil, -ends) if ends.is_a?(Integer)
-
-    reader, writer = ends
-    pid = Process.send(:spawn_command, [command], {}, writer)
-    Primitive.zr_io_close(writer)
-    if pid.nil?
-      Primitive.zr_io_close(reader)
-      raise SystemCallError.new("No such file or directory - #{command}", 2)
-    end
-    out = "".b
-    loop do
-      chunk = Primitive.zr_io_read(reader, 65536)
-      break if chunk.nil?
-      raise SystemCallError.new(nil, -chunk) if chunk.is_a?(Integer)
-
-      out << chunk
-    end
-    Primitive.zr_io_close(reader)
-    Process.wait(pid)
-    out.force_encoding(Encoding.default_external)
+    IO.popen(command) { |io| io.read.force_encoding(Encoding.default_external) }
   end
 
   private :system, :`

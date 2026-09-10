@@ -12,11 +12,7 @@ class IO
   # A pipe's read and write ends, closed after the block when one is
   # given.
   def self.pipe
-    ends = Primitive.zr_io_pipe
-    raise SystemCallError.new(nil, -ends) if ends.is_a?(Integer)
-
-    reader = IO.new(ends[0], "r")
-    writer = IO.new(ends[1], "w")
+    reader, writer = pipe_ends.map.with_index { |fd, i| IO.new(fd, i.zero? ? "r" : "w") }
     return [reader, writer] unless block_given?
 
     begin
@@ -41,6 +37,47 @@ class IO
 
   def self.for_fd(fd, mode = "r", **options) = new(fd, mode, **options)
 
+  # Runs the command with a pipe on its standard input or output. With
+  # a block the stream closes and the child is waited for after it, and
+  # the block's value is the answer.
+  def self.popen(command, mode = "r", **options)
+    io = popen_stream(command, mode.to_s, options)
+    return io unless block_given?
+
+    begin
+      yield io
+    ensure
+      io.close
+    end
+  end
+
+  # A pipe's two descriptors, or a SystemCallError.
+  def self.pipe_ends
+    ends = Primitive.zr_io_pipe
+    raise SystemCallError.new(nil, -ends) if ends.is_a?(Integer)
+
+    ends
+  end
+
+  def self.popen_stream(command, mode, options)
+    Primitive.zr_unimplemented("IO.popen in a read-write mode") if mode.include?("+")
+    reading = mode.start_with?("r")
+    raise ArgumentError, "invalid access mode #{mode}" unless reading || mode.start_with?("w", "a")
+
+    read_fd, write_fd = pipe_ends
+    ours, theirs = reading ? [read_fd, write_fd] : [write_fd, read_fd]
+    plan = { (reading ? 1 : 0) => theirs, ours => :close }
+    pid = Process.send(:spawn_command, Array(command), plan.merge(options))
+    Primitive.zr_io_close(theirs)
+    if pid.nil?
+      Primitive.zr_io_close(ours)
+      raise SystemCallError.new("No such file or directory - #{Array(command).first}", 2)
+    end
+    new(ours, reading ? "r" : "w", pid: pid)
+  end
+
+  private_class_method :pipe_ends, :popen_stream
+
   def self.try_convert(object) = object.respond_to?(:to_io) ? object.to_io : nil
 
   # Everything one stream holds, written to the other.
@@ -49,11 +86,12 @@ class IO
     to.is_a?(IO) ? to.write(text) : File.write(to, text)
   end
 
-  def initialize(fd, mode = "r", path: nil, name: nil)
+  def initialize(fd, mode = "r", path: nil, name: nil, pid: nil)
     @fd = fd
     @mode = mode
     @path = path
     @name = name
+    @pid = pid
     @closed = false
     @sync = false
     @lineno = 0
@@ -93,6 +131,7 @@ class IO
     result = @fd > 2 ? Primitive.zr_io_close(@fd) : 0
     raise SystemCallError.new("@ rb_io_close - #{label}", -result) if result < 0
 
+    Process.wait(@pid) if @pid
     nil
   end
 
@@ -117,8 +156,8 @@ class IO
 
   def stat = File.stat(path)
 
-  # A pipe's other end has no pid here: nothing forks behind an IO.
-  def pid = nil
+  # The child a popen started, waited for when this stream closes.
+  attr_reader :pid
 
   def autoclose? = @fd > 2
 
