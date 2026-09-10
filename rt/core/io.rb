@@ -48,6 +48,18 @@ class IO
 
   def self.for_fd(fd, mode = "r", **options) = new(fd, mode, **options)
 
+  # `IO.open` is `IO.new` with a block that closes the stream after it.
+  def self.open(*args, **options)
+    io = new(*args, **options)
+    return io unless block_given?
+
+    begin
+      yield io
+    ensure
+      io.close unless io.closed?
+    end
+  end
+
   # The raw descriptor for a path, which is what a program that means to
   # wrap it in its own IO asks for. A creation names its permissions
   # exactly rather than leaving them to the umask.
@@ -128,9 +140,17 @@ class IO
   def self.try_convert(object) = object.respond_to?(:to_io) ? object.to_io : nil
 
   # Everything one stream holds, written to the other.
+  # A source is anything that answers `read`, or a path; a sink is
+  # anything that answers `write`, or a path. That is what lets a
+  # StringIO stand on either side.
   def self.copy_stream(from, to, length = nil, offset = nil)
-    text = from.is_a?(IO) ? from.read(length) : File.read(from, length, offset)
-    to.is_a?(IO) ? to.write(text) : File.write(to, text)
+    text = if from.respond_to?(:read)
+             offset ? (from.seek(offset); from.read(length)) : from.read(length)
+           else
+             File.read(from, length, offset)
+           end
+    text = text.to_s
+    to.respond_to?(:write) ? to.write(text) : File.write(to, text)
   end
 
   def initialize(fd, mode = "r", path: nil, name: nil, pid: nil, autoclose: true)
@@ -342,8 +362,12 @@ class IO
     self
   end
 
+  # `$,` goes between the objects and `$\` after the last one, which is
+  # what makes `print` and `puts` differ.
   def print(*objects)
-    objects.each { |object| write(object.to_s) }
+    objects = [$_] if objects.empty?
+    write(objects.map(&:to_s).join($, || ""))
+    write($\) if $\
     nil
   end
 
@@ -360,7 +384,15 @@ class IO
 
     objects.flat_map do |object|
       if object.is_a?(Array)
-        lines_of(object).then { |lines| object.empty? ? [] : lines }
+        # An array that holds itself shows the marker in its own place
+        # rather than walking for ever.
+        next ["[...]\n"] if Primitive.zr_recursive_enter(object, :puts)
+
+        begin
+          object.empty? ? [] : lines_of(object)
+        ensure
+          Primitive.zr_recursive_leave(object, :puts)
+        end
       else
         text = object.to_s
         text = object.inspect unless text.is_a?(String)
@@ -399,9 +431,53 @@ class IO
     buffer ? buffer.replace(out) : out
   end
 
-  def sysread(length) = read(length) || raise(EOFError, "end of file reached")
+  # These three all read what is there and fill a buffer when one is
+  # given; the end of the stream is an error, not a nil.
+  def sysread(length, buffer = nil) = filled(read(length), buffer)
 
-  def readpartial(length) = read(length) || raise(EOFError, "end of file reached")
+  def readpartial(length, buffer = nil) = filled(read(length), buffer)
+
+  def read_nonblock(length, buffer = nil, exception: true)
+    check_readable
+    text = read(length)
+    return nil if text.nil? && !exception
+
+    filled(text, buffer)
+  end
+
+  def write_nonblock(text, exception: true) = write(text)
+
+  def putc(c)
+    write(c.is_a?(Integer) ? (c & 0xff).chr : c.to_s[0, 1])
+    c
+  end
+
+  # fcntl and ioctl pass a variadic argument, which this platform puts
+  # on the stack; nothing here reaches them.
+  def fcntl(*) = Primitive.zr_unimplemented("IO#fcntl")
+
+  def ioctl(*) = Primitive.zr_unimplemented("IO#ioctl")
+
+  def timeout = @timeout
+
+  def timeout=(seconds)
+    @timeout = seconds
+  end
+
+  # A byte order mark at the head of the stream names the encoding.
+  def set_encoding_by_bom
+    return nil unless pos.zero?
+
+    lead = read(3)
+    return nil if lead.nil?
+
+    if lead.start_with?("\xEF\xBB\xBF".b)
+      ungetc(lead[3..].to_s)
+      return set_encoding(Encoding::UTF_8)
+    end
+    ungetc(lead)
+    nil
+  end
 
   # One character: a UTF-8 lead byte brings its continuation bytes.
   def getc
@@ -553,6 +629,15 @@ class IO
     sleep 0.001 while !Thread.send(:alone?) && Primitive.zr_io_wait(@fd, READABLE, 0) == 0
   end
 
+  # What a read answered, into `buffer` when one was given. The end of
+  # the stream is an error here, not a nil.
+  def filled(text, buffer)
+    Primitive.attr! :hidden
+    raise EOFError, "end of file reached" if text.nil?
+
+    buffer ? buffer.replace(text) : text
+  end
+
   def check_readable
     Primitive.attr! :hidden
     check_open
@@ -652,9 +737,13 @@ module Kernel
     nil
   end
 
+  # `$,` goes between the objects and `$\` after the last one, which is
+  # what makes `print` and `puts` differ.
   def print(*objects)
     out = $stdout
-    objects.each { |object| out.write(object.to_s) }
+    objects = [$_] if objects.empty?
+    out.write(objects.map(&:to_s).join($, || ""))
+    out.write($\) if $\
     nil
   end
 

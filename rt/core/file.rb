@@ -82,14 +82,23 @@ class File < IO
 
   def self.split(path) = [dirname(path), basename(path)]
 
+  # ruby's rb_file_join: one separator at each seam, taken from
+  # whichever side already carries one, so "a//" and "//b" meet as
+  # "a//b" and not "a////b".
   def self.join(*parts)
-    parts.flatten.each_with_index.map do |part, i|
-      raise TypeError, "no implicit conversion of #{part.class} into String" unless part.is_a?(String)
-
-      part = part.delete_prefix("/") if i > 0 && part.start_with?("/")
-      part = part.delete_suffix("/") if i < parts.size - 1 && part.end_with?("/") && part.size > 1
-      part
-    end.join("/")
+    out = +""
+    parts.flatten.each_with_index do |part, i|
+      part = Primitive.zr_str_operand(part.respond_to?(:to_path) ? part.to_path : part)
+      if i.positive?
+        if part.start_with?("/")
+          out.sub!(%r{/+\z}, "")
+        elsif !out.end_with?("/")
+          out << "/"
+        end
+      end
+      out << part
+    end
+    out
   end
 
   def self.absolute_path?(path) = path.start_with?("/")
@@ -611,6 +620,7 @@ class File < IO
   end
 
   def truncate(length)
+    send(:check_writable)
     result = Primitive.zr_fs_call(6, "", fileno, length)
     raise SystemCallError.new("@ rb_file_truncate - #{path}", -result) if result < 0
 

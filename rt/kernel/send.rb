@@ -3,8 +3,8 @@
 
 # CRuby's message. A bare identifier (`vcall`) is a NameError, and
 # names main as `main`; a `super` with nothing above says so.
-sig [Value, Word, Bool, Bool] => Value
-machine def zr_no_method_from(recv, mid, vcall, from_super)
+sig [Value, Word, Bool, Bool, Word, Ptr] => Value
+machine def zr_no_method_from(recv, mid, vcall, from_super, argc, argv)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   if from_super
@@ -22,7 +22,7 @@ machine def zr_no_method_from(recv, mid, vcall, from_super)
   zr_exc_detail(e, Machine.id(:@name), zr_sym(mid))
   zr_exc_detail(e, Machine.id(:@receiver), recv)
   if !vcall
-    zr_exc_detail(e, Machine.id(:@args), zr_ary_new(0))
+    zr_exc_detail(e, Machine.id(:@args), zr_ary_of(argc, argv))
   end
   zr_raise(e)
 end
@@ -173,7 +173,7 @@ sig [Value, Word, Word, Ptr, Value, Word, Word] => Value
 machine def zr_method_missing(recv, mid, argc, argv, blk, kw, reason)
   e = zr_find_method(zr_class_of(recv), Machine.id(:method_missing))
   if e == 0 || MEntry.fn(e) == Machine.addr(:zr_obj_method_missing)
-    return zr_miss_error(recv, mid, reason)
+    return zr_miss_error(recv, mid, reason, argc, argv)
   end
   args = malloc((argc + 1) * 8)
   Machine.store64(args, 0, Machine.word(zr_sym(mid)))
@@ -184,15 +184,15 @@ machine def zr_method_missing(recv, mid, argc, argv, blk, kw, reason)
   r
 end
 
-sig [Value, Word, Word] => Value
-machine def zr_miss_error(recv, mid, reason)
+sig [Value, Word, Word, Word, Ptr] => Value
+machine def zr_miss_error(recv, mid, reason, argc, argv)
   if reason == MISS_PRIVATE
-    return zr_hidden_method(recv, mid, VIS_PRIVATE)
+    return zr_hidden_method(recv, mid, VIS_PRIVATE, argc, argv)
   end
   if reason == MISS_PROTECTED
-    return zr_hidden_method(recv, mid, VIS_PROTECTED)
+    return zr_hidden_method(recv, mid, VIS_PROTECTED, argc, argv)
   end
-  zr_no_method(recv, mid, reason == MISS_VCALL)
+  zr_no_method(recv, mid, reason == MISS_VCALL, argc, argv)
 end
 
 # `BasicObject#method_missing`: the NoMethodError a miss raises.
@@ -208,17 +208,17 @@ machine def zr_obj_method_missing(recv, argc, argv, cref, blk)
   t = zr_task()
   reason = Task.missing(t)
   Task.set_missing(t, 0)
-  zr_miss_error(recv, zr_sym2id(m), reason)
+  zr_miss_error(recv, zr_sym2id(m), reason, argc - 1, argv + 8)
 end
 
-sig [Value, Word, Bool] => Value
-machine def zr_no_method(recv, mid, vcall)
-  zr_no_method_from(recv, mid, vcall, false)
+sig [Value, Word, Bool, Word, Ptr] => Value
+machine def zr_no_method(recv, mid, vcall, argc, argv)
+  zr_no_method_from(recv, mid, vcall, false, argc, argv)
 end
 
 # `private method 'x' called for ...`, or protected.
-sig [Value, Word, Word] => Value
-machine def zr_hidden_method(recv, mid, vis)
+sig [Value, Word, Word, Word, Ptr] => Value
+machine def zr_hidden_method(recv, mid, vis, argc, argv)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_push(b, vis == VIS_PRIVATE ? Machine.bytes("private method '") : Machine.bytes("protected method '"), vis == VIS_PRIVATE ? 16 : 18)
@@ -229,7 +229,7 @@ machine def zr_hidden_method(recv, mid, vis)
   e = zr_exc_new(zr_global(G_NO_METHOD_ERROR), zr_buf_take(b))
   zr_exc_detail(e, Machine.id(:@name), zr_sym(mid))
   zr_exc_detail(e, Machine.id(:@receiver), recv)
-  zr_exc_detail(e, Machine.id(:@args), zr_ary_new(0))
+  zr_exc_detail(e, Machine.id(:@args), zr_ary_of(argc, argv))
   zr_exc_detail(e, Machine.id(:@private_call), zr_bool(vis == VIS_PRIVATE))
   zr_raise(e)
 end
@@ -325,7 +325,7 @@ machine def zr_super(rec, argc, argv, blk)
     e = zr_find_method(RClass.superclass(k), mid)
   end
   if e == 0
-    return zr_no_method_from(recv, mid, false, true)
+    return zr_no_method_from(recv, mid, false, true, argc, argv)
   end
   zr_invoke(e, recv, argc, argv, blk, kw)
 end

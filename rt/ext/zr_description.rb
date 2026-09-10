@@ -841,7 +841,7 @@ module Ze0
         d zr_lastline_get Value
         d zr_ryu_pow5_inv Ptr
         d zr_ryu_pow5 Ptr
-        d zr_no_method_from Value recv:Value mid:Word vcall:Bool from_super:Bool
+        d zr_no_method_from Value recv:Value mid:Word vcall:Bool from_super:Bool argc:Word argv:Ptr
         d zr_wrong_arity_kw Value given:Word min:Word max:Word ids:Ptr nkw:Word
         d zr_wrong_arity Value given:Word expected:Word
         d zr_wrong_arity_range Value given:Word min:Word max:Word
@@ -855,10 +855,10 @@ module Ze0
         d zr_kw_ruby2_out Word argc:Word argv:Ptr
         d zr_kw_take Word
         d zr_method_missing Value recv:Value mid:Word argc:Word argv:Ptr blk:Value kw:Word reason:Word
-        d zr_miss_error Value recv:Value mid:Word reason:Word
+        d zr_miss_error Value recv:Value mid:Word reason:Word argc:Word argv:Ptr
         d zr_obj_method_missing Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
-        d zr_no_method Value recv:Value mid:Word vcall:Bool
-        d zr_hidden_method Value recv:Value mid:Word vis:Word
+        d zr_no_method Value recv:Value mid:Word vcall:Bool argc:Word argv:Ptr
+        d zr_hidden_method Value recv:Value mid:Word vis:Word argc:Word argv:Ptr
         d zr_buf_receiver Value b:Ptr recv:Value
         d zr_visibility_refused Word e:Ptr mode:Word
         d zr_dispatch Value recv:Value mid:Word argc:Word argv:Ptr mode:Word blk:Value
