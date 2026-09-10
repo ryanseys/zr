@@ -196,11 +196,25 @@ class Regexp
   # `/n` on an ASCII-only pattern reads it as plain ASCII, which is what
   # the source shows too.
   def source
-    text = Primitive.zr_regexp_source(self)
+    text = pattern
     options & NOENCODING != 0 && text.ascii_only? ? text.dup.force_encoding(Encoding::US_ASCII).freeze : text
   end
 
-  def options = Primitive.zr_regexp_options(self)
+  def options
+    pattern
+    Primitive.zr_regexp_options(self)
+  end
+
+  # `Regexp.allocate` answers an object with no pattern in it. Ruby
+  # names that here, at the first read, rather than at the first match.
+  def pattern
+    Primitive.attr! :hidden
+    text = Primitive.zr_regexp_source(self)
+    raise TypeError, "uninitialized Regexp" unless text
+
+    text
+  end
+  private :pattern
 
   def casefold? = options & IGNORECASE != 0
 
@@ -214,6 +228,7 @@ class Regexp
   # written out or escaped, is a binary pattern, and one that does not is
   # plain ASCII that any string can match.
   def encoding
+    return Encoding::BINARY unless Primitive.zr_regexp_source(self)
     return @pinned if @pinned
     return Encoding::BINARY if options & NOENCODING != 0 && Pattern.past_ascii?(source)
 
@@ -221,6 +236,7 @@ class Regexp
   end
 
   def fixed_encoding?
+    return false unless Primitive.zr_regexp_source(self)
     return true unless @pinned.nil?
     return Pattern.past_ascii?(source) if options & NOENCODING != 0
 
@@ -241,6 +257,8 @@ class Regexp
   end
 
   def inspect
+    return Object.instance_method(:to_s).bind_call(self) unless Primitive.zr_regexp_source(self)
+
     text = "/#{shown_source}/"
     text << "m" if options & MULTILINE != 0
     text << "i" if options & IGNORECASE != 0
@@ -383,6 +401,7 @@ class Regexp
   # The named groups in definition order: [[name, [group numbers]], ...].
   def name_rows
     Primitive.attr! :hidden
+    pattern
     Primitive.zr_regexp_names(self).sort_by { |_, groups| groups.first }
   end
 
@@ -402,6 +421,7 @@ class Regexp
 
   def search(text, from, backward)
     Primitive.attr! :hidden
+    pattern
     check_subject(text)
 
     offsets = Primitive.zr_regexp_search(self, text, from, backward)
@@ -410,6 +430,7 @@ class Regexp
 
   def match_at(text, from)
     Primitive.attr! :hidden
+    pattern
     check_subject(text)
 
     offsets = Primitive.zr_regexp_match_at(self, text, from)
@@ -419,11 +440,17 @@ end
 
 class MatchData
   def self.for(regexp, text, offsets)
-    m = allocate
+    m = Class.instance_method(:allocate).bind_call(self)
     m.send(:matched, regexp, text, offsets)
     m
   end
   private_class_method :for
+
+  # A MatchData comes from a match, never from a constructor, so ruby
+  # takes both spellings away.
+  class << self
+    undef_method :allocate, :new
+  end
 
   def regexp = Primitive.zr_hidden_get(self, :regexp)
 

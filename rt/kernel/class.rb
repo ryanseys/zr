@@ -387,6 +387,9 @@ end
 # name, keeping its meta, so a backtrace names the original.
 sig [Value, Word, Word] => Value
 machine def zr_alias(klass, new_id, old_id)
+  if zr_frozen_p(klass)
+    return zr_frozen_error(klass)
+  end
   e = zr_find_method(klass, old_id)
   if e == 0
     b = Machine.slot(Buf.size)
@@ -428,6 +431,9 @@ end
 
 sig [Value, Word] => Value
 machine def zr_undef(klass, id)
+  if zr_frozen_p(klass)
+    return zr_frozen_error(klass)
+  end
   if zr_find_method(klass, id) == 0
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -902,6 +908,9 @@ end
 
 sig [Value, Word, Word, Word] => Value
 machine def zr_set_method_visibility(klass, mid, vis, modfn)
+  if zr_frozen_p(zr_origin(klass))
+    return zr_frozen_error(klass)
+  end
   e = zr_find_method(klass, mid)
   if e == 0
     b = Machine.slot(Buf.size)

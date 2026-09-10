@@ -257,9 +257,9 @@ class String
     member = sets.empty? ? nil : charset_test(sets)
     out = +""
     last = nil
-    each_byte do |b|
-      out << Primitive.zr_str_from_byte(b) unless b == last && (member.nil? || member.call(b))
-      last = b
+    each_char do |c|
+      out << c unless c == last && (member.nil? || member.call(c.ord))
+      last = c
     end
     out
   end
@@ -405,7 +405,7 @@ class String
     raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if sets.empty?
 
     member = charset_test(sets)
-    each_byte.count { |b| member.call(b) }
+    each_char.count { |c| member.call(c.ord) }
   end
 
   def delete(*sets)
@@ -413,7 +413,7 @@ class String
 
     member = charset_test(sets)
     out = +""
-    each_byte { |b| out << Primitive.zr_str_from_byte(b) unless member.call(b) }
+    each_char { |c| out << c unless member.call(c.ord) }
     out
   end
 
@@ -1031,55 +1031,85 @@ class String
   def charset_test(sets)
     Primitive.attr! :hidden
     tests = sets.map do |spec|
-      spec = spec.to_str
-      Primitive.zr_str_ascii_check(spec)
-      chars, negated = charset(spec)
-      negated ? ->(b) { !chars.include?(b) } : ->(b) { chars.include?(b) }
+      ranges, negated = charset(Primitive.zr_str_operand(spec))
+      negated ? ->(cp) { !charset_cover?(ranges, cp) } : ->(cp) { charset_cover?(ranges, cp) }
     end
-    ->(b) { tests.all? { |test| test.call(b) } }
+    ->(cp) { tests.all? { |test| test.call(cp) } }
   end
 
-  # The bytes a tr spec names, in order, and whether it is negated.
+  # The characters a tr spec names, as codepoint ranges in the order
+  # they are written, and whether a leading `^` negates the set. A
+  # range stays a range so that `"\\x00-\\x{10FFFF}"` costs one row.
   def charset(spec)
     Primitive.attr! :hidden
-    bytes = spec.bytes
-    negated = bytes.size > 1 && bytes[0] == 94
-    bytes.shift if negated
-    out = []
+    cps = spec.codepoints
+    negated = cps.size > 1 && cps[0] == 94
+    cps.shift if negated
+    ranges = []
     i = 0
-    while i < bytes.size
-      if bytes[i] == 92 && i + 1 < bytes.size
-        out << bytes[i + 1]
+    while i < cps.size
+      if cps[i] == 92 && i + 1 < cps.size
+        ranges << (cps[i + 1]..cps[i + 1])
         i += 2
-      elsif i + 2 < bytes.size && bytes[i + 1] == 45
-        raise ArgumentError, "invalid range \"#{Primitive.zr_str_from_byte(bytes[i])}-#{Primitive.zr_str_from_byte(bytes[i + 2])}\" in string transliteration" if bytes[i] > bytes[i + 2]
+      elsif i + 2 < cps.size && cps[i + 1] == 45
+        raise ArgumentError, "invalid range \"#{char_of(cps[i], spec.encoding)}-#{char_of(cps[i + 2], spec.encoding)}\" in string transliteration" if cps[i] > cps[i + 2]
 
-        (bytes[i]..bytes[i + 2]).each { |b| out << b }
+        ranges << (cps[i]..cps[i + 2])
         i += 3
       else
-        out << bytes[i]
+        ranges << (cps[i]..cps[i])
         i += 1
       end
     end
-    [out, negated]
+    [ranges, negated]
   end
 
-  # tr: each byte in `from` becomes the byte at the same place in
-  # `to`, the last one standing in for the rest; a negated `from`
-  # maps every other byte to the last of `to`. `squeeze` collapses
-  # runs of one translated byte.
+  def charset_cover?(ranges, cp)
+    Primitive.attr! :hidden
+    ranges.any? { |range| cp >= range.begin && cp <= range.end }
+  end
+
+  # The place `cp` last takes in the expanded spec, or nil. A spec may
+  # name a character twice, and ruby lets the later place win.
+  def charset_index(ranges, cp)
+    Primitive.attr! :hidden
+    at = nil
+    base = 0
+    ranges.each do |range|
+      at = base + cp - range.begin if cp >= range.begin && cp <= range.end
+      base += range.end - range.begin + 1
+    end
+    at
+  end
+
+  # The codepoint at place `n` in the expanded spec. The last one
+  # stands in for every place past the end.
+  def charset_at(ranges, n)
+    Primitive.attr! :hidden
+    base = 0
+    ranges.each do |range|
+      width = range.end - range.begin + 1
+      return range.begin + n - base if n - base < width
+
+      base += width
+    end
+    ranges.last.end
+  end
+
+  # tr: each character in `from` becomes the character at the same
+  # place in `to`, the last one standing in for the rest; a negated
+  # `from` maps every other character to the last of `to`. `squeeze`
+  # collapses runs of one translated character.
   def translate(from, to, squeeze)
     Primitive.attr! :hidden
-    Primitive.zr_str_ascii_check(self)
-    source, negated = charset(from.to_str)
-    target, _ = charset(to.to_str)
+    source, negated = charset(Primitive.zr_str_operand(from))
+    target, = charset(Primitive.zr_str_operand(to))
     out = +""
     last = nil
-    each_byte do |b|
-      at = source.index(b)
-      hit = negated ? at.nil? : !at.nil?
-      unless hit
-        out << Primitive.zr_str_from_byte(b)
+    each_char do |c|
+      at = charset_index(source, c.ord)
+      unless at.nil? == negated
+        out << c
         last = nil
         next
       end
@@ -1087,12 +1117,16 @@ class String
         last = nil
         next
       end
-      at = source.rindex(b) unless negated
-      mapped = negated ? target[-1] : (target[at] || target[-1])
-      out << Primitive.zr_str_from_byte(mapped) unless squeeze && mapped == last
+      mapped = negated ? target.last.end : charset_at(target, at)
+      out << char_of(mapped, encoding) unless squeeze && mapped == last
       last = mapped
     end
     out
+  end
+
+  def char_of(cp, enc)
+    Primitive.attr! :hidden
+    cp.chr(enc)
   end
 
   def digits?

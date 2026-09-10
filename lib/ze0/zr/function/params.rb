@@ -135,7 +135,12 @@ module Ze0
           avail = @f.isub(argc, imm(req))
           avail = @f.csel(@f.icmp("slt", avail, imm(0)), imm(0), avail) unless strict
           p.optional.each_with_index do |(name, default), j|
-            bind(name, arg_or_default(argv, imm(p.required.size + j), @f.icmp("slt", imm(j), avail)) { expr(default) })
+            present = @f.icmp("slt", imm(j), avail)
+            if repeated?(name)
+              default_only(present) { write_local(slot_of(name), 0, expr(default)) }
+            else
+              bind(name, arg_or_default(argv, imm(p.required.size + j), present) { expr(default) })
+            end
           end
           given_opt = @f.csel(@f.icmp("slt", avail, imm(p.optional.size)), avail, imm(p.optional.size))
           if p.rest && p.rest != :implicit
@@ -153,6 +158,25 @@ module Ze0
               bind(name, arg_or_nil(argc, argv, index))
             end
           end
+        end
+
+        # Whether `name` already took a binding in this parameter list.
+        # Only `_` may repeat; ruby refuses every other duplicate name.
+        def repeated?(name)
+          !name.is_a?(Hir::MultiTarget) && (@bound ||= []).include?(name)
+        end
+
+        # Ruby compiles an optional parameter's default as an assignment to
+        # the NAME, so a repeated `_`'s default writes the local the first
+        # `_` owns. A given argument writes only the slot nothing reads.
+        def default_only(present)
+          miss = @f.label
+          done = @f.label
+          @f.brif(present, done, miss)
+          switch(miss)
+          yield
+          @f.jump(done)
+          switch(done)
         end
 
         # `v` into the parameter `name`, or apart into a `(a, b)` target.

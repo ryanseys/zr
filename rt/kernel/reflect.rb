@@ -447,6 +447,9 @@ end
 # `Module#remove_method`: the entry must be the module's own.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_remove_method(recv, argc, argv, cref, blk)
+  if zr_frozen_p(zr_origin(recv))
+    return zr_frozen_error(recv)
+  end
   i = 0
   while i < argc
     slot = Machine.slot(8)
