@@ -527,10 +527,14 @@ module Ze0
         d zr_errno Word
         d zr_io_failed Value r:Word
         d zr_io_status Value r:I32
+        d zr_io_open_flags Value path:Value flags:Value
+        d zr_io_chmod_fd Value fd:Value mode:Value
         d zr_io_open Value path:Value mode:Value
         d zr_io_fileno Value stream:Value
         d zr_io_fclose Value stream:Value
         d zr_io_read Value fd:Value count:Value
+        d zr_io_pread Value fd:Value count:Value at:Value
+        d zr_io_pwrite Value fd:Value s:Value at:Value
         d zr_io_write Value fd:Value s:Value
         d zr_io_close Value fd:Value
         d zr_io_dup Value fd:Value
@@ -544,6 +548,8 @@ module Ze0
         d zr_io_rmdir Value path:Value
         d zr_io_chdir Value path:Value
         d zr_io_dir_names Value path:Value
+        d zr_io_dir_names_fd Value fd:Value
+        d zr_io_fchdir Value fd:Value
         d zr_io_strerror Value n:Value
         d zr_io_file_size Value path:Value
         d zr_fs_call Value which:Value path:Value a:Value b:Value
@@ -551,6 +557,8 @@ module Ze0
         d zr_umask_m Value mask:Value
         d zr_readlink_m Value path:Value
         d zr_stat_m Value path:Value follow:Value
+        d zr_fstat_m Value fd:Value
+        d zr_stat_rows Value buf:Ptr
         d zr_realpath_m Value path:Value
         d zr_chmod_m Value path:Value mode:Value
         d zr_path_access Value path:Value mode:Value

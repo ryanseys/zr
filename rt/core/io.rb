@@ -4,10 +4,21 @@
 class IO
   include Enumerable
 
+  # The seek and wait flags stay IO's own.
   SEEK_SET = 0
   SEEK_CUR = 1
   SEEK_END = 2
-  NULL = "/dev/null"
+  SEEK_HOLE = 3
+  SEEK_DATA = 4
+
+  READABLE = 1
+  PRIORITY = 2
+  WRITABLE = 4
+
+  POLL_IN = READABLE
+  POLL_PRI = PRIORITY
+  POLL_OUT = WRITABLE
+  private_constant :POLL_IN, :POLL_PRI, :POLL_OUT
 
   # A pipe's read and write ends, closed after the block when one is
   # given.
@@ -36,6 +47,42 @@ class IO
   def self.write(path, content, offset = nil, **options) = File.write(path, content, offset, **options)
 
   def self.for_fd(fd, mode = "r", **options) = new(fd, mode, **options)
+
+  # The raw descriptor for a path, which is what a program that means to
+  # wrap it in its own IO asks for. A creation names its permissions
+  # exactly rather than leaving them to the umask.
+  def self.sysopen(path, mode = "r", perm = nil)
+    path = Primitive.zr_str_operand(path.respond_to?(:to_path) ? path.to_path : path)
+    if mode.is_a?(Integer) && (mode & File::CREAT).zero?
+      fd = Primitive.zr_io_open_flags(path, mode)
+      raise SystemCallError.new("@ rb_sysopen - #{path}", -fd) if fd < 0
+
+      return fd
+    end
+    stream = Primitive.zr_io_open(path, File.send(:open_mode, mode))
+    raise SystemCallError.new("@ rb_sysopen - #{path}", -stream) if stream < 0
+
+    fd = Primitive.zr_io_fileno(stream)
+    Primitive.zr_io_chmod_fd(fd, perm) if perm
+    fd
+  end
+
+  # select(2) over three lists of streams: the ones that came ready, or
+  # nil when the time ran out. A nil timeout waits for good.
+  def self.select(readers, writers = nil, priority = nil, timeout = nil)
+    milliseconds = timeout.nil? ? -1 : (timeout * 1000).to_i
+    deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).to_i
+    loop do
+      ready = [readers, writers, priority].zip([POLL_IN, POLL_OUT, POLL_PRI]).map do |list, event|
+        Array(list).select { |io| Primitive.zr_io_wait(io.to_io.fileno, event, 0) & event != 0 }
+      end
+      return ready if ready.any? { |list| !list.empty? }
+      return nil if deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) >= deadline
+      return nil if milliseconds.zero?
+
+      sleep 0.001
+    end
+  end
 
   # Runs the command with a pipe on its standard input or output. With
   # a block the stream closes and the child is waited for after it, and
@@ -86,7 +133,11 @@ class IO
     to.is_a?(IO) ? to.write(text) : File.write(to, text)
   end
 
-  def initialize(fd, mode = "r", path: nil, name: nil, pid: nil)
+  def initialize(fd, mode = "r", path: nil, name: nil, pid: nil, autoclose: true)
+    fd = Primitive.zr_index_operand_m(fd)
+    rows = Primitive.zr_fstat_m(fd)
+    raise SystemCallError.new("@ rb_io_initialize", -rows) if rows.is_a?(Integer)
+
     @fd = fd
     @mode = mode
     @path = path
@@ -129,7 +180,7 @@ class IO
 
     @closed = true
     result = @fd > 2 ? Primitive.zr_io_close(@fd) : 0
-    raise SystemCallError.new("@ rb_io_close - #{label}", -result) if result < 0
+    raise SystemCallError.new(nil, -result) if result < 0
 
     Process.wait(@pid) if @pid
     nil
@@ -182,7 +233,35 @@ class IO
 
   def to_path = path
 
-  def stat = File.stat(path)
+  # A stream opened from a descriptor has no path behind it, so its
+  # rows come from fstat(2).
+  def stat
+    check_open
+    path ? File.stat(path) : File::Stat.for_fd(@fd)
+  end
+
+  # posix_fadvise is a hint, and darwin has none: ruby answers nil
+  # wherever the call is absent.
+  def advise(kind, offset = 0, length = 0)
+    check_open
+    raise NotImplementedError, "advise" unless %i[normal sequential random willneed dontneed noreuse].include?(kind)
+
+    nil
+  end
+
+  # Half-closing an end the stream does not have is an error; on one it
+  # does have, and which is not duplex, it closes the whole stream.
+  def close_read
+    raise IOError, "closing non-duplex IO for reading" if @mode.start_with?("w", "a") && !@mode.include?("+")
+
+    close
+  end
+
+  def close_write
+    raise IOError, "closing non-duplex IO for writing" if @mode.start_with?("r") && !@mode.include?("+")
+
+    close
+  end
 
   # The child a popen started, waited for when this stream closes.
   attr_reader :pid
@@ -200,10 +279,6 @@ class IO
     flag
   end
 
-  def close_read = close
-
-  def close_write = close
-
   def each_codepoint(&block)
     return to_enum(:each_codepoint) unless block
 
@@ -214,27 +289,23 @@ class IO
   alias codepoints each_codepoint
 
   # `pread` and `pwrite` leave the descriptor's own offset alone.
+  # pread(2) and pwrite(2) name a file position and leave the stream's
+  # own where it was, buffer included.
   def pread(length, offset, buffer = nil)
-    here = seek(0, SEEK_CUR)
-    begin
-      seek(offset, SEEK_SET)
-      text = read(length)
-      raise EOFError, "end of file reached" if text.nil?
+    check_readable
+    text = Primitive.zr_io_pread(@fd, length, offset)
+    raise SystemCallError.new("@ rb_io_pread - #{label}", -text) if text.is_a?(Integer)
+    raise EOFError, "end of file reached" if text.nil?
 
-      buffer ? buffer.replace(text) : text
-    ensure
-      seek(here, SEEK_SET)
-    end
+    buffer ? buffer.replace(text) : text
   end
 
   def pwrite(text, offset)
-    here = seek(0, SEEK_CUR)
-    begin
-      seek(offset, SEEK_SET)
-      write(text)
-    ensure
-      seek(here, SEEK_SET)
-    end
+    check_writable
+    result = Primitive.zr_io_pwrite(@fd, text.to_s, offset)
+    raise SystemCallError.new("@ rb_io_pwrite - #{label}", -result) if result < 0
+
+    result
   end
 
   def sysseek(offset, whence = SEEK_SET) = seek(offset, whence)
@@ -357,7 +428,11 @@ class IO
     nil
   end
 
-  alias ungetbyte ungetc
+  # An Integer here is one byte, not the text of a number.
+  def ungetbyte(byte)
+    @buffer = (byte.is_a?(Integer) ? (byte & 0xff).chr : byte.to_s) + @buffer
+    nil
+  end
 
   # A line up to and with `separator`; "" separates paragraphs; nil
   # reads to the end. `limit` caps the bytes.
@@ -473,9 +548,9 @@ class IO
   # thread, so a task that shares the process with others hands the
   # turn on until the descriptor answers. A lone task waits in the
   # system call itself.
-  def wait_readable
+  def park_until_readable
     Primitive.attr! :hidden
-    sleep 0.001 while !Thread.send(:alone?) && Primitive.zr_io_wait(@fd, 1, 0) == 0
+    sleep 0.001 while !Thread.send(:alone?) && Primitive.zr_io_wait(@fd, READABLE, 0) == 0
   end
 
   def check_readable
@@ -493,7 +568,7 @@ class IO
   # More bytes into the buffer; none marks the end.
   def fill
     Primitive.attr! :hidden
-    wait_readable
+    park_until_readable
     chunk = Primitive.zr_io_read(@fd, 8192)
     if chunk.nil?
       @eof = true
@@ -668,5 +743,47 @@ module Errno
   def self.text(code)
     message = Primitive.zr_io_strerror(code)
     message.start_with?("Unknown error") ? "Unknown error: #{code}" : message
+  end
+end
+
+# Waiting on one descriptor, over poll(2). Named events answer the
+# stream itself; a plain events mask answers the events that came ready.
+class IO
+  EVENT_NAMES = { read: POLL_IN, readable: POLL_IN, r: POLL_IN,
+                  write: POLL_OUT, writable: POLL_OUT, w: POLL_OUT,
+                  priority: POLL_PRI, rw: POLL_IN | POLL_OUT }.freeze
+  private_constant :EVENT_NAMES
+
+  def wait(*args)
+    if args.size == 2 && args.all? { |arg| arg.is_a?(Numeric) }
+      ready = poll_once(args[0].to_int, args[1])
+      return ready.zero? ? nil : ready
+    end
+    events = 0
+    timeout = nil
+    args.each do |arg|
+      case arg
+      when Symbol then events |= EVENT_NAMES.fetch(arg) { raise ArgumentError, "unsupported mode: #{arg}" }
+      when Numeric, nil then timeout = arg
+      else raise TypeError, "no implicit conversion of #{arg.class} into Integer"
+      end
+    end
+    poll_once(events.zero? ? POLL_IN : events, timeout).zero? ? nil : self
+  end
+
+  def wait_readable(timeout = nil) = poll_once(POLL_IN, timeout).zero? ? nil : self
+
+  def wait_writable(timeout = nil) = poll_once(POLL_OUT, timeout).zero? ? nil : self
+
+  def wait_priority(timeout = nil) = poll_once(POLL_PRI, timeout).zero? ? nil : self
+
+  private
+
+  # The events that came ready, or zero when the time ran out.
+  def poll_once(events, timeout)
+    ready = Primitive.zr_io_wait(fileno, events, timeout.nil? ? -1 : (timeout * 1000).round)
+    raise SystemCallError.new("@ io_wait - #{label}", -ready) if ready.negative?
+
+    ready & events
   end
 end

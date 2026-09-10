@@ -1,6 +1,43 @@
 # File and Dir: the path functions, which are pure, and what a program
 # asks the file system.
 class File < IO
+  # ruby names this module File::Constants and IO takes it by
+  # inclusion, so File::APPEND and IO::APPEND are one constant.
+  module Constants
+    RDONLY = 0
+    WRONLY = 1
+    RDWR = 2
+    NONBLOCK = 4
+    APPEND = 8
+    SHARE_DELETE = 0
+    SYNC = 128
+    DSYNC = 4194304
+    NOFOLLOW = 256
+    CREAT = 512
+    TRUNC = 1024
+    EXCL = 2048
+    NOCTTY = 131072
+    BINARY = 0
+
+    # flock(2): LOCK_SH 1, LOCK_EX 2, LOCK_UN 8, with LOCK_NB 4 added.
+    LOCK_SH = 1
+    LOCK_EX = 2
+    LOCK_NB = 4
+    LOCK_UN = 8
+
+    FNM_NOESCAPE = 1
+    FNM_PATHNAME = 2
+    FNM_DOTMATCH = 4
+    FNM_CASEFOLD = 8
+    FNM_EXTGLOB = 16
+    FNM_SYSCASE = 0
+    FNM_SHORTNAME = 0
+
+    NULL = "/dev/null"
+  end
+
+  include Constants
+
   SEPARATOR = "/"
   ALT_SEPARATOR = nil
   PATH_SEPARATOR = ":"
@@ -96,14 +133,6 @@ class File < IO
   def self.file?(path) = Primitive.zr_path_kind(path) == 2
   def self.directory?(path) = Primitive.zr_path_kind(path) == 1
 
-  RDONLY = 0
-  WRONLY = 1
-  RDWR = 2
-  APPEND = 8
-  CREAT = 512
-  TRUNC = 1024
-  EXCL = 2048
-  NONBLOCK = 4
   MODES = %w[r r+ w w+ a a+].freeze
   private_constant :MODES
 
@@ -126,10 +155,12 @@ class File < IO
     raise TypeError, "no implicit conversion of #{path.class} into String" unless path.is_a?(String)
 
     text = File.send(:open_mode, mode)
+    made = !File.exist?(path)
     stream = Primitive.zr_io_open(path, text)
     raise SystemCallError.new("@ rb_sysopen - #{path}", -stream) if stream < 0
 
     super(Primitive.zr_io_fileno(stream), text, path: path)
+    Primitive.zr_io_chmod_fd(@fd, perm) if made && perm != 0o666
     @stream = stream
   end
 
@@ -219,6 +250,15 @@ class File < IO
       take(fields)
     end
 
+    # A stream opened from a descriptor has no path, so fstat(2) is the
+    # only way to its rows.
+    def self.for_fd(fd)
+      fields = Primitive.zr_fstat_m(fd)
+      raise SystemCallError.new("@ rb_io_stat - fd #{fd}", -fields) if fields.is_a?(Integer)
+
+      allocate.send(:take, fields)
+    end
+
     def atime = Time.at(@atime_s, @atime_ns, :nsec)
     def mtime = Time.at(@mtime_s, @mtime_ns, :nsec)
     def ctime = Time.at(@ctime_s, @ctime_ns, :nsec)
@@ -277,6 +317,7 @@ class File < IO
     def take(fields)
       @dev, @ino, @mode, @nlink, @uid, @gid, @rdev, @size, @blksize, @blocks,
         @atime_s, @atime_ns, @mtime_s, @mtime_ns, @ctime_s, @ctime_ns = fields
+      self
     end
 
     # Made from lstat(2), which does not follow a symbolic link.
@@ -287,14 +328,6 @@ class File < IO
       allocate.tap { |stat| stat.send(:take, fields) }
     end
   end
-
-  FNM_NOESCAPE = 1
-  FNM_PATHNAME = 2
-  FNM_DOTMATCH = 4
-  FNM_CASEFOLD = 8
-  FNM_EXTGLOB = 16
-  FNM_SYSCASE = 0
-  FNM_SHORTNAME = 0
 
   # A shell pattern against a path: `*`, `?` and `[...]` never cross a
   # `/` under FNM_PATHNAME, where `**/` also stands for any run of
@@ -584,11 +617,6 @@ class File < IO
     0
   end
 
-  # flock(2): LOCK_SH 1, LOCK_EX 2, LOCK_UN 8, with LOCK_NB 4 added.
-  LOCK_SH = 1
-  LOCK_EX = 2
-  LOCK_NB = 4
-  LOCK_UN = 8
 
   def flock(operation)
     result = Primitive.zr_fs_call(8, "", fileno, operation)
@@ -605,11 +633,14 @@ class File < IO
     # The fopen mode for a Ruby mode string or open(2) flags.
     def open_mode(mode)
       if mode.is_a?(Integer)
-        return "a+" if mode & APPEND != 0 && mode & RDWR == RDWR
-        return "a" if mode & APPEND != 0
-        return "w+" if mode & RDWR == RDWR && mode & TRUNC != 0
-        return "r+" if mode & RDWR == RDWR
-        return mode & TRUNC != 0 || mode & CREAT != 0 ? "w" : "r" if mode & WRONLY != 0
+        # A singleton method's scope does not reach what the class
+        # includes, so the flags are named through their module.
+        append, rdwr, trunc, creat, wronly = Constants::APPEND, Constants::RDWR, Constants::TRUNC, Constants::CREAT, Constants::WRONLY
+        return "a+" if mode & append != 0 && mode & rdwr == rdwr
+        return "a" if mode & append != 0
+        return "w+" if mode & rdwr == rdwr && mode & trunc != 0
+        return "r+" if mode & rdwr == rdwr
+        return mode & trunc != 0 || mode & creat != 0 ? "w" : "r" if mode & wronly != 0
 
         return "r"
       end
@@ -639,6 +670,24 @@ end
 class Dir
   include Enumerable
 
+  # A directory reached through a descriptor: the path it was opened
+  # under is not knowable, so the names come from the descriptor.
+  def self.for_fd(fd)
+    names = Primitive.zr_io_dir_names_fd(fd)
+    raise SystemCallError.new("@ dir_s_for_fd", -names) if names.is_a?(Integer)
+
+    allocate.send(:take_names, nil, names)
+  end
+
+  def self.fchdir(fd)
+    result = Primitive.zr_io_fchdir(fd)
+    raise SystemCallError.new("@ dir_s_fchdir", -result) if result < 0
+
+    return 0 unless block_given?
+
+    yield
+  end
+
   # A Dir is the directory's names and a cursor over them, read once
   # when it opens.
   def initialize(path, encoding: nil)
@@ -646,8 +695,15 @@ class Dir
     names = Primitive.zr_io_dir_names(@path)
     raise SystemCallError.new("@ dir_initialize - #{@path}", -names) if names.is_a?(Integer)
 
+    take_names(@path, names)
+  end
+
+  def take_names(path, names)
+    Primitive.attr! :hidden
+    @path = path
     @names = names
     @pos = 0
+    self
   end
 
   def self.open(path, **options)
@@ -998,3 +1054,5 @@ module Kernel
   private :test
   module_function :test
 end
+
+IO.include(File::Constants)

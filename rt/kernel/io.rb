@@ -5,6 +5,8 @@ Machine.import "fopen", [Ptr, Ptr] => Ptr
 Machine.import "fileno", [Ptr] => I32
 Machine.import "fclose", [Ptr] => I32
 Machine.import "read", [I32, Ptr, Word] => Word
+Machine.import "pread", [I32, Ptr, Word, Word] => Word
+Machine.import "pwrite", [I32, Ptr, Word, Word] => Word
 Machine.import "close", [I32] => I32
 Machine.import "dup", [I32] => I32
 Machine.import "dup2", [I32, I32] => I32
@@ -13,10 +15,15 @@ Machine.import "lseek", [I32, Word, I32] => Word
 Machine.import "unlink", [Ptr] => I32
 Machine.import "rename", [Ptr, Ptr] => I32
 Machine.import "isatty", [I32] => I32
+Machine.import "fstat", [I32, Ptr] => I32
+Machine.import "open", [Ptr, I32] => I32
+Machine.import "fchmod", [I32, I32] => I32
 Machine.import "mkdir", [Ptr, I32] => I32
 Machine.import "rmdir", [Ptr] => I32
 Machine.import "chdir", [Ptr] => I32
 Machine.import "opendir", [Ptr] => Ptr
+Machine.import "fdopendir", [I32] => Ptr
+Machine.import "fchdir", [I32] => I32
 Machine.import "readdir", [Ptr] => Ptr
 Machine.import "closedir", [Ptr] => I32
 Machine.import "select", [I32, Ptr, Ptr, Ptr, Ptr] => I32
@@ -37,6 +44,21 @@ end
 sig [I32] => Value
 machine def zr_io_status(r)
   r < Machine.i32(0) ? zr_fix(0 - zr_errno()) : zr_fix(0)
+end
+
+# open(2) with two arguments, which is the whole call unless O_CREAT
+# is set: the mode a creation takes is a variadic argument, and this
+# platform passes those on the stack. A creation goes through fopen
+# and then fchmod, which names the permissions exactly.
+sig [Value, Value] => Value
+machine def zr_io_open_flags(path, flags)
+  fd = open(RString.ptr(path), Machine.i32(zr_fix2long(flags)))
+  fd < Machine.i32(0) ? zr_fix(0 - zr_errno()) : zr_fix(Machine.sword(fd))
+end
+
+sig [Value, Value] => Value
+machine def zr_io_chmod_fd(fd, mode)
+  zr_io_status(fchmod(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(mode))))
 end
 
 # fopen(3), which is not variadic as open(2) is: the stream as a
@@ -78,6 +100,40 @@ machine def zr_io_read(fd, count)
   s = zr_str_new(buf, got)
   free(buf)
   s
+end
+
+# pread(2) and pwrite(2): a read or a write at a named file position
+# that leaves the descriptor's own position where it was.
+sig [Value, Value, Value] => Value
+machine def zr_io_pread(fd, count, at)
+  n = zr_fix2long(count)
+  buf = malloc(n + 1)
+  got = pread(Machine.i32(zr_fix2long(fd)), buf, n, zr_fix2long(at))
+  if got < 0
+    free(buf)
+    return zr_fix(0 - zr_errno())
+  end
+  if got == 0
+    free(buf)
+    return Machine.value(QNIL)
+  end
+  s = zr_str_new(buf, got)
+  free(buf)
+  s
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_io_pwrite(fd, s, at)
+  n = RString.len(s)
+  done = 0
+  while done < n
+    w = pwrite(Machine.i32(zr_fix2long(fd)), RString.ptr(s) + done, n - done, zr_fix2long(at) + done)
+    if w < 0
+      return zr_fix(0 - zr_errno())
+    end
+    done += w
+  end
+  zr_fix(n)
 end
 
 # Every byte of `s`, in as many calls as the descriptor takes.
@@ -171,6 +227,30 @@ machine def zr_io_dir_names(path)
   end
   closedir(d)
   out
+end
+
+# The same names through a descriptor, which is the only way to them
+# when a program holds one and not a path.
+sig [Value] => Value
+machine def zr_io_dir_names_fd(fd)
+  d = fdopendir(Machine.i32(zr_fix2long(fd)))
+  if d == 0
+    return zr_fix(0 - zr_errno())
+  end
+  out = zr_ary_new(8)
+  e = readdir(d)
+  while e != 0
+    name = e + 21
+    zr_ary_push(out, zr_str_new(name, zr_cstr_len(name)))
+    e = readdir(d)
+  end
+  closedir(d)
+  out
+end
+
+sig [Value] => Value
+machine def zr_io_fchdir(fd)
+  zr_io_status(fchdir(Machine.i32(zr_fix2long(fd))))
 end
 
 # The message strerror gives for errno `n`.
@@ -286,6 +366,22 @@ machine def zr_stat_m(path, follow)
   if r < Machine.i32(0)
     return zr_fix(0 - zr_errno())
   end
+  zr_stat_rows(buf)
+end
+
+# fstat(2): the same rows for a descriptor, which is the only way to
+# them when the stream was opened from one and has no path.
+sig [Value] => Value
+machine def zr_fstat_m(fd)
+  buf = Machine.slot(160)
+  if fstat(Machine.i32(zr_fix2long(fd)), buf) < Machine.i32(0)
+    return zr_fix(0 - zr_errno())
+  end
+  zr_stat_rows(buf)
+end
+
+sig [Ptr] => Value
+machine def zr_stat_rows(buf)
   out = zr_ary_new(16)
   zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(buf, 0))))
   zr_ary_push(out, zr_fix(Machine.load64(buf, 8)))
