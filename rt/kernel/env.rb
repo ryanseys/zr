@@ -401,3 +401,187 @@ machine def zr_home_dir(name)
   end
   zr_str_new(dir, zr_cstr_len(dir))
 end
+
+Machine.import "getgrnam", [Ptr] => Ptr
+Machine.import "getgrgid", [I32] => Ptr
+Machine.import "setpwent", [] => Void
+Machine.import "endpwent", [] => Void
+Machine.import "getpwent", [] => Ptr
+Machine.import "setgrent", [] => Void
+Machine.import "endgrent", [] => Void
+Machine.import "getgrent", [] => Ptr
+Machine.import "sysconf", [I32] => Word
+Machine.import "confstr", [I32, Ptr, Word] => Word
+Machine.import "pathconf", [Ptr, I32] => Word
+Machine.import "uname", [Ptr] => I32
+Machine.import "getlogin", [] => Ptr
+
+# The seven fields of darwin's passwd an Etc::Passwd carries: name at 0,
+# password at 8, uid at 16, gid at 20, gecos at 40, dir at 48, shell at 56.
+sig [Ptr] => Value
+machine def zr_pw_row(pw)
+  if pw == 0
+    return Machine.value(QNIL)
+  end
+  out = zr_ary_new(7)
+  zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 0))))
+  zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 8))))
+  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(pw, 16))))
+  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(pw, 20))))
+  zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 40))))
+  zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 48))))
+  zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 56))))
+  out
+end
+
+# A C string as a Ruby String, and a null pointer as nil.
+sig [Ptr] => Value
+machine def zr_cstr_str(text)
+  if text == 0
+    return Machine.value(QNIL)
+  end
+  zr_str_new(text, zr_cstr_len(text))
+end
+
+sig [Value] => Value
+machine def zr_pw_name(name)
+  zr_pw_row(getpwnam(RString.ptr(name)))
+end
+
+sig [Value] => Value
+machine def zr_pw_uid(uid)
+  zr_pw_row(getpwuid(Machine.i32(zr_fix2long(uid))))
+end
+
+sig [] => Value
+machine def zr_pw_next
+  zr_pw_row(getpwent())
+end
+
+sig [] => Value
+machine def zr_pw_rewind
+  setpwent()
+  Machine.value(QNIL)
+end
+
+sig [] => Value
+machine def zr_pw_done
+  endpwent()
+  Machine.value(QNIL)
+end
+
+# The four fields of darwin's group: name at 0, password at 8, gid at 16,
+# and a null-ended array of member names at 24.
+sig [Ptr] => Value
+machine def zr_gr_row(gr)
+  if gr == 0
+    return Machine.value(QNIL)
+  end
+  out = zr_ary_new(4)
+  zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(gr, 0))))
+  zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(gr, 8))))
+  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(gr, 16))))
+  members = zr_ary_new(4)
+  names = Machine.ptr(Machine.load64(gr, 24))
+  if names != 0
+    name = Machine.ptr(Machine.load64(names, 0))
+    while name != 0
+      zr_ary_push(members, zr_str_new(name, zr_cstr_len(name)))
+      names = names + 8
+      name = Machine.ptr(Machine.load64(names, 0))
+    end
+  end
+  zr_ary_push(out, members)
+  out
+end
+
+sig [Value] => Value
+machine def zr_gr_name(name)
+  zr_gr_row(getgrnam(RString.ptr(name)))
+end
+
+sig [Value] => Value
+machine def zr_gr_gid(gid)
+  zr_gr_row(getgrgid(Machine.i32(zr_fix2long(gid))))
+end
+
+sig [] => Value
+machine def zr_gr_next
+  zr_gr_row(getgrent())
+end
+
+sig [] => Value
+machine def zr_gr_rewind
+  setgrent()
+  Machine.value(QNIL)
+end
+
+sig [] => Value
+machine def zr_gr_done
+  endgrent()
+  Machine.value(QNIL)
+end
+
+# `_SC_NPROCESSORS_ONLN` is 58 on darwin.
+sig [] => Value
+machine def zr_nprocessors
+  zr_fix(sysconf(Machine.i32(58)))
+end
+
+# A sysconf or pathconf answer, and nil where the name has no limit.
+sig [Value] => Value
+machine def zr_sysconf(name)
+  got = sysconf(Machine.i32(zr_fix2long(name)))
+  if got == 0 - 1
+    return Machine.value(QNIL)
+  end
+  zr_fix(got)
+end
+
+sig [Value, Value] => Value
+machine def zr_pathconf(path, name)
+  got = pathconf(RString.ptr(path), Machine.i32(zr_fix2long(name)))
+  if got == 0 - 1
+    return Machine.value(QNIL)
+  end
+  zr_fix(got)
+end
+
+# A confstr answer. The first call asks for the length, which is what
+# confstr reports when the buffer is empty.
+sig [Value] => Value
+machine def zr_confstr(name)
+  which = Machine.i32(zr_fix2long(name))
+  len = confstr(which, Machine.ptr(0), 0)
+  if len == 0
+    return Machine.value(QNIL)
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_reserve(b, len)
+  confstr(which, Buf.ptr(b), len)
+  Buf.set_len(b, len - 1)
+  zr_buf_take(b)
+end
+
+sig [] => Value
+machine def zr_login_name
+  zr_cstr_str(getlogin())
+end
+
+# The five 256-byte fields of darwin's utsname: sysname, nodename,
+# release, version and machine.
+sig [] => Value
+machine def zr_uname
+  buf = Machine.slot(1280)
+  if uname(buf) != 0
+    return Machine.value(QNIL)
+  end
+  out = zr_ary_new(5)
+  at = 0
+  while at < 1280
+    zr_ary_push(out, zr_cstr_str(buf + at))
+    at = at + 256
+  end
+  out
+end

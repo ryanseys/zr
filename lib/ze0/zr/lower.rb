@@ -15,8 +15,10 @@ module Ze0
 
       attr_reader :program, :unit, :symbols, :data, :functions, :file, :frozen, :warnings
 
+      # True in the core library and in an extension's ruby half: both
+      # are the runtime's own code, so `Primitive` resolves there.
       def internal?
-        @internal
+        @internal || @unit_internal
       end
 
       # `internal` marks the core library: its methods are builtins to a
@@ -43,8 +45,10 @@ module Ze0
           @file = u.file
           @frozen = u.frozen
           @warnings = u.warnings || []
+          @unit_internal = u.internal
           Function.new(self, unit_entry(i), u.locals, u.body, nil, :top).lower
         end
+        @unit_internal = false
         @file = @program.file
         @frozen = @program.frozen
         @warnings = @program.warnings || []

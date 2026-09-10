@@ -11,11 +11,16 @@ module Ze0
     # of its own, in the order they were first named. `warnings` are the
     # parse-time warnings ruby prints for the file, printed when it runs.
     Program = Struct.new(:file, :locals, :body, :frozen, :units, :warnings)
-    Unit = Struct.new(:file, :locals, :body, :frozen, :warnings)
+    Unit = Struct.new(:file, :locals, :body, :frozen, :warnings, :internal)
     # `require`, `require_relative` or `load` of a literal name: `path`
     # is the file it resolved to and `unit` that file's index, or both
     # nil when no file answers.
     Require = Struct.new(:kind, :feature, :path, :unit, :line)
+
+    # A form this runtime does not answer, held until the program runs
+    # it. Reaching it stops the program by name; never reaching it costs
+    # nothing.
+    Stop = Struct.new(:what, :line)
     # `autoload :Name, "feature"` on `recv` (nil for self): the file is
     # `path`, unit `unit`; it runs when the constant is first read.
     Autoload = Struct.new(:recv, :name, :feature, :path, :unit, :line)

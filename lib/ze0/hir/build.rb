@@ -10,12 +10,17 @@ module Ze0
     # Prism to HIR. A form the HIR does not hold yet is refused by name at
     # its line: the contract is CRuby-identical or refused, never a guess.
     class Build
-      # The pure-Ruby stdlib the runtime carries, which every program
-      # can require without naming a root.
-      STDLIB = File.expand_path("../../../rt/lib", __dir__)
+      # Ruby's own pure-ruby stdlib, unedited.
+      VENDOR = File.expand_path("../../../vendor/lib", __dir__)
+
+      # The extensions whose native half is ours. A file here is part of
+      # the runtime, so it may name a kernel def through `Primitive`.
+      EXT = File.expand_path("../../../rt/ext", __dir__)
+
+      STDLIB = [VENDOR, EXT].freeze
 
       def self.program(source, file, roots: [])
-        loader = Loader.new(roots + [STDLIB])
+        loader = Loader.new(roots + STDLIB)
         main = loader.unit(file, source)
         Program.new(main.file, main.locals, main.body, main.frozen, loader.units, main.warnings)
       end
@@ -45,7 +50,8 @@ module Ze0
           frozen = result.magic_comments.any? { |c| c.key == "frozen_string_literal" && c.value == "true" }
           build = Build.new(file, self, result.encoding)
           body = build.seq(result.value.statements, hoist: true)
-          Unit.new(file, result.value.locals + build.temps, body, frozen, warnings(result, file))
+          Unit.new(file, result.value.locals + build.temps, body, frozen, warnings(result, file),
+                   file.start_with?("#{EXT}/"))
         end
 
         # Ruby's parse-time warnings for the file, `key :k is duplicated
@@ -68,6 +74,15 @@ module Ze0
             @units[i] = unit(path)
             i
           end
+        end
+
+        # A unit that stops by name when it runs, which is what an
+        # autoload of a feature this runtime has no file for becomes:
+        # the row is real, and reading the constant is what stops.
+        def stop_unit(what, line)
+          i = @units.size
+          @units << Unit.new(what, [], Stop.new(what, line), false, [], false)
+          i
         end
 
         # The file `feature` names from `from`, or nil.
@@ -782,15 +797,20 @@ module Ze0
         return Literal.new(false, line) if node.name == :require && PRELOADED.include?(feature)
 
         path = @loader.resolve(node.name, feature, @file)
-        stop_for(node, feature) if path.nil? && node.name != :require_relative
+        stop = path.nil? && node.name != :require_relative && stop_for(node, feature)
+        return stop if stop
+
         Require.new(node.name, feature, path || missing_path(node.name, feature), path && @loader.add(path), line)
       end
 
-      # A feature ruby carries, which this runtime has no file for.
+      # A feature ruby carries, which this runtime has no file for. The
+      # stop waits until the program runs the require: a guarded one that
+      # the program never reaches costs it nothing.
       def stop_for(node, feature)
         return unless FEATURES.include?(feature.to_s.delete_suffix(".rb"))
 
-        refuse(node, "#{node.name} of #{feature.inspect} is not implemented yet")
+        line = node.location.start_line
+        Stop.new("#{@file}:#{line}: #{node.name} of #{feature.inspect}", line)
       end
 
       # What a LoadError names: a require_relative shows the whole path,
@@ -811,8 +831,9 @@ module Ze0
         name_node, path_node = node.arguments.arguments
         feature = path_node.is_a?(Prism::StringNode) ? path_node.unescaped : @loader.literal_path(path_node, @file)
         path = @loader.resolve(:require, feature, @file)
-        stop_for(node, feature) if path.nil?
-        Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, path, path && @loader.add(path), line)
+        stop = path.nil? && stop_for(node, feature)
+        unit = stop ? @loader.stop_unit(stop.what, line) : (path && @loader.add(path))
+        Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, path || feature, unit, line)
       end
 
       # `defined?(value)`: the form decides at compile time; only an

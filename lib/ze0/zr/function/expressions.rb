@@ -25,6 +25,7 @@ module Ze0
           when Hir::Next then jump_out(node, :next)
           when Hir::Return then return_from(node)
           when Hir::Require then require_unit(node)
+          when Hir::Stop then kernel("zr_unimplemented", string_literal(node.what, "zr_str_literal_freeze"))
           when Hir::Autoload then autoload_unit(node)
           when Hir::Def then define_method(node)
           when Hir::ClassDef, Hir::ModuleDef then class_body(node)
