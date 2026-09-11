@@ -339,6 +339,63 @@ machine def zr_backref_get
   home == 0 ? Machine.value(QNIL) : Frame.svar(home)
 end
 
+# A match's registers, read as CRuby's rb_reg_nth_match and its kin
+# read them: `$1`, `$&`, `` $` ``, `$'`, `$+` and a replacement's `\1`
+# never ask a user's MatchData methods. `m` is a MatchData or nil.
+sig [Value, Value] => Value
+machine def zr_match_nth(m, n)
+  if m == QNIL
+    return Machine.value(QNIL)
+  end
+  offsets = zr_ivar_get(m, Machine.id(:offsets))
+  i = zr_fix2long(n) * 2
+  if i < 0 || i >= RArray.len(offsets)
+    return Machine.value(QNIL)
+  end
+  b = zr_fix2long(zr_ary_at(offsets, i))
+  if b < 0
+    return Machine.value(QNIL)
+  end
+  zr_str_byteslice(zr_ivar_get(m, Machine.id(:string)), zr_fix(b), zr_fix(zr_fix2long(zr_ary_at(offsets, i + 1)) - b))
+end
+
+# `$+`: the last group that took part, nil when none did.
+sig [Value] => Value
+machine def zr_match_last(m)
+  if m == QNIL
+    return Machine.value(QNIL)
+  end
+  offsets = zr_ivar_get(m, Machine.id(:offsets))
+  i = RArray.len(offsets) / 2 - 1
+  while i > 0 && zr_fix2long(zr_ary_at(offsets, i * 2)) < 0
+    i -= 1
+  end
+  if i == 0
+    return Machine.value(QNIL)
+  end
+  zr_match_nth(m, zr_fix(i))
+end
+
+# `` $` ``: the text before the match.
+sig [Value] => Value
+machine def zr_match_pre(m)
+  if m == QNIL
+    return Machine.value(QNIL)
+  end
+  zr_str_byteslice(zr_ivar_get(m, Machine.id(:string)), zr_fix(0), zr_ary_at(zr_ivar_get(m, Machine.id(:offsets)), 0))
+end
+
+# `$'`: the text after the match.
+sig [Value] => Value
+machine def zr_match_post(m)
+  if m == QNIL
+    return Machine.value(QNIL)
+  end
+  s = zr_ivar_get(m, Machine.id(:string))
+  e = zr_fix2long(zr_ary_at(zr_ivar_get(m, Machine.id(:offsets)), 1))
+  zr_str_byteslice(s, zr_fix(e), zr_fix(RString.len(s) - e))
+end
+
 # `$_`, the last line read, lives beside `$~`.
 sig [Value] => Value
 machine def zr_lastline_set(v)

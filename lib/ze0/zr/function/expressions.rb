@@ -50,6 +50,7 @@ module Ze0
           when Hir::IvarRead then kernel("zr_ivar_get_cached", @self, imm(sym_id(node.name)), cache("iv", "IvarCache"))
           when Hir::FrozenString then checked(string_literal(node.value, "zr_str_literal_freeze"))
           when Hir::GvarRead then gvar_read(node)
+          when Hir::BackRef then back_ref(node)
           when Hir::GvarWrite then gvar_write(node.name, expr(node.value))
           when Hir::CvarRead then cvar_read(node)
           when Hir::CvarWrite then cvar_write(node)
@@ -210,6 +211,18 @@ module Ze0
           return kernel("zr_lastline_set", v) if name == :$_
 
           kernel("zr_gvar_set", imm(sym_id(name)), v)
+        end
+
+        # `$1`, `$&`, `` $` ``, `$'` and `$+`: `$~`'s registers, nil
+        # without a match.
+        def back_ref(node)
+          match = kernel("zr_backref_get")
+          case node.kind
+          when :nth then kernel("zr_match_nth", match, expr(Hir::Literal.new(node.number, node.line)))
+          when :last then kernel("zr_match_last", match)
+          when :pre then kernel("zr_match_pre", match)
+          when :post then kernel("zr_match_post", match)
+          end
         end
 
         def cvar_read(node)

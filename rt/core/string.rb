@@ -1302,11 +1302,13 @@ class String
   end
 
   # What replaces one match: the block's answer, the Hash's entry, or
-  # the replacement text with its backreferences filled in.
+  # the replacement text with its backreferences filled in, read from
+  # the match's registers as CRuby's rb_reg_regsub reads them.
   def replacement_for(match, replacement, &block)
     Primitive.attr! :hidden
-    return yield(match[0]).to_s if block
-    return replacement[match[0]].to_s if replacement.is_a?(Hash)
+    whole = Primitive.zr_match_nth(match, 0)
+    return yield(whole).to_s if block
+    return replacement[whole].to_s if replacement.is_a?(Hash)
 
     text = replacement.to_str
     return text unless text.include?("\\")
@@ -1324,12 +1326,12 @@ class String
       d = text[i + 1]
       i += 2
       case d
-      when "0", "&" then out << match[0]
-      when "1".."9" then out << (numbered && d.to_i < match.size ? match[d.to_i].to_s : "")
-      when "+" then out << match.send(:last_group).to_s
+      when "0", "&" then out << whole
+      when "1".."9" then out << (numbered ? Primitive.zr_match_nth(match, d.to_i).to_s : "")
+      when "+" then out << Primitive.zr_match_last(match).to_s
       when "\\" then out << "\\"
-      when "`" then out << match.pre_match
-      when "'" then out << match.post_match
+      when "`" then out << Primitive.zr_match_pre(match)
+      when "'" then out << Primitive.zr_match_post(match)
       when "k"
         close = text.index(">", i)
         if text[i] == "<" && close

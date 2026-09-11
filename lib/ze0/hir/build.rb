@@ -304,12 +304,11 @@ module Ze0
       # `$&`, `` $` ``, `$'` and `$+`: what the last match answers, nil
       # without one.
       def back_reference(node, line)
-        match = GvarRead.new(:$~, line)
         case node.name
-        when :$& then Send.new(match, :[], [Literal.new(0, line)], line, false, nil, nil, nil, true)
-        when :$` then Send.new(match, :pre_match, [], line, false, nil, nil, nil, true)
-        when :$' then Send.new(match, :post_match, [], line, false, nil, nil, nil, true)
-        when :$+ then Send.new(match, :last_group, [], line, false, nil, nil, nil, true)
+        when :$& then BackRef.new(:nth, 0, line)
+        when :$` then BackRef.new(:pre, nil, line)
+        when :$' then BackRef.new(:post, nil, line)
+        when :$+ then BackRef.new(:last, nil, line)
         else refuse(node, "#{node.name} is not lowered yet")
         end
       end
@@ -592,7 +591,7 @@ module Ze0
           Send.new(ConstRead.new(nil, :Encoding, line), :find, [Literal.new(@encoding.name, line)], line, false)
         when Prism::InterpolatedSymbolNode then Send.new(interpolation(node, line), :to_sym, [], line, false)
         when Prism::XStringNode then Send.new(nil, :`, [Literal.new(node.unescaped, line)], line, false)
-        when Prism::NumberedReferenceReadNode then Send.new(GvarRead.new(:$~, line), :[], [Literal.new(node.number, line)], line, false, nil, nil, nil, true)
+        when Prism::NumberedReferenceReadNode then BackRef.new(:nth, node.number, line)
         when Prism::BackReferenceReadNode then back_reference(node, line)
         when Prism::RegularExpressionNode then regexp_literal(node, line)
         when Prism::InterpolatedRegularExpressionNode then interpolated_regexp(node, line)

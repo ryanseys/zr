@@ -551,11 +551,6 @@ class MatchData
 
   def post_match = string.byteslice(offsets[1], string.bytesize - offsets[1])
 
-  # `$+`: the last group that took part.
-  def last_group
-    captures.reverse.find { |c| !c.nil? }
-  end
-
   def to_s = group(0)
 
   def ==(other)

@@ -917,6 +917,10 @@ module Ze0
         d zr_backref_home Ptr
         d zr_backref_set Value v:Value
         d zr_backref_get Value
+        d zr_match_nth Value m:Value n:Value
+        d zr_match_last Value m:Value
+        d zr_match_pre Value m:Value
+        d zr_match_post Value m:Value
         d zr_lastline_set Value v:Value
         d zr_lastline_get Value
         d zr_ryu_pow5_inv Ptr

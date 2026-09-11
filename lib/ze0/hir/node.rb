@@ -216,6 +216,10 @@ module Ze0
     # `{k => v, ...}`: `pairs` is a flat list, key then value.
     HashLit = Struct.new(:pairs, :line)
     # `low..high` / `low...high`; a missing bound is nil.
+    # `$1` and the other numbered groups (`kind` :nth, `number` the
+    # group, 0 for `$&`), `` $` `` (:pre), `$'` (:post) and `$+` (:last),
+    # read from `$~`'s registers, never through MatchData's methods.
+    BackRef = Struct.new(:kind, :number, :line)
     # `static` when both ends are Integer or nil literals: one frozen
     # Range for the site.
     RangeLit = Struct.new(:low, :high, :exclusive, :line, :static)
