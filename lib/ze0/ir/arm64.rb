@@ -61,9 +61,12 @@ module Ze0
 
       class Refused < StandardError; end
 
-      def initialize(function, defined: [], assembler: Machine::Aarch64::Assembler)
+      # `far` branches past the megabyte a conditional branch reaches,
+      # which only a function that large pays for.
+      def initialize(function, defined: [], assembler: Machine::Aarch64::Assembler, far: false)
         @f = function
         @defined = defined
+        @far = far
         @asm = assembler.new
         @relocs = []
         @type = {}
@@ -82,6 +85,12 @@ module Ze0
           b.insts.each { |i| emit(i) }
         end
         Obj::Function.new(@f.name, @asm.to_binary, relocs: @relocs, linkage: :export)
+      rescue Machine::Aarch64::Assembler::Refused => e
+        # A conditional branch that cannot reach its block: the whole
+        # function again, every such branch the long way.
+        raise if @far || !e.message.include?("signed 19-bit")
+
+        self.class.new(@f, defined: @defined, assembler: @asm.class, far: true).compile
       end
 
       private
@@ -336,9 +345,9 @@ module Ze0
           reg = reg_for(i.args[0], X9)
           yes, no = i.targets.map(&:first)
           if yes == @next
-            @asm.cbz reg, @labels.fetch(no)
+            branch_if(:cbz, reg, no)
           else
-            @asm.cbnz reg, @labels.fetch(yes)
+            branch_if(:cbnz, reg, yes)
             @asm.b @labels.fetch(no) unless no == @next
           end
         when :jump then emit_jump(i)
@@ -352,12 +361,21 @@ module Ze0
         end
       end
 
+      # `cbz` or `cbnz` to a block. A far one branches the other way over
+      # a `b`, which reaches 128 megabytes to the megabyte of its own.
+      def branch_if(op, reg, target)
+        return @asm.public_send(op, reg, @labels.fetch(target)) unless @far
+
+        @asm.public_send(op == :cbz ? :cbnz : :cbz, reg, 2)
+        @asm.b @labels.fetch(target)
+      end
+
       def emit_load(i)
         load_value(i.args[0], X9)
         case i.type
-        when "i64", "f64" then @asm.ldr X10, [X9, i.offset]
-        when "i32" then @asm.ldr W10, [X9, i.offset]
-        when "i8" then @asm.ldrb W10, [X9, i.offset]
+        when "i64", "f64" then @asm.ldr X10, reach(X9, i.offset, 8)
+        when "i32" then @asm.ldr W10, reach(X9, i.offset, 4)
+        when "i8" then @asm.ldrb W10, reach(X9, i.offset, 1)
         else raise Refused, "#{@f.name}: load.#{i.type}"
         end
         store_value(i.results[0], X10)
@@ -367,10 +385,21 @@ module Ze0
         load_value(i.args[0], X9)
         load_value(i.args[1], X10)
         case type_of(i.args[0])
-        when "i64", "f64" then @asm.str X9, [X10, i.offset]
-        when "i32" then @asm.str W9, [X10, i.offset]
-        when "i8" then @asm.strb W9, [X10, i.offset]
+        when "i64", "f64" then @asm.str X9, reach(X10, i.offset, 8)
+        when "i32" then @asm.str W9, reach(X10, i.offset, 4)
+        when "i8" then @asm.strb W9, reach(X10, i.offset, 1)
         end
+      end
+
+      # A base and an offset one load or store can hold: the offset
+      # scaled into twelve bits, else the whole address built in X11
+      # first, which neither emitter above uses.
+      def reach(base, off, width)
+        return [base, off] if off >= 0 && off % width == 0 && off / width <= 4095
+
+        materialize(X11, off)
+        @asm.add X11, base, X11
+        [X11, 0]
       end
 
       # A symbol's address: page plus offset for one this link defines,
