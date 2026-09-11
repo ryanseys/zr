@@ -48,11 +48,98 @@ machine def zr_cref_lexical_class(cref)
   RCref.klass(zr_cref_lexical(cref))
 end
 
+# A table this long or longer is found through a hash index of its ids,
+# built when a lookup first needs it: Object's holds hundreds of rows,
+# and every bare constant a program reads ends there. A shorter table
+# is scanned.
+CONST_INDEX_MIN = 16
+
+# The index forgotten; the next lookup that needs it builds it again.
+sig [Ptr] => Void
+machine def zr_const_index_drop(ext)
+  if ClassExt.cidx(ext) != 0
+    free(ClassExt.cidx(ext))
+    ClassExt.set_cidx(ext, 0)
+  end
+end
+
+# Row `row` into the index. A bin holds a row number plus one, zero
+# when empty; rows go in in order, so of two rows with one id the
+# earlier is found first, as a scan finds it.
+sig [Ptr, Word] => Void
+machine def zr_const_index_put(ext, row)
+  mask = ClassExt.cbins(ext) - 1
+  h = (CEntry.id(ClassExt.ctab(ext) + (row * CEntry.size)) * 2654435761) & mask
+  while Machine.load64(ClassExt.cidx(ext) + (h * 8), 0) != 0
+    h = (h + 1) & mask
+  end
+  Machine.store64(ClassExt.cidx(ext) + (h * 8), 0, row + 1)
+end
+
+# Every row into a fresh index with at least four bins a row.
+sig [Ptr] => Void
+machine def zr_const_index_build(ext)
+  zr_const_index_drop(ext)
+  n = ClassExt.clen(ext)
+  bins = 64
+  while bins < n * 4
+    bins = bins * 2
+  end
+  ClassExt.set_cidx(ext, malloc(bins * 8))
+  memset(ClassExt.cidx(ext), Machine.i32(0), bins * 8)
+  ClassExt.set_cbins(ext, bins)
+  i = 0
+  while i < n
+    zr_const_index_put(ext, i)
+    i += 1
+  end
+end
+
+# A new last row: into the index while the bins stay under half full,
+# else the index goes and the next lookup builds a bigger one.
+sig [Ptr, Word] => Void
+machine def zr_const_index_add(ext, row)
+  if ClassExt.cidx(ext) == 0
+    return
+  end
+  if (row + 1) * 2 > ClassExt.cbins(ext)
+    zr_const_index_drop(ext)
+    return
+  end
+  zr_const_index_put(ext, row)
+end
+
+# The row number of `id` in the table, or -1.
+sig [Ptr, Word] => Word
+machine def zr_const_index_find(ext, id)
+  if ClassExt.cidx(ext) == 0
+    zr_const_index_build(ext)
+  end
+  mask = ClassExt.cbins(ext) - 1
+  h = (id * 2654435761) & mask
+  slot = Machine.load64(ClassExt.cidx(ext) + (h * 8), 0)
+  while slot != 0
+    if CEntry.id(ClassExt.ctab(ext) + ((slot - 1) * CEntry.size)) == id
+      return slot - 1
+    end
+    h = (h + 1) & mask
+    slot = Machine.load64(ClassExt.cidx(ext) + (h * 8), 0)
+  end
+  0 - 1
+end
+
 # The constant row for `id` on `klass` alone, or 0.
 sig [Value, Word] => Ptr
 machine def zr_const_row(klass, id)
   ext = RClass.ext(klass)
   n = ClassExt.clen(ext)
+  if n >= CONST_INDEX_MIN
+    i = zr_const_index_find(ext, id)
+    if i < 0
+      return 0
+    end
+    return zr_box_const_hidden(klass, i) ? 0 : ClassExt.ctab(ext) + (i * CEntry.size)
+  end
   i = 0
   while i < n
     e = ClassExt.ctab(ext) + (i * CEntry.size)
@@ -102,6 +189,7 @@ machine def zr_const_set(klass, id, v)
     CEntry.set_deprecated(e, 0)
     CEntry.set_owner(e, klass)
     ClassExt.set_clen(ext, n + 1)
+    zr_const_index_add(ext, n)
   elsif CEntry.value(e) != QUNDEF
     zr_warn_reassigned_constant(klass, id, e)
   end
@@ -729,6 +817,8 @@ machine def zr_const_remove(klass, id)
     if CEntry.id(e) == id
       zr_memmove(e, e + CEntry.size, (n - i - 1) * CEntry.size)
       ClassExt.set_clen(ext, n - 1)
+      # The rows after it moved up one.
+      zr_const_index_drop(ext)
       return
     end
     i += 1

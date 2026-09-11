@@ -17,7 +17,7 @@ Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr,
 # over; both are nil outside a box.
 # `alloc` is the kind of object the class allocates (ALLOC_*), found
 # from its builtin ancestor on first use; 0 until then.
-Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word, refined: Value, active: Value, boxed: Value, shadow: Value, alloc: Word
+Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word, refined: Value, active: Value, boxed: Value, shadow: Value, alloc: Word, cidx: Ptr, cbins: Word
 # `orig` is the name the method was first defined under, which an
 # alias keeps. `from` is the chain node the entry an alias or a
 # visibility change copied was found on, where `super` in the body
@@ -53,6 +53,8 @@ machine def zr_class_alloc(type, sup, klass)
   ClassExt.set_ctab(ext, 0)
   ClassExt.set_clen(ext, 0)
   ClassExt.set_ccap(ext, 0)
+  ClassExt.set_cidx(ext, 0)
+  ClassExt.set_cbins(ext, 0)
   zr_ivtab_init(ClassExt.iv(ext))
   zr_ivtab_init(ClassExt.cv(ext))
   ClassExt.set_refined(ext, Machine.value(QNIL))
@@ -256,6 +258,8 @@ machine def zr_ensure_origin(klass)
   ClassExt.set_ctab(ext, 0)
   ClassExt.set_clen(ext, 0)
   ClassExt.set_ccap(ext, 0)
+  ClassExt.set_cidx(ext, 0)
+  ClassExt.set_cbins(ext, 0)
   zr_ivtab_init(ClassExt.iv(ext))
   zr_ivtab_init(ClassExt.cv(ext))
   RClass.set_ext(o, ext)
@@ -1354,6 +1358,7 @@ machine def zr_release(v)
     if ClassExt.ctab(ext) != 0
       free(ClassExt.ctab(ext))
     end
+    zr_const_index_drop(ext)
     zr_release_ivtab(ClassExt.iv(ext))
     zr_release_ivtab(ClassExt.cv(ext))
     free(ext)
