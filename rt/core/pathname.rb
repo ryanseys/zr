@@ -452,6 +452,9 @@ end
 
 module Kernel
   # `Pathname(path)`, as ruby's own builtin gives it.
-  def Pathname(path) = path.is_a?(Pathname) ? path : Pathname.new(path)
+  def Pathname(path)
+    Primitive.attr! :ruby
+    path.is_a?(Pathname) ? path : Pathname.new(path)
+  end
   module_function :Pathname
 end

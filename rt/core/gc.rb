@@ -1,36 +1,45 @@
-# The collector as Ruby sees it: one heap, collected on demand.
+# The collector as Ruby sees it: one heap, collected on demand. CRuby
+# writes most of GC in Ruby (its gc.rb), so those methods answer their
+# own parameters, under CRuby's names.
 module GC
-  def self.start(full_mark: true, immediate_mark: true, immediate_sweep: true) = Primitive.zr_gc_start
+  def self.start(full_mark: true, immediate_mark: true, immediate_sweep: true)
+    Primitive.attr! :ruby
+    Primitive.zr_gc_start
+  end
+
   def self.count = Primitive.zr_gc_count
   def self.disable = Primitive.zr_gc_set_disabled(true)
   def self.enable = Primitive.zr_gc_set_disabled(false)
   def self.stress = Primitive.zr_gc_stress
   def self.stress=(flag)
+    Primitive.attr! :ruby
     Primitive.zr_gc_set_stress(flag)
   end
 
-  def self.stat(key = nil)
+  def self.stat(hash_or_key = nil)
+    Primitive.attr! :ruby
     stats = {
       count: Primitive.zr_gc_count,
       heap_live_slots: Primitive.zr_gc_live_slots,
       total_allocated_objects: Primitive.zr_gc_allocated
     }
-    return stats if key.nil?
-    return stats.fetch(key) if stats.key?(key)
+    return stats if hash_or_key.nil?
+    return stats.fetch(hash_or_key) if stats.key?(hash_or_key)
 
-    raise ArgumentError, "unknown key: #{key}"
+    raise ArgumentError, "unknown key: #{hash_or_key}"
   end
 
   # The one collector here runs a full mark and sweep every time.
-  def self.latest_gc_info(key = nil)
+  def self.latest_gc_info(hash_or_key = nil)
+    Primitive.attr! :ruby
     info = {
       major_by: :force, need_major_by: nil, gc_by: :method, have_finalizer: false,
       immediate_sweep: true, state: :none, weak_references_count: 0, retained_weak_references_count: 0
     }
-    return info if key.nil?
-    return info.fetch(key) if info.key?(key)
+    return info if hash_or_key.nil?
+    return info.fetch(hash_or_key) if info.key?(hash_or_key)
 
-    raise ArgumentError, "unknown key: #{key}"
+    raise ArgumentError, "unknown key: #{hash_or_key}"
   end
 
   # The switch a program reads before it asks for a report. The
@@ -88,27 +97,37 @@ module GC
   def self.measure_total_time = @measure_total_time
 
   def self.measure_total_time=(flag)
+    Primitive.attr! :ruby
     @measure_total_time = flag
   end
 
-  def self.config(**options) = { rgengc_allow_full_mark: true, implementation: "default" }
+  def self.config(hash = nil)
+    Primitive.attr! :ruby
+    { rgengc_allow_full_mark: true, implementation: "default" }
+  end
 
   # One pool of one cell size holds every object.
-  def self.stat_heap(pool = nil, out = {})
+  def self.stat_heap(heap_name = nil, hash_or_key = nil)
+    Primitive.attr! :ruby
+    out = hash_or_key.nil? ? {} : hash_or_key
     stats = {
       slot_size: 128,
       heap_live_slots: Primitive.zr_gc_live_slots,
       heap_free_slots: 0,
       total_allocated_objects: Primitive.zr_gc_allocated
     }
-    return out.merge!(0 => stats) if pool.nil?
-    raise RangeError, "pool index out of range" unless pool == 0
+    return out.merge!(0 => stats) if heap_name.nil?
+    raise RangeError, "pool index out of range" unless heap_name == 0
 
     out.merge!(stats)
   end
 
   def start(full_mark: true, immediate_mark: true, immediate_sweep: true) = Primitive.zr_gc_start
-  def garbage_collect(full_mark: true, immediate_mark: true, immediate_sweep: true) = Primitive.zr_gc_start
+
+  def garbage_collect(full_mark: true, immediate_mark: true, immediate_sweep: true)
+    Primitive.attr! :ruby
+    Primitive.zr_gc_start
+  end
 end
 
 module Process

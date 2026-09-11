@@ -460,15 +460,21 @@ class IO
 
   def readpartial(length, buffer = nil) = filled(read(length), buffer)
 
-  def read_nonblock(length, buffer = nil, exception: true)
+  # CRuby writes these three in Ruby (its io.rb), so they answer their
+  # own parameters, under CRuby's names.
+  def read_nonblock(len, buf = nil, exception: true)
+    Primitive.attr! :ruby
     check_readable
-    text = read(length)
+    text = read(len)
     return nil if text.nil? && !exception
 
-    filled(text, buffer)
+    filled(text, buf)
   end
 
-  def write_nonblock(text, exception: true) = write(text)
+  def write_nonblock(buf, exception: true)
+    Primitive.attr! :ruby
+    write(buf)
+  end
 
   def putc(c)
     write(c.is_a?(Integer) ? (c & 0xff).chr : c.to_s[0, 1])
@@ -547,8 +553,10 @@ class IO
     $_ = chomp ? chomp_line(line, separator) : line
   end
 
-  def readline(*args, **options)
-    gets(*args, **options) || raise(EOFError, "end of file reached")
+  def readline(sep = (nosep = true), limit = (nolimit = true), chomp: false)
+    Primitive.attr! :ruby
+    args = nosep ? [] : (nolimit ? [sep] : [sep, limit])
+    gets(*args, chomp: chomp) || raise(EOFError, "end of file reached")
   end
 
   def each_line(*args, chomp: false)

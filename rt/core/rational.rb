@@ -406,7 +406,11 @@ end
 class NilClass
   def to_r = Rational.send(:build, 0, 1)
 
-  def rationalize(eps = nil) = to_r
+  # CRuby writes this one in Ruby (its nilclass.rb).
+  def rationalize(eps = nil)
+    Primitive.attr! :ruby
+    to_r
+  end
 end
 
 class Rational

@@ -77,7 +77,9 @@ end
 module Kernel
   # `Float(value)`: a Float, an Integer converted, or a String parsed
   # strictly.
-  def Float(value, exception: true)
+  def Float(arg, exception: true)
+    Primitive.attr! :ruby
+    value = arg
     case value
     when Float then value
     when Integer then value.to_f

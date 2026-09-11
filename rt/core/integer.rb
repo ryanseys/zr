@@ -319,7 +319,10 @@ class Integer
 
   alias magnitude abs
 
-  def ceildiv(other) = -(-self).div(other)
+  def ceildiv(other)
+    Primitive.attr! :ruby
+    -(-self).div(other)
+  end
 
   def floor(digits = 0) = round_to(digits, :floor)
 

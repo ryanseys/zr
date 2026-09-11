@@ -518,6 +518,7 @@ class Thread::Mutex
   # Release the lock, sleep, and take it back: the seconds slept, or
   # nil when the timeout ran out.
   def sleep(timeout = nil)
+    Primitive.attr! :ruby
     unlock
     begin
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
@@ -537,6 +538,7 @@ class Thread::ConditionVariable
 
   # What Mutex#sleep answers: the seconds slept, or nil on the timeout.
   def wait(mutex, timeout = nil)
+    Primitive.attr! :ruby
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
     deadline = timeout.nil? ? nil : started + (timeout * 1e9).to_i
     mutex.unlock
@@ -579,6 +581,7 @@ class Thread::Queue
   alias enq push
 
   def pop(non_block = false, timeout: nil)
+    Primitive.attr! :ruby
     raise ArgumentError, "can't set a timeout if non_block is enabled" if non_block && timeout
 
     deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).to_i
@@ -638,7 +641,9 @@ class Thread::SizedQueue < Thread::Queue
     value
   end
 
-  def push(value, non_block = false, timeout: nil)
+  def push(object, non_block = false, timeout: nil)
+    Primitive.attr! :ruby
+    value = object
     raise ArgumentError, "can't set a timeout if non_block is enabled" if non_block && timeout
 
     deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).to_i
@@ -656,6 +661,7 @@ class Thread::SizedQueue < Thread::Queue
   alias enq push
 
   def pop(non_block = false, timeout: nil)
+    Primitive.attr! :ruby
     value = super
     @pushers.first&.wakeup
     value

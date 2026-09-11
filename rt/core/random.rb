@@ -348,12 +348,18 @@ module Kernel
   module_function :rand, :srand
 end
 
+# CRuby writes shuffle and sample in Ruby (its array.rb), so they
+# answer their own parameters, under CRuby's names.
 class Array
-  def shuffle(random: Random.default) = dup.shuffle!(random: random)
+  def shuffle(random: Random.default)
+    Primitive.attr! :ruby
+    dup.shuffle!(random: random)
+  end
 
   # CRuby's walk: from the end, each slot swaps with a draw at or
   # before it.
   def shuffle!(random: Random.default)
+    Primitive.attr! :ruby
     Primitive.zr_frozen_error(self) if frozen?
     i = size
     while i > 0
@@ -366,16 +372,15 @@ class Array
 
   # `sample` and `sample(n)`: CRuby's draws, in CRuby's order, so a
   # seeded generator picks the same elements.
-  def sample(*args, random: Random.default)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
-
+  def sample(n = (none = true), random: Random.default)
+    Primitive.attr! :ruby
     len = size
-    if args.empty?
+    if none
       return nil if len == 0
 
       return self[random.send(:limited, len - 1)]
     end
-    n = Primitive.zr_index_operand_m(args[0])
+    n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "negative sample number" if n < 0
 
     n = len if n > len

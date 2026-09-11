@@ -61,7 +61,9 @@ module Kernel
   end
   alias yield_self then
 
-  def Integer(value, base = nil, exception: true)
+  def Integer(arg, base = nil, exception: true)
+    Primitive.attr! :ruby
+    value = arg
     if value.is_a?(String)
       n = parse_integer(value, base || 0)
       return n if n || !exception
@@ -287,7 +289,12 @@ module Kernel
 
   # `pp` prints inspect on a line each, as `p` does; a wide inspect
   # would wrap, which is not written yet.
-  def pp(*objects)
+  def pp(*objs)
+    Primitive.attr! :ruby
+    # CRuby's first pp requires pp.rb, which makes pp a module function
+    # from then on; before that, Kernel.pp is private.
+    Kernel.send(:module_function, :pp) unless Kernel.singleton_class.method_defined?(:pp)
+    objects = objs
     objects.each do |object|
       text = object.inspect
       Primitive.zr_unimplemented("pp of an object whose inspect is 80 columns or wider") if text.size >= 80
@@ -330,7 +337,9 @@ module Kernel
   def !~(other) = !(self =~ other)
 
   private :putc, :pp, :Hash, :exit!
-  module_function :putc, :pp, :Hash, :exit!
+  # pp is Kernel's private method alone, as CRuby's prelude defines it:
+  # no module function.
+  module_function :putc, :Hash, :exit!
 end
 
 class Module

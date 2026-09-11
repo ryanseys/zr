@@ -17,9 +17,12 @@ module Marshal
     io
   end
 
-  def self.load(source, handler = nil, freeze: false)
+  # CRuby writes load in Ruby (its marshal.rb), so it answers its own
+  # parameters, under CRuby's names.
+  def self.load(source, proc = nil, freeze: false)
+    Primitive.attr! :ruby
     bytes = source.respond_to?(:read) ? source.read : Primitive.zr_str_operand(source)
-    Reader.new(bytes, handler, freeze).run
+    Reader.new(bytes, proc, freeze).run
   end
 
   class << self

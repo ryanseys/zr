@@ -127,7 +127,10 @@ module ObjectSpace
     obj
   end
 
-  def garbage_collect(full_mark: true, immediate_mark: true, immediate_sweep: true) = Primitive.zr_gc_start
+  def garbage_collect(full_mark: true, immediate_mark: true, immediate_sweep: true)
+    Primitive.attr! :ruby
+    Primitive.zr_gc_start
+  end
 
   def each_object(mod = nil) = Primitive.zr_unimplemented("ObjectSpace.each_object")
   def count_objects(result = {}) = Primitive.zr_unimplemented("ObjectSpace.count_objects")

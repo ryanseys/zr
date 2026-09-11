@@ -20,6 +20,7 @@ class Array
   end
 
   def last(n = (none = true))
+    Primitive.attr! :ruby
     return self[-1] if none
 
     n = Primitive.zr_index_operand_m(n)
@@ -36,6 +37,7 @@ class Array
   end
 
   def first(n = (none = true))
+    Primitive.attr! :ruby
     return self[0] if none
 
     n = Primitive.zr_index_operand_m(n)
@@ -729,6 +731,7 @@ class Array
 
   # Each index fetched, a block answering for one out of bounds.
   def fetch_values(*indexes, &block)
+    Primitive.attr! :ruby
     indexes.map { |i| block ? fetch(i, &block) : fetch(i) }
   end
 

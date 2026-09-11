@@ -832,5 +832,9 @@ module Enumerable
 
   def lazy = Enumerator::Lazy.from(self)
 
-  def to_set(&block) = Set.new(self, &block)
+  # CRuby writes this one in Ruby, so it answers its own parameters.
+  def to_set(*args, &block)
+    Primitive.attr! :ruby
+    Set.new(self, *args, &block)
+  end
 end

@@ -759,8 +759,11 @@ class Dir
 
   # A Dir is the directory's names and a cursor over them, read once
   # when it opens.
-  def initialize(path, encoding: nil)
-    @path = File.path(path)
+  # CRuby writes Dir's opening and globbing in Ruby (its dir.rb), so
+  # they answer their own parameters, under CRuby's names.
+  def initialize(name, encoding: nil)
+    Primitive.attr! :ruby
+    @path = File.path(name)
     names = Primitive.zr_io_dir_names(@path)
     raise SystemCallError.new("@ dir_initialize - #{@path}", -names) if names.is_a?(Integer)
 
@@ -775,9 +778,10 @@ class Dir
     self
   end
 
-  def self.open(path, **options)
-    dir = new(path, **options)
-    return dir unless block_given?
+  def self.open(name, encoding: nil, &block)
+    Primitive.attr! :ruby
+    dir = new(name, encoding: encoding)
+    return dir unless block
 
     begin
       yield dir
@@ -909,8 +913,9 @@ class Dir
   # split on `/`; `**` walks every directory below; braces expand
   # first; the other pieces match a name as File.fnmatch does with
   # FNM_PATHNAME, hidden names only under FNM_DOTMATCH or a literal dot.
-  def self.glob(patterns, flags = 0, base: nil, sort: true)
-    patterns = Array(patterns)
+  def self.glob(pattern, _flags = 0, flags: _flags, base: nil, sort: true)
+    Primitive.attr! :ruby
+    patterns = Array(pattern)
     found = patterns.flat_map do |pattern|
       pattern = File.send(:path_of, pattern)
       Glob.expand_braces(pattern).flat_map { |p| Glob.new(p, flags, base).run }.uniq
@@ -921,8 +926,9 @@ class Dir
     nil
   end
 
-  def self.[](*patterns, base: nil, sort: true)
-    glob(patterns, base: base, sort: sort)
+  def self.[](*args, base: nil, sort: true)
+    Primitive.attr! :ruby
+    glob(args, base: base, sort: sort)
   end
 
   # One brace-free pattern matched against the file system.
