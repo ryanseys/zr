@@ -146,85 +146,112 @@ machine def zr_sort_insertion(st, a, n)
   end
 end
 
-# `n` elements from index `a`. The right part iterates, the left recurses.
+# `n` elements from index `a`, in the order CRuby's mmkubo sort does its
+# work: each split sorts its left part, then its right part. A right
+# part waits on a stack of its own rather than the machine's, so however
+# badly the pivots split, the sort cannot run out of stack.
 sig [Ptr, Word, Word] => Void
 machine def zr_sort_range(st, a, n)
+  parts = Machine.slot(16)
+  waiting = Machine.value(QNIL)
   while true
-    if n < 7
-      zr_sort_insertion(st, a, n)
-      return
-    end
-    swapped = 0
-    pm = a + (n / 2)
-    if n > 7
-      pl = a
-      pn = a + n - 1
-      if n > 40
-        d = n / 8
-        pl = zr_sort_med3(st, pl, pl + d, pl + (2 * d))
-        pm = zr_sort_med3(st, pm - d, pm, pm + d)
-        pn = zr_sort_med3(st, pn - (2 * d), pn - d, pn)
-      end
-      pm = zr_sort_med3(st, pl, pm, pn)
-    end
-    zr_sort_swap(st, a, pm)
-    pa = a + 1
-    pb = a + 1
-    pc = a + n - 1
-    pd = a + n - 1
-    while true
-      while pb <= pc
-        c = zr_sort_cmp(st, pb, a)
-        break if c > 0
-        if c == 0
-          swapped = 1
-          zr_sort_swap(st, pa, pb)
-          pa += 1
+    left = 0
+    if zr_sort_partition(st, a, n, parts)
+      left = Machine.load64(parts, 0)
+      right = Machine.load64(parts, 8)
+      if right > 1
+        if waiting == QNIL
+          waiting = zr_ary_new(16)
         end
-        pb += 1
+        zr_ary_push(waiting, zr_fix(a + n - right))
+        zr_ary_push(waiting, zr_fix(right))
       end
-      while pb <= pc
-        c = zr_sort_cmp(st, pc, a)
-        break if c < 0
-        if c == 0
-          swapped = 1
-          zr_sort_swap(st, pc, pd)
-          pd -= 1
-        end
-        pc -= 1
+    end
+    if left > 1
+      n = left
+    else
+      if waiting == QNIL || RArray.len(waiting) == 0
+        return
       end
-      break if pb > pc
-      zr_sort_swap(st, pb, pc)
-      swapped = 1
+      n = zr_fix2long(zr_ary_at(waiting, RArray.len(waiting) - 1))
+      a = zr_fix2long(zr_ary_at(waiting, RArray.len(waiting) - 2))
+      RArray.set_len(waiting, RArray.len(waiting) - 2)
+    end
+  end
+end
+
+# One split of `n` elements from index `a`: true with the sizes of the
+# left part (from `a`) and the right part (ending at `a + n`) in `parts`,
+# or false when the range is sorted already.
+sig [Ptr, Word, Word, Ptr] => Bool
+machine def zr_sort_partition(st, a, n, parts)
+  if n < 7
+    zr_sort_insertion(st, a, n)
+    return false
+  end
+  swapped = 0
+  pm = a + (n / 2)
+  if n > 7
+    pl = a
+    pn = a + n - 1
+    if n > 40
+      d = n / 8
+      pl = zr_sort_med3(st, pl, pl + d, pl + (2 * d))
+      pm = zr_sort_med3(st, pm - d, pm, pm + d)
+      pn = zr_sort_med3(st, pn - (2 * d), pn - d, pn)
+    end
+    pm = zr_sort_med3(st, pl, pm, pn)
+  end
+  zr_sort_swap(st, a, pm)
+  pa = a + 1
+  pb = a + 1
+  pc = a + n - 1
+  pd = a + n - 1
+  while true
+    while pb <= pc
+      c = zr_sort_cmp(st, pb, a)
+      break if c > 0
+      if c == 0
+        swapped = 1
+        zr_sort_swap(st, pa, pb)
+        pa += 1
+      end
       pb += 1
+    end
+    while pb <= pc
+      c = zr_sort_cmp(st, pc, a)
+      break if c < 0
+      if c == 0
+        swapped = 1
+        zr_sort_swap(st, pc, pd)
+        pd -= 1
+      end
       pc -= 1
     end
-    if swapped == 0
-      zr_sort_insertion(st, a, n)
-      return
-    end
-    pn = a + n
-    r = pa - a
-    if pb - pa < r
-      r = pb - pa
-    end
-    zr_sort_vecswap(st, a, pb - r, r)
-    r = pd - pc
-    if pn - pd - 1 < r
-      r = pn - pd - 1
-    end
-    zr_sort_vecswap(st, pb, pn - r, r)
-    r = pb - pa
-    if r > 1
-      zr_sort_range(st, a, r)
-    end
-    r = pd - pc
-    if r <= 1
-      return
-    end
-    a = pn - r
-    n = r
+    break if pb > pc
+    zr_sort_swap(st, pb, pc)
+    swapped = 1
+    pb += 1
+    pc -= 1
   end
+  if swapped == 0
+    zr_sort_insertion(st, a, n)
+    return false
+  end
+  pn = a + n
+  r = pa - a
+  if pb - pa < r
+    r = pb - pa
+  end
+  zr_sort_vecswap(st, a, pb - r, r)
+  r = pd - pc
+  if pn - pd - 1 < r
+    r = pn - pd - 1
+  end
+  zr_sort_vecswap(st, pb, pn - r, r)
+  Machine.store64(parts, 0, pb - pa)
+  Machine.store64(parts, 8, pd - pc)
+  true
 end
 
 # `ary` sorted in place; it is a copy the caller made, so a comparison

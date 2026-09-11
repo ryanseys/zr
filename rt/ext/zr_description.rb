@@ -444,6 +444,7 @@ module Ze0
         d zr_hash_new Value
         d zr_mark_hash Void h:Value
         d zr_key_eql Bool a:Value b:Value
+        d zr_key_eql_elements Bool a:Value b:Value
         d zr_hash_raised_set Void
         d zr_hash_raised Bool
         d zr_hash_mix Word x:Word
@@ -475,6 +476,7 @@ module Ze0
         d zr_symbol_key_simple_p Bool key:Value
         d zr_hash_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_eq Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_hash_eq_entries Value recv:Value other:Value
         d zr_hash_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_default_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_of Value n:Word argv:Ptr
@@ -733,6 +735,7 @@ module Ze0
         d zr_obj_as_string Value v:Value
         d zr_inspect Value v:Value
         d zr_obj_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_buf_ivars Value b:Ptr recv:Value filter:Value
         d zr_nil_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_int_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ident_byte_p Bool c:Word
@@ -832,8 +835,10 @@ module Ze0
         d zr_proc_ppid Value
         d zr_proc_kill Value pid:Value signal:Value
         d zr_guard_enter Bool obj:Value mid:Word
+        d zr_guard_enter_paired Bool obj:Value other:Value mid:Word
         d zr_guard_leave Void obj:Value mid:Word
         d zr_recursive_enter Value obj:Value name:Value
+        d zr_recursive_enter_paired Value obj:Value other:Value name:Value
         d zr_recursive_leave Value obj:Value name:Value
         d zr_name_id Value name:Value out:Ptr
         d zr_bad_variable_name Value id:Word sigil:Ptr siglen:Word kind:Ptr kindlen:Word
@@ -972,6 +977,7 @@ module Ze0
         d zr_sort_med3 Word st:Ptr a:Word b:Word c:Word
         d zr_sort_insertion Void st:Ptr a:Word n:Word
         d zr_sort_range Void st:Ptr a:Word n:Word
+        d zr_sort_partition Bool st:Ptr a:Word n:Word parts:Ptr
         d zr_ary_sort_copy Value ary:Value blk:Value
         d zr_ary_sort Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_sort_bang Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1251,6 +1257,7 @@ module Ze0
         c PENDING_BREAK 1
         c PENDING_RETURN 2
         c PENDING_THROW 3
+        c GUARD_ROW 3
         c T_REGEXP 31
         c G_REGEXP 42
         c G_REGEXP_LITERALS 43

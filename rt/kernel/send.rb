@@ -468,6 +468,12 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
   end
   rec = Machine.slot(Frame.size)
   t = zr_task()
+  # A builtin can run Ruby that calls builtins again, all without a
+  # compiled frame between: its frame takes the stack check a compiled
+  # prologue makes, before anything is linked.
+  if Machine.word(rec) < Machine.word(Task.stack_limit(t))
+    return zr_stack_overflow()
+  end
   Frame.set_prev(rec, Task.top(t))
   Frame.set_meta(rec, MEntry.meta(e))
   Frame.set_line(rec, 0)

@@ -615,6 +615,27 @@ machine def zr_obj_inspect(recv, argc, argv, cref, blk)
     zr_buf_class_of(m, filter)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), m)
   end
+  # An object reached again inside its own inspect shows ` ...` in place
+  # of its instance variables (rb_exec_recursive).
+  if zr_guard_enter(recv, Machine.id(:inspect))
+    zr_buf_push(b, Machine.bytes(" ...>"), 5)
+    return zr_buf_take(b)
+  end
+  r = zr_buf_ivars(b, recv, filter)
+  zr_guard_leave(recv, Machine.id(:inspect))
+  if r == QUNDEF
+    free(Buf.ptr(b))
+    return r
+  end
+  zr_buf_byte(b, 62)
+  zr_buf_take(b)
+end
+
+# ` @a=1, @b=2` into `b`: the visible instance variables `filter` lets
+# through (nil lets all), each value inspected. Undef when an inspect
+# raised.
+sig [Ptr, Value, Value] => Value
+machine def zr_buf_ivars(b, recv, filter)
   i = 0
   shown = 0
   while i < IvTab.len(RObject.iv(recv))
@@ -626,15 +647,11 @@ machine def zr_obj_inspect(recv, argc, argv, cref, blk)
       zr_buf_sym(b, IvEntry.id(e))
       zr_buf_byte(b, 61)
       s = zr_inspect(IvEntry.value(e))
-      if s == QUNDEF
-        free(Buf.ptr(b))
-        return s
-      end
+      return s if s == QUNDEF
       zr_buf_str(b, s)
     end
   end
-  zr_buf_byte(b, 62)
-  zr_buf_take(b)
+  Machine.value(QNIL)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value

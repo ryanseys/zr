@@ -72,14 +72,14 @@ machine def zr_key_eql(a, b)
     if RArray.len(a) != RArray.len(b)
       return false
     end
-    i = 0
-    while i < RArray.len(a)
-      unless zr_key_eql(zr_ary_at(a, i), zr_ary_at(b, i))
-        return false
-      end
-      i += 1
+    # The same two Arrays met again inside their own comparison is a
+    # recursion, which answers equal (rb_exec_recursive_paired).
+    if zr_guard_enter_paired(a, b, Machine.id(:eql?))
+      return true
     end
-    return true
+    same = zr_key_eql_elements(a, b)
+    zr_guard_leave(a, Machine.id(:eql?))
+    return same
   end
   if t == T_REGEXP
     return RRegexp.options(a) == RRegexp.options(b) && zr_key_eql(RRegexp.source(a), RRegexp.source(b))
@@ -95,6 +95,20 @@ machine def zr_key_eql(a, b)
     return r != QNIL && r != QFALSE
   end
   false
+end
+
+# Whether two Arrays of one length hold the same keys, each against
+# each.
+sig [Value, Value] => Bool
+machine def zr_key_eql_elements(a, b)
+  i = 0
+  while i < RArray.len(a)
+    unless zr_key_eql(zr_ary_at(a, i), zr_ary_at(b, i))
+      return false
+    end
+    i += 1
+  end
+  true
 end
 
 # A `hash` or `eql?` that raised inside a lookup: the flag the builtin
@@ -635,6 +649,18 @@ machine def zr_hash_eq(recv, argc, argv, cref, blk)
   if RHash.live(recv) != RHash.live(other)
     return Machine.value(QFALSE)
   end
+  # The same two Hashes compared again inside their own comparison is a
+  # recursion, which answers equal (rb_exec_recursive_paired).
+  if recv == other || zr_guard_enter_paired(recv, other, Machine.id(:==))
+    return Machine.value(QTRUE)
+  end
+  r = zr_hash_eq_entries(recv, other)
+  zr_guard_leave(recv, Machine.id(:==))
+  r
+end
+
+sig [Value, Value] => Value
+machine def zr_hash_eq_entries(recv, other)
   i = 0
   while i < RHash.len(recv)
     e = RHash.entries(recv) + (i * HEntry.size)

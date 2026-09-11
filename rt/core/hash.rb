@@ -331,11 +331,19 @@ class Hash
     nil
   end
 
+  # The same two Hashes compared again inside their own comparison is a
+  # recursion, which answers equal, as rb_exec_recursive_paired has it.
   def eql?(other)
+    return true if equal?(other)
     return false unless other.is_a?(Hash) && size == other.size
+    return true if Primitive.zr_recursive_enter_paired(self, other, :eql?)
 
-    each { |k, v| return false unless other.key?(k) && v.eql?(other[k]) }
-    true
+    begin
+      each { |k, v| return false unless other.key?(k) && v.eql?(other[k]) }
+      true
+    ensure
+      Primitive.zr_recursive_leave(self, :eql?)
+    end
   end
 
   # Order does not matter: the pairs' hashes combine by a sum.

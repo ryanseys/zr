@@ -206,10 +206,15 @@ class Struct
 
   def hash = [Primitive.zr_real_class(self), values_store].hash
 
+  # The class shows by its path, as rb_struct_inspect writes it: always
+  # in the marker of a struct reached again inside its own inspect, and
+  # otherwise only when it is a name, not a #<Class:0x...>.
   def inspect
-    name = Primitive.zr_real_class(self).name
+    path = Primitive.zr_class_path(Primitive.zr_real_class(self))
+    return "#<struct #{path}:...>" if Primitive.zr_recursive_enter(self, :inspect)
+
+    name = path unless path.start_with?("#")
     head = name ? "#<struct #{name}" : "#<struct"
-    return "#{head}:...>" if Primitive.zr_recursive_enter(self, :inspect)
 
     begin
       pairs = members.zip(values_store).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }

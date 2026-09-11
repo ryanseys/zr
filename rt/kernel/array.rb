@@ -486,8 +486,9 @@ machine def zr_ary_eq(recv, argc, argv, cref, blk)
   if recv == other
     return Machine.value(QTRUE)
   end
-  # a comparison already in flight on this Array is a recursion: equal
-  if zr_guard_enter(recv, Machine.id(:==))
+  # The same two Arrays compared again inside their own comparison is a
+  # recursion, which answers equal (rb_exec_recursive_paired).
+  if zr_guard_enter_paired(recv, other, Machine.id(:==))
     return Machine.value(QTRUE)
   end
   i = 0
