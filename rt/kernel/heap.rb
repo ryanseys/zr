@@ -435,8 +435,8 @@ machine def zr_gc_nanoseconds
 end
 
 # The GC module's view of the heap. `disable` and `enable` answer
-# whether collection was disabled before; a disabled collector still
-# runs when the cells run out.
+# whether collection was disabled before; while it is disabled, the
+# heap grows when the cells run out, as CRuby's does.
 sig [] => Value
 machine def zr_gc_start
   zr_collect()
@@ -500,7 +500,7 @@ machine def zr_alloc(type, klass)
   if Heap.stress(h) != 0 && Heap.disabled(h) == 0
     zr_collect()
   end
-  if Heap.free(h) == 0
+  if Heap.free(h) == 0 && Heap.disabled(h) == 0
     zr_collect()
   end
   cell = Heap.free(h)
