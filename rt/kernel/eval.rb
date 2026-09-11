@@ -36,6 +36,13 @@ machine def zr_no_block_given
   zr_raise_msg(zr_global(G_LOCAL_JUMP_ERROR), Machine.bytes("no block given (yield)"), 22)
 end
 
+# `no block given`, which a call that takes a block and reaches no
+# yield raises: instance_exec says this, and not the yield's own text.
+sig [] => Value
+machine def zr_block_needed
+  zr_raise_msg(zr_global(G_LOCAL_JUMP_ERROR), Machine.bytes("no block given"), 14)
+end
+
 # `Class#initialize(superclass) { }`, under a class `Class#new` made
 # with no superclass yet: the chain, the `inherited` hook, then the
 # block under the class, given the class.
@@ -86,7 +93,7 @@ machine def zr_mod_class_eval(recv, argc, argv, cref, blk)
     if argc > 0
       return zr_unimplemented(zr_str_new(Machine.bytes("class_eval with a string"), 24))
     end
-    return zr_no_block_given()
+    return zr_wrong_arity_range(argc, 1, 3)
   end
   if argc != 0
     return zr_wrong_arity(argc, 0)
@@ -99,7 +106,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_class_exec(recv, argc, argv, cref, blk)
   if blk == QNIL
-    return zr_no_block_given()
+    return zr_block_needed()
   end
   zr_yield_under(blk, recv, recv, argc, argv)
 end
@@ -121,7 +128,9 @@ machine def zr_obj_instance_eval(recv, argc, argv, cref, blk)
     if argc > 0
       return zr_unimplemented(zr_str_new(Machine.bytes("instance_eval with a string"), 27))
     end
-    return zr_no_block_given()
+    # With neither a block nor a string there is nothing to run, and
+    # CRuby answers for the arguments it wanted.
+    return zr_wrong_arity_range(argc, 1, 3)
   end
   if argc != 0
     return zr_wrong_arity(argc, 0)
@@ -134,7 +143,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_instance_exec(recv, argc, argv, cref, blk)
   if blk == QNIL
-    return zr_no_block_given()
+    return zr_block_needed()
   end
   zr_yield_under(blk, recv, zr_eval_class_of(recv), argc, argv)
 end

@@ -931,7 +931,10 @@ class SystemCallError
     elsif !other.respond_to?(:errno)
       return false
     end
-    const_defined?(:Errno) && other.errno == self::Errno
+    # `rb_const_get`, which reaches Object too: on SystemCallError
+    # itself the name finds the top-level Errno module, and a module
+    # equals no errno, so a duck never matches the bare class.
+    const_defined?(:Errno) && other.errno == const_get(:Errno)
   end
 end
 
