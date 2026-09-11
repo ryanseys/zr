@@ -8,8 +8,17 @@ class String
   def [](index, length = nil)
     case index
     when Integer
-      raise RangeError, "bignum too big to convert into 'long'" unless Primitive.zr_fixnum_p_m(index)
-      return Primitive.zr_str_char_slice(self, index, Primitive.zr_index_operand_m(length)) if length
+      index = Primitive.zr_index_operand_m(index) unless Primitive.zr_fixnum_p_m(index)
+      if length
+        # Both convert first, as NUM2LONG reads them. An index past the
+        # fixnum range lies past either end, and a length past the end
+        # reads to the end.
+        len = Primitive.zr_index_operand_m(length)
+        return nil if len < 0 || !Primitive.zr_fixnum_p_m(index)
+
+        len = size if len > size
+        return Primitive.zr_str_char_slice(self, index, len)
+      end
 
       count = size
       index += count if index < 0
@@ -713,6 +722,8 @@ class String
       from, count = range_span(start, size)
       return from && byteslice_of(from, count)
     end
+    start = Primitive.zr_index_operand_m(start)
+    length = Primitive.zr_index_operand_m(length) unless length.nil?
     if length.nil?
       return nil if start >= size || start < -size
 

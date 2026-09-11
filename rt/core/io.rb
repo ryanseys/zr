@@ -157,7 +157,12 @@ class IO
   end
 
   def initialize(fd, mode = "r", path: nil, name: nil, pid: nil, autoclose: true)
+    # A descriptor is a C int, as NUM2INT reads it. The bounds are
+    # written out: the standard streams open before Integer#** can run.
     fd = Primitive.zr_index_operand_m(fd)
+    raise RangeError, "integer #{fd} too big to convert to 'int'" if fd > 2147483647
+    raise RangeError, "integer #{fd} too small to convert to 'int'" if fd < -2147483648
+
     rows = Primitive.zr_fstat_m(fd)
     raise SystemCallError.new("@ rb_io_initialize", -rows) if rows.is_a?(Integer)
 

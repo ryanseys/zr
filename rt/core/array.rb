@@ -476,6 +476,9 @@ class Array
 
       index += size + 1
     end
+    # rb_ary_splice's own bound, met before any element moves.
+    raise IndexError, "index #{index} too big" if index > size && index > Primitive.zr_ary_max_size - vals.size
+
     Primitive.zr_ary_splice(self, index, 0, vals)
   end
 
@@ -569,6 +572,15 @@ class Array
       start, len, value = args
       start = Primitive.zr_index_operand_m(start)
       len = Primitive.zr_index_operand_m(len)
+      # Past the fixnum range: rb_ary_splice's errors, or a length that
+      # reaches past the end, which reads as one that reaches the end.
+      unless Primitive.zr_fixnum_p_m(start) && Primitive.zr_fixnum_p_m(len)
+        raise IndexError, "negative length (#{len})" if len < 0
+        raise IndexError, "index #{start - size} too small for array; minimum: -#{size}" if start < 0 && start + size < 0
+        raise IndexError, "index #{start} too big" unless Primitive.zr_fixnum_p_m(start)
+
+        len = size
+      end
     else
       raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2..3)"
     end
@@ -897,10 +909,19 @@ class Array
       first = 0 if first < 0
       stop = args[1].nil? ? size : first + Primitive.zr_index_operand_m(args[1])
     end
-    if stop > first
-      max = Primitive.zr_ary_max_size
-      raise ArgumentError, "argument too big" if first >= max || stop - first > max - first
+    # rb_ary_fill's order: the receiver may change, a Range's span is at
+    # least empty, a negative length fills nothing, and the span must fit.
+    Primitive.zr_frozen_error(self) if frozen?
+    len = stop - first
+    if args[0].is_a?(Range)
+      len = 0 if len < 0
+    elsif len < 0
+      return self
     end
+    max = Primitive.zr_ary_max_size
+    raise ArgumentError, "argument too big" if first >= max || len > max - first
+
+    stop = first + len
     i = first
     while i < stop
       self[i] = block_given? ? yield(i) : value

@@ -18,6 +18,7 @@ module Ze0
         d zr_ary_splat Value a:Value v:Value
         d zr_ary_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_index_of Word a:Value v:Value
+        d zr_big_to_long Bool v:Value out:Ptr
         d zr_index_operand Value v:Value out:Ptr
         d zr_ary_subseq Value a:Value beg:Word len:Word
         d zr_range_beg_len Value range:Value n:Word out:Ptr

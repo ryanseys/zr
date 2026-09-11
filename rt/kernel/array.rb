@@ -207,15 +207,41 @@ machine def zr_ary_initialize(recv, argc, argv, cref, blk)
     end
     return recv
   end
-  unless zr_fixnum_p(first)
-    b = Machine.slot(Buf.size)
-    zr_buf_init(b)
-    zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
-    zr_buf_class_of(b, first)
-    zr_buf_push(b, Machine.bytes(" into Integer"), 13)
-    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  n = 0
+  if zr_fixnum_p(first)
+    n = zr_fix2long(first)
+  else
+    # One argument that answers to_ary is copied, as rb_check_array_type
+    # finds it; a size converts as NUM2LONG does.
+    if argc == 1 && !zr_special_p(first) && zr_find_method(zr_class_of(first), Machine.id(:to_ary)) != 0
+      given = zr_send(first, Machine.id(:to_ary), 0, 0)
+      return given if given == QUNDEF
+      if given != QNIL
+        if zr_special_p(given) || zr_type(given) != T_ARRAY
+          b = Machine.slot(Buf.size)
+          zr_buf_init(b)
+          zr_buf_push(b, Machine.bytes("can't convert "), 14)
+          zr_buf_class_of(b, first)
+          zr_buf_push(b, Machine.bytes(" to Array ("), 11)
+          zr_buf_class_of(b, first)
+          zr_buf_push(b, Machine.bytes("#to_ary gives "), 14)
+          zr_buf_class_of(b, given)
+          zr_buf_push(b, Machine.bytes(")"), 1)
+          return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+        end
+        i = 0
+        while i < RArray.len(given)
+          zr_ary_push(recv, zr_ary_at(given, i))
+          i += 1
+        end
+        return recv
+      end
+    end
+    size = Machine.slot(8)
+    r = zr_index_operand(first, size)
+    return r if r == QUNDEF
+    n = Machine.load64(size, 0)
   end
-  n = zr_fix2long(first)
   if n < 0
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("negative array size"), 19)
   end
@@ -253,6 +279,35 @@ machine def zr_ary_index_of(a, v)
   0 - 1
 end
 
+# A bignum's value into `out` when it fits a signed 64-bit word, as
+# NUM2LONG takes it: at most three base-2^30 limbs, the top one below 8,
+# or exactly -2^63.
+sig [Value, Ptr] => Bool
+machine def zr_big_to_long(v, out)
+  limbs = zr_hidden_get(v, zr_sym(Machine.id(:__limbs__)))
+  neg = zr_hidden_get(v, zr_sym(Machine.id(:__neg__))) == QTRUE
+  n = RArray.len(limbs)
+  if n > 3
+    return false
+  end
+  top = n == 3 ? zr_fix2long(zr_ary_at(limbs, 2)) : 0
+  if top > 8
+    return false
+  end
+  mid = n >= 2 ? zr_fix2long(zr_ary_at(limbs, 1)) : 0
+  low = n >= 1 ? zr_fix2long(zr_ary_at(limbs, 0)) : 0
+  if top == 8
+    if !neg || mid != 0 || low != 0
+      return false
+    end
+    Machine.store64(out, 0, 0 - 9223372036854775807 - 1)
+    return true
+  end
+  mag = (top << 60) | (mid << 30) | low
+  Machine.store64(out, 0, neg ? 0 - mag : mag)
+  true
+end
+
 sig [Value, Ptr] => Value
 machine def zr_index_operand(v, out)
   unless zr_fixnum_p(v)
@@ -272,6 +327,9 @@ machine def zr_index_operand(v, out)
       return Machine.value(QNIL)
     end
     if zr_big_p(v)
+      if zr_big_to_long(v, out)
+        return Machine.value(QNIL)
+      end
       return zr_raise_msg(zr_core_class(Machine.id(:RangeError)), Machine.bytes("bignum too big to convert into 'long'"), 37)
     end
     if !zr_special_p(v) && zr_find_method(zr_class_of(v), Machine.id(:to_int)) != 0
@@ -280,6 +338,12 @@ machine def zr_index_operand(v, out)
       if zr_fixnum_p(r)
         Machine.store64(out, 0, zr_fix2long(r))
         return Machine.value(QNIL)
+      end
+      if zr_big_p(r)
+        if zr_big_to_long(r, out)
+          return Machine.value(QNIL)
+        end
+        return zr_raise_msg(zr_core_class(Machine.id(:RangeError)), Machine.bytes("bignum too big to convert into 'long'"), 37)
       end
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
@@ -685,8 +749,10 @@ machine def zr_ary_clear(a, unused)
   a
 end
 
-# An Integer index for the core: the Integer, its `to_int`, or CRuby's
-# TypeError.
+# An Integer index for the core, as NUM2LONG reads it: the Integer, or
+# its `to_int`, anywhere in a signed 64-bit word, so one past the
+# fixnum range comes back a bignum; else CRuby's TypeError or
+# RangeError.
 sig [Value] => Value
 machine def zr_index_operand_m(v)
   if zr_fixnum_p(v)
@@ -695,7 +761,7 @@ machine def zr_index_operand_m(v)
   out = Machine.slot(8)
   r = zr_index_operand(v, out)
   return r if r == QUNDEF
-  zr_fix(Machine.load64(out, 0))
+  zr_int_from_word(Machine.load64(out, 0))
 end
 
 # `pop` for the core.
