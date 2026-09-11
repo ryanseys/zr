@@ -2,12 +2,24 @@
 # value, its hash code and whether it is live (a deleted entry stays
 # until the table grows), plus an open-addressing index of bins that
 # maps a hash code to an entry. A String key is kept as a frozen copy,
-# as CRuby keeps it.
-Machine.struct :RHash, basic: RBasic, entries: Ptr, len: Word, live: Word, cap: Word, default: Value, default_proc: Value, bins: Ptr, nbins: Word, iter: Word
+# as CRuby keeps it. `gen` counts the times the entries or the bins were
+# built again, so a probe that ran a key's own `eql?` can see that the
+# table under it changed (CRuby's st "rebuilt" check).
+Machine.struct :RHash, basic: RBasic, entries: Ptr, len: Word, live: Word, cap: Word, default: Value, default_proc: Value, bins: Ptr, nbins: Word, iter: Word, gen: Word
 Machine.struct :HEntry, key: Value, value: Value, live: Word, hash: Word
 T_HASH = 8
 G_HASH = 30
 G_KEY_ERROR = 31
+
+# How a probe ends when a key's own `hash` or `eql?` raised: the
+# exception is pending in the task, and the probe answers this in place
+# of an entry.
+HASH_RAISED = 1
+
+# The answers of zr_key_eql.
+KEY_DIFFERENT = 0
+KEY_SAME = 1
+KEY_RAISED = 2
 
 sig [] => Value
 machine def zr_hash_new
@@ -21,6 +33,7 @@ machine def zr_hash_new
   RHash.set_bins(h, 0)
   RHash.set_nbins(h, 0)
   RHash.set_iter(h, 0)
+  RHash.set_gen(h, 0)
   h
 end
 
@@ -49,83 +62,70 @@ end
 # Whether two keys are the same key: `eql?` for the builtin kinds
 # here, the object's own `eql?` for an object with an ivar table
 # (Struct, Data and the program's classes), identity for the rest. An
-# `eql?` that raises stops the program: a lookup cannot carry a signal.
-sig [Value, Value] => Bool
+# `eql?` that raises answers KEY_RAISED, with the exception pending.
+sig [Value, Value] => Word
 machine def zr_key_eql(a, b)
   if a == b
-    return true
+    return KEY_SAME
   end
   if zr_special_p(a) || zr_special_p(b)
     if zr_float_p(a) && zr_float_p(b)
-      return zr_float_value(a) == zr_float_value(b)
+      return zr_float_value(a) == zr_float_value(b) ? KEY_SAME : KEY_DIFFERENT
     end
-    return false
+    return KEY_DIFFERENT
   end
   t = zr_type(a)
   if t != zr_type(b)
-    return false
+    return KEY_DIFFERENT
   end
   if t == T_STRING
-    return zr_bytes_eq(RString.ptr(a), RString.len(a), RString.ptr(b), RString.len(b)) && zr_str_comparable(a, b)
+    return zr_bytes_eq(RString.ptr(a), RString.len(a), RString.ptr(b), RString.len(b)) && zr_str_comparable(a, b) ? KEY_SAME : KEY_DIFFERENT
   end
   if t == T_ARRAY
     if RArray.len(a) != RArray.len(b)
-      return false
+      return KEY_DIFFERENT
     end
     # The same two Arrays met again inside their own comparison is a
     # recursion, which answers equal (rb_exec_recursive_paired).
     if zr_guard_enter_paired(a, b, Machine.id(:eql?))
-      return true
+      return KEY_SAME
     end
     same = zr_key_eql_elements(a, b)
     zr_guard_leave(a, Machine.id(:eql?))
     return same
   end
   if t == T_REGEXP
-    return RRegexp.options(a) == RRegexp.options(b) && zr_key_eql(RRegexp.source(a), RRegexp.source(b))
+    return RRegexp.options(a) == RRegexp.options(b) ? zr_key_eql(RRegexp.source(a), RRegexp.source(b)) : KEY_DIFFERENT
   end
   if t == T_OBJECT || t == T_METHOD || t == T_FLOAT || t == T_HASH || t == T_PROC
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(b))
     r = zr_send(a, Machine.id(:eql?), 1, slot)
     if r == QUNDEF
-      zr_hash_raised_set()
-      return false
+      return KEY_RAISED
     end
-    return r != QNIL && r != QFALSE
+    return r != QNIL && r != QFALSE ? KEY_SAME : KEY_DIFFERENT
   end
-  false
+  KEY_DIFFERENT
 end
 
 # Whether two Arrays of one length hold the same keys, each against
-# each.
-sig [Value, Value] => Bool
+# each. Each round reads the lengths again, as an `eql?` can change
+# either Array.
+sig [Value, Value] => Word
 machine def zr_key_eql_elements(a, b)
   i = 0
   while i < RArray.len(a)
-    unless zr_key_eql(zr_ary_at(a, i), zr_ary_at(b, i))
-      return false
+    if i >= RArray.len(b)
+      return KEY_DIFFERENT
+    end
+    same = zr_key_eql(zr_ary_at(a, i), zr_ary_at(b, i))
+    if same != KEY_SAME
+      return same
     end
     i += 1
   end
-  true
-end
-
-# A `hash` or `eql?` that raised inside a lookup: the flag the builtin
-# reads (and clears) to hand the exception on.
-sig [] => Void
-machine def zr_hash_raised_set
-  Machine.store64(Machine.static(:hash_raised, 8), 0, 1)
-end
-
-sig [] => Bool
-machine def zr_hash_raised
-  flag = Machine.static(:hash_raised, 8)
-  if Machine.load64(flag, 0) != 0
-    Machine.store64(flag, 0, 0)
-    return true
-  end
-  false
+  KEY_SAME
 end
 
 # A word mixed into a hash code.
@@ -135,13 +135,35 @@ machine def zr_hash_mix(x)
   x ^ (x >> 29)
 end
 
-# The hash code of a key as the table sees it: the value itself for a
-# fixnum, Symbol or special constant, the double's bits for a Float
-# (with -0.0 as 0.0), the bytes for a String, the parts for a Regexp,
-# and the object's own `hash` for the rest. Under compare_by_identity
-# every key hashes as itself.
+# The hash code of a key as the table sees it, written to `out`: the
+# value itself for a fixnum, Symbol or special constant, the double's
+# bits for a Float (with -0.0 as 0.0), the bytes for a String, the parts
+# for a Regexp, and the object's own `hash` for the rest. Under
+# compare_by_identity every key hashes as itself. False when the key's
+# own `hash` raised; the exception is then pending.
+sig [Value, Value, Ptr] => Bool
+machine def zr_key_hash(h, key, out)
+  Machine.store64(out, 0, zr_key_code(h, key))
+  if (RBasic.flags(h) & FL_IDENTITY) != 0 || zr_special_p(key)
+    return true
+  end
+  t = zr_type(key)
+  if t == T_ARRAY || t == T_OBJECT || t == T_METHOD || t == T_FLOAT || t == T_HASH || t == T_PROC
+    r = zr_send(key, Machine.id(:hash), 0, 0)
+    if r == QUNDEF
+      return false
+    end
+    if zr_fixnum_p(r)
+      Machine.store64(out, 0, zr_hash_mix(zr_fix2long(r)))
+    end
+  end
+  true
+end
+
+# The code of a key that runs no Ruby code to find it; for a key whose
+# own `hash` answers the code, its identity, which zr_key_hash replaces.
 sig [Value, Value] => Word
-machine def zr_key_hash(h, key)
+machine def zr_key_code(h, key)
   if (RBasic.flags(h) & FL_IDENTITY) != 0
     return zr_hash_mix(Machine.word(key))
   end
@@ -160,17 +182,7 @@ machine def zr_key_hash(h, key)
     return zr_hash_mix(zr_bytes_hash(RString.ptr(key), RString.len(key)) ^ (zr_str_ascii_only(key) ? 0 : zr_str_encoding_index(key) + 1))
   end
   if t == T_REGEXP
-    return zr_hash_mix(zr_key_hash(h, RRegexp.source(key)) + RRegexp.options(key))
-  end
-  if t == T_ARRAY || t == T_OBJECT || t == T_METHOD || t == T_FLOAT || t == T_HASH || t == T_PROC
-    r = zr_send(key, Machine.id(:hash), 0, 0)
-    if r == QUNDEF
-      zr_hash_raised_set()
-      return 0
-    end
-    if zr_fixnum_p(r)
-      return zr_hash_mix(zr_fix2long(r))
-    end
+    return zr_hash_mix(zr_key_code(h, RRegexp.source(key)) + RRegexp.options(key))
   end
   zr_hash_mix(Machine.word(key))
 end
@@ -187,41 +199,68 @@ machine def zr_bytes_hash(p, n)
   x
 end
 
-# The live entry for `key`, or 0: the bins are probed from the code's
-# slot until an empty bin; a dead entry in the way is passed over.
+# The live entry for `key`, 0 when there is none, or HASH_RAISED: the
+# bins are probed from the code's slot until an empty bin; a dead entry
+# in the way is passed over.
 sig [Value, Value] => Ptr
 machine def zr_hash_entry(h, key)
   if RHash.live(h) == 0
     return 0
   end
-  zr_hash_find(h, key, zr_key_hash(h, key))
+  code = Machine.slot(8)
+  unless zr_key_hash(h, key, code)
+    return Machine.ptr(HASH_RAISED)
+  end
+  zr_hash_find(h, key, Machine.load64(code, 0))
 end
 
+# A key's own `eql?` can add to the table, and so build its entries and
+# bins again. The probe then starts over on the new table, as CRuby's
+# st does when it sees the table rebuilt.
 sig [Value, Value, Word] => Ptr
 machine def zr_hash_find(h, key, code)
-  if RHash.nbins(h) == 0
-    return 0
-  end
   identity = (RBasic.flags(h) & FL_IDENTITY) != 0
-  mask = RHash.nbins(h) - 1
-  i = code & mask
-  while true
+  gen = RHash.gen(h)
+  i = code
+  while RHash.nbins(h) != 0
+    i = i & (RHash.nbins(h) - 1)
     slot = Machine.load64(RHash.bins(h) + (i * 8), 0)
     if slot == 0
       return 0
     end
     e = RHash.entries(h) + ((slot - 1) * HEntry.size)
-    if HEntry.live(e) != 0 && HEntry.hash(e) == code && (identity ? HEntry.key(e) == key : zr_key_eql(HEntry.key(e), key))
-      return e
+    i += 1
+    if HEntry.live(e) != 0 && HEntry.hash(e) == code
+      if identity
+        if HEntry.key(e) == key
+          return e
+        end
+      else
+        same = zr_key_eql(HEntry.key(e), key)
+        if same == KEY_RAISED
+          return Machine.ptr(HASH_RAISED)
+        end
+        if RHash.gen(h) != gen
+          gen = RHash.gen(h)
+          i = code
+        elsif same == KEY_SAME
+          return e
+        end
+      end
     end
-    i = (i + 1) & mask
   end
   0
 end
 
+# The value for `key` in a table the runtime keeps for itself, or undef
+# when there is none. The key must be a Symbol, a fixnum or a String:
+# the lookup then runs no Ruby code and cannot raise.
 sig [Value, Value] => Value
 machine def zr_hash_lookup(h, key)
   e = zr_hash_entry(h, key)
+  if e == HASH_RAISED
+    zr_bug(Machine.bytes("zr_hash_lookup: a key that runs Ruby code\n"), 42)
+  end
   if e == 0
     return Machine.value(QUNDEF)
   end
@@ -259,6 +298,7 @@ machine def zr_hash_rebins(h)
   end
   RHash.set_bins(h, bins)
   RHash.set_nbins(h, nbins)
+  RHash.set_gen(h, RHash.gen(h) + 1)
   i = 0
   while i < RHash.len(h)
     if HEntry.live(RHash.entries(h) + (i * HEntry.size)) != 0
@@ -301,32 +341,51 @@ machine def zr_hash_reserve(h)
 end
 
 # Every key's code computed again and the bins rebuilt: after
-# compare_by_identity, or `rehash`.
-sig [Value] => Void
+# compare_by_identity, or `rehash`. A key's own `hash` can change the
+# table; the walk then starts over. False when a `hash` raised.
+sig [Value] => Bool
 machine def zr_hash_recode(h)
+  code = Machine.slot(8)
+  gen = RHash.gen(h)
   i = 0
   while i < RHash.len(h)
-    e = RHash.entries(h) + (i * HEntry.size)
-    if HEntry.live(e) != 0
-      HEntry.set_hash(e, zr_key_hash(h, HEntry.key(e)))
+    if HEntry.live(RHash.entries(h) + (i * HEntry.size)) != 0
+      unless zr_key_hash(h, HEntry.key(RHash.entries(h) + (i * HEntry.size)), code)
+        return false
+      end
+      if RHash.gen(h) != gen
+        gen = RHash.gen(h)
+        i = 0
+      else
+        HEntry.set_hash(RHash.entries(h) + (i * HEntry.size), Machine.load64(code, 0))
+        i += 1
+      end
+    else
+      i += 1
     end
-    i += 1
   end
   if RHash.cap(h) > 0
     zr_hash_rebins(h)
   end
+  true
 end
 
-sig [Value, Value, Value] => Void
+# `h[key] = value` for the runtime: the value, or undef when the key's
+# own `hash` or `eql?` raised.
+sig [Value, Value, Value] => Value
 machine def zr_hash_store(h, key, value)
-  code = zr_key_hash(h, key)
-  if Machine.load64(Machine.static(:hash_raised, 8), 0) != 0
-    return
+  slot = Machine.slot(8)
+  unless zr_key_hash(h, key, slot)
+    return Machine.value(QUNDEF)
   end
+  code = Machine.load64(slot, 0)
   e = zr_hash_find(h, key, code)
+  if e == HASH_RAISED
+    return Machine.value(QUNDEF)
+  end
   if e != 0
     HEntry.set_value(e, value)
-    return
+    return value
   end
   if !zr_special_p(key) && zr_type(key) == T_STRING && !zr_frozen_p(key) && (RBasic.flags(h) & (FL_IDENTITY | FL_WEAKKEY)) == 0
     key = zr_str_copy_encoding(zr_str_new(RString.ptr(key), RString.len(key)), key)
@@ -342,6 +401,7 @@ machine def zr_hash_store(h, key, value)
   RHash.set_len(h, n + 1)
   RHash.set_live(h, RHash.live(h) + 1)
   zr_hash_bin(h, n)
+  value
 end
 
 # The value for a missing key: the default proc's answer, or the default.
@@ -356,14 +416,14 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_hash_aref(recv, argc, argv, cref, blk)
   key = Machine.value(Machine.load64(argv, 0))
-  v = zr_hash_lookup(recv, key)
-  if v == QUNDEF
-    if zr_hash_raised()
-      return Machine.value(QUNDEF)
-    end
+  e = zr_hash_entry(recv, key)
+  if e == HASH_RAISED
+    return Machine.value(QUNDEF)
+  end
+  if e == 0
     return zr_hash_default(recv, key)
   end
-  v
+  HEntry.value(e)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -373,17 +433,16 @@ machine def zr_hash_aset(recv, argc, argv, cref, blk)
   end
   value = Machine.value(Machine.load64(argv, 8))
   key = Machine.value(Machine.load64(argv, 0))
-  if RHash.iter(recv) != 0 && zr_hash_entry(recv, key) == 0
-    if zr_hash_raised()
+  if RHash.iter(recv) != 0
+    e = zr_hash_entry(recv, key)
+    if e == HASH_RAISED
       return Machine.value(QUNDEF)
     end
-    return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("can't add a new key into hash during iteration"), 46)
+    if e == 0
+      return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("can't add a new key into hash during iteration"), 46)
+    end
   end
   zr_hash_store(recv, key, value)
-  if zr_hash_raised()
-    return Machine.value(QUNDEF)
-  end
-  value
 end
 
 # `fetch(key)`, `fetch(key, default)`, `fetch(key) { |key| }`.
@@ -396,12 +455,12 @@ machine def zr_hash_fetch(recv, argc, argv, cref, blk)
     zr_warn_here(Machine.bytes("block supersedes default value argument"), 39)
   end
   key = Machine.value(Machine.load64(argv, 0))
-  v = zr_hash_lookup(recv, key)
-  if v == QUNDEF && zr_hash_raised()
+  found = zr_hash_entry(recv, key)
+  if found == HASH_RAISED
     return Machine.value(QUNDEF)
   end
-  if v != QUNDEF
-    return v
+  if found != 0
+    return HEntry.value(found)
   end
   if blk != QNIL
     return zr_yield1(blk, key)
@@ -424,7 +483,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_hash_key_p(recv, argc, argv, cref, blk)
   e = zr_hash_entry(recv, Machine.value(Machine.load64(argv, 0)))
-  if e == 0 && zr_hash_raised()
+  if e == HASH_RAISED
     return Machine.value(QUNDEF)
   end
   zr_bool(e != 0)
@@ -436,10 +495,10 @@ machine def zr_hash_delete(recv, argc, argv, cref, blk)
     return zr_frozen_error(recv)
   end
   e = zr_hash_entry(recv, Machine.value(Machine.load64(argv, 0)))
+  if e == HASH_RAISED
+    return Machine.value(QUNDEF)
+  end
   if e == 0
-    if zr_hash_raised()
-      return Machine.value(QUNDEF)
-    end
     return Machine.value(QNIL)
   end
   v = HEntry.value(e)
@@ -665,11 +724,14 @@ machine def zr_hash_eq_entries(recv, other)
   while i < RHash.len(recv)
     e = RHash.entries(recv) + (i * HEntry.size)
     if HEntry.live(e) != 0
-      v = zr_hash_lookup(other, HEntry.key(e))
-      if v == QUNDEF
+      found = zr_hash_entry(other, HEntry.key(e))
+      if found == HASH_RAISED
+        return Machine.value(QUNDEF)
+      end
+      if found == 0
         return Machine.value(QFALSE)
       end
-      r = zr_rb_equal(HEntry.value(RHash.entries(recv) + (i * HEntry.size)), v)
+      r = zr_rb_equal(HEntry.value(RHash.entries(recv) + (i * HEntry.size)), HEntry.value(found))
       return r if r == QUNDEF
       if r == QFALSE
         return Machine.value(QFALSE)
@@ -707,10 +769,8 @@ machine def zr_hash_of(n, argv)
   h = zr_hash_new()
   i = 0
   while i < n
-    zr_hash_store(h, Machine.value(Machine.load64(argv + (i * 16), 0)), Machine.value(Machine.load64(argv + (i * 16), 8)))
-    if zr_hash_raised()
-      return Machine.value(QUNDEF)
-    end
+    r = zr_hash_store(h, Machine.value(Machine.load64(argv + (i * 16), 0)), Machine.value(Machine.load64(argv + (i * 16), 8)))
+    return r if r == QUNDEF
     i += 1
   end
   h
@@ -837,7 +897,8 @@ machine def zr_kw_rest(hash, ids, n)
   while i < RHash.len(hash)
     e = RHash.entries(hash) + (i * HEntry.size)
     if HEntry.live(e) != 0 && !(zr_symbol_p(HEntry.key(e)) && zr_kw_declared(ids, n, zr_sym2id(HEntry.key(e))))
-      zr_hash_store(out, HEntry.key(e), HEntry.value(e))
+      r = zr_hash_store(out, HEntry.key(e), HEntry.value(e))
+      return r if r == QUNDEF
     end
     i += 1
   end
@@ -880,7 +941,8 @@ machine def zr_hash_update(h, other)
   while i < RHash.len(other)
     e = RHash.entries(other) + (i * HEntry.size)
     if HEntry.live(e) != 0
-      zr_hash_store(h, HEntry.key(e), HEntry.value(e))
+      r = zr_hash_store(h, HEntry.key(e), HEntry.value(e))
+      return r if r == QUNDEF
     end
     i += 1
   end
@@ -926,6 +988,7 @@ machine def zr_hash_clear(h)
   end
   RHash.set_len(h, 0)
   RHash.set_live(h, 0)
+  RHash.set_gen(h, RHash.gen(h) + 1)
   i = 0
   while i < RHash.nbins(h)
     Machine.store64(RHash.bins(h) + (i * 8), 0, 0)
@@ -954,7 +1017,9 @@ machine def zr_hash_rehash(h)
   if RHash.iter(h) != 0
     return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("rehash during iteration"), 23)
   end
-  zr_hash_recode(h)
+  unless zr_hash_recode(h)
+    return Machine.value(QUNDEF)
+  end
   h
 end
 

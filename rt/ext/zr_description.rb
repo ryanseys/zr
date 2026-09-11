@@ -445,12 +445,11 @@ module Ze0
         d zr_float_decode Value v:Value
         d zr_hash_new Value
         d zr_mark_hash Void h:Value
-        d zr_key_eql Bool a:Value b:Value
-        d zr_key_eql_elements Bool a:Value b:Value
-        d zr_hash_raised_set Void
-        d zr_hash_raised Bool
+        d zr_key_eql Word a:Value b:Value
+        d zr_key_eql_elements Word a:Value b:Value
         d zr_hash_mix Word x:Word
-        d zr_key_hash Word h:Value key:Value
+        d zr_key_hash Bool h:Value key:Value out:Ptr
+        d zr_key_code Word h:Value key:Value
         d zr_bytes_hash Word p:Ptr n:Word
         d zr_hash_entry Ptr h:Value key:Value
         d zr_hash_find Ptr h:Value key:Value code:Word
@@ -458,8 +457,8 @@ module Ze0
         d zr_hash_bin Void h:Value n:Word
         d zr_hash_rebins Void h:Value
         d zr_hash_reserve Void h:Value
-        d zr_hash_recode Void h:Value
-        d zr_hash_store Void h:Value key:Value value:Value
+        d zr_hash_recode Bool h:Value
+        d zr_hash_store Value h:Value key:Value value:Value
         d zr_hash_default Value h:Value key:Value
         d zr_hash_aref Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_aset Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1188,6 +1187,10 @@ module Ze0
         c T_HASH 8
         c G_HASH 30
         c G_KEY_ERROR 31
+        c HASH_RAISED 1
+        c KEY_DIFFERENT 0
+        c KEY_SAME 1
+        c KEY_RAISED 2
         c CELL 128
         c CELLS 32768
         c ARENA_BYTES 4194304
@@ -1333,7 +1336,7 @@ module Ze0
         s RException 56 8 basic:0:RBasic message:16:Value rows:24:Ptr nrows:32:Word bt:40:Value cause:48:Value
         s RFiber 104 8 basic:0:RBasic task:16:Ptr ctx:24:Ptr stack:32:Ptr kroots:40:Ptr blk:48:Value status:56:Word prev:64:Value resuming:72:Value value:80:Value yielding:88:Word transferred:96:Word
         s RFloat 24 8 basic:0:RBasic bits:16:Word
-        s RHash 88 8 basic:0:RBasic entries:16:Ptr len:24:Word live:32:Word cap:40:Word default:48:Value default_proc:56:Value bins:64:Ptr nbins:72:Word iter:80:Word
+        s RHash 96 8 basic:0:RBasic entries:16:Ptr len:24:Word live:32:Word cap:40:Word default:48:Value default_proc:56:Value bins:64:Ptr nbins:72:Word iter:80:Word gen:88:Word
         s HEntry 32 8 key:0:Value value:8:Value live:16:Word hash:24:Word
         s Heap 72 8 free:0:Ptr allocated:8:Word collections:16:Word stress:24:Word last:32:Ptr disabled:40:Word arenas:48:Word freed:56:Word nanoseconds:64:Word
         s Frame 96 8 prev:0:Ptr meta:8:Ptr line:16:Word serial:24:Word self:32:Value cref:40:Value blk:48:Value nvalues:56:Word mid:64:Word svar:72:Value lastline:80:Value defined:88:Value
