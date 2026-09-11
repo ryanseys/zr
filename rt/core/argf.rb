@@ -3,6 +3,10 @@
 # line numbers run on across the whole set.
 # ruby's ARGF is the only instance of an unnamed class, whose report
 # is the words "ARGF.class".
+# `$.`: the number of the line the last read took, from any IO, or from
+# ARGF, which counts across its files. Nothing has been read yet.
+$. = 0
+
 stream = Class.new do
   include Enumerable
 
@@ -19,6 +23,7 @@ stream = Class.new do
 
   def lineno=(n)
     @lineno = n
+    $. = n
   end
 
   # The file being read: "-" when the walk is on standard input, which
@@ -73,6 +78,7 @@ stream = Class.new do
       next if line.nil?
 
       @lineno += 1
+      $. = @lineno
       return line
     end
   end

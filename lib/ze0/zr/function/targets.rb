@@ -161,17 +161,25 @@ module Ze0
           when Hir::Send
             slot = prepared.fetch(target)
             recv = @f.fetch("i64", @rec, value_offset(slot))
-            if target.args.any?(Hir::Splat)
-              ary = @f.fetch("i64", @rec, value_offset(slot + 1))
-              kernel("zr_ary_push", ary, v)
-              argc, argv = array_len(ary), array_ptr(ary)
-            else
-              @f.store(v, @rec, value_offset(slot + 1 + target.args.size))
-              argc, argv = imm(target.args.size + 1), @f.iadd(@rec, imm(value_offset(slot + 1)))
-            end
-            at_line(target.line)
-            checked(kernel(target.opt ? "zr_opt_aset" : "zr_send", recv, imm(sym_id(target.name)), argc, argv))
+            # `rescue => o&.x` writes nothing when `o` is nil.
+            return unless_nil(recv) { send_target(target, slot, recv, v) } if target.safe
+
+            send_target(target, slot, recv, v)
           end
+        end
+
+        # The write a send target makes: its staged arguments, then `v`.
+        def send_target(target, slot, recv, v)
+          if target.args.any?(Hir::Splat)
+            ary = @f.fetch("i64", @rec, value_offset(slot + 1))
+            kernel("zr_ary_push", ary, v)
+            argc, argv = array_len(ary), array_ptr(ary)
+          else
+            @f.store(v, @rec, value_offset(slot + 1 + target.args.size))
+            argc, argv = imm(target.args.size + 1), @f.iadd(@rec, imm(value_offset(slot + 1)))
+          end
+          at_line(target.line)
+          checked(kernel(target.opt ? "zr_opt_aset" : "zr_send", recv, imm(sym_id(target.name)), argc, argv))
         end
       end
     end

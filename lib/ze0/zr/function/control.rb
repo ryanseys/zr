@@ -30,18 +30,20 @@ module Ze0
         end
 
         # `while`: nil when the condition ends it, else the `break` value.
+        # The loop is entered before its condition, as compile.c does, so
+        # a `break` or `next` in the condition belongs to this loop.
         def loop_while(node)
           head = @f.label
           body = @f.label
           out = @f.label
           done, (result,) = @f.block(["i64"])
+          @loops << { head: head, body: body, done: done, depth: @regions.size }
           @f.jump(node.body_first ? body : head)
           switch(head)
           @f.brif(truthy(expr(node.cond)), body, out)
           switch(out)
           @f.jump(done, [@qnil])
           switch(body)
-          @loops << { head: head, body: body, done: done, depth: @regions.size }
           expr(node.body) if node.body
           @loops.pop
           unless @f.terminated?

@@ -603,8 +603,7 @@ module Ze0
         when Prism::InterpolatedMatchLastLineNode
           Send.new(interpolated_regexp(node, line), :=~, [GvarRead.new(:$_, line)], line, false)
         when Prism::InterpolatedXStringNode then Send.new(nil, :`, [interpolation(node, line)], line, false)
-        when Prism::ArrayNode
-          ArrayLit.new(node.elements.map { |e| e.is_a?(Prism::SplatNode) ? Splat.new(expr(e.expression), line) : expr(e) }, line)
+        when Prism::ArrayNode then ArrayLit.new(node.elements.map { |e| array_element(e, line) }, line)
         when Prism::HashNode then HashLit.new(hash_pairs(node.elements), line)
         when Prism::FlipFlopNode then flip_flop(node, line)
         when Prism::ShareableConstantNode then shareable_constant(node, line)
@@ -662,7 +661,7 @@ module Ze0
           end
         when Prism::CaseNode
           clauses = node.conditions.map do |w|
-            values = w.conditions.map { |c| c.is_a?(Prism::SplatNode) ? Splat.new(expr(c.expression), line) : expr(c) }
+            values = w.conditions.map { |c| c.is_a?(Prism::SplatNode) ? splat(c, line) : expr(c) }
             [values, w.statements ? seq(w.statements) : Literal.new(nil, line)]
           end
           Case.new(node.predicate && expr(node.predicate), clauses, node.else_clause && expr(node.else_clause), line)
@@ -728,7 +727,7 @@ module Ze0
 
       def rescue_clause(node)
         line = node.location.start_line
-        classes = node.exceptions.map { |e| e.is_a?(Prism::SplatNode) ? Splat.new(expr(e.expression), line) : expr(e) }
+        classes = node.exceptions.map { |e| e.is_a?(Prism::SplatNode) ? splat(e, line) : expr(e) }
         Rescue.new(classes, node.reference && target(node.reference), node.statements ? seq(node.statements) : Literal.new(nil, line), line)
       end
 
@@ -738,7 +737,7 @@ module Ze0
         args = arguments&.arguments || []
         return Literal.new(nil, line) if args.empty?
 
-        elements = args.map { |a| a.is_a?(Prism::SplatNode) ? Splat.new(expr(a.expression), line) : expr(a) }
+        elements = args.map { |a| a.is_a?(Prism::SplatNode) ? splat(a, line) : expr(a) }
         return elements.first if elements.size == 1 && !elements.first.is_a?(Splat)
 
         ArrayLit.new(elements, line)
@@ -900,8 +899,9 @@ module Ze0
           args = index_args(node, line)
           Send.new(expr(node.receiver), :[]=, args, line, false, args.none?(Splat), nil, nil)
         when Prism::CallTargetNode
-          refuse(node, "a safe-navigation target is not lowered yet") if node.call_operator == "&."
-          Send.new(expr(node.receiver), node.name, [], line, false, false, nil, nil)
+          # `rescue => o&.x` and `for o&.x in list` write only when `o` is
+          # not nil, as the safe call they spell does.
+          Send.new(expr(node.receiver), node.name, [], line, false, false, nil, nil, node.call_operator == "&.")
         else refuse(node, "#{node.class.name.split("::").last.delete_suffix("Node")} as an assignment target is not lowered yet")
         end
       end
@@ -909,7 +909,7 @@ module Ze0
       # The indexes an index target names. A splat among them takes the
       # inline `[]` path away, since the count is only known at run time.
       def index_args(node, line)
-        (node.arguments&.arguments || []).map { |a| a.is_a?(Prism::SplatNode) ? Splat.new(expr(a.expression), line) : expr(a) }
+        (node.arguments&.arguments || []).map { |a| a.is_a?(Prism::SplatNode) ? splat(a, line) : expr(a) }
       end
 
       # A rest parameter's name; `|a, |` has an implicit one that binds
@@ -967,6 +967,12 @@ module Ze0
         return require_node(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && !shadowed?(node.name) && !@loader&.eval? && literal_feature(node)
         return autoload_node(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
 
+        plain_call(node)
+      end
+
+      # A call as the Send it is, with none of the forms above: what
+      # `defined?` asks about, since it never runs the call.
+      def plain_call(node)
         args, kwargs, forwarded = arguments(node.arguments)
         @loader.evals!(node.name, args)
         opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
@@ -1079,7 +1085,7 @@ module Ze0
         when Prism::GlobalVariableReadNode then Defined.new(:gvar, node.name, line)
         when Prism::ClassVariableReadNode then Defined.new(:cvar, node.name, line)
         when Prism::ConstantReadNode, Prism::ConstantPathNode then Defined.new(:const, expr(node), line)
-        when Prism::CallNode then Defined.new(:method, call(node), line)
+        when Prism::CallNode then Defined.new(:method, plain_call(node), line)
         when Prism::YieldNode then Defined.new(:yield, nil, line)
         when Prism::SuperNode, Prism::ForwardingSuperNode then Defined.new(:super, nil, line)
         when Prism::SelfNode then Defined.new(:self, nil, line)
@@ -1159,7 +1165,7 @@ module Ze0
         args = (node&.arguments || []).filter_map do |a|
           line = a.location.start_line
           case a
-          when Prism::SplatNode then Splat.new(a.expression ? expr(a.expression) : Local.new(ANONYMOUS[:rest], @block_depth, line), line)
+          when Prism::SplatNode then splat(a, line)
           when Prism::KeywordHashNode
             kwargs = HashLit.new(hash_pairs(a.elements), line)
             nil
@@ -1171,6 +1177,24 @@ module Ze0
           end
         end
         [args, kwargs, block]
+      end
+
+      # An element of an array literal. `[1, a: 2]` holds a Hash; keywords
+      # made only of `**` splats add it only when it is not empty.
+      def array_element(node, line)
+        case node
+        when Prism::SplatNode then splat(node, line)
+        when Prism::KeywordHashNode
+          hash = HashLit.new(hash_pairs(node.elements), line)
+          node.elements.all?(Prism::AssocSplatNode) ? Splat.new(KwSplatElement.new(hash, line), line) : hash
+        else expr(node)
+        end
+      end
+
+      # `*value`, or a bare `*`: the anonymous rest parameter the method
+      # forwards, wherever a splat can stand.
+      def splat(node, line)
+        Splat.new(node.expression ? expr(node.expression) : Local.new(ANONYMOUS[:rest], @block_depth, line), line)
       end
 
       # A hash's elements as a flat pair list; a `**value` is a HashSplat

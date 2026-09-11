@@ -488,6 +488,7 @@ module Ze0
         d zr_kw_unknown Value hash:Value ids:Ptr n:Word
         d zr_kw_rest Value hash:Value ids:Ptr n:Word
         d zr_hash_update Value h:Value other:Value
+        d zr_ary_kw_element Value h:Value
         d zr_hash_default_proc Value h:Value
         d zr_hash_set_default Value h:Value v:Value
         d zr_hash_set_default_proc Value h:Value p:Value

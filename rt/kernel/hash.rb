@@ -949,6 +949,19 @@ machine def zr_hash_update(h, other)
   h
 end
 
+# The keywords of an array literal made only of `**` splats: `[h]` to
+# splat into the literal, or `[]` when `h` is empty, as CRuby's
+# pushtoarraykwsplat adds no element for an empty Hash.
+sig [Value] => Value
+machine def zr_ary_kw_element(h)
+  if RHash.live(h) == 0
+    return zr_ary_new(0)
+  end
+  a = zr_ary_new(1)
+  zr_ary_push(a, h)
+  a
+end
+
 # The primitives rt/core/hash.rb builds on.
 sig [Value] => Value
 machine def zr_hash_default_proc(h)

@@ -536,6 +536,7 @@ class IO
     return nil if line.nil?
 
     @lineno += 1
+    $. = @lineno
     $_ = chomp ? chomp_line(line, separator) : line
   end
 

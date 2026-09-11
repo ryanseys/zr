@@ -199,6 +199,10 @@ module Ze0
     Case = Struct.new(:subject, :clauses, :else_body, :line)
     IvarWrite = Struct.new(:name, :value, :line)
     ArrayLit = Struct.new(:elements, :line)
+    # The keywords of an array literal made only of double splats, as an
+    # Array to splat: `[h]`, or `[]` when they come out empty, so `[**{}]`
+    # adds no element (CRuby's pushtoarraykwsplat).
+    KwSplatElement = Struct.new(:hash, :line)
     # `{k => v, ...}`: `pairs` is a flat list, key then value.
     HashLit = Struct.new(:pairs, :line)
     # `low..high` / `low...high`; a missing bound is nil.

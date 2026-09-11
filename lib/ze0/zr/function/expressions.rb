@@ -34,6 +34,7 @@ module Ze0
           when Hir::ConstRead then const_read(node)
           when Hir::ConstWrite then const_write(node)
           when Hir::ArrayLit then array_literal(node)
+          when Hir::KwSplatElement then kernel("zr_ary_kw_element", expr(node.hash))
           when Hir::HashLit then hash_literal(node)
           when Hir::RangeLit
             staged([node.low, node.high]) { |argv| checked(kernel("zr_range_new", @f.fetch("i64", argv), @f.fetch("i64", argv, 8), imm(node.exclusive ? 1 : 0))) }
@@ -166,18 +167,17 @@ module Ze0
         # carries at run time.
         ENCODING_INDEX = ::Encoding.list.each_with_index.to_h.freeze
 
-        # The globals with meanings of their own wait for their objects;
-        # `$!` is the task's, and any other lives in the globals table.
-        # The globals the runtime does not answer yet: IO, require and
-        # regexp state. The rest are plain globals the core sets at boot.
-        SPECIAL_GLOBALS = %i[$. $<].freeze
-
+        # The globals with meanings of their own: `$!` is the task's, `$~`
+        # and `$_` the frame's, and `$<` is ARGF. Any other, `$.` among
+        # them, lives in the globals table, where the core sets it.
         def gvar_read(node)
           return kernel("zr_errinfo") if node.name == :$!
           return kernel("zr_backref_get") if node.name == :$~
           return kernel("zr_lastline_get") if node.name == :$_
 
-          @l.refuse(node, "#{node.name} is not lowered yet") if SPECIAL_GLOBALS.include?(node.name)
+          # `$<` is ARGF itself, whatever a program names ARGF.
+          return kernel("zr_core_class", imm(sym_id(:ARGF))) if node.name == :$<
+
           kernel("zr_gvar_get", imm(sym_id(node.name)))
         end
 
