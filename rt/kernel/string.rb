@@ -1020,6 +1020,24 @@ machine def zr_str_find_from(s, needle, start)
   zr_fix(i)
 end
 
+# The first `n` bytes of `s` as a new String, and `s` keeps the rest at
+# its front: a read buffer hands out a line without copying what is
+# left into a String of its own. Fewer bytes stay plain ASCII if all
+# of them were, so FL_ASCII holds.
+sig [Value, Value] => Value
+machine def zr_str_shift_front(s, n)
+  len = RString.len(s)
+  k = zr_fix2long(n)
+  if k > len
+    k = len
+  end
+  out = zr_str_copy_encoding(zr_str_new(RString.ptr(s), k), s)
+  zr_memmove(RString.ptr(s), RString.ptr(s) + k, len - k)
+  RString.set_len(s, len - k)
+  Machine.store8(RString.ptr(s) + len - k, 0, Machine.i8(0))
+  out
+end
+
 # Whitespace to strip and split: space and \t through \r, and NUL too
 # when `nul` is true, as strip has it and split does not.
 sig [Word, Value] => Bool

@@ -443,8 +443,7 @@ class IO
       fill while !@eof && @buffer.bytesize < length
       return length == 0 ? +"" : nil if @buffer.empty? && length > 0
 
-      out = @buffer.byteslice(0, length)
-      @buffer = @buffer.byteslice(length, @buffer.bytesize - length) || +""
+      out = take(length)
     end
     buffer ? buffer.replace(out) : out
   end
@@ -747,7 +746,7 @@ class IO
       fill until @eof
       return nil if @buffer.empty?
 
-      return take(limit ? [limit, @buffer.bytesize].min : @buffer.bytesize)
+      return take(limit ? whole_char(limit) : @buffer.bytesize)
     end
     paragraph = separator.empty?
     separator = "\n\n" if paragraph
@@ -761,7 +760,7 @@ class IO
       at = Primitive.zr_str_find_from(@buffer, separator, 0)
       if at
         stop = at + separator.bytesize
-        stop = [stop, limit].min if limit
+        stop = whole_char([stop, limit].min) if limit
         line = take(stop)
         if paragraph
           fill while !@eof && @buffer.start_with?("\n")
@@ -769,7 +768,7 @@ class IO
         end
         return line
       end
-      return take([limit, @buffer.bytesize].min) if limit && @buffer.bytesize >= limit
+      return take(whole_char(limit)) if limit && @buffer.bytesize >= limit
       break if @eof
 
       fill
@@ -779,11 +778,20 @@ class IO
     take(@buffer.bytesize)
   end
 
+  # A limit that falls inside a character grows to that character's
+  # end, as ruby's does, never past what the buffer holds. (A binary
+  # stream counts bytes in ruby; this runtime has no binmode yet.)
+  def whole_char(n)
+    Primitive.attr! :hidden
+    fill while !@eof && @buffer.bytesize <= n
+    n += 1 while n < @buffer.bytesize && (@buffer.getbyte(n) & 0xC0) == 0x80
+    [n, @buffer.bytesize].min
+  end
+
+  # The first `n` bytes out of the buffer, which keeps the rest.
   def take(n)
     Primitive.attr! :hidden
-    out = @buffer.byteslice(0, n)
-    @buffer = @buffer.byteslice(n, @buffer.bytesize - n) || +""
-    out
+    Primitive.zr_str_shift_front(@buffer, n)
   end
 
   def chomp_line(line, separator)
