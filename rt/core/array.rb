@@ -155,7 +155,7 @@ class Array
   end
 
   def min(n = nil, &block)
-    return ranked(n, block, 1) unless n.nil?
+    return nmin_run(n, false, false, block, true) unless n.nil?
 
     best = nil
     i = 0
@@ -167,7 +167,7 @@ class Array
   end
 
   def max(n = nil, &block)
-    return ranked(n, block, -1) unless n.nil?
+    return nmin_run(n, false, true, block, true) unless n.nil?
 
     best = nil
     i = 0
@@ -994,14 +994,6 @@ class Array
 
   # The `n` smallest (`direction` 1) or largest (-1) elements, in
   # sorted order.
-  def ranked(n, block, direction)
-    Primitive.attr! :hidden
-    raise ArgumentError, "negative size (#{n})" if n < 0
-
-    ordered = block ? sort { |a, b| direction * block.call(a, b) } : sort { |a, b| direction * (a <=> b) }
-    ordered.first(n)
-  end
-
   def combine(k, start, chosen, &block)
     Primitive.attr! :hidden
     if chosen.size == k

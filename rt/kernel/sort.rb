@@ -307,13 +307,65 @@ machine def zr_ary_sort_bang(recv, argc, argv, cref, blk)
 end
 
 # `sort_by`'s rows: a key and its element, in an Array of pairs. When
-# every key is a fixnum CRuby sorts with its own introsort instead of
-# `qsort_r`, and a tie's order is that routine's.
+# every key is a fixnum or a Float, CRuby sorts with its own introsort
+# instead of `qsort_r`, and a tie's order is that routine's.
 Machine.struct :Pair, key: Value, elem: Value
+
+# The first two keys a uniform sort could not compare (a NaN), held
+# until the sort has put every row back: the error's text allocates,
+# and a row being moved lives only in a scratch slot the collector does
+# not see. Until then every comparison answers that neither is less.
+sig [] => Ptr
+machine def zr_uniform_failed
+  Machine.static(:uniform_failed, 24)
+end
+
+# `x <=> y` for a Float `x` and a fixnum or Float `y`, as rb_float_cmp
+# reads it; a NaN is recorded as the failure and answers 0.
+sig [Value, Value] => Word
+machine def zr_uniform_float_cmp(x, y)
+  st = zr_uniform_failed()
+  if Machine.load64(st, 0) != 0
+    return 0
+  end
+  c = zr_float_cmp_value(x, y)
+  if c == 2
+    Machine.store64(st, 0, 1)
+    Machine.store64(st, 8, Machine.word(x))
+    Machine.store64(st, 16, Machine.word(y))
+    return 0
+  end
+  c
+end
+
+# rb_uniform_is_less: two fixnums by their words, else through the
+# Float side, which comes first in the comparison, as CRuby puts it.
+sig [Value, Value] => Bool
+machine def zr_uniform_key_less(a, b)
+  if zr_fixnum_p(a) && zr_fixnum_p(b)
+    return Machine.sword(a) < Machine.sword(b)
+  end
+  if zr_fixnum_p(a)
+    return zr_uniform_float_cmp(b, a) > 0
+  end
+  zr_uniform_float_cmp(a, b) < 0
+end
+
+# rb_uniform_is_larger, which the check for an ordered input asks.
+sig [Value, Value] => Bool
+machine def zr_uniform_key_larger(a, b)
+  if zr_fixnum_p(a) && zr_fixnum_p(b)
+    return Machine.sword(a) > Machine.sword(b)
+  end
+  if zr_fixnum_p(a)
+    return zr_uniform_float_cmp(b, a) < 0
+  end
+  zr_uniform_float_cmp(a, b) > 0
+end
 
 sig [Ptr, Word, Word] => Bool
 machine def zr_uniform_less(base, i, j)
-  Machine.sword(Pair.key(base + (i * Pair.size))) < Machine.sword(Pair.key(base + (j * Pair.size)))
+  zr_uniform_key_less(Pair.key(base + (i * Pair.size)), Pair.key(base + (j * Pair.size)))
 end
 
 sig [Ptr, Word, Word] => Void
@@ -372,7 +424,7 @@ machine def zr_uniform_heap_down(base, a, offset, len)
     if c < len && zr_uniform_less(base, a + c, a + c + 1)
       c += 1
     end
-    if !(Machine.sword(Pair.key(scratch)) < Machine.sword(Pair.key(base + ((a + c) * Pair.size))))
+    if !zr_uniform_key_less(Pair.key(scratch), Pair.key(base + ((a + c) * Pair.size)))
       break
     end
     Pair.set_key(base + ((a + offset) * Pair.size), Pair.key(base + ((a + c) * Pair.size)))
@@ -403,24 +455,24 @@ machine def zr_uniform_heapsort(base, a, stop)
 end
 
 # The pivot: the median of three rows, as a key.
-sig [Ptr, Word, Word, Word] => Word
+sig [Ptr, Word, Word, Word] => Value
 machine def zr_uniform_med3(base, a, b, c)
   if zr_uniform_less(base, a, b)
     if zr_uniform_less(base, b, c)
-      return Machine.sword(Pair.key(base + (b * Pair.size)))
+      return Pair.key(base + (b * Pair.size))
     end
     if zr_uniform_less(base, c, a)
-      return Machine.sword(Pair.key(base + (a * Pair.size)))
+      return Pair.key(base + (a * Pair.size))
     end
-    return Machine.sword(Pair.key(base + (c * Pair.size)))
+    return Pair.key(base + (c * Pair.size))
   end
   if zr_uniform_less(base, c, b)
-    return Machine.sword(Pair.key(base + (b * Pair.size)))
+    return Pair.key(base + (b * Pair.size))
   end
   if zr_uniform_less(base, a, c)
-    return Machine.sword(Pair.key(base + (a * Pair.size)))
+    return Pair.key(base + (a * Pair.size))
   end
-  Machine.sword(Pair.key(base + (c * Pair.size)))
+  Pair.key(base + (c * Pair.size))
 end
 
 sig [Ptr, Word, Word, Word] => Void
@@ -437,10 +489,10 @@ machine def zr_uniform_quicksort(base, a, stop, d)
   i = a
   j = stop - 1
   while true
-    while Machine.sword(Pair.key(base + (i * Pair.size))) < x
+    while zr_uniform_key_less(Pair.key(base + (i * Pair.size)), x)
       i += 1
     end
-    while x < Machine.sword(Pair.key(base + (j * Pair.size)))
+    while zr_uniform_key_less(x, Pair.key(base + (j * Pair.size)))
       j -= 1
     end
     if i <= j
@@ -466,7 +518,7 @@ machine def zr_uniform_sort(base, n)
   i = 1
   sorted = 1
   while i < n
-    if zr_uniform_less(base, i, i - 1)
+    if zr_uniform_key_larger(Pair.key(base + ((i - 1) * Pair.size)), Pair.key(base + (i * Pair.size)))
       sorted = 0
       break
     end
@@ -493,13 +545,20 @@ machine def zr_sort_by(pairs)
   uniform = 1
   i = 0
   while i < n
-    if !zr_fixnum_p(Pair.key(base + (i * Pair.size)))
+    k = Pair.key(base + (i * Pair.size))
+    if !zr_fixnum_p(k) && !zr_float_p(k)
       uniform = 0
     end
     i += 1
   end
   if uniform != 0
+    st = zr_uniform_failed()
+    Machine.store64(st, 0, 0)
     zr_uniform_sort(base, n)
+    if Machine.load64(st, 0) != 0
+      Machine.store64(st, 0, 0)
+      return zr_cmperr(Machine.value(Machine.load64(st, 8)), Machine.value(Machine.load64(st, 16)))
+    end
   else
     st = Machine.slot(Sort.size)
     Sort.set_base(st, base)

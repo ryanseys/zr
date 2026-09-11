@@ -1013,13 +1013,17 @@ module Ze0
         d zr_ary_sort_copy Value ary:Value blk:Value
         d zr_ary_sort Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_sort_bang Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_uniform_failed Ptr
+        d zr_uniform_float_cmp Word x:Value y:Value
+        d zr_uniform_key_less Bool a:Value b:Value
+        d zr_uniform_key_larger Bool a:Value b:Value
         d zr_uniform_less Bool base:Ptr i:Word j:Word
         d zr_uniform_swap Void base:Ptr i:Word j:Word
         d zr_uniform_move Void base:Ptr i:Word pos:Word
         d zr_uniform_insertion Void base:Ptr a:Word stop:Word
         d zr_uniform_heap_down Void base:Ptr a:Word offset:Word len:Word
         d zr_uniform_heapsort Void base:Ptr a:Word stop:Word
-        d zr_uniform_med3 Word base:Ptr a:Word b:Word c:Word
+        d zr_uniform_med3 Value base:Ptr a:Word b:Word c:Word
         d zr_uniform_quicksort Void base:Ptr a:Word stop:Word d:Word
         d zr_uniform_sort Void base:Ptr n:Word
         d zr_sort_by Value pairs:Value

@@ -310,8 +310,7 @@ module Enumerable
 
   def min_by(n = nil, &block)
     return to_enum(:min_by, n) unless block
-    raise ArgumentError, "negative size (#{n})" if !n.nil? && n < 0
-    return sort_by(&block).first(n) unless n.nil?
+    return nmin_run(n, true, false, block, false) unless n.nil?
 
     best = nil
     key = nil
@@ -331,8 +330,7 @@ module Enumerable
 
   def max_by(n = nil, &block)
     return to_enum(:max_by, n) unless block
-    raise ArgumentError, "negative size (#{n})" if !n.nil? && n < 0
-    return sort_by(&block).reverse.first(n) unless n.nil?
+    return nmin_run(n, true, true, block, false) unless n.nil?
 
     best = nil
     key = nil
@@ -348,6 +346,117 @@ module Enumerable
       nil
     end
     best
+  end
+
+  # CRuby's rb_nmin_run, behind min(n), max(n), min_by(n) and
+  # max_by(n): a buffer of 4n rows that quickselect cuts back to n each
+  # time it fills, the last pivot kept as a limit an element must beat
+  # to be buffered at all, and the survivors sorted at the end. Among
+  # equal keys it is quickselect that picks which rows survive, so this
+  # keeps CRuby's choice, not merely its order. A row is the element,
+  # or in `by` mode its key and the element.
+  def nmin_run(num, by, rev, block, ary)
+    Primitive.attr! :hidden
+    n = Primitive.zr_index_operand_m(num)
+    raise ArgumentError, "negative size (#{n})" if n < 0
+    return [] if n == 0
+    raise ArgumentError, "too big size" if (((1 << 63) - 1) / 4 / (by ? 2 : 1)) < n
+
+    # OPTIMIZED_CMP, or the block's answer, read as rb_cmpint reads it.
+    cmp = lambda do |a, b|
+      c = by || block.nil? ? (a <=> b) : block.call(a, b)
+      Primitive.zr_cmperr(a, b) if c.nil?
+      next c <=> 0 if c.is_a?(Integer)
+
+      c > 0 ? 1 : (c < 0 ? -1 : 0)
+    end
+    bufmax = n * 4
+    buf = []
+    curlen = 0
+    limit = nil
+    limited = false
+
+    filter = lambda do
+      next if curlen <= n
+
+      left = 0
+      right = curlen - 1
+      store_index = 0
+      while true
+        pivot_index = left + ((right - left) / 2)
+        num_pivots = 1
+        buf[pivot_index], buf[right] = buf[right], buf[pivot_index]
+        pivot_index = right
+        store_index = left
+        i = left
+        while i <= right - num_pivots
+          c = cmp.(by ? buf[i][0] : buf[i], by ? buf[pivot_index][0] : buf[pivot_index])
+          c = -c if rev
+          if c == 0
+            buf[i], buf[right - num_pivots] = buf[right - num_pivots], buf[i]
+            num_pivots += 1
+            next
+          end
+          if c < 0
+            buf[i], buf[store_index] = buf[store_index], buf[i]
+            store_index += 1
+          end
+          i += 1
+        end
+        j = store_index
+        i = right
+        while right - num_pivots < i
+          break if i <= j
+
+          buf[j], buf[i] = buf[i], buf[j]
+          j += 1
+          i -= 1
+        end
+        break if store_index <= n && n <= store_index + num_pivots
+
+        if n < store_index
+          right = store_index - 1
+        else
+          left = store_index + num_pivots
+        end
+      end
+      limit = by ? buf[store_index][0] : buf[store_index]
+      limited = true
+      curlen = n
+      buf.pop(buf.size - n)
+    end
+
+    add = lambda do |x|
+      cmpv = by ? block.call(x) : x
+      if limited
+        c = cmp.(cmpv, limit)
+        c = -c if rev
+        next if c >= 0
+      end
+      buf << (by ? [cmpv, x] : x)
+      curlen += 1
+      filter.call if curlen == bufmax
+    end
+
+    if ary
+      i = 0
+      while i < size
+        add.call(self[i])
+        i += 1
+      end
+    else
+      each do |*x|
+        add.call(Primitive.zr_enum_value(x))
+        nil
+      end
+    end
+    filter.call
+    result = if by
+               Primitive.zr_ary_sort_copy(buf, ->(a, b) { cmp.(a[0], b[0]) }).map { |row| row[1] }
+             else
+               Primitive.zr_ary_sort_copy(buf, ->(a, b) { cmp.(a, b) })
+             end
+    rev ? result.reverse : result
   end
 
   def min(n = nil, &blk)
