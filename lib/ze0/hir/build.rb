@@ -34,7 +34,7 @@ module Ze0
         loader = Loader.new(roots + STDLIB, eval: !road)
         main = loader.unit(file, source, line, scopes)
         body = road && loader.evals? ? Seq.new([eval_road(loader), main.body], 0) : main.body
-        Program.new(main.file, main.locals, body, main.frozen, loader.units, main.warnings)
+        Program.new(main.file, main.locals, body, loader.units, main.warnings)
       end
 
       # A require of the eval road, ahead of everything the program does.
@@ -116,11 +116,9 @@ module Ze0
           raise SyntaxReport.error(result, file) unless result.errors.empty?
 
           @roots.concat(load_path_roots(result.value, file))
-          frozen = result.magic_comments.any? { |c| c.key == "frozen_string_literal" && c.value == "true" }
           build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value))
           body = build.seq(result.value.statements, hoist: true)
-          Unit.new(file, result.value.locals + build.temps, body, frozen, warnings(result, file),
-                   file.start_with?("#{EXT}/"))
+          Unit.new(file, result.value.locals + build.temps, body, warnings(result, file), file.start_with?("#{EXT}/"))
         end
 
         # The definees this file gives a `require`, `require_relative` or
@@ -171,7 +169,7 @@ module Ze0
         # the row is real, and reading the constant is what stops.
         def stop_unit(what, line)
           i = @units.size
-          @units << Unit.new(what, [], Stop.new(what, line), false, [], false)
+          @units << Unit.new(what, [], Stop.new(what, line), [], false)
           i
         end
 
@@ -497,7 +495,7 @@ module Ze0
         # `3r` and `2i` are the core's own, even where self has no Kernel.
         when Prism::RationalNode then Send.new(Core.new(:Kernel, line), :Rational, [Literal.new(node.numerator, line), Literal.new(node.denominator, line)], line, false)
         when Prism::ImaginaryNode then Send.new(Core.new(:Kernel, line), :Complex, [Literal.new(0, line), expr(node.numeric)], line, false)
-        when Prism::StringNode then Literal.new(node.unescaped, line)
+        when Prism::StringNode then literal_string(node, node.unescaped, line)
         when Prism::SymbolNode then Literal.new(node.unescaped.to_sym, line)
         when Prism::NilNode then Literal.new(nil, line)
         when Prism::TrueNode then Literal.new(true, line)
@@ -587,8 +585,8 @@ module Ze0
         when Prism::ConstantPathWriteNode
           scope, name = constant_path(node.target)
           ConstWrite.new(scope, name, expr(node.value), line)
-        when Prism::InterpolatedStringNode then interpolation(node, line)
-        when Prism::SourceFileNode then Literal.new(@file, line)
+        when Prism::InterpolatedStringNode then node.frozen? ? FrozenString.new(static_text(node), line) : interpolation(node, line)
+        when Prism::SourceFileNode then literal_string(node, @file, line)
         when Prism::SourceLineNode then Literal.new(line, line)
         when Prism::SourceEncodingNode
           Send.new(ConstRead.new(nil, :Encoding, line), :find, [Literal.new(@encoding.name, line)], line, false)
@@ -977,7 +975,10 @@ module Ze0
       def plain_call(node)
         args, kwargs, forwarded = arguments(node.arguments)
         @loader.evals!(node.name, args)
-        opt = (%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)
+        # The inline `[]`, `[]=` and `<<` check visibility as an explicit
+        # call does, so a literal `self` dispatches, private methods and all.
+        opt = ((%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)) &&
+              !node.receiver.is_a?(Prism::SelfNode)
         recv = node.receiver && expr(node.receiver)
         # A refinement is in use inside its own block, so a sibling
         # refined method is reachable there by bare name.
@@ -1080,26 +1081,44 @@ module Ze0
 
       # `defined?(value)`: the form decides at compile time; only an
       # ivar, gvar, cvar, constant, method, yield or super asks at run time.
+      # The globals ruby always has, whose `defined?` is "global-variable"
+      # whether or not they hold a value (CRuby's hooked variables).
+      SPECIAL_GVARS = %i[$! $@ $~ $_ $; $, $/ $\\ $0 $* $$ $? $: $" $< $> $. $stdin $stdout $stderr
+                         $VERBOSE $DEBUG $FILENAME $LOAD_PATH $LOADED_FEATURES $PROGRAM_NAME].freeze
+
+      # CRuby's defined_expr0: what each form answers, and which forms ask
+      # at run time.
       def defined(node, line)
         case node
-        when Prism::LocalVariableReadNode then Defined.new(:local, node.name, line)
+        when Prism::LocalVariableReadNode, Prism::ItLocalVariableReadNode then Defined.new(:local, nil, line)
         when Prism::InstanceVariableReadNode then Defined.new(:ivar, node.name, line)
-        when Prism::GlobalVariableReadNode then Defined.new(:gvar, node.name, line)
+        when Prism::GlobalVariableReadNode
+          SPECIAL_GVARS.include?(node.name) ? Defined.new(:global, nil, line) : Defined.new(:gvar, node.name, line)
+        # `$1` and `$&` name a part of the last match: defined while it has one.
+        when Prism::NumberedReferenceReadNode, Prism::BackReferenceReadNode then Defined.new(:backref, expr(node), line)
         when Prism::ClassVariableReadNode then Defined.new(:cvar, node.name, line)
         when Prism::ConstantReadNode, Prism::ConstantPathNode then Defined.new(:const, expr(node), line)
-        when Prism::CallNode then Defined.new(:method, plain_call(node), line)
+        when Prism::CallNode
+          # `o.x = v` and `o[k] = v` are assignments while `o` has the writer.
+          if node.attribute_write? then Defined.new(:attrasgn, plain_call(node), line)
+          # A call with a block literal is an expression, whatever it calls.
+          elsif node.block.is_a?(Prism::BlockNode) then Defined.new(:expression, nil, line)
+          else Defined.new(:method, plain_call(node), line)
+          end
         when Prism::YieldNode then Defined.new(:yield, nil, line)
         when Prism::SuperNode, Prism::ForwardingSuperNode then Defined.new(:super, nil, line)
         when Prism::SelfNode then Defined.new(:self, nil, line)
         when Prism::NilNode then Defined.new(:nil, nil, line)
         when Prism::TrueNode then Defined.new(:true, nil, line)
         when Prism::FalseNode then Defined.new(:false, nil, line)
-        when Prism::LocalVariableWriteNode, Prism::InstanceVariableWriteNode, Prism::GlobalVariableWriteNode, Prism::ClassVariableWriteNode,
-             Prism::ConstantWriteNode, Prism::MultiWriteNode, Prism::LocalVariableOperatorWriteNode, Prism::InstanceVariableOperatorWriteNode
-          Defined.new(:assignment, nil, line)
-        else Defined.new(:expression, nil, line)
+        else Defined.new(assignment?(node) ? :assignment : :expression, nil, line)
         end
       end
+
+      # Every form that writes a variable, a constant, an attribute or an
+      # index, an operator assignment among them; a named-capture match
+      # is a call.
+      def assignment?(node) = node.class.name.end_with?("WriteNode") && !node.is_a?(Prism::MatchWriteNode)
 
       # `for x in list; body; end` is `list.each { |x| body }` with the
       # body in the enclosing scope: its locals move one scope out.
@@ -1180,6 +1199,15 @@ module Ze0
         end
         [args, kwargs, block]
       end
+
+      # A string literal as prism flags it: frozen where the file's magic
+      # comment says so, by CRuby's own reading of the comment, and then
+      # the one frozen String of its text, as CRuby interns it.
+      def literal_string(node, text, line) = node.frozen? ? FrozenString.new(text, line) : Literal.new(text, line)
+
+      # The text of a string prism found static (`"a" "b"`, a heredoc with
+      # no interpolation): its parts joined.
+      def static_text(node) = node.parts.map { |part| part.is_a?(Prism::StringNode) ? part.unescaped : static_text(part) }.join
 
       # An element of an array literal. `[1, a: 2]` holds a Hash; keywords
       # made only of `**` splats add it only when it is not empty.

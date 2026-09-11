@@ -515,12 +515,13 @@ machine def zr_const_get_at(scope, id)
 end
 
 # The name a class gets under `scope`: `Outer::Name` unless the scope
-# is Object, and `#<Module:0x...>::Name` under an anonymous one.
+# is a toplevel (Object, or a box), and `#<Module:0x...>::Name` under
+# an anonymous one.
 sig [Value, Word] => Value
 machine def zr_class_name_under(scope, id)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
-  if scope != zr_global(G_OBJECT)
+  unless zr_toplevel_scope_p(scope)
     zr_buf_str(b, zr_class_path(scope))
     zr_buf_push(b, Machine.bytes("::"), 2)
   end
@@ -528,11 +529,11 @@ machine def zr_class_name_under(scope, id)
   zr_buf_take(b)
 end
 
-# Whether a name made under `scope` is for good: Object's is, and so is
-# one under a scope whose own name is.
+# Whether a name made under `scope` is for good: a toplevel's is, and
+# so is one under a scope whose own name is.
 sig [Value] => Bool
 machine def zr_class_named_for_good(scope)
-  scope == zr_global(G_OBJECT) || (RClass.name(scope) != QNIL && (RBasic.flags(scope) & FL_TEMP_NAME) == 0)
+  zr_toplevel_scope_p(scope) || (RClass.name(scope) != QNIL && (RBasic.flags(scope) & FL_TEMP_NAME) == 0)
 end
 
 # `mod` has just been named for good: each class or module it holds

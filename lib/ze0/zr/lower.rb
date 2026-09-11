@@ -31,7 +31,7 @@ module Ze0
     class Lower
       class Refused < StandardError; end
 
-      attr_reader :program, :unit, :symbols, :data, :functions, :file, :frozen, :warnings
+      attr_reader :program, :unit, :symbols, :data, :functions, :file, :warnings
 
       # True in the core library and in an extension's ruby half: both
       # are the runtime's own code, so `Primitive` resolves there.
@@ -65,7 +65,6 @@ module Ze0
         @kind = kind
         @outer = outer
         @file = program.file
-        @frozen = program.frozen
         @warnings = program.warnings || []
         @data = []
         @functions = []
@@ -78,14 +77,12 @@ module Ze0
         Function.new(self, @entry, @program.locals, @program.body, nil, @kind, outer: @outer).lower
         (@program.units || []).each_with_index do |u, i|
           @file = u.file
-          @frozen = u.frozen
           @warnings = u.warnings || []
           @unit_internal = u.internal
           Function.new(self, unit_entry(i), u.locals, u.body, nil, :top).lower
         end
         @unit_internal = false
         @file = @program.file
-        @frozen = @program.frozen
         @warnings = @program.warnings || []
         [@functions, @data]
       end

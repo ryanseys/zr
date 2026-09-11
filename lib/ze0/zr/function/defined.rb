@@ -6,7 +6,8 @@ module Ze0
       # `defined?`: the description String, or nil.
       module Defined
         NAMES = {
-          local: "local-variable", ivar: "instance-variable", gvar: "global-variable", cvar: "class variable",
+          local: "local-variable", ivar: "instance-variable", gvar: "global-variable", global: "global-variable",
+          backref: "global-variable", attrasgn: "assignment", cvar: "class variable",
           const: "constant", method: "method", yield: "yield", super: "super", self: "self", nil: "nil",
           true: "true", false: "false", assignment: "assignment", expression: "expression"
         }.freeze
@@ -16,7 +17,7 @@ module Ze0
         # The forms that ask at run time do so under a guard: a receiver
         # that raises means nil, as CRuby answers.
         def defined(node)
-          return defined_name(node.kind) unless %i[ivar gvar cvar const method yield super].include?(node.kind)
+          return defined_name(node.kind) unless %i[ivar gvar backref cvar const method attrasgn yield super].include?(node.kind)
 
           guarded do
             test = defined_test(node)
@@ -28,11 +29,12 @@ module Ze0
           case node.kind
           when :ivar then truth(kernel("zr_ivar_defined", @self, imm(sym_id(node.target))))
           when :gvar then truth(kernel("zr_gvar_defined", imm(sym_id(node.target))))
+          when :backref then @f.icmp("ne", expr(node.target), @qnil)
           when :cvar
             at_line(node.line)
             truth(checked(kernel("zr_cvar_defined", @cref, imm(sym_id(node.target)))))
           when :const then const_defined(node.target)
-          when :method then method_defined(node.target)
+          when :method, :attrasgn then method_defined(node.target)
           when :yield then @f.icmp("ne", @blk, @qnil)
           when :super then truth(kernel("zr_super_defined", @rec))
           else imm_bool(true)

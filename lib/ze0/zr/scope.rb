@@ -111,7 +111,7 @@ module Ze0
           [top + 2, staging(node.recv, top), staging(node.value, top + 2)].max
         when Hir::MultiAssign
           top = base + 1 + prepared(node.target)
-          [staging(node.value, top), top + targets(node.target), *sends_in(node.target).map { |s| staging(s, top) }].max
+          [staging(node.value, top), top + targets(node.target), *staged_in(node.target).map { |t| staging(t.is_a?(Hir::ConstWrite) ? t.scope : t, top) }].max
         when Hir::Break, Hir::Next, Hir::Return then staging(node.value, base + 1)
         when Hir::Begin
           top = base + (node.rescues.empty? ? 0 : 2) + (node.ensure_body ? 2 : 0)
@@ -133,17 +133,19 @@ module Ze0
         end
       end
 
-      # The slots a MultiTarget's Send targets stage ahead of the value:
-      # a receiver and arguments each.
+      # The slots a MultiTarget's targets stage ahead of the value: a
+      # receiver and arguments for each send, and the scope of each
+      # constant written through an expression (`a::B, c = ...`).
       def prepared(target)
-        sends_in(target).sum { |s| 2 + s.args.size }
+        staged_in(target).sum { |t| t.is_a?(Hir::Send) ? 2 + t.args.size : 1 }
       end
 
-      def sends_in(target)
+      def staged_in(target)
         (target.lefts + [target.rest] + target.rights).flat_map do |t|
           case t
           when Hir::Send then [t]
-          when Hir::MultiTarget then sends_in(t)
+          when Hir::ConstWrite then t.scope.nil? || t.scope == :top ? [] : [t]
+          when Hir::MultiTarget then staged_in(t)
           else []
           end
         end

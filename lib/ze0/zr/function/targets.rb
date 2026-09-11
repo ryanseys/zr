@@ -39,6 +39,14 @@ module Ze0
                 t.args.each_with_index { |a, i| @f.store(expr(a), @rec, value_offset(slot + 1 + i)) }
               end
               prepared[t] = slot
+            when Hir::ConstWrite
+              # `a::B, c = value` asks for `a` before the value, as CRuby
+              # orders it.
+              next if t.scope.nil? || t.scope == :top
+
+              slot = reserve(1)
+              @f.store(expr(t.scope), @rec, value_offset(slot))
+              prepared[t] = slot
             when Hir::MultiTarget then prepare(t, prepared)
             end
           end
@@ -67,11 +75,15 @@ module Ze0
           # sends, so the indexes are evaluated once.
           node.args.each_with_index { |a, i| @f.store(expr(a.is_a?(Hir::Splat) ? a.value : a), @rec, value_offset(slots + 1 + i)) }
           recv = Hir::Slot.new(slots, node.line)
+          # A literal `self` keeps its right to call private methods.
+          recv = node.recv if node.recv.is_a?(Hir::SelfRef)
           args = node.args.each_with_index.map do |a, i|
             slot = Hir::Slot.new(slots + 1 + i, node.line)
             a.is_a?(Hir::Splat) ? Hir::Splat.new(slot, node.line) : slot
           end
-          opt = node.args.none?(Hir::Splat)
+          # The inline `[]` path checks visibility as an explicit call does,
+          # so a literal `self` dispatches instead.
+          opt = node.args.none?(Hir::Splat) && !node.recv.is_a?(Hir::SelfRef)
           read = Hir::Send.new(recv, :[], args, node.line, false, opt, nil, nil, false)
           result = op_assign(node, read) { |v| Hir::Send.new(recv, :[]=, args + [v], node.line, false, opt, nil, nil, false) }
           @sp = base
@@ -84,6 +96,8 @@ module Ze0
           slot = reserve(1)
           @f.store(expr(node.recv), @rec, value_offset(slot))
           recv = Hir::Slot.new(slot, node.line)
+          # A literal `self` keeps its right to call private methods.
+          recv = node.recv if node.recv.is_a?(Hir::SelfRef)
           read = Hir::Send.new(recv, node.name, [], node.line, false, false, nil, nil, false)
           write = ->(v) { Hir::Send.new(recv, :"#{node.name}=", [v], node.line, false, false, nil, nil, false) }
           result = if node.safe
@@ -155,8 +169,9 @@ module Ze0
             at_line(target.line)
             checked(kernel("zr_cvar_set", @cref, imm(sym_id(target.name)), v))
           when Hir::ConstWrite
+            scope = prepared.key?(target) ? @f.fetch("i64", @rec, value_offset(prepared[target])) : scope_class(target.scope)
             at_line(target.line)
-            checked(kernel("zr_const_set", scope_class(target.scope), imm(sym_id(target.name)), v))
+            checked(kernel("zr_const_set", scope, imm(sym_id(target.name)), v))
           when Hir::MultiTarget then destructure(target, v, prepared)
           when Hir::Send
             slot = prepared.fetch(target)
@@ -179,7 +194,10 @@ module Ze0
             argc, argv = imm(target.args.size + 1), @f.iadd(@rec, imm(value_offset(slot + 1)))
           end
           at_line(target.line)
-          checked(kernel(target.opt ? "zr_opt_aset" : "zr_send", recv, imm(sym_id(target.name)), argc, argv))
+          return checked(kernel("zr_opt_aset", recv, imm(sym_id(target.name)), argc, argv)) if target.opt
+
+          # An explicit receiver may not reach a private writer; `self` may.
+          checked(kernel("zr_send_cached", cache("ic", "CallCache"), recv, imm(sym_id(target.name)), argc, argv, @qnil, imm(send_mode(target))))
         end
       end
     end

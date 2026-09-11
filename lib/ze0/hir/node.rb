@@ -6,12 +6,11 @@ module Ze0
   # per kind; `line` is where the node starts; `locals` lists every local
   # of a scope, parameters first.
   module Hir
-    # `frozen` holds when the file's magic comment freezes string literals.
     # `units` are the files a require or load reaches, each a toplevel
     # of its own, in the order they were first named. `warnings` are the
     # parse-time warnings ruby prints for the file, printed when it runs.
-    Program = Struct.new(:file, :locals, :body, :frozen, :units, :warnings)
-    Unit = Struct.new(:file, :locals, :body, :frozen, :warnings, :internal)
+    Program = Struct.new(:file, :locals, :body, :units, :warnings)
+    Unit = Struct.new(:file, :locals, :body, :warnings, :internal)
     # `require`, `require_relative` or `load` of a literal name: `path`
     # is the file it resolved to and `unit` that file's index, or both
     # nil when no file answers.

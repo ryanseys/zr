@@ -14,6 +14,18 @@ machine def zr_box_register(klass)
   Machine.value(QNIL)
 end
 
+# Whether `scope` is a toplevel: Object, or a box, whose toplevel
+# constants are its own. A class set there is named by itself, as a
+# class set on Object is.
+sig [Value] => Bool
+machine def zr_toplevel_scope_p(scope)
+  if scope == zr_global(G_OBJECT)
+    return true
+  end
+  box = zr_global(G_BOX)
+  !zr_special_p(box) && zr_real_class(scope) == box
+end
+
 # The box the running code belongs to, which is the box its FUNCTION
 # was written in: code the runtime itself carries is main's however a
 # box reaches it.

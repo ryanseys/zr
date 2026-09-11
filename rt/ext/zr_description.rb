@@ -63,6 +63,7 @@ module Ze0
         d zr_binding_add Value b:Value name:Value
         d zr_toplevel_binding Value env:Value self_:Value cref:Value meta:Ptr
         d zr_box_register Value klass:Value
+        d zr_toplevel_scope_p Bool scope:Value
         d zr_box_current Value
         d zr_box_reach Value
         d zr_box_compiled Value meta:Value
