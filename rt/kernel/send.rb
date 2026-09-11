@@ -595,7 +595,15 @@ machine def zr_preempt
     Machine.store64(count, 0, n)
     return Machine.value(QNIL)
   end
-  Machine.store64(count, 0, PREEMPT_TICKS)
+  zr_preempt_expired()
+end
+
+# The count ran out: it starts again, and the turn goes on if a second
+# thread armed the preemption. Compiled back edges count down inline
+# and call here only when the count reaches zero.
+sig [] => Value
+machine def zr_preempt_expired
+  Machine.store64(Machine.static(:preempt_count, 8), 0, PREEMPT_TICKS)
   mid = Machine.load64(Machine.static(:preempt_mid, 8), 0)
   if mid == 0
     return Machine.value(QNIL)

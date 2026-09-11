@@ -186,7 +186,8 @@ module Ze0
         return @shims[name] if @shims.key?(name)
         return @prelude.sigs[name] if @prelude&.sigs&.key?(name)
 
-        f = @functions.find { |x| x.name == name }
+        @function_named ||= @functions.to_h { |x| [x.name, x] }
+        f = @function_named[name]
         return signature(f) if f
 
         @imports.find { |(_, n, *)| n == name }&.[](2..3)
@@ -392,8 +393,8 @@ module Ze0
         def result_type(i, k)
           case i.op
           when :iconst, :load, :ireduce, :uextend, :sextend then i.type
-          when :call then @f.sigs.find { |s| s.sig == callee(i.callee).sig }.ret
-          when :call_indirect then @f.sigs.find { |s| s.sig == i.callee }.ret
+          when :call then sig_named(callee(i.callee).sig).ret
+          when :call_indirect then sig_named(i.callee).ret
           when :icmp, :fcmp then "i8"
           when :stack_addr, :symbol_value, :func_addr then "i64"
           when *Inst::FBINOPS, *Inst::FUNOPS then "f64"
@@ -403,8 +404,25 @@ module Ze0
           end
         end
 
+        # Each by its key, the first row winning as `find` would.
         def callee(fn)
-          @f.callees.find { |c| c.fn == fn }
+          @callee ||= @f.callees.each_with_object({}) { |c, index| index[c.fn] ||= c }
+          @callee[fn]
+        end
+
+        def sig_named(sig)
+          @sig_named ||= @f.sigs.each_with_object({}) { |s, index| index[s.sig] ||= s }
+          @sig_named[sig]
+        end
+
+        def global(gv)
+          @global ||= @f.globals.each_with_object({}) { |g, index| index[g.gv] ||= g }
+          @global[gv]
+        end
+
+        def block_named(name)
+          @block_named ||= @f.blocks.each_with_object({}) { |b, index| index[b.name] ||= b }
+          @block_named[name]
         end
 
         def wide?(v)
@@ -482,7 +500,7 @@ module Ze0
             @code << "\x20".b << @m.leb(@fp) << @m.i32c(@slot_at[Integer(i.args[0].delete_prefix("ss"))]) << "\x6A".b << "\xAD".b
             set(i.results[0])
           when :symbol_value
-            g = @f.globals.find { |x| x.gv == i.args[0] }
+            g = global(i.args[0])
             @code << "\x42".b << @m.sleb(@m.data_address(g.symbol))
             set(i.results[0])
           when :func_addr
@@ -493,13 +511,13 @@ module Ze0
             args.each { |a| get(a) }
             get(ptr)
             @code << "\xA7".b
-            @code << "\x11".b << @m.leb(@m.type_index(@m.sig_type(@f.sigs.find { |s| s.sig == i.callee }))) << "\x00".b
+            @code << "\x11".b << @m.leb(@m.type_index(@m.sig_type(sig_named(i.callee)))) << "\x00".b
             set(i.results[0]) unless i.results.empty?
           when :call
             # A libSystem call's text signature may say i64 where the shim
             # takes i32: the width follows the callee.
             name = callee(i.callee).symbol
-            params, results = @m.function_type(name) || @m.sig_type(@f.sigs.find { |s| s.sig == callee(i.callee).sig })
+            params, results = @m.function_type(name) || @m.sig_type(sig_named(callee(i.callee).sig))
             i.args.zip(params).each do |a, want|
               get(a)
               @code << "\xA7".b if wide?(a) && want == 0x7F
@@ -630,7 +648,7 @@ module Ze0
             @code << "\x0B".b
           when :jump
             name, args = i.targets[0]
-            params = @f.blocks.find { |b| b.name == name }.params
+            params = block_named(name).params
             args.each { |a| get(a) }
             args.each_index.reverse_each { |k| set(params[k][0]) }
             go(name)

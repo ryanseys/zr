@@ -47,11 +47,26 @@ module Ze0
           unless @f.terminated?
             # The back edge is where a thread that only computes hands
             # the turn on; without it a spinner starves its siblings.
-            checked(kernel("zr_preempt"))
+            preempt
             @f.jump(head)
           end
           switch(done)
           result
+        end
+
+        # One tick off the preemption count, inline: the kernel runs only
+        # when the count runs out.
+        def preempt
+          count = static("preempt_count")
+          n = @f.isub(@f.fetch("i64", count), imm(1))
+          @f.store(n, count)
+          expired = @f.label
+          go = @f.label
+          @f.brif(@f.icmp("sle", n, imm(0)), expired, go)
+          switch(expired)
+          checked(kernel("zr_preempt_expired"))
+          @f.jump(go)
+          switch(go)
         end
 
         # `a && b` answers `a` when it is falsy, else `b`; `||` the reverse.

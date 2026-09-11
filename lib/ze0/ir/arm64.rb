@@ -76,8 +76,9 @@ module Ze0
         assign_homes
         @f.blocks.each { |b| @labels[b.name] = @asm.make_label(b.name) }
         prologue
-        @f.blocks.each do |b|
+        @f.blocks.each_with_index do |b, n|
           @asm.put_label(@labels[b.name])
+          @next = @f.blocks[n + 1]&.name
           b.insts.each { |i| emit(i) }
         end
         Obj::Function.new(@f.name, @asm.to_binary, relocs: @relocs, linkage: :export)
@@ -143,20 +144,33 @@ module Ze0
       end
 
       def sig_of(fn)
-        callee = @f.callees.find { |c| c.fn == fn } or raise Refused, "#{@f.name}: no callee #{fn}"
+        callee = callee_of(fn) or raise Refused, "#{@f.name}: no callee #{fn}"
         sig_named(callee.sig)
       end
 
       def sig_named(sig)
-        @f.sigs.find { |s| s.sig == sig } or raise Refused, "#{@f.name}: no signature #{sig}"
+        @sig_named ||= first_by(@f.sigs, &:sig)
+        @sig_named[sig] or raise Refused, "#{@f.name}: no signature #{sig}"
       end
 
       def callee_of(fn)
-        @f.callees.find { |c| c.fn == fn }
+        @callee_of ||= first_by(@f.callees, &:fn)
+        @callee_of[fn]
       end
 
       def global_of(gv)
-        @f.globals.find { |g| g.gv == gv }
+        @global_of ||= first_by(@f.globals, &:gv)
+        @global_of[gv]
+      end
+
+      def block_named(name)
+        @block_named ||= first_by(@f.blocks, &:name)
+        @block_named.fetch(name)
+      end
+
+      # Each row by its key, the first row winning as `find` would.
+      def first_by(rows)
+        rows.each_with_object({}) { |row, index| index[yield(row)] ||= row }
       end
 
       # --- frame access -------------------------------------------------
@@ -317,9 +331,16 @@ module Ze0
           load_value(i.args[0], X9)
           store_value(i.results[0], X9)
         when :brif
+          # The block that follows needs no branch: control falls into it.
           load_value(i.args[0], X9)
-          @asm.cbnz reg_for(i.args[0], X9), @labels.fetch(i.targets[0][0])
-          @asm.b @labels.fetch(i.targets[1][0])
+          reg = reg_for(i.args[0], X9)
+          yes, no = i.targets.map(&:first)
+          if yes == @next
+            @asm.cbz reg, @labels.fetch(no)
+          else
+            @asm.cbnz reg, @labels.fetch(yes)
+            @asm.b @labels.fetch(no) unless no == @next
+          end
         when :jump then emit_jump(i)
         when :return
           unless i.args.empty?
@@ -485,10 +506,10 @@ module Ze0
         name, args = i.targets[0]
         raise Refused, "#{@f.name}: a jump with more than seven arguments" if args.size > 7
 
-        params = @f.blocks.find { |b| b.name == name }.params
+        params = block_named(name).params
         args.each_with_index { |v, n| load_value(v, SCRATCH[n]) }
         args.each_with_index { |_, n| store_value(params[n][0], SCRATCH[n]) }
-        @asm.b @labels.fetch(name)
+        @asm.b @labels.fetch(name) unless name == @next
       end
 
       # `reg = n`, 16 bits at a time; a negative value starts from its

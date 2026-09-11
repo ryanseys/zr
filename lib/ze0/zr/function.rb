@@ -146,7 +146,7 @@ module Ze0
         @sp = @base
         @record = @f.slot(@frame.size + (8 * @nvalues))
         @rec = @f.stack_addr(@record)
-        @task_addr = @f.fetch("i64", @f.symbol_value(@f.symbol("zr_static_current_task")), 0)
+        @task_addr = @f.fetch("i64", static("current_task"), 0)
         stack_check
         @prev = @f.fetch("i64", @task_addr, off(@task, "top"))
         @f.store(@prev, @rec, off(@frame, "prev"))
@@ -287,6 +287,12 @@ module Ze0
         @f.store(imm(line), @rec, off(@frame, "line"))
       end
 
+      # The address of the kernel's static word `name`, found once per
+      # function.
+      def static(name)
+        @f.symbol_addr(@f.symbol("zr_static_#{name}"))
+      end
+
       # The Env `depth` scopes up: this scope's own, or the Proc's chain.
       def env_at(depth)
         if @has_env
@@ -379,7 +385,7 @@ module Ze0
       end
 
       def global(name)
-        @f.fetch("i64", @f.symbol_value(@f.symbol("zr_static_globals")), 8 * @l.const(name))
+        @f.fetch("i64", static("globals"), 8 * @l.const(name))
       end
 
       # The class the cref names innermost: where a def or a constant lands.

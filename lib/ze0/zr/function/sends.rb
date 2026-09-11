@@ -332,7 +332,7 @@ module Ze0
         end
 
         def gate_clear(name)
-          gates = @f.fetch("i64", @f.symbol_value(@f.symbol("zr_static_gates")))
+          gates = @f.fetch("i64", static("gates"))
           @f.icmp("eq", @f.band(gates, imm(@l.const(name))), imm(0))
         end
 

@@ -147,6 +147,7 @@ module Ze0
         def bl(label) = branch(0x9400_0000, label, 0, 26)
         def blr(n) = emit(0xD63F_0000 | n.to_i << 5)
         def ret(n = X30) = emit(0xD65F_0000 | n.to_i << 5)
+        def cbz(rt, label) = branch(0x3400_0000 | rt.sf << 31 | rt.to_i, label, 5, 19)
         def cbnz(rt, label) = branch(0x3500_0000 | rt.sf << 31 | rt.to_i, label, 5, 19)
 
         # The page a relocation fills in, so the encoded one is zero.

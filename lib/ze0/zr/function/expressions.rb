@@ -127,13 +127,28 @@ module Ze0
               text = v.to_s
               checked(kernel("zr_big_literal", @f.symbol_value(@f.symbol(@l.literal(text))), imm(text.bytesize)))
             end
-          when Float then kernel("zr_float_from_bits", imm([v].pack("E").unpack1("q<")))
+          when Float then float_literal(v)
           when Symbol then symbol(v)
           when String then string_literal(v, @l.frozen ? "zr_str_frozen" : "zr_str_new")
           when nil then @qnil
           when true then imm(@l.const("QTRUE"))
           when false then imm(@l.const("QFALSE"))
           end
+        end
+
+        # A Float literal that fits a flonum is its bits rotated, known
+        # now, exactly as zr_float_new would make it; +0.0 is the flonum
+        # zero; any other double is a heap cell made at run time.
+        def float_literal(v)
+          b = [v].pack("E").unpack1("Q<")
+          top = (b >> 60) & 7
+          word = if b.zero? then @l.const("FLONUM_ZERO")
+                 elsif b != 0x3000000000000000 && (top == 3 || top == 4)
+                   ((((b << 3) | (b >> 61)) & 0xFFFF_FFFF_FFFF_FFFE) | 2)
+                 end
+          return kernel("zr_float_from_bits", imm([v].pack("E").unpack1("q<"))) unless word
+
+          imm([word].pack("Q<").unpack1("q<"))
         end
 
         # A String literal, built by `fn` and tagged with the script

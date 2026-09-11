@@ -327,6 +327,12 @@ module Ze0
         v
       end
 
+      # The address of a data symbol, materialized once per function: for
+      # a word that the function reads again and again.
+      def symbol_addr(gv)
+        hoisted([:symbol_value, gv]) { Inst.new(:symbol_value, type: "i64", args: [gv]) }
+      end
+
       def func_addr(fn)
         v = value
         emit(Inst.new(:func_addr, type: "i64", results: [v], args: [fn]))
