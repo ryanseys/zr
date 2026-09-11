@@ -18,6 +18,21 @@ FIBER_TERMINATED = 3
 # stack grows into them.
 FIBER_STACK_BYTES = 67108864
 CONTEXT_BYTES = 176
+# The lowest page of each fiber stack, which faults on touch: one page
+# on arm64 macOS.
+FIBER_GUARD_BYTES = 16384
+Machine.import "mprotect", [Ptr, Word, I32] => I32
+
+# `can't allocate fiber stack: <strerror>`, as CRuby raises it.
+sig [Word] => Value
+machine def zr_fiber_stack_error(err)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("can't allocate fiber stack: "), 28)
+  text = strerror(Machine.i32(err))
+  zr_buf_push(b, text, zr_cstr_len(text))
+  zr_raise_buf(zr_core_class(Machine.id(:FiberError)), b)
+end
 
 sig [] => Ptr
 machine def zr_current_task_slot
@@ -93,6 +108,15 @@ machine def zr_fiber_new(recv, argc, argv, cref, blk)
   t = malloc(Task.size)
   zr_task_init(t)
   stack = mmap(0, FIBER_STACK_BYTES, 3, 4098, -1, 0)
+  # MAP_FAILED, or no stack at all where the host has no mmap.
+  if Machine.word(stack) == 0 - 1 || Machine.word(stack) == 0
+    free(t)
+    return zr_fiber_stack_error(zr_errno())
+  end
+  # The lowest page faults on touch, so a kernel routine that runs past
+  # the margin below the stack check stops there, rather than writing
+  # into whatever is mapped below.
+  mprotect(stack, FIBER_GUARD_BYTES, Machine.i32(0))
   Task.set_stack_limit(t, stack + STACK_MARGIN)
   RFiber.set_task(f, t)
   RFiber.set_stack(f, stack)
