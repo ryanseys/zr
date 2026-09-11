@@ -910,10 +910,14 @@ machine def zr_str_intern(s)
   if found != QUNDEF
     return found
   end
-  RBasic.set_flags(s, RBasic.flags(s) | FL_FREEZE)
+  RBasic.set_flags(s, RBasic.flags(s) | FL_FREEZE | FL_FSTR)
   zr_hash_store(table, s, s)
   s
 end
+
+# A String the fstring table holds, which can have no singleton class
+# (CRuby's RSTRING_FSTR).
+FL_FSTR = 1 << 22
 
 GATE_LTLT = 16384
 

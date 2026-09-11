@@ -634,11 +634,22 @@ machine def zr_make_metaclass(klass)
   meta
 end
 
-# The singleton class of `v`, made on first use. An Integer, a Float or
-# a Symbol has none; nil, true and false answer their own class.
+# Whether `v` can have no singleton class: an Integer, a Float, a
+# Symbol, or a String the fstring table holds, as CRuby's
+# rb_singleton_class refuses them. nil, true and false answer their
+# own class instead.
+sig [Value] => Bool
+machine def zr_singleton_refused_p(v)
+  if zr_special_p(v)
+    return v != QNIL && v != QTRUE && v != QFALSE
+  end
+  zr_big_p(v) || zr_type(v) == T_FLOAT || zr_type(v) == T_SYMBOL || (zr_type(v) == T_STRING && (RBasic.flags(v) & FL_FSTR) != 0)
+end
+
+# The singleton class of `v`, made on first use.
 sig [Value] => Value
 machine def zr_singleton_class(v)
-  if zr_special_p(v) && v != QNIL && v != QTRUE && v != QFALSE
+  if zr_singleton_refused_p(v)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't define singleton"), 22)
   end
   if zr_special_p(v)
@@ -837,6 +848,10 @@ end
 
 sig [Value, Word, Ptr, Word, Word, Ptr, Value, Word] => Value
 machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
+  # Under `1.instance_eval` no singleton class can take the method.
+  if cref != QNIL && RCref.eval(cref) == EVAL_NO_DEF
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't define singleton"), 22)
+  end
   frozen = zr_class_modify_check(klass)
   return frozen if frozen == QUNDEF
   klass = zr_origin(klass)

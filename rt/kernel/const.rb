@@ -10,6 +10,9 @@
 # made names its entry, which `super` in the body resolves from.
 Machine.struct :RCref, basic: RBasic, klass: Value, next: Value, vis: Word, modfn: Word, eval: Word, entry: Ptr
 T_CREF = 25
+# `RCref.eval` of a block run under an object with no singleton class,
+# as `1.instance_eval` runs one: a `def` there has no class to go on.
+EVAL_NO_DEF = 2
 VIS_PUBLIC = 0
 VIS_PRIVATE = 1
 VIS_PROTECTED = 2

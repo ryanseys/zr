@@ -21,7 +21,13 @@ end
 # The block run with `self_` as self and `klass` as the definee.
 sig [Value, Value, Value, Word, Ptr] => Value
 machine def zr_yield_under(blk, self_, klass, argc, argv)
-  p = zr_proc_under(blk, self_, zr_cref_push_eval(klass, RProc.cref(blk)))
+  c = zr_cref_push_eval(klass, RProc.cref(blk))
+  # A value with no singleton class takes no `def` either, as CRuby's
+  # singleton_class_for_eval decides.
+  if zr_singleton_refused_p(self_)
+    RCref.set_eval(c, EVAL_NO_DEF)
+  end
+  p = zr_proc_under(blk, self_, c)
   Machine.call(:block, RProc.fn(p), p, argc, argv, Machine.value(QNIL))
 end
 
@@ -99,10 +105,11 @@ machine def zr_mod_class_exec(recv, argc, argv, cref, blk)
 end
 
 # Where a `def` inside `instance_eval` lands: the object's singleton
-# class, or the class of a special constant.
+# class, or the class of a special constant. A value that can have no
+# singleton class answers its class, and its eval cref refuses a `def`.
 sig [Value] => Value
 machine def zr_eval_class_of(obj)
-  if zr_special_p(obj)
+  if zr_special_p(obj) || zr_singleton_refused_p(obj)
     return zr_class_of(obj)
   end
   zr_singleton_class(obj)
@@ -226,7 +233,9 @@ machine def zr_obj_define_singleton_method(recv, argc, argv, cref, blk)
   if zr_special_p(recv) && recv != QNIL && recv != QTRUE && recv != QFALSE
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't define singleton"), 22)
   end
-  zr_mod_define_method(zr_singleton_class(recv), argc, argv, cref, blk)
+  s = zr_singleton_class(recv)
+  return s if s == QUNDEF
+  zr_mod_define_method(s, argc, argv, cref, blk)
 end
 
 # The call of a method made by `define_method`: the block as a lambda

@@ -135,6 +135,7 @@ module Ze0
         d zr_mod_include_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_singleton_p Bool klass:Value
         d zr_make_metaclass Value klass:Value
+        d zr_singleton_refused_p Bool v:Value
         d zr_singleton_class Value v:Value
         d zr_class_modify_check Value klass:Value
         d zr_real_class Value v:Value
@@ -1162,6 +1163,7 @@ module Ze0
         c G_REFINEMENT 46
         c G_ACTIVATIONS 47
         c T_CREF 25
+        c EVAL_NO_DEF 2
         c VIS_PUBLIC 0
         c VIS_PRIVATE 1
         c VIS_PROTECTED 2
@@ -1313,6 +1315,7 @@ module Ze0
         c G_FROZEN_ERROR 27
         c GATE_FREEZE 32768
         c G_FSTRINGS 44
+        c FL_FSTR 4194304
         c GATE_LTLT 16384
         c QFALSE 0
         c QNIL 8
