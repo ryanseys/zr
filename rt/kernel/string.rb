@@ -1,6 +1,18 @@
 # Strings: a length, a capacity and a buffer outside the arena.
 Machine.struct :RString, basic: RBasic, len: Word, capa: Word, ptr: Ptr
 
+# A String whose bytes a scan found all below 0x80, which CRuby calls
+# the 7-bit coderange. Every write to the bytes clears it, so a String
+# read many times is scanned once.
+FL_ASCII = 1 << 21
+FL_ASCII_CLEAR = 0 - FL_ASCII - 1
+
+# The bytes of `s` changed: what a scan found about them is gone.
+sig [Value] => Void
+machine def zr_str_modified(s)
+  RBasic.set_flags(s, RBasic.flags(s) & FL_ASCII_CLEAR)
+end
+
 sig [Ptr, Word] => Value
 machine def zr_str_new(bytes, len)
   s = zr_alloc(T_STRING, zr_global(G_STRING))
@@ -35,6 +47,7 @@ machine def zr_str_initialize_m(recv, src)
   RString.set_ptr(recv, buf)
   RString.set_len(recv, RString.len(src))
   RString.set_capa(recv, RString.len(src))
+  zr_str_modified(recv)
   zr_str_copy_encoding(recv, src)
 end
 
@@ -198,6 +211,9 @@ end
 
 sig [Value] => Bool
 machine def zr_str_ascii_bytes_p(s)
+  if (RBasic.flags(s) & FL_ASCII) != 0
+    return true
+  end
   n = RString.len(s)
   i = 0
   while i < n
@@ -206,6 +222,7 @@ machine def zr_str_ascii_bytes_p(s)
     end
     i += 1
   end
+  RBasic.set_flags(s, RBasic.flags(s) | FL_ASCII)
   true
 end
 
@@ -299,6 +316,8 @@ machine def zr_str_concat(recv, argc, argv, cref, blk)
     return zr_str_join_incompatible(recv, other)
   end
   index = zr_str_join_index(recv, other)
+  # Plain ASCII onto plain ASCII stays plain ASCII.
+  ascii = (RBasic.flags(recv) & RBasic.flags(other) & FL_ASCII) != 0
   n = RString.len(recv) + RString.len(other)
   if n + 1 > RString.capa(recv)
     capa = RString.capa(recv) * 2
@@ -314,6 +333,9 @@ machine def zr_str_concat(recv, argc, argv, cref, blk)
   zr_memcpy(RString.ptr(recv) + RString.len(recv), RString.ptr(other), RString.len(other))
   RString.set_len(recv, n)
   Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
+  if !ascii
+    zr_str_modified(recv)
+  end
   zr_str_set_index(recv, index)
   recv
 end
@@ -414,7 +436,8 @@ end
 # sequence, else the one byte.
 sig [Value, Word] => Word
 machine def zr_str_char_len_at(s, off)
-  if !zr_str_wide_p(s)
+  # The flag alone, never a scan: this runs once for each character.
+  if (RBasic.flags(s) & FL_ASCII) != 0 || !zr_str_wide_p(s)
     return 1
   end
   len = zr_utf8_char_len(RString.ptr(s) + off, RString.len(s) - off)
@@ -424,6 +447,9 @@ end
 sig [Value] => Word
 machine def zr_str_char_count(s)
   n = RString.len(s)
+  if !zr_str_wide_p(s) || zr_str_ascii_bytes_p(s)
+    return n
+  end
   count = 0
   i = 0
   while i < n
@@ -438,6 +464,16 @@ end
 sig [Value, Word] => Word
 machine def zr_str_char_offset(s, index)
   n = RString.len(s)
+  # One byte a character: the index is the offset.
+  if !zr_str_wide_p(s) || zr_str_ascii_bytes_p(s)
+    if index < 0
+      index += n
+    end
+    if index < 0 || index > n
+      return 0 - 1
+    end
+    return index
+  end
   if index < 0
     index += zr_str_char_count(s)
     if index < 0
@@ -934,6 +970,7 @@ machine def zr_str_replace(s, other)
   RString.set_ptr(s, buf)
   RString.set_len(s, n)
   RString.set_capa(s, n)
+  zr_str_modified(s)
   zr_str_copy_encoding(s, other)
 end
 
@@ -956,6 +993,7 @@ machine def zr_str_setbyte(s, i, byte)
     return zr_raise_buf(zr_global(G_INDEX_ERROR), b)
   end
   Machine.store8(RString.ptr(s) + n, 0, Machine.i8(zr_fix2long(byte) & 255))
+  zr_str_modified(s)
   byte
 end
 
@@ -1003,6 +1041,9 @@ machine def zr_str_push_byte(recv, byte)
   Machine.store8(RString.ptr(recv) + RString.len(recv), 0, Machine.i8(zr_fix2long(byte)))
   RString.set_len(recv, n)
   Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
+  if (zr_fix2long(byte) & 255) >= 128
+    zr_str_modified(recv)
+  end
   if zr_str_encoding_index(recv) == ENC_USASCII && zr_fix2long(byte) >= 128
     zr_str_set_index(recv, ENC_UTF8)
   end
