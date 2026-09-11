@@ -527,9 +527,9 @@ class IO
 
   # A line up to and with `separator`; "" separates paragraphs; nil
   # reads to the end. `limit` caps the bytes.
-  def gets(separator = $/, limit = nil, chomp: false)
+  def gets(*args, chomp: false)
     check_readable
-    separator, limit = $/, separator if separator.is_a?(Integer)
+    separator, limit = getline_args(args)
     line = read_line(separator, limit)
     $_ = nil
     return nil if line.nil?
@@ -542,9 +542,10 @@ class IO
     gets(*args, **options) || raise(EOFError, "end of file reached")
   end
 
-  def each_line(separator = $/, limit = nil, chomp: false)
-    return to_enum(:each_line, separator, limit, chomp: chomp) unless block_given?
+  def each_line(*args, chomp: false)
+    return to_enum(:each_line, *args, chomp: chomp) unless block_given?
 
+    separator, limit = getline_args(args)
     while (line = gets(separator, limit, chomp: chomp))
       yield line
     end
@@ -553,8 +554,8 @@ class IO
 
   alias each each_line
 
-  def readlines(separator = $/, limit = nil, chomp: false)
-    each_line(separator, limit, chomp: chomp).to_a
+  def readlines(*args, chomp: false)
+    each_line(*args, chomp: chomp).to_a
   end
 
   def each_char
@@ -712,6 +713,29 @@ class IO
     else
       @buffer << chunk
     end
+  end
+
+  # gets' arguments as ruby reads them: one argument is the separator
+  # when it is nil or converts to a String, else the limit; of two, the
+  # first must convert to a String.
+  def getline_args(args)
+    Primitive.attr! :hidden
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+
+    separator = $/
+    limit = nil
+    if args.size == 1
+      text = args[0].nil? ? nil : String.try_convert(args[0])
+      if args[0].nil? || text
+        separator = text
+      else
+        limit = args[0]
+      end
+    elsif args.size == 2
+      separator, limit = args
+      separator = Primitive.zr_str_operand(separator) unless separator.nil?
+    end
+    [separator, limit.nil? ? nil : implicit_integer(limit)]
   end
 
   def read_line(separator, limit)
