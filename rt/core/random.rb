@@ -23,10 +23,12 @@ class Random < random_base
       key << (v & 0xffffffff)
       v >>= 32
     end
-    # CRuby drops a top word that is exactly one, as its packer's
-    # leading-zero guard.
-    key.pop if key.size > 1 && key.last == 1
-    key.size <= 1 ? init_genrand(key[0] || 0) : init_by_array(key)
+    # CRuby decides by the words the seed packs into: one or none seed
+    # init_genrand, more seed init_by_array, less a top word of one, its
+    # packer's leading-zero guard.
+    words = key.size
+    key.pop if words > 1 && key.last == 1
+    words <= 1 ? init_genrand(key[0] || 0) : init_by_array(key)
   end
 
   def self.new_seed = Primitive.zr_random_seed
@@ -151,6 +153,7 @@ class Random < random_base
   def limited(limit)
     Primitive.attr! :hidden
     return 0 if limit == 0
+    return big_limited(limit) if limit > 0xffff_ffff_ffff_ffff
 
     mask = limit
     mask |= mask >> 1
@@ -175,6 +178,52 @@ class Random < random_base
         i -= 1
       end
       return val unless retry_draw
+    end
+  end
+
+  # A draw in 0..limit past 64 bits, as CRuby's limited_big_rand makes
+  # it: one word at a time from the top, redrawn while the words drawn
+  # still sit on the limit's own, taken once one falls below.
+  def big_limited(limit)
+    Primitive.attr! :hidden
+    words = []
+    v = limit
+    while v > 0
+      words << (v & 0xffffffff)
+      v >>= 32
+    end
+    while true
+      mask = 0
+      boundary = true
+      val = 0
+      again = false
+      i = words.size - 1
+      while i >= 0
+        top = words[i]
+        if mask.zero?
+          mask = top
+          mask |= mask >> 1
+          mask |= mask >> 2
+          mask |= mask >> 4
+          mask |= mask >> 8
+          mask |= mask >> 16
+        else
+          mask = 0xffffffff
+        end
+        if mask != 0
+          r = next_int32 & mask
+          if boundary
+            if top < r
+              again = true
+              break
+            end
+            boundary = false if r < top
+          end
+          val |= r << (32 * i)
+        end
+        i -= 1
+      end
+      return val unless again
     end
   end
 

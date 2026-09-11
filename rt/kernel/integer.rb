@@ -412,6 +412,10 @@ machine def zr_int_lshift(recv, argc, argv, cref, blk)
   n = Machine.load64(out, 0)
   a = zr_fix2long(recv)
   if n < 0
+    # The hardware takes a shift count mod 64; ruby shifts every bit out.
+    if (0 - n) >= 63
+      return zr_fix(a < 0 ? 0 - 1 : 0)
+    end
     return zr_fix(a >> (0 - n))
   end
   if n >= 62 || (a != 0 && ((a << n) >> n) != a)

@@ -200,7 +200,54 @@ class Integer
 
   def modulo(other) = self % other
 
-  def fdiv(other) = to_f / other
+  # CRuby's rb_int_fdiv_double: both sides divided by their gcd first;
+  # two that fit divide as doubles, and anything wider goes through
+  # big_fdiv, so a quotient in range comes out when each side is past a
+  # double. A Float divides the double this is, unless that is infinite:
+  # then its 53-bit mantissa divides, as big_fdiv_float does.
+  def fdiv(other)
+    if other.is_a?(Float)
+      dx = to_f
+      return dx / other if dx.finite? || other.nan?
+
+      fraction, exp = Primitive.zr_math_frexp(other)
+      return Integer.send(:big_fdiv, self, Primitive.zr_math_call(23, fraction, 53).to_i, exp - 53)
+    end
+    return to_f / other unless other.is_a?(Integer) && other != 0
+
+    g = gcd(other)
+    x = self / g
+    y = other / g
+    if Primitive.zr_fixnum_p_m(x)
+      return x.to_f / y.to_f if Primitive.zr_fixnum_p_m(y) && y.abs < 2**53
+    elsif Primitive.zr_fixnum_p_m(y)
+      dx = x.to_f
+      return dx / y.to_f unless dx.infinite?
+    end
+    Integer.send(:big_fdiv, x, y)
+  end
+
+  # CRuby's big_fdiv: `x` shifted to 128 bits, as an arithmetic shift
+  # rounds, divided by `y` truncating, and scaled back by both shifts.
+  # With no `ey`, `y` is first shifted to 64 bits, as big_fdiv_int does.
+  def self.big_fdiv(x, y, ey = nil)
+    Primitive.attr! :hidden
+    if ey.nil?
+      ey = y.abs.bit_length - 64
+      y >>= ey
+    end
+    ex = x.abs.bit_length - 128
+    if ex > 64
+      ex -= 64
+    elsif ex > 0
+      ex = 0
+    end
+    x >>= ex
+    q = x.abs / y.abs
+    q = -q if x.negative? != y.negative?
+    Primitive.zr_math_call(23, q.to_f, ex - ey)
+  end
+  private_class_method :big_fdiv
 
   def abs2 = self * self
 
@@ -440,7 +487,17 @@ class Numeric
 
     raise ArgumentError, "invalid rounding mode: #{half}"
   end
-  private_class_method :half_mode
+
+  # CRuby's NUM2INT: an operand as an Integer a C int holds, refused by
+  # name past that range.
+  def self.int_operand(n)
+    Primitive.attr! :hidden
+    n = Primitive.zr_index_operand_m(n)
+    return n if n.between?(-2**31, 2**31 - 1)
+
+    raise RangeError, "integer #{n} too #{n.negative? ? "small" : "big"} to convert to 'int'"
+  end
+  private_class_method :half_mode, :int_operand
 
   # `step(limit, step)` or `step(by:, to:)`: an ArithmeticSequence, or
   # each value up to `limit`. A Float anywhere makes every value a

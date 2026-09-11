@@ -45,10 +45,11 @@ class Float
   def fdiv(other) = self / other
   def quo(other) = self / other
 
-  # The quotient and the modulo, as CRuby's flodivmod pairs them.
+  # The quotient and the modulo, as CRuby's flodivmod pairs them; an
+  # operand it does not know coerces, as flo_divmod hands it on.
   def divmod(other)
     other = other.to_f if other.is_a?(Integer)
-    raise TypeError, "#{other.class} can't be coerced into Float" unless other.is_a?(Float)
+    return Primitive.zr_num_coerce_m(self, other, :divmod, 0) unless other.is_a?(Float)
     raise ZeroDivisionError, "divided by 0" if other == 0.0
 
     [Primitive.zr_float_quotient_value(self, other).to_i, self % other]
@@ -236,8 +237,7 @@ module Math
 
   def self.ldexp(fraction, exponent)
     fraction = check(fraction, "ldexp")
-    exponent = Primitive.zr_index_operand_m(exponent)
-    exponent = exponent.clamp(-100_000, 100_000)
+    exponent = Numeric.send(:int_operand, exponent)
     Primitive.zr_math_call(23, fraction, exponent)
   end
 
@@ -273,8 +273,16 @@ class Float
   # `half:` decides a tie: :up (the default), :even, or :down. A tie is
   # a scaled value whose fraction is exactly one half in the double.
   def round(digits = 0, half: nil)
-    digits = Primitive.zr_index_operand_m(digits)
+    digits = Numeric.send(:int_operand, digits)
     mode = Numeric.send(:half_mode, half)
+    if digits != 0 && finite? && !zero?
+      # CRuby's float_round_overflow and float_round_underflow, with C's
+      # truncating division: past these the scaled value is whole
+      # already, or rounds to zero.
+      binexp = Primitive.zr_math_frexp(self)[1]
+      return self if digits > 0 && digits >= 17 - (binexp > 0 ? binexp / 4 : -(-binexp / 3) - 1)
+      return digits > 0 ? 0.0 : 0 if digits < -(binexp > 0 ? binexp / 3 + 1 : -(-binexp / 4))
+    end
     plain = __round__(digits)
     return exactly(digits, :round, half: mode) if plain.nil?
     return plain if mode == :up || !finite?

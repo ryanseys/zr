@@ -255,12 +255,60 @@ module Kernel
       flags.include?("-") ? text.ljust(width) : text.rjust(width)
     end
 
+    # %f of an Integer or a Rational, as CRuby's sprintf writes it: the
+    # exact digits, the magnitude rounded half up at `precision` places,
+    # its own fill, and no `#`.
+    def exact_fixed(value, flags, width, precision)
+      Primitive.attr! :hidden
+      num, den = value.is_a?(Rational) ? [value.numerator, value.denominator] : [value, 1]
+      sign = flags.include?("+") ? 1 : 0
+      if num.negative?
+        num = -num
+        sign = -1
+      end
+      zero = 0
+      if den == 1
+        zero = precision
+      else
+        num = (num * 10**precision + den / 2) / den
+      end
+      digits = num.to_s
+      len = digits.size + zero
+      size = precision >= len ? precision + 1 : len
+      size += 1 if sign != 0 || flags.include?(" ")
+      size += 1 if precision > 0
+      fill = width && width > size ? width - size : 0
+      left = flags.include?("-")
+      zeros = flags.include?("0") && !left
+      out = +""
+      out << " " * fill if fill > 0 && !left && !zeros
+      if sign != 0
+        out << (sign > 0 ? "+" : "-")
+      elsif flags.include?(" ")
+        out << " "
+      end
+      out << "0" * fill if fill > 0 && zeros
+      out << (len > precision ? digits[0, len - precision] : "0")
+      out << "." if precision > 0
+      if zero > 0
+        out << "0" * zero
+      elsif precision > len
+        out << "0" * (precision - len) << digits
+      elsif precision > 0
+        out << digits[len - precision, precision]
+      end
+      out << " " * fill if fill > 0 && left
+      out
+    end
+
     # %f, %e and %g round the shortest round-trip digits half to even,
     # as CRuby's dtoa comes out; past those digits, and when the
     # rounding place comes before the first digit, the exact value
     # decides.
     def float(value, flags, width, precision, style, upper)
       Primitive.attr! :hidden
+      return exact_fixed(value, flags, width, precision || 6) if style == :f && (value.is_a?(Integer) || value.is_a?(Rational))
+
       x = Float(value)
       negative = x.negative? || (x.zero? && (1.0 / x).negative?)
       sign = negative ? "-" : (flags.include?("+") ? "+" : (flags.include?(" ") ? " " : ""))

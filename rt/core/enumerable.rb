@@ -595,22 +595,39 @@ module Enumerable
 
   def reduce(*args, &block) = inject(*args, &block)
 
+  # Exact while it can be; from the first Float met while the sum is
+  # still an Integer or a Rational, Kahan-Babuska compensated, as CRuby's
+  # enum_sum adds. A value that is no number ends the compensation: the
+  # sum goes on without it, with that value's own `+`.
   def sum(init = 0)
     acc = init
-    if block_given?
-      each do |*x|
-        x = Primitive.zr_enum_value(x)
-        acc += yield(x)
-        nil
+    c = 0.0
+    mode = acc.is_a?(Float) ? :float : :exact
+    each do |*x|
+      v = Primitive.zr_enum_value(x)
+      v = yield(v) if block_given?
+      if mode == :exact && v.is_a?(Float) && (acc.is_a?(Integer) || acc.is_a?(Rational))
+        acc = acc.to_f
+        mode = :float
       end
-    else
-      each do |*x|
-        x = Primitive.zr_enum_value(x)
-        acc += x
-        nil
+      if mode != :float
+        acc += v
+      elsif v.is_a?(Float) || v.is_a?(Integer) || v.is_a?(Rational)
+        d = v.to_f
+        if d.nan? || d.infinite? || acc.nan? || acc.infinite?
+          acc += d
+        else
+          t = acc + d
+          c += acc.abs >= d.abs ? (acc - t) + d : (d - t) + acc
+          acc = t
+        end
+      else
+        acc += v
+        mode = :plain
       end
+      nil
     end
-    acc
+    mode == :float ? acc + c : acc
   end
 end
 

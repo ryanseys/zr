@@ -462,13 +462,18 @@ class Integer
       big_neg?(x) ? -f : f
     end
 
-    # A shift count must be a fixnum: a bignum one leaves nothing, or
-    # everything.
-    def big_shift_count(n)
+    # `x << n` when `left`, else `x >> n`. A Bignum count moves every bit:
+    # out to the right it leaves 0, or -1 below zero; to the left only
+    # zero can go, as CRuby's rb_int_lshift decides.
+    def big_shift(x, n, left)
       Primitive.attr! :hidden
-      raise RangeError, "shift width too big" unless Primitive.zr_fixnum_p_m(n)
+      unless Primitive.zr_fixnum_p_m(n)
+        return x.negative? ? -1 : 0 if left == n.negative?
+        return 0 if x.zero?
 
-      n
+        raise RangeError, "shift width too big"
+      end
+      left ? big_shl(x, n) : big_shr(x, n)
     end
 
     # An exact comparison with a Float: through its integer part, then
@@ -483,7 +488,7 @@ class Integer
     end
   end
 
-  private_class_method :big_from_word, :big_from_float, :big_parse, :big_build, :big_mag, :big_neg?, :big_limbs_of, :big_negate, :big_cmp_mag, :big_add_mag, :big_sub_mag, :big_mul_mag, :big_mul_small_mag, :big_divmod_small_mag, :big_divmod_mag, :big_shl_mag, :big_shr_mag, :big_add, :big_sub, :big_mul, :big_divmod, :big_shl, :big_shr, :big_cmp, :big_twos, :big_from_twos, :big_bitwise, :big_to_s, :big_to_f, :big_shift_count, :big_cmp_float
+  private_class_method :big_from_word, :big_from_float, :big_parse, :big_build, :big_mag, :big_neg?, :big_limbs_of, :big_negate, :big_cmp_mag, :big_add_mag, :big_sub_mag, :big_mul_mag, :big_mul_small_mag, :big_divmod_small_mag, :big_divmod_mag, :big_shl_mag, :big_shr_mag, :big_add, :big_sub, :big_mul, :big_divmod, :big_shl, :big_shr, :big_cmp, :big_twos, :big_from_twos, :big_bitwise, :big_to_s, :big_to_f, :big_shift, :big_cmp_float
 
   # The kernel's route for a fixnum builtin whose receiver or operand
   # is a bignum: `op` is the builtin's name, `args` its arguments.
@@ -572,8 +577,8 @@ class Integer
     when :* then Integer.send(:big_mul, self, other)
     when :/ then Integer.send(:big_divmod, self, other)[0]
     when :% then Integer.send(:big_divmod, self, other)[1]
-    when :<< then Integer.send(:big_shl, self, Integer.send(:big_shift_count, other))
-    when :>> then Integer.send(:big_shr, self, Integer.send(:big_shift_count, other))
+    when :<< then Integer.send(:big_shift, self, other, true)
+    when :>> then Integer.send(:big_shift, self, other, false)
     when :&, :|, :^ then Integer.send(:big_bitwise, self, other, op)
     when :< then Integer.send(:big_cmp, self, other) < 0
     when :<= then Integer.send(:big_cmp, self, other) <= 0

@@ -940,8 +940,9 @@ class Array
   end
 
   # The rest of a Float sum from element `from`, compensated as CRuby's
-  # ary_add_one/Kahan-Babuska walk does; a non-Float element switches
-  # to plain addition of the rest.
+  # ary_add_one/Kahan-Babuska walk does; an element that is no number
+  # switches to plain addition of the rest, from the sum without its
+  # compensation, as CRuby's not_float does.
   def float_sum(f, x, from)
     c = 0.0
     i = from - 1
@@ -956,7 +957,7 @@ class Array
           f = t
         end
       else
-        rest = f + c + x
+        rest = f + x
         (i + 1...size).each { |j| rest += yield(j) }
         return rest
       end
