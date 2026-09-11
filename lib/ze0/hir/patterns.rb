@@ -24,7 +24,12 @@ module Ze0
           Send.new(recv, name, args, line, false, nil, opts[:block], opts[:kwargs], nil, nil)
         end
 
-        def const(name, line) = ConstRead.new(nil, name, line)
+        # A core class by name, which no constant of the program shadows.
+        def core(name, line) = Core.new(name, line)
+
+        # `!value` on truthiness alone, which no program's `!` can change:
+        # what `until` and an `unless` guard test, as compile.c branches.
+        def falsy(value, line) = If.new(value, Literal.new(false, line), Literal.new(true, line), line)
 
         # `case value; in pattern [if guard] then body; ...; else other; end`
         def case_match(node)
@@ -75,16 +80,16 @@ module Ze0
         # after a single one, as the key error with its key and matchee
         # when a key was missing.
         def no_match(subject, match, line)
-          return send_to(nil, :raise, [const(:NoMatchingPatternError, line), send_to(read(subject, line), :to_s, [], line)], line) if match.why.nil?
+          return send_to(core(:Kernel, line), :raise, [core(:NoMatchingPatternError, line),send_to(read(subject, line), :to_s, [], line)], line) if match.why.nil?
 
           inspect = send_to(read(subject, line), :inspect, [], line)
 
           message = Interp.new([inspect, Literal.new(": ", line), read(match.why, line)], line)
-          key_error = send_to(const(:NoMatchingPatternKeyError, line), :new, [message], line,
+          key_error = send_to(core(:NoMatchingPatternKeyError, line), :new, [message], line,
                               kwargs: HashLit.new([Literal.new(:matchee, line), read(match.matchee, line), Literal.new(:key, line), read(match.key, line)], line))
           If.new(read(match.key, line),
-                 send_to(nil, :raise, [key_error], line),
-                 send_to(nil, :raise, [const(:NoMatchingPatternError, line), message], line), line)
+                 send_to(core(:Kernel, line), :raise, [key_error], line),
+                 send_to(core(:Kernel, line), :raise, [core(:NoMatchingPatternError, line), message], line), line)
         end
 
         # One match's state: where a failed check records its reason.
@@ -118,7 +123,7 @@ module Ze0
           def guarded(pattern_node, predicate, subject, positive)
             line = predicate.location.start_line
             guard = @b.expr(predicate)
-            guard = Not.new(guard, line) unless positive
+            guard = @b.falsy(guard, line) unless positive
             And.new(pattern(pattern_node, subject), failing(guard, Literal.new("guard clause does not return true", line), line), line)
           end
 
@@ -175,8 +180,8 @@ module Ze0
             d = @b.temp(:elements)
             responds = @b.send_to(@b.read(subject, line), :respond_to?, [Literal.new(:deconstruct, line)], line)
             call = Or.new(@b.read(cache, line), @b.set(cache, @b.send_to(@b.read(subject, line), :deconstruct, [], line), line), line)
-            typed = If.new(@b.send_to(@b.read(d, line), :is_a?, [@b.const(:Array, line)], line), Literal.new(true, line),
-                           @b.send_to(nil, :raise, [@b.const(:TypeError, line), Literal.new("deconstruct must return Array", line)], line), line)
+            typed = If.new(@b.send_to(@b.read(d, line), :is_a?, [@b.core(:Array, line)], line), Literal.new(true, line),
+                           @b.send_to(@b.core(:Kernel, line), :raise, [@b.core(:TypeError, line), Literal.new("deconstruct must return Array", line)], line), line)
             steps = [failing(responds, Interp.new([inspect_of(subject, line), Literal.new(" does not respond to #deconstruct", line)], line), line),
                      Seq.new([@b.set(d, call, line), typed], line)]
             [d, steps]
@@ -221,10 +226,15 @@ module Ze0
             steps << failing(@b.send_to(size_of(d, line), :>=, [Literal.new(m, line)], line), Interp.new([inspect_of(d, line), Literal.new(" does not match to find pattern", line)], line), line)
             i = @b.temp(:at)
             found = @b.temp(:found)
+            before = (@caches ||= {}).keys
             tries = middle.each_with_index.map { |p, k| nested(p, element(d, @b.send_to(@b.read(i, line), :+, [Literal.new(k, line)], line), line), line) }
-            body = If.new(conjunction(tries, line), @b.set(found, Literal.new(true, line), line), @b.set(i, @b.send_to(@b.read(i, line), :+, [Literal.new(1, line)], line), line), line)
+            # Each place the loop tries is a new subject for the parts, so
+            # their deconstruct caches start empty each time round.
+            fresh = (@caches.keys - before).map { |s| @b.set(@caches[s], Literal.new(nil, line), line) }
+            test = If.new(conjunction(tries, line), @b.set(found, Literal.new(true, line), line), @b.set(i, @b.send_to(@b.read(i, line), :+, [Literal.new(1, line)], line), line), line)
+            body = Seq.new([*fresh, test], line)
             more = @b.send_to(@b.send_to(@b.read(i, line), :+, [Literal.new(m, line)], line), :<=, [size_of(d, line)], line)
-            loop = While.new(And.new(Not.new(@b.read(found, line), line), more, line), body, line)
+            loop = While.new(And.new(@b.falsy(@b.read(found, line), line), more, line), body, line)
             binds = []
             binds << bind(node.left.expression, @b.send_to(@b.read(d, line), :[], [Literal.new(0, line), @b.read(i, line)], line), line) if node.left.expression
             if node.right.expression
@@ -245,8 +255,8 @@ module Ze0
             d = @b.temp(:pairs)
             responds = @b.send_to(@b.read(subject, line), :respond_to?, [Literal.new(:deconstruct_keys, line)], line)
             steps << failing(responds, Interp.new([inspect_of(subject, line), Literal.new(" does not respond to #deconstruct_keys", line)], line), line)
-            typed = If.new(@b.send_to(@b.read(d, line), :is_a?, [@b.const(:Hash, line)], line), Literal.new(true, line),
-                           @b.send_to(nil, :raise, [@b.const(:TypeError, line), Literal.new("deconstruct_keys must return Hash", line)], line), line)
+            typed = If.new(@b.send_to(@b.read(d, line), :is_a?, [@b.core(:Hash, line)], line), Literal.new(true, line),
+                           @b.send_to(@b.core(:Kernel, line), :raise, [@b.core(:TypeError, line), Literal.new("deconstruct_keys must return Hash", line)], line), line)
             steps << Seq.new([@b.set(d, @b.send_to(@b.read(subject, line), :deconstruct_keys, [asked], line), line), typed], line)
             if node.elements.empty? && node.rest.nil?
               steps << failing(@b.send_to(@b.read(d, line), :empty?, [], line), Interp.new([inspect_of(d, line), Literal.new(" is not empty", line)], line), line)

@@ -162,6 +162,13 @@ module Ze0
     And = Struct.new(:left, :right, :line)
     Or = Struct.new(:left, :right, :line)
     Not = Struct.new(:value, :line)
+    # A class or module the core defines, read from the runtime and never
+    # through lexical scope: what a desugaring names (`Array` in a
+    # pattern), so a program's own `Array` cannot stand in for it.
+    Core = Struct.new(:name, :line)
+    # A body that runs the first time its site is reached and never again
+    # (CRuby's `once` instruction), as `END { }` registers.
+    Once = Struct.new(:body, :line)
     # `class Name < superclass; body; end`. `scope` is nil for a bare
     # name, `:top` for `::Name`, else the expression before `::`.
     ClassDef = Struct.new(:scope, :name, :superclass, :locals, :body, :line)

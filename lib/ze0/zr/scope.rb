@@ -82,6 +82,7 @@ module Ze0
         when Hir::Lambda then base + 1
         when Hir::Splat, Hir::HashSplat, Hir::BlockPass, Hir::Using then staging(node.value, base)
         when Hir::KwSplatElement then staging(node.hash, base)
+        when Hir::Once then staging(node.body, base)
         when Hir::Yield
           parts = node.args + [node.kwargs].compact
           spread?(parts) ? gathered(parts, base) : row(parts, base)

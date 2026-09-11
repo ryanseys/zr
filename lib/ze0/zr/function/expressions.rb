@@ -13,6 +13,8 @@ module Ze0
           when Hir::Seq then seq(node)
           when Hir::Literal then literal(node)
           when Hir::SelfRef then @self
+          when Hir::Core then kernel("zr_core_class", imm(sym_id(node.name)))
+          when Hir::Once then once(node)
           when Hir::Send then call(node)
           when Hir::Local then read_local(slot_at(node), node.depth)
           when Hir::Assign then write_local(slot_at(node), node.depth, expr(node.value))
@@ -70,6 +72,24 @@ module Ze0
           when Hir::Redo then redo_body(node)
           else @l.refuse(node, "#{node.class.name.split("::").last} is not lowered yet")
           end
+        end
+
+        # The body the first time the site runs, nil every time: a flag
+        # word of the site's own, set before the body runs.
+        def once(node)
+          cell = @f.symbol_value(@f.symbol(@l.cache_cell("once", 8)))
+          run = @f.label
+          skip = @f.label
+          merge, (result,) = @f.block(["i64"])
+          @f.brif(@f.icmp("eq", @f.fetch("i64", cell), imm(0)), run, skip)
+          switch(skip)
+          @f.jump(merge, [@qnil])
+          switch(run)
+          @f.store(imm(1), cell)
+          expr(node.body)
+          @f.jump(merge, [@qnil]) unless @f.terminated?
+          switch(merge)
+          result
         end
 
         # `-> { }`: a Proc marked a lambda; its `break` and `return` stay

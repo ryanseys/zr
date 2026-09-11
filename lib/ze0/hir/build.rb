@@ -494,8 +494,9 @@ module Ze0
         when Prism::StatementsNode then seq(node)
         when Prism::ParenthesesNode then node.body ? expr(node.body) : Literal.new(nil, line)
         when Prism::IntegerNode, Prism::FloatNode then Literal.new(node.value, line)
-        when Prism::RationalNode then Send.new(nil, :Rational, [Literal.new(node.numerator, line), Literal.new(node.denominator, line)], line, false)
-        when Prism::ImaginaryNode then Send.new(nil, :Complex, [Literal.new(0, line), expr(node.numeric)], line, false)
+        # `3r` and `2i` are the core's own, even where self has no Kernel.
+        when Prism::RationalNode then Send.new(Core.new(:Kernel, line), :Rational, [Literal.new(node.numerator, line), Literal.new(node.denominator, line)], line, false)
+        when Prism::ImaginaryNode then Send.new(Core.new(:Kernel, line), :Complex, [Literal.new(0, line), expr(node.numeric)], line, false)
         when Prism::StringNode then Literal.new(node.unescaped, line)
         when Prism::SymbolNode then Literal.new(node.unescaped.to_sym, line)
         when Prism::NilNode then Literal.new(nil, line)
@@ -547,7 +548,7 @@ module Ze0
         when Prism::WhileNode
           While.new(expr(node.predicate), node.statements && seq(node.statements), line, node.begin_modifier?)
         when Prism::UntilNode
-          While.new(Not.new(expr(node.predicate), line), node.statements && seq(node.statements), line, node.begin_modifier?)
+          While.new(falsy(expr(node.predicate), line), node.statements && seq(node.statements), line, node.begin_modifier?)
         when Prism::ReturnNode then Return.new(jump_value(node.arguments, line), line)
         when Prism::AndNode then And.new(expr(node.left), expr(node.right), line)
         when Prism::OrNode then Or.new(expr(node.left), expr(node.right), line)
@@ -687,7 +688,8 @@ module Ze0
           # block deeper as an at_exit block.
           body = deepen(node.statements ? seq(node.statements) : Literal.new(nil, line), 0)
           block = Block.new(Params.new([], [], nil, [], [], nil, nil), [], body, line)
-          Send.new(nil, :at_exit, [], line, false, false, block, nil, false)
+          # It registers once for its site, however often the site runs.
+          Once.new(Send.new(Core.new(:Kernel, line), :at_exit, [], line, false, false, block, nil, false), line)
         when Prism::PreExecutionNode
           refuse(node, "BEGIN { } outside the toplevel is not lowered yet") unless @block_depth.zero?
           node.statements ? seq(node.statements) : Literal.new(nil, line)
@@ -962,7 +964,7 @@ module Ze0
       def shadowed?(name) = @shadowed.key?([@path.join("::"), @singleton, name])
 
       def call(node)
-        return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil?
+        return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil? && node.call_operator != "&."
         return FrozenString.new(node.receiver.unescaped, node.location.start_line) if node.name == :freeze && node.receiver.is_a?(Prism::StringNode) && node.arguments.nil? && node.block.nil?
         return require_node(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && !shadowed?(node.name) && !@loader&.eval? && literal_feature(node)
         return autoload_node(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
