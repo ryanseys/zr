@@ -136,6 +136,7 @@ module Ze0
         d zr_singleton_p Bool klass:Value
         d zr_make_metaclass Value klass:Value
         d zr_singleton_class Value v:Value
+        d zr_class_modify_check Value klass:Value
         d zr_real_class Value v:Value
         d zr_class_name_of Value v:Value
         d zr_module_new Value

@@ -179,6 +179,8 @@ machine def zr_mod_class_variable_set(recv, argc, argv, cref, blk)
   if owner == QNIL
     owner = recv
   end
+  r = zr_class_modify_check(owner)
+  return r if r == QUNDEF
   v = Machine.value(Machine.load64(argv, 8))
   zr_ivtab_set(ClassExt.cv(RClass.ext(owner)), id, v)
   v
@@ -193,6 +195,8 @@ machine def zr_mod_remove_class_variable(recv, argc, argv, cref, blk)
   return r if r == QUNDEF
   id = Machine.load64(slot, 0)
   r = zr_check_cvar_name(id)
+  return r if r == QUNDEF
+  r = zr_class_modify_check(recv)
   return r if r == QUNDEF
   t = ClassExt.cv(RClass.ext(recv))
   e = zr_ivtab_row(t, id)
@@ -447,9 +451,8 @@ end
 # `Module#remove_method`: the entry must be the module's own.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_remove_method(recv, argc, argv, cref, blk)
-  if zr_frozen_p(zr_origin(recv))
-    return zr_frozen_error(recv)
-  end
+  r = zr_class_modify_check(recv)
+  return r if r == QUNDEF
   i = 0
   while i < argc
     slot = Machine.slot(8)

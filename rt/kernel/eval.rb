@@ -136,9 +136,8 @@ end
 # in place of the block: a method the block's body answers.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_define_method(recv, argc, argv, cref, blk)
-  if zr_frozen_p(zr_origin(recv))
-    return zr_frozen_error(recv)
-  end
+  r = zr_class_modify_check(recv)
+  return r if r == QUNDEF
   if argc == 0
     return zr_wrong_arity_range(0, 1, 2)
   end

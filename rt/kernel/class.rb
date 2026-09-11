@@ -578,6 +578,8 @@ machine def zr_cvar_set(cref, id, v)
   if owner == QNIL
     owner = base
   end
+  frozen = zr_class_modify_check(owner)
+  return frozen if frozen == QUNDEF
   zr_ivtab_set(ClassExt.cv(RClass.ext(owner)), id, v)
   v
 end
@@ -625,7 +627,8 @@ machine def zr_make_metaclass(klass)
     msup = zr_singleton_class(sup)
   end
   meta = zr_class_alloc(T_CLASS, msup, zr_global(G_CLASS))
-  RBasic.set_flags(meta, RBasic.flags(meta) | FL_SINGLETON)
+  # A singleton class is frozen when its object is.
+  RBasic.set_flags(meta, RBasic.flags(meta) | FL_SINGLETON | (RBasic.flags(klass) & FL_FREEZE))
   RClass.set_attached(meta, klass)
   RBasic.set_klass(klass, meta)
   meta
@@ -649,10 +652,21 @@ machine def zr_singleton_class(v)
     return zr_make_metaclass(v)
   end
   s = zr_class_alloc(T_CLASS, k, zr_global(G_CLASS))
-  RBasic.set_flags(s, RBasic.flags(s) | FL_SINGLETON)
+  RBasic.set_flags(s, RBasic.flags(s) | FL_SINGLETON | (RBasic.flags(v) & FL_FREEZE))
   RClass.set_attached(s, v)
   RBasic.set_klass(v, s)
   s
+end
+
+# Before a change to a class's own tables: its own frozen flag, never
+# its origin's. A frozen singleton class names the object it belongs
+# to, as CRuby's rb_class_modify_check does.
+sig [Value] => Value
+machine def zr_class_modify_check(klass)
+  if !zr_frozen_p(klass)
+    return Machine.value(QNIL)
+  end
+  zr_frozen_error(zr_singleton_p(klass) ? RClass.attached(klass) : klass)
 end
 
 # The class `v.class` answers: past any singleton class.
@@ -823,10 +837,9 @@ end
 
 sig [Value, Word, Ptr, Word, Word, Ptr, Value, Word] => Value
 machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
+  frozen = zr_class_modify_check(klass)
+  return frozen if frozen == QUNDEF
   klass = zr_origin(klass)
-  if zr_frozen_p(klass)
-    return zr_frozen_error(klass)
-  end
   if meta == 0
     meta = zr_xmalloc(FrameMeta.size)
     FrameMeta.set_file(meta, 0)
@@ -1027,9 +1040,8 @@ end
 
 sig [Value, Word, Word, Word] => Value
 machine def zr_set_method_visibility(klass, mid, vis, modfn)
-  if zr_frozen_p(zr_origin(klass))
-    return zr_frozen_error(klass)
-  end
+  frozen = zr_class_modify_check(klass)
+  return frozen if frozen == QUNDEF
   e = zr_find_method(klass, mid)
   if e == 0
     b = Machine.slot(Buf.size)

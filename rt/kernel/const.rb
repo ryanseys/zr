@@ -166,6 +166,8 @@ machine def zr_const_set(klass, id, v)
     zr_buf_push(b, Machine.bytes(" is not a class/module"), 22)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
+  r = zr_class_modify_check(klass)
+  return r if r == QUNDEF
   e = zr_const_row(klass, id)
   if e == 0
     ext = RClass.ext(klass)
@@ -729,6 +731,8 @@ machine def zr_mod_remove_const(recv, argc, argv, cref, blk)
   r = zr_const_name_id(recv, Machine.value(Machine.load64(argv, 0)), slot)
   return r if r == QUNDEF
   id = Machine.load64(slot, 0)
+  r = zr_class_modify_check(recv)
+  return r if r == QUNDEF
   e = zr_const_row(recv, id)
   if e == 0
     b = Machine.slot(Buf.size)

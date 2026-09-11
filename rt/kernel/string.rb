@@ -722,6 +722,12 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_freeze(recv, argc, argv, cref, blk)
   unless zr_special_p(recv)
     RBasic.set_flags(recv, RBasic.flags(recv) | FL_FREEZE)
+    # The singleton class freezes with its object, as CRuby's
+    # rb_freeze_singleton_class does.
+    k = RBasic.klass(recv)
+    if zr_singleton_p(k) && RClass.attached(k) == recv
+      RBasic.set_flags(k, RBasic.flags(k) | FL_FREEZE)
+    end
   end
   recv
 end
