@@ -119,11 +119,12 @@ module Kernel
   # Every message on its own line, the first carrying the position
   # `uplevel` frames above this call. A category the program turned off
   # says nothing at all.
-  def warn(*messages, uplevel: nil, category: nil)
-    return nil if messages.empty?
+  def warn(*msgs, uplevel: nil, category: nil)
+    Primitive.attr! :ruby
+    return nil if msgs.empty?
     return nil if category && !Warning[category]
 
-    text = messages.flatten.map { |m| m.to_s.end_with?("\n") ? m.to_s : "#{m}\n" }.join
+    text = msgs.flatten.map { |m| m.to_s.end_with?("\n") ? m.to_s : "#{m}\n" }.join
     unless uplevel.nil?
       frame = caller(implicit_integer(uplevel) + 1, 1)&.first
       text = "#{frame ? "#{frame.sub(/:in .*\z/, '')}: " : ''}warning: #{text}"

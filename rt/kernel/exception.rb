@@ -12,7 +12,9 @@
 # the Env that keeps them, which is what an eval and a Binding read.
 # `box` is the Ruby::Box the function belongs to, nil where it is
 # main's, which is what makes a box's reach the code it holds.
-Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr, locals: Ptr, env: Word, box: Value
+# `ruby` is 1 on a core def CRuby itself writes in Ruby, which answers
+# its own parameters where a method written in C answers `[[:rest]]`.
+Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr, locals: Ptr, env: Word, box: Value, ruby: Word
 KIND_MAIN = 0
 KIND_DEF = 1
 KIND_BUILTIN = 2

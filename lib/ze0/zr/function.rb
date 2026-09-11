@@ -120,15 +120,25 @@ module Ze0
         end
       end
 
-      # A core helper that CRuby has no method for opens with
-      # `Primitive.attr! :hidden`, and leaves no backtrace row.
-      def hidden_def?
-        return false unless @l.internal? && @kind == :def
+      # A core def opens with its `Primitive.attr!` rows: `:hidden` on a
+      # helper CRuby has no method for, which leaves no backtrace row, and
+      # `:ruby` on a method CRuby itself writes in Ruby, which answers its
+      # own parameters as CRuby's does.
+      def attributes
+        return [] unless @l.internal? && @kind == :def
 
-        first = @body.is_a?(Hir::Seq) ? @body.stmts.first : @body
-        first.is_a?(Hir::Send) && first.name == :attr! && first.recv.is_a?(Hir::ConstRead) && first.recv.name == :Primitive &&
-          first.args.first.is_a?(Hir::Literal) && first.args.first.value == :hidden
+        @attributes ||= begin
+          stmts = @body.is_a?(Hir::Seq) ? @body.stmts : [@body]
+          stmts.take_while { |stmt| attribute_row?(stmt) }.map { |stmt| stmt.args.first.value }
+        end
       end
+
+      def attribute_row?(node)
+        node.is_a?(Hir::Send) && node.name == :attr! && node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Primitive &&
+          node.args.first.is_a?(Hir::Literal)
+      end
+
+      def hidden_def? = attributes.include?(:hidden)
 
       def enter
         @base = @has_env ? 1 : @locals.size
@@ -144,7 +154,7 @@ module Ze0
         name = @def && %i[class module].include?(@kind) ? sym_id(@def.name) : 0
         params = @def.params if %i[def block].include?(@kind)
         kind = hidden_def? ? "KIND_HIDDEN" : @l.frame_kind(@kind)
-        @meta = @l.meta(@name, kind, line, name, @outer&.meta, params, @locals, @has_env)
+        @meta = @l.meta(@name, kind, line, name, @outer&.meta, params, @locals, @has_env, attributes.include?(:ruby))
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @f.store(imm(line), @rec, off(@frame, "line"))
         serial = @f.iadd(@f.fetch("i64", @task_addr, off(@task, "serial")), imm(1))

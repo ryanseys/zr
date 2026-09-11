@@ -125,7 +125,7 @@ module Ze0
         @file_bytes[@file] ||= literal(@file)
       end
 
-      def meta(fn, kind, line, name = 0, parent = nil, params = nil, locals = [], env = false)
+      def meta(fn, kind, line, name = 0, parent = nil, params = nil, locals = [], env = false, ruby = false)
         layout = layout("FrameMeta")
         file = file_bytes
         bytes = ("\0" * layout.size).b
@@ -136,6 +136,7 @@ module Ze0
         word.call("line", line)
         word.call("arity", params ? params.arity : 0)
         word.call("env", env ? 1 : 0)
+        word.call("ruby", ruby ? 1 : 0)
         relocs = [Obj::Reloc.new(layout.fields.fetch("file").first, :abs64, file)]
         relocs << Obj::Reloc.new(layout.fields.fetch("parent").first, :abs64, parent) if parent
         relocs << Obj::Reloc.new(layout.fields.fetch("params").first, :abs64, param_table(fn, params)) if params

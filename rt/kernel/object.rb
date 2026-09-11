@@ -1052,6 +1052,10 @@ machine def zr_attr(klass, argc, argv, which)
         free(Buf.ptr(b))
         return r
       end
+  FrameMeta.set_locals(meta, 0)
+  FrameMeta.set_env(meta, 0)
+  FrameMeta.set_box(meta, Machine.value(QNIL))
+  FrameMeta.set_ruby(meta, 0)
       zr_ary_push(defined, zr_sym(id))
     end
     if which != 1

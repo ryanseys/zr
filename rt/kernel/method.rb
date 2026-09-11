@@ -234,9 +234,9 @@ sig [Value] => Value
 machine def zr_method_rows(m)
   e = RMethod.entry(m)
   meta = zr_method_meta(e)
-  # A core def answers as C does; a define_method body, the core's
-  # included, answers its block's table.
-  if meta != 0 && (FrameMeta.file_len(meta) > 0 || MEntry.kind(e) == KIND_BMETHOD)
+  # A core def answers as C does, unless CRuby writes it in Ruby too; a
+  # define_method body, the core's included, answers its block's table.
+  if meta != 0 && (FrameMeta.file_len(meta) > 0 || FrameMeta.ruby(meta) != 0 || MEntry.kind(e) == KIND_BMETHOD)
     return zr_param_rows(FrameMeta.params(meta), false)
   end
   zr_arity_rows(zr_method_arity_of(m))

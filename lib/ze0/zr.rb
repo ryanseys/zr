@@ -131,13 +131,15 @@ module Ze0
     end
 
     # The core library over the kernel `unit`: `[functions, data]`, the
-    # functions ending with `zr_prelude`.
+    # functions ending with `zr_prelude`. Whether a program carries the
+    # compiler is the program's own question, so the core never asks for
+    # the eval road: a box or an eval brings it with the program.
     def core(unit, symbols)
       functions = []
       data = []
       entries = CORE.map do |path|
         entry = "zr_core_#{File.basename(path, ".rb")}"
-        f, d = Lower.new(Hir.build(File.read(path), path), unit, symbols, entry: entry, internal: true).run
+        f, d = Lower.new(Hir.build(File.read(path), path, road: false), unit, symbols, entry: entry, internal: true).run
         functions.concat(f)
         data.concat(d)
         entry

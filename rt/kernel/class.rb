@@ -756,6 +756,7 @@ machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
   elsif Machine.word(FrameMeta.owner(meta)) != 0 && FrameMeta.owner(meta) != klass
     # The same def run under another class (a class body in a block
     # that runs twice) gets a meta of its own, so each keeps its owner.
+    FrameMeta.set_ruby(meta, 0)
     copy = malloc(FrameMeta.size)
     zr_memcpy(copy, meta, FrameMeta.size)
     meta = copy
