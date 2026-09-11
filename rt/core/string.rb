@@ -1644,7 +1644,14 @@ class Encoding
     self
   end
 
-  LIST = ROWS.each_with_index.map { |(names, dummy, ascii, loaded, bytewise), index| new(index, names, dummy, ascii, loaded, bytewise) }.freeze
+  # Ruby cannot make an Encoding: the runtime builds each one once.
+  Primitive.zr_undef_alloc(self)
+
+  LIST = ROWS.each_with_index.map do |(names, dummy, ascii, loaded, bytewise), index|
+    encoding = Primitive.zr_class_build(self)
+    encoding.send(:initialize, index, names, dummy, ascii, loaded, bytewise)
+    encoding
+  end.freeze
   private_constant :LIST
 
   BY_NAME = LIST.each_with_object({}) { |encoding, out| encoding.names.each { |name| out[name] = encoding } }.freeze

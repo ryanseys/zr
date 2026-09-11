@@ -3,7 +3,7 @@
 # hidden ivars, so a Rational shows no instance variables.
 class Rational < Numeric
   class << self
-    undef_method :new
+    undef_method :new, :allocate
 
     # A reduced fraction; `d` must not be zero.
     def build(n, d)
@@ -16,7 +16,7 @@ class Rational < Numeric
       end
       g = n.gcd(d)
       g = 1 if g == 0
-      r = allocate
+      r = Primitive.zr_class_build(self)
       Primitive.zr_hidden_set(r, :__num__, n / g)
       Primitive.zr_hidden_set(r, :__den__, d / g)
       r.freeze

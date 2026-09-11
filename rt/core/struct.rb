@@ -4,6 +4,7 @@
 # neither shows in `instance_variables`.
 class Struct
   include Enumerable
+  Primitive.zr_undef_alloc(self)
 
   class << self
     def new(*members, keyword_init: nil, &body)
@@ -13,6 +14,7 @@ class Struct
       raise ArgumentError, "duplicate member: #{dup}" if dup
 
       klass = Class.new(self)
+      Primitive.zr_define_alloc(klass)
       Struct.const_set(name, klass) if name
       Primitive.zr_hidden_set(klass, :__members__, members.freeze)
       Primitive.zr_hidden_set(klass, :__keyword_init__, keyword_init)

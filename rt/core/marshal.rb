@@ -101,7 +101,7 @@ module Marshal
       when Hash then hash(obj, limit)
       when Range then object_body("Range", range_parts(obj), limit)
       when Exception then object_body(class_path(obj.class), exception_parts(obj), limit)
-      when Struct then struct(obj, limit)
+      when Struct, Data then struct(obj, limit)
       else object_body(class_path(obj.class), ivars, limit)
       end
       write_ivars(ivars, limit) if wrapped
@@ -128,12 +128,16 @@ module Marshal
       end
     end
 
+    # A Struct and a Data value write the same record: each member's name
+    # and value. A Data value has no `[]`, so its values come as it keeps
+    # them.
     def struct(obj, limit)
       members = obj.class.members
+      values = obj.is_a?(Data) ? obj.send(:values_store) : members.map { |name| obj[name] }
       @out << "S" << symbol_bytes(class_path(obj.class).to_sym) << long(members.size)
-      members.each do |name|
+      members.each_with_index do |name, i|
         @out << symbol_bytes(name)
-        write(obj[name], limit)
+        write(values[i], limit)
       end
     end
 
@@ -195,6 +199,9 @@ module Marshal
     # What an object carries beside its parts: its instance variables, and
     # for a String, a Regexp or a Symbol the name of its encoding.
     def ivars_of(obj)
+      # A class or module is written by its name alone.
+      return [] if obj.is_a?(Module)
+
       names = obj.respond_to?(:instance_variables) ? obj.instance_variables : []
       parts = names.map { |name| [name, obj.instance_variable_get(name)] }
       obj.is_a?(String) || obj.is_a?(Regexp) ? encoding_ivar(obj.encoding) + parts : parts
@@ -231,7 +238,7 @@ module Marshal
     # A Range and a plain object write their parts as the object body, so
     # the wrapper must not write them twice.
     def plain_object?(obj)
-      return false if obj.is_a?(Class) || obj.is_a?(Module) || obj.is_a?(Struct)
+      return false if obj.is_a?(Class) || obj.is_a?(Module) || obj.is_a?(Struct) || obj.is_a?(Data)
 
       obj.is_a?(Range) || !(obj.is_a?(String) || obj.is_a?(Regexp) || obj.is_a?(Array) ||
                             obj.is_a?(Hash) || obj.is_a?(Float) || obj.is_a?(Integer))
@@ -442,7 +449,7 @@ module Marshal
     def subclass
       klass = constant(symbol_or_link.to_s, Class)
       value = read_value
-      built = klass.allocate
+      built = Primitive.zr_class_allocate(klass)
       case value
       when String then built.replace(value)
       when Array then built.replace(value)
@@ -458,13 +465,13 @@ module Marshal
     end
 
     def array(klass)
-      out = keep(klass == Array ? [] : klass.allocate)
+      out = keep(klass == Array ? [] : Primitive.zr_class_allocate(klass))
       long.times { out << read }
       out
     end
 
     def hash(klass, defaulted)
-      out = keep(klass == Hash ? {} : klass.allocate)
+      out = keep(klass == Hash ? {} : Primitive.zr_class_allocate(klass))
       long.times do
         key = read
         out[key] = read
@@ -483,8 +490,15 @@ module Marshal
         member = symbol_or_link
         values[member] = read
       end
-      built = klass.allocate
-      values.each { |member, value| built.send(:"#{member}=", value) }
+      built = Primitive.zr_class_allocate(klass)
+      # A Data value has no writers: its values are set as they are kept,
+      # and it is frozen, as `new` leaves it.
+      if klass <= Data
+        Primitive.zr_hidden_set(built, :__values__, klass.members.map { |member| values[member] }.freeze)
+        built.freeze
+      else
+        values.each { |member, value| built.send(:"#{member}=", value) }
+      end
       @objects[here] = built
       built
     end
@@ -492,7 +506,7 @@ module Marshal
     def object
       klass = constant(symbol_or_link.to_s, Class)
       here = @objects.size
-      @objects << klass.allocate
+      @objects << Primitive.zr_class_allocate(klass)
       parts = {}
       long.times do
         name = symbol_or_link
@@ -521,7 +535,7 @@ module Marshal
 
     def user_marshal
       klass = constant(symbol_or_link.to_s, Class)
-      built = keep(klass.allocate)
+      built = keep(Primitive.zr_class_allocate(klass))
       built.send(:marshal_load, read)
       built
     end

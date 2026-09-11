@@ -2,11 +2,11 @@
 # Rational, held in hidden ivars as CRuby's hidden fields are.
 class Complex < Numeric
   class << self
-    undef_method :new
+    undef_method :new, :allocate
 
     def build(real, imag)
       Primitive.attr! :hidden
-      c = allocate
+      c = Primitive.zr_class_build(self)
       Primitive.zr_hidden_set(c, :__real__, real)
       Primitive.zr_hidden_set(c, :__imag__, imag)
       c.freeze

@@ -251,16 +251,49 @@ machine def zr_range_new(low, high, excl)
 end
 
 # `Class#allocate`: the shape the class's builtin ancestor gives, not
-# yet initialized.
+# yet initialized, or CRuby's TypeError for a class whose allocator is
+# undefined.
 sig [Value] => Value
 machine def zr_class_allocate(recv)
-  # A box shadow allocates what the class it stands over allocates, so
-  # an object a box makes is one main knows.
-  shared = zr_box_current() == QNIL ? Machine.value(QNIL) : zr_box_origin(recv)
-  if shared != QNIL
-    recv = shared
+  recv = zr_alloc_class(recv)
+  # CRuby's class_call_alloc_func checks, in its order.
+  if RClass.superclass(recv) == QNIL && recv != zr_global(G_BASIC_OBJECT)
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't instantiate uninitialized class"), 37)
+  end
+  if (RBasic.flags(recv) & FL_SINGLETON) != 0
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't create instance of singleton class"), 40)
   end
   kind = zr_alloc_kind(recv)
+  if kind == ALLOC_UNDEF
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("allocator undefined for "), 24)
+    zr_buf_class(b, recv)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+  zr_alloc_shape(recv, kind)
+end
+
+# The object a core constructor builds for its class, whether or not
+# Ruby may call `allocate` on it, as CRuby's Thread.new calls
+# thread_alloc and Rational's constructors call nurat_s_alloc.
+sig [Value] => Value
+machine def zr_class_build(recv)
+  recv = zr_alloc_class(recv)
+  kind = zr_alloc_kind(recv)
+  zr_alloc_shape(recv, kind == ALLOC_UNDEF ? ALLOC_OBJECT : kind)
+end
+
+# A box shadow allocates what the class it stands over allocates, so
+# an object a box makes is one main knows.
+sig [Value] => Value
+machine def zr_alloc_class(recv)
+  shared = zr_box_current() == QNIL ? Machine.value(QNIL) : zr_box_origin(recv)
+  shared == QNIL ? recv : shared
+end
+
+sig [Value, Word] => Value
+machine def zr_alloc_shape(recv, kind)
   if kind == ALLOC_OBJECT
     return zr_obj_alloc(recv)
   end
@@ -275,13 +308,6 @@ machine def zr_class_allocate(recv)
   if kind == ALLOC_EXCEPTION
     return zr_exc_new(recv, Machine.value(QNIL))
   end
-  if kind == ALLOC_UNDEF
-    b = Machine.slot(Buf.size)
-    zr_buf_init(b)
-    zr_buf_push(b, Machine.bytes("allocator undefined for "), 24)
-    zr_buf_class(b, recv)
-    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
-  end
   if kind == ALLOC_ARRAY
     o = zr_ary_new(4)
   elsif kind == ALLOC_HASH
@@ -293,8 +319,12 @@ machine def zr_class_allocate(recv)
   o
 end
 
-# The kind of object a class allocates, from its nearest builtin
-# ancestor: found once per class, then kept, since a class's
+# The kind of object a class allocates: the kind the class or its
+# nearest superclass records, as CRuby's rb_get_alloc_func walks the
+# superclasses. The builtin roots record theirs at boot
+# (zr_alloc_table), and core records its own classes' kinds as it
+# defines them (zr_undef_alloc, zr_define_alloc). A class that records
+# none keeps its superclass's kind once found, since a class's
 # superclass never changes.
 ALLOC_OBJECT = 1
 ALLOC_CLASS = 2
@@ -311,24 +341,53 @@ machine def zr_alloc_kind(klass)
   if kind != 0
     return kind
   end
-  kind = ALLOC_OBJECT
-  if zr_class_inherits(klass, zr_global(G_CLASS))
-    kind = ALLOC_CLASS
-  elsif zr_class_inherits(klass, zr_global(G_MODULE))
-    kind = ALLOC_MODULE
-  elsif zr_class_inherits(klass, zr_global(G_EXCEPTION))
-    kind = ALLOC_EXCEPTION
-  elsif zr_class_inherits(klass, zr_global(G_ARRAY))
-    kind = ALLOC_ARRAY
-  elsif zr_class_inherits(klass, zr_global(G_HASH))
-    kind = ALLOC_HASH
-  elsif zr_class_inherits(klass, zr_global(G_STRING))
-    kind = ALLOC_STRING
-  elsif zr_class_inherits(klass, zr_global(G_INTEGER)) || zr_class_inherits(klass, zr_global(G_SYMBOL)) || zr_class_inherits(klass, zr_global(G_NIL)) || zr_class_inherits(klass, zr_global(G_TRUE)) || zr_class_inherits(klass, zr_global(G_FALSE))
-    kind = ALLOC_UNDEF
-  end
+  sup = zr_real_superclass(klass)
+  kind = sup == QNIL ? ALLOC_OBJECT : zr_alloc_kind(sup)
   ClassExt.set_alloc(RClass.ext(klass), kind)
   kind
+end
+
+sig [Word, Word] => Void
+machine def zr_alloc_record(g, kind)
+  ClassExt.set_alloc(RClass.ext(zr_global(g)), kind)
+end
+
+# The builtin roots' kinds. The value classes, Proc and the method
+# objects have none that Ruby may call (CRuby's rb_undef_alloc_func),
+# and neither have their subclasses.
+sig [] => Void
+machine def zr_alloc_table
+  zr_alloc_record(G_CLASS, ALLOC_CLASS)
+  zr_alloc_record(G_MODULE, ALLOC_MODULE)
+  zr_alloc_record(G_EXCEPTION, ALLOC_EXCEPTION)
+  zr_alloc_record(G_ARRAY, ALLOC_ARRAY)
+  zr_alloc_record(G_HASH, ALLOC_HASH)
+  zr_alloc_record(G_STRING, ALLOC_STRING)
+  zr_alloc_record(G_INTEGER, ALLOC_UNDEF)
+  zr_alloc_record(G_FLOAT, ALLOC_UNDEF)
+  zr_alloc_record(G_SYMBOL, ALLOC_UNDEF)
+  zr_alloc_record(G_NIL, ALLOC_UNDEF)
+  zr_alloc_record(G_TRUE, ALLOC_UNDEF)
+  zr_alloc_record(G_FALSE, ALLOC_UNDEF)
+  zr_alloc_record(G_PROC, ALLOC_UNDEF)
+  zr_alloc_record(G_METHOD, ALLOC_UNDEF)
+  zr_alloc_record(G_UNBOUND_METHOD, ALLOC_UNDEF)
+end
+
+# rb_undef_alloc_func, for a class core defines: `allocate` on it, and
+# on a subclass that records no kind of its own, raises TypeError.
+sig [Value] => Value
+machine def zr_undef_alloc(klass)
+  ClassExt.set_alloc(RClass.ext(klass), ALLOC_UNDEF)
+  Machine.value(QNIL)
+end
+
+# rb_define_alloc_func with a plain object, for a class core makes under
+# one whose allocator is undefined (Struct.new, Data.define).
+sig [Value] => Value
+machine def zr_define_alloc(klass)
+  ClassExt.set_alloc(RClass.ext(klass), ALLOC_OBJECT)
+  Machine.value(QNIL)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -982,6 +1041,10 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_class_superclass(recv, argc, argv, cref, blk)
+  # A class from `Class.allocate` has no superclass until it is set up.
+  if RClass.superclass(recv) == QNIL && recv != zr_global(G_BASIC_OBJECT)
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("uninitialized class"), 19)
+  end
   zr_real_superclass(recv)
 end
 

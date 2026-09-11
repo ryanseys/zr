@@ -5,6 +5,8 @@
 # rather than copying them, so a write on either side is seen on both,
 # and a local declared after the capture is already in it.
 class Binding
+  Primitive.zr_undef_alloc(self)
+
   class << self
     undef_method :new
   end

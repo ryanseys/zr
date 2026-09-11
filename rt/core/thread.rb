@@ -9,6 +9,7 @@ class Thread
   @queue = []
   @sleepers = []
   @threads = []
+  Primitive.zr_undef_alloc(self)
 
   class << self
     attr_accessor :report_on_exception, :abort_on_exception
@@ -17,7 +18,7 @@ class Thread
     def new(*args, &block)
       raise ThreadError, "must be called with a block" unless block
 
-      thread = allocate
+      thread = Primitive.zr_class_build(self)
       thread.send(:initialize, *args, &block)
       thread.send(:start, caller(1, 1)&.first)
       thread
@@ -55,7 +56,7 @@ class Thread
     private
 
     def boot
-      @main = allocate
+      @main = Primitive.zr_class_build(self)
       @main.send(:main!)
       @current = @main
       @threads << @main

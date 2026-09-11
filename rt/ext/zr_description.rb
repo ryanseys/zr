@@ -709,7 +709,14 @@ module Ze0
         d zr_ivtab_set Void t:Ptr id:Word v:Value
         d zr_range_new Value low:Value high:Value excl:Word
         d zr_class_allocate Value recv:Value
+        d zr_class_build Value recv:Value
+        d zr_alloc_class Value recv:Value
+        d zr_alloc_shape Value recv:Value kind:Word
         d zr_alloc_kind Word klass:Value
+        d zr_alloc_record Void g:Word kind:Word
+        d zr_alloc_table Void
+        d zr_undef_alloc Value klass:Value
+        d zr_define_alloc Value klass:Value
         d zr_class_allocate_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_class_new_object Value recv:Value
         d zr_class_new_instance Value recv:Value argc:Word argv:Ptr cref:Value blk:Value

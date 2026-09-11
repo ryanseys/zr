@@ -137,6 +137,7 @@ machine def zr_boot
   RClass.set_name(zr_global(G_FATAL), zr_str_new(Machine.bytes("fatal"), 5))
   zr_boot_name(G_KEY_ERROR, Machine.id(:KeyError))
   zr_boot_name(G_SYSTEM_STACK_ERROR, Machine.id(:SystemStackError))
+  zr_alloc_table()
   # Every boot class gets its metaclass, so a singleton method defined
   # on an ancestor reaches it.
   i = G_BASIC_OBJECT
@@ -270,6 +271,8 @@ machine def zr_boot
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:!=), Machine.addr(:zr_obj_ne), 1)
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:!), Machine.addr(:zr_obj_not), 0)
   zr_builtin(zr_global(G_CLASS), Machine.id(:allocate), Machine.addr(:zr_class_allocate_m), 0)
+  # `Class.allocate` is Class's own: a class not yet set up.
+  zr_builtin(zr_singleton_class(zr_global(G_CLASS)), Machine.id(:allocate), Machine.addr(:zr_class_allocate_m), 0)
   zr_builtin(zr_global(G_CLASS), Machine.id(:new), Machine.addr(:zr_class_new_instance), 0 - 1)
   zr_builtin(zr_global(G_CLASS), Machine.id(:superclass), Machine.addr(:zr_class_superclass), 0)
   zr_builtin(zr_global(G_MODULE), Machine.id(:name), Machine.addr(:zr_class_name), 0)

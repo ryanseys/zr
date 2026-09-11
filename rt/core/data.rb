@@ -2,6 +2,8 @@
 # made with keywords or positionally. Members live in a hidden variable
 # of the class and values in one of the instance, as Struct's do.
 class Data
+  Primitive.zr_undef_alloc(self)
+
   class << self
     undef_method :new
 
@@ -17,6 +19,7 @@ class Data
       raise ArgumentError, "duplicate member: #{dup}" if dup
 
       klass = Class.new(self)
+      Primitive.zr_define_alloc(klass)
       Primitive.zr_hidden_set(klass, :__members__, members.freeze)
       Primitive.zr_data_constructors(klass)
       klass.define_singleton_method(:members) do
@@ -26,7 +29,7 @@ class Data
       end
       klass.define_singleton_method(:inspect) { to_s }
       members.each_with_index do |member, i|
-        klass.define_method(member) { Primitive.zr_hidden_get(self, :__values__)[i] }
+        klass.define_method(member) { values_store[i] }
       end
       klass.class_eval(&body) if body
       klass
@@ -59,8 +62,16 @@ class Data
   # A member may be named `class`, so the class comes from the kernel.
   def members = Primitive.zr_real_class(self).members
 
+  # The values, one per member: nil for each until `initialize` runs, as
+  # an allocated Data reads in CRuby.
+  def values_store
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__values__) || Array.new(Primitive.zr_ary_len_m(members))
+  end
+  private :values_store
+
   def to_h(&block)
-    pairs = members.zip(Primitive.zr_hidden_get(self, :__values__))
+    pairs = members.zip(values_store)
     block ? pairs.to_h(&block) : pairs.to_h
   end
 
@@ -69,7 +80,7 @@ class Data
     raise TypeError, "wrong argument type #{keys.class} (expected Array or nil)" unless keys.is_a?(Array)
     return {} if keys.size > members.size
 
-    values = Primitive.zr_hidden_get(self, :__values__)
+    values = values_store
     out = {}
     keys.each do |k|
       i = k.is_a?(Symbol) ? members.index(k) : nil
@@ -80,7 +91,7 @@ class Data
     out
   end
 
-  def deconstruct = Primitive.zr_hidden_get(self, :__values__).dup
+  def deconstruct = values_store.dup
 
   def with(**kwargs)
     return self if kwargs.empty?
@@ -92,17 +103,17 @@ class Data
     return true if equal?(other)
     return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
 
-    Primitive.zr_hidden_get(self, :__values__) == Primitive.zr_hidden_get(other, :__values__)
+    values_store == other.send(:values_store)
   end
 
   def eql?(other)
     return true if equal?(other)
     return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
 
-    Primitive.zr_hidden_get(self, :__values__).eql?(Primitive.zr_hidden_get(other, :__values__))
+    values_store.eql?(other.send(:values_store))
   end
 
-  def hash = [Primitive.zr_real_class(self), Primitive.zr_hidden_get(self, :__values__)].hash
+  def hash = [Primitive.zr_real_class(self), values_store].hash
 
   def inspect
     name = Primitive.zr_real_class(self).name
@@ -110,7 +121,7 @@ class Data
     return "#{head}:...>" if Primitive.zr_recursive_enter(self, :inspect)
 
     begin
-      pairs = members.zip(Primitive.zr_hidden_get(self, :__values__)).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }
+      pairs = members.zip(values_store).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }
       pairs.empty? && name ? "#{head}>" : "#{head} #{pairs.join(', ')}>"
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
