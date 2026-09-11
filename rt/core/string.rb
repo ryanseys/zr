@@ -228,19 +228,19 @@ class String
   def chop! = mutate(chop)
   def squeeze! = mutate(squeeze)
 
-  def strip = lstrip.rstrip
+  # Whitespace and NUL off both ends, in one String.
+  def strip
+    stop = Primitive.zr_str_space_start(self, bytesize, true)
+    start = stop.zero? ? 0 : Primitive.zr_str_space_end(self, 0, true)
+    byteslice_of(start, stop - start)
+  end
 
   def lstrip
-    i = 0
-    i += 1 while i < bytesize && space_byte?(Primitive.zr_str_byte_at(self, i))
-    byteslice_of(i, bytesize - i)
+    start = Primitive.zr_str_space_end(self, 0, true)
+    byteslice_of(start, bytesize - start)
   end
 
-  def rstrip
-    i = bytesize
-    i -= 1 while i > 0 && space_byte?(Primitive.zr_str_byte_at(self, i - 1))
-    byteslice_of(0, i)
-  end
+  def rstrip = byteslice_of(0, Primitive.zr_str_space_start(self, bytesize, true))
 
   def chomp(separator = "\n")
     return dup if separator.nil? || empty?
@@ -1232,32 +1232,20 @@ class String
     [first, length]
   end
 
+  # awk-style words: runs of bytes between whitespace, which for split
+  # leaves NUL out. The piece that would reach `limit`, and a last word
+  # that runs to the end, are the tail.
   def split_words(limit)
     out = []
-    beg = 0
-    stop = 0
-    skip = true
-    pieces = 1
-    i = 0
-    while i < bytesize
-      space = space_byte?(Primitive.zr_str_byte_at(self, i))
-      i += 1
-      if skip
-        if space
-          beg = i
-        else
-          stop = i
-          skip = false
-          break if limit > 0 && limit <= pieces
-        end
-      elsif space
-        out << byteslice_of(beg, stop - beg)
-        skip = true
-        beg = i
-        pieces += 1
-      else
-        stop = i
-      end
+    beg = Primitive.zr_str_space_end(self, 0, false)
+    while beg < bytesize
+      break if limit > 0 && limit <= out.size + 1
+
+      stop = Primitive.zr_str_word_end(self, beg)
+      break if stop == bytesize
+
+      out << byteslice_of(beg, stop - beg)
+      beg = Primitive.zr_str_space_end(self, stop, false)
     end
     split_tail(out, beg, limit)
   end

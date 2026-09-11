@@ -1020,6 +1020,47 @@ machine def zr_str_find_from(s, needle, start)
   zr_fix(i)
 end
 
+# Whitespace to strip and split: space and \t through \r, and NUL too
+# when `nul` is true, as strip has it and split does not.
+sig [Word, Value] => Bool
+machine def zr_space_byte_p(c, nul)
+  c == 32 || (c >= 9 && c <= 13) || (c == 0 && nul == QTRUE)
+end
+
+# The first offset at or after `from` whose byte is not whitespace, or
+# the length.
+sig [Value, Value, Value] => Value
+machine def zr_str_space_end(s, from, nul)
+  n = RString.len(s)
+  i = zr_fix2long(from)
+  while i < n && zr_space_byte_p(Machine.word(Machine.load8(RString.ptr(s) + i, 0)), nul)
+    i += 1
+  end
+  zr_fix(i)
+end
+
+# The first offset at or after `from` whose byte splits words, or the
+# length.
+sig [Value, Value] => Value
+machine def zr_str_word_end(s, from)
+  n = RString.len(s)
+  i = zr_fix2long(from)
+  while i < n && !zr_space_byte_p(Machine.word(Machine.load8(RString.ptr(s) + i, 0)), Machine.value(QFALSE))
+    i += 1
+  end
+  zr_fix(i)
+end
+
+# Where the whitespace that ends at offset `to` starts.
+sig [Value, Value, Value] => Value
+machine def zr_str_space_start(s, to, nul)
+  i = zr_fix2long(to)
+  while i > 0 && zr_space_byte_p(Machine.word(Machine.load8(RString.ptr(s) + i - 1, 0)), nul)
+    i -= 1
+  end
+  zr_fix(i)
+end
+
 # One byte appended as it is, the flags untouched (`append_as_bytes`).
 sig [Value, Value] => Value
 machine def zr_str_push_byte(recv, byte)
