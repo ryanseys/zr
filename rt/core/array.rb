@@ -641,37 +641,83 @@ class Array
 
   # Nested Arrays (and what `to_ary` answers) spread out `depth` levels;
   # a recursive Array is an error only when the depth is unbounded.
-  def flatten(depth = -1)
-    depth = Primitive.zr_index_operand_m(depth) unless depth.nil?
-    depth = -1 if depth.nil?
-    out = []
-    seen = []
-    walk = lambda do |a, d|
-      raise ArgumentError, "tried to flatten recursive array" if d < 0 && seen.any? { |s| s.equal?(a) }
+  # A level of 0 flattens nothing, and so does an Array with no element
+  # to flatten: either way the answer is a copy, a plain Array.
+  def flatten(depth = nil)
+    level = depth.nil? ? -1 : Numeric.send(:int_operand, depth)
+    return Array.new(self) if level == 0
 
-      seen << a
-      i = 0
-      while i < a.size
-        x = a[i]
-        inner = x.is_a?(Array) ? x : (d != 0 && x.respond_to?(:to_ary) ? Array.try_convert(x) : nil)
-        if inner && d != 0
-          walk.call(inner, d - 1)
-        else
-          out << x
-        end
-        i += 1
-      end
-      seen.pop
-    end
-    walk.call(self, depth)
-    out
+    result = flattened(level)
+    result.equal?(self) ? Array.new(self) : result
   end
 
-  def flatten!(depth = -1)
+  def flatten!(depth = nil)
     Primitive.zr_frozen_error(self) if frozen?
-    return nil if none? { |x| x.is_a?(Array) || x.respond_to?(:to_ary) }
+    level = depth.nil? ? -1 : Numeric.send(:int_operand, depth)
+    return nil if level == 0
 
-    replace(flatten(depth))
+    result = flattened(level)
+    result.equal?(self) ? nil : replace(result)
+  end
+
+  # CRuby's flatten: the walk keeps its own stack of (Array, index)
+  # pairs, so an Array nested deeper than any call stack flattens. With
+  # no level, an identity table of the Arrays open on the walk catches
+  # one that holds itself. Each element answers to_ary once at most, as
+  # rb_check_array_type asks it. The receiver itself when nothing
+  # converts.
+  def flattened(level)
+    Primitive.attr! :hidden
+    size = Primitive.zr_ary_len_m(self)
+    i = 0
+    tmp = nil
+    while i < size
+      tmp = Array.try_convert(Primitive.zr_ary_at_m(self, i))
+      break unless tmp.nil?
+
+      i += 1
+    end
+    return self if i == size
+
+    result = first(i)
+    stack = [self, i + 1]
+    memo = nil
+    if level < 0
+      memo = {}.compare_by_identity
+      memo[self] = true
+      memo[tmp] = true
+    end
+    ary = tmp
+    i = 0
+    while true
+      while i < Primitive.zr_ary_len_m(ary)
+        elt = Primitive.zr_ary_at_m(ary, i)
+        i += 1
+        if level >= 0 && stack.size / 2 >= level
+          result << elt
+          next
+        end
+        tmp = Array.try_convert(elt)
+        if tmp.nil?
+          result << elt
+        else
+          if memo
+            raise ArgumentError, "tried to flatten recursive array" if memo[tmp]
+
+            memo[tmp] = true
+          end
+          stack << ary << i
+          ary = tmp
+          i = 0
+        end
+      end
+      break if stack.empty?
+
+      memo&.delete(ary)
+      i = stack.pop
+      ary = stack.pop
+    end
+    result
   end
 
   def reverse_each
