@@ -229,7 +229,8 @@ module Ze0
         d zr_mod_constants Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_nesting Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_const_remove Void klass:Value id:Word
-        d zr_autoload Value mod:Value id:Word feature:Value fn:Ptr cref:Value
+        d zr_autoload Value mod:Value id:Word feature:Value fn:Ptr cref:Value kind:Word
+        d zr_autoload_push Void rows:Value mod:Value id:Word feature:Value fn:Ptr kind:Word
         d zr_autoload_row Word mod:Value id:Word
         d zr_autoload_feature Value mod:Value id:Word
         d zr_const_value Value e:Ptr
@@ -260,6 +261,7 @@ module Ze0
         d zr_process_id Value
         d zr_process_ids Value which:Value
         d zr_random_seed Value
+        d zr_hidden_features Value
         d zr_require Value path:Value fn:Ptr kind:Word
         d zr_run_top Value fn:Ptr mid:Word
         d zr_ary_has_string Bool a:Value s:Value
@@ -1126,8 +1128,10 @@ module Ze0
         c G_TOP_CREF 24
         c CONST_INDEX_MIN 16
         c G_AUTOLOADS 38
+        c AUTOLOAD_ROW 5
         c G_ARGV 36
         c G_AT_EXIT 37
+        c G_HIDDEN_FEATURES 50
         c KIND_BMETHOD 8
         c KIND_MAIN 0
         c KIND_DEF 1
@@ -1185,7 +1189,7 @@ module Ze0
         c G_FALSE 10
         c G_MAIN 11
         c G_NUMERIC 13
-        c G_COUNT 50
+        c G_COUNT 51
         c GATE_PLUS 1
         c GATE_MINUS 2
         c GATE_MUL 4

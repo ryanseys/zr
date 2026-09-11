@@ -39,9 +39,10 @@ module Ze0
 
       # A require of the eval road, ahead of everything the program does.
       # Only a program that names an eval carries the compiler, so an
-      # eval-free one links nothing extra.
+      # eval-free one links nothing extra. The program never asked for
+      # it, so what it loads stays out of $LOADED_FEATURES.
       def self.eval_road(loader)
-        Require.new(:require, "ze0/eval", EVAL_ROAD, loader.add(EVAL_ROAD), 0)
+        Require.new(:eval_road, "ze0/eval", EVAL_ROAD, loader.hidden(EVAL_ROAD), 0)
       end
 
       # The files a program reaches through require, require_relative
@@ -87,6 +88,18 @@ module Ze0
         # the methods of the class it runs inside, so `require` and
         # `load` there are ordinary sends that dispatch decides.
         def eval? = @eval
+
+        # Whether the file being built is one only the eval road loads.
+        def hiding? = @hiding
+
+        # The unit at `path` and everything it loads, built as the eval
+        # road's own.
+        def hidden(path)
+          @hiding = true
+          add(path)
+        ensure
+          @hiding = false
+        end
 
         def evals!(name, args)
           @evals = true if name == :eval || (EVAL_FORMS.include?(name) && !args.empty?)
@@ -1018,7 +1031,10 @@ module Ze0
         stop = path.nil? && node.name != :require_relative && stop_for(node, feature)
         return stop if stop
 
-        Require.new(node.name, feature, path || missing_path(node.name, feature), path && @loader.add(path), line)
+        # A require written in a file only the eval road loads is the
+        # compiler's own, which the program never sees.
+        kind = @loader.hiding? && node.name != :load ? :eval_road : node.name
+        Require.new(kind, feature, path || missing_path(node.name, feature), path && @loader.add(path), line)
       end
 
       # A feature ruby carries, which this runtime has no file for. The
@@ -1051,7 +1067,7 @@ module Ze0
         path = @loader.resolve(:require, feature, @file)
         stop = path.nil? && stop_for(node, feature)
         unit = stop ? @loader.stop_unit(stop.what, line) : (path && @loader.add(path))
-        Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, path || feature, unit, line)
+        Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, path || feature, unit, line, @loader.hiding?)
       end
 
       # `defined?(value)`: the form decides at compile time; only an

@@ -23,7 +23,8 @@ module Ze0
     Stop = Struct.new(:what, :line)
     # `autoload :Name, "feature"` on `recv` (nil for self): the file is
     # `path`, unit `unit`; it runs when the constant is first read.
-    Autoload = Struct.new(:recv, :name, :feature, :path, :unit, :line)
+    # `hidden` when a file only the eval road loads wrote it.
+    Autoload = Struct.new(:recv, :name, :feature, :path, :unit, :line, :hidden)
     # A statement list; its value is the last statement's.
     Seq = Struct.new(:stmts, :line)
     # A method call. `recv` is nil for an implicit self; `vcall` marks a

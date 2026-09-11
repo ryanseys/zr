@@ -831,12 +831,15 @@ end
 G_AUTOLOADS = 38
 
 # Autoload: a constant row whose value is undef until its file runs.
-# The rows of G_AUTOLOADS hold, four words each, the module, the name,
-# the feature and the unit's function as a fixnum.
+# The rows of G_AUTOLOADS hold, AUTOLOAD_ROW words each, the module, the
+# name, the feature, the unit's function as a fixnum, and the kind the
+# file is required with (zr_require's: 0, or 3 for the eval road's own).
 # `Kernel#autoload` and `Kernel.autoload` register on the caller's
 # class, as CRuby's rb_f_autoload does.
-sig [Value, Word, Value, Ptr, Value] => Value
-machine def zr_autoload(mod, id, feature, fn, cref)
+AUTOLOAD_ROW = 5
+
+sig [Value, Word, Value, Ptr, Value, Word] => Value
+machine def zr_autoload(mod, id, feature, fn, cref, kind)
   if mod == zr_global(G_MAIN) || mod == zr_global(G_KERNEL)
     mod = RCref.klass(zr_cref_lexical(cref))
   end
@@ -848,18 +851,24 @@ machine def zr_autoload(mod, id, feature, fn, cref)
   end
   rows = zr_global(G_AUTOLOADS)
   if zr_special_p(rows)
-    rows = zr_ary_new(4)
+    rows = zr_ary_new(AUTOLOAD_ROW)
     zr_set_global(G_AUTOLOADS, rows)
   end
   if pending >= 0
-    zr_ary_splice(rows, zr_fix(pending), zr_fix(4), zr_ary_new(0))
+    zr_ary_splice(rows, zr_fix(pending), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
   end
   zr_const_set(mod, id, Machine.value(QUNDEF))
+  zr_autoload_push(rows, mod, id, feature, fn, kind)
+  Machine.value(QNIL)
+end
+
+sig [Value, Value, Word, Value, Ptr, Word] => Void
+machine def zr_autoload_push(rows, mod, id, feature, fn, kind)
   zr_ary_push(rows, mod)
   zr_ary_push(rows, zr_sym(id))
   zr_ary_push(rows, feature)
   zr_ary_push(rows, zr_fix(Machine.word(fn)))
-  Machine.value(QNIL)
+  zr_ary_push(rows, zr_fix(kind))
 end
 
 # The autoload row index for `mod` and `id`, or -1.
@@ -874,7 +883,7 @@ machine def zr_autoload_row(mod, id)
     if zr_ary_at(rows, i) == mod && zr_ary_at(rows, i + 1) == zr_sym(id)
       return i
     end
-    i += 4
+    i += AUTOLOAD_ROW
   end
   0 - 1
 end
@@ -912,15 +921,13 @@ machine def zr_const_raw_value(e)
     if zr_const_row(mod, id) == e
       feature = zr_ary_at(rows, i + 2)
       fn = Machine.ptr(zr_fix2long(zr_ary_at(rows, i + 3)))
-      zr_ary_splice(rows, zr_fix(i), zr_fix(4), zr_ary_new(0))
-      r = zr_require(feature, fn, 0)
+      kind = zr_fix2long(zr_ary_at(rows, i + 4))
+      zr_ary_splice(rows, zr_fix(i), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
+      r = zr_require(feature, fn, kind)
       # A file that did not load leaves the row in place, so the next
       # read of the name asks the same question again.
       if r == QUNDEF
-        zr_ary_push(rows, mod)
-        zr_ary_push(rows, zr_sym(id))
-        zr_ary_push(rows, feature)
-        zr_ary_push(rows, zr_fix(Machine.word(fn)))
+        zr_autoload_push(rows, mod, id, feature, fn, kind)
         return r
       end
       e = zr_const_row(mod, id)
@@ -930,7 +937,7 @@ machine def zr_const_raw_value(e)
       end
       return CEntry.value(e)
     end
-    i += 4
+    i += AUTOLOAD_ROW
   end
   zr_uninitialized_constant(Machine.value(QNIL), CEntry.id(e))
 end

@@ -196,23 +196,56 @@ end
 
 Machine.sig :top, [] => Value
 
+# The files the compiler's own eval road loaded, which the program did
+# not ask for and so never sees in $LOADED_FEATURES.
+G_HIDDEN_FEATURES = 50
+
+sig [] => Value
+machine def zr_hidden_features
+  list = zr_global(G_HIDDEN_FEATURES)
+  if zr_special_p(list)
+    list = zr_ary_new(64)
+    zr_set_global(G_HIDDEN_FEATURES, list)
+  end
+  list
+end
+
 # `require`, `require_relative` (kind 0 and 1) and `load` (2) of the
 # file at `path`, whose toplevel is `fn`: a require runs it once, as
 # $LOADED_FEATURES records; a failed run leaves no record.
+#
+# Kind 3 is the eval road, which a program that evals carries: it, and
+# every require made while it runs, is recorded in the hidden list
+# instead. The program's own first require of one of those files runs
+# nothing again; it records the file and answers true, as the first
+# load would.
 sig [Value, Ptr, Word] => Value
 machine def zr_require(path, fn, kind)
   # An autoload whose feature no load path root holds carries no unit.
   if Machine.word(fn) == 0
     return zr_load_error(RString.ptr(path), RString.len(path))
   end
-  features = zr_gvar_get(Machine.id(:$LOADED_FEATURES))
+  depth = Machine.static(:hidden_requires, 8)
+  hidden = kind == 3 || Machine.load64(depth, 0) > 0
+  visible = zr_gvar_get(Machine.id(:$LOADED_FEATURES))
+  features = hidden ? zr_hidden_features() : visible
   if kind != 2
-    if zr_ary_has_string(features, path)
+    if zr_ary_has_string(visible, path) || (hidden && zr_ary_has_string(features, path))
       return Machine.value(QFALSE)
+    end
+    if !hidden && zr_ary_has_string(zr_hidden_features(), path)
+      zr_ary_push(visible, path)
+      return Machine.value(QTRUE)
     end
     zr_ary_push(features, path)
   end
-  r = zr_run_top(fn, kind == 0 ? Machine.id(:require) : (kind == 1 ? Machine.id(:require_relative) : Machine.id(:load)))
+  if hidden
+    Machine.store64(depth, 0, Machine.load64(depth, 0) + 1)
+  end
+  r = zr_run_top(fn, kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require)))
+  if hidden
+    Machine.store64(depth, 0, Machine.load64(depth, 0) - 1)
+  end
   if r == QUNDEF
     if kind != 2
       zr_ary_pop(features, 0, 0, Machine.value(QNIL), Machine.value(QNIL))

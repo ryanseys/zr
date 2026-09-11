@@ -168,7 +168,9 @@ module Ze0
           @qnil
         end
 
-        REQUIRE_KINDS = { require: 0, require_relative: 1, load: 2 }.freeze
+        # zr_require's kinds; the eval road's own load is hidden from the
+        # program.
+        REQUIRE_KINDS = { require: 0, require_relative: 1, load: 2, eval_road: 3 }.freeze
 
         # A require of a file the program holds runs that file's toplevel,
         # once unless it is a load; a relative name with no file is a
@@ -189,7 +191,8 @@ module Ze0
           recv = node.recv ? expr(node.recv) : @self
           feature = kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(node.feature))), imm(node.feature.bytesize))
           fn = node.unit ? @f.func_addr(@f.callee(@l.unit_entry(node.unit), [], "i64")) : imm(0)
-          checked(kernel("zr_autoload", recv, imm(sym_id(node.name)), feature, fn, @cref))
+          kind = REQUIRE_KINDS.fetch(node.hidden ? :eval_road : :require)
+          checked(kernel("zr_autoload", recv, imm(sym_id(node.name)), feature, fn, @cref, imm(kind)))
         end
 
         # `redo`: the innermost loop's body again without its test, or the
