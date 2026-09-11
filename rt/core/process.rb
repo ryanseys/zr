@@ -5,10 +5,9 @@
 module Process
   SHELL_META = "*?{}[]<>()~&|\\$;'`\"\n#".freeze
   SHELL_WORDS = %w[! . : break case continue do done elif else esac eval exec exit export fi for if in readonly return set shift then times trap unset until while].freeze
-  SIGNALS = { "HUP" => 1, "INT" => 2, "QUIT" => 3, "ILL" => 4, "TRAP" => 5, "ABRT" => 6, "EMT" => 7, "FPE" => 8, "KILL" => 9, "BUS" => 10,
-              "SEGV" => 11, "SYS" => 12, "PIPE" => 13, "ALRM" => 14, "TERM" => 15, "URG" => 16, "STOP" => 17, "TSTP" => 18, "CONT" => 19,
-              "CHLD" => 20, "TTIN" => 21, "TTOU" => 22, "IO" => 23, "XCPU" => 24, "XFSZ" => 25, "VTALRM" => 26, "PROF" => 27,
-              "WINCH" => 28, "INFO" => 29, "USR1" => 30, "USR2" => 31 }.freeze
+  # The signals a process can be sent: Signal.list less EXIT, which
+  # names no signal.
+  SIGNALS = Signal.send(:const_get, :LIST).reject { |name, _| name == "EXIT" }.freeze
   private_constant :SHELL_META, :SHELL_WORDS, :SIGNALS
   WNOHANG = 1
   WUNTRACED = 2
@@ -301,7 +300,7 @@ module Kernel
 end
 
 module Signal
-  def self.list = Process.send(:const_get, :SIGNALS).dup.merge("EXIT" => 0)
+  def self.list = LIST.dup
 
   def self.signame(number)
     number = Primitive.zr_index_operand_m(number)

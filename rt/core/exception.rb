@@ -336,17 +336,16 @@ class LocalJumpError
 end
 
 class SignalException
-  SIGNALS = { "HUP" => 1, "INT" => 2, "QUIT" => 3, "ABRT" => 6, "KILL" => 9, "SEGV" => 11, "PIPE" => 13,
-              "ALRM" => 14, "TERM" => 15, "CHLD" => 20, "USR1" => 30, "USR2" => 31 }.freeze
-  private_constant :SIGNALS
-
   attr_reader :signo
 
+  # A number names its first signal in Signal.list; a name keeps its own
+  # spelling, an alias among them.
   def initialize(sig = nil, message = nil)
     raise ArgumentError, "wrong number of arguments (given 0, expected 1)" if sig.nil? && instance_of?(SignalException)
 
+    signals = Signal.list
     if sig.is_a?(Integer)
-      name = SIGNALS.key(sig)
+      name = signals.key(sig)
       raise ArgumentError, "invalid signal number (#{sig})" unless name
 
       @signo = sig
@@ -360,9 +359,9 @@ class SignalException
       raise ArgumentError, "wrong number of arguments (given 2, expected 1)" unless message.nil?
 
       name = sig.to_s.delete_prefix("SIG")
-      raise ArgumentError, "unsupported signal 'SIG#{name}'" unless SIGNALS.key?(name)
+      raise ArgumentError, "unsupported signal 'SIG#{name}'" unless signals.key?(name)
 
-      @signo = SIGNALS[name]
+      @signo = signals[name]
       super("SIG#{name}")
     end
   end

@@ -893,23 +893,27 @@ class SystemCallError
     text = message.start_with?("@") ? "#{text} #{message}" : "#{text} - #{message}" unless message.nil?
     super(text)
   end
+
+  # A rescue of an Errno class catches the errors with its errno, as
+  # CRuby's syserr_eqq decides; SystemCallError itself catches them all.
+  def self.===(other)
+    if other.is_a?(SystemCallError)
+      return true if equal?(SystemCallError)
+    elsif !other.respond_to?(:errno)
+      return false
+    end
+    const_defined?(:Errno) && other.errno == self::Errno
+  end
 end
 
+# One class for each row of rt/core/errno.rb, and its other names.
 module Errno
-  CODES = { EPERM: 1, ENOENT: 2, ESRCH: 3, EINTR: 4, EIO: 5, ENXIO: 6, E2BIG: 7, ENOEXEC: 8, EBADF: 9, ECHILD: 10,
-            EDEADLK: 11, ENOMEM: 12, EACCES: 13, EFAULT: 14, EBUSY: 16, EEXIST: 17, EXDEV: 18, ENODEV: 19, ENOTDIR: 20,
-            EISDIR: 21, EINVAL: 22, ENFILE: 23, EMFILE: 24, ENOTTY: 25, EFBIG: 27, ENOSPC: 28, ESPIPE: 29, EROFS: 30,
-            EMLINK: 31, EPIPE: 32, EDOM: 33, ERANGE: 34, EAGAIN: 35, EINPROGRESS: 36, EALREADY: 37, ENOTSOCK: 38,
-            EADDRINUSE: 48, EADDRNOTAVAIL: 49, ENETUNREACH: 51, ECONNRESET: 54, ENOTCONN: 57, ETIMEDOUT: 60,
-            ECONNREFUSED: 61, ELOOP: 62, ENAMETOOLONG: 63, EHOSTUNREACH: 65, ENOTEMPTY: 66, ENOSYS: 78 }.freeze
-  private_constant :CODES
-
   CODES.each do |name, code|
     klass = Class.new(SystemCallError)
     klass.const_set(:Errno, code)
     const_set(name, klass)
   end
-  EWOULDBLOCK = EAGAIN
+  ALIASES.each { |name, to| const_set(name, const_get(to)) }
 
   def self.for(code) = CODES.key(code)&.then { |name| const_get(name) }
 
