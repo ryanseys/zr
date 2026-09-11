@@ -866,6 +866,8 @@ machine def zr_symname_plain_p(p, n)
 end
 
 # `:name`, quoted when the name is not a plain identifier or operator.
+# A name that is not UTF-8 holds bytes past ASCII, so it is quoted with
+# those bytes in hex.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_sym_inspect(recv, argc, argv, cref, blk)
   id = zr_sym2id(recv)
@@ -874,10 +876,10 @@ machine def zr_sym_inspect(recv, argc, argv, cref, blk)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_byte(b, 58)
-  if zr_symname_plain_p(p, n)
+  if zr_symbol_tag(id) == 0 && zr_symname_plain_p(p, n)
     zr_buf_push(b, p, n)
   else
-    zr_buf_str_escaped(b, p, n, false)
+    zr_buf_str_escaped(b, p, n, zr_symbol_tag(id) != 0)
   end
   zr_buf_take(b)
 end

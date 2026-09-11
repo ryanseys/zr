@@ -332,6 +332,9 @@ machine def zr_boot
   zr_builtin(zr_global(G_KERNEL), Machine.id(:frozen?), Machine.addr(:zr_obj_frozen_p), 0)
   zr_builtin(zr_global(G_SYMBOL), Machine.id(:to_s), Machine.addr(:zr_sym_to_s), 0)
   zr_builtin(zr_global(G_SYMBOL), Machine.id(:<=>), Machine.addr(:zr_sym_cmp), 1)
+  # Symbol's own `==` is identity, as sym_equal is; Comparable's would
+  # ask `<=>`.
+  zr_builtin(zr_global(G_SYMBOL), Machine.id(:==), Machine.addr(:zr_obj_eq), 1)
   zr_builtin(zr_global(G_SYMBOL), Machine.id(:to_proc), Machine.addr(:zr_sym_to_proc_m), 0)
   zr_builtin(zr_global(G_SYMBOL), Machine.id(:inspect), Machine.addr(:zr_sym_inspect), 0)
   zr_builtin(zr_global(G_NIL), Machine.id(:to_s), Machine.addr(:zr_nil_to_s), 0)

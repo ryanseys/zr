@@ -1110,8 +1110,11 @@ module Ze0
         d zr_symbol_row Ptr id:Word
         d zr_symbol_name_ptr Ptr id:Word
         d zr_symbol_name_len Word id:Word
+        d zr_symbol_tag Word id:Word
+        d zr_symbol_encoding_index Word id:Word
         d zr_bytes_eq Bool a:Ptr alen:Word b:Ptr blen:Word
         d zr_intern Word p:Ptr n:Word
+        d zr_intern_tagged Word p:Ptr n:Word tag:Word
         d zr_sym_to_s Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_sym_cmp Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_sym_to_proc_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1353,6 +1356,7 @@ module Ze0
         c ENC_BINARY 0
         c ENC_UTF8 1
         c ENC_USASCII 2
+        c SYM_TAG_SHIFT 56
         c FL_IDENTITY 131072
         c FL_RUBY2 262144
         c FL_WEAK 524288

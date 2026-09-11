@@ -29,9 +29,24 @@ machine def zr_symbol_name_ptr(id)
   Machine.load64(zr_symbol_row(id), 0)
 end
 
+# A row's second word is the name's length, with the encoding's tag in
+# its top byte: the tag a String's flags hold, so 0 is UTF-8, as every
+# static name is. A name in ASCII alone is always 0.
 sig [Word] => Word
 machine def zr_symbol_name_len(id)
-  Machine.load64(zr_symbol_row(id), 8)
+  Machine.load64(zr_symbol_row(id), 8) & ((1 << SYM_TAG_SHIFT) - 1)
+end
+
+sig [Word] => Word
+machine def zr_symbol_tag(id)
+  Machine.load64(zr_symbol_row(id), 8) >> SYM_TAG_SHIFT
+end
+
+# The encoding index a symbol's name is in.
+sig [Word] => Word
+machine def zr_symbol_encoding_index(id)
+  tag = zr_symbol_tag(id)
+  tag < 2 ? 1 - tag : tag
 end
 
 sig [Ptr, Word, Ptr, Word] => Bool
@@ -49,14 +64,21 @@ machine def zr_bytes_eq(a, alen, b, blen)
   true
 end
 
-# The id of the symbol named by `n` bytes, interning it when new.
+# The id of the symbol named by `n` bytes in UTF-8, interning it when new.
 sig [Ptr, Word] => Word
 machine def zr_intern(p, n)
+  zr_intern_tagged(p, n, 0)
+end
+
+# The id of the symbol named by `n` bytes in the encoding `tag` names,
+# interning it when new: rb_str_intern keys a symbol by both.
+sig [Ptr, Word, Word] => Word
+machine def zr_intern_tagged(p, n, tag)
   t = zr_symtab()
   total = zr_static_symbol_count() + Symtab.len(t)
   id = 0
   while id < total
-    if zr_bytes_eq(p, n, zr_symbol_name_ptr(id), zr_symbol_name_len(id))
+    if zr_symbol_tag(id) == tag && zr_bytes_eq(p, n, zr_symbol_name_ptr(id), zr_symbol_name_len(id))
       return id
     end
     id += 1
@@ -80,7 +102,7 @@ machine def zr_intern(p, n)
   Machine.store8(copy + n, 0, Machine.i8(0))
   row = Symtab.rows(t) + (k * 16)
   Machine.store64(row, 0, copy)
-  Machine.store64(row, 8, n)
+  Machine.store64(row, 8, n | (tag << SYM_TAG_SHIFT))
   Symtab.set_len(t, k + 1)
   total
 end
@@ -90,10 +112,11 @@ machine def zr_sym_to_s(recv, argc, argv, cref, blk)
   id = zr_sym2id(recv)
   s = zr_str_new(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
   # A name written in ASCII alone is US-ASCII, as ruby tags it.
-  zr_str_ascii_only(s) ? zr_str_set_index(s, ENC_USASCII) : s
+  zr_str_set_index(s, zr_str_ascii_only(s) ? ENC_USASCII : zr_symbol_encoding_index(id))
 end
 
-# `Symbol#<=>`: the names bytewise, nil against anything else.
+# `Symbol#<=>`: the names bytewise, nil against anything else. The same
+# bytes in two encodings order by encoding index, as rb_str_cmp has it.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_sym_cmp(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))
@@ -102,7 +125,11 @@ machine def zr_sym_cmp(recv, argc, argv, cref, blk)
   end
   a = zr_sym2id(recv)
   b = zr_sym2id(other)
-  zr_fix(zr_bytes_cmp(zr_symbol_name_ptr(a), zr_symbol_name_len(a), zr_symbol_name_ptr(b), zr_symbol_name_len(b)))
+  order = zr_bytes_cmp(zr_symbol_name_ptr(a), zr_symbol_name_len(a), zr_symbol_name_ptr(b), zr_symbol_name_len(b))
+  if order == 0 && a != b
+    return zr_fix(zr_symbol_encoding_index(a) > zr_symbol_encoding_index(b) ? 1 : 0 - 1)
+  end
+  zr_fix(order)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value

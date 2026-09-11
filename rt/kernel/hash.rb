@@ -626,7 +626,7 @@ machine def zr_symbol_key_simple_p(key)
   id = zr_sym2id(key)
   p = zr_symbol_name_ptr(id)
   n = zr_symbol_name_len(id)
-  if n == 0
+  if n == 0 || zr_symbol_tag(id) != 0
     return false
   end
   c = Machine.word(Machine.load8(p, 0))
@@ -672,7 +672,7 @@ machine def zr_hash_inspect(recv, argc, argv, cref, blk)
         if zr_symbol_key_simple_p(key)
           zr_buf_sym(b, zr_sym2id(key))
         else
-          zr_buf_str_escaped(b, zr_symbol_name_ptr(zr_sym2id(key)), zr_symbol_name_len(zr_sym2id(key)), false)
+          zr_buf_str_escaped(b, zr_symbol_name_ptr(zr_sym2id(key)), zr_symbol_name_len(zr_sym2id(key)), zr_symbol_tag(zr_sym2id(key)) != 0)
         end
         zr_buf_push(b, Machine.bytes(": "), 2)
       else

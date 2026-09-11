@@ -74,6 +74,8 @@ FL_ENC_KEEP = 0 - ((255 << 24) + 1)
 ENC_BINARY = 0
 ENC_UTF8 = 1
 ENC_USASCII = 2
+# A symbol row keeps the same tag in its length word, this far up.
+SYM_TAG_SHIFT = 56
 # A Hash that compares keys by identity (`compare_by_identity`).
 FL_IDENTITY = 1 << 17
 # A Hash a `ruby2_keywords` method took from keywords into its rest.

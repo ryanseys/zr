@@ -740,9 +740,31 @@ machine def zr_str_empty_p(recv, argc, argv, cref, blk)
   zr_bool(RString.len(recv) == 0)
 end
 
+# `to_sym`: a Symbol is its bytes and their encoding, as rb_str_intern
+# keys it. ASCII bytes name one Symbol in every encoding; bytes invalid
+# in theirs name none.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_to_sym(recv, argc, argv, cref, blk)
-  zr_sym(zr_intern(RString.ptr(recv), RString.len(recv)))
+  if zr_str_ascii_bytes_p(recv)
+    return zr_sym(zr_intern(RString.ptr(recv), RString.len(recv)))
+  end
+  if zr_str_valid_p(recv) == QFALSE
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("invalid symbol in encoding "), 27)
+    if zr_str_wide_p(recv)
+      zr_buf_push(b, Machine.bytes("UTF-8"), 5)
+    else
+      zr_buf_push(b, Machine.bytes("US-ASCII"), 8)
+    end
+    zr_buf_push(b, Machine.bytes(" :"), 2)
+    s = zr_inspect(recv)
+    return s if s == QUNDEF
+    zr_buf_str(b, s)
+    return zr_raise_buf(zr_core_class(Machine.id(:EncodingError)), b)
+  end
+  tag = (RBasic.flags(recv) >> FL_ENC_SHIFT) & 255
+  zr_sym(zr_intern_tagged(RString.ptr(recv), RString.len(recv), tag))
 end
 
 # `+str`: the string itself unless frozen, then a copy that is not,
