@@ -729,7 +729,9 @@ class IO
       @buffer = @buffer.byteslice(1, @buffer.bytesize - 1) || +"" while @buffer.start_with?("\n")
     end
     loop do
-      at = @buffer.index(separator)
+      # A byte offset: `take` counts bytes, and a character index would
+      # also walk the whole buffer for every line.
+      at = Primitive.zr_str_find_from(@buffer, separator, 0)
       if at
         stop = at + separator.bytesize
         stop = [stop, limit].min if limit
