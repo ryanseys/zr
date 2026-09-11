@@ -22,6 +22,11 @@
 
 ROOT = File.expand_path("..", __dir__)
 
+# The compiler runs under YJIT unless ZE0_YJIT=0: a cold runtime build
+# is mostly the compiler's own Ruby, which YJIT runs well. A child this
+# script starts runs this script again, so it gets YJIT too.
+RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable) && ENV["ZE0_YJIT"] != "0"
+
 def usage
   warn File.read(__FILE__).lines.grep(/\A#   /).map { |l| l.delete_prefix("#   ") }.join
   exit 2
