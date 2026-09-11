@@ -744,6 +744,15 @@ machine def zr_mod_remove_const(recv, argc, argv, cref, blk)
   end
   v = CEntry.value(e)
   zr_const_remove(recv, id)
+  # A name still waiting for its file forgets the file too, and answers
+  # nil, as CRuby's rb_const_remove does.
+  if v == QUNDEF
+    i = zr_autoload_row(recv, id)
+    if i >= 0
+      zr_ary_splice(zr_global(G_AUTOLOADS), zr_fix(i), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
+    end
+    return Machine.value(QNIL)
+  end
   v
 end
 

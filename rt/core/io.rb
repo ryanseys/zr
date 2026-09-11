@@ -67,7 +67,7 @@ class IO
   # wrap it in its own IO asks for. A creation names its permissions
   # exactly rather than leaving them to the umask.
   def self.sysopen(path, mode = "r", perm = nil)
-    path = Primitive.zr_str_operand(path.respond_to?(:to_path) ? path.to_path : path)
+    path = File.send(:path_of, path)
     if mode.is_a?(Integer) && (mode & File::CREAT).zero?
       fd = Primitive.zr_io_open_flags(path, mode)
       raise SystemCallError.new("@ rb_sysopen - #{path}", -fd) if fd < 0

@@ -43,7 +43,7 @@ class File < IO
   PATH_SEPARATOR = ":"
 
   def self.basename(path, suffix = nil)
-    raise TypeError, "no implicit conversion of #{path.class} into String" unless path.is_a?(String)
+    path = path_of(path)
 
     return "/" if path.delete("/").empty? && !path.empty?
 
@@ -58,7 +58,7 @@ class File < IO
   end
 
   def self.dirname(path, level = 1)
-    raise TypeError, "no implicit conversion of #{path.class} into String" unless path.is_a?(String)
+    path = path_of(path)
 
     level.times do
       parts = path.split("/").reject(&:empty?)
@@ -104,10 +104,8 @@ class File < IO
   def self.absolute_path?(path) = path.start_with?("/")
 
   def self.expand_path(path, dir = nil)
-    raise TypeError, "no implicit conversion of #{path.class} into String" unless path.is_a?(String)
-
-    path = expand_home(path)
-    dir = expand_home(dir) if dir
+    path = expand_home(path_of(path))
+    dir = expand_home(path_of(dir)) if dir
     base = if path.start_with?("/") then ""
            elsif dir.nil? then Dir.pwd
            elsif dir.start_with?("/") then dir
@@ -138,9 +136,9 @@ class File < IO
 
   def self.absolute_path(path, dir = nil) = expand_path(path, dir)
 
-  def self.exist?(path) = Primitive.zr_path_kind(path) != 0
-  def self.file?(path) = Primitive.zr_path_kind(path) == 2
-  def self.directory?(path) = Primitive.zr_path_kind(path) == 1
+  def self.exist?(path) = Primitive.zr_path_kind(path_of(path)) != 0
+  def self.file?(path) = Primitive.zr_path_kind(path_of(path)) == 2
+  def self.directory?(path) = Primitive.zr_path_kind(path_of(path)) == 1
 
   MODES = %w[r r+ w w+ a a+].freeze
   private_constant :MODES
@@ -160,8 +158,7 @@ class File < IO
   def initialize(path, mode = "r", perm = 0o666, **options)
     Primitive.zr_unimplemented("File.new with options") unless options.empty? || options.keys == [:mode]
     mode = options[:mode] if options.key?(:mode)
-    path = path.to_path if path.respond_to?(:to_path)
-    raise TypeError, "no implicit conversion of #{path.class} into String" unless path.is_a?(String)
+    path = File.send(:path_of, path)
 
     text = File.send(:open_mode, mode)
     made = !File.exist?(path)
@@ -237,6 +234,7 @@ class File < IO
   end
 
   def self.size(path)
+    path = path_of(path)
     result = Primitive.zr_io_file_size(path)
     raise SystemCallError.new("@ rb_file_s_size - #{path}", -result) if result < 0
 
@@ -244,19 +242,20 @@ class File < IO
   end
 
   def self.size?(path)
-    result = Primitive.zr_io_file_size(path)
+    result = Primitive.zr_io_file_size(path_of(path))
     result <= 0 ? nil : result
   end
 
-  def self.zero?(path) = Primitive.zr_io_file_size(path) == 0
+  def self.zero?(path) = Primitive.zr_io_file_size(path_of(path)) == 0
   def self.empty?(path) = zero?(path)
 
-  def self.readable?(path) = Primitive.zr_path_access(path, 4)
-  def self.writable?(path) = Primitive.zr_path_access(path, 2)
-  def self.executable?(path) = Primitive.zr_path_access(path, 1)
+  def self.readable?(path) = Primitive.zr_path_access(path_of(path), 4)
+  def self.writable?(path) = Primitive.zr_path_access(path_of(path), 2)
+  def self.executable?(path) = Primitive.zr_path_access(path_of(path), 1)
 
   def self.delete(*paths)
     paths.each do |path|
+      path = path_of(path)
       result = Primitive.zr_io_unlink(path)
       raise SystemCallError.new("@ apply2files - #{path}", -result) if result < 0
     end
@@ -266,6 +265,8 @@ class File < IO
   def self.unlink(*paths) = delete(*paths)
 
   def self.rename(from, to)
+    from = path_of(from)
+    to = path_of(to)
     result = Primitive.zr_io_rename(from, to)
     fail2(-result, "rb_file_s_rename", from, to) if result < 0
 
@@ -280,6 +281,7 @@ class File < IO
     attr_reader(*FIELDS)
 
     def initialize(path, site = "rb_file_s_stat")
+      path = File.send(:path_of, path)
       fields = Primitive.zr_stat_m(path, true)
       raise SystemCallError.new("@ #{site} - #{path}", -fields) if fields.is_a?(Integer)
 
@@ -358,6 +360,7 @@ class File < IO
 
     # Made from lstat(2), which does not follow a symbolic link.
     def self.link(path)
+      path = File.send(:path_of, path)
       fields = Primitive.zr_stat_m(path, false)
       raise SystemCallError.new("@ rb_file_s_lstat - #{path}", -fields) if fields.is_a?(Integer)
 
@@ -623,13 +626,17 @@ class File < IO
     File.join(realpath(dirname(path)), basename(path))
   end
 
-  # A path argument: a String, or what `to_path` or `to_str` answers.
+  # A path argument, as CRuby's rb_get_path takes it: a String, or what
+  # `to_path` or `to_str` answers, with no NUL byte in it.
   def self.path_of(path)
     Primitive.attr! :hidden
-    return path if path.is_a?(String)
-    return path.to_path if path.respond_to?(:to_path)
+    unless path.is_a?(String)
+      given = path.respond_to?(:to_path) ? path.to_path : path
+      path = String.try_convert(given) or raise TypeError, "no implicit conversion of #{given.nil? ? 'nil' : given.class} into String"
+    end
+    raise ArgumentError, "path name contains null byte" if path.include?("\0")
 
-    String.try_convert(path) or raise TypeError, "no implicit conversion of #{path.class} into String"
+    path
   end
   private_class_method :path_of
 
@@ -841,9 +848,10 @@ class Dir
 
   def self.pwd = Primitive.zr_getcwd
   def self.getwd = pwd
-  def self.exist?(path) = Primitive.zr_path_kind(path) == 1
+  def self.exist?(path) = Primitive.zr_path_kind(File.send(:path_of, path)) == 1
 
   def self.mkdir(path, mode = 0o777)
+    path = File.send(:path_of, path)
     result = Primitive.zr_io_mkdir(path, mode)
     raise SystemCallError.new("@ dir_s_mkdir - #{path}", -result) if result < 0
 
@@ -851,6 +859,7 @@ class Dir
   end
 
   def self.rmdir(path)
+    path = File.send(:path_of, path)
     result = Primitive.zr_io_rmdir(path)
     raise SystemCallError.new("@ dir_s_rmdir - #{path}", -result) if result < 0
 
@@ -864,6 +873,7 @@ class Dir
   # names what the names are read as; the runtime reads the file system
   # in the one encoding, so the names are tagged with it.
   def self.entries(path, encoding: nil)
+    path = File.send(:path_of, path)
     names = Primitive.zr_io_dir_names(path)
     raise SystemCallError.new("@ dir_initialize - #{path}", -names) if names.is_a?(Integer)
     return names unless encoding
@@ -1057,6 +1067,7 @@ class Dir
 
   def self.move_to(path, site = "chdir_path")
     Primitive.attr! :hidden
+    path = File.send(:path_of, path)
     result = Primitive.zr_io_chdir(path)
     raise SystemCallError.new("@ #{site} - #{path}", -result) if result < 0
 

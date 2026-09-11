@@ -46,7 +46,7 @@ module Ze0
                 "pthread_self" => [[], [0x7E]], "pthread_get_stackaddr_np" => [[0x7E], [0x7E]], "pthread_get_stacksize_np" => [[0x7E], [0x7E]],
                 "setenv" => [[0x7E, 0x7E, 0x7F], [0x7F]], "unsetenv" => [[0x7E], [0x7F]], "_NSGetEnviron" => [[], [0x7E]], "getcwd" => [[0x7E, 0x7E], [0x7E]], "getpid" => [[], [0x7F]], "arc4random" => [[], [0x7F]], "access" => [[0x7E, 0x7F], [0x7F]], "stat" => [[0x7E, 0x7E], [0x7F]],
                 "mmap" => [[0x7E, 0x7E, 0x7F, 0x7F, 0x7F, 0x7E], [0x7E]], "munmap" => [[0x7E, 0x7E], [0x7F]],
-                "mprotect" => [[0x7E, 0x7E, 0x7F], [0x7F]] }.freeze
+                "mprotect" => [[0x7E, 0x7E, 0x7F], [0x7F]], "posix_memalign" => [[0x7E, 0x7E, 0x7E], [0x7F]] }.freeze
 
       COND = { "eq" => :eq, "ne" => :ne, "slt" => :lt_s, "sle" => :le_s, "sgt" => :gt_s, "sge" => :ge_s,
                "ult" => :lt_u, "ule" => :le_u, "ugt" => :gt_u, "uge" => :ge_u }.freeze
@@ -256,6 +256,14 @@ module Ze0
           code << "\x40\x00".b << "\x1A".b
           code << "\x0B".b
           code << "\x20\x01".b << "\xAD".b
+        when "posix_memalign"
+          # *slot = (malloc(size + align) + align - 1) & -align; answer 0.
+          # The heap never gives memory back, so the slack costs nothing.
+          code << "\x20\x00".b << "\xA7".b
+          code << "\x20\x01".b << "\x20\x02".b << "\x7C".b << "\x10".b << leb(function_index("malloc"))
+          code << "\x20\x01".b << "\x7C".b << "\x42\x01".b << "\x7D".b
+          code << "\x42\x00".b << "\x20\x01".b << "\x7D".b << "\x83".b
+          code << "\x37\x03\x00".b << "\x41\x00".b
         when "free"
           code << "".b
         when "memmove"

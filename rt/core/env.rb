@@ -45,7 +45,7 @@ class << ENV
   end
 
   def []=(name, value)
-    Primitive.zr_environment_set(variable_name(name), value.nil? ? nil : variable_name(value))
+    Primitive.zr_environment_set(variable_name(name), value.nil? ? nil : variable_name(value, "value"))
   end
   alias store []=
 
@@ -149,11 +149,17 @@ class << ENV
 
   private
 
-  def variable_name(value)
-    return value if value.is_a?(String)
-    return value.to_str if value.respond_to?(:to_str)
+  # A name or a value as the environment holds it: a String with no NUL
+  # byte, which the C environment cannot carry.
+  def variable_name(value, role = "name")
+    unless value.is_a?(String)
+      raise TypeError, "no implicit conversion of #{value.nil? ? 'nil' : value.class} into String" unless value.respond_to?(:to_str)
 
-    raise TypeError, "no implicit conversion of #{value.nil? ? 'nil' : value.class} into String"
+      value = value.to_str
+    end
+    raise ArgumentError, "bad environment variable #{role}: contains null byte" if value.include?("\0")
+
+    value
   end
 end
 
