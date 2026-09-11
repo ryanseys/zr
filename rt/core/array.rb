@@ -410,10 +410,19 @@ class Array
 
   # A subclass answers a plain Array.
   def to_a = instance_of?(Array) ? self : Array.new(self)
+  # Over the elements themselves, as rb_ary_count walks them: never
+  # through `each`, with the length read again each time round.
   def count(item = (none = true), &block)
     return size if none && !block
 
-    none ? super(&block) : super(item, &block)
+    n = 0
+    i = 0
+    while i < Primitive.zr_ary_len_m(self)
+      x = Primitive.zr_ary_at_m(self, i)
+      n += 1 if none ? yield(x) : Primitive.zr_rb_equal(x, item)
+      i += 1
+    end
+    n
   end
 
   # `pop(n)` takes the last n.
