@@ -11,6 +11,7 @@ Machine.import "waitpid", [I32, Ptr, I32] => I32
 Machine.import "pipe", [Ptr] => I32
 Machine.import "getppid", [] => I32
 Machine.import "kill", [I32, I32] => I32
+Machine.import "signal", [I32, Ptr] => Ptr
 Machine.import "execvp", [Ptr, Ptr] => I32
 
 # A NULL-ended char* vector of an Array of Strings, malloc'd.

@@ -47,15 +47,18 @@ machine def zr_at_exit_add(blk)
   blk
 end
 
-# The exit status of the program: the handlers run in reverse, each
-# one's error printed and passed over; then the uncaught exception
-# `exc`, if any, is printed, unless it is a SystemExit. A handler's
-# own `exit` sets the status.
+# The exit status of the program. While the handlers run, last first,
+# `$!` is the exception that ends it; a handler's error is printed and
+# makes the status 1, a handler's `exit` sets it. Then the uncaught
+# exception `exc`, if any, is printed, unless it is a SystemExit or a
+# signal other than Interrupt. An uncaught SignalException ends the
+# process by its signal.
 sig [Value] => Word
 machine def zr_program_end(exc)
   status = 0
   if exc != QUNDEF
     status = zr_system_exit_p(exc) ? zr_exit_status(exc) : 1
+    zr_errinfo_set(exc)
   end
   hooks = zr_global(G_AT_EXIT)
   if !zr_special_p(hooks)
@@ -69,15 +72,46 @@ machine def zr_program_end(exc)
           status = zr_exit_status(raised)
         else
           zr_error_print(raised)
+          status = 1
         end
       end
     end
   end
+  signo = 0
   if exc != QUNDEF && !zr_system_exit_p(exc)
-    zr_error_print(exc)
+    signo = zr_signal_of(exc)
+    if signo == 0 || zr_is_a(exc, zr_core_class(Machine.id(:Interrupt)))
+      zr_error_print(exc)
+    end
   end
   zr_finalizers_at_exit()
+  if signo != 0
+    zr_die_by_signal(signo)
+  end
   status
+end
+
+# The signal an uncaught SignalException carries, or 0.
+sig [Value] => Word
+machine def zr_signal_of(exc)
+  if zr_special_p(exc) || !zr_is_a(exc, zr_core_class(Machine.id(:SignalException)))
+    return 0
+  end
+  n = zr_send(exc, Machine.id(:signo), 0, 0)
+  if !zr_fixnum_p(n)
+    Task.set_pending(zr_task(), Machine.value(QNIL))
+    return 0
+  end
+  zr_fix2long(n)
+end
+
+# The process ends by `signo` itself: the signal's default action back
+# in place, then the signal sent to this process, as CRuby's
+# ruby_default_signal does.
+sig [Word] => Void
+machine def zr_die_by_signal(signo)
+  signal(Machine.i32(signo), Machine.ptr(0))
+  kill(getpid(), Machine.i32(signo))
 end
 
 sig [Value] => Word

@@ -263,6 +263,8 @@ module Ze0
         d zr_program_args Value
         d zr_at_exit_add Value blk:Value
         d zr_program_end Word exc:Value
+        d zr_signal_of Word exc:Value
+        d zr_die_by_signal Void signo:Word
         d zr_exit_status Word exc:Value
         d zr_system_exit_p Bool exc:Value
         d zr_program_start Void file:Ptr len:Word
@@ -648,6 +650,7 @@ module Ze0
         d zr_false_to_s Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_to_s Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_not Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_write_stderr Void s:Value
         d zr_warn_line Value s:Value
         d zr_warn_here Void bytes:Ptr n:Word
         d zr_kernel_global_variables Value recv:Value argc:Word argv:Ptr cref:Value blk:Value

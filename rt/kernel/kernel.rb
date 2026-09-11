@@ -88,11 +88,30 @@ machine def zr_obj_not(recv, argc, argv, cref, blk)
   zr_bool(recv == QNIL || recv == QFALSE)
 end
 
+# The String `s` for `$stderr`, as CRuby's rb_write_error2 writes it:
+# on fd 2 while `$stderr` is STDERR, else through its `write`. A
+# `write` that raises leaves the bytes on fd 2 instead.
+sig [Value] => Void
+machine def zr_write_stderr(s)
+  out = zr_gvar_get(Machine.id(:$stderr))
+  if zr_special_p(out) || out == zr_core_class(Machine.id(:STDERR))
+    zr_write_err(RString.ptr(s), RString.len(s))
+    return
+  end
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(s))
+  r = zr_send(out, Machine.id(:write), 1, slot)
+  if r == QUNDEF
+    Task.set_pending(zr_task(), Machine.value(QNIL))
+    zr_write_err(RString.ptr(s), RString.len(s))
+  end
+end
+
 # A line on stderr: `warn`'s output.
 sig [Value] => Value
 machine def zr_warn_line(s)
-  zr_write_err(RString.ptr(s), RString.len(s))
-  zr_write_err(Machine.bytes("\n"), 1)
+  zr_write_stderr(s)
+  zr_write_stderr(zr_str_new(Machine.bytes("\n"), 1))
   Machine.value(QNIL)
 end
 
@@ -116,8 +135,7 @@ machine def zr_warn_here(bytes, n)
   zr_buf_push(b, Machine.bytes("warning: "), 9)
   zr_buf_push(b, bytes, n)
   zr_buf_byte(b, 10)
-  s = zr_buf_take(b)
-  zr_write_err(RString.ptr(s), RString.len(s))
+  zr_write_stderr(zr_buf_take(b))
 end
 
 # The core's `rb_warn`.

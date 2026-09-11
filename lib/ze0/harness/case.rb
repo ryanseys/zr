@@ -183,8 +183,10 @@ module Ze0
     module Normalize
       module_function
 
+      # A process a signal ended has no exit status: only the signal
+      # counts.
       def answer(a, source, run_cwd)
-        Answer.new(bytes(a.stdout, source, run_cwd), bytes(a.stderr, source, run_cwd), a.code, a.signal)
+        Answer.new(bytes(a.stdout, source, run_cwd), bytes(a.stderr, source, run_cwd), a.signal ? nil : a.code, a.signal)
       end
 
       def bytes(b, source, run_cwd)

@@ -536,8 +536,7 @@ machine def zr_error_print(exc)
     end
     i += 1
   end
-  zr_write_err(Buf.ptr(b), Buf.len(b))
-  free(Buf.ptr(b))
+  zr_write_stderr(zr_buf_take(b))
 end
 
 G_SYSTEM_STACK_ERROR = 35
