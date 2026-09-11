@@ -78,7 +78,7 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_class_eval(recv, argc, argv, cref, blk)
   if blk == QNIL
     if argc > 0
-      zr_bug(Machine.bytes("class_eval with a string is not implemented yet\n"), 48)
+      return zr_unimplemented(zr_str_new(Machine.bytes("class_eval with a string"), 24))
     end
     return zr_no_block_given()
   end
@@ -112,7 +112,7 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_instance_eval(recv, argc, argv, cref, blk)
   if blk == QNIL
     if argc > 0
-      zr_bug(Machine.bytes("instance_eval with a string is not implemented yet\n"), 51)
+      return zr_unimplemented(zr_str_new(Machine.bytes("instance_eval with a string"), 27))
     end
     return zr_no_block_given()
   end

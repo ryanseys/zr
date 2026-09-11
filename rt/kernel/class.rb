@@ -1442,16 +1442,30 @@ machine def zr_refined_class(h)
   ClassExt.refined(RClass.ext(h))
 end
 
+# Row `id` as it stands now. A row whose `using` a condition skipped
+# holds the id of the row before it, which answers in its place; a row
+# nothing has touched holds nil.
+sig [Value, Word] => Value
+machine def zr_activation_row(rows, id)
+  if zr_special_p(rows) || id < 0 || id >= RArray.len(rows)
+    return Machine.value(QNIL)
+  end
+  row = zr_ary_at(rows, id)
+  while zr_fixnum_p(row)
+    from = zr_fix2long(row)
+    row = Machine.value(QNIL)
+    if from >= 0 && from < RArray.len(rows)
+      row = zr_ary_at(rows, from)
+    end
+  end
+  row
+end
+
 # The activation list a call site names, which every send under it
-# reads. A row that no `using` has filled yet holds nil.
+# reads.
 sig [Word] => Value
 machine def zr_activate(id)
-  rows = zr_global(G_ACTIVATIONS)
-  list = Machine.value(QNIL)
-  if !zr_special_p(rows) && id < RArray.len(rows)
-    list = zr_ary_at(rows, id)
-  end
-  Task.set_refine(zr_task(), list)
+  Task.set_refine(zr_task(), zr_activation_row(zr_global(G_ACTIVATIONS), id))
   Machine.value(QNIL)
 end
 
@@ -1471,10 +1485,9 @@ machine def zr_activate_owner(rec)
   Machine.value(QNIL)
 end
 
-# `using mod` at row `id`: the rows `from` already held, then every
-# holder `mod` refines. `from` is -1 where nothing was in use.
-sig [Word, Value, Word] => Value
-machine def zr_using_activate(id, mod, from)
+# The table of activation rows, long enough to hold row `id`.
+sig [Word] => Value
+machine def zr_activation_rows(id)
   rows = zr_global(G_ACTIVATIONS)
   if zr_special_p(rows)
     rows = zr_ary_new(8)
@@ -1483,9 +1496,30 @@ machine def zr_using_activate(id, mod, from)
   while RArray.len(rows) <= id
     zr_ary_push(rows, Machine.value(QNIL))
   end
+  rows
+end
+
+# A `using` that a condition holds may never run. Until it does, its
+# row stands for row `from`, whatever that row holds when a call reads
+# it. A row a `using` already filled keeps its own.
+sig [Word, Word] => Value
+machine def zr_using_default(id, from)
+  rows = zr_activation_rows(id)
+  if zr_ary_at(rows, id) == QNIL
+    zr_ary_store(rows, id, zr_fix(from))
+  end
+  Machine.value(QNIL)
+end
+
+# `using mod` at row `id`: the rows `from` holds now, then every holder
+# `mod` refines. `from` is -1 where nothing was in use.
+sig [Word, Value, Word] => Value
+machine def zr_using_activate(id, mod, from)
+  rows = zr_activation_rows(id)
   list = zr_ary_new(4)
-  if from >= 0 && from < RArray.len(rows)
-    zr_ary_splat(list, zr_ary_at(rows, from))
+  prior = zr_activation_row(rows, from)
+  if prior != QNIL
+    zr_ary_splat(list, prior)
   end
   r = zr_using_holders(list, mod)
   return r if r == QUNDEF

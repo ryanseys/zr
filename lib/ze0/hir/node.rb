@@ -43,6 +43,9 @@ module Ze0
     # `using mod`: row `id` holds what row `from` held plus every
     # refinement `mod` carries. `from` is -1 where nothing was in use.
     Using = Struct.new(:id, :from, :value, :line)
+    # Before a statement that holds a `using` a condition may skip: each
+    # `[id, from]` row holds what row `from` held until its `using` runs.
+    UsingDefaults = Struct.new(:rows, :line)
     # A value the lowering has already put in record slot `index`: the
     # lowering's own node, for a receiver or argument evaluated once.
     Slot = Struct.new(:index, :line)

@@ -101,7 +101,20 @@ module Ze0
           @hiding = false
         end
 
+        # The sends that call the method a leading Symbol names, and the
+        # fetches that hand it back to be called later.
+        SENDS = %i[send __send__ public_send].freeze
+        FETCHES = %i[method public_method instance_method].freeze
+
         def evals!(name, args)
+          named = args.first.value if args.first.is_a?(Literal) && args.first.value.is_a?(Symbol)
+          if named && SENDS.include?(name)
+            name, args = named, args.drop(1)
+          elsif named && FETCHES.include?(name)
+            # The call comes later, with arguments this site cannot see.
+            @evals = true if named == :eval || EVAL_FORMS.include?(named)
+            return
+          end
           @evals = true if name == :eval || (EVAL_FORMS.include?(name) && !args.empty?)
         end
 
@@ -451,6 +464,29 @@ module Ze0
       def statement(node)
         out = using_activation(node) || expr(node)
         mark_using(out, {}) if @using
+        return out if out.is_a?(Using)
+
+        nested = usings_in(out, {}).sort_by(&:id)
+        return out if nested.empty?
+
+        line = node.location.start_line
+        Seq.new([UsingDefaults.new(nested.map { |u| [u.id, u.from] }, line), out], line)
+      end
+
+      # The `using` rows a statement holds below its top, which a
+      # condition may skip.
+      def usings_in(node, seen, out = [])
+        return out if node.nil? || seen.key?(node.object_id)
+
+        if node.is_a?(Array)
+          node.each { |child| usings_in(child, seen, out) }
+          return out
+        end
+        return out unless node.is_a?(Struct)
+
+        seen[node.object_id] = true
+        out << node if node.is_a?(Using)
+        node.each_pair { |_, child| usings_in(child, seen, out) }
         out
       end
 

@@ -28,6 +28,9 @@ module Ze0
           when Hir::Return then return_from(node)
           when Hir::Require then require_unit(node)
           when Hir::Using then using_row(node)
+          when Hir::UsingDefaults
+            node.rows.each { |id, from| kernel("zr_using_default", imm(id), imm(from)) }
+            @qnil
           when Hir::Stop then checked(kernel("zr_unloadable", string_literal(node.what, "zr_str_literal_freeze")))
           when Hir::Autoload then autoload_unit(node)
           when Hir::Def then define_method(node)

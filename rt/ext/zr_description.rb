@@ -180,8 +180,11 @@ module Ze0
         d zr_mod_set_temporary_name Value mod:Value name:Value
         d zr_refinement_new Value klass:Value
         d zr_refined_class Value h:Value
+        d zr_activation_row Value rows:Value id:Word
         d zr_activate Value id:Word
         d zr_activate_owner Value rec:Ptr
+        d zr_activation_rows Value id:Word
+        d zr_using_default Value id:Word from:Word
         d zr_using_activate Value id:Word mod:Value from:Word
         d zr_using_holders Value list:Value mod:Value
         d zr_refined_entry Ptr klass:Value mid:Word
