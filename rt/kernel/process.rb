@@ -7,6 +7,13 @@ Machine.import "posix_spawn_file_actions_adddup2", [Ptr, I32, I32] => I32
 Machine.import "posix_spawn_file_actions_addclose", [Ptr, I32] => I32
 Machine.import "posix_spawn_file_actions_addchdir_np", [Ptr, Ptr] => I32
 Machine.import "posix_spawn_file_actions_destroy", [Ptr] => I32
+Machine.import "posix_spawnattr_init", [Ptr] => I32
+Machine.import "posix_spawnattr_setflags", [Ptr, I32] => I32
+Machine.import "posix_spawnattr_destroy", [Ptr] => I32
+# POSIX_SPAWN_CLOEXEC_DEFAULT: every descriptor the parent holds stays
+# behind, and only the file actions cross into the child. That is what
+# CRuby reaches by opening each descriptor close-on-exec.
+SPAWN_CLOEXEC_DEFAULT = 16384
 Machine.import "waitpid", [I32, Ptr, I32] => I32
 Machine.import "pipe", [Ptr] => I32
 Machine.import "getppid", [] => I32
@@ -38,6 +45,9 @@ machine def zr_proc_spawn(words, dups, closes, env, chdir)
   argv = zr_spawn_vector(words)
   actions = Machine.slot(16)
   posix_spawn_file_actions_init(actions)
+  attributes = Machine.slot(16)
+  posix_spawnattr_init(attributes)
+  posix_spawnattr_setflags(attributes, Machine.i32(SPAWN_CLOEXEC_DEFAULT))
   n = RArray.len(dups)
   i = 0
   while i < n
@@ -59,8 +69,9 @@ machine def zr_proc_spawn(words, dups, closes, env, chdir)
   end
   pid = Machine.slot(8)
   Machine.store64(pid, 0, 0)
-  r = posix_spawnp(pid, RString.ptr(zr_ary_at(words, 0)), actions, 0, argv, envp)
+  r = posix_spawnp(pid, RString.ptr(zr_ary_at(words, 0)), actions, attributes, argv, envp)
   posix_spawn_file_actions_destroy(actions)
+  posix_spawnattr_destroy(attributes)
   free(argv)
   if env != QNIL
     free(envp)

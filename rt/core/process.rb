@@ -78,7 +78,11 @@ module Process
     attr_reader :dups, :closes, :opened, :chdir
 
     def initialize(options)
-      @dups = []
+      # The standard streams cross into the child; every other
+      # descriptor the parent holds stays behind, so a pipe end the
+      # parent keeps cannot hold the child's own read open. An option
+      # that names one of the three comes later and wins.
+      @dups = [0, 0, 1, 1, 2, 2]
       @closes = []
       @opened = []
       @chdir = nil
@@ -242,9 +246,17 @@ module Process
 
   # Runs the command; the child's pid, or nil when it could not start
   # (then `$?` says exit 127).
-  def self.spawn_command(args, options)
+  # `rb_exec_getargs`: a leading Hash is the environment and a trailing
+  # Hash is the options, written as arguments rather than as keywords.
+  def self.exec_args(args, options)
     args = args.dup
     env = args.first.is_a?(Hash) ? args.shift : nil
+    options = options.merge(args.pop) if args.size > 1 && args.last.is_a?(Hash)
+    [env, args, options]
+  end
+
+  def self.spawn_command(args, options)
+    env, args, options = exec_args(args, options)
     words = command_words(args)
     redirects = Redirects.new(options)
     pid = Primitive.zr_proc_spawn(words, redirects.dups, redirects.closes, environment(env, options), redirects.chdir)
@@ -297,13 +309,14 @@ module Process
 
   # The words a command runs as, for exec.
   def self.exec_words(args, options)
+    env, args, options = exec_args(args, options)
     Primitive.zr_unimplemented("exec with options") unless options.empty?
-    args = args.dup
-    args.shift if args.first.is_a?(Hash) && Primitive.zr_unimplemented("exec with an environment")
+    Primitive.zr_unimplemented("exec with an environment") unless env.nil?
+
     command_words(args)
   end
 
-  private_class_method :spawn_command, :command_words, :shell_words, :environment, :exec_words
+  private_class_method :spawn_command, :command_words, :shell_words, :environment, :exec_words, :exec_args
 end
 
 module Kernel
