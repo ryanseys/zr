@@ -23,7 +23,7 @@ machine def zr_env_new(parent, n, names)
   REnv.set_parent(e, parent)
   REnv.set_nslots(e, n)
   REnv.set_names(e, names)
-  slots = malloc(n * 8)
+  slots = zr_xmalloc(n * 8)
   i = 0
   while i < n
     Machine.store64(slots + (i * 8), 0, QNIL)
@@ -651,7 +651,7 @@ sig [] => Ptr
 machine def zr_anonymous_meta
   meta = Machine.static(:anonymous_meta, FrameMeta.size)
   if FrameMeta.params(meta) == 0
-    table = malloc(24)
+    table = zr_xmalloc(24)
     Machine.store64(table, 0, 1)
     Machine.store64(table, 8, PARAM_REST)
     Machine.store64(table, 16, 0)

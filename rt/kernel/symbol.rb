@@ -67,7 +67,7 @@ machine def zr_intern(p, n)
     if cap < 64
       cap = 64
     end
-    rows = malloc(cap * 16)
+    rows = zr_xmalloc(cap * 16)
     if Symtab.rows(t) != 0
       zr_memcpy(rows, Symtab.rows(t), k * 16)
       free(Symtab.rows(t))
@@ -75,7 +75,7 @@ machine def zr_intern(p, n)
     Symtab.set_rows(t, rows)
     Symtab.set_capa(t, cap)
   end
-  copy = malloc(n + 1)
+  copy = zr_xmalloc(n + 1)
   zr_memcpy(copy, p, n)
   Machine.store8(copy + n, 0, Machine.i8(0))
   row = Symtab.rows(t) + (k * 16)

@@ -193,7 +193,7 @@ end
 # scope it named. The table is the Binding's, so it is never freed.
 sig [Value, Value] => Value
 machine def zr_binding_add(b, name)
-  table = malloc(16)
+  table = zr_xmalloc(16)
   Machine.store64(table, 0, 1)
   Machine.store64(table, 8, zr_intern(RString.ptr(name), RString.len(name)))
   RProc.set_env(b, zr_env_new(RProc.env(b), 1, table))

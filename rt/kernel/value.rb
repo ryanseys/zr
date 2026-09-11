@@ -15,6 +15,25 @@ Machine.import "pthread_self", [] => Ptr
 Machine.import "pthread_get_stackaddr_np", [Ptr] => Ptr
 Machine.import "pthread_get_stacksize_np", [Ptr] => Word
 
+# malloc that answers a block, or ends the program as CRuby does when
+# memory runs out: the kernel cannot unwind from inside an allocation,
+# so no NoMemoryError can reach Ruby from here.
+sig [Word] => Ptr
+machine def zr_xmalloc(n)
+  p = malloc(n)
+  if p == 0 && n != 0
+    zr_memory_exhausted()
+  end
+  p
+end
+
+# CRuby's words, and its status, when it cannot get memory.
+sig [] => Void
+machine def zr_memory_exhausted
+  write(Machine.i32(2), Machine.bytes("[FATAL] failed to allocate memory\n"), 34)
+  exit(Machine.i32(1))
+end
+
 QFALSE = 0
 QNIL = 8
 QTRUE = 20

@@ -81,7 +81,7 @@ end
 sig [Value, Value, Value] => Value
 machine def zr_sock_recv(fd, count, flags)
   n = zr_fix2long(count)
-  buffer = malloc(n)
+  buffer = zr_xmalloc(n)
   r = recv(Machine.i32(zr_fix2long(fd)), buffer, n, Machine.i32(zr_fix2long(flags)))
   if r < 0
     free(buffer)
@@ -100,7 +100,7 @@ end
 sig [Value, Value, Value] => Value
 machine def zr_sock_recvfrom(fd, count, flags)
   n = zr_fix2long(count)
-  buffer = malloc(n)
+  buffer = zr_xmalloc(n)
   addr = Machine.slot(SOCKADDR_MAX)
   size = Machine.slot(8)
   Machine.store32(size, 0, Machine.i32(SOCKADDR_MAX))
@@ -141,7 +141,7 @@ end
 sig [Value, Value, Value, Value] => Value
 machine def zr_sock_getsockopt(fd, level, name, size)
   n = zr_fix2long(size)
-  buffer = malloc(n)
+  buffer = zr_xmalloc(n)
   length = Machine.slot(8)
   Machine.store32(length, 0, Machine.i32(n))
   r = getsockopt(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(level)), Machine.i32(zr_fix2long(name)), buffer, length)

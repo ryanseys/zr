@@ -85,7 +85,7 @@ machine def zr_const_index_build(ext)
   while bins < n * 4
     bins = bins * 2
   end
-  ClassExt.set_cidx(ext, malloc(bins * 8))
+  ClassExt.set_cidx(ext, zr_xmalloc(bins * 8))
   memset(ClassExt.cidx(ext), Machine.i32(0), bins * 8)
   ClassExt.set_cbins(ext, bins)
   i = 0
@@ -175,7 +175,7 @@ machine def zr_const_set(klass, id, v)
       if cap < 8
         cap = 8
       end
-      tab = malloc(cap * CEntry.size)
+      tab = zr_xmalloc(cap * CEntry.size)
       if ClassExt.ctab(ext) != 0
         zr_memcpy(tab, ClassExt.ctab(ext), n * CEntry.size)
         free(ClassExt.ctab(ext))

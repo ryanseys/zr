@@ -87,7 +87,7 @@ end
 sig [Value, Value] => Value
 machine def zr_io_read(fd, count)
   n = zr_fix2long(count)
-  buf = malloc(n + 1)
+  buf = zr_xmalloc(n + 1)
   got = read(Machine.i32(zr_fix2long(fd)), buf, n)
   if got < 0
     free(buf)
@@ -107,7 +107,7 @@ end
 sig [Value, Value, Value] => Value
 machine def zr_io_pread(fd, count, at)
   n = zr_fix2long(count)
-  buf = malloc(n + 1)
+  buf = zr_xmalloc(n + 1)
   got = pread(Machine.i32(zr_fix2long(fd)), buf, n, zr_fix2long(at))
   if got < 0
     free(buf)
@@ -357,7 +357,7 @@ end
 # readlink(2): where the symlink points, or a negative errno.
 sig [Value] => Value
 machine def zr_readlink_m(path)
-  buf = malloc(4096)
+  buf = zr_xmalloc(4096)
   n = readlink(RString.ptr(path), buf, 4095)
   if n < 0
     free(buf)

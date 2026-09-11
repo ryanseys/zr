@@ -3,6 +3,7 @@ module Ze0
   module Machine
     class Description
       KERNEL = <<~ROWS
+        d zr_ary_max_size Value
         d zr_ary_new Value capa:Word
         d zr_ary_len_m Value a:Value
         d zr_ary_at_m Value a:Value i:Value
@@ -1090,6 +1091,8 @@ module Ze0
         d zr_catch_tag_p Value tag:Value
         d zr_throw Value tag:Value value:Value
         d zr_catch Value tag:Value blk:Value
+        d zr_xmalloc Ptr n:Word
+        d zr_memory_exhausted Void
         d zr_fixnum_p Bool v:Value
         d zr_special_p Bool v:Value
         d zr_fix Value n:Word
@@ -1121,6 +1124,7 @@ module Ze0
         d zr_finalizers_at_exit Void
         c G_ARRAY 25
         c G_INDEX_ERROR 26
+        c ARY_MAX_SIZE 1152921504606846975
         c G_MASTER_GVARS 48
         c G_BOX 49
         c KIND_ATTR_READER 3

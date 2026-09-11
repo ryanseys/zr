@@ -16,7 +16,7 @@ end
 sig [Ptr, Word] => Value
 machine def zr_str_new(bytes, len)
   s = zr_alloc(T_STRING, zr_global(G_STRING))
-  buf = malloc(len + 1)
+  buf = zr_xmalloc(len + 1)
   zr_memcpy(buf, bytes, len)
   Machine.store8(buf + len, 0, Machine.i8(0))
   RString.set_ptr(s, buf)
@@ -40,7 +40,7 @@ machine def zr_str_initialize_m(recv, src)
     zr_buf_push(b, Machine.bytes(" into String"), 12)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
-  buf = malloc(RString.len(src) + 1)
+  buf = zr_xmalloc(RString.len(src) + 1)
   zr_memcpy(buf, RString.ptr(src), RString.len(src))
   Machine.store8(buf + RString.len(src), 0, Machine.i8(0))
   free(RString.ptr(recv))
@@ -324,7 +324,7 @@ machine def zr_str_concat(recv, argc, argv, cref, blk)
     if capa < n + 1
       capa = n + 1
     end
-    p = malloc(capa)
+    p = zr_xmalloc(capa)
     zr_memcpy(p, RString.ptr(recv), RString.len(recv))
     free(RString.ptr(recv))
     RString.set_ptr(recv, p)
@@ -963,7 +963,7 @@ machine def zr_str_replace(s, other)
     return zr_frozen_error(s)
   end
   n = RString.len(other)
-  buf = malloc(n + 1)
+  buf = zr_xmalloc(n + 1)
   zr_memcpy(buf, RString.ptr(other), n)
   Machine.store8(buf + n, 0, Machine.i8(0))
   free(RString.ptr(s))
@@ -1091,7 +1091,7 @@ machine def zr_str_push_byte(recv, byte)
     if capa < n + 1
       capa = n + 1
     end
-    p = malloc(capa)
+    p = zr_xmalloc(capa)
     zr_memcpy(p, RString.ptr(recv), RString.len(recv))
     free(RString.ptr(recv))
     RString.set_ptr(recv, p)

@@ -17,7 +17,7 @@ Machine.import "execvp", [Ptr, Ptr] => I32
 sig [Value] => Ptr
 machine def zr_spawn_vector(words)
   n = RArray.len(words)
-  vector = malloc((n + 1) * 8)
+  vector = zr_xmalloc((n + 1) * 8)
   i = 0
   while i < n
     Machine.store64(vector + (i * 8), 0, Machine.word(RString.ptr(zr_ary_at(words, i))))

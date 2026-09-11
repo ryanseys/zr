@@ -136,7 +136,7 @@ end
 # `recv.big_op(:mid, *argv)`, with the builtin's block.
 sig [Value, Word, Word, Ptr, Value] => Value
 machine def zr_big_route_blk(recv, mid, argc, argv, blk)
-  args = malloc((argc + 1) * 8)
+  args = zr_xmalloc((argc + 1) * 8)
   Machine.store64(args, 0, Machine.word(zr_sym(mid)))
   zr_memcpy(args + 8, argv, argc * 8)
   r = zr_send_blk(recv, Machine.id(:big_op), argc + 1, args, blk)

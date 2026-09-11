@@ -4,6 +4,15 @@
 Machine.struct :RArray, basic: RBasic, len: Word, capa: Word, ptr: Ptr, base: Ptr
 G_ARRAY = 25
 G_INDEX_ERROR = 26
+# CRuby's ARY_MAX_SIZE: the most elements an Array can hold, LONG_MAX
+# over the size of a Value.
+ARY_MAX_SIZE = 1152921504606846975
+
+# The limit, for the core code that sizes `*` and `fill` by it.
+sig [] => Value
+machine def zr_ary_max_size
+  zr_fix(ARY_MAX_SIZE)
+end
 
 sig [Word] => Value
 machine def zr_ary_new(capa)
@@ -11,7 +20,7 @@ machine def zr_ary_new(capa)
   if capa < 4
     capa = 4
   end
-  buf = malloc(capa * 8)
+  buf = zr_xmalloc(capa * 8)
   RArray.set_ptr(a, buf)
   RArray.set_base(a, buf)
   RArray.set_len(a, 0)
@@ -67,10 +76,11 @@ machine def zr_ary_reserve(a, n)
       return
     end
     capa = RArray.capa(a) * 2
-    if capa < n
+    # Doubling stops at CRuby's limit, so the byte count cannot wrap.
+    if capa < n || capa > ARY_MAX_SIZE
       capa = n
     end
-    p = malloc(capa * 8)
+    p = zr_xmalloc(capa * 8)
     zr_memcpy(p, RArray.ptr(a), len * 8)
     free(RArray.base(a))
     RArray.set_ptr(a, p)
@@ -111,6 +121,13 @@ machine def zr_ary_store(a, i, v)
       zr_buf_long(b, 0 - n)
       return zr_raise_buf(zr_global(G_INDEX_ERROR), b)
     end
+  elsif i >= ARY_MAX_SIZE
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("index "), 6)
+    zr_buf_long(b, i)
+    zr_buf_push(b, Machine.bytes(" too big"), 8)
+    return zr_raise_buf(zr_global(G_INDEX_ERROR), b)
   end
   if i >= n
     zr_ary_reserve(a, i + 1)
@@ -201,6 +218,9 @@ machine def zr_ary_initialize(recv, argc, argv, cref, blk)
   n = zr_fix2long(first)
   if n < 0
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("negative array size"), 19)
+  end
+  if n > ARY_MAX_SIZE
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("array size too big"), 18)
   end
   fill = argc == 2 ? Machine.value(Machine.load64(argv, 8)) : Machine.value(QNIL)
   if blk != QNIL && argc == 2

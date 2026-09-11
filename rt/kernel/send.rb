@@ -175,7 +175,7 @@ machine def zr_method_missing(recv, mid, argc, argv, blk, kw, reason)
   if e == 0 || MEntry.fn(e) == Machine.addr(:zr_obj_method_missing)
     return zr_miss_error(recv, mid, reason, argc, argv)
   end
-  args = malloc((argc + 1) * 8)
+  args = zr_xmalloc((argc + 1) * 8)
   Machine.store64(args, 0, Machine.word(zr_sym(mid)))
   zr_memcpy(args + 8, argv, argc * 8)
   Task.set_missing(zr_task(), reason)

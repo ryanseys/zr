@@ -763,6 +763,7 @@ class Array
 
     other = Primitive.zr_index_operand_m(other)
     raise ArgumentError, "negative argument" if other < 0
+    raise ArgumentError, "argument too big" if other > 0 && Primitive.zr_ary_max_size / other < size
 
     out = []
     other.times { out.concat(self) }
@@ -846,6 +847,10 @@ class Array
       first += size if first < 0
       first = 0 if first < 0
       stop = args[1].nil? ? size : first + Primitive.zr_index_operand_m(args[1])
+    end
+    if stop > first
+      max = Primitive.zr_ary_max_size
+      raise ArgumentError, "argument too big" if first >= max || stop - first > max - first
     end
     i = first
     while i < stop

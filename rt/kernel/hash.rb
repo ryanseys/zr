@@ -251,7 +251,7 @@ machine def zr_hash_rebins(h)
   while nbins < RHash.cap(h) * 2
     nbins = nbins * 2
   end
-  bins = malloc(nbins * 8)
+  bins = zr_xmalloc(nbins * 8)
   i = 0
   while i < nbins
     Machine.store64(bins + (i * 8), 0, 0)
@@ -280,7 +280,7 @@ machine def zr_hash_reserve(h)
   if cap < 8
     cap = 8
   end
-  entries = malloc(cap * HEntry.size)
+  entries = zr_xmalloc(cap * HEntry.size)
   j = 0
   i = 0
   while i < n

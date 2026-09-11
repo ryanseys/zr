@@ -212,7 +212,7 @@ machine def zr_ivtab_set(t, id, v)
       if cap < 4
         cap = 4
       end
-      rows = malloc(cap * IvEntry.size)
+      rows = zr_xmalloc(cap * IvEntry.size)
       if IvTab.rows(t) != 0
         zr_memcpy(rows, IvTab.rows(t), n * IvEntry.size)
         free(IvTab.rows(t))
@@ -1119,7 +1119,7 @@ end
 sig [Ptr] => Ptr
 machine def zr_meta_at(rec)
   from = Frame.meta(rec)
-  meta = malloc(FrameMeta.size)
+  meta = zr_xmalloc(FrameMeta.size)
   FrameMeta.set_file(meta, FrameMeta.file(from))
   FrameMeta.set_file_len(meta, FrameMeta.file_len(from))
   FrameMeta.set_kind(meta, KIND_BUILTIN)

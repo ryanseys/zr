@@ -27,31 +27,31 @@ machine def zr_copy_payload(copy, orig)
   if t == T_OBJECT
     zr_ivtab_copy(RObject.iv(copy), RObject.iv(orig))
   elsif t == T_STRING
-    buf = malloc(RString.len(orig) + 1)
+    buf = zr_xmalloc(RString.len(orig) + 1)
     zr_memcpy(buf, RString.ptr(orig), RString.len(orig) + 1)
     RString.set_ptr(copy, buf)
     RString.set_capa(copy, RString.len(orig) + 1)
   elsif t == T_ARRAY
     n = RArray.len(orig)
     capa = n < 4 ? 4 : n
-    buf = malloc(capa * 8)
+    buf = zr_xmalloc(capa * 8)
     zr_memcpy(buf, RArray.ptr(orig), n * 8)
     RArray.set_ptr(copy, buf)
     RArray.set_base(copy, buf)
     RArray.set_capa(copy, capa)
   elsif t == T_HASH
     if RHash.entries(orig) != 0
-      entries = malloc(RHash.cap(orig) * HEntry.size)
+      entries = zr_xmalloc(RHash.cap(orig) * HEntry.size)
       zr_memcpy(entries, RHash.entries(orig), RHash.cap(orig) * HEntry.size)
       RHash.set_entries(copy, entries)
-      bins = malloc(RHash.nbins(orig) * 8)
+      bins = zr_xmalloc(RHash.nbins(orig) * 8)
       zr_memcpy(bins, RHash.bins(orig), RHash.nbins(orig) * 8)
       RHash.set_bins(copy, bins)
     end
     RHash.set_iter(copy, 0)
   elsif t == T_EXCEPTION
     if RException.rows(orig) != 0
-      rows = malloc(RException.nrows(orig) * BtRow.size)
+      rows = zr_xmalloc(RException.nrows(orig) * BtRow.size)
       zr_memcpy(rows, RException.rows(orig), RException.nrows(orig) * BtRow.size)
       RException.set_rows(copy, rows)
     end
@@ -92,7 +92,7 @@ machine def zr_class_copy(orig)
   from = RClass.ext(orig)
   ext = RClass.ext(copy)
   if ClassExt.mlen(from) > 0
-    tab = malloc(ClassExt.mlen(from) * MEntry.size)
+    tab = zr_xmalloc(ClassExt.mlen(from) * MEntry.size)
     zr_memcpy(tab, ClassExt.mtab(from), ClassExt.mlen(from) * MEntry.size)
     ClassExt.set_mtab(ext, tab)
     ClassExt.set_mlen(ext, ClassExt.mlen(from))
@@ -100,7 +100,7 @@ machine def zr_class_copy(orig)
     ClassExt.set_mcap(ext, ClassExt.mlen(from))
   end
   if ClassExt.clen(from) > 0
-    tab = malloc(ClassExt.clen(from) * CEntry.size)
+    tab = zr_xmalloc(ClassExt.clen(from) * CEntry.size)
     zr_memcpy(tab, ClassExt.ctab(from), ClassExt.clen(from) * CEntry.size)
     ClassExt.set_ctab(ext, tab)
     ClassExt.set_clen(ext, ClassExt.clen(from))

@@ -4,7 +4,7 @@ Machine.struct :Buf, ptr: Ptr, len: Word, capa: Word
 
 sig [Ptr] => Void
 machine def zr_buf_init(b)
-  Buf.set_ptr(b, malloc(64))
+  Buf.set_ptr(b, zr_xmalloc(64))
   Buf.set_len(b, 0)
   Buf.set_capa(b, 64)
 end
@@ -17,7 +17,7 @@ machine def zr_buf_reserve(b, n)
     if capa < need
       capa = need
     end
-    p = malloc(capa)
+    p = zr_xmalloc(capa)
     zr_memcpy(p, Buf.ptr(b), Buf.len(b))
     free(Buf.ptr(b))
     Buf.set_ptr(b, p)

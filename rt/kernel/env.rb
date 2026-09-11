@@ -136,7 +136,7 @@ end
 # The working directory, or a stop where the host has none.
 sig [] => Value
 machine def zr_getcwd
-  buf = malloc(4096)
+  buf = zr_xmalloc(4096)
   p = getcwd(buf, 4096)
   if p == 0
     zr_bug(Machine.bytes("the working directory is not available here\n"), 44)
@@ -329,7 +329,7 @@ end
 # keeps st_mode as 16 bits at offset 4.
 sig [Value] => Value
 machine def zr_path_kind(path)
-  buf = malloc(256)
+  buf = zr_xmalloc(256)
   r = Machine.word(stat(RString.ptr(path), buf))
   mode = Machine.word(Machine.load8(buf + 5, 0)) & 240
   free(buf)

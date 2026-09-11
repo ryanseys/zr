@@ -80,7 +80,7 @@ machine def zr_backtrace_capture(exc, top)
     end
     rec = Frame.prev(rec)
   end
-  rows = malloc(n * BtRow.size)
+  rows = zr_xmalloc(n * BtRow.size)
   i = 0
   rec = top
   while rec != 0

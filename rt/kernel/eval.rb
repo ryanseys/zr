@@ -203,7 +203,7 @@ machine def zr_meta_owned_by(meta, owner)
   if meta == 0
     return 0
   end
-  copy = malloc(FrameMeta.size)
+  copy = zr_xmalloc(FrameMeta.size)
   zr_memcpy(copy, meta, FrameMeta.size)
   FrameMeta.set_owner(copy, zr_origin(owner))
   copy

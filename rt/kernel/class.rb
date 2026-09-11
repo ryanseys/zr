@@ -46,7 +46,7 @@ machine def zr_class_alloc(type, sup, klass)
   RClass.set_superclass(c, sup)
   RClass.set_attached(c, Machine.value(QNIL))
   RClass.set_origin(c, Machine.value(QNIL))
-  ext = malloc(ClassExt.size)
+  ext = zr_xmalloc(ClassExt.size)
   ClassExt.set_mtab(ext, 0)
   ClassExt.set_mlen(ext, 0)
   ClassExt.set_mcap(ext, 0)
@@ -253,7 +253,7 @@ machine def zr_ensure_origin(klass)
     return false
   end
   o = zr_iclass_new(klass, RClass.superclass(klass))
-  ext = malloc(ClassExt.size)
+  ext = zr_xmalloc(ClassExt.size)
   zr_memcpy(ext, RClass.ext(klass), ClassExt.size)
   ClassExt.set_ctab(ext, 0)
   ClassExt.set_clen(ext, 0)
@@ -752,7 +752,7 @@ machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
     return zr_frozen_error(klass)
   end
   if meta == 0
-    meta = malloc(FrameMeta.size)
+    meta = zr_xmalloc(FrameMeta.size)
     FrameMeta.set_file(meta, 0)
     FrameMeta.set_file_len(meta, 0)
     FrameMeta.set_kind(meta, KIND_BUILTIN)
@@ -766,7 +766,7 @@ machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
   elsif Machine.word(FrameMeta.owner(meta)) != 0 && FrameMeta.owner(meta) != klass
     # The same def run under another class (a class body in a block
     # that runs twice) gets a meta of its own, so each keeps its owner.
-    copy = malloc(FrameMeta.size)
+    copy = zr_xmalloc(FrameMeta.size)
     zr_memcpy(copy, meta, FrameMeta.size)
     meta = copy
   end
@@ -870,7 +870,7 @@ machine def zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
       if cap < 8
         cap = 8
       end
-      tab = malloc(cap * MEntry.size)
+      tab = zr_xmalloc(cap * MEntry.size)
       old = ClassExt.mtab(ext)
       if old != 0
         zr_memcpy(tab, old, n * MEntry.size)

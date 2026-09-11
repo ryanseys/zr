@@ -49,11 +49,11 @@ machine def zr_arena_add
   h = zr_heap()
   n = Heap.arenas(h)
   if n == ARENA_LIMIT
-    zr_bug(Machine.bytes("out of cells\n"), 13)
+    zr_memory_exhausted()
   end
   slot = Machine.slot(8)
   if posix_memalign(slot, ARENA_BYTES, ARENA_ALLOC) != Machine.i32(0)
-    zr_bug(Machine.bytes("out of memory\n"), 14)
+    zr_memory_exhausted()
   end
   a = Machine.ptr(Machine.load64(slot, 0))
   Machine.store64(zr_arenas() + (n * 8), 0, Machine.word(a))
@@ -168,7 +168,7 @@ machine def zr_mark(v)
   n = MarkStack.len(s)
   if n == MarkStack.capa(s)
     capa = n == 0 ? 1024 : n * 2
-    grown = malloc(capa * 8)
+    grown = zr_xmalloc(capa * 8)
     if n > 0
       zr_memcpy(grown, MarkStack.ptr(s), n * 8)
       free(MarkStack.ptr(s))
@@ -215,7 +215,7 @@ sig [Value] => Ptr
 machine def zr_exivar_tab_for_write(v)
   t = zr_exivar_tab(v)
   if t == 0
-    t = malloc(IvTab.size)
+    t = zr_xmalloc(IvTab.size)
     zr_ivtab_init(t)
     Machine.store64(zr_exivar_slot(v), 0, Machine.word(t))
     RBasic.set_flags(v, RBasic.flags(v) | FL_EXIVAR)
