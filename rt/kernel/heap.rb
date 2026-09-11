@@ -357,10 +357,14 @@ machine def zr_free_cell(cell)
     end
     Machine.store64(cell, 0, POISON)
     Machine.store64(cell, 8, Heap.free(h))
-    j = 16
-    while j < CELL
-      Machine.store64(cell + j, 0, 57005)
-      j += 8
+    # The header's poison is what mark checks; the payload's is only
+    # there to make a stale read loud, which stress mode is for.
+    if Heap.stress(h) != 0
+      j = 16
+      while j < CELL
+        Machine.store64(cell + j, 0, 57005)
+        j += 8
+      end
     end
     Heap.set_free(h, cell)
     Heap.set_freed(h, Heap.freed(h) + 1)
@@ -416,8 +420,7 @@ machine def zr_collect
   zr_mark_drain()
   zr_weak_prune()
   zr_sweep()
-  zr_methods_changed()
-  live = (Heap.arenas(h) * CELLS) - Heap.freed(h)
+  live =(Heap.arenas(h) * CELLS) - Heap.freed(h)
   want = ((live * 2) + (CELLS - 1)) / CELLS
   while Heap.arenas(h) < want && Heap.arenas(h) < ARENA_LIMIT
     zr_arena_add()

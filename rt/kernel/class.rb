@@ -15,7 +15,9 @@ Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr,
 # `boxed` is the shadow class each box sees in place of this one,
 # indexed by box slot, and `shadow` the shared class a shadow stands
 # over; both are nil outside a box.
-Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word, refined: Value, active: Value, boxed: Value, shadow: Value
+# `alloc` is the kind of object the class allocates (ALLOC_*), found
+# from its builtin ancestor on first use; 0 until then.
+Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word, refined: Value, active: Value, boxed: Value, shadow: Value, alloc: Word
 # `orig` is the name the method was first defined under, which an
 # alias keeps. `from` is the chain node the entry an alias or a
 # visibility change copied was found on, where `super` in the body
@@ -57,6 +59,7 @@ machine def zr_class_alloc(type, sup, klass)
   ClassExt.set_active(ext, Machine.value(QNIL))
   ClassExt.set_boxed(ext, Machine.value(QNIL))
   ClassExt.set_shadow(ext, Machine.value(QNIL))
+  ClassExt.set_alloc(ext, 0)
   counter = Machine.static(:class_serial, 8)
   Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
   ClassExt.set_serial(ext, Machine.load64(counter, 0))
@@ -753,10 +756,10 @@ machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
     FrameMeta.set_params(meta, 0)
     FrameMeta.set_fn(meta, 0)
     FrameMeta.set_box(meta, Machine.value(QNIL))
+    FrameMeta.set_ruby(meta, 0)
   elsif Machine.word(FrameMeta.owner(meta)) != 0 && FrameMeta.owner(meta) != klass
     # The same def run under another class (a class body in a block
     # that runs twice) gets a meta of its own, so each keeps its owner.
-    FrameMeta.set_ruby(meta, 0)
     copy = malloc(FrameMeta.size)
     zr_memcpy(copy, meta, FrameMeta.size)
     meta = copy
@@ -1331,6 +1334,11 @@ end
 sig [Value] => Void
 machine def zr_release(v)
   t = RBasic.flags(v) & T_MASK
+  if t == T_ICLASS || t == T_CLASS || t == T_MODULE
+    # A freed class's address can come back as another class: a method
+    # cache row keyed on it must not answer for the newcomer.
+    zr_methods_changed()
+  end
   if t == T_ICLASS
     if RClass.origin(RClass.attached(v)) == v
       if ClassExt.mtab(RClass.ext(v)) != 0
@@ -1360,7 +1368,7 @@ machine def zr_release(v)
   elsif t == T_OBJECT
     zr_release_ivtab(RObject.iv(v))
   elsif t == T_ARRAY
-    free(RArray.ptr(v))
+    free(RArray.base(v))
   elsif t == T_HASH
     if RHash.entries(v) != 0
       free(RHash.entries(v))

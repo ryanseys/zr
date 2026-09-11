@@ -1,5 +1,7 @@
 # Arrays: a length, a capacity and a buffer of Values outside the arena.
-Machine.struct :RArray, basic: RBasic, len: Word, capa: Word, ptr: Ptr
+# `base` is the block malloc gave; `ptr` is the first element, past the
+# gap a shift from the front leaves, and `capa` counts from `ptr`.
+Machine.struct :RArray, basic: RBasic, len: Word, capa: Word, ptr: Ptr, base: Ptr
 G_ARRAY = 25
 G_INDEX_ERROR = 26
 
@@ -9,7 +11,9 @@ machine def zr_ary_new(capa)
   if capa < 4
     capa = 4
   end
-  RArray.set_ptr(a, malloc(capa * 8))
+  buf = malloc(capa * 8)
+  RArray.set_ptr(a, buf)
+  RArray.set_base(a, buf)
   RArray.set_len(a, 0)
   RArray.set_capa(a, capa)
   a
@@ -51,14 +55,26 @@ end
 sig [Value, Word] => Void
 machine def zr_ary_reserve(a, n)
   if n > RArray.capa(a)
+    len = RArray.len(a)
+    gap = (RArray.ptr(a) - RArray.base(a)) / 8
+    # A front gap as long as the array goes back to the block's start
+    # when that makes room: the copy costs no more than the shifts that
+    # made the gap, so a queue stays linear.
+    if gap >= len && n <= RArray.capa(a) + gap
+      zr_memmove(RArray.base(a), RArray.ptr(a), len * 8)
+      RArray.set_ptr(a, RArray.base(a))
+      RArray.set_capa(a, RArray.capa(a) + gap)
+      return
+    end
     capa = RArray.capa(a) * 2
     if capa < n
       capa = n
     end
     p = malloc(capa * 8)
-    zr_memcpy(p, RArray.ptr(a), RArray.len(a) * 8)
-    free(RArray.ptr(a))
+    zr_memcpy(p, RArray.ptr(a), len * 8)
+    free(RArray.base(a))
     RArray.set_ptr(a, p)
+    RArray.set_base(a, p)
     RArray.set_capa(a, capa)
   end
 end
@@ -605,6 +621,22 @@ machine def zr_ary_splice(a, beg_v, len_v, vals)
     len = n - beg
   end
   m = RArray.len(vals)
+  # At the front, the elements stay where they are and `ptr` moves: a
+  # shift leaves a gap, and an unshift that fits takes it back.
+  if beg == 0 && m <= len
+    RArray.set_ptr(a, RArray.ptr(a) + ((len - m) * 8))
+    RArray.set_capa(a, RArray.capa(a) - (len - m))
+    zr_memcpy(RArray.ptr(a), RArray.ptr(vals), m * 8)
+    RArray.set_len(a, n - len + m)
+    return a
+  end
+  if beg == 0 && (m - len) <= (RArray.ptr(a) - RArray.base(a)) / 8
+    RArray.set_ptr(a, RArray.ptr(a) - ((m - len) * 8))
+    RArray.set_capa(a, RArray.capa(a) + (m - len))
+    zr_memcpy(RArray.ptr(a), RArray.ptr(vals), m * 8)
+    RArray.set_len(a, n - len + m)
+    return a
+  end
   tail = n - beg - len
   zr_ary_reserve(a, n - len + m)
   p = RArray.ptr(a)

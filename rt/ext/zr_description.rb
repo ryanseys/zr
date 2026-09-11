@@ -684,6 +684,7 @@ module Ze0
         d zr_ivtab_set Void t:Ptr id:Word v:Value
         d zr_range_new Value low:Value high:Value excl:Word
         d zr_class_allocate Value recv:Value
+        d zr_alloc_kind Word klass:Value
         d zr_class_allocate_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_class_new_instance Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1063,9 +1064,9 @@ module Ze0
         d zr_bug Void bytes:Ptr len:Word
         d zr_memcpy Void to:Ptr from:Ptr n:Word
         d zr_unimplemented Value what:Value
-        d zr_weak_list Ptr
         d zr_unloadable Value what:Value
         d zr_raise_stop Value klass:Value what:Value
+        d zr_weak_list Ptr
         d zr_finalizer_queue Ptr
         d zr_weak_list_push Void l:Ptr v:Value
         d zr_weak_table_new Value kind:Word identity:Bool
@@ -1196,6 +1197,14 @@ module Ze0
         c PARAM_BLOCK 6
         c PARAM_NOKEY 7
         c G_RANGE 12
+        c ALLOC_OBJECT 1
+        c ALLOC_CLASS 2
+        c ALLOC_MODULE 3
+        c ALLOC_EXCEPTION 4
+        c ALLOC_ARRAY 5
+        c ALLOC_HASH 6
+        c ALLOC_STRING 7
+        c ALLOC_UNDEF 8
         c BUF_LENGTH 0
         c BUF_VALUE 16
         c PM_BUFFER_SIZE 24
@@ -1258,10 +1267,10 @@ module Ze0
         c WEAK_BOTH 1
         c WEAK_KEY 2
         c G_FINALIZERS 45
-        s RArray 40 8 basic:0:RBasic len:16:Word capa:24:Word ptr:32:Ptr
+        s RArray 48 8 basic:0:RBasic len:16:Word capa:24:Word ptr:32:Ptr base:40:Ptr
         s Buf 24 8 ptr:0:Ptr len:8:Word capa:16:Word
         s RClass 56 8 basic:0:RBasic name:16:Value superclass:24:Value ext:32:Ptr attached:40:Value origin:48:Value
-        s ClassExt 136 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word refined:104:Value active:112:Value boxed:120:Value shadow:128:Value
+        s ClassExt 144 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word refined:104:Value active:112:Value boxed:120:Value shadow:128:Value alloc:136:Word
         s MEntry 72 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value
         s CEntry 64 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value
         s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word

@@ -37,6 +37,7 @@ machine def zr_copy_payload(copy, orig)
     buf = malloc(capa * 8)
     zr_memcpy(buf, RArray.ptr(orig), n * 8)
     RArray.set_ptr(copy, buf)
+    RArray.set_base(copy, buf)
     RArray.set_capa(copy, capa)
   elsif t == T_HASH
     if RHash.entries(orig) != 0

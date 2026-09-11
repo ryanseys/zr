@@ -254,7 +254,9 @@ machine def zr_ary_sort(recv, argc, argv, cref, blk)
 end
 
 # The sorted copy's buffer becomes the receiver's; the copy takes the
-# old one, and the sweep frees it.
+# old one, and the sweep frees it. The receiver takes the copy's length
+# too: what a block did to the receiver while it sorted is lost, as in
+# CRuby.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_sort_bang(recv, argc, argv, cref, blk)
   if zr_frozen_p(recv)
@@ -263,11 +265,17 @@ machine def zr_ary_sort_bang(recv, argc, argv, cref, blk)
   tmp = zr_ary_sort_copy(zr_ary_of(RArray.len(recv), RArray.ptr(recv)), blk)
   return tmp if tmp == QUNDEF
   p = RArray.ptr(recv)
+  base = RArray.base(recv)
   capa = RArray.capa(recv)
+  len = RArray.len(recv)
   RArray.set_ptr(recv, RArray.ptr(tmp))
+  RArray.set_base(recv, RArray.base(tmp))
   RArray.set_capa(recv, RArray.capa(tmp))
+  RArray.set_len(recv, RArray.len(tmp))
   RArray.set_ptr(tmp, p)
+  RArray.set_base(tmp, base)
   RArray.set_capa(tmp, capa)
+  RArray.set_len(tmp, len)
   recv
 end
 

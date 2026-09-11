@@ -260,34 +260,75 @@ machine def zr_class_allocate(recv)
   if shared != QNIL
     recv = shared
   end
+  kind = zr_alloc_kind(recv)
+  if kind == ALLOC_OBJECT
+    return zr_obj_alloc(recv)
+  end
   # A subclass of Class or Module allocates the kind its ancestor does,
   # never a plain object.
-  if zr_class_inherits(recv, zr_global(G_CLASS))
+  if kind == ALLOC_CLASS
     return zr_class_alloc(T_CLASS, Machine.value(QNIL), recv)
   end
-  if zr_class_inherits(recv, zr_global(G_MODULE))
+  if kind == ALLOC_MODULE
     return zr_class_alloc(T_MODULE, Machine.value(QNIL), recv)
   end
-  if zr_class_inherits(recv, zr_global(G_EXCEPTION))
+  if kind == ALLOC_EXCEPTION
     return zr_exc_new(recv, Machine.value(QNIL))
   end
-  if zr_class_inherits(recv, zr_global(G_ARRAY))
-    o = zr_ary_new(4)
-  elsif zr_class_inherits(recv, zr_global(G_HASH))
-    o = zr_hash_new()
-  elsif zr_class_inherits(recv, zr_global(G_STRING))
-    o = zr_str_new(Machine.bytes(""), 0)
-  elsif zr_class_inherits(recv, zr_global(G_INTEGER)) || zr_class_inherits(recv, zr_global(G_SYMBOL)) || zr_class_inherits(recv, zr_global(G_NIL)) || zr_class_inherits(recv, zr_global(G_TRUE)) || zr_class_inherits(recv, zr_global(G_FALSE))
+  if kind == ALLOC_UNDEF
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("allocator undefined for "), 24)
     zr_buf_class(b, recv)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+  if kind == ALLOC_ARRAY
+    o = zr_ary_new(4)
+  elsif kind == ALLOC_HASH
+    o = zr_hash_new()
   else
-    return zr_obj_alloc(recv)
+    o = zr_str_new(Machine.bytes(""), 0)
   end
   RBasic.set_klass(o, recv)
   o
+end
+
+# The kind of object a class allocates, from its nearest builtin
+# ancestor: found once per class, then kept, since a class's
+# superclass never changes.
+ALLOC_OBJECT = 1
+ALLOC_CLASS = 2
+ALLOC_MODULE = 3
+ALLOC_EXCEPTION = 4
+ALLOC_ARRAY = 5
+ALLOC_HASH = 6
+ALLOC_STRING = 7
+ALLOC_UNDEF = 8
+
+sig [Value] => Word
+machine def zr_alloc_kind(klass)
+  kind = ClassExt.alloc(RClass.ext(klass))
+  if kind != 0
+    return kind
+  end
+  kind = ALLOC_OBJECT
+  if zr_class_inherits(klass, zr_global(G_CLASS))
+    kind = ALLOC_CLASS
+  elsif zr_class_inherits(klass, zr_global(G_MODULE))
+    kind = ALLOC_MODULE
+  elsif zr_class_inherits(klass, zr_global(G_EXCEPTION))
+    kind = ALLOC_EXCEPTION
+  elsif zr_class_inherits(klass, zr_global(G_ARRAY))
+    kind = ALLOC_ARRAY
+  elsif zr_class_inherits(klass, zr_global(G_HASH))
+    kind = ALLOC_HASH
+  elsif zr_class_inherits(klass, zr_global(G_STRING))
+    kind = ALLOC_STRING
+  elsif zr_class_inherits(klass, zr_global(G_INTEGER)) || zr_class_inherits(klass, zr_global(G_SYMBOL)) || zr_class_inherits(klass, zr_global(G_NIL)) || zr_class_inherits(klass, zr_global(G_TRUE)) || zr_class_inherits(klass, zr_global(G_FALSE))
+    kind = ALLOC_UNDEF
+  end
+  ClassExt.set_alloc(RClass.ext(klass), kind)
+  kind
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -298,7 +339,7 @@ end
 # `Class#new`: allocate, then `initialize` with the arguments.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_class_new_instance(recv, argc, argv, cref, blk)
-  if zr_class_inherits(recv, zr_global(G_INTEGER)) || zr_class_inherits(recv, zr_global(G_SYMBOL)) || zr_class_inherits(recv, zr_global(G_NIL)) || zr_class_inherits(recv, zr_global(G_TRUE)) || zr_class_inherits(recv, zr_global(G_FALSE))
+  if zr_alloc_kind(recv) == ALLOC_UNDEF
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("undefined method 'new' for class "), 33)
@@ -1011,6 +1052,10 @@ machine def zr_meta_at(rec)
   FrameMeta.set_arity(meta, 0)
   FrameMeta.set_params(meta, 0)
   FrameMeta.set_fn(meta, 0)
+  FrameMeta.set_locals(meta, 0)
+  FrameMeta.set_env(meta, 0)
+  FrameMeta.set_box(meta, Machine.value(QNIL))
+  FrameMeta.set_ruby(meta, 0)
   meta
 end
 
@@ -1052,10 +1097,6 @@ machine def zr_attr(klass, argc, argv, which)
         free(Buf.ptr(b))
         return r
       end
-  FrameMeta.set_locals(meta, 0)
-  FrameMeta.set_env(meta, 0)
-  FrameMeta.set_box(meta, Machine.value(QNIL))
-  FrameMeta.set_ruby(meta, 0)
       zr_ary_push(defined, zr_sym(id))
     end
     if which != 1
