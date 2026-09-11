@@ -26,23 +26,30 @@ module Ze0
       # frames. `rt/kernel/fiber.rb` sizes every other task's.
       STACK_FLAGS = ["-Wl,-stack_size,0x4000000"].freeze
 
+      # A program that does not eval reaches the runtime only through
+      # calls the linker can see, so what nothing calls is left out. An
+      # executable exports every global, and ld keeps what is exported,
+      # so the exports go too.
+      STRIP_FLAGS = ["-Wl,-dead_strip", "-Wl,-no_exported_symbols"].freeze
+
       def road(name, root)
         ROADS.fetch(name) { raise ArgumentError, "no native road named #{name.inspect} (ruby, cranelift)" }.new(root)
       end
 
       # Answers nil, or the message of the step that refused. `objects`
       # are prebuilt objects linked in beside this one.
-      def binary(functions, data, out, road:, work:, raw: [], objects: [])
+      def binary(functions, data, out, road:, work:, raw: [], objects: [], flags: STACK_FLAGS)
         obj = File.join(work, "unit.o")
         (why = object(functions, data, obj, road: road, raw: raw, export: !objects.empty?)) and return why
-        road.link(objects + [obj], out, archives: Deps.build(road.root), flags: STACK_FLAGS)
+        road.link(objects + [obj], out, archives: Deps.build(road.root), flags: flags)
       end
 
       # A `Zr::Program` to a binary: its runtime from the cache, its own
       # functions and data emitted now.
       def program(program, out, road:, work:)
         rt = runtime_object(program.runtime, road)
-        binary(program.functions, program.data, out, road: road, work: work, objects: [rt])
+        flags = program.evals ? STACK_FLAGS : STACK_FLAGS + STRIP_FLAGS
+        binary(program.functions, program.data, out, road: road, work: work, objects: [rt], flags: flags)
       end
 
       # The runtime's object on `road`, built once per digest.

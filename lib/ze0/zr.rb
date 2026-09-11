@@ -92,8 +92,9 @@ module Ze0
 
     # A program's own functions and data over its runtime. Destructures
     # as `[functions, data, raw]` with the runtime included, for a build
-    # that takes everything as one unit.
-    Program = Struct.new(:runtime, :functions, :data) do
+    # that takes everything as one unit. `evals` says the program carries
+    # the compiler, whose JIT finds kernel functions by name.
+    Program = Struct.new(:runtime, :functions, :data, :evals) do
       def raw = runtime.raw
 
       def to_ary = [runtime.functions + functions, runtime.data + data, raw]
@@ -104,8 +105,10 @@ module Ze0
     def program(source, file)
       rt = runtime
       symbols = Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
-      functions, data = Lower.new(Hir.build(source, file), rt.unit, symbols).run
-      Program.new(rt, functions, data + symbol_names(symbols))
+      hir = Hir.build(source, file)
+      functions, data = Lower.new(hir, rt.unit, symbols).run
+      evals = hir.units.any? { |unit| unit&.file == Hir::Build::EVAL_ROAD }
+      Program.new(rt, functions, data + symbol_names(symbols), evals)
     end
 
     def runtime
