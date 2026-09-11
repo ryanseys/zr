@@ -161,13 +161,16 @@ class File < IO
     path = File.send(:path_of, path)
 
     text = File.send(:open_mode, mode)
+    # The descriptor opens by the access mode alone; a "b" goes on to
+    # IO, which keeps binary mode.
+    io_mode = mode.is_a?(String) && mode.include?("b") && !mode.include?(":") ? "#{text}b" : text
     made = !File.exist?(path)
     if File.pipe?(path) && Primitive.zr_threaded && !Thread.send(:alone?)
       # open(2) on a FIFO waits for the other end, which would stop
       # every green thread. A task that shares the process opens the
       # descriptor without waiting and keeps it that way: every read
       # and write already asks the descriptor whether it is ready.
-      super(fifo_fd(path, text), text, path: path)
+      super(fifo_fd(path, text), io_mode, path: path)
       @nonblock = true
       return
     end
@@ -175,7 +178,7 @@ class File < IO
     stream = Primitive.zr_io_open(path, text)
     raise SystemCallError.new("@ rb_sysopen - #{path}", -stream) if stream < 0
 
-    super(Primitive.zr_io_fileno(stream), text, path: path)
+    super(Primitive.zr_io_fileno(stream), io_mode, path: path)
     Primitive.zr_io_chmod_fd(@fd, perm) if made && perm != 0o666
     @stream = stream
   end

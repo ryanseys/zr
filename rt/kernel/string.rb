@@ -271,12 +271,33 @@ end
 sig [Value, Word] => Value
 machine def zr_str_concat_codepoint(recv, c)
   limit = zr_str_wide_p(recv) ? 1114111 : 255
+  if zr_str_wide_p(recv) && c >= 55296 && c <= 57343
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("invalid codepoint 0x"), 20)
+    shift = 12
+    while shift >= 0
+      digit = (c >> shift) & 15
+      zr_buf_byte(b, digit < 10 ? 48 + digit : 55 + digit)
+      shift -= 4
+    end
+    zr_buf_push(b, Machine.bytes(" in UTF-8"), 9)
+    return zr_raise_buf(zr_core_class(Machine.id(:RangeError)), b)
+  end
   if c < 0 || c > limit
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_long(b, c)
     zr_buf_push(b, Machine.bytes(" out of char range"), 18)
     return zr_raise_buf(zr_core_class(Machine.id(:RangeError)), b)
+  end
+  # A byte past ASCII makes a US-ASCII String binary, as rb_str_concat
+  # has it; a frozen one raises before its encoding changes.
+  if c > 127 && zr_str_encoding_index(recv) == ENC_USASCII
+    if zr_frozen_p(recv)
+      return zr_frozen_error(recv)
+    end
+    zr_str_set_binary(recv)
   end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
@@ -664,24 +685,26 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_reverse(recv, argc, argv, cref, blk)
+  # The characters are found from the front, where they start, and each
+  # goes to its place from the back; an invalid byte is one character.
   n = RString.len(recv)
-  b = Machine.slot(Buf.size)
-  zr_buf_init(b)
-  end_ = n
-  while end_ > 0
-    start = end_ - 1
-    while start > 0 && zr_str_wide_p(recv) && (Machine.word(Machine.load8(RString.ptr(recv) + start, 0)) & 192) == 128
-      start -= 1
-    end
-    zr_buf_push(b, RString.ptr(recv) + start, end_ - start)
-    end_ = start
+  out = zr_str_new(RString.ptr(recv), n)
+  i = 0
+  while i < n
+    len = zr_str_char_len_at(recv, i)
+    zr_memmove(RString.ptr(out) + n - i - len, RString.ptr(recv) + i, len)
+    i += len
   end
-  zr_str_copy_encoding(zr_buf_take(b), recv)
+  zr_str_copy_encoding(out, recv)
 end
 
-# The byte index of `needle` in `hay` from `from`, or -1.
+# The byte index of `needle` in `hay` from `from`, or -1. A needle that
+# is not valid in its encoding never matches, as rb_str_index decides.
 sig [Value, Value, Word] => Word
 machine def zr_str_find(hay, needle, from)
+  if zr_str_valid_p(needle) == QFALSE
+    return 0 - 1
+  end
   n = RString.len(hay)
   m = RString.len(needle)
   i = from
@@ -722,11 +745,14 @@ machine def zr_str_to_sym(recv, argc, argv, cref, blk)
   zr_sym(zr_intern(RString.ptr(recv), RString.len(recv)))
 end
 
-# `+str`: the string itself unless frozen, then a copy that is not.
+# `+str`: the string itself unless frozen, then a copy that is not,
+# with its encoding and class, as rb_str_dup makes it.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_uplus(recv, argc, argv, cref, blk)
   if zr_frozen_p(recv)
-    return zr_str_new(RString.ptr(recv), RString.len(recv))
+    copy = zr_str_copy_encoding(zr_str_new(RString.ptr(recv), RString.len(recv)), recv)
+    RBasic.set_klass(copy, zr_real_class(recv))
+    return copy
   end
   recv
 end

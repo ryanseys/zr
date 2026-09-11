@@ -93,7 +93,7 @@ class String
         return true if match
       else
         prefix = Primitive.zr_str_operand(prefix)
-        return true if prefix.bytesize <= bytesize && byteslice_of(0, prefix.bytesize) == prefix
+        return true if prefix.bytesize <= bytesize && char_boundary?(prefix.bytesize) && byteslice_of(0, prefix.bytesize) == prefix
       end
       i += 1
     end
@@ -104,7 +104,7 @@ class String
     i = 0
     while i < Primitive.zr_ary_len_m(suffixes)
       suffix = Primitive.zr_str_operand(Primitive.zr_ary_at_m(suffixes, i))
-      return true if suffix.bytesize <= bytesize && byteslice_of(bytesize - suffix.bytesize, suffix.bytesize) == suffix
+      return true if suffix.bytesize <= bytesize && char_boundary?(bytesize - suffix.bytesize) && byteslice_of(bytesize - suffix.bytesize, suffix.bytesize) == suffix
 
       i += 1
     end
@@ -411,9 +411,11 @@ class String
       return match && match.begin(0)
     end
     needle = Primitive.zr_str_operand(needle)
+    return nil unless needle.valid_encoding?
+
     i = [from, bytesize - needle.bytesize].min
     while i >= 0
-      return Primitive.zr_str_byte_to_char(self, i) if byteslice_of(i, needle.bytesize) == needle
+      return Primitive.zr_str_byte_to_char(self, i) if char_boundary?(i) && byteslice_of(i, needle.bytesize) == needle
 
       i -= 1
     end
@@ -1001,10 +1003,17 @@ class String
     self
   end
 
-  # Whether byte `at` starts a character (or ends the text).
+  # Whether byte `at` starts a character (or ends the text). A
+  # continuation byte is inside a character only when the nearest lead
+  # byte before it, at most three back, starts a sequence that reaches it;
+  # a stray one is a character of its own.
   def char_boundary?(at)
     Primitive.attr! :hidden
-    at >= bytesize || (getbyte(at) & 0xC0) != 0x80
+    return true if at >= bytesize || (getbyte(at) & 0xC0) != 0x80
+
+    lead = at - 1
+    lead -= 1 while lead > 0 && at - lead < 3 && (getbyte(lead) & 0xC0) == 0x80
+    lead < 0 || Primitive.zr_str_char_len_at_m(self, lead) <= at - lead
   end
 
   def byteindex(needle, start = 0)
@@ -1030,8 +1039,11 @@ class String
       match = needle.send(:search, self, start, true)
       return match && match.byteoffset(0)[0]
     end
+    needle = Primitive.zr_str_operand(needle)
+    return nil unless needle.valid_encoding?
+
     i = [start, bytesize - needle.bytesize].min
-    i -= 1 while i >= 0 && byteslice_of(i, needle.bytesize) != needle
+    i -= 1 while i >= 0 && !(char_boundary?(i) && byteslice_of(i, needle.bytesize) == needle)
     i >= 0 ? i : nil
   end
 

@@ -172,7 +172,8 @@ class IO
     @closed = false
     @sync = false
     @lineno = 0
-    @buffer = +""
+    @binmode = mode.include?("b")
+    @buffer = fresh_buffer
     @eof = false
   end
 
@@ -219,7 +220,7 @@ class IO
     raise SystemCallError.new("@ rb_io_dup", -fd) if fd < 0
 
     @fd = fd
-    @buffer = +""
+    @buffer = fresh_buffer
     @closed = false
     self
   end
@@ -234,7 +235,7 @@ class IO
     raise SystemCallError.new("@ rb_io_reopen - #{label}", -result) if result < 0
 
     @path = other.path
-    @buffer = +""
+    @buffer = fresh_buffer
     @eof = false
     @lineno = 0
     self
@@ -251,9 +252,15 @@ class IO
     0
   end
 
-  def binmode = self
+  # Binary mode: what is read from here on is binary, and so is what the
+  # buffer already holds.
+  def binmode
+    @binmode = true
+    @buffer.force_encoding(Encoding::BINARY)
+    self
+  end
 
-  def binmode? = false
+  def binmode? = @binmode
 
   def fdatasync = fsync
 
@@ -428,8 +435,8 @@ class IO
     Primitive.zr_ary_len_m(objects) <= 1 ? Primitive.zr_ary_at_m(objects, 0) : objects
   end
 
-  # `read(length)`: that many bytes, fewer at the end, nil past it;
-  # without a length, everything that is left.
+  # `read(length)`: that many bytes, fewer at the end, nil past it, and
+  # always binary; without a length, everything that is left.
   def read(length = nil, buffer = nil)
     check_readable
     raise ArgumentError, "negative length #{length} given" if length && length < 0
@@ -437,12 +444,12 @@ class IO
     if length.nil?
       fill until @eof
       out = @buffer
-      @buffer = +""
+      @buffer = fresh_buffer
     else
       fill while !@eof && @buffer.bytesize < length
-      return length == 0 ? +"" : nil if @buffer.empty? && length > 0
+      return nil if @buffer.empty? && length > 0
 
-      out = take(length)
+      out = take(length).force_encoding(Encoding::BINARY)
     end
     buffer ? buffer.replace(out) : out
   end
@@ -600,7 +607,7 @@ class IO
     check_open
     whence = { set: SEEK_SET, cur: SEEK_CUR, end: SEEK_END }.fetch(whence) if whence.is_a?(Symbol)
     offset -= @buffer.bytesize if whence == SEEK_CUR
-    @buffer = +""
+    @buffer = fresh_buffer
     @eof = false
     result = Primitive.zr_io_seek(@fd, offset, whence)
     raise SystemCallError.new("@ rb_io_seek - #{label}", -result) if result < 0
@@ -713,8 +720,15 @@ class IO
 
       Thread.pass
     else
+      chunk.force_encoding(Encoding::BINARY) if @binmode
       @buffer << chunk
     end
+  end
+
+  # An empty read buffer in the stream's encoding: binary in binary mode.
+  def fresh_buffer
+    Primitive.attr! :hidden
+    @binmode ? "".b : +""
   end
 
   # gets' arguments as ruby reads them: one argument is the separator
@@ -779,11 +793,13 @@ class IO
   end
 
   # A limit that falls inside a character grows to that character's
-  # end, as ruby's does, never past what the buffer holds. (A binary
-  # stream counts bytes in ruby; this runtime has no binmode yet.)
+  # end, as ruby's does, never past what the buffer holds. A binary
+  # stream counts bytes.
   def whole_char(n)
     Primitive.attr! :hidden
     fill while !@eof && @buffer.bytesize <= n
+    return [n, @buffer.bytesize].min if @binmode
+
     n += 1 while n < @buffer.bytesize && (@buffer.getbyte(n) & 0xC0) == 0x80
     [n, @buffer.bytesize].min
   end
