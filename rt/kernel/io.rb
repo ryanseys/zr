@@ -34,6 +34,13 @@ machine def zr_errno
   Machine.word(Machine.load32(__error(), 0))
 end
 
+# errno cleared, for a call whose answer cannot say by itself that it
+# failed: only a failure of the call that follows sets it again.
+sig [] => Void
+machine def zr_clear_errno
+  Machine.store32(__error(), 0, Machine.i32(0))
+end
+
 sig [Word] => Value
 machine def zr_io_failed(r)
   r < 0 ? zr_fix(0 - zr_errno()) : zr_fix(r)

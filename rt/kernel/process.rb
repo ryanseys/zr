@@ -126,6 +126,77 @@ machine def zr_proc_ppid
   zr_fix(Machine.word(getppid()))
 end
 
+Machine.import "getpgrp", [] => I32
+Machine.import "getpgid", [I32] => I32
+Machine.import "setpgid", [I32, I32] => I32
+Machine.import "getsid", [I32] => I32
+Machine.import "setsid", [] => I32
+Machine.import "getgroups", [I32, Ptr] => I32
+Machine.import "getpriority", [I32, I32] => I32
+Machine.import "setpriority", [I32, I32, I32] => I32
+
+# `getpriority`: the niceness, and the errno beside it. A niceness of
+# -1 is a real answer, so errno is cleared first and only a failure of
+# this call sets it.
+sig [Value, Value] => Value
+machine def zr_proc_getpriority(which, who)
+  zr_clear_errno()
+  r = Machine.word(getpriority(Machine.i32(zr_fix2long(which)), Machine.i32(zr_fix2long(who))))
+  out = zr_ary_new(2)
+  zr_ary_push(out, zr_fix(r))
+  zr_ary_push(out, zr_fix(zr_errno()))
+  out
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_proc_setpriority(which, who, priority)
+  zr_io_status(setpriority(Machine.i32(zr_fix2long(which)), Machine.i32(zr_fix2long(who)), Machine.i32(zr_fix2long(priority))))
+end
+
+# The process group, the session and the groups: each answers its id,
+# or the errno as a negative where the call fails.
+sig [] => Value
+machine def zr_proc_getpgrp
+  zr_io_failed(Machine.word(getpgrp()))
+end
+
+sig [Value] => Value
+machine def zr_proc_getpgid(pid)
+  zr_io_failed(Machine.word(getpgid(Machine.i32(zr_fix2long(pid)))))
+end
+
+sig [Value, Value] => Value
+machine def zr_proc_setpgid(pid, pgrp)
+  zr_io_status(setpgid(Machine.i32(zr_fix2long(pid)), Machine.i32(zr_fix2long(pgrp))))
+end
+
+sig [Value] => Value
+machine def zr_proc_getsid(pid)
+  zr_io_failed(Machine.word(getsid(Machine.i32(zr_fix2long(pid)))))
+end
+
+sig [] => Value
+machine def zr_proc_setsid
+  zr_io_failed(Machine.word(setsid()))
+end
+
+# The supplementary groups, as an Array of ids.
+sig [] => Value
+machine def zr_proc_groups
+  list = Machine.slot(256)
+  n = Machine.word(getgroups(Machine.i32(64), list))
+  if n < 0
+    return zr_fix(0 - zr_errno())
+  end
+  out = zr_ary_new(n)
+  i = 0
+  while i < n
+    zr_ary_push(out, zr_fix(Machine.word(Machine.load32(list + (i * 4), 0))))
+    i += 1
+  end
+  out
+end
+
 sig [Value, Value] => Value
 machine def zr_proc_kill(pid, signal)
   zr_io_status(kill(Machine.i32(zr_fix2long(pid)), Machine.i32(zr_fix2long(signal))))

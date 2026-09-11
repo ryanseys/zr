@@ -602,6 +602,7 @@ module Ze0
         d zr_int_float_spaceship Value recv:Value other:Value
         d zr_float_check_p Value v:Value
         d zr_errno Word
+        d zr_clear_errno Void
         d zr_io_failed Value r:Word
         d zr_io_status Value r:I32
         d zr_io_open_flags Value path:Value flags:Value
@@ -869,6 +870,14 @@ module Ze0
         d zr_io_pipe Value
         d zr_proc_rusage Value who:Value
         d zr_proc_ppid Value
+        d zr_proc_getpriority Value which:Value who:Value
+        d zr_proc_setpriority Value which:Value who:Value priority:Value
+        d zr_proc_getpgrp Value
+        d zr_proc_getpgid Value pid:Value
+        d zr_proc_setpgid Value pid:Value pgrp:Value
+        d zr_proc_getsid Value pid:Value
+        d zr_proc_setsid Value
+        d zr_proc_groups Value
         d zr_proc_kill Value pid:Value signal:Value
         d zr_guard_enter Bool obj:Value mid:Word
         d zr_guard_enter_paired Bool obj:Value other:Value mid:Word

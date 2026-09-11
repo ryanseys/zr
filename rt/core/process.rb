@@ -12,6 +12,20 @@ module Process
   WNOHANG = 1
   WUNTRACED = 2
 
+  # Who a priority is asked about: a process, a process group, a user.
+  PRIO_PROCESS = 0
+  PRIO_PGRP = 1
+  PRIO_USER = 2
+
+  # An answer from the kernel, or the errno it carries instead.
+  def self.checked(result)
+    Primitive.attr! :hidden
+    raise SystemCallError.new(nil, -result) if result.is_a?(Integer) && result < 0
+
+    result
+  end
+  private_class_method :checked
+
   # What waitpid answered for a child.
   class Status
     attr_reader :pid, :to_i
@@ -161,6 +175,38 @@ module Process
 
   def ppid = Primitive.zr_proc_ppid
 
+  # The process group and the session. Each call answers an id, and a
+  # failure arrives as its errno.
+  def getpgrp = Process.send(:checked, Primitive.zr_proc_getpgrp)
+
+  def getpgid(pid) = Process.send(:checked, Primitive.zr_proc_getpgid(Integer.send(:int_operand, pid)))
+
+  def setpgid(pid, pgrp)
+    Process.send(:checked, Primitive.zr_proc_setpgid(Integer.send(:int_operand, pid), Integer.send(:int_operand, pgrp)))
+  end
+
+  def getsid(pid = 0) = Process.send(:checked, Primitive.zr_proc_getsid(Integer.send(:int_operand, pid)))
+
+  def setsid = Process.send(:checked, Primitive.zr_proc_setsid)
+
+  def groups = Process.send(:checked, Primitive.zr_proc_groups)
+
+  # The most groups this platform carries, as getgroups counts them.
+  def maxgroups = 16
+
+  # A niceness is a number that can be negative, so the errno beside
+  # it, and not the answer, says whether the call failed.
+  def getpriority(which, who)
+    value, errno = Primitive.zr_proc_getpriority(Integer.send(:int_operand, which), Integer.send(:int_operand, who))
+    raise SystemCallError.new(nil, errno) if value == -1 && errno != 0
+
+    value
+  end
+
+  def setpriority(which, who, priority)
+    Process.send(:checked, Primitive.zr_proc_setpriority(Integer.send(:int_operand, which), Integer.send(:int_operand, who), Integer.send(:int_operand, priority)))
+  end
+
   Tms = Struct.new(:utime, :stime, :cutime, :cstime)
 
   # This process's times, then its waited-for children's.
@@ -179,7 +225,8 @@ module Process
 
   def daemon(*) = Primitive.zr_unimplemented("Process.daemon")
 
-  module_function :wait, :waitpid, :wait2, :waitpid2, :ppid, :times, :kill, :daemon
+  module_function :wait, :waitpid, :wait2, :waitpid2, :ppid, :times, :kill, :daemon, :getpgrp, :getpgid,
+                  :setpgid, :getsid, :setsid, :groups, :maxgroups, :getpriority, :setpriority
 
   def self.exit(status = true) = Kernel.exit(status)
 

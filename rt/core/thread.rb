@@ -534,6 +534,28 @@ class Thread
   send(:boot)
 end
 
+# What `Process.detach` answers: a thread of its own that waits for
+# the child, so no zombie stays behind. Both stand here, where Thread
+# exists; CRuby leaves the class with no `new` of its own.
+class Process::Waiter < Thread
+  attr_reader :pid
+
+  class << self
+    undef_method :new
+  end
+end
+
+module Process
+  def self.detach(pid)
+    pid = Integer.send(:int_operand, pid)
+    waiter = Primitive.zr_class_build(Waiter)
+    waiter.instance_variable_set(:@pid, pid)
+    waiter.send(:initialize) { Process.wait2(pid)&.last }
+    waiter.send(:start, nil)
+    waiter
+  end
+end
+
 # Every thread is in one group; a group lists the threads of its own
 # that still live, and an enclosed group takes no more.
 class ThreadGroup
