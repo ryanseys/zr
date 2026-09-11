@@ -134,8 +134,6 @@ module Ze0
           argc
         end
 
-        # A bare identifier, an implicit or `self` receiver, or an explicit
-        # one, which visibility applies to.
         # `using mod` fills the row it names, so every send under it
         # reads what this module refines.
         def using_row(node)
@@ -155,21 +153,32 @@ module Ze0
           end
         end
 
+        # The mode `zr_dispatch` takes: 0 for an implicit or `self`
+        # receiver, 1 for a bare identifier, 2 for an explicit receiver,
+        # which visibility applies to.
+        def send_mode(node)
+          return 1 if node.vcall
+
+          explicit?(node) ? 2 : 0
+        end
+
         def dispatch(node, recv, argv, argc)
-          entry = if node.vcall then "zr_vcall"
-                  elsif node.opt && node.using.nil? then OPT_ENTRIES.fetch(node.name)
-                  elsif explicit?(node) then "zr_call"
-                  else "zr_send"
-                  end
           at_line(node.line)
           argc = keyword_argc(node, argc, argv)
           activate(node)
-          if node.name == :new
-            mode = node.vcall ? 1 : (explicit?(node) ? 2 : 0)
-            return checked(kernel("zr_new", recv, argc, argv, imm(mode)))
+          if node.opt && node.using.nil?
+            checked(kernel(OPT_ENTRIES.fetch(node.name), recv, imm(sym_id(node.name)), argc, argv))
+          elsif node.name == :new
+            checked(kernel("zr_new_cached", cache("ic", "CallCache", 2), recv, argc, argv, imm(send_mode(node))))
+          else
+            checked(cached_send(node, recv, argc, argv, @qnil))
           end
+        end
 
-          checked(kernel(entry, recv, imm(sym_id(node.name)), argc, argv))
+        # A send through the site's own cell (rt/kernel/cache.rb), which
+        # keeps the method the receiver's class answered there last.
+        def cached_send(node, recv, argc, argv, blk)
+          kernel("zr_send_cached", cache("ic", "CallCache"), recv, imm(sym_id(node.name)), argc, argv, blk, imm(send_mode(node)))
         end
 
         # The send with a block: a Proc for a block literal, with the
@@ -180,14 +189,14 @@ module Ze0
             at_line(node.line)
             argc = keyword_argc(node, argc, argv)
             activate(node)
-            return checked(kernel(explicit?(node) ? "zr_call_blk" : "zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc))
+            return checked(cached_send(node, recv, argc, argv, proc))
           end
 
           site, proc = make_proc(node.block, slot)
           at_line(node.line)
           argc = keyword_argc(node, argc, argv)
           activate(node)
-          catching_break(site) { kernel(explicit?(node) ? "zr_call_blk" : "zr_send_blk", recv, imm(sym_id(node.name)), argc, argv, proc) }
+          catching_break(site) { cached_send(node, recv, argc, argv, proc) }
         end
 
         # A Proc for the block literal, kept in the record slot `slot`,

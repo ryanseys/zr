@@ -19,7 +19,7 @@ machine def zr_ivtab(v)
   if zr_special_p(v)
     return 0
   end
-  t = zr_type(v)
+  t = RBasic.flags(v) & T_MASK
   if t == T_OBJECT
     RObject.iv(v)
   elsif t == T_CLASS || t == T_MODULE
@@ -336,9 +336,10 @@ machine def zr_class_allocate_m(recv, argc, argv, cref, blk)
   zr_class_allocate(recv)
 end
 
-# `Class#new`: allocate, then `initialize` with the arguments.
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_class_new_instance(recv, argc, argv, cref, blk)
+# The object `Class#new` makes before `initialize` runs, or a
+# NoMethodError for a class whose allocator is undefined.
+sig [Value] => Value
+machine def zr_class_new_object(recv)
   if zr_alloc_kind(recv) == ALLOC_UNDEF
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -346,7 +347,13 @@ machine def zr_class_new_instance(recv, argc, argv, cref, blk)
     zr_buf_class(b, recv)
     return zr_raise_buf(zr_global(G_NO_METHOD_ERROR), b)
   end
-  o = zr_class_allocate(recv)
+  zr_class_allocate(recv)
+end
+
+# `Class#new`: allocate, then `initialize` with the arguments.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_class_new_instance(recv, argc, argv, cref, blk)
+  o = zr_class_new_object(recv)
   return o if o == QUNDEF
   r = zr_send_blk(o, Machine.id(:initialize), argc, argv, blk)
   return r if r == QUNDEF
@@ -434,7 +441,7 @@ machine def zr_obj_public_send(recv, argc, argv, cref, blk)
   if blk != QNIL
     RProc.set_passed(blk, 1)
   end
-  zr_dispatch(recv, Machine.load64(slot, 0), argc - 1, argv + 8, 3, blk)
+  zr_dispatch(0, recv, Machine.load64(slot, 0), argc - 1, argv + 8, 3, blk)
 end
 
 # `Object#===`: `==`.

@@ -41,7 +41,7 @@ module Ze0
           when Hir::RegexpLit
             checked(kernel("zr_regexp_literal", imm(@l.regexp_index), @f.symbol_value(@f.symbol(@l.literal(node.source))), imm(node.source.bytesize), imm(node.options),
                            imm(node.pinned ? ENCODING_INDEX.fetch(node.pinned) : -1)))
-          when Hir::IvarRead then kernel("zr_ivar_get", @self, imm(sym_id(node.name)))
+          when Hir::IvarRead then kernel("zr_ivar_get_cached", @self, imm(sym_id(node.name)), cache("iv", "IvarCache"))
           when Hir::FrozenString then checked(string_literal(node.value, "zr_str_literal_freeze"))
           when Hir::GvarRead then gvar_read(node)
           when Hir::GvarWrite then gvar_write(node.name, expr(node.value))

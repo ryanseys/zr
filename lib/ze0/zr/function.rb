@@ -293,6 +293,12 @@ module Ze0
         @f.symbol_addr(@f.symbol("zr_static_#{name}"))
       end
 
+      # The address of a fresh cell for one site's cache: `count` of the
+      # kernel's `layout` (rt/kernel/cache.rb).
+      def cache(prefix, layout, count = 1)
+        @f.symbol_value(@f.symbol(@l.cache_cell(prefix, @l.layout(layout).size * count)))
+      end
+
       # The Env `depth` scopes up: this scope's own, or the Proc's chain.
       def env_at(depth)
         if @has_env

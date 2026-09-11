@@ -79,9 +79,9 @@ module Ze0
           id = imm(sym_id(node.name))
           at_line(node.line)
           if node.scope.nil?
-            checked(kernel("zr_const_get", @cref, id))
+            checked(kernel("zr_const_get_cached", cache("cc", "ConstCache"), @cref, id))
           else
-            checked(kernel("zr_const_get_at", scope_class(node.scope), id))
+            checked(kernel("zr_const_get_at_cached", cache("cc", "ConstCache"), scope_class(node.scope), id))
           end
         end
 

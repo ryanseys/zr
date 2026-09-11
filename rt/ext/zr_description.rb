@@ -86,6 +86,19 @@ module Ze0
         d zr_buf_sym Void b:Ptr id:Word
         d zr_buf_str Void b:Ptr s:Value
         d zr_buf_take Value b:Ptr
+        d zr_consts_changed Void
+        d zr_call_cache_hit Ptr cc:Ptr recv:Value mid:Word
+        d zr_call_cache_fill Void cc:Ptr klass:Value e:Ptr mode:Word
+        d zr_send_cached Value cc:Ptr recv:Value mid:Word argc:Word argv:Ptr blk:Value mode:Word
+        d zr_new_cached Value cc:Ptr recv:Value argc:Word argv:Ptr mode:Word
+        d zr_const_cacheable Bool e:Ptr
+        d zr_const_cache_fill Void cc:Ptr key:Value stamp:Word v:Value
+        d zr_const_cache_verify Void cc:Ptr e:Ptr
+        d zr_const_get_cached Value cc:Ptr cref:Value id:Word
+        d zr_const_get_at_cached Value cc:Ptr scope:Value id:Word
+        d zr_ivar_get_cached Value obj:Value id:Word ic:Ptr
+        d zr_ivar_set_cached Value obj:Value id:Word v:Value ic:Ptr
+        d zr_ivtab_guess Ptr t:Ptr id:Word ic:Ptr
         d zr_class_alloc Value type:Word sup:Value klass:Value
         d zr_check_inheritable Value sup:Value
         d zr_class_boot Value sup:Value
@@ -175,6 +188,11 @@ module Ze0
         d zr_cref_push_eval Value klass:Value outer:Value
         d zr_cref_lexical Value cref:Value
         d zr_cref_lexical_class Value cref:Value
+        d zr_const_index_drop Void ext:Ptr
+        d zr_const_index_put Void ext:Ptr row:Word
+        d zr_const_index_build Void ext:Ptr
+        d zr_const_index_add Void ext:Ptr row:Word
+        d zr_const_index_find Word ext:Ptr id:Word
         d zr_const_row Ptr klass:Value id:Word
         d zr_const_set Value klass:Value id:Word v:Value
         d zr_warn_reassigned_constant Void klass:Value id:Word e:Ptr
@@ -686,6 +704,7 @@ module Ze0
         d zr_class_allocate Value recv:Value
         d zr_alloc_kind Word klass:Value
         d zr_class_allocate_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_class_new_object Value recv:Value
         d zr_class_new_instance Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_class Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -897,7 +916,7 @@ module Ze0
         d zr_hidden_method Value recv:Value mid:Word vis:Word argc:Word argv:Ptr
         d zr_buf_receiver Value b:Ptr recv:Value
         d zr_visibility_refused Word e:Ptr mode:Word
-        d zr_dispatch Value recv:Value mid:Word argc:Word argv:Ptr mode:Word blk:Value
+        d zr_dispatch Value cc:Ptr recv:Value mid:Word argc:Word argv:Ptr mode:Word blk:Value
         d zr_super Value rec:Ptr argc:Word argv:Ptr blk:Value
         d zr_frame_defined Value rec:Ptr
         d zr_bmethod_entry Ptr rec:Ptr
@@ -909,14 +928,13 @@ module Ze0
         d zr_wrong_arity_in Value given:Word expected:Word e:Ptr recv:Value
         d zr_send Value recv:Value mid:Word argc:Word argv:Ptr
         d zr_call Value recv:Value mid:Word argc:Word argv:Ptr
-        d zr_call_blk Value recv:Value mid:Word argc:Word argv:Ptr blk:Value
         d zr_send_blk Value recv:Value mid:Word argc:Word argv:Ptr blk:Value
-        d zr_new Value recv:Value argc:Word argv:Ptr mode:Word
-        d zr_vcall Value recv:Value mid:Word argc:Word argv:Ptr
         d zr_ruby2_hash_new Value h:Value
         d zr_ruby2_hash_p Value h:Value
         d zr_preempt_arm Value receiver:Value message:Value
+        d zr_threaded Value
         d zr_preempt Value
+        d zr_preempt_expired Value
         d zr_preempt_send Value mid:Word
         d zr_sock_socket Value domain:Value type:Value protocol:Value
         d zr_sock_bind Value fd:Value addr:Value
@@ -959,6 +977,7 @@ module Ze0
         d zr_uniform_quicksort Void base:Ptr a:Word stop:Word d:Word
         d zr_uniform_sort Void base:Ptr n:Word
         d zr_sort_by Value pairs:Value
+        d zr_str_modified Void s:Value
         d zr_str_new Value bytes:Ptr len:Word
         d zr_str_initialize_m Value recv:Value src:Value
         d zr_str_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1032,6 +1051,11 @@ module Ze0
         d zr_str_setbyte Value s:Value i:Value byte:Value
         d zr_str_from_byte Value byte:Value
         d zr_str_find_from Value s:Value needle:Value start:Value
+        d zr_str_shift_front Value s:Value n:Value
+        d zr_space_byte_p Bool c:Word nul:Value
+        d zr_str_space_end Value s:Value from:Value nul:Value
+        d zr_str_word_end Value s:Value from:Value
+        d zr_str_space_start Value s:Value to:Value nul:Value
         d zr_str_push_byte Value recv:Value byte:Value
         d zr_str_bytes_address Value s:Value
         d zr_symtab Ptr
@@ -1100,6 +1124,7 @@ module Ze0
         c VIS_PRIVATE 1
         c VIS_PROTECTED 2
         c G_TOP_CREF 24
+        c CONST_INDEX_MIN 16
         c G_AUTOLOADS 38
         c G_ARGV 36
         c G_AT_EXIT 37
@@ -1228,6 +1253,8 @@ module Ze0
         c MISS_PROTECTED 5
         c PREEMPT_TICKS 20000
         c SOCKADDR_MAX 128
+        c FL_ASCII 2097152
+        c FL_ASCII_CLEAR -2097153
         c G_FROZEN_ERROR 27
         c GATE_FREEZE 32768
         c G_FSTRINGS 44
@@ -1269,8 +1296,11 @@ module Ze0
         c G_FINALIZERS 45
         s RArray 48 8 basic:0:RBasic len:16:Word capa:24:Word ptr:32:Ptr base:40:Ptr
         s Buf 24 8 ptr:0:Ptr len:8:Word capa:16:Word
+        s IvarCache 8 8 index:0:Word
+        s CallCache 40 8 klass:0:Value stamp:8:Word entry:16:Ptr found:24:Value ivar:32:IvarCache
+        s ConstCache 24 8 key:0:Value stamp:8:Word value:16:Value
         s RClass 56 8 basic:0:RBasic name:16:Value superclass:24:Value ext:32:Ptr attached:40:Value origin:48:Value
-        s ClassExt 144 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word refined:104:Value active:112:Value boxed:120:Value shadow:128:Value alloc:136:Word
+        s ClassExt 160 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word refined:104:Value active:112:Value boxed:120:Value shadow:128:Value alloc:136:Word cidx:144:Ptr cbins:152:Word
         s MEntry 72 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value
         s CEntry 64 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value
         s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word

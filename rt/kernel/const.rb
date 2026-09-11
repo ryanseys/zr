@@ -194,6 +194,7 @@ machine def zr_const_set(klass, id, v)
     zr_warn_reassigned_constant(klass, id, e)
   end
   CEntry.set_value(e, v)
+  zr_consts_changed()
   if !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) && (RClass.name(v) == QNIL || (RBasic.flags(v) & FL_TEMP_NAME) != 0)
     RBasic.set_flags(v, RBasic.flags(v) & (0 - (FL_TEMP_NAME + 1)))
     RClass.set_name(v, zr_class_name_under(klass, id))
@@ -451,6 +452,7 @@ machine def zr_mod_constant_visibility(recv, argc, argv, private)
     else
       CEntry.set_private(e, private)
     end
+    zr_consts_changed()
     i += 1
   end
   recv
@@ -819,6 +821,7 @@ machine def zr_const_remove(klass, id)
       ClassExt.set_clen(ext, n - 1)
       # The rows after it moved up one.
       zr_const_index_drop(ext)
+      zr_consts_changed()
       return
     end
     i += 1

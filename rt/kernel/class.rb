@@ -1142,7 +1142,8 @@ Machine.struct :MCache, klass: Value, mid: Word, entry: Ptr, found: Value, stamp
 MCACHE_ROWS = 2048
 # `ZR_MCACHE=0` answers every send from the walk, and `ZR_MCACHE=verify`
 # takes both answers and stops on a disagreement, which is what says no
-# change to a method table or a chain moves the stamp too late.
+# change to a method table or a chain moves the stamp too late. Both
+# govern the call-site cells too (cache.rb).
 MCACHE_OFF = 1
 MCACHE_VERIFY = 2
 
@@ -1162,11 +1163,13 @@ end
 # A definition, an alias, an undef, a visibility change, a module
 # spliced into a chain, a class whose superclass is set -- and a
 # collection, since a swept class can hand its address to a new one and
-# a row names classes by address.
+# a row names classes by address. A constant lookup walks the same
+# chains, so the constant stamp moves too.
 sig [] => Void
 machine def zr_methods_changed
   s = Machine.static(:mcache_stamp, 8)
   Machine.store64(s, 0, Machine.load64(s, 0) + 1)
+  zr_consts_changed()
 end
 
 # The entry for `mid` on `klass` or an ancestor, or 0; an undef on the
@@ -1342,6 +1345,10 @@ machine def zr_release(v)
     # A freed class's address can come back as another class: a method
     # cache row keyed on it must not answer for the newcomer.
     zr_methods_changed()
+  end
+  if t == T_CREF
+    # So can a cref's, and a constant cell keys on one.
+    zr_consts_changed()
   end
   if t == T_ICLASS
     if RClass.origin(RClass.attached(v)) == v

@@ -284,17 +284,23 @@ end
 # `argv` points at `argc` Values the caller keeps rooted. `mode` is 0
 # for an implicit or self receiver, 1 for a bare identifier, 2 for an
 # explicit receiver. A builtin runs under a frame pushed here, so a
-# backtrace names it; a compiled method pushes its own.
-sig [Value, Word, Word, Ptr, Word, Value] => Value
-machine def zr_dispatch(recv, mid, argc, argv, mode, blk)
+# backtrace names it; a compiled method pushes its own. `cc` is the
+# send site's cell (cache.rb), which takes the answer, or 0 for a send
+# that has none.
+sig [Ptr, Value, Word, Word, Ptr, Word, Value] => Value
+machine def zr_dispatch(cc, recv, mid, argc, argv, mode, blk)
   kw = zr_kw_take()
-  e = zr_find_method(zr_box_view(zr_class_of(recv)), mid)
+  klass = zr_box_view(zr_class_of(recv))
+  e = zr_find_method(klass, mid)
   if e == 0
     return zr_method_missing(recv, mid, argc, argv, blk, kw, mode == 1 ? MISS_VCALL : (mode == 0 ? MISS_IMPLICIT : MISS_EXPLICIT))
   end
   vis = zr_visibility_refused(e, mode)
   if vis != 0
     return zr_method_missing(recv, mid, argc, argv, blk, kw, vis == VIS_PRIVATE ? MISS_PRIVATE : MISS_PROTECTED)
+  end
+  if cc != 0
+    zr_call_cache_fill(cc, klass, e, mode)
   end
   zr_invoke(e, recv, argc, argv, blk, kw)
 end
@@ -511,44 +517,22 @@ machine def zr_wrong_arity_in(given, expected, e, recv)
   r
 end
 
+# The kernel's own sends, which have no site and so no cell. Compiled
+# Ruby sends through `zr_send_cached` (cache.rb).
 sig [Value, Word, Word, Ptr] => Value
 machine def zr_send(recv, mid, argc, argv)
-  zr_dispatch(recv, mid, argc, argv, 0, Machine.value(QNIL))
+  zr_dispatch(0, recv, mid, argc, argv, 0, Machine.value(QNIL))
 end
 
 # A send with an explicit receiver: visibility applies.
 sig [Value, Word, Word, Ptr] => Value
 machine def zr_call(recv, mid, argc, argv)
-  zr_dispatch(recv, mid, argc, argv, 2, Machine.value(QNIL))
-end
-
-sig [Value, Word, Word, Ptr, Value] => Value
-machine def zr_call_blk(recv, mid, argc, argv, blk)
-  zr_dispatch(recv, mid, argc, argv, 2, blk)
+  zr_dispatch(0, recv, mid, argc, argv, 2, Machine.value(QNIL))
 end
 
 sig [Value, Word, Word, Ptr, Value] => Value
 machine def zr_send_blk(recv, mid, argc, argv, blk)
-  zr_dispatch(recv, mid, argc, argv, 0, blk)
-end
-
-# A `new` call with no block, CRuby's `opt_new`: the builtin `Class#new`
-# reached as a public method runs with no frame of its own, so a
-# backtrace goes from `initialize` straight to the caller. Any other
-# `new` is an ordinary send with `mode`.
-sig [Value, Word, Ptr, Word] => Value
-machine def zr_new(recv, argc, argv, mode)
-  e = zr_find_method(zr_box_view(zr_class_of(recv)), Machine.id(:new))
-  if e != 0 && MEntry.fn(e) == Machine.addr(:zr_class_new_instance) && MEntry.vis(e) == VIS_PUBLIC
-    return zr_class_new_instance(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
-  end
-  zr_dispatch(recv, Machine.id(:new), argc, argv, mode, Machine.value(QNIL))
-end
-
-# A bare identifier: the same dispatch, a NameError on a miss.
-sig [Value, Word, Word, Ptr] => Value
-machine def zr_vcall(recv, mid, argc, argv)
-  zr_dispatch(recv, mid, argc, argv, 1, Machine.value(QNIL))
+  zr_dispatch(0, recv, mid, argc, argv, 0, blk)
 end
 
 # `Hash.ruby2_keywords_hash`: a copy carrying the flag, and the test

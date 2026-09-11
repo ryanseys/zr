@@ -128,6 +128,15 @@ module Ze0
       # Each regexp literal site's slot in the runtime's table of them.
       def regexp_index = @symbols.site
 
+      # A zeroed cell of `bytes` for one site's cache (rt/kernel/cache.rb),
+      # named from the site count so no two lowerings that share a symbol
+      # table name the same cell.
+      def cache_cell(prefix, bytes)
+        name = "zr_#{prefix}_#{@symbols.site}"
+        @data << Obj::Data.new(name, :bss, bytes, align: 8)
+        name
+      end
+
       # The FrameMeta of function `fn`: writable, since the runtime fills
       # in the owner and name at definition. A class body's name is the
       # class's, set here; a def or block carries its arity and its

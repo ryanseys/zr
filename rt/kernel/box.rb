@@ -58,7 +58,8 @@ machine def zr_box_compiled(meta)
 end
 
 # Every function of a box's own unit names the box, so its reach is
-# the code the box holds and nothing else.
+# the code the box holds and nothing else. A constant cell filled while
+# that code was nobody's stands no longer.
 sig [Value, Value] => Value
 machine def zr_box_stamp(metas, b)
   i = 0
@@ -66,6 +67,7 @@ machine def zr_box_stamp(metas, b)
     FrameMeta.set_box(Machine.ptr(zr_fix2long(zr_ary_at(metas, i))), b)
     i += 1
   end
+  zr_consts_changed()
   Machine.value(QNIL)
 end
 
