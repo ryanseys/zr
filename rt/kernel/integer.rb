@@ -212,8 +212,14 @@ machine def zr_num_coerce(recv, other, mid, kind)
       if zr_special_p(pair) || zr_type(pair) != T_ARRAY || RArray.len(pair) != 2
         return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("coerce must return [x, y]"), 25)
       end
-      Machine.store64(slot, 0, Machine.word(zr_ary_at(pair, 1)))
-      return zr_send(zr_ary_at(pair, 0), mid, 1, slot)
+      first = zr_ary_at(pair, 0)
+      second = zr_ary_at(pair, 1)
+      # A bit operator (`kind` 4) takes Integers alone, as CRuby's
+      # bit_coerce checks: anything else fails as the operand does.
+      if kind != 4 || ((zr_fixnum_p(first) || zr_big_p(first)) && (zr_fixnum_p(second) || zr_big_p(second)))
+        Machine.store64(slot, 0, Machine.word(second))
+        return zr_send(first, mid, 1, slot)
+      end
     end
   end
   if kind == 2
@@ -226,7 +232,9 @@ machine def zr_num_coerce(recv, other, mid, kind)
     zr_buf_class_of(b, recv)
     zr_buf_push(b, Machine.bytes(" with "), 6)
   end
-  if zr_special_p(other)
+  # A Float shows by inspect, heap or not, as CRuby's coerce_failed
+  # and rb_cmperr name it; anything else by its class.
+  if zr_special_p(other) || zr_float_p(other)
     s = zr_inspect(other)
     return s if s == QUNDEF
     zr_buf_str(b, s)
@@ -366,7 +374,7 @@ machine def zr_int_and(recv, argc, argv, cref, blk)
     return zr_big_route(recv, Machine.id(:&), argc, argv)
   end
   out = Machine.slot(8)
-  r = zr_int_operand(recv, argv, out, Machine.id(:&), 0)
+  r = zr_int_operand(recv, argv, out, Machine.id(:&), 4)
   return r if r != QNIL
   zr_fix(zr_fix2long(recv) & Machine.load64(out, 0))
 end
@@ -377,7 +385,7 @@ machine def zr_int_or(recv, argc, argv, cref, blk)
     return zr_big_route(recv, Machine.id(:|), argc, argv)
   end
   out = Machine.slot(8)
-  r = zr_int_operand(recv, argv, out, Machine.id(:|), 0)
+  r = zr_int_operand(recv, argv, out, Machine.id(:|), 4)
   return r if r != QNIL
   zr_fix(zr_fix2long(recv) | Machine.load64(out, 0))
 end
@@ -388,7 +396,7 @@ machine def zr_int_xor(recv, argc, argv, cref, blk)
     return zr_big_route(recv, Machine.id(:^), argc, argv)
   end
   out = Machine.slot(8)
-  r = zr_int_operand(recv, argv, out, Machine.id(:^), 0)
+  r = zr_int_operand(recv, argv, out, Machine.id(:^), 4)
   return r if r != QNIL
   zr_fix(zr_fix2long(recv) ^ Machine.load64(out, 0))
 end

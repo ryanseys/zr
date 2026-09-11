@@ -167,11 +167,8 @@ machine def zr_obj_object_id(recv, argc, argv, cref, blk)
     return zr_fix(0)
   end
   if zr_special_p(recv)
-    w = Machine.word(recv)
-    if w >= 2305843009213693952 || w < -2305843009213693952
-      zr_bug(Machine.bytes("object_id of this flonum is not implemented yet\n"), 48)
-    end
-    return zr_fix(w)
+    # The word itself, past the fixnum range too, as CRuby answers it.
+    return zr_int_from_word(Machine.word(recv))
   end
   t = zr_ivtab_for_write(recv)
   id = zr_ivtab_get(t, Machine.id(:__object_id__))

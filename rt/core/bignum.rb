@@ -547,6 +547,10 @@ class Integer
   private
 
   def big_binary(op, other)
+    # A shift count converts as CRuby's rb_to_int does: a Float or a
+    # Rational truncates.
+    return big_with_integer(op, implicit_integer(other)) if (op == :<< || op == :>>) && !other.is_a?(Integer)
+
     case other
     when Integer then big_with_integer(op, other)
     when Float
@@ -562,10 +566,13 @@ class Integer
         return false if c.nil?
 
         op == :< ? c < 0 : (op == :<= ? c <= 0 : (op == :> ? c > 0 : c >= 0))
+      # A bit operator coerces, then takes Integers alone, as CRuby's
+      # bit_coerce does.
+      when :&, :|, :^ then Primitive.zr_num_coerce_m(self, other, op, 4)
       else raise TypeError, "no implicit conversion from Float"
       end
     else
-      kind = %i[< <= > >=].include?(op) ? 1 : 0
+      kind = %i[< <= > >=].include?(op) ? 1 : (%i[& | ^].include?(op) ? 4 : 0)
       Primitive.zr_num_coerce_m(self, other, op, kind)
     end
   end

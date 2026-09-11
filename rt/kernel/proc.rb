@@ -457,19 +457,44 @@ machine def zr_int_bound(recv, argv, out, dir)
     Machine.store64(out, 0, Machine.to_int(d))
     return Machine.value(QNIL)
   end
-  if !zr_fixnum_p(other) && !zr_big_p(other)
+  if zr_big_p(other)
+    # A Bignum bound lies past every fixnum: the walk runs to the end of
+    # the fixnum range, or not at all.
+    beyond = zr_send(other, Machine.id(:negative?), 0, 0)
+    return beyond if beyond == QUNDEF
+    toward = beyond == QTRUE ? 0 - 1 : 1
+    if toward == dir
+      Machine.store64(out, 0, dir > 0 ? 4611686018427387903 : 0 - 4611686018427387904)
+    else
+      Machine.store64(out, 0, zr_fix2long(recv) - dir)
+    end
+    return Machine.value(QNIL)
+  end
+  if !zr_fixnum_p(other)
     return zr_cmperr(recv, other)
   end
   zr_int_operand(recv, argv, out, 0, 3)
 end
 
-# The size of `upto` or `downto` between two fixnums, else nil.
+# The size of `upto` or `downto`: the steps to the bound, exactly for a
+# Bignum, 0 on the wrong side; nil for a bound that is no number.
 sig [Value, Word, Ptr, Word] => Value
 machine def zr_int_step_size(recv, argc, argv, dir)
   if argc != 1
     return Machine.value(QNIL)
   end
   other = Machine.value(Machine.load64(argv, 0))
+  if zr_big_p(other)
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(dir > 0 ? recv : other))
+    span = zr_send(dir > 0 ? other : recv, Machine.id(:-), 1, slot)
+    return span if span == QUNDEF
+    if zr_send(span, Machine.id(:negative?), 0, 0) == QTRUE
+      return zr_fix(0)
+    end
+    Machine.store64(slot, 0, Machine.word(zr_fix(1)))
+    return zr_send(span, Machine.id(:+), 1, slot)
+  end
   if !zr_fixnum_p(other) && !zr_float_p(other)
     return Machine.value(QNIL)
   end
