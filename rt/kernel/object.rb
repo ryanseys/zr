@@ -230,6 +230,30 @@ end
 # A Range is a plain frozen object of class Range with three ivars;
 # its methods are the core library's.
 G_RANGE = 12
+G_RANGE_LITERALS = 51
+
+# A range literal whose ends are Integer or nil literals: made the
+# first time its site runs, then the same frozen object, as CRuby's
+# putobject gives, held in the literal table by the site's index.
+sig [Word, Value, Value, Word] => Value
+machine def zr_range_literal(index, low, high, excl)
+  table = zr_global(G_RANGE_LITERALS)
+  if zr_special_p(table)
+    table = zr_ary_new(8)
+    zr_set_global(G_RANGE_LITERALS, table)
+  end
+  while RArray.len(table) <= index
+    zr_ary_push(table, Machine.value(QNIL))
+  end
+  r = zr_ary_at(table, index)
+  if r != QNIL
+    return r
+  end
+  r = zr_range_new(low, high, excl)
+  return r if r == QUNDEF
+  zr_ary_store(table, index, r)
+  r
+end
 
 sig [Value, Value, Word] => Value
 machine def zr_range_new(low, high, excl)

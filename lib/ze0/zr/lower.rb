@@ -122,8 +122,9 @@ module Ze0
         name
       end
 
-      # Each regexp literal site's slot in the runtime's table of them.
-      def regexp_index = @symbols.site
+      # Each regexp or range literal site's slot in the runtime's table
+      # of them.
+      def literal_index = @symbols.site
 
       # A zeroed cell of `bytes` for one site's cache (rt/kernel/cache.rb),
       # named from the site count so no two lowerings that share a symbol

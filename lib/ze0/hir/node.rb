@@ -6,6 +6,10 @@ module Ze0
   # per kind; `line` is where the node starts; `locals` lists every local
   # of a scope, parameters first.
   module Hir
+    # The slot of a block's implicit `it`. No program can spell it, so
+    # `parameters` and `local_variables` leave it out, as CRuby does.
+    IT = :"%it"
+
     # `units` are the files a require or load reaches, each a toplevel
     # of its own, in the order they were first named. `warnings` are the
     # parse-time warnings ruby prints for the file, printed when it runs.
@@ -102,9 +106,9 @@ module Ze0
       end
 
       # `Method#parameters`, in CRuby's order: `[kind, name]` rows, a
-      # destructuring parameter with no name.
+      # destructuring parameter and `it` with no name.
       def rows
-        positional = ->(p) { p.is_a?(MultiTarget) ? [:req] : [:req, p] }
+        positional = ->(p) { p.is_a?(MultiTarget) || p == IT ? [:req] : [:req, p] }
         [
           *required.map(&positional),
           *optional.map { |name, _| [:opt, name] },
@@ -212,7 +216,9 @@ module Ze0
     # `{k => v, ...}`: `pairs` is a flat list, key then value.
     HashLit = Struct.new(:pairs, :line)
     # `low..high` / `low...high`; a missing bound is nil.
-    RangeLit = Struct.new(:low, :high, :exclusive, :line)
+    # `static` when both ends are Integer or nil literals: one frozen
+    # Range for the site.
+    RangeLit = Struct.new(:low, :high, :exclusive, :line, :static)
     # `"a#{b}c"`: literal and expression parts in order.
     Interp = Struct.new(:parts, :line)
     # A regexp literal: its source and option bits; one object per site.

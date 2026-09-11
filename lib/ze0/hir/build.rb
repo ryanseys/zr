@@ -518,7 +518,7 @@ module Ze0
             body = node.body ? expr(node.body) : Literal.new(nil, line)
             Lambda.new(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line), line)
           end
-        when Prism::ItLocalVariableReadNode then Local.new(:it, 0, line)
+        when Prism::ItLocalVariableReadNode then Local.new(IT, 0, line)
         when Prism::UndefNode
           return UndefValue.new(node.names.map { |n| expr(n) }, line) unless node.names.all?(Prism::SymbolNode)
 
@@ -607,7 +607,12 @@ module Ze0
         when Prism::FlipFlopNode then flip_flop(node, line)
         when Prism::ShareableConstantNode then shareable_constant(node, line)
         when Prism::RangeNode
-          RangeLit.new(node.left ? expr(node.left) : Literal.new(nil, line), node.right ? expr(node.right) : Literal.new(nil, line), node.exclude_end?, line)
+          # Fixnum and nil ends make one frozen Range for the site, as
+          # CRuby's optimizable_range_item_p decides.
+          static = [node.left, node.right].all? do |e|
+            e.nil? || e.is_a?(Prism::NilNode) || (e.is_a?(Prism::IntegerNode) && e.value.bit_length <= 62)
+          end
+          RangeLit.new(node.left ? expr(node.left) : Literal.new(nil, line), node.right ? expr(node.right) : Literal.new(nil, line), node.exclude_end?, line, static)
         when Prism::InstanceVariableReadNode then IvarRead.new(node.name, line)
         when Prism::GlobalVariableReadNode
           aliased = @loader&.back_ref(node.name)
@@ -943,7 +948,7 @@ module Ze0
         none = Params.new([], [], nil, [], [], nil, nil)
         case node
         when nil then [none, []]
-        when Prism::ItParametersNode then [Params.new([:it], [], nil, [], [], nil, nil), [:it]]
+        when Prism::ItParametersNode then [Params.new([IT], [], nil, [], [], nil, nil), [IT]]
         when Prism::NumberedParametersNode
           names = (1..node.maximum).map { |i| :"_#{i}" }
           [Params.new(names, [], nil, [], [], nil, nil), []]

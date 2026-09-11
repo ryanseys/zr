@@ -39,10 +39,13 @@ module Ze0
           when Hir::KwSplatElement then kernel("zr_ary_kw_element", expr(node.hash))
           when Hir::HashLit then hash_literal(node)
           when Hir::RangeLit
-            staged([node.low, node.high]) { |argv| checked(kernel("zr_range_new", @f.fetch("i64", argv), @f.fetch("i64", argv, 8), imm(node.exclusive ? 1 : 0))) }
+            staged([node.low, node.high]) do |argv|
+              ends = [@f.fetch("i64", argv), @f.fetch("i64", argv, 8), imm(node.exclusive ? 1 : 0)]
+              checked(node.static ? kernel("zr_range_literal", imm(@l.literal_index), *ends) : kernel("zr_range_new", *ends))
+            end
           when Hir::Interp then staged(node.parts) { |argv| checked(kernel("zr_str_interp", imm(node.parts.size), argv)) }
           when Hir::RegexpLit
-            checked(kernel("zr_regexp_literal", imm(@l.regexp_index), @f.symbol_value(@f.symbol(@l.literal(node.source))), imm(node.source.bytesize), imm(node.options),
+            checked(kernel("zr_regexp_literal", imm(@l.literal_index), @f.symbol_value(@f.symbol(@l.literal(node.source))), imm(node.source.bytesize), imm(node.options),
                            imm(node.pinned ? ENCODING_INDEX.fetch(node.pinned) : -1)))
           when Hir::IvarRead then kernel("zr_ivar_get_cached", @self, imm(sym_id(node.name)), cache("iv", "IvarCache"))
           when Hir::FrozenString then checked(string_literal(node.value, "zr_str_literal_freeze"))
@@ -229,7 +232,7 @@ module Ze0
         # `/#{x}/o` runs its site once: the regexp waits in the literal
         # table, and every later run reads it back.
         def regexp_once(node)
-          index = @l.regexp_index
+          index = @l.literal_index
           cached = kernel("zr_regexp_once", imm(index))
           make = @f.label
           have = @f.label

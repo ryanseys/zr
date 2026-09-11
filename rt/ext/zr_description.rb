@@ -710,6 +710,7 @@ module Ze0
         d zr_ivar_id_visible_p Bool id:Word
         d zr_ivar_set Value obj:Value id:Word v:Value
         d zr_ivtab_set Void t:Ptr id:Word v:Value
+        d zr_range_literal Value index:Word low:Value high:Value excl:Word
         d zr_range_new Value low:Value high:Value excl:Word
         d zr_class_allocate Value recv:Value
         d zr_class_build Value recv:Value
@@ -1220,7 +1221,7 @@ module Ze0
         c G_FALSE 10
         c G_MAIN 11
         c G_NUMERIC 13
-        c G_COUNT 51
+        c G_COUNT 52
         c GATE_PLUS 1
         c GATE_MINUS 2
         c GATE_MUL 4
@@ -1261,6 +1262,7 @@ module Ze0
         c PARAM_BLOCK 6
         c PARAM_NOKEY 7
         c G_RANGE 12
+        c G_RANGE_LITERALS 51
         c ALLOC_OBJECT 1
         c ALLOC_CLASS 2
         c ALLOC_MODULE 3
