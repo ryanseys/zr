@@ -13,22 +13,15 @@ module Ze0
     def onig(root)
       src = File.join(root, "vendor/c/oniguruma")
       out = File.join(root, "vendor/build")
-      archive = File.join(out, "libonig.a")
-      inputs = Dir[File.join(src, "*.[ch]")] + [__FILE__]
-      return archive if File.exist?(archive) && inputs.all? { |f| File.mtime(f) <= File.mtime(archive) }
-
-      objects = File.join(out, "onig")
-      FileUtils.mkdir_p(objects)
-      ONIG_SOURCES.each do |name|
-        argv = ["cc", "-O2", "-c", "-DHAVE_CONFIG_H", "-DONIG_DISABLE_DIRECT_THREADING", "-I#{src}", File.join(src, "#{name}.c"), "-o", File.join(objects, "#{name}.o")]
-        log = IO.popen(argv, err: %i[child out], &:read)
-        raise "cc failed on #{name}.c:\n#{log}" unless $?.success?
+      archive(File.join(out, "libonig.a"), Dir[File.join(src, "*.[ch]")] + [__FILE__]) do
+        objects = File.join(out, "onig")
+        FileUtils.mkdir_p(objects)
+        ONIG_SOURCES.map do |name|
+          object = File.join(objects, "#{name}.o")
+          cc(["-DHAVE_CONFIG_H", "-DONIG_DISABLE_DIRECT_THREADING", "-I#{src}", File.join(src, "#{name}.c"), "-o", object])
+          object
+        end
       end
-      File.delete(archive) if File.exist?(archive)
-      log = IO.popen(["ar", "rcs", archive, *ONIG_SOURCES.map { |name| File.join(objects, "#{name}.o") }], err: %i[child out], &:read)
-      raise "ar failed:\n#{log}" unless $?.success?
-
-      archive
     end
 
     # Prism, the parser ruby itself uses: the archive's path. The gem
@@ -36,27 +29,50 @@ module Ze0
     def prism(root)
       src = File.join(root, "vendor/c/prism")
       out = File.join(root, "vendor/build")
-      archive = File.join(out, "libprism.a")
       sources = Dir[File.join(src, "src/**/*.c")].sort
       inputs = sources + Dir[File.join(src, "include/**/*.h")] + [__FILE__]
-      return archive if File.exist?(archive) && inputs.all? { |f| File.mtime(f) <= File.mtime(archive) }
-
-      objects = File.join(out, "prism")
-      FileUtils.mkdir_p(objects)
-      names = sources.map do |file|
-        name = file.delete_prefix("#{src}/src/").delete_suffix(".c").tr("/", "_")
-        object = File.join(objects, "#{name}.o")
-        argv = ["cc", "-O2", "-std=c99", "-c", "-DPRISM_EXPORT_SYMBOLS=", "-I#{src}/include", file, "-o", object]
-        log = IO.popen(argv, err: %i[child out], &:read)
-        raise "cc failed on #{file}:\n#{log}" unless $?.success?
-
-        object
+      archive(File.join(out, "libprism.a"), inputs) do
+        objects = File.join(out, "prism")
+        FileUtils.mkdir_p(objects)
+        sources.map do |file|
+          object = File.join(objects, "#{file.delete_prefix("#{src}/src/").delete_suffix(".c").tr("/", "_")}.o")
+          cc(["-std=c99", "-DPRISM_EXPORT_SYMBOLS=", "-I#{src}/include", file, "-o", object])
+          object
+        end
       end
-      File.delete(archive) if File.exist?(archive)
-      log = IO.popen(["ar", "rcs", archive, *names], err: %i[child out], &:read)
-      raise "ar failed:\n#{log}" unless $?.success?
+    end
 
-      archive
+    # The archive at `path`, built again from the objects the block
+    # compiles when an input is newer. One builder at a time holds the
+    # archive's lock, and the archive is written under another name and
+    # renamed in: a link that runs beside a build finds the old archive
+    # or the new one, never none, and a builder that waited finds the
+    # new one made.
+    def archive(path, inputs)
+      return path if fresh?(path, inputs)
+
+      FileUtils.mkdir_p(File.dirname(path))
+      File.open("#{path}.lock", File::RDWR | File::CREAT) do |lock|
+        lock.flock(File::LOCK_EX)
+        return path if fresh?(path, inputs)
+
+        partial = "#{path}.#{Process.pid}.tmp"
+        File.delete(partial) if File.exist?(partial)
+        log = IO.popen(["ar", "rcs", partial, *yield], err: %i[child out], &:read)
+        raise "ar failed:\n#{log}" unless $?.success?
+
+        File.rename(partial, path)
+      end
+      path
+    end
+
+    def fresh?(path, inputs)
+      File.exist?(path) && inputs.all? { |f| File.mtime(f) <= File.mtime(path) }
+    end
+
+    def cc(args)
+      log = IO.popen(["cc", "-O2", "-c", *args], err: %i[child out], &:read)
+      raise "cc failed:\n#{log}" unless $?.success?
     end
 
     def build(root)
