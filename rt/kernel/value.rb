@@ -143,9 +143,24 @@ machine def zr_memcpy(to, from, n)
 end
 
 # A stop for a core method that reaches a case it does not answer
-# yet: the program aborts naming it, never with a wrong answer.
+# yet: a NotImplementedError naming it, never a wrong answer. A program
+# may rescue it, as it may rescue ruby's own on a platform that lacks
+# the feature.
 sig [Value] => Value
 machine def zr_unimplemented(what)
+  zr_raise_stop(zr_core_class(Machine.id(:NotImplementedError)), what)
+end
+
+# A feature ruby carries that this runtime has no file for: a LoadError
+# naming it, so the `rescue LoadError` a library guards an optional
+# require with still runs.
+sig [Value] => Value
+machine def zr_unloadable(what)
+  zr_raise_stop(zr_core_class(Machine.id(:LoadError)), what)
+end
+
+sig [Value, Value] => Value
+machine def zr_raise_stop(klass, what)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_push(b, Machine.bytes("ze0: "), 5)

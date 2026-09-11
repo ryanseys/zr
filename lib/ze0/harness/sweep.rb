@@ -128,7 +128,9 @@ module Ze0
         actual = Normalize.answer(out, rb, cwd)
         expected = Normalize.answer(kase.expected, rb, cwd)
         return Row.new(rb, :matched, nil) if actual == expected
-        if (stop = actual.stderr[/^(?:ze0: )?(.* is not implemented yet)$/, 1])
+        # A stop the program did not rescue: ruby's report of the
+        # NotImplementedError or LoadError it raised, or a kernel stop.
+        if (stop = actual.stderr[/^(?:ze0: |.*?:in '[^']*': )?(.* is not implemented yet)(?: \((?:NotImplementedError|LoadError)\))?$/, 1])
           return Row.new(rb, :refused, "#{File.basename(rb)}: run time: #{stop}")
         end
         return Row.new(rb, :crashed, "signal #{actual.signal}") if actual.signal && !expected.signal

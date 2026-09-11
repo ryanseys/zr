@@ -998,7 +998,7 @@ module Ze0
         d zr_str_char_len_at_m Value s:Value off:Value
         d zr_str_ord Value s:Value
         d zr_str_valid_p Value s:Value
-        d zr_non_ascii_stop Void s:Value what:Ptr len:Word
+        d zr_non_ascii_stop Value s:Value what:Ptr len:Word
         d zr_str_map_case Value s:Value how:Word
         d zr_str_upcase Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_map_case_m Value s:Value how:Value
@@ -1064,6 +1064,8 @@ module Ze0
         d zr_memcpy Void to:Ptr from:Ptr n:Word
         d zr_unimplemented Value what:Value
         d zr_weak_list Ptr
+        d zr_unloadable Value what:Value
+        d zr_raise_stop Value klass:Value what:Value
         d zr_finalizer_queue Ptr
         d zr_weak_list_push Void l:Ptr v:Value
         d zr_weak_table_new Value kind:Word identity:Bool

@@ -998,12 +998,23 @@ module Ze0
       # it does in ruby.
       # The features ruby loads before a program starts, so a require of
       # one answers false.
-      PRELOADED = %w[set set.rb monitor monitor.rb].freeze
+      # ruby 4.0.6 also loads rubygems, did_you_mean and error_highlight,
+      # which this runtime does not carry: a require of one stops by name
+      # rather than answering false and failing at the first use. Only
+      # pathname's C half is loaded, so `require "pathname"` still runs
+      # its Ruby half and answers true.
+      PRELOADED = %w[enumerator thread fiber rational complex ruby2_keywords set monitor].freeze
+
+      # A feature ruby loaded before the program, by any of its names:
+      # `thread`, `thread.rb` and `enumerator.so` all count.
+      def preloaded?(feature)
+        PRELOADED.include?(feature.to_s.sub(/\.(?:rb|so|bundle)\z/, ""))
+      end
 
       def require_node(node)
         line = node.location.start_line
         feature = literal_feature(node)
-        return Literal.new(false, line) if node.name == :require && PRELOADED.include?(feature)
+        return Literal.new(false, line) if node.name == :require && preloaded?(feature)
 
         path = @loader.resolve(node.name, feature, @file)
         stop = path.nil? && node.name != :require_relative && stop_for(node, feature)
@@ -1019,7 +1030,7 @@ module Ze0
         return unless FEATURES.include?(feature.to_s.delete_suffix(".rb"))
 
         line = node.location.start_line
-        Stop.new("#{@file}:#{line}: #{node.name} of #{feature.inspect}", line)
+        Stop.new("#{node.name} of #{feature.inspect}", line)
       end
 
       # What a LoadError names: a require_relative shows the whole path,

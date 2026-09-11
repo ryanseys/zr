@@ -545,22 +545,26 @@ machine def zr_str_valid_p(s)
   Machine.value(QTRUE)
 end
 
-sig [Value, Ptr, Word] => Void
+# A stop on a String whose bytes are not all characters; nil when
+# they are.
+sig [Value, Ptr, Word] => Value
 machine def zr_non_ascii_stop(s, what, len)
-  if !zr_str_bytes_are_chars(s)
-    b = Machine.slot(Buf.size)
-    zr_buf_init(b)
-    zr_buf_push(b, Machine.bytes("String#"), 7)
-    zr_buf_push(b, what, len)
-    zr_buf_push(b, Machine.bytes(" on a non-ASCII String"), 22)
-    zr_unimplemented(zr_buf_take(b))
+  if zr_str_bytes_are_chars(s)
+    return Machine.value(QNIL)
   end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("String#"), 7)
+  zr_buf_push(b, what, len)
+  zr_buf_push(b, Machine.bytes(" on a non-ASCII String"), 22)
+  zr_unimplemented(zr_buf_take(b))
 end
 
 # A copy with each byte mapped: 1 upcases, 2 downcases, 3 capitalizes.
 sig [Value, Word] => Value
 machine def zr_str_map_case(s, how)
-  zr_non_ascii_stop(s, Machine.bytes("upcase, downcase or capitalize"), 30)
+  r = zr_non_ascii_stop(s, Machine.bytes("upcase, downcase or capitalize"), 30)
+  return r if r == QUNDEF
   n = RString.len(s)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
