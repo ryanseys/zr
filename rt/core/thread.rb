@@ -71,6 +71,28 @@ class Thread
 
     private
 
+    # A timeout in seconds, as `rb_time_interval` takes one: every
+    # wait converts it before it parks.
+    def interval(timeout)
+      Primitive.attr! :hidden
+      raise TypeError, "can't convert #{timeout.nil? ? 'nil' : timeout.class} into time interval" unless timeout.is_a?(Numeric)
+      raise ArgumentError, "time interval must not be negative" if timeout.negative?
+
+      timeout.to_f
+    end
+
+    # A limit in seconds, as `rb_to_float` takes one: a wait that
+    # takes a limit rather than an interval reads it this way, and a
+    # limit that has passed simply answers at once. A String names a
+    # number that no conversion reads.
+    def seconds(limit)
+      Primitive.attr! :hidden
+      raise TypeError, "no implicit conversion to float from string" if limit.is_a?(String)
+      raise TypeError, "can't convert #{limit.nil? ? 'nil' : limit.class} into Float" unless limit.is_a?(Numeric)
+
+      limit.to_f
+    end
+
     # Wakes the waiters that still sleep, `count` of them at the most.
     # A thread that is awake already has its turn coming, and a dead
     # one takes none; so one item pushed wakes one more waiter, not
@@ -230,7 +252,7 @@ class Thread
     Kernel.raise ThreadError, "Target thread must not be current thread" if equal?(Thread.current)
     Kernel.raise ThreadError, "Target thread must not be main thread" if equal?(Thread.main) && !Thread.current.equal?(Thread.main)
 
-    deadline = limit.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (seconds(limit) * 1e9).to_i
+    deadline = limit.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (Thread.send(:seconds, limit) * 1e9).to_i
     while alive?
       return nil if deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) >= deadline
 
@@ -367,16 +389,6 @@ class Thread
   end
 
   private
-
-  # A limit in seconds, as `rb_to_float` takes one: a String names a
-  # number that no conversion reads.
-  def seconds(limit)
-    Primitive.attr! :hidden
-    Kernel.raise TypeError, "no implicit conversion to float from string" if limit.is_a?(String)
-    Kernel.raise TypeError, "can't convert #{limit.nil? ? 'nil' : limit.class} into Float" unless limit.is_a?(Numeric)
-
-    limit.to_f
-  end
 
   def local_fiber
     Primitive.attr! :hidden
@@ -710,7 +722,7 @@ class Thread::Mutex
     unlock
     begin
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
-      deadline = timeout.nil? ? nil : started + (timeout * 1e9).to_i
+      deadline = timeout.nil? ? nil : started + (Thread.send(:interval, timeout) * 1e9).to_i
       woken = Thread.current.send(:wait, deadline, true)
       woken ? ((Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) - started) / 1e9).round : nil
     ensure
@@ -728,7 +740,7 @@ class Thread::ConditionVariable
   def wait(mutex, timeout = nil)
     Primitive.attr! :ruby
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
-    deadline = timeout.nil? ? nil : started + (timeout * 1e9).to_i
+    deadline = timeout.nil? ? nil : started + (Thread.send(:interval, timeout) * 1e9).to_i
     mutex.unlock
     begin
       woken = Thread.current.send(:wait_on, @waiters, deadline, true)
@@ -780,7 +792,7 @@ class Thread::Queue
     Primitive.attr! :ruby
     raise ArgumentError, "can't set a timeout if non_block is enabled" if non_block && timeout
 
-    deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).to_i
+    deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (Thread.send(:seconds, timeout) * 1e9).to_i
     while @items.empty?
       return nil if @closed
       raise ThreadError, "queue empty" if non_block
@@ -842,7 +854,7 @@ class Thread::SizedQueue < Thread::Queue
     value = object
     raise ArgumentError, "can't set a timeout if non_block is enabled" if non_block && timeout
 
-    deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).to_i
+    deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (Thread.send(:seconds, timeout) * 1e9).to_i
     while @items.size >= @max
       raise ClosedQueueError, "queue closed" if @closed
       raise ThreadError, "queue full" if non_block
