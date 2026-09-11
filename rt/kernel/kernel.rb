@@ -15,7 +15,7 @@ machine def zr_puts_value(v)
   end
   s = v
   if zr_type(v) != T_STRING
-    s = zr_send(v, Machine.id(:to_s), 0, 0)
+    s = zr_obj_as_string(v)
     return s if s == QUNDEF
   end
   len = RString.len(s)
@@ -49,7 +49,7 @@ machine def zr_print(recv, argc, argv, cref, blk)
     v = Machine.value(Machine.load64(argv + (i * 8), 0))
     s = v
     if zr_type(v) != T_STRING
-      s = zr_send(v, Machine.id(:to_s), 0, 0)
+      s = zr_obj_as_string(v)
       return s if s == QUNDEF
     end
     zr_write_out(RString.ptr(s), RString.len(s))

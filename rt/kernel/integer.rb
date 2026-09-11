@@ -223,22 +223,22 @@ machine def zr_num_coerce(recv, other, mid, kind)
   zr_buf_init(b)
   if kind == 1
     zr_buf_push(b, Machine.bytes("comparison of "), 14)
-    zr_buf_str(b, zr_class_name_of(recv))
+    zr_buf_class_of(b, recv)
     zr_buf_push(b, Machine.bytes(" with "), 6)
   end
   if zr_special_p(other)
-    s = zr_send(other, Machine.id(:inspect), 0, 0)
+    s = zr_inspect(other)
     return s if s == QUNDEF
     zr_buf_str(b, s)
   else
-    zr_buf_str(b, zr_class_name_of(other))
+    zr_buf_class_of(b, other)
   end
   if kind == 1
     zr_buf_push(b, Machine.bytes(" failed"), 7)
     return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
   end
   zr_buf_push(b, Machine.bytes(" can't be coerced into "), 23)
-  zr_buf_str(b, zr_class_name_of(recv))
+  zr_buf_class_of(b, recv)
   zr_raise_buf(zr_global(G_TYPE_ERROR), b)
 end
 

@@ -194,7 +194,7 @@ machine def zr_ary_initialize(recv, argc, argv, cref, blk)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
-    zr_buf_str(b, zr_class_name_of(first))
+    zr_buf_class_of(b, first)
     zr_buf_push(b, Machine.bytes(" into Integer"), 13)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
@@ -264,11 +264,11 @@ machine def zr_index_operand(v, out)
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("can't convert "), 14)
-      zr_buf_str(b, zr_class_name_of(v))
+      zr_buf_class_of(b, v)
       zr_buf_push(b, Machine.bytes(" to Integer ("), 13)
-      zr_buf_str(b, zr_class_name_of(v))
+      zr_buf_class_of(b, v)
       zr_buf_push(b, Machine.bytes("#to_int gives "), 14)
-      zr_buf_str(b, zr_class_name_of(r))
+      zr_buf_class_of(b, r)
       zr_buf_push(b, Machine.bytes(")"), 1)
       return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
     end
@@ -280,11 +280,11 @@ machine def zr_index_operand(v, out)
     end
     zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
     if v == QTRUE || v == QFALSE
-      s = zr_send(v, Machine.id(:inspect), 0, 0)
+      s = zr_inspect(v)
       return s if s == QUNDEF
       zr_buf_str(b, s)
     else
-      zr_buf_str(b, zr_class_name_of(v))
+      zr_buf_class_of(b, v)
     end
     zr_buf_push(b, Machine.bytes(" into Integer"), 13)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
@@ -460,7 +460,7 @@ machine def zr_ary_inspect(recv, argc, argv, cref, blk)
     if i > 0
       zr_buf_push(b, Machine.bytes(", "), 2)
     end
-    s = zr_send(zr_ary_at(recv, i), Machine.id(:inspect), 0, 0)
+    s = zr_inspect(zr_ary_at(recv, i))
     if s == QUNDEF
       free(Buf.ptr(b))
       zr_guard_leave(recv, Machine.id(:inspect))

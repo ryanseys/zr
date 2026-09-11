@@ -50,8 +50,13 @@ machine def zr_buf_sym(b, id)
   zr_buf_push(b, zr_symbol_name_ptr(id), zr_symbol_name_len(id))
 end
 
+# A String's bytes. Anything else is a bug in the kernel, and stops by
+# name rather than read a String's fields out of it.
 sig [Ptr, Value] => Void
 machine def zr_buf_str(b, s)
+  if zr_special_p(s) || (RBasic.flags(s) & T_MASK) != T_STRING
+    zr_bug(Machine.bytes("zr_buf_str was given something that is not a String\n"), 53)
+  end
   zr_buf_push(b, RString.ptr(s), RString.len(s))
 end
 

@@ -248,7 +248,7 @@ machine def zr_buf_receiver(b, recv)
     zr_buf_push(b, Machine.bytes("false"), 5)
   elsif !zr_special_p(recv) && (zr_type(recv) == T_CLASS || zr_type(recv) == T_MODULE)
     zr_buf_push(b, zr_type(recv) == T_CLASS ? Machine.bytes("class ") : Machine.bytes("module "), zr_type(recv) == T_CLASS ? 6 : 7)
-    s = zr_send(recv, Machine.id(:inspect), 0, 0)
+    s = zr_inspect(recv)
     return s if s == QUNDEF
     zr_buf_str(b, s)
   elsif !zr_special_p(recv) && zr_singleton_p(RBasic.klass(recv))
@@ -256,7 +256,7 @@ machine def zr_buf_receiver(b, recv)
     zr_buf_byte(b, 62)
   else
     zr_buf_push(b, Machine.bytes("an instance of "), 15)
-    zr_buf_str(b, zr_class_name_of(recv))
+    zr_buf_class_of(b, recv)
   end
   Machine.value(QNIL)
 end

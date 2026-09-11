@@ -335,18 +335,18 @@ machine def zr_cmp_failed(recv, other)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_push(b, Machine.bytes("comparison of "), 14)
-  zr_buf_str(b, zr_class_name_of(recv))
+  zr_buf_class_of(b, recv)
   zr_buf_push(b, Machine.bytes(" with "), 6)
   if zr_special_p(other) && !zr_fixnum_p(other) && !zr_flonum_p(other) && !zr_symbol_p(other)
-    s = zr_send(other, Machine.id(:inspect), 0, 0)
+    s = zr_inspect(other)
     return s if s == QUNDEF
     zr_buf_str(b, s)
   elsif zr_fixnum_p(other) || zr_float_p(other)
-    s = zr_send(other, Machine.id(:inspect), 0, 0)
+    s = zr_inspect(other)
     return s if s == QUNDEF
     zr_buf_str(b, s)
   else
-    zr_buf_str(b, zr_class_name_of(other))
+    zr_buf_class_of(b, other)
   end
   zr_buf_push(b, Machine.bytes(" failed"), 7)
   zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)

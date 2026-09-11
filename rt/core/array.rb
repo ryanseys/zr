@@ -103,7 +103,7 @@ class Array
              elsif x.respond_to?(:to_ary)
                x.to_ary.join(sep)
              else
-               x.to_s
+               Primitive.zr_obj_as_string(x)
              end
         i += 1
       end

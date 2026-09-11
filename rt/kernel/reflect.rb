@@ -11,7 +11,7 @@ machine def zr_name_id(name, out)
   unless zr_symbol_p(name)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    s = zr_send(name, Machine.id(:inspect), 0, 0)
+    s = zr_inspect(name)
     return s if s == QUNDEF
     zr_buf_str(b, s)
     zr_buf_push(b, Machine.bytes(" is not a symbol nor a string"), 29)

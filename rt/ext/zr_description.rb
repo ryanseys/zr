@@ -213,6 +213,8 @@ module Ze0
         d zr_mod_deprecate_constant Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_const_get_at Value scope:Value id:Word
         d zr_class_name_under Value scope:Value id:Word
+        d zr_class_named_for_good Bool scope:Value
+        d zr_name_nested Void mod:Value
         d zr_class_define Value scope:Value id:Word sup:Value
         d zr_module_define Value scope:Value id:Word
         d zr_const_name_id Value recv:Value name:Value out:Ptr
@@ -637,7 +639,7 @@ module Ze0
         d zr_warn_position Value
         d zr_warn_here_m Value s:Value
         d zr_obj_head Value recv:Value
-        d zr_any_to_s Value recv:Value
+        d zr_any_to_s Value v:Value
         d zr_special_p_m Value v:Value
         d zr_boot_class Value g:Word name:Word sup:Value
         d zr_boot_name Void g:Word name:Word
@@ -726,6 +728,10 @@ module Ze0
         d zr_obj_respond_to_missing Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_respond_to Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_buf_obj_head Void b:Ptr obj:Value
+        d zr_class_path Value klass:Value
+        d zr_buf_class_of Void b:Ptr v:Value
+        d zr_obj_as_string Value v:Value
+        d zr_inspect Value v:Value
         d zr_obj_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_nil_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_int_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value

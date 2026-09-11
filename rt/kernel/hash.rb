@@ -395,7 +395,7 @@ machine def zr_hash_fetch(recv, argc, argv, cref, blk)
   if argc == 2
     return Machine.value(Machine.load64(argv, 8))
   end
-  s = zr_send(key, Machine.id(:inspect), 0, 0)
+  s = zr_inspect(key)
   return s if s == QUNDEF
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
@@ -600,7 +600,7 @@ machine def zr_hash_inspect(recv, argc, argv, cref, blk)
         end
         zr_buf_push(b, Machine.bytes(": "), 2)
       else
-        s = zr_send(key, Machine.id(:inspect), 0, 0)
+        s = zr_inspect(key)
         if s == QUNDEF
           free(Buf.ptr(b))
           zr_guard_leave(recv, Machine.id(:inspect))
@@ -610,7 +610,7 @@ machine def zr_hash_inspect(recv, argc, argv, cref, blk)
         zr_buf_push(b, Machine.bytes(" => "), 4)
       end
       e = RHash.entries(recv) + (i * HEntry.size)
-      s = zr_send(HEntry.value(e), Machine.id(:inspect), 0, 0)
+      s = zr_inspect(HEntry.value(e))
       if s == QUNDEF
         free(Buf.ptr(b))
         zr_guard_leave(recv, Machine.id(:inspect))
@@ -787,7 +787,7 @@ machine def zr_kw_unknown(hash, ids, n)
       if seen > 0
         zr_buf_push(b, Machine.bytes(", "), 2)
       end
-      s = zr_send(HEntry.key(RHash.entries(hash) + (i * HEntry.size)), Machine.id(:inspect), 0, 0)
+      s = zr_inspect(HEntry.key(RHash.entries(hash) + (i * HEntry.size)))
       if s == QUNDEF
         free(Buf.ptr(b))
         return s
@@ -835,18 +835,18 @@ machine def zr_hash_update(h, other)
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("can't convert "), 14)
-      zr_buf_str(b, zr_class_name_of(other))
+      zr_buf_class_of(b, other)
       zr_buf_push(b, Machine.bytes(" to Hash ("), 10)
-      zr_buf_str(b, zr_class_name_of(other))
+      zr_buf_class_of(b, other)
       zr_buf_push(b, Machine.bytes("#to_hash gives "), 15)
-      zr_buf_str(b, zr_class_name_of(converted))
+      zr_buf_class_of(b, converted)
       zr_buf_push(b, Machine.bytes(")"), 1)
       return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
     end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
-    zr_buf_str(b, zr_class_name_of(other))
+    zr_buf_class_of(b, other)
     zr_buf_push(b, Machine.bytes(" into Hash"), 10)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end

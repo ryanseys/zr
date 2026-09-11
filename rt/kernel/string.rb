@@ -36,7 +36,7 @@ machine def zr_str_initialize_m(recv, src)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
-    zr_buf_str(b, zr_class_name_of(src))
+    zr_buf_class_of(b, src)
     zr_buf_push(b, Machine.bytes(" into String"), 12)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
@@ -84,9 +84,9 @@ machine def zr_frozen_error(v)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_push(b, Machine.bytes("can't modify frozen "), 20)
-  zr_buf_str(b, zr_class_name_of(v))
+  zr_buf_class_of(b, v)
   zr_buf_push(b, Machine.bytes(": "), 2)
-  s = zr_send(v, Machine.id(:inspect), 0, 0)
+  s = zr_inspect(v)
   if s == QUNDEF
     free(Buf.ptr(b))
     return s
@@ -111,11 +111,11 @@ machine def zr_str_operand(v)
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("can't convert "), 14)
-      zr_buf_str(b, zr_class_name_of(v))
+      zr_buf_class_of(b, v)
       zr_buf_push(b, Machine.bytes(" to String ("), 12)
-      zr_buf_str(b, zr_class_name_of(v))
+      zr_buf_class_of(b, v)
       zr_buf_push(b, Machine.bytes("#to_str gives "), 14)
-      zr_buf_str(b, zr_class_name_of(s))
+      zr_buf_class_of(b, s)
       zr_buf_push(b, Machine.bytes(")"), 1)
       return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
     end
@@ -123,11 +123,11 @@ machine def zr_str_operand(v)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
     if v == QNIL || v == QTRUE || v == QFALSE
-      s = zr_send(v, Machine.id(:inspect), 0, 0)
+      s = zr_inspect(v)
       return s if s == QUNDEF
       zr_buf_str(b, s)
     else
-      zr_buf_str(b, zr_class_name_of(v))
+      zr_buf_class_of(b, v)
     end
     zr_buf_push(b, Machine.bytes(" into String"), 12)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
@@ -821,7 +821,7 @@ machine def zr_str_interp(argc, argv)
     v = Machine.value(Machine.load64(argv + (i * 8), 0))
     s = v
     if zr_special_p(v) || zr_type(v) != T_STRING
-      s = zr_send(v, Machine.id(:to_s), 0, 0)
+      s = zr_obj_as_string(v)
       if s == QUNDEF
         free(Buf.ptr(b))
         return s

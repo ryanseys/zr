@@ -153,7 +153,7 @@ machine def zr_obj_clone(recv, argc, argv, cref, blk)
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("unexpected value for freeze: "), 29)
-      zr_buf_str(b, zr_class_name_of(freeze))
+      zr_buf_class_of(b, freeze)
       return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
     end
   end
@@ -165,7 +165,7 @@ machine def zr_obj_clone(recv, argc, argv, cref, blk)
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("can't unfreeze "), 15)
-      zr_buf_str(b, zr_class_name_of(recv))
+      zr_buf_class_of(b, recv)
       return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
     end
     return recv

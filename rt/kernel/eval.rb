@@ -183,7 +183,7 @@ machine def zr_mod_define_method(recv, argc, argv, cref, blk)
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
-      zr_buf_str(b, zr_class_name_of(body))
+      zr_buf_class_of(b, body)
       zr_buf_push(b, Machine.bytes(" (expected Proc/Method/UnboundMethod)"), 37)
       return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
     end

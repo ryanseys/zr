@@ -78,7 +78,7 @@ machine def zr_check_inheritable(sup)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("superclass must be an instance of Class (given an instance of "), 62)
-    zr_buf_str(b, zr_class_name_of(sup))
+    zr_buf_class_of(b, sup)
     zr_buf_byte(b, 41)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
@@ -313,7 +313,7 @@ machine def zr_mod_prepend_features(recv, argc, argv, cref, blk)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
-    zr_buf_str(b, zr_class_name_of(base))
+    zr_buf_class_of(b, base)
     zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
@@ -342,7 +342,7 @@ machine def zr_check_module(m)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
-    zr_buf_str(b, zr_class_name_of(m))
+    zr_buf_class_of(b, m)
     zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
@@ -358,7 +358,7 @@ machine def zr_mod_append_features(recv, argc, argv, cref, blk)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
-    zr_buf_str(b, zr_class_name_of(base))
+    zr_buf_class_of(b, base)
     zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
@@ -666,9 +666,11 @@ machine def zr_real_class(v)
   k
 end
 
+# The path of `v`'s class (zr_class_path): a String always, as a
+# message wants it.
 sig [Value] => Value
 machine def zr_class_name_of(v)
-  RClass.name(zr_real_class(v))
+  zr_class_path(zr_real_class(v))
 end
 
 sig [] => Value
@@ -1499,7 +1501,7 @@ machine def zr_using_holders(list, mod)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
-    zr_buf_str(b, zr_class_name_of(mod))
+    zr_buf_class_of(b, mod)
     zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end

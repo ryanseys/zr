@@ -47,14 +47,14 @@ machine def zr_cmperr(x, y)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_push(b, Machine.bytes("comparison of "), 14)
-  zr_buf_str(b, zr_class_name_of(x))
+  zr_buf_class_of(b, x)
   zr_buf_push(b, Machine.bytes(" with "), 6)
   if zr_special_p(y) || zr_float_p(y)
-    s = zr_send(y, Machine.id(:inspect), 0, 0)
+    s = zr_inspect(y)
     return s if s == QUNDEF
     zr_buf_str(b, s)
   else
-    zr_buf_str(b, zr_class_name_of(y))
+    zr_buf_class_of(b, y)
   end
   zr_buf_push(b, Machine.bytes(" failed"), 7)
   zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)

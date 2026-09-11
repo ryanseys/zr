@@ -503,7 +503,7 @@ machine def zr_obj_respond_to(recv, argc, argv, cref, blk)
   unless zr_symbol_p(m)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    s = zr_send(m, Machine.id(:inspect), 0, 0)
+    s = zr_inspect(m)
     return s if s == QUNDEF
     zr_buf_str(b, s)
     zr_buf_push(b, Machine.bytes(" is not a symbol nor a string"), 29)
@@ -521,7 +521,7 @@ end
 sig [Ptr, Value] => Void
 machine def zr_buf_obj_head(b, obj)
   zr_buf_push(b, Machine.bytes("#<"), 2)
-  zr_buf_str(b, zr_class_name_of(obj))
+  zr_buf_class_of(b, obj)
   zr_buf_push(b, Machine.bytes(":0x"), 3)
   w = Machine.word(obj)
   i = 0
@@ -534,6 +534,58 @@ machine def zr_buf_obj_head(b, obj)
     end
     i += 1
   end
+end
+
+# A class's path, as rb_class_path answers it: its name, or
+# `#<Class:0x...>` (`#<Module:0x...>`) for one that has none. It runs no
+# Ruby, so any message can name any class.
+sig [Value] => Value
+machine def zr_class_path(klass)
+  if RClass.name(klass) != QNIL
+    return RClass.name(klass)
+  end
+  zr_any_to_s(klass)
+end
+
+# The path of `v`'s class into `b`, as a message names it.
+sig [Ptr, Value] => Void
+machine def zr_buf_class_of(b, v)
+  zr_buf_str(b, zr_class_name_of(v))
+end
+
+# `#<Name:0x...>`, rb_any_to_s.
+sig [Value] => Value
+machine def zr_any_to_s(v)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_obj_head(b, v)
+  zr_buf_byte(b, 62)
+  zr_buf_take(b)
+end
+
+# rb_obj_as_string: a String as it is, else what `to_s` answers, and
+# when that is no String either, `v` as rb_any_to_s writes it. Undef
+# when `to_s` raised.
+sig [Value] => Value
+machine def zr_obj_as_string(v)
+  if !zr_special_p(v) && (RBasic.flags(v) & T_MASK) == T_STRING
+    return v
+  end
+  s = zr_send(v, Machine.id(:to_s), 0, 0)
+  return s if s == QUNDEF
+  if !zr_special_p(s) && (RBasic.flags(s) & T_MASK) == T_STRING
+    return s
+  end
+  zr_any_to_s(v)
+end
+
+# rb_inspect: what `inspect` answers, made a String by rb_obj_as_string.
+# Undef when either raised.
+sig [Value] => Value
+machine def zr_inspect(v)
+  s = zr_send(v, Machine.id(:inspect), 0, 0)
+  return s if s == QUNDEF
+  zr_obj_as_string(s)
 end
 
 # `#<Name:0x... @a=1, @b=2>`; the ivar values' `inspect` may run Ruby,
@@ -560,7 +612,7 @@ machine def zr_obj_inspect(recv, argc, argv, cref, blk)
     m = Machine.slot(Buf.size)
     zr_buf_init(m)
     zr_buf_push(m, Machine.bytes("Expected #instance_variables_to_inspect to return an Array or nil, but it returned "), 83)
-    zr_buf_str(m, zr_class_name_of(filter))
+    zr_buf_class_of(m, filter)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), m)
   end
   i = 0
@@ -573,7 +625,7 @@ machine def zr_obj_inspect(recv, argc, argv, cref, blk)
       shown += 1
       zr_buf_sym(b, IvEntry.id(e))
       zr_buf_byte(b, 61)
-      s = zr_send(IvEntry.value(e), Machine.id(:inspect), 0, 0)
+      s = zr_inspect(IvEntry.value(e))
       if s == QUNDEF
         free(Buf.ptr(b))
         return s
@@ -882,7 +934,7 @@ machine def zr_class_to_s(recv, argc, argv, cref, blk)
     return zr_buf_take(b)
   end
   if zr_singleton_p(recv)
-    inner = zr_send(RClass.attached(recv), Machine.id(:inspect), 0, 0)
+    inner = zr_inspect(RClass.attached(recv))
     return inner if inner == QUNDEF
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
@@ -966,7 +1018,7 @@ machine def zr_exc_detailed_message(recv)
   end
   zr_buf_push(b, p, first)
   zr_buf_push(b, Machine.bytes(" ("), 2)
-  zr_buf_str(b, zr_class_name_of(recv))
+  zr_buf_class_of(b, recv)
   zr_buf_byte(b, 41)
   zr_buf_push(b, p + first, n - first)
   zr_buf_take(b)
@@ -988,7 +1040,7 @@ machine def zr_exc_inspect(recv, argc, argv, cref, blk)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_push(b, Machine.bytes("#<"), 2)
-  zr_buf_str(b, zr_class_name_of(recv))
+  zr_buf_class_of(b, recv)
   if zr_bytes_index(RString.ptr(m), RString.len(m), 10) >= 0
     zr_buf_byte(b, 58)
     zr_buf_str_escaped(b, RString.ptr(m), RString.len(m), !zr_str_wide_p(m))
@@ -1030,7 +1082,7 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_p(recv, argc, argv, cref, blk)
   i = 0
   while i < argc
-    s = zr_send(Machine.value(Machine.load64(argv + (i * 8), 0)), Machine.id(:inspect), 0, 0)
+    s = zr_inspect(Machine.value(Machine.load64(argv + (i * 8), 0)))
     return s if s == QUNDEF
     zr_write_out(RString.ptr(s), RString.len(s))
     zr_write_out(Machine.bytes("\n"), 1)
@@ -1146,7 +1198,7 @@ machine def zr_dig_into(v, rest)
   if e == 0 || MEntry.vis(e) != VIS_PUBLIC
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    zr_buf_str(b, zr_class_name_of(v))
+    zr_buf_class_of(b, v)
     zr_buf_push(b, Machine.bytes(" does not have #dig method"), 26)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end

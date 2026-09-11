@@ -328,7 +328,7 @@ class IO
 
   def pwrite(text, offset)
     check_writable
-    result = Primitive.zr_io_pwrite(@fd, text.to_s, offset)
+    result = Primitive.zr_io_pwrite(@fd, Primitive.zr_obj_as_string(text), offset)
     raise SystemCallError.new("@ rb_io_pwrite - #{label}", -result) if result < 0
 
     result
@@ -356,7 +356,7 @@ class IO
     total = 0
     i = 0
     while i < Primitive.zr_ary_len_m(objects)
-      total += write_bytes(Primitive.zr_ary_at_m(objects, i).to_s)
+      total += write_bytes(Primitive.zr_obj_as_string(Primitive.zr_ary_at_m(objects, i)))
       i += 1
     end
     total
@@ -408,8 +408,7 @@ class IO
           Primitive.zr_recursive_leave(object, :puts)
         end
       else
-        text = object.to_s
-        text = object.inspect unless text.is_a?(String)
+        text = Primitive.zr_obj_as_string(object)
         text.end_with?("\n") ? [text] : [text + "\n"]
       end
     end

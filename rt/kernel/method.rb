@@ -56,7 +56,7 @@ machine def zr_undefined_method(klass, mid)
   else
     zr_buf_push(b, Machine.bytes("' for class '"), 13)
   end
-  s = zr_send(klass, Machine.id(:inspect), 0, 0)
+  s = zr_inspect(klass)
   return s if s == QUNDEF
   zr_buf_str(b, s)
   zr_buf_byte(b, 39)
@@ -577,15 +577,15 @@ machine def zr_method_inspect(recv, argc, argv, cref, blk)
   if zr_singleton_p(owner)
     attached = RClass.attached(owner)
     if RMethod.recv(recv) == QUNDEF || RMethod.recv(recv) == attached
-      s = zr_send(RMethod.recv(recv) == QUNDEF ? owner : attached, Machine.id(:inspect), 0, 0)
+      s = zr_inspect(RMethod.recv(recv) == QUNDEF ? owner : attached)
       return s if s == QUNDEF
       zr_buf_str(b, s)
     else
-      s = zr_send(RMethod.recv(recv), Machine.id(:inspect), 0, 0)
+      s = zr_inspect(RMethod.recv(recv))
       return s if s == QUNDEF
       zr_buf_str(b, s)
       zr_buf_byte(b, 40)
-      s = zr_send(attached, Machine.id(:inspect), 0, 0)
+      s = zr_inspect(attached)
       return s if s == QUNDEF
       zr_buf_str(b, s)
       zr_buf_byte(b, 41)
@@ -599,12 +599,12 @@ machine def zr_method_inspect(recv, argc, argv, cref, blk)
     if RMethod.recv(recv) == QUNDEF
       klass = defined
     end
-    s = zr_send(klass, Machine.id(:inspect), 0, 0)
+    s = zr_inspect(klass)
     return s if s == QUNDEF
     zr_buf_str(b, s)
     if klass != defined
       zr_buf_byte(b, 40)
-      s = zr_send(defined, Machine.id(:inspect), 0, 0)
+      s = zr_inspect(defined)
       return s if s == QUNDEF
       zr_buf_str(b, s)
       zr_buf_byte(b, 41)

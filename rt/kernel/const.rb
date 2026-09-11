@@ -160,7 +160,7 @@ machine def zr_const_set(klass, id, v)
   if zr_special_p(klass) || (zr_type(klass) != T_CLASS && zr_type(klass) != T_MODULE)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    shown = zr_send(klass, Machine.id(:inspect), 0, 0)
+    shown = zr_inspect(klass)
     return shown if shown == QUNDEF
     zr_buf_str(b, shown)
     zr_buf_push(b, Machine.bytes(" is not a class/module"), 22)
@@ -195,9 +195,16 @@ machine def zr_const_set(klass, id, v)
   end
   CEntry.set_value(e, v)
   zr_consts_changed()
+  # An anonymous class takes its name here, for good under a scope that
+  # has one for good (and then so does all it holds), else for now.
   if !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) && (RClass.name(v) == QNIL || (RBasic.flags(v) & FL_TEMP_NAME) != 0)
-    RBasic.set_flags(v, RBasic.flags(v) & (0 - (FL_TEMP_NAME + 1)))
     RClass.set_name(v, zr_class_name_under(klass, id))
+    if zr_class_named_for_good(klass)
+      RBasic.set_flags(v, RBasic.flags(v) & (0 - (FL_TEMP_NAME + 1)))
+      zr_name_nested(v)
+    else
+      RBasic.set_flags(v, RBasic.flags(v) | FL_TEMP_NAME)
+    end
   end
   top = zr_frame_with_file(Task.top(zr_task()))
   if top == 0
@@ -485,7 +492,7 @@ machine def zr_const_get_at(scope, id)
   if zr_special_p(scope) || (zr_type(scope) != T_CLASS && zr_type(scope) != T_MODULE)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    s = zr_send(scope, Machine.id(:inspect), 0, 0)
+    s = zr_inspect(scope)
     return s if s == QUNDEF
     zr_buf_str(b, s)
     zr_buf_push(b, Machine.bytes(" is not a class/module"), 22)
@@ -508,17 +515,42 @@ machine def zr_const_get_at(scope, id)
 end
 
 # The name a class gets under `scope`: `Outer::Name` unless the scope
-# is Object.
+# is Object, and `#<Module:0x...>::Name` under an anonymous one.
 sig [Value, Word] => Value
 machine def zr_class_name_under(scope, id)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
-  if scope != zr_global(G_OBJECT) && RClass.name(scope) != QNIL
-    zr_buf_str(b, RClass.name(scope))
+  if scope != zr_global(G_OBJECT)
+    zr_buf_str(b, zr_class_path(scope))
     zr_buf_push(b, Machine.bytes("::"), 2)
   end
   zr_buf_sym(b, id)
   zr_buf_take(b)
+end
+
+# Whether a name made under `scope` is for good: Object's is, and so is
+# one under a scope whose own name is.
+sig [Value] => Bool
+machine def zr_class_named_for_good(scope)
+  scope == zr_global(G_OBJECT) || (RClass.name(scope) != QNIL && (RBasic.flags(scope) & FL_TEMP_NAME) == 0)
+end
+
+# `mod` has just been named for good: each class or module it holds
+# whose name is still temporary takes its path under `mod`, and so on
+# down, as CRuby's set_namespace_path does.
+sig [Value] => Void
+machine def zr_name_nested(mod)
+  ext = RClass.ext(mod)
+  i = 0
+  while i < ClassExt.clen(ext)
+    v = CEntry.value(ClassExt.ctab(ext) + (i * CEntry.size))
+    if v != QUNDEF && !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) && (RBasic.flags(v) & FL_TEMP_NAME) != 0
+      RBasic.set_flags(v, RBasic.flags(v) & (0 - (FL_TEMP_NAME + 1)))
+      RClass.set_name(v, zr_class_name_under(mod, CEntry.id(ClassExt.ctab(ext) + (i * CEntry.size))))
+      zr_name_nested(v)
+    end
+    i += 1
+  end
 end
 
 # `class Name < sup` under `scope`: the class the constant names when it
@@ -560,7 +592,6 @@ machine def zr_class_define(scope, id, sup)
     return r if r == QUNDEF
   end
   k = zr_class_new(sup)
-  RClass.set_name(k, zr_class_name_under(scope, id))
   r = zr_const_set(scope, id, k)
   return r if r == QUNDEF
   r = zr_hook(sup, Machine.id(:inherited), k)
@@ -591,7 +622,6 @@ machine def zr_module_define(scope, id)
     return m
   end
   m = zr_module_new()
-  RClass.set_name(m, zr_class_name_under(scope, id))
   zr_const_set(scope, id, m)
 end
 
