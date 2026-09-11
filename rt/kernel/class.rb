@@ -1126,9 +1126,19 @@ machine def zr_mod_public_class_method(recv, argc, argv, cref, blk)
   zr_set_visibility(zr_singleton_class(recv), argc, argv, blk, VIS_PUBLIC, 0)
 end
 
+# Whether `e` is a helper the core library keeps for itself (a def
+# marked `Primitive.attr! :hidden`), where CRuby has no method at all:
+# no list shows it, and `respond_to?` and `method_defined?` deny it. A
+# method `define_method` makes carries its caller's meta, so only a
+# compiled def counts.
+sig [Ptr] => Bool
+machine def zr_entry_hidden_p(e)
+  MEntry.kind(e) == KIND_DEF && MEntry.meta(e) != 0 && FrameMeta.kind(MEntry.meta(e)) == KIND_HIDDEN
+end
+
 # The names in one level's table, filtered by `vis` (a visibility, or
 # -1 for all but private), into `out`. A name met at an earlier level
-# is `seen` and decided there, an undef among them.
+# is `seen` and decided there, an undef or a hidden helper among them.
 sig [Value, Value, Value, Word] => Void
 machine def zr_level_method_names(level, out, seen, vis)
   ext = RClass.ext(level)
@@ -1139,7 +1149,7 @@ machine def zr_level_method_names(level, out, seen, vis)
     if zr_ary_index_of(seen, name) < 0
       zr_ary_push(seen, name)
       e = zr_find_method_at(level, MEntry.mid(e))
-      if MEntry.kind(e) != KIND_UNDEF && (vis < 0 ? MEntry.vis(e) != VIS_PRIVATE : MEntry.vis(e) == vis)
+      if MEntry.kind(e) != KIND_UNDEF && !zr_entry_hidden_p(e) && (vis < 0 ? MEntry.vis(e) != VIS_PRIVATE : MEntry.vis(e) == vis)
         zr_ary_push(out, name)
       end
     end

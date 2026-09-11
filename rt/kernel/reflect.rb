@@ -295,7 +295,7 @@ machine def zr_mod_method_defined_vis(recv, argc, argv, vis)
   return r if r == QUNDEF
   inherit = argc < 2 || (Machine.value(Machine.load64(argv, 8)) != QFALSE && Machine.value(Machine.load64(argv, 8)) != QNIL)
   e = inherit ? zr_find_method(recv, Machine.load64(slot, 0)) : zr_find_method_at(recv, Machine.load64(slot, 0))
-  if e == 0 || MEntry.kind(e) == KIND_UNDEF
+  if e == 0 || MEntry.kind(e) == KIND_UNDEF || zr_entry_hidden_p(e)
     return Machine.value(QFALSE)
   end
   zr_bool(vis < 0 ? MEntry.vis(e) != VIS_PRIVATE : MEntry.vis(e) == vis)

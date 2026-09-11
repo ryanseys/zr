@@ -162,6 +162,7 @@ module Ze0
         d zr_mod_module_function Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_private_class_method Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_public_class_method Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_entry_hidden_p Bool e:Ptr
         d zr_level_method_names Void level:Value out:Value seen:Value vis:Word
         d zr_mod_undefined_instance_methods Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_method_names Value klass:Value all:Word vis:Word object:Bool

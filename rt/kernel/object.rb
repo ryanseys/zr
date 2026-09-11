@@ -594,7 +594,7 @@ machine def zr_obj_respond_to(recv, argc, argv, cref, blk)
   end
   all = argc == 2 && Machine.value(Machine.load64(argv, 8)) != QNIL && Machine.value(Machine.load64(argv, 8)) != QFALSE
   e = zr_find_method(zr_box_view(zr_class_of(recv)), zr_sym2id(m))
-  if e == 0
+  if e == 0 || zr_entry_hidden_p(e)
     return zr_bool(zr_respond_to_missing_p(recv, zr_sym2id(m)))
   end
   zr_bool(all || MEntry.vis(e) == VIS_PUBLIC)
