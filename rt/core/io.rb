@@ -163,6 +163,9 @@ class IO
 
     @fd = fd
     @mode = mode
+    # What the mode allows, decided once: every read and write asks.
+    @readable = !mode.start_with?("w", "a") || mode.include?("+")
+    @writable = !mode.start_with?("r") || mode.include?("+")
     @path = path
     @name = name
     @pid = pid
@@ -685,13 +688,13 @@ class IO
   def check_readable
     Primitive.attr! :hidden
     check_open
-    raise IOError, "not opened for reading" if @mode.start_with?("w", "a") && !@mode.include?("+")
+    raise IOError, "not opened for reading" unless @readable
   end
 
   def check_writable
     Primitive.attr! :hidden
     check_open
-    raise IOError, "not opened for writing" if @mode.start_with?("r") && !@mode.include?("+")
+    raise IOError, "not opened for writing" unless @writable
   end
 
   # More bytes into the buffer; none marks the end.
@@ -752,7 +755,7 @@ class IO
       fill while !@eof && @buffer.start_with?("\n")
       @buffer = @buffer.byteslice(1, @buffer.bytesize - 1) || +"" while @buffer.start_with?("\n")
     end
-    loop do
+    while true
       # A byte offset: `take` counts bytes, and a character index would
       # also walk the whole buffer for every line.
       at = Primitive.zr_str_find_from(@buffer, separator, 0)
