@@ -39,6 +39,19 @@ module Ze0
         @internal || @unit_internal
       end
 
+      # The builtin classes the kernel names at boot, each with its global
+      # slot. The core library reads them straight from the slot, as
+      # CRuby's C reads rb_cInteger: a constant a program defines never
+      # stands in for one, and no read walks the constant tables.
+      def self.boot_classes
+        @boot_classes ||= File.read(Zr::KERNEL.find { |path| File.basename(path) == "main.rb" })
+                              .scan(/zr_boot_name\((G_\w+), Machine\.id\(:(\w+)\)\)/)
+                              .to_h { |slot, name| [name.to_sym, slot] }
+      end
+
+      # The slot for a bare constant `name` in the core library, or nil.
+      def boot_class_slot(name) = @internal ? Lower.boot_classes[name] : nil
+
       # `internal` marks the core library: its methods are builtins to a
       # backtrace, and its blocks and bodies leave no row at all. `kind`
       # is `:top` for an eval, whose toplevel is a file's, not a

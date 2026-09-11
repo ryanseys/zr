@@ -72,6 +72,10 @@ module Ze0
         end
 
         def const_read(node)
+          if node.scope.nil? && (slot = @l.boot_class_slot(node.name))
+            return global(slot)
+          end
+
           id = imm(sym_id(node.name))
           at_line(node.line)
           if node.scope.nil?
