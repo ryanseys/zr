@@ -952,6 +952,7 @@ module Ze0
         d zr_method_meta_of Ptr rec:Ptr
         d zr_super_defined Value rec:Ptr
         d zr_super_from Value rec:Ptr recv:Value owner:Value
+        d zr_zsuper_in_block Value rec:Ptr
         d zr_zsuper_outside Value rec:Ptr
         d zr_invoke Value e:Ptr recv:Value argc:Word argv:Ptr blk:Value kw:Word
         d zr_wrong_arity_in Value given:Word expected:Word e:Ptr recv:Value

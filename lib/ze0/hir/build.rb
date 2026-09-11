@@ -836,7 +836,7 @@ module Ze0
         pairs += p.keywords.flat_map { |name, _| [Literal.new(name, line), local.call(name)] }
         kwargs = pairs.empty? ? nil : HashLit.new(pairs, line)
         block = node.block ? block(node.block) : (p.block && BlockPass.new(local.call(p.block), line))
-        Super.new(positional, kwargs, block, line)
+        Super.new(positional, kwargs, block, line, @block_depth.positive?)
       end
 
       # A ParametersNode as one Params.

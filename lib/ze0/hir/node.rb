@@ -122,8 +122,10 @@ module Ze0
     end
     Yield = Struct.new(:args, :line, :kwargs)
     # `super(args)`; `block` as a Send's. `ZSuper` is the bare `super`,
-    # passing the method's own parameters on as they stand.
-    Super = Struct.new(:args, :kwargs, :block, :line)
+    # passing the method's own parameters on as they stand. `in_block`
+    # marks a bare `super` in a block of a def, which CRuby refuses when
+    # the block runs as a method `define_method` made.
+    Super = Struct.new(:args, :kwargs, :block, :line, :in_block)
     ZSuper = Struct.new(:block, :line)
     Break = Struct.new(:value, :line)
     Next = Struct.new(:value, :line)

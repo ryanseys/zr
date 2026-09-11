@@ -417,13 +417,23 @@ machine def zr_super_from(rec, recv, owner)
   k
 end
 
-# A bare `super` with no def around it: in a method `define_method`
-# made, CRuby refuses implicit arguments; elsewhere there is no method.
+# A bare `super` in a block: when the block runs as a method
+# `define_method` made, CRuby refuses implicit arguments, whatever def
+# the block was written in.
 sig [Ptr] => Value
-machine def zr_zsuper_outside(rec)
+machine def zr_zsuper_in_block(rec)
   if zr_bmethod_entry(rec) != 0
     return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("implicit argument passing of super from method defined by define_method() is not supported. Specify all arguments explicitly."), 125)
   end
+  Machine.value(QNIL)
+end
+
+# A bare `super` with no def around it: refused in a method
+# `define_method` made; elsewhere there is no method.
+sig [Ptr] => Value
+machine def zr_zsuper_outside(rec)
+  r = zr_zsuper_in_block(rec)
+  return r if r == QUNDEF
   zr_raise_msg(zr_global(G_NO_METHOD_ERROR), Machine.bytes("super called outside of method"), 30)
 end
 

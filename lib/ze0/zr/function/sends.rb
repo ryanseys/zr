@@ -232,8 +232,14 @@ module Ze0
         end
 
         # `super(args)`: the arguments staged as for a send, then the
-        # runtime finds the next method past this frame's owner.
+        # runtime finds the next method past this frame's owner. A bare
+        # `super` in a block asks first whether the block is a method
+        # `define_method` made, where CRuby refuses it.
         def super_call(node)
+          if node.in_block
+            at_line(node.line)
+            checked(kernel("zr_zsuper_in_block", @rec))
+          end
           args = node.args + [node.kwargs].compact
           if args.any?(Hir::Splat)
             staged([], 1 + (node.block ? 1 : 0)) do |_, base|
