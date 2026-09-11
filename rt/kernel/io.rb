@@ -26,7 +26,6 @@ Machine.import "fdopendir", [I32] => Ptr
 Machine.import "fchdir", [I32] => I32
 Machine.import "readdir", [Ptr] => Ptr
 Machine.import "closedir", [Ptr] => I32
-Machine.import "select", [I32, Ptr, Ptr, Ptr, Ptr] => I32
 Machine.import "__error", [] => Ptr
 Machine.import "strerror", [I32] => Ptr
 
@@ -442,49 +441,74 @@ machine def zr_path_access(path, mode)
   zr_bool(Machine.word(access(RString.ptr(path), Machine.i32(zr_fix2long(mode)))) == 0)
 end
 
-# select(2) on one descriptor, which is what ruby itself waits with:
-# the events that came ready, 0 when the time ran out, or the negated
-# errno. A negative time waits for good.
+# The bits `events` carries: IO::READABLE, IO::PRIORITY, IO::WRITABLE.
+WAIT_READABLE = 1
+WAIT_PRIORITY = 2
+WAIT_WRITABLE = 4
+EBADF = 9
+
+# Darwin's select(2) with no FD_SETSIZE limit, the one CRuby calls (it
+# builds with _DARWIN_UNLIMITED_SELECT). Plain `select` refuses more
+# than 1024 descriptors, and poll(2) here reports a pipe with data as
+# priority-readable, so neither gives CRuby's answer.
+Machine.sig :select_call, [I32, Ptr, Ptr, Ptr, Ptr] => I32
+
+sig [] => Ptr
+machine def zr_select_fn
+  cell = Machine.static(:select_fn, 8)
+  if Machine.load64(cell, 0) == 0
+    Machine.store64(cell, 0, Machine.word(dlsym(Machine.ptr(RTLD_DEFAULT), Machine.bytes("select$DARWIN_EXTSN\0"))))
+  end
+  Machine.ptr(Machine.load64(cell, 0))
+end
+
+# select(2) on one descriptor, which is what ruby itself waits with on
+# this platform: the events that came ready, 0 when the time ran out, or
+# the negated errno. A negative time waits for good. Each of the three
+# sets holds as many bits as the descriptor needs, so any descriptor
+# number fits.
 sig [Value, Value, Value] => Value
 machine def zr_io_wait(fd, events, milliseconds)
   n = zr_fix2long(fd)
-  want = zr_fix2long(events)
-  # Three descriptor sets of 128 bytes: readable, writable, urgent.
-  sets = Machine.slot(384)
-  i = 0
-  while i < 384
-    Machine.store8(sets + i, 0, 0)
-    i += 1
+  if n < 0
+    return zr_fix(0 - EBADF)
   end
+  want = zr_fix2long(events)
+  span = ((n / 32) + 1) * 4
+  sets = zr_xmalloc(span * 3)
+  memset(sets, Machine.i32(0), span * 3)
   word = (n / 32) * 4
   bit = 1 << (n % 32)
-  if (want & 1) != 0
+  if (want & WAIT_READABLE) != 0
     Machine.store32(sets + word, 0, Machine.i32(bit))
   end
-  if (want & 4) != 0
-    Machine.store32(sets + 128 + word, 0, Machine.i32(bit))
+  if (want & WAIT_WRITABLE) != 0
+    Machine.store32(sets + span + word, 0, Machine.i32(bit))
   end
-  if (want & 2) != 0
-    Machine.store32(sets + 256 + word, 0, Machine.i32(bit))
+  if (want & WAIT_PRIORITY) != 0
+    Machine.store32(sets + (span * 2) + word, 0, Machine.i32(bit))
   end
-  span = Machine.slot(16)
+  tv = Machine.slot(16)
   ms = zr_fix2long(milliseconds)
-  Machine.store64(span, 0, ms / 1000)
-  Machine.store32(span, 8, Machine.i32((ms % 1000) * 1000))
-  Machine.store32(span, 12, Machine.i32(0))
-  r = select(Machine.i32(n + 1), sets, sets + 128, sets + 256, ms < 0 ? 0 : span)
+  Machine.store64(tv, 0, ms / 1000)
+  Machine.store32(tv, 8, Machine.i32((ms % 1000) * 1000))
+  Machine.store32(tv, 12, Machine.i32(0))
+  r = Machine.call(:select_call, zr_select_fn(), Machine.i32(n + 1), sets, sets + span, sets + (span * 2), ms < 0 ? 0 : tv)
   if r < Machine.i32(0)
-    return zr_fix(0 - zr_errno())
+    errno = zr_errno()
+    free(sets)
+    return zr_fix(0 - errno)
   end
   ready = 0
   if (Machine.word(Machine.load32(sets + word, 0)) & bit) != 0
-    ready = ready | 1
+    ready = ready | WAIT_READABLE
   end
-  if (Machine.word(Machine.load32(sets + 128 + word, 0)) & bit) != 0
-    ready = ready | 4
+  if (Machine.word(Machine.load32(sets + span + word, 0)) & bit) != 0
+    ready = ready | WAIT_WRITABLE
   end
-  if (Machine.word(Machine.load32(sets + 256 + word, 0)) & bit) != 0
-    ready = ready | 2
+  if (Machine.word(Machine.load32(sets + (span * 2) + word, 0)) & bit) != 0
+    ready = ready | WAIT_PRIORITY
   end
+  free(sets)
   zr_fix(ready)
 end

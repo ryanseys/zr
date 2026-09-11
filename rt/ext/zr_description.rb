@@ -618,6 +618,7 @@ module Ze0
         d zr_realpath_m Value path:Value
         d zr_chmod_m Value path:Value mode:Value
         d zr_path_access Value path:Value mode:Value
+        d zr_select_fn Ptr
         d zr_io_wait Value fd:Value events:Value milliseconds:Value
         d zr_jit_map Value size:Value exec:Value hint:Value
         d zr_jit_symbol Value name:Value
@@ -1236,6 +1237,10 @@ module Ze0
         c GATE_OR 131072
         c GATE_XOR 262144
         c GATE_SHR 524288
+        c WAIT_READABLE 1
+        c WAIT_PRIORITY 2
+        c WAIT_WRITABLE 4
+        c EBADF 9
         c PROT_READ_WRITE 3
         c PROT_READ_WRITE_EXEC 7
         c MAP_ANON_PRIVATE 4098
