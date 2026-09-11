@@ -274,11 +274,12 @@ module Ze0
         end
 
         # An Integer operator: the fixnum fast path inline when both sides
-        # are fixnums (the receiver alone for equality) and the gate is
-        # clear, else the call.
+        # are fixnums and the gate is clear, else the call. Equality takes
+        # the call for any other operand too: `1 == 1.0` is true, and
+        # `1 == obj` asks `obj == 1`.
         def operator(node, recv, argv)
           arg = @f.fetch("i64", argv)
-          both = %i[== !=].include?(node.name) ? recv : @f.band(recv, arg)
+          both = @f.band(recv, arg)
           fix = @f.icmp("eq", @f.band(both, imm(1)), imm(1))
           ok = @f.band(fix, gate_clear(OPS.fetch(node.name)))
           fast = @f.label

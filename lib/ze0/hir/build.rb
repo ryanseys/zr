@@ -128,7 +128,9 @@ module Ze0
           result = scopes ? Prism.parse(source, filepath: file, line: line, scopes: scopes) : Prism.parse(source, filepath: file, line: line)
           raise SyntaxReport.error(result, file) unless result.errors.empty?
 
-          @roots.concat(load_path_roots(result.value, file))
+          load_path_roots(result.value, file).each do |front, paths|
+            front ? @roots.unshift(*paths) : @roots.concat(paths)
+          end
           build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value))
           body = build.seq(result.value.statements, hoist: true)
           Unit.new(file, result.value.locals + build.temps, body, warnings(result, file), file.start_with?("#{EXT}/"))
@@ -209,12 +211,16 @@ module Ze0
           File.file?("#{path}.rb") ? "#{path}.rb" : nil
         end
 
+        # The directories a file adds to $LOAD_PATH with a literal, in the
+        # order it adds them: `[true, paths]` for an `unshift`, which puts
+        # them ahead of every root, `[false, paths]` for `push` and `<<`.
         def load_path_roots(node, file)
           roots = []
           walk = lambda do |n|
             if n.is_a?(Prism::CallNode) && n.receiver.is_a?(Prism::GlobalVariableReadNode) && %i[$LOAD_PATH $:].include?(n.receiver.name) &&
                %i[unshift push <<].include?(n.name) && n.arguments
-              n.arguments.arguments.each { |a| (r = literal_path(a, file)) && roots << r }
+              paths = n.arguments.arguments.filter_map { |a| literal_path(a, file) }
+              roots << [n.name == :unshift, paths] unless paths.empty?
             end
             n.compact_child_nodes.each { |c| walk.call(c) }
           end
