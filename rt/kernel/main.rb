@@ -458,8 +458,10 @@ machine def main(argc, argv)
     zr_report(Task.pending(zr_task()))
   end
   # What a box sees of the shared world is what stands here, before
-  # the program has written anything of its own.
+  # the program has written anything of its own; so are the operator
+  # bodies the inline fast paths stand in for.
   zr_box_snapshot()
+  zr_gates_snapshot()
   r = zr_toplevel()
   exc = Machine.value(QUNDEF)
   if r == QUNDEF

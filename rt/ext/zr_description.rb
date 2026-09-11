@@ -140,6 +140,9 @@ module Ze0
         d zr_class_name_of Value v:Value
         d zr_module_new Value
         d zr_gate_bit Word klass:Value mid:Word
+        d zr_gate_row Word i:Word klass:Word mid:Word bit:Word
+        d zr_gates_snapshot Void
+        d zr_gates_recheck Void mid:Word
         d zr_define_method Value klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value
         d zr_define_method_public Value klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value
         d zr_define_method_as Value klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value vis:Word
@@ -1151,6 +1154,7 @@ module Ze0
         c KIND_UNDEF 6
         c KIND_MISSING 9
         c T_ICLASS 28
+        c GATE_ROWS 20
         c MCACHE_ROWS 2048
         c MCACHE_OFF 1
         c MCACHE_VERIFY 2
@@ -1353,6 +1357,7 @@ module Ze0
         s ClassExt 160 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word refined:104:Value active:112:Value boxed:120:Value shadow:128:Value alloc:136:Word cidx:144:Ptr cbins:152:Word
         s MEntry 72 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value
         s CEntry 64 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value
+        s GateRow 40 8 klass:0:Word mid:8:Word bit:16:Word fn:24:Ptr vis:32:Word
         s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word
         s RCref 64 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr
         s FrameMeta 112 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr locals:80:Ptr env:88:Word box:96:Value ruby:104:Word

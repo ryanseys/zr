@@ -199,6 +199,7 @@ machine def zr_splice_modules(klass, at, mod, whole)
     m = RClass.superclass(m)
   end
   zr_methods_changed()
+  zr_gates_recheck(0)
 end
 
 # The proxies standing for `mod` in other chains, newest first, as
@@ -730,6 +731,81 @@ machine def zr_gate_bit(klass, mid)
   end
 end
 
+# The operators compiled code inlines, each as the program found it when
+# it started: the class the gate guards (a global's index), the name,
+# the gate bit, and the body and visibility that class found then.
+Machine.struct :GateRow, klass: Word, mid: Word, bit: Word, fn: Ptr, vis: Word
+GATE_ROWS = 20
+
+sig [Word, Word, Word, Word] => Word
+machine def zr_gate_row(i, klass, mid, bit)
+  row = Machine.static(:gate_rows, GATE_ROWS * GateRow.size) + (i * GateRow.size)
+  GateRow.set_klass(row, klass)
+  GateRow.set_mid(row, mid)
+  GateRow.set_bit(row, bit)
+  e = zr_search_method(zr_global(klass), mid)
+  if e != 0
+    GateRow.set_fn(row, MEntry.fn(e))
+    GateRow.set_vis(row, MEntry.vis(e))
+  end
+  i + 1
+end
+
+# When the program starts, after the runtime's own definitions: from
+# here on, a change to what a row's class finds closes that row's gate.
+sig [] => Void
+machine def zr_gates_snapshot
+  i = zr_gate_row(0, G_INTEGER, Machine.id(:+), GATE_PLUS)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:-), GATE_MINUS)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:*), GATE_MUL)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:/), GATE_DIV)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:%), GATE_MOD)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:<), GATE_LT)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:<=), GATE_LE)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:>), GATE_GT)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:>=), GATE_GE)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:==), GATE_EQ)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:!=), GATE_NE)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:&), GATE_AND)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:|), GATE_OR)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:^), GATE_XOR)
+  i = zr_gate_row(i, G_INTEGER, Machine.id(:>>), GATE_SHR)
+  i = zr_gate_row(i, G_ARRAY, Machine.id(:[]), GATE_AREF)
+  i = zr_gate_row(i, G_ARRAY, Machine.id(:[]=), GATE_ASET)
+  i = zr_gate_row(i, G_ARRAY, Machine.id(:<<), GATE_LTLT)
+  i = zr_gate_row(i, G_STRING, Machine.id(:<<), GATE_LTLT)
+  zr_gate_row(i, G_STRING, Machine.id(:freeze), GATE_FREEZE)
+  Machine.store64(Machine.static(:gates_taken, 8), 0, 1)
+end
+
+# After a definition, a visibility change, a removal or a module spliced
+# into a chain: the gate of each row whose class now finds another body
+# for the name, or finds it under another visibility, closes, and every
+# site of that operator takes the call. `mid` 0 asks every row. A gate
+# never opens again. The walk leaves `Task.found` as the send that
+# asked left it.
+sig [Word] => Void
+machine def zr_gates_recheck(mid)
+  if Machine.load64(Machine.static(:gates_taken, 8), 0) == 0
+    return
+  end
+  found = Task.found(zr_task())
+  g = zr_gates()
+  rows = Machine.static(:gate_rows, GATE_ROWS * GateRow.size)
+  i = 0
+  while i < GATE_ROWS
+    row = rows + (i * GateRow.size)
+    if (mid == 0 || GateRow.mid(row) == mid) && (Machine.load64(g, 0) & GateRow.bit(row)) == 0
+      e = zr_search_method(zr_global(GateRow.klass(row)), GateRow.mid(row))
+      if e == 0 || MEntry.fn(e) != GateRow.fn(row) || MEntry.vis(e) != GateRow.vis(row)
+        Machine.store64(g, 0, Machine.load64(g, 0) | GateRow.bit(row))
+      end
+    end
+    i += 1
+  end
+  Task.set_found(zr_task(), found)
+end
+
 # A definition; the first one of each builtin operator is the runtime's
 # own and leaves the gate clear, a later one sets it. `meta` is the
 # compiled def's own FrameMeta, or 0 for a builtin, which gets one here.
@@ -891,6 +967,7 @@ machine def zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
   MEntry.set_vis(e, vis)
   MEntry.set_orig(e, mid)
   MEntry.set_from(e, Machine.value(QNIL))
+  zr_gates_recheck(mid)
 end
 
 # The entry `e` again on `klass` as `mid`, keeping the name it was
@@ -977,6 +1054,7 @@ machine def zr_set_method_visibility(klass, mid, vis, modfn)
   else
     MEntry.set_vis(e, vis)
     zr_methods_changed()
+    zr_gates_recheck(mid)
   end
   # The hooks run last: one can define a method, which moves the table
   # the entry sits in.

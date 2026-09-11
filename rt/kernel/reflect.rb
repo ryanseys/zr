@@ -477,6 +477,7 @@ machine def zr_mod_remove_method(recv, argc, argv, cref, blk)
     end
     ClassExt.set_mlen(ext, ClassExt.mlen(ext) - 1)
     zr_methods_changed()
+    zr_gates_recheck(mid)
     r = zr_method_removed(recv, mid)
     return r if r == QUNDEF
     i += 1
