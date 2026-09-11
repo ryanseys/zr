@@ -148,6 +148,14 @@ machine def zr_hidden_set(obj, name, v)
   zr_ivar_set(obj, zr_sym2id(name), v)
 end
 
+# Core-only state that `freeze` does not hold still: a Mutex still
+# locks after it is frozen, as the C fields of CRuby's do.
+sig [Value, Value, Value] => Value
+machine def zr_state_set(obj, name, v)
+  zr_ivtab_set(zr_ivtab_for_write(obj), zr_sym2id(name), v)
+  v
+end
+
 # `object_id`: a fixnum's is 2n + 1, nil's 4, true's 20, false's 0;
 # a heap object's comes from a counter (8, 16, 24, ...) at its first
 # call, kept in a hidden ivar. A symbol's or a flonum's is its word,

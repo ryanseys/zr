@@ -381,6 +381,9 @@ module Ze0
         d zr_fiber_yield Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_fiber_start Void
         d zr_fiber_alive_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_fiber_unborn_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_fiber_terminate Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_fiber_rehome Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mark_fiber Void f:Value
         d zr_release_fiber Void f:Value
         d zr_fiber_scheduler_switch Value to:Value
@@ -724,6 +727,7 @@ module Ze0
         d zr_ivar_get Value obj:Value id:Word
         d zr_hidden_get Value obj:Value name:Value
         d zr_hidden_set Value obj:Value name:Value v:Value
+        d zr_state_set Value obj:Value name:Value v:Value
         d zr_obj_object_id Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ivar_id_visible_p Bool id:Word
         d zr_ivar_set Value obj:Value id:Word v:Value
@@ -1400,7 +1404,7 @@ module Ze0
         s FrameMeta 112 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr locals:80:Ptr env:88:Word box:96:Value ruby:104:Word
         s BtRow 32 8 meta:0:Ptr file:8:Ptr file_len:16:Word line:24:Word
         s RException 56 8 basic:0:RBasic message:16:Value rows:24:Ptr nrows:32:Word bt:40:Value cause:48:Value
-        s RFiber 104 8 basic:0:RBasic task:16:Ptr ctx:24:Ptr stack:32:Ptr kroots:40:Ptr blk:48:Value status:56:Word prev:64:Value resuming:72:Value value:80:Value yielding:88:Word transferred:96:Word
+        s RFiber 112 8 basic:0:RBasic task:16:Ptr ctx:24:Ptr stack:32:Ptr kroots:40:Ptr blk:48:Value status:56:Word prev:64:Value resuming:72:Value value:80:Value yielding:88:Word transferred:96:Word home:104:Value
         s RFloat 24 8 basic:0:RBasic bits:16:Word
         s RHash 96 8 basic:0:RBasic entries:16:Ptr len:24:Word live:32:Word cap:40:Word default:48:Value default_proc:56:Value bins:64:Ptr nbins:72:Word iter:80:Word gen:88:Word
         s HEntry 32 8 key:0:Value value:8:Value live:16:Word hash:24:Word

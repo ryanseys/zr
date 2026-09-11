@@ -5,7 +5,7 @@ Machine.raw "zr_switch"
 Machine.import "mmap", [Ptr, Word, I32, I32, I32, Word] => Ptr
 Machine.import "munmap", [Ptr, Word] => I32
 
-Machine.struct :RFiber, basic: RBasic, task: Ptr, ctx: Ptr, stack: Ptr, kroots: Ptr, blk: Value, status: Word, prev: Value, resuming: Value, value: Value, yielding: Word, transferred: Word
+Machine.struct :RFiber, basic: RBasic, task: Ptr, ctx: Ptr, stack: Ptr, kroots: Ptr, blk: Value, status: Word, prev: Value, resuming: Value, value: Value, yielding: Word, transferred: Word, home: Value
 T_FIBER = 30
 G_FIBER = 39
 FIBER_CREATED = 0
@@ -78,6 +78,7 @@ machine def zr_fiber_current
     RFiber.set_value(f, Machine.value(QNIL))
     RFiber.set_yielding(f, 0)
     RFiber.set_transferred(f, 0)
+    RFiber.set_home(f, f)
     Machine.store64(slot, 0, Machine.word(f))
     Machine.store64(Machine.static(:root_fiber, 8), 0, Machine.word(f))
   end
@@ -96,6 +97,7 @@ machine def zr_fiber_new(recv, argc, argv, cref, blk)
   if blk == QNIL
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("tried to create Proc object without a block"), 43)
   end
+  cur = zr_fiber_current()
   f = zr_alloc(T_FIBER, recv)
   RFiber.set_blk(f, blk)
   RFiber.set_status(f, FIBER_CREATED)
@@ -105,6 +107,9 @@ machine def zr_fiber_new(recv, argc, argv, cref, blk)
   RFiber.set_yielding(f, 0)
   RFiber.set_transferred(f, 0)
   RFiber.set_kroots(f, 0)
+  # A fiber belongs to the thread that makes it, which is the thread
+  # the fiber it is made on belongs to.
+  RFiber.set_home(f, RFiber.home(cur))
   t = zr_xmalloc(Task.size)
   zr_task_init(t)
   stack = mmap(0, FIBER_STACK_BYTES, 3, 4098, -1, 0)
@@ -167,14 +172,17 @@ machine def zr_fiber_resume(recv, argc, argv, cref, blk)
   if recv == cur
     return zr_fiber_error(Machine.bytes("attempt to resume the current fiber"), 35)
   end
+  if RFiber.prev(recv) != QNIL
+    return zr_fiber_error(Machine.bytes("attempt to resume a resumed fiber (double resume)"), 49)
+  end
   if RFiber.resuming(recv) != QNIL
     return zr_fiber_error(Machine.bytes("attempt to resume a resuming fiber"), 34)
   end
-  if RFiber.status(recv) == FIBER_RESUMED
-    return zr_fiber_error(Machine.bytes("attempt to resume a resumed fiber (double resume)"), 49)
-  end
   if RFiber.transferred(recv) != 0
     return zr_fiber_error(Machine.bytes("attempt to resume a transferring fiber"), 38)
+  end
+  if RFiber.home(recv) != RFiber.home(cur)
+    return zr_fiber_error(Machine.bytes("fiber called across threads"), 27)
   end
   RFiber.set_prev(recv, cur)
   RFiber.set_resuming(cur, recv)
@@ -199,6 +207,9 @@ machine def zr_fiber_transfer(recv, argc, argv, cref, blk)
   end
   if recv == cur
     return zr_fiber_transfer_value(argc, argv)
+  end
+  if RFiber.home(recv) != RFiber.home(cur)
+    return zr_fiber_error(Machine.bytes("fiber called across threads"), 27)
   end
   RFiber.set_transferred(cur, 1)
   RFiber.set_status(cur, FIBER_SUSPENDED)
@@ -295,6 +306,30 @@ machine def zr_fiber_alive_p(recv, argc, argv, cref, blk)
   zr_bool(RFiber.status(recv) != FIBER_TERMINATED)
 end
 
+# Whether the fiber has never run: its block waits for a first resume.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_fiber_unborn_p(recv, argc, argv, cref, blk)
+  zr_bool(RFiber.status(recv) == FIBER_CREATED)
+end
+
+# A fiber that has never run ends where it stands: killing it runs no
+# block and leaves no stack to return to.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_fiber_terminate(recv, argc, argv, cref, blk)
+  if RFiber.status(recv) == FIBER_CREATED
+    RFiber.set_status(recv, FIBER_TERMINATED)
+  end
+  recv
+end
+
+# The fiber heads a thread of its own: it belongs to no other thread,
+# and every fiber made on it belongs to the same thread.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_fiber_rehome(recv, argc, argv, cref, blk)
+  RFiber.set_home(recv, recv)
+  recv
+end
+
 # A suspended fiber's roots: its frame chain, its task's slots, and the
 # kernel records on its stack.
 sig [Value] => Void
@@ -303,6 +338,7 @@ machine def zr_mark_fiber(f)
   zr_mark(RFiber.prev(f))
   zr_mark(RFiber.resuming(f))
   zr_mark(RFiber.value(f))
+  zr_mark(RFiber.home(f))
   if Machine.word(f) != Machine.load64(Machine.static(:current_fiber, 8), 0)
     zr_mark_task(RFiber.task(f))
     zr_mark_kernel_roots_from(RFiber.kroots(f))

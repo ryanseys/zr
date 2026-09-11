@@ -39,8 +39,11 @@ class Thread
     # turn and none is asleep.
     def alone? = @queue.empty? && @sleepers.empty?
 
-    # The current thread sleeps until `wakeup`.
+    # The current thread sleeps until `wakeup`. With no other thread
+    # to wake it, CRuby says so before it parks.
     def stop
+      raise ThreadError, "stopping only thread\n\tnote: use sleep to stop forever" if @threads.size <= 1
+
       @current.send(:wait, nil, true)
       nil
     end
@@ -49,11 +52,48 @@ class Thread
 
     def exit = @current.kill
 
-    def handle_interrupt(*) = Primitive.zr_unimplemented("Thread.handle_interrupt")
+    # `handle_interrupt(Class => :never) { }`: while the block runs,
+    # an exception of a class the mask names waits; it arrives when
+    # the mask goes.
+    def handle_interrupt(mask)
+      raise ArgumentError, "unknown mask signature" unless mask.is_a?(Hash)
+      raise LocalJumpError, "no block given" unless block_given?
 
-    def pending_interrupt?(*) = Primitive.zr_unimplemented("Thread.pending_interrupt?")
+      current.send(:push_mask, mask)
+      begin
+        yield
+      ensure
+        current.send(:pop_mask)
+      end
+    end
+
+    def pending_interrupt?(error = nil) = current.pending_interrupt?(error)
 
     private
+
+    # Wakes the waiters that still sleep, `count` of them at the most.
+    # A thread that is awake already has its turn coming, and a dead
+    # one takes none; so one item pushed wakes one more waiter, not
+    # the same one twice.
+    def rouse(waiters, count = waiters.size)
+      Primitive.attr! :hidden
+      woken = 0
+      waiters.each do |thread|
+        break if woken >= count
+        next unless thread.status == "sleep"
+
+        thread.wakeup
+        woken += 1
+      end
+      nil
+    end
+
+    # The ids stand above the process's own, and no two threads share
+    # one.
+    def next_native_id
+      Primitive.attr! :hidden
+      @native_ids = (@native_ids || Primitive.zr_process_id) + 1
+    end
 
     def boot
       @main = Primitive.zr_class_build(self)
@@ -190,7 +230,7 @@ class Thread
     Kernel.raise ThreadError, "Target thread must not be current thread" if equal?(Thread.current)
     Kernel.raise ThreadError, "Target thread must not be main thread" if equal?(Thread.main) && !Thread.current.equal?(Thread.main)
 
-    deadline = limit.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (limit * 1e9).to_i
+    deadline = limit.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (seconds(limit) * 1e9).to_i
     while alive?
       return nil if deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) >= deadline
 
@@ -251,26 +291,27 @@ class Thread
     self
   end
 
-  # Fiber-local storage, keyed by the fiber reading it.
+  # Fiber-local storage, keyed by the fiber this thread runs, which is
+  # the caller's fiber only where the caller is the thread itself.
   def [](key)
-    @locals[Fiber.current]&.[](key.to_sym)
+    @locals[local_fiber]&.[](key.to_sym)
   end
 
   def []=(key, value)
-    (@locals[Fiber.current] ||= {})[key.to_sym] = value
+    (@locals[local_fiber] ||= {})[key.to_sym] = value
   end
 
   def key?(key)
-    locals = @locals[Fiber.current]
+    locals = @locals[local_fiber]
     locals ? locals.key?(key.to_sym) : false
   end
 
   def keys
-    @locals[Fiber.current]&.keys || []
+    @locals[local_fiber]&.keys || []
   end
 
   def fetch(key, *default)
-    locals = @locals[Fiber.current] || {}
+    locals = @locals[local_fiber] || {}
     return locals.fetch(key.to_sym, *default) unless block_given?
 
     Primitive.zr_warn_here_m("block supersedes default value argument") unless default.empty?
@@ -296,19 +337,75 @@ class Thread
 
   alias to_s inspect
 
-  def priority = 0
+  # Every thread is a green task on the one native thread, so the
+  # priority is a number the thread keeps and the scheduler ignores.
+  def priority = @priority || 0
 
   def priority=(value)
-    value
+    raise TypeError, "no implicit conversion of #{value.nil? ? 'nil' : value.class} into Integer" unless value.is_a?(Numeric)
+
+    @priority = value.to_int
   end
 
-  def group = Primitive.zr_unimplemented("Thread#group")
+  def group = @group || ThreadGroup::Default
 
   def backtrace(*) = Primitive.zr_unimplemented("Thread#backtrace")
 
-  def native_thread_id = Primitive.zr_unimplemented("Thread#native_thread_id")
+  # An id of its own for as long as the thread lives, as the native
+  # thread of a CRuby thread has.
+  def native_thread_id
+    return nil if @status == :dead
+
+    @native_thread_id ||= Thread.send(:next_native_id)
+  end
+
+  # Whether an exception another thread sent waits for this one.
+  def pending_interrupt?(error = nil)
+    return false if @pending.nil?
+
+    error.nil? || @pending.is_a?(error)
+  end
 
   private
+
+  # A limit in seconds, as `rb_to_float` takes one: a String names a
+  # number that no conversion reads.
+  def seconds(limit)
+    Primitive.attr! :hidden
+    Kernel.raise TypeError, "no implicit conversion to float from string" if limit.is_a?(String)
+    Kernel.raise TypeError, "can't convert #{limit.nil? ? 'nil' : limit.class} into Float" unless limit.is_a?(Numeric)
+
+    limit.to_f
+  end
+
+  def local_fiber
+    Primitive.attr! :hidden
+    equal?(Thread.current) ? Fiber.current : @fiber
+  end
+
+  def push_mask(mask)
+    Primitive.attr! :hidden
+    (@masks ||= []) << mask
+  end
+
+  # The mask goes, and anything it held back arrives now.
+  def pop_mask
+    Primitive.attr! :hidden
+    @masks.pop
+    interrupted
+  end
+
+  # Whether an exception waits rather than arrives: the innermost mask
+  # that names its class decides.
+  def masked?(exception)
+    Primitive.attr! :hidden
+    return false if @masks.nil?
+
+    @masks.reverse_each do |mask|
+      mask.each { |klass, how| return how != :immediate if klass === exception }
+    end
+    false
+  end
 
   def main!
     Primitive.attr! :hidden
@@ -322,6 +419,9 @@ class Thread
     Primitive.attr! :hidden
     @site = site && site[0, site.index(":in ")]
     @fiber = Fiber.new { body }
+    # The fiber heads a thread of its own, so every fiber made on it
+    # belongs to this thread.
+    @fiber.send(:__rehome__)
     Primitive.zr_preempt_arm(Thread, :preempt)
     Thread.send(:enqueue, self)
     Thread.instance_variable_get(:@threads) << self
@@ -352,7 +452,7 @@ class Thread
     Primitive.attr! :hidden
     @status = :dead
     Thread.send(:forget, self)
-    @waiters.dup.each(&:wakeup)
+    Thread.send(:rouse, @waiters.dup)
   end
 
   def report(e)
@@ -376,7 +476,7 @@ class Thread
   def interrupted
     Primitive.attr! :hidden
     throw @kill_tag if @killed
-    if @pending
+    if @pending && !masked?(@pending)
       e = @pending
       @pending = nil
       Kernel.raise e
@@ -422,20 +522,60 @@ class Thread
   send(:boot)
 end
 
+# Every thread is in one group; a group lists the threads of its own
+# that still live, and an enclosed group takes no more.
+class ThreadGroup
+  def add(thread)
+    raise ThreadError, "can't move from the enclosed thread group" if thread.group.enclosed?
+    raise ThreadError, "can't move to the enclosed thread group" if enclosed?
+
+    thread.instance_variable_set(:@group, self)
+    self
+  end
+
+  def list = Thread.list.select { |thread| thread.group.equal?(self) }
+
+  def enclose
+    @enclosed = true
+    self
+  end
+
+  def enclosed? = @enclosed ? true : false
+
+  Default = new
+end
+
 class Fiber
   class << self
     # A fiber starts with a copy of its maker's storage, its own Hash,
-    # or none.
+    # or none. Its block runs inside a catch, so a kill throws to that
+    # tag: every ensure on the way runs and no rescue sees it.
     def new(storage: true, &block)
-      f = __new__(&block)
+      raise ArgumentError, "tried to create Proc object without a block" unless block
+
       table = case storage
               when true then current.storage
               when nil, false then {}
               when Hash then storage.dup
               else raise TypeError, "wrong argument type #{storage.class} (expected Hash)"
               end
+      tag = Object.new
+      f = __new__ { |*args| Primitive.zr_catch(tag, proc { block.call(*args) }) }
+      Primitive.zr_hidden_set(f, :__kill__, tag)
       Primitive.zr_hidden_set(f, :__storage__, table)
       f
+    end
+
+    # `Fiber.yield`: back to the resumer. What comes back is the next
+    # resume's value, or the kill or the exception left for the fiber.
+    def yield(*args)
+      value = __yield__(*args)
+      action = Primitive.zr_hidden_get(current, :__action__)
+      return value if action.nil?
+
+      Primitive.zr_hidden_set(current, :__action__, nil)
+      Kernel.throw(Primitive.zr_hidden_get(current, :__kill__)) if action == :kill
+      Kernel.raise(action)
     end
 
     def [](key)
@@ -454,9 +594,54 @@ class Fiber
 
       key
     end
+
+    # The exception `Fiber#raise` carries, as `rb_make_exception`
+    # builds it.
+    def make_exception(args)
+      Primitive.attr! :hidden
+      return RuntimeError.new("unhandled exception") if args.empty?
+
+      klass, message, backtrace = args
+      exception = klass.is_a?(String) ? RuntimeError.new(klass) : (message.nil? ? klass.exception : klass.exception(message))
+      exception.set_backtrace(backtrace) if backtrace
+      exception
+    end
   end
 
-  def storage = storage_table.dup
+  # `kill`: the fiber leaves where it yielded, running every ensure on
+  # the way. A fiber that never ran ends where it stands.
+  def kill
+    return self unless alive?
+    return self if __unborn__ && __terminate__
+
+    tag = Primitive.zr_hidden_get(self, :__kill__)
+    return self if tag.nil?
+
+    if equal?(Fiber.current)
+      Kernel.throw(tag)
+    else
+      Primitive.zr_hidden_set(self, :__action__, :kill)
+      resume
+    end
+    self
+  end
+
+  # `raise`: the exception arrives in the fiber where it yielded, and
+  # the answer is what the fiber does next.
+  def raise(*args)
+    exception = Fiber.send(:make_exception, args)
+    Kernel.raise FiberError, "cannot raise exception on unborn fiber" if __unborn__
+    return Kernel.raise(exception) if equal?(Fiber.current)
+
+    Primitive.zr_hidden_set(self, :__action__, exception)
+    resume
+  end
+
+  def storage
+    Kernel.raise ArgumentError, "Fiber storage can only be accessed from the Fiber it belongs to" unless equal?(Fiber.current)
+
+    storage_table.dup
+  end
 
   def storage=(hash)
     Primitive.zr_warn_here_m("Fiber#storage= is experimental and may be removed in the future!")
@@ -472,37 +657,40 @@ class Fiber
   end
 end
 
+# A mutex holds its owner and its waiters in core-only state, which
+# `freeze` does not hold still: a frozen Mutex still locks, as CRuby's
+# C fields let it.
 class Thread::Mutex
   def initialize
-    @owner = nil
-    @waiters = []
+    Primitive.zr_state_set(self, :__owner__, nil)
+    Primitive.zr_state_set(self, :__waiters__, [])
   end
 
-  def locked? = !@owner.nil?
+  def locked? = !Primitive.zr_hidden_get(self, :__owner__).nil?
 
-  def owned? = @owner.equal?(Fiber.current)
+  def owned? = Primitive.zr_hidden_get(self, :__owner__).equal?(Fiber.current)
 
   def try_lock
-    return false if @owner
+    return false if locked?
 
-    @owner = Fiber.current
+    Primitive.zr_state_set(self, :__owner__, Fiber.current)
     true
   end
 
   def lock
     raise ThreadError, "deadlock; recursive locking" if owned?
 
-    Thread.current.send(:wait_on, @waiters, nil, true) while @owner
-    @owner = Fiber.current
+    Thread.current.send(:wait_on, Primitive.zr_hidden_get(self, :__waiters__), nil, true) while locked?
+    Primitive.zr_state_set(self, :__owner__, Fiber.current)
     self
   end
 
   def unlock
-    raise ThreadError, "Attempt to unlock a mutex which is not locked" unless @owner
+    raise ThreadError, "Attempt to unlock a mutex which is not locked" unless locked?
     raise ThreadError, "Attempt to unlock a mutex which is locked by another thread/fiber" unless owned?
 
-    @owner = nil
-    @waiters.first&.wakeup
+    Primitive.zr_state_set(self, :__owner__, nil)
+    Primitive.zr_hidden_get(self, :__waiters__).first&.wakeup
     self
   end
 
@@ -551,12 +739,12 @@ class Thread::ConditionVariable
   end
 
   def signal
-    @waiters.first&.wakeup
+    Thread.send(:rouse, @waiters, 1)
     self
   end
 
   def broadcast
-    @waiters.dup.each(&:wakeup)
+    Thread.send(:rouse, @waiters.dup)
     self
   end
 end
@@ -581,7 +769,7 @@ class Thread::Queue
     raise ClosedQueueError, "queue closed" if @closed
 
     @items << value
-    @waiters.first&.wakeup
+    Thread.send(:rouse, @waiters, 1)
     self
   end
 
@@ -608,7 +796,7 @@ class Thread::Queue
 
   def close
     @closed = true
-    @waiters.dup.each(&:wakeup)
+    Thread.send(:rouse, @waiters.dup)
     self
   end
 
@@ -645,7 +833,7 @@ class Thread::SizedQueue < Thread::Queue
     raise ArgumentError, "queue size must be positive" unless value.is_a?(Integer) && value > 0
 
     @max = value
-    @pushers.dup.each(&:wakeup)
+    Thread.send(:rouse, @pushers.dup)
     value
   end
 
@@ -671,7 +859,7 @@ class Thread::SizedQueue < Thread::Queue
   def pop(non_block = false, timeout: nil)
     Primitive.attr! :ruby
     value = super
-    @pushers.first&.wakeup
+    Thread.send(:rouse, @pushers, 1)
     value
   end
 
@@ -680,7 +868,7 @@ class Thread::SizedQueue < Thread::Queue
 
   def close
     super
-    @pushers.dup.each(&:wakeup)
+    Thread.send(:rouse, @pushers.dup)
     self
   end
 
