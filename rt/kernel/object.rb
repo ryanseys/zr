@@ -469,7 +469,11 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_instance_of(recv, argc, argv, cref, blk)
-  zr_bool(zr_real_class(recv) == Machine.value(Machine.load64(argv, 0)))
+  c = Machine.value(Machine.load64(argv, 0))
+  if zr_special_p(c) || (zr_type(c) != T_CLASS && zr_type(c) != T_MODULE)
+    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("class or module required"), 24)
+  end
+  zr_bool(zr_real_class(recv) == c)
 end
 
 # `Object#eql?`: identity; `Object#hash`: a number the identity gives.
@@ -530,7 +534,13 @@ end
 # `Object#===`: `==`.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_eqq(recv, argc, argv, cref, blk)
-  zr_send(recv, Machine.id(:==), 1, argv)
+  # Identity first, then `==` as a truth value, as CRuby's rb_equal.
+  if recv == Machine.value(Machine.load64(argv, 0))
+    return Machine.value(QTRUE)
+  end
+  r = zr_send(recv, Machine.id(:==), 1, argv)
+  return r if r == QUNDEF
+  zr_bool(r != QNIL && r != QFALSE)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -551,18 +561,27 @@ machine def zr_obj_ne(recv, argc, argv, cref, blk)
   zr_bool(r == QNIL || r == QFALSE)
 end
 
-# Whether the receiver's own `respond_to_missing?` claims `mid`.
-sig [Value, Word] => Bool
-machine def zr_respond_to_missing_p(recv, mid)
+# The receiver's own `respond_to_missing?(mid, all)` as true or false,
+# or undef when it raises.
+sig [Value, Word, Value] => Value
+machine def zr_respond_to_missing(recv, mid, all)
   e = zr_find_method(zr_class_of(recv), Machine.id(:respond_to_missing?))
   if e == 0 || MEntry.fn(e) == Machine.addr(:zr_obj_respond_to_missing)
-    return false
+    return Machine.value(QFALSE)
   end
   pair = Machine.slot(16)
   Machine.store64(pair, 0, Machine.word(zr_sym(mid)))
-  Machine.store64(pair, 8, QTRUE)
+  Machine.store64(pair, 8, Machine.word(all))
   r = zr_invoke(e, recv, 2, pair, Machine.value(QNIL), 0)
-  r != QUNDEF && r != QNIL && r != QFALSE
+  return r if r == QUNDEF
+  zr_bool(r != QNIL && r != QFALSE)
+end
+
+# Whether the receiver's own `respond_to_missing?` claims `mid`, asked
+# with include_all, as `defined?` and `method` ask it.
+sig [Value, Word] => Bool
+machine def zr_respond_to_missing_p(recv, mid)
+  zr_respond_to_missing(recv, mid, Machine.value(QTRUE)) == QTRUE
 end
 
 # `Object#respond_to_missing?`: false, for a subclass to override.
@@ -595,7 +614,7 @@ machine def zr_obj_respond_to(recv, argc, argv, cref, blk)
   all = argc == 2 && Machine.value(Machine.load64(argv, 8)) != QNIL && Machine.value(Machine.load64(argv, 8)) != QFALSE
   e = zr_find_method(zr_box_view(zr_class_of(recv)), zr_sym2id(m))
   if e == 0 || zr_entry_hidden_p(e)
-    return zr_bool(zr_respond_to_missing_p(recv, zr_sym2id(m)))
+    return zr_respond_to_missing(recv, zr_sym2id(m), zr_bool(all))
   end
   zr_bool(all || MEntry.vis(e) == VIS_PUBLIC)
 end

@@ -603,7 +603,12 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_include_p(recv, argc, argv, cref, blk)
   m = Machine.value(Machine.load64(argv, 0))
   if zr_special_p(m) || zr_type(m) != T_MODULE
-    return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("wrong argument type Class (expected Module)"), 43)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
+    zr_buf_class_of(b, m)
+    zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
   zr_bool(m != recv && zr_chain_includes(recv, m))
 end

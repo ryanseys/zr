@@ -747,6 +747,7 @@ module Ze0
         d zr_obj_nil_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_eq Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_ne Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_respond_to_missing Value recv:Value mid:Word all:Value
         d zr_respond_to_missing_p Bool recv:Value mid:Word
         d zr_obj_respond_to_missing Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_respond_to Value recv:Value argc:Word argv:Ptr cref:Value blk:Value

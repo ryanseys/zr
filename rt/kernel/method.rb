@@ -467,7 +467,10 @@ machine def zr_method_eq(recv, argc, argv, cref, blk)
   end
   a = RMethod.entry(recv)
   b = RMethod.entry(other)
-  zr_bool(RMethod.recv(recv) == RMethod.recv(other) && RMethod.owner(recv) == RMethod.owner(other) && MEntry.fn(a) == MEntry.fn(b) && MEntry.kind(a) == MEntry.kind(b))
+  # A method `define_method` made keeps its body in the entry's cref:
+  # two bodies are two methods.
+  zr_bool(RMethod.recv(recv) == RMethod.recv(other) && RMethod.owner(recv) == RMethod.owner(other) && MEntry.fn(a) == MEntry.fn(b) && MEntry.kind(a) == MEntry.kind(b) &&
+          (MEntry.kind(a) != KIND_BMETHOD || MEntry.cref(a) == MEntry.cref(b)))
 end
 
 # One parameter row as `inspect` shows it, CRuby's way: `a`, `b=...`,
