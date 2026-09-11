@@ -349,10 +349,12 @@ module Ze0
         d zr_buf_method_label Void b:Ptr owner:Value name:Word
         d zr_buf_row Void b:Ptr row:Ptr
         d zr_exc_backtrace Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_exc_raise_rows Value recv:Value
         d zr_fatal_class Value
         d zr_error_print_m Value exc:Value
         d zr_report Void exc:Value
         d zr_error_print Void exc:Value
+        d zr_error_print_one Void exc:Value
         d zr_stack_overflow Value
         d zr_exc_set_backtrace_value Value exc:Value bt:Value
         d zr_exc_set_backtrace Value recv:Value argc:Word argv:Ptr cref:Value blk:Value

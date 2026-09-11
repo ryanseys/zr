@@ -64,7 +64,11 @@ class Exception
     out
   end
 
-  def backtrace_locations = nil
+  # The rows the raise saw, as Location objects: nil before a raise, and
+  # unchanged when set_backtrace replaces the strings.
+  def backtrace_locations
+    Primitive.zr_exc_raise_rows(self)&.map { |row| Thread::Backtrace::Location.new(row) }
+  end
 
   private
 

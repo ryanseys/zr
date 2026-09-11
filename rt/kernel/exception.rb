@@ -448,13 +448,21 @@ machine def zr_buf_row(b, row)
   zr_buf_byte(b, 39)
 end
 
-# `Exception#backtrace`: one `file:line:in 'label'` String per row, or
-# nil before the exception is raised.
+# `Exception#backtrace`: what set_backtrace gave, else the raise's own
+# rows, or nil before the exception is raised.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_exc_backtrace(recv, argc, argv, cref, blk)
   if RException.bt(recv) != QNIL
     return RException.bt(recv)
   end
+  zr_exc_raise_rows(recv)
+end
+
+# The rows the raise recorded, one `file:line:in 'label'` String each,
+# or nil before a raise. set_backtrace leaves them as they are, so
+# `backtrace_locations` answers them.
+sig [Value] => Value
+machine def zr_exc_raise_rows(recv)
   rows = RException.rows(recv)
   if rows == 0
     return Machine.value(QNIL)
@@ -493,11 +501,23 @@ machine def zr_report(exc)
   exit(1)
 end
 
-# An exception on stderr: the exception's own `detailed_message` after
-# the first row. A SystemStackError past 18 rows shows the first 9 and
-# the last 4, with the count of the levels between.
+# An exception on stderr, then each exception it was raised from, as
+# CRuby's rb_error_write prints the cause chain. The kernel refuses a
+# circular cause, so the walk ends.
 sig [Value] => Void
 machine def zr_error_print(exc)
+  e = exc
+  while e != QNIL && e != QUNDEF && !zr_special_p(e) && zr_is_a(e, zr_global(G_EXCEPTION))
+    zr_error_print_one(e)
+    e = RException.cause(e)
+  end
+end
+
+# One exception on stderr: its own `detailed_message` after the first
+# row. A SystemStackError past 18 rows shows the first 9 and the last 4,
+# with the count of the levels between.
+sig [Value] => Void
+machine def zr_error_print_one(exc)
   detail = zr_send(exc, Machine.id(:detailed_message), 0, 0)
   if detail == QUNDEF || zr_special_p(detail) || zr_type(detail) != T_STRING
     detail = zr_class_name_of(exc)
