@@ -515,14 +515,7 @@ class Array
     return to_enum(:delete_if) { size } unless block_given?
 
     Primitive.zr_frozen_error(self) if frozen?
-    i = 0
-    while i < size
-      if yield(self[i])
-        Primitive.zr_ary_splice(self, i, 1, [])
-      else
-        i += 1
-      end
-    end
+    sweep_by_block { |x| !yield(x) }
     self
   end
 
@@ -530,18 +523,14 @@ class Array
     return to_enum(:reject!) { size } unless block_given?
 
     Primitive.zr_frozen_error(self) if frozen?
-    before = size
-    delete_if { |x| yield(x) }
-    size == before ? nil : self
+    sweep_by_block { |x| !yield(x) } ? self : nil
   end
 
   def select!
     return to_enum(:select!) { size } unless block_given?
 
     Primitive.zr_frozen_error(self) if frozen?
-    before = size
-    delete_if { |x| !yield(x) }
-    size == before ? nil : self
+    sweep_by_block { |x| yield(x) } ? self : nil
   end
 
   def keep_if
@@ -631,10 +620,17 @@ class Array
     size == before ? nil : self
   end
 
-  def uniq!
-    before = size
-    replace(uniq)
-    size == before ? nil : self
+  # As rb_ary_uniq_bang: a frozen Array refuses first; the block, when
+  # given, keys each element, and an element it pushes counts too; nil
+  # when nothing went.
+  def uniq!(&)
+    Primitive.zr_frozen_error(self) if frozen?
+    return nil if size <= 1
+
+    kept = uniq(&)
+    return nil if kept.size == size
+
+    replace(kept)
   end
 
   def reverse!
@@ -912,6 +908,31 @@ end
 
 class Array
   private
+
+  # The walk of CRuby's select_bang_i: each element the block keeps
+  # moves down over those it dropped while the Array keeps its length,
+  # so the block sees every element where it was. When the walk ends,
+  # even by a raise or a break, the Array is cut to what was kept and
+  # whatever the walk had not reached (select_bang_ensure). True when
+  # any element went.
+  def sweep_by_block
+    Primitive.attr! :hidden
+    read = 0
+    kept = 0
+    begin
+      while read < size
+        x = Primitive.zr_ary_at_m(self, read)
+        if yield(x)
+          Primitive.zr_ary_aset_at(self, kept, x) if read != kept
+          kept += 1
+        end
+        read += 1
+      end
+      read != kept
+    ensure
+      Primitive.zr_ary_splice(self, kept, read - kept, []) if kept < size && kept < read
+    end
+  end
 
   # The rest of a Float sum from element `from`, compensated as CRuby's
   # ary_add_one/Kahan-Babuska walk does; a non-Float element switches
