@@ -93,12 +93,17 @@ module Kernel
     raise TypeError, "can't convert #{value.class} into String"
   end
 
+  # rb_Array: to_ary, else to_a, else the value alone. Either answering
+  # nil passes to the next; answering anything but an Array is refused.
   def Array(value)
-    return [] if value.nil?
-    return value if value.is_a?(Array)
-    return value.to_ary if value.respond_to?(:to_ary)
-    return value.to_a if value.respond_to?(:to_a)
+    converted = Array.try_convert(value)
+    return converted if converted
 
+    if value.respond_to?(:to_a)
+      converted = value.to_a
+      return converted if converted.is_a?(Array)
+      raise TypeError, "can't convert #{value.class} to Array (#{value.class}#to_a gives #{converted.class})" unless converted.nil?
+    end
     [value]
   end
 

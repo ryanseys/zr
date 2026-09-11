@@ -21,8 +21,19 @@ module Comparable
 
   def between?(low, high) = self >= low && self <= high
 
-  def clamp(low, high = nil)
-    if high.nil? && low.is_a?(Range)
+  # One argument must be a Range, as cmp_clamp reads it; two are the
+  # bounds, either of them nil.
+  def clamp(low, high = (one = true))
+    if one
+      unless low.is_a?(Range)
+        shown = case low
+                when nil then "nil"
+                when true then "true"
+                when false then "false"
+                else low.class
+                end
+        raise TypeError, "wrong argument type #{shown} (expected Range)"
+      end
       raise ArgumentError, "cannot clamp with an exclusive range" if low.exclude_end? && !low.end.nil?
 
       high = low.end

@@ -138,6 +138,86 @@ class << ENV
     self
   end
   alias merge! update
+
+  def clear
+    keys.each { |name| delete(name) }
+    self
+  end
+
+  # A value that is not String-like names nothing: nil, as env_has_value
+  # answers.
+  def value?(value)
+    value = value.to_str if !value.is_a?(String) && value.respond_to?(:to_str)
+    return nil unless value.is_a?(String)
+
+    values.include?(value)
+  end
+  alias has_value? value?
+
+  def invert = to_h.invert
+  def rehash = nil
+  def except(*names) = to_h.except(*names)
+
+  def reject!
+    return to_enum(:reject!) { size } unless block_given?
+
+    deleted = false
+    to_h.each do |name, value|
+      next unless yield(name, value)
+
+      delete(name)
+      deleted = true
+    end
+    deleted ? self : nil
+  end
+
+  def delete_if(&block)
+    return to_enum(:delete_if) { size } unless block
+
+    reject!(&block)
+    self
+  end
+
+  def select!
+    return to_enum(:select!) { size } unless block_given?
+
+    deleted = false
+    to_h.each do |name, value|
+      next if yield(name, value)
+
+      delete(name)
+      deleted = true
+    end
+    deleted ? self : nil
+  end
+  alias filter! select!
+
+  def keep_if(&block)
+    return to_enum(:keep_if) { size } unless block
+
+    select!(&block)
+    self
+  end
+
+  # The names the Hash gives are set, each checked as it is; every other
+  # name goes, as env_replace leaves the environment.
+  def replace(hash)
+    hash = Hash.try_convert(hash) or raise TypeError, "no implicit conversion of #{hash.class} into Hash"
+    names = keys
+    hash.each do |name, value|
+      self[name] = value
+      names.delete(variable_name(name))
+    end
+    names.each { |name| delete(name) }
+    self
+  end
+
+  def shift
+    pair = to_h.first
+    delete(pair[0]) if pair
+    pair
+  end
+
   def inspect = to_h.inspect
   def to_s = "ENV"
 

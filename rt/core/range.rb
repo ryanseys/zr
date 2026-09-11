@@ -105,7 +105,7 @@ class Range
     return to_enum(:each) { size } unless block_given?
 
     v = @begin
-    if v.is_a?(Integer)
+    if v.is_a?(Integer) && (@end.nil? || @end.is_a?(Integer))
       if @end.nil?
         while true
           yield v
@@ -117,20 +117,53 @@ class Range
         yield v
         v += 1
       end
-    elsif v.is_a?(String)
+    elsif v.is_a?(Symbol) && (@end.nil? || @end.is_a?(Symbol))
+      Range.new(v.to_s, @end&.to_s, @excl).each { |s| yield s.to_sym }
+    elsif (text = String.try_convert(v))
+      if @end.nil?
+        while true
+          yield text
+          text = text.succ
+        end
+      end
+      text.upto(@end, @excl) { |s| yield s }
+    else
+      # range_each_func: anything that answers succ walks toward the end
+      # while <=> says it has not passed it.
+      raise TypeError, "can't iterate from #{v.class}" unless v.respond_to?(:succ)
+
       if @end.nil?
         while true
           yield v
           v = v.succ
         end
       end
-      v.upto(@end, @excl) { |s| yield s }
-    elsif v.is_a?(Symbol)
-      Range.new(v.to_s, @end&.to_s, @excl).each { |s| yield s.to_sym }
-    else
-      raise TypeError, "can't iterate from #{v.class}"
+      if @excl
+        while range_less(v, @end) < 0
+          yield v
+          v = v.succ
+        end
+      else
+        while (c = range_less(v, @end)) <= 0
+          yield v
+          break if c == 0
+
+          v = v.succ
+        end
+      end
     end
     self
+  end
+
+  # r_less: `a <=> b` as rb_cmpint reads it, and past the end when the
+  # two do not compare.
+  def range_less(a, b)
+    Primitive.attr! :hidden
+    c = a <=> b
+    return 1 if c.nil?
+    return c <=> 0 if c.is_a?(Integer)
+
+    c > 0 ? 1 : (c < 0 ? -1 : 0)
   end
 
   # Integer ends count down without an Array, which a beginless range

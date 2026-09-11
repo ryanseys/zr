@@ -583,6 +583,9 @@ module Enumerable
   end
 
   def drop(n)
+    n = Primitive.zr_index_operand_m(n)
+    raise ArgumentError, "attempt to drop negative size" if n < 0
+
     out = []
     i = 0
     each do |*x|
@@ -607,9 +610,7 @@ module Enumerable
     nil
   end
 
-  def uniq
-    to_a.uniq
-  end
+  def uniq(&block) = to_a.uniq(&block)
 
   def entries = to_a
 
@@ -741,7 +742,12 @@ module Enumerable
 end
 
 module Enumerable
-  alias collect map
+  # Its own body, so an Enumerator made from it names `collect`.
+  def collect(&block)
+    return to_enum(:collect) unless block
+
+    map(&block)
+  end
   alias filter select
   alias find_all select
   alias detect find

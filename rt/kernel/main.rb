@@ -198,7 +198,7 @@ machine def zr_boot
   zr_builtin(zr_global(G_ARRAY), Machine.id(:each_with_index), Machine.addr(:zr_ary_each_with_index), 0)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:each_index), Machine.addr(:zr_ary_each_index), 0)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:map), Machine.addr(:zr_ary_map), 0)
-  zr_builtin(zr_global(G_ARRAY), Machine.id(:collect), Machine.addr(:zr_ary_map), 0)
+  zr_builtin(zr_global(G_ARRAY), Machine.id(:collect), Machine.addr(:zr_ary_collect), 0)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:select), Machine.addr(:zr_ary_select), 0)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:filter), Machine.addr(:zr_ary_select), 0)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:reject), Machine.addr(:zr_ary_reject), 0)

@@ -849,6 +849,7 @@ module Ze0
         d zr_ary_each_with_index Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_each_index Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_map Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_ary_collect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_filter Value recv:Value blk:Value keep:Bool
         d zr_ary_select Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_reject Value recv:Value argc:Word argv:Ptr cref:Value blk:Value

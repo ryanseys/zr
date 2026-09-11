@@ -833,18 +833,34 @@ class Array
 
   def -(other)
     members = {}
-    other.to_ary.each { |x| members[x] = true }
+    ary_operand(other).each { |x| members[x] = true }
     reject { |x| members.key?(x) }
   end
 
   def &(other)
     members = {}
-    other.to_ary.each { |x| members[x] = true }
+    ary_operand(other).each { |x| members[x] = true }
     uniq.select { |x| members.key?(x) }
   end
 
   def |(other)
-    (self + other.to_ary).uniq
+    (self + ary_operand(other)).uniq
+  end
+
+  # An operand as CRuby's to_ary() takes one: an Array, or what to_ary
+  # gives, else a TypeError that names it.
+  def ary_operand(other)
+    Primitive.attr! :hidden
+    converted = Array.try_convert(other)
+    return converted if converted
+
+    shown = case other
+            when nil then "nil"
+            when true then "true"
+            when false then "false"
+            else other.class
+            end
+    raise TypeError, "no implicit conversion of #{shown} into Array"
   end
 
   def zip(*others)

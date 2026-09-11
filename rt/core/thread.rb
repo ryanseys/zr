@@ -562,8 +562,16 @@ class Thread::ConditionVariable
 end
 
 class Thread::Queue
+  # The first items convert through to_a, as rb_to_array takes them.
   def initialize(items = nil)
-    items = Array.try_convert(items) || raise(TypeError, "can't convert #{items.class} into Array") unless items.nil?
+    unless items.nil? || items.is_a?(Array)
+      raise TypeError, "can't convert #{items.class} into Array" unless items.respond_to?(:to_a)
+
+      converted = items.to_a
+      raise TypeError, "can't convert #{items.class} to Array (#{items.class}#to_a gives #{converted.class})" unless converted.is_a?(Array)
+
+      items = converted
+    end
     @items = items.nil? ? [] : items.dup
     @closed = false
     @waiters = []

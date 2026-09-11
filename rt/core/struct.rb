@@ -95,7 +95,9 @@ class Struct
     Primitive.zr_hidden_set(self, :__values__, values)
     keyword_init = Primitive.zr_real_class(self).keyword_init?
     given = Primitive.zr_ary_len_m(args)
-    if keyword_init == false && Primitive.zr_hash_len_m(keywords) > 0
+    # Keywords are a value by position when keyword_init says so, and
+    # when it says nothing but values came by position too.
+    if (keyword_init == false || (keyword_init.nil? && given > 0)) && Primitive.zr_hash_len_m(keywords) > 0
       args << keywords
       keywords = {}
       given += 1

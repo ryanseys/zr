@@ -104,7 +104,8 @@ class Enumerator
   def with_index(offset = 0, &block)
     return to_enum(:with_index, offset) { size } unless block
 
-    indexed(offset, &block)
+    # nil counts from 0; anything else converts as rb_to_int does.
+    indexed(offset.nil? ? 0 : implicit_integer(offset), &block)
   end
 
   def each_with_index(&block)

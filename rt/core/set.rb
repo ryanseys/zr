@@ -22,7 +22,6 @@ class Set
 
   def size = @hash.size
   alias length size
-  alias count size
 
   def empty? = @hash.empty?
 

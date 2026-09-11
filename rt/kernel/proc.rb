@@ -623,6 +623,16 @@ machine def zr_ary_map(recv, argc, argv, cref, blk)
   out
 end
 
+# `collect`: map's body, and an Enumerator that names `collect`, as
+# CRuby's does for the name it was called by.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_collect(recv, argc, argv, cref, blk)
+  if blk == QNIL
+    return zr_enum_for(recv, Machine.id(:collect), argc, argv, zr_fix(RArray.len(recv)))
+  end
+  zr_ary_map(recv, argc, argv, cref, blk)
+end
+
 # `select`/`reject`: `keep` says which answers keep the element.
 sig [Value, Value, Bool] => Value
 machine def zr_ary_filter(recv, blk, keep)
