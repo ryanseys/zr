@@ -96,6 +96,21 @@ when "zr"
     # Status 3 is a refusal by name; the sweep tells it from a defect.
     warn "ze0: #{e.message}"
     exit 3
+  rescue SyntaxError => e
+    # ruby reports a program that does not parse and exits 1, and so does
+    # the binary, with ruby's own report. A required file that does not
+    # parse raises as the require runs, which ze0 does not do yet.
+    report = begin
+      RubyVM::InstructionSequence.compile_file(input)
+      nil
+    rescue SyntaxError => own
+      "#{input}: #{own.detailed_message(highlight: false)}\n"
+    end
+    unless report
+      warn "ze0: a required file does not parse: #{e.message.lines.first.chomp}"
+      exit 3
+    end
+    program = Ze0::Zr.program("$stderr.write(#{report.inspect})\nexit 1\n", input)
   end
   Dir.mktmpdir("ze0-zr-") do |work|
     out = verb == "run" ? File.join(work, "program") : File.expand_path(output)

@@ -2,6 +2,7 @@
 
 require "prism"
 require_relative "node"
+require_relative "syntax_report"
 
 module Ze0
   module Hir
@@ -99,10 +100,7 @@ module Ze0
 
         def unit(file, source = File.read(file), line = 1, scopes = nil)
           result = scopes ? Prism.parse(source, filepath: file, line: line, scopes: scopes) : Prism.parse(source, filepath: file, line: line)
-          unless result.errors.empty?
-            e = result.errors.first
-            raise SyntaxError, "#{file}:#{e.location.start_line}: #{e.message}"
-          end
+          raise SyntaxReport.error(result, file) unless result.errors.empty?
 
           @roots.concat(load_path_roots(result.value, file))
           frozen = result.magic_comments.any? { |c| c.key == "frozen_string_literal" && c.value == "true" }
