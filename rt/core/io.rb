@@ -375,7 +375,14 @@ class IO
     nil
   end
 
+  # One String, the usual call, is its own line: CRuby takes a String
+  # as it is and never asks it for `to_s`.
   def puts(*objects)
+    if Primitive.zr_ary_len_m(objects) == 1 && (text = Primitive.zr_ary_at_m(objects, 0)).is_a?(String)
+      write(text.end_with?("\n") ? text : text + "\n")
+      return nil
+    end
+
     IO.lines_of(objects).each { |line| write(line) }
     nil
   end
@@ -634,7 +641,7 @@ class IO
   # system call itself, or in poll(2) when the descriptor cannot wait.
   def park_until(event)
     Primitive.attr! :hidden
-    until Thread.send(:alone?)
+    until !Primitive.zr_threaded || Thread.send(:alone?)
       return if Primitive.zr_io_wait(@fd, event, 0) != 0
 
       sleep 0.001
@@ -647,7 +654,7 @@ class IO
   # the pipe, and a green sibling is the only one who can drain it.
   def write_bytes(text)
     Primitive.attr! :hidden
-    return checked_write(Primitive.zr_io_write(@fd, text)) if Thread.send(:alone?)
+    return checked_write(Primitive.zr_io_write(@fd, text)) if !Primitive.zr_threaded || Thread.send(:alone?)
 
     from = 0
     size = text.bytesize

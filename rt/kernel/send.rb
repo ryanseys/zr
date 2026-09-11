@@ -580,6 +580,13 @@ machine def zr_preempt_arm(receiver, message)
   Machine.value(QNIL)
 end
 
+# Whether a second thread ever started. Until one does, every task is
+# alone, and IO need not ask the scheduler before a system call.
+sig [] => Value
+machine def zr_threaded
+  zr_bool(Machine.load64(Machine.static(:preempt_to, 8), 0) != 0)
+end
+
 sig [] => Value
 machine def zr_preempt
   count = Machine.static(:preempt_count, 8)

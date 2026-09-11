@@ -165,7 +165,7 @@ class File < IO
 
     text = File.send(:open_mode, mode)
     made = !File.exist?(path)
-    if File.pipe?(path) && !Thread.send(:alone?)
+    if File.pipe?(path) && Primitive.zr_threaded && !Thread.send(:alone?)
       # open(2) on a FIFO waits for the other end, which would stop
       # every green thread. A task that shares the process opens the
       # descriptor without waiting and keeps it that way: every read
