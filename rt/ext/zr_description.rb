@@ -464,6 +464,7 @@ module Ze0
         d zr_key_eql_elements Word a:Value b:Value
         d zr_hash_mix Word x:Word
         d zr_key_hash Bool h:Value key:Value out:Ptr
+        d zr_key_builtin_p Bool key:Value mid:Word builtin:Ptr
         d zr_key_code Word h:Value key:Value
         d zr_bytes_hash Word p:Ptr n:Word
         d zr_hash_entry Ptr h:Value key:Value
@@ -509,6 +510,8 @@ module Ze0
         d zr_hash_set_default_proc Value h:Value p:Value
         d zr_hash_clear Value h:Value
         d zr_hash_compare_by_identity Value h:Value
+        d zr_hash_iterating_p Value h:Value
+        d zr_hash_set_identity Value h:Value on:Value
         d zr_hash_rehash Value h:Value
         d zr_hash_identity_p Value h:Value
         d zr_hash_default_value Value h:Value

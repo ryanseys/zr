@@ -17,10 +17,17 @@ class Hash
     Primitive.zr_ruby2_hash_p(hash)
   end
 
+  # Always a new Hash of the receiver's class, as rb_hash_s_create
+  # builds it: a Hash given alone lends its pairs, but neither its
+  # default nor its compare_by_identity.
   def self.[](*args)
-    return args[0].to_h if args.size == 1 && args[0].respond_to?(:to_hash)
+    if args.size == 1 && (given = Hash.try_convert(args[0]))
+      out = allocate
+      given.each { |k, v| out[k] = v }
+      return out
+    end
     if args.size == 1 && args[0].is_a?(Array)
-      out = {}
+      out = allocate
       args[0].each do |pair|
         raise ArgumentError, "wrong element type #{pair.class} (expected array)" unless pair.is_a?(Array)
         raise ArgumentError, "invalid number of elements (#{pair.size} for 1..2)" unless pair.size.between?(1, 2)
@@ -31,9 +38,17 @@ class Hash
     end
     raise ArgumentError, "odd number of arguments for Hash" if args.size.odd?
 
-    out = {}
+    out = allocate
     args.each_slice(2) { |k, v| out[k] = v }
     out
+  end
+
+  # An empty plain Hash with this one's compare_by_identity and nothing
+  # else of it, as hash_dup_with_compare_by_id starts one.
+  def identity_shaped
+    Primitive.attr! :hidden
+    out = {}
+    compare_by_identity? ? out.compare_by_identity : out
   end
 
   def each_key
@@ -53,7 +68,7 @@ class Hash
   def select
     return to_enum(:select) { size } unless block_given?
 
-    out = {}
+    out = identity_shaped
     each { |k, v| out[k] = v if yield(k, v) }
     out
   end
@@ -62,7 +77,7 @@ class Hash
   def reject
     return to_enum(:reject) { size } unless block_given?
 
-    out = {}
+    out = identity_shaped
     each { |k, v| out[k] = v unless yield(k, v) }
     out
   end
@@ -139,6 +154,7 @@ class Hash
   end
 
   def merge!(*others)
+    Primitive.zr_frozen_error(self) if frozen?
     others.each do |other|
       hash = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{other.class} into Hash"
       hash.each do |k, v|
@@ -171,7 +187,7 @@ class Hash
   def transform_values
     return to_enum(:transform_values) { size } unless block_given?
 
-    out = {}
+    out = identity_shaped
     each { |k, v| out[k] = yield(v) }
     out
   end
@@ -203,8 +219,18 @@ class Hash
     replace(transform_keys(mapping, &block))
   end
 
+  # rb_hash_replace: the other's pairs, default and compare_by_identity,
+  # in CRuby's order of refusals; a Hash replaced by itself stays.
   def replace(other)
+    Primitive.zr_frozen_error(self) if frozen?
+    return self if equal?(other)
+    raise RuntimeError, "can't replace hash during iteration" if Primitive.zr_hash_iterating_p(self)
+
+    other = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{other.class} into Hash"
+    pr = other.default_proc
+    pr ? (self.default_proc = pr) : (self.default = Primitive.zr_hash_default_value(other))
     clear
+    Primitive.zr_hash_set_identity(self, other.compare_by_identity?)
     other.each { |k, v| self[k] = v }
     self
   end
@@ -243,14 +269,14 @@ class Hash
   end
 
   def slice(*keys)
-    out = {}
+    out = identity_shaped
     keys.each { |k| out[k] = self[k] if key?(k) }
     out
   end
 
   # A plain Hash: the default and default proc do not carry over.
   def except(*keys)
-    out = {}
+    out = identity_shaped
     each { |k, v| out[k] = v }
     keys.each { |k| out.delete(k) }
     out
@@ -284,11 +310,10 @@ class Hash
     yield key
   end
 
+  # The whole Hash copied, as rb_hash_compact copies it, less the nils.
   def compact
-    out = {}
-    each { |k, v| out[k] = v unless v.nil? }
-    out.default = default
-    out.default_proc = default_proc if default_proc
+    out = dup
+    out.delete_if { |_, v| v.nil? }
     out
   end
 

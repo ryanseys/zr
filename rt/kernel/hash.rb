@@ -97,16 +97,18 @@ machine def zr_key_eql(a, b)
   if t == T_REGEXP
     return RRegexp.options(a) == RRegexp.options(b) ? zr_key_eql(RRegexp.source(a), RRegexp.source(b)) : KEY_DIFFERENT
   end
-  if t == T_OBJECT || t == T_METHOD || t == T_FLOAT || t == T_HASH || t == T_PROC
-    slot = Machine.slot(8)
-    Machine.store64(slot, 0, Machine.word(b))
-    r = zr_send(a, Machine.id(:eql?), 1, slot)
-    if r == QUNDEF
-      return KEY_RAISED
-    end
-    return r != QNIL && r != QFALSE ? KEY_SAME : KEY_DIFFERENT
+  # Kernel#eql? is identity, which the first test answered; any other
+  # eql? is the key's own, whatever kind of object it is.
+  if zr_key_builtin_p(a, Machine.id(:eql?), Machine.addr(:zr_obj_eql_p))
+    return KEY_DIFFERENT
   end
-  KEY_DIFFERENT
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(b))
+  r = zr_send(a, Machine.id(:eql?), 1, slot)
+  if r == QUNDEF
+    return KEY_RAISED
+  end
+  r != QNIL && r != QFALSE ? KEY_SAME : KEY_DIFFERENT
 end
 
 # Whether two Arrays of one length hold the same keys, each against
@@ -148,16 +150,36 @@ machine def zr_key_hash(h, key, out)
     return true
   end
   t = zr_type(key)
-  if t == T_ARRAY || t == T_OBJECT || t == T_METHOD || t == T_FLOAT || t == T_HASH || t == T_PROC
-    r = zr_send(key, Machine.id(:hash), 0, 0)
+  if t == T_STRING || t == T_REGEXP
+    return true
+  end
+  # Kernel#hash answers the identity code, which is here already.
+  if zr_key_builtin_p(key, Machine.id(:hash), Machine.addr(:zr_obj_hash))
+    return true
+  end
+  r = zr_send(key, Machine.id(:hash), 0, 0)
+  if r == QUNDEF
+    return false
+  end
+  # A bignum folds to a fixnum, as rb_any_hash folds one.
+  if zr_big_p(r)
+    r = zr_send(r, Machine.id(:hash), 0, 0)
     if r == QUNDEF
       return false
     end
-    if zr_fixnum_p(r)
-      Machine.store64(out, 0, zr_hash_mix(zr_fix2long(r)))
-    end
+  end
+  if zr_fixnum_p(r)
+    Machine.store64(out, 0, zr_hash_mix(zr_fix2long(r)))
   end
   true
+end
+
+# Whether `key` answers `mid` with the builtin at `builtin`, which the
+# table's own identity rule already stands for.
+sig [Value, Word, Ptr] => Bool
+machine def zr_key_builtin_p(key, mid, builtin)
+  e = zr_find_method(zr_class_of(key), mid)
+  e != 0 && MEntry.fn(e) == builtin
 end
 
 # The code of a key that runs no Ruby code to find it; for a key whose
@@ -1016,10 +1038,34 @@ end
 # `compare_by_identity`: from now on a key matches only itself.
 sig [Value] => Value
 machine def zr_hash_compare_by_identity(h)
+  if (RBasic.flags(h) & FL_IDENTITY) != 0
+    return h
+  end
   if zr_frozen_p(h)
     return zr_frozen_error(h)
   end
+  if RHash.iter(h) != 0
+    return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("compare_by_identity during iteration"), 36)
+  end
   RBasic.set_flags(h, RBasic.flags(h) | FL_IDENTITY)
+  zr_hash_recode(h)
+  h
+end
+
+sig [Value] => Value
+machine def zr_hash_iterating_p(h)
+  zr_bool(RHash.iter(h) != 0)
+end
+
+# compare_by_identity on or off, as `replace` takes it from the other
+# Hash; the codes are made again for the keys already here.
+sig [Value, Value] => Value
+machine def zr_hash_set_identity(h, on)
+  if on != QNIL && on != QFALSE
+    RBasic.set_flags(h, RBasic.flags(h) | FL_IDENTITY)
+  else
+    RBasic.set_flags(h, RBasic.flags(h) & (0 - FL_IDENTITY - 1))
+  end
   zr_hash_recode(h)
   h
 end

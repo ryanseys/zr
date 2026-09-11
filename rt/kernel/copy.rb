@@ -78,6 +78,11 @@ machine def zr_copy_cell(orig)
   if zr_type(orig) == T_STRING
     zr_str_copy_encoding(copy, orig)
   end
+  # A Hash's codes were made for its compare_by_identity, so the copy
+  # keeps that too.
+  if zr_type(orig) == T_HASH && (RBasic.flags(orig) & FL_IDENTITY) != 0
+    RBasic.set_flags(copy, RBasic.flags(copy) | FL_IDENTITY)
+  end
   zr_copy_payload(copy, orig)
 end
 
