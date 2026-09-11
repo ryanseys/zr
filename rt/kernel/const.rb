@@ -804,15 +804,14 @@ machine def zr_const_names_at(klass, out)
   end
 end
 
-# `mod`'s own names, then its ancestors' up to Object, which only
-# Object itself includes.
+# `mod`'s own names, then its ancestors' up to Object, where the walk
+# stops unless it began there, as rb_mod_const_of does: a class sees
+# neither Object's names nor BasicObject's past it.
 sig [Value, Value, Bool] => Void
 machine def zr_const_names_of(mod, out, inherit)
   k = mod
-  while k != QNIL
-    if k != zr_global(G_OBJECT) || mod == zr_global(G_OBJECT)
-      zr_const_names_at(k, out)
-    end
+  while k != QNIL && (k != zr_global(G_OBJECT) || mod == zr_global(G_OBJECT))
+    zr_const_names_at(k, out)
     k = inherit ? RClass.superclass(k) : Machine.value(QNIL)
   end
 end

@@ -163,13 +163,19 @@ module Marshal
     end
 
     # `e` names each module the object alone was extended with.
+    # The modules an object was extended with, as w_extended walks them:
+    # those between its singleton class and its class, never one the
+    # class itself holds. An object with no singleton class has none,
+    # and the walk makes it none.
     def extended(obj)
       return if obj.is_a?(Numeric) || obj.is_a?(Module)
 
-      own = obj.singleton_class
+      own = Primitive.zr_class_of(obj)
+      return unless own.singleton_class?
       raise TypeError, "singleton can't be dumped" unless (own.instance_methods(false) + own.private_instance_methods(false)).empty?
 
-      own.ancestors.take_while { |mod| mod != obj.class }.each do |mod|
+      held = obj.class.ancestors
+      own.ancestors.drop(1).take_while { |mod| !held.include?(mod) }.each do |mod|
         @out << "e" << symbol_bytes(mod.name.to_sym) if mod.instance_of?(Module)
       end
     end
@@ -264,7 +270,8 @@ module Marshal
 
       @symbols[sym] = @symbols.size
       text = sym.to_s
-      return +":".b << bytes(text) if text.ascii_only?
+      # A binary name has no encoding to write, as w_symbol has it.
+      return +":".b << bytes(text) if text.ascii_only? || text.encoding == Encoding::BINARY
 
       +"I".b << ":" << bytes(text) << long(1) << symbol_bytes(:E) << (text.encoding == Encoding::UTF_8 ? "T" : "F")
     end
@@ -406,6 +413,7 @@ module Marshal
     def with_ivars
       tag = @bytes.getbyte(@pos).chr
       return deferred(tag) if tag == "/" || tag == "u"
+      return encoded_symbol if tag == ":"
 
       value = read_value
       ivars.each { |name, item| apply_ivar(value, name, item) }
@@ -422,9 +430,16 @@ module Marshal
       payload = text
       options = tag == "/" ? byte : nil
       ivars.each { |name, item| apply_ivar(payload, name, item) }
-      built = tag == "/" ? Regexp.new(payload, options) : klass._load(payload)
+      built = tag == "/" ? Regexp.new(payload, options) : loaded(klass, payload)
       @objects[here] = built
       built
+    end
+
+    # `_load`, then the loader ruby registers beside it: an Encoding's
+    # `_load` hands back its name, which the load turns into the encoding.
+    def loaded(klass, payload)
+      built = klass._load(payload)
+      klass == Encoding ? Encoding.find(built) : built
     end
 
     def ivars
@@ -530,7 +545,7 @@ module Marshal
 
     def user_dump
       klass = constant(symbol_or_link.to_s, Class)
-      keep(klass._load(text))
+      keep(loaded(klass, text))
     end
 
     def user_marshal
@@ -546,6 +561,18 @@ module Marshal
       return new_symbol(text) if tag == ":"
 
       raise ArgumentError, "dump format error for symbol(0x#{tag.ord.to_s(16)})"
+    end
+
+    # A symbol's name takes its encoding before it is interned, since a
+    # Symbol is its bytes and their encoding. Its link slot comes first,
+    # as r_symreal keeps it.
+    def encoded_symbol
+      @pos += 1
+      here = @symbols.size
+      @symbols << nil
+      name = text
+      ivars.each { |key, item| apply_ivar(name, key, item) }
+      @symbols[here] = name.to_sym
     end
 
     def new_symbol(name)

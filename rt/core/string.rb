@@ -228,8 +228,11 @@ class String
   def chop! = mutate(chop)
   def squeeze!(*sets) = mutate(squeeze(*sets))
 
-  # Whitespace and NUL off both ends, in one String.
+  # Whitespace and NUL off both ends, in one String. The end is found by
+  # walking back over characters, which bytes that make none refuse, as
+  # rstrip_offset has it.
   def strip
+    broken_tail!
     stop = Primitive.zr_str_space_start(self, bytesize, true)
     start = stop.zero? ? 0 : Primitive.zr_str_space_end(self, 0, true)
     byteslice_of(start, stop - start)
@@ -240,7 +243,15 @@ class String
     byteslice_of(start, bytesize - start)
   end
 
-  def rstrip = byteslice_of(0, Primitive.zr_str_space_start(self, bytesize, true))
+  def rstrip
+    broken_tail!
+    byteslice_of(0, Primitive.zr_str_space_start(self, bytesize, true))
+  end
+
+  def broken_tail!
+    Primitive.attr! :hidden
+    raise Encoding::CompatibilityError, "invalid byte sequence in #{encoding}" unless empty? || valid_encoding?
+  end
 
   def chomp(separator = "\n")
     return dup if separator.nil? || empty?
@@ -267,6 +278,8 @@ class String
   end
 
   def squeeze(*sets)
+    raise ArgumentError, "invalid byte sequence in #{encoding}" unless valid_encoding?
+
     member = sets.empty? ? nil : charset_test(sets)
     out = +""
     last = nil
@@ -328,6 +341,9 @@ class String
     end
     pattern = $; if pattern.nil?
     pattern = Primitive.zr_str_operand(pattern) if !pattern.nil? && !pattern.is_a?(String) && !pattern.is_a?(Regexp) && pattern.respond_to?(:to_str)
+    # A split by words, characters or a String reads every character.
+    raise ArgumentError, "invalid byte sequence in #{encoding}" unless pattern.is_a?(Regexp) || valid_encoding?
+
     out = if pattern.nil? || pattern == " " then split_words(limit)
           elsif pattern.is_a?(Regexp) then split_by_regexp(pattern, limit)
           elsif !pattern.is_a?(String) then raise TypeError, "wrong argument type #{pattern.class} (expected Regexp)"
@@ -746,6 +762,8 @@ class String
   # back as the same bytes: a whole character as \u, a stray byte as
   # \x.
   def dump
+    return "#{b.dump}.dup.force_encoding(#{encoding.name.dump})" unless encoding.ascii_compatible?
+
     out = +"\""
     i = 0
     while i < bytesize
@@ -767,6 +785,46 @@ class String
     end
     out << "\""
     out.force_encoding(encoding)
+  end
+
+  UNIT_ESCAPES = { 34 => "\\\"", 92 => "\\\\", 10 => "\\n", 9 => "\\t", 13 => "\\r", 27 => "\\e", 7 => "\\a", 8 => "\\b", 12 => "\\f", 11 => "\\v" }.freeze
+  private_constant :UNIT_ESCAPES
+
+  # A UTF-16 or UTF-32 String inspected as ruby writes one: ASCII as it
+  # is, every other character as \u, and bytes that make no character
+  # as \x. A dummy name has no characters to show, so every byte is \x.
+  def unit_inspect
+    Primitive.attr! :hidden
+    return "\"#{each_byte.map { |byte| format('\\x%02X', byte) }.join}\"" unless Encoding.wide?(encoding)
+
+    chars = each_char.to_a
+    out = +"\""
+    chars.each_with_index do |char, i|
+      unless char.valid_encoding?
+        char.each_byte { |byte| out << format("\\x%02X", byte) }
+        next
+      end
+      point = char.ord
+      after = chars[i + 1]
+      out << if (escape = UNIT_ESCAPES[point]) then escape
+             elsif point == 35 then after&.valid_encoding? && [123, 36, 64].include?(after.ord) ? "\\#" : "#"
+             elsif point < 32 || point == 127 then format("\\u%04X", point)
+             elsif point < 128 then Primitive.zr_str_from_byte(point)
+             elsif point > 0xFFFF then format("\\u{%X}", point)
+             else format("\\u%04X", point)
+             end
+    end
+    out << "\""
+  end
+
+  # A code point appended to a UTF-16 or UTF-32 String, as its code
+  # units.
+  def append_unit_point(point)
+    Primitive.attr! :hidden
+    raise RangeError, "#{point} out of char range" if point < 0
+    raise RangeError, "invalid codepoint 0x#{format('%X', point)} in #{encoding}" if point > 0x10FFFF || (point >= 0xD800 && point <= 0xDFFF)
+
+    self << [point].pack("U").encode(encoding)
   end
 
   # The text `dump` wrote, read back; a trailing `.force_encoding(...)`
@@ -870,16 +928,18 @@ class String
     sign * n
   end
 
+  # `casecmp` folds ASCII alone; `casecmp?` folds all of Unicode. Two
+  # Strings with no encoding in common answer nil, as str_casecmp does.
   def casecmp(other)
-    return nil unless other.is_a?(String)
+    return nil unless other.is_a?(String) && Encoding.compatible?(self, other)
 
-    downcase <=> other.downcase
+    downcase(:ascii) <=> other.downcase(:ascii)
   end
 
   def casecmp?(other)
-    return nil unless other.is_a?(String)
+    return nil unless other.is_a?(String) && Encoding.compatible?(self, other)
 
-    downcase == other.downcase
+    downcase(:fold) == other.downcase(:fold)
   end
 
   def chr = empty? ? "" : self[0]
@@ -912,8 +972,7 @@ class String
   # meets in UTF-8, so a conversion between two other encodings is two
   # steps and reads as one in its errors.
   def encode(target = Encoding.default_internal || Encoding.default_external, source = nil, **options)
-    target = Encoding.find(target)
-    from = source.nil? ? encoding : Encoding.find(source)
+    from, target = Encoding.pair(source.nil? ? encoding : source, target)
     text = escaped(source.nil? ? self : dup.force_encoding(from), options)
     text = newlines(Encoding.convert(text, target, options), options)
     options[:xml] == :attr ? "\"#{text}\"" : text
@@ -971,8 +1030,9 @@ class String
     replace(encode(*args, **options))
   end
 
+  # UTF-16 and UTF-32 are never ASCII, not even empty.
   def ascii_only?
-    each_byte.all? { |b| b < 128 }
+    encoding.ascii_compatible? && each_byte.all? { |b| b < 128 }
   end
 
   def valid_encoding? = Primitive.zr_str_valid_p(self)
@@ -982,7 +1042,7 @@ class String
   def scrub(replacement = nil)
     return dup if valid_encoding?
 
-    replacement = "\uFFFD" if replacement.nil? && !block_given?
+    replacement = (Encoding.wide?(encoding) ? "\uFFFD".encode(encoding) : "\uFFFD") if replacement.nil? && !block_given?
     out = +""
     i = 0
     while i < bytesize
@@ -1047,11 +1107,31 @@ class String
     i >= 0 ? i : nil
   end
 
-  def unicode_normalize(form = :nfc) = Primitive.zr_unimplemented("String#unicode_normalize")
+  # Ruby's own normalize.rb does the work. A program that names one of
+  # these methods arms its load, which runs on the first call.
+  NORMALIZER = []
+  private_constant :NORMALIZER
 
-  def unicode_normalize!(form = :nfc) = Primitive.zr_unimplemented("String#unicode_normalize!")
+  def self.normalizer=(load)
+    Primitive.attr! :hidden
+    NORMALIZER[0] = load
+  end
 
-  def unicode_normalized?(form = :nfc) = Primitive.zr_unimplemented("String#unicode_normalized?")
+  def unicode_normalize(form = :nfc) = normalizer.normalize(self, form)
+
+  def unicode_normalize!(form = :nfc) = replace(unicode_normalize(form))
+
+  def unicode_normalized?(form = :nfc) = normalizer.normalized?(self, form)
+
+  def normalizer
+    Primitive.attr! :hidden
+    unless NORMALIZER[1]
+      Primitive.zr_unimplemented("String#unicode_normalize through a name the program never spells") unless NORMALIZER[0]
+      NORMALIZER[0].call
+      NORMALIZER[1] = ::UnicodeNormalize
+    end
+    NORMALIZER[1]
+  end
 
   # A grapheme cluster is what the regex engine's `\\X` matches, which
   # is how ruby reads them too.
@@ -1442,6 +1522,11 @@ class String
   def mapped_case(kind, options)
     Primitive.attr! :hidden
     mode = case_mode(options, kind)
+    # UTF-16 and UTF-32 case as the same characters do in UTF-8.
+    return encode(Encoding::UTF_8).send(:mapped_case, kind, options).encode(encoding) if Encoding.wide?(encoding)
+    # The case-fold pass reads every character, and says so of bytes
+    # that make none; ASCII mode reads none past ASCII.
+    raise ArgumentError, "input string invalid" unless mode == :ascii || valid_encoding?
     return recoded_case(kind, options) if Encoding.cased?(encoding) && !ascii_only?
     return Primitive.zr_str_map_case_m(self, KERNEL_CASE[kind]) if mode != :turkic && KERNEL_CASE.key?(kind) && Primitive.zr_str_ascii_check(self)
 
@@ -1477,8 +1562,9 @@ class String
 
   def case_char(char, kind, mode)
     Primitive.attr! :hidden
+    return char if mode == :ascii && char.getbyte(0) > 127
+
     code = char.ord
-    return char if mode == :ascii && code > 127
     return TURKIC.fetch(kind).fetch(code).chr(Encoding::UTF_8) if mode == :turkic && TURKIC.fetch(kind).key?(code)
 
     kind = :fold if mode == :fold
@@ -1602,7 +1688,12 @@ class Encoding
 
   # Transcoding between two encodings is not written yet.
   class Converter
-    def initialize(*) = Primitive.zr_unimplemented("Encoding::Converter")
+    # A pair with no converter says so before the stop that the rest
+    # of the Converter still is.
+    def initialize(source, destination, *)
+      Encoding.pair(source, destination)
+      Primitive.zr_unimplemented("Encoding::Converter")
+    end
 
     def self.search_convpath(*) = Primitive.zr_unimplemented("Encoding::Converter.search_convpath")
     def self.asciicompat_encoding(*) = Primitive.zr_unimplemented("Encoding::Converter.asciicompat_encoding")
@@ -1639,13 +1730,16 @@ class Encoding
   # Marshal carries an encoding by name, as ruby does.
   def _dump(_limit) = name.dup.force_encoding(Encoding::US_ASCII)
 
-  def self._load(name) = find(name)
+  # CRuby's `_load` hands back the name; Marshal's own loader for
+  # Encoding turns it into the encoding.
+  def self._load(name) = name
 
   # BINARY is the name the report shows, ASCII-8BIT the one it answers.
-  # An encoding whose table a fresh ruby has not read says so.
+  # A dummy encoding says so, and so does one whose table a fresh ruby
+  # has not read, in that order, as enc_inspect writes them.
   def inspect
     shown = @names[1] == "BINARY" ? "BINARY (ASCII-8BIT)" : name
-    @loaded ? "#<Encoding:#{shown}>" : "#<Encoding:#{shown} (autoload)>"
+    "#<Encoding:#{shown}#{" (dummy)" if @dummy}#{" (autoload)" unless @loaded}>"
   end
 
   def ascii_compatible?
@@ -1698,14 +1792,48 @@ class Encoding
     CASED.include?(encoding.name)
   end
 
-  # A String carries a byte-oriented encoding, or UTF-8. The rest need
-  # byte tables this runtime does not have.
+  # A String carries a byte-oriented encoding, UTF-8, or UTF-16 or
+  # UTF-32. The rest need byte tables this runtime does not have.
   def self.carried(encoding)
     Primitive.attr! :hidden
-    Primitive.zr_unimplemented("a String in the #{encoding} encoding") unless encoding.bytewise? || encoding.equal?(UTF_8)
+    Primitive.zr_unimplemented("a String in the #{encoding} encoding") unless encoding.bytewise? || encoding.equal?(UTF_8) || wide?(encoding)
 
     encoding.send(:load).index
   end
+
+  # UTF-16 and UTF-32: the width of a code unit, and whether it is big
+  # endian. The two dummy names write big endian after a byte-order
+  # mark, and read the order off the mark.
+  UNITS = {
+    "UTF-16BE" => [2, true], "UTF-16LE" => [2, false], "UTF-32BE" => [4, true], "UTF-32LE" => [4, false],
+    "UTF-16" => [2, nil], "UTF-32" => [4, nil]
+  }.freeze
+  private_constant :UNITS
+
+  BOMS = { 2 => [[0xFE, 0xFF], [0xFF, 0xFE]], 4 => [[0, 0, 0xFE, 0xFF], [0xFF, 0xFE, 0, 0]] }.freeze
+  private_constant :BOMS
+
+  # Whether a String in this encoding walks by UTF-16 or UTF-32 code
+  # units: the four named with a byte order.
+  def self.wide?(encoding)
+    Primitive.attr! :hidden
+    UNITS.key?(encoding.name) && !encoding.bytewise?
+  end
+
+  # For each lead byte of a UTF-8 sequence: how many bytes follow, and
+  # the range the first of them must fall in. Every later one is 80-BF.
+  UTF8_LEADS = (0xC2..0xF4).to_h do |lead|
+    rule = if lead < 0xE0 then [1, 0x80, 0xBF]
+           elsif lead == 0xE0 then [2, 0xA0, 0xBF]
+           elsif lead == 0xED then [2, 0x80, 0x9F]
+           elsif lead < 0xF0 then [2, 0x80, 0xBF]
+           elsif lead == 0xF0 then [3, 0x90, 0xBF]
+           elsif lead == 0xF4 then [3, 0x80, 0x8F]
+           else [3, 0x80, 0xBF]
+           end
+    [lead, rule]
+  end.freeze
+  private_constant :UTF8_LEADS
 
   # The message a join of two encodings raises, which the runtime asks
   # for because the names live here.
@@ -1750,7 +1878,9 @@ class Encoding
   def self.converter(a, b, path, ascii)
     Primitive.attr! :hidden
     [a, b].each do |encoding|
-      next if encoding.equal?(UTF_8)
+      next if encoding.equal?(UTF_8) || UNITS.key?(encoding.name)
+      # Plain ASCII crosses an ASCII-compatible encoding with no table.
+      next if ascii && !SHAPES.key?(encoding.name) && encoding.ascii_compatible? && !encoding.dummy?
       Primitive.zr_unimplemented("String#encode to the #{encoding} encoding") unless SHAPES.key?(encoding.name)
       raise ConverterNotFoundError, "code converter not found (#{path.first.name} to #{path.last.name})" if SHAPES[encoding.name].nil? && !ascii
     end
@@ -1761,6 +1891,8 @@ class Encoding
   def self.to_utf8(text, path, options)
     Primitive.attr! :hidden
     from = text.encoding
+    return units_to_utf8(text, from, replacement(path.last, options), options) if UNITS.key?(from.name)
+
     out = +""
     text.each_byte do |byte|
       if byte < 128
@@ -1777,29 +1909,173 @@ class Encoding
   end
   private_class_method :to_utf8
 
-  # Each character written as the byte the target gives its code point.
+  # Each character written as the bytes the target gives its code point.
   def self.from_utf8(text, target, path, options)
     Primitive.attr! :hidden
-    raise InvalidByteSequenceError, "#{byte_text(text.each_byte.find { |b| b >= 128 })} on UTF-8" unless text.valid_encoding?
-
+    unit, big = UNITS[target.name]
+    big = true if unit && big.nil?
+    points = unit || target.equal?(ASCII_8BIT) || target.equal?(US_ASCII) || text.ascii_only? ? nil : target.send(:points)
     out = []
-    points = target.equal?(ASCII_8BIT) || target.equal?(US_ASCII) ? nil : target.send(:points)
-    text.each_char do |char|
-      point = char.ord
-      byte = if point < 128 then point
-             elsif points then (found = points.index(point)) && found + 128
-             end
-      if byte
-        out << byte
+    utf8_points(text, replacement(target, options), options) do |point|
+      bytes = point_bytes(point, unit, big, points)
+      if bytes
+        out.concat(bytes)
       elsif options[:xml]
         out.concat("&#x#{format('%X', point)};".bytes)
       else
-        undefined("U+#{format('%04X', point)}", UTF_8, target, path, options) { |mark| out.concat(mark.bytes) }
+        undefined("U+#{format('%04X', point)}", UTF_8, target, path, options) do |mark|
+          mark.each_char { |char| out.concat(point_bytes(char.ord, unit, big, points) || char.bytes) }
+        end
       end
     end
+    # A dummy name marks the byte order before the first character.
+    out.unshift(*point_bytes(0xFEFF, unit, true, nil)) if unit && UNITS[target.name][1].nil? && !out.empty?
     out.pack("C*").force_encoding(target)
   end
   private_class_method :from_utf8
+
+  # The bytes of code point `point` in the target: its code units, or
+  # the one byte a table or ASCII gives it; nil when it has none.
+  def self.point_bytes(point, unit, big, points)
+    Primitive.attr! :hidden
+    if unit
+      units = unit == 4 || point < 0x10000 ? [point] : [0xD800 + ((point - 0x10000) >> 10), 0xDC00 + ((point - 0x10000) & 0x3FF)]
+      units.flat_map do |code|
+        bytes = (0...unit).map { |k| (code >> (8 * k)) & 0xFF }
+        big ? bytes.reverse : bytes
+      end
+    elsif point < 128
+      [point]
+    elsif points && (found = points.index(point))
+      [found + 128]
+    end
+  end
+  private_class_method :point_bytes
+
+  # What `invalid: :replace` writes: the caller's text, else U+FFFD into
+  # a Unicode encoding and "?" into any other.
+  def self.replacement(target, options)
+    Primitive.attr! :hidden
+    options[:replace] || (target.equal?(UTF_8) || UNITS.key?(target.name) ? "�" : "?")
+  end
+  private_class_method :replacement
+
+  # Each code point of UTF-8 `text`. Bytes UTF-8 does not allow raise
+  # as ruby's decoder words them, or become `mark` once under `invalid:
+  # :replace`.
+  def self.utf8_points(text, mark, options)
+    Primitive.attr! :hidden
+    bytes = text.bytes
+    i = 0
+    while i < bytes.size
+      point, length, kind = utf8_step(bytes, i)
+      if point
+        yield point
+      elsif options[:invalid] == :replace
+        mark.each_char { |char| yield char.ord }
+      else
+        invalid(bytes[i, length], kind == :bad ? [bytes[i + length]] : nil, kind == :ended, "UTF-8")
+      end
+      i += length
+    end
+  end
+  private_class_method :utf8_points
+
+  # The character at byte `i`: [code point, length], or [nil, length of
+  # the bad bytes, how they went bad]. A lead byte UTF-8 never uses is
+  # bad alone; a byte out of place ends the bad bytes before it, to be
+  # read again; the end of the input inside a sequence leaves it
+  # incomplete.
+  def self.utf8_step(bytes, i)
+    Primitive.attr! :hidden
+    lead = bytes[i]
+    return [lead, 1] if lead < 0x80
+
+    need, low, high = UTF8_LEADS[lead]
+    return [nil, 1, :lead] unless need
+
+    point = lead & (0x3F >> need)
+    (1..need).each do |k|
+      byte = bytes[i + k]
+      return [nil, k, :ended] if byte.nil?
+      return [nil, k, :bad] unless byte.between?(k == 1 ? low : 0x80, k == 1 ? high : 0xBF)
+
+      point = (point << 6) | (byte & 0x3F)
+    end
+    [point, need + 1]
+  end
+  private_class_method :utf8_step
+
+  # Each code unit of a UTF-16 or UTF-32 String read as its code point,
+  # written as UTF-8. A lone or unpaired surrogate, a UTF-32 unit past
+  # Unicode or a short tail raises as ruby's decoder words it, or
+  # becomes `mark` once under `invalid: :replace`.
+  def self.units_to_utf8(text, from, mark, options)
+    Primitive.attr! :hidden
+    unit, big = UNITS.fetch(from.name)
+    bytes = text.bytes
+    points = []
+    bad = lambda do |error, again, ended|
+      next points.concat(mark.each_char.map(&:ord)) if options[:invalid] == :replace
+
+      invalid(error, again, ended, from.name)
+    end
+    i = 0
+    if big.nil?
+      return +"" if bytes.empty?
+      return bad.(bytes, nil, true) && points.pack("U*") if bytes.size < unit
+
+      big = BOMS.fetch(unit).index(bytes.first(unit))&.zero?
+      invalid(bytes.first(unit), nil, false, from.name) if big.nil?
+      i = unit
+    end
+    read = ->(at) { (big ? bytes[at, unit] : bytes[at, unit].reverse).inject(0) { |code, byte| (code << 8) | byte } }
+    while i < bytes.size
+      if bytes.size - i < unit
+        bad.(bytes[i..], nil, true)
+        break
+      end
+      code = read.(i)
+      if unit == 4
+        code > 0x10FFFF || code.between?(0xD800, 0xDFFF) ? bad.(bytes[i, 4], nil, false) : points << code
+        i += 4
+      elsif code.between?(0xDC00, 0xDFFF)
+        bad.(bytes[i, 2], nil, false)
+        i += 2
+      elsif code.between?(0xD800, 0xDBFF)
+        if bytes.size - i < 4
+          bad.(bytes[i..], nil, true)
+          break
+        end
+        low = read.(i + 2)
+        if low.between?(0xDC00, 0xDFFF)
+          points << (0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00))
+          i += 4
+        else
+          bad.(bytes[i, 2], bytes[i + 2, 2], false)
+          i += 2
+        end
+      else
+        points << code
+        i += 2
+      end
+    end
+    points.pack("U*")
+  end
+  private_class_method :units_to_utf8
+
+  # Ruby's words for bytes a decoder cannot read: `incomplete` when the
+  # input ends inside them, else `followed by` the bytes it reads again.
+  def self.invalid(error, again, ended, name)
+    Primitive.attr! :hidden
+    shown = error.pack("C*").dump
+    text = if ended then "incomplete #{shown}"
+           elsif again then "#{shown} followed by #{again.pack('C*').dump}"
+           else shown
+           end
+    raise InvalidByteSequenceError, "#{text} on #{name}"
+  end
+  private_class_method :invalid
 
   # A byte or a character the step cannot write: replaced when the
   # caller asked for that, else ruby's own error, worded for the whole
@@ -1852,11 +2128,29 @@ class Encoding
 
     text = String.try_convert(name)
     raise TypeError, "no implicit conversion of #{name.class} into String" if text.nil?
+    # `internal` names no row: it is whatever default_internal is, nil too.
+    return default_internal if text.casecmp?("internal")
 
     found = LIST.find { |encoding| encoding.names.any? { |n| n.casecmp?(text) } }
     return found.send(:load) if found
 
     raise ArgumentError, "unknown encoding name - #{text}"
+  end
+
+  # Both ends of a conversion. A name no encoding answers to is not an
+  # ArgumentError here: ruby looks for a converter by the two names and
+  # finds none.
+  def self.pair(source, target)
+    Primitive.attr! :hidden
+    ends = [source, target].map do |name|
+      find(name)
+    rescue ArgumentError
+      nil
+    end
+    return ends if ends.all?
+
+    names = [source, target].zip(ends).map { |name, found| found ? found.name : name.to_s }
+    raise ConverterNotFoundError, "code converter not found (#{names.join(' to ')})"
   end
 
   def self.default_external = UTF_8
@@ -1871,9 +2165,13 @@ class Encoding
     Primitive.zr_unimplemented("Encoding.default_internal=")
   end
 
+  # rb_enc_compatible for two Strings: an empty side gives way, and
+  # UTF-16 or UTF-32 joins nothing else.
   def self.compatible?(a, b)
     return nil unless a.is_a?(String) && b.is_a?(String)
-    return a.encoding if a.encoding == b.encoding
+    return a.encoding if a.encoding == b.encoding || b.empty?
+    return a.encoding.ascii_compatible? && b.ascii_only? ? a.encoding : b.encoding if a.empty?
+    return nil unless a.encoding.ascii_compatible? && b.encoding.ascii_compatible?
     return a.encoding if b.ascii_only?
     return b.encoding if a.ascii_only?
 
@@ -1883,4 +2181,9 @@ end
 
 class Symbol
   def encoding = to_s.encoding
+end
+
+# An empty namespace at boot, as CRuby defines it; ruby's normalize.rb
+# fills it on String#unicode_normalize's first call.
+module UnicodeNormalize
 end

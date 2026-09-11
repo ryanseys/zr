@@ -126,6 +126,16 @@ class StringScanner
     @string.getbyte(@pos)
   end
 
+  # The byte at the scan pointer as an Integer, and the pointer past
+  # it; nil at the end. The match is that byte, as get_byte's is.
+  def scan_byte
+    return nil if eos?
+
+    byte = @string.getbyte(@pos)
+    keep(@string.byteslice(@pos, 1), @pos, 1)
+    byte
+  end
+
   def unscan
     raise ScanError, "unscan failed: previous match record not exist" unless @match
 

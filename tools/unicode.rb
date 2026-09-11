@@ -71,7 +71,7 @@ puts "  # letters Turkish gives their own rules."
 puts "  CASE_RUNS = { up: UP_RUNS, down: DOWN_RUNS, title: TITLE_RUNS, swap: SWAP_RUNS, fold: FOLD_RUNS }.freeze"
 puts "  CASE_MULTI = { up: UP_MULTI, down: DOWN_MULTI, title: TITLE_MULTI, swap: SWAP_MULTI, fold: FOLD_MULTI }.freeze"
 puts "  KERNEL_CASE = { up: 1, down: 2, title: 3 }.freeze"
-puts "  TURKIC = { up: { 105 => 304 }, title: { 105 => 304 }, down: { 73 => 305, 304 => 105 }, fold: { 73 => 305, 304 => 105 }, swap: {} }.freeze"
+puts "  TURKIC = { up: { 105 => 304 }, title: { 105 => 304 }, down: { 73 => 305, 304 => 105 }, fold: { 73 => 305, 304 => 105 }, swap: { 73 => 305, 105 => 304, 304 => 105 } }.freeze"
 puts
 puts "  private_constant :CASE_RUNS, :CASE_MULTI, :KERNEL_CASE, :TURKIC"
 puts "end"

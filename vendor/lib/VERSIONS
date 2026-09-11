@@ -24,5 +24,6 @@ timeout 0.6.0
 tmpdir 0.3.1
 tsort 0.2.0
 un 0.3.0
+unicode_normalize ruby-4.0.6
 uri 1.1.1
 weakref 0.1.4

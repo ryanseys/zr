@@ -997,6 +997,11 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_inspect(recv, argc, argv, cref, blk)
+  # UTF-16 and UTF-32 inspect by characters, and their dummy names by
+  # bytes, in Ruby.
+  if !zr_enc_ascii_compat_p(zr_str_encoding_index(recv))
+    return zr_send(recv, Machine.id(:unit_inspect), 0, 0)
+  end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_str_escaped(b, RString.ptr(recv), RString.len(recv), !zr_str_wide_p(recv))

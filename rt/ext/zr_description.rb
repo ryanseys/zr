@@ -1036,6 +1036,13 @@ module Ze0
         d zr_str_copy_encoding Value s:Value src:Value
         d zr_str_binary_p Bool s:Value
         d zr_str_wide_p Bool s:Value
+        d zr_enc_ascii_compat_p Bool index:Word
+        d zr_str_unit Word s:Value
+        d zr_str_unit_at Word s:Value off:Word unit:Word
+        d zr_unit_char_len Word s:Value off:Word unit:Word
+        d zr_unit_char_valid_p Bool s:Value off:Word len:Word unit:Word
+        d zr_unit_point Word s:Value off:Word len:Word unit:Word
+        d zr_buf_unit_name Void b:Ptr index:Word
         d zr_str_set_binary Value s:Value
         d zr_str_encoding_index_m Value s:Value
         d zr_str_set_index_m Value s:Value index:Value
@@ -1356,6 +1363,11 @@ module Ze0
         c ENC_BINARY 0
         c ENC_UTF8 1
         c ENC_USASCII 2
+        c ENC_UTF16BE 3
+        c ENC_UTF16LE 4
+        c ENC_UTF32BE 5
+        c ENC_UTF32LE 6
+        c ENC_UTF32 8
         c SYM_TAG_SHIFT 56
         c FL_IDENTITY 131072
         c FL_RUBY2 262144

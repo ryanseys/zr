@@ -4,6 +4,10 @@
 class Set
   include Enumerable
 
+  # Ruby 4.0's core Set keeps this subclass, with nothing of its own.
+  class CoreSet < Set
+  end
+
   def self.[](*items) = new(items)
 
   def initialize(items = nil, &block)

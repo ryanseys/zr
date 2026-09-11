@@ -609,9 +609,12 @@ module Packing
   end
 end
 
+# CRuby writes these three in Ruby (its pack.rb), so they answer their
+# own parameters, under CRuby's names.
 class Array
-  def pack(template, buffer: nil)
-    result = Packing.pack(self, Primitive.zr_str_operand(template))
+  def pack(fmt, buffer: nil)
+    Primitive.attr! :ruby
+    result = Packing.pack(self, Primitive.zr_str_operand(fmt))
     buffer ? buffer << result : result
   end
 end
@@ -619,15 +622,17 @@ end
 class String
   # With a block, each value goes to it in turn and the answer is nil,
   # as CRuby's unpack does.
-  def unpack(template, offset: 0, &block)
-    values = Packing.unpack(Packing.from(self, offset), Primitive.zr_str_operand(template), false)
-    return values unless block
+  def unpack(fmt, offset: 0)
+    Primitive.attr! :ruby
+    values = Packing.unpack(Packing.from(self, offset), Primitive.zr_str_operand(fmt), false)
+    return values unless block_given?
 
-    values.each(&block)
+    values.each { |value| yield value }
     nil
   end
 
-  def unpack1(template, offset: 0)
-    Packing.unpack(Packing.from(self, offset), Primitive.zr_str_operand(template), true).first
+  def unpack1(fmt, offset: 0)
+    Primitive.attr! :ruby
+    Packing.unpack(Packing.from(self, offset), Primitive.zr_str_operand(fmt), true).first
   end
 end

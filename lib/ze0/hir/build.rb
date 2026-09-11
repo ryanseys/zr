@@ -33,8 +33,21 @@ module Ze0
       def self.program(source, file, roots: [], road: true, line: 1, scopes: nil)
         loader = Loader.new(roots + STDLIB, eval: !road)
         main = loader.unit(file, source, line, scopes)
-        body = road && loader.evals? ? Seq.new([eval_road(loader), main.body], 0) : main.body
+        preludes = []
+        preludes << eval_road(loader) if road && loader.evals?
+        preludes << normalizer(loader) if road && loader.normalizes?
+        body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
         Program.new(main.file, main.locals, body, loader.units, main.warnings)
+      end
+
+      # The file that arms String#unicode_normalize's load of ruby's own
+      # normalize.rb. It is the runtime's, so it stays out of
+      # $LOADED_FEATURES; the load it arms, which runs on the first call,
+      # does not.
+      NORMALIZER = File.join(EXT, "ze0/normalizer.rb")
+
+      def self.normalizer(loader)
+        Require.new(:eval_road, "ze0/normalizer", NORMALIZER, loader.add(NORMALIZER), 0)
       end
 
       # A require of the eval road, ahead of everything the program does.
@@ -59,6 +72,7 @@ module Ze0
           @units = []
           @index = {}
           @evals = false
+          @normalizes = false
           @back_refs = {}
         end
 
@@ -122,6 +136,17 @@ module Ze0
         # everything a box holds goes through the compiler.
         def boxes!(name)
           @evals = true if name == :Ruby
+        end
+
+        # A program that names one of these carries ruby's normalize.rb,
+        # which String loads on the first call, as CRuby does.
+        NORMALIZES = %i[unicode_normalize unicode_normalize! unicode_normalized?].freeze
+
+        def normalizes? = @normalizes
+
+        def normalizes!(name, args)
+          named = args.first.value if args.first.is_a?(Literal) && args.first.value.is_a?(Symbol)
+          @normalizes = true if NORMALIZES.include?(name) || ((SENDS + FETCHES).include?(name) && NORMALIZES.include?(named))
         end
 
         def unit(file, source = File.read(file), line = 1, scopes = nil)
@@ -444,7 +469,7 @@ module Ze0
       def interpolation(node, line)
         parts = node.parts.map do |part|
           case part
-          when Prism::StringNode then Literal.new(part.unescaped, part.location.start_line)
+          when Prism::StringNode then Literal.new(unescaped(part), part.location.start_line)
           when Prism::EmbeddedStatementsNode then part.statements ? seq(part.statements) : Literal.new(nil, line)
           when Prism::EmbeddedVariableNode then expr(part.variable)
           when Prism::InterpolatedStringNode then interpolation(part, line)
@@ -536,7 +561,7 @@ module Ze0
         # `3r` and `2i` are the core's own, even where self has no Kernel.
         when Prism::RationalNode then Send.new(Core.new(:Kernel, line), :Rational, [Literal.new(node.numerator, line), Literal.new(node.denominator, line)], line, false)
         when Prism::ImaginaryNode then Send.new(Core.new(:Kernel, line), :Complex, [Literal.new(0, line), expr(node.numeric)], line, false)
-        when Prism::StringNode then literal_string(node, node.unescaped, line)
+        when Prism::StringNode then literal_string(node, unescaped(node), line)
         when Prism::SymbolNode then Literal.new(node.unescaped.to_sym, line)
         when Prism::NilNode then Literal.new(nil, line)
         when Prism::TrueNode then Literal.new(true, line)
@@ -1009,7 +1034,7 @@ module Ze0
 
       def call(node)
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil? && node.call_operator != "&."
-        return FrozenString.new(node.receiver.unescaped, node.location.start_line) if node.name == :freeze && node.receiver.is_a?(Prism::StringNode) && node.arguments.nil? && node.block.nil?
+        return FrozenString.new(unescaped(node.receiver), node.location.start_line) if node.name == :freeze && node.receiver.is_a?(Prism::StringNode) && node.arguments.nil? && node.block.nil?
         return require_node(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && !shadowed?(node.name) && !@loader&.eval? && literal_feature(node)
         return autoload_node(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
 
@@ -1021,6 +1046,7 @@ module Ze0
       def plain_call(node)
         args, kwargs, forwarded = arguments(node.arguments)
         @loader.evals!(node.name, args)
+        @loader.normalizes!(node.name, args)
         # The inline `[]`, `[]=` and `<<` check visibility as an explicit
         # call does, so a literal `self` dispatches, private methods and all.
         opt = ((%i[[] []=].include?(node.name) && node.opening == "[") || (node.name == :<< && node.call_operator.nil? && args.size == 1)) &&
@@ -1253,7 +1279,19 @@ module Ze0
 
       # The text of a string prism found static (`"a" "b"`, a heredoc with
       # no interpolation): its parts joined.
-      def static_text(node) = node.parts.map { |part| part.is_a?(Prism::StringNode) ? part.unescaped : static_text(part) }.join
+      def static_text(node) = node.parts.map { |part| part.is_a?(Prism::StringNode) ? unescaped(part) : static_text(part) }.join
+
+      # A string part's text as ruby tags it: a \u escape makes it UTF-8,
+      # and a \x escape past ASCII in a US-ASCII file makes it binary,
+      # whatever the file's own encoding. Prism flags both but hands the
+      # text over in the file's encoding.
+      def unescaped(node)
+        text = node.unescaped
+        if node.forced_utf8_encoding? then text.dup.force_encoding(Encoding::UTF_8)
+        elsif node.forced_binary_encoding? then text.dup.force_encoding(Encoding::BINARY)
+        else text
+        end
+      end
 
       # An element of an array literal. `[1, a: 2]` holds a Hash; keywords
       # made only of `**` splats add it only when it is not empty.

@@ -145,7 +145,12 @@ end
 sig [Value, Word] => Value
 machine def zr_str_set_index(s, index)
   i = index < 2 ? 1 - index : index
-  RBasic.set_flags(s, (RBasic.flags(s) & FL_ENC_KEEP) | (i << FL_ENC_SHIFT))
+  flags = (RBasic.flags(s) & FL_ENC_KEEP) | (i << FL_ENC_SHIFT)
+  # ASCII bytes are not ASCII text in UTF-16 or UTF-32.
+  if !zr_enc_ascii_compat_p(index)
+    flags = flags & FL_ASCII_CLEAR
+  end
+  RBasic.set_flags(s, flags)
   s
 end
 
@@ -168,6 +173,101 @@ machine def zr_str_wide_p(s)
   zr_str_encoding_index(s) == ENC_UTF8
 end
 
+# Whether an ASCII byte is an ASCII character in the encoding `index`
+# names: in every one but UTF-16 and UTF-32, dummy names included.
+sig [Word] => Bool
+machine def zr_enc_ascii_compat_p(index)
+  index < ENC_UTF16BE || index > ENC_UTF32
+end
+
+# The width of a code unit of UTF-16 (2) and UTF-32 (4), the Unicode
+# encodings a String walks by units; 0 for every other.
+sig [Value] => Word
+machine def zr_str_unit(s)
+  i = zr_str_encoding_index(s)
+  if i == ENC_UTF16BE || i == ENC_UTF16LE
+    return 2
+  end
+  if i == ENC_UTF32BE || i == ENC_UTF32LE
+    return 4
+  end
+  0
+end
+
+# The code unit at byte `off`, read in the String's byte order.
+sig [Value, Word, Word] => Word
+machine def zr_str_unit_at(s, off, unit)
+  i = zr_str_encoding_index(s)
+  big = i == ENC_UTF16BE || i == ENC_UTF32BE
+  v = 0
+  k = 0
+  while k < unit
+    at = big ? k : unit - 1 - k
+    v = (v << 8) | Machine.word(Machine.load8(RString.ptr(s) + off + at, 0))
+    k += 1
+  end
+  v
+end
+
+# The byte length of the character at byte `off` of a UTF-16 or UTF-32
+# String: one code unit, a surrogate pair in UTF-16, or what is left
+# when that is less.
+sig [Value, Word, Word] => Word
+machine def zr_unit_char_len(s, off, unit)
+  rest = RString.len(s) - off
+  if rest < unit
+    return rest
+  end
+  if unit == 2 && rest >= 4
+    high = zr_str_unit_at(s, off, 2)
+    if high >= 55296 && high <= 56319
+      low = zr_str_unit_at(s, off + 2, 2)
+      if low >= 56320 && low <= 57343
+        return 4
+      end
+    end
+  end
+  unit
+end
+
+# Whether that character is a whole one: no lone surrogate, no UTF-32
+# unit past Unicode, no short tail.
+sig [Value, Word, Word, Word] => Bool
+machine def zr_unit_char_valid_p(s, off, len, unit)
+  if len < unit
+    return false
+  end
+  if len == 4 && unit == 2
+    return true
+  end
+  v = zr_str_unit_at(s, off, unit)
+  (v < 55296 || v > 57343) && v <= 1114111
+end
+
+# The code point of a whole character.
+sig [Value, Word, Word, Word] => Word
+machine def zr_unit_point(s, off, len, unit)
+  if unit == 2 && len == 4
+    high = zr_str_unit_at(s, off, 2)
+    low = zr_str_unit_at(s, off + 2, 2)
+    return 65536 + ((high - 55296) << 10) + (low - 56320)
+  end
+  zr_str_unit_at(s, off, unit)
+end
+
+sig [Ptr, Word] => Void
+machine def zr_buf_unit_name(b, index)
+  if index == ENC_UTF16BE
+    zr_buf_push(b, Machine.bytes("UTF-16BE"), 8)
+  elsif index == ENC_UTF16LE
+    zr_buf_push(b, Machine.bytes("UTF-16LE"), 8)
+  elsif index == ENC_UTF32BE
+    zr_buf_push(b, Machine.bytes("UTF-32BE"), 8)
+  else
+    zr_buf_push(b, Machine.bytes("UTF-32LE"), 8)
+  end
+end
+
 sig [Value] => Value
 machine def zr_str_set_binary(s)
   zr_str_set_index(s, ENC_BINARY)
@@ -183,19 +283,36 @@ machine def zr_str_set_index_m(s, index)
   zr_str_set_index(s, zr_fix2long(index))
 end
 
-# The encoding a join takes: the side that is not plain ASCII, which
-# is ruby's own compatibility rule. Both sides plain ASCII gives the
-# receiver's, so `"a" + "b".b` stays text.
+# The encoding a join takes, as rb_enc_compatible decides: an empty
+# side gives way, unless the receiver is empty and the other side is
+# not ASCII it can hold; else the side that is not plain ASCII. Both
+# sides plain ASCII gives the receiver's, so `"a" + "b".b` stays text.
 sig [Value, Value] => Word
 machine def zr_str_join_index(a, b)
-  zr_str_ascii_bytes_p(b) ? zr_str_encoding_index(a) : zr_str_encoding_index(b)
+  ia = zr_str_encoding_index(a)
+  if ia == zr_str_encoding_index(b) || RString.len(b) == 0
+    return ia
+  end
+  if RString.len(a) == 0
+    return zr_enc_ascii_compat_p(ia) && zr_str_ascii_bytes_p(b) ? ia : zr_str_encoding_index(b)
+  end
+  zr_str_ascii_bytes_p(b) ? ia : zr_str_encoding_index(b)
 end
 
 # Whether joining `a` and `b` is ruby's compatibility error: two
-# encodings, with a byte past ASCII on each side.
+# encodings and neither side empty, with either side in UTF-16 or
+# UTF-32 or a byte past ASCII on each.
 sig [Value, Value] => Bool
 machine def zr_str_join_incompatible_p(a, b)
-  zr_str_encoding_index(a) != zr_str_encoding_index(b) && !zr_str_ascii_bytes_p(a) && !zr_str_ascii_bytes_p(b)
+  ia = zr_str_encoding_index(a)
+  ib = zr_str_encoding_index(b)
+  if ia == ib || RString.len(a) == 0 || RString.len(b) == 0
+    return false
+  end
+  if !zr_enc_ascii_compat_p(ia) || !zr_enc_ascii_compat_p(ib)
+    return true
+  end
+  !zr_str_ascii_bytes_p(a) && !zr_str_ascii_bytes_p(b)
 end
 
 # The error, the receiver's encoding named first. Encoding holds the
@@ -213,6 +330,9 @@ sig [Value] => Bool
 machine def zr_str_ascii_bytes_p(s)
   if (RBasic.flags(s) & FL_ASCII) != 0
     return true
+  end
+  if !zr_enc_ascii_compat_p(zr_str_encoding_index(s))
+    return false
   end
   n = RString.len(s)
   i = 0
@@ -237,10 +357,8 @@ machine def zr_str_plus(recv, argc, argv, cref, blk)
   zr_buf_init(b)
   zr_buf_str(b, recv)
   zr_buf_str(b, other)
-  s = zr_buf_take(b)
-  # The join takes the encoding of whichever side is not plain ASCII,
-  # which is ruby's own compatibility rule.
-  zr_str_set_index(s, zr_str_ascii_only(other) ? zr_str_encoding_index(recv) : zr_str_encoding_index(other))
+  index = zr_str_join_index(recv, other)
+  zr_str_set_index(zr_buf_take(b), index)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -270,6 +388,13 @@ end
 # UTF-8 sequence of a text one.
 sig [Value, Word] => Value
 machine def zr_str_concat_codepoint(recv, c)
+  if zr_str_unit(recv) != 0
+    # UTF-16 and UTF-32 write a code point in Ruby, where the code
+    # units and their byte order are.
+    arg = Machine.slot(8)
+    Machine.store64(arg, 0, Machine.word(zr_fix(c)))
+    return zr_send(recv, Machine.id(:append_unit_point), 1, arg)
+  end
   limit = zr_str_wide_p(recv) ? 1114111 : 255
   if zr_str_wide_p(recv) && c >= 55296 && c <= 57343
     b = Machine.slot(Buf.size)
@@ -401,11 +526,14 @@ end
 # are ASCII throughout.
 sig [Value, Value] => Bool
 machine def zr_str_comparable(a, b)
-  zr_str_encoding_index(a) == zr_str_encoding_index(b) || (zr_str_ascii_only(a) && zr_str_ascii_only(b))
+  zr_str_encoding_index(a) == zr_str_encoding_index(b) || RString.len(a) == 0 || RString.len(b) == 0 || (zr_str_ascii_only(a) && zr_str_ascii_only(b))
 end
 
 sig [Value] => Bool
 machine def zr_str_ascii_only(s)
+  if !zr_enc_ascii_compat_p(zr_str_encoding_index(s))
+    return false
+  end
   i = 0
   while i < RString.len(s)
     if Machine.word(Machine.load8(RString.ptr(s) + i, 0)) >= 128
@@ -456,6 +584,9 @@ end
 # encoding, or text with no byte past ASCII.
 sig [Value] => Bool
 machine def zr_str_bytes_are_chars(s)
+  if zr_str_unit(s) != 0
+    return RString.len(s) == 0
+  end
   if !zr_str_wide_p(s)
     return true
   end
@@ -476,12 +607,16 @@ machine def zr_str_ascii_check(s)
 end
 
 # The byte length of the character at byte `off`: a whole UTF-8
-# sequence, else the one byte.
+# sequence, a UTF-16 or UTF-32 character, else the one byte.
 sig [Value, Word] => Word
 machine def zr_str_char_len_at(s, off)
   # The flag alone, never a scan: this runs once for each character.
-  if (RBasic.flags(s) & FL_ASCII) != 0 || !zr_str_wide_p(s)
+  if (RBasic.flags(s) & FL_ASCII) != 0
     return 1
+  end
+  if !zr_str_wide_p(s)
+    unit = zr_str_unit(s)
+    return unit == 0 ? 1 : zr_unit_char_len(s, off, unit)
   end
   len = zr_utf8_char_len(RString.ptr(s) + off, RString.len(s) - off)
   len == 0 ? 1 : len
@@ -490,7 +625,7 @@ end
 sig [Value] => Word
 machine def zr_str_char_count(s)
   n = RString.len(s)
-  if !zr_str_wide_p(s) || zr_str_ascii_bytes_p(s)
+  if (!zr_str_wide_p(s) && zr_str_unit(s) == 0) || zr_str_ascii_bytes_p(s)
     return n
   end
   count = 0
@@ -508,7 +643,7 @@ sig [Value, Word] => Word
 machine def zr_str_char_offset(s, index)
   n = RString.len(s)
   # One byte a character: the index is the offset.
-  if !zr_str_wide_p(s) || zr_str_ascii_bytes_p(s)
+  if (!zr_str_wide_p(s) && zr_str_unit(s) == 0) || zr_str_ascii_bytes_p(s)
     if index < 0
       index += n
     end
@@ -585,6 +720,18 @@ machine def zr_str_ord(s)
   if n == 0
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("empty string"), 12)
   end
+  unit = zr_str_unit(s)
+  if unit != 0
+    width = zr_unit_char_len(s, 0, unit)
+    if !zr_unit_char_valid_p(s, 0, width, unit)
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("invalid byte sequence in "), 25)
+      zr_buf_unit_name(b, zr_str_encoding_index(s))
+      return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+    end
+    return zr_fix(zr_unit_point(s, 0, width, unit))
+  end
   p = RString.ptr(s)
   c = Machine.word(Machine.load8(p, 0))
   if c < 128 || !zr_str_wide_p(s)
@@ -609,6 +756,18 @@ sig [Value] => Value
 machine def zr_str_valid_p(s)
   if zr_str_encoding_index(s) == ENC_USASCII
     return zr_bool(zr_str_ascii_bytes_p(s))
+  end
+  unit = zr_str_unit(s)
+  if unit != 0
+    at = 0
+    while at < RString.len(s)
+      width = zr_unit_char_len(s, at, unit)
+      if !zr_unit_char_valid_p(s, at, width, unit)
+        return Machine.value(QFALSE)
+      end
+      at += width
+    end
+    return Machine.value(QTRUE)
   end
   if !zr_str_wide_p(s)
     return Machine.value(QTRUE)

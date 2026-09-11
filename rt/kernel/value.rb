@@ -74,6 +74,13 @@ FL_ENC_KEEP = 0 - ((255 << 24) + 1)
 ENC_BINARY = 0
 ENC_UTF8 = 1
 ENC_USASCII = 2
+# UTF-16 and UTF-32 in each byte order, then their two dummy names:
+# the encodings whose ASCII bytes are not ASCII characters.
+ENC_UTF16BE = 3
+ENC_UTF16LE = 4
+ENC_UTF32BE = 5
+ENC_UTF32LE = 6
+ENC_UTF32 = 8
 # A symbol row keeps the same tag in its length word, this far up.
 SYM_TAG_SHIFT = 56
 # A Hash that compares keys by identity (`compare_by_identity`).

@@ -85,6 +85,10 @@ class Class
 end
 
 class BasicObject
+  # CRuby names BasicObject inside itself too, so a class that inherits
+  # from it alone still reaches the name.
+  BasicObject = ::BasicObject
+
   private def singleton_method_added(name) = nil
   private def singleton_method_removed(name) = nil
   private def singleton_method_undefined(name) = nil

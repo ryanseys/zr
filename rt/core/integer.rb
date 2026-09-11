@@ -168,6 +168,7 @@ class Integer
       encoding = Encoding.find(encoding) unless encoding.is_a?(Encoding)
       index = Encoding.carried(encoding)
       raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0
+      return (+"").force_encoding(encoding).send(:append_unit_point, self) if Encoding.wide?(encoding)
       if encoding.equal?(Encoding::UTF_8)
         raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self > 0x10FFFF
         raise RangeError, "invalid codepoint 0x#{format("%04X", self)} in UTF-8" if self >= 0xD800 && self <= 0xDFFF

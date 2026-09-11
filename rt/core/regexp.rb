@@ -415,7 +415,8 @@ class Regexp
   def check_subject(text)
     Primitive.attr! :hidden
     raise ArgumentError, "invalid byte sequence in #{text.encoding}" unless text.valid_encoding?
-    return unless fixed_encoding? && text.encoding != encoding && !text.ascii_only?
+    # UTF-16 and UTF-32 match no pattern: their ASCII is not ASCII bytes.
+    return unless !text.encoding.ascii_compatible? || (fixed_encoding? && text.encoding != encoding && !text.ascii_only?)
 
     raise Encoding::CompatibilityError,
           "incompatible encoding regexp match (#{Encoding.shown(encoding)} regexp with #{Encoding.shown(text.encoding)} string)"
