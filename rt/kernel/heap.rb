@@ -510,11 +510,7 @@ machine def zr_alloc(type, klass)
   Heap.set_allocated(h, Heap.allocated(h) + 1)
   Machine.store64(cell, 0, type | FL_ALLOCATED)
   Machine.store64(cell, 8, Machine.word(klass))
-  j = 16
-  while j < CELL
-    Machine.store64(cell + j, 0, 0)
-    j += 8
-  end
+  memset(cell + 16, Machine.i32(0), CELL - 16)
   Machine.value(cell)
 end
 

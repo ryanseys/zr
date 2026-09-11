@@ -620,15 +620,7 @@ end
 # them intact.
 sig [Ptr, Ptr, Word] => Void
 machine def zr_memmove(to, from, n)
-  if to < from
-    zr_memcpy(to, from, n)
-  else
-    i = n
-    while i > 0
-      i -= 1
-      Machine.store8(to + i, 0, Machine.load8(from + i, 0))
-    end
-  end
+  memmove(to, from, n)
 end
 
 sig [Value, Value] => Value

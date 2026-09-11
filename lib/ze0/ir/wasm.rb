@@ -42,6 +42,7 @@ module Ze0
       # The libSystem calls the module answers itself.
       SHIMS = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]], "exit" => [[0x7F], []], "_exit" => [[0x7F], []], "abort" => [[], []],
                 "malloc" => [[0x7E], [0x7E]], "free" => [[0x7E], []], "getenv" => [[0x7E], [0x7E]],
+                "memmove" => [[0x7E, 0x7E, 0x7E], [0x7E]], "memset" => [[0x7E, 0x7F, 0x7E], [0x7E]],
                 "pthread_self" => [[], [0x7E]], "pthread_get_stackaddr_np" => [[0x7E], [0x7E]], "pthread_get_stacksize_np" => [[0x7E], [0x7E]],
                 "setenv" => [[0x7E, 0x7E, 0x7F], [0x7F]], "unsetenv" => [[0x7E], [0x7F]], "_NSGetEnviron" => [[], [0x7E]], "getcwd" => [[0x7E, 0x7E], [0x7E]], "getpid" => [[], [0x7F]], "arc4random" => [[], [0x7F]], "access" => [[0x7E, 0x7F], [0x7F]], "stat" => [[0x7E, 0x7E], [0x7F]],
                 "mmap" => [[0x7E, 0x7E, 0x7F, 0x7F, 0x7F, 0x7E], [0x7E]], "munmap" => [[0x7E, 0x7E], [0x7F]] }.freeze
@@ -255,6 +256,12 @@ module Ze0
           code << "\x20\x01".b << "\xAD".b
         when "free"
           code << "".b
+        when "memmove"
+          # memory.copy handles ranges that overlap; answer the destination.
+          code << "\x20\x00\xA7\x20\x01\xA7\x20\x02\xA7".b << "\xFC\x0A\x00\x00".b << "\x20\x00".b
+        when "memset"
+          # memory.fill with the low byte of c; answer the destination.
+          code << "\x20\x00\xA7\x20\x01\x20\x02\xA7".b << "\xFC\x0B\x00".b << "\x20\x00".b
         when "getenv", "pthread_self", "pthread_get_stackaddr_np", "pthread_get_stacksize_np", "_NSGetEnviron", "getcwd", "mmap"
           code << "\x42\x00".b
         when "setenv", "unsetenv", "getpid", "arc4random"

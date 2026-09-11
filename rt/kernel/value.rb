@@ -8,6 +8,8 @@ Machine.import "abort", [] => Void
 Machine.import "malloc", [Word] => Ptr
 Machine.import "posix_memalign", [Ptr, Word, Word] => I32
 Machine.import "free", [Ptr] => Void
+Machine.import "memmove", [Ptr, Ptr, Word] => Ptr
+Machine.import "memset", [Ptr, I32, Word] => Ptr
 Machine.import "getenv", [Ptr] => Ptr
 Machine.import "pthread_self", [] => Ptr
 Machine.import "pthread_get_stackaddr_np", [Ptr] => Ptr
@@ -133,13 +135,11 @@ machine def zr_bug(bytes, len)
   abort()
 end
 
+# libc's memmove, which is safe for the ranges that overlap: a caller
+# that shifts within one buffer needs no second routine.
 sig [Ptr, Ptr, Word] => Void
 machine def zr_memcpy(to, from, n)
-  i = 0
-  while i < n
-    Machine.store8(to + i, 0, Machine.load8(from + i, 0))
-    i += 1
-  end
+  memmove(to, from, n)
 end
 
 # A stop for a core method that reaches a case it does not answer
@@ -163,9 +163,7 @@ sig [Value, Value] => Value
 machine def zr_raise_stop(klass, what)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
-  zr_buf_push(b, Machine.bytes("ze0: "), 5)
   zr_buf_str(b, what)
-  zr_buf_push(b, Machine.bytes(" is not implemented yet\n"), 24)
-  zr_bug(Buf.ptr(b), Buf.len(b))
-  Machine.value(QNIL)
+  zr_buf_push(b, Machine.bytes(" is not implemented yet"), 23)
+  zr_raise_buf(klass, b)
 end
