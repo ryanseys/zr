@@ -49,31 +49,40 @@ module Packing
     out
   end
 
-  # Quoted printable: a byte outside the printable ASCII range, and
-  # `=` itself, become `=XX`; a newline passes through and starts the
-  # line again; each line takes `count + 1` characters and ends with a
-  # soft break, as does the whole text.
+  # Quoted printable, as CRuby's qpencode writes it: a byte outside the
+  # printable ASCII range, but for tab and newline, and `=` itself,
+  # become `=XX`; a space or tab before a newline takes a soft break; a
+  # line past `count` characters breaks after the one that passed it;
+  # a last line with anything on it ends with a soft break.
   def self.quoted_printable(bytes, count)
     Primitive.attr! :hidden
-    width = (count.nil? || count == :all || count <= 1 ? 72 : count) + 1
+    len = count.nil? || count == :all || count <= 1 ? 72 : count
     out = "".b
-    column = 0
+    n = 0
+    prev = nil
     bytes.each_byte do |byte|
-      if byte == 10
+      if byte > 126 || (byte < 32 && byte != 10 && byte != 9) || byte == 61
+        out << format("=%02X", byte)
+        n += 3
+        prev = nil
+      elsif byte == 10
+        out << "=\n" if prev == 32 || prev == 9
         out << "\n"
-        column = 0
-        next
+        n = 0
+        prev = byte
+      else
+        out << byte.chr
+        n += 1
+        prev = byte
       end
-
-      piece = byte == 61 || byte < 32 || byte > 126 ? format("=%02X", byte) : byte.chr
-      if column + piece.bytesize > width
+      if n > len
         out << "=\n"
-        column = 0
+        n = 0
+        prev = 10
       end
-      out << piece
-      column += piece.bytesize
     end
-    out << "=\n"
+    out << "=\n" if n > 0
+    out
   end
 
   def self.decode_quoted_printable(text)
@@ -195,7 +204,10 @@ module Packing
       when "H", "h", "B", "b"
         raise ArgumentError, "too few arguments" if at >= items.size
 
-        item = items[at].to_s
+        # A String alone, or nil as an empty one, as CRuby's StringValue
+        # takes it; `m` and `u` refuse nil too, and only `M` takes to_s.
+        item = items[at]
+        item = Primitive.zr_str_operand(item.nil? ? "" : item)
         at += 1
         out << (c == "H" || c == "h" ? pack_hex(item, c == "H", count) : pack_bits(item, c == "B", count))
       when "m"
@@ -203,7 +215,7 @@ module Packing
 
         item = items[at]
         at += 1
-        out << base64(item.to_s.b, count)
+        out << base64(Primitive.zr_str_operand(item).b, count)
       when "M"
         raise ArgumentError, "too few arguments" if at >= items.size
 
@@ -215,7 +227,7 @@ module Packing
 
         item = items[at]
         at += 1
-        out << uuencode(item.to_s.b, count)
+        out << uuencode(Primitive.zr_str_operand(item).b, count)
       when "p", "P"
         raise ArgumentError, "too few arguments" if at >= items.size
 
@@ -517,8 +529,9 @@ module Packing
     n
   end
 
+  # The hex and bit directives answer US-ASCII text, as CRuby's do.
   def self.unpack_hex(bytes, at, n, high_first)
-    out = +""
+    out = (+"").force_encoding(Encoding::US_ASCII)
     n.times do |i|
       b = bytes.getbyte(at + i / 2)
       break if b.nil?
@@ -530,7 +543,7 @@ module Packing
   end
 
   def self.unpack_bits(bytes, at, n, high_first)
-    out = +""
+    out = (+"").force_encoding(Encoding::US_ASCII)
     n.times do |i|
       b = bytes.getbyte(at + i / 8)
       break if b.nil?
@@ -604,8 +617,14 @@ class Array
 end
 
 class String
-  def unpack(template, offset: 0)
-    Packing.unpack(Packing.from(self, offset), Primitive.zr_str_operand(template), false)
+  # With a block, each value goes to it in turn and the answer is nil,
+  # as CRuby's unpack does.
+  def unpack(template, offset: 0, &block)
+    values = Packing.unpack(Packing.from(self, offset), Primitive.zr_str_operand(template), false)
+    return values unless block
+
+    values.each(&block)
+    nil
   end
 
   def unpack1(template, offset: 0)

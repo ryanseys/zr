@@ -404,6 +404,28 @@ machine def zr_str_eq(recv, argc, argv, cref, blk)
   zr_bool(zr_bytes_eq(RString.ptr(recv), RString.len(recv), RString.ptr(other), RString.len(other)) && zr_str_comparable(recv, other))
 end
 
+# `String#==`: another String by its bytes; anything else that answers
+# to_str is asked `other == self`, as CRuby's rb_str_equal does.
+# `eql?` keeps the plain rule of zr_str_eq.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_equal(recv, argc, argv, cref, blk)
+  other = Machine.value(Machine.load64(argv, 0))
+  if !zr_special_p(other) && zr_type(other) == T_STRING
+    return zr_str_eq(recv, argc, argv, cref, blk)
+  end
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(zr_sym(Machine.id(:to_str))))
+  responds = zr_send(other, Machine.id(:respond_to?), 1, slot)
+  return responds if responds == QUNDEF
+  if responds == QNIL || responds == QFALSE
+    return Machine.value(QFALSE)
+  end
+  Machine.store64(slot, 0, Machine.word(recv))
+  r = zr_send(other, Machine.id(:==), 1, slot)
+  return r if r == QUNDEF
+  zr_bool(r != QNIL && r != QFALSE)
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_length(recv, argc, argv, cref, blk)
   zr_fix(zr_str_char_count(recv))
@@ -709,13 +731,23 @@ machine def zr_str_uplus(recv, argc, argv, cref, blk)
   recv
 end
 
-# `-str`: the string itself when frozen, else a frozen copy.
+# `-str`, as CRuby's str_uminus decides. A bare String (class String,
+# no ivars) is interned: when frozen as it is, else as a copy of its
+# bytes and encoding. Any other String is not interned: a frozen one
+# answers itself, and an unfrozen one a frozen copy of its class.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_uminus(recv, argc, argv, cref, blk)
+  bare = RBasic.klass(recv) == zr_global(G_STRING) && (RBasic.flags(recv) & FL_EXIVAR) == 0
   if zr_frozen_p(recv)
-    return zr_str_intern(recv)
+    return bare ? zr_str_intern(recv) : recv
   end
-  zr_str_intern(zr_str_new(RString.ptr(recv), RString.len(recv)))
+  copy = zr_str_copy_encoding(zr_str_new(RString.ptr(recv), RString.len(recv)), recv)
+  if zr_real_class(recv) != zr_global(G_STRING)
+    RBasic.set_klass(copy, zr_real_class(recv))
+    RBasic.set_flags(copy, RBasic.flags(copy) | FL_FREEZE)
+    return copy
+  end
+  zr_str_intern(copy)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value

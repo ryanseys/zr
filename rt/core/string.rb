@@ -193,7 +193,7 @@ class String
     self
   end
 
-  def prepend(*others) = replace(others.join + self)
+  def prepend(*others) = replace(others.map { |other| Primitive.zr_str_operand(other) }.join + self)
 
   def insert(index, other)
     count = size
@@ -226,7 +226,7 @@ class String
   def rstrip! = mutate(rstrip)
   def chomp!(separator = "\n") = mutate(chomp(separator))
   def chop! = mutate(chop)
-  def squeeze! = mutate(squeeze)
+  def squeeze!(*sets) = mutate(squeeze(*sets))
 
   # Whitespace and NUL off both ends, in one String.
   def strip
@@ -952,6 +952,13 @@ class String
   # `String.new(source, encoding:, capacity:)`. The room asked for is
   # not held: the buffer grows as the bytes arrive.
   def initialize(source = (none = true), encoding: nil, capacity: nil)
+    # A frozen String takes no argument, as CRuby's rb_str_init checks;
+    # with none there is nothing to change.
+    if frozen?
+      return self if none && encoding.nil? && capacity.nil?
+
+      Primitive.zr_frozen_error(self)
+    end
     Primitive.zr_str_initialize_m(self, none ? nil : Primitive.zr_str_operand(source))
     Primitive.zr_str_set_binary(self) if none && encoding.nil?
     force_encoding(encoding) if encoding

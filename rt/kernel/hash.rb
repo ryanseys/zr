@@ -388,7 +388,10 @@ machine def zr_hash_store(h, key, value)
     return value
   end
   if !zr_special_p(key) && zr_type(key) == T_STRING && !zr_frozen_p(key) && (RBasic.flags(h) & (FL_IDENTITY | FL_WEAKKEY)) == 0
-    key = zr_str_copy_encoding(zr_str_new(RString.ptr(key), RString.len(key)), key)
+    copy = zr_str_copy_encoding(zr_str_new(RString.ptr(key), RString.len(key)), key)
+    # The frozen copy keeps a subclass, as CRuby's rb_str_new_frozen does.
+    RBasic.set_klass(copy, zr_real_class(key))
+    key = copy
     RBasic.set_flags(key, RBasic.flags(key) | FL_FREEZE)
   end
   zr_hash_reserve(h)

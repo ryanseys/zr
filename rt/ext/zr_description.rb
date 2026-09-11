@@ -1052,6 +1052,7 @@ module Ze0
         d zr_str_comparable Bool a:Value b:Value
         d zr_str_ascii_only Bool s:Value
         d zr_str_eq Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_str_equal Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_length Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_bytes_are_chars Bool s:Value
         d zr_str_ascii_check Value s:Value

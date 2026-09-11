@@ -313,7 +313,7 @@ machine def zr_boot
   zr_builtin(zr_global(G_STRING), Machine.id(:+), Machine.addr(:zr_str_plus), 1)
   zr_builtin(zr_global(G_STRING), Machine.id(:*), Machine.addr(:zr_str_times), 1)
   zr_builtin(zr_global(G_STRING), Machine.id(:<<), Machine.addr(:zr_str_concat), 1)
-  zr_builtin(zr_global(G_STRING), Machine.id(:==), Machine.addr(:zr_str_eq), 1)
+  zr_builtin(zr_global(G_STRING), Machine.id(:==), Machine.addr(:zr_str_equal), 1)
   zr_builtin(zr_global(G_STRING), Machine.id(:eql?), Machine.addr(:zr_str_eq), 1)
   zr_builtin(zr_global(G_STRING), Machine.id(:length), Machine.addr(:zr_str_length), 0)
   zr_builtin(zr_global(G_STRING), Machine.id(:size), Machine.addr(:zr_str_length), 0)
