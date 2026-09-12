@@ -141,12 +141,17 @@ module Ze0
         # A program that names one of these carries ruby's normalize.rb,
         # which String loads on the first call, as CRuby does.
         NORMALIZES = %i[unicode_normalize unicode_normalize! unicode_normalized?].freeze
+        # A conversion can need the same tables without naming them: the
+        # Mac's own UTF-8 holds every character taken apart, and reading
+        # one is a normalization.
+        ENCODES = %i[encode encode!].freeze
 
         def normalizes? = @normalizes
 
         def normalizes!(name, args)
           named = args.first.value if args.first.is_a?(Literal) && args.first.value.is_a?(Symbol)
-          @normalizes = true if NORMALIZES.include?(name) || ((SENDS + FETCHES).include?(name) && NORMALIZES.include?(named))
+          @normalizes = true if NORMALIZES.include?(name) || ENCODES.include?(name) ||
+                                ((SENDS + FETCHES).include?(name) && (NORMALIZES + ENCODES).include?(named))
         end
 
         def unit(file, source = File.read(file), line = 1, scopes = nil)

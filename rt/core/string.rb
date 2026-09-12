@@ -985,8 +985,45 @@ class String
   def encode(target = Encoding.default_internal || Encoding.default_external, source = nil, **options)
     from, target = Encoding.pair(source.nil? ? encoding : source, target)
     text = escaped(source.nil? ? self : dup.force_encoding(from), options)
-    text = newlines(Encoding.convert(text, target, options), options)
-    options[:xml] == :attr ? "\"#{text}\"" : text
+    # The quotes an attribute stands in are characters of the text, so
+    # they cross into the target with it: written after the conversion
+    # they would carry the source's own bytes instead.
+    text = "\"#{text}\"" if options[:xml] == :attr
+    newlines(Encoding.convert(text, target, options), options)
+  end
+
+  # A String in a multibyte encoding, as CRuby's rb_str_inspect writes
+  # one: a character that stands for no Unicode point prints as the
+  # number its own bytes spell, and bytes that make no character print
+  # one by one.
+  def mb_inspect
+    Primitive.attr! :hidden
+    out = +"\""
+    run = +"".b
+    each_char do |char|
+      if char.bytesize == 1 && char.getbyte(0) < 128
+        run << char
+        next
+      end
+      out << ascii_escaped(run)
+      run = +"".b
+      out << if char.valid_encoding?
+               "\\x{#{format('%X', char.ord)}}"
+             else
+               char.bytes.map { |byte| "\\x#{format('%02X', byte)}" }.join
+             end
+    end
+    out << ascii_escaped(run) << "\""
+  end
+
+  # An ASCII run escaped as any String is, which the runtime's own
+  # inspect answers once the bytes are tagged as UTF-8.
+  def ascii_escaped(run)
+    Primitive.attr! :hidden
+    return "" if run.empty?
+
+    shown = run.dup.force_encoding(Encoding::UTF_8).inspect
+    shown.byteslice(1, shown.bytesize - 2)
   end
 
   # `xml: :text` writes the three characters XML reserves as entities,
@@ -1693,21 +1730,67 @@ end
 # the three the runtime walks: UTF-8, ASCII-8BIT and US-ASCII.
 class Encoding
   class CompatibilityError < EncodingError; end
-  class UndefinedConversionError < EncodingError; end
-  class InvalidByteSequenceError < EncodingError; end
   class ConverterNotFoundError < EncodingError; end
 
-  # Transcoding between two encodings is not written yet.
-  class Converter
-    # A pair with no converter says so before the stop that the rest
-    # of the Converter still is.
-    def initialize(source, destination, *)
-      Encoding.pair(source, destination)
-      Primitive.zr_unimplemented("Encoding::Converter")
-    end
+  # The two failures a conversion can answer with name both of its ends,
+  # and the character or the bytes it stopped at.
+  class UndefinedConversionError < EncodingError
+    def source_encoding_name = @source&.name
 
-    def self.search_convpath(*) = Primitive.zr_unimplemented("Encoding::Converter.search_convpath")
-    def self.asciicompat_encoding(*) = Primitive.zr_unimplemented("Encoding::Converter.asciicompat_encoding")
+    def destination_encoding_name = @destination&.name
+
+    def source_encoding = @source
+
+    def destination_encoding = @destination
+
+    def error_char = @char
+
+    def setup(source, destination, char)
+      Primitive.attr! :hidden
+      @source = source
+      @destination = destination
+      @char = char
+      self
+    end
+    private :setup
+  end
+
+  class InvalidByteSequenceError < EncodingError
+    def source_encoding_name = @source&.name
+
+    def destination_encoding_name = @destination&.name
+
+    def source_encoding = @source
+
+    def destination_encoding = @destination
+
+    def error_bytes = @bytes
+
+    def readagain_bytes = @again
+
+    def incomplete_input? = @incomplete
+
+    def setup(source, destination, bytes, again, incomplete)
+      Primitive.attr! :hidden
+      @source = source
+      @destination = destination
+      @bytes = bytes
+      @again = again
+      @incomplete = incomplete
+      self
+    end
+    private :setup
+  end
+
+  # The two failures, built with everything they answer about.
+  def self.byte_error(message, source, destination, bytes, again, incomplete)
+    Primitive.attr! :hidden
+    InvalidByteSequenceError.new(message).send(:setup, source, destination, bytes.b, again&.b, incomplete)
+  end
+
+  def self.char_error(message, source, destination, char)
+    Primitive.attr! :hidden
+    UndefinedConversionError.new(message).send(:setup, source, destination, char)
   end
 
   attr_reader :names
@@ -1807,10 +1890,164 @@ class Encoding
   # UTF-32. The rest need byte tables this runtime does not have.
   def self.carried(encoding)
     Primitive.attr! :hidden
-    Primitive.zr_unimplemented("a String in the #{encoding} encoding") unless encoding.bytewise? || encoding.equal?(UTF_8) || wide?(encoding)
+    unless encoding.bytewise? || encoding.equal?(UTF_8) || wide?(encoding) || mb?(encoding) || utf8_like?(encoding)
+      Primitive.zr_unimplemented("a String in the #{encoding} encoding")
+    end
 
     encoding.send(:load).index
   end
+
+  # Whether a String in this encoding walks by the multibyte rules that
+  # rt/kernel/enc_mb.rb carries, or by UTF-8's own.
+  def self.mb?(encoding)
+    Primitive.attr! :hidden
+    MB.key?(encoding.name)
+  end
+
+  def self.utf8_like?(encoding)
+    Primitive.attr! :hidden
+    MB_UTF8.include?(encoding.name)
+  end
+
+  # Whether a conversion out of this multibyte encoding has rows to read.
+  # Ruby holds no converter for a few of them, and a String in one of
+  # those is walked and never converted.
+  def self.mb_converts?(encoding)
+    Primitive.attr! :hidden
+    mb?(encoding) && !MB.fetch(encoding.name).empty?
+  end
+
+  # The stop a String whose bytes make no character raises. The runtime
+  # asks for it, because the names live here.
+  def self.invalid_bytes(text)
+    Primitive.attr! :hidden
+    raise ArgumentError, "invalid byte sequence in #{text.encoding.name}"
+  end
+
+  # A multibyte encoding's rows, unpacked the first time it is asked
+  # about: from the bytes before a character's last byte to what a
+  # conversion makes of each last byte. A code point stands for itself, a
+  # String for a character one code point is not enough for, `true` for a
+  # character the encoding gives no code point, and `:more` for the start
+  # of a longer character. Where a character ends is another question,
+  # which the kernel's own rules answer: ruby's converters are narrower
+  # than its character counts.
+  MB_TABLES = {}
+  MB_WRITERS = {}
+  private_constant :MB_TABLES, :MB_WRITERS
+
+  def self.mb_table(encoding)
+    Primitive.attr! :hidden
+    MB_TABLES[encoding.name] ||= mb_rows(encoding.name)
+  end
+
+  def self.mb_rows(name)
+    Primitive.attr! :hidden
+    multi = mb_multi(name)
+    MB.fetch(name).each_with_object({}) do |(prefix, first, _count, id), out|
+      row = {}
+      packed = MB_ROWS[id].unpack1("m")
+      key = prefix.b
+      byte = first
+      value = 0
+      shift = 0
+      at = 0
+      point = 0
+      while at < packed.bytesize
+        piece = packed.getbyte(at)
+        at += 1
+        value |= (piece & 0x7F) << shift
+        if piece >= 0x80
+          shift += 7
+          next
+        end
+        case value
+        when 0 then nil
+        when 1 then row[byte] = true
+        when 2 then row[byte] = :more
+        when 3 then row[byte] = multi.fetch(key + byte.chr).dup.force_encoding(UTF_8)
+        else
+          point += mb_signed(value - 4)
+          row[byte] = point
+        end
+        byte += 1
+        value = 0
+        shift = 0
+      end
+      # The rows are written as literals, which carry the source's own
+      # encoding; a walk reaches them with bytes.
+      out[key] = row
+    end
+  end
+
+  # The characters of an encoding that one code point is not enough for,
+  # keyed by the bytes a walk reaches them with. The generated table's own
+  # keys are source literals, which carry the source's encoding.
+  def self.mb_multi(name)
+    Primitive.attr! :hidden
+    rows = MB_MULTI[name]
+    return nil if rows.nil?
+
+    out = {}
+    rows.each { |bytes, text| out[bytes.b] = text }
+    out
+  end
+
+  # A number folded onto the positive ones, read back.
+  def self.mb_signed(value)
+    Primitive.attr! :hidden
+    value.even? ? value / 2 : 0 - ((value + 1) / 2)
+  end
+
+  # From a code point to the bytes the encoding writes it as: the rows
+  # read backwards, lowest sequence first, with the ones ruby writes
+  # another way on top.
+  def self.mb_writer(encoding)
+    Primitive.attr! :hidden
+    MB_WRITERS[encoding.name] ||= begin
+      out = {}
+      mb_table(encoding).each do |prefix, row|
+        row.each do |byte, slot|
+          next unless slot.is_a?(Integer)
+
+          bytes = prefix + byte.chr
+          out[slot] = bytes if out[slot].nil? || bytes < out[slot]
+        end
+      end
+      packed = MB_ENCODE[encoding.name]
+      if packed
+        bytes = packed.unpack1("m")
+        at = 0
+        point = 0
+        while at < bytes.bytesize
+          delta, at = mb_varint(bytes, at)
+          size, at = mb_varint(bytes, at)
+          point += delta
+          out[point] = bytes.byteslice(at, size)
+          at += size
+        end
+      end
+      out
+    end
+  end
+
+  # One number of the packed rows, and where the next one starts.
+  def self.mb_varint(bytes, at)
+    Primitive.attr! :hidden
+    value = 0
+    shift = 0
+    loop do
+      piece = bytes.getbyte(at)
+      at += 1
+      value |= (piece & 0x7F) << shift
+      break if piece < 0x80
+
+      shift += 7
+    end
+    [value, at]
+  end
+  private_class_method :mb_varint
+  private_class_method :mb_rows, :mb_signed
 
   # UTF-16 and UTF-32: the width of a code unit, and whether it is big
   # endian. The two dummy names write big endian after a byte-order
@@ -1889,31 +2126,46 @@ class Encoding
   def self.converter(a, b, path, ascii)
     Primitive.attr! :hidden
     [a, b].each do |encoding|
-      next if encoding.equal?(UTF_8) || UNITS.key?(encoding.name)
+      next if encoding.equal?(UTF_8) || UNITS.key?(encoding.name) || mb_converts?(encoding) || encoding.name == "UTF8-MAC"
       # Plain ASCII crosses an ASCII-compatible encoding with no table.
-      next if ascii && !SHAPES.key?(encoding.name) && encoding.ascii_compatible? && !encoding.dummy?
-      Primitive.zr_unimplemented("String#encode to the #{encoding} encoding") unless SHAPES.key?(encoding.name)
-      raise ConverterNotFoundError, "code converter not found (#{path.first.name} to #{path.last.name})" if SHAPES[encoding.name].nil? && !ascii
+      next if ascii && !shaped?(encoding) && encoding.ascii_compatible? && !encoding.dummy?
+      Primitive.zr_unimplemented("String#encode to the #{encoding} encoding") unless shaped?(encoding)
+      raise ConverterNotFoundError, "code converter not found (#{path.first.name} to #{path.last.name})" if shape_of(encoding).nil? && !ascii
     end
   end
   private_class_method :converter
+
+  # How ruby words a failure for an encoding: the single-byte rows and
+  # the multibyte ones answer the same three questions.
+  def self.shaped?(encoding)
+    Primitive.attr! :hidden
+    SHAPES.key?(encoding.name) || MB_SHAPES.key?(encoding.name)
+  end
+
+  def self.shape_of(encoding)
+    Primitive.attr! :hidden
+    SHAPES.key?(encoding.name) ? SHAPES[encoding.name] : MB_SHAPES[encoding.name]
+  end
+  private_class_method :shaped?, :shape_of
 
   # Each byte read as the code point its encoding gives it.
   def self.to_utf8(text, path, options)
     Primitive.attr! :hidden
     from = text.encoding
     return units_to_utf8(text, from, replacement(path.last, options), options) if UNITS.key?(from.name)
+    return mb_to_utf8(text, from, path, options) if mb?(from)
+    return utf8_like_read(text, from) if utf8_like?(from)
 
     out = +""
     text.each_byte do |byte|
       if byte < 128
         out << byte
       elsif from.equal?(ASCII_8BIT)
-        undefined(byte_text(byte), from, UTF_8, path, options) { |mark| out << mark }
+        undefined(byte_text(byte), from, UTF_8, path, options, byte.chr.dup.force_encoding(from)) { |mark| out << mark }
       elsif (point = from.send(:points)[byte - 128])
         out << point
       else
-        undefined(byte_text(byte), from, UTF_8, path, options) { |mark| out << mark }
+        undefined(byte_text(byte), from, UTF_8, path, options, byte.chr.dup.force_encoding(from)) { |mark| out << mark }
       end
     end
     out
@@ -1923,19 +2175,22 @@ class Encoding
   # Each character written as the bytes the target gives its code point.
   def self.from_utf8(text, target, path, options)
     Primitive.attr! :hidden
+    return utf8_like_write(text, target) if utf8_like?(target)
+
     unit, big = UNITS[target.name]
     big = true if unit && big.nil?
-    points = unit || target.equal?(ASCII_8BIT) || target.equal?(US_ASCII) || text.ascii_only? ? nil : target.send(:points)
+    writer = mb?(target) ? mb_writer(target) : nil
+    points = unit || writer || target.equal?(ASCII_8BIT) || target.equal?(US_ASCII) || text.ascii_only? ? nil : target.send(:points)
     out = []
     utf8_points(text, replacement(target, options), options) do |point|
-      bytes = point_bytes(point, unit, big, points)
+      bytes = point_bytes(point, unit, big, points, writer)
       if bytes
         out.concat(bytes)
       elsif options[:xml]
         out.concat("&#x#{format('%X', point)};".bytes)
       else
-        undefined("U+#{format('%04X', point)}", UTF_8, target, path, options) do |mark|
-          mark.each_char { |char| out.concat(point_bytes(char.ord, unit, big, points) || char.bytes) }
+        undefined("U+#{format('%04X', point)}", UTF_8, target, path, options, point.chr(UTF_8)) do |mark|
+          mark.each_char { |char| out.concat(point_bytes(char.ord, unit, big, points, writer) || char.bytes) }
         end
       end
     end
@@ -1947,7 +2202,7 @@ class Encoding
 
   # The bytes of code point `point` in the target: its code units, or
   # the one byte a table or ASCII gives it; nil when it has none.
-  def self.point_bytes(point, unit, big, points)
+  def self.point_bytes(point, unit, big, points, writer = nil)
     Primitive.attr! :hidden
     if unit
       units = unit == 4 || point < 0x10000 ? [point] : [0xD800 + ((point - 0x10000) >> 10), 0xDC00 + ((point - 0x10000) & 0x3FF)]
@@ -1957,6 +2212,8 @@ class Encoding
       end
     elsif point < 128
       [point]
+    elsif writer
+      writer[point]&.bytes
     elsif points && (found = points.index(point))
       [found + 128]
     end
@@ -2075,6 +2332,107 @@ class Encoding
   end
   private_class_method :units_to_utf8
 
+  # Each character of a multibyte String read as its code point, written
+  # as UTF-8. The rows say where a character ends: a slot that starts a
+  # longer one carries the walk on, one with no code point is a
+  # character this pair cannot convert, and no slot at all is bytes that
+  # make no character.
+  def self.mb_to_utf8(text, from, path, options)
+    Primitive.attr! :hidden
+    table = mb_table(from)
+    mark = replacement(UTF_8, options)
+    bytes = text.bytes
+    out = +""
+    i = 0
+    while i < bytes.size
+      if bytes[i] < 0x80
+        out << bytes[i]
+        i += 1
+        next
+      end
+      prefix = +"".b
+      steps = 0
+      slot = nil
+      while (row = table[prefix]) && (at = bytes[i + steps]) && (slot = row[at]) == :more
+        prefix << at
+        steps += 1
+      end
+      # A partial encoding's rows stop at the characters every row of
+      # which was read; the walk reaches the longer ones and says so.
+      if row.nil? && steps.positive? && MB_PARTIAL.include?(from.name)
+        Primitive.zr_unimplemented("String#encode of a #{from} character of more than two bytes")
+      end
+      slot = nil unless row && bytes[i + steps]
+      whole = bytes[i, steps + 1]
+      if slot.is_a?(Integer) || slot.is_a?(String)
+        out << slot
+      elsif slot == true
+        undefined(whole.pack("C*").dump, from, UTF_8, path, options,
+                  whole.pack("C*").dup.force_encoding(from)) { |text_mark| out << text_mark }
+      elsif options[:invalid] == :replace
+        out << mark
+      elsif steps.zero?
+        invalid([bytes[i]], nil, false, from.name)
+      else
+        invalid(bytes[i, steps], bytes[i + steps] ? [bytes[i + steps]] : nil, bytes[i + steps].nil?, from.name)
+      end
+      i += steps + 1
+    end
+    out
+  end
+  private_class_method :mb_to_utf8
+
+  # Whether the bytes from `at` start a character the text ends inside.
+  # A conversion in pieces holds those back for the next piece rather
+  # than refusing them.
+  def self.incomplete_tail?(bytes, at, encoding)
+    Primitive.attr! :hidden
+    rest = bytes.bytesize - at
+    return false if rest <= 0 || encoding.nil?
+
+    if encoding.equal?(UTF_8) || utf8_like?(encoding)
+      point, _length, kind = utf8_step(bytes.bytes, at)
+      return point.nil? && kind == :ended
+    end
+    unit, = UNITS[encoding.name]
+    if unit
+      return true if rest < unit
+      return false unless unit == 2 && rest < 4
+
+      code = bytes.byteslice(at, 2).bytes.inject(0) { |out, byte| (out << 8) | byte }
+      code = ((code & 0xFF) << 8) | (code >> 8) unless UNITS[encoding.name][1]
+      return code.between?(0xD800, 0xDBFF)
+    end
+    return false unless mb?(encoding)
+
+    table = mb_table(encoding)
+    prefix = +"".b
+    steps = 0
+    while (row = table[prefix]) && (byte = bytes.getbyte(at + steps)) && row[byte] == :more
+      prefix << byte
+      steps += 1
+    end
+    !row.nil? && bytes.getbyte(at + steps).nil?
+  end
+
+  # An encoding that writes its characters as UTF-8 writes them: only
+  # the form parts. UTF8-MAC holds each one taken apart, which is what
+  # ruby calls NFD, and reads back together.
+  def self.utf8_like_read(text, from)
+    Primitive.attr! :hidden
+    Primitive.zr_unimplemented("String#encode from the #{from} encoding") unless from.name == "UTF8-MAC"
+
+    text.dup.force_encoding(UTF_8).unicode_normalize(:nfc)
+  end
+
+  def self.utf8_like_write(text, target)
+    Primitive.attr! :hidden
+    Primitive.zr_unimplemented("String#encode to the #{target} encoding") unless target.name == "UTF8-MAC"
+
+    text.unicode_normalize(:nfd).dup.force_encoding(target)
+  end
+  private_class_method :utf8_like_read, :utf8_like_write
+
   # Ruby's words for bytes a decoder cannot read: `incomplete` when the
   # input ends inside them, else `followed by` the bytes it reads again.
   def self.invalid(error, again, ended, name)
@@ -2084,21 +2442,24 @@ class Encoding
            elsif again then "#{shown} followed by #{again.pack('C*').dump}"
            else shown
            end
-    raise InvalidByteSequenceError, "#{text} on #{name}"
+    # The failure answers about itself, as CRuby's own carries the bytes
+    # it stopped on and the ones it will read again.
+    raise byte_error("#{text} on #{name}", find(name), UTF_8, error.pack("C*"), again&.pack("C*"), ended)
   end
   private_class_method :invalid
 
   # A byte or a character the step cannot write: replaced when the
   # caller asked for that, else ruby's own error, worded for the whole
   # path.
-  def self.undefined(shown, from, to, path, options)
+  def self.undefined(shown, from, to, path, options, char = nil)
     Primitive.attr! :hidden
     if options[:undef] == :replace || options[:invalid] == :replace
       replacement = options[:replace] || (to.equal?(UTF_8) ? "\uFFFD" : "?")
       return yield(replacement)
     end
 
-    raise UndefinedConversionError, message(shown, from, to, path)
+    # The failure carries the character it stopped on, as CRuby's does.
+    raise char_error(message(shown, from, to, path), from, to, char)
   end
   private_class_method :undefined
 
@@ -2107,7 +2468,7 @@ class Encoding
   def self.message(shown, from, to, path)
     Primitive.attr! :hidden
     other = to.equal?(UTF_8) ? from : to
-    row = SHAPES.fetch(other.name)
+    row = shape_of(other)
     return "#{shown} from #{from.name} to #{to.name}" if path.size == 2 && (to.equal?(UTF_8) ? row[2] : row[0])
 
     step = to.equal?(UTF_8) ? "UTF-8" : row[1]
@@ -2174,6 +2535,69 @@ class Encoding
 
   def self.default_internal=(encoding)
     Primitive.zr_unimplemented("Encoding.default_internal=")
+  end
+
+  # The encodings a conversion passes through, ruby's own converter
+  # pairs being the only steps it may take: the shortest way from one
+  # name to the other.
+  def self.convpath_for(source, destination, shown)
+    Primitive.attr! :hidden
+    ends = [source, destination].map { |name| LIST.find { |encoding| encoding.names.any? { |other| other.casecmp?(name) } } }
+    if ends.all?
+      queue = [[ends.first]]
+      seen = { ends.first.name => true }
+      until queue.empty?
+        path = queue.shift
+        return path if path.last.equal?(ends.last)
+
+        CONVERTERS.each do |from, to|
+          next unless from == path.last.name
+          next if seen[to]
+
+          seen[to] = true
+          queue << (path + [find(to)])
+        end
+      end
+    end
+    raise ConverterNotFoundError, "code converter not found (#{source} to #{destination}#{shown})"
+  end
+
+  # The decorator a `newline:` option names. A name that is no Symbol is
+  # not shown, as CRuby's own check writes it.
+  def self.newline_decorator(kind)
+    Primitive.attr! :hidden
+    case kind
+    when :universal then :universal_newline
+    when :crlf then :crlf_newline
+    when :cr then :cr_newline
+    when :lf then :lf_newline
+    else raise ArgumentError, kind.is_a?(Symbol) ? "unexpected value for newline option: #{kind}" : "unexpected value for newline option"
+    end
+  end
+
+  # What writing a code point into `target` needs: the width and order of
+  # its code units, its byte table, its multibyte rows, and whether it
+  # writes UTF-8 or holds a state between characters.
+  def self.writing(target)
+    Primitive.attr! :hidden
+    unit, big = UNITS[target.name]
+    big = true if unit && big.nil?
+    writer = mb?(target) ? mb_writer(target) : nil
+    points = unit || writer || target.equal?(ASCII_8BIT) || target.equal?(US_ASCII) || !tabled?(target) ? nil : target.send(:points)
+    [unit, big, points, writer, target.equal?(UTF_8) || utf8_like?(target), target.name.start_with?("ISO-2022-JP", "CP5022")]
+  end
+
+  # ISO-2022-JP holds a state: its characters are the bytes of
+  # stateless-ISO-2022-JP with the high bit off, inside an escape that
+  # says so, and the text ends back in ASCII.
+  JIS_IN = "\e$B"
+  JIS_OUT = "\e(B"
+  private_constant :JIS_IN, :JIS_OUT
+
+  def self.jis_bytes(point)
+    Primitive.attr! :hidden
+    bytes = mb_writer(find("stateless-ISO-2022-JP"))[point]
+    bytes && bytes.bytes.map { |byte| byte & 0x7F }.pack("C*")
   end
 
   # rb_enc_compatible for two Strings: an empty side gives way, and

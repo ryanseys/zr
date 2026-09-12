@@ -1007,8 +1007,14 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_inspect(recv, argc, argv, cref, blk)
   # UTF-16 and UTF-32 inspect by characters, and their dummy names by
   # bytes, in Ruby.
-  if !zr_enc_ascii_compat_p(zr_str_encoding_index(recv))
+  index = zr_str_encoding_index(recv)
+  if !zr_enc_ascii_compat_p(index)
     return zr_send(recv, Machine.id(:unit_inspect), 0, 0)
+  end
+  # A multibyte encoding's characters stand for no Unicode point, so each
+  # one prints as the number its own bytes spell, in Ruby.
+  if zr_enc_mb_p(index)
+    return zr_send(recv, Machine.id(:mb_inspect), 0, 0)
   end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)

@@ -173,6 +173,53 @@ machine def zr_str_wide_p(s)
   zr_str_encoding_index(s) == ENC_UTF8
 end
 
+# Whether the String holds characters that span bytes in a way of their
+# own: one of the multibyte encodings rt/kernel/enc_mb.rb carries.
+sig [Value] => Bool
+machine def zr_str_mb_p(s)
+  zr_enc_mb_p(zr_str_encoding_index(s))
+end
+
+# The byte length of the character at byte `off` of a multibyte String,
+# or 0 when those bytes are no whole character: a lead byte the
+# encoding has no use for, a byte that cannot follow it, or a character
+# the text ends in the middle of.
+sig [Value, Word] => Word
+machine def zr_str_mb_len(s, off)
+  index = zr_str_encoding_index(s)
+  p = RString.ptr(s) + off
+  rest = RString.len(s) - off
+  lead = Machine.word(Machine.load8(p, 0))
+  if lead < 128
+    return 1
+  end
+  second = rest > 1 ? Machine.word(Machine.load8(p + 1, 0)) : 0
+  n = zr_mb_lead_len(index, lead, second)
+  if n < 2
+    return n
+  end
+  if rest < n
+    return 0
+  end
+  i = 1
+  while i < n
+    if !zr_mb_trail_ok(index, lead, i, Machine.word(Machine.load8(p + i, 0)))
+      return 0
+    end
+    i += 1
+  end
+  n
+end
+
+# The stop a String whose bytes make no character raises. Encoding
+# writes it, because the names live there.
+sig [Value] => Value
+machine def zr_str_bad_bytes(s)
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(s))
+  zr_send(zr_core_class(Machine.id(:Encoding)), Machine.id(:invalid_bytes), 1, slot)
+end
+
 # Whether an ASCII byte is an ASCII character in the encoding `index`
 # names: in every one but UTF-16 and UTF-32, dummy names included.
 sig [Word] => Bool
@@ -587,7 +634,7 @@ machine def zr_str_bytes_are_chars(s)
   if zr_str_unit(s) != 0
     return RString.len(s) == 0
   end
-  if !zr_str_wide_p(s)
+  if !zr_str_wide_p(s) && !zr_str_mb_p(s)
     return true
   end
   n = RString.len(s)
@@ -616,7 +663,14 @@ machine def zr_str_char_len_at(s, off)
   end
   if !zr_str_wide_p(s)
     unit = zr_str_unit(s)
-    return unit == 0 ? 1 : zr_unit_char_len(s, off, unit)
+    if unit != 0
+      return zr_unit_char_len(s, off, unit)
+    end
+    if zr_str_mb_p(s)
+      wide = zr_str_mb_len(s, off)
+      return wide == 0 ? 1 : wide
+    end
+    return 1
   end
   len = zr_utf8_char_len(RString.ptr(s) + off, RString.len(s) - off)
   len == 0 ? 1 : len
@@ -625,7 +679,7 @@ end
 sig [Value] => Word
 machine def zr_str_char_count(s)
   n = RString.len(s)
-  if (!zr_str_wide_p(s) && zr_str_unit(s) == 0) || zr_str_ascii_bytes_p(s)
+  if (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
     return n
   end
   count = 0
@@ -643,7 +697,7 @@ sig [Value, Word] => Word
 machine def zr_str_char_offset(s, index)
   n = RString.len(s)
   # One byte a character: the index is the offset.
-  if (!zr_str_wide_p(s) && zr_str_unit(s) == 0) || zr_str_ascii_bytes_p(s)
+  if (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
     if index < 0
       index += n
     end
@@ -734,6 +788,21 @@ machine def zr_str_ord(s)
   end
   p = RString.ptr(s)
   c = Machine.word(Machine.load8(p, 0))
+  # A multibyte encoding gives its characters the number their own bytes
+  # spell, as rb_enc_codepoint does: EUC-JP's A4 A2 is 42146.
+  if c >= 128 && zr_str_mb_p(s)
+    width = zr_str_mb_len(s, 0)
+    if width == 0
+      return zr_str_bad_bytes(s)
+    end
+    v = 0
+    k = 0
+    while k < width
+      v = (v << 8) | Machine.word(Machine.load8(p + k, 0))
+      k += 1
+    end
+    return zr_fix(v)
+  end
   if c < 128 || !zr_str_wide_p(s)
     return zr_fix(c)
   end
@@ -763,6 +832,18 @@ machine def zr_str_valid_p(s)
     while at < RString.len(s)
       width = zr_unit_char_len(s, at, unit)
       if !zr_unit_char_valid_p(s, at, width, unit)
+        return Machine.value(QFALSE)
+      end
+      at += width
+    end
+    return Machine.value(QTRUE)
+  end
+  if zr_str_mb_p(s)
+    stop = RString.len(s)
+    at = 0
+    while at < stop
+      width = zr_str_mb_len(s, at)
+      if width == 0
         return Machine.value(QFALSE)
       end
       at += width
