@@ -1094,11 +1094,13 @@ module Kernel
     nil
   end
 
-  def gets(*args, **options) = $stdin.gets(*args, **options)
+  # A bare read reads ARGF: the files ARGV names, and standard input
+  # where it names none.
+  def gets(*args, **options) = ARGF.gets(*args, **options)
 
-  def readline(*args, **options) = $stdin.readline(*args, **options)
+  def readline(*args, **options) = ARGF.readline(*args, **options)
 
-  def readlines(*args, **options) = $stdin.readlines(*args, **options)
+  def readlines(*args, **options) = ARGF.readlines(*args, **options)
 
   def open(path, *rest, **options, &block)
     Primitive.zr_unimplemented("Kernel#open of a pipe") if path.is_a?(String) && path.start_with?("|")

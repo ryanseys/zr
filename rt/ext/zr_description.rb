@@ -636,6 +636,7 @@ module Ze0
         d zr_io_file_size Value path:Value
         d zr_fs_call Value which:Value path:Value a:Value b:Value
         d zr_utimes_m Value path:Value atime_us:Value mtime_us:Value
+        d zr_lutimes_m Value path:Value atime_us:Value mtime_us:Value
         d zr_umask_m Value mask:Value
         d zr_readlink_m Value path:Value
         d zr_stat_m Value path:Value follow:Value
@@ -1299,6 +1300,7 @@ module Ze0
         c GATE_XOR 262144
         c GATE_SHR 524288
         c F_GETFL 3
+        c O_CLOEXEC 16777216
         c WAIT_READABLE 1
         c WAIT_PRIORITY 2
         c WAIT_WRITABLE 4

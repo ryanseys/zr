@@ -327,6 +327,7 @@ Machine.import "truncate", [Ptr, Word] => I32
 Machine.import "ftruncate", [I32, Word] => I32
 Machine.import "umask", [I32] => I32
 Machine.import "utimes", [Ptr, Ptr] => I32
+Machine.import "lutimes", [Ptr, Ptr] => I32
 Machine.import "flock", [I32, I32] => I32
 
 # One path and one small number: chown's owner, truncate's length, and
@@ -369,6 +370,18 @@ machine def zr_utimes_m(path, atime_us, mtime_us)
   Machine.store64(times, 16, zr_fix2long(mtime_us) / 1000000)
   Machine.store64(times, 24, zr_fix2long(mtime_us) % 1000000)
   zr_io_status(utimes(RString.ptr(path), times))
+end
+
+# The same two timevals, for the link itself rather than for what it
+# points at.
+sig [Value, Value, Value] => Value
+machine def zr_lutimes_m(path, atime_us, mtime_us)
+  times = Machine.slot(32)
+  Machine.store64(times, 0, zr_fix2long(atime_us) / 1000000)
+  Machine.store64(times, 8, zr_fix2long(atime_us) % 1000000)
+  Machine.store64(times, 16, zr_fix2long(mtime_us) / 1000000)
+  Machine.store64(times, 24, zr_fix2long(mtime_us) % 1000000)
+  zr_io_status(lutimes(RString.ptr(path), times))
 end
 
 # umask(2): the mask that was in force, and the new one when `mask` is

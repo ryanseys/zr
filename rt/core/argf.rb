@@ -72,9 +72,9 @@ stream = Class.new do
 
   # The walk moves to the next file when the one in hand runs out, so
   # every read is written the same way: ask, and advance on nil.
-  def gets(*args)
+  def gets(*args, **options)
     each_stream do |io|
-      line = io.gets(*args)
+      line = io.gets(*args, **options)
       next if line.nil?
 
       @lineno += 1
@@ -83,7 +83,7 @@ stream = Class.new do
     end
   end
 
-  def readline(*args) = gets(*args) || raise(EOFError, "end of file reached")
+  def readline(*args, **options) = gets(*args, **options) || raise(EOFError, "end of file reached")
 
   def getc = each_stream { |io| (c = io.getc) and return c }
 
@@ -105,10 +105,10 @@ stream = Class.new do
   def readpartial(length, buffer = nil) = read(length, buffer)
   def read_nonblock(length, buffer = nil, **) = read(length, buffer)
 
-  def each_line(*args, &block)
-    return to_enum(:each_line, *args) unless block
+  def each_line(*args, **options, &block)
+    return to_enum(:each_line, *args, **options) unless block
 
-    while (line = gets(*args))
+    while (line = gets(*args, **options))
       yield line
     end
     self
@@ -141,7 +141,7 @@ stream = Class.new do
     each_char { |c| yield c.ord }
   end
 
-  def readlines(*args) = each_line(*args).to_a
+  def readlines(*args, **options) = each_line(*args, **options).to_a
   alias to_a readlines
 
   def eof?

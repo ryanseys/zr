@@ -328,6 +328,13 @@ class File < IO
     def ctime = Time.at(@ctime_s, @ctime_ns, :nsec)
     def birthtime = ctime
 
+    # A device is one number whose halves name the driver and the unit,
+    # which is where darwin's major() and minor() cut it.
+    def dev_major = (@dev >> 24) & 0xff
+    def dev_minor = @dev & 0xffffff
+    def rdev_major = (@rdev >> 24) & 0xff
+    def rdev_minor = @rdev & 0xffffff
+
     def ftype
       case @mode & 0o170000
       when 0o040000 then "directory"
@@ -512,6 +519,14 @@ class File < IO
     a = microseconds(atime)
     m = microseconds(mtime)
     each_path(paths) { |path| Primitive.zr_utimes_m(path, a, m) }
+  end
+
+  # A link takes its own times, rather than passing them on to what it
+  # points at.
+  def self.lutime(atime, mtime, *paths)
+    a = microseconds(atime)
+    m = microseconds(mtime)
+    each_path(paths) { |path| Primitive.zr_lutimes_m(path, a, m) }
   end
 
   def self.microseconds(time)
