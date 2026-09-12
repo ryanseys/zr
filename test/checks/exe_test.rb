@@ -62,15 +62,22 @@ class ExeTest < Minitest::Test
     end
   end
 
-  # `ld` accepts `-stack_size` and writes nothing, so every binary it
-  # linked runs on the 8 MB default. This one says what it means.
+  # Nothing writes `LC_MAIN.stacksize` for an image no linker touched,
+  # and a program left on the 8 MB default recurses an eighth as deep.
+  # `ld` writes it from `-stack_size`; this writes the same number.
   def test_the_main_stack_is_the_size_the_build_asks_for
     functions, data = Ze0::Native::Fixtures.build("hello")
     Dir.mktmpdir("ze0-exe-") do |dir|
       bin = written(Ze0::Native::Build.unit(functions, data), dir, "hello")
-      main = IO.popen(["otool", "-l", bin], &:read)[/cmd LC_MAIN.*?stacksize (\d+)/m, 1]
-      assert_equal Ze0::Native::Build::STACK, Integer(main)
+      assert_equal Ze0::Native::Build::STACK, stacksize(bin)
+      through_cc = File.join(dir, "hello-cc")
+      assert_nil Ze0::Native::Build.binary(functions, data, through_cc, work: dir, road: "cc")
+      assert_equal stacksize(bin), stacksize(through_cc), "the two roads give different room"
     end
+  end
+
+  def stacksize(bin)
+    Integer(IO.popen(["otool", "-l", bin], &:read)[/cmd LC_MAIN.*?stacksize (\d+)/m, 1])
   end
 
   # `ld` gives every link a fresh UUID and the signature then hashes the

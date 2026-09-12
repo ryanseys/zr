@@ -30,10 +30,9 @@ module Ze0
       # The main thread's stack, which holds ruby frames as native
       # frames. `rt/kernel/fiber.rb` sizes every other task's.
       #
-      # `ld` accepts this and writes nothing: `LC_MAIN.stacksize` is zero
-      # in everything it links, so a binary it wrote runs on the 8 MB
-      # default. `Obj::Exe` writes the field, and asks for the same
-      # number here so the two roads agree about the intent.
+      # `ld` turns this into `LC_MAIN.stacksize`. `Obj::Exe` writes that
+      # field itself from the same number, so a program gets the same
+      # room whichever road links it.
       STACK = 0x400_0000
       STACK_FLAGS = ["-Wl,-stack_size,0x#{STACK.to_s(16)}"].freeze
 

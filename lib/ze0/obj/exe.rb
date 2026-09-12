@@ -26,9 +26,10 @@ module Ze0
       # Where the image goes, above the four unmapped gigabytes that make
       # a null dereference a fault.
       BASE = 0x1_0000_0000
-      # The main stack. `ld` accepts `-stack_size` and writes nothing, so
-      # every binary ze0 linked before this ran on the 8 MB default rather
-      # than on what the build asked for.
+      # The main stack, which holds ruby frames as native frames. `ld`
+      # writes this from `-stack_size`; nothing writes it for an image
+      # that no linker touched, so this does, and the two roads give a
+      # program the same room.
       STACK = 0x400_0000
       MIN_MACOS = (14 << 16) | (0 << 8)
 
