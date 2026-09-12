@@ -359,8 +359,8 @@ module Ze0
         d zr_fatal_class Value
         d zr_error_print_m Value exc:Value
         d zr_report Void exc:Value
-        d zr_error_print Void exc:Value
         d zr_error_print_upto Void exc:Value stop:Value
+        d zr_error_print Void exc:Value
         d zr_error_print_one Void exc:Value
         d zr_stack_overflow Value
         d zr_exc_set_backtrace_value Value exc:Value bt:Value
