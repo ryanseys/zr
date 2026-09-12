@@ -555,6 +555,9 @@ module Ze0
 
       # One function's body.
       class Body
+        # Past this many blocks a function is dispatched in two steps.
+        LADDER = 256
+
         def initialize(mod, f)
           @m = mod
           @f = f
@@ -669,27 +672,84 @@ module Ze0
         end
 
         # loop { block ... block { br_table } body0 end body1 end ... }
+        # The blocks, each reached by branching out of the `block` that
+        # ends where it begins. A ladder of N of them nests N deep, and a
+        # wasm compiler spends time on that depth that grows with its
+        # square: 1,000 blocks take 0.2 s and 14,000 take 78. The core
+        # library has one function of 14,793 -- the table
+        # UnicodeNormalize builds -- so a function past LADDER blocks
+        # takes two steps instead: the index picks a group, and the
+        # group picks the block. The deepest nesting is then about twice
+        # the square root of the count.
         def dispatch
           n = @f.blocks.size
           @code << "\x03\x40".b
-          n.times { @code << "\x02\x40".b }
-          @code << "\x20".b << @m.leb(@bb) << "\x0E".b << @m.leb(n)
-          n.times { |i| @code << @m.leb(i) }
-          @code << @m.leb(0)
-          @code << "\x0B".b
-          @f.blocks.each_with_index do |b, i|
-            @loop_depth = n - 1 - i
-            b.insts.each { |inst| emit_inst(inst) }
-            @code << "\x0B".b
+          if n <= LADDER
+            ladder(@f.blocks, 0, 0)
+          else
+            width = Integer.sqrt(n - 1) + 1
+            groups = @f.blocks.each_slice(width).to_a
+            groups.size.times { @code << "\x02\x40".b }
+            @code << "\x20".b << @m.leb(@bb) << @m.i32c(width) << "\x6E".b
+            table(groups.size)
+            groups.each_with_index do |group, k|
+              @code << "\x0B".b
+              @code << "\x03\x40".b
+              ladder(group, k * width, groups.size - k)
+              @code << "\x0B".b << "\x00".b
+            end
           end
+          @code << "\x0B".b
           # Every block ends in a branch or a return; the loop's end is
           # never reached, and `unreachable` tells the validator so.
           @code << "\x00".b
         end
 
+        # One run of blocks under a `br_table` of its own. `first` is the
+        # index its first block carries, and `outer` how many constructs
+        # stand between this run's loop and the function's own, which is
+        # nothing when the run is the whole function.
+        def ladder(blocks, first, outer)
+          m = blocks.size
+          m.times { @code << "\x02\x40".b }
+          @code << "\x20".b << @m.leb(@bb)
+          @code << @m.i32c(first) << "\x6B".b unless first.zero?
+          table(m)
+          @group = first..(first + m - 1)
+          @outer = outer
+          @span = m
+          blocks.each_with_index do |b, j|
+            @code << "\x0B".b
+            @row = j
+            @bias = 0
+            b.insts.each { |inst| emit_inst(inst) }
+          end
+        end
+
+        # `br_table` over `count` labels, the first of them the default:
+        # an index past the end cannot happen, since every branch names
+        # a block of this function.
+        def table(count)
+          @code << "\x0E".b << @m.leb(count)
+          count.times { |i| @code << @m.leb(i) }
+          @code << @m.leb(0)
+        end
+
+        # A branch to `name`. The ladder nests its blocks in falling
+        # order, so leaving the one that ends where a later block begins
+        # reaches that block: a branch forwards in the same run is that
+        # one `br`, and reads no index on the way. Only a branch that
+        # goes back, or leaves the run, sets the index and returns to a
+        # `br_table` -- which is what keeps a loop's head from gathering
+        # a predecessor for every block in the function.
         def go(name)
-          @code << @m.i32c(@f.blocks.index { |b| b.name == name }) << "\x21".b << @m.leb(@bb)
-          @code << "\x0C".b << @m.leb(@loop_depth)
+          at = @f.blocks.index { |b| b.name == name }
+          ahead = at - @group.first - @row - 1
+          return @code << "\x0C".b << @m.leb(ahead + @bias) if @group.cover?(at) && ahead >= 0
+
+          @code << @m.i32c(at) << "\x21".b << @m.leb(@bb)
+          near = @span - 1 - @row + @bias
+          @code << "\x0C".b << @m.leb(@group.cover?(at) ? near : near + @outer)
         end
 
         def emit_inst(i)
@@ -855,11 +915,11 @@ module Ze0
             # The value on the stack is 1 when the condition is false, and
             # the `if` adds one label between here and the loop.
             @code << "\x04\x40".b
-            @loop_depth += 1
+            @bias += 1
             go(i.targets[1][0])
             @code << "\x05".b
             go(i.targets[0][0])
-            @loop_depth -= 1
+            @bias -= 1
             @code << "\x0B".b
           when :jump
             name, args = i.targets[0]
