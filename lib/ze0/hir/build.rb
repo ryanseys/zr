@@ -296,6 +296,10 @@ module Ze0
         @singleton = false
         @block_depth = 0
         @using = nil
+        # How many `using` rows this build has made. `statement` reads it
+        # to know whether searching the statement it just built for one
+        # can find anything at all.
+        @usings = 0
         @in_def = false
         @activations = -1
         @temps = [[]]
@@ -498,9 +502,16 @@ module Ze0
       # written on every send it holds. A `using` moves that activation
       # on for the statements after it.
       def statement(node)
+        # Every `using` row there is was made by `using_activation`, so a
+        # statement that made none holds none, and the walk below -- which
+        # reads the whole of what was just built, for every statement of
+        # every file -- can be skipped outright. Almost every file has no
+        # `using` in it at all.
+        made = @usings
         out = using_activation(node) || expr(node)
         mark_using(out, {}) if @using
         return out if out.is_a?(Using)
+        return out if @usings == made
 
         nested = usings_in(out, {}).sort_by(&:id)
         return out if nested.empty?
@@ -540,6 +551,7 @@ module Ze0
         value = expr(args[0])
         from = @using.is_a?(Integer) ? @using : -1
         @using = @loader ? @loader.next_activation : (@activations += 1)
+        @usings += 1
         Using.new(@using, from, value, node.location.start_line)
       end
 
