@@ -614,7 +614,7 @@ module Ze0
         d zr_io_status Value r:I32
         d zr_io_flags Value fd:Value
         d zr_io_set_nonblock Value fd:Value on:Value
-        d zr_io_fcntl Value fd:Value command:Value
+        d zr_io_fcntl Value fd:Value command:Value argument:Value
         d zr_io_open_flags Value path:Value flags:Value
         d zr_io_chmod_fd Value fd:Value mode:Value
         d zr_io_open Value path:Value mode:Value

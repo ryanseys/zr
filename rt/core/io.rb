@@ -513,15 +513,21 @@ class IO
   end
 
   # fcntl(2) on the stream's own descriptor: F_GETFD reads the
-  # close-on-exec flag and F_GETFL the flags it was opened with. Every
-  # other command passes its argument variadically, which this runtime
-  # never does.
+  # close-on-exec flag, F_GETFL the flags it was opened with, and a
+  # command that takes a number takes it here too. rb_fcntl reads nil and
+  # false as 0 and true as 1; a command whose argument is a struct, as a
+  # file lock is, has none that fits in a word.
   def fcntl(command, argument = 0)
     check_open
     command = Numeric.send(:int_operand, command)
-    Primitive.zr_unimplemented("IO#fcntl with a command that takes an argument") unless command == 1 || command == 3
+    value = case argument
+            when nil, false then 0
+            when true then 1
+            when String then Primitive.zr_unimplemented("IO#fcntl with a struct argument")
+            else Numeric.send(:int_operand, argument)
+            end
 
-    result = Primitive.zr_io_fcntl(@fd, command)
+    result = Primitive.zr_io_fcntl(@fd, command, value)
     raise SystemCallError.new("@ io_fcntl", -result) if result < 0
 
     result

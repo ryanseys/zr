@@ -88,12 +88,14 @@ machine def zr_io_set_nonblock(fd, on)
   zr_io_status(__fcntl(n, Machine.i32(F_SETFL), flags & O_NONBLOCK_OFF))
 end
 
-# fcntl(2) with a command the program names itself. Only a command
-# that reads comes here, because the argument of the others is
-# variadic and this runtime makes no variadic call.
-sig [Value, Value] => Value
-machine def zr_io_fcntl(fd, command)
-  zr_io_failed(Machine.word(fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(command)))))
+# fcntl(2) with a command the program names itself, and the argument that
+# command takes. `fcntl` reads that argument variadically, and this
+# platform passes a variadic argument on the stack, so the call goes
+# through `__fcntl`, as the non-blocking flag does.
+sig [Value, Value, Value] => Value
+machine def zr_io_fcntl(fd, command, argument)
+  zr_io_failed(Machine.word(__fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(command)),
+                                    Machine.word(zr_fix2long(argument)))))
 end
 
 # open(2) with two arguments, which is the whole call unless O_CREAT
