@@ -1,53 +1,53 @@
 (seq
   (send self puts
     (send upcase
-      (str "abc"))
+      (frozen "abc"))
     (send downcase
-      (str "ABC"))
+      (frozen "ABC"))
     (send length
-      (str "abc"))
+      (frozen "abc"))
     (send reverse
-      (str "abc"))
+      (frozen "abc"))
     (send +
-      (str "a")
-      (str "b"))
+      (frozen "a")
+      (frozen "b"))
     (send *
-      (str "ab")
+      (frozen "ab")
       (int 3)))
   (assign s
-    (str "hello"))
+    (frozen "hello"))
   (send self puts
     (send capitalize
       (local s))
     (send include?
       (local s)
-      (str "ell"))
+      (frozen "ell"))
     (send index
       (local s)
-      (str "l"))
+      (frozen "l"))
     (send inspect
       (send index
         (local s)
-        (str "zz"))))
+        (frozen "zz"))))
   (send self p
     (send succ
-      (str "x"))
+      (frozen "x"))
     (send succ
-      (str "az"))
+      (frozen "az"))
     (send succ
-      (str "zz"))
+      (frozen "zz"))
     (send succ
-      (str "a9"))
+      (frozen "a9"))
     (send succ
-      (str "Zz"))
+      (frozen "Zz"))
     (send succ
-      (str "1.9"))
+      (frozen "1.9"))
     (send succ
-      (str "-"))
+      (frozen "-"))
     (send succ
-      (str "")))
+      (frozen "")))
   (assign name
-    (str "world"))
+    (frozen "world"))
   (assign count
     (int 3))
   (def wrap (x) locals (x)
@@ -83,7 +83,7 @@
       (str " ")
       (seq
         (send self wrap
-          (str "two")))
+          (frozen "two")))
       (str " ")
       (seq
         (send self wrap
@@ -94,25 +94,25 @@
           (int 1)
           (sym :a)))))
   (assign t
-    (str "x"))
+    (frozen "x"))
   (assign t
     (send +
       (local t)
-      (str "y")))
+      (frozen "y")))
   (send self p
     (local t)
     (send ==
       (local t)
-      (str "xy"))
+      (frozen "xy"))
     (send !=
       (local t)
-      (str "xy"))
+      (frozen "xy"))
     (send empty?
       (local t))
     (send empty?
-      (str ""))
+      (frozen ""))
     (send to_sym
-      (str "ab"))
+      (frozen "ab"))
     (send frozen?
       (local s))
     (send frozen?
@@ -122,14 +122,14 @@
         (local s))))
   (assign u
     (send dup
-      (str "a")))
+      (frozen "a")))
   (send <<
     (send <<
       (local u)
-      (str "b"))
-    (str "c"))
+      (frozen "b"))
+    (frozen "c"))
   (send self p
     (local u))
   (send <<
     (local s)
-    (str "!")))
+    (frozen "!")))

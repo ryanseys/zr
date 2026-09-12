@@ -89,10 +89,12 @@
   (send self puts
     (local sum))
   (while
-    (not
+    (if
       (send ==
         (local i)
-        (int 0)))
+        (int 0))
+      (const false)
+      (const true))
     (seq
       (assign i
         (send -

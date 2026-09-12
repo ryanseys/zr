@@ -17,10 +17,10 @@
         (int 1)
         (int 2)
         (int 3))
-      (block (it) locals (it)
+      (block (%it) locals (%it)
         (seq
           (send *
-            (local it)
+            (local %it)
             (int 2)))))
     (send map
       (array

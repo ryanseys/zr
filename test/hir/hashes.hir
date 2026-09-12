@@ -3,7 +3,7 @@
     (hash
       (sym :a)
       (int 1)
-      (str "b")
+      (frozen "b")
       (int 2)
       (int 3)
       (sym :three)
@@ -163,7 +163,7 @@
     (send ==
       (local h)
       (hash
-        (str "b")
+        (frozen "b")
         (int 20)
         (int 3)
         (sym :three)
@@ -186,7 +186,7 @@
         (int 1)
         (int 2)))
     (hash
-      (str "s")
+      (frozen "s")
       (array
         (int 1)
         (hash

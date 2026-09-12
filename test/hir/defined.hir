@@ -30,7 +30,7 @@
             (defined? super)
             (super))))))
   (send self p
-    (defined? local x)
+    (defined? local)
     (defined? method
       (vcall self y))
     (defined? ivar @iv)
