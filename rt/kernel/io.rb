@@ -60,7 +60,7 @@ F_GETFL = 3
 
 sig [Value] => Value
 machine def zr_io_flags(fd)
-  zr_io_failed(Machine.word(fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(F_GETFL))))
+  zr_io_failed(Machine.sword(fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(F_GETFL))))
 end
 
 # A descriptor that answers EAGAIN instead of waiting. `fcntl` takes the
@@ -107,7 +107,7 @@ end
 # through `__fcntl`, as the non-blocking flag does.
 sig [Value, Value, Value] => Value
 machine def zr_io_fcntl(fd, command, argument)
-  zr_io_failed(Machine.word(__fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(command)),
+  zr_io_failed(Machine.sword(__fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(command)),
                                     Machine.word(zr_fix2long(argument)))))
 end
 
@@ -144,7 +144,7 @@ end
 
 sig [Value] => Value
 machine def zr_io_fileno(stream)
-  zr_fix(Machine.word(fileno(Machine.ptr(zr_fix2long(stream)))))
+  zr_fix(Machine.sword(fileno(Machine.ptr(zr_fix2long(stream)))))
 end
 
 sig [Value] => Value

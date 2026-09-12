@@ -27,7 +27,7 @@ SOCKADDR_MAX = 128
 
 sig [Value, Value, Value] => Value
 machine def zr_sock_socket(domain, type, protocol)
-  zr_io_failed(Machine.word(socket(Machine.i32(zr_fix2long(domain)), Machine.i32(zr_fix2long(type)), Machine.i32(zr_fix2long(protocol)))))
+  zr_io_failed(Machine.sword(socket(Machine.i32(zr_fix2long(domain)), Machine.i32(zr_fix2long(type)), Machine.i32(zr_fix2long(protocol)))))
 end
 
 sig [Value, Value] => Value

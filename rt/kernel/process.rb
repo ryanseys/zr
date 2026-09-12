@@ -159,7 +159,7 @@ Machine.import "setpriority", [I32, I32, I32] => I32
 sig [Value, Value] => Value
 machine def zr_proc_getpriority(which, who)
   zr_clear_errno()
-  r = Machine.word(getpriority(Machine.i32(zr_fix2long(which)), Machine.i32(zr_fix2long(who))))
+  r = Machine.sword(getpriority(Machine.i32(zr_fix2long(which)), Machine.i32(zr_fix2long(who))))
   out = zr_ary_new(2)
   zr_ary_push(out, zr_fix(r))
   zr_ary_push(out, zr_fix(zr_errno()))
@@ -175,12 +175,12 @@ end
 # or the errno as a negative where the call fails.
 sig [] => Value
 machine def zr_proc_getpgrp
-  zr_io_failed(Machine.word(getpgrp()))
+  zr_io_failed(Machine.sword(getpgrp()))
 end
 
 sig [Value] => Value
 machine def zr_proc_getpgid(pid)
-  zr_io_failed(Machine.word(getpgid(Machine.i32(zr_fix2long(pid)))))
+  zr_io_failed(Machine.sword(getpgid(Machine.i32(zr_fix2long(pid)))))
 end
 
 sig [Value, Value] => Value
@@ -190,19 +190,19 @@ end
 
 sig [Value] => Value
 machine def zr_proc_getsid(pid)
-  zr_io_failed(Machine.word(getsid(Machine.i32(zr_fix2long(pid)))))
+  zr_io_failed(Machine.sword(getsid(Machine.i32(zr_fix2long(pid)))))
 end
 
 sig [] => Value
 machine def zr_proc_setsid
-  zr_io_failed(Machine.word(setsid()))
+  zr_io_failed(Machine.sword(setsid()))
 end
 
 # The supplementary groups, as an Array of ids.
 sig [] => Value
 machine def zr_proc_groups
   list = Machine.slot(256)
-  n = Machine.word(getgroups(Machine.i32(64), list))
+  n = Machine.sword(getgroups(Machine.i32(64), list))
   if n < 0
     return zr_fix(0 - zr_errno())
   end

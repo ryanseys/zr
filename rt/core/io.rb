@@ -528,7 +528,9 @@ class IO
             end
 
     result = Primitive.zr_io_fcntl(@fd, command, value)
-    raise SystemCallError.new("@ io_fcntl", -result) if result < 0
+    # rb_sys_fail_path names the stream, and the call that set up the
+    # argument, after the message; a stream with no path names neither.
+    raise SystemCallError.new(path.nil? ? nil : "@ finish_narg - #{path}", -result) if result < 0
 
     result
   end
