@@ -75,9 +75,13 @@ end
 # is set: the mode a creation takes is a variadic argument, and this
 # platform passes those on the stack. A creation goes through fopen
 # and then fchmod, which names the permissions exactly.
+# Every descriptor ruby opens closes itself across an exec, which
+# rb_sysopen asks for with O_CLOEXEC on the call itself.
+O_CLOEXEC = 16777216
+
 sig [Value, Value] => Value
 machine def zr_io_open_flags(path, flags)
-  fd = open(RString.ptr(path), Machine.i32(zr_fix2long(flags)))
+  fd = open(RString.ptr(path), Machine.i32(zr_fix2long(flags) | O_CLOEXEC))
   fd < Machine.i32(0) ? zr_fix(0 - zr_errno()) : zr_fix(Machine.sword(fd))
 end
 

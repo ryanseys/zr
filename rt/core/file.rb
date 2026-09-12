@@ -187,6 +187,17 @@ class File < IO
       return
     end
 
+    # A file that is there already opens through open(2), the call that
+    # closes the descriptor across an exec. Only a creation goes to
+    # fopen, whose permissions open(2) takes as a variadic argument.
+    unless made
+      fd = Primitive.zr_io_open_flags(path, File.send(:open_flags, text))
+      raise SystemCallError.new("@ rb_sysopen - #{path}", -fd) if fd < 0
+
+      super(fd, mode, **options, path: path)
+      return
+    end
+
     stream = Primitive.zr_io_open(path, text)
     raise SystemCallError.new("@ rb_sysopen - #{path}", -stream) if stream < 0
 
