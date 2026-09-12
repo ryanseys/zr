@@ -312,6 +312,7 @@ module Ze0
         d zr_proc_under Value p:Value self_:Value cref:Value
         d zr_yield_under Value blk:Value self_:Value klass:Value argc:Word argv:Ptr
         d zr_no_block_given Value
+        d zr_block_needed Value
         d zr_class_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_module_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_class_eval Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -605,6 +606,7 @@ module Ze0
         d zr_clear_errno Void
         d zr_io_failed Value r:Word
         d zr_io_status Value r:I32
+        d zr_io_flags Value fd:Value
         d zr_io_open_flags Value path:Value flags:Value
         d zr_io_chmod_fd Value fd:Value mode:Value
         d zr_io_open Value path:Value mode:Value
@@ -1295,6 +1297,7 @@ module Ze0
         c GATE_OR 131072
         c GATE_XOR 262144
         c GATE_SHR 524288
+        c F_GETFL 3
         c WAIT_READABLE 1
         c WAIT_PRIORITY 2
         c WAIT_WRITABLE 4
@@ -1337,6 +1340,7 @@ module Ze0
         c PENDING_BREAK 1
         c PENDING_RETURN 2
         c PENDING_THROW 3
+        c SPAWN_CLOEXEC_DEFAULT 16384
         c GUARD_ROW 3
         c T_REGEXP 31
         c G_REGEXP 42

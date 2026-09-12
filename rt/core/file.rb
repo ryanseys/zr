@@ -156,21 +156,27 @@ class File < IO
   end
 
   def initialize(path, mode = "r", perm = 0o666, **options)
-    Primitive.zr_unimplemented("File.new with options") unless options.empty? || options.keys == [:mode]
     mode = options[:mode] if options.key?(:mode)
+    perm = options[:perm] if options.key?(:perm)
     path = File.send(:path_of, path)
 
+    # The descriptor opens by the access mode alone; the mode and the
+    # options go on to IO, which reads the encodings they name.
     text = File.send(:open_mode, mode)
-    # The descriptor opens by the access mode alone; a "b" goes on to
-    # IO, which keeps binary mode.
-    io_mode = mode.is_a?(String) && mode.include?("b") && !mode.include?(":") ? "#{text}b" : text
     made = !File.exist?(path)
+    if mode.is_a?(Integer) && (mode & File::CREAT) != 0
+      raise Errno::EEXIST, "@ rb_sysopen - #{path}" if !made && (mode & File::EXCL) != 0
+
+      # fopen makes a file only in a writing mode, so a creation that
+      # keeps what is there opens a new file as "w+".
+      text = "w+" if made && text == "r+"
+    end
     if File.pipe?(path) && Primitive.zr_threaded && !Thread.send(:alone?)
       # open(2) on a FIFO waits for the other end, which would stop
       # every green thread. A task that shares the process opens the
       # descriptor without waiting and keeps it that way: every read
       # and write already asks the descriptor whether it is ready.
-      super(fifo_fd(path, text), io_mode, path: path)
+      super(fifo_fd(path, text), mode, **options, path: path)
       @nonblock = true
       return
     end
@@ -178,7 +184,7 @@ class File < IO
     stream = Primitive.zr_io_open(path, text)
     raise SystemCallError.new("@ rb_sysopen - #{path}", -stream) if stream < 0
 
-    super(Primitive.zr_io_fileno(stream), io_mode, path: path)
+    super(Primitive.zr_io_fileno(stream), mode, **options, path: path)
     Primitive.zr_io_chmod_fd(@fd, perm) if made && perm != 0o666
     @stream = stream
   end
@@ -701,7 +707,10 @@ class File < IO
 
         return "r"
       end
-      text = mode.to_str.delete("bt")
+      string = String.try_convert(mode)
+      raise TypeError, "no implicit conversion of #{mode.nil? ? 'nil' : mode.class} into String" if string.nil?
+
+      text = string.delete("bt")
       text = text.split(":").first || "" if text.include?(":")
       raise ArgumentError, "invalid access mode #{mode}" unless MODES.include?(text)
 

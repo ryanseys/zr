@@ -51,6 +51,83 @@ class IO
 
   def self.for_fd(fd, mode = "r", **options) = new(fd, mode, **options)
 
+  MODES = %w[r r+ w w+ a a+].freeze
+  private_constant :MODES
+
+  # The mode and the options an open takes, as rb_io_extract_modeenc
+  # reads them: the access mode, whether the stream is binary, and the
+  # encodings named. A mode string names the encodings after a colon,
+  # and an option that names one as well is an error.
+  def self.open_options(mode, options)
+    Primitive.attr! :hidden
+    mode = options[:mode] if mode.nil?
+    external = nil
+    internal = nil
+    binary = false
+    text = "r"
+    if mode.is_a?(Integer)
+      text = File.send(:open_mode, mode)
+    elsif !mode.nil?
+      string = String.try_convert(mode)
+      raise TypeError, "no implicit conversion of #{mode.class} into String" if string.nil?
+
+      head, external, internal = string.split(":", 3)
+      binary = head.include?("b")
+      text = head.delete("bt")
+      raise ArgumentError, "invalid access mode #{string}" unless MODES.include?(text)
+    end
+    named = !external.nil?
+    external = spec(external)
+    internal = spec(internal)
+    if options.key?(:encoding) || options.key?(:external_encoding) || options.key?(:internal_encoding)
+      raise ArgumentError, "encoding specified twice" if named
+
+      if options.key?(:encoding)
+        first, second = options[:encoding].to_s.split(":", 2)
+        external = spec(first)
+        internal = spec(second)
+      end
+      # A name an argument gives goes through rb_to_encoding, which
+      # raises where a spec warns.
+      external, internal = encodings(options.fetch(:external_encoding, external), options.fetch(:internal_encoding, internal))
+    end
+    binary = true if options[:binmode]
+    binary = false if options[:textmode]
+    internal = nil if !internal.nil? && !external.nil? && internal.name == external.name
+    [text, binary, external, internal]
+  end
+
+  # A name a spec gives -- a mode string's tail, or an `encoding:`
+  # string -- as parse_mode_enc reads it: a name no encoding answers to
+  # warns and leaves the slot at its default, a `-` asks for no
+  # transcoding, and a `bom|` prefix leaves the mark to the bytes.
+  def self.spec(name)
+    Primitive.attr! :hidden
+    return name if name.nil? || name.is_a?(Encoding)
+    return nil if name == "-" || name == ""
+
+    text = name.start_with?("bom|", "BOM|") ? name[4..] : name
+    begin
+      Encoding.find(text)
+    rescue ArgumentError
+      Primitive.zr_warn_here_m("Unsupported encoding #{name} ignored")
+      nil
+    end
+  end
+
+  # What a pair of names stands for: a `-` where the internal encoding
+  # goes asks for no transcoding and names no encoding to look up, and
+  # an internal one that repeats the external leaves none either.
+  def self.encodings(external, internal)
+    Primitive.attr! :hidden
+    external = Encoding.find(external) unless external.nil? || external.is_a?(Encoding)
+    internal = nil if internal == "-" || internal == ""
+    internal = Encoding.find(internal) unless internal.nil? || internal.is_a?(Encoding)
+    internal = nil if !internal.nil? && !external.nil? && internal.name == external.name
+    [external, internal]
+  end
+  private_class_method :open_options, :encodings, :spec
+
   # `IO.open` is `IO.new` with a block that closes the stream after it.
   def self.open(*args, **options)
     io = new(*args, **options)
@@ -156,7 +233,7 @@ class IO
     to.respond_to?(:write) ? to.write(text) : File.write(to, text)
   end
 
-  def initialize(fd, mode = "r", path: nil, name: nil, pid: nil, autoclose: true)
+  def initialize(fd, mode = nil, **options)
     # A descriptor is a C int, as NUM2INT reads it. The bounds are
     # written out: the standard streams open before Integer#** can run.
     fd = Primitive.zr_index_operand_m(fd)
@@ -166,18 +243,23 @@ class IO
     rows = Primitive.zr_fstat_m(fd)
     raise SystemCallError.new("@ rb_io_initialize", -rows) if rows.is_a?(Integer)
 
+    text, binary, external, internal = IO.send(:open_options, mode, options)
     @fd = fd
-    @mode = mode
+    @mode = text
     # What the mode allows, decided once: every read and write asks.
-    @readable = !mode.start_with?("w", "a") || mode.include?("+")
-    @writable = !mode.start_with?("r") || mode.include?("+")
-    @path = path
-    @name = name
-    @pid = pid
+    @readable = !text.start_with?("w", "a") || text.include?("+")
+    @writable = !text.start_with?("r") || text.include?("+")
+    check_access
+    @external = external
+    @internal = internal
+    @binmode = binary
+    @autoclose = options.fetch(:autoclose, true) && fd > 2
+    @path = options[:path]
+    @name = options[:name]
+    @pid = options[:pid]
     @closed = false
     @sync = false
     @lineno = 0
-    @binmode = mode.include?("b")
     @buffer = fresh_buffer
     @eof = false
   end
@@ -211,7 +293,7 @@ class IO
     return nil if @closed
 
     @closed = true
-    result = @fd > 2 ? Primitive.zr_io_close(@fd) : 0
+    result = @autoclose ? Primitive.zr_io_close(@fd) : 0
     raise SystemCallError.new(nil, -result) if result < 0
 
     Process.wait(@pid) if @pid
@@ -261,6 +343,10 @@ class IO
   # buffer already holds.
   def binmode
     @binmode = true
+    # Binary mode answers for the stream's encoding, whatever name it
+    # was opened with.
+    @external = nil
+    @internal = nil
     @buffer.force_encoding(Encoding::BINARY)
     self
   end
@@ -304,9 +390,10 @@ class IO
   # The child a popen started, waited for when this stream closes.
   attr_reader :pid
 
-  def autoclose? = @fd > 2
+  def autoclose? = @autoclose
 
   def autoclose=(flag)
+    @autoclose = flag ? true : false
     flag
   end
 
@@ -348,11 +435,31 @@ class IO
 
   def sysseek(offset, whence = SEEK_SET) = seek(offset, whence)
 
-  def external_encoding = @mode.start_with?("r") || @mode.include?("+") ? Encoding.default_external : nil
+  # The encoding named for this stream, else what the stream stands
+  # for: binary where it is binary, the default where it can be read,
+  # and none at all for a handle that only writes.
+  def external_encoding
+    return @external unless @external.nil?
+    return Encoding::BINARY if @binmode
+    # A stream that writes as well as reads answers for nothing until
+    # something names its encoding, as rb_io_external_encoding asks
+    # whether the stream is writable rather than write-only.
+    return nil unless @readable && !@writable
 
-  def internal_encoding = nil
+    Encoding.default_external
+  end
 
-  def set_encoding(*) = self
+  def internal_encoding = @internal
+
+  def set_encoding(external = nil, internal = nil, **)
+    if internal.nil? && external.is_a?(String) && external.include?(":")
+      external, internal = external.split(":", 2)
+    end
+    @external, @internal = IO.send(:encodings, external, internal)
+    # What is already buffered reads as the new encoding too.
+    @buffer.force_encoding(@external) unless @external.nil? || @binmode
+    self
+  end
 
   def inspect
     text = "#<#{self.class}:#{label}"
@@ -448,7 +555,7 @@ class IO
 
     if length.nil?
       fill until @eof
-      out = @buffer
+      out = transcoded(@buffer)
       @buffer = fresh_buffer
     else
       fill while !@eof && @buffer.bytesize < length
@@ -549,7 +656,7 @@ class IO
   def gets(*args, chomp: false)
     check_readable
     separator, limit = getline_args(args)
-    line = read_line(separator, limit)
+    line = transcoded(read_line(separator, limit))
     $_ = nil
     return nil if line.nil?
 
@@ -733,15 +840,43 @@ class IO
 
       Thread.pass
     else
-      chunk.force_encoding(Encoding::BINARY) if @binmode
+      # The bytes join the buffer as they stand: the buffer's own
+      # encoding decides what was read, not the chunk's.
+      chunk.force_encoding(@buffer.encoding)
       @buffer << chunk
     end
   end
 
   # An empty read buffer in the stream's encoding: binary in binary mode.
+  # The access a mode asks for must be one the descriptor carries, as
+  # rb_io_initialize checks it with fcntl.
+  def check_access
+    Primitive.attr! :hidden
+    flags = Primitive.zr_io_flags(@fd)
+    raise SystemCallError.new(nil, -flags) if flags < 0
+    return if (flags & 3) == 2
+
+    raise Errno::EINVAL unless (@readable && @writable ? 2 : (@writable ? 1 : 0)) == (flags & 3)
+  end
+
+  # An internal encoding converts what was read on the way in, which is
+  # what naming both ends of a stream asks for.
+  def transcoded(text)
+    Primitive.attr! :hidden
+    return text if text.nil? || @internal.nil?
+
+    text.encode(@internal, @external || Encoding.default_external)
+  end
+
+  # What is read arrives in the stream's own encoding: binary where the
+  # stream is binary, else the external encoding it was opened with.
   def fresh_buffer
     Primitive.attr! :hidden
-    @binmode ? "".b : +""
+    return "".b if @binmode
+
+    text = +""
+    text.force_encoding(@external) unless @external.nil?
+    text
   end
 
   # gets' arguments as ruby reads them: one argument is the separator

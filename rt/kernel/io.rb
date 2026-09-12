@@ -52,6 +52,17 @@ machine def zr_io_status(r)
   r < Machine.i32(0) ? zr_fix(0 - zr_errno()) : zr_fix(0)
 end
 
+Machine.import "fcntl", [I32, I32] => I32
+# F_GETFL: the descriptor's own status flags, which say what it was
+# opened for. fcntl takes a variadic third argument that this call
+# does not pass, so two arguments are the whole call.
+F_GETFL = 3
+
+sig [Value] => Value
+machine def zr_io_flags(fd)
+  zr_io_failed(Machine.word(fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(F_GETFL))))
+end
+
 # open(2) with two arguments, which is the whole call unless O_CREAT
 # is set: the mode a creation takes is a variadic argument, and this
 # platform passes those on the stack. A creation goes through fopen
