@@ -11,7 +11,7 @@ module Ze0
     # checks becomes one bit of the exit status, so a wrong answer names
     # itself.
     module Fixtures
-      NAMES = %w[arith hello indirect loops].freeze
+      NAMES = %w[arith hello indirect loops table].freeze
 
       module_function
 
@@ -100,6 +100,29 @@ module Ze0
         f.call(f.callee("exit", %w[i64], nil, colocated: false), [f.iadd(f.iconst("i64", 42), flipped)])
         f.ret(f.iconst("i32", 0))
         [[double, negate, f], []]
+      end
+
+      # A table of function pointers in data. Each entry is an absolute
+      # relocation, so a position-independent image has to rebase it
+      # before `main` can call through it -- which is the one thing a
+      # stack slot full of `func_addr` does not reach.
+      def table
+        twice = IR::Function.new("twice", %w[i64], "i64")
+        twice.ret(twice.iadd(twice.args[0], twice.args[0]))
+        negate = IR::Function.new("negate", %w[i64], "i64")
+        negate.ret(negate.isub(negate.iconst("i64", 0), negate.args[0]))
+
+        f = IR::Function.new("main", %w[i32 i64], "i32")
+        sig = f.sig(%w[i64], "i64")
+        at = f.symbol_value(f.symbol("table"))
+        doubled = f.call_indirect_val(sig, f.fetch("i64", at), [f.iconst("i64", 21)])
+        flipped = f.call_indirect_val(sig, f.fetch("i64", at, 8), [doubled])
+        # `flipped` is -42, so the status is 0.
+        f.call(f.callee("exit", %w[i64], nil, colocated: false), [f.iadd(f.iconst("i64", 42), flipped)])
+        f.ret(f.iconst("i32", 0))
+
+        rows = [Obj::Reloc.new(0, :abs64, "twice"), Obj::Reloc.new(8, :abs64, "negate")]
+        [[twice, negate, f], [Obj::Data.new("table", :data, [0, 0].pack("Q<2"), relocs: rows)]]
       end
 
       # The sum 1..100 printed in decimal through a stack buffer: block

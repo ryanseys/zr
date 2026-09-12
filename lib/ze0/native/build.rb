@@ -8,6 +8,7 @@ require_relative "../ir/verify"
 require_relative "link"
 require_relative "../ir/arm64"
 require_relative "../obj/macho"
+require_relative "../obj/exe"
 require_relative "../deps"
 require_relative "../ir/wasm"
 require_relative "../machine/lower"
@@ -16,8 +17,9 @@ require_relative "../zr"
 module Ze0
   module Native
     # IR functions and data objects to a binary: `IR::Arm64` assembles
-    # every function in process, `Obj::MachO` writes the object, and the
-    # link ends in `cc`.
+    # every function in process, and `Obj::Exe` writes the executable
+    # where it can. A program that reaches one of the vendored archives
+    # needs a linker that reads archives, and that is `cc`.
     module Build
       module_function
 
@@ -27,7 +29,16 @@ module Ze0
 
       # The main thread's stack, which holds ruby frames as native
       # frames. `rt/kernel/fiber.rb` sizes every other task's.
-      STACK_FLAGS = ["-Wl,-stack_size,0x4000000"].freeze
+      #
+      # `ld` accepts this and writes nothing: `LC_MAIN.stacksize` is zero
+      # in everything it links, so a binary it wrote runs on the 8 MB
+      # default. `Obj::Exe` writes the field, and asks for the same
+      # number here so the two roads agree about the intent.
+      STACK = 0x400_0000
+      STACK_FLAGS = ["-Wl,-stack_size,0x#{STACK.to_s(16)}"].freeze
+
+      # Which linker writes a binary: `auto`, `ruby` or `cc`.
+      ROAD = ENV.fetch("ZE0_LINK", "auto")
 
       # A program that does not eval reaches the runtime only through
       # calls the linker can see, so what nothing calls is left out. An
@@ -37,10 +48,24 @@ module Ze0
 
       # Answers nil, or the message of the step that refused. `objects`
       # are prebuilt objects linked in beside this one.
-      def binary(functions, data, out, work:, raw: [], objects: [], flags: STACK_FLAGS, root: ROOT)
+      #
+      # `Obj::Exe` writes the binary when this unit is the whole program
+      # and every import is libSystem's; otherwise `cc` does. `road` picks
+      # one and holds it to it: `ruby` answers what `Obj::Exe` could not
+      # link rather than quietly reaching for `cc`, and `cc` skips
+      # `Obj::Exe` altogether. `ZE0_LINK` says it from outside.
+      def binary(functions, data, out, work:, raw: [], objects: [], flags: STACK_FLAGS, root: ROOT, road: ROAD)
+        image = unit(functions, data, raw: raw, export: !objects.empty?)
+        if objects.empty? && road != "cc"
+          why = Obj::Exe.write(image, out)
+          return nil unless why
+          return "ze0 cannot write this executable: #{why}" if road == "ruby"
+        end
         obj = File.join(work, "unit.o")
-        (why = object(functions, data, obj, raw: raw, export: !objects.empty?)) and return why
+        File.binwrite(obj, Obj::MachO.write(image))
         Link.run(objects + [obj], out, archives: Deps.build(root), flags: flags)
+      rescue IR::Arm64::Refused => e
+        e.message
       end
 
       # A `Zr::Program` to a binary: its runtime from the cache, its own

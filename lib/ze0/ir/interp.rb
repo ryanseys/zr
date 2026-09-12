@@ -154,6 +154,9 @@ module Ze0
         @depth = 0
         place_data(data)
         place_code(functions.map(&:name) + @raw)
+        # Only now does every symbol have a place, which is what a
+        # relocation in data needs.
+        relocate(data)
         @floor = @memory.reserve(STACK, 16)
         @sp = @floor + STACK
         @host = Host.new(@memory, out: out, err: err)
@@ -184,6 +187,9 @@ module Ze0
           bytes = d.section == :bss ? "\0".b * d.bytes : d.bytes
           @data_at[d.name] = @memory.place(bytes, [d.align, 1].max)
         end
+      end
+
+      def relocate(data)
         data.each { |d| d.relocs.each { |r| patch(@data_at.fetch(d.name) + r.offset, r) } }
       end
 
