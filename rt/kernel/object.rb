@@ -372,6 +372,9 @@ machine def zr_alloc_shape(recv, kind)
   if kind == ALLOC_EXCEPTION
     return zr_exc_new(recv, Machine.value(QNIL))
   end
+  if kind == ALLOC_REGEXP
+    return zr_regexp_alloc(recv)
+  end
   if kind == ALLOC_ARRAY
     o = zr_ary_new(4)
   elsif kind == ALLOC_HASH
@@ -398,6 +401,7 @@ ALLOC_ARRAY = 5
 ALLOC_HASH = 6
 ALLOC_STRING = 7
 ALLOC_UNDEF = 8
+ALLOC_REGEXP = 9
 
 sig [Value] => Word
 machine def zr_alloc_kind(klass)
@@ -427,6 +431,7 @@ machine def zr_alloc_table
   zr_alloc_record(G_ARRAY, ALLOC_ARRAY)
   zr_alloc_record(G_HASH, ALLOC_HASH)
   zr_alloc_record(G_STRING, ALLOC_STRING)
+  zr_alloc_record(G_REGEXP, ALLOC_REGEXP)
   zr_alloc_record(G_INTEGER, ALLOC_UNDEF)
   zr_alloc_record(G_FLOAT, ALLOC_UNDEF)
   zr_alloc_record(G_SYMBOL, ALLOC_UNDEF)

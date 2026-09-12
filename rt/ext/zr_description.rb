@@ -957,7 +957,8 @@ module Ze0
         d zr_main_to_s Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_attached Value klass:Value
         d zr_onig_ready Void
-        d zr_regexp_compile Value klass:Value source:Value shown:Value options:Value
+        d zr_regexp_alloc Value klass:Value
+        d zr_regexp_seat Value re:Value source:Value shown:Value options:Value
         d zr_regexp_recompile Value re:Value text:Value
         d zr_regexp_reg_for Ptr re:Value str:Value
         d zr_regexp_literal Value index:Word bytes:Ptr len:Word options:Word pinned:Word
@@ -1369,6 +1370,7 @@ module Ze0
         c ALLOC_HASH 6
         c ALLOC_STRING 7
         c ALLOC_UNDEF 8
+        c ALLOC_REGEXP 9
         c BUF_LENGTH 0
         c BUF_VALUE 16
         c PM_BUFFER_SIZE 24

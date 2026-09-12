@@ -49,25 +49,38 @@ class Regexp
   }.freeze
   private_constant :ERRORS
 
-  def self.new(source, options = nil, timeout: nil)
+  # `Regexp.new` is `Class#new`, as it is in CRuby: `allocate` makes the
+  # husk and this seats the pattern in it. A subclass whose own
+  # initialize builds the source therefore keeps the source it handed to
+  # `super`.
+  def initialize(source, options = nil, timeout: nil)
+    raise TypeError, "already initialized regexp" unless Primitive.zr_regexp_source(self).nil?
+
     if source.is_a?(Regexp)
-      options = source.options if options.nil?
+      Primitive.zr_warn_here_m("flags ignored") unless options.nil?
+      options = source.options
       source = source.source
     end
     raise TypeError, "no implicit conversion of #{conversion_name(source)} into String" unless source.is_a?(String)
 
-    bits = case options
-           when nil, false then 0
-           when true then IGNORECASE
-           when Integer then options & 7
-           when String
-             options.each_char.reduce(0) do |acc, c|
-               acc | { "i" => IGNORECASE, "x" => EXTENDED, "m" => MULTILINE }.fetch(c) { raise ArgumentError, "unknown regexp option: #{options}" }
-             end
-           else raise TypeError, "no implicit conversion of #{conversion_name(options)} into Integer"
-           end
-    compile_source(source, bits)
+    Regexp.send(:seat, self, source, Regexp.send(:option_bits, options))
   end
+
+  # The option bits an `options` argument names, as CRuby's
+  # reg_extract_args reads it.
+  def self.option_bits(options)
+    case options
+    when nil, false then 0
+    when true then IGNORECASE
+    when Integer then options & 7
+    when String
+      options.each_char.reduce(0) do |acc, c|
+        acc | { "i" => IGNORECASE, "x" => EXTENDED, "m" => MULTILINE }.fetch(c) { raise ArgumentError, "unknown regexp option: #{options}" }
+      end
+    else raise TypeError, "no implicit conversion of #{conversion_name(options)} into Integer"
+    end
+  end
+  private_class_method :option_bits
 
   # A literal's Regexp, for the kernel's literal table. A flag letter
   # that names an encoding pins the pattern to it.
@@ -89,9 +102,10 @@ class Regexp
   end
   private_class_method :pin
 
-  # `source` compiled with the option `bits`; a RegexpError names the
-  # reason, then the pattern as written with its flags.
-  def self.compile_source(source, bits)
+  # `source` compiled with the option `bits`, seated in the husk `re`; a
+  # RegexpError names the reason, then the pattern as written with its
+  # flags.
+  def self.seat(re, source, bits)
     source = source.dup.freeze unless source.frozen?
     written = "/#{source}/#{(bits & MULTILINE != 0 ? 'm' : '')}#{(bits & IGNORECASE != 0 ? 'i' : '')}#{(bits & EXTENDED != 0 ? 'x' : '')}"
     raise RegexpError, "upper is smaller than lower in repeat range: #{written}" if inverted_interval?(source)
@@ -101,7 +115,7 @@ class Regexp
     rescue RegexpError => e
       raise RegexpError, "#{e.message}: #{written}"
     end
-    result = Primitive.zr_regexp_compile(self, text.frozen? ? text : text.dup.freeze, source, bits)
+    result = Primitive.zr_regexp_seat(re, text.frozen? ? text : text.dup.freeze, source, bits)
     if result.is_a?(Array)
       code, at = result
       reason = (ERRORS[code] || "regexp error #{code}").sub("%n", at.to_s)
@@ -109,6 +123,11 @@ class Regexp
     end
     result
   end
+  private_class_method :seat
+
+  # A Regexp of this class over `source`: the husk and its pattern in
+  # one step, which the literal table and the copies ask for.
+  def self.compile_source(source, bits) = seat(allocate, source, bits)
   private_class_method :compile_source
 
   # Whether the engine reads the pattern as bytes: its own encoding says

@@ -32,12 +32,26 @@ machine def zr_onig_ready
   end
 end
 
+# `Regexp.allocate`: a regexp cell with no pattern in it, which every
+# reader names as uninitialized until an `initialize` seats one. This
+# is CRuby's rb_reg_s_alloc, and a Regexp subclass allocates it too, so
+# the husk its own initialize fills is a real regexp from the start.
+sig [Value] => Value
+machine def zr_regexp_alloc(klass)
+  re = zr_alloc(T_REGEXP, klass)
+  RRegexp.set_source(re, Machine.value(QNIL))
+  RRegexp.set_text(re, Machine.value(QNIL))
+  RRegexp.set_names(re, Machine.value(QNIL))
+  re
+end
+
 # The pattern `source` (what the engine reads), compiled with `options`
-# (Ruby's bits, which are oniguruma's): the Regexp, or [error code, the
-# text the error points at] for the core to raise. `shown` is the text
-# as written, which the Regexp reports as its source.
+# (Ruby's bits, which are oniguruma's) and seated in the husk `re`: the
+# Regexp, or [error code, the text the error points at] for the core to
+# raise. `shown` is the text as written, which the Regexp reports as
+# its source.
 sig [Value, Value, Value, Value] => Value
-machine def zr_regexp_compile(klass, source, shown, options)
+machine def zr_regexp_seat(re, source, shown, options)
   zr_onig_ready()
   reg = Machine.slot(8)
   info = Machine.slot(24)
@@ -58,7 +72,6 @@ machine def zr_regexp_compile(klass, source, shown, options)
     zr_ary_push(out, par == 0 ? Machine.value(QNIL) : zr_str_new(par, par_end - par))
     return out
   end
-  re = zr_alloc(T_REGEXP, klass)
   RRegexp.set_text(re, source)
   RRegexp.set_alt(re, 0)
   RRegexp.set_source(re, shown)

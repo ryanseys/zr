@@ -495,8 +495,10 @@ module Marshal
 
     def apply_ivar(value, name, item)
       case name
-      when :E then value.force_encoding(item ? Encoding::UTF_8 : Encoding::US_ASCII)
-      when :encoding then value.force_encoding(item)
+      # A Regexp keeps its encoding in the pattern it compiled, so only
+      # a String takes one from a record.
+      when :E then value.force_encoding(item ? Encoding::UTF_8 : Encoding::US_ASCII) if value.is_a?(String)
+      when :encoding then value.force_encoding(item) if value.is_a?(String)
       # A name with no `@` is one the C API set on the payload itself,
       # which only a `_load` reads: Time writes its zone this way.
       else name.start_with?("@") ? value.instance_variable_set(name, item) : Marshal.send(:extra_set, value, name, item)
@@ -518,6 +520,9 @@ module Marshal
       when String then built.replace(value)
       when Array then built.replace(value)
       when Hash then built.replace(value)
+      # A regexp husk takes the pattern the record carried, never the
+      # subclass's own initialize, which CRuby does not call either.
+      when Regexp then Regexp.send(:seat, built, value.source, value.options)
       end
       @objects[@objects.size - 1] = built
       built
