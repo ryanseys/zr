@@ -90,6 +90,11 @@ machine def zr_program_end(exc)
     Task.set_pending(zr_task(), Machine.value(QNIL))
   end
   zr_finalizers_at_exit()
+  # A finalizer writes like anything else, so what it wrote waits in a
+  # buffer of its own until now.
+  if zr_send(zr_core_class(Machine.id(:IO)), Machine.id(:flush_pending), 0, 0) == QUNDEF
+    Task.set_pending(zr_task(), Machine.value(QNIL))
+  end
   if signo != 0
     zr_die_by_signal(signo)
   end

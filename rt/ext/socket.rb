@@ -17,6 +17,14 @@ class BasicSocket < IO
     end
   end
 
+  # Every socket is synchronous, as CRuby makes one: what a program
+  # writes goes out at once, because the other end is waiting for it and
+  # no buffer of ours may hold it back.
+  def initialize(*)
+    super
+    self.sync = true
+  end
+
   def do_not_reverse_lookup = BasicSocket.do_not_reverse_lookup
 
   def do_not_reverse_lookup=(flag)
