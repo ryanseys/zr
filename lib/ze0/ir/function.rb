@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative "inst"
-require_relative "clif_text"
 
 module Ze0
   module IR
@@ -34,7 +33,7 @@ module Ze0
       # it fills a block out of order and then resumes.
       attr_reader :name, :params, :ret_type, :args, :current, :slots, :globals, :sigs, :callees, :blocks, :entry_block
 
-      # `params`/`ret`: CLIF types. The entry block takes the parameters
+      # `params`/`ret`: IR types. The entry block takes the parameters
       # as v0..vN-1.
       def initialize(name, params, ret)
         reset(name, params, ret)
@@ -62,7 +61,7 @@ module Ze0
       end
 
       # A fresh stack slot of `bytes`.
-      def slot(bytes = Capi::SLOT_BYTES)
+      def slot(bytes)
         @slots << Slot.new(bytes, 8)
         "ss#{@slots.size - 1}"
       end
@@ -76,12 +75,6 @@ module Ze0
         end
       end
 
-      # A runtime entry point, by its `Capi::SIGS` row.
-      def import(symbol)
-        params, ret = Capi::SIGS.fetch(symbol) { raise ArgumentError, "no runtime row for #{symbol}" }
-        callee(symbol, params, ret, colocated: false)
-      end
-
       # A function this program defines.
       def callee(symbol, params, ret, colocated: true)
         @callee_of[symbol] ||= begin
@@ -92,7 +85,7 @@ module Ze0
         end
       end
 
-      # A new block; `params` are CLIF types, and the block's parameter
+      # A new block; `params` are IR types, and the block's parameter
       # values are answered beside its name.
       def block(params = [])
         values = params.map { value }
@@ -115,40 +108,17 @@ module Ze0
       end
 
       # The terminator of a block left open by `switch(open: true)`.
-      def finish(block, text)
+      def finish(block, inst)
         b = @block_of.fetch(block)
         raise "#{block} of #{@name} already has a terminator" if b.terminated?
 
-        b.insts << (text.is_a?(Inst) ? text : Inst.parse(text))
+        b.insts << inst
         nil
       end
 
       # Whether the current block has already ended.
       def terminated?
         @current.terminated?
-      end
-
-      # An instruction with no result. `text` is the CLIF spelling; an
-      # `Inst` is taken as it is. Kept for tests: the lowering builds `Inst`s
-      # directly, through the methods below.
-      def ins(text)
-        emit(text.is_a?(Inst) ? text : Inst.parse(text))
-        nil
-      end
-
-      # An instruction with one result, answered.
-      def val(text)
-        v = value
-        ins("#{v} = #{text}")
-        v
-      end
-
-      # An instruction with two results, answered.
-      def vals(text)
-        a = value
-        b = value
-        ins("#{a}, #{b} = #{text}")
-        [a, b]
       end
 
       # A call with no result.
@@ -215,7 +185,7 @@ module Ze0
         v
       end
 
-      # An integer comparison; `cond` is CLIF's spelling (`"ne"`, `"eq"`, ...).
+      # An integer comparison; `cond` is the IR's spelling (`"ne"`, `"eq"`, ...).
       def icmp(cond, a, b)
         v = value
         emit(Inst.new(:icmp, results: [v], cond: cond, args: [a, b]))
@@ -293,6 +263,17 @@ module Ze0
         v
       end
 
+      # A narrowing, and the two widenings: `type` is the type answered.
+      def ireduce(type, a) = width(:ireduce, type, a)
+      def sextend(type, a) = width(:sextend, type, a)
+      def uextend(type, a) = width(:uextend, type, a)
+
+      def width(op, type, a)
+        v = value
+        emit(Inst.new(op, type: type, results: [v], args: [a]))
+        v
+      end
+
       # The same bits as the other type: `type` is "f64" or "i64".
       def bitcast(type, a)
         v = value
@@ -310,7 +291,7 @@ module Ze0
       def srem(a, b) = binop(:srem, a, b)
       def urem(a, b) = binop(:urem, a, b)
 
-      # CLIF's `select`; named `csel` because `Kernel#select` already exists.
+      # The IR's `select`; named `csel` because `Kernel#select` already exists.
       def csel(cond, a, b)
         v = value
         emit(Inst.new(:select, results: [v], args: [cond, a, b]))
@@ -377,12 +358,6 @@ module Ze0
       # The address of a stack slot, materialized once per function.
       def stack_addr(slot)
         hoisted([:stack_addr, slot]) { Inst.new(:stack_addr, type: "i64", args: [slot]) }
-      end
-
-      def to_s
-        raise "#{@current.name} of #{@name} has no terminator" unless @current.terminated?
-
-        ClifText.render(self)
       end
 
       private

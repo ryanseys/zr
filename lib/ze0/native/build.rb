@@ -6,7 +6,8 @@ require "fileutils"
 require_relative "../ir"
 require_relative "../ir/verify"
 require_relative "link"
-require_relative "ruby"
+require_relative "../ir/arm64"
+require_relative "../obj/macho"
 require_relative "../deps"
 require_relative "../ir/wasm"
 require_relative "../machine/lower"
@@ -68,16 +69,22 @@ module Ze0
       # Functions and data to one object file. `export` makes every data
       # object visible to the link, for an object another refers to.
       def object(functions, data, obj, raw: [], export: false)
-        functions.each { |f| IR::Verify.check(f) }
-        unit = Obj::Unit.new
-        defined = functions.map(&:name) + data.map(&:name) + raw.map(&:name)
-        functions.each { |f| unit.functions << IR::Arm64.new(f, defined: defined).compile }
-        raw.each { |r| unit.functions << r }
-        data.each { |d| unit.data << (export ? exported(d) : d) }
-        File.binwrite(obj, Obj::MachO.write(unit))
+        File.binwrite(obj, Obj::MachO.write(unit(functions, data, raw: raw, export: export)))
         nil
       rescue IR::Arm64::Refused => e
         e.message
+      end
+
+      # The same, as an `Obj::Unit`: what the object writer and the JIT
+      # loader both take.
+      def unit(functions, data, raw: [], export: false)
+        functions.each { |f| IR::Verify.check(f) }
+        out = Obj::Unit.new
+        defined = functions.map(&:name) + data.map(&:name) + raw.map(&:name)
+        functions.each { |f| out.functions << IR::Arm64.new(f, defined: defined).compile }
+        raw.each { |r| out.functions << r }
+        data.each { |d| out.data << (export ? exported(d) : d) }
+        out
       end
 
       def exported(d)

@@ -2,7 +2,7 @@
 
 module Ze0
   module IR
-    # One instruction, CLIF's model restricted to what ze0 emits: an
+    # One instruction, restricted to the opcodes ze0 emits: an
     # opcode, the type written on it (`iadd.i64`, or none), its operands,
     # its results, and for the control and memory forms their own fields.
     #
@@ -15,7 +15,7 @@ module Ze0
       PAIRS = %i[sadd_overflow ssub_overflow smul_overflow].freeze
       # The two-operand integer opcodes with one result.
       BINOPS = %i[iadd isub imul udiv sdiv urem srem band bor bxor ishl ushr sshr].freeze
-      # The comparison conditions, as CLIF spells them.
+      # The comparison conditions.
       CONDS = %w[eq ne slt sle sgt sge ult ule ugt uge].freeze
       # The two-operand and one-operand f64 opcodes.
       FBINOPS = %i[fadd fsub fmul fdiv].freeze
@@ -43,68 +43,6 @@ module Ze0
 
       def terminator?
         TERMINATORS.include?(@op)
-      end
-
-      # The instruction the text spells. The text is what today's lowering
-      # writes; this is the seam between text and structure, and it goes
-      # away when the lowering builds instructions directly.
-      def self.parse(text)
-        results = []
-        if (m = text.match(/\A(v\d+(?:, v\d+)?) = (.*)\z/))
-          results = m[1].split(", ")
-          text = m[2]
-        end
-        head, rest = text.split(" ", 2)
-        op, type = head.split(".", 2)
-        op = op.to_sym
-        rest = rest.to_s
-        case op
-        when :call
-          m = rest.match(/\A(fn\d+)\((.*)\)\z/) or raise ArgumentError, "a call is `call fnN(args)`: #{text}"
-          new(op, results: results, callee: m[1], args: m[2].empty? ? [] : m[2].split(", "))
-        when :call_indirect
-          m = rest.match(/\A(sig\d+), (v\d+)\((.*)\)\z/) or raise ArgumentError, "a call_indirect is `call_indirect sigN, vP(args)`: #{text}"
-          new(op, results: results, callee: m[1], args: [m[2]] + (m[3].empty? ? [] : m[3].split(", ")))
-        when :jump
-          new(op, targets: [target(rest)])
-        when :brif
-          cond, a, b = rest.split(", ", 3)
-          new(op, args: [cond], targets: [target(a), target(b)])
-        when :return
-          new(op, args: rest.empty? ? [] : [rest])
-        when :store
-          flags, val, addr = rest.match(/\A((?:\w+ )*)(v\d+), (v\d+)(?:\+(\d+))?\z/).then { |mm| [mm[1].strip, mm[2], [mm[3], mm[4]]] }
-          new(op, args: [val, addr[0]], offset: addr[1].to_i, flags: flags)
-        when :load
-          mm = rest.match(/\A((?:\w+ )*)(v\d+)(?:\+(\d+))?\z/) or raise ArgumentError, "a load is `load.T flags vN[+off]`: #{text}"
-          new(op, type: type, results: results, args: [mm[2]], offset: mm[3].to_i, flags: mm[1].strip)
-        when :iconst
-          new(op, type: type, results: results, args: [Integer(rest)])
-        when :stack_addr, :symbol_value, :func_addr, :ireduce, :uextend, :sextend
-          new(op, type: type, results: results, args: [rest])
-        when :icmp
-          cond, a, b = rest.split(/[ ,]+/, 3)
-          raise ArgumentError, "an icmp condition: #{text}" unless CONDS.include?(cond)
-
-          new(op, type: type, results: results, cond: cond, args: [a, b])
-        when :fcmp
-          cond, a, b = rest.split(/[ ,]+/, 3)
-          raise ArgumentError, "an fcmp condition: #{text}" unless FCONDS.include?(cond)
-
-          new(op, type: type, results: results, cond: cond, args: [a, b])
-        when :bitcast
-          new(op, type: type, results: results, args: [rest.delete_prefix("little ")])
-        when *BINOPS, :select, *PAIRS, *FBINOPS, *FUNOPS, :fcvt_from_sint, :fcvt_to_sint_sat
-          new(op, type: type, results: results, args: rest.split(", "))
-        else
-          raise ArgumentError, "ze0 does not emit `#{op}`: #{text}"
-        end
-      end
-
-      # `block3` or `block3(v1, v2)` as `[name, args]`.
-      def self.target(text)
-        m = text.match(/\A(block\d+)(?:\((.*)\))?\z/) or raise ArgumentError, "a block target: #{text}"
-        [m[1], m[2] ? m[2].split(", ") : []]
       end
     end
   end

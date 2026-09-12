@@ -1,10 +1,9 @@
 # Verified against real Ruby first: `@@total` declared inside the
 # MODULE's own body is genuinely owned by the module itself -- every
 # class that includes it (even two entirely unrelated classes) shares
-# the SAME storage, not one copy per includer. Exercises
-# `clif::expr::cvar_owner` consulting `Fx.defining_class`
-# (the module a materialized method's body actually came from), not
-# `Fx.method_class` (whichever class it's materialized onto).
+# the SAME storage, not one copy per includer. The owner is the module a
+# materialized method's body actually came from, not whichever class it is
+# materialized onto.
 
 module Shared
   @@total = 0

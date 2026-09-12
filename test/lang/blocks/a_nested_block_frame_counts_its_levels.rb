@@ -3,9 +3,9 @@
 # <base>`. The base never changes as the nesting grows -- it stays the method
 # or body the outermost block sits in.
 #
-# CLIF composed each block's label out of its ENCLOSING FRAME's label, so a
-# nested block read `block in block in <main>`: a spelling ruby never produces,
-# and one that grows without bound. A real `def` restarts the count, because
+# Composing a block's label out of its ENCLOSING FRAME's label makes a
+# nested block read `block in block in <main>`: a spelling ruby never
+# produces, and one that grows without bound. A real `def` restarts the count, because
 # the method it creates IS the frame however it was written.
 
 def label = caller_locations(1, 1).first.label

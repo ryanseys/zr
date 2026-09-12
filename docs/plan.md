@@ -1,10 +1,10 @@
 # ze0: a self-hosted Ruby compiler and runtime, written in Ruby
 
-Plan file, 2026-09-08 (revised the same day: ze0 depends on nothing from zeo; ruby is the only oracle). Two repos: `~/dev/zeo` (Rust) and `~/dev/ze0` (Ruby). Built from three codebase surveys, the pinned Cranelift 0.134.3 sources, a design review pass, TenderJIT and the `aarch64` gem, and six rounds of decisions with the user.
+Plan file, 2026-09-08 (revised the same day: ze0 depends on nothing from zeo; ruby is the only oracle; revised 2026-09-12: the Cranelift shim and the legacy text lowering are deleted, so ze0 owns no non-Ruby source at all). Two repos: `~/dev/zeo` (Rust) and `~/dev/ze0` (Ruby). Built from three codebase surveys, the pinned Cranelift 0.134.3 sources, a design review pass, TenderJIT and the `aarch64` gem, and six rounds of decisions with the user.
 
 ## 1. Context
 
-zeo compiles Ruby to native code. The Rust workspace holds 317K lines: `zeo` (front end and Cranelift emitter, 90K), `zeo-rt` (runtime, 141K), `zeo-capi` (MRI C API, 25K), `zeo-abi`, helpers. Beside it, `ze0/` is a 9,906-line Ruby front end that lowers Ruby to CLIF text plus a JSON sidecar; `zeo backend` links that against `libzeo.a`. ze0 compiles itself to a byte-identical stage-2 fixed point and matches CRuby on 5,753 of 5,944 corpus programs.
+zeo compiles Ruby to native code. The Rust workspace holds 317K lines: `zeo` (front end and Cranelift emitter, 90K), `zeo-rt` (runtime, 141K), `zeo-capi` (MRI C API, 25K), `zeo-abi`, helpers. Beside it, `ze0/` is a 9,906-line Ruby front end; `zeo backend` links its output against `libzeo.a`. ze0 compiles itself to a byte-identical stage-2 fixed point and matches CRuby on 5,753 of 5,944 corpus programs.
 
 The goal: a self-hosted Ruby, as its own project. `~/dev/zeo` stays the Rust implementation; `~/dev/ze0` is the Ruby implementation, split out of `zeo/ze0/` first, and a clean new implementation from there: it links nothing from zeo, runs nothing from zeo, and holds itself to ruby's recordings alone. Compiler and runtime written in Ruby, compiled by themselves to a fixed point, producing native binaries for `aarch64-apple-darwin` and wasm modules for wasmtime, with the native code generator itself swappable between Cranelift (through a small Rust shim) and a pure-Ruby backend. User priorities, in order: (1) a working self-hosted Ruby, (2) zero non-Ruby code of our own, (3) generated-code performance, (4) backend learning. The contract is unchanged: identical to CRuby 4.0.6, or refused by name.
 
@@ -15,15 +15,9 @@ The brief the user supplied assumed a fresh start and left several items `[VERIF
 | Brief assumed | Repo or upstream fact |
 |---|---|
 | A Ruby front end must be written | `ze0/` exists: 9,906 lines, 141 runtime entry points, stage-2 fixed point, 5,753/5,944 matched. `lower.rb` is 7,565 lines in one class. |
-| `.clif` text is the whole interface | The `.zeodata` sidecar carries rodata, symbols, call sites, `def` rows, class rows, and two words (`@all`, `@boot`) that the Rust side expands by compiling the EMPTY program through the whole Rust front end (`backend/clif_text.rs:1126`). |
-| A ~200-line shim | `zeo backend` is 1,800 exclusive lines plus 11,400 shared lines (`statics.rs`, `capi_names.rs`, `module.rs`, `link.rs`, `zeo-abi`) plus, transitively, the front end. |
-| Stack maps are builder-only | Cranelift 0.134.3 parses `call fn0(v1), stack_map=[i64 @ ss0+0]` in text (`cranelift-reader/src/parser.rs:2282`). Not used: the shadow stack (section 8.6) is simpler, Rust-free, and works on wasm. |
-| `setjmp`/`longjmp` for exceptions | Cranelift has no `returns_twice`; a `setjmp` from generated code is unsound. The repo already uses a status-word protocol (`docs/explanation/backend.md`). |
 | Conservative GC needed | ze0 already keeps every local in a stack slot. Precise roots cost nothing extra. |
-| Variadic calls are a risk | Generated code never calls a variadic; every runtime entry is fixed-arity (`clif/ffi/mod.rs:12`). Keep that rule. |
+| Variadic calls are a risk | Generated code never calls a variadic; every runtime entry is fixed-arity. Keep that rule. |
 | No runtime exists | `zeo-rt` is 141K lines of CRuby-identical Rust: 24-byte `Arc` values, release pools, a Bacon-Rajan cycle collector, parallel OS threads with per-object locks, `corosensei` fibers, oniguruma, num-bigint, prism. |
-| `clif-util compile` as an oracle | It emits no linkable object. `clif-util` only verifies text. |
-| `stack_switch` available | The CLIF `stack_switch` instruction lowers on x86-64 only (`isa/x64/lower.isle:3575`); no aarch64 lowering. |
 | Compiled Ruby is fast enough for a runtime | Measured 2026-08-24: zeo-compiled Ruby rows ran 8x slower than Rust rows (Pathname bench). Cause: refcount traffic, 24-byte copies, dynamic sends. The new value model and kernel dialect remove those costs. Re-measure at C5. |
 | A pure-Ruby backend is "Phase 7, optional" | The `aarch64` gem is a complete pure-Ruby ARM64 encoder with labels; TenderJIT is a working Ruby-written JIT with a three-address IR, a graph-colouring allocator and an arm64 code generator over that gem; `jit_buffer` does `mmap(MAP_JIT)` through Fiddle. The backend is a first-class seam here (Part B), missing only object-file relocations. |
 
@@ -33,16 +27,16 @@ Prior art the design follows: Squeak's Slang (VM in a Smalltalk subset), RPython
 
 | # | Decision |
 |---|---|
-| D0 | **Two repos, two implementations, no dependency between them.** `~/dev/zeo` stays the Rust implementation, complete and maintained. `~/dev/ze0` is the Ruby implementation, split out first (Part 0) with its git history, self-contained: its own corpus, tests, vendored prism Ruby half, and a small Rust crate for the Cranelift shim. ze0 never links, runs or reads zeo: no runtime archive, no `zeo backend`, no ABI tables generated from zeo's sources. zeo is reading material for the port and nothing more. |
-| D1 | **Scope:** compiler AND runtime in Ruby, in the ze0 repo. **ruby 4.0.6 is the only oracle**: the corpus recordings under `__END__`, and a live `ruby` where a check needs one. Nothing is compared against the Rust emitter or the Rust runtime. Until the Ruby runtime runs `puts 1` (Part C), nothing ze0 compiles links; the lowering that names `zeo_rt_*` today is a refactor scaffold held to its own text goldens, and is archived when the `zr` road passes ladder M1. |
-| D2 | **Non-Ruby dependencies allowed:** prism (parser), oniguruma (regex), zlib, openssl, libffi, libSystem, `ld`, Cranelift (inside the shim, optional), wasmtime. Vendored C builds with `cc` through a Ruby script. No C or assembler source of our own. |
+| D0 | **Two repos, two implementations, no dependency between them.** `~/dev/zeo` stays the Rust implementation, complete and maintained. `~/dev/ze0` is the Ruby implementation, split out first (Part 0) with its git history, self-contained: its own corpus, tests and vendored prism Ruby half. ze0 never links, runs or reads zeo: no runtime archive, no `zeo backend`, no ABI tables generated from zeo's sources. zeo is reading material for the port and nothing more. |
+| D1 | **Scope:** compiler AND runtime in Ruby, in the ze0 repo. **ruby 4.0.6 is the only oracle**: the corpus recordings under `__END__`, and a live `ruby` where a check needs one. Nothing is compared against the Rust emitter or the Rust runtime. The lowering that named `zeo_rt_*` was a refactor scaffold held to text goldens; it is deleted (2026-09-12), and `stage1` now compiles the compiler twice through the `zr` road and compares the object bytes. |
+| D2 | **Non-Ruby dependencies allowed:** prism (parser), oniguruma (regex), zlib, openssl, libffi, libSystem, `cc`/`ld`/`ar`, wasmtime. Vendored C builds with `cc` through a Ruby script. **No C, Rust or assembler source of our own** — the README names every one of these and says why it is there. |
 | D3 | **Compiler layers:** Prism → tree HIR (desugared, name-resolved, target-neutral) → one CFG-SSA IR with two op tiers (Ruby-level ops legalized per target into machine ops) → emitters. Two data structures, no third typed HIR. |
-| D4 | **Native backend seam:** every backend produces a backend-neutral `Obj` (functions, data, relocations, symbols). `clif2obj` (Rust + Cranelift) and `IR::Arm64` (Ruby) are interchangeable per program and per function; both end in a Mach-O `.o` that `ld` links. A Ruby Mach-O writer and a Ruby JIT loader complete the Ruby road. Two spikes prove it early. |
+| D4 | **Native backend seam:** every backend produces a backend-neutral `Obj` (functions, data, relocations, symbols). `IR::Arm64` writes the machine code, `Obj::MachO` the `.o` that `ld` links, `Obj::JIT` the in-process image. `Obj::Exe` (B7) replaces `ld` for a program that needs no vendored archive. |
 | D5 | **GC:** precise, non-moving mark-sweep over a shadow stack of frame records. No conservative scan, no stack maps. |
 | D6 | **Signals (exceptions, break, return, throw):** the status protocol, spelled as a `Qundef` return sentinel. |
 | D7 | **Concurrency:** per Ractor one Ruby-running OS thread, one heap, one green-task scheduler, plus a pool of helper OS threads for blocking calls. No GVL. Threads are green tasks preempted at safepoints; Fibers are green tasks switched explicitly; Ractors run in parallel with independent GC. |
-| D8 | **Stack switch:** a Ruby-encoded aarch64 stub, delivered as raw function bytes (`define_function_bytes` on the Cranelift road, natively on the Ruby road). No upstream change, no deprecated API. Parked-OS-thread fibers only as a debug fallback. |
-| D9 | **eval:** programs that can `eval` link the compiler (native) plus a JIT loader; eval-free programs carry nothing extra. On the Cranelift road the loader is `clif2obj_jit` (Rust); on the Ruby road it is `Obj::JIT`. |
+| D8 | **Stack switch:** a Ruby-encoded aarch64 stub, delivered as raw function bytes as an `Obj::Function` with no relocations. Parked-OS-thread fibers only as a debug fallback. |
+| D9 | **eval:** programs that can `eval` link the compiler (native) plus `Obj::JIT`; eval-free programs carry nothing extra. |
 | D10 | **Targets:** `aarch64-apple-darwin` first; wasm on wasmtime second (wasm32 first, wasm64 kept open by an IR pointer-width parameter). Linux and x86-64 are non-goals with seams kept. |
 | D11 | **Register allocation:** spill-everything first, linear scan second. |
 | D12 | **Optimizer:** IR high-tier passes start after the bootstrap fixed point (Part F). |
@@ -52,21 +46,20 @@ Prior art the design follows: Squeak's Slang (VM in a Smalltalk subset), RPython
 ## 4. Target architecture
 
 ```
- app.rb  ─┐                                                                   ┌─► IR::ClifText ─► clif2obj (Rust) ─► Obj ─┐
- rt/*.rb  ├─ prism ─► HIR ─► analyses ─► IR (high tier) ─► legalize ──────────┼─► IR::Arm64 (Ruby) ──────────────► Obj ─┼─► Obj::MachO ─► .o ─► ld + libzr.a ─► binary
-          │                            (per target: zr | Machine)           │                                           └─► Obj::JIT (eval, in process)
-          │                                                                   └─► IR::Wasm (Ruby) ─► wasm ─► wasmtime
+ app.rb  ─┐                                                        ┌─► IR::Arm64 ─► Obj ─► Obj::MachO ─► .o ─► ld ─► binary
+ rt/*.rb  ├─ prism ─► HIR ─► analyses ─► IR (high tier) ─► legalize ┼─► Obj::JIT (eval, in process)
+          │                (per target: zr | Machine)               └─► IR::Wasm ─► wasm ─► wasmtime
 ```
 
-After the plan, Ruby owns: parsing glue, HIR, analyses, IR, legalization, all three emitters, the object model, the Mach-O writer, the JIT loader, the link driver, the CLI, the program cache, the runtime, the class library, the extensions' native halves, the test harness. Rust owns `clif2obj` only, and it is optional once `IR::Arm64` matches it. Everything else is a dependency listed in D2. The legacy text lowering (`zeo_rt_*` names, the 24-byte value ABI) is the scaffold the IR and HIR refactors are verified on; it is archived on a branch once `zr` passes M1.
+Ruby owns all of it: parsing glue, HIR, analyses, IR, legalization, both native emitters and the wasm one, the object model, the Mach-O writer, the JIT loader, the link driver, the CLI, the program cache, the runtime, the class library, the extensions' native halves, the test harness. Everything else is a dependency listed in D2. The Cranelift shim and the legacy text lowering (`zeo_rt_*` names, the 24-byte value ABI, `.clif` and `.zeodata`) were deleted on 2026-09-12, earlier than M1: the `zr` road had taken over every road that produces a binary, and `stage1` moved onto it.
 
 ## 5. Roadmap overview
 
 | Part | Name | Depends on | Gate | Size (new Ruby, rough) |
 |---|---|---|---|---|
 | 0 | Split the repos | nothing | DONE 2026-09-08: `~/dev/ze0` is its own git repo with ze0's 138 commits, the corpus, `bin/ze0 test|check|scan` in Ruby, no reference to zeo; `~/dev/zeo` builds and its gate is green with `ze0/` gone | none (moves, ~600 lines of harness) |
-| A | The compiler is Ruby; the shim is small | 0 | the IR and HIR reproduce ze0's own text byte for byte on `test/ze0/` and on the self-compile; `clif2obj` turns hand-written CLIF into a Mach-O `.o` that `ld` links against libSystem and runs | 8-12K (HIR, IR, Obj, clif2obj, CLI) |
-| B | The native backend in Ruby, and two spikes | A2 (IR) | B1 spike matches Cranelift on `test/ze0/`; B2 spike runs `fib` with no Rust; Part: `--native ruby` matches `--native cranelift` on the corpus | 4-6K |
+| A | The compiler is Ruby | 0 | the IR and HIR reproduce ze0's own output byte for byte on `test/ze0/` and on the self-compile; hand-written IR turns into a Mach-O `.o` that `ld` links against libSystem and runs | 8-12K (HIR, IR, Obj, CLI) |
+| B | The native backend in Ruby, and two spikes | A2 (IR) | B1 spike runs the kernel programs; B2 spike runs `fib` with no Rust; Part: the corpus matches ruby's recordings | 4-6K |
 | C | The runtime in Ruby | A2b (HIR), B2 | `ze0 test --all` matches the corpus in three GC columns; the first light is `puts 1` through `zr` (M0) | 60-90K (kernel + corelib + ext halves) |
 | D | The wasm target | A2, C2 | ladder M1 and M2 through wasmtime; native and wasm agree byte-for-byte | 4-6K |
 | E | Bootstrap to the fixed point | C, B | stage 1 == stage 2, bytes, on both emitters | small |
@@ -83,7 +76,7 @@ Slices are ordered inside a Part; `∥` marks slices that can run in parallel wi
 
 Result: `~/dev/zeo` is the Rust implementation, `~/dev/ze0` the Ruby one, both self-contained, neither referencing the other.
 
-- **0.1** `git subtree split -P ze0` seeded `~/dev/ze0` with ze0's 138 commits. zeo lost `ze0/`, `test/ze0/`, the `ze0_refused` fixtures, the two ze0 snapshots, the five ze0 checks, the three-road corpus test, and the `stage2` and `ze0-sweep` xtask commands (commit `51babcca7`); `zeo backend`, `--emit-clif` and `--emit-zeodata` stay as zeo's own feature.
+- **0.1** `git subtree split -P ze0` seeded `~/dev/ze0` with ze0's 138 commits. zeo lost `ze0/`, `test/ze0/`, the `ze0_refused` fixtures, the two ze0 snapshots, the five ze0 checks, the three-road corpus test, and the `stage2` and `ze0-sweep` xtask commands (commit `51babcca7`); `zeo backend` and its emit flags stay as zeo's own feature.
 - **0.2** ze0 carries: the corpus (`test/lang core stdlib compiler aot bench milestones gaps`, ruby-recorded; the zeo-recorded `errors`, `features`, `divergences` are not copied), `test/ze0/`, `test/refused/`, `test/snapshots/`, `lib/ze0/shims/rbconfig.rb.in`, `vendor/ext/<gem>/lib` (the Ruby halves, prism included), `docs/test-format.md`.
 - **0.3** The harness in Ruby: `bin/ze0 test <filter>|--all [--show N]` (buckets `skipped refused backend matched diverged crashed timeout`; the native road is a pluggable object, `nil` today, so every compiled program is `backend: no native road yet`), `bin/ze0 check` (minitest: hygiene, refused fixtures, snapshots with `ZE0_BLESS=1`, case format, DATA offset), `bin/ze0 scan`. `lib/ze0/harness/case.rb` is the test-file format and the scrubs.
 - **0.4** Scaffolding: README, `.ruby-version` 4.0.6, Gemfile (prism, minitest), `.gitignore`, CI on macOS. `measure.rb` and `PLAN.md` (the front-end-for-zeo era) are on branch `archive/zeo-front-end`.
@@ -91,28 +84,28 @@ Result: `~/dev/zeo` is the Rust implementation, `~/dev/ze0` the Ruby one, both s
 
 ### Part A: the compiler is Ruby, the shim is small (verified on ze0's own text)
 
-Nothing runs in this Part: the oracle for a refactor is ze0's own CLIF text, held byte for byte.
+Nothing runs in this Part: the oracle for a refactor is the object `ze0 stage1` writes, held byte for byte.
 
-- **A1 ∥ Self-goldens.** `test/goldens/<program>.clif` for every `test/ze0/` program, recorded by ze0 itself (`ze0 check` compares; `ZE0_BLESS=1` rewrites). `ze0 stage1`: ze0 under ruby compiles `ze0.rb` (with `-I vendor/ext/prism/lib`) twice and demands the same bytes, so the self-compile stays deterministic and refusal-free with no binary in the loop. The stage-2 fixed point returns in Part E, when a binary exists.
-- **A2 The IR (DONE 2026-09-08).** `Ze0::IR` objects (section 8.2) behind the builder API; the lowering builds instructions directly (`stage1` 35 s → 22 s); `IR::ClifText` renders and parses; `IR::Verify` runs before every native build; `IR::Arm64` and `IR::Wasm` consume it. The goldens, the snapshots and `stage1` hold byte for byte.
+- **A1 ∥ Self-goldens (superseded 2026-09-12).** The text goldens went with the legacy lowering. `ze0 stage1` now compiles `tools/stage.rb` twice through the `zr` road, in two processes with a cache of its own each, and demands the same bytes from the compiler's object and the runtime's: a stronger check than the text one, covering HIR, IR, `IR::Arm64` and `Obj::MachO`, and with no text format in the loop. `test/hir/` holds the HIR dumps.
+- **A2 The IR (DONE 2026-09-08).** `Ze0::IR` objects (section 8.2) behind the builder API; the lowering builds instructions directly (`stage1` 35 s → 22 s); `IR::Verify` runs before every native build; `IR::Arm64` and `IR::Wasm` consume it. The goldens, the snapshots and `stage1` hold byte for byte.
 - **A2b The HIR (revised 2026-09-08).** `lib/ze0/hir/` (section 8.1) is built fresh for the `zr` road, not by moving the legacy lowering onto it: `lower.rb` has 507 methods and 174 node arms, most of them the refcount ABI's ownership ledger, and moving that family by family under byte identity would spend weeks on code the plan archives at M1. The legacy lowering stays as it is, held by its goldens, and is read as the reference for the declaration pass, captures, guards, splicing, refinements and parameter shapes. The HIR is verified by (1) an S-expression dump per `test/ze0/` program in `test/hir/`, reviewed once and then held byte for byte, and (2) the corpus through `lower_zr` against ruby's recordings, which is the oracle that matters. It grows with the ladder: M0's `puts 1` needs `Program`, `Send`, `Literal`; M1 needs the rest of section 8.1.
-- **A3 ∥ `clif2obj` (DONE 2026-09-08, the binary; the staticlib and `clif2obj_jit` wait for the eval road).** `clif2obj/` in the ze0 repo (section 8.9): ~330 lines over Cranelift 0.134.3, reading CLIF text and the `Obj`-model sidecar (data with `abs64` relocations, raw functions). `lib/ze0/native/cranelift.rb` drives it and `cc`. `test/native/hello.clif` was the first light.
-- **A4 ∥ The CLI.** `ze0 run|build|link|test|check|scan|stage1|rt build|deps build` in `lib/ze0/cli/`: options in CRuby's order, the program cache keyed on inputs, `-I` roots, `--emit`. The old `capi.rb` table and the `zeo_rt_*` names stay until the legacy lowering is archived; nothing regenerates them.
+- **A3 ∥ `clif2obj` (DONE 2026-09-08, DELETED 2026-09-12).** 327 lines of Rust over five pinned Cranelift crates, reading CLIF text and an `Obj`-model sidecar to write the object `IR::Arm64` and `Obj::MachO` already wrote in Ruby. It was a second opinion on machine code and nothing else; `IR::Interp` and per-op disassembly snapshots take that role. `test/native/fixtures.rb` carries the hand-written IR it was first proved on.
+- **A4 ∥ The CLI.** `ze0 zr run|build|machine|test|check|stage1|stage2|deps build`: options in CRuby's order, the program cache keyed on inputs, `-I` roots, `--emit obj|wasm`. `capi.rb` and the `zeo_rt_*` names went with the legacy lowering.
 
-Gate: the goldens, the snapshots and `stage1` are byte-identical through A2 and A2b; `clif2obj` links and runs the hand-written program.
+Gate: `stage1` is byte-identical, and `test/native/fixtures.rb` links against libSystem alone and runs.
 
 ### Part B: the native backend in Ruby, and two spikes
 
-- **B0 The object model (DONE 2026-09-08).** `lib/ze0/obj/`: `Obj`, `Obj::MachO`, `Obj::JIT` per section 8.3, each held by a check (`nm`/`otool` read the object back; a Ruby-written `.o` links beside Cranelift's; the JIT runs the native programs in process under Fiddle).
-- **B1 Spike 1 (DONE 2026-09-08: `IR::Arm64`, `test/native/` and `test/zr/` agree on both roads; mixed mode and the function filter are not written yet): the Ruby backend against `clif2obj` on kernel programs.** `IR::Arm64` (spill-everything) compiles the C0 kernel-dialect programs and the hand-written CLIF of A3; `Obj::MachO` writes the `.o`; `ze0 link` links against libSystem. Mixed mode `--native ruby:<function-filter>` compiles a subset with Ruby and the rest with Cranelift through `raw_functions`, so a miscompile bisects to one function. Gate: the same bytes on stdout from both roads for every `test/zr/` program (Cranelift is a second opinion on machine code, never the oracle for Ruby semantics).
+- **B0 The object model (DONE 2026-09-08).** `lib/ze0/obj/`: `Obj`, `Obj::MachO`, `Obj::JIT` per section 8.3, each held by a check (`nm`/`otool` read the object back; a Ruby-written `.o` links and runs; the JIT runs the hand-written IR in process under Fiddle).
+- **B1 Spike 1 (DONE 2026-09-08).** `IR::Arm64` (spill-everything) compiles the C0 kernel-dialect programs and the hand-written IR of `test/native/fixtures.rb`; `Obj::MachO` writes the `.o`; the link ends in `cc` against libSystem. Gate: every `test/zr/` and `test/native/` program prints its recorded bytes.
 - **B2 Spike 2: pure Ruby end to end.** Superseded 2026-09-08: the real kernel (`rt/kernel/`) and the `zr` lowering reached M0 first, so `fib` runs on them, not on a micro runtime; the gate (a binary of our bytes and libSystem only, printing 75025) stands. The original shape: a micro runtime in the kernel dialect (`rt/spike/`): `zr_write`, fixnum `to_s`, `puts` for Integer and String literals, an overflow trap, `main`. A `--profile micro` lowering for `def`, locals, Integer literals and arithmetic, comparisons, `if`/`while`, calls, `puts`. Program: `def fib(n) = n < 2 ? n : fib(n - 1) + fib(n - 2); puts fib(25)`. Road: prism → HIR → IR → `IR::Arm64` → `Obj::MachO` → `ld` against libSystem only. Gate: the binary holds only our bytes and libSystem, and prints 75025. This fixes the shape of C1's `Machine` lowering early.
 - **B3 Instruction selection.** Section 8.4. Verify: disassembly snapshots per IR op in `test/native/`.
 - **B4 Register allocation, step 2.** Linear scan (section 8.4). Gate: byte-identical program output against step 1 on the corpus.
 - **B5 ABI conformance.** Section 8.4's Apple rules as emitter assertions and as tests (a function with eight args, mixed float args, a sub-32-bit arg).
-- **B6 The pure JIT road.** `--native ruby` makes `zr_eval` load through `Obj::JIT` (section 8.11). Gate: `test/lang/eval` with no Rust linked.
+- **B6 The JIT road.** `zr_eval` loads through `Obj::JIT` (section 8.10). Gate: `test/lang/eval`.
 - **B7 Optional: no `ld`.** `Obj::Exe` writes a complete executable with an ad-hoc code signature (section 8.3). Scheduled only if the user wants zero Apple tools at build time.
 
-Gate for the Part: `ze0 test --all --native ruby` matches the corpus wherever `--native cranelift` does; then `clif2obj` becomes optional (E3).
+Gate for the Part: `ze0 test --all` matches the corpus, and the disassembly snapshots and `IR::Interp` agree with what runs.
 
 ### Part C: the runtime in Ruby (`rt/`)
 
@@ -121,7 +114,7 @@ Gate for the Part: `ze0 test --all --native ruby` matches the corpus wherever `-
 - **C2 Object model and dispatch core.** M0 DONE 2026-09-08: `rt/kernel/` (values and type tags, a 64-byte-cell heap with the spike's precise collector over frame records and the globals, RClass with a method table, `zr_send`/`zr_vcall`, RString, `to_s` for Integer/Symbol/nil/true/false/Object, `Kernel#puts`, boot, `main`); `lib/ze0/hir/` (Program, Seq, Send, Literal, SelfRef; dumps in `test/hir/`); `lib/ze0/zr/lower.rb` (`zr_toplevel` with a frame record); `ze0 zr run|build`; `test/programs/` against a live ruby on both native roads, under stress, and under wasmtime. Section 8.7 and 8.8: values, headers, shapes, classes, method tables, caches, symbols, strings (UTF-8/US-ASCII/BINARY first), arrays, hashes, ranges, procs and envs, exceptions, frames and backtraces, `puts`/`p`/`inspect`, `ruby_qsort`. The `zr` lowering (`hir/lower_zr/`) lands beside the legacy one here and takes over `ze0 test`; the legacy lowering, its goldens and `capi.rb` go to branch `archive/legacy-lowering` when M1 passes. Corpus: `puts 1` (M0), `test/ze0/`, then ladder M1. M1 progress 2026-09-08: exceptions as the Qundef signal with CRuby's backtraces; begin/rescue/else/ensure/retry and `Kernel#raise`; classes, modules, `include` (proxy classes), constants, ivars on objects and classes, singleton defs and classes with metaclasses; blocks, procs, `break`/`return` homes; the whole parameter surface (optional, rest, post, keyword, block; splat, keyword and block-pass arguments; multiple assignment and destructuring); Array, String, Hash; the core library in `rt/core/*.rb` (ordinary Ruby, compiled in internal mode so its methods are builtin frames and its blocks leave no row). `test/ze0/`: 11 matched, 50 refused, 18 diverged (each an honest NoMethodError on a missing method). M1 progress 2026-09-09: `test/lang` M1 directories at 1318 matched of 1941 (control 75, variables 87, methods 271, blocks 212, syntax 12, exceptions 220, constants 42, classes 236, modules 91, singleton 72); every crash is an honest `ze0: X is not implemented yet` stop. Landed since: the exception tree and `Kernel#raise`'s protocol, dup and clone, Enumerator (eager) and ArithmeticSequence, Struct over hidden ivars, String's character methods over byte primitives (ASCII only, a stop on anything else), Kernel's conversions, Proc composition and curry, catch and throw as a fourth signal kind, Method and Module reflection (super_method, included_modules, nesting, remove_method, private_constant, subclasses, caller), CRuby's opt_new frame rule, the cref-in-context rule for define_method, a recursion guard for inspect. Next by census: Kernel#format, `super` in define_method bodies, Data, ENV/ARGV/RUBY_* constants, ruby2_keywords, then Float (C5) and bignums.
 - **C3 GC.** Section 8.6. Corpus: M1 in three columns.
 - **C4 Scheduler, threads, fibers, ractors.** Section 8.10. Corpus: M5.
-- **C5 The class library.** `rt/core/*.rb` in corelib mode (section 8.12), ported class by class from `crates/zeo-rt/src/builtins/` in ladder order: Kernel; Integer and Float (shortest round-trip digits, then CRuby's `flo_to_s` formatting rules including the `1e16` exponent thresholds); String and Symbol; Array; Hash; Range; Comparable, Enumerable, Enumerator (fiber-backed external iteration); Struct and Data; the Exception tree (generated from the `zeo-abi` tables); Proc, Method, UnboundMethod; Module and Class reflection; Regexp and MatchData over oniguruma via FFI (the `regexp/translate.rs` and `charrange.rs` preprocessing ported); Time (Hinnant civil algorithms, `localtime_r` for zones); IO, File, Dir, Stat, Process over libSystem; Marshal 4.8; pack and unpack; sprintf; Encoding (the 103-row registry first, byte mappings as the corpus demands, all tables generated from the oracle by Ruby scripts into `rt/enc/`); Bignum (64-bit limbs, schoolbook and Karatsuba, divide-and-conquer `to_s`); Rational and Complex; Random (MT19937); ObjectSpace; GC; Signal; Ractor; RubyVM::AbstractSyntaxTree over prism. `RUBY_ENGINE` stays `"ruby"`, `RUBY_VERSION` `"4.0.6"`. Measure the Pathname benchmark from `zeo-corelib-dropped` at the end.
+- **C5 The class library.** `rt/core/*.rb` in corelib mode (section 8.11), ported class by class from `crates/zeo-rt/src/builtins/` in ladder order: Kernel; Integer and Float (shortest round-trip digits, then CRuby's `flo_to_s` formatting rules including the `1e16` exponent thresholds); String and Symbol; Array; Hash; Range; Comparable, Enumerable, Enumerator (fiber-backed external iteration); Struct and Data; the Exception tree (generated from the `zeo-abi` tables); Proc, Method, UnboundMethod; Module and Class reflection; Regexp and MatchData over oniguruma via FFI (the `regexp/translate.rs` and `charrange.rs` preprocessing ported); Time (Hinnant civil algorithms, `localtime_r` for zones); IO, File, Dir, Stat, Process over libSystem; Marshal 4.8; pack and unpack; sprintf; Encoding (the 103-row registry first, byte mappings as the corpus demands, all tables generated from the oracle by Ruby scripts into `rt/enc/`); Bignum (64-bit limbs, schoolbook and Karatsuba, divide-and-conquer `to_s`); Rational and Complex; Random (MT19937); ObjectSpace; GC; Signal; Ractor; RubyVM::AbstractSyntaxTree over prism. `RUBY_ENGINE` stays `"ruby"`, `RUBY_VERSION` `"4.0.6"`. Measure the Pathname benchmark from `zeo-corelib-dropped` at the end.
 - **C6 Extensions.** The 24 `crates/zeo-rt/ext/*` gems keep their Ruby halves (`ext/*/lib`); native halves move to kernel Ruby or FFI: json (parser and generator in Ruby), stringio, strscan (onig), digest (md5 and sha in the kernel dialect), zlib and openssl over vendored C via FFI, socket over libSystem, io-console, etc, fcntl, date, bigdecimal, psych (a Ruby YAML parser), ffi (libffi via FFI plus the direct `call_indirect` tier for scalar signatures), fiddle, prism. One prism source tree serves stage 0 (CRuby's extension), stage 1, and the runtime's FFI binding. Verify: the `zeo-pure-ruby-lane` matrix (one golden against CRuby's C ext, the pure tree under CRuby, the pure tree under zeo).
 - **C7 Boot and the program description.** Section 8.13. `libzr.a` = kernel objects + corelib objects + the raw stub, built once by `ze0 rt build`.
 
@@ -133,17 +126,17 @@ Gate: `ze0 test --all` matches the corpus in three columns: plain, `ZR_GC_STRESS
 - **D2 A Ruby wasm linker.** Corelib and kernel are emitted as IR modules once; a program links by function renumbering and data-segment concatenation. No `wasm-ld`.
 - **D3 `sys/wasi.rb`.** WASI preview 1 imports; `memory.grow`; preemption via the poll word plus wasmtime epoch interruption. `fork`, signals, `exec`, `pty`, libffi, dlopen (so `eval`), and sockets (until WASI 0.2) refuse by name on wasm.
 - **D4 Milestone 1: wasm32, single task.** No Fiber, Thread, Ractor, FFI, eval or signals. Corpus: ladder M1 and M2 minus what needs those, on stdout plus exit status.
-- **D5 Milestone 2: stack switching on wasm.** An Asyncify-style unwind/rewind transform in `IR::Wasm` (section 8.14). Ractors on wasm run as green tasks in the one ractor.
+- **D5 Milestone 2: stack switching on wasm.** An Asyncify-style unwind/rewind transform in `IR::Wasm` (section 8.13). Ractors on wasm run as green tasks in the one ractor.
 
 Gate: M1 and M2 through wasmtime; native and wasm agree byte-for-byte on stdout and status for every program both accept.
 
 ### Part E: bootstrap to the fixed point
 
 - **E1 Stage 0 and 1.** ze0 on CRuby compiles `rt/` to `libzr.a`, then compiles itself against it: stage 1, native, running on the new runtime.
-- **E2 Stage 2.** Stage 1 recompiles `rt/` and itself. Compare every artifact (CLIF text, sidecar, `.o` from the Ruby backend, wasm); `ze0 stage2` returns here, with A1's `stage1` as its first half. Known sources of difference, each guarded: sort ties (the `ruby_qsort` port), `object_id` (a counter, never an address; ze0 keys tables by `node.object_id`), hash order (insertion; lint ze0 for ordering by `.hash`), prism version (one source tree), `RUBY_ENGINE` folding, per-file `frozen_string_literal`, `Dir.glob` order, `inspect` addresses in output, the main task's stack depth under prism's recursive visitors. Report the first differing byte and its line, as the old `stage2.rs` did.
-- **E3 Cut the last tie.** When B's gate holds, `clif2obj/` becomes an optional build (`ze0 --native cranelift` refuses when it is absent) and the default is the Ruby backend. Then a ze0 checkout needs ruby, `cc`/`ld`, and the vendored C deps.
+- **E2 Stage 2.** Stage 1 recompiles `rt/` and itself. Compare every artifact (the `.o` from the Ruby backend, the wasm module); `ze0 stage2` returns here, with A1's `stage1` as its first half. Known sources of difference, each guarded: sort ties (the `ruby_qsort` port), `object_id` (a counter, never an address; ze0 keys tables by `node.object_id`), hash order (insertion; lint ze0 for ordering by `.hash`), prism version (one source tree), `RUBY_ENGINE` folding, per-file `frozen_string_literal`, `Dir.glob` order, `inspect` addresses in output, the main task's stack depth under prism's recursive visitors. Report the first differing byte and its line, as the old `stage2.rs` did.
+- **E3 Cut the last tie (DONE 2026-09-12).** `clif2obj/` is deleted and the Ruby backend is the only one. A ze0 checkout needs ruby, `cc`/`ld`/`ar`, and the vendored C deps, and the README names each.
 
-Gate: `ze0 stage2` reports byte-identical artifacts from stage 1 and stage 2 on both native emitters, and every corpus program compiled by both binaries is byte-identical.
+Gate: `ze0 stage2` reports byte-identical artifacts from stage 1 and stage 2, and every corpus program compiled by both binaries is byte-identical.
 
 ### Part F: performance
 
@@ -179,15 +172,15 @@ Desugared away in `hir/build.rb`: op-assign and `||=`/`&&=` on every target, saf
 
 ### 8.2 The IR (`lib/ze0/ir/`)
 
-Exactly CLIF's model, restricted to what ze0 emits: `Function{name, sig, slots[], symbols[], sigs[], callees[], blocks[]}`, `Block{params[], insts[]}`, `Inst{op, type, args[], results[], targets, sig}`. Types `i8 i32 i64 f64` plus `ptr` (resolved per target: 64 on darwin and wasm64, 32 on wasm32). Addressable slots are first-class (`slot`, `slot_addr`); the native emitters lower them to frame areas, the wasm emitter to a linear-memory shadow-stack region.
+A CFG in SSA form with block parameters: `Function{name, sig, slots[], symbols[], sigs[], callees[], blocks[]}`, `Block{params[], insts[]}`, `Inst{op, type, args[], results[], targets, sig}`. Types `i8 i32 i64 f64` plus `ptr` (resolved per target: 64 on darwin and wasm64, 32 on wasm32). Addressable slots are first-class (`slot`, `slot_addr`); the native emitters lower them to frame areas, the wasm emitter to a linear-memory shadow-stack region.
 
 Two op tiers in one structure. The high tier carries Ruby-level ops with their site shape: `send`, `send_super`, `yield`, `guard_fixnum`, `fixnum_add` (with an overflow edge), `ivar_get/set`, `const_get`, `gvar_get/set`, `alloc`, `frame_enter/leave`, `stack_check`, `signal_check`, `raise`. `Legalize::ZeoRt`, `Legalize::Zr` and `Legalize::Machine` rewrite each high op into machine ops and runtime calls for that target; `IR::Verify` refuses a high op that reaches an emitter. During Part A the `zeo-rt` lowering may emit the low tier directly so the byte-identity gate stays simple; the `zr` and `Machine` lowerings use the high tier from their first commit. Optimization passes (Part F) run on the high tier.
 
-Emitters: `IR::ClifText` (today's bytes, for `clif2obj`), `IR::Arm64` (to `Obj`), `IR::Wasm`. `IR::Interp` interprets IR as an oracle (the role `clif-util interpret` plays for Cranelift). `IR::Verify` checks: every block terminated, every use dominated by its definition, types agree, no `Value`-typed SSA use across a fallible call; it runs in tests and under `ZE0_VERIFY=1`. `clif-util` can parse the text emitter's output as an external check.
+Emitters: `IR::Arm64` (to `Obj`) and `IR::Wasm`. `IR::Interp` interprets IR as an oracle, so a miscompile in `IR::Arm64` shows as a disagreement rather than a wrong answer nobody can localise. `IR::Verify` checks: every block terminated, every use dominated by its definition, types agree, no `Value`-typed SSA use across a fallible call; it runs in tests and under `ZE0_VERIFY=1`.
 
 ### 8.3 The object model, the Mach-O writer, the JIT loader (`lib/ze0/obj/`)
 
-`Obj::Function{name, align, bytes, relocs}`, `Obj::Data{name, section: :text_const | :data_const | :bss, align, bytes, relocs}`, `Obj::Reloc{offset, kind, symbol, addend}` with kinds `branch26`, `page21`, `pageoff12`, `got_page21`, `got_pageoff12`, `abs64`; `Obj::Symbol{name, linkage: :local | :export | :import}`. Sidecar v2's `data` and `raw_functions` entries are this model, so on the Cranelift road Ruby supplies everything but function bodies and `clif2obj` fills those in.
+`Obj::Function{name, align, bytes, relocs}`, `Obj::Data{name, section: :text_const | :data_const | :bss, align, bytes, relocs}`, `Obj::Reloc{offset, kind, symbol, addend}` with kinds `branch26`, `page21`, `pageoff12`, `got_page21`, `got_pageoff12`, `abs64`; `Obj::Symbol{name, linkage: :local | :export | :import}`.
 
 `Obj::MachO.write(obj)`: a relocatable Mach-O 64: `mach_header_64` (arm64, `MH_OBJECT`), one unnamed `LC_SEGMENT_64` with `__TEXT,__text`, `__TEXT,__const` (pure bytes), `__DATA,__const` (data that carries pointers; absolute relocations in `__TEXT` are refused by `ld` for PIE), `__DATA,__bss` as `S_ZEROFILL`; `LC_BUILD_VERSION` (macos); `LC_SYMTAB` with `nlist_64` rows and the string table; `LC_DYSYMTAB`; per-section `relocation_info` rows with the arm64 types 0 `UNSIGNED`, 2 `BRANCH26`, 3 `PAGE21`, 4 `PAGEOFF12`, 5 and 6 `GOT_LOAD_PAGE21/PAGEOFF12`, 10 `ADDEND`. About 400 lines with `Array#pack`. References: `<mach-o/loader.h>`, `<mach-o/reloc.h>`, `<mach-o/arm64/reloc.h>`; the `object` Rust crate's writer; Homebrew's `ruby-macho` reader.
 
@@ -251,7 +244,7 @@ Heap. Per ractor: 64 KiB pages from `mmap` (darwin) or `memory.grow` (wasm), siz
 
 Collection runs only inside an allocation: the threshold (adaptive on bytes allocated since the last collection), `GC.start`, or every allocation under `ZR_GC_STRESS=1`. Roots: every task's frame chain (a suspended fiber's chain is traced when its Fiber object is marked, not as a global root), ractor globals, constants, the symbol table, at_exit procs, the program's data slots. Mark with an explicit stack; trace by type descriptor. Weak refs, `WeakMap`, finalizers (run on the owning ractor's thread at a safepoint, never in the sweep), `ObjectSpace.each_object` by heap enumeration, `object_id` as a monotone counter in a side table.
 
-Checkers, from the first allocation (the shape C0.3 settled on 2026-09-08): `ZR_GC_STRESS=1` collects at every allocation AND hands out freed cells last (the free list starts just past the last cell allocated, so a stale pointer meets poison, not a reused cell); freed cells are poisoned; `mark` aborts on a reference to a poisoned cell, which is the invariant that matters: no live object points at a freed one. A conservative scan of the machine stack (the earlier `ZR_GC_VERIFY` idea) is NOT a checker: Cranelift's allocator leaves stale copies of dead pointers in spill slots and callee-saved registers, and the spike aborted on one within seconds. `ZR_GC_VERIFY=1` therefore means the kernel's own accessors assert their cell is allocated. Every corpus program becomes a root-precision test under stress.
+Checkers, from the first allocation (the shape C0.3 settled on 2026-09-08): `ZR_GC_STRESS=1` collects at every allocation AND hands out freed cells last (the free list starts just past the last cell allocated, so a stale pointer meets poison, not a reused cell); freed cells are poisoned; `mark` aborts on a reference to a poisoned cell, which is the invariant that matters: no live object points at a freed one. A conservative scan of the machine stack (the earlier `ZR_GC_VERIFY` idea) is NOT a checker: a register allocator leaves stale copies of dead pointers in spill slots and callee-saved registers, and the spike aborted on one within seconds. `ZR_GC_VERIFY=1` therefore means the kernel's own accessors assert their cell is allocated. Every corpus program becomes a root-precision test under stress.
 
 ### 8.7 Values, headers, shapes
 
@@ -263,11 +256,7 @@ Dispatch. Classes carry a method table (open addressing by symbol id), linearize
 
 Signals. A compiled function returns `Value`; `undef` means "a signal is pending in `task.pending`". After a fallible call: `icmp_imm eq v, 0x34; brif` to the function's landing block. Kinds: `Raise(exc)`, `Break(val, home)`, `Next(val)`, `Redo`, `Retry`, `Return(val, home)`, `Throw(tag, val)`, `Kill`. A home is `(record address, serial)`; a catch walks the current task's chain for it, so a dead or foreign-task home raises `LocalJumpError` at the proc call (`pr = proc { break }; [1].each(&pr)`). `rescue` reads the kind and takes the exception; `ensure` saves the pending signal into a record temp, runs, then restores unless the ensure body raised (CRuby's rule); `Kill` skips `rescue` and runs `ensure`. `throw` first checks the per-task catch-tag stack and raises `UncaughtThrowError` at the throw site with its own backtrace. Kernel loops propagate `Qundef` immediately and run their `defer` cleanup. Debug builds assert the sentinel and the pending slot agree, and that `Qundef` is never stored into an object slot. Backtraces read the frame chain at raise time.
 
-### 8.9 The Cranelift shim (`clif2obj/`)
-
-Inputs: CLIF text and sidecar v2. Steps: parse functions; declare every function `Local` with the target call conv; declare imports for `%zr_*`/`%zeo_rt_*` names; declare sidecar data objects and relocations, `Export` the ones a program names; rewrite `TestCase` names to `User` names; `define_function_bytes` for raw functions; verify; emit `.o`. Flags: `opt_level=speed`, `preserve_frame_pointers=true`, `is_pic=true`, `enable_probestack=false`, `unwind_info=false` on Mach-O. No signature table in Rust: the sidecar declares each import's signature and the link fails on a missing symbol; Ruby owns the table. `clif2obj_jit` uses `cranelift-jit` with a resolver callback (`dlsym(RTLD_DEFAULT)` needs `-export_dynamic` on eval-capable programs, as `loads_cext` does today). Pin `=0.134.3` for all seven crates; bump together.
-
-### 8.10 Tasks, scheduling, ractors
+### 8.9 Tasks, scheduling, ractors
 
 Model. Ruby's own definition: Thread is concurrency, Ractor is parallelism. Per ractor: one Ruby-running OS thread, a run queue of tasks, a kqueue (darwin) or `poll_oneoff` (wasm) loop, a wakeup fd, a timer. Only one task runs per ractor, so every builtin is atomic by construction and no lock exists on the Ruby path.
 
@@ -275,36 +264,36 @@ A task owns: a machine stack (mmap with a guard page), the frame-chain head and 
 
 Preemption. A detached timer thread stores into each ractor's poll word every 100 ms (CRuby's quantum). Compiled code polls the word at loop back-edges and method entry (one load plus a branch, as `zeo_rt_pending_interrupts` is polled today); the slow path switches tasks on the task's own stack. Kernel code never polls; it is preempted only when it calls back into Ruby, so it re-reads lengths and pointers after every callback (CRuby's C-method discipline; the `Ptr` rule in 8.5 enforces the intra-function half).
 
-Stack switch. `zr_switch(from, to)`: `stp x19..x28, x29, x30` and `d8..d15` into `from`, save `sp`; load the same from `to`; `ret`. A new stack starts with `x30 = zr_task_entry`, `sp = top`. About 26 words, assembled by the 8.4 encoder, delivered as an `Obj::Function` with no relocations (`raw_functions` on the Cranelift road, natively on the Ruby road). The scheduler swaps the task bundle before calling it.
+Stack switch. `zr_switch(from, to)`: `stp x19..x28, x29, x30` and `d8..d15` into `from`, save `sp`; load the same from `to`; `ret`. A new stack starts with `x30 = zr_task_entry`, `sp = top`. About 26 words, assembled by the 8.4 encoder, delivered as an `Obj::Function` with no relocations. The scheduler swaps the task bundle before calling it.
 
 Blocking. `Mutex`, `Queue`, `ConditionVariable`, `Thread#join`, `sleep` park and unpark on the scheduler; deadlock detection is "every task parked" and prints CRuby's message. Sockets go non-blocking on kqueue. Calls that cannot be async (`read` on files and pipes, `waitpid`, `getaddrinfo`, `system`, `flock`, `fsync`, `blocking: true` FFI) go to a small pool of helper OS threads that never touch Ruby objects, only buffers: the task parks, the helper completes and posts to the wakeup fd, the task requeues. This pool is the correctness floor for `test/core/thread`, `io`, `timeout`, `open3`, `socket` and ships in the first threaded milestone. Stack overflow: a prologue `sp < limit` check (a depth counter on wasm) as an IR op, raising `SystemStackError` before the record is linked. Thread kill and process exit deliver `Kill` (skips `rescue`, runs `ensure`); an unreachable suspended fiber is simply swept, as CRuby runs no `ensure` there. Signals: `sigaction` handlers are kernel functions that only set a flag; trap procs run at the main ractor's next safepoint.
 
 Ractors. `Ractor.new` starts an OS thread with its own heap and scheduler. Messages copy deeply into the receiver's heap; `move` copies then poisons the source. `Ractor.make_shareable` deep-freezes and sets `SHARED` on every node in place, so identity is preserved as in CRuby; a ractor's private collection never frees or scans into `SHARED` objects (sound because shareable objects reference only shareable objects); on ractor exit, pages holding a `SHARED` object move to the global pool; `SHARED` objects are reclaimed only by a global collection at a rendezvous. Classes, modules, dynamic symbols and interned frozen strings are always allocated in the global pool. The rendezvous reuses the poll word: every ractor parks at its next safepoint (a ractor in a helper call is already parked); it is required for shared reclamation, ancestry mutation (a `super` walk may be running elsewhere), `ObjectSpace.each_object`, and process exit. Non-main ractors get `Ractor::IsolationError` on global and class-ivar writes; `$stdout` and friends are ractor-local. `fork` keeps the current task only.
 
-### 8.11 The eval road
+### 8.10 The eval road
 
-An eval-capable program links the compiler (`libze0.a`, ze0 compiled natively) and a loader (`libclif2obj.a` on the Cranelift road, `Obj::JIT` on the Ruby road). `zr_eval(src, binding, cref, file, line)` lowers with every static decision off (the eight traps in `zeo-eval-compiler` apply: hoisted defs, caller locals as env slots, run-time definee, cref chain as values, fresh id bases above the program's), emits IR, and either renders CLIF text for `clif2obj_jit` or runs `IR::Arm64` and `Obj::JIT`. Cached by `(src, scope names, cref, mode)`. Whether a program can eval is a HIR fact (`Eval` reachable, `instance_eval(str)`, `Binding#eval`, a surviving `require`), and it decides the link line.
+An eval-capable program links the compiler (`libze0.a`, ze0 compiled natively) and `Obj::JIT`. `zr_eval(src, binding, cref, file, line)` lowers with every static decision off (the eight traps in `zeo-eval-compiler` apply: hoisted defs, caller locals as env slots, run-time definee, cref chain as values, fresh id bases above the program's), emits IR, and runs `IR::Arm64` and `Obj::JIT`. Cached by `(src, scope names, cref, mode)`. Whether a program can eval is a HIR fact (`Eval` reachable, `instance_eval(str)`, `Binding#eval`, a surviving `require`), and it decides the link line.
 
-### 8.12 Corelib mode
+### 8.11 Corelib mode
 
 `rt/core/*.rb` is ordinary Ruby, one file per class, compiled once into `libzr.a` in a mode that: resolves `Primitive.zr_str_bytesize(self)` to a direct kernel call; honours `Primitive.attr! :leaf` (no frame record); registers every `def` as a builtin row with arity and `Method#parameters` from its signature; emits those rows as data (8.13). This is CRuby's own approach for `array.rb`, `kernel.rb` and `numeric.rb`. Hot primitives (string bytes, array storage, hash lookup, fixnum and flonum arithmetic, `to_s`, `sort`) are kernel functions; semantics live in Ruby.
 
-### 8.13 Boot and the program description
+### 8.12 Boot and the program description
 
 Per class a static `zr_class` in `.data`: RBasic header with `PERMANENT`, name symbol, superclass relocation, a static sorted `(symbol_id, method_entry*)` array (binary search; the first runtime `def` copies it to a heap table, copy-on-write), static constants, the root shape and known ivar transitions, per-feature row lists for `require`-gated builtins. Corelib symbol, class and shape ids are fixed when `libzr.a` is built; a program's ids start after them, carried in its sidecar as `first_program_sym`, `first_program_class`, `first_program_shape`, the way `first_user_class` is today. `zr_main(argc, argv, desc)` in kernel Ruby: create the main ractor, heap and task; link parent and child lists; zero the site words; apply the program's rows; intern symbols; run the toplevel, `at_exit` handlers, finalizers, flush; exit status per `capi/lifecycle.rs:66`.
 
-### 8.14 The wasm emitter (`IR::Wasm`)
+### 8.13 The wasm emitter (`IR::Wasm`)
 
 Block params become locals with parallel copies at edges; control flow is structurized with Ramsey's Beyond Relooper (the bring-up hack: one `loop` + `br_table` over a block-index local); i64 ops map 1:1; addressable slots become a bump region in a linear-memory shadow stack; `symbol_value` and `func_addr` become data offsets and table indices; `call_indirect` uses a typed table. LEB128 and canonical section order; signed LEB128 is the classic bug, test it first. Milestone 1 is wasm32: `Value` stays i64 with a 32-bit pointer payload (CRuby's wasm build does this), because oniguruma, prism, zlib and openssl have wasm32 toolchain ports today and wasi-libc for wasm64 is incomplete; the IR keeps wasm64 open. Stack switching (milestone 2): an Asyncify-style unwind/rewind transform for every function that can be on the stack at a switch; with dynamic dispatch that is nearly every function, so about 2 to 3x code size and roughly half the speed on wasm, and no rewind through host frames. Swap to wasmtime's stack-switching proposal when it lowers on aarch64 hosts: a wasm feature we adopt, not an upstream change we make.
 
 ## 9. Verification
 
-Command surface: `ze0 test [dirs | --all] [--native cranelift|ruby|ruby:<filter>] [--emit clif|wasm] [--gc plain|stress|verify] [--show N]`, buckets `skipped / refused / backend / matched / diverged / crashed / timeout`; `ze0 check`; `ze0 stage1` (Part A), `ze0 stage2` (Part E).
+Command surface: `ze0 test [dirs | --all] [--gc plain|stress|verify] [--show N]`, buckets `skipped / refused / backend / matched / diverged / crashed / timeout`; `ze0 check`; `ze0 stage1` (Part A), `ze0 stage2` (Part E).
 
 - **The oracle is ruby, only:** the recording under `__END__` (ruby 4.0.6, never re-run) for every corpus program; a live `ruby` where a check must write its own program (the DATA check). Nothing is compared against the Rust emitter or runtime.
 - **Byte identity, the refactor oracle:** `test/goldens/`, `test/snapshots/` and `stage1` after A2, A2b and every IR change.
 - **Corpus:** `ze0 test <dirs>` after every slice; `--all` at Part gates; per-directory match rates monotone under the allowlist. Only `diverged`, `crashed` and `timeout` are defects. Never a corpus-wide census in one process (`zeo-no-mass-census`).
-- **The roads, per program:** (a) the recording; (b) `--native cranelift` in three GC columns (Part C); (c) `--native ruby`, the same (Part B and C); (d) `--emit wasm` (Part D). Compare stdout, normalized stderr, exit status.
+- **The roads, per program:** (a) the recording; (b) the binary, in three GC columns (Part B and C); (c) `--emit wasm` (Part D). Compare stdout, normalized stderr, exit status.
 - **Backend:** mixed-mode bisection on any divergence between (b) and (c); `IR::Interp` as a third opinion; disassembly snapshots in `test/native/`; the `.o` parsed back before linking.
 - **Refusals:** one fixture per named refusal in `test/refused/`; a fixture that starts compiling is deleted the same day.
 - **Kernel dialect:** golden IR per intrinsic; every effect rule has a refusal fixture; the C0 spikes are permanent tests in `test/zr/`.
@@ -323,15 +312,15 @@ Command surface: `ze0 test [dirs | --all] [--native cranelift|ruby|ruby:<filter>
 | Compiled-Ruby corelib too slow (the 8x finding) | priority 3 | tagged words, no refcounts, inline caches, kernel primitives for hot paths; measured at C5; Part F |
 | Green threads change observable scheduling | thread goldens | CRuby also interleaves at safepoints with a 100 ms quantum; the goldens are CRuby's |
 | Stage 2 differs | bootstrap unsound | the E2 guard list; `ruby_qsort` port; counter `object_id`; one prism tree |
-| Ruby backend miscompiles are silent | wrong answers, crashes | per-function mixed mode against Cranelift; `IR::Interp`; disassembly snapshots |
-| Spill-everything code is slow | pure-road perf | linear scan (B4); Cranelift stays selectable until B's gate |
-| Mach-O writer errors surface late | lost time | parse the `.o` back before linking; link mixed objects with Cranelift's |
+| Backend miscompiles are silent | wrong answers, crashes | `IR::Interp` over the same IR; per-op disassembly snapshots against the `aarch64` gem |
+| Spill-everything code is slow | perf, and the GC-stress column | linear scan (B4); `ZE0_STRESS=1` is off by default until it lands |
+| Mach-O writer errors surface late | lost time | parse the `.o` back before linking (`nm`, `otool`) |
 | Asyncify tax on wasm | wasm speed and size | wasm is the second target; milestone 1 is single-task; adopt the stack-switching proposal when it reaches aarch64 hosts |
 | Encoding tables and Onigmo-vs-Oniguruma gaps | divergences | port the generators, not the tables; keep `regexp/charrange.rs`'s four papers-over |
-| Cranelift version churn | shim breakage | exact pins, quarterly bump, a test that the `.o` names no build-machine CPU feature; the Ruby backend removes the dependency |
+| No second opinion on machine code | a miscompile reads as a wrong answer | `IR::Interp` over the IR, per-op disassembly snapshots against the `aarch64` gem, and the corpus against ruby's recordings |
 | `lower.rb` at 7.5K lines in one class | velocity | A2 and A2b split it into HIR build, analyses and per-family lowerings |
-| Nothing ze0 compiles runs until C0/B2 | refactors unchecked end to end | the text goldens and `stage1` check every refactor byte for byte; `clif2obj` and the kernel spikes come first in Part A and C so the pure road lights up early |
-| Two backends in play for months | confusion | `--native` selects; mixed mode bisects; zeo is never modified for ze0's sake |
+| A refactor of the lowering goes unchecked | silent divergence | `test/hir/` dumps, `stage1` over the object bytes, and `test/zr`, `test/rt`, `test/programs` against ruby |
+| One backend, and it spills everything | slow code until B4 | perf is never a gate; every number goes in the commit that earns it |
 
 ## 11. Non-goals
 
@@ -339,7 +328,7 @@ Linux and x86-64 (seams kept: target triple, pointer width, `sys_*.rb`, object f
 
 ## 12. Toolchain, layout, ownership
 
-Stage-0 host: CRuby 4.0.6 (`.ruby-version`, the oracle). Gems used by the compiler under CRuby: prism, `aarch64` (or our own encoder table), `jit_buffer`-style Fiddle calls for `Obj::JIT`. Vendored C (prism, oniguruma, zlib, openssl, libffi) built by `ze0 deps build` with `cc`. Apple tools: `ld` (required, signs ad hoc), `otool`/`llvm-objdump`/`nm`/`codesign` (dev-only checks). wasmtime for Part D. Cranelift 0.134.3 for `clif2obj` while it exists.
+Stage-0 host: CRuby 4.0.6 (`.ruby-version`, the oracle). Gems used by the compiler under CRuby: prism, `aarch64` (or our own encoder table), `jit_buffer`-style Fiddle calls for `Obj::JIT`. Vendored C (prism, oniguruma, zlib, openssl, libffi) built by `ze0 deps build` with `cc`. Apple tools: `cc`/`ld` (required; `ld` signs ad hoc until `Obj::Exe` does), `ar` for the vendored archives, `otool`/`nm` (dev-only checks). wasmtime for Part D. The README names every one.
 
 Layout of `~/dev/ze0` after Part A (Part 0 created the top-level shape; `~/dev/zeo` is untouched beyond losing `ze0/`):
 
@@ -350,9 +339,9 @@ lib/ze0/shims/rbconfig.rb.in     the ambient rbconfig shim
 lib/ze0/harness/                 the test-file format and the corpus sweep
 vendor/ext/<gem>/lib             the Ruby halves ze0 splices (prism among them)
 docs/plan.md, docs/test-format.md
-test/                            the corpus, test/ze0/, test/refused/, test/checks/, test/snapshots/, test/goldens/
-lib/ze0/hir/                 node, build, analyze/, lower_legacy/ (until archived), lower_zr/, lower_machine/
-lib/ze0/ir/                  function, block, inst, ops_high, legalize_*, verify, interp, clif_text, wasm, arm64/
+test/                            the corpus, test/ze0/, test/checks/, test/native/, test/zr/, test/rt/, test/programs/, test/hir/
+lib/ze0/hir/                 node, build, analyze/, lower_zr/, lower_machine/
+lib/ze0/ir/                  function, block, inst, ops_high, legalize_*, verify, interp, wasm, arm64/
 lib/ze0/obj/                 model, macho, jit, exe
 lib/ze0/machine/             types, effects, struct, import, aarch64
 lib/ze0/cli/                 run, build, link, cache, test, check, stage1, stage2
@@ -363,20 +352,19 @@ rt/enc/                      generated tables
 rt/ext/<gem>/                native halves in kernel Ruby or FFI
 rt/spike/                    the B2 micro runtime
 rt/{boot,main}.rb
-clif2obj/                 the optional Rust shim
 test/zr/, test/native/           new corpora
 ```
 
-Parallel ownership for worktrees (`parallelize` skill): A owns `clif2obj/`, `lib/ze0/cli/`, `lib/ze0/hir/`, `lib/ze0/ir/` (core); B owns `lib/ze0/ir/arm64/`, `lib/ze0/obj/`, `rt/spike/`; C owns `rt/`, `lib/ze0/machine/`, `lib/ze0/hir/lower_zr/`; D owns `lib/ze0/ir/wasm*`, `rt/kernel/sys_wasi.rb`.
+Parallel ownership for worktrees (`parallelize` skill): A owns `lib/ze0/cli/`, `lib/ze0/hir/`, `lib/ze0/ir/` (core); B owns `lib/ze0/ir/arm64/`, `lib/ze0/obj/`, `rt/spike/`; C owns `rt/`, `lib/ze0/machine/`, `lib/ze0/hir/lower_zr/`; D owns `lib/ze0/ir/wasm*`, `rt/kernel/sys_wasi.rb`.
 
 Working rules that apply throughout (from the repo's memory): small focused commits with plain-English bodies; targeted tests per commit, the full gate at Part boundaries; one Bash, one intent, never two test suites at once; no corpus-wide census in one process; a gap file carries no analysis; a divergence is CRuby-identical or FAIL, never a silent drop; perf numbers in the commit that earns them.
 
 ## 13. What to do first
 
 1. Part 0, the split: DONE 2026-09-08.
-2. A1 (goldens, `stage1`) and A3 (`clif2obj` on hand-written CLIF against libSystem) in parallel: the refactor oracle and the first native light, both cheap.
+2. A1 (`stage1`) and A3 (hand-written IR against libSystem) in parallel: the refactor oracle and the first native light, both cheap.
 3. A2 then A2b, each verified byte for byte.
-4. B0 and B1 as soon as A2 lands: the Ruby backend against `clif2obj` on kernel programs. Then B2, the pure `fib`, which fixes the shape of the kernel dialect.
+4. B0 and B1 as soon as A2 lands: the Ruby backend on kernel programs. Then B2, the pure `fib`, which fixes the shape of the kernel dialect.
 5. C0.1 to C0.4 beside B1; C1 and C2 next, with the `zr` lowering; `puts 1` through `zr` is M0 and the first corpus light.
 6. A4, B3 to B6, C3 onward in parallel worktrees per section 12; archive the legacy lowering when M1 passes.
 7. Report at each Part gate with the corpus numbers before the next Part starts.
@@ -387,14 +375,12 @@ Working rules that apply throughout (from the repo's memory): small focused comm
 - **Record / frame record:** the per-function shadow-stack entry the GC scans (8.6). **Home:** `(record, serial)` a `break` or `return` targets.
 - **Task:** a green thread or fiber with its own machine stack (8.10). **Rendezvous:** every ractor parked at a safepoint.
 - **High tier / low tier:** Ruby-level IR ops vs machine ops (8.2). **Legalize:** the per-target rewrite from high to low.
-- **Obj:** the backend-neutral object model (8.3). **Mixed mode:** some functions from `IR::Arm64`, the rest from `clif2obj`, in one link.
+- **Obj:** the backend-neutral object model (8.3).
 - **Kernel dialect / `Machine`:** the runtime's typed subset of Ruby (8.5). **Corelib mode:** ordinary Ruby compiled with `Primitive` access (8.12).
 - **Ladder:** the ordered corpus directories that gate Parts C and D (section 7).
 
 ## 15. References
 
-- Cranelift 0.134.3 sources under `~/.cargo/registry/src/*/cranelift-{codegen,reader,module,object,jit}-0.134.3`: stack maps in text (`reader/src/parser.rs:2282`), `define_function_bytes` (`module/src/module.rs:981`), `stack_switch` x64-only (`codegen/src/isa/x64/lower.isle:3575`), Apple aarch64 ABI (`codegen/src/isa/aarch64/abi.rs:161`).
-- Exceptions in Cranelift: https://cfallin.org/blog/2025/11/06/exceptions/ (not used; the status protocol is simpler and portable).
 - Stack-switching proposal status: https://github.com/bytecodealliance/wasmtime/issues/10248 (x64 only).
 - ZJIT: https://railsatscale.com/2025-12-24-launch-zjit/ and https://docs.ruby-lang.org/en/master/jit/zjit_md.html (SSA HIR with a type lattice, lowered to a LIR shared by x86-64 and arm64).
 - TenderJIT: https://github.com/tenderlove/tenderjit (`lib/tenderjit/ir.rb`, `register_allocator.rb`, `arm64/code_gen.rb`, `arm64/register_allocator.rb`).

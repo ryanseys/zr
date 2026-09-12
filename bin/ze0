@@ -3,10 +3,8 @@
 
 # ze0: a Ruby compiler written in Ruby.
 #
-#   ze0 <file.rb> -o <out.clif>         compile one program to CLIF text
 #   ze0 test <filter>... | --all        does ze0 answer what ruby answered?
-#                [--road zr|legacy] [--gc plain|stress] [--show N]
-#   ze0 scan <glob> [limit]             which programs ze0 compiles, and what it refuses
+#                [--gc plain|stress] [--show N]
 #   ze0 check                           the repo's own checks
 #   ze0 stage1                          ze0 compiles itself, twice, to the same bytes
 #   ze0 stage2                          the compiler compiled by itself is a fixed point
@@ -14,7 +12,7 @@
 #   ze0 zr run <file.rb> [args]         compile a Ruby program with the zr runtime, and run it
 #   ze0 zr build <file.rb> -o <bin>     compile a Ruby program with the zr runtime
 #   ze0 zr machine <file.rb> -o <bin>   compile a kernel-dialect file alone
-#                [--emit wasm]
+#                [--emit obj|wasm]
 #
 # ruby is the oracle: every corpus program carries ruby 4.0.6's recorded
 # answer under `__END__`, and ze0 is held to it or refuses by name.
@@ -39,13 +37,8 @@ when "test"
   usage if args.include?("-h") || args.include?("--help")
   all = args.delete("--all")
   show = 10
-  road = "zr"
   if (i = args.index("--show"))
     show = Integer(args[i + 1]) rescue usage
-    args.slice!(i, 2)
-  end
-  if (i = args.index("--road"))
-    road = args[i + 1] or usage
     args.slice!(i, 2)
   end
   gc = "plain"
@@ -54,8 +47,8 @@ when "test"
     args.slice!(i, 2)
   end
   usage if args.any? { |a| a.start_with?("--") } || (args.empty? && !all)
-  usage unless %w[zr legacy].include?(road) && %w[plain stress].include?(gc)
-  sweep = Ze0::Harness::Sweep.new(ROOT, show: show, road: road, gc: gc)
+  usage unless %w[plain stress].include?(gc)
+  sweep = Ze0::Harness::Sweep.new(ROOT, show: show, gc: gc)
   cases = sweep.select(args, all: all)
   abort "ze0 test: no program matches #{args.inspect}" if cases.empty?
   warn "ze0 test: #{cases.size} program(s)"
@@ -106,6 +99,16 @@ when "zr"
   end
   Dir.mktmpdir("ze0-zr-") do |work|
     out = verb == "run" ? File.join(work, "program") : File.expand_path(output)
+    if emit == "obj"
+      why = if program.is_a?(Ze0::Zr::Program)
+              Ze0::Native::Build.object(program.functions, program.data, out, export: true)
+            else
+              functions, data, raw = program
+              Ze0::Native::Build.object(functions, data, out, raw: raw, export: true)
+            end
+      abort "ze0: #{why}" if why
+      exit 0
+    end
     if emit == "wasm"
       why = if program.is_a?(Ze0::Zr::Program)
               Ze0::Native::Build.wasm_program(program, out)
@@ -135,29 +138,35 @@ when "deps"
   require_relative "../lib/ze0/deps"
   usage unless ARGV[1] == "build"
   puts Ze0::Deps.build(ROOT)
-when "scan"
-  exec(RbConfig.ruby, File.join(ROOT, "scan.rb"), *ARGV.drop(1))
 when "stage1"
-  # ze0 under ruby compiles ze0.rb twice and the bytes must agree: the
-  # self-compile stays deterministic and refusal-free with no binary in the
-  # loop. The stage-2 fixed point needs a runtime to link against.
+  # ze0 under ruby compiles the compiler twice, in two processes with a
+  # cache of its own each, and the bytes must agree: the self-compile
+  # stays deterministic and refusal-free with no binary in the loop.
+  # Both objects are compared, the compiler's and the runtime's. The
+  # stage-2 fixed point needs a stage-1 binary that runs.
   require "tmpdir"
-  prism = File.join(ROOT, "vendor/ext/prism/lib")
+  require "fileutils"
+  source = File.join(ROOT, "tools/stage.rb")
   Dir.mktmpdir("ze0-stage1-") do |work|
     outs = %w[a b].map do |n|
-      out = File.join(work, "#{n}.clif")
-      system({ "RUBYOPT" => nil, "RUBYLIB" => nil }, RbConfig.ruby, File.join(ROOT, "ze0.rb"), "-I", prism,
-             "ze0.rb", "-o", out, chdir: ROOT) or abort("ze0 stage1: the self-compile failed")
-      [File.binread(out), File.binread(File.join(work, "#{n}.zeodata"))]
+      cache = File.join(work, "#{n}-cache")
+      FileUtils.mkdir_p(cache)
+      out = File.join(work, "#{n}.o")
+      system({ "ZE0_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil },
+             RbConfig.ruby, __FILE__, "zr", "machine", source, "-o", out, "--emit", "obj", chdir: ROOT) or
+        abort("ze0 stage1: the self-compile failed")
+      runtime = Dir[File.join(cache, "rt-*.o")]
+      abort("ze0 stage1: the runtime object was not cached") unless runtime.size == 1
+      [File.binread(out), File.binread(runtime.first)]
     end
     a, b = outs
-    %w[clif zeodata].each_with_index do |ext, i|
+    %w[compiler runtime].each_with_index do |what, i|
       next if a[i] == b[i]
 
       at = a[i].bytes.zip(b[i].bytes).index { |x, y| x != y } || [a[i].bytesize, b[i].bytesize].min
-      abort("ze0 stage1: the two .#{ext} differ: #{a[i].bytesize} and #{b[i].bytesize} bytes, first at #{at}")
+      abort("ze0 stage1: the two #{what} objects differ: #{a[i].bytesize} and #{b[i].bytesize} bytes, first at #{at}")
     end
-    puts "stage 1 holds: #{a[0].bytesize} bytes of CLIF, and the sidecar, the same twice"
+    puts "stage 1 holds: #{a[0].bytesize} bytes of compiler and #{a[1].bytesize} of runtime, the same twice"
   end
 when "stage2"
   # The stage ladder. Stage 1 is the compiler compiled by ze0 under ruby;
@@ -199,8 +208,6 @@ when "stage2"
 when "check"
   files = Dir[File.join(ROOT, "test/checks/*_test.rb")].sort
   exec(RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", "-e", files.map { |f| "require #{f.inspect}" }.join(";"))
-when nil, "-h", "--help"
-  usage
 else
-  exec(RbConfig.ruby, File.join(ROOT, "ze0.rb"), *ARGV)
+  usage
 end

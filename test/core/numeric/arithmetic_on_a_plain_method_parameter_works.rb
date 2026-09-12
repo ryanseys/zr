@@ -1,7 +1,6 @@
 # Method params are always statically `Poly` (zeo never infers a
 # param's type from call sites) -- this exercises the runtime-checked
-# numeric fallback in `clif::expr`, not just literal/local `Int`
-# operands.
+# numeric fallback, not just literal or local `Int` operands.
 
 class Adder
   def add(a, b)

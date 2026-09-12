@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 require_relative "helper"
-require "json"
 require_relative "../../lib/ze0/machine/lower"
 require_relative "../../lib/ze0/native/build"
+require_relative "../../test/native/fixtures"
 
-# The wasm road: every hand-written CLIF program and every kernel-dialect
+# The wasm road: every hand-written IR program and every kernel-dialect
 # program that names no raw function becomes one WASI module, and wasmtime
-# prints what the native roads print.
+# prints what the binary prints.
 class WasmTest < Minitest::Test
   WASMTIME = ENV["WASMTIME"] || "wasmtime"
 
@@ -23,17 +23,13 @@ class WasmTest < Minitest::Test
     assert_equal expected, out
   end
 
-  Dir[File.join(ROOT, "test/native/*.clif")].sort.each do |clif|
-    name = File.basename(clif, ".clif")
+  Ze0::Native::Fixtures::NAMES.each do |name|
     define_method("test_native_#{name}") do
-      functions = Ze0::IR::ClifText.parse(File.read(clif))
-      side = clif.sub(/\.clif\z/, ".json")
-      rows = File.file?(side) ? JSON.parse(File.read(side)).fetch("data", []) : []
-      data = rows.map { |d| Ze0::Obj::Data.new(d["name"], d["section"].to_sym, [d["bytes"]].pack("H*"), align: d.fetch("align", 1)) }
+      functions, data = Ze0::Native::Fixtures.build(name)
       Dir.mktmpdir("ze0-wasm-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
         assert_nil Ze0::Native::Build.wasm(functions, data, wasm)
-        run_module(wasm, File.binread(clif.sub(/\.clif\z/, ".stdout")))
+        run_module(wasm, File.binread(File.join(ROOT, "test/native/#{name}.stdout")))
       end
     end
   end

@@ -1,7 +1,6 @@
 # A custom `yield`-based method attaches a real escaping block here
 # directly, exercising the same closure boundary `Array#each` would.
-# The begin/rescue
-# lowering (see `clif::control::lower_begin`) needs no
+# The begin/rescue lowering needs no
 # special handling: the block passed to `each_num` is ALREADY a real
 # escaping `Proc` (its own closure boundary, `in_real_proc` already
 # true), so a `next` inside the nested `begin`'s rescue clause raises

@@ -1,7 +1,7 @@
 # Assert the UNCAUGHT path here (see the `rescue` tests below for the
 # caught path): an unhandled `raise MyError` (no explicit message) exits 1 with the
 # class's own name as the message (no runtime `self.class` reflection
-# needed -- see the emitter's raise lowering in `clif::stmt`).
+# needed).
 
 class MyError < StandardError
 end

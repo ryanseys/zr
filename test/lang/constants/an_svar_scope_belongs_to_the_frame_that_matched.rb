@@ -7,9 +7,6 @@
 # singleton-class body each get a scope of their own; a block, a lambda and a
 # `define_method` body share the scope of the frame they run under, because
 # that is the frame ruby gives them.
-#
-# CLIF pushed no svar scope at all, so every callee's match reached its
-# caller. The rustc backend pushed one for methods and not for class bodies.
 
 probe = -> { [$~ && $~[0], $1] }
 

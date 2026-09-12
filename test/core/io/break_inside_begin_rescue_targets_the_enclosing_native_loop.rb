@@ -2,7 +2,7 @@
 # targeting a native loop OUTSIDE the `begin`. The `begin`
 # expression is spliced INLINE in the loop body, so its final settling
 # translates the bubbled `Signal` into the loop's own literal jump -- no
-# loop-body closure needed (see `clif::control::lower_begin`). A
+# loop-body closure needed. A
 # loop written INSIDE the `begin` is unaffected (the previous test).
 
 i = 0

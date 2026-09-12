@@ -3,7 +3,7 @@
 # compile-bench parser owns that file's shape until its zeo-dev port (L1);
 # this merges into the backend column then. Times are wall ms (compile =
 # whole `zeo -o` invocation; run = whole program run). Only the M0 slice
-# compiles under CLIF -- the 10-set's other members refuse loudly and are
+# compiles -- the 10-set's other members refuse loudly and are
 # listed below the table.
 name	compile_aot_ms	compile_rustc_ms	bin_aot_bytes	bin_rustc_bytes	run_aot_ms	run_rustc_ms	run_ratio
 hello	214	497	17173176	13993360	6	7	0.86
@@ -27,5 +27,5 @@ bm_binary_trees	127	534	17192208	14110256	1933	562	3.44
 # M0.5 JIT run path (2026-08-19, release/release, aarch64-macOS, 0ddbd8c3):
 # zeo -e 'puts 1' wall ms (median of 5): jit 21 | rustc warm bin-cache 30 | aot compile+link+run 140
 # per-golden harness wall s: jit ~0.08 | aot ~0.5 | default rustc ~0.8
-# fib(30) total s: jit 0.10 | aot 0.20 (delta = link; same CLIF, same code quality)
+# fib(30) total s: jit 0.10 | aot 0.20 (delta = link; same IR, same code quality)
 # gate "startup <= today's cached path + 30ms": PASS (21 vs 30)

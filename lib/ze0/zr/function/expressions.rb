@@ -39,7 +39,7 @@ module Ze0
           when Hir::ConstRead then const_read(node)
           when Hir::ConstWrite then const_write(node)
           when Hir::ArrayLit then array_literal(node)
-          when Hir::KwSplatElement then kernel("zr_ary_kw_element", expr(node.hash))
+          when Hir::KwSplatElement then kernel("zr_ary_kw_element", expr(node.pairs))
           when Hir::HashLit then hash_literal(node)
           when Hir::RangeLit
             staged([node.low, node.high]) do |argv|

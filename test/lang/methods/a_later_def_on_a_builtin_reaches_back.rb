@@ -5,9 +5,9 @@
 # statically bound and dynamic alike, and every fold with it. `p [1,2].size`
 # before `class Array; def size` answered `:own_size`, and so did a site that
 # reached the row through full dispatch. (The gap's original note said both
-# calls "bind STATICALLY to `__bm_Array::take_while`"; that was the rustc
-# emitter. Under CLIF nothing folds past a reopen, which is what makes the
-# whole class of divergence one fix rather than a per-site one.)
+# calls "bind STATICALLY to `__bm_Array::take_while`". Nothing folds past a
+# reopen, which is what makes the whole class of divergence one fix rather
+# than a per-site one.)
 #
 # The reopen is now POSITIONAL, and both ends are emitted: one `.bss` byte per
 # `(builtin class, method name)` in `zeo_reopen_flags`, stored where the

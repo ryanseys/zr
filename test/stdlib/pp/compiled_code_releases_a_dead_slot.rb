@@ -15,7 +15,7 @@
 # THE CAUSE, and it is not what the symptom suggests. `Fx::new_value_slot`
 # used to emit its three nil words into the block that was CURRENT when the
 # slot was created. Seven of its eight callers sit in a function prologue.
-# The eighth, `bind_shadow` in `clif/iter.rs`, runs inside a fused loop's
+# The eighth, `bind_shadow`, runs inside a fused loop's
 # inline arm -- behind the receiver's tag test and `iter_inline_ok_for` --
 # and inserts the slot into `fx.locals`, which `release_locals` walks
 # UNCONDITIONALLY from both the normal exit and the landing.
@@ -36,7 +36,7 @@
 # slot. A debug assertion pins the invariant: every slot in `fx.locals` was
 # created through one of those two helpers.
 #
-# `clif/verify.rs` passed throughout and could not have caught this -- it is
+# The ownership verifier passed throughout and could not have caught this -- it is
 # a path-insensitive site counter, and an uninitialised slot is not an
 # ownership event.
 #

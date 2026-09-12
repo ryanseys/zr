@@ -11,7 +11,7 @@
 # a class registers its shape and starts CONCEALED, revealed at the head of
 # its own body site; a unit's body site lives in the unit's function, so it
 # runs when the unit does. `Compiler::class_waits_for_its_unit` is the
-# predicate, and it feeds the same three places: `clif::classes`'s conceal
+# predicate, and it feeds the same three places: the conceal
 # list, the class-body site's reveal, and `constant_is_positional`, which is
 # what stops `defined?` folding an answer at compile time.
 #

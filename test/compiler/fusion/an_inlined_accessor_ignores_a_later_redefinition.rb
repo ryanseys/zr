@@ -3,7 +3,7 @@
 # from outside saw the redefinition, so one object answered two different
 # values for one method depending on who asked.
 #
-# `inline_accessor` (`clif/expr.rs`) devirtualizes a self-call whose target
+# `inline_accessor` devirtualizes a self-call whose target
 # `accessor_shape` recognizes: `attr_reader :v`, `attr_writer`, and a `Struct`
 # member. The fold now asks `zeo_rt_is_live` first and takes the ordinary
 # dispatch once anything has been defined at run time.

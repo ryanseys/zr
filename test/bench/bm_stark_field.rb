@@ -19,7 +19,7 @@
 #   - `Array.new(n) { Array.new(n, 0) }` -- a nested int table
 #
 # zeo has no type inferencer of that kind: its `TyKind` map is per-local and
-# the CLIF emitter does not consult it yet (the recorded perf lever). So this
+# the emitter does not consult it yet (the recorded perf lever). So this
 # runs as a shape benchmark today and becomes a gate if that lever lands.
 #
 # Sized so CRuby finishes in about a second.

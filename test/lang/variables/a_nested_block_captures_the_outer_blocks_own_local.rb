@@ -1,6 +1,5 @@
 # The INNER block reads the OUTER block's own param `n`. The outer
-# block promotes `n` to a shared `Arc<Mutex>` cell (see
-# `analyze::captures` and `clif::blocks::build_proc`), so the
+# block promotes `n` to a shared cell, so the
 # inner closure captures it -- previously a clean rejection,
 # now the real Ruby behavior. Oracle: n=1 -> 3+1,4+1; n=2 -> 3+2,4+2.
 

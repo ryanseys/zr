@@ -22,10 +22,8 @@
 #
 # HONEST LIMIT: this golden does NOT reproduce the bug on the pre-fix
 # emitter -- it was tried, and it came out clean. The released bytes are
-# stack garbage, and a short frame leaves benign garbage behind. The proof
-# is `clif_snapshot_fused_each_guards` in `crates/zeo/tests/clif.rs`, which
-# can see emitter SHAPE. What this file adds is coverage of the path, so a
-# LOUD failure on it is caught.
+# stack garbage, and a short frame leaves benign garbage behind. What this
+# file adds is coverage of the path, so a LOUD failure on it is caught.
 
 def sum_of(a)
   total = 0

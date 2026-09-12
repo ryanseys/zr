@@ -2,7 +2,7 @@
 # and zeo emits its body ONCE. This is the same rule as a top-level `def`
 # (see `a_toplevel_def_is_one_body_for_every_class`), reached by the other
 # spelling -- and the spelling mattered: the spine lookup asks a map that
-# `clif::collect::collect_methods` fills from TOP-LEVEL defs only, so a
+# was filled from TOP-LEVEL defs only, so a
 # `def` inside `module Kernel` was never in it and every builtin carrier
 # took a private copy. `Kernel#URI` cost 85 of them on a program that only
 # requires uri.

@@ -1,5 +1,5 @@
 # Arithmetic on the Range case works through the emitter's numeric
-# lowering and its runtime-checked fallback (`clif::expr`); an
+# lowering and its runtime-checked fallback; an
 # `Array`'s elements aren't tracked per-element (`Poly`), so the
 # array case just displays each value.
 

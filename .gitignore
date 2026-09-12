@@ -4,7 +4,6 @@
 # Build output.
 /vendor/build/
 /tmp/
-*.clif.tmp
 .bundle/
 Gemfile.lock
 test/*.tmp

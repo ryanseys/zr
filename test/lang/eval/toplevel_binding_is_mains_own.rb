@@ -5,8 +5,7 @@
 # binding has locals to report.
 #
 # NOTE: `Object.const_source_location(:TOPLEVEL_BINDING)` is `["<main>", 0]`
-# in ruby and under CLIF, and `[]` under the rustc backend. Not pinned here
-# while both backends run this corpus.
+# in ruby. Not pinned here.
 
 top_a = 1
 top_b = "two"

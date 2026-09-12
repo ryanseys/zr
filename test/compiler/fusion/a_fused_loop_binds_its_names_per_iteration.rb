@@ -4,8 +4,8 @@
 # captured when the next iteration rebinds -- the splice cannot hand every
 # closure one shared slot.
 #
-# CLIF gave the spliced param a plain slot and REFUSED any escaping block that
-# captured it ("the shadow dies with the loop"), which took out
+# Giving the spliced param a plain slot means REFUSING any escaping block
+# that captures it ("the shadow dies with the loop"), which takes out
 # `3.times { |i| Process.fork { exit i } }` among others. A name a closure
 # escapes with now gets a fresh cell each iteration; a name nothing escapes
 # with keeps the slot, and the uncaptured loop is untouched.

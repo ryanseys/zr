@@ -1,5 +1,4 @@
-# CRuby's `has_lead && !ambiguous_param0` rule -- see
-# `clif::params::auto_splats`.
+# CRuby's `has_lead && !ambiguous_param0` rule.
 
 def one(v)
   yield v

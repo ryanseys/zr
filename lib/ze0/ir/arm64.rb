@@ -23,7 +23,7 @@ module Ze0
 
       SCRATCH = [X9, X10, X11, X12, X13, X14, X15].freeze
       SCRATCH_W = [W9, W10, W11, W12, W13, W14, W15].freeze
-      # CLIF condition codes to arm64's.
+      # The IR's condition codes to arm64's.
       CONDS = {
         "eq" => :eq, "ne" => :ne, "slt" => :lt, "sle" => :le, "sgt" => :gt, "sge" => :ge,
         "ult" => :lo, "ule" => :ls, "ugt" => :hi, "uge" => :hs

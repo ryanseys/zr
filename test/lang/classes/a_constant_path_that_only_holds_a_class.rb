@@ -1,7 +1,7 @@
 # `M::ALIAS` where `ALIAS` is a constant HOLDING a class, not a class of its
-# own, is the scope operator's question. CLIF handed the whole string to the
-# bare-name cref walk, which looked for a constant literally called
-# "M::ALIAS" and raised `uninitialized constant M::ALIAS` -- but only in the
+# own, is the scope operator's question. Handing the whole string to the
+# bare-name cref walk looks for a constant literally called "M::ALIAS" and
+# raises `uninitialized constant M::ALIAS` -- but only in the
 # positions that lower through the class-NAME path (`New`), so `p M::ALIAS`
 # answered and `M::ALIAS.new` did not.
 

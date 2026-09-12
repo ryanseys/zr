@@ -354,7 +354,7 @@ module Ze0
         enter_roots if @unit.collects?(@d.name)
         @d.params.each_with_index do |(name, type), i|
           local = declare_local(@d.node, name, type)
-          @f.ins "store notrap aligned #{@f.args[i]}, #{local[:addr]}"
+          @f.store(@f.args[i], local[:addr])
         end
         body = @d.node.body
         value, type = body ? statements(body, @d.ret) : [nil, "Void"]
@@ -397,7 +397,7 @@ module Ze0
       # `return`: the root frame is unlinked first.
       def ret(value)
         @f.store(@f.fetch("i64", @roots[:addr]), @head, 0) if @roots
-        @f.ins(value ? "return #{value}" : "return")
+        @f.ret(value)
       end
 
       private
@@ -421,7 +421,8 @@ module Ze0
         @f.hoisted([:root_slot, at]) { IR::Inst.new(:iadd, type: "i64", args: [@roots[:addr], off]) }
       end
 
-      def clif(type)
+      # The IR type a kernel type lowers to.
+      def ir_type(type)
         TYPES.fetch(type)
       end
 
@@ -452,19 +453,19 @@ module Ze0
         when Prism::NilNode then [nil, "Void"]
         when Prism::LocalVariableReadNode
           local = @locals[node.name.to_s] or refuse(node, "#{node.name} is read before it is assigned")
-          [@f.val("load.#{clif(local[:type])} notrap aligned #{local[:addr]}"), local[:type]]
+          [@f.fetch(ir_type(local[:type]), local[:addr]), local[:type]]
         when Prism::LocalVariableWriteNode
           value, type = expr(node.value, @locals.dig(node.name.to_s, :type))
           refuse(node, "#{node.name} is assigned nothing") if type == "Void"
           local = declare_local(node, node.name.to_s, type)
-          @f.ins "store notrap aligned #{value}, #{local[:addr]}"
+          @f.store(value, local[:addr])
           [value, type]
         when Prism::LocalVariableOperatorWriteNode
           local = @locals[node.name.to_s] or refuse(node, "#{node.name} is read before it is assigned")
-          current = @f.val("load.#{clif(local[:type])} notrap aligned #{local[:addr]}")
+          current = @f.fetch(ir_type(local[:type]), local[:addr])
           rhs, = expr(node.value, local[:type])
           value, type = binary(node, node.binary_operator, current, local[:type], rhs, local[:type])
-          @f.ins "store notrap aligned #{value}, #{local[:addr]}"
+          @f.store(value, local[:addr])
           [value, type]
         when Prism::CallNode then call(node, want)
         when Prism::IfNode
@@ -474,7 +475,7 @@ module Ze0
         when Prism::BreakNode
           refuse(node, "a break outside a while") if @loops.empty?
           refuse(node, "a break with a value") if node.arguments
-          @f.ins "jump #{@loops.last}"
+          @f.jump(@loops.last)
           [nil, "Void"]
         when Prism::ReturnNode
           value, type = node.arguments ? expr(node.arguments.arguments.first, @d.ret) : [nil, "Void"]
@@ -495,8 +496,8 @@ module Ze0
       # An integer literal, or a constant, takes the type wanted here.
       def literal(node, n, want)
         type = want || "Word"
-        refuse(node, "an integer where a #{type} is wanted") if clif(type).nil? || clif(type) == "f64"
-        [@f.iconst(clif(type), n), type]
+        refuse(node, "an integer where a #{type} is wanted") if ir_type(type).nil? || ir_type(type) == "f64"
+        [@f.iconst(ir_type(type), n), type]
       end
 
       def call(node, want)
@@ -507,13 +508,13 @@ module Ze0
           intrinsic(node, args, want)
         elsif node.name == :! && args.empty?
           value, type = condition_value(node.receiver)
-          [@f.icmp("eq", value, @f.iconst(clif(type), 0)), "Bool"]
+          [@f.icmp("eq", value, @f.iconst(ir_type(type), 0)), "Bool"]
         elsif node.name == :-@ && args.empty?
           value, type = expr(node.receiver, want)
           return [@f.funop(:fneg, value), type] if type == "F64"
 
-          refuse(node, "a negation of a #{type}") unless clif(type)
-          [@f.isub(@f.iconst(clif(type), 0), value), type]
+          refuse(node, "a negation of a #{type}") unless ir_type(type)
+          [@f.isub(@f.iconst(ir_type(type), 0), value), type]
         elsif node.receiver.is_a?(Prism::ConstantReadNode) && (layout = @unit.struct_for(node.receiver.name.to_s))
           field(node, layout, args, want)
         elsif args.size == 1 && OPERATORS.key?(node.name)
@@ -542,11 +543,11 @@ module Ze0
           [off.zero? ? ptr : @f.iadd(ptr, @f.iconst("i64", off)), "Ptr"]
         elsif writer
           value, vt = expr(args[1], type)
-          refuse(args[1], "#{layout.name}.#{fname} is a #{type}, not a #{vt}") unless clif(vt) == clif(type)
+          refuse(args[1], "#{layout.name}.#{fname} is a #{type}, not a #{vt}") unless ir_type(vt) == ir_type(type)
           @f.store(value, ptr, off)
           [nil, "Void"]
         else
-          [@f.fetch(clif(type), ptr, off), type]
+          [@f.fetch(ir_type(type), ptr, off), type]
         end
       end
 
@@ -554,7 +555,7 @@ module Ze0
       # decides nothing; the result is a Bool.
       def logical(node, op)
         left, lt = condition_value(node.left)
-        bit = @f.icmp("ne", left, @f.iconst(clif(lt), 0))
+        bit = @f.icmp("ne", left, @f.iconst(ir_type(lt), 0))
         rest = @f.label
         skip = @f.label
         merge, params = @f.block(["i8"])
@@ -563,7 +564,7 @@ module Ze0
         @f.jump(merge, [bit])
         @f.switch(rest)
         right, rt = condition_value(node.right)
-        @f.jump(merge, [@f.icmp("ne", right, @f.iconst(clif(rt), 0))])
+        @f.jump(merge, [@f.icmp("ne", right, @f.iconst(ir_type(rt), 0))])
         @f.switch(merge)
         [params.first, "Bool"]
       end
@@ -578,7 +579,7 @@ module Ze0
       # a Ptr is a Word, and a comparison with a Ptr on either side is
       # unsigned. Value never mixes.
       def binary(node, op, lhs, lt, rhs, rt)
-        refuse(node, "#{op} on #{lt} and #{rt}") unless clif(lt) && (lt == rt || (PLAIN.include?(lt) && PLAIN.include?(rt)))
+        refuse(node, "#{op} on #{lt} and #{rt}") unless ir_type(lt) && (lt == rt || (PLAIN.include?(lt) && PLAIN.include?(rt)))
         return float_binary(node, op, lhs, rhs) if lt == "F64"
 
         ptr = lt == "Ptr" || rt == "Ptr"
@@ -588,15 +589,15 @@ module Ze0
                  end
         case op
         when :+, :-, :*, :&, :|, :^, :<<
-          [@f.val("#{OPERATORS[op]} #{lhs}, #{rhs}"), result]
+          [@f.binop(OPERATORS[op].to_sym, lhs, rhs), result]
         when :/, :%, :>>
           mnemonic = { :/ => "div", :% => "rem", :>> => "shr" }[op]
-          [@f.val("#{ptr ? "u" : "s"}#{mnemonic} #{lhs}, #{rhs}"), result]
+          [@f.binop(:"#{ptr ? "u" : "s"}#{mnemonic}", lhs, rhs), result]
         when :==, :!=
-          [@f.val("icmp #{OPERATORS[op]} #{lhs}, #{rhs}"), "Bool"]
+          [@f.icmp(OPERATORS[op], lhs, rhs), "Bool"]
         when :<, :<=, :>, :>=
           cond = (ptr ? "u" : "s") + OPERATORS[op]
-          [@f.val("icmp #{cond} #{lhs}, #{rhs}"), "Bool"]
+          [@f.icmp(cond, lhs, rhs), "Bool"]
         else
           refuse(node, "#{op} is not in the kernel dialect")
         end
@@ -630,12 +631,12 @@ module Ze0
           refuse(arg, "#{name} wants a #{type} here, not a #{got}") unless fits?(type, got)
           rooted(arg, value, got)
         end
-        fn = @f.callee(name, types.map { |t| clif(t) }, clif(callee.ret), colocated: !callee.is_a?(Import))
+        fn = @f.callee(name, types.map { |t| ir_type(t) }, ir_type(callee.ret), colocated: !callee.is_a?(Import))
         if callee.ret == "Void"
-          @f.ins "call #{fn}(#{values.join(", ")})"
+          @f.call(fn, values)
           [nil, "Void"]
         else
-          [@f.val("call #{fn}(#{values.join(", ")})"), callee.ret]
+          [@f.call_val(fn, values), callee.ret]
         end
       end
 
@@ -675,14 +676,14 @@ module Ze0
             refuse(arg, "#{name.unescaped} wants a #{type} here, not a #{got}") unless fits?(type, got)
             rooted(arg, value, got)
           end
-          sig = @f.sig(s.params.map { |t| clif(t) }, clif(s.ret))
+          sig = @f.sig(s.params.map { |t| ir_type(t) }, ir_type(s.ret))
           return [@f.call_indirect(sig, ptr, values), "Void"] if s.ret == "Void"
 
           [@f.call_indirect_val(sig, ptr, values), s.ret]
         when :bytes
           s = args.first
           refuse(node, "Machine.bytes takes a string literal") unless s.is_a?(Prism::StringNode)
-          [@f.val("symbol_value.i64 #{@f.symbol(@unit.bytes(s.unescaped))}"), "Ptr"]
+          [@f.symbol_value(@f.symbol(@unit.bytes(s.unescaped))), "Ptr"]
         when :load64, :load32, :load8
           width = { load64: "i64", load32: "i32", load8: "i8" }[node.name]
           ptr, pt = expr(args[0], "Ptr")
@@ -694,7 +695,7 @@ module Ze0
           refuse(node, "#{node.name} takes a Ptr, an offset and a value") unless fits?("Ptr", pt) && args.size == 3
           type = { store64: "Word", store32: "I32", store8: "I8" }[node.name]
           value, vt = expr(args[2], type)
-          refuse(node, "#{node.name} stores a #{type}, not a #{vt}") unless clif(vt) == clif(type)
+          refuse(node, "#{node.name} stores a #{type}, not a #{vt}") unless ir_type(vt) == ir_type(type)
           @f.store(value, ptr, immediate(args[1]))
           [nil, "Void"]
         when :slot
@@ -703,7 +704,7 @@ module Ze0
         when :static
           name, size = args
           refuse(node, "Machine.static takes a symbol and a size") unless name.is_a?(Prism::SymbolNode) && size
-          [@f.val("symbol_value.i64 #{@f.symbol(@unit.static(node, name.unescaped, immediate(size)))}"), "Ptr"]
+          [@f.symbol_value(@f.symbol(@unit.static(node, name.unescaped, immediate(size)))), "Ptr"]
         when :i32, :i8, :word, :sword, :ptr, :value
           value, type = expr(args.first)
           convert(node, node.name, value, type)
@@ -718,8 +719,8 @@ module Ze0
           name = args.first
           refuse(node, "Machine.addr takes the symbol of a machine def") unless name.is_a?(Prism::SymbolNode)
           d = @unit.def_for(name.unescaped) or refuse(node, "#{name.unescaped} is not a machine def here")
-          fn = @f.callee(d.name, d.params.map { |_, t| clif(t) }, clif(d.ret), colocated: true)
-          [@f.val("func_addr.i64 #{fn}"), "Ptr"]
+          fn = @f.callee(d.name, d.params.map { |_, t| ir_type(t) }, ir_type(d.ret), colocated: true)
+          [@f.func_addr(fn), "Ptr"]
         else
           refuse(node, "Machine.#{node.name} is not an intrinsic")
         end
@@ -730,12 +731,12 @@ module Ze0
       # 64-bit types is only a reading.
       def convert(node, to, value, type)
         target = { i32: "I32", i8: "I8", word: "Word", sword: "Word", ptr: "Ptr", value: "Value" }[to]
-        from, into = clif(type), clif(target)
+        from, into = ir_type(type), ir_type(target)
         refuse(node, "Machine.#{to} of a #{type}") if from.nil? || from == "f64"
         return [value, target] if from == into
-        return [@f.val("ireduce.#{into} #{value}"), target] if from == "i64" || (from == "i32" && into == "i8")
+        return [@f.ireduce(into, value), target] if from == "i64" || (from == "i32" && into == "i8")
 
-        [@f.val("#{to == :sword ? "sextend" : "uextend"}.#{into} #{value}"), target]
+        [to == :sword ? @f.sextend(into, value) : @f.uextend(into, value), target]
       end
 
       # `Machine.f64(word)` and `Machine.bits(f)` read the same 64 bits
@@ -777,7 +778,7 @@ module Ze0
         cond = condition(node)
         then_b = @f.label
         else_b = @f.label
-        @f.ins "brif #{cond}, #{then_b}, #{else_b}"
+        @f.brif(cond, then_b, else_b)
         @f.switch(then_b)
         tv, tt = then_stmts ? statements(then_stmts, want) : [nil, "Void"]
         then_open = !@f.terminated?
@@ -789,9 +790,10 @@ module Ze0
         return [nil, "Void"] if !then_open && !else_open
 
         joined = then_open && else_open && tt == et && tt != "Void" ? tt : "Void"
-        merge, params = joined == "Void" ? @f.block : @f.block([clif(joined)])
-        @f.finish(then_end, "jump #{merge}#{joined == "Void" ? "" : "(#{tv})"}") if then_open
-        @f.finish(else_end, "jump #{merge}#{joined == "Void" ? "" : "(#{ev})"}") if else_open
+        merge, params = joined == "Void" ? @f.block : @f.block([ir_type(joined)])
+        carry = joined == "Void" ? [] : nil
+        @f.finish(then_end, IR::Inst.new(:jump, targets: [[merge, carry || [tv]]])) if then_open
+        @f.finish(else_end, IR::Inst.new(:jump, targets: [[merge, carry || [ev]]])) if else_open
         @f.switch(merge, open: true)
         [joined == "Void" ? nil : params.first, joined]
       end
@@ -800,15 +802,15 @@ module Ze0
         head = @f.label
         body = @f.label
         done = @f.label
-        @f.ins "jump #{head}"
+        @f.jump(head)
         @f.switch(head)
         cond = condition(node)
-        @f.ins "brif #{cond}, #{body}, #{done}"
+        @f.brif(cond, body, done)
         @f.switch(body)
         @loops.push(done)
         statements(node.statements) if node.statements
         @loops.pop
-        @f.ins "jump #{head}" unless @f.terminated?
+        @f.jump(head) unless @f.terminated?
         @f.switch(done)
         [nil, "Void"]
       end

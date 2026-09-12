@@ -2,20 +2,14 @@
 # The loader, in whichever process runs it: a function assembled here,
 # written into a mapping of this process, and called. Under ruby the
 # system half is Fiddle; in a compiled program it is the runtime's own.
+require_relative "../../lib/ze0/ir"
 require_relative "../../lib/ze0/ir/arm64"
 require_relative "../../lib/ze0/obj/jit"
 
-CLIF = <<~TEXT
-  function %answer() -> i64 system_v {
-  block0:
-    v0 = iconst.i64 40
-    v1 = iconst.i64 2
-    v2 = iadd v0, v1
-    return v2
-  }
-TEXT
+answer = Ze0::IR::Function.new("answer", [], "i64")
+answer.ret(answer.iadd(answer.iconst("i64", 40), answer.iconst("i64", 2)))
 
-functions = Ze0::IR::ClifText.parse(CLIF)
+functions = [answer]
 unit = Ze0::Obj::Unit.new
 functions.each { |f| unit.functions << Ze0::IR::Arm64.new(f, defined: functions.map(&:name)).compile }
 p unit.functions.map { |f| [f.name, f.bytes.bytesize] }
