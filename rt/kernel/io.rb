@@ -88,6 +88,19 @@ machine def zr_io_set_nonblock(fd, on)
   zr_io_status(__fcntl(n, Machine.i32(F_SETFL), flags & O_NONBLOCK_OFF))
 end
 
+# F_SETFD and the one flag it carries.
+F_SETFD = 2
+FD_CLOEXEC = 1
+
+# A descriptor that closes itself across an exec, which ruby asks for on
+# every descriptor it hands out. An open(2) says so on the call itself;
+# pipe(2) here has no flag of its own, so rb_cloexec_pipe sets it after
+# the call, as this does.
+sig [Value] => Value
+machine def zr_io_cloexec(fd)
+  zr_io_status(__fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(F_SETFD), Machine.word(FD_CLOEXEC)))
+end
+
 # fcntl(2) with a command the program names itself, and the argument that
 # command takes. `fcntl` reads that argument variadically, and this
 # platform passes a variadic argument on the stack, so the call goes

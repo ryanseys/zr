@@ -114,9 +114,16 @@ machine def zr_io_pipe
   if pipe(fds) < Machine.i32(0)
     return zr_fix(0 - zr_errno())
   end
+  # Both ends close themselves across an exec, as rb_cloexec_pipe asks:
+  # a write end that leaked into an unrelated child would hold the
+  # reader's end of file open for as long as that child lived.
+  read_end = zr_fix(Machine.word(Machine.load32(fds, 0)))
+  write_end = zr_fix(Machine.word(Machine.load32(fds, 4)))
+  zr_io_cloexec(read_end)
+  zr_io_cloexec(write_end)
   out = zr_ary_new(2)
-  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(fds, 0))))
-  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(fds, 4))))
+  zr_ary_push(out, read_end)
+  zr_ary_push(out, write_end)
   out
 end
 

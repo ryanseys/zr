@@ -614,6 +614,7 @@ module Ze0
         d zr_io_status Value r:I32
         d zr_io_flags Value fd:Value
         d zr_io_set_nonblock Value fd:Value on:Value
+        d zr_io_cloexec Value fd:Value
         d zr_io_fcntl Value fd:Value command:Value argument:Value
         d zr_io_open_flags Value path:Value flags:Value
         d zr_io_chmod_fd Value fd:Value mode:Value
@@ -1327,6 +1328,8 @@ module Ze0
         c F_SETFL 4
         c O_NONBLOCK 4
         c O_NONBLOCK_OFF 4294967291
+        c F_SETFD 2
+        c FD_CLOEXEC 1
         c O_CLOEXEC 16777216
         c TIOCGWINSZ 1074295912
         c TIOCSWINSZ 2148037735
