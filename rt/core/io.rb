@@ -364,6 +364,21 @@ class IO
     path ? File.stat(path) : File::Stat.for_fd(@fd)
   end
 
+  # fcntl(2) on the stream's own descriptor: F_GETFD reads the
+  # close-on-exec flag and F_GETFL the flags it was opened with. Every
+  # other command passes its argument variadically, which this runtime
+  # never does.
+  def fcntl(command, argument = 0)
+    check_open
+    command = Numeric.send(:int_operand, command)
+    Primitive.zr_unimplemented("IO#fcntl with a command that takes an argument") unless command == 1 || command == 3
+
+    result = Primitive.zr_io_fcntl(@fd, command)
+    raise SystemCallError.new("@ io_fcntl", -result) if result < 0
+
+    result
+  end
+
   # posix_fadvise is a hint, and darwin has none: ruby answers nil
   # wherever the call is absent.
   def advise(kind, offset = 0, length = 0)
@@ -593,10 +608,8 @@ class IO
     c
   end
 
-  # fcntl and ioctl pass a variadic argument, which this platform puts
-  # on the stack; nothing here reaches them.
-  def fcntl(*) = Primitive.zr_unimplemented("IO#fcntl")
-
+  # ioctl passes a variadic argument, which this platform puts on the
+  # stack; nothing here reaches it.
   def ioctl(*) = Primitive.zr_unimplemented("IO#ioctl")
 
   def timeout = @timeout

@@ -760,7 +760,7 @@ class Dir
     names = Primitive.zr_io_dir_names_fd(fd)
     raise SystemCallError.new("@ dir_s_for_fd", -names) if names.is_a?(Integer)
 
-    allocate.send(:take_names, nil, names)
+    allocate.send(:take_names, nil, names, fd)
   end
 
   def self.fchdir(fd)
@@ -782,14 +782,20 @@ class Dir
     names = Primitive.zr_io_dir_names(@path)
     raise SystemCallError.new("@ dir_initialize - #{@path}", -names) if names.is_a?(Integer)
 
-    take_names(@path, names)
+    fd = Primitive.zr_io_open_flags(@path, File::RDONLY)
+    raise SystemCallError.new("@ dir_initialize - #{@path}", -fd) if fd < 0
+
+    take_names(@path, names, fd)
   end
 
-  def take_names(path, names)
+  # A directory holds its names, a cursor over them, and the descriptor
+  # it was opened under, which is what #fileno answers.
+  def take_names(path, names, fd)
     Primitive.attr! :hidden
     @path = path
     @names = names
     @pos = 0
+    @fd = fd
     self
   end
 
@@ -811,6 +817,7 @@ class Dir
   def inspect = "#<Dir:#{@path}>"
 
   def close
+    Primitive.zr_io_close(@fd) if @names && @fd
     @names = nil
     nil
   end
@@ -859,7 +866,12 @@ class Dir
     self
   end
 
-  def fileno = Primitive.zr_unimplemented("Dir#fileno")
+  # The descriptor the directory reads under. A closed directory has
+  # none, and says so in the same words as every other call on it.
+  def fileno
+    open_names
+    @fd
+  end
 
   # The names, or the error a closed directory answers with.
   def open_names

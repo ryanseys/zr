@@ -63,6 +63,14 @@ machine def zr_io_flags(fd)
   zr_io_failed(Machine.word(fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(F_GETFL))))
 end
 
+# fcntl(2) with a command the program names itself. Only a command
+# that reads comes here, because the argument of the others is
+# variadic and this runtime makes no variadic call.
+sig [Value, Value] => Value
+machine def zr_io_fcntl(fd, command)
+  zr_io_failed(Machine.word(fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(command)))))
+end
+
 # open(2) with two arguments, which is the whole call unless O_CREAT
 # is set: the mode a creation takes is a variadic argument, and this
 # platform passes those on the stack. A creation goes through fopen
