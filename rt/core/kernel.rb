@@ -341,10 +341,13 @@ module Kernel
 
   def !~(other) = !(self =~ other)
 
-  private :putc, :pp, :Hash, :exit!
+  # The same call as IO.select, which Kernel carries too.
+  def select(*) = IO.select(*)
+
+  private :putc, :pp, :Hash, :exit!, :select
   # pp is Kernel's private method alone, as CRuby's prelude defines it:
   # no module function.
-  module_function :putc, :Hash, :exit!
+  module_function :putc, :Hash, :exit!, :select
 end
 
 class Module

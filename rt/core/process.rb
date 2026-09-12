@@ -284,8 +284,10 @@ module Process
   def self.shell_words(command)
     raise TypeError, "no implicit conversion of #{command.class} into String" unless command.is_a?(String)
 
+    # An `=` inside the first word makes it an assignment, which only a
+    # shell can do, as rb_exec_fillarg reads it.
     first = command.split(" ").first || ""
-    return ["/bin/sh", "-c", command] if command.each_char.any? { |c| SHELL_META.include?(c) } || SHELL_WORDS.include?(first)
+    return ["/bin/sh", "-c", command] if command.each_char.any? { |c| SHELL_META.include?(c) } || SHELL_WORDS.include?(first) || first.include?("=")
 
     command.split(" ")
   end

@@ -951,7 +951,7 @@ class Dir
     def initialize(pattern, flags, base)
       @flags = flags
       @base = base && !pattern.start_with?("/") ? File.send(:path_of, base) : nil
-      @root = pattern.start_with?("/") ? "/" : (@base || ".")
+      @root = pattern.start_with?("/") ? "/" : (@base || "")
       @dirs_only = pattern.end_with?("/")
       @segments = pattern.split("/").reject(&:empty?)
     end
@@ -1047,7 +1047,7 @@ class Dir
     # `.` stands among them, and the pattern decides whether it matches.
     def each_entry(dir, last = false, dots: false)
       names = begin
-        Dir.children(dir)
+        Dir.children(here(dir))
       rescue SystemCallError
         return
       end
@@ -1059,12 +1059,19 @@ class Dir
       end
     end
 
+    # The directory to read for a path: the working directory where the
+    # pattern names none of its own.
+    def here(dir) = dir.empty? ? "." : dir
+
     def literal?(segment) = !segment.match?(/[*?\[\\]/)
 
     def dotmatch? = (@flags & File::FNM_DOTMATCH) != 0
 
+    # A path spelled as the pattern spells it: a match under `./x` keeps
+    # its `./`, because the walk starts at the empty name and adds each
+    # segment as written.
     def join(dir, name)
-      return name if dir == "."
+      return name if dir.empty?
       return "/#{name}" if dir == "/"
 
       "#{dir}/#{name}"

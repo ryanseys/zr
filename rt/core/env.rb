@@ -21,6 +21,23 @@ $-w = false
 $FILENAME = "-"
 $$ = Primitive.zr_process_id
 $LOAD_PATH = []
+
+# The kind of file a require of `feature` would read, and its real
+# path, or nil where no directory on the path holds it. A name that
+# already ends in `.rb` is looked for as it stands.
+def $LOAD_PATH.resolve_feature_path(feature)
+  name = String.try_convert(feature)
+  raise TypeError, "no implicit conversion of #{feature.class} into String" if name.nil?
+
+  suffixes = name.end_with?(".rb") ? [["", :rb]] : [[".rb", :rb], [".bundle", :so]]
+  each do |dir|
+    suffixes.each do |suffix, kind|
+      path = File.expand_path("#{name}#{suffix}", dir.to_s)
+      return [kind, File.realpath(path)] if File.file?(path)
+    end
+  end
+  nil
+end
 # What ruby loads before the program, spelled as ruby records it.
 $LOADED_FEATURES = %w[enumerator.so thread.rb fiber.so rational.so complex.so pathname.so ruby2_keywords.rb set.rb]
 
