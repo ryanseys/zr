@@ -101,6 +101,22 @@ machine def zr_io_cloexec(fd)
   zr_io_status(__fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(F_SETFD), Machine.word(FD_CLOEXEC)))
 end
 
+# ioctl(2) with the argument a command carries: a number the command
+# reads as it stands, or the bytes of a String the command fills in. A
+# String's address never crosses into ruby, so the two shapes are two
+# calls rather than one that ruby would have to build a pointer for.
+sig [Value, Value, Value] => Value
+machine def zr_io_ioctl(fd, command, argument)
+  zr_io_failed(Machine.sword(__ioctl(Machine.i32(zr_fix2long(fd)), Machine.word(zr_fix2long(command)),
+                                     Machine.ptr(zr_fix2long(argument)))))
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_io_ioctl_buf(fd, command, bytes)
+  zr_io_failed(Machine.sword(__ioctl(Machine.i32(zr_fix2long(fd)), Machine.word(zr_fix2long(command)),
+                                     RString.ptr(bytes))))
+end
+
 # fcntl(2) with a command the program names itself, and the argument that
 # command takes. `fcntl` reads that argument variadically, and this
 # platform passes a variadic argument on the stack, so the call goes

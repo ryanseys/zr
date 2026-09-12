@@ -797,9 +797,60 @@ class IO
     c
   end
 
-  # ioctl passes a variadic argument, which this platform puts on the
-  # stack; nothing here reaches it.
-  def ioctl(*) = Primitive.zr_unimplemented("IO#ioctl")
+  # The byte setup_narg writes after a buffer, which the answer must
+  # leave alone, and the mask that reads a command's own length.
+  IOCTL_SENTINEL = 17
+  IOCPARM_MASK = 0x1fff
+  private_constant :IOCTL_SENTINEL, :IOCPARM_MASK
+
+  # ioctl(2). rb_io_ctl reads the argument as setup_narg does: nil and
+  # false are 0, true is 1, an Integer stands for itself, and a String is
+  # the buffer the command fills -- grown to the length the command names,
+  # with one byte after it that the answer must not reach.
+  def ioctl(command, argument = 0)
+    Primitive.attr! :ruby
+    check_open
+    command = Numeric.send(:int_operand, command)
+    buffer = ioctl_buffer(command, argument)
+    result = if buffer.nil?
+               Primitive.zr_io_ioctl(@fd, command, ioctl_narg(argument))
+             else
+               Primitive.zr_io_ioctl_buf(@fd, command, buffer)
+             end
+    raise SystemCallError.new(path.nil? ? nil : "@ finish_narg - #{path}", -result) if result < 0
+    return result if buffer.nil?
+
+    # finish_narg: the sentinel says the command wrote no further than
+    # the room the buffer gave it.
+    raise ArgumentError, "return value overflowed string" unless buffer.getbyte(buffer.bytesize - 1) == IOCTL_SENTINEL
+
+    buffer.setbyte(buffer.bytesize - 1, 0)
+    result
+  end
+
+  # The number a command reads when it fills no buffer.
+  def ioctl_narg(argument)
+    Primitive.attr! :hidden
+    return 0 if argument.nil? || argument.equal?(false)
+    return 1 if argument.equal?(true)
+
+    Numeric.send(:int_operand, argument)
+  end
+
+  # The String a command fills, as long as the command names plus the
+  # sentinel. Anything that is not a String fills no buffer.
+  def ioctl_buffer(command, argument)
+    Primitive.attr! :hidden
+    return nil if argument.nil? || argument.equal?(true) || argument.equal?(false) || argument.is_a?(Integer)
+
+    text = String.try_convert(argument)
+    return nil if text.nil?
+
+    room = ((command >> 16) & IOCPARM_MASK) + 1
+    text.replace(text + ("\0" * (room - text.bytesize))) if text.bytesize < room
+    text.setbyte(text.bytesize - 1, IOCTL_SENTINEL)
+    text
+  end
 
   def timeout = @timeout
 
