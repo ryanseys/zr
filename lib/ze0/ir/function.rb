@@ -293,7 +293,7 @@ module Ze0
       # The address of a data symbol, materialized once per function: for
       # a word that the function reads again and again.
       def symbol_addr(gv)
-        hoisted([:symbol_value, gv]) { Inst.new(:symbol_value, type: "i64", args: [gv]) }
+        hoisted(:symbol_value, gv) { Inst.new(:symbol_value, type: "i64", args: [gv]) }
       end
 
       def func_addr(fn)
@@ -313,7 +313,7 @@ module Ze0
 
       # A constant, materialized once per function.
       def iconst(type, n)
-        hoisted([:iconst, type, n]) { Inst.new(:iconst, type: type, args: [n]) }
+        hoisted(ICONST.fetch(type), n) { Inst.new(:iconst, type: type, args: [n]) }
       end
 
       # A value that is the same everywhere, defined once in the entry block.
@@ -324,8 +324,8 @@ module Ze0
       # terminator, and no use can be earlier: this is the first time the key
       # has been asked for. The block yields an `Inst` with no result; this
       # fills one in and inserts it.
-      def hoisted(key)
-        @hoisted[key] ||= begin
+      def hoisted(kind, key)
+        ((@hoisted[kind] ||= {})[key] ||= begin
           v = value
           inst = yield
           inst.results = [v]
@@ -334,12 +334,18 @@ module Ze0
           at -= 1 if at.positive? && insts.last.terminator?
           insts.insert(at, inst)
           v
-        end
+        end)
       end
+
+      # A bucket a kind, so a constant is found by its own number rather
+      # than by an Array built and hashed at every mention of it. The four
+      # types are named here so that `iconst` needs no Array either.
+      ICONST = { "i8" => :iconst_i8, "i32" => :iconst_i32,
+                 "i64" => :iconst_i64, "f64" => :iconst_f64 }.freeze
 
       # The address of a stack slot, materialized once per function.
       def stack_addr(slot)
-        hoisted([:stack_addr, slot]) { Inst.new(:stack_addr, type: "i64", args: [slot]) }
+        hoisted(:stack_addr, slot) { Inst.new(:stack_addr, type: "i64", args: [slot]) }
       end
 
       private

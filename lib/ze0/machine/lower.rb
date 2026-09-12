@@ -418,7 +418,7 @@ module Ze0
 
         at = root_slot
         off = @f.iconst("i64", at)
-        @f.hoisted([:root_slot, at]) { IR::Inst.new(:iadd, type: "i64", args: [@roots[:addr], off]) }
+        @f.hoisted(:root_slot, at) { IR::Inst.new(:iadd, type: "i64", args: [@roots[:addr], off]) }
       end
 
       # The IR type a kernel type lowers to.
