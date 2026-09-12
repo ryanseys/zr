@@ -1051,6 +1051,11 @@ machine def zr_str_inspect(recv, argc, argv, cref, blk)
   if zr_enc_mb_p(index)
     return zr_send(recv, Machine.id(:mb_inspect), 0, 0)
   end
+  # A character outside ASCII is shown or escaped by the category it
+  # carries, and the table of those categories is in Ruby.
+  if zr_str_wide_p(recv) && !zr_str_ascii_only(recv)
+    return zr_send(recv, Machine.id(:utf8_inspect), 0, 0)
+  end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_str_escaped(b, RString.ptr(recv), RString.len(recv), !zr_str_wide_p(recv))

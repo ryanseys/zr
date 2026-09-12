@@ -636,6 +636,7 @@ module Ze0
         d zr_io_termios Value fd:Value
         d zr_io_set_termios Value fd:Value action:Value bytes:Value
         d zr_io_tcflush Value fd:Value queue:Value
+        d zr_pty_open Value
         d zr_io_ttyname Value fd:Value
         d zr_io_unlink Value path:Value
         d zr_io_rename Value from:Value to:Value
@@ -1329,6 +1330,7 @@ module Ze0
         c TIOCSWINSZ 2148037735
         c WINSIZE_LEN 8
         c TERMIOS_LEN 72
+        c PTY_OPEN_FLAGS 16908290
         c WAIT_READABLE 1
         c WAIT_PRIORITY 2
         c WAIT_WRITABLE 4

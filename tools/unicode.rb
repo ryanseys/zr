@@ -30,6 +30,29 @@ multi = Hash.new { |h, k| h[k] = {} }
   end
 end
 
+# The codepoints ruby's own inspect escapes rather than shows: onigmo
+# calls a codepoint with no category of its own unprintable, and ruby
+# writes that one as \uXXXX. A codepoint under 128 is a byte the escape
+# table already covers, so the table starts at 128.
+unprintable = []
+(128..0x10FFFF).each do |cp|
+  next if (0xD800..0xDFFF).cover?(cp)
+
+  char = begin
+    cp.chr(Encoding::UTF_8)
+  rescue RangeError
+    next
+  end
+  next unless char.inspect.include?("\\u")
+
+  last = unprintable.last
+  if last && last[0] + last[1] == cp
+    last[1] += 1
+  else
+    unprintable << [cp, 1]
+  end
+end
+
 # The single-character mappings as runs of one delta, so a table that
 # holds 1,500 characters fits in a few hundred rows.
 def runs(table)
@@ -74,4 +97,13 @@ puts "  KERNEL_CASE = { up: 1, down: 2, title: 3 }.freeze"
 puts "  TURKIC = { up: { 105 => 304 }, title: { 105 => 304 }, down: { 73 => 305, 304 => 105 }, fold: { 73 => 305, 304 => 105 }, swap: { 73 => 305, 105 => 304, 304 => 105 } }.freeze"
 puts
 puts "  private_constant :CASE_RUNS, :CASE_MULTI, :KERNEL_CASE, :TURKIC"
+puts
+puts "  # The codepoints inspect escapes rather than shows, as runs of a"
+puts "  # first codepoint and how many follow it. A byte under 128 has its"
+puts "  # own escape, so the table starts at 128."
+puts "  UNPRINTABLE_RUNS = ["
+puts rows(unprintable.flatten, 12)
+puts "  ].freeze"
+puts
+puts "  private_constant :UNPRINTABLE_RUNS"
 puts "end"

@@ -308,6 +308,40 @@ machine def zr_io_tcflush(fd, queue)
   zr_io_status(tcflush(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(queue))))
 end
 
+# A pseudo-terminal pair, through the Unix98 calls ruby itself makes:
+# posix_openpt for the master, then grantpt and unlockpt, then the name
+# of the slave device, which ruby opens by that name.
+Machine.import "posix_openpt", [I32] => I32
+Machine.import "grantpt", [I32] => I32
+Machine.import "unlockpt", [I32] => I32
+Machine.import "ptsname", [I32] => Ptr
+
+# O_RDWR | O_NOCTTY | O_CLOEXEC: the pair is not this task's terminal.
+PTY_OPEN_FLAGS = 16_908_290
+
+# The master descriptor and the slave's name, or the negated errno.
+sig [] => Value
+machine def zr_pty_open
+  master = posix_openpt(Machine.i32(PTY_OPEN_FLAGS))
+  if master < Machine.i32(0)
+    return zr_fix(0 - zr_errno())
+  end
+  if grantpt(master) < Machine.i32(0)
+    return zr_fix(0 - zr_errno())
+  end
+  if unlockpt(master) < Machine.i32(0)
+    return zr_fix(0 - zr_errno())
+  end
+  name = ptsname(master)
+  if Machine.word(name) == 0
+    return zr_fix(0 - zr_errno())
+  end
+  out = zr_ary_new(2)
+  zr_ary_push(out, zr_fix(Machine.sword(master)))
+  zr_ary_push(out, zr_cstr_str(name))
+  out
+end
+
 # The terminal's name, and nil for a descriptor that is not one.
 sig [Value] => Value
 machine def zr_io_ttyname(fd)

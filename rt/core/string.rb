@@ -828,6 +828,64 @@ class String
     out << "\""
   end
 
+  # Whether inspect escapes this code point rather than showing it.
+  # onigmo calls a code point with no category of its own unprintable,
+  # and the table holds those as runs of a first point and a length.
+  def self.unprintable?(point)
+    Primitive.attr! :hidden
+    return false if point < 128
+
+    low = 0
+    high = (UNPRINTABLE_RUNS.size / 2) - 1
+    while low <= high
+      middle = (low + high) / 2
+      first = UNPRINTABLE_RUNS[middle * 2]
+      if point < first
+        high = middle - 1
+      elsif point >= first + UNPRINTABLE_RUNS[(middle * 2) + 1]
+        low = middle + 1
+      else
+        return true
+      end
+    end
+    false
+  end
+  private_class_method :unprintable?
+
+  # A UTF-8 String inspected as ruby writes one: a character that has a
+  # category of its own as it stands, one that has none as \u, and bytes
+  # that make no character as \x.
+  def utf8_inspect
+    Primitive.attr! :hidden
+    out = +"\""
+    i = 0
+    while i < bytesize
+      n = Primitive.zr_str_char_len_at_m(self, i)
+      if n == 1
+        byte = getbyte(i)
+        out << if (escape = UNIT_ESCAPES[byte]) then escape
+               elsif byte == 35 then [123, 36, 64].include?(getbyte(i + 1)) ? "\\#" : "#"
+               elsif byte < 32 || byte == 127 then format("\\u%04X", byte)
+               # A byte on its own above ASCII makes no character here,
+               # so it stands for itself rather than for a code point.
+               elsif byte > 127 then format("\\x%02X", byte)
+               else Primitive.zr_str_from_byte(byte)
+               end
+      else
+        char = byteslice(i, n)
+        if !char.valid_encoding?
+          char.each_byte { |stray| out << format("\\x%02X", stray) }
+        elsif String.send(:unprintable?, (point = char.ord))
+          out << (point > 0xFFFF ? format("\\u{%X}", point) : format("\\u%04X", point))
+        else
+          out << char
+        end
+      end
+      i += n
+    end
+    out << "\""
+  end
+
   # A code point appended to a UTF-16 or UTF-32 String, as its code
   # units.
   def append_unit_point(point)
