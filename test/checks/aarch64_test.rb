@@ -58,7 +58,7 @@ class Aarch64Test < Minitest::Test
   def test_the_runtime_encodes_as_the_gem_does
     require "aarch64"
     functions = self.class.runtime
-    names = functions.map(&:name)
+    names = functions.map(&:name).to_set
     functions.each do |f|
       ours = Ze0::IR::Arm64.new(f, defined: names).compile
       theirs = Ze0::IR::Arm64.new(f, defined: names, assembler: Gem).compile

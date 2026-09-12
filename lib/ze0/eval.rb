@@ -69,7 +69,7 @@ module Ze0
 
     def unit(functions, data)
       unit = Obj::Unit.new
-      defined = functions.map(&:name) + data.map(&:name)
+      defined = (functions.map(&:name) + data.map(&:name)).to_set
       functions.each { |f| unit.functions << IR::Arm64.new(f, defined: defined).compile }
       data.each { |d| unit.data << d }
       unit

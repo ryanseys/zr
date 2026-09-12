@@ -108,7 +108,7 @@ module Ze0
       def unit(functions, data, raw: [], export: false)
         functions.each { |f| IR::Verify.check(f) }
         out = Obj::Unit.new
-        defined = functions.map(&:name) + data.map(&:name) + raw.map(&:name)
+        defined = (functions.map(&:name) + data.map(&:name) + raw.map(&:name)).to_set
         functions.each { |f| out.functions << IR::Arm64.new(f, defined: defined).compile }
         raw.each { |r| out.functions << r }
         data.each { |d| out.data << (export ? exported(d) : d) }

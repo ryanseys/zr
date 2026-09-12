@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "set"
+
 require_relative "../machine/aarch64"
 require_relative "function"
 require_relative "types"
@@ -74,9 +76,14 @@ module Ze0
       # reads its listing out of.
       attr_reader :asm
 
+      # `defined`: every symbol this unit defines, which decides whether a
+      # symbol is reached directly or through the GOT. A Set, because a
+      # unit names thousands of them and this is asked once per symbol in
+      # every function; `to_set` on a Set is the Set, so a caller that
+      # already made one pays nothing here.
       def initialize(function, defined: [], assembler: Machine::Aarch64::Assembler, far: false)
         @f = function
-        @defined = defined
+        @defined = defined.to_set
         @far = far
         @asm = assembler.new
         @relocs = []
