@@ -368,6 +368,7 @@ module Ze0
         d zr_exc_detail Void exc:Value id:Word v:Value
         d zr_buf_frame Void b:Ptr rec:Ptr
         d zr_kernel_caller Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_fiber_backtrace_m Value fiber:Value start:Value limit:Value
         d zr_fiber_stack_error Value err:Word
         d zr_current_task_slot Ptr
         d zr_task Ptr

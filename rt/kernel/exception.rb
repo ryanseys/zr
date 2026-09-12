@@ -683,3 +683,39 @@ machine def zr_kernel_caller(recv, argc, argv, cref, blk)
   end
   out
 end
+
+# The frames of a task that is parked somewhere else, innermost first,
+# each as `file:line:in 'label'`: `Thread#backtrace` reads another
+# thread this way. `limit` below zero means every row, and a `start`
+# past the outermost frame answers nil, as `caller` answers.
+sig [Value, Value, Value] => Value
+machine def zr_fiber_backtrace_m(fiber, start, limit)
+  t = RFiber.task(fiber)
+  if t == 0
+    return Machine.value(QNIL)
+  end
+  skip = zr_fix2long(start)
+  room = zr_fix2long(limit)
+  out = zr_ary_new(8)
+  rec = Task.top(t)
+  while rec != 0
+    if FrameMeta.kind(Frame.meta(rec)) != KIND_HIDDEN
+      if skip > 0
+        skip -= 1
+      else
+        if room >= 0 && RArray.len(out) >= room
+          return out
+        end
+        b = Machine.slot(Buf.size)
+        zr_buf_init(b)
+        zr_buf_frame(b, rec)
+        zr_ary_push(out, zr_buf_take(b))
+      end
+    end
+    rec = Frame.prev(rec)
+  end
+  if skip > 0
+    return Machine.value(QNIL)
+  end
+  out
+end

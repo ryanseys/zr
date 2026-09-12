@@ -156,6 +156,9 @@ class Thread
     # sleeper whose deadline comes first once it passes. With neither,
     # a deadly wait is a deadlock, and a plain sleep waits forever.
     def switch(deadly = false)
+      # The scheduler's own frame is the runtime's, not the program's, so
+      # a thread parked here shows the line that waited, as CRuby shows.
+      Primitive.attr! :hidden
       from = @current
       to = @queue.shift
       while to.nil?
@@ -371,7 +374,19 @@ class Thread
 
   def group = @group || ThreadGroup::Default
 
-  def backtrace(*) = Primitive.zr_unimplemented("Thread#backtrace")
+  # The frames the thread stands in, innermost first, and nil once it has
+  # ended. This thread answers from the line that asked, as `caller` does;
+  # any other thread is read where it parked.
+  def backtrace(start = 0, length = nil)
+    return caller(start + 1, length) if equal?(Thread.current)
+    return nil unless alive?
+
+    Primitive.zr_fiber_backtrace_m(local_fiber, start, length.nil? ? -1 : length)
+  end
+
+  def backtrace_locations(start = 0, length = nil)
+    backtrace(start, length)&.map { |row| Thread::Backtrace::Location.new(row) }
+  end
 
   # An id of its own for as long as the thread lives, as the native
   # thread of a CRuby thread has.
