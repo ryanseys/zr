@@ -145,7 +145,8 @@ module Ze0
         @file_bytes[@file] ||= literal(@file)
       end
 
-      def meta(fn, kind, line, name = 0, parent = nil, params = nil, locals = [], env = false, ruby = false)
+      def meta(fn, kind, line, name = 0, parent = nil, params = nil, locals = [], env = false, ruby = false,
+               captures: false)
         layout = layout("FrameMeta")
         file = file_bytes
         bytes = ("\0" * layout.size).b
@@ -161,6 +162,10 @@ module Ze0
         relocs << Obj::Reloc.new(layout.fields.fetch("parent").first, :abs64, parent) if parent
         relocs << Obj::Reloc.new(layout.fields.fetch("params").first, :abs64, param_table(fn, params)) if params
         relocs << Obj::Reloc.new(layout.fields.fetch("locals").first, :abs64, local_table(fn, locals))
+        # What a scope reaches outside itself is known only once its body
+        # is lowered, so the caller writes that table afterwards and says
+        # so here. The name is the same either way.
+        relocs << Obj::Reloc.new(layout.fields.fetch("captures").first, :abs64, "zr_captures_#{fn}") if captures
         relocs << Obj::Reloc.new(layout.fields.fetch("fn").first, :abs64, fn) if kind == "KIND_BLOCK" || kind == "KIND_HIDDEN"
         name = "zr_meta_#{fn}"
         @data << Obj::Data.new(name, :data, bytes, relocs: relocs, align: 8)
@@ -172,6 +177,15 @@ module Ze0
       def local_table(fn, locals)
         name = "zr_locals_#{fn}"
         @data << Obj::Data.new(name, :text_const, [locals.size, *locals.map { |n| @symbols.id(n) }].pack("q<*"), align: 8)
+        name
+      end
+
+      # The locals a scope reads from outside itself, as data: the row
+      # count, then a name id each. A Ractor reads them off a block's meta
+      # to refuse a block it cannot isolate, and to name what it reaches.
+      def captures_table(fn, names)
+        name = "zr_captures_#{fn}"
+        @data << Obj::Data.new(name, :text_const, [names.size, *names.map { |n| @symbols.id(n) }].pack("q<*"), align: 8)
         name
       end
 

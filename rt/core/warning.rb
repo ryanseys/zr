@@ -31,5 +31,14 @@ module Warning
     warn("#{Primitive.zr_warn_position}warning: #{message}\n", category: :deprecated)
   end
 
+  # The same way in for a feature ruby calls experimental. The notice
+  # names the line that reached it, as ruby's does.
+  def self.experimental(message)
+    Primitive.attr! :hidden
+    return nil unless self[:experimental]
+
+    warn("#{Primitive.zr_warn_position}warning: #{message}\n", category: :experimental)
+  end
+
   extend self
 end

@@ -76,6 +76,25 @@ end
 # A Proc for a block written in the frame `home` (the call site
 # `site`, packed above the spread flag: whether a lone Array argument
 # spreads over the parameters), whose method's frame is `ret_home`.
+# The locals a block reads from outside itself, as Symbols. A Ractor
+# refuses a block that reaches one, and names them. A block that reaches
+# none carries no table at all.
+sig [Value] => Value
+machine def zr_proc_captures_m(p)
+  out = zr_ary_new(4)
+  table = FrameMeta.captures(RProc.meta(p))
+  if table == 0
+    return out
+  end
+  n = Machine.load64(table, 0)
+  i = 0
+  while i < n
+    zr_ary_push(out, zr_sym(Machine.load64(table + 8 + (i * 8), 0)))
+    i += 1
+  end
+  out
+end
+
 sig [Ptr, Value, Value, Value, Value, Ptr, Word, Ptr] => Value
 machine def zr_proc_new(meta, env, self_, cref, blk, home, site_and_spread, ret_home)
   site = site_and_spread >> 32

@@ -14,7 +14,7 @@
 # main's, which is what makes a box's reach the code it holds.
 # `ruby` is 1 on a core def CRuby itself writes in Ruby, which answers
 # its own parameters where a method written in C answers `[[:rest]]`.
-Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr, locals: Ptr, env: Word, box: Value, ruby: Word
+Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr, locals: Ptr, env: Word, box: Value, ruby: Word, captures: Ptr
 KIND_MAIN = 0
 KIND_DEF = 1
 KIND_BUILTIN = 2

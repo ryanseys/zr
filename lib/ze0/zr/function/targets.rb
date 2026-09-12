@@ -162,7 +162,7 @@ module Ze0
 
         def assign_target(target, v, prepared)
           case target
-          when Hir::Assign then write_local(slot_at(target), target.depth, v)
+          when Hir::Assign then write_local(slot_at(target), target.depth, v, target.name)
           when Hir::IvarWrite then ivar_write(target, v)
           when Hir::GvarWrite then gvar_write(target.name, v)
           when Hir::CvarWrite

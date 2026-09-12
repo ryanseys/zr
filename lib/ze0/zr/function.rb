@@ -63,6 +63,7 @@ module Ze0
         @cref_layout = lower.layout("RCref")
         @proc_layout = lower.layout("RProc")
         @slot_of = locals.each_with_index.to_h
+        @captures = []
         @has_env = %i[eval main].include?(@kind) || Scope.holds_block?(body) || Scope.opens_locals?(body) ||
                    default_expressions.any? { |d| Scope.holds_block?(d) || Scope.opens_locals?(d) }
         @sites = 0
@@ -83,6 +84,9 @@ module Ze0
         last = expr(@body)
         leave(last) unless @f.terminated?
         land if @landing
+        # Now the body is lowered, what it reaches outside itself is
+        # known, and the table its meta names can be written.
+        @l.captures_table(@name, @captures.uniq)
         @l.functions << @f
         @f
       end
@@ -154,7 +158,8 @@ module Ze0
         name = @def && %i[class module].include?(@kind) ? sym_id(@def.name) : 0
         params = @def.params if %i[def block].include?(@kind)
         kind = hidden_def? ? "KIND_HIDDEN" : @l.frame_kind(@kind)
-        @meta = @l.meta(@name, kind, line, name, @outer&.meta, params, @locals, @has_env, attributes.include?(:ruby))
+        @meta = @l.meta(@name, kind, line, name, @outer&.meta, params, @locals, @has_env, attributes.include?(:ruby),
+                        captures: true)
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @f.store(imm(line), @rec, off(@frame, "line"))
         serial = @f.iadd(@f.fetch("i64", @task_addr, off(@task, "serial")), imm(1))
@@ -309,19 +314,32 @@ module Ze0
         end
       end
 
-      def read_local(i, depth)
+      def read_local(i, depth, name = nil)
+        capture(name, depth)
         return @f.fetch("i64", @rec, value_offset(i)) if depth.zero? && !@has_env
 
         kernel("zr_env_get", env_at(depth), imm(i))
       end
 
-      def write_local(i, depth, v)
+      def write_local(i, depth, v, name = nil)
+        capture(name, depth)
         if depth.zero? && !@has_env
           @f.store(v, @rec, value_offset(i))
         else
           kernel("zr_env_set", env_at(depth), imm(i), v)
         end
         v
+      end
+
+      # A local this scope reads from a scope outside itself. A Ractor
+      # refuses a block that reaches one and names it, so every scope
+      # between the two records it: a block reaches past the block that
+      # holds it.
+      def capture(name, depth)
+        return if name.nil? || depth.zero?
+
+        @captures << name
+        @outer&.__send__(:capture, name, depth - 1)
       end
 
       # `nodes` evaluated into fresh record slots, `extra` more reserved
