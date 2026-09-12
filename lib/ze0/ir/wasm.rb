@@ -567,8 +567,14 @@ module Ze0
 
       # One function's body.
       class Body
-        # Past this many blocks a function is dispatched in two steps.
+        # Past this many blocks a function is dispatched in two steps,
+        # in groups of the same size. Measured on the shape ze0 emits, a
+        # group of 256 is the cheapest to compile at every size tried --
+        # 8,000 blocks take 20.0 s in groups of 128, 9.9 s in groups of
+        # 256, 11.3 s in 512 -- and the square root the count suggests
+        # is well off it.
         LADDER = 256
+        WIDTH = Integer(ENV.fetch("ZE0_WASM_WIDTH", LADDER))
 
         def initialize(mod, f)
           @m = mod
@@ -699,15 +705,17 @@ module Ze0
           if n <= LADDER
             ladder(@f.blocks, 0, 0)
           else
-            width = Integer.sqrt(n - 1) + 1
-            groups = @f.blocks.each_slice(width).to_a
+            @width = WIDTH
+            groups = @f.blocks.each_slice(@width).to_a
+            @groups = groups.size
             groups.size.times { @code << "\x02\x40".b }
-            @code << "\x20".b << @m.leb(@bb) << @m.i32c(width) << "\x6E".b
+            @code << "\x20".b << @m.leb(@bb) << @m.i32c(@width) << "\x6E".b
             table(groups.size)
             groups.each_with_index do |group, k|
               @code << "\x0B".b
               @code << "\x03\x40".b
-              ladder(group, k * width, groups.size - k)
+              @gk = k
+              ladder(group, k * @width, groups.size - k)
               @code << "\x0B".b << "\x00".b
             end
           end
@@ -759,8 +767,21 @@ module Ze0
         def go(name)
           at = @f.blocks.index { |b| b.name == name }
           @code << @m.i32c(at) << "\x21".b << @m.leb(@bb)
-          near = @span - 1 - @row + @bias
-          @code << "\x0C".b << @m.leb(@group.cover?(at) ? near : near + @outer)
+          @code << "\x0C".b << @m.leb((@span - 1 - @row + @bias) + reach(at))
+        end
+
+        # How much further than this group's own loop a branch to the
+        # block at `at` has to go. Nothing, when the block is in this
+        # group. A group ahead of this one is a `block` this one sits
+        # inside, so leaving it reaches that group's own `br_table` --
+        # which is what keeps the function's one loop from gathering a
+        # predecessor for every branch that leaves its group. Only a
+        # branch to a group behind this one goes all the way out.
+        def reach(at)
+          return 0 if @group.cover?(at)
+
+          ahead = (at / @width) - @gk
+          ahead.positive? ? ahead : @outer
         end
 
         def emit_inst(i)
