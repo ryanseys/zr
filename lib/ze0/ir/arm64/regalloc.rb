@@ -64,18 +64,21 @@ module Ze0
         def number
           @order = {}
           @f.blocks.each_with_index { |b, i| @order[b.name] = i }
-          @id = {}
+          # A Hash that numbers what it is asked for is one lookup where
+          # `@id[name] ||= @id.size` is two.
+          @id = Hash.new { |h, name| h[name] = h.size }
           @first = []
           @last = []
           @uses = []
           @results = []
+          @params = []
           at = 0
           @f.blocks.each_with_index do |b, bi|
             @first[bi] = at
-            b.params.each { |v, _| id_of(v) }
+            @params[bi] = b.params.map { |v, _| @id[v] }
             b.insts.each do |i|
               @uses[at] = operands(i)
-              @results[at] = i.results.map { |v| id_of(v) }
+              @results[at] = i.results.map { |v| @id[v] }
               at += 1
             end
             @last[bi] = at - 1
@@ -83,16 +86,12 @@ module Ze0
           @points = at
         end
 
-        # A value's number, made the first time the value is named: a use
-        # can come before the definition in layout order, around a loop.
-        def id_of(name) = @id[name] ||= @id.size
-
         # The values an instruction reads, by number: its own operands,
         # and the arguments it carries to a block it branches to.
         def operands(inst)
           used = []
-          inst.args.each { |a| used << id_of(a) if Regalloc.value?(a) }
-          inst.targets&.each { |(_, args)| args.each { |a| used << id_of(a) if Regalloc.value?(a) } }
+          inst.args.each { |a| used << @id[a] if Regalloc.value?(a) }
+          inst.targets&.each { |(_, args)| args.each { |a| used << @id[a] if Regalloc.value?(a) } }
           used
         end
 
@@ -152,19 +151,22 @@ module Ze0
         end
 
         # The values a block reads before it writes them.
+        # A value at a time rather than `merge` and `subtract` of the
+        # arrays: an instruction names one or two, and the call costs
+        # more than the work.
         def upward(bi)
           live = Set.new
           @last[bi].downto(@first[bi]) do |point|
-            live.subtract(@results[point])
-            live.merge(@uses[point])
+            @results[point].each { |v| live.delete(v) }
+            @uses[point].each { |v| live.add(v) }
           end
-          @f.blocks[bi].params.each { |v, _| live.delete(@id.fetch(v)) }
+          @params[bi].each { |v| live.delete(v) }
           live
         end
 
         def killed(bi)
-          live = Set.new(@f.blocks[bi].params.map { |v, _| @id.fetch(v) })
-          @first[bi].upto(@last[bi]) { |point| live.merge(@results[point]) }
+          live = Set.new(@params[bi])
+          @first[bi].upto(@last[bi]) { |point| @results[point].each { |v| live.add(v) } }
           live
         end
 
@@ -184,7 +186,7 @@ module Ze0
           @f.blocks.each_with_index do |b, bi|
             first = @first[bi]
             last = @last[bi]
-            b.params.each { |v, _| reach(from, to, @id.fetch(v), first) }
+            @params[bi].each { |v| reach(from, to, v, first) }
             first.upto(last) do |point|
               @results[point].each { |v| reach(from, to, v, point) }
               @uses[point].each { |v| reach(from, to, v, point) }
