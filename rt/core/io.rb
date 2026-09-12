@@ -166,7 +166,11 @@ class IO
     deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).to_i
     loop do
       ready = [readers, writers, priority].zip([POLL_IN, POLL_OUT, POLL_PRI]).map do |list, event|
-        Array(list).select { |io| Primitive.zr_io_wait(io.to_io.fileno, event, 0) & event != 0 }
+        Array(list).select do |io|
+          next true if event == POLL_IN && io.is_a?(IO) && io.send(:buffered?)
+
+          Primitive.zr_io_wait(io.to_io.fileno, event, 0) & event != 0
+        end
       end
       return ready if ready.any? { |list| !list.empty? }
       return nil if deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) >= deadline
@@ -913,6 +917,14 @@ class IO
   # An empty read buffer in the stream's encoding: binary in binary mode.
   # The access a mode asks for must be one the descriptor carries, as
   # rb_io_initialize checks it with fcntl.
+  # Bytes a read already took from the descriptor and did not hand out.
+  # A stream that holds them is ready to read whatever the descriptor
+  # itself would say.
+  def buffered?
+    Primitive.attr! :hidden
+    !@buffer.empty?
+  end
+
   def check_access
     Primitive.attr! :hidden
     # A duplex handle writes to its twin, so this descriptor only has
