@@ -21,8 +21,7 @@ module Marshal
   # parameters, under CRuby's names.
   def self.load(source, proc = nil, freeze: false)
     Primitive.attr! :ruby
-    bytes = source.respond_to?(:read) ? source.read : Primitive.zr_str_operand(source)
-    Reader.new(bytes, proc, freeze).run
+    Reader.new(source, proc, freeze).run
   end
 
   class << self
@@ -150,6 +149,8 @@ module Marshal
     end
 
     def hash(obj, limit)
+      raise TypeError, "can't dump hash with default proc" if obj.default_proc
+
       default = obj.default
       uclass(obj, Hash) << (default.nil? ? "{" : "}") << long(obj.size)
       obj.each_pair do |key, value|
@@ -179,7 +180,12 @@ module Marshal
 
       held = obj.class.ancestors
       own.ancestors.drop(1).take_while { |mod| !held.include?(mod) }.each do |mod|
-        @out << "e" << symbol_bytes(mod.name.to_sym) if mod.instance_of?(Module)
+        next unless mod.instance_of?(Module)
+        # A module with no name cannot be named on the wire, and w_extended
+        # says "class" wherever it says this.
+        raise TypeError, "can't dump anonymous class #{mod.inspect}" if mod.name.nil?
+
+        @out << "e" << symbol_bytes(mod.name.to_sym)
       end
     end
 
@@ -346,8 +352,12 @@ module Marshal
 
   # The reader, over the bytes a writer made.
   class Reader
-    def initialize(bytes, handler, freeze)
-      @bytes = bytes
+    # The bytes, or a stream to take them from. A stream hands over only
+    # the bytes one value asks for, so the value after it starts where
+    # this one stopped.
+    def initialize(source, handler, freeze)
+      @io = source.respond_to?(:read) ? source : nil
+      @bytes = @io ? +"".b : Primitive.zr_str_operand(source)
       @pos = 0
       @handler = handler
       @freeze = freeze
@@ -414,6 +424,7 @@ module Marshal
     # `I` names the ivars that follow the object they belong to, so the
     # object must be built before they can be read.
     def with_ivars
+      need(1)
       tag = @bytes.getbyte(@pos).chr
       return deferred(tag) if tag == "/" || tag == "u"
       return encoded_symbol if tag == ":"
@@ -598,8 +609,25 @@ module Marshal
       value
     end
 
+    # `count` more bytes in hand, where a stream can still give them.
+    def need(count)
+      return if @io.nil? || @pos + count <= @bytes.bytesize
+
+      more = @io.read(@pos + count - @bytes.bytesize)
+      @bytes << more.b if more
+    end
+
+    # A stream that runs out has reached its end; bytes that run out are
+    # a dump that was cut short.
+    def short!
+      raise EOFError, "end of file reached" if @io
+
+      raise ArgumentError, "marshal data too short"
+    end
+
     def byte
-      raise ArgumentError, "marshal data too short" if @pos >= @bytes.bytesize
+      need(1)
+      short! if @pos >= @bytes.bytesize
 
       b = @bytes.getbyte(@pos)
       @pos += 1
@@ -608,8 +636,9 @@ module Marshal
 
     def text
       size = long
+      need(size)
       out = @bytes.byteslice(@pos, size)
-      raise ArgumentError, "marshal data too short" if out.nil? || out.bytesize < size
+      short! if out.nil? || out.bytesize < size
 
       @pos += size
       out.dup.force_encoding(Encoding::BINARY)
