@@ -4,10 +4,15 @@ require_relative "helper"
 require_relative "../../lib/ze0/machine/lower"
 require_relative "../../lib/ze0/native/build"
 require_relative "../../test/native/fixtures"
+require_relative "rt_test"
 
-# The wasm road: every hand-written IR program and every kernel-dialect
-# program that names no raw function becomes one WASI module, and wasmtime
-# prints what the binary prints.
+# The wasm road: every hand-written IR program, every kernel-dialect
+# program that names no raw function, and every kernel core becomes one
+# WASI module, and wasmtime prints what the binary prints.
+#
+# Every wasm row is here, so a failure names the wasm backend and
+# nothing else. The same programs go through the aarch64 backend in
+# `native_test.rb`, `zr_test.rb` and `rt_test.rb`.
 class WasmTest < Minitest::Test
   WASMTIME = ENV["WASMTIME"] || "wasmtime"
 
@@ -15,11 +20,11 @@ class WasmTest < Minitest::Test
     system(WASMTIME, "--version", out: File::NULL, err: File::NULL)
   end
 
-  def run_module(wasm, expected, *args)
+  def run_module(wasm, expected, *args, status: 0)
     skip "wasmtime is not installed" unless self.class.wasmtime?
 
-    out = IO.popen([WASMTIME, wasm, *args], &:read)
-    assert_equal 0, $?.exitstatus, "wasmtime exited #{$?.exitstatus}"
+    out = IO.popen([WASMTIME, wasm, *args], err: %i[child out], &:read)
+    assert_equal status, $?.exitstatus, "wasmtime exited #{$?.exitstatus}: #{out}"
     assert_equal expected, out
   end
 
@@ -45,6 +50,21 @@ class WasmTest < Minitest::Test
         assert_nil Ze0::Native::Build.wasm(functions, data, wasm)
         run_module(wasm, File.binread(rb.sub(/\.rb\z/, ".stdout")))
         run_module(wasm, File.binread(rb.sub(/\.rb\z/, ".stdout")), "stress") if name == "gc"
+      end
+    end
+  end
+
+  # The kernel core, as `rt_test.rb` links it natively.
+  Dir[File.join(ROOT, "test/rt/*.rb")].sort.each do |rb|
+    name = File.basename(rb, ".rb")
+    exit_file = rb.sub(/\.rb\z/, ".exit")
+    status = File.file?(exit_file) ? Integer(File.read(exit_file)) : 0
+    define_method("test_rt_#{name}") do
+      functions, data, raw = RtTest.compile(rb)
+      Dir.mktmpdir("ze0-wasm-") do |dir|
+        wasm = File.join(dir, "#{name}.wasm")
+        assert_nil Ze0::Native::Build.wasm(functions, data, wasm, raw: raw)
+        run_module(wasm, File.binread(rb.sub(/\.rb\z/, ".stdout")), status: status)
       end
     end
   end
