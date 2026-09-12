@@ -276,21 +276,39 @@ module Process
 
     words = args.size == 1 ? shell_words(args.first) : args.map { |arg| arg.is_a?(Array) ? arg.first : arg }
     words.each do |word|
-      raise TypeError, "no implicit conversion of #{word.class} into String" unless word.is_a?(String)
+      raise TypeError, "no implicit conversion of #{type_name(word)} into String" unless word.is_a?(String)
       raise ArgumentError, "string contains null byte" if word.include?("\0")
     end
     words
   end
 
+  # rb_builtin_class_name: nil, true and false name themselves when a
+  # conversion refuses them, rather than naming their classes.
+  def self.type_name(value)
+    Primitive.attr! :hidden
+    return "nil" if value.nil?
+    return "true" if value.equal?(true)
+    return "false" if value.equal?(false)
+
+    value.class.to_s
+  end
+
   def self.shell_words(command)
-    raise TypeError, "no implicit conversion of #{command.class} into String" unless command.is_a?(String)
+    raise TypeError, "no implicit conversion of #{type_name(command)} into String" unless command.is_a?(String)
 
     # An `=` inside the first word makes it an assignment, which only a
     # shell can do, as rb_exec_fillarg reads it.
     first = command.split(" ").first || ""
-    return ["/bin/sh", "-c", command] if command.each_char.any? { |c| SHELL_META.include?(c) } || SHELL_WORDS.include?(first) || first.include?("=")
+    # rb_exec_fillarg hands the shell its own name as argv[0], which is
+    # the name a shell puts in front of its own complaints, and the
+    # spawn finds it on PATH.
+    return ["sh", "-c", command] if command.each_char.any? { |c| SHELL_META.include?(c) } || SHELL_WORDS.include?(first) || first.include?("=")
 
-    command.split(" ")
+    words = command.split(" ")
+    # A command of no words at all still names a program: rb_exec_fillarg
+    # leaves the name empty, and the exec of it answers ENOENT. An empty
+    # list would leave the spawn with no program name to read.
+    words.empty? ? [""] : words
   end
 
   # The child's whole environment as "KEY=value" strings, or nil to
