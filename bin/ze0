@@ -244,30 +244,39 @@ when "check"
   # programs wants a gigabyte or more, and a machine short of it stops
   # the run rather than swapping. `ZE0_JOBS` says otherwise.
   jobs = [Integer(ENV.fetch("ZE0_JOBS") { [Etc.nprocessors, 4].min }), queue.size].min
-  done = Queue.new
+  total = queue.size
+  rows = []
+  # A check file can run for a minute, and the whole run for several.
+  # Each one says how it went as it finishes, rather than the run
+  # holding every answer until the last of them is in.
+  $stdout.sync = true
+  say = Mutex.new
   started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  puts format("%d files, %d processes, %d at a time", files.size, total, jobs)
   Array.new(jobs) do
     Thread.new do
       until queue.empty?
         file, shard = (queue.pop(true) rescue break)
+        began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         out = IO.popen(shard ? { "ZE0_SHARD" => shard } : {},
                        [RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", file], err: %i[child out], &:read)
-        done << [file, shard, $?.success?, out]
+        ok = $?.success?
+        say.synchronize do
+          rows << [file, shard, ok, out]
+          name = File.basename(file, "_test.rb") + (shard ? " #{shard}" : "")
+          puts format("[%*d/%d] %-18s %6.1fs  %s%s", total.to_s.size, rows.size, total, name,
+                      Process.clock_gettime(Process::CLOCK_MONOTONIC) - began,
+                      out[/^\d+ runs.*$/] || "did not report a tally", ok ? "" : "  <-")
+        end
       end
     end
   end.each(&:join)
 
-  rows = []
-  rows << done.pop until done.empty?
-  rows.sort_by! { |file, shard, _, _| [file, shard.to_s] }
-  rows.each do |file, shard, ok, out|
-    name = File.basename(file, "_test.rb") + (shard ? " #{shard}" : "")
-    puts format("%-18s %s%s", name, out[/^\d+ runs.*$/] || "did not report a tally", ok ? "" : "  <-")
-  end
   failed = rows.reject { |_, _, ok, _| ok }
   failed.each { |file, _, _, out| warn("\n--- #{File.basename(file)}\n#{out}") }
   elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-  puts format("%d files, %d processes, %.1f s, %d at a time", files.size, rows.size, elapsed, jobs)
+  puts format("%d files, %d processes, %.1f s, %d at a time, %d failed",
+              files.size, rows.size, elapsed, jobs, failed.size)
   exit(failed.empty? ? 0 : 1)
 else
   usage
