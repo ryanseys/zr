@@ -259,6 +259,10 @@ module Ze0
         d zr_include_singleton Void copy:Value meta:Value
         d zr_data_new Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_data_constructors Value klass:Value
+        d zr_enc_mb_p Bool index:Word
+        d zr_enc_utf8_like_p Bool index:Word
+        d zr_mb_lead_len Word index:Word lead:Word second:Word
+        d zr_mb_trail_ok Bool index:Word lead:Word place:Word byte:Word
         d zr_args_init Void argc:I32 argv:Ptr
         d zr_cstr_len Word p:Ptr
         d zr_program_args Value
@@ -368,6 +372,7 @@ module Ze0
         d zr_current_task_slot Ptr
         d zr_task Ptr
         d zr_task_init Void t:Ptr
+        d zr_ractor_enter_m Value
         d zr_fiber_current Value
         d zr_fiber_current_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_fiber_new Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -727,6 +732,7 @@ module Ze0
         d zr_obj_alloc Value klass:Value
         d zr_ivtab_row Ptr t:Ptr id:Word
         d zr_ivtab_get Value t:Ptr id:Word
+        d zr_ractor_guard Value obj:Value
         d zr_ivar_defined Value obj:Value id:Word
         d zr_method_defined Value recv:Value id:Word explicit:Bool
         d zr_ivar_get Value obj:Value id:Word
@@ -823,6 +829,8 @@ module Ze0
         d zr_env_set Value env:Value i:Word v:Value
         d zr_mark_env Void e:Value
         d zr_mark_proc Void p:Value
+        d zr_proc_rebind_m Value p:Value self_:Value
+        d zr_proc_captures_m Value p:Value
         d zr_proc_new Value meta:Ptr env:Value self_:Value cref:Value blk:Value home:Ptr site_and_spread:Word ret_home:Ptr
         d zr_symbol_block Value p:Value argc:Word argv:Ptr blk:Value
         d zr_sym_to_proc Value sym:Value
@@ -1062,6 +1070,9 @@ module Ze0
         d zr_str_copy_encoding Value s:Value src:Value
         d zr_str_binary_p Bool s:Value
         d zr_str_wide_p Bool s:Value
+        d zr_str_mb_p Bool s:Value
+        d zr_str_mb_len Word s:Value off:Word
+        d zr_str_bad_bytes Value s:Value
         d zr_enc_ascii_compat_p Bool index:Word
         d zr_str_unit Word s:Value
         d zr_str_unit_at Word s:Value off:Word unit:Word
@@ -1417,7 +1428,7 @@ module Ze0
         s GateRow 40 8 klass:0:Word mid:8:Word bit:16:Word fn:24:Ptr vis:32:Word
         s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word
         s RCref 64 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr
-        s FrameMeta 112 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr locals:80:Ptr env:88:Word box:96:Value ruby:104:Word
+        s FrameMeta 120 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr locals:80:Ptr env:88:Word box:96:Value ruby:104:Word captures:112:Ptr
         s BtRow 32 8 meta:0:Ptr file:8:Ptr file_len:16:Word line:24:Word
         s RException 56 8 basic:0:RBasic message:16:Value rows:24:Ptr nrows:32:Word bt:40:Value cause:48:Value
         s RFiber 112 8 basic:0:RBasic task:16:Ptr ctx:24:Ptr stack:32:Ptr kroots:40:Ptr blk:48:Value status:56:Word prev:64:Value resuming:72:Value value:80:Value yielding:88:Word transferred:96:Word home:104:Value
@@ -1426,7 +1437,7 @@ module Ze0
         s HEntry 32 8 key:0:Value value:8:Value live:16:Word hash:24:Word
         s Heap 72 8 free:0:Ptr allocated:8:Word collections:16:Word stress:24:Word last:32:Ptr disabled:40:Word arenas:48:Word freed:56:Word nanoseconds:64:Word
         s Frame 96 8 prev:0:Ptr meta:8:Ptr line:16:Word serial:24:Word self:32:Value cref:40:Value blk:48:Value nvalues:56:Word mid:64:Word svar:72:Value lastline:80:Value defined:88:Value
-        s Task 128 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value mid:96:Word missing:104:Word found:112:Value refine:120:Value
+        s Task 136 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value mid:96:Word missing:104:Word found:112:Value refine:120:Value ractor:128:Word
         s MarkStack 24 8 ptr:0:Ptr len:8:Word capa:16:Word
         s RMethod 112 8 basic:0:RBasic recv:16:Value klass:24:Value owner:32:Value entry:40:MEntry
         s IvTab 24 8 rows:0:Ptr len:8:Word cap:16:Word
