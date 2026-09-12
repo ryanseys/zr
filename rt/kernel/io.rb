@@ -252,6 +252,67 @@ machine def zr_io_tty_p(fd)
   zr_bool(Machine.word(isatty(Machine.i32(zr_fix2long(fd)))) != 0)
 end
 
+# The terminal calls io/console makes. `ioctl` names its third argument
+# variadically, and every one of these passes a single pointer, which
+# this platform takes in a register either way.
+Machine.import "ioctl", [I32, Word, Ptr] => I32
+Machine.import "tcgetattr", [I32, Ptr] => I32
+Machine.import "tcsetattr", [I32, I32, Ptr] => I32
+Machine.import "tcflush", [I32, I32] => I32
+Machine.import "ttyname", [I32] => Ptr
+
+TIOCGWINSZ = 1074295912
+TIOCSWINSZ = 2148037735
+# struct winsize: four unsigned shorts, the rows and the columns first.
+WINSIZE_LEN = 8
+# struct termios: four flag words, twenty control characters, and then
+# the two speeds. The bytes cross into ruby as they stand, because the
+# flags a mode changes are ruby's to name.
+TERMIOS_LEN = 72
+
+# The window size as its own bytes, or the negated errno.
+sig [Value] => Value
+machine def zr_io_winsize(fd)
+  buf = Machine.slot(WINSIZE_LEN)
+  if ioctl(Machine.i32(zr_fix2long(fd)), TIOCGWINSZ, buf) < Machine.i32(0)
+    return zr_fix(0 - zr_errno())
+  end
+  zr_str_new(buf, WINSIZE_LEN)
+end
+
+sig [Value, Value] => Value
+machine def zr_io_set_winsize(fd, bytes)
+  zr_io_status(ioctl(Machine.i32(zr_fix2long(fd)), TIOCSWINSZ, RString.ptr(bytes)))
+end
+
+# The terminal's mode as its own bytes, or the negated errno.
+sig [Value] => Value
+machine def zr_io_termios(fd)
+  buf = Machine.slot(TERMIOS_LEN)
+  if tcgetattr(Machine.i32(zr_fix2long(fd)), buf) < Machine.i32(0)
+    return zr_fix(0 - zr_errno())
+  end
+  zr_str_new(buf, TERMIOS_LEN)
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_io_set_termios(fd, action, bytes)
+  zr_io_status(tcsetattr(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(action)),
+                         RString.ptr(bytes)))
+end
+
+sig [Value, Value] => Value
+machine def zr_io_tcflush(fd, queue)
+  zr_io_status(tcflush(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(queue))))
+end
+
+# The terminal's name, and nil for a descriptor that is not one.
+sig [Value] => Value
+machine def zr_io_ttyname(fd)
+  name = ttyname(Machine.i32(zr_fix2long(fd)))
+  Machine.word(name) == 0 ? Machine.value(QNIL) : zr_cstr_str(name)
+end
+
 sig [Value] => Value
 machine def zr_io_unlink(path)
   zr_io_status(unlink(RString.ptr(path)))
