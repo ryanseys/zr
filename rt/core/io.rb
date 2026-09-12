@@ -27,6 +27,11 @@ class IO
   PRIORITY = 2
   WRITABLE = 4
 
+  # O_NONBLOCK, which `File::NONBLOCK` also names. IO answers its own
+  # descriptors before File exists, so the flag is IO's own here.
+  NONBLOCK = 4
+  private_constant :NONBLOCK
+
   POLL_IN = READABLE
   POLL_PRI = PRIORITY
   POLL_OUT = WRITABLE
@@ -42,6 +47,10 @@ class IO
     # rb_io_synchronized: the write end of a pipe holds nothing back,
     # so a reader of the other end sees each write as it happens.
     writer.sync = true
+    # rb_pipe marks both ends non-blocking, and a program that asks sees
+    # the flag ruby set.
+    reader.send(:set_nonblock, true)
+    writer.send(:set_nonblock, true)
     return [reader, writer] unless block_given?
 
     begin
@@ -182,9 +191,10 @@ class IO
     loop do
       ready = [readers, writers, priority].zip([POLL_IN, POLL_OUT, POLL_PRI]).map do |list, event|
         Array(list).select do |io|
-          next true if event == POLL_IN && io.is_a?(IO) && io.send(:buffered?)
+          stream = select_stream(io)
+          next true if event == POLL_IN && stream.send(:buffered?)
 
-          Primitive.zr_io_wait(io.to_io.fileno, event, 0) & event != 0
+          Primitive.zr_io_wait(stream.fileno, event, 0) & event != 0
         end
       end
       return ready if ready.any? { |list| !list.empty? }
@@ -194,6 +204,21 @@ class IO
       sleep 0.001
     end
   end
+
+  # What a `select` list entry stands for: a stream, or whatever its
+  # `to_io` answers. Anything that has no `to_io` is no stream at all,
+  # and ruby says so of it by name.
+  def self.select_stream(entry)
+    Primitive.attr! :hidden
+    return entry if entry.is_a?(IO)
+    raise TypeError, "no implicit conversion of #{entry.class} into IO" unless entry.respond_to?(:to_io)
+
+    stream = entry.to_io
+    raise TypeError, "can't convert #{entry.class} to IO (#{entry.class}#to_io gives #{stream.class})" unless stream.is_a?(IO)
+
+    stream
+  end
+  private_class_method :select_stream
 
   # Runs the command with a pipe on its standard input or output. With
   # a block the stream closes and the child is waited for after it, and
@@ -301,6 +326,9 @@ class IO
     @pid = options[:pid]
     @closed = false
     @sync = false
+    # O_NONBLOCK as the descriptor itself holds it: a pipe end, or a
+    # socket another process opened, can arrive with the flag set.
+    @nonblock = nonblock_flag?
     # FMODE_TTY: a terminal writes at once, as a synchronous stream does.
     @tty = Primitive.zr_io_tty_p(fd)
     @lineno = 0
@@ -692,6 +720,12 @@ class IO
   def read_nonblock(len, buf = nil, exception: true)
     Primitive.attr! :ruby
     check_readable
+    raise ArgumentError, "negative length #{len} given" if len < 0
+    if !buffered? && !len.zero? && would_block?(READABLE)
+      return :wait_readable unless exception
+
+      raise EAGAINWaitReadable, "Resource temporarily unavailable - read would block"
+    end
     text = read_some(len)
     return nil if text.nil? && !exception
 
@@ -700,7 +734,22 @@ class IO
 
   def write_nonblock(buf, exception: true)
     Primitive.attr! :ruby
-    write(buf)
+    check_writable
+    text = buf.is_a?(String) ? buf : buf.to_s
+    if would_block?(WRITABLE)
+      return :wait_writable unless exception
+
+      raise EAGAINWaitWritable, "Resource temporarily unavailable - write would block"
+    end
+    # What waits in the buffer goes first, so the bytes keep their order.
+    write_pending
+    wrote = Primitive.zr_io_write_some(@twin || @fd, text, 0, text.bytesize)
+    if wrote < 0 && -wrote == Errno::EAGAIN::Errno
+      return :wait_writable unless exception
+
+      raise EAGAINWaitWritable, "Resource temporarily unavailable - write would block"
+    end
+    checked_write(wrote)
   end
 
   def putc(c)
@@ -895,6 +944,34 @@ class IO
     Primitive.zr_io_wait(fd, event, -1) if @nonblock
   end
 
+  # Whether a call on this descriptor would wait. A non-blocking call
+  # asks this first and then makes the ordinary call, which a descriptor
+  # that is ready answers at once.
+  def would_block?(event)
+    Primitive.attr! :hidden
+    ready = Primitive.zr_io_wait(@fd, event, 0)
+    ready <= 0 || (ready & event).zero?
+  end
+
+  # O_NONBLOCK on the descriptor itself. Every call on it then waits in
+  # select(2) before the call rather than inside it, which is what lets a
+  # green sibling run while this task waits.
+  def set_nonblock(on)
+    Primitive.attr! :hidden
+    answer = Primitive.zr_io_set_nonblock(@fd, on ? 1 : 0)
+    raise SystemCallError.new("@ set_nonblock - #{label}", -answer) unless answer.zero?
+
+    @nonblock = on
+  end
+
+  # The flag as the descriptor itself holds it, which another process or
+  # an accepted socket can have set.
+  def nonblock_flag?
+    Primitive.attr! :hidden
+    flags = Primitive.zr_io_flags(@fd)
+    flags >= 0 && (flags & NONBLOCK) != 0
+  end
+
   # The bytes out, in pieces a ready descriptor takes without waiting:
   # one write(2) of a whole 200KB string blocks until the reader drains
   # the pipe, and a green sibling is the only one who can drain it.
@@ -931,13 +1008,23 @@ class IO
   def write_now(text)
     Primitive.attr! :hidden
     fd = @twin || @fd
-    return checked_write(Primitive.zr_io_write(fd, text)) if !Primitive.zr_threaded || Thread.send(:alone?)
+    return checked_write(Primitive.zr_io_write(fd, text)) if !@nonblock && (!Primitive.zr_threaded || Thread.send(:alone?))
 
     from = 0
     size = text.bytesize
+    # A descriptor that cannot wait takes what it has room for and says
+    # how much; a blocking one is fed in pieces it always has room for.
+    piece = @nonblock ? size : ATOMIC
     while from < size
       park_until(WRITABLE, fd)
-      from += checked_write(Primitive.zr_io_write_some(fd, text, from, ATOMIC))
+      wrote = Primitive.zr_io_write_some(fd, text, from, piece)
+      # A descriptor can still say "not yet" after select(2) said it was
+      # ready, so the write comes round again.
+      if wrote < 0 && -wrote == Errno::EAGAIN::Errno
+        Thread.pass
+        next
+      end
+      from += checked_write(wrote)
     end
     size
   end

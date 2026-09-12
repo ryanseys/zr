@@ -63,6 +63,31 @@ machine def zr_io_flags(fd)
   zr_io_failed(Machine.word(fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(F_GETFL))))
 end
 
+# A descriptor that answers EAGAIN instead of waiting. `fcntl` takes the
+# flags of F_SETFL variadically, and this platform passes a variadic
+# argument on the stack, which this runtime makes no call for; `__fcntl`
+# is the fixed-arity call that fcntl's own wrapper makes once it has read
+# that argument.
+Machine.import "__fcntl", [I32, I32, Word] => I32
+F_SETFL = 4
+O_NONBLOCK = 4
+# Every flag but O_NONBLOCK, which takes the flag away again.
+O_NONBLOCK_OFF = 4294967291
+
+sig [Value, Value] => Value
+machine def zr_io_set_nonblock(fd, on)
+  n = Machine.i32(zr_fix2long(fd))
+  r = fcntl(n, Machine.i32(F_GETFL))
+  if r < Machine.i32(0)
+    return zr_fix(0 - zr_errno())
+  end
+  flags = Machine.word(r)
+  if zr_fix2long(on) != 0
+    return zr_io_status(__fcntl(n, Machine.i32(F_SETFL), flags | O_NONBLOCK))
+  end
+  zr_io_status(__fcntl(n, Machine.i32(F_SETFL), flags & O_NONBLOCK_OFF))
+end
+
 # fcntl(2) with a command the program names itself. Only a command
 # that reads comes here, because the argument of the others is
 # variadic and this runtime makes no variadic call.

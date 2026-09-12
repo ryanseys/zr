@@ -31,7 +31,12 @@ class BasicSocket < IO
     flag
   end
 
+  # `recv` reads the descriptor itself, so it cannot see what the stream
+  # already read ahead: with bytes waiting there it refuses, as ruby's
+  # does, rather than hand back the bytes after them.
   def recv(length, flags = 0)
+    raise IOError, "recv for buffered IO" if __send__(:buffered?)
+
     answer = Primitive.zr_sock_recv(fileno, length, flags)
     raise SystemCallError.new(nil, -answer) if answer.is_a?(Integer)
 
@@ -175,7 +180,9 @@ class Socket < BasicSocket
 
   # ruby names every constant on Socket itself as well, which is what
   # the singleton methods below read.
-  include Constants
+  # `sock_define_const` writes every name twice, once here and once on
+  # Socket::Constants, and includes that module nowhere: a lookup through
+  # Socket reaches its own table, never the other one.
   Constants.constants.each { |name| const_set(name, Constants.const_get(name)) }
 
   # A sockaddr's own bytes, per family, the way BSD lays them out: a
@@ -272,6 +279,22 @@ class Socket < BasicSocket
       raise ResolutionError.new("getaddrinfo: #{Primitive.zr_sock_gai_message(rows)}", rows) if rows.is_a?(Integer)
 
       rows
+    end
+
+    # A socket kind named as ruby names it: `:STREAM` and `"SOCK_DGRAM"`
+    # stand for the numbers, which is what the system call takes.
+    def socktype_number(type)
+      return type if type.is_a?(Integer)
+
+      name = type.to_s.sub(/\ASOCK_/, "")
+      case name
+      when "STREAM" then SOCK_STREAM
+      when "DGRAM" then SOCK_DGRAM
+      when "RAW" then SOCK_RAW
+      when "SEQPACKET" then SOCK_SEQPACKET
+      when "RDM" then SOCK_RDM
+      else raise SocketError, "unknown socket type name: #{name}"
+      end
     end
 
     def family_number(family)
@@ -379,7 +402,8 @@ class Socket < BasicSocket
   end
 
   def initialize(domain = AF_INET, type = SOCK_STREAM, protocol = 0, fd: nil)
-    fd ||= Socket.send(:open_descriptor, Socket.send(:family_number, domain), type, protocol)
+    kind = Socket.send(:socktype_number, type)
+    fd ||= Socket.send(:open_descriptor, Socket.send(:family_number, domain), kind, protocol)
     super(fd, "r+")
     @domain = Socket.send(:family_number, domain)
   end
@@ -387,6 +411,58 @@ class Socket < BasicSocket
   def bind(sockaddr) = check(Primitive.zr_sock_bind(fileno, sockaddr_of(sockaddr)))
 
   def connect(sockaddr) = check(Primitive.zr_sock_connect(fileno, sockaddr_of(sockaddr)))
+
+  # A connection begun and not waited for: the first call says the work
+  # is under way, and a later one says it is done. `exception: false`
+  # answers the symbol instead of raising.
+  def connect_nonblock(sockaddr, exception: true)
+    set_nonblock(true)
+    answer = Primitive.zr_sock_connect(fileno, sockaddr_of(sockaddr))
+    return 0 if answer.zero?
+
+    errno = -answer
+    if errno == Errno::EINPROGRESS::Errno || errno == Errno::EALREADY::Errno
+      return :wait_writable unless exception
+
+      raise IO::EINPROGRESSWaitWritable, "Operation now in progress - connect(2) would block"
+    end
+    # A connection already made answers 0 to a caller who asked for no
+    # exception, as rsock_connect does.
+    return 0 if errno == Errno::EISCONN::Errno && !exception
+
+    raise SystemCallError.new(nil, errno)
+  end
+
+  # A connection taken if one waits, and the wait named if none does.
+  def accept_nonblock(exception: true)
+    set_nonblock(true)
+    answer = Primitive.zr_sock_accept(fileno)
+    if answer.is_a?(Integer)
+      errno = -answer
+      if errno == Errno::EAGAIN::Errno || errno == Errno::EWOULDBLOCK::Errno
+        return :wait_readable unless exception
+
+        raise IO::EAGAINWaitReadable, "Resource temporarily unavailable - accept(2) would block"
+      end
+      raise SystemCallError.new(nil, errno)
+    end
+    [Socket.new(@domain, SOCK_STREAM, 0, fd: answer[0]), Addrinfo.new(answer[1])]
+  end
+
+  def recvfrom_nonblock(length, flags = 0, exception: true)
+    set_nonblock(true)
+    answer = Primitive.zr_sock_recvfrom(fileno, length, flags | Socket::MSG_DONTWAIT)
+    if answer.is_a?(Integer)
+      errno = -answer
+      if errno == Errno::EAGAIN::Errno || errno == Errno::EWOULDBLOCK::Errno
+        return :wait_readable unless exception
+
+        raise IO::EAGAINWaitReadable, "Resource temporarily unavailable - recvfrom(2) would block"
+      end
+      raise SystemCallError.new(nil, errno)
+    end
+    [answer[0], Addrinfo.new(answer[1])]
+  end
 
   def listen(backlog = 5) = check(Primitive.zr_sock_listen(fileno, backlog))
 
@@ -444,6 +520,9 @@ class Addrinfo
 
   def self.unix(path, socktype = Socket::SOCK_STREAM) = new(Socket.pack_sockaddr_un(path), Socket::AF_UNIX, socktype)
 
+  # An address with a host and no port or kind of its own.
+  def self.ip(host) = new(Socket.pack_sockaddr_in(0, host))
+
   def afamily = @family
 
   def pfamily = @family
@@ -468,12 +547,43 @@ class Addrinfo
 
   def getnameinfo(flags = 0) = Socket.getnameinfo(@sockaddr, flags)
 
-  def inspect = "#<Addrinfo: #{inspect_sockaddr}>"
+  # `#<Addrinfo: 127.0.0.1:80 TCP>`: the address, and the protocol when
+  # the address names one.
+  def inspect
+    name = protocol_name
+    name.nil? ? "#<Addrinfo: #{inspect_sockaddr}>" : "#<Addrinfo: #{inspect_sockaddr} #{name}>"
+  end
 
+  # An address with no port of its own shows the host alone, as ruby's
+  # does for a bare sockaddr.
   def inspect_sockaddr
     return unix_path if unix?
+    return ip_address if ip_port.zero?
 
     ipv6? ? "[#{ip_address}]:#{ip_port}" : "#{ip_address}:#{ip_port}"
+  end
+
+  private
+
+  def protocol_name
+    Primitive.attr! :hidden
+    return socktype_name unless ip?
+
+    case @protocol
+    when Socket::IPPROTO_TCP then "TCP"
+    when Socket::IPPROTO_UDP then "UDP"
+    end
+  end
+
+  # A path address names the kind of socket it is for instead, since no
+  # protocol number stands behind it.
+  def socktype_name
+    Primitive.attr! :hidden
+    case @socktype
+    when Socket::SOCK_STREAM then "SOCK_STREAM"
+    when Socket::SOCK_DGRAM then "SOCK_DGRAM"
+    when Socket::SOCK_SEQPACKET then "SOCK_SEQPACKET"
+    end
   end
 end
 
@@ -525,9 +635,14 @@ class TCPSocket < IPSocket
     raise SystemCallError.new(nil, -answer) unless answer.zero?
   end
 
+  # A refusal names the call and where it was aimed, as ruby's does:
+  # `Connection refused - connect(2) for "127.0.0.1" port 80`.
   def connect_to(sockaddr)
     answer = Primitive.zr_sock_connect(fileno, sockaddr)
-    raise SystemCallError.new(nil, -answer) unless answer.zero?
+    return if answer.zero?
+
+    port, address = Socket.unpack_sockaddr_in(sockaddr)
+    raise SystemCallError.new("connect(2) for #{address.inspect} port #{port}", -answer)
   end
 end
 
@@ -555,6 +670,22 @@ class TCPServer < TCPSocket
     answer = Primitive.zr_sock_accept(fileno)
     raise SystemCallError.new(nil, -answer) if answer.is_a?(Integer)
 
+    TCPSocket.new(nil, nil, fd: answer[0])
+  end
+
+  # A connection taken if one waits, and the wait named if none does.
+  def accept_nonblock(exception: true)
+    set_nonblock(true)
+    answer = Primitive.zr_sock_accept(fileno)
+    if answer.is_a?(Integer)
+      errno = -answer
+      if errno == Errno::EAGAIN::Errno || errno == Errno::EWOULDBLOCK::Errno
+        return :wait_readable unless exception
+
+        raise IO::EAGAINWaitReadable, "Resource temporarily unavailable - accept(2) would block"
+      end
+      raise SystemCallError.new(nil, errno)
+    end
     TCPSocket.new(nil, nil, fd: answer[0])
   end
 

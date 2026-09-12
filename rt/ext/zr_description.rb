@@ -613,6 +613,7 @@ module Ze0
         d zr_io_failed Value r:Word
         d zr_io_status Value r:I32
         d zr_io_flags Value fd:Value
+        d zr_io_set_nonblock Value fd:Value on:Value
         d zr_io_fcntl Value fd:Value command:Value
         d zr_io_open_flags Value path:Value flags:Value
         d zr_io_chmod_fd Value fd:Value mode:Value
@@ -1313,6 +1314,9 @@ module Ze0
         c GATE_XOR 262144
         c GATE_SHR 524288
         c F_GETFL 3
+        c F_SETFL 4
+        c O_NONBLOCK 4
+        c O_NONBLOCK_OFF 4294967291
         c O_CLOEXEC 16777216
         c WAIT_READABLE 1
         c WAIT_PRIORITY 2
