@@ -53,7 +53,7 @@ module Ze0
 
           number
           flow
-          named(scan(intervals))
+          named(scan(*intervals))
         end
 
         private
@@ -114,21 +114,22 @@ module Ze0
           # Popped from the end, so the last block settles first: liveness
           # flows backwards, and a chain then settles in one pass.
           work = (0...count).to_a
-          queued = work.to_set
+          queued = Array.new(count, true)
           until work.empty?
             bi = work.pop
-            queued.delete(bi)
+            queued[bi] = false
             out = Set.new
             successors[bi].each { |s| out.merge(into[s]) }
-            # `gen | (out - kill)`, spelled so the result carries gen's
-            # own order first: a Set keeps what it was given in the order
-            # it was given, `intervals` walks these sets, and the order
-            # it walks them in decides which values tie in the scan.
-            now = gen[bi] | out.subtract(kill[bi])
+            now = out.subtract(kill[bi]).merge(gen[bi])
             next if now == into[bi]
 
             into[bi] = now
-            before[bi].each { |p| work << p if queued.add?(p) }
+            before[bi].each do |p|
+              next if queued[p]
+
+              queued[p] = true
+              work << p
+            end
           end
           @live_in = into
           @live_out = Array.new(count) do |bi|
@@ -171,46 +172,42 @@ module Ze0
         # where it is defined, where it is used, and the whole of any
         # block it is live across. Covering the holes as well is
         # conservative, and conservative here means correct.
+        #
+        # `[order, from, to]`: the values that have an interval, in scan
+        # order, and where each one begins and ends. Three arrays and not
+        # a list of triples, because a triple a value was a fifth of
+        # everything the backend allocated.
         def intervals
-          from = Array.new(@id.size)
-          to = Array.new(@id.size)
-          # The values in the order they were first reached. The sort
-          # below is not a stable one, so this order decides which of two
-          # intervals that start and end together is scanned first, and
-          # that decides which of them keeps a register.
-          order = []
+          count = @id.size
+          from = Array.new(count)
+          to = Array.new(count)
           @f.blocks.each_with_index do |b, bi|
             first = @first[bi]
             last = @last[bi]
-            b.params.each { |v, _| reach(from, to, order, @id.fetch(v), first) }
+            b.params.each { |v, _| reach(from, to, @id.fetch(v), first) }
             first.upto(last) do |point|
-              @results[point].each { |v| reach(from, to, order, v, point) }
-              @uses[point].each { |v| reach(from, to, order, v, point) }
+              @results[point].each { |v| reach(from, to, v, point) }
+              @uses[point].each { |v| reach(from, to, v, point) }
             end
-            @live_in[bi].each { |v| reach(from, to, order, v, first) }
-            @live_out[bi].each { |v| reach(from, to, order, v, last) }
+            @live_in[bi].each { |v| reach(from, to, v, first) }
+            @live_out[bi].each { |v| reach(from, to, v, last) }
           end
-          # By start, then by end, then by the order above. Ruby's sort is
-          # not a stable one, so without that last term which of two
-          # intervals that begin and end together keeps a register is
-          # decided by the sort's own internals, and a ruby that sorted
-          # differently would hand out different registers. One Integer
-          # carries all three, so the sort compares Integers rather than
-          # building an Array a value.
+          # By start, then by end, then by the value's own number. Ruby's
+          # sort is not a stable one, so without that last term which of
+          # two intervals that begin and end together keeps a register
+          # would be the sort's own business. Naming the value settles it
+          # outright, and owes nothing to the order anything above was
+          # walked in. One Integer carries all three.
           span = @points + 1
-          rank = order.size
-          list = order.each_with_index.map do |v, i|
-            [v, from[v], to[v], ((((from[v] * span) + to[v]) * rank) + i)]
-          end
-          list.sort_by! { |iv| iv[3] }
-          list
+          order = (0...count).select { |v| from[v] }
+          order.sort_by! { |v| (((from[v] * span) + to[v]) * count) + v }
+          [order, from, to]
         end
 
         # `v` reaches `point`, so its interval holds it.
-        def reach(from, to, order, v, point)
+        def reach(from, to, v, point)
           low = from[v]
           if low.nil?
-            order << v
             from[v] = point
             to[v] = point
             return
@@ -223,26 +220,27 @@ module Ze0
         # giving back the ones whose values are dead. When the pool is
         # empty the longest-lived interval loses its register, because it
         # is the one that would hold a register longest for the least.
-        def scan(intervals)
+        def scan(order, from, to)
           free = POOL.dup
           active = []
           taken = {}
-          intervals.each do |(value, first, last)|
+          order.each do |value|
+            first = from[value]
             active.reject! do |other|
-              next false if other[2] >= first
+              next false if to[other] >= first
 
-              free << taken.fetch(other[0])
+              free << taken.fetch(other)
               true
             end
             if free.empty?
-              longest = (active + [[value, first, last]]).max_by { |iv| iv[2] }
-              next if longest[0] == value
+              longest = active.max_by { |other| to[other] }
+              next if longest.nil? || to[value] > to[longest]
 
-              free << taken.delete(longest[0])
+              free << taken.delete(longest)
               active.delete(longest)
             end
             taken[value] = free.shift
-            active << [value, first, last]
+            active << value
           end
           taken
         end
