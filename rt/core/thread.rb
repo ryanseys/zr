@@ -865,7 +865,12 @@ class Thread::Queue
 
   def num_waiting = @waiters.size
 
-  def freeze = Primitive.zr_unimplemented("Thread::Queue#freeze")
+  # A queue takes messages and gives them away, so a frozen one could do
+  # neither: ruby refuses to freeze one at all. A SizedQueue is a queue,
+  # and the refusal names whichever class it is.
+  def freeze
+    raise TypeError, "cannot freeze #{Primitive.zr_any_to_s(self)}"
+  end
 end
 
 class Thread::SizedQueue < Thread::Queue
