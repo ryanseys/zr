@@ -179,8 +179,12 @@ class IO
   # Runs the command with a pipe on its standard input or output. With
   # a block the stream closes and the child is waited for after it, and
   # the block's value is the answer.
-  def self.popen(command, mode = "r", **options)
-    io = popen_stream(command, mode.to_s, options)
+  def self.popen(*args, **options)
+    env = args.first.is_a?(Hash) ? args.shift : nil
+    command, mode = args
+    raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if args.empty?
+
+    io = popen_stream(command, (mode || "r").to_s, options, env)
     return io unless block_given?
 
     begin
@@ -198,21 +202,34 @@ class IO
     ends
   end
 
-  def self.popen_stream(command, mode, options)
-    Primitive.zr_unimplemented("IO.popen in a read-write mode") if mode.include?("+")
-    reading = mode.start_with?("r")
+  # A child with a pipe on its standard output ("r"), one on its
+  # standard input ("w"), or one on each ("r+"): the handle of a
+  # read-write mode reads the first pipe and writes the second.
+  def self.popen_stream(command, mode, options, env = nil)
+    duplex = mode.include?("+")
+    reading = duplex || mode.start_with?("r")
     raise ArgumentError, "invalid access mode #{mode}" unless reading || mode.start_with?("w", "a")
 
     read_fd, write_fd = pipe_ends
     ours, theirs = reading ? [read_fd, write_fd] : [write_fd, read_fd]
     plan = { (reading ? 1 : 0) => theirs, ours => :close }
-    pid = Process.send(:spawn_command, Array(command), plan.merge(options))
+    twin = nil
+    child_in = nil
+    if duplex
+      child_in, twin = pipe_ends
+      plan[0] = child_in
+      plan[twin] = :close
+    end
+    words = Array(command)
+    pid = Process.send(:spawn_command, env ? [env, *words] : words, plan.merge(options))
     Primitive.zr_io_close(theirs)
+    Primitive.zr_io_close(child_in) if child_in
     if pid.nil?
       Primitive.zr_io_close(ours)
-      raise SystemCallError.new(Process.send(:command_words, Array(command)).first, 2)
+      Primitive.zr_io_close(twin) if twin
+      raise SystemCallError.new(Process.send(:command_words, words).first, 2)
     end
-    new(ours, reading ? "r" : "w", pid: pid)
+    new(ours, duplex ? "r+" : (reading ? "r" : "w"), pid: pid, twin: twin)
   end
 
   private_class_method :pipe_ends, :popen_stream
@@ -249,6 +266,9 @@ class IO
     # What the mode allows, decided once: every read and write asks.
     @readable = !text.start_with?("w", "a") || text.include?("+")
     @writable = !text.start_with?("r") || text.include?("+")
+    # A duplex popen writes to a second descriptor, the twin of this
+    # one: the child's standard input, where this one is its output.
+    @twin = options[:twin]
     check_access
     @external = external
     @internal = internal
@@ -293,6 +313,10 @@ class IO
     return nil if @closed
 
     @closed = true
+    if @twin
+      Primitive.zr_io_close(@twin)
+      @twin = nil
+    end
     result = @autoclose ? Primitive.zr_io_close(@fd) : 0
     raise SystemCallError.new(nil, -result) if result < 0
 
@@ -396,10 +420,19 @@ class IO
     close
   end
 
+  # A duplex handle half-closes for real: the twin goes and the child
+  # reads its end of input, while what it answers stays readable here.
   def close_write
     raise IOError, "closing non-duplex IO for writing" if @mode.start_with?("r") && !@mode.include?("+")
+    return close unless @twin
 
-    close
+    fd = @twin
+    @twin = nil
+    @writable = false
+    result = Primitive.zr_io_close(fd)
+    raise SystemCallError.new(nil, -result) if result < 0
+
+    nil
   end
 
   # The child a popen started, waited for when this stream closes.
@@ -783,14 +816,14 @@ class IO
   # green thread, so a task that shares the process with others hands
   # the turn on until the descriptor answers. A lone task waits in the
   # system call itself, or in poll(2) when the descriptor cannot wait.
-  def park_until(event)
+  def park_until(event, fd = @fd)
     Primitive.attr! :hidden
     until !Primitive.zr_threaded || Thread.send(:alone?)
-      return if Primitive.zr_io_wait(@fd, event, 0) != 0
+      return if Primitive.zr_io_wait(fd, event, 0) != 0
 
       sleep 0.001
     end
-    Primitive.zr_io_wait(@fd, event, -1) if @nonblock
+    Primitive.zr_io_wait(fd, event, -1) if @nonblock
   end
 
   # The bytes out, in pieces a ready descriptor takes without waiting:
@@ -798,13 +831,14 @@ class IO
   # the pipe, and a green sibling is the only one who can drain it.
   def write_bytes(text)
     Primitive.attr! :hidden
-    return checked_write(Primitive.zr_io_write(@fd, text)) if !Primitive.zr_threaded || Thread.send(:alone?)
+    fd = @twin || @fd
+    return checked_write(Primitive.zr_io_write(fd, text)) if !Primitive.zr_threaded || Thread.send(:alone?)
 
     from = 0
     size = text.bytesize
     while from < size
-      park_until(WRITABLE)
-      from += checked_write(Primitive.zr_io_write_some(@fd, text, from, ATOMIC))
+      park_until(WRITABLE, fd)
+      from += checked_write(Primitive.zr_io_write_some(fd, text, from, ATOMIC))
     end
     size
   end
@@ -881,6 +915,10 @@ class IO
   # rb_io_initialize checks it with fcntl.
   def check_access
     Primitive.attr! :hidden
+    # A duplex handle writes to its twin, so this descriptor only has
+    # to allow what a read asks for.
+    return if @twin
+
     flags = Primitive.zr_io_flags(@fd)
     raise SystemCallError.new(nil, -flags) if flags < 0
     return if (flags & 3) == 2
