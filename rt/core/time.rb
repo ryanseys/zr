@@ -38,16 +38,6 @@ class Time
       at_ns(ns, zone)
     end
 
-    def new(year = nil, month = nil, day = nil, hour = nil, min = nil, sec = nil, zone = nil, **options)
-      option = options[:in]
-      raise ArgumentError, "timezone argument given as positional and keyword arguments" if zone && option
-
-      return now(**options) if year.nil?
-      return Primitive.zr_unimplemented("Time.new with a string") if year.is_a?(String)
-
-      civil(year, month, day, hour, min, sec, zone || option)
-    end
-
     def utc(*args) = from_fields(args, :utc)
 
     alias gm utc
@@ -70,6 +60,7 @@ class Time
       case value
       when Integer then value * scale
       when Float then float_ns(value, scale)
+      when Rational then (value * scale).floor
       else raise TypeError, "can't convert #{value.class} into an exact number"
       end
     end
@@ -145,7 +136,21 @@ class Time
       civil(year, month, day, hour, min, sec, zone, usec)
     end
 
+    # This moment, and the kind a zone argument names: what `Time.now`
+    # and a bare `Time.new` both seat.
+    def now_parts(zone)
+      [Primitive.zr_clock_ns(Process::CLOCK_REALTIME), zone.nil? ? :local : parse_zone(zone)]
+    end
+
     def civil(year, month, day, hour, min, sec, zone, usec = nil)
+      t = allocate
+      t.send(:set, *civil_parts(year, month, day, hour, min, sec, zone, usec))
+      t
+    end
+
+    # The nanoseconds and the kind a civil date names, which the caller
+    # seats in whichever Time it is filling.
+    def civil_parts(year, month, day, hour, min, sec, zone, usec = nil)
       year = Integer(year)
       month = month_arg(month)
       day = int_arg(day, 1, 1, 31, "mday")
@@ -174,13 +179,11 @@ class Time
       days = days_from_civil(year, month, day)
       local_ns = ((days * 86400 + hour * 3600 + min * 60 + sec) * NS) + sec_ns
       kind = zone.nil? ? :local : parse_zone(zone)
-      t = allocate
       case kind
-      when :utc then t.send(:set, local_ns, :utc)
-      when Integer then t.send(:set, local_ns - kind * NS, kind)
-      else t.send(:set, local_ns - local_offset_for(local_ns / NS) * NS, :local)
+      when :utc then [local_ns, :utc]
+      when Integer then [local_ns - kind * NS, kind]
+      else [local_ns - local_offset_for(local_ns / NS) * NS, :local]
       end
-      t
     end
 
     def month_arg(month)
@@ -244,6 +247,18 @@ class Time
     private :days_from_civil, :civil_from_days
   end
 
+  # `Time.new(...)` is this row, as it is in CRuby: a program that reopens
+  # Time with an initialize of its own takes this place, and `now`, `at`
+  # and `utc` build their own instances without asking.
+  def initialize(year = nil, month = nil, day = nil, hour = nil, min = nil, sec = nil, zone = nil, **options)
+    option = options[:in]
+    raise ArgumentError, "timezone argument given as positional and keyword arguments" if zone && option
+    return set(*Time.send(:now_parts, option)) if year.nil?
+    return Primitive.zr_unimplemented("Time.new with a string") if year.is_a?(String)
+
+    set(*Time.send(:civil_parts, year, month, day, hour, min, sec, zone || option))
+  end
+
   def year = fields[0]
   def month = fields[1]
   alias mon month
@@ -255,29 +270,29 @@ class Time
   def wday = fields[6]
   def yday = fields[7]
 
-  def usec = (@ns % NS) / 1000
+  def usec = (ns % NS) / 1000
   alias tv_usec usec
-  def nsec = @ns % NS
+  def nsec = ns % NS
   alias tv_nsec nsec
   # The fraction of a second: 0 on a whole second, else a Rational.
   def subsec
-    rest = @ns % NS
+    rest = ns % NS
     rest.zero? ? 0 : Rational(rest, NS)
   end
 
-  def to_i = @ns.div(NS)
+  def to_i = ns.div(NS)
   alias tv_sec to_i
-  def to_f = @ns.to_f / NS
-  def to_r = Rational(@ns, NS)
+  def to_f = ns.to_f / NS
+  def to_r = Rational(ns, NS)
 
-  def utc? = @kind == :utc
+  def utc? = kind == :utc
   alias gmt? utc?
 
   def utc_offset
-    case @kind
+    case kind
     when :utc then 0
-    when :local then @offset
-    else @kind
+    when :local then local_offset
+    else kind
     end
   end
 
@@ -287,13 +302,13 @@ class Time
   # A zone name holds no character above ASCII, and ruby answers it in
   # the encoding that says so.
   def zone
-    case @kind
+    case kind
     when :utc then (+"UTC").force_encoding(Encoding::US_ASCII)
-    when :local then @zone
+    when :local then local_zone
     end
   end
 
-  def dst? = @kind == :local && @dst
+  def dst? = kind == :local && local_dst
   alias isdst dst?
 
   def to_a = [sec, min, hour, day, month, year, wday, yday, dst?, zone]
@@ -307,7 +322,7 @@ class Time
   def saturday? = wday == 6
 
   def utc
-    set(@ns, :utc)
+    set(ns, :utc)
     self
   end
 
@@ -317,7 +332,7 @@ class Time
   alias getgm getutc
 
   def localtime(zone = nil)
-    set(@ns, zone.nil? ? :local : Time.send(:parse_zone, zone))
+    set(ns, zone.nil? ? :local : Time.send(:parse_zone, zone))
     self
   end
 
@@ -326,24 +341,24 @@ class Time
   def +(other)
     raise TypeError, "time + time?" if other.is_a?(Time)
 
-    shifted(@ns + Time.send(:exact_ns, other, NS))
+    shifted(ns + Time.send(:exact_ns, other, NS))
   end
 
   def -(other)
-    return (@ns - other.instance_variable_get(:@ns)).to_f / NS if other.is_a?(Time)
+    return (ns - other.send(:ns)).to_f / NS if other.is_a?(Time)
 
-    shifted(@ns - Time.send(:exact_ns, other, NS))
+    shifted(ns - Time.send(:exact_ns, other, NS))
   end
 
   def <=>(other)
     return nil unless other.is_a?(Time)
 
-    @ns <=> other.instance_variable_get(:@ns)
+    ns <=> other.send(:ns)
   end
 
-  def eql?(other) = other.is_a?(Time) && @ns == other.instance_variable_get(:@ns)
+  def eql?(other) = other.is_a?(Time) && ns == other.send(:ns)
 
-  def hash = @ns.hash
+  def hash = ns.hash
 
   def round(digits = 0) = rounded(digits) { |ns, unit| (ns + unit / 2).div(unit) * unit }
 
@@ -426,33 +441,75 @@ class Time
 
   private
 
-  # The hidden `__built__` mark stays behind on a copy, so only a Time
-  # built by `set` refuses.
+  # A copy takes the instant of the Time it comes from, so a Time that
+  # holds none cannot be copied, and one that already holds an instant
+  # cannot take another.
   def initialize_copy(other)
     raise TypeError, "already initialized Time" if Primitive.zr_hidden_get(self, :__built__)
+    raise TypeError, "uninitialized Time" unless Primitive.zr_hidden_get(other, :__built__)
 
     super
     Primitive.zr_hidden_set(self, :__built__, true)
   end
 
-  def set(ns, kind)
-    Primitive.zr_hidden_set(self, :__built__, true)
-    @ns = ns
-    @kind = kind
-    @fields = nil
-    if kind == :local
-      @offset, @dst, @zone = Primitive.zr_time_local(ns.div(NS))
-      @zone = @zone.dup.force_encoding(Encoding::US_ASCII) if @zone
-    else
-      @offset = nil
-      @dst = false
-      @zone = nil
-    end
+  # The instant and the zone it shows itself in. CRuby keeps both in a
+  # struct, so a program sees no instance variable on a Time: these live
+  # in hidden slots, and an `@ivar` on a Time is the program's own.
+  def ns
+    Primitive.attr! :hidden
+    built!
+    Primitive.zr_hidden_get(self, :__ns__)
   end
 
-  def shifted(ns)
+  def kind
+    Primitive.attr! :hidden
+    built!
+    Primitive.zr_hidden_get(self, :__kind__)
+  end
+
+  def local_offset
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__offset__)
+  end
+
+  def local_dst
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__dst__)
+  end
+
+  def local_zone
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__zone__)
+  end
+
+  # A Time that no constructor filled holds no instant, and ruby says so
+  # of every reader.
+  def built!
+    Primitive.attr! :hidden
+    raise TypeError, "uninitialized Time" unless Primitive.zr_hidden_get(self, :__built__)
+  end
+
+  def set(at, of_kind)
+    Primitive.zr_hidden_set(self, :__built__, true)
+    Primitive.zr_hidden_set(self, :__ns__, at)
+    Primitive.zr_hidden_set(self, :__kind__, of_kind)
+    Primitive.zr_hidden_set(self, :__fields__, nil)
+    if of_kind == :local
+      offset, dst, name = Primitive.zr_time_local(at.div(NS))
+      Primitive.zr_hidden_set(self, :__offset__, offset)
+      Primitive.zr_hidden_set(self, :__dst__, dst)
+      Primitive.zr_hidden_set(self, :__zone__, name&.dup&.force_encoding(Encoding::US_ASCII))
+    else
+      Primitive.zr_hidden_set(self, :__offset__, nil)
+      Primitive.zr_hidden_set(self, :__dst__, false)
+      Primitive.zr_hidden_set(self, :__zone__, nil)
+    end
+    self
+  end
+
+  def shifted(at)
     t = dup
-    t.send(:set, ns, @kind)
+    t.send(:set, at, kind)
     t
   end
 
@@ -461,19 +518,23 @@ class Time
     return dup if digits >= 9
 
     unit = 10**(9 - digits)
-    shifted(yield(@ns, unit))
+    shifted(yield(ns, unit))
   end
 
   # year, month, day, hour, min, sec, wday, yday in the shown zone.
   def fields
     Primitive.attr! :hidden
-    @fields ||= begin
-      secs = @ns.div(NS) + utc_offset
-      days = secs.div(86400)
-      rem = secs - days * 86400
-      y, m, d = Time.send(:civil_from_days, days)
-      [y, m, d, rem / 3600, (rem % 3600) / 60, rem % 60, (days + 4) % 7, days - Time.send(:days_from_civil, y, 1, 1) + 1]
-    end
+    held = Primitive.zr_hidden_get(self, :__fields__)
+    return held if held
+
+    secs = ns.div(NS) + utc_offset
+    days = secs.div(86400)
+    rem = secs - days * 86400
+    y, m, d = Time.send(:civil_from_days, days)
+    row = [y, m, d, rem / 3600, (rem % 3600) / 60, rem % 60, (days + 4) % 7,
+           days - Time.send(:days_from_civil, y, 1, 1) + 1]
+    Primitive.zr_hidden_set(self, :__fields__, row)
+    row
   end
 
   def directive(c, flags, width, colons)

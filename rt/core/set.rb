@@ -264,23 +264,35 @@ class Set
   end
 
   # The sets of members the block's relation joins, or the classes
-  # its one-argument form names.
+  # its one-argument form names. A relation of two members joins them
+  # only when it holds both ways, and what it joins travels: CRuby walks
+  # the pairs into a union-find and answers one set per root.
   def divide(&block)
     return to_enum(:divide) { size } unless block
     return Set.new(classify(&block).values) if block.arity != 2
 
-    remaining = to_a
-    parts = Set.new
-    until remaining.empty?
-      part = [remaining.shift]
-      i = 0
-      while i < part.size
-        remaining.reject! { |y| (yield(part[i], y) || yield(y, part[i])) && part << y }
-        i += 1
+    items = to_a
+    roots = (0...items.size).to_a
+    i = 0
+    while i < items.size - 1
+      j = i + 1
+      while j < items.size
+        share_root(roots, i, j) if yield(items[i], items[j]) && yield(items[j], items[i])
+        j += 1
       end
-      parts.add(self.class.new(part))
+      i += 1
     end
-    parts
+    parts = {}
+    answer = Set.new
+    items.each_with_index do |item, at|
+      root = root_of(roots, at)
+      unless parts.key?(root)
+        parts[root] = self.class.new
+        answer.add(parts[root])
+      end
+      parts[root].add(item)
+    end
+    answer
   end
 
   def compare_by_identity
@@ -303,6 +315,21 @@ class Set
     Primitive.attr! :hidden
     @hash = hash
     @iterating = 0
+  end
+
+  # Union-find over the members' places: where a place leads, and the
+  # two places a joined pair share afterwards.
+  def root_of(roots, at)
+    Primitive.attr! :hidden
+    at = roots[at] while roots[at] != at
+    at
+  end
+
+  def share_root(roots, i, j)
+    Primitive.attr! :hidden
+    a = root_of(roots, i)
+    b = root_of(roots, j)
+    roots[b] = a if a != b
   end
 
   def check_frozen
