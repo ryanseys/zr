@@ -739,6 +739,7 @@ module Ze0
         d zr_hidden_get Value obj:Value name:Value
         d zr_hidden_set Value obj:Value name:Value v:Value
         d zr_state_set Value obj:Value name:Value v:Value
+        d zr_moved_m Value obj:Value klass:Value
         d zr_obj_object_id Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ivar_id_visible_p Bool id:Word
         d zr_ivar_set Value obj:Value id:Word v:Value

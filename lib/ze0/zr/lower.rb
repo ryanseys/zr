@@ -21,6 +21,11 @@ module Ze0
 
       def meta = nil
 
+      # A scope an eval runs inside is compiled already, so what it
+      # reaches outside itself is written down. The eval keeps its own
+      # table and the walk stops here.
+      def capture(_name, _depth) = nil
+
       def slot_index(node)
         @slot_of.fetch(node.name) { raise ArgumentError, "#{node.name} is not a local of the scope this eval runs in" }
       end

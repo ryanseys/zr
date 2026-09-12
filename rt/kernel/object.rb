@@ -179,6 +179,18 @@ machine def zr_state_set(obj, name, v)
   v
 end
 
+# An object a ractor moved away: its class becomes the husk class, so
+# every message it still gets finds only methods that refuse. The cell
+# keeps the type it had, so the collector walks it as what it was.
+sig [Value, Value] => Value
+machine def zr_moved_m(obj, klass)
+  if zr_special_p(obj)
+    return Machine.value(QNIL)
+  end
+  RBasic.set_klass(obj, klass)
+  Machine.value(QNIL)
+end
+
 # `object_id`: a fixnum's is 2n + 1, nil's 4, true's 20, false's 0;
 # a heap object's comes from a counter (8, 16, 24, ...) at its first
 # call, kept in a hidden ivar. A symbol's or a flonum's is its word,
