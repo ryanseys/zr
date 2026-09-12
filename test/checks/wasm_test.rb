@@ -15,9 +15,9 @@ require_relative "rt_test"
 # `native_test.rb`, `zr_test.rb` and `rt_test.rb`.
 class WasmTest < Minitest::Test
   def run_module(wasm, expected, *args, status: 0)
-    skip "wasmtime is not installed" unless wasmtime?
+    skip "wasmtime is not installed" unless Checks.wasmtime?
 
-    out, why = bounded({}, [WASMTIME, *WASM_FLAGS, wasm, *args], err: %i[child out])
+    out, why = Checks.bounded({}, [WASMTIME, *WASM_FLAGS, wasm, *args], err: %i[child out])
     refute why, "wasmtime was killed at #{why}: #{out}"
     assert_equal status, $?.exitstatus, "wasmtime exited #{$?.exitstatus}: #{out}"
     assert_equal expected, out

@@ -36,7 +36,7 @@ class ProgramsTest < Minitest::Test
   def capture(env, argv)
     Dir.mktmpdir("ze0-programs-err-") do |dir|
       err = File.join(dir, "err")
-      out, why = bounded(env, argv, err: err)
+      out, why = Checks.bounded(env, argv, err: err)
       [out, File.read(err), why ? "killed at #{why}" : $?.exitstatus]
     end
   end
@@ -73,7 +73,7 @@ class ProgramsTest < Minitest::Test
     end
 
     define_method("test_wasm_#{name}") do
-      skip "wasmtime is not installed" unless wasmtime?
+      skip "wasmtime is not installed" unless Checks.wasmtime?
       skip "the program reads the host" if File.open(rb, &:readline).include?("native only")
 
       want = oracle(rb)
