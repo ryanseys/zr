@@ -14,6 +14,19 @@ module Ze0
     class Types
       class Refused < StandardError; end
 
+      # Which rule an opcode's result follows. A table and not a `case`
+      # over the opcodes: that case compared an opcode against twenty
+      # entries in turn, eleven of them the float opcodes spread out of
+      # two arrays, and every instruction in the program went through it.
+      RULE = {
+        iconst: :own, load: :own, ireduce: :own, uextend: :own, sextend: :own,
+        call: :call, call_indirect: :call_indirect,
+        icmp: :flag, fcmp: :flag,
+        stack_addr: :address, symbol_value: :address, func_addr: :address,
+        select: :second,
+        sadd_overflow: :first, ssub_overflow: :first, smul_overflow: :first
+      }.merge((Inst::FBINOPS + Inst::FUNOPS).to_h { |op| [op, :float] }).freeze
+
       # `{ "v3" => "i64", ... }`, in block layout order: a value is typed
       # before any block that can use it, because its definition dominates
       # every use.
@@ -72,16 +85,21 @@ module Ze0
       private
 
       def result_of(i)
-        case i.op
-        when :iconst, :load, :ireduce, :uextend, :sextend then i.type
+        rule = RULE[i.op]
+        # The rule most opcodes follow is the one they do not name, and
+        # `iadd` is the commonest opcode there is: it answers here,
+        # having been compared against nothing.
+        return i.type || of(i.args[0]) if rule.nil?
+
+        case rule
+        when :own then i.type
+        when :flag then "i8"
+        when :address then "i64"
+        when :float then "f64"
         when :call then sig_of(i.callee).ret
         when :call_indirect then sig_named(i.callee).ret
-        when :icmp, :fcmp then "i8"
-        when :stack_addr, :symbol_value, :func_addr then "i64"
-        when *Inst::FBINOPS, *Inst::FUNOPS then "f64"
-        when :select then of(i.args[1])
-        when :sadd_overflow, :ssub_overflow, :smul_overflow then of(i.args[0])
-        else i.type || of(i.args[0])
+        when :second then of(i.args[1])
+        else of(i.args[0])
         end
       end
 

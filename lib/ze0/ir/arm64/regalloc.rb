@@ -117,8 +117,7 @@ module Ze0
           until work.empty?
             bi = work.pop
             queued[bi] = false
-            out = Set.new
-            successors[bi].each { |s| out.merge(into[s]) }
+            out = union(into, successors[bi])
             now = out.subtract(kill[bi]).merge(gen[bi])
             next if now == into[bi]
 
@@ -131,10 +130,20 @@ module Ze0
             end
           end
           @live_in = into
-          @live_out = Array.new(count) do |bi|
-            out = Set.new
-            successors[bi].each { |s| out.merge(into[s]) }
-            out
+          @live_out = Array.new(count) { |bi| union(into, successors[bi]) }
+        end
+
+        # What is live into all of `blocks`, as a Set of its own. Almost
+        # every block runs into exactly one other, and a copy of that
+        # block's own answer is cheaper than merging into an empty Set.
+        def union(into, blocks)
+          case blocks.size
+          when 0 then Set.new
+          when 1 then into[blocks[0]].dup
+          else
+            all = into[blocks[0]].dup
+            1.upto(blocks.size - 1) { |i| all.merge(into[blocks[i]]) }
+            all
           end
         end
 
