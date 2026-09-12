@@ -16,14 +16,15 @@ require_relative "../../lib/ze0/harness/case"
 #
 # `ZE0_STRESS=1` adds the collect-at-every-allocation column.
 #
-# shards: 4
+# shards: 8
 #
 # Compiling a program peaks high, and ruby grows its heap to the peak and
 # does not give the pages back: ninety-seven programs in one process
 # reach about nine gigabytes with barely more live objects than one does.
-# So this file is run in shards -- `ZE0_SHARD=2/4` defines every fourth
+# So this file is run in shards -- `ZE0_SHARD=2/8` defines every eighth
 # program starting at the second -- and `ze0 check` reads the count above
-# and starts a process for each.
+# and starts a process for each. Eight keeps a shard near a gigabyte and
+# a half, which is what a sixteen-gigabyte machine can run a few of.
 class ProgramsTest < Minitest::Test
   WASMTIME = ENV["WASMTIME"] || "wasmtime"
 

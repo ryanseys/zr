@@ -244,7 +244,11 @@ when "check"
   jobs_queued = queue.size
   done = Queue.new
   started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-  jobs = Integer(ENV.fetch("ZE0_JOBS", Etc.nprocessors))
+  # Memory is what bounds this, not cores: a check process compiling
+  # programs can want a gigabyte or two, and the machine kills the run
+  # rather than swapping. Four at a time suits a sixteen-gigabyte
+  # machine; `ZE0_JOBS` says otherwise.
+  jobs = Integer(ENV.fetch("ZE0_JOBS") { [Etc.nprocessors, 4].min })
   Array.new([jobs, jobs_queued].min) do
     Thread.new do
       until queue.empty?
