@@ -284,9 +284,11 @@ class Time
   alias gmt_offset utc_offset
   alias gmtoff utc_offset
 
+  # A zone name holds no character above ASCII, and ruby answers it in
+  # the encoding that says so.
   def zone
     case @kind
-    when :utc then "UTC"
+    when :utc then (+"UTC").force_encoding(Encoding::US_ASCII)
     when :local then @zone
     end
   end
@@ -440,6 +442,7 @@ class Time
     @fields = nil
     if kind == :local
       @offset, @dst, @zone = Primitive.zr_time_local(ns.div(NS))
+      @zone = @zone.dup.force_encoding(Encoding::US_ASCII) if @zone
     else
       @offset = nil
       @dst = false
@@ -604,7 +607,120 @@ class Time
 end
 
 class Time
-  def _dump(_limit)
-    Primitive.zr_unimplemented("Marshal.dump of a Time")
+  # The wire format of time.c's time_mdump: two little-endian words of
+  # the UTC civil time, a tail for a year outside 1900..1900+0xffff, and
+  # the zone, the offset and the part under a microsecond beside them,
+  # named on the payload itself.
+  def _dump(_limit = -1)
+    moment = getutc
+    year = moment.year
+    tail = nil
+    if year > 1900 + 0xffff
+      tail = year - (1900 + 0xffff)
+      year = 1900 + 0xffff
+    elsif year < 1900
+      tail = 1900 - year
+      year = 1900
+    end
+    rest = nsec
+    word = (1 << 31) | ((utc? ? 1 : 0) << 30) | ((year - 1900) << 14) |
+           ((moment.month - 1) << 10) | (moment.day << 5) | moment.hour
+    second = (moment.min << 26) | (moment.sec << 20) | (rest / 1000)
+    out = +"".b
+    4.times { |i| out << ((word >> (8 * i)) & 0xff) }
+    4.times { |i| out << ((second >> (8 * i)) & 0xff) }
+    out << year_tail(tail) if tail
+    nano = rest % 1000
+    unless nano.zero?
+      Marshal.send(:extra_set, out, :nano_num, nano)
+      Marshal.send(:extra_set, out, :nano_den, 1)
+      Marshal.send(:extra_set, out, :submicro, submicro_bytes(nano))
+    end
+    Marshal.send(:extra_set, out, :offset, utc_offset) unless utc?
+    Marshal.send(:extra_set, out, :zone, zone)
+    out
   end
+
+  private :_dump
+
+  # A year outside the sixteen bits of the word: its distance from that
+  # range, as a packed length and the bytes of the number.
+  def year_tail(count)
+    Primitive.attr! :hidden
+    bytes = +"".b
+    rest = count
+    while rest > 0
+      bytes << (rest & 0xff)
+      rest >>= 8
+    end
+    bytes << 0 if bytes.empty?
+    Marshal.send(:long_bytes, bytes.bytesize) + bytes
+  end
+  private :year_tail
+
+  # The three digits under a microsecond, packed two to a byte. A last
+  # digit of zero writes no byte of its own, as time_mdump trims it.
+  def submicro_bytes(nano)
+    Primitive.attr! :hidden
+    out = +"".b
+    out << (((nano / 100) << 4) | ((nano / 10) % 10))
+    last = (nano % 10) << 4
+    out << last unless last.zero?
+    out
+  end
+  private :submicro_bytes
+
+  # time_mload: the civil fields of the words, then the names beside
+  # them. A payload too short for the words is not a marshalled Time.
+  def self._load(text)
+    text = String.try_convert(text)
+    raise TypeError, "marshaled time format differ" if text.nil? || text.bytesize < 8
+
+    extras = Marshal.send(:extras_of, text).to_h
+    word = (0..3).sum { |i| text.getbyte(i) << (8 * i) }
+    second = (4..7).sum { |i| text.getbyte(i) << (8 * ((i - 4))) }
+    # The format ruby 1.8 wrote: the seconds and microseconds alone.
+    return at(word, second) if (word & (1 << 31)).zero?
+
+    word &= ~(1 << 31)
+    year = ((word >> 14) & 0xffff) + 1900
+    year = extended_year(year, text.byteslice(8..)) if text.bytesize > 8
+    month = (word >> 10) & 0xf
+    if month >= 12
+      month -= 12
+      year += 1
+    end
+    nano = second & 0xfffff
+    nano = (nano * 1000) + sub_nanoseconds(extras)
+    moment = utc(year, month + 1, (word >> 5) & 0x1f, word & 0x1f, (second >> 26) & 0x3f,
+                 ((second >> 20) & 0x3f) + Rational(nano, NS))
+    return moment if ((word >> 30) & 1) == 1
+
+    moment.localtime(extras[:offset] || Primitive.zr_time_local(moment.to_i).first)
+  end
+
+  private_class_method :_load
+
+  # The year the tail names: its distance below 1900, or above the
+  # highest year the word can hold.
+  def self.extended_year(year, tail)
+    size, rest = Marshal.send(:read_long_bytes, tail)
+    raise TypeError, "marshaled time format differ" if size < 0 || size > rest.bytesize
+
+    away = (0...size).sum { |i| rest.getbyte(i) << (8 * i) }
+    year == 1900 ? year - away : year + away
+  end
+  private_class_method :extended_year
+
+  # The nanoseconds under a microsecond: the exact pair where the dump
+  # carries one, else the digits ruby 1.9.1 wrote.
+  def self.sub_nanoseconds(extras)
+    return Rational(extras[:nano_num], extras[:nano_den] || 1).round if extras[:nano_num]
+
+    digits = extras[:submicro]
+    return 0 if digits.nil? || digits.empty?
+
+    (digits.getbyte(0) >> 4) * 100 + (digits.getbyte(0) & 0xf) * 10 + (digits.getbyte(1).to_i >> 4)
+  end
+  private_class_method :sub_nanoseconds
 end

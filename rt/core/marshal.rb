@@ -34,6 +34,55 @@ module Marshal
                   Thread Thread::Mutex Thread::Queue Thread::SizedQueue Thread::ConditionVariable].freeze
   private_constant :UNDUMPABLE
 
+  # The packed integer: one byte for a small number, else a length byte
+  # and the bytes of the number, least significant first. A `_dump` that
+  # writes a count of its own uses the same spelling.
+  def self.long_bytes(n)
+    return 0.chr if n == 0
+    return (n + 5).chr if n > 0 && n < 123
+    return ((n - 5) & 0xff).chr if n < 0 && n > -124
+
+    out = +"".b
+    rest = n
+    8.times do |i|
+      out << (rest & 0xff).chr
+      rest >>= 8
+      return ((i + 1) & 0xff).chr + out if rest == 0
+      return ((-(i + 1)) & 0xff).chr + out if rest == -1
+    end
+    8.chr + out
+  end
+
+  # The same, read back: the number and the bytes after it.
+  def self.read_long_bytes(text)
+    head = text.getbyte(0) or return [0, text]
+
+    head -= 256 if head > 127
+    return [0, text.byteslice(1..)] if head == 0
+    return [head - 5, text.byteslice(1..)] if head > 4
+    return [head + 5, text.byteslice(1..)] if head < -4
+
+    count = head.abs
+    value = head > 0 ? 0 : -1
+    count.times do |i|
+      value &= ~(0xff << (8 * i))
+      value |= text.getbyte(1 + i).to_i << (8 * i)
+    end
+    [value, text.byteslice((1 + count)..)]
+  end
+
+  # What a `_dump` payload carries beside its bytes: the names the C API
+  # sets on the payload itself, with no `@` in front, which only the
+  # `_load` of that class reads. Time writes its zone and offset so.
+  def self.extras_of(text) = Primitive.zr_hidden_get(text, :__extras__) || []
+
+  def self.extra_set(text, name, value)
+    Primitive.zr_hidden_set(text, :__extras__, extras_of(text) + [[name, value]])
+    value
+  end
+
+  private_class_method :long_bytes, :read_long_bytes, :extras_of, :extra_set
+
   # The tags, by the character each one writes.
   class Writer
     def initialize(limit)
@@ -198,7 +247,7 @@ module Marshal
 
     def user_dump(obj, limit)
       text = obj.send(:_dump, limit)
-      ivars = ivars_of(text)
+      ivars = ivars_of(text) + Marshal.send(:extras_of, text)
       @out << "I" unless ivars.empty?
       @out << "u" << symbol_bytes(class_path(obj.class).to_sym) << bytes(text)
       write_ivars(ivars, limit) unless ivars.empty?
@@ -309,23 +358,7 @@ module Marshal
       long(text.bytesize) + text
     end
 
-    # The packed integer: one byte for a small number, else a length byte
-    # and the bytes of the number, least significant first.
-    def long(n)
-      return 0.chr if n == 0
-      return (n + 5).chr if n > 0 && n < 123
-      return ((n - 5) & 0xff).chr if n < 0 && n > -124
-
-      out = +"".b
-      rest = n
-      8.times do |i|
-        out << (rest & 0xff).chr
-        rest >>= 8
-        return ((i + 1) & 0xff).chr + out if rest == 0
-        return ((-(i + 1)) & 0xff).chr + out if rest == -1
-      end
-      8.chr + out
-    end
+    def long(n) = Marshal.send(:long_bytes, n)
 
     def float_text(value)
       return "inf" if value == Float::INFINITY
@@ -452,7 +485,7 @@ module Marshal
     # `_load`, then the loader ruby registers beside it: an Encoding's
     # `_load` hands back its name, which the load turns into the encoding.
     def loaded(klass, payload)
-      built = klass._load(payload)
+      built = klass.send(:_load, payload)
       klass == Encoding ? Encoding.find(built) : built
     end
 
@@ -464,7 +497,9 @@ module Marshal
       case name
       when :E then value.force_encoding(item ? Encoding::UTF_8 : Encoding::US_ASCII)
       when :encoding then value.force_encoding(item)
-      else value.instance_variable_set(name, item)
+      # A name with no `@` is one the C API set on the payload itself,
+      # which only a `_load` reads: Time writes its zone this way.
+      else name.start_with?("@") ? value.instance_variable_set(name, item) : Marshal.send(:extra_set, value, name, item)
       end
     end
 
