@@ -29,10 +29,11 @@ lib/ze0/hir/             the tree HIR: prism in, analyses and a dump out
 lib/ze0/zr/              the lowering from HIR to IR
 lib/ze0/machine/         the kernel dialect: typed Ruby that lowers straight to IR
 lib/ze0/ir/              the IR, its verifier, and the two native emitters
-lib/ze0/ir/arm64.rb      the aarch64 backend: spill-everything code over our own encoder
+lib/ze0/ir/arm64.rb      the aarch64 backend: linear-scan registers over our own encoder
+lib/ze0/ir/interp.rb     an IR interpreter: a second answer the backend owes nothing to
 lib/ze0/ir/wasm.rb       the wasm32 emitter: one WASI module, a br_table dispatch loop
-lib/ze0/obj/             the object model, the Mach-O writer, and the JIT loader
-lib/ze0/native/          the build driver and the one link step
+lib/ze0/obj/             the object model, the Mach-O writer, the executable writer, the JIT loader
+lib/ze0/native/          the build driver, and the one call to cc that is left
 lib/ze0/harness/         the corpus runner: the test-file format and the sweep
 rt/                      the runtime, in kernel Ruby and ordinary Ruby
 vendor/c/                the two vendored C libraries; vendor/ext/<gem>/lib their Ruby halves
@@ -66,10 +67,21 @@ macOS on Apple Silicon. ze0 emits `aarch64-apple-darwin` and nothing else.
 | `prism` gem ~> 1.9 | parses Ruby | `lib/ze0/hir/build.rb` |
 | `minitest` gem ~> 6.0 | runs `bin/ze0 check` | `test/checks/` |
 | `aarch64` gem ~> 3.0 | pure Ruby, generated from the ARM specification: the authority our own encoder is held to. It never enters a compiled program. | `test/checks/aarch64_test.rb` |
-| `cc` | **links** every binary, and **compiles** the vendored C | `lib/ze0/native/link.rb`, `lib/ze0/deps.rb` |
-| `ld` | invoked by `cc`; it also writes the ad-hoc code signature Apple Silicon requires to execute a binary | through `cc` |
+| `cc` | **compiles** the vendored C, and **links** a binary that reaches it | `lib/ze0/deps.rb`, `lib/ze0/native/link.rb` |
+| `ld` | invoked by `cc` for those binaries | through `cc` |
 | `ar` | archives the vendored C into `vendor/build/*.a` | `lib/ze0/deps.rb` |
 | libSystem | the only dylib a ze0 binary loads | every binary |
+
+`Obj::Exe` (`lib/ze0/obj/exe.rb`) writes the executable itself -- the
+Mach-O image, the chained fixups a position-independent program is
+rebased and bound through, and the ad-hoc code signature Apple Silicon
+will not run a binary without. It links every program whose imports are
+all libSystem's, which is all of `test/native` and `test/zr`.
+
+A program that reaches oniguruma still needs a linker that reads
+archives, and that is `cc`. `ZE0_LINK=ruby` refuses such a program by
+naming the symbol instead of falling back, and `ZE0_LINK=cc` takes the
+system linker throughout.
 
 ### Vendored C, built by `ze0 deps build`
 
@@ -86,6 +98,6 @@ macOS on Apple Silicon. ze0 emits `aarch64-apple-darwin` and nothing else.
 | `nm`, `otool` | two checks read an object and a binary back |
 
 Everything above is a Ruby gem, a system tool, or a vendored C library
-whose behaviour the contract is written against. `ld` leaves the loop when
-`Obj::Exe` lands (`docs/plan.md` B7); `cc` and `ar` stay as long as the two
-C libraries do.
+whose behaviour the contract is written against. `cc` and `ar` stay as
+long as the two C libraries do: compiling C needs a C compiler, and the
+only way to be rid of them is to be rid of the C.

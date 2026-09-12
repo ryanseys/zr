@@ -31,7 +31,7 @@ Prior art the design follows: Squeak's Slang (VM in a Smalltalk subset), RPython
 | D1 | **Scope:** compiler AND runtime in Ruby, in the ze0 repo. **ruby 4.0.6 is the only oracle**: the corpus recordings under `__END__`, and a live `ruby` where a check needs one. Nothing is compared against the Rust emitter or the Rust runtime. The lowering that named `zeo_rt_*` was a refactor scaffold held to text goldens; it is deleted (2026-09-12), and `stage1` now compiles the compiler twice through the `zr` road and compares the object bytes. |
 | D2 | **Non-Ruby dependencies allowed:** prism (parser), oniguruma (regex), zlib, openssl, libffi, libSystem, `cc`/`ld`/`ar`, wasmtime. Vendored C builds with `cc` through a Ruby script. **No C, Rust or assembler source of our own** — the README names every one of these and says why it is there. |
 | D3 | **Compiler layers:** Prism → tree HIR (desugared, name-resolved, target-neutral) → one CFG-SSA IR with two op tiers (Ruby-level ops legalized per target into machine ops) → emitters. Two data structures, no third typed HIR. |
-| D4 | **Native backend seam:** every backend produces a backend-neutral `Obj` (functions, data, relocations, symbols). `IR::Arm64` writes the machine code, `Obj::MachO` the `.o` that `ld` links, `Obj::JIT` the in-process image. `Obj::Exe` (B7) replaces `ld` for a program that needs no vendored archive. |
+| D4 | **Native backend seam:** every backend produces a backend-neutral `Obj` (functions, data, relocations, symbols). `IR::Arm64` writes the machine code, `Obj::MachO` the `.o` that `ld` links, `Obj::JIT` the in-process image, `Obj::Exe` the executable. `Obj::Patch` is the one relocation engine the JIT and the executable writer share. Since B7 (2026-09-12) `Obj::Exe` replaces `ld` for a program that needs no vendored archive, and `cc` links the rest. |
 | D5 | **GC:** precise, non-moving mark-sweep over a shadow stack of frame records. No conservative scan, no stack maps. |
 | D6 | **Signals (exceptions, break, return, throw):** the status protocol, spelled as a `Qundef` return sentinel. |
 | D7 | **Concurrency:** per Ractor one Ruby-running OS thread, one heap, one green-task scheduler, plus a pool of helper OS threads for blocking calls. No GVL. Threads are green tasks preempted at safepoints; Fibers are green tasks switched explicitly; Ractors run in parallel with independent GC. |
@@ -46,12 +46,14 @@ Prior art the design follows: Squeak's Slang (VM in a Smalltalk subset), RPython
 ## 4. Target architecture
 
 ```
- app.rb  ─┐                                                        ┌─► IR::Arm64 ─► Obj ─► Obj::MachO ─► .o ─► ld ─► binary
- rt/*.rb  ├─ prism ─► HIR ─► analyses ─► IR (high tier) ─► legalize ┼─► Obj::JIT (eval, in process)
-          │                (per target: zr | Machine)               └─► IR::Wasm ─► wasm ─► wasmtime
+ app.rb  ─┐                                                        ┌─► IR::Arm64 ─► Obj ─┬─► Obj::Exe ─────────────► binary
+ rt/*.rb  ├─ prism ─► HIR ─► analyses ─► IR (high tier) ─► legalize ┤                     └─► Obj::MachO ─► .o ─► cc ─► binary
+          │                (per target: zr | Machine)               ├─► Obj::JIT (eval, in process)
+          │                                                         ├─► IR::Interp (an oracle, not a road)
+          │                                                         └─► IR::Wasm ─► wasm ─► wasmtime
 ```
 
-Ruby owns all of it: parsing glue, HIR, analyses, IR, legalization, both native emitters and the wasm one, the object model, the Mach-O writer, the JIT loader, the link driver, the CLI, the program cache, the runtime, the class library, the extensions' native halves, the test harness. Everything else is a dependency listed in D2. The Cranelift shim and the legacy text lowering (`zeo_rt_*` names, the 24-byte value ABI, `.clif` and `.zeodata`) were deleted on 2026-09-12, earlier than M1: the `zr` road had taken over every road that produces a binary, and `stage1` moved onto it.
+Ruby owns all of it: parsing glue, HIR, analyses, IR, legalization, both native emitters and the wasm one, the object model, the Mach-O writer, the executable writer, the JIT loader, the link driver, the CLI, the program cache, the runtime, the class library, the extensions' native halves, the test harness. Everything else is a dependency listed in D2. The Cranelift shim and the legacy text lowering (`zeo_rt_*` names, the 24-byte value ABI, `.clif` and `.zeodata`) were deleted on 2026-09-12, earlier than M1: the `zr` road had taken over every road that produces a binary, and `stage1` moved onto it.
 
 ## 5. Roadmap overview
 
@@ -99,11 +101,11 @@ Gate: `stage1` is byte-identical, and `test/native/fixtures.rb` links against li
 - **B0 The object model (DONE 2026-09-08).** `lib/ze0/obj/`: `Obj`, `Obj::MachO`, `Obj::JIT` per section 8.3, each held by a check (`nm`/`otool` read the object back; a Ruby-written `.o` links and runs; the JIT runs the hand-written IR in process under Fiddle).
 - **B1 Spike 1 (DONE 2026-09-08).** `IR::Arm64` (spill-everything) compiles the C0 kernel-dialect programs and the hand-written IR of `test/native/fixtures.rb`; `Obj::MachO` writes the `.o`; the link ends in `cc` against libSystem. Gate: every `test/zr/` and `test/native/` program prints its recorded bytes.
 - **B2 Spike 2: pure Ruby end to end.** Superseded 2026-09-08: the real kernel (`rt/kernel/`) and the `zr` lowering reached M0 first, so `fib` runs on them, not on a micro runtime; the gate (a binary of our bytes and libSystem only, printing 75025) stands. The original shape: a micro runtime in the kernel dialect (`rt/spike/`): `zr_write`, fixnum `to_s`, `puts` for Integer and String literals, an overflow trap, `main`. A `--profile micro` lowering for `def`, locals, Integer literals and arithmetic, comparisons, `if`/`while`, calls, `puts`. Program: `def fib(n) = n < 2 ? n : fib(n - 1) + fib(n - 2); puts fib(25)`. Road: prism → HIR → IR → `IR::Arm64` → `Obj::MachO` → `ld` against libSystem only. Gate: the binary holds only our bytes and libSystem, and prints 75025. This fixes the shape of C1's `Machine` lowering early.
-- **B3 Instruction selection.** Section 8.4. Verify: disassembly snapshots per IR op in `test/native/`.
-- **B4 Register allocation, step 2.** Linear scan (section 8.4). Gate: byte-identical program output against step 1 on the corpus.
+- **B3 Instruction selection (DONE 2026-09-12).** `IR::Listing` stands in for the encoder and records what the backend chose, so `test/native/disasm.txt` pins selection for all 93 opcode forms with each relocation written beside the instruction carrying it. The gem has no disassembler and needs none: `aarch64_test.rb` holds the encoding to it over 3000+ runtime functions, which is the other half of the question. `ZE0_BLESS=1` rewrites.
+- **B4 Register allocation, step 2 (DONE 2026-09-12).** `IR::Arm64::Regalloc`: liveness to a fixed point over a worklist, one interval a value, `x19`..`x28` in start order. Only the callee-saved ten, so a value in a register survives a call for free and never collides with the lowering's scratch -- and a value the allocator says nothing about keeps its frame home, so being conservative is never being wrong. The runtime is 13.3% smaller (9,938,968 bytes against 11,469,948) and a compute benchmark 2.7x faster (0.070 s against 0.186 s); compiling the runtime costs 6.4 s against 2.6 s. The five refusals stay: the runtime sits at exactly eight parameters and eight call arguments and never above.
 - **B5 ABI conformance.** Section 8.4's Apple rules as emitter assertions and as tests (a function with eight args, mixed float args, a sub-32-bit arg).
 - **B6 The JIT road.** `zr_eval` loads through `Obj::JIT` (section 8.10). Gate: `test/lang/eval`.
-- **B7 Optional: no `ld`.** `Obj::Exe` writes a complete executable with an ad-hoc code signature (section 8.3). Scheduled only if the user wants zero Apple tools at build time.
+- **B7 No `ld` (DONE 2026-09-12).** `Obj::Exe` writes a complete, signed `MH_EXECUTE` (section 8.3) and is the default linker. It covers every program whose imports are all libSystem's -- `test/native` and `test/zr` entire. It refuses anything reaching `libonig.a` or `libprism.a` by naming the symbol, and `cc` links those: dead stripping keeps prism out of a program that does not parse at runtime, but oniguruma reaches even `puts "hello"`. Reading clang objects and `ar` archives would close that, and is not scheduled.
 
 Gate for the Part: `ze0 test --all` matches the corpus, and the disassembly snapshots and `IR::Interp` agree with what runs.
 
@@ -176,7 +178,7 @@ A CFG in SSA form with block parameters: `Function{name, sig, slots[], symbols[]
 
 Two op tiers in one structure. The high tier carries Ruby-level ops with their site shape: `send`, `send_super`, `yield`, `guard_fixnum`, `fixnum_add` (with an overflow edge), `ivar_get/set`, `const_get`, `gvar_get/set`, `alloc`, `frame_enter/leave`, `stack_check`, `signal_check`, `raise`. `Legalize::ZeoRt`, `Legalize::Zr` and `Legalize::Machine` rewrite each high op into machine ops and runtime calls for that target; `IR::Verify` refuses a high op that reaches an emitter. During Part A the `zeo-rt` lowering may emit the low tier directly so the byte-identity gate stays simple; the `zr` and `Machine` lowerings use the high tier from their first commit. Optimization passes (Part F) run on the high tier.
 
-Emitters: `IR::Arm64` (to `Obj`) and `IR::Wasm`. `IR::Interp` interprets IR as an oracle, so a miscompile in `IR::Arm64` shows as a disagreement rather than a wrong answer nobody can localise. `IR::Verify` checks: every block terminated, every use dominated by its definition, types agree, no `Value`-typed SSA use across a fallible call; it runs in tests and under `ZE0_VERIFY=1`.
+Emitters: `IR::Arm64` (to `Obj`) and `IR::Wasm`. `IR::Interp` (DONE 2026-09-12) interprets IR as an oracle, so a miscompile in `IR::Arm64` shows as a disagreement rather than a wrong answer nobody can localise; it models the machine the backend targets rather than an abstract one, and `IR::Types` is the one definition of what type a value has, read by the backend and the interpreter alike. `IR::Verify` checks: every block terminated, every use dominated by its definition, types agree, no `Value`-typed SSA use across a fallible call; it runs in tests and under `ZE0_VERIFY=1`.
 
 ### 8.3 The object model, the Mach-O writer, the JIT loader (`lib/ze0/obj/`)
 
@@ -186,7 +188,7 @@ Emitters: `IR::Arm64` (to `Obj`) and `IR::Wasm`. `IR::Interp` interprets IR as a
 
 `Obj::JIT.load(obj, resolve)`: `mmap` with `MAP_JIT`, write under `pthread_jit_write_protect_np(0)`, apply relocations with imports from `dlsym(RTLD_DEFAULT)`, flip to executable, `sys_icache_invalidate`, return `{name => address}`. Under CRuby it uses Fiddle (as `jit_buffer` does); under `ze0/rt` it is kernel Ruby over the same libSystem calls. `MAP_JIT` needs no entitlement for a plain ad-hoc-signed CLI binary, which is what `ld` produces.
 
-`Obj::Exe` (optional, B7): `MH_EXECUTE` with `__PAGEZERO`, `__TEXT`, `__DATA`, `__LINKEDIT`, `LC_MAIN`, `LC_LOAD_DYLINKER`, `LC_LOAD_DYLIB` libSystem, `LC_DYLD_CHAINED_FIXUPS` for imports, and `LC_CODE_SIGNATURE` with an ad-hoc `CodeDirectory` of SHA-256 page hashes, which Apple Silicon requires to execute. Until then `ld` signs ad hoc, as today.
+`Obj::Exe` (DONE 2026-09-12): `MH_EXECUTE` with `__PAGEZERO`, `__TEXT` (`__text`, `__stubs`, `__const`), `__DATA_CONST` (`__got`, `__const`), `__DATA` (`__data`, `__bss`) and `__LINKEDIT`; `LC_MAIN` with a real `stacksize`, `LC_LOAD_DYLINKER`, `LC_LOAD_DYLIB` libSystem, `LC_DYLD_EXPORTS_TRIE`, `LC_DYLD_CHAINED_FIXUPS` and `LC_CODE_SIGNATURE`. One chained mechanism carries both kinds of fixup: `__got` slots bind and `abs64` slots rebase, threaded per 16 KB page in `DYLD_CHAINED_PTR_64_OFFSET`, the slot holding the chain entry rather than the address. The signature is an ad-hoc `CodeDirectory` of SHA-256 page hashes, which Apple Silicon requires to execute; its size follows from where it starts, so there is no circularity. The UUID is the image's own hash, so two writes of one program give the same bytes. `Obj::Stamps` stays for `stage2`, whose binary reaches oniguruma and so goes through `ld`, which stamps a fresh UUID into every link. An empty segment is not written: an image with a zero-length one does not load.
 
 ### 8.4 The aarch64 backend (`lib/ze0/ir/arm64/`)
 
@@ -313,22 +315,22 @@ Command surface: `ze0 test [dirs | --all] [--gc plain|stress|verify] [--show N]`
 | Green threads change observable scheduling | thread goldens | CRuby also interleaves at safepoints with a 100 ms quantum; the goldens are CRuby's |
 | Stage 2 differs | bootstrap unsound | the E2 guard list; `ruby_qsort` port; counter `object_id`; one prism tree |
 | Backend miscompiles are silent | wrong answers, crashes | `IR::Interp` over the same IR; per-op disassembly snapshots against the `aarch64` gem |
-| Spill-everything code is slow | perf, and the GC-stress column | linear scan (B4); `ZE0_STRESS=1` is off by default until it lands |
+| Spill-everything code is slow | perf, and the GC-stress column | linear scan (B4, done 2026-09-12): 2.7x on a compute benchmark |
 | Mach-O writer errors surface late | lost time | parse the `.o` back before linking (`nm`, `otool`) |
 | Asyncify tax on wasm | wasm speed and size | wasm is the second target; milestone 1 is single-task; adopt the stack-switching proposal when it reaches aarch64 hosts |
 | Encoding tables and Onigmo-vs-Oniguruma gaps | divergences | port the generators, not the tables; keep `regexp/charrange.rs`'s four papers-over |
 | No second opinion on machine code | a miscompile reads as a wrong answer | `IR::Interp` over the IR, per-op disassembly snapshots against the `aarch64` gem, and the corpus against ruby's recordings |
 | `lower.rb` at 7.5K lines in one class | velocity | A2 and A2b split it into HIR build, analyses and per-family lowerings |
 | A refactor of the lowering goes unchecked | silent divergence | `test/hir/` dumps, `stage1` over the object bytes, and `test/zr`, `test/rt`, `test/programs` against ruby |
-| One backend, and it spills everything | slow code until B4 | perf is never a gate; every number goes in the commit that earns it |
+| One backend, and it allocates ten registers | code slower than a real allocator would write | perf is never a gate; every number goes in the commit that earns it |
 
 ## 11. Non-goals
 
-Linux and x86-64 (seams kept: target triple, pointer width, `sys_*.rb`, object format, the stub table; nothing verified there, per the standing macOS-only rule); Windows; a moving or generational collector (precise roots keep it possible); an interpreter or bytecode tier (the contract stays "compiled, CRuby-identical or refused"); the C API before Part G; wasm64 and WASI 0.2 before milestone 2; `ld`-free executables unless B7 is requested; ripper and `callcc`, which stay declined as today.
+Linux and x86-64 (seams kept: target triple, pointer width, `sys_*.rb`, object format, the stub table; nothing verified there, per the standing macOS-only rule); Windows; a moving or generational collector (precise roots keep it possible); an interpreter or bytecode tier (the contract stays "compiled, CRuby-identical or refused"); the C API before Part G; wasm64 and WASI 0.2 before milestone 2; reading clang objects and `ar` archives, which is what would let `Obj::Exe` link a program that reaches the vendored C; ripper and `callcc`, which stay declined as today.
 
 ## 12. Toolchain, layout, ownership
 
-Stage-0 host: CRuby 4.0.6 (`.ruby-version`, the oracle). Gems used by the compiler under CRuby: prism, `aarch64` (or our own encoder table), `jit_buffer`-style Fiddle calls for `Obj::JIT`. Vendored C (prism, oniguruma, zlib, openssl, libffi) built by `ze0 deps build` with `cc`. Apple tools: `cc`/`ld` (required; `ld` signs ad hoc until `Obj::Exe` does), `ar` for the vendored archives, `otool`/`nm` (dev-only checks). wasmtime for Part D. The README names every one.
+Stage-0 host: CRuby 4.0.6 (`.ruby-version`, the oracle). Gems used by the compiler under CRuby: prism, `aarch64` (or our own encoder table), `jit_buffer`-style Fiddle calls for `Obj::JIT`. Vendored C (prism, oniguruma, zlib, openssl, libffi) built by `ze0 deps build` with `cc`. Apple tools: `cc` (required, to compile the vendored C and to link a program that reaches it), `ld` through it, `ar` for the vendored archives, `otool`/`nm` (dev-only checks). `Obj::Exe` links everything else. wasmtime for Part D. The README names every one.
 
 Layout of `~/dev/ze0` after Part A (Part 0 created the top-level shape; `~/dev/zeo` is untouched beyond losing `ze0/`):
 

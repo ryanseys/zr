@@ -14,6 +14,10 @@
 #   ze0 zr machine <file.rb> -o <bin>   compile a kernel-dialect file alone
 #                [--emit obj|wasm]
 #
+# ZE0_LINK picks the linker: `ruby` for Obj::Exe alone, which names what
+# it cannot link; `cc` for the system linker; unset to take Obj::Exe
+# where it reaches and cc for a program that needs the vendored archives.
+#
 # ruby is the oracle: every corpus program carries ruby 4.0.6's recorded
 # answer under `__END__`, and ze0 is held to it or refuses by name.
 
@@ -176,7 +180,14 @@ when "stage2"
   # stage 2 is the same source compiled by stage 1. The two binaries must
   # agree byte for byte, which is what says the compiler is a fixed point.
   # Both are written under the same base name, since the ad-hoc signature
-  # ld writes carries the output's base name.
+  # carries the output's base name.
+  #
+  # The compiler reaches oniguruma, so `cc` links it and `ld` stamps a
+  # fresh UUID into every link; the signature then hashes the page that
+  # UUID sits in. `Obj::Stamps` blanks those two ranges so that what is
+  # compared is what the compiler decided. A binary `Obj::Exe` writes
+  # needs none of this -- its UUID is the image's own hash -- but this
+  # one is not such a binary.
   require "fileutils"
   require_relative "../lib/ze0/obj/stamps"
   usage unless ARGV.drop(1).empty?
