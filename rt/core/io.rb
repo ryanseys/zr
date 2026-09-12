@@ -1352,6 +1352,9 @@ module Kernel
   # one method, which is all CRuby needs of it.
   def print(*objects) = IO.print_to($stdout, objects)
 
+  # Alone among the writers, `p` flushes: CRuby's rb_f_p ends with
+  # `rb_io_flush` when `$stdout` is an IO, so what `p` wrote survives
+  # an `exit!` while what `puts` or `print` wrote does not.
   def p(*objects)
     out = $stdout
     i = 0
@@ -1359,6 +1362,7 @@ module Kernel
       out.write(Primitive.zr_ary_at_m(objects, i).inspect, "\n")
       i += 1
     end
+    out.flush if out.is_a?(IO)
     Primitive.zr_ary_len_m(objects) <= 1 ? Primitive.zr_ary_at_m(objects, 0) : objects
   end
 
