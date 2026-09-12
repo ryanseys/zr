@@ -672,12 +672,7 @@ class IO
 
   # `$,` goes between the objects and `$\` after the last one, which is
   # what makes `print` and `puts` differ.
-  def print(*objects)
-    objects = [$_] if objects.empty?
-    write(objects.map(&:to_s).join($, || ""))
-    write($\) if $\
-    nil
-  end
+  def print(*objects) = IO.print_to(self, objects)
 
   # One String, the usual call, is its own line: CRuby takes a String
   # as it is and never asks it for `to_s`.
@@ -713,6 +708,15 @@ class IO
         text.end_with?("\n") ? [text] : [text + "\n"]
       end
     end
+  end
+
+  # What `print` writes `objects` as: their `to_s` joined by `$,`, then
+  # `$\`, and `$_` where there are no objects.
+  def self.print_to(out, objects)
+    objects = [$_] if objects.empty?
+    out.write(objects.map(&:to_s).join($, || ""))
+    out.write($\) if $\
+    nil
   end
 
   def printf(format, *args)
@@ -1343,10 +1347,10 @@ module Kernel
   end
 
   # `$,` goes between the objects and `$\` after the last one, which is
-  # what makes `print` and `puts` differ.
-  def print(*objects)
-    $stdout.print(*objects)
-  end
+  # what makes `print` and `puts` differ. `$stdout` is asked for `write`
+  # and nothing else, so an object that stands in for it needs only that
+  # one method, which is all CRuby needs of it.
+  def print(*objects) = IO.print_to($stdout, objects)
 
   def p(*objects)
     out = $stdout
