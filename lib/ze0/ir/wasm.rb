@@ -148,7 +148,8 @@ module Ze0
                     ["wasi_snapshot_preview1", "fd_sync", [0x7F], [0x7F]],
                     ["wasi_snapshot_preview1", "fd_read", [0x7F, 0x7F, 0x7F, 0x7F], [0x7F]],
                     ["wasi_snapshot_preview1", "fd_seek", [0x7F, 0x7E, 0x7F, 0x7F], [0x7F]],
-                    ["wasi_snapshot_preview1", "clock_time_get", [0x7F, 0x7E, 0x7F], [0x7F]]]
+                    ["wasi_snapshot_preview1", "clock_time_get", [0x7F, 0x7E, 0x7F], [0x7F]],
+                    ["wasi_snapshot_preview1", "random_get", [0x7F, 0x7F], [0x7F]]]
         @shims = SHIMS
         @index = {}
         @imports.each_with_index { |(_, name, *), i| @index[name] = i }
@@ -302,12 +303,23 @@ module Ze0
         when "memset"
           # memory.fill with the low byte of c; answer the destination.
           code << "\x20\x00\xA7\x20\x01\x20\x02\xA7".b << "\xFC\x0B\x00".b << "\x20\x00".b
-        when "getenv", "pthread_self", "pthread_get_stackaddr_np", "pthread_get_stacksize_np", "_NSGetEnviron", "getcwd", "mmap"
+        when "getenv", "pthread_self", "pthread_get_stackaddr_np", "pthread_get_stacksize_np", "_NSGetEnviron", "mmap"
           code << "\x42\x00".b
         # mprotect succeeds and does nothing: WASI has no PROT_NONE, and
         # CRuby sets no guard page there either.
-        when "setenv", "unsetenv", "getpid", "arc4random", "mprotect"
+        when "setenv", "unsetenv", "getpid", "mprotect"
           code << "\x41\x00".b
+        # A module is given no working directory, and the root is the
+        # one path every host agrees exists.
+        when "getcwd"
+          code << "\x20\x00".b << "\xA7".b << i32c(0x2F) << "\x3A\x00".b << leb(0)
+          code << "\x20\x00".b << "\xA7".b << i32c(0) << "\x3A\x00".b << leb(1)
+          code << "\x20\x00".b
+        # Four bytes from the host. A constant would make every Random
+        # the same one, which is the opposite of what the call is for.
+        when "arc4random"
+          code << call_wasi("random_get", [i32c(SCRATCH), i32c(4)]) << "\x1A".b
+          code << i32c(SCRATCH) << "\x28\x02".b << leb(0)
         when "munmap"
           code << "\x41\x7F".b
         # A module has no path metadata, so a path is not found. The
