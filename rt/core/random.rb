@@ -1,34 +1,17 @@
 # Random: CRuby's MT19937, seeded and drawn as CRuby does it, so a
-# seeded stream answers the same numbers. Floats are not drawn yet.
+# seeded stream answers the same numbers.
+#
+# CRuby keeps the generator's words in a struct of its own and puts the
+# draws on Random::Base, which leaves Random itself with `==` alone. The
+# words live in hidden slots here for the same reason: a program sees no
+# instance variable on a generator.
 random_base = Class.new
 
 class Random < random_base
-  N = 624
-  M = 397
-  MATRIX_A = 0x9908b0df
-  UPPER = 0x80000000
-  LOWER = 0x7fffffff
-  private_constant :N, :M, :MATRIX_A, :UPPER, :LOWER
-
-  attr_reader :seed
-
-  def initialize(seed = Random.new_seed)
-    seed = seed.to_i if seed.is_a?(Float)
-    raise TypeError, "no implicit conversion of #{seed.class} into Integer" unless seed.is_a?(Integer)
-
-    @seed = seed
-    key = []
-    v = seed.abs
-    while v > 0
-      key << (v & 0xffffffff)
-      v >>= 32
-    end
-    # CRuby decides by the words the seed packs into: one or none seed
-    # init_genrand, more seed init_by_array, less a top word of one, its
-    # packer's leading-zero guard.
-    words = key.size
-    key.pop if words > 1 && key.last == 1
-    words <= 1 ? init_genrand(key[0] || 0) : init_by_array(key)
+  # Two generators are the same when they stand in the same place of the
+  # same seeded stream.
+  def ==(other)
+    other.is_a?(Random) && seed == other.seed && mti == other.send(:mti) && mt == other.send(:mt)
   end
 
   def self.new_seed = Primitive.zr_random_seed
@@ -58,6 +41,58 @@ class Random < random_base
     @default = new(seed)
     was
   end
+end
+
+Random::Base = random_base
+
+# What `random/formatter.rb` adds to every generator, and to SecureRandom
+# through the same module: a draw that names itself after the number it
+# gives, and `rand` beside it.
+module Random::Formatter
+  def rand(*args) = random_number(*args)
+
+  def random_number(*args)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+
+    max = args[0]
+    return Random::Base.instance_method(:rand).bind(self).call if max.nil?
+
+    Random::Base.instance_method(:rand).bind(self).call(max)
+  end
+end
+Random::Base.include(Random::Formatter)
+
+# The draws themselves, where CRuby keeps them: a generator answers `rand`,
+# `bytes` and `seed` from Random::Base, and the words of the state never
+# leave this class.
+class Random::Base
+  N = 624
+  M = 397
+  MATRIX_A = 0x9908b0df
+  UPPER = 0x80000000
+  LOWER = 0x7fffffff
+  private_constant :N, :M, :MATRIX_A, :UPPER, :LOWER
+
+  def initialize(seed = Random.new_seed)
+    seed = seed.to_i if seed.is_a?(Float)
+    raise TypeError, "no implicit conversion of #{seed.class} into Integer" unless seed.is_a?(Integer)
+
+    Primitive.zr_hidden_set(self, :__seed__, seed)
+    key = []
+    v = seed.abs
+    while v > 0
+      key << (v & 0xffffffff)
+      v >>= 32
+    end
+    # CRuby decides by the words the seed packs into: one or none seed
+    # init_genrand, more seed init_by_array, less a top word of one, its
+    # packer's leading-zero guard.
+    words = key.size
+    key.pop if words > 1 && key.last == 1
+    words <= 1 ? init_genrand(key[0] || 0) : init_by_array(key)
+  end
+
+  def seed = Primitive.zr_hidden_get(self, :__seed__)
 
   # `rand(n)`, `rand(a..b)`; a Float bound or no bound is a Float draw.
   def rand(max = nil)
@@ -94,17 +129,6 @@ class Random < random_base
     end
   end
 
-  # A span too wide for a Float draws around the middle instead, which
-  # is how ruby keeps `-1e308..1e308` working. An endpoint that is not
-  # finite has no middle.
-  def wide_float(low, high, exclude_end)
-    raise Errno::EDOM unless low.finite? && high.finite?
-
-    half = (high / 2.0) - (low / 2.0)
-    mid = (high / 2.0) + (low / 2.0)
-    (((exclude_end ? unit_float : unit_float_closed) - 0.5) * half * 2) + mid
-  end
-
   # `n` random bytes, four per draw, least significant first.
   def bytes(size)
     raise ArgumentError, "negative string size (or size too big)" if size < 0
@@ -126,6 +150,20 @@ class Random < random_base
       end
     end
     out
+  end
+
+  private
+
+  # A span too wide for a Float draws around the middle instead, which
+  # is how ruby keeps `-1e308..1e308` working. An endpoint that is not
+  # finite has no middle.
+  def wide_float(low, high, exclude_end)
+    Primitive.attr! :hidden
+    raise Errno::EDOM unless low.finite? && high.finite?
+
+    half = (high / 2.0) - (low / 2.0)
+    mid = (high / 2.0) + (low / 2.0)
+    (((exclude_end ? unit_float : unit_float_closed) - 0.5) * half * 2) + mid
   end
 
   # A double in [0, 1) from 53 random bits, as MT's genrand_res53.
@@ -227,39 +265,51 @@ class Random < random_base
     end
   end
 
-  def ==(other) = other.is_a?(Random) && @seed == other.seed && @mti == other.send(:mti) && @mt == other.send(:mt)
+  # The generator's words, and where it stands in them: state CRuby keeps
+  # in a struct, so no instance variable holds it here.
+  def mt
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__mt__)
+  end
 
-  # The state is hidden, as CRuby's is.
-  def inspect = to_s
+  def mti
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__mti__)
+  end
 
-  private
-
-  attr_reader :mt, :mti
+  def set_mti(v)
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_set(self, :__mti__, v)
+  end
 
   def init_genrand(s)
-    @mt = Array.new(N, 0)
-    @mt[0] = s & 0xffffffff
+    Primitive.attr! :hidden
+    words = Array.new(N, 0)
+    words[0] = s & 0xffffffff
     i = 1
     while i < N
-      prev = @mt[i - 1]
-      @mt[i] = (mul32(1812433253, prev ^ (prev >> 30)) + i) & 0xffffffff
+      prev = words[i - 1]
+      words[i] = (mul32(1812433253, prev ^ (prev >> 30)) + i) & 0xffffffff
       i += 1
     end
-    @mti = N
+    Primitive.zr_hidden_set(self, :__mt__, words)
+    set_mti(N)
   end
 
   def init_by_array(key)
+    Primitive.attr! :hidden
     init_genrand(19650218)
+    words = mt
     i = 1
     j = 0
     k = N > key.size ? N : key.size
     while k > 0
-      prev = @mt[i - 1]
-      @mt[i] = ((@mt[i] ^ mul32(1664525, prev ^ (prev >> 30))) + key[j] + j) & 0xffffffff
+      prev = words[i - 1]
+      words[i] = ((words[i] ^ mul32(1664525, prev ^ (prev >> 30))) + key[j] + j) & 0xffffffff
       i += 1
       j += 1
       if i >= N
-        @mt[0] = @mt[N - 1]
+        words[0] = words[N - 1]
         i = 1
       end
       j = 0 if j >= key.size
@@ -267,17 +317,17 @@ class Random < random_base
     end
     k = N - 1
     while k > 0
-      prev = @mt[i - 1]
-      @mt[i] = ((@mt[i] ^ mul32(1566083941, prev ^ (prev >> 30))) - i) & 0xffffffff
+      prev = words[i - 1]
+      words[i] = ((words[i] ^ mul32(1566083941, prev ^ (prev >> 30))) - i) & 0xffffffff
       i += 1
       if i >= N
-        @mt[0] = @mt[N - 1]
+        words[0] = words[N - 1]
         i = 1
       end
       k -= 1
     end
-    @mt[0] = 0x80000000
-    @mti = N
+    words[0] = 0x80000000
+    set_mti(N)
   end
 
   # `a * b` modulo 2**32 for a below 2**31 and b below 2**32, in
@@ -288,9 +338,12 @@ class Random < random_base
   end
 
   def next_int32
-    reload if @mti >= N
-    y = @mt[@mti]
-    @mti += 1
+    Primitive.attr! :hidden
+    reload if mti >= N
+    words = mt
+    at = mti
+    y = words[at]
+    set_mti(at + 1)
     y ^= y >> 11
     y ^= (y << 7) & 0x9d2c5680
     y ^= (y << 15) & 0xefc60000
@@ -299,26 +352,24 @@ class Random < random_base
   end
 
   def reload
+    Primitive.attr! :hidden
+    words = mt
     kk = 0
     while kk < N - M
-      y = (@mt[kk] & UPPER) | (@mt[kk + 1] & LOWER)
-      @mt[kk] = @mt[kk + M] ^ (y >> 1) ^ (y.odd? ? MATRIX_A : 0)
+      y = (words[kk] & UPPER) | (words[kk + 1] & LOWER)
+      words[kk] = words[kk + M] ^ (y >> 1) ^ (y.odd? ? MATRIX_A : 0)
       kk += 1
     end
     while kk < N - 1
-      y = (@mt[kk] & UPPER) | (@mt[kk + 1] & LOWER)
-      @mt[kk] = @mt[kk + (M - N)] ^ (y >> 1) ^ (y.odd? ? MATRIX_A : 0)
+      y = (words[kk] & UPPER) | (words[kk + 1] & LOWER)
+      words[kk] = words[kk + (M - N)] ^ (y >> 1) ^ (y.odd? ? MATRIX_A : 0)
       kk += 1
     end
-    y = (@mt[N - 1] & UPPER) | (@mt[0] & LOWER)
-    @mt[N - 1] = @mt[M - 1] ^ (y >> 1) ^ (y.odd? ? MATRIX_A : 0)
-    @mti = 0
+    y = (words[N - 1] & UPPER) | (words[0] & LOWER)
+    words[N - 1] = words[M - 1] ^ (y >> 1) ^ (y.odd? ? MATRIX_A : 0)
+    set_mti(0)
   end
 end
-
-Random::Base = random_base
-module Random::Formatter; end
-Random::Base.include(Random::Formatter)
 
 module Kernel
   # Kernel#rand: nil or 0 gives a Float, a Float or negative bound is

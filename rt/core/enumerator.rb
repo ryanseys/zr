@@ -28,16 +28,22 @@ class Enumerator
     end
   end
 
+  # The block an `Enumerator.new` runs, which is an Enumerable of its own
+  # and holds the block where no program sees it.
   class Generator
+    include Enumerable
+
     def initialize(&block)
-      @block = block
+      raise LocalJumpError, "no block given" unless block
+
+      Primitive.zr_hidden_set(self, :__block__, block)
     end
 
-    def each(&block)
-      @block.call(Yielder.new(&block))
+    # Any arguments a caller adds are the yielder's to ignore, as CRuby's
+    # own row takes them and answers an arity of -1.
+    def each(*, &block)
+      Primitive.zr_hidden_get(self, :__block__).call(Yielder.new(&block))
     end
-
-    def inspect = to_s
   end
 
   def initialize(size = nil, &block)
@@ -55,21 +61,22 @@ class Enumerator
   # each block answer, until the block raises StopIteration.
   class Producer
     def initialize(initial, has_initial, block)
-      @initial = initial
-      @has_initial = has_initial
-      @block = block
+      Primitive.zr_hidden_set(self, :__initial__, initial)
+      Primitive.zr_hidden_set(self, :__has_initial__, has_initial)
+      Primitive.zr_hidden_set(self, :__block__, block)
     end
 
     def each
-      value = @initial
-      if @has_initial
+      block = Primitive.zr_hidden_get(self, :__block__)
+      value = Primitive.zr_hidden_get(self, :__initial__)
+      if Primitive.zr_hidden_get(self, :__has_initial__)
         yield value
       else
-        value = @block.call(nil)
+        value = block.call(nil)
         yield value
       end
       loop do
-        value = @block.call(value)
+        value = block.call(value)
         yield value
       end
       self
