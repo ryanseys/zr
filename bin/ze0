@@ -23,6 +23,21 @@
 
 ROOT = File.expand_path("..", __dir__)
 
+# A compile allocates in the tens of millions of objects, and how often
+# it stops for a major collection is decided by the collector's malloc
+# limits -- which ruby reads as it starts and never again. So the only
+# way to raise them for this process is to start it again with them
+# raised. Measured over the runtime's 4,733 functions: 3.47 s against
+# 3.17 s, and one major collection where there were four. A child this
+# script starts inherits them and does not do this twice. `ZE0_GC=0`
+# leaves the collector as ruby set it.
+require "rbconfig"
+if ENV["ZE0_GC"] != "0" && !ENV.key?("RUBY_GC_MALLOC_LIMIT")
+  ENV["RUBY_GC_MALLOC_LIMIT"] = "64000000"
+  ENV["RUBY_GC_OLDMALLOC_LIMIT"] = "128000000"
+  exec(RbConfig.ruby, __FILE__, *ARGV)
+end
+
 # The compiler runs under YJIT unless ZE0_YJIT=0: a cold runtime build
 # is mostly the compiler's own Ruby, which YJIT runs well. A child this
 # script starts runs this script again, so it gets YJIT too.
