@@ -6,6 +6,9 @@
 # The emitter is a handler, which is the one thing this file needs
 # from the gem's ruby half before the gem requires it.
 require "psych/handler"
+# The parser raises Psych::SyntaxError, so the class must stand before
+# the gem's own half loads, which is where CRuby's psych.so seats it too.
+require "psych/syntax_error"
 
 module Psych
   def self.libyaml_version = [0, 2, 5]
@@ -139,9 +142,14 @@ module Psych
           advance(3)
           seek_content
         end
+        # A directive belongs to a document, which has to open itself.
+        fail!("expected '<document start>'") if directives && !explicit
         @handler.start_document(version, tag_directives, !explicit && !directives)
         empty_document? ? empty_scalar : node(-1)
         seek_content
+        # Indented text that no node could take, and that opens no
+        # document of its own, belongs to nothing at all.
+        fail!("did not find expected key") if !eof? && @column.positive? && !(boundary? && (at?("---") || at?("...")))
         closed = at?("...") && boundary?
         advance(3) if closed
         @handler.end_document(!closed)
@@ -195,7 +203,7 @@ module Psych
       # value takes a block sequence at the mapping's own column, which
       # is the one thing that may sit level with its parent.
       def node(indent, level_sequence: false)
-        anchor, tag = properties
+        anchor, tag, mark = properties
         seek_content
         return empty_scalar(anchor, tag) if eof? || (boundary? && (at?("---") || at?("...")))
         if indent >= 0 && @column <= indent
@@ -205,10 +213,13 @@ module Psych
         case peek
         when "*" then read_alias
         when "[", "{" then flow_node(anchor, tag)
+        # These close or separate a flow collection, and no flow
+        # collection is open here.
+        when "]", "}", "," then fail!("did not find expected node content")
         when "|", ">" then block_scalar(anchor, tag, indent)
         when "-" then entry_ahead? ? block_sequence(anchor, tag) : scalar_or_mapping(anchor, tag, indent)
         when "?" then explicit_ahead? ? block_mapping(anchor, tag, nil, @column) : scalar_or_mapping(anchor, tag, indent)
-        else scalar_or_mapping(anchor, tag, indent)
+        else scalar_or_mapping(anchor, tag, indent, mark == @line)
         end
       end
 
@@ -216,15 +227,20 @@ module Psych
       def properties
         anchor = nil
         tag = nil
+        mark = nil
         loop do
           seek_content
           case peek
-          when "&" then advance; anchor = read_while { |c| plain_name?(c) }
+          when "&"
+            advance
+            anchor = read_while { |c| plain_name?(c) }
+            fail!("did not find expected alphabetic or numeric character") if anchor.empty?
           when "!" then tag = read_tag
           else break
           end
+          mark = @line
         end
-        [anchor, tag]
+        [anchor, tag, mark]
       end
 
       def plain_name?(char)
@@ -252,13 +268,20 @@ module Psych
           handle = "!#{name}!"
           name = read_while { |c| plain_name?(c) }
         end
+        # A lone `!` is a tag of its own; a handle with nothing after it
+        # names nothing.
+        fail!("did not find expected tag URI") if name.empty? && handle != "!"
+
         prefix = @tags[handle] || handle
         prefix == "!" ? "!#{name}" : "#{prefix}#{name}"
       end
 
       def read_alias
         advance
-        @handler.alias(read_while { |c| plain_name?(c) })
+        name = read_while { |c| plain_name?(c) }
+        fail!("did not find expected alphabetic or numeric character") if name.empty?
+
+        @handler.alias(name)
       end
 
       def empty_scalar(anchor = nil, tag = nil)
@@ -337,10 +360,14 @@ module Psych
       # --- scalars, and the key they may turn out to be -------------------
 
       # A scalar, or the mapping it opens when a `:` follows it.
-      def scalar_or_mapping(anchor, tag, indent)
+      # An anchor and a tag belong to the node that follows them. Where
+      # that node is a simple key, they belong to the key and not to the
+      # mapping it opens, which is what `own_line` tells apart: a tag on
+      # the key's own line is the key's.
+      def scalar_or_mapping(anchor, tag, indent, own_line = false)
         column = @column
-        recorded = simple_key(column)
-        return block_mapping(anchor, tag, recorded, column) if recorded
+        recorded = simple_key(column, own_line ? anchor : nil, own_line ? tag : nil)
+        return block_mapping(own_line ? nil : anchor, own_line ? nil : tag, recorded, column) if recorded
         return quoted_scalar(anchor, tag) if peek == "'" || peek == '"'
 
         plain_scalar(anchor, tag, indent)
@@ -348,7 +375,7 @@ module Psych
 
       # The events of a node that is followed by `:`, or nil. A simple
       # key stays on its own line, so the reading never crosses one.
-      def simple_key(column)
+      def simple_key(column, anchor = nil, tag = nil)
         return nil unless @column == column
 
         state = [@at, @line, @column]
@@ -356,7 +383,7 @@ module Psych
         keep = @handler
         @handler = Recorder.new(events)
         begin
-          single_line_node
+          single_line_node(anchor, tag)
         rescue SyntaxError
           @handler = keep
           restore(state)
@@ -381,8 +408,10 @@ module Psych
 
       # The node a simple key may be: a scalar or a flow collection, all
       # on one line.
-      def single_line_node
-        anchor, tag = properties
+      def single_line_node(anchor = nil, tag = nil)
+        read_anchor, read_tag = properties
+        anchor ||= read_anchor
+        tag ||= read_tag
         fail!("did not find expected key") if line_end?
 
         case peek
@@ -450,7 +479,9 @@ module Psych
         quote = peek
         text = quote == "'" ? single_quoted : double_quoted
         style = quote == "'" ? Nodes::Scalar::SINGLE_QUOTED : Nodes::Scalar::DOUBLE_QUOTED
-        @handler.scalar(text, anchor, tag, false, true, style)
+        # The quoted flag is libyaml's quoted_implicit: the quoting says
+        # what the scalar is, which it does only where no tag says so.
+        @handler.scalar(text, anchor, tag, false, tag.nil?, style)
       end
 
       def single_quoted
@@ -556,7 +587,7 @@ module Psych
         skip_line
         text = block_lines(width, indent)
         text = literal ? text : fold_block(text)
-        @handler.scalar(chomped(text, chomp), anchor, tag, false, true,
+        @handler.scalar(chomped(text, chomp), anchor, tag, false, tag.nil?,
                         literal ? Nodes::Scalar::LITERAL : Nodes::Scalar::FOLDED)
       end
 
@@ -606,7 +637,9 @@ module Psych
         case chomp
         when :strip then text.sub(/\n+\z/, "")
         when :keep then text
-        else "#{text.sub(/\n+\z/, '')}\n"
+        # A block scalar that carried no line at all is empty, and
+        # clipping adds no break to nothing.
+        else text.empty? ? "" : "#{text.sub(/\n+\z/, '')}\n"
         end
       end
 
