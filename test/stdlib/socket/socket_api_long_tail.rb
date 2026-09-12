@@ -1,7 +1,7 @@
 # Three socket-surface rows: `BasicSocket.do_not_reverse_lookup` (the
 # class-level accessor), `Socket.sockaddr_un`/`unpack_sockaddr_un`, and
 # the ECONNREFUSED message shape ('Connection refused - connect(2) for
-# "127.0.0.1" port N'; zeo leaks rust's io text). (Found by the
+# "127.0.0.1" port N'; zeo leaks the io layer's own text). (Found by the
 # 2026-08-24 probe sweep.)
 require "socket"
 def show

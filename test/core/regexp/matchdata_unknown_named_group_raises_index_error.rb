@@ -1,4 +1,4 @@
-# An unknown named-group key raises IndexError (previously a Rust panic);
+# An unknown named-group key raises IndexError (previously an abort);
 # a known name resolves its capture.
 
 m = "2026-06".match(/(?<y>\d+)-(?<mo>\d+)/)

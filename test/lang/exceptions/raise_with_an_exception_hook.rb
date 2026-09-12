@@ -1,8 +1,7 @@
 # `raise obj, "msg"` where obj's class overrides #exception does not even
-# BUILD: codegen hands the constructed object to
-# `zeo_rt::coerce_raise_arg_with_message` as a raw `Arc<WithHook>` instead of
-# wrapping it in `RubyValue::Object(...)`, and rustc rejects the generated
-# program (E0308). Any program using this shape fails to compile, so this gap
+# BUILD: codegen hands the constructed object to the raise-argument
+# coercion unboxed, where a boxed value is wanted, and the generated program
+# is rejected. Any program using this shape fails to compile, so this gap
 # "diverges" by failing to produce a binary at all.
 class WithHook
   def exception(msg = nil)

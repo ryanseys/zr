@@ -1,8 +1,7 @@
 # Differential probe: MESSAGE FIDELITY.
 #
 # Raises on purpose across the surfaces whose text is assembled at the raise
-# site, and prints the exception class and message per row. Run through
-# `cargo xtask probe messages`.
+# site, and prints the exception class and message per row.
 #
 # Message text drifts one site at a time, because each site writes its own.
 # Ruby 3.4 moved the quoting from ``x'` to `'x'`, CRuby names its own C

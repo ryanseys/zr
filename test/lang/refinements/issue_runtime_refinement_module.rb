@@ -4,7 +4,7 @@
 # it, and `using` has no compile-time module to apply.
 #
 # This is the one thing still standing between zeo and irb. The gem is
-# vendored and compiles CLEAN -- zero rustc errors, down from 51 -- and runs
+# vendored and compiles CLEAN -- zero errors, down from 51 -- and runs
 # deep into its own initialization before stopping at completion.rb:164,
 # which is written exactly like this. Closing it means teaching the existing
 # rewrite this shape: an anonymous `Module.new { refine C do ... end }` passed

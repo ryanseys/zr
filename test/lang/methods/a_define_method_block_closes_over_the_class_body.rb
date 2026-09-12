@@ -1,5 +1,5 @@
 # `define_method(:m) { ... }` in a class or module body desugars to a plain
-# method -- and a method is a Rust function of its own, so it cannot reach a
+# method -- and a method is a function of its own, so it cannot reach a
 # local living on the enclosing class-body frame. rubygems writes exactly that
 # shape in `core_ext/kernel_warn.rb`:
 #
@@ -9,8 +9,8 @@
 #   end
 #
 # which emitted a method body naming `original_warn` and stopped bundler and
-# rubyzip at rustc with E0425. A capturing block declines the desugar and
-# installs a real closure through `Module#define_method` instead.
+# rubyzip at compile time on an unknown name. A capturing block declines the
+# desugar and installs a real closure through `Module#define_method` instead.
 
 module Greeter
   greeting = "hi"

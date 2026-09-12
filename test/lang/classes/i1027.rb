@@ -13,9 +13,9 @@
 # (the type info exists; only the interp format-spec dispatch missed
 # the arm). Surfaced in roundhouse view emit after a lowering coalesced
 # `io << x; io << y; io << z` runs into `io << "...#{y}..."`-style
-# string-interpolation. Other roundhouse targets (ts/crystal/rust/go/
-# ruby) interpolate cleanly because their string primitives accept
-# the mutable variant directly; only spinel needed the missing arm.
+# string-interpolation. The other roundhouse targets interpolate cleanly
+# because their string primitives accept the mutable variant directly;
+# only spinel needed the missing arm.
 
 module M
   def self.make

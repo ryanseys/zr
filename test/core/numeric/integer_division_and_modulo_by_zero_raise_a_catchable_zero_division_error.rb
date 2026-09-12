@@ -1,10 +1,9 @@
 # A real, previously-undetected bug: `1 / 0` crashed the ENTIRE
-# generated binary with a raw Rust panic (`zeo_rt::int_div`'s own
-# internal `/` panicking) instead of raising a catchable
-# `ZeroDivisionError` -- real Ruby's actual behavior. This affected
-# BOTH the static `Int`-`Int` fast path and the runtime-checked
-# fallback used for method-parameter operands (always `Poly`). Fixed
-# via `emit_int_div_or_mod_checked`, consulted at both call sites.
+# generated binary with a native division fault instead of raising a
+# catchable `ZeroDivisionError` -- real Ruby's actual behavior. This
+# affected BOTH the static integer fast path and the runtime-checked
+# fallback used for method-parameter operands. The fix is one checked
+# division, consulted at both call sites.
 
 begin
   puts(5 % 0)

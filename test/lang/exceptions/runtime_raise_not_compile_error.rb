@@ -46,7 +46,7 @@ puts err { Thread.new }
 puts err { Fiber.new }
 
 # 3. A non-finite float literal is a perfectly good value, not a codegen
-#    failure -- it just cannot be spelled as a Rust float token.
+#    failure -- it just cannot be spelled as a float literal.
 big = 1e400
 p big
 p(-1e400)

@@ -2,8 +2,8 @@
 # argument list defines an ordinary instance method called `self`, reachable
 # through `send`. The `parser` gem's AST builder does this.
 #
-# `self` is a Rust path keyword with no raw-identifier form -- `r#self` does
-# not exist -- so it gets a mangled spelling of its own.
+# `self` is a keyword the generated program cannot escape and reuse, so it
+# gets a mangled spelling of its own.
 
 class Builder
   def self(token)

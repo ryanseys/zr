@@ -35,29 +35,34 @@ module Ze0
 
       # The floating-point instructions, as words: `FMOV Dd, Xn`,
       # `FMOV Xd, Dn`, the arithmetic and the conversions, with d16..d19
-      # as scratch.
+      # as scratch. Each carries its own text, because a word the
+      # assembler is handed cannot name itself to a listing.
       module FP
-        Word = Struct.new(:word) do
+        Word = Struct.new(:word, :text) do
           def encode(_position) = word
         end
 
+        # The mnemonics the one-operand instructions go by.
+        UNOPS = { fneg: "fneg", fabs: "fabs", sqrt: "fsqrt", floor: "frintm",
+                  ceil: "frintp", trunc: "frintz", nearest: "frintn" }.freeze
+
         module_function
 
-        def to_d(d, x) = Word.new(0x9E670000 | (x << 5) | d)
-        def to_x(x, d) = Word.new(0x9E660000 | (d << 5) | x)
+        def to_d(d, x) = Word.new(0x9E670000 | (x << 5) | d, "fmov d#{d}, x#{x}")
+        def to_x(x, d) = Word.new(0x9E660000 | (d << 5) | x, "fmov x#{x}, d#{d}")
         def binop(op, d, n, m)
           base = { fadd: 0x1E602800, fsub: 0x1E603800, fmul: 0x1E600800, fdiv: 0x1E601800 }.fetch(op)
-          Word.new(base | (m << 16) | (n << 5) | d)
+          Word.new(base | (m << 16) | (n << 5) | d, "#{op} d#{d}, d#{n}, d#{m}")
         end
 
         def unop(op, d, n)
           base = { fneg: 0x1E614000, fabs: 0x1E60C000, sqrt: 0x1E61C000, floor: 0x1E654000, ceil: 0x1E64C000, trunc: 0x1E65C000, nearest: 0x1E644000 }.fetch(op)
-          Word.new(base | (n << 5) | d)
+          Word.new(base | (n << 5) | d, "#{UNOPS.fetch(op)} d#{d}, d#{n}")
         end
 
-        def cmp(n, m) = Word.new(0x1E602000 | (m << 16) | (n << 5))
-        def scvtf(d, x) = Word.new(0x9E620000 | (x << 5) | d)
-        def fcvtzs(x, d) = Word.new(0x9E780000 | (d << 5) | x)
+        def cmp(n, m) = Word.new(0x1E602000 | (m << 16) | (n << 5), "fcmp d#{n}, d#{m}")
+        def scvtf(d, x) = Word.new(0x9E620000 | (x << 5) | d, "scvtf d#{d}, x#{x}")
+        def fcvtzs(x, d) = Word.new(0x9E780000 | (d << 5) | x, "fcvtzs x#{x}, d#{d}")
       end
 
       class Refused < StandardError; end

@@ -1,7 +1,6 @@
 # The bundled RubyGems, entered at the umbrella. This is the compile-cost
-# instrument's largest rung: `cargo xtask bench --compile` times how long the
-# front end takes on the whole `require "rubygems"` graph and how much it
-# holds while doing it.
+# instrument's largest rung: it times how long the front end takes on the
+# whole `require "rubygems"` graph and how much it holds while doing it.
 #
 # The body below is deliberately small and pure -- version arithmetic,
 # requirement matching, platform parsing, what every gemspec and lockfile is

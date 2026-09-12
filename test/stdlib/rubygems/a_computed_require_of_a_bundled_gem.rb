@@ -8,7 +8,7 @@
 # binary carries no path to a gem that was never installed on the machine.
 # Both true, and both beside the point for json.
 #
-# json is a NATIVE feature: its Rust half is linked into the binary and
+# json is a NATIVE feature: its native half is linked into the binary and
 # registered before line 1, which is why a literal `require "json"` folds to
 # nothing but a loaded-feature marker. Nothing has to be found, embedded or
 # compiled -- the answer was already in the process, and the run-time require

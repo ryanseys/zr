@@ -155,8 +155,8 @@ module RbConfig
     "optflags" => "-O2",
     "debugflags" => "-g",
     "warnflags" => "-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers",
-    # A raise is a Rust unwind through the extension's own frames, so its
-    # objects must carry unwind tables (docs/EXTENSIONS.md).
+    # A raise unwinds through the extension's own frames, so its objects
+    # must carry unwind tables (docs/EXTENSIONS.md).
     "unwindflags" => "-fexceptions -fasynchronous-unwind-tables",
     "CFLAGS" => "$(cflags) -fPIC",
     "CXXFLAGS" => "$(cxxflags) -fPIC",

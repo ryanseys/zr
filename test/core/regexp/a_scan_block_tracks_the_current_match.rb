@@ -1,9 +1,9 @@
 # `String#scan` with a block sets `$~` to the CURRENT match on each iteration,
 # exactly as `sub`/`gsub`'s block forms do. The runtime's `scan` row collected
 # every match first and only then yielded, so `$~` sat at the LAST match for
-# every iteration; the rustc backend hid that behind a typed fast path, which
-# only fires when the receiver is statically a String -- so a receiver that is
-# not, or any call through the dynamic path, read the wrong match.
+# every iteration; a typed fast path hid that, and it fires only when the
+# receiver is statically a String -- so a receiver that is not, or any call
+# through the dynamic path, read the wrong match.
 #
 # The `$~` a block reads belongs to the enclosing METHOD's svar scope, and
 # `$~` is frame-local: a method that matches and returns leaves the caller's

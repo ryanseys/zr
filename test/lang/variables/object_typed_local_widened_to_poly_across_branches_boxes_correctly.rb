@@ -1,10 +1,9 @@
 # `x`'s two branches assign DIFFERENT classes, so
 # `analyze::locals::merge_locals` widens its whole-scope type to `Poly`
-# (a plain `RubyValue` slot) -- but each branch's own `HirNode::New`
-# codegen still produces a bare, unboxed `Arc<Concrete>` unless the
-# write site itself boxes it. Before this fix, this was
-# a genuine `rustc` type-mismatch in the GENERATED Rust, not just a
-# wrong answer.
+# (a plain `RubyValue` slot) -- but each branch's own `HirNode::New` codegen
+# still produces a bare, unboxed value unless the write site itself boxes
+# it. Before this fix, this was a genuine type mismatch in the GENERATED
+# program, not just a wrong answer.
 
 class Foo
   def initialize

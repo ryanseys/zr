@@ -1,6 +1,6 @@
 # `class Point < Struct.new(:x, :y)` -- a superclass that only exists at RUN
 # time (a `Struct`/`Data` class, a `Class.new`, a constant holding either).
-# The subclass can't be one of the statically emitted Rust structs, so it is
+# The subclass can't be one of the statically emitted structs, so it is
 # minted at runtime too; `super`, `superclass`, and a namespaced name all
 # have to keep working through it. `class D ... end` reopening such a
 # constant installs onto the existing class rather than registering a fresh

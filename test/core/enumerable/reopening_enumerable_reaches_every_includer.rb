@@ -1,4 +1,4 @@
-# Enumerable is a RUST-implemented builtin, yet reopenable (D3): an added
+# Enumerable is a NATIVE builtin, yet reopenable (D3): an added
 # method registers as a value method on the module id and the MRO walk
 # finds it for every includer, its body free to drive the native
 # Enumerable protocol (`reduce`) on the receiver.

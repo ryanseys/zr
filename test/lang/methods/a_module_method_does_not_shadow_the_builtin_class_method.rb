@@ -10,10 +10,10 @@
 # ClassInfo, and `mro::materialize_methods` walks the ancestry putting the
 # closest ancestor's own_methods first -- Array, then Enumerable -- so the
 # table itself is ordered correctly. What is missing is `Array`'s own row:
-# `none?` and `size` are Rust builtins with no `Scope`, so `Array` contributes
-# nothing to `own_methods` for those names and the walk falls through to the
-# first ancestor that DOES have a user scope. The builtin table is consulted
-# only after the materialized table misses.
+# `none?` and `size` are native builtins with no `Scope`, so `Array`
+# contributes nothing to `own_methods` for those names and the walk falls
+# through to the first ancestor that DOES have a user scope. The builtin
+# table is consulted only after the materialized table misses.
 #
 # The fix is for materialization to treat a builtin row on `class_id` as
 # claiming the name -- the same `seen.insert` an `undef` already performs --

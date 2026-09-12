@@ -1,8 +1,7 @@
 # A receiver can DIVERGE -- `raise("x").foo`, or a `const_get` whose literal
-# name folds at compile time to a NameError. Their emitted type is Rust's
-# never type, which coerces to anything EXCEPT behind a reference, and a
-# dynamic send borrows its receiver. So the whole program failed to compile
-# over an expression that never runs.
+# name folds at compile time to a NameError. Such an expression has no value
+# type at all, and a dynamic send wants a receiver to borrow. So the whole
+# program failed to compile over an expression that never runs.
 begin
   Object.const_get("Bad.Name")
 rescue NameError => e

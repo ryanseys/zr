@@ -1,6 +1,6 @@
-# `junk << Trash.new(1)` on a Poly receiver: the numeric-op fallback's
-# match scrutinee must box the unboxed `Arc<Concrete>` argument
-# (found by the conformance corpus's argv_gc as a FAIL_RUSTC).
+# `junk << Trash.new(1)` on a Poly receiver: the numeric-op fallback must
+# box an argument it holds unboxed (found by the conformance corpus's
+# argv_gc as a compile failure).
 
 class Trash
   def initialize(n)

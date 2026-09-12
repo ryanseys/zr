@@ -1,5 +1,5 @@
 # The same LocalJumpError path an ordinary method has always needed -- it
-# used to abort the process with a Rust panic instead of raising.
+# used to abort the process instead of raising.
 
 def m
   yield

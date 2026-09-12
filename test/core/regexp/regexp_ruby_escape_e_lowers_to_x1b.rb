@@ -1,4 +1,4 @@
-# Ruby's `\e` (ESC) isn't a Rust `regex`-crate escape; it must be
+# Ruby's `\e` (ESC) is not an escape every regex engine knows; it must be
 # translated to `\x1b`, and `#source` still shows the original `\e`.
 
 re = /\e\[[0-9;]*m/

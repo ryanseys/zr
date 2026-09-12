@@ -1,7 +1,7 @@
 # A POSIX typedef whose width differs between zeo's targets (mode_t is u16
 # on macOS, u32 on glibc) is legal in argument/return position -- the
-# generated code spells the TARGET's own libc alias, so rustc supplies the
-# real width.
+# generated code spells the TARGET's own libc alias, so the C toolchain
+# supplies the real width.
 #
 # A struct FIELD cannot wait that long: its width fixes every following
 # field's offset while the layout lowers. zeo answers from the libc the

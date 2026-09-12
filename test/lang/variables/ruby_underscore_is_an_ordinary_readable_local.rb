@@ -1,5 +1,7 @@
-# Rust's `_` isn't a named binding at all (`let mut _` doesn't parse,
-# and a macro `$x:ident` matcher rejects it), so it must be mangled.
+# Ruby's `_` is an ordinary local: it reads back, it reassigns from its own
+# value, and only the first `_` in a parameter list owns the name. The
+# generated program has no named binding that spells `_`, so it must be
+# mangled.
 
 _ = 10
 p _

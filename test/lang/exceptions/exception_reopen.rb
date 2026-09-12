@@ -1,5 +1,5 @@
 # Reopening the native exception hierarchy and the builtin modules (D3).
-# The exception prelude lives natively in Rust, yet stays fully open: a reopen
+# The exception prelude lives natively, yet stays fully open: a reopen
 # ADDS a method reaching every subclass and OVERRIDES an existing one
 # everywhere, and a builtin module reopen reaches every includer.
 

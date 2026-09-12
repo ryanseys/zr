@@ -1,5 +1,5 @@
 # Proc#arity / #lambda? / #curry all read facts about a proc's PARAMETERS,
-# which a compiled Rust closure can't answer about itself -- the compiler
+# which a compiled closure can't answer about itself -- the compiler
 # records them from the block/lambda's static signature at construction.
 #
 # arity encodes: min = required + post + (1 if any required keyword);

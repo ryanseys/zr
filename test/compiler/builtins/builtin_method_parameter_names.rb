@@ -6,10 +6,10 @@
 #
 # The mechanism landed 2026-08-21 -- the DSL spells a row's signature per NAME
 # (`params "fmt, buffer: nil"`) in ruby's own `def` spelling, and the ARITY
-# falls out of it (`zeo_dsl::signature_arity`), so a row that carries a
-# spelling cannot disagree with itself. A `ruby def` marks the Rust parameter
-# list AS ruby's signature, for the rows where the two lists say the same
-# thing. Both are opt-in, because deriving names from every list would invent
+# falls out of it, so a row that carries a spelling cannot disagree with
+# itself. A `ruby def` marks the row's own parameter list AS ruby's
+# signature, for the rows where the two lists say the same thing. Both are
+# opt-in, because deriving names from every list would invent
 # them for the 1,025 rows ruby names nothing on and misreport the 793 whose
 # body shape differs on purpose.
 #
@@ -17,12 +17,12 @@
 # to a vendored corelib that would carry CRuby's real signatures. The corelib
 # was DROPPED, so they were annotated by hand instead, which the measurement
 # says was the right trade anyway: the Ruby route ran 22.7x slower than the
-# Rust rows and cost 3.5x the bytes, and bought only these signatures.
+# native rows and cost 3.5x the bytes, and bought only these signatures.
 #
 # Five clusters closed it, and three were not on that list of 46:
 #
 #   * Pathname, 44 rows. CRuby writes it in Ruby, so it reports real names.
-#     20 rows took a `ruby def` (the Rust parameter names already matched);
+#     20 rows took a `ruby def` (the native parameter names already matched);
 #     the rest needed `params "..."`, because the body's shape genuinely
 #     differs -- `def "read" params "*, **, &" (recv, *rest)`.
 #
@@ -44,9 +44,8 @@
 #     slot after lowering -- keeping the mark that elides the frame.
 #
 # The sweeps are `tests/builtin_rows_report_rubys_signature.rb` and
-# `tests/an_accessor_reports_rubys_parameter_name.rb`, plus the per-row Rust
-# tables in `builtins/pathname.rs`, `builtins/kernel.rs`,
-# `builtins/exception.rs` and `builtins/rstruct.rs`.
+# `tests/an_accessor_reports_rubys_parameter_name.rb`, plus the per-row
+# tables for Pathname, Kernel, Exception and Struct.
 # (`Kernel#require` is left out: the oracle runs under `bundler/setup`, whose
 # `bundled_gems.rb` replaces it with a Ruby method named `name`.)
 p method(:load).parameters

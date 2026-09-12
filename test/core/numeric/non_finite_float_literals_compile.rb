@@ -1,7 +1,6 @@
-# `1e400` overflows to Infinity at parse time. It cannot be emitted as a
-# Rust float TOKEN (`Literal::f64_suffixed` asserts `is_finite()` and
-# panics inside proc-macro2), so codegen must emit the `f64` constant
-# path instead -- the value is perfectly ordinary Ruby.
+# `1e400` overflows to Infinity at parse time. Infinity has no finite
+# float LITERAL to emit, so codegen must emit the constant another way
+# instead -- the value is perfectly ordinary Ruby.
 
 big = 1e400
 p big

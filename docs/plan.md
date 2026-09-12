@@ -77,7 +77,7 @@ Slices are ordered inside a Part; `∥` marks slices that can run in parallel wi
 Result: `~/dev/zeo` is the Rust implementation, `~/dev/ze0` the Ruby one, both self-contained, neither referencing the other.
 
 - **0.1** `git subtree split -P ze0` seeded `~/dev/ze0` with ze0's 138 commits. zeo lost `ze0/`, `test/ze0/`, the `ze0_refused` fixtures, the two ze0 snapshots, the five ze0 checks, the three-road corpus test, and the `stage2` and `ze0-sweep` xtask commands (commit `51babcca7`); `zeo backend` and its emit flags stay as zeo's own feature.
-- **0.2** ze0 carries: the corpus (`test/lang core stdlib compiler aot bench milestones gaps`, ruby-recorded; the zeo-recorded `errors`, `features`, `divergences` are not copied), `test/ze0/`, `test/refused/`, `test/snapshots/`, `lib/ze0/shims/rbconfig.rb.in`, `vendor/ext/<gem>/lib` (the Ruby halves, prism included), `docs/test-format.md`.
+- **0.2** ze0 carries: the corpus (`test/lang core stdlib compiler aot bench milestones gaps`, ruby-recorded; the zeo-recorded `errors`, `features`, `divergences` are not copied), `test/ze0/`, `test/refused/`, `test/snapshots/`, the `rbconfig` shim, `vendor/ext/<gem>/lib` (the Ruby halves, prism included), `docs/test-format.md`.
 - **0.3** The harness in Ruby: `bin/ze0 test <filter>|--all [--show N]` (buckets `skipped refused backend matched diverged crashed timeout`; the native road is a pluggable object, `nil` today, so every compiled program is `backend: no native road yet`), `bin/ze0 check` (minitest: hygiene, refused fixtures, snapshots with `ZE0_BLESS=1`, case format, DATA offset), `bin/ze0 scan`. `lib/ze0/harness/case.rb` is the test-file format and the scrubs.
 - **0.4** Scaffolding: README, `.ruby-version` 4.0.6, Gemfile (prism, minitest), `.gitignore`, CI on macOS. `measure.rb` and `PLAN.md` (the front-end-for-zeo era) are on branch `archive/zeo-front-end`.
 - Dropped from the original Part 0 by the user's direction: `toolchain.rb`, `.zeo-version`, the `zeo backend` link road, `stage2` (returns when the Ruby runtime links a binary), the builtins-drift check against `zeo_abi`.
@@ -335,7 +335,7 @@ Layout of `~/dev/ze0` after Part A (Part 0 created the top-level shape; `~/dev/z
 ```
 ze0.rb, bin/ze0                  the CLI (ze0.rb stays the historical entry point)
 .ruby-version                    the stage-0 host, which is also the oracle
-lib/ze0/shims/rbconfig.rb.in     the ambient rbconfig shim
+rt/ext/rbconfig.rb               the ambient rbconfig ze0 answers with
 lib/ze0/harness/                 the test-file format and the corpus sweep
 vendor/ext/<gem>/lib             the Ruby halves ze0 splices (prism among them)
 docs/plan.md, docs/test-format.md

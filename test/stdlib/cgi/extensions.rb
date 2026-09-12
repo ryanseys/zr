@@ -1,5 +1,5 @@
 # In-tree ext/ extensions, activated by `require` and dispatched through the
-# same tables as the core builtins. Each is behind a per-extension cargo
+# same tables as the core builtins. Each is behind a per-extension build
 # feature (default on). See docs/EXTENSIONS.md.
 
 require "json"
@@ -15,7 +15,7 @@ puts JSON.generate({ "a" => 1, "b" => [2, 3.5, nil, true] })
 puts JSON.parse('{"x":[1,2,3],"y":"hi"}').inspect
 puts JSON.pretty_generate({ "k" => [1, 2] })
 
-# --- yaml / psych (yaml-rust2 load + Psych-style dump) ---
+# --- yaml / psych (load, and a Psych-style dump) ---
 print YAML.dump({ "name" => "zeo", "tags" => ["aot", "ruby"] })
 puts YAML.load("port: 8080\nhosts:\n- a\n- b").inspect
 
@@ -36,7 +36,7 @@ puts sc.scan(/\w+/)
 puts CGI.escape("name=zeo rs&v=1")
 puts CGI.escapeHTML("<b>bold & 'quoted'</b>")
 
-# --- digest (RustCrypto hashing) ---
+# --- digest (hashing) ---
 puts Digest::SHA256.hexdigest("hello")
 puts Digest::MD5.hexdigest("hello")
 

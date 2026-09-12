@@ -6,8 +6,8 @@
 #
 # What zeo does NOT do is run `self.release`: there is no finalizer, so a
 # handle that closes an OS resource stays open until the process exits.
-# Nothing LEAKS that Rust would not also free (an owned buffer is reference
-# counted) -- see `ext/ffi/auto_pointer.rs`.
+# Nothing LEAKS that the runtime would not also free: an owned buffer is
+# reference counted.
 require "ffi"
 
 class Handle < FFI::AutoPointer

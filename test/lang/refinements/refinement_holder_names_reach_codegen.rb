@@ -2,11 +2,11 @@
 # unspellable as a Ruby constant, so it claims no name inside the refining
 # module, and it is the same name CRuby prints for `M.refinements`.
 #
-# `#` and `:` are not Rust identifier characters, so every generated ident
-# built from a class NAME has to sanitize. `class_ident`'s nested arm did not,
-# and `Ident::new` panics rather than raising: four gems in the corpus (caps,
-# kgl, kuport, lambit) died with `"__c405_#refinement:String" is not a valid
-# Ident` instead of compiling.
+# `#` and `:` are not identifier characters, so every generated name built
+# from a class NAME has to sanitize. `class_ident`'s nested arm did not, and
+# the mint aborts rather than raising: four gems in the corpus (caps, kgl,
+# kuport, lambit) died with `"__c405_#refinement:String" is not a valid
+# identifier` instead of compiling.
 #
 # The holder only reaches that ident when it has CLASS methods to emit, which
 # is why plain refinements never tripped it. `module_function` inside `refine`
@@ -80,8 +80,8 @@ p Outer::Inner.new(21).doubled
 p "hi".shout
 p :hi.shout
 
-# The NAME is Ruby-visible and must not have changed -- only the Rust ident it
-# is mangled into.
+# The NAME is Ruby-visible and must not have changed -- only the generated
+# identifier it is mangled into.
 p Pair.refinements.map { |r| r.to_s }.sort
 p Anchored.refinements.map { |r| r.to_s }
 p Sizes.refinements.size

@@ -127,7 +127,7 @@ show("invalid utf-8") { JSON.parse("[\"\xFF\"]".b) }
 show("truncated utf-8") { JSON.parse("[\"\xE3\x81\"]".b) }
 # NOT here: a high byte OUTSIDE a string. Ruby quotes the raw byte back in
 # the message, so the message itself is not valid UTF-8; zeo's message
-# builder takes a Rust `String` and renders it U+FFFD. Display only, and
+# builder takes UTF-8 only and renders the byte U+FFFD. Display only, and
 # `tests/json_message_bytes_are_lossy.rb` records it.
 
 # --- The whole document is a scalar --------------------------------------

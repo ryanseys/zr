@@ -1,6 +1,6 @@
 # An accessor call on this body's OWN class is replaced by the ivar access
-# itself -- no dispatch, no trampoline, no frame -- which is what the rustc
-# backend has always done at a statically-typed receiver.
+# itself -- no dispatch, no trampoline, no frame -- at a statically-typed
+# receiver.
 #
 # What must NOT fold, and why each is a question only the run time answers:
 #   - a hand-written accessor under TracePoint or line coverage (it has a

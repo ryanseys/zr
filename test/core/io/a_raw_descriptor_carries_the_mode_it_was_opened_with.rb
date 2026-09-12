@@ -42,8 +42,9 @@ end
 
 # TWO IO objects over ONE live descriptor, both autoclosing. Ruby's second
 # close(2) fails EBADF: explicitly, that is the exception below; at teardown it
-# is silence. zeo let Rust's `File` close the fd on drop, and a failed close
-# there ABORTS -- so this program printed everything and then died at exit.
+# is silence. zeo let the native file object close the fd when it was
+# dropped, and a failed close there ABORTS -- so this program printed
+# everything and then died at exit.
 d = File.join(dir, "d.txt")
 File.write(d, "content")
 f = File.open(d)

@@ -6,7 +6,7 @@
 # not on anything under it. Collapsing that walk onto `for_each_child` dropped
 # the arm, and every method containing a bare `super` silently lost its block
 # parameter -- `Gem::Version#freeze` was the first casualty, and the emitted
-# Rust simply stopped taking a block.
+# method simply stopped taking a block.
 class Base
   def each_thing
     yield 1

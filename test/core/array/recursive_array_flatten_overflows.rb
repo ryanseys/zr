@@ -8,10 +8,10 @@
 # A self-referential array kills the process with a native stack overflow where
 # ruby raises `ArgumentError: tried to flatten recursive array`.
 #
-# `builtins::array::flatten_to_depth` recurses per nested Array with no record
-# of what it has already entered, so `a << a` recurses until the Rust stack is
-# gone. Ruby tracks the arrays currently being flattened and raises on re-entry
-# (`rb_ary_flatten`, using its recursion guard).
+# A `flatten` that recurses per nested Array with no record of what it has
+# already entered runs the native stack out on `a << a`. Ruby tracks the
+# arrays currently being flattened and raises on re-entry (`rb_ary_flatten`,
+# using its recursion guard).
 #
 # `inspect` and `==` already handle the same cycle -- both answer correctly
 # below -- so the guard exists elsewhere in the runtime and `flatten` simply

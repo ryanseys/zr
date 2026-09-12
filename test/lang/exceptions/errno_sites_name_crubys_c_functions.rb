@@ -7,7 +7,7 @@
 # Two rows are where the mapping stops being mechanical. `Dir.chdir` names
 # a DIFFERENT function per form -- `dir_chdir0` with a block, `chdir_path`
 # without -- and reading a DIRECTORY says `io_fread`, because CRuby opens
-# and then reads, and only the read can answer EISDIR. One Rust call covers
+# and then reads, and only the read can answer EISDIR. One native call covers
 # both steps, so that site is picked from the errno.
 #
 # `File.readlines(a_directory)` is deliberately absent: CRuby answers

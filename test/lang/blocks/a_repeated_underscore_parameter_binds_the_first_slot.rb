@@ -2,10 +2,11 @@
 # a SyntaxError, `def f(_, _)` is not -- and only the FIRST occurrence owns the
 # readable local. Every shape below is oracled against ruby 4.0.6.
 #
-# The method signature and the block prologue got this wrong in opposite ways:
-# a method put one Rust ident on two parameters (rustc E0415, which is where
-# aws-sdk-core stopped), while a block's sequential bindings merely shadowed,
-# so it compiled and quietly answered the LAST argument.
+# The method signature and the block prologue got this wrong in opposite
+# ways: a method put one generated name on two parameters, which the
+# generated program refused (this is where aws-sdk-core stopped), while a
+# block's sequential bindings merely shadowed, so it compiled and quietly
+# answered the LAST argument.
 
 def two(_, _)
   _

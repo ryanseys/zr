@@ -1,5 +1,5 @@
 # Before this fix, a negative out-of-range `Array#[]=` index was an
-# unconditional Rust `panic!` -- a real `IndexError` (catchable) is
+# unconditional abort -- a real `IndexError` (catchable) is
 # constructed instead now, and the array is otherwise
 # unaffected (an in-range negative-from-end or growing-positive index
 # still works exactly as before).

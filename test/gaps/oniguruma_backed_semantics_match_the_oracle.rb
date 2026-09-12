@@ -12,7 +12,7 @@ p(/\A(?~foo)\z/.match?("bar"))
 p(/\A(?~foo)\z/.match?("xfooy"))
 # alternation captures land in the right slots
 p(/(a)|(b)|(c)/.match("c").captures)
-# onig accepts a redundant nested repeat the Rust engines reject
+# onig accepts a redundant nested repeat that stricter engines reject
 p(Regexp.new("a***").match?("aaa"))
 __END__
 1

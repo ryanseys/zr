@@ -1,5 +1,5 @@
 # A NATIVE row on a class claims its name in the MRO exactly as a `def` does.
-# `Array#none?` and `Array#size` are Rust builtins with no user scope, so
+# `Array#none?` and `Array#size` are native builtins with no user scope, so
 # materialization used to fall through to the first ancestor that DID have one
 # -- handing a `module Enumerable` reopen a name `Array` owns. Ruby puts
 # `Array` first in the ancestry and its own definition wins.

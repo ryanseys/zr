@@ -1,6 +1,5 @@
-# `defined?(yield)` at the top level makes zeo emit Rust that does not compile:
-#
-#     error[E0425]: cannot find value `__blk` in this scope
+# `defined?(yield)` at the top level makes zeo emit a program that does not
+# compile: `__blk` is not in scope.
 #
 # Codegen lowers `defined?(yield)` to a test of the enclosing method's block
 # parameter, `__blk`. At the top level there is no enclosing method and so no

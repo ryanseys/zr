@@ -1,9 +1,10 @@
-# Ruby names that collide with Rust's own vocabulary must not leak into the
-# generated program: a class named after a Rust prelude type, a method named
-# after a Rust keyword, and Ruby's `_` local (which is NOT a named binding in
-# Rust). All are mangled by `codegen::ident`; none is observable from Ruby.
+# Ruby names that collide with the compiler's own vocabulary must not leak
+# into the generated program: a class named after a builtin type, a method
+# named after a keyword, and Ruby's `_` local, which the generated program
+# has no named binding for. All are mangled on the way out, and none of the
+# mangling is observable from Ruby.
 
-# --- Classes named after Rust prelude types -------------------------------
+# --- Classes named after builtin types ------------------------------------
 
 class Vec
   def initialize(x, y)
@@ -63,7 +64,7 @@ registry = { Vec => :vector, Option => :option }
 p registry[Vec]
 p [Vec.new(0, 0), Vec.new(1, 1)].map(&:to_s)
 
-# --- Methods named after Rust keywords ------------------------------------
+# --- Methods named after compiler keywords --------------------------------
 
 class Keywords
   def type = "a type"

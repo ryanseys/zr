@@ -1,4 +1,5 @@
-# Reopening a Rust builtin with a Ruby `initialize` runs that body.
+# Reopening a natively implemented builtin with a Ruby `initialize` runs
+# that body.
 #
 # Ruby's `new` is `allocate` plus `initialize`, and a builtin's registered
 # constructor FUSES the two, so the Ruby body was never consulted:
@@ -17,10 +18,10 @@
 # NOT probed here, and not a bug this can fix: once a Ruby `initialize`
 # replaces the native one and does not set the NATIVE state, a native reader
 # sees that state's default where ruby sees nil (`Pathname#to_s` answers ""
-# against ruby's nil). That is the Rust/Ruby hybrid seam, and it closes when
-# the `pathname` corelib segment replaces the Rust rows outright. A reopen
-# that adds only ordinary methods keeps the native constructor and is what
-# every other Pathname test in the corpus exercises.
+# against ruby's nil). That is the native/Ruby hybrid seam, and it closes
+# when the `pathname` corelib segment replaces the native rows outright. A
+# reopen that adds only ordinary methods keeps the native constructor and is
+# what every other Pathname test in the corpus exercises.
 class Pathname
   def initialize(a) = @p = "P:#{a}"
   def mine = @p
@@ -40,7 +41,8 @@ end
 p [Pathname.new("/z").other, Pathname.new("/z").instance_variables]
 
 # Everything else about a reopen already worked, and stays so a fix cannot
-# regress it: an ordinary override, and a Ruby ivar on each Rust-backed value.
+# regress it: an ordinary override, and a Ruby ivar on each natively backed
+# value.
 class Array
   def mine = "A-#{size}"
   def stash = (@a = 1)

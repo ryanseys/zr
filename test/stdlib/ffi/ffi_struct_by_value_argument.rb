@@ -1,6 +1,6 @@
 # `.by_value` is the gem's BY-VALUE spelling: `inet_ntoa` takes `struct
-# in_addr` by value on every libc, and the repr(C) mirror carries the real
-# field types so rustc owns the ABI.
+# in_addr` by value on every libc, and the mirror declaration carries the
+# real field types so the C ABI owns the layout.
 #
 # A BARE `FFI::Struct` subclass in the same position is the gem's
 # `StructByReference` -- it passes a POINTER (oracle-checked: ruby-ffi hands

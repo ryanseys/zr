@@ -1,6 +1,6 @@
 # A class reopened under a trailing `if` that reads a local of the ENCLOSING
 # scope. Zeo runs a class body at its document position, inside the enclosing
-# scope's own Rust block, but built that body's context from the body's own
+# scope's own block, but built that body's context from the body's own
 # statements alone -- so the guard, which the site carries in with it, read the
 # outer local as an ordinary value while the enclosing scope was keeping it in
 # a shared cell. The two disagreed and the program did not compile.

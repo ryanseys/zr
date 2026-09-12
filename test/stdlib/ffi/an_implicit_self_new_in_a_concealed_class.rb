@@ -2,8 +2,9 @@
 # CONCEALED -- `FFI.constants` is a namespace observer, so every member of it
 # becomes a runtime question and `.new` reads the constant through the
 # concealment check. That route answers a plain value, and the implicit-self
-# call site has to agree with it: boxing what it already boxed is invalid Rust,
-# not a wrong answer, so this test is a compile check as much as a value one.
+# call site has to agree with it: boxing what it already boxed is an invalid
+# program, not a wrong answer, so this test is a compile check as much as a
+# value one.
 require "ffi"
 
 p FFI.constants.grep(/^TYPE_/).sort.first(3)

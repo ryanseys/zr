@@ -1,8 +1,8 @@
 # A library named by a CANDIDATE LIST is resolved with dlopen at the first
 # call, so its functions go through libffi rather than a compile-time
 # `extern`. A struct returned BY VALUE used to be refused on that tier: the
-# extern tier lets rustc classify the aggregate through a `#[repr(C)]`
-# mirror, and libffi needs the same classification built by hand.
+# extern tier lets the C ABI classify the aggregate through a mirror
+# declaration, and libffi needs the same classification built by hand.
 #
 # It gets it from the very field descriptor the by-value ARGUMENT direction
 # already builds, so both directions now agree on every tier. `div` and

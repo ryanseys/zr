@@ -3,8 +3,7 @@
 # still raise on a genuinely undefined constant. An uncaught Ruby
 # exception exits the compiled binary nonzero with a message on
 # stderr (see `uncaught_raise_with_no_rescue_anywhere_exits_with_the_message`),
-# not a Rust-level panic, so this asserts on the process output
-# directly rather than `#[should_panic]`.
+# not an abort, so this asserts on the process output directly.
 
 UNDEF += 1
 __END__

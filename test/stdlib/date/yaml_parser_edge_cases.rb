@@ -11,11 +11,11 @@
 # pins which.
 #
 # Written when the loader was reworked to read the anchor id and the tag
-# that yaml-rust2's events always carried, and it found real defects rather
+# that the parser's events always carried, and it found real defects rather
 # than confirming a design -- see `yaml_parser_stress.rb` for the generated
 # half.
 #
-# ONE GROUP IS NOT HERE: the documents yaml-rust2 and libyaml disagree
+# ONE GROUP IS NOT HERE: the documents the two yaml engines disagree
 # about the legality of, which is a decided divergence recorded in
 # `tests/yaml_backend_accepts_a_different_dialect.rb`.
 

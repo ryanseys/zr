@@ -5,7 +5,8 @@
 # and `using` ran as an ordinary call, which raises. It rides in a `Seq` now.
 #
 # `tests/refinement_holder_names_reach_codegen.rb` covers the holder's NAME
-# reaching a Rust ident; this covers the holder being activated at all.
+# reaching a generated identifier; this covers the holder being activated at
+# all.
 Named = 1
 
 using Module.new {

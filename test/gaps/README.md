@@ -1,33 +1,25 @@
-# Programs zeo does not get right yet
+# Programs ze0 does not get right yet
 
 Each file here is a Ruby program whose answer under `__END__` was recorded
-from **ruby**, and which zeo does not currently match.
-
-The verdict for this directory is inverted. A gap that still differs from
-ruby is green; one that **matches** is red:
-
-```
-GAP FIXED: <name> now matches ruby.
-Promote it: `cargo xtask promote-gap <name> <topic/area>`
-```
-
-So the day a gap starts working, the suite says so. That is the whole point
-of running them.
+from **ruby**, and which ze0 does not currently match.
 
 To see where one stands, run it both ways:
 
 ```console
 $ ruby test/gaps/<name>.rb
-$ cargo run -p zeo -- test/gaps/<name>.rb
+$ bin/ze0 test test/gaps/<name>.rb --show 40
 ```
 
-To promote a fixed one — the program, its recorded answer and its fixture
-directory move together, and the promoted case is run once to confirm:
+`bin/ze0 test gaps` runs the whole directory. A gap lands in `refused`,
+`diverged`, `crashed` or `timeout` — the buckets every other suite counts as
+defects. Here they say the gap is still open, and a gap that matches is the
+news worth having.
 
-```console
-$ cargo xtask promote-gap <name> core/string
-```
+There is no promote command. The day a gap starts matching, move it by hand:
+`git mv` the program into the topic directory it belongs in
+(`test/core/string/`, `test/lang/blocks/`, and so on), then run it there to
+confirm the recording still holds.
 
-A gap is bounded at 30 seconds rather than the ordinary 120: not matching is
+A gap that hangs is bounded by the sweep's ordinary limit: not matching is
 the answer this directory wants, and a hang gives it as well as a crash does,
 while making the whole suite wait for it.

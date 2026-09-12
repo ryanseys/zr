@@ -1,7 +1,6 @@
-# Closes a real, pre-existing latent gap: a class's own LITERAL methods
-# each get a generated Rust method, but `Dog.new.speak` with no override
-# at all has none to call (Rust has no cross-struct inherent-method
-# inheritance). `analyze::mro`'s
+# Closes a real, pre-existing latent gap: a class's own LITERAL methods each
+# get a generated method, but `Dog.new.speak` with no override at all has
+# none to call -- generated structs do not inherit each other's methods. MRO
 # materialization fixes this as a byproduct of doing modules correctly
 # (every MRO-reachable method gets its own Scope on the receiver).
 

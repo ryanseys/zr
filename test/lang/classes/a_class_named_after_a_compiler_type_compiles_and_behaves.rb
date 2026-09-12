@@ -1,5 +1,5 @@
-# `class Vec` would otherwise define a crate-root `Vec` struct shadowing
-# Rust's own, breaking every `Vec<RubyValue>` in the generated program.
+# `Vec`, `Option` and `Box` are names a compiler wants for itself. Ruby lets
+# a program take any of them, and the class must behave as Ruby says.
 
 class Vec
   def initialize(x, y)

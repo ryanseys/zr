@@ -16,8 +16,8 @@
 #
 # Closing it needs either a Binding constructible from a live frame, or an
 # explicit decision to ship the nil-binding form as a documented divergence.
-# `c-call`/`c-return` stay impossible either way: a builtin is a Rust fn with
-# no frame to fire from.
+# `c-call`/`c-return` stay impossible either way: a builtin is a native
+# function with no frame to fire from.
 #
 # `trace_var`/`untrace_var` are done and passing -- see `tests/trace_var.rb`.
 

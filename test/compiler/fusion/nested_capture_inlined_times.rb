@@ -1,6 +1,6 @@
 # An escaping closure can capture the param (and block-locals) of an INLINED
 # `.times` block, even when that `.times` is itself nested inside another
-# escaping block (Batch H). The `.times` body shares the enclosing Rust scope,
+# escaping block (Batch H). The `.times` body shares the enclosing scope,
 # so each iteration's param is cell-wrapped fresh -- matching Ruby's
 # per-iteration block-param binding -- and the nested closure captures it.
 

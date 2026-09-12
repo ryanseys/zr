@@ -1,4 +1,4 @@
-# `n.times { }` on an integer literal is spliced inline as a native Rust
+# `n.times { }` on an integer literal is spliced inline as a native
 # loop rather than becoming a real Proc, so it binds its params at its
 # own site and needs the block-local declaration applied there too.
 

@@ -9,10 +9,10 @@
 # raises `SystemStackError`, which is an ordinary rescuable exception -- the
 # program below catches it and keeps running.
 #
-# zeo compiles a ruby method to a Rust function, so ruby's frames are the
-# machine's frames and running out of them is a hardware fault, not a condition
-# anything can observe. Nothing checks the remaining stack before recursing, so
-# there is no point at which the error could be raised.
+# A compiled ruby method is a machine function, so ruby's frames are the
+# machine's frames and running out of them is a hardware fault, not a
+# condition anything can observe. Nothing checks the remaining stack before
+# recursing, so there is no point at which the error could be raised.
 #
 # Accidental infinite recursion is a routine bug -- a `method_missing` that
 # forwards to itself, a `to_s` that interpolates the object, a cycle in a

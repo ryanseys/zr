@@ -1,13 +1,13 @@
 # A real, previously-undetected bug: `safe_ident` had no escaping at
 # all for a method name that's a bare operator symbol (`+`, `<=>`,
-# `[]`, ...) -- `def +(other)` panicked at CODEGEN time with a raw
-# `proc_macro2` "not a valid Ident" error. This meant user-defined
+# `[]`, ...) -- `def +(other)` aborted at CODEGEN time with a bare
+# "not a valid identifier" error. This meant user-defined
 # operator overloading -- claimed to "work for free"
 # once operators became ordinary Calls -- never actually worked for
 # the DEFINING side; every existing operator test exercised only
 # native `Int`/`Float` fast paths, which bypass `safe_ident` entirely.
 # Fixed via a fixed lookup table (`OPERATOR_METHOD_NAMES`) mapping
-# every operator symbol to a valid Rust identifier, consulted by BOTH
+# every operator symbol to a valid identifier, consulted by BOTH
 # the method-definition side and the general-dispatch call site (the
 # same function backs both), so they agree automatically.
 

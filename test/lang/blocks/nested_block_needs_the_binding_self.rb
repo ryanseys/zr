@@ -2,14 +2,14 @@
 # for its `binding`. The inner Proc's construction carries a Binding of the
 # scope it is WRITTEN in -- the outer block -- and that Binding holds the
 # outer block's `self`. Zeo built the Binding in the outer block's own
-# prelude, INSIDE its `move` closure, while the outer block took no `self`
-# parameter of its own because nothing it does mentions `self`. So the
-# closure swallowed the method's receiver whole: an `Fn` closure cannot
-# consume a captured value, and the method lost it for good.
+# prelude, inside the closure that captures by value, while the outer block
+# took no `self` parameter of its own because nothing it does mentions
+# `self`. So the closure swallowed the method's receiver whole: a closure
+# cannot consume a value it only captures, and the method lost it for good.
 #
 # irb is written this way throughout -- `irb.suspend_name(path) { |io|
 # irb.suspend_input_method(io) { |back_io| ... } }` in ext/loader.rb -- and it
-# accounted for 41 of the 51 rustc errors the vendored gem produced.
+# accounted for 41 of the 51 compile errors the vendored gem produced.
 class Wrapper
   def wrap
     yield "w"
