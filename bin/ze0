@@ -232,17 +232,26 @@ when "check"
   files = files.select { |f| filters.any? { |a| File.basename(f).include?(a) } } unless filters.empty?
   abort("ze0 check: nothing matches #{filters.join(" ")}") if files.empty?
 
+  # A check file that says `# shards: N` is run as N processes, each
+  # taking every Nth case. `programs_test` needs it: compiling a program
+  # peaks high, ruby grows its heap to the peak and keeps the pages, and
+  # the whole file in one process runs the machine out of memory.
   queue = Queue.new
-  files.each { |f| queue << f }
+  files.each do |file|
+    shards = File.foreach(file).first(40).join[/^# shards: (\d+)$/, 1].to_i
+    shards < 2 ? queue << [file, nil] : shards.times { |i| queue << [file, "#{i + 1}/#{shards}"] }
+  end
+  jobs_queued = queue.size
   done = Queue.new
   started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
   jobs = Integer(ENV.fetch("ZE0_JOBS", Etc.nprocessors))
-  Array.new([jobs, files.size].min) do
+  Array.new([jobs, jobs_queued].min) do
     Thread.new do
       until queue.empty?
-        file = (queue.pop(true) rescue break)
-        out = IO.popen([RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", file], err: %i[child out], &:read)
-        done << [file, $?.success?, out]
+        file, shard = (queue.pop(true) rescue break)
+        env = shard ? { "ZE0_SHARD" => shard } : {}
+        out = IO.popen(env, [RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", file], err: %i[child out], &:read)
+        done << [shard ? "#{file}\0#{shard}" : file, $?.success?, out]
       end
     end
   end.each(&:join)
@@ -251,13 +260,15 @@ when "check"
   rows << done.pop until done.empty?
   rows.sort_by! { |file, _, _| file }
   rows.each do |file, ok, out|
+    path, shard = file.split("\0")
     tally = out[/^\d+ runs.*$/] || "did not report a tally"
-    puts format("%-16s %s%s", File.basename(file, "_test.rb"), tally, ok ? "" : "  <-")
+    name = File.basename(path, "_test.rb") + (shard ? " #{shard}" : "")
+    puts format("%-18s %s%s", name, tally, ok ? "" : "  <-")
   end
   failed = rows.reject { |_, ok, _| ok }
-  failed.each { |file, _, out| warn("\n--- #{File.basename(file)}\n#{out}") }
+  failed.each { |file, _, out| warn("\n--- #{File.basename(file.split("\0").first)}\n#{out}") }
   elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-  puts format("%d files in %.1f s, %d jobs", rows.size, elapsed, [jobs, files.size].min)
+  puts format("%d files, %d processes, %.1f s, %d at a time", files.size, rows.size, elapsed, [jobs, jobs_queued].min)
   exit(failed.empty? ? 0 : 1)
 else
   usage

@@ -14,12 +14,21 @@ require_relative "../../lib/ze0/harness/case"
 # first line says "no stress" allocates too much for a collection at
 # every allocation and skips that column.
 #
-# `ZE0_STRESS=1` adds the collect-at-every-allocation column. It is off by
-# default because spill-everything code is slow under that many
-# collections; `IR::Arm64`'s second allocator (plan B4) is what makes it
-# cheap enough to run always.
+# `ZE0_STRESS=1` adds the collect-at-every-allocation column.
+#
+# shards: 4
+#
+# Compiling a program peaks high, and ruby grows its heap to the peak and
+# does not give the pages back: ninety-seven programs in one process
+# reach about nine gigabytes with barely more live objects than one does.
+# So this file is run in shards -- `ZE0_SHARD=2/4` defines every fourth
+# program starting at the second -- and `ze0 check` reads the count above
+# and starts a process for each.
 class ProgramsTest < Minitest::Test
   WASMTIME = ENV["WASMTIME"] || "wasmtime"
+
+  # `[this shard, how many]`, counting from one.
+  SHARD, SHARDS = (ENV["ZE0_SHARD"] || "1/1").split("/").map { |n| Integer(n) }
 
   # `[stdout, stderr, status]` of `argv` under `env`.
   def capture(env, argv)
@@ -45,7 +54,9 @@ class ProgramsTest < Minitest::Test
     assert_equal scrub(want[1], rb), scrub(err, rb)
   end
 
-  Dir[File.join(ROOT, "test/programs/*.rb")].sort.each do |rb|
+  Dir[File.join(ROOT, "test/programs/*.rb")].sort.each_with_index do |rb, at|
+    next unless (at % SHARDS) == (SHARD - 1)
+
     name = File.basename(rb, ".rb")
     define_method("test_#{name}") do
       want = oracle(rb)
