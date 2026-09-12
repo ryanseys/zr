@@ -19,7 +19,7 @@ machine def zr_toplevel
   argv = rec + Frame.size
   Machine.store64(argv, 0, Machine.word(zr_fix(7)))
   zr_send(zr_global(G_MAIN), Machine.id(:puts), 1, argv)
-  r = zr_vcall(zr_fix(7), Machine.id(:frobnicate), 0, argv)
+  r = zr_no_method(zr_fix(7), Machine.id(:frobnicate), true, 0, argv)
   Task.set_top(zr_task(), Frame.prev(rec))
   r
 end
