@@ -9,12 +9,11 @@ require_relative "../../lib/ze0/obj/jit/fiddle"
 # ruby and called through Fiddle. `exit` is swapped for a call that
 # returns, so the program's own exit does not end the test.
 class JITTest < Minitest::Test
-  ROAD = Ze0::Native::Ruby.new(ROOT)
 
   def call_main(name)
     clif = File.join(ROOT, "test/native/#{name}.clif")
     data = File.join(ROOT, "test/native/#{name}.json")
-    unit = ROAD.unit_for(File.read(clif), File.file?(data) ? JSON.parse(File.read(data)) : {})
+    unit = Ze0::Native::Ruby.unit_for(File.read(clif), File.file?(data) ? JSON.parse(File.read(data)) : {})
     unit.functions.each { |f| f.relocs.each { |r| r.symbol = "getpid" if r.symbol == "exit" } }
     symbols = Ze0::Obj::JIT.load(unit, host: Ze0::Obj::JIT::Fiddle.new)
     main = Fiddle::Function.new(symbols["main"], [Fiddle::TYPE_INT, Fiddle::TYPE_VOIDP], Fiddle::TYPE_INT)

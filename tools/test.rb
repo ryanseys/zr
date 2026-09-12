@@ -24,13 +24,13 @@ require_relative "../lib/ze0/harness/case"
 ROOT = File.expand_path("..", __dir__)
 TESTS = File.join(ROOT, "test")
 
-options = { native: "ruby", gc: "plain", timeout: 60, keep: false, verbose: false, diff: 20, jobs: nil }
+options = { gc: "plain", timeout: 60, keep: false, verbose: false, diff: 20, jobs: nil }
 filters = []
 argv = ARGV.dup
 until argv.empty?
   word = argv.shift
   case word
-  when "--native", "--gc" then options[word.delete_prefix("--").to_sym] = argv.shift
+  when "--gc" then options[word.delete_prefix("--").to_sym] = argv.shift
   when "--timeout", "--diff", "--jobs" then options[word.delete_prefix("--").to_sym] = Integer(argv.shift)
   when "-j" then options[:jobs] = Integer(argv.shift)
   when "--keep" then options[:keep] = true
@@ -39,7 +39,7 @@ until argv.empty?
   else filters << word
   end
 end
-abort "usage: ruby tools/test.rb <case path>... [--jobs N] [--native ruby|cranelift] [--gc plain|stress] [--keep] [--verbose] [--diff N] [--timeout N]" if filters.empty?
+abort "usage: ruby tools/test.rb <case path>... [--jobs N] [--gc plain|stress] [--keep] [--verbose] [--diff N] [--timeout N]" if filters.empty?
 
 Row = Struct.new(:rel, :verdict, :lines, :build, :run, :why)
 
@@ -132,7 +132,7 @@ def one(rb, options)
   work = Dir.mktmpdir("ze0-tool-test-")
   keep = options[:keep]
   bin = File.join(work, "p")
-  build = [RbConfig.ruby, File.join(ROOT, "bin/ze0"), "zr", "build", rel, "-o", bin, "--native", options[:native]]
+  build = [RbConfig.ruby, File.join(ROOT, "bin/ze0"), "zr", "build", rel, "-o", bin]
   built, build_seconds = bounded(build, TESTS, nil, {}, options[:timeout])
   lines << format("  %-10s %5.1fs %s", "build", build_seconds, built.code == 0 ? "ok" : "FAILED (#{built.status})")
   lines << "  #{"command".ljust(10)} #{build.join(" ")}"

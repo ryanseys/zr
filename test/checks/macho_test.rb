@@ -2,13 +2,12 @@
 
 require_relative "helper"
 require_relative "../../lib/ze0/obj/macho"
-require_relative "../../lib/ze0/native/cranelift"
+require_relative "../../lib/ze0/native/link"
 
 # The Mach-O writer, held to what `ld` accepts: a Ruby-written object
-# links, runs, and links beside an object Cranelift wrote.
+# links and runs.
 class MachOTest < Minitest::Test
   Obj = Ze0::Obj
-  ROAD = Ze0::Native::Cranelift.new(ROOT)
 
   # `mov w0, #3; bl _exit`, the branch patched by the link.
   MAIN_EXIT_3 = [0x60, 0x00, 0x80, 0x52, 0x00, 0x00, 0x00, 0x94].pack("C*")
@@ -39,27 +38,9 @@ class MachOTest < Minitest::Test
       obj = File.join(dir, "u.o")
       bin = File.join(dir, "u")
       File.binwrite(obj, Obj::MachO.write(unit))
-      assert_nil ROAD.link([obj], bin)
+      assert_nil Ze0::Native::Link.run([obj], bin)
       system(bin)
       assert_equal 3, $?.exitstatus
-    end
-  end
-
-  # The data in Ruby's object, the code in Cranelift's: the two link into
-  # one binary, so a Ruby backend can take over one function at a time.
-  def test_a_ruby_written_data_object_links_beside_cranelift_code
-    skip "clif2obj is not built (bin/ze0 native build)" unless ROAD.available?
-
-    Dir.mktmpdir("ze0-macho-") do |dir|
-      data = File.join(dir, "data.o")
-      u = Obj::Unit.new
-      u.datum("msg", :text_const, "hello, ze0!\n", linkage: :export)
-      File.binwrite(data, Obj::MachO.write(u))
-      code = File.join(dir, "code.o")
-      assert_nil ROAD.compile(File.join(ROOT, "test/native/hello.clif"), code)
-      bin = File.join(dir, "hello")
-      assert_nil ROAD.link([code, data], bin)
-      assert_equal "hello, ze0!\n", IO.popen([bin], &:read)
     end
   end
 end

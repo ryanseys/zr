@@ -5,7 +5,7 @@ require "json"
 require "fileutils"
 require_relative "../ir"
 require_relative "../ir/verify"
-require_relative "cranelift"
+require_relative "link"
 require_relative "ruby"
 require_relative "../deps"
 require_relative "../ir/wasm"
@@ -14,13 +14,15 @@ require_relative "../zr"
 
 module Ze0
   module Native
-    # IR functions and data objects to a binary, on the road named: the
-    # Ruby road assembles in process; the Cranelift road renders the text
-    # and a sidecar for `clif2obj`. Both end in `cc`.
+    # IR functions and data objects to a binary: `IR::Arm64` assembles
+    # every function in process, `Obj::MachO` writes the object, and the
+    # link ends in `cc`.
     module Build
       module_function
 
-      ROADS = { "ruby" => Ruby, "cranelift" => Cranelift }.freeze
+      # The checkout this compiler was built from, which is where the
+      # vendored archives live.
+      ROOT = File.expand_path("../../..", __dir__)
 
       # The main thread's stack, which holds ruby frames as native
       # frames. `rt/kernel/fiber.rb` sizes every other task's.
@@ -32,34 +34,30 @@ module Ze0
       # so the exports go too.
       STRIP_FLAGS = ["-Wl,-dead_strip", "-Wl,-no_exported_symbols"].freeze
 
-      def road(name, root)
-        ROADS.fetch(name) { raise ArgumentError, "no native road named #{name.inspect} (ruby, cranelift)" }.new(root)
-      end
-
       # Answers nil, or the message of the step that refused. `objects`
       # are prebuilt objects linked in beside this one.
-      def binary(functions, data, out, road:, work:, raw: [], objects: [], flags: STACK_FLAGS)
+      def binary(functions, data, out, work:, raw: [], objects: [], flags: STACK_FLAGS, root: ROOT)
         obj = File.join(work, "unit.o")
-        (why = object(functions, data, obj, road: road, raw: raw, export: !objects.empty?)) and return why
-        road.link(objects + [obj], out, archives: Deps.build(road.root), flags: flags)
+        (why = object(functions, data, obj, raw: raw, export: !objects.empty?)) and return why
+        Link.run(objects + [obj], out, archives: Deps.build(root), flags: flags)
       end
 
       # A `Zr::Program` to a binary: its runtime from the cache, its own
       # functions and data emitted now.
-      def program(program, out, road:, work:)
-        rt = runtime_object(program.runtime, road)
+      def program(program, out, work:, root: ROOT)
+        rt = runtime_object(program.runtime)
         flags = program.evals ? STACK_FLAGS : STACK_FLAGS + STRIP_FLAGS
-        binary(program.functions, program.data, out, road: road, work: work, objects: [rt], flags: flags)
+        binary(program.functions, program.data, out, work: work, objects: [rt], flags: flags, root: root)
       end
 
-      # The runtime's object on `road`, built once per digest.
-      def runtime_object(runtime, road)
-        obj = File.join(Zr::CACHE, "#{road.class.name.split("::").last.downcase}-#{runtime.digest}.o")
+      # The runtime's object, built once per digest.
+      def runtime_object(runtime)
+        obj = File.join(Zr::CACHE, "rt-#{runtime.digest}.o")
         return obj if File.exist?(obj)
 
         Dir.mktmpdir("ze0-rt-") do |work|
           fresh = File.join(work, "rt.o")
-          why = object(runtime.functions, runtime.data, fresh, road: road, raw: runtime.raw, export: true)
+          why = object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true)
           raise "the runtime did not build: #{why}" if why
 
           Zr.write_cache(obj, File.binread(fresh))
@@ -69,26 +67,17 @@ module Ze0
 
       # Functions and data to one object file. `export` makes every data
       # object visible to the link, for an object another refers to.
-      def object(functions, data, obj, road:, raw: [], export: false)
+      def object(functions, data, obj, raw: [], export: false)
         functions.each { |f| IR::Verify.check(f) }
-        if road.is_a?(Ruby)
-          unit = Obj::Unit.new
-          defined = functions.map(&:name) + data.map(&:name) + raw.map(&:name)
-          functions.each { |f| unit.functions << IR::Arm64.new(f, defined: defined).compile }
-          raw.each { |r| unit.functions << r }
-          data.each { |d| unit.data << (export ? exported(d) : d) }
-          File.binwrite(obj, Obj::MachO.write(unit))
-          nil
-        else
-          work = File.dirname(obj)
-          clif = File.join(work, "unit.clif")
-          sidecar = File.join(work, "unit.json")
-          File.write(clif, functions.map { |f| IR::ClifText.render(f) }.join("\n"))
-          rows = { "data" => data.map { |d| sidecar_row(d, export: export) },
-                   "raw_functions" => raw.map { |r| { "name" => r.name, "bytes" => r.bytes.unpack1("H*"), "align" => r.align } } }
-          File.write(sidecar, JSON.generate(rows))
-          road.compile(clif, obj, data: sidecar)
-        end
+        unit = Obj::Unit.new
+        defined = functions.map(&:name) + data.map(&:name) + raw.map(&:name)
+        functions.each { |f| unit.functions << IR::Arm64.new(f, defined: defined).compile }
+        raw.each { |r| unit.functions << r }
+        data.each { |d| unit.data << (export ? exported(d) : d) }
+        File.binwrite(obj, Obj::MachO.write(unit))
+        nil
+      rescue IR::Arm64::Refused => e
+        e.message
       end
 
       def exported(d)
@@ -186,16 +175,6 @@ module Ze0
         f
       end
 
-      def sidecar_row(d, export: false)
-        row = { "name" => d.name, "section" => d.section.to_s, "align" => d.align, "export" => export || d.linkage == :export }
-        if d.section == :bss
-          row["size"] = d.size
-        else
-          row["bytes"] = d.bytes.unpack1("H*")
-        end
-        row["relocs"] = d.relocs.map { |r| { "offset" => r.offset, "kind" => r.kind.to_s, "symbol" => r.symbol, "addend" => r.addend } }
-        row
-      end
     end
   end
 end

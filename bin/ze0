@@ -5,17 +5,16 @@
 #
 #   ze0 <file.rb> -o <out.clif>         compile one program to CLIF text
 #   ze0 test <filter>... | --all        does ze0 answer what ruby answered?
-#                [--native ruby|cranelift] [--road zr|legacy] [--gc plain|stress] [--show N]
+#                [--road zr|legacy] [--gc plain|stress] [--show N]
 #   ze0 scan <glob> [limit]             which programs ze0 compiles, and what it refuses
 #   ze0 check                           the repo's own checks
 #   ze0 stage1                          ze0 compiles itself, twice, to the same bytes
-#   ze0 stage2 [--native ruby|cranelift]  the compiler compiled by itself is a fixed point
-#   ze0 native build                    build the clif2obj crate (the Cranelift road)
+#   ze0 stage2                          the compiler compiled by itself is a fixed point
 #   ze0 deps build                      build the vendored C dependencies (oniguruma)
 #   ze0 zr run <file.rb> [args]         compile a Ruby program with the zr runtime, and run it
 #   ze0 zr build <file.rb> -o <bin>     compile a Ruby program with the zr runtime
 #   ze0 zr machine <file.rb> -o <bin>   compile a kernel-dialect file alone
-#                [--native ruby|cranelift] [--emit wasm]
+#                [--emit wasm]
 #
 # ruby is the oracle: every corpus program carries ruby 4.0.6's recorded
 # answer under `__END__`, and ze0 is held to it or refuses by name.
@@ -40,14 +39,9 @@ when "test"
   usage if args.include?("-h") || args.include?("--help")
   all = args.delete("--all")
   show = 10
-  native = "ruby"
   road = "zr"
   if (i = args.index("--show"))
     show = Integer(args[i + 1]) rescue usage
-    args.slice!(i, 2)
-  end
-  if (i = args.index("--native"))
-    native = args[i + 1] or usage
     args.slice!(i, 2)
   end
   if (i = args.index("--road"))
@@ -60,8 +54,8 @@ when "test"
     args.slice!(i, 2)
   end
   usage if args.any? { |a| a.start_with?("--") } || (args.empty? && !all)
-  usage unless %w[zr legacy].include?(road) && %w[ruby cranelift].include?(native) && %w[plain stress].include?(gc)
-  sweep = Ze0::Harness::Sweep.new(ROOT, native: road == "zr" ? native : nil, show: show, road: road, gc: gc)
+  usage unless %w[zr legacy].include?(road) && %w[plain stress].include?(gc)
+  sweep = Ze0::Harness::Sweep.new(ROOT, show: show, road: road, gc: gc)
   cases = sweep.select(args, all: all)
   abort "ze0 test: no program matches #{args.inspect}" if cases.empty?
   warn "ze0 test: #{cases.size} program(s)"
@@ -74,13 +68,11 @@ when "zr"
   verb = args.shift
   usage unless %w[run build machine].include?(verb)
   input = output = nil
-  native = "ruby"
   emit = nil
   rest = []
   until args.empty?
     case (a = args.shift)
     when "-o" then output = args.shift or usage
-    when "--native" then native = args.shift or usage
     when "--emit" then emit = args.shift or usage
     when /\A-/ then usage
     else
@@ -125,13 +117,11 @@ when "zr"
       exec("wasmtime", out, *rest) if verb == "run"
       exit 0
     end
-    road = Ze0::Native::Build.road(native, ROOT)
-    abort "ze0: the #{native} road is not built (ze0 native build)" unless road.available?
     why = if program.is_a?(Ze0::Zr::Program)
-            Ze0::Native::Build.program(program, out, road: road, work: work)
+            Ze0::Native::Build.program(program, out, work: work, root: ROOT)
           else
             functions, data, raw = program
-            Ze0::Native::Build.binary(functions, data, out, road: road, work: work, raw: raw)
+            Ze0::Native::Build.binary(functions, data, out, work: work, raw: raw, root: ROOT)
           end
     abort "ze0: #{why}" if why
     if verb == "run"
@@ -140,10 +130,6 @@ when "zr"
       exit($?.exitstatus)
     end
   end
-when "native"
-  require_relative "../lib/ze0/native/cranelift"
-  usage unless ARGV[1] == "build"
-  puts Ze0::Native::Cranelift.new(ROOT).build!
 when "deps"
   require "fileutils"
   require_relative "../lib/ze0/deps"
@@ -181,13 +167,7 @@ when "stage2"
   # ld writes carries the output's base name.
   require "fileutils"
   require_relative "../lib/ze0/obj/stamps"
-  args = ARGV.drop(1)
-  native = "ruby"
-  if (i = args.index("--native"))
-    native = args[i + 1] or usage
-    args.slice!(i, 2)
-  end
-  usage unless args.empty? && %w[ruby cranelift].include?(native)
+  usage unless ARGV.drop(1).empty?
 
   source = File.join(ROOT, "tools/stage.rb")
   stages = (1..2).map do |n|
@@ -199,10 +179,10 @@ when "stage2"
   caches = stages.map { |path| { "ZE0_CACHE" => File.join(File.dirname(path), "cache") } }
 
   started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-  system(caches[0], RbConfig.ruby, __FILE__, "zr", "build", source, "-o", stages[0], "--native", native) or
+  system(caches[0], RbConfig.ruby, __FILE__, "zr", "build", source, "-o", stages[0]) or
     abort("ze0 stage2: stage 1 did not build")
   warn("stage 1: #{File.size(stages[0])} bytes")
-  system(caches[1], stages[0], source, "-o", stages[1], "--native", native) or
+  system(caches[1], stages[0], source, "-o", stages[1]) or
     abort("ze0 stage2: stage 1 did not compile the compiler")
 
   a, b = stages.map { |path| File.binread(path) }

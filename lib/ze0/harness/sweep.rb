@@ -41,12 +41,11 @@ module Ze0
 
       Row = Struct.new(:rb, :bucket, :why)
 
-      # `road`: "zr" (a binary through `ze0 zr build --native <native>`)
-      # or "legacy" (the text lowering; `native` then builds the text).
+      # `road`: "zr" (a binary through `ze0 zr build`) or "legacy" (the
+      # text lowering, which nothing links).
       # `gc`: "plain", or "stress" for a collection at every allocation.
-      def initialize(root, native:, show: 10, jobs: nil, road: "zr", gc: "plain")
+      def initialize(root, show: 10, jobs: nil, road: "zr", gc: "plain")
         @root = root
-        @native = native
         @show = show
         @jobs = jobs || Etc.nprocessors
         @road = road
@@ -106,7 +105,7 @@ module Ze0
         File.delete(bin) if File.exist?(bin)
 
         if @road == "zr"
-          out = bounded([RbConfig.ruby, File.join(@root, "bin/ze0"), "zr", "build", rel, "-o", bin, "--native", @native.to_s], cwd, nil)
+          out = bounded([RbConfig.ruby, File.join(@root, "bin/ze0"), "zr", "build", rel, "-o", bin], cwd, nil)
           return Row.new(rb, :refused, first_line(out).sub(/\Aze0: /, "")) if out.code == 3
           return Row.new(rb, :backend, "the build ran past #{LIMIT}s") if out.code == :timeout
           return Row.new(rb, :backend, first_line(out)) unless out.code == 0
@@ -114,10 +113,8 @@ module Ze0
           clif = File.join(work, "p.clif")
           out = bounded([RbConfig.ruby, File.join(@root, "ze0.rb"), rel, "-o", clif], cwd, nil)
           return Row.new(rb, :refused, first_line(out)) unless out.code == 0
-          return Row.new(rb, :backend, "no native road yet") if @native.nil?
 
-          built = @native.build(clif, bin)
-          return Row.new(rb, :backend, built) if built.is_a?(String)
+          return Row.new(rb, :backend, "the legacy road links nothing")
         end
 
         stdin = kase.directives.stdin && File.binread(File.join(File.dirname(rb), kase.directives.stdin))

@@ -7,19 +7,11 @@ require_relative "../obj/macho"
 
 module Ze0
   module Native
-    # The Ruby road: CLIF text and a data sidecar to a Mach-O object with
-    # nothing but Ruby, then `cc` to a binary. The same inputs as the
-    # Cranelift road, so the two are held to the same output.
-    class Ruby
-      attr_reader :root
-
-      def initialize(root)
-        @root = root
-      end
-
-      def available?
-        true
-      end
+    # CLIF text and a data sidecar to a Mach-O object with nothing but
+    # Ruby. `Build` goes straight from `IR::Function` to `IR::Arm64`; this
+    # is the entry the hand-written `test/native/*.clif` fixtures take.
+    module Ruby
+      module_function
 
       # `clif` and `data` (a sidecar path, or nil) to the object `obj`.
       # Answers nil, or the refusal.
@@ -44,12 +36,6 @@ module Ze0
                                                 linkage: d["export"] ? :export : :local)
         end
         unit
-      end
-
-      def link(objects, out, archives: [], flags: [])
-        argv = ["cc", "-o", out, *objects, *archives, *flags]
-        log = IO.popen(argv, err: %i[child out], &:read)
-        $?.success? ? nil : log.strip
       end
     end
   end
