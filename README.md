@@ -16,7 +16,8 @@ $ bin/ze0 zr run test/programs/hello.rb        # a Ruby program, compiled and ru
 $ bin/ze0 zr build test/zr/gc.rb -o gc.wasm --emit wasm && wasmtime gc.wasm
 $ bin/ze0 test ze0::                           # the ze0 corpus against ruby's recordings
 $ bin/ze0 test lang/blocks/ --show 40          # any corpus directory
-$ bin/ze0 check                                # the repo's own checks
+$ bin/ze0 check                                # the repo's own checks, a process a file
+$ bin/ze0 check exe interp                     # just the ones whose names match
 $ bin/ze0 stage1                               # ze0 compiles itself twice to the same bytes
 $ bin/ze0 deps build                           # build the vendored C dependencies
 ```

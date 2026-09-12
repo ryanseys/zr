@@ -290,7 +290,7 @@ Block params become locals with parallel copies at edges; control flow is struct
 
 ## 9. Verification
 
-Command surface: `ze0 test [dirs | --all] [--gc plain|stress|verify] [--show N]`, buckets `skipped / refused / backend / matched / diverged / crashed / timeout`; `ze0 check`; `ze0 stage1` (Part A), `ze0 stage2` (Part E).
+Command surface: `ze0 test [dirs | --all] [--gc plain|stress|verify] [--show N]`, buckets `skipped / refused / backend / matched / diverged / crashed / timeout`; `ze0 check [<file>...]`, a process per check file and per shard a file declares, `ZE0_JOBS` at a time; `ze0 stage1` (Part A), `ze0 stage2` (Part E).
 
 - **The oracle is ruby, only:** the recording under `__END__` (ruby 4.0.6, never re-run) for every corpus program; a live `ruby` where a check must write its own program (the DATA check). Nothing is compared against the Rust emitter or runtime.
 - **Byte identity, the refactor oracle:** `test/goldens/`, `test/snapshots/` and `stage1` after A2, A2b and every IR change.
