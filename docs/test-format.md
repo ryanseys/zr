@@ -5,6 +5,11 @@ recorded under `__END__` at the bottom of it. Ruby stops lexing at `__END__`,
 so the recording costs the program nothing and can hold any bytes — binary
 output, invalid UTF-8 — without escaping.
 
+`ruby tools/record.rb <case path>...` writes the trailer, from the answer of
+the ruby the `.ruby-version` pins. A trailer is never written by hand, and the
+tool refuses a case that carries one already: a change of answer is a change
+of program.
+
 ```ruby
 #@ args: --seed 42
 puts "ab".upcase
