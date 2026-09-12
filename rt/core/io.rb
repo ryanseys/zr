@@ -183,9 +183,37 @@ class IO
     fd
   end
 
+  # A length any allocator serves, below which a read need not ask. The
+  # bounds are written out, because Integer#** reaches Rational, which
+  # the core does not have yet while this file loads.
+  ROOM_FREELY = 2_147_483_648
+  ROOM_AT_MOST = 9_223_372_036_854_775_807
+  private_constant :ROOM_FREELY, :ROOM_AT_MOST
+
+  # CRuby fills a read's whole buffer before it reads, so a length no
+  # allocator can serve raises NoMemoryError and reads nothing. The
+  # answer comes from the machine, not from a limit named here.
+  def self.room_for!(length)
+    Primitive.attr! :hidden
+    return if length.nil? || length < ROOM_FREELY
+    raise NoMemoryError, "failed to allocate memory" if length > ROOM_AT_MOST || !Primitive.zr_memory_for_p(length)
+  end
+
+  # rb_time_interval: a wait is a number of seconds, and anything else
+  # refuses under its own name. A nil waits for good.
+  def self.time_interval(value)
+    Primitive.attr! :hidden
+    return nil if value.nil?
+    raise TypeError, "can't convert #{value.class} into time interval" unless value.is_a?(Numeric)
+    raise ArgumentError, "time interval must not be negative" if value.negative?
+
+    value
+  end
+
   # select(2) over three lists of streams: the ones that came ready, or
   # nil when the time ran out. A nil timeout waits for good.
   def self.select(readers, writers = nil, priority = nil, timeout = nil)
+    timeout = time_interval(timeout)
     milliseconds = timeout.nil? ? -1 : (timeout * 1000).to_i
     deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).to_i
     loop do
@@ -561,6 +589,7 @@ class IO
   # own where it was, buffer included.
   def pread(length, offset, buffer = nil)
     check_readable
+    IO.send(:room_for!, length)
     text = Primitive.zr_io_pread(@fd, length, offset)
     raise SystemCallError.new("@ rb_io_pread - #{label}", -text) if text.is_a?(Integer)
     raise EOFError, "end of file reached" if text.nil?
@@ -696,6 +725,7 @@ class IO
     check_readable
     raise ArgumentError, "negative length #{length} given" if length && length < 0
 
+    IO.send(:room_for!, length)
     if length.nil?
       fill until @eof
       out = transcoded(@buffer)
@@ -1046,6 +1076,8 @@ class IO
     check_readable
     raise ArgumentError, "negative length #{length} given" if length < 0
     return "".b if length.zero?
+
+    IO.send(:room_for!, length)
 
     fill if @buffer.empty? && !@eof
     return nil if @buffer.empty?
@@ -1401,7 +1433,7 @@ class IO
       case arg
       when Symbol then events |= EVENT_NAMES.fetch(arg) { raise ArgumentError, "unsupported mode: #{arg}" }
       when Numeric, nil then timeout = arg
-      else raise TypeError, "no implicit conversion of #{arg.class} into Integer"
+      else raise TypeError, "can't convert #{arg.class} into time interval"
       end
     end
     poll_once(events.zero? ? POLL_IN : events, timeout).zero? ? nil : self
@@ -1417,6 +1449,7 @@ class IO
 
   # The events that came ready, or zero when the time ran out.
   def poll_once(events, timeout)
+    timeout = IO.send(:time_interval, timeout)
     ready = Primitive.zr_io_wait(fileno, events, timeout.nil? ? -1 : (timeout * 1000).round)
     raise SystemCallError.new("@ io_wait - #{label}", -ready) if ready.negative?
 

@@ -1179,6 +1179,7 @@ module Ze0
         d zr_throw Value tag:Value value:Value
         d zr_catch Value tag:Value blk:Value
         d zr_xmalloc Ptr n:Word
+        d zr_memory_for_p Value n:Value
         d zr_memory_exhausted Void
         d zr_fixnum_p Bool v:Value
         d zr_special_p Bool v:Value

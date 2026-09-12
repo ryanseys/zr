@@ -27,6 +27,24 @@ machine def zr_xmalloc(n)
   p
 end
 
+# Whether the machine can give a buffer of `n` bytes, which CRuby finds
+# out by allocating the buffer a read asks for. A read asks here first,
+# so a length no allocator can serve raises NoMemoryError in the program
+# rather than ending the process.
+sig [Value] => Value
+machine def zr_memory_for_p(n)
+  size = zr_fix2long(n)
+  if size <= 0
+    return Machine.value(QFALSE)
+  end
+  room = malloc(Machine.word(size))
+  if Machine.word(room) == 0
+    return Machine.value(QFALSE)
+  end
+  free(room)
+  Machine.value(QTRUE)
+end
+
 # CRuby's words, and its status, when it cannot get memory.
 sig [] => Void
 machine def zr_memory_exhausted
