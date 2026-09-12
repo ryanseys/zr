@@ -21,6 +21,12 @@ module Ze0
       # so a value in one survives a call with no work at the call site,
       # and none of them is scratch for a lowering. `x18` is reserved on
       # this platform and is never touched.
+      #
+      # Every value, block and instruction is given a number first, and
+      # what follows indexes arrays by those numbers. This is most of what
+      # the backend spends -- compiling the compiler is twenty seconds of
+      # backend against four of everything before it -- and a String key
+      # costs a hash of its bytes at every single use.
       class Regalloc
         include Machine::Aarch64::Registers
 
@@ -47,35 +53,46 @@ module Ze0
 
           number
           flow
-          scan(intervals)
+          named(scan(intervals))
         end
 
         private
 
-        # Each block's span in one numbering over the whole function, in
-        # the order the backend lays the blocks out.
+        # A number for every block, every instruction and every value.
+        # `@uses` and `@results` hold value numbers at an instruction's
+        # own number, so nothing below hashes a name or an object again.
         def number
+          @order = {}
+          @f.blocks.each_with_index { |b, i| @order[b.name] = i }
+          @id = {}
+          @first = []
+          @last = []
+          @uses = []
+          @results = []
           at = 0
-          @first = {}
-          @last = {}
-          @at = {}
-          @uses = {}
-          @f.blocks.each do |b|
-            @first[b.name] = at
+          @f.blocks.each_with_index do |b, bi|
+            @first[bi] = at
+            b.params.each { |v, _| id_of(v) }
             b.insts.each do |i|
-              @at[i] = at
-              @uses[i] = operands(i)
+              @uses[at] = operands(i)
+              @results[at] = i.results.map { |v| id_of(v) }
               at += 1
             end
-            @last[b.name] = at - 1
+            @last[bi] = at - 1
           end
+          @points = at
         end
 
-        # The values an instruction reads: its own operands, and the
-        # arguments it carries to a block it branches to.
+        # A value's number, made the first time the value is named: a use
+        # can come before the definition in layout order, around a loop.
+        def id_of(name) = @id[name] ||= @id.size
+
+        # The values an instruction reads, by number: its own operands,
+        # and the arguments it carries to a block it branches to.
         def operands(inst)
-          used = inst.args.select { |a| Regalloc.value?(a) }
-          inst.targets&.each { |(_, args)| used.concat(args.select { |a| Regalloc.value?(a) }) }
+          used = []
+          inst.args.each { |a| used << id_of(a) if Regalloc.value?(a) }
+          inst.targets&.each { |(_, args)| args.each { |a| used << id_of(a) if Regalloc.value?(a) } }
           used
         end
 
@@ -89,54 +106,65 @@ module Ze0
         # moves: a long chain of blocks settles in one pass instead of one
         # pass a block.
         def flow
-          gen = @f.blocks.to_h { |b| [b.name, upward(b)] }
-          kill = @f.blocks.to_h { |b| [b.name, defined(b)] }
-          into = @f.blocks.to_h { |b| [b.name, Set.new] }
+          count = @f.blocks.size
+          gen = Array.new(count) { |bi| upward(bi) }
+          kill = Array.new(count) { |bi| killed(bi) }
+          into = Array.new(count) { Set.new }
           before = predecessors
           # Popped from the end, so the last block settles first: liveness
           # flows backwards, and a chain then settles in one pass.
-          work = @f.blocks.map(&:name)
+          work = (0...count).to_a
           queued = work.to_set
           until work.empty?
-            name = work.pop
-            queued.delete(name)
-            out = successors_of(name).inject(Set.new) { |all, s| all | into.fetch(s) }
-            now = gen.fetch(name) | (out - kill.fetch(name))
-            next if now == into.fetch(name)
+            bi = work.pop
+            queued.delete(bi)
+            out = Set.new
+            successors[bi].each { |s| out.merge(into[s]) }
+            # `gen | (out - kill)`, spelled so the result carries gen's
+            # own order first: a Set keeps what it was given in the order
+            # it was given, `intervals` walks these sets, and the order
+            # it walks them in decides which values tie in the scan.
+            now = gen[bi] | out.subtract(kill[bi])
+            next if now == into[bi]
 
-            into[name] = now
-            before.fetch(name).each { |p| work << p if queued.add?(p) }
+            into[bi] = now
+            before[bi].each { |p| work << p if queued.add?(p) }
           end
           @live_in = into
-          @live_out = @f.blocks.to_h do |b|
-            [b.name, successors_of(b.name).inject(Set.new) { |all, s| all | into.fetch(s) }]
+          @live_out = Array.new(count) do |bi|
+            out = Set.new
+            successors[bi].each { |s| out.merge(into[s]) }
+            out
           end
         end
 
         def predecessors
-          before = @f.blocks.to_h { |b| [b.name, []] }
-          @f.blocks.each { |b| successors_of(b.name).each { |s| before.fetch(s) << b.name } }
+          before = Array.new(@f.blocks.size) { [] }
+          successors.each_with_index { |ss, bi| ss.each { |s| before[s] << bi } }
           before
         end
 
-        def successors_of(name)
-          @successors ||= @f.blocks.to_h { |b| [b.name, (b.insts.last&.targets || []).map(&:first)] }
-          @successors.fetch(name)
+        def successors
+          @successors ||= @f.blocks.map do |b|
+            (b.insts.last&.targets || []).map { |t| @order.fetch(t.first) }
+          end
         end
 
         # The values a block reads before it writes them.
-        def upward(block)
+        def upward(bi)
           live = Set.new
-          block.insts.reverse_each do |i|
-            live.subtract(i.results)
-            live.merge(@uses.fetch(i))
+          @last[bi].downto(@first[bi]) do |point|
+            live.subtract(@results[point])
+            live.merge(@uses[point])
           end
-          live.subtract(block.params.map(&:first))
+          @f.blocks[bi].params.each { |v, _| live.delete(@id.fetch(v)) }
           live
         end
 
-        def defined(block)
-          block.params.map(&:first).to_set.merge(block.insts.flat_map(&:results))
+        def killed(bi)
+          live = Set.new(@f.blocks[bi].params.map { |v, _| @id.fetch(v) })
+          @first[bi].upto(@last[bi]) { |point| live.merge(@results[point]) }
+          live
         end
 
         # One interval a value, covering every point it can be read at:
@@ -144,29 +172,51 @@ module Ze0
         # block it is live across. Covering the holes as well is
         # conservative, and conservative here means correct.
         def intervals
-          span = {}
-          @f.blocks.each do |b|
-            first = @first[b.name]
-            last = @last[b.name]
-            b.params.each { |v, _| reach(span, v, first) }
-            b.insts.each do |i|
-              point = @at[i]
-              i.results.each { |v| reach(span, v, point) }
-              @uses.fetch(i).each { |v| reach(span, v, point) }
+          from = Array.new(@id.size)
+          to = Array.new(@id.size)
+          # The values in the order they were first reached. The sort
+          # below is not a stable one, so this order decides which of two
+          # intervals that start and end together is scanned first, and
+          # that decides which of them keeps a register.
+          order = []
+          @f.blocks.each_with_index do |b, bi|
+            first = @first[bi]
+            last = @last[bi]
+            b.params.each { |v, _| reach(from, to, order, @id.fetch(v), first) }
+            first.upto(last) do |point|
+              @results[point].each { |v| reach(from, to, order, v, point) }
+              @uses[point].each { |v| reach(from, to, order, v, point) }
             end
-            @live_in[b.name].each { |v| reach(span, v, first) }
-            @live_out[b.name].each { |v| reach(span, v, last) }
+            @live_in[bi].each { |v| reach(from, to, order, v, first) }
+            @live_out[bi].each { |v| reach(from, to, order, v, last) }
           end
-          span.map { |v, (from, to)| [v, from, to] }.sort_by { |_, from, to| [from, to] }
+          # By start, then by end, then by the order above. Ruby's sort is
+          # not a stable one, so without that last term which of two
+          # intervals that begin and end together keeps a register is
+          # decided by the sort's own internals, and a ruby that sorted
+          # differently would hand out different registers. One Integer
+          # carries all three, so the sort compares Integers rather than
+          # building an Array a value.
+          span = @points + 1
+          rank = order.size
+          list = order.each_with_index.map do |v, i|
+            [v, from[v], to[v], ((((from[v] * span) + to[v]) * rank) + i)]
+          end
+          list.sort_by! { |iv| iv[3] }
+          list
         end
 
         # `v` reaches `point`, so its interval holds it.
-        def reach(span, v, point)
-          at = span[v]
-          return span[v] = [point, point] unless at
-
-          at[0] = point if point < at[0]
-          at[1] = point if point > at[1]
+        def reach(from, to, order, v, point)
+          low = from[v]
+          if low.nil?
+            order << v
+            from[v] = point
+            to[v] = point
+            return
+          end
+          from[v] = point if point < low
+          to[v] = point if point > to[v]
         end
 
         # Linear scan: hand a register to each interval in start order,
@@ -195,6 +245,15 @@ module Ze0
             active << [value, first, last]
           end
           taken
+        end
+
+        # The backend asks by name, so the numbers go back to names here
+        # and nowhere else.
+        def named(taken)
+          return {} if taken.empty?
+
+          names = @id.keys
+          taken.to_h { |v, reg| [names[v], reg] }
         end
       end
     end
