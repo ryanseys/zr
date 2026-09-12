@@ -914,6 +914,34 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_sym_inspect(recv, argc, argv, cref, blk)
   id = zr_sym2id(recv)
+  # A name that holds a character outside ASCII is shown or escaped by
+  # the category that character carries, and that table is in Ruby. The
+  # Ruby side comes back here for a name that needs no escape.
+  if zr_symbol_tag(id) == 0 && !zr_bytes_ascii_only_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
+    return zr_send(recv, Machine.id(:utf8_inspect), 0, 0)
+  end
+  zr_sym_inspect_bytes(recv)
+end
+
+# Whether every byte in a run is ASCII, asked before anything is
+# allocated, so the run's pointer cannot move first.
+sig [Ptr, Word] => Bool
+machine def zr_bytes_ascii_only_p(p, n)
+  i = 0
+  while i < n
+    if Machine.word(Machine.load8(p + i, 0)) >= 128
+      return false
+    end
+    i += 1
+  end
+  true
+end
+
+# The name as the runtime writes it: bare when it is a plain one, and
+# quoted with escapes when it is not.
+sig [Value] => Value
+machine def zr_sym_inspect_bytes(sym)
+  id = zr_sym2id(sym)
   p = zr_symbol_name_ptr(id)
   n = zr_symbol_name_len(id)
   b = Machine.slot(Buf.size)

@@ -799,6 +799,8 @@ module Ze0
         d zr_special_gvar_p Bool p:Ptr n:Word
         d zr_symname_plain_p Bool p:Ptr n:Word
         d zr_sym_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_bytes_ascii_only_p Bool p:Ptr n:Word
+        d zr_sym_inspect_bytes Value sym:Value
         d zr_operator_name_p Bool p:Ptr n:Word
         d zr_utf8_char_len Word p:Ptr n:Word
         d zr_buf_str_escaped Void b:Ptr p:Ptr n:Word binary:Bool

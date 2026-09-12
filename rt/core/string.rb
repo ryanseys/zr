@@ -1772,6 +1772,18 @@ end
 class Symbol
   include Comparable
 
+  # A name that holds a character outside ASCII. One whose characters
+  # all carry a category of their own stands as the runtime writes it;
+  # one that needs an escape is quoted and escaped.
+  def utf8_inspect
+    Primitive.attr! :hidden
+    text = to_s
+    shown = text.utf8_inspect
+    return Primitive.zr_sym_inspect_bytes(self) if shown == "\"#{text}\""
+
+    ":#{shown}"
+  end
+
   def to_sym = self
 
   def intern = self
