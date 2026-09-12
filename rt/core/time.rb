@@ -9,7 +9,8 @@ class Time
   MONTHS = %w[jan feb mar apr may jun jul aug sep oct nov dec].freeze
   MONTH_NAMES = %w[January February March April May June July August September October November December].freeze
   DAY_NAMES = %w[Sunday Monday Tuesday Wednesday Thursday Friday Saturday].freeze
-  private_constant :NS, :MONTHS, :MONTH_NAMES, :DAY_NAMES
+  SPACE = " \t\n\v\f\r"
+  private_constant :NS, :MONTHS, :MONTH_NAMES, :DAY_NAMES, :SPACE
 
   class << self
     def now(**options)
@@ -61,7 +62,7 @@ class Time
       when Integer then value * scale
       when Float then float_ns(value, scale)
       when Rational then (value * scale).floor
-      else raise TypeError, "can't convert #{conversion_name(value)} into an exact number"
+      else raise TypeError, "can't convert #{value.class} into an exact number"
       end
     end
 
@@ -124,6 +125,118 @@ class Time
 
       sign == "-" ? -offset : offset
     end
+
+    # `Time.new("2021-12-25 10:00:00 +09:00")`: CRuby's time_init_parse,
+    # which reads an ISO-8601-shaped string and nothing else. A zone the
+    # string carries takes the place of the one the caller named.
+    def string_parts(str, zone, precision)
+      raise ArgumentError, "time string should have ASCII compatible encoding" unless str.encoding.ascii_compatible?
+      raise ArgumentError, "can't parse: #{str.inspect}" if !str.empty? && (space?(str[0]) || space?(str[-1]))
+
+      year, pos = year_part(str)
+      parts = []
+      if pos < str.size
+        parts, pos = date_parts(str, pos, precision || str.size)
+        found, pos = zone_part(str, pos)
+        raise ArgumentError, "can't parse at: #{str[pos..]}" if pos < str.size
+        raise ArgumentError, "no time information" if found.empty? && parts.size < 5
+
+        zone = found unless found.empty?
+      end
+      mon, mday, hour, min, sec = parts
+      civil_parts(year, mon || 1, mday || 1, hour || 0, min || 0, sec || 0, zone)
+    end
+
+    # The year a time string opens with: a sign, then four digits or
+    # more, and where it ends.
+    def year_part(str)
+      start = str.start_with?("+") || str.start_with?("-") ? 1 : 0
+      digits = 0
+      digits += 1 while digit?(str[start + digits])
+      raise ArgumentError, "can't parse: #{str.inspect}" if digits.zero?
+      raise ArgumentError, "year must be 4 or more digits: #{str[start, digits]}" if digits < 4
+
+      [Integer(str[0, start + digits]), start + digits]
+    end
+
+    # What follows the year: `-mm-dd`, then `hh:mm:ss` and a fraction.
+    # CRuby stops at the first part the string does not carry, and reads
+    # what is left as the zone, so each part that is missing ends this.
+    def date_parts(str, pos, precision)
+      return [[], pos] unless str[pos] == "-"
+
+      mon = two_digits(str, pos + 1, "mon")
+      pos += 3
+      return [[mon], pos] unless str[pos] == "-"
+
+      mday = two_digits(str, pos + 1, "mday")
+      pos += 3
+      return [[mon, mday], pos] unless (str[pos] == " " || str[pos] == "T") && digit?(str[pos + 1])
+
+      clock = pos + 1
+      hour = two_digits(str, pos + 1, "hour")
+      pos += 3
+      whole_part(str, pos, clock, "hour")
+      colon(str, pos, clock, "min")
+      min = two_digits(str, pos + 1, "min")
+      pos += 3
+      whole_part(str, pos, clock, "min")
+      colon(str, pos, clock, "sec")
+      sec = two_digits(str, pos + 1, "sec")
+      pos += 3
+      return [[mon, mday, hour, min, sec], pos] unless str[pos] == "."
+
+      fraction, pos = subsecond(str, pos + 1, clock, precision)
+      [[mon, mday, hour, min, sec + fraction], pos]
+    end
+
+    # Two digits and no third, as CRuby's two_digits reads them; the
+    # refusal names the part, then the text from its separator on.
+    def two_digits(str, pos, name)
+      unless digit?(str[pos]) && digit?(str[pos + 1]) && !digit?(str[pos + 2])
+        after = " after '#{str[pos - 1]}'" if str[pos - 1] == "-" || str[pos - 1] == ":"
+        raise ArgumentError, "two digits #{name} is expected#{after}: #{str[pos - 1, 11]}"
+      end
+
+      Integer(str[pos, 2])
+    end
+
+    # Only the second takes a fraction.
+    def whole_part(str, pos, clock, name)
+      raise ArgumentError, "fraction #{name} is not supported: #{str[clock, pos + 1 - clock]}" if str[pos] == "."
+    end
+
+    def colon(str, pos, clock, name)
+      raise ArgumentError, "missing #{name} part: #{str[clock, pos + 1 - clock]}" unless str[pos] == ":"
+    end
+
+    # The fraction after the second's dot, as a Rational of a second:
+    # `precision` digits at most, and any digit past that is dropped.
+    def subsecond(str, pos, clock, precision)
+      digits = 0
+      digits += 1 while digits < precision && digit?(str[pos + digits])
+      raise ArgumentError, "subsecond expected after dot: #{str[clock, pos - clock + (str[pos].nil? ? 0 : 1)]}" if digits.zero?
+
+      value = Integer(str[pos, digits])
+      pos += digits
+      pos += 1 while digit?(str[pos])
+      [Rational(value, 10**digits), pos]
+    end
+
+    # The zone the string ends with, and where the reading stopped: the
+    # run of text after the clock, with the spaces on each side dropped.
+    def zone_part(str, pos)
+      pos += 1 while space?(str[pos])
+      start = pos
+      pos += 1 while pos < str.size && !space?(str[pos])
+      found = str[start...pos]
+      pos += 1 while space?(str[pos])
+      [found, pos]
+    end
+
+    def space?(char) = !char.nil? && SPACE.include?(char)
+
+    def digit?(char) = !char.nil? && char >= "0" && char <= "9"
 
     # `(year, month, day, hour, min, sec, usec)`, or the ten fields
     # `Time#to_a` gives, which name the same instant backwards.
@@ -258,7 +371,9 @@ class Time
     option = options[:in]
     raise ArgumentError, "timezone argument given as positional and keyword arguments" if zone && option
     return set(*Time.send(:now_parts, option)) if year.nil?
-    return Primitive.zr_unimplemented("Time.new with a string") if year.is_a?(String)
+
+    text = String.try_convert(year)
+    return set(*Time.send(:string_parts, text, zone || option, options.fetch(:precision, 9))) if text
 
     set(*Time.send(:civil_parts, year, month, day, hour, min, sec, zone || option))
   end
