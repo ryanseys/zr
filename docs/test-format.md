@@ -10,6 +10,11 @@ the ruby the `.ruby-version` pins. A trailer is never written by hand, and the
 tool refuses a case that carries one already: a change of answer is a change
 of program.
 
+`ruby tools/test.rb <case path>...` runs one program the way `ze0 test` runs
+it and shows the whole of it: the build and its time, what the binary
+answered, and every line where that answer parts from the recording. `ze0
+test` stays the gate over many programs; this is the bench beside it.
+
 ```ruby
 #@ args: --seed 42
 puts "ab".upcase
