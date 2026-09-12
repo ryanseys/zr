@@ -104,9 +104,11 @@ module Ze0
         def lsr(d, n, m) = variable_shift(0b01, d, n, m)
         def asr(d, n, m) = variable_shift(0b10, d, n, m)
 
-        # `SXTB` and `SXTW` are `SBFM` over a fixed range of bits.
+        # `SXTB` and `SXTW` are `SBFM` over a fixed range of bits, and
+        # `UXTB` is `UBFM` over the same range.
         def sxtb(d, n) = sbfm(d, n, 0, 7)
         def sxtw(d, n) = sbfm(d, n, 0, 31)
+        def uxtb(d, n) = ubfm(d, n, 0, 7)
 
         # --- moves --------------------------------------------------------
 
@@ -203,8 +205,12 @@ module Ze0
           emit(0x1280_0000 | d.sf << 31 | opc << 29 | (lsl / 16) << 21 | unsigned(value, 16) << 5 | d.to_i)
         end
 
-        def sbfm(d, n, immr, imms)
-          emit(0x1300_0000 | d.sf << 31 | d.sf << 22 | unsigned(immr, 6) << 16 |
+        def sbfm(d, n, immr, imms) = bitfield(0b00, d, n, immr, imms)
+        def ubfm(d, n, immr, imms) = bitfield(0b10, d, n, immr, imms)
+
+        # The N bit repeats the operand size, as every bitfield form does.
+        def bitfield(opc, d, n, immr, imms)
+          emit(0x1300_0000 | d.sf << 31 | opc << 29 | d.sf << 22 | unsigned(immr, 6) << 16 |
                unsigned(imms, 6) << 10 | n.to_i << 5 | d.to_i)
         end
 

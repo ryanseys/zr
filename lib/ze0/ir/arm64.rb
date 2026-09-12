@@ -3,6 +3,7 @@
 require_relative "../machine/aarch64"
 require_relative "function"
 require_relative "types"
+require_relative "arm64/regalloc"
 require_relative "../obj/model"
 
 module Ze0
@@ -79,12 +80,14 @@ module Ze0
         @far = far
         @asm = assembler.new
         @relocs = []
+        @reg = {}
         @home = {}
         @labels = {}
       end
 
       def compile
         assign_types
+        @reg = Regalloc.of(@f)
         assign_homes
         @f.blocks.each { |b| @labels[b.name] = @asm.make_label(b.name) }
         prologue
@@ -132,16 +135,19 @@ module Ze0
         end
         off = align(off, 8)
         @f.blocks.each do |b|
-          b.params.each do |v, _|
+          (b.params.map(&:first) + b.insts.flat_map(&:results)).each do |v|
+            next if @reg.key?(v)
+
             @home[v] = off
             off += 8
           end
-          b.insts.each do |i|
-            i.results.each do |v|
-              @home[v] = off
-              off += 8
-            end
-          end
+        end
+        # A callee-saved register this function uses has to come back to
+        # its caller as it was, so the frame keeps a place for each.
+        @saved_at = {}
+        @reg.values.uniq.sort_by(&:to_i).each do |r|
+          @saved_at[r] = off
+          off += 8
         end
         @frame = align(off, 16)
       end
@@ -171,6 +177,9 @@ module Ze0
       # An f64 value lives in its slot as bits and moves through the
       # integer registers.
       def load_value(v, reg)
+        home = @reg[v]
+        return narrow(reg, home, type_of(v)) if home
+
         off = @home.fetch(v)
         case type_of(v)
         when "i64", "f64" then @asm.ldr reg, address(off, 8)
@@ -180,12 +189,58 @@ module Ze0
         end
       end
 
+      # The register an operand can be read out of: its own home when it
+      # has one, and `scratch` after a load when it does not.
+      #
+      # Only operands are read this way. A result always goes to a scratch
+      # register and is stored from there, because an instruction that
+      # writes its destination before reading every source would otherwise
+      # clobber an operand that shares the register.
+      #
+      # An `i8` has no direct form: its home holds the whole word, and a
+      # w-register read would carry the bits above the byte into an
+      # operation that is 32 bits wide.
+      def value_in(v, scratch)
+        home = @reg[v]
+        return home if home && type_of(v) != "i8"
+
+        load_value(v, scratch)
+        scratch
+      end
+
+      # Where a result is computed: its own register home when it has
+      # one, and a scratch register to be stored from when it does not.
+      #
+      # Only an instruction that reads every operand before it writes its
+      # destination may use this. One that reads an operand again
+      # afterwards -- `emit_rem` and `emit_mul_overflow` do -- would find
+      # the operand overwritten.
+      def result_in(v, scratch) = @reg[v] || scratch
+
+      # A register home holds the whole word, so a narrower value takes
+      # the low bits of it, which is what the narrow load gives.
+      def narrow(reg, home, type)
+        case type
+        when "i64", "f64" then @asm.mov reg, home
+        when "i32" then @asm.mov w(reg), w(home)
+        when "i8" then @asm.uxtb w(reg), w(home)
+        else raise Refused, "#{@f.name}: a #{type} value"
+        end
+      end
+
       # Store the whole 64-bit register: a 32-bit result has zero above.
       def store_value(v, reg)
+        home = @reg[v]
+        return if home.equal?(reg)
+        return @asm.mov(home, reg) if home
+
         @asm.str reg, address(@home.fetch(v), 8)
       end
 
       def store_param(v, reg)
+        home = @reg[v]
+        return @asm.mov(home, reg) if home
+
         off = @home.fetch(v)
         case type_of(v)
         when "i64", "f64" then @asm.str reg, address(off, 8)
@@ -217,7 +272,14 @@ module Ze0
         @asm.stp X29, X30, [SP, -16], :!
         @asm.mov X29, SP
         sub_sp(@frame)
+        @saved_at.each { |r, off| @asm.str r, address(off, 8) }
         entry = @f.blocks.first
+        # Eight is where the registers run out and the ABI starts pushing
+        # arguments onto the stack. Nothing reaches it: every lowering
+        # keeps a signature to eight, and the whole runtime -- 4732
+        # functions -- sits at eight parameters and eight call arguments
+        # and never above. So this refuses rather than growing a stack
+        # argument path no program would take.
         raise Refused, "#{@f.name}: more than eight parameters" if entry.params.size > 8
 
         ints = 0
@@ -240,6 +302,7 @@ module Ze0
       end
 
       def epilogue
+        @saved_at.each { |r, off| @asm.ldr r, address(off, 8) }
         @asm.mov SP, X29
         @asm.ldp X29, X30, [SP], 16
         @asm.ret
@@ -249,7 +312,10 @@ module Ze0
 
       def emit(i)
         case i.op
-        when :iconst then materialize(X9, i.args[0]); store_value(i.results[0], X9)
+        when :iconst
+          d = result_in(i.results[0], X9)
+          materialize(d, i.args[0])
+          store_value(i.results[0], d)
         when :load then emit_load(i)
         when :store then emit_store(i)
         when :stack_addr
@@ -262,11 +328,12 @@ module Ze0
         when :call then emit_call(i)
         when :call_indirect then emit_call_indirect(i)
         when :icmp
-          load_value(i.args[0], X9)
-          load_value(i.args[1], X10)
-          @asm.cmp reg_for(i.args[0], X9), reg_for(i.args[0], X10)
-          @asm.cset X11, CONDS.fetch(i.cond)
-          store_value(i.results[0], X11)
+          a = value_in(i.args[0], X9)
+          b = value_in(i.args[1], X10)
+          d = result_in(i.results[0], X11)
+          @asm.cmp reg_for(i.args[0], a), reg_for(i.args[0], b)
+          @asm.cset d, CONDS.fetch(i.cond)
+          store_value(i.results[0], d)
         when :iadd, :isub, :imul, :udiv, :sdiv, :band, :bor, :bxor, :ishl, :ushr, :sshr then emit_binop(i)
         when :urem, :srem then emit_rem(i)
         when :ireduce, :uextend
@@ -275,48 +342,48 @@ module Ze0
           load_value(i.args[0], X9)
           store_value(i.results[0], X9)
         when :sextend
-          load_value(i.args[0], X9)
-          type_of(i.args[0]) == "i8" ? @asm.sxtb(X9, W9) : @asm.sxtw(X9, W9)
+          a = value_in(i.args[0], X9)
+          type_of(i.args[0]) == "i8" ? @asm.sxtb(X9, w(a)) : @asm.sxtw(X9, w(a))
           store_value(i.results[0], X9)
         when :select
-          load_value(i.args[0], X9)
-          load_value(i.args[1], X10)
-          load_value(i.args[2], X11)
-          @asm.cmp reg_for(i.args[0], X9), 0
-          @asm.csel reg_for(i.args[1], X12), reg_for(i.args[1], X10), reg_for(i.args[1], X11), :ne
-          store_value(i.results[0], X12)
+          cond = value_in(i.args[0], X9)
+          a = value_in(i.args[1], X10)
+          b = value_in(i.args[2], X11)
+          d = result_in(i.results[0], X12)
+          @asm.cmp reg_for(i.args[0], cond), 0
+          @asm.csel reg_for(i.args[1], d), reg_for(i.args[1], a), reg_for(i.args[1], b), :ne
+          store_value(i.results[0], d)
         when :sadd_overflow, :ssub_overflow then emit_overflow(i)
         when :smul_overflow then emit_mul_overflow(i)
         when *Inst::FBINOPS
-          load_value(i.args[0], X9)
-          load_value(i.args[1], X10)
-          @asm << FP.to_d(16, 9) << FP.to_d(17, 10) << FP.binop(i.op, 18, 16, 17) << FP.to_x(11, 18)
+          a = value_in(i.args[0], X9)
+          b = value_in(i.args[1], X10)
+          @asm << FP.to_d(16, a.to_i) << FP.to_d(17, b.to_i) << FP.binop(i.op, 18, 16, 17) << FP.to_x(11, 18)
           store_value(i.results[0], X11)
         when *Inst::FUNOPS
-          load_value(i.args[0], X9)
-          @asm << FP.to_d(16, 9) << FP.unop(i.op, 17, 16) << FP.to_x(11, 17)
+          a = value_in(i.args[0], X9)
+          @asm << FP.to_d(16, a.to_i) << FP.unop(i.op, 17, 16) << FP.to_x(11, 17)
           store_value(i.results[0], X11)
         when :fcmp
-          load_value(i.args[0], X9)
-          load_value(i.args[1], X10)
-          @asm << FP.to_d(16, 9) << FP.to_d(17, 10) << FP.cmp(16, 17)
+          a = value_in(i.args[0], X9)
+          b = value_in(i.args[1], X10)
+          @asm << FP.to_d(16, a.to_i) << FP.to_d(17, b.to_i) << FP.cmp(16, 17)
           @asm.cset X11, FCONDS.fetch(i.cond)
           store_value(i.results[0], X11)
         when :fcvt_from_sint
-          load_value(i.args[0], X9)
-          @asm << FP.scvtf(16, 9) << FP.to_x(11, 16)
+          a = value_in(i.args[0], X9)
+          @asm << FP.scvtf(16, a.to_i) << FP.to_x(11, 16)
           store_value(i.results[0], X11)
         when :fcvt_to_sint_sat
-          load_value(i.args[0], X9)
-          @asm << FP.to_d(16, 9) << FP.fcvtzs(11, 16)
+          a = value_in(i.args[0], X9)
+          @asm << FP.to_d(16, a.to_i) << FP.fcvtzs(11, 16)
           store_value(i.results[0], X11)
         when :bitcast
           load_value(i.args[0], X9)
           store_value(i.results[0], X9)
         when :brif
           # The block that follows needs no branch: control falls into it.
-          load_value(i.args[0], X9)
-          reg = reg_for(i.args[0], X9)
+          reg = reg_for(i.args[0], value_in(i.args[0], X9))
           yes, no = i.targets.map(&:first)
           if yes == @next
             branch_if(:cbz, reg, no)
@@ -345,23 +412,24 @@ module Ze0
       end
 
       def emit_load(i)
-        load_value(i.args[0], X9)
+        at = value_in(i.args[0], X9)
+        d = result_in(i.results[0], X10)
         case i.type
-        when "i64", "f64" then @asm.ldr X10, reach(X9, i.offset, 8)
-        when "i32" then @asm.ldr W10, reach(X9, i.offset, 4)
-        when "i8" then @asm.ldrb W10, reach(X9, i.offset, 1)
+        when "i64", "f64" then @asm.ldr d, reach(at, i.offset, 8)
+        when "i32" then @asm.ldr w(d), reach(at, i.offset, 4)
+        when "i8" then @asm.ldrb w(d), reach(at, i.offset, 1)
         else raise Refused, "#{@f.name}: load.#{i.type}"
         end
-        store_value(i.results[0], X10)
+        store_value(i.results[0], d)
       end
 
       def emit_store(i)
-        load_value(i.args[0], X9)
-        load_value(i.args[1], X10)
+        v = value_in(i.args[0], X9)
+        at = value_in(i.args[1], X10)
         case type_of(i.args[0])
-        when "i64", "f64" then @asm.str X9, reach(X10, i.offset, 8)
-        when "i32" then @asm.str W9, reach(X10, i.offset, 4)
-        when "i8" then @asm.strb W9, reach(X10, i.offset, 1)
+        when "i64", "f64" then @asm.str v, reach(at, i.offset, 8)
+        when "i32" then @asm.str w(v), reach(at, i.offset, 4)
+        when "i8" then @asm.strb w(v), reach(at, i.offset, 1)
         end
       end
 
@@ -442,17 +510,15 @@ module Ze0
         raise Refused, "#{@f.name}: a call with more than eight arguments" if args.size > 8
 
         load_args(args)
-        load_value(ptr, X9)
-        @asm.blr X9
+        @asm.blr value_in(ptr, X9)
         return if i.results.empty?
 
         store_result(i.results[0], sig.ret)
       end
 
       def emit_binop(i)
-        load_value(i.args[0], X9)
-        load_value(i.args[1], X10)
-        d, a, b = [X11, X9, X10].map { |x| reg_for(i.args[0], x) }
+        dest = result_in(i.results[0], X11)
+        d, a, b = [dest, value_in(i.args[0], X9), value_in(i.args[1], X10)].map { |x| reg_for(i.args[0], x) }
         case i.op
         when :iadd then @asm.add d, a, b
         when :isub then @asm.sub d, a, b
@@ -466,37 +532,35 @@ module Ze0
         when :ushr then @asm.lsr d, a, b
         when :sshr then @asm.asr d, a, b
         end
-        store_value(i.results[0], X11)
+        store_value(i.results[0], dest)
       end
 
       # `a - (a / b) * b`, as arm64 spells a remainder.
       def emit_rem(i)
-        load_value(i.args[0], X9)
-        load_value(i.args[1], X10)
-        d, a, b = [X11, X9, X10].map { |x| reg_for(i.args[0], x) }
+        d, a, b = [X11, value_in(i.args[0], X9), value_in(i.args[1], X10)].map { |x| reg_for(i.args[0], x) }
         i.op == :urem ? @asm.udiv(d, a, b) : @asm.sdiv(d, a, b)
         @asm.msub d, d, b, a
         store_value(i.results[0], X11)
       end
 
       def emit_overflow(i)
-        load_value(i.args[0], X9)
-        load_value(i.args[1], X10)
-        d, a, b = [X11, X9, X10].map { |x| reg_for(i.args[0], x) }
+        dest = result_in(i.results[0], X11)
+        flag = result_in(i.results[1], X12)
+        d, a, b = [dest, value_in(i.args[0], X9), value_in(i.args[1], X10)].map { |x| reg_for(i.args[0], x) }
         i.op == :sadd_overflow ? @asm.adds(d, a, b) : @asm.subs(d, a, b)
-        @asm.cset X12, :vs
-        store_value(i.results[0], X11)
-        store_value(i.results[1], X12)
+        @asm.cset flag, :vs
+        store_value(i.results[0], dest)
+        store_value(i.results[1], flag)
       end
 
       # 64-bit only: the high half of the product must be the sign of the low.
       def emit_mul_overflow(i)
         raise Refused, "#{@f.name}: smul_overflow on #{type_of(i.args[0])}" unless wide?(i.args[0])
 
-        load_value(i.args[0], X9)
-        load_value(i.args[1], X10)
-        @asm.mul X11, X9, X10
-        @asm.smulh X12, X9, X10
+        a = value_in(i.args[0], X9)
+        b = value_in(i.args[1], X10)
+        @asm.mul X11, a, b
+        @asm.smulh X12, a, b
         @asm.cmp X12, X11, shift: :asr, amount: 63
         @asm.cset X12, :ne
         store_value(i.results[0], X11)

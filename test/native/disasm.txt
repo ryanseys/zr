@@ -2,10 +2,11 @@
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
 block0:
-  movz x9, #7
-  str x9, [sp]
-  ldr x0, [sp]
+  movz x19, #7
+  mov x0, x19
+  ldr x19, [sp]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -14,13 +15,14 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
 block0:
-  movz x9, #0xdef0
-  movk x9, #0x9abc, lsl #16
-  movk x9, #0x5678, lsl #32
-  movk x9, #0x1234, lsl #48
-  str x9, [sp]
-  ldr x0, [sp]
+  movz x19, #0xdef0
+  movk x19, #0x9abc, lsl #16
+  movk x19, #0x5678, lsl #32
+  movk x19, #0x1234, lsl #48
+  mov x0, x19
+  ldr x19, [sp]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -29,10 +31,11 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
 block0:
-  movn x9, #1
-  str x9, [sp]
-  ldr x0, [sp]
+  movn x19, #1
+  mov x0, x19
+  ldr x19, [sp]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -41,10 +44,11 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
 block0:
-  movz x9, #1
-  str x9, [sp]
-  ldr w0, [sp]
+  movz x19, #1
+  mov w0, w19
+  ldr x19, [sp]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -53,12 +57,14 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
-  str x0, [sp]
+  str x19, [sp]
+  str x20, [sp, #8]
+  mov x19, x0
 block0:
-  ldr x9, [sp]
-  ldrb w10, [x9]
-  str x10, [sp, #8]
-  ldrb w0, [sp, #8]
+  ldrb w20, [x19]
+  uxtb w0, w20
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -67,12 +73,14 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
-  str x0, [sp]
+  str x19, [sp]
+  str x20, [sp, #8]
+  mov x19, x0
 block0:
-  ldr x9, [sp]
-  ldr w10, [x9]
-  str x10, [sp, #8]
-  ldr w0, [sp, #8]
+  ldr w20, [x19]
+  mov w0, w20
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -81,12 +89,14 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
-  str x0, [sp]
+  str x19, [sp]
+  str x20, [sp, #8]
+  mov x19, x0
 block0:
-  ldr x9, [sp]
-  ldr x10, [x9]
-  str x10, [sp, #8]
-  ldr x0, [sp, #8]
+  ldr x20, [x19]
+  mov x0, x20
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -95,13 +105,15 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
-  str x0, [sp]
+  str x19, [sp]
+  str x20, [sp, #8]
+  mov x19, x0
 block0:
-  ldr x9, [sp]
-  ldr x10, [x9]
-  str x10, [sp, #8]
-  ldr x0, [sp, #8]
+  ldr x20, [x19]
+  mov x0, x20
   fmov d0, x0
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -110,14 +122,16 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
-  str x0, [sp]
+  str x19, [sp]
+  str x20, [sp, #8]
+  mov x19, x0
 block0:
-  ldr x9, [sp]
   movz x11, #1, lsl #16
-  add x11, x9, x11
-  ldr x10, [x11]
-  str x10, [sp, #8]
-  ldr x0, [sp, #8]
+  add x11, x19, x11
+  ldr x20, [x11]
+  mov x0, x20
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -126,12 +140,15 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
-  str x0, [sp]
-  strb w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldrb w9, [sp, #8]
-  ldr x10, [sp]
-  strb w9, [x10]
+  uxtb w9, w20
+  strb w9, [x19]
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -140,12 +157,14 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
-  str x0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp, #8]
-  ldr x10, [sp]
-  str w9, [x10]
+  str w20, [x19]
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -154,12 +173,14 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp, #8]
-  ldr x10, [sp]
-  str x9, [x10]
+  str x20, [x19]
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -168,10 +189,12 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
+  str x19, [sp, #16]
 block0:
   add x9, sp, #0
-  str x9, [sp, #16]
-  ldr x0, [sp, #16]
+  mov x19, x9
+  mov x0, x19
+  ldr x19, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -180,11 +203,13 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
 block0:
   adrp x9, #0                     ; page21 here
   add x9, x9, #0                  ; pageoff12 here
-  str x9, [sp]
-  ldr x0, [sp]
+  mov x19, x9
+  mov x0, x19
+  ldr x19, [sp]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -193,11 +218,13 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
 block0:
   adrp x9, #0                     ; got_page21 elsewhere
   ldr x9, [x9]                    ; got_pageoff12 elsewhere
-  str x9, [sp]
-  ldr x0, [sp]
+  mov x19, x9
+  mov x0, x19
+  ldr x19, [sp]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -206,11 +233,13 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
 block0:
   adrp x9, #0                     ; page21 other
   add x9, x9, #0                  ; pageoff12 other
-  str x9, [sp]
-  ldr x0, [sp]
+  mov x19, x9
+  mov x0, x19
+  ldr x19, [sp]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -219,14 +248,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  add x11, x9, x10
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  add x21, x19, x20
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -235,14 +267,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  add w11, w9, w10
-  str x11, [sp, #16]
-  ldr w0, [sp, #16]
+  add w21, w19, w20
+  mov w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -251,14 +286,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  sub x11, x9, x10
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  sub x21, x19, x20
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -267,14 +305,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  sub w11, w9, w10
-  str x11, [sp, #16]
-  ldr w0, [sp, #16]
+  sub w21, w19, w20
+  mov w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -283,14 +324,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  mul x11, x9, x10
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  mul x21, x19, x20
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -299,14 +343,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  mul w11, w9, w10
-  str x11, [sp, #16]
-  ldr w0, [sp, #16]
+  mul w21, w19, w20
+  mov w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -315,14 +362,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  udiv x11, x9, x10
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  udiv x21, x19, x20
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -331,14 +381,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  udiv w11, w9, w10
-  str x11, [sp, #16]
-  ldr w0, [sp, #16]
+  udiv w21, w19, w20
+  mov w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -347,14 +400,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  sdiv x11, x9, x10
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  sdiv x21, x19, x20
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -363,14 +419,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  sdiv w11, w9, w10
-  str x11, [sp, #16]
-  ldr w0, [sp, #16]
+  sdiv w21, w19, w20
+  mov w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -379,15 +438,19 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  udiv x11, x9, x10
-  msub x11, x11, x10, x9
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  udiv x11, x19, x20
+  msub x11, x11, x20, x19
+  mov x21, x11
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -396,15 +459,19 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  udiv w11, w9, w10
-  msub w11, w11, w10, w9
-  str x11, [sp, #16]
-  ldr w0, [sp, #16]
+  udiv w11, w19, w20
+  msub w11, w11, w20, w19
+  mov x21, x11
+  mov w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -413,15 +480,19 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  sdiv x11, x9, x10
-  msub x11, x11, x10, x9
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  sdiv x11, x19, x20
+  msub x11, x11, x20, x19
+  mov x21, x11
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -430,15 +501,19 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  sdiv w11, w9, w10
-  msub w11, w11, w10, w9
-  str x11, [sp, #16]
-  ldr w0, [sp, #16]
+  sdiv w11, w19, w20
+  msub w11, w11, w20, w19
+  mov x21, x11
+  mov w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -447,14 +522,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  and x11, x9, x10
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  and x21, x19, x20
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -463,14 +541,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  and w11, w9, w10
-  str x11, [sp, #16]
-  ldr w0, [sp, #16]
+  and w21, w19, w20
+  mov w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -479,14 +560,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  orr x11, x9, x10
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  orr x21, x19, x20
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -495,14 +579,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  orr w11, w9, w10
-  str x11, [sp, #16]
-  ldr w0, [sp, #16]
+  orr w21, w19, w20
+  mov w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -511,14 +598,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  eor x11, x9, x10
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  eor x21, x19, x20
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -527,14 +617,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  eor w11, w9, w10
-  str x11, [sp, #16]
-  ldr w0, [sp, #16]
+  eor w21, w19, w20
+  mov w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -543,14 +636,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  lsl x11, x9, x10
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  lsl x21, x19, x20
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -559,14 +655,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  lsl w11, w9, w10
-  str x11, [sp, #16]
-  ldr w0, [sp, #16]
+  lsl w21, w19, w20
+  mov w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -575,14 +674,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  lsr x11, x9, x10
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  lsr x21, x19, x20
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -591,14 +693,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  lsr w11, w9, w10
-  str x11, [sp, #16]
-  ldr w0, [sp, #16]
+  lsr w21, w19, w20
+  mov w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -607,14 +712,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  asr x11, x9, x10
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  asr x21, x19, x20
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -623,14 +731,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  asr w11, w9, w10
-  str x11, [sp, #16]
-  ldr w0, [sp, #16]
+  asr w21, w19, w20
+  mov w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -639,15 +750,18 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  cmp x9, x10
-  cset x11, eq
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  cmp x19, x20
+  cset x21, eq
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -656,15 +770,18 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  cmp x9, x10
-  cset x11, ne
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  cmp x19, x20
+  cset x21, ne
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -673,15 +790,18 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  cmp x9, x10
-  cset x11, lt
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  cmp x19, x20
+  cset x21, lt
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -690,15 +810,18 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  cmp x9, x10
-  cset x11, le
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  cmp x19, x20
+  cset x21, le
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -707,15 +830,18 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  cmp x9, x10
-  cset x11, gt
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  cmp x19, x20
+  cset x21, gt
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -724,15 +850,18 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  cmp x9, x10
-  cset x11, ge
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  cmp x19, x20
+  cset x21, ge
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -741,15 +870,18 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  cmp x9, x10
-  cset x11, lo
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  cmp x19, x20
+  cset x21, lo
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -758,15 +890,18 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  cmp x9, x10
-  cset x11, ls
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  cmp x19, x20
+  cset x21, ls
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -775,15 +910,18 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  cmp x9, x10
-  cset x11, hi
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  cmp x19, x20
+  cset x21, hi
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -792,15 +930,18 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  cmp x9, x10
-  cset x11, hs
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  cmp x19, x20
+  cset x21, hs
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -809,15 +950,18 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  cmp w9, w10
-  cset x11, lt
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  cmp w19, w20
+  cset x21, lt
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -826,17 +970,22 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  strb w0, [sp]
-  str x1, [sp, #8]
-  str x2, [sp, #16]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  str x22, [sp, #24]
+  mov x19, x0
+  mov x20, x1
+  mov x21, x2
 block0:
-  ldrb w9, [sp]
-  ldr x10, [sp, #8]
-  ldr x11, [sp, #16]
+  uxtb w9, w19
   cmp w9, #0
-  csel x12, x10, x11, ne
-  str x12, [sp, #24]
-  ldr x0, [sp, #24]
+  csel x22, x20, x21, ne
+  mov x0, x22
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  ldr x22, [sp, #24]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -845,17 +994,22 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  strb w0, [sp]
-  str w1, [sp, #8]
-  str w2, [sp, #16]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  str x22, [sp, #24]
+  mov x19, x0
+  mov x20, x1
+  mov x21, x2
 block0:
-  ldrb w9, [sp]
-  ldr w10, [sp, #8]
-  ldr w11, [sp, #16]
+  uxtb w9, w19
   cmp w9, #0
-  csel w12, w10, w11, ne
-  str x12, [sp, #24]
-  ldr w0, [sp, #24]
+  csel w22, w20, w21, ne
+  mov w0, w22
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  ldr x22, [sp, #24]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -864,11 +1018,15 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
-  str x0, [sp]
+  str x19, [sp]
+  str x20, [sp, #8]
+  mov x19, x0
 block0:
-  ldr x9, [sp]
-  str x9, [sp, #8]
-  ldr w0, [sp, #8]
+  mov x9, x19
+  mov x20, x9
+  mov w0, w20
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -877,11 +1035,15 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
-  str w0, [sp]
+  str x19, [sp]
+  str x20, [sp, #8]
+  mov x19, x0
 block0:
-  ldr w9, [sp]
-  str x9, [sp, #8]
-  ldr x0, [sp, #8]
+  mov w9, w19
+  mov x20, x9
+  mov x0, x20
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -890,12 +1052,16 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
-  strb w0, [sp]
+  str x19, [sp]
+  str x20, [sp, #8]
+  mov x19, x0
 block0:
-  ldrb w9, [sp]
+  uxtb w9, w19
   sxtb x9, w9
-  str x9, [sp, #8]
-  ldr x0, [sp, #8]
+  mov x20, x9
+  mov x0, x20
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -904,12 +1070,15 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
-  str w0, [sp]
+  str x19, [sp]
+  str x20, [sp, #8]
+  mov x19, x0
 block0:
-  ldr w9, [sp]
-  sxtw x9, w9
-  str x9, [sp, #8]
-  ldr x0, [sp, #8]
+  sxtw x9, w19
+  mov x20, x9
+  mov x0, x20
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -918,12 +1087,16 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
+  str x20, [sp, #8]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
 block0:
-  ldr x9, [sp]
-  str x9, [sp, #8]
-  ldr x0, [sp, #8]
+  mov x9, x19
+  mov x20, x9
+  mov x0, x20
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -932,16 +1105,20 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  str x22, [sp, #24]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  adds x11, x9, x10
-  cset x12, vs
-  str x11, [sp, #16]
-  str x12, [sp, #24]
-  ldr x0, [sp, #16]
+  adds x22, x19, x20
+  cset x21, vs
+  mov x0, x22
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  ldr x22, [sp, #24]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -950,16 +1127,20 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  str x22, [sp, #24]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  adds w11, w9, w10
-  cset x12, vs
-  str x11, [sp, #16]
-  str x12, [sp, #24]
-  ldr w0, [sp, #16]
+  adds w22, w19, w20
+  cset x21, vs
+  mov w0, w22
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  ldr x22, [sp, #24]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -968,16 +1149,20 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  str x22, [sp, #24]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  subs x11, x9, x10
-  cset x12, vs
-  str x11, [sp, #16]
-  str x12, [sp, #24]
-  ldr x0, [sp, #16]
+  subs x22, x19, x20
+  cset x21, vs
+  mov x0, x22
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  ldr x22, [sp, #24]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -986,16 +1171,20 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str w0, [sp]
-  str w1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  str x22, [sp, #24]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr w9, [sp]
-  ldr w10, [sp, #8]
-  subs w11, w9, w10
-  cset x12, vs
-  str x11, [sp, #16]
-  str x12, [sp, #24]
-  ldr w0, [sp, #16]
+  subs w22, w19, w20
+  cset x21, vs
+  mov w0, w22
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  ldr x22, [sp, #24]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1004,18 +1193,24 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  str x22, [sp, #24]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  mul x11, x9, x10
-  smulh x12, x9, x10
+  mul x11, x19, x20
+  smulh x12, x19, x20
   cmp x12, x11, asr #63
   cset x12, ne
-  str x11, [sp, #16]
-  str x12, [sp, #24]
-  ldr x0, [sp, #16]
+  mov x22, x11
+  mov x21, x12
+  mov x0, x22
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  ldr x22, [sp, #24]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1024,20 +1219,24 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
   fmov x9, d1
-  str x9, [sp, #8]
+  mov x20, x9
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  fmov d16, x9
-  fmov d17, x10
+  fmov d16, x19
+  fmov d17, x20
   fadd d18, d16, d17
   fmov x11, d18
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  mov x21, x11
+  mov x0, x21
   fmov d0, x0
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1046,20 +1245,24 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
   fmov x9, d1
-  str x9, [sp, #8]
+  mov x20, x9
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  fmov d16, x9
-  fmov d17, x10
+  fmov d16, x19
+  fmov d17, x20
   fsub d18, d16, d17
   fmov x11, d18
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  mov x21, x11
+  mov x0, x21
   fmov d0, x0
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1068,20 +1271,24 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
   fmov x9, d1
-  str x9, [sp, #8]
+  mov x20, x9
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  fmov d16, x9
-  fmov d17, x10
+  fmov d16, x19
+  fmov d17, x20
   fmul d18, d16, d17
   fmov x11, d18
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  mov x21, x11
+  mov x0, x21
   fmov d0, x0
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1090,20 +1297,24 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
   fmov x9, d1
-  str x9, [sp, #8]
+  mov x20, x9
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  fmov d16, x9
-  fmov d17, x10
+  fmov d16, x19
+  fmov d17, x20
   fdiv d18, d16, d17
   fmov x11, d18
-  str x11, [sp, #16]
-  ldr x0, [sp, #16]
+  mov x21, x11
+  mov x0, x21
   fmov d0, x0
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1112,16 +1323,19 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
+  str x20, [sp, #8]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
 block0:
-  ldr x9, [sp]
-  fmov d16, x9
+  fmov d16, x19
   fneg d17, d16
   fmov x11, d17
-  str x11, [sp, #8]
-  ldr x0, [sp, #8]
+  mov x20, x11
+  mov x0, x20
   fmov d0, x0
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1130,16 +1344,19 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
+  str x20, [sp, #8]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
 block0:
-  ldr x9, [sp]
-  fmov d16, x9
+  fmov d16, x19
   fabs d17, d16
   fmov x11, d17
-  str x11, [sp, #8]
-  ldr x0, [sp, #8]
+  mov x20, x11
+  mov x0, x20
   fmov d0, x0
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1148,16 +1365,19 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
+  str x20, [sp, #8]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
 block0:
-  ldr x9, [sp]
-  fmov d16, x9
+  fmov d16, x19
   fsqrt d17, d16
   fmov x11, d17
-  str x11, [sp, #8]
-  ldr x0, [sp, #8]
+  mov x20, x11
+  mov x0, x20
   fmov d0, x0
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1166,16 +1386,19 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
+  str x20, [sp, #8]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
 block0:
-  ldr x9, [sp]
-  fmov d16, x9
+  fmov d16, x19
   frintm d17, d16
   fmov x11, d17
-  str x11, [sp, #8]
-  ldr x0, [sp, #8]
+  mov x20, x11
+  mov x0, x20
   fmov d0, x0
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1184,16 +1407,19 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
+  str x20, [sp, #8]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
 block0:
-  ldr x9, [sp]
-  fmov d16, x9
+  fmov d16, x19
   frintp d17, d16
   fmov x11, d17
-  str x11, [sp, #8]
-  ldr x0, [sp, #8]
+  mov x20, x11
+  mov x0, x20
   fmov d0, x0
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1202,16 +1428,19 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
+  str x20, [sp, #8]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
 block0:
-  ldr x9, [sp]
-  fmov d16, x9
+  fmov d16, x19
   frintz d17, d16
   fmov x11, d17
-  str x11, [sp, #8]
-  ldr x0, [sp, #8]
+  mov x20, x11
+  mov x0, x20
   fmov d0, x0
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1220,16 +1449,19 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
+  str x20, [sp, #8]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
 block0:
-  ldr x9, [sp]
-  fmov d16, x9
+  fmov d16, x19
   frintn d17, d16
   fmov x11, d17
-  str x11, [sp, #8]
-  ldr x0, [sp, #8]
+  mov x20, x11
+  mov x0, x20
   fmov d0, x0
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1238,19 +1470,23 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
   fmov x9, d1
-  str x9, [sp, #8]
+  mov x20, x9
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  fmov d16, x9
-  fmov d17, x10
+  fmov d16, x19
+  fmov d17, x20
   fcmp d16, d17
   cset x11, eq
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  mov x21, x11
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1259,19 +1495,23 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
   fmov x9, d1
-  str x9, [sp, #8]
+  mov x20, x9
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  fmov d16, x9
-  fmov d17, x10
+  fmov d16, x19
+  fmov d17, x20
   fcmp d16, d17
   cset x11, ne
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  mov x21, x11
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1280,19 +1520,23 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
   fmov x9, d1
-  str x9, [sp, #8]
+  mov x20, x9
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  fmov d16, x9
-  fmov d17, x10
+  fmov d16, x19
+  fmov d17, x20
   fcmp d16, d17
   cset x11, mi
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  mov x21, x11
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1301,19 +1545,23 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
   fmov x9, d1
-  str x9, [sp, #8]
+  mov x20, x9
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  fmov d16, x9
-  fmov d17, x10
+  fmov d16, x19
+  fmov d17, x20
   fcmp d16, d17
   cset x11, ls
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  mov x21, x11
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1322,19 +1570,23 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
   fmov x9, d1
-  str x9, [sp, #8]
+  mov x20, x9
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  fmov d16, x9
-  fmov d17, x10
+  fmov d16, x19
+  fmov d17, x20
   fcmp d16, d17
   cset x11, gt
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  mov x21, x11
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1343,19 +1595,23 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
   fmov x9, d1
-  str x9, [sp, #8]
+  mov x20, x9
 block0:
-  ldr x9, [sp]
-  ldr x10, [sp, #8]
-  fmov d16, x9
-  fmov d17, x10
+  fmov d16, x19
+  fmov d17, x20
   fcmp d16, d17
   cset x11, ge
-  str x11, [sp, #16]
-  ldrb w0, [sp, #16]
+  mov x21, x11
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1364,14 +1620,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
-  str x0, [sp]
+  str x19, [sp]
+  str x20, [sp, #8]
+  mov x19, x0
 block0:
-  ldr x9, [sp]
-  scvtf d16, x9
+  scvtf d16, x19
   fmov x11, d16
-  str x11, [sp, #8]
-  ldr x0, [sp, #8]
+  mov x20, x11
+  mov x0, x20
   fmov d0, x0
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1380,14 +1639,17 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
+  str x20, [sp, #8]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
 block0:
-  ldr x9, [sp]
-  fmov d16, x9
+  fmov d16, x19
   fcvtzs x11, d16
-  str x11, [sp, #8]
-  ldr x0, [sp, #8]
+  mov x20, x11
+  mov x0, x20
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1396,12 +1658,16 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
-  str x0, [sp]
+  str x19, [sp]
+  str x20, [sp, #8]
+  mov x19, x0
 block0:
-  ldr x0, [sp]
+  mov x0, x19
   bl #0                           ; branch26 other
-  str x0, [sp, #8]
-  ldr x0, [sp, #8]
+  mov x20, x0
+  mov x0, x20
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1410,12 +1676,16 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
-  str x0, [sp]
+  str x19, [sp]
+  str x20, [sp, #8]
+  mov x19, x0
 block0:
-  ldr x0, [sp]
+  mov x0, x19
   bl #0                           ; branch26 elsewhere
-  str x0, [sp, #8]
-  ldr x0, [sp, #8]
+  mov x20, x0
+  mov x0, x20
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1433,11 +1703,13 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
 block0:
   bl #0                           ; branch26 other
   mov w0, w0
-  str x0, [sp]
-  ldr w0, [sp]
+  mov x19, x0
+  mov w0, w19
+  ldr x19, [sp]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1446,14 +1718,19 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x0, [sp, #8]
-  ldr x9, [sp]
-  blr x9
-  str x0, [sp, #16]
-  ldr x0, [sp, #16]
+  mov x0, x20
+  blr x19
+  mov x21, x0
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1462,19 +1739,26 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #48
-  str x0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  str x22, [sp, #24]
+  str x23, [sp, #32]
+  mov x19, x0
+  mov x20, x1
 block0:
-  ldr x9, [sp, #8]
-  ldr x10, [sp]
-  str x9, [sp, #16]
-  str x10, [sp, #24]
+  mov x9, x20
+  mov x10, x19
+  mov x21, x9
+  mov x22, x10
 block1:
-  ldr x9, [sp, #16]
-  ldr x10, [sp, #24]
-  add x11, x9, x10
-  str x11, [sp, #32]
-  ldr x0, [sp, #32]
+  add x23, x21, x22
+  mov x0, x23
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  ldr x22, [sp, #24]
+  ldr x23, [sp, #32]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1483,20 +1767,28 @@ block1:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  strb w0, [sp]
-  str x1, [sp, #8]
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+  mov x20, x1
 block0:
-  movz x9, #0
-  str x9, [sp, #16]
-  ldrb w9, [sp]
+  movz x21, #0
+  uxtb w9, w19
   cbz w9, block2
 block1:
-  ldr x0, [sp, #8]
+  mov x0, x20
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
 block2:
-  ldr x0, [sp, #16]
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1513,11 +1805,13 @@ block0:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #16
+  str x19, [sp]
   fmov x9, d0
-  str x9, [sp]
+  mov x19, x9
 block0:
-  ldr x0, [sp]
+  mov x0, x19
   fmov d0, x0
+  ldr x19, [sp]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
