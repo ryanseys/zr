@@ -220,59 +220,54 @@ when "stage2"
     abort("ze0 stage2: #{a.bytesize} and #{b.bytesize} bytes, first differing at #{at}")
   end
 when "check"
-  # Every check file in a process of its own. One ruby loading them all
-  # holds every program `programs_test` compiles, every runtime `rt_test`
-  # links and every module `wasm_test` builds in a single heap, and the
-  # machine runs out of memory before the run ends. A process a file
-  # bounds that, says which file failed rather than which assertion, and
-  # lets the machine run several at once. `ZE0_JOBS` sets how many.
+  # Every check file in a process of its own, and a file that says
+  # `# shards: N` in N of them, each taking every Nth case.
+  #
+  # One ruby loading them all holds every program `programs_test`
+  # compiles, every runtime `rt_test` links and every module `wasm_test`
+  # builds in a single heap. Separate processes bound that, say which
+  # file failed rather than which assertion, and let the machine run
+  # several at once.
   require "etc"
   filters = ARGV.drop(1)
   files = Dir[File.join(ROOT, "test/checks/*_test.rb")].sort
   files = files.select { |f| filters.any? { |a| File.basename(f).include?(a) } } unless filters.empty?
   abort("ze0 check: nothing matches #{filters.join(" ")}") if files.empty?
 
-  # A check file that says `# shards: N` is run as N processes, each
-  # taking every Nth case. `programs_test` needs it: compiling a program
-  # peaks high, ruby grows its heap to the peak and keeps the pages, and
-  # the whole file in one process runs the machine out of memory.
   queue = Queue.new
   files.each do |file|
     shards = File.foreach(file).first(40).join[/^# shards: (\d+)$/, 1].to_i
     shards < 2 ? queue << [file, nil] : shards.times { |i| queue << [file, "#{i + 1}/#{shards}"] }
   end
-  jobs_queued = queue.size
+
+  # Memory is what bounds this, not cores: a check process compiling
+  # programs wants a gigabyte or more, and a machine short of it stops
+  # the run rather than swapping. `ZE0_JOBS` says otherwise.
+  jobs = [Integer(ENV.fetch("ZE0_JOBS") { [Etc.nprocessors, 4].min }), queue.size].min
   done = Queue.new
   started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-  # Memory is what bounds this, not cores: a check process compiling
-  # programs can want a gigabyte or two, and the machine kills the run
-  # rather than swapping. Four at a time suits a sixteen-gigabyte
-  # machine; `ZE0_JOBS` says otherwise.
-  jobs = Integer(ENV.fetch("ZE0_JOBS") { [Etc.nprocessors, 4].min })
-  Array.new([jobs, jobs_queued].min) do
+  Array.new(jobs) do
     Thread.new do
       until queue.empty?
         file, shard = (queue.pop(true) rescue break)
-        env = shard ? { "ZE0_SHARD" => shard } : {}
-        out = IO.popen(env, [RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", file], err: %i[child out], &:read)
-        done << [shard ? "#{file}\0#{shard}" : file, $?.success?, out]
+        out = IO.popen(shard ? { "ZE0_SHARD" => shard } : {},
+                       [RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", file], err: %i[child out], &:read)
+        done << [file, shard, $?.success?, out]
       end
     end
   end.each(&:join)
 
   rows = []
   rows << done.pop until done.empty?
-  rows.sort_by! { |file, _, _| file }
-  rows.each do |file, ok, out|
-    path, shard = file.split("\0")
-    tally = out[/^\d+ runs.*$/] || "did not report a tally"
-    name = File.basename(path, "_test.rb") + (shard ? " #{shard}" : "")
-    puts format("%-18s %s%s", name, tally, ok ? "" : "  <-")
+  rows.sort_by! { |file, shard, _, _| [file, shard.to_s] }
+  rows.each do |file, shard, ok, out|
+    name = File.basename(file, "_test.rb") + (shard ? " #{shard}" : "")
+    puts format("%-18s %s%s", name, out[/^\d+ runs.*$/] || "did not report a tally", ok ? "" : "  <-")
   end
-  failed = rows.reject { |_, ok, _| ok }
-  failed.each { |file, _, out| warn("\n--- #{File.basename(file.split("\0").first)}\n#{out}") }
+  failed = rows.reject { |_, _, ok, _| ok }
+  failed.each { |file, _, _, out| warn("\n--- #{File.basename(file)}\n#{out}") }
   elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-  puts format("%d files, %d processes, %.1f s, %d at a time", files.size, rows.size, elapsed, [jobs, jobs_queued].min)
+  puts format("%d files, %d processes, %.1f s, %d at a time", files.size, rows.size, elapsed, jobs)
   exit(failed.empty? ? 0 : 1)
 else
   usage
