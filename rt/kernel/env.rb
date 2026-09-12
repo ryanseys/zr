@@ -71,11 +71,6 @@ machine def zr_program_end(exc)
         if zr_system_exit_p(raised)
           status = zr_exit_status(raised)
         else
-          # What the program wrote goes out before the report, so the two
-          # read in the order they happened.
-          if zr_send(zr_core_class(Machine.id(:IO)), Machine.id(:flush_pending), 0, 0) == QUNDEF
-            Task.set_pending(zr_task(), Machine.value(QNIL))
-          end
           zr_error_print(raised)
           status = 1
         end
@@ -86,11 +81,6 @@ machine def zr_program_end(exc)
   if exc != QUNDEF && !zr_system_exit_p(exc)
     signo = zr_signal_of(exc)
     if signo == 0 || zr_is_a(exc, zr_core_class(Machine.id(:Interrupt)))
-      # What the program wrote goes out before the report, so the two read
-      # in the order they happened.
-      if zr_send(zr_core_class(Machine.id(:IO)), Machine.id(:flush_pending), 0, 0) == QUNDEF
-        Task.set_pending(zr_task(), Machine.value(QNIL))
-      end
       zr_error_print(exc)
     end
   end
