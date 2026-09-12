@@ -225,9 +225,9 @@ when "check"
   #
   # One ruby loading them all holds every program `programs_test`
   # compiles, every runtime `rt_test` links and every module `wasm_test`
-  # builds in a single heap. Separate processes bound that, say which
-  # file failed rather than which assertion, and let the machine run
-  # several at once.
+  # builds in a single heap, and ruby does not give heap pages back.
+  # Separate processes bound that, say which file failed rather than
+  # which assertion, and let the machine run several at once.
   require "etc"
   filters = ARGV.drop(1)
   files = Dir[File.join(ROOT, "test/checks/*_test.rb")].sort

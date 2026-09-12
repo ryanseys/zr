@@ -18,25 +18,26 @@ require_relative "../../lib/ze0/harness/case"
 #
 # shards: 8
 #
-# Compiling a program peaks high, and ruby grows its heap to the peak and
-# does not give the pages back: ninety-seven programs in one process
-# reach about nine gigabytes with barely more live objects than one does.
-# So this file is run in shards -- `ZE0_SHARD=2/8` defines every eighth
-# program starting at the second -- and `ze0 check` reads the count above
-# and starts a process for each. Eight keeps a shard near a gigabyte and
-# a half, which is what a sixteen-gigabyte machine can run a few of.
+# Compiling a program peaks high, and ruby grows its heap to the peak
+# and does not give the pages back: over eight programs the live slots
+# barely move (617,088 to 618,493) while the allocated heap pages go
+# from 881 to 8,938, and `GC.compact` returns none of it. So this file
+# runs in shards -- `ZE0_SHARD=2/8` defines every eighth program
+# starting at the second -- and `ze0 check` reads the count above and
+# starts a process for each.
 class ProgramsTest < Minitest::Test
-  WASMTIME = ENV["WASMTIME"] || "wasmtime"
 
   # `[this shard, how many]`, counting from one.
   SHARD, SHARDS = (ENV["ZE0_SHARD"] || "1/1").split("/").map { |n| Integer(n) }
 
-  # `[stdout, stderr, status]` of `argv` under `env`.
+  # `[stdout, stderr, status]` of `argv` under `env`. A run that passes
+  # a bound is killed, and its status says which bound rather than
+  # nothing, so the check fails and names the program.
   def capture(env, argv)
     Dir.mktmpdir("ze0-programs-err-") do |dir|
       err = File.join(dir, "err")
-      out = IO.popen(env, argv, err: err, &:read)
-      [out, File.read(err), $?.exitstatus]
+      out, why = bounded(env, argv, err: err)
+      [out, File.read(err), why ? "killed at #{why}" : $?.exitstatus]
     end
   end
 
@@ -72,7 +73,7 @@ class ProgramsTest < Minitest::Test
     end
 
     define_method("test_wasm_#{name}") do
-      skip "wasmtime is not installed" unless system(WASMTIME, "--version", out: File::NULL, err: File::NULL)
+      skip "wasmtime is not installed" unless wasmtime?
       skip "the program reads the host" if File.open(rb, &:readline).include?("native only")
 
       want = oracle(rb)
@@ -80,7 +81,7 @@ class ProgramsTest < Minitest::Test
       Dir.mktmpdir("ze0-programs-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
         assert_nil Ze0::Native::Build.wasm_program(program, wasm)
-        check(name, {}, [WASMTIME, wasm], want, rb)
+        check(name, {}, [WASMTIME, *WASM_FLAGS, wasm], want, rb)
       end
     end
   end

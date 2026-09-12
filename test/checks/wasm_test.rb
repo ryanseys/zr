@@ -14,16 +14,11 @@ require_relative "rt_test"
 # nothing else. The same programs go through the aarch64 backend in
 # `native_test.rb`, `zr_test.rb` and `rt_test.rb`.
 class WasmTest < Minitest::Test
-  WASMTIME = ENV["WASMTIME"] || "wasmtime"
-
-  def self.wasmtime?
-    system(WASMTIME, "--version", out: File::NULL, err: File::NULL)
-  end
-
   def run_module(wasm, expected, *args, status: 0)
-    skip "wasmtime is not installed" unless self.class.wasmtime?
+    skip "wasmtime is not installed" unless wasmtime?
 
-    out = IO.popen([WASMTIME, wasm, *args], err: %i[child out], &:read)
+    out, why = bounded({}, [WASMTIME, *WASM_FLAGS, wasm, *args], err: %i[child out])
+    refute why, "wasmtime was killed at #{why}: #{out}"
     assert_equal status, $?.exitstatus, "wasmtime exited #{$?.exitstatus}: #{out}"
     assert_equal expected, out
   end
