@@ -101,6 +101,9 @@ when "zr"
     out = verb == "run" ? File.join(work, "program") : File.expand_path(output)
     if emit == "obj"
       why = if program.is_a?(Ze0::Zr::Program)
+              # The runtime's object lands in the cache beside it, so the
+              # object road is the whole of what ze0 wrote.
+              Ze0::Native::Build.runtime_object(program.runtime)
               Ze0::Native::Build.object(program.functions, program.data, out, export: true)
             else
               functions, data, raw = program
@@ -153,7 +156,7 @@ when "stage1"
       FileUtils.mkdir_p(cache)
       out = File.join(work, "#{n}.o")
       system({ "ZE0_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil },
-             RbConfig.ruby, __FILE__, "zr", "machine", source, "-o", out, "--emit", "obj", chdir: ROOT) or
+             RbConfig.ruby, __FILE__, "zr", "build", source, "-o", out, "--emit", "obj", chdir: ROOT) or
         abort("ze0 stage1: the self-compile failed")
       runtime = Dir[File.join(cache, "rt-*.o")]
       abort("ze0 stage1: the runtime object was not cached") unless runtime.size == 1
