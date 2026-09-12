@@ -24,10 +24,14 @@ module Ze0
       class Refused < StandardError; end
 
       PAGE = 65_536
-      # The bottom of linear memory: the iovec scratch, then data objects,
-      # then the shadow stack growing up from its base.
+      # The bottom of linear memory: the iovec scratch, WASI's filestat
+      # and the errno word, then data objects, then the shadow stack
+      # growing up from its base.
       SCRATCH = 16
-      DATA_BASE = 64
+      FILESTAT = 32
+      FDSTAT = 96
+      ERRNO = 120
+      DATA_BASE = 128
       STACK_PAGES = 16
 
       TYPE = { "i8" => 0x7F, "i32" => 0x7F, "i64" => 0x7E, "f64" => 0x7C }.freeze
@@ -46,7 +50,26 @@ module Ze0
                 "pthread_self" => [[], [0x7E]], "pthread_get_stackaddr_np" => [[0x7E], [0x7E]], "pthread_get_stacksize_np" => [[0x7E], [0x7E]],
                 "setenv" => [[0x7E, 0x7E, 0x7F], [0x7F]], "unsetenv" => [[0x7E], [0x7F]], "_NSGetEnviron" => [[], [0x7E]], "getcwd" => [[0x7E, 0x7E], [0x7E]], "getpid" => [[], [0x7F]], "arc4random" => [[], [0x7F]], "access" => [[0x7E, 0x7F], [0x7F]], "stat" => [[0x7E, 0x7E], [0x7F]],
                 "mmap" => [[0x7E, 0x7E, 0x7F, 0x7F, 0x7F, 0x7E], [0x7E]], "munmap" => [[0x7E, 0x7E], [0x7F]],
-                "mprotect" => [[0x7E, 0x7E, 0x7F], [0x7F]], "posix_memalign" => [[0x7E, 0x7E, 0x7E], [0x7F]] }.freeze
+                "mprotect" => [[0x7E, 0x7E, 0x7F], [0x7F]], "posix_memalign" => [[0x7E, 0x7E, 0x7E], [0x7F]],
+                "fstat" => [[0x7F, 0x7E], [0x7F]], "__error" => [[], [0x7E]],
+                "fcntl" => [[0x7F, 0x7F], [0x7F]], "__fcntl" => [[0x7F, 0x7F, 0x7E], [0x7F]],
+                "close" => [[0x7F], [0x7F]], "fsync" => [[0x7F], [0x7F]], "isatty" => [[0x7F], [0x7F]],
+                "read" => [[0x7F, 0x7E, 0x7E], [0x7E]], "lseek" => [[0x7F, 0x7E, 0x7F], [0x7E]],
+                "clock_gettime" => [[0x7F, 0x7E], [0x7F]],
+                "getuid" => [[], [0x7F]], "geteuid" => [[], [0x7F]], "getgid" => [[], [0x7F]],
+                "getegid" => [[], [0x7F]], "getppid" => [[], [0x7F]], "umask" => [[0x7F], [0x7F]],
+                "onig_initialize" => [[0x7E, 0x7F], [0x7F]], "onig_free" => [[0x7E], []],
+                "onig_new" => [[0x7E, 0x7E, 0x7E, 0x7F, 0x7E, 0x7E, 0x7E], [0x7F]] }.freeze
+
+      # How many i32 locals a shim body declares.
+      LOCALS = { "malloc" => 1, "fstat" => 3, "fcntl" => 1, "isatty" => 1, "read" => 1, "lseek" => 1 }.freeze
+
+      # WASI names eight file types; macOS names them in `st_mode`, and
+      # carries permission bits WASI does not have. The bits below are
+      # what a fresh file, directory or terminal usually carries, which
+      # is the closest a module without them can answer.
+      FILETYPE = { 0 => 0, 1 => 0o060644, 2 => 0o020666, 3 => 0o040755,
+                   4 => 0o100644, 5 => 0o140644, 6 => 0o140644, 7 => 0o120777 }.freeze
 
       COND = { "eq" => :eq, "ne" => :ne, "slt" => :lt_s, "sle" => :le_s, "sgt" => :gt_s, "sge" => :ge_s,
                "ult" => :lt_u, "ule" => :le_u, "ugt" => :gt_u, "uge" => :ge_u }.freeze
@@ -118,7 +141,14 @@ module Ze0
       def layout
         pre = @prelude
         @imports = [["wasi_snapshot_preview1", "fd_write", [0x7F, 0x7F, 0x7F, 0x7F], [0x7F]],
-                    ["wasi_snapshot_preview1", "proc_exit", [0x7F], []]]
+                    ["wasi_snapshot_preview1", "proc_exit", [0x7F], []],
+                    ["wasi_snapshot_preview1", "fd_filestat_get", [0x7F, 0x7F], [0x7F]],
+                    ["wasi_snapshot_preview1", "fd_fdstat_get", [0x7F, 0x7F], [0x7F]],
+                    ["wasi_snapshot_preview1", "fd_close", [0x7F], [0x7F]],
+                    ["wasi_snapshot_preview1", "fd_sync", [0x7F], [0x7F]],
+                    ["wasi_snapshot_preview1", "fd_read", [0x7F, 0x7F, 0x7F, 0x7F], [0x7F]],
+                    ["wasi_snapshot_preview1", "fd_seek", [0x7F, 0x7E, 0x7F, 0x7F], [0x7F]],
+                    ["wasi_snapshot_preview1", "clock_time_get", [0x7F, 0x7E, 0x7F], [0x7F]]]
         @shims = SHIMS
         @index = {}
         @imports.each_with_index { |(_, name, *), i| @index[name] = i }
@@ -278,13 +308,187 @@ module Ze0
         # CRuby sets no guard page there either.
         when "setenv", "unsetenv", "getpid", "arc4random", "mprotect"
           code << "\x41\x00".b
-        when "access", "stat", "munmap"
+        when "munmap"
           code << "\x41\x7F".b
+        # A module has no path metadata, so a path is not found. The
+        # errno is set rather than left over: the caller reads it next.
+        when "access", "stat"
+          code << errno(2) << "\x41\x7F".b
+        when "__error"
+          code << "\x42".b << sleb(ERRNO)
+        when "getuid", "geteuid", "getgid", "getegid"
+          code << i32c(0)
+        # The regex engine is C, and a module carries none. The runtime
+        # readies it, and the core library compiles a pattern of its
+        # own, before a program has said whether it wants one: so
+        # readying succeeds, and compiling answers a handle that stands
+        # for a pattern nothing can match. A program that matches one
+        # stops at `onig_search`, which names what is missing.
+        when "onig_initialize", "onig_free"
+          code << (SHIMS.fetch(name).last.empty? ? "".b : i32c(0))
+        when "onig_new"
+          code << "\x20\x00".b << "\xA7".b << "\x42\x01".b << "\x37\x03".b << leb(0) << i32c(0)
+        when "getppid"
+          code << i32c(1)
+        # The process mask a fresh login shell carries. A module has no
+        # mask of its own and nothing it creates is shared, so the value
+        # only has to be the one a program reads back.
+        when "umask"
+          code << i32c(0o022)
+        # Setting a descriptor's flags does nothing: WASI has no
+        # close-on-exec, and a module that cannot spawn never execs.
+        when "__fcntl"
+          code << i32c(0)
+        when "close"
+          code << status(call_wasi("fd_close", ["\x20\x00".b]))
+        when "fsync"
+          code << status(call_wasi("fd_sync", ["\x20\x00".b]))
+        when "fstat"
+          code << fstat_body
+        when "fcntl"
+          code << fcntl_body
+        when "isatty"
+          code << isatty_body
+        when "read"
+          code << read_body
+        when "lseek"
+          code << lseek_body
+        when "clock_gettime"
+          code << clock_body
         end
         code << "\x0B".b
-        locals = name == "malloc" ? vec([leb(1) + "\x7F".b]) : vec([])
-        vec_bytes(locals + code)
+        n = LOCALS[name]
+        vec_bytes(vec(n ? [leb(n) + "\x7F".b] : []) + code)
       end
+
+      # `errno = n`, and nothing left on the stack.
+      def errno(n) = i32c(ERRNO) + i32c(n) + "\x36\x02".b + leb(0)
+
+      def call_wasi(name, args) = args.join + "\x10".b + leb(function_index(name))
+
+      # A WASI call that answers nothing but an errno, as the libSystem
+      # call it stands for answers 0 or -1 and leaves the reason behind.
+      def status(call)
+        i32c(ERRNO) + call + "\x36\x02".b + leb(0) +
+          i32c(-1) + i32c(0) + i32c(ERRNO) + "\x28\x02".b + leb(0) + "\x1B".b
+      end
+
+      # `errno = local n; answer`, for the failure arm of a shim that
+      # has an answer of its own to give.
+      def failed(local, answer)
+        i32c(ERRNO) + "\x20".b + leb(local) + "\x36\x02".b + leb(0) + answer + "\x0F".b
+      end
+
+      # F_GETFL alone: the flags say what the descriptor was opened for,
+      # which WASI keeps as rights rather than as a mode. Every other
+      # command answers 0, since a module has nothing they would change.
+      # Local 2 is the errno.
+      def fcntl_body
+        rights = i32c(FDSTAT) + "\x29\x03".b + leb(8)
+        readable = rights + "\x42".b + sleb(2) + "\x83".b + "\x42\x00".b + "\x52".b
+        writable = rights + "\x42".b + sleb(64) + "\x83".b + "\x42\x00".b + "\x52".b
+        flags = i32c(FDSTAT) + "\x2F\x01".b + leb(2)
+        code = +"".b
+        code << "\x20\x01".b << i32c(3) << "\x47".b << "\x04\x40".b << i32c(0) << "\x0F".b << "\x0B".b
+        code << call_wasi("fd_fdstat_get", ["\x20\x00".b, i32c(FDSTAT)]) << "\x22\x02".b
+        code << "\x04\x40".b << failed(2, i32c(-1)) << "\x0B".b
+        code << i32c(2) << i32c(1) << readable << "\x1B".b << i32c(0) << writable << "\x1B".b
+        # O_APPEND is 8 on this platform and 1 in WASI; O_NONBLOCK is 4
+        # in both, so it needs no move.
+        code << i32c(8) << i32c(0) << (flags + i32c(1) + "\x71".b) << "\x1B".b << "\x72".b
+        code << (flags + i32c(4) + "\x71".b) << "\x72".b
+        code
+      end
+
+      # A terminal is a character device. Local 1 is the errno.
+      def isatty_body
+        code = +"".b
+        code << call_wasi("fd_fdstat_get", ["\x20\x00".b, i32c(FDSTAT)]) << "\x22\x01".b
+        code << "\x04\x40".b << failed(1, i32c(0)) << "\x0B".b
+        code << i32c(FDSTAT) << "\x2D\x00".b << leb(0) << i32c(2) << "\x46".b
+        code
+      end
+
+      # read(2) as one iovec. Local 3 is the errno.
+      def read_body
+        code = +"".b
+        code << i32c(SCRATCH) << "\x20\x01".b << "\xA7".b << "\x36\x02".b << leb(0)
+        code << i32c(SCRATCH) << "\x20\x02".b << "\xA7".b << "\x36\x02".b << leb(4)
+        code << call_wasi("fd_read", ["\x20\x00".b, i32c(SCRATCH), i32c(1), i32c(SCRATCH + 8)])
+        code << "\x22\x03".b << "\x04\x40".b << failed(3, "\x42\x7F".b) << "\x0B".b
+        code << i32c(SCRATCH + 8) << "\x28\x02".b << leb(0) << "\xAD".b
+        code
+      end
+
+      # lseek(2). SEEK_SET, SEEK_CUR and SEEK_END are 0, 1 and 2 in both
+      # this platform and WASI. Local 3 is the errno.
+      def lseek_body
+        code = +"".b
+        code << call_wasi("fd_seek", ["\x20\x00".b, "\x20\x01".b, "\x20\x02".b, i32c(SCRATCH)])
+        code << "\x22\x03".b << "\x04\x40".b << failed(3, "\x42\x7F".b) << "\x0B".b
+        code << i32c(SCRATCH) << "\x29\x03".b << leb(0)
+        code
+      end
+
+      # clock_gettime(2) into a timespec. WASI counts nanoseconds in one
+      # word and numbers its clocks differently: 0 is the wall clock in
+      # both, and everything else here is the monotonic one.
+      def clock_body
+        nanos = i32c(SCRATCH) + "\x29\x03".b + leb(0) + "\x42".b + sleb(1_000_000_000)
+        into = "\x20\x01".b + "\xA7".b
+        code = +"".b
+        code << i32c(ERRNO)
+        code << call_wasi("clock_time_get", [i32c(0) + i32c(1) + "\x20\x00".b + "\x45".b + "\x1B".b,
+                                             "\x42".b + sleb(1000), i32c(SCRATCH)])
+        code << "\x36\x02".b << leb(0)
+        code << i32c(ERRNO) << "\x28\x02".b << leb(0) << "\x04\x40".b << i32c(-1) << "\x0F".b << "\x0B".b
+        code << into << (nanos + "\x80".b) << "\x37\x03".b << leb(0)
+        code << into << (nanos + "\x82".b) << "\x37\x03".b << leb(8)
+        code << i32c(0)
+        code
+      end
+
+      # fstat(2) over WASI's `fd_filestat_get`, which answers eight
+      # fields where macOS's `struct stat` has twenty. What WASI knows
+      # is copied across; an owner is root and a device is zero, because
+      # a module is told neither. Locals: 2 the buffer, 3 the errno, 4
+      # the file type.
+      def fstat_body
+        code = +"".b
+        code << "\x20\x01".b << "\xA7".b << "\x21\x02".b
+        code << "\x20\x00".b << i32c(FILESTAT) << "\x10".b << leb(function_index("fd_filestat_get"))
+        code << "\x22\x03".b << "\x04\x40".b
+        code << i32c(ERRNO) << "\x20\x03".b << "\x36\x02".b << leb(0)
+        code << "\x41\x7F".b << "\x0F".b << "\x0B".b
+        code << i32c(FILESTAT) << "\x2D\x00".b << leb(16) << "\x21\x04".b
+        code << store32(0, filestat64(0) + "\xA7".b)
+        code << store32(4, mode_bits + (filestat64(24) + "\xA7".b + i32c(0xFFFF) + "\x71".b + i32c(16) + "\x74".b) + "\x72".b)
+        code << store64(8, filestat64(8))
+        [16, 20, 24].each { |at| code << store32(at, i32c(0)) }
+        # A timespec is seconds and nanoseconds; WASI counts nanoseconds
+        # from the epoch in one word.
+        { 32 => 40, 48 => 48, 64 => 56 }.each do |at, from|
+          nanos = filestat64(from) + "\x42".b + sleb(1_000_000_000)
+          code << store64(at, nanos + "\x80".b)
+          code << store64(at + 8, nanos + "\x82".b)
+        end
+        code << store64(96, filestat64(32))
+        code << store64(104, filestat64(32) + "\x42".b + sleb(511) + "\x7C".b + "\x42".b + sleb(512) + "\x80".b)
+        code << store32(112, i32c(4096))
+        code << i32c(0)
+        code
+      end
+
+      # `st_mode`'s type bits, chosen by the file type in local 4.
+      def mode_bits
+        FILETYPE.inject(i32c(FILETYPE.fetch(4))) do |otherwise, (type, mode)|
+          i32c(mode) + otherwise + "\x20\x04".b + i32c(type) + "\x46".b + "\x1B".b
+        end
+      end
+
+      def filestat64(at) = i32c(FILESTAT) + "\x29\x03".b + leb(at)
+      def store32(at, value) = "\x20\x02".b + value + "\x36\x02".b + leb(at)
+      def store64(at, value) = "\x20\x02".b + value + "\x37\x03".b + leb(at)
 
       # `_start`: main(0, 0), then proc_exit with what it answered.
       def start_body
