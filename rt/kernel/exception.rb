@@ -502,15 +502,25 @@ machine def zr_report(exc)
 end
 
 # An exception on stderr, then each exception it was raised from, as
-# CRuby's rb_error_write prints the cause chain. The kernel refuses a
-# circular cause, so the walk ends.
-sig [Value] => Void
-machine def zr_error_print(exc)
+# CRuby's rb_error_write prints the cause chain, stopping short of
+# `stop`. While the at_exit handlers run, `$!` is the exception that
+# ends the program, so it becomes the cause of everything a handler
+# raises; CRuby prints it once, at the end, and not again under each
+# handler. The kernel refuses a circular cause, so the walk ends.
+sig [Value, Value] => Void
+machine def zr_error_print_upto(exc, stop)
   e = exc
-  while e != QNIL && e != QUNDEF && !zr_special_p(e) && zr_is_a(e, zr_global(G_EXCEPTION))
+  while e != QNIL && e != QUNDEF && e != stop && !zr_special_p(e) && zr_is_a(e, zr_global(G_EXCEPTION))
     zr_error_print_one(e)
     e = RException.cause(e)
   end
+end
+
+# The whole cause chain, which is what everything but an at_exit
+# handler prints.
+sig [Value] => Void
+machine def zr_error_print(exc)
+  zr_error_print_upto(exc, Machine.value(QUNDEF))
 end
 
 # One exception on stderr: its own `detailed_message` after the first

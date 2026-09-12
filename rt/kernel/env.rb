@@ -71,7 +71,7 @@ machine def zr_program_end(exc)
         if zr_system_exit_p(raised)
           status = zr_exit_status(raised)
         else
-          zr_error_print(raised)
+          zr_error_print_upto(raised, exc)
           status = 1
         end
       end
