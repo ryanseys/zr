@@ -174,7 +174,11 @@ class Time
       end
       raise ArgumentError, "argument out of range" if hour == 24 && (min != 0 || sec != 0)
 
-      sec_ns += exact_ns(usec, 1000) unless usec.nil?
+      unless usec.nil?
+        raise ArgumentError, "subsecx out of range" if usec < 0 || usec >= 1_000_000
+
+        sec_ns += exact_ns(usec, 1000)
+      end
 
       days = days_from_civil(year, month, day)
       local_ns = ((days * 86400 + hour * 3600 + min * 60 + sec) * NS) + sec_ns
@@ -344,10 +348,13 @@ class Time
     shifted(ns + Time.send(:exact_ns, other, NS))
   end
 
+  # Taking a number away is adding its negative, which is where a Float
+  # lands: the exact binary value of -1.3 floors one nanosecond lower
+  # than 1.3 does, and ruby answers from the negative.
   def -(other)
     return (ns - other.send(:ns)).to_f / NS if other.is_a?(Time)
 
-    shifted(ns - Time.send(:exact_ns, other, NS))
+    shifted(ns + Time.send(:exact_ns, -other, NS))
   end
 
   def <=>(other)
@@ -374,7 +381,7 @@ class Time
       digits = digits[0, digits.size - 1] while digits.end_with?("0")
       text = "#{text}.#{digits}"
     end
-    "#{text} #{utc? ? 'UTC' : strftime('%z')}"
+    "#{text} #{utc? ? 'UTC' : offset_shown}"
   end
 
   def to_s
@@ -480,6 +487,18 @@ class Time
   def local_zone
     Primitive.attr! :hidden
     Primitive.zr_hidden_get(self, :__zone__)
+  end
+
+  # `to_s` shows an offset as hours and minutes; `inspect` shows the
+  # seconds of an offset that has them, run together, as time.c does.
+  def offset_shown
+    Primitive.attr! :hidden
+    return strftime("%z") if utc_offset % 60 == 0
+
+    offset = utc_offset
+    sign = offset < 0 ? "-" : "+"
+    offset = offset.abs
+    format("%s%02d%02d%02d", sign, offset / 3600, (offset % 3600) / 60, offset % 60)
   end
 
   # A Time that no constructor filled holds no instant, and ruby says so
