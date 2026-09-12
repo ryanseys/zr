@@ -806,8 +806,14 @@ module Psych
     # implies it, which is libyaml's rule: `nil` writes nothing at all,
     # and `!ruby/range` writes its tag.
     def scalar(value, anchor, tag, plain, quoted, style)
+      spot = next_slot
       head = prefix(anchor, plain || quoted ? nil : tag)
-      place(next_slot, join(head, render(value.to_s, plain, quoted, style)))
+      text = render(value.to_s, plain, quoted, style)
+      # An empty scalar has no plain spelling where a key goes. Quotes
+      # alone would say it is a string, so a nil key takes the tag that
+      # says it is not one.
+      text = plain ? "! ''" : "''" if text.empty? && spot[:kind] == :key
+      place(spot, join(head, text))
     end
 
     def alias(anchor) = place(next_slot, "*#{anchor}")
