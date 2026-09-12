@@ -992,6 +992,13 @@ class String
     newlines(Encoding.convert(text, target, options), options)
   end
 
+  # A code point appended to a String in a multibyte encoding: the bytes
+  # that spell it, which the encoding must hold as one character.
+  def append_mb_point(point)
+    Primitive.attr! :hidden
+    self << point.chr(encoding)
+  end
+
   # A String in a multibyte encoding, as CRuby's rb_str_inspect writes
   # one: a character that stands for no Unicode point prints as the
   # number its own bytes spell, and bytes that make no character print
@@ -2011,7 +2018,12 @@ class Encoding
           next unless slot.is_a?(Integer)
 
           bytes = prefix + byte.chr
-          out[slot] = bytes if out[slot].nil? || bytes < out[slot]
+          # The shortest sequence stands for the code point, and the
+          # lowest bytes of that length, as ruby writes one.
+          held = out[slot]
+          if held.nil? || bytes.bytesize < held.bytesize || (bytes.bytesize == held.bytesize && bytes < held)
+            out[slot] = bytes
+          end
         end
       end
       packed = MB_ENCODE[encoding.name]
@@ -2594,10 +2606,34 @@ class Encoding
   JIS_OUT = "\e(B"
   private_constant :JIS_IN, :JIS_OUT
 
+  # JIS X 0208's own rows, which are the set the escape names. Ruby marks
+  # that set with a 0x92 byte in stateless-ISO-2022-JP, and the two bytes
+  # after it are the character with their high bits on. A character the
+  # marker never carries is one ISO-2022-JP cannot write at all.
+  JIS_0208 = []
+  private_constant :JIS_0208
+
+  def self.jis_writer
+    Primitive.attr! :hidden
+    JIS_0208[0] ||= begin
+      out = {}
+      mb_table(find("stateless-ISO-2022-JP")).each do |prefix, row|
+        next unless prefix.bytesize == 2 && prefix.getbyte(0) == 0x92
+
+        row.each do |byte, slot|
+          next unless slot.is_a?(Integer)
+
+          bytes = [prefix.getbyte(1) & 0x7F, byte & 0x7F].pack("C*")
+          out[slot] = bytes if out[slot].nil? || bytes < out[slot]
+        end
+      end
+      out
+    end
+  end
+
   def self.jis_bytes(point)
     Primitive.attr! :hidden
-    bytes = mb_writer(find("stateless-ISO-2022-JP"))[point]
-    bytes && bytes.bytes.map { |byte| byte & 0x7F }.pack("C*")
+    jis_writer[point]
   end
 
   # rb_enc_compatible for two Strings: an empty side gives way, and

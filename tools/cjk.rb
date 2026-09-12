@@ -282,7 +282,10 @@ def overrides(encoding, mapped, kept, partial)
   return {} if kept.empty?
 
   lowest = {}
-  mapped.sort.each do |sequence, point|
+  # The shortest sequence first, and the lowest bytes of that length:
+  # ruby writes a character as its own plane spells it, never as a longer
+  # plane that happens to start with a lower byte.
+  mapped.sort_by { |sequence, _| [sequence.bytesize, sequence] }.each do |sequence, point|
     next unless kept.include?(sequence.byteslice(0, sequence.bytesize - 1))
 
     lowest[point] ||= sequence

@@ -251,14 +251,18 @@ class File < IO
     end
   end
 
+  # The options of an open belong to the open, as rb_io_extract_modeenc
+  # takes them; only `chomp:` belongs to the lines.
   def self.readlines(path, *args, **options)
-    open(path) { |file| file.readlines(*args, **options) }
+    line = options.key?(:chomp) ? { chomp: options.delete(:chomp) } : {}
+    open(path, "r", **options) { |file| file.readlines(*args, **line) }
   end
 
   def self.foreach(path, *args, **options, &block)
     return to_enum(:foreach, path, *args, **options) unless block
 
-    open(path) { |file| file.each_line(*args, **options, &block) }
+    line = options.key?(:chomp) ? { chomp: options.delete(:chomp) } : {}
+    open(path, "r", **options) { |file| file.each_line(*args, **line, &block) }
     nil
   end
 

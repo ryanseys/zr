@@ -175,6 +175,24 @@ class Integer
 
         return +"" << self
       end
+      # A multibyte encoding's code point is the number its own bytes
+      # spell, as rb_enc_codepoint reads one, and the encoding says
+      # whether those bytes make a character at all.
+      if Encoding.send(:mb?, encoding)
+        bytes = []
+        value = self
+        while value.positive?
+          bytes.unshift(value & 0xFF)
+          value >>= 8
+        end
+        bytes = [0] if bytes.empty?
+        text = bytes.pack("C*").force_encoding(encoding)
+        unless text.length == 1 && text.valid_encoding?
+          raise RangeError, "invalid codepoint 0x#{format('%04X', self)} in #{encoding.name}"
+        end
+
+        return text
+      end
       raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self > 255
 
       return Primitive.zr_str_set_index_m(Primitive.zr_str_from_byte(self), index)

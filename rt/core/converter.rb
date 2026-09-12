@@ -276,7 +276,12 @@ class Encoding
           made = written(replacement)
         else
           made = made_of(piece)
-          return made if made.is_a?(Symbol)
+          if made.is_a?(Symbol)
+            # A character the step cannot write is read all the same, so
+            # the source keeps what follows it, as CRuby leaves it.
+            @rest = bytes.byteslice(at + width, bytes.bytesize - at - width) if made == :undefined_conversion
+            return made
+          end
         end
         at += width
         if room && out.bytesize + made.bytesize > room

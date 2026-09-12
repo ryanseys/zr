@@ -442,6 +442,13 @@ machine def zr_str_concat_codepoint(recv, c)
     Machine.store64(arg, 0, Machine.word(zr_fix(c)))
     return zr_send(recv, Machine.id(:append_unit_point), 1, arg)
   end
+  # A multibyte encoding writes a code point as the bytes that spell it,
+  # in Ruby, where its tables are.
+  if zr_enc_mb_p(zr_str_encoding_index(recv))
+    arg = Machine.slot(8)
+    Machine.store64(arg, 0, Machine.word(zr_fix(c)))
+    return zr_send(recv, Machine.id(:append_mb_point), 1, arg)
+  end
   limit = zr_str_wide_p(recv) ? 1114111 : 255
   if zr_str_wide_p(recv) && c >= 55296 && c <= 57343
     b = Machine.slot(Buf.size)
