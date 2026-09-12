@@ -101,7 +101,7 @@ class String
         Primitive.zr_backref_set(match)
         return true if match
       else
-        prefix = Primitive.zr_str_operand(prefix)
+        prefix = joined(Primitive.zr_str_operand(prefix))
         return true if prefix.bytesize <= bytesize && char_boundary?(prefix.bytesize) && byteslice_of(0, prefix.bytesize) == prefix
       end
       i += 1
@@ -112,7 +112,7 @@ class String
   def end_with?(*suffixes)
     i = 0
     while i < Primitive.zr_ary_len_m(suffixes)
-      suffix = Primitive.zr_str_operand(Primitive.zr_ary_at_m(suffixes, i))
+      suffix = joined(Primitive.zr_str_operand(Primitive.zr_ary_at_m(suffixes, i)))
       return true if suffix.bytesize <= bytesize && char_boundary?(bytesize - suffix.bytesize) && byteslice_of(bytesize - suffix.bytesize, suffix.bytesize) == suffix
 
       i += 1
@@ -409,6 +409,10 @@ class String
 
   def gsub!(pattern, replacement = nil, &block) = mutate(gsub(pattern, replacement, &block))
 
+  # `include?`, and a String `[]`, search the way `index` does, so the
+  # argument joins with the receiver before its bytes are read.
+  def include?(other) = !byte_index(other, 0).nil?
+
   def index(needle, start = 0)
     count = size
     start += count if start < 0
@@ -435,7 +439,7 @@ class String
       Primitive.zr_backref_set(match)
       return match && match.begin(0)
     end
-    needle = Primitive.zr_str_operand(needle)
+    needle = joined(Primitive.zr_str_operand(needle))
     return nil unless needle.valid_encoding?
 
     i = [from, bytesize - needle.bytesize].min
@@ -1212,7 +1216,7 @@ class String
       match = needle.send(:search, self, start, true)
       return match && match.byteoffset(0)[0]
     end
-    needle = Primitive.zr_str_operand(needle)
+    needle = joined(Primitive.zr_str_operand(needle))
     return nil unless needle.valid_encoding?
 
     i = [start, bytesize - needle.bytesize].min
@@ -1268,7 +1272,7 @@ class String
   def charset_test(sets)
     Primitive.attr! :hidden
     tests = sets.map do |spec|
-      ranges, negated = charset(Primitive.zr_str_operand(spec))
+      ranges, negated = charset(joined(Primitive.zr_str_operand(spec)))
       negated ? ->(cp) { !charset_cover?(ranges, cp) } : ->(cp) { charset_cover?(ranges, cp) }
     end
     ->(cp) { tests.all? { |test| test.call(cp) } }
@@ -1339,8 +1343,8 @@ class String
   # collapses runs of one translated character.
   def translate(from, to, squeeze)
     Primitive.attr! :hidden
-    source, negated = charset(Primitive.zr_str_operand(from))
-    target, = charset(Primitive.zr_str_operand(to))
+    source, negated = charset(joined(Primitive.zr_str_operand(from)))
+    target, = charset(joined(Primitive.zr_str_operand(to)))
     out = +""
     last = nil
     each_char do |c|
@@ -1708,9 +1712,20 @@ class String
     0
   end
 
+  # rb_enc_check: a String argument must join with the receiver before
+  # its bytes can be read as characters of one encoding. Two strings of
+  # one encoding always join, which is the common way in.
+  def joined(other)
+    Primitive.attr! :hidden
+    return other if encoding.equal?(other.encoding) || Encoding.compatible?(self, other)
+
+    Encoding.incompatible(self, other)
+  end
+  private :joined
+
   def byte_index(needle, start)
     Primitive.attr! :hidden
-    needle = Primitive.zr_str_operand(needle)
+    needle = joined(Primitive.zr_str_operand(needle))
     return nil if start.nil? || start > bytesize
 
     Primitive.zr_str_find_from(self, needle, start)
