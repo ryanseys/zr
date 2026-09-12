@@ -354,9 +354,11 @@ class IO
     @pid = options[:pid]
     @closed = false
     @sync = false
-    # O_NONBLOCK as the descriptor itself holds it: a pipe end, or a
-    # socket another process opened, can arrive with the flag set.
-    @nonblock = nonblock_flag?
+    # O_NONBLOCK as this stream set it. Asking the descriptor here would
+    # cost an fcntl for every stream a program opens, including the three
+    # the runtime opens before a program starts, and `nonblock?` asks the
+    # descriptor itself whenever a program wants the truth.
+    @nonblock = false
     # FMODE_TTY: a terminal writes at once, as a synchronous stream does.
     @tty = Primitive.zr_io_tty_p(fd)
     @lineno = 0
