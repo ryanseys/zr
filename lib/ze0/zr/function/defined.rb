@@ -14,10 +14,17 @@ module Ze0
 
         private
 
+        # The forms whose own test raises nothing, so they need no guard.
+        # An instance variable is one of them: the one refusal it meets,
+        # a shareable object read outside the main ractor, is the
+        # program's to see, not an answer of nil.
+        PLAIN = %i[ivar gvar backref yield].freeze
+
         # The forms that ask at run time do so under a guard: a receiver
         # that raises means nil, as CRuby answers.
         def defined(node)
           return defined_name(node.kind) unless %i[ivar gvar backref cvar const method attrasgn yield super].include?(node.kind)
+          return @f.csel(defined_test(node), defined_name(node.kind), @qnil) if PLAIN.include?(node.kind)
 
           guarded do
             test = defined_test(node)
@@ -27,7 +34,7 @@ module Ze0
 
         def defined_test(node)
           case node.kind
-          when :ivar then truth(kernel("zr_ivar_defined", @self, imm(sym_id(node.target))))
+          when :ivar then truth(checked(kernel("zr_ivar_defined", @self, imm(sym_id(node.target)))))
           when :gvar then truth(kernel("zr_gvar_defined", imm(sym_id(node.target))))
           when :backref then @f.icmp("ne", expr(node.target), @qnil)
           when :cvar

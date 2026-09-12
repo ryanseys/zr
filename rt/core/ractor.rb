@@ -114,9 +114,10 @@ class Ractor
   end
 
   # Whether every object reachable from `obj` is frozen. A number, a
-  # symbol, a class and the three singletons are shareable as they are.
+  # symbol, a class and the three singletons are shareable as they are,
+  # and so is a Ractor: what it holds is the runtime's, not a program's.
   def self.shareable?(obj)
-    return true if immutable?(obj)
+    return true if immutable?(obj) || obj.is_a?(Ractor)
 
     obj.frozen? && reachable(obj).all? { |ref| shareable?(ref) }
   end
@@ -148,7 +149,7 @@ class Ractor
 
   def self.deep_freeze(obj, seen)
     Primitive.attr! :hidden
-    return if immutable?(obj) || seen.key?(obj.object_id)
+    return if immutable?(obj) || obj.is_a?(Ractor) || seen.key?(obj.object_id)
 
     raise Error, "can not make shareable object for #{obj.inspect}" if UNSHAREABLE.any? { |k| obj.is_a?(k) }
 
@@ -208,10 +209,10 @@ class Ractor
   end
   private_class_method :fill
 
-  attr_reader :name
+  def name = Primitive.zr_hidden_get(self, :__name__)
 
   def name=(text)
-    @name = text.nil? ? nil : text.to_str.dup.freeze
+    Primitive.zr_hidden_set(self, :__name__, text.nil? ? nil : text.to_str.dup.freeze)
   end
 
   def [](key) = local_get(key)
@@ -224,10 +225,10 @@ class Ractor
   # waits until the ractor takes it, in the order it arrived.
   def send(message, move: false)
     Primitive.zr_unimplemented("Ractor#send with move: true") if move
-    raise ClosedError, "The port was already closed" if @closed
+    raise ClosedError, "The port was already closed" if Primitive.zr_hidden_get(self, :__closed__)
 
-    @queue << Ractor.send(:cross, message)
-    Thread.send(:rouse, @waiters.dup)
+    queue << Ractor.send(:cross, message)
+    Thread.send(:rouse, waiters.dup)
     self
   end
 
@@ -236,10 +237,7 @@ class Ractor
   # What the ractor's block answered, once it ends. A failure inside it
   # arrives here wrapped, with the original as its cause, and the same
   # ractor may be asked again.
-  def value
-    finished
-    Ractor.send(:cross, @value)
-  end
+  def value = Ractor.send(:cross, finished)
 
   def join
     finished
@@ -259,9 +257,9 @@ class Ractor
   def self.select(*) = Primitive.zr_unimplemented("Ractor.select")
 
   def inspect
-    text = +"#<Ractor:##{@number}"
-    text << " " << @name if @name
-    text << " " << @site if @site
+    text = +"#<Ractor:##{number}"
+    text << " " << name if name
+    text << " " << site if site
     "#{text} #{live? ? 'running' : 'terminated'}>"
   end
 
@@ -269,84 +267,118 @@ class Ractor
 
   private
 
+  # The ractor's own state. CRuby keeps it in C fields, so a program sees
+  # no instance variable on a Ractor at all: these names carry no `@`,
+  # which keeps them out of every list and out of Marshal. An `@name` a
+  # program writes inside a ractor is then the program's own, and the
+  # runtime refuses it where CRuby does.
+  def queue
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__queue__)
+  end
+
+  def waiters
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__waiters__)
+  end
+
+  def locals
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__locals__)
+  end
+
+  def number
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__number__)
+  end
+
+  def site
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__site__)
+  end
+
+  def thread
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__thread__)
+  end
+
   # The main ractor: the task the program starts in, which holds a queue
   # of its own so that a ractor can answer it.
   def setup_main
     Primitive.attr! :hidden
-    @queue = []
-    @waiters = []
-    @locals = {}
-    @number = 1
-    @name = nil
-    @site = nil
-    @thread = Thread.main
+    Primitive.zr_hidden_set(self, :__queue__, [])
+    Primitive.zr_hidden_set(self, :__waiters__, [])
+    Primitive.zr_hidden_set(self, :__locals__, {})
+    Primitive.zr_hidden_set(self, :__number__, 1)
+    Primitive.zr_hidden_set(self, :__thread__, Thread.main)
     self
   end
 
   def setup(args, block)
     Primitive.attr! :hidden
-    @queue = []
-    @waiters = []
-    @locals = {}
-    @name = nil
-    @number = RACTORS.size + 2
+    Primitive.zr_hidden_set(self, :__queue__, [])
+    Primitive.zr_hidden_set(self, :__waiters__, [])
+    Primitive.zr_hidden_set(self, :__locals__, {})
+    Primitive.zr_hidden_set(self, :__number__, RACTORS.size + 2)
     RACTORS << self
-    @site = caller(3, 1)&.first&.then { |row| row[0, row.index(":in ") || row.size] }
+    where = caller(3, 1)&.first&.then { |row| row[0, row.index(":in ") || row.size] }
+    Primitive.zr_hidden_set(self, :__site__, where)
     # The block answers to the ractor, as ruby's isolated block does. Its
     # own copy is rebound, so a block the program still holds keeps the
     # self it was written with.
     body = Primitive.zr_proc_rebind_m(block.dup, self)
-    @thread = Thread.new do
+    task = Thread.new do
       Primitive.zr_ractor_enter_m
       Thread.current.thread_variable_set(:__ractor__, self)
       body.call(*args)
     end
     # The task is the ractor's, not a thread the program asked for, so it
     # names no line of its own where a report shows it.
-    @thread.instance_variable_set(:@site, nil)
+    task.instance_variable_set(:@site, nil)
+    Primitive.zr_hidden_set(self, :__thread__, task)
     self
   end
 
   def live?
     Primitive.attr! :hidden
-    @thread.alive?
+    thread.alive?
   end
 
   # Waits for the ractor to end and keeps what it answered. A failure
   # inside it is ruby's RemoteError here, with the failure as its cause.
   def finished
     Primitive.attr! :hidden
-    return @value if @done
+    return Primitive.zr_hidden_get(self, :__value__) if Primitive.zr_hidden_get(self, :__done__)
 
     begin
-      @value = @thread.value
-      @done = true
-    rescue Exception => e # rubocop:disable Lint/RescueException
-      @done = true
+      Primitive.zr_hidden_set(self, :__value__, thread.value)
+      Primitive.zr_hidden_set(self, :__done__, true)
+    rescue Exception # rubocop:disable Lint/RescueException
+      Primitive.zr_hidden_set(self, :__done__, true)
       error = RemoteError.new("thrown by remote Ractor.")
       Primitive.zr_hidden_set(error, :__ractor__, self)
       raise error
     end
-    @value
+    Primitive.zr_hidden_get(self, :__value__)
   end
 
   # The next message, waited for. A ractor that waits for one nobody
   # sends is asleep, and the scheduler sees that.
   def take
     Primitive.attr! :hidden
-    while @queue.empty?
-      Thread.current.send(:wait_on, @waiters, nil, true)
+    while queue.empty?
+      Thread.current.send(:wait_on, waiters, nil, true)
     end
-    @queue.shift
+    queue.shift
   end
 
   def take_if(block)
     Primitive.attr! :hidden
     loop do
-      found = @queue.index { |message| block.call(message) }
-      return @queue.delete_at(found) if found
+      found = queue.index { |message| block.call(message) }
+      return queue.delete_at(found) if found
 
-      Thread.current.send(:wait_on, @waiters, nil, true)
+      Thread.current.send(:wait_on, waiters, nil, true)
     end
   end
 
@@ -354,20 +386,20 @@ class Ractor
   def local_get(key)
     Primitive.attr! :hidden
     mine!
-    @locals[key.to_sym]
+    locals[key.to_sym]
   end
 
   def local_set(key, value)
     Primitive.attr! :hidden
     mine!
-    @locals[key.to_sym] = value
+    locals[key.to_sym] = value
   end
 
   def local_absent(key)
     Primitive.attr! :hidden
     mine!
     key = key.to_sym
-    @locals.key?(key) ? @locals[key] : (@locals[key] = yield)
+    locals.key?(key) ? locals[key] : (locals[key] = yield)
   end
 
   def mine!
