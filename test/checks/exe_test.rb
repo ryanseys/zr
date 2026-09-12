@@ -95,6 +95,19 @@ class ExeTest < Minitest::Test
     end
   end
 
+  # The image says what it holds: `nm` reads the symbol table, and the
+  # exports trie holds the one symbol an executable exports and nothing
+  # else, which is what `-no_exported_symbols` leaves behind.
+  def test_the_image_names_what_it_holds
+    functions, data = Ze0::Native::Fixtures.build("hello")
+    Dir.mktmpdir("ze0-exe-") do |dir|
+      bin = written(Ze0::Native::Build.unit(functions, data), dir, "hello")
+      assert_equal %w[_main _msg], IO.popen(["nm", bin], &:read).scan(/^\S+ \S (\S+)$/).flatten.sort
+      exports = IO.popen(["dyld_info", "-exports", bin], err: %i[child out], &:read)
+      assert_equal ["__mh_execute_header"], exports.scan(/^\s+0x\h+\s+(\S+)$/).flatten
+    end
+  end
+
   # A program that imports nothing has no stubs, no GOT and no
   # __DATA_CONST at all, and an image with a zero-length segment does not
   # load.
