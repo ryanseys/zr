@@ -1,8 +1,20 @@
-# IO: a file descriptor with a read buffer. Writes go straight to the
-# descriptor. `Kernel#puts` and friends write to whatever `$stdout`
-# is, as CRuby's do.
+# IO: a file descriptor with a read buffer and a write buffer.
+# `Kernel#puts` and friends write to whatever `$stdout` is, as CRuby's
+# do.
 class IO
   include Enumerable
+
+  # IO_WBUF_CAPA_MIN: what a stream holds before it writes. A write
+  # that would fill the buffer writes what waits and the text with it,
+  # as CRuby's io_binwrite does.
+  WBUF_CAPA = 8192
+  private_constant :WBUF_CAPA
+
+  # The streams that hold bytes nothing has written yet. The end of the
+  # program writes them; `exit!` never does, because _exit(2) drops
+  # whatever stdio holds.
+  PENDING = []
+  private_constant :PENDING
 
   # The seek and wait flags stay IO's own.
   SEEK_SET = 0
@@ -27,6 +39,9 @@ class IO
   # given.
   def self.pipe
     reader, writer = pipe_ends.map.with_index { |fd, i| IO.new(fd, i.zero? ? "r" : "w") }
+    # rb_io_synchronized: the write end of a pipe holds nothing back,
+    # so a reader of the other end sees each write as it happens.
+    writer.sync = true
     return [reader, writer] unless block_given?
 
     begin
@@ -233,7 +248,10 @@ class IO
       Primitive.zr_io_close(twin) if twin
       raise SystemCallError.new(Process.send(:command_words, words).first, 2)
     end
-    new(ours, duplex ? "r+" : (reading ? "r" : "w"), pid: pid, twin: twin)
+    stream = new(ours, duplex ? "r+" : (reading ? "r" : "w"), pid: pid, twin: twin)
+    # A popen stream is synchronous, as CRuby's pipe_open marks it.
+    stream.sync = true
+    stream
   end
 
   private_class_method :pipe_ends, :popen_stream
@@ -283,15 +301,25 @@ class IO
     @pid = options[:pid]
     @closed = false
     @sync = false
+    # FMODE_TTY: a terminal writes at once, as a synchronous stream does.
+    @tty = Primitive.zr_io_tty_p(fd)
     @lineno = 0
     @buffer = fresh_buffer
+    @wbuf = +"".b
     @eof = false
   end
 
   attr_reader :lineno
 
   def path = @path || @name
-  attr_accessor :sync
+  attr_reader :sync
+
+  # A stream that becomes synchronous writes what it holds at once.
+  def sync=(flag)
+    @sync = flag
+    write_pending if flag && !@closed
+    flag
+  end
 
   def lineno=(n)
     @lineno = n
@@ -316,6 +344,7 @@ class IO
   def close
     return nil if @closed
 
+    write_pending
     @closed = true
     if @twin
       Primitive.zr_io_close(@twin)
@@ -336,6 +365,8 @@ class IO
 
     @fd = fd
     @buffer = fresh_buffer
+    @wbuf = +"".b
+    @tty = Primitive.zr_io_tty_p(fd)
     @closed = false
     self
   end
@@ -345,6 +376,7 @@ class IO
   # That is what saving and restoring $stdout is built on.
   def reopen(other, mode = nil)
     check_open
+    write_pending
     other = File.open(other, mode || @mode) unless other.is_a?(IO)
     result = Primitive.zr_io_dup2(other.fileno, @fd)
     raise SystemCallError.new("@ rb_io_reopen - #{label}", -result) if result < 0
@@ -358,13 +390,43 @@ class IO
 
   def flush
     check_open
+    write_pending
     self
   end
 
   def fsync
     check_open
+    write_pending
     Primitive.zr_io_fsync(@fd)
     0
+  end
+
+  # Every stream that holds bytes, written out. The end of the program
+  # calls this, and a stream that cannot take them any more is not the
+  # program's to hear about.
+  def self.flush_pending
+    Primitive.attr! :hidden
+    until PENDING.empty?
+      io = PENDING.pop
+      begin
+        io.send(:write_pending)
+      rescue SystemCallError, IOError
+        nil
+      end
+    end
+    nil
+  end
+
+  # CRuby flushes the two standard streams before it starts a child, so
+  # that what the parent holds cannot arrive after what the child writes.
+  def self.flush_std
+    Primitive.attr! :hidden
+    [$stdout, $stderr].each do |io|
+      io.flush if io.is_a?(IO) && !io.closed?
+    rescue SystemCallError, IOError
+      nil
+    end
+    nil
   end
 
   # Binary mode: what is read from here on is binary, and so is what the
@@ -430,6 +492,7 @@ class IO
     raise IOError, "closing non-duplex IO for writing" if @mode.start_with?("r") && !@mode.include?("+")
     return close unless @twin
 
+    write_pending
     fd = @twin
     @twin = nil
     @writable = false
@@ -766,6 +829,7 @@ class IO
 
   def pos
     check_open
+    write_pending
     result = Primitive.zr_io_seek(@fd, 0, SEEK_CUR)
     raise SystemCallError.new("@ rb_io_tell - #{label}", -result) if result < 0
 
@@ -776,6 +840,7 @@ class IO
 
   def seek(offset, whence = SEEK_SET)
     check_open
+    write_pending
     whence = { set: SEEK_SET, cur: SEEK_CUR, end: SEEK_END }.fetch(whence) if whence.is_a?(Symbol)
     offset -= @buffer.bytesize if whence == SEEK_CUR
     @buffer = fresh_buffer
@@ -833,7 +898,37 @@ class IO
   # The bytes out, in pieces a ready descriptor takes without waiting:
   # one write(2) of a whole 200KB string blocks until the reader drains
   # the pipe, and a green sibling is the only one who can drain it.
+  # CRuby's io_binwrite: a synchronous stream and a terminal write at
+  # once. Anything else fills the buffer, and a write that would fill it
+  # writes what waits and the text together.
   def write_bytes(text)
+    Primitive.attr! :hidden
+    return write_now(text) if @sync || @tty
+
+    if @wbuf.bytesize + text.bytesize < WBUF_CAPA
+      PENDING << self if @wbuf.empty?
+      @wbuf << text.b
+      return text.bytesize
+    end
+    waiting = @wbuf
+    @wbuf = +"".b
+    PENDING.delete(self)
+    write_now(waiting + text) - waiting.bytesize
+  end
+
+  # What the buffer holds, written out.
+  def write_pending
+    Primitive.attr! :hidden
+    return nil if @wbuf.empty?
+
+    waiting = @wbuf
+    @wbuf = +"".b
+    PENDING.delete(self)
+    write_now(waiting)
+    nil
+  end
+
+  def write_now(text)
     Primitive.attr! :hidden
     fd = @twin || @fd
     return checked_write(Primitive.zr_io_write(fd, text)) if !Primitive.zr_threaded || Thread.send(:alone?)

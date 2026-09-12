@@ -84,6 +84,11 @@ machine def zr_program_end(exc)
       zr_error_print(exc)
     end
   end
+  # Whatever the streams hold is written now, as CRuby's teardown
+  # writes it. `exit!` reaches none of this.
+  if zr_send(zr_core_class(Machine.id(:IO)), Machine.id(:flush_pending), 0, 0) == QUNDEF
+    Task.set_pending(zr_task(), Machine.value(QNIL))
+  end
   zr_finalizers_at_exit()
   if signo != 0
     zr_die_by_signal(signo)

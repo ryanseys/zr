@@ -212,6 +212,9 @@ class File < IO
     return nil if closed?
     return super unless @stream
 
+    # Whatever the buffer holds is written before the stream goes, as
+    # fclose writes it.
+    write_pending
     stream = @stream
     @stream = nil
     Primitive.zr_io_fclose(stream)

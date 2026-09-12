@@ -258,6 +258,7 @@ module Process
   def self.spawn_command(args, options)
     env, args, options = exec_args(args, options)
     words = command_words(args)
+    IO.send(:flush_std)
     redirects = Redirects.new(options)
     pid = Primitive.zr_proc_spawn(words, redirects.dups, redirects.closes, environment(env, options), redirects.chdir)
     redirects.opened.each(&:close)
@@ -315,7 +316,9 @@ module Process
     Primitive.zr_unimplemented("exec with options") unless options.empty?
     Primitive.zr_unimplemented("exec with an environment") unless env.nil?
 
-    command_words(args)
+    words = command_words(args)
+    IO.send(:flush_std)
+    words
   end
 
   private_class_method :spawn_command, :command_words, :shell_words, :environment, :exec_words, :exec_args
