@@ -56,10 +56,14 @@ module Ze0
       # `Obj::Exe` altogether. `ZE0_LINK` says it from outside.
       def binary(functions, data, out, work:, raw: [], objects: [], flags: STACK_FLAGS, root: ROOT, road: ROAD)
         image = unit(functions, data, raw: raw, export: !objects.empty?)
-        if objects.empty? && road != "cc"
-          why = Obj::Exe.write(image, out)
+        unless road == "cc"
+          why = if objects.empty?
+                  Obj::Exe.write(image, out)
+                else
+                  "the runtime is linked in as an object of its own"
+                end
           return nil unless why
-          return "ze0 cannot write this executable: #{why}" if road == "ruby"
+          return "Obj::Exe cannot link this: #{why}" if road == "ruby"
         end
         obj = File.join(work, "unit.o")
         File.binwrite(obj, Obj::MachO.write(image))

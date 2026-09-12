@@ -88,6 +88,20 @@ class ExeTest < Minitest::Test
     end
   end
 
+  # A program that imports nothing has no stubs, no GOT and no
+  # __DATA_CONST at all, and an image with a zero-length segment does not
+  # load.
+  def test_a_program_that_imports_nothing_runs
+    f = Ze0::IR::Function.new("main", %w[i32 i64], "i32")
+    f.ret(f.iconst("i32", 7))
+    Dir.mktmpdir("ze0-exe-") do |dir|
+      bin = written(Ze0::Native::Build.unit([f], []), dir, "bare")
+      assert_equal [7, ""], ran(bin)
+      segments = IO.popen(["otool", "-l", bin], &:read).scan(/^ +segname (\S+)/).flatten.uniq
+      assert_equal %w[__PAGEZERO __TEXT __LINKEDIT], segments
+    end
+  end
+
   # A symbol libSystem does not define belongs to a vendored archive, and
   # reading an archive is a real linker. It says which symbol, so a
   # fallback to `cc` is never a mystery.

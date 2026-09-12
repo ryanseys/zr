@@ -154,9 +154,15 @@ module Ze0
         addresses
       end
 
+      # A section. `section` names the `Obj` items that land in it, and a
+      # section with no items -- `__stubs`, `__got` -- is given its size
+      # instead.
       def part(name, segment, flags, section, size: nil, fixups: false)
-        items = section ? Patch.layout(@unit.data.select { |d| d.section == section }, 8) : nil
-        items = Patch.layout(@unit.functions, 4) if section == :function
+        items = case section
+                when nil then nil
+                when :function then Patch.layout(@unit.functions, 4)
+                else Patch.layout(@unit.data.select { |d| d.section == section }, 8)
+                end
         Part.new(name: name, segment: segment, flags: flags, items: items,
                  size: size || items[:size], fixups: fixups)
       end
@@ -172,10 +178,12 @@ module Ze0
 
           p.items[:at].each { |item, off| @addr[item.name] = BASE + p.at + off }
         end
-        stubs = part_named("__stubs", "__TEXT")
-        got = part_named("__got", "__DATA_CONST")
-        @stub_at = @imports.each_with_index.to_h { |n, i| [n, BASE + stubs.at + (i * STUB)] }
-        @got_at = @imports.each_with_index.to_h { |n, i| [n, BASE + got.at + (i * 8)] }
+        # A program with no imports has neither section, and needs
+        # neither table.
+        stubs = part_named("__stubs", "__TEXT")&.at
+        got = part_named("__got", "__DATA_CONST")&.at
+        @stub_at = @imports.each_with_index.to_h { |n, i| [n, BASE + stubs + (i * STUB)] }
+        @got_at = @imports.each_with_index.to_h { |n, i| [n, BASE + got + (i * 8)] }
         @entry_at = @addr.fetch(@entry) - BASE
       end
 
@@ -205,18 +213,18 @@ module Ze0
         file
       end
 
+      # A section's bytes: the two tables build themselves, and every
+      # other section is its items with the gaps between them zero.
+      # `__bss` has no bytes at all -- that is what it is.
       def bytes_of(part)
         return "".b if part.flags == S_ZEROFILL
+        return stub_bytes(part) if part.name == "__stubs"
+        return got_bytes(part) if part.name == "__got"
 
-        return stub_bytes if part.name == "__stubs"
-        return got_bytes if part.name == "__got"
-
-        out = +"".b
-        part.items[:at].each do |item, off|
+        part.items[:at].inject(+"".b) do |out, (item, off)|
           pad(out, off)
           out << patched(item, BASE + part.at + off, part)
         end
-        out
       end
 
       # `item` with every relocation applied. A call reaches an import
@@ -245,10 +253,9 @@ module Ze0
       end
 
       # One stub an import, jumping through the GOT slot dyld binds.
-      def stub_bytes
-        at = part_named("__stubs", "__TEXT").at
+      def stub_bytes(part)
         @imports.each_with_index.inject(+"".b) do |out, (name, i)|
-          here = BASE + at + (i * STUB)
+          here = BASE + part.at + (i * STUB)
           got = @got_at.fetch(name)
           page = ((got & ~0xFFF) - (here & ~0xFFF)) >> 12
           out << [0x9000_0010 | ((page & 3) << 29) | (((page >> 2) & 0x7FFFF) << 5),
@@ -257,13 +264,11 @@ module Ze0
         end
       end
 
-      # A GOT slot an import, each a bind for dyld to fill in.
-      def got_bytes
-        at = part_named("__got", "__DATA_CONST").at
-        @imports.each_index { |i| @fixups << ["__DATA_CONST", at + (i * 8), :bind, i] }
+      # A GOT slot an import, each one a bind for dyld to fill in.
+      def got_bytes(part)
+        @imports.each_index { |i| @fixups << [part.segment, part.at + (i * 8), :bind, i] }
         "\0".b * (@imports.size * 8)
       end
-
 
       # --- chained fixups ------------------------------------------------
 
@@ -277,7 +282,7 @@ module Ze0
           at = segment_start(segment)
           pages = Patch.align(segment_end(segment) - at, PAGE) / PAGE
           starts = Array.new(pages, START_NONE)
-          rows.map { |(_, off, kind, target)| [off, kind, target] }.sort
+          rows.map { |(_, off, kind, target)| [off, kind, target] }.sort_by(&:first)
               .group_by { |(off, _, _)| (off - at) / PAGE }.each do |page, slots|
             starts[page] = (slots.first[0] - at) % PAGE
             slots.each_with_index do |(off, kind, target), i|
