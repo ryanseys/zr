@@ -170,7 +170,10 @@ class Range
   # needs; anything else walks the Array.
   def reverse_each(&block)
     return to_enum(:reverse_each) { size } unless block
-    raise TypeError, "can't iterate from #{@end.class}" if @end.nil? || (@begin.nil? && !@end.is_a?(Integer))
+    raise TypeError, "can't iterate from #{@end.class}" if @end.nil?
+    # Only an Integer end counts down, so a beginless range with any
+    # other end walks from its begin, which is nil.
+    raise TypeError, "can't iterate from #{@begin.class}" if @begin.nil? && !@end.is_a?(Integer)
 
     if @end.is_a?(Integer) && (@begin.nil? || @begin.is_a?(Integer))
       v = @excl ? @end - 1 : @end
@@ -214,8 +217,13 @@ class Range
     n < 0 ? 0 : n
   end
 
+  # A range with an open side holds an infinite count, which CRuby
+  # answers without a walk. An argument or a block counts the members
+  # that match, so those walk as Enumerable does.
   def count(*args, &block)
-    return size if args.empty? && !block && @begin.is_a?(Integer)
+    return super unless args.empty? && !block
+    return Float::INFINITY if @begin.nil? || @end.nil?
+    return size if @begin.is_a?(Integer)
 
     super
   end

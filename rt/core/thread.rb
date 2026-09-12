@@ -560,6 +560,7 @@ end
 # that still live, and an enclosed group takes no more.
 class ThreadGroup
   def add(thread)
+    raise TypeError, "wrong argument type #{thread.class} (expected VM/thread)" unless thread.is_a?(Thread)
     raise ThreadError, "can't move from the enclosed thread group" if thread.group.enclosed?
     raise ThreadError, "can't move to the enclosed thread group" if enclosed?
 
