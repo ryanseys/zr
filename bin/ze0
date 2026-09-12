@@ -33,6 +33,18 @@ def usage
   exit 2
 end
 
+# One named step of a long command, announced before it runs and timed
+# after: compiling the compiler takes the better part of a minute, and a
+# command that says nothing until it ends cannot be told from a hung one.
+def step(what)
+  $stdout.sync = true
+  print "#{what} ... "
+  began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  answer = yield
+  puts format("%.1fs", Process.clock_gettime(Process::CLOCK_MONOTONIC) - began)
+  answer
+end
+
 case ARGV.first
 when "test"
   require_relative "../lib/ze0/harness/sweep"
@@ -159,9 +171,11 @@ when "stage1"
       cache = File.join(work, "#{n}-cache")
       FileUtils.mkdir_p(cache)
       out = File.join(work, "#{n}.o")
-      system({ "ZE0_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil },
-             RbConfig.ruby, __FILE__, "zr", "build", source, "-o", out, "--emit", "obj", chdir: ROOT) or
-        abort("ze0 stage1: the self-compile failed")
+      step("self-compile #{n}") do
+        system({ "ZE0_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil },
+               RbConfig.ruby, __FILE__, "zr", "build", source, "-o", out, "--emit", "obj", chdir: ROOT) or
+          abort("ze0 stage1: the self-compile failed")
+      end
       runtime = Dir[File.join(cache, "rt-*.o")]
       abort("ze0 stage1: the runtime object was not cached") unless runtime.size == 1
       [File.binread(out), File.binread(runtime.first)]
@@ -202,11 +216,15 @@ when "stage2"
   caches = stages.map { |path| { "ZE0_CACHE" => File.join(File.dirname(path), "cache") } }
 
   started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-  system(caches[0], RbConfig.ruby, __FILE__, "zr", "build", source, "-o", stages[0]) or
-    abort("ze0 stage2: stage 1 did not build")
-  warn("stage 1: #{File.size(stages[0])} bytes")
-  system(caches[1], stages[0], source, "-o", stages[1]) or
-    abort("ze0 stage2: stage 1 did not compile the compiler")
+  step("stage 1: ruby compiles the compiler") do
+    system(caches[0], RbConfig.ruby, __FILE__, "zr", "build", source, "-o", stages[0]) or
+      abort("ze0 stage2: stage 1 did not build")
+  end
+  puts "stage 1: #{File.size(stages[0])} bytes"
+  step("stage 2: stage 1 compiles the compiler") do
+    system(caches[1], stages[0], source, "-o", stages[1]) or
+      abort("ze0 stage2: stage 1 did not compile the compiler")
+  end
 
   a, b = stages.map { |path| File.binread(path) }
   elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
