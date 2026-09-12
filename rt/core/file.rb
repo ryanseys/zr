@@ -1003,7 +1003,7 @@ class Dir
       last = i == @segments.size - 1
       if segment == "**" && (!last || @dirs_only)
         walk(dir, i + 1, out) unless last
-        each_entry(dir) do |_, path|
+        each_entry(dir, dots: dotmatch?) do |_, path|
           next unless File.directory?(path) && !File.symlink?(path)
 
           found(path, out) if last
@@ -1016,7 +1016,7 @@ class Dir
         last ? found(path, out) : walk(path, i + 1, out)
       else
         pattern = segment == "**" ? "*" : segment
-        each_entry(dir, last) do |name, path|
+        each_entry(dir, last, dots: dotmatch? || pattern.start_with?(".")) do |name, path|
           next unless File.fnmatch?(pattern, name, @flags | File::FNM_PATHNAME)
 
           if last
@@ -1036,17 +1036,18 @@ class Dir
       out << "#{path}/" if File.directory?(path)
     end
 
-    # The names in `dir`, hidden ones only under FNM_DOTMATCH, which
-    # also offers `.` itself to a last segment.
-    def each_entry(dir, last = false)
+    # The names in `dir`. A hidden name shows only where dots are in
+    # play: under FNM_DOTMATCH, or where the segment itself names one.
+    # `.` stands among them, and the pattern decides whether it matches.
+    def each_entry(dir, last = false, dots: false)
       names = begin
         Dir.children(dir)
       rescue SystemCallError
         return
       end
-      names.unshift(".") if last && dotmatch?
+      names.unshift(".") if last && dots
       names.sort.each do |name|
-        next if name.start_with?(".") && !dotmatch?
+        next if name.start_with?(".") && !dots
 
         yield name, join(dir, name)
       end
