@@ -2,6 +2,7 @@
 
 require_relative "../machine/aarch64"
 require_relative "function"
+require_relative "types"
 require_relative "../obj/model"
 
 module Ze0
@@ -69,7 +70,6 @@ module Ze0
         @far = far
         @asm = assembler.new
         @relocs = []
-        @type = {}
         @home = {}
         @labels = {}
       end
@@ -98,30 +98,16 @@ module Ze0
       # --- layout -------------------------------------------------------
 
       def assign_types
-        @f.blocks.each { |b| b.params.each { |v, t| @type[v] = t } }
-        @f.blocks.each do |b|
-          b.insts.each do |i|
-            next if i.results.empty?
-
-            t = case i.op
-                when :iconst, :load, :ireduce, :uextend, :sextend then i.type
-                when :call then sig_of(i.callee).ret
-                when :call_indirect then sig_named(i.callee).ret
-                when :icmp, :fcmp then "i8"
-                when :stack_addr, :symbol_value, :func_addr then "i64"
-                when *Inst::FBINOPS, *Inst::FUNOPS then "f64"
-                when :select then type_of(i.args[1])
-                when :sadd_overflow, :ssub_overflow, :smul_overflow then type_of(i.args[0])
-                else i.type || type_of(i.args[0])
-                end
-            @type[i.results[0]] = t
-            @type[i.results[1]] = "i8" if i.results.size > 1
-          end
-        end
+        @types = Types.new(@f)
+        @types.all
+      rescue Types::Refused => e
+        raise Refused, e.message
       end
 
       def type_of(v)
-        @type.fetch(v) { raise Refused, "#{@f.name}: no type for #{v}" }
+        @types.of(v)
+      rescue Types::Refused => e
+        raise Refused, e.message
       end
 
       def assign_homes
@@ -152,35 +138,11 @@ module Ze0
         (n + a - 1) & ~(a - 1)
       end
 
-      def sig_of(fn)
-        callee = callee_of(fn) or raise Refused, "#{@f.name}: no callee #{fn}"
-        sig_named(callee.sig)
-      end
-
-      def sig_named(sig)
-        @sig_named ||= first_by(@f.sigs, &:sig)
-        @sig_named[sig] or raise Refused, "#{@f.name}: no signature #{sig}"
-      end
-
-      def callee_of(fn)
-        @callee_of ||= first_by(@f.callees, &:fn)
-        @callee_of[fn]
-      end
-
-      def global_of(gv)
-        @global_of ||= first_by(@f.globals, &:gv)
-        @global_of[gv]
-      end
-
-      def block_named(name)
-        @block_named ||= first_by(@f.blocks, &:name)
-        @block_named.fetch(name)
-      end
-
-      # Each row by its key, the first row winning as `find` would.
-      def first_by(rows)
-        rows.each_with_object({}) { |row, index| index[yield(row)] ||= row }
-      end
+      def sig_of(fn) = @types.sig_of(fn)
+      def sig_named(sig) = @types.sig_named(sig)
+      def callee_of(fn) = @types.callee_named(fn)
+      def global_of(gv) = @types.global_named(gv)
+      def block_named(name) = @types.block_named(name)
 
       # --- frame access -------------------------------------------------
 

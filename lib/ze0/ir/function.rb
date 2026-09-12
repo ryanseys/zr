@@ -42,24 +42,6 @@ module Ze0
         switch(@entry)
       end
 
-      # A function with nothing in it yet, for a parser or another producer
-      # that names its own blocks and values.
-      def self.bare(name, params, ret)
-        f = allocate
-        f.send(:reset, name, params, ret)
-        f
-      end
-
-      # A block by name, as a parser names it. `params` are `[value, type]`.
-      def add_block(name, params)
-        b = Block.new(name, params)
-        @block_of[name] = b
-        @blocks << b
-        @entry_block ||= b
-        @current = b
-        b
-      end
-
       # A fresh stack slot of `bytes`.
       def slot(bytes)
         @slots << Slot.new(bytes, 8)
