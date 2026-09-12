@@ -5,7 +5,7 @@
 #
 #   ze0 test <filter>... | --all        does ze0 answer what ruby answered?
 #                [--gc plain|stress] [--show N]
-#   ze0 check                           the repo's own checks
+#   ze0 check [<file>...]               the repo's own checks, a process a file
 #   ze0 stage1                          ze0 compiles itself, twice, to the same bytes
 #   ze0 stage2                          the compiler compiled by itself is a fixed point
 #   ze0 deps build                      build the vendored C dependencies (oniguruma)
@@ -53,7 +53,7 @@ when "test"
   usage if args.any? { |a| a.start_with?("--") } || (args.empty? && !all)
   usage unless %w[plain stress].include?(gc)
   sweep = Ze0::Harness::Sweep.new(ROOT, show: show, gc: gc)
-  cases = sweep.select(args, all: all)
+  cases = sweep.matching(args, all: all)
   abort "ze0 test: no program matches #{args.inspect}" if cases.empty?
   warn "ze0 test: #{cases.size} program(s)"
   exit(sweep.report(sweep.run(cases)) ? 0 : 1)
@@ -220,8 +220,45 @@ when "stage2"
     abort("ze0 stage2: #{a.bytesize} and #{b.bytesize} bytes, first differing at #{at}")
   end
 when "check"
+  # Every check file in a process of its own. One ruby loading them all
+  # holds every program `programs_test` compiles, every runtime `rt_test`
+  # links and every module `wasm_test` builds in a single heap, and the
+  # machine runs out of memory before the run ends. A process a file
+  # bounds that, says which file failed rather than which assertion, and
+  # lets the machine run several at once. `ZE0_JOBS` sets how many.
+  require "etc"
+  filters = ARGV.drop(1)
   files = Dir[File.join(ROOT, "test/checks/*_test.rb")].sort
-  exec(RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", "-e", files.map { |f| "require #{f.inspect}" }.join(";"))
+  files = files.select { |f| filters.any? { |a| File.basename(f).include?(a) } } unless filters.empty?
+  abort("ze0 check: nothing matches #{filters.join(" ")}") if files.empty?
+
+  queue = Queue.new
+  files.each { |f| queue << f }
+  done = Queue.new
+  started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  jobs = Integer(ENV.fetch("ZE0_JOBS", Etc.nprocessors))
+  Array.new([jobs, files.size].min) do
+    Thread.new do
+      until queue.empty?
+        file = (queue.pop(true) rescue break)
+        out = IO.popen([RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", file], err: %i[child out], &:read)
+        done << [file, $?.success?, out]
+      end
+    end
+  end.each(&:join)
+
+  rows = []
+  rows << done.pop until done.empty?
+  rows.sort_by! { |file, _, _| file }
+  rows.each do |file, ok, out|
+    tally = out[/^\d+ runs.*$/] || "did not report a tally"
+    puts format("%-16s %s%s", File.basename(file, "_test.rb"), tally, ok ? "" : "  <-")
+  end
+  failed = rows.reject { |_, ok, _| ok }
+  failed.each { |file, _, out| warn("\n--- #{File.basename(file)}\n#{out}") }
+  elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+  puts format("%d files in %.1f s, %d jobs", rows.size, elapsed, [jobs, files.size].min)
+  exit(failed.empty? ? 0 : 1)
 else
   usage
 end

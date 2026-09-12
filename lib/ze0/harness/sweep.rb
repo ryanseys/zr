@@ -51,7 +51,7 @@ module Ze0
 
       # Every recorded program whose path contains one of `filters` (or all
       # of them), in a stable order.
-      def select(filters, all: false)
+      def matching(filters, all: false)
         out = []
         SUITES.each do |suite, depth|
           dir = File.join(@root, "test", suite)
