@@ -568,16 +568,16 @@ class IO
 
   # These three all read what is there and fill a buffer when one is
   # given; the end of the stream is an error, not a nil.
-  def sysread(length, buffer = nil) = filled(read(length), buffer)
+  def sysread(length, buffer = nil) = filled(read_some(length), buffer)
 
-  def readpartial(length, buffer = nil) = filled(read(length), buffer)
+  def readpartial(length, buffer = nil) = filled(read_some(length), buffer)
 
   # CRuby writes these three in Ruby (its io.rb), so they answer their
   # own parameters, under CRuby's names.
   def read_nonblock(len, buf = nil, exception: true)
     Primitive.attr! :ruby
     check_readable
-    text = read(len)
+    text = read_some(len)
     return nil if text.nil? && !exception
 
     filled(text, buf)
@@ -640,8 +640,9 @@ class IO
 
   def readbyte = getbyte || raise(EOFError, "end of file reached")
 
+  # An Integer here is a codepoint, not the text of a number.
   def ungetc(text)
-    @buffer = text.to_s + @buffer
+    @buffer = (text.is_a?(Integer) ? text.chr(@buffer.encoding) : text.to_s) + @buffer
     nil
   end
 
@@ -804,6 +805,21 @@ class IO
 
   # What a read answered, into `buffer` when one was given. The end of
   # the stream is an error here, not a nil.
+  # What one read(2) gives: what waits in the buffer already, else one
+  # fill of it. A partial read never waits for the whole length, so a
+  # reader of a pipe answers as soon as anything arrives.
+  def read_some(length)
+    Primitive.attr! :hidden
+    check_readable
+    raise ArgumentError, "negative length #{length} given" if length < 0
+    return "".b if length.zero?
+
+    fill if @buffer.empty? && !@eof
+    return nil if @buffer.empty?
+
+    take([length, @buffer.bytesize].min).force_encoding(Encoding::BINARY)
+  end
+
   def filled(text, buffer)
     Primitive.attr! :hidden
     raise EOFError, "end of file reached" if text.nil?

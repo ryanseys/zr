@@ -59,6 +59,7 @@ class File < IO
 
   def self.dirname(path, level = 1)
     path = path_of(path)
+    raise ArgumentError, "negative level: #{level}" if level < 0
 
     level.times do
       parts = path.split("/").reject(&:empty?)
@@ -134,7 +135,12 @@ class File < IO
   end
   private_class_method :expand_home
 
-  def self.absolute_path(path, dir = nil) = expand_path(path, dir)
+  # A leading `~` is a name here rather than a home directory, which is
+  # where this and expand_path part company.
+  def self.absolute_path(path, dir = nil)
+    text = path_of(path)
+    expand_path(text.start_with?("~") ? "./#{text}" : text, dir)
+  end
 
   def self.exist?(path) = Primitive.zr_path_kind(path_of(path)) != 0
   def self.file?(path) = Primitive.zr_path_kind(path_of(path)) == 2
