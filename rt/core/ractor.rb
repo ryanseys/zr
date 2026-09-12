@@ -26,13 +26,14 @@ class Ractor
   NOTICE = []
   private_constant :RACTORS, :NOTICE
 
-  def self.new(*args, &block)
+  def self.new(*args, name: nil, &block)
     raise ArgumentError, "must be called with a block" unless block
 
     notice
     isolate(block)
     ractor = Primitive.zr_class_build(self)
     ractor.__send__(:setup, args.map { |arg| cross(arg) }, block)
+    ractor.name = name unless name.nil?
     ractor
   end
 
@@ -128,6 +129,13 @@ class Ractor
     raise IsolationError, "cannot assign unshareable object to #{name}" unless shareable?(value)
 
     value
+  end
+
+  # The refusal an instance variable of a shareable object gets outside
+  # the main ractor. The runtime asks for it, because the words live here.
+  def self.isolation!
+    Primitive.attr! :hidden
+    raise IsolationError, "can not access instance variables of shareable objects from non-main Ractors"
   end
 
   def self.immutable?(obj)
@@ -284,10 +292,18 @@ class Ractor
     @number = RACTORS.size + 2
     RACTORS << self
     @site = caller(3, 1)&.first&.then { |row| row[0, row.index(":in ") || row.size] }
+    # The block answers to the ractor, as ruby's isolated block does. Its
+    # own copy is rebound, so a block the program still holds keeps the
+    # self it was written with.
+    body = Primitive.zr_proc_rebind_m(block.dup, self)
     @thread = Thread.new do
+      Primitive.zr_ractor_enter_m
       Thread.current.thread_variable_set(:__ractor__, self)
-      instance_exec(*args, &block)
+      body.call(*args)
     end
+    # The task is the ractor's, not a thread the program asked for, so it
+    # names no line of its own where a report shows it.
+    @thread.instance_variable_set(:@site, nil)
     self
   end
 

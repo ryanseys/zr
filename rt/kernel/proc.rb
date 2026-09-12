@@ -76,6 +76,15 @@ end
 # A Proc for a block written in the frame `home` (the call site
 # `site`, packed above the spread flag: whether a lone Array argument
 # spreads over the parameters), whose method's frame is `ret_home`.
+# The same block with another self, which is what a Ractor runs: the
+# block's body answers to the ractor, and no frame stands between the
+# call and the body where a report would show one.
+sig [Value, Value] => Value
+machine def zr_proc_rebind_m(p, self_)
+  RProc.set_self(p, self_)
+  p
+end
+
 # The locals a block reads from outside itself, as Symbols. A Ractor
 # refuses a block that reaches one, and names them. A block that reaches
 # none carries no table at all.

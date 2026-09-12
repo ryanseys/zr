@@ -213,6 +213,10 @@ end
 # answer.
 sig [Value, Word, Ptr] => Value
 machine def zr_ivar_get_cached(obj, id, ic)
+  g = zr_ractor_guard(obj)
+  if g == QUNDEF
+    return g
+  end
   t = zr_ivtab(obj)
   if t == 0
     return Machine.value(QNIL)
@@ -228,6 +232,10 @@ end
 # answer.
 sig [Value, Word, Value, Ptr] => Value
 machine def zr_ivar_set_cached(obj, id, v, ic)
+  g = zr_ractor_guard(obj)
+  if g == QUNDEF
+    return g
+  end
   if zr_frozen_p(obj)
     return zr_frozen_error(obj)
   end

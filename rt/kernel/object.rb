@@ -94,8 +94,34 @@ machine def zr_ivtab_get(t, id)
   IvEntry.value(e)
 end
 
+# An instance variable of a shareable object that can still change
+# belongs to the main ractor alone, and a Ractor is such an object: what
+# it holds is not frozen. A deeply frozen graph is read from any ractor,
+# because nothing can change it, and a write to one raises for being
+# frozen. The runtime's own code keeps state in instance variables too,
+# and that state is nobody's program to refuse, so a frame of its own
+# passes.
+sig [Value] => Value
+machine def zr_ractor_guard(obj)
+  t = zr_task()
+  if Task.ractor(t) == 0
+    return Machine.value(QNIL)
+  end
+  if FrameMeta.file_len(Frame.meta(Task.top(t))) == 0
+    return Machine.value(QNIL)
+  end
+  if zr_frozen_p(obj) || zr_class_of(obj) != zr_core_class(Machine.id(:Ractor))
+    return Machine.value(QNIL)
+  end
+  zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:isolation!), 0, 0)
+end
+
 sig [Value, Word] => Value
 machine def zr_ivar_defined(obj, id)
+  g = zr_ractor_guard(obj)
+  if g == QUNDEF
+    return g
+  end
   t = zr_ivtab(obj)
   if t == 0
     return Machine.value(QFALSE)

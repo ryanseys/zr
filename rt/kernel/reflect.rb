@@ -103,6 +103,8 @@ machine def zr_obj_instance_variable_get(recv, argc, argv, cref, blk)
   id = Machine.load64(slot, 0)
   r = zr_check_ivar_name(id)
   return r if r == QUNDEF
+  r = zr_ractor_guard(recv)
+  return r if r == QUNDEF
   zr_ivar_get(recv, id)
 end
 
@@ -113,6 +115,8 @@ machine def zr_obj_instance_variable_set(recv, argc, argv, cref, blk)
   return r if r == QUNDEF
   id = Machine.load64(slot, 0)
   r = zr_check_ivar_name(id)
+  return r if r == QUNDEF
+  r = zr_ractor_guard(recv)
   return r if r == QUNDEF
   zr_ivar_set(recv, id, Machine.value(Machine.load64(argv, 8)))
 end
