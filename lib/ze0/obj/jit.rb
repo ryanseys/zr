@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "model"
+require_relative "patch"
 
 module Ze0
   module Obj
@@ -88,58 +89,26 @@ module Ze0
 
       private
 
-      def layout(items, item_align)
-        at = []
-        size = 0
-        items.each do |item|
-          size = align(size, [item.align, item_align].max)
-          at << [item, size]
-          size += item.size
-        end
-        { at: at, size: size }
-      end
-
-      def align(n, a)
-        (n + a - 1) & ~(a - 1)
-      end
+      def layout(items, item_align) = Patch.layout(items, item_align)
+      def align(n, a) = Patch.align(n, a)
 
       def map(size, exec:, near:)
         @host.map(size, exec: exec, near: near) or raise "mmap of #{size} bytes failed"
       end
 
-      # `item`'s bytes with every relocation applied, for the item at `base`.
+      # `item`'s bytes with every relocation applied, for the item at
+      # `base`. A symbol this unit defines is at its own address unless
+      # the host owns it; an import is reached through its GOT slot when
+      # the relocation asks for one, through its stub for a call, and by
+      # its address otherwise.
       def patched(item, base, addresses, data_base, got)
-        bytes = item.bytes.b.dup
-        item.relocs.each do |r|
-          place = base + r.offset
-          target =
-            if @symbols.key?(r.symbol) && !addresses.key?(r.symbol) then @symbols[r.symbol]
-            elsif %i[got_page21 got_pageoff12].include?(r.kind) then data_base + got.fetch(r.symbol)
-            elsif r.kind == :branch26 then @symbols.fetch(r.symbol)
-            else addresses.fetch(r.symbol)
-            end
-          target += r.addend
-          case r.kind
-          when :abs64
-            bytes[r.offset, 8] = [target].pack("Q<")
-          when :branch26
-            patch(bytes, r.offset) { |w| (w & ~0x3FFFFFF) | (((target - place) >> 2) & 0x3FFFFFF) }
-          when :page21, :got_page21
-            delta = ((target & ~0xFFF) - (place & ~0xFFF)) >> 12
-            patch(bytes, r.offset) { |w| (w & ~0x60FFFFE0) | ((delta & 3) << 29) | (((delta >> 2) & 0x7FFFF) << 5) }
-          when :pageoff12
-            patch(bytes, r.offset) { |w| (w & ~(0xFFF << 10)) | ((target & 0xFFF) << 10) }
-          when :got_pageoff12
-            patch(bytes, r.offset) { |w| (w & ~(0xFFF << 10)) | (((target & 0xFFF) >> 3) << 10) }
-          else raise ArgumentError, "no way to apply a #{r.kind} relocation"
+        Patch.apply(item, base) do |r|
+          if @symbols.key?(r.symbol) && !addresses.key?(r.symbol) then @symbols[r.symbol]
+          elsif %i[got_page21 got_pageoff12].include?(r.kind) then data_base + got.fetch(r.symbol)
+          elsif r.kind == :branch26 then @symbols.fetch(r.symbol)
+          else addresses.fetch(r.symbol)
           end
         end
-        bytes
-      end
-
-      def patch(bytes, offset)
-        word = bytes[offset, 4].unpack1("L<")
-        bytes[offset, 4] = [yield(word)].pack("L<")
       end
     end
   end
