@@ -19,10 +19,13 @@ module Kernel
   end
 
   # How a conversion message names a value: nil, true and false by
-  # name, anything else by its class.
+  # themselves, and anything else by its class -- an anonymous class by
+  # the path it carries instead of a name, which is what
+  # rb_builtin_class_name answers. A user's own `==` never decides this,
+  # so the two singletons are compared by identity.
   def conversion_name(value)
     Primitive.attr! :hidden
-    value.nil? || value == true || value == false ? value.inspect : value.class.name
+    value.nil? || value.equal?(true) || value.equal?(false) ? value.inspect : value.class.to_s
   end
   private :conversion_name
 
@@ -90,7 +93,7 @@ module Kernel
     return value.to_str if value.respond_to?(:to_str)
     return value.to_s if value.respond_to?(:to_s)
 
-    raise TypeError, "can't convert #{value.class} into String"
+    raise TypeError, "can't convert #{conversion_name(value)} into String"
   end
 
   # rb_Array: to_ary, else to_a, else the value alone. Either answering
@@ -102,7 +105,7 @@ module Kernel
     if value.respond_to?(:to_a)
       converted = value.to_a
       return converted if converted.is_a?(Array)
-      raise TypeError, "can't convert #{value.class} to Array (#{value.class}#to_a gives #{converted.class})" unless converted.nil?
+      raise TypeError, "can't convert #{conversion_name(value)} to Array (#{conversion_name(value)}#to_a gives #{conversion_name(converted)})" unless converted.nil?
     end
     [value]
   end
@@ -112,7 +115,7 @@ module Kernel
   # without one; the answer is the seconds slept, rounded.
   def sleep(duration = nil)
     unless duration.nil?
-      raise TypeError, "can't convert #{duration.class} into time interval" unless duration.is_a?(Numeric)
+      raise TypeError, "can't convert #{conversion_name(duration)} into time interval" unless duration.is_a?(Numeric)
       raise ArgumentError, "time interval must not be negative" if duration < 0
     end
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
@@ -148,7 +151,7 @@ module Kernel
     Primitive.attr! :hidden
     return value if value.is_a?(Integer)
     raise TypeError, "no implicit conversion from nil to integer" if value.nil?
-    raise TypeError, "no implicit conversion of #{value.class} into Integer" unless value.respond_to?(:to_int)
+    raise TypeError, "no implicit conversion of #{conversion_name(value)} into Integer" unless value.respond_to?(:to_int)
 
     value.to_int
   end
@@ -160,7 +163,7 @@ module Kernel
     return status if status.is_a?(Integer)
     raise TypeError, "no implicit conversion from nil to integer" if status.nil?
 
-    raise TypeError, "no implicit conversion of #{status.class} into Integer"
+    raise TypeError, "no implicit conversion of #{conversion_name(status)} into Integer"
   end
 
   # The strict form: whitespace around, a sign, a `0x`, `0b`, `0o` or

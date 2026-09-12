@@ -141,7 +141,7 @@ class IO
   def getpass(prompt = nil)
     target = self.equal?(STDIN) ? STDERR : self
     unless prompt.nil?
-      target.write(String.try_convert(prompt) || raise(TypeError, "no implicit conversion of #{prompt.class} into String"))
+      target.write(String.try_convert(prompt) || raise(TypeError, "no implicit conversion of #{conversion_name(prompt)} into String"))
       target.flush
     end
     begin
@@ -159,7 +159,7 @@ class IO
   end
 
   def console_mode=(mode)
-    raise TypeError, "wrong argument type #{mode.class} (expected IO::ConsoleMode)" unless mode.is_a?(ConsoleMode)
+    raise TypeError, "wrong argument type #{conversion_name(mode)} (expected IO::ConsoleMode)" unless mode.is_a?(ConsoleMode)
 
     console_set_mode(console_read_fd, mode.__send__(:mode_bytes), path)
     mode
@@ -261,7 +261,7 @@ class IO
   def cursor=(position)
     unless position.is_a?(Array)
       converted = Array.try_convert(position)
-      raise TypeError, "no implicit conversion of #{position.class} into Array" if converted.nil?
+      raise TypeError, "no implicit conversion of #{conversion_name(position)} into Array" if converted.nil?
 
       position = converted
     end
@@ -282,7 +282,7 @@ class IO
   # raise. A Symbol names a row to send to the terminal instead.
   def self.console(*args)
     name = args.first
-    raise TypeError, "wrong argument type #{name.class} (expected Symbol)" unless args.empty? || name.is_a?(Symbol)
+    raise TypeError, "wrong argument type #{conversion_name(name)} (expected Symbol)" unless args.empty? || name.is_a?(Symbol)
 
     held = Primitive.zr_hidden_get(File, :__console__)
     held = nil if held && held.closed?

@@ -261,7 +261,7 @@ class StringScanner
   def group_index(index)
     Primitive.attr! :hidden
     return index if index.is_a?(Integer) || index.is_a?(String) || index.is_a?(Symbol)
-    raise TypeError, "no implicit conversion of #{index.class} into Integer" unless index.respond_to?(:to_int)
+    raise TypeError, "no implicit conversion of #{conversion_name(index)} into Integer" unless index.respond_to?(:to_int)
 
     index.to_int
   end

@@ -30,7 +30,7 @@ class Module
     i = 0
     while i < n
       mod = modules[i]
-      raise TypeError, "wrong argument type #{mod.class} (expected Module)" unless mod.is_a?(Module) && !mod.is_a?(Class)
+      raise TypeError, "wrong argument type #{conversion_name(mod)} (expected Module)" unless mod.is_a?(Module) && !mod.is_a?(Class)
 
       i += 1
     end
@@ -166,7 +166,7 @@ class Module
   # C itself, so they stay invisible until a `using` names this module.
   def refine(target, &block)
     raise ArgumentError, "no block given" unless block
-    raise TypeError, "wrong argument type #{target.class} (expected Class or Module)" unless target.is_a?(Module)
+    raise TypeError, "wrong argument type #{conversion_name(target)} (expected Class or Module)" unless target.is_a?(Module)
 
     table = (@__refinements__ ||= {})
     holder = table[target]
@@ -243,7 +243,7 @@ class Refinement
   # inherits stays out.
   def import_methods(*modules)
     modules.each do |mod|
-      raise TypeError, "wrong argument type #{mod.class} (expected Module)" unless mod.instance_of?(Module)
+      raise TypeError, "wrong argument type #{conversion_name(mod)} (expected Module)" unless mod.instance_of?(Module)
     end
     modules.each do |mod|
       mod.instance_methods(false).each { |name| define_method(name, mod.instance_method(name)) }

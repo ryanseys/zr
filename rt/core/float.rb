@@ -96,7 +96,7 @@ module Kernel
       return value.to_f if value.respond_to?(:to_f)
       return nil unless exception
 
-      raise TypeError, "can't convert #{value.class} into Float"
+      raise TypeError, "can't convert #{conversion_name(value)} into Float"
     end
   end
 

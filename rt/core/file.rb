@@ -1157,7 +1157,7 @@ class Dir
     return Primitive.zr_home_dir(nil) if user.nil? && ENV["HOME"].nil?
     return ENV["HOME"] if user.nil?
 
-    raise TypeError, "no implicit conversion of #{user.class} into String" unless user.is_a?(String)
+    raise TypeError, "no implicit conversion of #{conversion_name(user)} into String" unless user.is_a?(String)
 
     Primitive.zr_home_dir(user) || raise(ArgumentError, "user #{user} doesn't exist")
   end

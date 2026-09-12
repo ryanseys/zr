@@ -543,7 +543,7 @@ module Enumerable
 
   def tally(counts = nil)
     unless counts.nil?
-      raise TypeError, "no implicit conversion of #{counts.class} into Hash" unless counts.is_a?(Hash)
+      raise TypeError, "no implicit conversion of #{conversion_name(counts)} into Hash" unless counts.is_a?(Hash)
       Primitive.zr_frozen_error(counts) if counts.frozen?
 
       each do |*x|

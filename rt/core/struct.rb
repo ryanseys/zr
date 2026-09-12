@@ -59,7 +59,7 @@ class Struct
     # that names a constant under Struct.
     def class_name(arg)
       return nil if arg.nil?
-      raise TypeError, "no implicit conversion of #{arg.class} into String" unless arg.is_a?(String)
+      raise TypeError, "no implicit conversion of #{conversion_name(arg)} into String" unless arg.is_a?(String)
       raise NameError, "identifier #{arg} needs to be constant" unless arg.getbyte(0).between?(65, 90)
 
       arg

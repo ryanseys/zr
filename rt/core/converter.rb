@@ -82,7 +82,7 @@ class Encoding
     def self.string_of(value)
       Primitive.attr! :hidden
       text = String.try_convert(value)
-      raise TypeError, "no implicit conversion of #{value.class} into String" if text.nil?
+      raise TypeError, "no implicit conversion of #{conversion_name(value)} into String" if text.nil?
 
       text
     end

@@ -277,13 +277,13 @@ class IO
 
     # `copy` reads from `source` into this buffer.
     def copy(source, offset = 0, length = nil, source_offset = 0)
-      raise TypeError, "wrong argument type #{source.class} (expected IO::Buffer)" unless source.is_a?(Buffer)
+      raise TypeError, "wrong argument type #{conversion_name(source)} (expected IO::Buffer)" unless source.is_a?(Buffer)
 
       set_string(source.get_string, offset, length, source_offset)
     end
 
     def <=>(other)
-      raise TypeError, "wrong argument type #{other.class} (expected IO::Buffer)" unless other.is_a?(Buffer)
+      raise TypeError, "wrong argument type #{conversion_name(other)} (expected IO::Buffer)" unless other.is_a?(Buffer)
 
       get_string <=> other.get_string
     end

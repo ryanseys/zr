@@ -107,7 +107,7 @@ class Date
     end
 
     def text_of(text)
-      text = String.try_convert(text) or raise TypeError, "no implicit conversion of #{text.class} into String"
+      text = String.try_convert(text) or raise TypeError, "no implicit conversion of #{conversion_name(text)} into String"
       raise ArgumentError, "string should have ASCII compatible encoding" unless text.encoding.ascii_compatible?
 
       text

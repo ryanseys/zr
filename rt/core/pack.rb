@@ -198,7 +198,7 @@ module Packing
         item = items[at]
         at += 1
         item = "" if item.nil?
-        raise TypeError, "no implicit conversion of #{item.class} into String" unless item.is_a?(String)
+        raise TypeError, "no implicit conversion of #{conversion_name(item)} into String" unless item.is_a?(String)
 
         out << pack_text(item.b, c, count)
       when "H", "h", "B", "b"

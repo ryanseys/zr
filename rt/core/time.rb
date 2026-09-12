@@ -61,7 +61,7 @@ class Time
       when Integer then value * scale
       when Float then float_ns(value, scale)
       when Rational then (value * scale).floor
-      else raise TypeError, "can't convert #{value.class} into an exact number"
+      else raise TypeError, "can't convert #{conversion_name(value)} into an exact number"
       end
     end
 

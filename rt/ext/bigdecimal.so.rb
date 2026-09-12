@@ -630,7 +630,7 @@ module Kernel
     when String then BigDecimal.read(value, true)
     when nil then raise TypeError, "can't convert nil into BigDecimal"
     else
-      raise TypeError, "can't convert #{value.class} into BigDecimal" unless value.respond_to?(:to_str)
+      raise TypeError, "can't convert #{conversion_name(value)} into BigDecimal" unless value.respond_to?(:to_str)
 
       BigDecimal(value.to_str, precision)
     end

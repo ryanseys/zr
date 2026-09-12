@@ -27,7 +27,7 @@ $LOAD_PATH = []
 # already ends in `.rb` is looked for as it stands.
 def $LOAD_PATH.resolve_feature_path(feature)
   name = String.try_convert(feature)
-  raise TypeError, "no implicit conversion of #{feature.class} into String" if name.nil?
+  raise TypeError, "no implicit conversion of #{conversion_name(feature)} into String" if name.nil?
 
   suffixes = name.end_with?(".rb") ? [["", :rb]] : [[".rb", :rb], [".bundle", :so]]
   each do |dir|
@@ -219,7 +219,7 @@ class << ENV
   # The names the Hash gives are set, each checked as it is; every other
   # name goes, as env_replace leaves the environment.
   def replace(hash)
-    hash = Hash.try_convert(hash) or raise TypeError, "no implicit conversion of #{hash.class} into Hash"
+    hash = Hash.try_convert(hash) or raise TypeError, "no implicit conversion of #{conversion_name(hash)} into Hash"
     names = keys
     hash.each do |name, value|
       self[name] = value

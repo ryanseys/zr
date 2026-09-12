@@ -93,7 +93,7 @@ class IO
       text = File.send(:open_mode, mode)
     elsif !mode.nil?
       string = String.try_convert(mode)
-      raise TypeError, "no implicit conversion of #{mode.class} into String" if string.nil?
+      raise TypeError, "no implicit conversion of #{conversion_name(mode)} into String" if string.nil?
 
       head, external, internal = string.split(":", 3)
       binary = head.include?("b")
@@ -204,7 +204,7 @@ class IO
   def self.time_interval(value)
     Primitive.attr! :hidden
     return nil if value.nil?
-    raise TypeError, "can't convert #{value.class} into time interval" unless value.is_a?(Numeric)
+    raise TypeError, "can't convert #{conversion_name(value)} into time interval" unless value.is_a?(Numeric)
     raise ArgumentError, "time interval must not be negative" if value.negative?
 
     value
@@ -239,10 +239,10 @@ class IO
   def self.select_stream(entry)
     Primitive.attr! :hidden
     return entry if entry.is_a?(IO)
-    raise TypeError, "no implicit conversion of #{entry.class} into IO" unless entry.respond_to?(:to_io)
+    raise TypeError, "no implicit conversion of #{conversion_name(entry)} into IO" unless entry.respond_to?(:to_io)
 
     stream = entry.to_io
-    raise TypeError, "can't convert #{entry.class} to IO (#{entry.class}#to_io gives #{stream.class})" unless stream.is_a?(IO)
+    raise TypeError, "can't convert #{conversion_name(entry)} to IO (#{conversion_name(entry)}#to_io gives #{conversion_name(stream)})" unless stream.is_a?(IO)
 
     stream
   end
@@ -1441,7 +1441,7 @@ class IO
       case arg
       when Symbol then events |= EVENT_NAMES.fetch(arg) { raise ArgumentError, "unsupported mode: #{arg}" }
       when Numeric, nil then timeout = arg
-      else raise TypeError, "can't convert #{arg.class} into time interval"
+      else raise TypeError, "can't convert #{conversion_name(arg)} into time interval"
       end
     end
     poll_once(events.zero? ? POLL_IN : events, timeout).zero? ? nil : self

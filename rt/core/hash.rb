@@ -6,13 +6,13 @@ class Hash
   # The flag a `ruby2_keywords` method sets on the Hash it took from
   # keywords, so a later splat passes it on as keywords again.
   def self.ruby2_keywords_hash(hash)
-    raise TypeError, "no implicit conversion of #{hash.class} into Hash" unless hash.is_a?(Hash)
+    raise TypeError, "no implicit conversion of #{conversion_name(hash)} into Hash" unless hash.is_a?(Hash)
 
     Primitive.zr_ruby2_hash_new(hash)
   end
 
   def self.ruby2_keywords_hash?(hash)
-    raise TypeError, "no implicit conversion of #{hash.class} into Hash" unless hash.is_a?(Hash)
+    raise TypeError, "no implicit conversion of #{conversion_name(hash)} into Hash" unless hash.is_a?(Hash)
 
     Primitive.zr_ruby2_hash_p(hash)
   end
@@ -156,7 +156,7 @@ class Hash
   def merge!(*others)
     Primitive.zr_frozen_error(self) if frozen?
     others.each do |other|
-      hash = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{other.class} into Hash"
+      hash = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Hash"
       hash.each do |k, v|
         self[k] = block_given? && key?(k) ? yield(k, self[k], v) : v
       end
@@ -226,7 +226,7 @@ class Hash
     return self if equal?(other)
     raise RuntimeError, "can't replace hash during iteration" if Primitive.zr_hash_iterating_p(self)
 
-    other = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{other.class} into Hash"
+    other = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Hash"
     pr = other.default_proc
     pr ? (self.default_proc = pr) : (self.default = Primitive.zr_hash_default_value(other))
     clear
@@ -404,7 +404,7 @@ class Hash
 
   def hash_operand(other)
     Primitive.attr! :hidden
-    Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{other.class} into Hash"
+    Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Hash"
   end
 
   def to_proc
@@ -419,7 +419,7 @@ class Hash
     return nil unless object.respond_to?(:to_hash)
 
     converted = object.to_hash
-    raise TypeError, "can't convert #{object.class} to Hash (#{object.class}#to_hash gives #{converted.class})" unless converted.nil? || converted.is_a?(Hash)
+    raise TypeError, "can't convert #{conversion_name(object)} to Hash (#{conversion_name(object)}#to_hash gives #{conversion_name(converted)})" unless converted.nil? || converted.is_a?(Hash)
 
     converted
   end

@@ -336,7 +336,7 @@ class Array
     return nil unless object.respond_to?(:to_ary)
 
     converted = object.to_ary
-    raise TypeError, "can't convert #{object.class} to Array (#{object.class}#to_ary gives #{converted.class})" unless converted.nil? || converted.is_a?(Array)
+    raise TypeError, "can't convert #{conversion_name(object)} to Array (#{conversion_name(object)}#to_ary gives #{conversion_name(converted)})" unless converted.nil? || converted.is_a?(Array)
 
     converted
   end
@@ -879,7 +879,7 @@ class Array
 
   def product(*others)
     others = others.map do |other|
-      Array.try_convert(other) or raise TypeError, "no implicit conversion of #{other.class} into Array"
+      Array.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Array"
     end
     combos = if others.empty?
                map { |x| [x] }

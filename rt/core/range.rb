@@ -317,7 +317,7 @@ class Range
   # Whether some value lies in both ranges; an empty range overlaps
   # nothing.
   def overlap?(other)
-    raise TypeError, "wrong argument type #{other.class} (expected Range)" unless other.is_a?(Range)
+    raise TypeError, "wrong argument type #{conversion_name(other)} (expected Range)" unless other.is_a?(Range)
     return false if empty_range? || other.send(:empty_range?)
 
     !(before?(self, other) || before?(other, self))

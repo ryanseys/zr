@@ -276,25 +276,14 @@ module Process
 
     words = args.size == 1 ? shell_words(args.first) : args.map { |arg| arg.is_a?(Array) ? arg.first : arg }
     words.each do |word|
-      raise TypeError, "no implicit conversion of #{type_name(word)} into String" unless word.is_a?(String)
+      raise TypeError, "no implicit conversion of #{conversion_name(word)} into String" unless word.is_a?(String)
       raise ArgumentError, "string contains null byte" if word.include?("\0")
     end
     words
   end
 
-  # rb_builtin_class_name: nil, true and false name themselves when a
-  # conversion refuses them, rather than naming their classes.
-  def self.type_name(value)
-    Primitive.attr! :hidden
-    return "nil" if value.nil?
-    return "true" if value.equal?(true)
-    return "false" if value.equal?(false)
-
-    value.class.to_s
-  end
-
   def self.shell_words(command)
-    raise TypeError, "no implicit conversion of #{type_name(command)} into String" unless command.is_a?(String)
+    raise TypeError, "no implicit conversion of #{conversion_name(command)} into String" unless command.is_a?(String)
 
     # An `=` inside the first word makes it an assignment, which only a
     # shell can do, as rb_exec_fillarg reads it.
@@ -318,11 +307,11 @@ module Process
 
     table = options[:unsetenv_others] ? {} : ENV.to_h
     env&.each do |key, value|
-      key = String.try_convert(key) or raise TypeError, "no implicit conversion of #{key.class} into String"
+      key = String.try_convert(key) or raise TypeError, "no implicit conversion of #{conversion_name(key)} into String"
       if value.nil?
         table.delete(key)
       else
-        table[key] = String.try_convert(value) or raise TypeError, "no implicit conversion of #{value.class} into String"
+        table[key] = String.try_convert(value) or raise TypeError, "no implicit conversion of #{conversion_name(value)} into String"
       end
     end
     table.map { |key, value| "#{key}=#{value}" }

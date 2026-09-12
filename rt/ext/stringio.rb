@@ -23,7 +23,7 @@ class StringIO
   attr_reader :string, :lineno
 
   def initialize(string = +"", mode = nil, **options)
-    string = String.try_convert(string) || raise(TypeError, "no implicit conversion of #{string.class} into String")
+    string = String.try_convert(string) || raise(TypeError, "no implicit conversion of #{conversion_name(string)} into String")
     @mode = access_mode(mode || options[:mode], string)
     raise Errno::EACCES if string.frozen? && WRITABLE[@mode]
 
@@ -34,7 +34,7 @@ class StringIO
   end
 
   def string=(other)
-    @string = String.try_convert(other) || raise(TypeError, "no implicit conversion of #{other.class} into String")
+    @string = String.try_convert(other) || raise(TypeError, "no implicit conversion of #{conversion_name(other)} into String")
     @external = @string.encoding
     reset
     other

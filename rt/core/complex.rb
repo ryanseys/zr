@@ -52,7 +52,7 @@ class Complex < Numeric
         else
           return nil unless exception
 
-          raise TypeError, "can't convert #{value.class} into Complex"
+          raise TypeError, "can't convert #{conversion_name(value)} into Complex"
         end
       end
     end

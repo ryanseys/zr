@@ -75,7 +75,7 @@ class Random::Base
 
   def initialize(seed = Random.new_seed)
     seed = seed.to_i if seed.is_a?(Float)
-    raise TypeError, "no implicit conversion of #{seed.class} into Integer" unless seed.is_a?(Integer)
+    raise TypeError, "no implicit conversion of #{conversion_name(seed)} into Integer" unless seed.is_a?(Integer)
 
     Primitive.zr_hidden_set(self, :__seed__, seed)
     key = []

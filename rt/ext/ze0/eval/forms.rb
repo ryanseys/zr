@@ -10,7 +10,7 @@ module Kernel
   # frame that asked, which is what an eval with no binding gets.
   def eval(source, binding = nil, file = nil, line = 1)
     unless binding.nil?
-      raise TypeError, "wrong argument type #{binding.class} (expected binding)" unless binding.is_a?(Binding)
+      raise TypeError, "wrong argument type #{conversion_name(binding)} (expected binding)" unless binding.is_a?(Binding)
 
       code = Ze0::Eval.current.compile(source, file || Primitive.zr_eval_source_name, line, Primitive.zr_binding_scopes(binding))
       return Primitive.zr_binding_run(code, binding)

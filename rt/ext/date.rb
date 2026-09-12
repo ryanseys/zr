@@ -248,7 +248,7 @@ class Date
   def self.integer(value, name)
     return value.to_int if value.respond_to?(:to_int)
 
-    raise TypeError, "no implicit conversion of #{value.class} into Integer" unless value.is_a?(Numeric)
+    raise TypeError, "no implicit conversion of #{conversion_name(value)} into Integer" unless value.is_a?(Numeric)
 
     raise Error, "invalid date" unless value.finite?
 
@@ -258,7 +258,7 @@ class Date
   def self.valid_start(start)
     start = start.to_f if start.is_a?(Numeric) && !start.is_a?(Integer)
     return start if start.is_a?(Integer) || (start.is_a?(Float) && start.infinite?)
-    raise TypeError, "no implicit conversion of #{start.class} into Integer" unless start.is_a?(Float)
+    raise TypeError, "no implicit conversion of #{conversion_name(start)} into Integer" unless start.is_a?(Float)
 
     start
   end
@@ -388,7 +388,7 @@ class Date
   private_class_method def self.seconds_of(offset)
     return (offset * DAY).round if offset.is_a?(Numeric)
 
-    text = String.try_convert(offset) or raise TypeError, "no implicit conversion of #{offset.class} into String"
+    text = String.try_convert(offset) or raise TypeError, "no implicit conversion of #{conversion_name(offset)} into String"
     seconds = zone_seconds(text) or raise Error, "invalid offset"
     seconds
   end

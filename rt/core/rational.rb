@@ -49,7 +49,7 @@ class Rational < Numeric
         else
           return nil unless exception
 
-          raise TypeError, "can't convert #{value.class} into Rational"
+          raise TypeError, "can't convert #{conversion_name(value)} into Rational"
         end
       end
     end

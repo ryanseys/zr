@@ -355,7 +355,7 @@ class String
 
     out = if pattern.nil? || pattern == " " then split_words(limit)
           elsif pattern.is_a?(Regexp) then split_by_regexp(pattern, limit)
-          elsif !pattern.is_a?(String) then raise TypeError, "wrong argument type #{pattern.class} (expected Regexp)"
+          elsif !pattern.is_a?(String) then raise TypeError, "wrong argument type #{conversion_name(pattern)} (expected Regexp)"
           elsif pattern.empty? then split_chars(limit)
           else split_by_string(pattern, limit)
           end
@@ -568,7 +568,7 @@ class String
       elsif part.is_a?(String)
         part.each_byte { |b| Primitive.zr_str_push_byte(self, b) }
       else
-        raise TypeError, "wrong argument type #{part.class} (expected String or Integer)"
+        raise TypeError, "wrong argument type #{conversion_name(part)} (expected String or Integer)"
       end
     end
     self
@@ -630,7 +630,7 @@ class String
     return nil unless object.respond_to?(:to_str)
 
     converted = object.to_str
-    raise TypeError, "can't convert #{object.class} to String (#{object.class}#to_str gives #{converted.class})" unless converted.nil? || converted.is_a?(String)
+    raise TypeError, "can't convert #{conversion_name(object)} to String (#{conversion_name(object)}#to_str gives #{conversion_name(converted)})" unless converted.nil? || converted.is_a?(String)
 
     converted
   end
@@ -1504,7 +1504,7 @@ class String
     Primitive.attr! :hidden
     return pattern.send(:search, self, start, false) if pattern.is_a?(Regexp)
     unless pattern.is_a?(String)
-      raise TypeError, "wrong argument type #{pattern.class} (expected Regexp)" unless pattern.respond_to?(:to_str)
+      raise TypeError, "wrong argument type #{conversion_name(pattern)} (expected Regexp)" unless pattern.respond_to?(:to_str)
 
       pattern = Primitive.zr_str_operand(pattern)
     end
@@ -2581,7 +2581,7 @@ class Encoding
     return name if name.is_a?(Encoding)
 
     text = String.try_convert(name)
-    raise TypeError, "no implicit conversion of #{name.class} into String" if text.nil?
+    raise TypeError, "no implicit conversion of #{conversion_name(name)} into String" if text.nil?
     # `internal` names no row: it is whatever default_internal is, nil too.
     return default_internal if text.casecmp?("internal")
 

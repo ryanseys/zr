@@ -54,7 +54,7 @@ class Regexp
       options = source.options if options.nil?
       source = source.source
     end
-    raise TypeError, "no implicit conversion of #{source.class} into String" unless source.is_a?(String)
+    raise TypeError, "no implicit conversion of #{conversion_name(source)} into String" unless source.is_a?(String)
 
     bits = case options
            when nil, false then 0
@@ -64,7 +64,7 @@ class Regexp
              options.each_char.reduce(0) do |acc, c|
                acc | { "i" => IGNORECASE, "x" => EXTENDED, "m" => MULTILINE }.fetch(c) { raise ArgumentError, "unknown regexp option: #{options}" }
              end
-           else raise TypeError, "no implicit conversion of #{options.class} into Integer"
+           else raise TypeError, "no implicit conversion of #{conversion_name(options)} into Integer"
            end
     compile_source(source, bits)
   end
@@ -191,7 +191,7 @@ class Regexp
     return nil unless object.respond_to?(:to_regexp)
 
     converted = object.to_regexp
-    raise TypeError, "can't convert #{object.class} to Regexp (#{object.class}#to_regexp gives #{converted.class})" unless converted.nil? || converted.is_a?(Regexp)
+    raise TypeError, "can't convert #{conversion_name(object)} to Regexp (#{conversion_name(object)}#to_regexp gives #{conversion_name(converted)})" unless converted.nil? || converted.is_a?(Regexp)
 
     converted
   end
@@ -278,7 +278,7 @@ class Regexp
       return nil
     end
     text = text.to_s if text.is_a?(Symbol)
-    raise TypeError, "no implicit conversion of #{text.class} into String" unless text.is_a?(String)
+    raise TypeError, "no implicit conversion of #{conversion_name(text)} into String" unless text.is_a?(String)
 
     pos += text.size if pos < 0
     if pos < 0 || pos > text.size
@@ -492,7 +492,7 @@ class MatchData
 
     out = {}
     keys.each do |key|
-      raise TypeError, "wrong argument type #{key.class} (expected Symbol)" unless key.is_a?(Symbol)
+      raise TypeError, "wrong argument type #{conversion_name(key)} (expected Symbol)" unless key.is_a?(Symbol)
       break unless all.key?(key)
 
       out[key] = all[key]
@@ -513,7 +513,7 @@ class MatchData
       index < size ? group(index) : nil
     when String, Symbol then group(named_group(index))
     when Range then to_a[index]
-    else raise TypeError, "no implicit conversion of #{index.class} into Integer"
+    else raise TypeError, "no implicit conversion of #{conversion_name(index)} into Integer"
     end
   end
 

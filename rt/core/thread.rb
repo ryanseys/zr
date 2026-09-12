@@ -575,7 +575,7 @@ end
 # that still live, and an enclosed group takes no more.
 class ThreadGroup
   def add(thread)
-    raise TypeError, "wrong argument type #{thread.class} (expected VM/thread)" unless thread.is_a?(Thread)
+    raise TypeError, "wrong argument type #{conversion_name(thread)} (expected VM/thread)" unless thread.is_a?(Thread)
     raise ThreadError, "can't move from the enclosed thread group" if thread.group.enclosed?
     raise ThreadError, "can't move to the enclosed thread group" if enclosed?
 
@@ -607,7 +607,7 @@ class Fiber
               when true then current.storage
               when nil, false then {}
               when Hash then storage.dup
-              else raise TypeError, "wrong argument type #{storage.class} (expected Hash)"
+              else raise TypeError, "wrong argument type #{conversion_name(storage)} (expected Hash)"
               end
       tag = Object.new
       f = __new__ { |*args| Primitive.zr_catch(tag, proc { block.call(*args) }) }
@@ -695,7 +695,7 @@ class Fiber
 
   def storage=(hash)
     Primitive.zr_warn_here_m("Fiber#storage= is experimental and may be removed in the future!")
-    raise TypeError, "wrong argument type #{hash.class} (expected Hash)" unless hash.is_a?(Hash) || hash.nil?
+    raise TypeError, "wrong argument type #{conversion_name(hash)} (expected Hash)" unless hash.is_a?(Hash) || hash.nil?
 
     Primitive.zr_hidden_set(self, :__storage__, hash ? hash.dup : {})
   end
@@ -803,10 +803,10 @@ class Thread::Queue
   # The first items convert through to_a, as rb_to_array takes them.
   def initialize(items = nil)
     unless items.nil? || items.is_a?(Array)
-      raise TypeError, "can't convert #{items.class} into Array" unless items.respond_to?(:to_a)
+      raise TypeError, "can't convert #{conversion_name(items)} into Array" unless items.respond_to?(:to_a)
 
       converted = items.to_a
-      raise TypeError, "can't convert #{items.class} to Array (#{items.class}#to_a gives #{converted.class})" unless converted.is_a?(Array)
+      raise TypeError, "can't convert #{conversion_name(items)} to Array (#{conversion_name(items)}#to_a gives #{conversion_name(converted)})" unless converted.is_a?(Array)
 
       items = converted
     end
