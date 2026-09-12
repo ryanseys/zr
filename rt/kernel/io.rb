@@ -253,9 +253,11 @@ machine def zr_io_tty_p(fd)
 end
 
 # The terminal calls io/console makes. `ioctl` names its third argument
-# variadically, and every one of these passes a single pointer, which
-# this platform takes in a register either way.
-Machine.import "ioctl", [I32, Word, Ptr] => I32
+# variadically, and this platform passes a variadic argument on the
+# stack, so a fixed-arity call never reaches it: an ioctl that reads its
+# argument answers EFAULT. `__ioctl` is the fixed-arity call that
+# ioctl's own wrapper makes once it has read that argument.
+Machine.import "__ioctl", [I32, Word, Ptr] => I32
 Machine.import "tcgetattr", [I32, Ptr] => I32
 Machine.import "tcsetattr", [I32, I32, Ptr] => I32
 Machine.import "tcflush", [I32, I32] => I32
@@ -274,7 +276,7 @@ TERMIOS_LEN = 72
 sig [Value] => Value
 machine def zr_io_winsize(fd)
   buf = Machine.slot(WINSIZE_LEN)
-  if ioctl(Machine.i32(zr_fix2long(fd)), TIOCGWINSZ, buf) < Machine.i32(0)
+  if __ioctl(Machine.i32(zr_fix2long(fd)), TIOCGWINSZ, buf) < Machine.i32(0)
     return zr_fix(0 - zr_errno())
   end
   zr_str_new(buf, WINSIZE_LEN)
@@ -282,7 +284,7 @@ end
 
 sig [Value, Value] => Value
 machine def zr_io_set_winsize(fd, bytes)
-  zr_io_status(ioctl(Machine.i32(zr_fix2long(fd)), TIOCSWINSZ, RString.ptr(bytes)))
+  zr_io_status(__ioctl(Machine.i32(zr_fix2long(fd)), TIOCSWINSZ, RString.ptr(bytes)))
 end
 
 # The terminal's mode as its own bytes, or the negated errno.
