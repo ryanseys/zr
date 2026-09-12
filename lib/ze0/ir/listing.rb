@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../machine/aarch64"
+require_relative "arm64"
 
 module Ze0
   module IR
@@ -12,17 +13,28 @@ module Ze0
     # the backend's selection, not a reading of the bytes back. The
     # encoding itself is a separate question, and `aarch64_test.rb` holds
     # it to the `aarch64` gem.
+    #
+    # A relocation is part of the selection -- a call to a symbol this
+    # link defines and a call to an import assemble to the same `bl` -- so
+    # each is written after the instruction that carries it.
     class Listing
-      include Machine::Aarch64::Registers
       Assembler = Machine::Aarch64::Assembler
+      Register = Machine::Aarch64::Registers::Register
 
       # A number this size or larger reads as a bit pattern, so it is
       # written in hex; below it a number is a count or an offset.
       HEX = 256
 
+      # The listing of `function`, as `IR::Arm64` compiles it.
+      def self.of(function, defined: [])
+        compiler = Arm64.new(function, defined: defined, assembler: self)
+        compiler.asm.text(compiler.compile.relocs)
+      end
+
       def initialize
         @asm = Assembler.new
         @lines = []
+        @at = 0
       end
 
       def make_label(name) = @asm.make_label(name)
@@ -30,28 +42,51 @@ module Ze0
       def to_binary = @asm.to_binary
 
       def put_label(label)
-        @lines << "#{label.name}:"
+        @lines << [nil, "#{label.name}:"]
         @asm.put_label(label)
+        self
       end
 
       # A word the backend built itself, which carries its own text.
       def <<(word)
-        @lines << "  #{word.text}"
+        record("  #{word.text}")
         @asm << word
+        self
       end
 
-      def method_missing(name, *args, **options)
-        @lines << "  #{[name, *operands(args), *modifier(options)].join(" ").sub(" ", " ")}"
-        @asm.public_send(name, *args, **options)
+      # The methods this class answers itself; every other mnemonic the
+      # encoder has is defined below. They are defined rather than caught
+      # by `method_missing`, which no class here may override -- and a
+      # defined method answers `respond_to?` without being asked to.
+      OWN = %i[make_label put_label patch_location to_binary <<].freeze
+
+      (Assembler.instance_methods(false) - OWN).each do |mnemonic|
+        define_method(mnemonic) do |*args, **options|
+          parts = operands(args) + modifier(options)
+          record("  #{[mnemonic, parts.join(", ")].join(" ").rstrip}")
+          @asm.public_send(mnemonic, *args, **options)
+          self
+        end
       end
 
-      def respond_to_missing?(name, private = false) = @asm.respond_to?(name, private)
-
-      # The listing, one instruction to a line and labels in the first
-      # column.
-      def text = @lines.join("\n")
+      # The listing, one instruction to a line, labels in the first
+      # column, and each relocation beside the instruction it patches.
+      def text(relocs = [])
+        at = relocs.group_by { |r| r.offset / 4 }
+        @lines.map do |index, line|
+          notes = index && at[index]
+          notes ? "#{line}#{" " * [1, 34 - line.length].max}; #{notes.map { |r| "#{r.kind} #{r.symbol}" }.join(", ")}" : line
+        end.join("\n")
+      end
 
       private
+
+      # Every mnemonic the backend calls assembles to exactly one word, so
+      # the index a relocation names counts the recorded lines.
+      def record(line)
+        @lines << [@at, line]
+        @at += 1
+      end
 
       # The operands as arm64 writes them: a register by name, an address
       # in brackets with whichever index form follows it, an immediate
@@ -63,14 +98,14 @@ module Ze0
         until rest.empty?
           a = rest.shift
           out << case a
-                 when Registers::Register then a.name.downcase
+                 when Register then a.name.downcase
                  when Assembler::Label then a.name.to_s
                  when Array then memory(a, rest)
                  when Symbol then a.to_s
                  else immediate(a)
                  end
         end
-        out.join(", ").then { |s| s.empty? ? [] : [s] }
+        out
       end
 
       def memory(address, rest)

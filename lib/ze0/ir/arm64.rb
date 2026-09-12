@@ -69,6 +69,10 @@ module Ze0
 
       # `far` branches past the megabyte a conditional branch reaches,
       # which only a function that large pays for.
+      # The assembler the compile drove, which a caller that gave its own
+      # reads its listing out of.
+      attr_reader :asm
+
       def initialize(function, defined: [], assembler: Machine::Aarch64::Assembler, far: false)
         @f = function
         @defined = defined
@@ -95,7 +99,10 @@ module Ze0
         # function again, every such branch the long way.
         raise if @far || !e.message.include?("signed 19-bit")
 
-        self.class.new(@f, defined: @defined, assembler: @asm.class, far: true).compile
+        again = self.class.new(@f, defined: @defined, assembler: @asm.class, far: true)
+        bytes = again.compile
+        @asm = again.asm
+        bytes
       end
 
       private
