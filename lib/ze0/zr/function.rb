@@ -226,7 +226,10 @@ module Ze0
       # it is a `return` from a block of this method, whose value is ours.
       def land
         switch(@landing, open: true)
-        if %i[def main top eval].include?(@kind) && @has_env
+        # A block frame catches one too: a signal whose home is this very
+        # frame belongs to it, which happens when the block is a lambda
+        # and a block inside it returned.
+        if %i[def main top eval block].include?(@kind) && @has_env
           take(kernel("zr_catch_return", @rec))
         end
         take(kernel("zr_catch_return_here")) if @kind == :def && @def&.evals

@@ -204,7 +204,12 @@ module Ze0
         def make_proc(block, slot)
           fn = @l.block(block, self)
           site = (@sites += 1)
-          ret_home = @kind == :block ? proc_field("ret_home") : @rec
+          # Where a `return` written in the block lands. A block inside a
+          # method names that method's frame. A block inside another block
+          # names what that block names, unless the block is a lambda:
+          # a lambda is the innermost frame a return can leave, so the
+          # answer is known only when the proc is called.
+          ret_home = @kind == :block ? @f.csel(lambda?, @rec, proc_field("ret_home")) : @rec
           proc = kernel("zr_proc_new", @f.symbol_value(@f.symbol("zr_meta_#{fn}")), @env, @self, @cref, @blk, @rec,
                         imm((site << 32) | (block.params.spread? ? 1 : 0)), ret_home)
           @f.store(proc, @rec, value_offset(slot))
