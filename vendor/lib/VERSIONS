@@ -31,7 +31,9 @@ weakref 0.1.4
 # The bundled gems ruby 4.0.6 loads without a Gemfile, copied from the
 # version `require` picks in its gem home, and never edited either. A
 # bundled gem is ruby's to ship, so a program ruby runs with one expects
-# it. `hoe/minitest.rb`, minitest's Hoe plugin, is left out.
+# it. `hoe/minitest.rb`, minitest's Hoe plugin, is left out. racc's C
+# core is not carried; its parser falls back to the Ruby core, as it
+# does wherever `racc/cparse` does not load.
 abbrev 0.1.2
 base64 0.3.0
 csv 3.3.6
@@ -40,6 +42,7 @@ minitest 6.0.6
 net-smtp 0.5.1
 ostruct 0.6.3
 prime 0.1.4
+racc 1.8.1
 readline 0.0.4
 reline 0.7.0
 rexml 3.4.4
