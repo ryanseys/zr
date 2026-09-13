@@ -165,7 +165,13 @@ module Ze0
           self
         end
 
-        def condition(cond) = CONDITIONS.fetch(cond.to_s.downcase.to_sym)
+        # Every caller inside the repo already holds the Symbol the table
+        # is keyed by, and this runs once an instruction: `:eq.to_s.downcase.to_sym`
+        # made two Strings and interned one of them, for every `cset` and
+        # every conditional branch the backend wrote.
+        def condition(cond)
+          CONDITIONS.fetch(cond) { CONDITIONS.fetch(cond.to_s.downcase.to_sym) }
+        end
 
         def unsigned(value, bits)
           raise Refused, "#{value} does not fit a #{bits}-bit field" unless value.between?(0, (1 << bits) - 1)
