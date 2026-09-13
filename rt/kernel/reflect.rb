@@ -407,7 +407,9 @@ machine def zr_kernel_callee(recv, argc, argv, cref, blk)
       return Machine.value(QNIL)
     end
   end
-  if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BMETHOD
+  # A method the runtime writes in Ruby runs as a builtin, and is called
+  # by an alias as much as a program's own is.
+  if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BMETHOD && FrameMeta.kind(meta) != KIND_BUILTIN
     return Machine.value(QNIL)
   end
   if Frame.mid(rec) == 0

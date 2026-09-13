@@ -16,7 +16,7 @@ module Enumerable
   end
 
   def select
-    return to_enum(:select) unless block_given?
+    return to_enum(__callee__) unless block_given?
 
     out = []
     each do |*x|
@@ -226,7 +226,7 @@ module Enumerable
     out
   end
 
-  def collect_concat(&block) = flat_map(&block)
+  def collect_concat(&block) = block ? flat_map(&block) : to_enum(:collect_concat)
 
   def group_by
     return to_enum(:group_by) unless block_given?

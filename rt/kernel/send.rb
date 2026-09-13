@@ -492,7 +492,9 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
   Frame.set_cref(rec, Machine.value(QNIL))
   Frame.set_blk(rec, blk)
   Frame.set_nvalues(rec, 0)
-  Frame.set_mid(rec, 0)
+  # The name the builtin was called by, which an alias makes its own: an
+  # enumerator it answers records it.
+  Frame.set_mid(rec, MEntry.mid(e))
   Frame.set_svar(rec, Machine.value(QNIL))
   Frame.set_lastline(rec, Machine.value(QNIL))
   Frame.set_defined(rec, Machine.value(QNIL))

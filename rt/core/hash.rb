@@ -66,7 +66,7 @@ class Hash
   end
 
   def select
-    return to_enum(:select) { size } unless block_given?
+    return to_enum(__callee__) { size } unless block_given?
 
     out = identity_shaped
     each { |k, v| out[k] = v if yield(k, v) }

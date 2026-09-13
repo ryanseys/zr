@@ -676,6 +676,13 @@ end
 # with the count of what it would yield, or nil when that is unknown.
 sig [Value, Word, Word, Ptr, Value] => Value
 machine def zr_enum_for(recv, mid, argc, argv, size)
+  # A builtin called by an alias -- `filter` for `select`, `each_pair`
+  # for `each` -- answers an enumerator that names the alias, as ruby's
+  # records the called name.
+  top = Task.top(zr_task())
+  if Frame.mid(top) != 0 && Frame.meta(top) != 0 && FrameMeta.kind(Frame.meta(top)) == KIND_BUILTIN
+    mid = Frame.mid(top)
+  end
   args = zr_ary_new(argc + 2)
   zr_ary_push(args, zr_sym(mid))
   i = 0
