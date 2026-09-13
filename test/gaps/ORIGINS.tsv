@@ -43,7 +43,6 @@ gaps/a_platform_guard_decides_at_build_time.rb	compiler/guards/a_platform_guard_
 gaps/a_version_gate_compares_by_version_not_by_string.rb	compiler/guards/a_version_gate_compares_by_version_not_by_string.rb
 gaps/refine_in_a_conditional_reopen.rb	compiler/guards/refine_in_a_conditional_reopen.rb
 gaps/the_string_guard_family.rb	compiler/guards/the_string_guard_family.rb
-gaps/unit_class_new_dispatches_runtime.rb	compiler/units/unit_class_new_dispatches_runtime.rb
 gaps/bundle_io_sys.rb	core/io/bundle_io_sys.rb
 gaps/eval_file_and_line_arguments.rb	core/io/eval_file_and_line_arguments.rb
 gaps/io_buffer.rb	core/io/io_buffer.rb
@@ -71,7 +70,6 @@ gaps/trace_var.rb	core/tracepoint/trace_var.rb
 gaps/tracepoint.rb	core/tracepoint/tracepoint.rb
 gaps/tracepoint_disable_is_a_call_event.rb	core/tracepoint/tracepoint_disable_is_a_call_event.rb
 gaps/tracepoint_self_and_binding.rb	core/tracepoint/tracepoint_self_and_binding.rb
-gaps/a_box_loads_its_own_copy_of_a_file.rb	lang/boxes/a_box_loads_its_own_copy_of_a_file.rb
 gaps/a_reflective_program_keeps_every_class.rb	lang/classes/a_reflective_program_keeps_every_class.rb
 gaps/a_reopened_builtin_answers_from_its_own_line.rb	lang/classes/a_reopened_builtin_answers_from_its_own_line.rb
 gaps/core_classes.rb	lang/classes/core_classes.rb
@@ -275,7 +273,6 @@ gaps/issue_set_trace_func_missing.rb	stdlib/set/issue_set_trace_func_missing.rb
 gaps/subclassing_stringio_and_file.rb	stdlib/stringio/subclassing_stringio_and_file.rb
 gaps/syslog.rb	stdlib/syslog/syslog.rb
 gaps/regexp_timeout.rb	stdlib/timeout/regexp_timeout.rb
-gaps/webrick_not_bundled.rb	stdlib/webrick/webrick_not_bundled.rb
 gaps/psych_syntax_error_carries_marks.rb	stdlib/yaml/psych_syntax_error_carries_marks.rb
 gaps/a_subclass_of_zlib_inflate_inherits_the_stream.rb	stdlib/zlib/a_subclass_of_zlib_inflate_inherits_the_stream.rb
 gaps/const_get_dynamic.rb	stdlib/zlib/const_get_dynamic.rb
