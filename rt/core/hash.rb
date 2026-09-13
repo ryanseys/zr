@@ -226,12 +226,12 @@ class Hash
     return self if equal?(other)
     raise RuntimeError, "can't replace hash during iteration" if Primitive.zr_hash_iterating_p(self)
 
-    other = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Hash"
-    pr = other.default_proc
-    pr ? (self.default_proc = pr) : (self.default = Primitive.zr_hash_default_value(other))
+    hash = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Hash"
+    pr = hash.default_proc
+    pr ? (self.default_proc = pr) : (self.default = Primitive.zr_hash_default_value(hash))
     clear
-    Primitive.zr_hash_set_identity(self, other.compare_by_identity?)
-    other.each { |k, v| self[k] = v }
+    Primitive.zr_hash_set_identity(self, hash.compare_by_identity?)
+    hash.each { |k, v| self[k] = v }
     self
   end
 

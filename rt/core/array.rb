@@ -554,8 +554,8 @@ class Array
   def clear = Primitive.zr_ary_clear(self, nil)
 
   def replace(other)
-    other = Array.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Array"
-    Primitive.zr_ary_splice(self, 0, size, other)
+    array = Array.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Array"
+    Primitive.zr_ary_splice(self, 0, size, array)
   end
 
   # `a[i] = v`, `a[start, len] = v` and `a[range] = v`: the span's

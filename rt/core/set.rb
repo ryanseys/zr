@@ -10,14 +10,17 @@ class Set
 
   def self.[](*items) = new(items)
 
+  # The items join whatever the Set already holds. Ruby's core Set
+  # checks neither for an earlier call nor for a frozen receiver here, so
+  # a second `initialize` merges, even into a frozen Set.
   def initialize(items = nil, &block)
-    @hash = {}
-    @iterating = 0
+    @hash ||= {}
+    @iterating ||= 0
     return if items.nil?
 
     raise ArgumentError, "value must be enumerable" unless items.respond_to?(:each)
 
-    items.each { |x| add(block ? yield(x) : x) }
+    items.each { |x| Primitive.zr_hash_store(@hash, block ? yield(x) : x, true) }
   end
 
   def size = @hash.size
@@ -73,13 +76,14 @@ class Set
 
   def to_set = self
 
-  def dup
-    copy = self.class.new
-    copy.send(:take_hash, @hash.dup)
-    copy
-  end
+  # What fills a `dup` or a `clone`: the other Set's members, in a table
+  # of this Set's own.
+  private def initialize_copy(other)
+    raise TypeError, "wrong argument type #{other.class} (expected set)" unless other.is_a?(Set)
 
-  alias clone dup
+    take_hash(other.instance_variable_get(:@hash).dup)
+    self
+  end
 
   def freeze
     @hash.freeze

@@ -380,7 +380,10 @@ machine def zr_alloc_shape(recv, kind)
   elsif kind == ALLOC_HASH
     o = zr_hash_new()
   else
+    # CRuby's allocator makes a binary String; `String.new("x")` takes
+    # the source's encoding after.
     o = zr_str_new(Machine.bytes(""), 0)
+    zr_str_set_binary(o)
   end
   RBasic.set_klass(o, recv)
   o

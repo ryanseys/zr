@@ -195,7 +195,7 @@ class String
   # A copy whose bytes are its characters (CRuby's ASCII-8BIT).
   def b = Primitive.zr_str_set_binary(dup)
 
-  def clear = replace("")
+  def clear = Primitive.zr_str_discard(self)
 
   def concat(*others)
     others.each { |o| self << o }
@@ -1129,6 +1129,10 @@ class String
 
   # `String.new(source, encoding:, capacity:)`. The room asked for is
   # not held: the buffer grows as the bytes arrive.
+  #
+  # With no source the String keeps what it holds, unless a capacity is
+  # asked for, which discards the bytes; either way it keeps its
+  # encoding. A new String is binary because `allocate` made it so.
   def initialize(source = (none = true), encoding: nil, capacity: nil)
     # A frozen String takes no argument, as CRuby's rb_str_init checks;
     # with none there is nothing to change.
@@ -1137,8 +1141,11 @@ class String
 
       Primitive.zr_frozen_error(self)
     end
-    Primitive.zr_str_initialize_m(self, none ? nil : Primitive.zr_str_operand(source))
-    Primitive.zr_str_set_binary(self) if none && encoding.nil?
+    if none
+      Primitive.zr_str_discard(self) if capacity
+    else
+      Primitive.zr_str_initialize_m(self, Primitive.zr_str_operand(source))
+    end
     force_encoding(encoding) if encoding
     self
   end

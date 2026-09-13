@@ -194,6 +194,9 @@ machine def zr_ary_initialize(recv, argc, argv, cref, blk)
   if argc > 2
     return zr_wrong_arity_range(argc, 0, 2)
   end
+  if zr_frozen_p(recv)
+    return zr_frozen_error(recv)
+  end
   RArray.set_len(recv, 0)
   if argc == 0
     return recv

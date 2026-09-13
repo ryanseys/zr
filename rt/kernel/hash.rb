@@ -791,6 +791,9 @@ machine def zr_hash_initialize(recv, argc, argv, cref, blk)
   if argc > 1
     return zr_wrong_arity_range(argc, 0, 1)
   end
+  if zr_frozen_p(recv)
+    return zr_frozen_error(recv)
+  end
   if argc == 1
     if blk != QNIL
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("wrong number of arguments (given 1, expected 0)"), 47)

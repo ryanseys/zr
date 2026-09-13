@@ -19,36 +19,38 @@ machine def zr_ivtab_copy(to, from)
   end
 end
 
-# What the copy owns: buffers and tables of its own, with the same
-# contents.
+# What the copy owns. A String, an Array or a Hash starts empty, as
+# CRuby's allocator leaves one: its own `initialize_copy` is what fills
+# it, so a subclass that answers that without `super` copies nothing, as
+# it does in ruby.
 sig [Value, Value] => Value
 machine def zr_copy_payload(copy, orig)
   t = zr_type(orig)
   if t == T_OBJECT
     zr_ivtab_copy(RObject.iv(copy), RObject.iv(orig))
   elsif t == T_STRING
-    buf = zr_xmalloc(RString.len(orig) + 1)
-    zr_memcpy(buf, RString.ptr(orig), RString.len(orig) + 1)
+    buf = zr_xmalloc(1)
+    Machine.store8(buf, 0, Machine.i8(0))
     RString.set_ptr(copy, buf)
-    RString.set_capa(copy, RString.len(orig) + 1)
+    RString.set_len(copy, 0)
+    RString.set_capa(copy, 0)
   elsif t == T_ARRAY
-    n = RArray.len(orig)
-    capa = n < 4 ? 4 : n
-    buf = zr_xmalloc(capa * 8)
-    zr_memcpy(buf, RArray.ptr(orig), n * 8)
+    buf = zr_xmalloc(4 * 8)
     RArray.set_ptr(copy, buf)
     RArray.set_base(copy, buf)
-    RArray.set_capa(copy, capa)
+    RArray.set_len(copy, 0)
+    RArray.set_capa(copy, 4)
   elsif t == T_HASH
-    if RHash.entries(orig) != 0
-      entries = zr_xmalloc(RHash.cap(orig) * HEntry.size)
-      zr_memcpy(entries, RHash.entries(orig), RHash.cap(orig) * HEntry.size)
-      RHash.set_entries(copy, entries)
-      bins = zr_xmalloc(RHash.nbins(orig) * 8)
-      zr_memcpy(bins, RHash.bins(orig), RHash.nbins(orig) * 8)
-      RHash.set_bins(copy, bins)
-    end
+    RHash.set_entries(copy, 0)
+    RHash.set_len(copy, 0)
+    RHash.set_live(copy, 0)
+    RHash.set_cap(copy, 0)
+    RHash.set_default(copy, Machine.value(QNIL))
+    RHash.set_default_proc(copy, Machine.value(QNIL))
+    RHash.set_bins(copy, 0)
+    RHash.set_nbins(copy, 0)
     RHash.set_iter(copy, 0)
+    RHash.set_gen(copy, 0)
   elsif t == T_EXCEPTION
     if RException.rows(orig) != 0
       rows = zr_xmalloc(RException.nrows(orig) * BtRow.size)
@@ -75,15 +77,73 @@ sig [Value] => Value
 machine def zr_copy_cell(orig)
   copy = zr_alloc(zr_type(orig), zr_real_class(orig))
   zr_memcpy(Machine.ptr(copy) + RBasic.size, Machine.ptr(orig) + RBasic.size, CELL - RBasic.size)
-  if zr_type(orig) == T_STRING
-    zr_str_copy_encoding(copy, orig)
-  end
-  # A Hash's codes were made for its compare_by_identity, so the copy
-  # keeps that too.
-  if zr_type(orig) == T_HASH && (RBasic.flags(orig) & FL_IDENTITY) != 0
-    RBasic.set_flags(copy, RBasic.flags(copy) | FL_IDENTITY)
-  end
   zr_copy_payload(copy, orig)
+end
+
+# `Array#initialize_copy`, which is what fills a `dup` or a `clone`: the
+# other's elements in place of the receiver's, as `replace` puts them.
+# Anything but an Array goes through `replace` itself, which converts.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_initialize_copy(recv, argc, argv, cref, blk)
+  other = Machine.value(Machine.load64(argv, 0))
+  if zr_special_p(other) || zr_type(other) != T_ARRAY
+    return zr_send(recv, Machine.id(:replace), 1, argv)
+  end
+  if other == recv
+    return zr_frozen_p(recv) ? zr_frozen_error(recv) : recv
+  end
+  r = zr_ary_splice(recv, zr_fix(0), zr_fix(RArray.len(recv)), other)
+  return r if r == QUNDEF
+  recv
+end
+
+# `String#initialize_copy`: the other's bytes and encoding.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_initialize_copy(recv, argc, argv, cref, blk)
+  other = Machine.value(Machine.load64(argv, 0))
+  if zr_special_p(other) || zr_type(other) != T_STRING
+    return zr_send(recv, Machine.id(:replace), 1, argv)
+  end
+  r = zr_str_replace(recv, other)
+  return r if r == QUNDEF
+  recv
+end
+
+# `Hash#initialize_copy`: the other's pairs, default and
+# compare_by_identity. The tables are copied as they stand -- a Hash is
+# its entries and its bins, and the codes in them were made for the
+# same identity rule -- where `replace` would store the pairs one by one.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_hash_initialize_copy(recv, argc, argv, cref, blk)
+  other = Machine.value(Machine.load64(argv, 0))
+  if zr_special_p(other) || zr_type(other) != T_HASH || other == recv || RHash.iter(recv) != 0 || zr_frozen_p(recv)
+    return zr_send(recv, Machine.id(:replace), 1, argv)
+  end
+  free(RHash.entries(recv))
+  free(RHash.bins(recv))
+  RHash.set_entries(recv, 0)
+  RHash.set_bins(recv, 0)
+  if RHash.entries(other) != 0
+    entries = zr_xmalloc(RHash.cap(other) * HEntry.size)
+    zr_memcpy(entries, RHash.entries(other), RHash.cap(other) * HEntry.size)
+    RHash.set_entries(recv, entries)
+    bins = zr_xmalloc(RHash.nbins(other) * 8)
+    zr_memcpy(bins, RHash.bins(other), RHash.nbins(other) * 8)
+    RHash.set_bins(recv, bins)
+  end
+  RHash.set_len(recv, RHash.len(other))
+  RHash.set_live(recv, RHash.live(other))
+  RHash.set_cap(recv, RHash.cap(other))
+  RHash.set_nbins(recv, RHash.nbins(other))
+  RHash.set_default(recv, RHash.default(other))
+  RHash.set_default_proc(recv, RHash.default_proc(other))
+  RHash.set_gen(recv, RHash.gen(recv) + 1)
+  if (RBasic.flags(other) & FL_IDENTITY) != 0
+    RBasic.set_flags(recv, RBasic.flags(recv) | FL_IDENTITY)
+  else
+    RBasic.set_flags(recv, RBasic.flags(recv) & (0 - FL_IDENTITY - 1))
+  end
+  recv
 end
 
 # A class or module copied: an anonymous one with the same ancestors,

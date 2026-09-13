@@ -253,6 +253,9 @@ module Ze0
         d zr_ivtab_copy Void to:Ptr from:Ptr
         d zr_copy_payload Value copy:Value orig:Value
         d zr_copy_cell Value orig:Value
+        d zr_ary_initialize_copy Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_str_initialize_copy Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_hash_initialize_copy Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_class_copy Value orig:Value
         d zr_obj_dup Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_clone Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1102,6 +1105,7 @@ module Ze0
         d zr_unit_char_valid_p Bool s:Value off:Word len:Word unit:Word
         d zr_unit_point Word s:Value off:Word len:Word unit:Word
         d zr_buf_unit_name Void b:Ptr index:Word
+        d zr_str_discard Value s:Value
         d zr_str_set_binary Value s:Value
         d zr_str_encoding_index_m Value s:Value
         d zr_str_set_index_m Value s:Value index:Value

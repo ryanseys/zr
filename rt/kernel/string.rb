@@ -315,6 +315,19 @@ machine def zr_buf_unit_name(b, index)
   end
 end
 
+# `clear`, and what `String#initialize` does with a capacity and no
+# source: no bytes left, in the encoding the String already had.
+sig [Value] => Value
+machine def zr_str_discard(s)
+  if zr_frozen_p(s)
+    return zr_frozen_error(s)
+  end
+  RString.set_len(s, 0)
+  Machine.store8(RString.ptr(s), 0, Machine.i8(0))
+  zr_str_modified(s)
+  s
+end
+
 sig [Value] => Value
 machine def zr_str_set_binary(s)
   zr_str_set_index(s, ENC_BINARY)
