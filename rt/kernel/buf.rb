@@ -60,10 +60,26 @@ machine def zr_buf_str(b, s)
   zr_buf_push(b, RString.ptr(s), RString.len(s))
 end
 
-# The buffer's bytes as a new String; the buffer is freed.
+# The buffer's bytes as a new String, which takes the buffer itself.
+#
+# It used to hand the bytes to `zr_str_new`, which mallocs again and
+# copies them, and then free the buffer -- two allocations and two
+# copies for every `String#+` and every `"#{}"`. The buffer is already
+# the right shape for an RString's payload, so the String takes it and
+# the buffer gives it up. `capa` leaves out the byte the NUL sits in,
+# which is what `zr_str_new` records and what `zr_str_concat` reads.
 sig [Ptr] => Value
 machine def zr_buf_take(b)
-  s = zr_str_new(Buf.ptr(b), Buf.len(b))
-  free(Buf.ptr(b))
+  zr_buf_reserve(b, 1)
+  n = Buf.len(b)
+  p = Buf.ptr(b)
+  Machine.store8(p + n, 0, Machine.i8(0))
+  s = zr_alloc(T_STRING, zr_global(G_STRING))
+  RString.set_ptr(s, p)
+  RString.set_len(s, n)
+  RString.set_capa(s, Buf.capa(b) - 1)
+  Buf.set_ptr(b, 0)
+  Buf.set_len(b, 0)
+  Buf.set_capa(b, 0)
   s
 end
