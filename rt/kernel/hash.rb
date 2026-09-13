@@ -600,6 +600,23 @@ machine def zr_hash_assoc(e)
   pair
 end
 
+# Whether `each` can hand a block the key and the value as two
+# arguments rather than the `[key, value]` Array ruby yields.
+#
+# It can when the block would have taken that Array apart again: a
+# `spread` block binds a lone Array over its parameters, so two
+# arguments reach the same names. A lambda is not one of those -- it
+# binds strictly and `h.each(&->(k, v) { })` is an ArgumentError in
+# ruby, which only happens if it is handed one argument. Nor is
+# `{ |pair| }` or `{ |*x| }`, and `spread` already says so.
+#
+# The Array is what `each` spends: a cell and a malloc for every entry
+# of every iteration, thrown away at the end of the block.
+sig [Value] => Bool
+machine def zr_block_takes_pair(blk)
+  RProc.spread(blk) != 0 && RProc.lambda(blk) == 0
+end
+
 # `each`: one `[key, value]` per entry, re-reading the table after every
 # yield, since the block may change it.
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -607,12 +624,13 @@ machine def zr_hash_each(recv, argc, argv, cref, blk)
   if blk == QNIL
     return zr_enum_for(recv, Machine.id(:each), argc, argv, zr_fix(RHash.live(recv)))
   end
+  pairless = zr_block_takes_pair(blk)
   RHash.set_iter(recv, RHash.iter(recv) + 1)
   i = 0
   while i < RHash.len(recv)
     e = RHash.entries(recv) + (i * HEntry.size)
     if HEntry.live(e) != 0
-      r = zr_yield1(blk, zr_hash_assoc(e))
+      r = pairless ? zr_yield2(blk, HEntry.key(e), HEntry.value(e)) : zr_yield1(blk, zr_hash_assoc(e))
       if r == QUNDEF
         RHash.set_iter(recv, RHash.iter(recv) - 1)
         return r
