@@ -68,7 +68,6 @@ gaps/notimplement_stub_respond_to.rb	core/object/notimplement_stub_respond_to.rb
 gaps/a_computed_require_without_the_pack_is_a_load_error.rb	core/pack/a_computed_require_without_the_pack_is_a_load_error.rb
 gaps/pack_covers_every_directive.rb	core/pack/pack_covers_every_directive.rb
 gaps/dynamic_load_compiles_and_raises_loaderror_only_when_executed.rb	core/process/dynamic_load_compiles_and_raises_loaderror_only_when_executed.rb
-gaps/instance_exec_define_method_privacy.rb	core/process/instance_exec_define_method_privacy.rb
 gaps/process_spawn_exec.rb	core/process/process_spawn_exec.rb
 gaps/process_wait_family.rb	core/process/process_wait_family.rb
 gaps/signal_module.rb	core/process/signal_module.rb

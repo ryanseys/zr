@@ -200,6 +200,7 @@ module Ze0
         d zr_refined_entry Ptr klass:Value mid:Word
         d zr_found_refinement Value
         d zr_cref_push Value klass:Value outer:Value
+        d zr_cref_klass Value cref:Value
         d zr_cref_push_eval Value klass:Value outer:Value
         d zr_cref_lexical Value cref:Value
         d zr_cref_lexical_class Value cref:Value
@@ -328,6 +329,7 @@ module Ze0
         d zr_module_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_class_eval Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_class_exec Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_eval_definee Value obj:Value
         d zr_eval_class_of Value obj:Value
         d zr_obj_instance_eval Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_instance_exec Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1481,7 +1483,7 @@ module Ze0
         s CEntry 64 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value
         s GateRow 40 8 klass:0:Word mid:8:Word bit:16:Word fn:24:Ptr vis:32:Word
         s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word
-        s RCref 64 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr
+        s RCref 72 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr lazy:64:Value
         s FrameMeta 120 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr locals:80:Ptr env:88:Word box:96:Value ruby:104:Word captures:112:Ptr
         s BtRow 32 8 meta:0:Ptr file:8:Ptr file_len:16:Word line:24:Word
         s RException 56 8 basic:0:RBasic message:16:Value rows:24:Ptr nrows:32:Word bt:40:Value cause:48:Value

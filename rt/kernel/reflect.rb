@@ -371,7 +371,7 @@ machine def zr_mod_nesting(recv, argc, argv, cref, blk)
   c = Frame.cref(Frame.prev(Task.top(zr_task())))
   while c != QNIL && c != zr_global(G_TOP_CREF)
     if RCref.eval(c) == 0
-      zr_ary_push(out, RCref.klass(c))
+      zr_ary_push(out, zr_cref_klass(c))
     end
     c = RCref.next(c)
   end

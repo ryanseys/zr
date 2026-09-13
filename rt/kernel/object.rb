@@ -1364,7 +1364,7 @@ machine def zr_attr(klass, argc, argv, which)
     # The scope's visibility verb applies only inside this class's own
     # body; from anywhere else the attribute is public.
     cref = Frame.cref(caller)
-    if cref != QNIL && RCref.klass(zr_cref_lexical(cref)) != klass
+    if cref != QNIL && zr_cref_klass(zr_cref_lexical(cref)) != klass
       cref = Machine.value(QNIL)
     end
     if which != 2

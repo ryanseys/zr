@@ -516,7 +516,7 @@ machine def zr_cvar_base(cref)
   if cref == zr_global(G_TOP_CREF)
     return Machine.value(QNIL)
   end
-  k = RCref.klass(cref)
+  k = zr_cref_klass(cref)
   while zr_singleton_p(k)
     k = RClass.attached(k)
     if zr_special_p(k) || (zr_type(k) != T_CLASS && zr_type(k) != T_MODULE)
@@ -1445,6 +1445,7 @@ machine def zr_mark_children(v)
     zr_mark_hash(v)
   elsif t == T_CREF
     zr_mark(RCref.klass(v))
+    zr_mark(RCref.lazy(v))
     zr_mark(RCref.next(v))
   elsif t == T_ENV
     zr_mark_env(v)

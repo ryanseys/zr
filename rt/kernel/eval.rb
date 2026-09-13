@@ -22,6 +22,12 @@ end
 sig [Value, Value, Value, Word, Ptr] => Value
 machine def zr_yield_under(blk, self_, klass, argc, argv)
   c = zr_cref_push_eval(klass, RProc.cref(blk))
+  # An object that can take a singleton class gets one only when the
+  # block needs it, as ruby's instance_exec leaves it.
+  if klass == QUNDEF
+    RCref.set_klass(c, Machine.value(QNIL))
+    RCref.set_lazy(c, self_)
+  end
   # A value with no singleton class takes no `def` either, as CRuby's
   # singleton_class_for_eval decides.
   if zr_singleton_refused_p(self_)
@@ -114,6 +120,16 @@ end
 # Where a `def` inside `instance_eval` lands: the object's singleton
 # class, or the class of a special constant. A value that can have no
 # singleton class answers its class, and its eval cref refuses a `def`.
+# The same for a block: undef for an object whose singleton class waits
+# until the block needs it.
+sig [Value] => Value
+machine def zr_eval_definee(obj)
+  if zr_special_p(obj) || zr_singleton_refused_p(obj)
+    return zr_class_of(obj)
+  end
+  Machine.value(QUNDEF)
+end
+
 sig [Value] => Value
 machine def zr_eval_class_of(obj)
   if zr_special_p(obj) || zr_singleton_refused_p(obj)
@@ -137,7 +153,7 @@ machine def zr_obj_instance_eval(recv, argc, argv, cref, blk)
   end
   slot = Machine.slot(8)
   Machine.store64(slot, 0, Machine.word(recv))
-  zr_yield_under(blk, recv, zr_eval_class_of(recv), 1, slot)
+  zr_yield_under(blk, recv, zr_eval_definee(recv), 1, slot)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -145,7 +161,7 @@ machine def zr_obj_instance_exec(recv, argc, argv, cref, blk)
   if blk == QNIL
     return zr_block_needed()
   end
-  zr_yield_under(blk, recv, zr_eval_class_of(recv), argc, argv)
+  zr_yield_under(blk, recv, zr_eval_definee(recv), argc, argv)
 end
 
 # `define_method(name) { }`, or with a Proc, Method or UnboundMethod
@@ -230,7 +246,7 @@ end
 sig [Ptr, Value] => Value
 machine def zr_cref_in_context(frame, mod)
   cref = Frame.cref(frame)
-  if Frame.self(frame) != mod || cref == QNIL || RCref.klass(cref) != mod
+  if Frame.self(frame) != mod || cref == QNIL || zr_cref_klass(cref) != mod
     return Machine.value(QNIL)
   end
   cref

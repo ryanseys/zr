@@ -8,7 +8,10 @@
 # set) is where a `def` lands, but constants and class variables look
 # through it to the lexical scope. The cref of a method `define_method`
 # made names its entry, which `super` in the body resolves from.
-Machine.struct :RCref, basic: RBasic, klass: Value, next: Value, vis: Word, modfn: Word, eval: Word, entry: Ptr
+# `lazy` is the object an `instance_exec` runs under, until something
+# needs its singleton class: ruby makes that class only then, and an
+# object that has one reads differently in an error message.
+Machine.struct :RCref, basic: RBasic, klass: Value, next: Value, vis: Word, modfn: Word, eval: Word, entry: Ptr, lazy: Value
 T_CREF = 25
 # `RCref.eval` of a block run under an object with no singleton class,
 # as `1.instance_eval` runs one: a `def` there has no class to go on.
@@ -27,7 +30,20 @@ machine def zr_cref_push(klass, outer)
   RCref.set_modfn(c, 0)
   RCref.set_eval(c, 0)
   RCref.set_entry(c, 0)
+  RCref.set_lazy(c, Machine.value(QNIL))
   c
+end
+
+# The class a cref names, made first when it is an object's singleton
+# class nothing has needed yet.
+sig [Value] => Value
+machine def zr_cref_klass(cref)
+  obj = RCref.lazy(cref)
+  if obj != QNIL
+    RCref.set_klass(cref, zr_singleton_class(obj))
+    RCref.set_lazy(cref, Machine.value(QNIL))
+  end
+  RCref.klass(cref)
 end
 
 sig [Value, Value] => Value
@@ -48,7 +64,7 @@ end
 
 sig [Value] => Value
 machine def zr_cref_lexical_class(cref)
-  RCref.klass(zr_cref_lexical(cref))
+  zr_cref_klass(zr_cref_lexical(cref))
 end
 
 # A table this long or longer is found through a hash index of its ids,
@@ -320,7 +336,7 @@ machine def zr_const_get(cref, id)
   cref = zr_cref_lexical(cref)
   e = zr_const_row_under(cref, id)
   if e == 0
-    return zr_uninitialized_constant(RCref.klass(cref), id)
+    return zr_uninitialized_constant(zr_cref_klass(cref), id)
   end
   r = zr_const_deprecated(e, id)
   return r if r == QUNDEF
@@ -336,21 +352,21 @@ machine def zr_const_row_under(cref, id)
   c = cref
   while RCref.next(c) != QNIL
     if RCref.eval(c) == 0
-      e = zr_const_row(RCref.klass(c), id)
+      e = zr_const_row(zr_cref_klass(c), id)
       if e != 0
         return e
       end
     end
     c = RCref.next(c)
   end
-  e = zr_const_row_in(RCref.klass(cref), id, false)
+  e = zr_const_row_in(zr_cref_klass(cref), id, false)
   if e == 0
     b = zr_box_current()
     if b != QNIL
       e = zr_const_row(b, id)
     end
   end
-  if e == 0 && zr_type(RCref.klass(cref)) == T_MODULE
+  if e == 0 && zr_type(zr_cref_klass(cref)) == T_MODULE
     e = zr_const_row_in(zr_global(G_OBJECT), id, false)
   end
   e
@@ -824,10 +840,10 @@ machine def zr_mod_constants(recv, argc, argv, cref, blk)
   out = zr_ary_new(8)
   if argc == 0 && recv == zr_global(G_MODULE)
     c = zr_cref_lexical(Frame.cref(Frame.prev(Task.top(zr_task()))))
-    inner = RCref.klass(c)
+    inner = zr_cref_klass(c)
     while c != QNIL
       if RCref.eval(c) == 0
-        zr_const_names_at(RCref.klass(c), out)
+        zr_const_names_at(zr_cref_klass(c), out)
       end
       c = RCref.next(c)
     end
@@ -847,7 +863,7 @@ machine def zr_mod_nesting(recv, argc, argv, cref, blk)
   c = zr_cref_lexical(Frame.cref(Frame.prev(Task.top(zr_task()))))
   while RCref.next(c) != QNIL
     if RCref.eval(c) == 0
-      zr_ary_push(out, RCref.klass(c))
+      zr_ary_push(out, zr_cref_klass(c))
     end
     c = RCref.next(c)
   end
@@ -887,7 +903,7 @@ AUTOLOAD_ROW = 5
 sig [Value, Word, Value, Ptr, Value, Word] => Value
 machine def zr_autoload(mod, id, feature, fn, cref, kind)
   if mod == zr_global(G_MAIN) || mod == zr_global(G_KERNEL)
-    mod = RCref.klass(zr_cref_lexical(cref))
+    mod = zr_cref_klass(zr_cref_lexical(cref))
   end
   # A name that already holds a value stands; a name still waiting for
   # its file is declared again, and announces again.

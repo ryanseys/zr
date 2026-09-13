@@ -450,7 +450,7 @@ module Ze0
 
       # The class the cref names innermost: where a def or a constant lands.
       def cref_class
-        @f.fetch("i64", @cref, off(@cref_layout, "klass"))
+        kernel("zr_cref_klass", @cref)
       end
 
       def value_offset(i)
