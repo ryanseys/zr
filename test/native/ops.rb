@@ -60,6 +60,27 @@ module Ze0
         ops["func_addr"] = build("func_addr", [], "i64") { |f| f.func_addr(f.callee("other", %w[i64], "i64")) }
       end
 
+      # A constant operand an instruction has a form for takes no
+      # register: twelve bits for `add`, `sub` and `cmp`, a shift inside
+      # the register, and a bitmask for `and`, `orr` and `eor`. The
+      # constant itself is still made in the entry block until something
+      # removes a constant nothing reads.
+      def immediates(ops)
+        ops["imm.add"] = build("imm_add", %w[i64], "i64") { |f, a| f.iadd(a, f.iconst("i64", 52)) }
+        ops["imm.add_negative"] = build("imm_add_negative", %w[i64], "i64") { |f, a| f.iadd(a, f.iconst("i64", -8)) }
+        ops["imm.add_wide"] = build("imm_add_wide", %w[i64], "i64") { |f, a| f.iadd(a, f.iconst("i64", 5000)) }
+        ops["imm.sub.i32"] = build("imm_sub_i32", %w[i32], "i32") { |f, a| f.isub(a, f.iconst("i32", 1)) }
+        ops["imm.and"] = build("imm_and", %w[i64], "i64") { |f, a| f.band(a, f.iconst("i64", 7)) }
+        ops["imm.and_not_a_mask"] = build("imm_and_not_a_mask", %w[i64], "i64") { |f, a| f.band(a, f.iconst("i64", 5)) }
+        ops["imm.orr_left"] = build("imm_orr_left", %w[i64], "i64") { |f, a| f.bor(f.iconst("i64", -4), a) }
+        ops["imm.ushr"] = build("imm_ushr", %w[i64], "i64") { |f, a| f.ushr(a, f.iconst("i64", 3)) }
+        ops["imm.ishl.i32"] = build("imm_ishl_i32", %w[i32], "i32") { |f, a| f.ishl(a, f.iconst("i32", 8)) }
+        ops["imm.sshr"] = build("imm_sshr", %w[i64], "i64") { |f, a| f.sshr(a, f.iconst("i64", 63)) }
+        ops["imm.icmp"] = build("imm_icmp", %w[i64], "i8") { |f, a| f.icmp("eq", a, f.iconst("i64", 52)) }
+        # A constant on the left turns the condition round.
+        ops["imm.icmp_left"] = build("imm_icmp_left", %w[i64], "i8") { |f, a| f.icmp("slt", f.iconst("i64", 10), a) }
+      end
+
       def integers(ops)
         IR::Inst::BINOPS.each do |op|
           %w[i64 i32].each do |t|
@@ -70,6 +91,7 @@ module Ze0
           ops["icmp.#{cond}"] = build("icmp_#{cond}", %w[i64 i64], "i8") { |f, a, b| f.icmp(cond, a, b) }
         end
         ops["icmp.i32"] = build("icmp_i32", %w[i32 i32], "i8") { |f, a, b| f.icmp("slt", a, b) }
+        immediates(ops)
         %w[i64 i32].each do |t|
           ops["select.#{t}"] = build("select_#{t}", ["i8", t, t], t) { |f, c, a, b| f.csel(c, a, b) }
         end

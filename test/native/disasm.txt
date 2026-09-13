@@ -966,6 +966,236 @@ block0:
   ldp x29, x30, [sp], #16
   ret
 
+# imm.add
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+block0:
+  movz x20, #52
+  add x21, x19, #52
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  mov sp, x29
+  ldp x29, x30, [sp], #16
+  ret
+
+# imm.add_negative
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+block0:
+  movn x20, #7
+  sub x21, x19, #8
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  mov sp, x29
+  ldp x29, x30, [sp], #16
+  ret
+
+# imm.add_wide
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+block0:
+  movz x20, #0x1388
+  add x21, x19, x20
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  mov sp, x29
+  ldp x29, x30, [sp], #16
+  ret
+
+# imm.sub.i32
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+block0:
+  movz x20, #1
+  sub w21, w19, #1
+  mov w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  mov sp, x29
+  ldp x29, x30, [sp], #16
+  ret
+
+# imm.and
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+block0:
+  movz x20, #7
+  and x21, x19, #7
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  mov sp, x29
+  ldp x29, x30, [sp], #16
+  ret
+
+# imm.and_not_a_mask
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+block0:
+  movz x20, #5
+  and x21, x19, x20
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  mov sp, x29
+  ldp x29, x30, [sp], #16
+  ret
+
+# imm.orr_left
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+block0:
+  movn x20, #3
+  orr x21, x19, #0xfffffffffffffffc
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  mov sp, x29
+  ldp x29, x30, [sp], #16
+  ret
+
+# imm.ushr
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+block0:
+  movz x20, #3
+  lsr x21, x19, #3
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  mov sp, x29
+  ldp x29, x30, [sp], #16
+  ret
+
+# imm.ishl.i32
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+block0:
+  movz x20, #8
+  lsl w21, w19, #8
+  mov w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  mov sp, x29
+  ldp x29, x30, [sp], #16
+  ret
+
+# imm.sshr
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+block0:
+  movz x20, #63
+  asr x21, x19, #63
+  mov x0, x21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  mov sp, x29
+  ldp x29, x30, [sp], #16
+  ret
+
+# imm.icmp
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+block0:
+  movz x20, #52
+  cmp x19, #52
+  cset x21, eq
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  mov sp, x29
+  ldp x29, x30, [sp], #16
+  ret
+
+# imm.icmp_left
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  sub sp, sp, #32
+  str x19, [sp]
+  str x20, [sp, #8]
+  str x21, [sp, #16]
+  mov x19, x0
+block0:
+  movz x20, #10
+  cmp x19, #10
+  cset x21, gt
+  uxtb w0, w21
+  ldr x19, [sp]
+  ldr x20, [sp, #8]
+  ldr x21, [sp, #16]
+  mov sp, x29
+  ldp x29, x30, [sp], #16
+  ret
+
 # select.i64
   stp x29, x30, [sp, #-16]!
   mov x29, sp

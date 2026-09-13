@@ -38,6 +38,14 @@ module Ze0
       # The condition that holds exactly when the other does not: arm64
       # numbers them in pairs, so this is the code with its low bit
       # flipped, written out to stay readable.
+      # The condition that holds for `b op a` when the IR asked `a op b`.
+      SWAPPED = {
+        "eq" => "eq", "ne" => "ne", "slt" => "sgt", "sle" => "sge", "sgt" => "slt", "sge" => "sle",
+        "ult" => "ugt", "ule" => "uge", "ugt" => "ult", "uge" => "ule"
+      }.freeze
+      # The bits an operand of each type carries into an instruction:
+      # the width its load gives it.
+      WIDTH_MASK = { "i8" => 0xFF, "i32" => 0xFFFF_FFFF, "i64" => 0xFFFF_FFFF_FFFF_FFFF }.freeze
       INVERSE = {
         eq: :ne, ne: :eq, lt: :ge, ge: :lt, le: :gt, gt: :le,
         lo: :hs, hs: :lo, ls: :hi, hi: :ls, mi: :pl, pl: :mi, vs: :vc, vc: :vs
@@ -102,6 +110,7 @@ module Ze0
       def compile
         assign_types
         @reg = Regalloc.of(@f)
+        plan_constants
         plan_fusion
         assign_homes
         @f.blocks.each { |b| @labels[b.name] = @asm.make_label(b.name) }
@@ -171,6 +180,22 @@ module Ze0
             @fused[brif] = CONDS.fetch(cmp.cond)
           end
         end
+      end
+
+      # Every `iconst` by the value it names. A value is defined once, so
+      # wherever it is used its number is known, and an instruction with
+      # an immediate form can take the number instead of a register.
+      def plan_constants
+        @const = {}
+        @f.blocks.each do |b|
+          b.insts.each { |i| @const[i.results[0]] = i.args[0] if i.op == :iconst }
+        end
+      end
+
+      # The number `v` holds, as `type` wide, when it is a constant.
+      def constant(v, type)
+        k = @const[v]
+        k && k & WIDTH_MASK.fetch(type, 0xFFFF_FFFF_FFFF_FFFF)
       end
 
       def assign_homes
@@ -383,14 +408,15 @@ module Ze0
         when :call then emit_call(i)
         when :call_indirect then emit_call_indirect(i)
         when :icmp
-          a = value_in(i.args[0], X9)
-          b = value_in(i.args[1], X10)
-          @asm.cmp reg_for(i.args[0], a), reg_for(i.args[0], b)
+          cond = emit_compare(i)
           # The `brif` that follows reads the flags; there is no boolean.
-          return if @fused.key?(i)
+          if (brif = @fused[i])
+            @fused[brif] = cond
+            return
+          end
 
           d = result_in(i.results[0], X11)
-          @asm.cset d, CONDS.fetch(i.cond)
+          @asm.cset d, cond
           store_value(i.results[0], d)
         when :iadd, :isub, :imul, :udiv, :sdiv, :band, :bor, :bxor, :ishl, :ushr, :sshr then emit_binop(i)
         when :urem, :srem then emit_rem(i)
@@ -593,7 +619,38 @@ module Ze0
         store_result(i.results[0], sig.ret)
       end
 
+      # `cmp`, and the arm64 condition to read its flags by. A constant
+      # of twelve bits is the immediate form and takes no register: the
+      # check `Zr::Function#checked` makes after every call is `cmp x, #52`.
+      # A constant on the left goes to the right, and the condition turns
+      # round with it.
+      def emit_compare(i)
+        a, b = i.args
+        cond = i.cond
+        type = type_of(a)
+        if !constant(b, type) && constant(a, type)
+          a, b = b, a
+          cond = SWAPPED.fetch(cond)
+        end
+        left = reg_for(a, value_in(a, X9))
+        k = constant(b, type)
+        if k && k <= 4095
+          @asm.cmp left, k
+        else
+          @asm.cmp left, reg_for(a, value_in(b, X10))
+        end
+        CONDS.fetch(cond)
+      end
+
+      COMMUTES = %i[iadd band bor bxor].freeze
+      SHIFTS = { ishl: :lsl, ushr: :lsr, sshr: :asr }.freeze
+      LOGICAL = { band: :and, bor: :orr, bxor: :eor }.freeze
+
+      # A binary operation, with its constant operand as an immediate
+      # when the instruction has a form for one.
       def emit_binop(i)
+        return if emit_immediate_binop(i)
+
         dest = result_in(i.results[0], X11)
         d, a, b = [dest, value_in(i.args[0], X9), value_in(i.args[1], X10)].map { |x| reg_for(i.args[0], x) }
         case i.op
@@ -610,6 +667,43 @@ module Ze0
         when :sshr then @asm.asr d, a, b
         end
         store_value(i.results[0], dest)
+      end
+
+      # `add`/`sub` of twelve bits, a shift by a number in the register,
+      # and `and`/`orr`/`eor` of a bitmask immediate. False when the
+      # constant fits no form, and nothing is emitted.
+      #
+      # The constant is taken as wide as its type, which is what loading
+      # it would have given; the instruction then runs at the width the
+      # register form would have, so the low bits of the answer are the
+      # same bits.
+      def emit_immediate_binop(i)
+        a, b = i.args
+        type = type_of(a)
+        return false if type == "f64"
+
+        a, b = b, a if COMMUTES.include?(i.op) && !constant(b, type) && constant(a, type)
+        k = constant(b, type)
+        return false unless k
+
+        bits = wide?(a) ? 64 : 32
+        full = (1 << bits) - 1
+        form =
+          case i.op
+          when :iadd, :isub
+            negated = -k & full
+            if k <= 4095 then [i.op == :iadd ? :add : :sub, k]
+            elsif negated <= 4095 then [i.op == :iadd ? :sub : :add, negated]
+            end
+          when :ishl, :ushr, :sshr then [SHIFTS.fetch(i.op), k] if k < bits
+          when :band, :bor, :bxor then [LOGICAL.fetch(i.op), k] if Machine::Aarch64::Assembler.bitmask(k, bits)
+          end
+        return false unless form
+
+        dest = result_in(i.results[0], X11)
+        @asm.public_send(form[0], reg_for(a, dest), reg_for(a, value_in(a, X9)), form[1])
+        store_value(i.results[0], dest)
+        true
       end
 
       # `a - (a / b) * b`, as arm64 spells a remainder.

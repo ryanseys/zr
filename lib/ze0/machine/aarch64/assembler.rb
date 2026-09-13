@@ -47,6 +47,60 @@ module Ze0
           end
         end
 
+        # `[N, immr, imms]` for a logical immediate, or nil for a value
+        # arm64 cannot name in one word.
+        #
+        # The only constants `AND`, `ORR` and `EOR` take are a run of
+        # ones, rotated, in an element of 2, 4, 8, 16, 32 or 64 bits that
+        # repeats to fill the register -- 0x5555555555555555 is one, 5 is
+        # not. All ones and no ones are excluded: every element would
+        # encode them, so the encoding gives their place to `N`.
+        #
+        # Memoized, and one table a width rather than one keyed by both:
+        # a compiler asks the same handful of questions about the same
+        # handful of masks a few million times, and a pair key would
+        # make an Array at every one of them. A value that is no bitmask
+        # memoizes as nil and is not asked again.
+        def self.bitmask(value, width)
+          (width == 64 ? BITMASK64 : BITMASK32)[value]
+        end
+
+        BITMASK64 = Hash.new { |memo, value| memo[value] = encode_bitmask(value, 64) }
+        BITMASK32 = Hash.new { |memo, value| memo[value] = encode_bitmask(value, 32) }
+
+        def self.encode_bitmask(value, width)
+          full = (1 << width) - 1
+          value &= full
+          return nil if value.zero? || value == full
+
+          # The smallest element that repeats: halve while the two halves
+          # of the element agree.
+          size = width
+          while size > 2
+            half = size / 2
+            low = value & ((1 << half) - 1)
+            break if low != (value >> half) & ((1 << half) - 1)
+
+            value = low
+            size = half
+          end
+          element = (1 << size) - 1
+          return nil if value.zero? || value == element
+
+          # The rotation that brings the run down to bit zero, if the
+          # element is one run at all: `x & (x + 1)` is zero exactly for
+          # a value that is all ones below some bit and nothing above.
+          rotation = (0...size).find { |r| (t = rotated(value, r, size, element)) & (t + 1) == 0 }
+          return nil if rotation.nil?
+
+          # `immr` says how far to rotate the run right to make the value,
+          # which is the other way round from how it was found.
+          length = rotated(value, rotation, size, element).bit_length
+          [size == 64 ? 1 : 0, (size - rotation) % size, (~(size - 1) << 1 & 0x3F) | (length - 1)]
+        end
+
+        def self.rotated(value, by, size, element) = ((value >> by) | (value << (size - by))) & element
+
         def self.signed(value, bits)
           limit = 1 << (bits - 1)
           raise Refused, "#{value} does not fit a signed #{bits}-bit field" unless value.between?(-limit, limit - 1)
@@ -100,9 +154,13 @@ module Ze0
         def and(d, n, m) = logical(0b00, d, n, m)
         def orr(d, n, m) = logical(0b01, d, n, m)
         def eor(d, n, m) = logical(0b10, d, n, m)
-        def lsl(d, n, m) = variable_shift(0b00, d, n, m)
-        def lsr(d, n, m) = variable_shift(0b01, d, n, m)
-        def asr(d, n, m) = variable_shift(0b10, d, n, m)
+        # A register amount shifts by whatever it holds; an Integer one
+        # is a bitfield move, which is what arm64 calls these by. The
+        # signatures are the gem's, so `aarch64_test` holds both forms to
+        # the ARM specification.
+        def lsl(d, n, m) = m.is_a?(Integer) ? ubfm(d, n, (d.size - shift(d, m)) % d.size, d.size - 1 - m) : variable_shift(0b00, d, n, m)
+        def lsr(d, n, m) = m.is_a?(Integer) ? ubfm(d, n, shift(d, m), d.size - 1) : variable_shift(0b01, d, n, m)
+        def asr(d, n, m) = m.is_a?(Integer) ? sbfm(d, n, shift(d, m), d.size - 1) : variable_shift(0b10, d, n, m)
 
         # `SXTB` and `SXTW` are `SBFM` over a fixed range of bits, and
         # `UXTB` is `UBFM` over the same range.
@@ -198,8 +256,29 @@ module Ze0
           end
         end
 
+        # A register third operand, or a bitmask immediate, which is a
+        # different instruction family with the same name.
+        #
+        # The Integer branch has to come first and has to be here.
+        # `Integer#to_i` answers, so without it `and d, a, 7` encoded as
+        # `and d, a, x7` and said nothing.
         def logical(opc, d, n, m)
+          return logical_immediate(opc, d, n, m) if m.is_a?(Integer)
+
           emit(0x0A00_0000 | d.sf << 31 | opc << 29 | m.to_i << 16 | n.to_i << 5 | d.to_i)
+        end
+
+        def logical_immediate(opc, d, n, m)
+          bit, immr, imms = self.class.bitmask(m, d.size) || raise(Refused, "#{m} is not a bitmask immediate")
+          emit(0x1200_0000 | d.sf << 31 | opc << 29 | bit << 22 | immr << 16 | imms << 10 | n.to_i << 5 | d.to_i)
+        end
+
+        # A shift out of the register is not a shift arm64 can name:
+        # the field is as wide as the register and holds nothing else.
+        def shift(d, m)
+          raise Refused, "a shift of #{m} in #{d.size} bits" unless m.between?(0, d.size - 1)
+
+          m
         end
 
         def variable_shift(op2, d, n, m)
