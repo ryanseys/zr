@@ -368,6 +368,8 @@ class Time
   # Time with an initialize of its own takes this place, and `now`, `at`
   # and `utc` build their own instances without asking.
   def initialize(year = nil, month = nil, day = nil, hour = nil, min = nil, sec = nil, zone = nil, **options)
+    raise TypeError, "already initialized Time" if Primitive.zr_hidden_get(self, :__built__)
+
     option = options[:in]
     raise ArgumentError, "timezone argument given as positional and keyword arguments" if zone && option
     return set(*Time.send(:now_parts, option)) if year.nil?

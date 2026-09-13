@@ -94,6 +94,17 @@ class Random::Base
 
   def seed = Primitive.zr_hidden_get(self, :__seed__)
 
+  # The whole state of the other generator, so the copy draws what it
+  # would have drawn next.
+  private def initialize_copy(other)
+    super
+    %i[__seed__ __mt__ __mti__].each do |part|
+      value = Primitive.zr_hidden_get(other, part)
+      Primitive.zr_hidden_set(self, part, value.is_a?(Array) ? value.dup : value)
+    end
+    self
+  end
+
   # `rand(n)`, `rand(a..b)`; a Float bound or no bound is a Float draw.
   def rand(max = nil)
     case max

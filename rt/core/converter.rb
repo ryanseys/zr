@@ -32,6 +32,8 @@ class Encoding
     private_constant :SHOWN, :WALKED, :NAMES, :PATH_NAMES, :BITS, :MARKS, :QUOTED
 
     def initialize(source, destination, flags = nil, **options)
+      raise TypeError, "already initialized" if defined?(@path)
+
       @flags = 0
       @decorators = []
       @replacement = nil

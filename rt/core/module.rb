@@ -95,7 +95,12 @@ class BasicObject
 end
 
 module Kernel
+  # rb_obj_init_copy: a copy of itself is nothing to do, a frozen
+  # receiver takes no copy, and the copy has to be of the same class.
   private def initialize_copy(orig)
+    return self if equal?(orig)
+
+    Primitive.zr_frozen_error(self) if frozen?
     raise TypeError, "initialize_copy should take same class object" unless orig.instance_of?(self.class)
 
     self
@@ -107,6 +112,11 @@ module Kernel
 
   private def initialize_dup(orig) = initialize_copy(orig)
   private def initialize_clone(orig, freeze: nil) = initialize_copy(orig)
+end
+
+class Module
+  # A module's clone is its own row, as ruby keeps it.
+  private def initialize_clone(orig, freeze: nil) = super
 end
 
 class Module

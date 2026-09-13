@@ -82,7 +82,7 @@ machine def zr_module_initialize(recv, argc, argv, cref, blk)
     r = zr_yield_under(blk, recv, recv, 1, slot)
     return r if r == QUNDEF
   end
-  recv
+  Machine.value(QNIL)
 end
 
 # `class_eval { }` and `module_eval { }`: the block under the module,

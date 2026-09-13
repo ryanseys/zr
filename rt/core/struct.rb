@@ -119,6 +119,7 @@ class Struct
   def initialize_copy(other)
     super
     Primitive.zr_hidden_set(self, :__values__, other.send(:values_store).dup)
+    self
   end
 
   # A member may be named `class`, so the class comes from the kernel.

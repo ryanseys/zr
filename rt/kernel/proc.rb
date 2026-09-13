@@ -442,18 +442,31 @@ end
 #
 # The frame `home` is running a call now is the one whose `prev` is
 # `home` -- a frame makes one call at a time -- and that call is the one
-# the block was given to when the block is its block.
+# the block was given to when its block is this block: this Proc, or one
+# made from the same literal in the same run of `home`, as `instance_exec`
+# makes to run the block under another self.
 sig [Value] => Bool
 machine def zr_block_call_live(p)
   home = RProc.home(p)
   rec = Task.top(zr_task())
   while rec != 0 && rec != home
     if Frame.prev(rec) == home
-      return Frame.blk(rec) == p
+      return zr_same_block(Frame.blk(rec), p)
     end
     rec = Frame.prev(rec)
   end
   false
+end
+
+sig [Value, Value] => Bool
+machine def zr_same_block(given, p)
+  if given == p
+    return true
+  end
+  if zr_special_p(given) || zr_type(given) != T_PROC
+    return false
+  end
+  RProc.fn(given) == RProc.fn(p) && RProc.home(given) == RProc.home(p) && RProc.serial(given) == RProc.serial(p) && RProc.site(given) == RProc.site(p)
 end
 
 # `return v` in the block `p`: leaves the method the block was written in.

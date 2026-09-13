@@ -175,6 +175,9 @@ end
 # is the value it yielded or returned, or the signal it left pending.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_fiber_resume(recv, argc, argv, cref, blk)
+  if RFiber.ctx(recv) == 0
+    return zr_fiber_error(Machine.bytes("uninitialized fiber"), 19)
+  end
   cur = zr_fiber_current()
   if RFiber.status(recv) == FIBER_TERMINATED
     return zr_fiber_error(Machine.bytes("attempt to resume a terminated fiber"), 36)
@@ -205,6 +208,9 @@ end
 # deepest resumed fiber.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_fiber_transfer(recv, argc, argv, cref, blk)
+  if RFiber.ctx(recv) == 0
+    return zr_fiber_error(Machine.bytes("uninitialized fiber"), 19)
+  end
   cur = zr_fiber_current()
   if RFiber.resuming(recv) != QNIL
     return zr_fiber_error(Machine.bytes("attempt to transfer to a resuming fiber"), 39)
@@ -349,7 +355,7 @@ machine def zr_mark_fiber(f)
   zr_mark(RFiber.resuming(f))
   zr_mark(RFiber.value(f))
   zr_mark(RFiber.home(f))
-  if Machine.word(f) != Machine.load64(Machine.static(:current_fiber, 8), 0)
+  if RFiber.task(f) != 0 && Machine.word(f) != Machine.load64(Machine.static(:current_fiber, 8), 0)
     zr_mark_task(RFiber.task(f))
     zr_mark_kernel_roots_from(RFiber.kroots(f))
   end

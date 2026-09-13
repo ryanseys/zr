@@ -54,6 +54,7 @@ class Regexp
   # initialize builds the source therefore keeps the source it handed to
   # `super`.
   def initialize(source, options = nil, timeout: nil)
+    Primitive.zr_frozen_error(self) if frozen?
     raise TypeError, "already initialized regexp" unless Primitive.zr_regexp_source(self).nil?
 
     if source.is_a?(Regexp)
@@ -137,6 +138,21 @@ class Regexp
   end
 
   # A dup or clone compiles its own pattern from the same source.
+  # rb_reg_init_copy: what `dup` and `clone` fill a husk with -- the
+  # other Regexp's pattern, compiled for the copy -- and a refusal for a
+  # Regexp that already holds one.
+  def initialize_copy(other)
+    return self if equal?(other)
+
+    Primitive.zr_frozen_error(self) if frozen?
+    raise TypeError, "initialize_copy should take same class object" unless other.instance_of?(self.class)
+    raise TypeError, "already initialized regexp" unless Primitive.zr_regexp_source(self).nil?
+
+    Primitive.zr_regexp_copy_from(self, other)
+    self
+  end
+  private :initialize_copy
+
   def recompile
     Primitive.attr! :hidden
     text = Pattern.engine_text(source, options & EXTENDED != 0, Regexp.binary_pattern?(source, options))
@@ -473,6 +489,13 @@ class MatchData
   # takes both spellings away.
   class << self
     undef_method :allocate, :new
+  end
+
+  # A MatchData copies the match it is given, of its own kind only.
+  private def initialize_copy(other)
+    super
+    %i[regexp string position offsets].each { |part| Primitive.zr_hidden_set(self, part, Primitive.zr_hidden_get(other, part)) }
+    self
   end
 
   def regexp = Primitive.zr_hidden_get(self, :regexp)

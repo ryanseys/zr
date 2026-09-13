@@ -57,12 +57,32 @@ machine def zr_copy_payload(copy, orig)
       zr_memcpy(rows, RException.rows(orig), RException.nrows(orig) * BtRow.size)
       RException.set_rows(copy, rows)
     end
+  elsif t == T_FIBER
+    # CRuby copies a Fiber's fields and not its machine stack, so the copy
+    # is a fiber that was never made: no context, no stack, no task of
+    # its own, and it refuses to run.
+    RFiber.set_task(copy, 0)
+    RFiber.set_ctx(copy, 0)
+    RFiber.set_stack(copy, 0)
+    RFiber.set_kroots(copy, 0)
+    RFiber.set_blk(copy, Machine.value(QNIL))
+    RFiber.set_status(copy, FIBER_CREATED)
+    RFiber.set_prev(copy, Machine.value(QNIL))
+    RFiber.set_resuming(copy, Machine.value(QNIL))
+    RFiber.set_value(copy, Machine.value(QNIL))
+    RFiber.set_yielding(copy, 0)
+    RFiber.set_transferred(copy, 0)
   elsif t == T_REGEXP
+    RRegexp.set_source(copy, Machine.value(QNIL))
+    RRegexp.set_text(copy, Machine.value(QNIL))
+    RRegexp.set_names(copy, Machine.value(QNIL))
+    RRegexp.set_options(copy, 0)
     RRegexp.set_reg(copy, 0)
     RRegexp.set_alt(copy, 0)
-    r = zr_send(copy, Machine.id(:recompile), 0, 0)
-    return r if r == QUNDEF
   elsif t != T_PROC && t != T_METHOD
+    # The cell already holds the original's words; clear them, or the
+    # collector frees what the original still owns when the copy dies.
+    memset(Machine.ptr(copy) + RBasic.size, Machine.i32(0), CELL - RBasic.size)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't copy this kind of object"), 30)
   end
   if (RBasic.flags(orig) & FL_EXIVAR) != 0
@@ -78,6 +98,23 @@ machine def zr_copy_cell(orig)
   copy = zr_alloc(zr_type(orig), zr_real_class(orig))
   zr_memcpy(Machine.ptr(copy) + RBasic.size, Machine.ptr(orig) + RBasic.size, CELL - RBasic.size)
   zr_copy_payload(copy, orig)
+end
+
+# A copy starts as `allocate` would make one, so a class with no
+# allocator has no copies: a Thread, an Encoding. A Proc, a Method and a
+# Binding copy as their own kinds do.
+sig [Value] => Value
+machine def zr_copy_allocatable(recv)
+  klass = zr_real_class(recv)
+  t = zr_type(recv)
+  if t != T_PROC && t != T_METHOD && zr_alloc_kind(klass) == ALLOC_UNDEF
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("allocator undefined for "), 24)
+    zr_buf_class(b, klass)
+    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+  Machine.value(QNIL)
 end
 
 # `Array#initialize_copy`, which is what fills a `dup` or a `clone`: the
@@ -190,6 +227,8 @@ machine def zr_obj_dup(recv, argc, argv, cref, blk)
   if zr_type(recv) == T_CLASS || zr_type(recv) == T_MODULE
     return zr_class_copy(recv)
   end
+  r = zr_copy_allocatable(recv)
+  return r if r == QUNDEF
   copy = zr_copy_cell(recv)
   return copy if copy == QUNDEF
   slot = Machine.slot(8)
@@ -238,6 +277,8 @@ machine def zr_obj_clone(recv, argc, argv, cref, blk)
   if zr_type(recv) == T_CLASS || zr_type(recv) == T_MODULE
     copy = zr_class_copy(recv)
   else
+    r = zr_copy_allocatable(recv)
+    return r if r == QUNDEF
     copy = zr_copy_cell(recv)
     return copy if copy == QUNDEF
     if zr_singleton_p(RBasic.klass(recv))

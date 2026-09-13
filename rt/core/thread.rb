@@ -214,6 +214,7 @@ class Thread
   end
 
   def initialize(*args, &block)
+    Kernel.raise ThreadError, "already initialized thread - #{@block.source_location&.join(":")}" if @block
     Kernel.raise ThreadError, "must be called with a block" unless block
 
     @block = block
@@ -596,6 +597,9 @@ class ThreadGroup
 end
 
 class Fiber
+  # A Fiber is made whole by `Fiber.new`, so there is no second start.
+  private def initialize(*, **, &) = Kernel.raise(RuntimeError, "cannot initialize twice")
+
   class << self
     # A fiber starts with a copy of its maker's storage, its own Hash,
     # or none. Its block runs inside a catch, so a kill throws to that
@@ -714,6 +718,7 @@ class Thread::Mutex
   def initialize
     Primitive.zr_state_set(self, :__owner__, nil)
     Primitive.zr_state_set(self, :__waiters__, [])
+    nil
   end
 
   def locked? = !Primitive.zr_hidden_get(self, :__owner__).nil?
@@ -772,6 +777,7 @@ end
 class Thread::ConditionVariable
   def initialize
     @waiters = []
+    nil
   end
 
   # What Mutex#sleep answers: the seconds slept, or nil on the timeout.
@@ -871,6 +877,11 @@ class Thread::Queue
   def freeze
     raise TypeError, "cannot freeze #{Primitive.zr_any_to_s(self)}"
   end
+end
+
+class Thread::Queue
+  # A queue's waiters belong to the queue, so ruby takes copying away.
+  undef_method :initialize_copy
 end
 
 class Thread::SizedQueue < Thread::Queue

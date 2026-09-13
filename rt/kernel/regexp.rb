@@ -45,6 +45,17 @@ machine def zr_regexp_alloc(klass)
   re
 end
 
+# The pattern `other` holds, in the husk `re`: its source, options and
+# names, compiled again so the copy has an engine handle of its own.
+sig [Value, Value] => Value
+machine def zr_regexp_copy_from(re, other)
+  RRegexp.set_source(re, RRegexp.source(other))
+  RRegexp.set_options(re, RRegexp.options(other))
+  RRegexp.set_names(re, RRegexp.names(other))
+  RRegexp.set_text(re, RRegexp.text(other))
+  zr_send(re, Machine.id(:recompile), 0, 0)
+end
+
 # The pattern `source` (what the engine reads), compiled with `options`
 # (Ruby's bits, which are oniguruma's) and seated in the husk `re`: the
 # Regexp, or [error code, the text the error points at] for the core to

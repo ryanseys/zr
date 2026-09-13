@@ -253,6 +253,7 @@ module Ze0
         d zr_ivtab_copy Void to:Ptr from:Ptr
         d zr_copy_payload Value copy:Value orig:Value
         d zr_copy_cell Value orig:Value
+        d zr_copy_allocatable Value recv:Value
         d zr_ary_initialize_copy Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_initialize_copy Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_initialize_copy Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -874,6 +875,7 @@ module Ze0
         d zr_local_jump_error Value bytes:Ptr len:Word reason:Word v:Value
         d zr_break Value p:Value v:Value
         d zr_block_call_live Bool p:Value
+        d zr_same_block Bool given:Value p:Value
         d zr_return Value p:Value v:Value
         d zr_catch_break Value rec:Ptr site:Word
         d zr_return_here Value v:Value
@@ -967,6 +969,7 @@ module Ze0
         d zr_mod_attached Value klass:Value
         d zr_onig_ready Void
         d zr_regexp_alloc Value klass:Value
+        d zr_regexp_copy_from Value re:Value other:Value
         d zr_regexp_seat Value re:Value source:Value shown:Value options:Value
         d zr_regexp_recompile Value re:Value text:Value
         d zr_regexp_reg_for Ptr re:Value str:Value

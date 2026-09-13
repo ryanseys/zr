@@ -4,11 +4,10 @@ class Range
 
   # A plain Range is frozen from birth; a subclass's instance is not.
   def initialize(low, high, exclude_end = false)
+    modify!
     raise ArgumentError, "bad value for range" if !low.nil? && !high.nil? && (low <=> high).nil?
 
-    @begin = low
-    @end = high
-    @excl = exclude_end ? true : false
+    bound(low, high, exclude_end ? true : false)
     freeze if instance_of?(Range)
   end
 
@@ -487,5 +486,31 @@ class Range
     return init if last < self.begin
 
     init + (self.begin + last) * (last - self.begin + 1) / 2
+  end
+
+  private
+
+  # What `dup` and `clone` fill a copy with: the other Range's bounds.
+  def initialize_copy(other)
+    modify!
+    raise TypeError, "initialize_copy should take same class object" unless other.instance_of?(self.class)
+
+    bound(other.begin, other.end, other.exclude_end?)
+    self
+  end
+
+  # rb_range_modify: a Range is set once, and a frozen one never.
+  def modify!
+    Primitive.attr! :hidden
+    Primitive.zr_frozen_error(self) if frozen?
+    raise NameError.new("'initialize' called twice", :initialize, receiver: self) if Primitive.zr_hidden_get(self, :__built__)
+  end
+
+  def bound(low, high, exclude_end)
+    Primitive.attr! :hidden
+    @begin = low
+    @end = high
+    @excl = exclude_end
+    Primitive.zr_hidden_set(self, :__built__, true)
   end
 end
