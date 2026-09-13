@@ -96,10 +96,10 @@ Finished in <time>
   1) Error:
 FailuresTest#test_errors:
 ArgumentError: boom
-    milestones/a_minitest_suite_runs.rb:48:in 'FailuresTest#test_errors'
+    gaps/a_minitest_suite_runs.rb:48:in 'FailuresTest#test_errors'
 
   2) Failure:
-FailuresTest#test_fails [milestones/a_minitest_suite_runs.rb:44]:
+FailuresTest#test_fails [gaps/a_minitest_suite_runs.rb:44]:
 one is not two.
 Expected: 1
   Actual: 2

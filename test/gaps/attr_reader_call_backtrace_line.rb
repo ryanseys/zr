@@ -45,9 +45,9 @@ begin; Holder.new.a(1); rescue ArgumentError => e; p [e.message, e.backtrace.fir
 frozen = Holder.new.freeze
 begin; frozen.b = 9; rescue FrozenError => e; p e.backtrace.first(2); end
 __END__
-["core/tracepoint/attr_reader_call_backtrace_line.rb:16:in 'Holder#boom'", "core/tracepoint/attr_reader_call_backtrace_line.rb:40:in '<main>'"]
-["core/tracepoint/attr_reader_call_backtrace_line.rb:22:in 'Holder#wboom'", "core/tracepoint/attr_reader_call_backtrace_line.rb:41:in '<main>'"]
-["core/tracepoint/attr_reader_call_backtrace_line.rb:28:in 'Holder#bboom'", "core/tracepoint/attr_reader_call_backtrace_line.rb:42:in '<main>'"]
-["core/tracepoint/attr_reader_call_backtrace_line.rb:34:in 'Holder#hand'", "core/tracepoint/attr_reader_call_backtrace_line.rb:43:in '<main>'"]
-["wrong number of arguments (given 1, expected 0)", "core/tracepoint/attr_reader_call_backtrace_line.rb:44:in '<main>'"]
-["core/tracepoint/attr_reader_call_backtrace_line.rb:46:in '<main>'"]
+["gaps/attr_reader_call_backtrace_line.rb:16:in 'Holder#boom'", "gaps/attr_reader_call_backtrace_line.rb:40:in '<main>'"]
+["gaps/attr_reader_call_backtrace_line.rb:22:in 'Holder#wboom'", "gaps/attr_reader_call_backtrace_line.rb:41:in '<main>'"]
+["gaps/attr_reader_call_backtrace_line.rb:28:in 'Holder#bboom'", "gaps/attr_reader_call_backtrace_line.rb:42:in '<main>'"]
+["gaps/attr_reader_call_backtrace_line.rb:34:in 'Holder#hand'", "gaps/attr_reader_call_backtrace_line.rb:43:in '<main>'"]
+["wrong number of arguments (given 1, expected 0)", "gaps/attr_reader_call_backtrace_line.rb:44:in '<main>'"]
+["gaps/attr_reader_call_backtrace_line.rb:46:in '<main>'"]

@@ -8,5 +8,5 @@
 UNDEF += 1
 __END__
 #@ stderr
-lang/variables/other_compound_assignment_operators_still_raise_on_an_undefined_constant.rb:9:in '<main>': uninitialized constant UNDEF (NameError)
+gaps/other_compound_assignment_operators_still_raise_on_an_undefined_constant.rb:9:in '<main>': uninitialized constant UNDEF (NameError)
 #@ exit 1

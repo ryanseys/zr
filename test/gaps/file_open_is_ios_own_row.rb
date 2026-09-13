@@ -100,4 +100,4 @@ File.for_fd subclass	"Journal"
 ["File", "hello"]
 ran to the end
 #@ stderr
-compiler/builtins/file_open_is_ios_own_row.rb:65: warning: File::new() does not take block; use File::open() instead
+gaps/file_open_is_ios_own_row.rb:65: warning: File::new() does not take block; use File::open() instead

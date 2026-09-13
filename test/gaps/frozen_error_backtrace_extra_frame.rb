@@ -56,11 +56,11 @@ rescue RuntimeError => e
   p e.backtrace.first
 end
 __END__
-["core/tracepoint/frozen_error_backtrace_extra_frame.rb:7:in '<main>'"]
-["core/tracepoint/frozen_error_backtrace_extra_frame.rb:13:in '<main>'"]
-["core/tracepoint/frozen_error_backtrace_extra_frame.rb:19:in '<main>'"]
-["core/tracepoint/frozen_error_backtrace_extra_frame.rb:25:in '<main>'"]
-"core/tracepoint/frozen_error_backtrace_extra_frame.rb:32:in 'String#[]='"
-"core/tracepoint/frozen_error_backtrace_extra_frame.rb:38:in 'String#concat'"
-"core/tracepoint/frozen_error_backtrace_extra_frame.rb:44:in 'Array#sort!'"
-"core/tracepoint/frozen_error_backtrace_extra_frame.rb:51:in 'Sink#<<'"
+["gaps/frozen_error_backtrace_extra_frame.rb:7:in '<main>'"]
+["gaps/frozen_error_backtrace_extra_frame.rb:13:in '<main>'"]
+["gaps/frozen_error_backtrace_extra_frame.rb:19:in '<main>'"]
+["gaps/frozen_error_backtrace_extra_frame.rb:25:in '<main>'"]
+"gaps/frozen_error_backtrace_extra_frame.rb:32:in 'String#[]='"
+"gaps/frozen_error_backtrace_extra_frame.rb:38:in 'String#concat'"
+"gaps/frozen_error_backtrace_extra_frame.rb:44:in 'Array#sort!'"
+"gaps/frozen_error_backtrace_extra_frame.rb:51:in 'Sink#<<'"

@@ -1,4 +1,4 @@
-DIR = File.expand_path("../../fixtures/singleton_yield", __dir__)
+DIR = File.expand_path("../fixtures/singleton_yield", __dir__)
 $LOAD_PATH.unshift(DIR)
 
 name = "singleton_yield_target"
