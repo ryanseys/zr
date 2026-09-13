@@ -191,20 +191,51 @@ class Ractor
   end
   private_class_method :isolate
 
-  # A frozen block whose self is shareable, which any ractor may call.
-  def self.shareable_proc(&block)
-    raise ArgumentError, "must be called with a block" unless block
+  # A copy of the block that any ractor may call: frozen, answering to
+  # `self:` (nil unless given), with no Binding to reach its scope by.
+  def self.shareable_proc(**options, &block)
+    raise ArgumentError, "tried to create Proc object without a block" unless block
 
-    isolate(block)
-    block.freeze
+    shareable(block, options, lambda: false)
   end
 
-  def self.shareable_lambda(&block)
-    raise ArgumentError, "must be called with a block" unless block
+  # The same, and a literal block becomes a lambda.
+  def self.shareable_lambda(**options, &block)
+    raise ArgumentError, "tried to create Proc object without a block" unless block
 
-    isolate(block)
-    lambda(&block).freeze
+    shareable(block, options, lambda: true)
   end
+
+  # Ruby's rules for a shareable block, in ruby's order. Its self has to
+  # be shareable. It may not write a local outside itself. And every
+  # local it reads there must be bound once in its own scope -- so the
+  # value the block copies is the only one the local will ever hold --
+  # and hold a shareable value now.
+  #
+  # Written locals are named in the order ruby names them, by symbol;
+  # read ones are checked the other way round, as ruby checks them.
+  def self.shareable(block, options, lambda:)
+    Primitive.attr! :hidden
+    unknown = options.keys - [:self]
+    raise ArgumentError, "unknown keyword#{"s" if unknown.size > 1}: #{unknown.map(&:inspect).join(", ")}" unless unknown.empty?
+
+    receiver = options[:self]
+    raise IsolationError, "self should be shareable: #{receiver.inspect}" unless shareable?(receiver)
+
+    rows = Primitive.zr_proc_capture_rows_m(block)
+    written = rows.filter_map { |name, write, _| name if write }
+    raise ArgumentError, "can not make a Proc shareable because it accesses outer variables (#{written.join(", ")})." unless written.empty?
+
+    scope = Primitive.zr_proc_binding(block) unless rows.empty?
+    rows.reverse_each do |name, _, rebound|
+      raise IsolationError, "cannot make a shareable Proc because the outer variable '#{name}' may be reassigned." if rebound
+
+      value = scope.local_variable_get(name)
+      raise IsolationError, "cannot make a shareable Proc because it can refer unshareable object #{value.inspect} from variable '#{name}'" unless shareable?(value)
+    end
+    Primitive.zr_proc_isolated_m(block, receiver, lambda)
+  end
+  private_class_method :shareable
 
   # The main ractor, which is the one the program starts in.
   def self.main

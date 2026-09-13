@@ -10,6 +10,10 @@ Machine.struct :RProc, basic: RBasic, fn: Ptr, meta: Ptr, env: Value, self: Valu
 Machine.sig :block, [Value, Word, Ptr, Value] => Value
 T_ENV = 26
 T_PROC = 27
+# A Proc `Ractor.shareable_proc` made: frozen, calling nothing it did not
+# copy, and with no Binding to reach its scope through. A copy of it is
+# an ordinary Proc again, so the bit is not carried over.
+FL_ISOLATED = 1 << 13
 G_PROC = 28
 G_LOCAL_JUMP_ERROR = 29
 PENDING_RAISE = 0
@@ -85,23 +89,75 @@ machine def zr_proc_rebind_m(p, self_)
   p
 end
 
-# The locals a block reads from outside itself, as Symbols. A Ractor
+# The locals a block reaches outside itself, as Symbols. A Ractor
 # refuses a block that reaches one, and names them. A block that reaches
 # none carries no table at all.
 sig [Value] => Value
 machine def zr_proc_captures_m(p)
   out = zr_ary_new(4)
-  table = FrameMeta.captures(RProc.meta(p))
+  table = zr_proc_captures_table(p)
   if table == 0
     return out
   end
   n = Machine.load64(table, 0)
   i = 0
   while i < n
-    zr_ary_push(out, zr_sym(Machine.load64(table + 8 + (i * 8), 0)))
+    zr_ary_push(out, zr_sym(Machine.load64(table + 8 + (i * 16), 0)))
     i += 1
   end
   out
+end
+
+# The same locals as `[name, written, rebound]` rows: whether the block
+# writes the local, and whether the scope that owns it binds it more
+# than once. `Ractor.shareable_proc` refuses a block for either.
+sig [Value] => Value
+machine def zr_proc_capture_rows_m(p)
+  out = zr_ary_new(4)
+  table = zr_proc_captures_table(p)
+  if table == 0
+    return out
+  end
+  n = Machine.load64(table, 0)
+  i = 0
+  while i < n
+    row = table + 8 + (i * 16)
+    flags = Machine.load64(row, 8)
+    triple = zr_ary_new(3)
+    zr_ary_push(triple, zr_sym(Machine.load64(row, 0)))
+    zr_ary_push(triple, zr_bool((flags & 1) != 0))
+    zr_ary_push(triple, zr_bool((flags & 2) != 0))
+    zr_ary_push(out, triple)
+    i += 1
+  end
+  out
+end
+
+# A copy of `p` any ractor may call, answering to `self_`. A literal
+# block becomes a lambda when `lambda` asks; a Proc that was passed in
+# keeps what it is, as ruby's `shareable_lambda(&pr)` does.
+sig [Value, Value, Value] => Value
+machine def zr_proc_isolated_m(p, self_, lambda)
+  copy = zr_copy_cell(p)
+  if copy == QUNDEF
+    return copy
+  end
+  RProc.set_self(copy, self_)
+  if lambda == QTRUE && RProc.passed(p) == 0
+    RProc.set_lambda(copy, 1)
+  end
+  RBasic.set_flags(copy, RBasic.flags(copy) | FL_FREEZE | FL_ISOLATED)
+  copy
+end
+
+# A native Proc has no meta, and no locals to reach.
+sig [Value] => Ptr
+machine def zr_proc_captures_table(p)
+  meta = RProc.meta(p)
+  if meta == 0
+    return 0
+  end
+  FrameMeta.captures(meta)
 end
 
 sig [Ptr, Value, Value, Value, Value, Ptr, Word, Ptr] => Value

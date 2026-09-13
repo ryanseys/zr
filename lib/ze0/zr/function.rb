@@ -63,7 +63,12 @@ module Ze0
         @cref_layout = lower.layout("RCref")
         @proc_layout = lower.layout("RProc")
         @slot_of = locals.each_with_index.to_h
-        @captures = []
+        lower.spell(locals)
+        # The locals this scope reaches outside itself: each one's depth
+        # from here, in the order they are first reached, and the ones it
+        # writes.
+        @captures = {}
+        @writes = []
         @has_env = %i[eval main].include?(@kind) || Scope.holds_block?(body) || Scope.opens_locals?(body) ||
                    default_expressions.any? { |d| Scope.holds_block?(d) || Scope.opens_locals?(d) }
         @sites = 0
@@ -86,7 +91,7 @@ module Ze0
         land if @landing
         # Now the body is lowered, what it reaches outside itself is
         # known, and the table its meta names can be written.
-        @l.captures_table(@name, @captures.uniq)
+        @l.captures_table(@name, capture_rows)
         @l.functions << @f
         @f
       end
@@ -318,14 +323,14 @@ module Ze0
       end
 
       def read_local(i, depth, name = nil)
-        capture(name, depth)
+        capture(name, depth, write: false)
         return @f.fetch("i64", @rec, value_offset(i)) if depth.zero? && !@has_env
 
         kernel("zr_env_get", env_at(depth), imm(i))
       end
 
       def write_local(i, depth, v, name = nil)
-        capture(name, depth)
+        capture(name, depth, write: true)
         if depth.zero? && !@has_env
           @f.store(v, @rec, value_offset(i))
         else
@@ -334,16 +339,44 @@ module Ze0
         v
       end
 
-      # A local this scope reads from a scope outside itself. A Ractor
-      # refuses a block that reaches one and names it, so every scope
-      # between the two records it: a block reaches past the block that
-      # holds it.
-      def capture(name, depth)
+      # A local this scope reads or writes in a scope outside itself. A
+      # Ractor refuses a block that reaches one and names it, so every
+      # scope between the two records it: a block reaches past the block
+      # that holds it.
+      def capture(name, depth, write:)
         return if name.nil? || depth.zero?
 
-        @captures << name
-        @outer&.__send__(:capture, name, depth - 1)
+        @captures[name] ||= depth
+        @writes << name if write && !@writes.include?(name)
+        @outer&.__send__(:capture, name, depth - 1, write: write)
       end
+
+      # `[name, written, rebound]` for each local this scope reaches
+      # outside itself: whether it writes the local, and whether the scope
+      # that owns the local binds it more than once. `Ractor.shareable_proc`
+      # refuses a block for either.
+      def capture_rows
+        @captures.map do |name, depth|
+          home = self
+          depth.times { home = home.outer }
+          [name, @writes.include?(name), home.bindings[name] > 1]
+        end
+      end
+
+      # How many times each local of this scope is bound: once for a
+      # parameter, and once for every assignment to it here or in a block
+      # inside, wherever it runs and however often. That is how ruby counts
+      # a local that "may be reassigned": `x = 1` in a loop is one binding,
+      # `x = 1; x = 2` is two.
+      def bindings
+        @bindings ||= begin
+          counts = Scope.assignments(@body)
+          params = %i[def block].include?(@kind) ? @def.params : nil
+          params&.names&.each { |name| counts[name] += 1 }
+          counts
+        end
+      end
+      protected :bindings
 
       # `nodes` evaluated into fresh record slots, `extra` more reserved
       # after them; the block gets the address of the first slot and its

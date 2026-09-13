@@ -24,7 +24,11 @@ module Ze0
       # A scope an eval runs inside is compiled already, so what it
       # reaches outside itself is written down. The eval keeps its own
       # table and the walk stops here.
-      def capture(_name, _depth) = nil
+      def capture(_name, _depth, write:) = nil
+
+      # Its body is not here to count, so no local of it counts as bound
+      # twice.
+      def bindings = Hash.new(0)
 
       def slot_index(node)
         @slot_of.fetch(node.name) { raise ArgumentError, "#{node.name} is not a local of the scope this eval runs in" }
@@ -73,6 +77,7 @@ module Ze0
         @warnings = program.warnings || []
         @data = []
         @functions = []
+        @spelled = {}
         @next = 0
       end
 
@@ -185,13 +190,28 @@ module Ze0
         name
       end
 
-      # The locals a scope reads from outside itself, as data: the row
-      # count, then a name id each. A Ractor reads them off a block's meta
-      # to refuse a block it cannot isolate, and to name what it reaches.
-      def captures_table(fn, names)
+      # The locals a scope reaches outside itself, as data: the row count,
+      # then a name id and its flags each (1: the scope writes it, 2: the
+      # scope that owns it binds it more than once). A Ractor reads them
+      # off a block's meta to refuse a block it cannot isolate, and to
+      # name what it reaches.
+      #
+      # In the order ruby names them: its table of a block's outer
+      # variables is keyed by symbol, and a symbol takes its place where
+      # the program first spells the name. ze0's own symbol ids do not
+      # follow the program -- the runtime spelled many names first -- so
+      # the rows follow the order the program first declares each local.
+      def captures_table(fn, rows)
         name = "zr_captures_#{fn}"
-        @data << Obj::Data.new(name, :text_const, [names.size, *names.map { |n| @symbols.id(n) }].pack("q<*"), align: 8)
+        rows = rows.sort_by { |local, _, _| @spelled.fetch(local, @spelled.size) }
+        words = rows.flat_map { |local, written, rebound| [@symbols.id(local), (written ? 1 : 0) | (rebound ? 2 : 0)] }
+        @data << Obj::Data.new(name, :text_const, [rows.size, *words].pack("q<*"), align: 8)
         name
+      end
+
+      # Each of `names` in the order the program first declares it.
+      def spell(names)
+        names.each { |n| @spelled[n] ||= @spelled.size }
       end
 
       PARAM_KINDS = %i[req opt rest keyreq key keyrest block nokey].each_with_index.to_h.freeze

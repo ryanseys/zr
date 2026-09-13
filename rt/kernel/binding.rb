@@ -107,6 +107,9 @@ machine def zr_proc_binding(p)
   if RProc.meta(p) == 0
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("Can't create Binding from C level Proc"), 38)
   end
+  if (RBasic.flags(p) & FL_ISOLATED) != 0
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("Can't create Binding from isolated Proc"), 39)
+  end
   b = zr_binding_of(RProc.meta(p), RProc.env(p), RProc.self(p), RProc.cref(p))
   RProc.set_serial(b, FrameMeta.line(RProc.meta(p)))
   b

@@ -26,6 +26,26 @@ module Ze0
         end
       end
 
+      # How many assignments `node` makes to each local of the scope it is
+      # the body of, as a Hash counting from zero. A block reaches the
+      # scope's locals one level further out; a def, class or module body
+      # is a scope of its own, and only the expressions that stand in this
+      # scope around it (a singleton def's receiver, a superclass) are read.
+      def assignments(node, level = 0, counts = Hash.new(0))
+        case node
+        when Hir::Assign
+          counts[node.name] += 1 if node.depth == level
+          assignments(node.value, level, counts)
+        when Hir::Block then assignments([node.params, node.body], level + 1, counts)
+        when Hir::Def then assignments(node.receiver, level, counts)
+        when Hir::ClassDef then assignments([node.scope, node.superclass], level, counts)
+        when Hir::ModuleDef then assignments(node.scope, level, counts)
+        when Hir::SingletonClassDef then assignments(node.target, level, counts)
+        when Struct, Array then node.each { |child| assignments(child, level, counts) }
+        end
+        counts
+      end
+
       # The sends that make a scope keep its locals in an Env: an eval
       # reads and writes them there, a Binding holds them after the frame
       # is gone, and `local_variables` names them.

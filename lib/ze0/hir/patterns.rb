@@ -66,13 +66,19 @@ module Ze0
 
         # `/(?<x>.)/ =~ text`: the named groups assigned to locals, nil
         # when nothing matched; the value is what `=~` answered.
+        #
+        # One assignment a name, whose value is the group or nil, and not
+        # one in each arm of a branch: ruby binds a named group once, and
+        # `Ractor.shareable_proc` counts the bindings a local has.
         def match_write(node)
           line = node.location.start_line
           result = temp(:matched)
           match = GvarRead.new(:$~, line)
-          on_match = node.targets.map { |t| Assign.new(t.name, t.depth, send_to(match, :[], [Literal.new(t.name, line)], line), line) }
-          on_miss = node.targets.map { |t| Assign.new(t.name, t.depth, Literal.new(nil, line), line) }
-          Seq.new([set(result, expr(node.call), line), If.new(match, Seq.new(on_match, line), Seq.new(on_miss, line), line), read(result, line)], line)
+          writes = node.targets.map do |t|
+            group = send_to(match, :[], [Literal.new(t.name, line)], line)
+            Assign.new(t.name, t.depth, If.new(match, group, Literal.new(nil, line), line), line)
+          end
+          Seq.new([set(result, expr(node.call), line), *writes, read(result, line)], line)
         end
 
         # The raise when nothing matched: the subject's to_s alone when
