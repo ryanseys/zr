@@ -1,12 +1,8 @@
 # iconst.small
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #16
-  str x19, [sp]
 block0:
-  movz x19, #7
-  mov x0, x19
-  ldr x19, [sp]
+  movz x0, #7
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -30,12 +26,8 @@ block0:
 # iconst.negative
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #16
-  str x19, [sp]
 block0:
-  movn x19, #1
-  mov x0, x19
-  ldr x19, [sp]
+  movn x0, #1
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -43,12 +35,8 @@ block0:
 # iconst.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #16
-  str x19, [sp]
 block0:
-  movz x19, #1
-  mov w0, w19
-  ldr x19, [sp]
+  movz x0, #1
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -969,18 +957,15 @@ block0:
 # imm.add
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #32
+  sub sp, sp, #16
   str x19, [sp]
   str x20, [sp, #8]
-  str x21, [sp, #16]
   mov x19, x0
 block0:
-  movz x20, #52
-  add x21, x19, #52
-  mov x0, x21
+  add x20, x19, #52
+  mov x0, x20
   ldr x19, [sp]
   ldr x20, [sp, #8]
-  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -988,18 +973,15 @@ block0:
 # imm.add_negative
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #32
+  sub sp, sp, #16
   str x19, [sp]
   str x20, [sp, #8]
-  str x21, [sp, #16]
   mov x19, x0
 block0:
-  movn x20, #7
-  sub x21, x19, #8
-  mov x0, x21
+  sub x20, x19, #8
+  mov x0, x20
   ldr x19, [sp]
   ldr x20, [sp, #8]
-  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1007,18 +989,16 @@ block0:
 # imm.add_wide
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #32
+  sub sp, sp, #16
   str x19, [sp]
   str x20, [sp, #8]
-  str x21, [sp, #16]
   mov x19, x0
 block0:
-  movz x20, #0x1388
-  add x21, x19, x20
-  mov x0, x21
+  movz x10, #0x1388
+  add x20, x19, x10
+  mov x0, x20
   ldr x19, [sp]
   ldr x20, [sp, #8]
-  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1026,18 +1006,15 @@ block0:
 # imm.sub.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #32
+  sub sp, sp, #16
   str x19, [sp]
   str x20, [sp, #8]
-  str x21, [sp, #16]
   mov x19, x0
 block0:
-  movz x20, #1
-  sub w21, w19, #1
-  mov w0, w21
+  sub w20, w19, #1
+  mov w0, w20
   ldr x19, [sp]
   ldr x20, [sp, #8]
-  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1045,18 +1022,15 @@ block0:
 # imm.and
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #32
+  sub sp, sp, #16
   str x19, [sp]
   str x20, [sp, #8]
-  str x21, [sp, #16]
   mov x19, x0
 block0:
-  movz x20, #7
-  and x21, x19, #7
-  mov x0, x21
+  and x20, x19, #7
+  mov x0, x20
   ldr x19, [sp]
   ldr x20, [sp, #8]
-  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1064,18 +1038,16 @@ block0:
 # imm.and_not_a_mask
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #32
+  sub sp, sp, #16
   str x19, [sp]
   str x20, [sp, #8]
-  str x21, [sp, #16]
   mov x19, x0
 block0:
-  movz x20, #5
-  and x21, x19, x20
-  mov x0, x21
+  movz x10, #5
+  and x20, x19, x10
+  mov x0, x20
   ldr x19, [sp]
   ldr x20, [sp, #8]
-  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1083,18 +1055,15 @@ block0:
 # imm.orr_left
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #32
+  sub sp, sp, #16
   str x19, [sp]
   str x20, [sp, #8]
-  str x21, [sp, #16]
   mov x19, x0
 block0:
-  movn x20, #3
-  orr x21, x19, #0xfffffffffffffffc
-  mov x0, x21
+  orr x20, x19, #0xfffffffffffffffc
+  mov x0, x20
   ldr x19, [sp]
   ldr x20, [sp, #8]
-  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1102,18 +1071,15 @@ block0:
 # imm.ushr
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #32
+  sub sp, sp, #16
   str x19, [sp]
   str x20, [sp, #8]
-  str x21, [sp, #16]
   mov x19, x0
 block0:
-  movz x20, #3
-  lsr x21, x19, #3
-  mov x0, x21
+  lsr x20, x19, #3
+  mov x0, x20
   ldr x19, [sp]
   ldr x20, [sp, #8]
-  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1121,18 +1087,15 @@ block0:
 # imm.ishl.i32
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #32
+  sub sp, sp, #16
   str x19, [sp]
   str x20, [sp, #8]
-  str x21, [sp, #16]
   mov x19, x0
 block0:
-  movz x20, #8
-  lsl w21, w19, #8
-  mov w0, w21
+  lsl w20, w19, #8
+  mov w0, w20
   ldr x19, [sp]
   ldr x20, [sp, #8]
-  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1140,18 +1103,15 @@ block0:
 # imm.sshr
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #32
+  sub sp, sp, #16
   str x19, [sp]
   str x20, [sp, #8]
-  str x21, [sp, #16]
   mov x19, x0
 block0:
-  movz x20, #63
-  asr x21, x19, #63
-  mov x0, x21
+  asr x20, x19, #63
+  mov x0, x20
   ldr x19, [sp]
   ldr x20, [sp, #8]
-  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1159,19 +1119,16 @@ block0:
 # imm.icmp
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #32
+  sub sp, sp, #16
   str x19, [sp]
   str x20, [sp, #8]
-  str x21, [sp, #16]
   mov x19, x0
 block0:
-  movz x20, #52
   cmp x19, #52
-  cset x21, eq
-  uxtb w0, w21
+  cset x20, eq
+  uxtb w0, w20
   ldr x19, [sp]
   ldr x20, [sp, #8]
-  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1179,19 +1136,16 @@ block0:
 # imm.icmp_left
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #32
+  sub sp, sp, #16
   str x19, [sp]
   str x20, [sp, #8]
-  str x21, [sp, #16]
   mov x19, x0
 block0:
-  movz x20, #10
   cmp x19, #10
-  cset x21, gt
-  uxtb w0, w21
+  cset x20, gt
+  uxtb w0, w20
   ldr x19, [sp]
   ldr x20, [sp, #8]
-  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -2065,29 +2019,25 @@ block1:
 # brif
   stp x29, x30, [sp, #-16]!
   mov x29, sp
-  sub sp, sp, #32
+  sub sp, sp, #16
   str x19, [sp]
   str x20, [sp, #8]
-  str x21, [sp, #16]
   mov x19, x0
   mov x20, x1
 block0:
-  movz x21, #0
   uxtb w9, w19
   cbz w9, block2
 block1:
   mov x0, x20
   ldr x19, [sp]
   ldr x20, [sp, #8]
-  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
 block2:
-  mov x0, x21
+  movz x0, #0
   ldr x19, [sp]
   ldr x20, [sp, #8]
-  ldr x21, [sp, #16]
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret

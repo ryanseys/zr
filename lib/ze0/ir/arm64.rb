@@ -109,8 +109,8 @@ module Ze0
 
       def compile
         assign_types
-        @reg = Regalloc.of(@f)
         plan_constants
+        @reg = Regalloc.of(@f, skip: @remade)
         plan_fusion
         assign_homes
         @f.blocks.each { |b| @labels[b.name] = @asm.make_label(b.name) }
@@ -170,7 +170,9 @@ module Ze0
         end
         @fused = {}
         @f.blocks.each do |b|
-          b.insts.each_cons(2) do |cmp, brif|
+          # A constant made at its reads emits nothing where it stands, so
+          # it does not part a compare from its branch.
+          b.insts.reject { |i| @remade.include?(i.results[0]) }.each_cons(2) do |cmp, brif|
             next unless cmp.op == :icmp && brif.op == :brif
 
             r = cmp.results[0]
@@ -185,10 +187,26 @@ module Ze0
       # Every `iconst` by the value it names. A value is defined once, so
       # wherever it is used its number is known, and an instruction with
       # an immediate form can take the number instead of a register.
+      #
+      # A constant one instruction makes is made again at every read and
+      # nowhere else (`@remade`): no register, no slot, and nothing at its
+      # definition. A read that takes it as an immediate makes nothing at
+      # all, and one that does not pays a `movz` where it paid an `ldr`.
+      # The register it no longer holds goes to a value that has to live
+      # somewhere. `IR::Function#hoisted` puts every constant in the entry
+      # block, so each of them held one for the whole function.
       def plan_constants
         @const = {}
+        @remade = Set.new
         @f.blocks.each do |b|
-          b.insts.each { |i| @const[i.results[0]] = i.args[0] if i.op == :iconst }
+          b.insts.each do |i|
+            next unless i.op == :iconst
+
+            v = i.results[0]
+            @const[v] = i.args[0]
+            type = type_of(v)
+            @remade << v if WIDTH_MASK.key?(type) && materialized(i.args[0] & WIDTH_MASK[type]) == 1
+          end
         end
       end
 
@@ -209,7 +227,7 @@ module Ze0
         off = align(off, 8)
         @f.blocks.each do |b|
           (b.params.map(&:first) + b.insts.flat_map(&:results)).each do |v|
-            next if @reg.key?(v)
+            next if @reg.key?(v) || @remade.include?(v)
 
             @home[v] = off
             off += 8
@@ -259,6 +277,7 @@ module Ze0
       def load_value(v, reg)
         home = @reg[v]
         return narrow(reg, home, type_of(v)) if home
+        return materialize(reg, @const[v] & WIDTH_MASK[type_of(v)]) if @remade.include?(v)
 
         off = @home.fetch(v)
         case type_of(v)
@@ -393,6 +412,8 @@ module Ze0
       def emit(i)
         case i.op
         when :iconst
+          return if @remade.include?(i.results[0])
+
           d = result_in(i.results[0], X9)
           materialize(d, i.args[0])
           store_value(i.results[0], d)
@@ -761,7 +782,11 @@ module Ze0
       # compared by and is never equal to a number, so the two kinds
       # cannot collide -- and this runs several times for every edge in
       # the program, which is no place to make an Array.
-      def place(v) = @reg[v] || @home.fetch(v)
+      #
+      # A constant made where it is read has no place, and is never a
+      # destination: its own name stands for it, which no Register and no
+      # Integer equals.
+      def place(v) = @reg[v] || @home.fetch(v) { @remade.include?(v) ? v : raise(KeyError, v) }
 
       # The copies an edge asks for, in an order where no destination is
       # written while a source still has to be read out of it.
@@ -837,6 +862,14 @@ module Ze0
       # One value to where another one lives. A source with a register
       # home is stored straight out of it; only a slot needs the load.
       def copy(dest, source) = store_value(dest, value_in(source, SCRATCH[0]))
+
+      # How many instructions `materialize` spends on `n`.
+      def materialized(n)
+        n &= 0xFFFF_FFFF_FFFF_FFFF
+        chunks = 4.times.map { |k| (n >> (16 * k)) & 0xFFFF }
+        filler = chunks.count(0xFFFF) > chunks.count(0) ? 0xFFFF : 0
+        [chunks.count { |c| c != filler }, 1].max
+      end
 
       # `reg = n`, 16 bits at a time; a negative value starts from its
       # complement so the high halves need no instruction.

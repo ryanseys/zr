@@ -38,11 +38,14 @@ module Ze0
         # operand of every instruction in the program.
         def self.value?(name) = name.is_a?(String) && name.start_with?("v")
 
-        # `{ "v3" => X19, ... }` for the values worth a register.
-        def self.of(function) = new(function).assign
+        # `{ "v3" => X19, ... }` for the values worth a register. `skip`
+        # names values the backend makes where they are read instead, so
+        # they need no register and must not keep one from anything else.
+        def self.of(function, skip: nil) = new(function, skip).assign
 
-        def initialize(function)
+        def initialize(function, skip = nil)
           @f = function
+          @skip = skip
         end
 
         def assign
@@ -210,6 +213,7 @@ module Ze0
           # outright, and owes nothing to the order anything above was
           # walked in. One Integer carries all three.
           span = @points + 1
+          @skip&.each { |name| from[@id[name]] = nil if @id.key?(name) }
           order = (0...count).select { |v| from[v] }
           order.sort_by! { |v| (((from[v] * span) + to[v]) * count) + v }
           [order, from, to]
