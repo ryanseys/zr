@@ -5,6 +5,8 @@
 #
 #   ze0 test <filter>... | --all        does ze0 answer what ruby answered?
 #                [--gc plain|stress] [--show N]
+#   ze0 bench [<filter>...]             how long does what ze0 built take?
+#                [--runs N]
 #   ze0 check [<file>...]               the repo's own checks, a process a file
 #   ze0 stage1                          ze0 compiles itself, twice, to the same bytes
 #   ze0 stage2                          the compiler compiled by itself is a fixed point
@@ -84,6 +86,21 @@ when "test"
   abort "ze0 test: no program matches #{args.inspect}" if cases.empty?
   warn "ze0 test: #{cases.size} program(s)"
   exit(sweep.report(sweep.run(cases)) ? 0 : 1)
+when "bench"
+  require_relative "../lib/ze0/harness/bench"
+  args = ARGV.drop(1)
+  usage if args.include?("-h") || args.include?("--help")
+  runs = Ze0::Harness::Bench::RUNS
+  if (i = args.index("--runs"))
+    runs = Integer(args[i + 1]) rescue usage
+    args.slice!(i, 2)
+  end
+  usage if args.any? { |a| a.start_with?("--") } || runs < 1
+  bench = Ze0::Harness::Bench.new(ROOT, runs: runs)
+  cases = bench.matching(args)
+  abort "ze0 bench: no program matches #{args.inspect}" if cases.empty?
+  warn "ze0 bench: #{cases.size} program(s), #{runs} run(s) each"
+  exit(bench.report(bench.run(cases)) ? 0 : 1)
 when "zr"
   require "tmpdir"
   require_relative "../lib/ze0/zr"

@@ -12,10 +12,10 @@ Local workload divergence: `bm_tree_walker.rb`'s round count was reduced
 while zeo's dispatch-bound gap on it is still open; the polymorphic
 structure is unchanged.
 
-Each `bm_<name>.rb` prints deterministic output; `bm_<name>.rb.expected` is
-that output, oracle-verified against real `ruby`. The criterion harness
-(`crates/zeo/benches/programs.rs`, `make bench`) compiles each with
-`zeo -o` (release runtime), verifies the output matches (a wrong answer
-fails the run -- speed of a wrong answer is meaningless), and times the
-compiled binary; comparisons run through criterion's saved baselines (see
-`README.md` here).
+Each `bm_<name>.rb` prints deterministic output, and carries ruby 4.0.6's
+recording of it under `__END__` in the format of `docs/test-format.md`,
+like every other corpus program. `ze0 bench` builds each one, checks the
+answer against that recording before it keeps any time (a wrong answer
+fails the row -- the speed of a wrong answer means nothing), and reports
+the median of three runs against `ruby` and `ruby --yjit`. The medians
+go to `results.tsv`, which is a text diff away from the last run.
