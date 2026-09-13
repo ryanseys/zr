@@ -9,4 +9,4 @@ rescue RuntimeError => e
 end
 __END__
 "eval"
-["eval:1:in '<compiled>'", "gaps/a_box_literal_eval_is_spliced.rb:6:in 'Ruby::Box#eval'"]
+["eval:1:in '<compiled>'", "lang/boxes/a_box_literal_eval_is_spliced.rb:6:in 'Ruby::Box#eval'"]

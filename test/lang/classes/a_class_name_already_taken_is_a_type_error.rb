@@ -11,4 +11,4 @@ rescue TypeError => e
 end
 __END__
 TOP is not a class
-gaps/a_class_name_already_taken_is_a_type_error.rb:5: previous definition of TOP was here
+lang/classes/a_class_name_already_taken_is_a_type_error.rb:5: previous definition of TOP was here

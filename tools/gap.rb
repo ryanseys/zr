@@ -4,8 +4,11 @@
 # other suite holds only programs that match and a sweep of them reads as
 # a pass, while the gaps wait together to be worked through.
 #
-#   ruby tools/gap.rb core/string/a_case.rb ...   move these
-#   ruby tools/gap.rb --sweep tmp/sweep.txt        move every row a sweep listed
+#   ruby tools/gap.rb core/string/a_case.rb ...     move these
+#   ruby tools/gap.rb --sweep tmp/sweep.txt          move every row a sweep listed
+#   ruby tools/gap.rb --promote gaps/a_case.rb [dir] move a gap that matches back
+#
+# A promoted gap goes to the topic `ORIGINS.tsv` names, or to `dir`.
 #
 # A path is taken relative to test/. A program keeps its file name; one
 # whose name test/gaps/ already holds takes its topic as a prefix. A
@@ -46,31 +49,56 @@ module Gap
 
   module_function
 
-  def run(paths)
-    sweep = Ze0::Harness::Sweep.new(File.dirname(TEST))
+  def sweep = @sweep ||= Ze0::Harness::Sweep.new(File.dirname(TEST))
+
+  # Each program into test/gaps.
+  def demote(paths)
     taken = Dir.children(GAPS).to_set
-    paths.map do |rel|
-      move = one(rel, taken, sweep)
-      puts move.moved? ? "moved   #{move.from} -> #{move.to}" : "stays   #{move.from}: #{move.why}"
-      move
-    end
+    report(paths.map { |rel| demote_one(rel, taken) })
   end
 
-  def one(rel, taken, sweep)
+  # Each gap back to the topic it came from, or to `dir`.
+  def promote(paths, dir = nil)
+    origins = File.exist?(ORIGINS) ? File.readlines(ORIGINS, chomp: true).to_h { |row| row.split("\t", 2) } : {}
+    report(paths.map do |rel|
+      to = dir ? File.join(dir, File.basename(rel)) : origins[rel]
+      next Move.new(rel, nil, "no topic: ORIGINS.tsv has no row for it, so name one") unless to
+
+      move(rel, to).tap { |m| forget(rel) if m.moved? }
+    end)
+  end
+
+  def report(moves)
+    moves.each { |m| puts m.moved? ? "moved   #{m.from} -> #{m.to}" : "stays   #{m.from}: #{m.why}" }
+  end
+
+  def demote_one(rel, taken)
     return Move.new(rel, rel, "already a gap") if rel.start_with?("gaps/")
-    return Move.new(rel, nil, "no such program") unless File.file?(File.join(TEST, rel))
 
     name = File.basename(rel)
     name = "#{File.dirname(rel).tr("/", "_")}_#{name}" if taken.include?(name) || taken.include?(stem(name))
-    to = "gaps/#{name}"
+    move(rel, "gaps/#{name}").tap do |m|
+      next unless m.moved?
+
+      taken << name << stem(name)
+      File.open(ORIGINS, "a") { |f| f.puts "#{m.to}\t#{rel}" }
+    end
+  end
+
+  # `rel` to `to`, both relative to test/, if ruby answers the same there.
+  def move(rel, to)
+    return Move.new(rel, to, "no such program") unless File.file?(File.join(TEST, rel))
+    return Move.new(rel, to, "#{to} is taken") if File.exist?(File.join(TEST, to)) || File.exist?(helpers_of(to))
+
     source, trailer = File.binread(File.join(TEST, rel)).split(END_MARK, 2)
     return Move.new(rel, to, "no recording") unless trailer
 
-    before = answer(rel, sweep)
+    before = answer(rel)
     helpers = [helpers_of(rel), helpers_of(to)]
+    FileUtils.mkdir_p(File.dirname(File.join(TEST, to)))
     FileUtils.mv(*helpers) if File.directory?(helpers[0])
     File.binwrite(File.join(TEST, to), "#{relocated(source, rel, to, helpers)}__END__\n#{trailer.gsub(rel, to)}")
-    why = difference(before, rel, to, sweep)
+    why = difference(before, rel, to)
     if why
       File.delete(File.join(TEST, to))
       FileUtils.mv(*helpers.reverse) if File.directory?(helpers[1])
@@ -78,9 +106,14 @@ module Gap
     end
 
     File.delete(File.join(TEST, rel))
-    taken << name << stem(name)
-    File.open(ORIGINS, "a") { |f| f.puts "#{to}\t#{rel}" }
     Move.new(rel, to, nil)
+  end
+
+  def forget(rel)
+    return unless File.exist?(ORIGINS)
+
+    rows = File.readlines(ORIGINS).reject { |row| row.start_with?("#{rel}\t") }
+    File.write(ORIGINS, rows.join)
   end
 
   def stem(name) = name.delete_suffix(".rb")
@@ -124,8 +157,8 @@ module Gap
   # Why ruby answers differently at `to` than it did at `from`, or nil.
   # The answer from `from` has its path spelled as `to` first, which is
   # exactly the change the recording was given.
-  def difference(before, from, to, sweep)
-    after = answer(to, sweep)
+  def difference(before, from, to)
+    after = answer(to)
     return "ruby ran past #{Ze0::Harness::Sweep::LIMIT}s" if before.code == :timeout || after.code == :timeout
 
     %i[stdout stderr].each { |s| before[s] = before[s].gsub(from, to) }
@@ -134,7 +167,7 @@ module Gap
     "ruby answers differently there: #{sweep.diff(before, after)}"
   end
 
-  def answer(rel, sweep)
+  def answer(rel)
     path = File.join(TEST, rel)
     kase = Ze0::Harness::Case.read(path)
     d = kase.directives
@@ -153,9 +186,17 @@ module Gap
 end
 
 if $PROGRAM_NAME == __FILE__
-  args = ARGV.dup
-  abort "usage: ruby tools/gap.rb <path>... | --sweep <rows file>" if args.empty?
-  paths = args.first == "--sweep" ? Gap.rows(args.fetch(1)) : args.map { |a| a.delete_prefix("test/") }
-  moves = Gap.run(paths)
+  usage = "usage: ruby tools/gap.rb <path>... | --sweep <rows file> | --promote <gap> [dir]"
+  args = ARGV.map { |a| a.delete_prefix("test/") }
+  moves =
+    case args.first
+    when nil then abort usage
+    when "--sweep" then Gap.demote(Gap.rows(args.fetch(1) { abort usage }))
+    when "--promote"
+      gap, dir, *rest = args.drop(1)
+      abort usage if gap.nil? || !rest.empty?
+      Gap.promote([gap], dir)
+    else Gap.demote(args)
+    end
   puts "#{moves.count(&:moved?)} moved, #{moves.count { |m| !m.moved? }} stayed"
 end

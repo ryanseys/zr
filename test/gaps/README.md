@@ -30,11 +30,15 @@ with it, and asks ruby for the answer in both places. A move stands only
 when ruby's answer is the same once the path is. `ORIGINS.tsv` records the
 topic each gap came from.
 
-There is no promote command. The day a gap starts matching, move it back by
-hand: `git mv` the program into the topic `ORIGINS.tsv` names (and its
-helper directory, if it has one), undo any relative path the move rewrote,
-drop its `ORIGINS.tsv` row, then run it there to confirm the recording still
-holds.
+The day a gap starts matching, send it back the same way:
+
+```console
+$ ruby tools/gap.rb --promote gaps/a_case.rb              # to the topic ORIGINS.tsv names
+$ ruby tools/gap.rb --promote gaps/a_case.rb core/string  # or to this one
+```
+
+The tool drops its `ORIGINS.tsv` row. Then run it there with `bin/ze0 test`
+to confirm it matches in its topic too.
 
 A gap that hangs is bounded by the sweep's ordinary limit: not matching is
 the answer this directory wants, and a hang gives it as well as a crash does,
