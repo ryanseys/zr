@@ -162,6 +162,10 @@ class File < IO
   end
 
   def initialize(path, mode = "r", perm = 0o666, **options)
+    # A File that holds a descriptor is not opened again, as CRuby's
+    # rb_file_initialize refuses.
+    raise RuntimeError, "reinitializing #{self.class}" if instance_variable_defined?(:@fd)
+
     mode = options[:mode] if options.key?(:mode)
     perm = options[:perm] if options.key?(:perm)
     path = File.send(:path_of, path)
@@ -313,12 +317,19 @@ class File < IO
     FIELDS = %i[dev ino mode nlink uid gid rdev size blksize blocks].freeze
     attr_reader(*FIELDS)
 
-    def initialize(path, site = "rb_file_s_stat")
-      path = File.send(:path_of, path)
-      fields = Primitive.zr_stat_m(path, true)
-      raise SystemCallError.new("@ #{site} - #{path}", -fields) if fields.is_a?(Integer)
+    def initialize(path)
+      stat(path, "rb_file_s_stat")
+    end
 
-      take(fields)
+    # A Stat's rows are plain values, and a copy takes them all.
+    private def initialize_copy(other)
+      super
+      self
+    end
+
+    # The rows of `path`, and the C function a failure names.
+    def self.of(path, site)
+      allocate.send(:stat, path, site)
     end
 
     # A stream opened from a descriptor has no path, so fstat(2) is the
@@ -391,6 +402,14 @@ class File < IO
     end
 
     private
+
+    def stat(path, site)
+      path = File.send(:path_of, path)
+      fields = Primitive.zr_stat_m(path, true)
+      raise SystemCallError.new("@ #{site} - #{path}", -fields) if fields.is_a?(Integer)
+
+      take(fields)
+    end
 
     def take(fields)
       @dev, @ino, @mode, @nlink, @uid, @gid, @rdev, @size, @blksize, @blocks,
@@ -498,9 +517,9 @@ class File < IO
 
   def self.stat(path) = Stat.new(path_of(path))
   def self.lstat(path) = Stat.link(path_of(path))
-  def self.mtime(path) = Stat.new(path_of(path), "rb_file_s_mtime").mtime
-  def self.atime(path) = Stat.new(path_of(path), "rb_file_s_atime").atime
-  def self.ctime(path) = Stat.new(path_of(path), "rb_file_s_ctime").ctime
+  def self.mtime(path) = Stat.of(path_of(path), "rb_file_s_mtime").mtime
+  def self.atime(path) = Stat.of(path_of(path), "rb_file_s_atime").atime
+  def self.ctime(path) = Stat.of(path_of(path), "rb_file_s_ctime").ctime
   def self.ftype(path) = lstat(path).ftype
   def self.symlink?(path) = Primitive.zr_stat_m(path_of(path), false).then { |f| f.is_a?(Array) && (f[2] & 0o170000) == 0o120000 }
 
@@ -601,7 +620,7 @@ class File < IO
 
   def self.umask(mask = nil) = Primitive.zr_umask_m(mask)
 
-  def self.birthtime(path) = Stat.new(path_of(path), "rb_file_s_birthtime").birthtime
+  def self.birthtime(path) = Stat.of(path_of(path), "rb_file_s_birthtime").birthtime
 
   def self.blockdev?(path) = mode_kind?(path, 0o060000)
   def self.chardev?(path) = mode_kind?(path, 0o020000)

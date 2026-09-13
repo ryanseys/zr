@@ -37,12 +37,21 @@ class Enumerator
       raise LocalJumpError, "no block given" unless block
 
       Primitive.zr_hidden_set(self, :__block__, block)
+      self
     end
 
     # Any arguments a caller adds are the yielder's to ignore, as CRuby's
     # own row takes them and answers an arity of -1.
     def each(*, &block)
       Primitive.zr_hidden_get(self, :__block__).call(Yielder.new(&block))
+    end
+
+    private
+
+    def initialize_copy(other)
+      super
+      Primitive.zr_hidden_set(self, :__block__, Primitive.zr_hidden_get(other, :__block__))
+      self
     end
   end
 
@@ -55,6 +64,7 @@ class Enumerator
     @args = []
     @kwargs = {}
     @size = size
+    self
   end
 
   # `Enumerator.produce(initial) { |prev| }`: the initial value, then
@@ -228,6 +238,18 @@ class Enumerator
     @args = args
     @kwargs = kwargs
     @size = size
+  end
+
+  # What a copy iterates is what the other iterates; where the other is
+  # in an external iteration is a fiber's stack, which does not copy.
+  def initialize_copy(other)
+    super
+    raise TypeError, "can't copy execution context" if other.instance_variable_get(:@fiber)
+
+    @generator = other.instance_variable_get(:@generator)
+    enumerate(*%i[@receiver @method @args @kwargs @size].map { |name| other.instance_variable_get(name) })
+    @fiber = @lookahead = @stop = @feed = nil
+    self
   end
 end
 
@@ -807,6 +829,7 @@ end
 class Enumerator::Chain < Enumerator
   def initialize(*enums)
     @enums = enums
+    self
   end
 
   # Without a block, CRuby wraps the chain twice.
@@ -839,6 +862,12 @@ class Enumerator::Chain < Enumerator
 
   def inspect = "#<Enumerator::Chain: #{@enums.inspect}>"
 
+  private def initialize_copy(other)
+    Kernel.instance_method(:initialize_copy).bind_call(self, other)
+    @enums = other.instance_variable_get(:@enums).dup
+    self
+  end
+
   alias to_s inspect
 
   undef_method :next, :peek, :next_values, :peek_values, :with_object
@@ -853,6 +882,7 @@ end
 class Enumerator::Product < Enumerator
   def initialize(*enums)
     @enums = enums
+    self
   end
 
   def each(&block)
@@ -880,6 +910,12 @@ class Enumerator::Product < Enumerator
   end
 
   def inspect = "#<Enumerator::Product: #{@enums.inspect}>"
+
+  private def initialize_copy(other)
+    Kernel.instance_method(:initialize_copy).bind_call(self, other)
+    @enums = other.instance_variable_get(:@enums).dup
+    self
+  end
 
   alias to_s inspect
 
