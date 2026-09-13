@@ -172,13 +172,20 @@ module Ze0
       # --- frame access -------------------------------------------------
 
       # `[base, offset]` for `off` from sp, the offset small enough for a
-      # scaled immediate of `width` bytes; x15 holds a page base when not.
+      # scaled immediate of `width` bytes; x17 holds a page base when not.
+      #
+      # x17 and not a scratch register: `emit_jump` stages a jump's
+      # arguments in `SCRATCH` and then stores each one, and a store to a
+      # far offset comes back here. With x15 as the page base -- x15 is
+      # `SCRATCH[6]` -- storing argument 5 would destroy argument 6 before
+      # it was stored. x16 and x17 are the linker's veneer registers, dead
+      # across every call and named nowhere else in the backend.
       def address(off, width)
         return [SP, off] if off % width == 0 && off / width <= 4095
 
         hi = off & ~0xFFF
-        @asm.add X15, SP, hi >> 12, lsl: 12
-        [X15, off & 0xFFF]
+        @asm.add X17, SP, hi >> 12, lsl: 12
+        [X17, off & 0xFFF]
       end
 
       # An f64 value lives in its slot as bits and moves through the
