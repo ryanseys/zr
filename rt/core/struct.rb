@@ -79,6 +79,7 @@ class Struct
   # An allocated struct has no store yet; the first read makes one, so a
   # member answers nil before any initialize runs.
   def values_store
+    Primitive.attr! :hidden
     store = Primitive.zr_hidden_get(self, :__values__)
     return store if store
 
@@ -245,6 +246,7 @@ class Struct
   private :at_or_nil
 
   def member_index(key)
+    Primitive.attr! :hidden
     members = self.members
     case key
     when Symbol, String

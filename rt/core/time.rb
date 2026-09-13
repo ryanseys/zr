@@ -626,6 +626,7 @@ class Time
   end
 
   def set(at, of_kind)
+    Primitive.attr! :hidden
     Primitive.zr_hidden_set(self, :__built__, true)
     Primitive.zr_hidden_set(self, :__ns__, at)
     Primitive.zr_hidden_set(self, :__kind__, of_kind)
@@ -644,12 +645,14 @@ class Time
   end
 
   def shifted(at)
+    Primitive.attr! :hidden
     t = dup
     t.send(:set, at, kind)
     t
   end
 
   def rounded(digits)
+    Primitive.attr! :hidden
     raise ArgumentError, "negative ndigits given" if digits < 0
     return dup if digits >= 9
 

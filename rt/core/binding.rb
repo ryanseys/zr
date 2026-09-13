@@ -50,6 +50,7 @@ class Binding
 
   # The name of a local, as ruby takes one: a Symbol or a String.
   def symbol_name(name)
+    Primitive.attr! :hidden
     return name if name.is_a?(Symbol)
     return name.to_sym if name.is_a?(String)
 
@@ -59,6 +60,7 @@ class Binding
   # `[depth, index]` of `name`, or nil where no scope holds it. A hidden
   # local of the lowering keeps its slot but takes no name.
   def place(name)
+    Primitive.attr! :hidden
     scopes.each_with_index do |names, depth|
       i = names.index(name)
       return [depth, i] if i
@@ -68,10 +70,14 @@ class Binding
 
   # The names each scope holds, innermost first, hidden ones dropped.
   def scopes
+    Primitive.attr! :hidden
     Primitive.zr_binding_scopes(self).map { |names| names.map { |n| named?(n) ? n : nil } }
   end
 
-  def named?(name) = /\A[a-z_][A-Za-z0-9_]*\z/.match?(name.to_s)
+  def named?(name)
+    Primitive.attr! :hidden
+    /\A[a-z_][A-Za-z0-9_]*\z/.match?(name.to_s)
+  end
 end
 
 module Kernel

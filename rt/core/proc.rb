@@ -56,6 +56,7 @@ class Proc
   end
 
   def self.callable(other)
+    Primitive.attr! :hidden
     raise TypeError, "callable object is expected" unless other.respond_to?(:call)
 
     other
@@ -63,6 +64,7 @@ class Proc
 
   # `2..3`, `2+` or `2` as a lambda's arity reads in an error.
   def self.arity_range(pr)
+    Primitive.attr! :hidden
     params = pr.parameters
     required = params.count { |kind, _| kind == :req }
     return "#{required}+" if params.any? { |kind, _| kind == :rest }
@@ -74,10 +76,12 @@ class Proc
   private
 
   def compose(as_lambda, &body)
+    Primitive.attr! :hidden
     Primitive.zr_proc_anonymous(as_lambda ? Primitive.zr_proc_lambda(body) : proc(&body))
   end
 
   def curried(arity, collected)
+    Primitive.attr! :hidden
     original = self
     body = proc do |*args, &blk|
       all = collected + args

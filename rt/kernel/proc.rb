@@ -721,6 +721,21 @@ machine def zr_ary_each(recv, argc, argv, cref, blk)
   recv
 end
 
+# Whether `v` is an Array whose `each` is Array's own, so a method of
+# Enumerable may walk it by index and answer as `each` would.
+sig [Value] => Value
+machine def zr_ary_plain_each_p(v)
+  if zr_special_p(v) || zr_type(v) != T_ARRAY
+    return Machine.value(QFALSE)
+  end
+  zr_key_builtin_p(v, Machine.id(:each), Machine.addr(:zr_ary_each)) ? Machine.value(QTRUE) : Machine.value(QFALSE)
+end
+
+sig [Value, Value] => Value
+machine def zr_ary_each_with_index_m(recv, blk)
+  zr_ary_each_with_index(recv, 0, 0, Machine.value(QNIL), blk)
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_each_with_index(recv, argc, argv, cref, blk)
   if blk == QNIL

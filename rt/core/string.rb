@@ -1291,7 +1291,10 @@ class String
 
   protected
 
-  def byteslice_of(start, length) = Primitive.zr_str_byteslice(self, start, length)
+  def byteslice_of(start, length)
+    Primitive.attr! :hidden
+    Primitive.zr_str_byteslice(self, start, length)
+  end
 
   private
 
@@ -1450,19 +1453,27 @@ class String
   end
 
   def mutate(result)
+    Primitive.attr! :hidden
     Primitive.zr_frozen_error(self) if frozen?
     return nil if result == self
 
     replace(result)
   end
 
-  def space_byte?(b) = b == 32 || (b >= 9 && b <= 13) || b == 0
+  def space_byte?(b)
+    Primitive.attr! :hidden
+    b == 32 || (b >= 9 && b <= 13) || b == 0
+  end
 
-  def digit_byte?(b) = b >= 48 && b <= 57
+  def digit_byte?(b)
+    Primitive.attr! :hidden
+    b >= 48 && b <= 57
+  end
 
   # The start and length a Range names in a string of `size` bytes,
   # or nil when it starts past the end.
   def range_span(range, size)
+    Primitive.attr! :hidden
     first = range.begin.nil? ? 0 : Primitive.zr_index_operand_m(range.begin)
     first += size if first < 0
     return nil if first < 0 || first > size
@@ -1480,6 +1491,7 @@ class String
   # leaves NUL out. The piece that would reach `limit`, and a last word
   # that runs to the end, are the tail.
   def split_words(limit)
+    Primitive.attr! :hidden
     out = []
     beg = Primitive.zr_str_space_end(self, 0, false)
     while beg < bytesize
@@ -1495,6 +1507,7 @@ class String
   end
 
   def split_chars(limit)
+    Primitive.attr! :hidden
     out = []
     beg = 0
     pieces = 1
@@ -1509,6 +1522,7 @@ class String
   end
 
   def split_by_string(pattern, limit)
+    Primitive.attr! :hidden
     out = []
     beg = 0
     pieces = 1
@@ -1760,6 +1774,7 @@ class String
   end
 
   def justify(width, pad, side)
+    Primitive.attr! :hidden
     width = Primitive.zr_index_operand_m(width)
     pad = Primitive.zr_str_operand(pad)
     raise ArgumentError, "zero width padding" if pad.empty?
@@ -1776,6 +1791,7 @@ class String
   end
 
   def padding(n, pad)
+    Primitive.attr! :hidden
     out = +""
     out << pad while out.size < n
     out[0, n]

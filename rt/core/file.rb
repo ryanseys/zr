@@ -329,12 +329,14 @@ class File < IO
 
     # The rows of `path`, and the C function a failure names.
     def self.of(path, site)
+      Primitive.attr! :hidden
       allocate.send(:stat, path, site)
     end
 
     # A stream opened from a descriptor has no path, so fstat(2) is the
     # only way to its rows.
     def self.for_fd(fd)
+      Primitive.attr! :hidden
       fields = Primitive.zr_fstat_m(fd)
       raise SystemCallError.new("@ rb_io_stat - fd #{fd}", -fields) if fields.is_a?(Integer)
 
@@ -404,6 +406,7 @@ class File < IO
     private
 
     def stat(path, site)
+      Primitive.attr! :hidden
       path = File.send(:path_of, path)
       fields = Primitive.zr_stat_m(path, true)
       raise SystemCallError.new("@ #{site} - #{path}", -fields) if fields.is_a?(Integer)
@@ -412,6 +415,7 @@ class File < IO
     end
 
     def take(fields)
+      Primitive.attr! :hidden
       @dev, @ino, @mode, @nlink, @uid, @gid, @rdev, @size, @blksize, @blocks,
         @atime_s, @atime_ns, @mtime_s, @mtime_ns, @ctime_s, @ctime_ns = fields
       self
@@ -419,6 +423,7 @@ class File < IO
 
     # Made from lstat(2), which does not follow a symbolic link.
     def self.link(path)
+      Primitive.attr! :hidden
       path = File.send(:path_of, path)
       fields = Primitive.zr_stat_m(path, false)
       raise SystemCallError.new("@ rb_file_s_lstat - #{path}", -fields) if fields.is_a?(Integer)

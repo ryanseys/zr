@@ -612,7 +612,9 @@ module Enumerable
 
   def uniq(&block) = to_a.uniq(&block)
 
-  def entries(*args) = to_a(*args)
+  # `to_a` again, under its own name: a class's own `to_a` does not
+  # change it, as CRuby defines both from one function.
+  def entries(*args) = Enumerable.instance_method(:to_a).bind_call(self, *args)
 
   def first(n = (none = true))
     if none
@@ -658,8 +660,10 @@ module Enumerable
     false
   end
 
-  def each_with_index(*args)
-    return to_enum(:each_with_index, *args) unless block_given?
+  def each_with_index(*args, &block)
+    return to_enum(:each_with_index, *args) { enumerable_size } unless block
+    # An Array that walks as Array does is walked by index.
+    return Primitive.zr_ary_each_with_index_m(self, block) if args.empty? && Primitive.zr_ary_plain_each_p(self)
 
     i = 0
     each(*args) do |*x|
@@ -709,7 +713,13 @@ module Enumerable
   # still an Integer or a Rational, Kahan-Babuska compensated, as CRuby's
   # enum_sum adds. A value that is no number ends the compensation: the
   # sum goes on without it, with that value's own `+`.
-  def sum(init = 0)
+  def sum(init = 0, &block)
+    # A Range of Integers adds in closed form, as enum_sum does.
+    if !block && !init.is_a?(Float) && is_a?(Range) && self.begin.is_a?(Integer) && self.end.is_a?(Integer)
+      last = exclude_end? ? self.end - 1 : self.end
+      return last < self.begin ? init : init + (self.begin + last) * (last - self.begin + 1) / 2
+    end
+
     acc = init
     c = 0.0
     mode = acc.is_a?(Float) ? :float : :exact

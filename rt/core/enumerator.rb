@@ -103,6 +103,7 @@ class Enumerator
   # `to_enum(:method, *args, **kwargs)`, with a size or a proc that
   # answers it.
   def self.for(receiver, method, args, kwargs, size)
+    Primitive.attr! :hidden
     e = allocate
     e.send(:enumerate, receiver, method, args, kwargs, size)
     e
@@ -244,6 +245,7 @@ class Enumerator
   end
 
   def enumerate(receiver, method, args, kwargs, size)
+    Primitive.attr! :hidden
     @receiver = receiver
     @method = method
     @args = args
@@ -274,6 +276,7 @@ module Kernel
   # What a builtin iterator answers without a block: its count comes
   # last.
   private def enum_with_size(method, *args, size)
+    Primitive.attr! :hidden
     Enumerator.for(self, method, args, {}, size)
   end
 end
@@ -284,6 +287,7 @@ class Enumerator::ArithmeticSequence < Enumerator
   attr_reader :begin, :end, :step
 
   def self.for(first, last, step, exclude_end, range = nil)
+    Primitive.attr! :hidden
     seq = allocate
     seq.send(:sequence, first, last, step, exclude_end, range)
     seq
@@ -416,6 +420,7 @@ class Enumerator::ArithmeticSequence < Enumerator
   end
 
   def sequence(first, last, step, exclude_end, range)
+    Primitive.attr! :hidden
     @begin = first
     @end = last
     @step = step
@@ -438,6 +443,7 @@ end
 # made with, which CRuby keeps apart from what `each` runs, as here.
 class Enumerator::Lazy < Enumerator
   def self.from(receiver)
+    Primitive.attr! :hidden
     allocate.send(:chain, receiver, false, :run_each) { receiver.respond_to?(:size) ? receiver.size : nil }
   end
 

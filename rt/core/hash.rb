@@ -145,7 +145,6 @@ class Hash
     each { |k, v| out << [k, v] }
     out
   end
-  alias entries to_a
 
   def merge(*others, &block)
     out = dup

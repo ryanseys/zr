@@ -349,17 +349,20 @@ class Complex < Numeric
   private
 
   def part_text(x)
+    Primitive.attr! :hidden
     return "(#{x})" if x.is_a?(Rational)
 
     x.to_s
   end
 
   def exact_real?
+    Primitive.attr! :hidden
     !imaginary.is_a?(Float) && imaginary == 0
   end
 
   # A Rational that is whole becomes its Integer.
   def canonical(x)
+    Primitive.attr! :hidden
     x.is_a?(Rational) && x.denominator == 1 ? x.numerator : x
   end
 end
@@ -449,6 +452,7 @@ class Complex
   def marshal_dump = [real, imaginary]
 
   def marshal_load(pair)
+    Primitive.attr! :hidden
     Primitive.zr_hidden_set(self, :__real__, pair[0])
     Primitive.zr_hidden_set(self, :__imag__, pair[1])
     freeze

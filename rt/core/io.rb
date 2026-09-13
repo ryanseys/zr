@@ -1531,6 +1531,7 @@ class IO
 
   # The events that came ready, or zero when the time ran out.
   def poll_once(events, timeout)
+    Primitive.attr! :hidden
     timeout = IO.send(:time_interval, timeout)
     ready = Primitive.zr_io_wait(fileno, events, timeout.nil? ? -1 : (timeout * 1000).round)
     raise SystemCallError.new("@ io_wait - #{label}", -ready) if ready.negative?

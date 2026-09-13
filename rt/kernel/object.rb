@@ -532,6 +532,10 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_hash(recv, argc, argv, cref, blk)
+  # An Integer hashes by its value: a fixnum is its own code.
+  if zr_fixnum_p(recv)
+    return recv
+  end
   if !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_INTEGER)
     return zr_big_hash(recv)
   end

@@ -277,6 +277,7 @@ module Kernel
   # `0d` prefix, digits with single underscores between them; nil on
   # anything else.
   def parse_integer(text, base)
+    Primitive.attr! :hidden
     # A NUL is not a digit and `strip` would drop it, so the scan that
     # follows would read a prefix and call the rest of the text good.
     return nil if text.include?("\u0000")

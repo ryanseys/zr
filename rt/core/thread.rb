@@ -37,7 +37,10 @@ class Thread
 
     # Whether nothing else could run: no other task is waiting for a
     # turn and none is asleep.
-    def alone? = @queue.empty? && @sleepers.empty?
+    def alone?
+      Primitive.attr! :hidden
+      @queue.empty? && @sleepers.empty?
+    end
 
     # The current thread sleeps until `wakeup`. With no other thread
     # to wake it, CRuby says so before it parks.
@@ -449,7 +452,7 @@ class Thread
     @fiber = Fiber.new { body }
     # The fiber heads a thread of its own, so every fiber made on it
     # belongs to this thread.
-    @fiber.send(:__rehome__)
+    Primitive.zr_fiber_rehome(@fiber)
     Primitive.zr_preempt_arm(Thread, :preempt)
     Thread.send(:enqueue, self)
     Thread.instance_variable_get(:@threads) << self
@@ -666,7 +669,7 @@ class Fiber
   # the way. A fiber that never ran ends where it stands.
   def kill
     return self unless alive?
-    return self if __unborn__ && __terminate__
+    return self if Primitive.zr_fiber_unborn_p(self) && Primitive.zr_fiber_terminate(self)
 
     tag = Primitive.zr_hidden_get(self, :__kill__)
     return self if tag.nil?
@@ -684,7 +687,7 @@ class Fiber
   # the answer is what the fiber does next.
   def raise(*args)
     exception = Fiber.send(:make_exception, args)
-    Kernel.raise FiberError, "cannot raise exception on unborn fiber" if __unborn__
+    Kernel.raise FiberError, "cannot raise exception on unborn fiber" if Primitive.zr_fiber_unborn_p(self)
     return Kernel.raise(exception) if equal?(Fiber.current)
 
     Primitive.zr_hidden_set(self, :__action__, exception)
@@ -707,6 +710,7 @@ class Fiber
   private
 
   def storage_table
+    Primitive.attr! :hidden
     Primitive.zr_hidden_get(self, :__storage__) || Primitive.zr_hidden_set(self, :__storage__, {})
   end
 end

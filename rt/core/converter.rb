@@ -198,7 +198,10 @@ class Encoding
 
     private
 
-    def flags = @flags
+    def flags
+      Primitive.attr! :hidden
+      @flags
+    end
 
     def bits_of(flags, options)
       Primitive.attr! :hidden

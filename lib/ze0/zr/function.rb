@@ -137,7 +137,9 @@ module Ze0
         return [] unless @l.internal? && @kind == :def
 
         @attributes ||= begin
-          stmts = @body.is_a?(Hir::Seq) ? @body.stmts : [@body]
+          # A def with a `rescue` or `ensure` opens its protected body.
+          body = @body.is_a?(Hir::Begin) ? @body.body : @body
+          stmts = body.is_a?(Hir::Seq) ? body.stmts : [body]
           stmts.take_while { |stmt| attribute_row?(stmt) }.map { |stmt| stmt.args.first.value }
         end
       end

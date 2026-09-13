@@ -408,9 +408,9 @@ module Ze0
         d zr_fiber_yield Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_fiber_start Void
         d zr_fiber_alive_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
-        d zr_fiber_unborn_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
-        d zr_fiber_terminate Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
-        d zr_fiber_rehome Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_fiber_unborn_p Value recv:Value
+        d zr_fiber_terminate Value recv:Value
+        d zr_fiber_rehome Value recv:Value
         d zr_mark_fiber Void f:Value
         d zr_release_fiber Void f:Value
         d zr_fiber_scheduler_switch Value to:Value
@@ -909,6 +909,8 @@ module Ze0
         d zr_int_downto Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_enum_for Value recv:Value mid:Word argc:Word argv:Ptr size:Value
         d zr_ary_each Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_ary_plain_each_p Value v:Value
+        d zr_ary_each_with_index_m Value recv:Value blk:Value
         d zr_ary_each_with_index Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_each_index Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_map Value recv:Value argc:Word argv:Ptr cref:Value blk:Value

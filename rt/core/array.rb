@@ -743,19 +743,6 @@ class Array
     self
   end
 
-  def each_slice(n)
-    n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, "invalid slice size" if n <= 0
-    return to_enum(:each_slice, n) { (size + n - 1) / n } unless block_given?
-
-    i = 0
-    while i < size
-      yield self[i, n]
-      i += n
-    end
-    self
-  end
-
   def rotate(n = 1)
     n = Primitive.zr_index_operand_m(n)
     return Array.new(self) if empty?
@@ -1031,6 +1018,7 @@ class Array
   # switches to plain addition of the rest, from the sum without its
   # compensation, as CRuby's not_float does.
   def float_sum(f, x, from)
+    Primitive.attr! :hidden
     c = 0.0
     i = from - 1
     loop do
@@ -1057,6 +1045,7 @@ class Array
   end
 
   def pick_repeated(k, from, chosen, &block)
+    Primitive.attr! :hidden
     return yield(chosen.dup) if chosen.size == k
 
     (from...size).each do |i|
@@ -1067,6 +1056,7 @@ class Array
   end
 
   def place_repeated(k, chosen, &block)
+    Primitive.attr! :hidden
     return yield(chosen.dup) if chosen.size == k
 
     each do |x|

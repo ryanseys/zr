@@ -240,9 +240,15 @@ module Process
 
   def self.fork = Primitive.zr_unimplemented("Process.fork")
 
-  def self.signal_number(name) = SIGNALS[name]
+  def self.signal_number(name)
+    Primitive.attr! :hidden
+    SIGNALS[name]
+  end
 
-  def self.signal_name(number) = SIGNALS.key(number)
+  def self.signal_name(number)
+    Primitive.attr! :hidden
+    SIGNALS.key(number)
+  end
 
   # Runs the command; the child's pid, or nil when it could not start
   # (then `$?` says exit 127).

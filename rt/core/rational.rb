@@ -296,6 +296,7 @@ class Rational < Numeric
   # `digits` decimal places kept (a Rational), or an Integer for zero or
   # fewer, the block deciding how `n / d` rounds.
   def rounded(digits)
+    Primitive.attr! :hidden
     raise TypeError, "not an integer" unless digits.is_a?(Integer)
 
     if digits > 0
@@ -310,6 +311,7 @@ class Rational < Numeric
   end
 
   def compare(other, op)
+    Primitive.attr! :hidden
     c = self <=> other
     Primitive.zr_cmperr(self, other) if c.nil?
 
@@ -317,6 +319,7 @@ class Rational < Numeric
   end
 
   def coerced(other, op)
+    Primitive.attr! :hidden
     Primitive.zr_num_coerce_m(self, other, op, 0)
   end
 end
@@ -413,6 +416,7 @@ class Rational
   def marshal_dump = [numerator, denominator]
 
   def marshal_load(pair)
+    Primitive.attr! :hidden
     Primitive.zr_hidden_set(self, :__num__, pair[0])
     Primitive.zr_hidden_set(self, :__den__, pair[1])
     freeze

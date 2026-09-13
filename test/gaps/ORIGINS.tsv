@@ -24,7 +24,6 @@ gaps/io_file_stat_rows.rb	compiler/builtins/io_file_stat_rows.rb
 gaps/io_instance_read_surface.rb	compiler/builtins/io_instance_read_surface.rb
 gaps/kernel_intrinsic_rows.rb	compiler/builtins/kernel_intrinsic_rows.rb
 gaps/marshal_private_surfaces.rb	compiler/builtins/marshal_private_surfaces.rb
-gaps/method_arity_oracle.rb	compiler/builtins/method_arity_oracle.rb
 gaps/module_function_surface.rb	compiler/builtins/module_function_surface.rb
 gaps/process_identity_rows.rb	compiler/builtins/process_identity_rows.rb
 gaps/process_surface_batch1.rb	compiler/builtins/process_surface_batch1.rb

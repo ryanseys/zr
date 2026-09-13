@@ -323,15 +323,15 @@ machine def zr_fiber_alive_p(recv, argc, argv, cref, blk)
 end
 
 # Whether the fiber has never run: its block waits for a first resume.
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_fiber_unborn_p(recv, argc, argv, cref, blk)
+sig [Value] => Value
+machine def zr_fiber_unborn_p(recv)
   zr_bool(RFiber.status(recv) == FIBER_CREATED)
 end
 
 # A fiber that has never run ends where it stands: killing it runs no
 # block and leaves no stack to return to.
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_fiber_terminate(recv, argc, argv, cref, blk)
+sig [Value] => Value
+machine def zr_fiber_terminate(recv)
   if RFiber.status(recv) == FIBER_CREATED
     RFiber.set_status(recv, FIBER_TERMINATED)
   end
@@ -340,8 +340,8 @@ end
 
 # The fiber heads a thread of its own: it belongs to no other thread,
 # and every fiber made on it belongs to the same thread.
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_fiber_rehome(recv, argc, argv, cref, blk)
+sig [Value] => Value
+machine def zr_fiber_rehome(recv)
   RFiber.set_home(recv, recv)
   recv
 end

@@ -134,6 +134,7 @@ class Regexp
   # Whether the engine reads the pattern as bytes: its own encoding says
   # so, or `/n` and a byte past ASCII in it.
   def self.binary_pattern?(source, bits)
+    Primitive.attr! :hidden
     source.encoding == Encoding::BINARY || (bits & NOENCODING != 0 && Pattern.past_ascii?(source))
   end
 
