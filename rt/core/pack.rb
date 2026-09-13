@@ -252,14 +252,21 @@ module Packing
         size, _, order = INTEGERS.fetch(c)
         big = order == :big if order
         each_item(items, at, count) do |item|
-          raise TypeError, "no implicit conversion of #{item.nil? ? 'nil' : item.class} into Integer" unless item.is_a?(Numeric)
-
-          out << pack_integer(Integer(item), size, big)
+          out << pack_integer(integer_item(item), size, big)
         end
         at += count == :all ? items.size - at : (count || 1)
       end
     end
     out.force_encoding(encoding)
+  end
+
+  # An item an integer directive takes: a Numeric truncated to an Integer,
+  # or what `to_int` answers for anything else that has one.
+  def self.integer_item(item)
+    return Integer(item) if item.is_a?(Numeric)
+    raise TypeError, "no implicit conversion of #{item.nil? ? 'nil' : item.class} into Integer" if item.nil? || !item.respond_to?(:to_int)
+
+    item.to_int
   end
 
   def self.each_item(items, at, count)

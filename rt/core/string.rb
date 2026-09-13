@@ -83,7 +83,9 @@ class String
 
   def bytesize = Primitive.zr_str_bytesize(self)
 
-  def getbyte(i) = Primitive.zr_str_byte_at(self, i)
+  # The index converts as NUM2LONG converts one: a Float truncated, a
+  # `to_int` answered, a Bignum out of range refused.
+  def getbyte(i) = Primitive.zr_str_byte_at(self, Primitive.zr_index_operand_m(i))
 
   def setbyte(i, byte) = Primitive.zr_str_setbyte(self, i, byte)
 

@@ -1325,6 +1325,10 @@ end
 # The byte at `i`, or nil past the end.
 sig [Value, Value] => Value
 machine def zr_str_byte_at(s, i)
+  # An index past the fixnums is past every String.
+  if !zr_fixnum_p(i)
+    return Machine.value(QNIL)
+  end
   n = zr_fix2long(i)
   if n < 0
     n += RString.len(s)
