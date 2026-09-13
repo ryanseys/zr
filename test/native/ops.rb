@@ -128,6 +128,44 @@ module Ze0
           f.switch(no)
           f.iconst("i64", 0)
         end
+        # An `icmp` whose one use is the `brif` next to it: the compare
+        # sets the flags and `b.cond` reads them, so no boolean is made.
+        #
+        # Nothing here makes a constant after the compare. A constant
+        # goes to the entry block just before its terminator, which is
+        # this `brif`, and that would put an instruction between the two
+        # and leave them unfused.
+        ops["brif.fused"] = build("brif_fused", %w[i64 i64], "i64") do |f, a, b|
+          yes = f.label
+          no = f.label
+          f.brif(f.icmp("eq", a, b), yes, no)
+          f.switch(yes)
+          f.ret(a)
+          f.switch(no)
+          b
+        end
+        # The same, with the taken block falling through: the branch goes
+        # the other way, on the condition that is left.
+        ops["brif.fused_fallthrough"] = build("brif_fused_ft", %w[i64 i64], "i64") do |f, a, b|
+          yes = f.label
+          no = f.label
+          f.brif(f.icmp("slt", a, b), yes, no)
+          f.switch(no)
+          f.ret(b)
+          f.switch(yes)
+          a
+        end
+        # A compare read twice cannot fuse: the boolean is still made.
+        ops["brif.unfused"] = build("brif_unfused", %w[i64 i64], "i64") do |f, a, b|
+          c = f.icmp("eq", a, b)
+          yes = f.label
+          no = f.label
+          f.brif(c, yes, no)
+          f.switch(yes)
+          f.ret(f.uextend("i64", c))
+          f.switch(no)
+          b
+        end
         ops["return.void"] = build("return_void", [], nil) { nil }
         ops["return.f64"] = build("return_f64", %w[f64], "f64") { |_f, a| a }
       end

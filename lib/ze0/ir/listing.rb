@@ -58,7 +58,16 @@ module Ze0
       # encoder has is defined below. They are defined rather than caught
       # by `method_missing`, which no class here may override -- and a
       # defined method answers `respond_to?` without being asked to.
-      OWN = %i[make_label put_label patch_location to_binary <<].freeze
+      OWN = %i[make_label put_label patch_location to_binary << b].freeze
+
+      # `b` alone, or `b.cond` when a condition is named. The generated
+      # form would read the condition as a shift amount, and a Symbol has
+      # no `to_i`.
+      def b(label, cond: nil)
+        record("  #{cond ? "b.#{cond}" : "b"} #{operands([label]).first}")
+        @asm.b(label, cond: cond)
+        self
+      end
 
       (Assembler.instance_methods(false) - OWN).each do |mnemonic|
         define_method(mnemonic) do |*args, **options|

@@ -35,6 +35,13 @@ module Ze0
       # Float comparisons after fcmp: NaN on either side sets C and V and
       # clears N and Z, which every condition but `ne` reads as false.
       FCONDS = { "eq" => :eq, "ne" => :ne, "lt" => :mi, "le" => :ls, "gt" => :gt, "ge" => :ge }.freeze
+      # The condition that holds exactly when the other does not: arm64
+      # numbers them in pairs, so this is the code with its low bit
+      # flipped, written out to stay readable.
+      INVERSE = {
+        eq: :ne, ne: :eq, lt: :ge, ge: :lt, le: :gt, gt: :le,
+        lo: :hs, hs: :lo, ls: :hi, hi: :ls, mi: :pl, pl: :mi, vs: :vc, vc: :vs
+      }.freeze
 
       # The floating-point instructions, as words: `FMOV Dd, Xn`,
       # `FMOV Xd, Dn`, the arithmetic and the conversions, with d16..d19
@@ -95,6 +102,7 @@ module Ze0
       def compile
         assign_types
         @reg = Regalloc.of(@f)
+        plan_fusion
         assign_homes
         @f.blocks.each { |b| @labels[b.name] = @asm.make_label(b.name) }
         prologue
@@ -130,6 +138,39 @@ module Ze0
         @types.of(v)
       rescue Types::Refused => e
         raise Refused, e.message
+      end
+
+      # An `icmp` whose one use is the `brif` right after it needs no
+      # boolean at all: the compare sets the flags and the branch reads
+      # them. `docs/plan.md` has said so since the backend was specified.
+      #
+      # Without it the pair costs `cmp`, `cset`, a store of the byte, a
+      # load of it back, a `uxtb` and a `cbz`. `Zr::Function#checked`
+      # writes one after every call a compiled Ruby method makes, so this
+      # is the shape most branches in the program have.
+      #
+      # Adjacency is what makes the flags safe: nothing runs between the
+      # two, so nothing can write NZCV in between.
+      def plan_fusion
+        counted = Hash.new(0)
+        @f.blocks.each do |b|
+          b.insts.each do |i|
+            i.args.each { |a| counted[a] += 1 if Regalloc.value?(a) }
+            i.targets&.each { |(_, args)| args.each { |a| counted[a] += 1 if Regalloc.value?(a) } }
+          end
+        end
+        @fused = {}
+        @f.blocks.each do |b|
+          b.insts.each_cons(2) do |cmp, brif|
+            next unless cmp.op == :icmp && brif.op == :brif
+
+            r = cmp.results[0]
+            next unless brif.args[0] == r && counted[r] == 1
+
+            @fused[cmp] = brif
+            @fused[brif] = CONDS.fetch(cmp.cond)
+          end
+        end
       end
 
       def assign_homes
@@ -344,8 +385,11 @@ module Ze0
         when :icmp
           a = value_in(i.args[0], X9)
           b = value_in(i.args[1], X10)
-          d = result_in(i.results[0], X11)
           @asm.cmp reg_for(i.args[0], a), reg_for(i.args[0], b)
+          # The `brif` that follows reads the flags; there is no boolean.
+          return if @fused.key?(i)
+
+          d = result_in(i.results[0], X11)
           @asm.cset d, CONDS.fetch(i.cond)
           store_value(i.results[0], d)
         when :iadd, :isub, :imul, :udiv, :sdiv, :band, :bor, :bxor, :ishl, :ushr, :sshr then emit_binop(i)
@@ -396,9 +440,19 @@ module Ze0
           load_value(i.args[0], X9)
           store_value(i.results[0], X9)
         when :brif
+          yes, no = i.targets.map(&:first)
+          # A fused compare left the answer in the flags.
+          if (cond = @fused[i])
+            if yes == @next
+              branch_on(INVERSE.fetch(cond), no)
+            else
+              branch_on(cond, yes)
+              @asm.b @labels.fetch(no) unless no == @next
+            end
+            return
+          end
           # The block that follows needs no branch: control falls into it.
           reg = reg_for(i.args[0], value_in(i.args[0], X9))
-          yes, no = i.targets.map(&:first)
           if yes == @next
             branch_if(:cbz, reg, no)
           else
@@ -422,6 +476,15 @@ module Ze0
         return @asm.public_send(op, reg, @labels.fetch(target)) unless @far
 
         @asm.public_send(op == :cbz ? :cbnz : :cbz, reg, 2)
+        @asm.b @labels.fetch(target)
+      end
+
+      # `b.cond` to a block, on the flags a fused compare left. A far one
+      # branches the other way over a `b`, as `branch_if` does.
+      def branch_on(cond, target)
+        return @asm.b(@labels.fetch(target), cond: cond) unless @far
+
+        @asm.b 2, cond: INVERSE.fetch(cond)
         @asm.b @labels.fetch(target)
       end
 

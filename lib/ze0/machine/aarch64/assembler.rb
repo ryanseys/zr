@@ -145,7 +145,14 @@ module Ze0
 
         # --- control ------------------------------------------------------
 
-        def b(label) = branch(0x1400_0000, label, 0, 26)
+        # `B` to a label, or `B.cond` when a condition is named. The
+        # signature is the gem's, so `aarch64_test` holds the encoding to
+        # the ARM specification like every other one.
+        def b(label, cond: nil)
+          return branch(0x1400_0000, label, 0, 26) if cond.nil?
+
+          branch(0x5400_0000 | condition(cond), label, 5, 19)
+        end
         def bl(label) = branch(0x9400_0000, label, 0, 26)
         def blr(n) = emit(0xD63F_0000 | n.to_i << 5)
         def ret(n = X30) = emit(0xD65F_0000 | n.to_i << 5)
