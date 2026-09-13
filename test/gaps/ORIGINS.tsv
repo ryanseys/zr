@@ -2,7 +2,6 @@ gaps/file_open_is_ios_own_row.rb	compiler/builtins/file_open_is_ios_own_row.rb
 gaps/an_autoload_target_is_a_unit_only_target.rb	compiler/units/an_autoload_target_is_a_unit_only_target.rb
 gaps/ffi_libc_call.rb	aot/ffi_libc_call.rb
 gaps/openssl_digest.rb	aot/openssl_digest.rb
-gaps/require_a_bundled_library.rb	aot/require_a_bundled_library.rb
 gaps/signal_trap.rb	aot/signal_trap.rb
 gaps/socket_loopback.rb	aot/socket_loopback.rb
 gaps/zlib_roundtrip.rb	aot/zlib_roundtrip.rb
@@ -64,7 +63,6 @@ gaps/io_buffer.rb	core/io/io_buffer.rb
 gaps/a_computed_require_loads_a_bundled_library.rb	core/kernel/a_computed_require_loads_a_bundled_library.rb
 gaps/a_computed_require_reveals_the_gated_constant.rb	core/kernel/a_computed_require_reveals_the_gated_constant.rb
 gaps/a_required_feature_inside_eval_installs_its_visibility.rb	core/kernel/a_required_feature_inside_eval_installs_its_visibility.rb
-gaps/a_second_require_of_one_feature_answers_false.rb	core/kernel/a_second_require_of_one_feature_answers_false.rb
 gaps/a_splat_require_defers_to_runtime.rb	core/kernel/a_splat_require_defers_to_runtime.rb
 gaps/eval_caller_locals.rb	core/kernel/eval_caller_locals.rb
 gaps/implicit_conversion_args.rb	core/kernel/implicit_conversion_args.rb
@@ -117,7 +115,6 @@ gaps/a_singleton_def_labels_its_frame_after_the_method.rb	lang/methods/a_singlet
 gaps/issue_3304_method_reflection.rb	lang/methods/issue_3304_method_reflection.rb
 gaps/the_ast_translator_builds_splat_lists_like_parse_y.rb	lang/methods/the_ast_translator_builds_splat_lists_like_parse_y.rb
 gaps/fiddle.rb	lang/programs/fiddle.rb
-gaps/issue_drb_missing.rb	lang/programs/issue_drb_missing.rb
 gaps/autoload_dsl_computes_its_own_path.rb	lang/require/autoload_dsl_computes_its_own_path.rb
 gaps/load_with_a_wrap_argument_lowers_to_a_runtime_loaderror.rb	lang/require/load_with_a_wrap_argument_lowers_to_a_runtime_loaderror.rb
 gaps/defined_globals_and_match_vars_check_definedness_at_runtime.rb	lang/variables/defined_globals_and_match_vars_check_definedness_at_runtime.rb
@@ -130,16 +127,9 @@ gaps/require_bundler.rb	milestones/require_bundler.rb
 gaps/require_rubygems.rb	milestones/require_rubygems.rb
 gaps/require_rubygems_under_a_guard.rb	milestones/require_rubygems_under_a_guard.rb
 gaps/rubygems_then_bundler.rb	milestones/rubygems_then_bundler.rb
-gaps/require_from_a_block_and_top_level.rb	stdlib/abbrev/require_from_a_block_and_top_level.rb
-gaps/a_feature_with_no_ruby_half_falls_through_to_the_static_ext_table.rb	stdlib/base64/a_feature_with_no_ruby_half_falls_through_to_the_static_ext_table.rb
 gaps/a_gated_constant_appears_at_its_require.rb	stdlib/base64/a_gated_constant_appears_at_its_require.rb
-gaps/base64_demo.rb	stdlib/base64/base64_demo.rb
-gaps/in_tree_base64_over_two_args_raises_argument_error_at_runtime.rb	stdlib/base64/in_tree_base64_over_two_args_raises_argument_error_at_runtime.rb
-gaps/random_seed_range_base64_pad.rb	stdlib/base64/random_seed_range_base64_pad.rb
 gaps/require_of_a_builtin_feature_works_from_any_position.rb	stdlib/base64/require_of_a_builtin_feature_works_from_any_position.rb
 gaps/require_positions_and_paths.rb	stdlib/base64/require_positions_and_paths.rb
-gaps/sp_crypto_basic.rb	stdlib/base64/sp_crypto_basic.rb
-gaps/sp_crypto_sha1.rb	stdlib/base64/sp_crypto_sha1.rb
 gaps/strict_arg_conversion.rb	stdlib/base64/strict_arg_conversion.rb
 gaps/allocate_refuses_where_ruby_refuses.rb	stdlib/bigdecimal/allocate_refuses_where_ruby_refuses.rb
 gaps/json_parser_class_options.rb	stdlib/bigdecimal/json_parser_class_options.rb
@@ -152,9 +142,6 @@ gaps/cgi_is_a_class_not_a_module.rb	stdlib/cgi/cgi_is_a_class_not_a_module.rb
 gaps/extensions.rb	stdlib/cgi/extensions.rb
 gaps/the_cgi_escapes_live_on_the_modules_that_own_them.rb	stdlib/cgi/the_cgi_escapes_live_on_the_modules_that_own_them.rb
 gaps/coverage.rb	stdlib/coverage/coverage.rb
-gaps/a_qualified_defined_answers_by_position.rb	stdlib/csv/a_qualified_defined_answers_by_position.rb
-gaps/csv_shift_nonlocal.rb	stdlib/csv/csv_shift_nonlocal.rb
-gaps/issue_csv_gem_missing.rb	stdlib/csv/issue_csv_gem_missing.rb
 gaps/an_allocated_native_object_refuses_what_ruby_refuses.rb	stdlib/date/an_allocated_native_object_refuses_what_ruby_refuses.rb
 gaps/date_and_datetime_surface.rb	stdlib/date/date_and_datetime_surface.rb
 gaps/date_error_and_infinity_classes.rb	stdlib/date/date_error_and_infinity_classes.rb
@@ -278,7 +265,6 @@ gaps/sp_net_basic.rb	stdlib/ffi/sp_net_basic.rb
 gaps/the_toplevel_runs_on_the_process_main_thread.rb	stdlib/ffi/the_toplevel_runs_on_the_process_main_thread.rb
 gaps/variadic_attach_function_matches_the_oracle.rb	stdlib/ffi/variadic_attach_function_matches_the_oracle.rb
 gaps/fileutils.rb	stdlib/fileutils/fileutils.rb
-gaps/a_satisfied_require_activates_at_its_own_line.rb	stdlib/io_console/a_satisfied_require_activates_at_its_own_line.rb
 gaps/json_additions_and_classes.rb	stdlib/json/json_additions_and_classes.rb
 gaps/json_generate_rejects_bad_encoding.rb	stdlib/json/json_generate_rejects_bad_encoding.rb
 gaps/json_load_dump_surface.rb	stdlib/json/json_load_dump_surface.rb
@@ -320,7 +306,6 @@ gaps/issue_3201.rb	stdlib/ostruct/issue_3201.rb
 gaps/issue_3270.rb	stdlib/ostruct/issue_3270.rb
 gaps/issue_3272.rb	stdlib/ostruct/issue_3272.rb
 gaps/issue_3288.rb	stdlib/ostruct/issue_3288.rb
-gaps/issue_3296_aliased_reader_symbol_proc.rb	stdlib/ostruct/issue_3296_aliased_reader_symbol_proc.rb
 gaps/issue_3331_poly_to_sym_arm.rb	stdlib/ostruct/issue_3331_poly_to_sym_arm.rb
 gaps/issue_3341_ostruct_shadows_builtin.rb	stdlib/ostruct/issue_3341_ostruct_shadows_builtin.rb
 gaps/ostruct_nil_union_to_h.rb	stdlib/ostruct/ostruct_nil_union_to_h.rb
@@ -330,13 +315,11 @@ gaps/native_pathname_path_operations_match_the_oracle.rb	stdlib/pathname/native_
 gaps/pathname_private_helpers.rb	stdlib/pathname/pathname_private_helpers.rb
 gaps/pathname_rows.rb	stdlib/pathname/pathname_rows.rb
 gaps/the_implicit_conversion_protocol_runs_at_every_typed_slot.rb	stdlib/pathname/the_implicit_conversion_protocol_runs_at_every_typed_slot.rb
-gaps/prime_library.rb	stdlib/prime/prime_library.rb
 gaps/pty_spawn.rb	stdlib/pty/pty_spawn.rb
 gaps/pty_spawn_and_check.rb	stdlib/pty/pty_spawn_and_check.rb
 gaps/a_racc_parser_answers_the_same_off_either_runtime.rb	stdlib/racc/a_racc_parser_answers_the_same_off_either_runtime.rb
 gaps/a_require_of_rbconfig_answers_like_rubys_preloaded_one.rb	stdlib/rbconfig/a_require_of_rbconfig_answers_like_rubys_preloaded_one.rb
 gaps/readline.rb	stdlib/readline/readline.rb
-gaps/reline_line_editor.rb	stdlib/reline/reline_line_editor.rb
 gaps/requiring_rexml_document_survives_the_ambient_encoding_class.rb	stdlib/rexml/requiring_rexml_document_survives_the_ambient_encoding_class.rb
 gaps/a_computed_require_of_a_bundled_gem.rb	stdlib/rubygems/a_computed_require_of_a_bundled_gem.rb
 gaps/a_builtin_row_reports_its_parameter_names.rb	stdlib/securerandom/a_builtin_row_reports_its_parameter_names.rb
@@ -358,7 +341,6 @@ gaps/zlib_checksums_match_ruby.rb	stdlib/zlib/zlib_checksums_match_ruby.rb
 gaps/zlib_classes.rb	stdlib/zlib/zlib_classes.rb
 gaps/zlib_compression.rb	stdlib/zlib/zlib_compression.rb
 gaps/zlib_constants.rb	stdlib/zlib/zlib_constants.rb
-gaps/bundled_libraries.rb	ze0/bundled_libraries.rb
 gaps/defined.rb	ze0/defined.rb
 gaps/ffi_typedefs_and_guarded_directives.rb	ze0/ffi_typedefs_and_guarded_directives.rb
 gaps/lazy_units.rb	ze0/lazy_units.rb
