@@ -823,7 +823,6 @@ class IO
   # the buffer the command fills -- grown to the length the command names,
   # with one byte after it that the answer must not reach.
   def ioctl(command, argument = 0)
-    Primitive.attr! :ruby
     check_open
     command = Numeric.send(:int_operand, command)
     buffer = ioctl_buffer(command, argument)

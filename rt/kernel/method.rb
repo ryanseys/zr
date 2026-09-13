@@ -166,13 +166,14 @@ machine def zr_method_meta(e)
 end
 
 # A compiled def carries the arity its parameters give; a builtin's is
-# its entry's.
+# its entry's. A core def answers as C does, -1 for any optional count,
+# unless CRuby writes it in Ruby too.
 sig [Value] => Word
 machine def zr_method_arity_of(m)
   e = RMethod.entry(m)
   meta = zr_method_meta(e)
   if meta != 0
-    if FrameMeta.file_len(meta) == 0 && FrameMeta.arity(meta) < 0
+    if FrameMeta.file_len(meta) == 0 && FrameMeta.ruby(meta) == 0 && FrameMeta.arity(meta) < 0
       return 0 - 1
     end
     return FrameMeta.arity(meta)
