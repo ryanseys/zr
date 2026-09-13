@@ -36,10 +36,10 @@ module Ze0
     # first. The string is parsed one scope inside them, so a name it
     # writes that they already hold lands in their Env, and a name it
     # invents stays its own.
-    def compile(source, file, line = 1, scopes = [])
+    def compile(source, file, line = 1, scopes = [], in_method = true)
       @count += 1
       name = "zr_eval_#{@count}"
-      hir = Hir.build(string(source), string(file), road: false, line: line.to_int, scopes: [*scopes.reverse, []])
+      hir = Hir.build(string(source), string(file), road: false, line: line.to_int, scopes: [*scopes.reverse, []], in_method: in_method)
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)
       metas = symbols.select { |symbol, _| symbol.start_with?("zr_meta_") }.values

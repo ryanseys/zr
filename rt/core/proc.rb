@@ -90,6 +90,14 @@ end
 class Method
   def hash = [owner, name, receiver.object_id].hash
 
+  # The box the method was defined in, while boxes are on: its own box for
+  # a method a program wrote, the master box for one ruby itself carries.
+  def box
+    return nil unless Ruby::Box.enabled?
+
+    Primitive.zr_method_box_m(self) || (source_location ? Ruby::Box.main : Ruby::Box.master)
+  end
+
   def >>(other)
     other = Proc.callable(other)
     first = self

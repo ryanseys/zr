@@ -30,9 +30,11 @@ module Ze0
 
       # `road` is false for an eval: the program it runs inside already
       # carries the compiler, so the eval must not compile it again.
-      def self.program(source, file, roots: [], road: true, line: 1, scopes: nil)
+      # `in_method` says whether an eval's string runs inside a method,
+      # where a `yield` has a block to reach.
+      def self.program(source, file, roots: [], road: true, line: 1, scopes: nil, in_method: true)
         loader = Loader.new(roots + STDLIB, eval: !road)
-        main = loader.unit(file, source, line, scopes)
+        main = loader.unit(file, source, line, scopes, in_method: in_method)
         preludes = []
         preludes << rbconfig(loader) if road && loader.configures?
         preludes << eval_road(loader) if road && loader.evals?
@@ -179,9 +181,11 @@ module Ze0
                                 ((SENDS + FETCHES).include?(name) && (NORMALIZES + ENCODES).include?(named))
         end
 
-        def unit(file, source = File.read(file), line = 1, scopes = nil)
+        def unit(file, source = File.read(file), line = 1, scopes = nil, in_method: true)
           result = scopes ? Prism.parse(source, filepath: file, line: line, scopes: scopes) : Prism.parse(source, filepath: file, line: line)
           raise SyntaxReport.error(result, file) unless result.errors.empty?
+          stray = scopes && !in_method && invalid_yields(source, file, line)
+          raise stray if stray
 
           load_path_roots(result.value, file).each do |front, paths|
             front ? @roots.unshift(*paths) : @roots.concat(paths)
@@ -190,6 +194,20 @@ module Ze0
           build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value))
           body = build.seq(result.value.statements, hoist: true)
           Unit.new(file, result.value.locals + build.temps, body, warnings(result, file), file.start_with?("#{EXT}/"))
+        end
+
+        # The SyntaxError an eval's string raises for a `yield` outside any
+        # `def` of its own, when the eval itself stands outside a method:
+        # there is no block for it to reach. prism reports it only when it
+        # is not told the string runs inside other scopes, so it is asked
+        # that way; ruby names every one, a line each.
+        def invalid_yields(source, file, line)
+          yields = Prism.parse(source, filepath: file, line: line).errors.select { |e| e.type == :invalid_yield }
+          return nil if yields.empty?
+
+          SyntaxError.new(yields.map { |e| "#{file}:#{e.location.start_line}: #{e.message}" }.join("\n")).tap do |exc|
+            exc.instance_variable_set(:@path, file)
+          end
         end
 
         # The definees this file gives a `require`, `require_relative` or

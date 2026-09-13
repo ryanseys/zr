@@ -74,6 +74,34 @@ machine def zr_eval_env
   zr_frame_env(zr_caller_frame())
 end
 
+# Whether the frame that asked for an eval runs inside a method: a
+# method's own body, or a block, an eval, or a block in an eval, written
+# inside one.
+sig [] => Value
+machine def zr_eval_in_method
+  zr_bool(zr_meta_in_method(Frame.meta(zr_caller_frame())))
+end
+
+sig [Value] => Value
+machine def zr_binding_in_method(b)
+  zr_bool(zr_meta_in_method(RProc.meta(b)))
+end
+
+sig [Ptr] => Bool
+machine def zr_meta_in_method(meta)
+  while meta != 0
+    kind = FrameMeta.kind(meta)
+    if kind == KIND_DEF
+      return true
+    end
+    if kind != KIND_BLOCK && kind != KIND_EVAL
+      return false
+    end
+    meta = FrameMeta.parent(meta)
+  end
+  false
+end
+
 # The names of every scope the asking frame can reach, innermost first:
 # its own, then one array per Env out along the chain.
 sig [] => Value

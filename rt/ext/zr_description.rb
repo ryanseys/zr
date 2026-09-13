@@ -50,6 +50,9 @@ module Ze0
         d zr_local_names Value table:Ptr
         d zr_frame_env Value rec:Ptr
         d zr_eval_env Value
+        d zr_eval_in_method Value
+        d zr_binding_in_method Value b:Value
+        d zr_meta_in_method Bool meta:Ptr
         d zr_eval_scopes Value
         d zr_binding Value
         d zr_proc_binding Value p:Value
@@ -736,6 +739,7 @@ module Ze0
         d zr_method_bind Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_method_bind_call Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_method_location Ptr e:Ptr
+        d zr_method_box_m Value m:Value
         d zr_method_source_location Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_method_eq Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_buf_param Void b:Ptr kind:Word id:Word i:Word forwarding:Bool

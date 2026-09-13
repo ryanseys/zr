@@ -445,6 +445,18 @@ machine def zr_method_location(e)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
+# The box a method's body was compiled into, or nil for one the runtime
+# carries or one written where no box was open.
+sig [Value] => Value
+machine def zr_method_box_m(m)
+  meta = zr_method_location(RMethod.entry(m))
+  if meta == 0 || Machine.word(FrameMeta.box(meta)) == 0
+    return Machine.value(QNIL)
+  end
+  FrameMeta.box(meta)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_method_source_location(recv, argc, argv, cref, blk)
   e = RMethod.entry(recv)
   meta = zr_method_location(e)
