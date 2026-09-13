@@ -34,6 +34,7 @@ module Ze0
         loader = Loader.new(roots + STDLIB, eval: !road)
         main = loader.unit(file, source, line, scopes)
         preludes = []
+        preludes << rbconfig(loader) if road && loader.configures?
         preludes << eval_road(loader) if road && loader.evals?
         preludes << normalizer(loader) if road && loader.normalizes?
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
@@ -48,6 +49,15 @@ module Ze0
 
       def self.normalizer(loader)
         Require.new(:eval_road, "ze0/normalizer", NORMALIZER, loader.add(NORMALIZER), 0)
+      end
+
+      # `rbconfig`, which ruby has loaded before a program's first line:
+      # rubygems requires it as ruby boots. A program here carries it when
+      # some file of it names `RbConfig` or requires it, so the constant is
+      # there to read and `require "rbconfig"` answers false, as in ruby.
+      def self.rbconfig(loader)
+        path = loader.resolve(:require, "rbconfig", EXT)
+        Require.new(:require, "rbconfig", path, loader.add(path), 0)
       end
 
       # A require of the eval road, ahead of everything the program does.
@@ -73,6 +83,7 @@ module Ze0
           @index = {}
           @evals = false
           @normalizes = false
+          @configures = false
           @back_refs = {}
         end
 
@@ -148,6 +159,20 @@ module Ze0
 
         def normalizes? = @normalizes
 
+        def configures? = @configures
+        def configures! = @configures = true
+
+        # Whether a file names the toplevel `RbConfig`, bare or as
+        # `::RbConfig`.
+        def names_rbconfig?(tree)
+          !tree.breadth_first_search do |n|
+            case n
+            when Prism::ConstantReadNode then n.name == :RbConfig
+            when Prism::ConstantPathNode then n.parent.nil? && n.name == :RbConfig
+            end
+          end.nil?
+        end
+
         def normalizes!(name, args)
           named = args.first.value if args.first.is_a?(Literal) && args.first.value.is_a?(Symbol)
           @normalizes = true if NORMALIZES.include?(name) || ENCODES.include?(name) ||
@@ -161,6 +186,7 @@ module Ze0
           load_path_roots(result.value, file).each do |front, paths|
             front ? @roots.unshift(*paths) : @roots.concat(paths)
           end
+          configures! if !configures? && names_rbconfig?(result.value)
           build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value))
           body = build.seq(result.value.statements, hoist: true)
           Unit.new(file, result.value.locals + build.temps, body, warnings(result, file), file.start_with?("#{EXT}/"))
@@ -1112,7 +1138,7 @@ module Ze0
       # rather than answering false and failing at the first use. Only
       # pathname's C half is loaded, so `require "pathname"` still runs
       # its Ruby half and answers true.
-      PRELOADED = %w[enumerator thread fiber rational complex ruby2_keywords set monitor].freeze
+      PRELOADED = %w[enumerator thread fiber rational complex ruby2_keywords set monitor rbconfig].freeze
 
       # A feature ruby loaded before the program, by any of its names:
       # `thread`, `thread.rb` and `enumerator.so` all count.
@@ -1123,7 +1149,10 @@ module Ze0
       def require_node(node)
         line = node.location.start_line
         feature = literal_feature(node)
-        return Literal.new(false, line) if node.name == :require && preloaded?(feature)
+        if node.name == :require && preloaded?(feature)
+          @loader.configures! if feature.to_s.delete_suffix(".rb") == "rbconfig"
+          return Literal.new(false, line)
+        end
 
         path = @loader.resolve(node.name, feature, @file)
         stop = path.nil? && node.name != :require_relative && stop_for(node, feature)
