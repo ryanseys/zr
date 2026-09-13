@@ -71,6 +71,7 @@ show("D#x") { D.instance_method(:x).parameters }
 # own answer for a C method that declares only a count.
 show("String#index") { [String.instance_method(:index).parameters, String.instance_method(:index).arity] }
 show("Array#push") { [Array.instance_method(:push).parameters, Array.instance_method(:push).arity] }
+
 __END__
 Pathname#+: [[:req, :other]] / 1
 Pathname#/: [[:req, :other]] / 1
@@ -113,9 +114,9 @@ Kernel#Integer: [[:req, :arg], [:opt, :base], [:key, :exception]] / -2
 Kernel#Pathname: [[:req, :path]] / 1
 Kernel#clone: [[:key, :freeze]] / -1
 Kernel#pp: [[:rest, :objs]] / -1
-Kernel#require: [[:req, :name]] / 1
+Kernel#require: [[:req, :path]] / 1
 Kernel#warn: [[:rest, :msgs], [:key, :uplevel], [:key, :category]] / -1
-Kernel.require: [[[:req, :name]], 1]
+Kernel.require: [[[:req]], 1]
 Dir#initialize: [[:req, :name], [:key, :encoding]]
 Hash#initialize: [[:opt, :ifnone], [:key, :capacity], [:block, :block]]
 Time#initialize: [[:opt, :year], [:opt, :mon], [:opt, :mday], [:opt, :hour], [:opt, :min], [:opt, :sec], [:opt, :zone], [:key, :in], [:key, :precision]]

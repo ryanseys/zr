@@ -6,7 +6,8 @@
 # not an abort, so this asserts on the process output directly.
 
 UNDEF += 1
+
 __END__
 #@ stderr
-gaps/other_compound_assignment_operators_still_raise_on_an_undefined_constant.rb:9:in '<main>': uninitialized constant UNDEF (NameError)
+lang/variables/other_compound_assignment_operators_still_raise_on_an_undefined_constant.rb:8:in '<main>': uninitialized constant UNDEF (NameError)
 #@ exit 1

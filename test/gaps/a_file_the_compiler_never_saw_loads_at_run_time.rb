@@ -60,6 +60,7 @@ rescue RuntimeError => e
   puts e.message
   puts e.backtrace.first(3).map { |l| l.sub(__dir__ + "/", "") }
 end
+
 __END__
 true
 false
@@ -77,4 +78,4 @@ true
 from inner
 a_file_the_compiler_never_saw_loads_at_run_time/deep/inner.rb:6:in 'RuntimeInner.boom'
 a_file_the_compiler_never_saw_loads_at_run_time/top.rb:10:in 'Raiser#boom'
-a_file_the_compiler_never_saw_loads_at_run_time.rb:58:in '<main>'
+gaps/a_file_the_compiler_never_saw_loads_at_run_time.rb:58:in '<main>'

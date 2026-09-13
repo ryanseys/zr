@@ -53,6 +53,7 @@ p s.ttyname.frozen?
 
 m.close
 s.close
+
 __END__
 true
 "A"
@@ -65,10 +66,10 @@ true
 ["boom", true]
 "pw"
 true
-IO::Console::Mode
+IO::ConsoleMode
 false
-IO::Console::Mode
-IO::Console::Mode
+IO::ConsoleMode
+IO::ConsoleMode
 [24, 80]
 [24, 80]
 true
