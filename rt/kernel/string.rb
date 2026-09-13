@@ -1208,7 +1208,46 @@ machine def zr_str_literal_freeze(bytes, len)
   if (Machine.load64(zr_gates(), 0) & GATE_FREEZE) != 0
     return zr_send(zr_str_new(bytes, len), Machine.id(:freeze), 0, 0)
   end
-  zr_str_frozen(bytes, len)
+  zr_str_literal_shared(bytes, len)
+end
+
+G_FROZEN_LITERALS = 52
+
+# The one frozen String of a UTF-8 literal, kept under the address its
+# bytes sit at.
+#
+# `zr_str_frozen` already answers the same object at every evaluation --
+# that is what the fstring table is for -- but it reaches it by making a
+# String, copying the bytes, hashing them and throwing the new String
+# away. Under `frozen_string_literal: true` that is an allocation, a
+# malloc, a copy and a hash of every byte each time control passes a
+# literal, which for a compiler is most of what it does.
+#
+# The key is the address of the bytes, which the emitter already hands
+# in, so a hit is one hash of one word. The table is a rooted Hash, so
+# the String it holds is marked.
+#
+# An address does not name a literal on its own: the eval road maps code
+# at run time, and a freed mapping hands its addresses back. So a hit
+# reads the bytes it found and keeps them only when they are the bytes
+# that were asked for; a row that names something else is replaced. The
+# check is a compare, not an allocation, and it is what makes a
+# recycled address answer for the literal that is there now.
+sig [Ptr, Word] => Value
+machine def zr_str_literal_shared(bytes, len)
+  table = zr_global(G_FROZEN_LITERALS)
+  if zr_special_p(table)
+    table = zr_hash_new()
+    zr_set_global(G_FROZEN_LITERALS, table)
+  end
+  key = zr_fix(Machine.word(bytes))
+  found = zr_hash_lookup(table, key)
+  if found != QUNDEF && zr_bytes_eq(bytes, len, RString.ptr(found), RString.len(found))
+    return found
+  end
+  s = zr_str_frozen(bytes, len)
+  zr_hash_store(table, key, s)
+  s
 end
 
 GATE_FREEZE = 32768

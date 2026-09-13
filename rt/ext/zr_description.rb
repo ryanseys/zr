@@ -1150,6 +1150,7 @@ module Ze0
         d zr_str_frozen_at Value bytes:Ptr len:Word index:Word
         d zr_str_literal_freeze_at Value bytes:Ptr len:Word index:Word
         d zr_str_literal_freeze Value bytes:Ptr len:Word
+        d zr_str_literal_shared Value bytes:Ptr len:Word
         d zr_str_intern Value s:Value
         d zr_opt_ltlt Value recv:Value mid:Word argc:Word argv:Ptr
         d zr_str_bytesize Value s:Value
@@ -1315,7 +1316,7 @@ module Ze0
         c G_FALSE 10
         c G_MAIN 11
         c G_NUMERIC 13
-        c G_COUNT 52
+        c G_COUNT 53
         c GATE_PLUS 1
         c GATE_MINUS 2
         c GATE_MUL 4
@@ -1406,6 +1407,7 @@ module Ze0
         c FL_ASCII 2097152
         c FL_ASCII_CLEAR -2097153
         c G_FROZEN_ERROR 27
+        c G_FROZEN_LITERALS 52
         c GATE_FREEZE 32768
         c G_FSTRINGS 44
         c FL_FSTR 4194304
