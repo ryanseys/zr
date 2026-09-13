@@ -62,15 +62,19 @@ module Ze0
       def boot_class_slot(name) = @internal ? Lower.boot_classes[name] : nil
 
       # `internal` marks the core library: its methods are builtins to a
-      # backtrace, and its blocks and bodies leave no row at all. `kind`
-      # is `:top` for an eval, whose toplevel is a file's, not a
-      # program's: it starts no program and prints no parse warning.
-      def initialize(program, unit, symbols, entry: "zr_toplevel", internal: false, kind: :main, outer: nil)
+      # backtrace, and its blocks and bodies leave no row at all. `ext`
+      # marks a program that is one of the native halves, compiled alone,
+      # which is internal as a unit of one is. `kind` is `:top` for an
+      # eval, whose toplevel is a file's, not a program's: it starts no
+      # program and prints no parse warning.
+      def initialize(program, unit, symbols, entry: "zr_toplevel", internal: false, ext: false, kind: :main, outer: nil)
         @program = program
         @unit = unit
         @symbols = symbols
         @entry = entry
         @internal = internal
+        @ext = ext
+        @unit_internal = ext
         @kind = kind
         @outer = outer
         @file = program.file
@@ -91,14 +95,16 @@ module Ze0
           @unit_internal = u.internal
           Function.new(self, unit_entry(i), u.locals, u.body, nil, :top).lower
         end
-        @unit_internal = false
+        @unit_internal = @ext
         @file = @program.file
         @warnings = @program.warnings || []
         [@functions, @data]
       end
 
+      # A unit's toplevel: this program's unit at `index`, or the entry a
+      # road built already answers for a file it holds.
       def unit_entry(index)
-        "#{@entry}_unit_#{index}"
+        index.is_a?(String) ? index : "#{@entry}_unit_#{index}"
       end
 
       # The FrameMeta kind a function of `kind` gets here.

@@ -74,9 +74,25 @@ module Ze0
       # A `Zr::Program` to a binary: its runtime from the cache, its own
       # functions and data emitted now.
       def program(program, out, work:, root: ROOT)
-        rt = runtime_object(program.runtime)
+        objects = [runtime_object(program.runtime)]
+        objects << road_object(program.evals) if program.evals
         flags = program.evals ? STACK_FLAGS : STACK_FLAGS + STRIP_FLAGS
-        binary(program.functions, program.data, out, work: work, objects: [rt], flags: flags, root: root)
+        binary(program.functions, program.data, out, work: work, objects: objects, flags: flags, root: root)
+      end
+
+      # The compiler's object, built once per road.
+      def road_object(road)
+        obj = road.object_path
+        return obj if File.exist?(obj)
+
+        Dir.mktmpdir("ze0-road-") do |work|
+          fresh = File.join(work, "road.o")
+          why = object(road.functions, road.data, fresh, export: true)
+          raise "the compiler did not build: #{why}" if why
+
+          Zr.write_cache(obj, File.binread(fresh))
+        end
+        obj
       end
 
       # The runtime's object, built once per digest.

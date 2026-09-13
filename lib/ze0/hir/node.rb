@@ -13,7 +13,10 @@ module Ze0
     # `units` are the files a require or load reaches, each a toplevel
     # of its own, in the order they were first named. `warnings` are the
     # parse-time warnings ruby prints for the file, printed when it runs.
-    Program = Struct.new(:file, :locals, :body, :units, :warnings)
+    # `evals` says the program carries the compiler; `entries` maps each
+    # file path to its unit: an index into `units`, or the entry of a
+    # road built already.
+    Program = Struct.new(:file, :locals, :body, :units, :warnings, :evals, :entries)
     Unit = Struct.new(:file, :locals, :body, :warnings, :internal)
     # `require`, `require_relative` or `load` of a literal name: `path`
     # is the file it resolved to and `unit` that file's index, or both

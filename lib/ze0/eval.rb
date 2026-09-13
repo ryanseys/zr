@@ -46,6 +46,19 @@ module Ze0
       [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}"), metas]
     end
 
+    # The address of the toplevel of the file at `path`, compiled as a
+    # required file is: a scope of its own, under main and Object. A file
+    # among the native halves is the runtime's own, where `Primitive`
+    # resolves.
+    def compile_file(path)
+      @count += 1
+      name = "zr_load_#{@count}"
+      hir = Hir.build(File.read(path), path, road: false)
+      ext = path.start_with?("#{Hir::Build::EXT}/")
+      functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :top, ext: ext).run
+      Obj::JIT.load(unit(functions, data), host: @host).fetch(name)
+    end
+
     private
 
     # The Outer chain for `scopes`, innermost first, as the lowering

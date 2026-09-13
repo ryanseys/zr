@@ -40,11 +40,102 @@ module Kernel
     raise SystemExit.new(1, message)
   end
 
-  # A literal name is resolved when the program is compiled; a computed
-  # one has no file to answer it yet.
-  def require(name) = Primitive.zr_unimplemented("require with a computed name")
-  def require_relative(name) = Primitive.zr_unimplemented("require_relative with a computed name")
-  def load(name, wrap = false) = Primitive.zr_unimplemented("load with a computed name")
+  # A literal name is resolved when the program is compiled. A computed
+  # one is found when the call runs, as ruby finds it.
+  def require(name)
+    feature = File.path(name)
+    return false if Kernel.preloaded?(feature)
+
+    Kernel.load_file(Kernel.feature_path(feature), feature, 0)
+  end
+
+  # The name is taken from the directory of the file that calls.
+  def require_relative(name)
+    file = Primitive.zr_caller_file
+    raise LoadError, "cannot infer basepath" if file.nil?
+
+    path = File.expand_path(File.path(name), File.dirname(file))
+    Kernel.load_file(Kernel.feature_path(path), path, 1)
+  end
+
+  # A load runs the file each time, and names it exactly: a path that
+  # says where it starts, else a file under a $LOAD_PATH directory, else
+  # one under the working directory.
+  def load(name, wrap = false)
+    return Primitive.zr_unimplemented("load with a wrap module") if wrap
+
+    feature = File.path(name)
+    Kernel.load_file(Kernel.search(feature) || (File.file?(feature) && File.expand_path(feature)), feature, 2)
+  end
+
+  # The file a require of `feature` runs, or nil, as the compiler
+  # resolves a literal name: a name with no `.rb` names a file that ends
+  # in it, and a native extension's name also names the Ruby that stands
+  # in for it among this runtime's native halves.
+  def self.feature_path(feature)
+    Primitive.attr! :hidden
+    return search(feature) if feature.end_with?(".rb")
+
+    found = search("#{feature}.rb")
+    return found if found || !feature.end_with?(".so", ".bundle", ".dylib", ".o")
+
+    found(File.join(Primitive.zr_load_names(3), "#{feature.delete_suffix(File.extname(feature))}.rb"))
+  end
+
+  # `name` looked for as ruby looks: a path that says where it starts is
+  # taken from there; any other name under each $LOAD_PATH directory, then
+  # under the library the program was compiled against.
+  def self.search(name)
+    Primitive.attr! :hidden
+    return found(File.expand_path(name)) if name.start_with?("/", "./", "../", "~")
+
+    dirs = $LOAD_PATH.map { |dir| File.path(dir) } + Primitive.zr_load_names(0).split("\n")
+    dirs.each do |dir|
+      path = found(File.expand_path(name, dir))
+      return path if path
+    end
+    nil
+  end
+
+  # `path`, when the program was compiled with that file or it is there.
+  def self.found(path)
+    Primitive.attr! :hidden
+    path if Primitive.zr_unit_for(path) || File.file?(path)
+  end
+
+  # Whether ruby loaded `feature` before the program, by any of its names.
+  def self.preloaded?(feature)
+    Primitive.attr! :hidden
+    Primitive.zr_load_names(2).split("\n").include?(feature.sub(/\.(?:rb|so|bundle)\z/, ""))
+  end
+
+  # A require (kind 0), require_relative (1) or load (2) of the file at
+  # `path`, which `feature` named: its compiled toplevel when the program
+  # was compiled with the file, or the file compiled now. A feature ruby
+  # carries that this runtime has no file for stops by name.
+  def self.load_file(path, feature, kind)
+    Primitive.attr! :hidden
+    unless path
+      if kind == 0 && Primitive.zr_load_names(1).split("\n").include?(feature.delete_suffix(".rb"))
+        Primitive.zr_unloadable("require of #{feature.inspect}")
+      end
+      error = LoadError.new("cannot load such file -- #{feature}")
+      error.instance_variable_set(:@path, feature)
+      raise error
+    end
+    return false if kind != 2 && $LOADED_FEATURES.include?(path)
+
+    Primitive.zr_require_computed(path, Primitive.zr_unit_for(path) || compile(path), kind)
+  end
+
+  # A file the program was not compiled with, compiled by the compiler a
+  # program that computes a require carries.
+  def self.compile(path)
+    Primitive.attr! :hidden
+    return Primitive.zr_unimplemented("require of a file the program was not compiled with") unless defined?(::Ze0::Eval)
+
+    ::Ze0::Eval.current.compile_file(path)
+  end
 
   def at_exit(&block)
     raise ArgumentError, "called without a block" unless block

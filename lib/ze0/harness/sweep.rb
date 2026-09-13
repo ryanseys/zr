@@ -66,6 +66,7 @@ module Ze0
       end
 
       def run(cases)
+        warm
         queue = Queue.new
         cases.each { |rb| queue << rb }
         rows = Queue.new
@@ -87,6 +88,19 @@ module Ze0
         out = []
         out << rows.pop until rows.empty?
         out.sort_by(&:rb)
+      end
+
+      # The runtime's object and the compiler's are caches every build
+      # reads. Cold, every worker would build them at once, each as slowly
+      # as the machine allows; so one build of a program that evals makes
+      # both first. A build that fails here fails again in its rows.
+      def warm
+        Dir.mktmpdir("ze0-warm-") do |work|
+          program = File.join(work, "warm.rb")
+          File.write(program, "eval('1')\n")
+          system(RbConfig.ruby, File.join(@root, "bin/ze0"), "zr", "build", program, "-o", File.join(work, "warm"),
+                 out: File::NULL, err: File::NULL)
+        end
       end
 
       # Compile, build, run, compare.

@@ -20,7 +20,7 @@
 # the whole file: "a span-less `class` (`Object`) inside an `eval`". `time.rb`
 # has this shape, so it took `require "bundler/setup"` down with it.
 
-DIR = File.expand_path("../fixtures/runtime_compiled", __dir__)
+DIR = File.expand_path("../../fixtures/runtime_compiled", __dir__)
 $LOAD_PATH.unshift(DIR)
 
 # Computed, so the loader cannot resolve it and the run time must.

@@ -29,18 +29,34 @@ module Ze0
       EVAL_ROAD = File.expand_path("../eval.rb", __dir__)
 
       # `road` is false for an eval: the program it runs inside already
-      # carries the compiler, so the eval must not compile it again.
+      # carries the compiler, so the eval must not compile it again. It is
+      # true to build the compiler into a program that evals, or a road
+      # built already (`Zr::Road`): a program that evals then names its
+      # units instead of building them, and so does every file the program
+      # shares with it. Only the end of a build knows whether the program
+      # evals, so a program that does is built a second time over the road.
       # `in_method` says whether an eval's string runs inside a method,
       # where a `yield` has a block to reach.
       def self.program(source, file, roots: [], road: true, line: 1, scopes: nil, in_method: true)
-        loader = Loader.new(roots + STDLIB, eval: !road)
-        main = loader.unit(file, source, line, scopes, in_method: in_method)
+        built = lambda do |external|
+          loader = Loader.new(roots + STDLIB, eval: !road, external: external)
+          [loader, loader.unit(file, source, line, scopes, in_method: in_method)]
+        end
+        loader, main = built.call(nil)
+        loader, main = built.call(road) if road.respond_to?(:units) && loader.evals?
         preludes = []
         preludes << rbconfig(loader) if road && loader.configures?
         preludes << eval_road(loader) if road && loader.evals?
         preludes << normalizer(loader) if road && loader.normalizes?
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
-        Program.new(main.file, main.locals, body, loader.units, main.warnings)
+        Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries)
+      end
+
+      # The compiler alone, as the units a road holds: the loader has
+      # built them, and its flags say what a program that carries them
+      # needs beside them.
+      def self.road
+        Loader.new(STDLIB).tap { |loader| eval_road(loader) }
       end
 
       # The file that arms String#unicode_normalize's load of ruby's own
@@ -78,14 +94,16 @@ module Ze0
       class Loader
         attr_reader :units
 
-        def initialize(roots, eval: false)
+        # `external` is a road built already: a file it holds is named by
+        # the entry it answers, and needs nothing the road does not.
+        def initialize(roots, eval: false, external: nil)
           @eval = eval
           @roots = roots.map { |r| File.expand_path(r) }
           @units = []
-          @index = {}
+          @index = external ? external.units.dup : {}
           @evals = false
-          @normalizes = false
-          @configures = false
+          @normalizes = external&.normalizes? || false
+          @configures = external&.configures? || false
           @back_refs = {}
         end
 
@@ -110,6 +128,21 @@ module Ze0
 
         def evals? = @evals
 
+        # The calls that add to $LOAD_PATH, or take from it.
+        LOAD_PATH_CHANGES = %i[unshift push << concat insert prepend append replace clear shift pop delete delete_at delete_if
+                               reject! select! filter! keep_if map! collect! []= fill].freeze
+
+        # A change to $LOAD_PATH the compiler cannot follow -- anything but
+        # a literal directory added -- can make a require find a file the
+        # program was not compiled with, so the compiler comes along.
+        def load_path_changed!(node, file)
+          return unless node.receiver.is_a?(Prism::GlobalVariableReadNode) && %i[$LOAD_PATH $:].include?(node.receiver.name)
+          return unless LOAD_PATH_CHANGES.include?(node.name)
+
+          literal = %i[unshift push <<].include?(node.name) && node.arguments&.arguments&.all? { |a| literal_path(a, file) }
+          @evals = true unless literal
+        end
+
         # Whether this build is an eval. A string of ruby cannot add a
         # unit to a program that is already linked, and it cannot see
         # the methods of the class it runs inside, so `require` and
@@ -118,6 +151,10 @@ module Ze0
 
         # Whether the file being built is one only the eval road loads.
         def hiding? = @hiding
+
+        # Each file this loader reached, by path: its unit's index, or the
+        # entry an external road answers for it.
+        def entries = @index
 
         # The unit at `path` and everything it loads, built as the eval
         # road's own.
@@ -133,16 +170,24 @@ module Ze0
         SENDS = %i[send __send__ public_send].freeze
         FETCHES = %i[method public_method instance_method].freeze
 
-        def evals!(name, args)
+        # A require, require_relative or load that reaches Kernel's as a
+        # send: its name is computed, so the file it finds may be one the
+        # program was not compiled with, and the compiler comes along to
+        # compile it then.
+        LOADS = %i[require require_relative load].freeze
+
+        # `kernel` says the call reaches Kernel's method: it has no
+        # receiver, or `Kernel` is the receiver. `YAML.load` does not.
+        def evals!(name, args, kernel: true)
           named = args.first.value if args.first.is_a?(Literal) && args.first.value.is_a?(Symbol)
           if named && SENDS.include?(name)
             name, args = named, args.drop(1)
           elsif named && FETCHES.include?(name)
             # The call comes later, with arguments this site cannot see.
-            @evals = true if named == :eval || EVAL_FORMS.include?(named)
+            @evals = true if named == :eval || EVAL_FORMS.include?(named) || (kernel && LOADS.include?(named))
             return
           end
-          @evals = true if name == :eval || (EVAL_FORMS.include?(name) && !args.empty?)
+          @evals = true if name == :eval || (EVAL_FORMS.include?(name) && !args.empty?) || (kernel && LOADS.include?(name))
         end
 
         # A program that names Ruby::Box compiles ruby while it runs:
@@ -272,11 +317,21 @@ module Ze0
             candidate(File.expand_path(feature)) || candidate(File.expand_path(feature, File.dirname(from)))
           else
             @roots.each do |root|
-              found = candidate(File.join(root, feature))
+              found = candidate(File.join(root, feature)) || native(root, feature)
               return found if found
             end
             nil
           end
+        end
+
+        # A native extension's name: `strscan.so`, `date.bundle`.
+        NATIVE = /\.(?:so|bundle|dylib|o)\z/
+
+        # The file that stands in for native extension `feature` under
+        # `root`: the extension's own Ruby, `strscan.rb`, where the root
+        # holds this runtime's native halves.
+        def native(root, feature)
+          root == EXT && feature.match?(NATIVE) ? candidate(File.join(root, feature.sub(NATIVE, ""))) : nil
         end
 
         def candidate(path)
@@ -1102,14 +1157,35 @@ module Ze0
         return require_node(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && !shadowed?(node.name) && !@loader&.eval? && literal_feature(node)
         return autoload_node(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
 
-        plain_call(node)
+        send = plain_call(node)
+        relative_in_file(node, send)
+      end
+
+      # A string compiled while the program runs from a file that has a
+      # place, `load`ed or given one by an eval, keeps its literal
+      # require_relative a send; the name it passes is spelled from that
+      # file's directory, which the frame of runtime Ruby cannot tell.
+      def relative_in_file(node, send)
+        return send unless @loader&.eval? && node.name == :require_relative && node.receiver.nil? && File.absolute_path?(@file)
+
+        feature = literal_feature(node)
+        return send unless feature
+
+        send.args = [Literal.new(File.expand_path(feature, File.dirname(@file)), send.line)]
+        send
       end
 
       # A call as the Send it is, with none of the forms above: what
-      # `defined?` asks about, since it never runs the call.
-      def plain_call(node)
+      # `defined?` asks about, since it never runs the call. `compiles`
+      # is false for a require of a literal name that no root holds: the
+      # call searches when it runs, and finds a file the program was not
+      # compiled with only where the program changed $LOAD_PATH, which
+      # brings the compiler along by itself.
+      def plain_call(node, compiles: true)
         args, kwargs, forwarded = arguments(node.arguments)
-        @loader.evals!(node.name, args)
+        kernel = compiles && (node.receiver.nil? || (node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Kernel))
+        @loader.evals!(node.name, args, kernel: kernel)
+        @loader.load_path_changed!(node, @file)
         @loader.normalizes!(node.name, args)
         # The inline `[]`, `[]=` and `<<` check visibility as an explicit
         # call does, so a literal `self` dispatches, private methods and all.
@@ -1161,6 +1237,15 @@ module Ze0
       # its Ruby half and answers true.
       PRELOADED = %w[enumerator thread fiber rational complex ruby2_keywords set monitor rbconfig].freeze
 
+      # The features ruby carries that no library root here holds, and
+      # that ruby did not load before the program: a require of one stops
+      # by name.
+      def self.missing_features
+        @missing_features ||= FEATURES.reject do |feature|
+          PRELOADED.include?(feature) || STDLIB.any? { |root| File.file?(File.join(root, "#{feature}.rb")) }
+        end.sort.freeze
+      end
+
       # A feature ruby loaded before the program, by any of its names:
       # `thread`, `thread.rb` and `enumerator.so` all count.
       def preloaded?(feature)
@@ -1178,11 +1263,14 @@ module Ze0
         path = @loader.resolve(node.name, feature, @file)
         stop = path.nil? && node.name != :require_relative && stop_for(node, feature)
         return stop if stop
+        # No file here yet: the call looks for one when it runs, under the
+        # $LOAD_PATH the program has built by then.
+        return plain_call(node, compiles: false) unless path
 
         # A require written in a file only the eval road loads is the
         # compiler's own, which the program never sees.
         kind = @loader.hiding? && node.name != :load ? :eval_road : node.name
-        Require.new(kind, feature, path || missing_path(node.name, feature), path && @loader.add(path), line)
+        Require.new(kind, feature, path, @loader.add(path), line)
       end
 
       # A feature ruby carries, which this runtime has no file for. The
@@ -1193,12 +1281,6 @@ module Ze0
 
         line = node.location.start_line
         Stop.new("#{node.name} of #{feature.inspect}", line)
-      end
-
-      # What a LoadError names: a require_relative shows the whole path,
-      # every other form the name the program wrote.
-      def missing_path(kind, feature)
-        kind == :require_relative ? File.expand_path(feature, File.dirname(@file)) : feature
       end
 
       def literal_autoload?(node)

@@ -265,6 +265,19 @@ end
 # load would.
 sig [Value, Ptr, Word] => Value
 machine def zr_require(path, fn, kind)
+  zr_require_run(path, fn, kind, true)
+end
+
+# The same for a require whose name the program computed: Kernel#require
+# found the file and stands in its own frame, so the file's toplevel runs
+# under that one. `fn` is the toplevel's address as an Integer.
+sig [Value, Value, Value] => Value
+machine def zr_require_computed(path, fn, kind)
+  zr_require_run(path, Machine.ptr(zr_fix2long(fn)), zr_fix2long(kind), false)
+end
+
+sig [Value, Ptr, Word, Bool] => Value
+machine def zr_require_run(path, fn, kind, framed)
   # An autoload whose feature no load path root holds carries no unit.
   if Machine.word(fn) == 0
     return zr_load_error(RString.ptr(path), RString.len(path))
@@ -286,7 +299,11 @@ machine def zr_require(path, fn, kind)
   if hidden
     Machine.store64(depth, 0, Machine.load64(depth, 0) + 1)
   end
-  r = zr_run_top(fn, kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require)))
+  mid = 0
+  if framed
+    mid = kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require))
+  end
+  r = zr_run_top(fn, mid)
   if hidden
     Machine.store64(depth, 0, Machine.load64(depth, 0) - 1)
   end
@@ -300,9 +317,13 @@ machine def zr_require(path, fn, kind)
 end
 
 # The file's toplevel, run under the frame of the Kernel method `mid`,
-# as a backtrace through a require shows it.
+# as a backtrace through a require shows it; under the caller's frame
+# when `mid` is 0.
 sig [Ptr, Word] => Value
 machine def zr_run_top(fn, mid)
+  if mid == 0
+    return Machine.call(:top, fn)
+  end
   e = zr_find_method(zr_global(G_KERNEL), mid)
   rec = Machine.slot(Frame.size)
   t = zr_task()
@@ -322,6 +343,53 @@ machine def zr_run_top(fn, mid)
   r = Machine.call(:top, fn)
   Task.set_top(t, Frame.prev(rec))
   r
+end
+
+# What the compiler lays out for a require whose name the program
+# computes (lib/ze0/zr.rb, `load_tables`): the count of files compiled
+# in, their rows, and four (bytes, length) texts.
+Machine.struct :LoadTable, units: Word, rows: Ptr, roots: Ptr, roots_len: Word, missing: Ptr, missing_len: Word,
+                           preloaded: Ptr, preloaded_len: Word, ext: Ptr, ext_len: Word
+
+sig [] => Ptr
+machine def zr_load_table
+  Machine.ptr(Machine.load64(Machine.extern(:zr_load_tables), 0))
+end
+
+# The compiled toplevel of the program's file at `path`, as an Integer
+# address, or nil: each row is (path bytes, length, toplevel), so a
+# require whose name the program computes still finds a file compiled in.
+sig [Value] => Value
+machine def zr_unit_for(path)
+  t = zr_load_table()
+  i = 0
+  while i < LoadTable.units(t)
+    row = LoadTable.rows(t) + (i * 24)
+    if zr_bytes_eq(Machine.ptr(Machine.load64(row, 0)), Machine.load64(row, 8), RString.ptr(path), RString.len(path))
+      return zr_fix(Machine.load64(row, 16))
+    end
+    i += 1
+  end
+  Machine.value(QNIL)
+end
+
+# What a require whose name the program computes reads, one name a line:
+# 0 for the library directories the program was compiled against, which
+# it searches after $LOAD_PATH; 1 for the features ruby carries that this
+# runtime has no file for; 2 for the features ruby loaded before the
+# program; 3 for the directory of this runtime's native halves.
+sig [Value] => Value
+machine def zr_load_names(which)
+  t = zr_load_table()
+  w = zr_fix2long(which)
+  if w == 0
+    return zr_str_new(LoadTable.roots(t), LoadTable.roots_len(t))
+  elsif w == 1
+    return zr_str_new(LoadTable.missing(t), LoadTable.missing_len(t))
+  elsif w == 2
+    return zr_str_new(LoadTable.preloaded(t), LoadTable.preloaded_len(t))
+  end
+  zr_str_new(LoadTable.ext(t), LoadTable.ext_len(t))
 end
 
 sig [Value, Value] => Bool

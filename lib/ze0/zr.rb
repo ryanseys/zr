@@ -93,26 +93,93 @@ module Ze0
     # A program's own functions and data over its runtime. Destructures
     # as `[functions, data, raw]` with the runtime included, for a build
     # that takes everything as one unit. `evals` says the program carries
-    # the compiler, whose JIT finds kernel functions by name.
+    # the compiler, whose JIT finds kernel functions by name: it is the
+    # Road the program links beside the runtime, or nil.
     Program = Struct.new(:runtime, :functions, :data, :evals) do
       def raw = runtime.raw
 
       def to_ary = [runtime.functions + functions, runtime.data + data, raw]
     end
 
+    # The compiler a program that evals carries, lowered once over the
+    # runtime's symbols and assembled into an object of its own, so a
+    # program that evals lowers and assembles only itself. The cache keeps,
+    # beside the object, what a program needs to know of it: the entry of
+    # each file it holds, what it needs beside it, and the symbol table
+    # after it. The key is the runtime's digest and the bytes of every
+    # file the road holds, so an edit to any of them builds it again.
+    class Road
+      def initialize(runtime)
+        @runtime = runtime
+      end
+
+      def units = meta.fetch("units")
+      def configures? = meta.fetch("configures")
+      def normalizes? = meta.fetch("normalizes")
+
+      # A fresh table to lower a program over, which goes on from the
+      # road's.
+      def symbols = Machine::Symbols.new(meta.fetch("names"), sites: meta.fetch("sites"))
+
+      def object_path = File.join(CACHE, "road-#{meta.fetch("key")}.o")
+
+      def functions = lowered.fetch(:functions)
+      def data = lowered.fetch(:data)
+
+      private
+
+      def meta_path = File.join(CACHE, "road-#{@runtime.digest}.json")
+
+      def meta
+        @meta ||= begin
+          meta = JSON.parse(File.read(meta_path)) if File.exist?(meta_path)
+          meta && meta.fetch("key") == files_key(meta.fetch("files")) ? meta : lowered.fetch(:meta)
+        end
+      end
+
+      def files_key(files)
+        Digest::SHA256.new.tap do |d|
+          d << @runtime.digest
+          files.each { |path| d << path << "\0" << (File.exist?(path) ? File.binread(path) : "") }
+        end.hexdigest
+      end
+
+      def lowered
+        @lowered ||= begin
+          loader = Hir::Build.road
+          program = Hir::Program.new(Hir::Build::EVAL_ROAD, [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
+          symbols = Machine::Symbols.new(@runtime.symbols.ids.keys, sites: @runtime.symbols.sites)
+          lower = Lower.new(program, @runtime.unit, symbols, entry: "zr_road")
+          functions, data = lower.run
+          files = loader.units.filter_map { |u| u.file if u.file.start_with?("/") }.uniq.sort
+          meta = { "key" => files_key(files), "files" => files,
+                   "units" => loader.entries.to_h { |path, i| [path, lower.unit_entry(i)] },
+                   "configures" => loader.configures?, "normalizes" => loader.normalizes?,
+                   "names" => symbols.ids.keys, "sites" => symbols.sites }
+          Zr.write_cache(meta_path, JSON.generate(meta))
+          { functions: functions, data: data, meta: meta }
+        end
+      end
+    end
+
     module_function
 
     def program(source, file)
       rt = runtime
-      symbols = Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
-      hir = Hir.build(source, file)
-      functions, data = Lower.new(hir, rt.unit, symbols).run
-      evals = hir.units.any? { |unit| unit&.file == Hir::Build::EVAL_ROAD }
-      Program.new(rt, functions, data + symbol_names(symbols), evals)
+      hir = Hir.build(source, file, road: road)
+      symbols = hir.evals ? road.symbols : Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
+      lower = Lower.new(hir, rt.unit, symbols)
+      functions, data = lower.run
+      units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
+      Program.new(rt, functions, data + symbol_names(symbols) + load_tables(units, evals: hir.evals), hir.evals && road)
     end
 
     def runtime
       @runtime ||= Runtime.new
+    end
+
+    def road
+      @road ||= Road.new(runtime)
     end
 
     # The files the runtime is lowered from, and the compiler that lowers
@@ -166,6 +233,41 @@ module Ze0
       end
       f.ret(f.iconst("i64", unit.const_for("QNIL")))
       f
+    end
+
+    # What a require whose name the program computes reads when it runs,
+    # behind the one word `zr_load_tables` points with: the count of files
+    # compiled in and their rows, (path bytes, length, toplevel) each;
+    # then, as (bytes, length), the library directories to search after
+    # $LOAD_PATH, the features ruby carries that this runtime has no file
+    # for, the features ruby loaded before the program, and the directory
+    # of native halves, one name a line. Only a program that carries the
+    # compiler can reach a require by a computed name, so only one of
+    # those gets the lines. `units` are `[path, entry]` pairs; a unit that
+    # only stops has no path.
+    def load_tables(units = [], evals: false)
+      units = units.select { |path, _| path.start_with?("/") }.sort
+      names = evals ? [Hir::Build::STDLIB, Hir::Build.missing_features, Hir::Build::PRELOADED, [Hir::Build::EXT]] : [[]] * 4
+      out = []
+      text = ->(name, bytes) { out << Obj::Data.new(name, :text_const, "#{bytes}\0".b, align: 1) }
+      rows = +"".b
+      row_relocs = []
+      units.each_with_index do |(path, entry), i|
+        text.call("zr_unit_path_#{i}", path)
+        row_relocs << Obj::Reloc.new(i * 24, :abs64, "zr_unit_path_#{i}") << Obj::Reloc.new((i * 24) + 16, :abs64, entry)
+        rows << [0, path.bytesize, 0].pack("Q<3")
+      end
+      out << Obj::Data.new("zr_unit_rows", :data_const, rows.empty? ? "\0".b * 8 : rows, relocs: row_relocs, align: 8)
+      words = [units.size, 0]
+      relocs = [Obj::Reloc.new(8, :abs64, "zr_unit_rows")]
+      names.each_with_index do |lines, i|
+        joined = lines.join("\n")
+        text.call("zr_load_names_#{i}", joined)
+        relocs << Obj::Reloc.new(words.size * 8, :abs64, "zr_load_names_#{i}")
+        words << 0 << joined.bytesize
+      end
+      out << Obj::Data.new("zr_load_table_words", :data_const, words.pack("Q<*"), relocs: relocs, align: 8)
+      out << Obj::Data.new("zr_load_tables", :data_const, "\0".b * 8, relocs: [Obj::Reloc.new(0, :abs64, "zr_load_table_words")], align: 8, linkage: :export)
     end
 
     # `zr_symbol_names`: a row of (bytes, length) per symbol id, the bytes
