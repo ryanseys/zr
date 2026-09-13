@@ -92,9 +92,7 @@ gaps/trace_var.rb	core/tracepoint/trace_var.rb
 gaps/tracepoint.rb	core/tracepoint/tracepoint.rb
 gaps/tracepoint_disable_is_a_call_event.rb	core/tracepoint/tracepoint_disable_is_a_call_event.rb
 gaps/tracepoint_self_and_binding.rb	core/tracepoint/tracepoint_self_and_binding.rb
-gaps/a_lambda_takes_a_literal_block_or_a_lambda.rb	lang/blocks/a_lambda_takes_a_literal_block_or_a_lambda.rb
 gaps/an_eval_yield_needs_a_def_not_a_block.rb	lang/blocks/an_eval_yield_needs_a_def_not_a_block.rb
-gaps/derived_proc_identity.rb	lang/blocks/derived_proc_identity.rb
 gaps/a_box_loads_its_own_copy_of_a_file.rb	lang/boxes/a_box_loads_its_own_copy_of_a_file.rb
 gaps/a_reflective_program_keeps_every_class.rb	lang/classes/a_reflective_program_keeps_every_class.rb
 gaps/a_reopened_builtin_answers_from_its_own_line.rb	lang/classes/a_reopened_builtin_answers_from_its_own_line.rb

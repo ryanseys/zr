@@ -425,6 +425,10 @@ end
 # the runtime made.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_proc_source_location(recv, argc, argv, cref, blk)
+  # A Method's Proc is where the method is.
+  if RProc.fn(recv) == Machine.addr(:zr_method_block)
+    return zr_send(RProc.self(recv), Machine.id(:source_location), 0, 0)
+  end
   meta = RProc.meta(recv)
   if meta == 0 || FrameMeta.file_len(meta) == 0
     return Machine.value(QNIL)

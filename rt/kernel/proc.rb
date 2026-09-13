@@ -279,13 +279,18 @@ machine def zr_kernel_proc(recv, argc, argv, cref, blk)
 end
 
 # `lambda { }`: the block's Proc, strict about its arguments and with
-# `return` leaving the lambda itself.
+# `return` leaving the lambda itself. A Proc passed with `&` has to be a
+# lambda already -- a `->`, a Method's, a Symbol's -- and comes back as
+# it is; any other one is refused.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_kernel_lambda(recv, argc, argv, cref, blk)
   if blk == QNIL
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("tried to create Proc object without a block"), 43)
   end
   if RProc.passed(blk) != 0
+    if RProc.lambda(blk) != 0
+      return blk
+    end
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("the lambda method requires a literal block"), 42)
   end
   RProc.set_lambda(blk, 1)
