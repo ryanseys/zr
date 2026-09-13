@@ -188,7 +188,8 @@ class Struct
     Primitive.zr_dig_into(v, rest)
   end
 
-  def select(&block)
+  def select(*args, &block)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0)" unless args.empty?
     return to_enum(:select) { size } unless block
 
     to_a.select(&block)

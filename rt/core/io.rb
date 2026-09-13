@@ -41,9 +41,12 @@ class IO
   private_constant :POLL_IN, :POLL_PRI, :POLL_OUT, :ATOMIC
 
   # A pipe's read and write ends, closed after the block when one is
-  # given.
-  def self.pipe
+  # given. The encodings are the read end's, and `binmode:` is both ends'.
+  def self.pipe(external = nil, internal = nil, **options)
     reader, writer = pipe_ends.map.with_index { |fd, i| IO.new(fd, i.zero? ? "r" : "w") }
+    binmode = options.delete(:binmode)
+    reader.set_encoding(external, internal, **options) if external
+    [reader, writer].each(&:binmode) if binmode
     # rb_io_synchronized: the write end of a pipe holds nothing back,
     # so a reader of the other end sees each write as it happens.
     writer.sync = true

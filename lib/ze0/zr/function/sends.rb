@@ -76,6 +76,7 @@ module Ze0
 
         def primitive(node)
           return @qnil if node.name == :attr!
+          return parameter_named(node) if node.name == :arg!
 
           d = @l.kernel_def(node.name.to_s)
           @l.refuse(node, "Primitive.#{node.name} takes #{d.params.size} arguments, not #{node.args.size}") if d.params.size != node.args.size
@@ -87,6 +88,15 @@ module Ze0
             args = node.args.each_index.map { |i| @f.fetch("i64", @rec, value_offset(base + i)) }
             checked(kernel(node.name.to_s, *args))
           end
+        end
+
+        # `Primitive.arg!(:in)`: the parameter of that name, which Ruby
+        # cannot spell as a variable when the name is a keyword, as CRuby's
+        # builtin methods read it.
+        def parameter_named(node)
+          name = node.args.first.value
+          i = @locals.index(name) or @l.refuse(node, "Primitive.arg! names #{name}, which is no parameter here")
+          read_local(i, 0, name)
         end
 
         def explicit?(node)

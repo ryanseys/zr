@@ -238,7 +238,7 @@ module Process
 
   def self.abort(*args) = Kernel.abort(*args)
 
-  def self.fork(*) = Primitive.zr_unimplemented("Process.fork")
+  def self.fork = Primitive.zr_unimplemented("Process.fork")
 
   def self.signal_number(name) = SIGNALS[name]
 

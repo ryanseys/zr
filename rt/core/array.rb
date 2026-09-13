@@ -794,11 +794,12 @@ class Array
   end
 
   # The last element the block accepts, or nil.
-  def rfind
-    return to_enum(:rfind) { size } unless block_given?
+  # The last element the block accepts, else what `ifnone` answers.
+  def rfind(ifnone = (omitted = true; nil))
+    return to_enum(:rfind, *([ifnone] unless omitted)) { size } unless block_given?
 
     reverse_each { |v| return v if yield(v) }
-    nil
+    ifnone&.call
   end
 
   def fetch(index, *default)

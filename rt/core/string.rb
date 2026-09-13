@@ -232,31 +232,50 @@ class String
   def swapcase!(*options) = mutate(swapcase(*options))
   def reverse! = replace(reverse)
   def delete!(*sets) = mutate(delete(*sets))
-  def strip! = mutate(strip)
-  def lstrip! = mutate(lstrip)
-  def rstrip! = mutate(rstrip)
+  def strip!(*selectors) = mutate(strip(*selectors))
+  def lstrip!(*selectors) = mutate(lstrip(*selectors))
+  def rstrip!(*selectors) = mutate(rstrip(*selectors))
   def chomp!(separator = "\n") = mutate(chomp(separator))
   def chop! = mutate(chop)
   def squeeze!(*sets) = mutate(squeeze(*sets))
 
   # Whitespace and NUL off both ends, in one String. The end is found by
   # walking back over characters, which bytes that make none refuse, as
-  # rstrip_offset has it.
-  def strip
+  # rstrip_offset has it. With `selectors`, the characters they pick come
+  # off instead, as `delete` picks them.
+  def strip(*selectors)
+    return stripped(selectors, true, true) unless selectors.empty?
+
     broken_tail!
     stop = Primitive.zr_str_space_start(self, bytesize, true)
     start = stop.zero? ? 0 : Primitive.zr_str_space_end(self, 0, true)
     byteslice_of(start, stop - start)
   end
 
-  def lstrip
+  def lstrip(*selectors)
+    return stripped(selectors, true, false) unless selectors.empty?
+
     start = Primitive.zr_str_space_end(self, 0, true)
     byteslice_of(start, bytesize - start)
   end
 
-  def rstrip
+  def rstrip(*selectors)
+    return stripped(selectors, false, true) unless selectors.empty?
+
     broken_tail!
     byteslice_of(0, Primitive.zr_str_space_start(self, bytesize, true))
+  end
+
+  # The characters `selectors` pick off the left end, the right end, or
+  # both.
+  def stripped(selectors, left, right)
+    Primitive.attr! :hidden
+    member = charset_test(selectors)
+    chars = each_char.to_a
+    head = left ? chars.take_while { |c| member.call(c.ord) } : []
+    tail = right ? chars.drop(head.size).reverse.take_while { |c| member.call(c.ord) } : []
+    start = head.sum(&:bytesize)
+    byteslice_of(start, bytesize - start - tail.sum(&:bytesize))
   end
 
   def broken_tail!
@@ -1923,7 +1942,7 @@ class Encoding
   alias to_s name
 
   # Marshal carries an encoding by name, as ruby does.
-  def _dump(_limit) = name.dup.force_encoding(Encoding::US_ASCII)
+  def _dump(_limit = nil) = name.dup.force_encoding(Encoding::US_ASCII)
 
   # CRuby's `_load` hands back the name; Marshal's own loader for
   # Encoding turns it into the encoding.

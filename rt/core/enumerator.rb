@@ -543,11 +543,11 @@ class Enumerator::Lazy < Enumerator
   end
 
   # The chunking methods stay Enumerable's, their enumerator made lazy.
-  def chunk(&block) = Enumerator::Lazy.from(super)
+  def chunk(*, &block) = Enumerator::Lazy.from(super)
 
-  def chunk_while(&block) = Enumerator::Lazy.from(super)
+  def chunk_while(*, &block) = Enumerator::Lazy.from(super)
 
-  def slice_when(&block) = Enumerator::Lazy.from(super)
+  def slice_when(*, &block) = Enumerator::Lazy.from(super)
 
   def slice_before(*, &block) = Enumerator::Lazy.from(super)
 

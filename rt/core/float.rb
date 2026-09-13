@@ -22,23 +22,22 @@ class Float
   MAX_10_EXP = 308
 
   def to_f = self
-  def integer? = false
   def zero? = self == 0.0
   def positive? = self > 0.0
   def negative? = self < 0.0
   # A negative count of digits rounds the Integer the value becomes.
   def floor(digits = 0)
     digits = Primitive.zr_index_operand_m(digits)
-    return __floor__.floor(digits) if digits < 0
+    return Primitive.zr_flo_floor_m(self, 0).floor(digits) if digits < 0
 
-    __floor__(digits) || exactly(digits, :floor)
+    Primitive.zr_flo_floor_m(self, digits) || exactly(digits, :floor)
   end
 
   def ceil(digits = 0)
     digits = Primitive.zr_index_operand_m(digits)
-    return __ceil__.ceil(digits) if digits < 0
+    return Primitive.zr_flo_ceil_m(self, 0).ceil(digits) if digits < 0
 
-    __ceil__(digits) || exactly(digits, :ceil)
+    Primitive.zr_flo_ceil_m(self, digits) || exactly(digits, :ceil)
   end
 
   def truncate(digits = 0) = self > 0 ? floor(digits) : ceil(digits)
@@ -53,13 +52,6 @@ class Float
     raise ZeroDivisionError, "divided by 0" if other == 0.0
 
     [Primitive.zr_float_quotient_value(self, other).to_i, self % other]
-  end
-
-  def div(other)
-    other = other.to_f if other.is_a?(Integer)
-    raise ZeroDivisionError, "divided by 0" if other == 0.0
-
-    (self / other).floor
   end
 
   alias to_int to_i
@@ -280,7 +272,7 @@ class Float
       return self if digits > 0 && digits >= 17 - (binexp > 0 ? binexp / 4 : -(-binexp / 3) - 1)
       return digits > 0 ? 0.0 : 0 if digits < -(binexp > 0 ? binexp / 3 + 1 : -(-binexp / 4))
     end
-    plain = __round__(digits)
+    plain = Primitive.zr_flo_round_m(self, digits)
     return exactly(digits, :round, half: mode) if plain.nil?
     return plain if mode == :up || !finite?
 
@@ -299,14 +291,5 @@ class Float
     Primitive.attr! :hidden
     scale = Rational(10)**digits
     ((to_r * scale).public_send(verb, **options) / scale).to_f
-  end
-
-  # A number is its own copy.
-  def dup = self
-
-  def clone(freeze: nil)
-    raise ArgumentError, "can't unfreeze Float" if freeze == false
-
-    self
   end
 end

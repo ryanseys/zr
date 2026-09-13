@@ -278,6 +278,18 @@ machine def zr_kernel_proc(recv, argc, argv, cref, blk)
   blk
 end
 
+# `Proc.new { }`: as `proc`, and the arguments go to `initialize`, which
+# takes none, as rb_proc_s_new passes them.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_proc_s_new(recv, argc, argv, cref, blk)
+  p = zr_kernel_proc(recv, 0, argv, cref, blk)
+  return p if p == QUNDEF
+  if argc != 0
+    return zr_wrong_arity(argc, 0)
+  end
+  p
+end
+
 # `lambda { }`: the block's Proc, strict about its arguments and with
 # `return` leaving the lambda itself. A Proc passed with `&` has to be a
 # lambda already -- a `->`, a Method's, a Symbol's -- and comes back as

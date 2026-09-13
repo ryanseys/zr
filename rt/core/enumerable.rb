@@ -297,10 +297,10 @@ module Enumerable
     self
   end
 
-  def each_entry
-    return to_enum(:each_entry) { respond_to?(:size) ? size : nil } unless block_given?
+  def each_entry(*args)
+    return to_enum(:each_entry, *args) { respond_to?(:size) ? size : nil } unless block_given?
 
-    each do |*x|
+    each(*args) do |*x|
       x = Primitive.zr_enum_value(x)
       yield x
       nil
@@ -612,7 +612,7 @@ module Enumerable
 
   def uniq(&block) = to_a.uniq(&block)
 
-  def entries = to_a
+  def entries(*args) = to_a(*args)
 
   def first(n = (none = true))
     if none
@@ -639,9 +639,9 @@ module Enumerable
     out
   end
 
-  def to_a
+  def to_a(*args)
     out = []
-    each do |*x|
+    each(*args) do |*x|
       x = Primitive.zr_enum_value(x)
       out << x
       nil
@@ -658,11 +658,11 @@ module Enumerable
     false
   end
 
-  def each_with_index
-    return to_enum(:each_with_index) unless block_given?
+  def each_with_index(*args)
+    return to_enum(:each_with_index, *args) unless block_given?
 
     i = 0
-    each do |*x|
+    each(*args) do |*x|
       x = Primitive.zr_enum_value(x)
       yield(x, i)
       i += 1
@@ -753,9 +753,9 @@ module Enumerable
   alias detect find
   alias member? include?
 
-  def to_h(&block)
+  def to_h(*args, &block)
     out = {}
-    each do |*x|
+    each(*args) do |*x|
       pair = Primitive.zr_enum_value(x)
       pair = yield(pair) if block
       raise TypeError, "wrong element type #{pair.class} (expected array)" unless pair.is_a?(Array)
@@ -777,10 +777,10 @@ module Enumerable
     out
   end
 
-  def reverse_each(&block)
-    return to_enum(:reverse_each) unless block
+  def reverse_each(*args, &block)
+    return to_enum(:reverse_each, *args) unless block
 
-    to_a.reverse_each(&block)
+    to_a(*args).reverse_each(&block)
     self
   end
 

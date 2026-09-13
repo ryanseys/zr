@@ -386,6 +386,29 @@ machine def zr_flo_floor(recv, argc, argv, cref, blk)
   zr_float_to_int(Machine.floor(zr_float_value(recv)))
 end
 
+# `floor`, `ceil` and `round` to `digits` places, which Float's own
+# methods read: nil where the double cannot answer exactly.
+sig [Value, Value] => Value
+machine def zr_flo_floor_m(recv, digits)
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(digits))
+  zr_flo_floor(recv, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
+end
+
+sig [Value, Value] => Value
+machine def zr_flo_ceil_m(recv, digits)
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(digits))
+  zr_flo_ceil(recv, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
+end
+
+sig [Value, Value] => Value
+machine def zr_flo_round_m(recv, digits)
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(digits))
+  zr_flo_round(recv, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_flo_ceil(recv, argc, argv, cref, blk)
   if argc > 0 && zr_fix2long(Machine.value(Machine.load64(argv, 0))) > 0

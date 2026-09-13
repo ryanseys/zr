@@ -444,6 +444,9 @@ module Ze0
         d zr_float_to_int Value d:F64
         d zr_flo_to_i Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_flo_floor Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_flo_floor_m Value recv:Value digits:Value
+        d zr_flo_ceil_m Value recv:Value digits:Value
+        d zr_flo_round_m Value recv:Value digits:Value
         d zr_flo_ceil Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_round_half_up F64 x:F64 s:F64
         d zr_float_round_digits Value d:F64 digits:Word how:Word
@@ -799,6 +802,7 @@ module Ze0
         d zr_obj_instance_of Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_eql_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_hash Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_big_hash Value v:Value
         d zr_str_hash Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_send Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_public_send Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -818,7 +822,6 @@ module Ze0
         d zr_obj_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_buf_ivars Value b:Ptr recv:Value filter:Value
         d zr_nil_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
-        d zr_int_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ident_byte_p Bool c:Word
         d zr_gvar_punct_p Bool c:Word
         d zr_special_gvar_p Bool p:Ptr n:Word
@@ -880,6 +883,7 @@ module Ze0
         d zr_proc_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_proc_lambda_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_kernel_proc Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_proc_s_new Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_kernel_lambda Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_block_pass Value v:Value
         d zr_yield Value blk:Value argc:Word argv:Ptr

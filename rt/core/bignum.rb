@@ -547,6 +547,7 @@ class Integer
   private
 
   def big_binary(op, other)
+    Primitive.attr! :hidden
     # A shift count converts as CRuby's rb_to_int does: a Float or a
     # Rational truncates.
     return big_with_integer(op, implicit_integer(other)) if (op == :<< || op == :>>) && !other.is_a?(Integer)
@@ -578,6 +579,7 @@ class Integer
   end
 
   def big_with_integer(op, other)
+    Primitive.attr! :hidden
     case op
     when :+ then Integer.send(:big_add, self, other)
     when :- then Integer.send(:big_sub, self, other)

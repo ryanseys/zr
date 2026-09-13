@@ -1,5 +1,17 @@
 # Integer over the kernel's arithmetic.
 class Integer
+  alias inspect to_s
+  alias === ==
+
+  # The remainder takes the receiver's sign, as Numeric's rule has it,
+  # without a Float or a coercion between two Integers.
+  def remainder(other)
+    return super unless other.is_a?(Integer)
+
+    r = self % other
+    r != 0 && negative? != other.negative? ? r - other : r
+  end
+
   def odd?
     self % 2 == 1
   end
@@ -12,20 +24,8 @@ class Integer
     self == 0
   end
 
-  def positive?
-    self > 0
-  end
-
-  def negative?
-    self < 0
-  end
-
   def -@
     0 - self
-  end
-
-  def +@
-    self
   end
 
   def succ
@@ -57,18 +57,8 @@ class Integer
     self < other ? -1 : (self > other ? 1 : 0)
   end
 
-  def between?(low, high)
-    self >= low && self <= high
-  end
-
 end
 
-class Integer
-  def eql?(other) = other.is_a?(Integer) && self == other
-
-  # A bignum's hash folds its limbs; a fixnum is its own.
-  def hash = Primitive.zr_fixnum_p_m(self) ? self : [Primitive.zr_hidden_get(self, :__neg__), Primitive.zr_hidden_get(self, :__limbs__)].hash
-end
 
 class Integer
   def to_i = self
@@ -76,10 +66,6 @@ class Integer
   alias truncate to_i
 
   def integer? = true
-
-  def finite? = true
-
-  def infinite? = nil
 
   def **(other)
     return to_f**other if other.is_a?(Float)
@@ -268,8 +254,6 @@ class Integer
   end
   private_class_method :big_fdiv
 
-  def abs2 = self * self
-
   def gcdlcm(other) = [gcd(other), lcm(other)]
 
   def gcd(other)
@@ -398,6 +382,7 @@ class Integer
   # Rounding to a negative number of digits; a non-negative count
   # leaves an Integer as it is.
   def round_to(digits, how)
+    Primitive.attr! :hidden
     return self if digits >= 0
 
     unit = 10**-digits
@@ -474,7 +459,7 @@ class Numeric
 
   def divmod(other) = [div(other), modulo(other)]
 
-  def quo(other) = to_r / other
+  def quo(other) = other.is_a?(Float) ? to_f / other : to_r / other
 
   def fdiv(other) = to_f / other
 
@@ -537,17 +522,6 @@ class Numeric
     return Enumerator::ArithmeticSequence.for(self, limit, step, false) unless block
 
     Enumerator::ArithmeticSequence.for(self, limit, step, false).each(&block)
-    self
-  end
-end
-
-class Integer
-  # A number is its own copy.
-  def dup = self
-
-  def clone(freeze: nil)
-    raise ArgumentError, "can't unfreeze Integer" if freeze == false
-
     self
   end
 end

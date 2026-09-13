@@ -532,7 +532,23 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_hash(recv, argc, argv, cref, blk)
+  if !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_INTEGER)
+    return zr_big_hash(recv)
+  end
   zr_fix((Machine.word(recv) >> 3) & 4611686018427387903)
+end
+
+# A bignum's hash, from its sign and limbs, so two that are equal share it.
+sig [Value] => Value
+machine def zr_big_hash(v)
+  limbs = zr_hidden_get(v, zr_sym(Machine.id(:__limbs__)))
+  h = zr_hidden_get(v, zr_sym(Machine.id(:__neg__))) == QTRUE ? 1 : 2
+  i = 0
+  while i < RArray.len(limbs)
+    h = zr_hash_mix(h ^ Machine.word(zr_ary_at(limbs, i)))
+    i += 1
+  end
+  zr_fix(h & 4611686018427387903)
 end
 
 # `String#hash`: FNV-1a over the bytes, and over the encoding too when
@@ -807,11 +823,6 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_nil_inspect(recv, argc, argv, cref, blk)
   zr_str_new(Machine.bytes("nil"), 3)
-end
-
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_int_inspect(recv, argc, argv, cref, blk)
-  zr_int_to_s(recv, argc, argv, cref, blk)
 end
 
 sig [Word] => Bool

@@ -351,11 +351,6 @@ class Integer
 
   def denominator = 1
 
-  def quo(other)
-    return to_f / other if other.is_a?(Float)
-
-    to_r / other
-  end
 end
 
 class Float

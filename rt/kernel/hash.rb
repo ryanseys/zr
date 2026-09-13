@@ -153,8 +153,12 @@ machine def zr_key_hash(h, key, out)
   if t == T_STRING || t == T_REGEXP
     return true
   end
-  # Kernel#hash answers the identity code, which is here already.
+  # Kernel#hash answers the identity code, which is here already, or a
+  # bignum's own code.
   if zr_key_builtin_p(key, Machine.id(:hash), Machine.addr(:zr_obj_hash))
+    if zr_big_p(key)
+      Machine.store64(out, 0, zr_hash_mix(zr_fix2long(zr_big_hash(key))))
+    end
     return true
   end
   r = zr_send(key, Machine.id(:hash), 0, 0)
