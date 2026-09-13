@@ -735,8 +735,11 @@ module Ze0
         when Prism::GlobalVariableWriteNode then GvarWrite.new(gvar_name(node.name), expr(node.value), line)
         when Prism::GlobalVariableOperatorWriteNode
           GvarWrite.new(node.name, Send.new(GvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
-        when Prism::GlobalVariableOrWriteNode then GvarWrite.new(node.name, Or.new(GvarRead.new(node.name, line), expr(node.value), line), line)
-        when Prism::GlobalVariableAndWriteNode then GvarWrite.new(node.name, And.new(GvarRead.new(node.name, line), expr(node.value), line), line)
+        # `x ||= v` is `x || (x = v)`, and `x &&= v` is `x && (x = v)`: the
+        # write happens only when it is needed, which a frozen receiver, a
+        # global's setter and a constant's redefinition warning can see.
+        when Prism::GlobalVariableOrWriteNode then Or.new(GvarRead.new(node.name, line), GvarWrite.new(node.name, expr(node.value), line), line)
+        when Prism::GlobalVariableAndWriteNode then And.new(GvarRead.new(node.name, line), GvarWrite.new(node.name, expr(node.value), line), line)
         when Prism::ClassVariableReadNode then CvarRead.new(node.name, line)
         when Prism::ClassVariableWriteNode then CvarWrite.new(node.name, expr(node.value), line)
         when Prism::ClassVariableOperatorWriteNode
@@ -744,16 +747,16 @@ module Ze0
         when Prism::ClassVariableOrWriteNode
           If.new(Defined.new(:cvar, node.name, line), Or.new(CvarRead.new(node.name, line), CvarWrite.new(node.name, expr(node.value), line), line), CvarWrite.new(node.name, expr(node.value), line), line)
         when Prism::DefinedNode then defined(node.value, line)
-        when Prism::ClassVariableAndWriteNode then CvarWrite.new(node.name, And.new(CvarRead.new(node.name, line), expr(node.value), line), line)
+        when Prism::ClassVariableAndWriteNode then And.new(CvarRead.new(node.name, line), CvarWrite.new(node.name, expr(node.value), line), line)
         when Prism::ConstantOrWriteNode then ConstOrWrite.new(nil, node.name, expr(node.value), line)
         when Prism::ConstantPathOrWriteNode
           scope, name, prelude = constant_scope(node.target, line)
           with_scope(prelude, ConstOrWrite.new(scope, name, expr(node.value), line), line)
         when Prism::ConstantAndWriteNode
-          ConstWrite.new(nil, node.name, And.new(ConstRead.new(nil, node.name, line), expr(node.value), line), line)
+          And.new(ConstRead.new(nil, node.name, line), ConstWrite.new(nil, node.name, expr(node.value), line), line)
         when Prism::ConstantPathAndWriteNode
           scope, name, prelude = constant_scope(node.target, line)
-          with_scope(prelude, ConstWrite.new(scope, name, And.new(ConstRead.new(scope, name, line), expr(node.value), line), line), line)
+          with_scope(prelude, And.new(ConstRead.new(scope, name, line), ConstWrite.new(scope, name, expr(node.value), line), line), line)
         when Prism::ConstantOperatorWriteNode
           ConstWrite.new(nil, node.name, Send.new(ConstRead.new(nil, node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
         when Prism::ConstantPathOperatorWriteNode
@@ -809,9 +812,9 @@ module Ze0
         when Prism::InstanceVariableOperatorWriteNode
           IvarWrite.new(node.name, Send.new(IvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
         when Prism::InstanceVariableOrWriteNode
-          IvarWrite.new(node.name, Or.new(IvarRead.new(node.name, line), expr(node.value), line), line)
+          Or.new(IvarRead.new(node.name, line), IvarWrite.new(node.name, expr(node.value), line), line)
         when Prism::InstanceVariableAndWriteNode
-          IvarWrite.new(node.name, And.new(IvarRead.new(node.name, line), expr(node.value), line), line)
+          And.new(IvarRead.new(node.name, line), IvarWrite.new(node.name, expr(node.value), line), line)
         when Prism::BeginNode then protected_region(node)
         when Prism::RescueModifierNode
           clause = Rescue.new([], nil, expr(node.rescue_expression), line)
