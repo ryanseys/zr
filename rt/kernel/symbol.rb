@@ -2,7 +2,7 @@
 # compiler lays every static name out in `zr_symbol_names`, a table of
 # (bytes, length) rows, `zr_symbol_count` of them; names interned at run
 # time follow in a table of the same shape outside the arena.
-Machine.struct :Symtab, rows: Ptr, len: Word, capa: Word
+Machine.struct :Symtab, rows: Ptr, len: Word, capa: Word, bins: Ptr, nbins: Word
 
 sig [] => Ptr
 machine def zr_symtab
@@ -70,19 +70,107 @@ machine def zr_intern(p, n)
   zr_intern_tagged(p, n, 0)
 end
 
+# A symbol is found through a hash index of every name, static and
+# interned alike, built when a lookup first needs it. Without it an
+# intern walked every symbol the program had ever made, comparing bytes
+# with each -- and a compiler turns names into symbols all day.
+#
+# A bin holds an id plus one, zero when empty; a name and its encoding
+# tag together are the key, because `rb_str_intern` keys a symbol by
+# both.
+sig [Ptr, Word, Word] => Word
+machine def zr_symbol_hash(p, n, tag)
+  zr_hash_mix(zr_bytes_hash(p, n) ^ tag)
+end
+
+# The index forgotten; the next lookup that needs it builds it again.
+sig [] => Void
+machine def zr_symbol_index_drop
+  t = zr_symtab()
+  if Symtab.bins(t) != 0
+    free(Symtab.bins(t))
+    Symtab.set_bins(t, 0)
+  end
+end
+
+sig [Word] => Void
+machine def zr_symbol_index_put(id)
+  t = zr_symtab()
+  mask = Symtab.nbins(t) - 1
+  h = zr_symbol_hash(zr_symbol_name_ptr(id), zr_symbol_name_len(id), zr_symbol_tag(id)) & mask
+  while Machine.load64(Symtab.bins(t) + (h * 8), 0) != 0
+    h = (h + 1) & mask
+  end
+  Machine.store64(Symtab.bins(t) + (h * 8), 0, id + 1)
+end
+
+# Every symbol into a fresh index with at least four bins a symbol.
+sig [] => Void
+machine def zr_symbol_index_build
+  zr_symbol_index_drop()
+  t = zr_symtab()
+  total = zr_static_symbol_count() + Symtab.len(t)
+  bins = 1024
+  while bins < total * 4
+    bins = bins * 2
+  end
+  Symtab.set_bins(t, zr_xmalloc(bins * 8))
+  memset(Symtab.bins(t), Machine.i32(0), bins * 8)
+  Symtab.set_nbins(t, bins)
+  id = 0
+  while id < total
+    zr_symbol_index_put(id)
+    id += 1
+  end
+end
+
+# A newly interned symbol into the index while the bins stay under half
+# full, else the index goes and the next lookup builds a bigger one.
+sig [Word] => Void
+machine def zr_symbol_index_add(id)
+  t = zr_symtab()
+  if Symtab.bins(t) == 0
+    return
+  end
+  if (id + 1) * 2 > Symtab.nbins(t)
+    zr_symbol_index_drop()
+    return
+  end
+  zr_symbol_index_put(id)
+end
+
+# The id of the symbol named by `n` bytes in the encoding `tag` names, or
+# -1 when the table does not hold it.
+sig [Ptr, Word, Word] => Word
+machine def zr_symbol_index_find(p, n, tag)
+  t = zr_symtab()
+  if Symtab.bins(t) == 0
+    zr_symbol_index_build()
+  end
+  mask = Symtab.nbins(t) - 1
+  h = zr_symbol_hash(p, n, tag) & mask
+  slot = Machine.load64(Symtab.bins(t) + (h * 8), 0)
+  while slot != 0
+    id = slot - 1
+    if zr_symbol_tag(id) == tag && zr_bytes_eq(p, n, zr_symbol_name_ptr(id), zr_symbol_name_len(id))
+      return id
+    end
+    h = (h + 1) & mask
+    slot = Machine.load64(Symtab.bins(t) + (h * 8), 0)
+  end
+  0 - 1
+end
+
 # The id of the symbol named by `n` bytes in the encoding `tag` names,
 # interning it when new: rb_str_intern keys a symbol by both.
 sig [Ptr, Word, Word] => Word
 machine def zr_intern_tagged(p, n, tag)
+  found = zr_symbol_index_find(p, n, tag)
+  if found >= 0
+    return found
+  end
   t = zr_symtab()
   total = zr_static_symbol_count() + Symtab.len(t)
-  id = 0
-  while id < total
-    if zr_symbol_tag(id) == tag && zr_bytes_eq(p, n, zr_symbol_name_ptr(id), zr_symbol_name_len(id))
-      return id
-    end
-    id += 1
-  end
   k = Symtab.len(t)
   if k == Symtab.capa(t)
     cap = k * 2
@@ -104,6 +192,7 @@ machine def zr_intern_tagged(p, n, tag)
   Machine.store64(row, 0, copy)
   Machine.store64(row, 8, n | (tag << SYM_TAG_SHIFT))
   Symtab.set_len(t, k + 1)
+  zr_symbol_index_add(total)
   total
 end
 

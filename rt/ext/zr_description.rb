@@ -1175,6 +1175,12 @@ module Ze0
         d zr_symbol_encoding_index Word id:Word
         d zr_bytes_eq Bool a:Ptr alen:Word b:Ptr blen:Word
         d zr_intern Word p:Ptr n:Word
+        d zr_symbol_hash Word p:Ptr n:Word tag:Word
+        d zr_symbol_index_drop Void
+        d zr_symbol_index_put Void id:Word
+        d zr_symbol_index_build Void
+        d zr_symbol_index_add Void id:Word
+        d zr_symbol_index_find Word p:Ptr n:Word tag:Word
         d zr_intern_tagged Word p:Ptr n:Word tag:Word
         d zr_sym_to_s Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_sym_cmp Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1478,7 +1484,7 @@ module Ze0
         s Sort 32 8 base:0:Ptr stride:8:Word blk:16:Value failed:24:Word
         s Pair 16 8 key:0:Value elem:8:Value
         s RString 40 8 basic:0:RBasic len:16:Word capa:24:Word ptr:32:Ptr
-        s Symtab 24 8 rows:0:Ptr len:8:Word capa:16:Word
+        s Symtab 40 8 rows:0:Ptr len:8:Word capa:16:Word bins:24:Ptr nbins:32:Word
         s RBasic 16 8 flags:0:Word klass:8:Value
         s WeakList 24 8 ptr:0:Ptr len:8:Word capa:16:Word
       ROWS
