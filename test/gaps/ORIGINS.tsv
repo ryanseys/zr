@@ -6,7 +6,6 @@ gaps/socket_loopback.rb	aot/socket_loopback.rb
 gaps/zlib_roundtrip.rb	aot/zlib_roundtrip.rb
 gaps/a_module_aliases_a_kernel_row.rb	compiler/builtins/a_module_aliases_a_kernel_row.rb
 gaps/arithmetic_sequence_rows.rb	compiler/builtins/arithmetic_sequence_rows.rb
-gaps/block_call_arity.rb	compiler/builtins/block_call_arity.rb
 gaps/builtin_arity_class_methods.rb	compiler/builtins/builtin_arity_class_methods.rb
 gaps/builtin_arity_instance.rb	compiler/builtins/builtin_arity_instance.rb
 gaps/builtin_collection_via_enumerable.rb	compiler/builtins/builtin_collection_via_enumerable.rb

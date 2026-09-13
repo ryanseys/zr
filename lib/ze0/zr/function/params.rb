@@ -36,7 +36,7 @@ module Ze0
         # A lambda checks its arity and never spreads; the same function
         # serves either way, so the Proc's flag decides at run time.
         def bind_block(p)
-          return if p.names.empty? && p.plain?
+          return strict_empty(p) if p.names.empty? && p.plain?
 
           argc = @f.args[1]
           argv = @f.args[2]
@@ -61,6 +61,18 @@ module Ze0
           bind_positional(p, argc, argv, strict: false)
           bind_keywords(p, kwargs_at) if keywords?(p)
           bind(p.block, @f.args[3]) if p.block
+        end
+
+        # A block with no parameters takes anything, unless it is a lambda
+        # -- a `define_method` body among them -- which takes nothing.
+        def strict_empty(p)
+          go = @f.label
+          strict = @f.label
+          @f.brif(lambda?, strict, go)
+          switch(strict)
+          check_arity(p, @f.args[1])
+          @f.jump(go)
+          switch(go)
         end
 
         def keywords?(p)
