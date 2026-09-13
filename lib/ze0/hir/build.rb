@@ -1228,6 +1228,14 @@ module Ze0
           end
         when Prism::YieldNode then Defined.new(:yield, nil, line)
         when Prism::SuperNode, Prism::ForwardingSuperNode then Defined.new(:super, nil, line)
+        # An Array or Hash literal is defined when every part is.
+        when Prism::ArrayNode
+          node.elements.any?(Prism::SplatNode) ? Defined.new(:expression, nil, line) : Defined.new(:list, node.elements.map { |e| expr(e) }, line)
+        when Prism::HashNode then Defined.new(:list, [HashLit.new(hash_pairs(node.elements), line)], line)
+        # `(x)` asks about `x`.
+        when Prism::ParenthesesNode
+          inner = node.body.is_a?(Prism::StatementsNode) && node.body.body.size == 1 ? node.body.body.first : nil
+          inner ? defined(inner, line) : Defined.new(:expression, nil, line)
         when Prism::SelfNode then Defined.new(:self, nil, line)
         when Prism::NilNode then Defined.new(:nil, nil, line)
         when Prism::TrueNode then Defined.new(:true, nil, line)

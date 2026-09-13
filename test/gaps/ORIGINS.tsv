@@ -112,7 +112,6 @@ gaps/the_ast_translator_builds_splat_lists_like_parse_y.rb	lang/methods/the_ast_
 gaps/fiddle.rb	lang/programs/fiddle.rb
 gaps/autoload_dsl_computes_its_own_path.rb	lang/require/autoload_dsl_computes_its_own_path.rb
 gaps/load_with_a_wrap_argument_lowers_to_a_runtime_loaderror.rb	lang/require/load_with_a_wrap_argument_lowers_to_a_runtime_loaderror.rb
-gaps/defined_globals_and_match_vars_check_definedness_at_runtime.rb	lang/variables/defined_globals_and_match_vars_check_definedness_at_runtime.rb
 gaps/other_compound_assignment_operators_still_raise_on_an_undefined_constant.rb	lang/variables/other_compound_assignment_operators_still_raise_on_an_undefined_constant.rb
 gaps/a_gemspec_loads_from_yaml.rb	milestones/a_gemspec_loads_from_yaml.rb
 gaps/a_minitest_suite_runs.rb	milestones/a_minitest_suite_runs.rb
@@ -319,7 +318,6 @@ gaps/zlib_checksums_match_ruby.rb	stdlib/zlib/zlib_checksums_match_ruby.rb
 gaps/zlib_classes.rb	stdlib/zlib/zlib_classes.rb
 gaps/zlib_compression.rb	stdlib/zlib/zlib_compression.rb
 gaps/zlib_constants.rb	stdlib/zlib/zlib_constants.rb
-gaps/defined.rb	ze0/defined.rb
 gaps/ffi_typedefs_and_guarded_directives.rb	ze0/ffi_typedefs_and_guarded_directives.rb
 gaps/lazy_units.rb	ze0/lazy_units.rb
 gaps/reopened_builtins_win.rb	ze0/reopened_builtins_win.rb

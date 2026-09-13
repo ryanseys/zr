@@ -7,9 +7,9 @@ module Ze0
       module Defined
         NAMES = {
           local: "local-variable", ivar: "instance-variable", gvar: "global-variable", global: "global-variable",
-          backref: "global-variable", attrasgn: "assignment", cvar: "class variable",
+          backref: "global-variable", attrasgn: "method", cvar: "class variable",
           const: "constant", method: "method", yield: "yield", super: "super", self: "self", nil: "nil",
-          true: "true", false: "false", assignment: "assignment", expression: "expression"
+          true: "true", false: "false", assignment: "assignment", expression: "expression", list: "expression"
         }.freeze
 
         private
@@ -23,7 +23,7 @@ module Ze0
         # The forms that ask at run time do so under a guard: a receiver
         # that raises means nil, as CRuby answers.
         def defined(node)
-          return defined_name(node.kind) unless %i[ivar gvar backref cvar const method attrasgn yield super].include?(node.kind)
+          return defined_name(node.kind) unless %i[ivar gvar backref cvar const method attrasgn yield super list].include?(node.kind)
           return @f.csel(defined_test(node), defined_name(node.kind), @qnil) if PLAIN.include?(node.kind)
 
           guarded do
@@ -42,6 +42,7 @@ module Ze0
             truth(checked(kernel("zr_cvar_defined", @cref, imm(sym_id(node.target)))))
           when :const then const_defined(node.target)
           when :method, :attrasgn then method_defined(node.target)
+          when :list then all_defined(node.target) { imm_bool(true) }
           when :yield then @f.icmp("ne", @blk, @qnil)
           when :super then truth(kernel("zr_super_defined", @rec))
           else imm_bool(true)
@@ -53,6 +54,8 @@ module Ze0
         def part_defined(node)
           case node
           when Hir::Send then defined_test(Hir::Defined.new(:method, node, node.line))
+          when Hir::ArrayLit then all_defined(node.elements) { imm_bool(true) }
+          when Hir::HashLit then all_defined(node.pairs.compact.map { |p| p.is_a?(Hir::HashSplat) ? p.value : p }) { imm_bool(true) }
           when Hir::ConstRead then const_defined(node)
           when Hir::IvarRead then defined_test(Hir::Defined.new(:ivar, node.name, node.line))
           when Hir::GvarRead then defined_test(Hir::Defined.new(:gvar, node.name, node.line))
@@ -85,11 +88,22 @@ module Ze0
         end
 
         # A method: its receiver and arguments must be defined, then the
-        # receiver is evaluated and its class asked. The tests short
-        # circuit, so nothing after an undefined part runs.
+        # receiver is evaluated and its class asked.
+        #
+        # Any receiver makes the call explicit, `self` too: `defined?`
+        # asks whether `self.helper` could be called as written, and a
+        # private `helper` could not -- nor a private writer, though a call
+        # of `self.x = v` reaches one.
         def method_defined(send)
-          parts = [send.recv, *send.args].compact
-          go = @f.label
+          all_defined([send.recv, *send.args].compact) do
+            recv = send.recv ? expr(send.recv) : @self
+            truth(kernel("zr_method_defined", recv, imm(sym_id(send.name)), imm_bool(!send.recv.nil?)))
+          end
+        end
+
+        # Every part defined, then what the block answers. The tests short
+        # circuit, so nothing after an undefined part runs.
+        def all_defined(parts)
           merge, (ok,) = @f.block(["i8"])
           parts.each do |part|
             next_test = @f.label
@@ -99,9 +113,7 @@ module Ze0
             @f.jump(merge, [imm_bool(false)])
             switch(next_test)
           end
-          recv = send.recv ? expr(send.recv) : @self
-          explicit = imm_bool(!(send.recv.nil? || send.recv.is_a?(Hir::SelfRef)))
-          @f.jump(merge, [truth(kernel("zr_method_defined", recv, imm(sym_id(send.name)), explicit))])
+          @f.jump(merge, [yield])
           switch(merge)
           ok
         end
