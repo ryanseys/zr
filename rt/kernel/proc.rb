@@ -429,16 +429,39 @@ end
 # `break v` in the block `p`.
 sig [Value, Value] => Value
 machine def zr_break(p, v)
-  unless zr_frame_live(RProc.home(p), RProc.serial(p))
+  unless (RBasic.flags(p) & FL_ISOLATED) == 0 && zr_frame_live(RProc.home(p), RProc.serial(p)) && zr_block_call_live(p)
     return zr_local_jump_error(Machine.bytes("break from proc-closure"), 23, Machine.id(:break), v)
   end
   zr_signal(PENDING_BREAK, v, RProc.home(p), RProc.site(p))
 end
 
+# Whether the call `p` was given to is still running. A break leaves that
+# call, so once it has returned there is nothing to break out of, though
+# the method the block was written in may still be running: the block
+# was kept, and called later.
+#
+# The frame `home` is running a call now is the one whose `prev` is
+# `home` -- a frame makes one call at a time -- and that call is the one
+# the block was given to when the block is its block.
+sig [Value] => Bool
+machine def zr_block_call_live(p)
+  home = RProc.home(p)
+  rec = Task.top(zr_task())
+  while rec != 0 && rec != home
+    if Frame.prev(rec) == home
+      return Frame.blk(rec) == p
+    end
+    rec = Frame.prev(rec)
+  end
+  false
+end
+
 # `return v` in the block `p`: leaves the method the block was written in.
 sig [Value, Value] => Value
 machine def zr_return(p, v)
-  unless zr_frame_live(RProc.ret_home(p), RProc.ret_serial(p))
+  # A shareable Proc is cut off from the method it was written in, so
+  # there is no method for its `return` to leave.
+  unless (RBasic.flags(p) & FL_ISOLATED) == 0 && zr_frame_live(RProc.ret_home(p), RProc.ret_serial(p))
     return zr_local_jump_error(Machine.bytes("unexpected return"), 17, Machine.id(:return), v)
   end
   zr_signal(PENDING_RETURN, v, RProc.ret_home(p), 0)

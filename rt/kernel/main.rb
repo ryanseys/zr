@@ -471,6 +471,12 @@ machine def main(argc, argv)
   r = zr_toplevel()
   exc = Machine.value(QUNDEF)
   if r == QUNDEF
+    # Every break lands at the call its block was given to, or is a
+    # LocalJumpError before it leaves. One that got this far is the
+    # runtime's defect, and it says so rather than exiting 1 in silence.
+    if Task.pending_kind(zr_task()) == PENDING_BREAK
+      zr_bug(Machine.bytes("a break reached the end of the program with no call to leave\n"), 61)
+    end
     exc = Task.pending(zr_task())
     Task.set_pending(zr_task(), Machine.value(QNIL))
   end

@@ -870,6 +870,7 @@ module Ze0
         d zr_signal Value kind:Word value:Value home:Ptr site:Word
         d zr_local_jump_error Value bytes:Ptr len:Word reason:Word v:Value
         d zr_break Value p:Value v:Value
+        d zr_block_call_live Bool p:Value
         d zr_return Value p:Value v:Value
         d zr_catch_break Value rec:Ptr site:Word
         d zr_return_here Value v:Value
