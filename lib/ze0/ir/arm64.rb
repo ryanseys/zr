@@ -644,17 +644,105 @@ module Ze0
         store_value(i.results[1], X12)
       end
 
-      # Block arguments as a parallel copy: every source in a register
-      # before any target slot is written.
+      # Block arguments as a parallel copy: every destination ends up
+      # holding what its source held before the jump, whatever order the
+      # copies go in.
+      #
+      # No limit on how many an edge carries. There was one -- seven,
+      # one `SCRATCH` register an argument -- because the old form held
+      # every source at once. The resolver holds one.
       def emit_jump(i)
         name, args = i.targets[0]
-        raise Refused, "#{@f.name}: a jump with more than seven arguments" if args.size > 7
-
-        params = block_named(name).params
-        args.each_with_index { |v, n| load_value(v, SCRATCH[n]) }
-        args.each_with_index { |_, n| store_value(params[n][0], SCRATCH[n]) }
+        parallel_copy(block_named(name).params.map(&:first), args)
         @asm.b @labels.fetch(name) unless name == @next
       end
+
+      # Where a value is between instructions: the register the allocator
+      # gave it, or the offset of its frame slot. Two values share a
+      # place only by sharing a register, because every slot has its own
+      # offset.
+      #
+      # A Register and an Integer in one Hash, and not a pair naming
+      # which: a Register carries the identity every register object is
+      # compared by and is never equal to a number, so the two kinds
+      # cannot collide -- and this runs several times for every edge in
+      # the program, which is no place to make an Array.
+      def place(v) = @reg[v] || @home.fetch(v)
+
+      # The copies an edge asks for, in an order where no destination is
+      # written while a source still has to be read out of it.
+      #
+      # Loading every source into `SCRATCH` and then storing every one is
+      # always correct and almost always wasteful. An argument the
+      # allocator already put where its parameter lives -- a loop
+      # variable carried along the back edge unchanged, which is most of
+      # what a `while` passes -- needs no instruction at all; one that is
+      # not there needs a single load, `mov` or store; and a temporary is
+      # needed only for a real cycle, where two parameters trade places.
+      #
+      # It is worth less than it looks: every `if`, `while`, `&&` and
+      # `||` merge in the zr road comes through here, but the allocator
+      # hands out ten registers, so most arguments and most parameters
+      # are in the frame and a slot to a slot still costs a load and a
+      # store. The saving is on the edges where one end got a register.
+      #
+      # `SCRATCH[0]` carries one copy and is dead after it. `SCRATCH[1]`
+      # holds the value a broken cycle took out of the way, and is live
+      # until that cycle's last copy.
+      def parallel_copy(dests, srcs)
+        pending = {}
+        reads = Hash.new(0)
+        dests.each_with_index do |d, n|
+          s = srcs[n]
+          to = place(d)
+          from = place(s)
+          # Already there. The types have to agree as well: a place holds
+          # a whole word, and a narrower value is read out of it by its
+          # own width.
+          next if to == from && type_of(d) == type_of(s)
+
+          pending[to] = [d, s]
+          reads[from] += 1
+        end
+        drain(pending, reads)
+        break_cycle(pending) until pending.empty?
+      end
+
+      # Every copy whose destination no pending copy still reads, and
+      # then every copy that one freed, until only cycles are left.
+      def drain(pending, reads)
+        ready = pending.keys.reject { |p| reads[p].positive? }
+        while (p = ready.pop)
+          d, s = pending.delete(p)
+          copy(d, s)
+          from = place(s)
+          reads[from] -= 1
+          ready << from if reads[from].zero? && pending.key?(from)
+        end
+      end
+
+      # What `drain` leaves behind is cycles and nothing else: every
+      # remaining destination is still read, and a copy reads one place,
+      # so the places left map one to one onto themselves.
+      #
+      # Take one copy out of the way -- its source into a scratch
+      # register -- and the rest of its cycle falls into order behind it.
+      def break_cycle(pending)
+        start = pending.keys.first
+        held, source = pending.delete(start)
+        load_value(source, SCRATCH[1])
+        at = place(source)
+        while at != start
+          d, s = pending.delete(at)
+          copy(d, s)
+          at = place(s)
+        end
+        store_value(held, SCRATCH[1])
+      end
+
+      # One value to where another one lives. A source with a register
+      # home is stored straight out of it; only a slot needs the load.
+      def copy(dest, source) = store_value(dest, value_in(source, SCRATCH[0]))
 
       # `reg = n`, 16 bits at a time; a negative value starts from its
       # complement so the high halves need no instruction.

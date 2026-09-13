@@ -119,6 +119,33 @@ module Ze0
           f.switch(block)
           f.iadd(x, y)
         end
+        # An argument already where its parameter lives needs no
+        # instruction: a loop that carries a variable along its back edge
+        # unchanged is the shape this is here for.
+        ops["jump.same"] = build("jump_same", %w[i64], "i64") do |f, a|
+          block, (x, ) = f.block(%w[i64])
+          f.jump(block, [a])
+          f.switch(block)
+          f.jump(block, [x])
+        end
+        # Two parameters that trade places are a cycle, and a cycle is
+        # the one case that needs a register to hold a value out of the
+        # way while the rest of the copies go round.
+        ops["jump.cycle"] = build("jump_cycle", %w[i64 i64], "i64") do |f, a, b|
+          block, (x, y) = f.block(%w[i64 i64])
+          f.jump(block, [a, b])
+          f.switch(block)
+          f.jump(block, [y, x])
+        end
+        # Nothing limits how many arguments an edge carries: the
+        # resolver needs one register for a copy and one for a cycle,
+        # whatever the width. Two parameters here read the same source.
+        ops["jump.wide"] = build("jump_wide", %w[i64 i64 i64 i64], "i64") do |f, a, b, c, d|
+          block, ps = f.block(%w[i64] * 8)
+          f.jump(block, [a, b, c, d, d, c, b, a])
+          f.switch(block)
+          f.jump(block, ps.rotate(1))
+        end
         ops["brif"] = build("brif", %w[i8 i64], "i64") do |f, c, a|
           yes = f.label
           no = f.label
