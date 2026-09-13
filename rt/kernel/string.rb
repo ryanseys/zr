@@ -583,19 +583,15 @@ machine def zr_str_comparable(a, b)
   zr_str_encoding_index(a) == zr_str_encoding_index(b) || RString.len(a) == 0 || RString.len(b) == 0 || (zr_str_ascii_only(a) && zr_str_ascii_only(b))
 end
 
+# What `zr_str_ascii_bytes_p` answers, and the name the rest of the
+# kernel asks by. It used to walk the bytes itself and remember nothing,
+# so a String-keyed Hash scanned every key twice on every lookup -- once
+# to hash it and once to ask this -- and asked again the next time.
+# `FL_ASCII` is cleared by `zr_str_modified` and by an encoding that
+# cannot hold ASCII text, so the memo is never stale.
 sig [Value] => Bool
 machine def zr_str_ascii_only(s)
-  if !zr_enc_ascii_compat_p(zr_str_encoding_index(s))
-    return false
-  end
-  i = 0
-  while i < RString.len(s)
-    if Machine.word(Machine.load8(RString.ptr(s) + i, 0)) >= 128
-      return false
-    end
-    i += 1
-  end
-  true
+  zr_str_ascii_bytes_p(s)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
