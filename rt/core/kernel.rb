@@ -61,11 +61,22 @@ module Kernel
   # A load runs the file each time, and names it exactly: a path that
   # says where it starts, else a file under a $LOAD_PATH directory, else
   # one under the working directory.
+  #
+  # A `wrap` runs the file under a module: the one given, or a new one
+  # for any other true value. Its constants and methods land there, and
+  # its self is a clone of main that the module extends.
   def load(name, wrap = false)
-    return Primitive.zr_unimplemented("load with a wrap module") if wrap
-
     feature = File.path(name)
-    Kernel.load_file(Kernel.search(feature) || (File.file?(feature) && File.expand_path(feature)), feature, 2)
+    path = Kernel.search(feature) || (File.file?(feature) && File.expand_path(feature))
+    return Kernel.load_file(path, feature, 2) unless wrap
+
+    Kernel.missing(feature, 2) unless path
+    mod = wrap.is_a?(Module) ? wrap : Module.new
+    return Primitive.zr_unimplemented("load with a wrap module") unless defined?(::Ze0::Eval)
+
+    code = ::Ze0::Eval.current.compile(File.read(path), path, 1, [], false)
+    Primitive.zr_eval_run(code, TOPLEVEL_BINDING.receiver.clone.extend(mod), Primitive.zr_wrap_cref(mod), nil)
+    true
   end
 
   # The file a require of `feature` runs, or nil, as the compiler
@@ -115,17 +126,22 @@ module Kernel
   # carries that this runtime has no file for stops by name.
   def self.load_file(path, feature, kind)
     Primitive.attr! :hidden
-    unless path
-      if kind == 0 && Primitive.zr_load_names(1).split("\n").include?(feature.delete_suffix(".rb"))
-        Primitive.zr_unloadable("require of #{feature.inspect}")
-      end
-      error = LoadError.new("cannot load such file -- #{feature}")
-      error.instance_variable_set(:@path, feature)
-      raise error
-    end
+    missing(feature, kind) unless path
     return false if kind != 2 && $LOADED_FEATURES.include?(path)
 
     Primitive.zr_require_computed(path, Primitive.zr_unit_for(path) || compile(path), kind)
+  end
+
+  # A name no file answers: ruby's LoadError, or a stop by name for a
+  # feature ruby carries that this runtime has no file for.
+  def self.missing(feature, kind)
+    Primitive.attr! :hidden
+    if kind == 0 && Primitive.zr_load_names(1).split("\n").include?(feature.delete_suffix(".rb"))
+      Primitive.zr_unloadable("require of #{feature.inspect}")
+    end
+    error = LoadError.new("cannot load such file -- #{feature}")
+    error.instance_variable_set(:@path, feature)
+    raise error
   end
 
   # A file the program was not compiled with, compiled by the compiler a

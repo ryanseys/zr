@@ -213,6 +213,13 @@ machine def zr_const_set(klass, id, v)
     zr_const_index_add(ext, n)
   elsif CEntry.value(e) != QUNDEF
     zr_warn_reassigned_constant(klass, id, e)
+  elsif v != QUNDEF
+    # A value set over a name still waiting for its file stands, and the
+    # file is no longer waited for.
+    i = zr_autoload_row(klass, id)
+    if i >= 0
+      zr_ary_splice(zr_global(G_AUTOLOADS), zr_fix(i), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
+    end
   end
   CEntry.set_value(e, v)
   zr_consts_changed()
@@ -334,13 +341,20 @@ end
 sig [Value, Word] => Value
 machine def zr_const_get(cref, id)
   cref = zr_cref_lexical(cref)
-  e = zr_const_row_under(cref, id)
-  if e == 0
-    return zr_uninitialized_constant(zr_cref_klass(cref), id)
+  gone = Machine.slot(16)
+  while true
+    e = zr_const_row_under(cref, id)
+    if e == 0
+      return zr_uninitialized_constant(zr_cref_klass(cref), id)
+    end
+    r = zr_const_deprecated(e, id)
+    return r if r == QUNDEF
+    v = zr_const_searched(e, gone)
+    if Machine.load64(gone, 0) == 0
+      return v
+    end
   end
-  r = zr_const_deprecated(e, id)
-  return r if r == QUNDEF
-  zr_const_value(e)
+  Machine.value(QNIL)
 end
 
 # The row a bare constant under `cref` names, or 0: the lexical scopes
@@ -519,20 +533,27 @@ machine def zr_const_get_at(scope, id)
     zr_buf_push(b, Machine.bytes(" is not a class/module"), 22)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
-  e = zr_const_row_in(scope, id, scope != zr_global(G_OBJECT))
-  if e == 0 && zr_class_of(scope) == zr_global(G_BOX)
-    # `box::Name`: the box's own, else what the runtime itself holds.
-    e = zr_const_row_in(zr_global(G_OBJECT), id, false)
+  gone = Machine.slot(16)
+  while true
+    e = zr_const_row_in(scope, id, scope != zr_global(G_OBJECT))
+    if e == 0 && zr_class_of(scope) == zr_global(G_BOX)
+      # `box::Name`: the box's own, else what the runtime itself holds.
+      e = zr_const_row_in(zr_global(G_OBJECT), id, false)
+    end
+    if e == 0
+      return zr_uninitialized_constant(scope, id)
+    end
+    if CEntry.private(e) != 0
+      return zr_private_constant(scope, id)
+    end
+    r = zr_const_deprecated(e, id)
+    return r if r == QUNDEF
+    v = zr_const_searched(e, gone)
+    if Machine.load64(gone, 0) == 0
+      return v
+    end
   end
-  if e == 0
-    return zr_uninitialized_constant(scope, id)
-  end
-  if CEntry.private(e) != 0
-    return zr_private_constant(scope, id)
-  end
-  r = zr_const_deprecated(e, id)
-  return r if r == QUNDEF
-  zr_const_value(e)
+  Machine.value(QNIL)
 end
 
 # The name a class gets under `scope`: `Outer::Name` unless the scope
@@ -587,9 +608,18 @@ machine def zr_class_define(scope, id, sup)
   if e != 0 && CEntry.value(e) == QUNDEF && zr_autoload_row(scope, id) < 0
     e = 0
   end
+  k = Machine.value(QUNDEF)
   if e != 0
-    k = zr_const_value(e)
+    # An autoload whose file leaves the name undefined, or is the very
+    # file loading now, leaves the name to this definition.
+    gone = Machine.slot(16)
+    k = zr_const_searched(e, gone)
     return k if k == QUNDEF
+    if Machine.load64(gone, 0) != 0
+      e = 0
+    end
+  end
+  if e != 0
     if zr_special_p(k) || zr_type(k) != T_CLASS
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
@@ -630,9 +660,18 @@ machine def zr_module_define(scope, id)
   if e != 0 && CEntry.value(e) == QUNDEF && zr_autoload_row(scope, id) < 0
     e = 0
   end
+  m = Machine.value(QUNDEF)
   if e != 0
-    m = zr_const_value(e)
+    # An autoload whose file leaves the name undefined, or is the very
+    # file loading now, leaves the name to this definition.
+    gone = Machine.slot(16)
+    m = zr_const_searched(e, gone)
     return m if m == QUNDEF
+    if Machine.load64(gone, 0) != 0
+      e = 0
+    end
+  end
+  if e != 0
     if zr_special_p(m) || zr_type(m) != T_MODULE
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
@@ -894,14 +933,19 @@ G_AUTOLOADS = 38
 
 # Autoload: a constant row whose value is undef until its file runs.
 # The rows of G_AUTOLOADS hold, AUTOLOAD_ROW words each, the module, the
-# name, the feature, the unit's function as a fixnum, and the kind the
-# file is required with (zr_require's: 0, or 3 for the eval road's own).
-# `Kernel#autoload` and `Kernel.autoload` register on the caller's
+# name, the feature as the program wrote it, the unit's function as a
+# fixnum, the kind the file is required with (zr_require's: 0, or 3 for
+# the eval road's own), and the path the feature resolved to, which is
+# what a require of the same file records. A feature the program
+# computed has no unit: its kind is AUTOLOAD_REQUIRE, and the first read
+# of the constant calls `require` on main with it, as ruby's autoload
+# does. `Kernel#autoload` and `Kernel.autoload` register on the caller's
 # class, as CRuby's rb_f_autoload does.
-AUTOLOAD_ROW = 5
+AUTOLOAD_ROW = 6
+AUTOLOAD_REQUIRE = 4
 
-sig [Value, Word, Value, Ptr, Value, Word] => Value
-machine def zr_autoload(mod, id, feature, fn, cref, kind)
+sig [Value, Word, Value, Ptr, Value, Word, Value] => Value
+machine def zr_autoload(mod, id, feature, fn, cref, kind, path)
   if mod == zr_global(G_MAIN) || mod == zr_global(G_KERNEL)
     mod = zr_cref_klass(zr_cref_lexical(cref))
   end
@@ -920,17 +964,50 @@ machine def zr_autoload(mod, id, feature, fn, cref, kind)
     zr_ary_splice(rows, zr_fix(pending), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
   end
   zr_const_set(mod, id, Machine.value(QUNDEF))
-  zr_autoload_push(rows, mod, id, feature, fn, kind)
+  zr_autoload_push(rows, mod, id, feature, fn, kind, path)
   Machine.value(QNIL)
 end
 
-sig [Value, Value, Word, Value, Ptr, Word] => Void
-machine def zr_autoload_push(rows, mod, id, feature, fn, kind)
+# `autoload(name, feature)` with a feature the program computed, already
+# a String; `name` is a Symbol or a String.
+sig [Value, Value, Value, Value] => Value
+machine def zr_autoload_computed(mod, name, feature, cref)
+  slot = Machine.slot(8)
+  r = zr_name_id(name, slot)
+  return r if r == QUNDEF
+  id = Machine.load64(slot, 0)
+  unless zr_const_name_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("autoload must be constant name: "), 32)
+    zr_buf_sym(b, id)
+    exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+    zr_exc_detail(exc, Machine.id(:@name), zr_sym(id))
+    return zr_raise(exc)
+  end
+  if RString.len(feature) == 0
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("empty feature name"), 18)
+  end
+  zr_autoload(mod, id, feature, Machine.ptr(0), cref, AUTOLOAD_REQUIRE, feature)
+end
+
+sig [Value, Value, Word, Value, Ptr, Word, Value] => Void
+machine def zr_autoload_push(rows, mod, id, feature, fn, kind, path)
   zr_ary_push(rows, mod)
   zr_ary_push(rows, zr_sym(id))
   zr_ary_push(rows, feature)
   zr_ary_push(rows, zr_fix(Machine.word(fn)))
   zr_ary_push(rows, zr_fix(kind))
+  zr_ary_push(rows, path)
+end
+
+# The first read of a constant whose feature the program computed:
+# `require` on main, which a program may have redefined, as ruby calls it.
+sig [Value] => Value
+machine def zr_autoload_require(feature)
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(feature))
+  zr_send(zr_global(G_MAIN), Machine.id(:require), 1, slot)
 end
 
 # The autoload row index for `mod` and `id`, or -1.
@@ -971,6 +1048,34 @@ end
 
 sig [Ptr] => Value
 machine def zr_const_raw_value(e)
+  gone = Machine.slot(16)
+  Machine.store64(gone, 0, 0)
+  v = zr_const_loaded(e, gone)
+  if Machine.load64(gone, 0) != 0
+    return zr_uninitialized_constant(Machine.value(Machine.load64(gone, 0)), Machine.load64(gone, 8))
+  end
+  v
+end
+
+# The same for a search that goes on past a row an autoload took away,
+# as CRuby's rb_const_search does: when the row is gone, `gone` holds its
+# module, and the answer is nil.
+sig [Ptr, Ptr] => Value
+machine def zr_const_searched(e, gone)
+  Machine.store64(gone, 0, 0)
+  v = zr_const_loaded(e, gone)
+  if v == QUNDEF || Machine.load64(gone, 0) != 0
+    return v
+  end
+  zr_box_seen(v)
+end
+
+# The value of row `e`, running an autoload's file first. A file that
+# leaves the name undefined takes the row away, and so does one already
+# loading, whose own `class` or `module` may be what defines the name:
+# `gone` then holds the module and the name, and the answer is nil.
+sig [Ptr, Ptr] => Value
+machine def zr_const_loaded(e, gone)
   v = CEntry.value(e)
   if v != QUNDEF
     return v
@@ -984,18 +1089,21 @@ machine def zr_const_raw_value(e)
       feature = zr_ary_at(rows, i + 2)
       fn = Machine.ptr(zr_fix2long(zr_ary_at(rows, i + 3)))
       kind = zr_fix2long(zr_ary_at(rows, i + 4))
+      path = zr_ary_at(rows, i + 5)
       zr_ary_splice(rows, zr_fix(i), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
-      r = zr_require(feature, fn, kind)
+      r = kind == AUTOLOAD_REQUIRE ? zr_autoload_require(feature) : zr_require(path, fn, kind)
       # A file that did not load leaves the row in place, so the next
       # read of the name asks the same question again.
       if r == QUNDEF
-        zr_autoload_push(rows, mod, id, feature, fn, kind)
+        zr_autoload_push(rows, mod, id, feature, fn, kind, path)
         return r
       end
       e = zr_const_row(mod, id)
       if e == 0 || CEntry.value(e) == QUNDEF
         zr_const_remove(mod, id)
-        return zr_uninitialized_constant(mod, id)
+        Machine.store64(gone, 0, Machine.word(mod))
+        Machine.store64(gone, 8, id)
+        return Machine.value(QNIL)
       end
       return CEntry.value(e)
     end

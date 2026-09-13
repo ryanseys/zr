@@ -176,9 +176,21 @@ module Ze0
         # compile it then.
         LOADS = %i[require require_relative load].freeze
 
+        # A method a program writes over one of these that calls `super`
+        # hands a name to Kernel's or Module's where no site shows it.
+        def loads_by_def!(node)
+          return unless (LOADS.include?(node.name) || node.name == :autoload) && node.body
+
+          supers = node.body.breadth_first_search { |n| n.is_a?(Prism::SuperNode) || n.is_a?(Prism::ForwardingSuperNode) }
+          @evals = true if supers
+        end
+
         # `kernel` says the call reaches Kernel's method: it has no
         # receiver, or `Kernel` is the receiver. `YAML.load` does not.
+        # An `autoload` that reaches this far names a feature the program
+        # computes, whatever the receiver: Module#autoload takes one too.
         def evals!(name, args, kernel: true)
+          @evals = true if name == :autoload
           named = args.first.value if args.first.is_a?(Literal) && args.first.value.is_a?(Symbol)
           if named && SENDS.include?(name)
             name, args = named, args.drop(1)
@@ -964,6 +976,7 @@ module Ze0
       end
 
       def define(node)
+        @loader.loads_by_def!(node)
         receiver = node.receiver && expr(node.receiver)
         in_definee(nil, !receiver.nil?) do
           was = @in_def

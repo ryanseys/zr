@@ -47,6 +47,7 @@ module Ze0
         d zr_eval_cref Value
         d zr_eval_source_name Value
         d zr_eval_cref_under Value mod:Value outer:Value
+        d zr_wrap_cref Value mod:Value
         d zr_local_names Value table:Ptr
         d zr_frame_env Value rec:Ptr
         d zr_eval_env Value
@@ -247,12 +248,16 @@ module Ze0
         d zr_mod_constants Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_nesting Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_const_remove Void klass:Value id:Word
-        d zr_autoload Value mod:Value id:Word feature:Value fn:Ptr cref:Value kind:Word
-        d zr_autoload_push Void rows:Value mod:Value id:Word feature:Value fn:Ptr kind:Word
+        d zr_autoload Value mod:Value id:Word feature:Value fn:Ptr cref:Value kind:Word path:Value
+        d zr_autoload_computed Value mod:Value name:Value feature:Value cref:Value
+        d zr_autoload_push Void rows:Value mod:Value id:Word feature:Value fn:Ptr kind:Word path:Value
+        d zr_autoload_require Value feature:Value
         d zr_autoload_row Word mod:Value id:Word
         d zr_autoload_feature Value mod:Value id:Word
         d zr_const_value Value e:Ptr
         d zr_const_raw_value Value e:Ptr
+        d zr_const_searched Value e:Ptr gone:Ptr
+        d zr_const_loaded Value e:Ptr gone:Ptr
         d zr_mod_autoload_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ivtab_copy Void to:Ptr from:Ptr
         d zr_copy_payload Value copy:Value orig:Value
@@ -1273,7 +1278,8 @@ module Ze0
         c G_TOP_CREF 24
         c CONST_INDEX_MIN 16
         c G_AUTOLOADS 38
-        c AUTOLOAD_ROW 5
+        c AUTOLOAD_ROW 6
+        c AUTOLOAD_REQUIRE 4
         c G_ARGV 36
         c G_AT_EXIT 37
         c G_HIDDEN_FEATURES 50

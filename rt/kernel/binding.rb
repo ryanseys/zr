@@ -43,6 +43,15 @@ machine def zr_eval_cref_under(mod, outer)
   zr_cref_push(mod, outer)
 end
 
+# The cref a `load` with a wrap module runs its file under: the module on
+# top of the toplevel's, where a def is private, as at the toplevel.
+sig [Value] => Value
+machine def zr_wrap_cref(mod)
+  c = zr_cref_push(mod, zr_global(G_TOP_CREF))
+  RCref.set_vis(c, VIS_PRIVATE)
+  c
+end
+
 # The names in a locals table, as symbols in slot order.
 sig [Ptr] => Value
 machine def zr_local_names(table)

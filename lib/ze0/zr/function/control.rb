@@ -192,9 +192,10 @@ module Ze0
           at_line(node.line)
           recv = node.recv ? expr(node.recv) : @self
           feature = kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(node.feature))), imm(node.feature.bytesize))
+          path = kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(node.path))), imm(node.path.bytesize))
           fn = node.unit ? @f.func_addr(@f.callee(@l.unit_entry(node.unit), [], "i64")) : imm(0)
           kind = REQUIRE_KINDS.fetch(node.hidden ? :eval_road : :require)
-          checked(kernel("zr_autoload", recv, imm(sym_id(node.name)), feature, fn, @cref, imm(kind)))
+          checked(kernel("zr_autoload", recv, imm(sym_id(node.name)), feature, fn, @cref, imm(kind), path))
         end
 
         # `redo`: the innermost loop's body again without its test, or the

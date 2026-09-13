@@ -1,5 +1,4 @@
 gaps/file_open_is_ios_own_row.rb	compiler/builtins/file_open_is_ios_own_row.rb
-gaps/an_autoload_target_is_a_unit_only_target.rb	compiler/units/an_autoload_target_is_a_unit_only_target.rb
 gaps/ffi_libc_call.rb	aot/ffi_libc_call.rb
 gaps/openssl_digest.rb	aot/openssl_digest.rb
 gaps/signal_trap.rb	aot/signal_trap.rb
@@ -48,7 +47,6 @@ gaps/a_version_gate_compares_by_version_not_by_string.rb	compiler/guards/a_versi
 gaps/refine_in_a_conditional_reopen.rb	compiler/guards/refine_in_a_conditional_reopen.rb
 gaps/the_string_guard_family.rb	compiler/guards/the_string_guard_family.rb
 gaps/unit_class_new_dispatches_runtime.rb	compiler/units/unit_class_new_dispatches_runtime.rb
-gaps/an_autoload_feature_composes_dir_and_expand_path.rb	core/io/an_autoload_feature_composes_dir_and_expand_path.rb
 gaps/bundle_io_sys.rb	core/io/bundle_io_sys.rb
 gaps/eval_file_and_line_arguments.rb	core/io/eval_file_and_line_arguments.rb
 gaps/io_buffer.rb	core/io/io_buffer.rb
@@ -66,7 +64,6 @@ gaps/rubyvm_ast.rb	core/rubyvm/rubyvm_ast.rb
 gaps/rubyvm_ast_node_taxonomy.rb	core/rubyvm/rubyvm_ast_node_taxonomy.rb
 gaps/rubyvm_iseq_label_on_a_proc_handle.rb	core/rubyvm/rubyvm_iseq_label_on_a_proc_handle.rb
 gaps/rubyvm_iseq_of_answers_for_a_ruby_callable.rb	core/rubyvm/rubyvm_iseq_of_answers_for_a_ruby_callable.rb
-gaps/autoload_interpolated_dir_feature.rb	core/string/autoload_interpolated_dir_feature.rb
 gaps/a_struct_binds_its_members_without_dispatch.rb	core/struct/a_struct_binds_its_members_without_dispatch.rb
 gaps/time_keeps_a_float_epoch_exactly.rb	core/time/time_keeps_a_float_epoch_exactly.rb
 gaps/time_local_historical_offset.rb	core/time/time_local_historical_offset.rb
@@ -90,8 +87,6 @@ gaps/error_highlight_library.rb	lang/exceptions/error_highlight_library.rb
 gaps/a_singleton_def_labels_its_frame_after_the_method.rb	lang/methods/a_singleton_def_labels_its_frame_after_the_method.rb
 gaps/the_ast_translator_builds_splat_lists_like_parse_y.rb	lang/methods/the_ast_translator_builds_splat_lists_like_parse_y.rb
 gaps/fiddle.rb	lang/programs/fiddle.rb
-gaps/autoload_dsl_computes_its_own_path.rb	lang/require/autoload_dsl_computes_its_own_path.rb
-gaps/load_with_a_wrap_argument_lowers_to_a_runtime_loaderror.rb	lang/require/load_with_a_wrap_argument_lowers_to_a_runtime_loaderror.rb
 gaps/a_gemspec_loads_from_yaml.rb	milestones/a_gemspec_loads_from_yaml.rb
 gaps/a_minitest_suite_runs.rb	milestones/a_minitest_suite_runs.rb
 gaps/an_rspec_suite_runs.rb	milestones/an_rspec_suite_runs.rb
