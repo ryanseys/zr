@@ -677,44 +677,55 @@ class IO
   # One String, the usual call, is its own line: CRuby takes a String
   # as it is and never asks it for `to_s`.
   def puts(*objects)
-    if Primitive.zr_ary_len_m(objects) == 1 && (text = Primitive.zr_ary_at_m(objects, 0)).is_a?(String)
-      write(text.end_with?("\n") ? text : text + "\n")
-      return nil
-    end
-
-    IO.lines_of(objects).each { |line| write(line) }
+    IO.each_line_of(objects) { |*parts| write(*parts) }
     nil
   end
 
-  # What `puts` writes for `objects`: each one's to_s with a newline
-  # unless it ends in one; nil is an empty line; an Array is its
-  # items, an empty one nothing; no objects is one empty line.
-  def self.lines_of(objects)
-    return ["\n"] if objects.empty?
+  # What `puts` writes for `objects`, one `write` a line, as it goes: a
+  # line that raises in its `to_s` stops the rest, with what came before
+  # already written, as ruby's does. Each one's to_s, then a newline as a
+  # second argument unless it ends in one; nil is an empty line; an Array
+  # is its items, an empty one nothing; no objects is one empty line.
+  def self.each_line_of(objects, &block)
+    Primitive.attr! :hidden
+    return yield("\n") if objects.empty?
 
-    objects.flat_map do |object|
+    objects.each do |object|
       if object.is_a?(Array)
         # An array that holds itself shows the marker in its own place
         # rather than walking for ever.
-        next ["[...]\n"] if Primitive.zr_recursive_enter(object, :puts)
+        next yield("[...]", "\n") if Primitive.zr_recursive_enter(object, :puts)
 
         begin
-          object.empty? ? [] : lines_of(object)
+          each_line_of(object, &block) unless object.empty?
         ensure
           Primitive.zr_recursive_leave(object, :puts)
         end
       else
         text = Primitive.zr_obj_as_string(object)
-        text.end_with?("\n") ? [text] : [text + "\n"]
+        if text.empty?
+          yield "\n"
+        elsif text.end_with?("\n")
+          yield text
+        else
+          yield text, "\n"
+        end
       end
     end
   end
 
   # What `print` writes `objects` as: their `to_s` joined by `$,`, then
   # `$\`, and `$_` where there are no objects.
+  #
+  # One `write` an object, and the object as it is: `write` asks for its
+  # `to_s`, so one that raises stops the rest after what came before.
   def self.print_to(out, objects)
+    Primitive.attr! :hidden
     objects = [$_] if objects.empty?
-    out.write(objects.map(&:to_s).join($, || ""))
+    objects.each_with_index do |object, i|
+      out.write($,) if $, && i > 0
+      out.write(object)
+    end
     out.write($\) if $\
     nil
   end
@@ -1342,7 +1353,7 @@ module Kernel
     out = $stdout
     return out.puts(*objects) if out.is_a?(IO)
 
-    IO.send(:lines_of, objects).each { |line| out.write(line) }
+    IO.send(:each_line_of, objects) { |*parts| out.write(*parts) }
     nil
   end
 
