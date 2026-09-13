@@ -241,35 +241,6 @@ class File < IO
   end
   private :fifo_fd
 
-  def self.read(path, length = nil, offset = nil, **options)
-    open(path, "r", **options) do |file|
-      file.seek(offset) if offset
-      length ? file.read(length) : file.read
-    end
-  end
-
-  def self.write(path, content, offset = nil, mode: nil, **options)
-    open(path, mode || (offset ? "r+" : "w"), **options) do |file|
-      file.seek(offset) if offset
-      file.write(content)
-    end
-  end
-
-  # The options of an open belong to the open, as rb_io_extract_modeenc
-  # takes them; only `chomp:` belongs to the lines.
-  def self.readlines(path, *args, **options)
-    line = options.key?(:chomp) ? { chomp: options.delete(:chomp) } : {}
-    open(path, "r", **options) { |file| file.readlines(*args, **line) }
-  end
-
-  def self.foreach(path, *args, **options, &block)
-    return to_enum(:foreach, path, *args, **options) unless block
-
-    line = options.key?(:chomp) ? { chomp: options.delete(:chomp) } : {}
-    open(path, "r", **options) { |file| file.each_line(*args, **line, &block) }
-    nil
-  end
-
   def self.size(path)
     path = path_of(path)
     result = Primitive.zr_io_file_size(path)
@@ -990,7 +961,14 @@ class Dir
     nil
   end
 
-  def self.empty?(path) = children(path).empty?
+  # A path that names a file is no empty directory; one that names
+  # nothing raises.
+  def self.empty?(path)
+    path = File.path(path)
+    return false if File.exist?(path) && !File.directory?(path)
+
+    children(path).empty?
+  end
 
   # `glob(patterns, flags, base:, sort:)`: every path a pattern names,
   # per pattern in order, each pattern's matches sorted. A pattern is

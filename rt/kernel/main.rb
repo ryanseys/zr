@@ -262,6 +262,9 @@ machine def zr_boot
   zr_builtin(zr_global(G_KERNEL), Machine.id(:instance_of?), Machine.addr(:zr_obj_instance_of), 1)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:nil?), Machine.addr(:zr_obj_nil_p), 0)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:respond_to?), Machine.addr(:zr_obj_respond_to), 0 - 1)
+  # Exception carries a private method_missing, so CRuby gives it a
+  # respond_to? of its own that answers as Kernel's does.
+  zr_builtin(zr_global(G_EXCEPTION), Machine.id(:respond_to?), Machine.addr(:zr_obj_respond_to), 0 - 1)
   zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:initialize), Machine.addr(:zr_obj_initialize), 0)
   zr_builtin_private(zr_global(G_BASIC_OBJECT), Machine.id(:method_missing), Machine.addr(:zr_obj_method_missing), 0 - 1)
   zr_builtin_private(zr_global(G_KERNEL), Machine.id(:respond_to_missing?), Machine.addr(:zr_obj_respond_to_missing), 2)

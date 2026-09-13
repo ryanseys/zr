@@ -83,7 +83,7 @@ class Hash
   end
 
   def select!
-    return to_enum(:select!) { size } unless block_given?
+    return to_enum(__callee__) { size } unless block_given?
 
     Primitive.zr_frozen_error(self) if frozen?
     before = size

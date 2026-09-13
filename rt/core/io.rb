@@ -68,13 +68,38 @@ class IO
 
   def self.binwrite(path, content, offset = nil) = File.write(path, content, offset)
 
-  def self.foreach(path, *args, **options, &block) = File.foreach(path, *args, **options, &block)
+  # CRuby's rb_io_s_read takes a fourth argument, which the read it
+  # passes on then refuses.
+  def self.read(path, length = nil, offset = nil, extra = (none = true; nil), **options)
+    raise ArgumentError, "wrong number of arguments (given 3, expected 0..2)" unless none
 
-  def self.readlines(path, *args, **options) = File.readlines(path, *args, **options)
+    File.open(path, "r", **options) do |file|
+      file.seek(offset) if offset
+      length ? file.read(length) : file.read
+    end
+  end
 
-  def self.read(path, length = nil, offset = nil, **options) = File.read(path, length, offset, **options)
+  def self.write(path, content, offset = nil, mode: nil, **options)
+    File.open(path, mode || (offset ? "r+" : "w"), **options) do |file|
+      file.seek(offset) if offset
+      file.write(content)
+    end
+  end
 
-  def self.write(path, content, offset = nil, **options) = File.write(path, content, offset, **options)
+  # The options of an open belong to the open, as rb_io_extract_modeenc
+  # takes them; only `chomp:` belongs to the lines.
+  def self.readlines(path, *args, **options)
+    line = options.key?(:chomp) ? { chomp: options.delete(:chomp) } : {}
+    File.open(path, "r", **options) { |file| file.readlines(*args, **line) }
+  end
+
+  def self.foreach(path, *args, **options, &block)
+    return to_enum(:foreach, path, *args, **options) unless block
+
+    line = options.key?(:chomp) ? { chomp: options.delete(:chomp) } : {}
+    File.open(path, "r", **options) { |file| file.each_line(*args, **line, &block) }
+    nil
+  end
 
   def self.for_fd(fd, mode = "r", **options) = new(fd, mode, **options)
 
@@ -618,7 +643,11 @@ class IO
     result
   end
 
-  def sysseek(offset, whence = SEEK_SET) = seek(offset, whence)
+  # The offset the seek lands on, as lseek answers it.
+  def sysseek(offset, whence = SEEK_SET)
+    seek(offset, whence)
+    pos
+  end
 
   # The encoding named for this stream, else what the stream stands
   # for: binary where it is binary, the default where it can be read,
@@ -884,7 +913,8 @@ class IO
 
     if lead.start_with?("\xEF\xBB\xBF".b)
       ungetc(lead[3..].to_s)
-      return set_encoding(Encoding::UTF_8)
+      set_encoding(Encoding::UTF_8)
+      return Encoding::UTF_8
     end
     ungetc(lead)
     nil

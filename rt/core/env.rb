@@ -51,7 +51,11 @@ class << ENV
     Primitive.zr_environment_get(variable_name(name))
   end
 
-  def fetch(name, *default)
+  def fetch(*args)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+
+    name, *default = args
+
     Primitive.zr_warn_here_m("block supersedes default value argument") if block_given? && !default.empty?
     value = self[name]
     return value if value

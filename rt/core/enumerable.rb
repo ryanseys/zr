@@ -51,8 +51,8 @@ module Enumerable
     out
   end
 
-  def find(ifnone = nil)
-    return to_enum(:find, ifnone) unless block_given?
+  def find(ifnone = (omitted = true; nil))
+    return to_enum(__callee__, *([ifnone] unless omitted)) unless block_given?
 
     each do |*x|
       x = Primitive.zr_enum_value(x)

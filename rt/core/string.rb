@@ -2323,7 +2323,7 @@ class Encoding
     writer = mb?(target) ? mb_writer(target) : nil
     points = unit || writer || target.equal?(ASCII_8BIT) || target.equal?(US_ASCII) || text.ascii_only? ? nil : target.send(:points)
     out = []
-    utf8_points(text, replacement(target, options), options) do |point|
+    utf8_points(text, replacement(target, options), options, target) do |point|
       bytes = point_bytes(point, unit, big, points, writer)
       if bytes
         out.concat(bytes)
@@ -2369,10 +2369,10 @@ class Encoding
   end
   private_class_method :replacement
 
-  # Each code point of UTF-8 `text`. Bytes UTF-8 does not allow raise
-  # as ruby's decoder words them, or become `mark` once under `invalid:
-  # :replace`.
-  def self.utf8_points(text, mark, options)
+  # Each code point of UTF-8 `text`, on its way to `target`. Bytes UTF-8
+  # does not allow raise as ruby's decoder words them, or become `mark`
+  # once under `invalid: :replace`.
+  def self.utf8_points(text, mark, options, target)
     Primitive.attr! :hidden
     bytes = text.bytes
     i = 0
@@ -2383,7 +2383,7 @@ class Encoding
       elsif options[:invalid] == :replace
         mark.each_char { |char| yield char.ord }
       else
-        invalid(bytes[i, length], kind == :bad ? [bytes[i + length]] : nil, kind == :ended, "UTF-8")
+        invalid(bytes[i, length], kind == :bad ? [bytes[i + length]] : nil, kind == :ended, "UTF-8", target)
       end
       i += length
     end
@@ -2576,7 +2576,9 @@ class Encoding
 
   # Ruby's words for bytes a decoder cannot read: `incomplete` when the
   # input ends inside them, else `followed by` the bytes it reads again.
-  def self.invalid(error, again, ended, name)
+  # The failure names the ends of the step that read them: the decoding
+  # into UTF-8, or from UTF-8 the one step to the target.
+  def self.invalid(error, again, ended, name, destination = UTF_8)
     Primitive.attr! :hidden
     shown = error.pack("C*").dump
     text = if ended then "incomplete #{shown}"
@@ -2585,7 +2587,7 @@ class Encoding
            end
     # The failure answers about itself, as CRuby's own carries the bytes
     # it stopped on and the ones it will read again.
-    raise byte_error("#{text} on #{name}", find(name), UTF_8, error.pack("C*"), again&.pack("C*"), ended)
+    raise byte_error("#{text} on #{name}", find(name), destination, error.pack("C*"), again&.pack("C*"), ended)
   end
   private_class_method :invalid
 

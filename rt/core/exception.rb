@@ -340,7 +340,7 @@ class LocalJumpError
 end
 
 class SignalException
-  attr_reader :signo
+  def signo = Primitive.zr_hidden_get(self, :signo)
 
   # A number names its first signal in Signal.list; a name keeps its own
   # spelling, an alias among them.
@@ -352,10 +352,10 @@ class SignalException
       name = signals.key(sig)
       raise ArgumentError, "invalid signal number (#{sig})" unless name
 
-      @signo = sig
+      Primitive.zr_hidden_set(self, :signo, sig)
       super(message || "SIG#{name}")
     elsif sig.nil?
-      @signo = 2
+      Primitive.zr_hidden_set(self, :signo, 2)
       super(message)
     else
       # A name says what the message is, so a second argument is one
@@ -365,12 +365,12 @@ class SignalException
       name = sig.to_s.delete_prefix("SIG")
       raise ArgumentError, "unsupported signal 'SIG#{name}'" unless signals.key?(name)
 
-      @signo = signals[name]
+      Primitive.zr_hidden_set(self, :signo, signals[name])
       super("SIG#{name}")
     end
   end
 
-  def signm = message
+  def signm = to_s
 end
 
 class Interrupt

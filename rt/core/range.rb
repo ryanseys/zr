@@ -14,13 +14,16 @@ class Range
   def begin = @begin
   def end = @end
 
-  def first(n = nil)
-    if n.nil?
+  # CRuby counts the arguments itself, and says it wants one.
+  def first(*args)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" if args.size > 1
+    if args.empty?
       raise RangeError, "cannot get the first element of beginless range" if @begin.nil?
 
       return @begin
     end
-    n = Primitive.zr_index_operand_m(n)
+
+    n = Primitive.zr_index_operand_m(args[0])
     raise ArgumentError, "negative array size (or size too big)" if n < 0
 
     out = []

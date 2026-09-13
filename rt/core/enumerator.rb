@@ -349,7 +349,6 @@ class Enumerator::ArithmeticSequence < Enumerator
 
     "(#{@begin.inspect}.step(#{@end.inspect}#{@step == 1 ? '' : ", #{@step.inspect}"}))"
   end
-  alias to_s inspect
 
   private
 
@@ -855,8 +854,6 @@ class Enumerator::Chain < Enumerator
     self
   end
 
-  def +(other) = Enumerator::Chain.new(self, other)
-
   def inspect = "#<Enumerator::Chain: #{@enums.inspect}>"
 
   private def initialize_copy(other)
@@ -865,7 +862,6 @@ class Enumerator::Chain < Enumerator
     self
   end
 
-  alias to_s inspect
 
   undef_method :next, :peek, :next_values, :peek_values, :with_object
 end
@@ -914,7 +910,6 @@ class Enumerator::Product < Enumerator
     self
   end
 
-  alias to_s inspect
 
   private
 
