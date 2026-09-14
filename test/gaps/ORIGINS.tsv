@@ -222,7 +222,6 @@ gaps/pathname_rows.rb	stdlib/pathname/pathname_rows.rb
 gaps/the_implicit_conversion_protocol_runs_at_every_typed_slot.rb	stdlib/pathname/the_implicit_conversion_protocol_runs_at_every_typed_slot.rb
 gaps/pty_spawn.rb	stdlib/pty/pty_spawn.rb
 gaps/pty_spawn_and_check.rb	stdlib/pty/pty_spawn_and_check.rb
-gaps/readline.rb	stdlib/readline/readline.rb
 gaps/requiring_rexml_document_survives_the_ambient_encoding_class.rb	stdlib/rexml/requiring_rexml_document_survives_the_ambient_encoding_class.rb
 gaps/a_builtin_row_reports_its_parameter_names.rb	stdlib/securerandom/a_builtin_row_reports_its_parameter_names.rb
 gaps/securerandom.rb	stdlib/securerandom/securerandom.rb
