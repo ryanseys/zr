@@ -166,10 +166,11 @@ module Ze0
         end
 
         # `using mod` fills the row it names, so every send under it
-        # reads what this module refines.
+        # reads what this module refines. It answers the self it ran on.
         def using_row(node)
           at_line(node.line)
           checked(kernel("zr_using_activate", imm(node.id), expr(node.value), imm(node.from)))
+          @self
         end
 
         # The refinements in force where this call is written, told to
