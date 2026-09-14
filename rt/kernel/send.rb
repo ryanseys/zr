@@ -467,15 +467,16 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
     end
     return Machine.call(:method, MEntry.fn(e), recv, argc, argv, MEntry.cref(e), blk)
   end
+  # An accessor has no frame, so its arity error is the caller's.
   if MEntry.kind(e) == KIND_ATTR_READER
     if argc != 0
-      return zr_wrong_arity_in(argc, 0, e, recv)
+      return zr_wrong_arity(argc, 0)
     end
     return zr_ivar_get(recv, Machine.word(MEntry.fn(e)))
   end
   if MEntry.kind(e) == KIND_ATTR_WRITER
     if argc != 1
-      return zr_wrong_arity_in(argc, 1, e, recv)
+      return zr_wrong_arity(argc, 1)
     end
     return zr_ivar_set(recv, Machine.word(MEntry.fn(e)), Machine.value(Machine.load64(argv, 0)))
   end
