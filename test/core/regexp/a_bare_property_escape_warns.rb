@@ -15,5 +15,5 @@ bs-K | 0
 bare-p | "p"
 pL | "pL"
 #@ stderr
-gaps/regexp_unsupported_escapes.rb:11: warning: invalid Unicode Property \p: /\p/
-gaps/regexp_unsupported_escapes.rb:12: warning: invalid Unicode Property \p: /\pL/
+core/regexp/a_bare_property_escape_warns.rb:11: warning: invalid Unicode Property \p: /\p/
+core/regexp/a_bare_property_escape_warns.rb:12: warning: invalid Unicode Property \p: /\pL/
