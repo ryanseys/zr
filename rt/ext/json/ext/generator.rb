@@ -62,7 +62,7 @@ module JSON
 
           def default_sort_keys_proc
             Primitive.attr! :hidden
-            State.instance_variable_get(:@default_sort_keys_proc)
+            Primitive.zr_hidden_get(State, :default_sort_keys_proc)
           end
 
           # cState_m_generate: a document from `opts`, with no State made

@@ -1419,12 +1419,14 @@ machine def zr_attr(klass, argc, argv, which)
     zr_buf_byte(b, 64)
     zr_buf_sym(b, id)
     ivar = zr_intern(Buf.ptr(b), Buf.len(b))
-    # The core library's attributes read the fields its instance
-    # variables stand for, which it keeps without their `@`.
-    if !zr_program_started_p()
+    caller = Frame.prev(Task.top(zr_task()))
+    # The runtime's own attributes, which its class bodies define on
+    # themselves, read the fields its instance variables stand for, which
+    # it keeps without their `@`. A program's call that a builtin makes on
+    # its behalf, as `each(&method(:attr_reader))` does, is the program's.
+    if zr_internal_meta_p(zr_meta_at(caller)) && Frame.self(caller) == klass
       ivar = zr_intern(Buf.ptr(b) + 1, Buf.len(b) - 1)
     end
-    caller = Frame.prev(Task.top(zr_task()))
     # The scope's visibility verb applies only inside this class's own
     # body; from anywhere else the attribute is public.
     cref = Frame.cref(caller)

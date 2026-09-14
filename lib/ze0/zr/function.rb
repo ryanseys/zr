@@ -154,12 +154,13 @@ module Ze0
 
       def hidden_def? = attributes.include?(:hidden)
 
-      # The name an instance variable `name` is kept under. The core
-      # library's own are hidden, named without their `@` as CRuby names
-      # the fields its C keeps, so a program sees none of them; a def
-      # marked `:ivars` keeps the ones CRuby writes in Ruby.
+      # The name an instance variable `name` is kept under. The runtime's
+      # own, the core library's and the native halves', are hidden, named
+      # without their `@` as CRuby names the fields its C keeps, so a
+      # program sees none of them; a def marked `:ivars` keeps the ones
+      # CRuby writes in Ruby.
       def ivar_name(name)
-        return name unless @l.core?
+        return name unless @l.internal?
 
         fn = self
         fn = fn.outer while fn.kind == :block && fn.outer

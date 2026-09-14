@@ -1043,14 +1043,15 @@ module Zlib
   end
 
   class GzipFile
+    # gzfile_raise sets `@input` where a program sees it.
     class Error < Zlib::Error
-      attr_reader :input
+      def input = Primitive.zr_hidden_get(self, :@input)
 
       def inspect
         str = super
-        return str if @input.nil?
+        return str if input.nil?
 
-        "#{str.chop}, input=#{@input.inspect}>"
+        "#{str.chop}, input=#{input.inspect}>"
       end
     end
 

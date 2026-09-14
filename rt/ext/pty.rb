@@ -57,7 +57,7 @@ module PTY
     return status unless want_raise
 
     error = ChildExited.new("pty - #{state_of(pid, status)}: #{pid}")
-    error.instance_variable_set(:@status, status)
+    Primitive.zr_hidden_set(error, :status, status)
     raise error
   end
 
