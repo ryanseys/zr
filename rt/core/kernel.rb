@@ -373,6 +373,88 @@ module Kernel
   end
 end
 
+# Commands on global variables: each assignment to a traced global runs
+# its commands with the new value, the newest first, as rb_gvar_set_entry
+# runs them. A command that assigns the global it watches runs no
+# command again.
+module Kernel
+  def trace_var(*args, &block)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+    raise ArgumentError, "tried to create Proc object without a block" if args.size == 1 && block.nil?
+
+    name, command = args.size == 1 ? [args[0], block] : args
+    return untrace_var(*args) if command.nil?
+
+    name = Primitive.zr_gvar_resolve_m(Kernel.send(:global_name, name))
+    Kernel.send(:gvar_commands)[name].unshift(command)
+    Primitive.zr_gvar_traced
+    nil
+  end
+
+  def untrace_var(*args)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+
+    name, command = args
+    name = Primitive.zr_gvar_resolve_m(Kernel.send(:global_name, name))
+    commands = Kernel.send(:gvar_commands)
+    unless commands.key?(name) || Primitive.zr_gvar_defined_m(name)
+      raise NameError.new("undefined global variable #{name}", name)
+    end
+    if command.nil?
+      removed = commands[name]
+      commands[name] = []
+      return removed
+    end
+    [command] if commands[name].delete(command) { nil }
+  end
+
+  module_function :trace_var, :untrace_var
+
+  class << self
+    private
+
+    # rb_to_id: a Symbol, or a String that names one.
+    def global_name(name)
+      Primitive.attr! :hidden
+      return name if name.is_a?(Symbol)
+
+      text = String.try_convert(name)
+      raise TypeError, "#{name.inspect} is not a symbol nor a string" if text.nil?
+
+      text.to_sym
+    end
+
+    def gvar_commands
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_get(self, :__gvar_commands__) ||
+        Primitive.zr_hidden_set(self, :__gvar_commands__, Hash.new { |table, name| table[name] = [] })
+    end
+
+    # The global `name` was assigned `value`: its commands run, unless
+    # they run already.
+    def traced_assign(name, value)
+      Primitive.attr! :hidden
+      commands = gvar_commands.fetch(name, nil)
+      return if commands.nil? || commands.empty?
+
+      running = Primitive.zr_hidden_get(self, :__gvar_running__) || Primitive.zr_hidden_set(self, :__gvar_running__, {})
+      return if running.key?(name)
+
+      running[name] = true
+      begin
+        # A loop and not `each`, whose frame CRuby's backtrace has no row for.
+        pending = commands.dup
+        until pending.empty?
+          command = pending.shift
+          command.is_a?(String) ? TOPLEVEL_BINDING.send(:eval, command) : command.call(value)
+        end
+      ensure
+        running.delete(name)
+      end
+    end
+  end
+end
+
 module Kernel
   private :Integer, :String, :Array, :sleep, :warn, :catch, :throw, :loop, :exit, :abort, :at_exit, :require, :require_relative, :load
 end

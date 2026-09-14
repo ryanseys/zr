@@ -164,7 +164,7 @@ module Ze0
           case target
           when Hir::Assign then write_local(slot_at(target), target.depth, v, target.name)
           when Hir::IvarWrite then ivar_write(target, v)
-          when Hir::GvarWrite then gvar_write(target.name, v)
+          when Hir::GvarWrite then gvar_write(target.name, v, target.line)
           when Hir::CvarWrite
             at_line(target.line)
             checked(kernel("zr_cvar_set", @cref, imm(sym_id(target.name)), v))

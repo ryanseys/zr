@@ -176,7 +176,7 @@ module Signal
       Primitive.attr! :hidden
       return if Primitive.zr_special_p_m(command)
 
-      command.is_a?(String) ? TOPLEVEL_BINDING.eval(command) : command.call(signo)
+      command.is_a?(String) ? TOPLEVEL_BINDING.send(:eval, command) : command.call(signo)
     end
 
     def interrupt(exception)

@@ -200,6 +200,19 @@ module Ze0
             return
           end
           @evals = true if name == :eval || (EVAL_FORMS.include?(name) && !args.empty?) || (kernel && LOADS.include?(name))
+          @evals = true if ruby_command?(name, args)
+        end
+
+        # The calls that take a command, which runs as Ruby when it is a
+        # String; trap's own words name a handling and run nothing.
+        COMMANDS = %i[trap trace_var].freeze
+        TRAP_WORDS = ["", "IGNORE", "SIG_IGN", "DEFAULT", "SIG_DFL", "SYSTEM_DEFAULT", "EXIT"].freeze
+
+        def ruby_command?(name, args)
+          return false unless COMMANDS.include?(name)
+
+          command = args[1]
+          command.is_a?(Interp) || (command.is_a?(Literal) && command.value.is_a?(String) && !(name == :trap && TRAP_WORDS.include?(command.value)))
         end
 
         # A program that names Ruby::Box compiles ruby while it runs:

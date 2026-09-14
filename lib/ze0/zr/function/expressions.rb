@@ -54,7 +54,7 @@ module Ze0
           when Hir::FrozenString then checked(string_literal(node.value, "zr_str_literal_freeze"))
           when Hir::GvarRead then gvar_read(node)
           when Hir::BackRef then back_ref(node)
-          when Hir::GvarWrite then gvar_write(node.name, expr(node.value))
+          when Hir::GvarWrite then gvar_write(node.name, expr(node.value), node.line)
           when Hir::CvarRead then cvar_read(node)
           when Hir::CvarWrite then cvar_write(node)
           when Hir::ConstOrWrite then const_or_write(node)
@@ -208,12 +208,14 @@ module Ze0
           kernel("zr_gvar_get", imm(sym_id(node.name)))
         end
 
-        # `$~` and `$_` live in the frame; the rest are plain globals.
-        def gvar_write(name, v)
+        # `$~` and `$_` live in the frame; the rest are plain globals, and
+        # a command trace_var put on one runs on this line.
+        def gvar_write(name, v, line)
           return kernel("zr_backref_set", v) if name == :$~
           return kernel("zr_lastline_set", v) if name == :$_
 
-          kernel("zr_gvar_set", imm(sym_id(name)), v)
+          at_line(line)
+          checked(kernel("zr_gvar_assign", imm(sym_id(name)), v))
         end
 
         # `$1`, `$&`, `` $` ``, `$'` and `$+`: `$~`'s registers, nil

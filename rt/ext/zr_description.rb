@@ -586,6 +586,10 @@ module Ze0
         d zr_gvar_get Value id:Word
         d zr_gvar_defined Value id:Word
         d zr_gvar_set Value id:Word v:Value
+        d zr_gvar_assign Value id:Word v:Value
+        d zr_gvar_traced Value
+        d zr_gvar_resolve_m Value name:Value
+        d zr_gvar_defined_m Value name:Value
         d zr_mark_roots Void
         d zr_mark_task Void t:Ptr
         d zr_free_cell Void cell:Ptr

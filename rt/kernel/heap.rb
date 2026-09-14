@@ -289,6 +289,42 @@ machine def zr_gvar_set(id, v)
   v
 end
 
+# `$name = v` as Ruby writes it: the value stored, then the commands
+# trace_var put on the global run with it. QUNDEF when one raised.
+sig [Word, Value] => Value
+machine def zr_gvar_assign(id, v)
+  zr_gvar_set(id, v)
+  if Machine.load64(Machine.static(:gvar_traced, 8), 0) == 0
+    return v
+  end
+  argv = Machine.slot(16)
+  Machine.store64(argv, 0, Machine.word(zr_sym(zr_gvar_resolve(id))))
+  Machine.store64(argv, 8, Machine.word(v))
+  if zr_send(zr_global(G_KERNEL), Machine.id(:traced_assign), 2, argv) == QUNDEF
+    return Machine.value(QUNDEF)
+  end
+  v
+end
+
+# The first trace_var: from now on an assignment asks for commands.
+sig [] => Value
+machine def zr_gvar_traced
+  Machine.store64(Machine.static(:gvar_traced, 8), 0, 1)
+  Machine.value(QNIL)
+end
+
+# The name `alias $new $old` makes `name` stand for, or `name` itself.
+sig [Value] => Value
+machine def zr_gvar_resolve_m(name)
+  zr_sym(zr_gvar_resolve(zr_sym2id(name)))
+end
+
+# Whether the global `name` has a row: it was assigned.
+sig [Value] => Value
+machine def zr_gvar_defined_m(name)
+  zr_gvar_defined(zr_sym2id(name))
+end
+
 sig [] => Void
 machine def zr_mark_roots
   i = 0
