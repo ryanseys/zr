@@ -491,6 +491,13 @@ machine def zr_class_new_instance(recv, argc, argv, cref, blk)
   o
 end
 
+# `Array.new` and `String.new`: `Class#new` as each class's own row, as
+# CRuby defines them, so a backtrace from `initialize` passes through it.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_class_s_new(recv, argc, argv, cref, blk)
+  zr_class_new_instance(recv, argc, argv, cref, blk)
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_initialize(recv, argc, argv, cref, blk)
   Machine.value(QNIL)

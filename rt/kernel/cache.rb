@@ -120,7 +120,8 @@ end
 # its two lookups: `new` on the receiver's class, then `initialize` on
 # the object it makes. The builtin `Class#new` reached as a public
 # method runs with no frame of its own, so a backtrace goes from
-# `initialize` straight to the caller; any other `new` is a send.
+# `initialize` straight to the caller; any other `new` is a send through
+# the cell the lookup filled.
 sig [Ptr, Value, Word, Ptr, Word] => Value
 machine def zr_new_cached(cc, recv, argc, argv, mode)
   e = zr_call_cache_hit(cc, recv, Machine.id(:new))
@@ -132,7 +133,7 @@ machine def zr_new_cached(cc, recv, argc, argv, mode)
     end
   end
   if e == 0 || MEntry.fn(e) != Machine.addr(:zr_class_new_instance) || MEntry.vis(e) != VIS_PUBLIC
-    return zr_dispatch(0, recv, Machine.id(:new), argc, argv, mode, Machine.value(QNIL))
+    return zr_send_cached(cc, recv, Machine.id(:new), argc, argv, Machine.value(QNIL), mode)
   end
   o = zr_class_new_object(recv)
   return o if o == QUNDEF

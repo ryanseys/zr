@@ -801,6 +801,7 @@ module Ze0
         d zr_class_allocate_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_class_new_object Value recv:Value
         d zr_class_new_instance Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_class_s_new Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_class Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_singleton_class Value recv:Value argc:Word argv:Ptr cref:Value blk:Value

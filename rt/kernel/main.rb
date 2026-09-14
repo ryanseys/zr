@@ -276,6 +276,8 @@ machine def zr_boot
   # `Class.allocate` is Class's own: a class not yet set up.
   zr_builtin(zr_singleton_class(zr_global(G_CLASS)), Machine.id(:allocate), Machine.addr(:zr_class_allocate_m), 0)
   zr_builtin(zr_global(G_CLASS), Machine.id(:new), Machine.addr(:zr_class_new_instance), 0 - 1)
+  zr_builtin(zr_singleton_class(zr_global(G_ARRAY)), Machine.id(:new), Machine.addr(:zr_class_s_new), 0 - 1)
+  zr_builtin(zr_singleton_class(zr_global(G_STRING)), Machine.id(:new), Machine.addr(:zr_class_s_new), 0 - 1)
   zr_builtin(zr_global(G_CLASS), Machine.id(:superclass), Machine.addr(:zr_class_superclass), 0)
   zr_builtin(zr_global(G_MODULE), Machine.id(:name), Machine.addr(:zr_class_name), 0)
   zr_builtin(zr_global(G_MODULE), Machine.id(:include?), Machine.addr(:zr_mod_include_p), 1)

@@ -19,7 +19,6 @@ gaps/process_surface_batch1.rb	compiler/builtins/process_surface_batch1.rb
 gaps/signal_module_and_signal_exception_surface.rb	compiler/builtins/signal_module_and_signal_exception_surface.rb
 gaps/signal_module_surface.rb	compiler/builtins/signal_module_surface.rb
 gaps/thread_surface.rb	compiler/builtins/thread_surface.rb
-gaps/time_new_is_a_class_method_row.rb	compiler/builtins/time_new_is_a_class_method_row.rb
 gaps/tracepoint_reflection_rows.rb	compiler/builtins/tracepoint_reflection_rows.rb
 gaps/a_snippet_reaches_its_callers_block.rb	compiler/cache/a_snippet_reaches_its_callers_block.rb
 gaps/a_snippet_refines_and_uses_at_run_time.rb	compiler/cache/a_snippet_refines_and_uses_at_run_time.rb
