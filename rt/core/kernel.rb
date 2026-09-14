@@ -42,11 +42,16 @@ module Kernel
 
   # A literal name is resolved when the program is compiled. A computed
   # one is found when the call runs, as ruby finds it.
-  def require(name)
-    feature = File.path(name)
-    return false if Kernel.preloaded?(feature)
+  def require(name) = Kernel.required(name)
 
-    Kernel.load_file(Kernel.feature_path(feature), feature, 0)
+  # A require's search and load, which Kernel#require and Kernel.require
+  # share.
+  def self.required(name)
+    Primitive.attr! :hidden
+    feature = File.path(name)
+    return false if preloaded?(feature)
+
+    load_file(feature_path(feature), feature, 0)
   end
 
   # The name is taken from the directory of the file that calls.
