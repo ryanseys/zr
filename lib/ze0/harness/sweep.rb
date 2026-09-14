@@ -43,11 +43,18 @@ module Ze0
       Row = Struct.new(:rb, :bucket, :why)
 
       # `gc`: "plain", or "stress" for a collection at every allocation.
-      def initialize(root, show: 10, jobs: nil, gc: "plain")
+      # `target`: the triple every program is built for.
+      def initialize(root, show: 10, jobs: nil, gc: "plain", target: nil)
         @root = root
         @show = show
         @jobs = jobs || Etc.nprocessors
         @gc = gc
+        @target = target
+      end
+
+      # The build command for `rel` into `out`, for this sweep's target.
+      def build_argv(rel, out)
+        [RbConfig.ruby, File.join(@root, "bin/ze0"), "zr", "build", rel, "-o", out, *(@target ? ["--target", @target] : [])]
       end
 
       # Every recorded program whose path contains one of `filters` (or all
@@ -99,8 +106,7 @@ module Ze0
         Dir.mktmpdir("ze0-warm-") do |work|
           program = File.join(work, "warm.rb")
           File.write(program, "eval('1')\n")
-          system(RbConfig.ruby, File.join(@root, "bin/ze0"), "zr", "build", program, "-o", File.join(work, "warm"),
-                 out: File::NULL, err: File::NULL)
+          system(*build_argv(program, File.join(work, "warm")), out: File::NULL, err: File::NULL)
         end
       end
 
@@ -116,7 +122,7 @@ module Ze0
         bin = File.join(work, "p")
         File.delete(bin) if File.exist?(bin)
 
-        out = bounded([RbConfig.ruby, File.join(@root, "bin/ze0"), "zr", "build", rel, "-o", bin], cwd, nil)
+        out = bounded(build_argv(rel, bin), cwd, nil)
         return Row.new(rb, :refused, first_line(out).sub(/\Aze0: /, "")) if out.code == 3
         return Row.new(rb, :backend, "the build ran past #{LIMIT}s") if out.code == :timeout
         return Row.new(rb, :backend, first_line(out)) unless out.code == 0

@@ -49,7 +49,7 @@ class Aarch64Test < Minitest::Test
   def self.runtime
     @runtime ||= begin
       symbols = Ze0::Machine::Symbols.new
-      unit = Ze0::Machine.unit(Ze0::Zr::KERNEL + [File.join(ROOT, "test/rt/puts.rb")], symbols: symbols)
+      unit = Ze0::Machine.unit(Ze0::Zr.kernel_files + [File.join(ROOT, "test/rt/puts.rb")], symbols: symbols)
       functions, = Ze0::Zr.core(unit, symbols)
       unit.functions + functions
     end

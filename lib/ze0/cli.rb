@@ -13,9 +13,10 @@ module Ze0
       ze0 run <file.rb> [args]              compile a Ruby program with the zr runtime, and run it
       ze0 build <file.rb> -o <bin>          compile a Ruby program with the zr runtime
       ze0 machine <file.rb> -o <bin>        compile a kernel-dialect file alone
-                   [--emit obj|wasm]
+                   [--emit obj|wasm] [--target <triple>]
       ze0 zr run|build|machine ...          the same three commands, by their older names
       ze0 deps build                        build the vendored C dependencies
+      ze0 targets                           the targets ze0 builds for, and what this host can do
       ze0 version                           print ze0's version
 
       ZE0_LINK picks the linker: `ruby` for Obj::Exe alone, which names what
@@ -79,6 +80,7 @@ module Ze0
         usage(extra) unless args[1] == "build" && args.size == 2
         require_relative "deps"
         puts Deps.build
+      when "targets" then targets
       when "version", "--version", "-v" then puts "ze0 #{VERSION}"
       when "help", "-h", "--help"
         puts extra + USAGE
@@ -93,11 +95,13 @@ module Ze0
       usage(extra) unless %w[run build machine].include?(verb)
       input = output = nil
       emit = nil
+      triple = nil
       rest = []
       until args.empty?
         case (a = args.shift)
         when "-o" then output = args.shift or usage(extra)
         when "--emit" then emit = args.shift or usage(extra)
+        when "--target" then triple = args.shift or usage(extra)
         when /\A-/ then usage(extra)
         else
           if input then rest << a else input = a end
@@ -106,12 +110,14 @@ module Ze0
       usage(extra) unless input && (verb == "run" ? output.nil? : output)
       usage(extra) if verb != "run" && !rest.empty?
       usage(extra) unless [nil, "obj", "wasm"].include?(emit)
-      refuse(input, verb, emit)
+      target = target_for(triple, emit, extra)
+      emit ||= "wasm" if target.roads == [:wasm]
+      refuse(input, verb, emit, target)
 
       require "tmpdir"
       require_relative "zr"
       require_relative "native/build"
-      program = lower(input, verb)
+      program = lower(input, verb, target)
       Dir.mktmpdir("ze0-zr-") do |work|
         out = verb == "run" ? File.join(work, "program") : File.expand_path(output)
         case emit
@@ -122,21 +128,43 @@ module Ze0
       end
     end
 
-    # A native binary this host cannot link is refused before the compile
-    # starts. `ZE0_LINK=ruby` builds with `Obj::Exe` alone, which needs no
-    # `cc`, though only an aarch64-apple-darwin host can run what it wrote.
-    def refuse(input, verb, emit)
-      why = Target.refusal(emit)
+    # The target `--target` names; `--emit wasm` alone means wasm32-wasi.
+    def target_for(triple, emit, extra)
+      if triple
+        target = Target.fetch(triple)
+        return target if target
+
+        warn "ze0: no target #{triple}; `ze0 targets` names them"
+        usage(extra)
+      end
+      emit == "wasm" ? Target::WASM32_WASI : Target.default
+    end
+
+    def targets
+      Target.all.each do |target|
+        roads = target.roads.map { |road| road == :native ? "binary" : road.to_s }
+        can = %i[native obj wasm].select { |road| target.roads.include?(road) && target.refusal(road == :native ? nil : road.to_s).nil? }
+        puts format("%-22s builds %-12s here: %s", target.triple, roads.empty? ? "nothing yet" : roads.join(", "),
+                    can.empty? ? "nothing" : can.map { |road| road == :native ? "binary" : road.to_s }.join(", "))
+      end
+    end
+
+    # A build this host cannot make for `target` is refused before the
+    # compile starts. `ZE0_LINK=ruby` builds with `Obj::Exe` alone, which
+    # needs no `cc`, though only an aarch64-apple-darwin host can run what
+    # it wrote.
+    def refuse(input, verb, emit, target)
+      why = target.refusal(emit)
       return unless why
-      return if emit.nil? && verb != "run" && ENV["ZE0_LINK"] == "ruby"
+      return if emit.nil? && verb != "run" && ENV["ZE0_LINK"] == "ruby" && target.roads.include?(:native)
 
       warn "ze0: #{input}: #{why}"
       exit REFUSED
     end
 
-    def lower(input, verb)
+    def lower(input, verb, target)
       source = File.read(input)
-      verb == "machine" ? Machine.compile(source, input) : Zr.program(source, input)
+      verb == "machine" ? Machine.compile(source, input) : Zr.program(source, input, target: target)
     rescue Machine::Refused, Hir::Refused, Zr::Lower::Refused => e
       warn "ze0: #{e.message}"
       exit REFUSED
@@ -154,7 +182,7 @@ module Ze0
         warn "ze0: a required file does not parse: #{e.message.lines.first.chomp}"
         exit REFUSED
       end
-      Zr.program("$stderr.write(#{report.inspect})\nexit 1\n", input)
+      Zr.program("$stderr.write(#{report.inspect})\nexit 1\n", input, target: target)
     end
 
     def object(program, out)

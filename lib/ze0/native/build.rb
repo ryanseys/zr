@@ -49,7 +49,7 @@ module Ze0
       # one and holds it to it: `ruby` answers what `Obj::Exe` could not
       # link rather than quietly reaching for `cc`, and `cc` skips
       # `Obj::Exe` altogether. `ZE0_LINK` says it from outside.
-      def binary(functions, data, out, work:, raw: [], objects: [], flags: STACK_FLAGS, road: ROAD)
+      def binary(functions, data, out, work:, raw: [], objects: [], flags: STACK_FLAGS, road: ROAD, target: Target.default)
         image = unit(functions, data, raw: raw, export: !objects.empty?)
         unless road == "cc"
           why = if objects.empty?
@@ -62,7 +62,7 @@ module Ze0
         end
         obj = File.join(work, "unit.o")
         File.binwrite(obj, Obj::MachO.write(image))
-        Link.run(objects + [obj], out, archives: Deps.build, flags: flags)
+        Link.run(objects + [obj], out, archives: Deps.build(target), flags: flags)
       rescue IR::Arm64::Refused => e
         e.message
       end
@@ -73,7 +73,7 @@ module Ze0
         objects = [runtime_object(program.runtime)]
         objects << road_object(program.evals) if program.evals
         flags = program.evals ? STACK_FLAGS : STACK_FLAGS + STRIP_FLAGS
-        binary(program.functions, program.data, out, work: work, objects: objects, flags: flags)
+        binary(program.functions, program.data, out, work: work, objects: objects, flags: flags, target: program.runtime.target)
       end
 
       # The compiler's object, built once per road.

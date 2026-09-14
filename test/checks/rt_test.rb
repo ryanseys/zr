@@ -16,7 +16,7 @@ class RtTest < Minitest::Test
   # Also read by `wasm_test.rb`, which runs these programs as modules.
   def self.compile(rb)
     symbols = Ze0::Machine::Symbols.new
-    unit = Ze0::Machine.unit(Ze0::Zr::KERNEL + [rb], symbols: symbols)
+    unit = Ze0::Machine.unit(Ze0::Zr.kernel_files + [rb], symbols: symbols)
     functions, data = Ze0::Zr.core(unit, symbols)
     [unit.functions + functions, unit.data + data + Ze0::Zr.symbol_names(symbols) + Ze0::Zr.load_tables, unit.raw]
   end

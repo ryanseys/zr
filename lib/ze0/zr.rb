@@ -5,6 +5,7 @@ require "fileutils"
 require "json"
 require "tmpdir"
 require_relative "paths"
+require_relative "target"
 require_relative "machine/lower"
 require_relative "obj/model"
 require_relative "hir"
@@ -14,10 +15,9 @@ module Ze0
   # The `zr` runtime: the kernel files, the core library written in
   # Ruby over them, and the data the compiler lays out beside them.
   module Zr
-    KERNEL = Dir[File.join(Paths::RT, "kernel/*.rb")].sort.freeze
     # The core library files, in the order their toplevels run: a module
     # before the classes that include it.
-    CORE = %w[module warning encodings transcode cjk exception enumerable enumerator comparable integer bignum array hash range struct unicode string converter kernel float proc binding format errno io io_buffer process signal env file argf data gc random thread trace_point monitor time set ractor marshal pack regexp_pattern regexp pathname rational complex objectspace box].map { |name| File.join(Paths::RT, "core/#{name}.rb") }.freeze
+    CORE_NAMES = %w[module warning encodings transcode cjk exception enumerable enumerator comparable integer bignum array hash range struct unicode string converter kernel float proc binding format errno io io_buffer process signal env file argf data gc random thread trace_point monitor time set ractor marshal pack regexp_pattern regexp pathname rational complex objectspace box].freeze
 
     # Where the runtime's built forms live, keyed on the digest of
     # everything they depend on: the runtime sources and the compiler.
@@ -30,18 +30,23 @@ module Ze0
     # kernel unit and the symbol table; only a build with no cached
     # runtime object reads the core's functions and data.
     class Runtime
-      attr_reader :unit
+      attr_reader :unit, :target
 
-      def initialize
-        @unit = Machine.unit(KERNEL, symbols: kernel_symbols)
+      def initialize(target = Target.default)
+        @target = target
+        @unit = Machine.unit(Zr.kernel_files(target), symbols: kernel_symbols)
       end
 
       def raw = unit.raw
 
       def digest
-        # A path goes in beside its bytes: the runtime object carries
-        # the core's file names, so two checkouts never share one.
-        @digest ||= Digest::SHA256.new.tap { |d| Zr.sources.each { |path| d << path << "\0" << File.binread(path) } }.hexdigest
+        # The target goes in first: two targets never share a built form.
+        # A path goes in beside its bytes: the runtime object carries the
+        # core's file names, so two checkouts never share one either.
+        @digest ||= Digest::SHA256.new.tap do |d|
+          d << target.triple << "\0"
+          Zr.sources(target).each { |path| d << path << "\0" << File.binread(path) }
+        end.hexdigest
       end
 
       # The symbol table after the core library: from the cache when the
@@ -89,7 +94,7 @@ module Ze0
 
       # The core library's `[functions, data]`, lowered over the kernel.
       def lowered
-        @lowered ||= Zr.core(unit, kernel_symbols)
+        @lowered ||= Zr.core(unit, kernel_symbols, target)
       end
     end
 
@@ -167,28 +172,41 @@ module Ze0
 
     module_function
 
-    def program(source, file)
-      rt = runtime
-      hir = Hir.build(source, file, road: road)
-      symbols = hir.evals ? road.symbols : Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
+    def program(source, file, target: Target.default)
+      rt = runtime(target)
+      carried = road(target)
+      hir = Hir.build(source, file, road: carried)
+      symbols = hir.evals ? carried.symbols : Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
       lower = Lower.new(hir, rt.unit, symbols)
       functions, data = lower.run
       units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
-      Program.new(rt, functions, data + symbol_names(symbols) + load_tables(units, evals: hir.evals), hir.evals && road)
+      Program.new(rt, functions, data + symbol_names(symbols) + load_tables(units, evals: hir.evals), hir.evals && carried)
     end
 
-    def runtime
-      @runtime ||= Runtime.new
+    # The runtime for `target`, lowered once per process.
+    def runtime(target = Target.default)
+      (@runtimes ||= {})[target.triple] ||= Runtime.new(target)
     end
 
-    def road
-      @road ||= Road.new(runtime)
+    def road(target = Target.default)
+      (@roads ||= {})[target.triple] ||= Road.new(runtime(target))
     end
 
-    # The files the runtime is lowered from, and the compiler that lowers
-    # them.
-    def sources
-      KERNEL + CORE + Dir[File.join(__dir__, "**/*.rb")].sort
+    # The kernel files `target`'s runtime is lowered from.
+    def kernel_files(_target = Target.default)
+      Dir[File.join(Paths::RT, "kernel/*.rb")].sort
+    end
+
+    # The core library files for `target`, in the order their toplevels
+    # run.
+    def core_files(_target = Target.default)
+      CORE_NAMES.map { |name| File.join(Paths::RT, "core/#{name}.rb") }
+    end
+
+    # The files `target`'s runtime is lowered from, and the compiler that
+    # lowers them.
+    def sources(target = Target.default)
+      kernel_files(target) + core_files(target) + Dir[File.join(__dir__, "**/*.rb")].sort
     end
 
     # `content` at `path` under the cache, written whole: a parallel
@@ -207,10 +225,10 @@ module Ze0
     # functions ending with `zr_prelude`. Whether a program carries the
     # compiler is the program's own question, so the core never asks for
     # the eval road: a box or an eval brings it with the program.
-    def core(unit, symbols)
+    def core(unit, symbols, target = Target.default)
       functions = []
       data = []
-      entries = CORE.map do |path|
+      entries = core_files(target).map do |path|
         entry = "zr_core_#{File.basename(path, ".rb")}"
         f, d = Lower.new(Hir.build(File.read(path), path, road: false), unit, symbols, entry: entry, internal: true).run
         functions.concat(f)

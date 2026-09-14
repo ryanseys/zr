@@ -58,7 +58,7 @@ module Ze0
       # CRuby's C reads rb_cInteger: a constant a program defines never
       # stands in for one, and no read walks the constant tables.
       def self.boot_classes
-        @boot_classes ||= File.read(Zr::KERNEL.find { |path| File.basename(path) == "main.rb" })
+        @boot_classes ||= File.read(File.join(Paths::RT, "kernel/main.rb"))
                               .scan(/zr_boot_name\((G_\w+), Machine\.id\(:(\w+)\)\)/)
                               .to_h { |slot, name| [name.to_sym, slot] }
       end

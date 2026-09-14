@@ -16,11 +16,12 @@ require "rbconfig"
 require_relative "../../lib/ze0/target"
 
 lib = File.expand_path("../../lib", __dir__)
-recipe = if Ze0::Target.linkable?
+target = Ze0::Target.default
+recipe = if target.linkable? && target.roads.include?(:native)
            ruby = RbConfig.ruby
-           %(\t"#{ruby}" -I"#{lib}" -rze0/deps -e 'puts Ze0::Deps.build')
+           %(\t"#{ruby}" -I"#{lib}" -rze0/deps -e 'puts Ze0::Deps.build(Ze0::Target.fetch("#{target.triple}"))')
          else
-           why = Ze0::Target.refusal(nil)
+           why = target.refusal(nil)
            %(\t@echo "ze0: the vendored archives are not built: #{why.gsub('"', '\\"')}")
          end
 

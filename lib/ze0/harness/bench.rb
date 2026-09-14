@@ -35,11 +35,11 @@ module Ze0
         def against(other) = timed? && other&.positive? ? ze0 / other : nil
       end
 
-      def initialize(root, runs: RUNS, show: 10)
+      def initialize(root, runs: RUNS, show: 10, target: nil)
         @root = root
         @runs = runs
         @show = show
-        @sweep = Sweep.new(root)
+        @sweep = Sweep.new(root, target: target)
       end
 
       # Every program under `test/bench`, or the ones a filter names.
@@ -72,8 +72,7 @@ module Ze0
         bin = File.join(work, "p")
         File.delete(bin) if File.exist?(bin)
 
-        ze0 = File.join(@root, "bin/ze0")
-        build, out = clocked { @sweep.bounded([RbConfig.ruby, ze0, "zr", "build", rel, "-o", bin], cwd, nil) }
+        build, out = clocked { @sweep.bounded(@sweep.build_argv(rel, bin), cwd, nil) }
         return Row.new(rb, :refused, first_line(out)) if out.code == 3
         return Row.new(rb, :backend, out.code == :timeout ? "the build ran past #{Sweep::LIMIT}s" : first_line(out)) unless out.code == 0
 

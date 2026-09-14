@@ -15,9 +15,9 @@ ROOT = Ze0::Paths::ROOT
 
 DEV_USAGE = <<~TEXT
   ze0 test <filter>... | --all          does ze0 answer what ruby answered?
-               [--gc plain|stress] [--show N]
+               [--gc plain|stress] [--show N] [--target <triple>]
   ze0 bench [<filter>...]               how long does what ze0 built take?
-               [--runs N]
+               [--runs N] [--target <triple>]
   ze0 check [<file>...]                 the repo's own checks, a process a file
   ze0 stage1                            ze0 compiles itself, twice, to the same bytes
   ze0 stage2                            the compiler compiled by itself is a fixed point
@@ -26,6 +26,18 @@ TEXT
 def usage = Ze0::CLI.usage(DEV_USAGE)
 
 def step(what, &) = Ze0::CLI.step(what, &)
+
+# `--target <triple>` out of `args`: the triple, or nil for the host's own.
+# The corpus runs what it builds, so a target this host cannot run is
+# refused here rather than as a failed row per program.
+def corpus_target(args)
+  i = args.index("--target") or return nil
+  triple = args[i + 1] or usage
+  args.slice!(i, 2)
+  target = Ze0::Target.fetch(triple) or abort("ze0: no target #{triple}; `ze0 targets` names them")
+  abort("ze0: the corpus runs natively only, and this host is #{Ze0::Target.host_triple}") unless target.native?
+  triple
+end
 
 case ARGV.first
 when "test"
@@ -44,9 +56,10 @@ when "test"
     gc = args[i + 1] or usage
     args.slice!(i, 2)
   end
+  target = corpus_target(args)
   usage if args.any? { |a| a.start_with?("--") } || (args.empty? && !all)
   usage unless %w[plain stress].include?(gc)
-  sweep = Ze0::Harness::Sweep.new(ROOT, show: show, gc: gc)
+  sweep = Ze0::Harness::Sweep.new(ROOT, show: show, gc: gc, target: target)
   cases = sweep.matching(args, all: all)
   abort "ze0 test: no program matches #{args.inspect}" if cases.empty?
   warn "ze0 test: #{cases.size} program(s)"
@@ -60,8 +73,9 @@ when "bench"
     runs = Integer(args[i + 1]) rescue usage
     args.slice!(i, 2)
   end
+  target = corpus_target(args)
   usage if args.any? { |a| a.start_with?("--") } || runs < 1
-  bench = Ze0::Harness::Bench.new(ROOT, runs: runs)
+  bench = Ze0::Harness::Bench.new(ROOT, runs: runs, target: target)
   cases = bench.matching(args)
   abort "ze0 bench: no program matches #{args.inspect}" if cases.empty?
   warn "ze0 bench: #{cases.size} program(s), #{runs} run(s) each"
