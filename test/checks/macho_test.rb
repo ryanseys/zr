@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "helper"
-require_relative "../../lib/ze0/obj/macho"
+require_relative "../../lib/ze0/obj/macho/object_file"
 require_relative "../../lib/ze0/native/link"
 
 # The Mach-O writer, held to what `ld` accepts: a Ruby-written object
@@ -24,7 +24,7 @@ class MachOTest < Minitest::Test
   def test_the_symbol_table_reads_back
     Dir.mktmpdir("ze0-macho-") do |dir|
       obj = File.join(dir, "u.o")
-      File.binwrite(obj, Obj::MachO.write(unit))
+      File.binwrite(obj, Obj::MachO::ObjectFile.write(unit))
       names = IO.popen(["nm", obj], &:read).lines.map { |l| l.split.last(2).join(" ") }.sort
       assert_equal ["S _msg", "T _main", "U _exit", "b _counter", "s _table"], names
       relocs = IO.popen(["otool", "-r", obj], &:read)
@@ -37,7 +37,7 @@ class MachOTest < Minitest::Test
     Dir.mktmpdir("ze0-macho-") do |dir|
       obj = File.join(dir, "u.o")
       bin = File.join(dir, "u")
-      File.binwrite(obj, Obj::MachO.write(unit))
+      File.binwrite(obj, Obj::MachO::ObjectFile.write(unit))
       assert_nil Ze0::Native::Link.run([obj], bin)
       system(bin)
       assert_equal 3, $?.exitstatus

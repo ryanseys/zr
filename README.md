@@ -60,8 +60,8 @@ archives are missing, `gem pristine ze0` builds them again.
 
 ### Linking
 
-`ZE0_LINK` picks the linker: `ruby` for `Obj::Exe` alone, which names
-what it cannot link; `cc` for the system linker; unset to take `Obj::Exe`
+`ZE0_LINK` picks the linker: `ruby` for `Obj::MachO::Executable` alone, which names
+what it cannot link; `cc` for the system linker; unset to take `Obj::MachO::Executable`
 where it reaches and `cc` for a program that needs the vendored archives.
 
 ze0 runs `cc` and `ar` with `DEVELOPER_DIR` and `SDKROOT` set to the
@@ -157,12 +157,12 @@ ze0 emits `aarch64-apple-darwin` binaries and WASI modules.
 | `ar` | archives the vendored C into `vendor/build/<target>/*.a` | `lib/ze0/deps.rb` |
 | libSystem | the only dylib a ze0 binary loads | every binary |
 
-`Obj::Exe` (`lib/ze0/obj/exe.rb`) writes the executable itself -- the
+`Obj::MachO::Executable` (`lib/ze0/obj/macho/executable.rb`) writes the executable itself -- the
 Mach-O image, the chained fixups a position-independent program is
 rebased and bound through, and the ad-hoc code signature Apple Silicon
 will not run a binary without. It links every program whose imports are
 all libSystem's, which is all of `test/native` and `test/zr`. Which names
-are libSystem's comes from `lib/ze0/obj/libsystem.rb`, which
+are libSystem's comes from `lib/ze0/obj/macho/libsystem.rb`, which
 `tools/libsystem.rb` writes, so the answer is the same on every host.
 
 A program that reaches oniguruma or zlib still needs a linker that reads

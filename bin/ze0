@@ -125,12 +125,12 @@ when "stage2"
   #
   # The compiler reaches oniguruma, so `cc` links it and `ld` stamps a
   # fresh UUID into every link; the signature then hashes the page that
-  # UUID sits in. `Obj::Stamps` blanks those two ranges so that what is
-  # compared is what the compiler decided. A binary `Obj::Exe` writes
+  # UUID sits in. `Obj::MachO::Stamps` blanks those two ranges so that what is
+  # compared is what the compiler decided. A binary `Obj::MachO::Executable` writes
   # needs none of this -- its UUID is the image's own hash -- but this
   # one is not such a binary.
   require "fileutils"
-  require_relative "../lib/ze0/obj/stamps"
+  require_relative "../lib/ze0/obj/macho/stamps"
   usage unless ARGV.drop(1).empty?
 
   source = File.join(ROOT, "tools/stage.rb")
@@ -155,8 +155,8 @@ when "stage2"
 
   a, b = stages.map { |path| File.binread(path) }
   elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-  stamps = Ze0::Obj::Stamps.of(a)
-  x, y = [a, b].map { |bytes| Ze0::Obj::Stamps.blank(bytes) }
+  stamps = Ze0::Obj::MachO::Stamps.of(a)
+  x, y = [a, b].map { |bytes| Ze0::Obj::MachO::Stamps.blank(bytes) }
   if x == y
     puts format("stage 2 holds: %d bytes, the same from stage 1 and from ruby, in %.1f s", a.bytesize, elapsed)
     puts "the linker's own stamps are not compared: #{stamps.map { |r| "#{r.first}..#{r.last}" }.join(", ")}"

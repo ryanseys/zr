@@ -3,13 +3,13 @@
 require_relative "helper"
 require_relative "../../lib/ze0/machine/lower"
 require_relative "../../lib/ze0/native/build"
-require_relative "../../lib/ze0/obj/exe"
-require_relative "../../lib/ze0/obj/stamps"
+require_relative "../../lib/ze0/obj/macho/executable"
+require_relative "../../lib/ze0/obj/macho/stamps"
 require_relative "../native/fixtures"
 
 # The link, in Ruby. Every program whose imports are all libSystem's --
 # the hand-written IR floor and the whole kernel dialect -- becomes a
-# signed `MH_EXECUTE` that `Obj::Exe` wrote by itself, and it prints what
+# signed `MH_EXECUTE` that `Obj::MachO::Executable` wrote by itself, and it prints what
 # the linked binary prints.
 #
 # `native_test.rb` and `zr_test.rb` run the same programs through `cc`,
@@ -18,7 +18,7 @@ require_relative "../native/fixtures"
 class ExeTest < Minitest::Test
   def written(unit, dir, name)
     out = File.join(dir, name)
-    assert_nil Ze0::Obj::Exe.write(unit, out), "#{name} was refused"
+    assert_nil Ze0::Obj::MachO::Executable.write(unit, out), "#{name} was refused"
     out
   end
 
@@ -81,17 +81,17 @@ class ExeTest < Minitest::Test
   end
 
   # `ld` gives every link a fresh UUID and the signature then hashes the
-  # page it sits in, which is why `Obj::Stamps` has to blank two ranges
+  # page it sits in, which is why `Obj::MachO::Stamps` has to blank two ranges
   # before two links can be compared. This writer derives the UUID from
   # the image, so the bytes are a function of the program and its name.
   def test_two_writes_give_the_same_bytes
     functions, data = Ze0::Native::Fixtures.build("loops")
     Dir.mktmpdir("ze0-exe-") do |dir|
       out = File.join(dir, "loops")
-      first = (Ze0::Obj::Exe.write(Ze0::Native::Build.unit(functions, data), out) or File.binread(out))
-      second = (Ze0::Obj::Exe.write(Ze0::Native::Build.unit(functions, data), out) or File.binread(out))
+      first = (Ze0::Obj::MachO::Executable.write(Ze0::Native::Build.unit(functions, data), out) or File.binread(out))
+      second = (Ze0::Obj::MachO::Executable.write(Ze0::Native::Build.unit(functions, data), out) or File.binread(out))
       assert_equal first, second
-      assert_equal 2, Ze0::Obj::Stamps.of(first).size, "the stamps ld writes are still there to find"
+      assert_equal 2, Ze0::Obj::MachO::Stamps.of(first).size, "the stamps ld writes are still there to find"
     end
   end
 
@@ -130,7 +130,7 @@ class ExeTest < Minitest::Test
     f.call(f.callee("onig_new", %w[i64], nil, colocated: false), [f.iconst("i64", 0)])
     f.ret(f.iconst("i32", 0))
     Dir.mktmpdir("ze0-exe-") do |dir|
-      why = Ze0::Obj::Exe.write(Ze0::Native::Build.unit([f], []), File.join(dir, "regexp"))
+      why = Ze0::Obj::MachO::Executable.write(Ze0::Native::Build.unit([f], []), File.join(dir, "regexp"))
       assert_equal "onig_new is not libSystem's", why
       refute File.exist?(File.join(dir, "regexp")), "it wrote a file it had refused"
     end

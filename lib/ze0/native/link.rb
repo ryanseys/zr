@@ -6,7 +6,7 @@ module Ze0
   module Native
     # The link step: objects and static archives to a binary, with the
     # system linker through `cc`. The one place ze0 leaves Ruby to make a
-    # binary, and the seam `Obj::Exe` replaces when it lands.
+    # binary, and the seam `Obj::MachO::Executable` replaces when it lands.
     module Link
       module_function
 

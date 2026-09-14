@@ -2,6 +2,7 @@
 
 require_relative "model"
 require_relative "patch"
+require_relative "../backend/aarch64/relocs"
 
 module Ze0
   module Obj
@@ -102,7 +103,7 @@ module Ze0
       # the relocation asks for one, through its stub for a call, and by
       # its address otherwise.
       def patched(item, base, addresses, data_base, got)
-        Patch.apply(item, base) do |r|
+        Patch.apply(item, base, Backend::Aarch64::Relocs) do |r|
           if @symbols.key?(r.symbol) && !addresses.key?(r.symbol) then @symbols[r.symbol]
           elsif %i[got_page21 got_pageoff12].include?(r.kind) then data_base + got.fetch(r.symbol)
           elsif r.kind == :branch26 then @symbols.fetch(r.symbol)

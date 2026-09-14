@@ -19,9 +19,10 @@ module Ze0
       ze0 targets                           the targets ze0 builds for, and what this host can do
       ze0 version                           print ze0's version
 
-      ZE0_LINK picks the linker: `ruby` for Obj::Exe alone, which names what
-      it cannot link; `cc` for the system linker; unset to take Obj::Exe
-      where it reaches and cc for a program that needs the vendored archives.
+      ZE0_LINK picks the linker: `ruby` for ze0's own Mach-O linker alone,
+      which names what it cannot link; `cc` for the system linker; unset to
+      take ze0's where it reaches and cc for a program that needs the
+      vendored archives.
       ZE0_CACHE names the runtime cache; ZE0_BUILD the vendored archives.
 
       ruby is the oracle: every corpus program carries ruby 4.0.6's recorded
@@ -150,9 +151,9 @@ module Ze0
     end
 
     # A build this host cannot make for `target` is refused before the
-    # compile starts. `ZE0_LINK=ruby` builds with `Obj::Exe` alone, which
-    # needs no `cc`, though only an aarch64-apple-darwin host can run what
-    # it wrote.
+    # compile starts. `ZE0_LINK=ruby` builds with `Obj::MachO::Executable`
+    # alone, which needs no `cc`, though only an aarch64-apple-darwin host
+    # can run what it wrote.
     def refuse(input, verb, emit, target)
       why = target.refusal(emit)
       return unless why

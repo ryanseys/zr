@@ -7,8 +7,8 @@ require_relative "../ir"
 require_relative "../ir/verify"
 require_relative "link"
 require_relative "../backend/aarch64/codegen"
-require_relative "../obj/macho"
-require_relative "../obj/exe"
+require_relative "../obj/macho/object_file"
+require_relative "../obj/macho/executable"
 require_relative "../deps"
 require_relative "../backend/wasm/codegen"
 require_relative "../machine/lower"
@@ -17,7 +17,7 @@ require_relative "../zr"
 module Ze0
   module Native
     # IR functions and data objects to a binary: `Backend::Aarch64::Codegen` assembles
-    # every function in process, and `Obj::Exe` writes the executable
+    # every function in process, and `Obj::MachO::Executable` writes the executable
     # where it can. A program that reaches one of the vendored archives
     # needs a linker that reads archives, and that is `cc`.
     module Build
@@ -26,7 +26,7 @@ module Ze0
       # The main thread's stack, which holds ruby frames as native
       # frames. `rt/kernel/fiber.rb` sizes every other task's.
       #
-      # `ld` turns this into `LC_MAIN.stacksize`. `Obj::Exe` writes that
+      # `ld` turns this into `LC_MAIN.stacksize`. `Obj::MachO::Executable` writes that
       # field itself from the same number, so a program gets the same
       # room whichever road links it.
       STACK = 0x400_0000
@@ -44,24 +44,24 @@ module Ze0
       # Answers nil, or the message of the step that refused. `objects`
       # are prebuilt objects linked in beside this one.
       #
-      # `Obj::Exe` writes the binary when this unit is the whole program
+      # `Obj::MachO::Executable` writes the binary when this unit is the whole program
       # and every import is libSystem's; otherwise `cc` does. `road` picks
-      # one and holds it to it: `ruby` answers what `Obj::Exe` could not
+      # one and holds it to it: `ruby` answers what `Obj::MachO::Executable` could not
       # link rather than quietly reaching for `cc`, and `cc` skips
-      # `Obj::Exe` altogether. `ZE0_LINK` says it from outside.
+      # `Obj::MachO::Executable` altogether. `ZE0_LINK` says it from outside.
       def binary(functions, data, out, work:, raw: [], objects: [], flags: STACK_FLAGS, road: ROAD, target: Target.default)
         image = unit(functions, data, raw: raw, export: !objects.empty?)
         unless road == "cc"
           why = if objects.empty?
-                  Obj::Exe.write(image, out)
+                  Obj::MachO::Executable.write(image, out)
                 else
                   "the runtime is linked in as an object of its own"
                 end
           return nil unless why
-          return "Obj::Exe cannot link this: #{why}" if road == "ruby"
+          return "Obj::MachO::Executable cannot link this: #{why}" if road == "ruby"
         end
         obj = File.join(work, "unit.o")
-        File.binwrite(obj, Obj::MachO.write(image))
+        File.binwrite(obj, Obj::MachO::ObjectFile.write(image))
         Link.run(objects + [obj], out, archives: Deps.build(target), flags: flags)
       rescue Backend::Aarch64::Codegen::Refused => e
         e.message
@@ -109,7 +109,7 @@ module Ze0
       # Functions and data to one object file. `export` makes every data
       # object visible to the link, for an object another refers to.
       def object(functions, data, obj, raw: [], export: false)
-        File.binwrite(obj, Obj::MachO.write(unit(functions, data, raw: raw, export: export)))
+        File.binwrite(obj, Obj::MachO::ObjectFile.write(unit(functions, data, raw: raw, export: export)))
         nil
       rescue Backend::Aarch64::Codegen::Refused => e
         e.message

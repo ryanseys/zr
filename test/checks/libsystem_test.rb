@@ -2,14 +2,14 @@
 
 require_relative "helper"
 require "fiddle"
-require_relative "../../lib/ze0/obj/exe"
+require_relative "../../lib/ze0/obj/macho/executable"
 
-# The libSystem names `Obj::Exe` links against. The list is committed
+# The libSystem names `Obj::MachO::Executable` links against. The list is committed
 # so that a build answers the same on every host; a stale one refuses a
-# link `Obj::Exe` could make, so the check writes it again and demands
+# link `Obj::MachO::Executable` could make, so the check writes it again and demands
 # the same bytes. `ZE0_BLESS=1` rewrites it.
 class LibsystemTest < Minitest::Test
-  PATH = File.join(ROOT, "lib/ze0/obj/libsystem.rb")
+  PATH = File.join(ROOT, "lib/ze0/obj/macho/libsystem.rb")
 
   def test_the_list_matches_the_imports
     text = IO.popen([RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", File.join(ROOT, "tools/libsystem.rb")], &:read)
@@ -23,12 +23,12 @@ class LibsystemTest < Minitest::Test
   end
 
   def test_every_listed_name_is_in_this_hosts_libsystem
-    libsystem = Fiddle::Handle.new(Ze0::Obj::Exe::LIBSYSTEM)
-    Ze0::Obj::Exe::LIBSYSTEM_NAMES.each { |name| assert libsystem[name], name }
+    libsystem = Fiddle::Handle.new(Ze0::Obj::MachO::Executable::LIBSYSTEM)
+    Ze0::Obj::MachO::Executable::LIBSYSTEM_NAMES.each { |name| assert libsystem[name], name }
   end
 
   def test_a_name_off_the_list_is_not_libsystems
-    refute Ze0::Obj::Exe.libsystem?("onig_new")
-    assert Ze0::Obj::Exe.libsystem?("write")
+    refute Ze0::Obj::MachO::Executable.libsystem?("onig_new")
+    assert Ze0::Obj::MachO::Executable.libsystem?("write")
   end
 end
