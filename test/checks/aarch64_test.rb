@@ -2,8 +2,8 @@
 
 require_relative "helper"
 require_relative "../../lib/ze0/zr"
-require_relative "../../lib/ze0/ir/arm64"
-require_relative "../../lib/ze0/machine/stub"
+require_relative "../../lib/ze0/backend/aarch64/codegen"
+require_relative "../../lib/ze0/backend/aarch64/stub"
 
 # The encoder, held to the `aarch64` gem. The gem is generated from the
 # ARM specification, so it is the authority on what an instruction
@@ -12,7 +12,7 @@ require_relative "../../lib/ze0/machine/stub"
 # no eval yet. Every function of the runtime assembles through both and
 # must give the same bytes.
 class Aarch64Test < Minitest::Test
-  Aarch64 = Ze0::Machine::Aarch64
+  Aarch64 = Ze0::Backend::Aarch64
 
   # The gem's assembler, taking our registers: the one emitter drives
   # both, so a difference is the encoding and nothing else.
@@ -60,8 +60,8 @@ class Aarch64Test < Minitest::Test
     functions = self.class.runtime
     names = functions.map(&:name).to_set
     functions.each do |f|
-      ours = Ze0::IR::Arm64.new(f, defined: names).compile
-      theirs = Ze0::IR::Arm64.new(f, defined: names, assembler: Gem).compile
+      ours = Ze0::Backend::Aarch64::Codegen.new(f, defined: names).compile
+      theirs = Ze0::Backend::Aarch64::Codegen.new(f, defined: names, assembler: Gem).compile
       assert_equal theirs.bytes.unpack("H*"), ours.bytes.unpack("H*"), "#{f.name} encodes differently"
       assert_equal theirs.relocs, ours.relocs, "#{f.name} relocates differently"
     end
@@ -70,8 +70,8 @@ class Aarch64Test < Minitest::Test
 
   def test_the_stack_switch_stub_encodes_as_the_gem_does
     require "aarch64"
-    ours = Ze0::Machine::Stub.switch
-    theirs = Ze0::Machine::Stub.switch(assembler: Gem)
+    ours = Ze0::Backend::Aarch64::Stub.switch
+    theirs = Ze0::Backend::Aarch64::Stub.switch(assembler: Gem)
     assert_equal theirs.bytes.unpack("H*"), ours.bytes.unpack("H*")
   end
 end

@@ -109,10 +109,9 @@ lib/ze0/target.rb        the targets ze0 emits, and what this host can build
 lib/ze0/hir/             the tree HIR: prism in, analyses and a dump out
 lib/ze0/zr/              the lowering from HIR to IR
 lib/ze0/machine/         the kernel dialect: typed Ruby that lowers straight to IR
-lib/ze0/ir/              the IR, its verifier, and the two native emitters
-lib/ze0/ir/arm64.rb      the aarch64 backend: linear-scan registers over our own encoder
-lib/ze0/ir/interp.rb     an IR interpreter: a second answer the backend owes nothing to
-lib/ze0/ir/wasm.rb       the wasm32 emitter: one WASI module, a br_table dispatch loop
+lib/ze0/ir/              the IR, its verifier, and an interpreter the backends owe nothing to
+lib/ze0/backend/aarch64/ the aarch64 backend: our own encoder, linear-scan registers, zr_switch, a listing
+lib/ze0/backend/wasm/    the wasm32 emitter: one WASI module, a br_table dispatch loop
 lib/ze0/obj/             the object model, the Mach-O writer, the executable writer, the JIT loader
 lib/ze0/native/          the build driver, the toolchain, and the one call to cc that is left
 lib/ze0/harness/         the corpus runner: the test-file format and the sweep (not in the gem)

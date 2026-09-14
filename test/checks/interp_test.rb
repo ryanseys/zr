@@ -8,7 +8,7 @@ require_relative "../native/fixtures"
 
 # The second oracle: every program the kernel dialect can write, answered
 # by `IR::Interp` instead of by a binary. The compiled road and this one
-# read the same `.stdout`, so a miscompile in `IR::Arm64` shows up as a
+# read the same `.stdout`, so a miscompile in `Backend::Aarch64::Codegen` shows up as a
 # disagreement rather than as a wrong answer with nowhere to look.
 class InterpTest < Minitest::Test
   # Machine code has no IR to interpret, so a program that calls some is

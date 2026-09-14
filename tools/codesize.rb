@@ -1,5 +1,5 @@
 # The size of what the backend writes, in instructions: the whole runtime
-# through `IR::Arm64`, with no linking and nothing run.
+# through `Backend::Aarch64::Codegen`, with no linking and nothing run.
 #
 #   ruby -Ilib tools/codesize.rb            the total, and the twenty largest
 #   ruby -Ilib tools/codesize.rb --all      every function, one a line
@@ -8,7 +8,7 @@
 # A codegen change is worth what this number moves. The per-function table
 # is there because a total hides a function that grew while others shrank.
 require "ze0/zr"
-require "ze0/ir/arm64"
+require "ze0/backend/aarch64/codegen"
 
 all = ARGV.delete("--all")
 was = ARGV.shift
@@ -19,7 +19,7 @@ defined = functions.map(&:name).to_set
 
 began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 sizes = functions.to_h do |f|
-  [f.name, Ze0::IR::Arm64.new(f, defined: defined).compile.bytes.bytesize / 4]
+  [f.name, Ze0::Backend::Aarch64::Codegen.new(f, defined: defined).compile.bytes.bytesize / 4]
 end
 took = Process.clock_gettime(Process::CLOCK_MONOTONIC) - began
 

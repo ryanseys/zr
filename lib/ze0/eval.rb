@@ -20,7 +20,7 @@ module Ze0
       @current ||= begin
         require_relative "hir"
         require_relative "zr/lower"
-        require_relative "ir/arm64"
+        require_relative "backend/aarch64/codegen"
         require_relative "obj/jit"
         require_relative "../../rt/ext/zr_description"
         new(Runtime.new)
@@ -97,7 +97,7 @@ module Ze0
     def unit(functions, data)
       unit = Obj::Unit.new
       defined = (functions.map(&:name) + data.map(&:name)).to_set
-      functions.each { |f| unit.functions << IR::Arm64.new(f, defined: defined).compile }
+      functions.each { |f| unit.functions << Backend::Aarch64::Codegen.new(f, defined: defined).compile }
       data.each { |d| unit.data << d }
       unit
     end

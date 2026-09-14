@@ -3,7 +3,7 @@
 require "prism"
 require_relative "../ir"
 require_relative "../obj/model"
-require_relative "stub"
+require_relative "../backend/aarch64/stub"
 require_relative "description"
 
 module Ze0
@@ -197,9 +197,9 @@ module Ze0
           when :raw
             refuse(node, "a raw function is `Machine.raw \"name\"`") unless machine?(node.receiver)
             name = node.arguments.arguments.first.unescaped
-            params, ret = Stub::ALL.fetch(name) { refuse(node, "no raw function named #{name}") }
+            params, ret = Backend::Aarch64::Stub::ALL.fetch(name) { refuse(node, "no raw function named #{name}") }
             @imports[name] = Raw.new(name, params.map(&:to_s), ret.to_s)
-            @raw << Stub.public_send(name.delete_prefix("zr_"))
+            @raw << Backend::Aarch64::Stub.public_send(name.delete_prefix("zr_"))
           when :machine
             d = node.arguments&.arguments&.first
             refuse(node, "`machine` takes a def") unless d.is_a?(Prism::DefNode)

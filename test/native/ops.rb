@@ -4,7 +4,7 @@ require_relative "../../lib/ze0/ir"
 
 module Ze0
   module Native
-    # Every opcode `IR::Arm64` lowers, each in the smallest function that
+    # Every opcode `Backend::Aarch64::Codegen` lowers, each in the smallest function that
     # can hold it: the operands arrive as parameters and the result is
     # returned, so what a snapshot shows is the opcode, its frame, and
     # nothing else.

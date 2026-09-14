@@ -6,17 +6,17 @@ require "fileutils"
 require_relative "../ir"
 require_relative "../ir/verify"
 require_relative "link"
-require_relative "../ir/arm64"
+require_relative "../backend/aarch64/codegen"
 require_relative "../obj/macho"
 require_relative "../obj/exe"
 require_relative "../deps"
-require_relative "../ir/wasm"
+require_relative "../backend/wasm/codegen"
 require_relative "../machine/lower"
 require_relative "../zr"
 
 module Ze0
   module Native
-    # IR functions and data objects to a binary: `IR::Arm64` assembles
+    # IR functions and data objects to a binary: `Backend::Aarch64::Codegen` assembles
     # every function in process, and `Obj::Exe` writes the executable
     # where it can. A program that reaches one of the vendored archives
     # needs a linker that reads archives, and that is `cc`.
@@ -63,7 +63,7 @@ module Ze0
         obj = File.join(work, "unit.o")
         File.binwrite(obj, Obj::MachO.write(image))
         Link.run(objects + [obj], out, archives: Deps.build(target), flags: flags)
-      rescue IR::Arm64::Refused => e
+      rescue Backend::Aarch64::Codegen::Refused => e
         e.message
       end
 
@@ -111,7 +111,7 @@ module Ze0
       def object(functions, data, obj, raw: [], export: false)
         File.binwrite(obj, Obj::MachO.write(unit(functions, data, raw: raw, export: export)))
         nil
-      rescue IR::Arm64::Refused => e
+      rescue Backend::Aarch64::Codegen::Refused => e
         e.message
       end
 
@@ -121,7 +121,7 @@ module Ze0
         functions.each { |f| IR::Verify.check(f) }
         out = Obj::Unit.new
         defined = (functions.map(&:name) + data.map(&:name) + raw.map(&:name)).to_set
-        functions.each { |f| out.functions << IR::Arm64.new(f, defined: defined).compile }
+        functions.each { |f| out.functions << Backend::Aarch64::Codegen.new(f, defined: defined).compile }
         raw.each { |r| out.functions << r }
         data.each { |d| out.data << (export ? exported(d) : d) }
         out
@@ -142,9 +142,9 @@ module Ze0
         zero_words(functions, data, [])
         functions += stops(functions, raw, data, [])
         functions.each { |f| IR::Verify.check(f) }
-        File.binwrite(out, IR::Wasm.new(functions, data).emit)
+        File.binwrite(out, Backend::Wasm::Codegen.new(functions, data).emit)
         nil
-      rescue IR::Wasm::Refused => e
+      rescue Backend::Wasm::Codegen::Refused => e
         e.message
       end
 
@@ -159,9 +159,9 @@ module Ze0
         zero_words(program.functions, data, pre.data_at.keys)
         functions = program.functions + stops(program.functions, [], data, pre.functions)
         functions.each { |f| IR::Verify.check(f) }
-        File.binwrite(out, IR::Wasm.new(functions, data, prelude: pre).emit)
+        File.binwrite(out, Backend::Wasm::Codegen.new(functions, data, prelude: pre).emit)
         nil
-      rescue IR::Wasm::Refused => e
+      rescue Backend::Wasm::Codegen::Refused => e
         e.message
       end
 
@@ -176,7 +176,7 @@ module Ze0
         zero_words(runtime.functions, data, pending[:data])
         functions = runtime.functions + stops(runtime.functions, runtime.raw, data, pending[:functions])
         functions.each { |f| IR::Verify.check(f) }
-        pre = IR::Wasm.new(functions, data, pending: pending).prelude
+        pre = Backend::Wasm::Codegen.new(functions, data, pending: pending).prelude
         Zr.write_cache(path, Marshal.dump(pre))
         pre
       end
@@ -197,8 +197,8 @@ module Ze0
       # Stop functions for the raw functions and for every undefined
       # callee that is not a shim and not in `known`.
       def stops(functions, raw, data, known)
-        out = raw.map { |r| params, ret = Machine::Stub::ALL.fetch(r.name); stop(r.name, params.map { |t| Machine::TYPES.fetch(t.to_s) }, Machine::TYPES.fetch(ret.to_s), data) }
-        defined = functions.map(&:name) + out.map(&:name) + IR::Wasm::SHIMS.keys + known
+        out = raw.map { |r| params, ret = Backend::Aarch64::Stub::ALL.fetch(r.name); stop(r.name, params.map { |t| Machine::TYPES.fetch(t.to_s) }, Machine::TYPES.fetch(ret.to_s), data) }
+        defined = functions.map(&:name) + out.map(&:name) + Backend::Wasm::Codegen::SHIMS.keys + known
         functions.each do |f|
           f.callees.each do |c|
             next if defined.include?(c.symbol)

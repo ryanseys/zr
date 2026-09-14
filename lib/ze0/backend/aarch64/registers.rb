@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Ze0
-  module Machine
+  module Backend
     module Aarch64
       # The general-purpose registers. Register 31 reads as the stack
       # pointer in one family of encodings and as the zero register in the

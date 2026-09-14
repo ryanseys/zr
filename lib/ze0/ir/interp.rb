@@ -10,7 +10,7 @@ module Ze0
     # disagreement between this and the compiled binary names a miscompile;
     # the same wrong answer from both names a lowering bug.
     #
-    # It models the machine `IR::Arm64` targets rather than an abstract one.
+    # It models the machine `Backend::Aarch64::Codegen` targets rather than an abstract one.
     # Every value lives in a 64-bit slot and each use reads its own type's
     # width out of it, so a narrowing the backend defers to the next load is
     # deferred here too. Arithmetic on a type below `i64` runs 32 bits wide,

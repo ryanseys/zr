@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 require_relative "helper"
-require_relative "../../lib/ze0/ir/listing"
+require_relative "../../lib/ze0/backend/aarch64/listing"
 require_relative "../native/ops"
 
 # What the backend picks, pinned. One function per opcode compiles to a
-# listing of the instructions `IR::Arm64` chose and the relocations it
+# listing of the instructions `Backend::Aarch64::Codegen` chose and the relocations it
 # recorded, and the whole set is one snapshot. A change in instruction
 # selection then arrives as a diff to read rather than as a corpus
 # program that answers differently for a reason nobody can see.
@@ -19,7 +19,7 @@ class DisasmTest < Minitest::Test
 
   def render
     Ze0::Native::Ops.all.map do |name, f|
-      "# #{name}\n#{Ze0::IR::Listing.of(f, defined: DEFINED)}\n"
+      "# #{name}\n#{Ze0::Backend::Aarch64::Listing.of(f, defined: DEFINED)}\n"
     end.join("\n")
   end
 

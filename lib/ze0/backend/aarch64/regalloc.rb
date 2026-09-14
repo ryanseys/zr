@@ -2,11 +2,11 @@
 
 require "set"
 
-require_relative "../../machine/aarch64"
+require_relative "registers"
 
 module Ze0
-  module IR
-    class Arm64
+  module Backend
+    module Aarch64
       # Which values live in a register for the whole of their life, and
       # which stay in the frame.
       #
@@ -28,7 +28,7 @@ module Ze0
       # backend against four of everything before it -- and a String key
       # costs a hash of its bytes at every single use.
       class Regalloc
-        include Machine::Aarch64::Registers
+        include Registers
 
         POOL = [X19, X20, X21, X22, X23, X24, X25, X26, X27, X28].freeze
         # A value is the only entity the builder names with a leading

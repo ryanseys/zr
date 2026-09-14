@@ -7,7 +7,7 @@ require_relative "../../lib/ze0/native/build"
 require_relative "../../lib/ze0/obj/exe"
 require_relative "../../lib/ze0/obj/jit/fiddle"
 require_relative "../../lib/ze0/ir/interp"
-require_relative "../../lib/ze0/ir/listing"
+require_relative "../../lib/ze0/backend/aarch64/listing"
 require_relative "../../lib/ze0/harness/sweep"
 require_relative "../../lib/ze0/deps"
 

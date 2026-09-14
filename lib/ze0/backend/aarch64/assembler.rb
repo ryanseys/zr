@@ -3,7 +3,7 @@
 require_relative "registers"
 
 module Ze0
-  module Machine
+  module Backend
     module Aarch64
       # An arm64 encoder: the instructions the two backends emit, and
       # nothing else. An instruction is a word, or an object that answers
