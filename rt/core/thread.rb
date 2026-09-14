@@ -11,9 +11,28 @@ class Thread
   @threads = []
   Primitive.zr_undef_alloc(self)
 
+  # The scheduler's state is Thread's own: a subclass that asks for it
+  # asks Thread.
   class << self
-    attr_accessor :report_on_exception, :abort_on_exception
-    attr_reader :current, :main
+    def report_on_exception = equal?(Thread) ? @report_on_exception : Thread.report_on_exception
+
+    def report_on_exception=(value)
+      return Thread.report_on_exception = value unless equal?(Thread)
+
+      @report_on_exception = value
+    end
+
+    def abort_on_exception = equal?(Thread) ? @abort_on_exception : Thread.abort_on_exception
+
+    def abort_on_exception=(value)
+      return Thread.abort_on_exception = value unless equal?(Thread)
+
+      @abort_on_exception = value
+    end
+
+    def current = equal?(Thread) ? @current : Thread.current
+
+    def main = equal?(Thread) ? @main : Thread.main
 
     def new(*args, &block)
       raise ThreadError, "must be called with a block" unless block
@@ -27,9 +46,11 @@ class Thread
     alias start new
     alias fork new
 
-    def list = @threads.dup
+    def list = equal?(Thread) ? @threads.dup : Thread.list
 
     def pass
+      return Thread.pass unless equal?(Thread)
+
       @queue << @current
       switch
       nil
@@ -45,6 +66,8 @@ class Thread
     # The current thread sleeps until `wakeup`. With no other thread
     # to wake it, CRuby says so before it parks.
     def stop
+      return Thread.stop unless equal?(Thread)
+
       raise ThreadError, "stopping only thread\n\tnote: use sleep to stop forever" if @threads.size <= 1
 
       @current.send(:wait, nil, true)
@@ -53,7 +76,7 @@ class Thread
 
     def kill(thread) = thread.kill
 
-    def exit = @current.kill
+    def exit = current.kill
 
     # `handle_interrupt(Class => :never) { }`: while the block runs,
     # an exception of a class the mask names waits; it arrives when
@@ -74,11 +97,12 @@ class Thread
 
     # Whether a deadlock goes unreported: every thread then waits for
     # good, where a signal's handler may still wake one.
-    def ignore_deadlock = @ignore_deadlock ? true : false
+    def ignore_deadlock = equal?(Thread) ? @ignore_deadlock == true : Thread.ignore_deadlock
 
     def ignore_deadlock=(value)
+      return Thread.ignore_deadlock = value unless equal?(Thread)
+
       @ignore_deadlock = value ? true : false
-      value
     end
 
     # Each frame outward from the caller's caller, as a Location.
