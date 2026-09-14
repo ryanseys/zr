@@ -563,6 +563,9 @@ class Array
   # elements leave and the value's elements, or the value, take their
   # place.
   def []=(*args)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2..3)" unless args.size.between?(2, 3)
+
+    Primitive.zr_frozen_error(self) if frozen?
     case args.size
     when 2
       index, value = args
@@ -582,8 +585,6 @@ class Array
 
         len = size
       end
-    else
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2..3)"
     end
     items = value.is_a?(Array) ? value : (value.respond_to?(:to_ary) ? value.to_ary : [value])
     Primitive.zr_ary_splice(self, start, len, items)

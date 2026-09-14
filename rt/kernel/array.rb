@@ -694,6 +694,14 @@ machine def zr_ary_splice(a, beg_v, len_v, vals)
   beg = zr_fix2long(beg_v)
   len = zr_fix2long(len_v)
   n = RArray.len(a)
+  if len < 0
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("negative length ("), 17)
+    zr_buf_long(b, len)
+    zr_buf_byte(b, 41)
+    return zr_raise_buf(zr_global(G_INDEX_ERROR), b)
+  end
   if beg < 0
     beg += n
     if beg < 0
@@ -705,14 +713,6 @@ machine def zr_ary_splice(a, beg_v, len_v, vals)
       zr_buf_long(b, 0 - n)
       return zr_raise_buf(zr_global(G_INDEX_ERROR), b)
     end
-  end
-  if len < 0
-    b = Machine.slot(Buf.size)
-    zr_buf_init(b)
-    zr_buf_push(b, Machine.bytes("negative length ("), 17)
-    zr_buf_long(b, len)
-    zr_buf_byte(b, 41)
-    return zr_raise_buf(zr_global(G_INDEX_ERROR), b)
   end
   if beg > n
     zr_ary_store(a, beg - 1, Machine.value(QNIL))
