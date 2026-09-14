@@ -7,7 +7,7 @@ module Marshal
   MAJOR_VERSION = 4
   MINOR_VERSION = 8
 
-  def self.dump(obj, io = nil, limit = -1)
+  def dump(obj, io = nil, limit = -1)
     io, limit = nil, io if io.is_a?(Integer)
     limit = -1 if limit.nil?
     out = Writer.new(limit).run(obj)
@@ -16,6 +16,7 @@ module Marshal
     io.write(out)
     io
   end
+  module_function :dump
 
   # CRuby writes load in Ruby (its marshal.rb), so it answers its own
   # parameters, under CRuby's names.

@@ -16,6 +16,56 @@ class Random < random_base
 
   def self.new_seed = Primitive.zr_random_seed
 
+  private
+
+  # The whole state of the other generator, so the copy draws what it
+  # would have drawn next.
+  def initialize_copy(other)
+    super
+    %i[__seed__ __mt__ __mti__].each do |part|
+      value = Primitive.zr_hidden_get(other, part)
+      Primitive.zr_hidden_set(self, part, value.is_a?(Array) ? value.dup : value)
+    end
+    self
+  end
+
+  # The generator's 624 words as one Integer, the first word lowest.
+  def state = mt.reverse.inject(0) { |all, word| (all << 32) | word }
+
+  # How many draws are left before the words are made again, counting
+  # the one that makes them, as CRuby's MT counts `left`.
+  def left = N - mti + 1
+
+  def marshal_dump = [state, left, seed]
+
+  # rand_mt_load: the words, where the stream stands in them, and the
+  # seed, the last two optional.
+  def marshal_load(dump)
+    raise TypeError, "wrong argument type #{dump.class} (expected Array)" unless dump.is_a?(Array)
+    raise ArgumentError, "wrong dump data" unless dump.size.between?(1, 3)
+
+    words, rest, seed = dump
+    rest = 1 if dump.size < 2
+    seed = 0 if dump.size < 3
+    mask = 0xffff_ffff
+    Primitive.zr_hidden_set(self, :__mt__, Array.new(N) { |i| (words >> (32 * i)) & mask })
+    rest = Primitive.zr_index_operand_m(rest)
+    raise ArgumentError, "wrong value" unless rest.between?(1, N)
+
+    set_mti(N - rest + 1)
+    Primitive.zr_hidden_set(self, :__seed__, Integer(seed))
+    self
+  end
+
+  class << self
+    private
+
+    def state = default.send(:state)
+    def left = default.send(:left)
+  end
+
+  public
+
   def self.default
     Primitive.attr! :hidden
     @default ||= new
@@ -93,17 +143,6 @@ class Random::Base
   end
 
   def seed = Primitive.zr_hidden_get(self, :__seed__)
-
-  # The whole state of the other generator, so the copy draws what it
-  # would have drawn next.
-  private def initialize_copy(other)
-    super
-    %i[__seed__ __mt__ __mti__].each do |part|
-      value = Primitive.zr_hidden_get(other, part)
-      Primitive.zr_hidden_set(self, part, value.is_a?(Array) ? value.dup : value)
-    end
-    self
-  end
 
   # `rand(n)`, `rand(a..b)`; a Float bound or no bound is a Float draw.
   def rand(max = nil)
