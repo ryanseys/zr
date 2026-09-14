@@ -587,14 +587,17 @@ Machine.import "pathconf", [Ptr, I32] => Word
 Machine.import "uname", [Ptr] => I32
 Machine.import "getlogin", [] => Ptr
 
-# The seven fields of darwin's passwd an Etc::Passwd carries: name at 0,
-# password at 8, uid at 16, gid at 20, gecos at 40, dir at 48, shell at 56.
+# The ten fields of darwin's passwd an Etc::Passwd carries, in the order
+# etc.c's setup_passwd gives them: name at 0, password at 8, uid at 16,
+# gid at 20, gecos at 40, dir at 48, shell at 56, then the password's
+# change time at 24, the login class at 32 and the account's expiry at
+# 64. The two times are time_t, which INT2NUM takes as an int.
 sig [Ptr] => Value
 machine def zr_pw_row(pw)
   if pw == 0
     return Machine.value(QNIL)
   end
-  out = zr_ary_new(7)
+  out = zr_ary_new(10)
   zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 0))))
   zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 8))))
   zr_ary_push(out, zr_fix(Machine.word(Machine.load32(pw, 16))))
@@ -602,6 +605,9 @@ machine def zr_pw_row(pw)
   zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 40))))
   zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 48))))
   zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 56))))
+  zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(pw, 24))))
+  zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 32))))
+  zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(pw, 64))))
   out
 end
 

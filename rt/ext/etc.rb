@@ -4,7 +4,7 @@ require "rbconfig"
 require_relative "etc_names"
 
 module Etc
-  Passwd = Struct.new(:name, :passwd, :uid, :gid, :gecos, :dir, :shell)
+  Passwd = Struct.new(:name, :passwd, :uid, :gid, :gecos, :dir, :shell, :change, :uclass, :expire)
   Group = Struct.new(:name, :passwd, :gid, :mem)
 
   # The two database cursors, spelled on the row class as ruby spells
