@@ -8,6 +8,9 @@ RUBY_RELEASE_DATE = "2026-07-14"
 RUBY_REVISION = "03b6d3f8898a28604fe6cb00eae3226b821168f4"
 RUBY_COPYRIGHT = "ruby - Copyright (C) 1993-2026 Yukihiro Matsumoto"
 RUBY_DESCRIPTION = "ruby 4.0.6 (2026-07-14 revision 03b6d3f889) +PRISM [arm64-darwin23]"
+# rubygems loads rbconfig before the program starts, and rbconfig says
+# this ruby is not a cross-compiling one.
+CROSS_COMPILING = nil
 
 ARGV = Primitive.zr_program_args
 $* = ARGV
