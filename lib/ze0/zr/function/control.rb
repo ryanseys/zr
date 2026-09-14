@@ -188,14 +188,21 @@ module Ze0
 
         # `autoload :Name, "feature"`: the constant's row waits for the
         # unit, which its first read runs.
+        # The receiver and the feature wait in record slots while the path
+        # is made, whose allocation may collect.
         def autoload_unit(node)
           at_line(node.line)
-          recv = node.recv ? expr(node.recv) : @self
-          feature = kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(node.feature))), imm(node.feature.bytesize))
+          base = reserve(2)
+          @f.store(node.recv ? expr(node.recv) : @self, @rec, value_offset(base))
+          @f.store(kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(node.feature))), imm(node.feature.bytesize)), @rec, value_offset(base + 1))
           path = kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(node.path))), imm(node.path.bytesize))
+          recv = @f.fetch("i64", @rec, value_offset(base))
+          feature = @f.fetch("i64", @rec, value_offset(base + 1))
           fn = node.unit ? @f.func_addr(@f.callee(@l.unit_entry(node.unit), [], "i64")) : imm(0)
           kind = REQUIRE_KINDS.fetch(node.hidden ? :eval_road : :require)
-          checked(kernel("zr_autoload", recv, imm(sym_id(node.name)), feature, fn, @cref, imm(kind), path))
+          result = checked(kernel("zr_autoload", recv, imm(sym_id(node.name)), feature, fn, @cref, imm(kind), path))
+          release(base)
+          result
         end
 
         # `redo`: the innermost loop's body again without its test, or the

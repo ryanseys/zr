@@ -105,6 +105,7 @@ module Ze0
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
           [top, staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
         when Hir::Lambda then base + 1
+        when Hir::Autoload then [base + 2, staging(node.recv, base)].max
         when Hir::Splat, Hir::HashSplat, Hir::BlockPass, Hir::Using then staging(node.value, base)
         when Hir::KwSplatElement then staging(node.pairs, base)
         when Hir::Once then staging(node.body, base)
