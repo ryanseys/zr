@@ -8,6 +8,18 @@ module Ze0
     #
     # Operands are value names (`"v3"`), block names (`"block2"`), entity
     # names (`"fn0"`, `"gv1"`, `"ss2"`) or an Integer immediate.
+    #
+    # What an opcode answers is the IR's to say, and every backend and the
+    # interpreter owe the same answer (test/native/fixtures.rb `divide`
+    # holds them to it):
+    #
+    # - i8 and i32 arithmetic is done 32 bits wide, and i64 64 bits.
+    # - `udiv` and `sdiv` by zero answer 0; `urem` and `srem` by zero
+    #   answer the dividend.
+    # - The most negative number `sdiv` -1 wraps to itself, and `srem` -1
+    #   answers 0.
+    # - A shift takes its amount modulo the width.
+    # - A function takes, and a call passes, at most `REGISTER_ARGS` values.
     class Inst
       # Opcodes that end a block.
       TERMINATORS = %i[jump brif return].freeze

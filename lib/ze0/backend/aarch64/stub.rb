@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-require_relative "../aarch64"
+require_relative "registers"
+require_relative "assembler"
 require_relative "../../obj/model"
 
 module Ze0

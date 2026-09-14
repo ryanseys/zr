@@ -122,9 +122,9 @@ module Ze0
       Dir.mktmpdir("ze0-zr-") do |work|
         out = verb == "run" ? File.join(work, "program") : File.expand_path(output)
         case emit
-        when "obj" then object(program, out)
+        when "obj" then object(program, out, target)
         when "wasm" then wasm(program, out, verb, rest)
-        else native(program, out, work, verb, rest)
+        else native(program, out, work, verb, rest, target)
         end
       end
     end
@@ -186,15 +186,15 @@ module Ze0
       Zr.program("$stderr.write(#{report.inspect})\nexit 1\n", input, target: target)
     end
 
-    def object(program, out)
+    def object(program, out, target)
       why = if program.is_a?(Zr::Program)
               # The runtime's object lands in the cache beside it, so the
               # object road is the whole of what ze0 wrote.
               Native::Build.runtime_object(program.runtime)
-              Native::Build.object(program.functions, program.data, out, export: true)
+              Native::Build.object(program.functions, program.data, out, export: true, target: target)
             else
               functions, data, raw = program
-              Native::Build.object(functions, data, out, raw: raw, export: true)
+              Native::Build.object(functions, data, out, raw: raw, export: true, target: target)
             end
       abort "ze0: #{why}" if why
       exit 0
@@ -212,12 +212,12 @@ module Ze0
       exit 0
     end
 
-    def native(program, out, work, verb, rest)
+    def native(program, out, work, verb, rest, target)
       why = if program.is_a?(Zr::Program)
               Native::Build.program(program, out, work: work)
             else
               functions, data, raw = program
-              Native::Build.binary(functions, data, out, work: work, raw: raw)
+              Native::Build.binary(functions, data, out, work: work, raw: raw, target: target)
             end
       abort "ze0: #{why}" if why
       return unless verb == "run"

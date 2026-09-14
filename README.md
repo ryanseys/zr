@@ -44,6 +44,7 @@ The gem installs on any host. What it can build depends on the host:
 | native binary (`aarch64-apple-darwin`) | an Apple Silicon Mac with `cc` and `ar` |
 | WASI module (`--emit wasm`) | any host |
 | Mach-O object (`--emit obj`) | any host |
+| ELF object (`--emit obj --target aarch64-linux-musl`) | any host |
 
 On a host that cannot link a native binary, the install skips the
 vendored C, and `ze0 build` without `--emit` refuses with status 3.
@@ -112,8 +113,11 @@ lib/ze0/machine/         the kernel dialect: typed Ruby that lowers straight to 
 lib/ze0/ir/              the IR, its verifier, and an interpreter the backends owe nothing to
 lib/ze0/backend/aarch64/ the aarch64 backend: our own encoder, linear-scan registers, zr_switch, a listing
 lib/ze0/backend/wasm/    the wasm32 emitter: one WASI module, a br_table dispatch loop
-lib/ze0/obj/             the object model, the Mach-O writer, the executable writer, the JIT loader
-lib/ze0/native/          the build driver, the toolchain, and the one call to cc that is left
+lib/ze0/obj/             the object model, the relocation layout, the JIT loader
+lib/ze0/obj/macho/       the Mach-O object and executable writers, and the libSystem list
+lib/ze0/obj/elf/         the ELF64 relocatable object writer, for aarch64-linux-musl
+lib/ze0/native/          the build driver and the toolchain
+lib/ze0/native/link/     one linker per target: darwin (ze0's own, else cc) and static (cc -static)
 lib/ze0/harness/         the corpus runner: the test-file format and the sweep (not in the gem)
 rt/                      the runtime, in kernel Ruby and ordinary Ruby
 vendor/c/                the three vendored C libraries

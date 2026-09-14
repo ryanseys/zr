@@ -121,6 +121,8 @@ module Ze0
         @runtime = runtime
       end
 
+      def target = @runtime.target
+
       def units = meta.fetch("units")
       def configures? = meta.fetch("configures")
       def normalizes? = meta.fetch("normalizes")

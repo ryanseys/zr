@@ -247,7 +247,7 @@ module Ze0
       # the arguments, each narrowed to the parameter's own type.
       def enter(f, t, args)
         entry = f.entry_block
-        raise Refused, "#{f.name}: more than eight parameters" if entry.params.size > 8
+        raise Refused, "#{f.name}: more than eight parameters" if entry.params.size > REGISTER_ARGS
 
         raise Refused, "#{f.name}: #{args.size} arguments for #{entry.params.size} parameters" if args.size != entry.params.size
 
@@ -498,7 +498,7 @@ module Ze0
       end
 
       def apply(frame, i, symbol, sig, args = i.args)
-        raise Refused, "a call with more than eight arguments" if args.size > 8
+        raise Refused, "a call with more than eight arguments" if args.size > REGISTER_ARGS
 
         raw = dispatch(symbol, args.map { |v| read(frame, v) })
         return if i.results.empty?

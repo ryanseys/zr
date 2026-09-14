@@ -9,6 +9,11 @@ require_relative "../../test/native/fixtures"
 # ruby and called through Fiddle. `exit` is swapped for a call that
 # returns, so the program's own exit does not end the test.
 class JITTest < Minitest::Test
+  # Mach-O, libSystem and the darwin JIT: only a darwin host has them.
+  def setup
+    skip "needs an aarch64-apple-darwin host" unless Ze0::Target::AARCH64_DARWIN.native?
+  end
+
   def call_main(name)
     functions, data = Ze0::Native::Fixtures.build(name)
     unit = Ze0::Native::Build.unit(functions, data)

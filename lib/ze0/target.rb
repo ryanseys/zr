@@ -37,7 +37,7 @@ module Ze0
                                   link: :darwin, roads: %i[native obj]))
     AARCH64_LINUX_MUSL = register(new(triple: "aarch64-linux-musl", arch: :aarch64, os: :linux, libc: :musl,
                                       object_format: :elf, page: 4096, symbol_prefix: "", ruby_platform: "aarch64-linux-musl",
-                                      link: :static, roads: []))
+                                      link: :static, roads: %i[obj]))
     WASM32_WASI = register(new(triple: "wasm32-wasi", arch: :wasm32, os: :wasi, object_format: :wasm,
                                page: 65_536, symbol_prefix: "", ruby_platform: "wasm32-wasi",
                                link: nil, roads: %i[wasm]))

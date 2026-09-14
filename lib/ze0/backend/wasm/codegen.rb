@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "../../backend"
 require_relative "../../ir/function"
 require_relative "../../obj/model"
 
@@ -22,7 +23,7 @@ module Ze0
       # function's address is its index in the one table, from 1 so that a
       # pointer is never zero; `call_indirect` goes through that table.
       class Codegen
-        class Refused < StandardError; end
+        class Refused < Backend::Refused; end
 
         PAGE = 65_536
         # The bottom of linear memory: the iovec scratch, WASI's filestat
@@ -674,6 +675,39 @@ module Ze0
             @type.fetch(v) == "i64"
           end
 
+          # A division, as the IR says it answers (lib/ze0/ir/inst.rb): by
+          # zero, `udiv`/`sdiv` answer 0 and `urem`/`srem` the dividend; the
+          # most negative number over -1 wraps. wasm's own `div` traps on
+          # both, so each is guarded. `rem_s` of that pair answers 0, as the
+          # IR does, and needs no guard.
+          def divide(i)
+            a, b = i.args
+            wide = wide?(a)
+            type = wide ? "\x7E".b : "\x7F".b
+            zero = wide ? "\x42\x00".b : "\x41\x00".b
+            table = ops(a)
+            get(b)
+            @code << (wide ? "\x50".b : "\x45".b) << "\x04".b << type
+            if %i[urem srem].include?(i.op)
+              get(a)
+            else
+              @code << zero
+            end
+            @code << "\x05".b
+            if i.op == :sdiv
+              get(b)
+              @code << (wide ? "\x42\x7F".b : "\x41\x7F".b) << table.fetch(:eq).chr << "\x04".b << type << zero
+              get(a)
+              @code << table.fetch(:sub).chr << "\x05".b
+            end
+            get(a)
+            get(b)
+            @code << table.fetch({ udiv: :div_u, sdiv: :div_s, urem: :rem_u, srem: :rem_s }[i.op]).chr
+            @code << "\x0B".b if i.op == :sdiv
+            @code << "\x0B".b
+            set(i.results[0])
+          end
+
           def ops(v)
             Codegen::OP.fetch(wide?(v) ? "i64" : "i32")
           end
@@ -879,10 +913,12 @@ module Ze0
               get(i.args[0])
               @code << (i.type == "f64" ? "\xBF".b : "\xBD".b)
               set(i.results[0])
-            when :iadd, :isub, :imul, :udiv, :sdiv, :urem, :srem, :band, :bor, :bxor, :ishl, :ushr, :sshr
+            when :udiv, :sdiv, :urem, :srem
+              divide(i)
+            when :iadd, :isub, :imul, :band, :bor, :bxor, :ishl, :ushr, :sshr
               get(i.args[0])
               get(i.args[1])
-              @code << ops(i.args[0]).fetch({ iadd: :add, isub: :sub, imul: :mul, udiv: :div_u, sdiv: :div_s, urem: :rem_u, srem: :rem_s,
+              @code << ops(i.args[0]).fetch({ iadd: :add, isub: :sub, imul: :mul,
                                               band: :and, bor: :or, bxor: :xor, ishl: :shl, ushr: :shr_u, sshr: :shr_s }[i.op]).chr
               set(i.results[0])
             when :select

@@ -2,7 +2,9 @@
 
 require "set"
 
-require_relative "../aarch64"
+require_relative "../../backend"
+require_relative "registers"
+require_relative "assembler"
 require_relative "../../ir/function"
 require_relative "../../ir/types"
 require_relative "regalloc"
@@ -84,7 +86,7 @@ module Ze0
           def fcvtzs(x, d) = Word.new(0x9E780000 | (d << 5) | x, "fcvtzs x#{x}, d#{d}")
         end
 
-        class Refused < StandardError; end
+        class Refused < Backend::Refused; end
 
         # `far` branches past the megabyte a conditional branch reaches,
         # which only a function that large pays for.
@@ -438,7 +440,7 @@ module Ze0
           # functions -- sits at eight parameters and eight call arguments
           # and never above. So this refuses rather than growing a stack
           # argument path no program would take.
-          raise Refused, "#{@f.name}: more than eight parameters" if entry.params.size > 8
+          raise Refused, "#{@f.name}: more than eight parameters" if entry.params.size > IR::REGISTER_ARGS
 
           ints = 0
           floats = 0
@@ -657,7 +659,7 @@ module Ze0
         def emit_call(i)
           c = callee_of(i.callee)
           sig = sig_of(i.callee)
-          raise Refused, "#{@f.name}: a call with more than eight arguments" if i.args.size > 8
+          raise Refused, "#{@f.name}: a call with more than eight arguments" if i.args.size > IR::REGISTER_ARGS
 
           load_args(i.args)
           reloc(:branch26, c.symbol)
@@ -700,7 +702,7 @@ module Ze0
         def emit_call_indirect(i)
           sig = sig_named(i.callee)
           ptr, *args = i.args
-          raise Refused, "#{@f.name}: a call with more than eight arguments" if args.size > 8
+          raise Refused, "#{@f.name}: a call with more than eight arguments" if args.size > IR::REGISTER_ARGS
 
           load_args(args)
           @asm.blr value_in(ptr, X9)

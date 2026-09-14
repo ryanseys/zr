@@ -4,6 +4,12 @@ require_relative "inst"
 
 module Ze0
   module IR
+    # The most parameters a function has and the most arguments a call
+    # takes: eight, where every native target runs out of argument
+    # registers. Every lowering keeps a signature to eight, so no backend
+    # needs a stack argument path.
+    REGISTER_ARGS = 8
+
     Slot = Struct.new(:bytes, :align)
     Global = Struct.new(:gv, :symbol, :colocated)
     Sig = Struct.new(:sig, :params, :ret)

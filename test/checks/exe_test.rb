@@ -16,6 +16,11 @@ require_relative "../native/fixtures"
 # so a failure here is this writer's and a failure there is the
 # backend's.
 class ExeTest < Minitest::Test
+  # Mach-O, libSystem and the darwin JIT: only a darwin host has them.
+  def setup
+    skip "needs an aarch64-apple-darwin host" unless Ze0::Target::AARCH64_DARWIN.native?
+  end
+
   def written(unit, dir, name)
     out = File.join(dir, name)
     assert_nil Ze0::Obj::MachO::Executable.write(unit, out), "#{name} was refused"
@@ -69,7 +74,7 @@ class ExeTest < Minitest::Test
     functions, data = Ze0::Native::Fixtures.build("hello")
     Dir.mktmpdir("ze0-exe-") do |dir|
       bin = written(Ze0::Native::Build.unit(functions, data), dir, "hello")
-      assert_equal Ze0::Native::Build::STACK, stacksize(bin)
+      assert_equal Ze0::Native::Link::STACK, stacksize(bin)
       through_cc = File.join(dir, "hello-cc")
       assert_nil Ze0::Native::Build.binary(functions, data, through_cc, work: dir, road: "cc")
       assert_equal stacksize(bin), stacksize(through_cc), "the two roads give different room"

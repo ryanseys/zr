@@ -10,6 +10,11 @@ require_relative "../../test/native/fixtures"
 # prints `test/native/<name>.stdout`. Nothing of Ruby-the-language is in
 # the loop: this is the ground every runtime program stands on.
 class NativeTest < Minitest::Test
+  # Mach-O, libSystem and the darwin JIT: only a darwin host has them.
+  def setup
+    skip "needs an aarch64-apple-darwin host" unless Ze0::Target::AARCH64_DARWIN.native?
+  end
+
   Ze0::Native::Fixtures::NAMES.each do |name|
     define_method("test_#{name}") do
       functions, data = Ze0::Native::Fixtures.build(name)

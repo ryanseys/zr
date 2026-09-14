@@ -7,6 +7,11 @@ require_relative "../../lib/ze0/native/link"
 # The Mach-O writer, held to what `ld` accepts: a Ruby-written object
 # links and runs.
 class MachOTest < Minitest::Test
+  # Mach-O, libSystem and the darwin JIT: only a darwin host has them.
+  def setup
+    skip "needs an aarch64-apple-darwin host" unless Ze0::Target::AARCH64_DARWIN.native?
+  end
+
   Obj = Ze0::Obj
 
   # `mov w0, #3; bl _exit`, the branch patched by the link.

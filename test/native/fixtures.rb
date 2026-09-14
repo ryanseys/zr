@@ -11,7 +11,7 @@ module Ze0
     # checks becomes one bit of the exit status, so a wrong answer names
     # itself.
     module Fixtures
-      NAMES = %w[arith hello indirect loops table].freeze
+      NAMES = %w[arith divide hello indirect loops table].freeze
 
       module_function
 
@@ -78,6 +78,46 @@ module Ze0
         f.call(exit, [bits])
         f.ret(f.iconst("i32", 0))
         [[check, f], []]
+      end
+
+      # What the IR says a division by zero, an overflowing division and a
+      # long shift answer, which every backend owes the same (lib/ze0/ir/inst.rb):
+      # `udiv`/`sdiv` by zero answer 0, `urem`/`srem` by zero the dividend,
+      # the most negative number divided by -1 wraps to itself, and a shift
+      # takes its amount modulo the width. The operands pass through a call,
+      # so no backend sees a constant it could fold.
+      def divide
+        same = IR::Function.new("same", %w[i64], "i64")
+        same.ret(same.args[0])
+        same32 = IR::Function.new("same32", %w[i32], "i32")
+        same32.ret(same32.args[0])
+
+        f = IR::Function.new("main", %w[i32 i64], "i32")
+        id = f.callee("same", %w[i64], "i64")
+        id32 = f.callee("same32", %w[i32], "i32")
+        exit = f.callee("exit", %w[i64], nil, colocated: false)
+        zero = f.iconst("i64", 0)
+        one = f.iconst("i64", 1)
+        wide = ->(n) { f.call_val(id, [f.iconst("i64", n)]) }
+        narrow = ->(n) { f.call_val(id32, [f.iconst("i32", n)]) }
+        holds = ->(value, want, type = "i64") { f.csel(f.icmp("eq", value, f.iconst(type, want)), zero, one) }
+
+        # Each fact answers 0 when it holds; eight of them fit the status.
+        bits = nil
+        [holds.call(f.udiv(wide.call(7), wide.call(0)), 0),
+         holds.call(f.sdiv(wide.call(-7), wide.call(0)), 0),
+         holds.call(f.urem(wide.call(7), wide.call(0)), 7),
+         holds.call(f.srem(wide.call(-7), wide.call(0)), -7),
+         holds.call(f.sdiv(wide.call(-(2**63)), wide.call(-1)), -(2**63)),
+         holds.call(f.srem(wide.call(-(2**63)), wide.call(-1)), 0),
+         holds.call(f.ishl(wide.call(1), wide.call(65)), 2),
+         holds.call(f.sdiv(narrow.call(-(2**31)), narrow.call(-1)), -(2**31), "i32")].each do |bit|
+          bits = bits.nil? ? bit : f.iadd(f.iadd(bits, bits), bit)
+        end
+
+        f.call(exit, [bits])
+        f.ret(f.iconst("i32", 0))
+        [[same, same32, f], []]
       end
 
       # A call through a function pointer: two addresses stored to a

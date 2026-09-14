@@ -5,75 +5,64 @@ require "json"
 require "fileutils"
 require_relative "../ir"
 require_relative "../ir/verify"
+require_relative "../target"
 require_relative "link"
-require_relative "../backend/aarch64/codegen"
+require_relative "link/darwin"
+require_relative "link/static"
+require_relative "../backend/aarch64"
+require_relative "../backend/wasm"
 require_relative "../obj/macho/object_file"
-require_relative "../obj/macho/executable"
-require_relative "../deps"
-require_relative "../backend/wasm/codegen"
+require_relative "../obj/elf/object_file"
 require_relative "../machine/lower"
 require_relative "../zr"
 
 module Ze0
   module Native
-    # IR functions and data objects to a binary: `Backend::Aarch64::Codegen` assembles
-    # every function in process, and `Obj::MachO::Executable` writes the executable
-    # where it can. A program that reaches one of the vendored archives
-    # needs a linker that reads archives, and that is `cc`.
+    # IR functions and data to what a target runs. The target names the
+    # pieces: its backend writes the machine code, its object writer the
+    # object, and its linker the binary (`Link::Darwin`, `Link::Static`);
+    # a wasm32 target has one module and no link.
     module Build
       module_function
-
-      # The main thread's stack, which holds ruby frames as native
-      # frames. `rt/kernel/fiber.rb` sizes every other task's.
-      #
-      # `ld` turns this into `LC_MAIN.stacksize`. `Obj::MachO::Executable` writes that
-      # field itself from the same number, so a program gets the same
-      # room whichever road links it.
-      STACK = 0x400_0000
-      STACK_FLAGS = ["-Wl,-stack_size,0x#{STACK.to_s(16)}"].freeze
 
       # Which linker writes a binary: `auto`, `ruby` or `cc`.
       ROAD = ENV.fetch("ZE0_LINK", "auto")
 
-      # A program that does not eval reaches the runtime only through
-      # calls the linker can see, so what nothing calls is left out. An
-      # executable exports every global, and ld keeps what is exported,
-      # so the exports go too.
-      STRIP_FLAGS = ["-Wl,-dead_strip", "-Wl,-no_exported_symbols"].freeze
+      # The native backend for `target`.
+      def backend(target)
+        { aarch64: Backend::Aarch64 }.fetch(target.arch) { raise ArgumentError, "no native backend for #{target}" }
+      end
 
-      # Answers nil, or the message of the step that refused. `objects`
-      # are prebuilt objects linked in beside this one.
-      #
-      # `Obj::MachO::Executable` writes the binary when this unit is the whole program
-      # and every import is libSystem's; otherwise `cc` does. `road` picks
-      # one and holds it to it: `ruby` answers what `Obj::MachO::Executable` could not
-      # link rather than quietly reaching for `cc`, and `cc` skips
-      # `Obj::MachO::Executable` altogether. `ZE0_LINK` says it from outside.
-      def binary(functions, data, out, work:, raw: [], objects: [], flags: STACK_FLAGS, road: ROAD, target: Target.default)
-        image = unit(functions, data, raw: raw, export: !objects.empty?)
-        unless road == "cc"
-          why = if objects.empty?
-                  Obj::MachO::Executable.write(image, out)
-                else
-                  "the runtime is linked in as an object of its own"
-                end
-          return nil unless why
-          return "Obj::MachO::Executable cannot link this: #{why}" if road == "ruby"
-        end
-        obj = File.join(work, "unit.o")
-        File.binwrite(obj, Obj::MachO::ObjectFile.write(image))
-        Link.run(objects + [obj], out, archives: Deps.build(target), flags: flags)
-      rescue Backend::Aarch64::Codegen::Refused => e
+      # The object writer for `target`.
+      def writer(target)
+        writers = { macho: Obj::MachO::ObjectFile, elf: Obj::Elf::ObjectFile }
+        writers.fetch(target.object_format) { raise ArgumentError, "no object writer for #{target}" }
+      end
+
+      # The linker for `target`.
+      def linker(target)
+        { darwin: Link::Darwin, static: Link::Static }.fetch(target.link) { raise ArgumentError, "no linker for #{target}" }
+      end
+
+      # Answers nil, or the message of the step that refused. `objects` are
+      # prebuilt objects linked in beside this one; `strip` leaves out what
+      # nothing calls. `road` (`ZE0_LINK`) picks the linker where the
+      # target has more than one.
+      def binary(functions, data, out, work:, raw: [], objects: [], strip: false, road: ROAD, target: Target.default)
+        image = unit(functions, data, raw: raw, export: !objects.empty?, target: target)
+        linker(target).link(image, out, work: work, objects: objects, strip: strip, road: road, target: target)
+      rescue Backend::Refused => e
         e.message
       end
 
       # A `Zr::Program` to a binary: its runtime from the cache, its own
-      # functions and data emitted now.
+      # functions and data emitted now. A program that evals keeps every
+      # symbol, since its JIT finds kernel functions by name.
       def program(program, out, work:)
         objects = [runtime_object(program.runtime)]
         objects << road_object(program.evals) if program.evals
-        flags = program.evals ? STACK_FLAGS : STACK_FLAGS + STRIP_FLAGS
-        binary(program.functions, program.data, out, work: work, objects: objects, flags: flags, target: program.runtime.target)
+        binary(program.functions, program.data, out, work: work, objects: objects, strip: !program.evals,
+                                                         target: program.runtime.target)
       end
 
       # The compiler's object, built once per road.
@@ -83,7 +72,7 @@ module Ze0
 
         Dir.mktmpdir("ze0-road-") do |work|
           fresh = File.join(work, "road.o")
-          why = object(road.functions, road.data, fresh, export: true)
+          why = object(road.functions, road.data, fresh, export: true, target: road.target)
           raise "the compiler did not build: #{why}" if why
 
           Zr.write_cache(obj, File.binread(fresh))
@@ -91,14 +80,14 @@ module Ze0
         obj
       end
 
-      # The runtime's object, built once per digest.
+      # The runtime's object, built once per digest (which names the target).
       def runtime_object(runtime)
         obj = File.join(Zr::CACHE, "rt-#{runtime.digest}.o")
         return obj if File.exist?(obj)
 
         Dir.mktmpdir("ze0-rt-") do |work|
           fresh = File.join(work, "rt.o")
-          why = object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true)
+          why = object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true, target: runtime.target)
           raise "the runtime did not build: #{why}" if why
 
           Zr.write_cache(obj, File.binread(fresh))
@@ -108,27 +97,18 @@ module Ze0
 
       # Functions and data to one object file. `export` makes every data
       # object visible to the link, for an object another refers to.
-      def object(functions, data, obj, raw: [], export: false)
-        File.binwrite(obj, Obj::MachO::ObjectFile.write(unit(functions, data, raw: raw, export: export)))
+      def object(functions, data, obj, raw: [], export: false, target: Target.default)
+        File.binwrite(obj, writer(target).write(unit(functions, data, raw: raw, export: export, target: target)))
         nil
-      rescue Backend::Aarch64::Codegen::Refused => e
+      rescue Backend::Refused => e
         e.message
       end
 
-      # The same, as an `Obj::Unit`: what the object writer and the JIT
+      # The same, as an `Obj::Unit`: what an object writer and the JIT
       # loader both take.
-      def unit(functions, data, raw: [], export: false)
+      def unit(functions, data, raw: [], export: false, target: Target.default)
         functions.each { |f| IR::Verify.check(f) }
-        out = Obj::Unit.new
-        defined = (functions.map(&:name) + data.map(&:name) + raw.map(&:name)).to_set
-        functions.each { |f| out.functions << Backend::Aarch64::Codegen.new(f, defined: defined).compile }
-        raw.each { |r| out.functions << r }
-        data.each { |d| out.data << (export ? exported(d) : d) }
-        out
-      end
-
-      def exported(d)
-        d.linkage == :export ? d : Obj::Data.new(d.name, d.section, d.bytes, relocs: d.relocs, align: d.align, linkage: :export)
+        backend(target).unit(functions, data, raw: raw, export: export)
       end
 
       # The same functions and data as one WASI module. A raw function,
@@ -142,9 +122,9 @@ module Ze0
         zero_words(functions, data, [])
         functions += stops(functions, raw, data, [])
         functions.each { |f| IR::Verify.check(f) }
-        File.binwrite(out, Backend::Wasm::Codegen.new(functions, data).emit)
+        File.binwrite(out, Backend::Wasm.emit(functions, data))
         nil
-      rescue Backend::Wasm::Codegen::Refused => e
+      rescue Backend::Refused => e
         e.message
       end
 
@@ -159,9 +139,9 @@ module Ze0
         zero_words(program.functions, data, pre.data_at.keys)
         functions = program.functions + stops(program.functions, [], data, pre.functions)
         functions.each { |f| IR::Verify.check(f) }
-        File.binwrite(out, Backend::Wasm::Codegen.new(functions, data, prelude: pre).emit)
+        File.binwrite(out, Backend::Wasm.emit(functions, data, prelude: pre))
         nil
-      rescue Backend::Wasm::Codegen::Refused => e
+      rescue Backend::Refused => e
         e.message
       end
 
@@ -176,7 +156,7 @@ module Ze0
         zero_words(runtime.functions, data, pending[:data])
         functions = runtime.functions + stops(runtime.functions, runtime.raw, data, pending[:functions])
         functions.each { |f| IR::Verify.check(f) }
-        pre = Backend::Wasm::Codegen.new(functions, data, pending: pending).prelude
+        pre = Backend::Wasm.prelude(functions, data, pending: pending)
         Zr.write_cache(path, Marshal.dump(pre))
         pre
       end
@@ -197,8 +177,11 @@ module Ze0
       # Stop functions for the raw functions and for every undefined
       # callee that is not a shim and not in `known`.
       def stops(functions, raw, data, known)
-        out = raw.map { |r| params, ret = Backend::Aarch64::Stub::ALL.fetch(r.name); stop(r.name, params.map { |t| Machine::TYPES.fetch(t.to_s) }, Machine::TYPES.fetch(ret.to_s), data) }
-        defined = functions.map(&:name) + out.map(&:name) + Backend::Wasm::Codegen::SHIMS.keys + known
+        out = raw.map do |r|
+          params, ret = Backend::Aarch64::Stub::ALL.fetch(r.name)
+          stop(r.name, params.map { |t| Machine::TYPES.fetch(t.to_s) }, Machine::TYPES.fetch(ret.to_s), data)
+        end
+        defined = functions.map(&:name) + out.map(&:name) + Backend::Wasm.shims.keys + known
         functions.each do |f|
           f.callees.each do |c|
             next if defined.include?(c.symbol)
@@ -221,7 +204,6 @@ module Ze0
         f.ret(ret.nil? ? nil : (ret == "f64" ? f.bitcast("f64", f.iconst("i64", 0)) : f.iconst(ret, 0)))
         f
       end
-
     end
   end
 end

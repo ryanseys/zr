@@ -9,6 +9,11 @@ require_relative "../../lib/ze0/obj/macho/executable"
 # link `Obj::MachO::Executable` could make, so the check writes it again and demands
 # the same bytes. `ZE0_BLESS=1` rewrites it.
 class LibsystemTest < Minitest::Test
+  # Mach-O, libSystem and the darwin JIT: only a darwin host has them.
+  def setup
+    skip "needs an aarch64-apple-darwin host" unless Ze0::Target::AARCH64_DARWIN.native?
+  end
+
   PATH = File.join(ROOT, "lib/ze0/obj/macho/libsystem.rb")
 
   def test_the_list_matches_the_imports

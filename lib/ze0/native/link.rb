@@ -5,9 +5,13 @@ require_relative "toolchain"
 module Ze0
   module Native
     # The link step: objects and static archives to a binary, with the
-    # system linker through `cc`. The one place ze0 leaves Ruby to make a
-    # binary, and the seam `Obj::MachO::Executable` replaces when it lands.
+    # system linker through `cc`. `Link::Darwin` and `Link::Static` say
+    # which objects a target's link takes and which flags; this runs it.
     module Link
+      # The main thread's stack, which holds ruby frames as native frames.
+      # `rt/kernel/fiber.rb` sizes every other task's.
+      STACK = 0x400_0000
+
       module_function
 
       # Answers nil, or the linker's message when it refused.
