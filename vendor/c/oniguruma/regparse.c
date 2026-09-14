@@ -4380,7 +4380,7 @@ static int
 is_invalid_quantifier_target(Node* node)
 {
   switch (ND_TYPE(node)) {
-  case ND_ANCHOR:
+  /* ze0: an anchor takes a quantifier, as Onigmo lets Ruby give one. */
   case ND_GIMMICK:
     return 1;
     break;
