@@ -150,22 +150,16 @@ class File < IO
   MODES = %w[r r+ w w+ a a+].freeze
   private_constant :MODES
 
-  # A mode string ("r", "w+", "ab", ...) or open(2) flags.
-  def self.open(path, mode = "r", perm = 0o666, **options, &block)
-    file = new(path, mode, perm, **options)
-    return file unless block
-
-    begin
-      yield file
-    ensure
-      file.close
-    end
-  end
-
-  def initialize(path, mode = "r", perm = 0o666, **options)
+  # A path, with a mode string ("r", "w+", "ab", ...) or open(2) flags;
+  # or, as rb_file_initialize reads one or two arguments, a descriptor.
+  def initialize(path, mode = (no_mode = true; "r"), perm = (no_perm = true; 0o666), **options)
     # A File that holds a descriptor is not opened again, as CRuby's
     # rb_file_initialize refuses.
     raise RuntimeError, "reinitializing #{self.class}" if instance_variable_defined?(:@fd)
+
+    if no_perm && (fd = Integer.try_convert(path))
+      return super(fd, no_mode ? nil : mode, **options)
+    end
 
     mode = options[:mode] if options.key?(:mode)
     perm = options[:perm] if options.key?(:perm)

@@ -1,4 +1,3 @@
-gaps/file_open_is_ios_own_row.rb	compiler/builtins/file_open_is_ios_own_row.rb
 gaps/ffi_libc_call.rb	aot/ffi_libc_call.rb
 gaps/openssl_digest.rb	aot/openssl_digest.rb
 gaps/socket_loopback.rb	aot/socket_loopback.rb

@@ -73,14 +73,14 @@ class IO
   def self.read(path, length = nil, offset = nil, extra = (none = true; nil), **options)
     raise ArgumentError, "wrong number of arguments (given 3, expected 0..2)" unless none
 
-    File.open(path, "r", **options) do |file|
+    File.open(File.send(:path_of, path), "r", **options) do |file|
       file.seek(offset) if offset
       length ? file.read(length) : file.read
     end
   end
 
   def self.write(path, content, offset = nil, mode: nil, **options)
-    File.open(path, mode || (offset ? "r+" : "w"), **options) do |file|
+    File.open(File.send(:path_of, path), mode || (offset ? "r+" : "w"), **options) do |file|
       file.seek(offset) if offset
       file.write(content)
     end
@@ -90,18 +90,30 @@ class IO
   # takes them; only `chomp:` belongs to the lines.
   def self.readlines(path, *args, **options)
     line = options.key?(:chomp) ? { chomp: options.delete(:chomp) } : {}
-    File.open(path, "r", **options) { |file| file.readlines(*args, **line) }
+    File.open(File.send(:path_of, path), "r", **options) { |file| file.readlines(*args, **line) }
   end
 
   def self.foreach(path, *args, **options, &block)
     return to_enum(:foreach, path, *args, **options) unless block
 
     line = options.key?(:chomp) ? { chomp: options.delete(:chomp) } : {}
-    File.open(path, "r", **options) { |file| file.each_line(*args, **line, &block) }
+    File.open(File.send(:path_of, path), "r", **options) { |file| file.each_line(*args, **line, &block) }
     nil
   end
 
-  def self.for_fd(fd, mode = "r", **options) = new(fd, mode, **options)
+  # rb_io_s_new: a block here is a mistake, which ruby names.
+  def self.new(*args, **options, &block)
+    Primitive.zr_warn_here_m("#{self}::new() does not take block; use #{self}::open() instead") if block
+    super(*args, **options)
+  end
+
+  # rb_io_s_for_fd: IO's own initialize, whatever the receiver, so a File
+  # takes a descriptor here where its initialize takes a path.
+  def self.for_fd(fd, mode = nil, **options)
+    io = allocate
+    IO.instance_method(:initialize).bind_call(io, fd, mode, **options)
+    io
+  end
 
   MODES = %w[r r+ w w+ a a+].freeze
   private_constant :MODES
@@ -180,7 +192,8 @@ class IO
   end
   private_class_method :open_options, :encodings, :spec
 
-  # `IO.open` is `IO.new` with a block that closes the stream after it.
+  # `IO.open` is `new` with a block that closes the stream after it; the
+  # receiver's initialize decides what the arguments mean.
   def self.open(*args, **options)
     io = new(*args, **options)
     return io unless block_given?
