@@ -1,0 +1,11 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# ze0: a Ruby compiler, written in Ruby. `ze0 help` names the commands.
+#
+# require_relative, not require: the collector tuning starts this file
+# again, and it must load this same copy of ze0.
+require_relative "../lib/ze0/cli"
+
+Ze0::CLI.tune!(__FILE__)
+Ze0::CLI.start(ARGV)

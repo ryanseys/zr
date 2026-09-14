@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "etc"
 require "fileutils"
 require "rbconfig"
 require "tmpdir"

@@ -1,66 +1,31 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# ze0: a Ruby compiler written in Ruby.
-#
-#   ze0 test <filter>... | --all        does ze0 answer what ruby answered?
-#                [--gc plain|stress] [--show N]
-#   ze0 bench [<filter>...]             how long does what ze0 built take?
-#                [--runs N]
-#   ze0 check [<file>...]               the repo's own checks, a process a file
-#   ze0 stage1                          ze0 compiles itself, twice, to the same bytes
-#   ze0 stage2                          the compiler compiled by itself is a fixed point
-#   ze0 deps build                      build the vendored C dependencies (oniguruma)
-#   ze0 zr run <file.rb> [args]         compile a Ruby program with the zr runtime, and run it
-#   ze0 zr build <file.rb> -o <bin>     compile a Ruby program with the zr runtime
-#   ze0 zr machine <file.rb> -o <bin>   compile a kernel-dialect file alone
-#                [--emit obj|wasm]
-#
-# ZE0_LINK picks the linker: `ruby` for Obj::Exe alone, which names what
-# it cannot link; `cc` for the system linker; unset to take Obj::Exe
-# where it reaches and cc for a program that needs the vendored archives.
+# ze0 in a checkout: the gem's commands (lib/ze0/cli.rb), and the ones
+# that need the corpus and tools/.
 #
 # ruby is the oracle: every corpus program carries ruby 4.0.6's recorded
 # answer under `__END__`, and ze0 is held to it or refuses by name.
 
-ROOT = File.expand_path("..", __dir__)
+require_relative "../lib/ze0/cli"
 
-# A compile allocates in the tens of millions of objects, and how often
-# it stops for a major collection is decided by the collector's malloc
-# limits -- which ruby reads as it starts and never again. So the only
-# way to raise them for this process is to start it again with them
-# raised. Measured over the runtime's 4,733 functions: 3.47 s against
-# 3.17 s, and one major collection where there were four. A child this
-# script starts inherits them and does not do this twice. `ZE0_GC=0`
-# leaves the collector as ruby set it.
-require "rbconfig"
-if ENV["ZE0_GC"] != "0" && !ENV.key?("RUBY_GC_MALLOC_LIMIT")
-  ENV["RUBY_GC_MALLOC_LIMIT"] = "64000000"
-  ENV["RUBY_GC_OLDMALLOC_LIMIT"] = "128000000"
-  exec(RbConfig.ruby, __FILE__, *ARGV)
-end
+Ze0::CLI.tune!(__FILE__)
 
-# The compiler runs under YJIT unless ZE0_YJIT=0: a cold runtime build
-# is mostly the compiler's own Ruby, which YJIT runs well. A child this
-# script starts runs this script again, so it gets YJIT too.
-RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable) && ENV["ZE0_YJIT"] != "0"
+ROOT = Ze0::Paths::ROOT
 
-def usage
-  warn File.read(__FILE__).lines.grep(/\A#   /).map { |l| l.delete_prefix("#   ") }.join
-  exit 2
-end
+DEV_USAGE = <<~TEXT
+  ze0 test <filter>... | --all          does ze0 answer what ruby answered?
+               [--gc plain|stress] [--show N]
+  ze0 bench [<filter>...]               how long does what ze0 built take?
+               [--runs N]
+  ze0 check [<file>...]                 the repo's own checks, a process a file
+  ze0 stage1                            ze0 compiles itself, twice, to the same bytes
+  ze0 stage2                            the compiler compiled by itself is a fixed point
+TEXT
 
-# One named step of a long command, announced before it runs and timed
-# after: compiling the compiler takes the better part of a minute, and a
-# command that says nothing until it ends cannot be told from a hung one.
-def step(what)
-  $stdout.sync = true
-  print "#{what} ... "
-  began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-  answer = yield
-  puts format("%.1fs", Process.clock_gettime(Process::CLOCK_MONOTONIC) - began)
-  answer
-end
+def usage = Ze0::CLI.usage(DEV_USAGE)
+
+def step(what, &) = Ze0::CLI.step(what, &)
 
 case ARGV.first
 when "test"
@@ -101,94 +66,6 @@ when "bench"
   abort "ze0 bench: no program matches #{args.inspect}" if cases.empty?
   warn "ze0 bench: #{cases.size} program(s), #{runs} run(s) each"
   exit(bench.report(bench.run(cases)) ? 0 : 1)
-when "zr"
-  require "tmpdir"
-  require_relative "../lib/ze0/zr"
-  require_relative "../lib/ze0/native/build"
-  args = ARGV.drop(1)
-  verb = args.shift
-  usage unless %w[run build machine].include?(verb)
-  input = output = nil
-  emit = nil
-  rest = []
-  until args.empty?
-    case (a = args.shift)
-    when "-o" then output = args.shift or usage
-    when "--emit" then emit = args.shift or usage
-    when /\A-/ then usage
-    else
-      if input then rest << a else input = a end
-    end
-  end
-  usage unless input && (verb == "run" ? output.nil? : output)
-  usage if verb != "run" && !rest.empty?
-  begin
-    source = File.read(input)
-    program = verb == "machine" ? Ze0::Machine.compile(source, input) : Ze0::Zr.program(source, input)
-  rescue Ze0::Machine::Refused, Ze0::Hir::Refused, Ze0::Zr::Lower::Refused => e
-    # Status 3 is a refusal by name; the sweep tells it from a defect.
-    warn "ze0: #{e.message}"
-    exit 3
-  rescue SyntaxError => e
-    # ruby reports a program that does not parse and exits 1, and so does
-    # the binary, with ruby's own report. A required file that does not
-    # parse raises as the require runs, which ze0 does not do yet.
-    report = begin
-      RubyVM::InstructionSequence.compile_file(input)
-      nil
-    rescue SyntaxError => own
-      "#{input}: #{own.detailed_message(highlight: false)}\n"
-    end
-    unless report
-      warn "ze0: a required file does not parse: #{e.message.lines.first.chomp}"
-      exit 3
-    end
-    program = Ze0::Zr.program("$stderr.write(#{report.inspect})\nexit 1\n", input)
-  end
-  Dir.mktmpdir("ze0-zr-") do |work|
-    out = verb == "run" ? File.join(work, "program") : File.expand_path(output)
-    if emit == "obj"
-      why = if program.is_a?(Ze0::Zr::Program)
-              # The runtime's object lands in the cache beside it, so the
-              # object road is the whole of what ze0 wrote.
-              Ze0::Native::Build.runtime_object(program.runtime)
-              Ze0::Native::Build.object(program.functions, program.data, out, export: true)
-            else
-              functions, data, raw = program
-              Ze0::Native::Build.object(functions, data, out, raw: raw, export: true)
-            end
-      abort "ze0: #{why}" if why
-      exit 0
-    end
-    if emit == "wasm"
-      why = if program.is_a?(Ze0::Zr::Program)
-              Ze0::Native::Build.wasm_program(program, out)
-            else
-              functions, data, raw = program
-              Ze0::Native::Build.wasm(functions, data, out, raw: raw)
-            end
-      abort "ze0: #{why}" if why
-      exec("wasmtime", out, *rest) if verb == "run"
-      exit 0
-    end
-    why = if program.is_a?(Ze0::Zr::Program)
-            Ze0::Native::Build.program(program, out, work: work)
-          else
-            functions, data, raw = program
-            Ze0::Native::Build.binary(functions, data, out, work: work, raw: raw)
-          end
-    abort "ze0: #{why}" if why
-    if verb == "run"
-      system(out, *rest)
-      abort "ze0: the program died with signal #{$?.termsig}" if $?.signaled?
-      exit($?.exitstatus)
-    end
-  end
-when "deps"
-  require "fileutils"
-  require_relative "../lib/ze0/deps"
-  usage unless ARGV[1] == "build"
-  puts Ze0::Deps.build
 when "stage1"
   # ze0 under ruby compiles the compiler twice, in two processes with a
   # cache of its own each, and the bytes must agree: the self-compile
@@ -334,5 +211,5 @@ when "check"
               files.size, rows.size, elapsed, jobs, failed.size)
   exit(failed.empty? ? 0 : 1)
 else
-  usage
+  Ze0::CLI.start(ARGV, extra: DEV_USAGE)
 end
