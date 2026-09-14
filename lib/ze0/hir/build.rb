@@ -40,12 +40,14 @@ module Ze0
       # units instead of building them, and so does every file the program
       # shares with it. Only the end of a build knows whether the program
       # evals, so a program that does is built a second time over the road.
-      # `in_method` says whether an eval's string runs inside a method,
-      # where a `yield` has a block to reach.
-      def self.program(source, file, roots: [], road: true, line: 1, scopes: nil, in_method: true)
+      # `method` is the parameters of the method an eval's string runs
+      # inside, as Method#parameters answers them, or nil outside one: a
+      # `yield` has a block to reach only inside a method, and a bare
+      # `super` passes those parameters on.
+      def self.program(source, file, roots: [], road: true, line: 1, scopes: nil, method: nil)
         built = lambda do |external, trace|
           loader = Loader.new(roots + STDLIB, eval: !road, external: external, trace: trace)
-          [loader, loader.unit(file, source, line, scopes, in_method: in_method)]
+          [loader, loader.unit(file, source, line, scopes, method: method)]
         end
         loader, main = built.call(nil, false)
         over_road = road.respond_to?(:units) && loader.evals?
@@ -266,10 +268,10 @@ module Ze0
                                 ((SENDS + FETCHES).include?(name) && (NORMALIZES + ENCODES).include?(named))
         end
 
-        def unit(file, source = File.read(file), line = 1, scopes = nil, in_method: true)
+        def unit(file, source = File.read(file), line = 1, scopes = nil, method: nil)
           result = scopes ? Prism.parse(source, filepath: file, line: line, scopes: scopes) : Prism.parse(source, filepath: file, line: line)
           raise SyntaxReport.error(result, file) unless result.errors.empty?
-          stray = scopes && !in_method && invalid_yields(source, file, line)
+          stray = scopes && method.nil? && invalid_yields(source, file, line)
           raise stray if stray
 
           load_path_roots(result.value, file).each do |front, paths|
@@ -278,6 +280,7 @@ module Ze0
           configures! if !configures? && names_rbconfig?(result.value)
           @traces ||= !Build.runtime_file?(file) && TRACE_NAMES.match?(source)
           build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value))
+          build.within_method(method, scopes) if scopes && method
           body = build.seq(result.value.statements, hoist: true)
           Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings, file.start_with?("#{EXT}/"))
         end
@@ -293,6 +296,7 @@ module Ze0
 
           SyntaxError.new(yields.map { |e| "#{file}:#{e.location.start_line}: #{e.message}" }.join("\n")).tap do |exc|
             exc.instance_variable_set(:@path, file)
+            exc.set_backtrace([file])
           end
         end
 
@@ -448,6 +452,34 @@ module Ze0
         # the compiler meets statements; ruby's last_line.
         @last_lines = [-1]
         @warnings = []
+        # How deep each parameter of the method an eval runs inside
+        # stands, outside the eval's own scope; nil inside a def of the
+        # file's own, whose parameters stand in its scope.
+        @def_depths = nil
+      end
+
+      # An eval's string runs inside a method: a bare `super` passes on
+      # the parameters `rows` names, each read from the scope in `scopes`
+      # (innermost first) that holds it. A parameter with no name, a
+      # destructured one, cannot be passed on, and neither `super` can.
+      def within_method(rows, scopes)
+        return if rows.any? { |_, name| name.nil? || scopes.none? { |names| names.include?(name) } }
+
+        required, optional, post, keywords = [], [], [], []
+        rest = kwrest = block = nil
+        rows.each do |kind, name|
+          case kind
+          when :req then (optional.empty? && rest.nil? ? required : post) << name
+          when :opt then optional << [name, nil]
+          when :rest then rest = name
+          when :key, :keyreq then keywords << [name, nil]
+          when :keyrest then kwrest = name
+          when :nokey then kwrest = :nokey
+          when :block then block = name
+          end
+        end
+        @def_params = Params.new(required, optional, rest, post, keywords, kwrest, block)
+        @def_depths = rows.to_h { |_, name| [name, 1 + scopes.index { |names| names.include?(name) }] }
       end
 
       # The warnings ruby's compiler gives for the file's regexp literals,
@@ -477,15 +509,16 @@ module Ze0
 
       # `body` lowered in a fresh scope: a def or a class body.
       def in_scope
-        was = [@block_depth, @def_params]
+        was = [@block_depth, @def_params, @def_depths]
         @block_depth = 0
         @def_params = nil
+        @def_depths = nil
         @temps.push([])
         @scopes.push(@temps.last)
         @last_lines.push(-1)
         yield
       ensure
-        @block_depth, @def_params = was
+        @block_depth, @def_params, @def_depths = was
         @temps.pop
         @scopes.pop
         @last_lines.pop
@@ -1131,7 +1164,10 @@ module Ze0
       def zsuper(node, line)
         p = @def_params or return ZSuper.new(node.block && block(node.block), line)
 
-        local = ->(name) { Local.new(name.is_a?(MultiTarget) ? name.whole : name, @block_depth, line) }
+        local = lambda do |name|
+          name = name.whole if name.is_a?(MultiTarget)
+          Local.new(name, @block_depth + (@def_depths ? @def_depths.fetch(name) : 0), line)
+        end
         positional = (p.required + p.optional.map(&:first)).map(&local)
         positional << Splat.new(local.call(p.rest), line) if p.rest && p.rest != :implicit
         positional += p.post.map(&local)

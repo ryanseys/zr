@@ -158,6 +158,7 @@ machine def zr_trace_binding(serial)
     return Machine.value(QNIL)
   end
   b = zr_binding_of(Frame.meta(rec), zr_frame_env(rec), Frame.self(rec), Frame.cref(rec))
+  RProc.set_blk(b, Frame.blk(rec))
   RProc.set_serial(b, Frame.line(rec))
   b
 end

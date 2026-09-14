@@ -80,7 +80,7 @@ module Kernel
     return Primitive.zr_unimplemented("load with a wrap module") unless defined?(::Ze0::Eval)
 
     code = ::Ze0::Eval.current.compile(File.read(path), path, 1, [], false)
-    Primitive.zr_eval_run(code, TOPLEVEL_BINDING.receiver.clone.extend(mod), Primitive.zr_wrap_cref(mod), nil)
+    Primitive.zr_eval_run(code, TOPLEVEL_BINDING.receiver.clone.extend(mod), Primitive.zr_wrap_cref(mod), nil, nil)
     true
   end
 

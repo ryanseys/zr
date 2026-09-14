@@ -378,12 +378,12 @@ machine def zr_bmethod_entry(rec)
   RCref.entry(cref)
 end
 
-# The meta of the def the frame is in, through its blocks, or 0 in a
-# class body or at the top level.
+# The meta of the def the frame is in, through its blocks and evals, or
+# 0 in a class body or at the top level.
 sig [Ptr] => Ptr
 machine def zr_method_meta_of(rec)
   meta = Frame.meta(rec)
-  while (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN) && FrameMeta.parent(meta) != 0
+  while (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN || FrameMeta.kind(meta) == KIND_EVAL) && FrameMeta.parent(meta) != 0
     meta = FrameMeta.parent(meta)
   end
   if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BUILTIN

@@ -45,14 +45,16 @@ module Ze0
         d zr_caller_frame Ptr
         d zr_eval_self Value
         d zr_eval_cref Value
+        d zr_eval_block Value
         d zr_eval_source_name Value
         d zr_eval_cref_under Value mod:Value outer:Value
         d zr_wrap_cref Value mod:Value
         d zr_local_names Value table:Ptr
         d zr_frame_env Value rec:Ptr
         d zr_eval_env Value
-        d zr_eval_in_method Value
-        d zr_binding_in_method Value b:Value
+        d zr_eval_parameters Value
+        d zr_binding_parameters Value b:Value
+        d zr_meta_parameters Value meta:Ptr
         d zr_meta_in_method Bool meta:Ptr
         d zr_eval_scopes Value
         d zr_binding Value
@@ -716,8 +718,8 @@ module Ze0
         d zr_jit_call Value at:Value
         d zr_code_word Word code:Value i:Word
         d zr_code_env Value code:Value parent:Value
-        d zr_eval_at Value code:Value self_:Value cref:Value env:Value
-        d zr_eval_run Value code:Value self_:Value cref:Value parent:Value
+        d zr_eval_at Value code:Value self_:Value cref:Value env:Value blk:Value
+        d zr_eval_run Value code:Value self_:Value cref:Value parent:Value blk:Value
         d zr_puts_value Value v:Value
         d zr_puts Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_print Value recv:Value argc:Word argv:Ptr cref:Value blk:Value

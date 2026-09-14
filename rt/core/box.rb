@@ -106,7 +106,7 @@ module Ruby
       Primitive.attr! :hidden
       Primitive.zr_box_stamp(code[4], self)
       Primitive.zr_box_compiled(code[1])
-      Primitive.zr_eval_run(code, @main, @cref, nil)
+      Primitive.zr_eval_run(code, @main, @cref, nil, nil)
     end
 
     # A file the box reads and runs for itself, so a feature main has

@@ -43,7 +43,7 @@ module Ze0
       include Tracing
 
       KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK", eval: "KIND_EVAL" }.freeze
-      ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64], eval: %w[i64 i64 i64] }.freeze
+      ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64], eval: %w[i64 i64 i64 i64] }.freeze
 
       attr_reader :meta, :outer, :kind
 
@@ -190,9 +190,12 @@ module Ze0
                 when :block then proc_field("cref")
                 else @f.args[1]
                 end
+        # An eval's block is the one the scope it runs in was given, so a
+        # `yield` in the string reaches the caller's block.
         @blk = case @kind
                when :def then @f.args[4]
                when :block then proc_field("blk")
+               when :eval then @f.args[3]
                else @qnil
                end
         @f.store(@self, @rec, off(@frame, "self"))

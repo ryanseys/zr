@@ -102,7 +102,7 @@ nil
 nil
 "yield"
 LocalJumpError: no block given (yield)
-SyntaxError: (eval at gaps/a_snippet_reaches_its_callers_block.rb:74):1: Invalid yield
-["(eval at gaps/a_snippet_reaches_its_callers_block.rb:74)"]
-class body: (eval at gaps/a_snippet_reaches_its_callers_block.rb:81):1: Invalid yield
+SyntaxError: (eval at compiler/cache/a_snippet_reaches_its_callers_block.rb:74):1: Invalid yield
+["(eval at compiler/cache/a_snippet_reaches_its_callers_block.rb:74)"]
+class body: (eval at compiler/cache/a_snippet_reaches_its_callers_block.rb:81):1: Invalid yield
 nil

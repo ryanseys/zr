@@ -19,6 +19,11 @@ machine def zr_eval_cref
   Frame.cref(zr_caller_frame())
 end
 
+sig [] => Value
+machine def zr_eval_block
+  Frame.blk(zr_caller_frame())
+end
+
 # `(eval at file:line)`: the name ruby gives an eval that names no file.
 sig [] => Value
 machine def zr_eval_source_name
@@ -83,17 +88,29 @@ machine def zr_eval_env
   zr_frame_env(zr_caller_frame())
 end
 
-# Whether the frame that asked for an eval runs inside a method: a
-# method's own body, or a block, an eval, or a block in an eval, written
-# inside one.
+# The parameters of the method the frame that asked for an eval runs
+# inside, as Method#parameters answers them: a method's own body, or a
+# block, an eval, or a block in an eval, written inside one. nil
+# outside a method.
 sig [] => Value
-machine def zr_eval_in_method
-  zr_bool(zr_meta_in_method(Frame.meta(zr_caller_frame())))
+machine def zr_eval_parameters
+  zr_meta_parameters(Frame.meta(zr_caller_frame()))
 end
 
 sig [Value] => Value
-machine def zr_binding_in_method(b)
-  zr_bool(zr_meta_in_method(RProc.meta(b)))
+machine def zr_binding_parameters(b)
+  zr_meta_parameters(RProc.meta(b))
+end
+
+sig [Ptr] => Value
+machine def zr_meta_parameters(meta)
+  if !zr_meta_in_method(meta)
+    return Machine.value(QNIL)
+  end
+  while FrameMeta.kind(meta) != KIND_DEF
+    meta = FrameMeta.parent(meta)
+  end
+  zr_param_rows(FrameMeta.params(meta), false)
 end
 
 sig [Ptr] => Bool
@@ -133,6 +150,7 @@ sig [] => Value
 machine def zr_binding
   rec = zr_caller_frame()
   b = zr_binding_of(Frame.meta(rec), zr_frame_env(rec), Frame.self(rec), Frame.cref(rec))
+  RProc.set_blk(b, Frame.blk(rec))
   RProc.set_serial(b, Frame.line(rec))
   b
 end
@@ -148,6 +166,7 @@ machine def zr_proc_binding(p)
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("Can't create Binding from isolated Proc"), 39)
   end
   b = zr_binding_of(RProc.meta(p), RProc.env(p), RProc.self(p), RProc.cref(p))
+  RProc.set_blk(b, RProc.blk(p))
   RProc.set_serial(b, FrameMeta.line(RProc.meta(p)))
   b
 end
@@ -226,7 +245,7 @@ sig [Value, Value] => Value
 machine def zr_binding_run(code, b)
   e = zr_code_env(code, RProc.env(b))
   RProc.set_env(b, e)
-  zr_eval_at(code, RProc.self(b), RProc.cref(b), e)
+  zr_eval_at(code, RProc.self(b), RProc.cref(b), e, RProc.blk(b))
 end
 
 # One more name the Binding holds, in a scope of its own inside the

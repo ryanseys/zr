@@ -35,11 +35,19 @@ module Ze0
     # `scopes` are the local names the asking scope reaches, innermost
     # first. The string is parsed one scope inside them, so a name it
     # writes that they already hold lands in their Env, and a name it
-    # invents stays its own.
-    def compile(source, file, line = 1, scopes = [], in_method = true)
+    # invents stays its own. `method` is the parameters of the method the
+    # scope runs inside, or nil outside one.
+    def compile(source, file, line = 1, scopes = [], method = nil)
       @count += 1
       name = "zr_eval_#{@count}"
-      hir = Hir.build(string(source), string(file), road: false, line: line.to_int, scopes: [*scopes.reverse, []], in_method: in_method)
+      hir = begin
+        Hir.build(string(source), string(file), road: false, line: line.to_int, scopes: [*scopes.reverse, []], method: method)
+      rescue SyntaxError => e
+        # The error is the eval's, raised where the eval stands, unless it
+        # names only the string, as a stray `yield`'s does.
+        e.set_backtrace(caller(1)) unless e.backtrace == [e.path]
+        raise e
+      end
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)
       metas = symbols.select { |symbol, _| symbol.start_with?("zr_meta_") }.values
