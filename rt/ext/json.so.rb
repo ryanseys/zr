@@ -149,7 +149,7 @@ module JSON
     UNESCAPE = { '"' => '"', "\\" => "\\", "/" => "/", "b" => "\b", "f" => "\f", "n" => "\n", "r" => "\r", "t" => "\t" }.freeze
 
     def initialize(source, opts)
-      source = source.to_str
+      source = String.try_convert(source) or raise TypeError, "no implicit conversion of #{conversion_name(source)} into String"
       @text = source.encoding == Encoding::UTF_8 ? source : source.dup.force_encoding(Encoding::UTF_8)
       @chars = @text.chars
       @i = 0

@@ -495,6 +495,7 @@ class Array
   end
 
   def delete_at(index)
+    index = Primitive.zr_index_operand_m(index)
     index += size if index < 0
     return nil if index < 0 || index >= size
 

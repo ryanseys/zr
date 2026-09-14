@@ -65,9 +65,10 @@ machine def zr_int_to_s(recv, argc, argv, cref, blk)
   end
   base = 10
   if argc == 1
+    # NUM2INT: nil is no radix, and a Float truncates to one.
     out = Machine.slot(8)
-    r = zr_int_operand(recv, argv, out, Machine.id(:to_s), 3)
-    return r if r != QNIL
+    r = zr_index_operand(Machine.value(Machine.load64(argv, 0)), out)
+    return r if r == QUNDEF
     base = Machine.load64(out, 0)
     if base < 2 || base > 36
       b = Machine.slot(Buf.size)

@@ -271,6 +271,9 @@ class StringScanner
   # `_until` form answers; `answer` decides whether the bytes or their
   # count comes back, and `advance` whether the pointer moves past them.
   def run(pattern, anchored, answer, advance)
+    unless pattern.is_a?(Regexp)
+      pattern = String.try_convert(pattern) or raise TypeError, "no implicit conversion of #{conversion_name(pattern)} into String"
+    end
     if fixed_anchor?
       # The whole string is the subject, so `\A` means its real start and
       # `\G` holds the match at the pointer.

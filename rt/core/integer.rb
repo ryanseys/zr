@@ -108,8 +108,8 @@ class Integer
   # an Integer, as CRuby's int_aref reads them.
   def [](bit, len = nil)
     unless len.nil?
-      bit = Primitive.zr_index_operand_m(bit)
-      len = Primitive.zr_index_operand_m(len)
+      bit = to_integer(bit)
+      len = to_integer(len)
       return (self >> bit) & ((1 << len) - 1)
     end
     if bit.is_a?(Range)
@@ -135,7 +135,7 @@ class Integer
       return shifted & ((1 << span) - 1)
     end
 
-    bit_at(implicit_integer(bit))
+    bit_at(to_integer(bit))
   end
 
   def bit_at(bit)
@@ -283,7 +283,7 @@ class Integer
   end
 
   def digits(base = 10)
-    base = implicit_integer(base)
+    base = to_integer(base)
     raise ArgumentError, "negative radix" if base < 0
     raise ArgumentError, "invalid radix #{base}" if base < 2
     raise Math::DomainError, "out of domain" if negative?

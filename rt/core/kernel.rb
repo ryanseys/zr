@@ -171,16 +171,17 @@ module Kernel
   end
   alias yield_self then
 
-  def Integer(arg, base = nil, exception: true)
+  def Integer(arg, base = 0, exception: true)
     Primitive.attr! :ruby
     value = arg
+    base = implicit_integer(base)
     if value.is_a?(String)
-      n = parse_integer(value, base || 0)
+      n = parse_integer(value, base)
       return n if n || !exception
 
       raise ArgumentError, "invalid value for Integer(): #{value.inspect}"
     end
-    raise ArgumentError, "base specified for non string value" if base
+    raise ArgumentError, "base specified for non string value" unless base.zero?
     return value if value.is_a?(Integer)
 
     if value.nil?
@@ -263,6 +264,19 @@ module Kernel
     raise TypeError, "no implicit conversion of #{conversion_name(value)} into Integer" unless value.respond_to?(:to_int)
 
     value.to_int
+  end
+
+  # rb_to_int: an Integer, or what `to_int` makes one, where nil is a
+  # value like any other.
+  def to_integer(value)
+    Primitive.attr! :hidden
+    return value if value.is_a?(Integer)
+    raise TypeError, "no implicit conversion of #{conversion_name(value)} into Integer" unless value.respond_to?(:to_int)
+
+    converted = value.to_int
+    return converted if converted.is_a?(Integer)
+
+    raise TypeError, "can't convert #{value.class} to Integer (#{value.class}#to_int gives #{converted.class})"
   end
 
   def exit_status(status)

@@ -46,7 +46,6 @@ gaps/rubygems_then_bundler.rb	milestones/rubygems_then_bundler.rb
 gaps/a_gated_constant_appears_at_its_require.rb	stdlib/base64/a_gated_constant_appears_at_its_require.rb
 gaps/require_of_a_builtin_feature_works_from_any_position.rb	stdlib/base64/require_of_a_builtin_feature_works_from_any_position.rb
 gaps/require_positions_and_paths.rb	stdlib/base64/require_positions_and_paths.rb
-gaps/strict_arg_conversion.rb	stdlib/base64/strict_arg_conversion.rb
 gaps/json_parser_class_options.rb	stdlib/bigdecimal/json_parser_class_options.rb
 gaps/marshal_round_trips_a_native_value.rb	stdlib/bigdecimal/marshal_round_trips_a_native_value.rb
 gaps/native_object_protocol.rb	stdlib/bigdecimal/native_object_protocol.rb

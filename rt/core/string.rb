@@ -1040,15 +1040,21 @@ class String
     other =~ self
   end
 
-  def match(pattern, pos = 0, &block)
-    pattern = Regexp.new(pattern) unless pattern.is_a?(Regexp)
-    pattern.match(self, pos, &block)
-  end
+  def match(pattern, pos = 0, &block) = String.send(:pattern_of, pattern).match(self, pos, &block)
 
-  def match?(pattern, pos = 0)
-    pattern = Regexp.new(pattern) unless pattern.is_a?(Regexp)
-    pattern.match?(self, pos)
+  def match?(pattern, pos = 0) = String.send(:pattern_of, pattern).match?(self, pos)
+
+  # get_pat: a Regexp, or a String compiled as one.
+  def self.pattern_of(pattern)
+    Primitive.attr! :hidden
+    return pattern if pattern.is_a?(Regexp)
+
+    text = String.try_convert(pattern)
+    raise TypeError, "wrong argument type #{conversion_name(pattern)} (expected Regexp)" if text.nil?
+
+    Regexp.new(text)
   end
+  private_class_method :pattern_of
 
   def encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
 

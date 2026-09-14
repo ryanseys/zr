@@ -569,16 +569,17 @@ class MatchData
   # reaching the whole match), by name, or a run of them.
   def [](index, length = nil)
     return to_a[index, length] if length
+
     case index
-    when Integer
+    when String, Symbol then group(named_group(index))
+    when Range then to_a[index]
+    else
+      index = implicit_integer(index)
       if index < 0
         index += size
         return nil if index <= 0
       end
       index < size ? group(index) : nil
-    when String, Symbol then group(named_group(index))
-    when Range then to_a[index]
-    else raise TypeError, "no implicit conversion of #{conversion_name(index)} into Integer"
     end
   end
 

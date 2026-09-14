@@ -181,6 +181,7 @@ class Random::Base
 
   # `n` random bytes, four per draw, least significant first.
   def bytes(size)
+    size = to_integer(size)
     raise ArgumentError, "negative string size (or size too big)" if size < 0
 
     out = "".b
