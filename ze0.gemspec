@@ -1,0 +1,45 @@
+# frozen_string_literal: true
+
+require_relative "lib/ze0/version"
+
+Gem::Specification.new do |spec|
+  spec.name = "ze0"
+  spec.version = Ze0::VERSION
+  spec.authors = ["Ryan Seys"]
+  spec.email = ["ryan@ryanseys.com"]
+
+  spec.summary = "A Ruby compiler, written in Ruby, that answers what ruby 4.0.6 answers or refuses by name"
+  spec.description = <<~TEXT
+    ze0 compiles Ruby programs to native aarch64-apple-darwin binaries on an
+    Apple Silicon Mac, and to WASI modules on any host. The compiler and the
+    runtime are Ruby; prism, oniguruma and zlib are vendored C.
+  TEXT
+  spec.homepage = "https://github.com/ryanseys/ze0"
+  spec.license = "MIT" # the vendored parts: THIRD_PARTY_NOTICES.md
+  spec.required_ruby_version = [">= 4.0.6", "< 4.1"]
+
+  spec.metadata = {
+    "changelog_uri" => "#{spec.homepage}/blob/main/CHANGELOG.md",
+    "bug_tracker_uri" => "#{spec.homepage}/issues",
+    "rubygems_mfa_required" => "true"
+  }
+
+  # The compiler, its runtime and the vendored sources. The corpus, the
+  # checks, tools/ and the test harness stay in the repository.
+  spec.files = Dir.chdir(__dir__) do
+    `git ls-files -z`.split("\x0").select do |file|
+      file.match?(%r{\A(exe|ext|lib|rt|vendor/(c|ext|lib))/}) ||
+        %w[LICENSE.txt THIRD_PARTY_NOTICES.md README.md CHANGELOG.md].include?(file)
+    end.reject { |file| file.start_with?("lib/ze0/harness/") }
+  end
+  spec.bindir = "exe"
+  spec.executables = ["ze0"]
+  # Only lib/: rt/ and vendor/ hold files named like ruby's own libraries
+  # (rbconfig, set, json), and must never shadow them.
+  spec.require_paths = ["lib"]
+  spec.extensions = ["ext/ze0/extconf.rb"]
+
+  # The host parser. Its node shapes must match the vendored C prism,
+  # which is ruby 4.0.6's.
+  spec.add_dependency "prism", "~> 1.9.0"
+end
