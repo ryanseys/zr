@@ -1,0 +1,27 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  release:
+    runs-on: macos-15
+    environment: release
+    permissions:
+      contents: write
+      id-token: write # trusted publishing to rubygems.org
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+      # Builds pkg/ze0-<version>.gem and pushes it to rubygems.org.
+      - uses: rubygems/release-gem@v1
+      # The same file to gem.coop. Check its push host and key before the
+      # first release.
+      - name: Push to gem.coop
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.GEM_COOP_API_KEY }}
+        run: gem push --host https://gem.coop pkg/ze0-*.gem

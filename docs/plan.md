@@ -332,29 +332,31 @@ Linux and x86-64 (seams kept: target triple, pointer width, `sys_*.rb`, object f
 
 Stage-0 host: CRuby 4.0.6 (`.ruby-version`, the oracle). Gems used by the compiler under CRuby: prism, `aarch64` (or our own encoder table), `jit_buffer`-style Fiddle calls for `Obj::JIT`. Vendored C (prism, oniguruma, zlib, openssl, libffi) built by `ze0 deps build` with `cc`. Apple tools: `cc` (required, to compile the vendored C and to link a program that reaches it), `ld` through it, `ar` for the vendored archives, `otool`/`nm` (dev-only checks). `Obj::Exe` links everything else. wasmtime for Part D. The README names every one.
 
-Layout of `~/dev/ze0` after Part A (Part 0 created the top-level shape; `~/dev/zeo` is untouched beyond losing `ze0/`):
+Layout of `~/dev/ze0` as one RubyGem (2026-09-14; the README's Layout section is the file-by-file map):
 
 ```
-ze0.rb, bin/ze0                  the CLI (ze0.rb stays the historical entry point)
-.ruby-version                    the stage-0 host, which is also the oracle
-rt/ext/rbconfig.rb               the ambient rbconfig ze0 answers with
-lib/ze0/harness/                 the test-file format and the corpus sweep
-vendor/ext/<gem>/lib             the Ruby halves ze0 splices (prism among them)
-docs/plan.md, docs/test-format.md
-test/                            the corpus, test/ze0/, test/checks/, test/native/, test/zr/, test/rt/, test/programs/, test/hir/
-lib/ze0/hir/                 node, build, analyze/, lower_zr/, lower_machine/
-lib/ze0/ir/                  function, block, inst, ops_high, legalize_*, verify, interp, wasm, arm64/
-lib/ze0/obj/                 model, macho, jit, exe
-lib/ze0/machine/             types, effects, struct, import, aarch64
-lib/ze0/cli/                 run, build, link, cache, test, check, stage1, stage2
-lib/ze0/capi.rb              the legacy runtime table, archived with the legacy lowering
-rt/kernel/                   value, heap, gc, frame, signal, dispatch, shape, symbol, string, array, hash, qsort, task, sched, pool, ractor, sys_darwin, sys_wasi
-rt/core/                     one file per Ruby class
-rt/enc/                      generated tables
-rt/ext/<gem>/                native halves in kernel Ruby or FFI
-rt/spike/                    the B2 micro runtime
-rt/{boot,main}.rb
-test/zr/, test/native/           new corpora
+ze0.gemspec, Gemfile, Rakefile   the gem: a ruby-platform gem, require path lib/ only
+exe/ze0                          the gem's CLI; lib/ze0/cli.rb holds run, build, machine, deps, version
+bin/ze0                          the checkout's CLI: the gem's commands, plus test, bench, check, stage1, stage2
+ext/ze0/extconf.rb               builds the vendored C into vendor/build/<target>/ as the gem installs
+lib/ze0.rb, lib/ze0/version.rb   the entry
+lib/ze0/paths.rb                 root, rt, vendor, build and cache directories, named once
+lib/ze0/target.rb                the targets ze0 emits, and what this host can build
+lib/ze0/{hir,zr,machine,ir,obj,native}/   the compiler
+lib/ze0/harness/                 the test-file format and the corpus sweep (repository only)
+rt/{kernel,core,ext}/            the runtime; beside lib/, never on a load path
+vendor/c, vendor/ext, vendor/lib the vendored C, extension gems' Ruby halves, ruby's stdlib
+tools/, test/, docs/             repository only
+```
+
+Later: targets. The gem platform is the host the compiler runs on; a target is what ze0 emits. A second native target (aarch64-linux first) moves toward:
+
+```
+lib/ze0/target/<triple>.rb       wires a backend, an object writer, a linker, an OS layer and archives
+lib/ze0/backend/{aarch64,wasm}/  today's ir/arm64.rb, ir/arm64/, machine/aarch64/ and ir/wasm.rb
+lib/ze0/obj/macho/, obj/elf/     today's macho.rb, exe.rb and stamps.rb, and an ELF writer beside them
+rt/kernel/os/darwin/             the struct offsets, signal numbers, select$DARWIN_EXTSN and MAP_JIT now in env.rb, io.rb, signal.rb and jit.rb
+tools/{errno,fcntl,etc,socket}.rb   one generated table per OS
 ```
 
 Parallel ownership for worktrees (`parallelize` skill): A owns `lib/ze0/cli/`, `lib/ze0/hir/`, `lib/ze0/ir/` (core); B owns `lib/ze0/ir/arm64/`, `lib/ze0/obj/`, `rt/spike/`; C owns `rt/`, `lib/ze0/machine/`, `lib/ze0/hir/lower_zr/`; D owns `lib/ze0/ir/wasm*`, `rt/kernel/sys_wasi.rb`.

@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  macos:
+    name: checks and gem (macOS arm64)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+      - uses: bytecodealliance/actions/wasmtime/setup@v1
+      - name: Build the vendored C
+        run: bundle exec rake compile
+      - name: Run the checks
+        run: bundle exec rake check
+      - name: Build the gem
+        run: gem build ze0.gemspec
+      # The same install path on both hosts: the runtime carries its
+      # source paths, so equal bytes need equal paths.
+      - name: Install the gem
+        run: |
+          sudo mkdir -p /opt/ze0 && sudo chown "$USER" /opt/ze0
+          GEM_HOME=/opt/ze0/gems gem install --local ./ze0-*.gem
+      - name: Smoke-run the installed gem
+        run: |
+          mkdir -p /opt/ze0/smoke && cd /opt/ze0/smoke
+          printf 'puts [1, 2, 3].sum\n' > sum.rb
+          export GEM_HOME=/opt/ze0/gems ZE0_CACHE=/opt/ze0/cache
+          test "$(/opt/ze0/gems/bin/ze0 run sum.rb)" = 6
+          /opt/ze0/gems/bin/ze0 build sum.rb -o sum.wasm --emit wasm
+          /opt/ze0/gems/bin/ze0 build sum.rb -o sum.o --emit obj
+          test "$(wasmtime sum.wasm)" = 6
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gem
+          path: ze0-*.gem
+      - uses: actions/upload-artifact@v4
+        with:
+          name: outputs-macos
+          path: |
+            /opt/ze0/smoke/sum.wasm
+            /opt/ze0/smoke/sum.o
+
+  linux:
+    name: gem on a host without native builds (Linux)
+    needs: macos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "4.0.6"
+      - uses: bytecodealliance/actions/wasmtime/setup@v1
+      - uses: actions/download-artifact@v4
+        with:
+          name: gem
+      - name: Install the gem
+        run: |
+          sudo mkdir -p /opt/ze0 && sudo chown "$USER" /opt/ze0
+          GEM_HOME=/opt/ze0/gems gem install --local ./ze0-*.gem
+      - name: Build wasm and obj, and refuse a native binary
+        run: |
+          mkdir -p /opt/ze0/smoke && cd /opt/ze0/smoke
+          printf 'puts [1, 2, 3].sum\n' > sum.rb
+          export GEM_HOME=/opt/ze0/gems ZE0_CACHE=/opt/ze0/cache
+          /opt/ze0/gems/bin/ze0 build sum.rb -o sum.wasm --emit wasm
+          /opt/ze0/gems/bin/ze0 build sum.rb -o sum.o --emit obj
+          test "$(wasmtime sum.wasm)" = 6
+          set +e
+          /opt/ze0/gems/bin/ze0 build sum.rb -o sum
+          status=$?
+          set -e
+          test "$status" = 3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: outputs-linux
+          path: |
+            /opt/ze0/smoke/sum.wasm
+            /opt/ze0/smoke/sum.o
+
+  same-bytes:
+    name: output does not depend on the host
+    needs: [macos, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: outputs-macos
+          path: macos
+      - uses: actions/download-artifact@v4
+        with:
+          name: outputs-linux
+          path: linux
+      - run: |
+          sha256sum macos/* linux/*
+          cmp macos/sum.wasm linux/sum.wasm
+          cmp macos/sum.o linux/sum.o
