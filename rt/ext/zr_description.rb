@@ -153,6 +153,7 @@ module Ze0
         d zr_define_method Value klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value
         d zr_define_method_public Value klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value
         d zr_define_method_as Value klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value vis:Word
+        d zr_meta_owned Ptr meta:Ptr owner:Value
         d zr_definition_vis Word mid:Word cref:Value
         d zr_define_bmethod Value klass:Value mid:Word meta:Ptr body:Value cref:Value
         d zr_method_added Value klass:Value mid:Word
@@ -254,7 +255,6 @@ module Ze0
         d zr_const_names_at Void klass:Value out:Value
         d zr_const_names_of Void mod:Value out:Value inherit:Bool
         d zr_mod_constants Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
-        d zr_mod_nesting Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_const_remove Void klass:Value id:Word
         d zr_autoload Value mod:Value id:Word feature:Value fn:Ptr cref:Value kind:Word path:Value
         d zr_autoload_computed Value mod:Value name:Value feature:Value cref:Value
@@ -289,6 +289,7 @@ module Ze0
         d zr_program_args Value
         d zr_at_exit_add Value blk:Value
         d zr_program_end Word exc:Value
+        d zr_program_end_hook Word r:Value status:Word exc:Value
         d zr_signal_of Word exc:Value
         d zr_die_by_signal Void signo:Word
         d zr_exit_status Word exc:Value
@@ -397,6 +398,7 @@ module Ze0
         d zr_exc_detail Void exc:Value id:Word v:Value
         d zr_exc_set_class Value exc:Value klass:Value
         d zr_buf_frame Void b:Ptr rec:Ptr
+        d zr_frame_label_meta Ptr rec:Ptr
         d zr_kernel_caller Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_fiber_backtrace_m Value fiber:Value start:Value limit:Value
         d zr_fiber_stack_error Value err:Word
@@ -698,6 +700,7 @@ module Ze0
         d zr_path_access Value path:Value mode:Value
         d zr_select_fn Ptr
         d zr_io_wait Value fd:Value events:Value milliseconds:Value
+        d zr_io_wait_once Value fd:Value events:Value milliseconds:Value
         d zr_jit_map Value size:Value exec:Value hint:Value
         d zr_jit_symbol Value name:Value
         d zr_jit_write_data Value at:Value bytes:Value
@@ -722,7 +725,6 @@ module Ze0
         d zr_warn_position Value
         d zr_warn_here_m Value s:Value
         d zr_obj_head Value recv:Value
-        d zr_any_to_s Value v:Value
         d zr_special_p_m Value v:Value
         d zr_boot_class Value g:Word name:Word sup:Value
         d zr_boot_name Void g:Word name:Word
@@ -831,6 +833,7 @@ module Ze0
         d zr_buf_obj_head Void b:Ptr obj:Value
         d zr_class_path Value klass:Value
         d zr_buf_class_of Void b:Ptr v:Value
+        d zr_any_to_s Value v:Value
         d zr_obj_as_string Value v:Value
         d zr_inspect Value v:Value
         d zr_obj_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -953,6 +956,7 @@ module Ze0
         d zr_proc_setsid Value
         d zr_proc_groups Value
         d zr_proc_kill Value pid:Value signal:Value
+        d zr_proc_kill_all Value pids:Value signal:Value
         d zr_proc_getrlimit Value resource:Value
         d zr_proc_setrlimit Value resource:Value cur:Value max:Value
         d zr_proc_setid Value call:Value id:Value
@@ -995,6 +999,7 @@ module Ze0
         d zr_mod_protected_method_defined Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_method_super_method Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_included_modules Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_mod_nesting Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_kernel_method_name Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_kernel_callee Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_singleton_class_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1084,6 +1089,13 @@ module Ze0
         d zr_preempt Value
         d zr_preempt_expired Value
         d zr_preempt_send Value mid:Word
+        d zr_trap_caught Void signo:I32
+        d zr_trap_dropped Void signo:I32
+        d zr_trap_handle Value signo:Value how:Value
+        d zr_trap_kind Word fn:Word
+        d zr_trap_next Value
+        d zr_trap_check Value
+        d zr_io_retry Value
         d zr_sock_socket Value domain:Value type:Value protocol:Value
         d zr_sock_bind Value fd:Value addr:Value
         d zr_sock_connect Value fd:Value addr:Value
@@ -1469,6 +1481,13 @@ module Ze0
         c SEND_CORE 8
         c SEND_MODE 7
         c PREEMPT_TICKS 20000
+        c NSIG 32
+        c EINTR 4
+        c SIGNAL_DEFAULT 0
+        c SIGNAL_IGNORE 1
+        c SIGNAL_RUBY 2
+        c SIGNAL_NOTHING 3
+        c SIGNAL_OTHER 4
         c SOCKADDR_MAX 128
         c FL_ASCII 2097152
         c FL_ASCII_CLEAR -2097153

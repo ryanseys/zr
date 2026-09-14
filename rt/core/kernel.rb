@@ -225,10 +225,12 @@ module Kernel
       raise TypeError, "can't convert #{conversion_name(duration)} into time interval" unless duration.is_a?(Numeric)
       raise ArgumentError, "time interval must not be negative" if duration < 0
     end
-    started = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
-    deadline = duration.nil? ? nil : started + (duration * 1e9).to_i
+    # The answer is whole seconds of the wall clock, time(2) after less
+    # time(2) before, as rb_f_sleep counts them.
+    began = Process.clock_gettime(Process::CLOCK_REALTIME, :second)
+    deadline = duration.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (duration * 1e9).to_i
     Thread.current.send(:wait, deadline, false)
-    ((Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) - started) / 1e9).round
+    Process.clock_gettime(Process::CLOCK_REALTIME, :second) - began
   end
 
   def itself = self

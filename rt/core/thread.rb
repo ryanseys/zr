@@ -174,26 +174,29 @@ class Thread
       # a thread parked here shows the line that waited, as CRuby shows.
       Primitive.attr! :hidden
       from = @current
-      to = @queue.shift
-      while to.nil?
+      while (to = @queue.shift).nil?
         if @sleepers.empty?
           return deadlock if deadly
 
           Primitive.zr_nanosleep(1_000_000_000)
-          to = @queue.shift
-        else
-          to = next_sleeper
+        elsif (to = next_sleeper)
+          break
         end
       end
       to.send(:take_over, from) unless to.equal?(from)
       from.send(:interrupted)
     end
 
+    # The sleeper whose deadline comes first, once it passes; nil when a
+    # signal cut the wait short, since its handler may have woken
+    # another thread.
     def next_sleeper
       @sleepers.sort_by!(&:first)
-      deadline, thread = @sleepers.shift
+      deadline, thread = @sleepers.first
       left = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
-      Primitive.zr_nanosleep(left) if left > 0
+      return nil if left > 0 && !Primitive.zr_nanosleep(left)
+
+      @sleepers.shift
       thread.send(:timed_out)
       thread
     end
@@ -533,7 +536,15 @@ class Thread
     @status = :sleep
     @timed_out = false
     Thread.send(:sleep_until, self, deadline) if deadline
-    Thread.send(:switch, deadly && deadline.nil?)
+    begin
+      Thread.send(:switch, deadly && deadline.nil?)
+    ensure
+      # Still asleep: a signal's handler raised while this thread waited.
+      if @status == :sleep
+        @status = :run
+        Thread.send(:awake, self)
+      end
+    end
     !@timed_out
   end
 

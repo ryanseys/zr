@@ -894,21 +894,6 @@ machine def zr_mod_constants(recv, argc, argv, cref, blk)
   out
 end
 
-# `Module.nesting`: the lexical scopes open where the call was made,
-# innermost first. The chain's last node is Object, which is not one.
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_mod_nesting(recv, argc, argv, cref, blk)
-  out = zr_ary_new(4)
-  c = zr_cref_lexical(Frame.cref(Frame.prev(Task.top(zr_task()))))
-  while RCref.next(c) != QNIL
-    if RCref.eval(c) == 0
-      zr_ary_push(out, zr_cref_klass(c))
-    end
-    c = RCref.next(c)
-  end
-  out
-end
-
 # The row for `id` taken out of `klass`'s own table.
 sig [Value, Word] => Void
 machine def zr_const_remove(klass, id)

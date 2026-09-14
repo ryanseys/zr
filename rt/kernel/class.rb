@@ -903,7 +903,8 @@ machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
   FrameMeta.set_owner(meta, klass)
   modfn = cref != QNIL && RCref.modfn(cref) != 0
   if modfn
-    zr_method_add_vis(zr_singleton_class(klass), mid, fn, arity, kind, meta, cref, VIS_PUBLIC)
+    single = zr_singleton_class(klass)
+    zr_method_add_vis(single, mid, fn, arity, kind, zr_meta_owned(meta, single), cref, VIS_PUBLIC)
   end
   zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
   # Under `module_function` one def makes two methods, and ruby reports
@@ -912,6 +913,20 @@ machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
   return r if r == QUNDEF || !modfn
 
   zr_method_added(zr_singleton_class(klass), mid)
+end
+
+# `meta` as the method `owner` holds reports it: the module function's
+# copy on the singleton class labels its frames `Mod.name`, where the
+# private instance method labels them `Mod#name`.
+sig [Ptr, Value] => Ptr
+machine def zr_meta_owned(meta, owner)
+  if meta == 0 || FrameMeta.owner(meta) == owner
+    return meta
+  end
+  copy = zr_xmalloc(FrameMeta.size)
+  zr_memcpy(copy, meta, FrameMeta.size)
+  FrameMeta.set_owner(copy, owner)
+  copy
 end
 
 # The visibility a definition under `cref` gets: the body's current
@@ -1214,7 +1229,8 @@ machine def zr_set_method_visibility(klass, mid, vis, modfn)
     return zr_raise_buf(zr_global(G_NAME_ERROR), b)
   end
   if modfn != 0
-    zr_method_copy(zr_singleton_class(klass), mid, e, MEntry.meta(e), VIS_PUBLIC, false)
+    single = zr_singleton_class(klass)
+    zr_method_copy(single, mid, e, zr_meta_owned(MEntry.meta(e), single), VIS_PUBLIC, false)
     vis = VIS_PRIVATE
   end
   # A verb that finds the method on an ancestor makes a row here, and a

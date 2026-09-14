@@ -5,10 +5,7 @@
 module Process
   SHELL_META = "*?{}[]<>()~&|\\$;'`\"\n#".freeze
   SHELL_WORDS = %w[! . : break case continue do done elif else esac eval exec exit export fi for if in readonly return set shift then times trap unset until while].freeze
-  # The signals a process can be sent: Signal.list less EXIT, which
-  # names no signal.
-  SIGNALS = Signal.send(:const_get, :LIST).reject { |name, _| name == "EXIT" }.freeze
-  private_constant :SHELL_META, :SHELL_WORDS, :SIGNALS
+  private_constant :SHELL_META, :SHELL_WORDS
   WNOHANG = 1
   WUNTRACED = 2
 
@@ -351,12 +348,18 @@ module Process
     Tms.new(*Primitive.zr_proc_rusage(0), *Primitive.zr_proc_rusage(-1))
   end
 
-  def kill(signal, *pids)
-    number = signal.is_a?(Integer) ? signal : SIGNALS.fetch(signal.to_s.delete_prefix("SIG")) { raise ArgumentError, "unsupported signal 'SIG#{signal.to_s.delete_prefix('SIG')}'" }
-    pids.each do |pid|
-      result = Primitive.zr_proc_kill(pid, number)
-      raise SystemCallError.new(nil, -result) if result < 0
-    end
+  # rb_f_kill: a negative signal goes to each process group. A signal
+  # this process sends itself is handled before the call answers.
+  def kill(*args)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2+)" if args.size < 2
+
+    signal, *pids = args
+    number = Primitive.zr_fixnum_p_m(signal) ? signal : Signal.send(:number, signal, negative: true)
+    pids.map! { |pid| Integer.send(:int_operand, pid) }
+    pids.map!(&:-@) if number.negative?
+    result = Primitive.zr_proc_kill_all(pids, number.abs)
+    raise SystemCallError.new(nil, -result) if result < 0
+
     pids.size
   end
 
@@ -512,16 +515,6 @@ module Process
 
   private_class_method :set_ids, :set_id, :id_of, :unsigned, :signed, :c_string, :rlimit_resource, :rlimit_value,
                        :group_limit, :switching!
-
-  def self.signal_number(name)
-    Primitive.attr! :hidden
-    SIGNALS[name]
-  end
-
-  def self.signal_name(number)
-    Primitive.attr! :hidden
-    SIGNALS.key(number)
-  end
 
   # Runs the command; the child's pid, or nil when it could not start
   # (then `$?` says exit 127).
@@ -851,23 +844,7 @@ module Kernel
   module_function :spawn, :system, :`
 end
 
-module Signal
-  def list = LIST.dup
-
-  def signame(number)
-    number = Primitive.zr_index_operand_m(number)
-    number == 0 ? "EXIT" : Process.signal_name(number)
-  end
-
-  def trap(*) = Primitive.zr_unimplemented("Signal.trap")
-
-  module_function :list, :signame, :trap
-end
-
 module Kernel
-  def trap(*) = Primitive.zr_unimplemented("Kernel#trap")
-  private :trap
-
   # Darwin deprecates the raw system call, and ruby leaves it out.
   Primitive.zr_define_notimplement(self, :syscall)
   module_function :syscall

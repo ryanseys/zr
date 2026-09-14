@@ -1,7 +1,6 @@
 gaps/file_open_is_ios_own_row.rb	compiler/builtins/file_open_is_ios_own_row.rb
 gaps/ffi_libc_call.rb	aot/ffi_libc_call.rb
 gaps/openssl_digest.rb	aot/openssl_digest.rb
-gaps/signal_trap.rb	aot/signal_trap.rb
 gaps/socket_loopback.rb	aot/socket_loopback.rb
 gaps/zlib_roundtrip.rb	aot/zlib_roundtrip.rb
 gaps/arithmetic_sequence_rows.rb	compiler/builtins/arithmetic_sequence_rows.rb
@@ -11,8 +10,6 @@ gaps/core_long_tail_rows.rb	compiler/builtins/core_long_tail_rows.rb
 gaps/gc_fiber_binding_rows.rb	compiler/builtins/gc_fiber_binding_rows.rb
 gaps/kernel_intrinsic_rows.rb	compiler/builtins/kernel_intrinsic_rows.rb
 gaps/marshal_private_surfaces.rb	compiler/builtins/marshal_private_surfaces.rb
-gaps/signal_module_and_signal_exception_surface.rb	compiler/builtins/signal_module_and_signal_exception_surface.rb
-gaps/signal_module_surface.rb	compiler/builtins/signal_module_surface.rb
 gaps/thread_surface.rb	compiler/builtins/thread_surface.rb
 gaps/tracepoint_reflection_rows.rb	compiler/builtins/tracepoint_reflection_rows.rb
 gaps/a_snippet_reaches_its_callers_block.rb	compiler/cache/a_snippet_reaches_its_callers_block.rb
@@ -21,14 +18,10 @@ gaps/a_typed_slot_takes_the_object_that_converts_to_it.rb	compiler/fusion/a_type
 gaps/a_defined_guard_asks_about_this_moment.rb	compiler/guards/a_defined_guard_asks_about_this_moment.rb
 gaps/a_platform_guard_decides_at_build_time.rb	compiler/guards/a_platform_guard_decides_at_build_time.rb
 gaps/a_version_gate_compares_by_version_not_by_string.rb	compiler/guards/a_version_gate_compares_by_version_not_by_string.rb
-gaps/bundle_io_sys.rb	core/io/bundle_io_sys.rb
 gaps/io_buffer.rb	core/io/io_buffer.rb
 gaps/a_computed_require_loads_a_bundled_library.rb	core/kernel/a_computed_require_loads_a_bundled_library.rb
 gaps/eval_caller_locals.rb	core/kernel/eval_caller_locals.rb
 gaps/pack_covers_every_directive.rb	core/pack/pack_covers_every_directive.rb
-gaps/signal_module.rb	core/process/signal_module.rb
-gaps/signal_trap_stub.rb	core/process/signal_trap_stub.rb
-gaps/trap_quotes_the_signal_name.rb	core/process/trap_quotes_the_signal_name.rb
 gaps/an_iseq_label_names_the_block_it_came_from.rb	core/rubyvm/an_iseq_label_names_the_block_it_came_from.rb
 gaps/rubyvm_ast.rb	core/rubyvm/rubyvm_ast.rb
 gaps/rubyvm_ast_node_taxonomy.rb	core/rubyvm/rubyvm_ast_node_taxonomy.rb
@@ -51,7 +44,6 @@ gaps/a_singleton_def_labels_its_frame_after_the_method.rb	lang/methods/a_singlet
 gaps/the_ast_translator_builds_splat_lists_like_parse_y.rb	lang/methods/the_ast_translator_builds_splat_lists_like_parse_y.rb
 gaps/fiddle.rb	lang/programs/fiddle.rb
 gaps/a_gemspec_loads_from_yaml.rb	milestones/a_gemspec_loads_from_yaml.rb
-gaps/a_minitest_suite_runs.rb	milestones/a_minitest_suite_runs.rb
 gaps/an_rspec_suite_runs.rb	milestones/an_rspec_suite_runs.rb
 gaps/bundler_registers_its_thor_commands.rb	milestones/bundler_registers_its_thor_commands.rb
 gaps/require_bundler.rb	milestones/require_bundler.rb
@@ -92,7 +84,6 @@ gaps/digest_framework_ancestry_and_ruby_half.rb	stdlib/digest/digest_framework_a
 gaps/digest_lengths_and_encodings.rb	stdlib/digest/digest_lengths_and_encodings.rb
 gaps/kernel_digest_names_an_algorithm.rb	stdlib/digest/kernel_digest_names_an_algorithm.rb
 gaps/english_special_globals.rb	stdlib/english/english_special_globals.rb
-gaps/probe_messages.rb	stdlib/etc/probe_messages.rb
 gaps/a_bare_struct_name_in_a_signature_is_a_reference.rb	stdlib/ffi/a_bare_struct_name_in_a_signature_is_a_reference.rb
 gaps/a_by_value_struct_return_through_the_runtime_tier.rb	stdlib/ffi/a_by_value_struct_return_through_the_runtime_tier.rb
 gaps/a_callback_exception_surfaces_from_the_c_call.rb	stdlib/ffi/a_callback_exception_surfaces_from_the_c_call.rb

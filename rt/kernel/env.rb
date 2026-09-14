@@ -61,21 +61,14 @@ machine def zr_program_end(exc)
     status = zr_system_exit_p(exc) ? zr_exit_status(exc) : 1
     zr_errinfo_set(exc)
   end
+  # The EXIT trap runs first, as rb_vm_trap_exit runs before the
+  # at_exit handlers.
+  status = zr_program_end_hook(zr_send(zr_core_class(Machine.id(:Signal)), Machine.id(:exit_trap), 0, 0), status, exc)
   hooks = zr_global(G_AT_EXIT)
   if !zr_special_p(hooks)
     while RArray.len(hooks) > 0
       blk = zr_ary_pop(hooks, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
-      r = zr_yield(blk, 0, 0)
-      if r == QUNDEF
-        raised = Task.pending(zr_task())
-        Task.set_pending(zr_task(), Machine.value(QNIL))
-        if zr_system_exit_p(raised)
-          status = zr_exit_status(raised)
-        else
-          zr_error_print_upto(raised, exc)
-          status = 1
-        end
-      end
+      status = zr_program_end_hook(zr_yield(blk, 0, 0), status, exc)
     end
   end
   signo = 0
@@ -100,6 +93,22 @@ machine def zr_program_end(exc)
     zr_die_by_signal(signo)
   end
   status
+end
+
+# A handler at exit ran and answered `r`: a SystemExit it raised sets
+# the status, and any other error is printed and makes the status 1.
+sig [Value, Word, Value] => Word
+machine def zr_program_end_hook(r, status, exc)
+  if r != QUNDEF
+    return status
+  end
+  raised = Task.pending(zr_task())
+  Task.set_pending(zr_task(), Machine.value(QNIL))
+  if zr_system_exit_p(raised)
+    return zr_exit_status(raised)
+  end
+  zr_error_print_upto(raised, exc)
+  1
 end
 
 # The signal an uncaught SignalException carries, or 0.
@@ -499,15 +508,22 @@ machine def zr_str_crypt(text, salt)
   zr_str_new(out, zr_cstr_len(out))
 end
 
-# The whole process sleeps `ns` nanoseconds.
+# The whole process sleeps `ns` nanoseconds, or until a signal comes:
+# true when the time passed, false when a signal cut the sleep short
+# and its handlers ran.
 sig [Value] => Value
 machine def zr_nanosleep(ns)
   n = zr_fix2long(ns)
   ts = Machine.slot(16)
   Machine.store64(ts, 0, n / 1000000000)
   Machine.store64(ts, 8, n % 1000000000)
-  nanosleep(ts, 0)
-  Machine.value(QNIL)
+  if nanosleep(ts, 0) == Machine.i32(0)
+    return Machine.value(QTRUE)
+  end
+  if zr_trap_check() == QUNDEF
+    return Machine.value(QUNDEF)
+  end
+  Machine.value(QFALSE)
 end
 
 Machine.import "tzset", [] => Void

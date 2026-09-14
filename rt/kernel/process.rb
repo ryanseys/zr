@@ -98,8 +98,12 @@ machine def zr_proc_wait(pid, flags)
   status = Machine.slot(8)
   Machine.store64(status, 0, 0)
   r = waitpid(Machine.i32(zr_fix2long(pid)), status, Machine.i32(zr_fix2long(flags)))
-  if r < Machine.i32(0)
-    return zr_fix(0 - zr_errno())
+  while r < Machine.i32(0)
+    failed = zr_io_retry()
+    if failed != QNIL
+      return failed
+    end
+    r = waitpid(Machine.i32(zr_fix2long(pid)), status, Machine.i32(zr_fix2long(flags)))
   end
   out = zr_ary_new(2)
   zr_ary_push(out, zr_fix(Machine.word(r)))
@@ -218,6 +222,25 @@ end
 sig [Value, Value] => Value
 machine def zr_proc_kill(pid, signal)
   zr_io_status(kill(Machine.i32(zr_fix2long(pid)), Machine.i32(zr_fix2long(signal))))
+end
+
+# kill(2) of `signal` to every pid in `pids`, in one call as rb_f_kill
+# makes them, so that a signal this process sends itself is handled
+# once all are sent: 0, or the negated errno of the first that failed.
+sig [Value, Value] => Value
+machine def zr_proc_kill_all(pids, signal)
+  i = 0
+  while i < RArray.len(pids)
+    r = zr_proc_kill(zr_ary_at(pids, i), signal)
+    if r != zr_fix(0)
+      return r
+    end
+    i += 1
+  end
+  if zr_trap_check() == QUNDEF
+    return Machine.value(QUNDEF)
+  end
+  zr_fix(0)
 end
 
 Machine.import "getrlimit", [I32, Ptr] => I32

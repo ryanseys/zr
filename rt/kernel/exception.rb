@@ -87,7 +87,7 @@ machine def zr_backtrace_capture(exc, top)
     meta = Frame.meta(rec)
     if FrameMeta.kind(meta) != KIND_HIDDEN
       row = rows + (i * BtRow.size)
-      BtRow.set_meta(row, meta)
+      BtRow.set_meta(row, zr_frame_label_meta(rec))
       source = zr_frame_with_file(rec)
       if source == 0
         BtRow.set_file(row, 0)
@@ -644,8 +644,31 @@ machine def zr_buf_frame(b, rec)
     zr_buf_long(b, Frame.line(source))
   end
   zr_buf_push(b, Machine.bytes(":in '"), 5)
-  zr_buf_label(b, Frame.meta(rec))
+  zr_buf_label(b, zr_frame_label_meta(rec))
   zr_buf_byte(b, 39)
+end
+
+# The meta a backtrace names the frame `rec` by. A module function runs
+# the one def's code from both of its methods, and that code names the
+# module as its owner. A module is no instance of itself, so a frame
+# whose self is that module came through the singleton class: the row
+# takes that method's own meta, which CRuby labels `Mod.name`.
+sig [Ptr] => Ptr
+machine def zr_frame_label_meta(rec)
+  meta = Frame.meta(rec)
+  owner = FrameMeta.owner(meta)
+  if (FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BUILTIN) || Frame.self(rec) != owner || zr_type(owner) != T_MODULE
+    return meta
+  end
+  single = RBasic.klass(owner)
+  if !zr_singleton_p(single) || RClass.attached(single) != owner
+    return meta
+  end
+  e = zr_find_method_at(single, FrameMeta.name(meta))
+  if e == 0 || MEntry.meta(e) == 0 || FrameMeta.file(MEntry.meta(e)) != FrameMeta.file(meta) || FrameMeta.line(MEntry.meta(e)) != FrameMeta.line(meta)
+    return meta
+  end
+  MEntry.meta(e)
 end
 
 # `Kernel#caller(start = 1, length = nil)`: the rows outward from the

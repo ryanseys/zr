@@ -138,7 +138,14 @@ O_CLOEXEC = 16777216
 sig [Value, Value] => Value
 machine def zr_io_open_flags(path, flags)
   fd = open(RString.ptr(path), Machine.i32(zr_fix2long(flags) | O_CLOEXEC))
-  fd < Machine.i32(0) ? zr_fix(0 - zr_errno()) : zr_fix(Machine.sword(fd))
+  while fd < Machine.i32(0)
+    failed = zr_io_retry()
+    if failed != QNIL
+      return failed
+    end
+    fd = open(RString.ptr(path), Machine.i32(zr_fix2long(flags) | O_CLOEXEC))
+  end
+  zr_fix(Machine.sword(fd))
 end
 
 sig [Value, Value] => Value
@@ -174,9 +181,13 @@ machine def zr_io_read(fd, count)
   n = zr_fix2long(count)
   buf = zr_xmalloc(n + 1)
   got = read(Machine.i32(zr_fix2long(fd)), buf, n)
-  if got < 0
-    free(buf)
-    return zr_fix(0 - zr_errno())
+  while got < 0
+    failed = zr_io_retry()
+    if failed != QNIL
+      free(buf)
+      return failed
+    end
+    got = read(Machine.i32(zr_fix2long(fd)), buf, n)
   end
   if got == 0
     free(buf)
@@ -229,7 +240,11 @@ machine def zr_io_write(fd, s)
   while done < n
     w = write(Machine.i32(zr_fix2long(fd)), RString.ptr(s) + done, n - done)
     if w < 0
-      return zr_fix(0 - zr_errno())
+      failed = zr_io_retry()
+      if failed != QNIL
+        return failed
+      end
+      w = 0
     end
     done += w
   end
@@ -246,7 +261,15 @@ machine def zr_io_write_some(fd, s, from, count)
   if n > zr_fix2long(count)
     n = zr_fix2long(count)
   end
-  zr_io_failed(write(Machine.i32(zr_fix2long(fd)), RString.ptr(s) + at, n))
+  w = write(Machine.i32(zr_fix2long(fd)), RString.ptr(s) + at, n)
+  while w < 0
+    failed = zr_io_retry()
+    if failed != QNIL
+      return failed
+    end
+    w = write(Machine.i32(zr_fix2long(fd)), RString.ptr(s) + at, n)
+  end
+  zr_fix(w)
 end
 
 sig [Value] => Value
@@ -665,6 +688,18 @@ end
 # number fits.
 sig [Value, Value, Value] => Value
 machine def zr_io_wait(fd, events, milliseconds)
+  r = zr_io_wait_once(fd, events, milliseconds)
+  while r == zr_fix(0 - EINTR)
+    if zr_trap_check() == QUNDEF
+      return Machine.value(QUNDEF)
+    end
+    r = zr_io_wait_once(fd, events, milliseconds)
+  end
+  r
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_io_wait_once(fd, events, milliseconds)
   n = zr_fix2long(fd)
   if n < 0
     return zr_fix(0 - EBADF)

@@ -179,6 +179,7 @@ module Ze0
             names = (d.parameters&.requireds || []).map { |p| p.name.to_s }
             refuse(d, "the sig has #{params.size} types for #{names.size} parameters") if names.size != params.size
             refuse(d, "a machine def takes required parameters only") if d.parameters && d.parameters.child_nodes.compact.size != names.size
+            refuse(d, "#{d.name} is defined twice; the first is in #{@defs[d.name.to_s].file}") if @defs.key?(d.name.to_s)
             @defs[d.name.to_s] = Def.new(d.name.to_s, names.zip(params), ret, d, @file)
           else
             refuse(node, "`#{node.name}` is not in the kernel dialect at the top level")

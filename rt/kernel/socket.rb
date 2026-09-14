@@ -57,8 +57,12 @@ machine def zr_sock_accept(fd)
   size = Machine.slot(8)
   Machine.store32(size, 0, Machine.i32(SOCKADDR_MAX))
   r = accept(Machine.i32(zr_fix2long(fd)), addr, size)
-  if r < Machine.i32(0)
-    return zr_fix(0 - zr_errno())
+  while r < Machine.i32(0)
+    failed = zr_io_retry()
+    if failed != QNIL
+      return failed
+    end
+    r = accept(Machine.i32(zr_fix2long(fd)), addr, size)
   end
   out = zr_ary_new(2)
   zr_ary_push(out, zr_fix(Machine.word(r)))
@@ -83,9 +87,13 @@ machine def zr_sock_recv(fd, count, flags)
   n = zr_fix2long(count)
   buffer = zr_xmalloc(n)
   r = recv(Machine.i32(zr_fix2long(fd)), buffer, n, Machine.i32(zr_fix2long(flags)))
-  if r < 0
-    free(buffer)
-    return zr_fix(0 - zr_errno())
+  while r < 0
+    failed = zr_io_retry()
+    if failed != QNIL
+      free(buffer)
+      return failed
+    end
+    r = recv(Machine.i32(zr_fix2long(fd)), buffer, n, Machine.i32(zr_fix2long(flags)))
   end
   if r == 0
     free(buffer)
@@ -105,9 +113,13 @@ machine def zr_sock_recvfrom(fd, count, flags)
   size = Machine.slot(8)
   Machine.store32(size, 0, Machine.i32(SOCKADDR_MAX))
   r = recvfrom(Machine.i32(zr_fix2long(fd)), buffer, n, Machine.i32(zr_fix2long(flags)), addr, size)
-  if r < 0
-    free(buffer)
-    return zr_fix(0 - zr_errno())
+  while r < 0
+    failed = zr_io_retry()
+    if failed != QNIL
+      free(buffer)
+      return failed
+    end
+    r = recvfrom(Machine.i32(zr_fix2long(fd)), buffer, n, Machine.i32(zr_fix2long(flags)), addr, size)
   end
   out = zr_ary_new(2)
   zr_ary_push(out, zr_str_new(buffer, r))
