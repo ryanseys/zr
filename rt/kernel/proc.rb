@@ -278,15 +278,20 @@ machine def zr_kernel_proc(recv, argc, argv, cref, blk)
   blk
 end
 
-# `Proc.new { }`: as `proc`, and the arguments go to `initialize`, which
-# takes none, as rb_proc_s_new passes them.
+# `Proc.new { }`: as `proc`, and the arguments go to `initialize`, as
+# rb_proc_s_new passes them. A subclass's is a copy of the block made
+# an instance of it, as proc_new makes one.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_proc_s_new(recv, argc, argv, cref, blk)
   p = zr_kernel_proc(recv, 0, argv, cref, blk)
   return p if p == QUNDEF
-  if argc != 0
-    return zr_wrong_arity(argc, 0)
+  if RBasic.klass(p) != recv
+    p = zr_copy_cell(p)
+    return p if p == QUNDEF
+    RBasic.set_klass(p, recv)
   end
+  r = zr_send_blk(p, Machine.id(:initialize), argc, argv, blk)
+  return r if r == QUNDEF
   p
 end
 
