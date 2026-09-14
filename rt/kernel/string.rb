@@ -347,6 +347,47 @@ machine def zr_str_set_index_m(s, index)
   zr_str_set_index(s, zr_fix2long(index))
 end
 
+# A String the core library writes out of plain ASCII -- digits, a
+# name, brackets -- which is US-ASCII, as rb_usascii_str_new makes it.
+sig [Ptr, Word] => Value
+machine def zr_usascii_str_new(bytes, len)
+  zr_str_set_index(zr_str_new(bytes, len), ENC_USASCII)
+end
+
+# `s` tagged US-ASCII, for text the core library knows is plain ASCII.
+sig [Value] => Value
+machine def zr_str_usascii(s)
+  zr_str_set_index(s, ENC_USASCII)
+end
+
+# The encoding a String takes when a piece is appended to it, as
+# rb_enc_cr_str_buf_cat decides. The String is `len` bytes in `index`,
+# all of them ASCII when `ascii`; the piece is in `piece`, all ASCII
+# when `piece_ascii`, and holds a byte. ENC_NONE when the two cannot
+# join.
+sig [Word, Bool, Word, Word, Bool] => Word
+machine def zr_enc_append(index, ascii, len, piece, piece_ascii)
+  if piece == index
+    return index
+  end
+  if !zr_enc_ascii_compat_p(index) || !zr_enc_ascii_compat_p(piece)
+    return len == 0 ? piece : ENC_NONE
+  end
+  if piece_ascii
+    return index
+  end
+  ascii ? piece : ENC_NONE
+end
+
+# The same for a String piece, which an empty one leaves as it was.
+sig [Word, Bool, Word, Value] => Word
+machine def zr_enc_append_str(index, ascii, len, s)
+  if RString.len(s) == 0
+    return index
+  end
+  zr_enc_append(index, ascii, len, zr_str_encoding_index(s), zr_str_ascii_bytes_p(s))
+end
+
 # The encoding a join takes, as rb_enc_compatible decides: an empty
 # side gives way, unless the receiver is empty and the other side is
 # not ASCII it can hold; else the side that is not plain ASCII. Both
@@ -1222,25 +1263,12 @@ machine def zr_str_interp(argc, argv)
       s = zr_str_from_buf_obj_head(v)
     end
     piece = zr_str_encoding_index(s)
-    piece_ascii = zr_str_ascii_bytes_p(s)
-    if i == 0
-      index = piece
-    elsif piece != index && RString.len(s) > 0
-      if Buf.len(b) > 0 && (!zr_enc_ascii_compat_p(index) || !zr_enc_ascii_compat_p(piece) || (!ascii && !piece_ascii))
-        return zr_str_join_incompatible(zr_str_set_index(zr_buf_take(b), index), s)
-      end
-      if Buf.len(b) == 0
-        if !zr_enc_ascii_compat_p(index) || !piece_ascii
-          index = piece
-        end
-      elsif ascii && !piece_ascii
-        index = piece
-      end
+    joined = i == 0 ? piece : zr_enc_append_str(index, ascii, Buf.len(b), s)
+    if joined == ENC_NONE
+      return zr_str_join_incompatible(zr_str_set_index(zr_buf_take(b), index), s)
     end
-    if piece != ENC_USASCII && index == ENC_USASCII
-      index = piece
-    end
-    ascii = ascii && piece_ascii
+    index = piece != ENC_USASCII && joined == ENC_USASCII ? piece : joined
+    ascii = ascii && zr_str_ascii_bytes_p(s)
     zr_buf_str(b, s)
     i += 1
   end
@@ -1254,7 +1282,7 @@ machine def zr_str_from_buf_obj_head(v)
   zr_buf_init(b)
   zr_buf_obj_head(b, v)
   zr_buf_byte(b, 62)
-  zr_buf_take(b)
+  zr_buf_take_at(b, ENC_BINARY)
 end
 
 # A frozen literal: the same String object at every evaluation.

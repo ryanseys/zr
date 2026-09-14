@@ -643,7 +643,7 @@ class Module
     name = name.to_str
     raise ArgumentError, "empty class/module name" if name.empty?
     raise ArgumentError, "the temporary name must not be a constant path to avoid confusion" if name.split("::").all? { |part| constant_name?(part) }
-    raise RuntimeError, "can't change permanent name" unless Primitive.zr_mod_set_temporary_name(self, name)
+    raise RuntimeError, "can't change permanent name" unless Primitive.zr_mod_set_temporary_name(self, -name)
 
     self
   end

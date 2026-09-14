@@ -118,11 +118,11 @@ class Data
   def inspect
     name = Primitive.zr_real_class(self).name
     head = name ? "#<data #{name}" : "#<data"
-    return "#{head}:...>" if Primitive.zr_recursive_enter(self, :inspect)
+    return Primitive.zr_obj_form("#{head}:...>") if Primitive.zr_recursive_enter(self, :inspect)
 
     begin
       pairs = members.zip(values_store).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }
-      pairs.empty? && name ? "#{head}>" : "#{head} #{pairs.join(', ')}>"
+      Primitive.zr_obj_form(pairs.empty? && name ? "#{head}>" : "#{head} #{pairs.join(', ')}>")
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
     end

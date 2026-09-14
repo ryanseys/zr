@@ -831,7 +831,7 @@ class IO
   def inspect
     text = "#<#{self.class}:#{label}"
     text = "#{text} (closed)" if @closed
-    "#{text}>"
+    Primitive.zr_obj_form("#{text}>")
   end
 
   # The arguments are walked without Array's own methods: a program

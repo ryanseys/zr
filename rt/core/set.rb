@@ -256,7 +256,7 @@ class Set
         first = false
         text << item.inspect
       end
-      text << "]"
+      Primitive.zr_obj_form(text << "]")
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
     end

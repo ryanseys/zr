@@ -618,7 +618,7 @@ end
 # methods.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_main_to_s(recv, argc, argv, cref, blk)
-  zr_str_new(Machine.bytes("main"), 4)
+  zr_str_set_index(zr_str_new(Machine.bytes("main"), 4), ENC_BINARY)
 end
 
 # `attached_object`: the object a singleton class belongs to; a plain

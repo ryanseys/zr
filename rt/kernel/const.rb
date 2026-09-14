@@ -568,12 +568,27 @@ sig [Value, Word] => Value
 machine def zr_class_name_under(scope, id)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
+  index = ENC_USASCII
+  ascii = true
   unless zr_toplevel_scope_p(scope)
-    zr_buf_str(b, zr_class_path(scope))
+    head = zr_class_path(scope)
+    index = zr_str_encoding_index(head)
+    ascii = zr_str_ascii_bytes_p(head)
+    zr_buf_str(b, head)
     zr_buf_push(b, Machine.bytes("::"), 2)
   end
+  tail_ascii = zr_bytes_ascii_only_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
+  index = zr_enc_append(index, ascii, Buf.len(b), tail_ascii ? ENC_USASCII : zr_symbol_encoding_index(id), tail_ascii)
   zr_buf_sym(b, id)
-  zr_buf_take(b)
+  zr_class_name_str(zr_str_set_index(zr_buf_take(b), index))
+end
+
+# A class's name as rb_class_path keeps it: frozen, so the name that
+# `Module#name` answers is the class's own.
+sig [Value] => Value
+machine def zr_class_name_str(s)
+  RBasic.set_flags(s, RBasic.flags(s) | FL_FREEZE)
+  s
 end
 
 # Whether a name made under `scope` is for good: a toplevel's is, and

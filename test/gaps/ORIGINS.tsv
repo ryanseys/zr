@@ -158,4 +158,3 @@ gaps/issue_set_trace_func_missing.rb	stdlib/set/issue_set_trace_func_missing.rb
 gaps/psych_syntax_error_carries_marks.rb	stdlib/yaml/psych_syntax_error_carries_marks.rb
 gaps/ffi_typedefs_and_guarded_directives.rb	ze0/ffi_typedefs_and_guarded_directives.rb
 gaps/bundler_resolves_a_gemfile.rb	milestones/bundler_resolves_a_gemfile.rb
-gaps/a_core_string_answers_in_us_ascii.rb	core/string/a_core_string_answers_in_us_ascii.rb

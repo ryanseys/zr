@@ -191,15 +191,15 @@ class Enumerator
 
   # A lazy shows what it was made with rather than what `each` runs.
   def inspect
-    return "#<#{self.class}: uninitialized>" unless @method
+    return Primitive.zr_obj_form("#<#{self.class}: uninitialized>") unless @method
 
     receiver, method, args, kwargs = @shown || [@receiver, @method, @args, @kwargs]
-    return "#<#{self.class}: ...>" if Primitive.zr_recursive_enter(self, :inspect)
+    return Primitive.zr_obj_form("#<#{self.class}: ...>") if Primitive.zr_recursive_enter(self, :inspect)
 
     begin
       parts = args.map(&:inspect) + kwargs.map { |k, v| "#{k}: #{v.inspect}" }
       shown = parts.empty? ? "" : "(#{parts.join(', ')})"
-      "#<#{self.class}: #{receiver.inspect}#{":#{method}" if method}#{shown}>"
+      Primitive.zr_obj_form("#<#{self.class}: #{receiver.inspect}#{":#{method}" if method}#{shown}>")
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
     end
@@ -949,7 +949,7 @@ class Enumerator::Chain < Enumerator
     self
   end
 
-  def inspect = "#<Enumerator::Chain: #{@enums.inspect}>"
+  def inspect = Primitive.zr_obj_form("#<Enumerator::Chain: #{@enums.inspect}>")
 
   private def initialize_copy(other)
     Kernel.instance_method(:initialize_copy).bind_call(self, other)
@@ -997,7 +997,7 @@ class Enumerator::Product < Enumerator
     self
   end
 
-  def inspect = "#<Enumerator::Product: #{@enums.inspect}>"
+  def inspect = Primitive.zr_obj_form("#<Enumerator::Product: #{@enums.inspect}>")
 
   private def initialize_copy(other)
     Kernel.instance_method(:initialize_copy).bind_call(self, other)

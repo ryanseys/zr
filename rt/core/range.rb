@@ -485,18 +485,26 @@ class Range
 
   public
 
-  def to_s = "#{@begin}#{@excl ? "..." : ".."}#{@end}"
+  # Each end as rb_obj_as_string writes it, joined in the encoding the
+  # beginning's text carries.
+  def to_s = Primitive.zr_obj_as_string(@begin).dup << dots << Primitive.zr_obj_as_string(@end)
 
   # An endless or beginless range leaves that side blank; only a range
-  # with neither end spells its nils.
+  # with neither end spells its nils. A blank beginning is an empty
+  # binary String, as inspect_range starts one.
   def inspect
-    dots = @excl ? "..." : ".."
-    return "nil#{dots}nil" if @begin.nil? && @end.nil?
-
-    "#{@begin.inspect unless @begin.nil?}#{dots}#{@end.inspect unless @end.nil?}"
+    text = @begin.nil? && !@end.nil? ? String.new : Primitive.zr_inspect(@begin).dup
+    text << dots
+    text << Primitive.zr_inspect(@end) unless @end.nil? && !@begin.nil?
+    text
   end
 
   private
+
+  def dots
+    Primitive.attr! :hidden
+    @excl ? "..." : ".."
+  end
 
   # What `dup` and `clone` fill a copy with: the other Range's bounds.
   def initialize_copy(other)

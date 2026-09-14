@@ -83,3 +83,13 @@ machine def zr_buf_take(b)
   Buf.set_capa(b, 0)
   s
 end
+
+# The buffer's bytes as a new String in `index` while they are plain
+# ASCII, as the core library starts one it writes out of a name or an
+# inspect. A byte past ASCII came from a piece in UTF-8, which the
+# String then takes, as rb_str_buf_append has it.
+sig [Ptr, Word] => Value
+machine def zr_buf_take_at(b, index)
+  ascii = zr_bytes_ascii_only_p(Buf.ptr(b), Buf.len(b))
+  zr_str_set_index(zr_buf_take(b), ascii ? index : ENC_UTF8)
+end

@@ -81,7 +81,7 @@ machine def zr_int_to_s(recv, argc, argv, cref, blk)
   if base == 10
     buf = Machine.slot(24)
     n = zr_long_digits(zr_fix2long(recv), buf)
-    return zr_str_new(buf, n)
+    return zr_usascii_str_new(buf, n)
   end
   v = zr_fix2long(recv)
   negative = v < 0
@@ -104,7 +104,7 @@ machine def zr_int_to_s(recv, argc, argv, cref, blk)
     at -= 1
     Machine.store8(buf + at, 0, Machine.i8(45))
   end
-  zr_str_new(buf + at, 72 - at)
+  zr_usascii_str_new(buf + at, 72 - at)
 end
 
 # A bignum is a plain object of class Integer: its limbs live in

@@ -321,19 +321,19 @@ class Complex < Numeric
     real.rationalize(eps)
   end
 
-  def to_s = formatted
+  def to_s = formatted(:to_s)
 
-  def inspect = "(#{formatted})"
+  def inspect = String.new("(", encoding: Encoding::US_ASCII) << formatted(:inspect) << ")"
 
-  # `a+bi`, the shape both `to_s` and `inspect` show.
-  def formatted
+  # f_format: `a+bi`, each part as `form` writes it -- rb_String for
+  # `to_s`, rb_inspect for `inspect` -- and the text takes the encoding
+  # the real part's does.
+  def formatted(form)
     Primitive.attr! :hidden
-    text = +""
-    text << part_text(real)
+    text = +part_text(real, form)
     text << (sign_bit?(imaginary) ? "-" : "+")
-    imag_text = part_text(imaginary.is_a?(Float) && imaginary.nan? ? imaginary : imaginary.abs)
-    text << imag_text
-    text << "*" unless imag_text[-1].match?(/\d/)
+    text << part_text(imaginary.is_a?(Float) && imaginary.nan? ? imaginary : imaginary.abs, form)
+    text << "*" unless text[-1].match?(/\d/)
     text << "i"
   end
 
@@ -348,11 +348,9 @@ class Complex < Numeric
 
   private
 
-  def part_text(x)
+  def part_text(x, form)
     Primitive.attr! :hidden
-    return "(#{x})" if x.is_a?(Rational)
-
-    x.to_s
+    form == :inspect ? Primitive.zr_inspect(x) : Primitive.zr_obj_as_string(x)
   end
 
   def exact_real?

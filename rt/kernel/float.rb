@@ -844,7 +844,7 @@ machine def zr_flo_to_s(recv, argc, argv, cref, blk)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_float(b, zr_float_value(recv))
-  zr_buf_take(b)
+  zr_buf_take_at(b, ENC_USASCII)
 end
 
 # --- parsing and libm -----------------------------------------------------

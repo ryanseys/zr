@@ -218,14 +218,14 @@ class Struct
   # otherwise only when it is a name, not a #<Class:0x...>.
   def inspect
     path = Primitive.zr_class_path(Primitive.zr_real_class(self))
-    return "#<struct #{path}:...>" if Primitive.zr_recursive_enter(self, :inspect)
+    return Primitive.zr_obj_form("#<struct #{path}:...>") if Primitive.zr_recursive_enter(self, :inspect)
 
     name = path unless path.start_with?("#")
     head = name ? "#<struct #{name}" : "#<struct"
 
     begin
       pairs = members.zip(values_store).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }
-      pairs.empty? && name ? "#{head}>" : "#{head} #{pairs.join(', ')}>"
+      Primitive.zr_obj_form(pairs.empty? && name ? "#{head}>" : "#{head} #{pairs.join(', ')}>")
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
     end

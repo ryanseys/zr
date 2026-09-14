@@ -687,5 +687,5 @@ machine def zr_method_inspect(recv, argc, argv, cref, blk)
     zr_buf_long(b, FrameMeta.line(meta))
   end
   zr_buf_byte(b, 62)
-  zr_buf_take(b)
+  zr_buf_take_at(b, ENC_BINARY)
 end

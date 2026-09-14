@@ -538,18 +538,22 @@ machine def zr_ary_last(recv, argc, argv, cref, blk)
 end
 
 # `[1, 2]`: each element's inspect may run Ruby, so the buffer is
-# re-read by index.
+# re-read by index. The text takes the first element's encoding and
+# each later one joins it, as inspect_ary appends them; every inspect
+# rb_inspect answers can join, so no pair of them is an error.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_inspect(recv, argc, argv, cref, blk)
   if RArray.len(recv) == 0
-    return zr_str_new(Machine.bytes("[]"), 2)
+    return zr_usascii_str_new(Machine.bytes("[]"), 2)
   end
   if zr_guard_enter(recv, Machine.id(:inspect))
-    return zr_str_new(Machine.bytes("[...]"), 5)
+    return zr_usascii_str_new(Machine.bytes("[...]"), 5)
   end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_byte(b, 91)
+  index = ENC_USASCII
+  ascii = true
   i = 0
   while i < RArray.len(recv)
     if i > 0
@@ -561,12 +565,14 @@ machine def zr_ary_inspect(recv, argc, argv, cref, blk)
       zr_guard_leave(recv, Machine.id(:inspect))
       return s
     end
+    index = i == 0 ? zr_str_encoding_index(s) : zr_enc_append_str(index, ascii, Buf.len(b), s)
+    ascii = ascii && zr_str_ascii_bytes_p(s)
     zr_buf_str(b, s)
     i += 1
   end
   zr_buf_byte(b, 93)
   zr_guard_leave(recv, Machine.id(:inspect))
-  zr_buf_take(b)
+  zr_str_set_index(zr_buf_take(b), index)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value

@@ -95,6 +95,7 @@ module Ze0
         d zr_buf_sym Void b:Ptr id:Word
         d zr_buf_str Void b:Ptr s:Value
         d zr_buf_take Value b:Ptr
+        d zr_buf_take_at Value b:Ptr index:Word
         d zr_consts_changed Void
         d zr_call_cache_hit Ptr cc:Ptr recv:Value mid:Word
         d zr_call_cache_fill Void cc:Ptr klass:Value e:Ptr mode:Word
@@ -244,6 +245,7 @@ module Ze0
         d zr_mod_deprecate_constant Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_const_get_at Value scope:Value id:Word
         d zr_class_name_under Value scope:Value id:Word
+        d zr_class_name_str Value s:Value
         d zr_class_named_for_good Bool scope:Value
         d zr_name_nested Void mod:Value
         d zr_class_define Value scope:Value id:Word sup:Value
@@ -755,6 +757,7 @@ module Ze0
         d zr_puts_value Value v:Value
         d zr_puts Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_print Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_fixed_name Value g:Word bytes:Ptr len:Word
         d zr_nil_to_s Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_true_to_s Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_false_to_s Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -877,6 +880,7 @@ module Ze0
         d zr_class_path Value klass:Value
         d zr_buf_class_of Void b:Ptr v:Value
         d zr_any_to_s Value v:Value
+        d zr_obj_form Value text:Value
         d zr_obj_as_string Value v:Value
         d zr_inspect Value v:Value
         d zr_obj_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1219,6 +1223,10 @@ module Ze0
         d zr_str_set_binary Value s:Value
         d zr_str_encoding_index_m Value s:Value
         d zr_str_set_index_m Value s:Value index:Value
+        d zr_usascii_str_new Value bytes:Ptr len:Word
+        d zr_str_usascii Value s:Value
+        d zr_enc_append Word index:Word ascii:Bool len:Word piece:Word piece_ascii:Bool
+        d zr_enc_append_str Word index:Word ascii:Bool len:Word s:Value
         d zr_str_join_index Word a:Value b:Value
         d zr_str_join_incompatible_p Bool a:Value b:Value
         d zr_str_join_incompatible Value a:Value b:Value
@@ -1484,7 +1492,7 @@ module Ze0
         c G_FALSE 10
         c G_MAIN 11
         c G_NUMERIC 13
-        c G_COUNT 55
+        c G_COUNT 58
         c GATE_PLUS 1
         c GATE_MINUS 2
         c GATE_MUL 4
@@ -1527,6 +1535,9 @@ module Ze0
         c MAP_ANON_PRIVATE 4098
         c MAP_JIT 2048
         c RTLD_DEFAULT -2
+        c G_NIL_TO_S 55
+        c G_TRUE_TO_S 56
+        c G_FALSE_TO_S 57
         c STACK_MARGIN 262144
         c T_METHOD 29
         c G_METHOD 33
@@ -1629,6 +1640,7 @@ module Ze0
         c ENC_BINARY 0
         c ENC_UTF8 1
         c ENC_USASCII 2
+        c ENC_NONE 255
         c ENC_UTF16BE 3
         c ENC_UTF16LE 4
         c ENC_UTF32BE 5

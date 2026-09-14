@@ -58,29 +58,42 @@ machine def zr_print(recv, argc, argv, cref, blk)
   Machine.value(QNIL)
 end
 
+G_NIL_TO_S = 55
+G_TRUE_TO_S = 56
+G_FALSE_TO_S = 57
+
+# The one frozen US-ASCII String that `nil.to_s`, `true.to_s` or
+# `false.to_s` answers every time, made the first time it is asked for.
+sig [Word, Ptr, Word] => Value
+machine def zr_fixed_name(g, bytes, len)
+  s = zr_global(g)
+  if zr_special_p(s)
+    s = zr_usascii_str_new(bytes, len)
+    RBasic.set_flags(s, RBasic.flags(s) | FL_FREEZE)
+    zr_set_global(g, s)
+  end
+  s
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_nil_to_s(recv, argc, argv, cref, blk)
-  zr_str_new(Machine.bytes(""), 0)
+  zr_fixed_name(G_NIL_TO_S, Machine.bytes(""), 0)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_true_to_s(recv, argc, argv, cref, blk)
-  zr_str_new(Machine.bytes("true"), 4)
+  zr_fixed_name(G_TRUE_TO_S, Machine.bytes("true"), 4)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_false_to_s(recv, argc, argv, cref, blk)
-  zr_str_new(Machine.bytes("false"), 5)
+  zr_fixed_name(G_FALSE_TO_S, Machine.bytes("false"), 5)
 end
 
 # `#<Name:0x` and sixteen hex digits of the address, as CRuby prints.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_to_s(recv, argc, argv, cref, blk)
-  b = Machine.slot(Buf.size)
-  zr_buf_init(b)
-  zr_buf_obj_head(b, recv)
-  zr_buf_byte(b, 62)
-  zr_buf_take(b)
+  zr_any_to_s(recv)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -170,7 +183,7 @@ machine def zr_obj_head(recv)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_obj_head(b, recv)
-  zr_buf_take(b)
+  zr_buf_take_at(b, ENC_BINARY)
 end
 
 sig [Value] => Value

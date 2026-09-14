@@ -57,7 +57,7 @@ class Binding
   # brought, as it does Kernel#eval.
   def eval(source, file = nil, line = 1) = Primitive.zr_unimplemented("eval reached in a program built without the compiler")
 
-  def inspect = "#<Binding:0x#{format("%016x", object_id * 2)}>"
+  def inspect = Primitive.zr_obj_form("#<Binding:0x#{format("%016x", object_id * 2)}>")
 
   alias to_s inspect
 

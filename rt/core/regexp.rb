@@ -751,7 +751,7 @@ class MatchData
     regexp.send(:name_rows).each { |name, groups| groups.each { |g| labels[g - 1] = name } } if regexp.is_a?(Regexp)
     parts = [group(0).inspect]
     labels.each_with_index { |label, i| parts << "#{label}:#{group(i + 1).inspect}" }
-    "#<MatchData #{parts.join(' ')}>"
+    Primitive.zr_obj_form("#<MatchData #{parts.join(' ')}>")
   end
 
   private

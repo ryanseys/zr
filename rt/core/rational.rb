@@ -96,9 +96,9 @@ class Rational < Numeric
   # nurat_to_double: the quotient rb_int_fdiv_double rounds once.
   def to_f = numerator.fdiv(denominator)
 
-  def to_s = "#{numerator}/#{denominator}"
+  def to_s = formatted(:to_s)
 
-  def inspect = "(#{self})"
+  def inspect = String.new("(", encoding: Encoding::US_ASCII) << formatted(:inspect) << ")"
 
   def hash = [numerator, denominator, :Rational].hash
 
@@ -424,4 +424,12 @@ class Rational
   end
 
   private :marshal_dump, :marshal_load
+
+  private
+
+  # f_format: the numerator and the denominator, each as `form` writes it.
+  def formatted(form)
+    Primitive.attr! :hidden
+    numerator.public_send(form) << "/" << denominator.public_send(form)
+  end
 end

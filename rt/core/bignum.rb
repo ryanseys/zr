@@ -444,7 +444,8 @@ class Integer
         parts << rem
       end
       text = parts.reverse.each_with_index.map { |r, i| i.zero? ? r.to_s(base) : r.to_s(base).rjust(per, "0") }.join
-      big_neg?(x) ? "-#{text}" : text
+      text = "-#{text}" if big_neg?(x)
+      text.force_encoding(Encoding::US_ASCII)
     end
 
     # The nearest double: the top 62 bits with a sticky bit for the

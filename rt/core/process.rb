@@ -103,7 +103,7 @@ module Process
       "pid #{@pid} SIG#{Signal.signame(termsig)} (signal #{termsig})#{coredump? ? ' (core dumped)' : ''}"
     end
 
-    def inspect = @pid.zero? ? "#<#{self.class}: uninitialized>" : "#<Process::Status: #{self}>"
+    def inspect = Primitive.zr_obj_form(@pid.zero? ? "#<#{self.class}: uninitialized>" : "#<Process::Status: #{self}>")
   end
 
   # What a spawn's options ask the child for: `dups` are (child

@@ -822,6 +822,34 @@ class String
   UNIT_ESCAPES = { 34 => "\\\"", 92 => "\\\\", 10 => "\\n", 9 => "\\t", 13 => "\\r", 27 => "\\e", 7 => "\\a", 8 => "\\b", 12 => "\\f", 11 => "\\v" }.freeze
   private_constant :UNIT_ESCAPES
 
+  # What ruby_escaped_char writes for a control character.
+  CONTROL_ESCAPES = { 0 => "\\0", 10 => "\\n", 13 => "\\r", 9 => "\\t", 12 => "\\f", 11 => "\\v", 8 => "\\b", 7 => "\\a", 27 => "\\e", 127 => "\\c?" }.freeze
+  UNICODE_NAMES = %w[UTF-8 UTF8-MAC CESU-8 UTF-16BE UTF-16LE UTF-32BE UTF-32LE UTF-16 UTF-32].freeze
+  private_constant :CONTROL_ESCAPES, :UNICODE_NAMES
+
+  # rb_str_escape: an inspect past ASCII in an encoding other than the
+  # default external one, as rb_inspect shows it -- printable ASCII as
+  # it is and every other character escaped, in US-ASCII.
+  def escape
+    Primitive.attr! :hidden
+    unicode = UNICODE_NAMES.include?(encoding.name)
+    plain = unicode || encoding.ascii_compatible?
+    out = String.new(encoding: Encoding::US_ASCII)
+    each_char do |char|
+      unless char.valid_encoding?
+        char.each_byte { |byte| out << format("\\x%02X", byte) }
+        next
+      end
+      code = char.ord
+      out << if (shown = CONTROL_ESCAPES[code]) then shown
+             elsif plain && code.between?(0x20, 0x7E) then code.chr
+             elsif unicode then format(code < 0x10000 ? "\\u%04X" : "\\u{%X}", code)
+             else format(code < 0x100 ? "\\x%02X" : "\\x{%X}", code)
+             end
+    end
+    out
+  end
+
   # A UTF-16 or UTF-32 String inspected as ruby writes one: ASCII as it
   # is, every other character as \u, and bytes that make no character
   # as \x. A dummy name has no characters to show, so every byte is \x.
@@ -1931,11 +1959,13 @@ class Encoding
 
   attr_reader :names
 
+  # Every name is a frozen US-ASCII String, the same one each time it is
+  # asked for.
   def initialize(index, names, dummy, ascii, loaded, bytewise)
+    @names = names.map { |name| Primitive.zr_str_usascii(name.dup).freeze }.freeze
     # The one field CRuby shows a program.
-    Primitive.zr_hidden_set(self, :@name, names.first)
+    Primitive.zr_hidden_set(self, :@name, @names.first)
     @index = index
-    @names = names.freeze
     @dummy = dummy
     @ascii = ascii
     @loaded = loaded
@@ -1971,7 +2001,7 @@ class Encoding
   # has not read, in that order, as enc_inspect writes them.
   def inspect
     shown = @names[1] == "BINARY" ? "BINARY (ASCII-8BIT)" : name
-    "#<Encoding:#{shown}#{" (dummy)" if @dummy}#{" (autoload)" unless @loaded}>"
+    "#<Encoding:#{shown}#{" (dummy)" if @dummy}#{" (autoload)" unless @loaded}>".force_encoding(US_ASCII)
   end
 
   def ascii_compatible?

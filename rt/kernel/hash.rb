@@ -701,14 +701,18 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_hash_inspect(recv, argc, argv, cref, blk)
   if RHash.live(recv) == 0
-    return zr_str_new(Machine.bytes("{}"), 2)
+    return zr_usascii_str_new(Machine.bytes("{}"), 2)
   end
   if zr_guard_enter(recv, Machine.id(:inspect))
-    return zr_str_new(Machine.bytes("{...}"), 5)
+    return zr_usascii_str_new(Machine.bytes("{...}"), 5)
   end
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
   zr_buf_byte(b, 123)
+  # The text takes the first key's encoding, and each piece after joins
+  # it, as inspect_i appends them.
+  index = ENC_USASCII
+  ascii = true
   first = true
   i = 0
   while i < RHash.len(recv)
@@ -717,9 +721,17 @@ machine def zr_hash_inspect(recv, argc, argv, cref, blk)
       unless first
         zr_buf_push(b, Machine.bytes(", "), 2)
       end
-      first = false
       key = HEntry.key(e)
       if zr_symbol_p(key)
+        id = zr_sym2id(key)
+        name_ascii = zr_bytes_ascii_only_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
+        name_index = name_ascii ? ENC_USASCII : zr_symbol_encoding_index(id)
+        if first
+          index = name_index
+        elsif zr_symbol_name_len(id) > 0
+          index = zr_enc_append(index, ascii, Buf.len(b), name_index, name_ascii)
+        end
+        ascii = ascii && name_ascii
         if zr_symbol_key_simple_p(key)
           zr_buf_sym(b, zr_sym2id(key))
         else
@@ -733,6 +745,8 @@ machine def zr_hash_inspect(recv, argc, argv, cref, blk)
           zr_guard_leave(recv, Machine.id(:inspect))
           return s
         end
+        index = first ? zr_str_encoding_index(s) : zr_enc_append_str(index, ascii, Buf.len(b), s)
+        ascii = ascii && zr_str_ascii_bytes_p(s)
         zr_buf_str(b, s)
         zr_buf_push(b, Machine.bytes(" => "), 4)
       end
@@ -743,13 +757,16 @@ machine def zr_hash_inspect(recv, argc, argv, cref, blk)
         zr_guard_leave(recv, Machine.id(:inspect))
         return s
       end
+      index = zr_enc_append_str(index, ascii, Buf.len(b), s)
+      ascii = ascii && zr_str_ascii_bytes_p(s)
       zr_buf_str(b, s)
+      first = false
     end
     i += 1
   end
   zr_buf_byte(b, 125)
   zr_guard_leave(recv, Machine.id(:inspect))
-  zr_buf_take(b)
+  zr_str_set_index(zr_buf_take(b), index)
 end
 
 # `==`: the same keys, each with `==` values.

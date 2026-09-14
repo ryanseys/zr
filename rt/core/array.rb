@@ -133,34 +133,45 @@ class Array
 
   def at(index) = self[Primitive.zr_index_operand_m(index)]
 
+  # rb_ary_join: the text starts empty in US-ASCII, and the first
+  # element's text gives it its encoding -- unless that element is an
+  # Array, whose own elements join the text as the rest do.
   def join(sep = nil)
     sep = $, if sep.nil?
+    return String.new(encoding: Encoding::US_ASCII) if empty?
+
     sep = sep.nil? ? "" : Primitive.zr_str_operand(sep)
     raise ArgumentError, "recursive array join" if Primitive.zr_recursive_enter(self, :join)
 
     begin
-      s = +""
+      s = String.new(encoding: Encoding::US_ASCII)
       i = 0
       while i < size
         s << sep if i > 0
-        x = self[i]
-        s << if x.is_a?(Array)
-               x.join(sep)
-             elsif x.is_a?(String)
-               x
-             elsif x.respond_to?(:to_str)
-               x.to_str
-             elsif x.respond_to?(:to_ary)
-               x.to_ary.join(sep)
-             else
-               Primitive.zr_obj_as_string(x)
-             end
+        part = join_part(self[i])
+        if part.is_a?(Array)
+          s << part.join(sep)
+        else
+          s << part
+          s.force_encoding(part.encoding) if i.zero?
+        end
         i += 1
       end
       s
     ensure
       Primitive.zr_recursive_leave(self, :join)
     end
+  end
+
+  # What one element stands for in `join`: its text, or an Array whose
+  # elements join in its place.
+  def join_part(x)
+    Primitive.attr! :hidden
+    return x if x.is_a?(String) || x.is_a?(Array)
+    return x.to_str if x.respond_to?(:to_str)
+    return x.to_ary if x.respond_to?(:to_ary)
+
+    Primitive.zr_obj_as_string(x)
   end
 
   def compact

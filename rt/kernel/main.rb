@@ -14,7 +14,7 @@ end
 sig [Word, Word] => Void
 machine def zr_boot_name(g, name)
   k = zr_global(g)
-  RClass.set_name(k, zr_str_new(zr_symbol_name_ptr(name), zr_symbol_name_len(name)))
+  RClass.set_name(k, zr_class_name_str(zr_usascii_str_new(zr_symbol_name_ptr(name), zr_symbol_name_len(name))))
   zr_const_set(zr_global(G_OBJECT), name, k)
 end
 
@@ -134,7 +134,7 @@ machine def zr_boot
   zr_boot_name(G_NUMERIC, Machine.id(:Numeric))
   zr_boot_name(G_FLOAT, Machine.id(:Float))
   zr_boot_name(G_REGEXP, Machine.id(:Regexp))
-  RClass.set_name(zr_global(G_FATAL), zr_str_new(Machine.bytes("fatal"), 5))
+  RClass.set_name(zr_global(G_FATAL), zr_class_name_str(zr_usascii_str_new(Machine.bytes("fatal"), 5)))
   zr_boot_name(G_KEY_ERROR, Machine.id(:KeyError))
   zr_boot_name(G_SYSTEM_STACK_ERROR, Machine.id(:SystemStackError))
   zr_alloc_table()

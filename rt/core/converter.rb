@@ -109,7 +109,7 @@ class Encoding
       @path.each_cons(2).to_a + WALKED.select { |name| @decorators.include?(name) }.map { |name| PATH_NAMES[name] }
     end
 
-    def inspect = "#<#{self.class}: #{description(true)}>"
+    def inspect = Primitive.zr_obj_form("#<#{self.class}: #{description(true)}>")
 
     def ==(other)
       return nil unless other.is_a?(Converter)

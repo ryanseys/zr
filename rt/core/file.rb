@@ -383,9 +383,9 @@ class File < IO
     end
 
     def inspect
-      "#<File::Stat dev=0x#{@dev.to_s(16)}, ino=#{@ino}, mode=0#{@mode.to_s(8)}, nlink=#{@nlink}, uid=#{@uid}, gid=#{@gid}, " \
-        "rdev=0x#{@rdev.to_s(16)}, size=#{@size}, blksize=#{@blksize}, blocks=#{@blocks}, " \
-        "atime=#{atime}, mtime=#{mtime}, ctime=#{ctime}, birthtime=#{birthtime}>"
+      Primitive.zr_obj_form("#<File::Stat dev=0x#{@dev.to_s(16)}, ino=#{@ino}, mode=0#{@mode.to_s(8)}, nlink=#{@nlink}, uid=#{@uid}, gid=#{@gid}, " \
+                            "rdev=0x#{@rdev.to_s(16)}, size=#{@size}, blksize=#{@blksize}, blocks=#{@blocks}, " \
+                            "atime=#{atime}, mtime=#{mtime}, ctime=#{ctime}, birthtime=#{birthtime}>")
     end
 
     private
@@ -890,7 +890,7 @@ class Dir
   attr_reader :path
   alias to_path path
 
-  def inspect = "#<Dir:#{@path}>"
+  def inspect = Primitive.zr_obj_form("#<Dir:#{@path}>")
 
   def close
     Primitive.zr_io_close(@fd) if @names && @fd

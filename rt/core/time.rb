@@ -552,11 +552,12 @@ class Time
     elsif rest != 0
       text = "#{text}.#{format("%09d", rest).sub(/0+\z/, "")}"
     end
-    "#{text} #{utc? ? 'UTC' : offset_shown}"
+    "#{text} #{utc? ? 'UTC' : offset_shown}".force_encoding(Encoding::US_ASCII)
   end
 
+  # US-ASCII, as time_to_s writes it and time_inspect writes `inspect`.
   def to_s
-    utc? ? strftime("%Y-%m-%d %H:%M:%S UTC") : strftime("%Y-%m-%d %H:%M:%S %z")
+    (utc? ? strftime("%Y-%m-%d %H:%M:%S UTC") : strftime("%Y-%m-%d %H:%M:%S %z")).force_encoding(Encoding::US_ASCII)
   end
 
   def ctime = strftime("%a %b %e %H:%M:%S %Y")

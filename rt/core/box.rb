@@ -41,7 +41,7 @@ module Ruby
       @globals[Primitive.zr_box_gvar_key(:$LOAD_PATH)] = @load_path
       @globals[Primitive.zr_box_gvar_key(:$LOADED_FEATURES)] = []
       object = Class.new(Object)
-      Primitive.zr_box_name(object, "Object")
+      Primitive.zr_box_name(object, -"Object")
       @shadows[Object] = object
       Primitive.zr_box_bind(Object, @slot, object)
       object.include(self)

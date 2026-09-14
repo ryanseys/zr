@@ -757,7 +757,21 @@ machine def zr_any_to_s(v)
   zr_buf_init(b)
   zr_buf_obj_head(b, v)
   zr_buf_byte(b, 62)
-  zr_buf_take(b)
+  zr_buf_take_at(b, ENC_BINARY)
+end
+
+# An object's `#<...>` form as the core library's C writes it, into a
+# String it starts in binary (rb_str_buf_new): binary while the text is
+# plain ASCII, else the encoding a piece past ASCII brought to it.
+sig [Value] => Value
+machine def zr_obj_form(text)
+  if !zr_str_ascii_bytes_p(text)
+    return text
+  end
+  if zr_frozen_p(text)
+    text = zr_str_new(RString.ptr(text), RString.len(text))
+  end
+  zr_str_set_index(text, ENC_BINARY)
 end
 
 # rb_obj_as_string: a String as it is, else what `to_s` answers, and
@@ -777,12 +791,19 @@ machine def zr_obj_as_string(v)
 end
 
 # rb_inspect: what `inspect` answers, made a String by rb_obj_as_string.
-# Undef when either raised.
+# Text past ASCII in an encoding other than UTF-8, the default external
+# one, comes back escaped, so every answer joins every other. Undef when
+# any of those raised.
 sig [Value] => Value
 machine def zr_inspect(v)
   s = zr_send(v, Machine.id(:inspect), 0, 0)
   return s if s == QUNDEF
-  zr_obj_as_string(s)
+  s = zr_obj_as_string(s)
+  return s if s == QUNDEF
+  if zr_str_encoding_index(s) == ENC_UTF8 || zr_str_ascii_bytes_p(s)
+    return s
+  end
+  zr_send(s, Machine.id(:escape), 0, 0)
 end
 
 # `#<Name:0x... @a=1, @b=2>`; the ivar values' `inspect` may run Ruby,
@@ -797,7 +818,7 @@ machine def zr_obj_inspect(recv, argc, argv, cref, blk)
   zr_buf_obj_head(b, recv)
   if zr_special_p(recv) || zr_type(recv) != T_OBJECT
     zr_buf_byte(b, 62)
-    return zr_buf_take(b)
+    return zr_buf_take_at(b, ENC_BINARY)
   end
   filter = zr_send(recv, Machine.id(:instance_variables_to_inspect), 0, 0)
   if filter == QUNDEF
@@ -816,7 +837,7 @@ machine def zr_obj_inspect(recv, argc, argv, cref, blk)
   # of its instance variables (rb_exec_recursive).
   if zr_guard_enter(recv, Machine.id(:inspect))
     zr_buf_push(b, Machine.bytes(" ...>"), 5)
-    return zr_buf_take(b)
+    return zr_buf_take_at(b, ENC_BINARY)
   end
   r = zr_buf_ivars(b, recv, filter)
   zr_guard_leave(recv, Machine.id(:inspect))
@@ -825,7 +846,7 @@ machine def zr_obj_inspect(recv, argc, argv, cref, blk)
     return r
   end
   zr_buf_byte(b, 62)
-  zr_buf_take(b)
+  zr_buf_take_at(b, ENC_BINARY)
 end
 
 # ` @a=1, @b=2` into `b`: the visible instance variables `filter` lets
@@ -853,7 +874,7 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_nil_inspect(recv, argc, argv, cref, blk)
-  zr_str_new(Machine.bytes("nil"), 3)
+  zr_usascii_str_new(Machine.bytes("nil"), 3)
 end
 
 sig [Word] => Bool
@@ -999,9 +1020,10 @@ machine def zr_sym_inspect_bytes(sym)
   zr_buf_byte(b, 58)
   if zr_symbol_tag(id) == 0 && zr_symname_plain_p(p, n)
     zr_buf_push(b, p, n)
-  else
-    zr_buf_str_escaped(b, p, n, zr_symbol_tag(id) != 0)
+    # A plain name keeps the symbol's encoding, US-ASCII for plain ASCII.
+    return zr_buf_take_at(b, ENC_USASCII)
   end
+  zr_buf_str_escaped(b, p, n, zr_symbol_tag(id) != 0)
   zr_buf_take(b)
 end
 
@@ -1159,12 +1181,12 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_true_inspect(recv, argc, argv, cref, blk)
-  zr_str_new(Machine.bytes("true"), 4)
+  zr_true_to_s(recv, argc, argv, cref, blk)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_false_inspect(recv, argc, argv, cref, blk)
-  zr_str_new(Machine.bytes("false"), 5)
+  zr_false_to_s(recv, argc, argv, cref, blk)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -1203,7 +1225,7 @@ machine def zr_class_to_s(recv, argc, argv, cref, blk)
     zr_buf_byte(b, 64)
     zr_buf_str(b, origin)
     zr_buf_byte(b, 62)
-    return zr_buf_take(b)
+    return zr_buf_take_at(b, ENC_USASCII)
   end
   if zr_singleton_p(recv)
     inner = zr_inspect(RClass.attached(recv))
@@ -1213,16 +1235,14 @@ machine def zr_class_to_s(recv, argc, argv, cref, blk)
     zr_buf_push(b, Machine.bytes("#<Class:"), 8)
     zr_buf_str(b, inner)
     zr_buf_byte(b, 62)
-    return zr_buf_take(b)
+    return zr_buf_take_at(b, ENC_USASCII)
   end
   if RClass.name(recv) == QNIL
-    b = Machine.slot(Buf.size)
-    zr_buf_init(b)
-    zr_buf_obj_head(b, recv)
-    zr_buf_byte(b, 62)
-    return zr_buf_take(b)
+    return zr_any_to_s(recv)
   end
-  RClass.name(recv)
+  # The name is the class's own, frozen; `to_s` answers a copy of it.
+  name = RClass.name(recv)
+  zr_str_copy_encoding(zr_str_new(RString.ptr(name), RString.len(name)), name)
 end
 
 # The superclass past the proxies of included modules.
@@ -1325,7 +1345,7 @@ machine def zr_exc_inspect(recv, argc, argv, cref, blk)
     zr_buf_str(b, m)
   end
   zr_buf_byte(b, 62)
-  zr_buf_take(b)
+  zr_buf_take_at(b, ENC_BINARY)
 end
 
 # The byte `c` in `n` bytes at `p`: its index, or -1.

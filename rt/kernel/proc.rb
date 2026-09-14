@@ -259,7 +259,7 @@ machine def zr_proc_inspect(recv, argc, argv, cref, blk)
     zr_buf_push(b, Machine.bytes(" (lambda)"), 9)
   end
   zr_buf_byte(b, 62)
-  zr_buf_take(b)
+  zr_buf_take_at(b, ENC_BINARY)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
