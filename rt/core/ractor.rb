@@ -226,7 +226,7 @@ class Ractor
     written = rows.filter_map { |name, write, _| name if write }
     raise ArgumentError, "can not make a Proc shareable because it accesses outer variables (#{written.join(", ")})." unless written.empty?
 
-    scope = Primitive.zr_proc_binding(block) unless rows.empty?
+    scope = Primitive.zr_proc_scope(block) unless rows.empty?
     rows.reverse_each do |name, _, rebound|
       raise IsolationError, "cannot make a shareable Proc because the outer variable '#{name}' may be reassigned." if rebound
 

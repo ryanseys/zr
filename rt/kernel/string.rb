@@ -1196,8 +1196,11 @@ end
 
 # `"a#{b}c"`: each piece's `to_s`, joined; a `to_s` that answers no
 # String falls back to the plain object form, as CRuby's does. The
-# result takes the encoding of the first piece that is not plain
-# ASCII, and a second such piece in another encoding is an error.
+# result starts in the first piece's encoding and each piece joins it
+# as rb_str_buf_append joins one -- a piece past ASCII moves a result
+# that is plain ASCII to its own encoding, and two pieces past ASCII in
+# two encodings are an error -- while a result in US-ASCII takes the
+# encoding of any piece that is not (rb_str_concat_literals).
 sig [Word, Ptr] => Value
 machine def zr_str_interp(argc, argv)
   b = Machine.slot(Buf.size)
@@ -1216,22 +1219,42 @@ machine def zr_str_interp(argc, argv)
       end
     end
     if zr_special_p(s) || zr_type(s) != T_STRING
-      zr_buf_obj_head(b, v)
-      zr_buf_byte(b, 62)
-    elsif zr_str_ascii_bytes_p(s)
-      zr_buf_str(b, s)
-    elsif ascii
-      index = zr_str_encoding_index(s)
-      ascii = false
-      zr_buf_str(b, s)
-    elsif index != zr_str_encoding_index(s)
-      return zr_str_join_incompatible(zr_str_set_index(zr_buf_take(b), index), s)
-    else
-      zr_buf_str(b, s)
+      s = zr_str_from_buf_obj_head(v)
     end
+    piece = zr_str_encoding_index(s)
+    piece_ascii = zr_str_ascii_bytes_p(s)
+    if i == 0
+      index = piece
+    elsif piece != index && RString.len(s) > 0
+      if Buf.len(b) > 0 && (!zr_enc_ascii_compat_p(index) || !zr_enc_ascii_compat_p(piece) || (!ascii && !piece_ascii))
+        return zr_str_join_incompatible(zr_str_set_index(zr_buf_take(b), index), s)
+      end
+      if Buf.len(b) == 0
+        if !zr_enc_ascii_compat_p(index) || !piece_ascii
+          index = piece
+        end
+      elsif ascii && !piece_ascii
+        index = piece
+      end
+    end
+    if piece != ENC_USASCII && index == ENC_USASCII
+      index = piece
+    end
+    ascii = ascii && piece_ascii
+    zr_buf_str(b, s)
     i += 1
   end
   zr_str_set_index(zr_buf_take(b), index)
+end
+
+# The plain object form, `#<Class:0x...>`, as a String.
+sig [Value] => Value
+machine def zr_str_from_buf_obj_head(v)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_obj_head(b, v)
+  zr_buf_byte(b, 62)
+  zr_buf_take(b)
 end
 
 # A frozen literal: the same String object at every evaluation.

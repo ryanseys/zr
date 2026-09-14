@@ -58,6 +58,7 @@ module Ze0
         d zr_eval_scopes Value
         d zr_binding Value
         d zr_proc_binding Value p:Value
+        d zr_proc_scope Value p:Value
         d zr_binding_of Value meta:Ptr env:Value self_:Value cref:Value
         d zr_binding_scopes Value b:Value
         d zr_binding_receiver Value b:Value
@@ -1266,6 +1267,7 @@ module Ze0
         d zr_str_succ_ascii Value recv:Value
         d zr_alnum_p Bool c:Word
         d zr_str_interp Value argc:Word argv:Ptr
+        d zr_str_from_buf_obj_head Value v:Value
         d zr_str_frozen Value bytes:Ptr len:Word
         d zr_str_new_at Value bytes:Ptr len:Word index:Word
         d zr_str_frozen_at Value bytes:Ptr len:Word index:Word

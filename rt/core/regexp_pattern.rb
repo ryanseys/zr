@@ -33,6 +33,224 @@ class Regexp
       binary ? text.dup.force_encoding(Encoding::BINARY) : text
     end
 
+    # The most bytes one character takes, by encoding name.
+    MBMAXLEN = { "UTF-8" => 4, "EUC-JP" => 3, "Shift_JIS" => 2, "Windows-31J" => 2, "GBK" => 2, "GB18030" => 4,
+                 "Big5" => 2, "EUC-KR" => 2, "UTF-16LE" => 4, "UTF-16BE" => 4, "UTF-32LE" => 4, "UTF-32BE" => 4 }.freeze
+
+    # rb_reg_preprocess, for what it decides of the encoding: the one the
+    # pattern's characters and escapes fix it to, or nil where it holds
+    # none; RegexpError, with the reason alone, for a pattern ruby
+    # refuses before its engine reads it.
+    def fixed_encoding(source, enc, extended)
+      fixed = enc.ascii_compatible? ? nil : enc
+      return fixed if source.ascii_only? && !source.include?("\\") && !(extended && enc == Encoding::UTF_8)
+
+      scan = Scan.new(source.b.bytes, enc, fixed, false)
+      scan.walk(extended, false)
+      scan.property && scan.fixed.nil? ? enc : scan.fixed
+    end
+
+    # The walk unescape_nonascii0 makes over a pattern's bytes.
+    Scan = Struct.new(:b, :enc, :fixed, :property, :i) do
+      def walk(extended, recurse)
+        self.i ||= 0
+        in_class = 0
+        parens = 1
+        while i < b.size
+          len = char_len(i)
+          if len > 1 || b[i] >= 0x80
+            self.i += len
+            fix(enc, "non ASCII character in UTF-8 regexp")
+            next
+          end
+          c = b[i]
+          self.i += 1
+          case c
+          when 0x5c then escape
+          when 0x23
+            next unless extended && in_class.zero?
+
+            while i < b.size
+              byte = b[i]
+              self.i += 1
+              break if byte == 0x0a
+
+              self.fixed = enc if byte >= 0x80 && fixed.nil? && enc == Encoding::UTF_8
+            end
+          when 0x5b then in_class += 1
+          when 0x5d then in_class -= 1 if in_class.positive?
+          when 0x29
+            return if in_class.zero? && recurse && (parens -= 1).zero?
+          when 0x28
+            next if in_class.positive?
+
+            if b[i] == 0x3f && i + 1 < b.size
+              if b[i + 1] == 0x23
+                comment
+              else
+                parens += 1 if recurse
+                extended = group(extended)
+              end
+            elsif recurse
+              parens += 1
+            end
+          end
+        end
+      end
+
+      def char_len(at)
+        return 1 if b[at] < 0x80 && enc.ascii_compatible?
+
+        max = [MBMAXLEN.fetch(enc.name, 1), b.size - at].min
+        char = b[at, max].pack("C*").force_encoding(enc)[0]
+        raise RegexpError, "invalid multibyte character" unless char.valid_encoding?
+
+        char.bytesize
+      end
+
+      def fix(encoding, message)
+        if fixed.nil?
+          self.fixed = encoding
+        elsif fixed != encoding
+          raise RegexpError, message
+        end
+      end
+
+      def escape
+        raise RegexpError, "too short escape sequence" if i >= b.size
+
+        len = char_len(i)
+        if len > 1
+          self.i += len
+          return fix(enc, "non ASCII character in UTF-8 regexp")
+        end
+        e = b[i]
+        self.i += 1
+        case e
+        when 0x31..0x37
+          digits = b[i - 1, 3].take_while { |x| x.between?(0x30, 0x37) }
+          return if digits.pack("C*").to_i(8) <= 0o177
+
+          escaped_nonascii
+        when 0x30, 0x78, 0x63, 0x43, 0x4d then escaped_nonascii
+        when 0x75 then unicode
+        when 0x70, 0x50 then self.property = true if fixed.nil?
+        end
+      end
+
+      # unescape_escaped_nonascii: the escaped bytes of one character.
+      def escaped_nonascii
+        self.i -= 2
+        if enc == Encoding::US_ASCII
+          _, self.i = Pattern.escaped_byte(b, i)
+          return
+        end
+        max = MBMAXLEN.fetch(enc.name, 1)
+        byte, self.i = Pattern.escaped_byte(b, i)
+        bytes = [byte]
+        while bytes.size < max && needs_more?(bytes)
+          byte, self.i = Pattern.escaped_byte(b, i)
+          bytes << byte
+        end
+        raise RegexpError, "invalid multibyte escape" unless bytes.pack("C*").force_encoding(enc).valid_encoding?
+
+        fix(enc, "escaped non ASCII character in UTF-8 regexp") if bytes.size > 1 || bytes[0] >= 0x80
+      end
+
+      def needs_more?(bytes)
+        text = bytes.pack("C*").force_encoding(enc)
+        return false if text.valid_encoding?
+        return Pattern.utf8_prefix?(bytes) if enc == Encoding::UTF_8
+
+        true
+      end
+
+      def unicode
+        raise RegexpError, "too short escape sequence" if i >= b.size
+
+        if b[i] == 0x7b
+          self.i += 1
+          self.i += 1 while i < b.size && space?(b[i])
+          any = false
+          loop do
+            start = i
+            self.i += 1 while i < b.size && hex?(b[i])
+            break if i == start
+            raise RegexpError, "invalid Unicode range" if i - start > 6
+
+            utf8(b[start...i].pack("C*").to_i(16))
+            any = true
+            self.i += 1 while i < b.size && space?(b[i])
+          end
+          raise RegexpError, "invalid Unicode list" unless any
+          raise RegexpError, "invalid Unicode list" unless b[i] == 0x7d
+
+          self.i += 1
+        else
+          digits = b[i, 4]
+          raise RegexpError, "invalid Unicode escape" unless digits.size == 4 && digits.all? { |x| hex?(x) }
+
+          utf8(digits.pack("C*").to_i(16))
+          self.i += 4
+        end
+      end
+
+      # append_utf8.
+      def utf8(code)
+        raise RegexpError, "invalid Unicode range" if code.between?(0xd800, 0xdfff) || code > 0x10ffff
+
+        fix(Encoding::UTF_8, "UTF-8 character in non UTF-8 regexp") if code >= 0x80
+      end
+
+      # `(?#...)`, a comment whose high bytes still fix a UTF-8 pattern.
+      def comment
+        start = i
+        while i < b.size
+          byte = b[i]
+          self.i += 1
+          return if byte == 0x29
+          next unless byte == 0x5c || byte >= 0x80
+
+          if byte >= 0x80
+            self.fixed = enc if fixed.nil? && enc == Encoding::UTF_8
+            self.i -= 1
+          end
+          self.i += char_len(i) if i < b.size
+        end
+        self.i = start
+      end
+
+      # `(?x)`, `(?-x:`: the extended flag for the rest of the pattern, or
+      # for the group that follows, whose walk returns at its `)`.
+      def group(extended)
+        invert = false
+        local = 0
+        s = i + 1
+        while s < b.size
+          case b[s]
+          when 0x78 then local = invert ? -1 : 1
+          when 0x2d then invert = true
+          when 0x3a, 0x29
+            return extended if local.zero? || (local == -1 && !extended) || (local == 1 && extended)
+
+            if b[s] == 0x3a
+              walk(local == 1, true)
+              return extended
+            end
+            return local == 1
+          when 0x69, 0x6d, 0x61, 0x64, 0x75 then nil
+          else return extended
+          end
+          s += 1
+        end
+        extended
+      end
+
+      def space?(x) = x == 0x20 || x.between?(0x09, 0x0d)
+
+      def hex?(x) = x.between?(0x30, 0x39) || x.between?(0x41, 0x46) || x.between?(0x61, 0x66)
+    end
+
     # `\u{...}` is a space-separated list of code points and `\uHHHH`
     # exactly four hex digits; an ASCII code point becomes `\xHH` so
     # it stays literal.
@@ -185,7 +403,7 @@ class Regexp
     def utf8_prefix?(bytes)
       lead = bytes[0]
       need = if lead >= 0xf0 && lead <= 0xf4 then 4
-             elsif lead >= 0xe0 then 3
+             elsif lead >= 0xe0 && lead <= 0xef then 3
              elsif lead >= 0xc2 && lead <= 0xdf then 2
              else 0
              end

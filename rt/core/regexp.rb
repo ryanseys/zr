@@ -76,7 +76,7 @@ class Regexp
     case options
     when nil, false then 0
     when true then IGNORECASE
-    when Integer then options & 7
+    when Integer then options & (IGNORECASE | EXTENDED | MULTILINE | FIXEDENCODING | NOENCODING)
     when String
       options.each_char.reduce(0) do |acc, c|
         acc | { "i" => IGNORECASE, "x" => EXTENDED, "m" => MULTILINE }.fetch(c) { raise ArgumentError, "unknown regexp option: #{options}" }
@@ -91,22 +91,53 @@ class Regexp
   # warns of, the compiler printed as the file started, as ruby's parser
   # does.
   def self.literal(source, bits, pinned)
-    pin(compile_source(source, bits, warns: false), pinned)
+    compile_source(pinned_source(source, pinned), bits, warns: false)
   end
   private_class_method :literal
 
   # `/a#{b}c/u`: the same, built once each time the literal runs.
-  def self.interpolated(source, bits, pinned)
+  def self.interpolated(fragments, bits, pinned)
     Primitive.attr! :hidden
-    pin(compile_source(source, bits), pinned).freeze
+    compile_source(pinned_source(joined(fragments, bits), pinned), bits).freeze
   end
 
-  def self.pin(made, pinned)
+  # rb_reg_preprocess_dregexp: the fragments of a dynamic pattern joined,
+  # each read in its own encoding, and the whole in the one they fix.
+  def self.joined(fragments, bits)
     Primitive.attr! :hidden
-    Primitive.zr_hidden_set(made, :pinned, Encoding.at(pinned).send(:load)) if pinned
-    made
+    fixed = nil
+    out = nil
+    fragments.each do |fragment|
+      encoding = fragment.encoding
+      if bits & NOENCODING != 0 && encoding != Encoding::BINARY
+        raise RegexpError, "/.../n has a non escaped non ASCII character in non ASCII-8BIT script" unless fragment.ascii_only?
+
+        encoding = Encoding::BINARY
+      end
+      begin
+        found = Pattern.fixed_encoding(fragment, encoding, bits & EXTENDED != 0)
+      rescue RegexpError => e
+        raise ArgumentError, e.message
+      end
+      if found
+        raise RegexpError, "encoding mismatch in dynamic regexp : #{fixed.name} and #{found.name}" if fixed && fixed != found
+
+        fixed = found
+      end
+      out = out ? out << fragment : fragment.dup
+    end
+    raise ArgumentError, "no arguments given" if out.nil?
+
+    fixed ? out.force_encoding(fixed) : out
   end
-  private_class_method :pin
+  private_class_method :joined
+
+  # reg_fragment_setenc: a flag letter's encoding is the source's.
+  def self.pinned_source(source, pinned)
+    Primitive.attr! :hidden
+    pinned ? source.dup.force_encoding(Encoding.at(pinned).send(:load)) : source
+  end
+  private_class_method :pinned_source
 
   # `source` compiled with the option `bits`, seated in the husk `re`; a
   # RegexpError names the reason, then the pattern as written with its
@@ -117,11 +148,15 @@ class Regexp
     raise RegexpError, "upper is smaller than lower in repeat range: #{written}" if inverted_interval?(source)
 
     begin
-      text = Pattern.engine_text(source, bits & EXTENDED != 0, binary_pattern?(source, bits))
+      encoding, bits = encoding_for(source, bits)
+      text = Pattern.engine_text(source, bits & EXTENDED != 0, encoding == Encoding::BINARY)
     rescue RegexpError => e
       raise RegexpError, "#{e.message}: #{written}"
     end
+    # reg_set_source: the source reads in the pattern's encoding.
+    source = source.dup.force_encoding(encoding).freeze unless source.encoding == encoding
     result = Primitive.zr_regexp_seat(re, text.frozen? ? text : text.dup.freeze, source, bits)
+    Primitive.zr_state_set(re, :encoding, encoding) unless result.is_a?(Array)
     warnings = Primitive.zr_regexp_warnings
     warn_of(warnings, source) if warns
     if result.is_a?(Array)
@@ -138,12 +173,34 @@ class Regexp
   def self.compile_source(source, bits, warns: true) = seat(allocate, source, bits, warns: warns)
   private_class_method :compile_source
 
-  # Whether the engine reads the pattern as bytes: its own encoding says
-  # so, or `/n` and a byte past ASCII in it.
-  def self.binary_pattern?(source, bits)
+  # rb_reg_initialize_str and rb_reg_initialize: the encoding a pattern
+  # of `source` takes under the option `bits`, and the bits with the
+  # flags ruby keeps beside them -- FIXEDENCODING where a character or an
+  # escape fixed the encoding, or the option did.
+  def self.encoding_for(source, bits)
     Primitive.attr! :hidden
-    source.encoding == Encoding::BINARY || (bits & NOENCODING != 0 && Pattern.past_ascii?(source))
+    encoding = source.encoding
+    if bits & NOENCODING != 0 && encoding != Encoding::BINARY
+      raise RegexpError, "/.../n has a non escaped non ASCII character in non ASCII-8BIT script" unless source.ascii_only?
+
+      encoding = Encoding::BINARY
+    end
+    raise RegexpError, "can't make regexp with dummy encoding" if encoding.dummy?
+
+    fixed = Pattern.fixed_encoding(source, encoding, bits & EXTENDED != 0)
+    if fixed
+      if (fixed != encoding && bits & FIXEDENCODING != 0) || (fixed != Encoding::BINARY && bits & NOENCODING != 0)
+        raise RegexpError, "incompatible character encoding"
+      end
+
+      encoding = fixed unless fixed == Encoding::BINARY
+      bits |= FIXEDENCODING
+    elsif bits & FIXEDENCODING == 0
+      encoding = Encoding::US_ASCII
+    end
+    [encoding, bits]
   end
+  private_class_method :encoding_for
 
   # What the engine warned of as it compiled `source`, each warning
   # naming the pattern as written. One ruby gives only when verbose
@@ -181,7 +238,7 @@ class Regexp
 
   def recompile
     Primitive.attr! :hidden
-    text = Pattern.engine_text(source, options & EXTENDED != 0, Regexp.binary_pattern?(source, options))
+    text = Pattern.engine_text(source, options & EXTENDED != 0, encoding == Encoding::BINARY)
     Primitive.zr_regexp_recompile(self, text.frozen? ? text : text.dup.freeze)
   end
   private :recompile
@@ -234,12 +291,43 @@ class Regexp
 
   def self.quote(text) = escape(text)
 
+  # rb_reg_s_union: the patterns joined by `|`, in the one encoding they
+  # agree on.
   def self.union(*patterns)
-    patterns = patterns[0] if patterns.size == 1 && patterns[0].is_a?(Array)
+    listed = patterns.size == 1 ? Array.try_convert(patterns[0]) : nil
+    patterns = listed if listed
     return new("(?!)") if patterns.empty?
-    return patterns[0] if patterns.size == 1 && patterns[0].is_a?(Regexp)
 
-    new(patterns.map { |pattern| pattern.is_a?(Regexp) ? pattern.to_s : escape(pattern) }.join("|"))
+    if patterns.size == 1
+      return Regexp.try_convert(patterns[0]) || new(escape(patterns[0]))
+    end
+
+    ascii_only = false
+    compatible = nil
+    incompatible = nil
+    agree = lambda do |held, encoding|
+      raise ArgumentError, "incompatible encodings: #{held.name} and #{encoding.name}" if held && held != encoding
+
+      encoding
+    end
+    source = patterns.each_with_index.map do |pattern, i|
+      regexp = Regexp.try_convert(pattern)
+      text = regexp ? regexp.to_s : escape(pattern = Primitive.zr_str_operand(pattern))
+      encoding = regexp ? regexp.encoding : pattern.encoding
+      if !encoding.ascii_compatible?
+        incompatible = agree.call(incompatible, encoding)
+      elsif regexp ? regexp.fixed_encoding? : !pattern.ascii_only?
+        compatible = agree.call(compatible, encoding)
+      else
+        ascii_only = true
+      end
+      if incompatible
+        raise ArgumentError, "ASCII incompatible encoding: #{incompatible.name}" if ascii_only
+        raise ArgumentError, "incompatible encodings: #{incompatible.name} and #{compatible.name}" if compatible
+      end
+      i.zero? ? text.b : "|#{text}".b
+    end.join
+    new(source.force_encoding(incompatible || compatible || Encoding::BINARY))
   end
 
   def self.last_match(index = nil)
@@ -257,12 +345,7 @@ class Regexp
     converted
   end
 
-  # `/n` on an ASCII-only pattern reads it as plain ASCII, which is what
-  # the source shows too.
-  def source
-    text = pattern
-    options & NOENCODING != 0 && text.ascii_only? ? text.dup.force_encoding(Encoding::US_ASCII).freeze : text
-  end
+  def source = pattern
 
   def options
     pattern
@@ -291,28 +374,15 @@ class Regexp
   # `/n` or a binary source reads the pattern as bytes: one that names a
   # byte past ASCII, written out or escaped, is a binary pattern, and one
   # that does not is plain ASCII that any string can match.
-  def encoding
-    return Encoding::BINARY unless Primitive.zr_regexp_source(self)
-
-    encoding_row[0]
-  end
+  # The encoding the pattern took as it was seated; an allocated Regexp
+  # holds none and reads as binary.
+  def encoding = Primitive.zr_hidden_get(self, :encoding) || Encoding::BINARY
 
   def fixed_encoding?
     return false unless Primitive.zr_regexp_source(self)
 
-    encoding_row[1]
+    options & FIXEDENCODING != 0
   end
-
-  # The encoding and whether it is fixed, which the source decides once:
-  # every match asks.
-  def encoding_row
-    Primitive.attr! :hidden
-    Primitive.zr_hidden_get(self, :__encoding__) || Primitive.zr_state_set(self, :__encoding__, [
-      @pinned || (bytewise? && Pattern.past_ascii?(source) ? Encoding::BINARY : (source.ascii_only? ? Encoding::US_ASCII : source.encoding)),
-      @pinned ? true : (bytewise? ? Pattern.past_ascii?(source) : !source.ascii_only?)
-    ].freeze)
-  end
-  private :encoding_row
 
   # rb_reg_equal: the same object, or the same pattern bytes under the
   # same options and encoding.
@@ -339,7 +409,8 @@ class Regexp
     on = +""
     off = +""
     { "m" => MULTILINE, "i" => IGNORECASE, "x" => EXTENDED }.each { |letter, bit| (options & bit != 0 ? on : off) << letter }
-    "(?#{on}#{off.empty? ? '' : "-#{off}"}:#{shown_source})"
+    # rb_reg_to_s: in the pattern's own encoding.
+    "(?#{on}#{off.empty? ? '' : "-#{off}"}:#{shown_source})".force_encoding(encoding)
   end
 
   def inspect
@@ -350,7 +421,7 @@ class Regexp
     text << "i" if options & IGNORECASE != 0
     text << "x" if options & EXTENDED != 0
     text << "n" if options & NOENCODING != 0
-    text
+    encoding.ascii_compatible? ? text.force_encoding(encoding) : text.force_encoding(Encoding::US_ASCII)
   end
 
   # The MatchData for `text` from character `pos`, or nil; `$~` is set

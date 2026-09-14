@@ -160,6 +160,14 @@ machine def zr_proc_binding(p)
   if (RBasic.flags(p) & FL_ISOLATED) != 0
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("Can't create Binding from isolated Proc"), 39)
   end
+  zr_proc_scope(p)
+end
+
+# The scope a Proc written in Ruby carries, an isolated one's too: what
+# Ractor.shareable_proc reads a block's outer locals from, as CRuby reads
+# its env.
+sig [Value] => Value
+machine def zr_proc_scope(p)
   b = zr_binding_of(RProc.meta(p), RProc.env(p), RProc.self(p), RProc.cref(p))
   RProc.set_blk(b, RProc.blk(p))
   RProc.set_serial(b, FrameMeta.line(RProc.meta(p)))

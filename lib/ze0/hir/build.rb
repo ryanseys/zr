@@ -664,8 +664,10 @@ module Ze0
       # error here too.
       def interpolated_regexp(node, line)
         pinned = regexp_encoding(node)
-        args = [interpolation(node, line), Literal.new(regexp_options(node), line),
-                Literal.new(pinned && ::Encoding.list.index(pinned), line)]
+        # Each fragment a String of its own: ruby reads every one in its own
+        # encoding before it joins them.
+        fragments = ArrayLit.new(interpolation(node, line).parts.map { |part| Interp.new([part], line) }, line)
+        args = [fragments, Literal.new(regexp_options(node), line), Literal.new(pinned && ::Encoding.list.index(pinned), line)]
         made = Send.new(ConstRead.new(nil, :Regexp, line), :interpolated, args, line, false)
         node.once? ? RegexpOnce.new(made, line) : made
       end
@@ -709,6 +711,9 @@ module Ze0
           else refuse(part, "#{part.class.name.split("::").last.delete_suffix("Node")} in a string is not lowered yet")
           end
         end
+        # A lone embedded part joins an empty literal, whose encoding the
+        # result starts from, as ruby's compiler joins one.
+        parts.unshift(Literal.new(+"", line)) if node.parts.size == 1 && !node.parts[0].is_a?(Prism::StringNode)
         Interp.new(parts, line)
       end
 
