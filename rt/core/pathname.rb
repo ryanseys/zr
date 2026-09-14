@@ -10,6 +10,23 @@
 # about the name itself, and every question about the file goes to
 # File, Dir or FileTest.
 class Pathname
+  # path_cmp: byte order, with a separator below every other byte.
+  def <=>(other)
+    return nil unless Pathname === other
+
+    @path.tr("/", "\0") <=> other.path.tr("/", "\0")
+  end
+
+  # path_sub: String#sub over the path, the block and all.
+  def sub(*args, &block)
+    self.class.new(block ? @path.sub(*args, &block) : @path.sub(*args))
+  end
+end
+
+# The rest is Ruby in CRuby too, and reports its parameters by name.
+class Pathname
+  Primitive.attr! :ruby
+
   VERSION = "0.4.0"
 
   # Darwin's file names match case-sensitively as far as File::FNM_SYSCASE
@@ -39,13 +56,6 @@ class Pathname
   alias === ==
   alias eql? ==
 
-  # path_cmp: byte order, with a separator below every other byte.
-  def <=>(other)
-    return nil unless Pathname === other
-
-    @path.tr("/", "\0") <=> other.path.tr("/", "\0")
-  end
-
   def hash = @path.hash
 
   def to_s = @path.dup
@@ -53,11 +63,6 @@ class Pathname
   alias to_path to_s
 
   def inspect = "#<#{self.class}:#{@path}>"
-
-  # path_sub: String#sub over the path, the block and all.
-  def sub(*args, &block)
-    self.class.new(block ? @path.sub(*args, &block) : @path.sub(*args))
-  end
 
   def sub_ext(repl)
     ext = File.extname(@path)
@@ -349,6 +354,8 @@ end
 
 # The file's own questions, each one call to File.
 class Pathname
+  Primitive.attr! :ruby
+
   def each_line(...) = File.foreach(@path, ...)
   def read(...) = File.read(@path, ...)
   def binread(...) = File.binread(@path, ...)
@@ -395,6 +402,8 @@ end
 
 # The FileTest questions.
 class Pathname
+  Primitive.attr! :ruby
+
   def blockdev? = FileTest.blockdev?(@path)
   def chardev? = FileTest.chardev?(@path)
   def empty? = FileTest.directory?(@path) ? Dir.empty?(@path) : File.empty?(@path)
@@ -424,6 +433,8 @@ end
 
 # The directory's questions.
 class Pathname
+  Primitive.attr! :ruby
+
   def self.glob(*args, **kwargs)
     return Dir.glob(*args, **kwargs).map { |f| new(f) } unless block_given?
 

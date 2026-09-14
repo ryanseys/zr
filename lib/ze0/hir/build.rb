@@ -1006,6 +1006,7 @@ module Ze0
 
       def define(node)
         @loader.loads_by_def!(node)
+        ruby = @ruby_defs
         receiver = node.receiver && expr(node.receiver)
         in_definee(nil, !receiver.nil?) do
           was = @in_def
@@ -1014,12 +1015,22 @@ module Ze0
             params = parameters(node.parameters)
             @def_params = params
             body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
+            body = ruby_marked(body, node.location.start_line) if ruby
             locals = with_temps(node.locals + (params.names - node.locals))
             Def.new(node.name, params, locals, body, node.location.start_line, receiver, evals?(node.body))
           end
         ensure
           @in_def = was
         end
+      end
+
+      # The body with `Primitive.attr! :ruby` first, where a def's own
+      # marks stand.
+      def ruby_marked(body, line)
+        mark = Send.new(ConstRead.new(nil, :Primitive, line), :attr!, [Literal.new(:ruby, line)], line, false)
+        return Begin.new(*body.to_a).tap { |b| b.body = ruby_marked(body.body, line) } if body.is_a?(Begin)
+
+        Seq.new([mark, *(body.is_a?(Seq) ? body.stmts : [body])], line)
       end
 
       # Whether an eval stands anywhere in this body, blocks included
@@ -1041,12 +1052,15 @@ module Ze0
         @path.push(name) if name
         was = @singleton
         using = @using
+        ruby = @ruby_defs
         @singleton = singleton
+        @ruby_defs = false
         yield
       ensure
         @path.pop if name
         @singleton = was
         @using = using
+        @ruby_defs = ruby
       end
 
       # A bare `super`: the method's parameters passed on as they stand,
@@ -1194,6 +1208,7 @@ module Ze0
       def shadowed?(name) = @shadowed.key?([@path.join("::"), @singleton, name])
 
       def call(node)
+        @ruby_defs = true if ruby_mark?(node)
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil? && node.call_operator != "&."
         return FrozenString.new(unescaped(node.receiver), node.location.start_line) if node.name == :freeze && node.receiver.is_a?(Prism::StringNode) && node.arguments.nil? && node.block.nil?
         return require_node(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && !shadowed?(node.name) && !@loader&.eval? && literal_feature(node)
@@ -1201,6 +1216,15 @@ module Ze0
 
         send = plain_call(node)
         relative_in_file(node, send)
+      end
+
+      # `Primitive.attr! :ruby` standing in a class body of the core
+      # library: every def after it in that body is one CRuby writes in
+      # Ruby, as though each began with the mark.
+      def ruby_mark?(node)
+        mark = node.arguments&.arguments&.first
+        !@in_def && node.name == :attr! && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Primitive &&
+          mark.is_a?(Prism::SymbolNode) && mark.unescaped == "ruby"
       end
 
       # A string compiled while the program runs from a file that has a
