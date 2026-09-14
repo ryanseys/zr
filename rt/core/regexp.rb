@@ -293,19 +293,26 @@ class Regexp
   # that does not is plain ASCII that any string can match.
   def encoding
     return Encoding::BINARY unless Primitive.zr_regexp_source(self)
-    return @pinned if @pinned
-    return Encoding::BINARY if bytewise? && Pattern.past_ascii?(source)
 
-    source.ascii_only? ? Encoding::US_ASCII : source.encoding
+    encoding_row[0]
   end
 
   def fixed_encoding?
     return false unless Primitive.zr_regexp_source(self)
-    return true unless @pinned.nil?
-    return Pattern.past_ascii?(source) if bytewise?
 
-    !source.ascii_only?
+    encoding_row[1]
   end
+
+  # The encoding and whether it is fixed, which the source decides once:
+  # every match asks.
+  def encoding_row
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__encoding__) || Primitive.zr_state_set(self, :__encoding__, [
+      @pinned || (bytewise? && Pattern.past_ascii?(source) ? Encoding::BINARY : (source.ascii_only? ? Encoding::US_ASCII : source.encoding)),
+      @pinned ? true : (bytewise? ? Pattern.past_ascii?(source) : !source.ascii_only?)
+    ].freeze)
+  end
+  private :encoding_row
 
   def ==(other) = other.is_a?(Regexp) && source == other.source && options == other.options
 
@@ -503,7 +510,7 @@ class Regexp
   # is plain ASCII.
   def check_subject(text)
     Primitive.attr! :hidden
-    raise ArgumentError, "invalid byte sequence in #{text.encoding}" unless text.valid_encoding?
+    raise ArgumentError, "invalid byte sequence in #{text.encoding}" unless text.ascii_only? || text.valid_encoding?
     # UTF-16 and UTF-32 match no pattern: their ASCII is not ASCII bytes.
     return unless !text.encoding.ascii_compatible? || (fixed_encoding? && text.encoding != encoding && !text.ascii_only?)
 

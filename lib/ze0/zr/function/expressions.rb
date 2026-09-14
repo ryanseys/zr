@@ -154,7 +154,7 @@ module Ze0
               imm((v << 1) | 1)
             else
               text = v.to_s
-              checked(kernel("zr_big_literal", @f.symbol_value(@f.symbol(@l.literal(text))), imm(text.bytesize)))
+              checked(kernel("zr_big_literal", imm(@l.literal_index), @f.symbol_value(@f.symbol(@l.literal(text))), imm(text.bytesize)))
             end
           when Float then float_literal(v)
           when Symbol then symbol(v)

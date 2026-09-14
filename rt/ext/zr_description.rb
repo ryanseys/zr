@@ -505,6 +505,12 @@ module Ze0
         d zr_float_halves Value v:Value
         d zr_float_of_halves Value low:Value high:Value
         d zr_float_decode Value v:Value
+        d zr_fpconv_powers Ptr
+        d zr_fpconv_mul Ptr a:Ptr b:Ptr
+        d zr_fpconv_round Void digits:Ptr n:Word delta:Ptr rem:Ptr kappa:Ptr frac:Ptr
+        d zr_fpconv_grisu2 Word bits:Ptr digits:Ptr k:Ptr
+        d zr_fpconv_emit Void b:Ptr digits:Ptr n:Word k:Word neg:Bool
+        d zr_fpconv_dtoa Value v:Value
         d zr_hash_new Value
         d zr_mark_hash Void h:Value
         d zr_key_eql Word a:Value b:Value
@@ -620,7 +626,7 @@ module Ze0
         d zr_big_p Bool v:Value
         d zr_big_alloc Value
         d zr_fixnum_p_m Value v:Value
-        d zr_big_literal Value bytes:Ptr n:Word
+        d zr_big_literal Value index:Word bytes:Ptr n:Word
         d zr_big_route_blk Value recv:Value mid:Word argc:Word argv:Ptr blk:Value
         d zr_big_route Value recv:Value mid:Word argc:Word argv:Ptr
         d zr_int_from_word Value n:Word
@@ -1198,6 +1204,7 @@ module Ze0
         d zr_str_cmp Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_comparable Bool a:Value b:Value
         d zr_str_ascii_only Bool s:Value
+        d zr_str_ascii_only_m Value s:Value
         d zr_str_eq Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_equal Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_length Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1212,6 +1219,7 @@ module Ze0
         d zr_str_char_len_at_m Value s:Value off:Value
         d zr_str_ord Value s:Value
         d zr_str_valid_p Value s:Value
+        d zr_str_valid_scan Value s:Value
         d zr_non_ascii_stop Value s:Value what:Ptr len:Word
         d zr_str_map_case Value s:Value how:Word
         d zr_str_upcase Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1387,6 +1395,10 @@ module Ze0
         c G_FLOAT 40
         c FLONUM_ZERO 9223372036854775810
         c INF_BITS 9218868437227405312
+        c FPCONV_EXPMASK 9218868437227405312
+        c FPCONV_FRACMASK 4503599627370495
+        c FPCONV_HIDDENBIT 4503599627370496
+        c FPCONV_LOG10_2 4599094494223104510
         c T_HASH 8
         c G_HASH 30
         c G_KEY_ERROR 31
@@ -1413,7 +1425,7 @@ module Ze0
         c G_FALSE 10
         c G_MAIN 11
         c G_NUMERIC 13
-        c G_COUNT 54
+        c G_COUNT 55
         c GATE_PLUS 1
         c GATE_MINUS 2
         c GATE_MUL 4
@@ -1434,6 +1446,7 @@ module Ze0
         c GATE_SHR 524288
         c GATE_HASH_AREF 1048576
         c GATE_HASH_ASET 2097152
+        c G_BIG_LITERALS 54
         c F_GETFL 3
         c F_SETFL 4
         c O_NONBLOCK 4
@@ -1516,7 +1529,9 @@ module Ze0
         c SIGNAL_OTHER 4
         c SOCKADDR_MAX 128
         c FL_ASCII 2097152
+        c FL_VALID 8388608
         c FL_ASCII_CLEAR -2097153
+        c FL_SCANS_CLEAR -10485761
         c G_FROZEN_ERROR 27
         c G_FROZEN_LITERALS 52
         c GATE_FREEZE 32768

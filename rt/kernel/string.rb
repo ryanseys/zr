@@ -5,12 +5,16 @@ Machine.struct :RString, basic: RBasic, len: Word, capa: Word, ptr: Ptr
 # the 7-bit coderange. Every write to the bytes clears it, so a String
 # read many times is scanned once.
 FL_ASCII = 1 << 21
+# A String a scan found valid in its encoding, CRuby's valid coderange.
+# The same writes clear it, and so does a new encoding.
+FL_VALID = 1 << 23
 FL_ASCII_CLEAR = 0 - FL_ASCII - 1
+FL_SCANS_CLEAR = 0 - FL_ASCII - FL_VALID - 1
 
 # The bytes of `s` changed: what a scan found about them is gone.
 sig [Value] => Void
 machine def zr_str_modified(s)
-  RBasic.set_flags(s, RBasic.flags(s) & FL_ASCII_CLEAR)
+  RBasic.set_flags(s, RBasic.flags(s) & FL_SCANS_CLEAR)
 end
 
 sig [Ptr, Word] => Value
@@ -145,7 +149,7 @@ end
 sig [Value, Word] => Value
 machine def zr_str_set_index(s, index)
   i = index < 2 ? 1 - index : index
-  flags = (RBasic.flags(s) & FL_ENC_KEEP) | (i << FL_ENC_SHIFT)
+  flags = (RBasic.flags(s) & FL_ENC_KEEP & (0 - FL_VALID - 1)) | (i << FL_ENC_SHIFT)
   # ASCII bytes are not ASCII text in UTF-16 or UTF-32.
   if !zr_enc_ascii_compat_p(index)
     flags = flags & FL_ASCII_CLEAR
@@ -631,6 +635,12 @@ machine def zr_str_ascii_only(s)
   zr_str_ascii_bytes_p(s)
 end
 
+# `String#ascii_only?`, over the same memo.
+sig [Value] => Value
+machine def zr_str_ascii_only_m(s)
+  zr_bool(zr_str_ascii_bytes_p(s))
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_eq(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))
@@ -863,6 +873,18 @@ end
 # encoding this runtime carries takes any byte.
 sig [Value] => Value
 machine def zr_str_valid_p(s)
+  if (RBasic.flags(s) & FL_VALID) != 0
+    return Machine.value(QTRUE)
+  end
+  valid = zr_str_valid_scan(s)
+  if valid == QTRUE
+    RBasic.set_flags(s, RBasic.flags(s) | FL_VALID)
+  end
+  valid
+end
+
+sig [Value] => Value
+machine def zr_str_valid_scan(s)
   if zr_str_encoding_index(s) == ENC_USASCII
     return zr_bool(zr_str_ascii_bytes_p(s))
   end

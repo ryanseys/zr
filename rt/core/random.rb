@@ -248,7 +248,7 @@ class Random::Base
   def limited(limit)
     Primitive.attr! :hidden
     return 0 if limit == 0
-    return big_limited(limit) if limit > 0xffff_ffff_ffff_ffff
+    return big_limited(limit) unless Primitive.zr_fixnum_p_m(limit) || limit <= 0xffff_ffff_ffff_ffff
 
     mask = limit
     mask |= mask >> 1

@@ -1178,9 +1178,7 @@ class String
   end
 
   # UTF-16 and UTF-32 are never ASCII, not even empty.
-  def ascii_only?
-    encoding.ascii_compatible? && each_byte.all? { |b| b < 128 }
-  end
+  def ascii_only? = Primitive.zr_str_ascii_only_m(self)
 
   def valid_encoding? = Primitive.zr_str_valid_p(self)
 

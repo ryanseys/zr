@@ -32,7 +32,6 @@ gaps/rubygems_then_bundler.rb	milestones/rubygems_then_bundler.rb
 gaps/a_gated_constant_appears_at_its_require.rb	stdlib/base64/a_gated_constant_appears_at_its_require.rb
 gaps/require_of_a_builtin_feature_works_from_any_position.rb	stdlib/base64/require_of_a_builtin_feature_works_from_any_position.rb
 gaps/require_positions_and_paths.rb	stdlib/base64/require_positions_and_paths.rb
-gaps/json_parser_class_options.rb	stdlib/bigdecimal/json_parser_class_options.rb
 gaps/marshal_round_trips_a_native_value.rb	stdlib/bigdecimal/marshal_round_trips_a_native_value.rb
 gaps/native_object_protocol.rb	stdlib/bigdecimal/native_object_protocol.rb
 gaps/extensions.rb	stdlib/cgi/extensions.rb
@@ -150,17 +149,7 @@ gaps/sp_net_basic.rb	stdlib/ffi/sp_net_basic.rb
 gaps/the_toplevel_runs_on_the_process_main_thread.rb	stdlib/ffi/the_toplevel_runs_on_the_process_main_thread.rb
 gaps/variadic_attach_function_matches_the_oracle.rb	stdlib/ffi/variadic_attach_function_matches_the_oracle.rb
 gaps/fileutils.rb	stdlib/fileutils/fileutils.rb
-gaps/json_additions_and_classes.rb	stdlib/json/json_additions_and_classes.rb
-gaps/json_generate_rejects_bad_encoding.rb	stdlib/json/json_generate_rejects_bad_encoding.rb
-gaps/json_load_dump_surface.rb	stdlib/json/json_load_dump_surface.rb
-gaps/json_parse_freeze.rb	stdlib/json/json_parse_freeze.rb
-gaps/json_parse_temp_source.rb	stdlib/json/json_parse_temp_source.rb
-gaps/json_parser_edge_cases.rb	stdlib/json/json_parser_edge_cases.rb
-gaps/json_parser_lenient_rows.rb	stdlib/json/json_parser_lenient_rows.rb
-gaps/json_parser_stress.rb	stdlib/json/json_parser_stress.rb
-gaps/json_to_json.rb	stdlib/json/json_to_json.rb
 gaps/probe_roundtrip.rb	stdlib/json/probe_roundtrip.rb
-gaps/user_to_json_nested.rb	stdlib/json/user_to_json_nested.rb
 gaps/five_more_native_types_can_be_subclassed.rb	stdlib/monitor/five_more_native_types_can_be_subclassed.rb
 gaps/glob_require_and_loaded_features.rb	stdlib/net/glob_require_and_loaded_features.rb
 gaps/issue_net_http_missing.rb	stdlib/net/issue_net_http_missing.rb

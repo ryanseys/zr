@@ -93,7 +93,8 @@ class Rational < Numeric
 
   alias truncate_to_i to_i
 
-  def to_f = numerator.to_f / denominator.to_f
+  # nurat_to_double: the quotient rb_int_fdiv_double rounds once.
+  def to_f = numerator.fdiv(denominator)
 
   def to_s = "#{numerator}/#{denominator}"
 
