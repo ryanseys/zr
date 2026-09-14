@@ -4,6 +4,7 @@ require "digest"
 
 require_relative "model"
 require_relative "patch"
+require_relative "libsystem"
 
 module Ze0
   module Obj
@@ -86,16 +87,11 @@ module Ze0
       end
 
       # Whether libSystem defines `name`. One it does not is a vendored
-      # archive's, and dyld would not find it either.
-      def self.libsystem?(name)
-        (@handle ||= begin
-          require "fiddle"
-          ::Fiddle::Handle.new(LIBSYSTEM)
-        end)[name]
-        true
-      rescue LoadError, StandardError
-        false
-      end
+      # archive's, and dyld would not find it either. The answer comes
+      # from the committed list, not from this host's libSystem, so it is
+      # the same on every host; a name missing from the list is refused,
+      # and `cc` links it.
+      def self.libsystem?(name) = LIBSYSTEM_NAMES.include?(name)
 
       def initialize(unit, out, stack: STACK, entry: "main")
         @unit = unit
