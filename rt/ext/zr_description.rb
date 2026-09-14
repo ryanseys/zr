@@ -431,6 +431,28 @@ module Ze0
         d zr_frame_label_meta Ptr rec:Ptr
         d zr_kernel_caller Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_fiber_backtrace_m Value fiber:Value start:Value limit:Value
+        d zr_ffi_ptr Ptr addr:Value
+        d zr_ffi_addr Value p:Ptr
+        d zr_ffi_image Ptr
+        d zr_ffi_fn Ptr cell:Ptr name:Ptr
+        d zr_ffi_read Value addr:Value len:Value
+        d zr_ffi_write Value addr:Value str:Value from:Value len:Value
+        d zr_ffi_fill Value addr:Value byte:Value len:Value
+        d zr_ffi_copy Value to:Value from:Value len:Value
+        d zr_ffi_strlen Value addr:Value max:Value
+        d zr_ffi_cstr Ptr str:Value
+        d zr_ffi_str_addr Value str:Value
+        d zr_ffi_dlopen Value name:Value flags:Value
+        d zr_ffi_dlerror Value
+        d zr_ffi_dlsym Value handle:Value name:Value
+        d zr_ffi_type Value name:Value
+        d zr_ffi_prep Value cif:Value abi:Value nfixed:Value nargs:Value rtype:Value atypes:Value
+        d zr_ffi_call Value cif:Value fn:Value rvalue:Value avalues:Value
+        d zr_ffi_set_errno Value n:Value
+        d zr_ffi_callback_set Value callable:Value
+        d zr_ffi_closure Value cif:Value id:Value
+        d zr_ffi_closure_free Value closure:Value
+        d zr_ffi_closure_run Void cif:Ptr ret:Ptr args:Ptr user:Ptr
         d zr_fiber_stack_error Value err:Word
         d zr_current_task_slot Ptr
         d zr_task Ptr
@@ -1466,6 +1488,10 @@ module Ze0
         c G_RUNTIME_ERROR 23
         c G_FATAL 41
         c G_SYSTEM_STACK_ERROR 35
+        c RTLD_LAZY 1
+        c G_FFI_CALLBACK 58
+        c G_FFI_UNWIND 59
+        c FFI_CLOSURE_SIZE 40
         c T_FIBER 30
         c G_FIBER 39
         c FIBER_CREATED 0
@@ -1509,7 +1535,7 @@ module Ze0
         c G_FALSE 10
         c G_MAIN 11
         c G_NUMERIC 13
-        c G_COUNT 58
+        c G_COUNT 60
         c GATE_PLUS 1
         c GATE_MINUS 2
         c GATE_MUL 4

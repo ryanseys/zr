@@ -1373,7 +1373,7 @@ machine def zr_method_names(klass, all, vis, object)
   end
   while k != QNIL
     zr_level_method_names(k, out, seen, vis)
-    if all == 0 && zr_type(k) != T_ICLASS
+    if all == 0
       k = Machine.value(QNIL)
     else
       k = RClass.superclass(k)

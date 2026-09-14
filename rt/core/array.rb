@@ -1017,7 +1017,7 @@ class Array
     if n.nil?
       loop { each { |x| yield x } } unless empty?
     else
-      implicit_integer(n).times { each { |x| yield x } }
+      Primitive.zr_index_operand_m(n).times { each { |x| yield x } }
     end
     nil
   end

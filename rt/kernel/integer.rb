@@ -195,6 +195,12 @@ machine def zr_shift_operand(recv, argv, out, mid)
   if other == QNIL
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("no implicit conversion of nil into Integer"), 42)
   end
+  if zr_float_p(other)
+    count = Machine.slot(8)
+    Machine.store64(count, 0, Machine.word(zr_send(other, Machine.id(:to_int), 0, 0)))
+    return Machine.value(QUNDEF) if Machine.value(Machine.load64(count, 0)) == QUNDEF
+    return zr_int_operand(recv, count, out, mid, 0)
+  end
   zr_index_operand(other, out)
 end
 
