@@ -72,8 +72,8 @@ machine def zr_undefined_method(klass, mid, vis)
     zr_buf_push(b, Machine.bytes(" is protected"), 13)
   end
   e = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
-  zr_exc_detail(e, Machine.id(:@name), zr_sym(mid))
-  zr_exc_detail(e, Machine.id(:@receiver), klass)
+  zr_exc_detail(e, Machine.id(:name), zr_sym(mid))
+  zr_exc_detail(e, Machine.id(:receiver), klass)
   zr_raise(e)
 end
 

@@ -9,13 +9,13 @@ class Monitor
   end
 
   def try_enter
-    if @owner.equal?(Thread.current)
+    if @owner.equal?(Fiber.current)
       @count += 1
       return true
     end
     return false unless @mutex.try_lock
 
-    @owner = Thread.current
+    @owner = Fiber.current
     @count = 1
     true
   end
@@ -24,11 +24,11 @@ class Monitor
   alias mon_try_enter try_enter
 
   def enter
-    if @owner.equal?(Thread.current)
+    if @owner.equal?(Fiber.current)
       @count += 1
     else
       @mutex.lock
-      @owner = Thread.current
+      @owner = Fiber.current
       @count = 1
     end
     nil
@@ -61,10 +61,10 @@ class Monitor
 
   def mon_locked? = @mutex.locked?
 
-  def mon_owned? = @mutex.locked? && @owner.equal?(Thread.current)
+  def mon_owned? = @mutex.locked? && @owner.equal?(Fiber.current)
 
   def mon_check_owner
-    raise ThreadError, "current thread not owner" unless @owner.equal?(Thread.current)
+    raise ThreadError, "current fiber not owner" unless @owner.equal?(Fiber.current)
 
     nil
   end
@@ -80,18 +80,19 @@ class Monitor
     begin
       !cond.wait(@mutex, timeout).nil?
     ensure
-      @owner = Thread.current
+      @owner = Fiber.current
       @count = count
     end
   end
 end
 
+# monitor.rb, the half CRuby writes in Ruby, whose instance variables a
+# program sees as ruby's own shows them.
 module MonitorMixin
+  Primitive.attr! :ivars
+
   class ConditionVariable
-    def initialize(monitor)
-      @monitor = monitor
-      @cond = Thread::ConditionVariable.new
-    end
+    Primitive.attr! :ivars
 
     def wait(timeout = nil)
       @monitor.mon_check_owner
@@ -99,11 +100,15 @@ module MonitorMixin
     end
 
     def wait_while
-      wait while yield
+      while yield
+        wait
+      end
     end
 
     def wait_until
-      wait until yield
+      until yield
+        wait
+      end
     end
 
     def signal
@@ -115,12 +120,56 @@ module MonitorMixin
       @monitor.mon_check_owner
       @cond.broadcast
     end
+
+    private
+
+    def initialize(monitor) # :nodoc:
+      @monitor = monitor
+      @cond = Thread::ConditionVariable.new
+    end
   end
 
-  def self.extend_object(object)
-    super
-    object.send(:mon_initialize)
+  def self.extend_object(obj) # :nodoc:
+    super(obj)
+    obj.__send__(:mon_initialize)
   end
+
+  def mon_try_enter
+    @mon_data.try_enter
+  end
+  alias try_mon_enter mon_try_enter
+
+  def mon_enter
+    @mon_data.enter
+  end
+
+  def mon_exit
+    mon_check_owner
+    @mon_data.exit
+  end
+
+  def mon_locked?
+    @mon_data.mon_locked?
+  end
+
+  def mon_owned?
+    @mon_data.mon_owned?
+  end
+
+  def mon_synchronize(&b)
+    @mon_data.synchronize(&b)
+  end
+  alias synchronize mon_synchronize
+
+  def new_cond
+    unless defined?(@mon_data)
+      mon_initialize
+      @mon_initialized_by_new_cond = true
+    end
+    return ConditionVariable.new(@mon_data)
+  end
+
+  private
 
   def initialize(...)
     super
@@ -128,37 +177,18 @@ module MonitorMixin
   end
 
   def mon_initialize
+    if defined?(@mon_data)
+      if defined?(@mon_initialized_by_new_cond)
+        return # already initialized.
+      elsif @mon_data_owner_object_id == self.object_id
+        raise ThreadError, "already initialized"
+      end
+    end
     @mon_data = ::Monitor.new
+    @mon_data_owner_object_id = self.object_id
   end
 
-  def mon_try_enter = mon_data.try_enter
-
-  alias try_mon_enter mon_try_enter
-
-  def mon_enter = mon_data.enter
-
-  def mon_exit
-    mon_check_owner
-    mon_data.exit
-  end
-
-  def mon_locked? = mon_data.mon_locked?
-
-  def mon_owned? = mon_data.mon_owned?
-
-  def mon_synchronize(&block) = mon_data.synchronize(&block)
-
-  alias synchronize mon_synchronize
-
-  def new_cond = ConditionVariable.new(mon_data)
-
-  private
-
-  def mon_check_owner = mon_data.mon_check_owner
-
-  def mon_data
-    raise ThreadError, "monitor is not initialized; call mon_initialize first" unless defined?(@mon_data)
-
-    @mon_data
+  def mon_check_owner
+    @mon_data.mon_check_owner
   end
 end

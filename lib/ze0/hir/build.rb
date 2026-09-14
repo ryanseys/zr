@@ -278,7 +278,7 @@ module Ze0
             front ? @roots.unshift(*paths) : @roots.concat(paths)
           end
           configures! if !configures? && names_rbconfig?(result.value)
-          @traces ||= !Build.runtime_file?(file) && TRACE_NAMES.match?(source)
+          @traces ||= !Build.runtime_file?(file) && TRACE_NAMES.match?(source.b)
           build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value))
           build.within_method(method, scopes) if scopes && method
           body = build.seq(result.value.statements, hoist: true)
@@ -1319,14 +1319,15 @@ module Ze0
         relative_in_file(node, send)
       end
 
-      # `Primitive.attr! :ruby` or `:hidden` standing in a class body of
-      # the core library: every def after it in that body takes the mark,
-      # as though each began with it. `:ruby` marks methods CRuby writes
-      # in Ruby; `:hidden` a class of helpers CRuby writes as a C struct.
+      # `Primitive.attr! :ruby`, `:hidden` or `:ivars` standing in a class
+      # body of the core library: every def after it in that body takes the
+      # mark, as though each began with it. `:ruby` marks methods CRuby
+      # writes in Ruby; `:hidden` a class of helpers CRuby writes as a C
+      # struct; `:ivars` a class whose instance variables CRuby shows.
       def body_mark(node)
         mark = node.arguments&.arguments&.first
         return unless !@in_def && node.name == :attr! && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Primitive &&
-                      mark.is_a?(Prism::SymbolNode) && %w[ruby hidden].include?(mark.unescaped)
+                      mark.is_a?(Prism::SymbolNode) && %w[ruby hidden ivars].include?(mark.unescaped)
 
         mark.unescaped.to_sym
       end

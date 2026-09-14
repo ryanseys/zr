@@ -103,7 +103,7 @@ class Regexp
 
   def self.pin(made, pinned)
     Primitive.attr! :hidden
-    made.instance_variable_set(:@pinned, Encoding.at(pinned).send(:load)) if pinned
+    Primitive.zr_hidden_set(made, :pinned, Encoding.at(pinned).send(:load)) if pinned
     made
   end
   private_class_method :pin

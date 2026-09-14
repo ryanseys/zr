@@ -107,7 +107,7 @@ machine def zr_box_view(klass)
   if b == QNIL
     return klass
   end
-  i = zr_fix2long(zr_ivar_get(b, Machine.id(:@slot)))
+  i = zr_fix2long(zr_ivar_get(b, Machine.id(:slot)))
   if i >= RArray.len(a)
     return klass
   end
@@ -189,7 +189,7 @@ end
 # The box's own table of globals.
 sig [Value] => Value
 machine def zr_box_gvars(b)
-  zr_ivar_get(b, Machine.id(:@globals))
+  zr_ivar_get(b, Machine.id(:globals))
 end
 
 # A shared class a box reads is the box's shadow of it, made now when

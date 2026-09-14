@@ -34,7 +34,7 @@ module Ze0
 
         def defined_test(node)
           case node.kind
-          when :ivar then truth(checked(kernel("zr_ivar_defined", @self, imm(sym_id(node.target)))))
+          when :ivar then truth(checked(kernel("zr_ivar_defined", @self, imm(sym_id(ivar_name(node.target))))))
           when :gvar then truth(kernel("zr_gvar_defined", imm(sym_id(node.target))))
           when :backref then @f.icmp("ne", expr(node.target), @qnil)
           when :cvar

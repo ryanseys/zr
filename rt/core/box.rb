@@ -30,7 +30,7 @@ module Ruby
     def initialize
       raise RuntimeError, "Ruby::Box is disabled" unless Box.enabled?
 
-      (Box.instance_variable_get(:@boxes) || Box.instance_variable_set(:@boxes, [])) << self
+      (Primitive.zr_hidden_get(Box, :boxes) || Primitive.zr_hidden_set(Box, :boxes, [])) << self
       @slot = Primitive.zr_box_slot
       Primitive.zr_box_register(Box)
       @shadows = {}
@@ -152,8 +152,8 @@ if Ruby::Box.enabled?
     # Module's singleton class has no allocate, so a box takes Class's.
     def self.reserved(kind, id, tail)
       box = Class.instance_method(:allocate).bind_call(self)
-      box.instance_variable_set(:@kind, kind)
-      box.instance_variable_set(:@shown, "#<Ruby::Box:#{id},#{tail}>")
+      Primitive.zr_hidden_set(box, :kind, kind)
+      Primitive.zr_hidden_set(box, :shown, "#<Ruby::Box:#{id},#{tail}>")
       box
     end
     private_class_method :reserved

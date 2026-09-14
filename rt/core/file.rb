@@ -169,7 +169,7 @@ class File < IO
   def initialize(path, mode = (no_mode = true; "r"), perm = (no_perm = true; 0o666), **options)
     # A File that holds a descriptor is not opened again, as CRuby's
     # rb_file_initialize refuses.
-    raise RuntimeError, "reinitializing #{self.class}" if instance_variable_defined?(:@fd)
+    raise RuntimeError, "reinitializing #{self.class}" unless Primitive.zr_hidden_get(self, :fd).nil?
 
     if no_perm && (fd = Integer.try_convert(path))
       return super(fd, no_mode ? nil : mode, **options)

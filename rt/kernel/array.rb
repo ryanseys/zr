@@ -398,8 +398,8 @@ end
 # false when the start is out of range.
 sig [Value, Word, Ptr] => Value
 machine def zr_range_beg_len(range, n, out)
-  low = zr_ivar_get(range, Machine.id(:@begin))
-  high = zr_ivar_get(range, Machine.id(:@end))
+  low = zr_ivar_get(range, Machine.id(:begin))
+  high = zr_ivar_get(range, Machine.id(:end))
   slot = Machine.slot(8)
   if low == QNIL
     beg = 0
@@ -424,7 +424,7 @@ machine def zr_range_beg_len(range, n, out)
   if stop < 0
     stop += n
   end
-  if high != QNIL && zr_ivar_get(range, Machine.id(:@excl)) != QTRUE
+  if high != QNIL && zr_ivar_get(range, Machine.id(:excl)) != QTRUE
     stop += 1
   end
   len = stop - beg

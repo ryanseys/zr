@@ -613,7 +613,7 @@ class Ractor
     end
     # The task is the ractor's, not a thread the program asked for, so it
     # names no line of its own where a report shows it.
-    task.instance_variable_set(:@site, nil)
+    Primitive.zr_hidden_set(task, :site, nil)
     Primitive.zr_hidden_set(self, :__thread__, task)
     self
   end

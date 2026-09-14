@@ -331,7 +331,7 @@ class IO
   def console_write_fd
     Primitive.attr! :hidden
     fileno
-    @twin || @fd
+    Primitive.zr_hidden_get(self, :twin) || Primitive.zr_hidden_get(self, :fd)
   end
 
   def console_mode_bytes(fd, named)

@@ -157,7 +157,7 @@ module Ze0
         # A frozen receiver refuses the write at this line.
         def ivar_write(node, v)
           at_line(node.line)
-          checked(kernel("zr_ivar_set_cached", @self, imm(sym_id(node.name)), v, cache("iv", "IvarCache")))
+          checked(kernel("zr_ivar_set_cached", @self, imm(sym_id(ivar_name(node.name))), v, cache("iv", "IvarCache")))
         end
 
         def assign_target(target, v, prepared)

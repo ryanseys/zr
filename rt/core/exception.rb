@@ -192,13 +192,15 @@ end
 
 class ScriptError < Exception; end
 class LoadError < ScriptError
-  attr_reader :path
+  # The feature a require could not load, which CRuby keeps where a
+  # program sees it.
+  def path = Primitive.zr_hidden_get(self, :@path)
 end
 class NotImplementedError < ScriptError; end
 class SyntaxError < ScriptError
   # The file the error was read from, which only ruby's own parser
-  # fills in.
-  attr_reader :path
+  # fills in, where a program sees it.
+  def path = Primitive.zr_hidden_get(self, :@path)
 
   def initialize(message = "compile error")
     super
@@ -335,8 +337,11 @@ class FrozenError
   end
 end
 
+# CRuby sets these two where a program sees them.
 class LocalJumpError
-  attr_reader :exit_value, :reason
+  def exit_value = Primitive.zr_hidden_get(self, :@exit_value)
+
+  def reason = Primitive.zr_hidden_get(self, :@reason)
 end
 
 class SignalException

@@ -163,7 +163,7 @@ class Thread
     # thread now; every other one stayed behind in the parent.
     def after_fork
       Primitive.attr! :hidden
-      @threads.each { |thread| thread.instance_variable_set(:@status, :dead) unless thread.equal?(@current) }
+      @threads.each { |thread| Primitive.zr_hidden_set(thread, :status, :dead) unless thread.equal?(@current) }
       @threads = [@current]
       @queue = []
       @sleepers = []
@@ -521,7 +521,7 @@ class Thread
     Primitive.zr_fiber_rehome(@fiber)
     Primitive.zr_preempt_arm(Thread, :preempt)
     Thread.send(:enqueue, self)
-    Thread.instance_variable_get(:@threads) << self
+    Primitive.zr_hidden_get(Thread, :threads) << self
   end
 
   # The fiber's block: the thread's block, with a kill caught and an
@@ -562,9 +562,9 @@ class Thread
   # wherever it stopped.
   def take_over(from)
     Primitive.attr! :hidden
-    Thread.instance_variable_set(:@current, self)
+    Primitive.zr_hidden_set(Thread, :current, self)
     @status = :run
-    from.instance_variable_set(:@fiber, Fiber.current)
+    Primitive.zr_hidden_set(from, :fiber, Fiber.current)
     Primitive.zr_fiber_scheduler_switch(@fiber)
   end
 
@@ -642,7 +642,7 @@ module Process
   def detach(pid)
     pid = Integer.send(:int_operand, pid)
     waiter = Primitive.zr_class_build(Waiter)
-    waiter.instance_variable_set(:@pid, pid)
+    Primitive.zr_hidden_set(waiter, :pid, pid)
     waiter.send(:initialize) { Process.wait2(pid)&.last }
     waiter.send(:start, nil)
     waiter
@@ -658,7 +658,7 @@ class ThreadGroup
     raise ThreadError, "can't move from the enclosed thread group" if thread.group.enclosed?
     raise ThreadError, "can't move to the enclosed thread group" if enclosed?
 
-    thread.instance_variable_set(:@group, self)
+    Primitive.zr_hidden_set(thread, :group, self)
     self
   end
 

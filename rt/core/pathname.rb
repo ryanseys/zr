@@ -10,6 +10,8 @@
 # about the name itself, and every question about the file goes to
 # File, Dir or FileTest.
 class Pathname
+  Primitive.attr! :ivars
+
   # path_cmp: byte order, with a separator below every other byte.
   def <=>(other)
     return nil unless Pathname === other
@@ -26,6 +28,7 @@ end
 # The rest is Ruby in CRuby too, and reports its parameters by name.
 class Pathname
   Primitive.attr! :ruby
+  Primitive.attr! :ivars
 
   VERSION = "0.4.0"
 
@@ -33,8 +36,7 @@ class Pathname
   # says.
   private def same_paths?(a, b) = a == b
 
-  attr_reader :path
-  protected :path
+  protected def path = @path
 
   def initialize(path)
     @path = File.path(path).dup
@@ -355,6 +357,7 @@ end
 # The file's own questions, each one call to File.
 class Pathname
   Primitive.attr! :ruby
+  Primitive.attr! :ivars
 
   def each_line(...) = File.foreach(@path, ...)
   def read(...) = File.read(@path, ...)
@@ -403,6 +406,7 @@ end
 # The FileTest questions.
 class Pathname
   Primitive.attr! :ruby
+  Primitive.attr! :ivars
 
   def blockdev? = FileTest.blockdev?(@path)
   def chardev? = FileTest.chardev?(@path)
@@ -434,6 +438,7 @@ end
 # The directory's questions.
 class Pathname
   Primitive.attr! :ruby
+  Primitive.attr! :ivars
 
   def self.glob(*args, **kwargs)
     return Dir.glob(*args, **kwargs).map { |f| new(f) } unless block_given?

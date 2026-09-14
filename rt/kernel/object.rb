@@ -307,9 +307,9 @@ machine def zr_range_new(low, high, excl)
     end
   end
   r = zr_obj_alloc(zr_global(G_RANGE))
-  zr_ivar_set(r, Machine.id(:@begin), low)
-  zr_ivar_set(r, Machine.id(:@end), high)
-  zr_ivar_set(r, Machine.id(:@excl), zr_bool(excl != 0))
+  zr_ivar_set(r, Machine.id(:begin), low)
+  zr_ivar_set(r, Machine.id(:end), high)
+  zr_ivar_set(r, Machine.id(:excl), zr_bool(excl != 0))
   RBasic.set_flags(r, RBasic.flags(r) | FL_FREEZE)
   r
 end
@@ -1412,13 +1412,18 @@ machine def zr_attr(klass, argc, argv, which)
       zr_buf_sym(b, id)
       zr_buf_byte(b, 39)
       exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
-      zr_exc_detail(exc, Machine.id(:@name), zr_sym(id))
-      zr_exc_detail(exc, Machine.id(:@receiver), klass)
+      zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
+      zr_exc_detail(exc, Machine.id(:receiver), klass)
       return zr_raise(exc)
     end
     zr_buf_byte(b, 64)
     zr_buf_sym(b, id)
     ivar = zr_intern(Buf.ptr(b), Buf.len(b))
+    # The core library's attributes read the fields its instance
+    # variables stand for, which it keeps without their `@`.
+    if !zr_program_started_p()
+      ivar = zr_intern(Buf.ptr(b) + 1, Buf.len(b) - 1)
+    end
     caller = Frame.prev(Task.top(zr_task()))
     # The scope's visibility verb applies only inside this class's own
     # body; from anywhere else the attribute is public.

@@ -1932,6 +1932,8 @@ class Encoding
   attr_reader :names
 
   def initialize(index, names, dummy, ascii, loaded, bytewise)
+    # The one field CRuby shows a program.
+    Primitive.zr_hidden_set(self, :@name, names.first)
     @index = index
     @names = names.freeze
     @dummy = dummy

@@ -97,7 +97,7 @@ machine def zr_frozen_error(v)
   end
   zr_buf_str(b, s)
   e = zr_exc_new(zr_global(G_FROZEN_ERROR), zr_buf_take(b))
-  zr_exc_detail(e, Machine.id(:@receiver), v)
+  zr_exc_detail(e, Machine.id(:receiver), v)
   zr_raise(e)
 end
 

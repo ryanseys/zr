@@ -269,10 +269,10 @@ class Enumerator
   # in an external iteration is a fiber's stack, which does not copy.
   def initialize_copy(other)
     super
-    raise TypeError, "can't copy execution context" if other.instance_variable_get(:@fiber)
+    raise TypeError, "can't copy execution context" if Primitive.zr_hidden_get(other, :fiber)
 
-    @generator = other.instance_variable_get(:@generator)
-    enumerate(*%i[@receiver @method @args @kwargs @size].map { |name| other.instance_variable_get(name) })
+    @generator = Primitive.zr_hidden_get(other, :generator)
+    enumerate(*%i[receiver method args kwargs size].map { |name| Primitive.zr_hidden_get(other, name) })
     @fiber = @lookahead = @stop = @feed = nil
     self
   end
@@ -953,7 +953,7 @@ class Enumerator::Chain < Enumerator
 
   private def initialize_copy(other)
     Kernel.instance_method(:initialize_copy).bind_call(self, other)
-    @enums = other.instance_variable_get(:@enums).dup
+    @enums = Primitive.zr_hidden_get(other, :enums).dup
     self
   end
 
@@ -1001,7 +1001,7 @@ class Enumerator::Product < Enumerator
 
   private def initialize_copy(other)
     Kernel.instance_method(:initialize_copy).bind_call(self, other)
-    @enums = other.instance_variable_get(:@enums).dup
+    @enums = Primitive.zr_hidden_get(other, :enums).dup
     self
   end
 

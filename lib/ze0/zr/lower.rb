@@ -53,6 +53,10 @@ module Ze0
         @internal || @unit_internal
       end
 
+      # True in the core library alone, whose instance variables stand for
+      # the fields CRuby keeps in C.
+      def core? = @internal
+
       # The builtin classes the kernel names at boot, each with its global
       # slot. The core library reads them straight from the slot, as
       # CRuby's C reads rb_cInteger: a constant a program defines never

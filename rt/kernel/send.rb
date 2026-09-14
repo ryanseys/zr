@@ -19,10 +19,10 @@ machine def zr_no_method_from(recv, mid, vcall, from_super, argc, argv)
   r = zr_buf_receiver(b, recv)
   return r if r == QUNDEF
   e = zr_exc_new(zr_global(vcall ? G_NAME_ERROR : G_NO_METHOD_ERROR), zr_buf_take(b))
-  zr_exc_detail(e, Machine.id(:@name), zr_sym(mid))
-  zr_exc_detail(e, Machine.id(:@receiver), recv)
+  zr_exc_detail(e, Machine.id(:name), zr_sym(mid))
+  zr_exc_detail(e, Machine.id(:receiver), recv)
   if !vcall
-    zr_exc_detail(e, Machine.id(:@args), zr_ary_of(argc, argv))
+    zr_exc_detail(e, Machine.id(:args), zr_ary_of(argc, argv))
   end
   zr_raise(e)
 end
@@ -227,10 +227,10 @@ machine def zr_hidden_method(recv, mid, vis, argc, argv)
   r = zr_buf_receiver(b, recv)
   return r if r == QUNDEF
   e = zr_exc_new(zr_global(G_NO_METHOD_ERROR), zr_buf_take(b))
-  zr_exc_detail(e, Machine.id(:@name), zr_sym(mid))
-  zr_exc_detail(e, Machine.id(:@receiver), recv)
-  zr_exc_detail(e, Machine.id(:@args), zr_ary_of(argc, argv))
-  zr_exc_detail(e, Machine.id(:@private_call), zr_bool(vis == VIS_PRIVATE))
+  zr_exc_detail(e, Machine.id(:name), zr_sym(mid))
+  zr_exc_detail(e, Machine.id(:receiver), recv)
+  zr_exc_detail(e, Machine.id(:args), zr_ary_of(argc, argv))
+  zr_exc_detail(e, Machine.id(:private_call), zr_bool(vis == VIS_PRIVATE))
   zr_raise(e)
 end
 
