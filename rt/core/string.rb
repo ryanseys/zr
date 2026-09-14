@@ -1139,7 +1139,7 @@ class String
     when :universal, :lf then text.gsub(/\r\n|\r/, "\n")
     when :cr then text.gsub("\n", "\r")
     when :crlf then text.gsub("\n", "\r\n")
-    else raise ArgumentError, "unexpected value for newline option: #{kind}"
+    else Encoding.send(:newline_decorator, kind) # refuses it, as a converter does
     end
   end
 
