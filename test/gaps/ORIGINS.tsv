@@ -29,7 +29,6 @@ gaps/a_platform_guard_decides_at_build_time.rb	compiler/guards/a_platform_guard_
 gaps/a_version_gate_compares_by_version_not_by_string.rb	compiler/guards/a_version_gate_compares_by_version_not_by_string.rb
 gaps/the_string_guard_family.rb	compiler/guards/the_string_guard_family.rb
 gaps/bundle_io_sys.rb	core/io/bundle_io_sys.rb
-gaps/eval_file_and_line_arguments.rb	core/io/eval_file_and_line_arguments.rb
 gaps/io_buffer.rb	core/io/io_buffer.rb
 gaps/a_computed_require_loads_a_bundled_library.rb	core/kernel/a_computed_require_loads_a_bundled_library.rb
 gaps/eval_caller_locals.rb	core/kernel/eval_caller_locals.rb

@@ -20,6 +20,14 @@ module Kernel
   end
 end
 
+class Binding
+  # Ruby run in this binding's scope, as Kernel#eval given it runs.
+  def eval(source, file = nil, line = 1)
+    code = Ze0::Eval.current.compile(source, file || Primitive.zr_eval_source_name, line, Primitive.zr_binding_scopes(self), Primitive.zr_binding_in_method(self))
+    Primitive.zr_binding_run(code, self)
+  end
+end
+
 class Module
   # The module is the self and the definee, and a lexical scope on top
   # of the one the call stands in.

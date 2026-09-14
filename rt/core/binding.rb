@@ -36,11 +36,9 @@ class Binding
     Primitive.zr_binding_set(self, at[0], at[1], value)
   end
 
-  # Kernel's own, since this method stands over it here. The eval road
-  # defines that one again, so it is looked up at the call.
-  def eval(source, file = nil, line = 1)
-    ::Kernel.instance_method(:eval).bind_call(self, source, self, file, line)
-  end
+  # The eval road defines this again over the compiler the program
+  # brought, as it does Kernel#eval.
+  def eval(source, file = nil, line = 1) = Primitive.zr_unimplemented("eval reached in a program built without the compiler")
 
   def inspect = "#<Binding:0x#{format("%016x", object_id * 2)}>"
 
