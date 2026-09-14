@@ -293,10 +293,10 @@ end
 class NoMethodError
   attr_reader :args
 
-  def initialize(message = nil, name = nil, args = [], private_call = false, receiver: UNSET)
+  def initialize(message = nil, name = nil, args = nil, private_call = false, receiver: UNSET)
     super(message, name, receiver: receiver)
     @args = args
-    @private_call = private_call
+    @private_call = private_call ? true : false
   end
 
   def private_call? = @private_call == true
