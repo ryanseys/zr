@@ -71,7 +71,8 @@ class Random < random_base
     @default ||= new
   end
 
-  def self.rand(*args) = default.rand(*args)
+  # random_s_rand
+  def self.rand(*args) = Random.send(:checked, Random.send(:rand_random, Random, args), args)
   def self.bytes(size) = default.bytes(size)
 
   # Bytes from the system's own source, not the seeded stream.
@@ -83,7 +84,6 @@ class Random < random_base
     out
   end
 
-  def self.random_number(max = nil) = default.rand(max)
   def self.seed = default.seed
 
   def self.srand(seed = new_seed)
@@ -95,22 +95,257 @@ end
 
 Random::Base = random_base
 
-# What `random/formatter.rb` adds to every generator, and to SecureRandom
-# through the same module: a draw that names itself after the number it
-# gives, and `rand` beside it.
+# Random::Formatter's own draws, which random.c defines for every
+# generator and for any object that answers `bytes`, SecureRandom among
+# them: a Random draws from its stream, anything else from its bytes.
 module Random::Formatter
-  def rand(*args) = random_number(*args)
-
   def random_number(*args)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+    value = Random.send(:rand_random, self, args)
+    value = Random.send(:rand_random, self, []) if value.nil?
+    raise ArgumentError, "invalid argument - #{args[0]}" if value == false
 
-    max = args[0]
-    return Random::Base.instance_method(:rand).bind(self).call if max.nil?
-
-    Random::Base.instance_method(:rand).bind(self).call(max)
+    value
   end
+  alias rand random_number
 end
 Random::Base.include(Random::Formatter)
+Random::Base.extend(Random::Formatter)
+
+# random.c's draws over a generator or over an object's bytes. `rnd` is
+# the stream a draw reads, as try_get_rnd finds it, or nil.
+class Random
+  class << self
+    private
+
+    def generator_of(obj)
+      Primitive.attr! :hidden
+      return default if obj.equal?(Random)
+
+      obj.is_a?(Random) ? obj : nil
+    end
+
+    # obj_random_bytes: `n` bytes the object's public `bytes` answers.
+    def bytes_of(obj, n)
+      Primitive.attr! :hidden
+      bytes = obj.public_send(:bytes, n)
+      raise TypeError, "wrong argument type #{conversion_name(bytes)} (expected String)" unless bytes.is_a?(String)
+      raise RangeError, "random data too short #{bytes.bytesize}" if bytes.bytesize < n
+      raise RangeError, "random data too long #{bytes.bytesize}" if bytes.bytesize > n
+
+      bytes
+    end
+
+    # rb_int_pair_to_real: 53 random bits as [0, 1), or the 64 bits of
+    # the pair scaled into [0, 1].
+    def int_pair_to_real(a, b, excl)
+      Primitive.attr! :hidden
+      return ((a >> 5) * 67108864.0 + (b >> 6)) * (1.0 / 9007199254740992.0) if excl
+
+      high = (a << 21) | (b >> 11)
+      low = b & 0x7FF
+      high += 1 if (a >> 21) >= 2048 - low
+      high / 9007199254740992.0
+    end
+
+    def random_real(obj, rnd, excl)
+      Primitive.attr! :hidden
+      a, b = rnd ? [rnd.send(:next_int32), rnd.send(:next_int32)] : bytes_of(obj, 8).unpack("VV")
+      int_pair_to_real(a, b, excl)
+    end
+
+    # random_ulong_limited: a draw in 0..limit.
+    def ulong_limited(obj, rnd, limit)
+      Primitive.attr! :hidden
+      return 0 if limit.zero?
+      return rnd.send(:limited, limit) if rnd
+
+      width = limit.bit_length
+      n = width > 32 ? 8 : 4
+      mask = (1 << width) - 1
+      full = (1 << (n * 8)) - 1
+      bits = rest = 0
+      loop do
+        if (mask & ~rest) != 0
+          bits = bytes_of(obj, n).unpack1(n == 4 ? "V" : "Q<")
+          rest = full
+        end
+        value = bits & mask
+        bits >>= width
+        rest >>= width
+        return value unless limit < value
+      end
+    end
+
+    def ulong_limited_big(obj, rnd, limit)
+      Primitive.attr! :hidden
+      return rnd.send(:big_limited, limit) if rnd
+
+      words = (limit.bit_length + 31) / 32
+      mask = 0xffffffff >> ((words * 32) - limit.bit_length)
+      tops = Array.new(words) { |i| (limit >> (32 * (words - 1 - i))) & 0xffffffff }
+      loop do
+        draws = bytes_of(obj, words * 4).unpack("V*")
+        draws[0] &= mask
+        again = false
+        words.times do |i|
+          if tops[i] < draws[i]
+            again = true
+            break
+          end
+          break if draws[i] < tops[i]
+        end
+        next if again
+
+        return draws.inject(0) { |all, word| (all << 32) | word }
+      end
+    end
+
+    # rb_random_ulong_limited: what Array#shuffle and #sample draw, from
+    # an object's own `rand` where it has no stream.
+    def limited_for(obj, limit)
+      Primitive.attr! :hidden
+      rnd = generator_of(obj)
+      return rnd.send(:limited, limit) if rnd
+
+      value = obj.public_send(:rand, limit + 1)
+      value = Integer.try_convert(value) or raise TypeError, "no implicit conversion of #{conversion_name(value)} into Integer"
+      raise RangeError, "random number too small #{value}" if value.negative?
+      raise RangeError, "random number too big #{value}" if value > limit
+
+      value
+    end
+
+    # rand_int: nil where a restrictive draw has no numbers to take.
+    def rand_int(obj, rnd, max, restrictive)
+      Primitive.attr! :hidden
+      if Primitive.zr_fixnum_p_m(max)
+        return nil if max.zero?
+        if max.negative?
+          return nil if restrictive
+
+          max = -max
+        end
+        return ulong_limited(obj, rnd, max - 1)
+      end
+      if max.negative?
+        return nil if restrictive
+
+        max = -max
+      end
+      max -= 1
+      return ulong_limited(obj, rnd, max) if Primitive.zr_fixnum_p_m(max)
+
+      ulong_limited_big(obj, rnd, max)
+    end
+
+    # rand_range: false for what is no range, nil for an empty one.
+    def rand_range(obj, rnd, range)
+      Primitive.attr! :hidden
+      if range.is_a?(Range) || (range.respond_to?(:begin) && range.respond_to?(:end) && range.respond_to?(:exclude_end?))
+        low = range.begin
+        high = range.end
+        excl = range.exclude_end?
+      else
+        return false
+      end
+      domain_error if low.nil? || high.nil?
+      return false unless high.respond_to?(:-)
+
+      span = high - low
+      domain_error if span.nil?
+      value = nil
+      if !span.is_a?(Float) && (whole = Integer.try_convert(span))
+        max = whole - (excl ? 1 : 0)
+        if Primitive.zr_fixnum_p_m(whole)
+          value = ulong_limited(obj, rnd, max) if max >= 0
+        elsif whole.positive?
+          value = Primitive.zr_fixnum_p_m(max) ? ulong_limited(obj, rnd, max) : ulong_limited_big(obj, rnd, max)
+        end
+      elsif (width = float_of(span))
+        mid = 0.5
+        scale = 1
+        if width.infinite?
+          min = finite(Float(low)) / 2.0
+          width = finite(Float(high)) / 2.0
+          scale = 2
+          mid = width + min
+          width -= min
+        elsif width.nan?
+          domain_error
+        end
+        if width > 0.0
+          r = random_real(obj, rnd, excl)
+          return ((r - 0.5) * width * scale) + mid if scale > 1
+
+          value = r * width
+        elsif width == 0.0 && !excl
+          value = 0.0
+        end
+      end
+      return nil if value.nil?
+      return low + value if Primitive.zr_fixnum_p_m(low) && Primitive.zr_fixnum_p_m(value)
+      return value + low if value.is_a?(Integer) && !Primitive.zr_fixnum_p_m(value)
+      if value.is_a?(Float) && (base = float_of(low))
+        return value + base
+      end
+
+      low + value
+    end
+
+    # rand_random: a draw of the kind the argument names; nil for a
+    # bound with nothing under it, false for what names no draw.
+    def rand_random(obj, args)
+      Primitive.attr! :hidden
+      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+
+      rnd = generator_of(obj)
+      return random_real(obj, rnd, true) if args.empty?
+
+      max = args[0]
+      return nil if max.nil?
+      if !max.is_a?(Float) && (whole = Integer.try_convert(max))
+        return rand_int(obj, rnd, whole, true)
+      end
+      if (bound = float_of(max))
+        bound = finite(bound)
+        return nil if bound.negative?
+
+        r = random_real(obj, rnd, true)
+        return bound > 0.0 ? r * bound : r
+      end
+      rand_range(obj, rnd, max)
+    end
+
+    # check_random_number
+    def checked(value, args)
+      Primitive.attr! :hidden
+      Primitive.zr_index_operand_m(args[0]) if value == false
+      raise ArgumentError, "invalid argument - #{args[0]}" if value.nil?
+
+      value
+    end
+
+    # rb_check_to_float: a Float, or what a Numeric's to_f answers.
+    def float_of(value)
+      Primitive.attr! :hidden
+      return value if value.is_a?(Float)
+
+      value.is_a?(Numeric) ? Float(value) : nil
+    end
+
+    def finite(value)
+      Primitive.attr! :hidden
+      domain_error unless value.finite?
+
+      value
+    end
+
+    def domain_error
+      Primitive.attr! :hidden
+      raise Errno::EDOM
+    end
+  end
+end
 
 # The draws themselves, where CRuby keeps them: a generator answers `rand`,
 # `bytes` and `seed` from Random::Base, and the words of the state never
@@ -144,46 +379,9 @@ class Random::Base
 
   def seed = Primitive.zr_hidden_get(self, :__seed__)
 
-  # `rand(n)`, `rand(a..b)`; a Float bound or no bound is a Float draw.
-  # A bound that converts with `to_int` is that Integer, and anything
-  # else that is no Range fails as NUM2LONG does, as rand_random reads it.
-  def rand(max = (none = true; nil))
-    return unit_float if none
-
-    max = Integer.try_convert(max) || max unless max.is_a?(Float) || max.is_a?(Range) || max.nil?
-    case max
-    when nil then raise ArgumentError, "invalid argument - "
-    when Integer
-      raise ArgumentError, "invalid argument - #{max}" if max <= 0
-
-      limited(max - 1)
-    when Range
-      low = max.begin
-      high = max.end
-      raise Errno::EDOM if low.nil? || high.nil?
-      if low.is_a?(Float) || high.is_a?(Float)
-        span = high.to_f - low.to_f
-        return wide_float(low.to_f, high.to_f, max.exclude_end?) if span.infinite?
-        raise ArgumentError, "invalid argument - #{max}" if span < 0 || (span == 0 && max.exclude_end?)
-        return low.to_f + span * unit_float if max.exclude_end?
-
-        return low.to_f + span * unit_float_closed
-      end
-
-      high -= 1 if max.exclude_end?
-      raise ArgumentError, "invalid argument - #{max}" if high < low
-
-      low + limited(high - low)
-    when Float
-      raise Errno::EDOM unless max.finite?
-      raise ArgumentError, "invalid argument - #{max}" if max.negative?
-
-      max.zero? ? unit_float : max * unit_float
-    else
-      implicit_integer(max)
-      raise ArgumentError, "invalid argument - #{max}"
-    end
-  end
+  # random_rand: rand_random, where a bound with nothing under it is an
+  # ArgumentError and what names no draw fails as NUM2LONG does.
+  def rand(*args) = Random.send(:checked, Random.send(:rand_random, self, args), args)
 
   # `n` random bytes, four per draw, least significant first.
   def bytes(size)
@@ -210,38 +408,6 @@ class Random::Base
   end
 
   private
-
-  # A span too wide for a Float draws around the middle instead, which
-  # is how ruby keeps `-1e308..1e308` working. An endpoint that is not
-  # finite has no middle.
-  def wide_float(low, high, exclude_end)
-    Primitive.attr! :hidden
-    raise Errno::EDOM unless low.finite? && high.finite?
-
-    half = (high / 2.0) - (low / 2.0)
-    mid = (high / 2.0) + (low / 2.0)
-    (((exclude_end ? unit_float : unit_float_closed) - 0.5) * half * 2) + mid
-  end
-
-  # A double in [0, 1) from 53 random bits, as MT's genrand_res53.
-  def unit_float
-    Primitive.attr! :hidden
-    a = next_int32 >> 5
-    b = next_int32 >> 6
-    (a * 67108864.0 + b) * (1.0 / 9007199254740992.0)
-  end
-
-  # A double in [0, 1] as CRuby's int_pair_to_real_inclusive: the 64
-  # random bits scaled by 2**53 + 1 and the high word kept.
-  def unit_float_closed
-    Primitive.attr! :hidden
-    a = next_int32
-    b = next_int32
-    high = (a << 21) | (b >> 11)
-    low = b & 0x7FF
-    high += 1 if (a >> 21) >= 2048 - low
-    high / 9007199254740992.0
-  end
 
   # A draw in 0..limit, by rejection from as many 32-bit words as the
   # limit spans.
@@ -429,27 +595,21 @@ class Random::Base
 end
 
 module Kernel
-  # Kernel#rand: nil or 0 gives a Float, a Float or negative bound is
-  # taken as its Integer size.
-  # Kernel#rand is lenient where Random#rand raises: a bound's sign is
-  # dropped, and an empty range answers nil.
-  def rand(max = 0)
-    generator = Random.default
-    case max
-    when nil then generator.send(:unit_float)
-    when Float, Integer
-      n = max.to_i.abs
-      n == 0 ? generator.send(:unit_float) : generator.rand(n)
-    when Range
-      low = max.begin
-      high = max.end
-      if low.is_a?(Numeric) && high.is_a?(Numeric)
-        return nil if max.exclude_end? ? high <= low : high < low
-      end
+  # rb_f_rand: a range as Random draws it, else the bound's Integer, its
+  # sign dropped, and a Float where either leaves nothing to draw.
+  def rand(max = nil)
+    rnd = Random.send(:default)
+    unless max.nil?
+      value = Random.send(:rand_range, Random, rnd, max)
+      return value unless value == false
 
-      generator.rand(max)
-    else generator.rand(max)
+      max = to_integer(max)
+      unless max.zero?
+        value = Random.send(:rand_int, Random, rnd, max, false)
+        return value unless value.nil?
+      end
     end
+    Random.send(:random_real, Random, rnd, true)
   end
   def srand(seed = Random.new_seed) = Random.srand(seed)
   private :rand, :srand
@@ -471,7 +631,7 @@ class Array
     Primitive.zr_frozen_error(self) if frozen?
     i = size
     while i > 0
-      j = random.send(:limited, i - 1)
+      j = Random.send(:limited_for, random, i - 1)
       i -= 1
       self[i], self[j] = self[j], self[i]
     end
@@ -486,7 +646,7 @@ class Array
     if none
       return nil if len == 0
 
-      return self[random.send(:limited, len - 1)]
+      return self[Random.send(:limited_for, random, len - 1)]
     end
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "negative sample number" if n < 0
@@ -496,7 +656,7 @@ class Array
     if n <= 10
       i = 0
       while i < n
-        draws << random.send(:limited, len - i - 1)
+        draws << Random.send(:limited_for, random, len - i - 1)
         i += 1
       end
     end
@@ -547,7 +707,7 @@ class Array
       return idx.map { |x| self[x] }
     end
     if n <= memo_threshold / 2
-      picks = Array.new(n) { |i| random.send(:limited, len - i - 1) + i }
+      picks = Array.new(n) { |i| Random.send(:limited_for, random, len - i - 1) + i }
       memo = {}
       result = []
       i = 0
@@ -564,7 +724,7 @@ class Array
     result = dup
     i = 0
     while i < n
-      j = random.send(:limited, len - i - 1) + i
+      j = Random.send(:limited_for, random, len - i - 1) + i
       result[i], result[j] = result[j], result[i]
       i += 1
     end
