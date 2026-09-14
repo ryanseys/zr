@@ -283,3 +283,9 @@ module Kernel
 
   private :using
 end
+
+# A module is made by Module.new alone: ruby undefines allocate on
+# Module's singleton class, and Class.allocate is Class's own again.
+class << Module
+  undef_method :allocate
+end

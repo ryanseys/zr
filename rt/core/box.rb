@@ -149,8 +149,9 @@ if Ruby::Box.enabled?
     def self.root = @root ||= reserved(:root, 2, "root")
     def self.master = @master ||= reserved(:master, 1, "master")
 
+    # Module's singleton class has no allocate, so a box takes Class's.
     def self.reserved(kind, id, tail)
-      box = allocate
+      box = Class.instance_method(:allocate).bind_call(self)
       box.instance_variable_set(:@kind, kind)
       box.instance_variable_set(:@shown, "#<Ruby::Box:#{id},#{tail}>")
       box
