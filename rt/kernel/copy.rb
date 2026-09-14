@@ -107,7 +107,7 @@ sig [Value] => Value
 machine def zr_copy_allocatable(recv)
   klass = zr_real_class(recv)
   t = zr_type(recv)
-  if t != T_PROC && t != T_METHOD && zr_alloc_kind(klass) == ALLOC_UNDEF
+  if t != T_PROC && t != T_METHOD && zr_alloc_undefined_p(zr_alloc_kind(klass))
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("allocator undefined for "), 24)

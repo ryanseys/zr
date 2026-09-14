@@ -1,7 +1,6 @@
 gaps/ffi_libc_call.rb	aot/ffi_libc_call.rb
 gaps/openssl_digest.rb	aot/openssl_digest.rb
 gaps/socket_loopback.rb	aot/socket_loopback.rb
-gaps/zlib_roundtrip.rb	aot/zlib_roundtrip.rb
 gaps/a_platform_guard_decides_at_build_time.rb	compiler/guards/a_platform_guard_decides_at_build_time.rb
 gaps/a_version_gate_compares_by_version_not_by_string.rb	compiler/guards/a_version_gate_compares_by_version_not_by_string.rb
 gaps/io_buffer.rb	core/io/io_buffer.rb
@@ -29,12 +28,8 @@ gaps/require_bundler.rb	milestones/require_bundler.rb
 gaps/require_rubygems.rb	milestones/require_rubygems.rb
 gaps/require_rubygems_under_a_guard.rb	milestones/require_rubygems_under_a_guard.rb
 gaps/rubygems_then_bundler.rb	milestones/rubygems_then_bundler.rb
-gaps/a_gated_constant_appears_at_its_require.rb	stdlib/base64/a_gated_constant_appears_at_its_require.rb
-gaps/require_of_a_builtin_feature_works_from_any_position.rb	stdlib/base64/require_of_a_builtin_feature_works_from_any_position.rb
-gaps/require_positions_and_paths.rb	stdlib/base64/require_positions_and_paths.rb
 gaps/marshal_round_trips_a_native_value.rb	stdlib/bigdecimal/marshal_round_trips_a_native_value.rb
 gaps/native_object_protocol.rb	stdlib/bigdecimal/native_object_protocol.rb
-gaps/extensions.rb	stdlib/cgi/extensions.rb
 gaps/coverage.rb	stdlib/coverage/coverage.rb
 gaps/an_allocated_native_object_refuses_what_ruby_refuses.rb	stdlib/date/an_allocated_native_object_refuses_what_ruby_refuses.rb
 gaps/yaml_date_time_scalars_are_gated.rb	stdlib/date/yaml_date_time_scalars_are_gated.rb
@@ -169,14 +164,6 @@ gaps/issue_set_trace_func_missing.rb	stdlib/set/issue_set_trace_func_missing.rb
 gaps/subclassing_stringio_and_file.rb	stdlib/stringio/subclassing_stringio_and_file.rb
 gaps/syslog.rb	stdlib/syslog/syslog.rb
 gaps/psych_syntax_error_carries_marks.rb	stdlib/yaml/psych_syntax_error_carries_marks.rb
-gaps/a_subclass_of_zlib_inflate_inherits_the_stream.rb	stdlib/zlib/a_subclass_of_zlib_inflate_inherits_the_stream.rb
-gaps/const_get_dynamic.rb	stdlib/zlib/const_get_dynamic.rb
-gaps/gzip_reader_writer_edge_cases.rb	stdlib/zlib/gzip_reader_writer_edge_cases.rb
 gaps/io_copy_stream_honours_length_and_offset.rb	stdlib/zlib/io_copy_stream_honours_length_and_offset.rb
-gaps/zlib_api_long_tail.rb	stdlib/zlib/zlib_api_long_tail.rb
-gaps/zlib_checksums_match_ruby.rb	stdlib/zlib/zlib_checksums_match_ruby.rb
-gaps/zlib_classes.rb	stdlib/zlib/zlib_classes.rb
-gaps/zlib_compression.rb	stdlib/zlib/zlib_compression.rb
-gaps/zlib_constants.rb	stdlib/zlib/zlib_constants.rb
 gaps/ffi_typedefs_and_guarded_directives.rb	ze0/ffi_typedefs_and_guarded_directives.rb
 gaps/bundler_resolves_a_gemfile.rb	milestones/bundler_resolves_a_gemfile.rb

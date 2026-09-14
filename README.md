@@ -79,7 +79,7 @@ rebased and bound through, and the ad-hoc code signature Apple Silicon
 will not run a binary without. It links every program whose imports are
 all libSystem's, which is all of `test/native` and `test/zr`.
 
-A program that reaches oniguruma still needs a linker that reads
+A program that reaches oniguruma or zlib still needs a linker that reads
 archives, and that is `cc`. `ZE0_LINK=ruby` refuses such a program by
 naming the symbol instead of falling back, and `ZE0_LINK=cc` takes the
 system linker throughout.
@@ -90,6 +90,7 @@ system linker throughout.
 |---|---|
 | prism (`vendor/c/prism`) | the parser ruby itself uses. Matching ruby's answers means matching ruby's parser, and prism has no Ruby implementation. |
 | oniguruma (`vendor/c/oniguruma`) | the engine CRuby's `Regexp` semantics are defined by, down to its backtracking limits and its character tables. |
+| zlib (`vendor/c/zlib`) | the library ruby's `zlib` extension wraps. Matching ruby's answers means writing the bytes its deflate writes, which only the same version of zlib does. |
 
 ### Optional
 

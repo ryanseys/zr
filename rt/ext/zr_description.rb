@@ -160,6 +160,8 @@ module Ze0
         d zr_method_added Value klass:Value mid:Word
         d zr_method_add Void klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value
         d zr_method_add_vis Void klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value vis:Word
+        d zr_internal_meta_p Bool meta:Ptr
+        d zr_method_add_row Void klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value vis:Word
         d zr_program_started_p Bool
         d zr_save_core_row Void ext:Ptr e:Ptr
         d zr_saved_row Ptr ext:Ptr mid:Word
@@ -839,10 +841,12 @@ module Ze0
         d zr_class_build Value recv:Value
         d zr_alloc_class Value recv:Value
         d zr_alloc_shape Value recv:Value kind:Word
+        d zr_alloc_undefined_p Bool kind:Word
         d zr_alloc_kind Word klass:Value
         d zr_alloc_record Void g:Word kind:Word
         d zr_alloc_table Void
         d zr_undef_alloc Value klass:Value
+        d zr_undef_allocator Value klass:Value
         d zr_define_alloc Value klass:Value
         d zr_class_allocate_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_class_new_object Value recv:Value
@@ -1349,6 +1353,24 @@ module Ze0
         d zr_finalizers_run Value
         d zr_finalizer_row_run Value row:Value
         d zr_finalizers_at_exit Void
+        d zr_zlib_stream Ptr addr:Value
+        d zr_zlib_new Value
+        d zr_zlib_release Value addr:Value kind:Value
+        d zr_zlib_init Value addr:Value kind:Value level:Value wbits:Value memlevel:Value strategy:Value
+        d zr_zlib_input Value addr:Value str:Value offset:Value
+        d zr_zlib_output Void z:Ptr buf:Value room:Word
+        d zr_zlib_output_taken Void z:Ptr buf:Value
+        d zr_zlib_call Value addr:Value op:Value flush:Value buf:Value room:Value
+        d zr_zlib_params Value addr:Value level:Value strategy:Value buf:Value room:Value
+        d zr_zlib_dictionary Value addr:Value kind:Value dict:Value
+        d zr_zlib_copy Value dest:Value source:Value
+        d zr_zlib_fields Value addr:Value
+        d zr_zlib_count_in Value addr:Value n:Value
+        d zr_zlib_checksum Value kind:Value sum:Value str:Value
+        d zr_zlib_combine Value kind:Value first:Value second:Value len:Value
+        d zr_zlib_crc_table Value
+        d zr_zlib_version Value
+        d zr_zlib_message Value err:Value
         c G_ARRAY 25
         c G_INDEX_ERROR 26
         c ARY_MAX_SIZE 1152921504606846975
@@ -1361,6 +1383,7 @@ module Ze0
         c KIND_MISSING 9
         c T_ICLASS 28
         c GATE_ROWS 22
+        c ROW_CORE 256
         c CORE_KEY 4611686018427387904
         c MCACHE_ROWS 2048
         c MCACHE_OFF 1
@@ -1519,6 +1542,7 @@ module Ze0
         c ALLOC_STRING 7
         c ALLOC_UNDEF 8
         c ALLOC_REGEXP 9
+        c ALLOC_NONE 10
         c BUF_LENGTH 0
         c BUF_VALUE 16
         c PM_BUFFER_SIZE 24
@@ -1610,6 +1634,24 @@ module Ze0
         c WEAK_BOTH 1
         c WEAK_KEY 2
         c G_FINALIZERS 45
+        c Z_NEXT_IN 0
+        c Z_AVAIL_IN 8
+        c Z_TOTAL_IN 16
+        c Z_NEXT_OUT 24
+        c Z_AVAIL_OUT 32
+        c Z_TOTAL_OUT 40
+        c Z_MSG 48
+        c Z_DATA_TYPE 88
+        c Z_ADLER 96
+        c Z_STREAM_SIZE 112
+        c ZLIB_DEFLATE 0
+        c ZLIB_INFLATE 1
+        c ZLIB_DEFLATE_END 2
+        c ZLIB_INFLATE_END 3
+        c ZLIB_DEFLATE_RESET 4
+        c ZLIB_INFLATE_RESET 5
+        c ZLIB_INFLATE_SYNC 6
+        c ZLIB_INFLATE_SYNC_POINT 7
         s RArray 48 8 basic:0:RBasic len:16:Word capa:24:Word ptr:32:Ptr base:40:Ptr
         s Buf 24 8 ptr:0:Ptr len:8:Word capa:16:Word
         s IvarCache 8 8 index:0:Word

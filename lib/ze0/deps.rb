@@ -5,6 +5,7 @@ module Ze0
   # vendor/build. A build is repeated when a source, or this file's source
   # list, is newer than the archive.
   module Deps
+    ZLIB_SOURCES = %w[adler32 crc32 deflate inffast inflate inftrees trees zutil].freeze
     ONIG_SOURCES = %w[regcomp regenc regerror regexec regext regparse regsyntax regtrav regversion st onig_init unicode unicode_fold1_key unicode_fold2_key unicode_fold3_key unicode_unfold_key ascii utf8].freeze
 
     module_function
@@ -19,6 +20,22 @@ module Ze0
         ONIG_SOURCES.map do |name|
           object = File.join(objects, "#{name}.o")
           cc(["-DHAVE_CONFIG_H", "-DONIG_DISABLE_DIRECT_THREADING", "-I#{src}", File.join(src, "#{name}.c"), "-o", object])
+          object
+        end
+      end
+    end
+
+    # zlib, the version ruby 4.0.6 links, so a deflate writes the bytes
+    # ruby's writes: the archive's path.
+    def zlib(root)
+      src = File.join(root, "vendor/c/zlib")
+      out = File.join(root, "vendor/build")
+      archive(File.join(out, "libz.a"), Dir[File.join(src, "*.[ch]")] + [__FILE__]) do
+        objects = File.join(out, "zlib")
+        FileUtils.mkdir_p(objects)
+        ZLIB_SOURCES.map do |name|
+          object = File.join(objects, "#{name}.o")
+          cc(["-DHAVE_UNISTD_H", "-I#{src}", File.join(src, "#{name}.c"), "-o", object])
           object
         end
       end
@@ -76,7 +93,7 @@ module Ze0
     end
 
     def build(root)
-      [onig(root), prism(root)]
+      [onig(root), prism(root), zlib(root)]
     end
   end
 end

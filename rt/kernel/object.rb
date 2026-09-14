@@ -328,7 +328,7 @@ machine def zr_class_allocate(recv)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't create instance of singleton class"), 40)
   end
   kind = zr_alloc_kind(recv)
-  if kind == ALLOC_UNDEF
+  if zr_alloc_undefined_p(kind)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("allocator undefined for "), 24)
@@ -345,7 +345,7 @@ sig [Value] => Value
 machine def zr_class_build(recv)
   recv = zr_alloc_class(recv)
   kind = zr_alloc_kind(recv)
-  zr_alloc_shape(recv, kind == ALLOC_UNDEF ? ALLOC_OBJECT : kind)
+  zr_alloc_shape(recv, zr_alloc_undefined_p(kind) ? ALLOC_OBJECT : kind)
 end
 
 # A box shadow allocates what the class it stands over allocates, so
@@ -405,6 +405,15 @@ ALLOC_HASH = 6
 ALLOC_STRING = 7
 ALLOC_UNDEF = 8
 ALLOC_REGEXP = 9
+ALLOC_NONE = 10
+
+# Whether a class of `kind` has no allocator Ruby may call: ALLOC_UNDEF
+# for a class whose `new` is gone too (Integer, Binding), ALLOC_NONE for
+# one whose `new` is still Class#new (Zlib::ZStream).
+sig [Word] => Bool
+machine def zr_alloc_undefined_p(kind)
+  kind == ALLOC_UNDEF || kind == ALLOC_NONE
+end
 
 sig [Value] => Word
 machine def zr_alloc_kind(klass)
@@ -451,6 +460,14 @@ end
 sig [Value] => Value
 machine def zr_undef_alloc(klass)
   ClassExt.set_alloc(RClass.ext(klass), ALLOC_UNDEF)
+  Machine.value(QNIL)
+end
+
+# rb_undef_alloc_func alone, for a class an extension defines: `new`
+# stays Class#new, and it and `allocate` raise TypeError.
+sig [Value] => Value
+machine def zr_undef_allocator(klass)
+  ClassExt.set_alloc(RClass.ext(klass), ALLOC_NONE)
   Machine.value(QNIL)
 end
 

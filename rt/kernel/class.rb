@@ -902,11 +902,12 @@ machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
   FrameMeta.set_name(meta, mid)
   FrameMeta.set_owner(meta, klass)
   modfn = cref != QNIL && RCref.modfn(cref) != 0
+  core = !zr_program_started_p() || zr_internal_meta_p(meta) ? ROW_CORE : 0
   if modfn
     single = zr_singleton_class(klass)
-    zr_method_add_vis(single, mid, fn, arity, kind, zr_meta_owned(meta, single), cref, VIS_PUBLIC)
+    zr_method_add_row(single, mid, fn, arity, kind, zr_meta_owned(meta, single), cref, VIS_PUBLIC | core)
   end
-  zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
+  zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis | core)
   # Under `module_function` one def makes two methods, and ruby reports
   # both of them.
   r = zr_method_added(klass, mid)
@@ -993,6 +994,25 @@ end
 # original's name).
 sig [Value, Word, Ptr, Word, Word, Ptr, Value, Word] => Void
 machine def zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
+  zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, zr_program_started_p() ? vis : vis | ROW_CORE)
+end
+
+# Whether `meta` is a method the runtime's own Ruby wrote, which leaves
+# no file on its frames: a library such as zlib is the core library's
+# too, though it loads after the program starts.
+sig [Ptr] => Bool
+machine def zr_internal_meta_p(meta)
+  meta != 0 && FrameMeta.file_len(meta) == 0 && (FrameMeta.kind(meta) == KIND_BUILTIN || FrameMeta.kind(meta) == KIND_HIDDEN)
+end
+
+# The same, `vis` with ROW_CORE when the core library defines the row:
+# its own sends reach that row past what a program writes over it later.
+ROW_CORE = 256
+
+sig [Value, Word, Ptr, Word, Word, Ptr, Value, Word] => Void
+machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
+  core = (vis & ROW_CORE) != 0
+  vis = vis & (ROW_CORE - 1)
   klass = zr_origin(klass)
   # Only a handful of names have a gate, so ask for the bit before
   # asking the chain whether this is a redefinition.
@@ -1007,7 +1027,9 @@ machine def zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
   # ruby keeps it: `instance_methods` shows it in the place it was first
   # defined, and a later `remove_method` leaves nothing behind.
   e = zr_find_method_at(klass, mid)
-  zr_save_core_row(ext, e)
+  if !core
+    zr_save_core_row(ext, e)
+  end
   if e == 0
     n = ClassExt.mlen(ext)
     if n == ClassExt.mcap(ext)
@@ -1036,7 +1058,7 @@ machine def zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
   MEntry.set_vis(e, vis)
   MEntry.set_orig(e, mid)
   MEntry.set_from(e, Machine.value(QNIL))
-  MEntry.set_core(e, zr_program_started_p() ? 0 : 1)
+  MEntry.set_core(e, core ? 1 : 0)
   zr_gates_recheck(mid)
 end
 

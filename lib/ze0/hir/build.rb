@@ -438,6 +438,7 @@ module Ze0
         @shadowed = shadowed
         @path = [Object.name]
         @singleton = false
+        @body_marks = []
         @block_depth = 0
         @using = nil
         # How many `using` rows this build has made. `statement` reads it
@@ -1102,7 +1103,7 @@ module Ze0
 
       def define(node)
         @loader.loads_by_def!(node)
-        ruby = @ruby_defs
+        marks = @body_marks
         receiver = node.receiver && expr(node.receiver)
         in_definee(nil, !receiver.nil?) do
           was = @in_def
@@ -1111,7 +1112,7 @@ module Ze0
             params = parameters(node.parameters)
             @def_params = params
             body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
-            body = ruby_marked(body, node.location.start_line) if ruby
+            body = marked(body, marks, node.location.start_line) unless marks.empty?
             locals = with_temps(node.locals + (params.names - node.locals))
             Def.new(node.name, params, locals, body, node.location.start_line, receiver, evals?(node.body), node.location.end_line)
           end
@@ -1120,13 +1121,13 @@ module Ze0
         end
       end
 
-      # The body with `Primitive.attr! :ruby` first, where a def's own
-      # marks stand.
-      def ruby_marked(body, line)
-        mark = Send.new(ConstRead.new(nil, :Primitive, line), :attr!, [Literal.new(:ruby, line)], line, false)
-        return Begin.new(*body.to_a).tap { |b| b.body = ruby_marked(body.body, line) } if body.is_a?(Begin)
+      # The body with the `Primitive.attr!` rows of `marks` first, where a
+      # def's own marks stand.
+      def marked(body, marks, line)
+        return Begin.new(*body.to_a).tap { |b| b.body = marked(body.body, marks, line) } if body.is_a?(Begin)
 
-        Seq.new([mark, *(body.is_a?(Seq) ? body.stmts : [body])], line)
+        rows = marks.map { |mark| Send.new(ConstRead.new(nil, :Primitive, line), :attr!, [Literal.new(mark, line)], line, false) }
+        Seq.new([*rows, *(body.is_a?(Seq) ? body.stmts : [body])], line)
       end
 
       # Whether an eval stands anywhere in this body, blocks included
@@ -1148,15 +1149,15 @@ module Ze0
         @path.push(name) if name
         was = @singleton
         using = @using
-        ruby = @ruby_defs
+        marks = @body_marks
         @singleton = singleton
-        @ruby_defs = false
+        @body_marks = []
         yield
       ensure
         @path.pop if name
         @singleton = was
         @using = using
-        @ruby_defs = ruby
+        @body_marks = marks
       end
 
       # A bare `super`: the method's parameters passed on as they stand,
@@ -1307,7 +1308,8 @@ module Ze0
       def shadowed?(name) = @shadowed.key?([@path.join("::"), @singleton, name])
 
       def call(node)
-        @ruby_defs = true if ruby_mark?(node)
+        mark = body_mark(node)
+        @body_marks |= [mark] if mark
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil? && node.call_operator != "&."
         return FrozenString.new(unescaped(node.receiver), node.location.start_line) if node.name == :freeze && node.receiver.is_a?(Prism::StringNode) && node.arguments.nil? && node.block.nil?
         return require_node(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && !shadowed?(node.name) && !@loader&.eval? && literal_feature(node)
@@ -1317,13 +1319,16 @@ module Ze0
         relative_in_file(node, send)
       end
 
-      # `Primitive.attr! :ruby` standing in a class body of the core
-      # library: every def after it in that body is one CRuby writes in
-      # Ruby, as though each began with the mark.
-      def ruby_mark?(node)
+      # `Primitive.attr! :ruby` or `:hidden` standing in a class body of
+      # the core library: every def after it in that body takes the mark,
+      # as though each began with it. `:ruby` marks methods CRuby writes
+      # in Ruby; `:hidden` a class of helpers CRuby writes as a C struct.
+      def body_mark(node)
         mark = node.arguments&.arguments&.first
-        !@in_def && node.name == :attr! && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Primitive &&
-          mark.is_a?(Prism::SymbolNode) && mark.unescaped == "ruby"
+        return unless !@in_def && node.name == :attr! && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Primitive &&
+                      mark.is_a?(Prism::SymbolNode) && %w[ruby hidden].include?(mark.unescaped)
+
+        mark.unescaped.to_sym
       end
 
       # A string compiled while the program runs from a file that has a
