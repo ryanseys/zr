@@ -113,6 +113,9 @@ class Regexp
     written = "/#{source}/#{(bits & MULTILINE != 0 ? 'm' : '')}#{(bits & IGNORECASE != 0 ? 'i' : '')}#{(bits & EXTENDED != 0 ? 'x' : '')}"
     raise RegexpError, "upper is smaller than lower in repeat range: #{written}" if inverted_interval?(source)
 
+    Pattern.bare_properties(source).each do |letter|
+      Primitive.zr_warn_here_m("invalid Unicode Property \\#{letter}: /#{source}/")
+    end
     begin
       text = Pattern.engine_text(source, bits & EXTENDED != 0, binary_pattern?(source, bits))
     rescue RegexpError => e
@@ -265,13 +268,13 @@ class Regexp
 
   def timeout = Regexp.send(:seconds, Primitive.zr_regexp_limit(self))
 
-  # `/n` reads the pattern as bytes: one that names a byte past ASCII,
-  # written out or escaped, is a binary pattern, and one that does not is
-  # plain ASCII that any string can match.
+  # `/n` or a binary source reads the pattern as bytes: one that names a
+  # byte past ASCII, written out or escaped, is a binary pattern, and one
+  # that does not is plain ASCII that any string can match.
   def encoding
     return Encoding::BINARY unless Primitive.zr_regexp_source(self)
     return @pinned if @pinned
-    return Encoding::BINARY if options & NOENCODING != 0 && Pattern.past_ascii?(source)
+    return Encoding::BINARY if bytewise? && Pattern.past_ascii?(source)
 
     source.ascii_only? ? Encoding::US_ASCII : source.encoding
   end
@@ -279,12 +282,18 @@ class Regexp
   def fixed_encoding?
     return false unless Primitive.zr_regexp_source(self)
     return true unless @pinned.nil?
-    return Pattern.past_ascii?(source) if options & NOENCODING != 0
+    return Pattern.past_ascii?(source) if bytewise?
 
     !source.ascii_only?
   end
 
   def ==(other) = other.is_a?(Regexp) && source == other.source && options == other.options
+
+  def bytewise?
+    Primitive.attr! :hidden
+    options & NOENCODING != 0 || pattern.encoding == Encoding::BINARY
+  end
+  private :bytewise?
 
   alias eql? ==
 

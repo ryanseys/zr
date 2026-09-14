@@ -137,6 +137,21 @@ class Regexp
       i
     end
 
+    # The `\p` and `\P` escapes with no `{` after them, which Onigmo
+    # reads as the letter alone, with a warning.
+    def bare_properties(source)
+      return [] unless source.include?("\\p") || source.include?("\\P")
+
+      found = []
+      i = 0
+      while (i = source.index("\\", i))
+        letter = source[i + 1]
+        found << letter if (letter == "p" || letter == "P") && source[i + 2] != "{"
+        i += 2
+      end
+      found
+    end
+
     # Whether the pattern names a byte past ASCII: written out, or as a
     # hex, octal or meta escape. What `/n` reads as a binary pattern.
     def past_ascii?(source)

@@ -637,9 +637,14 @@ module Ze0
         # legal there and nowhere else; the check must read it that way.
         held = node.unescaped.dup.force_encoding(node.ascii_8bit? ? ::Encoding::BINARY : (pinned || node.unescaped.encoding))
         begin
+          # The program warns of what the pattern holds as it runs; the
+          # check stays quiet.
+          verbose, $VERBOSE = $VERBOSE, nil
           Regexp.new(held, regexp_options(node) & 7)
         rescue RegexpError => e
           refuse(node, "#{e.message.sub(/: \/.*\z/m, "")}: /#{node.unescaped}/")
+        ensure
+          $VERBOSE = verbose
         end
         RegexpLit.new(node.unescaped, regexp_options(node), pinned, line)
       end
