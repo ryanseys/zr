@@ -1,6 +1,9 @@
 # fpconv.c's fpconv_dtoa, as the json gem vendors it: Grisu2's digits
 # for a double, written the gem's way, with ".0" after a whole number.
 # JSON's generator writes every finite Float through it.
+#
+# Derived from fpconv (Copyright (c) 2013 Andreas Samoljuk, MIT License),
+# as vendored by the json gem. See THIRD_PARTY_NOTICES.md.
 FPCONV_EXPMASK = 9218868437227405312
 FPCONV_FRACMASK = 4503599627370495
 FPCONV_HIDDENBIT = 4503599627370496

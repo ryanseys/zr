@@ -1,4 +1,0 @@
-{
-  "cgi/escape": {"by": "stdlib-root", "path": "~/.local/share/mise/installs/ruby/4.0.6/lib/ruby/4.0.0/cgi/escape.rb", "diverges": true, "note": "a zeo reimplementation of CGI escaping"},
-  "erb/escape": {"by": "builtin-ext", "feature": "erb/escape"}
-}

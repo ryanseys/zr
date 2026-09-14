@@ -45,9 +45,6 @@ test/zr/                 kernel-dialect programs; test/zr/refused/ names each re
 test/programs/           Ruby programs on the runtime, against a live ruby
 ```
 
-`vendor/ruby` and `vendor/gems` (rubygems, bundler, the gem store) are
-fetched, not committed; a tier that is absent is skipped.
-
 ## The test format
 
 One `.rb` file is one program, and ruby's recorded answer sits under

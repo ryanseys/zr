@@ -581,6 +581,9 @@ machine def zr_float_from_bits(bits)
 end
 
 # --- Ryu: the shortest digits that read back as the same double ----------
+#
+# Derived from Ryu (Copyright 2018 Ulf Adams, Apache License 2.0 or Boost
+# Software License 1.0). See THIRD_PARTY_NOTICES.md.
 
 # The high 64 bits of a * b, both unsigned, by 32-bit halves.
 sig [Ptr, Ptr] => Ptr

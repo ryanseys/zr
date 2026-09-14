@@ -1,0 +1,53 @@
+# Third-party notices
+
+ze0's own code is under the MIT License (`LICENSE.txt`). The gem also
+ships code that other people wrote. This file names each part, its
+version, its license, and where its license text is.
+
+## Vendored C, compiled into native binaries
+
+| Component | Version | License | Path | License text |
+|---|---|---|---|---|
+| prism | 1.9.0 | MIT | `vendor/c/prism` | `vendor/c/prism/LICENSE.md` |
+| oniguruma (UTF-8 and ASCII subset, with changes marked `ze0:`) | 6.9.10 | BSD-2-Clause | `vendor/c/oniguruma` | `vendor/c/oniguruma/COPYING` |
+| zlib (subset) | 1.3.1 | Zlib | `vendor/c/zlib` | `vendor/c/zlib/LICENSE` |
+
+## Ruby halves of extension gems
+
+| Component | Version | License | Path | License text |
+|---|---|---|---|---|
+| prism | 1.9.0 | MIT | `vendor/ext/prism` | `vendor/ext/prism/LICENSE.md` |
+| json | 2.21.2 | Ruby or BSD-2-Clause | `vendor/ext/json` | `vendor/ext/json/COPYING`, `BSDL`, `LEGAL` |
+| psych | 5.3.1 | MIT | `vendor/ext/psych` | `vendor/ext/psych/LICENSE` |
+| bigdecimal | as bundled with ruby 4.0.6 | Ruby or BSD-2-Clause | `vendor/ext/bigdecimal` | `vendor/ext/bigdecimal/LICENSE`, `BSDL` |
+| digest | 3.2.1 | Ruby or BSD-2-Clause | `vendor/ext/digest` | `vendor/ext/digest/COPYING`, `BSDL` |
+| syslog | as bundled with ruby 4.0.6 | Ruby or BSD-2-Clause | `vendor/ext/syslog` | `vendor/ext/syslog/COPYING`, `BSDL` |
+| socket | ruby 4.0.6 | Ruby or BSD-2-Clause | `vendor/ext/socket` | `vendor/ext/socket/COPYING`, `BSDL` |
+| ffi | 1.17.4 | BSD-3-Clause | `vendor/ext/ffi` | `vendor/ext/ffi/LICENSE` |
+
+## Ruby's pure-Ruby standard library and bundled gems
+
+`vendor/lib` holds ruby 4.0.6's pure-Ruby standard library and bundled
+gems, unedited. `vendor/lib/VERSIONS` names each version. The license
+texts are in `vendor/lib/LICENSES/`.
+
+| Components | License | License text |
+|---|---|---|
+| The standard library and every bundled gem not named below | Ruby or BSD-2-Clause | `COPYING`, `BSDL` |
+| rake | MIT | `rake-MIT-LICENSE` |
+| minitest | MIT | `minitest-LICENSE` |
+| rexml, rss | BSD-2-Clause | `rexml-LICENSE.txt`, `rss-LICENSE.txt` |
+| test-unit | Ruby, BSD-2-Clause, or PSFL (parts) | `test-unit-COPYING`, `test-unit-PSFL` |
+| reline (parts from rb-readline) | Ruby, and BSD-3-Clause for the rb-readline parts | `reline-license_of_rb-readline` |
+
+## Code in `rt/` derived from other work
+
+| File | Derived from | License |
+|---|---|---|
+| `rt/kernel/fpconv.rb` | fpconv (Andreas Samoljuk), as vendored by the json gem | MIT |
+| `rt/kernel/float.rb` (the Ryu section), `rt/kernel/ryu_tables.rb` | Ryu (Ulf Adams) | Apache-2.0 or Boost-1.0 |
+| `rt/ext/date/parse.rb` | CRuby's `date_parse.c` (date gem) | Ruby or BSD-2-Clause |
+
+## Benchmarks (repository only, not in the gem)
+
+`test/bench` holds benchmarks from spinel (MIT); see `test/bench/UPSTREAM.md`.

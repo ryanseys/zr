@@ -1,6 +1,0 @@
-{
-  "io/wait": {"by": "builtin-ext", "feature": "io/wait"},
-  "rbconfig": {"by": "builtin-ext", "feature": "rbconfig"},
-  "socket": {"by": "stdlib-root", "path": "~/.local/share/mise/installs/ruby/4.0.6/lib/ruby/4.0.0/socket.rb", "diverges": true, "note": "a partial zeo reimplementation"},
-  "timeout": {"by": "stdlib-root", "path": "~/.local/share/mise/installs/ruby/4.0.6/lib/ruby/4.0.0/timeout.rb"}
-}
