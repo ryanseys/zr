@@ -138,6 +138,8 @@ module Marshal
     end
 
     def body(obj, limit)
+      return set(obj, limit) if obj.is_a?(Set)
+
       ivars = ivars_of(obj)
       wrapped = !ivars.empty? && !plain_object?(obj)
       @out << "I" if wrapped
@@ -157,6 +159,17 @@ module Marshal
       else object_body(class_path(obj.class), ivars, limit)
       end
       write_ivars(ivars, limit) if wrapped
+    end
+
+    # A Set writes as the pure-Ruby Set of Ruby 3 did, an object whose
+    # @hash names its members, which set.c's compat dumper stands in; its
+    # own instance variables wrap that.
+    def set(obj, limit)
+      ivars = ivars_of(obj)
+      @out << "I" unless ivars.empty?
+      extended(obj)
+      object_body(class_path(obj.class), [[:@hash, obj.send(:marshal_hash)]], limit)
+      write_ivars(ivars, limit) unless ivars.empty?
     end
 
     # A Range writes the three parts ruby gives it, in ruby's order.
@@ -583,7 +596,11 @@ module Marshal
         parts[name] = read
       end
       built = klass <= Range ? klass.new(parts[:begin], parts[:end], parts[:excl]) : @objects[here]
-      parts.each { |name, value| set_part(built, name, value) } unless klass <= Range
+      if klass <= Set
+        built.send(:marshal_load_hash, parts[:@hash])
+      elsif !(klass <= Range)
+        parts.each { |name, value| set_part(built, name, value) }
+      end
       @objects[here] = built
     end
 

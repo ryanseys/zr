@@ -28,7 +28,6 @@ gaps/require_bundler.rb	milestones/require_bundler.rb
 gaps/require_rubygems.rb	milestones/require_rubygems.rb
 gaps/require_rubygems_under_a_guard.rb	milestones/require_rubygems_under_a_guard.rb
 gaps/rubygems_then_bundler.rb	milestones/rubygems_then_bundler.rb
-gaps/marshal_round_trips_a_native_value.rb	stdlib/bigdecimal/marshal_round_trips_a_native_value.rb
 gaps/native_object_protocol.rb	stdlib/bigdecimal/native_object_protocol.rb
 gaps/coverage.rb	stdlib/coverage/coverage.rb
 gaps/yaml_date_time_scalars_are_gated.rb	stdlib/date/yaml_date_time_scalars_are_gated.rb
