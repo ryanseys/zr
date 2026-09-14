@@ -359,7 +359,8 @@ end
 
 # The row a bare constant under `cref` names, or 0: the lexical scopes
 # (an eval's cref is not one), then the innermost scope's ancestors,
-# then Object when that scope is a module.
+# then the box's own toplevel and its own Object, then Object when that
+# scope is a module.
 sig [Value, Word] => Ptr
 machine def zr_const_row_under(cref, id)
   cref = zr_cref_lexical(cref)
@@ -378,6 +379,10 @@ machine def zr_const_row_under(cref, id)
     b = zr_box_current()
     if b != QNIL
       e = zr_const_row(b, id)
+      object = zr_box_view(zr_global(G_OBJECT))
+      if e == 0 && object != zr_global(G_OBJECT)
+        e = zr_const_row(object, id)
+      end
     end
   end
   if e == 0 && zr_type(zr_cref_klass(cref)) == T_MODULE
