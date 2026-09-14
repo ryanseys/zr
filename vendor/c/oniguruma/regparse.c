@@ -4834,6 +4834,10 @@ enum REF_NUM {
   IS_REL_NUM = 2
 };
 
+/* ze0: a group name holds any character, and a `+` before a number
+   is part of the name, as Onigmo reads a name for Ruby. */
+#define ONIGENC_IS_CODE_NAME(enc, c)  TRUE
+
 #ifdef USE_BACKREF_WITH_LEVEL
 /*
    \k<name+n>, \k<name-n>
@@ -4888,12 +4892,7 @@ fetch_name_with_level(OnigCodePoint start_code, UChar** src, UChar* end,
       sign = -1;
       pnum_head = p;
     }
-    else if (c == '+') {
-      *num_type = IS_REL_NUM;
-      sign = 1;
-      pnum_head = p;
-    }
-    else if (!ONIGENC_IS_CODE_WORD(enc, c)) {
+    else if (!ONIGENC_IS_CODE_NAME(enc, c)) {
       r = ONIGERR_INVALID_CHAR_IN_GROUP_NAME;
     }
   }
@@ -4916,7 +4915,7 @@ fetch_name_with_level(OnigCodePoint start_code, UChar** src, UChar* end,
         *num_type = IS_NOT_NUM;
       }
     }
-    else if (!ONIGENC_IS_CODE_WORD(enc, c)) {
+    else if (!ONIGENC_IS_CODE_NAME(enc, c)) {
       r = ONIGERR_INVALID_CHAR_IN_GROUP_NAME;
     }
   }
@@ -5029,17 +5028,7 @@ fetch_name(OnigCodePoint start_code, UChar** src, UChar* end,
         r = ONIGERR_INVALID_GROUP_NAME;
       }
     }
-    else if (c == '+') {
-      if (is_ref == TRUE) {
-        *num_type = IS_REL_NUM;
-        sign = 1;
-        pnum_head = p;
-      }
-      else {
-        r = ONIGERR_INVALID_GROUP_NAME;
-      }
-    }
-    else if (!ONIGENC_IS_CODE_WORD(enc, c)) {
+    else if (!ONIGENC_IS_CODE_NAME(enc, c)) {
       r = ONIGERR_INVALID_CHAR_IN_GROUP_NAME;
     }
   }
@@ -5068,7 +5057,7 @@ fetch_name(OnigCodePoint start_code, UChar** src, UChar* end,
         }
       }
       else {
-        if (!ONIGENC_IS_CODE_WORD(enc, c)) {
+        if (!ONIGENC_IS_CODE_NAME(enc, c)) {
           r = ONIGERR_INVALID_CHAR_IN_GROUP_NAME;
         }
       }
