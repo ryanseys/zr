@@ -51,11 +51,6 @@ gaps/an_allocated_native_object_refuses_what_ruby_refuses.rb	stdlib/date/an_allo
 gaps/date_and_datetime_surface.rb	stdlib/date/date_and_datetime_surface.rb
 gaps/date_error_and_infinity_classes.rb	stdlib/date/date_error_and_infinity_classes.rb
 gaps/module_subclass.rb	stdlib/date/module_subclass.rb
-gaps/strftime_directive_surface.rb	stdlib/date/strftime_directive_surface.rb
-gaps/strftime_modifiers.rb	stdlib/date/strftime_modifiers.rb
-gaps/strftime_width_and_vms_date.rb	stdlib/date/strftime_width_and_vms_date.rb
-gaps/strftime_zone_offset_flags.rb	stdlib/date/strftime_zone_offset_flags.rb
-gaps/time_strftime_z_minimal.rb	stdlib/date/time_strftime_z_minimal.rb
 gaps/yaml_date_time_scalars_are_gated.rb	stdlib/date/yaml_date_time_scalars_are_gated.rb
 gaps/yaml_dump_styles.rb	stdlib/date/yaml_dump_styles.rb
 gaps/a_digest_bang_form_resets_the_instance.rb	stdlib/digest/a_digest_bang_form_resets_the_instance.rb

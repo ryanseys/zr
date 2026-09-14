@@ -12,6 +12,10 @@ class Time
   MONTH_NAMES = %w[January February March April May June July August September October November December].freeze
   DAY_NAMES = %w[Sunday Monday Tuesday Wednesday Thursday Friday Saturday].freeze
   SPACE = " \t\n\v\f\r"
+  # The strftime directives that stand for a format of others.
+  COMPOUNDS = { "c" => "%a %b %e %H:%M:%S %Y", "x" => "%m/%d/%y", "X" => "%H:%M:%S", "D" => "%m/%d/%y",
+                "r" => "%I:%M:%S %p", "R" => "%H:%M", "T" => "%H:%M:%S", "v" => "%e-%^b-%4Y", "F" => "%Y-%m-%d" }.freeze
+  INT_MAX = 0x7fff_ffff
   # time.c's compat tables: for each month and the weekday its first day
   # falls on, a year before 2038 whose month starts the same way.
   COMPAT_COMMON_YEARS = [
@@ -23,7 +27,7 @@ class Time
     [2026, 2032, 2033, 2034, 2035, 2030, 2036], [2030, 2036, 2026, 2032, 2033, 2034, 2035]
   ].freeze
   COMPAT_LEAP_YEARS = [2032, 2016, 2028, 2012, 2024, 2036, 2020].freeze
-  private_constant :NS, :MONTHS, :MONTH_NAMES, :DAY_NAMES, :SPACE, :COMPAT_COMMON_YEARS, :COMPAT_LEAP_YEARS
+  private_constant :NS, :MONTHS, :MONTH_NAMES, :DAY_NAMES, :SPACE, :COMPOUNDS, :INT_MAX, :COMPAT_COMMON_YEARS, :COMPAT_LEAP_YEARS
 
   class << self
     def now(**options)
@@ -575,43 +579,18 @@ class Time
     all.slice(*keys)
   end
 
-  def strftime(pattern)
-    pattern = Primitive.zr_str_operand(pattern)
-    out = +""
-    i = 0
-    n = pattern.size
-    while i < n
-      c = pattern[i]
-      if c != "%"
-        out << c
-        i += 1
-        next
-      end
-      i += 1
-      flags = +""
-      while i < n && "-_0^#".include?(pattern[i])
-        flags << pattern[i]
-        i += 1
-      end
-      width = nil
-      while i < n && pattern[i] >= "0" && pattern[i] <= "9"
-        width = (width || 0) * 10 + pattern[i].to_i
-        i += 1
-      end
-      colons = 0
-      while i < n && pattern[i] == ":"
-        colons += 1
-        i += 1
-      end
-      if i >= n
-        out << "%" << flags << (width ? width.to_s : "") << ":" * colons
-        break
-      end
-      directive = pattern[i]
-      i += 1
-      out << directive(directive, flags, width, colons)
+  # time_strftime: the format's directives rendered in its encoding.
+  def strftime(format)
+    built!
+    format = Primitive.zr_str_operand(format)
+    raise ArgumentError, "format should have ASCII compatible encoding" unless format.encoding.ascii_compatible?
+
+    if format.empty?
+      Primitive.zr_warn_here_m("strftime called with empty format string") if $VERBOSE
+      return String.new(encoding: format.encoding)
     end
-    out
+    text = rendered(format.b) or raise ArgumentError, "invalid format: #{format}"
+    text.force_encoding(format.encoding)
   end
 
   private
@@ -726,90 +705,196 @@ class Time
     row
   end
 
-  def directive(c, flags, width, colons)
+  # strftime.c's rb_strftime_with_timespec: the bytes of `format` with
+  # each directive rendered, or nil when a directive runs off its end.
+  def rendered(format)
     Primitive.attr! :hidden
+    out = "".b
+    at = 0
+    while at < format.bytesize
+      percent = format.byteindex("%", at) || format.bytesize
+      out << format.byteslice(at, percent - at)
+      break if percent == format.bytesize
+
+      at = directive(format, percent, out)
+    end
+    out if at <= format.bytesize
+  end
+
+  # One directive, from the `%` at `from`: flags, a width and colons,
+  # each at most where strftime.c takes it, then the conversion. Answers
+  # where the format goes on. What names no directive is copied as it
+  # is written; a directive that runs off the end answers a place past
+  # it.
+  def directive(format, from, out)
+    Primitive.attr! :hidden
+    width = -1
+    padding = nil
+    left = upper = swap = false
+    colons = 0
+    at = from
+    loop do
+      at += 1
+      c = format.byteslice(at)
+      case c
+      when "-", "^", "#", "_"
+        return verbatim(format, from, at, out) if width > 0
+
+        case c
+        when "-"
+          left = true
+          padding = nil
+          width = 0
+        when "^" then upper = true
+        when "#" then swap = true
+        else padding = " "
+        end
+      when "0".."9"
+        padding = "0" if c == "0"
+        digits = format.byteslice(at, format.bytesize - at)[/\A\d+/]
+        return verbatim(format, from, at, out) if digits.to_i > INT_MAX
+
+        width = digits.to_i
+        at += digits.bytesize - 1
+      when ":"
+        colons = 1
+        colons += 1 while colons <= 3 && format.byteslice(at + colons) == ":"
+        return verbatim(format, from, at, out) if colons <= 3 && format.byteslice(at + colons) != "z"
+
+        at += colons - 1
+      when "E", "O"
+        modified = format.byteslice(at + 1)
+        return verbatim(format, from, at, out) unless modified && (c == "E" ? "cCxXyY" : "deHkIlmMSuUVwWy").include?(modified)
+      else
+        break
+      end
+    end
+    c = format.byteslice(at)
     case c
-    when "Y" then number(year, flags, width, year < 0 ? 5 : 4)
-    when "C" then number(year.div(100), flags, width, 2)
-    when "y" then number(year % 100, flags, width, 2)
-    when "m" then number(month, flags, width, 2)
-    when "d" then number(day, flags, width, 2)
-    when "e" then number(day, flags, width, 2, " ")
-    when "j" then number(yday, flags, width, 3)
-    when "H" then number(hour, flags, width, 2)
-    when "k" then number(hour, flags, width, 2, " ")
-    when "I" then number(hour12, flags, width, 2)
-    when "l" then number(hour12, flags, width, 2, " ")
-    when "M" then number(min, flags, width, 2)
-    when "S" then number(sec, flags, width, 2)
-    when "L" then fraction(flags, width || 3)
-    when "N" then fraction(flags, width || 9)
-    when "z" then offset_text(flags, width, colons)
-    when "Z" then text(zone || "", flags, width, :down)
-    when "A" then text(DAY_NAMES[wday], flags, width)
-    when "a" then text(DAY_NAMES[wday][0, 3], flags, width)
-    when "B" then text(MONTH_NAMES[month - 1], flags, width)
-    when "b", "h" then text(MONTH_NAMES[month - 1][0, 3], flags, width)
-    when "p" then text(hour < 12 ? "AM" : "PM", flags, width, :down)
-    when "P" then text(hour < 12 ? "am" : "pm", flags, width)
-    when "u" then number(wday == 0 ? 7 : wday, flags, width, 1)
-    when "w" then number(wday, flags, width, 1)
-    when "s" then number(to_i, flags, width, 1)
-    when "U" then number((yday - 1 + 7 - wday) / 7, flags, width, 2)
-    when "W" then number((yday - 1 + 7 - (wday + 6) % 7) / 7, flags, width, 2)
-    when "G" then number(iso_week[0], flags, width, 4)
-    when "g" then number(iso_week[0] % 100, flags, width, 2)
-    when "V" then number(iso_week[1], flags, width, 2)
-    when "F" then text(strftime("%Y-%m-%d"), flags, width)
-    when "T", "X" then text(strftime("%H:%M:%S"), flags, width)
-    when "D", "x" then text(strftime("%m/%d/%y"), flags, width)
-    when "R" then text(strftime("%H:%M"), flags, width)
-    when "r" then text(strftime("%I:%M:%S %p"), flags, width)
-    when "c" then text(strftime("%a %b %e %H:%M:%S %Y"), flags, width)
-    when "n" then "\n"
-    when "t" then "\t"
-    when "%" then "%"
-    else "%#{flags}#{width}#{':' * colons}#{c}"
+    when "%" then put_word(out, "%", width, padding, left)
+    when "n" then put_word(out, "\n", width, padding, left)
+    when "t" then put_word(out, "\t", width, padding, left)
+    when "a" then put_word(out, DAY_NAMES[wday][0, 3], width, padding, left, (:up if upper || swap))
+    when "A" then put_word(out, DAY_NAMES[wday], width, padding, left, (:up if upper || swap))
+    when "b", "h" then put_word(out, MONTH_NAMES[month - 1][0, 3], width, padding, left, (:up if upper || swap))
+    when "B" then put_word(out, MONTH_NAMES[month - 1], width, padding, left, (:up if upper || swap))
+    when "p" then put_word(out, hour < 12 ? "AM" : "PM", width, padding, left, swap ? :down : (:up if upper))
+    when "P" then put_word(out, hour < 12 ? "AM" : "PM", width, padding, left, upper ? :up : (:down unless swap))
+    when "Z" then put_word(out, utc? ? "UTC" : zone.to_s, width, padding, left, swap ? :down : (:up if upper))
+    when "d" then put_number(out, day, "0", 2, width, padding, left)
+    when "e" then put_number(out, day, " ", 2, width, padding, left)
+    when "H" then put_number(out, hour, "0", 2, width, padding, left)
+    when "k" then put_number(out, hour, " ", 2, width, padding, left)
+    when "I" then put_number(out, (hour + 11) % 12 + 1, "0", 2, width, padding, left)
+    when "l" then put_number(out, (hour + 11) % 12 + 1, " ", 2, width, padding, left)
+    when "j" then put_number(out, yday, "0", 3, width, padding, left)
+    when "m" then put_number(out, month, "0", 2, width, padding, left)
+    when "M" then put_number(out, min, "0", 2, width, padding, left)
+    when "S" then put_number(out, sec, "0", 2, width, padding, left)
+    when "s" then put_number(out, to_i, "0", 1, width, padding, left)
+    when "U" then put_number(out, (yday - 1 + 7 - wday) / 7, "0", 2, width, padding, left)
+    when "W" then put_number(out, (yday - 1 + 7 - (wday + 6) % 7) / 7, "0", 2, width, padding, left)
+    when "w" then put_number(out, wday, "0", 1, width, padding, left)
+    when "u" then put_number(out, wday.zero? ? 7 : wday, "0", 1, width, padding, left)
+    when "V" then put_number(out, iso_week[1], "0", 2, width, padding, left)
+    when "Y" then put_number(out, year, "0", year.negative? && Primitive.zr_fixnum_p_m(year) ? 5 : 4, width, padding, left)
+    when "G" then put_number(out, iso_week[0], "0", iso_week[0].negative? && Primitive.zr_fixnum_p_m(iso_week[0]) ? 5 : 4, width, padding, left)
+    when "C" then put_number(out, year.div(100), "0", 2, width, padding, left)
+    when "y" then put_number(out, year % 100, "0", 2, width, padding, left)
+    when "g" then put_number(out, iso_week[0] % 100, "0", 2, width, padding, left)
+    when "L", "N"
+      width = c == "L" ? 3 : 9 if width <= 0
+      out << ((ns % NS) * 10**width).div(NS).to_s.rjust(width, "0")
+    when "z"
+      return verbatim(format, from, at - 1, out) if colons > 3
+
+      put_offset(out, colons, width, padding, left)
+    when "c", "x", "X", "D", "r", "R", "T", "v", "F"
+      put_compound(out, COMPOUNDS.fetch(c), width, padding, upper)
+    else
+      return verbatim(format, from, at, out)
+    end
+    at + 1
+  end
+
+  # What names no directive, from its `%` through `to`, as it is
+  # written.
+  def verbatim(format, from, to, out)
+    Primitive.attr! :hidden
+    out << format.byteslice(from, to - from + 1)
+    to + 1
+  end
+
+  # FILL_PADDING and case_conv: a word right-aligned in `width`, unless
+  # `-` leaves it bare.
+  def put_word(out, word, width, padding, left, casing = nil)
+    Primitive.attr! :hidden
+    return if word.empty?
+
+    out << (padding || " ") * (width - word.bytesize) if !left && width > word.bytesize
+    out << case casing
+           when :up then word.upcase
+           when :down then word.downcase
+           else word
+           end
+  end
+
+  # FMT and FMTV: a number right-aligned in `width`, or in the
+  # directive's own `least`, with its own `pad` unless a flag names
+  # another; `-` leaves it bare. A zero pad goes after the sign of a
+  # fixnum, as printf puts it, and before the sign of a bignum.
+  def put_number(out, value, pad, least, width, padding, left)
+    Primitive.attr! :hidden
+    width = left ? 1 : width <= 0 ? least : width
+    text = value.to_s
+    return out << text if text.bytesize >= width
+
+    fill = padding || pad
+    if fill == "0" && value.negative? && Primitive.zr_fixnum_p_m(value)
+      out << "-" << text.delete_prefix("-").rjust(width - 1, "0")
+    else
+      out << text.rjust(width, fill)
     end
   end
 
-  def hour12
+  # STRFTIME: a directive that stands for a format of others, upcased
+  # by `^` and right-aligned in `width`.
+  def put_compound(out, format, width, padding, upper)
     Primitive.attr! :hidden
-    h = hour % 12
-    h == 0 ? 12 : h
+    text = rendered(format)
+    text.upcase! if upper
+    out << (padding || " ") * (width - text.bytesize) if width > text.bytesize
+    out << text
   end
 
-  # A number padded to `digits` with `pad`, unless the flags say
-  # otherwise; `width` widens the field.
-  def number(value, flags, width, digits, pad = "0")
+  # `%z`: the offset as hours and minutes, `:` between them and then the
+  # seconds for each colon, or as few parts as lose nothing for three.
+  # The width counts past the sign and the minutes. A UTC time with `-`
+  # shows its offset as `-0000`.
+  def put_offset(out, colons, width, padding, left)
     Primitive.attr! :hidden
-    pad = "0" if flags.include?("0")
-    pad = " " if flags.include?("_")
-    return value.to_s if flags.include?("-")
+    off = utc? ? 0 : utc_offset.round
+    negative = off.negative? || (utc? && left)
+    off = off.abs
+    tail = case colons
+           when 0 then 3
+           when 1 then 4
+           when 2 then 7
+           else off % 3600 == 0 ? 1 : off % 60 == 0 ? 4 : 7
+           end
+    digits = width <= tail + 2 ? 2 : width - tail
+    sign = negative ? "-" : "+"
+    hours = (off / 3600).to_s
+    out << (padding == " " ? (sign + hours).rjust(digits + 1) : sign + hours.rjust(digits, "0"))
+    off %= 3600
+    return if colons == 3 && off.zero?
 
-    text = value.abs.to_s
-    size = width || digits
-    text = pad * (size - text.size - (value < 0 ? 1 : 0)) + text if text.size < size
-    value < 0 ? "-#{text}" : text
-  end
+    out << ":" if colons >= 1
+    out << format("%02d", off / 60)
+    off %= 60
+    return if colons == 3 && off.zero?
 
-  # A word, upcased by `^`; `#` changes its case the way `changed`
-  # says.
-  def text(value, flags, width, changed = :up)
-    Primitive.attr! :hidden
-    value = value.upcase if flags.include?("^")
-    value = changed == :up ? value.upcase : value.downcase if flags.include?("#")
-    return value if flags.include?("-")
-    return value if width.nil? || value.size >= width
-
-    (flags.include?("0") ? "0" : " ") * (width - value.size) + value
-  end
-
-  # The first `width` digits of the fraction of a second, cut, not
-  # rounded.
-  def fraction(flags, width)
-    Primitive.attr! :hidden
-    ((ns % NS) * 10**width / NS).floor.to_s.rjust(width, "0")
+    out << ":" << format("%02d", off) if colons >= 2
   end
 
   # A count of nanoseconds as a Float of seconds, divided as CRuby
@@ -817,26 +902,6 @@ class Time
   def float_seconds(count)
     Primitive.attr! :hidden
     count.is_a?(Rational) ? (count / NS).to_f : count / 1e9
-  end
-
-  def offset_text(flags, width, colons)
-    Primitive.attr! :hidden
-    offset = utc_offset
-    sign = offset < 0 ? "-" : "+"
-    offset = offset.abs
-    hh = offset / 3600
-    mm = (offset % 3600) / 60
-    ss = offset % 60
-    body = case colons
-           when 0 then format("%02d%02d", hh, mm)
-           when 1 then format("%02d:%02d", hh, mm)
-           else format("%02d:%02d:%02d", hh, mm, ss)
-           end
-    text = sign + body
-    return text if width.nil? || text.size >= width
-
-    pad = flags.include?("_") ? " " : "0"
-    pad == " " ? pad * (width - text.size) + text : sign + "0" * (width - text.size) + body
   end
 
   # The ISO 8601 week-numbering year and week.
