@@ -175,7 +175,7 @@ class File < IO
     text = File.send(:open_mode, mode)
     made = !File.exist?(path)
     if mode.is_a?(Integer) && (mode & File::CREAT) != 0
-      raise Errno::EEXIST, "@ rb_sysopen - #{path}" if !made && (mode & File::EXCL) != 0
+      raise Errno::EEXIST.new(path, "rb_sysopen") if !made && (mode & File::EXCL) != 0
 
       # fopen makes a file only in a writing mode, so a creation that
       # keeps what is there opens a new file as "w+".
@@ -196,14 +196,14 @@ class File < IO
     # fopen, whose permissions open(2) takes as a variadic argument.
     unless made
       fd = Primitive.zr_io_open_flags(path, File.send(:open_flags, text))
-      raise SystemCallError.new("@ rb_sysopen - #{path}", -fd) if fd < 0
+      raise SystemCallError.new(path, -fd, "rb_sysopen") if fd < 0
 
       super(fd, mode, **options, path: path)
       return
     end
 
     stream = Primitive.zr_io_open(path, text)
-    raise SystemCallError.new("@ rb_sysopen - #{path}", -stream) if stream < 0
+    raise SystemCallError.new(path, -stream, "rb_sysopen") if stream < 0
 
     super(Primitive.zr_io_fileno(stream), mode, **options, path: path)
     Primitive.zr_io_chmod_fd(@fd, perm) if made && perm != 0o666
@@ -234,7 +234,7 @@ class File < IO
     loop do
       fd = Primitive.zr_io_open_flags(path, flags)
       return fd if fd >= 0
-      raise SystemCallError.new("@ rb_sysopen - #{path}", -fd) unless -fd == Errno::ENXIO::Errno
+      raise SystemCallError.new(path, -fd, "rb_sysopen") unless -fd == Errno::ENXIO::Errno
 
       sleep 0.001
     end
@@ -244,7 +244,7 @@ class File < IO
   def self.size(path)
     path = path_of(path)
     result = Primitive.zr_io_file_size(path)
-    raise SystemCallError.new("@ rb_file_s_size - #{path}", -result) if result < 0
+    raise SystemCallError.new(path, -result, "rb_file_s_size") if result < 0
 
     result
   end
@@ -265,7 +265,7 @@ class File < IO
     paths.each do |path|
       path = path_of(path)
       result = Primitive.zr_io_unlink(path)
-      raise SystemCallError.new("@ apply2files - #{path}", -result) if result < 0
+      raise SystemCallError.new(path, -result, "apply2files") if result < 0
     end
     paths.size
   end
@@ -309,7 +309,7 @@ class File < IO
     def self.for_fd(fd)
       Primitive.attr! :hidden
       fields = Primitive.zr_fstat_m(fd)
-      raise SystemCallError.new("@ rb_io_stat - fd #{fd}", -fields) if fields.is_a?(Integer)
+      raise SystemCallError.new("fd #{fd}", -fields, "rb_io_stat") if fields.is_a?(Integer)
 
       allocate.send(:take, fields)
     end
@@ -380,7 +380,7 @@ class File < IO
       Primitive.attr! :hidden
       path = File.send(:path_of, path)
       fields = Primitive.zr_stat_m(path, true)
-      raise SystemCallError.new("@ #{site} - #{path}", -fields) if fields.is_a?(Integer)
+      raise SystemCallError.new(path, -fields, site) if fields.is_a?(Integer)
 
       take(fields)
     end
@@ -397,7 +397,7 @@ class File < IO
       Primitive.attr! :hidden
       path = File.send(:path_of, path)
       fields = Primitive.zr_stat_m(path, false)
-      raise SystemCallError.new("@ rb_file_s_lstat - #{path}", -fields) if fields.is_a?(Integer)
+      raise SystemCallError.new(path, -fields, "rb_file_s_lstat") if fields.is_a?(Integer)
 
       allocate.tap { |stat| stat.send(:take, fields) }
     end
@@ -503,7 +503,7 @@ class File < IO
     path = path_of(path)
     path = File.join(path_of(dir), path) if dir && !path.start_with?("/")
     result = Primitive.zr_realpath_m(path)
-    raise SystemCallError.new("@ rb_check_realpath_internal - #{path}", -result) if result.is_a?(Integer)
+    raise SystemCallError.new(path, -result, "rb_check_realpath_internal") if result.is_a?(Integer)
 
     result
   end
@@ -543,7 +543,7 @@ class File < IO
     Primitive.attr! :hidden
     paths.each do |path|
       result = yield(path_of(path))
-      raise SystemCallError.new("@ apply2files - #{path}", -result) if result < 0
+      raise SystemCallError.new(path, -result, "apply2files") if result < 0
     end
     paths.size
   end
@@ -567,29 +567,29 @@ class File < IO
   # then the message names the second path alone, under the helper that
   # decides.
   def self.fail2(code, site, from, to)
-    raise SystemCallError.new("@ syserr_fail2_in - #{to}", code) if code == Errno::EEXIST::Errno
+    raise SystemCallError.new(to, code, "syserr_fail2_in") if code == Errno::EEXIST::Errno
 
-    raise SystemCallError.new("@ #{site} - (#{from}, #{to})", code)
+    raise SystemCallError.new("(#{from}, #{to})", code, site)
   end
   private_class_method :fail2
 
   def self.readlink(path)
     result = Primitive.zr_readlink_m(path_of(path))
-    raise SystemCallError.new("@ rb_readlink - #{path}", -result) if result.is_a?(Integer)
+    raise SystemCallError.new(path, -result, "rb_readlink") if result.is_a?(Integer)
 
     result
   end
 
   def self.mkfifo(path, mode = 0o666)
     result = Primitive.zr_fs_call(4, path_of(path), mode, 0)
-    raise SystemCallError.new("@ mkfifo - #{path}", -result) if result < 0
+    raise SystemCallError.new(path, -result, "mkfifo") if result < 0
 
     0
   end
 
   def self.truncate(path, length)
     result = Primitive.zr_fs_call(5, path_of(path), length, 0)
-    raise SystemCallError.new("@ rb_file_s_truncate - #{path}", -result) if result < 0
+    raise SystemCallError.new(path, -result, "rb_file_s_truncate") if result < 0
 
     0
   end
@@ -696,7 +696,7 @@ class File < IO
 
   def chmod(mode)
     result = Primitive.zr_fs_call(7, "", fileno, mode)
-    raise SystemCallError.new("@ rb_file_chmod - #{path}", -result) if result < 0
+    raise SystemCallError.new(path, -result, "rb_file_chmod") if result < 0
 
     0
   end
@@ -709,7 +709,7 @@ class File < IO
   def truncate(length)
     send(:check_writable)
     result = Primitive.zr_fs_call(6, "", fileno, length)
-    raise SystemCallError.new("@ rb_file_truncate - #{path}", -result) if result < 0
+    raise SystemCallError.new(path, -result, "rb_file_truncate") if result < 0
 
     0
   end
@@ -719,7 +719,7 @@ class File < IO
     result = Primitive.zr_fs_call(8, "", fileno, operation)
     return false if result == -Errno::EWOULDBLOCK::Errno
 
-    raise SystemCallError.new("@ rb_file_flock - #{path}", -result) if result < 0
+    raise SystemCallError.new(path, -result, "rb_file_flock") if result < 0
 
     0
   end
@@ -786,14 +786,14 @@ class Dir
   # under is not knowable, so the names come from the descriptor.
   def self.for_fd(fd)
     names = Primitive.zr_io_dir_names_fd(fd)
-    raise SystemCallError.new("@ dir_s_for_fd", -names) if names.is_a?(Integer)
+    raise SystemCallError.new("fdopendir", -names) if names.is_a?(Integer)
 
     allocate.send(:take_names, nil, names, fd)
   end
 
   def self.fchdir(fd)
     result = Primitive.zr_io_fchdir(fd)
-    raise SystemCallError.new("@ dir_s_fchdir", -result) if result < 0
+    raise SystemCallError.new("fchdir", -result) if result < 0
 
     return 0 unless block_given?
 
@@ -808,10 +808,10 @@ class Dir
     Primitive.attr! :ruby
     @path = File.path(name)
     names = Primitive.zr_io_dir_names(@path)
-    raise SystemCallError.new("@ dir_initialize - #{@path}", -names) if names.is_a?(Integer)
+    raise SystemCallError.new(@path, -names, "dir_initialize") if names.is_a?(Integer)
 
     fd = Primitive.zr_io_open_flags(@path, File::RDONLY)
-    raise SystemCallError.new("@ dir_initialize - #{@path}", -fd) if fd < 0
+    raise SystemCallError.new(@path, -fd, "dir_initialize") if fd < 0
 
     take_names(@path, names, fd)
   end
@@ -915,7 +915,7 @@ class Dir
   def self.mkdir(path, mode = 0o777)
     path = File.send(:path_of, path)
     result = Primitive.zr_io_mkdir(path, mode)
-    raise SystemCallError.new("@ dir_s_mkdir - #{path}", -result) if result < 0
+    raise SystemCallError.new(path, -result, "dir_s_mkdir") if result < 0
 
     0
   end
@@ -923,7 +923,7 @@ class Dir
   def self.rmdir(path)
     path = File.send(:path_of, path)
     result = Primitive.zr_io_rmdir(path)
-    raise SystemCallError.new("@ dir_s_rmdir - #{path}", -result) if result < 0
+    raise SystemCallError.new(path, -result, "dir_s_rmdir") if result < 0
 
     0
   end
@@ -937,7 +937,7 @@ class Dir
   def self.entries(path, encoding: nil)
     path = File.send(:path_of, path)
     names = Primitive.zr_io_dir_names(path)
-    raise SystemCallError.new("@ dir_initialize - #{path}", -names) if names.is_a?(Integer)
+    raise SystemCallError.new(path, -names, "dir_initialize") if names.is_a?(Integer)
     return names unless encoding
 
     names.map { |name| name.dup.force_encoding(encoding) }
@@ -1148,7 +1148,7 @@ class Dir
     Primitive.attr! :hidden
     path = File.send(:path_of, path)
     result = Primitive.zr_io_chdir(path)
-    raise SystemCallError.new("@ #{site} - #{path}", -result) if result < 0
+    raise SystemCallError.new(path, -result, site) if result < 0
 
     0
   end

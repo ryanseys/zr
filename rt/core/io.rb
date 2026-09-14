@@ -199,12 +199,12 @@ class IO
     path = File.send(:path_of, path)
     if mode.is_a?(Integer) && (mode & File::CREAT).zero?
       fd = Primitive.zr_io_open_flags(path, mode)
-      raise SystemCallError.new("@ rb_sysopen - #{path}", -fd) if fd < 0
+      raise SystemCallError.new(path, -fd, "rb_sysopen") if fd < 0
 
       return fd
     end
     stream = Primitive.zr_io_open(path, File.send(:open_mode, mode))
-    raise SystemCallError.new("@ rb_sysopen - #{path}", -stream) if stream < 0
+    raise SystemCallError.new(path, -stream, "rb_sysopen") if stream < 0
 
     fd = Primitive.zr_io_fileno(stream)
     Primitive.zr_io_chmod_fd(fd, perm) if perm
@@ -361,7 +361,7 @@ class IO
     raise RangeError, "integer #{fd} too small to convert to 'int'" if fd < -2147483648
 
     rows = Primitive.zr_fstat_m(fd)
-    raise SystemCallError.new("@ rb_io_initialize", -rows) if rows.is_a?(Integer)
+    raise SystemCallError.new(nil, -rows) if rows.is_a?(Integer)
 
     text, binary, external, internal = IO.send(:open_options, mode, options)
     @fd = fd
@@ -447,7 +447,7 @@ class IO
   # close or a reopen of one leaves the other where it was.
   def initialize_copy(other)
     fd = Primitive.zr_io_dup(other.fileno)
-    raise SystemCallError.new("@ rb_io_dup", -fd) if fd < 0
+    raise SystemCallError.new(nil, -fd) if fd < 0
 
     @fd = fd
     @buffer = fresh_buffer
@@ -465,7 +465,7 @@ class IO
     write_pending
     other = File.open(other, mode || @mode) unless other.is_a?(IO)
     result = Primitive.zr_io_dup2(other.fileno, @fd)
-    raise SystemCallError.new("@ rb_io_reopen - #{label}", -result) if result < 0
+    raise SystemCallError.new(label, -result, "rb_io_reopen") if result < 0
 
     @path = other.path
     @buffer = fresh_buffer
@@ -558,7 +558,7 @@ class IO
     result = Primitive.zr_io_fcntl(@fd, command, value)
     # rb_sys_fail_path names the stream, and the call that set up the
     # argument, after the message; a stream with no path names neither.
-    raise SystemCallError.new(path.nil? ? nil : "@ finish_narg - #{path}", -result) if result < 0
+    raise SystemCallError.new(path, -result, "finish_narg") if result < 0
 
     result
   end
@@ -629,7 +629,7 @@ class IO
     check_readable
     IO.send(:room_for!, length)
     text = Primitive.zr_io_pread(@fd, length, offset)
-    raise SystemCallError.new("@ rb_io_pread - #{label}", -text) if text.is_a?(Integer)
+    raise SystemCallError.new(label, -text, "rb_io_pread") if text.is_a?(Integer)
     raise EOFError, "end of file reached" if text.nil?
 
     buffer ? buffer.replace(text) : text
@@ -638,7 +638,7 @@ class IO
   def pwrite(text, offset)
     check_writable
     result = Primitive.zr_io_pwrite(@fd, Primitive.zr_obj_as_string(text), offset)
-    raise SystemCallError.new("@ rb_io_pwrite - #{label}", -result) if result < 0
+    raise SystemCallError.new(label, -result, "rb_io_pwrite") if result < 0
 
     result
   end
@@ -863,7 +863,7 @@ class IO
              else
                Primitive.zr_io_ioctl_buf(@fd, command, buffer)
              end
-    raise SystemCallError.new(path.nil? ? nil : "@ finish_narg - #{path}", -result) if result < 0
+    raise SystemCallError.new(path, -result, "finish_narg") if result < 0
     return result if buffer.nil?
 
     # finish_narg: the sentinel says the command wrote no further than
@@ -1018,7 +1018,7 @@ class IO
     check_open
     write_pending
     result = Primitive.zr_io_seek(@fd, 0, SEEK_CUR)
-    raise SystemCallError.new("@ rb_io_tell - #{label}", -result) if result < 0
+    raise SystemCallError.new(label, -result, "rb_io_tell") if result < 0
 
     result - @buffer.bytesize
   end
@@ -1033,7 +1033,7 @@ class IO
     @buffer = fresh_buffer
     @eof = false
     result = Primitive.zr_io_seek(@fd, offset, whence)
-    raise SystemCallError.new("@ rb_io_seek - #{label}", -result) if result < 0
+    raise SystemCallError.new(label, -result, "rb_io_seek") if result < 0
 
     0
   end
@@ -1097,7 +1097,7 @@ class IO
   def set_nonblock(on)
     Primitive.attr! :hidden
     answer = Primitive.zr_io_set_nonblock(@fd, on ? 1 : 0)
-    raise SystemCallError.new("@ set_nonblock - #{label}", -answer) unless answer.zero?
+    raise SystemCallError.new(label, -answer, "set_nonblock") unless answer.zero?
 
     @nonblock = on
   end
@@ -1169,7 +1169,7 @@ class IO
 
   def checked_write(result)
     Primitive.attr! :hidden
-    raise SystemCallError.new("@ io_write - #{label}", -result) if result < 0
+    raise SystemCallError.new(label, -result, "io_write") if result < 0
 
     result
   end
@@ -1225,7 +1225,7 @@ class IO
       # A directory answers EISDIR only on the read, which ruby reports
       # from the outer call rather than the buffer filler.
       site = -chunk == Errno::EISDIR::Errno ? "io_fread" : "io_fillbuf"
-      raise SystemCallError.new("@ #{site} - #{label}", -chunk) unless -chunk == Errno::EAGAIN::Errno
+      raise SystemCallError.new(label, -chunk, site) unless -chunk == Errno::EAGAIN::Errno
 
       Thread.pass
     else
@@ -1444,25 +1444,31 @@ class SystemCallError
   # The errno hides from reflection, as ruby's does.
   def errno = Primitive.zr_hidden_get(self, :__errno__)
 
-  # `SystemCallError.new(message, errno)` answers the Errno class for
-  # the errno when one exists.
-  def self.new(message = nil, errno = nil)
-    if message.is_a?(Integer) && errno.nil?
-      errno = message
-      message = nil
-    end
-    klass = errno && self == SystemCallError ? Errno.for(errno) || self : self
-    error = klass.allocate
-    error.send(:initialize, message, errno)
-    error
-  end
+  # SystemCallError itself takes an errno, and becomes the Errno class
+  # that stands for it; an Errno class has its own. `func` names the call
+  # that failed, and shows only beside a message.
+  def initialize(*args)
+    if self.class.equal?(SystemCallError)
+      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)" unless args.size.between?(1, 3)
 
-  def initialize(message = nil, errno = nil)
-    errno = self.class::Errno if errno.nil? && self.class.const_defined?(:Errno)
-    Primitive.zr_hidden_set(self, :__errno__, errno)
-    text = errno ? Errno.text(errno) : "unknown error"
-    text = message.start_with?("@") ? "#{text} #{message}" : "#{text} - #{message}" unless message.nil?
+      message, errno, func = args
+      message, errno = nil, message if args.size == 1 && Primitive.zr_fixnum_p_m(message)
+      klass = Errno.for(Primitive.zr_index_operand_m(errno)) unless errno.nil?
+      Primitive.zr_exc_set_class(self, klass) if klass
+    else
+      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+
+      message, func = args
+      errno = self.class.const_get(:Errno)
+    end
+    text = errno.nil? ? +"unknown error" : Errno.text(Primitive.zr_index_operand_m(errno))
+    unless message.nil?
+      message = Primitive.zr_str_operand(message)
+      text << " @ #{func}" unless func.nil?
+      text << " - #{message}"
+    end
     super(text)
+    Primitive.zr_hidden_set(self, :__errno__, errno)
   end
 
   # A rescue of an Errno class catches the errors with its errno, as
@@ -1564,7 +1570,7 @@ class IO
     Primitive.attr! :hidden
     timeout = IO.send(:time_interval, timeout)
     ready = Primitive.zr_io_wait(fileno, events, timeout.nil? ? -1 : (timeout * 1000).round)
-    raise SystemCallError.new("@ io_wait - #{label}", -ready) if ready.negative?
+    raise SystemCallError.new(label, -ready, "io_wait") if ready.negative?
 
     ready & events
   end

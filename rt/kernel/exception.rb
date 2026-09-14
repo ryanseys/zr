@@ -625,6 +625,15 @@ machine def zr_exc_detail(exc, id, v)
   zr_ivar_set(exc, id, v)
 end
 
+# `SystemCallError.new(message, errno)`: the error becomes the Errno
+# class that stands for its errno, as syserr_initialize sets the class
+# of the object it fills.
+sig [Value, Value] => Value
+machine def zr_exc_set_class(exc, klass)
+  RBasic.set_klass(exc, klass)
+  exc
+end
+
 # `file:line:in 'label'` for the live frame `rec`.
 sig [Ptr, Ptr] => Void
 machine def zr_buf_frame(b, rec)
