@@ -558,15 +558,25 @@ module Process
     raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if args.empty?
 
     words = args.size == 1 ? shell_words(args.first) : args.map { |arg| arg.is_a?(Array) ? arg.first : arg }
+    words = words.map do |word|
+      string = String.try_convert(word)
+      raise TypeError, "no implicit conversion of #{conversion_name(word)} into String" if string.nil?
+
+      string
+    end
     words.each do |word|
-      raise TypeError, "no implicit conversion of #{conversion_name(word)} into String" unless word.is_a?(String)
       raise ArgumentError, "string contains null byte" if word.include?("\0")
     end
     words
   end
 
   def self.shell_words(command)
-    raise TypeError, "no implicit conversion of #{conversion_name(command)} into String" unless command.is_a?(String)
+    return [command.first] if command.is_a?(Array)
+
+    text = String.try_convert(command)
+    raise TypeError, "no implicit conversion of #{conversion_name(command)} into String" if text.nil?
+
+    command = text
 
     # An `=` inside the first word makes it an assignment, which only a
     # shell can do, as rb_exec_fillarg reads it.

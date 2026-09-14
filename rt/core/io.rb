@@ -104,8 +104,18 @@ class IO
   # rb_io_s_new: a block here is a mistake, which ruby names.
   def self.new(*args, **options, &block)
     Primitive.zr_warn_here_m("#{self}::new() does not take block; use #{self}::open() instead") if block
-    super(*args, **options)
+    built(args, options)
   end
+
+  # rb_class_new_instance: an instance and its initialize, with no frame
+  # of `new` between, as rb_io_s_open makes one.
+  def self.built(args, options)
+    Primitive.attr! :hidden
+    io = allocate
+    io.__send__(:initialize, *args, **options)
+    io
+  end
+  private_class_method :built
 
   # rb_io_s_for_fd: IO's own initialize, whatever the receiver, so a File
   # takes a descriptor here where its initialize takes a path.
@@ -125,6 +135,7 @@ class IO
   def self.open_options(mode, options)
     Primitive.attr! :hidden
     mode = options[:mode] if mode.nil?
+    mode = Integer.try_convert(mode) || mode unless mode.nil? || mode.is_a?(String)
     external = nil
     internal = nil
     binary = false
@@ -136,9 +147,8 @@ class IO
       raise TypeError, "no implicit conversion of #{conversion_name(mode)} into String" if string.nil?
 
       head, external, internal = string.split(":", 3)
+      text = access_mode(string)
       binary = head.include?("b")
-      text = head.delete("bt")
-      raise ArgumentError, "invalid access mode #{string}" unless MODES.include?(text)
     end
     named = !external.nil?
     external = spec(external)
@@ -190,12 +200,26 @@ class IO
     internal = nil if !internal.nil? && !external.nil? && internal.name == external.name
     [external, internal]
   end
-  private_class_method :open_options, :encodings, :spec
+  # rb_io_modestr_fmode: `r`, `w` or `a`, then any of `b`, `t` and `+`,
+  # and `x` after a `w`, up to the encodings a colon names. The answer is
+  # the mode without its letters for binary, text and exclusive.
+  def self.access_mode(string)
+    Primitive.attr! :hidden
+    head = string.split(":", 2).first || ""
+    first = head[0]
+    rest = head[1..] || ""
+    valid = %w[r w a].include?(first) && !(rest.include?("b") && rest.include?("t")) &&
+            rest.each_char.all? { |c| "bt+".include?(c) || (c == "x" && first == "w") }
+    raise ArgumentError, "invalid access mode #{string}" unless valid
+
+    rest.include?("+") ? "#{first}+" : first
+  end
+  private_class_method :open_options, :encodings, :spec, :access_mode
 
   # `IO.open` is `new` with a block that closes the stream after it; the
   # receiver's initialize decides what the arguments mean.
   def self.open(*args, **options)
-    io = new(*args, **options)
+    io = built(args, options)
     return io unless block_given?
 
     begin

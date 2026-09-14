@@ -218,6 +218,12 @@ class Integer
       fraction, exp = Primitive.zr_math_frexp(other)
       return Integer.send(:big_fdiv, self, Primitive.zr_math_call(23, fraction, 53).to_i, exp - 53)
     end
+    unless other.is_a?(Numeric)
+      raise TypeError, "#{conversion_name(other)} can't be coerced into Integer" unless other.respond_to?(:coerce)
+
+      first, second = other.coerce(self)
+      return first.fdiv(second)
+    end
     return to_f / other unless other.is_a?(Integer) && other != 0
 
     g = gcd(other)

@@ -71,7 +71,7 @@ class Random < random_base
     @default ||= new
   end
 
-  def self.rand(max = nil) = default.rand(max)
+  def self.rand(*args) = default.rand(*args)
   def self.bytes(size) = default.bytes(size)
 
   # Bytes from the system's own source, not the seeded stream.
@@ -145,9 +145,14 @@ class Random::Base
   def seed = Primitive.zr_hidden_get(self, :__seed__)
 
   # `rand(n)`, `rand(a..b)`; a Float bound or no bound is a Float draw.
-  def rand(max = nil)
+  # A bound that converts with `to_int` is that Integer, and anything
+  # else that is no Range fails as NUM2LONG does, as rand_random reads it.
+  def rand(max = (none = true; nil))
+    return unit_float if none
+
+    max = Integer.try_convert(max) || max unless max.is_a?(Float) || max.is_a?(Range) || max.nil?
     case max
-    when nil then unit_float
+    when nil then raise ArgumentError, "invalid argument - "
     when Integer
       raise ArgumentError, "invalid argument - #{max}" if max <= 0
 
@@ -175,7 +180,8 @@ class Random::Base
 
       max.zero? ? unit_float : max * unit_float
     else
-      raise ArgumentError, "invalid argument - #{max.inspect}"
+      implicit_integer(max)
+      raise ArgumentError, "invalid argument - #{max}"
     end
   end
 

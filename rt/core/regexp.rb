@@ -192,7 +192,7 @@ class Regexp
 
   # A String whose regexp meaning is its own bytes.
   def self.escape(text)
-    text = text.to_s if text.is_a?(Symbol)
+    text = text.is_a?(Symbol) ? text.to_s : Primitive.zr_str_operand(text)
     out = +""
     text.each_char do |c|
       out << case c
@@ -318,6 +318,7 @@ class Regexp
     text = text.to_s if text.is_a?(Symbol)
     raise TypeError, "no implicit conversion of #{conversion_name(text)} into String" unless text.is_a?(String)
 
+    pos = implicit_integer(pos)
     pos += text.size if pos < 0
     if pos < 0 || pos > text.size
       Primitive.zr_backref_set(nil)
@@ -334,6 +335,7 @@ class Regexp
     return false if text.nil?
 
     text = text.to_s if text.is_a?(Symbol)
+    pos = implicit_integer(pos)
     pos += text.size if pos < 0
     return false if pos < 0 || pos > text.size
 
@@ -668,7 +670,7 @@ class MatchData
 
   def byte_begin(index)
     Primitive.attr! :hidden
-    index = named_group(index) unless index.is_a?(Integer)
+    index = backref_number(index)
     raise IndexError, "index #{index} out of matches" if index < 0 || index >= size
 
     b = offsets[index * 2]
@@ -677,11 +679,17 @@ class MatchData
 
   def byte_end(index)
     Primitive.attr! :hidden
-    index = named_group(index) unless index.is_a?(Integer)
+    index = backref_number(index)
     raise IndexError, "index #{index} out of matches" if index < 0 || index >= size
 
     e = offsets[index * 2 + 1]
     e < 0 ? nil : e
+  end
+
+  # match_backref_number: a group by name, else by NUM2INT.
+  def backref_number(index)
+    Primitive.attr! :hidden
+    index.is_a?(String) || index.is_a?(Symbol) ? named_group(index) : implicit_integer(index)
   end
 
   def named_group(name)

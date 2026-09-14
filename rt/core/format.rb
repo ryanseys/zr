@@ -2,7 +2,7 @@
 # directives; a Float directive stops by name until Float lands.
 module Kernel
   def format(spec, *args)
-    Formatter.new(spec, args).render
+    Formatter.new(Primitive.zr_str_operand(spec), args).render
   end
   alias sprintf format
 

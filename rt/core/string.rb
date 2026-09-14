@@ -230,7 +230,7 @@ class String
   def strip!(*selectors) = mutate(strip(*selectors))
   def lstrip!(*selectors) = mutate(lstrip(*selectors))
   def rstrip!(*selectors) = mutate(rstrip(*selectors))
-  def chomp!(separator = "\n") = mutate(chomp(separator))
+  def chomp!(separator = $/) = mutate(chomp(separator))
   def chop! = mutate(chop)
   def squeeze!(*sets) = mutate(squeeze(*sets))
 
@@ -278,7 +278,8 @@ class String
     raise Encoding::CompatibilityError, "invalid byte sequence in #{encoding}" unless empty? || valid_encoding?
   end
 
-  def chomp(separator = "\n")
+  def chomp(separator = $/)
+    separator = Primitive.zr_str_operand(separator) unless separator.nil?
     return dup if separator.nil? || empty?
 
     if separator == "\n"

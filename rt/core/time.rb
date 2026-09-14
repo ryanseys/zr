@@ -74,8 +74,25 @@ class Time
       case value
       when Integer then value * scale
       when Float, Rational then canonical(value.to_r * scale)
-      else raise TypeError, "can't convert #{value.class} into an exact number"
+      else exact_ns(exact(value), scale)
       end
+    end
+
+    # num_exact: what `to_r` answers for a value that also has `to_int`,
+    # else what `to_int` answers; a String, nil or anything else has no
+    # exact number.
+    def exact(value)
+      if !value.nil? && !value.is_a?(String)
+        if value.respond_to?(:to_r)
+          if value.respond_to?(:to_int)
+            number = value.to_r
+            return number if number.is_a?(Integer) || number.is_a?(Rational)
+          end
+        elsif (number = Integer.try_convert(value))
+          return number
+        end
+      end
+      raise TypeError, "can't convert #{value.class} into an exact number"
     end
 
     # A Rational that holds a whole number is that Integer.
@@ -96,7 +113,14 @@ class Time
 
         offset
       else
-        raise ArgumentError, "\"+HH:MM\", \"-HH:MM\", \"UTC\" or \"A\"..\"I\",\"K\"..\"Z\" expected for utc_offset: #{zone}"
+        # utc_offset_arg: what to_str names, else an exact number of seconds.
+        text = String.try_convert(zone)
+        return parse_zone(text) if text
+
+        seconds = exact(zone)
+        Primitive.zr_unimplemented("a utc_offset of a fraction of a second") unless seconds.is_a?(Integer)
+
+        parse_zone(seconds)
       end
     end
 
@@ -309,8 +333,10 @@ class Time
         index = MONTHS.index(month.downcase)
         return index + 1 if index
 
-        month = Integer(month)
       end
+      # obj2ubits: a String reads as decimal digits, anything else as
+      # to_int.
+      month = month.is_a?(String) ? Integer(month, 10) : implicit_integer(month)
       raise ArgumentError, "mon out of range" if month < 1 || month > 12
 
       month
@@ -319,7 +345,7 @@ class Time
     def int_arg(value, default, low, high, name)
       return default if value.nil?
 
-      value = Integer(value) unless value.is_a?(Integer)
+      value = value.is_a?(String) ? Integer(value, 10) : implicit_integer(value)
       raise ArgumentError, "#{name} out of range" if value < low || value > high
 
       value
@@ -548,6 +574,7 @@ class Time
   end
 
   def strftime(pattern)
+    pattern = Primitive.zr_str_operand(pattern)
     out = +""
     i = 0
     n = pattern.size

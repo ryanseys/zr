@@ -87,10 +87,22 @@ class File < IO
   # ruby's rb_file_join: one separator at each seam, taken from
   # whichever side already carries one, so "a//" and "//b" meet as
   # "a//b" and not "a////b".
-  def self.join(*parts)
+  def self.join(*parts) = joined(parts, {}.compare_by_identity)
+
+  # rb_file_join: an Array among the parts is joined first, and one that
+  # holds itself is refused.
+  def self.joined(parts, joining)
+    Primitive.attr! :hidden
     out = +""
-    parts.flatten.each_with_index do |part, i|
-      part = Primitive.zr_str_operand(part.respond_to?(:to_path) ? part.to_path : part)
+    joining[parts] = true
+    parts.each_with_index do |part, i|
+      part = if part.is_a?(String) then part
+             elsif part.is_a?(Array)
+               raise ArgumentError, "recursive array" if joining.key?(part)
+
+               joined(part, joining)
+             else Primitive.zr_str_operand(part.respond_to?(:to_path) ? part.to_path : part)
+             end
       if i.positive?
         if part.start_with?("/")
           out.sub!(%r{/+\z}, "")
@@ -100,8 +112,10 @@ class File < IO
       end
       out << part
     end
+    joining.delete(parts)
     out
   end
+  private_class_method :joined
 
   def self.absolute_path?(path) = path.start_with?("/")
 
@@ -163,12 +177,17 @@ class File < IO
 
     mode = options[:mode] if options.key?(:mode)
     perm = options[:perm] if options.key?(:perm)
+    # rb_io_extract_modeenc: flags when `to_int` answers, else a mode string.
+    mode = Integer.try_convert(mode) || mode unless mode.nil? || mode.is_a?(String)
+    perm = perm.nil? ? 0o666 : implicit_integer(perm)
     path = File.send(:path_of, path)
 
     # The descriptor opens by the access mode alone; the mode and the
     # options go on to IO, which reads the encodings they name.
     text = File.send(:open_mode, mode)
     made = !File.exist?(path)
+    exclusive = mode.is_a?(String) && mode.split(":", 2).first.include?("x")
+    raise Errno::EEXIST.new(path, "rb_sysopen") if exclusive && !made
     if mode.is_a?(Integer) && (mode & File::CREAT) != 0
       raise Errno::EEXIST.new(path, "rb_sysopen") if !made && (mode & File::EXCL) != 0
 
@@ -512,7 +531,9 @@ class File < IO
   def self.lchown(owner, group, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(1, path, owner || -1, group || -1) }
 
   # utime takes its times in seconds, as Integers, Floats or Times.
+  # Both times nil are now, as utimes(2) takes no times.
   def self.utime(atime, mtime, *paths)
+    atime = mtime = Time.now if atime.nil? && mtime.nil?
     a = microseconds(atime)
     m = microseconds(mtime)
     each_path(paths) { |path| Primitive.zr_utimes_m(path, a, m) }
@@ -526,9 +547,14 @@ class File < IO
     each_path(paths) { |path| Primitive.zr_lutimes_m(path, a, m) }
   end
 
+  # time_timespec: a Time, a number, or whatever answers `divmod(1)`.
   def self.microseconds(time)
     Primitive.attr! :hidden
-    (time.is_a?(Time) ? time.to_r : Rational(time)).*(1_000_000).round
+    return (time.to_r * 1_000_000).round if time.is_a?(Time) || time.is_a?(Integer) || time.is_a?(Float)
+    raise TypeError, "can't convert #{time.class} into time" unless time.respond_to?(:divmod)
+
+    whole, part = time.divmod(1)
+    (whole * 1_000_000) + (part * 1_000_000_000).to_i / 1000
   end
   private_class_method :microseconds
 
@@ -739,11 +765,7 @@ class File < IO
       string = String.try_convert(mode)
       raise TypeError, "no implicit conversion of #{mode.nil? ? 'nil' : mode.class} into String" if string.nil?
 
-      text = string.delete("bt")
-      text = text.split(":").first || "" if text.include?(":")
-      raise ArgumentError, "invalid access mode #{mode}" unless MODES.include?(text)
-
-      text
+      access_mode(string)
     end
 
     # The open(2) flags a fopen mode names.

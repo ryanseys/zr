@@ -228,7 +228,7 @@ module Kernel
   # without one; the answer is the seconds slept, rounded.
   def sleep(duration = nil)
     unless duration.nil?
-      raise TypeError, "can't convert #{conversion_name(duration)} into time interval" unless duration.is_a?(Numeric)
+      raise TypeError, "can't convert #{duration.class} into time interval" unless duration.is_a?(Numeric)
       raise ArgumentError, "time interval must not be negative" if duration < 0
     end
     # The answer is whole seconds of the wall clock, time(2) after less

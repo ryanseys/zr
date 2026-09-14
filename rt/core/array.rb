@@ -653,6 +653,8 @@ class Array
       end
       return delete_at(start)
     end
+    start = Primitive.zr_index_operand_m(start)
+    len = Primitive.zr_index_operand_m(len)
     part = self[start, len]
     return nil if part.nil?
 
@@ -1004,7 +1006,7 @@ class Array
     if n.nil?
       loop { each { |x| yield x } } unless empty?
     else
-      n.times { each { |x| yield x } }
+      implicit_integer(n).times { each { |x| yield x } }
     end
     nil
   end
