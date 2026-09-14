@@ -6,8 +6,10 @@
 # block-only builtins these stand over.
 
 module Kernel
-  # Ruby run where this call stands: under the self and the cref of the
-  # frame that asked, which is what an eval with no binding gets.
+  # Ruby run where this call stands: over the locals and under the cref
+  # of the frame that asked, which is what an eval with no binding gets,
+  # with the receiver as self, which is that frame's own self unless a
+  # `send` named another.
   def eval(source, binding = nil, file = nil, line = 1)
     unless binding.nil?
       raise TypeError, "wrong argument type #{conversion_name(binding)} (expected binding)" unless binding.is_a?(Binding)
@@ -16,7 +18,7 @@ module Kernel
       return Primitive.zr_binding_run(code, binding)
     end
     code = Ze0::Eval.current.compile(source, file || Primitive.zr_eval_source_name, line, Primitive.zr_eval_scopes, Primitive.zr_eval_parameters)
-    Primitive.zr_eval_run(code, Primitive.zr_eval_self, Primitive.zr_eval_cref, Primitive.zr_eval_env, Primitive.zr_eval_block)
+    Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref, Primitive.zr_eval_env, Primitive.zr_eval_block)
   end
 end
 

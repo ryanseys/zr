@@ -10,11 +10,6 @@ machine def zr_caller_frame
 end
 
 sig [] => Value
-machine def zr_eval_self
-  Frame.self(zr_caller_frame())
-end
-
-sig [] => Value
 machine def zr_eval_cref
   Frame.cref(zr_caller_frame())
 end

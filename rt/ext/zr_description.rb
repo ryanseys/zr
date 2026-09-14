@@ -43,7 +43,6 @@ module Ze0
         d zr_index_operand_m Value v:Value
         d zr_ary_pop_m Value recv:Value
         d zr_caller_frame Ptr
-        d zr_eval_self Value
         d zr_eval_cref Value
         d zr_eval_block Value
         d zr_eval_source_name Value
