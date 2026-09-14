@@ -207,9 +207,6 @@ gaps/openssl_ssl_surface.rb	stdlib/openssl/openssl_ssl_surface.rb
 gaps/openssl_tls_client.rb	stdlib/openssl/openssl_tls_client.rb
 gaps/yaml_loads_and_entropy_draws_run_concurrently_under_the_armed_gvl.rb	stdlib/openssl/yaml_loads_and_entropy_draws_run_concurrently_under_the_armed_gvl.rb
 gaps/yaml_ruby_object_revival.rb	stdlib/ostruct/yaml_ruby_object_revival.rb
-gaps/native_pathname_path_operations_match_the_oracle.rb	stdlib/pathname/native_pathname_path_operations_match_the_oracle.rb
-gaps/pathname_private_helpers.rb	stdlib/pathname/pathname_private_helpers.rb
-gaps/pathname_rows.rb	stdlib/pathname/pathname_rows.rb
 gaps/the_implicit_conversion_protocol_runs_at_every_typed_slot.rb	stdlib/pathname/the_implicit_conversion_protocol_runs_at_every_typed_slot.rb
 gaps/pty_spawn.rb	stdlib/pty/pty_spawn.rb
 gaps/pty_spawn_and_check.rb	stdlib/pty/pty_spawn_and_check.rb

@@ -387,7 +387,8 @@ machine def zr_kernel_method_name(recv, argc, argv, cref, blk)
   while (FrameMeta.kind(meta) == KIND_BLOCK || FrameMeta.kind(meta) == KIND_HIDDEN || FrameMeta.kind(meta) == KIND_EVAL) && FrameMeta.parent(meta) != 0
     meta = FrameMeta.parent(meta)
   end
-  if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BMETHOD
+  # A def of the core library runs under a builtin's meta.
+  if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BMETHOD && FrameMeta.kind(meta) != KIND_BUILTIN
     return Machine.value(QNIL)
   end
   zr_sym(FrameMeta.name(meta))
