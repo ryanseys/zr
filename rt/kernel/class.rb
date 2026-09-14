@@ -1291,10 +1291,10 @@ end
 # marked `Primitive.attr! :hidden`), where CRuby has no method at all:
 # no list shows it, and `respond_to?` and `method_defined?` deny it. A
 # method `define_method` makes carries its caller's meta, so only a
-# compiled def counts.
+# compiled def or a builtin counts.
 sig [Ptr] => Bool
 machine def zr_entry_hidden_p(e)
-  MEntry.kind(e) == KIND_DEF && MEntry.meta(e) != 0 && FrameMeta.kind(MEntry.meta(e)) == KIND_HIDDEN
+  (MEntry.kind(e) == KIND_DEF || MEntry.kind(e) == KIND_BUILTIN) && MEntry.meta(e) != 0 && FrameMeta.kind(MEntry.meta(e)) == KIND_HIDDEN
 end
 
 # The names in one level's table, filtered by `vis` (a visibility, or
@@ -1414,6 +1414,15 @@ machine def zr_builtin_private(klass, mid, fn, arity)
   zr_builtin(klass, mid, fn, arity)
   MEntry.set_vis(zr_find_method_at(zr_origin(klass), mid), VIS_PRIVATE)
   zr_methods_changed()
+end
+
+# A private builtin the core library keeps for itself, as a def marked
+# `Primitive.attr! :hidden` is kept: no list shows it and no backtrace
+# has a row for it.
+sig [Value, Word, Ptr, Word] => Void
+machine def zr_builtin_hidden(klass, mid, fn, arity)
+  zr_builtin_private(klass, mid, fn, arity)
+  FrameMeta.set_kind(MEntry.meta(zr_find_method_at(zr_origin(klass), mid)), KIND_HIDDEN)
 end
 
 # The entry for `mid` on `klass` alone, or 0; the last definition wins.

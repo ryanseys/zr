@@ -36,6 +36,23 @@ class Binding
     Primitive.zr_binding_set(self, at[0], at[1], value)
   end
 
+  # `it` or the numbered parameters the innermost scope takes.
+  def implicit_parameters
+    names = Primitive.zr_binding_scopes(self).first
+    return [:it] if names.include?(IT)
+
+    names.select { |name| numbered?(name) }
+  end
+
+  def implicit_parameter_defined?(name) = !implicit_place(name).nil?
+
+  def implicit_parameter_get(name)
+    at = implicit_place(name)
+    raise NameError.new("implicit parameter '#{name}' is not defined for #{inspect}", name.to_sym, receiver: self) unless at
+
+    Primitive.zr_binding_get(self, 0, at)
+  end
+
   # The eval road defines this again over the compiler the program
   # brought, as it does Kernel#eval.
   def eval(source, file = nil, line = 1) = Primitive.zr_unimplemented("eval reached in a program built without the compiler")
@@ -45,6 +62,24 @@ class Binding
   alias to_s inspect
 
   private
+
+  # The lowering's name for `it`, which no program can spell.
+  IT = :"%it"
+
+  # The slot of an implicit parameter in the innermost scope, or nil.
+  def implicit_place(name)
+    Primitive.attr! :hidden
+    name = symbol_name(name)
+    raise NameError.new("'#{name}' is not an implicit parameter", name, receiver: self) unless name == :it || numbered?(name)
+
+    Primitive.zr_binding_scopes(self).first.index(name == :it ? IT : name)
+  end
+
+  # `_1` to `_9`, which a block that reads them takes as parameters.
+  def numbered?(name)
+    Primitive.attr! :hidden
+    /\A_[1-9]\z/.match?(name)
+  end
 
   # The name of a local, as ruby takes one: a Symbol or a String.
   def symbol_name(name)
@@ -74,7 +109,7 @@ class Binding
 
   def named?(name)
     Primitive.attr! :hidden
-    /\A[a-z_][A-Za-z0-9_]*\z/.match?(name.to_s)
+    /\A[a-z_][A-Za-z0-9_]*\z/.match?(name.to_s) && !numbered?(name)
   end
 end
 

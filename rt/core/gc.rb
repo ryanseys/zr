@@ -75,8 +75,20 @@ module GC
     end
   end
 
+  # The build options CRuby reports; this collector is built with none
+  # of its own to add.
+  OPTS = %w[USE_RGENGC RGENGC_ESTIMATE_OLDMALLOC GC_ENABLE_LAZY_SWEEP GC_COMPACTION_SUPPORTED].freeze
+
+  # The heap's own sizes: one 128-byte cell for every object.
+  INTERNAL_CONSTANTS = {
+    DEBUG: false, BASE_SLOT_SIZE: 128, RBASIC_SIZE: 16, RVALUE_OVERHEAD: 0, HEAP_PAGE_OBJ_LIMIT: 512,
+    HEAP_PAGE_BITMAP_SIZE: 64, HEAP_PAGE_SIZE: 65536, HEAP_COUNT: 1, RVARGC_MAX_ALLOCATE_SIZE: 128, RVALUE_OLD_AGE: 3
+  }.freeze
+
   # Nothing moves here, so a compaction considers no object at all.
-  def self.compact = { considered: {}, moved: {}, moved_up: {}, moved_down: {} }
+  def self.compact = latest_compact_info
+
+  def self.latest_compact_info = { considered: {}, moved: {}, moved_up: {}, moved_down: {} }
 
   def self.verify_compaction_references(**options) = compact
 

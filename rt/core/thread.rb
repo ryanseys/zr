@@ -658,7 +658,7 @@ class Fiber
     # A fiber starts with a copy of its maker's storage, its own Hash,
     # or none. Its block runs inside a catch, so a kill throws to that
     # tag: every ensure on the way runs and no rescue sees it.
-    def new(storage: true, &block)
+    def new(blocking: false, storage: true, &block)
       raise ArgumentError, "tried to create Proc object without a block" unless block
 
       table = case storage
@@ -671,7 +671,39 @@ class Fiber
       f = __new__ { |*args| Primitive.zr_catch(tag, proc { block.call(*args) }) }
       Primitive.zr_hidden_set(f, :__kill__, tag)
       Primitive.zr_hidden_set(f, :__storage__, table)
+      Primitive.zr_hidden_set(f, :__blocking__, blocking ? true : false)
       f
+    end
+
+    # 1 while the current fiber blocks, as CRuby counts the thread's
+    # blocking fibers, and false while it does not.
+    def blocking? = current.blocking? ? 1 : false
+
+    # The block runs with the current fiber blocking.
+    def blocking
+      fiber = current
+      return yield(fiber) if fiber.blocking?
+
+      Primitive.zr_hidden_set(fiber, :__blocking__, true)
+      begin
+        yield fiber
+      ensure
+        Primitive.zr_hidden_set(fiber, :__blocking__, false)
+      end
+    end
+
+    # No scheduler is ever set: every fiber blocks as a plain one does.
+    def scheduler = nil
+    def current_scheduler = nil
+
+    def set_scheduler(scheduler)
+      return nil if scheduler.nil?
+
+      Primitive.zr_unimplemented("Fiber.set_scheduler")
+    end
+
+    def schedule(*)
+      raise RuntimeError, "No scheduler is available!"
     end
 
     # `Fiber.yield`: back to the resumer. What comes back is the next
@@ -744,6 +776,23 @@ class Fiber
     Primitive.zr_hidden_set(self, :__action__, exception)
     resume
   end
+
+  # The rows where the fiber stands: none before it starts or after it
+  # ends.
+  def backtrace(start = 0, length = nil)
+    return caller(start, length) if equal?(Fiber.current)
+    return [] if !alive? || Primitive.zr_fiber_unborn_p(self)
+
+    Primitive.zr_fiber_backtrace_m(self, start, length.nil? ? -1 : length)
+  end
+
+  def backtrace_locations(start = 0, length = nil)
+    backtrace(start, length)&.map { |row| Thread::Backtrace::Location.new(row) }
+  end
+
+  # A fiber Fiber.new made blocks when it was asked to; a thread's own
+  # fiber always blocks.
+  def blocking? = Primitive.zr_hidden_get(self, :__blocking__) != false
 
   def storage
     Kernel.raise ArgumentError, "Fiber storage can only be accessed from the Fiber it belongs to" unless equal?(Fiber.current)

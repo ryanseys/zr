@@ -186,6 +186,7 @@ module Ze0
         d zr_f_notimplement Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_define_notimplement Value klass:Value name:Value
         d zr_builtin_private Void klass:Value mid:Word fn:Ptr arity:Word
+        d zr_builtin_hidden Void klass:Value mid:Word fn:Ptr arity:Word
         d zr_find_method_at Ptr klass:Value mid:Word
         d zr_mcache_init Void
         d zr_methods_changed Void
