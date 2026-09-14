@@ -7,6 +7,7 @@ Machine.import "getcwd", [Ptr, Word] => Ptr
 
 G_ARGV = 36
 G_AT_EXIT = 37
+G_ARGV0 = 53
 
 # `ARGV` from the C arguments, the program's own name left out.
 sig [I32, Ptr] => Void
@@ -134,10 +135,19 @@ machine def zr_system_exit_p(exc)
   !zr_special_p(exc) && zr_is_a(exc, zr_core_class(Machine.id(:SystemExit)))
 end
 
-# The program's entry: `$0` and `$PROGRAM_NAME` name its file.
+# The program's entry: `$0` and `$PROGRAM_NAME` name its file, in a
+# frozen String that `Process.argv0` keeps when `$0` changes.
 sig [Ptr, Word] => Void
 machine def zr_program_start(file, len)
-  zr_gvar_set(Machine.id(:$0), zr_str_new(file, len))
+  name = zr_str_new(file, len)
+  RBasic.set_flags(name, RBasic.flags(name) | FL_FREEZE)
+  zr_set_global(G_ARGV0, name)
+  zr_gvar_set(Machine.id(:$0), name)
+end
+
+sig [] => Value
+machine def zr_program_name
+  zr_global(G_ARGV0)
 end
 
 sig [Value] => Value

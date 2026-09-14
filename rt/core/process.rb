@@ -17,6 +17,31 @@ module Process
   PRIO_PGRP = 1
   PRIO_USER = 2
 
+  # The resources a limit is set on, as darwin numbers them, and the
+  # limit that is none.
+  RLIMIT_AS = 5
+  RLIMIT_CORE = 4
+  RLIMIT_CPU = 0
+  RLIMIT_DATA = 2
+  RLIMIT_FSIZE = 1
+  RLIMIT_MEMLOCK = 6
+  RLIMIT_NOFILE = 8
+  RLIMIT_NPROC = 7
+  RLIMIT_RSS = 5
+  RLIMIT_STACK = 3
+  RLIM_INFINITY = 0x7fff_ffff_ffff_ffff
+  RLIM_SAVED_MAX = RLIM_INFINITY
+  RLIM_SAVED_CUR = RLIM_INFINITY
+  RLIMITS = { "AS" => RLIMIT_AS, "CORE" => RLIMIT_CORE, "CPU" => RLIMIT_CPU, "DATA" => RLIMIT_DATA,
+              "FSIZE" => RLIMIT_FSIZE, "MEMLOCK" => RLIMIT_MEMLOCK, "NOFILE" => RLIMIT_NOFILE,
+              "NPROC" => RLIMIT_NPROC, "RSS" => RLIMIT_RSS, "STACK" => RLIMIT_STACK }.freeze
+  RLIM_NAMES = { "INFINITY" => RLIM_INFINITY, "SAVED_MAX" => RLIM_SAVED_MAX, "SAVED_CUR" => RLIM_SAVED_CUR }.freeze
+  # sysconf's name for the most supplementary groups, and the most
+  # ruby lets a program ask for.
+  SC_NGROUPS_MAX = 4
+  MAX_GROUPS = 65_536
+  private_constant :RLIMITS, :RLIM_NAMES, :SC_NGROUPS_MAX, :MAX_GROUPS
+
   # An answer from the kernel, or the errno it carries instead.
   def self.checked(result)
     Primitive.attr! :hidden
@@ -175,6 +200,23 @@ module Process
 
   def waitpid2(pid = -1, flags = 0) = Process.wait2(pid, flags)
 
+  # Every child that is left, reaped: `[pid, status]` each.
+  def waitall
+    $? = nil
+    children = []
+    loop do
+      result = Primitive.zr_proc_wait(-1, 0)
+      if result.is_a?(Integer)
+        break if -result == Errno::ECHILD::Errno
+
+        raise SystemCallError.new(nil, -result)
+      end
+      $? = Status.new(*result)
+      children << [result[0], $?]
+    end
+    children
+  end
+
   def self.last_status = $?
 
   def ppid = Primitive.zr_proc_ppid
@@ -195,8 +237,99 @@ module Process
 
   def groups = Process.send(:checked, Primitive.zr_proc_groups)
 
-  # The most groups this platform carries, as getgroups counts them.
-  def maxgroups = 16
+  # The group ids in a list stand for groups by id or by name.
+  def groups=(list)
+    raise TypeError, "wrong argument type #{conversion_name(list)} (expected Array)" unless list.is_a?(Array)
+
+    most = Process.send(:group_limit)
+    raise ArgumentError, "too many groups, #{most} max" if list.size > most
+
+    Process.send(:checked, Primitive.zr_proc_setgroups(list.map { |group| Process.send(:id_of, group, true) }))
+    Process.send(:checked, Primitive.zr_proc_groups)
+  end
+
+  def initgroups(user, group)
+    Process.send(:checked, Primitive.zr_proc_initgroups(Process.send(:c_string, user), Process.send(:id_of, group, true)))
+    Process.send(:checked, Primitive.zr_proc_groups)
+  end
+
+  # The most groups `groups=` takes: what sysconf answers, until a
+  # program asks for fewer.
+  def maxgroups = Process.send(:group_limit)
+
+  def maxgroups=(count)
+    count = Integer.send(:int_operand, count)
+    raise ArgumentError, "maxgroups #{count} should be positive" unless count.positive?
+
+    limit = Primitive.zr_sysconf(SC_NGROUPS_MAX)
+    count = [count, MAX_GROUPS].min
+    count = [count, limit].min if limit&.positive?
+    Primitive.zr_hidden_set(Process, :__maxgroups__, count)
+    count
+  end
+
+  def setpgrp = Process.send(:checked, Primitive.zr_proc_setpgid(0, 0))
+
+  # A resource's `[soft, hard]` limits.
+  def getrlimit(resource)
+    limits = Primitive.zr_proc_getrlimit(Process.send(:rlimit_resource, resource))
+    raise SystemCallError.new("getrlimit", -limits) if limits.is_a?(Integer)
+
+    limits.map { |limit| limit % 2**64 }
+  end
+
+  # A limit is a count or a name: INFINITY, SAVED_MAX or SAVED_CUR. The
+  # hard limit is the soft one unless given.
+  def setrlimit(resource, soft, hard = nil)
+    soft = Process.send(:rlimit_value, soft)
+    hard = hard.nil? ? soft : Process.send(:rlimit_value, hard)
+    result = Primitive.zr_proc_setrlimit(Process.send(:rlimit_resource, resource), Process.send(:signed, soft), Process.send(:signed, hard))
+    raise SystemCallError.new("setrlimit", -result) if result.negative?
+
+    nil
+  end
+
+  def uid=(user)
+    Process.send(:switching!, false)
+    Process.send(:set_ids, false, Process.send(:id_of, user, false), -1)
+    user
+  end
+
+  def gid=(group)
+    Process.send(:switching!, true)
+    id = Process.send(:id_of, group, true)
+    Process.send(:set_ids, true, id, -1)
+    id
+  end
+
+  def euid=(user)
+    Process.send(:switching!, false)
+    Process.send(:set_ids, false, -1, Process.send(:id_of, user, false))
+    user
+  end
+
+  def egid=(group)
+    Process.send(:switching!, true)
+    Process.send(:set_ids, true, -1, Process.send(:id_of, group, true))
+    group
+  end
+
+  # The name the program was started under, which `$0 =` leaves as it
+  # was.
+  def argv0 = Primitive.zr_program_name
+
+  # The title `ps` shows. Darwin gives a process no way to set one, and
+  # ruby answers the title whether or not it took.
+  def setproctitle(title)
+    Process.send(:c_string, title)
+    title
+  end
+
+  # A hint to settle the heap before forking workers: one collection.
+  def warmup
+    GC.start
+    true
+  end
 
   # A niceness is a number that can be negative, so the errno beside
   # it, and not the answer, says whether the call failed.
@@ -229,8 +362,10 @@ module Process
 
   def daemon(*) = Primitive.zr_unimplemented("Process.daemon")
 
-  module_function :wait, :waitpid, :wait2, :waitpid2, :ppid, :times, :kill, :daemon, :getpgrp, :getpgid,
-                  :setpgid, :getsid, :setsid, :groups, :maxgroups, :getpriority, :setpriority
+  module_function :wait, :waitpid, :wait2, :waitpid2, :waitall, :ppid, :times, :kill, :daemon, :getpgrp, :getpgid,
+                  :setpgid, :getsid, :setsid, :groups, :groups=, :initgroups, :maxgroups, :maxgroups=,
+                  :setpgrp, :getpriority, :setpriority, :getrlimit, :setrlimit, :uid=, :gid=, :euid=,
+                  :egid=, :argv0, :setproctitle, :warmup
 
   def self.exit(status = true) = Kernel.exit(status)
 
@@ -238,7 +373,145 @@ module Process
 
   def self.abort(*args) = Kernel.abort(*args)
 
-  def self.fork = Primitive.zr_unimplemented("Process.fork")
+  def self.fork(&) = forked(&)
+
+  def self.exec(*args, **options) = replaced(args, options)
+
+  # The fork itself, which Kernel#fork reaches through a send, so a
+  # program that wraps `_fork` sees every fork. The streams are written
+  # out first, so the child does not write them again; in the child only
+  # the thread that forked lives on.
+  def self._fork
+    $stdout.flush
+    $stderr.flush
+    pid = checked(Primitive.zr_proc_fork)
+    Thread.send(:after_fork) if pid.zero?
+    pid
+  end
+
+  # `fork`: the child's pid in the parent. In the child, nil, or with a
+  # block the block runs and the child ends there.
+  def self.forked
+    Primitive.attr! :hidden
+    pid = Process._fork
+    return pid unless pid.zero?
+    return nil unless block_given?
+
+    begin
+      yield
+    rescue Exception => e # rubocop:disable Lint/RescueException
+      Primitive.zr_proc_child_exit(e)
+    end
+    Primitive.zr_proc_child_exit(nil)
+  end
+
+  # The process becomes the command; only a failure to start returns.
+  def self.replaced(args, options)
+    Primitive.attr! :hidden
+    words = exec_words(args, options)
+    result = words.empty? ? -2 : Primitive.zr_proc_exec(words)
+    raise SystemCallError.new(words.first || args.first, -result)
+  end
+  private_class_method :forked, :replaced
+
+  # An answer that is a failure raises as `rb_sys_fail(0)` does, with
+  # no word beside the error's own.
+  def self.set_ids(group, real, effective)
+    Primitive.attr! :hidden
+    result = Primitive.zr_proc_setreid(group, real, effective)
+    raise SystemCallError.new(nil, -result) if result.negative?
+  end
+
+  def self.set_id(call, id)
+    Primitive.attr! :hidden
+    result = Primitive.zr_proc_setid(call, id)
+    raise SystemCallError.new(nil, -result) if result.negative?
+  end
+
+  # A user (`group` false) or group as the id calls take it: a name
+  # looks the id up, and anything else converts as C's unsigned int.
+  def self.id_of(value, group)
+    Primitive.attr! :hidden
+    name = String.try_convert(value) unless Primitive.zr_fixnum_p_m(value)
+    return unsigned(value, 32, "unsigned int") if name.nil?
+
+    row = group ? Primitive.zr_gr_name(c_string(name)) : Primitive.zr_pw_name(c_string(name))
+    raise ArgumentError, "can't find #{group ? 'group' : 'user'} for #{value}" if row.nil?
+
+    row[2]
+  end
+
+  # `value` as C converts an unsigned argument of `bits`: through an
+  # unsigned long, so a negative count wraps as a cast wraps it.
+  def self.unsigned(value, bits, type)
+    Primitive.attr! :hidden
+    number = case value
+             when Integer then value
+             when Float
+               raise RangeError, "float #{format('%-.10g', value)} out of range of integer" unless value > -2**63 - 1 && value < 2**64
+
+               value.truncate
+             else
+               Integer.try_convert(value) || raise(TypeError, "no implicit conversion of #{conversion_name(value)} into Integer")
+             end
+    wide = bits == 64 ? type : "unsigned long"
+    raise RangeError, "bignum out of range of #{wide}" if number < -2**63
+    raise RangeError, "bignum too big to convert into '#{wide}'" if number >= 2**64
+    return number % 2**64 if bits == 64
+
+    raise RangeError, "integer #{number} too small to convert to '#{type}'" if number < -2**(bits - 1)
+    raise RangeError, "integer #{number % 2**64} too big to convert to '#{type}'" if number % 2**64 >= 2**bits && number >= 0
+
+    number % 2**bits
+  end
+
+  def self.signed(limit)
+    Primitive.attr! :hidden
+    limit >= 2**63 ? limit - 2**64 : limit
+  end
+
+  # A String as a C string takes it: one with a NUL byte has no end.
+  def self.c_string(text)
+    Primitive.attr! :hidden
+    text = Primitive.zr_str_operand(text)
+    raise ArgumentError, "string contains null byte" if text.include?("\0")
+
+    text
+  end
+
+  # A resource by its number, or by name as a Symbol or a String.
+  def self.rlimit_resource(resource)
+    Primitive.attr! :hidden
+    name = resource.is_a?(Symbol) ? resource.name : (String.try_convert(resource) unless resource.is_a?(Integer))
+    return Integer.send(:int_operand, resource) if name.nil?
+
+    RLIMITS.fetch(c_string(name)) { raise ArgumentError, "invalid resource name: #{resource}" }
+  end
+
+  def self.rlimit_value(limit)
+    Primitive.attr! :hidden
+    name = limit.is_a?(Symbol) ? limit.name : (String.try_convert(limit) unless limit.is_a?(Integer))
+    return unsigned(limit, 64, "unsigned long long") if name.nil?
+
+    RLIM_NAMES.fetch(c_string(name)) { raise ArgumentError, "invalid resource value: #{limit}" }
+  end
+
+  def self.group_limit
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(Process, :__maxgroups__) || Primitive.zr_sysconf(SC_NGROUPS_MAX) || MAX_GROUPS
+  end
+
+  # While a block given to UID.switch or GID.switch runs, no id of that
+  # kind may change.
+  def self.switching!(group)
+    Primitive.attr! :hidden
+    return unless Primitive.zr_hidden_get(group ? GID : UID, :__switching__)
+
+    raise RuntimeError, "can't handle #{group ? 'GID' : 'UID'} while evaluating block given to Process::UID.switch method"
+  end
+
+  private_class_method :set_ids, :set_id, :id_of, :unsigned, :signed, :c_string, :rlimit_resource, :rlimit_value,
+                       :group_limit, :switching!
 
   def self.signal_number(name)
     Primitive.attr! :hidden
@@ -337,15 +610,216 @@ module Process
   private_class_method :spawn_command, :command_words, :shell_words, :environment, :exec_words, :exec_args
 end
 
+# The ids a process runs as. Process::Sys makes the system calls by
+# their own names; Process::UID and Process::GID change the real,
+# effective and saved ids together, the way CRuby does on darwin, and
+# keep the saved id themselves where the system shows none.
+module Process
+  # How each kind of id is read and set: the ids zr_process_ids reads,
+  # and the calls that set one id.
+  ID_CALLS = {
+    false => { real: 0, effective: 1, set: :setuid, set_real: :setruid, set_effective: :seteuid },
+    true => { real: 2, effective: 3, set: :setgid, set_real: :setrgid, set_effective: :setegid }
+  }.freeze
+  private_constant :ID_CALLS
+
+  module Sys
+    def getuid = Primitive.zr_process_ids(0)
+    def geteuid = Primitive.zr_process_ids(1)
+    def getgid = Primitive.zr_process_ids(2)
+    def getegid = Primitive.zr_process_ids(3)
+
+    def setuid(user) = Process.send(:sys_set, :setuid, user, false)
+    def setgid(group) = Process.send(:sys_set, :setgid, group, true)
+    def setruid(user) = Process.send(:sys_set, :setruid, user, false)
+    def setrgid(group) = Process.send(:sys_set, :setrgid, group, true)
+    def seteuid(user) = Process.send(:sys_set, :seteuid, user, false)
+    def setegid(group) = Process.send(:sys_set, :setegid, group, true)
+
+    def setreuid(real, effective)
+      Process.send(:switching!, false)
+      Process.send(:set_ids, false, Process.send(:id_of, real, false), Process.send(:id_of, effective, false))
+      nil
+    end
+
+    def setregid(real, effective)
+      Process.send(:switching!, true)
+      Process.send(:set_ids, true, Process.send(:id_of, real, true), Process.send(:id_of, effective, true))
+      nil
+    end
+
+    def issetugid = Primitive.zr_proc_issetugid
+
+    # Darwin has no call that sets all three ids at once.
+    Primitive.zr_define_notimplement(self, :setresuid)
+    Primitive.zr_define_notimplement(self, :setresgid)
+
+    module_function :getuid, :geteuid, :getgid, :getegid, :setuid, :setgid, :setruid, :setrgid, :seteuid,
+                    :setegid, :setreuid, :setregid, :setresuid, :setresgid, :issetugid
+  end
+
+  module UID
+    Primitive.zr_hidden_set(self, :__saved__, Primitive.zr_process_ids(1))
+
+    def rid = Primitive.zr_process_ids(0)
+    def eid = Primitive.zr_process_ids(1)
+    def change_privilege(user) = Process.send(:change_privilege, user, false)
+    def grant_privilege(user) = Process.send(:grant_privilege, user, false)
+
+    # Darwin's setreuid cannot swap the two ids and keep the saved one.
+    def re_exchangeable? = false
+
+    def re_exchange
+      Process.send(:switching!, false)
+      raise NotImplementedError, "re_exchange() function is unimplemented on this machine"
+    end
+
+    def sid_available? = true
+    def switch(&) = Process.send(:switch, false, &)
+    def from_name(name) = Process.send(:id_of, name, false)
+
+    module_function :rid, :eid, :change_privilege, :grant_privilege, :re_exchangeable?, :re_exchange,
+                    :sid_available?, :switch, :from_name
+
+    class << self
+      alias eid= grant_privilege
+    end
+  end
+
+  module GID
+    Primitive.zr_hidden_set(self, :__saved__, Primitive.zr_process_ids(3))
+
+    def rid = Primitive.zr_process_ids(2)
+    def eid = Primitive.zr_process_ids(3)
+    def change_privilege(group) = Process.send(:change_privilege, group, true)
+    def grant_privilege(group) = Process.send(:grant_privilege, group, true)
+
+    # Darwin's setregid cannot swap the two ids and keep the saved one.
+    def re_exchangeable? = false
+
+    def re_exchange
+      Process.send(:switching!, true)
+      raise NotImplementedError, "re_exchange() function is unimplemented on this machine"
+    end
+
+    def sid_available? = true
+    def switch(&) = Process.send(:switch, true, &)
+    def from_name(name) = Process.send(:id_of, name, true)
+
+    module_function :rid, :eid, :change_privilege, :grant_privilege, :re_exchangeable?, :re_exchange,
+                    :sid_available?, :switch, :from_name
+
+    class << self
+      alias eid= grant_privilege
+    end
+  end
+
+  class << self
+    private
+
+    def sys_set(call, value, group)
+      Primitive.attr! :hidden
+      switching!(group)
+      set_id(call, id_of(value, group))
+      nil
+    end
+
+    def saved_id(group)
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_get(group ? GID : UID, :__saved__)
+    end
+
+    def save_id(group, id)
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_set(group ? GID : UID, :__saved__, id)
+    end
+
+    # The real and effective ids become `value`: root sets all three at
+    # once, and anyone else moves them one at a time through the saved
+    # id, which only a value the process already holds gets past.
+    def change_privilege(value, group)
+      Primitive.attr! :hidden
+      switching!(group)
+      id = id_of(value, group)
+      calls = ID_CALLS[group]
+      real = Primitive.zr_process_ids(calls[:real])
+      effective = Primitive.zr_process_ids(calls[:effective])
+      saved = saved_id(group)
+      if Primitive.zr_process_ids(1).zero?
+        set_id(calls[:set], id)
+        save_id(group, id)
+      elsif saved == id
+        set_id(calls[:set_effective], id) if effective != id
+        set_id(calls[:set_real], id) if real != id
+      elsif effective == id && real != id
+        set_id(calls[:set_real], id)
+        save_id(group, id)
+      elsif effective == id
+        set_id(calls[:set_real], saved)
+        save_id(group, id)
+        set_id(calls[:set_real], id)
+      elsif real == id
+        set_id(calls[:set_effective], id)
+        set_id(calls[:set_real], saved)
+        save_id(group, id)
+        set_id(calls[:set_real], id)
+      else
+        raise Errno::EPERM
+      end
+      value
+    end
+
+    def grant_privilege(value, group)
+      Primitive.attr! :hidden
+      id = id_of(value, group)
+      switching!(group)
+      set_id(ID_CALLS[group][:set_effective], id)
+      value
+    end
+
+    # The effective id changes to the other of the real and saved ids;
+    # with a block it changes back when the block is done.
+    def switch(group)
+      Primitive.attr! :hidden
+      switching!(group)
+      calls = ID_CALLS[group]
+      real = Primitive.zr_process_ids(calls[:real])
+      effective = Primitive.zr_process_ids(calls[:effective])
+      saved = saved_id(group)
+      if real != effective
+        set_ids(group, -1, real)
+        back = saved
+        answer = effective
+      elsif effective != saved
+        set_ids(group, -1, saved)
+        back = effective
+        answer = real
+      else
+        raise Errno::EPERM
+      end
+      return answer unless block_given?
+
+      holder = group ? GID : UID
+      begin
+        Primitive.zr_hidden_set(holder, :__switching__, true)
+        yield
+      ensure
+        Primitive.zr_hidden_set(holder, :__switching__, false)
+        set_id(calls[:set_effective], back)
+      end
+    end
+  end
+end
+
+
 module Kernel
   # The process becomes the command; only a failure to start returns.
-  def exec(*args, **options)
-    words = Process.send(:exec_words, args, options)
-    result = words.empty? ? -2 : Primitive.zr_proc_exec(words)
-    raise SystemCallError.new(words.first || args.first, -result)
-  end
-  private :exec
-  module_function :exec
+  def exec(*args, **options) = Process.send(:replaced, args, options)
+
+  def fork(&) = Process.send(:forked, &)
+
+  private :exec, :fork
+  module_function :exec, :fork
 
   def spawn(*args, **options)
     pid = Process.send(:spawn_command, args, options)
@@ -378,17 +852,23 @@ module Kernel
 end
 
 module Signal
-  def self.list = LIST.dup
+  def list = LIST.dup
 
-  def self.signame(number)
+  def signame(number)
     number = Primitive.zr_index_operand_m(number)
     number == 0 ? "EXIT" : Process.signal_name(number)
   end
 
-  def self.trap(*) = Primitive.zr_unimplemented("Signal.trap")
+  def trap(*) = Primitive.zr_unimplemented("Signal.trap")
+
+  module_function :list, :signame, :trap
 end
 
 module Kernel
   def trap(*) = Primitive.zr_unimplemented("Kernel#trap")
   private :trap
+
+  # Darwin deprecates the raw system call, and ruby leaves it out.
+  Primitive.zr_define_notimplement(self, :syscall)
+  module_function :syscall
 end

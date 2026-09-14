@@ -11,9 +11,6 @@ gaps/core_long_tail_rows.rb	compiler/builtins/core_long_tail_rows.rb
 gaps/gc_fiber_binding_rows.rb	compiler/builtins/gc_fiber_binding_rows.rb
 gaps/kernel_intrinsic_rows.rb	compiler/builtins/kernel_intrinsic_rows.rb
 gaps/marshal_private_surfaces.rb	compiler/builtins/marshal_private_surfaces.rb
-gaps/module_function_surface.rb	compiler/builtins/module_function_surface.rb
-gaps/process_identity_rows.rb	compiler/builtins/process_identity_rows.rb
-gaps/process_surface_batch1.rb	compiler/builtins/process_surface_batch1.rb
 gaps/signal_module_and_signal_exception_surface.rb	compiler/builtins/signal_module_and_signal_exception_surface.rb
 gaps/signal_module_surface.rb	compiler/builtins/signal_module_surface.rb
 gaps/thread_surface.rb	compiler/builtins/thread_surface.rb
@@ -28,10 +25,7 @@ gaps/bundle_io_sys.rb	core/io/bundle_io_sys.rb
 gaps/io_buffer.rb	core/io/io_buffer.rb
 gaps/a_computed_require_loads_a_bundled_library.rb	core/kernel/a_computed_require_loads_a_bundled_library.rb
 gaps/eval_caller_locals.rb	core/kernel/eval_caller_locals.rb
-gaps/notimplement_stub_respond_to.rb	core/object/notimplement_stub_respond_to.rb
 gaps/pack_covers_every_directive.rb	core/pack/pack_covers_every_directive.rb
-gaps/process_spawn_exec.rb	core/process/process_spawn_exec.rb
-gaps/process_wait_family.rb	core/process/process_wait_family.rb
 gaps/signal_module.rb	core/process/signal_module.rb
 gaps/signal_trap_stub.rb	core/process/signal_trap_stub.rb
 gaps/trap_quotes_the_signal_name.rb	core/process/trap_quotes_the_signal_name.rb

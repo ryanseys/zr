@@ -221,7 +221,7 @@ machine def zr_method_arity_of(m)
     end
     return FrameMeta.arity(meta)
   end
-  MEntry.arity(e)
+  MEntry.fn(e) == Machine.addr(:zr_f_notimplement) ? 0 : MEntry.arity(e)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value

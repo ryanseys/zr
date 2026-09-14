@@ -1373,6 +1373,25 @@ machine def zr_builtin(klass, mid, fn, arity)
   zr_define_method(klass, mid, fn, arity, KIND_BUILTIN, 0, Machine.value(QNIL))
 end
 
+# `rb_f_notimplement`: the row a call this platform lacks stands in. It
+# is listed, reflects as taking no arguments, and `respond_to?` denies
+# it; a call raises NotImplementedError naming the function.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_f_notimplement(recv, argc, argv, cref, blk)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_sym(b, Frame.mid(Task.top(zr_task())))
+  zr_buf_push(b, Machine.bytes("() function is unimplemented on this machine"), 44)
+  zr_raise_buf(zr_core_class(Machine.id(:NotImplementedError)), b)
+end
+
+# The core's way to give `klass` such a row under `name`, a Symbol.
+sig [Value, Value] => Value
+machine def zr_define_notimplement(klass, name)
+  zr_builtin(klass, zr_sym2id(name), Machine.addr(:zr_f_notimplement), 0 - 1)
+  Machine.value(QNIL)
+end
+
 # A builtin that is private, as Kernel's `puts` and `raise` are.
 sig [Value, Word, Ptr, Word] => Void
 machine def zr_builtin_private(klass, mid, fn, arity)

@@ -219,3 +219,116 @@ sig [Value, Value] => Value
 machine def zr_proc_kill(pid, signal)
   zr_io_status(kill(Machine.i32(zr_fix2long(pid)), Machine.i32(zr_fix2long(signal))))
 end
+
+Machine.import "getrlimit", [I32, Ptr] => I32
+Machine.import "setrlimit", [I32, Ptr] => I32
+
+# `getrlimit`: `[cur, max]`, each rlim_t's bits as a signed word, or the
+# errno as a negative.
+sig [Value] => Value
+machine def zr_proc_getrlimit(resource)
+  limits = Machine.slot(16)
+  if getrlimit(Machine.i32(zr_fix2long(resource)), limits) < Machine.i32(0)
+    return zr_fix(0 - zr_errno())
+  end
+  out = zr_ary_new(2)
+  zr_ary_push(out, zr_int_from_word(Machine.load64(limits, 0)))
+  zr_ary_push(out, zr_int_from_word(Machine.load64(limits, 8)))
+  out
+end
+
+# `setrlimit`, each limit given as the signed word of its bits.
+sig [Value, Value, Value] => Value
+machine def zr_proc_setrlimit(resource, cur, max)
+  limits = Machine.slot(16)
+  r = zr_index_operand(cur, limits)
+  return r if r == QUNDEF
+  r = zr_index_operand(max, limits + 8)
+  return r if r == QUNDEF
+  zr_io_status(setrlimit(Machine.i32(zr_fix2long(resource)), limits))
+end
+
+Machine.import "setuid", [I32] => I32
+Machine.import "setgid", [I32] => I32
+Machine.import "seteuid", [I32] => I32
+Machine.import "setegid", [I32] => I32
+Machine.import "setruid", [I32] => I32
+Machine.import "setrgid", [I32] => I32
+Machine.import "setreuid", [I32, I32] => I32
+Machine.import "setregid", [I32, I32] => I32
+Machine.import "issetugid", [] => I32
+Machine.import "setgroups", [I32, Ptr] => I32
+Machine.import "initgroups", [Ptr, I32] => I32
+
+# One of the calls that set a single id, named by its Symbol: 0, or the
+# errno as a negative.
+sig [Value, Value] => Value
+machine def zr_proc_setid(call, id)
+  mid = zr_sym2id(call)
+  n = Machine.i32(zr_fix2long(id))
+  if mid == Machine.id(:setuid)
+    return zr_io_status(setuid(n))
+  elsif mid == Machine.id(:setgid)
+    return zr_io_status(setgid(n))
+  elsif mid == Machine.id(:seteuid)
+    return zr_io_status(seteuid(n))
+  elsif mid == Machine.id(:setegid)
+    return zr_io_status(setegid(n))
+  elsif mid == Machine.id(:setruid)
+    return zr_io_status(setruid(n))
+  end
+  zr_io_status(setrgid(n))
+end
+
+# `setreuid` (`group` false) or `setregid`, where -1 leaves an id as it
+# is: 0, or the errno as a negative.
+sig [Value, Value, Value] => Value
+machine def zr_proc_setreid(group, real, effective)
+  r = Machine.i32(zr_fix2long(real))
+  e = Machine.i32(zr_fix2long(effective))
+  zr_io_status(group == QTRUE ? setregid(r, e) : setreuid(r, e))
+end
+
+sig [] => Value
+machine def zr_proc_issetugid
+  zr_bool(issetugid() != Machine.i32(0))
+end
+
+# `setgroups` over an Array of group ids.
+sig [Value] => Value
+machine def zr_proc_setgroups(ids)
+  n = RArray.len(ids)
+  list = zr_xmalloc((n + 1) * 4)
+  i = 0
+  while i < n
+    Machine.store32(list + (i * 4), 0, Machine.i32(zr_fix2long(zr_ary_at(ids, i))))
+    i += 1
+  end
+  r = setgroups(Machine.i32(n), list)
+  free(list)
+  zr_io_status(r)
+end
+
+sig [Value, Value] => Value
+machine def zr_proc_initgroups(user, gid)
+  zr_io_status(initgroups(RString.ptr(user), Machine.i32(zr_fix2long(gid))))
+end
+
+Machine.import "fork", [] => I32
+
+# `fork`: the child's pid in the parent, 0 in the child, or the errno as
+# a negative.
+sig [] => Value
+machine def zr_proc_fork
+  zr_io_failed(Machine.sword(fork()))
+end
+
+# A forked child's end, as CRuby's ruby_stop ends it: the at_exit
+# handlers and the streams as a program's end runs them, with `exc` the
+# exception its block raised, or nil, and then the process exits. The
+# parent's frames below never see the exception.
+sig [Value] => Value
+machine def zr_proc_child_exit(exc)
+  exit(Machine.i32(zr_program_end(exc == QNIL ? Machine.value(QUNDEF) : exc)))
+  Machine.value(QNIL)
+end

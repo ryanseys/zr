@@ -120,6 +120,17 @@ class Thread
       @native_ids = (@native_ids || Primitive.zr_process_id) + 1
     end
 
+    # A forked child holds the one thread that forked, which is its main
+    # thread now; every other one stayed behind in the parent.
+    def after_fork
+      Primitive.attr! :hidden
+      @threads.each { |thread| thread.instance_variable_set(:@status, :dead) unless thread.equal?(@current) }
+      @threads = [@current]
+      @queue = []
+      @sleepers = []
+      @main = @current
+    end
+
     def boot
       @main = Primitive.zr_class_build(self)
       @main.send(:main!)
@@ -565,7 +576,7 @@ class Process::Waiter < Thread
 end
 
 module Process
-  def self.detach(pid)
+  def detach(pid)
     pid = Integer.send(:int_operand, pid)
     waiter = Primitive.zr_class_build(Waiter)
     waiter.instance_variable_set(:@pid, pid)
@@ -573,6 +584,7 @@ module Process
     waiter.send(:start, nil)
     waiter
   end
+  module_function :detach
 end
 
 # Every thread is in one group; a group lists the threads of its own

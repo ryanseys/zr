@@ -691,6 +691,9 @@ machine def zr_obj_respond_to(recv, argc, argv, cref, blk)
   if e == 0 || zr_entry_hidden_p(e)
     return zr_respond_to_missing(recv, zr_sym2id(m), zr_bool(all))
   end
+  if MEntry.fn(e) == Machine.addr(:zr_f_notimplement)
+    return Machine.value(QFALSE)
+  end
   zr_bool(all || MEntry.vis(e) == VIS_PUBLIC)
 end
 

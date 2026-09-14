@@ -182,6 +182,8 @@ module Ze0
         d zr_mod_private_instance_methods Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_protected_instance_methods Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_builtin Void klass:Value mid:Word fn:Ptr arity:Word
+        d zr_f_notimplement Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_define_notimplement Value klass:Value name:Value
         d zr_builtin_private Void klass:Value mid:Word fn:Ptr arity:Word
         d zr_find_method_at Ptr klass:Value mid:Word
         d zr_mcache_init Void
@@ -292,6 +294,7 @@ module Ze0
         d zr_exit_status Word exc:Value
         d zr_system_exit_p Bool exc:Value
         d zr_program_start Void file:Ptr len:Word
+        d zr_program_name Value
         d zr_environment_get Value name:Value
         d zr_environment_set Value name:Value value:Value
         d zr_environment_list Value
@@ -950,6 +953,15 @@ module Ze0
         d zr_proc_setsid Value
         d zr_proc_groups Value
         d zr_proc_kill Value pid:Value signal:Value
+        d zr_proc_getrlimit Value resource:Value
+        d zr_proc_setrlimit Value resource:Value cur:Value max:Value
+        d zr_proc_setid Value call:Value id:Value
+        d zr_proc_setreid Value group:Value real:Value effective:Value
+        d zr_proc_issetugid Value
+        d zr_proc_setgroups Value ids:Value
+        d zr_proc_initgroups Value user:Value gid:Value
+        d zr_proc_fork Value
+        d zr_proc_child_exit Value exc:Value
         d zr_guard_enter Bool obj:Value mid:Word
         d zr_guard_enter_paired Bool obj:Value other:Value mid:Word
         d zr_guard_leave Void obj:Value mid:Word
@@ -1301,6 +1313,7 @@ module Ze0
         c AUTOLOAD_REQUIRE 4
         c G_ARGV 36
         c G_AT_EXIT 37
+        c G_ARGV0 53
         c G_HIDDEN_FEATURES 50
         c KIND_BMETHOD 8
         c KIND_MAIN 0
@@ -1364,7 +1377,7 @@ module Ze0
         c G_FALSE 10
         c G_MAIN 11
         c G_NUMERIC 13
-        c G_COUNT 53
+        c G_COUNT 54
         c GATE_PLUS 1
         c GATE_MINUS 2
         c GATE_MUL 4
