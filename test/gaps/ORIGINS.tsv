@@ -31,7 +31,6 @@ gaps/yaml_date_time_scalars_are_gated.rb	stdlib/date/yaml_date_time_scalars_are_
 gaps/yaml_dump_styles.rb	stdlib/date/yaml_dump_styles.rb
 gaps/a_subclass_of_any_native_class.rb	stdlib/digest/a_subclass_of_any_native_class.rb
 gaps/ffi_directives_under_platform_guards.rb	stdlib/ffi/ffi_directives_under_platform_guards.rb
-gaps/ffi_struct.rb	stdlib/ffi/ffi_struct.rb
 gaps/the_toplevel_runs_on_the_process_main_thread.rb	stdlib/ffi/the_toplevel_runs_on_the_process_main_thread.rb
 gaps/kconv.rb	stdlib/nkf/kconv.rb
 gaps/nkf.rb	stdlib/nkf/nkf.rb
