@@ -4,7 +4,6 @@ gaps/openssl_digest.rb	aot/openssl_digest.rb
 gaps/signal_trap.rb	aot/signal_trap.rb
 gaps/socket_loopback.rb	aot/socket_loopback.rb
 gaps/zlib_roundtrip.rb	aot/zlib_roundtrip.rb
-gaps/a_module_aliases_a_kernel_row.rb	compiler/builtins/a_module_aliases_a_kernel_row.rb
 gaps/arithmetic_sequence_rows.rb	compiler/builtins/arithmetic_sequence_rows.rb
 gaps/builtin_collection_via_enumerable.rb	compiler/builtins/builtin_collection_via_enumerable.rb
 gaps/builtin_protected_rows.rb	compiler/builtins/builtin_protected_rows.rb

@@ -439,6 +439,11 @@ machine def zr_alias(klass, new_id, old_id)
     return zr_frozen_error(klass)
   end
   e = zr_find_method(klass, old_id)
+  # A module's chain is the module alone, so Object's methods, Kernel's
+  # among them, are looked for next, as rb_alias looks.
+  if e == 0 && zr_type(klass) == T_MODULE
+    e = zr_find_method(zr_global(G_OBJECT), old_id)
+  end
   if e == 0
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
