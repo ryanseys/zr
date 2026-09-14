@@ -23,9 +23,8 @@ module Ze0
     module Build
       module_function
 
-      # The checkout this compiler was built from, which is where the
-      # vendored archives live.
-      ROOT = File.expand_path("../../..", __dir__)
+      # The checkout or installed gem this compiler runs from.
+      ROOT = Paths::ROOT
 
       # The main thread's stack, which holds ruby frames as native
       # frames. `rt/kernel/fiber.rb` sizes every other task's.

@@ -9,7 +9,7 @@ require "tmpdir"
 require_relative "../lib/ze0/zr"
 require_relative "../lib/ze0/native/build"
 
-ROOT = File.expand_path("..", __dir__)
+ROOT = Ze0::Paths::ROOT
 
 def usage
   warn("stage <file.rb> -o <out>")

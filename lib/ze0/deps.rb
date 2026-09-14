@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "native/toolchain"
+
 module Ze0
   # The vendored C dependencies, built with cc into static archives under
   # vendor/build. A build is repeated when a source, or this file's source
@@ -75,8 +77,8 @@ module Ze0
 
         partial = "#{path}.#{Process.pid}.tmp"
         File.delete(partial) if File.exist?(partial)
-        log = IO.popen(["ar", "rcs", partial, *yield], err: %i[child out], &:read)
-        raise "ar failed:\n#{log}" unless $?.success?
+        log, ok = Native::Toolchain.run(["ar", "rcs", partial, *yield])
+        raise "ar failed:\n#{log}" unless ok
 
         File.rename(partial, path)
       end
@@ -88,8 +90,8 @@ module Ze0
     end
 
     def cc(args)
-      log = IO.popen(["cc", "-O2", "-c", *args], err: %i[child out], &:read)
-      raise "cc failed:\n#{log}" unless $?.success?
+      log, ok = Native::Toolchain.run(["cc", "-O2", "-c", *args])
+      raise "cc failed:\n#{log}" unless ok
     end
 
     def build(root)

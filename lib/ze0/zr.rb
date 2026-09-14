@@ -4,6 +4,7 @@ require "digest"
 require "fileutils"
 require "json"
 require "tmpdir"
+require_relative "paths"
 require_relative "machine/lower"
 require_relative "obj/model"
 require_relative "hir"
@@ -13,16 +14,16 @@ module Ze0
   # The `zr` runtime: the kernel files, the core library written in
   # Ruby over them, and the data the compiler lays out beside them.
   module Zr
-    KERNEL = Dir[File.join(__dir__, "../../rt/kernel/*.rb")].sort.freeze
+    KERNEL = Dir[File.join(Paths::RT, "kernel/*.rb")].sort.freeze
     # The core library files, in the order their toplevels run: a module
     # before the classes that include it.
-    CORE = %w[module warning encodings transcode cjk exception enumerable enumerator comparable integer bignum array hash range struct unicode string converter kernel float proc binding format errno io io_buffer process signal env file argf data gc random thread trace_point monitor time set ractor marshal pack regexp_pattern regexp pathname rational complex objectspace box].map { |name| File.join(__dir__, "../../rt/core/#{name}.rb") }.freeze
+    CORE = %w[module warning encodings transcode cjk exception enumerable enumerator comparable integer bignum array hash range struct unicode string converter kernel float proc binding format errno io io_buffer process signal env file argf data gc random thread trace_point monitor time set ractor marshal pack regexp_pattern regexp pathname rational complex objectspace box].map { |name| File.join(Paths::RT, "core/#{name}.rb") }.freeze
 
     # Where the runtime's built forms live, keyed on the digest of
     # everything they depend on: the runtime sources and the compiler.
     # A stage of the bootstrap takes its own, so that it emits the
     # runtime itself instead of reading a form another stage wrote.
-    CACHE = ENV["ZE0_CACHE"] || File.expand_path("../../tmp/rt", __dir__)
+    CACHE = Paths::CACHE
 
     # The kernel and the core library, lowered once per process, and as
     # little of them as a build needs: a program's lowering reads the
@@ -38,7 +39,9 @@ module Ze0
       def raw = unit.raw
 
       def digest
-        @digest ||= Digest::SHA256.new.tap { |d| Zr.sources.each { |path| d << File.binread(path) } }.hexdigest
+        # A path goes in beside its bytes: the runtime object carries
+        # the core's file names, so two checkouts never share one.
+        @digest ||= Digest::SHA256.new.tap { |d| Zr.sources.each { |path| d << path << "\0" << File.binread(path) } }.hexdigest
       end
 
       # The symbol table after the core library: from the cache when the

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "prism"
+require_relative "../paths"
 require_relative "node"
 require_relative "syntax_report"
 
@@ -12,21 +13,21 @@ module Ze0
     # its line: the contract is CRuby-identical or refused, never a guess.
     class Build
       # Ruby's own pure-ruby stdlib, unedited.
-      VENDOR = File.expand_path("../../../vendor/lib", __dir__)
+      VENDOR = File.join(Paths::VENDOR, "lib")
 
       # The extensions whose native half is ours. A file here is part of
       # the runtime, so it may name a kernel def through `Primitive`.
-      EXT = File.expand_path("../../../rt/ext", __dir__)
+      EXT = File.join(Paths::RT, "ext")
       # The runtime's own Ruby, the core library and the extensions: code
       # a TracePoint never sees.
-      RUNTIME = File.expand_path("../../../rt", __dir__)
+      RUNTIME = Paths::RT
 
       def self.runtime_file?(file) = File.expand_path(file).start_with?("#{RUNTIME}/")
 
       # The ruby half of an extension, as its gem ships it. A gem is on
       # the path only once its native half answers, so a require of one
       # we do not carry stops by name instead of failing halfway in.
-      GEMS = %w[prism json psych bigdecimal digest syslog socket ffi].map { |name| File.expand_path("../../../vendor/ext/#{name}/lib", __dir__) }.freeze
+      GEMS = %w[prism json psych bigdecimal digest syslog socket ffi].map { |name| File.join(Paths::VENDOR, "ext/#{name}/lib") }.freeze
 
       STDLIB = [VENDOR, EXT, *GEMS].freeze
 

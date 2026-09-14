@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "toolchain"
+
 module Ze0
   module Native
     # The link step: objects and static archives to a binary, with the
@@ -10,9 +12,8 @@ module Ze0
 
       # Answers nil, or the linker's message when it refused.
       def run(objects, out, archives: [], flags: [])
-        argv = ["cc", "-o", out, *objects, *archives, *flags]
-        log = IO.popen(argv, err: %i[child out], &:read)
-        $?.success? ? nil : log.strip
+        log, ok = Toolchain.run(["cc", "-o", out, *objects, *archives, *flags])
+        ok ? nil : log.strip
       end
     end
   end
