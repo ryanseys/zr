@@ -137,9 +137,6 @@ gaps/i1017.rb	stdlib/ffi/i1017.rb
 gaps/sp_net_basic.rb	stdlib/ffi/sp_net_basic.rb
 gaps/the_toplevel_runs_on_the_process_main_thread.rb	stdlib/ffi/the_toplevel_runs_on_the_process_main_thread.rb
 gaps/variadic_attach_function_matches_the_oracle.rb	stdlib/ffi/variadic_attach_function_matches_the_oracle.rb
-gaps/fileutils.rb	stdlib/fileutils/fileutils.rb
-gaps/probe_roundtrip.rb	stdlib/json/probe_roundtrip.rb
-gaps/five_more_native_types_can_be_subclassed.rb	stdlib/monitor/five_more_native_types_can_be_subclassed.rb
 gaps/glob_require_and_loaded_features.rb	stdlib/net/glob_require_and_loaded_features.rb
 gaps/issue_net_http_missing.rb	stdlib/net/issue_net_http_missing.rb
 gaps/kconv.rb	stdlib/nkf/kconv.rb
