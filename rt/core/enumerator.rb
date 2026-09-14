@@ -110,12 +110,14 @@ class Enumerator
   end
 
   def each(*extra, &block)
+    initialized!
     return self unless block
 
     @receiver.__send__(@method, *@args, *extra, **@kwargs, &block)
   end
 
   def size
+    initialized!
     @size.is_a?(Proc) ? @size.call : @size
   end
 
@@ -153,6 +155,7 @@ class Enumerator
   end
 
   def next_values
+    initialized!
     if @lookahead
       values = @lookahead
       @lookahead = nil
@@ -163,11 +166,13 @@ class Enumerator
   end
 
   def peek_values
+    initialized!
     @lookahead ||= take_next
     @lookahead.dup
   end
 
   def rewind
+    initialized!
     @fiber = nil
     @lookahead = nil
     @stop = nil
@@ -177,6 +182,7 @@ class Enumerator
 
   # The value the paused `yield` answers at the next `next`.
   def feed(value)
+    initialized!
     raise TypeError, "feed value already set" if @feed
 
     @feed = [value]
@@ -200,6 +206,12 @@ class Enumerator
   end
 
   private
+
+  # enumerator_ptr: an allocated enumerator has nothing to iterate.
+  def initialized!
+    Primitive.attr! :hidden
+    raise ArgumentError, "uninitialized enumerator" unless @method
+  end
 
   def indexed(offset)
     Primitive.attr! :hidden

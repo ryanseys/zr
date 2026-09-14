@@ -165,3 +165,4 @@ gaps/syslog.rb	stdlib/syslog/syslog.rb
 gaps/psych_syntax_error_carries_marks.rb	stdlib/yaml/psych_syntax_error_carries_marks.rb
 gaps/ffi_typedefs_and_guarded_directives.rb	ze0/ffi_typedefs_and_guarded_directives.rb
 gaps/bundler_resolves_a_gemfile.rb	milestones/bundler_resolves_a_gemfile.rb
+gaps/regexp_new_takes_its_encoding_from_the_source_and_the_flags.rb	core/regexp/regexp_new_takes_its_encoding_from_the_source_and_the_flags.rb

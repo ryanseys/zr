@@ -314,7 +314,16 @@ class Regexp
   end
   private :encoding_row
 
-  def ==(other) = other.is_a?(Regexp) && source == other.source && options == other.options
+  # rb_reg_equal: the same object, or the same pattern bytes under the
+  # same options and encoding.
+  def ==(other)
+    return true if equal?(other)
+    return false unless other.is_a?(Regexp)
+
+    engine = IGNORECASE | EXTENDED | MULTILINE
+    pattern.b == other.send(:pattern).b && options & engine == other.options & engine && fixed_encoding? == other.fixed_encoding? &&
+      encoding == other.encoding
+  end
 
   def bytewise?
     Primitive.attr! :hidden
