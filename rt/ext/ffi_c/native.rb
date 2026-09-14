@@ -23,8 +23,8 @@ module FFI
       Primitive.attr! :hidden
       case value
       when Integer
+        raise RangeError, "bignum too big to convert into '#{type}'" if value.abs >= 2**64
         raise RangeError, "bignum out of range of #{type}" if value < -2**63
-        raise RangeError, "bignum too big to convert into '#{type}'" if value >= 2**64
 
         value
       when Float
@@ -72,8 +72,8 @@ module FFI
       Primitive.attr! :hidden
       case value
       when Integer
+        raise RangeError, "bignum too big to convert into 'unsigned long long'" if value.abs >= 2**64
         raise RangeError, "bignum out of range of unsigned long long" if value < -2**63
-        raise RangeError, "bignum too big to convert into 'unsigned long long'" if value >= 2**64
 
         value
       when Float

@@ -30,14 +30,9 @@ gaps/coverage.rb	stdlib/coverage/coverage.rb
 gaps/yaml_date_time_scalars_are_gated.rb	stdlib/date/yaml_date_time_scalars_are_gated.rb
 gaps/yaml_dump_styles.rb	stdlib/date/yaml_dump_styles.rb
 gaps/a_subclass_of_any_native_class.rb	stdlib/digest/a_subclass_of_any_native_class.rb
-gaps/an_ffi_declaration_attaches_at_run_time.rb	stdlib/ffi/an_ffi_declaration_attaches_at_run_time.rb
 gaps/ffi_directives_under_platform_guards.rb	stdlib/ffi/ffi_directives_under_platform_guards.rb
-gaps/ffi_integers_take_their_full_c_range.rb	stdlib/ffi/ffi_integers_take_their_full_c_range.rb
 gaps/ffi_struct.rb	stdlib/ffi/ffi_struct.rb
-gaps/ffi_variadic.rb	stdlib/ffi/ffi_variadic.rb
-gaps/ffi_variadic_callback.rb	stdlib/ffi/ffi_variadic_callback.rb
 gaps/the_toplevel_runs_on_the_process_main_thread.rb	stdlib/ffi/the_toplevel_runs_on_the_process_main_thread.rb
-gaps/variadic_attach_function_matches_the_oracle.rb	stdlib/ffi/variadic_attach_function_matches_the_oracle.rb
 gaps/kconv.rb	stdlib/nkf/kconv.rb
 gaps/nkf.rb	stdlib/nkf/nkf.rb
 gaps/gc_weak.rb	stdlib/objspace/gc_weak.rb
