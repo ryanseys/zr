@@ -863,7 +863,7 @@ class Thread::Mutex
   def lock
     raise ThreadError, "deadlock; recursive locking" if owned?
 
-    Thread.current.send(:wait_on, Primitive.zr_hidden_get(self, :__waiters__), nil, true) while locked?
+    Thread.current.send(:wait_on, waiters, nil, true) while locked?
     Primitive.zr_state_set(self, :__owner__, Fiber.current)
     self
   end
@@ -873,7 +873,7 @@ class Thread::Mutex
     raise ThreadError, "Attempt to unlock a mutex which is locked by another thread/fiber" unless owned?
 
     Primitive.zr_state_set(self, :__owner__, nil)
-    Primitive.zr_hidden_get(self, :__waiters__).first&.wakeup
+    waiters.first&.wakeup
     self
   end
 
@@ -899,6 +899,15 @@ class Thread::Mutex
     ensure
       lock
     end
+  end
+
+  private
+
+  # The threads waiting for the lock; an allocated mutex locks as a new
+  # one does.
+  def waiters
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__waiters__) || Primitive.zr_state_set(self, :__waiters__, [])
   end
 end
 
@@ -934,6 +943,16 @@ class Thread::ConditionVariable
 end
 
 class Thread::Queue
+  # A queue keeps its items, its waiters and whether it is closed in
+  # core-only state, as struct rb_queue does: a program sees no instance
+  # variable on one, and an allocated queue has waiters but no items.
+  def self.allocate
+    Primitive.attr! :hidden
+    queue = Primitive.zr_class_allocate(self)
+    Primitive.zr_state_set(queue, :__waiters__, [])
+    queue
+  end
+
   # The first items convert through to_a, as rb_to_array takes them.
   def initialize(items = nil)
     unless items.nil? || items.is_a?(Array)
@@ -944,16 +963,16 @@ class Thread::Queue
 
       items = converted
     end
-    @items = items.nil? ? [] : items.dup
-    @closed = false
-    @waiters = []
+    Primitive.zr_state_set(self, :__items__, items.nil? ? [] : items.dup)
+    Primitive.zr_state_set(self, :__waiters__, [])
+    nil
   end
 
   def push(value)
-    raise ClosedQueueError, "queue closed" if @closed
+    raise ClosedQueueError, "queue closed" if closed?
 
-    @items << value
-    Thread.send(:rouse, @waiters, 1)
+    items << value
+    Thread.send(:rouse, waiters, 1)
     self
   end
 
@@ -965,45 +984,58 @@ class Thread::Queue
     raise ArgumentError, "can't set a timeout if non_block is enabled" if non_block && timeout
 
     deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (Thread.send(:seconds, timeout) * 1e9).to_i
-    while @items.empty?
-      return nil if @closed
+    while items.empty?
+      return nil if closed?
       raise ThreadError, "queue empty" if non_block
       return nil if deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) >= deadline
 
-      Thread.current.send(:wait_on, @waiters, deadline, true)
+      Thread.current.send(:wait_on, waiters, deadline, true)
     end
-    @items.shift
+    items.shift
   end
 
   alias shift pop
   alias deq pop
 
   def close
-    @closed = true
-    Thread.send(:rouse, @waiters.dup)
+    Primitive.zr_state_set(self, :__closed__, true)
+    Thread.send(:rouse, waiters.dup)
     self
   end
 
-  def closed? = @closed
+  def closed? = Primitive.zr_hidden_get(self, :__closed__) == true
 
-  def empty? = @items.empty?
+  def empty? = items.empty?
 
-  def size = @items.size
+  def size = items.size
 
   alias length size
 
   def clear
-    @items.clear
+    items.clear
     self
   end
 
-  def num_waiting = @waiters.size
+  def num_waiting = waiters.size
 
   # A queue takes messages and gives them away, so a frozen one could do
   # neither: ruby refuses to freeze one at all. A SizedQueue is a queue,
   # and the refusal names whichever class it is.
   def freeze
     raise TypeError, "cannot freeze #{Primitive.zr_any_to_s(self)}"
+  end
+
+  private
+
+  # check_array: an allocated queue holds no items until initialize.
+  def items
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__items__) or raise TypeError, "#{inspect} not initialized"
+  end
+
+  def waiters
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__waiters__)
   end
 end
 
@@ -1019,21 +1051,30 @@ class Thread::ConditionVariable
 end
 
 class Thread::SizedQueue < Thread::Queue
-  attr_reader :max
+  def self.allocate
+    Primitive.attr! :hidden
+    queue = Primitive.zr_class_allocate(self)
+    Primitive.zr_state_set(queue, :__waiters__, [])
+    Primitive.zr_state_set(queue, :__pushers__, [])
+    queue
+  end
 
   def initialize(max)
     raise ArgumentError, "queue size must be positive" unless max.is_a?(Integer) && max > 0
 
     super()
-    @max = max
-    @pushers = []
+    Primitive.zr_state_set(self, :__max__, max)
+    Primitive.zr_state_set(self, :__pushers__, [])
+    nil
   end
+
+  def max = Primitive.zr_hidden_get(self, :__max__) || 0
 
   def max=(value)
     raise ArgumentError, "queue size must be positive" unless value.is_a?(Integer) && value > 0
 
-    @max = value
-    Thread.send(:rouse, @pushers.dup)
+    Primitive.zr_state_set(self, :__max__, value)
+    Thread.send(:rouse, pushers.dup)
     value
   end
 
@@ -1043,12 +1084,12 @@ class Thread::SizedQueue < Thread::Queue
     raise ArgumentError, "can't set a timeout if non_block is enabled" if non_block && timeout
 
     deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (Thread.send(:seconds, timeout) * 1e9).to_i
-    while @items.size >= @max
-      raise ClosedQueueError, "queue closed" if @closed
+    while items.size >= max
+      raise ClosedQueueError, "queue closed" if closed?
       raise ThreadError, "queue full" if non_block
       return nil if deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) >= deadline
 
-      Thread.current.send(:wait_on, @pushers, deadline, true)
+      Thread.current.send(:wait_on, pushers, deadline, true)
     end
     super(value)
   end
@@ -1059,7 +1100,7 @@ class Thread::SizedQueue < Thread::Queue
   def pop(non_block = false, timeout: nil)
     Primitive.attr! :ruby
     value = super
-    Thread.send(:rouse, @pushers, 1)
+    Thread.send(:rouse, pushers, 1)
     value
   end
 
@@ -1068,11 +1109,18 @@ class Thread::SizedQueue < Thread::Queue
 
   def close
     super
-    Thread.send(:rouse, @pushers.dup)
+    Thread.send(:rouse, pushers.dup)
     self
   end
 
-  def num_waiting = @waiters.size + @pushers.size
+  def num_waiting = waiters.size + pushers.size
+
+  private
+
+  def pushers
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__pushers__)
+  end
 end
 
 Mutex = Thread::Mutex

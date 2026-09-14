@@ -704,7 +704,10 @@ class File < IO
   end
   private_class_method :path_of
 
-  def size = File.size(path)
+  def size
+    check_open
+    File.size(path)
+  end
 
   def to_path = path
 

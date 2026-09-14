@@ -31,7 +31,6 @@ gaps/rubygems_then_bundler.rb	milestones/rubygems_then_bundler.rb
 gaps/marshal_round_trips_a_native_value.rb	stdlib/bigdecimal/marshal_round_trips_a_native_value.rb
 gaps/native_object_protocol.rb	stdlib/bigdecimal/native_object_protocol.rb
 gaps/coverage.rb	stdlib/coverage/coverage.rb
-gaps/an_allocated_native_object_refuses_what_ruby_refuses.rb	stdlib/date/an_allocated_native_object_refuses_what_ruby_refuses.rb
 gaps/yaml_date_time_scalars_are_gated.rb	stdlib/date/yaml_date_time_scalars_are_gated.rb
 gaps/yaml_dump_styles.rb	stdlib/date/yaml_dump_styles.rb
 gaps/a_subclass_of_any_native_class.rb	stdlib/digest/a_subclass_of_any_native_class.rb

@@ -575,7 +575,11 @@ class IO
 
   alias isatty tty?
 
-  def closed? = @closed
+  def closed?
+    raise IOError, "uninitialized stream" if @fd.nil?
+
+    @closed
+  end
 
   def close
     return nil if @closed
@@ -1212,8 +1216,10 @@ class IO
     @closed = true
   end
 
+  # rb_io_check_closed: an allocated stream has no descriptor to ask.
   def check_open
     Primitive.attr! :hidden
+    raise IOError, "uninitialized stream" if @fd.nil?
     raise IOError, "closed stream" if @closed
   end
 

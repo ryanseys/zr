@@ -10,6 +10,15 @@ class Set
 
   def self.[](*items) = new(items)
 
+  # An allocated Set is an empty one, as the C one's table is.
+  def self.allocate
+    Primitive.attr! :hidden
+    set = Primitive.zr_class_allocate(self)
+    set.instance_variable_set(:@hash, {})
+    set.instance_variable_set(:@iterating, 0)
+    set
+  end
+
   # The items join whatever the Set already holds. Ruby's core Set
   # checks neither for an earlier call nor for a frozen receiver here, so
   # a second `initialize` merges, even into a frozen Set.

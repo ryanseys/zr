@@ -323,9 +323,11 @@ class Date
   end
   private :setup
 
+  # An allocated date is day 0 of the Julian period, as
+  # d_lite_s_alloc_simple and d_lite_s_alloc_complex leave one.
   def parts
     Primitive.attr! :hidden
-    Primitive.zr_hidden_get(self, :__parts__)
+    Primitive.zr_hidden_get(self, :__parts__) || [0, 0, 0, 0, ITALY.to_f, !is_a?(DateTime)].freeze
   end
   private :parts
 

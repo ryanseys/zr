@@ -50,6 +50,12 @@ module Process
 
   # What waitpid answered for a child.
   class Status
+    # An allocated status is pid 0 with a status word of 0.
+    def self.allocate
+      Primitive.attr! :hidden
+      Primitive.zr_class_allocate(self).tap { |status| status.send(:initialize, 0, 0) }
+    end
+
     attr_reader :pid, :to_i
 
     def initialize(pid, raw)
@@ -97,7 +103,7 @@ module Process
       "pid #{@pid} SIG#{Signal.signame(termsig)} (signal #{termsig})#{coredump? ? ' (core dumped)' : ''}"
     end
 
-    def inspect = "#<Process::Status: #{self}>"
+    def inspect = @pid.zero? ? "#<#{self.class}: uninitialized>" : "#<Process::Status: #{self}>"
   end
 
   # What a spawn's options ask the child for: `dups` are (child

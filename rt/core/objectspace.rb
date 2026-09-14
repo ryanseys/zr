@@ -5,6 +5,13 @@ module ObjectSpace
   class WeakMap
     include Enumerable
 
+    def self.allocate
+      Primitive.attr! :hidden
+      map = Primitive.zr_class_allocate(self)
+      map.send(:initialize)
+      map
+    end
+
     def initialize
       @table = Primitive.zr_weak_table_new_m(1, true)
     end
