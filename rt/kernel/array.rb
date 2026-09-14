@@ -600,21 +600,34 @@ machine def zr_ary_eq(recv, argc, argv, cref, blk)
   Machine.value(QTRUE)
 end
 
-# `recv[i]` as CRuby's opt_aref instruction runs it: an Array whose `[]`
-# is its own is read directly, with no frame for a backtrace.
+# `recv[i]` as CRuby's opt_aref instruction runs it: an Array or a Hash
+# whose `[]` is its own is read directly, with no frame for a backtrace.
 sig [Value, Word, Word, Ptr, Word] => Value
 machine def zr_opt_aref(recv, mid, argc, argv, mode)
-  if !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_AREF) == 0
-    return zr_ary_aref(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
+  if !zr_special_p(recv)
+    k = RBasic.klass(recv)
+    if k == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_AREF) == 0
+      return zr_ary_aref(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
+    end
+    if argc == 1 && k == zr_global(G_HASH) && (Machine.load64(zr_gates(), 0) & GATE_HASH_AREF) == 0
+      return zr_hash_aref(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
+    end
   end
   zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
 end
 
-# `recv[i] = v` likewise, for an Integer index.
+# `recv[k] = v` likewise: an Array for an Integer index, a Hash for any
+# key.
 sig [Value, Word, Word, Ptr, Word] => Value
 machine def zr_opt_aset(recv, mid, argc, argv, mode)
-  if argc == 2 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_ASET) == 0 && zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
-    return zr_ary_aset_at(recv, Machine.value(Machine.load64(argv, 0)), Machine.value(Machine.load64(argv, 8)))
+  if argc == 2 && !zr_special_p(recv)
+    k = RBasic.klass(recv)
+    if k == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_ASET) == 0 && zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
+      return zr_ary_aset_at(recv, Machine.value(Machine.load64(argv, 0)), Machine.value(Machine.load64(argv, 8)))
+    end
+    if k == zr_global(G_HASH) && (Machine.load64(zr_gates(), 0) & GATE_HASH_ASET) == 0
+      return zr_hash_aset(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
+    end
   end
   zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
 end

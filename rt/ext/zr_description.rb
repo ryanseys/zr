@@ -1152,6 +1152,7 @@ module Ze0
         d zr_str_times Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_concat_codepoint Value recv:Value c:Word
         d zr_str_concat Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_str_concat_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_bytes_cmp Word a:Ptr alen:Word b:Ptr blen:Word
         d zr_str_cmp Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_comparable Bool a:Value b:Value
@@ -1280,7 +1281,7 @@ module Ze0
         c KIND_UNDEF 6
         c KIND_MISSING 9
         c T_ICLASS 28
-        c GATE_ROWS 20
+        c GATE_ROWS 22
         c CORE_KEY 4611686018427387904
         c MCACHE_ROWS 2048
         c MCACHE_OFF 1
@@ -1381,6 +1382,8 @@ module Ze0
         c GATE_OR 131072
         c GATE_XOR 262144
         c GATE_SHR 524288
+        c GATE_HASH_AREF 1048576
+        c GATE_HASH_ASET 2097152
         c F_GETFL 3
         c F_SETFL 4
         c O_NONBLOCK 4

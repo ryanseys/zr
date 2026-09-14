@@ -485,6 +485,7 @@ class Array
   # The arguments are read before any is appended, so `a.concat(a, a)`
   # triples it.
   def concat(*others)
+    Primitive.zr_frozen_error(self) if frozen?
     pieces = others.map do |o|
       ary = Array.try_convert(o) || raise(TypeError, "no implicit conversion of #{conversion_name(o)} into Array")
       ary.equal?(self) ? ary.dup : ary

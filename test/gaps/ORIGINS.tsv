@@ -47,7 +47,6 @@ gaps/rubyvm_iseq_of_answers_for_a_ruby_callable.rb	core/rubyvm/rubyvm_iseq_of_an
 gaps/time_keeps_a_float_epoch_exactly.rb	core/time/time_keeps_a_float_epoch_exactly.rb
 gaps/time_local_historical_offset.rb	core/time/time_local_historical_offset.rb
 gaps/ast_node_id_for_backtrace_location.rb	core/tracepoint/ast_node_id_for_backtrace_location.rb
-gaps/frozen_error_backtrace_extra_frame.rb	core/tracepoint/frozen_error_backtrace_extra_frame.rb
 gaps/trace_var.rb	core/tracepoint/trace_var.rb
 gaps/tracepoint.rb	core/tracepoint/tracepoint.rb
 gaps/tracepoint_disable_is_a_call_event.rb	core/tracepoint/tracepoint_disable_is_a_call_event.rb

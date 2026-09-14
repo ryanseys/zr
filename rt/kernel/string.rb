@@ -553,6 +553,30 @@ machine def zr_str_concat(recv, argc, argv, cref, blk)
   recv
 end
 
+# `concat`: the arguments appended in order, as `<<` appends one. Two
+# or more are joined first, as CRuby joins them, so `s.concat(s, s)`
+# appends `s` as it was and a bad argument appends nothing.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_str_concat_m(recv, argc, argv, cref, blk)
+  if zr_frozen_p(recv)
+    return zr_frozen_error(recv)
+  end
+  if argc < 2
+    return argc == 0 ? recv : zr_str_concat(recv, argc, argv, cref, blk)
+  end
+  joined = zr_str_new(Machine.bytes(""), 0)
+  zr_str_set_index(joined, zr_str_encoding_index(recv))
+  i = 0
+  while i < argc
+    r = zr_str_concat(joined, 1, argv + (i * 8), cref, blk)
+    return r if r == QUNDEF
+    i += 1
+  end
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(joined))
+  zr_str_concat(recv, 1, slot, cref, blk)
+end
+
 # Two byte strings compared bytewise, the shorter first on a shared
 # prefix: -1, 0 or 1.
 sig [Ptr, Word, Ptr, Word] => Word

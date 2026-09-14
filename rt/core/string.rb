@@ -199,11 +199,6 @@ class String
 
   def clear = Primitive.zr_str_discard(self)
 
-  def concat(*others)
-    others.each { |o| self << o }
-    self
-  end
-
   def prepend(*others) = replace(others.map { |other| Primitive.zr_str_operand(other) }.join + self)
 
   def insert(index, other)

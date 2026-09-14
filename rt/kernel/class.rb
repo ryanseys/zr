@@ -759,6 +759,10 @@ machine def zr_gate_bit(klass, mid)
     GATE_AREF
   elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:[]=)
     GATE_ASET
+  elsif klass == zr_global(G_HASH) && mid == Machine.id(:[])
+    GATE_HASH_AREF
+  elsif klass == zr_global(G_HASH) && mid == Machine.id(:[]=)
+    GATE_HASH_ASET
   elsif (klass == zr_global(G_ARRAY) || klass == zr_global(G_STRING)) && mid == Machine.id(:<<)
     GATE_LTLT
   elsif klass == zr_global(G_STRING) && mid == Machine.id(:freeze)
@@ -774,7 +778,7 @@ end
 # it started: the class the gate guards (a global's index), the name,
 # the gate bit, and the body and visibility that class found then.
 Machine.struct :GateRow, klass: Word, mid: Word, bit: Word, fn: Ptr, vis: Word
-GATE_ROWS = 20
+GATE_ROWS = 22
 
 sig [Word, Word, Word, Word] => Word
 machine def zr_gate_row(i, klass, mid, bit)
@@ -811,6 +815,8 @@ machine def zr_gates_snapshot
   i = zr_gate_row(i, G_INTEGER, Machine.id(:>>), GATE_SHR)
   i = zr_gate_row(i, G_ARRAY, Machine.id(:[]), GATE_AREF)
   i = zr_gate_row(i, G_ARRAY, Machine.id(:[]=), GATE_ASET)
+  i = zr_gate_row(i, G_HASH, Machine.id(:[]), GATE_HASH_AREF)
+  i = zr_gate_row(i, G_HASH, Machine.id(:[]=), GATE_HASH_ASET)
   i = zr_gate_row(i, G_ARRAY, Machine.id(:<<), GATE_LTLT)
   i = zr_gate_row(i, G_STRING, Machine.id(:<<), GATE_LTLT)
   zr_gate_row(i, G_STRING, Machine.id(:freeze), GATE_FREEZE)
