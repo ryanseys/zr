@@ -12,6 +12,9 @@ class Pathname
   SEPARATOR_PAT = %r{/}
   TO_PATH = :to_path
 
+  attr_reader :path
+  protected :path
+
   def initialize(path)
     path = path.to_path if path.respond_to?(:to_path)
     path = path.to_str unless path.is_a?(String)
