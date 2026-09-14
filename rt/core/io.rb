@@ -630,9 +630,8 @@ class IO
     IO.send(:room_for!, length)
     text = Primitive.zr_io_pread(@fd, length, offset)
     raise SystemCallError.new(label, -text, "rb_io_pread") if text.is_a?(Integer)
-    raise EOFError, "end of file reached" if text.nil?
 
-    buffer ? buffer.replace(text) : text
+    filled(text&.force_encoding(Encoding::BINARY), buffer)
   end
 
   def pwrite(text, offset)
@@ -791,7 +790,7 @@ class IO
       fill while !@eof && @buffer.bytesize < length
       return nil if @buffer.empty? && length > 0
 
-      out = take(length).force_encoding(Encoding::BINARY)
+      return filled(take(length).force_encoding(Encoding::BINARY), buffer)
     end
     buffer ? buffer.replace(out) : out
   end
@@ -1193,11 +1192,15 @@ class IO
     take([length, @buffer.bytesize].min).force_encoding(Encoding::BINARY)
   end
 
+  # The bytes a read took, in the caller's buffer where there is one,
+  # which keeps its own encoding.
   def filled(text, buffer)
     Primitive.attr! :hidden
     raise EOFError, "end of file reached" if text.nil?
+    return text unless buffer
 
-    buffer ? buffer.replace(text) : text
+    encoding = buffer.encoding
+    buffer.replace(text).force_encoding(encoding)
   end
 
   def check_readable

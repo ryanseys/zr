@@ -233,5 +233,4 @@ gaps/zlib_classes.rb	stdlib/zlib/zlib_classes.rb
 gaps/zlib_compression.rb	stdlib/zlib/zlib_compression.rb
 gaps/zlib_constants.rb	stdlib/zlib/zlib_constants.rb
 gaps/ffi_typedefs_and_guarded_directives.rb	ze0/ffi_typedefs_and_guarded_directives.rb
-gaps/a_byte_read_keeps_its_bytes.rb	stdlib/digest/a_byte_read_keeps_its_bytes.rb
 gaps/bundler_resolves_a_gemfile.rb	milestones/bundler_resolves_a_gemfile.rb

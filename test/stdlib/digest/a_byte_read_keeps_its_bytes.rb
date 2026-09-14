@@ -11,7 +11,7 @@
 
 require "digest"
 
-PATH = File.expand_path("../fixtures/every_byte.bin", __dir__)
+PATH = File.expand_path("../../fixtures/every_byte.bin", __dir__)
 
 def show(label, s)
   puts "#{label}\tbytesize=#{s.bytesize}\tsize=#{s.size}\tenc=#{s.encoding}\t#{Digest::SHA256.hexdigest(s)[0, 16]}"
