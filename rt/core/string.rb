@@ -2332,7 +2332,7 @@ class Encoding
       elsif options[:xml]
         out.concat("&#x#{format('%X', point)};".bytes)
       else
-        undefined("U+#{format('%04X', point)}", UTF_8, target, path, options, point.chr(UTF_8)) do |mark|
+        undefined("U+#{point.to_s(16).upcase.rjust(4, '0')}", UTF_8, target, path, options, point.chr(UTF_8)) do |mark|
           mark.each_char { |char| out.concat(point_bytes(char.ord, unit, big, points, writer) || char.bytes) }
         end
       end
@@ -2645,13 +2645,33 @@ class Encoding
 
     text = String.try_convert(name)
     raise TypeError, "no implicit conversion of #{conversion_name(name)} into String" if text.nil?
-    # `internal` names no row: it is whatever default_internal is, nil too.
-    return default_internal if text.casecmp?("internal")
+    if (found = by_name[text])
+      nil
+    elsif text.ascii_only?
+      key = text.upcase(:ascii)
+      # `internal` names no row: it is whatever default_internal is, nil too.
+      return default_internal if key == "INTERNAL"
 
-    found = LIST.find { |encoding| encoding.names.any? { |n| n.casecmp?(text) } }
+      found = by_name[key]
+    else
+      found = LIST.find { |encoding| encoding.names.any? { |n| n.casecmp?(text) } }
+    end
     return found.send(:load) if found
 
     raise ArgumentError, "unknown encoding name - #{text}"
+  end
+
+  # Each name an encoding answers to, as written and upper-cased, the
+  # first encoding in the list to carry it: a lookup by an ASCII name,
+  # which every encoding name is, in one step.
+  def self.by_name
+    Primitive.attr! :hidden
+    @by_name ||= LIST.each_with_object({}) do |encoding, index|
+      encoding.names.each do |name|
+        index[name.upcase(:ascii)] ||= encoding
+        index[name] ||= encoding
+      end
+    end
   end
 
   # Both ends of a conversion. A name no encoding answers to is not an

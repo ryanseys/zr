@@ -33,7 +33,6 @@ gaps/coverage.rb	stdlib/coverage/coverage.rb
 gaps/yaml_date_time_scalars_are_gated.rb	stdlib/date/yaml_date_time_scalars_are_gated.rb
 gaps/yaml_dump_styles.rb	stdlib/date/yaml_dump_styles.rb
 gaps/a_subclass_of_any_native_class.rb	stdlib/digest/a_subclass_of_any_native_class.rb
-gaps/big5_and_euc_jp_encode_exactly.rb	stdlib/digest/big5_and_euc_jp_encode_exactly.rb
 gaps/a_bare_struct_name_in_a_signature_is_a_reference.rb	stdlib/ffi/a_bare_struct_name_in_a_signature_is_a_reference.rb
 gaps/a_by_value_struct_return_through_the_runtime_tier.rb	stdlib/ffi/a_by_value_struct_return_through_the_runtime_tier.rb
 gaps/a_callback_exception_surfaces_from_the_c_call.rb	stdlib/ffi/a_callback_exception_surfaces_from_the_c_call.rb
