@@ -43,7 +43,6 @@ gaps/rubyvm_ast.rb	core/rubyvm/rubyvm_ast.rb
 gaps/rubyvm_ast_node_taxonomy.rb	core/rubyvm/rubyvm_ast_node_taxonomy.rb
 gaps/rubyvm_iseq_label_on_a_proc_handle.rb	core/rubyvm/rubyvm_iseq_label_on_a_proc_handle.rb
 gaps/rubyvm_iseq_of_answers_for_a_ruby_callable.rb	core/rubyvm/rubyvm_iseq_of_answers_for_a_ruby_callable.rb
-gaps/time_keeps_a_float_epoch_exactly.rb	core/time/time_keeps_a_float_epoch_exactly.rb
 gaps/time_local_historical_offset.rb	core/time/time_local_historical_offset.rb
 gaps/ast_node_id_for_backtrace_location.rb	core/tracepoint/ast_node_id_for_backtrace_location.rb
 gaps/trace_var.rb	core/tracepoint/trace_var.rb
@@ -51,7 +50,6 @@ gaps/tracepoint.rb	core/tracepoint/tracepoint.rb
 gaps/tracepoint_disable_is_a_call_event.rb	core/tracepoint/tracepoint_disable_is_a_call_event.rb
 gaps/tracepoint_self_and_binding.rb	core/tracepoint/tracepoint_self_and_binding.rb
 gaps/a_reflective_program_keeps_every_class.rb	lang/classes/a_reflective_program_keeps_every_class.rb
-gaps/core_classes.rb	lang/classes/core_classes.rb
 gaps/did_you_mean_library.rb	lang/classes/did_you_mean_library.rb
 gaps/every_native_class_allocates_where_ruby_does.rb	lang/classes/every_native_class_allocates_where_ruby_does.rb
 gaps/a_boxs_constant_is_its_own.rb	lang/constants/a_boxs_constant_is_its_own.rb
