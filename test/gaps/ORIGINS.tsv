@@ -186,7 +186,6 @@ gaps/yaml_loads_and_entropy_draws_run_concurrently_under_the_armed_gvl.rb	stdlib
 gaps/yaml_ruby_object_revival.rb	stdlib/ostruct/yaml_ruby_object_revival.rb
 gaps/pty_spawn.rb	stdlib/pty/pty_spawn.rb
 gaps/pty_spawn_and_check.rb	stdlib/pty/pty_spawn_and_check.rb
-gaps/requiring_rexml_document_survives_the_ambient_encoding_class.rb	stdlib/rexml/requiring_rexml_document_survives_the_ambient_encoding_class.rb
 gaps/securerandom.rb	stdlib/securerandom/securerandom.rb
 gaps/securerandom_formatted_lengths_and_types.rb	stdlib/securerandom/securerandom_formatted_lengths_and_types.rb
 gaps/securerandom_random_number_bounds.rb	stdlib/securerandom/securerandom_random_number_bounds.rb

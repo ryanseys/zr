@@ -90,7 +90,8 @@ module Ze0
         end
 
         # In the core library, `Primitive.zr_name(args)` is the kernel def
-        # itself, called directly with Values.
+        # itself, called directly with Values. A block literal is its last
+        # Value, a Proc, whose `break` lands here as a send's would.
         def primitive?(node)
           @l.internal? && node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Primitive && node.recv.scope.nil?
         end
@@ -100,14 +101,21 @@ module Ze0
           return parameter_named(node) if node.name == :arg!
 
           d = @l.kernel_def(node.name.to_s)
-          @l.refuse(node, "Primitive.#{node.name} takes #{d.params.size} arguments, not #{node.args.size}") if d.params.size != node.args.size
-          @l.refuse(node, "Primitive.#{node.name} takes a block or keywords") if node.block || node.kwargs
+          given = node.args.size + (node.block ? 1 : 0)
+          @l.refuse(node, "Primitive.#{node.name} takes #{d.params.size} arguments, not #{given}") if d.params.size != given
+          @l.refuse(node, "Primitive.#{node.name} takes keywords") if node.kwargs
+          @l.refuse(node, "Primitive.#{node.name} takes a block literal, not a block pass") if node.block.is_a?(Hir::BlockPass)
           d.params.each { |name, type| @l.refuse(node, "Primitive.#{node.name}'s #{name} is a #{type}, not a Value") unless type == "Value" }
           @l.refuse(node, "Primitive.#{node.name} answers a #{d.ret}, not a Value") unless d.ret == "Value"
           at_line(node.line)
-          staged(node.args) do |slots, base|
+          staged(node.args, node.block ? 1 : 0) do |_, base|
             args = node.args.each_index.map { |i| @f.fetch("i64", @rec, value_offset(base + i)) }
-            checked(kernel(node.name.to_s, *args))
+            if node.block
+              site, proc = make_proc(node.block, base + node.args.size)
+              catching_break(site) { kernel(node.name.to_s, *args, proc) }
+            else
+              checked(kernel(node.name.to_s, *args))
+            end
           end
         end
 

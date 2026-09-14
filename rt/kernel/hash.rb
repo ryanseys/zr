@@ -646,6 +646,13 @@ machine def zr_hash_each(recv, argc, argv, cref, blk)
   recv
 end
 
+# rb_hash_foreach: `blk` over each pair of `h`'s own table, as `each`
+# walks it, whatever a subclass writes over `each`.
+sig [Value, Value] => Value
+machine def zr_hash_foreach(h, blk)
+  zr_hash_each(h, 0, 0, Machine.value(QNIL), blk)
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_hash_to_a(recv, argc, argv, cref, blk)
   out = zr_ary_new(RHash.live(recv))

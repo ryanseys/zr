@@ -1,5 +1,7 @@
 # Hash over the kernel's table: each, [], []=, fetch, delete, keys and
-# values come from the kernel; the rest is written over them.
+# values come from the kernel; the rest is written over them. A walk of
+# a Hash's own table is Primitive.zr_hash_foreach, which a subclass's
+# `each` leaves alone, as rb_hash_foreach does.
 class Hash
   # hash.rb's: a default value or a default proc, and room for
   # `capacity` pairs.
@@ -30,7 +32,7 @@ class Hash
   def self.[](*args)
     if args.size == 1 && (given = Hash.try_convert(args[0]))
       out = allocate
-      given.each { |k, v| out[k] = v }
+      Primitive.zr_hash_foreach(given) { |k, v| out[k] = v }
       return out
     end
     if args.size == 1 && args[0].is_a?(Array)
@@ -61,14 +63,14 @@ class Hash
   def each_key
     return to_enum(:each_key) { size } unless block_given?
 
-    each { |k, _| yield(k) }
+    Primitive.zr_hash_foreach(self) { |k, _| yield(k) }
     self
   end
 
   def each_value
     return to_enum(:each_value) { size } unless block_given?
 
-    each { |_, v| yield(v) }
+    Primitive.zr_hash_foreach(self) { |_, v| yield(v) }
     self
   end
 
@@ -76,7 +78,7 @@ class Hash
     return to_enum(__callee__) { size } unless block_given?
 
     out = identity_shaped
-    each { |k, v| out[k] = v if yield(k, v) }
+    Primitive.zr_hash_foreach(self) { |k, v| out[k] = v if yield(k, v) }
     out
   end
   alias filter select
@@ -85,7 +87,7 @@ class Hash
     return to_enum(:reject) { size } unless block_given?
 
     out = identity_shaped
-    each { |k, v| out[k] = v unless yield(k, v) }
+    Primitive.zr_hash_foreach(self) { |k, v| out[k] = v unless yield(k, v) }
     out
   end
 
@@ -128,14 +130,14 @@ class Hash
       return self if instance_of?(Hash)
 
       out = {}
-      each { |k, v| out[k] = v }
+      Primitive.zr_hash_foreach(self) { |k, v| out[k] = v }
       out.default_proc = default_proc if default_proc
       out.default = default unless default_proc
       return out
     end
 
     out = {}
-    each do |k, v|
+    Primitive.zr_hash_foreach(self) do |k, v|
       pair = yield(k, v)
       raise TypeError, "wrong element type #{pair.class} (expected array)" unless pair.is_a?(Array)
       raise ArgumentError, "element has wrong array length (expected 2, was #{pair.size})" unless pair.size == 2
@@ -149,7 +151,7 @@ class Hash
 
   def to_a
     out = []
-    each { |k, v| out << [k, v] }
+    Primitive.zr_hash_foreach(self) { |k, v| out << [k, v] }
     out
   end
 
@@ -163,7 +165,7 @@ class Hash
     Primitive.zr_frozen_error(self) if frozen?
     others.each do |other|
       hash = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Hash"
-      hash.each do |k, v|
+      Primitive.zr_hash_foreach(hash) do |k, v|
         self[k] = block_given? && key?(k) ? yield(k, self[k], v) : v
       end
     end
@@ -174,19 +176,19 @@ class Hash
   def store(key, value) = self[key] = value
 
   def key(value)
-    each { |k, v| return k if Primitive.zr_rb_equal(v, value) }
+    Primitive.zr_hash_foreach(self) { |k, v| return k if Primitive.zr_rb_equal(v, value) }
     nil
   end
 
   def value?(value)
-    each { |_, v| return true if Primitive.zr_rb_equal(v, value) }
+    Primitive.zr_hash_foreach(self) { |_, v| return true if Primitive.zr_rb_equal(v, value) }
     false
   end
   alias has_value? value?
 
   def invert
     out = {}
-    each { |k, v| out[v] = k }
+    Primitive.zr_hash_foreach(self) { |k, v| out[v] = k }
     out
   end
 
@@ -194,7 +196,7 @@ class Hash
     return to_enum(:transform_values) { size } unless block_given?
 
     out = identity_shaped
-    each { |k, v| out[k] = yield(v) }
+    Primitive.zr_hash_foreach(self) { |k, v| out[k] = yield(v) }
     out
   end
 
@@ -209,7 +211,7 @@ class Hash
     return to_enum(:transform_keys) { size } unless mapping || block_given?
 
     out = {}
-    each do |k, v|
+    Primitive.zr_hash_foreach(self) do |k, v|
       new_key = if mapping&.key?(k) then mapping[k]
                 elsif block_given? then yield(k)
                 else k
@@ -237,7 +239,7 @@ class Hash
     pr ? (self.default_proc = pr) : (self.default = Primitive.zr_hash_default_value(hash))
     clear
     Primitive.zr_hash_set_identity(self, hash.compare_by_identity?)
-    hash.each { |k, v| self[k] = v }
+    Primitive.zr_hash_foreach(hash) { |k, v| self[k] = v }
     self
   end
 
@@ -283,7 +285,7 @@ class Hash
   # A plain Hash: the default and default proc do not carry over.
   def except(*keys)
     out = identity_shaped
-    each { |k, v| out[k] = v }
+    Primitive.zr_hash_foreach(self) { |k, v| out[k] = v }
     keys.each { |k| out.delete(k) }
     out
   end
@@ -346,7 +348,7 @@ class Hash
     return to_a if depth.zero?
 
     out = []
-    each { |k, v| out << k << v }
+    Primitive.zr_hash_foreach(self) { |k, v| out << k << v }
     return out if depth == 1
 
     # A negative depth flattens all the way down, as Array#flatten has it.
@@ -356,17 +358,17 @@ class Hash
   def rehash = Primitive.zr_hash_rehash(self)
 
   def assoc(key)
-    each { |k, v| return [k, v] if k == key }
+    Primitive.zr_hash_foreach(self) { |k, v| return [k, v] if k == key }
     nil
   end
 
   def rassoc(value)
-    each { |k, v| return [k, v] if Primitive.zr_rb_equal(v, value) }
+    Primitive.zr_hash_foreach(self) { |k, v| return [k, v] if Primitive.zr_rb_equal(v, value) }
     nil
   end
 
   def shift
-    each do |k, v|
+    Primitive.zr_hash_foreach(self) do |k, v|
       delete(k)
       return [k, v]
     end
@@ -381,7 +383,7 @@ class Hash
     return true if Primitive.zr_recursive_enter_paired(self, other, :eql?)
 
     begin
-      each { |k, v| return false unless other.key?(k) && v.eql?(other[k]) }
+      Primitive.zr_hash_foreach(self) { |k, v| return false unless other.key?(k) && v.eql?(other[k]) }
       true
     ensure
       Primitive.zr_recursive_leave(self, :eql?)
@@ -396,7 +398,7 @@ class Hash
 
     begin
       total = size
-      each { |k, v| total = (total + [k, v].hash) & 0x3FFFFFFFFFFFFFFF }
+      Primitive.zr_hash_foreach(self) { |k, v| total = (total + [k, v].hash) & 0x3FFFFFFFFFFFFFFF }
       total
     ensure
       Primitive.zr_recursive_leave(self, :hash)
@@ -407,7 +409,8 @@ class Hash
   # got when the argument is not one.
   def <=(other)
     other = hash_operand(other)
-    all? { |k, v| other.key?(k) && Primitive.zr_rb_equal(other[k], v) }
+    Primitive.zr_hash_foreach(self) { |k, v| return false unless other.key?(k) && Primitive.zr_rb_equal(other[k], v) }
+    true
   end
 
   def <(other)
