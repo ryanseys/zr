@@ -1,6 +1,5 @@
 gaps/ffi_libc_call.rb	aot/ffi_libc_call.rb
 gaps/openssl_digest.rb	aot/openssl_digest.rb
-gaps/socket_loopback.rb	aot/socket_loopback.rb
 gaps/a_platform_guard_decides_at_build_time.rb	compiler/guards/a_platform_guard_decides_at_build_time.rb
 gaps/a_version_gate_compares_by_version_not_by_string.rb	compiler/guards/a_version_gate_compares_by_version_not_by_string.rb
 gaps/io_buffer.rb	core/io/io_buffer.rb
@@ -135,8 +134,6 @@ gaps/i1017.rb	stdlib/ffi/i1017.rb
 gaps/sp_net_basic.rb	stdlib/ffi/sp_net_basic.rb
 gaps/the_toplevel_runs_on_the_process_main_thread.rb	stdlib/ffi/the_toplevel_runs_on_the_process_main_thread.rb
 gaps/variadic_attach_function_matches_the_oracle.rb	stdlib/ffi/variadic_attach_function_matches_the_oracle.rb
-gaps/glob_require_and_loaded_features.rb	stdlib/net/glob_require_and_loaded_features.rb
-gaps/issue_net_http_missing.rb	stdlib/net/issue_net_http_missing.rb
 gaps/kconv.rb	stdlib/nkf/kconv.rb
 gaps/nkf.rb	stdlib/nkf/nkf.rb
 gaps/gc_weak.rb	stdlib/objspace/gc_weak.rb

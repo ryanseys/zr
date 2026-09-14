@@ -1150,25 +1150,42 @@ module Ze0
         d zr_trap_next Value
         d zr_trap_check Value
         d zr_io_retry Value
+        d zr_sock_bytes Value bytes:Ptr len:Word
+        d zr_sock_cstr Value text:Ptr
+        d zr_sock_fd I32 fd:Value
+        d zr_sock_prepare Void fd:Word
         d zr_sock_socket Value domain:Value type:Value protocol:Value
+        d zr_sock_socketpair Value domain:Value type:Value protocol:Value
         d zr_sock_bind Value fd:Value addr:Value
         d zr_sock_connect Value fd:Value addr:Value
         d zr_sock_listen Value fd:Value backlog:Value
         d zr_sock_shutdown Value fd:Value how:Value
+        d zr_sock_addr_str Value addr:Ptr size:Ptr
         d zr_sock_accept Value fd:Value
-        d zr_sock_send Value fd:Value text:Value flags:Value
-        d zr_sock_sendto Value fd:Value text:Value flags:Value addr:Value
-        d zr_sock_recv Value fd:Value count:Value flags:Value
+        d zr_sock_send Value fd:Value text:Value flags:Value addr:Value
         d zr_sock_recvfrom Value fd:Value count:Value flags:Value
-        d zr_sock_getsockname Value fd:Value
-        d zr_sock_getpeername Value fd:Value
-        d zr_sock_getsockopt Value fd:Value level:Value name:Value size:Value
-        d zr_sock_setsockopt Value fd:Value level:Value name:Value text:Value
-        d zr_sock_socketpair Value domain:Value type:Value protocol:Value
+        d zr_sock_inet_pton Value family:Value text:Value
+        d zr_sock_name Value fd:Value peer:Value
+        d zr_sock_getsockopt Value fd:Value level:Value name:Value
+        d zr_sock_setsockopt Value fd:Value level:Value name:Value bytes:Value
+        d zr_sock_peereid Value fd:Value
         d zr_sock_hostname Value
+        d zr_sock_gai_failed Value r:I32
         d zr_sock_getaddrinfo Value host:Value service:Value family:Value socktype:Value protocol:Value flags:Value
-        d zr_sock_getnameinfo Value addr:Value flags:Value
+        d zr_sock_getnameinfo Value addr:Value flags:Value want:Value
         d zr_sock_gai_message Value code:Value
+        d zr_sock_cstr_list Value list:Ptr
+        d zr_sock_host_aliases Value name:Value
+        d zr_sock_host_by_addr Value addr:Value family:Value
+        d zr_sock_service_port Value name:Value protocol:Value
+        d zr_sock_service_name Value port:Value protocol:Value
+        d zr_sock_addr_len Word addr:Ptr
+        d zr_sock_addr_or_nil Value addr:Ptr
+        d zr_sock_ifaddrs Value
+        d zr_sock_if_index Value name:Value
+        d zr_sock_if_name Value index:Value
+        d zr_sock_sendmsg Value fd:Value data:Value flags:Value addr:Value control:Value
+        d zr_sock_recvmsg Value fd:Value size:Value flags:Value room:Value
         d zr_cmpint Value r:Value x:Value y:Value
         d zr_cmperr Value x:Value y:Value
         d zr_sort_at Value st:Ptr i:Word
@@ -1598,7 +1615,9 @@ module Ze0
         c SIGNAL_RUBY 2
         c SIGNAL_NOTHING 3
         c SIGNAL_OTHER 4
-        c SOCKADDR_MAX 128
+        c SOCKADDR_MAX 256
+        c EPROTOTYPE 41
+        c EAI_SYSTEM 11
         c FL_ASCII 2097152
         c FL_VALID 8388608
         c FL_ASCII_CLEAR -2097153
