@@ -72,6 +72,21 @@ class Thread
 
     def pending_interrupt?(error = nil) = current.pending_interrupt?(error)
 
+    # Whether a deadlock goes unreported: every thread then waits for
+    # good, where a signal's handler may still wake one.
+    def ignore_deadlock = @ignore_deadlock ? true : false
+
+    def ignore_deadlock=(value)
+      @ignore_deadlock = value ? true : false
+      value
+    end
+
+    # Each frame outward from the caller's caller, as a Location.
+    def each_caller_location(start = 1, length = nil)
+      caller_locations(start + 1, length)&.each { |location| yield location }
+      nil
+    end
+
     private
 
     # A timeout in seconds, as `rb_time_interval` takes one: every
@@ -176,7 +191,7 @@ class Thread
       from = @current
       while (to = @queue.shift).nil?
         if @sleepers.empty?
-          return deadlock if deadly
+          return deadlock if deadly && !@ignore_deadlock
 
           Primitive.zr_nanosleep(1_000_000_000)
         elsif (to = next_sleeper)
@@ -400,6 +415,19 @@ class Thread
     return nil unless alive?
 
     Primitive.zr_fiber_backtrace_m(local_fiber, start, length.nil? ? -1 : length)
+  end
+
+  def set_trace_func(hook)
+    return nil if hook.nil?
+    raise TypeError, "trace_func needs to be Proc" unless hook.is_a?(Proc)
+
+    Primitive.zr_unimplemented("Thread#set_trace_func with a Proc")
+  end
+
+  def add_trace_func(hook)
+    raise TypeError, "trace_func needs to be Proc" unless hook.is_a?(Proc)
+
+    Primitive.zr_unimplemented("Thread#add_trace_func")
   end
 
   def backtrace_locations(start = 0, length = nil)

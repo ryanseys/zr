@@ -8,9 +8,7 @@ gaps/builtin_collection_via_enumerable.rb	compiler/builtins/builtin_collection_v
 gaps/builtin_protected_rows.rb	compiler/builtins/builtin_protected_rows.rb
 gaps/core_long_tail_rows.rb	compiler/builtins/core_long_tail_rows.rb
 gaps/gc_fiber_binding_rows.rb	compiler/builtins/gc_fiber_binding_rows.rb
-gaps/kernel_intrinsic_rows.rb	compiler/builtins/kernel_intrinsic_rows.rb
 gaps/marshal_private_surfaces.rb	compiler/builtins/marshal_private_surfaces.rb
-gaps/thread_surface.rb	compiler/builtins/thread_surface.rb
 gaps/tracepoint_reflection_rows.rb	compiler/builtins/tracepoint_reflection_rows.rb
 gaps/a_snippet_reaches_its_callers_block.rb	compiler/cache/a_snippet_reaches_its_callers_block.rb
 gaps/a_snippet_refines_and_uses_at_run_time.rb	compiler/cache/a_snippet_refines_and_uses_at_run_time.rb

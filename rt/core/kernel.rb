@@ -408,7 +408,16 @@ module Kernel
     [command] if commands[name].delete(command) { nil }
   end
 
-  module_function :trace_var, :untrace_var
+  # nil clears the hook, and there is none to clear; a Proc would need
+  # every event traced, which this runtime does not do yet.
+  def set_trace_func(hook)
+    return nil if hook.nil?
+    raise TypeError, "trace_func needs to be Proc" unless hook.is_a?(Proc)
+
+    Primitive.zr_unimplemented("set_trace_func with a Proc")
+  end
+
+  module_function :trace_var, :untrace_var, :set_trace_func
 
   class << self
     private
