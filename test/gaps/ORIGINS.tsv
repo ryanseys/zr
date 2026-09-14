@@ -164,6 +164,5 @@ gaps/issue_set_trace_func_missing.rb	stdlib/set/issue_set_trace_func_missing.rb
 gaps/subclassing_stringio_and_file.rb	stdlib/stringio/subclassing_stringio_and_file.rb
 gaps/syslog.rb	stdlib/syslog/syslog.rb
 gaps/psych_syntax_error_carries_marks.rb	stdlib/yaml/psych_syntax_error_carries_marks.rb
-gaps/io_copy_stream_honours_length_and_offset.rb	stdlib/zlib/io_copy_stream_honours_length_and_offset.rb
 gaps/ffi_typedefs_and_guarded_directives.rb	ze0/ffi_typedefs_and_guarded_directives.rb
 gaps/bundler_resolves_a_gemfile.rb	milestones/bundler_resolves_a_gemfile.rb

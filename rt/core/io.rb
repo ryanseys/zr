@@ -376,19 +376,132 @@ class IO
 
   def self.try_convert(object) = object.respond_to?(:to_io) ? object.to_io : nil
 
-  # Everything one stream holds, written to the other.
-  # A source is anything that answers `read`, or a path; a sink is
-  # anything that answers `write`, or a path. That is what lets a
-  # StringIO stand on either side.
-  def self.copy_stream(from, to, length = nil, offset = nil)
-    text = if from.respond_to?(:read)
-             offset ? (from.seek(offset); from.read(length)) : from.read(length)
-           else
-             File.read(from, length, offset)
-           end
-    text = text.to_s
-    to.respond_to?(:write) ? to.write(text) : File.write(to, text)
+  COPY_CHUNK = 16 * 1024
+  private_constant :COPY_CHUNK
+
+  # rb_io_s_copy_stream: bytes from `src` to `dst`, and how many. Each
+  # end is an IO, a path opened for the copy and closed after it, or any
+  # object that reads with `readpartial` or `read`, or writes with
+  # `write`. A length copies at most that many bytes and an offset reads
+  # from there without moving the source; a negative one is none given.
+  def self.copy_stream(src, dst, copy_length = nil, src_offset = nil)
+    length = copy_length.nil? ? -1 : offset_of(copy_length)
+    offset = src_offset.nil? ? -1 : offset_of(src_offset)
+    opened = []
+    total = 0
+    begin
+      from = copy_end(src, File::RDONLY, opened)
+      from&.send(:check_readable)
+      to = copy_end(dst, File::WRONLY | File::CREAT | File::TRUNC, opened)
+      to&.send(:check_writable)
+      dst = to if to
+      to&.binmode
+
+      if offset.negative? && from&.send(:buffered?)
+        held = from.send(:buffered_bytes, length)
+        to ? to.send(:write_bytes, held) : dst.write(held)
+        total += held.bytesize
+        length -= held.bytesize unless length.negative?
+      end
+      to&.flush
+      return total if length.zero?
+
+      if from.nil? || to.nil?
+        raise ArgumentError, "cannot specify src_offset for non-IO" if from.nil? && !offset.negative?
+
+        total += copy_fallback(from || src, dst, from.nil?, length, offset)
+      else
+        total += copy_descriptors(from, to, length, offset, opened.include?(from))
+      end
+      total
+    ensure
+      opened.each(&:close)
+    end
   end
+
+  # NUM2OFFT.
+  def self.offset_of(value)
+    Primitive.attr! :hidden
+    case value
+    when Integer then value
+    when Float then value.to_i
+    when String then raise TypeError, "no implicit conversion from string"
+    when true, false then raise TypeError, "no implicit conversion from boolean"
+    else Primitive.zr_index_operand_m(value)
+    end
+  end
+
+  # An end of a copy as the IO it reads or writes, opening a path with
+  # `flags`; nil for an object that is no stream and names no file.
+  def self.copy_end(target, flags, opened)
+    Primitive.attr! :hidden
+    return nil if target.equal?(ARGF) || !(target.is_a?(IO) || target.is_a?(String) || target.respond_to?(:to_path))
+
+    io = try_convert(target)
+    return io if io
+    return target if target.is_a?(IO)
+
+    file = File.new(File.send(:path_of, target), flags, 0o666)
+    opened << file
+    file
+  end
+
+  # copy_stream_fallback_body: a chunk at a time through the objects'
+  # own methods, until the length or the end of the source.
+  def self.copy_fallback(src, dst, foreign, length, offset)
+    Primitive.attr! :hidden
+    total = 0
+    rest = length
+    reader = foreign && !src.respond_to?(:readpartial) ? :read : :readpartial
+    buf = String.new(capacity: COPY_CHUNK, encoding: Encoding::BINARY)
+    while true
+      if length.negative?
+        size = COPY_CHUNK
+      else
+        break buf.clear if rest.zero?
+
+        size = [COPY_CHUNK, rest].min
+      end
+      if foreign
+        break if src.__send__(reader, size, buf).nil? && reader == :read
+      else
+        chunk = src.send(:copy_read, size, offset)
+        raise EOFError, "end of file reached" if chunk.nil?
+
+        buf.replace(chunk)
+        offset += chunk.bytesize unless offset.negative?
+      end
+      wrote = offset_of(dst.write(buf))
+      total += wrote
+      rest -= wrote
+      break if reader == :read && buf.empty?
+    end
+    total
+  rescue EOFError
+    total
+  end
+
+  # nogvl_copy_stream_read_write: read(2) or pread(2) of the source into
+  # write(2) of the destination.
+  def self.copy_descriptors(from, to, length, offset, opened)
+    Primitive.attr! :hidden
+    if !offset.negative? && opened
+      from.seek(offset)
+      offset = -1
+    end
+    total = 0
+    while length.negative? || length.positive?
+      chunk = from.send(:copy_read, length.negative? ? COPY_CHUNK : [length, COPY_CHUNK].min, offset)
+      break if chunk.nil?
+
+      offset += chunk.bytesize unless offset.negative?
+      total += to.send(:write_now, chunk)
+      length -= chunk.bytesize unless length.negative?
+    end
+    total
+  end
+
+  private_class_method :offset_of, :copy_end, :copy_fallback, :copy_descriptors
 
   def initialize(fd, mode = nil, **options)
     # A descriptor is a C int, as NUM2INT reads it. The bounds are
@@ -1397,6 +1510,21 @@ class IO
   def take(n)
     Primitive.attr! :hidden
     Primitive.zr_str_shift_front(@buffer, n)
+  end
+
+  # What the buffer holds, `length` bytes of it at most unless negative.
+  def buffered_bytes(length)
+    Primitive.attr! :hidden
+    take(length.negative? ? @buffer.bytesize : [length, @buffer.bytesize].min).force_encoding(Encoding::BINARY)
+  end
+
+  # One read(2) past the buffer, or a pread(2) at `offset`; nil at the end.
+  def copy_read(size, offset)
+    Primitive.attr! :hidden
+    chunk = offset.negative? ? Primitive.zr_io_read(@fd, size) : Primitive.zr_io_pread(@fd, size, offset)
+    raise SystemCallError.new(offset.negative? ? "read" : "pread", -chunk) if chunk.is_a?(Integer)
+
+    chunk
   end
 
   def chomp_line(line, separator)
