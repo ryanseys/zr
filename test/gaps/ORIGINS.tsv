@@ -10,7 +10,6 @@ gaps/a_version_gate_compares_by_version_not_by_string.rb	compiler/guards/a_versi
 gaps/io_buffer.rb	core/io/io_buffer.rb
 gaps/a_computed_require_loads_a_bundled_library.rb	core/kernel/a_computed_require_loads_a_bundled_library.rb
 gaps/eval_caller_locals.rb	core/kernel/eval_caller_locals.rb
-gaps/pack_covers_every_directive.rb	core/pack/pack_covers_every_directive.rb
 gaps/an_iseq_label_names_the_block_it_came_from.rb	core/rubyvm/an_iseq_label_names_the_block_it_came_from.rb
 gaps/rubyvm_ast.rb	core/rubyvm/rubyvm_ast.rb
 gaps/rubyvm_ast_node_taxonomy.rb	core/rubyvm/rubyvm_ast_node_taxonomy.rb

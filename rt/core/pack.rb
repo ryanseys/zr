@@ -173,6 +173,7 @@ module Packing
   def self.pack(items, template)
     out = "".b
     at = 0
+    associates = nil
     list = directives(template, "pack", check: false)
     encoding = list.reduce(Encoding::US_ASCII) do |so_far, (c, _, _)|
       if "mMu".include?(c) then so_far
@@ -229,11 +230,23 @@ module Packing
         at += 1
         out << uuencode(Primitive.zr_str_operand(item).b, count)
       when "p", "P"
-        raise ArgumentError, "too few arguments" if at >= items.size
+        # `P`'s count is the least width of the one String it points at.
+        if c == "P"
+          raise ArgumentError, "too few arguments" if at >= items.size
 
-        item = items[at]
-        at += 1
-        out << (item.nil? ? "\0" * 8 : [Primitive.zr_str_bytes_address(Primitive.zr_str_operand(item))].pack("J"))
+          width = count.is_a?(Integer) ? count : 1
+          text = items[at].nil? ? nil : Primitive.zr_str_operand(items[at])
+          raise ArgumentError, "too short buffer for P(#{text.bytesize} for #{width})" if text && text.bytesize < width
+        end
+        n = c == "P" ? 1 : count == :all ? items.size - at : (count || 1)
+        n.times do
+          raise ArgumentError, "too few arguments" if at >= items.size
+
+          text = items[at].nil? ? nil : Primitive.zr_str_operand(items[at])
+          at += 1
+          (associates ||= []) << text
+          out << pack_integer(text.nil? ? 0 : Primitive.zr_str_bytes_address(text), 8, false)
+        end
       when "U"
         each_item(items, at, count) { |item| out << (+"" << Integer(item)).b }
         at += count == :all ? items.size - at : (count || 1)
@@ -257,7 +270,21 @@ module Packing
         at += count == :all ? items.size - at : (count || 1)
       end
     end
+    associate(out, associates) if associates
     out.force_encoding(encoding)
+  end
+
+  # A pointer `p` or `P` packs keeps the Strings it points at alive, on
+  # the packed String, where `unpack` finds them again.
+  def self.associate(text, strings) = Primitive.zr_hidden_set(text, :__associated__, strings)
+
+  def self.associated(text) = Primitive.zr_hidden_get(text, :__associated__)
+
+  # associated_pointer: the String whose bytes sit at `address`.
+  def self.pointed(associates, address)
+    Primitive.attr! :hidden
+    associates&.find { |text| text.is_a?(String) && Primitive.zr_str_bytes_address(text) == address } or
+      raise ArgumentError, "no associated pointer"
   end
 
   # An item an integer directive takes: a Numeric truncated to an Integer,
@@ -417,7 +444,7 @@ module Packing
     (sign << 31) | (e << 23) | kept
   end
 
-  def self.unpack(bytes, template, single)
+  def self.unpack(bytes, template, single, associates = nil)
     out = []
     at = 0
     directives(template, "unpack").each do |c, count, big|
@@ -472,8 +499,27 @@ module Packing
         rest = bytes.byteslice(at, bytes.bytesize - at) || "".b
         out << uudecode(rest)
         at = bytes.bytesize
-      when "p", "P"
-        Primitive.zr_unimplemented("String#unpack with the '#{c}' directive, which reads a pointer")
+      when "p"
+        n = count == :all ? nil : (count || 1)
+        while (n.nil? || n > 0) && bytes.bytesize - at >= 8
+          address = unpack_integer(bytes.byteslice(at, 8), false, false)
+          out << (address.zero? ? nil : pointed(associates, address))
+          at += 8
+          n -= 1 if n
+        end
+      when "P"
+        # `P`'s count is the most bytes to answer of the String.
+        if bytes.bytesize - at >= 8
+          width = count == :all ? bytes.bytesize - at : (count || 1)
+          address = unpack_integer(bytes.byteslice(at, 8), false, false)
+          at += 8
+          text = address.zero? ? nil : pointed(associates, address)
+          if text && width < text.bytesize
+            text = text.byteslice(0, width).b
+            associate(text, associates)
+          end
+          out << text
+        end
       when "U"
         n = count == :all ? nil : (count || 1)
         text = bytes.dup.force_encoding("UTF-8")
@@ -622,7 +668,11 @@ class Array
   def pack(fmt, buffer: nil)
     Primitive.attr! :ruby
     result = Packing.pack(self, Primitive.zr_str_operand(fmt))
-    buffer ? buffer << result : result
+    return result unless buffer
+
+    associates = Packing.associated(result)
+    Packing.associate(buffer, associates) if associates
+    buffer << result
   end
 end
 
@@ -631,7 +681,7 @@ class String
   # as CRuby's unpack does.
   def unpack(fmt, offset: 0)
     Primitive.attr! :ruby
-    values = Packing.unpack(Packing.from(self, offset), Primitive.zr_str_operand(fmt), false)
+    values = Packing.unpack(Packing.from(self, offset), Primitive.zr_str_operand(fmt), false, Packing.associated(self))
     return values unless block_given?
 
     values.each { |value| yield value }
@@ -640,6 +690,6 @@ class String
 
   def unpack1(fmt, offset: 0)
     Primitive.attr! :ruby
-    Packing.unpack(Packing.from(self, offset), Primitive.zr_str_operand(fmt), true).first
+    Packing.unpack(Packing.from(self, offset), Primitive.zr_str_operand(fmt), true, Packing.associated(self)).first
   end
 end
