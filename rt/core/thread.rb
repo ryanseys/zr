@@ -943,14 +943,10 @@ class Thread::ConditionVariable
 end
 
 class Thread::Queue
-  # A queue keeps its items, its waiters and whether it is closed in
-  # core-only state, as struct rb_queue does: a program sees no instance
-  # variable on one, and an allocated queue has waiters but no items.
+  # An allocated queue has waiters but no items, as struct rb_queue does.
   def self.allocate
     Primitive.attr! :hidden
-    queue = Primitive.zr_class_allocate(self)
-    Primitive.zr_state_set(queue, :__waiters__, [])
-    queue
+    Primitive.zr_class_allocate(self).tap { |queue| queue.send(:waiters) }
   end
 
   # The first items convert through to_a, as rb_to_array takes them.
@@ -963,8 +959,8 @@ class Thread::Queue
 
       items = converted
     end
-    Primitive.zr_state_set(self, :__items__, items.nil? ? [] : items.dup)
-    Primitive.zr_state_set(self, :__waiters__, [])
+    @items = items.nil? ? [] : items.dup
+    @waiters = []
     nil
   end
 
@@ -998,12 +994,12 @@ class Thread::Queue
   alias deq pop
 
   def close
-    Primitive.zr_state_set(self, :__closed__, true)
+    @closed = true
     Thread.send(:rouse, waiters.dup)
     self
   end
 
-  def closed? = Primitive.zr_hidden_get(self, :__closed__) == true
+  def closed? = @closed == true
 
   def empty? = items.empty?
 
@@ -1030,12 +1026,12 @@ class Thread::Queue
   # check_array: an allocated queue holds no items until initialize.
   def items
     Primitive.attr! :hidden
-    Primitive.zr_hidden_get(self, :__items__) or raise TypeError, "#{inspect} not initialized"
+    @items or raise TypeError, "#{inspect} not initialized"
   end
 
   def waiters
     Primitive.attr! :hidden
-    Primitive.zr_hidden_get(self, :__waiters__)
+    @waiters ||= []
   end
 end
 
@@ -1051,29 +1047,21 @@ class Thread::ConditionVariable
 end
 
 class Thread::SizedQueue < Thread::Queue
-  def self.allocate
-    Primitive.attr! :hidden
-    queue = Primitive.zr_class_allocate(self)
-    Primitive.zr_state_set(queue, :__waiters__, [])
-    Primitive.zr_state_set(queue, :__pushers__, [])
-    queue
-  end
-
   def initialize(max)
     raise ArgumentError, "queue size must be positive" unless max.is_a?(Integer) && max > 0
 
     super()
-    Primitive.zr_state_set(self, :__max__, max)
-    Primitive.zr_state_set(self, :__pushers__, [])
+    @max = max
+    @pushers = []
     nil
   end
 
-  def max = Primitive.zr_hidden_get(self, :__max__) || 0
+  def max = @max || 0
 
   def max=(value)
     raise ArgumentError, "queue size must be positive" unless value.is_a?(Integer) && value > 0
 
-    Primitive.zr_state_set(self, :__max__, value)
+    @max = value
     Thread.send(:rouse, pushers.dup)
     value
   end
@@ -1119,7 +1107,7 @@ class Thread::SizedQueue < Thread::Queue
 
   def pushers
     Primitive.attr! :hidden
-    Primitive.zr_hidden_get(self, :__pushers__)
+    @pushers ||= []
   end
 end
 
