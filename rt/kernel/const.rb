@@ -691,6 +691,13 @@ machine def zr_module_define(scope, id)
   zr_const_set(scope, id, m)
 end
 
+# rb_define_module_under, for a module an extension names as no
+# constant may be spelled (IO::generic_readable).
+sig [Value, Value] => Value
+machine def zr_module_define_m(scope, name)
+  zr_module_define(scope, zr_sym2id(name))
+end
+
 # A constant's name given as a Symbol or String, as its id in `out`;
 # `wrong constant name x` otherwise: an upper-case letter, then letters,
 # digits, underscores or bytes past ASCII.

@@ -247,6 +247,7 @@ module Ze0
         d zr_name_nested Void mod:Value
         d zr_class_define Value scope:Value id:Word sup:Value
         d zr_module_define Value scope:Value id:Word
+        d zr_module_define_m Value scope:Value name:Value
         d zr_const_name_id Value recv:Value name:Value out:Ptr
         d zr_const_name_p Bool p:Ptr n:Word
         d zr_const_row_segment Ptr recv:Value id:Word inherit:Value later:Value
