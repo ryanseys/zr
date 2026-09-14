@@ -57,6 +57,17 @@ module Process
       @to_i = raw
     end
 
+    # Process.wait's status and not its pid, leaving `$?` alone: nil
+    # while a WNOHANG child still runs, and pid -1 when there is none to
+    # wait for.
+    def self.wait(pid = -1, flags = 0)
+      result = Primitive.zr_proc_wait(Integer.send(:int_operand, pid), Integer.send(:int_operand, flags))
+      return new(-1, 0) if result.is_a?(Integer)
+
+      child, raw = result
+      child.zero? ? nil : new(child, raw)
+    end
+
     def exited? = (@to_i & 0x7F) == 0
 
     def signaled? = !exited? && !stopped?

@@ -690,6 +690,7 @@ module Ze0
         d zr_io_dir_names Value path:Value
         d zr_io_dir_names_fd Value fd:Value
         d zr_io_fchdir Value fd:Value
+        d zr_io_chroot Value path:Value
         d zr_io_strerror Value n:Value
         d zr_io_file_size Value path:Value
         d zr_fs_call Value which:Value path:Value a:Value b:Value
@@ -1038,6 +1039,10 @@ module Ze0
         d zr_regexp_names Value re:Value
         d zr_regexp_name_row I32 name:Ptr name_end:Ptr count:I32 groups:Ptr reg:Ptr arg:Ptr
         d zr_regexp_search Value re:Value str:Value start:Value backward:Value
+        d zr_regexp_limit_for Word re:Value
+        d zr_regexp_failed Value r:I32
+        d zr_regexp_limit_set Value re:Value nanoseconds:Value
+        d zr_regexp_limit Value re:Value
         d zr_regexp_match_at Value re:Value str:Value start:Value
         d zr_region_offsets Value region:Ptr position:Word
         d zr_mark_regexp Void re:Value
@@ -1473,6 +1478,8 @@ module Ze0
         c PENDING_THROW 3
         c SPAWN_CLOEXEC_DEFAULT 16384
         c GUARD_ROW 3
+        c ONIG_MISMATCH -1
+        c ONIGERR_TIME_LIMIT_OVER -20
         c T_REGEXP 31
         c G_REGEXP 42
         c G_REGEXP_LITERALS 43
@@ -1573,7 +1580,7 @@ module Ze0
         s RObject 40 8 basic:0:RBasic iv:16:IvTab
         s REnv 48 8 basic:0:RBasic parent:16:Value slots:24:Ptr nslots:32:Word names:40:Ptr
         s RProc 128 8 basic:0:RBasic fn:16:Ptr meta:24:Ptr env:32:Value self:40:Value cref:48:Value blk:56:Value home:64:Ptr serial:72:Word site:80:Word ret_home:88:Ptr ret_serial:96:Word spread:104:Word lambda:112:Word passed:120:Word
-        s RRegexp 64 8 basic:0:RBasic source:16:Value options:24:Word reg:32:Ptr names:40:Value text:48:Value alt:56:Ptr
+        s RRegexp 72 8 basic:0:RBasic source:16:Value options:24:Word reg:32:Ptr names:40:Value text:48:Value alt:56:Ptr limit:64:Word
         s Sort 32 8 base:0:Ptr stride:8:Word blk:16:Value failed:24:Word
         s Pair 16 8 key:0:Value elem:8:Value
         s RString 40 8 basic:0:RBasic len:16:Word capa:24:Word ptr:32:Ptr

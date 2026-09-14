@@ -471,6 +471,13 @@ machine def zr_io_fchdir(fd)
   zr_io_status(fchdir(Machine.i32(zr_fix2long(fd))))
 end
 
+Machine.import "chroot", [Ptr] => I32
+
+sig [Value] => Value
+machine def zr_io_chroot(path)
+  zr_io_status(chroot(RString.ptr(path)))
+end
+
 # The message strerror gives for errno `n`.
 sig [Value] => Value
 machine def zr_io_strerror(n)

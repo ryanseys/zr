@@ -11,11 +11,15 @@ Machine.import "onig_region_new", [] => Ptr
 Machine.import "onig_region_free", [Ptr, I32] => Void
 Machine.import "onig_number_of_captures", [Ptr] => I32
 Machine.import "onig_foreach_name", [Ptr, Ptr, Ptr] => I32
+Machine.import "onig_ze0_set_time_limit", [Word] => Void
+ONIG_MISMATCH = 0 - 1
+ONIGERR_TIME_LIMIT_OVER = 0 - 20
 
 # `reg` is the pattern the source's own encoding built; `alt` is the
 # byte-oriented twin a byte-oriented subject asks for, compiled on
-# first use from `text`, the engine text.
-Machine.struct :RRegexp, basic: RBasic, source: Value, options: Word, reg: Ptr, names: Value, text: Value, alt: Ptr
+# first use from `text`, the engine text. `limit` is the pattern's own
+# timeout in nanoseconds, 0 for none.
+Machine.struct :RRegexp, basic: RBasic, source: Value, options: Word, reg: Ptr, names: Value, text: Value, alt: Ptr, limit: Word
 T_REGEXP = 31
 G_REGEXP = 42
 G_REGEXP_LITERALS = 43
@@ -53,6 +57,7 @@ machine def zr_regexp_copy_from(re, other)
   RRegexp.set_options(re, RRegexp.options(other))
   RRegexp.set_names(re, RRegexp.names(other))
   RRegexp.set_text(re, RRegexp.text(other))
+  RRegexp.set_limit(re, RRegexp.limit(other))
   zr_send(re, Machine.id(:recompile), 0, 0)
 end
 
@@ -249,15 +254,51 @@ machine def zr_regexp_search(re, str, start, backward)
   stop = base + RString.len(str)
   from = base + zr_fix2long(start)
   range = backward == QTRUE ? base : stop
+  onig_ze0_set_time_limit(zr_regexp_limit_for(re))
   r = onig_search(zr_regexp_reg_for(re, str), base, stop, from, range, region, Machine.i32(0))
-  code = Machine.word(r)
-  if code >= 2147483648
+  if r < Machine.i32(0)
     onig_region_free(region, Machine.i32(1))
-    return Machine.value(QNIL)
+    return zr_regexp_failed(r)
   end
+  code = Machine.word(r)
   out = zr_region_offsets(region, code)
   onig_region_free(region, Machine.i32(1))
   out
+end
+
+# The nanoseconds a match of `re` may take: its own timeout, else
+# Regexp.timeout, else 0 for no limit.
+sig [Value] => Word
+machine def zr_regexp_limit_for(re)
+  RRegexp.limit(re) != 0 ? RRegexp.limit(re) : Machine.load64(Machine.static(:regexp_limit, 8), 0)
+end
+
+# A search that found nothing (nil), or one the time limit stopped.
+sig [I32] => Value
+machine def zr_regexp_failed(r)
+  if r != Machine.i32(ONIGERR_TIME_LIMIT_OVER)
+    return Machine.value(QNIL)
+  end
+  error = zr_const_get_at(zr_core_class(Machine.id(:Regexp)), Machine.id(:TimeoutError))
+  return error if error == QUNDEF
+  zr_raise_msg(error, Machine.bytes("regexp match timeout"), 20)
+end
+
+# A timeout in nanoseconds, 0 for none: `re`'s own, or Regexp.timeout
+# where `re` is nil. The answer is the timeout set.
+sig [Value, Value] => Value
+machine def zr_regexp_limit_set(re, nanoseconds)
+  if re == QNIL
+    Machine.store64(Machine.static(:regexp_limit, 8), 0, zr_fix2long(nanoseconds))
+  else
+    RRegexp.set_limit(re, zr_fix2long(nanoseconds))
+  end
+  nanoseconds
+end
+
+sig [Value] => Value
+machine def zr_regexp_limit(re)
+  zr_fix(re == QNIL ? Machine.load64(Machine.static(:regexp_limit, 8), 0) : RRegexp.limit(re))
 end
 
 # Match `str` at exactly byte `start`, as `\A`-anchored would.
@@ -266,11 +307,11 @@ machine def zr_regexp_match_at(re, str, start)
   region = onig_region_new()
   base = RString.ptr(str)
   stop = base + RString.len(str)
+  onig_ze0_set_time_limit(zr_regexp_limit_for(re))
   r = onig_match(zr_regexp_reg_for(re, str), base, stop, base + zr_fix2long(start), region, Machine.i32(0))
-  code = Machine.word(r)
-  if code >= 2147483648
+  if r < Machine.i32(0)
     onig_region_free(region, Machine.i32(1))
-    return Machine.value(QNIL)
+    return zr_regexp_failed(r)
   end
   out = zr_region_offsets(region, zr_fix2long(start))
   onig_region_free(region, Machine.i32(1))

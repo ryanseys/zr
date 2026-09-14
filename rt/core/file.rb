@@ -38,7 +38,8 @@ class File < IO
 
   include Constants
 
-  SEPARATOR = "/"
+  Separator = "/"
+  SEPARATOR = Separator
   ALT_SEPARATOR = nil
   PATH_SEPARATOR = ":"
 
@@ -791,14 +792,42 @@ class Dir
     allocate.send(:take_names, nil, names, fd)
   end
 
+  # With a block, the directory changes back afterwards, as it does
+  # for Dir.chdir.
   def self.fchdir(fd)
+    fd = Integer.send(:int_operand, fd)
+    unless block_given?
+      move_to_fd(fd)
+      return 0
+    end
+
+    before = Dir.new(".")
+    begin
+      move_to_fd(fd)
+      yield
+    ensure
+      move_to_fd(before.fileno)
+      before.close
+    end
+  end
+
+  def self.move_to_fd(fd)
+    Primitive.attr! :hidden
     result = Primitive.zr_io_fchdir(fd)
     raise SystemCallError.new("fchdir", -result) if result < 0
-
-    return 0 unless block_given?
-
-    yield
   end
+  private_class_method :move_to_fd
+
+  def self.chroot(path)
+    path = File.send(:path_of, path)
+    result = Primitive.zr_io_chroot(path)
+    raise SystemCallError.new(path, -result, "dir_s_chroot") if result < 0
+
+    0
+  end
+
+  # The process moves into this directory, and with a block back again.
+  def chdir(&) = Dir.fchdir(fileno, &)
 
   # A Dir is the directory's names and a cursor over them, read once
   # when it opens.

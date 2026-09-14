@@ -578,6 +578,8 @@ ONIG_EXTERN OnigSyntaxType*   OnigDefaultSyntax;
 #define ONIGERR_RETRY_LIMIT_IN_MATCH_OVER                     -17
 #define ONIGERR_RETRY_LIMIT_IN_SEARCH_OVER                    -18
 #define ONIGERR_SUBEXP_CALL_LIMIT_IN_SEARCH_OVER              -19
+/* ze0: a match past the time limit onig_ze0_set_time_limit named */
+#define ONIGERR_TIME_LIMIT_OVER                               -20
 #define ONIGERR_DEFAULT_ENCODING_IS_NOT_SETTED                -21 /*dont use*/
 #define ONIGERR_DEFAULT_ENCODING_IS_NOT_SET                   -21
 #define ONIGERR_SPECIFIED_ENCODING_CANT_CONVERT_TO_WIDE_CHAR  -22
@@ -927,6 +929,9 @@ ONIG_EXTERN
 unsigned int onig_get_match_stack_limit_size P_((void));
 ONIG_EXTERN
 int onig_set_match_stack_limit_size P_((unsigned int size));
+/* ze0: the nanoseconds the matches that follow may take, 0 for no limit */
+ONIG_EXTERN
+void onig_ze0_set_time_limit P_((unsigned long long nanoseconds));
 ONIG_EXTERN
 unsigned long onig_get_retry_limit_in_match P_((void));
 ONIG_EXTERN

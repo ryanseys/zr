@@ -65,6 +65,8 @@ class Regexp
     raise TypeError, "no implicit conversion of #{conversion_name(source)} into String" unless source.is_a?(String)
 
     Regexp.send(:seat, self, source, Regexp.send(:option_bits, options))
+    Primitive.zr_regexp_limit_set(self, Regexp.send(:nanoseconds, timeout))
+    self
   end
 
   # The option bits an `options` argument names, as CRuby's
@@ -261,7 +263,7 @@ class Regexp
 
   def named_captures = name_rows.to_h { |name, groups| [name, groups] }
 
-  def timeout = nil
+  def timeout = Regexp.send(:seconds, Primitive.zr_regexp_limit(self))
 
   # `/n` reads the pattern as bytes: one that names a byte past ASCII,
   # written out or escaped, is a binary pattern, and one that does not is
@@ -407,13 +409,33 @@ class Regexp
   end
   private_class_method :backref_escape?
 
-  def self.timeout = nil
+  # The seconds any match may take, unless its pattern names its own.
+  def self.timeout = seconds(Primitive.zr_regexp_limit(nil))
 
   def self.timeout=(seconds)
-    Primitive.zr_unimplemented("Regexp.timeout=") unless seconds.nil?
-
-    nil
+    Primitive.zr_regexp_limit_set(nil, nanoseconds(seconds))
+    seconds
   end
+
+  # set_timeout: nil for no limit, else a positive number of seconds,
+  # kept as whole nanoseconds.
+  def self.nanoseconds(seconds)
+    Primitive.attr! :hidden
+    return 0 if seconds.nil?
+
+    raise TypeError, "no implicit conversion to float from string" if seconds.is_a?(String)
+    raise TypeError, "no implicit conversion to float from #{seconds}" if seconds == true || seconds == false
+    raise TypeError, "can't convert #{seconds.class} into Float" unless seconds.is_a?(Numeric)
+    raise ArgumentError, "invalid timeout: #{seconds}" unless seconds.to_f.positive?
+
+    (seconds.to_f * 1e9).to_i.clamp(0, (2**62) - 1)
+  end
+
+  def self.seconds(nanoseconds)
+    Primitive.attr! :hidden
+    nanoseconds.zero? ? nil : nanoseconds / 1e9
+  end
+  private_class_method :nanoseconds, :seconds
 
   private
 

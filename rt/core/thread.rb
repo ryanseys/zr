@@ -986,6 +986,12 @@ end
 class Thread::Queue
   # A queue's waiters belong to the queue, so ruby takes copying away.
   undef_method :initialize_copy
+
+  def marshal_dump = raise(TypeError, "can't dump #{self.class}")
+end
+
+class Thread::ConditionVariable
+  def marshal_dump = raise(TypeError, "can't dump #{self.class}")
 end
 
 class Thread::SizedQueue < Thread::Queue

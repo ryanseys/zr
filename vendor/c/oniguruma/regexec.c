@@ -1387,6 +1387,22 @@ onig_set_match_stack_limit_size(unsigned int size)
   return 0;
 }
 
+/* ze0: Regexp.timeout. The runtime names a limit before a search, and a
+   backtrack past the deadline stops the match, as Onigmo's
+   rb_reg_check_timeout stops it. The clock is read once every 1024
+   backtracks. */
+#include <time.h>
+
+static unsigned long long Ze0MatchDeadline;
+static unsigned int Ze0MatchTicks;
+
+#define CHECK_TIME_LIMIT_IN_MATCH  do {\
+  if (Ze0MatchDeadline != 0 && (++Ze0MatchTicks & 0x3ff) == 0 && \
+      clock_gettime_nsec_np(CLOCK_UPTIME_RAW) >= Ze0MatchDeadline) {\
+    MATCH_AT_ERROR_RETURN(ONIGERR_TIME_LIMIT_OVER);\
+  }\
+} while (0)
+
 #ifdef USE_RETRY_LIMIT
 
 static unsigned long RetryLimitInMatch  = DEFAULT_RETRY_LIMIT_IN_MATCH;
@@ -1404,6 +1420,17 @@ static unsigned long RetryLimitInSearch = DEFAULT_RETRY_LIMIT_IN_SEARCH;
 #define CHECK_RETRY_LIMIT_IN_MATCH
 
 #endif /* USE_RETRY_LIMIT */
+
+/* ze0: a match under a time limit backtracks as often as the limit
+   allows; one under none stops at the retry limit, as before. */
+extern void
+onig_ze0_set_time_limit(unsigned long long nanoseconds)
+{
+  Ze0MatchDeadline = nanoseconds == 0 ? 0 : clock_gettime_nsec_np(CLOCK_UPTIME_RAW) + nanoseconds;
+#ifdef USE_RETRY_LIMIT
+  RetryLimitInMatch = nanoseconds == 0 ? DEFAULT_RETRY_LIMIT_IN_MATCH : 0;
+#endif
+}
 
 extern unsigned long
 onig_get_retry_limit_in_match(void)
@@ -4469,6 +4496,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
       p = stk->u.state.pcode;
       s = stk->u.state.pstr;
       CHECK_RETRY_LIMIT_IN_MATCH;
+      CHECK_TIME_LIMIT_IN_MATCH;
       JUMP_OUT;
 
     DEFAULT_OP
