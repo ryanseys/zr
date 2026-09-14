@@ -111,6 +111,7 @@ module Ze0
         assign_types
         plan_slots
         plan_constants
+        plan_bytes
         @reg = Regalloc.of(@f, skip: @remade)
         plan_fusion
         assign_homes
@@ -239,6 +240,32 @@ module Ze0
         end
       end
 
+      # The `i8` values whose register holds nothing above the byte, which
+      # an operation may then read straight out of its home.
+      #
+      # A register home holds a whole word, and most bytes leave junk
+      # above them -- a narrowing keeps the word it narrowed, a call's
+      # answer is only its low byte -- so reading one takes a `uxtb`. A
+      # comparison's `cset`, a byte load and a small constant write zero
+      # above, and so do `and`, `orr` and `eor` of two such bytes. Those
+      # are most of the bytes a kernel function has: every `&&` and `||`
+      # over tests joins two of them.
+      def plan_bytes
+        @clean = Set.new
+        @f.blocks.each do |b|
+          b.insts.each do |i|
+            v = i.results[0]
+            next unless v && type_of(v) == "i8"
+
+            @clean << v if case i.op
+                           when :icmp, :fcmp, :load then true
+                           when :iconst then i.args[0].between?(0, 255)
+                           when :band, :bor, :bxor then i.args.all? { |a| @clean.include?(a) }
+                           end
+          end
+        end
+      end
+
       # The number `v` holds, as `type` wide, when it is a constant.
       def constant(v, type)
         k = @const[v]
@@ -306,7 +333,7 @@ module Ze0
       # integer registers.
       def load_value(v, reg)
         home = @reg[v]
-        return narrow(reg, home, type_of(v)) if home
+        return narrow(reg, home, @clean.include?(v) ? "i64" : type_of(v)) if home
         return frame_address(reg, @stack[v]) if @stack.key?(v)
         return materialize(reg, @const[v] & WIDTH_MASK[type_of(v)]) if @remade.include?(v)
 
@@ -327,12 +354,12 @@ module Ze0
       # writes its destination before reading every source would otherwise
       # clobber an operand that shares the register.
       #
-      # An `i8` has no direct form: its home holds the whole word, and a
-      # w-register read would carry the bits above the byte into an
-      # operation that is 32 bits wide.
+      # An `i8` has no direct form unless it is `@clean`: its home holds
+      # the whole word, and a w-register read would carry the bits above
+      # the byte into an operation that is 32 bits wide.
       def value_in(v, scratch)
         home = @reg[v]
-        return home if home && type_of(v) != "i8"
+        return home if home && (type_of(v) != "i8" || @clean.include?(v))
 
         load_value(v, scratch)
         scratch

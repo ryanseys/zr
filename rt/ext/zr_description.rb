@@ -633,6 +633,7 @@ module Ze0
         d zr_marking Ptr
         d zr_mark_stack Ptr
         d zr_mark Void v:Value
+        d zr_mark_cell Void v:Value
         d zr_mark_drain Void
         d zr_exivar_slot Ptr v:Value
         d zr_exivar_tab Ptr v:Value
@@ -862,6 +863,8 @@ module Ze0
         d zr_ivar_id_visible_p Bool id:Word
         d zr_ivar_set Value obj:Value id:Word v:Value
         d zr_ivtab_set Void t:Ptr id:Word v:Value
+        d zr_site_literal Value g:Word index:Word
+        d zr_site_literal_set Void g:Word index:Word v:Value
         d zr_range_literal Value index:Word low:Value high:Value excl:Word
         d zr_range_new Value low:Value high:Value excl:Word
         d zr_class_allocate Value recv:Value
@@ -1536,6 +1539,7 @@ module Ze0
         c G_MAIN 11
         c G_NUMERIC 13
         c G_COUNT 60
+        c MARKED 96
         c GATE_PLUS 1
         c GATE_MINUS 2
         c GATE_MUL 4

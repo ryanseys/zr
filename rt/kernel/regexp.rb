@@ -166,15 +166,7 @@ end
 # index.
 sig [Word, Ptr, Word, Word, Word] => Value
 machine def zr_regexp_literal(index, bytes, len, options, pinned)
-  table = zr_global(G_REGEXP_LITERALS)
-  if zr_special_p(table)
-    table = zr_ary_new(8)
-    zr_set_global(G_REGEXP_LITERALS, table)
-  end
-  while RArray.len(table) <= index
-    zr_ary_push(table, Machine.value(QNIL))
-  end
-  re = zr_ary_at(table, index)
+  re = zr_site_literal(G_REGEXP_LITERALS, index)
   if re != QNIL
     return re
   end
@@ -185,31 +177,19 @@ machine def zr_regexp_literal(index, bytes, len, options, pinned)
   re = zr_send(zr_global(G_REGEXP), Machine.id(:literal), 3, slot)
   return re if re == QUNDEF
   RBasic.set_flags(re, RBasic.flags(re) | FL_FREEZE)
-  zr_ary_store(table, index, re)
+  zr_site_literal_set(G_REGEXP_LITERALS, index, re)
   re
 end
 
 # `/#{x}/o`: the site's regexp, made once. nil until the site has run.
 sig [Word] => Value
 machine def zr_regexp_once(index)
-  table = zr_global(G_REGEXP_LITERALS)
-  if zr_special_p(table) || RArray.len(table) <= index
-    return Machine.value(QNIL)
-  end
-  zr_ary_at(table, index)
+  zr_site_literal(G_REGEXP_LITERALS, index)
 end
 
 sig [Word, Value] => Value
 machine def zr_regexp_once_set(index, re)
-  table = zr_global(G_REGEXP_LITERALS)
-  if zr_special_p(table)
-    table = zr_ary_new(8)
-    zr_set_global(G_REGEXP_LITERALS, table)
-  end
-  while RArray.len(table) <= index
-    zr_ary_push(table, Machine.value(QNIL))
-  end
-  zr_ary_store(table, index, re)
+  zr_site_literal_set(G_REGEXP_LITERALS, index, re)
   re
 end
 

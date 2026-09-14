@@ -134,15 +134,7 @@ G_BIG_LITERALS = 54
 
 sig [Word, Ptr, Word] => Value
 machine def zr_big_literal(index, bytes, n)
-  table = zr_global(G_BIG_LITERALS)
-  if zr_special_p(table)
-    table = zr_ary_new(8)
-    zr_set_global(G_BIG_LITERALS, table)
-  end
-  while RArray.len(table) <= index
-    zr_ary_push(table, Machine.value(QNIL))
-  end
-  big = zr_ary_at(table, index)
+  big = zr_site_literal(G_BIG_LITERALS, index)
   if big != QNIL
     return big
   end
@@ -150,7 +142,7 @@ machine def zr_big_literal(index, bytes, n)
   Machine.store64(slot, 0, Machine.word(zr_str_new(bytes, n)))
   big = zr_send(zr_global(G_INTEGER), Machine.id(:big_parse), 1, slot)
   return big if big == QUNDEF
-  zr_ary_store(table, index, big)
+  zr_site_literal_set(G_BIG_LITERALS, index, big)
   big
 end
 

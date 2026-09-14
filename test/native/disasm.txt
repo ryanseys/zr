@@ -50,7 +50,7 @@ block0:
   mov x19, x0
 block0:
   ldrb w20, [x19]
-  uxtb w0, w20
+  mov x0, x20
   ldr x19, [sp]
   ldr x20, [sp, #8]
   mov sp, x29
@@ -742,7 +742,7 @@ block0:
 block0:
   cmp x19, x20
   cset x21, eq
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -762,7 +762,7 @@ block0:
 block0:
   cmp x19, x20
   cset x21, ne
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -782,7 +782,7 @@ block0:
 block0:
   cmp x19, x20
   cset x21, lt
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -802,7 +802,7 @@ block0:
 block0:
   cmp x19, x20
   cset x21, le
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -822,7 +822,7 @@ block0:
 block0:
   cmp x19, x20
   cset x21, gt
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -842,7 +842,7 @@ block0:
 block0:
   cmp x19, x20
   cset x21, ge
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -862,7 +862,7 @@ block0:
 block0:
   cmp x19, x20
   cset x21, lo
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -882,7 +882,7 @@ block0:
 block0:
   cmp x19, x20
   cset x21, ls
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -902,7 +902,7 @@ block0:
 block0:
   cmp x19, x20
   cset x21, hi
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -922,7 +922,7 @@ block0:
 block0:
   cmp x19, x20
   cset x21, hs
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -942,7 +942,7 @@ block0:
 block0:
   cmp w19, w20
   cset x21, lt
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -1122,7 +1122,7 @@ block0:
 block0:
   cmp x19, #52
   cset x20, eq
-  uxtb w0, w20
+  mov x0, x20
   ldr x19, [sp]
   ldr x20, [sp, #8]
   mov sp, x29
@@ -1139,7 +1139,7 @@ block0:
 block0:
   cmp x19, #10
   cset x20, gt
-  uxtb w0, w20
+  mov x0, x20
   ldr x19, [sp]
   ldr x20, [sp, #8]
   mov sp, x29
@@ -1663,7 +1663,7 @@ block0:
   fcmp d16, d17
   cset x11, eq
   mov x21, x11
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -1688,7 +1688,7 @@ block0:
   fcmp d16, d17
   cset x11, ne
   mov x21, x11
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -1713,7 +1713,7 @@ block0:
   fcmp d16, d17
   cset x11, mi
   mov x21, x11
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -1738,7 +1738,7 @@ block0:
   fcmp d16, d17
   cset x11, ls
   mov x21, x11
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -1763,7 +1763,7 @@ block0:
   fcmp d16, d17
   cset x11, gt
   mov x21, x11
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -1788,7 +1788,7 @@ block0:
   fcmp d16, d17
   cset x11, ge
   mov x21, x11
-  uxtb w0, w21
+  mov x0, x21
   ldr x19, [sp]
   ldr x20, [sp, #8]
   ldr x21, [sp, #16]
@@ -2092,10 +2092,9 @@ block1:
 block0:
   cmp x19, x21
   cset x20, eq
-  uxtb w9, w20
-  cbz w9, block2
+  cbz w20, block2
 block1:
-  uxtb w9, w20
+  mov x9, x20
   mov x19, x9
   mov x0, x19
   ldr x19, [sp]

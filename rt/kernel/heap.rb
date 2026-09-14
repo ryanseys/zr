@@ -136,13 +136,24 @@ machine def zr_mark_stack
   Machine.static(:mark_stack, MarkStack.size)
 end
 
-# Mark `v` and queue it for tracing; a freed cell here is a root the
-# discipline missed, and the abort names what pointed at it.
+# Mark `v` and queue it for tracing. Most references a collection reads
+# are immediates or cells it has marked already, so the test for those
+# is small enough to stand in each place a reference is read, and only
+# a cell still to mark costs a call.
 sig [Value] => Void
 machine def zr_mark(v)
-  if zr_special_p(v)
-    return
+  unless zr_special_p(v) || (RBasic.flags(v) & MARKED) == MARKED
+    zr_mark_cell(v)
   end
+end
+
+# The flags of a live, marked cell.
+MARKED = FL_ALLOCATED | FL_MARK
+
+# A freed cell here is a root the discipline missed, and the abort names
+# what pointed at it.
+sig [Value] => Void
+machine def zr_mark_cell(v)
   flags = RBasic.flags(v)
   if (flags & FL_ALLOCATED) == 0
     b = Machine.slot(Buf.size)
@@ -399,49 +410,56 @@ machine def zr_mark_task(t)
   end
 end
 
+# Free an unmarked cell that was live: release what it owns, and poison
+# it.
 sig [Ptr] => Void
 machine def zr_free_cell(cell)
-  h = zr_heap()
   flags = Machine.load64(cell, 0)
-  if (flags & FL_MARK) != 0
-    Machine.store64(cell, 0, flags & (0 - (FL_MARK + 1)))
-  elsif flags == POISON
-    # Freed before: its poison stands, so only the link is written.
-    Machine.store64(cell, 8, Heap.free(h))
-    Heap.set_free(h, cell)
-    Heap.set_freed(h, Heap.freed(h) + 1)
-  else
-    if (flags & FL_ALLOCATED) != 0
-      zr_release(Machine.value(cell))
-      if (flags & FL_EXIVAR) != 0
-        zr_exivar_free(Machine.value(cell))
-      end
+  if (flags & FL_ALLOCATED) != 0
+    zr_release(Machine.value(cell))
+    if (flags & FL_EXIVAR) != 0
+      zr_exivar_free(Machine.value(cell))
     end
-    Machine.store64(cell, 0, POISON)
-    Machine.store64(cell, 8, Heap.free(h))
-    # The header's poison is what mark checks; the payload's is only
-    # there to make a stale read loud, which stress mode is for.
-    if Heap.stress(h) != 0
-      j = 16
-      while j < CELL
-        Machine.store64(cell + j, 0, 57005)
-        j += 8
-      end
+  end
+  Machine.store64(cell, 0, POISON)
+  # The header's poison is what mark checks; the payload's is only there
+  # to make a stale read loud, which stress mode is for.
+  if Heap.stress(zr_heap()) != 0
+    j = 16
+    while j < CELL
+      Machine.store64(cell + j, 0, 57005)
+      j += 8
     end
-    Heap.set_free(h, cell)
-    Heap.set_freed(h, Heap.freed(h) + 1)
   end
 end
 
 # The cells of an arena from `stop` down to `start`, pushed in reverse
-# so the list pops in address order.
+# so the list pops in address order. A marked cell only loses its mark,
+# and a cell freed before keeps its poison and takes only the link, so
+# the loop calls out for a cell that dies in this collection alone.
 sig [Ptr, Word, Word] => Void
 machine def zr_sweep_arena(a, start, stop)
+  h = zr_heap()
+  free = Heap.free(h)
+  freed = Heap.freed(h)
   i = stop
   while i >= start
-    zr_free_cell(a + (i * CELL))
+    cell = a + (i * CELL)
+    flags = Machine.load64(cell, 0)
+    if (flags & FL_MARK) != 0
+      Machine.store64(cell, 0, flags & (0 - (FL_MARK + 1)))
+    else
+      if flags != POISON
+        zr_free_cell(cell)
+      end
+      Machine.store64(cell, 8, free)
+      free = cell
+      freed += 1
+    end
     i -= 1
   end
+  Heap.set_free(h, free)
+  Heap.set_freed(h, freed)
 end
 
 # Every arena's cells, the list starting at the cell after the last one

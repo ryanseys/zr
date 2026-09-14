@@ -272,26 +272,46 @@ end
 G_RANGE = 12
 G_RANGE_LITERALS = 51
 
+# The object a literal's site made, from the table in global `g`, or
+# nil before the site has run.
+#
+# A table is a Hash by the site's index, not an Array. Every site in
+# the program -- each call cache as well -- takes an index from one
+# count, so a literal's index runs to tens of thousands, and an Array
+# long enough to hold it was that many nils the collector read through
+# at every collection.
+sig [Word, Word] => Value
+machine def zr_site_literal(g, index)
+  table = zr_global(g)
+  if zr_special_p(table)
+    return Machine.value(QNIL)
+  end
+  found = zr_hash_lookup(table, zr_fix(index))
+  found == QUNDEF ? Machine.value(QNIL) : found
+end
+
+sig [Word, Word, Value] => Void
+machine def zr_site_literal_set(g, index, v)
+  table = zr_global(g)
+  if zr_special_p(table)
+    table = zr_hash_new()
+    zr_set_global(g, table)
+  end
+  zr_hash_store(table, zr_fix(index), v)
+end
+
 # A range literal whose ends are Integer or nil literals: made the
 # first time its site runs, then the same frozen object, as CRuby's
 # putobject gives, held in the literal table by the site's index.
 sig [Word, Value, Value, Word] => Value
 machine def zr_range_literal(index, low, high, excl)
-  table = zr_global(G_RANGE_LITERALS)
-  if zr_special_p(table)
-    table = zr_ary_new(8)
-    zr_set_global(G_RANGE_LITERALS, table)
-  end
-  while RArray.len(table) <= index
-    zr_ary_push(table, Machine.value(QNIL))
-  end
-  r = zr_ary_at(table, index)
+  r = zr_site_literal(G_RANGE_LITERALS, index)
   if r != QNIL
     return r
   end
   r = zr_range_new(low, high, excl)
   return r if r == QUNDEF
-  zr_ary_store(table, index, r)
+  zr_site_literal_set(G_RANGE_LITERALS, index, r)
   r
 end
 

@@ -721,10 +721,15 @@ module Ze0
       # `d`'s body where the call stands, over the argument `values`: its
       # parameters and locals in a scope of their own, as the call would
       # have had. Refusals inside name the callee's file.
+      #
+      # The body cannot collect, so nothing in it goes in the root frame:
+      # a Value there lives in a slot of its own, as the call would have
+      # kept it, and `IR::Mem2Reg` can make it a register.
       def inline(d, values)
-        outer = [@locals, @d]
+        outer = [@locals, @d, @roots]
         @locals = {}
         @d = d
+        @roots = nil
         @inlining << d.name
         d.params.each_with_index do |(name, type), i|
           @f.store(values[i], declare_local(d.node, name, type)[:addr])
@@ -734,7 +739,7 @@ module Ze0
         d.ret == "Void" ? [nil, "Void"] : [value, d.ret]
       ensure
         @inlining.pop
-        @locals, @d = outer
+        @locals, @d, @roots = outer
       end
 
       # A Value a call answered stays alive across the calls that follow
