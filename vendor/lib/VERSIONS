@@ -38,6 +38,7 @@ abbrev 0.1.2
 base64 0.3.0
 csv 3.3.6
 drb 2.2.3
+logger 1.7.0
 minitest 6.0.6
 net-smtp 0.5.1
 ostruct 0.6.3

@@ -1310,6 +1310,11 @@ module Ze0
         d zr_all_symbols Value
         d zr_intern_id Value name:Value
         d zr_static_sites Value
+        d zr_syslog_ident_slot Ptr
+        d zr_syslog_open Value ident:Value options:Value facility:Value
+        d zr_syslog_close Value
+        d zr_syslog_write Value priority:Value format:Value
+        d zr_syslog_mask Value mask:Value
         d zr_catches Value
         d zr_catch_tag_p Value tag:Value
         d zr_throw Value tag:Value value:Value
