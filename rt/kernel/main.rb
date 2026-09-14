@@ -211,6 +211,8 @@ machine def zr_boot
   zr_builtin_private(zr_global(G_MODULE), Machine.id(:extend_object), Machine.addr(:zr_mod_extend_object), 1)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:method), Machine.addr(:zr_obj_method), 1)
   zr_builtin(zr_global(G_MODULE), Machine.id(:instance_method), Machine.addr(:zr_mod_instance_method), 1)
+  zr_builtin(zr_global(G_KERNEL), Machine.id(:public_method), Machine.addr(:zr_obj_public_method), 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:public_instance_method), Machine.addr(:zr_mod_public_instance_method), 1)
   zr_builtin_private(zr_global(G_CLASS), Machine.id(:initialize), Machine.addr(:zr_class_initialize), 0 - 1)
   zr_builtin_private(zr_global(G_MODULE), Machine.id(:initialize), Machine.addr(:zr_module_initialize), 0)
   zr_builtin_private(zr_global(G_MODULE), Machine.id(:prepend_features), Machine.addr(:zr_mod_prepend_features), 1)

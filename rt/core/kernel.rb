@@ -432,14 +432,6 @@ module Kernel
     nil
   end
 
-  def public_method(name)
-    m = method(name)
-    raise NameError.new("method '#{name}' for class '#{self.class}' is private", name) if self.class.private_method_defined?(name)
-    raise NameError.new("method '#{name}' for class '#{self.class}' is protected", name) if self.class.protected_method_defined?(name)
-
-    m
-  end
-
   def singleton_method(name)
     raise NameError.new("undefined singleton method '#{name}' for '#{inspect}'", name) unless singleton_methods.include?(name.to_sym)
 

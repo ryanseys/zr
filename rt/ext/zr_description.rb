@@ -728,11 +728,14 @@ module Ze0
         d main I32 argc:I32 argv:Ptr
         d zr_mark_method Void m:Value
         d zr_method_owner Value klass:Value mid:Word
-        d zr_undefined_method Value klass:Value mid:Word
+        d zr_undefined_method Value klass:Value mid:Word vis:Word
         d zr_method_new Value recv:Value klass:Value mid:Word
         d zr_method_missing_new Value recv:Value klass:Value mid:Word
         d zr_obj_method Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_instance_method Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_public_method_new Value recv:Value klass:Value mid:Word
+        d zr_obj_public_method Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_mod_public_instance_method Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_method_call Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_method_block Value p:Value argc:Word argv:Ptr blk:Value
         d zr_method_invoke Value m:Value argc:Word argv:Ptr blk:Value

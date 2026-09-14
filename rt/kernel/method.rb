@@ -44,12 +44,18 @@ machine def zr_method_owner(klass, mid)
   Machine.value(QNIL)
 end
 
-# `undefined method 'x' for class 'C'`, a NameError.
-sig [Value, Word] => Value
-machine def zr_undefined_method(klass, mid)
+# The NameError for `mid` on `klass`: `undefined method 'x' for class
+# 'C'` when `vis` is public (no such method), else `method 'x' for class
+# 'C' is private` or protected.
+sig [Value, Word, Word] => Value
+machine def zr_undefined_method(klass, mid, vis)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
-  zr_buf_push(b, Machine.bytes("undefined method '"), 18)
+  if vis == VIS_PUBLIC
+    zr_buf_push(b, Machine.bytes("undefined method '"), 18)
+  else
+    zr_buf_push(b, Machine.bytes("method '"), 8)
+  end
   zr_buf_sym(b, mid)
   if zr_type(klass) == T_MODULE
     zr_buf_push(b, Machine.bytes("' for module '"), 14)
@@ -60,7 +66,15 @@ machine def zr_undefined_method(klass, mid)
   return s if s == QUNDEF
   zr_buf_str(b, s)
   zr_buf_byte(b, 39)
-  zr_raise_buf(zr_global(G_NAME_ERROR), b)
+  if vis == VIS_PRIVATE
+    zr_buf_push(b, Machine.bytes(" is private"), 11)
+  elsif vis == VIS_PROTECTED
+    zr_buf_push(b, Machine.bytes(" is protected"), 13)
+  end
+  e = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+  zr_exc_detail(e, Machine.id(:@name), zr_sym(mid))
+  zr_exc_detail(e, Machine.id(:@receiver), klass)
+  zr_raise(e)
 end
 
 # The Method (a receiver given) or UnboundMethod (`recv` undef) for
@@ -72,7 +86,7 @@ machine def zr_method_new(recv, klass, mid)
     if recv != QUNDEF && zr_respond_to_missing_p(recv, mid)
       return zr_method_missing_new(recv, klass, mid)
     end
-    return zr_undefined_method(klass, mid)
+    return zr_undefined_method(klass, mid, VIS_PUBLIC)
   end
   owner = zr_found_refinement()
   if owner == QNIL
@@ -87,13 +101,14 @@ machine def zr_method_new(recv, klass, mid)
 end
 
 # A Method for a name the receiver only answers through
-# `method_missing`: owned by its class, any number of arguments.
+# `method_missing`: owned by the class it was looked up on (a singleton
+# class when the receiver has one), any number of arguments.
 sig [Value, Value, Word] => Value
 machine def zr_method_missing_new(recv, klass, mid)
   m = zr_alloc(T_METHOD, zr_global(G_METHOD))
   RMethod.set_recv(m, recv)
   RMethod.set_klass(m, klass)
-  RMethod.set_owner(m, zr_real_class(recv))
+  RMethod.set_owner(m, klass)
   e = RMethod.entry(m)
   MEntry.set_mid(e, mid)
   MEntry.set_fn(e, 0)
@@ -123,6 +138,33 @@ machine def zr_mod_instance_method(recv, argc, argv, cref, blk)
   r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
   return r if r == QUNDEF
   zr_method_new(Machine.value(QUNDEF), recv, Machine.load64(slot, 0))
+end
+
+# `public_method` and `public_instance_method`: `method` and
+# `instance_method` when the name they find is public.
+sig [Value, Value, Word] => Value
+machine def zr_public_method_new(recv, klass, mid)
+  m = zr_method_new(recv, klass, mid)
+  return m if m == QUNDEF
+  vis = MEntry.vis(RMethod.entry(m))
+  return m if vis == VIS_PUBLIC
+  zr_undefined_method(klass, mid, vis)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_public_method(recv, argc, argv, cref, blk)
+  slot = Machine.slot(8)
+  r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
+  return r if r == QUNDEF
+  zr_public_method_new(recv, zr_box_view(zr_class_of(recv)), Machine.load64(slot, 0))
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_public_instance_method(recv, argc, argv, cref, blk)
+  slot = Machine.slot(8)
+  r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
+  return r if r == QUNDEF
+  zr_public_method_new(Machine.value(QUNDEF), recv, Machine.load64(slot, 0))
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
