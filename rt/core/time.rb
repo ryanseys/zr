@@ -12,7 +12,18 @@ class Time
   MONTH_NAMES = %w[January February March April May June July August September October November December].freeze
   DAY_NAMES = %w[Sunday Monday Tuesday Wednesday Thursday Friday Saturday].freeze
   SPACE = " \t\n\v\f\r"
-  private_constant :NS, :MONTHS, :MONTH_NAMES, :DAY_NAMES, :SPACE
+  # time.c's compat tables: for each month and the weekday its first day
+  # falls on, a year before 2038 whose month starts the same way.
+  COMPAT_COMMON_YEARS = [
+    [2034, 2035, 2036, 2031, 2032, 2027, 2033], [2026, 2027, 2033, 2034, 2035, 2030, 2031],
+    [2026, 2032, 2033, 2034, 2035, 2030, 2036], [2035, 2030, 2036, 2026, 2032, 2033, 2034],
+    [2033, 2034, 2035, 2030, 2036, 2026, 2032], [2036, 2026, 2032, 2033, 2034, 2035, 2030],
+    [2035, 2030, 2036, 2026, 2032, 2033, 2034], [2032, 2033, 2034, 2035, 2030, 2036, 2026],
+    [2030, 2036, 2026, 2032, 2033, 2034, 2035], [2034, 2035, 2030, 2036, 2026, 2032, 2033],
+    [2026, 2032, 2033, 2034, 2035, 2030, 2036], [2030, 2036, 2026, 2032, 2033, 2034, 2035]
+  ].freeze
+  COMPAT_LEAP_YEARS = [2032, 2016, 2028, 2012, 2024, 2036, 2020].freeze
+  private_constant :NS, :MONTHS, :MONTH_NAMES, :DAY_NAMES, :SPACE, :COMPAT_COMMON_YEARS, :COMPAT_LEAP_YEARS
 
   class << self
     def now(**options)
@@ -317,11 +328,29 @@ class Time
     # if UTC): the one whose zone gives that calendar time back; when
     # two do, or none does, the smaller offset.
     def local_offset_for(secs)
-      offsets = [secs - 86_400, secs, secs + 86_400].map { |at| Primitive.zr_time_local(at)[0] }.uniq
+      offsets = [secs - 86_400, secs, secs + 86_400].map { |at| zone_at(at)[0] }.uniq
       return offsets[0] if offsets.size == 1
 
-      fitting = offsets.select { |offset| Primitive.zr_time_local(secs - offset)[0] == offset }
+      fitting = offsets.select { |offset| zone_at(secs - offset)[0] == offset }
       (fitting.empty? ? offsets : fitting).min
+    end
+
+    # The zone's offset, daylight flag and name at `secs`, as localtimew
+    # finds them. On this platform rb_localtime_r answers only for a
+    # time an int holds, and guess_local_offset stands in past that: no
+    # zone kept daylight time before 1916, so an earlier time takes the
+    # epoch's zone, and a time past 2038 the zone of the year before
+    # 2038 whose month starts on the same day of the week.
+    def zone_at(secs)
+      return Primitive.zr_time_local(secs) if secs.between?(-0x8000_0000, 0x7fff_ffff)
+
+      year, month, day = civil_from_days(secs.div(86_400))
+      return Primitive.zr_time_local(0) if year < 1916
+
+      weekday = (days_from_civil(year, month, 1) + 4) % 7
+      leap = (year % 4).zero? && (!(year % 100).zero? || (year % 400).zero?)
+      stand_in = month == 2 && leap ? COMPAT_LEAP_YEARS[weekday] : COMPAT_COMMON_YEARS[month - 1][weekday]
+      Primitive.zr_time_local((days_from_civil(stand_in, month, day) * 86_400) + (secs % 86_400))
     end
 
     public
@@ -618,7 +647,7 @@ class Time
     Primitive.zr_hidden_set(self, :__kind__, of_kind)
     Primitive.zr_hidden_set(self, :__fields__, nil)
     if of_kind == :local
-      offset, dst, name = Primitive.zr_time_local(at.div(NS))
+      offset, dst, name = Time.send(:zone_at, at.div(NS))
       Primitive.zr_hidden_set(self, :__offset__, offset)
       Primitive.zr_hidden_set(self, :__dst__, dst)
       Primitive.zr_hidden_set(self, :__zone__, name&.dup&.force_encoding(Encoding::US_ASCII))
@@ -892,7 +921,7 @@ class Time
                  ((second >> 20) & 0x3f) + Rational(nano, NS))
     return moment if ((word >> 30) & 1) == 1
 
-    moment.localtime(extras[:offset] || Primitive.zr_time_local(moment.to_i).first)
+    moment.localtime(extras[:offset] || zone_at(moment.to_i).first)
   end
 
   private_class_method :_load
