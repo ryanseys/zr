@@ -172,10 +172,10 @@ when "zr"
       exit 0
     end
     why = if program.is_a?(Ze0::Zr::Program)
-            Ze0::Native::Build.program(program, out, work: work, root: ROOT)
+            Ze0::Native::Build.program(program, out, work: work)
           else
             functions, data, raw = program
-            Ze0::Native::Build.binary(functions, data, out, work: work, raw: raw, root: ROOT)
+            Ze0::Native::Build.binary(functions, data, out, work: work, raw: raw)
           end
     abort "ze0: #{why}" if why
     if verb == "run"
@@ -188,7 +188,7 @@ when "deps"
   require "fileutils"
   require_relative "../lib/ze0/deps"
   usage unless ARGV[1] == "build"
-  puts Ze0::Deps.build(ROOT)
+  puts Ze0::Deps.build
 when "stage1"
   # ze0 under ruby compiles the compiler twice, in two processes with a
   # cache of its own each, and the bytes must agree: the self-compile

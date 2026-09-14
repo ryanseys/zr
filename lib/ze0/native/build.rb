@@ -23,9 +23,6 @@ module Ze0
     module Build
       module_function
 
-      # The checkout or installed gem this compiler runs from.
-      ROOT = Paths::ROOT
-
       # The main thread's stack, which holds ruby frames as native
       # frames. `rt/kernel/fiber.rb` sizes every other task's.
       #
@@ -52,7 +49,7 @@ module Ze0
       # one and holds it to it: `ruby` answers what `Obj::Exe` could not
       # link rather than quietly reaching for `cc`, and `cc` skips
       # `Obj::Exe` altogether. `ZE0_LINK` says it from outside.
-      def binary(functions, data, out, work:, raw: [], objects: [], flags: STACK_FLAGS, root: ROOT, road: ROAD)
+      def binary(functions, data, out, work:, raw: [], objects: [], flags: STACK_FLAGS, road: ROAD)
         image = unit(functions, data, raw: raw, export: !objects.empty?)
         unless road == "cc"
           why = if objects.empty?
@@ -65,18 +62,18 @@ module Ze0
         end
         obj = File.join(work, "unit.o")
         File.binwrite(obj, Obj::MachO.write(image))
-        Link.run(objects + [obj], out, archives: Deps.build(root), flags: flags)
+        Link.run(objects + [obj], out, archives: Deps.build, flags: flags)
       rescue IR::Arm64::Refused => e
         e.message
       end
 
       # A `Zr::Program` to a binary: its runtime from the cache, its own
       # functions and data emitted now.
-      def program(program, out, work:, root: ROOT)
+      def program(program, out, work:)
         objects = [runtime_object(program.runtime)]
         objects << road_object(program.evals) if program.evals
         flags = program.evals ? STACK_FLAGS : STACK_FLAGS + STRIP_FLAGS
-        binary(program.functions, program.data, out, work: work, objects: objects, flags: flags, root: root)
+        binary(program.functions, program.data, out, work: work, objects: objects, flags: flags)
       end
 
       # The compiler's object, built once per road.

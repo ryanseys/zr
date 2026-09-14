@@ -9,8 +9,6 @@ require "tmpdir"
 require_relative "../lib/ze0/zr"
 require_relative "../lib/ze0/native/build"
 
-ROOT = Ze0::Paths::ROOT
-
 def usage
   warn("stage <file.rb> -o <out>")
   exit(1)
@@ -29,7 +27,7 @@ usage unless file && out
 
 program = Ze0::Zr.program(File.read(file), File.expand_path(file))
 why = Dir.mktmpdir("ze0-stage-") do |work|
-  Ze0::Native::Build.program(program, out, work: work, root: ROOT)
+  Ze0::Native::Build.program(program, out, work: work)
 end
 abort("stage: #{why}") if why
 puts "#{out}: #{File.size(out)} bytes"
