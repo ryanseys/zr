@@ -33,7 +33,10 @@ class Date
 
   def to_s = strftime("%Y-%m-%d")
 
-  def inspect = "#<#{self.class}: #{self} ((#{@jd}j,#{@df}s,#{@sf}n),#{format('%+d', @of)}s,#{start_text}j)>"
+  def inspect
+    jd, df, sf, of = parts
+    "#<#{self.class}: #{self} ((#{jd}j,#{df}s,#{sf}n),#{format('%+d', of)}s,#{start_text}j)>"
+  end
 
   def ctime = strftime("%a %b %e %H:%M:%S %Y")
 
@@ -49,16 +52,19 @@ class Date
 
   alias rfc822 rfc2822
 
-  def httpdate = new_offset(0).strftime("%a, %d %b %Y %H:%M:%S GMT")
+  def httpdate
+    jd, df, sf, _, sg = parts
+    self.class.send(:at, jd, df, sf, 0, sg).strftime("%a, %d %b %Y %H:%M:%S GMT")
+  end
 
   def jisx0301 = jisx0301_date
 
   private
 
   def start_text
-    return @sg.to_s if @sg.is_a?(Integer)
+    return reform.to_s if reform.is_a?(Integer)
 
-    @sg.infinite? ? (@sg.positive? ? "Inf" : "-Inf") : @sg.to_i.to_s
+    reform.infinite? ? (reform.positive? ? "Inf" : "-Inf") : reform.to_i.to_s
   end
 
   def jisx0301_date
@@ -69,7 +75,10 @@ class Date
     format("%s%02d.%02d.%02d", era[3], y - era[4], m, d)
   end
 
-  def seconds = ((@jd - EPOCH_JD) * 86_400) + @df
+  def seconds
+    jd, df = parts
+    ((jd - EPOCH_JD) * 86_400) + df
+  end
 
   # date_strftime_with_tmx: the bytes of `format` with each directive
   # rendered.
@@ -137,9 +146,9 @@ class Date
     when "A" then put_word(out, DAYNAMES[wday], width, padding, left, (:up if upper || swap))
     when "b", "h" then put_word(out, ABBR_MONTHNAMES[mon], width, padding, left, (:up if upper || swap))
     when "B" then put_word(out, MONTHNAMES[mon], width, padding, left, (:up if upper || swap))
-    when "p" then put_word(out, hour < 12 ? "AM" : "PM", width, padding, left, swap ? :down : (:up if upper))
-    when "P" then put_word(out, hour < 12 ? "AM" : "PM", width, padding, left, upper ? :up : (:down unless swap))
-    when "Z" then put_word(out, zone, width, padding, left, swap ? :down : (:up if upper))
+    when "p" then put_word(out, clock[0] < 12 ? "AM" : "PM", width, padding, left, swap ? :down : (:up if upper))
+    when "P" then put_word(out, clock[0] < 12 ? "AM" : "PM", width, padding, left, upper ? :up : (:down unless swap))
+    when "Z" then put_word(out, Date.send(:offset_string, offset_seconds), width, padding, left, swap ? :down : (:up if upper))
     when "C" then put_number(out, year.div(100), "0", 2, width, padding, left)
     when "d" then put_number(out, mday, "0", 2, width, padding, left)
     when "e" then put_number(out, mday, " ", 2, width, padding, left)
@@ -147,16 +156,16 @@ class Date
     when "G" then put_number(out, cwyear, "0", cwyear.negative? && Primitive.zr_fixnum_p_m(cwyear) ? 5 : 4, width, padding, left)
     when "y" then put_number(out, year % 100, "0", 2, width, padding, left)
     when "g" then put_number(out, cwyear % 100, "0", 2, width, padding, left)
-    when "H" then put_number(out, hour, "0", 2, width, padding, left)
-    when "k" then put_number(out, hour, " ", 2, width, padding, left)
-    when "I" then put_number(out, (hour + 11) % 12 + 1, "0", 2, width, padding, left)
-    when "l" then put_number(out, (hour + 11) % 12 + 1, " ", 2, width, padding, left)
+    when "H" then put_number(out, clock[0], "0", 2, width, padding, left)
+    when "k" then put_number(out, clock[0], " ", 2, width, padding, left)
+    when "I" then put_number(out, (clock[0] + 11) % 12 + 1, "0", 2, width, padding, left)
+    when "l" then put_number(out, (clock[0] + 11) % 12 + 1, " ", 2, width, padding, left)
     when "j" then put_number(out, yday, "0", 3, width, padding, left)
-    when "M" then put_number(out, min, "0", 2, width, padding, left)
+    when "M" then put_number(out, clock[1], "0", 2, width, padding, left)
     when "m" then put_number(out, mon, "0", 2, width, padding, left)
-    when "S" then put_number(out, sec, "0", 2, width, padding, left)
+    when "S" then put_number(out, clock[2], "0", 2, width, padding, left)
     when "s" then put_number(out, seconds, "0", 1, width, padding, left)
-    when "Q" then put_number(out, (seconds * 1000) + (@sf / 1_000_000), "0", 1, width, padding, left)
+    when "Q" then put_number(out, (seconds * 1000) + (parts[2] / 1_000_000), "0", 1, width, padding, left)
     when "U" then put_number(out, (yday - 1 + 7 - wday) / 7, "0", 2, width, padding, left)
     when "W" then put_number(out, (yday - 1 + 7 - (wday + 6) % 7) / 7, "0", 2, width, padding, left)
     when "u" then put_number(out, cwday, "0", 1, width, padding, left)
@@ -164,7 +173,7 @@ class Date
     when "w" then put_number(out, wday, "0", 1, width, padding, left)
     when "L", "N"
       width = c == "L" ? 3 : 9 if width <= 0
-      out << (sec_fraction * 10**width).floor.to_s.rjust(width, "0")
+      out << (parts[2] * 10**width).div(NANOSECOND).to_s.rjust(width, "0")
     when "z"
       return verbatim(format, from, at - 1, out) if colons > 3
 
@@ -229,7 +238,7 @@ class Date
   # The width counts past the sign and the minutes; `-` lets an hour
   # under ten stand as one digit, and `_` pads before the sign.
   def put_offset(out, colons, width, padding, left)
-    off = @of
+    off = offset_seconds
     aoff = off.abs
     short = aoff / 3600 < 10 ? 1 : 2
     hours = left && short == 1 ? 1 : 2

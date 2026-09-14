@@ -22,16 +22,19 @@ class Date
 
   DAY = 86_400
   NANOSECOND = 1_000_000_000
-  private_constant :DAY, :NANOSECOND
+  # The first and the last day a calendar reform can start on.
+  REFORM_BEGIN_JD = 2_298_874
+  REFORM_END_JD = 2_426_355
+  private_constant :DAY, :NANOSECOND, :REFORM_BEGIN_JD, :REFORM_END_JD
 
   class Error < ArgumentError; end
 
   # A value larger, or smaller, than every date. Ranges of dates use it
   # for an open end.
+  # The gem's lib/date.rb writes this in Ruby.
   class Infinity < Numeric
-    def initialize(direction = 1)
-      @d = direction <=> 0
-      super()
+    def initialize(d = 1)
+      @d = d <=> 0
     end
 
     def d = @d
@@ -39,16 +42,18 @@ class Date
 
     def zero? = false
     def finite? = false
-    def infinite? = @d.nonzero?
-    def nan? = false
+    def infinite? = d.nonzero?
+    def nan? = d.zero?
     def abs = self.class.new
-    def -@ = self.class.new(-@d)
-    def +@ = self.class.new(@d)
+    def -@ = self.class.new(-d)
+    def +@ = self.class.new(+d)
 
     def <=>(other)
       case other
-      when Infinity then @d <=> other.d
-      when Numeric then @d
+      when Infinity then d <=> other.d
+      when Float::INFINITY then d <=> 1
+      when -Float::INFINITY then d <=> -1
+      when Numeric then d
       else
         begin
           l, r = other.coerce(self)
@@ -59,9 +64,18 @@ class Date
       end
     end
 
-    def coerce(other) = @d > 0 ? [-1, 1] : [1, -1]
+    def coerce(other)
+      case other
+      when Numeric then [-d, d]
+      else super
+      end
+    end
 
-    def to_f = @d > 0 ? Float::INFINITY : -Float::INFINITY
+    def to_f
+      return 0 if @d == 0
+
+      @d > 0 ? Float::INFINITY : -Float::INFINITY
+    end
   end
 
   class << self
@@ -167,25 +181,35 @@ class Date
             :valid_ordinal_jd, :commercial_jd, :valid_commercial_jd, :jd_commercial, :jd_wday
   end
 
-  # A date from its own parts, which no caller checks again.
-  def self.at(jd, df, sf, of, start)
+  # A date from its own parts, which no caller checks again. A simple
+  # date holds a day and no time of day, as date_core.c's
+  # SimpleDateData does; Date's own constructors make one.
+  def self.at(jd, df, sf, of, start, simple: false)
+    Primitive.attr! :hidden
     date = allocate
-    date.send(:setup, jd, df, sf, of, start)
+    date.send(:setup, jd, df, sf, of, start, simple)
     date
   end
   private_class_method :at
 
   def self.jd(jd = 0, start = ITALY)
-    jd = integer(jd, "jd")
-    at(jd, 0, 0, 0, valid_start(start))
+    start = valid_start(start)
+    jd = numeric(jd, "jd")
+    date = at(jd.floor, 0, 0, 0, start, simple: true)
+    jd.integer? ? date : date + (jd - jd.floor)
   end
 
+  # date_initialize reads the parts last to first. A fraction of a day
+  # is lost, as `new` answers the date it allocated and not the one the
+  # fraction moved.
   def self.civil(year = -4712, month = 1, day = 1, start = ITALY)
     start = valid_start(start)
-    jd = send(:valid_civil_jd, integer(year, "year"), integer(month, "mon"), integer(day, "mday"), start)
+    day = numeric(day, "day").floor
+    month = numeric(month, "month").to_i
+    jd = send(:valid_civil_jd, integer(numeric(year, "year")), month, day, start)
     raise Error, "invalid date" unless jd
 
-    at(jd, 0, 0, 0, start)
+    at(jd, 0, 0, 0, start, simple: true)
   end
 
   class << self
@@ -194,18 +218,23 @@ class Date
 
   def self.ordinal(year = -4712, yday = 1, start = ITALY)
     start = valid_start(start)
-    jd = send(:valid_ordinal_jd, integer(year, "year"), integer(yday, "yday"), start)
+    yday = numeric(yday, "yday")
+    jd = send(:valid_ordinal_jd, integer(numeric(year, "year")), yday.floor, start)
     raise Error, "invalid date" unless jd
 
-    at(jd, 0, 0, 0, start)
+    date = at(jd, 0, 0, 0, start, simple: true)
+    yday.integer? ? date : date + (yday - yday.floor)
   end
 
   def self.commercial(cwyear = -4712, cweek = 1, cwday = 1, start = ITALY)
     start = valid_start(start)
-    jd = send(:valid_commercial_jd, integer(cwyear, "cwyear"), integer(cweek, "cweek"), integer(cwday, "cwday"), start)
+    cwday = numeric(cwday, "cwday")
+    cweek = numeric(cweek, "cweek").to_i
+    jd = send(:valid_commercial_jd, integer(numeric(cwyear, "year")), cweek, cwday.floor, start)
     raise Error, "invalid date" unless jd
 
-    at(jd, 0, 0, 0, start)
+    date = at(jd, 0, 0, 0, start, simple: true)
+    cwday.integer? ? date : date + (cwday - cwday.floor)
   end
 
   def self.today(start = ITALY)
@@ -214,15 +243,16 @@ class Date
   end
 
   def self.valid_jd?(jd, start = ITALY)
-    integer(jd, "jd")
+    return false unless jd.is_a?(Numeric)
+
     valid_start(start)
     true
-  rescue TypeError, Error
-    false
   end
 
   def self.valid_civil?(year, month, day, start = ITALY)
-    !send(:valid_civil_jd, integer(year, "year"), integer(month, "mon"), integer(day, "mday"), valid_start(start)).nil?
+    return false unless [year, month, day].all?(Numeric)
+
+    !send(:valid_civil_jd, integer(year), month.to_i, day.to_i, valid_start(start)).nil?
   end
 
   class << self
@@ -230,11 +260,15 @@ class Date
   end
 
   def self.valid_ordinal?(year, yday, start = ITALY)
-    !send(:valid_ordinal_jd, integer(year, "year"), integer(yday, "yday"), valid_start(start)).nil?
+    return false unless [year, yday].all?(Numeric)
+
+    !send(:valid_ordinal_jd, integer(year), yday.to_i, valid_start(start)).nil?
   end
 
   def self.valid_commercial?(cwyear, cweek, cwday, start = ITALY)
-    !send(:valid_commercial_jd, integer(cwyear, "cwyear"), integer(cweek, "cweek"), integer(cwday, "cwday"), valid_start(start)).nil?
+    return false unless [cwyear, cweek, cwday].all?(Numeric)
+
+    !send(:valid_commercial_jd, integer(cwyear), cweek.to_i, cwday.to_i, valid_start(start)).nil?
   end
 
   def self.gregorian_leap?(year) = (year % 4).zero? && (!(year % 100).zero? || (year % 400).zero?)
@@ -245,40 +279,73 @@ class Date
 
   def self.julian_leap?(year) = (year % 4).zero?
 
-  def self.integer(value, name)
-    return value.to_int if value.respond_to?(:to_int)
+  # check_numeric: each part of a date is a Numeric.
+  def self.numeric(value, name)
+    raise TypeError, "invalid #{name} (not numeric)" unless value.is_a?(Numeric)
 
-    raise TypeError, "no implicit conversion of #{conversion_name(value)} into Integer" unless value.is_a?(Numeric)
+    value
+  end
 
-    raise Error, "invalid date" unless value.finite?
+  # A year as a whole number; one past every whole number names no date.
+  def self.integer(value)
+    raise Error, "invalid date" unless value.integer? || value.finite?
 
     value.to_i
   end
 
+  # val2sg: the day the Gregorian calendar starts, as NUM2DBL reads it.
+  # A day outside the years of the reform is ignored for ITALY.
   def self.valid_start(start)
-    start = start.to_f if start.is_a?(Numeric) && !start.is_a?(Integer)
-    return start if start.is_a?(Integer) || (start.is_a?(Float) && start.infinite?)
-    raise TypeError, "no implicit conversion of #{conversion_name(start)} into Integer" unless start.is_a?(Float)
+    sg = case start
+         when Float then start
+         when nil, true, false then raise TypeError, "no implicit conversion to float from #{start.inspect}"
+         when String then raise TypeError, "no implicit conversion to float from string"
+         when Numeric then start.to_f
+         else raise TypeError, "can't convert #{start.class} into Float"
+         end
+    return sg if sg.infinite? || sg.between?(REFORM_BEGIN_JD, REFORM_END_JD)
 
-    start
+    warn("invalid start is ignored", uplevel: 1) if $VERBOSE
+    ITALY.to_f
   end
 
-  private_class_method :integer, :valid_start
+  private_class_method :numeric, :integer, :valid_start
 
-  def setup(jd, df, sf, of, start)
-    @jd = jd
-    @df = df
-    @sf = sf
-    @of = of
-    @sg = start
-    freeze
+  # date_core.c keeps a date in a C struct, so a program sees no
+  # instance variable on one. Here its parts live in a hidden slot: the
+  # UTC day number, the second of that day and its nanosecond, the
+  # offset in seconds, the day the Gregorian calendar starts, and
+  # whether the date is simple.
+  def setup(jd, df, sf, of, start, simple)
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_set(self, :__parts__, [jd, df, sf, of, start, simple].freeze)
+    self
   end
   private :setup
 
+  def parts
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__parts__)
+  end
+  private :parts
+
+  def offset_seconds
+    Primitive.attr! :hidden
+    parts[3]
+  end
+  private :offset_seconds
+
+  def reform
+    Primitive.attr! :hidden
+    parts[4]
+  end
+  private :reform
+
   # The local day and second, which the offset moves off the stored UTC.
   def local
-    seconds = @df + @of
-    [@jd + seconds.div(DAY), seconds % DAY]
+    jd, df, _, of = parts
+    seconds = df + of
+    [jd + seconds.div(DAY), seconds % DAY]
   end
   private :local
 
@@ -288,28 +355,31 @@ class Date
 
   def ld = jd - 2_299_160
 
-  def ajd = Rational((@jd * DAY * NANOSECOND) - (DAY * NANOSECOND / 2) + (@df * NANOSECOND) + @sf, DAY * NANOSECOND)
+  def ajd
+    jd, df, sf = parts
+    Rational((jd * DAY * NANOSECOND) - (DAY * NANOSECOND / 2) + (df * NANOSECOND) + sf, DAY * NANOSECOND)
+  end
 
   def amjd = ajd - Rational(4_800_001, 2)
 
   # A date with no time of day holds no fraction at all.
   def day_fraction
-    return 0 unless timed?
+    return 0 if parts[5]
 
     _, df = local
-    Rational((df * NANOSECOND) + @sf, DAY * NANOSECOND)
+    Rational((df * NANOSECOND) + parts[2], DAY * NANOSECOND)
   end
 
-  def timed? = false
-  private :timed?
+  def start = reform.to_f
 
-  def start = @sg.to_f
-
-  def julian? = jd < @sg
+  def julian? = jd < reform
 
   def gregorian? = !julian?
 
-  def new_start(start = ITALY) = self.class.send(:at, @jd, @df, @sf, @of, self.class.send(:valid_start, start))
+  def new_start(start = ITALY)
+    jd, df, sf, of, _, simple = parts
+    self.class.send(:at, jd, df, sf, of, self.class.send(:valid_start, start), simple: simple)
+  end
 
   def italy = new_start(ITALY)
 
@@ -319,7 +389,7 @@ class Date
 
   def gregorian = new_start(GREGORIAN)
 
-  def civil = self.class.send(:jd_civil, jd, @sg)
+  def civil = self.class.send(:jd_civil, jd, reform)
   private :civil
 
   def year = civil[0]
@@ -332,11 +402,11 @@ class Date
 
   alias day mday
 
-  def yday = jd - self.class.send(:first_day_jd, year, @sg) + 1
+  def yday = jd - self.class.send(:first_day_jd, year, reform) + 1
 
   def wday = self.class.send(:jd_wday, jd)
 
-  def commercial = self.class.send(:jd_commercial, jd, @sg)
+  def commercial = self.class.send(:jd_commercial, jd, reform)
   private :commercial
 
   def cwyear = commercial[0]
@@ -356,32 +426,27 @@ class Date
 
   def infinite? = false
 
-  def hour = local[1] / 3600
+  # The time of day in the date's own offset: the hour, the minute and
+  # the second.
+  def clock
+    Primitive.attr! :hidden
+    second = local[1]
+    [second / 3600, (second % 3600) / 60, second % 60]
+  end
+  private :clock
 
-  def min = (local[1] % 3600) / 60
-
-  alias minute min
-
-  def sec = local[1] % 60
-
-  alias second sec
-
-  def sec_fraction = Rational(@sf, NANOSECOND)
-
-  alias second_fraction sec_fraction
-
-  def offset = Rational(@of, DAY)
-
-  def zone = self.class.send(:offset_string, @of)
+  # A Date has a clock only to answer zero from, privately.
+  def hour = 0
+  alias min hour
+  alias minute hour
+  alias sec hour
+  alias second hour
+  private :hour, :min, :minute, :sec, :second
 
   private_class_method def self.offset_string(of)
     sign = of.negative? ? "-" : "+"
     of = of.abs
     format("%s%02d:%02d", sign, of / 3600, (of % 3600) / 60)
-  end
-
-  def new_offset(offset = 0)
-    self.class.send(:at, @jd, @df, @sf, self.class.send(:seconds_of, offset), @sg)
   end
 
   # An offset as a count of seconds: a number of days, or "+HH:MM".
@@ -404,24 +469,36 @@ class Date
   # Whole days move the day number; a fraction moves the nanosecond.
   def +(other)
     case other
-    when Integer then self.class.send(:at, @jd + other, @df, @sf, @of, @sg)
+    when Integer then days_later(other)
     when Numeric then add_nanoseconds((Rational(other) * DAY * NANOSECOND).round)
     else raise TypeError, "expected numeric"
     end
   end
 
+  # Whole days keep a simple date simple.
+  def days_later(count)
+    Primitive.attr! :hidden
+    jd, df, sf, of, sg, simple = parts
+    self.class.send(:at, jd + count, df, sf, of, sg, simple: simple)
+  end
+  private :days_later
+
+  # A fraction of a day makes a date that holds a time of day, unless
+  # the time comes back to midnight in UTC.
   def add_nanoseconds(count)
-    total = (((@jd * DAY) + @df) * NANOSECOND) + @sf + count
+    Primitive.attr! :hidden
+    jd, df, sf, of, sg = parts
+    total = (((jd * DAY) + df) * NANOSECOND) + sf + count
     jd, rest = total.divmod(DAY * NANOSECOND)
     df, sf = rest.divmod(NANOSECOND)
-    self.class.send(:at, jd, df, sf, @of, @sg)
+    self.class.send(:at, jd, df, sf, of, sg, simple: df.zero? && sf.zero? && of.zero?)
   end
   private :add_nanoseconds
 
   def -(other)
     case other
     when Date then ajd - other.ajd
-    when Integer then self.class.send(:at, @jd - other, @df, @sf, @of, @sg)
+    when Integer then days_later(-other)
     when Numeric then add_nanoseconds(-(Rational(other) * DAY * NANOSECOND).round)
     else raise TypeError, "expected numeric"
     end
@@ -429,18 +506,15 @@ class Date
 
   # A month later, kept inside the month it lands in.
   def >>(months)
-    raise TypeError, "expected numeric" unless months.is_a?(Integer)
-
     y, m, d = civil
-    total = (y * 12) + (m - 1) + months
-    y, m = total.divmod(12)
+    y, m = ((y * 12) + (m - 1) + months).divmod(12)
     m += 1
     jd = nil
-    until (jd = self.class.send(:valid_civil_jd, y, m, d, @sg))
+    until (jd = self.class.send(:valid_civil_jd, y, m, d, reform))
       d -= 1
       raise Error, "invalid date" if d < 1
     end
-    self.class.send(:at, jd + (@jd - self.jd), @df, @sf, @of, @sg)
+    self + (jd - self.jd)
   end
 
   def <<(months) = self >> -months
@@ -521,7 +595,13 @@ class Date
 
   def to_date = self
 
-  def to_datetime = DateTime.send(:at, @jd, @df, @sf, @of, @sg)
+  # A simple date stays simple; another leaves its time of day behind.
+  def to_datetime
+    jd, _, _, of, sg, simple = parts
+    return DateTime.send(:at, *parts.first(5), simple: true) if simple
+
+    DateTime.send(:at, jd, 0, 0, of, sg)
+  end
 
   def to_time = Time.new(year, mon, mday)
 
@@ -530,14 +610,34 @@ class Date
     keys.nil? ? all : all.slice(*keys)
   end
 
-  def marshal_dump = [Rational(0), ajd, Rational(@of, DAY), @sg]
+  # d_lite_marshal_dump: the period count, the UTC day number, second
+  # and nanosecond, the offset and the reform day as a Float.
+  def marshal_dump
+    jd, df, sf, of, sg = parts
+    [0, jd, df, sf, of, sg.to_f]
+  end
 
+  # d_lite_marshal_load: this form, or the older one of an astronomical
+  # day number, an offset in days and a reform day.
   def marshal_load(values)
-    _, ajd, of, sg = values
-    total = ((ajd + Rational(1, 2)) * DAY * NANOSECOND).round
-    jd, rest = total.divmod(DAY * NANOSECOND)
-    df, sf = rest.divmod(NANOSECOND)
-    setup(jd, df, sf, (of * DAY).round, sg)
+    raise FrozenError, "can't modify frozen #{self.class}: #{inspect}" if frozen?
+    raise TypeError, "expected an array" unless values.is_a?(Array)
+
+    case values.size
+    when 2, 3
+      ajd, of, sg = values.size == 2 ? [values[0] - Rational(1, 2), 0, values[1]] : values
+      sg = sg ? GREGORIAN : JULIAN unless sg.is_a?(Numeric)
+      total = ((ajd + Rational(1, 2)) * DAY * NANOSECOND).round
+      jd, rest = total.divmod(DAY * NANOSECOND)
+      df, sf = rest.divmod(NANOSECOND)
+      of = (of * DAY).round
+    when 6
+      _, jd, df, sf, of, sg = values
+    else
+      raise TypeError, "invalid size"
+    end
+    sg = sg.to_i if sg.is_a?(Float) && sg.finite?
+    setup(jd, df, sf, of, sg, !is_a?(DateTime) && df.zero? && sf.zero? && of.zero?)
   end
 
   def self._load(text) = allocate.tap { |date| date.marshal_load(Marshal.load(text)) }
@@ -547,11 +647,16 @@ end
 class DateTime < Date
   def self.new(year = -4712, month = 1, day = 1, hour = 0, minute = 0, second = 0, offset = 0, start = Date::ITALY)
     start = send(:valid_start, start)
-    jd = send(:valid_civil_jd, send(:integer, year, "year"), send(:integer, month, "mon"), send(:integer, day, "mday"), start)
+    of = send(:seconds_of, offset)
+    second = send(:numeric, second, "second")
+    minute = send(:numeric, minute, "minute")
+    hour = send(:numeric, hour, "hour")
+    day = send(:numeric, day, "day").floor
+    month = send(:numeric, month, "month").to_i
+    jd = send(:valid_civil_jd, send(:integer, send(:numeric, year, "year")), month, day, start)
     raise Date::Error, "invalid date" unless jd
 
     df, sf = send(:time_of_day, hour, minute, second)
-    of = send(:seconds_of, offset)
     send(:at, jd, df - of, sf, of, start).send(:carry)
   end
 
@@ -574,9 +679,8 @@ class DateTime < Date
 
   # A day number and second put back in range after the offset moved it.
   def carry
-    jd, df = @jd, @df
-    jd += df.div(86_400)
-    self.class.send(:at, jd, df % 86_400, @sf, @of, @sg)
+    jd, df, sf, of, sg = parts
+    self.class.send(:at, jd + df.div(86_400), df % 86_400, sf, of, sg)
   end
   private :carry
 
@@ -586,7 +690,7 @@ class DateTime < Date
   end
 
   def self.jd(jd = 0, hour = 0, minute = 0, second = 0, offset = 0, start = Date::ITALY)
-    date = Date.jd(send(:integer, jd, "jd"), start)
+    date = Date.jd(send(:numeric, jd, "jd").floor, start)
     new(date.year, date.mon, date.mday, hour, minute, second, offset, start)
   end
 
@@ -600,10 +704,30 @@ class DateTime < Date
     new(date.year, date.mon, date.mday, hour, minute, second, offset, start)
   end
 
-  def timed? = true
-  private :timed?
+  def hour = clock[0]
 
-  def to_date = Date.send(:at, jd, 0, 0, 0, @sg)
+  def min = clock[1]
+
+  alias minute min
+
+  def sec = clock[2]
+
+  alias second sec
+
+  def sec_fraction = Rational(parts[2], NANOSECOND)
+
+  alias second_fraction sec_fraction
+
+  def offset = Rational(offset_seconds, DAY)
+
+  def zone = Date.send(:offset_string, offset_seconds)
+
+  def new_offset(offset = 0)
+    jd, df, sf, _, sg = parts
+    self.class.send(:at, jd, df, sf, self.class.send(:seconds_of, offset), sg)
+  end
+
+  def to_date = Date.send(:at, jd, 0, 0, 0, reform, simple: true)
 
   def to_datetime = self
 

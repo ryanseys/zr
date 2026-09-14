@@ -48,7 +48,7 @@ class Date
       start = valid_start(start)
       found = found.dup
       jd = frags_jd(found, start, false)
-      jd && at(jd, 0, 0, 0, start)
+      jd && at(jd, 0, 0, 0, start, simple: true)
     end
 
     # The day the elements name. A plain civil date needs no completion.
