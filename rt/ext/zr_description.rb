@@ -282,6 +282,28 @@ module Ze0
         d zr_include_singleton Void copy:Value meta:Value
         d zr_data_new Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_data_constructors Value klass:Value
+        d zr_md5_k Ptr
+        d zr_md5_shifts Ptr
+        d zr_sha256_k Ptr
+        d zr_sha512_k Ptr
+        d zr_rmd160_steps Ptr
+        d zr_digest_iv Ptr
+        d zr_digest_state Value row:Value
+        d zr_digest_le32 Ptr p:Ptr
+        d zr_digest_be32 Ptr p:Ptr
+        d zr_digest_be64 Ptr p:Ptr
+        d zr_digest_rotl32 Ptr x:Ptr n:Word
+        d zr_digest_rotr64 Ptr x:Ptr n:Word
+        d zr_digest_word Ptr h:Ptr i:Word
+        d zr_digest_set Void h:Ptr i:Word v:Ptr
+        d zr_md5_block Void h:Ptr p:Ptr
+        d zr_sha1_block Void h:Ptr p:Ptr
+        d zr_sha256_block Void h:Ptr p:Ptr
+        d zr_sha512_block Void h:Ptr p:Ptr
+        d zr_rmd160_f Ptr j:Word x:Ptr y:Ptr z:Ptr
+        d zr_rmd160_k Ptr round:Word right:Bool
+        d zr_rmd160_block Void h:Ptr p:Ptr
+        d zr_digest_blocks Value algo:Value state:Value data:Value
         d zr_enc_mb_p Bool index:Word
         d zr_enc_utf8_like_p Bool index:Word
         d zr_mb_lead_len Word index:Word lead:Word second:Word
@@ -1355,6 +1377,12 @@ module Ze0
         c G_AUTOLOADS 38
         c AUTOLOAD_ROW 6
         c AUTOLOAD_REQUIRE 4
+        c DIGEST_MD5 0
+        c DIGEST_SHA1 1
+        c DIGEST_SHA256 2
+        c DIGEST_SHA512 3
+        c DIGEST_RMD160 4
+        c DIGEST_MASK32 4294967295
         c G_ARGV 36
         c G_AT_EXIT 37
         c G_ARGV0 53
