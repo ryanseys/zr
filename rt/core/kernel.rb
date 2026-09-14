@@ -417,6 +417,10 @@ module Kernel
     Primitive.zr_unimplemented("set_trace_func with a Proc")
   end
 
+  # Ruby's own globals, in the order ruby lists them, then the ones the
+  # program assigned or aliased.
+  def global_variables = Kernel.send(:builtin_globals) | Primitive.zr_global_variables
+
   module_function :trace_var, :untrace_var, :set_trace_func
 
   class << self
@@ -437,6 +441,64 @@ module Kernel
       Primitive.attr! :hidden
       Primitive.zr_hidden_get(self, :__gvar_commands__) ||
         Primitive.zr_hidden_set(self, :__gvar_commands__, Hash.new { |table, name| table[name] = [] })
+    end
+
+    def builtin_globals
+      Primitive.attr! :hidden
+      %i[
+        $? $-w $DEBUG $-d $@ $; $-F $: $-I $LOAD_PATH $" $LOADED_FEATURES $0 $PROGRAM_NAME $-p $-l $-a $& $` $' $+ $=
+        $stdin $stdout $> $stderr $VERBOSE $-v $, $/ $-0 $\\ $-W $_ $~ $< $! $. $FILENAME $-i $* $$
+      ]
+    end
+
+    # The globals ruby refuses to assign.
+    READ_ONLY_GLOBALS = %i[$! $& $` $' $+ $$ $? $* $< $FILENAME $LOAD_PATH $LOADED_FEATURES $-a $-l $-p $-W].freeze
+
+    # A program assigns `value` to the global `name`, which it wrote as
+    # `shown`: the setter ruby hooks on that global checks the value and
+    # answers what the global holds.
+    def hooked_global(shown, name, value)
+      Primitive.attr! :hidden
+      case name
+      when *READ_ONLY_GLOBALS
+        raise NameError.new("#{shown} is a read-only variable", shown)
+      when :$@
+        raise ArgumentError, "$! not set" if $!.nil?
+
+        $!.set_backtrace(value)
+      when :$~
+        raise TypeError, "wrong argument type #{conversion_name(value)} (expected MatchData)" unless value.nil? || value.is_a?(MatchData)
+      when :$;
+        raise TypeError, "value of #{shown} must be String or Regexp" unless value.nil? || value.is_a?(String) || value.is_a?(Regexp)
+
+        Warning.send(:deprecated, "non-nil '#{shown}' is deprecated") unless value.nil?
+      when :$,, :$\
+        separator(shown, value)
+      when :$/
+        separator(shown, value)
+        return value.frozen? || value == "\n" ? value : value.dup.freeze unless value.nil?
+      when :$stdout, :$stderr
+        raise TypeError, "#{shown} must have write method, #{value.class} given" unless value.respond_to?(:write)
+      when :$0
+        text = String.try_convert(value)
+        raise TypeError, "no implicit conversion of #{conversion_name(value)} into String" if text.nil?
+
+        return text.frozen? ? text : text.dup.freeze
+      when :$VERBOSE
+        return value ? true : value
+      when :$.
+        return Integer.send(:int_operand, value)
+      end
+      value
+    end
+
+    # rb_deprecated_str_setter: a String or nil, and a warning for a
+    # String.
+    def separator(shown, value)
+      Primitive.attr! :hidden
+      raise TypeError, "value of #{shown} must be String" unless value.nil? || value.is_a?(String)
+
+      Warning.send(:deprecated, "non-nil '#{shown}' is deprecated") unless value.nil?
     end
 
     # The global `name` was assigned `value`: its commands run, unless

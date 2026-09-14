@@ -191,7 +191,8 @@ module Ze0
     ConstWrite = Struct.new(:scope, :name, :value, :line)
     IvarRead = Struct.new(:name, :line)
     GvarRead = Struct.new(:name, :line)
-    GvarWrite = Struct.new(:name, :value, :line)
+    # `shown` is the name the program wrote, where it is not `name`.
+    GvarWrite = Struct.new(:name, :value, :line, :shown)
     CvarRead = Struct.new(:name, :line)
     CvarWrite = Struct.new(:name, :value, :line)
     # `Name ||= value`: set only when unset or falsy.

@@ -466,16 +466,40 @@ module Ze0
       # A scope's locals: the parser's, then the hidden ones its body made.
       def with_temps(locals) = locals + @temps.last
 
-      # The globals that live in the frame, not the global table: an
-      # alias of one is a second spelling the lowering resolves.
-      FRAME_GVARS = %i[$~ $_].freeze
+      # The globals that live in the frame or the task, not the global
+      # table: an alias of one is a second spelling the lowering resolves.
+      FRAME_GVARS = %i[$~ $_ $! $@].freeze
 
-      GVAR_ALIASES = { :$PROGRAM_NAME => :$0, :$: => :$LOAD_PATH, :$" => :$LOADED_FEATURES, :$> => :$stdout }.freeze
+      # The other names ruby gives one global.
+      GVAR_ALIASES = {
+        :$PROGRAM_NAME => :$0, :$: => :$LOAD_PATH, :$-I => :$LOAD_PATH, :$" => :$LOADED_FEATURES, :$> => :$stdout,
+        :$-0 => :$/, :$-F => :$;, :$-v => :$VERBOSE, :$-w => :$VERBOSE, :$-d => :$DEBUG
+      }.freeze
 
-      # `$PROGRAM_NAME`, `$:` and `$"` are the other names of `$0`,
-      # `$LOAD_PATH` and `$LOADED_FEATURES`.
       def gvar_name(name)
         GVAR_ALIASES.fetch(name, name)
+      end
+
+      # `$name` read: through an alias of a frame special, `$@` as the
+      # backtrace of `$!`, or the global itself.
+      def gvar_read(name, line)
+        aliased = @loader&.back_ref(name)
+        return expr(aliased) if aliased
+        return Send.new(GvarRead.new(:$!, line), :backtrace, [], line, false, nil, nil, nil, true) if name == :$@
+
+        GvarRead.new(gvar_name(name), line)
+      end
+
+      # `$name = value`: through an alias of a frame special the write goes
+      # to that special, and keeps the name the program wrote for an error
+      # to show. Every back reference is read-only, as `$&` is.
+      def gvar_write(name, value, line)
+        aliased = @loader&.back_ref(name)
+        target = if aliased.is_a?(Prism::GlobalVariableReadNode) then aliased.name
+                 elsif aliased then :$&
+                 else gvar_name(name)
+                 end
+        GvarWrite.new(target, value, line, target == name ? nil : name)
       end
 
       # `$&`, `` $` ``, `$'` and `$+`: what the last match answers, nil
@@ -821,23 +845,15 @@ module Ze0
           end
           RangeLit.new(node.left ? expr(node.left) : Literal.new(nil, line), node.right ? expr(node.right) : Literal.new(nil, line), node.exclude_end?, line, static)
         when Prism::InstanceVariableReadNode then IvarRead.new(node.name, line)
-        when Prism::GlobalVariableReadNode
-          aliased = @loader&.back_ref(node.name)
-          if aliased
-            expr(aliased)
-          elsif node.name == :$@
-            Send.new(GvarRead.new(:$!, line), :backtrace, [], line, false, nil, nil, nil, true)
-          else
-            GvarRead.new(gvar_name(node.name), line)
-          end
-        when Prism::GlobalVariableWriteNode then GvarWrite.new(gvar_name(node.name), expr(node.value), line)
+        when Prism::GlobalVariableReadNode then gvar_read(node.name, line)
+        when Prism::GlobalVariableWriteNode then gvar_write(node.name, expr(node.value), line)
         when Prism::GlobalVariableOperatorWriteNode
-          GvarWrite.new(node.name, Send.new(GvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
+          gvar_write(node.name, Send.new(gvar_read(node.name, line), node.binary_operator, [expr(node.value)], line, false), line)
         # `x ||= v` is `x || (x = v)`, and `x &&= v` is `x && (x = v)`: the
         # write happens only when it is needed, which a frozen receiver, a
         # global's setter and a constant's redefinition warning can see.
-        when Prism::GlobalVariableOrWriteNode then Or.new(GvarRead.new(node.name, line), GvarWrite.new(node.name, expr(node.value), line), line)
-        when Prism::GlobalVariableAndWriteNode then And.new(GvarRead.new(node.name, line), GvarWrite.new(node.name, expr(node.value), line), line)
+        when Prism::GlobalVariableOrWriteNode then Or.new(gvar_read(node.name, line), gvar_write(node.name, expr(node.value), line), line)
+        when Prism::GlobalVariableAndWriteNode then And.new(gvar_read(node.name, line), gvar_write(node.name, expr(node.value), line), line)
         when Prism::ClassVariableReadNode then CvarRead.new(node.name, line)
         when Prism::ClassVariableWriteNode then CvarWrite.new(node.name, expr(node.value), line)
         when Prism::ClassVariableOperatorWriteNode
@@ -1104,7 +1120,7 @@ module Ze0
         case node
         when Prism::LocalVariableTargetNode, Prism::RequiredParameterNode then Assign.new(node.name, node.respond_to?(:depth) ? node.depth : 0, nil, line)
         when Prism::InstanceVariableTargetNode then IvarWrite.new(node.name, nil, line)
-        when Prism::GlobalVariableTargetNode then GvarWrite.new(node.name, nil, line)
+        when Prism::GlobalVariableTargetNode then gvar_write(node.name, nil, line)
         when Prism::ClassVariableTargetNode then CvarWrite.new(node.name, nil, line)
         when Prism::ConstantTargetNode then ConstWrite.new(nil, node.name, nil, line)
         when Prism::ConstantPathTargetNode
@@ -1340,7 +1356,11 @@ module Ze0
         when Prism::LocalVariableReadNode, Prism::ItLocalVariableReadNode then Defined.new(:local, nil, line)
         when Prism::InstanceVariableReadNode then Defined.new(:ivar, node.name, line)
         when Prism::GlobalVariableReadNode
-          SPECIAL_GVARS.include?(node.name) ? Defined.new(:global, nil, line) : Defined.new(:gvar, node.name, line)
+          if SPECIAL_GVARS.include?(gvar_name(node.name)) || @loader&.back_ref(node.name)
+            Defined.new(:global, nil, line)
+          else
+            Defined.new(:gvar, node.name, line)
+          end
         # `$1` and `$&` name a part of the last match: defined while it has one.
         when Prism::NumberedReferenceReadNode, Prism::BackReferenceReadNode then Defined.new(:backref, expr(node), line)
         when Prism::ClassVariableReadNode then Defined.new(:cvar, node.name, line)

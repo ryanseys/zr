@@ -139,11 +139,6 @@ machine def zr_warn_here(bytes, n)
 end
 
 # The core's `rb_warn`.
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_kernel_global_variables(recv, argc, argv, cref, blk)
-  zr_global_variables()
-end
-
 # `file:line: ` for the program frame a warning came from, or empty
 # where the runtime itself is the only frame.
 sig [] => Value

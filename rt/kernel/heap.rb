@@ -289,10 +289,36 @@ machine def zr_gvar_set(id, v)
   v
 end
 
-# `$name = v` as Ruby writes it: the value stored, then the commands
-# trace_var put on the global run with it. QUNDEF when one raised.
+# `$name = v` as Ruby writes it. A name `alias` made stands for a global
+# ruby may hook, which checks the value.
 sig [Word, Value] => Value
 machine def zr_gvar_assign(id, v)
+  target = zr_gvar_resolve(id)
+  if target != id
+    return zr_gvar_hooked(id, target, v)
+  end
+  zr_gvar_store(id, v)
+end
+
+# `$name = v` for a global ruby hooks: Kernel's hook checks the value,
+# or refuses a read-only global under the name the program wrote, and
+# answers what to store.
+sig [Word, Word, Value] => Value
+machine def zr_gvar_hooked(shown, id, v)
+  argv = Machine.slot(24)
+  Machine.store64(argv, 0, Machine.word(zr_sym(shown)))
+  Machine.store64(argv, 8, Machine.word(zr_sym(id)))
+  Machine.store64(argv, 16, Machine.word(v))
+  stored = zr_send(zr_global(G_KERNEL), Machine.id(:hooked_global), 3, argv)
+  return stored if stored == QUNDEF
+  zr_gvar_store(id, stored)
+  v
+end
+
+# The value stored, then the commands trace_var put on the global run
+# with it. QUNDEF when one raised.
+sig [Word, Value] => Value
+machine def zr_gvar_store(id, v)
   zr_gvar_set(id, v)
   if Machine.load64(Machine.static(:gvar_traced, 8), 0) == 0
     return v

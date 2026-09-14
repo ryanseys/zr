@@ -19,6 +19,11 @@ $VERBOSE = false
 $DEBUG = false
 $-w = false
 $FILENAME = "-"
+$? = nil
+$-a = false
+$-l = false
+$-p = false
+$-i = nil
 $$ = Primitive.zr_process_id
 $LOAD_PATH = []
 

@@ -398,6 +398,20 @@ machine def zr_backref_set(v)
   v
 end
 
+# `$~ = v` as a program writes it: a MatchData or nil, as Kernel's hook
+# checks.
+sig [Value] => Value
+machine def zr_backref_assign(v)
+  argv = Machine.slot(24)
+  Machine.store64(argv, 0, Machine.word(zr_sym(Machine.id(:$~))))
+  Machine.store64(argv, 8, Machine.word(zr_sym(Machine.id(:$~))))
+  Machine.store64(argv, 16, Machine.word(v))
+  if zr_send(zr_global(G_KERNEL), Machine.id(:hooked_global), 3, argv) == QUNDEF
+    return Machine.value(QUNDEF)
+  end
+  zr_backref_set(v)
+end
+
 sig [] => Value
 machine def zr_backref_get
   home = zr_backref_home()

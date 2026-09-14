@@ -408,7 +408,6 @@ machine def zr_boot
   zr_builtin(zr_global(G_KERNEL), Machine.id(:remove_instance_variable), Machine.addr(:zr_obj_remove_instance_variable), 1)
   zr_builtin_private(zr_global(G_KERNEL), Machine.id(:caller), Machine.addr(:zr_kernel_caller), 0 - 1)
   zr_builtin_private(zr_global(G_KERNEL), Machine.id(:__callee__), Machine.addr(:zr_kernel_callee), 0)
-  zr_builtin_private(zr_global(G_KERNEL), Machine.id(:global_variables), Machine.addr(:zr_kernel_global_variables), 0)
   zr_builtin(zr_global(G_MODULE), Machine.id(:singleton_class?), Machine.addr(:zr_mod_singleton_class_p), 0)
   zr_builtin(zr_global(G_FLOAT), Machine.id(:+), Machine.addr(:zr_flo_plus), 1)
   zr_builtin(zr_global(G_FLOAT), Machine.id(:-), Machine.addr(:zr_flo_minus), 1)

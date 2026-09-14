@@ -588,6 +588,8 @@ module Ze0
         d zr_gvar_defined Value id:Word
         d zr_gvar_set Value id:Word v:Value
         d zr_gvar_assign Value id:Word v:Value
+        d zr_gvar_hooked Value shown:Word id:Word v:Value
+        d zr_gvar_store Value id:Word v:Value
         d zr_gvar_traced Value
         d zr_gvar_resolve_m Value name:Value
         d zr_gvar_defined_m Value name:Value
@@ -727,7 +729,6 @@ module Ze0
         d zr_write_stderr Void s:Value
         d zr_warn_line Value s:Value
         d zr_warn_here Void bytes:Ptr n:Word
-        d zr_kernel_global_variables Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_warn_position Value
         d zr_warn_here_m Value s:Value
         d zr_obj_head Value recv:Value
@@ -1049,6 +1050,7 @@ module Ze0
         d zr_release_regexp Void re:Value
         d zr_backref_home Ptr
         d zr_backref_set Value v:Value
+        d zr_backref_assign Value v:Value
         d zr_backref_get Value
         d zr_match_nth Value m:Value n:Value
         d zr_match_last Value m:Value
