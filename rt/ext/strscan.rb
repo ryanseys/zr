@@ -29,7 +29,9 @@ class StringScanner
     reset
   end
 
-  def string = Primitive.zr_hidden_get(self, :__string__)
+  def self.must_C_version = self
+
+  def string = scanner
 
   def reset
     Primitive.zr_hidden_set(self, :__pos__, 0)
@@ -59,7 +61,10 @@ class StringScanner
 
   alias << concat
 
-  def pos = Primitive.zr_hidden_get(self, :__pos__)
+  def pos
+    scanner
+    Primitive.zr_hidden_get(self, :__pos__)
+  end
 
   def pos=(byte)
     byte = byte.to_int
@@ -172,7 +177,10 @@ class StringScanner
     self
   end
 
-  def matched? = !Primitive.zr_hidden_get(self, :__from__).nil?
+  def matched?
+    scanner
+    !Primitive.zr_hidden_get(self, :__from__).nil?
+  end
 
   def matched
     return nil unless matched?
@@ -214,15 +222,25 @@ class StringScanner
   # last scan took, and what waits. A scanner that has taken nothing
   # names no text, and one at the end says so alone.
   def inspect
+    return "#<StringScanner (uninitialized)>" if Primitive.zr_hidden_get(self, :__string__).nil?
     return "#<StringScanner fin>" if eos?
     return "#<StringScanner #{pos}/#{string.bytesize} @ #{after}>" if pos.zero?
 
     "#<StringScanner #{pos}/#{string.bytesize} #{before} @ #{after}>"
   end
 
-  def fixed_anchor? = Primitive.zr_hidden_get(self, :__anchor__)
+  def fixed_anchor?
+    scanner
+    Primitive.zr_hidden_get(self, :__anchor__)
+  end
 
   private
+
+  # GET_SCANNER: the string, once initialize gave the scanner one.
+  def scanner
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__string__) or raise ArgumentError, "uninitialized StringScanner object"
+  end
 
   # `[+-]?\d+` and `[+-]?(0x)?[0-9a-fA-F]+`, which is what CRuby's own
   # rows scan for the two bases it takes.
