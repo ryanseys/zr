@@ -235,6 +235,12 @@ module Ze0
         # giving back the ones whose values are dead. When the pool is
         # empty the longest-lived interval loses its register, because it
         # is the one that would hold a register longest for the least.
+        #
+        # The lowest free register goes first. The frame saves and restores
+        # every register a function uses, so a function whose values live
+        # a line each should touch two registers, not cycle through all
+        # ten: for a three-line predicate that was twenty of its sixty-two
+        # instructions.
         def scan(order, from, to)
           free = POOL.dup
           active = []
@@ -244,20 +250,26 @@ module Ze0
             active.reject! do |other|
               next false if to[other] >= first
 
-              free << taken.fetch(other)
+              release(free, taken.fetch(other))
               true
             end
             if free.empty?
               longest = active.max_by { |other| to[other] }
               next if longest.nil? || to[value] > to[longest]
 
-              free << taken.delete(longest)
+              release(free, taken.delete(longest))
               active.delete(longest)
             end
             taken[value] = free.shift
             active << value
           end
           taken
+        end
+
+        # `reg` back in `free`, which stays in pool order.
+        def release(free, reg)
+          at = free.index { |other| other.to_i > reg.to_i } || free.size
+          free.insert(at, reg)
         end
 
         # The backend asks by name, so the numbers go back to names here

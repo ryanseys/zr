@@ -66,6 +66,7 @@ module Ze0
         @statics = {}
         @collectors = []
         @collects = nil
+        @inline = {}
       end
 
       def run
@@ -95,6 +96,35 @@ module Ze0
       # through a pointer.
       def collects?(name)
         @collects.include?(name)
+      end
+
+      # Whether a call to `callee` lowers its body in place rather than a
+      # call. A kernel is full of defs one expression long -- a tag test, a
+      # static's address, a load off it -- and a call to one costs a frame,
+      # its saved registers and a branch each way: more than the body, and
+      # the collector makes such calls for every reference it reads.
+      #
+      # Only a small body that cannot run the collector, and has no
+      # `return`, `while` or `break` to mean something else in the caller.
+      # The def is still lowered on its own, so its symbol stays for every
+      # caller the kernel does not see: an eval, and a `Machine.addr`.
+      def inline?(callee)
+        return false unless callee.is_a?(Def)
+
+        @inline.fetch(callee.name) do
+          @inline[callee.name] = !collects?(callee.name) && callee.node.body && small?(callee.node.body, [INLINE_NODES])
+        end
+      end
+
+      # Prism nodes an inlined body may have, at most.
+      INLINE_NODES = 32
+
+      def small?(node, budget)
+        budget[0] -= 1
+        return false if budget[0].negative?
+        return false if node.is_a?(Prism::ReturnNode) || node.is_a?(Prism::WhileNode) || node.is_a?(Prism::BreakNode)
+
+        node.compact_child_nodes.all? { |c| small?(c, budget) }
       end
 
       # The defs that may run the collector, by fixpoint over the calls
@@ -349,6 +379,7 @@ module Ze0
         @locals = {}
         @loops = []
         @roots = nil
+        @inlining = [d.name]
       end
 
       def lower
@@ -554,9 +585,21 @@ module Ze0
 
       # `a && b` and `a || b`, the right side lowered only when the left
       # decides nothing; the result is a Bool.
+      #
+      # A right side that is `plain?` is lowered either way, and the two
+      # bits are joined with no branch at all: reading it can change
+      # nothing and fault on nothing, so reading it when the left side
+      # already decided is not observable. `zr_special_p` is three such
+      # tests, the collector asks it of every reference, and as a diamond
+      # of blocks each test cost a compare, two sets, three widenings and
+      # a branch.
       def logical(node, op)
-        left, lt = condition_value(node.left)
-        bit = @f.icmp("ne", left, @f.iconst(ir_type(lt), 0))
+        bit = truth(*condition_value(node.left))
+        if plain?(node.right)
+          other = truth(*condition_value(node.right))
+          return [@f.binop(op == :and ? :band : :bor, bit, other), "Bool"]
+        end
+
         rest = @f.label
         skip = @f.label
         merge, params = @f.block(["i8"])
@@ -564,10 +607,41 @@ module Ze0
         @f.switch(skip)
         @f.jump(merge, [bit])
         @f.switch(rest)
-        right, rt = condition_value(node.right)
-        @f.jump(merge, [@f.icmp("ne", right, @f.iconst(ir_type(rt), 0))])
+        @f.jump(merge, [truth(*condition_value(node.right))])
         @f.switch(merge)
         [params.first, "Bool"]
+      end
+
+      # `value` as a Bool: one already is, being 0 or 1, and any other
+      # integer is true when it is not zero.
+      def truth(value, type)
+        type == "Bool" ? value : @f.icmp("ne", value, @f.iconst(ir_type(type), 0))
+      end
+
+      # Operators whose lowering is one instruction over its operands, with
+      # no effect, and no fault whatever the operands hold. Division is not
+      # among them.
+      PLAIN_OPERATORS = %i[+ - * & | ^ << >> < <= > >= == != !].freeze
+      PLAIN_CASTS = %i[i32 i8 word sword ptr value].freeze
+
+      # Whether `node` reads only literals, constants and locals, through
+      # plain operators and casts: an expression whose value is all its
+      # lowering makes. A local sits in the frame, so reading it is safe
+      # on any path; a load through a pointer is not.
+      def plain?(node)
+        case node
+        when Prism::IntegerNode, Prism::TrueNode, Prism::FalseNode, Prism::ConstantReadNode then true
+        when Prism::LocalVariableReadNode then @locals.key?(node.name.to_s)
+        when Prism::ParenthesesNode then node.body.is_a?(Prism::StatementsNode) && node.body.body.one? && plain?(node.body.body[0])
+        when Prism::AndNode, Prism::OrNode then plain?(node.left) && plain?(node.right)
+        when Prism::CallNode
+          args = node.arguments&.arguments || []
+          return false if node.block || node.receiver.nil?
+          return PLAIN_CASTS.include?(node.name) && args.one? && plain?(args[0]) if @unit.machine?(node.receiver)
+
+          PLAIN_OPERATORS.include?(node.name) && args.size <= 1 && plain?(node.receiver) && args.all? { |a| plain?(a) }
+        else false
+        end
       end
 
       OPERATORS = {
@@ -632,6 +706,8 @@ module Ze0
           refuse(arg, "#{name} wants a #{type} here, not a #{got}") unless fits?(type, got)
           rooted(arg, value, got)
         end
+        return inline(callee, values) if @unit.inline?(callee) && !@inlining.include?(callee.name)
+
         fn = @f.callee(name, types.map { |t| ir_type(t) }, ir_type(callee.ret), colocated: !callee.is_a?(Import))
         if callee.ret == "Void"
           @f.call(fn, values)
@@ -639,6 +715,25 @@ module Ze0
         else
           [@f.call_val(fn, values), callee.ret]
         end
+      end
+
+      # `d`'s body where the call stands, over the argument `values`: its
+      # parameters and locals in a scope of their own, as the call would
+      # have had. Refusals inside name the callee's file.
+      def inline(d, values)
+        outer = [@locals, @d]
+        @locals = {}
+        @d = d
+        @inlining << d.name
+        d.params.each_with_index do |(name, type), i|
+          @f.store(values[i], declare_local(d.node, name, type)[:addr])
+        end
+        value, type = d.node.body ? statements(d.node.body, d.ret) : [nil, "Void"]
+        refuse(d.node, "the body ends in #{type}, and the sig says #{d.ret}") unless d.ret == "Void" || fits?(d.ret, type)
+        d.ret == "Void" ? [nil, "Void"] : [value, d.ret]
+      ensure
+        @inlining.pop
+        @locals, @d = outer
       end
 
       # A Value a call answered stays alive across the calls that follow

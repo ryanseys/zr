@@ -1,10 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "hir"
-require_relative "zr/lower"
-require_relative "ir/arm64"
-require_relative "obj/jit"
-require_relative "../../rt/ext/zr_description"
 require "ze0/eval/runtime"
 require "ze0/eval/forms"
 
@@ -17,8 +12,19 @@ module Ze0
   # is seeded from the one the program is running on, so an eval names
   # the same kernel and the same symbol ids as the code around it.
   class Eval
+    # The compiler loads with the first string a program evals, not as
+    # the program boots. Most programs that could eval never do, and
+    # loading it makes some twelve thousand objects: every one a
+    # collection keeps marking, and one a collection under stress.
     def self.current
-      @current ||= new(Runtime.new)
+      @current ||= begin
+        require_relative "hir"
+        require_relative "zr/lower"
+        require_relative "ir/arm64"
+        require_relative "obj/jit"
+        require_relative "../../rt/ext/zr_description"
+        new(Runtime.new)
+      end
     end
 
     def initialize(runtime)

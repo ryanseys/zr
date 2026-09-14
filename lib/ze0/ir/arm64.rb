@@ -109,6 +109,7 @@ module Ze0
 
       def compile
         assign_types
+        plan_slots
         plan_constants
         @reg = Regalloc.of(@f, skip: @remade)
         plan_fusion
@@ -184,6 +185,34 @@ module Ze0
         end
       end
 
+      # Where each slot sits above sp. Slots come first in the frame, so
+      # this is known before any value has a home.
+      #
+      # A slot's address is made where it is read, as a small constant
+      # is (`@stack`): `IR::Function#hoisted` puts every `stack_addr` in
+      # the entry block, so each one held a register for the whole
+      # function, and the frame saved and restored that register. A load
+      # or a store through it addresses sp directly and makes nothing.
+      def plan_slots
+        off = 0
+        @slot_at = @f.slots.map do |s|
+          off = align(off, [s.align, 8].max)
+          at = off
+          off += s.bytes
+          at
+        end
+        @slots_end = align(off, 8)
+        @stack = {}
+        @f.blocks.each do |b|
+          b.insts.each do |i|
+            next unless i.op == :stack_addr
+
+            at = @slot_at[Integer(i.args[0].delete_prefix("ss"))]
+            @stack[i.results[0]] = at if at <= 4095
+          end
+        end
+      end
+
       # Every `iconst` by the value it names. A value is defined once, so
       # wherever it is used its number is known, and an instruction with
       # an immediate form can take the number instead of a register.
@@ -197,7 +226,7 @@ module Ze0
       # block, so each of them held one for the whole function.
       def plan_constants
         @const = {}
-        @remade = Set.new
+        @remade = Set.new(@stack.keys)
         @f.blocks.each do |b|
           b.insts.each do |i|
             next unless i.op == :iconst
@@ -217,14 +246,7 @@ module Ze0
       end
 
       def assign_homes
-        off = 0
-        @slot_at = @f.slots.map do |s|
-          off = align(off, [s.align, 8].max)
-          at = off
-          off += s.bytes
-          at
-        end
-        off = align(off, 8)
+        off = @slots_end
         @f.blocks.each do |b|
           (b.params.map(&:first) + b.insts.flat_map(&:results)).each do |v|
             next if @reg.key?(v) || @remade.include?(v)
@@ -272,11 +294,20 @@ module Ze0
         [X17, off & 0xFFF]
       end
 
+      # `reg = sp + off`: one `add` for twelve bits, two past them.
+      def frame_address(reg, off)
+        return @asm.add(reg, SP, off) if off <= 4095
+
+        @asm.add reg, SP, off >> 12, lsl: 12
+        @asm.add reg, reg, off & 0xFFF unless (off & 0xFFF).zero?
+      end
+
       # An f64 value lives in its slot as bits and moves through the
       # integer registers.
       def load_value(v, reg)
         home = @reg[v]
         return narrow(reg, home, type_of(v)) if home
+        return frame_address(reg, @stack[v]) if @stack.key?(v)
         return materialize(reg, @const[v] & WIDTH_MASK[type_of(v)]) if @remade.include?(v)
 
         off = @home.fetch(v)
@@ -420,7 +451,9 @@ module Ze0
         when :load then emit_load(i)
         when :store then emit_store(i)
         when :stack_addr
-          @asm.add X9, SP, @slot_at[Integer(i.args[0].delete_prefix("ss"))]
+          return if @remade.include?(i.results[0])
+
+          frame_address(X9, @slot_at[Integer(i.args[0].delete_prefix("ss"))])
           store_value(i.results[0], X9)
         when :symbol_value then emit_symbol(i.results[0], global_of(i.args[0]).symbol, global_of(i.args[0]).colocated)
         when :func_addr
@@ -536,12 +569,11 @@ module Ze0
       end
 
       def emit_load(i)
-        at = value_in(i.args[0], X9)
         d = result_in(i.results[0], X10)
         case i.type
-        when "i64", "f64" then @asm.ldr d, reach(at, i.offset, 8)
-        when "i32" then @asm.ldr w(d), reach(at, i.offset, 4)
-        when "i8" then @asm.ldrb w(d), reach(at, i.offset, 1)
+        when "i64", "f64" then @asm.ldr d, through(i.args[0], X9, i.offset, 8)
+        when "i32" then @asm.ldr w(d), through(i.args[0], X9, i.offset, 4)
+        when "i8" then @asm.ldrb w(d), through(i.args[0], X9, i.offset, 1)
         else raise Refused, "#{@f.name}: load.#{i.type}"
         end
         store_value(i.results[0], d)
@@ -549,12 +581,21 @@ module Ze0
 
       def emit_store(i)
         v = value_in(i.args[0], X9)
-        at = value_in(i.args[1], X10)
         case type_of(i.args[0])
-        when "i64", "f64" then @asm.str v, reach(at, i.offset, 8)
-        when "i32" then @asm.str w(v), reach(at, i.offset, 4)
-        when "i8" then @asm.strb w(v), reach(at, i.offset, 1)
+        when "i64", "f64" then @asm.str v, through(i.args[1], X10, i.offset, 8)
+        when "i32" then @asm.str w(v), through(i.args[1], X10, i.offset, 4)
+        when "i8" then @asm.strb w(v), through(i.args[1], X10, i.offset, 1)
         end
+      end
+
+      # The memory operand for `off` past the address `base` holds: sp
+      # itself when `base` is a slot's address and the sum fits, else the
+      # address in a register, read into `scratch` when it has none.
+      def through(base, scratch, off, width)
+        at = @stack[base]
+        return [SP, at + off] if at && off >= 0 && (at + off) % width == 0 && (at + off) / width <= 4095
+
+        reach(value_in(base, scratch), off, width)
       end
 
       # A base and an offset one load or store can hold: the offset
