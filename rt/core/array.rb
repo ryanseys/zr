@@ -3,10 +3,58 @@
 class Array
   include Enumerable
 
-  # Ruby owns these on Array itself, so a later definition on Enumerable
-  # does not shadow them. The bodies are Enumerable's.
-  %i[all? any? detect drop_while none? one? take_while].each do |name|
-    define_method(name, Enumerable.instance_method(name))
+  # rb_ary_find: the first element the block accepts, else what
+  # `ifnone` answers.
+  def find(ifnone = (omitted = true; nil))
+    return to_enum(__callee__, *([ifnone] unless omitted)) unless block_given?
+
+    i = 0
+    while i < size
+      element = self[i]
+      return element if yield(element)
+
+      i += 1
+    end
+    ifnone&.call
+  end
+  alias detect find
+
+  # The last element the block accepts, else what `ifnone` answers.
+  def rfind(ifnone = (omitted = true; nil))
+    return to_enum(:rfind, *([ifnone] unless omitted)) unless block_given?
+
+    i = size - 1
+    while i >= 0
+      element = self[i]
+      return element if yield(element)
+
+      i -= 1
+    end
+    ifnone&.call
+  end
+
+  # rb_ary_any_p and its kin: how many elements meet the criterion, a
+  # pattern's `===`, the block, or truthiness, counted no further than
+  # `enough` asks.
+  def any?(*pattern, &block) = meeting(pattern, block, 1).positive?
+  def all?(*pattern, &block) = meeting(pattern, block, 1, negate: true).zero?
+  def none?(*pattern, &block) = meeting(pattern, block, 1).zero?
+  def one?(*pattern, &block) = meeting(pattern, block, 2) == 1
+
+  def take_while
+    return to_enum(:take_while) unless block_given?
+
+    i = 0
+    i += 1 while i < size && yield(self[i])
+    take(i)
+  end
+
+  def drop_while
+    return to_enum(:drop_while) unless block_given?
+
+    i = 0
+    i += 1 while i < size && yield(self[i])
+    drop(i)
   end
 
   def reverse
@@ -783,15 +831,6 @@ class Array
     indexes.map { |i| block ? fetch(i, &block) : fetch(i) }
   end
 
-  # The last element the block accepts, or nil.
-  # The last element the block accepts, else what `ifnone` answers.
-  def rfind(ifnone = (omitted = true; nil))
-    return to_enum(:rfind, *([ifnone] unless omitted)) { size } unless block_given?
-
-    reverse_each { |v| return v if yield(v) }
-    ifnone&.call
-  end
-
   def fetch(index, *default)
     raise ArgumentError, "wrong number of arguments (given #{default.size + 1}, expected 1..2)" if default.size > 1
 
@@ -990,6 +1029,30 @@ end
 
 class Array
   private
+
+  # How many elements meet the criterion, or with `negate` how many fail
+  # it, counted until `enough` do.
+  def meeting(pattern, block, enough, negate: false)
+    Primitive.attr! :hidden
+    raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
+
+    Primitive.zr_warn_here_m("given block not used") if block && !pattern.empty?
+    count = 0
+    i = 0
+    while i < size
+      element = self[i]
+      met = if !pattern.empty? then pattern[0] === element
+            elsif block then block.call(element)
+            else element
+            end
+      if met ? !negate : negate
+        count += 1
+        return count if count >= enough
+      end
+      i += 1
+    end
+    count
+  end
 
   # The walk of CRuby's select_bang_i: each element the block keeps
   # moves down over those it dropped while the Array keeps its length,

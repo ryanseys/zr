@@ -281,13 +281,24 @@ class Hash
     out
   end
 
-  # The block sees each pair as one value, which a two-parameter block
-  # takes apart.
-  def any?(*args)
-    return super if args.size == 1
-    return !empty? unless block_given?
+  # rb_hash_any_p: each pair, as one value a two-parameter block takes
+  # apart, against the pattern or the block. The walk is the Hash's own,
+  # not a send of `each`.
+  def any?(*pattern, &block)
+    raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
+    return false if empty?
 
-    each { |k, v| return true if yield([k, v]) }
+    Primitive.zr_warn_here_m("given block not used") if block && !pattern.empty?
+    return true if pattern.empty? && !block
+
+    names = keys
+    i = 0
+    while i < names.size
+      pair = [names[i], self[names[i]]]
+      return true if pattern.empty? ? yield(pair) : pattern[0] === pair
+
+      i += 1
+    end
     false
   end
 
