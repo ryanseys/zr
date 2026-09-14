@@ -248,7 +248,7 @@ module Packing
           out << pack_integer(text.nil? ? 0 : Primitive.zr_str_bytes_address(text), 8, false)
         end
       when "U"
-        each_item(items, at, count) { |item| out << (+"" << Integer(item)).b }
+        each_item(items, at, count) { |item| out << utf8(integer_item(item)) }
         at += count == :all ? items.size - at : (count || 1)
       when "w"
         each_item(items, at, count) { |item| out << ber(Integer(item)) }
@@ -294,6 +294,17 @@ module Packing
     raise TypeError, "no implicit conversion of #{item.nil? ? 'nil' : item.class} into Integer" if item.nil? || !item.respond_to?(:to_int)
 
     item.to_int
+  end
+
+  # rb_uv_to_utf8: a code point as UTF-8's bytes, in as many as six of
+  # them, surrogates and all.
+  def self.utf8(code)
+    raise RangeError, "pack(U): value out of range" if code.negative? || code > 0x7fffffff
+    return code.chr.b if code < 0x80
+
+    size = [0x7ff, 0xffff, 0x1fffff, 0x3ffffff, 0x7fffffff].index { |top| code <= top } + 2
+    tail = (1...size).map { |i| 0x80 | ((code >> (6 * (size - 1 - i))) & 0x3f) }
+    [(0xff << (8 - size)) & 0xff | (code >> (6 * (size - 1))), *tail].pack("C*")
   end
 
   def self.each_item(items, at, count)

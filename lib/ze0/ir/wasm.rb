@@ -58,8 +58,9 @@ module Ze0
                 "clock_gettime" => [[0x7F, 0x7E], [0x7F]],
                 "getuid" => [[], [0x7F]], "geteuid" => [[], [0x7F]], "getgid" => [[], [0x7F]],
                 "getegid" => [[], [0x7F]], "getppid" => [[], [0x7F]], "umask" => [[0x7F], [0x7F]],
+                "sigaction" => [[0x7F, 0x7E, 0x7E], [0x7F]],
                 "onig_initialize" => [[0x7E, 0x7F], [0x7F]], "onig_free" => [[0x7E], []],
-                "onig_new" => [[0x7E, 0x7E, 0x7E, 0x7F, 0x7E, 0x7E, 0x7E], [0x7F]] }.freeze
+                "onig_new" => [[0x7E, 0x7E, 0x7E, 0x7F, 0x7E, 0x7E, 0x7E], [0x7F]], "onig_ze0_take_warnings" => [[0x7E, 0x7F], [0x7F]] }.freeze
 
       # How many i32 locals a shim body declares.
       LOCALS = { "malloc" => 1, "fstat" => 3, "fcntl" => 1, "isatty" => 1, "read" => 1, "lseek" => 1 }.freeze
@@ -335,11 +336,18 @@ module Ze0
         # own, before a program has said whether it wants one: so
         # readying succeeds, and compiling answers a handle that stands
         # for a pattern nothing can match. A program that matches one
-        # stops at `onig_search`, which names what is missing.
-        when "onig_initialize", "onig_free"
+        # stops at `onig_search`, which names what is missing. Nothing it
+        # compiles gives a warning.
+        when "onig_initialize", "onig_free", "onig_ze0_take_warnings"
           code << (SHIMS.fetch(name).last.empty? ? "".b : i32c(0))
         when "onig_new"
           code << "\x20\x00".b << "\xA7".b << "\x42\x01".b << "\x37\x03".b << leb(0) << i32c(0)
+        # A module takes no signals, so each one keeps the handler it
+        # started with, the default, and a new one changes nothing.
+        when "sigaction"
+          code << "\x20\x02\x42\x00\x52\x04\x40".b
+          code << "\x20\x02\xA7\x42\x00".b << "\x37\x03\x00".b
+          code << "\x0B".b << i32c(0)
         when "getppid"
           code << i32c(1)
         # The process mask a fresh login shell carries. A module has no

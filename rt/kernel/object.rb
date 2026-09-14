@@ -1026,7 +1026,24 @@ machine def zr_utf8_char_len(p, n)
   if len == 0 || len > n
     return 0
   end
-  i = 1
+  # The second byte's range is narrower after four leads, as enc/utf_8.c
+  # has it: no overlong form, no surrogate, nothing past U+10FFFF.
+  low = 128
+  high = 191
+  if c == 224
+    low = 160
+  elsif c == 237
+    high = 159
+  elsif c == 240
+    low = 144
+  elsif c == 244
+    high = 143
+  end
+  d = Machine.word(Machine.load8(p + 1, 0))
+  if d < low || d > high
+    return 0
+  end
+  i = 2
   while i < len
     d = Machine.word(Machine.load8(p + i, 0))
     if d < 128 || d > 191
