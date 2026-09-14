@@ -602,21 +602,21 @@ end
 
 # `recv[i]` as CRuby's opt_aref instruction runs it: an Array whose `[]`
 # is its own is read directly, with no frame for a backtrace.
-sig [Value, Word, Word, Ptr] => Value
-machine def zr_opt_aref(recv, mid, argc, argv)
+sig [Value, Word, Word, Ptr, Word] => Value
+machine def zr_opt_aref(recv, mid, argc, argv, mode)
   if !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_AREF) == 0
     return zr_ary_aref(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
   end
-  zr_call(recv, mid, argc, argv)
+  zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
 end
 
 # `recv[i] = v` likewise, for an Integer index.
-sig [Value, Word, Word, Ptr] => Value
-machine def zr_opt_aset(recv, mid, argc, argv)
+sig [Value, Word, Word, Ptr, Word] => Value
+machine def zr_opt_aset(recv, mid, argc, argv, mode)
   if argc == 2 && !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_ARRAY) && (Machine.load64(zr_gates(), 0) & GATE_ASET) == 0 && zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
     return zr_ary_aset_at(recv, Machine.value(Machine.load64(argv, 0)), Machine.value(Machine.load64(argv, 8)))
   end
-  zr_call(recv, mid, argc, argv)
+  zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
 end
 
 # The Array a multiple assignment takes apart: the value itself, its

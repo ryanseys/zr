@@ -194,7 +194,7 @@ module Ze0
             argc, argv = imm(target.args.size + 1), @f.iadd(@rec, imm(value_offset(slot + 1)))
           end
           at_line(target.line)
-          return checked(kernel("zr_opt_aset", recv, imm(sym_id(target.name)), argc, argv)) if target.opt
+          return checked(kernel("zr_opt_aset", recv, imm(sym_id(target.name)), argc, argv, imm(send_mode(target)))) if target.opt
 
           # An explicit receiver may not reach a private writer; `self` may.
           checked(kernel("zr_send_cached", cache("ic", "CallCache"), recv, imm(sym_id(target.name)), argc, argv, @qnil, imm(send_mode(target))))

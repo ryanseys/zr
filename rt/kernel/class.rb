@@ -17,13 +17,18 @@ Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr,
 # over; both are nil outside a box.
 # `alloc` is the kind of object the class allocates (ALLOC_*), found
 # from its builtin ancestor on first use; 0 until then.
-Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word, refined: Value, active: Value, boxed: Value, shadow: Value, alloc: Word, cidx: Ptr, cbins: Word
+# `saved` holds, `slen` rows of it, the rows of the core library a
+# program wrote over or removed, which the core library's own sends
+# still reach (see zr_find_core_method).
+Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word, refined: Value, active: Value, boxed: Value, shadow: Value, alloc: Word, cidx: Ptr, cbins: Word,
+                           saved: Ptr, slen: Word
 # `orig` is the name the method was first defined under, which an
 # alias keeps. `from` is the chain node the entry an alias or a
 # visibility change copied was found on, where `super` in the body
 # continues from as CRuby's alias and zsuper entries do; nil for a
-# definition.
-Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word, from: Value
+# definition. `core` is 1 for a row the core library wrote before the
+# program started.
+Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word, from: Value, core: Word
 Machine.struct :CEntry, id: Word, value: Value, file: Ptr, file_len: Word, line: Word, private: Word, deprecated: Word, owner: Value
 Machine.sig :method, [Value, Word, Ptr, Value, Value] => Value
 # Method kinds beyond a compiled def and a builtin: accessors keep the
@@ -62,6 +67,8 @@ machine def zr_class_alloc(type, sup, klass)
   ClassExt.set_boxed(ext, Machine.value(QNIL))
   ClassExt.set_shadow(ext, Machine.value(QNIL))
   ClassExt.set_alloc(ext, 0)
+  ClassExt.set_saved(ext, 0)
+  ClassExt.set_slen(ext, 0)
   counter = Machine.static(:class_serial, 8)
   Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
   ClassExt.set_serial(ext, Machine.load64(counter, 0))
@@ -267,6 +274,8 @@ machine def zr_ensure_origin(klass)
   ClassExt.set_mtab(RClass.ext(klass), 0)
   ClassExt.set_mlen(RClass.ext(klass), 0)
   ClassExt.set_mcap(RClass.ext(klass), 0)
+  ClassExt.set_saved(RClass.ext(klass), 0)
+  ClassExt.set_slen(RClass.ext(klass), 0)
   i = 0
   while i < ClassExt.mlen(ext)
     e = ClassExt.mtab(ext) + (i * MEntry.size)
@@ -972,6 +981,7 @@ machine def zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
   # ruby keeps it: `instance_methods` shows it in the place it was first
   # defined, and a later `remove_method` leaves nothing behind.
   e = zr_find_method_at(klass, mid)
+  zr_save_core_row(ext, e)
   if e == 0
     n = ClassExt.mlen(ext)
     if n == ClassExt.mcap(ext)
@@ -1000,8 +1010,127 @@ machine def zr_method_add_vis(klass, mid, fn, arity, kind, meta, cref, vis)
   MEntry.set_vis(e, vis)
   MEntry.set_orig(e, mid)
   MEntry.set_from(e, Machine.value(QNIL))
+  MEntry.set_core(e, zr_program_started_p() ? 0 : 1)
   zr_gates_recheck(mid)
 end
+
+# Whether the program has started: the core library's own definitions
+# are all written.
+sig [] => Bool
+machine def zr_program_started_p
+  Machine.load64(Machine.static(:gates_taken, 8), 0) != 0
+end
+
+# Row `e` of `ext`, a row of the core library a program is about to
+# write over or remove, kept aside for the core library's own sends.
+# Nothing is kept for any other row, or twice for one name.
+sig [Ptr, Ptr] => Void
+machine def zr_save_core_row(ext, e)
+  if e == 0 || MEntry.core(e) == 0 || !zr_program_started_p() || zr_saved_row(ext, MEntry.mid(e)) != 0
+    return
+  end
+  n = ClassExt.slen(ext)
+  tab = zr_xmalloc((n + 1) * MEntry.size)
+  if n > 0
+    zr_memcpy(tab, ClassExt.saved(ext), n * MEntry.size)
+    free(ClassExt.saved(ext))
+  end
+  zr_memcpy(tab + (n * MEntry.size), e, MEntry.size)
+  ClassExt.set_saved(ext, tab)
+  ClassExt.set_slen(ext, n + 1)
+end
+
+sig [Ptr, Word] => Ptr
+machine def zr_saved_row(ext, mid)
+  i = 0
+  while i < ClassExt.slen(ext)
+    e = ClassExt.saved(ext) + (i * MEntry.size)
+    if MEntry.mid(e) == mid
+      return e
+    end
+    i += 1
+  end
+  0
+end
+
+# Whether the core library's own sends to an instance of `klass` reach
+# the core library's methods: a class the runtime made before the
+# program started, a singleton class counting as the class it stands
+# ahead of.
+sig [Value] => Bool
+machine def zr_core_class_p(klass)
+  if !zr_program_started_p()
+    return false
+  end
+  while klass != QNIL && (RBasic.flags(klass) & FL_SINGLETON) != 0
+    klass = RClass.superclass(klass)
+  end
+  klass != QNIL && ClassExt.serial(RClass.ext(klass)) <= Machine.load64(Machine.static(:master_serial, 8), 0)
+end
+
+# The entry a send the core library makes reaches for `mid` on
+# `klass`: the core library's own row, past every row a program wrote
+# over it, removed, or put ahead of it with a module, as a call in
+# CRuby's C reaches a C function and not the method a program defines.
+# 0 when the core library defines no such method on the chain, where
+# the send reaches what any send reaches.
+sig [Value, Word] => Ptr
+machine def zr_search_core_method(klass, mid)
+  k = klass
+  while k != QNIL
+    ext = RClass.ext(k)
+    e = zr_saved_row(ext, mid)
+    if e == 0
+      e = zr_find_method_at(k, mid)
+      if e != 0 && MEntry.core(e) == 0
+        e = 0
+      end
+    end
+    if e != 0
+      if MEntry.kind(e) == KIND_UNDEF
+        return 0
+      end
+      Task.set_found(zr_task(), k)
+      return e
+    end
+    k = RClass.superclass(k)
+  end
+  0
+end
+
+# The same, from the method cache under a key of its own.
+sig [Value, Word] => Ptr
+machine def zr_find_core_method(klass, mid)
+  mode = Machine.load64(Machine.static(:mcache_mode, 8), 0)
+  if mode == MCACHE_OFF
+    return zr_search_core_method(klass, mid)
+  end
+  key = mid | CORE_KEY
+  h = ((Machine.word(klass) / CELL) ^ (key * 31)) & (MCACHE_ROWS - 1)
+  row = Machine.static(:mcache, MCACHE_ROWS * MCache.size) + (h * MCache.size)
+  stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
+  if MCache.stamp(row) == stamp && MCache.klass(row) == klass && MCache.mid(row) == key
+    e = MCache.entry(row)
+    if e != 0
+      Task.set_found(zr_task(), MCache.found(row))
+    end
+    if mode == MCACHE_VERIFY && e != zr_search_core_method(klass, mid)
+      zr_bug(Machine.bytes("the method cache answered what the core chain does not\n"), 55)
+    end
+    return e
+  end
+  e = zr_search_core_method(klass, mid)
+  MCache.set_klass(row, klass)
+  MCache.set_mid(row, key)
+  MCache.set_entry(row, e)
+  MCache.set_found(row, e == 0 ? Machine.value(QNIL) : Task.found(zr_task()))
+  MCache.set_stamp(row, stamp)
+  e
+end
+
+# A method cache row for a core library send keys on the name with this
+# bit, which no symbol id reaches.
+CORE_KEY = 1 << 62
 
 # The entry `e` again on `klass` as `mid`, keeping the name it was
 # first defined under and, when `e` was just found by `zr_find_method`
@@ -1400,6 +1529,12 @@ machine def zr_mark_mtab(ext)
     zr_mark(MEntry.from(ClassExt.mtab(ext) + (i * MEntry.size)))
     i += 1
   end
+  i = 0
+  while i < ClassExt.slen(ext)
+    zr_mark(MEntry.cref(ClassExt.saved(ext) + (i * MEntry.size)))
+    zr_mark(MEntry.from(ClassExt.saved(ext) + (i * MEntry.size)))
+    i += 1
+  end
 end
 
 # What a cell holds besides its class: marked by type.
@@ -1484,6 +1619,9 @@ machine def zr_release(v)
     ext = RClass.ext(v)
     if ClassExt.mtab(ext) != 0
       free(ClassExt.mtab(ext))
+    end
+    if ClassExt.saved(ext) != 0
+      free(ClassExt.saved(ext))
     end
     if ClassExt.ctab(ext) != 0
       free(ClassExt.ctab(ext))

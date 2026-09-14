@@ -1298,8 +1298,8 @@ GATE_LTLT = 16384
 
 # `recv << v` as CRuby's opt_ltlt runs it: a String or Array whose `<<`
 # is its own appends directly, with no frame.
-sig [Value, Word, Word, Ptr] => Value
-machine def zr_opt_ltlt(recv, mid, argc, argv)
+sig [Value, Word, Word, Ptr, Word] => Value
+machine def zr_opt_ltlt(recv, mid, argc, argv, mode)
   if !zr_special_p(recv) && (Machine.load64(zr_gates(), 0) & GATE_LTLT) == 0
     k = RBasic.klass(recv)
     other = Machine.value(Machine.load64(argv, 0))
@@ -1310,7 +1310,7 @@ machine def zr_opt_ltlt(recv, mid, argc, argv)
       return zr_ary_push_m(recv, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
     end
   end
-  zr_call(recv, mid, argc, argv)
+  zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))
 end
 
 # The primitives rt/core/string.rb builds its methods on. Bytes are

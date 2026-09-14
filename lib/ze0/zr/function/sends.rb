@@ -15,6 +15,27 @@ module Ze0
 
         OPT_ENTRIES = { :[] => "zr_opt_aref", :[]= => "zr_opt_aset", :<< => "zr_opt_ltlt" }.freeze
 
+        # The names CRuby's C sends by name even to its own classes'
+        # instances, so the method a program defines answers them: the
+        # conversions, equality, hashing and ordering, iteration, the
+        # object protocol and its hooks, and what error reporting asks.
+        # Any other send the core library makes to an instance of a class
+        # the runtime made reaches the core library's own method, as a
+        # call in C reaches a C function (rt/kernel/send.rb, SEND_CORE).
+        PROTOCOL = %i[
+          initialize initialize_copy initialize_dup initialize_clone
+          to_s inspect to_str to_sym to_proc to_ary to_a to_hash to_h to_int to_i to_f to_r to_c to_path to_io to_regexp
+          == != eql? hash <=> === =~ ! coerce
+          each call write warn default
+          respond_to? respond_to_missing? method_missing
+          method_added singleton_method_added method_removed singleton_method_removed method_undefined
+          singleton_method_undefined inherited included extended prepended const_added const_missing
+          marshal_dump marshal_load _dump _load
+          exception message backtrace full_message detailed_message
+        ].to_set.freeze
+        # The bit a send of the core library carries (SEND_CORE).
+        SEND_CORE = 8
+
         private
 
         # The receiver and arguments wait in record slots (a splat gathers
@@ -167,9 +188,8 @@ module Ze0
         # receiver, 1 for a bare identifier, 2 for an explicit receiver,
         # which visibility applies to.
         def send_mode(node)
-          return 1 if node.vcall
-
-          explicit?(node) ? 2 : 0
+          mode = node.vcall ? 1 : (explicit?(node) ? 2 : 0)
+          @l.internal? && !PROTOCOL.include?(node.name) ? mode | SEND_CORE : mode
         end
 
         def dispatch(node, recv, argv, argc)
@@ -177,7 +197,7 @@ module Ze0
           argc = keyword_argc(node, argc, argv)
           activate(node)
           if node.opt && node.using.nil?
-            checked(kernel(OPT_ENTRIES.fetch(node.name), recv, imm(sym_id(node.name)), argc, argv))
+            checked(kernel(OPT_ENTRIES.fetch(node.name), recv, imm(sym_id(node.name)), argc, argv, imm(send_mode(node))))
           elsif node.name == :new
             checked(kernel("zr_new_cached", cache("ic", "CallCache", 2), recv, argc, argv, imm(send_mode(node))))
           else

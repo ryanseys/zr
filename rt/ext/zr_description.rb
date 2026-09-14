@@ -32,8 +32,8 @@ module Ze0
         d zr_ary_last Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_eq Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
-        d zr_opt_aref Value recv:Value mid:Word argc:Word argv:Ptr
-        d zr_opt_aset Value recv:Value mid:Word argc:Word argv:Ptr
+        d zr_opt_aref Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
+        d zr_opt_aset Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
         d zr_masgn_ary Value v:Value
         d zr_masgn_rest Value ary:Value nlefts:Word nrights:Word
         d zr_masgn_right Value ary:Value nlefts:Word nrights:Word i:Word
@@ -158,6 +158,12 @@ module Ze0
         d zr_method_added Value klass:Value mid:Word
         d zr_method_add Void klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value
         d zr_method_add_vis Void klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value vis:Word
+        d zr_program_started_p Bool
+        d zr_save_core_row Void ext:Ptr e:Ptr
+        d zr_saved_row Ptr ext:Ptr mid:Word
+        d zr_core_class_p Bool klass:Value
+        d zr_search_core_method Ptr klass:Value mid:Word
+        d zr_find_core_method Ptr klass:Value mid:Word
         d zr_method_copy Void klass:Value mid:Word e:Ptr meta:Ptr vis:Word found:Bool
         d zr_set_visibility Value klass:Value argc:Word argv:Ptr blk:Value vis:Word modfn:Word
         d zr_set_method_visibility Value klass:Value mid:Word vis:Word modfn:Word
@@ -1186,7 +1192,7 @@ module Ze0
         d zr_str_literal_freeze Value bytes:Ptr len:Word
         d zr_str_literal_shared Value bytes:Ptr len:Word
         d zr_str_intern Value s:Value
-        d zr_opt_ltlt Value recv:Value mid:Word argc:Word argv:Ptr
+        d zr_opt_ltlt Value recv:Value mid:Word argc:Word argv:Ptr mode:Word
         d zr_str_bytesize Value s:Value
         d zr_str_byte_at Value s:Value i:Value
         d zr_str_byteslice Value s:Value off:Value len:Value
@@ -1271,6 +1277,7 @@ module Ze0
         c KIND_MISSING 9
         c T_ICLASS 28
         c GATE_ROWS 20
+        c CORE_KEY 4611686018427387904
         c MCACHE_ROWS 2048
         c MCACHE_OFF 1
         c MCACHE_VERIFY 2
@@ -1438,6 +1445,8 @@ module Ze0
         c MISS_EXPLICIT 3
         c MISS_PRIVATE 4
         c MISS_PROTECTED 5
+        c SEND_CORE 8
+        c SEND_MODE 7
         c PREEMPT_TICKS 20000
         c SOCKADDR_MAX 128
         c FL_ASCII 2097152
@@ -1495,8 +1504,8 @@ module Ze0
         s CallCache 40 8 klass:0:Value stamp:8:Word entry:16:Ptr found:24:Value ivar:32:IvarCache
         s ConstCache 24 8 key:0:Value stamp:8:Word value:16:Value
         s RClass 56 8 basic:0:RBasic name:16:Value superclass:24:Value ext:32:Ptr attached:40:Value origin:48:Value
-        s ClassExt 160 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word refined:104:Value active:112:Value boxed:120:Value shadow:128:Value alloc:136:Word cidx:144:Ptr cbins:152:Word
-        s MEntry 72 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value
+        s ClassExt 176 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word refined:104:Value active:112:Value boxed:120:Value shadow:128:Value alloc:136:Word cidx:144:Ptr cbins:152:Word saved:160:Ptr slen:168:Word
+        s MEntry 80 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value core:72:Word
         s CEntry 64 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value
         s GateRow 40 8 klass:0:Word mid:8:Word bit:16:Word fn:24:Ptr vis:32:Word
         s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word
@@ -1513,7 +1522,7 @@ module Ze0
         s Frame 96 8 prev:0:Ptr meta:8:Ptr line:16:Word serial:24:Word self:32:Value cref:40:Value blk:48:Value nvalues:56:Word mid:64:Word svar:72:Value lastline:80:Value defined:88:Value
         s Task 136 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value mid:96:Word missing:104:Word found:112:Value refine:120:Value ractor:128:Word
         s MarkStack 24 8 ptr:0:Ptr len:8:Word capa:16:Word
-        s RMethod 112 8 basic:0:RBasic recv:16:Value klass:24:Value owner:32:Value entry:40:MEntry
+        s RMethod 120 8 basic:0:RBasic recv:16:Value klass:24:Value owner:32:Value entry:40:MEntry
         s IvTab 24 8 rows:0:Ptr len:8:Word cap:16:Word
         s IvEntry 16 8 id:0:Word value:8:Value
         s RObject 40 8 basic:0:RBasic iv:16:IvTab

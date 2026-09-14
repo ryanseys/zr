@@ -268,6 +268,7 @@ end
 # Answers 0, or the visibility that refused the call.
 sig [Ptr, Word] => Word
 machine def zr_visibility_refused(e, mode)
+  mode = mode & SEND_MODE
   if mode < 2 || MEntry.vis(e) == VIS_PUBLIC
     return 0
   end
@@ -281,19 +282,32 @@ machine def zr_visibility_refused(e, mode)
   MEntry.vis(e)
 end
 
+# A send the core library makes to a name outside the protocol CRuby's C
+# sends by name: it reaches the core library's own method on a class the
+# runtime made, whatever the program wrote over it (zr_find_core_method).
+SEND_CORE = 8
+SEND_MODE = 7
+
 # `argv` points at `argc` Values the caller keeps rooted. `mode` is 0
 # for an implicit or self receiver, 1 for a bare identifier, 2 for an
-# explicit receiver. A builtin runs under a frame pushed here, so a
-# backtrace names it; a compiled method pushes its own. `cc` is the
-# send site's cell (cache.rb), which takes the answer, or 0 for a send
-# that has none.
+# explicit receiver, with SEND_CORE added for a send the core library
+# makes. A builtin runs under a frame pushed here, so a backtrace names
+# it; a compiled method pushes its own. `cc` is the send site's cell
+# (cache.rb), which takes the answer, or 0 for a send that has none.
 sig [Ptr, Value, Word, Word, Ptr, Word, Value] => Value
 machine def zr_dispatch(cc, recv, mid, argc, argv, mode, blk)
   kw = zr_kw_take()
   klass = zr_box_view(zr_class_of(recv))
-  e = zr_find_method(klass, mid)
+  e = 0
+  if (mode & SEND_CORE) != 0 && zr_core_class_p(klass) && ClassExt.boxed(RClass.ext(klass)) == QNIL
+    e = zr_find_core_method(klass, mid)
+  end
   if e == 0
-    return zr_method_missing(recv, mid, argc, argv, blk, kw, mode == 1 ? MISS_VCALL : (mode == 0 ? MISS_IMPLICIT : MISS_EXPLICIT))
+    e = zr_find_method(klass, mid)
+  end
+  if e == 0
+    how = mode & SEND_MODE
+    return zr_method_missing(recv, mid, argc, argv, blk, kw, how == 1 ? MISS_VCALL : (how == 0 ? MISS_IMPLICIT : MISS_EXPLICIT))
   end
   vis = zr_visibility_refused(e, mode)
   if vis != 0

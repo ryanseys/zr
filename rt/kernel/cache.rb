@@ -74,7 +74,7 @@ machine def zr_call_cache_fill(cc, klass, e, mode)
   end
   # A private or protected method refuses an explicit receiver by who
   # calls, not by the class.
-  if mode >= 2 && MEntry.vis(e) != VIS_PUBLIC
+  if (mode & SEND_MODE) >= 2 && MEntry.vis(e) != VIS_PUBLIC
     return
   end
   CallCache.set_klass(cc, klass)

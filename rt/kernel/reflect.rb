@@ -484,6 +484,7 @@ machine def zr_mod_remove_method(recv, argc, argv, cref, blk)
       return zr_raise(exc)
     end
     ext = RClass.ext(klass)
+    zr_save_core_row(ext, e)
     last = ClassExt.mtab(ext) + ((ClassExt.mlen(ext) - 1) * MEntry.size)
     if e != last
       zr_memmove(e, e + MEntry.size, last - e)
