@@ -30,17 +30,19 @@ class Time
       at_ns(Primitive.zr_clock_ns(Process::CLOCK_REALTIME), options[:in])
     end
 
-    def at(time, subsec = nil, unit = :microsecond, **options)
-      zone = options[:in]
+    # timev.rb's: a subsec of false is none.
+    def at(time, subsec = false, unit = :microsecond, in: nil)
+      Primitive.attr! :ruby
+      zone = Primitive.arg!(:in)
       if time.is_a?(Time)
-        raise ArgumentError, "wrong number of arguments (given 2, expected 1)" unless subsec.nil?
+        raise ArgumentError, "wrong number of arguments (given 2, expected 1)" unless subsec == false
 
         t = time.dup
         return zone.nil? ? t : t.localtime(zone)
       end
 
       ns = exact_ns(time, NS)
-      unless subsec.nil?
+      unless subsec == false
         scale = case unit
                 when :millisecond then 1_000_000
                 when :usec, :microsecond then 1000

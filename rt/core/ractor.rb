@@ -488,8 +488,9 @@ class Ractor
 
   # A message for the ractor: its default port holds it until the ractor
   # takes it, in the order it arrived.
-  def send(message, move: false)
-    default_port.send(message, move: move)
+  def send(...)
+    Primitive.attr! :ruby
+    default_port.send(...)
     self
   end
 

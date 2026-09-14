@@ -101,6 +101,7 @@ class TracePoint
   end
 
   def enable(target: nil, target_line: nil, target_thread: :default)
+    Primitive.attr! :ruby
     Primitive.zr_unimplemented("TracePoint#enable with a target") unless target.nil? && target_line.nil?
 
     was = enabled?
