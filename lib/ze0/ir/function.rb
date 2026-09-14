@@ -348,6 +348,14 @@ module Ze0
         hoisted(:stack_addr, slot) { Inst.new(:stack_addr, type: "i64", args: [slot]) }
       end
 
+      # A value name no instruction has used: what a pass over the finished
+      # function names a new block parameter with.
+      def value
+        v = "v#{@next_value}"
+        @next_value += 1
+        v
+      end
+
       private
 
       def reset(name, params, ret)
@@ -383,12 +391,6 @@ module Ze0
         hi = value
         emit(Inst.new(op, results: [lo, hi], args: [a, b]))
         [lo, hi]
-      end
-
-      def value
-        v = "v#{@next_value}"
-        @next_value += 1
-        v
       end
 
       def block_named(params)

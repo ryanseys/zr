@@ -12,7 +12,8 @@ module Ze0
   # and constant declarations, and `sig`-typed `machine def`s, which lower
   # straight to IR, one function per def. Types are `I8 I32 Word Ptr Value
   # F64 Bool Void`; every local takes its type from its first assignment
-  # and lives in a frame slot; a call names an import or a def of the same
+  # and lives in a frame slot, which `IR::Mem2Reg` turns into values
+  # where nothing else takes its address; a call names an import or a def of the same
   # unit, or goes through a pointer with `Machine.call`. A form outside
   # the dialect is refused by name at its line.
   module Machine
@@ -395,7 +396,7 @@ module Ze0
           ret(@d.ret == "Void" ? nil : value)
         end
         leave_roots if @roots
-        @f
+        IR::Mem2Reg.run(@f)
       end
 
       # The root frame: linked in ahead of the body, its slot count and
