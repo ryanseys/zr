@@ -1,5 +1,7 @@
 # A Time is nanoseconds since the epoch, kept in UTC, plus the zone it
-# shows itself in: UTC, a fixed offset, or the local zone libSystem
+# shows itself in. The count is exact, as CRuby keeps it: an Integer, or
+# a Rational when the Time was built from a Float or a Rational whose
+# value falls between two nanoseconds. The zone is UTC, a fixed offset, or the local zone libSystem
 # describes. Civil dates come from the proleptic Gregorian calendar
 # through the days-from-civil algorithm.
 class Time
@@ -55,28 +57,18 @@ class Time
       t
     end
 
-    # A count of `scale` nanoseconds each, as nanoseconds: a Float
-    # counts by its exact binary value, rounded down.
+    # A count of `scale` nanoseconds each, as an exact count of
+    # nanoseconds: a Float counts by its exact binary value.
     def exact_ns(value, scale)
       case value
       when Integer then value * scale
-      when Float then float_ns(value, scale)
-      when Rational then (value * scale).floor
+      when Float, Rational then canonical(value.to_r * scale)
       else raise TypeError, "can't convert #{value.class} into an exact number"
       end
     end
 
-    # floor(value * scale) for a Float, computed on the two 30-bit
-    # halves of its fraction so no step rounds.
-    def float_ns(value, scale)
-      whole = value.floor
-      fraction = value - whole
-      high = (fraction * 1_073_741_824).floor
-      low = ((fraction * 1_073_741_824 - high) * 1_073_741_824).floor
-      a = high * scale
-      b = low * scale
-      whole * scale + (a >> 30) + ((((a & 1_073_741_823) << 30) + b) >> 60)
-    end
+    # A Rational that holds a whole number is that Integer.
+    def canonical(count) = count.is_a?(Rational) && count.denominator == 1 ? count.numerator : count
 
     # A zone argument: a fixed offset, `:utc`, or a local zone with
     # the offset the calendar time resolves to.
@@ -272,15 +264,10 @@ class Time
       sec_ns = 0
       if sec.nil?
         sec = 0
-      elsif sec.is_a?(Float)
+      elsif sec.is_a?(Float) || sec.is_a?(Rational)
         raise ArgumentError, "sec out of range" if sec < 0 || sec >= 61
 
-        sec_ns = float_ns(sec - sec.floor, NS)
-        sec = sec.floor
-      elsif sec.is_a?(Rational)
-        raise ArgumentError, "sec out of range" if sec < 0 || sec >= 61
-
-        sec_ns = ((sec - sec.floor) * NS).floor
+        sec_ns = exact_ns(sec - sec.floor, NS)
         sec = sec.floor
       else
         sec = int_arg(sec, 0, 0, 60, "sec")
@@ -299,7 +286,7 @@ class Time
       case kind
       when :utc then [local_ns, :utc]
       when Integer then [local_ns - kind * NS, kind]
-      else [local_ns - local_offset_for(local_ns / NS) * NS, :local]
+      else [local_ns - local_offset_for(local_ns.div(NS)) * NS, :local]
       end
     end
 
@@ -391,20 +378,20 @@ class Time
   def wday = fields[6]
   def yday = fields[7]
 
-  def usec = (ns % NS) / 1000
+  def usec = ((ns % NS) / 1000).floor
   alias tv_usec usec
-  def nsec = ns % NS
+  def nsec = (ns % NS).floor
   alias tv_nsec nsec
   # The fraction of a second: 0 on a whole second, else a Rational.
   def subsec
     rest = ns % NS
-    rest.zero? ? 0 : Rational(rest, NS)
+    rest.zero? ? 0 : rest.quo(NS)
   end
 
   def to_i = ns.div(NS)
   alias tv_sec to_i
-  def to_f = ns.to_f / NS
-  def to_r = Rational(ns, NS)
+  def to_f = float_seconds(ns)
+  def to_r = ns.quo(NS)
 
   def utc? = kind == :utc
   alias gmt? utc?
@@ -465,13 +452,10 @@ class Time
     shifted(ns + Time.send(:exact_ns, other, NS))
   end
 
-  # Taking a number away is adding its negative, which is where a Float
-  # lands: the exact binary value of -1.3 floors one nanosecond lower
-  # than 1.3 does, and ruby answers from the negative.
   def -(other)
-    return (ns - other.send(:ns)).to_f / NS if other.is_a?(Time)
+    return float_seconds(ns - other.send(:ns)) if other.is_a?(Time)
 
-    shifted(ns + Time.send(:exact_ns, -other, NS))
+    shifted(ns - Time.send(:exact_ns, other, NS))
   end
 
   def <=>(other)
@@ -484,19 +468,21 @@ class Time
 
   def hash = ns.hash
 
-  def round(digits = 0) = rounded(digits) { |ns, unit| (ns + unit / 2).div(unit) * unit }
+  def round(digits = 0) = rounded(digits) { |ns, unit| (ns + unit.quo(2)).div(unit) * unit }
 
   def floor(digits = 0) = rounded(digits) { |ns, unit| ns.div(unit) * unit }
 
   def ceil(digits = 0) = rounded(digits) { |ns, unit| -(-ns).div(unit) * unit }
 
+  # A whole count of nanoseconds shows as digits; a fraction between two
+  # nanoseconds shows as the Rational of the second it is.
   def inspect
     text = strftime("%Y-%m-%d %H:%M:%S")
-    fraction = nsec
-    unless fraction == 0
-      digits = format("%09d", fraction)
-      digits = digits[0, digits.size - 1] while digits.end_with?("0")
-      text = "#{text}.#{digits}"
+    rest = ns % NS
+    if rest.is_a?(Rational)
+      text = "#{text} #{rest / NS}"
+    elsif rest != 0
+      text = "#{text}.#{format("%09d", rest).sub(/0+\z/, "")}"
     end
     "#{text} #{utc? ? 'UTC' : offset_shown}"
   end
@@ -628,7 +614,7 @@ class Time
   def set(at, of_kind)
     Primitive.attr! :hidden
     Primitive.zr_hidden_set(self, :__built__, true)
-    Primitive.zr_hidden_set(self, :__ns__, at)
+    Primitive.zr_hidden_set(self, :__ns__, Time.send(:canonical, at))
     Primitive.zr_hidden_set(self, :__kind__, of_kind)
     Primitive.zr_hidden_set(self, :__fields__, nil)
     if of_kind == :local
@@ -654,7 +640,6 @@ class Time
   def rounded(digits)
     Primitive.attr! :hidden
     raise ArgumentError, "negative ndigits given" if digits < 0
-    return dup if digits >= 9
 
     unit = 10**(9 - digits)
     shifted(yield(ns, unit))
@@ -755,10 +740,18 @@ class Time
     (flags.include?("0") ? "0" : " ") * (width - value.size) + value
   end
 
+  # The first `width` digits of the fraction of a second, cut, not
+  # rounded.
   def fraction(flags, width)
     Primitive.attr! :hidden
-    digits = format("%09d", nsec)
-    width <= 9 ? digits[0, width] : digits + "0" * (width - 9)
+    ((ns % NS) * 10**width / NS).floor.to_s.rjust(width, "0")
+  end
+
+  # A count of nanoseconds as a Float of seconds, divided as CRuby
+  # divides it: a whole count by the Float scale, a fraction exactly.
+  def float_seconds(count)
+    Primitive.attr! :hidden
+    count.is_a?(Rational) ? (count / NS).to_f : count / 1e9
   end
 
   def offset_text(flags, width, colons)
@@ -822,20 +815,23 @@ class Time
       tail = 1900 - year
       year = 1900
     end
-    rest = nsec
+    rest = ns % NS
+    whole = rest.floor
     word = (1 << 31) | ((utc? ? 1 : 0) << 30) | ((year - 1900) << 14) |
            ((moment.month - 1) << 10) | (moment.day << 5) | moment.hour
-    second = (moment.min << 26) | (moment.sec << 20) | (rest / 1000)
+    second = (moment.min << 26) | (moment.sec << 20) | (whole / 1000)
     out = +"".b
     4.times { |i| out << ((word >> (8 * i)) & 0xff) }
     4.times { |i| out << ((second >> (8 * i)) & 0xff) }
     out << year_tail(tail) if tail
-    nano = rest % 1000
+    # Under the microsecond: the exact rest as a pair, and its whole
+    # nanoseconds again as the digits ruby 1.9.1 wrote.
+    nano = rest - (whole - whole % 1000)
     unless nano.zero?
-      Marshal.send(:extra_set, out, :nano_num, nano)
-      Marshal.send(:extra_set, out, :nano_den, 1)
-      Marshal.send(:extra_set, out, :submicro, submicro_bytes(nano))
+      Marshal.send(:extra_set, out, :nano_num, nano.numerator)
+      Marshal.send(:extra_set, out, :nano_den, nano.denominator)
     end
+    Marshal.send(:extra_set, out, :submicro, submicro_bytes(whole % 1000)) unless (whole % 1000).zero?
     Marshal.send(:extra_set, out, :offset, utc_offset) unless utc?
     Marshal.send(:extra_set, out, :zone, zone)
     out
@@ -915,7 +911,7 @@ class Time
   # The nanoseconds under a microsecond: the exact pair where the dump
   # carries one, else the digits ruby 1.9.1 wrote.
   def self.sub_nanoseconds(extras)
-    return Rational(extras[:nano_num], extras[:nano_den] || 1).round if extras[:nano_num]
+    return Rational(extras[:nano_num], extras[:nano_den] || 1) if extras[:nano_num]
 
     digits = extras[:submicro]
     return 0 if digits.nil? || digits.empty?
