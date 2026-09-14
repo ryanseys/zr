@@ -42,6 +42,11 @@ module Ze0
 
       attr_reader :program, :unit, :symbols, :data, :functions, :file, :warnings
 
+      # Whether the program names TracePoint, so its own code fires events.
+      def traced?
+        @program.traced ? true : false
+      end
+
       # True in the core library and in an extension's ruby half: both
       # are the runtime's own code, so `Primitive` resolves there.
       def internal?

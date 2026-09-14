@@ -277,7 +277,9 @@ machine def zr_bmethod_call(e, recv, argc, argv, blk)
   p = zr_proc_under(body, recv, cref)
   RProc.set_lambda(p, 1)
   RProc.set_home(p, 0)
-  Machine.call(:block, RProc.fn(p), p, argc, argv, blk)
+  fired = zr_trace_bmethod(TRACE_CALL, e, recv, Machine.value(QNIL))
+  return fired if fired == QUNDEF
+  zr_trace_bmethod(TRACE_RETURN, e, recv, Machine.call(:block, RProc.fn(p), p, argc, argv, blk))
 end
 
 # The body of a `refine` block, under the holder module: a `def` in it

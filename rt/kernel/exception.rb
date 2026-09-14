@@ -137,6 +137,8 @@ machine def zr_raise_from(exc, top)
     return r if r == QUNDEF
     RException.set_cause(exc, cause == exc ? Machine.value(QNIL) : cause)
   end
+  fired = zr_trace_raise(exc, top)
+  return fired if fired == QUNDEF
   Task.set_pending_kind(t, PENDING_RAISE)
   Task.set_pending(t, exc)
   Machine.value(QUNDEF)

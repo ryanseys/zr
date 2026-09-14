@@ -17,6 +17,11 @@ module Ze0
       # The extensions whose native half is ours. A file here is part of
       # the runtime, so it may name a kernel def through `Primitive`.
       EXT = File.expand_path("../../../rt/ext", __dir__)
+      # The runtime's own Ruby, the core library and the extensions: code
+      # a TracePoint never sees.
+      RUNTIME = File.expand_path("../../../rt", __dir__)
+
+      def self.runtime_file?(file) = File.expand_path(file).start_with?("#{RUNTIME}/")
 
       # The ruby half of an extension, as its gem ships it. A gem is on
       # the path only once its native half answers, so a require of one
@@ -38,18 +43,20 @@ module Ze0
       # `in_method` says whether an eval's string runs inside a method,
       # where a `yield` has a block to reach.
       def self.program(source, file, roots: [], road: true, line: 1, scopes: nil, in_method: true)
-        built = lambda do |external|
-          loader = Loader.new(roots + STDLIB, eval: !road, external: external)
+        built = lambda do |external, trace|
+          loader = Loader.new(roots + STDLIB, eval: !road, external: external, trace: trace)
           [loader, loader.unit(file, source, line, scopes, in_method: in_method)]
         end
-        loader, main = built.call(nil)
-        loader, main = built.call(road) if road.respond_to?(:units) && loader.evals?
+        loader, main = built.call(nil, false)
+        over_road = road.respond_to?(:units) && loader.evals?
+        # A program that names TracePoint is built again with its events.
+        loader, main = built.call(over_road ? road : nil, loader.traces?) if over_road || loader.traces?
         preludes = []
         preludes << rbconfig(loader) if road && loader.configures?
         preludes << eval_road(loader) if road && loader.evals?
         preludes << normalizer(loader) if road && loader.normalizes?
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
-        Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries)
+        Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries, loader.tracing?)
       end
 
       # The compiler alone, as the units a road holds: the loader has
@@ -96,8 +103,10 @@ module Ze0
 
         # `external` is a road built already: a file it holds is named by
         # the entry it answers, and needs nothing the road does not.
-        def initialize(roots, eval: false, external: nil)
+        def initialize(roots, eval: false, external: nil, trace: false)
           @eval = eval
+          @trace = trace
+          @traces = false
           @roots = roots.map { |r| File.expand_path(r) }
           @units = []
           @index = external ? external.units.dup : {}
@@ -112,6 +121,12 @@ module Ze0
         # spelling the lowering resolves rather than a row it writes.
         # English.rb is where every one of them comes from.
         def back_ref(name) = @back_refs[name]
+
+        # Whether some file names TracePoint or set_trace_func, and whether
+        # this build fires the events one asks for.
+        def traces? = @traces
+        def tracing? = @trace
+        TRACE_NAMES = /\b(?:TracePoint|set_trace_func|add_trace_func)\b/
 
         # The next `using` row this program holds.
         def next_activation
@@ -261,6 +276,7 @@ module Ze0
             front ? @roots.unshift(*paths) : @roots.concat(paths)
           end
           configures! if !configures? && names_rbconfig?(result.value)
+          @traces ||= !Build.runtime_file?(file) && TRACE_NAMES.match?(source)
           build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value))
           body = build.seq(result.value.statements, hoist: true)
           Unit.new(file, result.value.locals + build.temps, body, warnings(result, file), file.start_with?("#{EXT}/"))
@@ -428,6 +444,9 @@ module Ze0
         @activations = -1
         @temps = [[]]
         @scopes = [@temps.first]
+        # The line each scope fired its last `:line` event on, in the order
+        # the compiler meets statements; ruby's last_line.
+        @last_lines = [-1]
       end
 
       # The hidden locals the toplevel scope needs.
@@ -442,11 +461,13 @@ module Ze0
         @block_depth += 1
         using = @using
         @temps.push([])
+        @last_lines.push(-1)
         yield
       ensure
         @block_depth -= 1
         @using = using
         @temps.pop
+        @last_lines.pop
       end
 
       # `body` lowered in a fresh scope: a def or a class body.
@@ -456,11 +477,13 @@ module Ze0
         @def_params = nil
         @temps.push([])
         @scopes.push(@temps.last)
+        @last_lines.push(-1)
         yield
       ensure
         @block_depth, @def_params = was
         @temps.pop
         @scopes.pop
+        @last_lines.pop
       end
 
       # A scope's locals: the parser's, then the hidden ones its body made.
@@ -656,7 +679,9 @@ module Ze0
         # every file -- can be skipped outright. Almost every file has no
         # `using` in it at all.
         made = @usings
+        traced = line_event(node)
         out = using_activation(node) || expr(node)
+        out = Seq.new([traced, out], traced.line) if traced
         mark_using(out, {}) if @using
         return out if out.is_a?(Using)
         return out if @usings == made
@@ -666,6 +691,25 @@ module Ze0
 
         line = node.location.start_line
         Seq.new([UsingDefaults.new(nested.map { |u| [u.id, u.from] }, line), out], line)
+      end
+
+      # The `:line` event ruby's compiler puts before a statement that
+      # starts a line of its scope, or nil: pm_compile_node's rule, which
+      # reads prism's newline flag. A `begin` with no statements before
+      # its rescue stands on the rescue's line.
+      def line_event(node)
+        return nil unless @loader&.tracing? && node.newline? && !Build.runtime_file?(@file)
+        # A `begin` or parentheses start with the statement inside, whose
+        # event is the one ruby merges theirs into.
+        return nil if node.is_a?(Prism::BeginNode) && node.statements
+        return nil if node.is_a?(Prism::ParenthesesNode) && node.body
+
+        line = node.location.start_line
+        line = node.rescue_clause.location.start_line if node.is_a?(Prism::BeginNode) && node.statements.nil? && node.rescue_clause
+        return nil if @last_lines.last == line
+
+        @last_lines[-1] = line
+        Trace.new(:line, line)
       end
 
       # The `using` rows a statement holds below its top, which a
@@ -747,7 +791,7 @@ module Ze0
           in_block do
             params, extra = block_params(node.parameters)
             body = node.body ? expr(node.body) : Literal.new(nil, line)
-            Lambda.new(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line), line)
+            Lambda.new(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line, node.location.end_line), line)
           end
         when Prism::ItLocalVariableReadNode then Local.new(IT, 0, line)
         when Prism::UndefNode
@@ -787,7 +831,7 @@ module Ze0
           in_definee(node.constant_path.slice, false) do
             in_scope do
               body = node.body ? expr(node.body) : Literal.new(nil, line)
-              ClassDef.new(scope, name, superclass, with_temps(node.locals), body, line)
+              ClassDef.new(scope, name, superclass, with_temps(node.locals), body, line, node.location.end_line)
             end
           end
         when Prism::ModuleNode
@@ -795,7 +839,7 @@ module Ze0
           in_definee(node.constant_path.slice, false) do
             in_scope do
               body = node.body ? expr(node.body) : Literal.new(nil, line)
-              ModuleDef.new(scope, name, with_temps(node.locals), body, line)
+              ModuleDef.new(scope, name, with_temps(node.locals), body, line, node.location.end_line)
             end
           end
         when Prism::SingletonClassNode
@@ -803,7 +847,7 @@ module Ze0
           in_definee(nil, true) do
             in_scope do
               body = node.body ? expr(node.body) : Literal.new(nil, line)
-              SingletonClassDef.new(target, with_temps(node.locals), body, line)
+              SingletonClassDef.new(target, with_temps(node.locals), body, line, node.location.end_line)
             end
           end
         when Prism::ConstantReadNode
@@ -1017,7 +1061,7 @@ module Ze0
             body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
             body = ruby_marked(body, node.location.start_line) if ruby
             locals = with_temps(node.locals + (params.names - node.locals))
-            Def.new(node.name, params, locals, body, node.location.start_line, receiver, evals?(node.body))
+            Def.new(node.name, params, locals, body, node.location.start_line, receiver, evals?(node.body), node.location.end_line)
           end
         ensure
           @in_def = was
@@ -1179,7 +1223,7 @@ module Ze0
         in_block do
           params, extra = block_params(node.parameters)
           body = node.body ? expr(node.body) : Literal.new(nil, line)
-          Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line)
+          Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line, node.location.end_line)
         end
       end
 

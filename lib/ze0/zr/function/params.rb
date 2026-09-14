@@ -129,7 +129,7 @@ module Ze0
           bad = @f.label
           @f.brif(cond, go, bad)
           switch(bad)
-          leave(yield)
+          leave(yield, opened: false)
           switch(go)
         end
 

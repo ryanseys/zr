@@ -1275,6 +1275,14 @@ module Ze0
         d zr_catch_tag_p Value tag:Value
         d zr_throw Value tag:Value value:Value
         d zr_catch Value tag:Value blk:Value
+        d zr_trace_events_set Value mask:Value
+        d zr_trace_fire Value event:Word value:Value
+        d zr_trace_raise Value exc:Value top:Ptr
+        d zr_trace_send Value rec:Ptr event:Word value:Value
+        d zr_trace_row Value event:Word value:Value meta:Ptr line:Word
+        d zr_trace_run Value row:Value
+        d zr_trace_bmethod Value event:Word e:Ptr recv:Value value:Value
+        d zr_trace_binding Value serial:Value
         d zr_xmalloc Ptr n:Word
         d zr_memory_for_p Value n:Value
         d zr_memory_exhausted Void
@@ -1511,6 +1519,9 @@ module Ze0
         c G_FSTRINGS 44
         c FL_FSTR 4194304
         c GATE_LTLT 16384
+        c TRACE_CALL 8
+        c TRACE_RETURN 16
+        c TRACE_RAISE 128
         c QFALSE 0
         c QNIL 8
         c QTRUE 20

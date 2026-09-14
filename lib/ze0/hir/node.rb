@@ -16,7 +16,9 @@ module Ze0
     # `evals` says the program carries the compiler; `entries` maps each
     # file path to its unit: an index into `units`, or the entry of a
     # road built already.
-    Program = Struct.new(:file, :locals, :body, :units, :warnings, :evals, :entries)
+    # `traced` says the program names TracePoint, so its code fires the
+    # events a TracePoint asks for.
+    Program = Struct.new(:file, :locals, :body, :units, :warnings, :evals, :entries, :traced)
     Unit = Struct.new(:file, :locals, :body, :warnings, :internal)
     # `require`, `require_relative` or `load` of a literal name: `path`
     # is the file it resolved to and `unit` that file's index, or both
@@ -66,7 +68,7 @@ module Ze0
     BlockPass = Struct.new(:value, :line)
     # A block literal: its parameters, every local of its scope
     # (parameters first), and its body.
-    Block = Struct.new(:params, :locals, :body, :line)
+    Block = Struct.new(:params, :locals, :body, :line, :end_line)
     # `-> (params) { body }`: a Block that is a lambda from the start.
     Lambda = Struct.new(:block, :line)
     # The one parameter shape: `required` and `post` are names,
@@ -141,9 +143,13 @@ module Ze0
     # `def name(params) body end`; its value is the name. `params` is a
     # Params; `receiver` is the expression of a singleton def
     # (`def self.x`, `def obj.x`), or nil.
-    Def = Struct.new(:name, :params, :locals, :body, :line, :receiver, :evals)
+    Def = Struct.new(:name, :params, :locals, :body, :line, :receiver, :evals, :end_line)
     # `depth` counts block scopes up to the one that holds the local.
     Local = Struct.new(:name, :depth, :line)
+    # The point a traced program fires a TracePoint `event` from: a
+    # `:line` event, as ruby's compiler places one where a statement
+    # starts a new line.
+    Trace = Struct.new(:event, :line)
     Assign = Struct.new(:name, :depth, :value, :line)
     # `a, (b, *c), *d, e = value`; its value is the right-hand side's.
     MultiAssign = Struct.new(:target, :value, :line)
@@ -182,11 +188,11 @@ module Ze0
     Once = Struct.new(:body, :line)
     # `class Name < superclass; body; end`. `scope` is nil for a bare
     # name, `:top` for `::Name`, else the expression before `::`.
-    ClassDef = Struct.new(:scope, :name, :superclass, :locals, :body, :line)
-    ModuleDef = Struct.new(:scope, :name, :locals, :body, :line)
+    ClassDef = Struct.new(:scope, :name, :superclass, :locals, :body, :line, :end_line)
+    ModuleDef = Struct.new(:scope, :name, :locals, :body, :line, :end_line)
     # `class << target; body; end`: the body runs with the singleton
     # class as self and as the definee.
-    SingletonClassDef = Struct.new(:target, :locals, :body, :line)
+    SingletonClassDef = Struct.new(:target, :locals, :body, :line, :end_line)
     ConstRead = Struct.new(:scope, :name, :line)
     ConstWrite = Struct.new(:scope, :name, :value, :line)
     IvarRead = Struct.new(:name, :line)

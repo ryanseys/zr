@@ -11,6 +11,7 @@ require_relative "function/regions"
 require_relative "function/params"
 require_relative "function/targets"
 require_relative "function/defined"
+require_relative "function/tracing"
 
 module Ze0
   module Zr
@@ -39,6 +40,7 @@ module Ze0
       include Params
       include Targets
       include Defined
+      include Tracing
 
       KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK", eval: "KIND_EVAL" }.freeze
       ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64], eval: %w[i64 i64 i64] }.freeze
@@ -81,6 +83,7 @@ module Ze0
         @f = IR::Function.new(@name, ABI.fetch(@kind), "i64")
         enter
         bind_params
+        trace_open
         if @kind == :block
           @body_label = @f.label
           @f.jump(@body_label)
@@ -240,7 +243,7 @@ module Ze0
           take(kernel("zr_catch_return", @rec))
         end
         take(kernel("zr_catch_return_here")) if @kind == :def && @def&.evals
-        leave(qundef)
+        leave(qundef, unwinding: true)
       end
 
       # The value a landing block answers when the catch it just ran
@@ -273,7 +276,10 @@ module Ze0
         (keywords?(p) ? 1 : 0) + nested
       end
 
-      def leave(value)
+      # The scope leaves with `value`, firing its closing event first
+      # unless it never opened: an arity error leaves before the event.
+      def leave(value, unwinding: false, opened: true, line: nil)
+        value = trace_close(value, unwinding, line) if opened
         @f.store(@prev, @task_addr, off(@task, "top"))
         @f.ret(value)
       end

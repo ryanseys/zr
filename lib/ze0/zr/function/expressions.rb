@@ -11,6 +11,7 @@ module Ze0
         def expr(node)
           case node
           when Hir::Seq then seq(node)
+          when Hir::Trace then trace_line(node)
           when Hir::Literal then literal(node)
           when Hir::SelfRef then @self
           when Hir::Core then kernel("zr_core_class", imm(sym_id(node.name)))

@@ -165,7 +165,7 @@ module Ze0
               checked(kernel("zr_return", @proc, v))
             end
           else
-            leave(through_ensures(v))
+            leave(through_ensures(v), line: node.line)
           end
           @qnil
         end
