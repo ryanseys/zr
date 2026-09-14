@@ -506,22 +506,71 @@ class Numeric
   end
   private_class_method :half_mode, :int_operand
 
-  # `step(limit, step)` or `step(by:, to:)`: an ArithmeticSequence, or
+  # num_step: `step(limit, step)` or `step(to:, by:)`. Without a block,
+  # an ArithmeticSequence over numbers, else an Enumerator; with one,
   # each value up to `limit`. A Float anywhere makes every value a
   # Float, spaced as CRuby's float step is.
-  def step(limit = nil, step = nil, by: nil, to: nil, &block)
-    raise ArgumentError, "to is given twice" if to && !limit.nil?
-    raise ArgumentError, "step is given twice" if by && !step.nil?
+  def step(*args, **kwargs, &block)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
 
-    limit = to if to
-    step = by if by
-    raise ArgumentError, "step can't be 0" if step == 0 && !by.nil?
+    unknown = kwargs.keys - %i[to by]
+    raise ArgumentError, "unknown keyword#{'s' if unknown.size > 1}: #{unknown.map(&:inspect).join(', ')}" unless unknown.empty?
+
+    limit, step = args
+    if kwargs.key?(:to)
+      raise ArgumentError, "to is given twice" unless args.empty?
+
+      limit = kwargs[:to]
+    end
+    if kwargs.key?(:by)
+      raise ArgumentError, "step is given twice" if args.size > 1
+
+      step = kwargs[:by]
+    elsif block && args.size > 1 && step.nil?
+      raise TypeError, "step must be numeric"
+    end
+    raise ArgumentError, "step can't be 0" if !step.nil? && step == 0
+
     step = 1 if step.nil?
-    raise ArgumentError, "step can't be 0" if step == 0
-    raise ArgumentError, "step must be numeric" unless step.is_a?(Numeric)
-    return Enumerator::ArithmeticSequence.for(self, limit, step, false) unless block
+    unless block
+      numeric = (limit.nil? || limit.is_a?(Numeric)) && step.is_a?(Numeric)
+      return Enumerator::ArithmeticSequence.for(self, :step, args, kwargs, self, limit, step, false) if numeric
 
-    Enumerator::ArithmeticSequence.for(self, limit, step, false).each(&block)
+      return to_enum(:step, limit, step)
+    end
+
+    stepping(limit, step, &block)
     self
+  end
+
+  private
+
+  # num_step's walk: a missing limit is an infinite one in the step's
+  # direction, a Float anywhere walks as ruby_float_step does, and any
+  # other value is compared with the limit before each yield.
+  def stepping(limit, step)
+    Primitive.attr! :hidden
+    descending = if step.is_a?(Integer) then step.negative?
+                 elsif step.respond_to?(:>) then !(step > 0)
+                 else raise TypeError, "#{step.class} can't be coerced into Integer"
+                 end
+    limit = descending ? -Float::INFINITY : Float::INFINITY if limit.nil?
+    endless = step == 0 || (limit.is_a?(Float) && limit.infinite? && (limit.negative? ? descending : !descending))
+    whole = is_a?(Integer) && step.is_a?(Integer) && (endless || limit.is_a?(Integer))
+    if !whole && (is_a?(Float) || limit.is_a?(Float) || step.is_a?(Float))
+      return Enumerator::ArithmeticSequence.for(self, :step, [], {}, self, limit, step, false).each { |v| yield v }
+    end
+
+    i = self
+    if endless
+      while true
+        yield i
+        i += step
+      end
+    end
+    until descending ? i < limit : i > limit
+      yield i
+      i += step
+    end
   end
 end

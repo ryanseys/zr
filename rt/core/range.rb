@@ -210,7 +210,7 @@ class Range
     n = if @end.is_a?(Float)
           return Float::INFINITY if @end.infinite? && @end > 0
 
-          Enumerator::ArithmeticSequence.for(@begin, @end, 1, @excl, self).size
+          Enumerator::ArithmeticSequence.for(self, :step, [], {}, @begin, @end, 1, @excl).size
         else
           delta = @end - @begin
           whole = delta.floor
@@ -262,24 +262,44 @@ class Range
   alias member? include?
   def ===(v) = covers_value?(v)
 
-  def step(n = 1, &block)
-    return stepped(n, :step, &block) if @begin.is_a?(String) || @begin.is_a?(Symbol) || (@begin.nil? && (@end.is_a?(String) || @end.is_a?(Symbol)))
-    return added(n, &block) unless @begin.is_a?(Numeric) && (@end.nil? || @end.is_a?(Numeric)) && n.is_a?(Numeric)
-    raise ArgumentError, "step can't be 0" if n.zero?
-    raise ArgumentError, "#step iteration for beginless ranges is meaningless" if @begin.nil? && block
+  def step(*args, &block)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
 
-    seq = Enumerator::ArithmeticSequence.for(@begin, @end, n, @excl, self)
-    return seq unless block
+    stride(args, :step, &block)
+  end
 
-    seq.each(&block)
+  def %(n, &block) = stride([n], :%, &block)
+
+  # range_step, which `%` shares: a numeric range with a numeric step
+  # and no block is an ArithmeticSequence, a beginless one among them;
+  # every other walk adds the step to each value in turn.
+  def stride(args, name, &block)
+    Primitive.attr! :hidden
+    textual = @begin.is_a?(String) || @begin.is_a?(Symbol)
+    if args.empty? && !(@begin.is_a?(Numeric) || textual || (@begin.nil? && @end.is_a?(Numeric)))
+      raise ArgumentError, "step is required for non-numeric ranges"
+    end
+
+    n = args.empty? ? 1 : args[0]
+    numeric = n.is_a?(Numeric)
+    raise ArgumentError, "step can't be 0" if numeric && @begin.is_a?(Numeric) && n == 0
+
+    sequence = numeric && ((@begin.is_a?(Numeric) && (@end.nil? || @end.is_a?(Numeric))) || (@begin.nil? && @end.is_a?(Numeric)))
+    return Enumerator::ArithmeticSequence.for(self, name, args, {}, @begin, @end, n, @excl) if sequence && !block
+    return stepped(n, name, &block) if textual || (@begin.nil? && (@end.is_a?(String) || @end.is_a?(Symbol)))
+    raise ArgumentError, "#step for non-numeric beginless ranges is meaningless" if @begin.nil? && !block
+    raise ArgumentError, "#step iteration for beginless ranges is meaningless" if @begin.nil?
+    return added(n, name, &block) unless sequence
+
+    Enumerator::ArithmeticSequence.for(self, name, args, {}, @begin, @end, n, @excl).each(&block)
     self
   end
 
   # A step of any kind: each value is the last plus the step, until
   # the end.
-  def added(n)
+  def added(n, name)
     Primitive.attr! :hidden
-    return to_enum(:step, n) unless block_given?
+    return to_enum(name, n) unless block_given?
     raise ArgumentError, "#step iteration for beginless ranges is meaningless" if @begin.nil?
 
     v = @begin
@@ -289,17 +309,11 @@ class Range
     end
     self
   end
-  def %(n, &block)
-    return stepped(n, :%, &block) if @begin.is_a?(String) || @begin.is_a?(Symbol) || (@begin.nil? && (@end.is_a?(String) || @end.is_a?(Symbol)))
-
-    step(n, &block)
-  end
-
   # Every `n`th element of a String range, by succ; the checks wait for
   # the walk.
   def stepped(n, name, &block)
     Primitive.attr! :hidden
-    return added(n, &block) unless n.is_a?(Integer)
+    return added(n, name, &block) unless n.is_a?(Integer)
     return to_enum(name, n) unless block
     raise ArgumentError, "step can't be negative" if n < 0
     raise ArgumentError, "step can't be 0" if n == 0

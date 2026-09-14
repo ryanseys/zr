@@ -466,6 +466,14 @@ machine def zr_ary_aref(recv, argc, argv, cref, blk)
     end
     return zr_ary_subseq(recv, Machine.load64(out, 0), Machine.load64(out, 8))
   end
+  # An ArithmeticSequence slices with its stride.
+  if !zr_special_p(first) && !zr_float_p(first)
+    seq = zr_const_get_at(zr_core_class(Machine.id(:Enumerator)), Machine.id(:ArithmeticSequence))
+    return seq if seq == QUNDEF
+    if zr_is_a(first, seq)
+      return zr_send(recv, Machine.id(:stride_slice), 1, argv)
+    end
+  end
   r = zr_index_operand(first, out)
   return r if r == QUNDEF
   zr_ary_at(recv, Machine.load64(out, 0))

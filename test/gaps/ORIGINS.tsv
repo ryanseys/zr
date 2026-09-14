@@ -2,7 +2,6 @@ gaps/ffi_libc_call.rb	aot/ffi_libc_call.rb
 gaps/openssl_digest.rb	aot/openssl_digest.rb
 gaps/socket_loopback.rb	aot/socket_loopback.rb
 gaps/zlib_roundtrip.rb	aot/zlib_roundtrip.rb
-gaps/arithmetic_sequence_rows.rb	compiler/builtins/arithmetic_sequence_rows.rb
 gaps/tracepoint_reflection_rows.rb	compiler/builtins/tracepoint_reflection_rows.rb
 gaps/a_snippet_reaches_its_callers_block.rb	compiler/cache/a_snippet_reaches_its_callers_block.rb
 gaps/a_snippet_refines_and_uses_at_run_time.rb	compiler/cache/a_snippet_refines_and_uses_at_run_time.rb

@@ -282,99 +282,196 @@ module Kernel
 end
 
 # `1.step(10, 3)` and `(1..10).step(3)` without a block: an Enumerator
-# that also answers its bounds and step.
+# that also answers its bounds and step, CRuby's enumerator.c arith_seq.
+# It keeps the call that made it, which `inspect` replays.
 class Enumerator::ArithmeticSequence < Enumerator
   attr_reader :begin, :end, :step
 
-  def self.for(first, last, step, exclude_end, range = nil)
+  # rb_arith_seq_new: `receiver.method(*args, **kwargs)` made the sequence
+  # from `first` to `last` by `step`.
+  def self.for(receiver, method, args, kwargs, first, last, step, exclude_end)
     Primitive.attr! :hidden
     seq = allocate
-    seq.send(:sequence, first, last, step, exclude_end, range)
+    seq.send(:sequence, [receiver, method, args, kwargs], first, last, step, exclude_end)
     seq
   end
 
   def exclude_end? = @exclude_end
 
+  # arith_seq_each: a Float anywhere walks as ruby_float_step does;
+  # otherwise the last element is computed first, and the walk stops
+  # there.
   def each(&block)
     return self unless block
-    return float_each(&block) if float?
+    return float_walk(float_count, &block) if float?
 
-    i = @begin
-    if @step > 0
-      while @end.nil? || (@exclude_end ? i < @end : i <= @end)
-        yield i
-        i += @step
+    c = @begin
+    if @end.nil?
+      while true
+        yield c
+        c += @step
+      end
+    end
+    while @step == 0
+      yield c
+    end
+    last = last_element
+    if @step < 0
+      while c >= last
+        yield c
+        c += @step
       end
     else
-      while @end.nil? || (@exclude_end ? i > @end : i >= @end)
-        yield i
-        i += @step
+      while last >= c
+        yield c
+        c += @step
       end
     end
     self
   end
 
+  # arith_seq_size: counted, never walked.
   def size
+    if float?
+      n = float_count
+      return n.infinite? ? n : n.to_i
+    end
     return Float::INFINITY if @end.nil?
-    return float_size if float?
 
-    span = @end - @begin
-    n = span / @step
-    n -= 1 if @exclude_end && span % @step == 0
-    n < 0 ? 0 : n + 1
+    step = @step.is_a?(Numeric) ? @step : to_integer(@step)
+    return Float::INFINITY if step == 0
+
+    len_1 = (@end - @begin).div(step)
+    return 0 if len_1.negative?
+
+    @exclude_end && @begin + (step * len_1) == @end ? len_1 : len_1 + 1
   end
 
+  # arith_seq_first: `begin` itself, unless the sequence is empty; with a
+  # count, a walk.
   def first(n = (none = true))
-    return take(n) unless none
+    return taken(n) unless none
+    return nil if @begin.nil?
 
-    each { |v| return v }
-    nil
+    unless @end.nil?
+      direction = @step <=> 0
+      return nil if direction.positive? && @begin > @end
+      return nil if direction.negative? && @begin < @end
+    end
+    @begin
   end
 
+  private
+
+  # arith_seq_take: a Float anywhere takes as the walk does.
+  def taken(n)
+    Primitive.attr! :hidden
+    n = implicit_integer(n)
+    raise ArgumentError, "attempt to take negative size" if n.negative?
+    return [] if n.zero?
+    if float?
+      out = []
+      float_walk([n, float_count].min) { |d| out << d }
+      return out
+    end
+
+    out = []
+    each do |v|
+      out << v
+      break if out.size == n
+    end
+    out
+  end
+
+  public
+
+  # arith_seq_last: computed from the four parts, not walked.
   def last(n = (none = true))
-    all = to_a
-    none ? all.last : all.last(n)
+    raise RangeError, "cannot get the last element of endless arithmetic sequence" if @end.nil?
+
+    len_1 = idiv(@end - @begin, @step)
+    return none ? nil : [] if len_1.negative?
+
+    last = @begin + (@step * len_1)
+    adjusted = @exclude_end && last == @end
+    last -= @step if adjusted
+    return last if none
+
+    count = adjusted ? len_1 : len_1 + 1
+    n = to_integer(n)
+    n = count if n > count
+    raise ArgumentError, "negative array size" if n.negative?
+
+    out = []
+    value = last - (@step * n)
+    n.times { out << (value += @step) }
+    out
   end
 
   def ==(other)
-    other.is_a?(Enumerator::ArithmeticSequence) && @begin == other.begin && @end == other.end && @step == other.step && @exclude_end == other.exclude_end?
+    other.is_a?(Enumerator::ArithmeticSequence) && @begin == other.begin && @end == other.end && @step == other.step &&
+      @exclude_end == other.exclude_end?
   end
   alias eql? ==
   alias === ==
 
-  def hash = [@begin, @end, @step, @exclude_end].hash
+  def hash = [@exclude_end, @begin, @end, @step].hash
 
+  # arith_seq_inspect: the call again, a Range receiver in parentheses,
+  # and keywords as a call spells them.
   def inspect
-    return "((#{@range.inspect}).step(#{@step}))" if @range
-
-    "(#{@begin.inspect}.step(#{@end.inspect}#{@step == 1 ? '' : ", #{@step.inspect}"}))"
+    receiver, method, args, kwargs = @call
+    shown = receiver.is_a?(Range) ? "(#{receiver})" : receiver.to_s
+    parts = args.map(&:inspect) + kwargs.map { |key, value| "#{key}: #{value.inspect}" }
+    "(#{shown}.#{method}#{"(#{parts.join(', ')})" unless parts.empty?})"
   end
 
   private
+
+  def sequence(call, first, last, step, exclude_end)
+    Primitive.attr! :hidden
+    @call = call
+    @begin = first
+    @end = last
+    @step = step
+    @exclude_end = exclude_end
+    @receiver = self
+    @method = :each
+    @args = []
+    @kwargs = {}
+    @size = nil
+  end
 
   def float?
     Primitive.attr! :hidden
     @begin.is_a?(Float) || @end.is_a?(Float) || @step.is_a?(Float)
   end
 
-  # CRuby's float step: the count allows for rounding in the last
-  # value, and each value is `begin + i * step`, held to `end`.
-  def float_size
+  # The last element a whole walk would reach: `begin` plus as many whole
+  # steps as fit, one fewer where an excluded end is met exactly.
+  def last_element
     Primitive.attr! :hidden
-    count = float_count
-    count.infinite? ? count : count.to_i
+    last = @begin + (@step * idiv(@end - @begin, @step))
+    @exclude_end && last == @end ? last - @step : last
   end
 
-  # The count as a Float, the way CRuby's ruby_float_step_size keeps
-  # it: NaN and infinity travel through, so the walk reads them as
+  # num_idiv: a quotient taken down to a whole number.
+  def idiv(a, b)
+    Primitive.attr! :hidden
+    q = a.is_a?(Integer) ? a.div(b) : a / b
+    q.is_a?(Integer) ? q : q.floor
+  end
+
+  # ruby_float_step_size: the count allows for rounding in the last
+  # value. NaN and infinity travel through, so the walk reads them as
   # nothing to do and forever, and `size` reports them as ruby does.
   def float_count
     Primitive.attr! :hidden
     first = @begin.to_f
-    last = @end.to_f
     unit = @step.to_f
+    last = @end.nil? ? (unit < 0 ? -Float::INFINITY : Float::INFINITY) : @end.to_f
     return Float::INFINITY if unit == 0
-    return (unit > 0 ? first <= last : first >= last) ? 1 : 0 if unit.infinite?
+    return (unit > 0 ? first <= last : first >= last) ? 1.0 : 0.0 if unit.infinite?
 
     n = (last - first) / unit
     return n if n.nan? || n.infinite? == 1
@@ -395,41 +492,27 @@ class Enumerator::ArithmeticSequence < Enumerator
     (n + 1).to_f
   end
 
-  def float_each
+  # ruby_float_step: `count` values, each `begin + i * step`, held to the
+  # end.
+  def float_walk(count)
     Primitive.attr! :hidden
     first = @begin.to_f
     unit = @step.to_f
-    if @end.nil?
+    last = @end.nil? ? (unit < 0 ? -Float::INFINITY : Float::INFINITY) : @end.to_f
+    if unit.infinite?
+      yield first if count.positive?
+    elsif unit == 0
+      yield first while true
+    else
       i = 0
-      while true
-        yield first + i * unit
+      while i < count
+        d = i * unit + first
+        d = last if unit >= 0 ? last < d : d < last
+        yield d
         i += 1
       end
     end
-    last = @end.to_f
-    count = float_count
-    i = 0
-    while i < count
-      d = i * unit + first
-      d = last if unit >= 0 ? last < d : d < last
-      yield d
-      i += 1
-    end
     self
-  end
-
-  def sequence(first, last, step, exclude_end, range)
-    Primitive.attr! :hidden
-    @begin = first
-    @end = last
-    @step = step
-    @exclude_end = exclude_end
-    @range = range
-    @receiver = self
-    @method = :each
-    @args = []
-    @kwargs = {}
-    @size = nil
   end
 end
 

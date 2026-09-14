@@ -1030,6 +1030,59 @@ end
 class Array
   private
 
+  # `self[seq]` for an ArithmeticSequence, as rb_arithmetic_sequence_beg_len_step
+  # bounds it and rb_ary_subseq_step reads it: a stride past 1 either way
+  # raises where a Range would answer nil.
+  def stride_slice(seq)
+    Primitive.attr! :hidden
+    first = seq.begin
+    last = seq.end
+    excl = seq.exclude_end?
+    step = seq.step.nil? ? 1 : Primitive.zr_index_operand_m(seq.step)
+    if step.negative?
+      if excl && !last.nil?
+        last = Primitive.zr_index_operand_m(last) + 1
+        excl = false
+      end
+      first, last = last, first
+    end
+    count = size
+    from = first.nil? ? 0 : Primitive.zr_index_operand_m(first)
+    to = last.nil? ? -1 : Primitive.zr_index_operand_m(last)
+    excl = false if last.nil?
+    strict = step < -1 || step > 1
+    if from.negative?
+      from += count
+      raise RangeError, "#{seq.inspect} out of range" if from.negative? && strict
+      return nil if from.negative?
+    end
+    to += count if to.negative?
+    to += 1 unless excl
+    if strict
+      raise RangeError, "#{seq.inspect} out of range" if from > count || to - from > count
+    else
+      return nil if from > count
+
+      to = count if to > count
+    end
+    len = to - from
+    len = 0 if len.negative?
+    len = count - from if count < from + len
+    return [] if len.zero?
+    raise ArgumentError, "slice step cannot be zero" if step.zero?
+    return self[from, len] if step == 1
+    return [self[from]] if step.positive? && step >= len
+
+    step = -len if step < -len
+    at = from + (step.positive? ? 0 : len - 1)
+    out = []
+    ((len + step.abs - 1) / step.abs).times do
+      out << self[at]
+      at += step
+    end
+    out
+  end
+
   # How many elements meet the criterion, or with `negate` how many fail
   # it, counted until `enough` do.
   def meeting(pattern, block, enough, negate: false)
