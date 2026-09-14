@@ -932,6 +932,9 @@ int onig_set_match_stack_limit_size P_((unsigned int size));
 /* ze0: the nanoseconds the matches that follow may take, 0 for no limit */
 ONIG_EXTERN
 void onig_ze0_set_time_limit P_((unsigned long long nanoseconds));
+/* ze0: the warnings the last parses gave, copied into out and forgotten */
+ONIG_EXTERN
+int onig_ze0_take_warnings P_((char* out, int capa));
 ONIG_EXTERN
 unsigned long onig_get_retry_limit_in_match P_((void));
 ONIG_EXTERN

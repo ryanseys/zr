@@ -57,14 +57,15 @@ class Regexp
     Primitive.zr_frozen_error(self) if frozen?
     raise TypeError, "already initialized regexp" unless Primitive.zr_regexp_source(self).nil?
 
-    if source.is_a?(Regexp)
+    copied = source.is_a?(Regexp)
+    if copied
       Primitive.zr_warn_here_m("flags ignored") unless options.nil?
       options = source.options
       source = source.source
     end
     raise TypeError, "no implicit conversion of #{conversion_name(source)} into String" unless source.is_a?(String)
 
-    Regexp.send(:seat, self, source, Regexp.send(:option_bits, options))
+    Regexp.send(:seat, self, source, Regexp.send(:option_bits, options), warns: !copied)
     Primitive.zr_regexp_limit_set(self, Regexp.send(:nanoseconds, timeout))
     self
   end
@@ -86,9 +87,11 @@ class Regexp
   private_class_method :option_bits
 
   # A literal's Regexp, for the kernel's literal table. A flag letter
-  # that names an encoding pins the pattern to it.
+  # that names an encoding pins the pattern to it. What the pattern
+  # warns of, the compiler printed as the file started, as ruby's parser
+  # does.
   def self.literal(source, bits, pinned)
-    pin(compile_source(source, bits), pinned)
+    pin(compile_source(source, bits, warns: false), pinned)
   end
   private_class_method :literal
 
@@ -107,21 +110,20 @@ class Regexp
 
   # `source` compiled with the option `bits`, seated in the husk `re`; a
   # RegexpError names the reason, then the pattern as written with its
-  # flags.
-  def self.seat(re, source, bits)
+  # flags. A pattern that `warns` prints what the engine warned of.
+  def self.seat(re, source, bits, warns: true)
     source = source.dup.freeze unless source.frozen?
     written = "/#{source}/#{(bits & MULTILINE != 0 ? 'm' : '')}#{(bits & IGNORECASE != 0 ? 'i' : '')}#{(bits & EXTENDED != 0 ? 'x' : '')}"
     raise RegexpError, "upper is smaller than lower in repeat range: #{written}" if inverted_interval?(source)
 
-    Pattern.bare_properties(source).each do |letter|
-      Primitive.zr_warn_here_m("invalid Unicode Property \\#{letter}: /#{source}/")
-    end
     begin
       text = Pattern.engine_text(source, bits & EXTENDED != 0, binary_pattern?(source, bits))
     rescue RegexpError => e
       raise RegexpError, "#{e.message}: #{written}"
     end
     result = Primitive.zr_regexp_seat(re, text.frozen? ? text : text.dup.freeze, source, bits)
+    warnings = Primitive.zr_regexp_warnings
+    warn_of(warnings, source) if warns
     if result.is_a?(Array)
       code, at = result
       reason = (ERRORS[code] || "regexp error #{code}").sub("%n", at.to_s)
@@ -133,7 +135,7 @@ class Regexp
 
   # A Regexp of this class over `source`: the husk and its pattern in
   # one step, which the literal table and the copies ask for.
-  def self.compile_source(source, bits) = seat(allocate, source, bits)
+  def self.compile_source(source, bits, warns: true) = seat(allocate, source, bits, warns: warns)
   private_class_method :compile_source
 
   # Whether the engine reads the pattern as bytes: its own encoding says
@@ -142,6 +144,24 @@ class Regexp
     Primitive.attr! :hidden
     source.encoding == Encoding::BINARY || (bits & NOENCODING != 0 && Pattern.past_ascii?(source))
   end
+
+  # What the engine warned of as it compiled `source`, each warning
+  # naming the pattern as written. One ruby gives only when verbose
+  # waits for $VERBOSE.
+  def self.warn_of(warnings, source)
+    Primitive.attr! :hidden
+    Pattern.bare_properties(source).each do |letter|
+      Primitive.zr_warn_here_m("invalid Unicode Property \\#{letter}: /#{source}/")
+    end
+    warnings&.each_line(chomp: true) do |line|
+      next if line.start_with?("V") && !$VERBOSE
+
+      message = line[1..]
+      message = "#{message[0, message.index(': /')]}: /#{source}/" if message.include?(": /")
+      Primitive.zr_warn_here_m(message)
+    end
+  end
+  private_class_method :warn_of
 
   # A dup or clone compiles its own pattern from the same source.
   # rb_reg_init_copy: what `dup` and `clone` fill a husk with -- the

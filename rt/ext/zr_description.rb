@@ -1028,6 +1028,8 @@ module Ze0
         d zr_regexp_alloc Value klass:Value
         d zr_regexp_copy_from Value re:Value other:Value
         d zr_regexp_seat Value re:Value source:Value shown:Value options:Value
+        d zr_regexp_warnings Value
+        d zr_regexp_take_warnings Word
         d zr_regexp_recompile Value re:Value text:Value
         d zr_regexp_reg_for Ptr re:Value str:Value
         d zr_regexp_literal Value index:Word bytes:Ptr len:Word options:Word pinned:Word

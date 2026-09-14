@@ -279,7 +279,7 @@ module Ze0
           @traces ||= !Build.runtime_file?(file) && TRACE_NAMES.match?(source)
           build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value))
           body = build.seq(result.value.statements, hoist: true)
-          Unit.new(file, result.value.locals + build.temps, body, warnings(result, file), file.start_with?("#{EXT}/"))
+          Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings, file.start_with?("#{EXT}/"))
         end
 
         # The SyntaxError an eval's string raises for a `yield` outside any
@@ -447,7 +447,12 @@ module Ze0
         # The line each scope fired its last `:line` event on, in the order
         # the compiler meets statements; ruby's last_line.
         @last_lines = [-1]
+        @warnings = []
       end
+
+      # The warnings ruby's compiler gives for the file's regexp literals,
+      # after the parser's own.
+      attr_reader :warnings
 
       # The hidden locals the toplevel scope needs.
       def temps = @temps.first
@@ -631,21 +636,30 @@ module Ze0
         node.once? ? RegexpOnce.new(made, line) : made
       end
 
+      # Stands in for $stderr while a check compiles a pattern, and keeps
+      # what the engine writes there.
+      class Written < String
+        def write(*parts) = parts.sum { |part| concat(part.to_s) && part.to_s.bytesize }
+      end
+
       def regexp_literal(node, line)
         pinned = regexp_encoding(node)
         # `n` reads the pattern as bytes, so an escape past ASCII is
         # legal there and nowhere else; the check must read it that way.
         held = node.unescaped.dup.force_encoding(node.ascii_8bit? ? ::Encoding::BINARY : (pinned || node.unescaped.encoding))
+        written = Written.new
         begin
-          # The program warns of what the pattern holds as it runs; the
-          # check stays quiet.
-          verbose, $VERBOSE = $VERBOSE, nil
+          # What the engine warns of, the file prints as it starts.
+          stderr, $stderr = $stderr, written
+          verbose, $VERBOSE = $VERBOSE, false
           Regexp.new(held, regexp_options(node) & 7)
         rescue RegexpError => e
           refuse(node, "#{e.message.sub(/: \/.*\z/m, "")}: /#{node.unescaped}/")
         ensure
+          $stderr = stderr
           $VERBOSE = verbose
         end
+        written.scan(/warning: (.*)$/) { |(message)| @warnings << "#{@file}:#{line}: warning: #{message}" }
         RegexpLit.new(node.unescaped, regexp_options(node), pinned, line)
       end
 

@@ -12,6 +12,7 @@ Machine.import "onig_region_free", [Ptr, I32] => Void
 Machine.import "onig_number_of_captures", [Ptr] => I32
 Machine.import "onig_foreach_name", [Ptr, Ptr, Ptr] => I32
 Machine.import "onig_ze0_set_time_limit", [Word] => Void
+Machine.import "onig_ze0_take_warnings", [Ptr, I32] => I32
 ONIG_MISMATCH = 0 - 1
 ONIGERR_TIME_LIMIT_OVER = 0 - 20
 
@@ -97,6 +98,22 @@ machine def zr_regexp_seat(re, source, shown, options)
   re
 end
 
+# The warnings the engine gave as it compiled the last pattern, one to
+# a line, or nil for none.
+sig [] => Value
+machine def zr_regexp_warnings
+  n = zr_regexp_take_warnings()
+  n == 0 ? Machine.value(QNIL) : zr_str_new(Machine.static(:onig_warnings, 2048), n)
+end
+
+# Takes the engine's warnings from it, answering how many bytes they
+# hold. A pattern compiled again for a copy or a twin warns of nothing
+# its first compile did not, so those compiles drop theirs.
+sig [] => Word
+machine def zr_regexp_take_warnings
+  Machine.word(onig_ze0_take_warnings(Machine.static(:onig_warnings, 2048), Machine.i32(2048)))
+end
+
 # A copy's own compiled pattern, from the engine text the core rebuilds
 # for it; the text compiled once already, so it compiles again.
 sig [Value, Value] => Value
@@ -108,6 +125,7 @@ machine def zr_regexp_recompile(re, text)
   Machine.store64(info, 16, 0)
   enc = zr_str_wide_p(text) ? Machine.extern(:OnigEncodingUTF8) : Machine.extern(:OnigEncodingASCII)
   onig_new(reg, RString.ptr(text), RString.ptr(text) + RString.len(text), Machine.i32(RRegexp.options(re) & 7), enc, Machine.extern(:OnigSyntaxRuby), info)
+  zr_regexp_take_warnings()
   RRegexp.set_text(re, text)
   RRegexp.set_alt(re, 0)
   RRegexp.set_reg(re, Machine.ptr(Machine.load64(reg, 0)))
@@ -132,6 +150,7 @@ machine def zr_regexp_reg_for(re, str)
     text = RRegexp.text(re)
     enc = zr_str_wide_p(str) ? Machine.extern(:OnigEncodingUTF8) : Machine.extern(:OnigEncodingASCII)
     r = onig_new(reg, RString.ptr(text), RString.ptr(text) + RString.len(text), Machine.i32(RRegexp.options(re) & 7), enc, Machine.extern(:OnigSyntaxRuby), info)
+    zr_regexp_take_warnings()
     # The text may hold bytes the other encoding refuses, and then the
     # pattern it already has is the only one there is.
     if r != Machine.i32(0)

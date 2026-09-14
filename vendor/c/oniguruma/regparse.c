@@ -246,6 +246,41 @@ typedef enum {
   CV_CPROP
 } CVAL;
 
+/* ze0: a parse keeps the warnings it gives, for the runtime to read
+   after it: each on a line of its own that starts with 'W', or with 'V'
+   for one ruby gives only when $VERBOSE is true. A warning past the room
+   left is lost. */
+static char ze0_warnings[2048];
+static int ze0_warnings_len = 0;
+
+static void
+ze0_keep_warning(char kind, const char* s)
+{
+  int n = (int )strlen(s);
+
+  if (ze0_warnings_len + n + 2 > (int )sizeof(ze0_warnings)) return ;
+  ze0_warnings[ze0_warnings_len++] = kind;
+  memcpy(ze0_warnings + ze0_warnings_len, s, n);
+  ze0_warnings_len += n;
+  ze0_warnings[ze0_warnings_len++] = '\n';
+}
+
+static void ze0_warn(const char* s) { ze0_keep_warning('W', s); }
+static void ze0_verb_warn(const char* s) { ze0_keep_warning('V', s); }
+
+#define DEFAULT_WARN_FUNCTION       ze0_warn
+#define DEFAULT_VERB_WARN_FUNCTION  ze0_verb_warn
+
+extern int
+onig_ze0_take_warnings(char* out, int capa)
+{
+  int n = ze0_warnings_len < capa ? ze0_warnings_len : capa;
+
+  memcpy(out, ze0_warnings, n);
+  ze0_warnings_len = 0;
+  return n;
+}
+
 extern void onig_null_warn(const char* s ARG_UNUSED) { }
 
 #ifdef DEFAULT_WARN_FUNCTION
@@ -8570,24 +8605,26 @@ assign_quantifier_body(Node* qnode, Node* target, int group, ParseEnv* env)
         case RQ_ASIS:
           break;
 
+        /* ze0: both warn whatever $VERBOSE says, in Onigmo's words. */
         case RQ_DEL:
-          if (onig_verb_warn != onig_null_warn) {
+          if (onig_warn != onig_null_warn) {
             onig_snprintf_with_pattern(buf, WARN_BUFSIZE, env->enc,
                                   env->pattern, env->pattern_end,
-                                  "redundant nested repeat operator");
-            (*onig_verb_warn)((char* )buf);
+                                  "regular expression has redundant nested repeat operator '%s'",
+                                  PopularQStr[targetq_num]);
+            (*onig_warn)((char* )buf);
           }
           goto warn_exit;
           break;
 
         default:
-          if (onig_verb_warn != onig_null_warn) {
+          if (onig_warn != onig_null_warn) {
             onig_snprintf_with_pattern(buf, WARN_BUFSIZE, env->enc,
                                        env->pattern, env->pattern_end,
-                   "nested repeat operator %s and %s was replaced with '%s'",
+                   "nested repeat operator '%s' and '%s' was replaced with '%s' in regular expression",
             PopularQStr[targetq_num], PopularQStr[nestq_num],
             ReduceQStr[ReduceTypeTable[targetq_num][nestq_num]]);
-            (*onig_verb_warn)((char* )buf);
+            (*onig_warn)((char* )buf);
           }
           goto warn_exit;
           break;
