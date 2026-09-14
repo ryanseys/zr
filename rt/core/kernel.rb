@@ -236,6 +236,11 @@ module Kernel
 
   def itself = self
 
+  def clone(freeze: nil)
+    Primitive.attr! :ruby
+    Primitive.zr_obj_clone(self, freeze)
+  end
+
   # Every message on its own line, the first carrying the position
   # `uplevel` frames above this call. A category the program turned off
   # says nothing at all.

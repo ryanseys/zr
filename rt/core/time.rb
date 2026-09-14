@@ -267,7 +267,8 @@ class Time
     # The nanoseconds and the kind a civil date names, which the caller
     # seats in whichever Time it is filling.
     def civil_parts(year, month, day, hour, min, sec, zone, usec = nil)
-      year = Integer(year)
+      # obj2vint: a String reads as decimal digits, anything else as to_int.
+      year = year.is_a?(String) ? Integer(year, 10) : to_integer(year)
       month = month_arg(month)
       day = int_arg(day, 1, 1, 31, "mday")
       hour = int_arg(hour, 0, 0, 24, "hour")
@@ -383,17 +384,23 @@ class Time
   # `Time.new(...)` is this row, as it is in CRuby: a program that reopens
   # Time with an initialize of its own takes this place, and `now`, `at`
   # and `utc` build their own instances without asking.
-  def initialize(year = nil, month = nil, day = nil, hour = nil, min = nil, sec = nil, zone = nil, **options)
+  # timev.rb's: no year is now, and a year alone may be a String to parse.
+  def initialize(year = (now = true), mon = (str = year; nil), mday = nil, hour = nil, min = nil, sec = nil, zone = nil,
+                 in: nil, precision: 9)
+    Primitive.attr! :ruby
     raise TypeError, "already initialized Time" if Primitive.zr_hidden_get(self, :__built__)
 
-    option = options[:in]
-    raise ArgumentError, "timezone argument given as positional and keyword arguments" if zone && option
-    return set(*Time.send(:now_parts, option)) if year.nil?
+    if zone
+      raise ArgumentError, "timezone argument given as positional and keyword arguments" if Primitive.arg!(:in)
+    else
+      zone = Primitive.arg!(:in)
+    end
+    return set(*Time.send(:now_parts, zone)) if now
 
-    text = String.try_convert(year)
-    return set(*Time.send(:string_parts, text, zone || option, options.fetch(:precision, 9))) if text
+    text = str && String.try_convert(str)
+    return set(*Time.send(:string_parts, text, zone, precision)) if text
 
-    set(*Time.send(:civil_parts, year, month, day, hour, min, sec, zone || option))
+    set(*Time.send(:civil_parts, year, mon, mday, hour, min, sec, zone))
   end
 
   def year = fields[0]

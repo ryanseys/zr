@@ -790,21 +790,29 @@ machine def zr_hash_eq_entries(recv, other)
 end
 
 # `Hash#initialize`: `Hash.new`, `Hash.new(default)`, `Hash.new { |hash, key| }`.
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_hash_initialize(recv, argc, argv, cref, blk)
-  if argc > 1
-    return zr_wrong_arity_range(argc, 0, 1)
-  end
+# rb_hash_init: a default proc from the block, or the default value
+# `ifnone`, which a block leaves no room for. `unset` is true where no
+# default value was given. The capacity only reserves room.
+sig [Value, Value, Value, Value, Value] => Value
+machine def zr_hash_init(recv, capacity, unset, ifnone, blk)
   if zr_frozen_p(recv)
     return zr_frozen_error(recv)
   end
-  if argc == 1
-    if blk != QNIL
-      return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("wrong number of arguments (given 1, expected 0)"), 47)
-    end
-    RHash.set_default(recv, Machine.value(Machine.load64(argv, 0)))
+  if capacity != zr_fix(0)
+    out = Machine.slot(8)
+    r = zr_index_operand(capacity, out)
+    return r if r == QUNDEF
   end
-  RHash.set_default_proc(recv, blk)
+  if blk != QNIL
+    if unset != QTRUE
+      return zr_wrong_arity(1, 0)
+    end
+    RHash.set_default(recv, Machine.value(QNIL))
+    RHash.set_default_proc(recv, blk)
+    return recv
+  end
+  RHash.set_default(recv, unset == QTRUE ? Machine.value(QNIL) : ifnone)
+  RHash.set_default_proc(recv, Machine.value(QNIL))
   recv
 end
 

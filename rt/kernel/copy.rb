@@ -238,31 +238,17 @@ machine def zr_obj_dup(recv, argc, argv, cref, blk)
   copy
 end
 
-# `clone(freeze: nil)`: the singleton class's methods come along, and
-# the frozen bit unless `freeze: false`, or with `freeze: true`.
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_obj_clone(recv, argc, argv, cref, blk)
-  freeze = Machine.value(QNIL)
-  if zr_kw_take() != 0
-    opts = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
-    argc -= 1
-    known = Machine.slot(8)
-    Machine.store64(known, 0, Machine.id(:freeze))
-    r = zr_kw_unknown(opts, known, 1)
-    return r if r == QUNDEF
-    freeze = zr_hash_lookup(opts, zr_sym(Machine.id(:freeze)))
-    if freeze == QUNDEF
-      freeze = Machine.value(QNIL)
-    elsif freeze != QNIL && freeze != QTRUE && freeze != QFALSE
-      b = Machine.slot(Buf.size)
-      zr_buf_init(b)
-      zr_buf_push(b, Machine.bytes("unexpected value for freeze: "), 29)
-      zr_buf_class_of(b, freeze)
-      return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
-    end
-  end
-  if argc > 0
-    return zr_wrong_arity(argc, 0)
+# rb_obj_clone2, under kernel.rb's `clone(freeze: nil)`: the singleton
+# class's methods come along, and the frozen bit unless `freeze: false`,
+# or with `freeze: true`.
+sig [Value, Value] => Value
+machine def zr_obj_clone(recv, freeze)
+  if freeze != QNIL && freeze != QTRUE && freeze != QFALSE
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("unexpected value for freeze: "), 29)
+    zr_buf_class_of(b, freeze)
+    return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
   end
   if zr_special_p(recv)
     if freeze == QFALSE

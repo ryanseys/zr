@@ -1,6 +1,13 @@
 # Hash over the kernel's table: each, [], []=, fetch, delete, keys and
 # values come from the kernel; the rest is written over them.
 class Hash
+  # hash.rb's: a default value or a default proc, and room for
+  # `capacity` pairs.
+  def initialize(ifnone = (ifnone_unset = true), capacity: 0, &block)
+    Primitive.attr! :ruby
+    Primitive.zr_hash_init(self, capacity, ifnone_unset ? true : false, ifnone, block)
+  end
+
   include Enumerable
 
   # The flag a `ruby2_keywords` method sets on the Hash it took from

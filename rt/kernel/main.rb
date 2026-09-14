@@ -366,8 +366,6 @@ machine def zr_boot
   zr_builtin(zr_global(G_EXCEPTION), Machine.id(:set_backtrace), Machine.addr(:zr_exc_set_backtrace), 1)
   zr_builtin(zr_global(G_EXCEPTION), Machine.id(:cause), Machine.addr(:zr_exc_cause), 0)
   zr_builtin(zr_global(G_KERNEL), Machine.id(:dup), Machine.addr(:zr_obj_dup), 0)
-  zr_builtin(zr_global(G_KERNEL), Machine.id(:clone), Machine.addr(:zr_obj_clone), 0 - 1)
-  zr_builtin(zr_global(G_HASH), Machine.id(:initialize), Machine.addr(:zr_hash_initialize), 0 - 1)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:initialize), Machine.addr(:zr_ary_initialize), 0 - 1)
   zr_builtin_private(zr_global(G_ARRAY), Machine.id(:initialize_copy), Machine.addr(:zr_ary_initialize_copy), 1)
   zr_builtin_private(zr_global(G_HASH), Machine.id(:initialize_copy), Machine.addr(:zr_hash_initialize_copy), 1)

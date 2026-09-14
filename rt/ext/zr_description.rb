@@ -277,7 +277,7 @@ module Ze0
         d zr_hash_initialize_copy Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_class_copy Value orig:Value
         d zr_obj_dup Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
-        d zr_obj_clone Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_obj_clone Value recv:Value freeze:Value
         d zr_include_singleton Void copy:Value meta:Value
         d zr_data_new Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_data_constructors Value klass:Value
@@ -541,7 +541,7 @@ module Ze0
         d zr_hash_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_eq Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_eq_entries Value recv:Value other:Value
-        d zr_hash_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_hash_init Value recv:Value capacity:Value unset:Value ifnone:Value blk:Value
         d zr_hash_default_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_of Value n:Word argv:Ptr
         d zr_kw_get Value hash:Value id:Word
