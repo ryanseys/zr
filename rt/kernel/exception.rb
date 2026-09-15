@@ -16,7 +16,7 @@
 # its own parameters where a method written in C answers `[[:rest]]`.
 # `node` is the id of the prism node that defines the function, which
 # a frame raised on its entry reports.
-Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr, locals: Ptr, env: Word, box: Value, ruby: Word, captures: Ptr, node: Word
+Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr, locals: Ptr, env: Word, box: Value, ruby: Word, captures: Ptr, node: Word, hidden: Word
 KIND_MAIN = 0
 KIND_DEF = 1
 KIND_BUILTIN = 2

@@ -148,9 +148,89 @@ machine def zr_const_index_find(ext, id)
   0 - 1
 end
 
-# The constant row for `id` on `klass` alone, or 0.
+# The constant row for `id` on `klass` alone, or 0. A row the runtime
+# conceals is not there for the program to read.
 sig [Value, Word] => Ptr
 machine def zr_const_row(klass, id)
+  e = zr_const_row_kept(klass, id)
+  if e != 0 && CEntry.concealed(e) != 0 && !zr_const_sees_concealed()
+    return 0
+  end
+  e
+end
+
+# Object's constants that a file only the runtime loads sets, as the eval
+# road's Ze0 and Prism: they stay out of the program's sight, as ruby has
+# neither, until the program requires the file itself. Code of a unit
+# that loads hidden reads them, the runtime's own code does, and so does
+# anything that runs while a hidden file loads. A reflective read, as
+# const_get, reads as the frame that called the core library.
+sig [] => Bool
+machine def zr_const_sees_concealed
+  if Machine.load64(Machine.static(:hidden_requires, 8), 0) > 0
+    return true
+  end
+  rec = Task.top(zr_task())
+  reflective = Machine.load64(Machine.static(:const_reflective, 8), 0) > 0
+  if !reflective && rec != 0 && (FrameMeta.kind(Frame.meta(rec)) == KIND_BUILTIN || FrameMeta.kind(Frame.meta(rec)) == KIND_HIDDEN)
+    return true
+  end
+  # The core library's own frames stand for whoever called them.
+  while rec != 0
+    meta = Frame.meta(rec)
+    if FrameMeta.hidden(meta) != 0
+      return true
+    end
+    if FrameMeta.kind(meta) != KIND_BUILTIN && FrameMeta.kind(meta) != KIND_HIDDEN
+      return false
+    end
+    rec = Frame.prev(rec)
+  end
+  true
+end
+
+# Whether a reflective read, as Module#constants, sees a concealed row.
+sig [] => Bool
+machine def zr_const_sees_reflectively
+  depth = Machine.static(:const_reflective, 8)
+  Machine.store64(depth, 0, Machine.load64(depth, 0) + 1)
+  sees = zr_const_sees_concealed()
+  Machine.store64(depth, 0, Machine.load64(depth, 0) - 1)
+  sees
+end
+
+# The rows of Object's constants that `path` defined out of sight, now in
+# sight: the program required the file itself.
+sig [Value] => Void
+machine def zr_const_reveal(path)
+  ext = RClass.ext(zr_global(G_OBJECT))
+  i = 0
+  while i < ClassExt.clen(ext)
+    e = ClassExt.ctab(ext) + (i * CEntry.size)
+    if CEntry.concealed(e) != 0 && zr_bytes_eq(CEntry.file(e), CEntry.file_len(e), RString.ptr(path), RString.len(path))
+      CEntry.set_concealed(e, 0)
+      zr_consts_changed()
+    end
+    i += 1
+  end
+end
+
+# The row a `class` or `module` body opens: a concealed one comes into
+# sight, so a program that reopens the runtime's own module adds to the
+# module the runtime goes on using.
+sig [Value, Word] => Ptr
+machine def zr_const_row_opened(scope, id)
+  e = zr_const_row_kept(scope, id)
+  if e != 0 && CEntry.concealed(e) != 0 && !zr_const_sees_concealed()
+    CEntry.set_concealed(e, 0)
+    zr_consts_changed()
+  end
+  e
+end
+
+# The row for `id` on `klass` alone, concealed or not, or 0.
+sig [Value, Word] => Ptr
+machine def zr_const_row_kept(klass, id)
   ext = RClass.ext(klass)
   n = ClassExt.clen(ext)
   if n >= CONST_INDEX_MIN
@@ -188,7 +268,13 @@ machine def zr_const_set(klass, id, v)
   end
   r = zr_class_modify_check(klass)
   return r if r == QUNDEF
-  e = zr_const_row(klass, id)
+  e = zr_const_row_kept(klass, id)
+  if e != 0 && CEntry.concealed(e) != 0 && !zr_const_sees_concealed()
+    # The program's own constant of the name the runtime conceals takes
+    # the row, as a new one.
+    CEntry.set_concealed(e, 0)
+    CEntry.set_value(e, Machine.value(QUNDEF))
+  end
   if e == 0
     ext = RClass.ext(klass)
     n = ClassExt.clen(ext)
@@ -210,6 +296,7 @@ machine def zr_const_set(klass, id, v)
     CEntry.set_private(e, 0)
     CEntry.set_deprecated(e, 0)
     CEntry.set_owner(e, klass)
+    CEntry.set_concealed(e, klass == zr_global(G_OBJECT) && Machine.load64(Machine.static(:hidden_requires, 8), 0) > 0 ? 1 : 0)
     ClassExt.set_clen(ext, n + 1)
     zr_const_index_add(ext, n)
   elsif CEntry.value(e) != QUNDEF
@@ -622,7 +709,7 @@ end
 # when the program wrote no superclass.
 sig [Value, Word, Value] => Value
 machine def zr_class_define(scope, id, sup)
-  e = zr_const_row(scope, id)
+  e = zr_const_row_opened(scope, id)
   if e == 0 && (scope == zr_global(G_OBJECT) || zr_box_current() != QNIL)
     e = zr_const_row_in(zr_global(G_OBJECT), id, false)
   end
@@ -674,7 +761,7 @@ end
 
 sig [Value, Word] => Value
 machine def zr_module_define(scope, id)
-  e = zr_const_row(scope, id)
+  e = zr_const_row_opened(scope, id)
   if e == 0 && (scope == zr_global(G_OBJECT) || zr_box_current() != QNIL)
     e = zr_const_row_in(zr_global(G_OBJECT), id, false)
   end
@@ -760,13 +847,17 @@ end
 # as `const_get` finds it, a later one without Object's constants.
 sig [Value, Word, Value, Value] => Ptr
 machine def zr_const_row_segment(recv, id, inherit, later)
-  if inherit == QFALSE || inherit == QNIL
-    return zr_const_row(recv, id)
-  end
-  if later == QTRUE
-    return zr_const_row_in(recv, id, recv != zr_global(G_OBJECT))
-  end
-  zr_const_row_for(recv, id, true)
+  depth = Machine.static(:const_reflective, 8)
+  Machine.store64(depth, 0, Machine.load64(depth, 0) + 1)
+  e = if inherit == QFALSE || inherit == QNIL
+        zr_const_row(recv, id)
+      elsif later == QTRUE
+        zr_const_row_in(recv, id, recv != zr_global(G_OBJECT))
+      else
+        zr_const_row_for(recv, id, true)
+      end
+  Machine.store64(depth, 0, Machine.load64(depth, 0) - 1)
+  e
 end
 
 sig [Value, Value, Value, Value] => Value
@@ -880,7 +971,7 @@ machine def zr_const_names_at(klass, out)
   while i < ClassExt.clen(ext)
     e = ClassExt.ctab(ext) + (i * CEntry.size)
     name = zr_sym(CEntry.id(e))
-    if CEntry.private(e) == 0 && zr_ary_index_of(out, name) < 0
+    if CEntry.private(e) == 0 && (CEntry.concealed(e) == 0 || zr_const_sees_reflectively()) && zr_ary_index_of(out, name) < 0
       zr_ary_push(out, name)
     end
     i += 1

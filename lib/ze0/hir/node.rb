@@ -23,7 +23,9 @@ module Ze0
     # `spots` holds each file's error_highlight spots (Hir::Spots), by
     # the file name its frames carry.
     Program = Struct.new(:file, :locals, :body, :units, :warnings, :evals, :entries, :traced, :node_ids, :spots, :coverable)
-    Unit = Struct.new(:file, :locals, :body, :warnings, :internal, :spots)
+    # `hidden` when the unit loads only for the runtime's own use, as the
+    # eval road's files do.
+    Unit = Struct.new(:file, :locals, :body, :warnings, :internal, :spots, :hidden)
     # `require`, `require_relative` or `load` of a literal name: `path`
     # is the file it resolved to and `unit` that file's index, or both
     # nil when no file answers.

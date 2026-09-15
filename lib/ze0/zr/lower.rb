@@ -116,10 +116,12 @@ module Ze0
           @file = u.file
           @warnings = u.warnings || []
           @unit_internal = u.internal
+          @unit_hidden = u.hidden
           Function.new(self, unit_entry(i), u.locals, u.body, nil, :top).lower
           finished.concat(finished_functions(&finish)) if finish
         end
         @unit_internal = @ext
+        @unit_hidden = false
         @file = @program.file
         @warnings = @program.warnings || []
         [finish ? finished : @functions, @data]
@@ -202,6 +204,7 @@ module Ze0
         word.call("arity", params ? params.arity : 0)
         word.call("env", env ? 1 : 0)
         word.call("ruby", ruby ? 1 : 0)
+        word.call("hidden", @unit_hidden ? 1 : 0)
         relocs = [Obj::Reloc.new(layout.fields.fetch("file").first, :abs64, file)]
         relocs << Obj::Reloc.new(layout.fields.fetch("parent").first, :abs64, parent) if parent
         relocs << Obj::Reloc.new(layout.fields.fetch("params").first, :abs64, param_table(fn, params)) if params

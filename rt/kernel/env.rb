@@ -341,6 +341,7 @@ machine def zr_require_run(path, fn, kind, framed)
     end
     if !hidden && zr_ary_has_string(zr_hidden_features(), path)
       zr_ary_push(visible, path)
+      zr_const_reveal(path)
       return Machine.value(QTRUE)
     end
     if !hidden

@@ -413,7 +413,7 @@ module Ze0
           build.within_method(method, scopes) if scopes && method
           body = build.seq(result.value.statements, hoist: true)
           spots = Spots.of(result.value) unless @eval || @hiding || file.start_with?("<") || Build.runtime_file?(file)
-          Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings, file.start_with?("#{EXT}/"), spots)
+          Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings, file.start_with?("#{EXT}/"), spots, @hiding)
         end
 
         # The SyntaxError an eval's string raises for a `yield` outside any

@@ -34,11 +34,17 @@ def converts?(encoding)
   end
 end
 
+# The carriers' own encodings, which ruby converts through the carrier's
+# UTF-8: an emoji reads as the carrier's private-use code point, and
+# only the step from that UTF-8 to Unicode's makes it Unicode's emoji.
+HUBS = { "SJIS-DoCoMo" => "UTF8-DoCoMo", "SJIS-KDDI" => "UTF8-KDDI", "SJIS-SoftBank" => "UTF8-SoftBank",
+         "stateless-ISO-2022-JP-KDDI" => "UTF8-KDDI" }.freeze
+
 # What a converter is asked to write into while the bytes are read. UTF-8
-# reaches itself through no converter, so it is read into UTF-16BE, and
-# then it and the encodings that write their characters as it does are
-# all read the same way.
-def pivot(encoding) = encoding == Encoding::UTF_8 ? "UTF-16BE" : "UTF-8"
+# reaches itself through no converter, so it is read into UTF-16BE; a
+# carrier's encoding is read into the carrier's UTF-8, whose bytes are
+# UTF-8's; and everything else is read into UTF-8.
+def pivot(encoding) = encoding == Encoding::UTF_8 ? "UTF-16BE" : HUBS.fetch(encoding.name, "UTF-8")
 
 # What `bytes` are in `encoding`, as ruby's own character count reads
 # them: one whole character, the start of one that needs more bytes, or
@@ -75,7 +81,7 @@ def convert(encoding, bytes)
   return :undef if result == :undefined_conversion
   return :more if out.empty?
 
-  text = out.force_encoding(pivot(encoding)).encode("UTF-8")
+  text = pivot(encoding) == "UTF-16BE" ? out.force_encoding("UTF-16BE").encode("UTF-8") : out.force_encoding("UTF-8")
   text.length == 1 ? text.ord : text
 end
 
@@ -294,7 +300,7 @@ def overrides(encoding, mapped, kept, partial)
   (0x80..0x2FFFF).each do |point|
     next if point.between?(0xD800, 0xDFFF)
 
-    written = (point.chr(Encoding::UTF_8).encode(encoding).b rescue nil)
+    written = (point.chr(Encoding::UTF_8).force_encoding(HUBS.fetch(encoding.name, "UTF-8")).encode(encoding).b rescue nil)
     next if written.nil? || written == lowest[point]
     # A partial encoding's longer characters are refused by name, so the
     # rows say nothing about them here either.
@@ -499,7 +505,10 @@ core << "  # The encoding each one meets ASCII in.\n"
 core << "  ASCII_COMPAT = {\n"
 compat.each { |name, other| core << "    #{name.inspect} => #{other.inspect},\n" }
 core << "  }.freeze\n\n"
-core << "  private_constant :MB, :MB_ROWS, :MB_PARTIAL, :MB_UTF8, :MB_ENCODE, :MB_MULTI, :MB_SHAPES, :CONVERTERS,\n"
+core << "  # The carriers' encodings, each read through its carrier's UTF-8:\n"
+core << "  # these rows hold that UTF-8's code points, emoji and all.\n"
+core << "  MB_HUBS = #{HUBS.inspect}.freeze\n\n"
+core << "  private_constant :MB, :MB_ROWS, :MB_PARTIAL, :MB_UTF8, :MB_ENCODE, :MB_MULTI, :MB_SHAPES, :MB_HUBS, :CONVERTERS,\n"
 core << "                   :ASCII_COMPAT, :CONVERTER_FLAGS\n"
 core << "end\n"
 File.write(File.join(ROOT, "rt/core/cjk.rb"), core)
