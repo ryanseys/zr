@@ -7,7 +7,7 @@ require "ze0/zr"
 # a miscompile, so the check writes it again and demands the same bytes.
 # `ZE0_BLESS=1` rewrites it.
 class DescriptionTest < Minitest::Test
-  PATH = File.join(ROOT, "rt/ext/zr_description.rb")
+  PATH = File.join(ROOT, "rt/ext/os/darwin/zr_description.rb")
 
   def test_the_description_matches_the_kernel
     text = IO.popen([RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", File.join(ROOT, "tools/description.rb")], &:read)
@@ -21,7 +21,7 @@ class DescriptionTest < Minitest::Test
   end
 
   def test_the_description_answers_as_the_kernel_unit_does
-    require_relative "../../rt/ext/zr_description"
+    require_relative "../../rt/ext/os/darwin/zr_description"
     unit = Ze0::Zr.runtime.unit
     carried = Ze0::Machine::Description.parse(Ze0::Machine::Description::KERNEL)
     live = Ze0::Machine::Description.of(unit)

@@ -22,7 +22,7 @@ module Ze0
         require_relative "zr/lower"
         require_relative "backend/aarch64"
         require_relative "obj/jit"
-        require_relative "../../rt/ext/zr_description"
+        require "zr_description"
         new(Runtime.new)
       end
     end

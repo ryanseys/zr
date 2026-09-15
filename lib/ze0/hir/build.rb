@@ -2,6 +2,7 @@
 
 require "prism"
 require_relative "../paths"
+require_relative "../target"
 require_relative "node"
 require_relative "syntax_report"
 
@@ -29,7 +30,12 @@ module Ze0
       # we do not carry stops by name instead of failing halfway in.
       GEMS = %w[prism json psych bigdecimal digest syslog socket ffi].map { |name| File.join(Paths::VENDOR, "ext/#{name}/lib") }.freeze
 
-      STDLIB = [VENDOR, EXT, *GEMS].freeze
+      # The library roots a program for `target` requires from: ruby's own,
+      # then the OS layer's native halves and tables, then the portable
+      # ones, then the gems' ruby halves.
+      def self.stdlib(target = Target.default)
+        (@stdlib ||= {})[target.triple] ||= [VENDOR, File.join(EXT, "os", target.os_layer), EXT, *GEMS].freeze
+      end
 
       # The compiler itself, which a program that evals carries.
       EVAL_ROAD = File.expand_path("../eval.rb", __dir__)
@@ -45,9 +51,9 @@ module Ze0
       # inside, as Method#parameters answers them, or nil outside one: a
       # `yield` has a block to reach only inside a method, and a bare
       # `super` passes those parameters on.
-      def self.program(source, file, roots: [], road: true, line: 1, scopes: nil, method: nil)
+      def self.program(source, file, roots: [], road: true, line: 1, scopes: nil, method: nil, target: Target.default)
         built = lambda do |external, trace|
-          loader = Loader.new(roots + STDLIB, eval: !road, external: external, trace: trace)
+          loader = Loader.new(roots + stdlib(target), eval: !road, external: external, trace: trace)
           [loader, loader.unit(file, source, line, scopes, method: method)]
         end
         loader, main = built.call(nil, false)
@@ -65,8 +71,8 @@ module Ze0
       # The compiler alone, as the units a road holds: the loader has
       # built them, and its flags say what a program that carries them
       # needs beside them.
-      def self.road
-        Loader.new(STDLIB).tap { |loader| eval_road(loader) }
+      def self.road(target = Target.default)
+        Loader.new(stdlib(target)).tap { |loader| eval_road(loader) }
       end
 
       # The file that arms String#unicode_normalize's load of ruby's own
@@ -377,8 +383,11 @@ module Ze0
         # `root`: the extension's own Ruby, `strscan.rb`, where the root
         # holds this runtime's native halves.
         def native(root, feature)
-          root == EXT && feature.match?(NATIVE) ? candidate(File.join(root, feature.sub(NATIVE, ""))) : nil
+          native_root?(root) && feature.match?(NATIVE) ? candidate(File.join(root, feature.sub(NATIVE, ""))) : nil
         end
+
+        # EXT, or an OS layer's directory under it.
+        def native_root?(root) = root == EXT || File.dirname(root) == File.join(EXT, "os")
 
         def candidate(path)
           return path if path.end_with?(".rb") && File.file?(path)
@@ -1417,9 +1426,9 @@ module Ze0
       # The features ruby carries that no library root here holds, and
       # that ruby did not load before the program: a require of one stops
       # by name.
-      def self.missing_features
-        @missing_features ||= FEATURES.reject do |feature|
-          PRELOADED.include?(feature) || STDLIB.any? { |root| File.file?(File.join(root, "#{feature}.rb")) }
+      def self.missing_features(target = Target.default)
+        (@missing_features ||= {})[target.triple] ||= FEATURES.reject do |feature|
+          PRELOADED.include?(feature) || stdlib(target).any? { |root| File.file?(File.join(root, "#{feature}.rb")) }
         end.sort.freeze
       end
 

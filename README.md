@@ -119,7 +119,13 @@ lib/ze0/obj/elf/         the ELF64 relocatable object writer, for aarch64-linux-
 lib/ze0/native/          the build driver and the toolchain
 lib/ze0/native/link/     one linker per target: darwin (ze0's own, else cc) and static (cc -static)
 lib/ze0/harness/         the corpus runner: the test-file format and the sweep (not in the gem)
-rt/                      the runtime, in kernel Ruby and ordinary Ruby
+rt/kernel/               the runtime's kernel, in the kernel dialect; os.rb names the OS layer's calls
+rt/kernel/os/<os>/       one OS layer: errno, the variadic calls, struct layouts, stacks, the JIT
+rt/kernel/arch/<arch>/   one machine layer: the context zr_switch saves and loads
+rt/core/                 the core library, in ordinary Ruby
+rt/core/os/<os>/         the numbers an OS gives errno, File, IO and Process constants
+rt/ext/                  the native halves of extensions, in ordinary Ruby
+rt/ext/os/<os>/          an OS's extension tables (fcntl, etc, socket) and the eval description
 vendor/c/                the three vendored C libraries
 vendor/ext/<gem>/lib     the Ruby halves of extension gems
 vendor/lib/              ruby's pure-Ruby standard library and bundled gems, unedited

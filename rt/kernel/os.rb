@@ -9,6 +9,11 @@
 # TIOCGWINSZ, TIOCSWINSZ, TERMIOS_LEN, STAT_LEN, SC_NPROCESSORS_ONLN,
 # UTSNAME_LEN, UTSNAME_FIELD, RTLD_DEFAULT.
 #
+# The core library's OS layer, under rt/core/os/<os>/, holds the numbers
+# ruby gives each OS's constants: errno.rb, io_constants.rb,
+# process_constants.rb, file_constants.rb and clock_constants.rb, each
+# run just before the portable file that uses it (`Zr::CORE_NAMES`).
+#
 # errno and descriptors
 #   zr_os_errno          [] => Word
 #   zr_os_set_errno      [Word] => Void
@@ -22,6 +27,7 @@
 #   zr_os_wait_fd        [Value, Value, Value] => Value
 #
 # the process
+#   zr_os_ruby_platform  [] => Value
 #   zr_os_environ        [] => Ptr
 #   zr_os_random         [] => Word
 #   zr_os_passwd_row     [Ptr] => Value

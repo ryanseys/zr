@@ -2,12 +2,12 @@
 RUBY_VERSION = "4.0.6"
 RUBY_ENGINE = "ruby"
 RUBY_ENGINE_VERSION = "4.0.6"
-RUBY_PLATFORM = "arm64-darwin23"
+RUBY_PLATFORM = Primitive.zr_os_ruby_platform
 RUBY_PATCHLEVEL = 0
 RUBY_RELEASE_DATE = "2026-07-14"
 RUBY_REVISION = "03b6d3f8898a28604fe6cb00eae3226b821168f4"
 RUBY_COPYRIGHT = "ruby - Copyright (C) 1993-2026 Yukihiro Matsumoto"
-RUBY_DESCRIPTION = "ruby 4.0.6 (2026-07-14 revision 03b6d3f889) +PRISM [arm64-darwin23]"
+RUBY_DESCRIPTION = "ruby 4.0.6 (2026-07-14 revision 03b6d3f889) +PRISM [#{RUBY_PLATFORM}]"
 # rubygems loads rbconfig before the program starts, and rbconfig says
 # this ruby is not a cross-compiling one.
 CROSS_COMPILING = nil

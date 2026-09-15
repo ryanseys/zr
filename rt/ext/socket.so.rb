@@ -10,7 +10,7 @@ end
 class Socket < BasicSocket
 end
 
-require_relative "socket/constants"
+require "socket/constants"
 require_relative "socket/init"
 require_relative "socket/basicsocket"
 require_relative "socket/socket"

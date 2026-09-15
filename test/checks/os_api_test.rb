@@ -26,23 +26,37 @@ class OsApiTest < Minitest::Test
     assert_operator spec.size, :>, 20
   end
 
+  # RUBY_PLATFORM comes from the layer, and says what the target does.
+  def test_the_layer_names_the_target_s_platform
+    Ze0::Target.all.select { |target| target.os_layer == target.os.to_s }.each do |target|
+      text = File.read(File.join(ROOT, "rt/kernel/os/#{target.os}/env.rb"))
+      assert_includes text, %(zr_str_new(Machine.bytes("#{target.ruby_platform}"), #{target.ruby_platform.bytesize})), target.triple
+    end
+  end
+
+  def test_every_core_layer_file_exists
+    Ze0::Target.all.each do |target|
+      Ze0::Zr.core_files(target).each { |path| assert File.file?(path), "#{target.triple}: #{path}" }
+    end
+  end
+
   def test_every_target_takes_a_layer_that_exists
     Ze0::Target.all.each do |target|
-      assert_includes layers, Ze0::Zr.os_layer(target), target.triple
-      assert File.directory?(File.join(ROOT, "rt/kernel/arch", Ze0::Zr.arch_layer(target))), target.triple
+      assert_includes layers, target.os_layer, target.triple
+      assert File.directory?(File.join(ROOT, "rt/kernel/arch", target.arch_layer)), target.triple
     end
   end
 
   def test_each_layer_defines_the_spec_and_nothing_else_does
     expected = spec
-    Ze0::Target.all.map { |target| [Ze0::Zr.os_layer(target), target] }.uniq(&:first).each do |layer, target|
+    Ze0::Target.all.map { |target| [target.os_layer, target] }.uniq(&:first).each do |layer, target|
       unit = Ze0::Machine.unit(Ze0::Zr.kernel_files(target))
       calls = unit.declared_defs.select { |name, _| name.start_with?("zr_os_", "zr_arch_") }
       got = calls.transform_values { |d| [d.params.map(&:last), d.ret] }
       assert_equal expected.keys.sort, got.keys.sort, "#{layer}: the zr_os_ and zr_arch_ defs"
       expected.each { |name, sig| assert_equal sig, got[name], "#{layer}: #{name}" }
       calls.each do |name, d|
-        dir = name.start_with?("zr_os_") ? "rt/kernel/os/#{layer}/" : "rt/kernel/arch/#{Ze0::Zr.arch_layer(target)}/"
+        dir = name.start_with?("zr_os_") ? "rt/kernel/os/#{layer}/" : "rt/kernel/arch/#{target.arch_layer}/"
         assert d.file.start_with?(File.join(ROOT, dir)), "#{name} is in #{d.file}, not #{dir}"
       end
     end

@@ -1,4 +1,4 @@
-# Writes rt/core/errno.rb: the errno and signal tables of the ruby the
+# Writes rt/core/os/darwin/errno.rb: the errno and signal tables of the ruby the
 # .ruby-version pins. Every Errno name is a row: one per class, with
 # the errno it stands for, and the other names of a class as aliases
 # (ruby gives the errnos this platform lacks one class, NOERROR).
@@ -24,7 +24,7 @@ def rows(items, indent)
   lines.map { |line| (" " * indent) + line }.join("\n")
 end
 
-File.write(File.expand_path("../rt/core/errno.rb", __dir__), <<~RUBY)
+File.write(File.expand_path("../rt/core/os/darwin/errno.rb", __dir__), <<~RUBY)
   # Written by tools/errno.rb from ruby #{RUBY_VERSION} on #{RUBY_PLATFORM}; do not edit.
   # Every Errno name and the errno it stands for, one row per class; a
   # name in ALIASES is another name for a class in CODES. Signal::LIST is
@@ -46,4 +46,4 @@ File.write(File.expand_path("../rt/core/errno.rb", __dir__), <<~RUBY)
     private_constant :LIST
   end
 RUBY
-puts "rt/core/errno.rb: #{codes.size} classes, #{aliases.size} aliases, #{signals.size} signals"
+puts "rt/core/os/darwin/errno.rb: #{codes.size} classes, #{aliases.size} aliases, #{signals.size} signals"

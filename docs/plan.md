@@ -342,22 +342,18 @@ ext/ze0/extconf.rb               builds the vendored C into vendor/build/<target
 lib/ze0.rb, lib/ze0/version.rb   the entry
 lib/ze0/paths.rb                 root, rt, vendor, build and cache directories, named once
 lib/ze0/target.rb                the targets ze0 emits, and what this host can build
-lib/ze0/{hir,zr,machine,ir,obj,native}/   the compiler
+lib/ze0/{hir,zr,machine,ir}/     the compiler's front and middle
+lib/ze0/backend/{aarch64,wasm}/  the backends, under one Backend::Refused
+lib/ze0/obj/macho/, obj/elf/     the object writers; native/link/{darwin,static}.rb the linkers
 lib/ze0/harness/                 the test-file format and the corpus sweep (repository only)
 rt/{kernel,core,ext}/            the runtime; beside lib/, never on a load path
+rt/{kernel,core,ext}/os/<os>/    the runtime's OS layer; rt/kernel/os.rb names its calls
+rt/kernel/arch/<arch>/           the runtime's machine layer
 vendor/c, vendor/ext, vendor/lib the vendored C, extension gems' Ruby halves, ruby's stdlib
 tools/, test/, docs/             repository only
 ```
 
-Later: targets. The gem platform is the host the compiler runs on; a target is what ze0 emits. A second native target (aarch64-linux first) moves toward:
-
-```
-lib/ze0/target/<triple>.rb       wires a backend, an object writer, a linker, an OS layer and archives
-lib/ze0/backend/{aarch64,wasm}/  today's ir/arm64.rb, ir/arm64/, machine/aarch64/ and ir/wasm.rb
-lib/ze0/obj/macho/, obj/elf/     today's macho.rb, exe.rb and stamps.rb, and an ELF writer beside them
-rt/kernel/os/darwin/             the struct offsets, signal numbers, select$DARWIN_EXTSN and MAP_JIT now in env.rb, io.rb, signal.rb and jit.rb
-tools/{errno,fcntl,etc,socket}.rb   one generated table per OS
-```
+Targets. The gem platform is the host the compiler runs on; a target is what ze0 emits. `Ze0::Target` names each triple, and picks its backend, object writer, linker and runtime layer. aarch64-apple-darwin builds all of them today. aarch64-linux-musl writes ELF objects and takes darwin's runtime layer until `rt/*/os/linux/` lands; wasm32-wasi does the same until `rt/*/os/wasi/` lands. Still to come: `tools/{errno,fcntl,etc,socket}.rb --os <os>`, one generated table per OS.
 
 Parallel ownership for worktrees (`parallelize` skill): A owns `lib/ze0/cli/`, `lib/ze0/hir/`, `lib/ze0/ir/` (core); B owns `lib/ze0/ir/arm64/`, `lib/ze0/obj/`, `rt/spike/`; C owns `rt/`, `lib/ze0/machine/`, `lib/ze0/hir/lower_zr/`; D owns `lib/ze0/ir/wasm*`, `rt/kernel/sys_wasi.rb`.
 

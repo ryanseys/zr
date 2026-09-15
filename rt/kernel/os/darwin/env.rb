@@ -1,8 +1,14 @@
-# darwin's half of the process's surroundings: where the environment
-# is, where random bits come from, and the layouts of struct passwd and
-# struct utsname.
+# darwin's half of the process's surroundings: the platform's name,
+# where the environment is, where random bits come from, and the layouts
+# of struct passwd and struct utsname.
 Machine.import "_NSGetEnviron", [] => Ptr
 Machine.import "arc4random", [] => I32
+
+# RUBY_PLATFORM, as ruby 4.0.6 built for this OS and machine names it.
+sig [] => Value
+machine def zr_os_ruby_platform
+  zr_str_new(Machine.bytes("arm64-darwin23"), 14)
+end
 
 # The environment's NULL-ended table of `NAME=value` strings.
 sig [] => Ptr

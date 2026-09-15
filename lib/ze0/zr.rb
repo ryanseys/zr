@@ -16,8 +16,11 @@ module Ze0
   # Ruby over them, and the data the compiler lays out beside them.
   module Zr
     # The core library files, in the order their toplevels run: a module
-    # before the classes that include it.
-    CORE_NAMES = %w[module warning encodings transcode cjk exception enumerable enumerator comparable integer bignum array hash range struct unicode string converter kernel float proc binding format errno io io_buffer process signal env file argf data gc random thread trace_point monitor time set ractor marshal pack regexp_pattern regexp pathname rational complex objectspace box].freeze
+    # before the classes that include it. An `os/` name is the OS layer's
+    # file of that name, under rt/core/os/<os>/: the numbers each OS
+    # gives the constants the portable file after it goes on to use, in
+    # the order ruby defines them.
+    CORE_NAMES = %w[module warning encodings transcode cjk exception enumerable enumerator comparable integer bignum array hash range struct unicode string converter kernel float proc binding format os/errno os/io_constants io io_buffer os/process_constants process signal env os/file_constants file argf data os/clock_constants gc random thread trace_point monitor time set ractor marshal pack regexp_pattern regexp pathname rational complex objectspace box].freeze
 
     # Where the runtime's built forms live, keyed on the digest of
     # everything they depend on: the runtime sources and the compiler.
@@ -156,7 +159,7 @@ module Ze0
 
       def lowered
         @lowered ||= begin
-          loader = Hir::Build.road
+          loader = Hir::Build.road(target)
           program = Hir::Program.new(Hir::Build::EVAL_ROAD, [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
           symbols = Machine::Symbols.new(@runtime.symbols.ids.keys, sites: @runtime.symbols.sites)
           lower = Lower.new(program, @runtime.unit, symbols, entry: "zr_road")
@@ -177,12 +180,12 @@ module Ze0
     def program(source, file, target: Target.default)
       rt = runtime(target)
       carried = road(target)
-      hir = Hir.build(source, file, road: carried)
+      hir = Hir.build(source, file, road: carried, target: target)
       symbols = hir.evals ? carried.symbols : Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
       lower = Lower.new(hir, rt.unit, symbols)
       functions, data = lower.run
       units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
-      Program.new(rt, functions, data + symbol_names(symbols) + load_tables(units, evals: hir.evals), hir.evals && carried)
+      Program.new(rt, functions, data + symbol_names(symbols) + load_tables(units, evals: hir.evals, target: target), hir.evals && carried)
     end
 
     # The runtime for `target`, lowered once per process.
@@ -194,30 +197,21 @@ module Ze0
       (@roads ||= {})[target.triple] ||= Road.new(runtime(target))
     end
 
-    # The OS layer each target's runtime is lowered with, under
-    # rt/kernel/os/. wasm32-wasi and aarch64-linux-musl take darwin's
-    # until their own layers land: wasm answers darwin's calls with its
-    # shims today, and the linux road builds objects only.
-    OS_LAYERS = { darwin: "darwin", linux: "darwin", wasi: "darwin" }.freeze
-    # The architecture layer, under rt/kernel/arch/. wasm32 runs the
-    # aarch64 context layout, which its zr_switch reads.
-    ARCH_LAYERS = { aarch64: "aarch64", wasm32: "aarch64" }.freeze
-
-    def os_layer(target) = OS_LAYERS.fetch(target.os)
-    def arch_layer(target) = ARCH_LAYERS.fetch(target.arch)
-
     # The kernel files `target`'s runtime is lowered from: the portable
     # kernel, then its OS layer, then its architecture layer.
     def kernel_files(target = Target.default)
       Dir[File.join(Paths::RT, "kernel/*.rb")].sort +
-        Dir[File.join(Paths::RT, "kernel/os/#{os_layer(target)}/*.rb")].sort +
-        Dir[File.join(Paths::RT, "kernel/arch/#{arch_layer(target)}/*.rb")].sort
+        Dir[File.join(Paths::RT, "kernel/os/#{target.os_layer}/*.rb")].sort +
+        Dir[File.join(Paths::RT, "kernel/arch/#{target.arch_layer}/*.rb")].sort
     end
 
     # The core library files for `target`, in the order their toplevels
     # run.
-    def core_files(_target = Target.default)
-      CORE_NAMES.map { |name| File.join(Paths::RT, "core/#{name}.rb") }
+    def core_files(target = Target.default)
+      layer = target.os_layer
+      CORE_NAMES.map do |name|
+        File.join(Paths::RT, name.start_with?("os/") ? "core/os/#{layer}/#{name.delete_prefix("os/")}.rb" : "core/#{name}.rb")
+      end
     end
 
     # The files `target`'s runtime is lowered from, and the compiler that
@@ -247,7 +241,7 @@ module Ze0
       data = []
       entries = core_files(target).map do |path|
         entry = "zr_core_#{File.basename(path, ".rb")}"
-        f, d = Lower.new(Hir.build(File.read(path), path, road: false), unit, symbols, entry: entry, internal: true).run
+        f, d = Lower.new(Hir.build(File.read(path), path, road: false, target: target), unit, symbols, entry: entry, internal: true).run
         functions.concat(f)
         data.concat(d)
         entry
@@ -283,9 +277,9 @@ module Ze0
     # compiler can reach a require by a computed name, so only one of
     # those gets the lines. `units` are `[path, entry]` pairs; a unit that
     # only stops has no path.
-    def load_tables(units = [], evals: false)
+    def load_tables(units = [], evals: false, target: Target.default)
       units = units.select { |path, _| path.start_with?("/") }.sort
-      names = evals ? [Hir::Build::STDLIB, Hir::Build.missing_features, Hir::Build::PRELOADED, [Hir::Build::EXT]] : [[]] * 4
+      names = evals ? [Hir::Build.stdlib(target), Hir::Build.missing_features(target), Hir::Build::PRELOADED, [Hir::Build::EXT]] : [[]] * 4
       out = []
       text = ->(name, bytes) { out << Obj::Data.new(name, :text_const, "#{bytes}\0".b, align: 1) }
       rows = +"".b

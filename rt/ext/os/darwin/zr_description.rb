@@ -1416,6 +1416,7 @@ module Ze0
         d zr_zlib_crc_table Value
         d zr_zlib_version Value
         d zr_zlib_message Value err:Value
+        d zr_os_ruby_platform Value
         d zr_os_environ Ptr
         d zr_os_random Word
         d zr_os_passwd_row Value pw:Ptr

@@ -1,7 +1,7 @@
 # The three kernel tables a lowering reads, written as the text an eval
 # carries instead of the kernel sources.
 #
-#   ruby -Ilib tools/description.rb > rt/ext/zr_description.rb
+#   ruby -Ilib tools/description.rb > rt/ext/os/darwin/zr_description.rb
 require "ze0/zr"
 
 text = Ze0::Machine::Description.of(Ze0::Zr.runtime.unit).to_text

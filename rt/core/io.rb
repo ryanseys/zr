@@ -16,21 +16,10 @@ class IO
   PENDING = []
   private_constant :PENDING
 
-  # The seek and wait flags stay IO's own.
-  SEEK_SET = 0
-  SEEK_CUR = 1
-  SEEK_END = 2
-  SEEK_HOLE = 3
-  SEEK_DATA = 4
-
+  # The wait flags stay IO's own; the seek flags are the OS's.
   READABLE = 1
   PRIORITY = 2
   WRITABLE = 4
-
-  # O_NONBLOCK, which `File::NONBLOCK` also names. IO answers its own
-  # descriptors before File exists, so the flag is IO's own here.
-  NONBLOCK = 4
-  private_constant :NONBLOCK
 
   POLL_IN = READABLE
   POLL_PRI = PRIORITY

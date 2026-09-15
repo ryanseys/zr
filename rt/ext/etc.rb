@@ -1,7 +1,7 @@
 # The user, group and system tables the C library keeps. Ruby ships this
 # as an extension; the rows come from getpwnam and its family.
 require "rbconfig"
-require_relative "etc_names"
+require "etc_names"
 
 module Etc
   Passwd = Struct.new(:name, :passwd, :uid, :gid, :gecos, :dir, :shell, :change, :uclass, :expire)

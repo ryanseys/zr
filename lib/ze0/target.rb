@@ -26,6 +26,19 @@ module Ze0
 
     def to_s = triple
 
+    # The runtime layer each OS's target is lowered with: rt/kernel/os/,
+    # rt/core/os/ and rt/ext/os/ each hold one directory per layer.
+    # wasm32-wasi and aarch64-linux-musl take darwin's until their own
+    # layers land: wasm answers darwin's calls with its shims today, and
+    # the linux road builds objects only.
+    OS_LAYERS = { darwin: "darwin", linux: "darwin", wasi: "darwin" }.freeze
+    # The machine layer, under rt/kernel/arch/. wasm32 runs the aarch64
+    # context layout, which its zr_switch reads.
+    ARCH_LAYERS = { aarch64: "aarch64", wasm32: "aarch64" }.freeze
+
+    def os_layer = OS_LAYERS.fetch(os)
+    def arch_layer = ARCH_LAYERS.fetch(arch)
+
     REGISTRY = {}
 
     def self.register(target)

@@ -143,11 +143,6 @@ module GC
 end
 
 module Process
-  CLOCK_REALTIME = 0
-  CLOCK_MONOTONIC = 6
-  CLOCK_PROCESS_CPUTIME_ID = 12
-  CLOCK_THREAD_CPUTIME_ID = 16
-
   def pid = Primitive.zr_process_id
 
   def clock_gettime(id, unit = :float_second)
