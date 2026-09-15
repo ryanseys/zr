@@ -156,6 +156,14 @@ machine def zr_hash_initialize_copy(recv, argc, argv, cref, blk)
   if zr_special_p(other) || zr_type(other) != T_HASH || other == recv || RHash.iter(recv) != 0 || zr_frozen_p(recv)
     return zr_send(recv, Machine.id(:replace), 1, argv)
   end
+  zr_hash_copy_from(recv, other)
+end
+
+# `other`'s tables, default, default proc and compare_by_identity in
+# place of the receiver's, with no method of either called: what
+# rb_hash_replace and hash_copy do once the checks are made.
+sig [Value, Value] => Value
+machine def zr_hash_copy_from(recv, other)
   free(RHash.entries(recv))
   free(RHash.bins(recv))
   RHash.set_entries(recv, 0)
@@ -181,6 +189,16 @@ machine def zr_hash_initialize_copy(recv, argc, argv, cref, blk)
     RBasic.set_flags(recv, RBasic.flags(recv) & (0 - FL_IDENTITY - 1))
   end
   recv
+end
+
+# rb_hash_dup: a copy of the receiver's class with its pairs, default,
+# compare_by_identity and instance variables, made without calling
+# `initialize_copy`, as merge and compact start from one.
+sig [Value] => Value
+machine def zr_hash_dup_m(h)
+  copy = zr_copy_cell(h)
+  return copy if copy == QUNDEF
+  zr_hash_copy_from(copy, h)
 end
 
 # A class or module copied: an anonymous one with the same ancestors,

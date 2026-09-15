@@ -450,9 +450,22 @@ machine def zr_hash_aref(recv, argc, argv, cref, blk)
     return Machine.value(QUNDEF)
   end
   if e == 0
-    return zr_hash_default(recv, key)
+    return zr_hash_missing(recv, key)
   end
   HEntry.value(e)
+end
+
+# The value for a missing `key`, as rb_hash_default_value answers it: a
+# `default` of the receiver's own is called, and otherwise the default
+# proc's answer or the default.
+sig [Value, Value] => Value
+machine def zr_hash_missing(h, key)
+  if zr_basic_method_p(h, Machine.id(:default))
+    return zr_hash_default(h, key)
+  end
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(key))
+  zr_send(h, Machine.id(:default), 1, slot)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -1151,6 +1164,44 @@ end
 sig [Value] => Value
 machine def zr_hash_default_value(h)
   RHash.default(h)
+end
+
+# `h[key]`, `h[key] = value`, `key?`, `fetch` and `replace` for the core,
+# which reach the table as rb_hash_aref, rb_hash_aset, rb_hash_has_key,
+# rb_hash_fetch and rb_hash_replace do: never through a method a subclass
+# can replace.
+sig [Value, Value] => Value
+machine def zr_hash_aref_m(h, key)
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(key))
+  zr_hash_aref(h, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_hash_aset_m(h, key, value)
+  slot = Machine.slot(16)
+  Machine.store64(slot, 0, Machine.word(key))
+  Machine.store64(slot, 8, Machine.word(value))
+  zr_hash_aset(h, 2, slot, Machine.value(QNIL), Machine.value(QNIL))
+end
+
+sig [Value, Value] => Value
+machine def zr_hash_key_p_m(h, key)
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(key))
+  zr_hash_key_p(h, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_hash_fetch_m(h, key, blk)
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(key))
+  zr_hash_fetch(h, 1, slot, Machine.value(QNIL), blk)
+end
+
+sig [Value, Value] => Value
+machine def zr_hash_replace_m(h, other)
+  zr_hash_copy_from(h, other)
 end
 
 # `delete(key)` for the core: the value, or nil.

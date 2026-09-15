@@ -1559,6 +1559,14 @@ machine def zr_find_method(klass, mid)
   e
 end
 
+# Whether `recv`'s `mid` is still the core library's own row, which
+# rb_method_basic_definition_p asks before the C skips a call to it.
+sig [Value, Word] => Bool
+machine def zr_basic_method_p(recv, mid)
+  e = zr_find_method(zr_class_of(recv), mid)
+  e != 0 && MEntry.core(e) != 0
+end
+
 sig [Value] => Value
 machine def zr_class_of(v)
   if zr_fixnum_p(v)

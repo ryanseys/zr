@@ -1,7 +1,9 @@
 # Hash over the kernel's table: each, [], []=, fetch, delete, keys and
 # values come from the kernel; the rest is written over them. A walk of
 # a Hash's own table is Primitive.zr_hash_foreach, which a subclass's
-# `each` leaves alone, as rb_hash_foreach does.
+# `each` leaves alone, as rb_hash_foreach does, and a read or a write of
+# a pair inside another method is a primitive, never `self[key]`: a
+# subclass sees only the calls hash.c makes by dispatch.
 class Hash
   # hash.rb's: a default value or a default proc, and room for
   # `capacity` pairs.
@@ -32,7 +34,7 @@ class Hash
   def self.[](*args)
     if args.size == 1 && (given = Hash.try_convert(args[0]))
       out = allocate
-      Primitive.zr_hash_foreach(given) { |k, v| out[k] = v }
+      Primitive.zr_hash_foreach(given) { |k, v| Primitive.zr_hash_aset_m(out, k, v) }
       return out
     end
     if args.size == 1 && args[0].is_a?(Array)
@@ -41,14 +43,14 @@ class Hash
         raise ArgumentError, "wrong element type #{pair.class} (expected array)" unless pair.is_a?(Array)
         raise ArgumentError, "invalid number of elements (#{pair.size} for 1..2)" unless pair.size.between?(1, 2)
 
-        out[pair[0]] = pair[1]
+        Primitive.zr_hash_aset_m(out, pair[0], pair[1])
       end
       return out
     end
     raise ArgumentError, "odd number of arguments for Hash" if args.size.odd?
 
     out = allocate
-    args.each_slice(2) { |k, v| out[k] = v }
+    args.each_slice(2) { |k, v| Primitive.zr_hash_aset_m(out, k, v) }
     out
   end
 
@@ -57,7 +59,7 @@ class Hash
   def identity_shaped
     Primitive.attr! :hidden
     out = {}
-    compare_by_identity? ? out.compare_by_identity : out
+    Primitive.zr_hash_identity_p(self) ? out.compare_by_identity : out
   end
 
   def each_key
@@ -94,46 +96,45 @@ class Hash
   def select!
     return to_enum(__callee__) { size } unless block_given?
 
+    before = Primitive.zr_hash_len_m(self)
     Primitive.zr_frozen_error(self) if frozen?
-    before = size
-    keys.each { |k| delete(k) unless yield(k, self[k]) }
-    size == before ? nil : self
+    Primitive.zr_hash_foreach(self) { |k, v| Primitive.zr_hash_delete_m(self, k) unless yield(k, v) }
+    Primitive.zr_hash_len_m(self) == before ? nil : self
   end
   alias filter! select!
 
-  def keep_if(&block)
-    return to_enum(:keep_if) { size } unless block
+  def keep_if
+    return to_enum(:keep_if) { size } unless block_given?
 
-    select!(&block)
+    Primitive.zr_frozen_error(self) if frozen?
+    Primitive.zr_hash_foreach(self) { |k, v| Primitive.zr_hash_delete_m(self, k) unless yield(k, v) }
     self
   end
 
   def reject!
     return to_enum(:reject!) { size } unless block_given?
 
+    before = Primitive.zr_hash_len_m(self)
     Primitive.zr_frozen_error(self) if frozen?
-    before = size
-    keys.each { |k| delete(k) if yield(k, self[k]) }
-    size == before ? nil : self
+    Primitive.zr_hash_foreach(self) { |k, v| Primitive.zr_hash_delete_m(self, k) if yield(k, v) }
+    Primitive.zr_hash_len_m(self) == before ? nil : self
   end
 
-  def delete_if(&block)
-    return to_enum(:delete_if) { size } unless block
+  def delete_if
+    return to_enum(:delete_if) { size } unless block_given?
 
-    reject!(&block)
+    Primitive.zr_frozen_error(self) if frozen?
+    Primitive.zr_hash_foreach(self) { |k, v| Primitive.zr_hash_delete_m(self, k) if yield(k, v) }
     self
   end
 
-  # A subclass answers a plain Hash with the same default.
+  # A subclass answers a plain Hash with the same pairs, default and
+  # compare_by_identity, as rb_hash_to_h copies them.
   def to_h
     unless block_given?
       return self if instance_of?(Hash)
 
-      out = {}
-      Primitive.zr_hash_foreach(self) { |k, v| out[k] = v }
-      out.default_proc = default_proc if default_proc
-      out.default = default unless default_proc
-      return out
+      return Primitive.zr_hash_replace_m({}, self)
     end
 
     out = {}
@@ -155,25 +156,35 @@ class Hash
     out
   end
 
+  # rb_hash_merge: a copy of the receiver as rb_hash_dup makes one, with
+  # no `initialize_copy`, updated as merge! updates.
   def merge(*others, &block)
-    out = dup
-    others.each { |other| out.merge!(other, &block) }
+    out = Primitive.zr_hash_dup_m(self)
+    others.each { |other| out.update_from(other, &block) }
     out
   end
 
-  def merge!(*others)
+  def merge!(*others, &block)
     Primitive.zr_frozen_error(self) if frozen?
-    others.each do |other|
-      hash = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Hash"
-      Primitive.zr_hash_foreach(hash) do |k, v|
-        self[k] = block_given? && key?(k) ? yield(k, self[k], v) : v
-      end
-    end
+    others.each { |other| update_from(other, &block) }
     self
   end
   alias update merge!
 
-  def store(key, value) = self[key] = value
+  # One argument of merge!: its pairs in, a block deciding a key both
+  # have.
+  def update_from(other)
+    Primitive.attr! :hidden
+    hash = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Hash"
+    Primitive.zr_hash_foreach(hash) do |k, v|
+      if block_given? && Primitive.zr_hash_key_p_m(self, k)
+        v = yield(k, Primitive.zr_hash_fetch_m(self, k, nil), v)
+      end
+      Primitive.zr_hash_aset_m(self, k, v)
+    end
+  end
+
+  def store(key, value) = Primitive.zr_hash_aset_m(self, key, value)
 
   def key(value)
     Primitive.zr_hash_foreach(self) { |k, v| return k if Primitive.zr_rb_equal(v, value) }
@@ -203,16 +214,18 @@ class Hash
   def transform_values!
     return to_enum(:transform_values!) { size } unless block_given?
 
-    keys.each { |k| self[k] = yield(self[k]) }
+    Primitive.zr_frozen_error(self) if frozen?
+    Primitive.zr_hash_foreach(self) { |k, v| Primitive.zr_hash_store(self, k, yield(v)) }
     self
   end
 
   def transform_keys(mapping = nil)
     return to_enum(:transform_keys) { size } unless mapping || block_given?
 
+    mapping = Hash.try_convert(mapping) || raise(TypeError, "no implicit conversion of #{conversion_name(mapping)} into Hash") if mapping
     out = {}
     Primitive.zr_hash_foreach(self) do |k, v|
-      new_key = if mapping&.key?(k) then mapping[k]
+      new_key = if mapping && Primitive.zr_hash_key_p_m(mapping, k) then Primitive.zr_hash_fetch_m(mapping, k, nil)
                 elsif block_given? then yield(k)
                 else k
                 end
@@ -221,10 +234,27 @@ class Hash
     out
   end
 
-  def transform_keys!(mapping = nil, &block)
-    return to_enum(:transform_keys!) { size } unless mapping || block
+  # rb_hash_transform_keys_bang: each pair taken out and put back under
+  # its new key, in the order the pairs were, a key another pair has
+  # already moved to left where it is.
+  def transform_keys!(mapping = nil)
+    return to_enum(:transform_keys!) { size } unless mapping || block_given?
 
-    replace(transform_keys(mapping, &block))
+    Primitive.zr_frozen_error(self) if frozen?
+    mapping = Hash.try_convert(mapping) || raise(TypeError, "no implicit conversion of #{conversion_name(mapping)} into Hash") if mapping
+    moved = {}
+    pairs = []
+    Primitive.zr_hash_foreach(self) { |k, v| pairs << k << v }
+    pairs.each_slice(2) do |k, v|
+      new_key = if mapping && Primitive.zr_hash_key_p_m(mapping, k) then Primitive.zr_hash_fetch_m(mapping, k, nil)
+                elsif block_given? then yield(k)
+                else k
+                end
+      Primitive.zr_hash_delete_m(self, k) unless Primitive.zr_hash_key_p_m(moved, k)
+      Primitive.zr_hash_aset_m(self, new_key, v)
+      Primitive.zr_hash_aset_m(moved, new_key, nil)
+    end
+    self
   end
 
   # rb_hash_replace: the other's pairs, default and compare_by_identity,
@@ -235,12 +265,7 @@ class Hash
     raise RuntimeError, "can't replace hash during iteration" if Primitive.zr_hash_iterating_p(self)
 
     hash = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Hash"
-    pr = hash.default_proc
-    pr ? (self.default_proc = pr) : (self.default = Primitive.zr_hash_default_value(hash))
-    clear
-    Primitive.zr_hash_set_identity(self, hash.compare_by_identity?)
-    Primitive.zr_hash_foreach(hash) { |k, v| self[k] = v }
-    self
+    Primitive.zr_hash_replace_m(self, hash)
   end
 
   def clear = Primitive.zr_hash_clear(self)
@@ -264,21 +289,21 @@ class Hash
   end
 
   def dig(key, *rest)
-    v = self[key]
+    v = Primitive.zr_hash_aref_m(self, key)
     rest.empty? || v.nil? ? v : Primitive.zr_dig_into(v, rest)
   end
 
   def fetch_values(*keys, &block)
-    keys.map { |k| fetch(k, &block) }
+    keys.map { |k| Primitive.zr_hash_fetch_m(self, k, block) }
   end
 
   def values_at(*keys)
-    keys.map { |k| self[k] }
+    keys.map { |k| Primitive.zr_hash_aref_m(self, k) }
   end
 
   def slice(*keys)
     out = identity_shaped
-    keys.each { |k| out[k] = self[k] if key?(k) }
+    keys.each { |k| out[k] = Primitive.zr_hash_fetch_m(self, k, nil) if Primitive.zr_hash_key_p_m(self, k) }
     out
   end
 
@@ -295,18 +320,14 @@ class Hash
   # not a send of `each`.
   def any?(*pattern, &block)
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
-    return false if empty?
+    return false if Primitive.zr_hash_len_m(self) == 0
 
     Primitive.zr_warn_here_m("given block not used") if block && !pattern.empty?
     return true if pattern.empty? && !block
 
-    names = keys
-    i = 0
-    while i < names.size
-      pair = [names[i], self[names[i]]]
+    Primitive.zr_hash_foreach(self) do |k, v|
+      pair = [k, v]
       return true if pattern.empty? ? yield(pair) : pattern[0] === pair
-
-      i += 1
     end
     false
   end
@@ -317,30 +338,30 @@ class Hash
     raise ArgumentError, "wrong number of arguments (given #{key.size}, expected 0..1)" if key.size > 1
     return Primitive.zr_hash_default_value(self) if key.empty?
 
-    proc = default_proc
+    proc = Primitive.zr_hash_default_proc(self)
     proc ? proc.call(self, key[0]) : Primitive.zr_hash_default_value(self)
   end
 
   # `delete(key) { |key| }`: the block's answer for a missing key.
   def delete(key)
     Primitive.zr_frozen_error(self) if frozen?
-    return Primitive.zr_hash_delete_m(self, key) if key?(key) || !block_given?
+    return Primitive.zr_hash_delete_m(self, key) if Primitive.zr_hash_key_p_m(self, key) || !block_given?
 
     yield key
   end
 
   # The whole Hash copied, as rb_hash_compact copies it, less the nils.
   def compact
-    out = dup
-    out.delete_if { |_, v| v.nil? }
+    out = Primitive.zr_hash_dup_m(self)
+    Primitive.zr_hash_foreach(out) { |k, v| Primitive.zr_hash_delete_m(out, k) if v.nil? }
     out
   end
 
   def compact!
     Primitive.zr_frozen_error(self) if frozen?
-    before = size
-    keys.each { |k| delete(k) if self[k].nil? }
-    size == before ? nil : self
+    before = Primitive.zr_hash_len_m(self)
+    Primitive.zr_hash_foreach(self) { |k, v| Primitive.zr_hash_delete_m(self, k) if v.nil? }
+    Primitive.zr_hash_len_m(self) == before ? nil : self
   end
 
   def flatten(depth = 1)
@@ -368,8 +389,9 @@ class Hash
   end
 
   def shift
+    Primitive.zr_frozen_error(self) if frozen?
     Primitive.zr_hash_foreach(self) do |k, v|
-      delete(k)
+      Primitive.zr_hash_delete_m(self, k)
       return [k, v]
     end
     nil
@@ -379,11 +401,13 @@ class Hash
   # recursion, which answers equal, as rb_exec_recursive_paired has it.
   def eql?(other)
     return true if equal?(other)
-    return false unless other.is_a?(Hash) && size == other.size
+    return false unless other.is_a?(Hash) && Primitive.zr_hash_len_m(self) == Primitive.zr_hash_len_m(other)
     return true if Primitive.zr_recursive_enter_paired(self, other, :eql?)
 
     begin
-      Primitive.zr_hash_foreach(self) { |k, v| return false unless other.key?(k) && v.eql?(other[k]) }
+      Primitive.zr_hash_foreach(self) do |k, v|
+        return false unless Primitive.zr_hash_key_p_m(other, k) && v.eql?(Primitive.zr_hash_fetch_m(other, k, nil))
+      end
       true
     ensure
       Primitive.zr_recursive_leave(self, :eql?)
@@ -397,7 +421,7 @@ class Hash
     return 7 if Primitive.zr_recursive_enter(self, :hash)
 
     begin
-      total = size
+      total = Primitive.zr_hash_len_m(self)
       Primitive.zr_hash_foreach(self) { |k, v| total = (total + [k, v].hash) & 0x3FFFFFFFFFFFFFFF }
       total
     ensure
@@ -407,20 +431,28 @@ class Hash
 
   # Each comparison reads the other side as a Hash, and names what it
   # got when the argument is not one.
-  def <=(other)
-    other = hash_operand(other)
-    Primitive.zr_hash_foreach(self) { |k, v| return false unless other.key?(k) && Primitive.zr_rb_equal(other[k], v) }
-    true
-  end
+  def <=(other) = within(hash_operand(other))
 
   def <(other)
     other = hash_operand(other)
-    size < other.size && self <= other
+    Primitive.zr_hash_len_m(self) < Primitive.zr_hash_len_m(other) && within(other)
   end
 
-  def >=(other) = hash_operand(other) <= self
+  def >=(other) = hash_operand(other).within(self)
 
-  def >(other) = hash_operand(other) < self
+  def >(other)
+    other = hash_operand(other)
+    Primitive.zr_hash_len_m(other) < Primitive.zr_hash_len_m(self) && other.within(self)
+  end
+
+  # hash_le: every pair of the receiver is a pair of `other`.
+  def within(other)
+    Primitive.attr! :hidden
+    Primitive.zr_hash_foreach(self) do |k, v|
+      return false unless Primitive.zr_hash_key_p_m(other, k) && Primitive.zr_rb_equal(Primitive.zr_hash_fetch_m(other, k, nil), v)
+    end
+    true
+  end
 
   def hash_operand(other)
     Primitive.attr! :hidden
@@ -429,7 +461,7 @@ class Hash
 
   def to_proc
     h = self
-    Primitive.zr_proc_anonymous(lambda { |k| h[k] })
+    Primitive.zr_proc_anonymous(lambda { |k| Primitive.zr_hash_aref_m(h, k) })
   end
 
   def deconstruct_keys(keys) = self
