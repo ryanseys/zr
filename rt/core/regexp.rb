@@ -435,8 +435,8 @@ class Regexp
     raise TypeError, "no implicit conversion of #{conversion_name(text)} into String" unless text.is_a?(String)
 
     pos = implicit_integer(pos)
-    pos += text.size if pos < 0
-    if pos < 0 || pos > text.size
+    pos += Primitive.zr_str_length_m(text) if pos < 0
+    if pos < 0 || pos > Primitive.zr_str_length_m(text)
       Primitive.zr_backref_set(nil)
       return nil
     end
@@ -452,8 +452,8 @@ class Regexp
 
     text = text.to_s if text.is_a?(Symbol)
     pos = implicit_integer(pos)
-    pos += text.size if pos < 0
-    return false if pos < 0 || pos > text.size
+    pos += Primitive.zr_str_length_m(text) if pos < 0
+    return false if pos < 0 || pos > Primitive.zr_str_length_m(text)
 
     check_subject(text)
     !Primitive.zr_regexp_search(self, text, Primitive.zr_str_char_offset_m(text, pos), false).nil?
@@ -590,12 +590,16 @@ class Regexp
   # is plain ASCII.
   def check_subject(text)
     Primitive.attr! :hidden
-    raise ArgumentError, "invalid byte sequence in #{text.encoding}" unless text.ascii_only? || text.valid_encoding?
+    # The subject's own bytes, as rb_reg_prepare_enc reads them: never
+    # a subclass's encoding or ascii_only?.
+    text_encoding = Encoding.at(Primitive.zr_str_encoding_index_m(text))
+    ascii = Primitive.zr_str_ascii_only_m(text)
+    raise ArgumentError, "invalid byte sequence in #{text_encoding}" unless ascii || Primitive.zr_str_valid_p(text)
     # UTF-16 and UTF-32 match no pattern: their ASCII is not ASCII bytes.
-    return unless !text.encoding.ascii_compatible? || (fixed_encoding? && text.encoding != encoding && !text.ascii_only?)
+    return unless !text_encoding.ascii_compatible? || (fixed_encoding? && text_encoding != encoding && !ascii)
 
     raise Encoding::CompatibilityError,
-          "incompatible encoding regexp match (#{Encoding.shown(encoding)} regexp with #{Encoding.shown(text.encoding)} string)"
+          "incompatible encoding regexp match (#{Encoding.shown(encoding)} regexp with #{Encoding.shown(text_encoding)} string)"
   end
   private :check_subject
 
@@ -732,9 +736,9 @@ class MatchData
     value && value.size
   end
 
-  def pre_match = string.byteslice(0, offsets[0])
+  def pre_match = Primitive.zr_str_byteslice(string, 0, offsets[0])
 
-  def post_match = string.byteslice(offsets[1], string.bytesize - offsets[1])
+  def post_match = Primitive.zr_str_byteslice(string, offsets[1], Primitive.zr_str_bytesize(string) - offsets[1])
 
   def to_s = group(0)
 
@@ -761,7 +765,7 @@ class MatchData
   def matched(regexp, text, offsets)
     Primitive.attr! :hidden
     Primitive.zr_hidden_set(self, :regexp, regexp)
-    Primitive.zr_hidden_set(self, :string, text.frozen? ? text : text.dup.freeze)
+    Primitive.zr_hidden_set(self, :string, text.frozen? ? text : Primitive.zr_str_new_frozen_m(text))
     Primitive.zr_hidden_set(self, :position, offsets[0])
     Primitive.zr_hidden_set(self, :offsets, offsets.drop(1))
   end
@@ -781,7 +785,7 @@ class MatchData
   def group(index)
     Primitive.attr! :hidden
     b = offsets[index * 2]
-    b < 0 ? nil : string.byteslice(b, offsets[index * 2 + 1] - b)
+    b < 0 ? nil : Primitive.zr_str_byteslice(string, b, offsets[index * 2 + 1] - b)
   end
 
   def byte_begin(index)

@@ -21,11 +21,12 @@ module Kernel
   class Formatter
     def initialize(spec, args)
       Primitive.attr! :hidden
-      @spec = spec
+      # A subclass's text is read as its bytes, as rb_str_format reads it.
+      @spec = Primitive.zr_real_class(spec).equal?(String) ? spec : String.new(spec)
       @args = args
       @next = 0
       @numbered = false
-      @out = "".dup.force_encoding(spec.encoding)
+      @out = "".dup.force_encoding(@spec.encoding)
     end
 
     def render

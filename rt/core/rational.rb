@@ -399,7 +399,7 @@ class Float
 end
 
 class String
-  def to_r = Rational.send(:parse, self[/\A\s*[-+]?\d[\d_]*(?:\.\d[\d_]*)?(?:[eE][-+]?\d+)?(?:\/\d[\d_]*)?/] || "0", true)
+  def to_r = Rational.send(:parse, plain[/\A\s*[-+]?\d[\d_]*(?:\.\d[\d_]*)?(?:[eE][-+]?\d+)?(?:\/\d[\d_]*)?/] || "0", true)
 end
 
 class NilClass

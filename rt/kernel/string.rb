@@ -718,6 +718,22 @@ machine def zr_str_length(recv, argc, argv, cref, blk)
   zr_fix(zr_str_char_count(recv))
 end
 
+# A frozen copy that keeps a subclass, as rb_str_new_frozen makes one:
+# what a MatchData holds of the text it matched.
+sig [Value] => Value
+machine def zr_str_new_frozen_m(s)
+  copy = zr_str_copy_encoding(zr_str_new(RString.ptr(s), RString.len(s)), s)
+  RBasic.set_klass(copy, zr_real_class(s))
+  RBasic.set_flags(copy, RBasic.flags(copy) | FL_FREEZE)
+  copy
+end
+
+# The character count for core code that must not dispatch.
+sig [Value] => Value
+machine def zr_str_length_m(s)
+  zr_fix(zr_str_char_count(s))
+end
+
 # Whether every byte is a character of its own: a byte-oriented
 # encoding, or text with no byte past ASCII.
 sig [Value] => Bool

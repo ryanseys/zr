@@ -694,7 +694,7 @@ class String
   # as CRuby's unpack does.
   def unpack(fmt, offset: 0)
     Primitive.attr! :ruby
-    values = Packing.unpack(Packing.from(self, offset), Primitive.zr_str_operand(fmt), false, Packing.associated(self))
+    values = Packing.unpack(Packing.from(plain, offset), Primitive.zr_str_operand(fmt), false, Packing.associated(self))
     return values unless block_given?
 
     values.each { |value| yield value }
@@ -703,6 +703,6 @@ class String
 
   def unpack1(fmt, offset: 0)
     Primitive.attr! :ruby
-    Packing.unpack(Packing.from(self, offset), Primitive.zr_str_operand(fmt), true, Packing.associated(self)).first
+    Packing.unpack(Packing.from(plain, offset), Primitive.zr_str_operand(fmt), true, Packing.associated(self)).first
   end
 end

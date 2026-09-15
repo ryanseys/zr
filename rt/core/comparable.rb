@@ -19,7 +19,9 @@ module Comparable
   def >(other) = compare_to(other) > 0
   def >=(other) = compare_to(other) >= 0
 
-  def between?(low, high) = self >= low && self <= high
+  # cmp_between: `<=>` against each bound, never the receiver's own
+  # operators.
+  def between?(low, high) = compare_to(low) >= 0 && compare_to(high) <= 0
 
   # One argument must be a Range, as cmp_clamp reads it; two are the
   # bounds, either of them nil.
