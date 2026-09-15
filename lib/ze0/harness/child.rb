@@ -18,6 +18,10 @@ module Ze0
       BUILD_MB = Integer(ENV.fetch("ZE0_BUILD_MB", "2048"))
       RUN_MB = Integer(ENV.fetch("ZE0_RUN_MB", "1024"))
 
+      # A case's build bound: its own `#@ build-mb`, where the program is
+      # known to need more, and never below what the environment gives.
+      def self.build_mb(directives) = [directives.build_mb || 0, BUILD_MB].max
+
       # How often the group's memory is read, in seconds.
       EVERY = 0.2
 

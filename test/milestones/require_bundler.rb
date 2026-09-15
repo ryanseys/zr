@@ -1,3 +1,4 @@
+#@ build-mb: 3072
 # MILESTONE: `require "bundler"` standalone, with nothing requiring rubygems
 # first.
 #

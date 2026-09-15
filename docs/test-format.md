@@ -47,6 +47,7 @@ in any order. An unknown key fails the case rather than being ignored.
 | `#@ only: <platforms>` | skip on every platform the list does not name: `macos`, `linux`, `wasi`, separated by commas or spaces |
 | `#@ backend: jit` | skip wherever a real link is used; the program needs the compiler and itself in one process |
 | `#@ gccheck: <line>` | the exit cycle census this program is expected to report |
+| `#@ build-mb: <megabytes>` | the build's memory bound, for a program known to need more than `ZE0_BUILD_MB` |
 
 ## The trailer
 

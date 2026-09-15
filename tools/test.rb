@@ -118,7 +118,7 @@ def one(rb, options)
   keep = options[:keep]
   bin = File.join(work, "p")
   build = RUNNER.build_argv(rel, bin)
-  built, build_seconds = bounded(build, TESTS, nil, {}, options[:timeout], Ze0::Harness::Child::BUILD_MB)
+  built, build_seconds = bounded(build, TESTS, nil, {}, options[:timeout], Ze0::Harness::Child.build_mb(directives))
   lines << format("  %-10s %5.1fs %s", "build", build_seconds, built.code == 0 ? "ok" : "FAILED (#{bound(built, options) || built.status})")
   lines << "  #{"command".ljust(10)} #{build.join(" ")}"
   if built.code != 0 || options[:verbose]

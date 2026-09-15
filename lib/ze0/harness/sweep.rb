@@ -125,10 +125,11 @@ module Ze0
         bin = File.join(work, "p")
         File.delete(bin) if File.exist?(bin)
 
-        out = bounded(build_argv(rel, bin), cwd, nil, Child::BUILD_MB)
+        build_mb = Child.build_mb(kase.directives)
+        out = bounded(build_argv(rel, bin), cwd, nil, build_mb)
         return Row.new(rb, :refused, first_line(out).sub(/\Aze0: /, "")) if out.code == 3
         return Row.new(rb, :backend, "the build ran past #{LIMIT}s") if out.code == :timeout
-        return Row.new(rb, :backend, "the build held more than #{Child::BUILD_MB} MB") if out.code == :memory
+        return Row.new(rb, :backend, "the build held more than #{build_mb} MB") if out.code == :memory
         return Row.new(rb, :backend, first_line(out)) unless out.code == 0
 
         stdin = kase.directives.stdin && File.binread(File.join(File.dirname(rb), kase.directives.stdin))

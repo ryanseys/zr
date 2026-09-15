@@ -72,7 +72,7 @@ module Ze0
         bin = File.join(work, "p")
         File.delete(bin) if File.exist?(bin)
 
-        build, out = clocked { @sweep.bounded(@sweep.build_argv(rel, bin), cwd, nil, Child::BUILD_MB) }
+        build, out = clocked { @sweep.bounded(@sweep.build_argv(rel, bin), cwd, nil, Child.build_mb(kase.directives)) }
         return Row.new(rb, :refused, first_line(out)) if out.code == 3
         return Row.new(rb, :backend, out.code == :timeout ? "the build ran past #{Sweep::LIMIT}s" : first_line(out)) unless out.code == 0
 

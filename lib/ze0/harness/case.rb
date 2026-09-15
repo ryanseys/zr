@@ -22,15 +22,15 @@ module Ze0
       end
     end
 
-    Directives = Struct.new(:args, :stdin, :env, :ruby, :zeo, :zeo_env, :only, :backend, :gccheck) do
+    Directives = Struct.new(:args, :stdin, :env, :ruby, :zeo, :zeo_env, :only, :backend, :gccheck, :build_mb) do
       def self.blank
-        new([], nil, {}, [], [], {}, nil, nil, nil)
+        new([], nil, {}, [], [], {}, nil, nil, nil, nil)
       end
     end
 
     class Case
       END_MARK = "__END__"
-      KEYS = %w[args stdin env ruby zeo zeo-env only backend gccheck].freeze
+      KEYS = %w[args stdin env ruby zeo zeo-env only backend gccheck build-mb].freeze
       # The platforms a recording answers for. macOS's sections carry no
       # prefix; every other platform's are the ones where its answer parts
       # from macOS's.
@@ -119,6 +119,9 @@ module Ze0
             d.backend = need.call
             raise ArgumentError, "#{@path}: line #{n}: `#@ backend: jit` is the only form" unless d.backend == "jit"
           when "gccheck" then d.gccheck = need.call
+          when "build-mb"
+            d.build_mb = Integer(need.call, exception: false)
+            raise ArgumentError, "#{@path}: line #{n}: `#@ build-mb` takes megabytes" unless d.build_mb&.positive?
           else
             raise ArgumentError, "#{@path}: line #{n}: unknown directive `#@ #{key}` (#{KEYS.join(", ")})"
           end
