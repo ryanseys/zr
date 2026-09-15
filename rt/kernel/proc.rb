@@ -588,6 +588,8 @@ machine def zr_int_times(recv, argc, argv, cref, blk)
   n = zr_fix2long(recv)
   i = 0
   while i < n
+    tick = zr_preempt()
+    return tick if tick == QUNDEF
     r = zr_yield1(blk, zr_fix(i))
     return r if r == QUNDEF
     i += 1
@@ -679,6 +681,8 @@ machine def zr_int_upto(recv, argc, argv, cref, blk)
   i = zr_fix2long(recv)
   last = Machine.load64(out, 0)
   while i <= last
+    tick = zr_preempt()
+    return tick if tick == QUNDEF
     r = zr_yield1(blk, zr_fix(i))
     return r if r == QUNDEF
     i += 1
@@ -700,6 +704,8 @@ machine def zr_int_downto(recv, argc, argv, cref, blk)
   i = zr_fix2long(recv)
   last = Machine.load64(out, 0)
   while i >= last
+    tick = zr_preempt()
+    return tick if tick == QUNDEF
     r = zr_yield1(blk, zr_fix(i))
     return r if r == QUNDEF
     i -= 1
@@ -737,6 +743,8 @@ machine def zr_ary_each(recv, argc, argv, cref, blk)
   end
   i = 0
   while i < RArray.len(recv)
+    tick = zr_preempt()
+    return tick if tick == QUNDEF
     r = zr_yield1(blk, zr_ary_at(recv, i))
     return r if r == QUNDEF
     i += 1
@@ -766,6 +774,8 @@ machine def zr_ary_each_with_index(recv, argc, argv, cref, blk)
   end
   i = 0
   while i < RArray.len(recv)
+    tick = zr_preempt()
+    return tick if tick == QUNDEF
     r = zr_yield2(blk, zr_ary_at(recv, i), zr_fix(i))
     return r if r == QUNDEF
     i += 1
@@ -780,6 +790,8 @@ machine def zr_ary_each_index(recv, argc, argv, cref, blk)
   end
   i = 0
   while i < RArray.len(recv)
+    tick = zr_preempt()
+    return tick if tick == QUNDEF
     r = zr_yield1(blk, zr_fix(i))
     return r if r == QUNDEF
     i += 1
@@ -797,6 +809,8 @@ machine def zr_ary_map(recv, argc, argv, cref, blk)
   out = zr_ary_new(RArray.len(recv))
   i = 0
   while i < RArray.len(recv)
+    tick = zr_preempt()
+    return tick if tick == QUNDEF
     r = zr_yield1(blk, zr_ary_at(recv, i))
     return r if r == QUNDEF
     zr_ary_push(out, r)
@@ -821,6 +835,8 @@ machine def zr_ary_filter(recv, blk, keep)
   out = zr_ary_new(4)
   i = 0
   while i < RArray.len(recv)
+    tick = zr_preempt()
+    return tick if tick == QUNDEF
     v = zr_ary_at(recv, i)
     r = zr_yield1(blk, v)
     return r if r == QUNDEF

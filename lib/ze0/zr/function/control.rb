@@ -210,10 +210,12 @@ module Ze0
         def redo_body(node)
           if (loop = @loops.last)
             through_ensures(@qnil, loop[:depth])
+            preempt
             @f.jump(loop[:body])
           else
             @l.refuse(node, "redo outside a block or loop is not lowered yet") unless @kind == :block
             through_ensures(@qnil)
+            preempt
             @f.jump(@body_label)
           end
           switch(@f.label, open: true)
@@ -226,7 +228,13 @@ module Ze0
           v = expr(node.value)
           if (loop = @loops.last)
             v = through_ensures(v, loop[:depth])
-            kind == :break ? @f.jump(loop[:done], [v]) : @f.jump(loop[:head])
+            if kind == :break
+              @f.jump(loop[:done], [v])
+            else
+              # A back edge like the one at the body's end.
+              preempt
+              @f.jump(loop[:head])
+            end
             switch(@f.label, open: true)
             return @qnil
           end
