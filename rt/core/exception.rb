@@ -65,11 +65,23 @@ class Exception
   end
 
   # The rows the raise saw, as Location objects: nil before a raise, and
-  # unchanged when set_backtrace replaces the strings.
+  # unchanged when set_backtrace replaces the strings. Locations given
+  # to set_backtrace stand for both.
   def backtrace_locations
+    return @locations.dup if @locations
+
     rows = Primitive.zr_exc_raise_rows(self) or return nil
 
     rows.zip(Primitive.zr_exc_raise_nodes(self)).map { |row, node| Thread::Backtrace::Location.new(row, node) }
+  end
+
+  # An Array of Locations sets the locations as well as the strings, as
+  # exc_set_backtrace does.
+  def set_backtrace(backtrace)
+    locations = backtrace.is_a?(Array) && !backtrace.empty? && backtrace.all?(Thread::Backtrace::Location)
+    rows = Primitive.zr_exc_set_backtrace_value(self, locations ? backtrace.map(&:to_s) : backtrace)
+    @locations = locations ? backtrace.dup : nil
+    locations ? backtrace : rows
   end
 
   private

@@ -51,7 +51,7 @@ module Ze0
       rescue SyntaxError => e
         # The error is the eval's, raised where the eval stands, unless it
         # names only the string, as a stray `yield`'s does.
-        e.set_backtrace(caller(1)) unless e.backtrace == [e.path]
+        e.set_backtrace(caller_locations(1)) unless e.backtrace == [e.path]
         raise e
       end
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run

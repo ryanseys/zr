@@ -88,8 +88,11 @@ module JSON
       def self.parse(source, opts) = Walk.new(ParserConfig.send(:fields_for, opts), source).run
     end
 
-    # cParser_parse and json_parse_any over one source.
+    # cParser_parse and json_parse_any over one source: the C half's
+    # work, with no method or backtrace row a program sees.
     class Walk
+      Primitive.attr! :hidden
+
       ARRAY = 1
       OBJECT = 2
       # The phases a frame goes through. The first three equal the frame
