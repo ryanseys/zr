@@ -3,6 +3,7 @@
 require_relative "helper"
 require "stringio"
 require_relative "../../lib/ze0/ir/interp"
+require_relative "../../lib/ze0/ir/passes"
 require_relative "../../lib/ze0/machine/lower"
 require_relative "../native/fixtures"
 
@@ -15,7 +16,10 @@ class InterpTest < Minitest::Test
   # refused by name. `switch.rb` is the only one.
   RAW = %w[switch].freeze
 
+  # Every function goes through the passes a build runs, checked
+  # strictly, so the interpreter answers for what the passes made.
   def answers(functions, data, raw, argv)
+    functions.each { |f| Ze0::IR::Passes.prepare(f, strict: true) }
     out = StringIO.new
     status = Ze0::IR::Interp.new(functions, data: data, raw: raw, out: out, err: out).run(argv)
     [status, out.string]

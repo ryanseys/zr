@@ -40,12 +40,7 @@ module Ze0
 
         # Whether `reg` is one the callee saves.
         def self.callee?(reg) = reg.to_i >= 19
-        # A value is the only entity the builder names with a leading
-        # `v`: a block is `block0`, a global `gv0`, a slot `ss0`, a callee
-        # `fn0` and a signature `sig0`. Testing the first byte is worth
-        # doing rather than matching a pattern, because this runs once per
-        # operand of every instruction in the program.
-        def self.value?(name) = name.is_a?(String) && name.start_with?("v")
+        def self.value?(name) = IR.value?(name)
 
         # `{ "v3" => X19, ... }` for the values worth a register. `skip`
         # names values the backend makes where they are read instead, so

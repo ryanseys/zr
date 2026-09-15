@@ -2,6 +2,7 @@
 
 require "ze0/eval/runtime"
 require "ze0/eval/forms"
+require "ze0/ir/passes"
 
 module Ze0
   # A string of ruby, compiled while the program that asked for it runs.
@@ -94,6 +95,11 @@ module Ze0
       value.nil? || value == true || value == false ? value.inspect : value.class.name
     end
 
-    def unit(functions, data) = Backend::Aarch64.unit(functions, data)
+    # The same passes and checks a build runs, so an eval's code is the
+    # code the program around it was built from.
+    def unit(functions, data)
+      functions.each { |f| IR::Passes.prepare(f) }
+      Backend::Aarch64.unit(functions, data)
+    end
   end
 end

@@ -2,6 +2,11 @@
 
 module Ze0
   module IR
+    # Whether `name` names a value. A value is the only entity the
+    # builder names with a leading `v`: a block is `block0`, a global
+    # `gv0`, a slot `ss0`, a callee `fn0` and a signature `sig0`.
+    def self.value?(name) = name.is_a?(String) && name.start_with?("v")
+
     # One instruction, restricted to the opcodes ze0 emits: an
     # opcode, the type written on it (`iadd.i64`, or none), its operands,
     # its results, and for the control and memory forms their own fields.
