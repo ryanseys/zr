@@ -17,6 +17,7 @@ class IO
     LOCKED = 32
     PRIVATE = 64
     READONLY = 128
+    FILE = 256
 
     LITTLE_ENDIAN = 4
     BIG_ENDIAN = 8
@@ -92,8 +93,29 @@ class IO
       text
     end
 
+    # A window on a file's bytes, as mmap gives one. The bytes are read in
+    # when the map is made; a shared mapping writes each change back to
+    # the file at once, and a private one keeps its changes to itself.
     def self.map(file, size = nil, offset = 0, flags = 0)
-      raise NotImplementedError, "IO::Buffer.map is not implemented yet"
+      announce
+      file_size = file.size
+      raise ArgumentError, "Invalid negative or zero file size!" if file_size <= 0
+
+      unless size.nil?
+        size = Primitive.zr_index_operand_m(size)
+        raise ArgumentError, "Size can't be zero!" if size.zero?
+        raise ArgumentError, "Size can't be larger than file size!" if size > file_size
+      end
+      offset = Primitive.zr_index_operand_m(offset)
+      raise ArgumentError, "Offset can't be negative!" if offset.negative?
+      raise ArgumentError, "Offset too large!" if offset >= file_size
+
+      size ||= file_size - offset
+      raise ArgumentError, "Offset too large!" if file_size - offset < size
+
+      buffer = allocate
+      buffer.send(:mapped, file, size, offset, flags)
+      buffer
     end
 
     def initialize(size = DEFAULT_SIZE, flags = 0)
@@ -116,6 +138,7 @@ class IO
       @start = 0
       @size = @bytes.bytesize
       @flags = INTERNAL
+      @mapping = nil
       self
     end
 
@@ -139,6 +162,7 @@ class IO
       @bytes = nil
       @start = 0
       @size = 0
+      @mapping = nil
       self
     end
 
@@ -168,7 +192,7 @@ class IO
       length = @size - offset if length.nil?
       bounds(offset, length)
       part = allocate_like
-      part.send(:window, @bytes, @start + offset, length, (@flags & ~INTERNAL) | SLICE)
+      part.send(:window, @bytes, @start + offset, length, (@flags & ~INTERNAL) | SLICE, @mapping)
       part
     end
 
@@ -192,6 +216,7 @@ class IO
         @bytes.setbyte(@start + offset + i, string.getbyte(source_offset + i))
         i += 1
       end
+      written(offset, length)
       length
     end
 
@@ -219,6 +244,7 @@ class IO
         @bytes.setbyte(@start + offset + (host ? i : width - 1 - i), (value >> (i * 8)) & 0xff)
         i += 1
       end
+      written(offset, width)
       offset + width
     end
 
@@ -275,6 +301,7 @@ class IO
         @bytes.setbyte(@start + offset + i, value)
         i += 1
       end
+      written(offset, length)
       self
     end
 
@@ -311,6 +338,7 @@ class IO
         @bytes.setbyte(@start + i, (~@bytes.getbyte(@start + i)) & 0xff)
         i += 1
       end
+      written(0, @size)
       self
     end
 
@@ -328,7 +356,7 @@ class IO
 
     def transfer
       other = Buffer.allocate
-      other.send(:window, @bytes, @start, @size, @flags)
+      other.send(:window, @bytes, @start, @size, @flags, @mapping)
       free
       other
     end
@@ -340,7 +368,7 @@ class IO
                 ["NULL"]
               else
                 [internal? ? "INTERNAL" : nil, external? ? "EXTERNAL" : nil, mapped? ? "MAPPED" : nil,
-                 shared? ? "SHARED" : nil, locked? ? "LOCKED" : nil, private? ? "PRIVATE" : nil,
+                 @flags & FILE != 0 ? "FILE" : nil, shared? ? "SHARED" : nil, locked? ? "LOCKED" : nil, private? ? "PRIVATE" : nil,
                  readonly? ? "READONLY" : nil, @flags & SLICE != 0 ? "SLICE" : nil].compact
               end
       "#<IO::Buffer #{format('0x%016x', object_id)}+#{@size}#{shown.empty? ? '' : " #{shown.join(' ')}"}>"
@@ -388,13 +416,41 @@ class IO
       self
     end
 
-    def window(bytes, start, size, flags)
+    def window(bytes, start, size, flags, mapping = nil)
       Primitive.attr! :hidden
       @bytes = bytes
       @start = start
       @size = size
       @flags = flags
+      @mapping = mapping
       self
+    end
+
+    # io_buffer_map_file: the file's bytes from `offset`, and where they
+    # go back to when the mapping is shared and writable.
+    def mapped(file, size, offset, flags)
+      Primitive.attr! :hidden
+      @bytes = file.pread(size, offset).b
+      @start = 0
+      @size = size
+      @flags = MAPPED | FILE | (flags & READONLY)
+      if flags & PRIVATE != 0
+        @flags |= PRIVATE
+      else
+        @flags |= EXTERNAL | SHARED
+        @mapping = [file, offset]
+      end
+      self
+    end
+
+    # A change to a shared mapping reaches the file, as the pages mmap
+    # shares with it would carry it.
+    def written(offset, length)
+      Primitive.attr! :hidden
+      return if @mapping.nil? || length.zero?
+
+      file, file_offset = @mapping
+      file.pwrite(@bytes.byteslice(@start + offset, length), file_offset + @start + offset)
     end
 
     def allocate_like
@@ -444,6 +500,7 @@ class IO
         @bytes.setbyte(@start + i, text.getbyte(i))
         i += 1
       end
+      written(0, @size)
       self
     end
 

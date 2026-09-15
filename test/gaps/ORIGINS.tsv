@@ -1,6 +1,5 @@
 gaps/openssl_digest.rb	aot/openssl_digest.rb
 gaps/a_platform_guard_decides_at_build_time.rb	compiler/guards/a_platform_guard_decides_at_build_time.rb
-gaps/io_buffer.rb	core/io/io_buffer.rb
 gaps/rubyvm_ast.rb	core/rubyvm/rubyvm_ast.rb
 gaps/rubyvm_ast_node_taxonomy.rb	core/rubyvm/rubyvm_ast_node_taxonomy.rb
 gaps/tracepoint_disable_is_a_call_event.rb	core/tracepoint/tracepoint_disable_is_a_call_event.rb
