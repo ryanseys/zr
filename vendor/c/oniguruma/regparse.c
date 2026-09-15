@@ -2159,6 +2159,7 @@ scan_env_clear(ParseEnv* env)
   xmemset(env->mem_env_static, 0, sizeof(env->mem_env_static));
 
   env->parse_depth      = 0;
+  env->ascii_fold_pass  = 0;
 #ifdef ONIG_DEBUG_PARSE
   env->max_parse_depth  = 0;
 #endif
@@ -6762,8 +6763,14 @@ prs_posix_bracket(CClassNode* cc, UChar** src, UChar* end, ParseEnv* env)
       if (onigenc_with_ascii_strncmp(enc, p, end, (UChar* )":]", 2) != 0)
         break;
 
-      r = add_ctype_to_cc(cc, pb->ctype, not, env);
-      if (r != 0) return r;
+      /* ze0: a fold across ASCII never comes from [[:word:]] or
+         [[:ascii:]], nor from any bracket that reads ASCII alone. */
+      if (env->ascii_fold_pass == 0 ||
+          (pb->ctype != ONIGENC_CTYPE_WORD && pb->ctype != ONIGENC_CTYPE_ASCII &&
+           (env->options & ONIG_OPTION_POSIX_IS_ASCII) == 0)) {
+        r = add_ctype_to_cc(cc, pb->ctype, not, env);
+        if (r != 0) return r;
+      }
 
       PINC_S; PINC_S;
       *src = p;
@@ -7114,8 +7121,11 @@ prs_cc(Node** np, PToken* tok, UChar** src, UChar* end, ParseEnv* env)
       break;
 
     case TK_CHAR_TYPE:
-      r = add_ctype_to_cc(cc, tok->u.prop.ctype, tok->u.prop.not, env);
-      if (r != 0) goto err;
+      /* ze0: nor from \w or \W. */
+      if (env->ascii_fold_pass == 0 || tok->u.prop.ctype != ONIGENC_CTYPE_WORD) {
+        r = add_ctype_to_cc(cc, tok->u.prop.ctype, tok->u.prop.not, env);
+        if (r != 0) goto err;
+      }
 
     next_cprop:
       r = cc_cprop_next(cc, &curr_code, &curr_type, &state, env);
@@ -7129,8 +7139,11 @@ prs_cc(Node** np, PToken* tok, UChar** src, UChar* end, ParseEnv* env)
           r = ctype;
           goto err;
         }
-        r = add_ctype_to_cc(cc, ctype, tok->u.prop.not, env);
-        if (r != 0) goto err;
+        /* ze0: nor from \p{ASCII}. */
+        if (env->ascii_fold_pass == 0 || ctype != ONIGENC_CTYPE_ASCII) {
+          r = add_ctype_to_cc(cc, ctype, tok->u.prop.not, env);
+          if (r != 0) goto err;
+        }
         goto next_cprop;
       }
       break;
@@ -8717,6 +8730,7 @@ onig_new_cclass_with_code_list(Node** rnode, OnigEncoding enc,
 typedef struct {
   ParseEnv*   env;
   CClassNode* cc;
+  CClassNode* asc_cc;
   Node*       alt_root;
   Node**      ptail;
 } IApplyCaseFoldArg;
@@ -8737,6 +8751,16 @@ i_apply_case_fold(OnigCodePoint from, OnigCodePoint to[], int to_len,
 
   if (to_len == 1) {
     int is_in = onig_is_code_in_cc(enc, from, cc);
+
+    /* ze0: a fold that crosses ASCII applies only where the class holds
+       the character by something other than \w, [[:word:]] or
+       \p{ASCII}, as Onigmo's i_apply_case_fold asks its asc_cc. */
+    if (IS_NOT_NULL(iarg->asc_cc) &&
+        ONIGENC_IS_ASCII_CODE(from) != ONIGENC_IS_ASCII_CODE(*to)) {
+      int in_asc = onig_is_code_in_cc(enc, from, iarg->asc_cc);
+      if (IS_NCCLASS_NOT(iarg->asc_cc)) in_asc = !in_asc;
+      if (in_asc == 0) return 0;
+    }
 #ifdef CASE_FOLD_IS_APPLIED_INSIDE_NEGATIVE_CCLASS
     if ((is_in != 0 && !IS_NCCLASS_NOT(cc)) ||
         (is_in == 0 &&  IS_NCCLASS_NOT(cc))) {
@@ -9041,6 +9065,9 @@ prs_exp(Node** np, PToken* tok, int term, UChar** src, UChar* end,
   case TK_OPEN_CC:
     {
       CClassNode* cc;
+      PToken asc_tok = *tok;
+      UChar* asc_src = *src;
+      Node* asc_node = NULL_NODE;
 
       r = prs_cc(np, tok, src, end, env);
       if (r != 0) return r;
@@ -9048,14 +9075,28 @@ prs_exp(Node** np, PToken* tok, int term, UChar** src, UChar* end,
       cc = CCLASS_(*np);
       if (OPTON_IGNORECASE(env->options)) {
         IApplyCaseFoldArg iarg;
+        int kept = ze0_warnings_len;
+
+        /* ze0: the class once more, without what may not fold across
+           ASCII. The first parse gave its warnings already. */
+        env->ascii_fold_pass++;
+        r = prs_cc(&asc_node, &asc_tok, &asc_src, end, env);
+        env->ascii_fold_pass--;
+        ze0_warnings_len = kept;
+        if (r != 0) {
+          onig_node_free(asc_node);
+          return r;
+        }
 
         iarg.env      = env;
         iarg.cc       = cc;
+        iarg.asc_cc   = CCLASS_(asc_node);
         iarg.alt_root = NULL_NODE;
         iarg.ptail    = &(iarg.alt_root);
 
         r = ONIGENC_APPLY_ALL_CASE_FOLD(env->enc, env->reg->case_fold_flag,
                                         i_apply_case_fold, &iarg);
+        onig_node_free(asc_node);
         if (r != 0) {
           onig_node_free(iarg.alt_root);
           return r;

@@ -448,6 +448,9 @@ typedef struct {
   UnsetAddrList*   unset_addr_list;
 #endif
   unsigned int     parse_depth;
+  /* ze0: set while a class is parsed again for the characters that may
+     fold across ASCII, as Onigmo's parse_char_class builds its asc_cc. */
+  int              ascii_fold_pass;
 #ifdef ONIG_DEBUG_PARSE
   unsigned int     max_parse_depth;
 #endif

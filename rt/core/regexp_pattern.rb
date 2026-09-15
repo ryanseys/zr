@@ -504,7 +504,11 @@ class Regexp
             if (body = escape_class_body(e, top.mode))
               touched = true
               check_range_position(b, i, i + 2)
-              push_nested(out, body, e < 0x61)
+              if body == WORD
+                push_ascii_class(out, "word", e < 0x61)
+              else
+                push_nested(out, body, e < 0x61)
+              end
             else
               out << 0x5c << e
             end
@@ -514,10 +518,10 @@ class Regexp
             if stop && top.mode == :ascii
               negated = b[i + 2] == 0x5e
               name = b[(negated ? i + 3 : i + 2)...stop].pack("C*")
-              if (body = POSIX_ASCII[name])
+              if POSIX_ASCII.key?(name)
                 touched = true
                 check_range_position(b, i, stop + 2)
-                push_nested(out, body, negated)
+                push_ascii_class(out, name, negated)
               else
                 append(out, b, i, stop + 2)
               end
@@ -668,6 +672,13 @@ class Regexp
       j = from
       j += 1 while j < b.size && b[j] != x
       j < b.size ? j : nil
+    end
+
+    # The ASCII half of a POSIX class, spelled with the class itself so
+    # the engine knows it: under `/i`, a character folds across ASCII by
+    # neither `\w` nor a POSIX bracket read as ASCII, as in Onigmo.
+    def push_ascii_class(out, name, negated)
+      out << (negated ? "[[:^#{name}:]\\P{ASCII}]" : "[[:#{name}:]&&\\p{ASCII}]").b
     end
 
     def push_nested(out, body, negated)
