@@ -129,6 +129,7 @@ module Ze0
       def units = meta.fetch("units")
       def configures? = meta.fetch("configures")
       def normalizes? = meta.fetch("normalizes")
+      def pretty_prints? = meta.fetch("pretty_prints")
 
       # A fresh table to lower a program over, which goes on from the
       # road's.
@@ -167,7 +168,7 @@ module Ze0
           files = loader.units.filter_map { |u| u.file if u.file.start_with?("/") }.uniq.sort
           meta = { "key" => files_key(files), "files" => files,
                    "units" => loader.entries.to_h { |path, i| [path, lower.unit_entry(i)] },
-                   "configures" => loader.configures?, "normalizes" => loader.normalizes?,
+                   "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?,
                    "names" => symbols.ids.keys, "sites" => symbols.sites }
           Zr.write_cache(meta_path, JSON.generate(meta))
           { functions: functions, data: data, meta: meta }

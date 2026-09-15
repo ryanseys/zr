@@ -582,10 +582,33 @@ module Kernel
     char
   end
 
-  # `pp` prints inspect on a line each, as `p` does; a wide inspect
-  # would wrap, which is not written yet.
+  PRETTY_PRINTER = []
+  private_constant :PRETTY_PRINTER
+
+  def self.pretty_printer=(load)
+    Primitive.attr! :hidden
+    PRETTY_PRINTER[0] = load
+  end
+
+  # The load pp arms, taken once: pp.rb's own pp answers every call
+  # after the first.
+  def self.pretty_printer
+    Primitive.attr! :hidden
+    PRETTY_PRINTER.pop
+  end
+
+  # CRuby's prelude: the first pp requires ruby's own pp.rb, whose
+  # Kernel#pp replaces this one. A program that names pp carries pp.rb
+  # and arms that require; one that reaches pp only through a name it
+  # builds prints inspect on a line each, as `p` does.
   def pp(*objs)
     Primitive.attr! :ruby
+    if (load = Kernel.send(:pretty_printer))
+      load.call
+      # A send of the core library reaches the core's own row, so the
+      # call goes through the row pp.rb wrote.
+      return Kernel.instance_method(:pp).bind_call(self, *objs)
+    end
     # CRuby's first pp requires pp.rb, which makes pp a module function
     # from then on; before that, Kernel.pp is private.
     Kernel.send(:module_function, :pp) unless Kernel.singleton_class.method_defined?(:pp)

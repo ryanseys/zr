@@ -64,6 +64,7 @@ module Ze0
         preludes << rbconfig(loader) if road && loader.configures?
         preludes << eval_road(loader) if road && loader.evals?
         preludes << normalizer(loader) if road && loader.normalizes?
+        preludes << pretty_printer(loader) if road && loader.pretty_prints?
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
         Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries, loader.tracing?)
       end
@@ -83,6 +84,14 @@ module Ze0
 
       def self.normalizer(loader)
         Require.new(:eval_road, "ze0/normalizer", NORMALIZER, loader.add(NORMALIZER), 0)
+      end
+
+      # The file that arms Kernel#pp's load of ruby's own pp.rb, as
+      # CRuby's prelude requires it on the first call.
+      PRETTY_PRINTER = File.join(EXT, "ze0/pretty_printer.rb")
+
+      def self.pretty_printer(loader)
+        Require.new(:eval_road, "ze0/pretty_printer", PRETTY_PRINTER, loader.add(PRETTY_PRINTER), 0)
       end
 
       # `rbconfig`, which ruby has loaded before a program's first line:
@@ -121,6 +130,7 @@ module Ze0
           @index = external ? external.units.dup : {}
           @evals = false
           @normalizes = external&.normalizes? || false
+          @pretty_prints = external&.pretty_prints? || false
           @configures = external&.configures? || false
           @back_refs = {}
         end
@@ -254,6 +264,7 @@ module Ze0
         ENCODES = %i[encode encode!].freeze
 
         def normalizes? = @normalizes
+        def pretty_prints? = @pretty_prints
 
         def configures? = @configures
         def configures! = @configures = true
@@ -273,6 +284,8 @@ module Ze0
           named = args.first.value if args.first.is_a?(Literal) && args.first.value.is_a?(Symbol)
           @normalizes = true if NORMALIZES.include?(name) || ENCODES.include?(name) ||
                                 ((SENDS + FETCHES).include?(name) && (NORMALIZES + ENCODES).include?(named))
+          # A program that names pp carries pp.rb, which the first call loads.
+          @pretty_prints = true if name == :pp || ((SENDS + FETCHES).include?(name) && named == :pp)
         end
 
         def unit(file, source = File.read(file), line = 1, scopes = nil, method: nil)
