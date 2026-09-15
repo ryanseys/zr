@@ -9,8 +9,9 @@ module Ze0
     # The format is `docs/test-format.md`: a directive is a `#@ key: value`
     # line at column 0 above `__END__`; the trailer is stdout until a marker
     # line (`#@ stderr`, `#@ exit N`, `#@ signal N`, `#@ nonl`, and the
-    # `#@ linux ...` forms, which record another platform's answer).
-    # `code` is the exit status, `signal` the signal that killed it.
+    # `#@ linux ...` and `#@ wasi ...` forms, which record where another
+    # platform's answer parts from macOS's). `code` is the exit status,
+    # `signal` the signal that killed it.
     Answer = Struct.new(:stdout, :stderr, :code, :signal) do
       def self.blank
         new(+"".b, +"".b, 0, nil)
@@ -30,8 +31,13 @@ module Ze0
     class Case
       END_MARK = "__END__"
       KEYS = %w[args stdin env ruby zeo zeo-env only backend gccheck].freeze
+      # The platforms a recording answers for. macOS's sections carry no
+      # prefix; every other platform's are the ones where its answer parts
+      # from macOS's.
+      PLATFORMS = %w[macos linux wasi].freeze
+      PREFIXED = (PLATFORMS - ["macos"]).freeze
 
-      attr_reader :path, :program, :directives, :answer, :linux
+      attr_reader :path, :program, :directives, :answer
 
       def self.read(path)
         new(File.binread(path), path)
@@ -43,7 +49,7 @@ module Ze0
         @program = program
         @directives = parse_directives(program)
         @answer = nil
-        @linux = nil
+        @others = {}
         parse_trailer(trailer) if trailer
       end
 
@@ -52,10 +58,24 @@ module Ze0
         !@answer.nil?
       end
 
-      # The answer for this machine. Only macOS runs anything here today.
-      def expected
-        @answer
+      # The answer on `platform`: each section that platform recorded,
+      # and macOS's for the rest.
+      def expected(platform = "macos")
+        other, written = @others[platform]
+        return @answer unless other
+
+        status = written.include?(:status) ? other : @answer
+        Answer.new(written.include?(:stdout) ? other.stdout : @answer.stdout,
+                   written.include?(:stderr) ? other.stderr : @answer.stderr, status.code, status.signal)
       end
+
+      # The sections `platform` recorded apart from macOS's: some of
+      # :stdout, :stderr and :status.
+      def sections(platform) = @others.fetch(platform, [nil, []]).last
+
+      # Whether the program runs on `platform`: `#@ only:` names none, or
+      # names it.
+      def runs_on?(platform) = @directives.only.nil? || @directives.only.include?(platform)
 
       private
 
@@ -92,8 +112,9 @@ module Ze0
           when "zeo" then d.zeo = need.call.split
           when "zeo-env" then d.zeo_env = pairs(need.call, n)
           when "only"
-            d.only = need.call
-            raise ArgumentError, "#{@path}: line #{n}: unknown platform #{d.only.inspect}" unless %w[macos linux].include?(d.only)
+            d.only = need.call.split(/[\s,]+/)
+            unknown = d.only - PLATFORMS
+            raise ArgumentError, "#{@path}: line #{n}: unknown platform #{unknown.first.inspect}" unless unknown.empty?
           when "backend"
             d.backend = need.call
             raise ArgumentError, "#{@path}: line #{n}: `#@ backend: jit` is the only form" unless d.backend == "jit"
@@ -127,17 +148,22 @@ module Ze0
             body << "\n" if line.end_with?("\n")
             next
           end
-          linux, word, number = m
-          if linux
-            @linux ||= Answer.blank
-            target = @linux
-          else
+          platform, word, number = m
+          unless word == "nonl"
+            written = nil
             target = @answer
+            if platform
+              target, written = @others[platform] ||= [Answer.blank, []]
+            end
           end
           case word
-          when "stdout", "stderr" then section = word.to_sym
-          when "exit" then target.code = number
-          when "signal" then target.signal = number
+          when "stdout", "stderr"
+            section = word.to_sym
+            written&.push(section)
+          when "exit", "signal"
+            target.code = word == "exit" ? number : nil
+            target.signal = word == "signal" ? number : nil
+            written&.push(:status)
           when "nonl"
             body = target[section]
             raise ArgumentError, "#{@path}: `#@ nonl` must follow a line" unless body.end_with?("\n")
@@ -151,20 +177,19 @@ module Ze0
         return nil unless text.start_with?("#@")
 
         words = text.byteslice(2..).split
-        linux = words.first == "linux"
-        words.shift if linux
+        platform = words.shift if PREFIXED.include?(words.first)
         word = words.shift
         case word
-        when "stdout", "stderr" then [linux, word, nil]
+        when "stdout", "stderr" then [platform, word, nil]
         when "exit", "signal"
           n = Integer(words.first, exception: false)
           raise ArgumentError, "#{@path}: trailer marker `#{text}` needs a number" if n.nil?
 
-          [linux, word, n]
+          [platform, word, n]
         when "nonl"
-          raise ArgumentError, "#{@path}: unknown trailer marker `#{text}`" if linux
+          raise ArgumentError, "#{@path}: unknown trailer marker `#{text}`" if platform
 
-          [false, word, nil]
+          [nil, word, nil]
         else
           raise ArgumentError, "#{@path}: unknown trailer marker `#{text}`"
         end

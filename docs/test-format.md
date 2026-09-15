@@ -8,7 +8,11 @@ output, invalid UTF-8 — without escaping.
 `ruby tools/record.rb <case path>...` writes the trailer, from the answer of
 the ruby the `.ruby-version` pins. A trailer is never written by hand, and the
 tool refuses a case that carries one already: a change of answer is a change
-of program.
+of program. `ruby tools/record.rb --os linux <case path>...`, run on that
+platform's ruby, writes the platform's sections instead: the ones where its
+answer parts from macOS's, in place of the ones it wrote before. `--ruby
+"<command>"` names the oracle when `ruby` is not it (ruby.wasm under wasmtime
+for `--os wasi`).
 
 `ruby tools/test.rb <case path>...` runs one program the way `ze0 test` runs
 it and shows the whole of it: the build and its time, what the binary
@@ -40,7 +44,7 @@ in any order. An unknown key fails the case rather than being ignored.
 | `#@ ruby: <flags>` | flags for the oracle only |
 | `#@ zeo: <flags>` | flags for the compiled program's CLI only (kept from the recordings) |
 | `#@ zeo-env: K=V ...` | environment for the zeo child only |
-| `#@ only: macos` / `#@ only: linux` | skip on every other platform |
+| `#@ only: <platforms>` | skip on every platform the list does not name: `macos`, `linux`, `wasi`, separated by commas or spaces |
 | `#@ backend: jit` | skip wherever a real link is used; the program needs the compiler and itself in one process |
 | `#@ gccheck: <line>` | the exit cycle census this program is expected to report |
 
@@ -57,7 +61,12 @@ end of the file. A marker is a line at column 0 that is exactly one of:
 | `#@ exit N` | the exit status |
 | `#@ signal N` | the signal that killed it |
 | `#@ nonl` | the body before this has no trailing newline |
-| `#@ linux stdout` / `#@ linux stderr` / `#@ linux exit N` | the answer on linux; the unprefixed sections are macOS's |
+| `#@ linux stdout` / `#@ linux stderr` / `#@ linux exit N` / `#@ linux signal N` | where the answer on linux parts from macOS's; `wasi` takes the same forms |
+
+The unprefixed sections are macOS's. A platform's answer is each section it
+recorded, and macOS's for the rest: a case whose linux run differs only in
+stdout carries only `#@ linux stdout`. `#@ nonl` ends whichever section it
+follows.
 
 `#@ exit` is omitted when the status is 0. `#@ stderr` is omitted when stderr
 is empty, and its absence means stderr **must** be empty.
@@ -94,3 +103,17 @@ shared ones.
 
 A case is named `<suite>::<path>` -- `core::string/upcase.rb` -- which is the
 spelling every `ze0 test` filter takes.
+
+## Other targets
+
+`ze0 test --target <triple>` builds every program for that target and runs
+it where the target runs: a native binary on its own host, a wasm module
+under `wasmtime run --dir .` with the `#@ env:` pairs passed as `--env`.
+The answer it is held to is the target's platform's (`macos`, `linux` or
+`wasi`), section by section as above, and a wasm trap counts as a crash.
+
+A target on its way in is held to what it did, not to macOS's whole corpus:
+`--baseline test/baselines/<triple>.txt` passes when every defect row is
+one the baseline names. A baseline is a sweep's own `tmp/sweep.txt`, and
+the rows that joined or left the defects are named. Without the file the
+rows are reported, not required.

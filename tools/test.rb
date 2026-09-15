@@ -6,6 +6,7 @@
 #   ruby tools/test.rb core/io/a_stream_reads_what_it_holds.rb
 #   ruby tools/test.rb core/io core/file            # a net, in parallel
 #   ruby tools/test.rb core/range --keep --verbose
+#   ruby tools/test.rb ze0 --target wasm32-wasi
 #
 # A path names a case under test/, a directory of them, or any part of a
 # case's name. One case prints in full; a net prints a line for each and
@@ -20,11 +21,12 @@ require "rbconfig"
 require "tmpdir"
 require "timeout"
 require_relative "../lib/ze0/harness/case"
+require_relative "../lib/ze0/harness/runner"
 
 ROOT = File.expand_path("..", __dir__)
 TESTS = File.join(ROOT, "test")
 
-options = { gc: "plain", timeout: 60, keep: false, verbose: false, diff: 20, jobs: nil }
+options = { gc: "plain", timeout: 60, keep: false, verbose: false, diff: 20, jobs: nil, target: Ze0::Target.default }
 filters = []
 argv = ARGV.dup
 until argv.empty?
@@ -33,13 +35,16 @@ until argv.empty?
   when "--gc" then options[word.delete_prefix("--").to_sym] = argv.shift
   when "--timeout", "--diff", "--jobs" then options[word.delete_prefix("--").to_sym] = Integer(argv.shift)
   when "-j" then options[:jobs] = Integer(argv.shift)
+  when "--target" then options[:target] = Ze0::Target.fetch(argv.shift.to_s) || abort("no such target; `ze0 targets` names them")
   when "--keep" then options[:keep] = true
   when "--verbose", "-v" then options[:verbose] = true
   when "-h", "--help" then abort File.read(__FILE__).lines.grep(/\A#/).join
   else filters << word
   end
 end
-abort "usage: ruby tools/test.rb <case path>... [--jobs N] [--gc plain|stress] [--keep] [--verbose] [--diff N] [--timeout N]" if filters.empty?
+abort "usage: ruby tools/test.rb <case path>... [--jobs N] [--gc plain|stress] [--keep] [--verbose] [--diff N] [--timeout N] [--target <triple>]" if filters.empty?
+RUNNER = Ze0::Harness::Runner.new(ROOT, options[:target])
+abort RUNNER.refusal if RUNNER.refusal
 
 Row = Struct.new(:rel, :verdict, :lines, :build, :run, :why)
 
@@ -123,16 +128,20 @@ def one(rb, options)
   kase = Ze0::Harness::Case.read(rb)
   directives = kase.directives
   lines = [format("  %-10s args=%s env=%s stdin=%s%s", "program", directives.args.inspect, directives.env.inspect,
-                  directives.stdin || "-", directives.only ? " only=#{directives.only}" : "")]
+                  directives.stdin || "-", directives.only ? " only=#{directives.only.join(",")}" : "")]
   unless kase.recorded?
     lines << "  #{"skipped".ljust(10)} no recording: run `ruby tools/record.rb #{rel}` first"
     return Row.new(rel, :skipped, lines, 0, 0, "no recording")
+  end
+  unless kase.runs_on?(RUNNER.platform)
+    lines << "  #{"skipped".ljust(10)} only on #{directives.only.join(", ")}"
+    return Row.new(rel, :skipped, lines, 0, 0, "only #{directives.only.join(", ")}")
   end
 
   work = Dir.mktmpdir("ze0-tool-test-")
   keep = options[:keep]
   bin = File.join(work, "p")
-  build = [RbConfig.ruby, File.join(ROOT, "bin/ze0"), "zr", "build", rel, "-o", bin]
+  build = RUNNER.build_argv(rel, bin)
   built, build_seconds = bounded(build, TESTS, nil, {}, options[:timeout])
   lines << format("  %-10s %5.1fs %s", "build", build_seconds, built.code == 0 ? "ok" : "FAILED (#{built.status})")
   lines << "  #{"command".ljust(10)} #{build.join(" ")}"
@@ -149,7 +158,8 @@ def one(rb, options)
   stdin = directives.stdin && File.binread(File.join(File.dirname(rb), directives.stdin))
   env = directives.env.merge(directives.zeo_env)
   env["ZR_GC_STRESS"] = "1" if options[:gc] == "stress"
-  ran, run_seconds = bounded([bin, *directives.args], TESTS, stdin, env, options[:timeout])
+  argv, run_env = RUNNER.run(bin, directives.args, env)
+  ran, run_seconds = bounded(argv, TESTS, stdin, run_env, options[:timeout])
   lines << format("  %-10s %5.1fs %s", "run", run_seconds, ran.code == :timeout ? "ran past #{options[:timeout]}s" : ran.status)
   lines << "  #{"binary".ljust(10)} #{bin}" if keep
   FileUtils.remove_entry(work) unless keep
@@ -157,7 +167,7 @@ def one(rb, options)
     return Row.new(rel, :timeout, lines, build_seconds, run_seconds, "ran past #{options[:timeout]}s")
   end
 
-  expected = Ze0::Harness::Normalize.answer(kase.expected, rb, TESTS)
+  expected = Ze0::Harness::Normalize.answer(kase.expected(RUNNER.platform), rb, TESTS)
   actual = Ze0::Harness::Normalize.answer(ran, rb, TESTS)
   lines << format("  %-10s %s", "status",
                   expected.status == actual.status ? "#{actual.status}, the same" : "want #{expected.status}, got #{actual.status}")
@@ -178,7 +188,7 @@ def one(rb, options)
   stop = actual.stderr[/^(?:ze0: |.*?:in '[^']*': )?(.* is not implemented yet)(?: \((?:NotImplementedError|LoadError)\))?$/, 1]
   verdict = if expected == actual then :matched
             elsif stop then :refused
-            elsif actual.signal && !expected.signal then :crashed
+            elsif (actual.signal || RUNNER.trapped?(actual)) && !expected.signal then :crashed
             else :diverged
             end
   lines << format("  %-10s %s%s", "verdict", verdict, stop && verdict == :refused ? ": #{stop}" : "")

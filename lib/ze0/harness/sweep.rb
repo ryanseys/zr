@@ -6,6 +6,7 @@ require "rbconfig"
 require "tmpdir"
 require "timeout"
 require_relative "case"
+require_relative "runner"
 
 module Ze0
   module Harness
@@ -43,19 +44,19 @@ module Ze0
       Row = Struct.new(:rb, :bucket, :why)
 
       # `gc`: "plain", or "stress" for a collection at every allocation.
-      # `target`: the triple every program is built for.
-      def initialize(root, show: 10, jobs: nil, gc: "plain", target: nil)
+      # `target`: the target every program is built for and run on.
+      def initialize(root, show: 10, jobs: nil, gc: "plain", target: Target.default)
         @root = root
         @show = show
         @jobs = jobs || Etc.nprocessors
         @gc = gc
-        @target = target
+        @runner = Runner.new(root, target)
       end
 
+      attr_reader :runner
+
       # The build command for `rel` into `out`, for this sweep's target.
-      def build_argv(rel, out)
-        [RbConfig.ruby, File.join(@root, "bin/ze0"), "zr", "build", rel, "-o", out, *(@target ? ["--target", @target] : [])]
-      end
+      def build_argv(rel, out) = @runner.build_argv(rel, out)
 
       # Every recorded program whose path contains one of `filters` (or all
       # of them), in a stable order.
@@ -114,7 +115,7 @@ module Ze0
       def one(rb, work)
         kase = Case.read(rb)
         return Row.new(rb, :skipped, "no recording") unless kase.recorded?
-        return Row.new(rb, :skipped, "only #{kase.directives.only}") if kase.directives.only && kase.directives.only != "macos"
+        return Row.new(rb, :skipped, "only #{kase.directives.only.join(", ")}") unless kase.runs_on?(@runner.platform)
         return Row.new(rb, :skipped, "needs the compiler in process") if kase.directives.backend
 
         cwd = File.join(@root, "test")
@@ -130,11 +131,12 @@ module Ze0
         stdin = kase.directives.stdin && File.binread(File.join(File.dirname(rb), kase.directives.stdin))
         env = kase.directives.env.merge(kase.directives.zeo_env)
         env["ZR_GC_STRESS"] = "1" if @gc == "stress"
-        out = bounded([bin, *kase.directives.args], cwd, stdin, env)
+        argv, run_env = @runner.run(bin, kase.directives.args, env)
+        out = bounded(argv, cwd, stdin, run_env)
         return Row.new(rb, :timeout, "ran past #{LIMIT}s") if out.code == :timeout
 
         actual = Normalize.answer(out, rb, cwd)
-        expected = Normalize.answer(kase.expected, rb, cwd)
+        expected = Normalize.answer(kase.expected(@runner.platform), rb, cwd)
         return Row.new(rb, :matched, nil) if actual == expected
         # A stop the program did not rescue: ruby's report of the
         # NotImplementedError or LoadError it raised, or a kernel stop.
@@ -142,6 +144,7 @@ module Ze0
           return Row.new(rb, :refused, "#{File.basename(rb)}: run time: #{stop}")
         end
         return Row.new(rb, :crashed, "signal #{actual.signal}") if actual.signal && !expected.signal
+        return Row.new(rb, :crashed, "a wasm trap") if @runner.trapped?(actual) && !expected.signal
 
         Row.new(rb, :diverged, diff(expected, actual))
       end
@@ -221,7 +224,26 @@ module Ze0
         end
         io.puts "  ... #{shown - @show} more (--show N)" if shown > @show
         io.puts "  every row: #{save(rows)}"
-        %i[diverged crashed timeout].sum { |b| (by[b] || []).size }.zero?
+        DEFECTS.sum { |b| (by[b] || []).size }.zero?
+      end
+
+      DEFECTS = %i[diverged crashed timeout].freeze
+
+      # Whether every defect in `rows` is one the baseline's rows (a saved
+      # tmp/sweep.txt) already name: a target on its way in is held to what
+      # it did, not to macOS's whole corpus. The rows that left or joined
+      # the defects are named.
+      def within(rows, baseline, io = $stdout)
+        known = baseline.each_line.filter_map do |line|
+          bucket, path = line.split
+          path if DEFECTS.include?(bucket&.to_sym)
+        end.to_set
+        defects = rows.select { |row| DEFECTS.include?(row.bucket) }.to_set { |row| row.rb.delete_prefix("#{@root}/") }
+        fresh = defects - known
+        fixed = known - defects
+        fresh.sort.each { |path| io.puts "  new since the baseline: #{path}" }
+        fixed.sort.each { |path| io.puts "  no longer a defect: #{path}" }
+        fresh.empty?
       end
 
       # Every row but the matched ones, kept under tmp/ so a sweep's list

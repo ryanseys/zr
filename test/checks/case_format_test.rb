@@ -23,12 +23,27 @@ class CaseFormatTest < Minitest::Test
     assert_equal "#@ not a marker\nlast", c.answer.stdout
   end
 
-  def test_a_linux_section_is_kept_apart
-    c = Case.new("puts 1\n__END__\nmac\n#@ linux stdout\nlinux\n#@ linux exit 1\n")
-    assert_equal "mac\n", c.answer.stdout
-    assert_equal "linux\n", c.linux.stdout
-    assert_equal 1, c.linux.code
-    assert_equal 0, c.answer.code
+  def test_a_platform_s_sections_stand_in_for_macos_s_one_by_one
+    c = Case.new("puts 1\n__END__\nmac\n#@ stderr\nboth\n#@ linux stdout\nlinux\n#@ linux exit 1\n#@ wasi signal 6\n")
+    assert_equal Ze0::Harness::Answer.new("mac\n", "both\n", 0, nil), c.expected
+    assert_equal Ze0::Harness::Answer.new("linux\n", "both\n", 1, nil), c.expected("linux")
+    assert_equal Ze0::Harness::Answer.new("mac\n", "both\n", nil, 6), c.expected("wasi")
+    assert_equal %i[stdout status], c.sections("linux")
+    assert_empty c.sections("macos")
+  end
+
+  def test_nonl_ends_the_section_it_follows
+    c = Case.new("puts 1\n__END__\nmac\n#@ linux stdout\nlinux\n#@ nonl\n")
+    assert_equal "mac\n", c.expected.stdout
+    assert_equal "linux", c.expected("linux").stdout
+  end
+
+  def test_only_names_the_platforms_a_program_runs_on
+    c = Case.new("#@ only: macos, linux\nputs 1\n")
+    assert c.runs_on?("linux")
+    refute c.runs_on?("wasi")
+    assert Case.new("puts 1\n").runs_on?("wasi")
+    assert_raises(ArgumentError) { Case.new("#@ only: plan9\nputs 1\n") }
   end
 
   def test_no_trailer_means_no_recording

@@ -35,7 +35,7 @@ module Ze0
         def against(other) = timed? && other&.positive? ? ze0 / other : nil
       end
 
-      def initialize(root, runs: RUNS, show: 10, target: nil)
+      def initialize(root, runs: RUNS, show: 10, target: Target.default)
         @root = root
         @runs = runs
         @show = show
@@ -78,8 +78,9 @@ module Ze0
 
         stdin = kase.directives.stdin && File.binread(File.join(File.dirname(rb), kase.directives.stdin))
         env = kase.directives.env.merge(kase.directives.zeo_env)
-        want = Normalize.answer(kase.expected, rb, cwd)
-        got, wrong = medians([bin, *kase.directives.args], cwd, stdin, env, rb, want)
+        want = Normalize.answer(kase.expected(@sweep.runner.platform), rb, cwd)
+        argv, run_env = @sweep.runner.run(bin, kase.directives.args, env)
+        got, wrong = medians(argv, cwd, stdin, run_env, rb, want)
         return Row.new(rb, :diverged, wrong) if wrong
 
         oracle = kase.directives.ruby + [rel, *kase.directives.args]

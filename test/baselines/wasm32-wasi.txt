@@ -1,0 +1,32 @@
+backend test/ze0/autoload.rb
+    ze0: no data named zr_road_unit_63
+backend test/ze0/bindings.rb
+    ze0: no data named zr_road_unit_63
+backend test/ze0/builtin_reopen.rb
+    ze0: no data named zr_road_unit_63
+backend test/ze0/bundled_libraries.rb
+    the build ran past 60s
+backend test/ze0/eval_strings.rb
+    ze0: no data named zr_road_unit_63
+backend test/ze0/ffi_typedefs_and_guarded_directives.rb
+    ze0: no data named zr_road_unit_63
+backend test/ze0/lazy_units.rb
+    ze0: no data named zr_road_unit_63
+crashed test/ze0/literals.rb
+    a wasm trap
+crashed test/ze0/match_globals.rb
+    a wasm trap
+crashed test/ze0/nesting_and_assignment.rb
+    a wasm trap
+diverged test/ze0/ractor.rb
+    stdout: want 8 line(s), got 0 -- "21"
+           stderr: want 1 line(s), got 5 -- "ze0/ractor.rb:6:in 'Fiber.new': can't allocate fiber stack: Function not implemented (FiberError)"
+           exit 0 vs exit 1
+backend test/ze0/reopened_builtin.rb
+    ze0: no data named zr_road_unit_63
+backend test/ze0/require_relative.rb
+    ze0: no data named zr_road_unit_63
+crashed test/ze0/runtime_names.rb
+    a wasm trap
+crashed test/ze0/singleton_body_cref.rb
+    a wasm trap

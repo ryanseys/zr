@@ -139,6 +139,7 @@ test/ze0/                the programs ze0's own subset is held to
 test/native/fixtures.rb  IR written by hand, the floor every runtime program stands on
 test/zr/                 kernel-dialect programs; test/zr/refused/ names each refusal
 test/programs/           Ruby programs on the runtime, against a live ruby
+test/baselines/          the rows a target other than macOS is held to
 ```
 
 `rt/` and `vendor/` sit beside `lib/`, not in it. They are what ze0
