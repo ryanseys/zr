@@ -1158,7 +1158,7 @@ class String
     marks = case options[:xml]
             when nil then return text
             when :text then { "&" => "&amp;", "<" => "&lt;", ">" => "&gt;" }
-            when :attr then { "&" => "&amp;", "<" => "&lt;", ">" => "&gt;", "\"" => "&quot;" }
+            when :attr then { "&" => "&amp;", "<" => "&lt;", ">" => "&gt;", "\"" => "&quot;", "'" => "&apos;" }
             else raise ArgumentError, "unexpected value for xml option: #{options[:xml]}"
             end
     text.gsub(/[#{Regexp.escape(marks.keys.join)}]/, marks)

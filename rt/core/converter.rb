@@ -28,7 +28,7 @@ class Encoding
       crlf_newline: CRLF_NEWLINE_DECORATOR, cr_newline: CR_NEWLINE_DECORATOR, lf_newline: LF_NEWLINE_DECORATOR
     }.freeze
     MARKS = { 38 => "&amp;", 60 => "&lt;", 62 => "&gt;" }.freeze
-    QUOTED = MARKS.merge(34 => "&quot;").freeze
+    QUOTED = MARKS.merge(34 => "&quot;", 39 => "&apos;").freeze
     private_constant :SHOWN, :WALKED, :NAMES, :PATH_NAMES, :BITS, :MARKS, :QUOTED
 
     def initialize(source, destination, flags = nil, **options)
