@@ -78,7 +78,8 @@ class InterpTest < Minitest::Test
     refute_nil broken, "arith no longer names the constant this check breaks"
     broken.args[0] = 81_985_529_216_486_893
     status, = answers(functions, data, [], %w[arith])
-    assert_equal 2, status, "the broken fact was not seen"
+    # The constant fact is the fourth from the end: three facts follow it.
+    assert_equal 8, status, "the broken fact was not seen"
   end
 
   # A null dereference traps rather than reading whatever is at zero.
