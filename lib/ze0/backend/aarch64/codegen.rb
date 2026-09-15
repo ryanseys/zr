@@ -16,12 +16,17 @@ module Ze0
       # The aarch64 backend: an `IR::Function` to an `Obj::Function` of Apple
       # arm64 machine code, with relocations for every symbol it names.
       #
-      # Register allocation spills everything: every SSA value and block
-      # parameter owns an 8-byte slot in the frame, an instruction loads its
-      # operands into x9..x15, computes, and stores its result. No callee-saved
-      # register is touched, x18 is never used, and sp stays 16-byte aligned.
-      # The frame is `[sp + 0 .. slots) [values)`, addressed from sp with
-      # unsigned scaled offsets, and x29 keeps the frame chain.
+      # A value lives in the register `Regalloc` gives it, or in an 8-byte
+      # slot of the frame when it gives none; a constant one instruction
+      # makes or read once, a slot's address, and an address a constant
+      # past a base are made where they are read and live nowhere. An
+      # instruction reads a frame operand into x9..x12, computes in a
+      # register, and stores a frame result from one. A compare read once
+      # by a branch or a select leaves its answer in the flags. The frame
+      # is `[sp + 0 .. slots) [values) [saved callee registers)`, addressed
+      # from sp with unsigned scaled offsets (x17 holds a page of it when
+      # one does not fit), x29 keeps the frame chain, x18 is never used,
+      # and sp stays 16-byte aligned.
       #
       # Encodings come from `Backend::Aarch64`; relocations are recorded
       # here at the instruction's offset.
@@ -409,7 +414,7 @@ module Ze0
           # A callee-saved register this function uses has to come back to
           # its caller as it was, so the frame keeps a place for each.
           @saved_at = {}
-          @reg.values.uniq.sort_by(&:to_i).each do |r|
+          @reg.values.uniq.select { |r| Regalloc.callee?(r) }.sort_by(&:to_i).each do |r|
             @saved_at[r] = off
             off += 8
           end
