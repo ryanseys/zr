@@ -1,5 +1,4 @@
-# ObjectSpace: the weak maps and the finalizers; walking the heap is
-# refused by name.
+# ObjectSpace: the weak maps, the finalizers, and the walk over the heap.
 module ObjectSpace
   # Keys and values held weakly, compared by identity.
   class WeakMap
@@ -142,7 +141,49 @@ module ObjectSpace
     Primitive.zr_gc_start
   end
 
-  def each_object(mod = nil) = Primitive.zr_unimplemented("ObjectSpace.each_object")
-  def count_objects(result = {}) = Primitive.zr_unimplemented("ObjectSpace.count_objects")
-  def _id2ref(id) = Primitive.zr_unimplemented("ObjectSpace._id2ref")
+  def each_object(mod = nil)
+    return to_enum(:each_object, mod) unless block_given?
+    raise TypeError, "class or module required" unless mod.nil? || mod.is_a?(Module)
+
+    objects = Primitive.zr_objspace_objects(mod)
+    objects.each { |object| yield object }
+    objects.size
+  end
+
+  # CRuby's type names for the heap's type tags. What CRuby keeps as an
+  # object's own type -- an exception, a Proc -- this runtime tags apart,
+  # and the census counts it under CRuby's name.
+  TYPE_NAMES = {
+    1 => :T_OBJECT, 2 => :T_CLASS, 3 => :T_MODULE, 4 => :T_FLOAT, 5 => :T_STRING, 31 => :T_REGEXP,
+    7 => :T_ARRAY, 8 => :T_HASH, 24 => :T_OBJECT, 27 => :T_DATA, 29 => :T_DATA, 30 => :T_DATA,
+    25 => :T_IMEMO, 26 => :T_IMEMO, 28 => :T_ICLASS
+  }.freeze
+  CENSUS_ORDER = %i[T_OBJECT T_CLASS T_MODULE T_FLOAT T_STRING T_REGEXP T_ARRAY T_HASH T_DATA T_IMEMO T_ICLASS].freeze
+  # The ids of false, nil and true.
+  SPECIAL_IDS = { 0 => false, 4 => nil, 20 => true }.freeze
+  private_constant :TYPE_NAMES, :CENSUS_ORDER, :SPECIAL_IDS
+
+  def count_objects(result = {})
+    raise TypeError, "non-hash given" unless result.is_a?(Hash)
+
+    total, free, *by_type = Primitive.zr_objspace_census
+    counts = Hash.new(0)
+    by_type.each_with_index { |n, tag| counts[TYPE_NAMES.fetch(tag, :T_OBJECT)] += n if n.positive? }
+    result.clear
+    result[:TOTAL] = total
+    result[:FREE] = free
+    CENSUS_ORDER.each { |name| result[name] = counts[name] if counts.key?(name) }
+    result
+  end
+
+  def _id2ref(id)
+    id = implicit_integer(id)
+    return id / 2 if id.odd?
+    return SPECIAL_IDS[id] if SPECIAL_IDS.key?(id)
+
+    found = Primitive.zr_objspace_id2ref(id)
+    raise RangeError, "#{id.to_s.inspect} is not an id value" if found.nil?
+
+    found
+  end
 end

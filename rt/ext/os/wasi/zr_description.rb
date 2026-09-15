@@ -972,6 +972,21 @@ module Ze0
         d zr_mod_attr_accessor Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_dig_into Value v:Value rest:Value
         d zr_rb_equal Value a:Value b:Value
+        d zr_objspace_visible_p Bool v:Value
+        d zr_objspace_objects Value mod:Value
+        d zr_objspace_census Value
+        d zr_objspace_id2ref Value id:Value
+        d zr_objspace_reachable Value v:Value
+        d zr_objspace_memsize Value v:Value
+        d zr_alloc_trace Ptr
+        d zr_alloc_trace_probe Ptr t:Ptr cell:Word
+        d zr_alloc_trace_room Void t:Ptr
+        d zr_alloc_trace_record Void cell:Ptr
+        d zr_alloc_trace_forget Void cell:Ptr
+        d zr_alloc_trace_row Ptr v:Value
+        d zr_alloc_trace_set Value on:Value
+        d zr_alloc_trace_clear Value
+        d zr_alloc_trace_info Value v:Value
         d zr_pm_take Value b:Ptr
         d zr_pm_parse Value source:Value options:Value
         d zr_pm_parse_comments Value source:Value options:Value
@@ -1755,6 +1770,7 @@ module Ze0
         c ALLOC_REGEXP 9
         c ALLOC_NONE 10
         c ALLOC_FIBER 11
+        c ALLOC_GONE 1
         c BUF_LENGTH 0
         c BUF_VALUE 16
         c PM_BUFFER_SIZE 24
@@ -1940,6 +1956,8 @@ module Ze0
         s IvTab 24 8 rows:0:Ptr len:8:Word cap:16:Word
         s IvEntry 16 8 id:0:Word value:8:Value
         s RObject 40 8 basic:0:RBasic iv:16:IvTab
+        s AllocTrace 32 8 rows:0:Ptr capa:8:Word used:16:Word on:24:Word
+        s AllocRow 48 8 cell:0:Word file:8:Ptr file_len:16:Word line:24:Word meta:32:Ptr generation:40:Word
         s REnv 48 8 basic:0:RBasic parent:16:Value slots:24:Ptr nslots:32:Word names:40:Ptr
         s RProc 128 8 basic:0:RBasic fn:16:Ptr meta:24:Ptr env:32:Value self:40:Value cref:48:Value blk:56:Value home:64:Ptr serial:72:Word site:80:Word ret_home:88:Ptr ret_serial:96:Word spread:104:Word lambda:112:Word passed:120:Word
         s RRegexp 72 8 basic:0:RBasic source:16:Value options:24:Word reg:32:Ptr names:40:Value text:48:Value alt:56:Ptr limit:64:Word

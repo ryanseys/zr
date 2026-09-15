@@ -421,6 +421,9 @@ machine def zr_free_cell(cell)
       zr_exivar_free(Machine.value(cell))
     end
   end
+  if AllocTrace.used(zr_alloc_trace()) != 0
+    zr_alloc_trace_forget(cell)
+  end
   Machine.store64(cell, 0, POISON)
   # The header's poison is what mark checks; the payload's is only there
   # to make a stale read loud, which stress mode is for.
@@ -594,6 +597,9 @@ machine def zr_alloc(type, klass)
   Machine.store64(cell, 0, type | FL_ALLOCATED)
   Machine.store64(cell, 8, Machine.word(klass))
   memset(cell + 16, Machine.i32(0), CELL - 16)
+  if AllocTrace.on(zr_alloc_trace()) != 0
+    zr_alloc_trace_record(cell)
+  end
   Machine.value(cell)
 end
 

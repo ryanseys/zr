@@ -1,7 +1,6 @@
 gaps/openssl_digest.rb	aot/openssl_digest.rb
 gaps/a_platform_guard_decides_at_build_time.rb	compiler/guards/a_platform_guard_decides_at_build_time.rb
 gaps/io_buffer.rb	core/io/io_buffer.rb
-gaps/a_computed_require_loads_a_bundled_library.rb	core/kernel/a_computed_require_loads_a_bundled_library.rb
 gaps/an_iseq_label_names_the_block_it_came_from.rb	core/rubyvm/an_iseq_label_names_the_block_it_came_from.rb
 gaps/rubyvm_ast.rb	core/rubyvm/rubyvm_ast.rb
 gaps/rubyvm_ast_node_taxonomy.rb	core/rubyvm/rubyvm_ast_node_taxonomy.rb
@@ -23,8 +22,6 @@ gaps/ffi_directives_under_platform_guards.rb	stdlib/ffi/ffi_directives_under_pla
 gaps/the_toplevel_runs_on_the_process_main_thread.rb	stdlib/ffi/the_toplevel_runs_on_the_process_main_thread.rb
 gaps/kconv.rb	stdlib/nkf/kconv.rb
 gaps/nkf.rb	stdlib/nkf/nkf.rb
-gaps/gc_weak.rb	stdlib/objspace/gc_weak.rb
-gaps/objspace_introspection.rb	stdlib/objspace/objspace_introspection.rb
 gaps/a_subclass_of_a_native_type_wraps_one.rb	stdlib/openssl/a_subclass_of_a_native_type_wraps_one.rb
 gaps/an_https_keepalive_request_completes.rb	stdlib/openssl/an_https_keepalive_request_completes.rb
 gaps/openssl_bn.rb	stdlib/openssl/openssl_bn.rb

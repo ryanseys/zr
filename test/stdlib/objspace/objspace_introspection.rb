@@ -1,6 +1,6 @@
 # `ObjectSpace`'s introspection half. CRuby ships it as `ext/objspace`, which
-# bolts these methods onto the module `gc.c` already defined; zeo has them
-# always present, so `require "objspace"` is recognized ceremony.
+# adds these methods to the module `gc.c` already defined, and so does
+# this runtime: `require "objspace"` loads them.
 #
 # `memsize_of`'s figures are implementation-defined in CRuby too ("dependent on
 # the version and build of the interpreter"), so only the SHAPE of the answer

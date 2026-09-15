@@ -13,6 +13,7 @@ find 0.2.0
 forwardable 1.4.0
 ipaddr 1.2.8
 net-http 0.9.1
+objspace ruby-4.0.6 (ext/objspace/lib)
 net-protocol 0.2.2
 open-uri 0.5.0
 open3 0.2.1
