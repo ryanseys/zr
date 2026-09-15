@@ -58,34 +58,9 @@ module Ze0
         # `FMOV Xd, Dn`, the arithmetic and the conversions, with d16..d19
         # as scratch. Each carries its own text, because a word the
         # assembler is handed cannot name itself to a listing.
-        module FP
-          Word = Struct.new(:word, :text) do
-            def encode(_position) = word
-          end
-
-          # The mnemonics the one-operand instructions go by.
-          UNOPS = { fneg: "fneg", fabs: "fabs", sqrt: "fsqrt", floor: "frintm",
-                    ceil: "frintp", trunc: "frintz", nearest: "frintn" }.freeze
-
-          module_function
-
-          def to_d(d, x) = Word.new(0x9E670000 | (x << 5) | d, "fmov d#{d}, x#{x}")
-          def to_x(x, d) = Word.new(0x9E660000 | (d << 5) | x, "fmov x#{x}, d#{d}")
-          def binop(op, d, n, m)
-            base = { fadd: 0x1E602800, fsub: 0x1E603800, fmul: 0x1E600800, fdiv: 0x1E601800 }.fetch(op)
-            Word.new(base | (m << 16) | (n << 5) | d, "#{op} d#{d}, d#{n}, d#{m}")
-          end
-
-          def unop(op, d, n)
-            base = { fneg: 0x1E614000, fabs: 0x1E60C000, sqrt: 0x1E61C000, floor: 0x1E654000, ceil: 0x1E64C000, trunc: 0x1E65C000, nearest: 0x1E644000 }.fetch(op)
-            Word.new(base | (n << 5) | d, "#{UNOPS.fetch(op)} d#{d}, d#{n}")
-          end
-
-          def cmp(n, m) = Word.new(0x1E602000 | (m << 16) | (n << 5), "fcmp d#{n}, d#{m}")
-          def scvtf(d, x) = Word.new(0x9E620000 | (x << 5) | d, "scvtf d#{d}, x#{x}")
-          def scvtf_w(d, w) = Word.new(0x1E620000 | (w << 5) | d, "scvtf d#{d}, w#{w}")
-          def fcvtzs(x, d) = Word.new(0x9E780000 | (d << 5) | x, "fcvtzs x#{x}, d#{d}")
-        end
+        # The mnemonics the one-operand float instructions go by.
+        FUNOPS = { fneg: :fneg, fabs: :fabs, sqrt: :fsqrt, floor: :frintm,
+                   ceil: :frintp, trunc: :frintz, nearest: :frintn }.freeze
 
         class Refused < Backend::Refused; end
 
@@ -416,7 +391,7 @@ module Ze0
         end
 
         def w(x)
-          Registers.const_get(:"W#{x.to_i}")
+          Registers.w(x.to_i)
         end
 
         def wide?(v)
@@ -451,7 +426,7 @@ module Ze0
           floats = 0
           entry.params.each do |v, t|
             if t == "f64"
-              @asm << FP.to_x(9, floats)
+              @asm.fmov X9, Registers.d(floats)
               floats += 1
               store_param(v, X9)
             else
@@ -535,25 +510,34 @@ module Ze0
           when *IR::Inst::FBINOPS
             a = value_in(i.args[0], X9)
             b = value_in(i.args[1], X10)
-            @asm << FP.to_d(16, a.to_i) << FP.to_d(17, b.to_i) << FP.binop(i.op, 18, 16, 17) << FP.to_x(11, 18)
+            @asm.fmov D16, a
+            @asm.fmov D17, b
+            @asm.public_send(i.op, D18, D16, D17)
+            @asm.fmov X11, D18
             store_value(i.results[0], X11)
           when *IR::Inst::FUNOPS
             a = value_in(i.args[0], X9)
-            @asm << FP.to_d(16, a.to_i) << FP.unop(i.op, 17, 16) << FP.to_x(11, 17)
+            @asm.fmov D16, a
+            @asm.public_send(FUNOPS.fetch(i.op), D17, D16)
+            @asm.fmov X11, D17
             store_value(i.results[0], X11)
           when :fcmp
             a = value_in(i.args[0], X9)
             b = value_in(i.args[1], X10)
-            @asm << FP.to_d(16, a.to_i) << FP.to_d(17, b.to_i) << FP.cmp(16, 17)
+            @asm.fmov D16, a
+            @asm.fmov D17, b
+            @asm.fcmp D16, D17
             @asm.cset X11, FCONDS.fetch(i.cond)
             store_value(i.results[0], X11)
           when :fcvt_from_sint
             a = value_in(i.args[0], X9)
-            @asm << (wide?(i.args[0]) ? FP.scvtf(16, a.to_i) : FP.scvtf_w(16, a.to_i)) << FP.to_x(11, 16)
+            @asm.scvtf D16, wide?(i.args[0]) ? a : Registers.w(a.to_i)
+            @asm.fmov X11, D16
             store_value(i.results[0], X11)
           when :fcvt_to_sint_sat
             a = value_in(i.args[0], X9)
-            @asm << FP.to_d(16, a.to_i) << FP.fcvtzs(11, 16)
+            @asm.fmov D16, a
+            @asm.fcvtzs X11, D16
             store_value(i.results[0], X11)
           when :bitcast
             load_value(i.args[0], X9)
@@ -582,7 +566,7 @@ module Ze0
           when :return
             unless i.args.empty?
               load_value(i.args[0], X0)
-              @asm << FP.to_d(0, 0) if float?(i.args[0])
+              @asm.fmov D0, X0 if float?(i.args[0])
             end
             epilogue
           else raise Refused, "#{@f.name}: no lowering for #{i.op}"
@@ -686,7 +670,7 @@ module Ze0
           args.each do |v|
             if float?(v)
               load_value(v, X9)
-              @asm << FP.to_d(floats, 9)
+              @asm.fmov Registers.d(floats), X9
               floats += 1
             else
               load_value(v, Registers.const_get(:"X#{ints}"))
@@ -699,7 +683,7 @@ module Ze0
         # A float result comes back in d0.
         def store_result(v, ret)
           if ret == "f64"
-            @asm << FP.to_x(0, 0)
+            @asm.fmov X0, D0
           elsif ret != "i64"
             @asm.mov W0, W0
           end

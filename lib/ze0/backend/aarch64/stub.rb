@@ -25,24 +25,17 @@ module Ze0
         def switch(assembler: Assembler)
           a = assembler.new
           pairs = [[X19, X20], [X21, X22], [X23, X24], [X25, X26], [X27, X28], [X29, X30]]
+          doubles = [[D8, D9], [D10, D11], [D12, D13], [D14, D15]]
           pairs.each_with_index { |(p, q), i| a.stp p, q, [X0, 16 * i] }
           a.mov X9, SP
+          doubles.each_with_index { |(p, q), i| a.stp p, q, [X0, CONTEXT[:d8] + (16 * i)] }
           a.str X9, [X0, CONTEXT[:sp]]
           pairs.each_with_index { |(p, q), i| a.ldp p, q, [X1, 16 * i] }
           a.ldr X9, [X1, CONTEXT[:sp]]
           a.mov SP, X9
+          doubles.each_with_index { |(p, q), i| a.ldp p, q, [X1, CONTEXT[:d8] + (16 * i)] }
           a.ret
-          words = a.to_binary.unpack("L<*")
-          # The FP pairs, encoded here: the encoder has no SIMD registers.
-          fp = 4.times.map { |i| [fp_pair(true, 8 + (2 * i), 0, CONTEXT[:d8] + (16 * i))] }.flatten
-          fp += 4.times.map { |i| [fp_pair(false, 8 + (2 * i), 1, CONTEXT[:d8] + (16 * i))] }.flatten
-          code = words[0, 7] + fp[0, 4] + words[7, 9] + fp[4, 4] + [words.last]
-          Obj::Function.new("zr_switch", code.pack("L<*"), align: 4)
-        end
-
-        # `stp`/`ldp` of `d<n>, d<n+1>, [x<base>, #off]`, signed offset.
-        def fp_pair(store, n, base, off)
-          (store ? 0x6D000000 : 0x6D400000) | ((off / 8) << 15) | ((n + 1) << 10) | (base << 5) | n
+          Obj::Function.new("zr_switch", a.to_binary, align: 4)
         end
 
         ALL = { "zr_switch" => [[:Ptr, :Ptr], :Void] }.freeze

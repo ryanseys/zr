@@ -131,11 +131,6 @@ module Ze0
           yield @insns.length * 4
         end
 
-        def <<(word)
-          @insns << word
-          self
-        end
-
         def to_binary
           @insns.map.with_index { |w, at| w.is_a?(Integer) ? w : w.encode(at) }.pack("L<*")
         end
@@ -198,10 +193,35 @@ module Ze0
           emit(0x1A80_0400 | d.sf << 31 | zr << 16 | (condition(cond) ^ 1) << 12 | zr << 5 | d.to_i)
         end
 
+        # --- SIMD&FP, doubles only ----------------------------------------
+
+        # `fmov d, x`, `fmov x, d` or `fmov d, d`: the registers say which.
+        def fmov(d, n)
+          if d.float? && n.float? then emit(0x1E60_4000 | n.to_i << 5 | d.to_i)
+          elsif d.float? then emit(0x9E67_0000 | n.to_i << 5 | d.to_i)
+          else emit(0x9E66_0000 | n.to_i << 5 | d.to_i)
+          end
+        end
+        def fadd(d, n, m) = float3(0x1E60_2800, d, n, m)
+        def fsub(d, n, m) = float3(0x1E60_3800, d, n, m)
+        def fmul(d, n, m) = float3(0x1E60_0800, d, n, m)
+        def fdiv(d, n, m) = float3(0x1E60_1800, d, n, m)
+        def fneg(d, n) = float2(0x1E61_4000, d, n)
+        def fabs(d, n) = float2(0x1E60_C000, d, n)
+        def fsqrt(d, n) = float2(0x1E61_C000, d, n)
+        def frintm(d, n) = float2(0x1E65_4000, d, n)
+        def frintp(d, n) = float2(0x1E64_C000, d, n)
+        def frintz(d, n) = float2(0x1E65_C000, d, n)
+        def frintn(d, n) = float2(0x1E64_4000, d, n)
+        def fcmp(n, m) = emit(0x1E60_2000 | m.to_i << 16 | n.to_i << 5)
+        # `scvtf d, x` or `scvtf d, w`: the integer register's width says which.
+        def scvtf(d, n) = emit((n.wide? ? 0x9E62_0000 : 0x1E62_0000) | n.to_i << 5 | d.to_i)
+        def fcvtzs(d, n) = emit(0x9E78_0000 | n.to_i << 5 | d.to_i)
+
         # --- memory -------------------------------------------------------
 
-        def ldr(rt, address) = load_store(rt.wide? ? 0b11 : 0b10, 1, rt, address)
-        def str(rt, address) = load_store(rt.wide? ? 0b11 : 0b10, 0, rt, address)
+        def ldr(rt, address) = rt.float? ? float_load_store(1, rt, address) : load_store(rt.wide? ? 0b11 : 0b10, 1, rt, address)
+        def str(rt, address) = rt.float? ? float_load_store(0, rt, address) : load_store(rt.wide? ? 0b11 : 0b10, 0, rt, address)
         def ldrb(rt, address) = load_store(0b00, 1, rt, address)
         def strb(rt, address) = load_store(0b00, 0, rt, address)
         def ldp(rt1, rt2, address, imm = nil) = pair(1, rt1, rt2, address, imm)
@@ -316,6 +336,18 @@ module Ze0
                unsigned(imms, 6) << 10 | n.to_i << 5 | d.to_i)
         end
 
+        def float3(base, d, n, m) = emit(base | m.to_i << 16 | n.to_i << 5 | d.to_i)
+        def float2(base, d, n) = emit(base | n.to_i << 5 | d.to_i)
+
+        # `ldr`/`str d, [base, #off]`, the offset unsigned and scaled by 8.
+        def float_load_store(load, rt, address)
+          base, off = address
+          off = off.to_i
+          raise Refused, "an offset of #{off} for an 8-byte access" unless off >= 0 && (off % 8).zero?
+
+          emit(0xFD00_0000 | load << 22 | unsigned(off / 8, 12) << 10 | base.to_i << 5 | rt.to_i)
+        end
+
         # The unsigned-offset form: the offset counts whole accesses.
         def load_store(size, load, rt, address)
           base, off = address
@@ -341,6 +373,12 @@ module Ze0
           scale = rt1.wide? ? 8 : 4
           off = off.to_i
           raise Refused, "an offset of #{off} for a #{scale}-byte pair" unless (off % scale).zero?
+
+          # A pair of doubles: the same three forms, with `V` set and `opc` 01.
+          if rt1.float?
+            return emit(0x6C00_0000 | variant << 23 | load << 22 |
+                        self.class.signed(off / scale, 7) << 15 | rt2.to_i << 10 | base.to_i << 5 | rt1.to_i)
+          end
 
           emit(0x2800_0000 | (rt1.wide? ? 0b10 : 0b00) << 30 | variant << 23 | load << 22 |
                self.class.signed(off / scale, 7) << 15 | rt2.to_i << 10 | base.to_i << 5 | rt1.to_i)

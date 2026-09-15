@@ -49,18 +49,11 @@ module Ze0
           self
         end
 
-        # A word the backend built itself, which carries its own text.
-        def <<(word)
-          record("  #{word.text}")
-          @asm << word
-          self
-        end
-
         # The methods this class answers itself; every other mnemonic the
         # encoder has is defined below. They are defined rather than caught
         # by `method_missing`, which no class here may override -- and a
         # defined method answers `respond_to?` without being asked to.
-        OWN = %i[make_label put_label patch_location to_binary << b].freeze
+        OWN = %i[make_label put_label patch_location to_binary b].freeze
 
         # `b` alone, or `b.cond` when a condition is named. The generated
         # form would read the condition as a shift amount, and a Symbol has
