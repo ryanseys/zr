@@ -110,7 +110,11 @@ machine def zr_ruby2_mark_m(klass, name)
   r = zr_name_id(name, slot)
   return r if r == QUNDEF
   e = zr_find_method(klass, Machine.load64(slot, 0))
-  if e != 0 && MEntry.fn(e) != 0
+  if e != 0 && MEntry.kind(e) == KIND_BMETHOD
+    # A define_method method runs its block, whose function binds the
+    # rest, so the mark goes on that.
+    zr_ivtab_set(zr_ruby2_fns(), Machine.word(RProc.fn(MEntry.cref(e))), Machine.value(QTRUE))
+  elsif e != 0 && MEntry.fn(e) != 0
     zr_ivtab_set(zr_ruby2_fns(), Machine.word(MEntry.fn(e)), Machine.value(QTRUE))
   end
   Machine.value(QNIL)
