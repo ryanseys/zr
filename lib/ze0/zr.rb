@@ -35,9 +35,14 @@ module Ze0
     class Runtime
       attr_reader :unit, :target
 
+      # Every source is read once, here: the digest covers the bytes the
+      # kernel and the core were lowered from, never a later edit of
+      # them, so a build under way while a file changes cannot cache
+      # the old form under the new digest.
       def initialize(target = Target.default)
         @target = target
-        @unit = Machine.unit(Zr.kernel_files(target), symbols: kernel_symbols)
+        @sources = Zr.sources(target).to_h { |path| [path, File.read(path)] }
+        @unit = Machine::Lower.new(Zr.kernel_files(target).map { |path| [@sources.fetch(path), path] }, kernel_symbols).tap(&:run)
       end
 
       def raw = unit.raw
@@ -46,7 +51,7 @@ module Ze0
         # The target goes in first: two targets never share a built form.
         # A path goes in beside its bytes: the runtime object carries the
         # core's file names, so two checkouts never share one either.
-        @digest ||= digest_of(Zr.sources(target) + gem_prelude_files)
+        @digest ||= digest_of(@sources.keys + gem_prelude_files)
       end
 
       # The files the gem prelude loads, which only its loader knows:
@@ -56,7 +61,7 @@ module Ze0
       # again.
       def gem_prelude_files
         @gem_prelude_files ||= begin
-          path = File.join(CACHE, "gem-prelude-#{digest_of(Zr.sources(target))}.json")
+          path = File.join(CACHE, "gem-prelude-#{digest_of(@sources.keys)}.json")
           files = JSON.parse(File.read(path)) if File.exist?(path)
           unless files&.all? { |file| File.file?(file) }
             files = [GEM_PRELUDE, *Zr.gem_prelude(target).units.map(&:file).select { |file| File.file?(file) }].uniq.sort
@@ -69,7 +74,7 @@ module Ze0
       def digest_of(files)
         Digest::SHA256.new.tap do |d|
           d << target.triple << "\0"
-          files.each { |path| d << path << "\0" << File.binread(path) }
+          files.each { |path| d << path << "\0" << (@sources[path] || File.binread(path)) }
         end.hexdigest
       end
 
@@ -118,7 +123,7 @@ module Ze0
 
       # The core library's `[functions, data]`, lowered over the kernel.
       def lowered
-        @lowered ||= Zr.core(unit, kernel_symbols, target)
+        @lowered ||= Zr.core(unit, kernel_symbols, target, @sources)
       end
     end
 
@@ -263,12 +268,13 @@ module Ze0
     # functions ending with `zr_prelude`. Whether a program carries the
     # compiler is the program's own question, so the core never asks for
     # the eval road: a box or an eval brings it with the program.
-    def core(unit, symbols, target = Target.default)
+    def core(unit, symbols, target = Target.default, sources = {})
       functions = []
       data = []
       entries = core_files(target).map do |path|
         entry = "zr_core_#{File.basename(path, ".rb")}"
-        f, d = Lower.new(Hir.build(File.read(path), path, road: false, target: target), unit, symbols, entry: entry, internal: true).run
+        source = sources.fetch(path) { File.read(path) }
+        f, d = Lower.new(Hir.build(source, path, road: false, target: target), unit, symbols, entry: entry, internal: true).run
         functions.concat(f)
         data.concat(d)
         entry
