@@ -1116,7 +1116,7 @@ machine def zr_warn_redefined(ext, mid, e, fn, kind, meta, cref)
     zr_buf_push(b, Machine.bytes(" was here"), 9)
   end
   zr_warn_here(Buf.ptr(b), Buf.len(b))
-  free(Buf.ptr(b))
+  zr_buf_free(b)
 end
 
 # Whether the program has started: the core library's own definitions

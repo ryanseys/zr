@@ -853,11 +853,11 @@ machine def zr_obj_inspect(recv, argc, argv, cref, blk)
   end
   filter = zr_send(recv, Machine.id(:instance_variables_to_inspect), 0, 0)
   if filter == QUNDEF
-    free(Buf.ptr(b))
+    zr_buf_free(b)
     return filter
   end
   if filter != QNIL && (zr_special_p(filter) || zr_type(filter) != T_ARRAY)
-    free(Buf.ptr(b))
+    zr_buf_free(b)
     m = Machine.slot(Buf.size)
     zr_buf_init(m)
     zr_buf_push(m, Machine.bytes("Expected #instance_variables_to_inspect to return an Array or nil, but it returned "), 83)
@@ -873,7 +873,7 @@ machine def zr_obj_inspect(recv, argc, argv, cref, blk)
   r = zr_buf_ivars(b, recv, filter)
   zr_guard_leave(recv, Machine.id(:inspect))
   if r == QUNDEF
-    free(Buf.ptr(b))
+    zr_buf_free(b)
     return r
   end
   zr_buf_byte(b, 62)
@@ -1488,7 +1488,7 @@ machine def zr_attr(klass, argc, argv, which)
     if which != 2
       r = zr_define_method(klass, id, Machine.ptr(ivar), 0, KIND_ATTR_READER, zr_meta_at(caller), cref)
       if r == QUNDEF
-        free(Buf.ptr(b))
+        zr_buf_free(b)
         return r
       end
       zr_ary_push(defined, zr_sym(id))
@@ -1498,12 +1498,12 @@ machine def zr_attr(klass, argc, argv, which)
       setter = zr_intern(Buf.ptr(b) + 1, Buf.len(b) - 1)
       r = zr_define_method(klass, setter, Machine.ptr(ivar), 1, KIND_ATTR_WRITER, zr_meta_at(caller), cref)
       if r == QUNDEF
-        free(Buf.ptr(b))
+        zr_buf_free(b)
         return r
       end
       zr_ary_push(defined, zr_sym(setter))
     end
-    free(Buf.ptr(b))
+    zr_buf_free(b)
     i += 1
   end
   defined

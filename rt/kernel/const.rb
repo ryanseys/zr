@@ -365,7 +365,7 @@ machine def zr_warn_reassigned_constant(klass, id, e)
     zr_buf_push(b, Machine.bytes(" was here\n"), 10)
     zr_write_err(Buf.ptr(b), Buf.len(b))
   end
-  free(Buf.ptr(b))
+  zr_buf_free(b)
 end
 
 # `\nfile:line: previous definition of Name was here` after a message

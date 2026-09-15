@@ -349,7 +349,7 @@ machine def zr_fiber_inspect_m(recv, blk)
   zr_buf_init(b)
   zr_buf_obj_head(b, recv)
   if blk != QNIL && !zr_buf_block_where(b, blk)
-    free(Buf.ptr(b))
+    zr_buf_free(b)
     return Machine.value(QUNDEF)
   end
   status = RFiber.resuming(recv) != QNIL ? FIBER_SUSPENDED : RFiber.status(recv)

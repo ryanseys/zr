@@ -90,6 +90,8 @@ module Ze0
         d zr_box_name Value klass:Value name:Value
         d zr_box_gvar_key Value name:Value
         d zr_buf_init Void b:Ptr
+        d zr_buf_inline_p Bool b:Ptr
+        d zr_buf_free Void b:Ptr
         d zr_buf_reserve Void b:Ptr n:Word
         d zr_buf_push Void b:Ptr bytes:Ptr n:Word
         d zr_buf_byte Void b:Ptr c:Word
@@ -1970,7 +1972,8 @@ module Ze0
         c PREOPENS 32
         c CONTEXT_BYTES 8
         s RArray 48 8 basic:0:RBasic len:16:Word capa:24:Word ptr:32:Ptr base:40:Ptr
-        s Buf 24 8 ptr:0:Ptr len:8:Word capa:16:Word
+        s BufTail 64 8 w0:0:Word w1:8:Word w2:16:Word w3:24:Word w4:32:Word w5:40:Word w6:48:Word w7:56:Word
+        s Buf 88 8 ptr:0:Ptr len:8:Word capa:16:Word tail:24:BufTail
         s IvarCache 8 8 index:0:Word
         s CallCache 40 8 klass:0:Value stamp:8:Word entry:16:Ptr found:24:Value ivar:32:IvarCache
         s ConstCache 24 8 key:0:Value stamp:8:Word value:16:Value

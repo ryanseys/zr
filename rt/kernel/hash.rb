@@ -779,7 +779,7 @@ machine def zr_hash_inspect(recv, argc, argv, cref, blk)
       else
         s = zr_inspect(key)
         if s == QUNDEF
-          free(Buf.ptr(b))
+          zr_buf_free(b)
           zr_guard_leave(recv, Machine.id(:inspect))
           return s
         end
@@ -791,7 +791,7 @@ machine def zr_hash_inspect(recv, argc, argv, cref, blk)
       e = RHash.entries(recv) + (i * HEntry.size)
       s = zr_inspect(HEntry.value(e))
       if s == QUNDEF
-        free(Buf.ptr(b))
+        zr_buf_free(b)
         zr_guard_leave(recv, Machine.id(:inspect))
         return s
       end
@@ -995,7 +995,7 @@ machine def zr_kw_unknown(hash, ids, n)
       end
       s = zr_inspect(HEntry.key(RHash.entries(hash) + (i * HEntry.size)))
       if s == QUNDEF
-        free(Buf.ptr(b))
+        zr_buf_free(b)
         return s
       end
       zr_buf_str(b, s)

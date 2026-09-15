@@ -92,7 +92,7 @@ machine def zr_frozen_error(v)
   zr_buf_push(b, Machine.bytes(": "), 2)
   s = zr_inspect(v)
   if s == QUNDEF
-    free(Buf.ptr(b))
+    zr_buf_free(b)
     return s
   end
   zr_buf_str(b, s)
@@ -1315,7 +1315,7 @@ machine def zr_str_interp(argc, argv)
     if zr_special_p(v) || zr_type(v) != T_STRING
       s = zr_obj_as_string(v)
       if s == QUNDEF
-        free(Buf.ptr(b))
+        zr_buf_free(b)
         return s
       end
     end

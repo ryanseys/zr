@@ -263,7 +263,7 @@ machine def zr_proc_inspect(recv, argc, argv, cref, blk)
   zr_buf_init(b)
   zr_buf_obj_head(b, recv)
   if !zr_buf_block_where(b, recv)
-    free(Buf.ptr(b))
+    zr_buf_free(b)
     return Machine.value(QUNDEF)
   end
   if RProc.lambda(recv) != 0

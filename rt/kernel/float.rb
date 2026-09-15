@@ -971,7 +971,7 @@ sig [Ptr] => F64
 machine def zr_buf_strtod(b)
   zr_buf_byte(b, 0)
   d = strtod(Buf.ptr(b), 0)
-  free(Buf.ptr(b))
+  zr_buf_free(b)
   d
 end
 
@@ -982,7 +982,7 @@ machine def zr_str_to_f(s)
   zr_buf_init(b)
   n = zr_float_scan(s, b)
   if n < 0
-    free(Buf.ptr(b))
+    zr_buf_free(b)
     return zr_float_new(Machine.f64(0))
   end
   zr_float_new(zr_buf_strtod(b))
@@ -996,20 +996,20 @@ machine def zr_str_to_f_strict(s)
   zr_buf_init(b)
   n = zr_float_scan(s, b)
   if n < 0
-    free(Buf.ptr(b))
+    zr_buf_free(b)
     return Machine.value(QNIL)
   end
   p = RString.ptr(s)
   len = RString.len(s)
   if n + 1 < len && (Machine.word(Machine.load8(p + n, 0)) == 120 || Machine.word(Machine.load8(p + n, 0)) == 88) && zr_buf_last_is_zero(b)
-    free(Buf.ptr(b))
+    zr_buf_free(b)
     return zr_hex_to_f(s)
   end
   while n < len && (Machine.word(Machine.load8(p + n, 0)) == 32 || (Machine.word(Machine.load8(p + n, 0)) >= 9 && Machine.word(Machine.load8(p + n, 0)) <= 13))
     n += 1
   end
   if n != len
-    free(Buf.ptr(b))
+    zr_buf_free(b)
     return Machine.value(QNIL)
   end
   zr_float_new(zr_buf_strtod(b))
@@ -1041,7 +1041,7 @@ machine def zr_hex_to_f(s)
     read += 1
   end
   ok = read > 0 && read == Buf.len(b) - 1
-  free(Buf.ptr(b))
+  zr_buf_free(b)
   ok ? zr_float_new(d) : Machine.value(QNIL)
 end
 

@@ -39,7 +39,7 @@ machine def zr_os_symbol(name)
   zr_buf_str(b, name)
   zr_buf_byte(b, 0)
   at = dlsym(Machine.ptr(RTLD_DEFAULT), Buf.ptr(b))
-  free(Buf.ptr(b))
+  zr_buf_free(b)
   if Machine.word(at) == 0
     return Machine.value(QNIL)
   end

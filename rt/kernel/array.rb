@@ -575,7 +575,7 @@ machine def zr_ary_inspect(recv, argc, argv, cref, blk)
     end
     s = zr_inspect(zr_ary_at(recv, i))
     if s == QUNDEF
-      free(Buf.ptr(b))
+      zr_buf_free(b)
       zr_guard_leave(recv, Machine.id(:inspect))
       return s
     end

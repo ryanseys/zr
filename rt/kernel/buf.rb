@@ -1,12 +1,32 @@
-# A growable byte buffer outside the arena, for building strings and
-# messages.
-Machine.struct :Buf, ptr: Ptr, len: Word, capa: Word
+# A growable byte buffer for building strings and messages. It starts
+# in the 64 bytes of its own tail, on the stack with the rest of it,
+# and moves to malloc'd memory only when it grows past them: a message
+# that raises and is never taken leaves nothing to free.
+Machine.struct :BufTail, w0: Word, w1: Word, w2: Word, w3: Word, w4: Word, w5: Word, w6: Word, w7: Word
+Machine.struct :Buf, ptr: Ptr, len: Word, capa: Word, tail: BufTail
 
 sig [Ptr] => Void
 machine def zr_buf_init(b)
-  Buf.set_ptr(b, zr_xmalloc(64))
+  Buf.set_ptr(b, Buf.tail(b))
   Buf.set_len(b, 0)
-  Buf.set_capa(b, 64)
+  Buf.set_capa(b, BufTail.size)
+end
+
+# Whether the bytes still live in the buffer's own tail.
+sig [Ptr] => Bool
+machine def zr_buf_inline_p(b)
+  Buf.ptr(b) == Buf.tail(b)
+end
+
+# The malloc'd bytes given back, when the buffer grew into any.
+sig [Ptr] => Void
+machine def zr_buf_free(b)
+  if !zr_buf_inline_p(b)
+    free(Buf.ptr(b))
+  end
+  Buf.set_ptr(b, 0)
+  Buf.set_len(b, 0)
+  Buf.set_capa(b, 0)
 end
 
 sig [Ptr, Word] => Void
@@ -19,7 +39,9 @@ machine def zr_buf_reserve(b, n)
     end
     p = zr_xmalloc(capa)
     zr_memcpy(p, Buf.ptr(b), Buf.len(b))
-    free(Buf.ptr(b))
+    if !zr_buf_inline_p(b)
+      free(Buf.ptr(b))
+    end
     Buf.set_ptr(b, p)
     Buf.set_capa(b, capa)
   end
@@ -70,8 +92,16 @@ end
 # which is what `zr_str_new` records and what `zr_str_concat` reads.
 sig [Ptr] => Value
 machine def zr_buf_take(b)
-  zr_buf_reserve(b, 1)
   n = Buf.len(b)
+  if zr_buf_inline_p(b)
+    # Bytes still in the tail are copied out: the String outlives the
+    # frame the buffer sits in.
+    p = zr_xmalloc(n + 1)
+    zr_memcpy(p, Buf.ptr(b), n)
+    Buf.set_ptr(b, p)
+    Buf.set_capa(b, n + 1)
+  end
+  zr_buf_reserve(b, 1)
   p = Buf.ptr(b)
   Machine.store8(p + n, 0, Machine.i8(0))
   s = zr_alloc(T_STRING, zr_global(G_STRING))
