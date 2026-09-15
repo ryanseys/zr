@@ -124,13 +124,23 @@ class Struct
   end
 
   # A member may be named `class`, so the class comes from the kernel.
-  def members = Primitive.zr_real_class(self).members
+  def members = member_names.dup
+
+  # The names as the class holds them, which rb_struct_members reads: a
+  # subclass's own `members`, instance or class, is not called.
+  def member_names
+    Primitive.attr! :hidden
+    k = Primitive.zr_real_class(self)
+    k = k.superclass until Primitive.zr_hidden_get(k, :__members__)
+    Primitive.zr_hidden_get(k, :__members__)
+  end
+  private :member_names
 
   def to_a = values_store.dup
   alias deconstruct to_a
   alias values to_a
 
-  def size = members.size
+  def size = Primitive.zr_ary_len_m(member_names)
   alias length size
 
   def [](key)
@@ -153,24 +163,25 @@ class Struct
     return to_enum(:each_pair) { size } unless block_given?
 
     values = values_store
-    members.each_with_index { |m, i| yield [m, values[i]] }
+    member_names.each_with_index { |m, i| yield [m, values[i]] }
     self
   end
 
   def to_h(&block)
-    pairs = members.zip(values_store)
+    pairs = member_names.zip(values_store)
     block ? pairs.to_h(&block) : pairs.to_h
   end
 
   def deconstruct_keys(keys)
     return to_h if keys.nil?
     raise TypeError, "wrong argument type #{keys.class} (expected Array or nil)" unless keys.is_a?(Array)
-    return {} if keys.size > members.size
+    names = member_names
+    return {} if keys.size > names.size
 
     values = values_store
     out = {}
     keys.each do |k|
-      i = k.is_a?(Symbol) ? members.index(k) : nil
+      i = k.is_a?(Symbol) ? names.index(k) : nil
       break unless i
 
       out[k] = values[i]
@@ -178,12 +189,14 @@ class Struct
     out
   end
 
-  def values_at(*indexes) = to_a.values_at(*indexes)
+  def values_at(*indexes) = values_store.values_at(*indexes)
 
   def dig(key, *rest)
     # A member this struct does not hold is a miss, not an error, which
     # is what makes `dig` safe to chain.
-    v = key.is_a?(Integer) ? at_or_nil(key) : (self[key] if members.include?(key.to_sym))
+    v = if key.is_a?(Integer) then at_or_nil(key)
+        elsif (i = member_names.index(key.to_sym)) then values_store[i]
+        end
     return v if rest.empty? || v.nil?
 
     Primitive.zr_dig_into(v, rest)
@@ -193,7 +206,7 @@ class Struct
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0)" unless args.empty?
     return to_enum(:select) { size } unless block
 
-    to_a.select(&block)
+    values_store.select(&block)
   end
   alias filter select
 
@@ -224,7 +237,7 @@ class Struct
     head = name ? "#<struct #{name}" : "#<struct"
 
     begin
-      pairs = members.zip(values_store).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }
+      pairs = member_names.zip(values_store).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }
       Primitive.zr_obj_form(pairs.empty? && name ? "#{head}>" : "#{head} #{pairs.join(', ')}>")
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
@@ -240,14 +253,15 @@ class Struct
   # where the struct is shorter.
   def at_or_nil(index)
     Primitive.attr! :hidden
-    index += size if index.negative?
-    index.between?(0, size - 1) ? self[index] : nil
+    count = Primitive.zr_ary_len_m(member_names)
+    index += count if index.negative?
+    index.between?(0, count - 1) ? values_store[index] : nil
   end
   private :at_or_nil
 
   def member_index(key)
     Primitive.attr! :hidden
-    members = self.members
+    members = member_names
     case key
     when Symbol, String
       i = members.index(key.to_sym)
