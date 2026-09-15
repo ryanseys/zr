@@ -60,6 +60,53 @@ class WasmTest < Minitest::Test
     end
   end
 
+  # A program on the WASI layer reads what the host hands it: its
+  # arguments, its environment, and the files of a preopened directory.
+  # The answer is what ruby 4.0 for wasm32-wasi printed for the same
+  # program under the same wasmtime flags.
+  HOST = <<~'RUBY'
+    p ARGV, ENV["X"], ENV.key?("NOPE")
+    ENV["Y"] = "set"
+    p ENV["Y"]
+    File.write("out.txt", "written\n")
+    p File.read("out.txt"), File.size("out.txt"), File.directory?("."), Dir.children(".").sort
+    begin
+      File.read("missing")
+    rescue => e
+      p e
+    end
+    File.delete("out.txt")
+    p File.exist?("out.txt"), $$, RUBY_PLATFORM, Process.clock_gettime(Process::CLOCK_MONOTONIC) > 0
+  RUBY
+
+  def test_a_program_reads_its_host
+    skip "wasmtime is not installed" unless Checks.wasmtime?
+
+    Dir.mktmpdir("ze0-wasm-") do |dir|
+      File.write(File.join(dir, "host.rb"), HOST)
+      program = Ze0::Zr.program(HOST, File.join(dir, "host.rb"), target: Ze0::Target::WASM32_WASI)
+      wasm = File.join(dir, "host.wasm")
+      assert_nil Ze0::Native::Build.wasm_program(program, wasm)
+      out, why = Checks.bounded({}, [WASMTIME, "run", *WASM_FLAGS, "--dir", ".", "--env", "X=1", wasm, "a", "b"], err: %i[child out], chdir: dir)
+      refute why, "wasmtime was killed at #{why}: #{out}"
+      assert_equal <<~'OUT', out
+        ["a", "b"]
+        "1"
+        false
+        "set"
+        "written\n"
+        8
+        true
+        ["host.rb", "host.wasm", "out.txt"]
+        #<Errno::ENOENT: No such file or directory @ rb_sysopen - missing>
+        false
+        42
+        "wasm32-wasi"
+        true
+      OUT
+    end
+  end
+
   Dir[File.join(ROOT, "test/zr/*.rb")].sort.each do |rb|
     name = File.basename(rb, ".rb")
     define_method("test_zr_#{name}") do

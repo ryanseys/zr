@@ -33,9 +33,9 @@ module Checks
   # `[stdout, why]` of `argv` under `env`, `why` naming the bound it
   # passed and nil when it stopped on its own. `$?` is the child's, as
   # `IO.popen` leaves it.
-  def bounded(env, argv, err:)
+  def bounded(env, argv, err:, chdir: Dir.pwd)
     why = nil
-    out = IO.popen(env, argv, err: err) do |io|
+    out = IO.popen(env, argv, err: err, chdir: chdir) do |io|
       watchdog = Thread.new { why = watch(io.pid) }
       io.read.tap { watchdog.kill }
     end
