@@ -53,7 +53,14 @@ class IO
     end
   end
 
-  def self.binread(path, length = nil, offset = nil) = File.read(path, length, offset).b
+  # rb_io_s_binread opens the file binary, so no default encoding
+  # converts what it reads.
+  def self.binread(path, length = nil, offset = nil)
+    File.open(File.send(:path_of, path), "rb") do |file|
+      file.seek(offset) if offset
+      length ? file.read(length) : file.read
+    end
+  end
 
   def self.binwrite(path, content, offset = nil, **options) = written(path, content, offset, true, options)
 
@@ -511,6 +518,14 @@ class IO
     raise SystemCallError.new(nil, -rows) if rows.is_a?(Integer)
 
     text, binary, external, internal = IO.send(:open_options, mode, options)
+    # rb_io_ext_int_to_encs: a text stream that names no internal encoding
+    # takes the default one as it opens, unless the two are the same, and
+    # then holds the external one it converts from.
+    if internal.nil? && !binary && !(default = Encoding.default_internal).nil? && !Encoding::BINARY.equal?(external) &&
+       !default.equal?(external || Encoding.default_external)
+      internal = default
+      external ||= Encoding.default_external
+    end
     @fd = fd
     @mode = text
     # What the mode allows, decided once: every read and write asks.
@@ -1403,6 +1418,9 @@ class IO
     else
       # The bytes join the buffer as they stand: the buffer's own
       # encoding decides what was read, not the chunk's.
+      # A stream that names no encoding reads in the default one as it
+      # stands when the bytes arrive.
+      @buffer.force_encoding(Encoding.default_external) if @buffer.empty? && @external.nil? && !@binmode
       chunk.force_encoding(@buffer.encoding)
       @buffer << chunk
     end
@@ -1451,8 +1469,7 @@ class IO
     return "".b if @binmode
 
     text = +""
-    text.force_encoding(@external) unless @external.nil?
-    text
+    text.force_encoding(@external || Encoding.default_external)
   end
 
   # gets' arguments as ruby reads them: one argument is the separator

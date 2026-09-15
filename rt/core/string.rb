@@ -1099,7 +1099,16 @@ class String
   # A copy of the receiver's characters written in `target`. Every pair
   # meets in UTF-8, so a conversion between two other encodings is two
   # steps and reads as one in its errors.
-  def encode(target = Encoding.default_internal || Encoding.default_external, source = nil, **options)
+  # With no target, str_transcode0 converts to the default internal
+  # encoding, replacing what it cannot write; with none set, only a
+  # decorator converts, within the receiver's own encoding.
+  def encode(target = (implicit = true; Encoding.default_internal), source = nil, **options)
+    if implicit
+      return String.new(self) if target.nil? && options.empty?
+
+      target ||= Encoding.at(Primitive.zr_str_encoding_index_m(self))
+      options = { invalid: :replace, undef: :replace, **options }
+    end
     from, target = Encoding.pair(source.nil? ? Encoding.at(Primitive.zr_str_encoding_index_m(self)) : source, target)
     text = escaped(source.nil? ? plain : String.new(self).force_encoding(from), options)
     # The quotes an attribute stands in are characters of the text, so
@@ -1161,7 +1170,13 @@ class String
             when :attr then { "&" => "&amp;", "<" => "&lt;", ">" => "&gt;", "\"" => "&quot;", "'" => "&apos;" }
             else raise ArgumentError, "unexpected value for xml option: #{options[:xml]}"
             end
-    text.gsub(/[#{Regexp.escape(marks.keys.join)}]/, marks)
+    pattern = /[#{Regexp.escape(marks.keys.join)}]/
+    encoding = Encoding.at(Primitive.zr_str_encoding_index_m(text))
+    return text.gsub(pattern, marks) unless encoding.ascii_compatible?
+
+    # The escape reads bytes, as the converter does: a byte no character
+    # holds goes through as it is.
+    text.b.gsub(pattern, marks).force_encoding(encoding)
   end
 
   # `newline:` and the older spellings of the same three choices
@@ -2725,7 +2740,10 @@ class Encoding
   def self.list = LIST.dup
 
   # Every name, and `internal` for the encoding a read converts to.
-  def self.name_list = LIST.flat_map(&:names) << "internal"
+  def self.name_list
+    names = LIST.flat_map(&:names)
+    default_internal ? names : names << "internal"
+  end
 
   # Every name but the first of each encoding, pointing at the first.
   def self.aliases
@@ -2739,13 +2757,15 @@ class Encoding
 
     text = String.try_convert(name)
     raise TypeError, "no implicit conversion of #{conversion_name(name)} into String" if text.nil?
+    if text.ascii_only?
+      key = text.upcase(:ascii)
+      # These follow the defaults: each is whatever its default is, nil too.
+      return default_internal if key == "INTERNAL"
+      return default_external if key == "EXTERNAL" || key == "FILESYSTEM"
+    end
     if (found = by_name[text])
       nil
-    elsif text.ascii_only?
-      key = text.upcase(:ascii)
-      # `internal` names no row: it is whatever default_internal is, nil too.
-      return default_internal if key == "INTERNAL"
-
+    elsif key
       found = by_name[key]
     else
       found = LIST.find { |encoding| encoding.names.any? { |n| n.casecmp?(text) } }
@@ -2784,16 +2804,42 @@ class Encoding
     raise ConverterNotFoundError, "code converter not found (#{names.join(' to ')})"
   end
 
-  def self.default_external = UTF_8
+  # The external and internal encodings a program set, nil for the ones
+  # it did not: UTF-8 and none.
+  DEFAULTS = [nil, nil]
+  private_constant :DEFAULTS
 
-  def self.default_internal = nil
+  def self.default_external = DEFAULTS[0] || UTF_8
 
+  def self.default_internal = DEFAULTS[1]
+
+  # The external encoding is also the one "external" and "filesystem"
+  # name, as enc_set_default_encoding moves both aliases.
   def self.default_external=(encoding)
-    Primitive.zr_unimplemented("Encoding.default_external=")
+    Warning.warn("#{Primitive.zr_warn_position}warning: setting Encoding.default_external\n") if $VERBOSE
+    raise ArgumentError, "default external can not be nil" if encoding.nil?
+
+    DEFAULTS[0] = find(encoding)
+    encoding
   end
 
   def self.default_internal=(encoding)
-    Primitive.zr_unimplemented("Encoding.default_internal=")
+    Warning.warn("#{Primitive.zr_warn_position}warning: setting Encoding.default_internal\n") if $VERBOSE
+    DEFAULTS[1] = encoding.nil? ? nil : find(encoding)
+    encoding
+  end
+
+  # The names that follow the defaults, rather than one encoding.
+  MOVING = %w[external filesystem internal].freeze
+  private_constant :MOVING
+
+  def names
+    moving = []
+    moving.push("external", "filesystem") if equal?(Encoding.default_external)
+    moving << "internal" if equal?(Encoding.default_internal)
+    return @names if moving == %w[external filesystem] && @names.include?("external")
+
+    (@names - MOVING + moving.map { |name| Primitive.zr_str_usascii(name.dup).freeze }).freeze
   end
 
   # The encodings a conversion passes through, ruby's own converter
