@@ -16,6 +16,31 @@ module Process
   end
   private_class_method :checked
 
+  # waitpid(2) as rb_waitpid runs it: `[pid, status word]`, `[0, 0]` for
+  # a WNOHANG child still running, or the negated errno. A thread among
+  # others parks on the pipe SIGCHLD writes to between WNOHANG tries,
+  # so its siblings run while the child does; the signal count taken
+  # before each try tells a signal that came since from one drained.
+  def self.reap(pid, flags)
+    Primitive.attr! :hidden
+    pid = Integer.send(:int_operand, pid)
+    flags = Integer.send(:int_operand, flags)
+    return Primitive.zr_proc_wait(pid, flags) if flags.anybits?(WNOHANG) || !Primitive.zr_threaded || Thread.send(:alone?)
+
+    fd = Primitive.zr_chld_fd(Signal.list.fetch("CHLD"))
+    return Primitive.zr_proc_wait(pid, flags) if fd.negative?
+
+    loop do
+      seen = Primitive.zr_chld_count
+      result = Primitive.zr_proc_wait(pid, flags | WNOHANG)
+      return result if result.is_a?(Integer) || !result[0].zero?
+
+      Thread.current.send(:wait_io, fd, IO::READABLE, nil) if Primitive.zr_chld_count == seen
+      Primitive.zr_chld_drain
+    end
+  end
+  private_class_method :reap
+
   # What waitpid answered for a child.
   class Status
     # An allocated status is pid 0 with a status word of 0.
@@ -36,7 +61,7 @@ module Process
     # while a WNOHANG child still runs, and pid -1 when there is none to
     # wait for.
     def self.wait(pid = -1, flags = 0)
-      result = Primitive.zr_proc_wait(Integer.send(:int_operand, pid), Integer.send(:int_operand, flags))
+      result = Process.send(:reap, pid, flags)
       return new(-1, 0) if result.is_a?(Integer)
 
       child, raw = result
@@ -160,7 +185,7 @@ module Process
   end
 
   def wait(pid = -1, flags = 0)
-    result = Primitive.zr_proc_wait(pid, flags)
+    result = Process.send(:reap, pid, flags)
     raise SystemCallError.new(nil, -result) if result.is_a?(Integer)
 
     child, raw = result
@@ -184,7 +209,7 @@ module Process
     $? = nil
     children = []
     loop do
-      result = Primitive.zr_proc_wait(-1, 0)
+      result = Process.send(:reap, -1, 0)
       if result.is_a?(Integer)
         break if -result == Errno::ECHILD::Errno
 

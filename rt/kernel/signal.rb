@@ -25,6 +25,86 @@ machine def zr_trap_caught(signo)
   Machine.store64(count, 0, Machine.load64(count, 0) + 1)
   Machine.store64(Machine.static(:signal_pending, 8), 0, 1)
   Machine.store64(Machine.static(:preempt_count, 8), 0, 1)
+  zr_chld_note(signo)
+end
+
+# SIGCHLD under its default handling while a thread waits for a child:
+# the signal only tells the waiters, as the default does nothing else.
+sig [I32] => Void
+machine def zr_chld_caught(signo)
+  zr_chld_note(signo)
+end
+
+# A child changed state: the count grows and the waiters' pipe takes a
+# byte, so a thread parked on it wakes. A full pipe already wakes them.
+sig [I32] => Void
+machine def zr_chld_note(signo)
+  cell = Machine.static(:chld_pipe, 24)
+  if Machine.load64(cell, 0) == 0 || Machine.word(signo) != Machine.load64(cell, 16)
+    return
+  end
+  counter = Machine.static(:chld_count, 8)
+  Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
+  byte = Machine.slot(8)
+  Machine.store64(byte, 0, 1)
+  write(Machine.i32(Machine.load64(cell, 8)), byte, 1)
+end
+
+# The read end of the pipe SIGCHLD (`signo`) writes to, made the first
+# time a thread waits for a child among others: both ends close across
+# an exec and never block, and a SIGCHLD the program does not trap is
+# caught for the waiters alone.
+sig [Value] => Value
+machine def zr_chld_fd(signo)
+  cell = Machine.static(:chld_pipe, 24)
+  if Machine.load64(cell, 0) != 0
+    return zr_fix(Machine.load64(cell, 0) - 1)
+  end
+  fds = Machine.slot(8)
+  if pipe(fds) < Machine.i32(0)
+    return zr_fix(0 - zr_errno())
+  end
+  read_end = zr_fix(Machine.word(Machine.load32(fds, 0)))
+  write_end = zr_fix(Machine.word(Machine.load32(fds, 4)))
+  zr_io_cloexec(read_end)
+  zr_io_cloexec(write_end)
+  zr_io_set_nonblock(read_end, zr_fix(1))
+  zr_io_set_nonblock(write_end, zr_fix(1))
+  Machine.store64(cell, 8, zr_fix2long(write_end))
+  Machine.store64(cell, 16, zr_fix2long(signo))
+  Machine.store64(cell, 0, zr_fix2long(read_end) + 1)
+  old = Machine.slot(8)
+  if zr_os_sigaction(Machine.i32(zr_fix2long(signo)), SIGNAL_DEFAULT, old) >= Machine.i32(0)
+    fn = Machine.load64(old, 0)
+    if fn == SIGNAL_DEFAULT
+      fn = Machine.word(Machine.addr(:zr_chld_caught))
+    end
+    zr_os_sigaction(Machine.i32(zr_fix2long(signo)), fn, old)
+  end
+  read_end
+end
+
+# How many SIGCHLDs came since the waiters' pipe was made.
+sig [] => Value
+machine def zr_chld_count
+  zr_fix(Machine.load64(Machine.static(:chld_count, 8), 0))
+end
+
+# The bytes the waiters' pipe holds, taken, so a parked thread waits
+# for the next child.
+sig [] => Value
+machine def zr_chld_drain
+  cell = Machine.static(:chld_pipe, 24)
+  if Machine.load64(cell, 0) == 0
+    return Machine.value(QNIL)
+  end
+  buf = Machine.slot(64)
+  # read(2) answers -1 as the widest word once the pipe is empty.
+  n = read(Machine.i32(Machine.load64(cell, 0) - 1), buf, 64)
+  while n > 0 && n <= 64
+    n = read(Machine.i32(Machine.load64(cell, 0) - 1), buf, 64)
+  end
+  Machine.value(QNIL)
 end
 
 sig [I32] => Void
@@ -43,6 +123,9 @@ machine def zr_trap_handle(signo, how)
     fn = Machine.addr(:zr_trap_caught)
   elsif h == SIGNAL_NOTHING
     fn = Machine.addr(:zr_trap_dropped)
+  elsif h == SIGNAL_DEFAULT && Machine.load64(Machine.static(:chld_pipe, 24), 16) == zr_fix2long(signo) && zr_fix2long(signo) != 0
+    # Waiters still listen on SIGCHLD's pipe.
+    fn = Machine.addr(:zr_chld_caught)
   end
   old = Machine.slot(8)
   if zr_os_sigaction(Machine.i32(zr_fix2long(signo)), fn, old) < Machine.i32(0)
@@ -55,6 +138,9 @@ sig [Word] => Word
 machine def zr_trap_kind(fn)
   if fn == SIGNAL_DEFAULT || fn == SIGNAL_IGNORE
     return fn
+  end
+  if fn == Machine.addr(:zr_chld_caught)
+    return SIGNAL_DEFAULT
   end
   if fn == Machine.addr(:zr_trap_caught)
     return SIGNAL_RUBY

@@ -1193,6 +1193,11 @@ module Ze0
         d zr_preempt_expired Value
         d zr_preempt_send Value mid:Word
         d zr_trap_caught Void signo:I32
+        d zr_chld_caught Void signo:I32
+        d zr_chld_note Void signo:I32
+        d zr_chld_fd Value signo:Value
+        d zr_chld_count Value
+        d zr_chld_drain Value
         d zr_trap_dropped Void signo:I32
         d zr_trap_handle Value signo:Value how:Value
         d zr_trap_kind Word fn:Word
