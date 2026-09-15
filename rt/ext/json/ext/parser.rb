@@ -110,9 +110,13 @@ module JSON
       STRING_STOP = /["\\\x00-\x1f]/n
       ESCAPES = { 0x5c => "\\", 0x6e => "\n", 0x72 => "\r", 0x74 => "\t", 0x62 => "\b", 0x66 => "\f" }.freeze
 
-      def initialize(fields, source)
+      # A resumable walk starts with no source and takes it in pieces
+      # (`feed`); where a piece ends inside a token, the walk stops before
+      # that token and reads it again once more has come.
+      def initialize(fields, source, resumable: false)
         @fields = fields
-        @src = Walk.source_of(source)
+        @resumable = resumable
+        @src = resumable ? +"".b : Walk.source_of(source)
         @size = @src.bytesize
         @cursor = 0
         @values = []
@@ -134,6 +138,7 @@ module JSON
         text.b.freeze
       end
 
+
       def run
         unexpected_end("unexpected end of input") unless walk
 
@@ -143,7 +148,89 @@ module JSON
         result
       end
 
+      # --- the resumable walk: parser.c's ResumableParser -----------------
+
+      # More source, after what the walk has not read yet.
+      def feed(text)
+        if @cursor.positive? && (@cursor >= @size || (@cursor > @size / 2 && @size >= 512))
+          @src = @src.byteslice(@cursor, @size - @cursor)
+          @cursor = 0
+        end
+        @src << Walk.source_of(text)
+        @size = @src.bytesize
+      end
+
+      # One more document: true once one is done, false where the source
+      # ends first. A document already done whose value was not taken
+      # gives way to the next.
+      def resume
+        if @phases[-1] == DONE
+          @values.pop
+          @phases[-1] = VALUE
+        end
+        catch(:suspend) { return walk }
+        false
+      end
+
+      def size_left = @size - @cursor
+
+      def rest = @src.byteslice(@cursor, @size - @cursor).force_encoding(Encoding::UTF_8)
+      def cursor = @cursor
+      def eos? = @cursor >= @size
+
+      # What is left once a document is done: the whitespace after it goes,
+      # and a source read to its end is let go.
+      def settle
+        whitespace(false)
+        return unless @cursor >= @size
+
+        @src = +"".b
+        @size = 0
+        @cursor = 0
+      end
+
+      def value? = @phases[-1] == DONE && !@values.empty?
+      def partial? = !@values.empty? && @phases[-1] != DONE
+
+      # The value that is done, taken: the root has room for the next.
+      def take
+        raise ArgumentError, "no ready value" unless @phases[-1] == DONE && !@values.empty?
+
+        @phases[-1] = VALUE
+        @values.pop
+      end
+
+      # The document under construction as it stands: each open container
+      # closed on what it holds, an object's key without its value holding
+      # nil.
+      def partial
+        return nil if @values.empty?
+
+        values = @values.dup
+        values << nil if @types[-1] == OBJECT && (@phases[-1] == VALUE || @phases[-1] == OBJECT_COLON)
+        (@types.size - 1).downto(1) do |depth|
+          items = values.pop(values.size - @heads[depth])
+          value = if @types[depth] == ARRAY
+                    items
+                  else
+                    items.each_slice(2).to_h
+                  end
+          value = @fields.on_load_proc.call(value) if @fields.on_load_proc
+          values << value
+        end
+        values[-1]
+      end
+
       private
+
+      # The token at the cursor runs into the end of a resumable source: the
+      # walk stops before it, to read it whole later.
+      def suspend
+        @cursor = @mark
+        throw :suspend
+      end
+
+      def at_end? = @resumable && @cursor >= @size
 
       def peek = @src.getbyte(@cursor) || 0
 
@@ -152,6 +239,7 @@ module JSON
       def walk
         phase = @phases[-1]
         loop do
+          @mark = @cursor
           case phase
           when VALUE
             whitespace(true)
@@ -192,6 +280,7 @@ module JSON
             when 0x5b
               @cursor += 1
               whitespace(true)
+              suspend if at_end?
               if peek == 0x5d
                 @cursor += 1
                 value = array(0)
@@ -203,6 +292,7 @@ module JSON
             when 0x7b
               @cursor += 1
               whitespace(true)
+              suspend if at_end?
               if peek == 0x7d
                 @cursor += 1
                 value = object(0)
@@ -212,6 +302,7 @@ module JSON
                 next
               end
             when 0
+              suspend if at_end?
               return false if @cursor >= @size
 
               syntax_error("unexpected NULL byte: %s")
@@ -223,6 +314,7 @@ module JSON
             return true if phase == DONE
           when OBJECT_KEY
             whitespace(true)
+            suspend if at_end?
             if @fields.allow_trailing_comma && peek == 0x7d
               phase = OBJECT_COMMA
               next
@@ -239,6 +331,7 @@ module JSON
             end
           when OBJECT_COLON
             whitespace(true)
+            suspend if at_end?
             if peek == 0x3a
               @cursor += 1
               phase = @phases[-1] = VALUE
@@ -249,6 +342,7 @@ module JSON
             end
           when ARRAY_COMMA
             whitespace(true)
+            suspend if at_end?
             byte = peek
             if byte == 0x2c
               @cursor += 1
@@ -266,6 +360,7 @@ module JSON
             end
           when OBJECT_COMMA
             whitespace(true)
+            suspend if at_end?
             byte = peek
             if byte == 0x2c
               @cursor += 1
@@ -359,6 +454,8 @@ module JSON
       end
 
       def warning(message)
+        return JSON.deprecation_warning(message) if @resumable
+
         line, column = position
         JSON.deprecation_warning("#{message} at line #{line} column #{column}")
       end
@@ -385,11 +482,14 @@ module JSON
         case peek
         when 0x2f
           newline = @src.byteindex("\n", @cursor)
+          # A resumable source may yet hold the newline.
+          suspend if newline.nil? && @resumable
           @cursor = newline ? newline + 1 : @size
         when 0x2a
           @cursor += 1
           loop do
             star = @src.byteindex("*", @cursor)
+            suspend if star.nil? && @resumable
             unexpected_end_at("unterminated comment, expected closing '*/'", start) unless star
             @cursor = star + 1
             if peek == 0x2f
@@ -398,6 +498,7 @@ module JSON
             end
           end
         else
+          suspend if at_end?
           syntax_error_at("unexpected token %s", start)
         end
         return unless @fields.on_comment == :deprecated && @deprecations < MAX_DEPRECATIONS
@@ -411,6 +512,7 @@ module JSON
           @cursor += word.bytesize
           return true
         end
+        suspend if @resumable && @size - @cursor < word.bytesize && word.b.start_with?(@src.byteslice(@cursor, @size - @cursor))
         syntax_error("unexpected token %s")
       end
 
@@ -418,20 +520,25 @@ module JSON
       def number(negative, start)
         first = peek
         digits = digits_run
+        suspend if at_end?
         return Walk if (first == 0x30 && digits > 1) || (negative && digits.zero?)
 
         integer = true
         if peek == 0x2e
           integer = false
           @cursor += 1
+          suspend if at_end?
           return Walk if digits_run.zero?
         end
         if peek == 0x65 || peek == 0x45
           integer = false
           @cursor += 1
           @cursor += 1 if peek == 0x2d || peek == 0x2b
+          suspend if at_end?
           return Walk if digits_run.zero?
         end
+        # A number is done only once something follows it.
+        suspend if at_end?
         text = @src.byteslice(start, @cursor - start)
         return text.to_i if integer
         return @fields.decimal_class.public_send(@fields.decimal_method, text) if @fields.decimal_class
@@ -452,6 +559,7 @@ module JSON
         start = @cursor
         stop = @src.byteindex(STRING_STOP, @cursor)
         unless stop
+          suspend if @resumable
           @cursor = @size
           return Walk
         end
@@ -481,6 +589,7 @@ module JSON
           @cursor += 1
           stop = @cursor < @size && @src.byteindex(STRING_STOP, @cursor)
           unless stop
+            suspend if @resumable
             @cursor = @size
             return Walk
           end
@@ -568,6 +677,13 @@ module JSON
       # raise_parse_error: the message with up to 32 bytes of what stands
       # at the cursor, and the cursor's line and column.
       def raise_error(format)
+        # parser.c keeps no lines across a resumable source's pieces.
+        if @resumable
+          error = ParserError.new(format.sub("%s") { fragment }.force_encoding(Encoding::UTF_8))
+          error.instance_variable_set(:@line, 0)
+          error.instance_variable_set(:@column, 0)
+          raise error
+        end
         line, column = position
         error = ParserError.new("#{format.sub('%s') { fragment }} at line #{line} column #{column}".force_encoding(Encoding::UTF_8))
         error.instance_variable_set(:@line, line)
@@ -609,8 +725,61 @@ module JSON
     private_constant :Walk
   end
 
-  # parser.c's ResumableParser, which this runtime does not carry yet.
+  # parser.c's ResumableParser: a walk that takes its source in pieces
+  # and hands out each document once it is whole.
   class ResumableParser
-    def initialize(*) = Primitive.zr_unimplemented("JSON::ResumableParser")
+    def initialize(opts = nil)
+      raise FrozenError, "can't modify frozen #{self.class}: #{inspect}" if frozen?
+
+      @fields = Ext::ParserConfig.send(:fields_for, opts)
+      clear
+    end
+
+    def <<(text)
+      raise FrozenError, "can't modify frozen #{self.class}: #{inspect}" if frozen?
+      raise ArgumentError, "ResumableParser can't be used recursively" if @in_use
+
+      @walk.feed(text)
+      self
+    end
+
+    def parse
+      raise ArgumentError, "ResumableParser can't be used recursively" if @in_use
+
+      if @complete
+        @parsed_bytes = 0
+        @incomplete_bytes = 0
+      end
+      @in_use = true
+      from = @walk.cursor
+      begin
+        @complete = @walk.resume
+      rescue ParserError
+        @complete = true
+        raise
+      ensure
+        @parsed_bytes += @walk.cursor - from unless @walk.cursor < from
+        @incomplete_bytes = @complete ? 0 : @walk.send(:size_left)
+        @walk.settle
+        @in_use = false
+      end
+    end
+
+    def value? = @walk.value?
+    def value = @walk.take
+    def partial_value = @walk.partial
+    def partial_value? = @walk.partial?
+    def rest = @walk.rest
+    def eos? = @walk.eos?
+    def parsed_bytes = @parsed_bytes + @incomplete_bytes
+
+    def clear
+      @walk = Ext.const_get(:Walk).new(@fields, nil, resumable: true)
+      @complete = true
+      @parsed_bytes = 0
+      @incomplete_bytes = 0
+      @in_use = false
+      self
+    end
   end
 end
