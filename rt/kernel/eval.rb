@@ -274,6 +274,9 @@ machine def zr_bmethod_call(e, recv, argc, argv, blk)
   end
   cref = zr_cref_push_eval(FrameMeta.owner(MEntry.meta(e)), RProc.cref(body))
   RCref.set_entry(cref, e)
+  # The block this call was given, which the body's frame cannot hold: a
+  # block's frame keeps the block of the method it was written in.
+  RCref.set_blk(cref, blk)
   p = zr_proc_under(body, recv, cref)
   RProc.set_lambda(p, 1)
   RProc.set_home(p, 0)

@@ -11,7 +11,7 @@
 # `lazy` is the object an `instance_exec` runs under, until something
 # needs its singleton class: ruby makes that class only then, and an
 # object that has one reads differently in an error message.
-Machine.struct :RCref, basic: RBasic, klass: Value, next: Value, vis: Word, modfn: Word, eval: Word, entry: Ptr, lazy: Value
+Machine.struct :RCref, basic: RBasic, klass: Value, next: Value, vis: Word, modfn: Word, eval: Word, entry: Ptr, lazy: Value, blk: Value
 T_CREF = 25
 # `RCref.eval` of a block run under an object with no singleton class,
 # as `1.instance_eval` runs one: a `def` there has no class to go on.
@@ -31,6 +31,7 @@ machine def zr_cref_push(klass, outer)
   RCref.set_eval(c, 0)
   RCref.set_entry(c, 0)
   RCref.set_lazy(c, Machine.value(QNIL))
+  RCref.set_blk(c, Machine.value(QNIL))
   c
 end
 

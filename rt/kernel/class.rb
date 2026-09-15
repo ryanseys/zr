@@ -1666,6 +1666,7 @@ machine def zr_mark_children(v)
   elsif t == T_CREF
     zr_mark(RCref.klass(v))
     zr_mark(RCref.lazy(v))
+    zr_mark(RCref.blk(v))
     zr_mark(RCref.next(v))
   elsif t == T_ENV
     zr_mark_env(v)

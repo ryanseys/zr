@@ -473,6 +473,11 @@ machine def zr_block_call_live(p)
   rec = Task.top(zr_task())
   while rec != 0 && rec != home
     if Frame.prev(rec) == home
+      # A `define_method` method was given its block by the call, not by
+      # where its body was written.
+      if zr_bmethod_entry(rec) != 0 && zr_same_block(RCref.blk(Frame.cref(rec)), p)
+        return true
+      end
       return zr_same_block(Frame.blk(rec), p)
     end
     rec = Frame.prev(rec)
