@@ -764,11 +764,7 @@ module Ze0
         d zr_io_ioctl_buf Value fd:Value command:Value bytes:Value
         d zr_io_fcntl Value fd:Value command:Value argument:Value
         d zr_io_fcntl_bytes Value fd:Value command:Value bytes:Value
-        d zr_io_open_flags Value path:Value flags:Value
-        d zr_io_chmod_fd Value fd:Value mode:Value
-        d zr_io_open Value path:Value mode:Value
-        d zr_io_fileno Value stream:Value
-        d zr_io_fclose Value stream:Value
+        d zr_io_open_flags Value path:Value flags:Value perm:Value
         d zr_io_read Value fd:Value count:Value
         d zr_io_pread Value fd:Value count:Value at:Value
         d zr_io_pwrite Value fd:Value s:Value at:Value
@@ -1539,7 +1535,7 @@ module Ze0
         d zr_os_set_errno Void n:Word
         d zr_os_fcntl I32 fd:I32 command:I32 argument:Word
         d zr_os_ioctl I32 fd:I32 request:Word argument:Ptr
-        d zr_os_open I32 path:Ptr flags:I32
+        d zr_os_open I32 path:Ptr flags:I32 mode:I32
         d zr_os_realpath Ptr path:Ptr
         d zr_os_dirent_name Ptr entry:Ptr
         d zr_os_stat_rows Value buf:Ptr

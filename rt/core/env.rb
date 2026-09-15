@@ -41,7 +41,7 @@ def $LOAD_PATH.resolve_feature_path(feature)
   each do |dir|
     suffixes.each do |suffix, kind|
       path = File.expand_path("#{name}#{suffix}", dir.to_s)
-      return [kind, File.realpath(path)] if File.file?(path)
+      return [kind, File.realpath(path)] if Primitive.zr_path_kind(path) == 2
     end
   end
   nil

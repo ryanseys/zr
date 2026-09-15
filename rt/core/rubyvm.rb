@@ -116,7 +116,7 @@ class RubyVM
 
     # The path as the file was found, or nil for code no file holds.
     def absolute_path
-      Primitive.zr_hidden_get(self, :__absolute_path__) || (File.file?(path) ? File.expand_path(path) : nil)
+      Primitive.zr_hidden_get(self, :__absolute_path__) || (Primitive.zr_path_kind(path) == 2 ? File.expand_path(path) : nil)
     end
 
     # A compiled string runs at the top level, under main and Object.

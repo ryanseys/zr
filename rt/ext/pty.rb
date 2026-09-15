@@ -46,7 +46,7 @@ module PTY
     raise RuntimeError, "can't get Master/Slave device" if answer.is_a?(Integer) # rubocop:disable Style/RedundantException
 
     master, name = answer
-    slave = Primitive.zr_io_open_flags(name, File::RDWR | File::NOCTTY)
+    slave = Primitive.zr_io_open_flags(name, File::RDWR | File::NOCTTY, 0)
     if slave.negative?
       Primitive.zr_io_close(master)
       raise SystemCallError.new("open: pty slave", -slave)

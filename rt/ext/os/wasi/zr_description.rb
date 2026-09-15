@@ -764,11 +764,7 @@ module Ze0
         d zr_io_ioctl_buf Value fd:Value command:Value bytes:Value
         d zr_io_fcntl Value fd:Value command:Value argument:Value
         d zr_io_fcntl_bytes Value fd:Value command:Value bytes:Value
-        d zr_io_open_flags Value path:Value flags:Value
-        d zr_io_chmod_fd Value fd:Value mode:Value
-        d zr_io_open Value path:Value mode:Value
-        d zr_io_fileno Value stream:Value
-        d zr_io_fclose Value stream:Value
+        d zr_io_open_flags Value path:Value flags:Value perm:Value
         d zr_io_read Value fd:Value count:Value
         d zr_io_pread Value fd:Value count:Value at:Value
         d zr_io_pwrite Value fd:Value s:Value at:Value
@@ -1558,7 +1554,7 @@ module Ze0
         d zr_os_errno Word
         d zr_os_set_errno Void n:Word
         d zr_os_realpath Ptr path:Ptr
-        d zr_os_open I32 path:Ptr flags:I32
+        d zr_os_open I32 path:Ptr flags:I32 _mode:I32
         d zr_os_fcntl I32 fd:I32 command:I32 argument:Word
         d zr_os_ioctl I32 fd:I32 request:Word argument:Ptr
         d isatty I32 fd:I32
@@ -1587,9 +1583,6 @@ module Ze0
         d rename I32 from:Ptr to:Ptr
         d link I32 from:Ptr to:Ptr
         d symlink I32 target:Ptr path:Ptr
-        d fopen Ptr path:Ptr mode:Ptr
-        d fileno I32 stream:Ptr
-        d fclose I32 stream:Ptr
         d fdopendir Ptr fd:I32
         d opendir Ptr path:Ptr
         d readdir Ptr d:Ptr
@@ -1950,9 +1943,6 @@ module Ze0
         c RIGHTS_OTHER 1069530812
         c FDSTAT_LEN 24
         c STAT_LEN 64
-        c O_CREAT 4096
-        c O_EXCL 16384
-        c O_TRUNC 32768
         c DIR_BUFFER 4096
         c RTLD_DEFAULT 0
         c NSIG 65

@@ -72,7 +72,7 @@ module Kernel
   # its self is a clone of main that the module extends.
   def load(name, wrap = false)
     feature = File.path(name)
-    path = Kernel.search(feature) || (File.file?(feature) && File.expand_path(feature))
+    path = Kernel.search(feature) || (Primitive.zr_path_kind(feature) == 2 && File.expand_path(feature))
     return Kernel.load_file(path, feature, 2) unless wrap
 
     Kernel.missing(feature, 2) unless path
@@ -121,7 +121,7 @@ module Kernel
   # `path`, when the program was compiled with that file or it is there.
   def self.found(path)
     Primitive.attr! :hidden
-    path if Primitive.zr_unit_for(path) || File.file?(path)
+    path if Primitive.zr_unit_for(path) || Primitive.zr_path_kind(path) == 2
   end
 
   # Whether ruby loaded `feature` before the program, by any of its names.

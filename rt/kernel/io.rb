@@ -1,9 +1,6 @@
 # File descriptors: the libSystem calls the IO and File classes use.
 # A failure answers the negated errno, which the core turns into the
 # Errno class it names.
-Machine.import "fopen", [Ptr, Ptr] => Ptr
-Machine.import "fileno", [Ptr] => I32
-Machine.import "fclose", [Ptr] => I32
 Machine.import "read", [I32, Ptr, Word] => Word
 Machine.import "pread", [I32, Ptr, Word, Word] => Word
 Machine.import "pwrite", [I32, Ptr, Word, Word] => Word
@@ -122,48 +119,21 @@ machine def zr_io_fcntl_bytes(fd, command, bytes)
                                     Machine.word(RString.ptr(bytes)))))
 end
 
-# open(2) with no mode: a creation goes through fopen and then fchmod,
-# which names the permissions exactly. Every descriptor ruby opens
-# closes itself across an exec, which rb_sysopen asks for with O_CLOEXEC
-# on the call itself.
-sig [Value, Value] => Value
-machine def zr_io_open_flags(path, flags)
-  fd = zr_os_open(RString.ptr(path), Machine.i32(zr_fix2long(flags) | O_CLOEXEC))
+# rb_sysopen: open(2) with the flags, and the permissions a creation
+# takes, less the umask. Every descriptor ruby opens closes itself
+# across an exec, which rb_sysopen asks for with O_CLOEXEC on the call
+# itself.
+sig [Value, Value, Value] => Value
+machine def zr_io_open_flags(path, flags, perm)
+  fd = zr_os_open(RString.ptr(path), Machine.i32(zr_fix2long(flags) | O_CLOEXEC), Machine.i32(zr_fix2long(perm)))
   while fd < Machine.i32(0)
     failed = zr_io_retry()
     if failed != QNIL
       return failed
     end
-    fd = zr_os_open(RString.ptr(path), Machine.i32(zr_fix2long(flags) | O_CLOEXEC))
+    fd = zr_os_open(RString.ptr(path), Machine.i32(zr_fix2long(flags) | O_CLOEXEC), Machine.i32(zr_fix2long(perm)))
   end
   zr_fix(Machine.sword(fd))
-end
-
-sig [Value, Value] => Value
-machine def zr_io_chmod_fd(fd, mode)
-  zr_io_status(fchmod(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(mode))))
-end
-
-# fopen(3), which is not variadic as open(2) is: the stream as a
-# pointer, or the negated errno. The stream's descriptor is read and
-# written directly; the stream only opens and closes it.
-sig [Value, Value] => Value
-machine def zr_io_open(path, mode)
-  f = fopen(RString.ptr(path), RString.ptr(mode))
-  if f == 0
-    return zr_fix(0 - zr_errno())
-  end
-  zr_fix(Machine.word(f))
-end
-
-sig [Value] => Value
-machine def zr_io_fileno(stream)
-  zr_fix(Machine.sword(fileno(Machine.ptr(zr_fix2long(stream)))))
-end
-
-sig [Value] => Value
-machine def zr_io_fclose(stream)
-  zr_io_status(fclose(Machine.ptr(zr_fix2long(stream))))
 end
 
 # Up to `count` bytes: a String, nil at the end, or the negated errno.

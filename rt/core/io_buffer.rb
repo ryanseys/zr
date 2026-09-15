@@ -342,17 +342,87 @@ class IO
       self
     end
 
-    # `length` is the least ruby insists on moving; the transfer covers
-    # the rest of the buffer, which is what ruby's own loop does. The
-    # p-forms name a file position and leave the stream's own where it
-    # was.
-    def read(io, length = nil, offset = 0) = set_string(io.read(@size - offset).to_s, offset)
+    # rb_io_buffer_read and its siblings. A non-blocking fiber hands the
+    # transfer to its scheduler's hook where the scheduler has one.
+    # Otherwise the system call runs over the rest of the buffer, again
+    # and again until at least `length` bytes have moved or the stream
+    # ends; a `length` of zero is exactly one call. Each answers the
+    # bytes moved, or the negative errno. The p-forms name a file
+    # position and leave the stream's own where it was.
+    def read(io, length = nil, offset = nil)
+      io = Buffer.send(:io_of, io)
+      length, offset = extent(length, offset)
+      scheduler = IO.send(:scheduler_taking, :io_read)
+      return scheduler.io_read(io, self, length, offset) if scheduler
 
-    def write(io, length = nil, offset = 0) = io.write(get_string(offset, @size - offset))
+      writable
+      bounds(offset, length)
+      fd = io.fileno
+      moved(length, offset) do |at|
+        io.send(:park_until, IO::READABLE) unless io.send(:nonblock_flag?)
+        taken(Primitive.zr_io_read(fd, @size - at), at)
+      end
+    end
 
-    def pread(io, from, length = nil, offset = 0) = at(io, from) { read(io, length, offset) }
+    def pread(io, from, length = nil, offset = nil)
+      io = Buffer.send(:io_of, io)
+      from = Primitive.zr_index_operand_m(from)
+      length, offset = extent(length, offset)
+      scheduler = IO.send(:scheduler_taking, :io_pread)
+      return scheduler.io_pread(io, self, from, length, offset) if scheduler
 
-    def pwrite(io, from, length = nil, offset = 0) = at(io, from) { write(io, length, offset) }
+      writable
+      bounds(offset, length)
+      fd = io.fileno
+      moved(length, offset) { |at| taken(Primitive.zr_io_pread(fd, @size - at, from + at - offset), at) }
+    end
+
+    def write(io, length = nil, offset = nil)
+      io = Buffer.send(:io_of, io)
+      length, offset = extent(length, offset)
+      scheduler = IO.send(:scheduler_taking, :io_write)
+      return scheduler.io_write(io, self, length, offset) if scheduler
+
+      bounds(offset, length)
+      fd = io.send(:write_descriptor)
+      text = get_string(offset)
+      moved(length, offset) do |at|
+        io.send(:park_until, IO::WRITABLE, fd) unless io.send(:nonblock_flag?)
+        Primitive.zr_io_write_some(fd, text, at - offset, text.bytesize)
+      end
+    end
+
+    def pwrite(io, from, length = nil, offset = nil)
+      io = Buffer.send(:io_of, io)
+      from = Primitive.zr_index_operand_m(from)
+      length, offset = extent(length, offset)
+      scheduler = IO.send(:scheduler_taking, :io_pwrite)
+      return scheduler.io_pwrite(io, self, from, length, offset) if scheduler
+
+      bounds(offset, length)
+      fd = io.send(:write_descriptor)
+      text = get_string(offset)
+      moved(length, offset) do |at|
+        rest = text.byteslice(at - offset, text.bytesize)
+        rest.empty? ? 0 : Primitive.zr_io_pwrite(fd, rest, from + at - offset)
+      end
+    end
+
+    # rb_io_buffer_new over memory the runtime lends a scheduler hook:
+    # locked while the hook holds it, and freed as the hook returns.
+    def self.lent(bytes, readonly: false)
+      buffer = allocate
+      buffer.send(:window, bytes, 0, bytes.bytesize, LOCKED | (readonly ? READONLY : 0))
+      yield buffer
+    ensure
+      buffer&.send(:release)
+    end
+
+    def self.io_of(io)
+      Primitive.attr! :hidden
+      IO.try_convert(io) || raise(TypeError, "no implicit conversion of #{Primitive.zr_class_name_of(io)} into IO")
+    end
+    private_class_method :lent, :io_of
 
     def transfer
       other = Buffer.allocate
@@ -396,15 +466,52 @@ class IO
 
     private
 
-    def at(io, from)
+    # The length and the offset a transfer names, and the length the
+    # offset leaves where it names none.
+    def extent(length, offset)
       Primitive.attr! :hidden
-      held = io.tell
-      begin
-        io.seek(from)
-        yield
-      ensure
-        io.seek(held)
+      offset = offset.nil? ? 0 : Primitive.zr_index_operand_m(offset)
+      raise ArgumentError, "Offset can't be negative!" if offset.negative?
+      return [@size - offset, offset] if length.nil? && offset <= @size
+      raise ArgumentError, "The given offset is bigger than the buffer size!" if length.nil?
+
+      length = Primitive.zr_index_operand_m(length)
+      raise ArgumentError, "Length can't be negative!" if length.negative?
+
+      [length, offset]
+    end
+
+    # The system call the block makes at each place in turn, until
+    # `length` bytes moved or one moved none: the bytes moved, or the
+    # negative errno of the call that failed.
+    def moved(length, offset)
+      Primitive.attr! :hidden
+      total = 0
+      loop do
+        result = yield(offset + total)
+        return result if result.negative?
+        return total if result.zero?
+
+        total += result
+        return total if total >= length
       end
+    end
+
+    # What a read gave, set in at `at`: its length, 0 at the end, or the
+    # negative errno as it came.
+    def taken(chunk, at)
+      Primitive.attr! :hidden
+      return chunk if chunk.is_a?(Integer)
+      return 0 if chunk.nil?
+
+      set_string(chunk, at)
+    end
+
+    # rb_io_buffer_free_locked.
+    def release
+      Primitive.attr! :hidden
+      @flags &= ~LOCKED
+      free
     end
 
     def external(string, readonly)

@@ -859,6 +859,55 @@ class Fiber
       scheduler.fiber(...)
     end
 
+    # rb_nogvl with RB_NOGVL_OFFLOAD_SAFE: a call that may block, such as
+    # open(2) or close(2), which a non-blocking fiber's scheduler runs on
+    # its own terms through blocking_operation_wait. The call runs here
+    # where the scheduler has no such hook or never runs the operation.
+    def offloaded(&work)
+      Primitive.attr! :hidden
+      scheduler = current_scheduler
+      return work.call unless scheduler.respond_to?(:blocking_operation_wait)
+
+      operation = blocking_operation.new
+      operation.send(:queue, work)
+      scheduler.blocking_operation_wait(operation)
+      operation.send(:finish) { work.call }
+    end
+
+    # Fiber::Scheduler::BlockingOperation, a class CRuby keeps unnamed:
+    # `call` runs the operation once.
+    def blocking_operation
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_get(self, :__blocking_operation__) ||
+        Primitive.zr_hidden_set(self, :__blocking_operation__, Class.new do
+          def call
+            raise RuntimeError, "Blocking operation has already been executed!" unless @status == :queued
+            raise RuntimeError, "Blocking operation has no function to execute!" if @work.nil?
+
+            @status = :executing
+            @result = @work.call
+            @status = :completed
+            nil
+          end
+
+          private
+
+          def queue(work)
+            @work = work
+            @status = :queued
+          end
+
+          # What the operation gave, or the block's answer where it never
+          # ran; either way it runs no more.
+          def finish
+            queued = @status == :queued
+            @work = nil
+            queued ? yield : @result
+          end
+        end)
+    end
+    private :offloaded, :blocking_operation
+
     # `Fiber.yield`: back to the resumer. What comes back is the next
     # resume's value, or the kill or the exception left for the fiber.
     def yield(*args) = take_action(__yield__(*args))

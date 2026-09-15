@@ -55,8 +55,9 @@ machine def zr_os_realpath(path)
 end
 
 # open(2) over path_open, under the preopened directory the path is in.
-sig [Ptr, I32] => I32
-machine def zr_os_open(path, flags)
+# A WASI file has no permission bits, so the mode goes unread.
+sig [Ptr, I32, I32] => I32
+machine def zr_os_open(path, flags, _mode)
   where = Machine.slot(16)
   dir = zr_wasi_resolve(path, where)
   if dir < Machine.i32(0)
@@ -379,52 +380,6 @@ machine def symlink(target, path)
   zr_wasi_status(path_symlink(zr_wasi_addr(target), Machine.i32(zr_cstr_len(target)), dir, zr_wasi_rest(where), zr_wasi_rest_len(where)))
 end
 
-# A stream is only its descriptor, in a word of its own: fopen opens
-# with the flags its mode names, as File.open_flags reads a mode.
-O_CREAT = 4096
-O_EXCL = 16384
-O_TRUNC = 32768
-
-sig [Ptr, Ptr] => Ptr
-machine def fopen(path, mode)
-  first = Machine.word(Machine.load8(mode, 0))
-  flags = first == 114 ? O_RDONLY : O_WRONLY
-  if first == 119
-    flags = flags | O_CREAT | O_TRUNC
-  elsif first == 97
-    flags = flags | O_CREAT | O_APPEND
-  end
-  at = 1
-  while Machine.load8(mode + at, 0) != Machine.i8(0)
-    c = Machine.word(Machine.load8(mode + at, 0))
-    if c == 43
-      flags = flags | O_RDONLY | O_WRONLY
-    elsif c == 120
-      flags = flags | O_EXCL
-    end
-    at += 1
-  end
-  fd = zr_os_open(path, Machine.i32(flags))
-  if fd < Machine.i32(0)
-    return Machine.ptr(0)
-  end
-  stream = zr_xmalloc(8)
-  Machine.store64(stream, 0, Machine.word(fd))
-  stream
-end
-
-sig [Ptr] => I32
-machine def fileno(stream)
-  Machine.load32(stream, 0)
-end
-
-sig [Ptr] => I32
-machine def fclose(stream)
-  r = close(fileno(stream))
-  free(stream)
-  r
-end
-
 # A directory stream: its descriptor, the cookie of the next entry, and
 # the one entry fd_readdir last answered, its name ended with a NUL.
 DIR_BUFFER = 4096
@@ -439,7 +394,7 @@ end
 
 sig [Ptr] => Ptr
 machine def opendir(path)
-  fd = zr_os_open(path, Machine.i32(O_RDONLY | (2 << 12)))
+  fd = zr_os_open(path, Machine.i32(O_RDONLY | (2 << 12)), Machine.i32(0))
   if fd < Machine.i32(0)
     return Machine.ptr(0)
   end

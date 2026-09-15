@@ -2,7 +2,7 @@
 # io_write, io_pread and io_pwrite with an IO::Buffer, in the sizes io.c
 # reads and writes with. This runtime reads and writes itself and hands
 # the scheduler only io_wait, so a scheduler that logs its hooks sees none.
-require_relative "../core/fiber/a_fiber_scheduler_takes_every_blocking_operation/scheduler"
+require_relative "a_fiber_scheduler_takes_every_blocking_operation/scheduler"
 require "tmpdir"
 class Logged < IOBufferScheduler
   attr_reader :calls

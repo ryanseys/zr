@@ -646,7 +646,7 @@ module Process
 
     ENV.fetch("PATH", "/usr/bin:/bin").split(":", -1).each do |dir|
       path = File.join(dir.empty? ? "." : dir, word)
-      return path if File.file?(path) && File.executable?(path)
+      return path if Primitive.zr_path_kind(path) == 2 && Primitive.zr_path_access(path, 1)
     end
     nil
   end

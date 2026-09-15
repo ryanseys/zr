@@ -234,21 +234,15 @@ class IO
   end
 
   # The raw descriptor for a path, which is what a program that means to
-  # wrap it in its own IO asks for. A creation names its permissions
-  # exactly rather than leaving them to the umask.
+  # wrap it in its own IO asks for: rb_sysopen, with the permissions a
+  # creation takes, less the umask.
   def self.sysopen(path, mode = "r", perm = nil)
     path = File.send(:path_of, path)
-    if mode.is_a?(Integer) && (mode & File::CREAT).zero?
-      fd = Primitive.zr_io_open_flags(path, mode)
-      raise SystemCallError.new(path, -fd, "rb_sysopen") if fd < 0
+    flags = mode.is_a?(Integer) ? mode : File.send(:open_flags, File.send(:open_mode, mode))
+    perm = perm.nil? ? 0o666 : Integer(perm)
+    fd = Fiber.send(:offloaded) { Primitive.zr_io_open_flags(path, flags, perm) }
+    raise SystemCallError.new(path, -fd, "rb_sysopen") if fd < 0
 
-      return fd
-    end
-    stream = Primitive.zr_io_open(path, File.send(:open_mode, mode))
-    raise SystemCallError.new(path, -stream, "rb_sysopen") if stream < 0
-
-    fd = Primitive.zr_io_fileno(stream)
-    Primitive.zr_io_chmod_fd(fd, perm) if perm
     fd
   end
 
@@ -655,18 +649,18 @@ class IO
     write_pending
     @closed = true
     if @twin
-      Primitive.zr_io_close(@twin)
+      twin = @twin
+      Fiber.send(:offloaded) { Primitive.zr_io_close(twin) }
       @twin = nil
     end
-    if @stream
-      # A File that fopen made: fclose closes the descriptor with it.
-      Primitive.zr_io_fclose(@stream)
-      @stream = nil
-    elsif @autoclose
-      # A non-blocking fiber's scheduler may close the descriptor itself.
+    if @autoclose
+      # A non-blocking fiber's scheduler may close the descriptor itself;
+      # otherwise close(2) of a stream that writes may block, and its
+      # scheduler may run it elsewhere (maygvl_close).
       scheduler = Fiber.current_scheduler
       unless scheduler.respond_to?(:io_close) && scheduler.io_close(@fd)
-        result = Primitive.zr_io_close(@fd)
+        fd = @fd
+        result = @writable ? Fiber.send(:offloaded) { Primitive.zr_io_close(fd) } : Primitive.zr_io_close(fd)
         raise SystemCallError.new(nil, -result) if result < 0
       end
     end
@@ -707,9 +701,15 @@ class IO
   end
 
   def flush
+    flushed
+    self
+  end
+
+  # rb_io_flush, which Kernel#p calls as a function, not as a send.
+  def flushed
+    Primitive.attr! :hidden
     check_open
     write_pending
-    self
   end
 
   def fsync
@@ -729,7 +729,8 @@ class IO
       begin
         io.send(:write_pending)
       rescue SystemCallError, IOError
-        nil
+        # What the stream kept stays with it, and the end goes on.
+        PENDING.delete(io)
       end
     end
     nil
@@ -769,7 +770,7 @@ class IO
   # rows come from fstat(2).
   def stat
     check_open
-    path ? File.stat(path) : File::Stat.for_fd(@fd)
+    path ? File::Stat.new(path) : File::Stat.for_fd(@fd)
   end
 
   # fcntl(2) on the stream's own descriptor: F_GETFD reads the
@@ -863,7 +864,14 @@ class IO
   def pread(length, offset, buffer = nil)
     check_readable
     IO.send(:room_for!, length)
-    text = Primitive.zr_io_pread(@fd, length, offset)
+    text = if (scheduler = IO.send(:scheduler_taking, :io_pread))
+             IO::Buffer.send(:lent, "\0".b * length) do |memory|
+               read = IO.send(:io_result, scheduler.io_pread(self, memory, offset, 0, 0))
+               read.positive? ? memory.get_string(0, read) : (read.zero? ? nil : read)
+             end
+           else
+             Primitive.zr_io_pread(@fd, length, offset)
+           end
     raise SystemCallError.new(label, -text, "rb_io_pread") if text.is_a?(Integer)
 
     filled(text&.force_encoding(Encoding::BINARY), buffer)
@@ -871,7 +879,14 @@ class IO
 
   def pwrite(text, offset)
     check_writable
-    result = Primitive.zr_io_pwrite(@fd, Primitive.zr_obj_as_string(text), offset)
+    text = Primitive.zr_obj_as_string(text)
+    result = if (scheduler = IO.send(:scheduler_taking, :io_pwrite))
+               IO::Buffer.send(:lent, text.b, readonly: true) do |memory|
+                 IO.send(:io_result, scheduler.io_pwrite(self, memory, offset, 0, 0))
+               end
+             else
+               Primitive.zr_io_pwrite(@fd, text, offset)
+             end
     raise SystemCallError.new(label, -result, "rb_io_pwrite") if result < 0
 
     result
@@ -945,7 +960,14 @@ class IO
     text.encode(@external)
   end
 
-  def syswrite(text) = write(text)
+  # rb_io_syswrite: the bytes straight to the descriptor, past the
+  # buffer, which ruby warns still holds some.
+  def syswrite(text)
+    check_writable
+    text = Primitive.zr_obj_as_string(text)
+    warn "syswrite for buffered IO" unless @wbuf.empty?
+    write_now(text.b)
+  end
 
   def <<(object)
     write(object)
@@ -1024,11 +1046,24 @@ class IO
     raise ArgumentError, "negative length #{length} given" if length && length < 0
 
     IO.send(:room_for!, length)
+    # A scheduler's io_read is asked for the bytes io.c asks for.
+    scheduled = IO.send(:scheduler_taking, :io_read)
     if length.nil?
-      fill until @eof
-      out = transcoded(@buffer)
+      if scheduled
+        text = read_all.force_encoding(fresh_buffer.encoding)
+      else
+        fill until @eof
+        text = @buffer
+      end
+      out = transcoded(text)
       @buffer = fresh_buffer
     else
+      if scheduled
+        text = bufread(length)
+        return nil if text.empty? && length > 0
+
+        return filled(text, buffer)
+      end
       fill while !@eof && @buffer.bytesize < length
       return nil if @buffer.empty? && length > 0
 
@@ -1372,12 +1407,151 @@ class IO
       @wbuf << text.b
       return text.bytesize
     end
+    # A scheduler's io_write takes what waits, then the text, as
+    # io_binwrite's writev hands it only the first of the two.
+    if IO.send(:scheduler_taking, :io_write)
+      write_pending
+      return write_now(text)
+    end
     # The buffer is bytes, whatever encoding the text is in.
     held = @wbuf.bytesize
     waiting = @wbuf << text.b
     @wbuf = +"".b
     PENDING.delete(self)
     write_now(waiting) - held
+  end
+
+  # The fiber scheduler's memory hooks, as scheduler.c lends them the
+  # bytes: the scheduler of a non-blocking fiber, where it takes `hook`.
+  def self.scheduler_taking(hook)
+    Primitive.attr! :hidden
+    scheduler = Fiber.current_scheduler
+    scheduler if scheduler.respond_to?(hook)
+  end
+
+  # rb_fiber_scheduler_io_result_apply: a count, or the negative errno.
+  def self.io_result(result)
+    Primitive.attr! :hidden
+    result.is_a?(Integer) ? result : Integer(result.to_int)
+  end
+  private_class_method :scheduler_taking, :io_result
+
+  # rb_io_read_memory: at most `size` bytes, which a scheduler's io_read
+  # reads into a buffer lent it; a String, nil at the end, or the
+  # negative errno.
+  def read_memory(size)
+    Primitive.attr! :hidden
+    scheduler = IO.send(:scheduler_taking, :io_read)
+    return Primitive.zr_io_read(@fd, size) unless scheduler
+
+    IO::Buffer.send(:lent, "\0".b * size) do |memory|
+      read = IO.send(:io_result, scheduler.io_read(self, memory, 0, 0))
+      next read if read.negative?
+
+      read.zero? ? nil : memory.get_string(0, read)
+    end
+  end
+
+  # io_binwrite_string over a scheduler's io_write: the rest of the
+  # bytes lent it again until it has taken them all, waiting where it
+  # says the descriptor is not ready.
+  def scheduled_write(text)
+    Primitive.attr! :hidden
+    scheduler = IO.send(:scheduler_taking, :io_write)
+    text = text.b
+    from = 0
+    while from < text.bytesize
+      rest = text.byteslice(from, text.bytesize - from)
+      wrote = IO::Buffer.send(:lent, rest, readonly: true) do |memory|
+        IO.send(:io_result, scheduler.io_write(self, memory, 0, 0))
+      end
+      if wrote.negative?
+        raise SystemCallError.new(label, -wrote, "rb_sys_fail_on_write") unless -wrote == Errno::EAGAIN::Errno
+
+        wait_again(WRITABLE)
+      else
+        from += wrote
+      end
+    end
+    text.bytesize
+  end
+
+  # fptr_wait_readable and its writable twin: a call that said "not yet"
+  # waits for the descriptor, in the scheduler where the fiber has one,
+  # before it comes round again.
+  def wait_again(event)
+    Primitive.attr! :hidden
+    scheduler = Fiber.current_scheduler
+    scheduler ? scheduler.io_wait(self, event, @timeout) : Thread.pass
+  end
+
+  # io_bufread: `length` bytes, or fewer at the end. With nothing buffered
+  # they come straight from the descriptor, as many reads as it takes;
+  # otherwise the buffer hands out what it holds and fills again.
+  def bufread(length)
+    Primitive.attr! :hidden
+    out = +"".b
+    if @buffer.empty?
+      while out.bytesize < length
+        chunk = read_memory(length - out.bytesize)
+        break if chunk.nil?
+
+        if chunk.is_a?(Integer)
+          raise SystemCallError.new(label, -chunk, "io_fread") unless -chunk == Errno::EAGAIN::Errno
+
+          wait_again(READABLE)
+        else
+          out << chunk
+        end
+      end
+      return out
+    end
+    until out.bytesize >= length
+      out << take([length - out.bytesize, @buffer.bytesize].min).b
+      break if out.bytesize >= length
+
+      fill
+      break if @buffer.empty?
+    end
+    out
+  end
+
+  # read_all: what remains of a regular file, or BUFSIZ more at a time
+  # of anything else, until a read comes up short.
+  def read_all
+    Primitive.attr! :hidden
+    out = +"".b
+    wanted = remain_size
+    wanted = BUFSIZ if wanted.zero?
+    loop do
+      out << bufread(wanted - out.bytesize)
+      break if out.bytesize < wanted
+
+      wanted += BUFSIZ
+    end
+    out
+  end
+
+  BUFSIZ = 1024
+  private_constant :BUFSIZ
+
+  # remain_size: the bytes buffered, and past them the rest of a regular
+  # file, or BUFSIZ where the stream has no end to measure.
+  def remain_size
+    Primitive.attr! :hidden
+    held = @buffer.bytesize
+    stat = File::Stat.for_fd(@fd)
+    return held + BUFSIZ unless stat.file?
+
+    write_pending
+    at = Primitive.zr_io_seek(@fd, 0, SEEK_CUR)
+    at >= 0 && stat.size >= at ? held + stat.size - at : held
+  end
+
+  # The descriptor a write goes to: the twin of a duplex stream.
+  def write_descriptor
+    Primitive.attr! :hidden
+    @twin || @fd
   end
 
   # What the buffer holds, written out.
@@ -1390,10 +1564,17 @@ class IO
     PENDING.delete(self)
     write_now(waiting)
     nil
+  rescue SystemCallError
+    # io_fflush keeps what it could not write for the next flush.
+    @wbuf = waiting << @wbuf
+    PENDING << self unless PENDING.include?(self)
+    raise
   end
 
   def write_now(text)
     Primitive.attr! :hidden
+    return scheduled_write(text) if IO.send(:scheduler_taking, :io_write)
+
     fd = @twin || @fd
     alone = !Primitive.zr_threaded || Thread.send(:alone?)
     return checked_write(Primitive.zr_io_write(fd, text)) if !@nonblock && alone && !Fiber.current_scheduler
@@ -1419,7 +1600,7 @@ class IO
 
   def checked_write(result)
     Primitive.attr! :hidden
-    raise SystemCallError.new(label, -result, "io_write") if result < 0
+    raise SystemCallError.new(label, -result, "rb_sys_fail_on_write") if result < 0
 
     result
   end
@@ -1437,6 +1618,18 @@ class IO
 
     IO.send(:room_for!, length)
 
+    # io_getpartial: with nothing buffered, one read of the length asked
+    # for, which a scheduler's io_read takes.
+    if @buffer.empty? && IO.send(:scheduler_taking, :io_read)
+      loop do
+        chunk = read_memory(length)
+        return chunk&.b unless chunk.is_a?(Integer)
+
+        raise SystemCallError.new(label, -chunk, "io_getpartial") unless -chunk == Errno::EAGAIN::Errno
+
+        wait_again(READABLE)
+      end
+    end
     fill if @buffer.empty? && !@eof
     return nil if @buffer.empty?
 
@@ -1469,8 +1662,8 @@ class IO
   # More bytes into the buffer; none marks the end.
   def fill
     Primitive.attr! :hidden
-    park_until(READABLE)
-    chunk = Primitive.zr_io_read(@fd, 8192)
+    park_until(READABLE) unless IO.send(:scheduler_taking, :io_read)
+    chunk = read_memory(8192)
     if chunk.nil?
       @eof = true
     elsif chunk.is_a?(Integer)
@@ -1481,7 +1674,7 @@ class IO
       site = -chunk == Errno::EISDIR::Errno ? "io_fread" : "io_fillbuf"
       raise SystemCallError.new(label, -chunk, site) unless -chunk == Errno::EAGAIN::Errno
 
-      Thread.pass
+      wait_again(READABLE)
     else
       # The bytes join the buffer as they stand: the buffer's own
       # encoding decides what was read, not the chunk's.
@@ -1679,7 +1872,7 @@ module Kernel
       out.write(Primitive.zr_ary_at_m(objects, i).inspect, "\n")
       i += 1
     end
-    out.flush if out.is_a?(IO)
+    out.send(:flushed) if out.is_a?(IO)
     Primitive.zr_ary_len_m(objects) <= 1 ? Primitive.zr_ary_at_m(objects, 0) : objects
   end
 

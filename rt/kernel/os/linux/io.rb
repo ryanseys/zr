@@ -32,13 +32,10 @@ machine def zr_os_ioctl(fd, request, argument)
   ioctl(fd, request, argument)
 end
 
-# A creation takes the mode fopen gives, 0666 less the umask; ruby names
-# the permissions exactly afterwards with fchmod.
-OPEN_MODE = 438
-
-sig [Ptr, I32] => I32
-machine def zr_os_open(path, flags)
-  open(path, flags, Machine.i32(OPEN_MODE))
+# open(2), with the mode a creation takes, less the umask.
+sig [Ptr, I32, I32] => I32
+machine def zr_os_open(path, flags, mode)
+  open(path, flags, mode)
 end
 
 # realpath(3): a fresh buffer the caller frees, or 0.

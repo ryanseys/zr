@@ -69,7 +69,7 @@ machine def zr_linux_symtab
     return cell
   end
   Machine.store64(cell, 8, 0 - 1)
-  fd = zr_os_open(Machine.bytes("/proc/self/exe\0"), Machine.i32(O_CLOEXEC))
+  fd = zr_os_open(Machine.bytes("/proc/self/exe\0"), Machine.i32(O_CLOEXEC), Machine.i32(0))
   if fd < Machine.i32(0)
     return cell
   end

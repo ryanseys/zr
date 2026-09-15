@@ -2,7 +2,10 @@
 # that take a variadic argument, and the layouts of struct dirent and
 # struct stat.
 Machine.import "__error", [] => Ptr
-Machine.import "open", [Ptr, I32] => I32
+# open(2) takes a creation's mode variadically, and this platform
+# passes a variadic argument on the stack; `__open` is the fixed-arity
+# call open's own wrapper makes once it has read that argument.
+Machine.import "__open", [Ptr, I32, I32] => I32
 Machine.import "dlsym", [Ptr, Ptr] => Ptr
 
 sig [] => Word
@@ -40,13 +43,10 @@ machine def zr_os_ioctl(fd, request, argument)
   __ioctl(fd, request, argument)
 end
 
-# open(2) with two arguments, which is the whole call unless O_CREAT is
-# set: the mode a creation takes is a variadic argument, and this
-# platform passes those on the stack. A creation goes through fopen and
-# then fchmod, which names the permissions exactly.
-sig [Ptr, I32] => I32
-machine def zr_os_open(path, flags)
-  open(path, flags)
+# open(2), with the mode a creation takes, less the umask.
+sig [Ptr, I32, I32] => I32
+machine def zr_os_open(path, flags, mode)
+  __open(path, flags, mode)
 end
 
 # realpath(3): a fresh buffer the caller frees, or 0.

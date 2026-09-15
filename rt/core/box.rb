@@ -123,14 +123,14 @@ module Ruby
     end
 
     def resolve(feature)
-      return feature if File.file?(feature)
+      return feature if Primitive.zr_path_kind(feature) == 2
 
       name = feature.end_with?(".rb") ? feature : "#{feature}.rb"
-      return name if File.file?(name)
+      return name if Primitive.zr_path_kind(name) == 2
 
       @load_path.each do |root|
         found = File.join(root, name)
-        return found if File.file?(found)
+        return found if Primitive.zr_path_kind(found) == 2
       end
       nil
     end
