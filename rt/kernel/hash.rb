@@ -419,6 +419,13 @@ machine def zr_hash_store(h, key, value)
     key = copy
     RBasic.set_flags(key, RBasic.flags(key) | FL_FREEZE)
   end
+  zr_hash_append(h, key, code, value)
+end
+
+# A new entry for `key`, whose code is `code`, after the last: the
+# caller knows the key is not in `h`, so no method of the key runs.
+sig [Value, Value, Word, Value] => Value
+machine def zr_hash_append(h, key, code, value)
   zr_hash_reserve(h)
   n = RHash.len(h)
   e = RHash.entries(h) + (n * HEntry.size)
@@ -980,7 +987,9 @@ machine def zr_kw_unknown(hash, ids, n)
   zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
 end
 
-# `**rest`: the keywords of `hash` the method does not declare.
+# `**rest`: the keywords of `hash` the method does not declare. The
+# entries are copied with their codes, as rb_hash_dup copies them: a
+# key's own `hash` ran at the call and does not run again here.
 sig [Value, Ptr, Word] => Value
 machine def zr_kw_rest(hash, ids, n)
   out = zr_hash_new()
@@ -991,8 +1000,7 @@ machine def zr_kw_rest(hash, ids, n)
   while i < RHash.len(hash)
     e = RHash.entries(hash) + (i * HEntry.size)
     if HEntry.live(e) != 0 && !(zr_symbol_p(HEntry.key(e)) && zr_kw_declared(ids, n, zr_sym2id(HEntry.key(e))))
-      r = zr_hash_store(out, HEntry.key(e), HEntry.value(e))
-      return r if r == QUNDEF
+      zr_hash_append(out, HEntry.key(e), HEntry.hash(e), HEntry.value(e))
     end
     i += 1
   end

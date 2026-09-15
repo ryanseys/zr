@@ -259,7 +259,7 @@ module Ze0
             end
             bind(name, v)
           end
-          bind(p.kwrest, kernel("zr_kw_rest", hash.call, ids, n)) if p.kwrest
+          bind(p.kwrest, checked(kernel("zr_kw_rest", hash.call, ids, n))) if p.kwrest
         end
 
         # The ids of `names` as a read-only table, and its length.
