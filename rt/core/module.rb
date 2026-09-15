@@ -185,7 +185,7 @@ class Module
     table = (@__refinements__ ||= {})
     holder = table[target]
     unless holder
-      holder = Primitive.zr_refinement_new(target)
+      holder = Primitive.zr_refinement_new(target, @__activated__ ||= [])
       holder.instance_variable_set(:@__origin__, self)
       table[target] = holder
     end

@@ -209,7 +209,7 @@ module Ze0
         d zr_mark_children Void v:Value
         d zr_release Void v:Value
         d zr_mod_set_temporary_name Value mod:Value name:Value
-        d zr_refinement_new Value klass:Value
+        d zr_refinement_new Value klass:Value active:Value
         d zr_refined_class Value h:Value
         d zr_activation_row Value rows:Value id:Word
         d zr_activate Value id:Word

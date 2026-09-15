@@ -1833,16 +1833,17 @@ G_REFINEMENT = 46
 G_ACTIVATIONS = 47
 
 # The holder module `refine` makes: an ordinary module that remembers
-# the class it stands over, and carries the activation list it alone
-# forms so a call inside its own block costs no allocation.
-sig [Value] => Value
-machine def zr_refinement_new(klass)
+# the class it stands over. Its activation list is `active`, the list
+# every refinement of the same module shares, as rb_mod_refine shares
+# activated_refinements: a call inside one refine block reaches the
+# module's other refinements, the later ones too.
+sig [Value, Value] => Value
+machine def zr_refinement_new(klass, active)
   h = zr_class_alloc(T_MODULE, Machine.value(QNIL), zr_global(G_REFINEMENT))
   ext = RClass.ext(h)
   ClassExt.set_refined(ext, klass)
-  a = zr_ary_new(1)
-  zr_ary_push(a, h)
-  ClassExt.set_active(ext, a)
+  zr_ary_push(active, h)
+  ClassExt.set_active(ext, active)
   h
 end
 
