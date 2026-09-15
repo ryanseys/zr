@@ -295,6 +295,9 @@ machine def zr_obj_clone(recv, freeze)
   return r if r == QUNDEF
   if freeze == QTRUE || (freeze == QNIL && zr_frozen_p(recv))
     RBasic.set_flags(copy, RBasic.flags(copy) | FL_FREEZE)
+  elsif freeze == QNIL && zr_str_chilled_p(recv)
+    # A clone keeps the chill, as rb_obj_clone_setup copies it.
+    RBasic.set_flags(copy, RBasic.flags(copy) | (RBasic.flags(recv) & (FL_CHILLED | FL_CHILLED_SYMBOL)))
   end
   copy
 end

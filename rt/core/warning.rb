@@ -15,6 +15,7 @@ module Warning
   def self.[]=(category, flag)
     raise ArgumentError, "unknown category: #{category}" unless CATEGORIES.key?(category)
 
+    Primitive.zr_warn_deprecated_set(flag) if category == :deprecated
     CATEGORIES[category] = flag
   end
 

@@ -202,6 +202,8 @@ machine def zr_sym_to_s(recv, argc, argv, cref, blk)
   s = zr_str_new(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
   # A name written in ASCII alone is US-ASCII, as ruby tags it.
   zr_str_set_index(s, zr_str_ascii_only(s) ? ENC_USASCII : zr_symbol_encoding_index(id))
+  RBasic.set_flags(s, RBasic.flags(s) | FL_CHILLED_SYMBOL)
+  s
 end
 
 # `Symbol#<=>`: the names bytewise, nil against anything else. The same

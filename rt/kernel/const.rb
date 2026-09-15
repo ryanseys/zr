@@ -508,7 +508,7 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_private_constant(recv, argc, argv, cref, blk)
-  if zr_frozen_p(recv)
+  if zr_modify_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   zr_mod_constant_visibility(recv, argc, argv, 1)
@@ -516,7 +516,7 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_public_constant(recv, argc, argv, cref, blk)
-  if zr_frozen_p(recv)
+  if zr_modify_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   zr_mod_constant_visibility(recv, argc, argv, 0)
@@ -863,7 +863,7 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_const_set(recv, argc, argv, cref, blk)
-  if zr_frozen_p(recv)
+  if zr_modify_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   slot = Machine.slot(8)

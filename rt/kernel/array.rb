@@ -194,7 +194,7 @@ machine def zr_ary_initialize(recv, argc, argv, cref, blk)
   if argc > 2
     return zr_wrong_arity_range(argc, 0, 2)
   end
-  if zr_frozen_p(recv)
+  if zr_modify_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   RArray.set_len(recv, 0)
@@ -494,7 +494,7 @@ end
 # `a[i] = v` for one index.
 sig [Value, Value, Value] => Value
 machine def zr_ary_aset_at(recv, index, v)
-  if zr_frozen_p(recv)
+  if zr_modify_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   out = Machine.slot(8)
@@ -505,7 +505,7 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_push_m(recv, argc, argv, cref, blk)
-  if zr_frozen_p(recv)
+  if zr_modify_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   i = 0
@@ -518,7 +518,7 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_pop(recv, argc, argv, cref, blk)
-  if zr_frozen_p(recv)
+  if zr_modify_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   n = RArray.len(recv)
@@ -714,7 +714,7 @@ end
 # start past the end fills with nil first.
 sig [Value, Value, Value, Value] => Value
 machine def zr_ary_splice(a, beg_v, len_v, vals)
-  if zr_frozen_p(a)
+  if zr_modify_frozen_p(a)
     return zr_frozen_error(a)
   end
   beg = zr_fix2long(beg_v)
@@ -784,7 +784,7 @@ end
 
 sig [Value, Value] => Value
 machine def zr_ary_clear(a, unused)
-  if zr_frozen_p(a)
+  if zr_modify_frozen_p(a)
     return zr_frozen_error(a)
   end
   RArray.set_len(a, 0)

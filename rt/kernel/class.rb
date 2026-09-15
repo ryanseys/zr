@@ -327,7 +327,7 @@ machine def zr_mod_prepend_features(recv, argc, argv, cref, blk)
     zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
-  if zr_frozen_p(base)
+  if zr_modify_frozen_p(base)
     return zr_frozen_error(base)
   end
   if recv == base || zr_chain_includes(recv, base)
@@ -372,7 +372,7 @@ machine def zr_mod_append_features(recv, argc, argv, cref, blk)
     zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
-  if zr_frozen_p(base)
+  if zr_modify_frozen_p(base)
     return zr_frozen_error(base)
   end
   if recv == base || zr_chain_includes(recv, base)
@@ -435,7 +435,7 @@ end
 # name, keeping its meta, so a backtrace names the original.
 sig [Value, Word, Word] => Value
 machine def zr_alias(klass, new_id, old_id)
-  if zr_frozen_p(klass)
+  if zr_modify_frozen_p(klass)
     return zr_frozen_error(klass)
   end
   e = zr_find_method(klass, old_id)
@@ -484,7 +484,7 @@ end
 
 sig [Value, Word] => Value
 machine def zr_undef(klass, id)
-  if zr_frozen_p(klass)
+  if zr_modify_frozen_p(klass)
     return zr_frozen_error(klass)
   end
   if zr_find_method(klass, id) == 0

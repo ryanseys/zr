@@ -148,7 +148,7 @@ class String
   def []=(*args)
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2..3)" unless args.size == 2 || args.size == 3
 
-    Primitive.zr_frozen_error(self) if frozen?
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
     value = args.pop
     value = Primitive.zr_str_operand(value)
 
@@ -1092,7 +1092,7 @@ class String
   def encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
 
   def force_encoding(encoding)
-    Primitive.zr_frozen_error(self) if frozen?
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
     Primitive.zr_str_set_index_m(self, Encoding.carried(Encoding.find(encoding)))
   end
 
@@ -1551,7 +1551,7 @@ class String
 
   def mutate(result)
     Primitive.attr! :hidden
-    Primitive.zr_frozen_error(self) if frozen?
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
     return nil if result == self
 
     Primitive.zr_str_replace(self, result)

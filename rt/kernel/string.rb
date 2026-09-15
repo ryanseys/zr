@@ -323,7 +323,7 @@ end
 # source: no bytes left, in the encoding the String already had.
 sig [Value] => Value
 machine def zr_str_discard(s)
-  if zr_frozen_p(s)
+  if zr_modify_frozen_p(s)
     return zr_frozen_error(s)
   end
   RString.set_len(s, 0)
@@ -531,7 +531,7 @@ machine def zr_str_concat_codepoint(recv, c)
   # A byte past ASCII makes a US-ASCII String binary, as rb_str_concat
   # has it; a frozen one raises before its encoding changes.
   if c > 127 && zr_str_encoding_index(recv) == ENC_USASCII
-    if zr_frozen_p(recv)
+    if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)
     end
     zr_str_set_binary(recv)
@@ -562,7 +562,7 @@ end
 # `<<` appends in place; a frozen receiver raises.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_concat(recv, argc, argv, cref, blk)
-  if zr_frozen_p(recv)
+  if zr_modify_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   if zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
@@ -603,7 +603,7 @@ end
 # appends `s` as it was and a bad argument appends nothing.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_concat_m(recv, argc, argv, cref, blk)
-  if zr_frozen_p(recv)
+  if zr_modify_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   if argc < 2
@@ -1126,11 +1126,11 @@ machine def zr_str_to_sym(recv, argc, argv, cref, blk)
   zr_sym(zr_intern_tagged(RString.ptr(recv), RString.len(recv), tag))
 end
 
-# `+str`: the string itself unless frozen, then a copy that is not,
+# `+str`: the string itself unless frozen or chilled, then a copy that is not,
 # with its encoding and class, as rb_str_dup makes it.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_uplus(recv, argc, argv, cref, blk)
-  if zr_frozen_p(recv)
+  if zr_frozen_p(recv) || zr_str_chilled_p(recv)
     copy = zr_str_copy_encoding(zr_str_new(RString.ptr(recv), RString.len(recv)), recv)
     RBasic.set_klass(copy, zr_real_class(recv))
     return copy
@@ -1160,7 +1160,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_freeze(recv, argc, argv, cref, blk)
   unless zr_special_p(recv)
-    RBasic.set_flags(recv, RBasic.flags(recv) | FL_FREEZE)
+    RBasic.set_flags(recv, (RBasic.flags(recv) | FL_FREEZE) & (zr_type(recv) == T_STRING ? FL_CHILLED_CLEAR : 0 - 1))
     # The singleton class freezes with its object, as CRuby's
     # rb_freeze_singleton_class does.
     k = RBasic.klass(recv)
@@ -1305,6 +1305,82 @@ end
 sig [Ptr, Word] => Value
 machine def zr_str_frozen(bytes, len)
   zr_str_intern(zr_str_new(bytes, len))
+end
+
+# A String a literal made in a file that sets no frozen_string_literal
+# (STR_CHILLED_LITERAL), or that `Symbol#to_s` made
+# (STR_CHILLED_SYMBOL_TO_S). It is not frozen, but its first change
+# warns that it will be, and it is an ordinary String from then on.
+FL_CHILLED = 1 << 15
+FL_CHILLED_SYMBOL = 1 << 16
+FL_CHILLED_CLEAR = 0 - FL_CHILLED - FL_CHILLED_SYMBOL - 1
+
+sig [Ptr, Word] => Value
+machine def zr_str_new_chilled(bytes, len)
+  s = zr_str_new(bytes, len)
+  RBasic.set_flags(s, RBasic.flags(s) | FL_CHILLED)
+  s
+end
+
+sig [Ptr, Word, Word] => Value
+machine def zr_str_new_chilled_at(bytes, len, index)
+  s = zr_str_new_at(bytes, len, index)
+  RBasic.set_flags(s, RBasic.flags(s) | FL_CHILLED)
+  s
+end
+
+sig [Value] => Bool
+machine def zr_str_chilled_p(s)
+  !zr_special_p(s) && zr_type(s) == T_STRING && (RBasic.flags(s) & (FL_CHILLED | FL_CHILLED_SYMBOL)) != 0
+end
+
+# Whether a change to `v` is refused because `v` is frozen, as
+# rb_check_frozen asks. A chilled String is changed, and warns first
+# when deprecation warnings are on, as CHILLED_STRING_MUTATED does.
+sig [Value] => Bool
+machine def zr_modify_frozen_p(v)
+  if zr_str_chilled_p(v)
+    zr_str_unchill(v)
+  end
+  zr_frozen_p(v)
+end
+
+sig [Value] => Value
+machine def zr_modify_frozen_m(v)
+  zr_bool(zr_modify_frozen_p(v))
+end
+
+# `Warning[:deprecated]`, as the core last set it.
+sig [Value] => Value
+machine def zr_warn_deprecated_set(flag)
+  Machine.store64(Machine.static(:warn_deprecated, 8), 0, flag == QNIL || flag == QFALSE ? 0 : 1)
+  flag
+end
+
+sig [Value] => Void
+machine def zr_str_unchill(s)
+  symbol = (RBasic.flags(s) & FL_CHILLED_SYMBOL) != 0
+  RBasic.set_flags(s, RBasic.flags(s) & FL_CHILLED_CLEAR)
+  if Machine.load64(Machine.static(:warn_deprecated, 8), 0) == 0 || zr_gvar_get(Machine.id(:$VERBOSE)) == QNIL
+    return
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  if symbol
+    zr_buf_push(b, Machine.bytes("string returned by :"), 20)
+    zr_buf_push(b, RString.ptr(s), RString.len(s))
+    zr_buf_push(b, Machine.bytes(".to_s will be frozen in the future"), 34)
+  else
+    zr_buf_push(b, Machine.bytes("literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)"), 105)
+  end
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(zr_buf_take(b)))
+  r = zr_send(zr_const_get_at(zr_global(G_OBJECT), Machine.id(:Warning)), Machine.id(:deprecated), 1, slot)
+  # The check that asked answers true or false, so a warning that raises
+  # is dropped here.
+  if r == QUNDEF
+    Task.set_pending(zr_task(), Machine.value(QNIL))
+  end
 end
 
 # The same three, for a file whose script encoding is not UTF-8: the
@@ -1461,7 +1537,7 @@ end
 # The receiver's bytes replaced by `other`'s.
 sig [Value, Value] => Value
 machine def zr_str_replace(s, other)
-  if zr_frozen_p(s)
+  if zr_modify_frozen_p(s)
     return zr_frozen_error(s)
   end
   n = RString.len(other)
@@ -1479,7 +1555,7 @@ end
 # `setbyte`: the byte at `i` becomes `byte` modulo 256.
 sig [Value, Value, Value] => Value
 machine def zr_str_setbyte(s, i, byte)
-  if zr_frozen_p(s)
+  if zr_modify_frozen_p(s)
     return zr_frozen_error(s)
   end
   n = zr_fix2long(i)
@@ -1587,7 +1663,7 @@ end
 # quadratic in the string's size.
 sig [Value, Value, Value, Value] => Value
 machine def zr_str_splice(s, from, len, other)
-  if zr_frozen_p(s)
+  if zr_modify_frozen_p(s)
     return zr_frozen_error(s)
   end
   if zr_str_join_incompatible_p(s, other)
@@ -1633,7 +1709,7 @@ end
 # One byte appended as it is, the flags untouched (`append_as_bytes`).
 sig [Value, Value] => Value
 machine def zr_str_push_byte(recv, byte)
-  if zr_frozen_p(recv)
+  if zr_modify_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   n = RString.len(recv) + 1

@@ -158,7 +158,7 @@ module Ze0
             end
           when Float then float_literal(v)
           when Symbol then symbol(v)
-          when String then string_literal(v, "zr_str_new")
+          when String then string_literal(v, node.chilled && !@l.internal? ? "zr_str_new_chilled" : "zr_str_new")
           when nil then @qnil
           when true then imm(@l.const("QTRUE"))
           when false then imm(@l.const("QFALSE"))

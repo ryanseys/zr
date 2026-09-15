@@ -470,7 +470,7 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_hash_aset(recv, argc, argv, cref, blk)
-  if zr_frozen_p(recv)
+  if zr_modify_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   value = Machine.value(Machine.load64(argv, 8))
@@ -533,7 +533,7 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_hash_delete(recv, argc, argv, cref, blk)
-  if zr_frozen_p(recv)
+  if zr_modify_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   e = zr_hash_entry(recv, Machine.value(Machine.load64(argv, 0)))
@@ -832,7 +832,7 @@ end
 # default value was given. The capacity only reserves room.
 sig [Value, Value, Value, Value, Value] => Value
 machine def zr_hash_init(recv, capacity, unset, ifnone, blk)
-  if zr_frozen_p(recv)
+  if zr_modify_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   if capacity != zr_fix(0)
@@ -1065,7 +1065,7 @@ end
 
 sig [Value, Value] => Value
 machine def zr_hash_set_default(h, v)
-  if zr_frozen_p(h)
+  if zr_modify_frozen_p(h)
     return zr_frozen_error(h)
   end
   RHash.set_default(h, v)
@@ -1075,7 +1075,7 @@ end
 
 sig [Value, Value] => Value
 machine def zr_hash_set_default_proc(h, p)
-  if zr_frozen_p(h)
+  if zr_modify_frozen_p(h)
     return zr_frozen_error(h)
   end
   RHash.set_default_proc(h, p)
@@ -1086,7 +1086,7 @@ end
 # Every entry dropped; the defaults stay.
 sig [Value] => Value
 machine def zr_hash_clear(h)
-  if zr_frozen_p(h)
+  if zr_modify_frozen_p(h)
     return zr_frozen_error(h)
   end
   i = 0
@@ -1111,7 +1111,7 @@ machine def zr_hash_compare_by_identity(h)
   if (RBasic.flags(h) & FL_IDENTITY) != 0
     return h
   end
-  if zr_frozen_p(h)
+  if zr_modify_frozen_p(h)
     return zr_frozen_error(h)
   end
   if RHash.iter(h) != 0
@@ -1143,7 +1143,7 @@ end
 # `rehash`: the codes computed again after keys changed under the table.
 sig [Value] => Value
 machine def zr_hash_rehash(h)
-  if zr_frozen_p(h)
+  if zr_modify_frozen_p(h)
     return zr_frozen_error(h)
   end
   if RHash.iter(h) != 0

@@ -537,7 +537,7 @@ machine def zr_obj_remove_instance_variable(recv, argc, argv, cref, blk)
   id = Machine.load64(slot, 0)
   r = zr_check_ivar_name(id)
   return r if r == QUNDEF
-  if zr_frozen_p(recv)
+  if zr_modify_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   t = zr_ivtab(recv)

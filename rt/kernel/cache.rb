@@ -237,7 +237,7 @@ machine def zr_ivar_set_cached(obj, id, v, ic)
   if g == QUNDEF
     return g
   end
-  if zr_frozen_p(obj)
+  if zr_modify_frozen_p(obj)
     return zr_frozen_error(obj)
   end
   t = zr_ivtab_for_write(obj)

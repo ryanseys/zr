@@ -138,7 +138,9 @@ module Ze0
     Break = Struct.new(:value, :line)
     Next = Struct.new(:value, :line)
     # An Integer, String, Symbol, nil, true or false.
-    Literal = Struct.new(:value, :line)
+    # `chilled` marks a String literal of a file that sets no
+    # frozen_string_literal: the String it makes warns on its first change.
+    Literal = Struct.new(:value, :line, :chilled)
     SelfRef = Struct.new(:line)
     # `def name(params) body end`; its value is the name. `params` is a
     # Params; `receiver` is the expression of a singleton def

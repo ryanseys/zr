@@ -941,7 +941,12 @@ module Ze0
         when Prism::ConstantPathWriteNode
           scope, name = constant_path(node.target)
           ConstWrite.new(scope, name, expr(node.value), line)
-        when Prism::InterpolatedStringNode then node.frozen? ? FrozenString.new(static_text(node), line) : interpolation(node, line)
+        when Prism::InterpolatedStringNode
+          if node.frozen? then FrozenString.new(static_text(node), line)
+          # Adjacent literals with nothing interpolated are one literal.
+          elsif static_string?(node) then Literal.new(static_text(node), line, !node.mutable?)
+          else interpolation(node, line)
+          end
         when Prism::SourceFileNode then literal_string(node, @file, line)
         when Prism::SourceLineNode then Literal.new(line, line)
         when Prism::SourceEncodingNode
@@ -1635,10 +1640,14 @@ module Ze0
       # A string literal as prism flags it: frozen where the file's magic
       # comment says so, by CRuby's own reading of the comment, and then
       # the one frozen String of its text, as CRuby interns it.
-      def literal_string(node, text, line) = node.frozen? ? FrozenString.new(text, line) : Literal.new(text, line)
+      def literal_string(node, text, line) = node.frozen? ? FrozenString.new(text, line) : Literal.new(text, line, !node.mutable?)
 
       # The text of a string prism found static (`"a" "b"`, a heredoc with
       # no interpolation): its parts joined.
+      def static_string?(node)
+        node.parts.all? { |part| part.is_a?(Prism::StringNode) || (part.is_a?(Prism::InterpolatedStringNode) && static_string?(part)) }
+      end
+
       def static_text(node) = node.parts.map { |part| part.is_a?(Prism::StringNode) ? unescaped(part) : static_text(part) }.join
 
       # A string part's text as ruby tags it: a \u escape makes it UTF-8,

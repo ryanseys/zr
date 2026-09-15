@@ -23,6 +23,8 @@ module Ze0
         d zr_ary_subseq Value a:Value beg:Word len:Word
         d zr_range_beg_len Value range:Value n:Word out:Ptr
         d zr_ary_aref Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_ary_aref1_m Value a:Value x:Value
+        d zr_ary_aref2_m Value a:Value beg:Value len:Value
         d zr_ary_aset_at Value recv:Value index:Value v:Value
         d zr_ary_push_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_pop Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -164,6 +166,7 @@ module Ze0
         d zr_method_add_vis Void klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value vis:Word
         d zr_internal_meta_p Bool meta:Ptr
         d zr_method_add_row Void klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value vis:Word
+        d zr_warn_redefined Void ext:Ptr mid:Word e:Ptr fn:Ptr kind:Word meta:Ptr cref:Value
         d zr_program_started_p Bool
         d zr_save_core_row Void ext:Ptr e:Ptr
         d zr_saved_row Ptr ext:Ptr mid:Word
@@ -197,6 +200,7 @@ module Ze0
         d zr_methods_changed Void
         d zr_search_method Ptr klass:Value mid:Word
         d zr_find_method Ptr klass:Value mid:Word
+        d zr_basic_method_p Bool recv:Value mid:Word
         d zr_class_of Value v:Value
         d zr_class_inherits Bool klass:Value target:Value
         d zr_is_a Bool v:Value klass:Value
@@ -282,6 +286,8 @@ module Ze0
         d zr_ary_initialize_copy Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_initialize_copy Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_initialize_copy Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_hash_copy_from Value recv:Value other:Value
+        d zr_hash_dup_m Value h:Value
         d zr_class_copy Value orig:Value
         d zr_obj_dup Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_clone Value recv:Value freeze:Value
@@ -390,6 +396,8 @@ module Ze0
         d zr_refine_body Value blk:Value holder:Value
         d zr_mark_backtrace_rows Void exc:Value
         d zr_frame_with_file Ptr rec:Ptr
+        d zr_frame_shown_p Bool rec:Ptr
+        d zr_frame_helper_p Bool rec:Ptr
         d zr_backtrace_capture Void exc:Value top:Ptr
         d zr_exc_new Value klass:Value message:Value
         d zr_raise_from Value exc:Value top:Ptr
@@ -580,6 +588,7 @@ module Ze0
         d zr_hash_store Value h:Value key:Value value:Value
         d zr_hash_default Value h:Value key:Value
         d zr_hash_aref Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_hash_missing Value h:Value key:Value
         d zr_hash_aset Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_fetch Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_key_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -620,6 +629,11 @@ module Ze0
         d zr_hash_rehash Value h:Value
         d zr_hash_identity_p Value h:Value
         d zr_hash_default_value Value h:Value
+        d zr_hash_aref_m Value h:Value key:Value
+        d zr_hash_aset_m Value h:Value key:Value value:Value
+        d zr_hash_key_p_m Value h:Value key:Value
+        d zr_hash_fetch_m Value h:Value key:Value blk:Value
+        d zr_hash_replace_m Value h:Value other:Value
         d zr_hash_delete_m Value h:Value key:Value
         d zr_heap Ptr
         d zr_arenas Ptr
@@ -1277,6 +1291,8 @@ module Ze0
         d zr_str_eq Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_equal Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_length Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_str_new_frozen_m Value s:Value
+        d zr_str_length_m Value s:Value
         d zr_str_bytes_are_chars Bool s:Value
         d zr_str_ascii_check Value s:Value
         d zr_str_char_len_at Word s:Value off:Word
@@ -1310,6 +1326,13 @@ module Ze0
         d zr_str_interp Value argc:Word argv:Ptr
         d zr_str_from_buf_obj_head Value v:Value
         d zr_str_frozen Value bytes:Ptr len:Word
+        d zr_str_new_chilled Value bytes:Ptr len:Word
+        d zr_str_new_chilled_at Value bytes:Ptr len:Word index:Word
+        d zr_str_chilled_p Bool s:Value
+        d zr_modify_frozen_p Bool v:Value
+        d zr_modify_frozen_m Value v:Value
+        d zr_warn_deprecated_set Value flag:Value
+        d zr_str_unchill Void s:Value
         d zr_str_new_at Value bytes:Ptr len:Word index:Word
         d zr_str_frozen_at Value bytes:Ptr len:Word index:Word
         d zr_str_literal_freeze_at Value bytes:Ptr len:Word index:Word
@@ -1329,6 +1352,7 @@ module Ze0
         d zr_str_space_end Value s:Value from:Value nul:Value
         d zr_str_word_end Value s:Value from:Value
         d zr_str_space_start Value s:Value to:Value nul:Value
+        d zr_str_splice Value s:Value from:Value len:Value other:Value
         d zr_str_push_byte Value recv:Value byte:Value
         d zr_str_bytes_address Value s:Value
         d zr_symtab Ptr
@@ -1666,6 +1690,9 @@ module Ze0
         c FL_ASCII_CLEAR -2097153
         c FL_SCANS_CLEAR -10485761
         c G_FROZEN_ERROR 27
+        c FL_CHILLED 32768
+        c FL_CHILLED_SYMBOL 65536
+        c FL_CHILLED_CLEAR -98305
         c G_FROZEN_LITERALS 52
         c GATE_FREEZE 32768
         c G_FSTRINGS 44
@@ -1776,7 +1803,7 @@ module Ze0
         s CEntry 64 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value
         s GateRow 40 8 klass:0:Word mid:8:Word bit:16:Word fn:24:Ptr vis:32:Word
         s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word
-        s RCref 72 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr lazy:64:Value
+        s RCref 80 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr lazy:64:Value blk:72:Value
         s LoadTable 80 8 units:0:Word rows:8:Ptr roots:16:Ptr roots_len:24:Word missing:32:Ptr missing_len:40:Word preloaded:48:Ptr preloaded_len:56:Word ext:64:Ptr ext_len:72:Word
         s FrameMeta 120 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr locals:80:Ptr env:88:Word box:96:Value ruby:104:Word captures:112:Ptr
         s BtRow 32 8 meta:0:Ptr file:8:Ptr file_len:16:Word line:24:Word
