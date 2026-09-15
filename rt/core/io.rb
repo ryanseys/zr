@@ -55,7 +55,7 @@ class IO
 
   def self.binread(path, length = nil, offset = nil) = File.read(path, length, offset).b
 
-  def self.binwrite(path, content, offset = nil) = File.write(path, content, offset)
+  def self.binwrite(path, content, offset = nil, **options) = written(path, content, offset, true, options)
 
   # CRuby's rb_io_s_read takes a fourth argument, which the read it
   # passes on then refuses.
@@ -68,12 +68,20 @@ class IO
     end
   end
 
-  def self.write(path, content, offset = nil, mode: nil, **options)
-    File.open(File.send(:path_of, path), mode || (offset ? "r+" : "w"), **options) do |file|
+  def self.write(path, content, offset = nil, **options) = written(path, content, offset, false, options)
+
+  # io_s_write: with no mode given, the file is made where it is missing
+  # and cut short only where no offset says where the write goes.
+  def self.written(path, content, offset, binary, options)
+    Primitive.attr! :hidden
+    options = options.merge(mode: File::WRONLY | File::CREAT | (offset ? 0 : File::TRUNC)) if options[:mode].nil?
+    File.open(File.send(:path_of, path), **options) do |file|
+      file.binmode if binary
       file.seek(offset) if offset
       file.write(content)
     end
   end
+  private_class_method :written
 
   # The options of an open belong to the open, as rb_io_extract_modeenc
   # takes them; only `chomp:` belongs to the lines.
@@ -831,10 +839,26 @@ class IO
     total = 0
     i = 0
     while i < Primitive.zr_ary_len_m(objects)
-      total += write_bytes(Primitive.zr_obj_as_string(Primitive.zr_ary_at_m(objects, i)))
+      total += write_bytes(converted(Primitive.zr_obj_as_string(Primitive.zr_ary_at_m(objects, i))))
       i += 1
     end
     total
+  end
+
+  # do_writeconv: what is written goes out in the external encoding the
+  # stream names, unless that is binary. An encoding that is not
+  # ASCII-compatible is reached through UTF-8, as the converter
+  # make_writeconv sets up reaches it.
+  def converted(text)
+    Primitive.attr! :hidden
+    return text if @external.nil? || @external == Encoding::BINARY
+
+    source = Encoding.at(Primitive.zr_str_encoding_index_m(text))
+    return text if source == @external
+    return text.encode(@external) if @external.ascii_compatible?
+
+    text = text.encode(Encoding::UTF_8) unless source == Encoding::UTF_8
+    text.encode(@external)
   end
 
   def syswrite(text) = write(text)

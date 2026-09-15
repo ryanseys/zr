@@ -174,7 +174,10 @@ class File < IO
     # closes the descriptor across an exec. Only a creation goes to
     # fopen, whose permissions open(2) takes as a variadic argument.
     unless made
-      fd = Primitive.zr_io_open_flags(path, File.send(:open_flags, text))
+      # open(2) flags go as they are: the fopen mode they map to cannot
+      # say "write, but keep what is there".
+      flags = mode.is_a?(Integer) ? mode & ~File::CREAT : File.send(:open_flags, text)
+      fd = Primitive.zr_io_open_flags(path, flags)
       raise SystemCallError.new(path, -fd, "rb_sysopen") if fd < 0
 
       super(fd, mode, **options, path: path)
