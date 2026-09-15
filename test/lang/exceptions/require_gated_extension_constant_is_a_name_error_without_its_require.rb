@@ -10,4 +10,7 @@ puts Base64.strict_encode64("hi")
 __END__
 #@ stderr
 lang/exceptions/require_gated_extension_constant_is_a_name_error_without_its_require.rb:9:in '<main>': uninitialized constant Base64 (NameError)
+
+puts Base64.strict_encode64("hi")
+     ^^^^^^
 #@ exit 1

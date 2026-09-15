@@ -291,8 +291,13 @@ end
 # a unit the program was compiled with and runs away from its source.
 sig [Value] => Value
 machine def zr_feature_real_path(path)
-  real = zr_realpath_m(path)
-  zr_fixnum_p(real) ? path : real
+  p = zr_os_realpath(RString.ptr(path))
+  if p == 0
+    return path
+  end
+  real = zr_str_new(p, zr_cstr_len(p))
+  free(p)
+  real
 end
 
 # `require`, `require_relative` (kind 0 and 1) and `load` (2) of the
@@ -400,9 +405,9 @@ end
 
 # What the compiler lays out for a require whose name the program
 # computes (lib/ze0/zr.rb, `load_tables`): the count of files compiled
-# in, their rows, and four (bytes, length) texts.
+# in, their rows, and five (bytes, length) texts.
 Machine.struct :LoadTable, units: Word, rows: Ptr, roots: Ptr, roots_len: Word, missing: Ptr, missing_len: Word,
-                           preloaded: Ptr, preloaded_len: Word, ext: Ptr, ext_len: Word
+                           preloaded: Ptr, preloaded_len: Word, ext: Ptr, ext_len: Word, spots: Ptr, spots_len: Word
 
 sig [] => Ptr
 machine def zr_load_table
@@ -430,7 +435,8 @@ end
 # 0 for the library directories the program was compiled against, which
 # it searches after $LOAD_PATH; 1 for the features ruby carries that this
 # runtime has no file for; 2 for the features ruby loaded before the
-# program; 3 for the directory of this runtime's native halves.
+# program; 3 for the directory of this runtime's native halves; 4 for
+# error_highlight's spots.
 sig [Value] => Value
 machine def zr_load_names(which)
   t = zr_load_table()
@@ -441,6 +447,8 @@ machine def zr_load_names(which)
     return zr_str_new(LoadTable.missing(t), LoadTable.missing_len(t))
   elsif w == 2
     return zr_str_new(LoadTable.preloaded(t), LoadTable.preloaded_len(t))
+  elsif w == 4
+    return zr_str_new(LoadTable.spots(t), LoadTable.spots_len(t))
   end
   zr_str_new(LoadTable.ext(t), LoadTable.ext_len(t))
 end

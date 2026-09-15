@@ -2,6 +2,7 @@
 # core library's toplevels, and `zr_toplevel`, the program's.
 Machine.import "zr_toplevel", [] => Value
 Machine.import "zr_prelude", [] => Value
+Machine.import "zr_gem_prelude", [] => Value
 
 
 sig [Word, Word, Value] => Value
@@ -491,6 +492,14 @@ machine def zr_main(argc, argv)
   # the program has written anything of its own; so are the operator
   # bodies the inline fast paths stand in for.
   zr_box_snapshot()
+  zr_runtime_written()
+  # The libraries ruby loads before a program: error_highlight,
+  # did_you_mean and syntax_suggest's core extension. The fast paths
+  # stand in for the operators as they stand after them.
+  r = zr_gem_prelude()
+  if r == QUNDEF
+    zr_report(Task.pending(zr_task()))
+  end
   zr_gates_snapshot()
   r = zr_toplevel()
   exc = Machine.value(QUNDEF)

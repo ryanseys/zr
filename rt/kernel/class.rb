@@ -892,6 +892,7 @@ machine def zr_define_method_as(klass, mid, fn, arity, kind, meta, cref, vis)
     FrameMeta.set_fn(meta, 0)
     FrameMeta.set_box(meta, Machine.value(QNIL))
     FrameMeta.set_ruby(meta, 0)
+    FrameMeta.set_node(meta, 0)
   elsif Machine.word(FrameMeta.owner(meta)) != 0 && FrameMeta.owner(meta) != klass
     # The same def run under another class (a class body in a block
     # that runs twice) gets a meta of its own, so each keeps its owner.
@@ -1015,9 +1016,12 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   vis = vis & (ROW_CORE - 1)
   klass = zr_origin(klass)
   # Only a handful of names have a gate, so ask for the bit before
-  # asking the chain whether this is a redefinition.
+  # asking the chain whether this is a redefinition. A builtin row the
+  # runtime writes at boot stands where the kernel's own did: `freeze`
+  # on String is Kernel's function, which the fast path stands in for.
   bit = zr_gate_bit(klass, mid)
-  if bit != 0 && zr_find_method(klass, mid) != 0
+  booting = kind == KIND_BUILTIN && !zr_program_started_p()
+  if bit != 0 && !booting && zr_find_method(klass, mid) != 0
     g = zr_gates()
     Machine.store64(g, 0, Machine.load64(g, 0) | bit)
   end
@@ -1119,7 +1123,14 @@ end
 # are all written.
 sig [] => Bool
 machine def zr_program_started_p
-  Machine.load64(Machine.static(:gates_taken, 8), 0) != 0
+  Machine.load64(Machine.static(:program_started, 8), 0) != 0
+end
+
+# The runtime's own definitions are all written: what is defined from
+# here on is the program's, the gem prelude's libraries first.
+sig [] => Void
+machine def zr_runtime_written
+  Machine.store64(Machine.static(:program_started, 8), 0, 1)
 end
 
 # Row `e` of `ext`, a row of the core library a program is about to

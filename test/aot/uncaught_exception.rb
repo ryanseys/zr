@@ -12,6 +12,9 @@ outer
 __END__
 #@ stderr
 aot/uncaught_exception.rb:4:in 'Object#inner': bad thing (ArgumentError)
+
+  raise ArgumentError, "bad thing"
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
 	from aot/uncaught_exception.rb:8:in 'Object#outer'
 	from aot/uncaught_exception.rb:11:in '<main>'
 #@ exit 1

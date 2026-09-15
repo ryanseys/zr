@@ -6,4 +6,7 @@ puts JSON.generate([1])
 __END__
 #@ stderr
 compiler/guards/scaffolded_extension_constant_resolves_but_is_a_name_error_without_require.rb:5:in '<main>': uninitialized constant JSON (NameError)
+
+puts JSON.generate([1])
+     ^^^^
 #@ exit 1

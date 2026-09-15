@@ -107,4 +107,7 @@ true
 [:two]
 #@ stderr
 ze0/superclasses.rb:82:in '<main>': undefined method 'respond_to?' for an instance of Bare (NoMethodError)
+
+Bare.new.respond_to?(:to_s)
+        ^^^^^^^^^^^^
 #@ exit 1

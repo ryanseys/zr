@@ -2,6 +2,7 @@
 
 require_relative "hir/features"
 require_relative "hir/node"
+require_relative "hir/spots"
 require_relative "hir/build"
 require_relative "hir/patterns"
 require_relative "hir/dump"

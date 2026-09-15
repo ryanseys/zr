@@ -48,5 +48,9 @@ puts str2  # "b" (heap, mutates)
 __END__
 #@ stderr
 core/string/str_method_nil_arg_no_segv.rb:19:in 'String#count': wrong number of arguments (given 0, expected 1+) (ArgumentError)
+
+    caller: core/string/str_method_nil_arg_no_segv.rb:19
+    |   "foo".count
+             ^^^^^^
 	from core/string/str_method_nil_arg_no_segv.rb:19:in '<main>'
 #@ exit 1

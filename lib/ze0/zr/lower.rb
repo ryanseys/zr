@@ -47,6 +47,13 @@ module Ze0
         @program.node_ids&.[](node) || 0
       end
 
+      # `made`, a node the lowering builds for `node`, runs as `node` does.
+      def noted(made, node)
+        ids = @program.node_ids
+        ids[made] ||= ids[node] if ids&.key?(node)
+        made
+      end
+
       # Whether the program names TracePoint, so its own code fires events.
       def traced?
         @program.traced ? true : false
@@ -172,7 +179,7 @@ module Ze0
       end
 
       def meta(fn, kind, line, name = 0, parent = nil, params = nil, locals = [], env = false, ruby = false,
-               captures: false)
+               captures: false, node: 0)
         layout = layout("FrameMeta")
         file = file_bytes
         bytes = ("\0" * layout.size).b
@@ -181,6 +188,7 @@ module Ze0
         word.call("file_len", internal? ? 0 : @file.bytesize)
         word.call("kind", const(kind))
         word.call("line", line)
+        word.call("node", node)
         word.call("arity", params ? params.arity : 0)
         word.call("env", env ? 1 : 0)
         word.call("ruby", ruby ? 1 : 0)

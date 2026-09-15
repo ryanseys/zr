@@ -45,4 +45,7 @@ p keep[0].length
 __END__
 #@ stderr
 core/thread/gc_first_thread_threshold.rb:27:in '<main>': undefined method '>=' for nil (NoMethodError)
+
+p after >= before
+        ^^
 #@ exit 1

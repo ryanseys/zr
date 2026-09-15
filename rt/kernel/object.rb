@@ -588,7 +588,18 @@ machine def zr_obj_hash(recv, argc, argv, cref, blk)
   if !zr_special_p(recv) && RBasic.klass(recv) == zr_global(G_INTEGER)
     return zr_big_hash(recv)
   end
-  zr_fix((Machine.word(recv) >> 3) & 4611686018427387903)
+  zr_fix(zr_obj_id_code(recv) & 4611686018427387903)
+end
+
+# The hash code of a heap object, from its object_id, which the first
+# hash gives it, as CRuby's objid_hash does: an object's code and its
+# id both stay put, and a hash counts as an id handed out.
+sig [Value] => Word
+machine def zr_obj_id_code(obj)
+  if zr_special_p(obj)
+    return zr_hash_mix(Machine.word(obj))
+  end
+  zr_hash_mix(zr_fix2long(zr_obj_object_id(obj, 0, Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL))))
 end
 
 # A bignum's hash, from its sign and limbs, so two that are equal share it.
@@ -1436,6 +1447,7 @@ machine def zr_meta_at(rec)
   FrameMeta.set_env(meta, 0)
   FrameMeta.set_box(meta, Machine.value(QNIL))
   FrameMeta.set_ruby(meta, 0)
+  FrameMeta.set_node(meta, zr_frame_node_id(rec))
   meta
 end
 

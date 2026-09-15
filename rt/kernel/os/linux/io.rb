@@ -41,6 +41,12 @@ machine def zr_os_open(path, flags)
   open(path, flags, Machine.i32(OPEN_MODE))
 end
 
+# realpath(3): a fresh buffer the caller frees, or 0.
+sig [Ptr] => Ptr
+machine def zr_os_realpath(path)
+  realpath(path, 0)
+end
+
 O_NONBLOCK = 2048
 # Every flag but O_NONBLOCK, which takes the flag away again.
 O_NONBLOCK_OFF = 4294965247

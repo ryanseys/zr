@@ -16,4 +16,7 @@ __END__
 ["core/tracepoint/exception_backtrace_full_message_and_inspect.rb:8:in '<main>'"]
 "#<ArgumentError: bad>"
 core/tracepoint/exception_backtrace_full_message_and_inspect.rb:8:in '<main>': bad (ArgumentError)
+
+  raise ArgumentError, "bad"
+        ^^^^^^^^^^^^^^^^^^^^
 "StandardError"

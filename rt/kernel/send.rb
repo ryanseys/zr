@@ -24,6 +24,13 @@ machine def zr_no_method_from(recv, mid, vcall, from_super, argc, argv)
   if !vcall
     zr_exc_detail(e, Machine.id(:args), zr_ary_of(argc, argv))
   end
+  # The locals of the Ruby scope the send was written in, which
+  # NameError#local_variables answers, as name_err_init_attr keeps the
+  # frame's ISEQ for it.
+  source = zr_frame_with_file(Task.top(zr_task()))
+  if source != 0
+    zr_exc_detail(e, Machine.id(:local_variables), zr_local_names(FrameMeta.locals(Frame.meta(source))))
+  end
   zr_raise(e)
 end
 
@@ -538,7 +545,7 @@ machine def zr_wrong_arity_in(given, expected, e, recv)
   t = zr_task()
   Frame.set_prev(rec, Task.top(t))
   Frame.set_meta(rec, MEntry.meta(e))
-  Frame.set_line(rec, FrameMeta.line(MEntry.meta(e)))
+  Frame.set_line(rec, FrameMeta.line(MEntry.meta(e)) | (FrameMeta.node(MEntry.meta(e)) << 32))
   Frame.set_serial(rec, 0)
   Frame.set_self(rec, recv)
   Frame.set_cref(rec, Machine.value(QNIL))

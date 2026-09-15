@@ -74,6 +74,9 @@ NameError
 :top
 #@ stderr
 lang/constants/a_qualified_definition_sees_the_scope_it_is_written_in.rb:60:in '<module:ActiveRecord>': uninitialized constant ApiNotify::ActiveRecord::Logger (NameError)
+
+    class Logger < Logger
+                   ^^^^^^
 	from lang/constants/a_qualified_definition_sees_the_scope_it_is_written_in.rb:59:in '<module:ApiNotify>'
 	from lang/constants/a_qualified_definition_sees_the_scope_it_is_written_in.rb:58:in '<main>'
 #@ exit 1

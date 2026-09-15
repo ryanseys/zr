@@ -42,4 +42,7 @@ uninitialized constant Pkg::Inner::Gone | name=:Gone | :28:in 'block in <module:
 reached the include
 #@ stderr
 lang/constants/unresolved_constant_frames.rb:35:in '<main>': uninitialized constant NeverDefined (NameError)
+
+include NeverDefined
+        ^^^^^^^^^^^^
 #@ exit 1

@@ -33,5 +33,8 @@ puts consume(b.v)
 __END__
 #@ stderr
 lang/modules/param_include_body_widen.rb:16:in 'Object#consume': undefined method 'include?' for nil (NoMethodError)
+
+  coll.include?(:x)
+      ^^^^^^^^^
 	from lang/modules/param_include_body_widen.rb:24:in '<main>'
 #@ exit 1

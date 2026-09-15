@@ -73,5 +73,8 @@ grab(b.contents)
 __END__
 #@ stderr
 core/hash/param_body_hash_inference.rb:43:in 'Object#consume': undefined method '[]' for nil (NoMethodError)
+
+  puts "id=" + row["id"].to_s
+                  ^^^^^^
 	from core/hash/param_body_hash_inference.rb:51:in '<main>'
 #@ exit 1

@@ -31,6 +31,9 @@ end
 __END__
 #@ stderr
 core/numeric/numeric_subclass_limits.rb:27:in 'Comparable#<': comparison of Deg with 0 failed (ArgumentError)
+
+  p n.i
+    ^^^
 	from core/numeric/numeric_subclass_limits.rb:27:in 'Complex#inspect'
 	from core/numeric/numeric_subclass_limits.rb:27:in 'Kernel#p'
 	from core/numeric/numeric_subclass_limits.rb:27:in '<main>'

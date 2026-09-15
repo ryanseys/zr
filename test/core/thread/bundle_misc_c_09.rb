@@ -76,5 +76,8 @@ __END__
 nil_ok
 #@ stderr
 core/thread/bundle_misc_c_09.rb:30:in 'Object#t_fiber_storage_current_alias': undefined method '[]=' for an instance of Fiber (NoMethodError)
+
+  Fiber.current[:via_current] = 100
+               ^^^^^^^^^^^^^^^^
 	from core/thread/bundle_misc_c_09.rb:36:in '<main>'
 #@ exit 1

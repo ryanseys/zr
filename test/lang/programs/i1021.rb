@@ -18,4 +18,7 @@ false
 false
 #@ stderr
 lang/programs/i1021.rb:7:in '<main>': undefined method '>=' for nil (NoMethodError)
+
+puts s["bytes"] >= 0
+                ^^
 #@ exit 1

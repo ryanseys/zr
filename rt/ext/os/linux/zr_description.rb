@@ -168,6 +168,7 @@ module Ze0
         d zr_method_add_row Void klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value vis:Word
         d zr_warn_redefined Void ext:Ptr mid:Word e:Ptr fn:Ptr kind:Word meta:Ptr cref:Value
         d zr_program_started_p Bool
+        d zr_runtime_written Void
         d zr_save_core_row Void ext:Ptr e:Ptr
         d zr_saved_row Ptr ext:Ptr mid:Word
         d zr_core_class_p Bool klass:Value
@@ -911,6 +912,7 @@ module Ze0
         d zr_obj_instance_of Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_eql_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_hash Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_obj_id_code Word obj:Value
         d zr_big_hash Value v:Value
         d zr_str_hash Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_send Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1475,6 +1477,7 @@ module Ze0
         d zr_os_fcntl I32 fd:I32 command:I32 argument:Word
         d zr_os_ioctl I32 fd:I32 request:Word argument:Ptr
         d zr_os_open I32 path:Ptr flags:I32
+        d zr_os_realpath Ptr path:Ptr
         d zr_os_dirent_name Ptr entry:Ptr
         d zr_os_stat_rows Value buf:Ptr
         d zr_os_stat_size Word buf:Ptr
@@ -1851,8 +1854,8 @@ module Ze0
         s GateRow 40 8 klass:0:Word mid:8:Word bit:16:Word fn:24:Ptr vis:32:Word
         s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word
         s RCref 80 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr lazy:64:Value blk:72:Value
-        s LoadTable 80 8 units:0:Word rows:8:Ptr roots:16:Ptr roots_len:24:Word missing:32:Ptr missing_len:40:Word preloaded:48:Ptr preloaded_len:56:Word ext:64:Ptr ext_len:72:Word
-        s FrameMeta 120 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr locals:80:Ptr env:88:Word box:96:Value ruby:104:Word captures:112:Ptr
+        s LoadTable 96 8 units:0:Word rows:8:Ptr roots:16:Ptr roots_len:24:Word missing:32:Ptr missing_len:40:Word preloaded:48:Ptr preloaded_len:56:Word ext:64:Ptr ext_len:72:Word spots:80:Ptr spots_len:88:Word
+        s FrameMeta 128 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr locals:80:Ptr env:88:Word box:96:Value ruby:104:Word captures:112:Ptr node:120:Word
         s BtRow 40 8 meta:0:Ptr file:8:Ptr file_len:16:Word line:24:Word node:32:Word
         s RException 56 8 basic:0:RBasic message:16:Value rows:24:Ptr nrows:32:Word bt:40:Value cause:48:Value
         s RFiber 112 8 basic:0:RBasic task:16:Ptr ctx:24:Ptr stack:32:Ptr kroots:40:Ptr blk:48:Value status:56:Word prev:64:Value resuming:72:Value value:80:Value yielding:88:Word transferred:96:Word home:104:Value

@@ -18,6 +18,9 @@ __END__
 [10, 20, 30]
 #@ stderr
 core/hash/hash_each_with_object.rb:15:in 'block in <main>': undefined method '<<' for nil (NoMethodError)
+
+result2 = h.each_with_object([]) { |k, v, memo| memo << v * 100 }
+                                                     ^^
 	from core/hash/hash_each_with_object.rb:15:in 'Hash#each'
 	from core/hash/hash_each_with_object.rb:15:in 'Enumerable#each_with_object'
 	from core/hash/hash_each_with_object.rb:15:in '<main>'

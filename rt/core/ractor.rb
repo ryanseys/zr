@@ -330,9 +330,9 @@ class Ractor
   end
 
   def self.make_shareable(obj, copy: false)
-    return make_shareable(cross(obj, {}, true)) if copy
+    return make_shareable(cross(obj, {}.compare_by_identity, true)) if copy
 
-    deep_freeze(obj, {})
+    deep_freeze(obj, {}.compare_by_identity)
     obj
   end
 
@@ -387,11 +387,11 @@ class Ractor
 
   def self.deep_freeze(obj, seen)
     Primitive.attr! :hidden
-    return if immutable?(obj) || moved?(obj) || obj.is_a?(Ractor) || seen.key?(obj.object_id)
+    return if immutable?(obj) || moved?(obj) || obj.is_a?(Ractor) || seen.key?(obj)
 
     raise Error, "can not make shareable object for #{obj.inspect}" if UNSHAREABLE.any? { |k| obj.is_a?(k) }
 
-    seen[obj.object_id] = true
+    seen[obj] = true
     obj.freeze
     reachable(obj).each { |ref| deep_freeze(ref, seen) }
   end
@@ -416,13 +416,13 @@ class Ractor
   # copy does. `deeply` copies a shareable value as well, which
   # `make_shareable(copy: true)` asks for, and `given` collects the nodes
   # a move then takes away from the sender.
-  def self.cross(value, seen = {}, deeply = false, given = nil)
+  def self.cross(value, seen = {}.compare_by_identity, deeply = false, given = nil)
     Primitive.attr! :hidden
     return value if immutable?(value) || (!deeply && shareable?(value))
-    return seen[value.object_id] if seen.key?(value.object_id)
+    return seen[value] if seen.key?(value)
 
     copy = value.class.allocate
-    seen[value.object_id] = copy
+    seen[value] = copy
     given << value if given
     fill(value, copy, seen, deeply, given)
     value.instance_variables.each do |name|
@@ -455,9 +455,9 @@ class Ractor
   # sender keeps what it had.
   def self.hand_over(value)
     Primitive.attr! :hidden
-    unmovable!(value, {})
+    unmovable!(value, {}.compare_by_identity)
     given = []
-    copy = cross(value, {}, false, given)
+    copy = cross(value, {}.compare_by_identity, false, given)
     given.each { |node| Primitive.zr_moved_m(node, MovedObject) }
     copy
   end
@@ -465,11 +465,11 @@ class Ractor
 
   def self.unmovable!(value, seen)
     Primitive.attr! :hidden
-    return if immutable?(value) || shareable?(value) || seen.key?(value.object_id)
+    return if immutable?(value) || shareable?(value) || seen.key?(value)
 
     raise Error, "can not move #{value.class} object." if UNMOVABLE.any? { |k| value.is_a?(k) }
 
-    seen[value.object_id] = true
+    seen[value] = true
     reachable(value).each { |ref| unmovable!(ref, seen) }
   end
   private_class_method :unmovable!

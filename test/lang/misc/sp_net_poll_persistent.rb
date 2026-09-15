@@ -55,5 +55,8 @@ puts "registered: #{Net.sp_net_poll_registered}"
 __END__
 #@ stderr
 lang/misc/sp_net_poll_persistent.rb:10:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)
+
+  ffi_func :sp_net_poll_register,   [:int, :int], :int
+  ^^^^^^^^
 	from lang/misc/sp_net_poll_persistent.rb:9:in '<main>'
 #@ exit 1

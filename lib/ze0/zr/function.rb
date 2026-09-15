@@ -181,10 +181,11 @@ module Ze0
         name = @def && %i[class module].include?(@kind) ? sym_id(@def.name) : 0
         params = @def.params if %i[def block].include?(@kind)
         kind = hidden_def? ? "KIND_HIDDEN" : @l.frame_kind(@kind)
+        node_id = @def ? @l.node_id(@def) : 0
         @meta = @l.meta(@name, kind, line, name, @outer&.meta, params, @locals, @has_env, attributes.include?(:ruby),
-                        captures: true)
+                        captures: true, node: node_id)
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
-        @line = line | ((@def ? @l.node_id(@def) : 0) << 32)
+        @line = line | (node_id << 32)
         @f.store(imm(@line), @rec, off(@frame, "line"))
         serial = @f.iadd(@f.fetch("i64", @task_addr, off(@task, "serial")), imm(1))
         @f.store(serial, @task_addr, off(@task, "serial"))

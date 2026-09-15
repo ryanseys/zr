@@ -21,4 +21,7 @@ puts(after > before ? "collected" : "NO COLLECTION")
 __END__
 #@ stderr
 core/string/string_plus_heap_gc.rb:20:in '<main>': undefined method '>' for nil (NoMethodError)
+
+puts(after > before ? "collected" : "NO COLLECTION")
+           ^
 #@ exit 1

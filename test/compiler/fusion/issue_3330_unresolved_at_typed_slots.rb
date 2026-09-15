@@ -21,5 +21,8 @@ puts "ok"
 __END__
 #@ stderr
 compiler/fusion/issue_3330_unresolved_at_typed_slots.rb:5:in '<module:Sock>': uninitialized constant Sock::FFI (NameError)
+
+  extend FFI
+         ^^^
 	from compiler/fusion/issue_3330_unresolved_at_typed_slots.rb:4:in '<main>'
 #@ exit 1

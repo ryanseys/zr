@@ -291,7 +291,9 @@ class NameError
     @receiver
   end
 
-  def local_variables = []
+  # The locals of the scope the error was raised in; the lowering's own
+  # have no name a program can spell.
+  def local_variables = (@local_variables || []).grep(/\A[a-z_][A-Za-z0-9_]*\z/)
 end
 
 class NoMethodError
@@ -440,3 +442,9 @@ module Kernel
   end
   private :caller_locations
 end
+
+# ruby.c defines these before the gem prelude runs, which loads each
+# library only where its module stands.
+module ErrorHighlight; end
+module DidYouMean; end
+module SyntaxSuggest; end

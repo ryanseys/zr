@@ -16,4 +16,7 @@ puts "retained: " + arr.length.to_s
 __END__
 #@ stderr
 core/string/gc_stat_string_heap.rb:13:in '<main>': undefined method '>=' for nil (NoMethodError)
+
+puts "str_count >= 1000: " + (g["str_count"] >= 1000 ? "yes" : "no")
+                                             ^^
 #@ exit 1

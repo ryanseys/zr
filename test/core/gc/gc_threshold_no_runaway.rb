@@ -36,4 +36,7 @@ __END__
 retained: 7
 #@ stderr
 core/gc/gc_threshold_no_runaway.rb:32:in '<main>': undefined method '>' for nil (NoMethodError)
+
+puts "threshold positive: " + (g["threshold"] > 0 ? "yes" : "no")
+                                              ^
 #@ exit 1

@@ -14,7 +14,9 @@
 # main's, which is what makes a box's reach the code it holds.
 # `ruby` is 1 on a core def CRuby itself writes in Ruby, which answers
 # its own parameters where a method written in C answers `[[:rest]]`.
-Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr, locals: Ptr, env: Word, box: Value, ruby: Word, captures: Ptr
+# `node` is the id of the prism node that defines the function, which
+# a frame raised on its entry reports.
+Machine.struct :FrameMeta, name: Word, owner: Value, file: Ptr, file_len: Word, kind: Word, line: Word, parent: Ptr, arity: Word, params: Ptr, fn: Ptr, locals: Ptr, env: Word, box: Value, ruby: Word, captures: Ptr, node: Word
 KIND_MAIN = 0
 KIND_DEF = 1
 KIND_BUILTIN = 2
@@ -614,7 +616,16 @@ end
 # with the count of the levels between.
 sig [Value] => Void
 machine def zr_error_print_one(exc)
-  detail = zr_send(exc, Machine.id(:detailed_message), 0, 0)
+  # `highlight:` is whether stderr is still the terminal ruby started
+  # with, as rb_stderr_tty_p decides.
+  opts = zr_hash_new()
+  out = zr_gvar_get(Machine.id(:$stderr))
+  original = zr_special_p(out) || out == zr_core_class(Machine.id(:STDERR))
+  zr_hash_store(opts, zr_sym(Machine.id(:highlight)), zr_bool(original && Machine.word(isatty(Machine.i32(2))) != 0))
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(opts))
+  zr_kw_pass()
+  detail = zr_send(exc, Machine.id(:detailed_message), 1, slot)
   if detail == QUNDEF || zr_special_p(detail) || zr_type(detail) != T_STRING
     detail = zr_class_name_of(exc)
     Task.set_pending(zr_task(), Machine.value(QNIL))

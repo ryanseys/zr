@@ -45,6 +45,13 @@ RIGHTS_WRITE = 4194625
 RIGHTS_OTHER = 1073741823 - RIGHTS_READ - RIGHTS_WRITE
 FDSTAT_LEN = 24
 
+# WASI names no link a path takes, so no path resolves further than
+# it is written: 0 for every one.
+sig [Ptr] => Ptr
+machine def zr_os_realpath(path)
+  Machine.ptr(0)
+end
+
 # open(2) over path_open, under the preopened directory the path is in.
 sig [Ptr, I32] => I32
 machine def zr_os_open(path, flags)

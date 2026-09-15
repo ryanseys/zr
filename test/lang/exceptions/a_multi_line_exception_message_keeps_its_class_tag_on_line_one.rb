@@ -12,4 +12,7 @@ __END__
 lang/exceptions/a_multi_line_exception_message_keeps_its_class_tag_on_line_one.rb:9:in '<main>': first (ArgumentError)
 second
 third
+
+raise ArgumentError, "first\nsecond\nthird"
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 #@ exit 1

@@ -17,3 +17,6 @@ joined the failure
 #@ stderr
 #<Thread:0xADDR core/process/one_threads_bad_dispatch_no_longer_kills_the_other_threads.rb:7 run> terminated with exception (report_on_exception is true):
 core/process/one_threads_bad_dispatch_no_longer_kills_the_other_threads.rb:7:in 'block in <main>': undefined method 'missing_in_thread' for an instance of Plain (NoMethodError)
+
+bad = Thread.new { Plain.new.send(:missing_in_thread) }
+                            ^^^^^

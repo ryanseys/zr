@@ -18,5 +18,8 @@ __END__
 "before"
 #@ stderr
 lang/exceptions/uncaught_exception_message.rb:5:in 'Object#boom': undefined method 'length' for nil (NoMethodError)
+
+  v.length
+   ^^^^^^^
 	from lang/exceptions/uncaught_exception_message.rb:15:in '<main>'
 #@ exit 1

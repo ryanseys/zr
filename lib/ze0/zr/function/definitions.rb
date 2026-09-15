@@ -77,11 +77,13 @@ module Ze0
           end
 
           id = imm(sym_id(node.name))
+          # The scope is read first, so the row names this read's node.
+          scope = scope_class(node.scope) if node.scope
           at_node(node)
           if node.scope.nil?
             checked(kernel("zr_const_get_cached", cache("cc", "ConstCache"), @cref, id))
           else
-            checked(kernel("zr_const_get_at_cached", cache("cc", "ConstCache"), scope_class(node.scope), id))
+            checked(kernel("zr_const_get_at_cached", cache("cc", "ConstCache"), scope, id))
           end
         end
 

@@ -38,5 +38,8 @@ puts "after reset: #{Net.sp_net_poll_add(0, 1)}"
 __END__
 #@ stderr
 core/array/sp_net_poll_grow.rb:11:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)
+
+  ffi_func :sp_net_poll_reset, [],          :int
+  ^^^^^^^^
 	from core/array/sp_net_poll_grow.rb:10:in '<main>'
 #@ exit 1

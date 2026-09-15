@@ -46,9 +46,30 @@ module Ze0
         # The target goes in first: two targets never share a built form.
         # A path goes in beside its bytes: the runtime object carries the
         # core's file names, so two checkouts never share one either.
-        @digest ||= Digest::SHA256.new.tap do |d|
+        @digest ||= digest_of(Zr.sources(target) + gem_prelude_files)
+      end
+
+      # The files the gem prelude loads, which only its loader knows:
+      # read from the cache under the digest of everything else, or
+      # found by building the prelude's HIR. A change to one of them that
+      # reaches another file changes the digest, and the list is found
+      # again.
+      def gem_prelude_files
+        @gem_prelude_files ||= begin
+          path = File.join(CACHE, "gem-prelude-#{digest_of(Zr.sources(target))}.json")
+          files = JSON.parse(File.read(path)) if File.exist?(path)
+          unless files&.all? { |file| File.file?(file) }
+            files = [GEM_PRELUDE, *Zr.gem_prelude(target).units.map(&:file)].uniq.sort
+            Zr.write_cache(path, JSON.generate(files))
+          end
+          files
+        end
+      end
+
+      def digest_of(files)
+        Digest::SHA256.new.tap do |d|
           d << target.triple << "\0"
-          Zr.sources(target).each { |path| d << path << "\0" << File.binread(path) }
+          files.each { |path| d << path << "\0" << File.binread(path) }
         end.hexdigest
       end
 
@@ -186,7 +207,8 @@ module Ze0
       lower = Lower.new(hir, rt.unit, symbols)
       functions, data = lower.run
       units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
-      Program.new(rt, functions, data + symbol_names(symbols) + load_tables(units, evals: hir.evals, target: target), hir.evals && carried)
+      tables = load_tables(units, evals: hir.evals, spots: hir.spots || {}, target: target)
+      Program.new(rt, functions, data + symbol_names(symbols) + tables, hir.evals && carried)
     end
 
     # The runtime for `target`, lowered once per process.
@@ -247,7 +269,36 @@ module Ze0
         data.concat(d)
         entry
       end
-      [functions << prelude(entries, unit), data]
+      f, d = Lower.new(gem_prelude(target), unit, symbols, entry: "zr_gem_prelude", kind: :top).run
+      [functions.concat(f) << prelude(entries, unit), data.concat(d)]
+    end
+
+    # CRuby's gem_prelude.rb, which loads the libraries ruby carries
+    # before a program's first line, and after it error_highlight's
+    # lookup for a program compiled ahead of time. Boot runs it once the
+    # core library stands, before the program.
+    GEM_PRELUDE = File.join(Paths::VENDOR, "prelude/gem_prelude.rb")
+    SPOTTED = File.join(Paths::RT, "ext/ze0/error_highlight.rb")
+
+    # The parsers the prelude's libraries require for work this runtime
+    # does another way: error_highlight's prism_find, which the compiled
+    # spots stand in for, and syntax_suggest's search, which only a
+    # program that carries the compiler can meet a SyntaxError for.
+    DEFERRED = %w[prism syntax_suggest/api].freeze
+
+    # A wasm32 module has no regexp engine, which those libraries and
+    # rbconfig reach for as they load, so it carries none of them.
+    def gem_prelude(target = Target.default)
+      return Hir::Program.new("<internal:gem_prelude>", [], Hir::Seq.new([], 0), [], [], false, {}, false, {}, {}) if target.arch == :wasm32
+
+      loader = Hir::Build::Loader.new(Hir::Build.stdlib(target), deferred: DEFERRED,
+                                                                 preloaded: Hir::Build::PRELOADED - Hir::Build::GEM_PRELOADED)
+      main = loader.unit("<internal:gem_prelude>", File.read(GEM_PRELUDE))
+      spotted = Hir::Require.new(:eval_road, "ze0/error_highlight", SPOTTED, loader.add(SPOTTED), 0)
+      # did_you_mean reads RbConfig, which ruby has loaded by then.
+      rbconfig = loader.configures? ? [Hir::Build.rbconfig(loader)] : []
+      body = Hir::Seq.new([*rbconfig, main.body, spotted], 0)
+      Hir::Program.new(main.file, main.locals, body, loader.units, main.warnings, false, loader.entries, false, loader.node_ids, {})
     end
 
     # `zr_prelude`: boot runs each core file's toplevel in turn, and
@@ -276,11 +327,15 @@ module Ze0
     # for, the features ruby loaded before the program, and the directory
     # of native halves, one name a line. Only a program that carries the
     # compiler can reach a require by a computed name, so only one of
-    # those gets the lines. `units` are `[path, entry]` pairs; a unit that
-    # only stops has no path.
-    def load_tables(units = [], evals: false, target: Target.default)
+    # those gets the lines. Last come error_highlight's spots for each
+    # file, which every program carries. `units` are `[path, entry]`
+    # pairs; a unit that only stops has no path.
+    def load_tables(units = [], evals: false, spots: {}, target: Target.default)
       units = units.select { |path, _| path.start_with?("/") }.sort
       names = evals ? [Hir::Build.stdlib(target), Hir::Build.missing_features(target), Hir::Build::PRELOADED, [Hir::Build::EXT]] : [[]] * 4
+      # error_highlight's spots, a file at a time: its name, a newline,
+      # then its rows, and a form feed before the next file.
+      names << [spots.map { |file, rows| "#{file}\n#{rows}" }.join("\f")]
       out = []
       text = ->(name, bytes) { out << Obj::Data.new(name, :text_const, "#{bytes}\0".b, align: 1) }
       rows = +"".b

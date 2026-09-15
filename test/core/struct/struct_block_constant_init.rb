@@ -25,4 +25,7 @@ puts l.flag(:SECRET)
 __END__
 #@ stderr
 core/struct/struct_block_constant_init.rb:20:in '<main>': uninitialized constant Line::FLAGS (NameError)
+
+puts Line::FLAGS[:TWOSIDED]
+         ^^^^^^^
 #@ exit 1

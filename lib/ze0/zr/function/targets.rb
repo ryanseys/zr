@@ -84,8 +84,8 @@ module Ze0
           # The inline `[]` path checks visibility as an explicit call does,
           # so a literal `self` dispatches instead.
           opt = node.args.none?(Hir::Splat) && !node.recv.is_a?(Hir::SelfRef)
-          read = Hir::Send.new(recv, :[], args, node.line, false, opt, nil, nil, false)
-          result = op_assign(node, read) { |v| Hir::Send.new(recv, :[]=, args + [v], node.line, false, opt, nil, nil, false) }
+          read = @l.noted(Hir::Send.new(recv, :[], args, node.line, false, opt, nil, nil, false), node)
+          result = op_assign(node, read) { |v| @l.noted(Hir::Send.new(recv, :[]=, args + [v], node.line, false, opt, nil, nil, false), node) }
           @sp = base
           result
         end
@@ -98,8 +98,8 @@ module Ze0
           recv = Hir::Slot.new(slot, node.line)
           # A literal `self` keeps its right to call private methods.
           recv = node.recv if node.recv.is_a?(Hir::SelfRef)
-          read = Hir::Send.new(recv, node.name, [], node.line, false, false, nil, nil, false)
-          write = ->(v) { Hir::Send.new(recv, :"#{node.name}=", [v], node.line, false, false, nil, nil, false) }
+          read = @l.noted(Hir::Send.new(recv, node.name, [], node.line, false, false, nil, nil, false), node)
+          write = ->(v) { @l.noted(Hir::Send.new(recv, :"#{node.name}=", [v], node.line, false, false, nil, nil, false), node) }
           result = if node.safe
                      unless_nil(@f.fetch("i64", @rec, value_offset(slot))) { op_assign(node, read, &write) }
                    else
@@ -148,7 +148,7 @@ module Ze0
             switch(merge)
             result
           else
-            @f.store(expr(Hir::Send.new(current, node.op, [node.value], node.line, false, false, nil, nil, false)), @rec, current_at)
+            @f.store(expr(@l.noted(Hir::Send.new(current, node.op, [node.value], node.line, false, false, nil, nil, false), node)), @rec, current_at)
             expr(yield(current))
             @f.fetch("i64", @rec, current_at)
           end

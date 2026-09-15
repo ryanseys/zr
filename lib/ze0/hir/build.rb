@@ -66,7 +66,8 @@ module Ze0
         preludes << normalizer(loader) if road && loader.normalizes?
         preludes << pretty_printer(loader) if road && loader.pretty_prints?
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
-        Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries, loader.tracing?, loader.node_ids)
+        spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
+        Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries, loader.tracing?, loader.node_ids, spots)
       end
 
       # The compiler alone, as the units a road holds: the loader has
@@ -124,7 +125,15 @@ module Ze0
         # The prism node id each HIR node came from, by identity.
         attr_reader :node_ids
 
-        def initialize(roots, eval: false, external: nil, trace: false)
+        # `deferred` names features a literal require leaves to the run,
+        # which finds them under $LOAD_PATH then, as a computed name is
+        # found: the gem prelude's libraries name a parser they reach only
+        # for an error this runtime spots another way.
+        # `preloaded` are the features a require answers false for, which
+        # the gem prelude's own build loads.
+        def initialize(roots, eval: false, external: nil, trace: false, deferred: [], preloaded: PRELOADED)
+          @deferred = deferred
+          @preloaded = preloaded
           @node_ids = {}.compare_by_identity
           @eval = eval
           @trace = trace
@@ -165,6 +174,10 @@ module Ze0
         EVAL_FORMS = %i[class_eval module_eval instance_eval].freeze
 
         def evals? = @evals
+
+        def deferred?(feature) = @deferred.include?(feature)
+
+        attr_reader :preloaded
 
         # A file the program names that only its run can find.
         def compiles_at_run_time!
@@ -311,7 +324,8 @@ module Ze0
           build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value))
           build.within_method(method, scopes) if scopes && method
           body = build.seq(result.value.statements, hoist: true)
-          Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings, file.start_with?("#{EXT}/"))
+          spots = Spots.of(result.value) unless @eval || @hiding || file.start_with?("<") || Build.runtime_file?(file)
+          Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings, file.start_with?("#{EXT}/"), spots)
         end
 
         # The SyntaxError an eval's string raises for a `yield` outside any
@@ -1457,12 +1471,14 @@ module Ze0
       # it does in ruby.
       # The features ruby loads before a program starts, so a require of
       # one answers false.
-      # ruby 4.0.6 also loads rubygems, did_you_mean and error_highlight,
-      # which this runtime does not carry: a require of one stops by name
-      # rather than answering false and failing at the first use. Only
-      # pathname's C half is loaded, so `require "pathname"` still runs
-      # its Ruby half and answers true.
-      PRELOADED = %w[enumerator thread fiber rational complex ruby2_keywords set monitor rbconfig].freeze
+      # The runtime's gem prelude loads error_highlight, did_you_mean and
+      # syntax_suggest's core extension, as ruby's does. ruby 4.0.6 also
+      # loads rubygems, which this runtime does not carry: a require of it
+      # stops by name rather than answering false and failing at the first
+      # use. Only pathname's C half is loaded, so `require "pathname"`
+      # still runs its Ruby half and answers true.
+      GEM_PRELOADED = %w[error_highlight did_you_mean syntax_suggest/core_ext].freeze
+      PRELOADED = (%w[enumerator thread fiber rational complex ruby2_keywords set monitor rbconfig] + GEM_PRELOADED).freeze
 
       # The features ruby carries that no library root here holds, and
       # that ruby did not load before the program: a require of one stops
@@ -1476,7 +1492,7 @@ module Ze0
       # A feature ruby loaded before the program, by any of its names:
       # `thread`, `thread.rb` and `enumerator.so` all count.
       def preloaded?(feature)
-        PRELOADED.include?(feature.to_s.sub(/\.(?:rb|so|bundle)\z/, ""))
+        (@loader ? @loader.preloaded : PRELOADED).include?(feature.to_s.sub(/\.(?:rb|so|bundle)\z/, ""))
       end
 
       def require_node(node)
@@ -1486,6 +1502,8 @@ module Ze0
           @loader.configures! if feature.to_s.delete_suffix(".rb") == "rbconfig"
           return Literal.new(false, line)
         end
+
+        return plain_call(node, compiles: false) if @loader.deferred?(feature)
 
         path = @loader.resolve(node.name, feature, @file)
         stop = path.nil? && node.name != :require_relative && stop_for(node, feature)

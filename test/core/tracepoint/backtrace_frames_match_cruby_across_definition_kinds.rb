@@ -110,3 +110,6 @@ nil
 ["core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:75:in 'block in <main>'", "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:74:in 'Object#proc_caller'", "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:77:in '<main>'"]
 ["core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:81:in 'Object#sent'", "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:83:in '<main>'"]
 core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:88:in '<main>': fm (ArgumentError)
+
+  raise ArgumentError, "fm"
+        ^^^^^^^^^^^^^^^^^^^

@@ -78,5 +78,8 @@ puts(ok ? "ok" : "bad")
 __END__
 #@ stderr
 compiler/fusion/string_split_inline_arg_gc_root.rb:7:in 'Object#churn_gc': undefined method '<=' for nil (NoMethodError)
+
+  while GC.stat["bytes"] <= GC.stat["threshold"] && keep.length < 64
+                         ^^
 	from compiler/fusion/string_split_inline_arg_gc_root.rb:43:in '<main>'
 #@ exit 1

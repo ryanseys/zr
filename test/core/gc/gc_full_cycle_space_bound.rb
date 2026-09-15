@@ -35,4 +35,7 @@ __END__
 live set: 1000
 #@ stderr
 core/gc/gc_full_cycle_space_bound.rb:32:in '<main>': undefined method '>' for nil (NoMethodError)
+
+puts "full sweeps kept running: " + (g["full_runs"] > 6 ? "yes" : "no")
+                                                    ^
 #@ exit 1
