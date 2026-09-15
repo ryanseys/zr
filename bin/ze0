@@ -106,33 +106,34 @@ when "stage1"
   require "tmpdir"
   require "fileutils"
   source = File.join(ROOT, "tools/stage.rb")
-  Dir.mktmpdir("ze0-stage1-") do |work|
-    # The two objects are compared and then go: nothing outlives the
-    # run, so the directory is named while it is still there to look in.
-    puts "work (removed when this ends): #{work}"
-    outs = %w[a b].map do |n|
-      cache = File.join(work, "#{n}-cache")
-      FileUtils.mkdir_p(cache)
-      out = File.join(work, "#{n}.o")
-      step("self-compile #{n} -> #{out}") do
-        system({ "ZE0_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil },
-               RbConfig.ruby, __FILE__, "zr", "build", source, "-o", out, "--emit", "obj", chdir: ROOT) or
-          abort("ze0 stage1: the self-compile failed")
-      end
-      runtime = Dir[File.join(cache, "rt-*.o")]
-      abort("ze0 stage1: the runtime object was not cached") unless runtime.size == 1
-      [File.binread(out), File.binread(runtime.first)]
+  # The work directory outlives a failure, so the two objects and their
+  # caches are there to diff; a run that holds removes it, as the two
+  # objects are then the same bytes twice.
+  work = Dir.mktmpdir("ze0-stage1-")
+  puts "work (kept if this fails): #{work}"
+  outs = %w[a b].map do |n|
+    cache = File.join(work, "#{n}-cache")
+    FileUtils.mkdir_p(cache)
+    out = File.join(work, "#{n}.o")
+    step("self-compile #{n} -> #{out}") do
+      system({ "ZE0_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil },
+             RbConfig.ruby, __FILE__, "zr", "build", source, "-o", out, "--emit", "obj", chdir: ROOT) or
+        abort("ze0 stage1: the self-compile failed; its work is in #{work}")
     end
-    a, b = outs
-    %w[compiler runtime].each_with_index do |what, i|
-      next if a[i] == b[i]
-
-      at = a[i].bytes.zip(b[i].bytes).index { |x, y| x != y } || [a[i].bytesize, b[i].bytesize].min
-      abort("ze0 stage1: the two #{what} objects differ: #{a[i].bytesize} and #{b[i].bytesize} bytes, first at #{at}")
-    end
-    puts "stage 1 holds: #{a[0].bytesize} bytes of compiler and #{a[1].bytesize} of runtime, the same twice"
-    puts "nothing is kept: #{work} goes now"
+    runtime = Dir[File.join(cache, "rt-*.o")]
+    abort("ze0 stage1: the runtime object was not cached; the work is in #{work}") unless runtime.size == 1
+    [File.binread(out), File.binread(runtime.first)]
   end
+  a, b = outs
+  %w[compiler runtime].each_with_index do |what, i|
+    next if a[i] == b[i]
+
+    at = a[i].bytes.zip(b[i].bytes).index { |x, y| x != y } || [a[i].bytesize, b[i].bytesize].min
+    abort("ze0 stage1: the two #{what} objects differ: #{a[i].bytesize} and #{b[i].bytesize} bytes, first at #{at}; both are kept in #{work}")
+  end
+  puts "stage 1 holds: #{a[0].bytesize} bytes of compiler and #{a[1].bytesize} of runtime, the same twice"
+  FileUtils.rm_rf(work)
+  puts "nothing is kept: #{work} is gone"
 when "stage2"
   # The stage ladder. Stage 1 is the compiler compiled by ze0 under ruby;
   # stage 2 is the same source compiled by stage 1. The two binaries must
