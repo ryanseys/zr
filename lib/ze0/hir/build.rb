@@ -299,10 +299,14 @@ module Ze0
           command.is_a?(Interp) || (command.is_a?(Literal) && command.value.is_a?(String) && !(name == :trap && TRAP_WORDS.include?(command.value)))
         end
 
-        # A program that names Ruby::Box compiles ruby while it runs:
-        # everything a box holds goes through the compiler.
-        def boxes!(name)
-          @evals = true if name == :Ruby
+        # A program that names Ruby::Box or RubyVM::InstructionSequence
+        # compiles ruby while it runs: everything a box holds, and every
+        # string an instruction sequence compiles, goes through the
+        # compiler.
+        COMPILES = %i[Ruby InstructionSequence].freeze
+
+        def compiles!(name)
+          @evals = true if COMPILES.include?(name)
         end
 
         # Whether a file names rubygems' API, which then loads as the
@@ -1026,10 +1030,11 @@ module Ze0
             end
           end
         when Prism::ConstantReadNode
-          @loader&.boxes!(node.name)
+          @loader&.compiles!(node.name)
           gems!(node.name)
           ConstRead.new(nil, node.name, line)
         when Prism::ConstantPathNode
+          @loader&.compiles!(node.name)
           gems!(node.name) if node.parent.nil?
           scope, name = constant_path(node)
           ConstRead.new(scope, name, line)

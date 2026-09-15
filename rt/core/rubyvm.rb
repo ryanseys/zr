@@ -35,6 +35,94 @@ class RubyVM
     stats.fetch(key) { raise ArgumentError, "unknown key: #{key}" }
   end
 
+  # A handle on compiled code: a block or a method written in Ruby, or a
+  # string compiled by the compiler a program that names this class
+  # carries. There is no bytecode to show, so the forms that read it
+  # refuse by name.
+  class InstructionSequence
+    Primitive.zr_undef_alloc(self)
+
+    class << self
+      undef_method :new
+
+      def of(body)
+        return nil unless Primitive.zr_iseq_p(body)
+
+        path, line = body.source_location
+        made(body, nil, Primitive.zr_iseq_label(body, false), Primitive.zr_iseq_label(body, true), path, line)
+      end
+
+      def compile(source, file = "<compiled>", path = file, line = 1, options = nil)
+        source = source.read if source.is_a?(IO)
+        return Primitive.zr_unimplemented("RubyVM::InstructionSequence.compile") unless defined?(::Ze0::Eval)
+
+        code = ::Ze0::Eval.current.compile(source, file, line, [])
+        Primitive.zr_box_compiled(code[1])
+        iseq = made(nil, code, "<compiled>", "<compiled>", file, line)
+        Primitive.zr_hidden_set(iseq, :__absolute_path__, path)
+        iseq
+      end
+      alias compile_prism compile
+
+      def compile_file(file, options = nil)
+        iseq = compile(File.read(file), file, File.expand_path(file))
+        Primitive.zr_hidden_set(iseq, :__label__, "<main>")
+        Primitive.zr_hidden_set(iseq, :__base_label__, "<main>")
+        iseq
+      end
+      alias compile_file_prism compile_file
+
+      def compile_option = {}
+      def compile_option=(options); end
+
+      def disasm(body) = of(body)&.disasm
+      alias disassemble disasm
+
+      def load_from_binary(binary) = Primitive.zr_unimplemented("RubyVM::InstructionSequence.load_from_binary")
+
+      private
+
+      def made(body, code, label, base_label, path, line)
+        Primitive.attr! :hidden
+        iseq = Primitive.zr_class_build(self)
+        Primitive.zr_hidden_set(iseq, :__body__, body)
+        Primitive.zr_hidden_set(iseq, :__code__, code)
+        Primitive.zr_hidden_set(iseq, :__label__, label)
+        Primitive.zr_hidden_set(iseq, :__base_label__, base_label)
+        Primitive.zr_hidden_set(iseq, :__path__, path)
+        Primitive.zr_hidden_set(iseq, :__first_lineno__, line)
+        iseq
+      end
+    end
+
+    def label = Primitive.zr_hidden_get(self, :__label__)
+    def base_label = Primitive.zr_hidden_get(self, :__base_label__)
+    def path = Primitive.zr_hidden_get(self, :__path__)
+    def first_lineno = Primitive.zr_hidden_get(self, :__first_lineno__)
+
+    # The path as the file was found, or nil for code no file holds.
+    def absolute_path
+      Primitive.zr_hidden_get(self, :__absolute_path__) || (File.file?(path) ? File.expand_path(path) : nil)
+    end
+
+    # A compiled string runs at the top level, under main and Object.
+    def eval
+      code = Primitive.zr_hidden_get(self, :__code__)
+      return Primitive.zr_unimplemented("RubyVM::InstructionSequence#eval of a block or a method") if code.nil?
+
+      Primitive.zr_eval_run(code, TOPLEVEL_BINDING.receiver, Primitive.zr_eval_cref_under(Object, nil), nil, nil)
+    end
+
+    def inspect = "<RubyVM::InstructionSequence:#{label}@#{path}:#{first_lineno}>"
+
+    def disasm = Primitive.zr_unimplemented("RubyVM::InstructionSequence#disasm")
+    alias disassemble disasm
+
+    def to_a = Primitive.zr_unimplemented("RubyVM::InstructionSequence#to_a")
+    def to_binary(extra_data = nil) = Primitive.zr_unimplemented("RubyVM::InstructionSequence#to_binary")
+    def script_lines = nil
+  end
+
   module AbstractSyntaxTree
     # The AST of what `body` runs. Every ISEQ here is prism's, so a body
     # written in Ruby refuses as ast_s_of refuses one; a method or a Proc

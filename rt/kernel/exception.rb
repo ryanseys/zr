@@ -432,6 +432,13 @@ end
 # `block in label`, or `block (N levels) in label` for a nested block.
 sig [Ptr, Ptr] => Void
 machine def zr_buf_label(b, meta)
+  zr_buf_label_as(b, meta, true)
+end
+
+# The label, with a method named by its owner as a backtrace names it
+# when `qualified`, or by its name alone as an instruction sequence is.
+sig [Ptr, Ptr, Bool] => Void
+machine def zr_buf_label_as(b, meta, qualified)
   if FrameMeta.kind(meta) == KIND_BLOCK
     levels = 1
     outer = FrameMeta.parent(meta)
@@ -446,13 +453,13 @@ machine def zr_buf_label(b, meta)
       zr_buf_push(b, Machine.bytes(" levels) "), 9)
     end
     zr_buf_push(b, Machine.bytes("in "), 3)
-    zr_buf_label(b, outer)
+    zr_buf_label_as(b, outer, qualified)
   elsif FrameMeta.kind(meta) == KIND_MAIN
     zr_buf_push(b, Machine.bytes("<main>"), 6)
   elsif FrameMeta.kind(meta) == KIND_TOP
     zr_buf_push(b, Machine.bytes("<top (required)>"), 16)
   elsif FrameMeta.kind(meta) == KIND_EVAL
-    zr_buf_label(b, FrameMeta.parent(meta))
+    zr_buf_label_as(b, FrameMeta.parent(meta), qualified)
   elsif FrameMeta.kind(meta) == KIND_COMPILED
     zr_buf_push(b, Machine.bytes("<compiled>"), 10)
   elsif FrameMeta.kind(meta) == KIND_SCLASS
@@ -461,8 +468,10 @@ machine def zr_buf_label(b, meta)
     zr_buf_push(b, FrameMeta.kind(meta) == KIND_CLASS ? Machine.bytes("<class:") : Machine.bytes("<module:"), FrameMeta.kind(meta) == KIND_CLASS ? 7 : 8)
     zr_buf_sym(b, FrameMeta.name(meta))
     zr_buf_byte(b, 62)
-  else
+  elsif qualified
     zr_buf_method_label(b, FrameMeta.owner(meta), FrameMeta.name(meta))
+  else
+    zr_buf_sym(b, FrameMeta.name(meta))
   end
 end
 

@@ -630,3 +630,50 @@ machine def zr_mod_attached(klass)
   end
   RClass.attached(klass)
 end
+
+# The FrameMeta of the Ruby code a Proc, a Method or an UnboundMethod
+# runs, or 0 for code the runtime carries: what
+# RubyVM::InstructionSequence.of finds an instruction sequence for.
+sig [Value] => Ptr
+machine def zr_iseq_meta(body)
+  if zr_special_p(body)
+    return 0
+  end
+  meta = 0
+  if zr_type(body) == T_PROC
+    if RProc.fn(body) == Machine.addr(:zr_method_block)
+      return zr_iseq_meta(RProc.self(body))
+    end
+    meta = RProc.meta(body)
+  elsif zr_type(body) == T_METHOD
+    meta = zr_method_location(RMethod.entry(body))
+  end
+  if meta == 0 || FrameMeta.file_len(meta) == 0 || FrameMeta.kind(meta) == KIND_BUILTIN || FrameMeta.kind(meta) == KIND_HIDDEN
+    return 0
+  end
+  meta
+end
+
+sig [Value] => Value
+machine def zr_iseq_p(body)
+  zr_bool(zr_iseq_meta(body) != 0)
+end
+
+# The label of the code `body` runs, or with `base` the label of the
+# method, class or file its blocks are written in.
+sig [Value, Value] => Value
+machine def zr_iseq_label(body, base)
+  meta = zr_iseq_meta(body)
+  if meta == 0
+    return Machine.value(QNIL)
+  end
+  if base == QTRUE
+    while FrameMeta.kind(meta) == KIND_BLOCK
+      meta = FrameMeta.parent(meta)
+    end
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_label_as(b, meta, false)
+  zr_buf_take(b)
+end

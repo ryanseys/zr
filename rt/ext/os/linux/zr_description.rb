@@ -427,6 +427,7 @@ module Ze0
         d zr_raise_buf Value klass:Value b:Ptr
         d zr_core_class Value id:Word
         d zr_buf_label Void b:Ptr meta:Ptr
+        d zr_buf_label_as Void b:Ptr meta:Ptr qualified:Bool
         d zr_buf_method_label Void b:Ptr owner:Value name:Word
         d zr_buf_row Void b:Ptr row:Ptr
         d zr_exc_backtrace Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1133,6 +1134,9 @@ module Ze0
         d zr_main_define_method Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_main_to_s Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_attached Value klass:Value
+        d zr_iseq_meta Ptr body:Value
+        d zr_iseq_p Value body:Value
+        d zr_iseq_label Value body:Value base:Value
         d zr_onig_ready Void
         d zr_regexp_alloc Value klass:Value
         d zr_regexp_copy_from Value re:Value other:Value
