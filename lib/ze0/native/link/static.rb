@@ -11,8 +11,10 @@ module Ze0
       # static libc (musl): the whole program in one file, no loader.
       module Static
         # `--build-id=none`: a link of the same objects writes the same
-        # bytes. The stack is not executable.
-        FLAGS = ["-static", "-Wl,--build-id=none", "-Wl,-z,noexecstack"].freeze
+        # bytes. `-no-pie`: a toolchain's default decides nothing, and
+        # Alpine's gcc would make a static PIE where musl-cross makes an
+        # ET_EXEC. The stack is not executable.
+        FLAGS = ["-static", "-no-pie", "-Wl,--build-id=none", "-Wl,-z,noexecstack"].freeze
 
         # What nothing calls is left out: every item is a section of its own.
         STRIP_FLAGS = ["-Wl,--gc-sections"].freeze

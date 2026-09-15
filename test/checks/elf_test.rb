@@ -122,7 +122,7 @@ class ElfTest < Minitest::Test
     Dir.mktmpdir("ze0-elf-") do |dir|
       obj = File.join(dir, "u.o")
       File.binwrite(obj, Elf.write(unit))
-      out = IO.popen([readelf, "--relocations", "--symbols", obj], err: %i[child out], &:read)
+      out = IO.popen([readelf, "-r", "-s", obj], err: %i[child out], &:read)
       assert $?.success?, out
       assert_match(/R_AARCH64_CALL26\s+0+\s+exit/, out)
       assert_match(/R_AARCH64_ABS64\s+0+\s+msg \+ 4/, out)
