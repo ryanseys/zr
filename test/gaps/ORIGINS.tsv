@@ -13,3 +13,4 @@ gaps/openssl_secure_compare.rb	stdlib/openssl/openssl_secure_compare.rb
 gaps/openssl_ssl_surface.rb	stdlib/openssl/openssl_ssl_surface.rb
 gaps/openssl_tls_client.rb	stdlib/openssl/openssl_tls_client.rb
 gaps/yaml_loads_and_entropy_draws_run_concurrently_under_the_armed_gvl.rb	stdlib/openssl/yaml_loads_and_entropy_draws_run_concurrently_under_the_armed_gvl.rb
+gaps/the_carrier_utf8_encodings_map_their_emoji.rb	core/encoding/the_carrier_utf8_encodings_map_their_emoji.rb
