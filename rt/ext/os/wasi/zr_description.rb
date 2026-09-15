@@ -791,6 +791,7 @@ module Ze0
         d zr_realpath_m Value path:Value
         d zr_chmod_m Value path:Value mode:Value
         d zr_path_access Value path:Value mode:Value
+        d zr_io_wait_fds Value fds:Value events:Value milliseconds:Value
         d zr_io_wait Value fd:Value events:Value milliseconds:Value
         d zr_jit_write_data Value at:Value bytes:Value
         d zr_jit_call Value at:Value
@@ -1532,6 +1533,7 @@ module Ze0
         d readdir Ptr d:Ptr
         d zr_os_dirent_name Ptr entry:Ptr
         d closedir I32 d:Ptr
+        d zr_os_wait_fds Value fds:Value events:Value milliseconds:Value
         d zr_os_wait_fd Value fd:Value events:Value milliseconds:Value
         d strerror Ptr n:I32
         d getcwd Ptr buf:Ptr size:Word

@@ -791,6 +791,7 @@ module Ze0
         d zr_realpath_m Value path:Value
         d zr_chmod_m Value path:Value mode:Value
         d zr_path_access Value path:Value mode:Value
+        d zr_io_wait_fds Value fds:Value events:Value milliseconds:Value
         d zr_io_wait Value fd:Value events:Value milliseconds:Value
         d zr_jit_write_data Value at:Value bytes:Value
         d zr_jit_call Value at:Value
@@ -1483,6 +1484,7 @@ module Ze0
         d zr_os_stat_size Word buf:Ptr
         d zr_os_stat_mode Word buf:Ptr
         d zr_select_fn Ptr
+        d zr_os_wait_fds Value fds:Value events:Value milliseconds:Value
         d zr_os_wait_fd Value fd:Value events:Value milliseconds:Value
         d zr_os_jit_map Value size:Value exec:Value hint:Value
         d zr_os_symbol Value name:Value

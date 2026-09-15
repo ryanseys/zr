@@ -491,16 +491,10 @@ class BasicSocket < IO
   # `timeout` seconds ran out. Another green thread runs meanwhile.
   def wait_ready(events, timeout)
     Primitive.attr! :hidden
-    deadline = timeout && Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
-    loop do
-      threaded = Primitive.zr_threaded && !Thread.send(:alone?)
-      left = deadline && [((deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)) * 1000).ceil, 0].max
-      ready = Primitive.zr_io_wait(@fd, events, threaded ? 0 : (left || -1))
-      raise SystemCallError.new(nil, -ready, "io_wait") if ready.negative?
-      return true if ready.positive?
-      return false if left&.zero?
+    deadline = timeout && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).round
+    ready = Thread.current.send(:wait_io, @fd, events, deadline)
+    raise SystemCallError.new(nil, -ready, "io_wait") if ready.negative?
 
-      sleep 0.001 if threaded
-    end
+    ready.positive?
   end
 end

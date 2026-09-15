@@ -9,6 +9,9 @@ class Thread
   @queue = []
   @sleepers = []
   @threads = []
+  # The threads parked on a descriptor: `[fd, events, thread]` rows,
+  # which the scheduler polls when no thread can run.
+  @io_waiters = []
   Primitive.zr_undef_alloc(self)
 
   # The scheduler's state is Thread's own: a subclass that asks for it
@@ -60,7 +63,7 @@ class Thread
     # turn and none is asleep.
     def alone?
       Primitive.attr! :hidden
-      @queue.empty? && @sleepers.empty?
+      @queue.empty? && @sleepers.empty? && @io_waiters.empty?
     end
 
     # The current thread sleeps until `wakeup`. With no other thread
@@ -167,6 +170,7 @@ class Thread
       @threads = [@current]
       @queue = []
       @sleepers = []
+      @io_waiters = []
       @main = @current
     end
 
@@ -214,7 +218,10 @@ class Thread
       Primitive.attr! :hidden
       from = @current
       while (to = @queue.shift).nil?
-        if @sleepers.empty?
+        if !@io_waiters.empty?
+          poll_waiters
+          wake_due
+        elsif @sleepers.empty?
           return deadlock if deadly && !@ignore_deadlock
 
           Primitive.zr_nanosleep(1_000_000_000)
@@ -238,6 +245,36 @@ class Thread
       @sleepers.shift
       thread.send(:timed_out)
       thread
+    end
+
+    # One wait on every descriptor a thread parks on, for as long as the
+    # first sleeper allows: each thread whose descriptor came ready
+    # wakes. A wait a signal cut short wakes nobody, and the loop that
+    # asked looks at the run queue again.
+    def poll_waiters
+      Primitive.attr! :hidden
+      deadline = @sleepers.map(&:first).min
+      left = deadline && [((deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)) / 1_000_000.0).ceil, 0].max
+      waiters = @io_waiters.dup
+      ready = Primitive.zr_io_wait_fds(waiters.map { |fd, _, _| fd }, waiters.map { |_, events, _| events }, left || -1)
+      if ready.is_a?(Integer)
+        # A descriptor closed under its waiter: every waiter looks again.
+        waiters.each { |_, _, thread| thread.wakeup if thread.status == "sleep" }
+        return
+      end
+      waiters.zip(ready).each do |(_, _, thread), events|
+        thread.wakeup if events.positive? && thread.status == "sleep"
+      end
+    end
+
+    def watch(fd, events, thread)
+      Primitive.attr! :hidden
+      @io_waiters << [fd, events, thread]
+    end
+
+    def unwatch(thread)
+      Primitive.attr! :hidden
+      @io_waiters.reject! { |_, _, waiter| waiter.equal?(thread) }
     end
 
     def deadlock
@@ -598,6 +635,38 @@ class Thread
       end
     end
     !@timed_out
+  end
+
+  # rb_thread_wait_for_single_fd: the events of `events` that `fd` came
+  # ready for, 0 once `deadline` (nanoseconds on the monotonic clock)
+  # passes, or the negated errno.
+  def wait_io(fd, events, deadline)
+    Primitive.attr! :hidden
+    ready = wait_fds([fd], [events], deadline)
+    ready.is_a?(Integer) ? ready : ready.first
+  end
+
+  # The events each descriptor of `fds` came ready for, from its row of
+  # `events`; all zero once `deadline` passes; or the negated errno. A
+  # thread alone waits in the system call itself; among others it parks,
+  # and the scheduler polls for it while no thread can run. A wakeup
+  # does not end the wait; a raise or a kill does.
+  def wait_fds(fds, events, deadline)
+    Primitive.attr! :hidden
+    loop do
+      left = deadline && [((deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)) / 1_000_000.0).ceil, 0].max
+      alone = !Primitive.zr_threaded || Thread.send(:alone?)
+      ready = Primitive.zr_io_wait_fds(fds, events, alone ? (left || -1) : 0)
+      return ready if ready.is_a?(Integer) || ready.any?(&:positive?) || left&.zero?
+      next if alone
+
+      fds.zip(events) { |fd, wanted| Thread.send(:watch, fd, wanted, self) }
+      begin
+        wait(deadline, false)
+      ensure
+        Thread.send(:unwatch, self)
+      end
+    end
   end
 
   # Wait on a list whose owner wakes its members.

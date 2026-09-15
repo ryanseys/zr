@@ -283,23 +283,21 @@ class IO
   # nil when the time ran out. A nil timeout waits for good.
   def self.select(readers, writers = nil, priority = nil, timeout = nil)
     timeout = time_interval(timeout)
-    milliseconds = timeout.nil? ? -1 : (timeout * 1000).to_i
-    deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).to_i
-    loop do
-      ready = [readers, writers, priority].zip([POLL_IN, POLL_OUT, POLL_PRI]).map do |list, event|
-        Array(list).select do |io|
-          stream = select_stream(io)
-          next true if event == POLL_IN && stream.send(:buffered?)
-
-          Primitive.zr_io_wait(stream.fileno, event, 0) & event != 0
-        end
-      end
-      return ready if ready.any? { |list| !list.empty? }
-      return nil if deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) >= deadline
-      return nil if milliseconds.zero?
-
-      sleep 0.001
+    rows = [readers, writers, priority].zip([POLL_IN, POLL_OUT, POLL_PRI]).flat_map do |list, event|
+      Array(list).map { |io| [io, select_stream(io), event] }
     end
+    now = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
+    # A reader whose buffer holds bytes is ready without a wait.
+    deadline = if rows.any? { |_, stream, event| event == POLL_IN && stream.send(:buffered?) } then now
+               elsif timeout then now + (timeout * 1e9).to_i
+               end
+    ready = Thread.current.send(:wait_fds, rows.map { |_, stream, _| stream.fileno }, rows.map { |_, _, event| event }, deadline)
+    raise SystemCallError.new(nil, -ready, "select") if ready.is_a?(Integer)
+
+    chosen = rows.zip(ready).select { |(_, stream, event), got| got.positive? || (event == POLL_IN && stream.send(:buffered?)) }
+    return nil if chosen.empty?
+
+    [POLL_IN, POLL_OUT, POLL_PRI].map { |event| chosen.filter_map { |(io, _, wanted), _| io if wanted == event } }
   end
 
   # What a `select` list entry stands for: a stream, or whatever its
@@ -1252,12 +1250,9 @@ class IO
   # system call itself, or in poll(2) when the descriptor cannot wait.
   def park_until(event, fd = @fd)
     Primitive.attr! :hidden
-    until !Primitive.zr_threaded || Thread.send(:alone?)
-      return if Primitive.zr_io_wait(fd, event, 0) != 0
+    return unless @nonblock || (Primitive.zr_threaded && !Thread.send(:alone?))
 
-      sleep 0.001
-    end
-    Primitive.zr_io_wait(fd, event, -1) if @nonblock
+    Thread.current.send(:wait_io, fd, event, nil)
   end
 
   # Whether a call on this descriptor would wait. A non-blocking call
@@ -1771,7 +1766,8 @@ class IO
   def poll_once(events, timeout)
     Primitive.attr! :hidden
     timeout = IO.send(:time_interval, timeout)
-    ready = Primitive.zr_io_wait(fileno, events, timeout.nil? ? -1 : (timeout * 1000).round)
+    deadline = timeout && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).round
+    ready = Thread.current.send(:wait_io, fileno, events, deadline)
     raise SystemCallError.new(label, -ready, "io_wait") if ready.negative?
 
     ready & events

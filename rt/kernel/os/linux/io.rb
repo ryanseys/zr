@@ -116,6 +116,53 @@ POLLOUT_SET = 780
 POLLEX_SET = 2
 POLLNVAL = 32
 
+# poll(2) on every descriptor of `fds` at once, each for the events its
+# row of `events` names, which is how the thread scheduler waits for the
+# threads parked on a descriptor: an Array of the events that came ready
+# for each row, or the negated errno. A negative time waits for good.
+sig [Value, Value, Value] => Value
+machine def zr_os_wait_fds(fds, events, milliseconds)
+  count = RArray.len(fds)
+  entries = zr_xmalloc((count + 1) * 8)
+  i = 0
+  while i < count
+    n = zr_fix2long(zr_ary_at(fds, i))
+    if n < 0
+      free(entries)
+      return zr_fix(0 - EBADF)
+    end
+    Machine.store32(entries + (i * 8), 0, Machine.i32(n))
+    Machine.store32(entries + (i * 8), 4, Machine.i32(zr_fix2long(zr_ary_at(events, i))))
+    i += 1
+  end
+  ms = zr_fix2long(milliseconds)
+  r = poll(entries, count, Machine.i32(ms < 0 ? 0 - 1 : ms))
+  if r < Machine.i32(0)
+    errno = zr_errno()
+    free(entries)
+    return zr_fix(0 - errno)
+  end
+  out = zr_ary_new(count)
+  i = 0
+  while i < count
+    got = Machine.word(Machine.load32(entries + (i * 8), 4)) >> 16
+    ready = 0
+    if (got & (POLLIN_SET | POLLNVAL)) != 0
+      ready = ready | WAIT_READABLE
+    end
+    if (got & (POLLOUT_SET | POLLNVAL)) != 0
+      ready = ready | WAIT_WRITABLE
+    end
+    if (got & POLLEX_SET) != 0
+      ready = ready | WAIT_PRIORITY
+    end
+    zr_ary_push(out, zr_fix(ready & zr_fix2long(zr_ary_at(events, i))))
+    i += 1
+  end
+  free(entries)
+  out
+end
+
 # poll(2) on one descriptor, which is what ruby itself waits with on
 # Linux: the events that came ready, 0 when the time ran out, or the
 # negated errno. The events ruby asks for are poll's own bits, and a

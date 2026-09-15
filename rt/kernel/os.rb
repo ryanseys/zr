@@ -28,6 +28,7 @@
 #   zr_os_stat_size      [Ptr] => Word
 #   zr_os_stat_mode      [Ptr] => Word
 #   zr_os_wait_fd        [Value, Value, Value] => Value
+#   zr_os_wait_fds       [Value, Value, Value] => Value
 #
 # the process
 #   zr_os_main           [I32, Ptr] => I32

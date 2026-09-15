@@ -472,6 +472,77 @@ machine def closedir(d)
   r
 end
 
+# poll_oneoff on every descriptor of `fds` at once, each for the events
+# its row of `events` names, and on the clock when the wait has an end:
+# an Array of the events that came ready for each row, or the negated
+# errno. Each subscription's userdata is its row.
+sig [Value, Value, Value] => Value
+machine def zr_os_wait_fds(fds, events, milliseconds)
+  count = RArray.len(fds)
+  ms = zr_fix2long(milliseconds)
+  subs = zr_xmalloc(((count * 2) + 1) * 48)
+  memset(subs, Machine.i32(0), ((count * 2) + 1) * 48)
+  used = 0
+  i = 0
+  while i < count
+    n = zr_fix2long(zr_ary_at(fds, i))
+    want = zr_fix2long(zr_ary_at(events, i))
+    if n < 0
+      free(subs)
+      return zr_fix(0 - EBADF)
+    end
+    if (want & (WAIT_READABLE | WAIT_PRIORITY)) != 0
+      Machine.store64(subs + (used * 48), 0, i)
+      Machine.store8(subs + (used * 48), 8, Machine.i8(1))
+      Machine.store32(subs + (used * 48), 16, Machine.i32(n))
+      used += 1
+    end
+    if (want & WAIT_WRITABLE) != 0
+      Machine.store64(subs + (used * 48), 0, i)
+      Machine.store8(subs + (used * 48), 8, Machine.i8(2))
+      Machine.store32(subs + (used * 48), 16, Machine.i32(n))
+      used += 1
+    end
+    i += 1
+  end
+  if ms >= 0
+    Machine.store64(subs + (used * 48), 0, count)
+    Machine.store32(subs + (used * 48), 16, Machine.i32(1))
+    Machine.store64(subs + (used * 48), 24, ms * 1000000)
+    used += 1
+  end
+  got = zr_xmalloc(used * 32)
+  nevents = Machine.slot(8)
+  if zr_wasi_status(poll_oneoff(zr_wasi_addr(subs), zr_wasi_addr(got), Machine.i32(used), zr_wasi_addr(nevents))) < Machine.i32(0)
+    errno = zr_errno()
+    free(subs)
+    free(got)
+    return zr_fix(0 - errno)
+  end
+  out = zr_ary_new(count)
+  i = 0
+  while i < count
+    zr_ary_push(out, zr_fix(0))
+    i += 1
+  end
+  i = 0
+  while i < Machine.word(Machine.load32(nevents, 0))
+    e = got + (i * 32)
+    row = Machine.load64(e, 0)
+    kind = Machine.word(Machine.load8(e, 10))
+    if row < count && kind != 0
+      want = zr_fix2long(zr_ary_at(events, row))
+      ready = zr_fix2long(zr_ary_at(out, row))
+      ready = ready | (kind == 1 ? want & (WAIT_READABLE | WAIT_PRIORITY) : want & WAIT_WRITABLE)
+      zr_ary_store(out, row, zr_fix(ready))
+    end
+    i += 1
+  end
+  free(subs)
+  free(got)
+  out
+end
+
 # poll_oneoff on one descriptor, and on the clock when the wait has an
 # end: the events that came ready, 0 when the time ran out, or the
 # negated errno. A subscription is 48 bytes and an event 32.

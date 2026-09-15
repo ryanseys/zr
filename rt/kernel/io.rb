@@ -620,6 +620,26 @@ WAIT_READABLE = 1
 WAIT_PRIORITY = 2
 WAIT_WRITABLE = 4
 
+# The thread scheduler's wait on every descriptor a thread parks on: the
+# events that came ready for each, all zero when the time ran out or a
+# signal cut the wait short once its handlers ran, or the negated errno.
+sig [Value, Value, Value] => Value
+machine def zr_io_wait_fds(fds, events, milliseconds)
+  r = zr_os_wait_fds(fds, events, milliseconds)
+  if r == zr_fix(0 - EINTR)
+    if zr_trap_check() == QUNDEF
+      return Machine.value(QUNDEF)
+    end
+    r = zr_ary_new(RArray.len(fds))
+    i = 0
+    while i < RArray.len(fds)
+      zr_ary_push(r, zr_fix(0))
+      i += 1
+    end
+  end
+  r
+end
+
 # One descriptor's wait: the events that came ready, 0 when the time
 # ran out, or the negated errno. A negative time waits for good, and a
 # signal that cuts the wait short runs its handlers first.
