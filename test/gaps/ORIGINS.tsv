@@ -1,18 +1,12 @@
 gaps/openssl_digest.rb	aot/openssl_digest.rb
-gaps/a_platform_guard_decides_at_build_time.rb	compiler/guards/a_platform_guard_decides_at_build_time.rb
 gaps/rubyvm_ast.rb	core/rubyvm/rubyvm_ast.rb
 gaps/rubyvm_ast_node_taxonomy.rb	core/rubyvm/rubyvm_ast_node_taxonomy.rb
 gaps/tracepoint_disable_is_a_call_event.rb	core/tracepoint/tracepoint_disable_is_a_call_event.rb
-gaps/a_reflective_program_keeps_every_class.rb	lang/classes/a_reflective_program_keeps_every_class.rb
-gaps/every_native_class_allocates_where_ruby_does.rb	lang/classes/every_native_class_allocates_where_ruby_does.rb
 gaps/the_ast_translator_answers_unknown_for_some_shapes.rb	lang/control/the_ast_translator_answers_unknown_for_some_shapes.rb
 gaps/the_ast_translator_builds_splat_lists_like_parse_y.rb	lang/methods/the_ast_translator_builds_splat_lists_like_parse_y.rb
 gaps/fiddle.rb	lang/programs/fiddle.rb
 gaps/an_rspec_suite_runs.rb	milestones/an_rspec_suite_runs.rb
-gaps/yaml_date_time_scalars_are_gated.rb	stdlib/date/yaml_date_time_scalars_are_gated.rb
-gaps/yaml_dump_styles.rb	stdlib/date/yaml_dump_styles.rb
 gaps/a_subclass_of_any_native_class.rb	stdlib/digest/a_subclass_of_any_native_class.rb
-gaps/ffi_directives_under_platform_guards.rb	stdlib/ffi/ffi_directives_under_platform_guards.rb
 gaps/the_toplevel_runs_on_the_process_main_thread.rb	stdlib/ffi/the_toplevel_runs_on_the_process_main_thread.rb
 gaps/kconv.rb	stdlib/nkf/kconv.rb
 gaps/nkf.rb	stdlib/nkf/nkf.rb
@@ -26,5 +20,4 @@ gaps/openssl_secure_compare.rb	stdlib/openssl/openssl_secure_compare.rb
 gaps/openssl_ssl_surface.rb	stdlib/openssl/openssl_ssl_surface.rb
 gaps/openssl_tls_client.rb	stdlib/openssl/openssl_tls_client.rb
 gaps/yaml_loads_and_entropy_draws_run_concurrently_under_the_armed_gvl.rb	stdlib/openssl/yaml_loads_and_entropy_draws_run_concurrently_under_the_armed_gvl.rb
-gaps/yaml_ruby_object_revival.rb	stdlib/ostruct/yaml_ruby_object_revival.rb
 gaps/psych_syntax_error_carries_marks.rb	stdlib/yaml/psych_syntax_error_carries_marks.rb
