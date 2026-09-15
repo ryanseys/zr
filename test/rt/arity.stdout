@@ -1,2 +1,5 @@
 arity.rb:9:in 'Integer#succ': wrong number of arguments (given 1, expected 0) (ArgumentError)
+
+    caller: arity.rb:9
+    callee: arity.rb:9
 	from arity.rb:9:in '<main>'
