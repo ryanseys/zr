@@ -71,8 +71,11 @@ module Ze0
         # writes.
         @captures = {}
         @writes = []
+        # A traced program's hooks read a Binding of any frame, which
+        # only an Env gives.
         @has_env = %i[eval main].include?(@kind) || Scope.holds_block?(body) || Scope.opens_locals?(body) ||
-                   default_expressions.any? { |d| Scope.holds_block?(d) || Scope.opens_locals?(d) }
+                   default_expressions.any? { |d| Scope.holds_block?(d) || Scope.opens_locals?(d) } ||
+                   (lower.traced? && !lower.internal? && %i[def block top].include?(@kind))
         @sites = 0
         @loops = []
         @regions = []

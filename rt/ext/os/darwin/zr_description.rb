@@ -1144,6 +1144,11 @@ module Ze0
         d zr_iseq_meta Ptr body:Value
         d zr_iseq_p Value body:Value
         d zr_iseq_label Value body:Value base:Value
+        d zr_iseq_meta_label Value meta_word:Value base:Value
+        d zr_iseq_meta_info Value meta_word:Value
+        d zr_iseq_meta_parameters Value meta_word:Value
+        d zr_iseq_meta_word Value body:Value
+        d zr_debug_frames Value
         d zr_onig_ready Void
         d zr_regexp_alloc Value klass:Value
         d zr_regexp_copy_from Value re:Value other:Value

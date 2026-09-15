@@ -663,7 +663,13 @@ end
 # method, class or file its blocks are written in.
 sig [Value, Value] => Value
 machine def zr_iseq_label(body, base)
-  meta = zr_iseq_meta(body)
+  zr_iseq_meta_label(zr_fix(Machine.word(zr_iseq_meta(body))), base)
+end
+
+# The same for the FrameMeta at address `meta_word`, as a frame names it.
+sig [Value, Value] => Value
+machine def zr_iseq_meta_label(meta_word, base)
+  meta = Machine.ptr(zr_fix2long(meta_word))
   if meta == 0
     return Machine.value(QNIL)
   end
@@ -676,4 +682,91 @@ machine def zr_iseq_label(body, base)
   zr_buf_init(b)
   zr_buf_label_as(b, meta, false)
   zr_buf_take(b)
+end
+
+# `[path, first line, kind]` of the FrameMeta at `meta_word`, the kind
+# as RubyVM::InstructionSequence#type names it.
+sig [Value] => Value
+machine def zr_iseq_meta_info(meta_word)
+  meta = Machine.ptr(zr_fix2long(meta_word))
+  out = zr_ary_new(3)
+  zr_ary_push(out, zr_str_new(FrameMeta.file(meta), FrameMeta.file_len(meta)))
+  zr_ary_push(out, zr_fix(FrameMeta.line(meta)))
+  kind = FrameMeta.kind(meta)
+  name = Machine.id(:top)
+  if kind == KIND_DEF
+    name = Machine.id(:method)
+  elsif kind == KIND_BLOCK
+    name = Machine.id(:block)
+  elsif kind == KIND_CLASS || kind == KIND_MODULE || kind == KIND_SCLASS
+    name = Machine.id(:class)
+  elsif kind == KIND_MAIN
+    name = Machine.id(:main)
+  elsif kind == KIND_EVAL || kind == KIND_COMPILED
+    name = Machine.id(:eval)
+  end
+  zr_ary_push(out, zr_sym(name))
+  out
+end
+
+# The parameter rows of the FrameMeta at `meta_word`, a method's as a
+# method takes them and a block's as a proc does.
+sig [Value] => Value
+machine def zr_iseq_meta_parameters(meta_word)
+  meta = Machine.ptr(zr_fix2long(meta_word))
+  if FrameMeta.params(meta) == 0
+    return zr_ary_new(0)
+  end
+  zr_param_rows(FrameMeta.params(meta), FrameMeta.kind(meta) == KIND_BLOCK)
+end
+
+sig [Value] => Value
+machine def zr_iseq_meta_word(body)
+  zr_fix(Machine.word(zr_iseq_meta(body)))
+end
+
+# What rb_debug_inspector_open lets a debugger read: each frame outward
+# from the caller of the method that asks, as `[row, node id, self,
+# binding, FrameMeta address, class]`. A frame the runtime pushed for a
+# method written in C has no binding, and its address is 0.
+sig [] => Value
+machine def zr_debug_frames
+  out = zr_ary_new(16)
+  rec = Frame.prev(Task.top(zr_task()))
+  while rec != 0
+    if zr_frame_shown_p(rec)
+      entry = zr_ary_new(6)
+      zr_ary_push(out, entry)
+      meta = Frame.meta(rec)
+      native = FrameMeta.kind(meta) == KIND_BUILTIN || FrameMeta.kind(meta) == KIND_HIDDEN || FrameMeta.file_len(meta) == 0
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      # A C frame has no file or line of its own to show.
+      if native
+        zr_buf_push(b, Machine.bytes(":0:in '"), 7)
+        zr_buf_label(b, zr_frame_label_meta(rec))
+        zr_buf_byte(b, 39)
+      else
+        zr_buf_frame(b, rec)
+      end
+      zr_ary_push(entry, zr_buf_take(b))
+      source = zr_frame_with_file(rec)
+      zr_ary_push(entry, zr_fix(source == 0 || native ? 0 : zr_frame_node_id(source)))
+      zr_ary_push(entry, Frame.self(rec))
+      if native
+        zr_ary_push(entry, Machine.value(QNIL))
+        zr_ary_push(entry, zr_fix(0))
+      else
+        bound = zr_binding_of(meta, zr_frame_env(rec), Frame.self(rec), Frame.cref(rec))
+        RProc.set_blk(bound, Frame.blk(rec))
+        RProc.set_serial(bound, zr_frame_line(rec))
+        zr_ary_push(entry, bound)
+        zr_ary_push(entry, zr_fix(Machine.word(meta)))
+      end
+      method = zr_method_meta_of(rec)
+      zr_ary_push(entry, method == 0 ? Machine.value(QNIL) : FrameMeta.owner(method))
+    end
+    rec = Frame.prev(rec)
+  end
+  out
 end

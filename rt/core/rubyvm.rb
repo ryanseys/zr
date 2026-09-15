@@ -49,7 +49,9 @@ class RubyVM
         return nil unless Primitive.zr_iseq_p(body)
 
         path, line = body.source_location
-        made(body, nil, Primitive.zr_iseq_label(body, false), Primitive.zr_iseq_label(body, true), path, line)
+        iseq = made(body, nil, Primitive.zr_iseq_label(body, false), Primitive.zr_iseq_label(body, true), path, line)
+        Primitive.zr_hidden_set(iseq, :__meta__, Primitive.zr_iseq_meta_word(body))
+        iseq
       end
 
       def compile(source, file = "<compiled>", path = file, line = 1, options = nil)
@@ -81,6 +83,16 @@ class RubyVM
       def load_from_binary(binary) = Primitive.zr_unimplemented("RubyVM::InstructionSequence.load_from_binary")
 
       private
+
+      # The code a frame runs, by the address of its FrameMeta, as a
+      # debugger reads a frame's.
+      def of_frame(meta_word)
+        Primitive.attr! :hidden
+        path, line = Primitive.zr_iseq_meta_info(meta_word)
+        iseq = made(nil, nil, Primitive.zr_iseq_meta_label(meta_word, false), Primitive.zr_iseq_meta_label(meta_word, true), path, line)
+        Primitive.zr_hidden_set(iseq, :__meta__, meta_word)
+        iseq
+      end
 
       def made(body, code, label, base_label, path, line)
         Primitive.attr! :hidden
