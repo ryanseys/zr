@@ -92,8 +92,6 @@ class Proc
 end
 
 class Method
-  def hash = [owner, name, receiver.object_id].hash
-
   # The box the method was defined in, while boxes are on: its own box for
   # a method a program wrote, the master box for one ruby itself carries.
   def box

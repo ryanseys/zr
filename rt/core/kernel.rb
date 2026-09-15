@@ -556,7 +556,7 @@ end
 
 # A `ruby2_keywords` method keeps the keywords it took into its rest
 # flagged, so a `*rest` call passes them on as keywords.
-module Kernel
+class << self
   def ruby2_keywords(*names)
     names.each { |name| Primitive.zr_ruby2_mark_m(Object, name) }
     nil

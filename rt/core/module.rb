@@ -274,7 +274,8 @@ class Refinement
   private :import_methods
 end
 
-module Kernel
+# main's own, on the toplevel object's singleton class, as CRuby puts it.
+class << self
   # Only the compiler activates a refinement, where the source writes
   # the `using`; the method itself is the refusal every other spot gets.
   def using(mod)

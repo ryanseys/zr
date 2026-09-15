@@ -31,6 +31,7 @@ machine def zr_boot_method_class(klass)
   zr_builtin(klass, Machine.id(:to_s), Machine.addr(:zr_method_inspect), 0)
   zr_builtin(klass, Machine.id(:==), Machine.addr(:zr_method_eq), 1)
   zr_builtin(klass, Machine.id(:eql?), Machine.addr(:zr_method_eq), 1)
+  zr_builtin(klass, Machine.id(:hash), Machine.addr(:zr_method_hash), 0)
 end
 
 # The machine stack ends here for Ruby frames: a margin above the
@@ -343,6 +344,24 @@ machine def zr_boot
   zr_builtin(zr_global(G_SYMBOL), Machine.id(:inspect), Machine.addr(:zr_sym_inspect), 0)
   zr_builtin(zr_global(G_NIL), Machine.id(:to_s), Machine.addr(:zr_nil_to_s), 0)
   zr_builtin(zr_global(G_NIL), Machine.id(:inspect), Machine.addr(:zr_nil_inspect), 0)
+  # Rows CRuby writes on a class of its own over the function Kernel's
+  # row shares, so the class owns them.
+  zr_builtin(zr_global(G_NIL), Machine.id(:===), Machine.addr(:zr_obj_eqq), 1)
+  zr_builtin(zr_global(G_TRUE), Machine.id(:===), Machine.addr(:zr_obj_eqq), 1)
+  zr_builtin(zr_global(G_FALSE), Machine.id(:===), Machine.addr(:zr_obj_eqq), 1)
+  zr_builtin(zr_global(G_SYMBOL), Machine.id(:===), Machine.addr(:zr_obj_eqq), 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:==), Machine.addr(:zr_obj_eq), 1)
+  zr_builtin(zr_global(G_MODULE), Machine.id(:freeze), Machine.addr(:zr_obj_freeze), 0)
+  zr_builtin(zr_global(G_STRING), Machine.id(:freeze), Machine.addr(:zr_obj_freeze), 0)
+  zr_builtin(zr_global(G_STRING), Machine.id(:dup), Machine.addr(:zr_obj_dup), 0)
+  zr_builtin(zr_global(G_ARRAY), Machine.id(:freeze), Machine.addr(:zr_obj_freeze), 0)
+  zr_builtin(zr_global(G_HASH), Machine.id(:freeze), Machine.addr(:zr_obj_freeze), 0)
+  zr_builtin(zr_global(G_PROC), Machine.id(:dup), Machine.addr(:zr_obj_dup), 0)
+  zr_builtin(zr_global(G_PROC), Machine.id(:clone), Machine.addr(:zr_obj_clone_m), 0)
+  zr_builtin(zr_global(G_METHOD), Machine.id(:dup), Machine.addr(:zr_obj_dup), 0)
+  zr_builtin(zr_global(G_METHOD), Machine.id(:clone), Machine.addr(:zr_obj_clone_m), 0)
+  zr_builtin(zr_global(G_UNBOUND_METHOD), Machine.id(:dup), Machine.addr(:zr_obj_dup), 0)
+  zr_builtin(zr_global(G_UNBOUND_METHOD), Machine.id(:clone), Machine.addr(:zr_obj_clone_m), 0)
   zr_builtin(zr_global(G_TRUE), Machine.id(:to_s), Machine.addr(:zr_true_to_s), 0)
   zr_builtin(zr_global(G_TRUE), Machine.id(:inspect), Machine.addr(:zr_true_inspect), 0)
   zr_builtin(zr_global(G_FALSE), Machine.id(:to_s), Machine.addr(:zr_false_to_s), 0)

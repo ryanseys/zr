@@ -237,6 +237,13 @@ machine def zr_class_copy(orig)
   copy
 end
 
+# `clone` for a class that owns its own row and takes no `freeze:`, as
+# proc_clone and method_clone take none.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_obj_clone_m(recv, argc, argv, cref, blk)
+  zr_obj_clone(recv, Machine.value(QNIL))
+end
+
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_dup(recv, argc, argv, cref, blk)
   if zr_special_p(recv)

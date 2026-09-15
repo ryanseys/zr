@@ -32,8 +32,11 @@ module Ze0
         [log, $?.success?]
       end
 
+      # The user's own DEVELOPER_DIR and SDKROOT come back as they are, so
+      # an archive stamp names the toolchain that built it.
       def pinned
-        return {} if ENV["DEVELOPER_DIR"] || ENV["SDKROOT"]
+        chosen = ENV.slice("DEVELOPER_DIR", "SDKROOT")
+        return chosen unless chosen.empty?
 
         out = IO.popen(["xcrun", "--show-sdk-path"], err: %i[child out], &:read)
         return {} unless $?.success?

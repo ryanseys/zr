@@ -289,6 +289,7 @@ module Ze0
         d zr_hash_copy_from Value recv:Value other:Value
         d zr_hash_dup_m Value h:Value
         d zr_class_copy Value orig:Value
+        d zr_obj_clone_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_dup Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_clone Value recv:Value freeze:Value
         d zr_include_singleton Void copy:Value meta:Value
@@ -848,6 +849,7 @@ module Ze0
         d zr_method_box_m Value m:Value
         d zr_method_source_location Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_method_eq Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_method_hash Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_buf_param Void b:Ptr kind:Word id:Word i:Word forwarding:Bool
         d zr_params_forwarding_p Bool table:Ptr
         d zr_buf_method_params Void b:Ptr m:Value

@@ -529,6 +529,20 @@ machine def zr_method_eq(recv, argc, argv, cref, blk)
           (MEntry.kind(a) != KIND_BMETHOD || MEntry.cref(a) == MEntry.cref(b)))
 end
 
+# The hash of the parts `zr_method_eq` compares, so equal methods share
+# one, as method_hash makes it from the receiver and the entry.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_method_hash(recv, argc, argv, cref, blk)
+  e = RMethod.entry(recv)
+  h = zr_hash_mix(Machine.word(RMethod.recv(recv)))
+  h = zr_hash_mix(h ^ Machine.word(RMethod.owner(recv)))
+  h = zr_hash_mix(h ^ Machine.word(MEntry.fn(e)) ^ MEntry.kind(e))
+  if MEntry.kind(e) == KIND_BMETHOD
+    h = zr_hash_mix(h ^ Machine.word(MEntry.cref(e)))
+  end
+  zr_fix(h & 4611686018427387903)
+end
+
 # One parameter row as `inspect` shows it, CRuby's way: `a`, `b=...`,
 # `*r`, `k:`, `o: ...`, `**kw`, `&blk`, `**nil`; an unnamed row is `_`,
 # `*` or `**`; an anonymous block is `...`, which also stands for the
