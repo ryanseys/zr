@@ -1,5 +1,4 @@
 gaps/openssl_digest.rb	aot/openssl_digest.rb
-gaps/tracepoint_disable_is_a_call_event.rb	core/tracepoint/tracepoint_disable_is_a_call_event.rb
 gaps/an_rspec_suite_runs.rb	milestones/an_rspec_suite_runs.rb
 gaps/a_subclass_of_any_native_class.rb	stdlib/digest/a_subclass_of_any_native_class.rb
 gaps/the_toplevel_runs_on_the_process_main_thread.rb	stdlib/ffi/the_toplevel_runs_on_the_process_main_thread.rb

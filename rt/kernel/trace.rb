@@ -9,6 +9,9 @@ TRACE_RETURN = 16
 TRACE_C_CALL = 32
 TRACE_C_RETURN = 64
 TRACE_C = 96
+# The events a send fires around the method it reaches: a method CRuby
+# writes in C, and one it writes in Ruby of its own.
+TRACE_SENDS = 120
 TRACE_RAISE = 128
 
 # The events every enabled TracePoint asks for, together. While a C
@@ -30,7 +33,7 @@ machine def zr_trace_events_arm
   if zr_coverage_setup_p()
     mask = mask | TRACE_LINE
   end
-  if ((Machine.load64(events, 0) ^ mask) & TRACE_C) != 0
+  if ((Machine.load64(events, 0) ^ mask) & TRACE_SENDS) != 0
     zr_methods_changed()
   end
   Machine.store64(events, 0, mask)
@@ -42,12 +45,43 @@ machine def zr_trace_c_p
   (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_C) != 0
 end
 
+# Whether an event a send fires is on.
+sig [] => Bool
+machine def zr_trace_sends_p
+  (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_SENDS) != 0
+end
+
+# A method CRuby writes in Ruby of its own, which TracePoint marked by
+# its name (MEntry.core's second bit): a :call and a :return fire around
+# it, as around a program's method.
+MENTRY_CRUBY_RUBY = 2
+
+sig [Ptr] => Bool
+machine def zr_trace_ruby_entry_p(e)
+  (MEntry.core(e) & MENTRY_CRUBY_RUBY) != 0
+end
+
+# Marks `klass`'s own method `name` as one CRuby writes in Ruby; false
+# where the class has no such method of its own.
+sig [Value, Value] => Value
+machine def zr_trace_mark_ruby(klass, name)
+  e = zr_find_method_at(klass, zr_sym2id(name))
+  if e == 0 || MEntry.kind(e) == KIND_UNDEF
+    return Machine.value(QFALSE)
+  end
+  MEntry.set_core(e, MEntry.core(e) | MENTRY_CRUBY_RUBY)
+  Machine.value(QTRUE)
+end
+
 # Whether entry `e` is a method CRuby writes in C: a builtin, an
 # accessor, or a core def that CRuby does not write in Ruby. A frameless
 # builtin, `send` or `Proc#call`, is one CRuby's VM calls without one.
 sig [Ptr] => Bool
 machine def zr_trace_c_entry_p(e)
   kind = MEntry.kind(e)
+  if zr_trace_ruby_entry_p(e)
+    return false
+  end
   if kind == KIND_ATTR_READER || kind == KIND_ATTR_WRITER
     return true
   end
@@ -72,25 +106,29 @@ machine def zr_trace_c_caller_p
   kind != KIND_BUILTIN && kind != KIND_HIDDEN
 end
 
-# The call through C method `e` between its `:c_call` and its
-# `:c_return`, as vm_call_cfunc fires them: at the caller's file and
-# line, and `:c_return` with nil when the call raises.
-sig [Ptr, Value, Value, Word, Word, Ptr, Value, Word] => Value
-machine def zr_trace_c_invoke(e, klass, recv, mid, argc, argv, blk, kw)
-  owner = zr_method_owner(klass, mid)
+# The call through method `e` between the event before it and the one
+# after: `:c_call` and `:c_return` around a method CRuby writes in C, as
+# vm_call_cfunc fires them, or `:call` and `:return` around one it
+# writes in Ruby of its own. Both fire at the caller's file and line,
+# which TracePoint gives a Ruby method's own place, and the one after
+# carries nil when the call raises.
+sig [Ptr, Value, Word, Word, Ptr, Value, Word, Word] => Value
+machine def zr_trace_send_invoke(e, recv, mid, argc, argv, blk, kw, before)
+  after = before * 2
+  owner = zr_method_owner(zr_box_view(zr_class_of(recv)), mid)
   events = Machine.load64(Machine.static(:trace_events, 8), 0)
-  if (events & TRACE_C_CALL) != 0
-    r = zr_trace_c_send(TRACE_C_CALL, e, owner, recv, Machine.value(QNIL))
+  if (events & before) != 0
+    r = zr_trace_c_send(before, e, owner, recv, Machine.value(QNIL))
     return r if r == QUNDEF
   end
   value = zr_invoke(e, recv, argc, argv, blk, kw)
-  if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_C_RETURN) == 0
+  if (Machine.load64(Machine.static(:trace_events, 8), 0) & after) == 0
     return value
   end
   t = zr_task()
   kind = Task.pending_kind(t)
   pending = Task.pending(t)
-  r = zr_trace_c_send(TRACE_C_RETURN, e, owner, recv, value == QUNDEF ? Machine.value(QNIL) : value)
+  r = zr_trace_c_send(after, e, owner, recv, value == QUNDEF ? Machine.value(QNIL) : value)
   return r if r == QUNDEF
   if value == QUNDEF
     Task.set_pending_kind(t, kind)

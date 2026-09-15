@@ -148,14 +148,34 @@ class RubyVM
   end
 
   module AbstractSyntaxTree
-    # The tree parse.y would build, which the translator a program that
-    # names this module carries rebuilds from prism's (rt/ext/ze0/ast.rb).
+    class Node; end
+    class Location; end
+
+    TRANSLATOR = []
+    private_constant :TRANSLATOR
+
+    def self.translator=(load)
+      Primitive.attr! :hidden
+      TRANSLATOR[0] = load
+    end
+
+    # The translator a program that names this module carries
+    # (rt/ext/ze0/ast.rb), loaded on the first parse.
+    def self.translator
+      Primitive.attr! :hidden
+      TRANSLATOR.pop&.call
+      ::Ze0::AST
+    end
+    private_class_method :translator=, :translator
+
+    # The tree parse.y would build, which the translator rebuilds from
+    # prism's.
     def self.parse(string, keep_script_lines: RubyVM.keep_script_lines, error_tolerant: false, keep_tokens: false)
-      ::Ze0::AST.parse(string, keep_script_lines: keep_script_lines, error_tolerant: error_tolerant, keep_tokens: keep_tokens)
+      translator.parse(string, keep_script_lines: keep_script_lines, error_tolerant: error_tolerant, keep_tokens: keep_tokens)
     end
 
     def self.parse_file(pathname, keep_script_lines: RubyVM.keep_script_lines, error_tolerant: false, keep_tokens: false)
-      ::Ze0::AST.parse_file(pathname, keep_script_lines: keep_script_lines, error_tolerant: error_tolerant, keep_tokens: keep_tokens)
+      translator.parse_file(pathname, keep_script_lines: keep_script_lines, error_tolerant: error_tolerant, keep_tokens: keep_tokens)
     end
 
     # The AST of what `body` runs. Every ISEQ here is prism's, so a body

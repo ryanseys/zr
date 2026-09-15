@@ -324,8 +324,13 @@ machine def zr_dispatch(cc, recv, mid, argc, argv, mode, blk)
   if vis != 0
     return zr_method_missing(recv, mid, argc, argv, blk, kw, vis == VIS_PRIVATE ? MISS_PRIVATE : MISS_PROTECTED)
   end
-  if zr_trace_c_p() && (mode & SEND_CORE) == 0 && zr_trace_c_entry_p(e) && zr_trace_c_caller_p()
-    return zr_trace_c_invoke(e, klass, recv, mid, argc, argv, blk, kw)
+  if zr_trace_sends_p() && (mode & SEND_CORE) == 0 && zr_trace_c_caller_p()
+    if zr_trace_ruby_entry_p(e)
+      return zr_trace_send_invoke(e, recv, mid, argc, argv, blk, kw, TRACE_CALL)
+    end
+    if zr_trace_c_entry_p(e)
+      return zr_trace_send_invoke(e, recv, mid, argc, argv, blk, kw, TRACE_C_CALL)
+    end
   end
   if cc != 0
     zr_call_cache_fill(cc, klass, e, mode)

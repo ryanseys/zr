@@ -91,7 +91,9 @@ class TracePoint
       end
       Primitive.zr_hidden_set(point, :__hook_thread__, thread)
       funcs << point
-      point.enable(target_thread: thread)
+      # A hook is C's, so no TracePoint#enable runs for a trace to see.
+      Primitive.zr_hidden_set(point, :__thread__, thread)
+      point.send(:switch, true)
       hook
     end
 
@@ -124,13 +126,57 @@ class TracePoint
     def rearm
       Primitive.attr! :hidden
       mask = enabled.inject(0) { |all, point| all | Primitive.zr_hidden_get(point, :__events__) }
+      builtin_places if (mask & 0x78).nonzero?
       Primitive.zr_trace_events_set(mask & FIRED)
+    end
+
+    # CRuby's own Ruby methods, marked the first time a TracePoint asks
+    # for :call or :return, so each send to one fires them: the place
+    # each one's events report, by its class and name.
+    def builtin_places
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_get(self, :__builtin_places__) || Primitive.zr_hidden_set(self, :__builtin_places__, marked_builtins)
+    end
+
+    def marked_builtins
+      Primitive.attr! :hidden
+      places = {}.compare_by_identity
+      BUILTIN_LINES.each do |key, place|
+        singleton = key.include?(".")
+        owner_path, name = key.split(singleton ? "." : "#", 2)
+        owner = owner_path.split("::").inject(Object) { |scope, part| scope.const_get(part, false) } rescue next
+        target = singleton ? owner.singleton_class : owner
+        next unless Primitive.zr_trace_mark_ruby(target, name.to_sym)
+
+        (places[target] ||= {})[name.to_sym] = place
+      end
+      places
+    end
+
+    # The :return of the TracePoint#enable that started `point`'s trace,
+    # which CRuby's hook sees as the method leaves.
+    # The first enable in the process runs before any hook is in place
+    # and sees nothing.
+    def enable_returned(point, value)
+      Primitive.attr! :hidden
+      return Primitive.zr_hidden_set(self, :__enabled_before__, true) unless Primitive.zr_hidden_get(self, :__enabled_before__)
+
+      path, _call, line = BUILTIN_LINES.fetch("TracePoint#enable")
+      fire([EVENTS[:return], value, path, line, :enable, :enable, TracePoint, point, nil, 0, 0])
     end
 
     # A traced program fired the event `row` describes.
     def fire(row)
       Primitive.attr! :hidden
       return nil unless current_row.nil?
+
+      # A :call or :return around one of CRuby's own Ruby methods reports
+      # the place that method stands in CRuby's builtin sources.
+      if (row[0] & 0x18).nonzero? && row[10].nonzero? && (place = builtin_places[row[6]]&.[](row[4]))
+        row[2] = place[0]
+        row[3] = row[0] == 0x8 ? place[1] : place[2]
+        row[8] = nil
+      end
 
       thread = Thread.current
       points = enabled.select do |point|
@@ -169,8 +215,15 @@ class TracePoint
     else
       Primitive.zr_hidden_set(self, :__thread__, nil)
     end
+    # A :return hook already in place sees this call return by itself.
+    returning = TracePoint.send(:enabled).any? { |point| (Primitive.zr_hidden_get(point, :__events__) & EVENTS[:return]).nonzero? }
     switch(true)
-    return was unless block_given?
+    unless block_given?
+      # The trace this call started sees the call return.
+      TracePoint.send(:enable_returned, self, was) unless was || returning
+      return was
+    end
+    Primitive.zr_hidden_set(TracePoint, :__enabled_before__, true)
 
     begin
       yield

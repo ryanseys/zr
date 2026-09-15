@@ -113,12 +113,13 @@ module Ze0
       # The file that arms Kernel#pp's load of ruby's own pp.rb, as
       # CRuby's prelude requires it on the first call.
       PRETTY_PRINTER = File.join(EXT, "ze0/pretty_printer.rb")
-      AST_TRANSLATOR = File.join(EXT, "ze0/ast.rb")
+      SYNTAX_TREE = File.join(EXT, "ze0/syntax_tree.rb")
 
-      # RubyVM::AbstractSyntaxTree's translator, which a program that names
-      # the module carries ahead of its body, out of $LOADED_FEATURES.
+      # The file that arms RubyVM::AbstractSyntaxTree's load of its
+      # translator, which a program that names the module carries ahead of
+      # its body. Both stay out of $LOADED_FEATURES.
       def self.ast_translator(loader)
-        Require.new(:eval_road, "ze0/ast", AST_TRANSLATOR, loader.add(AST_TRANSLATOR), 0)
+        Require.new(:eval_road, "ze0/syntax_tree", SYNTAX_TREE, loader.hidden(SYNTAX_TREE), 0)
       end
 
       def self.pretty_printer(loader)

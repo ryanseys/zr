@@ -17,17 +17,11 @@
 
 require "prism"
 
-# In zeo's runtime these classes are RubyVM::AbstractSyntaxTree's own, so
-# they carry its names; on a CRuby host, which has its own, they stay in
-# Ze0::AST.
-unless defined?(RubyVM::AbstractSyntaxTree::Node)
-  class RubyVM
-    module AbstractSyntaxTree
-      class Node; end
-      class Location; end
-    end
-  end
-
+# In zeo's runtime these classes are RubyVM::AbstractSyntaxTree's own,
+# which the runtime defines empty before it loads this file on a first
+# parse, so they carry its names; on a CRuby host, which has its own,
+# they stay in Ze0::AST.
+if RubyVM::AbstractSyntaxTree::Node.instance_methods(false).empty?
   module Ze0
     module AST
       Node = RubyVM::AbstractSyntaxTree::Node
