@@ -675,30 +675,24 @@ class ThreadGroup
 end
 
 class Fiber
-  # A Fiber is made whole by `Fiber.new`, so there is no second start.
-  private def initialize(*, **, &) = Kernel.raise(RuntimeError, "cannot initialize twice")
+  # A fiber starts with a copy of its maker's storage, its own copy of
+  # the Hash it is given, or none yet for nil. Its block runs inside a
+  # catch, so a kill throws to that tag: every ensure on the way runs
+  # and no rescue sees it. rb_fiber_initialize_kw checks the storage,
+  # then the block, then whether the fiber was made already.
+  def initialize(blocking: false, pool: nil, storage: true, &block)
+    table = storage.equal?(true) ? Fiber.current.storage : Fiber.send(:checked_storage, storage)&.dup
+    Kernel.raise ArgumentError, "tried to create Proc object without a block" unless block
+
+    tag = Object.new
+    __make__ { |*args| Primitive.zr_catch(tag, proc { block.call(*args) }) }
+    Primitive.zr_hidden_set(self, :__kill__, tag)
+    Primitive.zr_hidden_set(self, :__block__, block)
+    Primitive.zr_hidden_set(self, :__storage__, table)
+    Primitive.zr_hidden_set(self, :__blocking__, blocking ? true : false)
+  end
 
   class << self
-    # A fiber starts with a copy of its maker's storage, its own Hash,
-    # or none. Its block runs inside a catch, so a kill throws to that
-    # tag: every ensure on the way runs and no rescue sees it.
-    def new(blocking: false, storage: true, &block)
-      raise ArgumentError, "tried to create Proc object without a block" unless block
-
-      table = case storage
-              when true then current.storage
-              when nil, false then {}
-              when Hash then storage.dup
-              else raise TypeError, "wrong argument type #{conversion_name(storage)} (expected Hash)"
-              end
-      tag = Object.new
-      f = __new__ { |*args| Primitive.zr_catch(tag, proc { block.call(*args) }) }
-      Primitive.zr_hidden_set(f, :__kill__, tag)
-      Primitive.zr_hidden_set(f, :__storage__, table)
-      Primitive.zr_hidden_set(f, :__blocking__, blocking ? true : false)
-      f
-    end
-
     # 1 while the current fiber blocks, as CRuby counts the thread's
     # blocking fibers, and false while it does not.
     def blocking? = current.blocking? ? 1 : false
@@ -751,6 +745,19 @@ class Fiber
     end
 
     private
+
+    # fiber_storage_validate: nil, or an unfrozen Hash keyed by Symbols.
+    def checked_storage(storage)
+      Primitive.attr! :hidden
+      return nil if storage.nil?
+      raise TypeError, "storage must be a hash" unless storage.is_a?(Hash)
+      raise FrozenError, "storage must not be frozen" if storage.frozen?
+
+      storage.each_key do |key|
+        raise TypeError, "wrong argument type #{conversion_name(key)} (expected Symbol)" unless key.is_a?(Symbol)
+      end
+      storage
+    end
 
     def storage_key(key)
       return key.to_sym if key.is_a?(String)
@@ -814,6 +821,10 @@ class Fiber
     backtrace(start, length)&.map { |row| Thread::Backtrace::Location.new(row) }
   end
 
+  def inspect = Primitive.zr_fiber_inspect_m(self, Primitive.zr_hidden_get(self, :__block__))
+
+  alias to_s inspect
+
   # A fiber Fiber.new made blocks when it was asked to; a thread's own
   # fiber always blocks.
   def blocking? = Primitive.zr_hidden_get(self, :__blocking__) != false
@@ -826,9 +837,9 @@ class Fiber
 
   def storage=(hash)
     Primitive.zr_warn_here_m("Fiber#storage= is experimental and may be removed in the future!")
-    raise TypeError, "wrong argument type #{conversion_name(hash)} (expected Hash)" unless hash.is_a?(Hash) || hash.nil?
+    Kernel.raise ArgumentError, "Fiber storage can only be accessed from the Fiber it belongs to" unless equal?(Fiber.current)
 
-    Primitive.zr_hidden_set(self, :__storage__, hash ? hash.dup : {})
+    Primitive.zr_hidden_set(self, :__storage__, Fiber.send(:checked_storage, hash)&.dup)
   end
 
   private
@@ -1096,6 +1107,14 @@ class Thread::SizedQueue < Thread::Queue
   alias deq pop
 
   def close
+    super
+    Thread.send(:rouse, pushers.dup)
+    self
+  end
+
+  # Room for every pusher, so each one waiting wakes, as rb_szqueue_clear
+  # wakes them.
+  def clear
     super
     Thread.send(:rouse, pushers.dup)
     self

@@ -13,6 +13,7 @@ module ObjectSpace
     end
 
     def initialize
+      Primitive.attr! :hidden
       @table = Primitive.zr_weak_table_new_m(1, true)
     end
 
@@ -74,8 +75,10 @@ module ObjectSpace
     # immediates, and the numbers and symbols that live as long as the
     # program does.
     UNCOLLECTABLE = [Integer, Float, Symbol, NilClass, TrueClass, FalseClass].freeze
+    private_constant :UNCOLLECTABLE
 
     def initialize
+      Primitive.attr! :hidden
       @table = Primitive.zr_weak_table_new_m(2, false)
     end
 

@@ -93,15 +93,36 @@ machine def zr_fiber_current_m(recv, argc, argv, cref, blk)
   zr_fiber_current()
 end
 
-# `Fiber.new { }`: a task and a stack, and a context that starts at
-# zr_fiber_start when first resumed.
+# `Fiber.allocate`: a fiber that was never made, with no block, no
+# context, no stack and no task, which refuses to run.
+sig [Value] => Value
+machine def zr_fiber_alloc(klass)
+  f = zr_alloc(T_FIBER, klass)
+  RFiber.set_task(f, 0)
+  RFiber.set_ctx(f, 0)
+  RFiber.set_stack(f, 0)
+  RFiber.set_kroots(f, 0)
+  RFiber.set_blk(f, Machine.value(QNIL))
+  RFiber.set_status(f, FIBER_CREATED)
+  RFiber.set_prev(f, Machine.value(QNIL))
+  RFiber.set_resuming(f, Machine.value(QNIL))
+  RFiber.set_value(f, Machine.value(QNIL))
+  RFiber.set_yielding(f, 0)
+  RFiber.set_transferred(f, 0)
+  RFiber.set_home(f, Machine.value(QNIL))
+  f
+end
+
+# What `Fiber#initialize` makes of an allocated fiber: the block, a task
+# and a stack, and a context that starts at zr_fiber_start when first
+# resumed. A fiber is made once, as fiber_t_alloc allows.
 sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_fiber_new(recv, argc, argv, cref, blk)
-  if blk == QNIL
-    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("tried to create Proc object without a block"), 43)
+machine def zr_fiber_make(recv, argc, argv, cref, blk)
+  if RFiber.ctx(recv) != 0
+    return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("cannot initialize twice"), 23)
   end
   cur = zr_fiber_current()
-  f = zr_alloc(T_FIBER, recv)
+  f = recv
   RFiber.set_blk(f, blk)
   RFiber.set_status(f, FIBER_CREATED)
   RFiber.set_prev(f, Machine.value(QNIL))
@@ -306,7 +327,40 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_fiber_alive_p(recv, argc, argv, cref, blk)
+  if RFiber.ctx(recv) == 0
+    return zr_fiber_error(Machine.bytes("uninitialized fiber"), 19)
+  end
   zr_bool(RFiber.status(recv) != FIBER_TERMINATED)
+end
+
+# `#<Fiber:0x... file:line (status)>`, as fiber_to_s writes it, where
+# `blk` is the block the program gave Fiber.new, or nil for a thread's
+# own fiber. A fiber that resumed another is suspended "by resuming" it,
+# as CRuby stores the status of the fiber it switches away from.
+sig [Value, Value] => Value
+machine def zr_fiber_inspect_m(recv, blk)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_obj_head(b, recv)
+  if blk != QNIL && !zr_buf_block_where(b, blk)
+    free(Buf.ptr(b))
+    return Machine.value(QUNDEF)
+  end
+  status = RFiber.resuming(recv) != QNIL ? FIBER_SUSPENDED : RFiber.status(recv)
+  if status == FIBER_CREATED
+    zr_buf_push(b, Machine.bytes(" (created"), 9)
+  elsif status == FIBER_RESUMED
+    zr_buf_push(b, Machine.bytes(" (resumed"), 9)
+  elsif status == FIBER_SUSPENDED
+    zr_buf_push(b, Machine.bytes(" (suspended"), 11)
+  else
+    zr_buf_push(b, Machine.bytes(" (terminated"), 12)
+  end
+  if RFiber.resuming(recv) != QNIL
+    zr_buf_push(b, Machine.bytes(" by resuming"), 12)
+  end
+  zr_buf_push(b, Machine.bytes(")>"), 2)
+  zr_buf_take_at(b, ENC_BINARY)
 end
 
 # Whether the fiber has never run: its block waits for a first resume.

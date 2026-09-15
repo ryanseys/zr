@@ -197,6 +197,12 @@ class Range
   end
   alias entries to_a
 
+  def to_set(...)
+    raise RangeError, "cannot convert endless range to a set" if @end.nil?
+
+    super
+  end
+
   # Counted only from an Integer: a Float or nil start cannot iterate,
   # any other start has no size.
   def size

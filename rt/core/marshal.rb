@@ -735,4 +735,6 @@ module Marshal
       end
     end
   end
+
+  private_constant :Reader, :Writer
 end

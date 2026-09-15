@@ -266,6 +266,7 @@ module Ze0
         d zr_mod_const_set Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_const_names_at Void klass:Value out:Value
         d zr_const_names_of Void mod:Value out:Value inherit:Bool
+        d zr_mod_s_constants Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_constants Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_const_remove Void klass:Value id:Word
         d zr_autoload Value mod:Value id:Word feature:Value fn:Ptr cref:Value kind:Word path:Value
@@ -468,7 +469,8 @@ module Ze0
         d zr_ractor_enter_m Value
         d zr_fiber_current Value
         d zr_fiber_current_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
-        d zr_fiber_new Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_fiber_alloc Value klass:Value
+        d zr_fiber_make Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_fiber_transfer_value Value argc:Word argv:Ptr
         d zr_fiber_switch Void from:Value to:Value
         d zr_fiber_error Value bytes:Ptr len:Word
@@ -480,6 +482,7 @@ module Ze0
         d zr_fiber_yield Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_fiber_start Void
         d zr_fiber_alive_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_fiber_inspect_m Value recv:Value blk:Value
         d zr_fiber_unborn_p Value recv:Value
         d zr_fiber_terminate Value recv:Value
         d zr_fiber_rehome Value recv:Value
@@ -980,6 +983,7 @@ module Ze0
         d zr_native_proc Value fn:Ptr self_:Value
         d zr_proc_lambda Value p:Value
         d zr_proc_call Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_buf_block_where Bool b:Ptr blk:Value
         d zr_proc_inspect Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_proc_lambda_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_kernel_proc Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1666,6 +1670,7 @@ module Ze0
         c ALLOC_UNDEF 8
         c ALLOC_REGEXP 9
         c ALLOC_NONE 10
+        c ALLOC_FIBER 11
         c BUF_LENGTH 0
         c BUF_VALUE 16
         c PM_BUFFER_SIZE 24

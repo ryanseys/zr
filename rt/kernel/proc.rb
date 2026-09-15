@@ -232,20 +232,18 @@ machine def zr_proc_call(recv, argc, argv, cref, blk)
   Machine.call(:block, RProc.fn(recv), recv, argc, argv, blk)
 end
 
-# `#<Proc:0x... file:line (lambda)>`; a Symbol's Proc shows `(&:sym)`
-# and a core-made or Method Proc no location.
-sig [Value, Word, Ptr, Value, Value] => Value
-machine def zr_proc_inspect(recv, argc, argv, cref, blk)
-  b = Machine.slot(Buf.size)
-  zr_buf_init(b)
-  zr_buf_obj_head(b, recv)
-  meta = RProc.meta(recv)
-  if RProc.fn(recv) == Machine.addr(:zr_symbol_block)
+# Where a block came from, as rb_block_to_s writes it after the address:
+# `(&:sym)` for a Symbol's Proc, ` file:line` for a block a program
+# wrote, and nothing for a core-made or Method Proc. False when the
+# Symbol's inspect raised; the exception is then pending.
+sig [Ptr, Value] => Bool
+machine def zr_buf_block_where(b, blk)
+  meta = RProc.meta(blk)
+  if RProc.fn(blk) == Machine.addr(:zr_symbol_block)
     zr_buf_push(b, Machine.bytes("(&"), 2)
-    s = zr_inspect(RProc.self(recv))
+    s = zr_inspect(RProc.self(blk))
     if s == QUNDEF
-      free(Buf.ptr(b))
-      return s
+      return false
     end
     zr_buf_str(b, s)
     zr_buf_byte(b, 41)
@@ -254,6 +252,19 @@ machine def zr_proc_inspect(recv, argc, argv, cref, blk)
     zr_buf_push(b, FrameMeta.file(meta), FrameMeta.file_len(meta))
     zr_buf_byte(b, 58)
     zr_buf_long(b, FrameMeta.line(meta))
+  end
+  true
+end
+
+# `#<Proc:0x... file:line (lambda)>`.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_proc_inspect(recv, argc, argv, cref, blk)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_obj_head(b, recv)
+  if !zr_buf_block_where(b, recv)
+    free(Buf.ptr(b))
+    return Machine.value(QUNDEF)
   end
   if RProc.lambda(recv) != 0
     zr_buf_push(b, Machine.bytes(" (lambda)"), 9)

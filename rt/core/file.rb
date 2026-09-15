@@ -192,22 +192,6 @@ class File < IO
     @stream = stream
   end
 
-  # fclose closes the descriptor with the stream; a stream-less file
-  # closes its descriptor the way every other IO does.
-  def close
-    return nil if closed?
-    return super unless @stream
-
-    # Whatever the buffer holds is written before the stream goes, as
-    # fclose writes it.
-    write_pending
-    stream = @stream
-    @stream = nil
-    Primitive.zr_io_fclose(stream)
-    send(:mark_closed)
-    nil
-  end
-
   # The descriptor for a FIFO, waited for a turn at a time. A write end
   # answers ENXIO until a reader shows up; a read end opens at once.
   def fifo_fd(path, text)
@@ -268,6 +252,7 @@ class File < IO
     include Comparable
 
     FIELDS = %i[dev ino mode nlink uid gid rdev size blksize blocks].freeze
+    private_constant :FIELDS
     attr_reader(*FIELDS)
 
     def initialize(path)
@@ -677,9 +662,6 @@ class File < IO
     File.size(path)
   end
 
-  def to_path = path
-
-  def stat = File.stat(path)
   def lstat = File.lstat(path)
   def atime = stat.atime
   def mtime = stat.mtime

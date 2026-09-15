@@ -2041,6 +2041,7 @@ class Encoding
   # Every name is a frozen US-ASCII String, the same one each time it is
   # asked for.
   def initialize(index, names, dummy, ascii, loaded, bytewise)
+    Primitive.attr! :hidden
     @names = names.map { |name| Primitive.zr_str_usascii(name.dup).freeze }.freeze
     # The one field CRuby shows a program.
     Primitive.zr_hidden_set(self, :@name, @names.first)

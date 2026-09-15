@@ -27,6 +27,7 @@ module Process
     attr_reader :pid, :to_i
 
     def initialize(pid, raw)
+      Primitive.attr! :hidden
       @pid = pid
       @to_i = raw
     end
@@ -59,10 +60,6 @@ module Process
     def success? = exited? ? exitstatus == 0 : nil
 
     def ==(other) = other.is_a?(Integer) ? @to_i == other : (other.is_a?(Status) && @to_i == other.to_i)
-
-    def &(mask) = @to_i & mask
-
-    def >>(places) = @to_i >> places
 
     def to_s
       return "pid #{@pid} exit #{exitstatus}" if exited?

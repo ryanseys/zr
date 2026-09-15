@@ -63,7 +63,7 @@ t("getsockopt rcvbuf") { s = Socket.new(:INET, :DGRAM); o = s.getsockopt(:SOCKET
 t("closed ops") { s = Socket.new(:INET, :STREAM); s.close; s.getsockname }
 t("instance vars") { s = Socket.new(:INET, :STREAM); r = s.instance_variables; s.close; r }
 t("ip_address_list") { Socket.ip_address_list.map(&:afamily).uniq.sort }
-t("tcp timeout") { Socket.tcp("127.0.0.1", 1, connect_timeout: 1) }
+t("tcp timeout") { srv = TCPServer.new("127.0.0.1", 0); s = Socket.tcp("127.0.0.1", srv.addr[1], connect_timeout: 1); r = s.remote_address.ip_port == srv.addr[1]; [s, srv].each(&:close); r }
 t("tcpserver port only") { s = TCPServer.new(0); r = s.addr[0]; s.close; r }
 
 __END__
@@ -87,5 +87,5 @@ getsockopt rcvbuf: [true, "#<Socket::Option: INET SOCKET RCVBUF N>"]
 closed ops: IOError: closed stream
 instance vars: []
 ip_address_list: [2, 30]
-tcp timeout: Errno::ECONNREFUSED: Connection refused - connect(2) for 127.0.0.1:1
+tcp timeout: true
 tcpserver port only: "AF_INET6"

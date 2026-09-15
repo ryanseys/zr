@@ -20,8 +20,6 @@ class Enumerator
       @block.call(*values)
     end
 
-    alias call yield
-
     def to_proc
       block = @block
       proc { |*values| block.call(*values) }
@@ -1009,6 +1007,7 @@ class Enumerator::Product < Enumerator
   private
 
   def walk(depth, picked, &block)
+    Primitive.attr! :hidden
     return yield(picked.dup) if depth == @enums.size
 
     @enums[depth].each_entry do |x|

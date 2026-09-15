@@ -602,8 +602,14 @@ class IO
       Primitive.zr_io_close(@twin)
       @twin = nil
     end
-    result = @autoclose ? Primitive.zr_io_close(@fd) : 0
-    raise SystemCallError.new(nil, -result) if result < 0
+    if @stream
+      # A File that fopen made: fclose closes the descriptor with it.
+      Primitive.zr_io_fclose(@stream)
+      @stream = nil
+    elsif @autoclose
+      result = Primitive.zr_io_close(@fd)
+      raise SystemCallError.new(nil, -result) if result < 0
+    end
 
     Process.wait(@pid) if @pid
     nil
@@ -786,8 +792,6 @@ class IO
     self
   end
 
-  alias codepoints each_codepoint
-
   # `pread` and `pwrite` leave the descriptor's own offset alone.
   # pread(2) and pwrite(2) name a file position and leave the stream's
   # own where it was, buffer included.
@@ -946,15 +950,6 @@ class IO
   def printf(format, *args)
     write(Kernel.format(format, *args))
     nil
-  end
-
-  def p(*objects)
-    i = 0
-    while i < Primitive.zr_ary_len_m(objects)
-      write(Primitive.zr_ary_at_m(objects, i).inspect, "\n")
-      i += 1
-    end
-    Primitive.zr_ary_len_m(objects) <= 1 ? Primitive.zr_ary_at_m(objects, 0) : objects
   end
 
   # `read(length)`: that many bytes, fewer at the end, nil past it, and

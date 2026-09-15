@@ -395,6 +395,9 @@ machine def zr_alloc_shape(recv, kind)
   if kind == ALLOC_REGEXP
     return zr_regexp_alloc(recv)
   end
+  if kind == ALLOC_FIBER
+    return zr_fiber_alloc(recv)
+  end
   if kind == ALLOC_ARRAY
     o = zr_ary_new(4)
   elsif kind == ALLOC_HASH
@@ -426,6 +429,7 @@ ALLOC_STRING = 7
 ALLOC_UNDEF = 8
 ALLOC_REGEXP = 9
 ALLOC_NONE = 10
+ALLOC_FIBER = 11
 
 # Whether a class of `kind` has no allocator Ruby may call: ALLOC_UNDEF
 # for a class whose `new` is gone too (Integer, Binding), ALLOC_NONE for
@@ -473,6 +477,7 @@ machine def zr_alloc_table
   zr_alloc_record(G_PROC, ALLOC_UNDEF)
   zr_alloc_record(G_METHOD, ALLOC_UNDEF)
   zr_alloc_record(G_UNBOUND_METHOD, ALLOC_UNDEF)
+  zr_alloc_record(G_FIBER, ALLOC_FIBER)
 end
 
 # rb_undef_alloc_func, for a class core defines: `allocate` on it, and

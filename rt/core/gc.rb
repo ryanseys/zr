@@ -134,8 +134,6 @@ module GC
     out.merge!(stats)
   end
 
-  def start(full_mark: true, immediate_mark: true, immediate_sweep: true) = Primitive.zr_gc_start
-
   def garbage_collect(full_mark: true, immediate_mark: true, immediate_sweep: true)
     Primitive.attr! :ruby
     Primitive.zr_gc_start

@@ -57,14 +57,17 @@ class Binding
   # brought, as it does Kernel#eval.
   def eval(source, file = nil, line = 1) = Primitive.zr_unimplemented("eval reached in a program built without the compiler")
 
-  def inspect = Primitive.zr_obj_form("#<Binding:0x#{format("%016x", object_id * 2)}>")
+  # A copy names the same scope, but a local it adds is its own, as
+  # binding_copy gives it.
+  def dup = super
 
-  alias to_s inspect
-
-  private
+  def clone = super()
 
   # The lowering's name for `it`, which no program can spell.
   IT = :"%it"
+  private_constant :IT
+
+  private
 
   # The slot of an implicit parameter in the innermost scope, or nil.
   def implicit_place(name)

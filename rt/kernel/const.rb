@@ -899,24 +899,32 @@ machine def zr_const_names_of(mod, out, inherit)
   end
 end
 
-# `constants`: the receiver's names, or, for a bare `Module.constants`,
-# the names each lexical scope holds and then the innermost scope's
-# ancestors'.
+# `Module.constants`: bare, the names each lexical scope holds and then
+# the innermost scope's ancestors', as rb_mod_s_constants lists them;
+# else what `Module#constants` answers.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_mod_s_constants(recv, argc, argv, cref, blk)
+  if argc != 0 || recv != zr_global(G_MODULE)
+    return zr_mod_constants(recv, argc, argv, cref, blk)
+  end
+  out = zr_ary_new(8)
+  c = zr_cref_lexical(Frame.cref(Frame.prev(Task.top(zr_task()))))
+  inner = zr_cref_klass(c)
+  while c != QNIL
+    if RCref.eval(c) == 0
+      zr_const_names_at(zr_cref_klass(c), out)
+    end
+    c = RCref.next(c)
+  end
+  zr_const_names_of(inner, out, true)
+  out
+end
+
+# `constants`: the receiver's names, with its ancestors' unless
+# `inherit` is false.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_constants(recv, argc, argv, cref, blk)
   out = zr_ary_new(8)
-  if argc == 0 && recv == zr_global(G_MODULE)
-    c = zr_cref_lexical(Frame.cref(Frame.prev(Task.top(zr_task()))))
-    inner = zr_cref_klass(c)
-    while c != QNIL
-      if RCref.eval(c) == 0
-        zr_const_names_at(zr_cref_klass(c), out)
-      end
-      c = RCref.next(c)
-    end
-    zr_const_names_of(inner, out, true)
-    return out
-  end
   inherit = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
   zr_const_names_of(recv, out, inherit)
   out

@@ -71,14 +71,20 @@ end
 
 # Whether `rec` has a row in a backtrace. A helper the core library
 # keeps for itself has none, and neither has a builtin that a helper
-# called: CRuby's C reaches that work with no frame at all.
+# called on a core value: CRuby's C reaches that work with no frame at
+# all. A builtin a helper called on a plain object keeps its row, as
+# the frame rb_funcall pushes for it does.
 sig [Ptr] => Bool
 machine def zr_frame_shown_p(rec)
   kind = FrameMeta.kind(Frame.meta(rec))
   if kind == KIND_HIDDEN
     return false
   end
-  kind != KIND_BUILTIN || Frame.prev(rec) == 0 || !zr_frame_helper_p(Frame.prev(rec))
+  if kind != KIND_BUILTIN || Frame.prev(rec) == 0 || !zr_frame_helper_p(Frame.prev(rec))
+    return true
+  end
+  me = Frame.self(rec)
+  !zr_special_p(me) && zr_type(me) == T_OBJECT
 end
 
 # Whether `rec` runs a helper: a hidden def, or a block written in one.

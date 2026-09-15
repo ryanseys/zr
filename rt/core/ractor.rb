@@ -164,7 +164,7 @@ class Ractor
     isolate(block)
     ractor = Primitive.zr_class_build(self)
     ractor.__send__(:setup, args.map { |arg| cross(arg) }, block, caller(1, 1)&.first)
-    ractor.name = name unless name.nil?
+    ractor.__send__(:name!, name) unless name.nil?
     ractor
   end
 
@@ -256,6 +256,10 @@ class Ractor
 
   # A message from this ractor's own port.
   def self.receive = current.default_port.receive
+
+  class << self
+    alias recv receive
+  end
 
   # The first message any of the ports holds, or the value of the first
   # ractor to end. A Ractor stands for a port of its own here: it is
@@ -472,10 +476,6 @@ class Ractor
 
   def name = Primitive.zr_hidden_get(self, :__name__)
 
-  def name=(text)
-    Primitive.zr_hidden_set(self, :__name__, text.nil? ? nil : text.to_str.dup.freeze)
-  end
-
   def [](key) = local_get(key)
 
   def []=(key, value)
@@ -523,9 +523,15 @@ class Ractor
     self
   end
 
-  def close_incoming = Primitive.zr_unimplemented("Ractor#close_incoming")
+  # Closes the default port, which only the ractor that owns it may do.
+  def close = default_port.close
 
-  def close_outgoing = Primitive.zr_unimplemented("Ractor#close_outgoing")
+  # What `require` becomes inside a ractor. This runtime loads every
+  # file on the one task that runs the program, so it is Kernel's own.
+  def self._require(feature) = Kernel.required(feature)
+
+  private def receive = default_port.receive
+  alias recv receive
 
   def inspect
     text = +"#<Ractor:##{number}"
@@ -537,6 +543,11 @@ class Ractor
   alias to_s inspect
 
   private
+
+  def name!(text)
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_set(self, :__name__, text.to_str.dup.freeze)
+  end
 
   # The ractor's own state. CRuby keeps it in C fields, so a program sees
   # no instance variable on a Ractor at all: these names carry no `@`,

@@ -91,8 +91,6 @@ class Rational < Numeric
 
   def to_i = numerator.abs / denominator * (numerator < 0 ? -1 : 1)
 
-  alias truncate_to_i to_i
-
   # nurat_to_double: the quotient rb_int_fdiv_double rounds once.
   def to_f = numerator.fdiv(denominator)
 
@@ -102,13 +100,9 @@ class Rational < Numeric
 
   def hash = [numerator, denominator, :Rational].hash
 
-  def zero? = numerator == 0
-
   def positive? = numerator > 0
 
   def negative? = numerator < 0
-
-  def integer? = false
 
   def abs = numerator < 0 ? Rational.send(:build, -numerator, denominator) : self
 
@@ -178,25 +172,6 @@ class Rational < Numeric
     end
   end
 
-  def %(other)
-    return to_f % other if other.is_a?(Float)
-
-    self - other * (self / other).floor
-  end
-
-  alias modulo %
-
-  def divmod(other)
-    q = (self / other).floor
-    [q, self - other * q]
-  end
-
-  def div(other) = (self / other).floor
-
-  def remainder(other)
-    self - other * (self / other).truncate
-  end
-
   def <=>(other)
     case other
     when Integer then numerator <=> other * denominator
@@ -214,16 +189,6 @@ class Rational < Numeric
     else other == self
     end
   end
-
-  def eql?(other) = other.is_a?(Rational) && self == other
-
-  def <(other) = compare(other, :<) < 0
-
-  def <=(other) = compare(other, :<=) <= 0
-
-  def >(other) = compare(other, :>) > 0
-
-  def >=(other) = compare(other, :>=) >= 0
 
   def coerce(other)
     case other
@@ -309,14 +274,6 @@ class Rational < Numeric
       scale = 10**-digits
       yield(numerator, denominator * scale) * scale
     end
-  end
-
-  def compare(other, op)
-    Primitive.attr! :hidden
-    c = self <=> other
-    Primitive.zr_cmperr(self, other) if c.nil?
-
-    c
   end
 
   def coerced(other, op)
