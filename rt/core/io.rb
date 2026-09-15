@@ -503,7 +503,7 @@ class IO
     total = 0
     rest = length
     reader = foreign && !src.respond_to?(:readpartial) ? :read : :readpartial
-    buf = String.new(capacity: COPY_CHUNK, encoding: Encoding::BINARY)
+    buf = Primitive.zr_str_set_binary(+"")
     while true
       if length.negative?
         size = COPY_CHUNK

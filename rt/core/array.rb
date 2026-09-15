@@ -142,13 +142,13 @@ class Array
   # Array, whose own elements join the text as the rest do.
   def join(sep = nil)
     sep = $, if sep.nil?
-    return String.new(encoding: Encoding::US_ASCII) if (Primitive.zr_ary_len_m(self) == 0)
+    return Primitive.zr_str_usascii(+"") if (Primitive.zr_ary_len_m(self) == 0)
 
     sep = sep.nil? ? "" : Primitive.zr_str_operand(sep)
     raise ArgumentError, "recursive array join" if Primitive.zr_recursive_enter(self, :join)
 
     begin
-      s = String.new(encoding: Encoding::US_ASCII)
+      s = Primitive.zr_str_usascii(+"")
       i = 0
       while i < Primitive.zr_ary_len_m(self)
         s << sep if i > 0

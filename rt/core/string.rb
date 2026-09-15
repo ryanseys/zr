@@ -122,9 +122,9 @@ class String
     false
   end
 
-  def delete_prefix(prefix) = OWN[:start_with?].bind_call(self, prefix) ? byteslice_of(prefix.bytesize, Primitive.zr_str_bytesize(self) - prefix.bytesize) : String.new(self)
+  def delete_prefix(prefix) = OWN[:start_with?].bind_call(self, prefix) ? byteslice_of(prefix.bytesize, Primitive.zr_str_bytesize(self) - prefix.bytesize) : copied
 
-  def delete_suffix(suffix) = OWN[:end_with?].bind_call(self, suffix) ? byteslice_of(0, Primitive.zr_str_bytesize(self) - suffix.bytesize) : String.new(self)
+  def delete_suffix(suffix) = OWN[:end_with?].bind_call(self, suffix) ? byteslice_of(0, Primitive.zr_str_bytesize(self) - suffix.bytesize) : copied
 
   def replace(other) = Primitive.zr_str_replace(self, Primitive.zr_str_operand(other))
 
@@ -195,7 +195,7 @@ class String
   end
 
   # A copy whose bytes are its characters (CRuby's ASCII-8BIT).
-  def b = Primitive.zr_str_set_binary(String.new(self))
+  def b = Primitive.zr_str_set_binary(copied)
 
   def clear = Primitive.zr_str_discard(self)
 
@@ -280,20 +280,20 @@ class String
 
   def chomp(separator = $/)
     separator = Primitive.zr_str_operand(separator) unless separator.nil?
-    return String.new(self) if separator.nil? || (Primitive.zr_str_bytesize(self) == 0)
+    return copied if separator.nil? || (Primitive.zr_str_bytesize(self) == 0)
 
     if separator == "\n"
       return byteslice_of(0, Primitive.zr_str_bytesize(self) - 2) if OWN[:end_with?].bind_call(self, "\r\n")
       return byteslice_of(0, Primitive.zr_str_bytesize(self) - 1) if OWN[:end_with?].bind_call(self, "\n", "\r")
 
-      return String.new(self)
+      return copied
     end
     if separator.empty?
       s = self
       s = s.byteslice_of(0, s.bytesize - (s.end_with?("\r\n") ? 2 : 1)) while s.end_with?("\n")
-      return s.equal?(self) ? String.new(self) : s
+      return s.equal?(self) ? copied : s
     end
-    OWN[:end_with?].bind_call(self, separator) ? byteslice_of(0, Primitive.zr_str_bytesize(self) - separator.bytesize) : String.new(self)
+    OWN[:end_with?].bind_call(self, separator) ? byteslice_of(0, Primitive.zr_str_bytesize(self) - separator.bytesize) : copied
   end
 
   def chop
@@ -322,7 +322,7 @@ class String
   def lines(separator = $/, chomp: false, &block)
     return OWN[:each_line].bind_call(self, separator, chomp: chomp, &block) if block
     return [] if (Primitive.zr_str_bytesize(self) == 0)
-    return [String.new(self)] if separator.nil?
+    return [copied] if separator.nil?
 
     separator = Primitive.zr_str_operand(separator)
     paragraph = separator.empty?
@@ -363,7 +363,7 @@ class String
   def split(pattern = nil, limit = 0)
     limit = Primitive.zr_index_operand_m(limit)
     if limit == 1
-      return block_given? ? (yield String.new(self); self) : ((Primitive.zr_str_bytesize(self) == 0) ? [] : [String.new(self)])
+      return block_given? ? (yield copied; self) : ((Primitive.zr_str_bytesize(self) == 0) ? [] : [copied])
     end
     pattern = $; if pattern.nil?
     pattern = Primitive.zr_str_operand(pattern) if !pattern.nil? && !pattern.is_a?(String) && !pattern.is_a?(Regexp) && pattern.respond_to?(:to_str)
@@ -391,7 +391,7 @@ class String
 
     match = first_match(pattern, 0)
     Primitive.zr_backref_set(match)
-    return String.new(self) unless match
+    return copied unless match
 
     at = match.byteoffset(0)
     byteslice_of(0, at[0]) + replacement_for(match, replacement, &block) + byteslice_of(at[1], Primitive.zr_str_bytesize(self) - at[1])
@@ -693,7 +693,7 @@ class String
     return self if order > 0 || (exclusive && order == 0)
 
     after = last.succ
-    current = String.new(self)
+    current = copied
     until current == after
       following = exclusive || current != last ? current.succ : nil
       yield current
@@ -710,26 +710,26 @@ class String
     if sep.is_a?(Regexp)
       match = sep.send(:search, self, 0, false)
       Primitive.zr_backref_set(match)
-      return [String.new(self), "", ""] unless match
+      return [copied, "", ""] unless match
 
       from, to = match.byteoffset(0)
       return [byteslice_of(0, from), match[0], byteslice_of(to, Primitive.zr_str_bytesize(self) - to)]
     end
     at = byte_index(sep, 0)
-    at ? [byteslice_of(0, at), sep.dup, byteslice_of(at + sep.bytesize, Primitive.zr_str_bytesize(self) - at - sep.bytesize)] : [String.new(self), "", ""]
+    at ? [byteslice_of(0, at), sep.dup, byteslice_of(at + sep.bytesize, Primitive.zr_str_bytesize(self) - at - sep.bytesize)] : [copied, "", ""]
   end
 
   def rpartition(sep)
     if sep.is_a?(Regexp)
       match = sep.send(:search, self, Primitive.zr_str_bytesize(self), true)
       Primitive.zr_backref_set(match)
-      return ["", "", String.new(self)] unless match
+      return ["", "", copied] unless match
 
       from, to = match.byteoffset(0)
       return [byteslice_of(0, from), match[0], byteslice_of(to, Primitive.zr_str_bytesize(self) - to)]
     end
     at = OWN[:rindex].bind_call(self, sep)
-    return ["", "", String.new(self)] unless at
+    return ["", "", copied] unless at
 
     at = Primitive.zr_str_char_offset_m(self, at)
     [byteslice_of(0, at), sep.dup, byteslice_of(at + sep.bytesize, Primitive.zr_str_bytesize(self) - at - sep.bytesize)]
@@ -1104,13 +1104,13 @@ class String
   # decorator converts, within the receiver's own encoding.
   def encode(target = (implicit = true; Encoding.default_internal), source = nil, **options)
     if implicit
-      return String.new(self) if target.nil? && options.empty?
+      return copied if target.nil? && options.empty?
 
       target ||= Encoding.at(Primitive.zr_str_encoding_index_m(self))
       options = { invalid: :replace, undef: :replace, **options }
     end
     from, target = Encoding.pair(source.nil? ? Encoding.at(Primitive.zr_str_encoding_index_m(self)) : source, target)
-    text = escaped(source.nil? ? plain : String.new(self).force_encoding(from), options)
+    text = escaped(source.nil? ? plain : copied.force_encoding(from), options)
     # The quotes an attribute stands in are characters of the text, so
     # they cross into the target with it: written after the conversion
     # they would carry the source's own bytes instead.
@@ -1232,7 +1232,7 @@ class String
   # Every invalid byte replaced by `replacement` (U+FFFD, or the
   # block's answer for the bad bytes).
   def scrub(replacement = nil)
-    return String.new(self) if Primitive.zr_str_valid_p(self)
+    return copied if Primitive.zr_str_valid_p(self)
 
     replacement = (Encoding.wide?(Encoding.at(Primitive.zr_str_encoding_index_m(self))) ? "\uFFFD".encode(Encoding.at(Primitive.zr_str_encoding_index_m(self))) : "\uFFFD") if replacement.nil? && !block_given?
     out = +""
@@ -1376,11 +1376,18 @@ class String
     Primitive.zr_str_byteslice(self, start, length)
   end
 
+  # The receiver's bytes and encoding in a new String, as rb_str_dup makes
+  # one: never through String.new, which runs a program's initialize.
+  def copied
+    Primitive.attr! :hidden
+    Primitive.zr_str_byteslice(self, 0, Primitive.zr_str_bytesize(self))
+  end
+
   # The receiver as a plain String, which code written for String's own
   # bytes reads as the C reads a subclass's: never through its methods.
   def plain
     Primitive.attr! :hidden
-    Primitive.zr_real_class(self).equal?(String) ? self : String.new(self)
+    Primitive.zr_real_class(self).equal?(String) ? self : copied
   end
 
   # The characters as an Array, walked as each_char walks them, for the
@@ -1879,7 +1886,7 @@ class String
     joined = Encoding.compatible?(self, pad)
     Encoding.incompatible(self, pad) if joined.nil?
     count = Primitive.zr_str_length_m(self)
-    return String.new(self) if width <= count
+    return copied if width <= count
 
     fill = width - count
     left = side == :left ? 0 : (side == :right ? fill : fill / 2)
