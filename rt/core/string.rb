@@ -1310,8 +1310,8 @@ class String
     NORMALIZER[1]
   end
 
-  # A grapheme cluster is what the regex engine's `\\X` matches, which
-  # is how ruby reads them too.
+  # A grapheme cluster is what the regex engine's `\\X` matches from
+  # each place in turn, as rb_str_enumerate_grapheme_clusters takes them.
   def each_grapheme_cluster(&block)
     return to_enum(:each_grapheme_cluster) { OWN[:grapheme_clusters].bind_call(self).size } unless block
 
@@ -1319,7 +1319,40 @@ class String
     self
   end
 
-  def grapheme_clusters = OWN[:scan].bind_call(self, /\X/)
+  # A byte no character holds is a cluster by itself, and an encoding
+  # that is not Unicode has characters alone.
+  def grapheme_clusters
+    encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    return characters unless GRAPHEMES.include?(encoding.name)
+    return wide_clusters unless encoding.ascii_compatible?
+
+    out = []
+    at = 0
+    size = Primitive.zr_str_bytesize(self)
+    while at < size
+      offsets = Primitive.zr_regexp_match_at(/\X/, self, at)
+      break if offsets.nil? || offsets[2] <= at
+
+      out << Primitive.zr_str_byteslice(self, at, offsets[2] - at)
+      at = offsets[2]
+    end
+    out
+  end
+
+  # The clusters of a UTF-16 or UTF-32 string: the engine reads only
+  # ASCII-compatible text, so the clusters are found in UTF-8 and the
+  # characters of the receiver taken in those counts.
+  def wide_clusters
+    Primitive.attr! :hidden
+    chars = characters
+    text = chars.map { |c| Primitive.zr_str_valid_p(c) ? c.encode(Encoding::UTF_8) : "\uFFFD" }.join
+    at = 0
+    OWN[:grapheme_clusters].bind_call(text).map do |cluster|
+      part = chars[at, Primitive.zr_str_length_m(cluster)].join
+      at += Primitive.zr_str_length_m(cluster)
+      part
+    end
+  end
 
   protected
 
@@ -1852,7 +1885,9 @@ class String
   OWN = %i[[] each_char each_byte end_with? start_with? index rindex lstrip strip rstrip succ reverse capitalize
            downcase upcase swapcase delete squeeze chomp chop sub scrub tr tr_s count lines each_line scan include?
            unicode_normalize encode force_encoding b grapheme_clusters].to_h { |name| [name, instance_method(name)] }.freeze
-  private_constant :OWN
+  # The encodings whose characters rb_enc_unicode_p says are Unicode.
+  GRAPHEMES = %w[UTF-8 UTF-16BE UTF-16LE UTF-32BE UTF-32LE UTF8-MAC CESU-8 UTF8-DoCoMo UTF8-KDDI UTF8-SoftBank].freeze
+  private_constant :OWN, :GRAPHEMES
 end
 
 class Symbol
