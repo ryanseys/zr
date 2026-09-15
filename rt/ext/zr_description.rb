@@ -352,7 +352,6 @@ module Ze0
         d zr_time_local Value secs:Value
         d zr_exit_now Value status:Value
         d zr_home_dir Value name:Value
-        d zr_pw_row Value pw:Ptr
         d zr_cstr_str Value text:Ptr
         d zr_pw_name Value name:Value
         d zr_pw_uid Value uid:Value
@@ -550,7 +549,6 @@ module Ze0
         d zr_float_adjacent Value recv:Value up:Word
         d zr_flo_next_float Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_flo_prev_float Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
-        d zr_float_digits Value v:Value ndigit:Value fixed:Value
         d zr_float_shortest Value v:Value
         d zr_float_halves Value v:Value
         d zr_float_of_halves Value low:Value high:Value
@@ -761,17 +759,11 @@ module Ze0
         d zr_readlink_m Value path:Value
         d zr_stat_m Value path:Value follow:Value
         d zr_fstat_m Value fd:Value
-        d zr_stat_rows Value buf:Ptr
         d zr_realpath_m Value path:Value
         d zr_chmod_m Value path:Value mode:Value
         d zr_path_access Value path:Value mode:Value
-        d zr_select_fn Ptr
         d zr_io_wait Value fd:Value events:Value milliseconds:Value
-        d zr_io_wait_once Value fd:Value events:Value milliseconds:Value
-        d zr_jit_map Value size:Value exec:Value hint:Value
-        d zr_jit_symbol Value name:Value
         d zr_jit_write_data Value at:Value bytes:Value
-        d zr_jit_write_code Value at:Value bytes:Value
         d zr_jit_call Value at:Value
         d zr_code_word Word code:Value i:Word
         d zr_code_env Value code:Value parent:Value
@@ -1013,7 +1005,6 @@ module Ze0
         d zr_proc_eq Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_proc_hash Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_spawn_vector Ptr words:Value
-        d zr_proc_spawn Value words:Value dups:Value closes:Value env:Value chdir:Value
         d zr_proc_exec Value words:Value
         d zr_proc_wait Value pid:Value flags:Value
         d zr_io_pipe Value
@@ -1031,9 +1022,7 @@ module Ze0
         d zr_proc_kill_all Value pids:Value signal:Value
         d zr_proc_getrlimit Value resource:Value
         d zr_proc_setrlimit Value resource:Value cur:Value max:Value
-        d zr_proc_setid Value call:Value id:Value
         d zr_proc_setreid Value group:Value real:Value effective:Value
-        d zr_proc_issetugid Value
         d zr_proc_setgroups Value ids:Value
         d zr_proc_initgroups Value user:Value gid:Value
         d zr_proc_fork Value
@@ -1193,7 +1182,6 @@ module Ze0
         d zr_sock_name Value fd:Value peer:Value
         d zr_sock_getsockopt Value fd:Value level:Value name:Value
         d zr_sock_setsockopt Value fd:Value level:Value name:Value bytes:Value
-        d zr_sock_peereid Value fd:Value
         d zr_sock_hostname Value
         d zr_sock_gai_failed Value r:I32
         d zr_sock_getaddrinfo Value host:Value service:Value family:Value socktype:Value protocol:Value flags:Value
@@ -1204,7 +1192,6 @@ module Ze0
         d zr_sock_host_by_addr Value addr:Value family:Value
         d zr_sock_service_port Value name:Value protocol:Value
         d zr_sock_service_name Value port:Value protocol:Value
-        d zr_sock_addr_len Word addr:Ptr
         d zr_sock_addr_or_nil Value addr:Ptr
         d zr_sock_ifaddrs Value
         d zr_sock_if_index Value name:Value
@@ -1429,6 +1416,40 @@ module Ze0
         d zr_zlib_crc_table Value
         d zr_zlib_version Value
         d zr_zlib_message Value err:Value
+        d zr_os_environ Ptr
+        d zr_os_random Word
+        d zr_os_passwd_row Value pw:Ptr
+        d zr_os_passwd_dir Ptr pw:Ptr
+        d zr_os_spawn Value words:Value dups:Value closes:Value env:Value chdir:Value
+        d zr_os_setid Value call:Value id:Value
+        d zr_os_issetugid Value
+        d zr_os_cospi F64 x:F64
+        d zr_os_sinpi F64 x:F64
+        d zr_os_float_digits Value v:Value ndigit:Value fixed:Value
+        d zr_os_errno Word
+        d zr_os_set_errno Void n:Word
+        d zr_os_fcntl I32 fd:I32 command:I32 argument:Word
+        d zr_os_ioctl I32 fd:I32 request:Word argument:Ptr
+        d zr_os_open I32 path:Ptr flags:I32
+        d zr_os_dirent_name Ptr entry:Ptr
+        d zr_os_stat_rows Value buf:Ptr
+        d zr_os_stat_size Word buf:Ptr
+        d zr_os_stat_mode Word buf:Ptr
+        d zr_select_fn Ptr
+        d zr_os_wait_fd Value fd:Value events:Value milliseconds:Value
+        d zr_os_jit_map Value size:Value exec:Value hint:Value
+        d zr_os_symbol Value name:Value
+        d zr_os_jit_write Value at:Value bytes:Value
+        d zr_os_libffi_path Ptr
+        d zr_os_sigaction I32 signo:I32 fn:Word old:Ptr
+        d zr_os_sockaddr_len Word addr:Ptr
+        d zr_os_addrinfo_row Value node:Ptr
+        d zr_os_addrinfo_next Ptr node:Ptr
+        d zr_os_h_errno Word
+        d zr_os_peereid Value fd:Value
+        d zr_os_stack_low Word
+        d zr_os_stack_map Ptr bytes:Word
+        d zr_arch_context_start Void ctx:Ptr entry:Word top:Word
         c G_ARRAY 25
         c G_INDEX_ERROR 26
         c ARY_MAX_SIZE 1152921504606846975
@@ -1468,6 +1489,9 @@ module Ze0
         c G_AT_EXIT 37
         c G_ARGV0 53
         c G_HIDDEN_FEATURES 50
+        c S_IFMT 61440
+        c S_IFDIR 16384
+        c S_IFREG 32768
         c KIND_BMETHOD 8
         c KIND_MAIN 0
         c KIND_DEF 1
@@ -1502,8 +1526,6 @@ module Ze0
         c FIBER_SUSPENDED 2
         c FIBER_TERMINATED 3
         c FIBER_STACK_BYTES 67108864
-        c CONTEXT_BYTES 176
-        c FIBER_GUARD_BYTES 16384
         c T_FLOAT 4
         c G_FLOAT 40
         c FLONUM_ZERO 9223372036854775810
@@ -1563,25 +1585,12 @@ module Ze0
         c G_BIG_LITERALS 54
         c F_GETFL 3
         c F_SETFL 4
-        c O_NONBLOCK 4
-        c O_NONBLOCK_OFF 4294967291
         c F_SETFD 2
         c FD_CLOEXEC 1
-        c O_CLOEXEC 16777216
-        c TIOCGWINSZ 1074295912
-        c TIOCSWINSZ 2148037735
         c WINSIZE_LEN 8
-        c TERMIOS_LEN 72
-        c PTY_OPEN_FLAGS 16908290
         c WAIT_READABLE 1
         c WAIT_PRIORITY 2
         c WAIT_WRITABLE 4
-        c EBADF 9
-        c PROT_READ_WRITE 3
-        c PROT_READ_WRITE_EXEC 7
-        c MAP_ANON_PRIVATE 4098
-        c MAP_JIT 2048
-        c RTLD_DEFAULT -2
         c G_NIL_TO_S 55
         c G_TRUE_TO_S 56
         c G_FALSE_TO_S 57
@@ -1621,7 +1630,6 @@ module Ze0
         c PENDING_BREAK 1
         c PENDING_RETURN 2
         c PENDING_THROW 3
-        c SPAWN_CLOEXEC_DEFAULT 16384
         c GUARD_ROW 3
         c ONIG_MISMATCH -1
         c ONIGERR_TIME_LIMIT_OVER -20
@@ -1638,16 +1646,12 @@ module Ze0
         c SEND_CORE 8
         c SEND_MODE 7
         c PREEMPT_TICKS 20000
-        c NSIG 32
-        c EINTR 4
         c SIGNAL_DEFAULT 0
         c SIGNAL_IGNORE 1
         c SIGNAL_RUBY 2
         c SIGNAL_NOTHING 3
         c SIGNAL_OTHER 4
         c SOCKADDR_MAX 256
-        c EPROTOTYPE 41
-        c EAI_SYSTEM 11
         c FL_ASCII 2097152
         c FL_VALID 8388608
         c FL_ASCII_CLEAR -2097153
@@ -1721,6 +1725,32 @@ module Ze0
         c ZLIB_INFLATE_RESET 5
         c ZLIB_INFLATE_SYNC 6
         c ZLIB_INFLATE_SYNC_POINT 7
+        c SC_NPROCESSORS_ONLN 58
+        c UTSNAME_LEN 1280
+        c UTSNAME_FIELD 256
+        c SPAWN_CLOEXEC_DEFAULT 16384
+        c EINTR 4
+        c EBADF 9
+        c O_NONBLOCK 4
+        c O_NONBLOCK_OFF 4294967291
+        c O_CLOEXEC 16777216
+        c PTY_OPEN_FLAGS 16908290
+        c TIOCGWINSZ 1074295912
+        c TIOCSWINSZ 2148037735
+        c TERMIOS_LEN 72
+        c STAT_LEN 160
+        c PROT_READ_WRITE 3
+        c PROT_READ_WRITE_EXEC 7
+        c MAP_ANON_PRIVATE 4098
+        c MAP_JIT 2048
+        c RTLD_DEFAULT -2
+        c NSIG 32
+        c EPROTOTYPE 41
+        c EAI_SYSTEM 11
+        c STACK_PROT 3
+        c STACK_MAP_FLAGS 4098
+        c STACK_GUARD_BYTES 16384
+        c CONTEXT_BYTES 176
         s RArray 48 8 basic:0:RBasic len:16:Word capa:24:Word ptr:32:Ptr base:40:Ptr
         s Buf 24 8 ptr:0:Ptr len:8:Word capa:16:Word
         s IvarCache 8 8 index:0:Word

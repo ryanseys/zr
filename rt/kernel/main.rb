@@ -40,13 +40,11 @@ STACK_MARGIN = 262144
 
 sig [] => Void
 machine def zr_stack_limit_init
-  me = pthread_self()
-  size = pthread_get_stacksize_np(me)
-  top = pthread_get_stackaddr_np(me)
-  if top == 0
+  low = zr_os_stack_low()
+  if low == 0
     Task.set_stack_limit(zr_task(), 0)
   else
-    Task.set_stack_limit(zr_task(), top - size + STACK_MARGIN)
+    Task.set_stack_limit(zr_task(), Machine.ptr(low + STACK_MARGIN))
   end
 end
 

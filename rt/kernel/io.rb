@@ -16,7 +16,6 @@ Machine.import "unlink", [Ptr] => I32
 Machine.import "rename", [Ptr, Ptr] => I32
 Machine.import "isatty", [I32] => I32
 Machine.import "fstat", [I32, Ptr] => I32
-Machine.import "open", [Ptr, I32] => I32
 Machine.import "fchmod", [I32, I32] => I32
 Machine.import "mkdir", [Ptr, I32] => I32
 Machine.import "rmdir", [Ptr] => I32
@@ -26,19 +25,18 @@ Machine.import "fdopendir", [I32] => Ptr
 Machine.import "fchdir", [I32] => I32
 Machine.import "readdir", [Ptr] => Ptr
 Machine.import "closedir", [Ptr] => I32
-Machine.import "__error", [] => Ptr
 Machine.import "strerror", [I32] => Ptr
 
 sig [] => Word
 machine def zr_errno
-  Machine.word(Machine.load32(__error(), 0))
+  zr_os_errno()
 end
 
 # errno cleared, for a call whose answer cannot say by itself that it
 # failed: only a failure of the call that follows sets it again.
 sig [] => Void
 machine def zr_clear_errno
-  Machine.store32(__error(), 0, Machine.i32(0))
+  zr_os_set_errno(0)
 end
 
 sig [Word] => Value
@@ -63,16 +61,10 @@ machine def zr_io_flags(fd)
   zr_io_failed(Machine.sword(fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(F_GETFL))))
 end
 
-# A descriptor that answers EAGAIN instead of waiting. `fcntl` takes the
-# flags of F_SETFL variadically, and this platform passes a variadic
-# argument on the stack, which this runtime makes no call for; `__fcntl`
-# is the fixed-arity call that fcntl's own wrapper makes once it has read
-# that argument.
-Machine.import "__fcntl", [I32, I32, Word] => I32
+# A descriptor that answers EAGAIN instead of waiting. F_SETFL's flags
+# go through `zr_os_fcntl`, which passes the argument fcntl reads
+# variadically.
 F_SETFL = 4
-O_NONBLOCK = 4
-# Every flag but O_NONBLOCK, which takes the flag away again.
-O_NONBLOCK_OFF = 4294967291
 
 sig [Value, Value] => Value
 machine def zr_io_set_nonblock(fd, on)
@@ -83,9 +75,9 @@ machine def zr_io_set_nonblock(fd, on)
   end
   flags = Machine.word(r)
   if zr_fix2long(on) != 0
-    return zr_io_status(__fcntl(n, Machine.i32(F_SETFL), flags | O_NONBLOCK))
+    return zr_io_status(zr_os_fcntl(n, Machine.i32(F_SETFL), flags | O_NONBLOCK))
   end
-  zr_io_status(__fcntl(n, Machine.i32(F_SETFL), flags & O_NONBLOCK_OFF))
+  zr_io_status(zr_os_fcntl(n, Machine.i32(F_SETFL), flags & O_NONBLOCK_OFF))
 end
 
 # F_SETFD and the one flag it carries.
@@ -98,7 +90,7 @@ FD_CLOEXEC = 1
 # the call, as this does.
 sig [Value] => Value
 machine def zr_io_cloexec(fd)
-  zr_io_status(__fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(F_SETFD), Machine.word(FD_CLOEXEC)))
+  zr_io_status(zr_os_fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(F_SETFD), Machine.word(FD_CLOEXEC)))
 end
 
 # ioctl(2) with the argument a command carries: a number the command
@@ -107,43 +99,37 @@ end
 # calls rather than one that ruby would have to build a pointer for.
 sig [Value, Value, Value] => Value
 machine def zr_io_ioctl(fd, command, argument)
-  zr_io_failed(Machine.sword(__ioctl(Machine.i32(zr_fix2long(fd)), Machine.word(zr_fix2long(command)),
+  zr_io_failed(Machine.sword(zr_os_ioctl(Machine.i32(zr_fix2long(fd)), Machine.word(zr_fix2long(command)),
                                      Machine.ptr(zr_fix2long(argument)))))
 end
 
 sig [Value, Value, Value] => Value
 machine def zr_io_ioctl_buf(fd, command, bytes)
-  zr_io_failed(Machine.sword(__ioctl(Machine.i32(zr_fix2long(fd)), Machine.word(zr_fix2long(command)),
+  zr_io_failed(Machine.sword(zr_os_ioctl(Machine.i32(zr_fix2long(fd)), Machine.word(zr_fix2long(command)),
                                      RString.ptr(bytes))))
 end
 
 # fcntl(2) with a command the program names itself, and the argument that
-# command takes. `fcntl` reads that argument variadically, and this
-# platform passes a variadic argument on the stack, so the call goes
-# through `__fcntl`, as the non-blocking flag does.
+# command takes, through `zr_os_fcntl` as the non-blocking flag goes.
 sig [Value, Value, Value] => Value
 machine def zr_io_fcntl(fd, command, argument)
-  zr_io_failed(Machine.sword(__fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(command)),
+  zr_io_failed(Machine.sword(zr_os_fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(command)),
                                     Machine.word(zr_fix2long(argument)))))
 end
 
-# open(2) with two arguments, which is the whole call unless O_CREAT
-# is set: the mode a creation takes is a variadic argument, and this
-# platform passes those on the stack. A creation goes through fopen
-# and then fchmod, which names the permissions exactly.
-# Every descriptor ruby opens closes itself across an exec, which
-# rb_sysopen asks for with O_CLOEXEC on the call itself.
-O_CLOEXEC = 16777216
-
+# open(2) with no mode: a creation goes through fopen and then fchmod,
+# which names the permissions exactly. Every descriptor ruby opens
+# closes itself across an exec, which rb_sysopen asks for with O_CLOEXEC
+# on the call itself.
 sig [Value, Value] => Value
 machine def zr_io_open_flags(path, flags)
-  fd = open(RString.ptr(path), Machine.i32(zr_fix2long(flags) | O_CLOEXEC))
+  fd = zr_os_open(RString.ptr(path), Machine.i32(zr_fix2long(flags) | O_CLOEXEC))
   while fd < Machine.i32(0)
     failed = zr_io_retry()
     if failed != QNIL
       return failed
     end
-    fd = open(RString.ptr(path), Machine.i32(zr_fix2long(flags) | O_CLOEXEC))
+    fd = zr_os_open(RString.ptr(path), Machine.i32(zr_fix2long(flags) | O_CLOEXEC))
   end
   zr_fix(Machine.sword(fd))
 end
@@ -306,31 +292,21 @@ machine def zr_io_tty_p(fd)
   zr_bool(Machine.word(isatty(Machine.i32(zr_fix2long(fd)))) != 0)
 end
 
-# The terminal calls io/console makes. `ioctl` names its third argument
-# variadically, and this platform passes a variadic argument on the
-# stack, so a fixed-arity call never reaches it: an ioctl that reads its
-# argument answers EFAULT. `__ioctl` is the fixed-arity call that
-# ioctl's own wrapper makes once it has read that argument.
-Machine.import "__ioctl", [I32, Word, Ptr] => I32
+# The terminal calls io/console makes. An ioctl goes through
+# `zr_os_ioctl`, which passes the argument ioctl reads variadically.
 Machine.import "tcgetattr", [I32, Ptr] => I32
 Machine.import "tcsetattr", [I32, I32, Ptr] => I32
 Machine.import "tcflush", [I32, I32] => I32
 Machine.import "ttyname", [I32] => Ptr
 
-TIOCGWINSZ = 1074295912
-TIOCSWINSZ = 2148037735
 # struct winsize: four unsigned shorts, the rows and the columns first.
 WINSIZE_LEN = 8
-# struct termios: four flag words, twenty control characters, and then
-# the two speeds. The bytes cross into ruby as they stand, because the
-# flags a mode changes are ruby's to name.
-TERMIOS_LEN = 72
 
 # The window size as its own bytes, or the negated errno.
 sig [Value] => Value
 machine def zr_io_winsize(fd)
   buf = Machine.slot(WINSIZE_LEN)
-  if __ioctl(Machine.i32(zr_fix2long(fd)), TIOCGWINSZ, buf) < Machine.i32(0)
+  if zr_os_ioctl(Machine.i32(zr_fix2long(fd)), TIOCGWINSZ, buf) < Machine.i32(0)
     return zr_fix(0 - zr_errno())
   end
   zr_str_new(buf, WINSIZE_LEN)
@@ -338,7 +314,7 @@ end
 
 sig [Value, Value] => Value
 machine def zr_io_set_winsize(fd, bytes)
-  zr_io_status(__ioctl(Machine.i32(zr_fix2long(fd)), TIOCSWINSZ, RString.ptr(bytes)))
+  zr_io_status(zr_os_ioctl(Machine.i32(zr_fix2long(fd)), TIOCSWINSZ, RString.ptr(bytes)))
 end
 
 # The terminal's mode as its own bytes, or the negated errno.
@@ -369,9 +345,6 @@ Machine.import "posix_openpt", [I32] => I32
 Machine.import "grantpt", [I32] => I32
 Machine.import "unlockpt", [I32] => I32
 Machine.import "ptsname", [I32] => Ptr
-
-# O_RDWR | O_NOCTTY | O_CLOEXEC: the pair is not this task's terminal.
-PTY_OPEN_FLAGS = 16_908_290
 
 # The master descriptor and the slave's name, or the negated errno.
 sig [] => Value
@@ -439,7 +412,7 @@ machine def zr_io_dir_names(path)
   out = zr_ary_new(8)
   e = readdir(d)
   while e != 0
-    name = e + 21
+    name = zr_os_dirent_name(e)
     zr_ary_push(out, zr_str_new(name, zr_cstr_len(name)))
     e = readdir(d)
   end
@@ -458,7 +431,7 @@ machine def zr_io_dir_names_fd(fd)
   out = zr_ary_new(8)
   e = readdir(d)
   while e != 0
-    name = e + 21
+    name = zr_os_dirent_name(e)
     zr_ary_push(out, zr_str_new(name, zr_cstr_len(name)))
     e = readdir(d)
   end
@@ -488,11 +461,11 @@ end
 # The size in bytes of the file at `path`, or the negated errno.
 sig [Value] => Value
 machine def zr_io_file_size(path)
-  buf = Machine.slot(160)
+  buf = Machine.slot(STAT_LEN)
   if stat(RString.ptr(path), buf) < Machine.i32(0)
     return zr_fix(0 - zr_errno())
   end
-  zr_fix(Machine.load64(buf, 96))
+  zr_fix(zr_os_stat_size(buf))
 end
 
 Machine.import "lstat", [Ptr, Ptr] => I32
@@ -596,48 +569,26 @@ end
 # stat(2) (or lstat when `follow` is false) as fixnums in an Array:
 # dev, ino, mode, nlink, uid, gid, rdev, size, blksize, blocks, then
 # atime, mtime and ctime as seconds and nanoseconds; a negative errno
-# on failure. The offsets are darwin's 64-bit-inode struct stat.
+# on failure.
 sig [Value, Value] => Value
 machine def zr_stat_m(path, follow)
-  buf = Machine.slot(160)
+  buf = Machine.slot(STAT_LEN)
   r = follow == QFALSE ? lstat(RString.ptr(path), buf) : stat(RString.ptr(path), buf)
   if r < Machine.i32(0)
     return zr_fix(0 - zr_errno())
   end
-  zr_stat_rows(buf)
+  zr_os_stat_rows(buf)
 end
 
 # fstat(2): the same rows for a descriptor, which is the only way to
 # them when the stream was opened from one and has no path.
 sig [Value] => Value
 machine def zr_fstat_m(fd)
-  buf = Machine.slot(160)
+  buf = Machine.slot(STAT_LEN)
   if fstat(Machine.i32(zr_fix2long(fd)), buf) < Machine.i32(0)
     return zr_fix(0 - zr_errno())
   end
-  zr_stat_rows(buf)
-end
-
-sig [Ptr] => Value
-machine def zr_stat_rows(buf)
-  out = zr_ary_new(16)
-  zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(buf, 0))))
-  zr_ary_push(out, zr_fix(Machine.load64(buf, 8)))
-  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 4)) & 65535))
-  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 4)) >> 16))
-  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 16))))
-  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(buf, 20))))
-  zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(buf, 24))))
-  zr_ary_push(out, zr_fix(Machine.load64(buf, 96)))
-  zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(buf, 112))))
-  zr_ary_push(out, zr_fix(Machine.load64(buf, 104)))
-  zr_ary_push(out, zr_fix(Machine.load64(buf, 32)))
-  zr_ary_push(out, zr_fix(Machine.load64(buf, 40)))
-  zr_ary_push(out, zr_fix(Machine.load64(buf, 48)))
-  zr_ary_push(out, zr_fix(Machine.load64(buf, 56)))
-  zr_ary_push(out, zr_fix(Machine.load64(buf, 64)))
-  zr_ary_push(out, zr_fix(Machine.load64(buf, 72)))
-  out
+  zr_os_stat_rows(buf)
 end
 
 # realpath(3): the resolved path, or a negative errno.
@@ -671,82 +622,18 @@ end
 WAIT_READABLE = 1
 WAIT_PRIORITY = 2
 WAIT_WRITABLE = 4
-EBADF = 9
 
-# Darwin's select(2) with no FD_SETSIZE limit, the one CRuby calls (it
-# builds with _DARWIN_UNLIMITED_SELECT). Plain `select` refuses more
-# than 1024 descriptors, and poll(2) here reports a pipe with data as
-# priority-readable, so neither gives CRuby's answer.
-Machine.sig :select_call, [I32, Ptr, Ptr, Ptr, Ptr] => I32
-
-sig [] => Ptr
-machine def zr_select_fn
-  cell = Machine.static(:select_fn, 8)
-  if Machine.load64(cell, 0) == 0
-    Machine.store64(cell, 0, Machine.word(dlsym(Machine.ptr(RTLD_DEFAULT), Machine.bytes("select$DARWIN_EXTSN\0"))))
-  end
-  Machine.ptr(Machine.load64(cell, 0))
-end
-
-# select(2) on one descriptor, which is what ruby itself waits with on
-# this platform: the events that came ready, 0 when the time ran out, or
-# the negated errno. A negative time waits for good. Each of the three
-# sets holds as many bits as the descriptor needs, so any descriptor
-# number fits.
+# One descriptor's wait: the events that came ready, 0 when the time
+# ran out, or the negated errno. A negative time waits for good, and a
+# signal that cuts the wait short runs its handlers first.
 sig [Value, Value, Value] => Value
 machine def zr_io_wait(fd, events, milliseconds)
-  r = zr_io_wait_once(fd, events, milliseconds)
+  r = zr_os_wait_fd(fd, events, milliseconds)
   while r == zr_fix(0 - EINTR)
     if zr_trap_check() == QUNDEF
       return Machine.value(QUNDEF)
     end
-    r = zr_io_wait_once(fd, events, milliseconds)
+    r = zr_os_wait_fd(fd, events, milliseconds)
   end
   r
-end
-
-sig [Value, Value, Value] => Value
-machine def zr_io_wait_once(fd, events, milliseconds)
-  n = zr_fix2long(fd)
-  if n < 0
-    return zr_fix(0 - EBADF)
-  end
-  want = zr_fix2long(events)
-  span = ((n / 32) + 1) * 4
-  sets = zr_xmalloc(span * 3)
-  memset(sets, Machine.i32(0), span * 3)
-  word = (n / 32) * 4
-  bit = 1 << (n % 32)
-  if (want & WAIT_READABLE) != 0
-    Machine.store32(sets + word, 0, Machine.i32(bit))
-  end
-  if (want & WAIT_WRITABLE) != 0
-    Machine.store32(sets + span + word, 0, Machine.i32(bit))
-  end
-  if (want & WAIT_PRIORITY) != 0
-    Machine.store32(sets + (span * 2) + word, 0, Machine.i32(bit))
-  end
-  tv = Machine.slot(16)
-  ms = zr_fix2long(milliseconds)
-  Machine.store64(tv, 0, ms / 1000)
-  Machine.store32(tv, 8, Machine.i32((ms % 1000) * 1000))
-  Machine.store32(tv, 12, Machine.i32(0))
-  r = Machine.call(:select_call, zr_select_fn(), Machine.i32(n + 1), sets, sets + span, sets + (span * 2), ms < 0 ? 0 : tv)
-  if r < Machine.i32(0)
-    errno = zr_errno()
-    free(sets)
-    return zr_fix(0 - errno)
-  end
-  ready = 0
-  if (Machine.word(Machine.load32(sets + word, 0)) & bit) != 0
-    ready = ready | WAIT_READABLE
-  end
-  if (Machine.word(Machine.load32(sets + span + word, 0)) & bit) != 0
-    ready = ready | WAIT_WRITABLE
-  end
-  if (Machine.word(Machine.load32(sets + (span * 2) + word, 0)) & bit) != 0
-    ready = ready | WAIT_PRIORITY
-  end
-  free(sets)
-  zr_fix(ready)
 end

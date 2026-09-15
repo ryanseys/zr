@@ -2,7 +2,6 @@
 # environment and the working directory.
 Machine.import "setenv", [Ptr, Ptr, I32] => I32
 Machine.import "unsetenv", [Ptr] => I32
-Machine.import "_NSGetEnviron", [] => Ptr
 Machine.import "getcwd", [Ptr, Word] => Ptr
 
 G_ARGV = 36
@@ -183,7 +182,7 @@ end
 sig [] => Value
 machine def zr_environment_list
   out = zr_ary_new(8)
-  table = Machine.ptr(Machine.load64(_NSGetEnviron(), 0))
+  table = zr_os_environ()
   if table == 0
     return out
   end
@@ -223,7 +222,6 @@ end
 Machine.import "getpid", [] => I32
 Machine.import "access", [Ptr, I32] => I32
 Machine.import "stat", [Ptr, Ptr] => I32
-Machine.import "arc4random", [] => I32
 
 sig [] => Value
 machine def zr_process_id
@@ -252,8 +250,8 @@ end
 # 62 random bits from the system, for a seed nobody chose.
 sig [] => Value
 machine def zr_random_seed
-  high = Machine.word(arc4random()) & 4294967295
-  low = Machine.word(arc4random()) & 4294967295
+  high = zr_os_random()
+  low = zr_os_random()
   zr_fix(((high << 30) | (low >> 2)) & 4611686018427387903)
 end
 
@@ -456,25 +454,29 @@ machine def zr_load_error(path, len)
 end
 
 # Whether a path exists, and what it is: 0 for nothing, 1 for a
-# directory, 2 for a regular file, 3 for anything else. Darwin's stat
-# keeps st_mode as 16 bits at offset 4.
+# directory, 2 for a regular file, 3 for anything else.
 sig [Value] => Value
 machine def zr_path_kind(path)
-  buf = zr_xmalloc(256)
+  buf = zr_xmalloc(STAT_LEN)
   r = Machine.word(stat(RString.ptr(path), buf))
-  mode = Machine.word(Machine.load8(buf + 5, 0)) & 240
+  mode = zr_os_stat_mode(buf) & S_IFMT
   free(buf)
   if r != 0
     return zr_fix(0)
   end
-  if mode == 64
+  if mode == S_IFDIR
     return zr_fix(1)
   end
-  if mode == 128
+  if mode == S_IFREG
     return zr_fix(2)
   end
   zr_fix(3)
 end
+
+# st_mode's file type bits, which POSIX names the same everywhere.
+S_IFMT = 61440
+S_IFDIR = 16384
+S_IFREG = 32768
 
 Machine.import "clock_gettime", [I32, Ptr] => I32
 Machine.import "clock_getres", [I32, Ptr] => I32
@@ -558,15 +560,15 @@ end
 Machine.import "getpwnam", [Ptr] => Ptr
 Machine.import "getpwuid", [I32] => Ptr
 
-# A user's home directory (`pw_dir`, 48 bytes into darwin's passwd),
-# or nil where no such user exists. A nil name asks for this process's.
+# A user's home directory, or nil where no such user exists. A nil name
+# asks for this process's.
 sig [Value] => Value
 machine def zr_home_dir(name)
   pw = name == QNIL ? getpwuid(getuid()) : getpwnam(RString.ptr(name))
   if pw == 0
     return Machine.value(QNIL)
   end
-  dir = Machine.ptr(Machine.load64(pw, 48))
+  dir = zr_os_passwd_dir(pw)
   if dir == 0
     return Machine.value(QNIL)
   end
@@ -587,30 +589,6 @@ Machine.import "pathconf", [Ptr, I32] => Word
 Machine.import "uname", [Ptr] => I32
 Machine.import "getlogin", [] => Ptr
 
-# The ten fields of darwin's passwd an Etc::Passwd carries, in the order
-# etc.c's setup_passwd gives them: name at 0, password at 8, uid at 16,
-# gid at 20, gecos at 40, dir at 48, shell at 56, then the password's
-# change time at 24, the login class at 32 and the account's expiry at
-# 64. The two times are time_t, which INT2NUM takes as an int.
-sig [Ptr] => Value
-machine def zr_pw_row(pw)
-  if pw == 0
-    return Machine.value(QNIL)
-  end
-  out = zr_ary_new(10)
-  zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 0))))
-  zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 8))))
-  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(pw, 16))))
-  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(pw, 20))))
-  zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 40))))
-  zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 48))))
-  zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 56))))
-  zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(pw, 24))))
-  zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(pw, 32))))
-  zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(pw, 64))))
-  out
-end
-
 # A C string as a Ruby String, and a null pointer as nil.
 sig [Ptr] => Value
 machine def zr_cstr_str(text)
@@ -622,17 +600,17 @@ end
 
 sig [Value] => Value
 machine def zr_pw_name(name)
-  zr_pw_row(getpwnam(RString.ptr(name)))
+  zr_os_passwd_row(getpwnam(RString.ptr(name)))
 end
 
 sig [Value] => Value
 machine def zr_pw_uid(uid)
-  zr_pw_row(getpwuid(Machine.i32(zr_fix2long(uid))))
+  zr_os_passwd_row(getpwuid(Machine.i32(zr_fix2long(uid))))
 end
 
 sig [] => Value
 machine def zr_pw_next
-  zr_pw_row(getpwent())
+  zr_os_passwd_row(getpwent())
 end
 
 sig [] => Value
@@ -699,10 +677,9 @@ machine def zr_gr_done
   Machine.value(QNIL)
 end
 
-# `_SC_NPROCESSORS_ONLN` is 58 on darwin.
 sig [] => Value
 machine def zr_nprocessors
-  zr_fix(sysconf(Machine.i32(58)))
+  zr_fix(sysconf(Machine.i32(SC_NPROCESSORS_ONLN)))
 end
 
 # A sysconf or pathconf answer, and nil where the name has no limit.
@@ -746,19 +723,19 @@ machine def zr_login_name
   zr_cstr_str(getlogin())
 end
 
-# The five 256-byte fields of darwin's utsname: sysname, nodename,
-# release, version and machine.
+# uname's first five fields: sysname, nodename, release, version and
+# machine.
 sig [] => Value
 machine def zr_uname
-  buf = Machine.slot(1280)
+  buf = Machine.slot(UTSNAME_LEN)
   if uname(buf) != 0
     return Machine.value(QNIL)
   end
   out = zr_ary_new(5)
   at = 0
-  while at < 1280
+  while at < UTSNAME_FIELD * 5
     zr_ary_push(out, zr_cstr_str(buf + at))
-    at = at + 256
+    at = at + UTSNAME_FIELD
   end
   out
 end

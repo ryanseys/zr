@@ -5,6 +5,7 @@
 # crosses as an Integer; the bytes behind it cross as a binary String,
 # which rt/ext/ffi_c packs and unpacks.
 Machine.import "dlopen", [Ptr, I32] => Ptr
+Machine.import "dlsym", [Ptr, Ptr] => Ptr
 Machine.import "dlerror", [] => Ptr
 Machine.import "memchr", [Ptr, I32, Word] => Ptr
 
@@ -44,7 +45,7 @@ sig [] => Ptr
 machine def zr_ffi_image
   cell = Machine.static(:ffi_image, 8)
   if Machine.load64(cell, 0) == 0
-    Machine.store64(cell, 0, Machine.word(dlopen(Machine.bytes("/usr/lib/libffi.dylib\0"), Machine.i32(RTLD_LAZY))))
+    Machine.store64(cell, 0, Machine.word(dlopen(zr_os_libffi_path(), Machine.i32(RTLD_LAZY))))
   end
   Machine.ptr(Machine.load64(cell, 0))
 end
@@ -194,7 +195,7 @@ end
 # errno as a C call finds it.
 sig [Value] => Value
 machine def zr_ffi_set_errno(n)
-  Machine.store32(__error(), 0, Machine.i32(zr_fix2long(n)))
+  zr_os_set_errno(zr_fix2long(n))
   Machine.value(QNIL)
 end
 

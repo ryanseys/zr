@@ -100,7 +100,7 @@ class BasicSocket < IO
   def getpeername = own_address(true, "getpeername(2)")
 
   def getpeereid
-    ids = Primitive.zr_sock_peereid(descriptor)
+    ids = Primitive.zr_os_peereid(descriptor)
     Socket.syserr_fail(-ids, "getpeereid(3)") if ids.is_a?(Integer)
 
     ids

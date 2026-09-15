@@ -6,10 +6,10 @@ module Ze0
       # The system half of the loader, inside a program the runtime runs.
       # The same libSystem calls the Fiddle host makes.
       class Runtime
-        def map(size, exec:, near: 0) = Primitive.zr_jit_map(size, exec, near)
-        def symbol(name) = Primitive.zr_jit_symbol(name)
+        def map(size, exec:, near: 0) = Primitive.zr_os_jit_map(size, exec, near)
+        def symbol(name) = Primitive.zr_os_symbol(name)
         def write_data(at, bytes) = Primitive.zr_jit_write_data(at, bytes)
-        def write_code(at, bytes) = Primitive.zr_jit_write_code(at, bytes)
+        def write_code(at, bytes) = Primitive.zr_os_jit_write(at, bytes)
 
         # A loaded function, called for the word it answers.
         def call(at) = Primitive.zr_jit_call(at)

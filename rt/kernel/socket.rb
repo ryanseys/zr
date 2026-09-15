@@ -18,7 +18,6 @@ Machine.import "getsockname", [I32, Ptr, Ptr] => I32
 Machine.import "getpeername", [I32, Ptr, Ptr] => I32
 Machine.import "getsockopt", [I32, I32, I32, Ptr, Ptr] => I32
 Machine.import "setsockopt", [I32, I32, I32, Ptr, I32] => I32
-Machine.import "getpeereid", [I32, Ptr, Ptr] => I32
 Machine.import "getaddrinfo", [Ptr, Ptr, Ptr, Ptr] => I32
 Machine.import "freeaddrinfo", [Ptr] => Void
 Machine.import "gai_strerror", [I32] => Ptr
@@ -38,10 +37,6 @@ Machine.import "inet_pton", [I32, Ptr, Ptr] => I32
 # The largest sockaddr, union_sockaddr's size: a unix path fits, and so
 # does every other family.
 SOCKADDR_MAX = 256
-# A connected datagram socket on this platform can refuse a send with
-# EPROTOTYPE for a moment while it tears down, and ruby tries again.
-EPROTOTYPE = 41
-EAI_SYSTEM = 11
 
 # Bytes as a String, and a C string as one, in binary as rb_str_new
 # makes them; a null C string is nil.
@@ -234,19 +229,6 @@ machine def zr_sock_setsockopt(fd, level, name, bytes)
   zr_io_status(setsockopt(zr_sock_fd(fd), zr_sock_fd(level), zr_sock_fd(name), RString.ptr(bytes), Machine.i32(RString.len(bytes))))
 end
 
-# The peer's effective user and group.
-sig [Value] => Value
-machine def zr_sock_peereid(fd)
-  ids = Machine.slot(8)
-  if getpeereid(zr_sock_fd(fd), ids, ids + 4) < Machine.i32(0)
-    return zr_fix(0 - zr_errno())
-  end
-  out = zr_ary_new(2)
-  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(ids, 0))))
-  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(ids, 4))))
-  out
-end
-
 # The host name, as long as NI_MAXHOST allows.
 sig [] => Value
 machine def zr_sock_hostname
@@ -292,14 +274,8 @@ machine def zr_sock_getaddrinfo(host, service, family, socktype, protocol, flags
   out = zr_ary_new(4)
   node = Machine.ptr(Machine.load64(head, 0))
   while Machine.word(node) != 0
-    row = zr_ary_new(5)
-    zr_ary_push(row, zr_fix(Machine.word(Machine.load32(node, 4))))
-    zr_ary_push(row, zr_fix(Machine.word(Machine.load32(node, 8))))
-    zr_ary_push(row, zr_fix(Machine.word(Machine.load32(node, 12))))
-    zr_ary_push(row, zr_sock_bytes(Machine.ptr(Machine.load64(node, 32)), Machine.word(Machine.load32(node, 16))))
-    zr_ary_push(row, zr_sock_cstr(Machine.ptr(Machine.load64(node, 24))))
-    zr_ary_push(out, row)
-    node = Machine.ptr(Machine.load64(node, 40))
+    zr_ary_push(out, zr_os_addrinfo_row(node))
+    node = zr_os_addrinfo_next(node)
   end
   freeaddrinfo(Machine.ptr(Machine.load64(head, 0)))
   out
@@ -360,7 +336,7 @@ sig [Value, Value] => Value
 machine def zr_sock_host_by_addr(addr, family)
   h = gethostbyaddr(RString.ptr(addr), Machine.i32(RString.len(addr)), zr_sock_fd(family))
   if Machine.word(h) == 0
-    return zr_sock_cstr(hstrerror(Machine.i32(Machine.word(Machine.load32(Machine.extern(:h_errno), 0)))))
+    return zr_sock_cstr(hstrerror(Machine.i32(zr_os_h_errno())))
   end
   out = zr_ary_new(4)
   zr_ary_push(out, zr_sock_cstr(Machine.ptr(Machine.load64(h, 0))))
@@ -397,30 +373,12 @@ machine def zr_sock_service_name(port, protocol)
   zr_sock_cstr(Machine.ptr(Machine.load64(s, 0)))
 end
 
-# A sockaddr's length as rsock_sockaddr_len reads it: its own length
-# byte, else the size of its family's structure.
-sig [Ptr] => Word
-machine def zr_sock_addr_len(addr)
-  n = Machine.word(Machine.load8(addr, 0))
-  if n != 0
-    return n
-  end
-  family = Machine.word(Machine.load8(addr, 1))
-  if family == 2
-    return 16
-  end
-  if family == 30
-    return 28
-  end
-  family == 1 ? 106 : 2
-end
-
 sig [Ptr] => Value
 machine def zr_sock_addr_or_nil(addr)
   if Machine.word(addr) == 0
     return Machine.value(QNIL)
   end
-  zr_sock_bytes(addr, zr_sock_addr_len(addr))
+  zr_sock_bytes(addr, zr_os_sockaddr_len(addr))
 end
 
 # Every interface address, each row [name, flags, address, netmask,

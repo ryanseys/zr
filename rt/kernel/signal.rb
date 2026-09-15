@@ -4,11 +4,6 @@
 # loop's back edge, a blocking call the signal cut short, or a kill the
 # process sent to itself. That is CRuby's own split between sighandler
 # and rb_signal_exec.
-Machine.import "sigaction", [I32, Ptr, Ptr] => I32
-
-# Darwin numbers its signals 1 to 31.
-NSIG = 32
-EINTR = 4
 
 # How a signal is handled, as Signal.trap names it: the system's
 # default, ignored, counted for a Ruby handler, or caught and dropped
@@ -49,11 +44,8 @@ machine def zr_trap_handle(signo, how)
   elsif h == SIGNAL_NOTHING
     fn = Machine.addr(:zr_trap_dropped)
   end
-  act = Machine.slot(16)
-  Machine.store64(act, 0, fn)
-  Machine.store64(act, 8, 0)
-  old = Machine.slot(16)
-  if sigaction(Machine.i32(zr_fix2long(signo)), act, old) < Machine.i32(0)
+  old = Machine.slot(8)
+  if zr_os_sigaction(Machine.i32(zr_fix2long(signo)), fn, old) < Machine.i32(0)
     return zr_fix(0 - zr_errno())
   end
   zr_fix(zr_trap_kind(Machine.load64(old, 0)))

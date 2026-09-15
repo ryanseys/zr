@@ -3,8 +3,6 @@
 # to_s layout; the arithmetic and comparisons, Integer mixed in.
 Machine.import "fmod", [F64, F64] => F64
 Machine.import "pow", [F64, F64] => F64
-Machine.import "__cospi", [F64] => F64
-Machine.import "__sinpi", [F64] => F64
 
 Machine.struct :RFloat, basic: RBasic, bits: Word
 T_FLOAT = 4
@@ -191,8 +189,8 @@ machine def zr_complex_polar_pi(abs, ang)
     Machine.store64(pair, 0, Machine.word(zr_float_new(Machine.f64(0))))
     Machine.store64(pair, 8, Machine.word(zr_float_new(abs)))
   else
-    Machine.store64(pair, 0, Machine.word(zr_float_new(abs * __cospi(ang))))
-    Machine.store64(pair, 8, Machine.word(zr_float_new(abs * __sinpi(ang))))
+    Machine.store64(pair, 0, Machine.word(zr_float_new(abs * zr_os_cospi(ang))))
+    Machine.store64(pair, 8, Machine.word(zr_float_new(abs * zr_os_sinpi(ang))))
   end
   zr_send(zr_core_class(Machine.id(:Complex)), Machine.id(:rectangular), 2, pair)
 end
@@ -1162,29 +1160,6 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_flo_prev_float(recv, argc, argv, cref, blk)
   zr_float_adjacent(recv, 0)
-end
-
-Machine.import "fcvt", [F64, I32, Ptr, Ptr] => Ptr
-Machine.import "ecvt", [F64, I32, Ptr, Ptr] => Ptr
-
-# The correctly rounded decimal digits of a double, as libSystem's
-# fcvt (`ndigit` past the point) or ecvt (`ndigit` in all) give them:
-# the digit string, the position of the point, and the sign.
-sig [Value, Value, Value] => Value
-machine def zr_float_digits(v, ndigit, fixed)
-  d = zr_float_value(v)
-  decpt = Machine.slot(8)
-  sign = Machine.slot(8)
-  p = fixed == QTRUE ? fcvt(d, Machine.i32(zr_fix2long(ndigit)), decpt, sign) : ecvt(d, Machine.i32(zr_fix2long(ndigit)), decpt, sign)
-  out = zr_ary_new(3)
-  zr_ary_push(out, zr_str_new(p, zr_cstr_len(p)))
-  point = Machine.word(Machine.load32(decpt, 0))
-  if point >= 2147483648
-    point -= 4294967296
-  end
-  zr_ary_push(out, zr_fix(point))
-  zr_ary_push(out, zr_bool(Machine.word(Machine.load32(sign, 0)) != 0))
-  out
 end
 
 # The shortest digits that read back as the double, and where the

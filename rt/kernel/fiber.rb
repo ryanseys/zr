@@ -1,8 +1,6 @@
 # Fibers: each one a task of its own on a machine stack of its own,
 # switched with the zr_switch stub. The current fiber's task is the
 # task; the kernel root chain travels with the fiber.
-Machine.raw "zr_switch"
-Machine.import "mmap", [Ptr, Word, I32, I32, I32, Word] => Ptr
 Machine.import "munmap", [Ptr, Word] => I32
 
 Machine.struct :RFiber, basic: RBasic, task: Ptr, ctx: Ptr, stack: Ptr, kroots: Ptr, blk: Value, status: Word, prev: Value, resuming: Value, value: Value, yielding: Word, transferred: Word, home: Value
@@ -17,11 +15,6 @@ FIBER_TERMINATED = 3
 # a plain method measure about 36 MiB. The pages arrive only as the
 # stack grows into them.
 FIBER_STACK_BYTES = 67108864
-CONTEXT_BYTES = 176
-# The lowest page of each fiber stack, which faults on touch: one page
-# on arm64 macOS.
-FIBER_GUARD_BYTES = 16384
-Machine.import "mprotect", [Ptr, Word, I32] => I32
 
 # `can't allocate fiber stack: <strerror>`, as CRuby raises it.
 sig [Word] => Value
@@ -122,22 +115,16 @@ machine def zr_fiber_new(recv, argc, argv, cref, blk)
   RFiber.set_home(f, RFiber.home(cur))
   t = zr_xmalloc(Task.size)
   zr_task_init(t)
-  stack = mmap(0, FIBER_STACK_BYTES, 3, 4098, -1, 0)
-  # MAP_FAILED, or no stack at all where the host has no mmap.
-  if Machine.word(stack) == 0 - 1 || Machine.word(stack) == 0
+  stack = zr_os_stack_map(FIBER_STACK_BYTES)
+  if stack == 0
     free(t)
     return zr_fiber_stack_error(zr_errno())
   end
-  # The lowest page faults on touch, so a kernel routine that runs past
-  # the margin below the stack check stops there, rather than writing
-  # into whatever is mapped below.
-  mprotect(stack, FIBER_GUARD_BYTES, Machine.i32(0))
   Task.set_stack_limit(t, stack + STACK_MARGIN)
   RFiber.set_task(f, t)
   RFiber.set_stack(f, stack)
   ctx = zr_xmalloc(CONTEXT_BYTES)
-  Machine.store64(ctx, 88, Machine.addr(:zr_fiber_start))
-  Machine.store64(ctx, 96, stack + FIBER_STACK_BYTES)
+  zr_arch_context_start(ctx, Machine.addr(:zr_fiber_start), Machine.word(stack) + FIBER_STACK_BYTES)
   RFiber.set_ctx(f, ctx)
   f
 end

@@ -194,9 +194,24 @@ module Ze0
       (@roads ||= {})[target.triple] ||= Road.new(runtime(target))
     end
 
-    # The kernel files `target`'s runtime is lowered from.
-    def kernel_files(_target = Target.default)
-      Dir[File.join(Paths::RT, "kernel/*.rb")].sort
+    # The OS layer each target's runtime is lowered with, under
+    # rt/kernel/os/. wasm32-wasi and aarch64-linux-musl take darwin's
+    # until their own layers land: wasm answers darwin's calls with its
+    # shims today, and the linux road builds objects only.
+    OS_LAYERS = { darwin: "darwin", linux: "darwin", wasi: "darwin" }.freeze
+    # The architecture layer, under rt/kernel/arch/. wasm32 runs the
+    # aarch64 context layout, which its zr_switch reads.
+    ARCH_LAYERS = { aarch64: "aarch64", wasm32: "aarch64" }.freeze
+
+    def os_layer(target) = OS_LAYERS.fetch(target.os)
+    def arch_layer(target) = ARCH_LAYERS.fetch(target.arch)
+
+    # The kernel files `target`'s runtime is lowered from: the portable
+    # kernel, then its OS layer, then its architecture layer.
+    def kernel_files(target = Target.default)
+      Dir[File.join(Paths::RT, "kernel/*.rb")].sort +
+        Dir[File.join(Paths::RT, "kernel/os/#{os_layer(target)}/*.rb")].sort +
+        Dir[File.join(Paths::RT, "kernel/arch/#{arch_layer(target)}/*.rb")].sort
     end
 
     # The core library files for `target`, in the order their toplevels

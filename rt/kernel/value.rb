@@ -11,9 +11,6 @@ Machine.import "free", [Ptr] => Void
 Machine.import "memmove", [Ptr, Ptr, Word] => Ptr
 Machine.import "memset", [Ptr, I32, Word] => Ptr
 Machine.import "getenv", [Ptr] => Ptr
-Machine.import "pthread_self", [] => Ptr
-Machine.import "pthread_get_stackaddr_np", [Ptr] => Ptr
-Machine.import "pthread_get_stacksize_np", [Ptr] => Word
 
 # malloc that answers a block, or ends the program as CRuby does when
 # memory runs out: the kernel cannot unwind from inside an allocation,

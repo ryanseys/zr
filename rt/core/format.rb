@@ -383,7 +383,7 @@ module Kernel
       digits, point = Primitive.zr_float_shortest(x)
       k = point + precision
       if k <= 0
-        exact, _, _ = Primitive.zr_float_digits(x, 800, false)
+        exact, _, _ = Primitive.zr_os_float_digits(x, 800, false)
         exact = exact[0, exact.size - 1] while exact.end_with?("0")
         return zero_text(precision, flags) unless k == 0 && exact > "5"
 
@@ -402,7 +402,7 @@ module Kernel
     # even when they are longer, else the exact digits.
     def rounded_digits(x, digits, point, k)
       Primitive.attr! :hidden
-      return Primitive.zr_float_digits(x, k, false).first(2) if digits.size < k
+      return Primitive.zr_os_float_digits(x, k, false).first(2) if digits.size < k
       return [digits, point] if digits.size == k
 
       kept = digits[0, k]

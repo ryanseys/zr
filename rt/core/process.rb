@@ -444,7 +444,7 @@ module Process
 
   def self.set_id(call, id)
     Primitive.attr! :hidden
-    result = Primitive.zr_proc_setid(call, id)
+    result = Primitive.zr_os_setid(call, id)
     raise SystemCallError.new(nil, -result) if result.negative?
   end
 
@@ -549,7 +549,7 @@ module Process
     words = command_words(args)
     IO.send(:flush_std)
     redirects = Redirects.new(options)
-    pid = Primitive.zr_proc_spawn(words, redirects.dups, redirects.closes, environment(env, options), redirects.chdir)
+    pid = Primitive.zr_os_spawn(words, redirects.dups, redirects.closes, environment(env, options), redirects.chdir)
     redirects.opened.each(&:close)
     if pid < 0
       $? = Status.new(0, 127 << 8)
@@ -668,7 +668,7 @@ module Process
       nil
     end
 
-    def issetugid = Primitive.zr_proc_issetugid
+    def issetugid = Primitive.zr_os_issetugid
 
     # Darwin has no call that sets all three ids at once.
     Primitive.zr_define_notimplement(self, :setresuid)
