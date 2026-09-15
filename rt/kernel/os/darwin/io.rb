@@ -65,6 +65,8 @@ O_CLOEXEC = 16777216
 PTY_OPEN_FLAGS = 16_908_290
 
 TIOCGWINSZ = 1074295912
+# TIOCSCTTY: the descriptor becomes the session's controlling terminal.
+TIOCSCTTY = 536900705
 TIOCSWINSZ = 2148037735
 # struct termios: four flag words, twenty control characters, and then
 # the two speeds. The bytes cross into ruby as they stand, because the

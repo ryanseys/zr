@@ -4,6 +4,7 @@ delegate 0.6.1
 did_you_mean 2.0.3
 english 0.8.1
 erb 6.0.1.1
+expect ruby-4.0.6 (ext/pty/lib)
 error_highlight 2.0.0
 fileutils 1.8.0
 find 0.2.0

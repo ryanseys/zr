@@ -43,8 +43,6 @@ gaps/openssl_ssl_surface.rb	stdlib/openssl/openssl_ssl_surface.rb
 gaps/openssl_tls_client.rb	stdlib/openssl/openssl_tls_client.rb
 gaps/yaml_loads_and_entropy_draws_run_concurrently_under_the_armed_gvl.rb	stdlib/openssl/yaml_loads_and_entropy_draws_run_concurrently_under_the_armed_gvl.rb
 gaps/yaml_ruby_object_revival.rb	stdlib/ostruct/yaml_ruby_object_revival.rb
-gaps/pty_spawn.rb	stdlib/pty/pty_spawn.rb
-gaps/pty_spawn_and_check.rb	stdlib/pty/pty_spawn_and_check.rb
 gaps/issue_set_trace_func_missing.rb	stdlib/set/issue_set_trace_func_missing.rb
 gaps/psych_syntax_error_carries_marks.rb	stdlib/yaml/psych_syntax_error_carries_marks.rb
 gaps/bundler_resolves_a_gemfile.rb	milestones/bundler_resolves_a_gemfile.rb

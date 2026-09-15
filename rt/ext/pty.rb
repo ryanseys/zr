@@ -35,12 +35,46 @@ module PTY
     end
   end
 
-  # A child on the far end of a new pair. The child needs a session of
-  # its own and the slave for its terminal, which no spawn here reaches
-  # yet.
-  def self.spawn(*) = Primitive.zr_unimplemented("PTY.spawn")
+  # pty_getpty: a child on the far end of a new pair, leading a session
+  # with the slave for its terminal, and the master as a reading File and
+  # a writing one, both named for the slave. With no command the child
+  # is the user's shell. A block takes the three, and the child is
+  # detached after it.
+  def self.spawn(*command)
+    command = [login_shell] if command.empty?
+    answer = Primitive.zr_pty_open
+    raise RuntimeError, "can't get Master/Slave device" if answer.is_a?(Integer) # rubocop:disable Style/RedundantException
 
-  def self.getpty(*) = Primitive.zr_unimplemented("PTY.getpty")
+    master, name = answer
+    slave = Primitive.zr_io_open_flags(name, File::RDWR | File::NOCTTY)
+    if slave.negative?
+      Primitive.zr_io_close(master)
+      raise SystemCallError.new("open: pty slave", -slave)
+    end
+    pid = Process.send(:tty_spawn, command, master, slave)
+    Primitive.zr_io_close(slave)
+    if pid.negative?
+      Primitive.zr_io_close(master)
+      raise SystemCallError.new("fork failed", -pid)
+    end
+    path = name.dup.freeze
+    reader = stream(master, "r", path)
+    writer = stream(Primitive.zr_io_dup(master), "w", path)
+    writer.sync = true
+    ends = [reader, writer, pid]
+    return ends unless block_given?
+
+    begin
+      yield ends
+    ensure
+      detach(pid)
+    end
+    nil
+  end
+
+  class << self
+    alias getpty spawn
+  end
 
   # Whether a child changed state: nil while it runs, its status once it
   # ended or stopped, and a ChildExited when the caller asks to be told
@@ -75,4 +109,35 @@ module PTY
     end
   end
   private_class_method :state_of
+
+  # establishShell's shell: $SHELL, else the user's login shell, else
+  # /bin/sh.
+  def self.login_shell
+    Primitive.attr! :hidden
+    return ENV["SHELL"] if ENV["SHELL"]
+
+    require "etc"
+    user = ENV["USER"] || Etc.getlogin
+    (user && Etc.getpwnam(user)&.shell) || "/bin/sh"
+  rescue ArgumentError
+    "/bin/sh"
+  end
+
+  # A File on a descriptor, named `path`.
+  def self.stream(fd, mode, path)
+    Primitive.attr! :hidden
+    file = File.allocate
+    IO.instance_method(:initialize).bind_call(file, fd, mode, path: path)
+    file
+  end
+
+  # pty_detach_process: a child already gone is reaped, else a thread
+  # waits for it.
+  def self.detach(pid)
+    Primitive.attr! :hidden
+    Process.detach(pid) if Process.waitpid(pid, Process::WNOHANG).nil?
+  rescue SystemCallError
+    nil
+  end
+  private_class_method :login_shell, :stream, :detach
 end

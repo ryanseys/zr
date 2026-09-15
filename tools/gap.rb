@@ -172,7 +172,7 @@ module Gap
     kase = Ze0::Harness::Case.read(path)
     d = kase.directives
     stdin = d.stdin && File.binread(File.expand_path(d.stdin, File.dirname(path)))
-    out = sweep.bounded([RbConfig.ruby, *d.ruby, rel, *d.args], TEST, stdin, d.env)
+    out = sweep.bounded([RbConfig.ruby, *d.ruby, rel, *d.args], TEST, stdin, Ze0::Harness::Child::RUN_MB, d.env)
     Ze0::Harness::Normalize.answer(out, path, TEST)
   end
 

@@ -98,6 +98,12 @@ machine def zr_exec_options(options)
   pgroup = zr_ary_at(options, 3)
   mask = zr_ary_at(options, 4)
   limits = zr_ary_at(options, 5)
+  # A pty's child leads a session of its own with the slave as its
+  # controlling terminal and its standard streams, as pty.c's chfunc
+  # makes it, before any other option.
+  if RArray.len(options) > 6
+    zr_exec_tty(zr_ary_at(options, 6))
+  end
   group = zr_fix2long(pgroup)
   if group >= 0 && setpgid(Machine.i32(0), Machine.i32(group)) < Machine.i32(0)
     return zr_errno()
@@ -137,6 +143,24 @@ machine def zr_exec_options(options)
     return zr_errno()
   end
   0
+end
+
+# pty.c's start_new_session, obtain_ctty and drop_privilege for the
+# [master, slave] pair `tty`: the errors each ignores stay ignored.
+sig [Value] => Void
+machine def zr_exec_tty(tty)
+  master = Machine.i32(zr_fix2long(zr_ary_at(tty, 0)))
+  slave = Machine.i32(zr_fix2long(zr_ary_at(tty, 1)))
+  setsid()
+  close(master)
+  zr_os_ioctl(slave, TIOCSCTTY, Machine.ptr(0))
+  dup2(slave, Machine.i32(0))
+  dup2(slave, Machine.i32(1))
+  dup2(slave, Machine.i32(2))
+  if Machine.sword(slave) > 2
+    close(slave)
+  end
+  zr_os_setid(zr_sym(Machine.id(:seteuid)), zr_fix(Machine.word(getuid())))
 end
 
 # A spawn through fork and execve, for the options posix_spawn cannot

@@ -1043,6 +1043,7 @@ module Ze0
         d zr_spawn_vector Ptr words:Value
         d zr_posix_spawn Value words:Value dups:Value closes:Value env:Value chdir:Value flags:Word
         d zr_exec_options Word options:Value
+        d zr_exec_tty Void tty:Value
         d zr_spawn_forked Value path:Value words:Value env:Value options:Value
         d zr_exec_with Value path:Value words:Value env:Value options:Value
         d zr_proc_wait Value pid:Value flags:Value
@@ -1818,6 +1819,7 @@ module Ze0
         c O_CLOEXEC 524288
         c PTY_OPEN_FLAGS 524546
         c TIOCGWINSZ 21523
+        c TIOCSCTTY 21518
         c TIOCSWINSZ 21524
         c TERMIOS_LEN 60
         c STAT_LEN 128

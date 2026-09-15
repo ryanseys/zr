@@ -32,6 +32,8 @@ PTY_OPEN_FLAGS = 335544320
 
 # musl's ioctl numbers, which wasi-libc keeps though nothing answers them.
 TIOCGWINSZ = 21523
+# TIOCSCTTY: the descriptor becomes the session's controlling terminal.
+TIOCSCTTY = 21518
 TIOCSWINSZ = 21524
 TERMIOS_LEN = 60
 

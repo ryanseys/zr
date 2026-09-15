@@ -166,8 +166,9 @@ class IO
     self
   end
 
-  # The terminal's name, and nil for a descriptor that names none.
-  def ttyname = Primitive.zr_io_ttyname(console_read_fd)
+  # The terminal's name, frozen, and nil for a descriptor that names
+  # none.
+  def ttyname = Primitive.zr_io_ttyname(console_read_fd)&.freeze
 
   def iflush
     answer = Primitive.zr_io_tcflush(console_read_fd, TCIFLUSH)
@@ -311,7 +312,8 @@ class IO
     answer = Primitive.zr_io_termios(fd)
     raise SystemCallError.new(named, -answer) if answer.is_a?(Integer)
 
-    answer
+    # A struct termios is bytes, not text.
+    answer.force_encoding(Encoding::BINARY)
   end
 
   def console_set_mode(fd, bytes, named)

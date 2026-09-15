@@ -55,6 +55,8 @@ O_CLOEXEC = 524288
 PTY_OPEN_FLAGS = 524546
 
 TIOCGWINSZ = 21523
+# TIOCSCTTY: the descriptor becomes the session's controlling terminal.
+TIOCSCTTY = 21518
 TIOCSWINSZ = 21524
 # struct termios: four flag ints, the line discipline, 32 control
 # characters, and then the two speeds.

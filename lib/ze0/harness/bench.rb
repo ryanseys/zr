@@ -72,7 +72,7 @@ module Ze0
         bin = File.join(work, "p")
         File.delete(bin) if File.exist?(bin)
 
-        build, out = clocked { @sweep.bounded(@sweep.build_argv(rel, bin), cwd, nil) }
+        build, out = clocked { @sweep.bounded(@sweep.build_argv(rel, bin), cwd, nil, Child::BUILD_MB) }
         return Row.new(rb, :refused, first_line(out)) if out.code == 3
         return Row.new(rb, :backend, out.code == :timeout ? "the build ran past #{Sweep::LIMIT}s" : first_line(out)) unless out.code == 0
 
@@ -96,7 +96,7 @@ module Ze0
       def medians(argv, cwd, stdin, env, rb, want)
         times = []
         @runs.times do |n|
-          seconds, out = clocked { @sweep.bounded(argv, cwd, stdin, env) }
+          seconds, out = clocked { @sweep.bounded(argv, cwd, stdin, Child::RUN_MB, env) }
           return [nil, "ran past #{Sweep::LIMIT}s"] if out.code == :timeout
 
           if n.zero? && want

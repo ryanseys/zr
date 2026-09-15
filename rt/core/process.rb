@@ -621,6 +621,22 @@ module Process
     Primitive.zr_spawn_forked(path, words, env, redirects.to_a)
   end
 
+  # pty.c's establishShell: the command, or a login shell, on the far
+  # end of a pty pair. The pid, or the negated errno the child could not
+  # start with.
+  def self.tty_spawn(args, master, slave)
+    Primitive.attr! :hidden
+    options = args.size > 1 && args.last.is_a?(Hash) ? args.pop : {}
+    env, args, options = exec_args(args, options)
+    words = command_words(args)
+    IO.send(:flush_std)
+    redirects = Redirects.new(options)
+    path = executable(words.first)
+    pid = path ? Primitive.zr_spawn_forked(path, words, environment(env, options), redirects.to_a << [master, slave]) : -Errno::ENOENT::Errno
+    redirects.opened.each(&:close)
+    pid
+  end
+
   # The file a command word runs: the word itself when it names a path,
   # else the first executable file of that name on PATH, as execvp
   # searches.
@@ -693,7 +709,7 @@ module Process
     table.map { |key, value| "#{key}=#{value}" }
   end
 
-  private_class_method :spawn_command, :command_words, :shell_words, :environment, :exec_args, :executable, :forked_spawn
+  private_class_method :spawn_command, :command_words, :shell_words, :environment, :exec_args, :executable, :forked_spawn, :tty_spawn
 end
 
 # The ids a process runs as. Process::Sys makes the system calls by
