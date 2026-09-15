@@ -215,7 +215,7 @@ module Enumerable
   end
 
   def flat_map
-    return to_enum(:flat_map) unless block_given?
+    return to_enum(__callee__) unless block_given?
 
     out = []
     each do |*x|
@@ -226,7 +226,20 @@ module Enumerable
     out
   end
 
-  def collect_concat(&block) = block ? flat_map(&block) : to_enum(:collect_concat)
+  # Its own body, as CRuby binds both names to one function: a subclass's
+  # flat_map is not called, and an Enumerator made from it names
+  # `collect_concat`.
+  def collect_concat
+    return to_enum(:collect_concat) unless block_given?
+
+    out = []
+    each do |*x|
+      v = yield(*x)
+      v.is_a?(Array) ? out.concat(v) : out << v
+      nil
+    end
+    out
+  end
 
   def group_by
     return to_enum(:group_by) unless block_given?
@@ -266,6 +279,10 @@ module Enumerable
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "invalid size" if n <= 0
     return to_enum(:each_cons, n) { (total = enumerable_size) && [total - n + 1, 0].max } unless block_given?
+    # enum_size_over_p: a source that says it is shorter than a window
+    # is not walked.
+    total = enumerable_size
+    return self if total.is_a?(Integer) && total < n
 
     window = []
     each do |*x|
@@ -282,6 +299,9 @@ module Enumerable
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "invalid slice size" if n <= 0
     return to_enum(:each_slice, n) { (total = enumerable_size) && (total + n - 1) / n } unless block_given?
+
+    # limit_by_enum_size asks the size to reserve a slice's room.
+    enumerable_size
 
     slice = []
     each do |*x|
@@ -460,11 +480,23 @@ module Enumerable
   end
 
   def min(n = nil, &blk)
-    to_a.min(n, &blk)
+    elements.min(n, &blk)
   end
 
   def max(n = nil, &blk)
-    to_a.max(n, &blk)
+    elements.max(n, &blk)
+  end
+
+  # What `each` yields, gathered as enum_to_a gathers it: a subclass's
+  # own `to_a` is not called.
+  def elements(*args)
+    Primitive.attr! :hidden
+    out = []
+    each(*args) do |*x|
+      out << Primitive.zr_enum_value(x)
+      nil
+    end
+    out
   end
 
   # One pass, as CRuby makes it: the elements in pairs, each pair
@@ -563,7 +595,7 @@ module Enumerable
   end
 
   def zip(*others, &block)
-    to_a.zip(*others, &block)
+    elements.zip(*others, &block)
   end
 
   def take(n)
@@ -610,11 +642,11 @@ module Enumerable
     nil
   end
 
-  def uniq(&block) = to_a.uniq(&block)
+  def uniq(&block) = elements.uniq(&block)
 
   # `to_a` again, under its own name: a class's own `to_a` does not
   # change it, as CRuby defines both from one function.
-  def entries(*args) = Enumerable.instance_method(:to_a).bind_call(self, *args)
+  def entries(*args) = elements(*args)
 
   def first(n = (none = true))
     if none
@@ -675,9 +707,13 @@ module Enumerable
     self
   end
 
-  def inject(*args)
+  def inject(*args, &block) = injected(args, block)
+
+  # inject and reduce, which CRuby defines from one function.
+  def injected(args, block)
+    Primitive.attr! :hidden
     acc = args.empty? ? nil : args.first
-    op = args.size == 2 ? args.last : (args.size == 1 && !block_given? ? args.first : nil)
+    op = args.size == 2 ? args.last : (args.size == 1 && !block ? args.first : nil)
     if op
       acc = args.size == 2 ? args.first : nil
       first = args.size != 2
@@ -700,14 +736,14 @@ module Enumerable
         acc = x
         first = false
       else
-        acc = yield(acc, x)
+        acc = block.call(acc, x)
       end
       nil
     end
     acc
   end
 
-  def reduce(*args, &block) = inject(*args, &block)
+  def reduce(*args, &block) = injected(args, block)
 
   # Exact while it can be; from the first Float met while the sum is
   # still an Integer or a Rational, Kahan-Babuska compensated, as CRuby's
@@ -752,11 +788,17 @@ module Enumerable
 end
 
 module Enumerable
-  # Its own body, so an Enumerator made from it names `collect`.
-  def collect(&block)
-    return to_enum(:collect) unless block
+  # Its own body, so an Enumerator made from it names `collect`, and a
+  # subclass's `map` is not called.
+  def collect
+    return to_enum(:collect) unless block_given?
 
-    map(&block)
+    out = []
+    each do |*x|
+      out << yield(*x)
+      nil
+    end
+    out
   end
   alias filter select
   alias find_all select
@@ -790,14 +832,14 @@ module Enumerable
   def reverse_each(*args, &block)
     return to_enum(:reverse_each, *args) unless block
 
-    to_a(*args).reverse_each(&block)
+    elements(*args).reverse_each(&block)
     self
   end
 
   def cycle(n = nil)
     return to_enum(:cycle, n) unless block_given?
 
-    items = to_a
+    items = elements
     return nil if items.empty?
 
     if n.nil?
@@ -810,10 +852,50 @@ module Enumerable
     end
   end
 
-  def minmax_by(&block)
-    return to_enum(:minmax_by) unless block
+  # One pass, as enum_minmax_by makes it: the elements in pairs, the
+  # pair's keys compared once, then the low against the low so far and
+  # the high against the high.
+  def minmax_by
+    return to_enum(:minmax_by) { enumerable_size } unless block_given?
 
-    [min_by(&block), max_by(&block)]
+    min = max = min_key = max_key = last = last_key = nil
+    seen = held = false
+    each do |*x|
+      x = Primitive.zr_enum_value(x)
+      key = yield(x)
+      unless held
+        last = x
+        last_key = key
+        held = true
+        next nil
+      end
+      held = false
+      low, low_key, high, high_key = x, key, last, last_key
+      n = compared(last_key, key)
+      if n.zero?
+        low = high = last
+        low_key = high_key = last_key
+      elsif n.negative?
+        low, low_key, high, high_key = last, last_key, x, key
+      end
+      if seen
+        (min = low; min_key = low_key) if compared(low_key, min_key).negative?
+        (max = high; max_key = high_key) if compared(high_key, max_key).positive?
+      else
+        min, min_key, max, max_key = low, low_key, high, high_key
+        seen = true
+      end
+      nil
+    end
+    if held
+      if seen
+        (min = last; min_key = last_key) if compared(last_key, min_key).negative?
+        (max = last; max_key = last_key) if compared(last_key, max_key).positive?
+      else
+        min = max = last
+      end
+    end
+    [min, max]
   end
 
   def grep(pattern)
