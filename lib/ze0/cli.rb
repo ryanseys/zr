@@ -118,7 +118,7 @@ module Ze0
       require "tmpdir"
       require_relative "zr"
       require_relative "native/build"
-      program = lower(input, verb, target)
+      program = lower(input, verb, target, assemble: emit.nil?)
       Dir.mktmpdir("ze0-zr-") do |work|
         out = verb == "run" ? File.join(work, "program") : File.expand_path(output)
         case emit
@@ -167,12 +167,19 @@ module Ze0
       exit REFUSED
     end
 
-    def lower(input, verb, target)
+    # A binary's functions are assembled as they are lowered, so the IR of
+    # a large program never stands all at once.
+    def lower(input, verb, target, assemble: false)
       source = File.read(input)
-      verb == "machine" ? Machine.compile(source, input) : Zr.program(source, input, target: target)
+      return Machine.compile(source, input) if verb == "machine"
+      return Zr.program(source, input, target: target) unless assemble
+
+      Zr.program(source, input, target: target) { |f, entry| Native::Build.assemble(f, entry, target: target) }
     rescue Machine::Refused, Hir::Refused, Zr::Lower::Refused => e
       warn "ze0: #{e.message}"
       exit REFUSED
+    rescue Backend::Refused => e
+      abort "ze0: #{e.message}"
     rescue SyntaxError => e
       # ruby reports a program that does not parse and exits 1, and so
       # does the binary, with ruby's own report. A required file that does

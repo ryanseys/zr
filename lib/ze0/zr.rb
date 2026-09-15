@@ -200,13 +200,16 @@ module Ze0
 
     module_function
 
-    def program(source, file, target: Target.default)
+    # Given a block, each function goes to it as soon as its file is
+    # lowered (`Lower#run`), with the names the lowering spells from, and
+    # the program holds what the block answers.
+    def program(source, file, target: Target.default, &finish)
       rt = runtime(target)
       carried = road(target)
       hir = Hir.build(source, file, road: carried, target: target)
       symbols = hir.evals ? carried.symbols : Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
       lower = Lower.new(hir, rt.unit, symbols)
-      functions, data = lower.run
+      functions, data = finish ? lower.run { |f| finish.call(f, lower.entry) } : lower.run
       units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
       tables = load_tables(units, evals: hir.evals, spots: hir.spots || {}, target: target)
       Program.new(rt, functions, data + symbol_names(symbols) + tables, hir.evals && carried)

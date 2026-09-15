@@ -104,19 +104,29 @@ module Ze0
 
       # `[functions, data]`: the program's toplevel, then one function
       # per required file, each with its own file name for backtraces.
-      def run
+      #
+      # Given a block, each function goes to it once its file is lowered,
+      # and the functions are what the block answers: a program of a
+      # thousand files then never holds the IR of them all at once.
+      def run(&finish)
+        finished = []
         Function.new(self, @entry, @program.locals, @program.body, nil, @kind, outer: @outer).lower
+        finished.concat(finished_functions(&finish)) if finish
         (@program.units || []).each_with_index do |u, i|
           @file = u.file
           @warnings = u.warnings || []
           @unit_internal = u.internal
           Function.new(self, unit_entry(i), u.locals, u.body, nil, :top).lower
+          finished.concat(finished_functions(&finish)) if finish
         end
         @unit_internal = @ext
         @file = @program.file
         @warnings = @program.warnings || []
-        [@functions, @data]
+        [finish ? finished : @functions, @data]
       end
+
+      # The name every function this lowering makes starts from.
+      attr_reader :entry
 
       # A unit's toplevel: this program's unit at `index`, or the entry a
       # road built already answers for a file it holds.
@@ -283,6 +293,14 @@ module Ze0
       end
 
       private
+
+      # The functions lowered since the last call, through `finish`; the
+      # lowering keeps none of them.
+      def finished_functions(&finish)
+        done = @functions.map(&finish)
+        @functions = []
+        done
+      end
 
       # A fresh function number: functions nest, so the count of finished
       # ones does not name them.

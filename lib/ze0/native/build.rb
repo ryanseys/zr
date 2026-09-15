@@ -58,11 +58,21 @@ module Ze0
       # A `Zr::Program` to a binary: its runtime from the cache, its own
       # functions and data emitted now. A program that evals keeps every
       # symbol, since its JIT finds kernel functions by name.
+      #
+      # Functions already assembled (`assemble`) go in as they are.
       def program(program, out, work:)
         objects = [runtime_object(program.runtime)]
         objects << road_object(program.evals) if program.evals
-        binary(program.functions, program.data, out, work: work, objects: objects, strip: !program.evals,
+        functions, raw = program.functions.partition { |f| f.is_a?(IR::Function) }
+        binary(functions, program.data, out, work: work, raw: raw, objects: objects, strip: !program.evals,
                                                          target: program.runtime.target)
+      end
+
+      # One function of a program as `Zr.program` lowers it, checked and
+      # assembled at once, its own symbols the ones `entry` spells.
+      def assemble(function, entry, target: Target.default)
+        IR::Verify.check(function)
+        backend(target).assemble(function, backend(target)::Spelled.new(entry))
       end
 
       # The compiler's object, built once per road.
