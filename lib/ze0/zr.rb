@@ -125,11 +125,12 @@ module Ze0
         @cached ||= read_cached || write_cached
       end
 
-      def read_cached
-        path = File.join(CACHE, "symbols-#{digest}.json")
-        return unless File.exist?(path)
+      def cache_path = File.join(CACHE, "symbols-#{digest}.json")
 
-        rows = JSON.parse(File.read(path))
+      def read_cached
+        return unless File.exist?(cache_path)
+
+        rows = JSON.parse(File.read(cache_path))
         return unless %w[names sites functions data description].all? { |key| rows.key?(key) }
 
         { symbols: Machine::Symbols.new(rows.fetch("names"), sites: rows.fetch("sites")),
@@ -143,7 +144,7 @@ module Ze0
         wanted_functions = (functions.flat_map { |f| f.callees.map(&:symbol) }.uniq - defined).sort
         wanted_data = (functions.flat_map { |f| f.globals.reject(&:colocated).map(&:symbol) }.uniq - data.map(&:name)).sort
         description = Machine::Description.of(unit).to_text
-        Zr.write_cache(File.join(CACHE, "symbols-#{digest}.json"),
+        Zr.write_cache(cache_path,
                        JSON.generate({ "names" => kernel_symbols.ids.keys, "sites" => kernel_symbols.sites,
                                        "functions" => wanted_functions, "data" => wanted_data, "description" => description }))
         { symbols: kernel_symbols, wants: { functions: wanted_functions, data: wanted_data }, description: description }
