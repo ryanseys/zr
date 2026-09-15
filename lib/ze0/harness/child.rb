@@ -108,7 +108,8 @@ module Ze0
         end
 
         # The thread ends under the lock, so an `add` sees either a live
-        # thread or none and never a dying one.
+        # thread or none and never a dying one; a thread that dies of an
+        # error lets go the same way, so the next `add` starts another.
         def sample_until_idle
           loop do
             groups = @lock.synchronize do
@@ -121,6 +122,8 @@ module Ze0
             @lock.synchronize { @sample = sample }
             sleep EVERY
           end
+        ensure
+          @lock.synchronize { @thread = nil if @thread == Thread.current }
         end
 
         def read(groups)
