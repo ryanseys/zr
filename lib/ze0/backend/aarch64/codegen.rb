@@ -131,7 +131,11 @@ module Ze0
           # function again, every such branch the long way.
           raise if @far || !e.message.include?("signed 19-bit")
 
-          again = self.class.new(@f, defined: @defined, assembler: @asm.class, far: true)
+          # This attempt's code and plans are as big as the function, and
+          # nothing reads them again: let them go before the second is made.
+          assembler = @asm.class
+          @asm = @reg = @home = @labels = @relocs = @const = @remade = @types = nil
+          again = self.class.new(@f, defined: @defined, assembler: assembler, far: true)
           bytes = again.compile
           @asm = again.asm
           bytes
