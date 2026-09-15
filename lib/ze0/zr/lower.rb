@@ -84,9 +84,9 @@ module Ze0
       # which is internal as a unit of one is. `kind` is `:top` for an
       # eval, whose toplevel is a file's, not a program's: it starts no
       # program and prints no parse warning.
-      def initialize(program, unit, symbols, entry: "zr_toplevel", internal: false, ext: false, kind: :main, outer: nil)
+      def initialize(program, kernel, symbols, entry: "zr_toplevel", internal: false, ext: false, kind: :main, outer: nil)
         @program = program
-        @unit = unit
+        @kernel = kernel
         @symbols = symbols
         @entry = entry
         @internal = internal
@@ -144,16 +144,16 @@ module Ze0
       end
 
       def const(name)
-        @unit.const_for(name) or raise ArgumentError, "the kernel declares no #{name}"
+        @kernel.const_for(name) or raise ArgumentError, "the kernel declares no #{name}"
       end
 
       def layout(name)
-        @unit.struct_for(name) or raise ArgumentError, "the kernel declares no #{name}"
+        @kernel.struct_for(name) or raise ArgumentError, "the kernel declares no #{name}"
       end
 
       # The kernel def named `name`, with the signature a call needs.
       def kernel_def(name)
-        @unit.def_for(name) or raise ArgumentError, "the kernel declares no #{name}"
+        @kernel.def_for(name) or raise ArgumentError, "the kernel declares no #{name}"
       end
 
       def refuse(node, message)

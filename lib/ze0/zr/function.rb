@@ -223,8 +223,8 @@ module Ze0
         # site called: a ruby frame of its own starts with none.
         @f.store(imm(@l.const("QNIL")), @task_addr, off(@task, "refine"))
         @f.store(imm(@nvalues), @rec, off(@frame, "nvalues"))
-        @f.store(imm(@l.unit.const_for("QNIL")), @rec, off(@frame, "svar"))
-        @f.store(imm(@l.unit.const_for("QNIL")), @rec, off(@frame, "lastline"))
+        @f.store(imm(@l.const("QNIL")), @rec, off(@frame, "svar"))
+        @f.store(imm(@l.const("QNIL")), @rec, off(@frame, "lastline"))
         program_start if @kind == :main && !@l.internal?
         parse_warnings if %i[main top eval].include?(@kind) && !@l.internal?
         (0...@nvalues).each { |i| @f.store(@qnil, @rec, value_offset(i)) }
