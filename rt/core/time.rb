@@ -127,10 +127,11 @@ class Time
         text = String.try_convert(zone)
         return parse_zone(text) if text
 
-        seconds = exact(zone)
-        Primitive.zr_unimplemented("a utc_offset of a fraction of a second") unless seconds.is_a?(Integer)
+        seconds = canonical(exact(zone))
+        return parse_zone(seconds) if seconds.is_a?(Integer)
+        raise ArgumentError, "utc_offset out of range" if seconds.abs >= 86400
 
-        parse_zone(seconds)
+        seconds
       end
     end
 
@@ -331,7 +332,7 @@ class Time
       kind = zone.nil? ? :local : parse_zone(zone)
       case kind
       when :utc then [local_ns, :utc]
-      when Integer then [local_ns - kind * NS, kind]
+      when Integer, Rational then [local_ns - (kind * NS), kind]
       else [local_ns - local_offset_for(local_ns.div(NS)) * NS, :local]
       end
     end
@@ -649,7 +650,7 @@ class Time
 
     offset = utc_offset
     sign = offset < 0 ? "-" : "+"
-    offset = offset.abs
+    offset = offset.abs.round
     format("%s%02d%02d%02d", sign, offset / 3600, (offset % 3600) / 60, offset % 60)
   end
 
@@ -700,7 +701,7 @@ class Time
     held = Primitive.zr_hidden_get(self, :__fields__)
     return held if held
 
-    secs = ns.div(NS) + utc_offset
+    secs = (ns + (utc_offset * NS)).div(NS)
     days = secs.div(86400)
     rem = secs - days * 86400
     y, m, d = Time.send(:civil_from_days, days)

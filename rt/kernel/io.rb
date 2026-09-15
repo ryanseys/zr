@@ -114,6 +114,14 @@ machine def zr_io_fcntl(fd, command, argument)
                                     Machine.word(zr_fix2long(argument)))))
 end
 
+# fcntl(2) with a struct the call reads or fills: the String's bytes are
+# the struct, in place.
+sig [Value, Value, Value] => Value
+machine def zr_io_fcntl_bytes(fd, command, bytes)
+  zr_io_failed(Machine.sword(zr_os_fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(command)),
+                                    Machine.word(RString.ptr(bytes)))))
+end
+
 # open(2) with no mode: a creation goes through fopen and then fchmod,
 # which names the permissions exactly. Every descriptor ruby opens
 # closes itself across an exec, which rb_sysopen asks for with O_CLOEXEC

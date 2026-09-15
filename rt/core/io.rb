@@ -775,19 +775,24 @@ class IO
   # fcntl(2) on the stream's own descriptor: F_GETFD reads the
   # close-on-exec flag, F_GETFL the flags it was opened with, and a
   # command that takes a number takes it here too. rb_fcntl reads nil and
-  # false as 0 and true as 1; a command whose argument is a struct, as a
-  # file lock is, has none that fits in a word.
+  # false as 0 and true as 1, and a String as the struct a command such
+  # as a file lock reads and fills.
   def fcntl(command, argument = 0)
     check_open
     command = Numeric.send(:int_operand, command)
-    value = case argument
-            when nil, false then 0
-            when true then 1
-            when String then Primitive.zr_unimplemented("IO#fcntl with a struct argument")
-            else Numeric.send(:int_operand, argument)
-            end
+    result = if argument.is_a?(String)
+               # rb_io_ctl: the String is the struct, written in place.
+               raise FrozenError.new("can't modify frozen String: #{argument.inspect}", receiver: argument) if argument.frozen?
 
-    result = Primitive.zr_io_fcntl(@fd, command, value)
+               Primitive.zr_io_fcntl_bytes(@fd, command, argument)
+             else
+               value = case argument
+                       when nil, false then 0
+                       when true then 1
+                       else Numeric.send(:int_operand, argument)
+                       end
+               Primitive.zr_io_fcntl(@fd, command, value)
+             end
     # rb_sys_fail_path names the stream, and the call that set up the
     # argument, after the message; a stream with no path names neither.
     raise SystemCallError.new(path, -result, "finish_narg") if result < 0
