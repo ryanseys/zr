@@ -53,6 +53,14 @@ module Ze0
           ops["store.#{t}"] = build("store_#{t}", ["i64", t], nil) { |f, p, v| f.store(v, p) }
         end
         ops["stack_addr"] = build("stack_addr", [], "i64") { |f| f.stack_addr(f.slot(16)) }
+        # A load whose address is a constant past a base: the constant
+        # could fold into the load's own offset.
+        ops["load.iadd_base"] = build("load_iadd_base", %w[i64], "i64") do |f, p|
+          f.fetch("i64", f.iadd(p, f.iconst("i64", 24)))
+        end
+        ops["load.iadd_stack"] = build("load_iadd_stack", [], "i64") do |f|
+          f.fetch("i64", f.iadd(f.stack_addr(f.slot(32)), f.iconst("i64", 16)))
+        end
         ops["symbol_value.local"] = build("symbol_local", [], "i64") { |f| f.symbol_value(f.symbol("here")) }
         ops["symbol_value.import"] = build("symbol_import", [], "i64") do |f|
           f.symbol_value(f.symbol("elsewhere", colocated: false))
@@ -95,6 +103,11 @@ module Ze0
         %w[i64 i32].each do |t|
           ops["select.#{t}"] = build("select_#{t}", ["i8", t, t], t) { |f, c, a, b| f.csel(c, a, b) }
         end
+        # A select whose condition is one compare with no other use: the
+        # compare's flags could feed the select directly.
+        ops["select.of_icmp"] = build("select_of_icmp", %w[i64 i64], "i64") do |f, a, b|
+          f.csel(f.icmp("slt", a, b), a, b)
+        end
         ops["ireduce"] = build("ireduce", %w[i64], "i32") { |f, a| f.ireduce("i32", a) }
         ops["uextend"] = build("uextend", %w[i32], "i64") { |f, a| f.uextend("i64", a) }
         ops["sextend.i8"] = build("sextend_i8", %w[i8], "i64") { |f, a| f.sextend("i64", a) }
@@ -119,6 +132,12 @@ module Ze0
           ops["fcmp.#{cond}"] = build("fcmp_#{cond}", %w[f64 f64], "i8") { |f, a, b| f.fcmp(cond, a, b) }
         end
         ops["fcvt_from_sint"] = build("fcvt_from_sint", %w[i64], "f64") { |f, a| f.fcvt_from_sint(a) }
+        ops["fcvt_from_sint.i32"] = build("fcvt_from_sint_i32", %w[i32], "f64") { |f, a| f.fcvt_from_sint(a) }
+        # A chain of float operations: each result could stay in a d
+        # register for the next.
+        ops["fbinop.chain"] = build("fbinop_chain", %w[f64 f64], "f64") do |f, a, b|
+          f.fbinop(:fmul, f.fbinop(:fadd, a, b), f.fbinop(:fsub, a, b))
+        end
         ops["fcvt_to_sint_sat"] = build("fcvt_to_sint_sat", %w[f64], "i64") { |f, a| f.fcvt_to_sint_sat(a) }
       end
 
@@ -167,6 +186,40 @@ module Ze0
           f.jump(block, [a, b, c, d, d, c, b, a])
           f.switch(block)
           f.jump(block, ps.rotate(1))
+        end
+        # A compare and its branch with a constant between them, as the
+        # stack check has: the compare could still fuse with the branch.
+        ops["brif.across_constant"] = build("brif_across_constant", %w[i64 i64], "i64") do |f, a, b|
+          c = f.icmp("slt", a, b)
+          k = f.iconst("i64", 0x1234_5678)
+          yes = f.label
+          no = f.label
+          f.brif(c, yes, no)
+          f.switch(yes)
+          f.ret(k)
+          f.switch(no)
+          f.ret(a)
+        end
+        # A branch on one bit of a word: a tbz or tbnz would do.
+        ops["brif.tbz"] = build("brif_tbz", %w[i64], "i64") do |f, a|
+          c = f.icmp("ne", f.band(a, f.iconst("i64", 8)), f.iconst("i64", 0))
+          yes = f.label
+          no = f.label
+          f.brif(c, yes, no)
+          f.switch(yes)
+          f.ret(f.iconst("i64", 1))
+          f.switch(no)
+          f.ret(f.iconst("i64", 0))
+        end
+        # Two returns: each could share one epilogue.
+        ops["return.twice"] = build("return_twice", %w[i8 i64], "i64") do |f, c, a|
+          yes = f.label
+          no = f.label
+          f.brif(c, yes, no)
+          f.switch(yes)
+          f.ret(a)
+          f.switch(no)
+          f.ret(f.iadd(a, f.iconst("i64", 1)))
         end
         ops["brif"] = build("brif", %w[i8 i64], "i64") do |f, c, a|
           yes = f.label
