@@ -1881,7 +1881,7 @@ block0:
   str x20, [sp, #8]
   mov x19, x0
 block0:
-  scvtf d16, x19
+  scvtf d16, w19
   fmov x11, d16
   mov x20, x11
   mov x0, x20

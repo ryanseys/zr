@@ -442,7 +442,7 @@ module Ze0
       # `fcvt_to_sint_sat` saturates and answers zero for NaN, as `fcvtzs`
       # does; every other float instruction is Ruby's own on the same bits.
       def float_op(frame, i)
-        return to_bits(signed(read(frame, i.args[0]), 64).to_f) if i.op == :fcvt_from_sint
+        return to_bits(signed(read(frame, i.args[0]), width_of(frame, i.args[0])).to_f) if i.op == :fcvt_from_sint
 
         a = to_f64(read(frame, i.args[0]))
         return saturate(a) & MASK[64] if i.op == :fcvt_to_sint_sat

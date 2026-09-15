@@ -83,6 +83,7 @@ module Ze0
 
           def cmp(n, m) = Word.new(0x1E602000 | (m << 16) | (n << 5), "fcmp d#{n}, d#{m}")
           def scvtf(d, x) = Word.new(0x9E620000 | (x << 5) | d, "scvtf d#{d}, x#{x}")
+          def scvtf_w(d, w) = Word.new(0x1E620000 | (w << 5) | d, "scvtf d#{d}, w#{w}")
           def fcvtzs(x, d) = Word.new(0x9E780000 | (d << 5) | x, "fcvtzs x#{x}, d#{d}")
         end
 
@@ -548,7 +549,7 @@ module Ze0
             store_value(i.results[0], X11)
           when :fcvt_from_sint
             a = value_in(i.args[0], X9)
-            @asm << FP.scvtf(16, a.to_i) << FP.to_x(11, 16)
+            @asm << (wide?(i.args[0]) ? FP.scvtf(16, a.to_i) : FP.scvtf_w(16, a.to_i)) << FP.to_x(11, 16)
             store_value(i.results[0], X11)
           when :fcvt_to_sint_sat
             a = value_in(i.args[0], X9)
