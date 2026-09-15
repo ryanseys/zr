@@ -28,7 +28,13 @@ class Set
     self
   end
 
-  def initialize_copy(other)
+  def initialize_copy(other) = copy_from(other)
+
+  # set_copy: the other's members in place of these, with its
+  # compare_by_identity, and no method of either called, as
+  # initialize_copy and replace both copy.
+  def copy_from(other)
+    Primitive.attr! :hidden
     return self if equal?(other)
     raise RuntimeError, "cannot replace set during iteration" if iterating?
     raise TypeError, "wrong argument type #{Primitive.zr_class_name_of(other)} (expected set)" unless other.is_a?(Set)
@@ -121,21 +127,29 @@ class Set
     self
   end
 
-  def classify
-    return enum_for(:classify) { size } unless block_given?
+  def classify(&block)
+    return enum_for(:classify) { size } unless block
 
+    classified(&block)
+  end
+
+  # set_i_classify, which divide calls as a function: the groups filled
+  # through their own tables, so a subclass's add is not called.
+  def classified
+    Primitive.attr! :hidden
     groups = {}
-    klass = self.class
+    klass = Primitive.zr_real_class(self)
     walk do |item|
       key = yield(item)
-      (groups.key?(key) ? groups[key] : (groups[key] = klass.allocate)).add(item)
+      group = groups.key?(key) ? groups[key] : (groups[key] = klass.allocate)
+      group.send(:table)[item] = true
     end
     groups
   end
 
   def clear
     check_frozen
-    return self if empty?
+    return self if table.empty?
 
     iterating? ? walk { |item| table.delete(item) } : table.clear
     self
@@ -153,7 +167,7 @@ class Set
   alias map! collect!
 
   def compare_by_identity
-    return self if compare_by_identity?
+    return self if table.compare_by_identity?
     raise RuntimeError, "compare_by_identity during iteration" if iterating?
 
     rebuild({}.compare_by_identity)
@@ -190,7 +204,7 @@ class Set
   # block names otherwise.
   def divide(&block)
     return enum_for(:divide) { size } unless block
-    return Set.allocate.send(:merge_from, classify(&block).values) unless block.arity == 2
+    return Set.allocate.send(:merge_from, classified(&block).values) unless block.arity == 2
 
     items = to_a.freeze
     parents = (0...items.size).to_a
@@ -317,7 +331,7 @@ class Set
 
   def replace(other)
     check_frozen
-    return initialize_copy(other) if other.is_a?(Set)
+    return copy_from(other) if other.is_a?(Set)
     raise RuntimeError, "cannot replace set during iteration" if iterating?
 
     Set.send(:enum_method, other)
@@ -328,7 +342,7 @@ class Set
   def reset
     raise RuntimeError, "reset during iteration" if iterating?
 
-    rebuild(compare_by_identity? ? {}.compare_by_identity : {})
+    rebuild(table.compare_by_identity? ? {}.compare_by_identity : {})
   end
 
   def size = table.size
