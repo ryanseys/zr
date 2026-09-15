@@ -167,7 +167,7 @@ end
 # const_get, reads as the frame that called the core library.
 sig [] => Bool
 machine def zr_const_sees_concealed
-  if Machine.load64(Machine.static(:hidden_requires, 8), 0) > 0
+  if zr_loading_hidden()
     return true
   end
   rec = Task.top(zr_task())
@@ -175,18 +175,8 @@ machine def zr_const_sees_concealed
   if !reflective && rec != 0 && (FrameMeta.kind(Frame.meta(rec)) == KIND_BUILTIN || FrameMeta.kind(Frame.meta(rec)) == KIND_HIDDEN)
     return true
   end
-  # The core library's own frames stand for whoever called them.
-  while rec != 0
-    meta = Frame.meta(rec)
-    if FrameMeta.hidden(meta) != 0
-      return true
-    end
-    if FrameMeta.kind(meta) != KIND_BUILTIN && FrameMeta.kind(meta) != KIND_HIDDEN
-      return false
-    end
-    rec = Frame.prev(rec)
-  end
-  true
+  rec = zr_asking_frame()
+  rec == 0 || FrameMeta.hidden(Frame.meta(rec)) != 0
 end
 
 # Whether a reflective read, as Module#constants, sees a concealed row.
@@ -199,31 +189,31 @@ machine def zr_const_sees_reflectively
   sees
 end
 
-# The rows of Object's constants that `path` defined out of sight, now in
-# sight: the program required the file itself.
-sig [Value] => Void
-machine def zr_const_reveal(path)
-  ext = RClass.ext(zr_global(G_OBJECT))
-  i = 0
-  while i < ClassExt.clen(ext)
-    e = ClassExt.ctab(ext) + (i * CEntry.size)
-    if CEntry.concealed(e) != 0 && zr_bytes_eq(CEntry.file(e), CEntry.file_len(e), RString.ptr(path), RString.len(path))
-      CEntry.set_concealed(e, 0)
-      zr_consts_changed()
-    end
-    i += 1
+# Object's constant `id`, which a hidden file defined or reopened out of
+# sight, now in sight: the program required the file itself.
+sig [Word] => Void
+machine def zr_const_reveal(id)
+  e = zr_const_row_kept(zr_global(G_OBJECT), id)
+  if e != 0 && CEntry.concealed(e) != 0
+    CEntry.set_concealed(e, 0)
+    zr_consts_changed()
   end
 end
 
 # The row a `class` or `module` body opens: a concealed one comes into
 # sight, so a program that reopens the runtime's own module adds to the
-# module the runtime goes on using.
+# module the runtime goes on using; a hidden file that reopens it is
+# remembered as one that defined it.
 sig [Value, Word] => Ptr
 machine def zr_const_row_opened(scope, id)
   e = zr_const_row_kept(scope, id)
-  if e != 0 && CEntry.concealed(e) != 0 && !zr_const_sees_concealed()
-    CEntry.set_concealed(e, 0)
-    zr_consts_changed()
+  if e != 0 && CEntry.concealed(e) != 0
+    if zr_hidden_now()
+      zr_hidden_defined(id)
+    else
+      CEntry.set_concealed(e, 0)
+      zr_consts_changed()
+    end
   end
   e
 end
@@ -296,7 +286,11 @@ machine def zr_const_set(klass, id, v)
     CEntry.set_private(e, 0)
     CEntry.set_deprecated(e, 0)
     CEntry.set_owner(e, klass)
-    CEntry.set_concealed(e, klass == zr_global(G_OBJECT) && Machine.load64(Machine.static(:hidden_requires, 8), 0) > 0 ? 1 : 0)
+    CEntry.set_concealed(e, 0)
+    if klass == zr_global(G_OBJECT) && zr_hidden_now()
+      CEntry.set_concealed(e, 1)
+      zr_hidden_defined(id)
+    end
     ClassExt.set_clen(ext, n + 1)
     zr_const_index_add(ext, n)
   elsif CEntry.value(e) != QUNDEF
@@ -1076,6 +1070,11 @@ machine def zr_autoload(mod, id, feature, fn, cref, kind, path)
     zr_ary_splice(rows, zr_fix(pending), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
   end
   zr_const_set(mod, id, Machine.value(QUNDEF))
+  # A file only the runtime loads declared it, so the read that runs it
+  # keeps the file out of the program's sight, as the require would.
+  if kind == 0 && zr_hidden_now()
+    kind = 3
+  end
   zr_autoload_push(rows, mod, id, feature, fn, kind, path)
   Machine.value(QNIL)
 end

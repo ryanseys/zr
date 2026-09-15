@@ -268,9 +268,6 @@ module Ze0
         # `load` there are ordinary sends that dispatch decides.
         def eval? = @eval
 
-        # Whether the file being built is one only the eval road loads.
-        def hiding? = @hiding
-
         # Each file this loader reached, by path: its unit's index, or the
         # entry an external road answers for it.
         def entries = @index
@@ -1633,10 +1630,10 @@ module Ze0
         # $LOAD_PATH the program has built by then.
         return plain_call(node, compiles: false) unless path
 
-        # A require written in a file only the eval road loads is the
-        # compiler's own, which the program never sees.
-        kind = @loader.hiding? && node.name != :load ? :eval_road : node.name
-        Require.new(kind, feature, path, @loader.add(path), line)
+        # A require made while a file only the eval road loads runs is the
+        # compiler's own; the runtime knows that as it runs, so one unit
+        # serves the road and a program that requires the file itself.
+        Require.new(node.name, feature, path, @loader.add(path), line)
       end
 
       # A require of a feature an installed gem holds, which ruby's
@@ -1677,14 +1674,14 @@ module Ze0
         path = @loader.resolve(:require, feature, @file)
         # An autoload the gem prelude's boot does not read leaves its file
         # to the program that reads the constant.
-        return Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, path || feature, path || feature, nil, line, false) if path && @loader.ahead?(@file) && !@loader.booted?(path)
+        return Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, path || feature, path || feature, nil, line) if path && @loader.ahead?(@file) && !@loader.booted?(path)
 
         stop = path.nil? && stop_for(node, feature)
         unit = stop ? @loader.stop_unit(stop.what, line) : (path && @loader.add(path))
         # No root holds the file: the first read requires the feature
         # under the $LOAD_PATH the program has built by then.
         @loader.compiles_at_run_time! unless unit
-        Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, path || feature, unit, line, @loader.hiding?)
+        Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, path || feature, unit, line)
       end
 
       # `defined?(value)`: the form decides at compile time; only an

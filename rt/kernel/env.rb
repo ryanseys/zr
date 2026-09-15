@@ -260,18 +260,18 @@ end
 
 Machine.sig :top, [] => Value
 
-# The files the compiler's own eval road loaded, which the program did
-# not ask for and so never sees in $LOADED_FEATURES.
+# The files the runtime loaded out of the program's sight, which it
+# never sees in $LOADED_FEATURES: three slots per file, its path, the
+# hidden file that was loading when it started (nil for a root the eval
+# road loads), and the ids of Object's constants it defined or reopened
+# on the way, as an Array or nil. The program's own require of one
+# brings it into sight with everything it loaded and defined.
 G_HIDDEN_FEATURES = 50
+HIDDEN_ROW = 3
 
 sig [] => Value
 machine def zr_hidden_features
-  list = zr_global(G_HIDDEN_FEATURES)
-  if zr_special_p(list)
-    list = zr_ary_new(64)
-    zr_set_global(G_HIDDEN_FEATURES, list)
-  end
-  list
+  zr_global_list(G_HIDDEN_FEATURES)
 end
 
 # The real paths of the files the program required, as CRuby's
@@ -281,12 +281,173 @@ G_REAL_FEATURES = 60
 
 sig [] => Value
 machine def zr_real_features
-  list = zr_global(G_REAL_FEATURES)
+  zr_global_list(G_REAL_FEATURES)
+end
+
+# The Array the global `g` holds, made on its first read.
+sig [Word] => Value
+machine def zr_global_list(g)
+  list = zr_global(g)
   if zr_special_p(list)
     list = zr_ary_new(64)
-    zr_set_global(G_REAL_FEATURES, list)
+    zr_set_global(g, list)
   end
   list
+end
+
+# The file loading now, or 0: the innermost require or load in progress.
+sig [] => Ptr
+machine def zr_loading
+  Machine.static(:loading, 8)
+end
+
+# The hidden file loading now, or 0. While one loads, what it defines
+# on Object stays concealed and what it requires stays hidden too.
+sig [] => Ptr
+machine def zr_hidden_loader
+  Machine.static(:hidden_loader, 8)
+end
+
+sig [] => Bool
+machine def zr_loading_hidden
+  Machine.load64(zr_hidden_loader(), 0) != 0
+end
+
+# The path of the hidden file loading now, or nil.
+sig [] => Value
+machine def zr_hidden_loading_path
+  loader = Machine.load64(zr_hidden_loader(), 0)
+  Machine.value(loader == 0 ? QNIL : loader)
+end
+
+# Whether what loads now is the runtime's own, out of the program's
+# sight: a hidden file is loading, or the code that asks is written in
+# a file only the eval road loads, which the program never required for
+# itself. The road's lazy requires are the second case. A road file the
+# program requires itself loads in sight: it stands in $LOADED_FEATURES
+# before its body runs, or, for a native half's Ruby, which has no file
+# of its own to stand there, it is the file loading now.
+sig [] => Bool
+machine def zr_hidden_now
+  if zr_loading_hidden()
+    return true
+  end
+  rec = zr_asking_frame()
+  if rec == 0 || FrameMeta.hidden(Frame.meta(rec)) == 0
+    return false
+  end
+  meta = Frame.meta(rec)
+  if FrameMeta.file_len(meta) == 0
+    return !zr_loading_internal()
+  end
+  !zr_ary_has_bytes(zr_gvar_get(Machine.id(:$LOADED_FEATURES)), FrameMeta.file(meta), FrameMeta.file_len(meta))
+end
+
+# The frame of the code that asks for a load or writes a constant: the
+# core library's own frames stand for whoever called them.
+sig [] => Ptr
+machine def zr_asking_frame
+  rec = Task.top(zr_task())
+  while rec != 0
+    meta = Frame.meta(rec)
+    if FrameMeta.hidden(meta) != 0 || (FrameMeta.kind(meta) != KIND_BUILTIN && FrameMeta.kind(meta) != KIND_HIDDEN)
+      return rec
+    end
+    rec = Frame.prev(rec)
+  end
+  0
+end
+
+# Whether the file loading now is a native half's Ruby, under the
+# directory the runtime keeps them in.
+sig [] => Bool
+machine def zr_loading_internal
+  loading = Machine.load64(zr_loading(), 0)
+  if loading == 0
+    return false
+  end
+  path = Machine.value(loading)
+  t = zr_load_table()
+  n = LoadTable.ext_len(t)
+  RString.len(path) > n && zr_bytes_eq(RString.ptr(path), n, LoadTable.ext(t), n)
+end
+
+# The row of `path` among the hidden files, or -1.
+sig [Value] => Word
+machine def zr_hidden_row(path)
+  rows = zr_hidden_features()
+  i = RArray.len(rows)
+  while i > 0
+    i -= HIDDEN_ROW
+    if zr_string_of(zr_ary_at(rows, i), path)
+      return i
+    end
+  end
+  -1
+end
+
+sig [Value] => Bool
+machine def zr_hidden_p(path)
+  zr_hidden_row(path) >= 0
+end
+
+# `path` starts loading out of sight, under the hidden file loading now.
+sig [Value] => Void
+machine def zr_hidden_add(path)
+  rows = zr_hidden_features()
+  zr_ary_push(rows, path)
+  zr_ary_push(rows, zr_hidden_loading_path())
+  zr_ary_push(rows, Machine.value(QNIL))
+end
+
+# `path` off the hidden list: its run failed.
+sig [Value] => Void
+machine def zr_hidden_forget(path)
+  i = zr_hidden_row(path)
+  if i >= 0
+    zr_ary_splice(zr_hidden_features(), zr_fix(i), zr_fix(HIDDEN_ROW), zr_ary_new(0))
+  end
+end
+
+# The hidden file loading now defined or reopened Object's constant
+# `id`: remembered, so a require of the file reveals the constant.
+sig [Word] => Void
+machine def zr_hidden_defined(id)
+  i = zr_hidden_row(zr_hidden_loading_path())
+  if i < 0
+    return
+  end
+  rows = zr_hidden_features()
+  ids = zr_ary_at(rows, i + 2)
+  if ids == QNIL
+    ids = zr_ary_new(4)
+    zr_ary_store(rows, i + 2, ids)
+  end
+  zr_ary_push(ids, zr_fix(id))
+end
+
+# The program required `path`, which the runtime had loaded out of sight:
+# it comes into $LOADED_FEATURES with its constants, and so does every
+# file it loaded on the way, as ruby's one require loads them all.
+sig [Value] => Void
+machine def zr_feature_reveal(path)
+  visible = zr_gvar_get(Machine.id(:$LOADED_FEATURES))
+  zr_ary_push(visible, path)
+  zr_ary_push(zr_real_features(), zr_feature_real_path(path))
+  rows = zr_hidden_features()
+  ids = zr_ary_at(rows, zr_hidden_row(path) + 2)
+  i = 0
+  while ids != QNIL && i < RArray.len(ids)
+    zr_const_reveal(zr_fix2long(zr_ary_at(ids, i)))
+    i += 1
+  end
+  i = 0
+  while i < RArray.len(rows)
+    if zr_string_of(zr_ary_at(rows, i + 1), path) && !zr_ary_has_string(visible, zr_ary_at(rows, i))
+      zr_feature_reveal(zr_ary_at(rows, i))
+    end
+    i += HIDDEN_ROW
+  end
 end
 
 # realpath(3) of `path`, or `path` itself where no file is there, as for
@@ -330,44 +491,47 @@ machine def zr_require_run(path, fn, kind, framed)
   if Machine.word(fn) == 0
     return zr_load_error_in(kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require)), RString.ptr(path), RString.len(path))
   end
-  depth = Machine.static(:hidden_requires, 8)
-  hidden = kind == 3 || Machine.load64(depth, 0) > 0
+  hidden = kind == 3 || zr_hidden_now()
   visible = zr_gvar_get(Machine.id(:$LOADED_FEATURES))
-  features = hidden ? zr_hidden_features() : visible
   real = Machine.value(QNIL)
   if kind != 2
-    if zr_ary_has_string(visible, path) || (hidden && zr_ary_has_string(features, path))
+    if zr_ary_has_string(visible, path) || (hidden && zr_hidden_p(path))
       return Machine.value(QFALSE)
     end
-    if !hidden && zr_ary_has_string(zr_hidden_features(), path)
-      zr_ary_push(visible, path)
-      zr_const_reveal(path)
-      return Machine.value(QTRUE)
-    end
-    if !hidden
+    if hidden
+      zr_hidden_add(path)
+    else
+      if zr_hidden_p(path)
+        zr_feature_reveal(path)
+        return Machine.value(QTRUE)
+      end
       real = zr_feature_real_path(path)
       if zr_ary_has_string(zr_real_features(), real)
         return Machine.value(QFALSE)
       end
       zr_ary_push(zr_real_features(), real)
+      zr_ary_push(visible, path)
     end
-    zr_ary_push(features, path)
   end
+  outer = Machine.load64(zr_loading(), 0)
+  outer_hidden = Machine.load64(zr_hidden_loader(), 0)
+  Machine.store64(zr_loading(), 0, path)
   if hidden
-    Machine.store64(depth, 0, Machine.load64(depth, 0) + 1)
+    Machine.store64(zr_hidden_loader(), 0, path)
   end
   mid = 0
   if framed
     mid = kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require))
   end
   r = zr_run_top(fn, mid)
-  if hidden
-    Machine.store64(depth, 0, Machine.load64(depth, 0) - 1)
-  end
+  Machine.store64(zr_loading(), 0, outer)
+  Machine.store64(zr_hidden_loader(), 0, outer_hidden)
   if r == QUNDEF
     # The files it required on the way stay loaded.
-    if kind != 2
-      zr_ary_delete_string(features, path)
+    if kind != 2 && hidden
+      zr_hidden_forget(path)
+    elsif kind != 2
+      zr_ary_delete_string(visible, path)
     end
     if real != QNIL
       zr_ary_delete_string(zr_real_features(), real)
@@ -461,30 +625,54 @@ machine def zr_load_names(which)
   zr_str_new(LoadTable.ext(t), LoadTable.ext_len(t))
 end
 
+# Whether `e` is a String of the bytes the String `s` holds.
+sig [Value, Value] => Bool
+machine def zr_string_of(e, s)
+  zr_string_of_bytes(e, RString.ptr(s), RString.len(s))
+end
+
+sig [Value, Ptr, Word] => Bool
+machine def zr_string_of_bytes(e, bytes, len)
+  if zr_special_p(e) || zr_type(e) != T_STRING
+    return false
+  end
+  zr_bytes_eq(RString.ptr(e), RString.len(e), bytes, len)
+end
+
+# The index of the last String in `a` equal to `s`, or -1.
+sig [Value, Value] => Word
+machine def zr_ary_rindex_string(a, s)
+  zr_ary_rindex_bytes(a, RString.ptr(s), RString.len(s))
+end
+
+sig [Value, Ptr, Word] => Word
+machine def zr_ary_rindex_bytes(a, bytes, len)
+  i = RArray.len(a)
+  while i > 0
+    i -= 1
+    if zr_string_of_bytes(zr_ary_at(a, i), bytes, len)
+      return i
+    end
+  end
+  -1
+end
+
 sig [Value, Value] => Bool
 machine def zr_ary_has_string(a, s)
-  i = 0
-  while i < RArray.len(a)
-    e = zr_ary_at(a, i)
-    if !zr_special_p(e) && zr_type(e) == T_STRING && zr_bytes_eq(RString.ptr(e), RString.len(e), RString.ptr(s), RString.len(s))
-      return true
-    end
-    i += 1
-  end
-  false
+  zr_ary_rindex_string(a, s) >= 0
+end
+
+sig [Value, Ptr, Word] => Bool
+machine def zr_ary_has_bytes(a, bytes, len)
+  zr_ary_rindex_bytes(a, bytes, len) >= 0
 end
 
 # `a` without the last String equal to `s`.
 sig [Value, Value] => Void
 machine def zr_ary_delete_string(a, s)
-  i = RArray.len(a)
-  while i > 0
-    i -= 1
-    e = zr_ary_at(a, i)
-    if !zr_special_p(e) && zr_type(e) == T_STRING && zr_bytes_eq(RString.ptr(e), RString.len(e), RString.ptr(s), RString.len(s))
-      zr_ary_splice(a, zr_fix(i), zr_fix(1), zr_ary_new(0))
-      return
-    end
+  i = zr_ary_rindex_string(a, s)
+  if i >= 0
+    zr_ary_splice(a, zr_fix(i), zr_fix(1), zr_ary_new(0))
   end
 end
 

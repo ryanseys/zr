@@ -199,7 +199,7 @@ module Ze0
           recv = @f.fetch("i64", @rec, value_offset(base))
           feature = @f.fetch("i64", @rec, value_offset(base + 1))
           fn = node.unit ? @f.func_addr(@f.callee(@l.unit_entry(node.unit), [], "i64")) : imm(0)
-          kind = REQUIRE_KINDS.fetch(node.hidden ? :eval_road : (node.unit ? :require : :computed))
+          kind = REQUIRE_KINDS.fetch(node.unit ? :require : :computed)
           result = checked(kernel("zr_autoload", recv, imm(sym_id(node.name)), feature, fn, @cref, imm(kind), path))
           release(base)
           result

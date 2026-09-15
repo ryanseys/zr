@@ -235,7 +235,7 @@ module Ze0
         d zr_const_row Ptr klass:Value id:Word
         d zr_const_sees_concealed Bool
         d zr_const_sees_reflectively Bool
-        d zr_const_reveal Void path:Value
+        d zr_const_reveal Void id:Word
         d zr_const_row_opened Ptr scope:Value id:Word
         d zr_const_row_kept Ptr klass:Value id:Word
         d zr_const_set Value klass:Value id:Word v:Value
@@ -365,6 +365,20 @@ module Ze0
         d zr_random_seed Value
         d zr_hidden_features Value
         d zr_real_features Value
+        d zr_global_list Value g:Word
+        d zr_loading Ptr
+        d zr_hidden_loader Ptr
+        d zr_loading_hidden Bool
+        d zr_hidden_loading_path Value
+        d zr_hidden_now Bool
+        d zr_asking_frame Ptr
+        d zr_loading_internal Bool
+        d zr_hidden_row Word path:Value
+        d zr_hidden_p Bool path:Value
+        d zr_hidden_add Void path:Value
+        d zr_hidden_forget Void path:Value
+        d zr_hidden_defined Void id:Word
+        d zr_feature_reveal Void path:Value
         d zr_feature_real_path Value path:Value
         d zr_require Value path:Value fn:Ptr kind:Word
         d zr_require_computed Value path:Value fn:Value kind:Value
@@ -373,7 +387,12 @@ module Ze0
         d zr_load_table Ptr
         d zr_unit_for Value path:Value
         d zr_load_names Value which:Value
+        d zr_string_of Bool e:Value s:Value
+        d zr_string_of_bytes Bool e:Value bytes:Ptr len:Word
+        d zr_ary_rindex_string Word a:Value s:Value
+        d zr_ary_rindex_bytes Word a:Value bytes:Ptr len:Word
         d zr_ary_has_string Bool a:Value s:Value
+        d zr_ary_has_bytes Bool a:Value bytes:Ptr len:Word
         d zr_ary_delete_string Void a:Value s:Value
         d zr_load_error Value path:Ptr len:Word
         d zr_load_error_in Value mid:Word path:Ptr len:Word
@@ -1616,6 +1635,7 @@ module Ze0
         c G_AT_EXIT 37
         c G_ARGV0 53
         c G_HIDDEN_FEATURES 50
+        c HIDDEN_ROW 3
         c G_REAL_FEATURES 60
         c S_IFMT 61440
         c S_IFDIR 16384
