@@ -53,6 +53,15 @@ module Ze0
           eq: :ne, ne: :eq, lt: :ge, ge: :lt, le: :gt, gt: :le,
           lo: :hs, hs: :lo, ls: :hi, hi: :ls, mi: :pl, pl: :mi, vs: :vc, vc: :vs
         }.freeze
+        # The branch that goes when the other does not.
+        OPPOSITE = { cbz: :cbnz, cbnz: :cbz, tbz: :tbnz, tbnz: :tbz }.freeze
+        # The opcodes whose lowering leaves NZCV alone, so a compare's
+        # flags survive them on the way to the branch or select that reads
+        # them. A compare, a select made with its own `cmp`, an overflow
+        # check and a call all write the flags; a terminator ends the block.
+        FLAG_NEUTRAL = (%i[iconst load store stack_addr symbol_value func_addr ireduce uextend sextend bitcast
+                           fcvt_from_sint fcvt_to_sint_sat] +
+                        IR::Inst::BINOPS + IR::Inst::FBINOPS + IR::Inst::FUNOPS).to_set.freeze
 
         # The floating-point instructions, as words: `FMOV Dd, Xn`,
         # `FMOV Xd, Dn`, the arithmetic and the conversions, with d16..d19
@@ -93,8 +102,8 @@ module Ze0
           plan_constants
           plan_addresses
           plan_bytes
-          @reg = Regalloc.of(@f, skip: @silent, via: @root)
           plan_fusion
+          @reg = Regalloc.of(@f, skip: @silent, via: @via)
           assign_homes
           @f.blocks.each { |b| @labels[b.name] = @asm.make_label(b.name) }
           prologue
@@ -112,7 +121,7 @@ module Ze0
           # This attempt's code and plans are as big as the function, and
           # nothing reads them again: let them go before the second is made.
           assembler = @asm.class
-          @asm = @reg = @home = @labels = @relocs = @const = @remade = @silent = @derived = @root = @types = nil
+          @asm = @reg = @home = @labels = @relocs = @const = @remade = @silent = @derived = @via = @types = nil
           again = self.class.new(@f, defined: @defined, assembler: assembler, far: true)
           bytes = again.compile
           @asm = again.asm
@@ -136,32 +145,67 @@ module Ze0
           raise Refused, e.message
         end
 
-        # An `icmp` whose one use is the `brif` right after it needs no
-        # boolean at all: the compare sets the flags and the branch reads
-        # them. `docs/plan.md` has said so since the backend was specified.
+        # An `icmp` whose one use is a `brif` or a `select` in the same
+        # block, with nothing that writes the flags between them, needs no
+        # boolean at all: the compare sets the flags and the branch or the
+        # select reads them. `docs/plan.md` has said so since the backend
+        # was specified.
         #
         # Without it the pair costs `cmp`, `cset`, a store of the byte, a
         # load of it back, a `uxtb` and a `cbz`. `Zr::Function#checked`
         # writes one after every call a compiled Ruby method makes, so this
-        # is the shape most branches in the program have.
+        # is the shape most branches in the program have. The stack check
+        # at the top of every Ruby function has a load between the two.
         #
-        # Adjacency is what makes the flags safe: nothing runs between the
-        # two, so nothing can write NZCV in between.
+        # A branch on one bit of a word (`brif (band x, 2^n) != 0`) is a
+        # `tbz` or `tbnz` on the word itself: the `band` and the compare
+        # emit nothing (`@silent`), and the branch reads the word, which
+        # the allocator then keeps live to it (`@via`).
         def plan_fusion
           @fused = {}
+          @bit_tests = {}
           @f.blocks.each do |b|
-            # A constant made at its reads emits nothing where it stands, so
-            # it does not part a compare from its branch.
-            b.insts.reject { |i| @silent.include?(i.results[0]) }.each_cons(2) do |cmp, brif|
-              next unless cmp.op == :icmp && brif.op == :brif
-
+            # What emits nothing where it stands does not part a compare
+            # from its reader.
+            insts = b.insts.reject { |i| @silent.include?(i.results[0]) }
+            insts.each_with_index do |cmp, n|
               r = cmp.results[0]
-              next unless brif.args[0] == r && @uses[r] == 1
+              next unless cmp.op == :icmp && @uses[r] == 1
 
-              @fused[cmp] = brif
-              @fused[brif] = CONDS.fetch(cmp.cond)
+              reader = insts[(n + 1)..].find { |i| !FLAG_NEUTRAL.include?(i.op) }
+              next unless reader && (reader.op == :brif || reader.op == :select) && reader.args[0] == r
+
+              # Either way the boolean is never made, so it has no home.
+              @silent << r
+              if reader.op == :brif && (test = bit_test(cmp))
+                @bit_tests[reader] = test
+                @silent << cmp.args.find { |a| @def_of[a]&.op == :band }
+                @via[r] = test[0]
+              else
+                @fused[cmp] = reader
+              end
             end
           end
+        end
+
+        # `[word, bit, branch]` when `cmp` asks whether one bit of a word
+        # is set: it compares a `band` of the word and a power of two with
+        # zero, and nothing else reads the `band`.
+        def bit_test(cmp)
+          return unless cmp.cond == "eq" || cmp.cond == "ne"
+
+          m, z = cmp.args
+          m, z = z, m if @const.key?(m)
+          return unless constant(z, type_of(m)) == 0 && @uses[m] == 1 && @def_of[m]&.op == :band
+
+          x, k = @def_of[m].args
+          x, k = k, x if @const.key?(x)
+          return if @const.key?(x)
+
+          mask = constant(k, type_of(x))
+          return unless mask&.positive? && (mask & (mask - 1)).zero?
+
+          [x, mask.bit_length - 1, cmp.cond == "ne" ? :tbnz : :tbz]
         end
 
         # How many times each value is read: by an instruction, or by a
@@ -169,8 +213,10 @@ module Ze0
         # planned differently from what is read again and again.
         def count_uses
           @uses = Hash.new(0)
+          @def_of = {}
           @f.blocks.each do |b|
             b.insts.each do |i|
+              @def_of[i.results[0]] = i if i.results[0]
               i.args.each { |a| @uses[a] += 1 if Regalloc.value?(a) }
               i.targets&.each { |(_, args)| args.each { |a| @uses[a] += 1 if Regalloc.value?(a) } }
             end
@@ -241,7 +287,7 @@ module Ze0
         # that read through it: `ldr x, [base, #k + off]` where the `iadd`
         # made a register hold `base + k` first. The `iadd` is then emitted
         # nowhere (`@silent`), and its base is what the allocator keeps
-        # live at each read (`@root`). A chain of such additions folds to
+        # live at each read (`@via`). A chain of such additions folds to
         # its first base with the constants summed.
         #
         # Only an addition every use reads through folds, and only when
@@ -253,7 +299,7 @@ module Ze0
         # `iadd` of the pointer and the field's offset.
         def plan_addresses
           @derived = {}
-          @root = {}
+          @via = {}
           @silent = @remade.dup
           memory = Hash.new { |h, k| h[k] = [] }
           # `[value, base, root, k]` a sum: its own base, and the first
@@ -285,7 +331,7 @@ module Ze0
             next unless other[v].zero? && memory[v].all? { |off, width| reaches?(root, k + off, width) }
 
             @derived[v] = [root, k]
-            @root[v] = root
+            @via[v] = root
             @silent << v
             other[base] -= 1
           end
@@ -571,12 +617,15 @@ module Ze0
           when :call then emit_call(i)
           when :call_indirect then emit_call_indirect(i)
           when :icmp
-            cond = emit_compare(i)
-            # The `brif` that follows reads the flags; there is no boolean.
-            if (brif = @fused[i])
-              @fused[brif] = cond
+            # The branch or select that follows reads the flags; there is
+            # no boolean. A bit test reads the word instead: nothing here.
+            if (reader = @fused[i])
+              @fused[reader] = emit_compare(i)
               return
             end
+            return if @silent.include?(i.results[0])
+
+            cond = emit_compare(i)
 
             d = result_in(i.results[0], X11)
             @asm.cset d, cond
@@ -595,14 +644,7 @@ module Ze0
             a = value_in(i.args[0], X9)
             type_of(i.args[0]) == "i8" ? @asm.sxtb(X9, w(a)) : @asm.sxtw(X9, w(a))
             store_value(i.results[0], X9)
-          when :select
-            cond = value_in(i.args[0], X9)
-            a = value_in(i.args[1], X10)
-            b = value_in(i.args[2], X11)
-            d = result_in(i.results[0], X12)
-            @asm.cmp reg_for(i.args[0], cond), 0
-            @asm.csel reg_for(i.args[1], d), reg_for(i.args[1], a), reg_for(i.args[1], b), :ne
-            store_value(i.results[0], d)
+          when :select then emit_select(i)
           when :sadd_overflow, :ssub_overflow then emit_overflow(i)
           when :smul_overflow then emit_mul_overflow(i)
           when *IR::Inst::FBINOPS
@@ -640,26 +682,7 @@ module Ze0
           when :bitcast
             load_value(i.args[0], X9)
             store_value(i.results[0], X9)
-          when :brif
-            yes, no = i.targets.map(&:first)
-            # A fused compare left the answer in the flags.
-            if (cond = @fused[i])
-              if yes == @next
-                branch_on(INVERSE.fetch(cond), no)
-              else
-                branch_on(cond, yes)
-                @asm.b @labels.fetch(no) unless no == @next
-              end
-              return
-            end
-            # The block that follows needs no branch: control falls into it.
-            reg = reg_for(i.args[0], value_in(i.args[0], X9))
-            if yes == @next
-              branch_if(:cbz, reg, no)
-            else
-              branch_if(:cbnz, reg, yes)
-              @asm.b @labels.fetch(no) unless no == @next
-            end
+          when :brif then emit_brif(i)
           when :jump then emit_jump(i)
           when :return
             unless i.args.empty?
@@ -671,13 +694,55 @@ module Ze0
           end
         end
 
-        # `cbz` or `cbnz` to a block. A far one branches the other way over
-        # a `b`, which reaches 128 megabytes to the megabyte of its own.
-        def branch_if(op, reg, target)
-          return @asm.public_send(op, reg, @labels.fetch(target)) unless @far
+        # A branch to one of two blocks. A fused compare left the answer
+        # in the flags; a bit test reads the word itself; else the branch
+        # is on the boolean. The block that follows needs no branch:
+        # control falls into it.
+        def emit_brif(i)
+          yes, no = i.targets.map(&:first)
+          if (x, bit, op = @bit_tests[i])
+            reg = value_in(x, X9)
+            reg = w(reg) if bit < 32
+            yes == @next ? branch_if(OPPOSITE.fetch(op), no, reg, bit) : branch_if(op, yes, reg, bit)
+          elsif (cond = @fused[i])
+            yes == @next ? branch_on(INVERSE.fetch(cond), no) : branch_on(cond, yes)
+          else
+            reg = reg_for(i.args[0], value_in(i.args[0], X9))
+            yes == @next ? branch_if(:cbz, no, reg) : branch_if(:cbnz, yes, reg)
+          end
+          @asm.b @labels.fetch(no) unless yes == @next || no == @next
+        end
 
-          @asm.public_send(op == :cbz ? :cbnz : :cbz, reg, 2)
+        # `cbz`, `cbnz`, `tbz` or `tbnz` of `operands` to a block. A far
+        # one branches the other way over a `b`, which reaches 128
+        # megabytes to the megabyte of its own.
+        def branch_if(op, target, *operands)
+          return @asm.public_send(op, *operands, @labels.fetch(target)) unless @far
+
+          @asm.public_send(OPPOSITE.fetch(op), *operands, 2)
           @asm.b @labels.fetch(target)
+        end
+
+        # `csel` on the flags a fused compare left, else on its own `cmp`
+        # of the boolean. A constant zero operand is the zero register.
+        def emit_select(i)
+          c, a, b = i.args
+          d = result_in(i.results[0], X12)
+          cond = @fused[i]
+          unless cond
+            @asm.cmp reg_for(c, value_in(c, X9)), 0
+            cond = :ne
+          end
+          @asm.csel reg_for(a, d), value_or_zero(a, X10), value_or_zero(b, X11), cond
+          store_value(i.results[0], d)
+        end
+
+        # An operand's register, or the zero register when it is the
+        # constant zero.
+        def value_or_zero(v, scratch)
+          return reg_for(v, scratch).zr if constant(v, type_of(v)) == 0
+
+          reg_for(v, value_in(v, scratch))
         end
 
         # `b.cond` to a block, on the flags a fused compare left. A far one

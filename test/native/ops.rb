@@ -200,6 +200,19 @@ module Ze0
           f.switch(no)
           f.ret(a)
         end
+        # A compare and its branch with a load between them: the load
+        # leaves the flags alone, so the two still fuse.
+        ops["brif.across_load"] = build("brif_across_load", %w[i64 i64], "i64") do |f, a, b|
+          c = f.icmp("slt", a, b)
+          x = f.fetch("i64", a)
+          yes = f.label
+          no = f.label
+          f.brif(c, yes, no)
+          f.switch(yes)
+          f.ret(x)
+          f.switch(no)
+          f.ret(b)
+        end
         # A branch on one bit of a word: a tbz or tbnz would do.
         ops["brif.tbz"] = build("brif_tbz", %w[i64], "i64") do |f, a|
           c = f.icmp("ne", f.band(a, f.iconst("i64", 8)), f.iconst("i64", 0))

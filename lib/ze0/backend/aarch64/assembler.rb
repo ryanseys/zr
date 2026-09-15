@@ -242,6 +242,9 @@ module Ze0
         def ret(n = X30) = emit(0xD65F_0000 | n.to_i << 5)
         def cbz(rt, label) = branch(0x3400_0000 | rt.sf << 31 | rt.to_i, label, 5, 19)
         def cbnz(rt, label) = branch(0x3500_0000 | rt.sf << 31 | rt.to_i, label, 5, 19)
+        # `tbz`/`tbnz rt, #bit, label`: the bit's high digit is the width bit.
+        def tbz(rt, bit, label) = test_bit(0x3600_0000, rt, bit, label)
+        def tbnz(rt, bit, label) = test_bit(0x3700_0000, rt, bit, label)
 
         # The page a relocation fills in, so the encoded one is zero.
         def adrp(d, page)
@@ -382,6 +385,12 @@ module Ze0
 
           emit(0x2800_0000 | (rt1.wide? ? 0b10 : 0b00) << 30 | variant << 23 | load << 22 |
                self.class.signed(off / scale, 7) << 15 | rt2.to_i << 10 | base.to_i << 5 | rt1.to_i)
+        end
+
+        def test_bit(base, rt, bit, label)
+          raise Refused, "a test of bit #{bit}" unless bit.between?(0, 63)
+
+          branch(base | (bit >> 5) << 31 | (bit & 31) << 19 | rt.to_i, label, 5, 14)
         end
 
         def branch(base, label, shift, bits)
