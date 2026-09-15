@@ -49,6 +49,7 @@ base64 0.3.0
 benchmark 0.5.0
 csv 3.3.6
 drb 2.2.3
+fiddle 1.1.8
 getoptlong 0.2.1
 logger 1.7.0
 matrix 0.4.3
