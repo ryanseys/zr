@@ -111,6 +111,7 @@ module Ze0
           plan_addresses
           plan_bytes
           plan_fusion
+          plan_pairs
           @reg = Regalloc.of(@f, skip: @silent, via: @via)
           assign_homes
           @f.blocks.each { |b| @labels[b.name] = @asm.make_label(b.name) }
@@ -134,7 +135,7 @@ module Ze0
           # This attempt's code and plans are as big as the function, and
           # nothing reads them again: let them go before the second is made.
           assembler = @asm.class
-          @asm = @reg = @home = @labels = @relocs = @const = @remade = @silent = @derived = @via = @types = @epilogue = nil
+          @asm = @reg = @home = @labels = @relocs = @const = @remade = @silent = @derived = @via = @types = @epilogue = @pairs = @paired = nil
           again = self.class.new(@f, defined: @defined, assembler: assembler, far: true)
           bytes = again.compile
           @asm = again.asm
@@ -197,6 +198,26 @@ module Ze0
               else
                 @fused[cmp] = reader
               end
+            end
+          end
+        end
+
+        # Two stores of words to the same base, the second eight bytes
+        # past the first with nothing that emits between them, are one
+        # `stp`: the nil fills after every send and in every prologue are
+        # runs of these. `@pairs` maps the first to the second, and
+        # `@paired` holds the seconds, which emit nothing of their own.
+        def plan_pairs
+          @pairs = {}
+          @paired = Set.new
+          @f.blocks.each do |b|
+            b.insts.reject { |i| @silent.include?(i.results[0]) }.each_cons(2) do |first, second|
+              next unless first.op == :store && second.op == :store && !@paired.include?(first)
+              next unless first.args[1] == second.args[1] && second.offset == first.offset + 8
+              next unless wide?(first.args[0]) && wide?(second.args[0])
+
+              @pairs[first] = second
+              @paired << second
             end
           end
         end
@@ -667,7 +688,10 @@ module Ze0
             materialize(d, i.args[0])
             store_value(i.results[0], d)
           when :load then emit_load(i)
-          when :store then emit_store(i)
+          when :store
+            return if @paired.include?(i)
+
+            emit_store(i)
           when :stack_addr
             return if @remade.include?(i.results[0])
 
@@ -823,12 +847,31 @@ module Ze0
           store_value(i.results[0], d)
         end
 
+        # The largest offset a pair reaches: seven signed bits of eights.
+        PAIR_REACH = 504
+
         def emit_store(i)
+          return emit_store_pair(i, @pairs[i]) if @pairs.key?(i)
+
           v = value_in(i.args[0], X9)
           case type_of(i.args[0])
           when "i64", "f64" then @asm.str v, through(i.args[1], X10, i.offset, 8)
           when "i32" then @asm.str w(v), through(i.args[1], X10, i.offset, 4)
           when "i8" then @asm.strb w(v), through(i.args[1], X10, i.offset, 1)
+          end
+        end
+
+        # Two stores as one `stp` where the pair form reaches, and as two
+        # `str` through one address where it does not.
+        def emit_store_pair(first, second)
+          a = value_in(first.args[0], X9)
+          b = value_in(second.args[0], X12)
+          base, off = through(first.args[1], X10, first.offset, 8)
+          if off <= PAIR_REACH
+            @asm.stp a, b, [base, off]
+          else
+            @asm.str a, [base, off]
+            @asm.str b, reach(base, off + 8, 8)
           end
         end
 

@@ -53,6 +53,12 @@ module Ze0
           ops["store.#{t}"] = build("store_#{t}", ["i64", t], nil) { |f, p, v| f.store(v, p) }
         end
         ops["stack_addr"] = build("stack_addr", [], "i64") { |f| f.stack_addr(f.slot(16)) }
+        # Two stores of words eight bytes apart: one `stp`, as the nil
+        # fills of a record are.
+        ops["store.pair"] = build("store_pair", %w[i64 i64], nil) do |f, p, v|
+          f.store(v, p, 8)
+          f.store(f.iconst("i64", 8), p, 16)
+        end
         # A load whose address is a constant past a base: the constant
         # could fold into the load's own offset.
         ops["load.iadd_base"] = build("load_iadd_base", %w[i64], "i64") do |f, p|
