@@ -106,6 +106,12 @@ module Ze0
 
         def write
           @imports = @unit.imports.sort
+          # A defined symbol reached through the GOT keeps a slot too, one
+          # dyld rebases: the code loads an address out of it, never the
+          # symbol's own bytes.
+          @got_locals = (@unit.functions + @unit.data).flat_map(&:relocs)
+                                                       .select { |r| %i[got_page21 got_pageoff12].include?(r.kind) }
+                                                       .map(&:symbol).uniq.sort - @imports
           outside = @imports.reject { |name| self.class.libsystem?(name) }
           raise Refused, "#{outside.first} is not libSystem's" unless outside.empty?
           raise Refused, "nothing named #{@entry} to enter at" unless @unit.functions.any? { |f| f.name == @entry }
@@ -128,7 +134,7 @@ module Ze0
             part("__text", "__TEXT", CODE, :function),
             part("__stubs", "__TEXT", CODE, nil, size: @imports.size * STUB),
             part("__const", "__TEXT", S_REGULAR, :text_const),
-            part("__got", "__DATA_CONST", S_REGULAR, nil, size: @imports.size * 8, fixups: true),
+            part("__got", "__DATA_CONST", S_REGULAR, nil, size: (@imports.size + @got_locals.size) * 8, fixups: true),
             part("__const", "__DATA_CONST", S_REGULAR, :data_const, fixups: true),
             part("__data", "__DATA", S_REGULAR, :data, fixups: true),
             part("__bss", "__DATA", S_ZEROFILL, :bss)
@@ -182,7 +188,7 @@ module Ze0
           stubs = part_named("__stubs", "__TEXT")&.at
           got = part_named("__got", "__DATA_CONST")&.at
           @stub_at = @imports.each_with_index.to_h { |n, i| [n, BASE + stubs + (i * STUB)] }
-          @got_at = @imports.each_with_index.to_h { |n, i| [n, BASE + got + (i * 8)] }
+          @got_at = (@imports + @got_locals).each_with_index.to_h { |n, i| [n, BASE + got + (i * 8)] }
           @entry_at = @addr.fetch(@entry) - BASE
         end
 
@@ -242,7 +248,7 @@ module Ze0
               @fixups << [part.segment, here, at ? :rebase : :bind, at ? at - BASE : @imports.index(r.symbol)]
               at || @got_at.fetch(r.symbol)
             when :got_page21, :got_pageoff12
-              @addr[r.symbol] || @got_at.fetch(r.symbol)
+              @got_at.fetch(r.symbol)
             when :branch26
               @addr[r.symbol] || @stub_at.fetch(r.symbol)
             else
@@ -263,10 +269,15 @@ module Ze0
           end
         end
 
-        # A GOT slot an import, each one a bind for dyld to fill in.
+        # A GOT slot an import, each one a bind for dyld to fill in; then
+        # one a defined symbol the code reaches through the GOT, each a
+        # rebase of that symbol's address.
         def got_bytes(part)
           @imports.each_index { |i| @fixups << [part.segment, part.at + (i * 8), :bind, i] }
-          "\0".b * (@imports.size * 8)
+          @got_locals.each_with_index do |name, i|
+            @fixups << [part.segment, part.at + ((@imports.size + i) * 8), :rebase, @addr.fetch(name) - BASE]
+          end
+          "\0".b * ((@imports.size + @got_locals.size) * 8)
         end
 
         # --- chained fixups ------------------------------------------------

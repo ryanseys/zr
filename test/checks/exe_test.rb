@@ -127,6 +127,20 @@ class ExeTest < Minitest::Test
     end
   end
 
+  # A symbol this unit defines, reached through the GOT as an import
+  # would be: the slot holds the symbol's address, so the load answers
+  # the address and not the symbol's first eight bytes.
+  def test_a_defined_symbol_reached_through_the_got_answers_its_address
+    f = Ze0::IR::Function.new("main", %w[i32 i64], "i32")
+    write = f.callee("write", %w[i32 i64 i64], "i64", colocated: false)
+    f.call_val(write, [f.iconst("i32", 1), f.symbol_value(f.symbol("msg", colocated: false)), f.iconst("i64", 8)])
+    f.ret(f.iconst("i32", 0))
+    data = [Ze0::Obj::Data.new("msg", :text_const, "got slot\n", align: 8)]
+    Dir.mktmpdir("ze0-exe-") do |dir|
+      assert_equal [0, "got slot"], ran(written(Ze0::Native::Build.unit([f], data), dir, "got"))
+    end
+  end
+
   # A symbol libSystem does not define belongs to a vendored archive, and
   # reading an archive is a real linker. It says which symbol, so a
   # fallback to `cc` is never a mystery.
