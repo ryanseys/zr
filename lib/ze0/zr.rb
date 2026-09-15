@@ -37,20 +37,23 @@ module Ze0
     class Runtime
       attr_reader :target
 
-      # Every source is read once, here: the digest covers the bytes the
-      # kernel and the core were lowered from, never a later edit of
-      # them, so a build under way while a file changes cannot cache
-      # the old form under the new digest.
       def initialize(target = Target.default)
         @target = target
-        @sources = Zr.sources(target).to_h { |path| [path, File.read(path)] }
+      end
+
+      # Every source, read once: the digest covers the bytes the kernel
+      # and the core were lowered from, never a later edit of them, so a
+      # build under way while a file changes cannot cache the old form
+      # under the new digest.
+      def sources
+        @sources ||= Zr.sources(target).to_h { |path| [path, File.read(path)] }
       end
 
       # The kernel, lowered: what the core's lowering and the runtime
       # object need, and nothing a program's own lowering does.
       def unit
         @unit ||= Ze0.clock("kernel lowered") do
-          Machine::Lower.new(Zr.kernel_files(target).map { |path| [@sources.fetch(path), path] }, kernel_symbols).tap(&:run)
+          Machine::Lower.new(Zr.kernel_files(target).map { |path| [sources.fetch(path), path] }, kernel_symbols).tap(&:run)
         end
       end
 
@@ -66,7 +69,7 @@ module Ze0
         # The target goes in first: two targets never share a built form.
         # A path goes in beside its bytes: the runtime object carries the
         # core's file names, so two checkouts never share one either.
-        @digest ||= digest_of(@sources.keys + gem_prelude_files)
+        @digest ||= digest_of(sources.keys + gem_prelude_files)
       end
 
       # The files the gem prelude loads, which only its loader knows:
@@ -76,7 +79,7 @@ module Ze0
       # again.
       def gem_prelude_files
         @gem_prelude_files ||= begin
-          path = File.join(CACHE, "gem-prelude-#{digest_of(@sources.keys)}.json")
+          path = File.join(CACHE, "gem-prelude-#{digest_of(sources.keys)}.json")
           files = JSON.parse(File.read(path)) if File.exist?(path)
           unless files&.all? { |file| File.file?(file) }
             files = [GEM_PRELUDE, *Zr.gem_prelude(target).units.map(&:file).select { |file| File.file?(file) }].uniq.sort
@@ -89,7 +92,7 @@ module Ze0
       def digest_of(files)
         Digest::SHA256.new.tap do |d|
           d << target.triple << "\0"
-          files.each { |path| d << path << "\0" << (@sources[path] || File.binread(path)) }
+          files.each { |path| d << path << "\0" << (sources[path] || File.binread(path)) }
         end.hexdigest
       end
 
@@ -148,7 +151,7 @@ module Ze0
 
       # The core library's `[functions, data]`, lowered over the kernel.
       def lowered
-        @lowered ||= Ze0.clock("core lowered") { Zr.core(unit, kernel_symbols, target, @sources) }
+        @lowered ||= Ze0.clock("core lowered") { Zr.core(unit, kernel_symbols, target, sources) }
       end
     end
 
