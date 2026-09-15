@@ -129,17 +129,34 @@ class ElfTest < Minitest::Test
     end
   end
 
+  # A cross toolchain links here what only an aarch64-linux-musl host
+  # runs: off that host the check reads the binary's header instead.
   def test_a_native_fixture_links_statically_and_runs
-    skip "a static link needs an aarch64-linux-musl host" unless Ze0::Target::AARCH64_LINUX_MUSL.linkable?
+    target = Ze0::Target::AARCH64_LINUX_MUSL
+    skip "a static link needs an aarch64-linux-musl host or toolchain" unless target.linkable?
     Ze0::Native::Fixtures::NAMES.each do |name|
       functions, data = Ze0::Native::Fixtures.build(name)
       Dir.mktmpdir("ze0-elf-") do |dir|
         bin = File.join(dir, name)
-        assert_nil Ze0::Native::Build.binary(functions, data, bin, work: dir, target: Ze0::Target::AARCH64_LINUX_MUSL)
+        assert_nil Ze0::Native::Build.binary(functions, data, bin, work: dir, target: target)
+        assert_static_aarch64_executable File.binread(bin), name
+        next unless target.native?
+
         out = IO.popen([bin], &:read)
         assert_equal 0, $?.exitstatus, "#{name} exited #{$?.exitstatus}"
         assert_equal File.binread(File.join(ROOT, "test/native/#{name}.stdout")), out
       end
     end
+  end
+
+  # ET_EXEC for EM_AARCH64, with no PT_INTERP: no loader runs first.
+  def assert_static_aarch64_executable(bytes, name)
+    assert_equal "\x7FELF".b, bytes.byteslice(0, 4), name
+    type, machine = bytes.byteslice(16, 4).unpack("S<S<")
+    assert_equal [2, 183], [type, machine], name
+    phoff = bytes.byteslice(32, 8).unpack1("Q<")
+    phentsize, phnum = bytes.byteslice(54, 4).unpack("S<S<")
+    kinds = Array.new(phnum) { |i| bytes.byteslice(phoff + (i * phentsize), 4).unpack1("L<") }
+    refute_includes kinds, 3, "#{name} names a program interpreter"
   end
 end

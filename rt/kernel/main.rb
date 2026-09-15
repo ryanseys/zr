@@ -450,8 +450,15 @@ machine def zr_boot
   zr_builtin(main, Machine.id(:inspect), Machine.addr(:zr_main_to_s), 0)
 end
 
+# The program's entry. The OS layer runs `zr_main` on the stack Ruby
+# frames need, which is not always the one the process starts on.
 sig [I32, Ptr] => I32
 machine def main(argc, argv)
+  zr_os_main(argc, argv)
+end
+
+sig [I32, Ptr] => I32
+machine def zr_main(argc, argv)
   zr_boot()
   zr_stack_limit_init()
   zr_args_init(argc, argv)

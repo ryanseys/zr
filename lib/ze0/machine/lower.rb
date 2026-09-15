@@ -351,6 +351,9 @@ module Ze0
       def declared_consts = @consts.keys
       def declared_structs = @structs.keys
 
+      # The file that declares the constant `name`.
+      def const_file(name) = @consts.fetch(name).last
+
       # A constant's value, folded on first use so a declaration may name
       # one from a later file.
       def const_for(name)

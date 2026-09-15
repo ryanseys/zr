@@ -3,6 +3,9 @@
 # answer or a peer find none.
 EPROTOTYPE = 67
 EAI_SYSTEM = 0 - 11
+# wasi-libc's struct msghdr, which no call here fills.
+MSGHDR_LEN = 28
+MSGHDR_FLAGS = 24
 
 # A sockaddr as wasi-libc lays it out, with no length byte: the size of
 # its family's structure, AF_INET 1, AF_INET6 2 and AF_UNIX 3.

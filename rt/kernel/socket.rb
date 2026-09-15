@@ -424,13 +424,9 @@ end
 # the control messages' bytes when there are any.
 sig [Value, Value, Value, Value, Value] => Value
 machine def zr_sock_sendmsg(fd, data, flags, addr, control)
-  header = Machine.slot(48)
+  header = Machine.slot(MSGHDR_LEN)
   vector = Machine.slot(16)
-  i = 0
-  while i < 48
-    Machine.store8(header + i, 0, Machine.i8(0))
-    i += 1
-  end
+  memset(header, Machine.i32(0), MSGHDR_LEN)
   Machine.store64(vector, 0, Machine.word(RString.ptr(data)))
   Machine.store64(vector, 8, RString.len(data))
   if addr != QNIL
@@ -455,13 +451,9 @@ machine def zr_sock_recvmsg(fd, size, flags, room)
   data = zr_xmalloc(n + 1)
   control = zr_xmalloc(c + 1)
   name = Machine.slot(SOCKADDR_MAX)
-  header = Machine.slot(48)
+  header = Machine.slot(MSGHDR_LEN)
   vector = Machine.slot(16)
-  i = 0
-  while i < 48
-    Machine.store8(header + i, 0, Machine.i8(0))
-    i += 1
-  end
+  memset(header, Machine.i32(0), MSGHDR_LEN)
   Machine.store64(vector, 0, Machine.word(data))
   Machine.store64(vector, 8, n)
   Machine.store64(header, 0, Machine.word(name))
@@ -480,7 +472,7 @@ machine def zr_sock_recvmsg(fd, size, flags, room)
   out = zr_ary_new(4)
   zr_ary_push(out, zr_sock_bytes(data, r))
   zr_ary_push(out, zr_sock_bytes(name, namelen > SOCKADDR_MAX ? SOCKADDR_MAX : namelen))
-  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(header, 44))))
+  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(header, MSGHDR_FLAGS))))
   zr_ary_push(out, zr_sock_bytes(control, Machine.word(Machine.load32(header, 40))))
   free(data)
   free(control)

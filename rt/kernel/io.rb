@@ -50,26 +50,23 @@ machine def zr_io_status(r)
   r < Machine.i32(0) ? zr_fix(0 - zr_errno()) : zr_fix(0)
 end
 
-Machine.import "fcntl", [I32, I32] => I32
 # F_GETFL: the descriptor's own status flags, which say what it was
-# opened for. fcntl takes a variadic third argument that this call
-# does not pass, so two arguments are the whole call.
+# opened for. Every fcntl goes through `zr_os_fcntl`, which passes the
+# argument fcntl reads variadically as each OS needs it.
 F_GETFL = 3
 
 sig [Value] => Value
 machine def zr_io_flags(fd)
-  zr_io_failed(Machine.sword(fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(F_GETFL))))
+  zr_io_failed(Machine.sword(zr_os_fcntl(Machine.i32(zr_fix2long(fd)), Machine.i32(F_GETFL), 0)))
 end
 
-# A descriptor that answers EAGAIN instead of waiting. F_SETFL's flags
-# go through `zr_os_fcntl`, which passes the argument fcntl reads
-# variadically.
+# A descriptor that answers EAGAIN instead of waiting.
 F_SETFL = 4
 
 sig [Value, Value] => Value
 machine def zr_io_set_nonblock(fd, on)
   n = Machine.i32(zr_fix2long(fd))
-  r = fcntl(n, Machine.i32(F_GETFL))
+  r = zr_os_fcntl(n, Machine.i32(F_GETFL), 0)
   if r < Machine.i32(0)
     return zr_fix(0 - zr_errno())
   end

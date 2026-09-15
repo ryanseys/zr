@@ -28,9 +28,7 @@ module Ze0
 
     # The runtime layer each OS's target is lowered with: rt/kernel/os/,
     # rt/core/os/ and rt/ext/os/ each hold one directory per layer.
-    # aarch64-linux-musl takes darwin's until its own layer lands, and its
-    # road builds objects only.
-    OS_LAYERS = { darwin: "darwin", linux: "darwin", wasi: "wasi" }.freeze
+    OS_LAYERS = { darwin: "darwin", linux: "linux", wasi: "wasi" }.freeze
     # The machine layer, under rt/kernel/arch/.
     ARCH_LAYERS = { aarch64: "aarch64", wasm32: "wasm32" }.freeze
 
@@ -48,7 +46,7 @@ module Ze0
                                   link: :darwin, roads: %i[native obj]))
     AARCH64_LINUX_MUSL = register(new(triple: "aarch64-linux-musl", arch: :aarch64, os: :linux, libc: :musl,
                                       object_format: :elf, page: 4096, symbol_prefix: "", ruby_platform: "aarch64-linux-musl",
-                                      link: :static, roads: %i[obj]))
+                                      link: :static, roads: %i[native obj]))
     WASM32_WASI = register(new(triple: "wasm32-wasi", arch: :wasm32, os: :wasi, object_format: :wasm,
                                page: 65_536, symbol_prefix: "", ruby_platform: "wasm32-wasi",
                                link: nil, roads: %i[wasm]))
@@ -84,10 +82,20 @@ module Ze0
     def self.road(emit) = emit ? emit.to_sym : :native
 
     # Whether this host has the tools a native link for this target runs:
-    # the target's own host, with `cc` and `ar` on the PATH.
-    def linkable?
-      native? && %w[cc ar].all? { |tool| Target.tool?(tool) }
+    # its C compiler and archiver, the host's own or a cross toolchain's.
+    def linkable? = !tool("cc").nil? && !tool("ar").nil?
+
+    # The command this host runs as the target's `name` ("cc" or "ar"), or
+    # nil: on the target's own host the plain tool, elsewhere a cross
+    # toolchain's, named by the triple as musl-cross and crosstool name
+    # theirs (`aarch64-linux-musl-gcc`).
+    def tool(name)
+      names = native? ? [name] : [name, *CROSS_NAMES[name]].map { |base| "#{triple}-#{base}" }
+      names.find { |command| Target.tool?(command) }
     end
+
+    # What a cross toolchain may call a tool instead of its plain name.
+    CROSS_NAMES = { "cc" => %w[gcc] }.freeze
 
     def self.tool?(name)
       ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).any? do |dir|
@@ -108,8 +116,8 @@ module Ze0
         "a native binary needs cc and ar on the PATH (xcode-select --install); " \
           "--emit wasm and --emit obj work without them"
       else
-        "a native binary for #{triple} needs a #{triple} host with cc; this host is #{Target.host_triple}; " \
-          "--emit wasm and --emit obj work here"
+        "a native binary for #{triple} needs a #{triple} host with cc, or #{triple}-gcc and #{triple}-ar " \
+          "on the PATH; this host is #{Target.host_triple}; --emit obj works here"
       end
     end
   end

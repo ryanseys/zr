@@ -12,7 +12,7 @@ module Ze0
   # (`ext/ze0/extconf.rb`); a checkout builds them on its first link.
   #
   # Each archive has a stamp beside it: the digest of every input's path
-  # and bytes, this file, the flags and the toolchain's paths. An archive
+  # and bytes, this file, the flags, the tools and the toolchain's paths. An archive
   # whose stamp differs is built again. A stamp holds bytes, not times,
   # so a gem's extracted files, whatever their mtimes, never pass for a
   # build they are not.
@@ -33,7 +33,7 @@ module Ze0
       src = File.join(Paths::VENDOR, "c/oniguruma")
       flags = ["-DHAVE_CONFIG_H", "-DONIG_DISABLE_DIRECT_THREADING", "-I#{src}"]
       archive(target, "libonig.a", Dir[File.join(src, "*.[ch]")], flags) do |objects|
-        ONIG_SOURCES.map { |name| compile(File.join(src, "#{name}.c"), File.join(objects, "#{name}.o"), flags) }
+        ONIG_SOURCES.map { |name| compile(target, File.join(src, "#{name}.c"), File.join(objects, "#{name}.o"), flags) }
       end
     end
 
@@ -43,7 +43,7 @@ module Ze0
       src = File.join(Paths::VENDOR, "c/zlib")
       flags = ["-DHAVE_UNISTD_H", "-I#{src}"]
       archive(target, "libz.a", Dir[File.join(src, "*.[ch]")], flags) do |objects|
-        ZLIB_SOURCES.map { |name| compile(File.join(src, "#{name}.c"), File.join(objects, "#{name}.o"), flags) }
+        ZLIB_SOURCES.map { |name| compile(target, File.join(src, "#{name}.c"), File.join(objects, "#{name}.o"), flags) }
       end
     end
 
@@ -55,7 +55,7 @@ module Ze0
       sources = Dir[File.join(src, "src/**/*.c")].sort
       archive(target, "libprism.a", sources + Dir[File.join(src, "include/**/*.h")], flags) do |objects|
         sources.map do |file|
-          compile(file, File.join(objects, "#{file.delete_prefix("#{src}/src/").delete_suffix(".c").tr("/", "_")}.o"), flags)
+          compile(target, file, File.join(objects, "#{file.delete_prefix("#{src}/src/").delete_suffix(".c").tr("/", "_")}.o"), flags)
         end
       end
     end
@@ -87,7 +87,7 @@ module Ze0
       FileUtils.mkdir_p(objects)
       partial = "#{path}.#{Process.pid}.tmp"
       File.delete(partial) if File.exist?(partial)
-      log, ok = Native::Toolchain.run(["ar", "rcs", partial, *yield(objects)])
+      log, ok = Native::Toolchain.run([Native::Toolchain.command(target, "ar"), "rcs", partial, *yield(objects)])
       raise "ar failed:\n#{log}" unless ok
 
       File.rename(partial, path)
@@ -104,14 +104,15 @@ module Ze0
 
     def stamp(target, inputs, flags)
       digest = Digest::SHA256.new
-      digest << target.triple << "\0"
+      tools = %w[cc ar].map { |name| Native::Toolchain.command(target, name) }
+      digest << [target.triple, *tools].join("\0") << "\0"
       (inputs.sort + [__FILE__]).each { |file| digest << file << "\0" << File.binread(file) << "\0" }
       digest << flags.join("\0") << "\0" << Native::Toolchain.env.sort.flatten.join("\0")
       digest.hexdigest
     end
 
-    def compile(source, object, flags)
-      log, ok = Native::Toolchain.run(["cc", "-O2", "-c", *flags, source, "-o", object])
+    def compile(target, source, object, flags)
+      log, ok = Native::Toolchain.run([Native::Toolchain.command(target, "cc"), "-O2", "-c", *flags, source, "-o", object])
       raise "cc failed:\n#{log}" unless ok
 
       object

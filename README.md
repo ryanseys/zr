@@ -42,12 +42,15 @@ The gem installs on any host. What it can build depends on the host:
 | Output | Host |
 |---|---|
 | native binary (`aarch64-apple-darwin`) | an Apple Silicon Mac with `cc` and `ar` |
+| native binary (`--target aarch64-linux-musl`) | an aarch64 Linux host with musl's `cc` and `ar`, or any host with `aarch64-linux-musl-gcc` and `aarch64-linux-musl-ar` on the PATH |
 | WASI module (`--emit wasm`) | any host |
 | Mach-O object (`--emit obj`) | any host |
 | ELF object (`--emit obj --target aarch64-linux-musl`) | any host |
 
 On a host that cannot link a native binary, the install skips the
-vendored C, and `ze0 build` without `--emit` refuses with status 3.
+vendored C, and `ze0 build` without `--emit` refuses with status 3. A
+cross toolchain builds a binary, but only its own host runs it, so
+`ze0 run` refuses there.
 
 ### Where ze0 writes
 

@@ -26,7 +26,7 @@ module Ze0
 
           obj = File.join(work, "unit.o")
           File.binwrite(obj, Obj::Elf::ObjectFile.write(image))
-          Link.run(objects + [obj], out, archives: Deps.build(target), flags: FLAGS + (strip ? STRIP_FLAGS : []))
+          Link.run(objects + [obj], out, archives: Deps.build(target), flags: FLAGS + (strip ? STRIP_FLAGS : []), target: target)
         end
       end
     end

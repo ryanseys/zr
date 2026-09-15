@@ -1,10 +1,17 @@
-# darwin's machine stacks: where the main thread's ends, and how a
-# fiber's is mapped.
+# darwin's machine stacks: the main thread's, and how a fiber's is
+# mapped.
 Machine.import "pthread_self", [] => Ptr
 Machine.import "pthread_get_stackaddr_np", [Ptr] => Ptr
 Machine.import "pthread_get_stacksize_np", [Ptr] => Word
 Machine.import "mmap", [Ptr, Word, I32, I32, I32, Word] => Ptr
 Machine.import "mprotect", [Ptr, Word, I32] => I32
+
+# The program runs on the main thread's own stack, which the link asks
+# to be `Native::Link::STACK` bytes.
+sig [I32, Ptr] => I32
+machine def zr_os_main(argc, argv)
+  zr_main(argc, argv)
+end
 
 # The lowest address of this thread's stack, or 0 where the host does
 # not say.

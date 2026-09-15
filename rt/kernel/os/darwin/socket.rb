@@ -7,6 +7,12 @@ Machine.import "getpeereid", [I32, Ptr, Ptr] => I32
 EPROTOTYPE = 41
 EAI_SYSTEM = 11
 
+# struct msghdr: the name and its length, the iovecs and their count,
+# the control buffer and its length as 32 bits at 40, and the flags at
+# 44.
+MSGHDR_LEN = 48
+MSGHDR_FLAGS = 44
+
 # A sockaddr's length as rsock_sockaddr_len reads it: its own length
 # byte, else the size of its family's structure.
 sig [Ptr] => Word

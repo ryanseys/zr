@@ -162,7 +162,11 @@ SC_NPROCESSORS_ONLN = 84
 UTSNAME_LEN = 390
 UTSNAME_FIELD = 65
 
-# A module starts no process and changes no id.
+# A module starts no process and changes no id. zr_posix_spawn, which it
+# never calls, sizes its structures by these.
+SPAWN_ACTIONS_LEN = 16
+SPAWN_ATTR_LEN = 16
+
 sig [Value, Value, Value, Value, Value] => Value
 machine def zr_os_spawn(words, dups, closes, env, chdir)
   zr_notimplement(Machine.bytes("spawn"), 5)

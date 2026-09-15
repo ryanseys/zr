@@ -69,66 +69,18 @@ CLOCK_MONOTONIC = 6
 UTSNAME_LEN = 1280
 UTSNAME_FIELD = 256
 
-# Child processes through posix_spawn, which is not variadic.
-Machine.import "posix_spawnp", [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr] => I32
-Machine.import "posix_spawn_file_actions_init", [Ptr] => I32
-Machine.import "posix_spawn_file_actions_adddup2", [Ptr, I32, I32] => I32
-Machine.import "posix_spawn_file_actions_addclose", [Ptr, I32] => I32
-Machine.import "posix_spawn_file_actions_addchdir_np", [Ptr, Ptr] => I32
-Machine.import "posix_spawn_file_actions_destroy", [Ptr] => I32
-Machine.import "posix_spawnattr_init", [Ptr] => I32
-Machine.import "posix_spawnattr_setflags", [Ptr, I32] => I32
-Machine.import "posix_spawnattr_destroy", [Ptr] => I32
 # POSIX_SPAWN_CLOEXEC_DEFAULT: every descriptor the parent holds stays
 # behind, and only the file actions cross into the child. That is what
 # CRuby reaches by opening each descriptor close-on-exec.
 SPAWN_CLOEXEC_DEFAULT = 16384
+# posix_spawn_file_actions_t and posix_spawnattr_t, each a pointer here,
+# with room to spare.
+SPAWN_ACTIONS_LEN = 16
+SPAWN_ATTR_LEN = 16
 
-# Spawn `words` (an Array of Strings, the program first). `dups` is a
-# flat Array of (child descriptor, source descriptor) pairs applied in
-# order, `closes` the child's descriptors to shut, `env` the child's
-# whole environment as "KEY=value" strings or nil to inherit it, and
-# `chdir` the child's directory or nil. The pid, or the negated errno.
 sig [Value, Value, Value, Value, Value] => Value
 machine def zr_os_spawn(words, dups, closes, env, chdir)
-  argv = zr_spawn_vector(words)
-  actions = Machine.slot(16)
-  posix_spawn_file_actions_init(actions)
-  attributes = Machine.slot(16)
-  posix_spawnattr_init(attributes)
-  posix_spawnattr_setflags(attributes, Machine.i32(SPAWN_CLOEXEC_DEFAULT))
-  n = RArray.len(dups)
-  i = 0
-  while i < n
-    posix_spawn_file_actions_adddup2(actions, Machine.i32(zr_fix2long(zr_ary_at(dups, i + 1))), Machine.i32(zr_fix2long(zr_ary_at(dups, i))))
-    i += 2
-  end
-  n = RArray.len(closes)
-  i = 0
-  while i < n
-    posix_spawn_file_actions_addclose(actions, Machine.i32(zr_fix2long(zr_ary_at(closes, i))))
-    i += 1
-  end
-  if chdir != QNIL
-    posix_spawn_file_actions_addchdir_np(actions, RString.ptr(chdir))
-  end
-  envp = zr_os_environ()
-  if env != QNIL
-    envp = zr_spawn_vector(env)
-  end
-  pid = Machine.slot(8)
-  Machine.store64(pid, 0, 0)
-  r = posix_spawnp(pid, RString.ptr(zr_ary_at(words, 0)), actions, attributes, argv, envp)
-  posix_spawn_file_actions_destroy(actions)
-  posix_spawnattr_destroy(attributes)
-  free(argv)
-  if env != QNIL
-    free(envp)
-  end
-  if r != Machine.i32(0)
-    return zr_fix(0 - Machine.word(r))
-  end
-  zr_fix(Machine.word(Machine.load32(pid, 0)))
+  zr_posix_spawn(words, dups, closes, env, chdir, SPAWN_CLOEXEC_DEFAULT)
 end
 
 Machine.import "setuid", [I32] => I32

@@ -153,9 +153,13 @@ module Ze0
     # A build this host cannot make for `target` is refused before the
     # compile starts. `ZE0_LINK=ruby` builds with `Obj::MachO::Executable`
     # alone, which needs no `cc`, though only an aarch64-apple-darwin host
-    # can run what it wrote.
+    # can run what it wrote. A cross toolchain builds a binary that only
+    # its own host runs.
     def refuse(input, verb, emit, target)
       why = target.refusal(emit)
+      if why.nil? && verb == "run" && emit.nil? && !target.native?
+        why = "a #{target.triple} binary runs only on a #{target.triple} host; `ze0 build` writes one here"
+      end
       return unless why
       return if emit.nil? && verb != "run" && ENV["ZE0_LINK"] == "ruby" && target.roads.include?(:native)
 

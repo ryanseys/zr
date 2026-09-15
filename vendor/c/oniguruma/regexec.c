@@ -1390,15 +1390,27 @@ onig_set_match_stack_limit_size(unsigned int size)
 /* ze0: Regexp.timeout. The runtime names a limit before a search, and a
    backtrack past the deadline stops the match, as Onigmo's
    rb_reg_check_timeout stops it. The clock is read once every 1024
-   backtracks. */
+   backtracks: CLOCK_UPTIME_RAW on darwin, CLOCK_MONOTONIC elsewhere. */
 #include <time.h>
 
 static unsigned long long Ze0MatchDeadline;
 static unsigned int Ze0MatchTicks;
 
+static unsigned long long
+ze0_now_ns(void)
+{
+#ifdef __APPLE__
+  return clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+#else
+  struct timespec now;
+  clock_gettime(CLOCK_MONOTONIC, &now);
+  return (unsigned long long)now.tv_sec * 1000000000ULL + (unsigned long long)now.tv_nsec;
+#endif
+}
+
 #define CHECK_TIME_LIMIT_IN_MATCH  do {\
   if (Ze0MatchDeadline != 0 && (++Ze0MatchTicks & 0x3ff) == 0 && \
-      clock_gettime_nsec_np(CLOCK_UPTIME_RAW) >= Ze0MatchDeadline) {\
+      ze0_now_ns() >= Ze0MatchDeadline) {\
     MATCH_AT_ERROR_RETURN(ONIGERR_TIME_LIMIT_OVER);\
   }\
 } while (0)
@@ -1426,7 +1438,7 @@ static unsigned long RetryLimitInSearch = DEFAULT_RETRY_LIMIT_IN_SEARCH;
 extern void
 onig_ze0_set_time_limit(unsigned long long nanoseconds)
 {
-  Ze0MatchDeadline = nanoseconds == 0 ? 0 : clock_gettime_nsec_np(CLOCK_UPTIME_RAW) + nanoseconds;
+  Ze0MatchDeadline = nanoseconds == 0 ? 0 : ze0_now_ns() + nanoseconds;
 #ifdef USE_RETRY_LIMIT
   RetryLimitInMatch = nanoseconds == 0 ? DEFAULT_RETRY_LIMIT_IN_MATCH : 0;
 #endif

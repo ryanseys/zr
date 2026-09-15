@@ -22,6 +22,13 @@ class OsApiTest < Minitest::Test
     Dir[File.join(ROOT, "rt/kernel/os/*")].select { |dir| File.directory?(dir) }.map { |dir| File.basename(dir) }.sort
   end
 
+  # The constants the spec says each OS defines.
+  def constants
+    lines = File.readlines(SPEC, chomp: true)
+    start = lines.index { |line| line.start_with?("# The constants each OS defines") }
+    lines.drop(start + 1).take_while { |line| line.start_with?("#   ") }.flat_map { |line| line.delete_prefix("#").split }
+  end
+
   def test_the_spec_names_calls
     assert_operator spec.size, :>, 20
   end
@@ -58,6 +65,10 @@ class OsApiTest < Minitest::Test
       calls.each do |name, d|
         dir = name.start_with?("zr_os_") ? "rt/kernel/os/#{layer}/" : "rt/kernel/arch/#{target.arch_layer}/"
         assert d.file.start_with?(File.join(ROOT, dir)), "#{name} is in #{d.file}, not #{dir}"
+      end
+      constants.each do |name|
+        assert_includes unit.declared_consts, name, "#{layer}: #{name}"
+        assert unit.const_file(name).start_with?(File.join(ROOT, "rt/kernel/os/#{layer}/")), "#{layer}: #{name} is in #{unit.const_file(name)}"
       end
     end
   end

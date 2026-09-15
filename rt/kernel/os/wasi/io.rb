@@ -73,23 +73,15 @@ machine def zr_os_open(path, flags)
   Machine.load32(out, 0)
 end
 
-# F_SETFL sets the fdflags; F_SETFD has no close-on-exec to set.
+# F_SETFL sets the fdflags; F_GETFL reads them back with the access
+# mode the rights say; F_SETFD and F_GETFD have no close-on-exec to set
+# or read; anything else is not a command WASI has.
 sig [I32, I32, Word] => I32
 machine def zr_os_fcntl(fd, command, argument)
   if command == Machine.i32(F_SETFL)
     return zr_wasi_status(fd_fdstat_set_flags(fd, Machine.i32(argument & O_FDFLAGS)))
   end
-  if command == Machine.i32(F_SETFD)
-    return Machine.i32(0)
-  end
-  fcntl(fd, command)
-end
-
-# F_GETFL: the fdflags and the access mode the rights say; F_GETFD: no
-# flags; anything else is not a command WASI has.
-sig [I32, I32] => I32
-machine def fcntl(fd, command)
-  if command == Machine.i32(F_GETFD)
+  if command == Machine.i32(F_SETFD) || command == Machine.i32(F_GETFD)
     return Machine.i32(0)
   end
   if command != Machine.i32(F_GETFL)

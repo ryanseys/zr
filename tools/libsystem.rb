@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # The libSystem names ze0 imports, as the list `Obj::MachO::Executable` reads: every
-# `Machine.import` in rt/kernel and test/zr, and every callee the native
+# `Machine.import` in darwin's kernel and test/zr, and every callee the native
 # fixtures make, that this host's libSystem defines. With the list
 # committed, whether `Obj::MachO::Executable` can link a unit answers the same on
 # every host.
@@ -9,10 +9,12 @@
 #   ruby -Ilib tools/libsystem.rb > lib/ze0/obj/macho/libsystem.rb
 require "fiddle"
 require "ze0/native/build"
+require "ze0/zr"
 require_relative "../test/native/fixtures"
 
 root = File.expand_path("..", __dir__)
-names = Dir[File.join(root, "{rt/kernel,test/zr}/**/*.rb")].sort.flat_map do |file|
+kernel = Ze0::Zr.kernel_files(Ze0::Target::AARCH64_DARWIN)
+names = (kernel + Dir[File.join(root, "test/zr/**/*.rb")].sort).flat_map do |file|
   File.read(file).scan(/Machine\.import\s+"([^"]+)"/).flatten
 end
 names += Ze0::Native::Fixtures::NAMES.flat_map do |name|

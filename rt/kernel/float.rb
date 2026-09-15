@@ -878,6 +878,20 @@ Machine.import "log1p", [F64] => F64
 Machine.import "ldexp", [F64, I32] => F64
 Machine.import "frexp", [F64, Ptr] => F64
 
+# cos(pi * x) and sin(pi * x) as complex.c computes them where libm has
+# no __cospi and __sinpi: pi times x first.
+PI_BITS = 4614256656552045848
+
+sig [F64] => F64
+machine def zr_cos_of_pi_times(x)
+  cos(x * Machine.f64(PI_BITS))
+end
+
+sig [F64] => F64
+machine def zr_sin_of_pi_times(x)
+  sin(x * Machine.f64(PI_BITS))
+end
+
 sig [Ptr, Word] => Bool
 machine def zr_digit_at(p, i)
   c = Machine.word(Machine.load8(p + i, 0))

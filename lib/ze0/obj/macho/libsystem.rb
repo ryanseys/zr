@@ -59,7 +59,6 @@ module Ze0
           fchdir
           fchmod
           fclose
-          fcntl
           fdopendir
           fileno
           flock

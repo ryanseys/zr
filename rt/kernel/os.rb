@@ -4,10 +4,12 @@
 # the rest of the kernel calls only these. `test/checks/os_api_test.rb`
 # holds each OS to this list, name and signature.
 #
-# The constants each OS defines as well: EINTR, EBADF, EPROTOTYPE,
-# EAI_SYSTEM, NSIG, O_NONBLOCK, O_NONBLOCK_OFF, O_CLOEXEC, PTY_OPEN_FLAGS,
-# TIOCGWINSZ, TIOCSWINSZ, TERMIOS_LEN, STAT_LEN, SC_NPROCESSORS_ONLN,
-# UTSNAME_LEN, UTSNAME_FIELD, RTLD_DEFAULT, CLOCK_MONOTONIC.
+# The constants each OS defines as well:
+#   EINTR EBADF EPROTOTYPE EAI_SYSTEM NSIG CLOCK_MONOTONIC
+#   O_NONBLOCK O_NONBLOCK_OFF O_CLOEXEC PTY_OPEN_FLAGS
+#   TIOCGWINSZ TIOCSWINSZ TERMIOS_LEN STAT_LEN MSGHDR_LEN MSGHDR_FLAGS
+#   SPAWN_ACTIONS_LEN SPAWN_ATTR_LEN SC_NPROCESSORS_ONLN UTSNAME_LEN
+#   UTSNAME_FIELD RTLD_DEFAULT
 #
 # The core library's OS layer, under rt/core/os/<os>/, holds the numbers
 # ruby gives each OS's constants: errno.rb, io_constants.rb,
@@ -27,6 +29,7 @@
 #   zr_os_wait_fd        [Value, Value, Value] => Value
 #
 # the process
+#   zr_os_main           [I32, Ptr] => I32
 #   zr_os_argv           [I32, Ptr] => Ptr
 #   zr_os_ruby_platform  [] => Value
 #   zr_os_environ        [] => Ptr

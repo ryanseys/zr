@@ -534,6 +534,8 @@ module Ze0
         d zr_buf_float Void b:Ptr d:F64
         d zr_digits_of Word n:Word buf:Ptr
         d zr_flo_to_s Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_cos_of_pi_times F64 x:F64
+        d zr_sin_of_pi_times F64 x:F64
         d zr_digit_at Bool p:Ptr i:Word
         d zr_float_scan Word s:Value b:Ptr
         d zr_buf_strtod F64 b:Ptr
@@ -791,6 +793,7 @@ module Ze0
         d zr_stack_limit_init Void
         d zr_boot Void
         d main I32 argc:I32 argv:Ptr
+        d zr_main I32 argc:I32 argv:Ptr
         d zr_mark_method Void m:Value
         d zr_method_owner Value klass:Value mid:Word
         d zr_undefined_method Value klass:Value mid:Word vis:Word
@@ -1005,6 +1008,7 @@ module Ze0
         d zr_proc_eq Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_proc_hash Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_spawn_vector Ptr words:Value
+        d zr_posix_spawn Value words:Value dups:Value closes:Value env:Value chdir:Value flags:Word
         d zr_proc_exec Value words:Value
         d zr_proc_wait Value pid:Value flags:Value
         d zr_io_pipe Value
@@ -1452,7 +1456,6 @@ module Ze0
         d zr_os_set_errno Void n:Word
         d zr_os_open I32 path:Ptr flags:I32
         d zr_os_fcntl I32 fd:I32 command:I32 argument:Word
-        d fcntl I32 fd:I32 command:I32
         d zr_os_ioctl I32 fd:I32 request:Word argument:Ptr
         d isatty I32 fd:I32
         d write Word fd:I32 buf:Ptr len:Word
@@ -1501,6 +1504,7 @@ module Ze0
         d zr_os_addrinfo_next Ptr node:Ptr
         d zr_os_h_errno Word
         d zr_os_peereid Value fd:Value
+        d zr_os_main I32 argc:I32 argv:Ptr
         d zr_os_stack_low Word
         d zr_os_stack_map Ptr bytes:Word
         d zr_wasi_addr I32 p:Ptr
@@ -1600,6 +1604,7 @@ module Ze0
         c G_FLOAT 40
         c FLONUM_ZERO 9223372036854775810
         c INF_BITS 9218868437227405312
+        c PI_BITS 4614256656552045848
         c FPCONV_EXPMASK 9218868437227405312
         c FPCONV_FRACMASK 4503599627370495
         c FPCONV_HIDDENBIT 4503599627370496
@@ -1798,8 +1803,9 @@ module Ze0
         c SC_NPROCESSORS_ONLN 84
         c UTSNAME_LEN 390
         c UTSNAME_FIELD 65
+        c SPAWN_ACTIONS_LEN 16
+        c SPAWN_ATTR_LEN 16
         c CLOCK_MONOTONIC 1
-        c PI_BITS 4614256656552045848
         c EINTR 27
         c EBADF 8
         c O_APPEND 1
@@ -1828,6 +1834,8 @@ module Ze0
         c NSIG 65
         c EPROTOTYPE 67
         c EAI_SYSTEM -11
+        c MSGHDR_LEN 28
+        c MSGHDR_FLAGS 24
         c WASI_EBADF 8
         c WASI_EINVAL 28
         c WASI_ENOENT 44

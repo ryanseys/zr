@@ -3,7 +3,7 @@
 module Ze0
   module Native
     # The C toolchain ze0 runs: `cc` to compile the vendored C and to
-    # link, `ar` to archive it.
+    # link, `ar` to archive it, each the target's own (`Target#tool`).
     #
     # On macOS `cc` finds its SDK and its `ld` on two roads that can part:
     # clang takes the newest SDK it finds, and `ld` comes from the
@@ -20,6 +20,11 @@ module Ze0
       def env
         @env ||= pinned
       end
+
+      # The command `target`'s `name` ("cc" or "ar") runs as: the host's
+      # own or a cross toolchain's, else the plain name, whose failure to
+      # run says what is missing.
+      def command(target, name) = target.tool(name) || name
 
       # Runs `argv` under `env`: `[output, success]`, both streams in one.
       def run(argv)
