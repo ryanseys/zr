@@ -1223,6 +1223,7 @@ module Ze0
         d zr_preempt Value
         d zr_preempt_expired Value
         d zr_preempt_send Value mid:Word
+        d zr_check_funcall Value v:Value mid:Word
         d zr_trap_caught Void signo:I32
         d zr_chld_caught Void signo:I32
         d zr_chld_note Void signo:I32

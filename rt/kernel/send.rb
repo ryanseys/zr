@@ -661,3 +661,37 @@ machine def zr_preempt_send(mid)
   Machine.store64(busy, 0, 0)
   r
 end
+
+# Whether `v` takes `mid`, as rb_check_funcall decides before a
+# conversion calls it: a respond_to? of the program's own that says no
+# refuses; a method answers; else a respond_to_missing? of the program's
+# own that says yes lets method_missing answer. QUNDEF when a hook
+# raised.
+sig [Value, Word] => Value
+machine def zr_check_funcall(v, mid)
+  klass = zr_class_of(v)
+  asks = zr_find_method(klass, Machine.id(:respond_to?))
+  if asks != 0 && MEntry.core(asks) == 0
+    argv = Machine.slot(16)
+    Machine.store64(argv, 0, Machine.word(zr_sym(mid)))
+    Machine.store64(argv, 8, QTRUE)
+    r = zr_send(v, Machine.id(:respond_to?), 2, argv)
+    return r if r == QUNDEF
+    if r == QNIL || r == QFALSE
+      return Machine.value(QFALSE)
+    end
+  end
+  if zr_find_method(klass, mid) != 0
+    return Machine.value(QTRUE)
+  end
+  missing = zr_find_method(klass, Machine.id(:respond_to_missing?))
+  if missing == 0 || MEntry.core(missing) != 0
+    return Machine.value(QFALSE)
+  end
+  argv = Machine.slot(16)
+  Machine.store64(argv, 0, Machine.word(zr_sym(mid)))
+  Machine.store64(argv, 8, QTRUE)
+  r = zr_send(v, Machine.id(:respond_to_missing?), 2, argv)
+  return r if r == QUNDEF
+  zr_bool(r != QNIL && r != QFALSE)
+end

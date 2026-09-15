@@ -22,6 +22,7 @@ optparse 0.8.1
 pp 0.6.3
 prettyprint 0.2.0
 resolv 0.7.0
+ripper ruby-4.0.6 (ext/ripper/lib)
 rubygems 4.0.20 (the site_ruby the pinned ruby carries)
 securerandom 0.4.1
 shellwords 0.2.2

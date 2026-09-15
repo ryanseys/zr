@@ -161,7 +161,9 @@ machine def zr_splat_to_a(v)
   if !zr_special_p(v) && zr_type(v) == T_ARRAY
     return v
   end
-  if zr_find_method(zr_class_of(v), Machine.id(:to_a)) == 0
+  responds = zr_check_funcall(v, Machine.id(:to_a))
+  return responds if responds == QUNDEF
+  if responds == QFALSE
     a = zr_ary_new(1)
     zr_ary_push(a, v)
     return a
@@ -665,7 +667,9 @@ machine def zr_masgn_ary(v)
   if !zr_special_p(v) && zr_type(v) == T_ARRAY
     return v
   end
-  if !zr_special_p(v) && zr_find_method(zr_class_of(v), Machine.id(:to_ary)) != 0
+  responds = zr_special_p(v) ? Machine.value(QFALSE) : zr_check_funcall(v, Machine.id(:to_ary))
+  return responds if responds == QUNDEF
+  if responds == QTRUE
     a = zr_send(v, Machine.id(:to_ary), 0, 0)
     return a if a == QUNDEF
     if !zr_special_p(a) && zr_type(a) == T_ARRAY

@@ -401,7 +401,9 @@ machine def zr_block_args(argc, argv, spread, argv_out)
       Machine.store64(argv_out, 0, RArray.ptr(v))
       return zr_fix(RArray.len(v))
     end
-    if !zr_special_p(v) && zr_find_method(zr_class_of(v), Machine.id(:to_ary)) != 0
+    responds = zr_special_p(v) ? Machine.value(QFALSE) : zr_check_funcall(v, Machine.id(:to_ary))
+    return responds if responds == QUNDEF
+    if responds == QTRUE
       a = zr_send(v, Machine.id(:to_ary), 0, 0)
       return a if a == QUNDEF
       if !zr_special_p(a) && zr_type(a) == T_ARRAY
