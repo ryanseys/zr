@@ -187,7 +187,8 @@ module Kernel
     base = implicit_integer(base)
     if value.is_a?(String)
       n = parse_integer(value, base)
-      return n if n || !exception
+      return n if n
+      return nil unless exception
 
       raise ArgumentError, "invalid value for Integer(): #{value.inspect}"
     end
@@ -443,14 +444,8 @@ module Kernel
     [command] if commands[name].delete(command) { nil }
   end
 
-  # nil clears the hook, and there is none to clear; a Proc would need
-  # every event traced, which this runtime does not do yet.
-  def set_trace_func(hook)
-    return nil if hook.nil?
-    raise TypeError, "trace_func needs to be Proc" unless hook.is_a?(Proc)
-
-    Primitive.zr_unimplemented("set_trace_func with a Proc")
-  end
+  # A hook every thread's events reach, which replaces the one before.
+  def set_trace_func(hook) = TracePoint.send(:trace_func, hook, nil, false)
 
   # Ruby's own globals, in the order ruby lists them, then the ones the
   # program assigned or aliased.

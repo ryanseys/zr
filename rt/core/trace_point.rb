@@ -14,8 +14,13 @@ class TracePoint
   NAMES = EVENTS.first(15).to_h(&:reverse).freeze
   ALL = 0x7fff
   # The events a program here fires; the rest have no firing point yet.
-  FIRED = 0x39f
-  private_constant :EVENTS, :NAMES, :ALL, :FIRED
+  FIRED = 0x3ff
+  # The events a set_trace_func hook takes, by the names it takes them.
+  HOOK_NAMES = {
+    line: "line", class: "class", end: "end", call: "call", return: "return",
+    c_call: "c-call", c_return: "c-return", raise: "raise"
+  }.freeze
+  private_constant :EVENTS, :NAMES, :ALL, :FIRED, :HOOK_NAMES
 
   Primitive.zr_undef_alloc(self)
 
@@ -61,6 +66,37 @@ class TracePoint
     def enabled
       Primitive.attr! :hidden
       Primitive.zr_hidden_get(self, :__enabled__) || Primitive.zr_hidden_set(self, :__enabled__, [])
+    end
+
+    # set_trace_func and Thread#set_trace_func (`adding` false) and
+    # Thread#add_trace_func: a TracePoint over every event a hook takes,
+    # for every thread (`thread` nil) or for one. A set removes the hooks
+    # set before for the same threads.
+    def trace_func(hook, thread, adding)
+      Primitive.attr! :hidden
+      unless adding
+        funcs.select { |point| Primitive.zr_hidden_get(point, :__hook_thread__).equal?(thread) }.each do |point|
+          funcs.delete(point)
+          point.disable
+        end
+      end
+      return nil if hook.nil?
+      raise TypeError, "trace_func needs to be Proc" unless hook.is_a?(Proc)
+
+      point = new(*HOOK_NAMES.keys) do |tp|
+        klass = tp.defined_class
+        klass = klass.attached_object if klass.is_a?(Class) && klass.singleton_class?
+        hook.call(HOOK_NAMES.fetch(tp.event), tp.path, tp.lineno, tp.method_id, tp.binding, klass)
+      end
+      Primitive.zr_hidden_set(point, :__hook_thread__, thread)
+      funcs << point
+      point.enable(target_thread: thread)
+      hook
+    end
+
+    def funcs
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_get(self, :__funcs__) || Primitive.zr_hidden_set(self, :__funcs__, [])
     end
 
     def current_row
@@ -126,6 +162,7 @@ class TracePoint
   end
 
   def disable
+    Primitive.attr! :ruby
     was = enabled?
     switch(false)
     return was unless block_given?

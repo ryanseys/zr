@@ -478,17 +478,12 @@ class Thread
     Primitive.zr_fiber_backtrace_m(local_fiber, start, length.nil? ? -1 : length)
   end
 
-  def set_trace_func(hook)
-    return nil if hook.nil?
-    raise TypeError, "trace_func needs to be Proc" unless hook.is_a?(Proc)
-
-    Primitive.zr_unimplemented("Thread#set_trace_func with a Proc")
-  end
+  def set_trace_func(hook) = TracePoint.send(:trace_func, hook, self, false)
 
   def add_trace_func(hook)
     raise TypeError, "trace_func needs to be Proc" unless hook.is_a?(Proc)
 
-    Primitive.zr_unimplemented("Thread#add_trace_func")
+    TracePoint.send(:trace_func, hook, self, true)
   end
 
   def backtrace_locations(start = 0, length = nil)

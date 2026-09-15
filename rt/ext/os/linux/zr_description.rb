@@ -1415,6 +1415,11 @@ module Ze0
         d zr_throw Value tag:Value value:Value
         d zr_catch Value tag:Value blk:Value
         d zr_trace_events_set Value mask:Value
+        d zr_trace_c_p Bool
+        d zr_trace_c_entry_p Bool e:Ptr
+        d zr_trace_c_caller_p Bool
+        d zr_trace_c_invoke Value e:Ptr klass:Value recv:Value mid:Word argc:Word argv:Ptr blk:Value kw:Word
+        d zr_trace_c_send Value event:Word e:Ptr owner:Value recv:Value value:Value
         d zr_trace_fire Value event:Word value:Value
         d zr_trace_raise Value exc:Value top:Ptr
         d zr_trace_send Value rec:Ptr event:Word value:Value
@@ -1745,6 +1750,9 @@ module Ze0
         c GATE_LTLT 16384
         c TRACE_CALL 8
         c TRACE_RETURN 16
+        c TRACE_C_CALL 32
+        c TRACE_C_RETURN 64
+        c TRACE_C 96
         c TRACE_RAISE 128
         c QFALSE 0
         c QNIL 8

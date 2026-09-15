@@ -132,10 +132,11 @@ module Ze0
           !(node.recv.nil? || node.recv.is_a?(Hir::SelfRef))
         end
 
+        # A traced program sends every operator, so a :c_call sees it.
         def send_staged(node, recv, argv, argc, block_slot)
           if node.block
             call_with_block(node, recv, argv, argc, block_slot)
-          elsif node.args.size == 1 && node.kwargs.nil? && OPS.key?(node.name) && !node.vcall && node.using.nil?
+          elsif node.args.size == 1 && node.kwargs.nil? && OPS.key?(node.name) && !node.vcall && node.using.nil? && !traced?
             operator(node, recv, argv)
           else
             dispatch(node, recv, argv, argc)
@@ -205,7 +206,7 @@ module Ze0
           at_node(node)
           argc = keyword_argc(node, argc, argv)
           activate(node)
-          if node.opt && node.using.nil?
+          if node.opt && node.using.nil? && !traced?
             checked(kernel(OPT_ENTRIES.fetch(node.name), recv, imm(sym_id(node.name)), argc, argv, imm(send_mode(node))))
           elsif node.name == :new
             checked(kernel("zr_new_cached", cache("ic", "CallCache", 2), recv, argc, argv, imm(send_mode(node))))

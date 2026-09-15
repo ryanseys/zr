@@ -214,8 +214,9 @@ machine def zr_exc_match(exc, klass)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("class or module required for rescue clause"), 42)
   end
   e = zr_find_method(zr_box_view(zr_class_of(klass)), Machine.id(:===))
-  if e != 0 && FrameMeta.owner(MEntry.meta(e)) != zr_global(G_MODULE)
-    # The class answers `===` itself, so it decides.
+  if e != 0 && (FrameMeta.owner(MEntry.meta(e)) != zr_global(G_MODULE) || zr_trace_c_p())
+    # The class answers `===` itself, so it decides; a traced `:c_call`
+    # sees Module#=== as ruby sends it.
     arg = Machine.slot(8)
     Machine.store64(arg, 0, Machine.word(exc))
     r = zr_send(klass, Machine.id(:===), 1, arg)

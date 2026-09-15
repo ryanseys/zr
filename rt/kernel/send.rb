@@ -324,6 +324,9 @@ machine def zr_dispatch(cc, recv, mid, argc, argv, mode, blk)
   if vis != 0
     return zr_method_missing(recv, mid, argc, argv, blk, kw, vis == VIS_PRIVATE ? MISS_PRIVATE : MISS_PROTECTED)
   end
+  if zr_trace_c_p() && (mode & SEND_CORE) == 0 && zr_trace_c_entry_p(e) && zr_trace_c_caller_p()
+    return zr_trace_c_invoke(e, klass, recv, mid, argc, argv, blk, kw)
+  end
   if cc != 0
     zr_call_cache_fill(cc, klass, e, mode)
   end

@@ -5,13 +5,100 @@
 # the event is for.
 TRACE_CALL = 8
 TRACE_RETURN = 16
+TRACE_C_CALL = 32
+TRACE_C_RETURN = 64
+TRACE_C = 96
 TRACE_RAISE = 128
 
-# The events every enabled TracePoint asks for, together.
+# The events every enabled TracePoint asks for, together. While a C
+# event is on, no send site keeps its answer: every send reaches
+# `zr_dispatch`, which fires the event around a method CRuby writes in C.
 sig [Value] => Value
 machine def zr_trace_events_set(mask)
-  Machine.store64(Machine.static(:trace_events, 8), 0, zr_fix2long(mask))
+  events = Machine.static(:trace_events, 8)
+  if ((Machine.load64(events, 0) ^ zr_fix2long(mask)) & TRACE_C) != 0
+    zr_methods_changed()
+  end
+  Machine.store64(events, 0, zr_fix2long(mask))
   mask
+end
+
+# Whether a C event is on.
+sig [] => Bool
+machine def zr_trace_c_p
+  (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_C) != 0
+end
+
+# Whether entry `e` is a method CRuby writes in C: a builtin, an
+# accessor, or a core def that CRuby does not write in Ruby. A frameless
+# builtin, `send` or `Proc#call`, is one CRuby's VM calls without one.
+sig [Ptr] => Bool
+machine def zr_trace_c_entry_p(e)
+  kind = MEntry.kind(e)
+  if kind == KIND_ATTR_READER || kind == KIND_ATTR_WRITER
+    return true
+  end
+  meta = MEntry.meta(e)
+  if meta == 0 || (kind != KIND_DEF && kind != KIND_BUILTIN)
+    return false
+  end
+  FrameMeta.kind(meta) == KIND_BUILTIN && FrameMeta.ruby(meta) == 0
+end
+
+# Whether the send on its way comes from Ruby: a program's frame, or a
+# core def CRuby writes in Ruby. What the rest of the core library sends
+# is a call in C, which fires nothing.
+sig [] => Bool
+machine def zr_trace_c_caller_p
+  top = Task.top(zr_task())
+  if top == 0
+    return true
+  end
+  meta = Frame.meta(top)
+  kind = FrameMeta.kind(meta)
+  (kind != KIND_BUILTIN && kind != KIND_HIDDEN) || FrameMeta.ruby(meta) != 0
+end
+
+# The call through C method `e` between its `:c_call` and its
+# `:c_return`, as vm_call_cfunc fires them: at the caller's file and
+# line, and `:c_return` with nil when the call raises.
+sig [Ptr, Value, Value, Word, Word, Ptr, Value, Word] => Value
+machine def zr_trace_c_invoke(e, klass, recv, mid, argc, argv, blk, kw)
+  owner = zr_method_owner(klass, mid)
+  events = Machine.load64(Machine.static(:trace_events, 8), 0)
+  if (events & TRACE_C_CALL) != 0
+    r = zr_trace_c_send(TRACE_C_CALL, e, owner, recv, Machine.value(QNIL))
+    return r if r == QUNDEF
+  end
+  value = zr_invoke(e, recv, argc, argv, blk, kw)
+  if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_C_RETURN) == 0
+    return value
+  end
+  t = zr_task()
+  kind = Task.pending_kind(t)
+  pending = Task.pending(t)
+  r = zr_trace_c_send(TRACE_C_RETURN, e, owner, recv, value == QUNDEF ? Machine.value(QNIL) : value)
+  return r if r == QUNDEF
+  if value == QUNDEF
+    Task.set_pending_kind(t, kind)
+    Task.set_pending(t, pending)
+  end
+  value
+end
+
+sig [Word, Ptr, Value, Value, Value] => Value
+machine def zr_trace_c_send(event, e, owner, recv, value)
+  rec = zr_frame_with_file(Task.top(zr_task()))
+  if rec == 0
+    return Machine.value(QNIL)
+  end
+  row = zr_trace_row(event, value, Frame.meta(rec), zr_frame_line(rec))
+  zr_ary_push(row, zr_sym(zr_method_original_id(e)))
+  zr_ary_push(row, zr_sym(MEntry.mid(e)))
+  zr_ary_push(row, owner)
+  zr_ary_push(row, recv)
+  zr_ary_push(row, Machine.value(QNIL))
+  zr_trace_run(row)
 end
 
 # The traced frame fired `event`, leaving with `value`: undef while a
@@ -112,7 +199,7 @@ sig [Value] => Value
 machine def zr_trace_run(row)
   argv = Machine.slot(8)
   Machine.store64(argv, 0, Machine.word(row))
-  zr_send(zr_core_class(Machine.id(:TracePoint)), Machine.id(:fire), 1, argv)
+  zr_dispatch(0, zr_core_class(Machine.id(:TracePoint)), Machine.id(:fire), 1, argv, SEND_CORE, Machine.value(QNIL))
 end
 
 # A define_method method's `:call` or `:return`, fired around its body
