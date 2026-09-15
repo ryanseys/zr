@@ -88,6 +88,7 @@ module Ze0
 
         def compile
           assign_types
+          count_uses
           plan_slots
           plan_constants
           plan_bytes
@@ -146,13 +147,6 @@ module Ze0
         # Adjacency is what makes the flags safe: nothing runs between the
         # two, so nothing can write NZCV in between.
         def plan_fusion
-          counted = Hash.new(0)
-          @f.blocks.each do |b|
-            b.insts.each do |i|
-              i.args.each { |a| counted[a] += 1 if Regalloc.value?(a) }
-              i.targets&.each { |(_, args)| args.each { |a| counted[a] += 1 if Regalloc.value?(a) } }
-            end
-          end
           @fused = {}
           @f.blocks.each do |b|
             # A constant made at its reads emits nothing where it stands, so
@@ -161,10 +155,23 @@ module Ze0
               next unless cmp.op == :icmp && brif.op == :brif
 
               r = cmp.results[0]
-              next unless brif.args[0] == r && counted[r] == 1
+              next unless brif.args[0] == r && @uses[r] == 1
 
               @fused[cmp] = brif
               @fused[brif] = CONDS.fetch(cmp.cond)
+            end
+          end
+        end
+
+        # How many times each value is read: by an instruction, or by a
+        # jump that carries it to a block. What is read once or never is
+        # planned differently from what is read again and again.
+        def count_uses
+          @uses = Hash.new(0)
+          @f.blocks.each do |b|
+            b.insts.each do |i|
+              i.args.each { |a| @uses[a] += 1 if Regalloc.value?(a) }
+              i.targets&.each { |(_, args)| args.each { |a| @uses[a] += 1 if Regalloc.value?(a) } }
             end
           end
         end
@@ -201,13 +208,17 @@ module Ze0
         # wherever it is used its number is known, and an instruction with
         # an immediate form can take the number instead of a register.
         #
-        # A constant one instruction makes is made again at every read and
-        # nowhere else (`@remade`): no register, no slot, and nothing at its
-        # definition. A read that takes it as an immediate makes nothing at
-        # all, and one that does not pays a `movz` where it paid an `ldr`.
-        # The register it no longer holds goes to a value that has to live
-        # somewhere. `IR::Function#hoisted` puts every constant in the entry
-        # block, so each of them held one for the whole function.
+        # A constant is made again at every read and nowhere else
+        # (`@remade`) when one instruction makes it, or when it is read at
+        # most once: no register, no slot, and nothing at its definition. A
+        # read that takes it as an immediate makes nothing at all, and one
+        # that does not pays the `movz` where it paid an `ldr`. A constant
+        # read once costs the same made at its read as made once, and a
+        # constant read nowhere then costs nothing: the line words
+        # `Zr::Function` stores before every send are read once each, and
+        # `IR::Function#hoisted` put every one in the entry block, where
+        # each held a register for the whole function. What is read again
+        # and again and takes several instructions is still made once.
         def plan_constants
           @const = {}
           @remade = Set.new(@stack.keys)
@@ -218,7 +229,9 @@ module Ze0
               v = i.results[0]
               @const[v] = i.args[0]
               type = type_of(v)
-              @remade << v if WIDTH_MASK.key?(type) && materialized(i.args[0] & WIDTH_MASK[type]) == 1
+              next unless WIDTH_MASK.key?(type)
+
+              @remade << v if @uses[v] <= 1 || materialized(i.args[0] & WIDTH_MASK[type]) == 1
             end
           end
         end
