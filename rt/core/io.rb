@@ -1372,10 +1372,12 @@ class IO
       @wbuf << text.b
       return text.bytesize
     end
-    waiting = @wbuf
+    # The buffer is bytes, whatever encoding the text is in.
+    held = @wbuf.bytesize
+    waiting = @wbuf << text.b
     @wbuf = +"".b
     PENDING.delete(self)
-    write_now(waiting + text) - waiting.bytesize
+    write_now(waiting) - held
   end
 
   # What the buffer holds, written out.
