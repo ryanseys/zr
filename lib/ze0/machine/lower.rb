@@ -787,9 +787,11 @@ module Ze0
       end
 
       # A Value a call answered stays alive across the calls that follow
-      # it in the same argument list: it gets a root slot of its own.
+      # it in the same argument list: it gets a root slot of its own. A
+      # struct field read or a `Machine.value` is a call here too: the
+      # object it names may be dropped by the Ruby a later argument runs.
       def rooted(node, value, type)
-        return value unless @roots && type == "Value" && node.is_a?(Prism::CallNode) && node.receiver.nil?
+        return value unless @roots && type == "Value" && node.is_a?(Prism::CallNode)
 
         @f.store(value, @roots[:addr], root_slot)
         value
