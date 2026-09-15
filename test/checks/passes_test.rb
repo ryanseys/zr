@@ -62,6 +62,24 @@ class PassesTest < Minitest::Test
     assert_equal %i[iconst store return], ops(f)
   end
 
+  def test_a_load_reads_what_the_last_store_to_its_slot_put
+    f = function("forward", %w[i64 i64], "i64") do |f, x, y|
+      rec = f.stack_addr(f.slot(32))
+      f.store(x, rec, 8)
+      f.store(y, rec, 16)
+      a = f.fetch("i64", f.iadd(rec, f.iconst("i64", 8)))
+      f.call(f.callee("other", [], nil), [])
+      b = f.fetch("i64", rec, 16)
+      f.store(f.iconst("i8", 1), rec, 9)
+      c = f.fetch("i64", rec, 8)
+      f.ret(f.iadd(a, f.iadd(b, c)))
+    end
+    Ze0::IR::Passes.prepare(f, strict: true)
+    loads = f.entry_block.insts.select { |i| i.op == :load }
+    assert_equal [16, 8], loads.map(&:offset)
+    assert_equal 3, f.entry_block.insts.count { |i| i.op == :store }
+  end
+
   def test_a_select_between_one_value_is_that_value
     f = function("same", %w[i8 i64], "i64") do |f, c, x|
       f.ret(f.csel(c, x, x))

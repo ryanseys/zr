@@ -23,6 +23,8 @@ module Ze0
       # The pipeline, in order.
       def run(f)
         Fold.run(f)
+        Forward.run(f)
+        Fold.run(f)
         DCE.run(f)
         f
       end
@@ -212,6 +214,101 @@ module Ze0
           i.op = :jump
           i.args = []
           i.targets = [k.nil? || k != 0 ? yes : no]
+        end
+      end
+
+      # Store-to-load forwarding over stack slots. A load from a slot at
+      # a constant offset, in the block of the last store there with
+      # nothing between that could write it, is that store's value: the
+      # load goes and the store stays, as a root the collector reads.
+      # `Zr::Function` stages a send's receiver and arguments in record
+      # slots and reads them back at once, which is this shape at every
+      # send. What can write a slot: a call, which may reach the frame
+      # through an address the function passed out, and a store through
+      # an address that is not a slot's; either forgets everything. A
+      # store to a slot forgets what it overlaps.
+      class Forward
+        WIDTH = { "i8" => 1, "i32" => 4, "i64" => 8, "f64" => 8 }.freeze
+
+        def self.run(f) = new(f).run
+
+        def initialize(f)
+          @f = f
+          @types = Types.new(f).all
+          @const = {}
+          @roots = {}
+          @rename = {}
+        end
+
+        def run
+          @f.blocks.each { |b| forward(b) }
+          return @f if @rename.empty?
+
+          @f.blocks.each do |b|
+            b.insts.each do |i|
+              i.args.map! { |a| @rename.fetch(a, a) }
+              i.targets&.each { |(_, args)| args.map! { |a| @rename.fetch(a, a) } }
+            end
+          end
+          @f
+        end
+
+        private
+
+        def forward(b)
+          known = {}
+          b.insts.reject! do |i|
+            i.args.map! { |a| @rename.fetch(a, a) }
+            case i.op
+            when :iconst then @const[i.results[0]] = i.args[0]
+            when :stack_addr then @roots[i.results[0]] = [i.results[0], 0]
+            when :iadd then note_sum(i)
+            when :store then remember(known, i)
+            when :load then next true if forwarded(known, i)
+            when :call, :call_indirect then known.clear
+            end
+            false
+          end
+        end
+
+        # `v = base + k` past a slot's address is the slot's address and
+        # a constant more.
+        def note_sum(i)
+          a, b = i.args
+          a, b = b, a if @const.key?(a)
+          root, k = @roots[a]
+          return unless root && @const.key?(b)
+
+          @roots[i.results[0]] = [root, k + @const.fetch(b)]
+        end
+
+        # `[root, offset]` of the slot byte `addr` and `off` name, or nil.
+        def slot(addr, off)
+          root, k = @roots[addr]
+          root && [root, k + off]
+        end
+
+        def remember(known, i)
+          v, addr = i.args
+          at = slot(addr, i.offset)
+          return known.clear unless at
+
+          width = WIDTH.fetch(@types.fetch(v))
+          known.delete_if { |(root, off), (_, w)| root == at[0] && off < at[1] + width && at[1] < off + w }
+          known[at] = [v, width]
+        end
+
+        # Whether the load reads what a remembered store put, whole and
+        # as the same type.
+        def forwarded(known, i)
+          at = slot(i.args[0], i.offset)
+          return false unless at && (held = known[at])
+
+          v, width = held
+          return false unless WIDTH.fetch(i.type) == width && @types.fetch(v) == i.type
+
+          @rename[i.results[0]] = v
+          true
         end
       end
 
