@@ -7209,13 +7209,10 @@ prs_cc(Node** np, PToken* tok, UChar** src, UChar* end, ParseEnv* env)
         Node *anode;
         CClassNode* acc;
 
-        if (state == CS_VALUE) {
-          r = cc_char_next(cc, &curr_code, 0, &curr_raw, 0, curr_type, &curr_type,
-                           &state, env);
-          if (r != 0) goto err;
-        }
-        state = CS_COMPLETE;
-
+        /* ze0: a nested class leaves the state as it found it, as Onigmo's
+           parse_char_class does: a value before it still pends, so
+           `[a[x]-c]` holds the range a-c, and a `-` after a leading one
+           is a plain character with no warning. */
         r = prs_cc(&anode, tok, &p, end, env);
         if (r != 0) {
           onig_node_free(anode);
