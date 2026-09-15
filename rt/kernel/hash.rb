@@ -659,16 +659,6 @@ machine def zr_block_takes_pair(blk)
   RProc.spread(blk) != 0 && RProc.lambda(blk) == 0
 end
 
-# One entry to `each`'s block, after the turn is offered: an iterator
-# of the kernel is a back edge too, and a thread walking a large table
-# must hand the turn on as a compiled loop does.
-sig [Value, Ptr, Bool] => Value
-machine def zr_hash_each_yield(blk, e, pairless)
-  tick = zr_preempt()
-  return tick if tick == QUNDEF
-  pairless ? zr_yield2(blk, HEntry.key(e), HEntry.value(e)) : zr_yield1(blk, zr_hash_assoc(e))
-end
-
 # `each`: one `[key, value]` per entry, re-reading the table after every
 # yield, since the block may change it.
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -681,10 +671,12 @@ machine def zr_hash_each(recv, argc, argv, cref, blk)
   i = 0
   while i < RHash.len(recv)
     e = RHash.entries(recv) + (i * HEntry.size)
-    r = HEntry.live(e) != 0 ? zr_hash_each_yield(blk, e, pairless) : zr_preempt()
-    if r == QUNDEF
-      RHash.set_iter(recv, RHash.iter(recv) - 1)
-      return r
+    if HEntry.live(e) != 0
+      r = pairless ? zr_yield2(blk, HEntry.key(e), HEntry.value(e)) : zr_yield1(blk, zr_hash_assoc(e))
+      if r == QUNDEF
+        RHash.set_iter(recv, RHash.iter(recv) - 1)
+        return r
+      end
     end
     i += 1
   end

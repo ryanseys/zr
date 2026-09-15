@@ -639,7 +639,6 @@ module Ze0
         d zr_hash_values Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_assoc Value e:Ptr
         d zr_block_takes_pair Bool blk:Value
-        d zr_hash_each_yield Value blk:Value e:Ptr pairless:Bool
         d zr_hash_each Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_foreach Value h:Value blk:Value
         d zr_hash_to_a Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
