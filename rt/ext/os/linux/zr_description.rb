@@ -611,6 +611,9 @@ module Ze0
         d zr_key_hash Bool h:Value key:Value out:Ptr
         d zr_key_builtin_p Bool key:Value mid:Word builtin:Ptr
         d zr_key_code Word h:Value key:Value
+        d zr_str_bytes_hash Word s:Value
+        d zr_hash_seed Ptr
+        d zr_hash_seed_init Void
         d zr_bytes_hash Word p:Ptr n:Word
         d zr_hash_entry Ptr h:Value key:Value
         d zr_hash_find Ptr h:Value key:Value code:Word

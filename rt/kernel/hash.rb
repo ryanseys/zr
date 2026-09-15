@@ -204,12 +204,31 @@ machine def zr_key_code(h, key)
   end
   t = zr_type(key)
   if t == T_STRING
-    return zr_hash_mix(zr_bytes_hash(RString.ptr(key), RString.len(key)) ^ (zr_str_ascii_only(key) ? 0 : zr_str_encoding_index(key) + 1))
+    return zr_hash_mix(zr_str_bytes_hash(key) ^ (zr_str_ascii_only(key) ? 0 : zr_str_encoding_index(key) + 1))
   end
   if t == T_REGEXP
     return zr_hash_mix(zr_key_code(h, RRegexp.source(key)) + RRegexp.options(key))
   end
   zr_hash_mix(Machine.word(key))
+end
+
+# A String's bytes hashed with the process's seed, so a String's hash
+# differs from run to run as ruby's does: a program that keys its
+# behaviour on one cannot be replayed against it.
+sig [Value] => Word
+machine def zr_str_bytes_hash(s)
+  zr_bytes_hash(RString.ptr(s), RString.len(s)) ^ Machine.load64(zr_hash_seed(), 0)
+end
+
+# The seed, drawn once at boot.
+sig [] => Ptr
+machine def zr_hash_seed
+  Machine.static(:hash_seed, 8)
+end
+
+sig [] => Void
+machine def zr_hash_seed_init
+  Machine.store64(zr_hash_seed(), 0, (zr_os_random() << 32) | zr_os_random())
 end
 
 # FNV-1a over the bytes.
