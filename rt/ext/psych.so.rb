@@ -835,9 +835,16 @@ module Psych
 
     # An empty collection goes out flow, because block style has no way
     # to spell one.
+    # A collection that was a mapping's value takes that mapping's turn
+    # as a scalar value does, so the next node is a key again.
     def close(empty)
       frame = @stack.pop
-      place(frame[:slot], join(frame[:head], empty)) if frame[:count].zero?
+      spot = frame[:slot]
+      if frame[:count].zero?
+        place(spot, join(frame[:head], empty))
+      elsif spot[:kind] == :value
+        spot[:frame][:key] = nil
+      end
       nil
     end
 
@@ -870,20 +877,29 @@ module Psych
         @io.write(head.empty? ? "---\n" : "--- #{head}\n")
         frame[:indent] = 0
       when :entry
-        if head.empty?
-          @carry = @carry ? "#{@carry}- " : "#{' ' * spot[:indent]}- "
-        else
-          line(spot[:indent], "- #{head}")
-        end
+        share(spot[:indent], "-", head)
         frame[:indent] = spot[:indent] + @indentation
       when :value
-        line(spot[:indent], join("#{spot[:frame][:key]}:", head))
-        frame[:indent] = frame[:kind] == :sequence ? spot[:indent] : spot[:indent] + @indentation
+        if spot[:frame][:key] == :complex
+          share(spot[:indent], ":", head)
+          frame[:indent] = spot[:indent] + @indentation
+        else
+          line(spot[:indent], join("#{spot[:frame][:key]}:", head))
+          frame[:indent] = frame[:kind] == :sequence ? spot[:indent] : spot[:indent] + @indentation
+        end
       when :key
-        line(spot[:frame][:indent], join("?", head))
+        share(spot[:frame][:indent], "?", head)
         frame[:indent] = spot[:frame][:indent] + @indentation
         spot[:frame][:key] = :complex
       end
+    end
+
+    # A collection's indicator (`-`, `?` or `:`), which its first child
+    # shares a line with unless an anchor or a tag stands after it.
+    def share(indent, mark, head)
+      return line(indent, "#{mark} #{head}") unless head.empty?
+
+      @carry = @carry ? "#{@carry}#{mark} " : "#{' ' * indent}#{mark} "
     end
 
     # One finished node's text into the place it belongs.
