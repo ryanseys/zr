@@ -1042,7 +1042,9 @@ module Ze0
         d zr_proc_hash Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_spawn_vector Ptr words:Value
         d zr_posix_spawn Value words:Value dups:Value closes:Value env:Value chdir:Value flags:Word
-        d zr_proc_exec Value words:Value
+        d zr_exec_options Word options:Value
+        d zr_spawn_forked Value path:Value words:Value env:Value options:Value
+        d zr_exec_with Value path:Value words:Value env:Value options:Value
         d zr_proc_wait Value pid:Value flags:Value
         d zr_io_pipe Value
         d zr_proc_rusage Value who:Value

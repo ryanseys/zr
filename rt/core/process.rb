@@ -110,7 +110,7 @@ module Process
     STREAMS = { in: 0, out: 1, err: 2 }.freeze
     private_constant :STREAMS
 
-    attr_reader :dups, :closes, :opened, :chdir
+    attr_reader :dups, :closes, :opened, :chdir, :pgroup, :umask, :limits
 
     def initialize(options)
       # The standard streams cross into the child; every other
@@ -121,21 +121,59 @@ module Process
       @closes = []
       @opened = []
       @chdir = nil
+      # -1 leaves the process group and the umask as they are.
+      @pgroup = -1
+      @umask = -1
+      @limits = []
       options.each { |key, value| add(key, value) }
     end
 
+    # Whether an option asks for what only a forked child can do before
+    # its exec.
+    def forked? = @pgroup >= 0 || @umask >= 0 || !@limits.empty?
+
+    # What zr_exec_options applies, in the order it reads them.
+    def to_a = [@dups, @closes, @chdir, @pgroup, @umask, @limits]
+
     private
 
+    # rb_execarg_addopt: each option once.
     def add(key, value)
       case key
       when :chdir then @chdir = path_of(value)
       when :unsetenv_others, :close_others then nil
+      when :pgroup then @pgroup = pgroup_of(value)
+      when :umask then @umask = Integer.send(:int_operand, value)
       when Symbol
         return descriptors(key).each { |fd| redirect(fd, value) } if STREAMS.key?(key)
+        return add_limit(key, value) if key.start_with?("rlimit_")
 
-        Primitive.zr_unimplemented("Process.spawn with #{key}:")
+        raise ArgumentError, "wrong exec option symbol: #{key}"
       else descriptors(key).each { |fd| redirect(fd, value) }
       end
+    end
+
+    def pgroup_of(value)
+      return -1 unless value
+      return 0 if value == true
+
+      group = Integer.send(:int_operand, value)
+      raise ArgumentError, "negative process group ID : #{group}" if group.negative?
+
+      group
+    end
+
+    # rb_execarg_addopt_rlimit: one limit for both, or [soft, hard].
+    def add_limit(key, value)
+      name = key.name.delete_prefix("rlimit_").upcase
+      resource = RLIMITS.fetch(name) { raise ArgumentError, "wrong exec option symbol: #{key}" }
+      limits = Array.try_convert(value)
+      soft, hard = if limits.nil? then [value, value]
+                   elsif limits.size == 1 then [limits[0], limits[0]]
+                   elsif limits.size == 2 then limits
+                   else raise ArgumentError, "wrong exec rlimit option"
+                   end
+      @limits.push(resource, Process.send(:signed, Integer.send(:int_operand, soft)), Process.send(:signed, Integer.send(:int_operand, hard)))
     end
 
     # The child's descriptors one option key names.
@@ -185,7 +223,7 @@ module Process
 
   def self.spawn(*args, **options)
     pid = spawn_command(args, options)
-    raise SystemCallError.new(command_words(args).first, 2) if pid.nil?
+    raise SystemCallError.new(command_words(args).first, -pid) if pid.negative?
 
     pid
   end
@@ -376,7 +414,20 @@ module Process
     pids.size
   end
 
-  def daemon(*) = Primitive.zr_unimplemented("Process.daemon")
+  # rb_daemon where the platform has no daemon(3): the parent ends, and
+  # the child leads a session of its own, in "/" unless `nochdir`, with
+  # /dev/null as its standard streams unless `noclose`.
+  def daemon(nochdir = nil, noclose = nil)
+    Primitive.zr_exit_now(0) unless Process._fork.zero?
+    Primitive.zr_proc_setsid
+    Dir.chdir("/") unless nochdir
+    unless noclose
+      null = File.open(File::NULL, File::RDWR)
+      [0, 1, 2].each { |fd| Primitive.zr_io_dup2(null.fileno, fd) }
+      null.close
+    end
+    0
+  end
 
   module_function :wait, :waitpid, :wait2, :waitpid2, :waitall, :ppid, :times, :kill, :daemon, :getpgrp, :getpgid,
                   :setpgid, :getsid, :setsid, :groups, :groups=, :initgroups, :maxgroups, :maxgroups=,
@@ -421,12 +472,21 @@ module Process
     Primitive.zr_proc_child_exit(nil)
   end
 
-  # The process becomes the command; only a failure to start returns.
+  # The process becomes the command, with its environment and options
+  # applied first; only a failure to start returns.
   def self.replaced(args, options)
     Primitive.attr! :hidden
-    words = exec_words(args, options)
-    result = words.empty? ? -2 : Primitive.zr_proc_exec(words)
-    raise SystemCallError.new(words.first || args.first, -result)
+    env, args, options = exec_args(args, options)
+    words = command_words(args)
+    IO.send(:flush_std)
+    redirects = Redirects.new(options)
+    environment = environment(env, options)
+    path = executable(words.first)
+    result = if path.nil? then -Errno::ENOENT::Errno
+             else Primitive.zr_exec_with(path, words, environment, redirects.to_a)
+             end
+    redirects.opened.each(&:close)
+    raise SystemCallError.new(words.first, -result)
   end
   private_class_method :forked, :replaced
 
@@ -545,13 +605,34 @@ module Process
     words = command_words(args)
     IO.send(:flush_std)
     redirects = Redirects.new(options)
-    pid = Primitive.zr_os_spawn(words, redirects.dups, redirects.closes, environment(env, options), redirects.chdir)
+    pid = if redirects.forked?
+            path = executable(words.first)
+            path ? forked_spawn(path, words, environment(env, options), redirects) : -Errno::ENOENT::Errno
+          else
+            Primitive.zr_os_spawn(words, redirects.dups, redirects.closes, environment(env, options), redirects.chdir)
+          end
     redirects.opened.each(&:close)
-    if pid < 0
-      $? = Status.new(0, 127 << 8)
-      return nil
-    end
+    $? = Status.new(0, 127 << 8) if pid.negative?
     pid
+  end
+
+  def self.forked_spawn(path, words, env, redirects)
+    Primitive.attr! :hidden
+    Primitive.zr_spawn_forked(path, words, env, redirects.to_a)
+  end
+
+  # The file a command word runs: the word itself when it names a path,
+  # else the first executable file of that name on PATH, as execvp
+  # searches.
+  def self.executable(word)
+    Primitive.attr! :hidden
+    return word if word.include?("/")
+
+    ENV.fetch("PATH", "/usr/bin:/bin").split(":", -1).each do |dir|
+      path = File.join(dir.empty? ? "." : dir, word)
+      return path if File.file?(path) && File.executable?(path)
+    end
+    nil
   end
 
   # The program and its arguments. One string goes through the shell
@@ -612,18 +693,7 @@ module Process
     table.map { |key, value| "#{key}=#{value}" }
   end
 
-  # The words a command runs as, for exec.
-  def self.exec_words(args, options)
-    env, args, options = exec_args(args, options)
-    Primitive.zr_unimplemented("exec with options") unless options.empty?
-    Primitive.zr_unimplemented("exec with an environment") unless env.nil?
-
-    words = command_words(args)
-    IO.send(:flush_std)
-    words
-  end
-
-  private_class_method :spawn_command, :command_words, :shell_words, :environment, :exec_words, :exec_args
+  private_class_method :spawn_command, :command_words, :shell_words, :environment, :exec_args, :executable, :forked_spawn
 end
 
 # The ids a process runs as. Process::Sys makes the system calls by
@@ -839,15 +909,15 @@ module Kernel
 
   def spawn(*args, **options)
     pid = Process.send(:spawn_command, args, options)
-    raise SystemCallError.new(Process.send(:command_words, args).first, 2) if pid.nil?
+    raise SystemCallError.new(Process.send(:command_words, args).first, -pid) if pid.negative?
 
     pid
   end
 
   def system(*args, exception: false, **options)
     pid = Process.send(:spawn_command, args, options)
-    if pid.nil?
-      raise SystemCallError.new(Process.send(:command_words, args).first, 2) if exception
+    if pid.negative?
+      raise SystemCallError.new(Process.send(:command_words, args).first, -pid) if exception
 
       return nil
     end

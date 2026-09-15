@@ -321,10 +321,11 @@ class IO
   # Runs the command with a pipe on its standard input or output. With
   # a block the stream closes and the child is waited for after it, and
   # the block's value is the answer.
-  def self.popen(*args, **options)
+  def self.popen(*args, **options, &block)
     env = args.first.is_a?(Hash) ? args.shift : nil
     command, mode = args
     raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if args.empty?
+    return popen_fork((mode || "r").to_s, &block) if command == "-"
 
     io = popen_stream(command, (mode || "r").to_s, options, env)
     return io unless block_given?
@@ -333,6 +334,50 @@ class IO
       yield io
     ensure
       io.close
+    end
+  end
+
+  # `popen("-")`: a fork whose standard output ("r"), input ("w") or both
+  # ("r+") are pipes to the parent, which gets the stream; the child gets
+  # nil. With a block both run it, and the child ends after it, as
+  # popen_finish ends it.
+  def self.popen_fork(mode)
+    duplex = mode.include?("+")
+    reading = duplex || mode.start_with?("r")
+    raise ArgumentError, "invalid access mode #{mode}" unless reading || mode.start_with?("w", "a")
+
+    output = pipe_ends if reading
+    input = pipe_ends if duplex || !reading
+    pid = Process._fork
+    if pid.zero?
+      Primitive.zr_io_dup2(output[1], 1) if output
+      Primitive.zr_io_dup2(input[0], 0) if input
+      [*output, *input].each { |fd| Primitive.zr_io_close(fd) }
+      # The child's standard streams write at once, as pipe_open makes
+      # them synchronous.
+      STDOUT.sync = true
+      STDERR.sync = true
+      return nil unless block_given?
+
+      begin
+        yield nil
+      ensure
+        $stdout.flush
+        $stderr.flush
+        Primitive.zr_exit_now(0)
+      end
+    end
+    Primitive.zr_io_close(output[1]) if output
+    Primitive.zr_io_close(input[0]) if input
+    ours = output ? output[0] : input[1]
+    stream = new(ours, duplex ? "r+" : (reading ? "r" : "w"), pid: pid, twin: duplex ? input[1] : nil)
+    stream.sync = true
+    return stream unless block_given?
+
+    begin
+      yield stream
+    ensure
+      stream.close
     end
   end
 
@@ -366,10 +411,10 @@ class IO
     pid = Process.send(:spawn_command, env ? [env, *words] : words, plan.merge(options))
     Primitive.zr_io_close(theirs)
     Primitive.zr_io_close(child_in) if child_in
-    if pid.nil?
+    if pid.negative?
       Primitive.zr_io_close(ours)
       Primitive.zr_io_close(twin) if twin
-      raise SystemCallError.new(Process.send(:command_words, words).first, 2)
+      raise SystemCallError.new(Process.send(:command_words, words).first, -pid)
     end
     stream = new(ours, duplex ? "r+" : (reading ? "r" : "w"), pid: pid, twin: twin)
     # A popen stream is synchronous, as CRuby's pipe_open marks it.
@@ -377,7 +422,7 @@ class IO
     stream
   end
 
-  private_class_method :pipe_ends, :popen_stream
+  private_class_method :pipe_ends, :popen_stream, :popen_fork
 
   def self.try_convert(object) = object.respond_to?(:to_io) ? object.to_io : nil
 
@@ -1650,10 +1695,20 @@ module Kernel
 
   def readlines(*args, **options) = ARGF.readlines(*args, **options)
 
+  # rb_f_open: an object that answers `to_open` opens itself, and the
+  # block's stream closes after the block; anything else names a file,
+  # a leading `|` included.
   def open(path, *rest, **options, &block)
-    Primitive.zr_unimplemented("Kernel#open of a pipe") if path.is_a?(String) && path.start_with?("|")
+    return File.open(path, *rest, **options, &block) unless path.respond_to?(:to_open)
 
-    File.open(path, *rest, **options, &block)
+    io = path.to_open(*rest, **options)
+    return io unless block
+
+    begin
+      yield io
+    ensure
+      io.close if io.respond_to?(:close)
+    end
   end
 
   private :puts, :print, :p, :printf, :gets, :readline, :readlines, :open

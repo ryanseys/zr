@@ -6,7 +6,6 @@ Machine.import "pipe", [Ptr] => I32
 Machine.import "getppid", [] => I32
 Machine.import "kill", [I32, I32] => I32
 Machine.import "signal", [I32, Ptr] => Ptr
-Machine.import "execvp", [Ptr, Ptr] => I32
 
 # A NULL-ended char* vector of an Array of Strings, malloc'd.
 sig [Value] => Ptr
@@ -82,14 +81,136 @@ machine def zr_posix_spawn(words, dups, closes, env, chdir, flags)
   zr_fix(Machine.word(Machine.load32(pid, 0)))
 end
 
-# execvp: the process becomes the command; answers only when it could
-# not, with the negated errno.
-sig [Value] => Value
-machine def zr_proc_exec(words)
+Machine.import "execve", [Ptr, Ptr, Ptr] => I32
+
+# The options posix_spawn cannot carry, applied to this process in
+# rb_execarg_run_options's order: the process group (`pgroup` -1 leaves
+# it, 0 makes a new one), the resource limits (`limits` holds resource,
+# soft, hard triples), the umask (-1 leaves it), the descriptors and the
+# directory, each a row of `options` in that order: `dups` and `closes`
+# are zr_posix_spawn's. 0, or the errno. It allocates nothing, so a
+# forked child may run it before its exec.
+sig [Value] => Word
+machine def zr_exec_options(options)
+  dups = zr_ary_at(options, 0)
+  closes = zr_ary_at(options, 1)
+  chdir = zr_ary_at(options, 2)
+  pgroup = zr_ary_at(options, 3)
+  mask = zr_ary_at(options, 4)
+  limits = zr_ary_at(options, 5)
+  group = zr_fix2long(pgroup)
+  if group >= 0 && setpgid(Machine.i32(0), Machine.i32(group)) < Machine.i32(0)
+    return zr_errno()
+  end
+  pair = Machine.slot(16)
+  i = 0
+  while i < RArray.len(limits)
+    Machine.store64(pair, 0, zr_fix2long(zr_ary_at(limits, i + 1)))
+    Machine.store64(pair, 8, zr_fix2long(zr_ary_at(limits, i + 2)))
+    if setrlimit(Machine.i32(zr_fix2long(zr_ary_at(limits, i))), pair) < Machine.i32(0)
+      return zr_errno()
+    end
+    i += 3
+  end
+  if zr_fix2long(mask) >= 0
+    umask(Machine.i32(zr_fix2long(mask)))
+  end
+  i = 0
+  while i < RArray.len(dups)
+    child = Machine.i32(zr_fix2long(zr_ary_at(dups, i)))
+    source = Machine.i32(zr_fix2long(zr_ary_at(dups, i + 1)))
+    # A descriptor duplicated onto itself only loses close-on-exec, as
+    # posix_spawn_file_actions_adddup2 treats it.
+    if child == source
+      zr_os_fcntl(child, Machine.i32(F_SETFD), 0)
+    elsif dup2(source, child) < Machine.i32(0)
+      return zr_errno()
+    end
+    i += 2
+  end
+  i = 0
+  while i < RArray.len(closes)
+    close(Machine.i32(zr_fix2long(zr_ary_at(closes, i))))
+    i += 1
+  end
+  if chdir != QNIL && chdir(RString.ptr(chdir)) < Machine.i32(0)
+    return zr_errno()
+  end
+  0
+end
+
+# A spawn through fork and execve, for the options posix_spawn cannot
+# carry: the child applies them, then runs the program at `path`. A
+# child that cannot start writes its errno to a pipe that an exec
+# closes, and ends. The pid, or the negated errno.
+sig [Value, Value, Value, Value] => Value
+machine def zr_spawn_forked(path, words, env, options)
+  ends = Machine.slot(8)
+  if pipe(ends) < Machine.i32(0)
+    return zr_fix(0 - zr_errno())
+  end
+  reader = Machine.load32(ends, 0)
+  writer = Machine.load32(ends, 4)
+  zr_io_cloexec(zr_fix(Machine.word(reader)))
+  zr_io_cloexec(zr_fix(Machine.word(writer)))
   argv = zr_spawn_vector(words)
-  execvp(RString.ptr(zr_ary_at(words, 0)), argv)
+  envp = zr_os_environ()
+  if env != QNIL
+    envp = zr_spawn_vector(env)
+  end
+  pid = Machine.sword(fork())
+  if pid == 0
+    err = zr_exec_options(options)
+    if err == 0
+      execve(RString.ptr(path), argv, envp)
+      err = zr_errno()
+    end
+    word = Machine.slot(8)
+    Machine.store64(word, 0, err)
+    write(writer, word, 8)
+    _exit(Machine.i32(127))
+  end
+  failure = zr_errno()
+  close(writer)
   free(argv)
-  zr_fix(0 - zr_errno())
+  if env != QNIL
+    free(envp)
+  end
+  if pid < 0
+    close(reader)
+    return zr_fix(0 - failure)
+  end
+  word = Machine.slot(8)
+  got = read(reader, word, 8)
+  close(reader)
+  if got == 8
+    status = Machine.slot(8)
+    waitpid(Machine.i32(pid), status, Machine.i32(0))
+    return zr_fix(0 - Machine.load64(word, 0))
+  end
+  zr_fix(pid)
+end
+
+# execve in this process after the options: answers only when it could
+# not, with the negated errno.
+sig [Value, Value, Value, Value] => Value
+machine def zr_exec_with(path, words, env, options)
+  err = zr_exec_options(options)
+  if err != 0
+    return zr_fix(0 - err)
+  end
+  argv = zr_spawn_vector(words)
+  envp = zr_os_environ()
+  if env != QNIL
+    envp = zr_spawn_vector(env)
+  end
+  execve(RString.ptr(path), argv, envp)
+  err = zr_errno()
+  free(argv)
+  if env != QNIL
+    free(envp)
+  end
+  zr_fix(0 - err)
 end
 
 # waitpid: [pid, raw status], or the negated errno.
