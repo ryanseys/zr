@@ -2937,22 +2937,47 @@ class Encoding
     jis_writer[point]
   end
 
-  # rb_enc_compatible for two Strings: an empty side gives way, and
-  # UTF-16 or UTF-32 joins nothing else.
-  # enc_compatible_latter, over the Strings' own bytes: a subclass's
-  # encoding, empty? and ascii_only? are not called.
+  # enc_compatible_p: the encoding two objects that carry one can join
+  # in, or nil. A String, a Symbol, a Regexp, an IO and an Encoding carry
+  # one; a String's is read from its own bytes, so a subclass's encoding,
+  # empty? and ascii_only? are not called.
   def self.compatible?(a, b)
-    return nil unless a.is_a?(String) && b.is_a?(String)
+    ea = encoding_of(a) or return nil
+    eb = encoding_of(b) or return nil
+    return ea if ea == eb
 
-    ea = at(Primitive.zr_str_encoding_index_m(a))
-    eb = at(Primitive.zr_str_encoding_index_m(b))
-    return ea if ea == eb || Primitive.zr_str_bytesize(b) == 0
-    return ea.ascii_compatible? && Primitive.zr_str_ascii_only_m(b) ? ea : eb if Primitive.zr_str_bytesize(a) == 0
+    a_string = a.is_a?(String)
+    b_string = b.is_a?(String)
+    return ea if b_string && Primitive.zr_str_bytesize(b) == 0
+    return ea.ascii_compatible? && Primitive.zr_str_ascii_only_m(b) ? ea : eb if a_string && b_string && Primitive.zr_str_bytesize(a) == 0
     return nil unless ea.ascii_compatible? && eb.ascii_compatible?
-    return ea if Primitive.zr_str_ascii_only_m(b)
-    return eb if Primitive.zr_str_ascii_only_m(a)
+    # An object that is not a String holds only what its encoding names.
+    return ea if !b_string && eb == US_ASCII
+    return eb if !a_string && ea == US_ASCII
+    # All ASCII, a String takes the other side's encoding; two Strings
+    # that both are take the first one's.
+    a_ascii = a_string && Primitive.zr_str_ascii_only_m(a)
+    b_ascii = b_string && Primitive.zr_str_ascii_only_m(b)
+    return ea if a_string && b_ascii
+    return eb if a_ascii || b_ascii
 
     nil
+  end
+
+  # rb_enc_get_index: the encoding `object` carries, or nil for one that
+  # carries none. is_a? rather than case: String's own boot runs before
+  # Module#=== is there.
+  def self.encoding_of(object)
+    Primitive.attr! :hidden
+    if object.is_a?(String)
+      at(Primitive.zr_str_encoding_index_m(object))
+    elsif object.is_a?(Symbol) || object.is_a?(Regexp)
+      object.encoding
+    elsif object.is_a?(Encoding)
+      object
+    elsif object.is_a?(IO)
+      object.internal_encoding || object.external_encoding
+    end
   end
 end
 

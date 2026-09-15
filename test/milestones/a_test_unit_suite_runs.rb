@@ -1,5 +1,5 @@
 # A test-unit suite runs under the console runner: a pass, a failure with
-# its diff, and an error.
+# its diff, an error, and a power_assert block that shows each value.
 require "test/unit"
 require "stringio"
 require "test/unit/ui/console/testrunner"
@@ -11,6 +11,11 @@ class ArithmeticTest < Test::Unit::TestCase
   def test_failure = assert_equal([1, 2], [1, 3])
   def test_error = Integer("four")
   def test_raise = assert_raise(ZeroDivisionError) { 1 / 0 }
+
+  def test_power_assert
+    numbers = [1, 2, 3]
+    assert { numbers.sum == 7 }
+  end
 end
 
 out = StringIO.new
@@ -40,9 +45,19 @@ diff:
 ?     3 
 ?     ? 
 ===============================================================================
+F
+===============================================================================
+Failure: test_power_assert(ArithmeticTest):
+      assert { numbers.sum == 7 }
+               |       |   |
+               |       |   false
+               |       6
+               [1, 2, 3]
+milestones/a_test_unit_suite_runs.rb:17:in 'ArithmeticTest#test_power_assert'
+===============================================================================
 -------------------------------------------------------------------------------
-4 tests, 3 assertions, 1 failures, 1 errors, 0 pendings, 0 omissions, 0 notifications
-50% passed
+5 tests, 4 assertions, 2 failures, 1 errors, 0 pendings, 0 omissions, 0 notifications
+40% passed
 -------------------------------------------------------------------------------
-4 tests, 3 assertions, 1 failures, 1 errors, 0 pendings, 0 omissions, 0 notifications
+5 tests, 4 assertions, 2 failures, 1 errors, 0 pendings, 0 omissions, 0 notifications
 false

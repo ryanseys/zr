@@ -58,18 +58,18 @@ machine def zr_trace_c_entry_p(e)
   FrameMeta.kind(meta) == KIND_BUILTIN && FrameMeta.ruby(meta) == 0
 end
 
-# Whether the send on its way comes from Ruby: a program's frame, or a
-# core def CRuby writes in Ruby. What the rest of the core library sends
-# is a call in C, which fires nothing.
+# Whether the send on its way comes from the program's own frame. What
+# the core library sends is a call in C, which fires nothing: a core def
+# CRuby writes in Ruby sends far less than this runtime's does, through
+# primitives, so its sends here fire nothing either.
 sig [] => Bool
 machine def zr_trace_c_caller_p
   top = Task.top(zr_task())
   if top == 0
     return true
   end
-  meta = Frame.meta(top)
-  kind = FrameMeta.kind(meta)
-  (kind != KIND_BUILTIN && kind != KIND_HIDDEN) || FrameMeta.ruby(meta) != 0
+  kind = FrameMeta.kind(Frame.meta(top))
+  kind != KIND_BUILTIN && kind != KIND_HIDDEN
 end
 
 # The call through C method `e` between its `:c_call` and its

@@ -60,7 +60,7 @@ net-pop 0.1.2
 net-smtp 0.5.1
 observer 0.1.2
 ostruct 0.6.3
-power_assert 3.0.1
+power_assert 3.0.1 (in vendor/gems/power_assert/lib: it tells its own frames by their directory)
 prime 0.1.4
 pstore 0.2.1
 racc 1.8.1

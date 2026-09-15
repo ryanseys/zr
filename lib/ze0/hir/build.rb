@@ -29,12 +29,15 @@ module Ze0
       # the path only once its native half answers, so a require of one
       # we do not carry stops by name instead of failing halfway in.
       GEMS = %w[prism json psych bigdecimal digest syslog socket ffi].map { |name| File.join(Paths::VENDOR, "ext/#{name}/lib") }.freeze
+      # A bundled gem that tells its own files from a program's by the
+      # directory they are in, which must hold that gem alone.
+      BUNDLED = %w[power_assert].map { |name| File.join(Paths::VENDOR, "gems/#{name}/lib") }.freeze
 
       # The library roots a program for `target` requires from: ruby's own,
       # then the OS layer's native halves and tables, then the portable
-      # ones, then the gems' ruby halves.
+      # ones, then the gems' ruby halves, then the bundled gems kept apart.
       def self.stdlib(target = Target.default)
-        (@stdlib ||= {})[target.triple] ||= [VENDOR, File.join(EXT, "os", target.os_layer), EXT, *GEMS].freeze
+        (@stdlib ||= {})[target.triple] ||= [VENDOR, File.join(EXT, "os", target.os_layer), EXT, *GEMS, *BUNDLED].freeze
       end
 
       # The compiler itself, which a program that evals carries.
