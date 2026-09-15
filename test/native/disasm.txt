@@ -912,8 +912,7 @@ block0:
   fadd d18, d16, d17
   fmov x11, d18
   mov x14, x11
-  mov x0, x14
-  fmov d0, x0
+  fmov d0, d18
   ldp x29, x30, [sp], #16
   ret
 
@@ -930,8 +929,7 @@ block0:
   fsub d18, d16, d17
   fmov x11, d18
   mov x14, x11
-  mov x0, x14
-  fmov d0, x0
+  fmov d0, d18
   ldp x29, x30, [sp], #16
   ret
 
@@ -948,8 +946,7 @@ block0:
   fmul d18, d16, d17
   fmov x11, d18
   mov x14, x11
-  mov x0, x14
-  fmov d0, x0
+  fmov d0, d18
   ldp x29, x30, [sp], #16
   ret
 
@@ -966,8 +963,7 @@ block0:
   fdiv d18, d16, d17
   fmov x11, d18
   mov x14, x11
-  mov x0, x14
-  fmov d0, x0
+  fmov d0, d18
   ldp x29, x30, [sp], #16
   ret
 
@@ -981,8 +977,7 @@ block0:
   fneg d17, d16
   fmov x11, d17
   mov x13, x11
-  mov x0, x13
-  fmov d0, x0
+  fmov d0, d17
   ldp x29, x30, [sp], #16
   ret
 
@@ -996,8 +991,7 @@ block0:
   fabs d17, d16
   fmov x11, d17
   mov x13, x11
-  mov x0, x13
-  fmov d0, x0
+  fmov d0, d17
   ldp x29, x30, [sp], #16
   ret
 
@@ -1011,8 +1005,7 @@ block0:
   fsqrt d17, d16
   fmov x11, d17
   mov x13, x11
-  mov x0, x13
-  fmov d0, x0
+  fmov d0, d17
   ldp x29, x30, [sp], #16
   ret
 
@@ -1026,8 +1019,7 @@ block0:
   frintm d17, d16
   fmov x11, d17
   mov x13, x11
-  mov x0, x13
-  fmov d0, x0
+  fmov d0, d17
   ldp x29, x30, [sp], #16
   ret
 
@@ -1041,8 +1033,7 @@ block0:
   frintp d17, d16
   fmov x11, d17
   mov x13, x11
-  mov x0, x13
-  fmov d0, x0
+  fmov d0, d17
   ldp x29, x30, [sp], #16
   ret
 
@@ -1056,8 +1047,7 @@ block0:
   frintz d17, d16
   fmov x11, d17
   mov x13, x11
-  mov x0, x13
-  fmov d0, x0
+  fmov d0, d17
   ldp x29, x30, [sp], #16
   ret
 
@@ -1071,8 +1061,7 @@ block0:
   frintn d17, d16
   fmov x11, d17
   mov x13, x11
-  mov x0, x13
-  fmov d0, x0
+  fmov d0, d17
   ldp x29, x30, [sp], #16
   ret
 
@@ -1087,8 +1076,7 @@ block0:
   fmov d16, x8
   fmov d17, x13
   fcmp d16, d17
-  cset x11, eq
-  mov x14, x11
+  cset x14, eq
   mov x0, x14
   ldp x29, x30, [sp], #16
   ret
@@ -1104,8 +1092,7 @@ block0:
   fmov d16, x8
   fmov d17, x13
   fcmp d16, d17
-  cset x11, ne
-  mov x14, x11
+  cset x14, ne
   mov x0, x14
   ldp x29, x30, [sp], #16
   ret
@@ -1121,8 +1108,7 @@ block0:
   fmov d16, x8
   fmov d17, x13
   fcmp d16, d17
-  cset x11, mi
-  mov x14, x11
+  cset x14, mi
   mov x0, x14
   ldp x29, x30, [sp], #16
   ret
@@ -1138,8 +1124,7 @@ block0:
   fmov d16, x8
   fmov d17, x13
   fcmp d16, d17
-  cset x11, ls
-  mov x14, x11
+  cset x14, ls
   mov x0, x14
   ldp x29, x30, [sp], #16
   ret
@@ -1155,8 +1140,7 @@ block0:
   fmov d16, x8
   fmov d17, x13
   fcmp d16, d17
-  cset x11, gt
-  mov x14, x11
+  cset x14, gt
   mov x0, x14
   ldp x29, x30, [sp], #16
   ret
@@ -1172,8 +1156,7 @@ block0:
   fmov d16, x8
   fmov d17, x13
   fcmp d16, d17
-  cset x11, ge
-  mov x14, x11
+  cset x14, ge
   mov x0, x14
   ldp x29, x30, [sp], #16
   ret
@@ -1186,8 +1169,7 @@ block0:
   scvtf d16, x8
   fmov x11, d16
   mov x13, x11
-  mov x0, x13
-  fmov d0, x0
+  fmov d0, d16
   ldp x29, x30, [sp], #16
   ret
 
@@ -1199,8 +1181,7 @@ block0:
   scvtf d16, w8
   fmov x11, d16
   mov x13, x11
-  mov x0, x13
-  fmov d0, x0
+  fmov d0, d16
   ldp x29, x30, [sp], #16
   ret
 
@@ -1217,18 +1198,13 @@ block0:
   fadd d18, d16, d17
   fmov x11, d18
   mov x14, x11
-  fmov d16, x8
-  fmov d17, x13
-  fsub d18, d16, d17
-  fmov x11, d18
+  fsub d19, d16, d17
+  fmov x11, d19
   mov x15, x11
-  fmov d16, x14
-  fmov d17, x15
-  fmul d18, d16, d17
-  fmov x11, d18
+  fmul d20, d18, d19
+  fmov x11, d20
   mov x8, x11
-  mov x0, x8
-  fmov d0, x0
+  fmov d0, d20
   ldp x29, x30, [sp], #16
   ret
 

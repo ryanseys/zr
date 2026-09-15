@@ -71,13 +71,13 @@ module Ze0
                            fcvt_from_sint fcvt_to_sint_sat] +
                         IR::Inst::BINOPS + IR::Inst::FBINOPS + IR::Inst::FUNOPS).to_set.freeze
 
-        # The floating-point instructions, as words: `FMOV Dd, Xn`,
-        # `FMOV Xd, Dn`, the arithmetic and the conversions, with d16..d19
-        # as scratch. Each carries its own text, because a word the
-        # assembler is handed cannot name itself to a listing.
         # The mnemonics the one-operand float instructions go by.
         FUNOPS = { fneg: :fneg, fabs: :fabs, sqrt: :fsqrt, floor: :frintm,
                    ceil: :frintp, trunc: :frintz, nearest: :frintn }.freeze
+        # The d registers an f64 value stays in between the instruction
+        # that makes or loads it and the ones in the same block that read
+        # it: caller-saved, so a call empties them, and never saved.
+        DOUBLES = [D16, D17, D18, D19, D20, D21, D22, D23].freeze
 
         class Refused < Backend::Refused; end
 
@@ -120,6 +120,7 @@ module Ze0
           @f.blocks.each_with_index do |b, n|
             @asm.put_label(@labels[b.name])
             @next = @f.blocks[n + 1]&.name
+            forget_doubles
             b.insts.each { |i| emit(i) }
           end
           if @epilogue
@@ -184,14 +185,14 @@ module Ze0
             insts = b.insts.reject { |i| @silent.include?(i.results[0]) }
             insts.each_with_index do |cmp, n|
               r = cmp.results[0]
-              next unless cmp.op == :icmp && @uses[r] == 1
+              next unless (cmp.op == :icmp || cmp.op == :fcmp) && @uses[r] == 1
 
               reader = insts[(n + 1)..].find { |i| !FLAG_NEUTRAL.include?(i.op) }
               next unless reader && (reader.op == :brif || reader.op == :select) && reader.args[0] == r
 
               # Either way the boolean is never made, so it has no home.
               @silent << r
-              if reader.op == :brif && (test = bit_test(cmp))
+              if cmp.op == :icmp && reader.op == :brif && (test = bit_test(cmp))
                 @bit_tests[reader] = test
                 @silent << cmp.args.find { |a| @def_of[a]&.op == :band }
                 @via[r] = test[0]
@@ -658,8 +659,12 @@ module Ze0
         # last of them, ending the last block, falls into it.
         def emit_return(i)
           unless i.args.empty?
-            load_value(i.args[0], X0)
-            @asm.fmov D0, X0 if float?(i.args[0])
+            if (d = @doubles[i.args[0]])
+              @asm.fmov D0, d
+            else
+              load_value(i.args[0], X0)
+              @asm.fmov D0, X0 if float?(i.args[0])
+            end
           end
           return epilogue unless @epilogue
 
@@ -679,7 +684,20 @@ module Ze0
 
         # --- instructions -------------------------------------------------
 
+        # A float instruction's result waits in its d register until the
+        # instruction is out, then goes to its home too.
         def emit(i)
+          lower(i)
+          return unless @pending_double
+
+          v, d = @pending_double
+          @pending_double = nil
+          @asm.fmov X11, d
+          store_value(v, X11)
+          remember_double(v, d)
+        end
+
+        def lower(i)
           case i.op
           when :iconst
             return if @remade.include?(i.results[0])
@@ -701,19 +719,22 @@ module Ze0
           when :func_addr
             c = callee_of(i.args[0])
             emit_symbol(i.results[0], c.symbol, @defined.include?(c.symbol))
-          when :call then emit_call(i)
-          when :call_indirect then emit_call_indirect(i)
-          when :icmp
+          when :call
+            emit_call(i)
+            forget_doubles
+          when :call_indirect
+            emit_call_indirect(i)
+            forget_doubles
+          when :icmp, :fcmp
             # The branch or select that follows reads the flags; there is
             # no boolean. A bit test reads the word instead: nothing here.
             if (reader = @fused[i])
-              @fused[reader] = emit_compare(i)
+              @fused[reader] = i.op == :icmp ? emit_compare(i) : emit_fcompare(i)
               return
             end
             return if @silent.include?(i.results[0])
 
-            cond = emit_compare(i)
-
+            cond = i.op == :icmp ? emit_compare(i) : emit_fcompare(i)
             d = result_in(i.results[0], X11)
             @asm.cset d, cond
             store_value(i.results[0], d)
@@ -735,40 +756,24 @@ module Ze0
           when :sadd_overflow, :ssub_overflow then emit_overflow(i)
           when :smul_overflow then emit_mul_overflow(i)
           when *IR::Inst::FBINOPS
-            a = value_in(i.args[0], X9)
-            b = value_in(i.args[1], X10)
-            @asm.fmov D16, a
-            @asm.fmov D17, b
-            @asm.public_send(i.op, D18, D16, D17)
-            @asm.fmov X11, D18
-            store_value(i.results[0], X11)
+            a = double_in(i.args[0])
+            b = double_in(i.args[1])
+            @asm.public_send(i.op, double_out(i.results[0]), a, b)
           when *IR::Inst::FUNOPS
-            a = value_in(i.args[0], X9)
-            @asm.fmov D16, a
-            @asm.public_send(FUNOPS.fetch(i.op), D17, D16)
-            @asm.fmov X11, D17
-            store_value(i.results[0], X11)
-          when :fcmp
-            a = value_in(i.args[0], X9)
-            b = value_in(i.args[1], X10)
-            @asm.fmov D16, a
-            @asm.fmov D17, b
-            @asm.fcmp D16, D17
-            @asm.cset X11, FCONDS.fetch(i.cond)
-            store_value(i.results[0], X11)
+            a = double_in(i.args[0])
+            @asm.public_send(FUNOPS.fetch(i.op), double_out(i.results[0]), a)
           when :fcvt_from_sint
             a = value_in(i.args[0], X9)
-            @asm.scvtf D16, wide?(i.args[0]) ? a : Registers.w(a.to_i)
-            @asm.fmov X11, D16
-            store_value(i.results[0], X11)
+            @asm.scvtf double_out(i.results[0]), wide?(i.args[0]) ? a : Registers.w(a.to_i)
           when :fcvt_to_sint_sat
-            a = value_in(i.args[0], X9)
-            @asm.fmov D16, a
-            @asm.fcvtzs X11, D16
+            @asm.fcvtzs X11, double_in(i.args[0])
             store_value(i.results[0], X11)
           when :bitcast
+            # The same bits under another type: the d register that holds
+            # them holds the result as well.
             load_value(i.args[0], X9)
             store_value(i.results[0], X9)
+            remember_double(i.results[0], @doubles[i.args[0]]) if @doubles.key?(i.args[0])
           when :brif then emit_brif(i)
           when :jump then emit_jump(i)
           when :return then emit_return(i)
@@ -939,8 +944,12 @@ module Ze0
           floats = 0
           args.each do |v|
             if float?(v)
-              load_value(v, X9)
-              @asm.fmov Registers.d(floats), X9
+              if (d = @doubles[v])
+                @asm.fmov Registers.d(floats), d
+              else
+                load_value(v, X9)
+                @asm.fmov Registers.d(floats), X9
+              end
               floats += 1
             else
               load_value(v, Registers.x(ints))
@@ -972,6 +981,57 @@ module Ze0
           return if i.results.empty?
 
           store_result(i.results[0], sig.ret)
+        end
+
+        # `fcmp`, and the condition to read its flags by.
+        def emit_fcompare(i)
+          a = double_in(i.args[0])
+          b = double_in(i.args[1])
+          @asm.fcmp a, b
+          FCONDS.fetch(i.cond)
+        end
+
+        # --- doubles ------------------------------------------------------
+
+        # An f64 value lives in its home as bits; on its way through a
+        # float instruction it passes through a d register, and stays
+        # there for the rest of its block (`@doubles`) so the next float
+        # instruction reading it moves nothing. The registers go round in
+        # turn, and a value whose register comes round again is simply
+        # read from its home next time.
+
+        # The d register holding `v`, moved there from its home when it
+        # is in none.
+        def double_in(v)
+          @doubles[v] || begin
+            d = next_double
+            @asm.fmov d, value_in(v, X9)
+            remember_double(v, d)
+          end
+        end
+
+        # The d register a float instruction writes `v` into. `emit`
+        # stores it to `v`'s home once the instruction is out.
+        def double_out(v)
+          d = next_double
+          @pending_double = [v, d]
+          d
+        end
+
+        def next_double
+          d = DOUBLES[@double_turn]
+          @double_turn = (@double_turn + 1) % DOUBLES.size
+          @doubles.delete_if { |_, held| held.equal?(d) }
+          d
+        end
+
+        def remember_double(v, d)
+          @doubles[v] = d
+        end
+
+        def forget_doubles
+          @doubles = {}
+          @double_turn = 0
         end
 
         # `cmp`, and the arm64 condition to read its flags by. A constant
