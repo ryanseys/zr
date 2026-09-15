@@ -673,7 +673,7 @@ class StringIO
     flags = if mode.nil?
               READABLE
             elsif mode.is_a?(Integer)
-              bits = { File::RDONLY => READABLE, File::WRONLY => WRITABLE, File::RDWR => READWRITE }.fetch(mode & 3, READABLE)
+              bits = { File::RDONLY => READABLE, File::WRONLY => WRITABLE, File::RDWR => READWRITE }.fetch(mode & (File::RDONLY | File::WRONLY | File::RDWR), READABLE)
               bits |= APPEND if mode.anybits?(File::APPEND)
               bits |= TRUNC if mode.anybits?(File::TRUNC)
               bits

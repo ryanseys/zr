@@ -19,7 +19,9 @@ module Ze0
     # - The most negative number `sdiv` -1 wraps to itself, and `srem` -1
     #   answers 0.
     # - A shift takes its amount modulo the width.
-    # - A function takes, and a call passes, at most `REGISTER_ARGS` values.
+    # - A function takes, and a call passes, at most `REGISTER_ARGS` values;
+    #   a call to a wasm import passes what the import takes, since no
+    #   native backend makes one.
     class Inst
       # Opcodes that end a block.
       TERMINATORS = %i[jump brif return].freeze

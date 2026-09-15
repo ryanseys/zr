@@ -4,4 +4,8 @@ module Process
   CLOCK_MONOTONIC = 6
   CLOCK_PROCESS_CPUTIME_ID = 12
   CLOCK_THREAD_CPUTIME_ID = 16
+
+  # Every clock here is a number.
+  CLOCK_IDS = {}.freeze
+  private_constant :CLOCK_IDS
 end

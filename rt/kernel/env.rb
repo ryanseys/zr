@@ -12,9 +12,10 @@ G_ARGV0 = 53
 sig [I32, Ptr] => Void
 machine def zr_args_init(argc, argv)
   args = zr_ary_new(4)
+  table = zr_os_argv(argc, argv)
   i = 1
-  while i < Machine.word(argc)
-    arg = Machine.ptr(Machine.load64(argv + (i * 8), 0))
+  while table != 0 && Machine.load64(table, 0) != 0 && Machine.load64(table + (i * 8), 0) != 0
+    arg = Machine.ptr(Machine.load64(table + (i * 8), 0))
     zr_ary_push(args, zr_str_new(arg, zr_cstr_len(arg)))
     i += 1
   end

@@ -31,7 +31,7 @@ class Time
 
   class << self
     def now(**options)
-      at_ns(Primitive.zr_clock_ns(Process::CLOCK_REALTIME), options[:in])
+      at_ns(Primitive.zr_clock_ns(Process.send(:clock_id, Process::CLOCK_REALTIME, "clock_gettime")), options[:in])
     end
 
     # timev.rb's: a subsec of false is none.
@@ -285,7 +285,7 @@ class Time
     # This moment, and the kind a zone argument names: what `Time.now`
     # and a bare `Time.new` both seat.
     def now_parts(zone)
-      [Primitive.zr_clock_ns(Process::CLOCK_REALTIME), zone.nil? ? :local : parse_zone(zone)]
+      [Primitive.zr_clock_ns(Process.send(:clock_id, Process::CLOCK_REALTIME, "clock_gettime")), zone.nil? ? :local : parse_zone(zone)]
     end
 
     def civil(year, month, day, hour, min, sec, zone, usec = nil)

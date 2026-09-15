@@ -1403,9 +1403,12 @@ class IO
 
     flags = Primitive.zr_io_flags(@fd)
     raise SystemCallError.new(nil, -flags) if flags < 0
-    return if (flags & 3) == 2
 
-    raise Errno::EINVAL unless (@readable && @writable ? 2 : (@writable ? 1 : 0)) == (flags & 3)
+    access = flags & ACCESS.fetch(:mask)
+    return if access == ACCESS.fetch(:both)
+
+    want = @readable && @writable ? :both : (@writable ? :write : :read)
+    raise Errno::EINVAL unless access == ACCESS.fetch(want)
   end
 
   # An internal encoding converts what was read on the way in, which is

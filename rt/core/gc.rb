@@ -163,13 +163,15 @@ module Process
   # A clock is a raw id or the name of one of this module's own CLOCK_
   # constants. The symbol spelling is the portable one: a platform that
   # lacks the clock answers a rescuable Errno::EINVAL here rather than a
-  # NameError at the constant read.
+  # NameError at the constant read. An OS whose clocks ruby names with
+  # Symbols (WASI) maps each to its id in CLOCK_IDS.
   def self.clock_id(id, verb)
     Primitive.attr! :hidden
     return Primitive.zr_index_operand_m(id) unless id.is_a?(Symbol)
+    return CLOCK_IDS.fetch(id) if CLOCK_IDS.key?(id)
     raise Errno::EINVAL, "#{verb}(#{id.inspect})" unless id.start_with?("CLOCK_") && const_defined?(id)
 
-    const_get(id)
+    clock_id(const_get(id), verb)
   end
 
   def self.in_unit(ns, unit)

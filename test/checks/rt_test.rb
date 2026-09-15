@@ -14,11 +14,11 @@ require_relative "../../lib/ze0/native/build"
 # one's.
 class RtTest < Minitest::Test
   # Also read by `wasm_test.rb`, which runs these programs as modules.
-  def self.compile(rb)
+  def self.compile(rb, target = Ze0::Target.default)
     symbols = Ze0::Machine::Symbols.new
-    unit = Ze0::Machine.unit(Ze0::Zr.kernel_files + [rb], symbols: symbols)
-    functions, data = Ze0::Zr.core(unit, symbols)
-    [unit.functions + functions, unit.data + data + Ze0::Zr.symbol_names(symbols) + Ze0::Zr.load_tables, unit.raw]
+    unit = Ze0::Machine.unit(Ze0::Zr.kernel_files(target) + [rb], symbols: symbols)
+    functions, data = Ze0::Zr.core(unit, symbols, target)
+    [unit.functions + functions, unit.data + data + Ze0::Zr.symbol_names(symbols) + Ze0::Zr.load_tables(target: target), unit.raw]
   end
 
   Dir[File.join(ROOT, "test/rt/*.rb")].sort.each do |rb|

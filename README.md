@@ -120,8 +120,10 @@ lib/ze0/native/          the build driver and the toolchain
 lib/ze0/native/link/     one linker per target: darwin (ze0's own, else cc) and static (cc -static)
 lib/ze0/harness/         the corpus runner: the test-file format and the sweep (not in the gem)
 rt/kernel/               the runtime's kernel, in the kernel dialect; os.rb names the OS layer's calls
-rt/kernel/os/<os>/       one OS layer: errno, the variadic calls, struct layouts, stacks, the JIT
-rt/kernel/arch/<arch>/   one machine layer: the context zr_switch saves and loads
+rt/kernel/os/<os>/       one OS layer: errno, the variadic calls, struct layouts, stacks, the JIT;
+                         on wasi, the libc calls themselves over WASI preview 1
+rt/kernel/arch/<arch>/   one machine layer: the context zr_switch saves and loads; on wasm32,
+                         what a module without C or a second stack answers
 rt/core/                 the core library, in ordinary Ruby
 rt/core/os/<os>/         the numbers an OS gives errno, File, IO and Process constants
 rt/ext/                  the native halves of extensions, in ordinary Ruby

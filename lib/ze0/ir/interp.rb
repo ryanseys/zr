@@ -131,7 +131,7 @@ module Ze0
           @memory.reserve(len, 0x4000)
         end
 
-        CALLS = { "write" => :sys_write, "exit" => :sys_exit, "abort" => :sys_abort, "mmap" => :sys_mmap }.freeze
+        CALLS = { "write" => :sys_write, "exit" => :sys_exit, "_exit" => :sys_exit, "abort" => :sys_abort, "mmap" => :sys_mmap }.freeze
       end
 
       # One call's state: the values it has defined, and the addresses of

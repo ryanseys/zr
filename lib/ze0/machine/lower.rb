@@ -282,6 +282,16 @@ module Ze0
         end
       end
 
+      # `fold` for a def in `file`, so that a refusal names that file and
+      # not the last one declared.
+      def fold_in(file, node)
+        outer = @file
+        @file = file
+        fold(node)
+      ensure
+        @file = outer
+      end
+
       def declare_struct(node)
         name, fields = node.arguments&.arguments
         refuse(node, "a struct is `Machine.struct :Name, field: Type, ...`") unless name.is_a?(Prism::SymbolNode) && fields.is_a?(Prism::KeywordHashNode)
@@ -553,7 +563,7 @@ module Ze0
       # A size or an offset: an integer, a constant, or an operator over
       # those, folded at compile time.
       def immediate(node)
-        @unit.fold(node)
+        @unit.fold_in(@d.file, node)
       end
 
       # An integer literal, or a constant, takes the type wanted here.

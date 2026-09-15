@@ -208,7 +208,8 @@ module Ze0
               Native::Build.wasm(functions, data, out, raw: raw)
             end
       abort "ze0: #{why}" if why
-      exec("wasmtime", out, *rest) if verb == "run"
+      # The module sees the working directory, as a program ruby runs does.
+      exec("wasmtime", "run", "--dir", ".", out, *rest) if verb == "run"
       exit 0
     end
 

@@ -48,7 +48,6 @@ module Ze0
           dlsym
           dup
           dup2
-          ecvt
           endgrent
           endpwent
           erf
@@ -61,7 +60,6 @@ module Ze0
           fchmod
           fclose
           fcntl
-          fcvt
           fdopendir
           fileno
           flock

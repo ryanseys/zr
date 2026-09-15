@@ -4,6 +4,12 @@
 Machine.import "_NSGetEnviron", [] => Ptr
 Machine.import "arc4random", [] => I32
 
+# The program's NULL-ended arguments, which main was given.
+sig [I32, Ptr] => Ptr
+machine def zr_os_argv(argc, argv)
+  argv
+end
+
 # RUBY_PLATFORM, as ruby 4.0.6 built for this OS and machine names it.
 sig [] => Value
 machine def zr_os_ruby_platform
@@ -54,6 +60,9 @@ end
 
 # `_SC_NPROCESSORS_ONLN`.
 SC_NPROCESSORS_ONLN = 58
+
+# The clock that never jumps, as clock_gettime(2) numbers it.
+CLOCK_MONOTONIC = 6
 
 # darwin's utsname: five fields of 256 bytes each, sysname, nodename,
 # release, version and machine.

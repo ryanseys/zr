@@ -112,7 +112,8 @@ module Ze0
       end
 
       # The same functions and data as one WASI module. A raw function,
-      # or a libSystem call the module has no shim for, has no wasm form:
+      # or a libc call neither the OS layer nor the floor answers, has no
+      # wasm form:
       # its place is taken by a function that stops by name when called.
       # Data another library defines (an oniguruma encoding) has none
       # either: its place is a zero word, since every call that reads it

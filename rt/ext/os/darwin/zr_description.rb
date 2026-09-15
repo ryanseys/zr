@@ -1382,6 +1382,7 @@ module Ze0
         d zr_bug Void bytes:Ptr len:Word
         d zr_memcpy Void to:Ptr from:Ptr n:Word
         d zr_unimplemented Value what:Value
+        d zr_notimplement Value name:Ptr len:Word
         d zr_unloadable Value what:Value
         d zr_raise_stop Value klass:Value what:Value
         d zr_weak_list Ptr
@@ -1416,6 +1417,7 @@ module Ze0
         d zr_zlib_crc_table Value
         d zr_zlib_version Value
         d zr_zlib_message Value err:Value
+        d zr_os_argv Ptr argc:I32 argv:Ptr
         d zr_os_ruby_platform Value
         d zr_os_environ Ptr
         d zr_os_random Word
@@ -1426,7 +1428,6 @@ module Ze0
         d zr_os_issetugid Value
         d zr_os_cospi F64 x:F64
         d zr_os_sinpi F64 x:F64
-        d zr_os_float_digits Value v:Value ndigit:Value fixed:Value
         d zr_os_errno Word
         d zr_os_set_errno Void n:Word
         d zr_os_fcntl I32 fd:I32 command:I32 argument:Word
@@ -1727,6 +1728,7 @@ module Ze0
         c ZLIB_INFLATE_SYNC 6
         c ZLIB_INFLATE_SYNC_POINT 7
         c SC_NPROCESSORS_ONLN 58
+        c CLOCK_MONOTONIC 6
         c UTSNAME_LEN 1280
         c UTSNAME_FIELD 256
         c SPAWN_CLOEXEC_DEFAULT 16384

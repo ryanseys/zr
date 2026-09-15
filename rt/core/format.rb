@@ -383,7 +383,7 @@ module Kernel
       digits, point = Primitive.zr_float_shortest(x)
       k = point + precision
       if k <= 0
-        exact, _, _ = Primitive.zr_os_float_digits(x, 800, false)
+        exact, _ = exact_digits(x, 800)
         exact = exact[0, exact.size - 1] while exact.end_with?("0")
         return zero_text(precision, flags) unless k == 0 && exact > "5"
 
@@ -402,7 +402,7 @@ module Kernel
     # even when they are longer, else the exact digits.
     def rounded_digits(x, digits, point, k)
       Primitive.attr! :hidden
-      return Primitive.zr_os_float_digits(x, k, false).first(2) if digits.size < k
+      return exact_digits(x, k) if digits.size < k
       return [digits, point] if digits.size == k
 
       kept = digits[0, k]
@@ -415,6 +415,39 @@ module Kernel
         point += 1
       end
       [digits, point]
+    end
+
+    # The first k significant digits of x's exact decimal value, rounded
+    # half to even, and where the point falls after them, as ecvt(3)
+    # gives them: x is its mantissa times a power of two, so the digits
+    # are one Integer division.
+    def exact_digits(x, k)
+      Primitive.attr! :hidden
+      low, high = Primitive.zr_float_halves(x)
+      bits = (high << 32) | low
+      biased = (bits >> 52) & 0x7ff
+      mantissa = bits & 0xf_ffff_ffff_ffff
+      return ["0" * k, 1] if biased == 0 && mantissa == 0
+
+      if biased == 0
+        biased = 1
+      else
+        mantissa |= 1 << 52
+      end
+      shift = biased - 1075
+      num, den = shift >= 0 ? [mantissa << shift, 1] : [mantissa, 1 << -shift]
+      # 10**(point - 1) <= num / den < 10**point
+      point = num.to_s.size - den.to_s.size
+      point += 1 while num >= den * 10**point
+      point -= 1 while num * 10 < den * 10**point
+      scale = k - point
+      num *= 10**scale if scale.positive?
+      den *= 10**-scale if scale.negative?
+      q, r = num.divmod(den)
+      q += 1 if 2 * r > den || (2 * r == den && q.odd?)
+      return [q.to_s, point] unless q == 10**k
+
+      [(q / 10).to_s, point + 1]
     end
 
     def zero_text(precision, flags)

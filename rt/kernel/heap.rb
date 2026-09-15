@@ -493,7 +493,7 @@ end
 sig [] => Void
 machine def zr_collect
   h = zr_heap()
-  started = zr_fix2long(zr_clock_ns(zr_fix(6)))
+  started = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
   Heap.set_collections(h, Heap.collections(h) + 1)
   Machine.store64(zr_marking(), 0, QNIL)
   zr_mark_roots()
@@ -505,7 +505,7 @@ machine def zr_collect
   while Heap.arenas(h) < want && Heap.arenas(h) < ARENA_LIMIT
     zr_arena_add()
   end
-  Heap.set_nanoseconds(h, Heap.nanoseconds(h) + (zr_fix2long(zr_clock_ns(zr_fix(6))) - started))
+  Heap.set_nanoseconds(h, Heap.nanoseconds(h) + (zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC))) - started))
 end
 
 # The nanoseconds every collection so far has taken.

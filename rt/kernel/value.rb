@@ -196,6 +196,17 @@ machine def zr_unimplemented(what)
   zr_raise_stop(zr_core_class(Machine.id(:NotImplementedError)), what)
 end
 
+# A call this OS does not have: the NotImplementedError rb_notimplement
+# raises, `<name>() function is unimplemented on this machine`.
+sig [Ptr, Word] => Value
+machine def zr_notimplement(name, len)
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, name, len)
+  zr_buf_push(b, Machine.bytes("() function is unimplemented on this machine"), 44)
+  zr_raise_buf(zr_core_class(Machine.id(:NotImplementedError)), b)
+end
+
 # A feature ruby carries that this runtime has no file for: a LoadError
 # naming it, so the `rescue LoadError` a library guards an optional
 # require with still runs.

@@ -1,8 +1,13 @@
-# Writes rt/core/os/darwin/errno.rb: the errno and signal tables of the ruby the
-# .ruby-version pins. Every Errno name is a row: one per class, with
-# the errno it stands for, and the other names of a class as aliases
-# (ruby gives the errnos this platform lacks one class, NOERROR).
-# Signal.list is copied in ruby's own order.
+# Writes rt/core/os/<os>/errno.rb: the errno and signal tables of the
+# ruby running it, which is the .ruby-version's on the OS it names.
+# Every Errno name is a row: one per class, with the errno it stands
+# for, and the other names of a class as aliases (ruby gives the errnos
+# this platform lacks one class, NOERROR). Signal.list is copied in
+# ruby's own order.
+#
+#   ruby tools/errno.rb
+require_relative "layer"
+
 errno = Errno.constants.group_by { |name| Errno.const_get(name) }.map do |klass, names|
   primary = klass.name.delete_prefix("Errno::").to_sym
   [primary, klass::Errno, (names - [primary]).sort]
@@ -24,7 +29,7 @@ def rows(items, indent)
   lines.map { |line| (" " * indent) + line }.join("\n")
 end
 
-File.write(File.expand_path("../rt/core/os/darwin/errno.rb", __dir__), <<~RUBY)
+Layer.write("core", "errno.rb", <<~RUBY)
   # Written by tools/errno.rb from ruby #{RUBY_VERSION} on #{RUBY_PLATFORM}; do not edit.
   # Every Errno name and the errno it stands for, one row per class; a
   # name in ALIASES is another name for a class in CODES. Signal::LIST is
@@ -46,4 +51,3 @@ File.write(File.expand_path("../rt/core/os/darwin/errno.rb", __dir__), <<~RUBY)
     private_constant :LIST
   end
 RUBY
-puts "rt/core/os/darwin/errno.rb: #{codes.size} classes, #{aliases.size} aliases, #{signals.size} signals"

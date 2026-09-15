@@ -77,7 +77,7 @@ class ProgramsTest < Minitest::Test
       skip "the program reads the host" if File.open(rb, &:readline).include?("native only")
 
       want = oracle(rb)
-      program = Ze0::Zr.program(File.read(rb), rb)
+      program = Ze0::Zr.program(File.read(rb), rb, target: Ze0::Target::WASM32_WASI)
       Dir.mktmpdir("ze0-programs-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
         assert_nil Ze0::Native::Build.wasm_program(program, wasm)

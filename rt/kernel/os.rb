@@ -7,7 +7,7 @@
 # The constants each OS defines as well: EINTR, EBADF, EPROTOTYPE,
 # EAI_SYSTEM, NSIG, O_NONBLOCK, O_NONBLOCK_OFF, O_CLOEXEC, PTY_OPEN_FLAGS,
 # TIOCGWINSZ, TIOCSWINSZ, TERMIOS_LEN, STAT_LEN, SC_NPROCESSORS_ONLN,
-# UTSNAME_LEN, UTSNAME_FIELD, RTLD_DEFAULT.
+# UTSNAME_LEN, UTSNAME_FIELD, RTLD_DEFAULT, CLOCK_MONOTONIC.
 #
 # The core library's OS layer, under rt/core/os/<os>/, holds the numbers
 # ruby gives each OS's constants: errno.rb, io_constants.rb,
@@ -27,6 +27,7 @@
 #   zr_os_wait_fd        [Value, Value, Value] => Value
 #
 # the process
+#   zr_os_argv           [I32, Ptr] => Ptr
 #   zr_os_ruby_platform  [] => Value
 #   zr_os_environ        [] => Ptr
 #   zr_os_random         [] => Word
@@ -48,7 +49,6 @@
 # floats
 #   zr_os_cospi          [F64] => F64
 #   zr_os_sinpi          [F64] => F64
-#   zr_os_float_digits   [Value, Value, Value] => Value
 #
 # sockets
 #   zr_os_sockaddr_len   [Ptr] => Word
