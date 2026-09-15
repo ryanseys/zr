@@ -34,6 +34,32 @@ class WasmTest < Minitest::Test
     end
   end
 
+  # A dialect import that names its wasm module reaches the host's own
+  # call, and a native build refuses it by name.
+  IMPORTED = <<~RUBY
+    Machine.import "fd_write", [I32, I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
+
+    sig [I32, Ptr] => I32
+    machine def main(argc, argv)
+      iov = Machine.slot(16)
+      Machine.store32(iov, 0, Machine.i32(Machine.bytes("hi\n")))
+      Machine.store32(iov, 4, Machine.i32(3))
+      fd_write(Machine.i32(1), Machine.i32(iov), Machine.i32(1), Machine.i32(iov + 8))
+      0
+    end
+  RUBY
+
+  def test_an_import_from_a_wasm_module
+    functions, data = Ze0::Machine.compile(IMPORTED, "imported.rb")
+    Dir.mktmpdir("ze0-wasm-") do |dir|
+      wasm = File.join(dir, "imported.wasm")
+      assert_nil Ze0::Native::Build.wasm(functions, data, wasm)
+      run_module(wasm, "hi\n")
+      assert_equal "fd_write is a wasm import from wasi_snapshot_preview1, which no native link has",
+                   Ze0::Native::Build.binary(functions, data, File.join(dir, "imported"), work: dir)
+    end
+  end
+
   Dir[File.join(ROOT, "test/zr/*.rb")].sort.each do |rb|
     name = File.basename(rb, ".rb")
     define_method("test_zr_#{name}") do

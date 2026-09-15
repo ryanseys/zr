@@ -9,7 +9,9 @@ module Ze0
     # Comparisons that read their operands as unsigned: pointers.
     UNSIGNED = %w[Ptr].freeze
 
-    Import = Struct.new(:name, :params, :ret)
+    # `from`: the module a wasm import comes from, or nil for a symbol
+    # the link finds.
+    Import = Struct.new(:name, :params, :ret, :from)
     Def = Struct.new(:name, :params, :ret, :node, :file)
     # A function delivered as machine code: `Machine.raw "zr_switch"`.
     Raw = Struct.new(:name, :params, :ret)

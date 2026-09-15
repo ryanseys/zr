@@ -175,16 +175,17 @@ module Ze0
       end
 
       # Stop functions for the raw functions and for every undefined
-      # callee that is not a shim and not in `known`.
+      # callee that is not a wasm import, not in the module's floor and
+      # not in `known`.
       def stops(functions, raw, data, known)
         out = raw.map do |r|
           params, ret = Backend::Aarch64::Stub::ALL.fetch(r.name)
           stop(r.name, params.map { |t| Machine::TYPES.fetch(t.to_s) }, Machine::TYPES.fetch(ret.to_s), data)
         end
-        defined = functions.map(&:name) + out.map(&:name) + Backend::Wasm.shims.keys + known
+        defined = functions.map(&:name) + out.map(&:name) + Backend::Wasm.floor + known
         functions.each do |f|
           f.callees.each do |c|
-            next if defined.include?(c.symbol)
+            next if c.from || defined.include?(c.symbol)
 
             sig = f.sigs.find { |x| x.sig == c.sig }
             out << stop(c.symbol, sig.params, sig.ret, data)

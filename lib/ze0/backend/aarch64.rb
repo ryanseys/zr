@@ -17,6 +17,9 @@ module Ze0
       # one `Obj::Unit`. `export` makes every data object visible to the
       # link, for an object another refers to.
       def unit(functions, data, raw: [], export: false)
+        imported = functions.flat_map(&:callees).find(&:from)
+        raise Refused, "#{imported.symbol} is a wasm import from #{imported.from}, which no native link has" if imported
+
         out = Obj::Unit.new
         defined = (functions.map(&:name) + data.map(&:name) + raw.map(&:name)).to_set
         functions.each { |f| out.functions << Codegen.new(f, defined: defined).compile }

@@ -15,8 +15,8 @@ module Ze0
       # The runtime's prelude, with `pending` the symbols a program defines.
       def prelude(functions, data, pending:) = Codegen.new(functions, data, pending: pending).prelude
 
-      # The libSystem names the module answers itself.
-      def shims = Codegen::SHIMS
+      # The libc names a module answers itself where nothing defines them.
+      def floor = Codegen::FLOOR.keys
     end
   end
 end

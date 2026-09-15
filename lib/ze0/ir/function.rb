@@ -13,7 +13,8 @@ module Ze0
     Slot = Struct.new(:bytes, :align)
     Global = Struct.new(:gv, :symbol, :colocated)
     Sig = Struct.new(:sig, :params, :ret)
-    Callee = Struct.new(:fn, :symbol, :sig, :colocated)
+    # `from`: the wasm module an imported callee comes from, or nil.
+    Callee = Struct.new(:fn, :symbol, :sig, :colocated, :from)
 
     # A basic block: its parameters as `[value, type]` pairs, and its
     # instructions in order.
@@ -63,12 +64,13 @@ module Ze0
         end
       end
 
-      # A function this program defines.
-      def callee(symbol, params, ret, colocated: true)
+      # A function this program defines, or one it imports `from` a wasm
+      # module.
+      def callee(symbol, params, ret, colocated: true, from: nil)
         @callee_of[symbol] ||= begin
           sig = signature(params, ret)
           fn = "fn#{@callees.size}"
-          @callees << Callee.new(fn, symbol, sig, colocated)
+          @callees << Callee.new(fn, symbol, sig, colocated, from)
           fn
         end
       end

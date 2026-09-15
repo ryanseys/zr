@@ -83,6 +83,7 @@ module Ze0
         end
         @consts.each_key { |name| const_for(name) }
         @structs.each_key { |name| struct_for(name) }
+        @defs.each_value { |d| answers_import(d) }
         @collects = collecting_defs
         static(nil, ROOTS, 8) unless @collects.empty?
         @defs.each_value { |d| @functions << Function.new(self, d).lower }
@@ -189,8 +190,8 @@ module Ze0
           when :import
             refuse(node, "an import is `Machine.import \"name\", [types] => type`") unless machine?(node.receiver)
             name, sig = node.arguments.arguments
-            params, ret = signature(sig)
-            @imports[name.unescaped] = Import.new(name.unescaped, params, ret)
+            params, ret, from = import_signature(sig)
+            @imports[name.unescaped] = Import.new(name.unescaped, params, ret, from)
           when :collects
             refuse(node, "`Machine.collects` takes the symbol of a machine def") unless machine?(node.receiver) && node.arguments&.arguments&.first.is_a?(Prism::SymbolNode)
             @collectors << node.arguments.arguments.first.unescaped
@@ -218,10 +219,39 @@ module Ze0
         end
       end
 
+      # An import's `[[type names], type name, module]`: `from:`, which
+      # names the wasm module it comes from, is one more pair of the same
+      # hash.
+      def import_signature(node)
+        refuse(node, "a signature is `[types] => type`") unless node.is_a?(Prism::KeywordHashNode) && node.elements.size.between?(1, 2)
+        pair, from = node.elements
+        return [*pair_signature(pair), nil] unless from
+        unless from.key.is_a?(Prism::SymbolNode) && from.key.unescaped == "from" && from.value.is_a?(Prism::StringNode)
+          refuse(from, "an import names its wasm module with `from: \"module\"`")
+        end
+
+        [*pair_signature(pair), from.value.unescaped]
+      end
+
+      # A def of an imported name answers that import's calls in its
+      # place: an OS layer defines the libc call its OS does not have. It
+      # takes the import's signature, or a call written for one would
+      # pass the other.
+      def answers_import(d)
+        import = @imports[d.name] or return
+        refuse(d.node, "#{d.name} is a raw function, and cannot be defined") if import.is_a?(Raw)
+        return if d.params.map(&:last) == import.params && d.ret == import.ret
+
+        refuse(d.node, "#{d.name} answers an import of [#{import.params.join(", ")}] => #{import.ret}, and its sig differs")
+      end
+
       # `[types] => type` as `[[type names], type name]`.
       def signature(node)
         refuse(node, "a signature is `[types] => type`") unless node.is_a?(Prism::KeywordHashNode) && node.elements.size == 1
-        pair = node.elements.first
+        pair_signature(node.elements.first)
+      end
+
+      def pair_signature(pair)
         refuse(pair.key, "a signature's parameters are an array of types") unless pair.key.is_a?(Prism::ArrayNode)
         [pair.key.elements.map { |t| type_name(t) }, type_name(pair.value)]
       end
@@ -699,7 +729,7 @@ module Ze0
 
       # A call to an import or to a def of this file.
       def target(node, name, args)
-        callee = @unit.import_for(name) || @unit.def_for(name) or refuse(node, "#{name} is not an import or a machine def here")
+        callee = @unit.def_for(name) || @unit.import_for(name) or refuse(node, "#{name} is not an import or a machine def here")
         refuse(node, "#{name} takes #{callee.params.size} arguments, not #{args.size}") if args.size != callee.params.size
         types = callee.is_a?(Def) ? callee.params.map(&:last) : callee.params
         values = args.zip(types).map do |arg, type|
@@ -709,7 +739,8 @@ module Ze0
         end
         return inline(callee, values) if @unit.inline?(callee) && !@inlining.include?(callee.name)
 
-        fn = @f.callee(name, types.map { |t| ir_type(t) }, ir_type(callee.ret), colocated: !callee.is_a?(Import))
+        from = callee.from if callee.is_a?(Import)
+        fn = @f.callee(name, types.map { |t| ir_type(t) }, ir_type(callee.ret), colocated: !callee.is_a?(Import), from: from)
         if callee.ret == "Void"
           @f.call(fn, values)
           [nil, "Void"]

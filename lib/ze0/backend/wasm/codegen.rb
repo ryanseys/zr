@@ -45,8 +45,9 @@ module Ze0
                      and: 0x83, or: 0x84, xor: 0x85, shl: 0x86, shr_s: 0x87, shr_u: 0x88,
                      eq: 0x51, ne: 0x52, lt_s: 0x53, lt_u: 0x54, gt_s: 0x55, gt_u: 0x56, le_s: 0x57, le_u: 0x58, ge_s: 0x59, ge_u: 0x5A }
         }.freeze
-        # The libSystem calls the module answers itself.
-        SHIMS = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]], "exit" => [[0x7F], []], "_exit" => [[0x7F], []], "abort" => [[], []],
+        # The libc calls a module answers itself, where no function of the
+        # name is defined.
+        FLOOR = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]], "exit" => [[0x7F], []], "_exit" => [[0x7F], []], "abort" => [[], []],
                   "malloc" => [[0x7E], [0x7E]], "free" => [[0x7E], []], "getenv" => [[0x7E], [0x7E]],
                   "memmove" => [[0x7E, 0x7E, 0x7E], [0x7E]], "memset" => [[0x7E, 0x7F, 0x7E], [0x7E]],
                   "pthread_self" => [[], [0x7E]], "pthread_get_stackaddr_np" => [[0x7E], [0x7E]], "pthread_get_stacksize_np" => [[0x7E], [0x7E]],
@@ -63,6 +64,23 @@ module Ze0
                   "sigaction" => [[0x7F, 0x7E, 0x7E], [0x7F]],
                   "onig_initialize" => [[0x7E, 0x7F], [0x7F]], "onig_free" => [[0x7E], []],
                   "onig_new" => [[0x7E, 0x7E, 0x7E, 0x7F, 0x7E, 0x7E, 0x7E], [0x7F]], "onig_ze0_take_warnings" => [[0x7E, 0x7F], [0x7F]] }.freeze
+
+        WASI = "wasi_snapshot_preview1"
+        # An import: the module it comes from, its name, and its wasm
+        # parameter and result types.
+        Import = Struct.new(:from, :name, :params, :results)
+        # The imports the floor and `_start` call, which a module carries
+        # whatever its functions import.
+        OWN_IMPORTS = [Import.new(WASI, "fd_write", [0x7F, 0x7F, 0x7F, 0x7F], [0x7F]),
+                       Import.new(WASI, "proc_exit", [0x7F], []),
+                       Import.new(WASI, "fd_filestat_get", [0x7F, 0x7F], [0x7F]),
+                       Import.new(WASI, "fd_fdstat_get", [0x7F, 0x7F], [0x7F]),
+                       Import.new(WASI, "fd_close", [0x7F], [0x7F]),
+                       Import.new(WASI, "fd_sync", [0x7F], [0x7F]),
+                       Import.new(WASI, "fd_read", [0x7F, 0x7F, 0x7F, 0x7F], [0x7F]),
+                       Import.new(WASI, "fd_seek", [0x7F, 0x7E, 0x7F, 0x7F], [0x7F]),
+                       Import.new(WASI, "clock_time_get", [0x7F, 0x7E, 0x7F], [0x7F]),
+                       Import.new(WASI, "random_get", [0x7F, 0x7F], [0x7F])].freeze
 
         # How many i32 locals a shim body declares.
         LOCALS = { "malloc" => 1, "fstat" => 3, "fcntl" => 1, "isatty" => 1, "read" => 1, "lseek" => 1 }.freeze
@@ -83,7 +101,7 @@ module Ze0
         # that a program defines, at the indices and addresses promised to
         # its bodies. A program's module lays its own part after this one
         # and must honour the promises (`pending`).
-        Prelude = Struct.new(:sigs, :bodies, :types, :data_at, :data_end, :segments, :table, :pending) do
+        Prelude = Struct.new(:imports, :shims, :sigs, :bodies, :types, :data_at, :data_end, :segments, :table, :pending) do
           # `pending`: `{ functions: [names], data: { name => address } }`.
           def functions = sigs.keys
         end
@@ -102,7 +120,7 @@ module Ze0
         def prelude
           layout
           bodies = @functions.map { |f| Body.new(self, f).emit }
-          Prelude.new(@functions.to_h { |f| [f.name, signature(f)] }, bodies, @types, @data_at, @data_end,
+          Prelude.new(@imports, @shims, @functions.to_h { |f| [f.name, signature(f)] }, bodies, @types, @data_at, @data_end,
                       @data.reject { |d| d.section == :bss }.map { |d| [@data_at[d.name], patched(d)] }, @table, @promised)
         end
 
@@ -114,14 +132,15 @@ module Ze0
 
           @index["_start"] = @index.size
           own = @functions.map { |f| Body.new(self, f).emit }
-          bodies = @shims.map { |name, _| shim(name) } + (pre ? pre.bodies : []) + own + [start_body]
+          bodies = @shims.map { |name| shim(name) } + (pre ? pre.bodies : []) + own + [start_body]
           sigs = (pre ? pre.sigs.values : []) + @functions.map { |f| signature(f) } + [[[], []]]
-          (@imports.map { |(_, _, p, r)| [p, r] } + @shims.values + sigs).each { |t| type_index(t) }
+          shim_sigs = @shims.map { |name| FLOOR.fetch(name) }
+          (@imports.map { |i| [i.params, i.results] } + shim_sigs + sigs).each { |t| type_index(t) }
 
           out = +"\0asm\x01\0\0\0".b
           out << section(1, vec(@types.map { |p, r| "\x60".b + vec(p.map(&:chr)) + vec(r.map(&:chr)) }))
-          out << section(2, vec(@imports.map { |(mod, name, p, r)| name(mod) + name(name) + "\0".b + leb(type_index([p, r])) }))
-          out << section(3, vec((@shims.values + sigs).map { |t| leb(type_index(t)) }))
+          out << section(2, vec(@imports.map { |i| name(i.from) + name(i.name) + "\0".b + leb(type_index([i.params, i.results])) }))
+          out << section(3, vec((shim_sigs + sigs).map { |t| leb(type_index(t)) }))
           out << section(4, vec(["\x70\x00".b + leb(@table.size + 1)])) unless @table.empty?
           stack_base = align(@data_end, 16)
           heap_base = align(stack_base + (STACK_PAGES * PAGE), 16)
@@ -139,24 +158,19 @@ module Ze0
         # Function index space: imports first, then the shims, then the
         # prelude's functions, then ours (the prelude's pending ones first,
         # where it promised them). Data after the prelude's, the pending
-        # objects first, at the addresses promised. Types and the table
-        # continue the prelude's.
+        # objects first, at the addresses promised. Imports, shims, types
+        # and the table continue the prelude's.
         def layout
           pre = @prelude
-          @imports = [["wasi_snapshot_preview1", "fd_write", [0x7F, 0x7F, 0x7F, 0x7F], [0x7F]],
-                      ["wasi_snapshot_preview1", "proc_exit", [0x7F], []],
-                      ["wasi_snapshot_preview1", "fd_filestat_get", [0x7F, 0x7F], [0x7F]],
-                      ["wasi_snapshot_preview1", "fd_fdstat_get", [0x7F, 0x7F], [0x7F]],
-                      ["wasi_snapshot_preview1", "fd_close", [0x7F], [0x7F]],
-                      ["wasi_snapshot_preview1", "fd_sync", [0x7F], [0x7F]],
-                      ["wasi_snapshot_preview1", "fd_read", [0x7F, 0x7F, 0x7F, 0x7F], [0x7F]],
-                      ["wasi_snapshot_preview1", "fd_seek", [0x7F, 0x7E, 0x7F, 0x7F], [0x7F]],
-                      ["wasi_snapshot_preview1", "clock_time_get", [0x7F, 0x7E, 0x7F], [0x7F]],
-                      ["wasi_snapshot_preview1", "random_get", [0x7F, 0x7F], [0x7F]]]
-          @shims = SHIMS
+          @imports = pre ? pre.imports : imports
+          if pre
+            extra = imported.map(&:name) - @imports.map(&:name)
+            raise Refused, "the prelude does not import #{extra.join(", ")}" unless extra.empty?
+          end
+          @shims = pre ? pre.shims : FLOOR.keys - @functions.map(&:name) - (@pending ? @pending[:functions] : [])
           @index = {}
-          @imports.each_with_index { |(_, name, *), i| @index[name] = i }
-          @shims.each_key { |name| @index[name] = @index.size }
+          @imports.each_with_index { |import, i| @index[import.name] = i }
+          @shims.each { |name| @index[name] = @index.size }
           pre&.functions&.each { |name| @index[name] = @index.size }
           if pre
             missing = pre.pending[:functions] - @functions.map(&:name)
@@ -176,12 +190,31 @@ module Ze0
 
           used = (@functions.flat_map { |f| f.callees.map(&:symbol) } - @index.keys).uniq
           promise(used)
-          unknown = used - @shims.keys - @promised[:functions]
+          unknown = used - @shims - @promised[:functions]
           raise Refused, "no wasm shim for #{unknown.join(", ")}" unless unknown.empty?
 
           taken = @functions.flat_map { |f| f.blocks.flat_map(&:insts).select { |i| i.op == :func_addr }.map { |i| f.callees.find { |c| c.fn == i.args[0] }.symbol } }
           named = @data.flat_map { |d| d.relocs.map(&:symbol) }.select { |name| @index.key?(name) }
           @table = ((pre ? pre.table : []) + taken + named).uniq
+        end
+
+        # The module's own imports, then each its functions name, in the
+        # order they first do.
+        def imports
+          (OWN_IMPORTS + imported).each_with_object({}) do |import, by_name|
+            known = by_name[import.name] ||= import
+            raise Refused, "#{import.name} is imported as #{known.to_a.inspect} and #{import.to_a.inspect}" unless known == import
+          end.values
+        end
+
+        # What the functions import, as the IR signature of each call says.
+        def imported
+          @functions.flat_map do |f|
+            f.callees.select(&:from).map do |c|
+              params, results = sig_type(f.sigs.find { |s| s.sig == c.sig })
+              Import.new(c.from, c.symbol, params, results)
+            end
+          end
         end
 
         # When emitting a prelude, the pending functions take the indices
@@ -214,18 +247,17 @@ module Ze0
           @index.fetch(name) { raise Refused, "no function named #{name}" }
         end
 
-        # The wasm parameter and result types a call to `name` must match.
         # The wasm parameter and result types a call to `name` must match;
         # nil for a function this module has not seen.
         def function_type(name)
-          return @shims[name] if @shims.key?(name)
+          return FLOOR[name] if @shims.include?(name)
           return @prelude.sigs[name] if @prelude&.sigs&.key?(name)
 
           @function_named ||= @functions.to_h { |x| [x.name, x] }
           f = @function_named[name]
           return signature(f) if f
 
-          @imports.find { |(_, n, *)| n == name }&.[](2..3)
+          @imports.find { |import| import.name == name }&.then { |import| [import.params, import.results] }
         end
 
         # The table index that stands for `name`'s address.
@@ -341,7 +373,7 @@ module Ze0
           # stops at `onig_search`, which names what is missing. Nothing it
           # compiles gives a warning.
           when "onig_initialize", "onig_free", "onig_ze0_take_warnings"
-            code << (SHIMS.fetch(name).last.empty? ? "".b : i32c(0))
+            code << (FLOOR.fetch(name).last.empty? ? "".b : i32c(0))
           when "onig_new"
             code << "\x20\x00".b << "\xA7".b << "\x42\x01".b << "\x37\x03".b << leb(0) << i32c(0)
           # A module takes no signals, so each one keeps the handler it
