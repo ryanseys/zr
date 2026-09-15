@@ -635,13 +635,16 @@ machine def zr_preempt
 end
 
 # The count ran out: it starts again, the handlers of any signal that
-# came run, and the turn goes on if a second thread armed the
-# preemption. Compiled back edges count down inline and call here only
+# came run, the finalizers a collection queued run, and the turn goes
+# on if a second thread armed the preemption. Compiled back edges count down inline and call here only
 # when the count reaches zero, which a caught signal makes it do.
 sig [] => Value
 machine def zr_preempt_expired
   Machine.store64(Machine.static(:preempt_count, 8), 0, PREEMPT_TICKS)
   if zr_trap_check() == QUNDEF
+    return Machine.value(QUNDEF)
+  end
+  if WeakList.len(zr_finalizer_queue()) > 0 && zr_finalizers_run() == QUNDEF
     return Machine.value(QUNDEF)
   end
   mid = Machine.load64(Machine.static(:preempt_mid, 8), 0)

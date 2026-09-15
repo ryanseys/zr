@@ -132,7 +132,8 @@ end
 
 # The queued finalizers, each proc called with its object's id; an
 # error in one is printed and passed over. Runs after a collection the
-# program asked for, never inside an allocation.
+# program asked for and at the next poll after any other, never inside
+# an allocation.
 sig [] => Value
 machine def zr_finalizers_run
   q = zr_finalizer_queue()
