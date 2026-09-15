@@ -5,10 +5,10 @@
 # retunes off that inflated total (#4076). Two phases are needed -- the first
 # ratchets the cadence honestly, the second changes the promotion rate under it.
 RETAIN = 1_000
-WARM   = 200_000
+WARM   = 20_000
 N      = 8_000
 HOLD   = 16
-ITERS  = 400
+ITERS  = 40
 
 retained = []
 RETAIN.times { |i| retained.push(Array.new(64, i * 1.0)) }

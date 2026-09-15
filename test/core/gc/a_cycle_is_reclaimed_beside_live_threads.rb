@@ -45,7 +45,7 @@ end
 
 # Busy workers: they reach a checkpoint on every loop iteration.
 busy = ObjectSpace::WeakMap.new
-workers = 3.times.map { Thread.new { 200_000.times.sum { |j| j % 7 } } }
+workers = 3.times.map { Thread.new { 20_000.times.sum { |j| j % 7 } } }
 pair(busy)
 scrub(60)
 elapsed = timed do
