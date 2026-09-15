@@ -70,6 +70,8 @@ class Encoding
       @opened = false
       @carried_cr = false
       @jis_in = false
+      # The set a stateful source reads in, which its escapes change.
+      @reading = @source && Encoding.send(:stateful?, @source) ? :ascii : nil
     end
 
     # A name as rb_to_encoding reads it: an Encoding answers its own, and
@@ -266,12 +268,25 @@ class Encoding
       tagged = @source ? bytes.dup.force_encoding(@source) : bytes
       at = 0
       while at < bytes.bytesize
-        width = @source ? Primitive.zr_str_char_len_at_m(tagged, at) : 1
-        # The piece carries the source's encoding, so its own code point
-        # is what the step reads. Sliced out of the plain bytes it would
-        # answer its first byte instead.
-        piece = tagged.byteslice(at, width)
-        if @source && !tagged.byteslice(at, width).valid_encoding?
+        if @reading
+          width = stateful_width(bytes, at)
+          return held_tail(bytes, at, partial, out, room) if width.nil?
+          return broken(bytes, at, 1) if width.zero?
+          if bytes.getbyte(at) == 0x1B
+            at += width
+            next
+          end
+
+          piece = stateful_piece(bytes, at, width)
+          return broken(bytes, at, width) if piece.nil?
+        else
+          width = @source ? Primitive.zr_str_char_len_at_m(tagged, at) : 1
+          # The piece carries the source's encoding, so its own code point
+          # is what the step reads. Sliced out of the plain bytes it would
+          # answer its first byte instead.
+          piece = tagged.byteslice(at, width)
+        end
+        if @source && !@reading && !piece.valid_encoding?
           if Encoding.send(:incomplete_tail?, bytes, at, @source)
             return held_tail(bytes, at, partial, out, room)
           end
@@ -302,6 +317,36 @@ class Encoding
       end
       @errinfo = [partial ? :source_buffer_empty : :finished, nil, nil, nil, nil]
       @errinfo.first
+    end
+
+    # How many bytes a stateful source's next piece holds: an escape,
+    # which sets the set the bytes after it read in, or one character of
+    # that set. nil where the text ends inside one, 0 for an escape the
+    # encoding has no set for.
+    def stateful_width(bytes, at)
+      Primitive.attr! :hidden
+      if bytes.getbyte(at) == 0x1B
+        return nil if bytes.bytesize - at < 3
+
+        mode = ESCAPES[bytes.byteslice(at, 3)]
+        return 0 if mode.nil?
+
+        @reading = mode
+        return 3
+      end
+      width = %i[kanji old_kanji].include?(@reading) ? 2 : 1
+      bytes.bytesize - at < width ? nil : width
+    end
+
+    # One character of a stateful source, as that source spells it alone:
+    # behind the escape of the set it reads in.
+    def stateful_piece(bytes, at, width)
+      Primitive.attr! :hidden
+      shift = @reading == :old_kanji ? "\e$@" : SHIFTS.fetch(@reading)
+      text = (@reading == :ascii ? bytes.byteslice(at, width) : shift + bytes.byteslice(at, width)).force_encoding(@source)
+      Encoding.send(:convert, text, Encoding::UTF_8, {})
+    rescue InvalidByteSequenceError
+      nil
     end
 
     # What waits inside the converter, into `out` as far as there is room
@@ -384,6 +429,7 @@ class Encoding
     def code_of(piece)
       Primitive.attr! :hidden
       return piece.getbyte(0) if @source.nil?
+      return piece.ord if @reading
       return piece.ord if @source.equal?(Encoding::UTF_8) || Encoding.send(:utf8_like?, @source)
 
       Encoding.send(:convert, piece, Encoding::UTF_8, {}).ord

@@ -1,19 +1,26 @@
 # The ISO-2022-JP family: stateful encodings, whose two-byte characters
 # stand between escapes. Ruby converts one through a multibyte encoding
 # that holds the same characters without a state: ISO-2022-JP through
-# stateless-ISO-2022-JP and EUC-JP, CP50220 and CP50221 through CP51932.
+# stateless-ISO-2022-JP and EUC-JP, CP50220 and CP50221 through CP51932,
+# and ISO-2022-JP-KDDI through stateless-ISO-2022-JP-KDDI.
 class Encoding
   # Each stateful encoding: the multibyte encoding it converts through,
-  # the stateless one between the two, and what becomes of a halfwidth
+  # the stateless one between the two, what becomes of a halfwidth
   # katakana, which ISO-2022-JP cannot hold, CP50221 holds as a set of
-  # its own, and CP50220 writes as the fullwidth one.
+  # its own, and CP50220 writes as the fullwidth one, and whether the
+  # multibyte encoding writes a lead byte before each two-byte character
+  # that names its set, as stateless-ISO-2022-JP-KDDI does.
   STATEFUL = {
-    "ISO-2022-JP" => ["EUC-JP", "stateless-ISO-2022-JP", nil],
-    "CP50220" => ["CP51932", nil, :fullwidth],
-    "CP50221" => ["CP51932", nil, :set]
+    "ISO-2022-JP" => ["EUC-JP", "stateless-ISO-2022-JP", nil, false],
+    "CP50220" => ["CP51932", nil, :fullwidth, false],
+    "CP50221" => ["CP51932", nil, :set, false],
+    "ISO-2022-JP-KDDI" => ["stateless-ISO-2022-JP-KDDI", nil, nil, true]
   }.freeze
 
-  ESCAPES = { "\e(B" => :ascii, "\e(J" => :ascii, "\e$B" => :kanji, "\e$@" => :kanji, "\e(I" => :kana }.freeze
+  ESCAPES = { "\e(B" => :ascii, "\e(J" => :ascii, "\e$B" => :kanji, "\e$@" => :old_kanji, "\e(I" => :kana }.freeze
+  # The lead byte of each two-byte set, where the multibyte encoding
+  # writes one: JIS X 0208, and JIS C 6226, the older one.
+  LEADS = { kanji: 0x92, old_kanji: 0x90 }.freeze
   SHIFTS = { ascii: "\e(B", kanji: "\e$B", kana: "\e(I" }.freeze
 
   # The halfwidth katakana from U+FF61 up, and the fullwidth ones CP50220
@@ -23,7 +30,7 @@ class Encoding
   FULLWIDTH = "。「」、・ヲァィゥェォャュョッーアイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワン゛゜"
   VOICED = "カキクケコサシスセソタチツテトハヒフヘホ"
   SEMI_VOICED = "ハヒフヘホ"
-  private_constant :STATEFUL, :ESCAPES, :SHIFTS, :HALFWIDTH, :FULLWIDTH, :VOICED, :SEMI_VOICED
+  private_constant :STATEFUL, :ESCAPES, :LEADS, :SHIFTS, :HALFWIDTH, :FULLWIDTH, :VOICED, :SEMI_VOICED
 
   def self.stateful?(encoding)
     Primitive.attr! :hidden
@@ -35,7 +42,7 @@ class Encoding
   # text back in ASCII at its end.
   def self.stateful_write(text, target, options)
     Primitive.attr! :hidden
-    base_name, stateless_name, kana = STATEFUL.fetch(target.name)
+    base_name, stateless_name, kana, led = STATEFUL.fetch(target.name)
     base = find(base_name)
     step = stateless_name ? find(stateless_name) : target
     path = [UTF_8, base, stateless_name && step, target].compact
@@ -54,6 +61,10 @@ class Encoding
         shift.call(:ascii)
         out << byte
         at += 1
+      elsif led
+        shift.call(:kanji)
+        out << (bytes.getbyte(at + 1) & 0x7F) << (bytes.getbyte(at + 2) & 0x7F)
+        at += 3
       elsif byte == 0x8E && kana == :set
         shift.call(:kana)
         out << (bytes.getbyte(at + 1) & 0x7F)
@@ -90,7 +101,7 @@ class Encoding
   def self.stateful_read(text, options)
     Primitive.attr! :hidden
     from = text.encoding
-    base_name, stateless_name, kana = STATEFUL.fetch(from.name)
+    base_name, stateless_name, kana, led = STATEFUL.fetch(from.name)
     base = find(base_name)
     step = stateless_name ? find(stateless_name) : base
     path = [from, stateless_name && step, base, UTF_8].compact
@@ -105,7 +116,7 @@ class Encoding
       elsif mode == :ascii
         # An eight-bit byte is the multibyte encoding's to read, where a
         # stateless one does not stand between.
-        stateful_invalid([byte], nil, false, from, step) if byte >= 0x80 && stateless_name
+        stateful_invalid([byte], nil, false, from, step) if byte >= 0x80 && (stateless_name || led)
         out << byte
         at += 1
       elsif mode == :kana
@@ -117,6 +128,7 @@ class Encoding
         second = bytes.getbyte(at + 1)
         stateful_invalid([byte], nil, true, from, step) if second.nil?
         stateful_invalid([byte], [second], false, from, step) unless second.between?(0x21, 0x7E)
+        out << LEADS.fetch(mode) if led
         out << (byte | 0x80) << (second | 0x80)
         at += 2
       end
