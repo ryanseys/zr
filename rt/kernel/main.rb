@@ -40,23 +40,23 @@ end
 # report. Zero, as under wasm, never trips.
 STACK_MARGIN = 262144
 
-sig [] => Void
-machine def zr_stack_limit_init
+# The main task's stack limit: the margin above the OS stack's low end,
+# or zero where the OS cannot say.
+sig [] => Ptr
+machine def zr_main_stack_limit
   low = zr_os_stack_low()
   if low == 0
-    Task.set_stack_limit(zr_task(), 0)
-  else
-    Task.set_stack_limit(zr_task(), Machine.ptr(low + STACK_MARGIN))
+    return Machine.ptr(0)
   end
+  Machine.ptr(low + STACK_MARGIN)
 end
 
 sig [] => Void
 machine def zr_boot
   zr_heap_init()
   zr_mcache_init()
-  zr_mcache_init()
   Machine.store64(zr_current_task_slot(), 0, Machine.word(Machine.static(:task, Task.size)))
-  zr_task_init(zr_task())
+  zr_task_init(zr_task(), zr_main_stack_limit())
   # The four that form a cycle come first, with no class; then each
   # gets Class as its class. Names wait for String.
   zr_boot_class(G_BASIC_OBJECT, Machine.id(:BasicObject), Machine.value(QNIL))
@@ -482,7 +482,6 @@ end
 sig [I32, Ptr] => I32
 machine def zr_main(argc, argv)
   zr_boot()
-  zr_stack_limit_init()
   zr_args_init(argc, argv)
   r = zr_prelude()
   if r == QUNDEF

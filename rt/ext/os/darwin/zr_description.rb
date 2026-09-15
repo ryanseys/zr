@@ -493,7 +493,7 @@ module Ze0
         d zr_fiber_stack_error Value err:Word
         d zr_current_task_slot Ptr
         d zr_task Ptr
-        d zr_task_init Void t:Ptr
+        d zr_task_init Void t:Ptr stack_limit:Ptr
         d zr_ractor_enter_m Value
         d zr_fiber_current Value
         d zr_fiber_current_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -838,7 +838,7 @@ module Ze0
         d zr_boot_class Value g:Word name:Word sup:Value
         d zr_boot_name Void g:Word name:Word
         d zr_boot_method_class Void klass:Value
-        d zr_stack_limit_init Void
+        d zr_main_stack_limit Ptr
         d zr_boot Void
         d main I32 argc:I32 argv:Ptr
         d zr_main I32 argc:I32 argv:Ptr

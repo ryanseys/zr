@@ -193,13 +193,14 @@ machine def zr_io_pwrite(fd, s, at)
   zr_fix(n)
 end
 
-# Every byte of `s`, in as many calls as the descriptor takes.
+# Every byte of `s`, in as many calls as the descriptor takes. The
+# String is read afresh after each call: a retry runs the signal
+# handlers, which are Ruby that may have changed it.
 sig [Value, Value] => Value
 machine def zr_io_write(fd, s)
-  n = RString.len(s)
   done = 0
-  while done < n
-    w = write(Machine.i32(zr_fix2long(fd)), RString.ptr(s) + done, n - done)
+  while done < RString.len(s)
+    w = write(Machine.i32(zr_fix2long(fd)), RString.ptr(s) + done, RString.len(s) - done)
     if w < 0
       failed = zr_io_retry()
       if failed != QNIL
@@ -209,7 +210,7 @@ machine def zr_io_write(fd, s)
     end
     done += w
   end
-  zr_fix(n)
+  zr_fix(done)
 end
 
 # One write(2) of at most `count` bytes from `from`: the caller loops,

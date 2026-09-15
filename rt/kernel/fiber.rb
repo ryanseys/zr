@@ -37,9 +37,12 @@ machine def zr_task
   Machine.ptr(Machine.load64(zr_current_task_slot(), 0))
 end
 
-sig [Ptr] => Void
-machine def zr_task_init(t)
+# A task starts with the stack limit its checks compare against: zero
+# means no check, as under wasm, where the stack's bounds are unknown.
+sig [Ptr, Ptr] => Void
+machine def zr_task_init(t, stack_limit)
   Task.set_top(t, 0)
+  Task.set_stack_limit(t, stack_limit)
   Task.set_pending(t, Machine.value(QNIL))
   Task.set_pending_kind(t, PENDING_RAISE)
   Task.set_serial(t, 0)
@@ -134,14 +137,12 @@ machine def zr_fiber_make(recv, argc, argv, cref, blk)
   # A fiber belongs to the thread that makes it, which is the thread
   # the fiber it is made on belongs to.
   RFiber.set_home(f, RFiber.home(cur))
-  t = zr_xmalloc(Task.size)
-  zr_task_init(t)
   stack = zr_os_stack_map(FIBER_STACK_BYTES)
   if stack == 0
-    free(t)
     return zr_fiber_stack_error(zr_errno())
   end
-  Task.set_stack_limit(t, stack + STACK_MARGIN)
+  t = zr_xmalloc(Task.size)
+  zr_task_init(t, stack + STACK_MARGIN)
   RFiber.set_task(f, t)
   RFiber.set_stack(f, stack)
   ctx = zr_xmalloc(CONTEXT_BYTES)
