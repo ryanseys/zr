@@ -155,11 +155,12 @@ class Integer
       index = Encoding.carried(encoding)
       raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0
       return (+"").force_encoding(encoding).send(:append_unit_point, self) if Encoding.wide?(encoding)
-      if encoding.equal?(Encoding::UTF_8)
+      if encoding.equal?(Encoding::UTF_8) || Encoding.send(:utf8_like?, encoding) || encoding.name == "CESU-8"
         raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self > 0x10FFFF
-        raise RangeError, "invalid codepoint 0x#{format("%04X", self)} in UTF-8" if self >= 0xD800 && self <= 0xDFFF
+        raise RangeError, "invalid codepoint 0x#{format("%04X", self)} in #{encoding.name}" if self >= 0xD800 && self <= 0xDFFF
+        return (+"" << self).force_encoding(encoding) unless encoding.name == "CESU-8"
 
-        return +"" << self
+        return Encoding.send(:cesu8_bytes, self).pack("C*").force_encoding(encoding)
       end
       # A multibyte encoding's code point is the number its own bytes
       # spell, as rb_enc_codepoint reads one, and the encoding says

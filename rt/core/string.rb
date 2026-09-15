@@ -800,11 +800,14 @@ class String
   def dump
     return "#{OWN[:b].bind_call(self).dump}.dup.force_encoding(#{Encoding.at(Primitive.zr_str_encoding_index_m(self)).name.dump})" unless Encoding.at(Primitive.zr_str_encoding_index_m(self)).ascii_compatible?
 
+    # A character past ASCII shows its code point in UTF-8 alone; any
+    # other encoding shows its bytes.
+    utf8 = Encoding.at(Primitive.zr_str_encoding_index_m(self)).equal?(Encoding::UTF_8)
     out = +"\""
     i = 0
     while i < Primitive.zr_str_bytesize(self)
       b = Primitive.zr_str_byte_at(self, i)
-      n = Primitive.zr_str_char_len_at_m(self, i)
+      n = utf8 ? Primitive.zr_str_char_len_at_m(self, i) : 1
       if n > 1
         cp = byteslice_of(i, n).ord
         out << (cp > 0xFFFF ? format("\\u{%X}", cp) : format("\\u%04X", cp))
@@ -910,6 +913,9 @@ class String
   # that make no character as \x.
   def utf8_inspect
     Primitive.attr! :hidden
+    # A character prints as itself only in the encoding inspect answers
+    # in; UTF8-MAC and the carriers' UTF-8 show its code point.
+    own = Encoding.at(Primitive.zr_str_encoding_index_m(self)).equal?(Encoding::UTF_8)
     out = +"\""
     i = 0
     while i < Primitive.zr_str_bytesize(self)
@@ -928,7 +934,8 @@ class String
         char = byteslice(i, n)
         if !char.valid_encoding?
           char.each_byte { |stray| out << format("\\x%02X", stray) }
-        elsif String.send(:unprintable?, (point = char.ord))
+        elsif !own || String.send(:unprintable?, char.ord)
+          point = char.ord
           out << (point > 0xFFFF ? format("\\u{%X}", point) : format("\\u%04X", point))
         else
           out << char
@@ -1128,9 +1135,10 @@ class String
   # A String in a multibyte encoding, as CRuby's rb_str_inspect writes
   # one: a character that stands for no Unicode point prints as the
   # number its own bytes spell, and bytes that make no character print
-  # one by one.
+  # one by one. CESU-8's characters are Unicode's, and print as theirs.
   def mb_inspect
     Primitive.attr! :hidden
+    cesu = Encoding.at(Primitive.zr_str_encoding_index_m(self)).name == "CESU-8"
     out = +"\""
     run = +"".b
     OWN[:each_char].bind_call(self) do |char|
@@ -1140,10 +1148,13 @@ class String
       end
       out << ascii_escaped(run)
       run = +"".b
-      out << if char.valid_encoding?
-               "\\x{#{format('%X', char.ord)}}"
-             else
+      out << if !char.valid_encoding?
                char.bytes.map { |byte| "\\x#{format('%02X', byte)}" }.join
+             elsif cesu
+               point = char.ord
+               point > 0xFFFF ? format("\\u{%X}", point) : format("\\u%04X", point)
+             else
+               "\\x{#{format('%X', char.ord)}}"
              end
     end
     out << ascii_escaped(run) << "\""
@@ -1339,7 +1350,7 @@ class String
   def grapheme_clusters
     encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
     return characters unless GRAPHEMES.include?(encoding.name)
-    return wide_clusters unless encoding.ascii_compatible?
+    return wide_clusters unless encoding.ascii_compatible? && encoding.name != "CESU-8"
 
     out = []
     at = 0
@@ -1354,8 +1365,8 @@ class String
     out
   end
 
-  # The clusters of a UTF-16 or UTF-32 string: the engine reads only
-  # ASCII-compatible text, so the clusters are found in UTF-8 and the
+  # The clusters of a UTF-16, UTF-32 or CESU-8 string: the engine reads
+  # none of them as Unicode, so the clusters are found in UTF-8 and the
   # characters of the receiver taken in those counts.
   def wide_clusters
     Primitive.attr! :hidden
@@ -1785,8 +1796,11 @@ class String
   def mapped_case(kind, options)
     Primitive.attr! :hidden
     mode = case_mode(options, kind)
-    # UTF-16 and UTF-32 case as the same characters do in UTF-8.
-    return OWN[:encode].bind_call(self, Encoding::UTF_8).send(:mapped_case, kind, options).encode(Encoding.at(Primitive.zr_str_encoding_index_m(self))) if Encoding.wide?(Encoding.at(Primitive.zr_str_encoding_index_m(self)))
+    # UTF-16, UTF-32 and CESU-8 case as the same characters do in UTF-8.
+    encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    return OWN[:encode].bind_call(self, Encoding::UTF_8).send(:mapped_case, kind, options).encode(encoding) if Encoding.wide?(encoding) || encoding.name == "CESU-8"
+    # UTF8-MAC and the carriers' UTF-8 hold the same bytes UTF-8 does.
+    return copied.force_encoding(Encoding::UTF_8).send(:mapped_case, kind, options).force_encoding(encoding) if Encoding.send(:utf8_like?, encoding)
     # The case-fold pass reads every character, and says so of bytes
     # that make none; ASCII mode reads none past ASCII.
     raise ArgumentError, "input string invalid" unless mode == :ascii || Primitive.zr_str_valid_p(self)
@@ -2380,6 +2394,9 @@ class Encoding
     return ebcdic_write(from.equal?(UTF_8) ? text : convert(text, UTF_8, options), target, options) if target.name == "IBM037"
     return convert(ebcdic_read(text), target, options) if from.name == "IBM037"
 
+    # The carriers exchange their emoji with each other in one step.
+    return exchange(text, target, [from, target], options) if carrier?(from) && carrier?(target)
+
     path = from.equal?(UTF_8) || target.equal?(UTF_8) ? [from, target] : [from, UTF_8, target]
     path.each_cons(2) { |a, b| converter(a, b, path, text.ascii_only?) }
     text = to_utf8(text, path, options) unless from.equal?(UTF_8)
@@ -2393,7 +2410,7 @@ class Encoding
   def self.converter(a, b, path, ascii)
     Primitive.attr! :hidden
     [a, b].each do |encoding|
-      next if encoding.equal?(UTF_8) || UNITS.key?(encoding.name) || mb_converts?(encoding) || encoding.name == "UTF8-MAC"
+      next if encoding.equal?(UTF_8) || UNITS.key?(encoding.name) || mb_converts?(encoding) || utf8_like?(encoding)
       # Plain ASCII crosses an ASCII-compatible encoding with no table.
       next if ascii && !shaped?(encoding) && encoding.ascii_compatible? && !encoding.dummy?
       # Ruby names these encodings and carries no converter for them.
@@ -2423,7 +2440,7 @@ class Encoding
     from = text.encoding
     return units_to_utf8(text, from, replacement(path.last, options), options) if UNITS.key?(from.name)
     return mb_to_utf8(text, from, path, options) if mb?(from)
-    return utf8_like_read(text, from) if utf8_like?(from)
+    return utf8_like_read(text, from, path, options) if utf8_like?(from)
 
     out = +""
     text.each_byte do |byte|
@@ -2444,7 +2461,7 @@ class Encoding
   # Each character written as the bytes the target gives its code point.
   def self.from_utf8(text, target, path, options)
     Primitive.attr! :hidden
-    return utf8_like_write(text, target) if utf8_like?(target)
+    return utf8_like_write(text, target, path, options) if utf8_like?(target)
 
     unit, big = UNITS[target.name]
     big = true if unit && big.nil?
@@ -2501,7 +2518,7 @@ class Encoding
   # Each code point of UTF-8 `text`, on its way to `target`. Bytes UTF-8
   # does not allow raise as ruby's decoder words them, or become `mark`
   # once under `invalid: :replace`.
-  def self.utf8_points(text, mark, options, target)
+  def self.utf8_points(text, mark, options, target, source = UTF_8)
     Primitive.attr! :hidden
     bytes = text.bytes
     i = 0
@@ -2512,7 +2529,7 @@ class Encoding
       elsif options[:invalid] == :replace
         mark.each_char { |char| yield char.ord }
       else
-        invalid(bytes[i, length], kind == :bad ? [bytes[i + length]] : nil, kind == :ended, "UTF-8", target)
+        invalid(bytes[i, length], kind == :bad ? [bytes[i + length]] : nil, kind == :ended, source.name, target)
       end
       i += length
     end
@@ -2693,20 +2710,44 @@ class Encoding
   # An encoding that writes its characters as UTF-8 writes them: only
   # the form parts. UTF8-MAC holds each one taken apart, which is what
   # ruby calls NFD, and reads back together.
-  def self.utf8_like_read(text, from)
+  def self.utf8_like_read(text, from, path, options)
     Primitive.attr! :hidden
-    Primitive.zr_unimplemented("String#encode from the #{from} encoding") unless from.name == "UTF8-MAC"
+    return exchange(text, UTF_8, path, options) if carrier?(from)
 
     text.dup.force_encoding(UTF_8).unicode_normalize(:nfc)
   end
 
-  def self.utf8_like_write(text, target)
+  def self.utf8_like_write(text, target, path, options)
     Primitive.attr! :hidden
-    Primitive.zr_unimplemented("String#encode to the #{target} encoding") unless target.name == "UTF8-MAC"
+    return exchange(text, target, path, options) if carrier?(target)
 
     text.unicode_normalize(:nfd).dup.force_encoding(target)
   end
-  private_class_method :utf8_like_read, :utf8_like_write
+
+  # `text`, in UTF-8 or a carrier's encoding, into `target`, the other
+  # of the two or another carrier's: each emoji the pair exchanges
+  # becomes the target's own, and every other character stays as it is.
+  def self.exchange(text, target, path, options)
+    Primitive.attr! :hidden
+    from = text.encoding
+    table = emoji(from, target)
+    out = +""
+    utf8_points(text, replacement(target, options), options, target, from) do |point|
+      if !table.key?(point)
+        out << point
+      elsif (points = table[point])
+        points.each { |each| out << each }
+      elsif options[:xml]
+        out << "&#x#{format('%X', point)};"
+      else
+        char = point.chr(UTF_8)
+        shown = from.equal?(UTF_8) ? "U+#{format('%04X', point)}" : char.b.dump
+        undefined(shown, from, target, path, options, char.force_encoding(from)) { |mark| out << mark }
+      end
+    end
+    out.force_encoding(target)
+  end
+  private_class_method :utf8_like_read, :utf8_like_write, :exchange
 
   # Ruby's words for bytes a decoder cannot read: `incomplete` when the
   # input ends inside them, else `followed by` the bytes it reads again.
@@ -2734,11 +2775,41 @@ class Encoding
       replacement = options[:replace] || (to.equal?(UTF_8) ? "\uFFFD" : "?")
       return yield(replacement)
     end
+    if char && (text = fallback(options[:fallback], char))
+      written = begin
+        text.encode(to)
+      rescue EncodingError
+        raise ArgumentError, "too big fallback string"
+      end
+      return yield(written.encode(UTF_8))
+    end
 
     # The failure carries the character it stopped on, as CRuby's does.
     raise char_error(message(shown, from, to, path), from, to, char)
   end
   private_class_method :undefined
+
+  # The text a `fallback:` gives for a character the target has no room
+  # for, as transcode_loop asks it: a Proc or a Method is called, and a
+  # Hash or any other object that answers `[]` is indexed. nil when it
+  # has none, or when the option names nothing that answers.
+  def self.fallback(fallback, char)
+    Primitive.attr! :hidden
+    return nil if fallback.nil?
+
+    fallback = Hash.try_convert(fallback) || fallback
+    text = case fallback
+           when Proc, Method then fallback.call(char)
+           else
+             return nil unless fallback.respond_to?(:[])
+
+             fallback.public_send(:[], char)
+           end
+    return nil if text.nil?
+
+    String.try_convert(text) || raise(TypeError, "no implicit conversion of #{text.class} into String")
+  end
+  private_class_method :fallback
 
   # `X from A to B` for a single step ruby words that way, else the
   # chain form, which names every encoding on the path.

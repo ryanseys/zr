@@ -80,11 +80,20 @@ machine def zr_mb_lead_len(index, lead, second)
     if lead >= 128 && lead <= 193 || lead >= 240 && lead <= 255
       return 0
     end
-    if lead >= 224 && lead <= 239
+    if lead >= 224 && lead <= 236 || lead >= 238 && lead <= 239
       return 3
     end
     if lead >= 194 && lead <= 223
       return 2
+    end
+    if lead == 237
+      if second >= 160 && second <= 175
+        return 6
+      end
+      if second >= 128 && second <= 159
+        return 3
+      end
+      return 3
     end
     return 1
   end
@@ -378,9 +387,18 @@ machine def zr_mb_trail_ok(index, lead, place, byte)
       return byte >= 160 && byte <= 191
     end
     if place == 1 && (lead == 237)
-      return byte >= 128 && byte <= 159
+      return byte >= 128 && byte <= 175
     end
     if place == 2 && (lead >= 224 && lead <= 239)
+      return byte >= 128 && byte <= 191
+    end
+    if place == 3 && (lead == 237)
+      return byte == 237
+    end
+    if place == 4 && (lead == 237)
+      return byte >= 176 && byte <= 191
+    end
+    if place == 5 && (lead == 237)
       return byte >= 128 && byte <= 191
     end
     return false

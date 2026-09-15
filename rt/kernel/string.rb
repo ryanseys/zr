@@ -169,12 +169,13 @@ machine def zr_str_binary_p(s)
   zr_str_encoding_index(s) == ENC_BINARY
 end
 
-# Whether one character can span bytes. Of the encodings a String
-# carries, UTF-8 alone does; every other one this runtime accepts
-# gives each byte a character of its own.
+# Whether the String writes its characters as UTF-8 writes them: in
+# UTF-8, or in UTF8-MAC or a carrier's UTF-8, which differ from it only
+# in the characters they convert.
 sig [Value] => Bool
 machine def zr_str_wide_p(s)
-  zr_str_encoding_index(s) == ENC_UTF8
+  index = zr_str_encoding_index(s)
+  index == ENC_UTF8 || zr_enc_utf8_like_p(index)
 end
 
 # Whether the String holds characters that span bytes in a way of their
@@ -501,8 +502,9 @@ machine def zr_str_concat_codepoint(recv, c)
     return zr_send(recv, Machine.id(:append_unit_point), 1, arg)
   end
   # A multibyte encoding writes a code point as the bytes that spell it,
-  # in Ruby, where its tables are.
-  if zr_enc_mb_p(zr_str_encoding_index(recv))
+  # in Ruby, where its tables are, and so does UTF-8 by another name,
+  # which a failure names.
+  if zr_enc_mb_p(zr_str_encoding_index(recv)) || zr_enc_utf8_like_p(zr_str_encoding_index(recv))
     arg = Machine.slot(8)
     Machine.store64(arg, 0, Machine.word(zr_fix(c)))
     return zr_send(recv, Machine.id(:append_mb_point), 1, arg)
@@ -898,6 +900,21 @@ machine def zr_str_char_len_at_m(s, off)
   zr_fix(zr_str_char_len_at(s, zr_fix2long(off)))
 end
 
+# The code point CESU-8 writes in the `width` bytes at `p`: two or three
+# bytes as UTF-8 writes them, or six that hold a pair of surrogates.
+sig [Ptr, Word] => Word
+machine def zr_cesu8_point(p, width)
+  if width == 2
+    return ((Machine.word(Machine.load8(p, 0)) & 31) << 6) | (Machine.word(Machine.load8(p + 1, 0)) & 63)
+  end
+  high = ((Machine.word(Machine.load8(p, 0)) & 15) << 12) | ((Machine.word(Machine.load8(p + 1, 0)) & 63) << 6) | (Machine.word(Machine.load8(p + 2, 0)) & 63)
+  if width < 6
+    return high
+  end
+  low = ((Machine.word(Machine.load8(p + 4, 0)) & 63) << 6) | (Machine.word(Machine.load8(p + 5, 0)) & 63)
+  65536 + ((high - 55296) << 10) + (low & 1023)
+end
+
 # The code point of the first character.
 sig [Value] => Value
 machine def zr_str_ord(s)
@@ -926,6 +943,9 @@ machine def zr_str_ord(s)
     if width == 0
       return zr_str_bad_bytes(s)
     end
+    if zr_str_encoding_index(s) == ENC_CESU8
+      return zr_fix(zr_cesu8_point(p, width))
+    end
     v = 0
     k = 0
     while k < width
@@ -939,7 +959,7 @@ machine def zr_str_ord(s)
   end
   len = zr_utf8_char_len(p, n)
   if len == 0
-    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("invalid byte sequence in UTF-8"), 30)
+    return zr_str_bad_bytes(s)
   end
   cp = c & ((1 << (7 - len)) - 1)
   i = 1

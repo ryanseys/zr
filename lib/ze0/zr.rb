@@ -20,7 +20,7 @@ module Ze0
     # file of that name, under rt/core/os/<os>/: the numbers each OS
     # gives the constants the portable file after it goes on to use, in
     # the order ruby defines them.
-    CORE_NAMES = %w[module warning encodings transcode cjk exception enumerable enumerator comparable integer bignum array hash range struct unicode string converter iso2022 ruled kernel float proc binding format os/errno os/io_constants io io_buffer os/process_constants process signal env os/file_constants file argf data os/clock_constants gc random thread builtin_lines trace_point monitor time set ractor marshal pack regexp_pattern regexp pathname rational complex objectspace rubyvm box].freeze
+    CORE_NAMES = %w[module warning encodings transcode cjk exception enumerable enumerator comparable integer bignum array hash range struct unicode string converter iso2022 ruled emoji kernel float proc binding format os/errno os/io_constants io io_buffer os/process_constants process signal env os/file_constants file argf data os/clock_constants gc random thread builtin_lines trace_point monitor time set ractor marshal pack regexp_pattern regexp pathname rational complex objectspace rubyvm box].freeze
 
     # Where the runtime's built forms live, keyed on the digest of
     # everything they depend on: the runtime sources and the compiler.

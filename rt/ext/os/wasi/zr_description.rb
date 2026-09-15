@@ -1369,6 +1369,7 @@ module Ze0
         d zr_str_byte_to_char Value s:Value off:Value
         d zr_str_char_slice Value s:Value start:Value len:Value
         d zr_str_char_len_at_m Value s:Value off:Value
+        d zr_cesu8_point Word p:Ptr width:Word
         d zr_str_ord Value s:Value
         d zr_str_valid_p Value s:Value
         d zr_str_valid_scan Value s:Value
@@ -1889,6 +1890,7 @@ module Ze0
         c ENC_BINARY 0
         c ENC_UTF8 1
         c ENC_USASCII 2
+        c ENC_CESU8 15
         c ENC_NONE 255
         c ENC_UTF16BE 3
         c ENC_UTF16LE 4

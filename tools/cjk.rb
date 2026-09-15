@@ -375,6 +375,16 @@ end
 irregular = own.select { |_, table| table.irregular }
 own = own.reject { |encoding, _| irregular.key?(encoding) }
 
+# CESU-8 writes a character past the BMP as its two surrogates, three
+# bytes each: six bytes, deeper than a walk reads, so its rule adds them.
+if (cesu = own[Encoding::CESU_8])
+  (0xA0..0xAF).each { |second| cesu.lengths[0xED][second] = 6 }
+  cesu.trails[[0xED, 1]] = (0x80..0xAF).to_a
+  cesu.trails[[0xED, 3]] = [0xED]
+  cesu.trails[[0xED, 4]] = (0xB0..0xBF).to_a
+  cesu.trails[[0xED, 5]] = (0x80..0xBF).to_a
+end
+
 warn "reading the conversions off ruby ..."
 tables = own.keys.to_h do |encoding|
   warn "  converting #{encoding.name} ..."
