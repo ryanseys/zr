@@ -239,6 +239,8 @@ module Ze0
         d zr_const_row_opened Ptr scope:Value id:Word
         d zr_const_row_kept Ptr klass:Value id:Word
         d zr_const_set Value klass:Value id:Word v:Value
+        d zr_const_announce Value klass:Value id:Word
+        d zr_const_write Ptr klass:Value id:Word v:Value
         d zr_warn_reassigned_constant Void klass:Value id:Word e:Ptr
         d zr_buf_previous_definition Void b:Ptr e:Ptr id:Word
         d zr_const_row_in Ptr klass:Value id:Word skip_object:Bool

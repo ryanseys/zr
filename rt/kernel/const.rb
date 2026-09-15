@@ -243,21 +243,48 @@ end
 
 # A constant stored under `klass`, then the `const_added` hook; an
 # anonymous class or module takes the constant's name. Answers `v`,
-# or undef when the hook raises.
+# or undef when the store or the hook raises.
 sig [Value, Word, Value] => Value
 machine def zr_const_set(klass, id, v)
+  if zr_const_write(klass, id, v) == 0
+    return Machine.value(QUNDEF)
+  end
+  r = zr_const_announce(klass, id)
+  return r if r == QUNDEF
+  v
+end
+
+# The `const_added` hook for `id` on `klass`, when the program wrote one
+# and a frame of the program set the constant: what the hook answers,
+# or undef when it raises; nil when there is none.
+sig [Value, Word] => Value
+machine def zr_const_announce(klass, id)
+  if zr_frame_with_file(Task.top(zr_task())) != 0 && zr_find_method(zr_class_of(klass), Machine.id(:const_added)) != 0
+    return zr_hook(klass, Machine.id(:const_added), zr_sym(id))
+  end
+  Machine.value(QNIL)
+end
+
+# The row of `klass` that holds `v` under `id`, made or reused, with its
+# source position; 0 when the store raises.
+sig [Value, Word, Value] => Ptr
+machine def zr_const_write(klass, id, v)
   # `1::WHAT = 2` reaches here with a scope that holds no constants.
   if zr_special_p(klass) || (zr_type(klass) != T_CLASS && zr_type(klass) != T_MODULE)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     shown = zr_inspect(klass)
-    return shown if shown == QUNDEF
+    if shown == QUNDEF
+      return 0
+    end
     zr_buf_str(b, shown)
     zr_buf_push(b, Machine.bytes(" is not a class/module"), 22)
-    return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+    zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+    return 0
   end
-  r = zr_class_modify_check(klass)
-  return r if r == QUNDEF
+  if zr_class_modify_check(klass) == QUNDEF
+    return 0
+  end
   e = zr_const_row_kept(klass, id)
   if e != 0 && CEntry.concealed(e) != 0 && !zr_const_sees_concealed()
     # The program's own constant of the name the runtime conceals takes
@@ -326,11 +353,7 @@ machine def zr_const_set(klass, id, v)
     CEntry.set_file_len(e, FrameMeta.file_len(Frame.meta(top)))
     CEntry.set_line(e, zr_frame_line(top))
   end
-  if top != 0 && zr_find_method(zr_class_of(klass), Machine.id(:const_added)) != 0
-    r = zr_hook(klass, Machine.id(:const_added), zr_sym(id))
-    return r if r == QUNDEF
-  end
-  v
+  e
 end
 
 # `already initialized constant M::X`, and where the first definition
@@ -1069,13 +1092,20 @@ machine def zr_autoload(mod, id, feature, fn, cref, kind, path)
   if pending >= 0
     zr_ary_splice(rows, zr_fix(pending), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
   end
-  zr_const_set(mod, id, Machine.value(QUNDEF))
   # A file only the runtime loads declared it, so the read that runs it
   # keeps the file out of the program's sight, as the require would.
   if kind == 0 && zr_hidden_now()
     kind = 3
   end
+  # The name is declared and the row stands before the hook runs: a
+  # const_added hook that raises raises out of the autoload, which stays
+  # registered, as ruby's does.
+  if zr_const_write(mod, id, Machine.value(QUNDEF)) == 0
+    return Machine.value(QUNDEF)
+  end
   zr_autoload_push(rows, mod, id, feature, fn, kind, path)
+  r = zr_const_announce(mod, id)
+  return r if r == QUNDEF
   Machine.value(QNIL)
 end
 
