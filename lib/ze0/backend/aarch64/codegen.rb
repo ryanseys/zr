@@ -430,7 +430,7 @@ module Ze0
               floats += 1
               store_param(v, X9)
             else
-              store_param(v, Registers.const_get(:"X#{ints}"))
+              store_param(v, Registers.x(ints))
               ints += 1
             end
           end
@@ -673,7 +673,7 @@ module Ze0
               @asm.fmov Registers.d(floats), X9
               floats += 1
             else
-              load_value(v, Registers.const_get(:"X#{ints}"))
+              load_value(v, Registers.x(ints))
               ints += 1
             end
           end
