@@ -2377,6 +2377,8 @@ class Encoding
       text = stateful_read(text, options)
       return target.equal?(UTF_8) ? text : convert(text, target, options)
     end
+    return ebcdic_write(from.equal?(UTF_8) ? text : convert(text, UTF_8, options), target, options) if target.name == "IBM037"
+    return convert(ebcdic_read(text), target, options) if from.name == "IBM037"
 
     path = from.equal?(UTF_8) || target.equal?(UTF_8) ? [from, target] : [from, UTF_8, target]
     path.each_cons(2) { |a, b| converter(a, b, path, text.ascii_only?) }
@@ -2394,6 +2396,8 @@ class Encoding
       next if encoding.equal?(UTF_8) || UNITS.key?(encoding.name) || mb_converts?(encoding) || encoding.name == "UTF8-MAC"
       # Plain ASCII crosses an ASCII-compatible encoding with no table.
       next if ascii && !shaped?(encoding) && encoding.ascii_compatible? && !encoding.dummy?
+      # Ruby names these encodings and carries no converter for them.
+      raise ConverterNotFoundError, "code converter not found (#{path.first.name} to #{path.last.name})" if %w[UTF-7 ISO-2022-JP-2].include?(encoding.name)
       Primitive.zr_unimplemented("String#encode to the #{encoding} encoding") unless shaped?(encoding)
       raise ConverterNotFoundError, "code converter not found (#{path.first.name} to #{path.last.name})" if shape_of(encoding).nil? && !ascii
     end
@@ -2449,6 +2453,7 @@ class Encoding
     out = []
     utf8_points(text, replacement(target, options), options, target) do |point|
       bytes = point_bytes(point, unit, big, points, writer)
+      bytes ||= ruled_bytes(point, target) if ruled?(target)
       if bytes
         out.concat(bytes)
       elsif options[:xml]
@@ -2613,6 +2618,11 @@ class Encoding
       if bytes[i] < 0x80
         out << bytes[i]
         i += 1
+        next
+      end
+      if ruled?(from) && (ruled = ruled_char(bytes, i, from, path, options))
+        out << ruled[0]
+        i += ruled[1]
         next
       end
       prefix = +"".b
