@@ -6,3 +6,5 @@
 require_relative "ze0/version"
 require_relative "ze0/paths"
 require_relative "ze0/target"
+require_relative "ze0/clock"
+

@@ -10,6 +10,7 @@ require_relative "machine/lower"
 require_relative "obj/model"
 require_relative "hir"
 require_relative "zr/lower"
+require_relative "clock"
 
 module Ze0
   # The `zr` runtime: the kernel files, the core library written in
@@ -42,7 +43,9 @@ module Ze0
       def initialize(target = Target.default)
         @target = target
         @sources = Zr.sources(target).to_h { |path| [path, File.read(path)] }
-        @unit = Machine::Lower.new(Zr.kernel_files(target).map { |path| [@sources.fetch(path), path] }, kernel_symbols).tap(&:run)
+        @unit = Ze0.clock("kernel lowered") do
+          Machine::Lower.new(Zr.kernel_files(target).map { |path| [@sources.fetch(path), path] }, kernel_symbols).tap(&:run)
+        end
       end
 
       def raw = unit.raw
@@ -123,7 +126,7 @@ module Ze0
 
       # The core library's `[functions, data]`, lowered over the kernel.
       def lowered
-        @lowered ||= Zr.core(unit, kernel_symbols, target, @sources)
+        @lowered ||= Ze0.clock("core lowered") { Zr.core(unit, kernel_symbols, target, @sources) }
       end
     end
 
@@ -186,7 +189,7 @@ module Ze0
       end
 
       def lowered
-        @lowered ||= begin
+        @lowered ||= Ze0.clock("eval road lowered") do
           loader = Hir::Build.road(target)
           program = Hir::Program.new(Hir::Build::EVAL_ROAD, [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
           symbols = Machine::Symbols.new(@runtime.symbols.ids.keys, sites: @runtime.symbols.sites)
@@ -211,10 +214,12 @@ module Ze0
     def program(source, file, target: Target.default, &finish)
       rt = runtime(target)
       carried = road(target)
-      hir = Hir.build(source, file, road: carried, target: target)
+      hir = Ze0.clock("hir built") { Hir.build(source, file, road: carried, target: target) }
       symbols = hir.evals ? carried.symbols : Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
       lower = Lower.new(hir, rt.unit, symbols)
-      functions, data = finish ? lower.run { |f| finish.call(f, lower.entry) } : lower.run
+      functions, data = Ze0.clock(finish ? "program lowered and assembled" : "program lowered") do
+        finish ? lower.run { |f| finish.call(f, lower.entry) } : lower.run
+      end
       units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
       tables = load_tables(units, evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {}, target: target)
       Program.new(rt, functions, data + symbol_names(symbols) + tables, hir.evals && carried)

@@ -15,6 +15,7 @@ require_relative "../obj/macho/object_file"
 require_relative "../obj/elf/object_file"
 require_relative "../machine/lower"
 require_relative "../zr"
+require_relative "../clock"
 
 module Ze0
   module Native
@@ -64,8 +65,10 @@ module Ze0
         objects = [runtime_object(program.runtime)]
         objects << road_object(program.evals) if program.evals
         functions, raw = program.functions.partition { |f| f.is_a?(IR::Function) }
-        binary(functions, program.data, out, work: work, raw: raw, objects: objects, strip: !program.evals,
-                                                         target: program.runtime.target)
+        Ze0.clock("program object written and linked") do
+          binary(functions, program.data, out, work: work, raw: raw, objects: objects, strip: !program.evals,
+                                                           target: program.runtime.target)
+        end
       end
 
       # One function of a program as `Zr.program` lowers it, checked and
@@ -82,7 +85,7 @@ module Ze0
 
         Dir.mktmpdir("ze0-road-") do |work|
           fresh = File.join(work, "road.o")
-          why = object(road.functions, road.data, fresh, export: true, target: road.target)
+          why = Ze0.clock("eval road object assembled and written") { object(road.functions, road.data, fresh, export: true, target: road.target) }
           raise "the compiler did not build: #{why}" if why
 
           Zr.write_cache(obj, File.binread(fresh))
@@ -97,7 +100,9 @@ module Ze0
 
         Dir.mktmpdir("ze0-rt-") do |work|
           fresh = File.join(work, "rt.o")
-          why = object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true, target: runtime.target)
+          why = Ze0.clock("runtime object assembled and written") do
+            object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true, target: runtime.target)
+          end
           raise "the runtime did not build: #{why}" if why
 
           Zr.write_cache(obj, File.binread(fresh))
