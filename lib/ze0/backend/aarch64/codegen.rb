@@ -23,9 +23,12 @@ module Ze0
       # instruction reads a frame operand into x9..x12, computes in a
       # register, and stores a frame result from one. A compare read once
       # by a branch or a select leaves its answer in the flags. The frame
-      # is `[sp + 0 .. slots) [values) [saved callee registers)`, addressed
+      # is `[x29, x30) [slots) [values) [saved callee registers)`, addressed
       # from sp with unsigned scaled offsets (x17 holds a page of it when
-      # one does not fit), x29 keeps the frame chain, x18 is never used,
+      # one does not fit): one pre-indexed `stp` makes the whole of a
+      # frame of 496 bytes or less and one post-indexed `ldp` unmakes it,
+      # and a larger frame keeps the x29 pair at its top with `sub sp`
+      # below. x29 keeps the frame chain either way, x18 is never used,
       # and sp stays 16-byte aligned.
       #
       # Encodings come from `Backend::Aarch64`; relocations are recorded
@@ -235,8 +238,8 @@ module Ze0
           end
         end
 
-        # Where each slot sits above sp. Slots come first in the frame, so
-        # this is known before any value has a home.
+        # Where each slot sits above sp. Slots come first in the frame,
+        # past the x29 pair, so this is known before any value has a home.
         #
         # A slot's address is made where it is read, as a small constant
         # is (`@stack`): `IR::Function#hoisted` puts every `stack_addr` in
@@ -244,7 +247,7 @@ module Ze0
         # function, and the frame saved and restored that register. A load
         # or a store through it addresses sp directly and makes nothing.
         def plan_slots
-          off = 0
+          off = PAIR
           @slot_at = @f.slots.map do |s|
             off = align(off, [s.align, 8].max)
             at = off
@@ -432,6 +435,15 @@ module Ze0
           (n + a - 1) & ~(a - 1)
         end
 
+        # The bytes the x29 pair takes at the bottom of the frame.
+        PAIR = 16
+        # The largest frame one pre-indexed `stp` makes and one
+        # post-indexed `ldp` unmakes: seven signed bits of eights reach
+        # 504, and a frame is a multiple of 16.
+        SMALL = 496
+
+        def small_frame? = @frame <= SMALL
+
         def sig_of(fn) = @types.sig_of(fn)
         def sig_named(sig) = @types.sig_named(sig)
         def callee_of(fn) = @types.callee_named(fn)
@@ -561,10 +573,18 @@ module Ze0
 
         # --- prologue and epilogue ---------------------------------------
 
+        # A small frame is made by one `stp` that also moves sp; a large
+        # one keeps the pair where `stp` alone puts it, above the whole
+        # frame, and moves sp the frame below, so the pair's own `PAIR`
+        # bytes at the bottom go unused.
         def prologue
-          @asm.stp X29, X30, [SP, -16], :!
+          if small_frame?
+            @asm.stp X29, X30, [SP, -@frame], :!
+          else
+            @asm.stp X29, X30, [SP, -PAIR], :!
+          end
           @asm.mov X29, SP
-          sub_sp(@frame)
+          sub_sp(@frame) unless small_frame?
           saved_registers(:stp, :str)
           entry = @f.blocks.first
           # Eight is where the registers run out and the ABI starts pushing
@@ -627,8 +647,12 @@ module Ze0
 
         def epilogue
           saved_registers(:ldp, :ldr)
-          @asm.mov SP, X29
-          @asm.ldp X29, X30, [SP], 16
+          if small_frame?
+            @asm.ldp X29, X30, [SP], @frame
+          else
+            @asm.mov SP, X29
+            @asm.ldp X29, X30, [SP], PAIR
+          end
           @asm.ret
         end
 
