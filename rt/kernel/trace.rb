@@ -3,6 +3,7 @@
 # at each point ruby fires one; a set bit brings the program here, and
 # TracePoint.fire runs the handlers with a row that describes the frame
 # the event is for.
+TRACE_LINE = 1
 TRACE_CALL = 8
 TRACE_RETURN = 16
 TRACE_C_CALL = 32
@@ -15,12 +16,24 @@ TRACE_RAISE = 128
 # `zr_dispatch`, which fires the event around a method CRuby writes in C.
 sig [Value] => Value
 machine def zr_trace_events_set(mask)
+  Machine.store64(Machine.static(:trace_points, 8), 0, zr_fix2long(mask))
+  zr_trace_events_arm()
+  mask
+end
+
+# `trace_events`, which compiled code tests: the TracePoints' events,
+# and :line too while coverage is set up, which counts each line.
+sig [] => Void
+machine def zr_trace_events_arm
   events = Machine.static(:trace_events, 8)
-  if ((Machine.load64(events, 0) ^ zr_fix2long(mask)) & TRACE_C) != 0
+  mask = Machine.load64(Machine.static(:trace_points, 8), 0)
+  if zr_coverage_setup_p()
+    mask = mask | TRACE_LINE
+  end
+  if ((Machine.load64(events, 0) ^ mask) & TRACE_C) != 0
     zr_methods_changed()
   end
-  Machine.store64(events, 0, zr_fix2long(mask))
-  mask
+  Machine.store64(events, 0, mask)
 end
 
 # Whether a C event is on.
@@ -109,6 +122,12 @@ end
 sig [Word, Value] => Value
 machine def zr_trace_fire(event, value)
   t = zr_task()
+  if event == TRACE_LINE
+    zr_coverage_line(Task.top(t))
+    if (Machine.load64(Machine.static(:trace_points, 8), 0) & TRACE_LINE) == 0
+      return value
+    end
+  end
   pending = Machine.value(QNIL)
   kind = Task.pending_kind(t)
   if value == QUNDEF

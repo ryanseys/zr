@@ -119,6 +119,8 @@ class RubyVM
     alias disassemble disasm
 
     def to_a = Primitive.zr_unimplemented("RubyVM::InstructionSequence#to_a")
+    def trace_points = Primitive.zr_unimplemented("RubyVM::InstructionSequence#trace_points")
+    def each_child = Primitive.zr_unimplemented("RubyVM::InstructionSequence#each_child")
     def to_binary(extra_data = nil) = Primitive.zr_unimplemented("RubyVM::InstructionSequence#to_binary")
     def script_lines = nil
   end

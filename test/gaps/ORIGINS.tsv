@@ -10,7 +10,6 @@ gaps/the_ast_translator_answers_unknown_for_some_shapes.rb	lang/control/the_ast_
 gaps/the_ast_translator_builds_splat_lists_like_parse_y.rb	lang/methods/the_ast_translator_builds_splat_lists_like_parse_y.rb
 gaps/fiddle.rb	lang/programs/fiddle.rb
 gaps/an_rspec_suite_runs.rb	milestones/an_rspec_suite_runs.rb
-gaps/coverage.rb	stdlib/coverage/coverage.rb
 gaps/yaml_date_time_scalars_are_gated.rb	stdlib/date/yaml_date_time_scalars_are_gated.rb
 gaps/yaml_dump_styles.rb	stdlib/date/yaml_dump_styles.rb
 gaps/a_subclass_of_any_native_class.rb	stdlib/digest/a_subclass_of_any_native_class.rb

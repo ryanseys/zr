@@ -295,6 +295,13 @@ module Ze0
         d zr_obj_dup Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_obj_clone Value recv:Value freeze:Value
         d zr_include_singleton Void copy:Value meta:Value
+        d zr_coverage Ptr
+        d zr_coverage_setup_p Bool
+        d zr_coverage_state_set Value state:Value
+        d zr_coverage_forget Void c:Ptr
+        d zr_coverage_row Ptr c:Ptr file:Ptr file_len:Word toplevel:Bool
+        d zr_coverage_line Void rec:Ptr
+        d zr_coverage_counts Value clear:Value
         d zr_data_new Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_data_constructors Value klass:Value
         d zr_md5_k Ptr
@@ -1434,6 +1441,7 @@ module Ze0
         d zr_throw Value tag:Value value:Value
         d zr_catch Value tag:Value blk:Value
         d zr_trace_events_set Value mask:Value
+        d zr_trace_events_arm Void
         d zr_trace_c_p Bool
         d zr_trace_c_entry_p Bool e:Ptr
         d zr_trace_c_caller_p Bool
@@ -1757,6 +1765,7 @@ module Ze0
         c G_FSTRINGS 44
         c FL_FSTR 4194304
         c GATE_LTLT 16384
+        c TRACE_LINE 1
         c TRACE_CALL 8
         c TRACE_RETURN 16
         c TRACE_C_CALL 32
@@ -1867,7 +1876,9 @@ module Ze0
         s GateRow 40 8 klass:0:Word mid:8:Word bit:16:Word fn:24:Ptr vis:32:Word
         s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word
         s RCref 80 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr lazy:64:Value blk:72:Value
-        s LoadTable 112 8 units:0:Word rows:8:Ptr roots:16:Ptr roots_len:24:Word missing:32:Ptr missing_len:40:Word preloaded:48:Ptr preloaded_len:56:Word ext:64:Ptr ext_len:72:Word spots:80:Ptr spots_len:88:Word prefix:96:Ptr prefix_len:104:Word
+        s Coverage 48 8 rows:0:Ptr len:8:Word capa:16:Word setup:24:Word running:32:Word last:40:Ptr
+        s CovRow 40 8 file:0:Ptr file_len:8:Word counts:16:Ptr size:24:Word measured:32:Word
+        s LoadTable 128 8 units:0:Word rows:8:Ptr roots:16:Ptr roots_len:24:Word missing:32:Ptr missing_len:40:Word preloaded:48:Ptr preloaded_len:56:Word ext:64:Ptr ext_len:72:Word spots:80:Ptr spots_len:88:Word prefix:96:Ptr prefix_len:104:Word coverable:112:Ptr coverable_len:120:Word
         s FrameMeta 128 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr locals:80:Ptr env:88:Word box:96:Value ruby:104:Word captures:112:Ptr node:120:Word
         s BtRow 40 8 meta:0:Ptr file:8:Ptr file_len:16:Word line:24:Word node:32:Word
         s RException 56 8 basic:0:RBasic message:16:Value rows:24:Ptr nrows:32:Word bt:40:Value cause:48:Value

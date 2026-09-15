@@ -68,7 +68,9 @@ module Ze0
         preludes << pretty_printer(loader) if road && loader.pretty_prints?
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
-        Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries, loader.tracing?, loader.node_ids, spots)
+        coverable = loader.covers? ? loader.coverable : {}
+        Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries, loader.tracing?, loader.node_ids, spots,
+                    coverable)
       end
 
       # The compiler alone, as the units a road holds: the loader has
@@ -162,6 +164,8 @@ module Ze0
           @eval = eval
           @trace = trace
           @traces = false
+          @covers = false
+          @coverable = {}
           @roots = roots.map { |r| File.expand_path(r) }
           @units = []
           @index = external ? external.units.dup : {}
@@ -182,7 +186,18 @@ module Ze0
         # this build fires the events one asks for.
         def traces? = @traces
         def tracing? = @trace
-        TRACE_NAMES = /\b(?:TracePoint|set_trace_func|add_trace_func)\b/
+        TRACE_NAMES = /\b(?:TracePoint|set_trace_func|add_trace_func|Coverage)\b/
+
+        # Whether some file names Coverage, and the lines of each file a
+        # traced build fires :line events on, with the file's line count:
+        # what Coverage answers nil for and what it counts.
+        def covers? = @covers
+        COVERAGE_NAMES = /\bCoverage\b/
+        attr_reader :coverable
+
+        def line_event!(file, line)
+          @coverable[file]&.last&.push(line)
+        end
 
         # The next `using` row this program holds.
         def next_activation
@@ -367,6 +382,8 @@ module Ze0
           end
           configures! if !configures? && names_rbconfig?(result.value)
           @traces ||= !Build.runtime_file?(file) && TRACE_NAMES.match?(source.b)
+          @covers ||= !Build.runtime_file?(file) && COVERAGE_NAMES.match?(source.b)
+          @coverable[file] = [source.lines.size, []] if @trace && !Build.runtime_file?(file)
           build = Build.new(file, self, result.encoding, shadowed: shadowed(result.value))
           build.within_method(method, scopes) if scopes && method
           body = build.seq(result.value.statements, hoist: true)
@@ -875,6 +892,7 @@ module Ze0
         return nil if @last_lines.last == line
 
         @last_lines[-1] = line
+        @loader.line_event!(@file, line)
         Trace.new(:line, line)
       end
 

@@ -2,6 +2,7 @@
 # that does not run names a runtime feature we owe, not a file to change.
 bundled_gems ruby-4.0.6
 bundler 4.0.20 (the site_ruby the pinned ruby carries)
+coverage ruby-4.0.6 (ext/coverage/lib)
 delegate 0.6.1
 did_you_mean 2.0.3
 english 0.8.1

@@ -211,7 +211,7 @@ module Ze0
       lower = Lower.new(hir, rt.unit, symbols)
       functions, data = finish ? lower.run { |f| finish.call(f, lower.entry) } : lower.run
       units = hir.entries.map { |path, i| [path, lower.unit_entry(i)] }
-      tables = load_tables(units, evals: hir.evals, spots: hir.spots || {}, target: target)
+      tables = load_tables(units, evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {}, target: target)
       Program.new(rt, functions, data + symbol_names(symbols) + tables, hir.evals && carried)
     end
 
@@ -336,7 +336,7 @@ module Ze0
     # file and the compiling ruby's install layout, which every program
     # carries. `units` are `[path, entry]`
     # pairs; a unit that only stops has no path.
-    def load_tables(units = [], evals: false, spots: {}, target: Target.default)
+    def load_tables(units = [], evals: false, spots: {}, coverable: {}, target: Target.default)
       units = units.select { |path, _| path.start_with?("/") }.sort
       names = evals ? [Hir::Build.stdlib(target), Hir::Build.missing_features(target), Hir::Build::PRELOADED, [Hir::Build::EXT]] : [[]] * 4
       # error_highlight's spots, a file at a time: its name, a newline,
@@ -345,6 +345,9 @@ module Ze0
       # The install layout of the ruby that compiles the program, which
       # RbConfig names as the program's own, a `key=value` line each.
       names << (defined?(::RbConfig) ? %w[prefix ENABLE_SHARED].filter_map { |key| "#{key}=#{::RbConfig::CONFIG[key]}" if ::RbConfig::CONFIG[key] } : [])
+      # The lines Coverage counts in each file, a row a file: its path,
+      # its line count, and the lines, tab-separated.
+      names << coverable.map { |file, (count, lines)| "#{file}\t#{count}\t#{lines.uniq.join(',')}" }
       out = []
       text = ->(name, bytes) { out << Obj::Data.new(name, :text_const, "#{bytes}\0".b, align: 1) }
       rows = +"".b
