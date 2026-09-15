@@ -20,11 +20,11 @@ module RbConfig
   arch = RUBY_PLATFORM.dup
   host_cpu, os = arch.split("-", 2)
   darwin = os.start_with?("darwin")
-  linux = os.start_with?("linux")
-  # A glibc ruby reports `host_os` `linux-gnu` beside `arch` `x86_64-linux`,
-  # and a Darwin one reports the same token in both.
-  host_os = linux ? "linux-gnu" : os
-  vendor = darwin ? "apple" : (linux ? "pc" : "unknown")
+  # A glibc ruby reports `host_os` `linux-gnu` beside `arch` `x86_64-linux`;
+  # a musl one (`aarch64-linux-musl`) and a Darwin one report the same
+  # token in both.
+  host_os = os == "linux" ? "linux-gnu" : os
+  vendor = darwin ? "apple" : (os == "linux" ? "pc" : "unknown")
   triple = "#{host_cpu}-#{vendor}-#{host_os}"
   # A C extension is a BUNDLE on Darwin and a shared object everywhere else.
   dlext = darwin ? "bundle" : "so"
