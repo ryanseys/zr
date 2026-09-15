@@ -263,7 +263,8 @@ module Kernel
   # says nothing at all.
   def warn(*msgs, uplevel: nil, category: nil)
     Primitive.attr! :ruby
-    return nil if msgs.empty?
+    # rb_warn_m: silence, with $VERBOSE nil, says nothing at all.
+    return nil if msgs.empty? || $VERBOSE.nil?
     return nil if category && !Warning[category]
 
     text = msgs.flatten.map { |m| m.to_s.end_with?("\n") ? m.to_s : "#{m}\n" }.join

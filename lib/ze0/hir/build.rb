@@ -60,12 +60,19 @@ module Ze0
           [loader, loader.unit(file, source, line, scopes, method: method)]
         end
         loader, main = built.call(nil, false)
-        over_road = road.respond_to?(:units) && loader.evals?
+        # The first build reads every file, so it alone knows whether one
+        # evals: built again over the road, a file the road holds is
+        # named and never read.
+        evals = loader.evals?
+        over_road = road.respond_to?(:units) && evals
         # A program that names TracePoint is built again with its events.
-        loader, main = built.call(over_road ? road : nil, loader.traces?) if over_road || loader.traces?
+        if over_road || loader.traces?
+          loader, main = built.call(over_road ? road : nil, loader.traces?)
+          evals ||= loader.evals?
+        end
         preludes = []
         preludes << rbconfig(loader) if road && loader.configures?
-        preludes << eval_road(loader) if road && loader.evals?
+        preludes << eval_road(loader) if road && evals
         preludes.concat(rubygems(loader)) if road && loader.gems?
         preludes << normalizer(loader) if road && loader.normalizes?
         preludes << pretty_printer(loader) if road && loader.pretty_prints?
@@ -73,7 +80,7 @@ module Ze0
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
         coverable = loader.covers? ? loader.coverable : {}
-        Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries, loader.tracing?, loader.node_ids, spots,
+        Program.new(main.file, main.locals, body, loader.units, main.warnings, road && evals, loader.entries, loader.tracing?, loader.node_ids, spots,
                     coverable)
       end
 
