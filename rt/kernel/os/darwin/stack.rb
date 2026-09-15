@@ -26,6 +26,13 @@ machine def zr_os_stack_low
   Machine.word(top) - size
 end
 
+# The address just past the top of this thread's stack, or 0 where the
+# host does not say.
+sig [] => Word
+machine def zr_os_stack_high
+  Machine.word(pthread_get_stackaddr_np(pthread_self()))
+end
+
 # PROT_READ | PROT_WRITE, and MAP_PRIVATE | MAP_ANON.
 STACK_PROT = 3
 STACK_MAP_FLAGS = 4098

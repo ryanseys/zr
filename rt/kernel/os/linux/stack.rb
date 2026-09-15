@@ -60,6 +60,14 @@ machine def zr_os_stack_low
   Machine.load64(zr_linux_main_cell(), 0)
 end
 
+# The address just past the top of the program's stack, or 0 where it
+# runs on the process's own.
+sig [] => Word
+machine def zr_os_stack_high
+  low = Machine.load64(zr_linux_main_cell(), 0)
+  low == 0 ? 0 : low + MAIN_STACK_BYTES
+end
+
 # PROT_READ | PROT_WRITE, and MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK.
 STACK_PROT = 3
 STACK_MAP_FLAGS = 131106

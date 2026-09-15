@@ -13,6 +13,12 @@ machine def zr_os_stack_low
   0
 end
 
+# 0: the engine's stack is out of the module's reach.
+sig [] => Word
+machine def zr_os_stack_high
+  0
+end
+
 sig [Word] => Ptr
 machine def zr_os_stack_map(bytes)
   zr_os_set_errno(WASI_ENOSYS)

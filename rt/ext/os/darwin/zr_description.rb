@@ -281,6 +281,12 @@ module Ze0
         d zr_const_searched Value e:Ptr gone:Ptr
         d zr_const_loaded Value e:Ptr gone:Ptr
         d zr_mod_autoload_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_cont_side_ctx Ptr
+        d zr_cont_side Void
+        d zr_cont_stack_high Word
+        d zr_cont_roots Void roots:Value
+        d zr_cont_capture Value cont:Value
+        d zr_cont_resume Value cont:Value
         d zr_ivtab_copy Void to:Ptr from:Ptr
         d zr_copy_payload Value copy:Value orig:Value
         d zr_copy_cell Value orig:Value
@@ -1551,6 +1557,7 @@ module Ze0
         d zr_os_peereid Value fd:Value
         d zr_os_main I32 argc:I32 argv:Ptr
         d zr_os_stack_low Word
+        d zr_os_stack_high Word
         d zr_os_stack_map Ptr bytes:Word
         d zr_arch_context_start Void ctx:Ptr entry:Word top:Word
         c G_ARRAY 25
@@ -1582,6 +1589,9 @@ module Ze0
         c G_AUTOLOADS 38
         c AUTOLOAD_ROW 6
         c AUTOLOAD_REQUIRE 4
+        c CONT_SIDE_BYTES 1048576
+        c CONT_CAPTURE 1
+        c CONT_RESTORE 2
         c DIGEST_MD5 0
         c DIGEST_SHA1 1
         c DIGEST_SHA256 2
@@ -1883,6 +1893,7 @@ module Ze0
         s GateRow 40 8 klass:0:Word mid:8:Word bit:16:Word fn:24:Ptr vis:32:Word
         s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word
         s RCref 80 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr lazy:64:Value blk:72:Value
+        s ContState 56 8 low:0:Word high:8:Word bytes:16:Ptr ctx:24:Ptr task:32:Ptr kroots:40:Ptr resumed:48:Word
         s Coverage 48 8 rows:0:Ptr len:8:Word capa:16:Word setup:24:Word running:32:Word last:40:Ptr
         s CovRow 40 8 file:0:Ptr file_len:8:Word counts:16:Ptr size:24:Word measured:32:Word
         s LoadTable 128 8 units:0:Word rows:8:Ptr roots:16:Ptr roots_len:24:Word missing:32:Ptr missing_len:40:Word preloaded:48:Ptr preloaded_len:56:Word ext:64:Ptr ext_len:72:Word spots:80:Ptr spots_len:88:Word prefix:96:Ptr prefix_len:104:Word coverable:112:Ptr coverable_len:120:Word
