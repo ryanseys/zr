@@ -98,6 +98,8 @@ machine def zr_trace_c_send(event, e, owner, recv, value)
   zr_ary_push(row, owner)
   zr_ary_push(row, recv)
   zr_ary_push(row, Machine.value(QNIL))
+  zr_ary_push(row, zr_fix(Machine.word(Frame.meta(rec))))
+  zr_ary_push(row, zr_fix(e))
   zr_trace_run(row)
 end
 
@@ -153,8 +155,9 @@ end
 
 # TracePoint.fire with the row for frame `rec`: the event, the value,
 # the path and line, the method's name and the name it was called by,
-# its owner, the frame's self, and the frame's serial, which finds the
-# frame again for a binding.
+# its owner, the frame's self, the frame's serial, which finds the
+# frame again for a binding, and the addresses of the code's FrameMeta
+# and of the method entry, which answer its parameters.
 sig [Ptr, Word, Value] => Value
 machine def zr_trace_send(rec, event, value)
   row = zr_trace_row(event, value, Frame.meta(rec), zr_frame_line(rec))
@@ -180,6 +183,8 @@ machine def zr_trace_send(rec, event, value)
   end
   zr_ary_push(row, Frame.self(rec))
   zr_ary_push(row, zr_fix(Frame.serial(rec)))
+  zr_ary_push(row, zr_fix(Machine.word(Frame.meta(rec))))
+  zr_ary_push(row, zr_fix(entry))
   zr_trace_run(row)
 end
 
@@ -224,6 +229,8 @@ machine def zr_trace_bmethod(event, e, recv, value)
   zr_ary_push(row, FrameMeta.owner(MEntry.meta(e)))
   zr_ary_push(row, recv)
   zr_ary_push(row, Machine.value(QNIL))
+  zr_ary_push(row, zr_fix(Machine.word(meta)))
+  zr_ary_push(row, zr_fix(e))
   r = zr_trace_run(row)
   return r if r == QUNDEF
   if value == QUNDEF
@@ -248,4 +255,38 @@ machine def zr_trace_binding(serial)
   RProc.set_blk(b, Frame.blk(rec))
   RProc.set_serial(b, zr_frame_line(rec))
   b
+end
+
+# TracePoint#parameters for a row: a C method's by its arity, a
+# define_method body's as a method's, else those of the code the row's
+# FrameMeta describes, a block's as a proc takes them.
+sig [Value, Value] => Value
+machine def zr_trace_parameters(meta_word, entry_word)
+  e = Machine.ptr(zr_fix2long(entry_word))
+  if e != 0 && MEntry.kind(e) == KIND_BMETHOD
+    return zr_param_rows(FrameMeta.params(RProc.meta(MEntry.cref(e))), false)
+  end
+  if e != 0 && MEntry.kind(e) != KIND_DEF
+    return zr_arity_rows(MEntry.arity(e))
+  end
+  meta = Machine.ptr(zr_fix2long(meta_word))
+  if meta == 0 || FrameMeta.params(meta) == 0
+    return zr_ary_new(0)
+  end
+  zr_param_rows(FrameMeta.params(meta), FrameMeta.kind(meta) == KIND_BLOCK)
+end
+
+# Whether the code `meta_word` describes is `target`'s or is written
+# inside it, as a targeted TracePoint hooks an iseq and its children.
+sig [Value, Value] => Value
+machine def zr_trace_within(meta_word, target)
+  goal = zr_iseq_meta(target)
+  meta = Machine.ptr(zr_fix2long(meta_word))
+  while meta != 0
+    if meta == goal
+      return Machine.value(QTRUE)
+    end
+    meta = FrameMeta.parent(meta)
+  end
+  Machine.value(QFALSE)
 end

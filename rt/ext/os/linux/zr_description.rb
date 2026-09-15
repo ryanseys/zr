@@ -1446,6 +1446,8 @@ module Ze0
         d zr_trace_run Value row:Value
         d zr_trace_bmethod Value event:Word e:Ptr recv:Value value:Value
         d zr_trace_binding Value serial:Value
+        d zr_trace_parameters Value meta_word:Value entry_word:Value
+        d zr_trace_within Value meta_word:Value target:Value
         d zr_xmalloc Ptr n:Word
         d zr_memory_for_p Value n:Value
         d zr_memory_exhausted Void
