@@ -30,6 +30,10 @@ module Ze0
           File.binwrite(obj, Obj::Elf::ObjectFile.write(image))
           Link.run(objects + [obj], out, archives: Deps.build(target), flags: FLAGS + (strip ? STRIP_FLAGS : []), target: target)
         end
+
+        # The byte ranges of a linked binary that no input decides: none,
+        # since the link writes no build ID.
+        def stamps(_bytes) = []
       end
     end
   end

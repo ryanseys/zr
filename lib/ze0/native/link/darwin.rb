@@ -4,6 +4,7 @@ require_relative "../link"
 require_relative "../../deps"
 require_relative "../../obj/macho/object_file"
 require_relative "../../obj/macho/executable"
+require_relative "../../obj/macho/stamps"
 
 module Ze0
   module Native
@@ -44,6 +45,10 @@ module Ze0
           File.binwrite(obj, Obj::MachO::ObjectFile.write(image))
           Link.run(objects + [obj], out, archives: Deps.build(target), flags: STACK_FLAGS + (strip ? STRIP_FLAGS : []), target: target)
         end
+
+        # The byte ranges of a linked binary that no input decides: the
+        # UUID `ld` writes and the signature over its page.
+        def stamps(bytes) = Obj::MachO::Stamps.of(bytes)
       end
     end
   end

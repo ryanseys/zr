@@ -35,14 +35,6 @@ module Ze0
           end
           ranges.sort_by(&:first)
         end
-
-        # `bytes` with every stamped range blanked, so that what is left is
-        # what the compiler decided.
-        def self.blank(bytes)
-          out = bytes.dup
-          of(bytes).each { |r| out[r] = "\0".b * r.size }
-          out
-        end
       end
     end
   end

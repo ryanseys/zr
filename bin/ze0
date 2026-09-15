@@ -137,17 +137,15 @@ when "stage2"
   # The stage ladder. Stage 1 is the compiler compiled by ze0 under ruby;
   # stage 2 is the same source compiled by stage 1. The two binaries must
   # agree byte for byte, which is what says the compiler is a fixed point.
-  # Both are written under the same base name, since the ad-hoc signature
-  # carries the output's base name.
+  # Both are written under the same base name, since macOS's ad-hoc
+  # signature carries the output's base name.
   #
-  # The compiler reaches oniguruma, so `cc` links it and `ld` stamps a
-  # fresh UUID into every link; the signature then hashes the page that
-  # UUID sits in. `Obj::MachO::Stamps` blanks those two ranges so that what is
-  # compared is what the compiler decided. A binary `Obj::MachO::Executable` writes
-  # needs none of this -- its UUID is the image's own hash -- but this
-  # one is not such a binary.
+  # The compiler reaches oniguruma, so `cc` links it. What that link
+  # writes and no input decides (on macOS, `ld`'s fresh UUID and the
+  # signature over its page) is blanked, so that what is compared is what
+  # the compiler decided.
   require "fileutils"
-  require_relative "../lib/ze0/obj/macho/stamps"
+  require_relative "../lib/ze0/native/build"
   usage unless ARGV.drop(1).empty?
 
   source = File.join(ROOT, "tools/stage.rb")
@@ -172,11 +170,14 @@ when "stage2"
 
   a, b = stages.map { |path| File.binread(path) }
   elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-  stamps = Ze0::Obj::MachO::Stamps.of(a)
-  x, y = [a, b].map { |bytes| Ze0::Obj::MachO::Stamps.blank(bytes) }
+  linker = Ze0::Native::Build.linker(Ze0::Target.default)
+  stamps = linker.stamps(a)
+  x, y = [a, b].map do |bytes|
+    bytes.dup.tap { |out| linker.stamps(bytes).each { |r| out[r] = "\0".b * r.size } }
+  end
   if x == y
     puts format("stage 2 holds: %d bytes, the same from stage 1 and from ruby, in %.1f s", a.bytesize, elapsed)
-    puts "the linker's own stamps are not compared: #{stamps.map { |r| "#{r.first}..#{r.last}" }.join(", ")}"
+    puts "the linker's own stamps are not compared: #{stamps.map { |r| "#{r.first}..#{r.last}" }.join(", ")}" unless stamps.empty?
     puts "both binaries are kept: #{stages.join(" and ")}"
   else
     at = x.bytesize.times.find { |i| x.getbyte(i) != y.getbyte(i) } || [x.bytesize, y.bytesize].min
