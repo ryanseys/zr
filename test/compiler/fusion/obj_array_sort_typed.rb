@@ -30,9 +30,8 @@ none = [Money.new(1)]
 none.sort!
 p none.min.nil?
 
-# equal-comparing elements: the merge schedule is fixed (and matches CRuby's
-# small-array ordering), so tied elements land in a deterministic order on
-# every platform
+# equal-comparing elements: tied elements land in the order of the C
+# library's qsort_r, as CRuby's do
 class Card
   include Comparable
   attr_reader :rank, :tag
@@ -65,4 +64,15 @@ __END__
 3
 false
 [1, 3, 0, 2, 4]
+comparison of NoCmp with NoCmp failed
+#@ linux stdout
+10
+30
+10
+30
+30
+10
+3
+false
+[3, 1, 0, 2, 4]
 comparison of NoCmp with NoCmp failed

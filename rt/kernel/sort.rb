@@ -1,7 +1,8 @@
-# Sorting. On macOS ruby's `Array#sort` is the C library's `qsort_r`,
-# so a tie's order is that routine's: this is the same Bentley-McIlroy
-# algorithm over rows of `stride` bytes whose first word is the Value
-# compared, index for pointer.
+# Sorting. ruby's `Array#sort` is the C library's `qsort_r`, so a tie's
+# order is that routine's, and `zr_os_sort` names the OS's. On macOS it
+# is the Bentley-McIlroy algorithm here, over rows of `stride` bytes whose
+# first word is the Value compared, index for pointer; musl's smoothsort
+# is rt/kernel/os/linux/smoothsort.rb.
 #
 # The comparator runs Ruby. Once a comparison raises, every later one
 # answers 0 without running Ruby, the sort finishes on the copy it was
@@ -268,7 +269,7 @@ machine def zr_ary_sort_copy(ary, blk)
   Sort.set_stride(st, 8)
   Sort.set_blk(st, blk)
   Sort.set_failed(st, 0)
-  zr_sort_range(st, 0, n)
+  zr_os_sort(st, n)
   if Sort.failed(st) != 0
     return Machine.value(QUNDEF)
   end
@@ -565,7 +566,7 @@ machine def zr_sort_by(pairs)
     Sort.set_stride(st, Pair.size)
     Sort.set_blk(st, Machine.value(QNIL))
     Sort.set_failed(st, 0)
-    zr_sort_range(st, 0, n)
+    zr_os_sort(st, n)
     if Sort.failed(st) != 0
       return Machine.value(QUNDEF)
     end

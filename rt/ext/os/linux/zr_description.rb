@@ -1443,10 +1443,21 @@ module Ze0
         d zr_os_stat_mode Word buf:Ptr
         d zr_os_wait_fd Value fd:Value events:Value milliseconds:Value
         d zr_os_jit_map Value size:Value exec:Value hint:Value
+        d zr_linux_symtab Ptr
         d zr_os_symbol Value name:Value
         d zr_os_jit_write Value at:Value bytes:Value
         d zr_os_libffi_path Ptr
+        d zr_os_sort Void st:Ptr n:Word
         d zr_os_sigaction I32 signo:I32 fn:Word old:Ptr
+        d zr_smooth_ntz Word x:Word
+        d zr_smooth_pntz Word p:Ptr
+        d zr_smooth_shl Void p:Ptr n:Word
+        d zr_smooth_shr Void p:Ptr n:Word
+        d zr_smooth_cycle Void st:Ptr ar:Ptr n:Word
+        d zr_smooth_lp Word lp:Ptr i:Word
+        d zr_smooth_sift Void st:Ptr head:Word pshift:Word lp:Ptr
+        d zr_smooth_trinkle Void st:Ptr head:Word pp:Ptr pshift:Word trusty:Word lp:Ptr
+        d zr_smoothsort Void st:Ptr n:Word
         d zr_os_sockaddr_len Word addr:Ptr
         d zr_os_addrinfo_row Value node:Ptr
         d zr_os_addrinfo_next Ptr node:Ptr
@@ -1761,6 +1772,17 @@ module Ze0
         c PROT_READ_WRITE_EXEC 7
         c MAP_ANON_PRIVATE 34
         c RTLD_DEFAULT 0
+        c MAP_FIXED_NOREPLACE 1048576
+        c JIT_GAP 1073741824
+        c PAGE_MASK -4096
+        c ELF_SHOFF 40
+        c ELF_SHENTSIZE 58
+        c ELF_SHNUM 60
+        c SHT_SYMTAB 2
+        c SYM_LEN 24
+        c PROT_READ 1
+        c MAP_PRIVATE 2
+        c SEEK_END 2
         c NSIG 65
         c SIGACTION_LEN 152
         c EPROTOTYPE 91

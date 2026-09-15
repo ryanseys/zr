@@ -49,6 +49,9 @@
 #   zr_os_symbol         [Value] => Value
 #   zr_os_libffi_path    [] => Ptr
 #
+# the C library
+#   zr_os_sort           [Ptr, Word] => Void
+#
 # floats
 #   zr_os_cospi          [F64] => F64
 #   zr_os_sinpi          [F64] => F64

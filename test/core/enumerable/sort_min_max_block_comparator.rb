@@ -24,3 +24,11 @@ __END__
 1
 cat
 banana
+#@ linux stdout
+[5, 4, 3, 1, 1]
+["c", "b", "a"]
+["ape", "cat", "banana"]
+5
+1
+cat
+banana

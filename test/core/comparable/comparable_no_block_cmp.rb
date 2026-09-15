@@ -91,11 +91,11 @@ comparison of Weight with String failed
 30
 10
 20
-comparison of String with Weight failed
-comparison of String with Weight failed
 comparison of Weight with String failed
 comparison of String with Weight failed
 comparison of Weight with String failed
+comparison of Weight with String failed
+comparison of String with Weight failed
 [10, 30]
 [10, 20]
 [30, 20]
