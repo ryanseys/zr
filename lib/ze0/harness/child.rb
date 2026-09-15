@@ -57,17 +57,14 @@ module Ze0
 
       # Waits for `pid`: its status, or nil and the bound it went past.
       def watch(pid, deadline, megabytes)
-        measured = now
+        Watch.add(pid)
         pause = 0.001
         loop do
           _, status = Process.wait2(pid, Process::WNOHANG)
           return [status, nil] if status
 
-          at = now
-          over = if at >= deadline then :timeout
-                 elsif at - measured >= EVERY
-                   measured = at
-                   :memory if resident_kb(pid) > megabytes * 1024
+          over = if now >= deadline then :timeout
+                 elsif Watch.resident_kb(pid) > megabytes * 1024 then :memory
                  end
           if over
             Process.kill("KILL", -pid) rescue nil
@@ -77,18 +74,67 @@ module Ze0
           sleep pause
           pause = [pause * 2, 0.02].min
         end
+      ensure
+        Watch.drop(pid)
       end
 
-      # The resident kilobytes of every process in `group`, or 0 where ps
-      # cannot say (busybox's ps has no -o pgid).
-      def resident_kb(group)
-        out = IO.popen(["ps", "-A", "-o", "pgid=,rss="], err: File::NULL, &:read)
-        out.each_line.sum do |line|
-          pgid, kb = line.split
-          pgid.to_i == group ? kb.to_i : 0
+      # One reader of every group's memory: a thread that runs `ps` once
+      # every EVERY seconds while any child is watched, and stops when
+      # none is. Twelve children each running their own `ps` five times
+      # a second was a load of its own.
+      module Watch
+        @groups = {}
+        @sample = {}
+        @lock = Mutex.new
+
+        module_function
+
+        def add(pid)
+          @lock.synchronize do
+            @groups[pid] = true
+            @thread ||= Thread.new { sample_until_idle }
+          end
         end
-      rescue SystemCallError
-        0
+
+        def drop(pid)
+          @lock.synchronize { @groups.delete(pid) }
+        end
+
+        # The resident kilobytes of the group `pid` leads at the last
+        # sample, or 0 before the first one or where ps cannot say
+        # (busybox's ps has no -o pgid).
+        def resident_kb(pid)
+          @lock.synchronize { @sample.fetch(pid, 0) }
+        end
+
+        # The thread ends under the lock, so an `add` sees either a live
+        # thread or none and never a dying one.
+        def sample_until_idle
+          loop do
+            groups = @lock.synchronize do
+              @thread = nil if @groups.empty?
+              @groups.dup
+            end
+            return if groups.empty?
+
+            sample = read(groups)
+            @lock.synchronize { @sample = sample }
+            sleep EVERY
+          end
+        end
+
+        def read(groups)
+          out = IO.popen(["ps", "-A", "-o", "pgid=,rss="], err: File::NULL, &:read)
+          sample = Hash.new(0)
+          out.each_line do |line|
+            pgid, kb = line.split
+            pgid = pgid.to_i
+            sample[pgid] += kb.to_i if groups.key?(pgid)
+          end
+          sample
+        rescue SystemCallError
+          {}
+        end
       end
 
       def now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
