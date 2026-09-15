@@ -69,6 +69,7 @@ module Ze0
         preludes.concat(rubygems(loader)) if road && loader.gems?
         preludes << normalizer(loader) if road && loader.normalizes?
         preludes << pretty_printer(loader) if road && loader.pretty_prints?
+        preludes << ast_translator(loader) if road && loader.asts?
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
         coverable = loader.covers? ? loader.coverable : {}
@@ -112,6 +113,13 @@ module Ze0
       # The file that arms Kernel#pp's load of ruby's own pp.rb, as
       # CRuby's prelude requires it on the first call.
       PRETTY_PRINTER = File.join(EXT, "ze0/pretty_printer.rb")
+      AST_TRANSLATOR = File.join(EXT, "ze0/ast.rb")
+
+      # RubyVM::AbstractSyntaxTree's translator, which a program that names
+      # the module carries ahead of its body, out of $LOADED_FEATURES.
+      def self.ast_translator(loader)
+        Require.new(:eval_road, "ze0/ast", AST_TRANSLATOR, loader.add(AST_TRANSLATOR), 0)
+      end
 
       def self.pretty_printer(loader)
         Require.new(:eval_road, "ze0/pretty_printer", PRETTY_PRINTER, loader.add(PRETTY_PRINTER), 0)
@@ -175,6 +183,7 @@ module Ze0
           @evals = false
           @normalizes = external&.normalizes? || false
           @pretty_prints = external&.pretty_prints? || false
+          @asts = false
           @configures = external&.configures? || false
           @back_refs = {}
         end
@@ -325,7 +334,12 @@ module Ze0
 
         def compiles!(name)
           @evals = true if COMPILES.include?(name)
+          @asts = true if name == :AbstractSyntaxTree
         end
+
+        # Whether a file names RubyVM::AbstractSyntaxTree, whose trees the
+        # translator over prism builds.
+        def asts? = @asts
 
         # Whether a file names rubygems' API, which then loads as the
         # program boots, as ruby loads it for every program.

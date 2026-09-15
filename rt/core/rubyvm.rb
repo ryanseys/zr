@@ -8,7 +8,7 @@ class RubyVM
     undef_method :new
   end
 
-  OPTS = ["direct threaded code", "operands unification", "inline method cache"].freeze
+  OPTS = ["direct threaded code", "operands unification", "inline method cache"]
   DEFAULT_PARAMS = {
     thread_vm_stack_size: 1_048_576,
     thread_machine_stack_size: 1_048_576,
@@ -43,8 +43,6 @@ class RubyVM
     Primitive.zr_undef_alloc(self)
 
     class << self
-      undef_method :new
-
       def of(body)
         return nil unless Primitive.zr_iseq_p(body)
 
@@ -61,10 +59,12 @@ class RubyVM
         code = ::Ze0::Eval.current.compile(source, file, line, [])
         Primitive.zr_box_compiled(code[1])
         iseq = made(nil, code, "<compiled>", "<compiled>", file, line)
+        Primitive.zr_hidden_set(iseq, :__source__, source)
         Primitive.zr_hidden_set(iseq, :__absolute_path__, path)
         iseq
       end
       alias compile_prism compile
+      alias new compile
 
       def compile_file(file, options = nil)
         iseq = compile(File.read(file), file, File.expand_path(file))
@@ -80,7 +80,9 @@ class RubyVM
       def disasm(body) = of(body)&.disasm
       alias disassemble disasm
 
-      def load_from_binary(binary) = Primitive.zr_unimplemented("RubyVM::InstructionSequence.load_from_binary")
+      # There is no bytecode to load: every binary is one this runtime
+      # cannot read.
+      def load_from_binary(binary) = raise(RuntimeError, "broken binary format")
 
       private
 
@@ -131,13 +133,31 @@ class RubyVM
     alias disassemble disasm
 
     def to_a = Primitive.zr_unimplemented("RubyVM::InstructionSequence#to_a")
-    def trace_points = Primitive.zr_unimplemented("RubyVM::InstructionSequence#trace_points")
+    # The :line events a compiled string's top level fires: one on each
+    # line a statement starts, as the compiler puts them.
+    def trace_points
+      code = Primitive.zr_hidden_get(self, :__source__)
+      return Primitive.zr_unimplemented("RubyVM::InstructionSequence#trace_points of a block or a method") if code.nil?
+
+      statements = ::Prism.parse(code, line: first_lineno).value.statements.body
+      statements.select(&:newline?).map { |node| node.location.start_line }.uniq.map { |line| [line, :line] }
+    end
     def each_child = Primitive.zr_unimplemented("RubyVM::InstructionSequence#each_child")
     def to_binary(extra_data = nil) = Primitive.zr_unimplemented("RubyVM::InstructionSequence#to_binary")
     def script_lines = nil
   end
 
   module AbstractSyntaxTree
+    # The tree parse.y would build, which the translator a program that
+    # names this module carries rebuilds from prism's (rt/ext/ze0/ast.rb).
+    def self.parse(string, keep_script_lines: RubyVM.keep_script_lines, error_tolerant: false, keep_tokens: false)
+      ::Ze0::AST.parse(string, keep_script_lines: keep_script_lines, error_tolerant: error_tolerant, keep_tokens: keep_tokens)
+    end
+
+    def self.parse_file(pathname, keep_script_lines: RubyVM.keep_script_lines, error_tolerant: false, keep_tokens: false)
+      ::Ze0::AST.parse_file(pathname, keep_script_lines: keep_script_lines, error_tolerant: error_tolerant, keep_tokens: keep_tokens)
+    end
+
     # The AST of what `body` runs. Every ISEQ here is prism's, so a body
     # written in Ruby refuses as ast_s_of refuses one; a method or a Proc
     # the runtime carries has no ISEQ and answers nil.
@@ -173,10 +193,12 @@ class RubyVM
     def self.insns_compiled(iseq) = nil
     def self.exit_locations = nil
     def self.log = nil
-    def self.reset_stats! = false
+    def self.reset_stats! = nil
     def self.code_gc = nil
     def self.disasm(iseq) = nil
-    def self.dump_exit_locations(filename) = nil
+    def self.dump_exit_locations(filename)
+      raise ArgumentError, "--yjit-trace-exits must be enabled to use dump_exit_locations."
+    end
     def self.simulate_oom! = nil
   end
 end
