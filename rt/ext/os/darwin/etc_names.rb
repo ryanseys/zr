@@ -155,4 +155,8 @@ module Etc
   SC_XOPEN_STREAMS = 114
   SC_XOPEN_UNIX = 115
   SC_XOPEN_VERSION = 116
+
+  PASSWD_MEMBERS = %i[name passwd uid gid gecos dir shell change uclass expire].freeze
+  GROUP_MEMBERS = %i[name passwd gid mem].freeze
+  private_constant :PASSWD_MEMBERS, :GROUP_MEMBERS
 end

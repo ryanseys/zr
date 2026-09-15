@@ -11,6 +11,7 @@ class Socket < BasicSocket
 end
 
 require "socket/constants"
+require "socket/layout"
 require_relative "socket/init"
 require_relative "socket/basicsocket"
 require_relative "socket/socket"

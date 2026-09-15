@@ -139,7 +139,7 @@ class Addrinfo
   def ipv6_to_ipv4
     return nil unless ipv6? && (ipv6_v4mapped? || ipv6_v4compat?)
 
-    sockaddr = [16, Socket::AF_INET, 0].pack("CCn") + @sockaddr.byteslice(20, 4) + ("\0" * 8)
+    sockaddr = Socket.sockaddr_head(Socket::AF_INET, 16) + [0].pack("n") + @sockaddr.byteslice(20, 4) + ("\0" * 8)
     Addrinfo.build(sockaddr, Socket::PF_INET, @socktype, @protocol, @canonname, @inspectname)
   end
 
@@ -149,7 +149,7 @@ class Addrinfo
 
     length = Addrinfo.unix_path_length(bytes)
     raise SocketError, "too short AF_UNIX address: #{bytes.bytesize} bytes given for minimum 2 bytes." if length.negative?
-    raise SocketError, "too long AF_UNIX path (#{length} bytes given but 104 bytes max)" if length > 104
+    raise SocketError, "too long AF_UNIX path (#{length} bytes given but #{Socket.unix_path_max} bytes max)" if length > Socket.unix_path_max
 
     bytes.byteslice(2, length)
   end
@@ -221,7 +221,7 @@ class Addrinfo
     inspectname = ary[6].nil? ? nil : Primitive.zr_str_operand(ary[6])
     if afamily == Socket::AF_UNIX
       path = Primitive.zr_str_operand(ary[1])
-      raise SocketError, "too long AF_UNIX path (#{path.bytesize} bytes given but 104 bytes max)" if path.bytesize > 104
+      raise SocketError, "too long AF_UNIX path (#{path.bytesize} bytes given but #{Socket.unix_path_max} bytes max)" if path.bytesize > Socket.unix_path_max
 
       sockaddr = Socket.pack_unix(path)
     else
@@ -307,7 +307,7 @@ class Addrinfo
       return "empty-sockaddr" if bytes.empty?
       return "too-short-sockaddr" if bytes.bytesize < 2
 
-      family = bytes.getbyte(1)
+      family = Socket.sockaddr_family(bytes)
       case family
       when Socket::AF_UNSPEC then "UNSPEC"
       when Socket::AF_INET then inspect_in(bytes)
@@ -413,7 +413,7 @@ class Addrinfo
   # init_unix_addrinfo.
   def assign_unix(path, socktype)
     Primitive.attr! :hidden
-    raise ArgumentError, "too long unix socket path (#{path.bytesize} bytes given but 104 bytes max)" if path.bytesize > 104
+    raise ArgumentError, "too long unix socket path (#{path.bytesize} bytes given but #{Socket.unix_path_max} bytes max)" if path.bytesize > Socket.unix_path_max
 
     assign(Socket.pack_unix(path), Socket::PF_UNIX, socktype, 0, nil, nil)
   end
@@ -431,11 +431,10 @@ class Addrinfo
     raise TypeError, "uninitialized socket address" if @sockaddr.nil?
   end
 
-  # get_afamily: the family byte, when the address is long enough to
-  # have one.
+  # get_afamily: the family, when the address is long enough to have one.
   def family_of(bytes)
     Primitive.attr! :hidden
-    bytes.bytesize >= 2 ? bytes.getbyte(1) : Socket::AF_UNSPEC
+    Socket.sockaddr_family(bytes)
   end
 
   def numeric_nameinfo

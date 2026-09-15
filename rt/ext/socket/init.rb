@@ -244,7 +244,7 @@ class Socket < BasicSocket
     # An IPv4 address's four bytes as getnameinfo writes them.
     def inet_text(bytes)
       Primitive.attr! :hidden
-      make_ipaddr([16, AF_INET, 0].pack("CCn") + bytes + ("\0" * 8))
+      make_ipaddr(sockaddr_head(AF_INET, 16) + [0].pack("n") + bytes + ("\0" * 8))
     end
 
     # str_is_number: digits strtoul reads to the end.
@@ -264,10 +264,10 @@ class Socket < BasicSocket
 
       port = service.to_i
       if (family == PF_UNSPEC || family == PF_INET6) && node.match?(/\A[0-9a-fA-F.:]*\z/) && (bytes = Primitive.zr_sock_inet_pton(AF_INET6, node))
-        sockaddr = [28, AF_INET6, port, 0].pack("CCnN") + bytes + "\0\0\0\0"
+        sockaddr = sockaddr_head(AF_INET6, 28) + [port, 0].pack("nN") + bytes + "\0\0\0\0"
         af = PF_INET6
       elsif (family == PF_UNSPEC || family == PF_INET) && node.match?(/\A[0-9.]*\z/) && (bytes = Primitive.zr_sock_inet_pton(AF_INET, node))
-        sockaddr = [16, AF_INET, port].pack("CCn") + bytes + ("\0" * 8)
+        sockaddr = sockaddr_head(AF_INET, 16) + [port].pack("n") + bytes + ("\0" * 8)
         af = PF_INET
       else
         return nil
@@ -335,7 +335,7 @@ class Socket < BasicSocket
     # looked up by name unless `norevlookup`.
     def ipaddr(sockaddr, norevlookup)
       Primitive.attr! :hidden
-      af = sockaddr.getbyte(1)
+      af = sockaddr_family(sockaddr)
       family = intern(af, /\AAF_/) || "unknown:#{af}"
       name = nil
       unless norevlookup
@@ -363,7 +363,48 @@ class Socket < BasicSocket
     # structure, as rsock_unix_sockaddr_len makes it here.
     def pack_unix(path)
       Primitive.attr! :hidden
-      [106, AF_UNIX].pack("CC") + path.b + ("\0" * (104 - path.bytesize))
+      sockaddr_head(AF_UNIX, UNIX_PATH_MAX + 2) + path.b + ("\0" * (UNIX_PATH_MAX - path.bytesize))
+    end
+
+    # The most bytes of path a sockaddr_un holds.
+    def unix_path_max
+      Primitive.attr! :hidden
+      UNIX_PATH_MAX
+    end
+
+    # CMSG_LEN and CMSG_SPACE: the length a control message of `size`
+    # bytes of data records, and the room it takes with its padding.
+    def cmsg_len(size)
+      Primitive.attr! :hidden
+      CMSG_HEADER + size
+    end
+
+    def cmsg_space(size)
+      Primitive.attr! :hidden
+      cmsg_align(CMSG_HEADER) + cmsg_align(size)
+    end
+
+    def cmsg_align(size)
+      Primitive.attr! :hidden
+      (size + CMSG_ALIGN - 1) & -CMSG_ALIGN
+    end
+
+    # One control message: the header, the data, and its padding.
+    def cmsg(level, type, data)
+      Primitive.attr! :hidden
+      [cmsg_len(data.bytesize), level, type].pack(CMSG_HEADER_PACK) + data.b + ("\0" * (cmsg_space(data.bytesize) - cmsg_len(data.bytesize)))
+    end
+
+    # A control message's header at `at`: its length, level and type.
+    def cmsg_header(control, at)
+      Primitive.attr! :hidden
+      control.byteslice(at, CMSG_HEADER).unpack(CMSG_HEADER_PACK)
+    end
+
+    # The bytes of a cmsghdr.
+    def cmsg_header_size
+      Primitive.attr! :hidden
+      CMSG_HEADER
     end
 
     # SockAddrStringValueWithAddrinfo: an address's bytes, from an
@@ -382,8 +423,7 @@ class Socket < BasicSocket
       type = Primitive.zr_sock_getsockopt(fd, SOL_SOCKET, SO_TYPE)
       syserr_fail(-type, "getsockopt(SO_TYPE)") if type.is_a?(Integer)
 
-      family = sockaddr.bytesize >= 2 ? sockaddr.getbyte(1) : AF_UNSPEC
-      Addrinfo.send(:build, sockaddr, family, type.unpack1("i"), 0)
+      Addrinfo.send(:build, sockaddr, sockaddr_family(sockaddr), type.unpack1("i"), 0)
     end
 
     # rsock_revlookup_flag: what a reverse_lookup argument asks, or nil

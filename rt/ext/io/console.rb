@@ -5,42 +5,14 @@
 # the require, so a program that never asks for it answers none of them.
 #
 # The mode itself crosses from the kernel as the bytes of struct termios,
-# and the flags a mode changes are named here.
+# and the OS's layer (io/console/termios) names where its fields are and
+# the flags a mode changes.
+require "io/console/termios"
+
 class IO
   # The escape introducer every cursor row writes.
   CSI = "\e["
-  # struct termios: four flag words, then twenty control characters.
-  TERMIOS_IFLAG = 0
-  TERMIOS_OFLAG = 8
-  TERMIOS_CFLAG = 16
-  TERMIOS_LFLAG = 24
-  TERMIOS_VMIN = 32 + 16
-  TERMIOS_VTIME = 32 + 17
-  # tcsetattr's action, and tcflush's queue.
-  TCSANOW = 0
-  TCIFLUSH = 1
-  TCOFLUSH = 2
-  TCIOFLUSH = 3
-  # cfmakeraw, as this platform spells the flags.
-  RAW_IFLAG_OFF = 0x2fff  # IGNBRK BRKINT IGNPAR PARMRK INPCK ISTRIP INLCR IGNCR ICRNL IXON IXOFF IXANY IMAXBEL
-  RAW_OFLAG_OFF = 0x1     # OPOST
-  RAW_LFLAG_OFF = 0x59e   # ECHO ECHOE ECHOK ECHONL ICANON ISIG IEXTEN
-  RAW_CFLAG_OFF = 0x1300  # CSIZE PARENB
-  RAW_CFLAG_ON = 0x300    # CS8
-  COOKED_IFLAG_ON = 0x322 # BRKINT ISTRIP ICRNL IXON
-  COOKED_LFLAG_ON = 0x59e
-  # What an interrupt needs back: BRKINT, ISIG and OPOST.
-  INTR_IFLAG = 0x2
-  INTR_LFLAG = 0x80
-  INTR_OFLAG = 0x1
-  # set_echo and set_noecho, and the pair echo_p reads.
-  ECHO_BITS = 0x1e        # ECHO ECHOE ECHOK ECHONL
-  ECHO_ANY = 0x18         # ECHO ECHONL
-  private_constant :CSI, :TERMIOS_IFLAG, :TERMIOS_OFLAG, :TERMIOS_CFLAG, :TERMIOS_LFLAG,
-                   :TERMIOS_VMIN, :TERMIOS_VTIME, :TCSANOW, :TCIFLUSH, :TCOFLUSH, :TCIOFLUSH,
-                   :RAW_IFLAG_OFF, :RAW_OFLAG_OFF, :RAW_LFLAG_OFF, :RAW_CFLAG_OFF, :RAW_CFLAG_ON,
-                   :COOKED_IFLAG_ON, :COOKED_LFLAG_ON, :INTR_IFLAG, :INTR_LFLAG, :INTR_OFLAG,
-                   :ECHO_BITS, :ECHO_ANY
+  private_constant :CSI
 
   # A terminal's mode, held as the bytes tcgetattr gave. ruby names the
   # class IO::ConsoleMode and keeps the bytes to itself.
@@ -50,26 +22,26 @@ class IO
       self
     end
 
-    def echo? = (IO.send(:flag_of, mode_bytes, 24) & 0x18) != 0
+    def echo? = (IO.send(:flag_of, mode_bytes, TERMIOS_LFLAG) & ECHO_ANY) != 0
     def echo = echo?
 
     def echo=(flag)
-      IO.send(:put_flag, mode_bytes, 24, flag ? (IO.send(:flag_of, mode_bytes, 24) | 0x1e) : (IO.send(:flag_of, mode_bytes, 24) & ~0x1e))
+      IO.send(flag ? :echo_mode : :noecho_mode, mode_bytes, nil)
       self
     end
 
-    def min = mode_bytes.getbyte(48)
+    def min = mode_bytes.getbyte(TERMIOS_VMIN)
 
     def min=(value)
-      mode_bytes.setbyte(48, value.nil? ? 1 : IO.send(:clamp_uchar, IO.send(:int_arg, value)))
+      mode_bytes.setbyte(TERMIOS_VMIN, value.nil? ? 1 : IO.send(:clamp_uchar, IO.send(:int_arg, value)))
       value
     end
 
     # VTIME counts tenths of a second, which ruby reports exactly.
-    def time = Rational(mode_bytes.getbyte(49), 10)
+    def time = Rational(mode_bytes.getbyte(TERMIOS_VTIME), 10)
 
     def time=(value)
-      mode_bytes.setbyte(49, value.nil? ? 0 : IO.send(:clamp_uchar, IO.send(:int_arg, value * 10)))
+      mode_bytes.setbyte(TERMIOS_VTIME, value.nil? ? 0 : IO.send(:clamp_uchar, IO.send(:int_arg, value * 10)))
       value
     end
 
@@ -444,14 +416,15 @@ class IO
       bytes
     end
 
+    # A flag word, as wide as the OS's tcflag_t.
     def flag_of(bytes, offset)
       Primitive.attr! :hidden
-      bytes.byteslice(offset, 8).unpack1("Q<")
+      bytes.byteslice(offset, TERMIOS_FLAG_BYTES).unpack1(TERMIOS_FLAG_PACK)
     end
 
     def put_flag(bytes, offset, value)
       Primitive.attr! :hidden
-      bytes[offset, 8] = [value & 0xffffffffffffffff].pack("Q<")
+      bytes[offset, TERMIOS_FLAG_BYTES] = [value & ((1 << (8 * TERMIOS_FLAG_BYTES)) - 1)].pack(TERMIOS_FLAG_PACK)
       bytes
     end
 

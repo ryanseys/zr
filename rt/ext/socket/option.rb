@@ -189,7 +189,7 @@ class Socket < BasicSocket
 
       def ipv6_text(bytes)
         Primitive.attr! :hidden
-        Socket.make_ipaddr([28, AF_INET6, 0, 0].pack("CCnN") + bytes + "\0\0\0\0")
+        Socket.make_ipaddr(Socket.sockaddr_head(AF_INET6, 28) + [0, 0].pack("nN") + bytes + "\0\0\0\0")
       end
 
       # rb_if_indextoname: the interface an index names, after one prefix,

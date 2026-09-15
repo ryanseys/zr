@@ -61,7 +61,7 @@ class Socket < BasicSocket
       ifindex = bytes.byteslice(16, 4).unpack1("L")
       addr = bytes.byteslice(0, 16)
       scope = addr.getbyte(0) == 0xfe && (addr.getbyte(1) & 0xc0) == 0x80 ? ifindex : 0
-      Addrinfo.send(:build, [28, AF_INET6, 0, 0].pack("CCnN") + addr + [scope].pack("L"), PF_INET6, 0, 0)
+      Addrinfo.send(:build, Socket.sockaddr_head(AF_INET6, 28) + [0, 0].pack("nN") + addr + [scope].pack("L"), PF_INET6, 0, 0)
     end
 
     def ipv6_pktinfo_ifindex = ipv6_pktinfo_bytes.byteslice(16, 4).unpack1("L")
@@ -104,9 +104,9 @@ class Socket < BasicSocket
         ifindex = Integer.send(:int_operand, ifindex) & 0xffffffff
         spec_dst = spec_dst.nil? ? addr : Socket.sockaddr_string(spec_dst)[0]
         raise ArgumentError, "addr size different to AF_INET sockaddr" unless addr.bytesize == 16
-        raise ArgumentError, "addr is not AF_INET sockaddr" unless addr.getbyte(1) == AF_INET
+        raise ArgumentError, "addr is not AF_INET sockaddr" unless Socket.sockaddr_family(addr) == AF_INET
         raise ArgumentError, "spec_dat size different to AF_INET sockaddr" unless spec_dst.bytesize == 16
-        raise ArgumentError, "spec_dst is not AF_INET sockaddr" unless spec_dst.getbyte(1) == AF_INET
+        raise ArgumentError, "spec_dst is not AF_INET sockaddr" unless Socket.sockaddr_family(spec_dst) == AF_INET
 
         build(AF_INET, IPPROTO_IP, IP_PKTINFO, [ifindex].pack("L") + spec_dst.byteslice(4, 4) + addr.byteslice(4, 4))
       end
@@ -115,7 +115,7 @@ class Socket < BasicSocket
         addr, = Socket.sockaddr_string(addr)
         ifindex = Integer.send(:int_operand, ifindex) & 0xffffffff
         raise ArgumentError, "addr size different to AF_INET6 sockaddr" unless addr.bytesize == 28
-        raise ArgumentError, "addr is not AF_INET6 sockaddr" unless addr.getbyte(1) == AF_INET6
+        raise ArgumentError, "addr is not AF_INET6 sockaddr" unless Socket.sockaddr_family(addr) == AF_INET6
 
         build(AF_INET6, IPPROTO_IPV6, IPV6_PKTINFO, addr.byteslice(8, 16) + [ifindex].pack("L"))
       end
@@ -124,7 +124,7 @@ class Socket < BasicSocket
       # stays 0, as ancillary_ip_pktinfo builds it.
       def in_addrinfo(bytes)
         Primitive.attr! :hidden
-        Addrinfo.send(:build, [0, AF_INET, 0].pack("CCn") + bytes + ("\0" * 8), PF_INET, 0, 0)
+        Addrinfo.send(:build, Socket.sockaddr_head(AF_INET, 0) + [0].pack("n") + bytes + ("\0" * 8), PF_INET, 0, 0)
       end
 
       # The message's value as ancillary_inspect writes the messages it
@@ -160,14 +160,15 @@ class Socket < BasicSocket
         Primitive.attr! :hidden
         messages = []
         at = 0
-        while at + 12 <= control.bytesize
-          length, level, type = control.byteslice(at, 12).unpack("Lii")
+        header = Socket.cmsg_header_size
+        while at + header <= control.bytesize
+          length, level, type = Socket.cmsg_header(control, at)
           raise TypeError, "invalid control message (cmsg_len == 0)" if length.zero?
 
           stop = [at + length, control.bytesize].min
-          messages << [level, type, control.byteslice(at + 12, [stop - at - 12, 0].max)]
-          at += (length + 3) & ~3
-          break if at + 12 > control.bytesize
+          messages << [level, type, control.byteslice(at + header, [stop - at - header, 0].max)]
+          at += Socket.cmsg_align(length)
+          break if at + header > control.bytesize
         end
         messages
       end
@@ -268,7 +269,7 @@ class BasicSocket < IO
         level = Socket.level_arg(family, level)
         type = Socket.cmsg_type_arg(family, level, type)
         data = Primitive.zr_str_operand(data)
-        control << [12 + data.bytesize, level, type].pack("Lii") << data.b << ("\0" * ((4 - data.bytesize % 4) % 4))
+        control << Socket.cmsg(level, type, data)
       end
     end
     flags = flags.nil? ? 0 : Integer.send(:int_operand, flags)

@@ -150,7 +150,7 @@ class BasicSocket < IO
     sockaddr = Primitive.zr_sock_name(@fd, false)
     return Socket::AF_UNSPEC if sockaddr.is_a?(Integer) || sockaddr.bytesize < 2
 
-    family = sockaddr.getbyte(1)
+    family = Socket.sockaddr_family(sockaddr)
     @family = family if [Socket::AF_UNIX, Socket::AF_INET, Socket::AF_INET6].include?(family)
     family
   end

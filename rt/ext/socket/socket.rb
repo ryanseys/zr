@@ -98,10 +98,10 @@ class Socket < BasicSocket
       Socket.warning("Socket.gethostbyname is deprecated; use Addrinfo.getaddrinfo instead.")
       rows = Socket.resolve(host, nil, socktype: SOCK_STREAM, flags: AI_CANONNAME)
       Socket.make_hostent(host, rows) do |sockaddr|
-        case sockaddr.getbyte(1)
+        case Socket.sockaddr_family(sockaddr)
         when AF_INET then sockaddr.byteslice(4, 4)
         when AF_INET6 then sockaddr.byteslice(8, 16)
-        else raise SocketError, "unknown socket family:#{sockaddr.getbyte(1)}"
+        else raise SocketError, "unknown socket family:#{Socket.sockaddr_family(sockaddr)}"
         end
       end
     end
@@ -190,14 +190,14 @@ class Socket < BasicSocket
     def unpack_sockaddr_in(addr)
       sockaddr, = Socket.sockaddr_string(addr)
       raise ArgumentError, "too short sockaddr" if sockaddr.bytesize < 2
-      raise ArgumentError, "not an AF_INET/AF_INET6 sockaddr" unless [AF_INET, AF_INET6].include?(sockaddr.getbyte(1))
+      raise ArgumentError, "not an AF_INET/AF_INET6 sockaddr" unless [AF_INET, AF_INET6].include?(Socket.sockaddr_family(sockaddr))
 
       [sockaddr.byteslice(2, 2).unpack1("n"), Socket.make_ipaddr(sockaddr)]
     end
 
     def pack_sockaddr_un(path)
       path = Primitive.zr_str_operand(path)
-      raise ArgumentError, "too long unix socket path (#{path.bytesize} bytes given but 104 bytes max)" if path.bytesize > 104
+      raise ArgumentError, "too long unix socket path (#{path.bytesize} bytes given but #{UNIX_PATH_MAX} bytes max)" if path.bytesize > UNIX_PATH_MAX
 
       Socket.pack_unix(path)
     end
@@ -207,15 +207,15 @@ class Socket < BasicSocket
     def unpack_sockaddr_un(addr)
       sockaddr, = Socket.sockaddr_string(addr)
       raise ArgumentError, "too short sockaddr" if sockaddr.bytesize < 2
-      raise ArgumentError, "not an AF_UNIX sockaddr" unless sockaddr.getbyte(1) == AF_UNIX
-      raise TypeError, "too long sockaddr_un - #{sockaddr.bytesize} longer than 106" if sockaddr.bytesize > 106
+      raise ArgumentError, "not an AF_UNIX sockaddr" unless Socket.sockaddr_family(sockaddr) == AF_UNIX
+      raise TypeError, "too long sockaddr_un - #{sockaddr.bytesize} longer than #{UNIX_PATH_MAX + 2}" if sockaddr.bytesize > UNIX_PATH_MAX + 2
 
       Socket.unixpath(sockaddr)
     end
 
     def ip_address_list
       Socket.ifaddr_rows.filter_map do |_, _, sockaddr|
-        Socket.sockaddr_obj(sockaddr) if sockaddr && [AF_INET, AF_INET6].include?(sockaddr.getbyte(1))
+        Socket.sockaddr_obj(sockaddr) if sockaddr && [AF_INET, AF_INET6].include?(Socket.sockaddr_family(sockaddr))
       end
     end
 
@@ -300,12 +300,12 @@ class Socket < BasicSocket
       rows
     end
 
-    # sockaddr_obj: an interface's address as an Addrinfo. A link-local
-    # IPv6 address carries its scope in its second word here, as KAME
-    # keeps it, and moves it to the scope field.
+    # sockaddr_obj: an interface's address as an Addrinfo. Under KAME a
+    # link-local IPv6 address carries its scope in its second word, and
+    # this moves it to the scope field.
     def sockaddr_obj(sockaddr)
       Primitive.attr! :hidden
-      if sockaddr.getbyte(1) == AF_INET6 && sockaddr.bytesize >= 28
+      if KAME && sockaddr_family(sockaddr) == AF_INET6 && sockaddr.bytesize >= 28
         sockaddr = sockaddr.byteslice(0, 28)
         scope = sockaddr.byteslice(24, 4).unpack1("L")
         high, low = sockaddr.getbyte(10), sockaddr.getbyte(11)
@@ -313,7 +313,7 @@ class Socket < BasicSocket
           sockaddr = sockaddr.byteslice(0, 10) + "\0\0" + sockaddr.byteslice(12, 12) + [(high << 8) | low].pack("L")
         end
       end
-      Addrinfo.send(:build, sockaddr, sockaddr.getbyte(1), 0, 0)
+      Addrinfo.send(:build, sockaddr, sockaddr_family(sockaddr), 0, 0)
     end
   end
 end

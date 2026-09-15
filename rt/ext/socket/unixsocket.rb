@@ -3,12 +3,6 @@
 # unixsocket.c and unixserver.c: sockets named by a path, which can also
 # hand a descriptor to the process at the other end.
 class UNIXSocket < BasicSocket
-  # The bytes of a cmsghdr here, and of one that carries one int, which
-  # CMSG_LEN and CMSG_SPACE agree on.
-  CMSG_HEADER = 12
-  CMSG_INT = 16
-  private_constant :CMSG_HEADER, :CMSG_INT
-
   def initialize(path)
     init_unixsock(path, false)
   end
@@ -37,7 +31,7 @@ class UNIXSocket < BasicSocket
          else raise TypeError, "neither IO nor file descriptor"
          end
     own = descriptor
-    control = [CMSG_INT, Socket::SOL_SOCKET, Socket::SCM_RIGHTS, fd].pack("Liii")
+    control = Socket.cmsg(Socket::SOL_SOCKET, Socket::SCM_RIGHTS, [fd].pack("i"))
     loop do
       sent = Primitive.zr_sock_sendmsg(own, "\0".b, 0, nil, control)
       return nil unless sent.negative?
@@ -56,7 +50,9 @@ class UNIXSocket < BasicSocket
     mode = args[1]
     retried = []
     loop do
-      answer = Primitive.zr_sock_recvmsg(descriptor, 1, 0, CMSG_INT)
+      int_len = Socket.cmsg_len(4)
+      int_space = Socket.cmsg_space(4)
+      answer = Primitive.zr_sock_recvmsg(descriptor, 1, 0, int_space)
       if answer.is_a?(Integer)
         errno = -answer
         if errno == Errno::EMSGSIZE::Errno || errno == Errno::ENOMEM::Errno
@@ -71,25 +67,26 @@ class UNIXSocket < BasicSocket
         Socket.syserr_fail_path(errno, "recvmsg(2)", @path)
       end
       control = answer[3]
-      if control.bytesize < CMSG_HEADER
+      header = Socket.cmsg_header_size
+      if control.bytesize < header
         unless retried.include?(:truncate)
           retried << :truncate
           GC.start
           next
         end
-        raise SocketError, "file descriptor was not passed (msg_controllen=#{control.bytesize} smaller than sizeof(struct cmsghdr)=#{CMSG_HEADER})"
+        raise SocketError, "file descriptor was not passed (msg_controllen=#{control.bytesize} smaller than sizeof(struct cmsghdr)=#{header})"
       end
-      length, level, type = control.unpack("Lii")
+      length, level, type = Socket.cmsg_header(control, 0)
       raise SocketError, "file descriptor was not passed (cmsg_level=#{level}, #{Socket::SOL_SOCKET} expected)" unless level == Socket::SOL_SOCKET
       raise SocketError, "file descriptor was not passed (cmsg_type=#{type}, #{Socket::SCM_RIGHTS} expected)" unless type == Socket::SCM_RIGHTS
-      raise SocketError, "file descriptor was not passed (msg_controllen=#{control.bytesize} smaller than CMSG_LEN(sizeof(int))=#{CMSG_INT})" if control.bytesize < CMSG_INT
-      raise SocketError, "file descriptor was not passed (msg_controllen=#{control.bytesize} bigger than CMSG_SPACE(sizeof(int))=#{CMSG_INT})" if control.bytesize > CMSG_INT
+      raise SocketError, "file descriptor was not passed (msg_controllen=#{control.bytesize} smaller than CMSG_LEN(sizeof(int))=#{int_len})" if control.bytesize < int_len
+      raise SocketError, "file descriptor was not passed (msg_controllen=#{control.bytesize} bigger than CMSG_SPACE(sizeof(int))=#{int_space})" if control.bytesize > int_space
 
-      unless length == CMSG_INT
+      unless length == int_len
         Socket.discard_rights(control)
-        raise SocketError, "file descriptor was not passed (cmsg_len=#{length}, #{CMSG_INT} expected)"
+        raise SocketError, "file descriptor was not passed (cmsg_len=#{length}, #{int_len} expected)"
       end
-      fd = control.byteslice(CMSG_HEADER, 4).unpack1("i")
+      fd = control.byteslice(header, 4).unpack1("i")
       Primitive.zr_io_cloexec(fd)
       return fd if klass.nil?
 
@@ -124,7 +121,7 @@ class UNIXSocket < BasicSocket
   def init_unixsock(path, server)
     Primitive.attr! :hidden
     path = File.path(path)
-    raise ArgumentError, "too long unix socket path (#{path.bytesize}bytes given but 104bytes max)" if path.bytesize > 104
+    raise ArgumentError, "too long unix socket path (#{path.bytesize}bytes given but #{Socket.unix_path_max}bytes max)" if path.bytesize > Socket.unix_path_max
 
     sockaddr = Socket.pack_unix(path)
     fd = Socket.socket_fd(Socket::AF_UNIX, Socket::SOCK_STREAM, 0)

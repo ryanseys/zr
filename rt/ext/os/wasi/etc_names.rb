@@ -179,4 +179,7 @@ module Etc
   SC_XOPEN_STREAMS = 246
   SC_XOPEN_UNIX = 91
   SC_XOPEN_VERSION = 89
+
+  PASSWD_MEMBERS = %i[name uid gid dir shell].freeze
+  private_constant :PASSWD_MEMBERS
 end

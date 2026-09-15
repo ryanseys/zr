@@ -14,7 +14,7 @@ class IPSocket < BasicSocket
     sockaddr = Primitive.zr_sock_name(@fd, false)
     return text if sockaddr.is_a?(Integer) || sockaddr.bytesize < 2
 
-    family = Socket.intern(sockaddr.getbyte(1), /\AAF_/)
+    family = Socket.intern(Socket.sockaddr_family(sockaddr), /\AAF_/)
     return text if family.nil?
 
     shown = text.end_with?(">") ? text.byteslice(0, text.bytesize - 1) : text.dup
@@ -222,6 +222,6 @@ class UDPSocket < IPSocket
   def descriptor_family
     Primitive.attr! :hidden
     sockaddr = @fd.nil? ? -1 : Primitive.zr_sock_name(@fd, false)
-    sockaddr.is_a?(Integer) || sockaddr.bytesize < 2 ? Socket::AF_UNSPEC : sockaddr.getbyte(1)
+    sockaddr.is_a?(Integer) ? Socket::AF_UNSPEC : Socket.sockaddr_family(sockaddr)
   end
 end

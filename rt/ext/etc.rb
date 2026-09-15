@@ -4,13 +4,16 @@ require "rbconfig"
 require "etc_names"
 
 module Etc
-  Passwd = Struct.new(:name, :passwd, :uid, :gid, :gecos, :dir, :shell, :change, :uclass, :expire)
-  Group = Struct.new(:name, :passwd, :gid, :mem)
-
-  # The two database cursors, spelled on the row class as ruby spells
-  # them: `Etc::Passwd.each` walks the same table `Etc.passwd` walks.
+  # The rows' members are the OS's own (etc_names). The two database
+  # cursors are spelled on the row class as ruby spells them:
+  # `Etc::Passwd.each` walks the same table `Etc.passwd` walks.
+  Passwd = Struct.new(*PASSWD_MEMBERS)
   def Passwd.each(&block) = block ? Etc.passwd(&block) : to_enum(:each)
-  def Group.each(&block) = block ? Etc.group(&block) : to_enum(:each)
+
+  if const_defined?(:GROUP_MEMBERS, false)
+    Group = Struct.new(*GROUP_MEMBERS)
+    def Group.each(&block) = block ? Etc.group(&block) : to_enum(:each)
+  end
 
   module_function
 
