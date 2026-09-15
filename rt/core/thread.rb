@@ -353,7 +353,7 @@ class Thread
     while alive?
       return nil if deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) >= deadline
 
-      Thread.current.send(:wait_on, @waiters, deadline, true)
+      Thread.current.send(:wait_on, @waiters, deadline, true, self)
     end
     Kernel.raise @exception if @exception
     self
@@ -552,7 +552,8 @@ class Thread
   def start(site)
     Primitive.attr! :hidden
     @site = site && site[0, site.index(":in ")]
-    @fiber = Fiber.new { body }
+    # A thread's own fiber blocks, as every thread's root fiber does.
+    @fiber = Fiber.new(blocking: true) { body }
     # The fiber heads a thread of its own, so every fiber made on it
     # belongs to this thread.
     Primitive.zr_fiber_rehome(@fiber)
@@ -570,7 +571,11 @@ class Thread
     begin
       Primitive.zr_catch(@kill_tag, proc do
         Kernel.raise @pending if @pending
-        @value = @block.call(*@args)
+        begin
+          @value = @block.call(*@args)
+        ensure
+          close_scheduler
+        end
       end)
     rescue Exception => e
       @exception = e
@@ -580,6 +585,32 @@ class Thread
     Thread.main.raise(@exception) if @exception && (@abort_on_exception || Thread.abort_on_exception)
     Thread.send(:switch)
     Primitive.zr_unimplemented("a finished thread that runs again")
+  end
+
+  def scheduler
+    Primitive.attr! :hidden
+    @scheduler
+  end
+
+  def scheduler=(scheduler)
+    Primitive.attr! :hidden
+    @scheduler = scheduler
+  end
+
+  # rb_fiber_scheduler_close: `scheduler_close`, else `close`, runs the
+  # scheduler's fibers to their end, and the thread has none after.
+  def close_scheduler
+    Primitive.attr! :hidden
+    scheduler = @scheduler or return
+    begin
+      if scheduler.respond_to?(:scheduler_close)
+        scheduler.scheduler_close
+      elsif scheduler.respond_to?(:close)
+        scheduler.close
+      end
+    ensure
+      @scheduler = nil
+    end
   end
 
   def finish
@@ -669,9 +700,13 @@ class Thread
     end
   end
 
-  # Wait on a list whose owner wakes its members.
-  def wait_on(list, deadline, deadly)
+  # Wait on a list whose owner wakes its members. A non-blocking fiber
+  # waits through its scheduler, which hears what it waits on.
+  def wait_on(list, deadline, deadly, blocker = list)
     Primitive.attr! :hidden
+    scheduler = Fiber.current_scheduler
+    return Fiber.send(:block_on, scheduler, list, blocker, deadline) if scheduler
+
     list << self
     begin
       wait(deadline, deadly)
@@ -744,6 +779,30 @@ class ThreadGroup
 end
 
 class Fiber
+  # A fiber that waits through its scheduler, as a waiter list holds a
+  # thread: waking it asks the scheduler to unblock it, once.
+  class Blocked
+    def initialize(scheduler, blocker, fiber)
+      @scheduler = scheduler
+      @blocker = blocker
+      @fiber = fiber
+      @woken = false
+    end
+
+    def status = @woken ? "run" : "sleep"
+
+    def woken? = @woken
+
+    def wakeup
+      return self if @woken
+
+      @woken = true
+      @scheduler.unblock(@blocker, @fiber)
+      self
+    end
+  end
+  private_constant :Blocked
+
   # A fiber starts with a copy of its maker's storage, its own copy of
   # the Hash it is given, or none yet for nil. Its block runs inside a
   # catch, so a kill throws to that tag: every ensure on the way runs
@@ -779,31 +838,35 @@ class Fiber
       end
     end
 
-    # No scheduler is ever set: every fiber blocks as a plain one does.
-    def scheduler = nil
-    def current_scheduler = nil
+    # The current thread's scheduler, which its non-blocking fibers hand
+    # their blocking operations to.
+    def scheduler = Thread.current.send(:scheduler)
 
+    # The scheduler, while the current fiber does not block.
+    def current_scheduler = current.blocking? ? nil : scheduler
+
+    # rb_fiber_scheduler_set: the hooks every scheduler needs, checked;
+    # the previous scheduler closed, so its fibers finish under it.
     def set_scheduler(scheduler)
-      return nil if scheduler.nil?
-
-      Primitive.zr_unimplemented("Fiber.set_scheduler")
+      unless scheduler.nil?
+        %i[block unblock kernel_sleep io_wait].each do |hook|
+          raise ArgumentError, "Scheduler must implement ##{hook}" unless scheduler.respond_to?(hook)
+        end
+        Primitive.zr_warn_here_m("Scheduler should implement #fiber_interrupt") unless scheduler.respond_to?(:fiber_interrupt)
+      end
+      Thread.current.send(:close_scheduler)
+      Thread.current.send(:scheduler=, scheduler)
     end
 
-    def schedule(*)
-      raise RuntimeError, "No scheduler is available!"
+    def schedule(...)
+      scheduler = Thread.current.send(:scheduler) or raise RuntimeError, "No scheduler is available!"
+
+      scheduler.fiber(...)
     end
 
     # `Fiber.yield`: back to the resumer. What comes back is the next
     # resume's value, or the kill or the exception left for the fiber.
-    def yield(*args)
-      value = __yield__(*args)
-      action = Primitive.zr_hidden_get(current, :__action__)
-      return value if action.nil?
-
-      Primitive.zr_hidden_set(current, :__action__, nil)
-      Kernel.throw(Primitive.zr_hidden_get(current, :__kill__)) if action == :kill
-      Kernel.raise(action)
-    end
+    def yield(*args) = take_action(__yield__(*args))
 
     def [](key)
       current.send(:storage_table)[storage_key(key)]
@@ -828,11 +891,46 @@ class Fiber
       storage
     end
 
+    # A non-blocking fiber waits through its scheduler: it joins `list`
+    # as a waiter the list's owner wakes with the scheduler's `unblock`.
+    # Whether it was woken before `deadline`.
+    def block_on(scheduler, list, blocker, deadline)
+      Primitive.attr! :hidden
+      waiter = Blocked.new(scheduler, blocker, current)
+      list << waiter
+      begin
+        timeout = deadline && [(deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)) / 1e9, 0.0].max
+        scheduler.block(blocker, timeout)
+      ensure
+        list.delete(waiter)
+      end
+      waiter.woken?
+    end
+
+    # The main thread's scheduler runs its fibers to their end before
+    # the program's exit handlers, as rb_ec_teardown closes it.
+    def finalize_scheduler
+      Primitive.attr! :hidden
+      Thread.main.send(:close_scheduler)
+    end
+
     def storage_key(key)
       return key.to_sym if key.is_a?(String)
       raise TypeError, "#{key.inspect} is not a symbol nor a string" unless key.is_a?(Symbol)
 
       key
+    end
+
+    # Back in the current fiber after it yielded or transferred away:
+    # the value it was handed, or the kill or the exception left for it.
+    def take_action(value)
+      Primitive.attr! :hidden
+      action = Primitive.zr_hidden_get(current, :__action__)
+      return value if action.nil?
+
+      Primitive.zr_hidden_set(current, :__action__, nil)
+      Kernel.throw(Primitive.zr_hidden_get(current, :__kill__)) if action == :kill
+      Kernel.raise(action)
     end
 
     # The exception `Fiber#raise` carries, as `rb_make_exception`
@@ -860,11 +958,14 @@ class Fiber
     if equal?(Fiber.current)
       Kernel.throw(tag)
     else
-      Primitive.zr_hidden_set(self, :__action__, :kill)
-      resume
+      deliver(:kill)
     end
     self
   end
+
+  # `transfer`: control moves to the fiber, which comes back with the
+  # kill or the exception left for it, if any.
+  def transfer(*args) = Fiber.send(:take_action, __transfer__(*args))
 
   # `raise`: the exception arrives in the fiber where it yielded, and
   # the answer is what the fiber does next.
@@ -873,8 +974,7 @@ class Fiber
     Kernel.raise FiberError, "cannot raise exception on unborn fiber" if Primitive.zr_fiber_unborn_p(self)
     return Kernel.raise(exception) if equal?(Fiber.current)
 
-    Primitive.zr_hidden_set(self, :__action__, exception)
-    resume
+    deliver(exception)
   end
 
   # The rows where the fiber stands: none before it starts or after it
@@ -913,6 +1013,18 @@ class Fiber
 
   private
 
+  # fiber_raise: the action reaches the fiber this one resumed, if any;
+  # a fiber that transferred away is transferred to, and one that
+  # yielded is resumed.
+  def deliver(action)
+    Primitive.attr! :hidden
+    resumed = Primitive.zr_fiber_resuming_m(self)
+    return resumed.send(:deliver, action) if resumed
+
+    Primitive.zr_hidden_set(self, :__action__, action)
+    Primitive.zr_fiber_transferred_away_p(self) ? transfer : resume
+  end
+
   def storage_table
     Primitive.attr! :hidden
     Primitive.zr_hidden_get(self, :__storage__) || Primitive.zr_hidden_set(self, :__storage__, {})
@@ -943,7 +1055,7 @@ class Thread::Mutex
   def lock
     raise ThreadError, "deadlock; recursive locking" if owned?
 
-    Thread.current.send(:wait_on, waiters, nil, true) while locked?
+    Thread.current.send(:wait_on, waiters, nil, true, self) while locked?
     Primitive.zr_state_set(self, :__owner__, Fiber.current)
     self
   end
@@ -974,7 +1086,8 @@ class Thread::Mutex
     begin
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
       deadline = timeout.nil? ? nil : started + (Thread.send(:interval, timeout) * 1e9).to_i
-      woken = Thread.current.send(:wait, deadline, true)
+      scheduler = Fiber.current_scheduler
+      woken = scheduler ? (scheduler.kernel_sleep(timeout); true) : Thread.current.send(:wait, deadline, true)
       woken ? ((Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) - started) / 1e9).round : nil
     ensure
       lock

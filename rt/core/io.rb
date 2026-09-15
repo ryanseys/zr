@@ -282,6 +282,9 @@ class IO
   # select(2) over three lists of streams: the ones that came ready, or
   # nil when the time ran out. A nil timeout waits for good.
   def self.select(readers, writers = nil, priority = nil, timeout = nil)
+    scheduler = Fiber.current_scheduler
+    return scheduler.io_select(readers, writers, priority, timeout) if scheduler.respond_to?(:io_select)
+
     timeout = time_interval(timeout)
     rows = [readers, writers, priority].zip([POLL_IN, POLL_OUT, POLL_PRI]).flat_map do |list, event|
       Array(list).map { |io| [io, select_stream(io), event] }
@@ -515,6 +518,16 @@ class IO
     rows = Primitive.zr_fstat_m(fd)
     raise SystemCallError.new(nil, -rows) if rows.is_a?(Integer)
 
+    # A stream that names no mode takes the one the descriptor was opened
+    # with, as rb_io_initialize asks fcntl(2) for it.
+    if mode.nil? && options[:mode].nil? && !options[:twin]
+      flags = Primitive.zr_io_flags(fd)
+      unless flags.negative?
+        access = flags & ACCESS.fetch(:mask)
+        mode = flags.anybits?(File::APPEND) ? "a" : (access == ACCESS.fetch(:read) ? "r" : "w")
+        mode += "+" if access == ACCESS.fetch(:both)
+      end
+    end
     text, binary, external, internal = IO.send(:open_options, mode, options)
     # rb_io_ext_int_to_encs: a text stream that names no internal encoding
     # takes the default one as it opens, unless the two are the same, and
@@ -605,8 +618,12 @@ class IO
       Primitive.zr_io_fclose(@stream)
       @stream = nil
     elsif @autoclose
-      result = Primitive.zr_io_close(@fd)
-      raise SystemCallError.new(nil, -result) if result < 0
+      # A non-blocking fiber's scheduler may close the descriptor itself.
+      scheduler = Fiber.current_scheduler
+      unless scheduler.respond_to?(:io_close) && scheduler.io_close(@fd)
+        result = Primitive.zr_io_close(@fd)
+        raise SystemCallError.new(nil, -result) if result < 0
+      end
     end
 
     Process.wait(@pid) if @pid
@@ -985,7 +1002,7 @@ class IO
     if !buffered? && !len.zero? && would_block?(READABLE)
       return :wait_readable unless exception
 
-      raise EAGAINWaitReadable, "Resource temporarily unavailable - read would block"
+      raise EAGAINWaitReadable, "read would block"
     end
     text = read_some(len)
     return nil if text.nil? && !exception
@@ -1000,7 +1017,7 @@ class IO
     if would_block?(WRITABLE)
       return :wait_writable unless exception
 
-      raise EAGAINWaitWritable, "Resource temporarily unavailable - write would block"
+      raise EAGAINWaitWritable, "write would block"
     end
     # What waits in the buffer goes first, so the bytes keep their order.
     write_pending
@@ -1008,7 +1025,7 @@ class IO
     if wrote < 0 && -wrote == Errno::EAGAIN::Errno
       return :wait_writable unless exception
 
-      raise EAGAINWaitWritable, "Resource temporarily unavailable - write would block"
+      raise EAGAINWaitWritable, "write would block"
     end
     checked_write(wrote)
   end
@@ -1250,6 +1267,13 @@ class IO
   # system call itself, or in poll(2) when the descriptor cannot wait.
   def park_until(event, fd = @fd)
     Primitive.attr! :hidden
+    # rb_io_wait: a non-blocking fiber hands a descriptor that is not
+    # ready to its scheduler.
+    if (scheduler = Fiber.current_scheduler)
+      return if Primitive.zr_io_wait(fd, event, 0) != 0
+
+      return scheduler.io_wait(self, event, @timeout)
+    end
     return unless @nonblock || (Primitive.zr_threaded && !Thread.send(:alone?))
 
     Thread.current.send(:wait_io, fd, event, nil)
@@ -1319,7 +1343,8 @@ class IO
   def write_now(text)
     Primitive.attr! :hidden
     fd = @twin || @fd
-    return checked_write(Primitive.zr_io_write(fd, text)) if !@nonblock && (!Primitive.zr_threaded || Thread.send(:alone?))
+    alone = !Primitive.zr_threaded || Thread.send(:alone?)
+    return checked_write(Primitive.zr_io_write(fd, text)) if !@nonblock && alone && !Fiber.current_scheduler
 
     from = 0
     size = text.bytesize
@@ -1766,6 +1791,10 @@ class IO
   def poll_once(events, timeout)
     Primitive.attr! :hidden
     timeout = IO.send(:time_interval, timeout)
+    if (scheduler = Fiber.current_scheduler)
+      ready = scheduler.io_wait(self, events, timeout)
+      return ready.is_a?(Integer) ? ready & events : 0
+    end
     deadline = timeout && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).round
     ready = Thread.current.send(:wait_io, fileno, events, deadline)
     raise SystemCallError.new(label, -ready, "io_wait") if ready.negative?

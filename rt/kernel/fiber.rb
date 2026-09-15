@@ -269,7 +269,12 @@ machine def zr_fiber_return_to(cur, terminating)
   if terminating == 0
     return zr_fiber_error(Machine.bytes("attempt to yield on a not resumed fiber"), 39)
   end
-  f = zr_fiber_root()
+  # A transferred fiber that ends goes back to its thread's root fiber,
+  # as CRuby's return_fiber takes the thread's root.
+  f = RFiber.home(cur)
+  if f == QNIL
+    f = zr_fiber_root()
+  end
   while RFiber.resuming(f) != QNIL
     f = RFiber.resuming(f)
   end
@@ -361,6 +366,19 @@ machine def zr_fiber_inspect_m(recv, blk)
   end
   zr_buf_push(b, Machine.bytes(")>"), 2)
   zr_buf_take_at(b, ENC_BINARY)
+end
+
+# The fiber `recv` resumed and waits on, or nil.
+sig [Value] => Value
+machine def zr_fiber_resuming_m(recv)
+  RFiber.resuming(recv)
+end
+
+# Whether the fiber stopped by transferring away, rather than by
+# yielding or resuming another, as FIBER_SUSPENDED_P without yielding.
+sig [Value] => Value
+machine def zr_fiber_transferred_away_p(recv)
+  zr_bool(RFiber.status(recv) == FIBER_SUSPENDED && RFiber.yielding(recv) == 0 && RFiber.resuming(recv) == QNIL)
 end
 
 # Whether the fiber has never run: its block waits for a first resume.

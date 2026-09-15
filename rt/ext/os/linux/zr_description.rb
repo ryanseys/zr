@@ -492,6 +492,8 @@ module Ze0
         d zr_fiber_start Void
         d zr_fiber_alive_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_fiber_inspect_m Value recv:Value blk:Value
+        d zr_fiber_resuming_m Value recv:Value
+        d zr_fiber_transferred_away_p Value recv:Value
         d zr_fiber_unborn_p Value recv:Value
         d zr_fiber_terminate Value recv:Value
         d zr_fiber_rehome Value recv:Value

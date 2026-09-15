@@ -25,6 +25,12 @@ module Process
     Primitive.attr! :hidden
     pid = Integer.send(:int_operand, pid)
     flags = Integer.send(:int_operand, flags)
+    # A non-blocking fiber's scheduler may wait for the child itself.
+    scheduler = Fiber.current_scheduler
+    if scheduler.respond_to?(:process_wait)
+      status = scheduler.process_wait(pid, flags)
+      return status && [status.pid, status.to_i]
+    end
     return Primitive.zr_proc_wait(pid, flags) if flags.anybits?(WNOHANG) || !Primitive.zr_threaded || Thread.send(:alone?)
 
     fd = Primitive.zr_chld_fd(Signal.list.fetch("CHLD"))

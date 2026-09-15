@@ -291,6 +291,18 @@ class Socket < BasicSocket
       rows = numeric_getaddrinfo(node, service, family, socktype, protocol)
       return rows if rows
 
+      # rb_scheduler_getaddrinfo: a non-blocking fiber's scheduler names
+      # the addresses, each read as a number.
+      scheduler = Fiber.current_scheduler
+      if node && !flags.anybits?(AI_NUMERICHOST) && scheduler.respond_to?(:address_resolve)
+        rows = Array(scheduler.address_resolve(host)).flat_map do |address|
+          numeric_getaddrinfo(host_str(address).first, service, family, socktype, protocol) || []
+        end
+        return rows unless rows.empty?
+
+        resolution_error("getaddrinfo", EAI_NONAME)
+      end
+
       rows = darwin_getaddrinfo(node, service, family, socktype, protocol, flags)
       return rows unless rows.is_a?(Integer)
 

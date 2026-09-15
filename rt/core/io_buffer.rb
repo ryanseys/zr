@@ -53,12 +53,15 @@ class IO
       row(type)[0]
     end
 
-    # Ruby says once per process that the class may still change.
+    # Ruby says once per process that the class may still change, when
+    # the experimental category is on at that first time.
     def self.announce
       return if @announced
 
       @announced = true
-      warn("IO::Buffer is experimental and both the Ruby and C interface may change in the future!", uplevel: 2)
+      return unless Warning[:experimental]
+
+      warn("IO::Buffer is experimental and both the Ruby and C interface may change in the future!", uplevel: 2, category: :experimental)
     end
     private_class_method :announce
 

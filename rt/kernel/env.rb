@@ -61,8 +61,10 @@ machine def zr_program_end(exc)
     status = zr_system_exit_p(exc) ? zr_exit_status(exc) : 1
     zr_errinfo_set(exc)
   end
-  # The EXIT trap runs first, as rb_vm_trap_exit runs before the
+  # The main thread's fiber scheduler runs its fibers to their end
+  # first, then the EXIT trap, as rb_vm_trap_exit runs before the
   # at_exit handlers.
+  status = zr_program_end_hook(zr_send(zr_global(G_FIBER), Machine.id(:finalize_scheduler), 0, 0), status, exc)
   status = zr_program_end_hook(zr_send(zr_core_class(Machine.id(:Signal)), Machine.id(:exit_trap), 0, 0), status, exc)
   hooks = zr_global(G_AT_EXIT)
   if !zr_special_p(hooks)

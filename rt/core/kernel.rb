@@ -226,7 +226,13 @@ module Kernel
 
   # The current thread sleeps `duration` seconds, or until `wakeup`
   # without one; the answer is the seconds slept, rounded.
-  def sleep(duration = nil)
+  def sleep(duration = (forever = true; nil))
+    # rb_f_sleep: a non-blocking fiber sleeps through its scheduler.
+    if (scheduler = Fiber.current_scheduler)
+      began = Process.clock_gettime(Process::CLOCK_REALTIME, :second)
+      forever ? scheduler.kernel_sleep : scheduler.kernel_sleep(duration)
+      return Process.clock_gettime(Process::CLOCK_REALTIME, :second) - began
+    end
     unless duration.nil?
       raise TypeError, "can't convert #{duration.class} into time interval" unless duration.is_a?(Numeric)
       raise ArgumentError, "time interval must not be negative" if duration < 0
