@@ -2372,6 +2372,11 @@ class Encoding
     from = text.encoding
     target.send(:load)
     return text.dup.force_encoding(target) if from.equal?(target)
+    return stateful_write(from.equal?(UTF_8) ? text : convert(text, UTF_8, options), target, options) if stateful?(target)
+    if stateful?(from)
+      text = stateful_read(text, options)
+      return target.equal?(UTF_8) ? text : convert(text, target, options)
+    end
 
     path = from.equal?(UTF_8) || target.equal?(UTF_8) ? [from, target] : [from, UTF_8, target]
     path.each_cons(2) { |a, b| converter(a, b, path, text.ascii_only?) }
