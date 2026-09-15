@@ -45,10 +45,15 @@ module Ze0
     #
     # The compiler runs under YJIT unless ZE0_YJIT=0: a cold runtime build
     # is mostly the compiler's own Ruby, which YJIT runs well.
+    # The collector's tuning a build runs under: a compile allocates in
+    # bursts, and ruby's default limits collect through every one.
+    GC_ENV = { "RUBY_GC_MALLOC_LIMIT" => "64000000", "RUBY_GC_OLDMALLOC_LIMIT" => "128000000" }.freeze
+
+    # A process that starts without the tuning starts again with it;
+    # one started with it (a harness child) goes straight on.
     def tune!(script)
       if ENV["ZE0_GC"] != "0" && !ENV.key?("RUBY_GC_MALLOC_LIMIT")
-        ENV["RUBY_GC_MALLOC_LIMIT"] = "64000000"
-        ENV["RUBY_GC_OLDMALLOC_LIMIT"] = "128000000"
+        ENV.update(GC_ENV)
         exec(RbConfig.ruby, script, *ARGV)
       end
       RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable) && ENV["ZE0_YJIT"] != "0"

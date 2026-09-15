@@ -118,7 +118,7 @@ def one(rb, options)
   keep = options[:keep]
   bin = File.join(work, "p")
   build = RUNNER.build_argv(rel, bin)
-  built, build_seconds = bounded(build, TESTS, nil, {}, options[:timeout], Ze0::Harness::Child.build_mb(directives))
+  built, build_seconds = bounded(build, TESTS, nil, RUNNER.build_env, options[:timeout], Ze0::Harness::Child.build_mb(directives))
   lines << format("  %-10s %5.1fs %s", "build", build_seconds, built.code == 0 ? "ok" : "FAILED (#{bound(built, options) || built.status})")
   lines << "  #{"command".ljust(10)} #{build.join(" ")}"
   if built.code != 0 || options[:verbose]
@@ -179,6 +179,17 @@ end
 
 cases = select(filters)
 jobs = [options[:jobs] || Etc.nprocessors, cases.size].min
+
+# The runtime's object and the compiler's are caches every build reads;
+# cold, every job would build them at once. One build of a program that
+# evals makes both first, as `ze0 test` does.
+if jobs > 1
+  Dir.mktmpdir("ze0-warm-") do |work|
+    program = File.join(work, "warm.rb")
+    File.write(program, "eval('1')\n")
+    system(RUNNER.build_env, *RUNNER.build_argv(program, File.join(work, "warm")), out: File::NULL, err: File::NULL)
+  end
+end
 queue = Queue.new
 cases.each_with_index { |rb, i| queue << [i, rb] }
 done = Queue.new

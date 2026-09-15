@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rbconfig"
+require_relative "../cli"
 require_relative "../target"
 
 module Ze0
@@ -36,10 +37,14 @@ module Ze0
         "the corpus runs #{@target.triple} binaries only on their own host, and this host is #{Target.host_triple}"
       end
 
-      # The build of `rel` into `out`.
+      # The build of `rel` into `out`: ruby without rubygems, which the
+      # compiler never asks for, under the collector tuning `bin/ze0`
+      # would otherwise start a second process to get.
       def build_argv(rel, out)
-        [RbConfig.ruby, File.join(@root, "bin/ze0"), "zr", "build", rel, "-o", out, "--target", @target.triple]
+        [RbConfig.ruby, "--disable-gems", File.join(@root, "bin/ze0"), "zr", "build", rel, "-o", out, "--target", @target.triple]
       end
+
+      def build_env = CLI::GC_ENV
 
       # The run of `out` with `args` under `env`: the command, and the
       # environment the process itself takes.

@@ -59,6 +59,7 @@ module Ze0
 
       # The build command for `rel` into `out`, for this sweep's target.
       def build_argv(rel, out) = @runner.build_argv(rel, out)
+      def build_env = @runner.build_env
 
       # Every recorded program whose path contains one of `filters` (or all
       # of them), in a stable order.
@@ -109,7 +110,7 @@ module Ze0
         Dir.mktmpdir("ze0-warm-") do |work|
           program = File.join(work, "warm.rb")
           File.write(program, "eval('1')\n")
-          system(*build_argv(program, File.join(work, "warm")), out: File::NULL, err: File::NULL)
+          system(build_env, *build_argv(program, File.join(work, "warm")), out: File::NULL, err: File::NULL)
         end
       end
 
@@ -126,7 +127,7 @@ module Ze0
         File.delete(bin) if File.exist?(bin)
 
         build_mb = Child.build_mb(kase.directives)
-        out = bounded(build_argv(rel, bin), cwd, nil, build_mb)
+        out = bounded(build_argv(rel, bin), cwd, nil, build_mb, build_env)
         return Row.new(rb, :refused, first_line(out).sub(/\Aze0: /, "")) if out.code == 3
         return Row.new(rb, :backend, "the build ran past #{LIMIT}s") if out.code == :timeout
         return Row.new(rb, :backend, "the build held more than #{build_mb} MB") if out.code == :memory
