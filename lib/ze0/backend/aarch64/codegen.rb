@@ -91,8 +91,9 @@ module Ze0
           count_uses
           plan_slots
           plan_constants
+          plan_addresses
           plan_bytes
-          @reg = Regalloc.of(@f, skip: @remade)
+          @reg = Regalloc.of(@f, skip: @silent, via: @root)
           plan_fusion
           assign_homes
           @f.blocks.each { |b| @labels[b.name] = @asm.make_label(b.name) }
@@ -111,7 +112,7 @@ module Ze0
           # This attempt's code and plans are as big as the function, and
           # nothing reads them again: let them go before the second is made.
           assembler = @asm.class
-          @asm = @reg = @home = @labels = @relocs = @const = @remade = @types = nil
+          @asm = @reg = @home = @labels = @relocs = @const = @remade = @silent = @derived = @root = @types = nil
           again = self.class.new(@f, defined: @defined, assembler: assembler, far: true)
           bytes = again.compile
           @asm = again.asm
@@ -151,7 +152,7 @@ module Ze0
           @f.blocks.each do |b|
             # A constant made at its reads emits nothing where it stands, so
             # it does not part a compare from its branch.
-            b.insts.reject { |i| @remade.include?(i.results[0]) }.each_cons(2) do |cmp, brif|
+            b.insts.reject { |i| @silent.include?(i.results[0]) }.each_cons(2) do |cmp, brif|
               next unless cmp.op == :icmp && brif.op == :brif
 
               r = cmp.results[0]
@@ -236,6 +237,87 @@ module Ze0
           end
         end
 
+        # An address a constant past a base folds into the loads and stores
+        # that read through it: `ldr x, [base, #k + off]` where the `iadd`
+        # made a register hold `base + k` first. The `iadd` is then emitted
+        # nowhere (`@silent`), and its base is what the allocator keeps
+        # live at each read (`@root`). A chain of such additions folds to
+        # its first base with the constants summed.
+        #
+        # Only an addition every use reads through folds, and only when
+        # every read's offset fits the scaled immediate: one that is also
+        # read as a value, or reaches past the immediate somewhere, is
+        # made as before and its reads go through it. The record slots
+        # `Zr::Function` stages a send's arguments in are addressed this
+        # way at every send, and a struct field a kernel def reads is
+        # `iadd` of the pointer and the field's offset.
+        def plan_addresses
+          @derived = {}
+          @root = {}
+          @silent = @remade.dup
+          memory = Hash.new { |h, k| h[k] = [] }
+          # `[value, base, root, k]` a sum: its own base, and the first
+          # base of its chain with the constants added up.
+          sums = []
+          chain = {}
+          @f.blocks.each do |b|
+            b.insts.each do |i|
+              case i.op
+              when :load then memory[i.args[0]] << [i.offset, WIDTHS.fetch(i.type)]
+              when :store then memory[i.args[1]] << [i.offset, WIDTHS.fetch(type_of(i.args[0]))]
+              when :iadd
+                base, k = summed(i)
+                next unless base
+
+                root, j = chain[base]
+                root ? k += j : root = base
+                chain[i.results[0]] = [root, k]
+                sums << [i.results[0], base, root, k]
+              end
+            end
+          end
+          # The reads an addition is not folded into still hold it as a
+          # value; a later addition folded away lets go of its base, so
+          # the outer additions of a chain are decided first.
+          other = @uses.dup
+          memory.each { |v, reads| other[v] -= reads.size }
+          sums.reverse_each do |v, base, root, k|
+            next unless other[v].zero? && memory[v].all? { |off, width| reaches?(root, k + off, width) }
+
+            @derived[v] = [root, k]
+            @root[v] = root
+            @silent << v
+            other[base] -= 1
+          end
+        end
+
+        # `[base, k]` for an `iadd` of a value and a constant, taken as
+        # signed; nil for any other addition.
+        def summed(i)
+          return nil unless type_of(i.results[0]) == "i64"
+
+          a, b = i.args
+          a, b = b, a if constant(a, "i64") && !constant(b, "i64")
+          k = constant(b, "i64")
+          return nil if k.nil? || constant(a, "i64") || !Regalloc.value?(a)
+
+          [a, k >= 1 << 63 ? k - (1 << 64) : k]
+        end
+
+        # Whether `off` past `root` is an offset one load or store of
+        # `width` bytes can name: from sp when `root` is a slot's address,
+        # from the register that holds `root` otherwise.
+        def reaches?(root, off, width)
+          at = @stack[root]
+          off += at if at
+          immediate?(off, width)
+        end
+
+        def immediate?(off, width) = off >= 0 && (off % width).zero? && off / width <= 4095
+
+        # The bytes a load or store of each type moves.
+        WIDTHS = { "i8" => 1, "i32" => 4, "i64" => 8, "f64" => 8 }.freeze
+
         # The `i8` values whose register holds nothing above the byte, which
         # an operation may then read straight out of its home.
         #
@@ -272,7 +354,7 @@ module Ze0
           off = @slots_end
           @f.blocks.each do |b|
             (b.params.map(&:first) + b.insts.flat_map(&:results)).each do |v|
-              next if @reg.key?(v) || @remade.include?(v)
+              next if @reg.key?(v) || @silent.include?(v)
 
               @home[v] = off
               off += 8
@@ -499,7 +581,10 @@ module Ze0
             d = result_in(i.results[0], X11)
             @asm.cset d, cond
             store_value(i.results[0], d)
-          when :iadd, :isub, :imul, :udiv, :sdiv, :band, :bor, :bxor, :ishl, :ushr, :sshr then emit_binop(i)
+          when :iadd, :isub, :imul, :udiv, :sdiv, :band, :bor, :bxor, :ishl, :ushr, :sshr
+            return if @silent.include?(i.results[0])
+
+            emit_binop(i)
           when :urem, :srem then emit_rem(i)
           when :ireduce, :uextend
             # A narrower value reads the low bits of its slot; a wider one
@@ -626,10 +711,16 @@ module Ze0
 
         # The memory operand for `off` past the address `base` holds: sp
         # itself when `base` is a slot's address and the sum fits, else the
-        # address in a register, read into `scratch` when it has none.
+        # address in a register, read into `scratch` when it has none. A
+        # base folded away (`@derived`) is its root and a constant more.
         def through(base, scratch, off, width)
+          root, k = @derived[base]
+          if root
+            base = root
+            off += k
+          end
           at = @stack[base]
-          return [SP, at + off] if at && off >= 0 && (at + off) % width == 0 && (at + off) / width <= 4095
+          return [SP, at + off] if at && immediate?(at + off, width)
 
           reach(value_in(base, scratch), off, width)
         end
@@ -638,7 +729,7 @@ module Ze0
         # scaled into twelve bits, else the whole address built in X11
         # first, which neither emitter above uses.
         def reach(base, off, width)
-          return [base, off] if off >= 0 && off % width == 0 && off / width <= 4095
+          return [base, off] if immediate?(off, width)
 
           materialize(X11, off)
           @asm.add X11, base, X11

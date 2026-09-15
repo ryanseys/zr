@@ -39,11 +39,14 @@ module Ze0
         # `{ "v3" => X19, ... }` for the values worth a register. `skip`
         # names values the backend makes where they are read instead, so
         # they need no register and must not keep one from anything else.
-        def self.of(function, skip: nil) = new(function, skip).assign
+        # `via` maps a value the backend reads through another to that
+        # other, which is then live at every read of the first.
+        def self.of(function, skip: nil, via: nil) = new(function, skip, via).assign
 
-        def initialize(function, skip = nil)
+        def initialize(function, skip = nil, via = nil)
           @f = function
           @skip = skip
+          @via = via
         end
 
         def assign
@@ -101,9 +104,18 @@ module Ze0
         # and the arguments it carries to a block it branches to.
         def operands(inst)
           used = []
-          inst.args.each { |a| used << @id[a] if Regalloc.value?(a) && !@skip&.include?(a) }
-          inst.targets&.each { |(_, args)| args.each { |a| used << @id[a] if Regalloc.value?(a) && !@skip&.include?(a) } }
+          inst.args.each { |a| (v = read(a)) && used << v }
+          inst.targets&.each { |(_, args)| args.each { |a| (v = read(a)) && used << v } }
           used
+        end
+
+        # The number of the value a read of `a` keeps live, or nil when
+        # `a` is not a value or is made at its reads.
+        def read(a)
+          return nil unless Regalloc.value?(a)
+
+          a = @via[a] || a if @via
+          numbered(a)
         end
 
         def predecessors
