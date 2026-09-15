@@ -3,6 +3,8 @@
 # unless the directive or a `>` says otherwise; a double is packed
 # from its bit halves, a single from those bits rounded to 24 bits.
 module Packing
+  Primitive.attr! :hidden
+
   INTEGERS = { "C" => [1, false], "c" => [1, true], "S" => [2, false], "s" => [2, true], "L" => [4, false], "l" => [4, true],
                "Q" => [8, false], "q" => [8, true], "J" => [8, false], "j" => [8, true], "I" => [4, false], "i" => [4, true],
                "n" => [2, false, :big], "N" => [4, false, :big], "v" => [2, false, :little], "V" => [4, false, :little] }.freeze
@@ -55,7 +57,6 @@ module Packing
   # line past `count` characters breaks after the one that passed it;
   # a last line with anything on it ends with a soft break.
   def self.quoted_printable(bytes, count)
-    Primitive.attr! :hidden
     len = count.nil? || count == :all || count <= 1 ? 72 : count
     out = "".b
     n = 0
@@ -86,7 +87,6 @@ module Packing
   end
 
   def self.decode_quoted_printable(text)
-    Primitive.attr! :hidden
     out = "".b
     i = 0
     while i < text.bytesize
@@ -120,7 +120,6 @@ module Packing
   # four characters of six bits over a space, with a zero as a
   # backquote.
   def self.uuencode(bytes, count)
-    Primitive.attr! :hidden
     line = count.nil? || count == :all || count <= 2 ? 45 : [count, 63].min / 3 * 3
     out = +""
     i = 0
@@ -142,12 +141,10 @@ module Packing
   end
 
   def self.uuchar(value)
-    Primitive.attr! :hidden
     (value.zero? ? 0x60 : value + 0x20).chr
   end
 
   def self.uudecode(text)
-    Primitive.attr! :hidden
     out = "".b
     text.each_line do |line|
       want = (line.getbyte(0).to_i - 0x20) & 63
@@ -282,7 +279,6 @@ module Packing
 
   # associated_pointer: the String whose bytes sit at `address`.
   def self.pointed(associates, address)
-    Primitive.attr! :hidden
     associates&.find { |text| text.is_a?(String) && Primitive.zr_str_bytes_address(text) == address } or
       raise ArgumentError, "no associated pointer"
   end
@@ -671,6 +667,11 @@ module Packing
     low = (mantissa & 7) << 29
     Primitive.zr_float_of_halves(low, high)
   end
+end
+
+# A helper CRuby has no module for: no program names it.
+class Object
+  private_constant :Packing
 end
 
 # CRuby writes these three in Ruby (its pack.rb), so they answer their

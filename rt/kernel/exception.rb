@@ -69,13 +69,37 @@ machine def zr_frame_with_file(rec)
   rec
 end
 
+# Whether `rec` has a row in a backtrace. A helper the core library
+# keeps for itself has none, and neither has a builtin that a helper
+# called: CRuby's C reaches that work with no frame at all.
+sig [Ptr] => Bool
+machine def zr_frame_shown_p(rec)
+  kind = FrameMeta.kind(Frame.meta(rec))
+  if kind == KIND_HIDDEN
+    return false
+  end
+  kind != KIND_BUILTIN || Frame.prev(rec) == 0 || !zr_frame_helper_p(Frame.prev(rec))
+end
+
+# Whether `rec` runs a helper: a hidden def, or a block written in one.
+# A block of the core library is hidden too, and its parent names the
+# def it was written in; a def has no parent.
+sig [Ptr] => Bool
+machine def zr_frame_helper_p(rec)
+  meta = Frame.meta(rec)
+  while FrameMeta.kind(meta) == KIND_HIDDEN && FrameMeta.parent(meta) != 0
+    meta = FrameMeta.parent(meta)
+  end
+  FrameMeta.kind(meta) == KIND_HIDDEN
+end
+
 # One row per frame from `top` outward, into a fresh buffer.
 sig [Value, Ptr] => Void
 machine def zr_backtrace_capture(exc, top)
   n = 0
   rec = top
   while rec != 0
-    if FrameMeta.kind(Frame.meta(rec)) != KIND_HIDDEN
+    if zr_frame_shown_p(rec)
       n += 1
     end
     rec = Frame.prev(rec)
@@ -84,8 +108,7 @@ machine def zr_backtrace_capture(exc, top)
   i = 0
   rec = top
   while rec != 0
-    meta = Frame.meta(rec)
-    if FrameMeta.kind(meta) != KIND_HIDDEN
+    if zr_frame_shown_p(rec)
       row = rows + (i * BtRow.size)
       BtRow.set_meta(row, zr_frame_label_meta(rec))
       source = zr_frame_with_file(rec)
@@ -707,7 +730,7 @@ machine def zr_kernel_caller(recv, argc, argv, cref, blk)
   out = zr_ary_new(8)
   rec = Frame.prev(Task.top(zr_task()))
   while rec != 0
-    if FrameMeta.kind(Frame.meta(rec)) != KIND_HIDDEN
+    if zr_frame_shown_p(rec)
       if start > 0
         start -= 1
       else
@@ -743,7 +766,7 @@ machine def zr_fiber_backtrace_m(fiber, start, limit)
   out = zr_ary_new(8)
   rec = Task.top(t)
   while rec != 0
-    if FrameMeta.kind(Frame.meta(rec)) != KIND_HIDDEN
+    if zr_frame_shown_p(rec)
       if skip > 0
         skip -= 1
       else
