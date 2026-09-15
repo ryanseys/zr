@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "set"
-
 require_relative "registers"
 
 module Ze0
@@ -55,7 +53,6 @@ module Ze0
           return {} if @f.blocks.map(&:name).uniq.size != @f.blocks.size
 
           number
-          flow
           named(scan(*intervals))
         end
 
@@ -64,6 +61,11 @@ module Ze0
         # A number for every block, every instruction and every value.
         # `@uses` and `@results` hold value numbers at an instruction's
         # own number, so nothing below hashes a name or an object again.
+        #
+        # A value in `skip` gets no number at all: it has no interval, so
+        # it must not make work for the liveness below either. Leaving it
+        # out keeps the others in the order they had, so the numbers that
+        # break ties in `intervals` order them the same way.
         def number
           @order = {}
           @f.blocks.each_with_index { |b, i| @order[b.name] = i }
@@ -75,13 +77,16 @@ module Ze0
           @uses = []
           @results = []
           @params = []
+          @defined_in = []
           at = 0
           @f.blocks.each_with_index do |b, bi|
             @first[bi] = at
-            @params[bi] = b.params.map { |v, _| @id[v] }
+            @params[bi] = b.params.filter_map { |v, _| numbered(v) }
+            @params[bi].each { |v| @defined_in[v] = bi }
             b.insts.each do |i|
               @uses[at] = operands(i)
-              @results[at] = i.results.map { |v| @id[v] }
+              @results[at] = i.results.filter_map { |v| numbered(v) }
+              @results[at].each { |v| @defined_in[v] = bi }
               at += 1
             end
             @last[bi] = at - 1
@@ -89,65 +94,16 @@ module Ze0
           @points = at
         end
 
+        # `name`'s number, or nil when the backend makes it at its reads.
+        def numbered(name) = (@id[name] unless @skip&.include?(name))
+
         # The values an instruction reads, by number: its own operands,
         # and the arguments it carries to a block it branches to.
         def operands(inst)
           used = []
-          inst.args.each { |a| used << @id[a] if Regalloc.value?(a) }
-          inst.targets&.each { |(_, args)| args.each { |a| used << @id[a] if Regalloc.value?(a) } }
+          inst.args.each { |a| used << @id[a] if Regalloc.value?(a) && !@skip&.include?(a) }
+          inst.targets&.each { |(_, args)| args.each { |a| used << @id[a] if Regalloc.value?(a) && !@skip&.include?(a) } }
           used
-        end
-
-        # Live-in and live-out per block, to a fixed point. A block
-        # parameter is defined at its own block's entry, so it is never
-        # live in there; the arguments a jump carries are uses in the
-        # block that jumps.
-        #
-        # Only a block whose successor has changed can change, so the work
-        # is a list rather than a sweep over every block until nothing
-        # moves: a long chain of blocks settles in one pass instead of one
-        # pass a block.
-        def flow
-          count = @f.blocks.size
-          gen = Array.new(count) { |bi| upward(bi) }
-          kill = Array.new(count) { |bi| killed(bi) }
-          into = Array.new(count) { Set.new }
-          before = predecessors
-          # Popped from the end, so the last block settles first: liveness
-          # flows backwards, and a chain then settles in one pass.
-          work = (0...count).to_a
-          queued = Array.new(count, true)
-          until work.empty?
-            bi = work.pop
-            queued[bi] = false
-            out = union(into, successors[bi])
-            now = out.subtract(kill[bi]).merge(gen[bi])
-            next if now == into[bi]
-
-            into[bi] = now
-            before[bi].each do |p|
-              next if queued[p]
-
-              queued[p] = true
-              work << p
-            end
-          end
-          @live_in = into
-          @live_out = Array.new(count) { |bi| union(into, successors[bi]) }
-        end
-
-        # What is live into all of `blocks`, as a Set of its own. Almost
-        # every block runs into exactly one other, and a copy of that
-        # block's own answer is cheaper than merging into an empty Set.
-        def union(into, blocks)
-          case blocks.size
-          when 0 then Set.new
-          when 1 then into[blocks[0]].dup
-          else
-            all = into[blocks[0]].dup
-            1.upto(blocks.size - 1) { |i| all.merge(into[blocks[i]]) }
-            all
-          end
         end
 
         def predecessors
@@ -160,26 +116,6 @@ module Ze0
           @successors ||= @f.blocks.map do |b|
             (b.insts.last&.targets || []).map { |t| @order.fetch(t.first) }
           end
-        end
-
-        # The values a block reads before it writes them.
-        # A value at a time rather than `merge` and `subtract` of the
-        # arrays: an instruction names one or two, and the call costs
-        # more than the work.
-        def upward(bi)
-          live = Set.new
-          @last[bi].downto(@first[bi]) do |point|
-            @results[point].each { |v| live.delete(v) }
-            @uses[point].each { |v| live.add(v) }
-          end
-          @params[bi].each { |v| live.delete(v) }
-          live
-        end
-
-        def killed(bi)
-          live = Set.new(@params[bi])
-          @first[bi].upto(@last[bi]) { |point| @results[point].each { |v| live.add(v) } }
-          live
         end
 
         # One interval a value, covering every point it can be read at:
@@ -195,16 +131,24 @@ module Ze0
           count = @id.size
           from = Array.new(count)
           to = Array.new(count)
-          @f.blocks.each_with_index do |b, bi|
+          # The blocks each value is read in away from the block that
+          # makes it.
+          away = Array.new(count)
+          @f.blocks.each_index do |bi|
             first = @first[bi]
-            last = @last[bi]
             @params[bi].each { |v| reach(from, to, v, first) }
-            first.upto(last) do |point|
+            first.upto(@last[bi]) do |point|
               @results[point].each { |v| reach(from, to, v, point) }
-              @uses[point].each { |v| reach(from, to, v, point) }
+              @uses[point].each do |v|
+                reach(from, to, v, point)
+                (away[v] ||= []) << bi unless @defined_in[v] == bi
+              end
             end
-            @live_in[bi].each { |v| reach(from, to, v, first) }
-            @live_out[bi].each { |v| reach(from, to, v, last) }
+          end
+          live = Array.new(@f.blocks.size)
+          before = predecessors
+          away.each_with_index do |blocks, v|
+            blocks&.each { |bi| live_into(bi, v, from, to, live, before) }
           end
           # By start, then by end, then by the value's own number. Ruby's
           # sort is not a stable one, so without that last term which of
@@ -213,10 +157,40 @@ module Ze0
           # outright, and owes nothing to the order anything above was
           # walked in. One Integer carries all three.
           span = @points + 1
-          @skip&.each { |name| from[@id[name]] = nil if @id.key?(name) }
           order = (0...count).select { |v| from[v] }
           order.sort_by! { |v| (((from[v] * span) + to[v]) * count) + v }
           [order, from, to]
+        end
+
+        # `v` is read in block `bi` and made somewhere else, so it is live
+        # into `bi`, and out of every block that runs into one where it is
+        # live, back to the block that makes it. Its interval covers each
+        # of those whole.
+        #
+        # This asks per value rather than keeping the set of live values a
+        # block: a value made in the entry block and read at the end of a
+        # long function sat in the set of every block between, so the sets
+        # grew as blocks times values. `live` says which value last marked
+        # a block live-in; every read of one value is walked before the
+        # next value's, so a block is walked once a value. The walk is a
+        # list rather than recursion, as a chain of blocks is as long as
+        # the function.
+        def live_into(bi, v, from, to, live, before)
+          return if live[bi] == v
+
+          live[bi] = v
+          work = [bi]
+          until work.empty?
+            b = work.pop
+            reach(from, to, v, @first[b])
+            before[b].each do |p|
+              reach(from, to, v, @last[p])
+              next if @defined_in[v] == p || live[p] == v
+
+              live[p] = v
+              work << p
+            end
+          end
         end
 
         # `v` reaches `point`, so its interval holds it.
