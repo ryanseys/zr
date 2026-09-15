@@ -9,8 +9,8 @@ class Array
     return to_enum(__callee__, *([ifnone] unless omitted)) unless block_given?
 
     i = 0
-    while i < size
-      element = self[i]
+    while i < Primitive.zr_ary_len_m(self)
+      element = Primitive.zr_ary_aref1_m(self, i)
       return element if yield(element)
 
       i += 1
@@ -23,9 +23,9 @@ class Array
   def rfind(ifnone = (omitted = true; nil))
     return to_enum(:rfind, *([ifnone] unless omitted)) unless block_given?
 
-    i = size - 1
+    i = Primitive.zr_ary_len_m(self) - 1
     while i >= 0
-      element = self[i]
+      element = Primitive.zr_ary_aref1_m(self, i)
       return element if yield(element)
 
       i -= 1
@@ -45,23 +45,27 @@ class Array
     return to_enum(:take_while) unless block_given?
 
     i = 0
-    i += 1 while i < size && yield(self[i])
-    take(i)
+    i += 1 while i < Primitive.zr_ary_len_m(self) && yield(Primitive.zr_ary_aref1_m(self, i))
+    Primitive.zr_ary_aref2_m(self, 0, i)
   end
 
   def drop_while
     return to_enum(:drop_while) unless block_given?
 
     i = 0
-    i += 1 while i < size && yield(self[i])
-    drop(i)
+    i += 1 while i < Primitive.zr_ary_len_m(self) && yield(Primitive.zr_ary_aref1_m(self, i))
+    Primitive.zr_ary_aref2_m(self, i, Primitive.zr_ary_len_m(self))
   end
 
-  def reverse
+  def reverse = reversed
+
+  # rb_ary_reverse's copy, which reverse! makes as a function.
+  def reversed
+    Primitive.attr! :hidden
     out = []
-    i = size - 1
+    i = Primitive.zr_ary_len_m(self) - 1
     while i >= 0
-      out << self[i]
+      out << Primitive.zr_ary_aref1_m(self, i)
       i -= 1
     end
     out
@@ -69,16 +73,16 @@ class Array
 
   def last(n = (none = true))
     Primitive.attr! :ruby
-    return self[-1] if none
+    return Primitive.zr_ary_aref1_m(self, -1) if none
 
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "negative array size" if n < 0
 
-    from = size - n
+    from = Primitive.zr_ary_len_m(self) - n
     from = 0 if from < 0
     out = []
-    while from < size
-      out << self[from]
+    while from < Primitive.zr_ary_len_m(self)
+      out << Primitive.zr_ary_aref1_m(self, from)
       from += 1
     end
     out
@@ -86,15 +90,15 @@ class Array
 
   def first(n = (none = true))
     Primitive.attr! :ruby
-    return self[0] if none
+    return Primitive.zr_ary_aref1_m(self, 0) if none
 
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "negative array size" if n < 0
 
     out = []
     i = 0
-    while i < n && i < size
-      out << self[i]
+    while i < n && i < Primitive.zr_ary_len_m(self)
+      out << Primitive.zr_ary_aref1_m(self, i)
       i += 1
     end
     out
@@ -108,13 +112,13 @@ class Array
 
     begin
       i = 0
-      while i < size && i < other.size
-        c = self[i] <=> other[i]
+      while i < Primitive.zr_ary_len_m(self) && i < other.size
+        c = Primitive.zr_ary_aref1_m(self, i) <=> other[i]
         return c if c != 0
 
         i += 1
       end
-      size <=> other.size
+      Primitive.zr_ary_len_m(self) <=> other.size
     ensure
       Primitive.zr_recursive_leave(self, :<=>)
     end
@@ -131,14 +135,14 @@ class Array
     out
   end
 
-  def at(index) = self[Primitive.zr_index_operand_m(index)]
+  def at(index) = Primitive.zr_ary_aref1_m(self, Primitive.zr_index_operand_m(index))
 
   # rb_ary_join: the text starts empty in US-ASCII, and the first
   # element's text gives it its encoding -- unless that element is an
   # Array, whose own elements join the text as the rest do.
   def join(sep = nil)
     sep = $, if sep.nil?
-    return String.new(encoding: Encoding::US_ASCII) if empty?
+    return String.new(encoding: Encoding::US_ASCII) if (Primitive.zr_ary_len_m(self) == 0)
 
     sep = sep.nil? ? "" : Primitive.zr_str_operand(sep)
     raise ArgumentError, "recursive array join" if Primitive.zr_recursive_enter(self, :join)
@@ -146,9 +150,9 @@ class Array
     begin
       s = String.new(encoding: Encoding::US_ASCII)
       i = 0
-      while i < size
+      while i < Primitive.zr_ary_len_m(self)
         s << sep if i > 0
-        part = join_part(self[i])
+        part = join_part(Primitive.zr_ary_aref1_m(self, i))
         if part.is_a?(Array)
           s << part.join(sep)
         else
@@ -177,8 +181,8 @@ class Array
   def compact
     out = []
     i = 0
-    while i < size
-      out << self[i] unless self[i].nil?
+    while i < Primitive.zr_ary_len_m(self)
+      out << Primitive.zr_ary_aref1_m(self, i) unless Primitive.zr_ary_aref1_m(self, i).nil?
       i += 1
     end
     out
@@ -188,8 +192,8 @@ class Array
     return to_enum(:index) if v.nil? && !block_given?
 
     i = 0
-    while i < size
-      x = self[i]
+    while i < Primitive.zr_ary_len_m(self)
+      x = Primitive.zr_ary_aref1_m(self, i)
       return i if block_given? ? yield(x) : Primitive.zr_rb_equal(x, v)
 
       i += 1
@@ -202,10 +206,10 @@ class Array
   def sum(init = 0)
     acc = init
     i = 0
-    while i < size
-      x = block_given? ? yield(self[i]) : self[i]
+    while i < Primitive.zr_ary_len_m(self)
+      x = block_given? ? yield(Primitive.zr_ary_aref1_m(self, i)) : Primitive.zr_ary_aref1_m(self, i)
       if acc.is_a?(Float) || (x.is_a?(Float) && (acc.is_a?(Integer) || acc.is_a?(Rational)))
-        return float_sum(acc.to_f, x, i + 1) { |j| block_given? ? yield(self[j]) : self[j] }
+        return float_sum(acc.to_f, x, i + 1) { |j| block_given? ? yield(Primitive.zr_ary_aref1_m(self, j)) : Primitive.zr_ary_aref1_m(self, j) }
       end
       acc += x
       i += 1
@@ -218,8 +222,8 @@ class Array
 
     best = nil
     i = 0
-    while i < size
-      best = self[i] if i == 0 || compared(self[i], best, block) < 0
+    while i < Primitive.zr_ary_len_m(self)
+      best = Primitive.zr_ary_aref1_m(self, i) if i == 0 || compared(Primitive.zr_ary_aref1_m(self, i), best, block) < 0
       i += 1
     end
     best
@@ -230,8 +234,8 @@ class Array
 
     best = nil
     i = 0
-    while i < size
-      best = self[i] if i == 0 || compared(self[i], best, block) > 0
+    while i < Primitive.zr_ary_len_m(self)
+      best = Primitive.zr_ary_aref1_m(self, i) if i == 0 || compared(Primitive.zr_ary_aref1_m(self, i), best, block) > 0
       i += 1
     end
     best
@@ -249,32 +253,44 @@ class Array
 
   def rotate!(n = 1)
     n = Primitive.zr_index_operand_m(n)
-    replace(rotate(n))
+    replaced(rotated(n))
   end
 
   def rassoc(value)
-    each { |row| return row if row.is_a?(Array) && row.size > 1 && Primitive.zr_rb_equal(row[1], value) }
+    i = 0
+    while i < Primitive.zr_ary_len_m(self)
+      row = Primitive.zr_ary_aref1_m(self, i)
+      return row if row.is_a?(Array) && row.size > 1 && Primitive.zr_rb_equal(row[1], value)
+
+      i += 1
+    end
     nil
   end
 
   def bsearch(&block)
     return to_enum(:bsearch) unless block
 
-    at = bsearch_index(&block)
-    at && self[at]
+    at = searched(&block)
+    at && Primitive.zr_ary_aref1_m(self, at)
   end
 
   # Binary search in find-minimum mode (the block answers true or
   # false) or find-any mode (the block answers a number's sign).
-  def bsearch_index
-    return to_enum(:bsearch_index) unless block_given?
+  def bsearch_index(&block)
+    return to_enum(:bsearch_index) unless block
 
+    searched(&block)
+  end
+
+  # rb_ary_bsearch_index, which bsearch calls as a function.
+  def searched
+    Primitive.attr! :hidden
     low = 0
-    high = size
+    high = Primitive.zr_ary_len_m(self)
     found = nil
     while low < high
       mid = low + (high - low) / 2
-      answer = yield(self[mid])
+      answer = yield(Primitive.zr_ary_aref1_m(self, mid))
       case answer
       when true
         found = mid
@@ -295,21 +311,23 @@ class Array
     found
   end
 
-  def intersection(*others) = others.inject(self) { |acc, other| acc & other }
+  # The forms of many operands start from a plain copy, as the C starts
+  # from rb_ary_dup, so the receiver's own operators are not called.
+  def intersection(*others) = others.inject(Array.new(self)) { |acc, other| acc & other }
 
-  def union(*others) = others.inject(uniq) { |acc, other| acc | other }
+  def union(*others) = others.inject(unique) { |acc, other| acc | other }
 
-  def difference(*others) = others.inject(self) { |acc, other| acc - other }
+  def difference(*others) = others.inject(Array.new(self)) { |acc, other| acc - other }
 
-  def intersect?(other) = !(self & other).empty?
+  def intersect?(other) = !(Array.new(self) & other).empty?
 
   def repeated_combination(k)
     k = Primitive.zr_index_operand_m(k)
-    return to_enum(:repeated_combination, k) { k < 0 ? 0 : (k == 0 ? 1 : (size + k - 1).downto(size).inject(1) { |a, b| a * b } / (1..k).inject(1) { |a, b| a * b }) } unless block_given?
+    return to_enum(:repeated_combination, k) { k < 0 ? 0 : (k == 0 ? 1 : (Primitive.zr_ary_len_m(self) + k - 1).downto(Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b } / (1..k).inject(1) { |a, b| a * b }) } unless block_given?
 
     if k == 0
       yield []
-    elsif k > 0 && !empty?
+    elsif k > 0 && !(Primitive.zr_ary_len_m(self) == 0)
       pick_repeated(k, 0, []) { |c| yield c }
     end
     self
@@ -321,14 +339,14 @@ class Array
     unless block_given?
       return to_enum(:repeated_permutation, k) do
         n = Primitive.zr_index_operand_m(k)
-        n.negative? ? 0 : size**n
+        n.negative? ? 0 : Primitive.zr_ary_len_m(self)**n
       end
     end
 
     k = Primitive.zr_index_operand_m(k)
     if k == 0
       yield []
-    elsif k > 0 && !empty?
+    elsif k > 0 && !(Primitive.zr_ary_len_m(self) == 0)
       place_repeated(k, []) { |c| yield c }
     end
     self
@@ -336,24 +354,24 @@ class Array
 
   def combination(k)
     k = Primitive.zr_index_operand_m(k)
-    return to_enum(:combination, k) { k < 0 || k > size ? 0 : (1..size).inject(1) { |a, b| a * b } / ((1..k).inject(1) { |a, b| a * b } * (1..size - k).inject(1) { |a, b| a * b }) } unless block_given?
+    return to_enum(:combination, k) { k < 0 || k > Primitive.zr_ary_len_m(self) ? 0 : (1..Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b } / ((1..k).inject(1) { |a, b| a * b } * (1..Primitive.zr_ary_len_m(self) - k).inject(1) { |a, b| a * b }) } unless block_given?
 
     if k == 0
       yield []
-    elsif k > 0 && k <= size
+    elsif k > 0 && k <= Primitive.zr_ary_len_m(self)
       combine(k, 0, []) { |c| yield c }
     end
     self
   end
 
-  def permutation(k = size)
+  def permutation(k = Primitive.zr_ary_len_m(self))
     k = Primitive.zr_index_operand_m(k)
-    return to_enum(:permutation, k) { k < 0 || k > size ? 0 : (size - k + 1..size).inject(1) { |a, b| a * b } } unless block_given?
+    return to_enum(:permutation, k) { k < 0 || k > Primitive.zr_ary_len_m(self) ? 0 : (Primitive.zr_ary_len_m(self) - k + 1..Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b } } unless block_given?
 
     if k == 0
       yield []
-    elsif k > 0 && k <= size
-      permute(k, [], Array.new(size, false)) { |c| yield c }
+    elsif k > 0 && k <= Primitive.zr_ary_len_m(self)
+      permute(k, [], Array.new(Primitive.zr_ary_len_m(self), false)) { |c| yield c }
     end
     self
   end
@@ -362,7 +380,7 @@ class Array
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "attempt to take negative size" if n < 0
 
-    first(n)
+    Primitive.zr_ary_aref2_m(self, 0, n)
   end
 
   def drop(n)
@@ -371,8 +389,8 @@ class Array
 
     out = []
     i = n
-    while i < size
-      out << self[i]
+    while i < Primitive.zr_ary_len_m(self)
+      out << Primitive.zr_ary_aref1_m(self, i)
       i += 1
     end
     out
@@ -380,7 +398,13 @@ class Array
 
   def deconstruct = self
 
-  def slice(*args) = self[*args]
+  def slice(*args)
+    case args.size
+    when 1 then Primitive.zr_ary_aref1_m(self, args[0])
+    when 2 then Primitive.zr_ary_aref2_m(self, args[0], args[1])
+    else raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)"
+    end
+  end
 
   # `Array[1, 2]` is the constructor spelling of `[1, 2]`. A subclass
   # takes its own instance, which is what `Array[...].class` answers.
@@ -404,14 +428,18 @@ class Array
 
   # Membership here is by `hash` and `eql?`, as CRuby's set
   # operations decide it.
-  def uniq
-    return Array.new(self) if size <= 1 && !block_given?
+  def uniq(&block) = unique(&block)
+
+  # rb_ary_uniq, which uniq!, union and & call as a function.
+  def unique
+    Primitive.attr! :hidden
+    return Array.new(self) if Primitive.zr_ary_len_m(self) <= 1 && !block_given?
 
     seen = {}
     out = []
     i = 0
-    while i < size
-      x = self[i]
+    while i < Primitive.zr_ary_len_m(self)
+      x = Primitive.zr_ary_aref1_m(self, i)
       key = block_given? ? yield(x) : x
       unless seen.key?(key)
         seen[key] = true
@@ -426,8 +454,8 @@ class Array
   # itself.
   def include?(v)
     i = 0
-    while i < size
-      x = self[i]
+    while i < Primitive.zr_ary_len_m(self)
+      x = Primitive.zr_ary_aref1_m(self, i)
       return true if Primitive.zr_rb_equal(x, v)
 
       i += 1
@@ -436,13 +464,13 @@ class Array
   end
 
   def eql?(other)
-    return false unless other.is_a?(Array) && size == other.size
+    return false unless other.is_a?(Array) && Primitive.zr_ary_len_m(self) == other.size
     return true if equal?(other) || Primitive.zr_recursive_enter(self, :eql?)
 
     begin
       i = 0
-      while i < size
-        return false unless self[i].eql?(other[i])
+      while i < Primitive.zr_ary_len_m(self)
+        return false unless Primitive.zr_ary_aref1_m(self, i).eql?(other[i])
 
         i += 1
       end
@@ -459,8 +487,8 @@ class Array
     begin
       h = 7
       i = 0
-      while i < size
-        h = (h * 31 + (self[i].hash & mask)) & mask
+      while i < Primitive.zr_ary_len_m(self)
+        h = (h * 31 + (Primitive.zr_ary_aref1_m(self, i).hash & mask)) & mask
         i += 1
       end
       h
@@ -474,7 +502,7 @@ class Array
   # Over the elements themselves, as rb_ary_count walks them: never
   # through `each`, with the length read again each time round.
   def count(item = (none = true), &block)
-    return size if none && !block
+    return Primitive.zr_ary_len_m(self) if none && !block
 
     n = 0
     i = 0
@@ -494,23 +522,25 @@ class Array
     raise ArgumentError, "negative array size" if n < 0
     Primitive.zr_frozen_error(self) if frozen?
 
-    out = last(n)
-    Primitive.zr_ary_splice(self, size - out.size, out.size, [])
+    count = Primitive.zr_ary_len_m(self)
+    from = n > count ? 0 : count - n
+    out = Primitive.zr_ary_aref2_m(self, from, count - from)
+    Primitive.zr_ary_splice(self, from, out.size, [])
     out
   end
 
   def shift(n = (none = true))
     if none
-      return nil if empty?
+      return nil if (Primitive.zr_ary_len_m(self) == 0)
 
-      first = self[0]
+      first = Primitive.zr_ary_aref1_m(self, 0)
       Primitive.zr_ary_splice(self, 0, 1, [])
       return first
     end
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "negative array size" if n < 0
 
-    out = first(n)
+    out = Primitive.zr_ary_aref2_m(self, 0, n)
     Primitive.zr_ary_splice(self, 0, out.size, [])
     out
   end
@@ -519,9 +549,9 @@ class Array
     Primitive.zr_ary_splice(self, 0, 0, vals)
   end
 
-  def prepend(*vals) = unshift(*vals)
+  def prepend(*vals) = Primitive.zr_ary_splice(self, 0, 0, vals)
 
-  def append(*vals) = push(*vals)
+  def append(*vals) = Primitive.zr_ary_splice(self, Primitive.zr_ary_len_m(self), 0, vals)
 
   # A frozen receiver refuses before the index is read, and an index
   # below `-size - 1` names no place to insert at.
@@ -531,12 +561,12 @@ class Array
     return self if vals.empty?
 
     if index.negative?
-      raise IndexError, "index #{index} too small for array; minimum: #{-size - 1}" if index < -size - 1
+      raise IndexError, "index #{index} too small for array; minimum: #{-Primitive.zr_ary_len_m(self) - 1}" if index < -Primitive.zr_ary_len_m(self) - 1
 
-      index += size + 1
+      index += Primitive.zr_ary_len_m(self) + 1
     end
     # rb_ary_splice's own bound, met before any element moves.
-    raise IndexError, "index #{index} too big" if index > size && index > Primitive.zr_ary_max_size - vals.size
+    raise IndexError, "index #{index} too big" if index > Primitive.zr_ary_len_m(self) && index > Primitive.zr_ary_max_size - vals.size
 
     Primitive.zr_ary_splice(self, index, 0, vals)
   end
@@ -549,16 +579,19 @@ class Array
       ary = Array.try_convert(o) || raise(TypeError, "no implicit conversion of #{conversion_name(o)} into Array")
       ary.equal?(self) ? ary.dup : ary
     end
-    pieces.each { |o| Primitive.zr_ary_splice(self, size, 0, o) }
+    pieces.each { |o| Primitive.zr_ary_splice(self, Primitive.zr_ary_len_m(self), 0, o) }
     self
   end
 
-  def delete_at(index)
-    index = Primitive.zr_index_operand_m(index)
-    index += size if index < 0
-    return nil if index < 0 || index >= size
+  def delete_at(index) = deleted_at(Primitive.zr_index_operand_m(index))
 
-    v = self[index]
+  # rb_ary_delete_at, which slice! calls as a function.
+  def deleted_at(index)
+    Primitive.attr! :hidden
+    index += Primitive.zr_ary_len_m(self) if index < 0
+    return nil if index < 0 || index >= Primitive.zr_ary_len_m(self)
+
+    v = Primitive.zr_ary_aref1_m(self, index)
     Primitive.zr_ary_splice(self, index, 1, [])
     v
   end
@@ -566,9 +599,9 @@ class Array
   def delete(v)
     found = nil
     i = 0
-    while i < size
-      if Primitive.zr_rb_equal(self[i], v)
-        found = self[i]
+    while i < Primitive.zr_ary_len_m(self)
+      if Primitive.zr_rb_equal(Primitive.zr_ary_aref1_m(self, i), v)
+        found = Primitive.zr_ary_aref1_m(self, i)
         Primitive.zr_ary_splice(self, i, 1, [])
       else
         i += 1
@@ -578,7 +611,7 @@ class Array
   end
 
   def delete_if
-    return to_enum(:delete_if) { size } unless block_given?
+    return to_enum(:delete_if) { Primitive.zr_ary_len_m(self) } unless block_given?
 
     Primitive.zr_frozen_error(self) if frozen?
     sweep_by_block { |x| !yield(x) }
@@ -586,37 +619,45 @@ class Array
   end
 
   def reject!
-    return to_enum(:reject!) { size } unless block_given?
+    return to_enum(:reject!) { Primitive.zr_ary_len_m(self) } unless block_given?
 
     Primitive.zr_frozen_error(self) if frozen?
     sweep_by_block { |x| !yield(x) } ? self : nil
   end
 
   def select!
-    return to_enum(:select!) { size } unless block_given?
+    return to_enum(:select!) { Primitive.zr_ary_len_m(self) } unless block_given?
 
     Primitive.zr_frozen_error(self) if frozen?
     sweep_by_block { |x| yield(x) } ? self : nil
   end
 
   def keep_if
-    return to_enum(:keep_if) { size } unless block_given?
+    return to_enum(:keep_if) { Primitive.zr_ary_len_m(self) } unless block_given?
 
-    select! { |x| yield(x) }
+    Primitive.zr_frozen_error(self) if frozen?
+    sweep_by_block { |x| yield(x) }
     self
   end
 
-  def filter!(&block)
-    return to_enum(:filter!) { size } unless block
+  def filter!
+    return to_enum(:filter!) { Primitive.zr_ary_len_m(self) } unless block_given?
 
-    select!(&block)
+    Primitive.zr_frozen_error(self) if frozen?
+    sweep_by_block { |x| yield(x) } ? self : nil
   end
 
   def clear = Primitive.zr_ary_clear(self, nil)
 
   def replace(other)
     array = Array.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Array"
-    Primitive.zr_ary_splice(self, 0, size, array)
+    replaced(array)
+  end
+
+  # rb_ary_replace with an Array in hand.
+  def replaced(array)
+    Primitive.attr! :hidden
+    Primitive.zr_ary_splice(self, 0, Primitive.zr_ary_len_m(self), array)
   end
 
   # `a[i] = v`, `a[start, len] = v` and `a[range] = v`: the span's
@@ -640,10 +681,10 @@ class Array
       # reaches past the end, which reads as one that reaches the end.
       unless Primitive.zr_fixnum_p_m(start) && Primitive.zr_fixnum_p_m(len)
         raise IndexError, "negative length (#{len})" if len < 0
-        raise IndexError, "index #{start - size} too small for array; minimum: -#{size}" if start < 0 && start + size < 0
+        raise IndexError, "index #{start - Primitive.zr_ary_len_m(self)} too small for array; minimum: -#{Primitive.zr_ary_len_m(self)}" if start < 0 && start + Primitive.zr_ary_len_m(self) < 0
         raise IndexError, "index #{start} too big" unless Primitive.zr_fixnum_p_m(start)
 
-        len = size
+        len = Primitive.zr_ary_len_m(self)
       end
     end
     items = value.is_a?(Array) ? value : (value.respond_to?(:to_ary) ? value.to_ary : [value])
@@ -654,48 +695,51 @@ class Array
   def slice!(start, len = nil)
     if len.nil?
       if start.is_a?(Range)
-        part = self[start]
+        part = Primitive.zr_ary_aref1_m(self, start)
         return nil if part.nil?
 
         from = start.begin || 0
-        from += size if from < 0
+        from += Primitive.zr_ary_len_m(self) if from < 0
         Primitive.zr_ary_splice(self, from, part.size, [])
         return part
       end
-      return delete_at(start)
+      return deleted_at(Primitive.zr_index_operand_m(start))
     end
     start = Primitive.zr_index_operand_m(start)
     len = Primitive.zr_index_operand_m(len)
-    part = self[start, len]
+    part = Primitive.zr_ary_aref2_m(self, start, len)
     return nil if part.nil?
 
-    start += size if start < 0
+    start += Primitive.zr_ary_len_m(self) if start < 0
     Primitive.zr_ary_splice(self, start, part.size, [])
     part
   end
 
   def map!
-    return to_enum(:map!) { size } unless block_given?
+    return to_enum(:map!) { Primitive.zr_ary_len_m(self) } unless block_given?
 
     i = 0
-    while i < size
-      self[i] = yield(self[i])
+    while i < Primitive.zr_ary_len_m(self)
+      Primitive.zr_ary_aset_at(self, i, yield(Primitive.zr_ary_aref1_m(self, i)))
       i += 1
     end
     self
   end
 
-  def collect!(&block)
-    return to_enum(:collect!) { size } unless block
+  def collect!
+    return to_enum(:collect!) { Primitive.zr_ary_len_m(self) } unless block_given?
 
-    map!(&block)
+    i = 0
+    while i < Primitive.zr_ary_len_m(self)
+      Primitive.zr_ary_aset_at(self, i, yield(Primitive.zr_ary_aref1_m(self, i)))
+      i += 1
+    end
+    self
   end
 
   def compact!
     Primitive.zr_frozen_error(self) if frozen?
-    before = size
-    delete_if(&:nil?)
-    size == before ? nil : self
+    sweep_by_block { |x| !x.nil? } ? self : nil
   end
 
   # As rb_ary_uniq_bang: a frozen Array refuses first; the block, when
@@ -703,16 +747,17 @@ class Array
   # when nothing went.
   def uniq!(&)
     Primitive.zr_frozen_error(self) if frozen?
-    return nil if size <= 1
+    return nil if Primitive.zr_ary_len_m(self) <= 1
 
-    kept = uniq(&)
-    return nil if kept.size == size
+    kept = unique(&)
+    return nil if kept.size == Primitive.zr_ary_len_m(self)
 
-    replace(kept)
+    replaced(kept)
   end
 
   def reverse!
-    replace(reverse)
+    Primitive.zr_frozen_error(self) if frozen?
+    replaced(reversed)
   end
 
   # Nested Arrays (and what `to_ary` answers) spread out `depth` levels;
@@ -733,7 +778,7 @@ class Array
     return nil if level == 0
 
     result = flattened(level)
-    result.equal?(self) ? nil : replace(result)
+    result.equal?(self) ? nil : replaced(result)
   end
 
   # CRuby's flatten: the walk keeps its own stack of (Array, index)
@@ -744,18 +789,18 @@ class Array
   # converts.
   def flattened(level)
     Primitive.attr! :hidden
-    size = Primitive.zr_ary_len_m(self)
+    count = Primitive.zr_ary_len_m(self)
     i = 0
     tmp = nil
-    while i < size
+    while i < count
       tmp = Array.try_convert(Primitive.zr_ary_at_m(self, i))
       break unless tmp.nil?
 
       i += 1
     end
-    return self if i == size
+    return self if i == count
 
-    result = first(i)
+    result = Primitive.zr_ary_aref2_m(self, 0, i)
     stack = [self, i + 1]
     memo = nil
     if level < 0
@@ -797,68 +842,84 @@ class Array
   end
 
   def reverse_each
-    return to_enum(:reverse_each) { size } unless block_given?
+    return to_enum(:reverse_each) { Primitive.zr_ary_len_m(self) } unless block_given?
 
-    i = size - 1
+    i = Primitive.zr_ary_len_m(self) - 1
     while i >= 0
-      yield self[i]
+      yield Primitive.zr_ary_aref1_m(self, i)
       i -= 1
     end
     self
   end
 
-  def rotate(n = 1)
-    n = Primitive.zr_index_operand_m(n)
-    return Array.new(self) if empty?
+  def rotate(n = 1) = rotated(Primitive.zr_index_operand_m(n))
 
-    n %= size
-    self[n, size - n] + self[0, n]
+  # rb_ary_rotate_m's copy, which rotate! makes as a function.
+  def rotated(n)
+    Primitive.attr! :hidden
+    return Array.new(self) if (Primitive.zr_ary_len_m(self) == 0)
+
+    n %= Primitive.zr_ary_len_m(self)
+    Primitive.zr_ary_aref2_m(self, n, Primitive.zr_ary_len_m(self) - n).concat(Primitive.zr_ary_aref2_m(self, 0, n))
   end
 
   # A Range past the end pads with nils up to its end.
   def values_at(*indexes)
     indexes.flat_map do |i|
-      next [self[Primitive.zr_index_operand_m(i)]] unless i.is_a?(Range)
+      next [Primitive.zr_ary_aref1_m(self, Primitive.zr_index_operand_m(i))] unless i.is_a?(Range)
 
       first = i.begin || 0
-      first += size if first < 0
+      first += Primitive.zr_ary_len_m(self) if first < 0
       raise RangeError, "#{i} out of range" if first < 0
 
-      last = i.end || size - 1
-      last += size if last < 0
+      last = i.end || Primitive.zr_ary_len_m(self) - 1
+      last += Primitive.zr_ary_len_m(self) if last < 0
       last -= 1 if i.exclude_end? && i.end
       next [] if last < first
 
-      (first..last).map { |j| self[j] }
+      (first..last).map { |j| Primitive.zr_ary_aref1_m(self, j) }
     end
   end
 
   def dig(index, *rest)
-    v = self[index]
+    v = Primitive.zr_ary_aref1_m(self, Primitive.zr_index_operand_m(index))
     rest.empty? || v.nil? ? v : Primitive.zr_dig_into(v, rest)
   end
 
   # Each index fetched, a block answering for one out of bounds.
   def fetch_values(*indexes, &block)
     Primitive.attr! :ruby
-    indexes.map { |i| block ? fetch(i, &block) : fetch(i) }
+    indexes.map { |i| fetched(i, [], &block) }
   end
 
-  def fetch(index, *default)
+  def fetch(index, *default, &block)
     raise ArgumentError, "wrong number of arguments (given #{default.size + 1}, expected 1..2)" if default.size > 1
+
+    fetched(index, default, &block)
+  end
+
+  # rb_ary_fetch, which fetch_values calls as a function.
+  def fetched(index, default)
+    Primitive.attr! :hidden
 
     Primitive.zr_warn_here_m("block supersedes default value argument") if block_given? && !default.empty?
     index = Primitive.zr_index_operand_m(index)
-    i = index < 0 ? index + size : index
-    return self[i] if i >= 0 && i < size
+    i = index < 0 ? index + Primitive.zr_ary_len_m(self) : index
+    return Primitive.zr_ary_aref1_m(self, i) if i >= 0 && i < Primitive.zr_ary_len_m(self)
     return yield(index) if block_given?
     return default[0] unless default.empty?
 
-    raise IndexError, "index #{index} outside of array bounds: #{-size}...#{size}"
+    raise IndexError, "index #{index} outside of array bounds: #{-Primitive.zr_ary_len_m(self)}...#{Primitive.zr_ary_len_m(self)}"
   end
 
   def assoc(key)
-    each { |x| return x if x.is_a?(Array) && x.size > 0 && Primitive.zr_rb_equal(x[0], key) }
+    i = 0
+    while i < Primitive.zr_ary_len_m(self)
+      x = Primitive.zr_ary_aref1_m(self, i)
+      return x if x.is_a?(Array) && x.size > 0 && Primitive.zr_rb_equal(x[0], key)
+
+      i += 1
+    end
     nil
   end
 
@@ -867,7 +928,7 @@ class Array
 
     other = Primitive.zr_index_operand_m(other)
     raise ArgumentError, "negative argument" if other < 0
-    raise ArgumentError, "argument too big" if other > 0 && Primitive.zr_ary_max_size / other < size
+    raise ArgumentError, "argument too big" if other > 0 && Primitive.zr_ary_max_size / other < Primitive.zr_ary_len_m(self)
 
     out = []
     other.times { out.concat(self) }
@@ -877,17 +938,24 @@ class Array
   def -(other)
     members = {}
     ary_operand(other).each { |x| members[x] = true }
-    reject { |x| members.key?(x) }
+    out = []
+    i = 0
+    while i < Primitive.zr_ary_len_m(self)
+      x = Primitive.zr_ary_aref1_m(self, i)
+      out << x unless members.key?(x)
+      i += 1
+    end
+    out
   end
 
   def &(other)
     members = {}
     ary_operand(other).each { |x| members[x] = true }
-    uniq.select { |x| members.key?(x) }
+    unique.select { |x| members.key?(x) }
   end
 
   def |(other)
-    (self + ary_operand(other)).uniq
+    Array.new(self).concat(ary_operand(other)).uniq
   end
 
   # An operand as CRuby's to_ary() takes one: an Array, or what to_ary
@@ -908,11 +976,11 @@ class Array
 
   def zip(*others)
     columns = []
-    columns << zip_column(others[columns.size], size) while columns.size < others.size
+    columns << zip_column(others[columns.size], Primitive.zr_ary_len_m(self)) while columns.size < others.size
     out = []
     i = 0
-    while i < size
-      row = [self[i]]
+    while i < Primitive.zr_ary_len_m(self)
+      row = [Primitive.zr_ary_aref1_m(self, i)]
       columns.each { |column| row << column[i] }
       block_given? ? yield(row) : out << row
       i += 1
@@ -924,11 +992,12 @@ class Array
     others = others.map do |other|
       Array.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Array"
     end
+    mine = Array.new(self)
     combos = if others.empty?
-               map { |x| [x] }
+               mine.map { |x| [x] }
              else
                rest = others[0].product(*others[1..])
-               flat_map { |x| rest.map { |r| [x] + r } }
+               mine.flat_map { |x| rest.map { |r| [x] + r } }
              end
     return combos unless block_given?
 
@@ -937,7 +1006,7 @@ class Array
   end
 
   def transpose
-    return [] if empty?
+    return [] if (Primitive.zr_ary_len_m(self) == 0)
 
     rows = map do |row|
       Array.try_convert(row) or raise TypeError, "no implicit conversion of #{conversion_name(row)} into Array"
@@ -955,18 +1024,18 @@ class Array
 
     if args[0].is_a?(Range)
       first = args[0].begin || 0
-      first += size if first < 0
+      first += Primitive.zr_ary_len_m(self) if first < 0
       raise RangeError, "#{args[0]} out of range" if first < 0
 
-      last = args[0].end.nil? ? size - 1 : args[0].end
-      last += size if last < 0
+      last = args[0].end.nil? ? Primitive.zr_ary_len_m(self) - 1 : args[0].end
+      last += Primitive.zr_ary_len_m(self) if last < 0
       last -= 1 if args[0].exclude_end? && !args[0].end.nil?
       stop = last + 1
     else
       first = args[0].nil? ? 0 : Primitive.zr_index_operand_m(args[0])
-      first += size if first < 0
+      first += Primitive.zr_ary_len_m(self) if first < 0
       first = 0 if first < 0
-      stop = args[1].nil? ? size : first + Primitive.zr_index_operand_m(args[1])
+      stop = args[1].nil? ? Primitive.zr_ary_len_m(self) : first + Primitive.zr_index_operand_m(args[1])
     end
     # rb_ary_fill's order: the receiver may change, a Range's span is at
     # least empty, a negative length fills nothing, and the span must fit.
@@ -983,28 +1052,35 @@ class Array
     stop = first + len
     i = first
     while i < stop
-      self[i] = block_given? ? yield(i) : value
+      Primitive.zr_ary_aset_at(self, i, block_given? ? yield(i) : value)
       i += 1
     end
     self
   end
 
   def sort_by!
-    return to_enum(:sort_by!) { size } unless block_given?
+    return to_enum(:sort_by!) { Primitive.zr_ary_len_m(self) } unless block_given?
 
-    replace(sort_by { |x| yield(x) })
+    replaced(sort_by { |x| yield(x) })
   end
 
   def find_index(v = nil)
     return to_enum(:find_index) if v.nil? && !block_given?
 
-    block_given? ? index { |x| yield(x) } : index(v)
+    i = 0
+    while i < Primitive.zr_ary_len_m(self)
+      x = Primitive.zr_ary_aref1_m(self, i)
+      return i if block_given? ? yield(x) : Primitive.zr_rb_equal(x, v)
+
+      i += 1
+    end
+    nil
   end
 
   def rindex(v = nil)
-    i = size - 1
+    i = Primitive.zr_ary_len_m(self) - 1
     while i >= 0
-      return i if block_given? ? yield(self[i]) : Primitive.zr_rb_equal(self[i], v)
+      return i if block_given? ? yield(Primitive.zr_ary_aref1_m(self, i)) : Primitive.zr_rb_equal(Primitive.zr_ary_aref1_m(self, i), v)
 
       i -= 1
     end
@@ -1012,12 +1088,12 @@ class Array
   end
 
   def cycle(n = nil)
-    return to_enum(:cycle, *[n].compact) { n.nil? ? (empty? ? 0 : Float::INFINITY) : size * n } unless block_given?
+    return to_enum(:cycle, *[n].compact) { n.nil? ? ((Primitive.zr_ary_len_m(self) == 0) ? 0 : Float::INFINITY) : Primitive.zr_ary_len_m(self) * n } unless block_given?
 
     if n.nil?
-      loop { each { |x| yield x } } unless empty?
+      loop { walked { |x| yield x } } unless Primitive.zr_ary_len_m(self) == 0
     else
-      Primitive.zr_index_operand_m(n).times { each { |x| yield x } }
+      Primitive.zr_index_operand_m(n).times { walked { |x| yield x } }
     end
     nil
   end
@@ -1025,8 +1101,8 @@ class Array
   def to_h
     h = {}
     i = 0
-    while i < size
-      pair = block_given? ? yield(self[i]) : self[i]
+    while i < Primitive.zr_ary_len_m(self)
+      pair = block_given? ? yield(Primitive.zr_ary_aref1_m(self, i)) : Primitive.zr_ary_aref1_m(self, i)
       raise TypeError, "wrong element type #{pair.class} at #{i} (expected array)" unless pair.is_a?(Array)
       raise ArgumentError, "wrong array length at #{i} (expected 2, was #{pair.size})" unless pair.size == 2
 
@@ -1043,7 +1119,7 @@ end
 class Array
   private
 
-  # `self[seq]` for an ArithmeticSequence, as rb_arithmetic_sequence_beg_len_step
+  # `a[seq]` for an ArithmeticSequence, as rb_arithmetic_sequence_beg_len_step
   # bounds it and rb_ary_subseq_step reads it: a stride past 1 either way
   # raises where a Range would answer nil.
   def stride_slice(seq)
@@ -1059,7 +1135,7 @@ class Array
       end
       first, last = last, first
     end
-    count = size
+    count = Primitive.zr_ary_len_m(self)
     from = first.nil? ? 0 : Primitive.zr_index_operand_m(first)
     to = last.nil? ? -1 : Primitive.zr_index_operand_m(last)
     excl = false if last.nil?
@@ -1083,14 +1159,14 @@ class Array
     len = count - from if count < from + len
     return [] if len.zero?
     raise ArgumentError, "slice step cannot be zero" if step.zero?
-    return self[from, len] if step == 1
-    return [self[from]] if step.positive? && step >= len
+    return Primitive.zr_ary_aref2_m(self, from, len) if step == 1
+    return [Primitive.zr_ary_aref1_m(self, from)] if step.positive? && step >= len
 
     step = -len if step < -len
     at = from + (step.positive? ? 0 : len - 1)
     out = []
     ((len + step.abs - 1) / step.abs).times do
-      out << self[at]
+      out << Primitive.zr_ary_aref1_m(self, at)
       at += step
     end
     out
@@ -1098,6 +1174,17 @@ class Array
 
   # How many elements meet the criterion, or with `negate` how many fail
   # it, counted until `enough` do.
+  # Each element, by index, with the length read again each time round,
+  # as the C walks an Array without `each`.
+  def walked
+    Primitive.attr! :hidden
+    i = 0
+    while i < Primitive.zr_ary_len_m(self)
+      yield Primitive.zr_ary_aref1_m(self, i)
+      i += 1
+    end
+  end
+
   def meeting(pattern, block, enough, negate: false)
     Primitive.attr! :hidden
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
@@ -1105,8 +1192,8 @@ class Array
     Primitive.zr_warn_here_m("given block not used") if block && !pattern.empty?
     count = 0
     i = 0
-    while i < size
-      element = self[i]
+    while i < Primitive.zr_ary_len_m(self)
+      element = Primitive.zr_ary_aref1_m(self, i)
       met = if !pattern.empty? then pattern[0] === element
             elsif block then block.call(element)
             else element
@@ -1131,7 +1218,7 @@ class Array
     read = 0
     kept = 0
     begin
-      while read < size
+      while read < Primitive.zr_ary_len_m(self)
         x = Primitive.zr_ary_at_m(self, read)
         if yield(x)
           Primitive.zr_ary_aset_at(self, kept, x) if read != kept
@@ -1141,7 +1228,7 @@ class Array
       end
       read != kept
     ensure
-      Primitive.zr_ary_splice(self, kept, read - kept, []) if kept < size && kept < read
+      Primitive.zr_ary_splice(self, kept, read - kept, []) if kept < Primitive.zr_ary_len_m(self) && kept < read
     end
   end
 
@@ -1165,11 +1252,11 @@ class Array
         end
       else
         rest = f + x
-        (i + 1...size).each { |j| rest += yield(j) }
+        (i + 1...Primitive.zr_ary_len_m(self)).each { |j| rest += yield(j) }
         return rest
       end
       i += 1
-      break if i >= size
+      break if i >= Primitive.zr_ary_len_m(self)
 
       x = yield(i)
     end
@@ -1180,8 +1267,8 @@ class Array
     Primitive.attr! :hidden
     return yield(chosen.dup) if chosen.size == k
 
-    (from...size).each do |i|
-      chosen << self[i]
+    (from...Primitive.zr_ary_len_m(self)).each do |i|
+      chosen << Primitive.zr_ary_aref1_m(self, i)
       pick_repeated(k, i, chosen, &block)
       chosen.pop
     end
@@ -1191,10 +1278,12 @@ class Array
     Primitive.attr! :hidden
     return yield(chosen.dup) if chosen.size == k
 
-    each do |x|
-      chosen << x
+    i = 0
+    while i < Primitive.zr_ary_len_m(self)
+      chosen << Primitive.zr_ary_aref1_m(self, i)
       place_repeated(k, chosen, &block)
       chosen.pop
+      i += 1
     end
   end
 
@@ -1207,8 +1296,8 @@ class Array
       return
     end
     i = start
-    while i <= size - (k - chosen.size)
-      chosen << self[i]
+    while i <= Primitive.zr_ary_len_m(self) - (k - chosen.size)
+      chosen << Primitive.zr_ary_aref1_m(self, i)
       combine(k, i + 1, chosen, &block)
       chosen.pop
       i += 1
@@ -1222,10 +1311,10 @@ class Array
       return
     end
     i = 0
-    while i < size
+    while i < Primitive.zr_ary_len_m(self)
       unless used[i]
         used[i] = true
-        chosen << self[i]
+        chosen << Primitive.zr_ary_aref1_m(self, i)
         permute(k, chosen, used, &block)
         chosen.pop
         used[i] = false
@@ -1241,7 +1330,7 @@ class Array
     start = range.begin.nil? ? 0 : Primitive.zr_index_operand_m(range.begin)
     stop = range.end.nil? ? nil : Primitive.zr_index_operand_m(range.end)
 
-    n = size
+    n = Primitive.zr_ary_len_m(self)
     start += n if start < 0
     raise RangeError, "#{range.inspect} out of range" if start < 0
 

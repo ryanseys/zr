@@ -473,6 +473,24 @@ machine def zr_ary_aref(recv, argc, argv, cref, blk)
   zr_ary_at(recv, Machine.load64(out, 0))
 end
 
+# `a[x]` and `a[beg, len]` for the core: what Array#[] answers, never
+# through a `[]` a subclass defines, as the C calls rb_ary_aref1 and
+# rb_ary_subseq.
+sig [Value, Value] => Value
+machine def zr_ary_aref1_m(a, x)
+  slot = Machine.slot(8)
+  Machine.store64(slot, 0, Machine.word(x))
+  zr_ary_aref(a, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_ary_aref2_m(a, beg, len)
+  slot = Machine.slot(16)
+  Machine.store64(slot, 0, Machine.word(beg))
+  Machine.store64(slot, 8, Machine.word(len))
+  zr_ary_aref(a, 2, slot, Machine.value(QNIL), Machine.value(QNIL))
+end
+
 # `a[i] = v` for one index.
 sig [Value, Value, Value] => Value
 machine def zr_ary_aset_at(recv, index, v)

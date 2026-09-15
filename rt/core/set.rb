@@ -21,7 +21,7 @@ class Set
     return self if enum.nil?
 
     if enum.is_a?(Array)
-      enum.each { |item| into[block ? yield(item) : item] = true }
+      Primitive.zr_ary_len_m(enum).times { |i| item = Primitive.zr_ary_at_m(enum, i); into[block ? yield(item) : item] = true }
     else
       enum.__send__(Set.send(:enum_method, enum)) { |item| into[block ? yield(item) : item] = true }
     end
@@ -833,7 +833,7 @@ class Set
     if other.is_a?(Set)
       other.send(:walk) { |item| into[item] = true }
     elsif other.is_a?(Array)
-      other.each { |item| into[item] = true }
+      Primitive.zr_ary_len_m(other).times { |i| into[Primitive.zr_ary_at_m(other, i)] = true }
     else
       other.__send__(Set.send(:enum_method, other)) { |item| into[item] = true }
     end

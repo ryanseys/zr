@@ -678,7 +678,9 @@ end
 class Array
   def pack(fmt, buffer: nil)
     Primitive.attr! :ruby
-    result = Packing.pack(self, Primitive.zr_str_operand(fmt))
+    # A plain copy, so the directives read the elements as the C does and
+    # never through a subclass's size or [].
+    result = Packing.pack(Array.new(self), Primitive.zr_str_operand(fmt))
     return result unless buffer
 
     associates = Packing.associated(result)

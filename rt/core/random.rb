@@ -619,21 +619,29 @@ end
 # CRuby writes shuffle and sample in Ruby (its array.rb), so they
 # answer their own parameters, under CRuby's names.
 class Array
+  # A plain copy shuffled, as rb_ary_shuffle shuffles rb_ary_dup's.
   def shuffle(random: Random.default)
     Primitive.attr! :ruby
-    dup.shuffle!(random: random)
+    Array.new(self).send(:shuffled!, random)
+  end
+
+  def shuffle!(random: Random.default)
+    Primitive.attr! :ruby
+    shuffled!(random)
   end
 
   # CRuby's walk: from the end, each slot swaps with a draw at or
   # before it.
-  def shuffle!(random: Random.default)
-    Primitive.attr! :ruby
+  def shuffled!(random)
+    Primitive.attr! :hidden
     Primitive.zr_frozen_error(self) if frozen?
-    i = size
+    i = Primitive.zr_ary_len_m(self)
     while i > 0
       j = Random.send(:limited_for, random, i - 1)
       i -= 1
-      self[i], self[j] = self[j], self[i]
+      held = Primitive.zr_ary_aref1_m(self, i)
+      Primitive.zr_ary_aset_at(self, i, Primitive.zr_ary_aref1_m(self, j))
+      Primitive.zr_ary_aset_at(self, j, held)
     end
     self
   end
@@ -642,11 +650,11 @@ class Array
   # seeded generator picks the same elements.
   def sample(n = (none = true), random: Random.default)
     Primitive.attr! :ruby
-    len = size
+    len = Primitive.zr_ary_len_m(self)
     if none
       return nil if len == 0
 
-      return self[Random.send(:limited_for, random, len - 1)]
+      return Primitive.zr_ary_aref1_m(self, Random.send(:limited_for, random, len - 1))
     end
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, "negative sample number" if n < 0
@@ -666,7 +674,7 @@ class Array
     when 2
       i, j = draws
       j += 1 if j >= i
-      return [self[i], self[j]]
+      return [Primitive.zr_ary_aref1_m(self, i), Primitive.zr_ary_aref1_m(self, j)]
     when 3
       i, j, k = draws
       l = j
@@ -680,7 +688,7 @@ class Array
         k += 1
         k += 1 if k >= g
       end
-      return [self[i], self[j], self[k]]
+      return [Primitive.zr_ary_aref1_m(self, i), Primitive.zr_ary_aref1_m(self, j), Primitive.zr_ary_aref1_m(self, k)]
     end
     memo_threshold = if len < 2560 then len / 128
                      elsif len < 5120 then len / 64
@@ -704,7 +712,7 @@ class Array
         idx << k
         i += 1
       end
-      return idx.map { |x| self[x] }
+      return idx.map { |x| Primitive.zr_ary_aref1_m(self, x) }
     end
     if n <= memo_threshold / 2
       picks = Array.new(n) { |i| Random.send(:limited_for, random, len - i - 1) + i }
@@ -716,7 +724,7 @@ class Array
         i2 = memo.fetch(i, i)
         j2 = memo.fetch(j, j)
         memo[j] = i2
-        result << self[j2]
+        result << Primitive.zr_ary_aref1_m(self, j2)
         i += 1
       end
       return result
