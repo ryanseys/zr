@@ -13,6 +13,7 @@ module Ze0
           __error
           __fcntl
           __ioctl
+          __open
           __sinpi
           _exit
           abort
@@ -52,18 +53,15 @@ module Ze0
           endpwent
           erf
           erfc
-          execvp
+          execve
           exit
           exp
           expm1
           fchdir
           fchmod
-          fclose
           fdopendir
-          fileno
           flock
           fmod
-          fopen
           fork
           free
           freeaddrinfo
@@ -141,7 +139,6 @@ module Ze0
           mprotect
           munmap
           nanosleep
-          open
           opendir
           openlog
           pathconf
