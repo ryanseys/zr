@@ -662,8 +662,14 @@ module Ze0
               args.each { |a| get(a) }
               get(ptr)
               @code << "\xA7".b
-              @code << "\x11".b << @m.leb(@m.type_index(@m.sig_type(sig_named(i.callee)))) << "\x00".b
-              set(i.results[0]) unless i.results.empty?
+              _params, results = @m.sig_type(sig_named(i.callee))
+              @code << "\x11".b << @m.leb(@m.type_index([_params, results])) << "\x00".b
+              if i.results.empty?
+                # An answer the instruction does not take is dropped.
+                @code << "\x1A".b unless results.empty?
+              else
+                set(i.results[0])
+              end
             when :call
               # A libc call's text signature may say i64 where the floor
               # takes i32: the width follows the callee.
@@ -726,8 +732,9 @@ module Ze0
               get(i.args[1])
               get(i.args[2])
               get(i.args[0])
-              @code << "\xAD".b if wide?(i.args[0])
-              @code << "\xAC".b if wide?(i.args[0])
+              # A wide condition is tested, not wrapped: any nonzero
+              # value selects the first operand.
+              @code << "\x50".b << "\x45".b if wide?(i.args[0])
               @code << "\x1B".b
               set(i.results[0])
             when :ireduce

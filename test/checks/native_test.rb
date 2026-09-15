@@ -44,7 +44,8 @@ class NativeTest < Minitest::Test
       assert_nil Ze0::Native::Build.object(functions, data, obj)
       assert_nil Ze0::Native::Link.run([obj], bin)
       IO.popen([bin], &:read)
-      assert_equal 2, $?.exitstatus, "the broken fact was not seen"
+      # The constant fact is the fourth from the end: three facts follow it.
+      assert_equal 8, $?.exitstatus, "the broken fact was not seen"
     end
   end
 end

@@ -75,6 +75,11 @@ module Ze0
         wrapped = f.iadd(f.iconst("i32", -1), f.iconst("i32", 1))
         push.call(f.csel(f.icmp("eq", wrapped, f.iconst("i32", 0)), zero, one))
 
+        # A select on a 64-bit condition tests the whole word: a bit past
+        # the low 32 selects the first operand, and zero the second.
+        push.call(f.csel(f.iconst("i64", 1 << 40), zero, one))
+        push.call(f.csel(zero, one, zero))
+
         f.call(exit, [bits])
         f.ret(f.iconst("i32", 0))
         [[check, f], []]
@@ -136,6 +141,8 @@ module Ze0
         f.store(f.func_addr(f.callee("negate", %w[i64], "i64")), table, 8)
         twice = f.call_indirect_val(sig, f.fetch("i64", table), [f.iconst("i64", 21)])
         flipped = f.call_indirect_val(sig, f.fetch("i64", table, 8), [twice])
+        # An answer nobody takes: the call still balances the stack.
+        f.call_indirect(sig, f.fetch("i64", table), [f.iconst("i64", 1)])
         # `flipped` is -42, so the status is 0.
         f.call(f.callee("exit", %w[i64], nil, colocated: false), [f.iadd(f.iconst("i64", 42), flipped)])
         f.ret(f.iconst("i32", 0))
