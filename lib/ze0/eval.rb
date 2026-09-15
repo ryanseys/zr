@@ -2,7 +2,7 @@
 
 require "ze0/eval/runtime"
 require "ze0/eval/forms"
-require "ze0/ir/passes"
+require_relative "ir/passes"
 
 module Ze0
   # A string of ruby, compiled while the program that asked for it runs.
