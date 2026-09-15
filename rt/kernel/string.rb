@@ -1565,6 +1565,55 @@ machine def zr_str_space_start(s, to, nul)
   zr_fix(i)
 end
 
+# `[]=` and `insert` in place: the `len` bytes at `from` become `other`'s
+# bytes, and what follows them moves once, as rb_str_update_1 splices. A
+# copy of the whole string for each change made a loop of small patches
+# quadratic in the string's size.
+sig [Value, Value, Value, Value] => Value
+machine def zr_str_splice(s, from, len, other)
+  if zr_frozen_p(s)
+    return zr_frozen_error(s)
+  end
+  if zr_str_join_incompatible_p(s, other)
+    return zr_str_join_incompatible(s, other)
+  end
+  index = zr_str_join_index(s, other)
+  at = zr_fix2long(from)
+  cut = zr_fix2long(len)
+  m = RString.len(other)
+  old = RString.len(s)
+  n = old - cut + m
+  # Its own bytes spliced into itself are read before any of them moves.
+  src = RString.ptr(other)
+  if Machine.word(other) == Machine.word(s)
+    src = zr_xmalloc(m + 1)
+    zr_memcpy(src, RString.ptr(s), m)
+  end
+  if n + 1 > RString.capa(s)
+    capa = RString.capa(s) * 2
+    if capa < n + 1
+      capa = n + 1
+    end
+    p = zr_xmalloc(capa)
+    zr_memcpy(p, RString.ptr(s), old)
+    free(RString.ptr(s))
+    RString.set_ptr(s, p)
+    RString.set_capa(s, capa)
+  end
+  if m != cut
+    zr_memmove(RString.ptr(s) + at + m, RString.ptr(s) + at + cut, old - at - cut)
+  end
+  zr_memmove(RString.ptr(s) + at, src, m)
+  if Machine.word(other) == Machine.word(s)
+    free(src)
+  end
+  RString.set_len(s, n)
+  Machine.store8(RString.ptr(s) + n, 0, Machine.i8(0))
+  zr_str_modified(s)
+  zr_str_set_index(s, index)
+  s
+end
+
 # One byte appended as it is, the flags untouched (`append_as_bytes`).
 sig [Value, Value] => Value
 machine def zr_str_push_byte(recv, byte)

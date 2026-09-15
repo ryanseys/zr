@@ -190,7 +190,7 @@ class String
     end
     from = Primitive.zr_str_char_offset_m(self, start)
     to = Primitive.zr_str_char_offset_m(self, length > count - start ? count : start + length)
-    replace(byteslice_of(0, from) + value + byteslice_of(to, bytesize - to))
+    Primitive.zr_str_splice(self, from, to - from, value)
     value
   end
 
@@ -207,7 +207,7 @@ class String
     raise IndexError, "index #{index} out of string" if index < 0 || index > count
 
     at = Primitive.zr_str_char_offset_m(self, index)
-    replace(byteslice_of(0, at) + other + byteslice_of(at, bytesize - at))
+    Primitive.zr_str_splice(self, at, 0, Primitive.zr_str_operand(other))
   end
 
   # The four case mappings, each character through the Unicode tables.
