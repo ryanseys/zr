@@ -272,6 +272,29 @@ machine def zr_hidden_features
   list
 end
 
+# The real paths of the files the program required, as CRuby's
+# loaded_features_realpaths holds them: a file reached again through a
+# symlink or another spelling of its directory runs no second time.
+G_REAL_FEATURES = 60
+
+sig [] => Value
+machine def zr_real_features
+  list = zr_global(G_REAL_FEATURES)
+  if zr_special_p(list)
+    list = zr_ary_new(64)
+    zr_set_global(G_REAL_FEATURES, list)
+  end
+  list
+end
+
+# realpath(3) of `path`, or `path` itself where no file is there, as for
+# a unit the program was compiled with and runs away from its source.
+sig [Value] => Value
+machine def zr_feature_real_path(path)
+  real = zr_realpath_m(path)
+  zr_fixnum_p(real) ? path : real
+end
+
 # `require`, `require_relative` (kind 0 and 1) and `load` (2) of the
 # file at `path`, whose toplevel is `fn`: a require runs it once, as
 # $LOADED_FEATURES records; a failed run leaves no record.
@@ -296,14 +319,15 @@ end
 
 sig [Value, Ptr, Word, Bool] => Value
 machine def zr_require_run(path, fn, kind, framed)
-  # An autoload whose feature no load path root holds carries no unit.
+  # A file the program was not compiled with has no toplevel to run.
   if Machine.word(fn) == 0
-    return zr_load_error(RString.ptr(path), RString.len(path))
+    return zr_load_error_in(kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require)), RString.ptr(path), RString.len(path))
   end
   depth = Machine.static(:hidden_requires, 8)
   hidden = kind == 3 || Machine.load64(depth, 0) > 0
   visible = zr_gvar_get(Machine.id(:$LOADED_FEATURES))
   features = hidden ? zr_hidden_features() : visible
+  real = Machine.value(QNIL)
   if kind != 2
     if zr_ary_has_string(visible, path) || (hidden && zr_ary_has_string(features, path))
       return Machine.value(QFALSE)
@@ -311,6 +335,13 @@ machine def zr_require_run(path, fn, kind, framed)
     if !hidden && zr_ary_has_string(zr_hidden_features(), path)
       zr_ary_push(visible, path)
       return Machine.value(QTRUE)
+    end
+    if !hidden
+      real = zr_feature_real_path(path)
+      if zr_ary_has_string(zr_real_features(), real)
+        return Machine.value(QFALSE)
+      end
+      zr_ary_push(zr_real_features(), real)
     end
     zr_ary_push(features, path)
   end
@@ -326,8 +357,12 @@ machine def zr_require_run(path, fn, kind, framed)
     Machine.store64(depth, 0, Machine.load64(depth, 0) - 1)
   end
   if r == QUNDEF
+    # The files it required on the way stay loaded.
     if kind != 2
-      zr_ary_pop(features, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
+      zr_ary_delete_string(features, path)
+    end
+    if real != QNIL
+      zr_ary_delete_string(zr_real_features(), real)
     end
     return r
   end
@@ -423,11 +458,31 @@ machine def zr_ary_has_string(a, s)
   false
 end
 
+# `a` without the last String equal to `s`.
+sig [Value, Value] => Void
+machine def zr_ary_delete_string(a, s)
+  i = RArray.len(a)
+  while i > 0
+    i -= 1
+    e = zr_ary_at(a, i)
+    if !zr_special_p(e) && zr_type(e) == T_STRING && zr_bytes_eq(RString.ptr(e), RString.len(e), RString.ptr(s), RString.len(s))
+      zr_ary_splice(a, zr_fix(i), zr_fix(1), zr_ary_new(0))
+      return
+    end
+  end
+end
+
 # A LoadError for a file nothing answers, with CRuby's message, raised
 # under Kernel#require_relative's frame.
 sig [Ptr, Word] => Value
 machine def zr_load_error(path, len)
-  e = zr_find_method(zr_global(G_KERNEL), Machine.id(:require_relative))
+  zr_load_error_in(Machine.id(:require_relative), path, len)
+end
+
+# The same under the frame of Kernel's `mid`.
+sig [Word, Ptr, Word] => Value
+machine def zr_load_error_in(mid, path, len)
+  e = zr_find_method(zr_global(G_KERNEL), mid)
   rec = Machine.slot(Frame.size)
   t = zr_task()
   Frame.set_prev(rec, Task.top(t))

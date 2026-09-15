@@ -343,6 +343,8 @@ module Ze0
         d zr_process_ids Value which:Value
         d zr_random_seed Value
         d zr_hidden_features Value
+        d zr_real_features Value
+        d zr_feature_real_path Value path:Value
         d zr_require Value path:Value fn:Ptr kind:Word
         d zr_require_computed Value path:Value fn:Value kind:Value
         d zr_require_run Value path:Value fn:Ptr kind:Word framed:Bool
@@ -351,7 +353,9 @@ module Ze0
         d zr_unit_for Value path:Value
         d zr_load_names Value which:Value
         d zr_ary_has_string Bool a:Value s:Value
+        d zr_ary_delete_string Void a:Value s:Value
         d zr_load_error Value path:Ptr len:Word
+        d zr_load_error_in Value mid:Word path:Ptr len:Word
         d zr_path_kind Value path:Value
         d zr_clock_ns Value id:Value
         d zr_clock_res_ns Value id:Value
@@ -1540,6 +1544,7 @@ module Ze0
         c G_AT_EXIT 37
         c G_ARGV0 53
         c G_HIDDEN_FEATURES 50
+        c G_REAL_FEATURES 60
         c S_IFMT 61440
         c S_IFDIR 16384
         c S_IFREG 32768
@@ -1612,7 +1617,7 @@ module Ze0
         c G_FALSE 10
         c G_MAIN 11
         c G_NUMERIC 13
-        c G_COUNT 60
+        c G_COUNT 61
         c MARKED 96
         c GATE_PLUS 1
         c GATE_MINUS 2

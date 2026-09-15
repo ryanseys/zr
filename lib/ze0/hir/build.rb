@@ -162,6 +162,11 @@ module Ze0
 
         def evals? = @evals
 
+        # A file the program names that only its run can find.
+        def compiles_at_run_time!
+          @evals = true
+        end
+
         # The calls that add to $LOAD_PATH, or take from it.
         LOAD_PATH_CHANGES = %i[unshift push << concat insert prepend append replace clear shift pop delete delete_at delete_if
                                reject! select! filter! keep_if map! collect! []= fill].freeze
@@ -1501,6 +1506,9 @@ module Ze0
         path = @loader.resolve(:require, feature, @file)
         stop = path.nil? && stop_for(node, feature)
         unit = stop ? @loader.stop_unit(stop.what, line) : (path && @loader.add(path))
+        # No root holds the file: the first read requires the feature
+        # under the $LOAD_PATH the program has built by then.
+        @loader.compiles_at_run_time! unless unit
         Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, feature, path || feature, unit, line, @loader.hiding?)
       end
 

@@ -1,4 +1,3 @@
-#@ backend: jit
 # Reading a constant is what RUNS its `autoload`.
 #
 # zeo recorded the target and never ran it, except for the one internal case
@@ -7,13 +6,9 @@
 # which found the record and raised the error the load was never given a
 # chance to avoid. rubygems declares every one of its classes this way.
 #
-# JIT-ONLY, and the reason is the AOT backend's own rule rather than this
-# fix: the target here is named by a string the compiler cannot resolve, so
-# no unit is built for it and an AOT binary has no run-time compiler linked
-# to load it with. It says so plainly -- "this program was compiled without
-# the unit compiler". rubygems is unaffected because ITS autoload targets
-# are files the compiler already compiles as units; what it could not do
-# before this fix was RUN one.
+# The target is named by a string the compiler cannot resolve, so the
+# binary carries the compiler and the first read requires the feature
+# under the $LOAD_PATH the program has built by then.
 
 DIR = File.expand_path("../../fixtures/autoload_target", __dir__)
 

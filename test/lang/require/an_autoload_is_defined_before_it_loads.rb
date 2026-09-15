@@ -1,4 +1,3 @@
-#@ backend: jit
 # `defined?` and `const_defined?` announce an `autoload`ed constant the moment
 # the `autoload` is written -- and a NESTED ask loads the file to answer.
 #
@@ -15,13 +14,9 @@
 # "constant" WITHOUT running the autoload, and `defined?(A::B)` runs it,
 # because resolving the head is a real constant read.
 #
-# JIT-ONLY, and the reason is the AOT backend's own rule rather than this
-# fix: the target here is named by a string the compiler cannot resolve, so
-# no unit is built for it and an AOT binary has no run-time compiler linked
-# to load it with. It says so plainly -- "this program was compiled without
-# the unit compiler". rubygems is unaffected because ITS autoload targets
-# are files the compiler already compiles as units; what it could not do
-# before this fix was RUN one.
+# The target is named by a string the compiler cannot resolve, so the
+# binary carries the compiler and the first read requires the feature
+# under the $LOAD_PATH the program has built by then.
 
 DIR = File.expand_path("../../fixtures/autoload_target", __dir__)
 $LOAD_PATH.unshift(DIR)
