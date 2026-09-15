@@ -84,6 +84,52 @@ jobs:
             /opt/ze0/smoke/sum.wasm
             /opt/ze0/smoke/sum.o
 
+  # Static aarch64-linux-musl binaries, built and run where musl is the
+  # libc. JavaScript actions do not run inside an Alpine container on an
+  # arm runner, so the job keeps one Alpine container beside it and runs
+  # each step in it.
+  linux-musl:
+    name: aarch64-linux-musl (Alpine)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start ruby 4.0.6 on Alpine
+        run: |
+          docker run -d --name alpine -v "$PWD:/ze0" -w /ze0 ruby:4.0.6-alpine sleep infinity
+          docker exec alpine apk add --no-cache build-base git
+          docker exec alpine git config --global --add safe.directory /ze0
+          docker exec alpine bundle config set --global without development
+          docker exec alpine bundle install
+      - name: Build the vendored C
+        run: docker exec alpine bundle exec rake compile
+      - name: Run the checks this target answers
+        run: docker exec alpine bin/ze0 check target elf interp os_api description case_format
+      # Reported, not required, until test/baselines/aarch64-linux-musl.txt
+      # holds a sweep's rows.
+      - name: Run ze0's own programs
+        run: |
+          docker exec alpine bin/ze0 test ze0:: --target aarch64-linux-musl --baseline test/baselines/aarch64-linux-musl.txt
+      - name: Write the linux tables again and compare
+        run: |
+          docker exec alpine wget -qO /tmp/mkconstants.rb https://raw.githubusercontent.com/ruby/ruby/v4_0_6/ext/socket/mkconstants.rb
+          docker exec -e MKCONSTANTS=/tmp/mkconstants.rb alpine bundle exec rake tables
+
+  wasi:
+    name: wasm32-wasi (wasmtime)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+      - uses: bytecodealliance/actions/wasmtime/setup@v1
+      - name: Run the checks this target answers
+        run: bin/ze0 check wasm os_api target description case_format
+      - name: Run ze0's own programs against the baseline
+        run: |
+          bin/ze0 test ze0:: --target wasm32-wasi --baseline test/baselines/wasm32-wasi.txt
+
   same-bytes:
     name: output does not depend on the host
     needs: [macos, linux]
