@@ -59,6 +59,7 @@ net-ftp 0.3.9
 net-imap 0.6.6
 net-pop 0.1.2
 net-smtp 0.5.1
+nkf 0.3.0
 observer 0.1.2
 ostruct 0.6.3
 power_assert 3.0.1 (in vendor/gems/power_assert/lib: it tells its own frames by their directory)

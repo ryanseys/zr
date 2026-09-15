@@ -7,8 +7,6 @@ gaps/the_ast_translator_builds_splat_lists_like_parse_y.rb	lang/methods/the_ast_
 gaps/an_rspec_suite_runs.rb	milestones/an_rspec_suite_runs.rb
 gaps/a_subclass_of_any_native_class.rb	stdlib/digest/a_subclass_of_any_native_class.rb
 gaps/the_toplevel_runs_on_the_process_main_thread.rb	stdlib/ffi/the_toplevel_runs_on_the_process_main_thread.rb
-gaps/kconv.rb	stdlib/nkf/kconv.rb
-gaps/nkf.rb	stdlib/nkf/nkf.rb
 gaps/a_subclass_of_a_native_type_wraps_one.rb	stdlib/openssl/a_subclass_of_a_native_type_wraps_one.rb
 gaps/an_https_keepalive_request_completes.rb	stdlib/openssl/an_https_keepalive_request_completes.rb
 gaps/openssl_bn.rb	stdlib/openssl/openssl_bn.rb
