@@ -1,3 +1,4 @@
+# native only: the regexps below have no engine in a wasm32 module
 p 5.clamp(1, 3), 5.clamp(..3), 5.clamp(7..), 5.clamp(4..6), "b".clamp("c", "d"), 2.5.clamp(1, 2), (5.clamp(1...3) rescue $!.message), (5.clamp(3, 1) rescue $!.message), 5.clamp(nil, 4), 5.clamp(6, nil)
 p 6.allbits?(2), 6.allbits?(3), 6.anybits?(1), 6.anybits?(3), 6.nobits?(1), 6.nobits?(2), 15.truncate(-1), -15.truncate(-1), 15.truncate(1), 7.ceildiv(2), -7.ceildiv(2), 7.ceildiv(-2), 0.ceildiv(3)
 p "a".upto("e").to_a, "a".upto("e", true).to_a, "9".upto("11").to_a, "az".upto("bc").to_a, "a".upto("a").to_a, "b".upto("a").to_a, ("a".upto("c") { |s| print s }), "1.9".upto("2.1").to_a

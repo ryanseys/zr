@@ -1,3 +1,4 @@
+# native only: the wasm32 module of this program runs past 2 GB
 s = "héllo wörld"
 p s, s.size, s.length, s.bytesize, s[1], s[-1], s[1, 3], s[1..3], s[1...-1], s[7..], s[..1], s[20], s[11], s[11, 2], s[12, 2], s["llo"], s["ö"], s["x"], s[-3, 2]
 p s.chars, s.chars.size, s.each_char.to_a.last(3), s.bytes.size, s.codepoints, s.reverse, s.reverse.size, s.index("l"), s.index("ö"), s.index("w", 3), s.rindex("l"), s.rindex("ö"), s.index("x"), s.include?("ö"), s.start_with?("hé"), s.end_with?("rld")

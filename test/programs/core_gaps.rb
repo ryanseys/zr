@@ -1,3 +1,4 @@
+# native only: Math.expm1 has no wasm form
 # The core methods a census against ruby found missing: numbers,
 # reflection, Symbol, Array, Hash, Proc and %a.
 p Math.expm1(1e-10), Math.log1p(1e-10), Math.log1p(-1)
