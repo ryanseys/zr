@@ -15,6 +15,8 @@ module Ze0
         include Registers
 
         class Refused < StandardError; end
+        # A branch whose target lies past what its field can name.
+        class OutOfReach < Refused; end
 
         CONDITIONS = {
           eq: 0b0000, ne: 0b0001, cs: 0b0010, hs: 0b0010, cc: 0b0011, lo: 0b0011,
@@ -43,7 +45,11 @@ module Ze0
         # an index.
         Branch = Struct.new(:base, :label, :shift, :bits) do
           def encode(at)
-            base | (Assembler.signed(label.to_i - at, bits) << shift)
+            distance = label.to_i - at
+            limit = 1 << (bits - 1)
+            raise OutOfReach, "#{label.name} is #{distance} words away, past a signed #{bits}-bit field" unless distance.between?(-limit, limit - 1)
+
+            base | (Assembler.signed(distance, bits) << shift)
           end
         end
 
@@ -246,8 +252,12 @@ module Ze0
 
         # An Integer third operand is an immediate, shifted left twelve when
         # `lsl` says so; a register operand takes an optional shift.
+        # An immediate operand shifts by 0 or by 12, which is the one
+        # shift the instruction has.
         def addsub(op, s, d, n, m, lsl, shift = :lsl, amount = 0)
           if m.is_a?(Integer)
+            raise Refused, "an immediate add or sub shifts by 0 or 12, not #{lsl}" unless [0, 12].include?(lsl)
+
             emit(0x1100_0000 | d.sf << 31 | op << 30 | s << 29 | (lsl.zero? ? 0 : 1) << 22 |
                  unsigned(m, 12) << 10 | n.to_i << 5 | d.to_i)
           else

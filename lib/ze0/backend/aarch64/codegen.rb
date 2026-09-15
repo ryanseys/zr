@@ -126,10 +126,10 @@ module Ze0
             b.insts.each { |i| emit(i) }
           end
           Obj::Function.new(@f.name, @asm.to_binary, relocs: @relocs, linkage: :export)
-        rescue Assembler::Refused => e
+        rescue Assembler::OutOfReach
           # A conditional branch that cannot reach its block: the whole
           # function again, every such branch the long way.
-          raise if @far || !e.message.include?("signed 19-bit")
+          raise if @far
 
           # This attempt's code and plans are as big as the function, and
           # nothing reads them again: let them go before the second is made.
@@ -460,7 +460,11 @@ module Ze0
           end
         end
 
+        # Two immediates reach 16 MiB less one page; a frame past that is
+        # refused by name rather than cut short.
         def sub_sp(n)
+          raise Refused, "#{@f.name} needs a frame of #{n} bytes, past the 16 MiB sub sp reaches" if n >= 1 << 24
+
           @asm.sub SP, SP, n >> 12, lsl: 12 if n >= 4096
           @asm.sub SP, SP, n & 0xFFF if (n & 0xFFF) != 0
         end
