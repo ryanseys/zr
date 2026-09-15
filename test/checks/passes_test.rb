@@ -80,6 +80,28 @@ class PassesTest < Minitest::Test
     assert_equal 3, f.entry_block.insts.count { |i| i.op == :store }
   end
 
+  def test_a_branch_on_a_conjunction_is_a_chain_of_branches
+    f = function("chain", %w[i64 i64], "i64") do |f, x, y|
+      a = f.icmp("slt", x, f.iconst("i64", 10))
+      c = f.icmp("sgt", f.iadd(y, f.iconst("i64", 1)), f.iconst("i64", 3))
+      yes = f.label
+      no = f.label
+      f.brif(f.band(a, c), yes, no)
+      f.switch(yes)
+      f.ret(f.iconst("i64", 1))
+      f.switch(no)
+      f.ret(f.iconst("i64", 0))
+    end
+    was = [[1, 9], [20, 9], [1, 1]].map { |args| answer(f, args) }
+    Ze0::IR::Passes.prepare(f, strict: true)
+    assert_equal 4, f.blocks.size
+    assert_equal %i[brif], f.blocks[0].insts.map(&:op).last(1)
+    assert_equal 1, f.blocks[0].insts.count { |i| i.op == :icmp }
+    assert_equal %i[iadd iconst icmp brif], f.blocks[1].insts.map(&:op)
+    assert_equal was, [[1, 9], [20, 9], [1, 1]].map { |args| answer(f, args) }
+    assert_equal [1, 0, 0], was
+  end
+
   def test_a_select_between_one_value_is_that_value
     f = function("same", %w[i8 i64], "i64") do |f, c, x|
       f.ret(f.csel(c, x, x))

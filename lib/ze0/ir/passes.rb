@@ -25,6 +25,7 @@ module Ze0
         Fold.run(f)
         Forward.run(f)
         Fold.run(f)
+        Chains.run(f)
         DCE.run(f)
         f
       end
@@ -309,6 +310,88 @@ module Ze0
 
           @rename[i.results[0]] = v
           true
+        end
+      end
+
+      # A branch on a conjunction is a chain of branches: `brif (band a,
+      # c) T F` becomes `brif a mid F; mid: brif c T F`, and `bor` the
+      # same the other way round, so the backend fuses each compare with
+      # its own branch and the second test runs only when it decides.
+      # What moves into `mid` is `c`'s own chain: the instructions of the
+      # block that nothing but that chain reads, all of them without
+      # effect. A load moves only when no call or store follows it in
+      # the block, since it would then read after them. `Zr::Function`
+      # writes this shape at every gated operator: the fixnum test and
+      # the gate test joined.
+      class Chains
+        MOVABLE = (%i[iconst stack_addr symbol_value func_addr icmp fcmp select ireduce uextend sextend bitcast
+                      fcvt_from_sint fcvt_to_sint_sat] +
+                   Inst::BINOPS + Inst::FBINOPS + Inst::FUNOPS).to_set.freeze
+
+        def self.run(f) = new(f).run
+
+        def initialize(f)
+          @f = f
+        end
+
+        def run
+          @uses = Hash.new(0)
+          @f.blocks.each do |b|
+            b.insts.each do |i|
+              i.args.each { |a| @uses[a] += 1 if IR.value?(a) }
+              i.targets&.each { |(_, args)| args.each { |a| @uses[a] += 1 } }
+            end
+          end
+          @f.blocks.dup.each { |b| split(b) }
+          @f
+        end
+
+        private
+
+        def split(b)
+          br = b.insts.last
+          return unless br.op == :brif
+
+          gate = b.insts.find { |i| i.results[0] == br.args[0] }
+          return unless gate && (gate.op == :band || gate.op == :bor) && @uses[gate.results[0]] == 1
+
+          first, second = gate.args
+          moved = chain_of(b, second, b.insts.index(gate))
+          return if moved.nil?
+
+          yes, no = br.targets
+          mid = @f.block_after(b)
+          mid.insts.concat(moved)
+          mid.insts << Inst.new(:brif, args: [second], targets: [yes, no])
+          b.insts.reject! { |i| i.equal?(gate) || moved.any? { |m| m.equal?(i) } }
+          b.insts[-1] = Inst.new(:brif, args: [first], targets: gate.op == :band ? [[mid.name, []], no] : [yes, [mid.name, []]])
+        end
+
+        # The instructions of `b` before index `stop` that make `v` and
+        # feed nothing else, in order, or nil when `v` is not made in `b`
+        # or its chain cannot move.
+        def chain_of(b, v, stop)
+          by_result = {}
+          b.insts.first(stop).each { |i| by_result[i.results[0]] = i if i.results[0] }
+          root = by_result[v] or return
+          last_effect = b.insts.rindex { |i| %i[store call call_indirect].include?(i.op) } || -1
+          moved = {}
+          work = [root]
+          until work.empty?
+            i = work.pop
+            next if moved.key?(i.object_id)
+            return unless MOVABLE.include?(i.op) || (i.op == :load && b.insts.index(i) > last_effect)
+            return if i.results.size > 1
+
+            moved[i.object_id] = i
+            i.args.each do |a|
+              d = by_result[a]
+              work << d if d && @uses[a] == 1 && IR.value?(a)
+            end
+          end
+          # Only what the chain alone reads may move: a value read once
+          # is read by the chain, since its reader is in it.
+          b.insts.first(stop).select { |i| moved.key?(i.object_id) }
         end
       end
 

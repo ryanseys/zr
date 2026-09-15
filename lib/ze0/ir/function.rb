@@ -356,6 +356,16 @@ module Ze0
         hoisted(:stack_addr, slot) { Inst.new(:stack_addr, type: "i64", args: [slot]) }
       end
 
+      # A new block with no parameters, laid out right after `after`: what
+      # a pass makes when it splits a block, so the first half falls into
+      # it.
+      def block_after(after)
+        name = block_named([])
+        b = @block_of.fetch(name)
+        @blocks.insert(@blocks.index(after) + 1, b)
+        b
+      end
+
       # A value name no instruction has used: what a pass over the finished
       # function names a new block parameter with.
       def value
