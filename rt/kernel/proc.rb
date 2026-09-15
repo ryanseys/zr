@@ -390,16 +390,20 @@ end
 
 # The arguments a block binds: a lone Array, or a value whose `to_ary`
 # answers one, spreads over the parameters when the block's shape asks
-# for it; missing ones are nil, extra ones dropped. Answers the
-# argument count (a fixnum) to read from `argv_out`, or QUNDEF when
-# `to_ary` raised.
-sig [Word, Ptr, Word, Ptr] => Value
-machine def zr_block_args(argc, argv, spread, argv_out)
+# for it (`spread`); missing ones are nil, extra ones dropped. The
+# Array spread is kept in the block's record slot at `keep`, so a
+# fresh `to_ary` answer stays rooted while the parameters bind; a
+# block with optional parameters takes a copy (`spread` is 2), as
+# CRuby copies the arguments before a default runs, so a default that
+# changes the Array changes nothing the block was called with. Answers
+# the argument count (a fixnum) to read from `argv_out`, or QUNDEF
+# when `to_ary` raised.
+sig [Word, Ptr, Word, Ptr, Ptr] => Value
+machine def zr_block_args(argc, argv, spread, argv_out, keep)
   if spread != 0 && argc == 1
     v = Machine.value(Machine.load64(argv, 0))
     if !zr_special_p(v) && zr_type(v) == T_ARRAY
-      Machine.store64(argv_out, 0, RArray.ptr(v))
-      return zr_fix(RArray.len(v))
+      return zr_block_spread(v, spread, argv_out, keep)
     end
     responds = zr_special_p(v) ? Machine.value(QFALSE) : zr_check_funcall(v, Machine.id(:to_ary))
     return responds if responds == QUNDEF
@@ -407,8 +411,7 @@ machine def zr_block_args(argc, argv, spread, argv_out)
       a = zr_send(v, Machine.id(:to_ary), 0, 0)
       return a if a == QUNDEF
       if !zr_special_p(a) && zr_type(a) == T_ARRAY
-        Machine.store64(argv_out, 0, RArray.ptr(a))
-        return zr_fix(RArray.len(a))
+        return zr_block_spread(a, spread, argv_out, keep)
       end
       if a != QNIL
         b = Machine.slot(Buf.size)
@@ -426,6 +429,38 @@ machine def zr_block_args(argc, argv, spread, argv_out)
   end
   Machine.store64(argv_out, 0, argv)
   zr_fix(argc)
+end
+
+# The Array `a` as a block's arguments: rooted at `keep`, copied first
+# when the block's defaults could change it.
+sig [Value, Word, Ptr, Ptr] => Value
+machine def zr_block_spread(a, spread, argv_out, keep)
+  Machine.store64(keep, 0, Machine.word(a))
+  if spread == 2
+    a = zr_ary_of(RArray.len(a), RArray.ptr(a))
+    Machine.store64(keep, 0, Machine.word(a))
+  end
+  Machine.store64(argv_out, 0, RArray.ptr(a))
+  zr_fix(RArray.len(a))
+end
+
+# The arguments again after Ruby ran between two bindings: a
+# destructured parameter's `to_ary` may have grown the spread Array
+# or emptied it, so its buffer and length are read afresh.
+sig [Value, Ptr] => Ptr
+machine def zr_block_argv(kept, argv)
+  if kept == QNIL
+    return argv
+  end
+  RArray.ptr(kept)
+end
+
+sig [Value, Word] => Word
+machine def zr_block_argc(kept, argc)
+  if kept == QNIL || RArray.len(kept) >= argc
+    return argc
+  end
+  RArray.len(kept)
 end
 
 # Whether the frame `home` with `serial` is still on the stack.

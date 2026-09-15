@@ -55,10 +55,11 @@ module Ze0
           @f.jump(go)
           switch(go)
           out = @f.stack_addr(@f.slot(8))
-          spread = p.spread? ? @f.csel(lambda?, imm(0), imm(1)) : imm(0)
-          argc = @f.sshr(checked(kernel("zr_block_args", argc, argv, spread, out)), imm(1))
+          keep = p.spread? ? value_offset(reserve(1)) : nil
+          spread = keep ? @f.csel(lambda?, imm(0), imm(p.optional.empty? ? 1 : 2)) : imm(0)
+          argc = @f.sshr(checked(kernel("zr_block_args", argc, argv, spread, out, keep ? @f.iadd(@rec, imm(keep)) : imm(0))), imm(1))
           argv = @f.fetch("i64", out)
-          bind_positional(p, argc, argv, strict: false)
+          bind_positional(p, argc, argv, strict: false, keep: keep)
           bind_keywords(p, kwargs_at) if keywords?(p)
           bind(p.block, @f.args[3]) if p.block
         end
@@ -137,12 +138,16 @@ module Ze0
         # (`strict` false) takes nil for what is missing and drops extras;
         # its post parameters take what is left after the required ones
         # when the count falls short.
-        def bind_positional(p, argc, argv, strict:)
+        # A block's spread Array waits in the record slot at `keep`: a
+        # destructured parameter runs Ruby that may change it, so the
+        # arguments are read afresh after each one.
+        def bind_positional(p, argc, argv, strict:, keep: nil)
           req = p.required.size + p.post.size
           argc = @f.csel(@f.icmp("sgt", argc, imm(req + p.optional.size)), imm(req + p.optional.size), argc) if !strict && !p.rest
           p.required.each_with_index do |name, i|
             v = strict ? arg_at(argv, imm(i)) : arg_or_nil(argc, argv, imm(i))
             bind(name, v)
+            argc, argv = spread_again(keep, argc, argv) if keep && name.is_a?(Hir::MultiTarget)
           end
           avail = @f.isub(argc, imm(req))
           avail = @f.csel(@f.icmp("slt", avail, imm(0)), imm(0), avail) unless strict
@@ -169,7 +174,13 @@ module Ze0
               index = @f.csel(short, imm(p.required.size + i), index)
               bind(name, arg_or_nil(argc, argv, index))
             end
+            argc, argv = spread_again(keep, argc, argv) if keep && name.is_a?(Hir::MultiTarget)
           end
+        end
+
+        def spread_again(keep, argc, argv)
+          kept = @f.fetch("i64", @rec, keep)
+          [kernel("zr_block_argc", kept, argc), kernel("zr_block_argv", kept, argv)]
         end
 
         # Whether `name` already took a binding in this parameter list.

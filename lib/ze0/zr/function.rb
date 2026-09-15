@@ -287,14 +287,15 @@ module Ze0
       end
 
       # The record slots the prologue keeps for itself: one for a
-      # method's keyword Hash, and one per level of a destructuring
-      # parameter.
+      # method's keyword Hash, one for the Array a block spreads over its
+      # parameters, and one per level of a destructuring parameter.
       def prologue_slots
         return 0 unless %i[def block].include?(@kind)
 
         p = @def.params
         nested = (p.required + p.post).grep(Hir::MultiTarget).map { |t| Scope.targets(t) }.max || 0
-        (keywords?(p) ? 1 : 0) + nested
+        spread = @kind == :block && p.spread? ? 1 : 0
+        (keywords?(p) ? 1 : 0) + spread + nested
       end
 
       # The scope leaves with `value`, firing its closing event first

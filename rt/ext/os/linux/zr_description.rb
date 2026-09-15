@@ -620,6 +620,7 @@ module Ze0
         d zr_hash_reserve Void h:Value
         d zr_hash_recode Bool h:Value
         d zr_hash_store Value h:Value key:Value value:Value
+        d zr_hash_append Value h:Value key:Value code:Word value:Value
         d zr_hash_default Value h:Value key:Value
         d zr_hash_aref Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_missing Value h:Value key:Value
@@ -635,6 +636,7 @@ module Ze0
         d zr_hash_values Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_assoc Value e:Ptr
         d zr_block_takes_pair Bool blk:Value
+        d zr_hash_each_yield Value blk:Value e:Ptr pairless:Bool
         d zr_hash_each Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_hash_foreach Value h:Value blk:Value
         d zr_hash_to_a Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -1037,7 +1039,10 @@ module Ze0
         d zr_yield Value blk:Value argc:Word argv:Ptr
         d zr_yield1 Value blk:Value v:Value
         d zr_yield2 Value blk:Value a:Value b:Value
-        d zr_block_args Value argc:Word argv:Ptr spread:Word argv_out:Ptr
+        d zr_block_args Value argc:Word argv:Ptr spread:Word argv_out:Ptr keep:Ptr
+        d zr_block_spread Value a:Value spread:Word argv_out:Ptr keep:Ptr
+        d zr_block_argv Ptr kept:Value argv:Ptr
+        d zr_block_argc Word kept:Value argc:Word
         d zr_frame_live Bool home:Ptr serial:Word
         d zr_signal Value kind:Word value:Value home:Ptr site:Word
         d zr_local_jump_error Value bytes:Ptr len:Word reason:Word v:Value
