@@ -454,6 +454,21 @@ module Ze0
           end
         end
 
+        # The gem installed on the host that holds `feature`, as rubygems
+        # finds it, with its require paths joined to the roots; nil where
+        # none does, or where the compiler runs with no rubygems of its own.
+        def installed_gem(feature)
+          return nil if @eval || !defined?(::Gem::Specification)
+
+          spec = ::Gem::Specification.find_by_path(feature) or return nil
+          return nil if spec.respond_to?(:default_gem?) && spec.default_gem?
+
+          @roots.concat(spec.full_require_paths - @roots)
+          spec
+        rescue StandardError, ::Gem::LoadError
+          nil
+        end
+
         # A native extension's name: `strscan.so`, `date.bundle`.
         NATIVE = /\.(?:so|bundle|dylib|o)\z/
 
@@ -1564,6 +1579,8 @@ module Ze0
         path = @loader.resolve(node.name, feature, @file)
         stop = path.nil? && node.name != :require_relative && stop_for(node, feature)
         return stop if stop
+        return installed_gem_require(node, feature, line) || plain_call(node, compiles: false) if path.nil? && node.name == :require
+
         # No file here yet: the call looks for one when it runs, under the
         # $LOAD_PATH the program has built by then.
         return plain_call(node, compiles: false) unless path
@@ -1572,6 +1589,20 @@ module Ze0
         # compiler's own, which the program never sees.
         kind = @loader.hiding? && node.name != :load ? :eval_road : node.name
         Require.new(kind, feature, path, @loader.add(path), line)
+      end
+
+      # A require of a feature an installed gem holds, which ruby's
+      # rubygems finds and activates: the gem's files compile with the
+      # program, and the require activates the gem as it runs, so its
+      # paths and its spec are rubygems' as they are in ruby.
+      def installed_gem_require(node, feature, line)
+        spec = @loader.installed_gem(feature) or return nil
+        path = @loader.resolve(:require, feature, @file) or return nil
+
+        gems!(:Gem)
+        version = Literal.new("= #{spec.version}", line)
+        activation = Send.new(nil, :gem, [Literal.new(spec.name, line), version], line, false)
+        Seq.new([activation, Require.new(:require, feature, path, @loader.add(path), line)], line)
       end
 
       # A feature ruby carries, which this runtime has no file for. The

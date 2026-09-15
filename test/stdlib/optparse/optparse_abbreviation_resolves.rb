@@ -27,3 +27,5 @@ end
 __END__
 :v
 OptionParser::AmbiguousOption: ambiguous option: --fooba
+Did you mean?  foobar
+               foobaz

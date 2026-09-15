@@ -99,13 +99,18 @@ module Kernel
   end
 
   # `name` looked for as ruby looks: a path that says where it starts is
-  # taken from there; any other name under each $LOAD_PATH directory, then
-  # under the library the program was compiled against.
+  # taken from there; any other name under each $LOAD_PATH directory and
+  # the library the program was compiled against.
   def self.search(name)
     Primitive.attr! :hidden
     return found(File.expand_path(name)) if name.start_with?("/", "./", "../", "~")
 
-    dirs = $LOAD_PATH.map { |dir| File.path(dir) } + Primitive.zr_load_names(0).split("\n")
+    # The library the program was compiled against lists pure Ruby first,
+    # then the gems whose native half this runtime carries. Those come
+    # ahead of $LOAD_PATH: an installed copy of such a gem that rubygems
+    # activates has a C half no program here can load.
+    pure, *native = Primitive.zr_load_names(0).split("\n")
+    dirs = native + $LOAD_PATH.map { |dir| File.path(dir) } + [pure].compact
     dirs.each do |dir|
       path = found(File.expand_path(name, dir))
       return path if path

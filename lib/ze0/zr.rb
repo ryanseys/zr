@@ -330,7 +330,8 @@ module Ze0
     # of native halves, one name a line. Only a program that carries the
     # compiler can reach a require by a computed name, so only one of
     # those gets the lines. Last come error_highlight's spots for each
-    # file, which every program carries. `units` are `[path, entry]`
+    # file and the compiling ruby's install layout, which every program
+    # carries. `units` are `[path, entry]`
     # pairs; a unit that only stops has no path.
     def load_tables(units = [], evals: false, spots: {}, target: Target.default)
       units = units.select { |path, _| path.start_with?("/") }.sort
@@ -338,6 +339,9 @@ module Ze0
       # error_highlight's spots, a file at a time: its name, a newline,
       # then its rows, and a form feed before the next file.
       names << [spots.map { |file, rows| "#{file}\n#{rows}" }.join("\f")]
+      # The install layout of the ruby that compiles the program, which
+      # RbConfig names as the program's own, a `key=value` line each.
+      names << (defined?(::RbConfig) ? %w[prefix ENABLE_SHARED].filter_map { |key| "#{key}=#{::RbConfig::CONFIG[key]}" if ::RbConfig::CONFIG[key] } : [])
       out = []
       text = ->(name, bytes) { out << Obj::Data.new(name, :text_const, "#{bytes}\0".b, align: 1) }
       rows = +"".b

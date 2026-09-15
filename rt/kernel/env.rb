@@ -409,7 +409,8 @@ end
 # computes (lib/ze0/zr.rb, `load_tables`): the count of files compiled
 # in, their rows, and five (bytes, length) texts.
 Machine.struct :LoadTable, units: Word, rows: Ptr, roots: Ptr, roots_len: Word, missing: Ptr, missing_len: Word,
-                           preloaded: Ptr, preloaded_len: Word, ext: Ptr, ext_len: Word, spots: Ptr, spots_len: Word
+                           preloaded: Ptr, preloaded_len: Word, ext: Ptr, ext_len: Word, spots: Ptr, spots_len: Word,
+                           prefix: Ptr, prefix_len: Word
 
 sig [] => Ptr
 machine def zr_load_table
@@ -438,7 +439,7 @@ end
 # it searches after $LOAD_PATH; 1 for the features ruby carries that this
 # runtime has no file for; 2 for the features ruby loaded before the
 # program; 3 for the directory of this runtime's native halves; 4 for
-# error_highlight's spots.
+# error_highlight's spots; 5 for the compiling ruby's install layout.
 sig [Value] => Value
 machine def zr_load_names(which)
   t = zr_load_table()
@@ -451,6 +452,8 @@ machine def zr_load_names(which)
     return zr_str_new(LoadTable.preloaded(t), LoadTable.preloaded_len(t))
   elsif w == 4
     return zr_str_new(LoadTable.spots(t), LoadTable.spots_len(t))
+  elsif w == 5
+    return zr_str_new(LoadTable.prefix(t), LoadTable.prefix_len(t))
   end
   zr_str_new(LoadTable.ext(t), LoadTable.ext_len(t))
 end
