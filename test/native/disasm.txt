@@ -1438,10 +1438,8 @@ block1:
   stp x29, x30, [sp, #-16]!
   mov x29, sp
   sub sp, sp, #32
-  str x19, [sp]
-  str x20, [sp, #8]
-  str x21, [sp, #16]
-  str x22, [sp, #24]
+  stp x19, x20, [sp]
+  stp x21, x22, [sp, #16]
   mov x8, x0
   mov x13, x1
   mov x14, x2
@@ -1474,11 +1472,10 @@ block0:
 block1:
   movz x0, #0x5678
   movk x0, #0x1234, lsl #16
-  mov sp, x29
-  ldp x29, x30, [sp], #16
-  ret
+  b epilogue
 block2:
   mov x0, x13
+epilogue:
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1494,11 +1491,10 @@ block0:
   b.ge block2
 block1:
   mov x0, x14
-  mov sp, x29
-  ldp x29, x30, [sp], #16
-  ret
+  b epilogue
 block2:
   mov x0, x13
+epilogue:
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1511,11 +1507,10 @@ block0:
   tbz w8, #3, block2
 block1:
   movz x0, #1
-  mov sp, x29
-  ldp x29, x30, [sp], #16
-  ret
+  b epilogue
 block2:
   movz x0, #0
+epilogue:
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1530,12 +1525,11 @@ block0:
   cbz w9, block2
 block1:
   mov x0, x13
-  mov sp, x29
-  ldp x29, x30, [sp], #16
-  ret
+  b epilogue
 block2:
   add x8, x13, #1
   mov x0, x8
+epilogue:
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1550,11 +1544,10 @@ block0:
   cbz w9, block2
 block1:
   mov x0, x13
-  mov sp, x29
-  ldp x29, x30, [sp], #16
-  ret
+  b epilogue
 block2:
   movz x0, #0
+epilogue:
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1569,11 +1562,10 @@ block0:
   b.ne block2
 block1:
   mov x0, x8
-  mov sp, x29
-  ldp x29, x30, [sp], #16
-  ret
+  b epilogue
 block2:
   mov x0, x13
+epilogue:
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1588,11 +1580,10 @@ block0:
   b.lt block1
 block2:
   mov x0, x8
-  mov sp, x29
-  ldp x29, x30, [sp], #16
-  ret
+  b epilogue
 block1:
   mov x0, x13
+epilogue:
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret
@@ -1610,11 +1601,10 @@ block1:
   mov x9, x14
   mov x8, x9
   mov x0, x8
-  mov sp, x29
-  ldp x29, x30, [sp], #16
-  ret
+  b epilogue
 block2:
   mov x0, x13
+epilogue:
   mov sp, x29
   ldp x29, x30, [sp], #16
   ret

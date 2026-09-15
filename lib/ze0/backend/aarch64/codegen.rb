@@ -111,11 +111,16 @@ module Ze0
           @reg = Regalloc.of(@f, skip: @silent, via: @via)
           assign_homes
           @f.blocks.each { |b| @labels[b.name] = @asm.make_label(b.name) }
+          @epilogue = @asm.make_label("epilogue") if @returns > 1
           prologue
           @f.blocks.each_with_index do |b, n|
             @asm.put_label(@labels[b.name])
             @next = @f.blocks[n + 1]&.name
             b.insts.each { |i| emit(i) }
+          end
+          if @epilogue
+            @asm.put_label(@epilogue)
+            epilogue
           end
           Obj::Function.new(@f.name, @asm.to_binary, relocs: @relocs, linkage: :export)
         rescue Assembler::OutOfReach
@@ -126,7 +131,7 @@ module Ze0
           # This attempt's code and plans are as big as the function, and
           # nothing reads them again: let them go before the second is made.
           assembler = @asm.class
-          @asm = @reg = @home = @labels = @relocs = @const = @remade = @silent = @derived = @via = @types = nil
+          @asm = @reg = @home = @labels = @relocs = @const = @remade = @silent = @derived = @via = @types = @epilogue = nil
           again = self.class.new(@f, defined: @defined, assembler: assembler, far: true)
           bytes = again.compile
           @asm = again.asm
@@ -219,9 +224,11 @@ module Ze0
         def count_uses
           @uses = Hash.new(0)
           @def_of = {}
+          @returns = 0
           @f.blocks.each do |b|
             b.insts.each do |i|
               @def_of[i.results[0]] = i if i.results[0]
+              @returns += 1 if i.op == :return
               i.args.each { |a| @uses[a] += 1 if Regalloc.value?(a) }
               i.targets&.each { |(_, args)| args.each { |a| @uses[a] += 1 if Regalloc.value?(a) } }
             end
@@ -558,7 +565,7 @@ module Ze0
           @asm.stp X29, X30, [SP, -16], :!
           @asm.mov X29, SP
           sub_sp(@frame)
-          @saved_at.each { |r, off| @asm.str r, address(off, 8) }
+          saved_registers(:stp, :str)
           entry = @f.blocks.first
           # Eight is where the registers run out and the ABI starts pushing
           # arguments onto the stack. Nothing reaches it: every lowering
@@ -591,8 +598,35 @@ module Ze0
           @asm.sub SP, SP, n & 0xFFF if (n & 0xFFF) != 0
         end
 
+        # The saved registers to or from their places, two at a time
+        # where the pair form reaches (its offset is seven signed bits of
+        # eights), one at a time past that.
+        def saved_registers(pair, single)
+          @saved_at.each_slice(2) do |(r1, off), (r2, _)|
+            if r2 && off <= 504
+              @asm.public_send(pair, r1, r2, [SP, off])
+            else
+              @asm.public_send(single, r1, address(off, 8))
+              @asm.public_send(single, r2, address(off + 8, 8)) if r2
+            end
+          end
+        end
+
+        # A function with one return has its epilogue there; one with
+        # more shares a single epilogue every return branches to, and the
+        # last of them, ending the last block, falls into it.
+        def emit_return(i)
+          unless i.args.empty?
+            load_value(i.args[0], X0)
+            @asm.fmov D0, X0 if float?(i.args[0])
+          end
+          return epilogue unless @epilogue
+
+          @asm.b @epilogue unless @next.nil?
+        end
+
         def epilogue
-          @saved_at.each { |r, off| @asm.ldr r, address(off, 8) }
+          saved_registers(:ldp, :ldr)
           @asm.mov SP, X29
           @asm.ldp X29, X30, [SP], 16
           @asm.ret
@@ -689,12 +723,7 @@ module Ze0
             store_value(i.results[0], X9)
           when :brif then emit_brif(i)
           when :jump then emit_jump(i)
-          when :return
-            unless i.args.empty?
-              load_value(i.args[0], X0)
-              @asm.fmov D0, X0 if float?(i.args[0])
-            end
-            epilogue
+          when :return then emit_return(i)
           else raise Refused, "#{@f.name}: no lowering for #{i.op}"
           end
         end
