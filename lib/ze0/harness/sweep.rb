@@ -4,8 +4,8 @@ require "etc"
 require "fileutils"
 require "rbconfig"
 require "tmpdir"
-require "timeout"
 require_relative "case"
+require_relative "child"
 require_relative "runner"
 
 module Ze0
@@ -20,10 +20,12 @@ module Ze0
     #
     #   skipped    no recording, or a directive that opts the program out
     #   refused    ze0 named a form outside its subset, at its line
-    #   backend    the compile produced no binary (or no native road exists yet)
+    #   backend    the compile produced no binary (or no native road exists yet),
+    #              or held more memory than the build's bound
     #   matched    the binary said what ruby said
     #   diverged   the binary said something else
-    #   crashed    the binary died on a signal ruby did not
+    #   crashed    the binary died on a signal ruby did not, or held more
+    #              memory than the run's bound
     #   timeout    the binary ran past the limit
     #
     # Run on demand: a corpus-wide sweep is minutes of real links, and the
@@ -123,17 +125,19 @@ module Ze0
         bin = File.join(work, "p")
         File.delete(bin) if File.exist?(bin)
 
-        out = bounded(build_argv(rel, bin), cwd, nil)
+        out = bounded(build_argv(rel, bin), cwd, nil, Child::BUILD_MB)
         return Row.new(rb, :refused, first_line(out).sub(/\Aze0: /, "")) if out.code == 3
         return Row.new(rb, :backend, "the build ran past #{LIMIT}s") if out.code == :timeout
+        return Row.new(rb, :backend, "the build held more than #{Child::BUILD_MB} MB") if out.code == :memory
         return Row.new(rb, :backend, first_line(out)) unless out.code == 0
 
         stdin = kase.directives.stdin && File.binread(File.join(File.dirname(rb), kase.directives.stdin))
         env = kase.directives.env.merge(kase.directives.zeo_env)
         env["ZR_GC_STRESS"] = "1" if @gc == "stress"
         argv, run_env = @runner.run(bin, kase.directives.args, env)
-        out = bounded(argv, cwd, stdin, run_env)
+        out = bounded(argv, cwd, stdin, Child::RUN_MB, run_env)
         return Row.new(rb, :timeout, "ran past #{LIMIT}s") if out.code == :timeout
+        return Row.new(rb, :crashed, "held more than #{Child::RUN_MB} MB") if out.code == :memory
 
         actual = Normalize.answer(out, rb, cwd)
         expected = Normalize.answer(kase.expected(@runner.platform), rb, cwd)
@@ -149,37 +153,9 @@ module Ze0
         Row.new(rb, :diverged, diff(expected, actual))
       end
 
-      # A child with both streams captured and a wall-clock bound.
-      def bounded(argv, cwd, stdin, env = {})
-        env = { "RUBYOPT" => nil, "RUBYLIB" => nil }.merge(env)
-        out_r, out_w = IO.pipe
-        err_r, err_w = IO.pipe
-        in_r, in_w = IO.pipe
-        pid = Process.spawn(env, *argv, chdir: cwd, in: in_r, out: out_w, err: err_w, pgroup: true)
-        [out_w, err_w, in_r].each(&:close)
-        writer = Thread.new do
-          in_w.binmode
-          in_w.write(stdin) if stdin
-        rescue Errno::EPIPE
-          nil
-        ensure
-          in_w.close
-        end
-        reader = [out_r, err_r].map { |io| Thread.new { io.binmode; io.read } }
-        status = nil
-        begin
-          Timeout.timeout(LIMIT) { _, status = Process.wait2(pid) }
-        rescue Timeout::Error
-          # The whole group, so a child of the program does not keep the
-          # pipes open and stall the read below.
-          Process.kill("KILL", -pid) rescue nil
-          Process.wait(pid) rescue nil
-        end
-        writer.join
-        stdout, stderr = reader.map(&:value)
-        return Answer.new(stdout, stderr, :timeout, nil) if status.nil?
-
-        Answer.new(stdout, stderr, status.exitstatus || -1, status.termsig)
+      # A child bounded by the sweep's time limit and by `megabytes`.
+      def bounded(argv, cwd, stdin, megabytes, env = {})
+        Child.run(argv, cwd: cwd, stdin: stdin, env: env, seconds: LIMIT, megabytes: megabytes).first
       end
 
       def first_line(out)

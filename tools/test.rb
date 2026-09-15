@@ -19,8 +19,8 @@ require "etc"
 require "fileutils"
 require "rbconfig"
 require "tmpdir"
-require "timeout"
 require_relative "../lib/ze0/harness/case"
+require_relative "../lib/ze0/harness/child"
 require_relative "../lib/ze0/harness/runner"
 
 ROOT = File.expand_path("..", __dir__)
@@ -61,42 +61,10 @@ def select(filters)
   end.uniq
 end
 
-# A child with both streams captured, a wall-clock bound, and the time
-# it took. The whole group goes on a timeout, so a child of the program
-# cannot hold the pipes open.
-def bounded(argv, cwd, stdin, env, limit)
-  env = { "RUBYOPT" => nil, "RUBYLIB" => nil }.merge(env)
-  out_r, out_w = IO.pipe
-  err_r, err_w = IO.pipe
-  in_r, in_w = IO.pipe
-  started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-  pid = Process.spawn(env, *argv, chdir: cwd, in: in_r, out: out_w, err: err_w, pgroup: true)
-  [out_w, err_w, in_r].each(&:close)
-  writer = Thread.new do
-    in_w.binmode
-    in_w.write(stdin) if stdin
-  rescue Errno::EPIPE
-    nil
-  ensure
-    in_w.close
-  end
-  reader = [out_r, err_r].map { |io| Thread.new { io.binmode; io.read } }
-  status = nil
-  begin
-    Timeout.timeout(limit) { _, status = Process.wait2(pid) }
-  rescue Timeout::Error
-    Process.kill("KILL", -pid) rescue nil
-    Process.wait(pid) rescue nil
-  end
-  writer.join
-  stdout, stderr = reader.map(&:value)
-  seconds = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-  answer = if status.nil?
-             Ze0::Harness::Answer.new(stdout, stderr, :timeout, nil)
-           else
-             Ze0::Harness::Answer.new(stdout, stderr, status.exitstatus || -1, status.termsig)
-           end
-  [answer, seconds]
+# A child bounded by the time limit and by `megabytes`, and the time it
+# took.
+def bounded(argv, cwd, stdin, env, limit, megabytes)
+  Ze0::Harness::Child.run(argv, cwd: cwd, stdin: stdin, env: env, seconds: limit, megabytes: megabytes)
 end
 
 # Every line where the two answers part, numbered from 1, the recording
@@ -121,6 +89,14 @@ def stream_lines(what, want, got, limit)
   [out, apart]
 end
 
+# The bound a child went past, in words, or nil.
+def bound(answer, options)
+  case answer.code
+  when :timeout then "ran past #{options[:timeout]}s"
+  when :memory then "held more memory than its bound (ZE0_BUILD_MB, ZE0_RUN_MB)"
+  end
+end
+
 # One program: built, run, and compared. Its whole report comes back as
 # lines, so that programs running side by side do not interleave.
 def one(rb, options)
@@ -142,8 +118,8 @@ def one(rb, options)
   keep = options[:keep]
   bin = File.join(work, "p")
   build = RUNNER.build_argv(rel, bin)
-  built, build_seconds = bounded(build, TESTS, nil, {}, options[:timeout])
-  lines << format("  %-10s %5.1fs %s", "build", build_seconds, built.code == 0 ? "ok" : "FAILED (#{built.status})")
+  built, build_seconds = bounded(build, TESTS, nil, {}, options[:timeout], Ze0::Harness::Child::BUILD_MB)
+  lines << format("  %-10s %5.1fs %s", "build", build_seconds, built.code == 0 ? "ok" : "FAILED (#{bound(built, options) || built.status})")
   lines << "  #{"command".ljust(10)} #{build.join(" ")}"
   if built.code != 0 || options[:verbose]
     [built.stdout, built.stderr].each { |text| text.each_line { |line| lines << "    #{line.chomp}" } }
@@ -151,7 +127,7 @@ def one(rb, options)
   if built.code != 0
     lines << "  #{"binary".ljust(10)} #{work} (kept)" if keep
     FileUtils.remove_entry(work) unless keep
-    why = (built.stderr.empty? ? built.stdout : built.stderr).lines.first.to_s.strip
+    why = bound(built, options) || (built.stderr.empty? ? built.stdout : built.stderr).lines.first.to_s.strip
     return Row.new(rel, built.code == 3 ? :refused : :backend, lines, build_seconds, 0, why)
   end
 
@@ -159,13 +135,14 @@ def one(rb, options)
   env = directives.env.merge(directives.zeo_env)
   env["ZR_GC_STRESS"] = "1" if options[:gc] == "stress"
   argv, run_env = RUNNER.run(bin, directives.args, env)
-  ran, run_seconds = bounded(argv, TESTS, stdin, run_env, options[:timeout])
-  lines << format("  %-10s %5.1fs %s", "run", run_seconds, ran.code == :timeout ? "ran past #{options[:timeout]}s" : ran.status)
+  ran, run_seconds = bounded(argv, TESTS, stdin, run_env, options[:timeout], Ze0::Harness::Child::RUN_MB)
+  lines << format("  %-10s %5.1fs %s", "run", run_seconds, bound(ran, options) || ran.status)
   lines << "  #{"binary".ljust(10)} #{bin}" if keep
   FileUtils.remove_entry(work) unless keep
   if ran.code == :timeout
-    return Row.new(rel, :timeout, lines, build_seconds, run_seconds, "ran past #{options[:timeout]}s")
+    return Row.new(rel, :timeout, lines, build_seconds, run_seconds, bound(ran, options))
   end
+  return Row.new(rel, :crashed, lines, build_seconds, run_seconds, bound(ran, options)) if ran.code == :memory
 
   expected = Ze0::Harness::Normalize.answer(kase.expected(RUNNER.platform), rb, TESTS)
   actual = Ze0::Harness::Normalize.answer(ran, rb, TESTS)
