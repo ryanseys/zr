@@ -184,7 +184,8 @@ module Ze0
         @meta = @l.meta(@name, kind, line, name, @outer&.meta, params, @locals, @has_env, attributes.include?(:ruby),
                         captures: true)
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
-        @f.store(imm(line), @rec, off(@frame, "line"))
+        @line = line | ((@def ? @l.node_id(@def) : 0) << 32)
+        @f.store(imm(@line), @rec, off(@frame, "line"))
         serial = @f.iadd(@f.fetch("i64", @task_addr, off(@task, "serial")), imm(1))
         @f.store(serial, @task_addr, off(@task, "serial"))
         @f.store(serial, @rec, off(@frame, "serial"))
@@ -317,11 +318,18 @@ module Ze0
       end
 
       # The line a backtrace reports for what runs next.
-      def at_line(line)
-        return if line == @line
+      def at_line(line, node_id = 0)
+        word = line | (node_id << 32)
+        return if word == @line
 
-        @line = line
-        @f.store(imm(line), @rec, off(@frame, "line"))
+        @line = word
+        @f.store(imm(word), @rec, off(@frame, "line"))
+      end
+
+      # The same for `node`, with the id of the prism node it came from in
+      # the word's high half, which node_id_for_backtrace_location reads.
+      def at_node(node)
+        at_line(node.line, @l.node_id(node))
       end
 
       # The address of the kernel's static word `name`, found once per

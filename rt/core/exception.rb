@@ -67,7 +67,9 @@ class Exception
   # The rows the raise saw, as Location objects: nil before a raise, and
   # unchanged when set_backtrace replaces the strings.
   def backtrace_locations
-    Primitive.zr_exc_raise_rows(self)&.map { |row| Thread::Backtrace::Location.new(row) }
+    rows = Primitive.zr_exc_raise_rows(self) or return nil
+
+    rows.zip(Primitive.zr_exc_raise_nodes(self)).map { |row, node| Thread::Backtrace::Location.new(row, node) }
   end
 
   private
@@ -394,7 +396,10 @@ class Thread
     class Location
       attr_reader :path, :lineno, :label
 
-      def initialize(row)
+      # `node_id` is the id of the prism node the row's line ran, which
+      # RubyVM::AbstractSyntaxTree.node_id_for_backtrace_location reads.
+      def initialize(row, node_id = 0)
+        Primitive.zr_hidden_set(self, :__node_id__, node_id)
         at = row.index(":in '")
         head = row[0, at]
         colon = head.rindex(":")
@@ -429,8 +434,9 @@ end
 
 module Kernel
   def caller_locations(start = 1, length = nil)
-    rows = caller(start + 1, length)
-    rows&.map { |row| Thread::Backtrace::Location.new(row) }
+    rows = caller(start + 1, length) or return nil
+
+    rows.zip(Primitive.zr_caller_nodes(start + 1, length)).map { |row, node| Thread::Backtrace::Location.new(row, node || 0) }
   end
   private :caller_locations
 end

@@ -13,7 +13,7 @@ module Ze0
         def define_method(node)
           fn = @l.define(node)
           owner = if node.receiver
-                    at_line(node.line)
+                    at_node(node)
                     checked(kernel("zr_singleton_class", expr(node.receiver)))
                   else
                     cref_class
@@ -21,7 +21,7 @@ module Ze0
           addr = @f.func_addr(@f.callee(fn, ABI.fetch(:def), "i64"))
           meta = @f.symbol_value(@f.symbol("zr_meta_#{fn}"))
           checked_arity = node.params.plain? ? node.params.required.size : -1
-          at_line(node.line)
+          at_node(node)
           entry = node.receiver || inside_method? ? "zr_define_method_public" : "zr_define_method"
           checked(kernel(entry, owner, imm(sym_id(node.name)), addr, imm(checked_arity), imm(@l.const("KIND_DEF")), meta, @cref))
           symbol(node.name)
@@ -38,7 +38,7 @@ module Ze0
         # `class << target`: the singleton class is self and the definee.
         def singleton_class_body(node)
           fn = @l.body(node)
-          at_line(node.line)
+          at_node(node)
           klass = checked(kernel("zr_singleton_class", expr(node.target)))
           cref = kernel("zr_cref_push", klass, @cref)
           checked(@f.call_val(@f.callee(fn, ABI.fetch(:sclass), "i64"), [klass, cref]))
@@ -50,7 +50,7 @@ module Ze0
           fn = @l.body(node)
           scope = scope_class(node.scope)
           id = imm(sym_id(node.name))
-          at_line(node.line)
+          at_node(node)
           klass = if node.is_a?(Hir::ClassDef)
                     sup = node.superclass ? expr(node.superclass) : qundef
                     checked(kernel("zr_class_define", scope, id, sup))
@@ -77,7 +77,7 @@ module Ze0
           end
 
           id = imm(sym_id(node.name))
-          at_line(node.line)
+          at_node(node)
           if node.scope.nil?
             checked(kernel("zr_const_get_cached", cache("cc", "ConstCache"), @cref, id))
           else
@@ -90,7 +90,7 @@ module Ze0
         def const_write(node)
           scope = scope_class(node.scope)
           v = expr(node.value)
-          at_line(node.line)
+          at_node(node)
           checked(kernel("zr_const_set", scope, imm(sym_id(node.name)), v))
           v
         end

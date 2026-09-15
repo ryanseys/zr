@@ -70,7 +70,7 @@ end
 # frame again for a binding.
 sig [Ptr, Word, Value] => Value
 machine def zr_trace_send(rec, event, value)
-  row = zr_trace_row(event, value, Frame.meta(rec), Frame.line(rec))
+  row = zr_trace_row(event, value, Frame.meta(rec), zr_frame_line(rec))
   method = zr_method_meta_of(rec)
   entry = zr_bmethod_entry(rec)
   if method != 0 && FrameMeta.kind(method) == KIND_DEF
@@ -159,6 +159,6 @@ machine def zr_trace_binding(serial)
   end
   b = zr_binding_of(Frame.meta(rec), zr_frame_env(rec), Frame.self(rec), Frame.cref(rec))
   RProc.set_blk(b, Frame.blk(rec))
-  RProc.set_serial(b, Frame.line(rec))
+  RProc.set_serial(b, zr_frame_line(rec))
   b
 end

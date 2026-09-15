@@ -224,7 +224,7 @@ module Ze0
           return checked(kernel("zr_backref_assign", v)) if name == :$~
           return kernel("zr_lastline_set", v) if name == :$_
 
-          at_line(node.line)
+          at_node(node)
           return checked(kernel("zr_gvar_assign", imm(sym_id(name)), v)) if @l.internal? || !HOOKED_GVARS.include?(name)
 
           checked(kernel("zr_gvar_hooked", imm(sym_id(node.shown || name)), imm(sym_id(name)), v))
@@ -243,18 +243,18 @@ module Ze0
         end
 
         def cvar_read(node)
-          at_line(node.line)
+          at_node(node)
           checked(kernel("zr_cvar_get", @cref, imm(sym_id(node.name))))
         end
 
         def undef_methods(node)
-          at_line(node.line)
+          at_node(node)
           node.names.each { |name| checked(kernel("zr_undef", cref_class, imm(sym_id(name)))) }
           @qnil
         end
 
         def alias_method(node)
-          at_line(node.line)
+          at_node(node)
           checked(kernel("zr_alias", cref_class, imm(sym_id(node.new_name)), imm(sym_id(node.old_name))))
         end
 
@@ -280,7 +280,7 @@ module Ze0
 
         def alias_value(node)
           staged([node.new_name, node.old_name]) do |slots, _base|
-            at_line(node.line)
+            at_node(node)
             checked(kernel("zr_alias_value", cref_class, @f.fetch("i64", slots), @f.fetch("i64", slots, 8)))
           end
         end
@@ -288,7 +288,7 @@ module Ze0
         def undef_values(node)
           staged(node.names) do |slots, _base|
             node.names.each_index do |i|
-              at_line(node.line)
+              at_node(node)
               checked(kernel("zr_undef_value", cref_class, @f.fetch("i64", slots, 8 * i)))
             end
           end
@@ -302,14 +302,14 @@ module Ze0
 
         def cvar_write(node)
           v = expr(node.value)
-          at_line(node.line)
+          at_node(node)
           checked(kernel("zr_cvar_set", @cref, imm(sym_id(node.name)), v))
         end
 
         # `Name ||= value`: the constant when it is set and truthy, else
         # the assignment.
         def const_or_write(node)
-          at_line(node.line)
+          at_node(node)
           current = if node.scope.nil?
                       kernel("zr_const_lookup", @cref, imm(sym_id(node.name)))
                     else

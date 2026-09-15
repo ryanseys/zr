@@ -142,7 +142,7 @@ machine def zr_warn_here(bytes, n)
     meta = Frame.meta(rec)
     zr_buf_push(b, FrameMeta.file(meta), FrameMeta.file_len(meta))
     zr_buf_byte(b, 58)
-    zr_buf_long(b, Frame.line(rec))
+    zr_buf_long(b, zr_frame_line(rec))
     zr_buf_push(b, Machine.bytes(": "), 2)
   end
   zr_buf_push(b, Machine.bytes("warning: "), 9)
@@ -165,7 +165,7 @@ machine def zr_warn_position
   meta = Frame.meta(rec)
   zr_buf_push(b, FrameMeta.file(meta), FrameMeta.file_len(meta))
   zr_buf_byte(b, 58)
-  zr_buf_long(b, Frame.line(rec))
+  zr_buf_long(b, zr_frame_line(rec))
   zr_buf_push(b, Machine.bytes(": "), 2)
   zr_buf_take(b)
 end

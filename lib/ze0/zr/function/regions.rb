@@ -146,7 +146,7 @@ module Ze0
           handler = @f.label
           classes = clause.classes.empty? ? [nil] : clause.classes
           classes.each do |c|
-            at_line(clause.line)
+            at_node(clause)
             matched = if c.is_a?(Hir::Splat)
                         checked(kernel("zr_exc_match_any", @f.fetch("i64", @rec, exc_at), expr(c.value)))
                       else

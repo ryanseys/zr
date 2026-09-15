@@ -156,7 +156,7 @@ module Ze0
 
         # A frozen receiver refuses the write at this line.
         def ivar_write(node, v)
-          at_line(node.line)
+          at_node(node)
           checked(kernel("zr_ivar_set_cached", @self, imm(sym_id(ivar_name(node.name))), v, cache("iv", "IvarCache")))
         end
 
@@ -166,11 +166,11 @@ module Ze0
           when Hir::IvarWrite then ivar_write(target, v)
           when Hir::GvarWrite then gvar_write(target, v)
           when Hir::CvarWrite
-            at_line(target.line)
+            at_node(target)
             checked(kernel("zr_cvar_set", @cref, imm(sym_id(target.name)), v))
           when Hir::ConstWrite
             scope = prepared.key?(target) ? @f.fetch("i64", @rec, value_offset(prepared[target])) : scope_class(target.scope)
-            at_line(target.line)
+            at_node(target)
             checked(kernel("zr_const_set", scope, imm(sym_id(target.name)), v))
           when Hir::MultiTarget then destructure(target, v, prepared)
           when Hir::Send
@@ -193,7 +193,7 @@ module Ze0
             @f.store(v, @rec, value_offset(slot + 1 + target.args.size))
             argc, argv = imm(target.args.size + 1), @f.iadd(@rec, imm(value_offset(slot + 1)))
           end
-          at_line(target.line)
+          at_node(target)
           return checked(kernel("zr_opt_aset", recv, imm(sym_id(target.name)), argc, argv, imm(send_mode(target)))) if target.opt
 
           # An explicit receiver may not reach a private writer; `self` may.

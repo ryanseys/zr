@@ -18,7 +18,9 @@ module Ze0
     # road built already.
     # `traced` says the program names TracePoint, so its code fires the
     # events a TracePoint asks for.
-    Program = Struct.new(:file, :locals, :body, :units, :warnings, :evals, :entries, :traced)
+    # `node_ids` maps a HIR node, by identity, to the prism node id it
+    # came from.
+    Program = Struct.new(:file, :locals, :body, :units, :warnings, :evals, :entries, :traced, :node_ids)
     Unit = Struct.new(:file, :locals, :body, :warnings, :internal)
     # `require`, `require_relative` or `load` of a literal name: `path`
     # is the file it resolved to and `unit` that file's index, or both

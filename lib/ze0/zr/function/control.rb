@@ -101,14 +101,14 @@ module Ze0
             values.each do |value|
               miss = @f.label
               cond = if value.is_a?(Hir::Splat) && node.subject
-                       at_line(value.line)
+                       at_node(value)
                        truthy(checked(kernel("zr_case_any", @f.fetch("i64", @rec, subject_at), expr(value.value))))
                      elsif value.is_a?(Hir::Splat)
-                       at_line(value.line)
+                       at_node(value)
                        truthy(checked(kernel("zr_any_truthy", expr(value.value))))
                      elsif node.subject
                        staged([value, Hir::Slot.new(base, value.line)]) do |slots|
-                         at_line(value.line)
+                         at_node(value)
                          truthy(checked(kernel("zr_send", @f.fetch("i64", slots), imm(sym_id(:===)), imm(1), @f.iadd(slots, imm(8)))))
                        end
                      else
@@ -136,7 +136,7 @@ module Ze0
           if parts.any?(Hir::Splat)
             slot = reserve(1)
             ary = gather(parts, slot)
-            at_line(node.line)
+            at_node(node)
             argc = array_len(ary)
             argc = kernel("zr_kw_argc", argc, array_ptr(ary)) if node.kwargs
             r = checked(kernel("zr_yield", @blk, argc, array_ptr(ary)))
@@ -145,7 +145,7 @@ module Ze0
           end
 
           staged(parts) do |argv|
-            at_line(node.line)
+            at_node(node)
             argc = imm(parts.size)
             argc = kernel("zr_kw_argc", argc, argv) if node.kwargs
             checked(kernel("zr_yield", @blk, argc, argv))
@@ -157,11 +157,11 @@ module Ze0
         def return_from(node)
           v = expr(node.value)
           if @kind == :eval
-            at_line(node.line)
+            at_node(node)
             checked(kernel("zr_return_here", v))
           elsif @kind == :block
             unless_lambda(v) do
-              at_line(node.line)
+              at_node(node)
               checked(kernel("zr_return", @proc, v))
             end
           else
@@ -178,7 +178,7 @@ module Ze0
         # once unless it is a load; a relative name with no file is a
         # LoadError.
         def require_unit(node)
-          at_line(node.line)
+          at_node(node)
           path = @f.symbol_value(@f.symbol(@l.literal(node.path)))
           return checked(kernel("zr_load_error", path, imm(node.path.bytesize))) unless node.unit
 
@@ -191,7 +191,7 @@ module Ze0
         # The receiver and the feature wait in record slots while the path
         # is made, whose allocation may collect.
         def autoload_unit(node)
-          at_line(node.line)
+          at_node(node)
           base = reserve(2)
           @f.store(node.recv ? expr(node.recv) : @self, @rec, value_offset(base))
           @f.store(kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(node.feature))), imm(node.feature.bytesize)), @rec, value_offset(base + 1))
@@ -235,7 +235,7 @@ module Ze0
             leave(through_ensures(v))
           else
             unless_lambda(v) do
-              at_line(node.line)
+              at_node(node)
               checked(kernel("zr_break", @proc, v))
             end
           end

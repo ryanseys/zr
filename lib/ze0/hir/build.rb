@@ -66,7 +66,7 @@ module Ze0
         preludes << normalizer(loader) if road && loader.normalizes?
         preludes << pretty_printer(loader) if road && loader.pretty_prints?
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
-        Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries, loader.tracing?)
+        Program.new(main.file, main.locals, body, loader.units, main.warnings, road && loader.evals?, loader.entries, loader.tracing?, loader.node_ids)
       end
 
       # The compiler alone, as the units a road holds: the loader has
@@ -121,7 +121,11 @@ module Ze0
 
         # `external` is a road built already: a file it holds is named by
         # the entry it answers, and needs nothing the road does not.
+        # The prism node id each HIR node came from, by identity.
+        attr_reader :node_ids
+
         def initialize(roots, eval: false, external: nil, trace: false)
+          @node_ids = {}.compare_by_identity
           @eval = eval
           @trace = trace
           @traces = false
@@ -462,6 +466,7 @@ module Ze0
       def initialize(file, loader = nil, encoding = ::Encoding::UTF_8, shadowed: {})
         @file = file
         @loader = loader
+        @node_ids = loader&.node_ids
         @encoding = encoding
         @shadowed = shadowed
         @path = [Object.name]
@@ -847,7 +852,20 @@ module Ze0
         node.each_pair { |_, child| mark_using(child, seen) }
       end
 
+      # A prism node's HIR, noted with the node's id.
       def expr(node)
+        noted(built(node), node)
+      end
+
+      # `hir` came from prism's `node`: the frame of what it runs reports
+      # that node's id, as node_id_for_backtrace_location reads it. A HIR
+      # node an inner prism node built already keeps the inner one's id.
+      def noted(hir, node)
+        @node_ids[hir] ||= node.node_id if @node_ids && hir.is_a?(Struct)
+        hir
+      end
+
+      def built(node)
         line = node.location.start_line
         case node
         when Prism::StatementsNode then seq(node)
@@ -868,7 +886,7 @@ module Ze0
         when Prism::LocalVariableWriteNode then Assign.new(node.name, node.depth, expr(node.value), line)
         when Prism::MultiWriteNode then MultiAssign.new(multi_target(node), expr(node.value), line)
         when Prism::LocalVariableOperatorWriteNode
-          Assign.new(node.name, node.depth, Send.new(Local.new(node.name, node.depth, line), node.binary_operator, [expr(node.value)], line, false), line)
+          Assign.new(node.name, node.depth, noted(Send.new(Local.new(node.name, node.depth, line), node.binary_operator, [expr(node.value)], line, false), node), line)
         when Prism::LocalVariableAndWriteNode
           Assign.new(node.name, node.depth, And.new(Local.new(node.name, node.depth, line), expr(node.value), line), line)
         when Prism::LocalVariableOrWriteNode
@@ -877,7 +895,7 @@ module Ze0
           in_block do
             params, extra = block_params(node.parameters)
             body = node.body ? expr(node.body) : Literal.new(nil, line)
-            Lambda.new(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line, node.location.end_line), line)
+            Lambda.new(noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line, node.location.end_line), node), line)
           end
         when Prism::ItLocalVariableReadNode then Local.new(IT, 0, line)
         when Prism::UndefNode
@@ -1317,7 +1335,7 @@ module Ze0
         in_block do
           params, extra = block_params(node.parameters)
           body = node.body ? expr(node.body) : Literal.new(nil, line)
-          Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line, node.location.end_line)
+          noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line, node.location.end_line), node)
         end
       end
 

@@ -401,6 +401,8 @@ module Ze0
         d zr_bmethod_call Value e:Ptr recv:Value argc:Word argv:Ptr blk:Value
         d zr_refine_body Value blk:Value holder:Value
         d zr_mark_backtrace_rows Void exc:Value
+        d zr_frame_line Word rec:Ptr
+        d zr_frame_node_id Word rec:Ptr
         d zr_frame_with_file Ptr rec:Ptr
         d zr_frame_shown_p Bool rec:Ptr
         d zr_frame_helper_p Bool rec:Ptr
@@ -428,6 +430,8 @@ module Ze0
         d zr_buf_row Void b:Ptr row:Ptr
         d zr_exc_backtrace Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_exc_raise_rows Value recv:Value
+        d zr_exc_raise_nodes Value recv:Value
+        d zr_caller_nodes Value start:Value limit:Value
         d zr_fatal_class Value
         d zr_error_print_m Value exc:Value
         d zr_report Void exc:Value
@@ -1897,7 +1901,7 @@ module Ze0
         s RCref 80 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr lazy:64:Value blk:72:Value
         s LoadTable 80 8 units:0:Word rows:8:Ptr roots:16:Ptr roots_len:24:Word missing:32:Ptr missing_len:40:Word preloaded:48:Ptr preloaded_len:56:Word ext:64:Ptr ext_len:72:Word
         s FrameMeta 120 8 name:0:Word owner:8:Value file:16:Ptr file_len:24:Word kind:32:Word line:40:Word parent:48:Ptr arity:56:Word params:64:Ptr fn:72:Ptr locals:80:Ptr env:88:Word box:96:Value ruby:104:Word captures:112:Ptr
-        s BtRow 32 8 meta:0:Ptr file:8:Ptr file_len:16:Word line:24:Word
+        s BtRow 40 8 meta:0:Ptr file:8:Ptr file_len:16:Word line:24:Word node:32:Word
         s RException 56 8 basic:0:RBasic message:16:Value rows:24:Ptr nrows:32:Word bt:40:Value cause:48:Value
         s RFiber 112 8 basic:0:RBasic task:16:Ptr ctx:24:Ptr stack:32:Ptr kroots:40:Ptr blk:48:Value status:56:Word prev:64:Value resuming:72:Value value:80:Value yielding:88:Word transferred:96:Word home:104:Value
         s RFloat 24 8 basic:0:RBasic bits:16:Word

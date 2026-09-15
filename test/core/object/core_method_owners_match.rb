@@ -2,8 +2,10 @@
 # The methods each core class and module defines itself, by visibility,
 # and the constants it holds, as ruby 4.0 lists them. Names that the
 # libraries ruby loads as it starts define (rubygems, did_you_mean,
-# error_highlight, syntax_suggest, irb's Binding#irb) are left out.
-LATER = %i[DidYouMean ErrorHighlight Gem RbConfig RubyVM SyntaxSuggest RUBYGEMS_ACTIVATION_MONITOR irb].freeze
+# error_highlight, syntax_suggest, irb's Binding#irb) are left out, and
+# so is RubyVM's parse.y surface: the ISEQ class and the AST's nodes.
+LATER = %i[DidYouMean ErrorHighlight Gem RbConfig SyntaxSuggest RUBYGEMS_ACTIVATION_MONITOR irb
+           InstructionSequence Location Node parse parse_file].freeze
 GEMS = %i[gem gem_original_require require require_relative].freeze
 mods = [BasicObject, Object, Kernel, Module, Class, Comparable, Enumerable, NilClass, TrueClass, FalseClass,
         Integer, Float, Numeric, Rational, Complex, String, Symbol, Array, Hash, Range, Struct, Data, Set,
@@ -14,7 +16,8 @@ mods = [BasicObject, Object, Kernel, Module, Class, Comparable, Enumerable, NilC
         Enumerator::ArithmeticSequence, Enumerator::Product,
         Thread, Thread::Mutex, Thread::Queue, Thread::SizedQueue, Thread::ConditionVariable, ThreadGroup,
         Fiber, Process::Status, ObjectSpace::WeakMap, ObjectSpace::WeakKeyMap, Marshal, Math, GC, Process,
-        Signal, Warning, TracePoint, Ractor, Refinement, ObjectSpace, FileTest, Errno::ENOENT]
+        Signal, Warning, TracePoint, Ractor, Refinement, ObjectSpace, FileTest, Errno::ENOENT,
+        RubyVM, RubyVM::AbstractSyntaxTree, RubyVM::YJIT]
 mods.each do |m|
   rows = {
     public: m.public_instance_methods(false),
@@ -29,6 +32,8 @@ mods.each do |m|
   end
 end
 
+
+
 __END__
 BasicObject public: ! != == __id__ __send__ equal? instance_eval instance_exec
 BasicObject protected: 
@@ -39,7 +44,7 @@ Object public:
 Object protected: 
 Object private: 
 Object singleton: 
-Object constants: ARGF ARGV ArgumentError Array BasicObject Binding CROSS_COMPILING Class ClosedQueueError Comparable Complex ConditionVariable Data Dir ENV EOFError Encoding EncodingError Enumerable Enumerator Errno Exception FalseClass Fiber FiberError File FileTest Float FloatDomainError FrozenError GC GEMS Hash IO IOError IndexError Integer Interrupt Kernel KeyError LATER LoadError LocalJumpError Marshal MatchData Math Method Module Monitor MonitorMixin Mutex NameError NilClass NoMatchingPatternError NoMatchingPatternKeyError NoMemoryError NoMethodError NotImplementedError Numeric Object ObjectSpace Pathname Proc Process Queue RUBY_COPYRIGHT RUBY_DESCRIPTION RUBY_ENGINE RUBY_ENGINE_VERSION RUBY_PATCHLEVEL RUBY_PLATFORM RUBY_RELEASE_DATE RUBY_REVISION RUBY_VERSION Ractor Random Range RangeError Rational Refinement Regexp RegexpError Ruby RuntimeError STDERR STDIN STDOUT ScriptError SecurityError Set Signal SignalException SizedQueue StandardError StopIteration String Struct Symbol SyntaxError SystemCallError SystemExit SystemStackError TOPLEVEL_BINDING Thread ThreadError ThreadGroup Time TracePoint TrueClass TypeError UnboundMethod UncaughtThrowError UnicodeNormalize Warning ZeroDivisionError
+Object constants: ARGF ARGV ArgumentError Array BasicObject Binding CROSS_COMPILING Class ClosedQueueError Comparable Complex ConditionVariable Data Dir ENV EOFError Encoding EncodingError Enumerable Enumerator Errno Exception FalseClass Fiber FiberError File FileTest Float FloatDomainError FrozenError GC GEMS Hash IO IOError IndexError Integer Interrupt Kernel KeyError LATER LoadError LocalJumpError Marshal MatchData Math Method Module Monitor MonitorMixin Mutex NameError NilClass NoMatchingPatternError NoMatchingPatternKeyError NoMemoryError NoMethodError NotImplementedError Numeric Object ObjectSpace Pathname Proc Process Queue RUBY_COPYRIGHT RUBY_DESCRIPTION RUBY_ENGINE RUBY_ENGINE_VERSION RUBY_PATCHLEVEL RUBY_PLATFORM RUBY_RELEASE_DATE RUBY_REVISION RUBY_VERSION Ractor Random Range RangeError Rational Refinement Regexp RegexpError Ruby RubyVM RuntimeError STDERR STDIN STDOUT ScriptError SecurityError Set Signal SignalException SizedQueue StandardError StopIteration String Struct Symbol SyntaxError SystemCallError SystemExit SystemStackError TOPLEVEL_BINDING Thread ThreadError ThreadGroup Time TracePoint TrueClass TypeError UnboundMethod UncaughtThrowError UnicodeNormalize Warning ZeroDivisionError
 Kernel public: !~ <=> === class clone define_singleton_method display dup enum_for eql? extend freeze frozen? hash inspect instance_of? instance_variable_defined? instance_variable_get instance_variable_set instance_variables is_a? itself kind_of? method methods nil? object_id private_methods protected_methods public_method public_methods public_send remove_instance_variable respond_to? send singleton_class singleton_method singleton_methods tap then to_enum to_s yield_self
 Kernel protected: 
 Kernel private: Array Complex Float Hash Integer Pathname Rational String __callee__ __dir__ __method__ ` abort at_exit autoload autoload? binding block_given? caller caller_locations catch eval exec exit exit! fail fork format gets global_variables initialize_clone initialize_copy initialize_dup instance_variables_to_inspect iterator? lambda load local_variables loop open p pp print printf proc putc puts raise rand readline readlines respond_to_missing? select set_trace_func sleep spawn sprintf srand syscall system test throw trace_var trap untrace_var warn
@@ -415,3 +420,18 @@ Errno::ENOENT protected:
 Errno::ENOENT private: 
 Errno::ENOENT singleton: 
 Errno::ENOENT constants: Errno
+RubyVM public: 
+RubyVM protected: 
+RubyVM private: 
+RubyVM singleton: keep_script_lines keep_script_lines= stat
+RubyVM constants: AbstractSyntaxTree DEFAULT_PARAMS INSTRUCTION_NAMES OPTS YJIT
+RubyVM::AbstractSyntaxTree public: 
+RubyVM::AbstractSyntaxTree protected: 
+RubyVM::AbstractSyntaxTree private: 
+RubyVM::AbstractSyntaxTree singleton: node_id_for_backtrace_location of
+RubyVM::AbstractSyntaxTree constants: 
+RubyVM::YJIT public: 
+RubyVM::YJIT protected: 
+RubyVM::YJIT private: 
+RubyVM::YJIT singleton: code_gc disasm dump_exit_locations enable enabled? exit_locations insns_compiled log log_enabled? reset_stats! runtime_stats simulate_oom! stats_enabled? stats_string trace_exit_locations_enabled?
+RubyVM::YJIT constants: 

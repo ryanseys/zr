@@ -107,7 +107,7 @@ module Ze0
           @l.refuse(node, "Primitive.#{node.name} takes a block literal, not a block pass") if node.block.is_a?(Hir::BlockPass)
           d.params.each { |name, type| @l.refuse(node, "Primitive.#{node.name}'s #{name} is a #{type}, not a Value") unless type == "Value" }
           @l.refuse(node, "Primitive.#{node.name} answers a #{d.ret}, not a Value") unless d.ret == "Value"
-          at_line(node.line)
+          at_node(node)
           staged(node.args, node.block ? 1 : 0) do |_, base|
             args = node.args.each_index.map { |i| @f.fetch("i64", @rec, value_offset(base + i)) }
             if node.block
@@ -176,7 +176,7 @@ module Ze0
         # `using mod` fills the row it names, so every send under it
         # reads what this module refines. It answers the self it ran on.
         def using_row(node)
-          at_line(node.line)
+          at_node(node)
           checked(kernel("zr_using_activate", imm(node.id), expr(node.value), imm(node.from)))
           @self
         end
@@ -202,7 +202,7 @@ module Ze0
         end
 
         def dispatch(node, recv, argv, argc)
-          at_line(node.line)
+          at_node(node)
           argc = keyword_argc(node, argc, argv)
           activate(node)
           if node.opt && node.using.nil?
@@ -225,14 +225,14 @@ module Ze0
         def call_with_block(node, recv, argv, argc, slot)
           if node.block.is_a?(Hir::BlockPass)
             proc = checked(kernel("zr_block_pass", expr(node.block.value)))
-            at_line(node.line)
+            at_node(node)
             argc = keyword_argc(node, argc, argv)
             activate(node)
             return checked(cached_send(node, recv, argc, argv, proc))
           end
 
           site, proc = make_proc(node.block, slot)
-          at_line(node.line)
+          at_node(node)
           argc = keyword_argc(node, argc, argv)
           activate(node)
           catching_break(site) { cached_send(node, recv, argc, argv, proc) }
@@ -281,7 +281,7 @@ module Ze0
         # `define_method` made, where CRuby refuses it.
         def super_call(node)
           if node.in_block
-            at_line(node.line)
+            at_node(node)
             checked(kernel("zr_zsuper_in_block", @rec))
           end
           args = node.args + [node.kwargs].compact
@@ -304,7 +304,7 @@ module Ze0
                   site, proc = make_proc(node.block, block_slot)
                   proc
                 end
-          at_line(node.line)
+          at_node(node)
           argc = keyword_argc(node, argc, argv)
           call = -> { kernel("zr_super", @rec, argc, argv, blk) }
           site ? catching_break(site, &call) : checked(call.call)
@@ -313,7 +313,7 @@ module Ze0
         # A bare `super` the builder could not expand, one with no def
         # around it: the runtime raises for it.
         def zsuper(node)
-          at_line(node.line)
+          at_node(node)
           checked(kernel("zr_zsuper_outside", @rec))
         end
 
@@ -407,7 +407,7 @@ module Ze0
             switch(fast)
             @f.jump(merge, [@f.csel(truthy(v), imm(@l.const("QFALSE")), imm(@l.const("QTRUE")))])
             switch(slow)
-            at_line(node.line)
+            at_node(node)
             @f.jump(merge, [checked(kernel("zr_send", v, imm(sym_id(:!)), imm(0), @f.iadd(slots, imm(8))))])
             switch(merge)
             result

@@ -29,7 +29,7 @@ machine def zr_eval_source_name
   if rec != 0
     zr_buf_push(b, FrameMeta.file(Frame.meta(rec)), FrameMeta.file_len(Frame.meta(rec)))
     zr_buf_byte(b, 58)
-    zr_buf_long(b, Frame.line(rec))
+    zr_buf_long(b, zr_frame_line(rec))
   end
   zr_buf_byte(b, 41)
   zr_buf_take(b)
@@ -146,7 +146,7 @@ machine def zr_binding
   rec = zr_caller_frame()
   b = zr_binding_of(Frame.meta(rec), zr_frame_env(rec), Frame.self(rec), Frame.cref(rec))
   RProc.set_blk(b, Frame.blk(rec))
-  RProc.set_serial(b, Frame.line(rec))
+  RProc.set_serial(b, zr_frame_line(rec))
   b
 end
 

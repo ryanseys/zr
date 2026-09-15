@@ -23,7 +23,7 @@ module Ze0
 
         # `Hir::Trace`: the `:line` event, on the line the statement starts.
         def trace_line(node)
-          at_line(node.line)
+          at_node(node)
           fire(:line) if traced?
           @qnil
         end

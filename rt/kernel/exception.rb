@@ -33,7 +33,8 @@ KIND_EVAL = 9
 # A snippet a box ran, which names itself rather than its caller.
 KIND_COMPILED = 10
 
-Machine.struct :BtRow, meta: Ptr, file: Ptr, file_len: Word, line: Word
+# `node` is the id of the prism node the row's line ran, or 0.
+Machine.struct :BtRow, meta: Ptr, file: Ptr, file_len: Word, line: Word, node: Word
 # `bt` is a backtrace the program set, else nil and the captured rows
 # stand; `cause` is undef until the raise decides it.
 Machine.struct :RException, basic: RBasic, message: Value, rows: Ptr, nrows: Word, bt: Value, cause: Value
@@ -58,6 +59,18 @@ machine def zr_mark_backtrace_rows(exc)
     zr_mark(FrameMeta.owner(BtRow.meta(rows + (i * BtRow.size))))
     i += 1
   end
+end
+
+# A frame's line word holds the line in its low half and the id of the
+# prism node that runs in its high half.
+sig [Ptr] => Word
+machine def zr_frame_line(rec)
+  Frame.line(rec) & 4294967295
+end
+
+sig [Ptr] => Word
+machine def zr_frame_node_id(rec)
+  Frame.line(rec) >> 32
 end
 
 # The nearest frame at or outside `rec` that has a file of its own.
@@ -122,10 +135,12 @@ machine def zr_backtrace_capture(exc, top)
         BtRow.set_file(row, 0)
         BtRow.set_file_len(row, 0)
         BtRow.set_line(row, 0)
+        BtRow.set_node(row, 0)
       else
         BtRow.set_file(row, FrameMeta.file(Frame.meta(source)))
         BtRow.set_file_len(row, FrameMeta.file_len(Frame.meta(source)))
-        BtRow.set_line(row, Frame.line(source))
+        BtRow.set_line(row, zr_frame_line(source))
+        BtRow.set_node(row, zr_frame_node_id(source))
       end
       i += 1
     end
@@ -511,6 +526,46 @@ machine def zr_exc_raise_rows(recv)
   out
 end
 
+# The prism node id of each row the raise recorded, in the order of
+# `zr_exc_raise_rows`, or nil before a raise.
+sig [Value] => Value
+machine def zr_exc_raise_nodes(recv)
+  rows = RException.rows(recv)
+  if rows == 0
+    return Machine.value(QNIL)
+  end
+  n = RException.nrows(recv)
+  out = zr_ary_new(n)
+  i = 0
+  while i < n
+    zr_ary_push(out, zr_fix(BtRow.node(rows + (i * BtRow.size))))
+    i += 1
+  end
+  out
+end
+
+# The prism node id of each row `caller(start, limit)` would answer for
+# the frame that asks, which is the Ruby method calling this primitive.
+sig [Value, Value] => Value
+machine def zr_caller_nodes(start, limit)
+  skip = zr_fix2long(start)
+  room = limit == QNIL ? 0 - 1 : zr_fix2long(limit)
+  out = zr_ary_new(8)
+  rec = Task.top(zr_task())
+  while rec != 0 && (room < 0 || RArray.len(out) < room)
+    if zr_frame_shown_p(rec)
+      if skip > 0
+        skip -= 1
+      else
+        source = zr_frame_with_file(rec)
+        zr_ary_push(out, zr_fix(source == 0 ? 0 : zr_frame_node_id(source)))
+      end
+    end
+    rec = Frame.prev(rec)
+  end
+  out
+end
+
 # The class of an error no rescue sees by name: a deadlock.
 G_FATAL = 41
 
@@ -672,7 +727,7 @@ machine def zr_buf_frame(b, rec)
   if source != 0
     zr_buf_push(b, FrameMeta.file(Frame.meta(source)), FrameMeta.file_len(Frame.meta(source)))
     zr_buf_byte(b, 58)
-    zr_buf_long(b, Frame.line(source))
+    zr_buf_long(b, zr_frame_line(source))
   end
   zr_buf_push(b, Machine.bytes(":in '"), 5)
   zr_buf_label(b, zr_frame_label_meta(rec))

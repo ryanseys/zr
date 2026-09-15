@@ -243,7 +243,7 @@ machine def zr_const_set(klass, id, v)
   else
     CEntry.set_file(e, FrameMeta.file(Frame.meta(top)))
     CEntry.set_file_len(e, FrameMeta.file_len(Frame.meta(top)))
-    CEntry.set_line(e, Frame.line(top))
+    CEntry.set_line(e, zr_frame_line(top))
   end
   if top != 0 && zr_find_method(zr_class_of(klass), Machine.id(:const_added)) != 0
     r = zr_hook(klass, Machine.id(:const_added), zr_sym(id))

@@ -42,6 +42,11 @@ module Ze0
 
       attr_reader :program, :unit, :symbols, :data, :functions, :file, :warnings
 
+      # The id of the prism node `node` came from, or 0.
+      def node_id(node)
+        @program.node_ids&.[](node) || 0
+      end
+
       # Whether the program names TracePoint, so its own code fires events.
       def traced?
         @program.traced ? true : false

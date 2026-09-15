@@ -38,7 +38,7 @@ module Ze0
           when :gvar then truth(kernel("zr_gvar_defined", imm(sym_id(node.target))))
           when :backref then @f.icmp("ne", expr(node.target), @qnil)
           when :cvar
-            at_line(node.line)
+            at_node(node)
             truth(checked(kernel("zr_cvar_defined", @cref, imm(sym_id(node.target)))))
           when :const then const_defined(node.target)
           when :method, :attrasgn then method_defined(node.target)
