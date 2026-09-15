@@ -1027,6 +1027,9 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   # ruby keeps it: `instance_methods` shows it in the place it was first
   # defined, and a later `remove_method` leaves nothing behind.
   e = zr_find_method_at(klass, mid)
+  if e != 0
+    zr_warn_redefined(ext, mid, e, fn, kind, meta, cref)
+  end
   if !core
     zr_save_core_row(ext, e)
   end
@@ -1060,6 +1063,56 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   MEntry.set_from(e, Machine.value(QNIL))
   MEntry.set_core(e, core ? 1 : 0)
   zr_gates_recheck(mid)
+end
+
+# `method redefined; discarding old m`, where rb_method_entry_make warns:
+# under `$VERBOSE` true, for a definition over a row that is no undef,
+# no alias, no copy a visibility verb made on an ancestor's method, and
+# not aliased itself. A method written in Ruby says where it was. The
+# runtime's own definitions are not the program's, and say nothing.
+sig [Ptr, Word, Ptr, Ptr, Word, Ptr, Value] => Void
+machine def zr_warn_redefined(ext, mid, e, fn, kind, meta, cref)
+  if zr_gvar_get(Machine.id(:$VERBOSE)) != QTRUE || !zr_program_started_p() || Task.top(zr_task()) == 0
+    return
+  end
+  if kind == KIND_UNDEF || MEntry.kind(e) == KIND_UNDEF || MEntry.orig(e) != mid || MEntry.from(e) != QNIL || zr_entry_hidden_p(e)
+    return
+  end
+  # The same definition again, as `alias_method :m, :m` or a second
+  # `module_function :m` writes it: the same body, or the same Proc.
+  if MEntry.kind(e) == kind && (kind == KIND_BMETHOD ? MEntry.cref(e) == cref : MEntry.fn(e) == fn && kind != KIND_ATTR_READER && kind != KIND_ATTR_WRITER)
+    return
+  end
+  if zr_internal_meta_p(meta) && kind != KIND_ATTR_READER && kind != KIND_ATTR_WRITER
+    return
+  end
+  if MEntry.fn(e) == 0 && MEntry.kind(e) != KIND_BMETHOD && MEntry.kind(e) != KIND_ATTR_READER && MEntry.kind(e) != KIND_ATTR_WRITER
+    return
+  end
+  i = 0
+  while i < ClassExt.mlen(ext)
+    row = ClassExt.mtab(ext) + (i * MEntry.size)
+    if row != e && MEntry.orig(row) == mid && MEntry.mid(row) != mid && MEntry.kind(row) != KIND_UNDEF
+      return
+    end
+    i += 1
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, Machine.bytes("method redefined; discarding old "), 33)
+  zr_buf_sym(b, mid)
+  old = MEntry.meta(e)
+  if (MEntry.kind(e) == KIND_DEF || MEntry.kind(e) == KIND_BMETHOD) && old != 0 && FrameMeta.file_len(old) > 0
+    zr_buf_byte(b, 10)
+    zr_buf_push(b, FrameMeta.file(old), FrameMeta.file_len(old))
+    zr_buf_byte(b, 58)
+    zr_buf_long(b, FrameMeta.line(old))
+    zr_buf_push(b, Machine.bytes(": warning: previous definition of "), 34)
+    zr_buf_sym(b, mid)
+    zr_buf_push(b, Machine.bytes(" was here"), 9)
+  end
+  zr_warn_here(Buf.ptr(b), Buf.len(b))
+  free(Buf.ptr(b))
 end
 
 # Whether the program has started: the core library's own definitions

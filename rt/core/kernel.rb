@@ -620,6 +620,9 @@ module Kernel
     end
     objects.size <= 1 ? objects[0] : objects
   end
+  # CRuby's prelude aliases pp to itself, so pp.rb's definition over it
+  # warns of no redefinition.
+  alias pp pp
 
   def Hash(value)
     return {} if value.nil? || (value.is_a?(Array) && value.empty?)
