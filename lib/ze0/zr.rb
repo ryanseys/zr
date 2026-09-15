@@ -31,10 +31,11 @@ module Ze0
 
     # The kernel and the core library, lowered once per process, and as
     # little of them as a build needs: a program's lowering reads the
-    # kernel unit and the symbol table; only a build with no cached
-    # runtime object reads the core's functions and data.
+    # kernel's description and the symbol table, both from the cache;
+    # only a build with no cached runtime object lowers the kernel and
+    # the core.
     class Runtime
-      attr_reader :unit, :target
+      attr_reader :target
 
       # Every source is read once, here: the digest covers the bytes the
       # kernel and the core were lowered from, never a later edit of
@@ -43,9 +44,20 @@ module Ze0
       def initialize(target = Target.default)
         @target = target
         @sources = Zr.sources(target).to_h { |path| [path, File.read(path)] }
-        @unit = Ze0.clock("kernel lowered") do
+      end
+
+      # The kernel, lowered: what the core's lowering and the runtime
+      # object need, and nothing a program's own lowering does.
+      def unit
+        @unit ||= Ze0.clock("kernel lowered") do
           Machine::Lower.new(Zr.kernel_files(target).map { |path| [@sources.fetch(path), path] }, kernel_symbols).tap(&:run)
         end
+      end
+
+      # The kernel's defs, constants and layouts, which is all a program's
+      # lowering asks of it: from the cache, or from the unit.
+      def description
+        @description ||= Machine::Description.parse(cached.fetch(:description))
       end
 
       def raw = unit.raw
@@ -103,25 +115,35 @@ module Ze0
         @kernel_symbols ||= Machine::Symbols.new
       end
 
-      # The symbol table and the wanted symbols, read from the cache or
-      # found by lowering the core and then cached.
+      # The symbol table, the wanted symbols and the kernel's description,
+      # read from the cache or found by lowering the kernel and the core
+      # and then cached. A file missing any row is a miss, never a guess.
       def cached
-        @cached ||= begin
-          path = File.join(CACHE, "symbols-#{digest}.json")
-          if File.exist?(path)
-            rows = JSON.parse(File.read(path))
-            { symbols: Machine::Symbols.new(rows.fetch("names"), sites: rows.fetch("sites")),
-              wants: { functions: rows.fetch("functions"), data: rows.fetch("data") } }
-          else
-            lowered
-            defined = functions.map(&:name)
-            wanted_functions = (functions.flat_map { |f| f.callees.map(&:symbol) }.uniq - defined).sort
-            wanted_data = (functions.flat_map { |f| f.globals.reject(&:colocated).map(&:symbol) }.uniq - data.map(&:name)).sort
-            Zr.write_cache(path, JSON.generate({ "names" => kernel_symbols.ids.keys, "sites" => kernel_symbols.sites,
-                                                 "functions" => wanted_functions, "data" => wanted_data }))
-            { symbols: kernel_symbols, wants: { functions: wanted_functions, data: wanted_data } }
-          end
-        end
+        @cached ||= read_cached || write_cached
+      end
+
+      def read_cached
+        path = File.join(CACHE, "symbols-#{digest}.json")
+        return unless File.exist?(path)
+
+        rows = JSON.parse(File.read(path))
+        return unless %w[names sites functions data description].all? { |key| rows.key?(key) }
+
+        { symbols: Machine::Symbols.new(rows.fetch("names"), sites: rows.fetch("sites")),
+          wants: { functions: rows.fetch("functions"), data: rows.fetch("data") },
+          description: rows.fetch("description") }
+      end
+
+      def write_cached
+        lowered
+        defined = functions.map(&:name)
+        wanted_functions = (functions.flat_map { |f| f.callees.map(&:symbol) }.uniq - defined).sort
+        wanted_data = (functions.flat_map { |f| f.globals.reject(&:colocated).map(&:symbol) }.uniq - data.map(&:name)).sort
+        description = Machine::Description.of(unit).to_text
+        Zr.write_cache(File.join(CACHE, "symbols-#{digest}.json"),
+                       JSON.generate({ "names" => kernel_symbols.ids.keys, "sites" => kernel_symbols.sites,
+                                       "functions" => wanted_functions, "data" => wanted_data, "description" => description }))
+        { symbols: kernel_symbols, wants: { functions: wanted_functions, data: wanted_data }, description: description }
       end
 
       # The core library's `[functions, data]`, lowered over the kernel.
@@ -193,7 +215,7 @@ module Ze0
           loader = Hir::Build.road(target)
           program = Hir::Program.new(Hir::Build::EVAL_ROAD, [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
           symbols = Machine::Symbols.new(@runtime.symbols.ids.keys, sites: @runtime.symbols.sites)
-          lower = Lower.new(program, @runtime.unit, symbols, entry: "zr_road")
+          lower = Lower.new(program, @runtime.description, symbols, entry: "zr_road")
           functions, data = lower.run
           files = loader.units.filter_map { |u| u.file if u.file.start_with?("/") }.uniq.sort
           meta = { "key" => files_key(files), "files" => files,
@@ -216,7 +238,7 @@ module Ze0
       carried = road(target)
       hir = Ze0.clock("hir built") { Hir.build(source, file, road: carried, target: target) }
       symbols = hir.evals ? carried.symbols : Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
-      lower = Lower.new(hir, rt.unit, symbols)
+      lower = Lower.new(hir, rt.description, symbols)
       functions, data = Ze0.clock(finish ? "program lowered and assembled" : "program lowered") do
         finish ? lower.run { |f| finish.call(f, lower.entry) } : lower.run
       end
