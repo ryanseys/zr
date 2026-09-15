@@ -147,8 +147,21 @@ module Ze0
           end
           live = Array.new(@f.blocks.size)
           before = predecessors
+          # A value the entry block makes -- every constant is one -- is
+          # live through every block that runs into a block reading it, so
+          # its interval ends where the latest of those does, which one
+          # pass over the blocks answers for all of them at once. A walk a
+          # value was blocks times constants of time.
+          entry = @order.fetch(@f.entry_block.name)
+          latest = before[entry].empty? && away.any? && latest_before(before, entry)
           away.each_with_index do |blocks, v|
-            blocks&.each { |bi| live_into(bi, v, from, to, live, before) }
+            next unless blocks
+
+            if latest && @defined_in[v] == entry
+              blocks.each { |bi| reach(from, to, v, latest[bi]) }
+            else
+              blocks.each { |bi| live_into(bi, v, from, to, live, before) }
+            end
           end
           # By start, then by end, then by the value's own number. Ruby's
           # sort is not a stable one, so without that last term which of
@@ -191,6 +204,32 @@ module Ze0
               work << p
             end
           end
+        end
+
+        # For each block, the last point of the latest block that runs into
+        # it or into any block that runs into it, the entry block's own
+        # predecessors aside: how far a value made in the entry block and
+        # read there stays live. A loop raises a block's answer after its
+        # successors have read it, so the pass repeats until nothing moves,
+        # which is once more than the deepest nest of back edges.
+        def latest_before(before, entry)
+          latest = Array.new(@f.blocks.size, -1)
+          moved = true
+          while moved
+            moved = false
+            before.each_with_index do |ps, b|
+              best = latest[b]
+              ps.each do |p|
+                best = @last[p] if @last[p] > best
+                best = latest[p] if p != entry && latest[p] > best
+              end
+              next if best == latest[b]
+
+              latest[b] = best
+              moved = true
+            end
+          end
+          latest
         end
 
         # `v` reaches `point`, so its interval holds it.
