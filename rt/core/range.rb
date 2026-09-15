@@ -332,11 +332,25 @@ class Range
 
   # Whether some value lies in both ranges; an empty range overlaps
   # nothing.
+  # range_overlap, over both ranges' own bounds: a subclass's begin and
+  # end are not called.
   def overlap?(other)
     raise TypeError, "wrong argument type #{conversion_name(other)} (expected Range)" unless other.is_a?(Range)
-    return false if empty_range? || other.send(:empty_range?)
 
-    !(before?(self, other) || before?(other, self))
+    other_begin, other_end, other_excl = other.send(:bounds)
+    return false if empty_region?(@begin, other_end, other_excl)
+    return false if empty_region?(other_begin, @end, @excl)
+
+    if !@begin.nil? && !other_begin.nil?
+      c = @begin <=> other_begin
+      return false if c.nil?
+      return true if c.is_a?(Integer) ? c.zero? : !(c > 0) && !(c < 0)
+    elsif @begin.nil? && !@end.nil? && other_begin.nil? && !other_end.nil?
+      return !(@end <=> other_end).nil?
+    end
+    return false if empty_region?(@begin, @end, @excl)
+
+    !empty_region?(other_begin, other_end, other_excl)
   end
 
   def bsearch(&block)
@@ -415,21 +429,18 @@ class Range
     c.nil? ? 2**31 : c
   end
 
-  def empty_range?
+  def bounds
     Primitive.attr! :hidden
-    return false if @begin.nil? || @end.nil?
-
-    c = @begin <=> @end
-    c.nil? || c > 0 || (c == 0 && @excl)
+    [@begin, @end, @excl]
   end
 
-  # Whether every value of `a` comes before every value of `b`.
-  def before?(a, b)
+  # empty_region_p: no value lies from `low` to `high`.
+  def empty_region?(low, high, excl)
     Primitive.attr! :hidden
-    return false if a.end.nil? || b.begin.nil?
+    return false if low.nil? || high.nil?
 
-    c = a.end <=> b.begin
-    c < 0 || (c == 0 && a.exclude_end?)
+    less = range_less(low, high)
+    less > 0 || (excl && less == 0)
   end
 
   def bsearch_hit?(answer)
