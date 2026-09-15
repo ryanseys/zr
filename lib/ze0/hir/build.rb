@@ -63,6 +63,7 @@ module Ze0
         preludes = []
         preludes << rbconfig(loader) if road && loader.configures?
         preludes << eval_road(loader) if road && loader.evals?
+        preludes.concat(rubygems(loader)) if road && loader.gems?
         preludes << normalizer(loader) if road && loader.normalizes?
         preludes << pretty_printer(loader) if road && loader.pretty_prints?
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
@@ -74,7 +75,23 @@ module Ze0
       # built them, and its flags say what a program that carries them
       # needs beside them.
       def self.road(target = Target.default)
-        Loader.new(stdlib(target)).tap { |loader| eval_road(loader) }
+        Loader.new(stdlib(target)).tap do |loader|
+          eval_road(loader)
+          rubygems(loader)
+        end
+      end
+
+      # rubygems and bundled_gems, which ruby loads before a program's
+      # first line. A program here loads them as it boots when a file of
+      # it names Gem or Bundler, calls `gem` or requires rubygems; the
+      # compiler it carries then holds them already.
+      RUBYGEMS = %w[rubygems bundled_gems].map { |name| File.join(VENDOR, "#{name}.rb") }.freeze
+      AHEAD = [File.join(VENDOR, "rubygems"), *RUBYGEMS].freeze
+      # The files rubygems' autoloads name that its boot reads.
+      BOOTED = %w[dependency path_support requirement util version].map { |name| File.join(VENDOR, "rubygems/#{name}.rb") }.freeze
+
+      def self.rubygems(loader)
+        RUBYGEMS.map { |path| Require.new(:require, File.basename(path, ".rb"), path, loader.add(path), 0) }
       end
 
       # The file that arms String#unicode_normalize's load of ruby's own
@@ -131,10 +148,17 @@ module Ze0
         # for an error this runtime spots another way.
         # `preloaded` are the features a require answers false for, which
         # the gem prelude's own build loads.
-        def initialize(roots, eval: false, external: nil, trace: false, deferred: [], preloaded: PRELOADED)
+        # `ahead` names the files that load at boot only what they run
+        # there: in one, a require inside a method waits for the run, which
+        # finds the file then and compiles it, and so does an autoload of
+        # a file outside `booted`, the files the boot reads.
+        def initialize(roots, eval: false, external: nil, trace: false, deferred: [], preloaded: PRELOADED, ahead: AHEAD, booted: BOOTED)
           @deferred = deferred
           @preloaded = preloaded
+          @ahead = ahead
+          @booted = booted
           @node_ids = {}.compare_by_identity
+          @gems = false
           @eval = eval
           @trace = trace
           @traces = false
@@ -176,6 +200,10 @@ module Ze0
         def evals? = @evals
 
         def deferred?(feature) = @deferred.include?(feature)
+
+        def ahead?(file) = @ahead.any? { |dir| file.start_with?(dir) }
+
+        def booted?(path) = @booted.include?(path)
 
         attr_reader :preloaded
 
@@ -275,6 +303,20 @@ module Ze0
         # everything a box holds goes through the compiler.
         def boxes!(name)
           @evals = true if name == :Ruby
+        end
+
+        # Whether a file names rubygems' API, which then loads as the
+        # program boots, as ruby loads it for every program.
+        def gems? = @gems
+        GEM_NAMES = %i[Gem Bundler].freeze
+
+        # rubygems evals as it loads, so a program that carries it carries
+        # the compiler.
+        def gems!(name)
+          return unless GEM_NAMES.include?(name)
+
+          @gems = true
+          @evals = true
         end
 
         # A program that names one of these carries ruby's normalize.rb,
@@ -970,8 +1012,10 @@ module Ze0
           end
         when Prism::ConstantReadNode
           @loader&.boxes!(node.name)
+          gems!(node.name)
           ConstRead.new(nil, node.name, line)
         when Prism::ConstantPathNode
+          gems!(node.name) if node.parent.nil?
           scope, name = constant_path(node)
           ConstRead.new(scope, name, line)
         when Prism::ConstantWriteNode then ConstWrite.new(nil, node.name, expr(node.value), line)
@@ -1389,6 +1433,12 @@ module Ze0
         relative_in_file(node, send)
       end
 
+      # A file of the program names rubygems' API; rubygems' own files and
+      # the runtime's do not count.
+      def gems!(name)
+        @loader.gems!(name) if @loader && !@loader.ahead?(@file) && !Build.runtime_file?(@file)
+      end
+
       # `Primitive.attr! :ruby`, `:hidden` or `:ivars` standing in a class
       # body of the core library: every def after it in that body takes the
       # mark, as though each began with it. `:ruby` marks methods CRuby
@@ -1426,6 +1476,7 @@ module Ze0
         args, kwargs, forwarded = arguments(node.arguments)
         kernel = compiles && (node.receiver.nil? || (node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Kernel))
         @loader.evals!(node.name, args, kernel: kernel)
+        gems!(:Gem) if node.name == :gem && node.receiver.nil?
         @loader.load_path_changed!(node, @file)
         @loader.normalizes!(node.name, args)
         # The inline `[]`, `[]=` and `<<` check visibility as an explicit
@@ -1498,12 +1549,17 @@ module Ze0
       def require_node(node)
         line = node.location.start_line
         feature = literal_feature(node)
+        if node.name == :require && %w[rubygems bundled_gems].include?(feature.to_s.delete_suffix(".rb")) && !@loader.ahead?(@file) && !Build.runtime_file?(@file)
+          # The prelude loaded rubygems as the program booted.
+          gems!(:Gem)
+          return Literal.new(false, line)
+        end
         if node.name == :require && preloaded?(feature)
           @loader.configures! if feature.to_s.delete_suffix(".rb") == "rbconfig"
           return Literal.new(false, line)
         end
 
-        return plain_call(node, compiles: false) if @loader.deferred?(feature)
+        return plain_call(node, compiles: false) if @loader.deferred?(feature) || (@in_def && @loader.ahead?(@file))
 
         path = @loader.resolve(node.name, feature, @file)
         stop = path.nil? && node.name != :require_relative && stop_for(node, feature)
@@ -1540,6 +1596,10 @@ module Ze0
         name_node, path_node = node.arguments.arguments
         feature = path_node.is_a?(Prism::StringNode) ? path_node.unescaped : @loader.literal_path(path_node, @file)
         path = @loader.resolve(:require, feature, @file)
+        # An autoload the gem prelude's boot does not read leaves its file
+        # to the program that reads the constant.
+        return Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, path || feature, path || feature, nil, line, false) if path && @loader.ahead?(@file) && !@loader.booted?(path)
+
         stop = path.nil? && stop_for(node, feature)
         unit = stop ? @loader.stop_unit(stop.what, line) : (path && @loader.add(path))
         # No root holds the file: the first read requires the feature

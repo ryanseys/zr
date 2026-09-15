@@ -13,6 +13,55 @@ require "psych/syntax_error"
 module Psych
   def self.libyaml_version = [0, 2, 5]
 
+  # psych_to_ruby.c's two methods.
+  class ClassLoader
+    private
+
+    # rb_path_to_class: each segment a constant the module before it
+    # holds itself, from Object on; the refusal names the path as far as
+    # it read.
+    def path2class(path)
+      raise ArgumentError, "invalid class path encoding (non ASCII)" unless path.encoding.ascii_compatible?
+      raise ArgumentError, "can't retrieve anonymous class #{path}" if path.empty? || path.start_with?("#")
+
+      mod = Object
+      read = 0
+      until read >= path.bytesize
+        colon = path.byteindex(":", read) || path.bytesize
+        name = path.byteslice(read, colon - read)
+        read = colon
+        if read < path.bytesize
+          raise ArgumentError, "undefined class/module #{path.byteslice(0, read)}" unless path.byteslice(read, 2) == "::"
+
+          read += 2
+        end
+        unless /\A[A-Z]\w*\z/.match?(name) && mod.const_defined?(name, false)
+          raise ArgumentError, "undefined class/module #{path.byteslice(0, read)}"
+        end
+
+        mod = mod.const_get(name, false)
+        raise TypeError, "#{path} does not refer to class/module" unless mod.is_a?(Module)
+      end
+      mod
+    end
+  end
+
+  module Visitors
+    class Visitor; end
+
+    class ToRuby < Visitor
+      private
+
+      # An exception of `klass` that no initialize ran for, holding
+      # `message`.
+      def build_exception(klass, message)
+        exception = klass.allocate
+        Primitive.zr_exc_set_message(exception, message)
+        exception
+      end
+    end
+  end
+
   # Reads a YAML stream and calls the handler for every event in it.
   # The events are libyaml's, so a tree builder, an emitter or a gem's
   # own handler all see what they see under CRuby.

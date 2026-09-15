@@ -1,6 +1,5 @@
 gaps/openssl_digest.rb	aot/openssl_digest.rb
 gaps/a_platform_guard_decides_at_build_time.rb	compiler/guards/a_platform_guard_decides_at_build_time.rb
-gaps/a_version_gate_compares_by_version_not_by_string.rb	compiler/guards/a_version_gate_compares_by_version_not_by_string.rb
 gaps/io_buffer.rb	core/io/io_buffer.rb
 gaps/a_computed_require_loads_a_bundled_library.rb	core/kernel/a_computed_require_loads_a_bundled_library.rb
 gaps/an_iseq_label_names_the_block_it_came_from.rb	core/rubyvm/an_iseq_label_names_the_block_it_came_from.rb
@@ -15,13 +14,7 @@ gaps/the_ast_translator_answers_unknown_for_some_shapes.rb	lang/control/the_ast_
 gaps/a_singleton_def_labels_its_frame_after_the_method.rb	lang/methods/a_singleton_def_labels_its_frame_after_the_method.rb
 gaps/the_ast_translator_builds_splat_lists_like_parse_y.rb	lang/methods/the_ast_translator_builds_splat_lists_like_parse_y.rb
 gaps/fiddle.rb	lang/programs/fiddle.rb
-gaps/a_gemspec_loads_from_yaml.rb	milestones/a_gemspec_loads_from_yaml.rb
 gaps/an_rspec_suite_runs.rb	milestones/an_rspec_suite_runs.rb
-gaps/bundler_registers_its_thor_commands.rb	milestones/bundler_registers_its_thor_commands.rb
-gaps/require_bundler.rb	milestones/require_bundler.rb
-gaps/require_rubygems.rb	milestones/require_rubygems.rb
-gaps/require_rubygems_under_a_guard.rb	milestones/require_rubygems_under_a_guard.rb
-gaps/rubygems_then_bundler.rb	milestones/rubygems_then_bundler.rb
 gaps/coverage.rb	stdlib/coverage/coverage.rb
 gaps/yaml_date_time_scalars_are_gated.rb	stdlib/date/yaml_date_time_scalars_are_gated.rb
 gaps/yaml_dump_styles.rb	stdlib/date/yaml_dump_styles.rb
@@ -45,4 +38,3 @@ gaps/yaml_loads_and_entropy_draws_run_concurrently_under_the_armed_gvl.rb	stdlib
 gaps/yaml_ruby_object_revival.rb	stdlib/ostruct/yaml_ruby_object_revival.rb
 gaps/issue_set_trace_func_missing.rb	stdlib/set/issue_set_trace_func_missing.rb
 gaps/psych_syntax_error_carries_marks.rb	stdlib/yaml/psych_syntax_error_carries_marks.rb
-gaps/bundler_resolves_a_gemfile.rb	milestones/bundler_resolves_a_gemfile.rb

@@ -59,7 +59,7 @@ module Ze0
           path = File.join(CACHE, "gem-prelude-#{digest_of(Zr.sources(target))}.json")
           files = JSON.parse(File.read(path)) if File.exist?(path)
           unless files&.all? { |file| File.file?(file) }
-            files = [GEM_PRELUDE, *Zr.gem_prelude(target).units.map(&:file)].uniq.sort
+            files = [GEM_PRELUDE, *Zr.gem_prelude(target).units.map(&:file).select { |file| File.file?(file) }].uniq.sort
             Zr.write_cache(path, JSON.generate(files))
           end
           files
@@ -151,6 +151,7 @@ module Ze0
       def configures? = meta.fetch("configures")
       def normalizes? = meta.fetch("normalizes")
       def pretty_prints? = meta.fetch("pretty_prints")
+      def gems? = meta.fetch("gems")
 
       # A fresh table to lower a program over, which goes on from the
       # road's.
@@ -189,7 +190,7 @@ module Ze0
           files = loader.units.filter_map { |u| u.file if u.file.start_with?("/") }.uniq.sort
           meta = { "key" => files_key(files), "files" => files,
                    "units" => loader.entries.to_h { |path, i| [path, lower.unit_entry(i)] },
-                   "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?,
+                   "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?, "gems" => loader.gems?,
                    "names" => symbols.ids.keys, "sites" => symbols.sites }
           Zr.write_cache(meta_path, JSON.generate(meta))
           { functions: functions, data: data, meta: meta }
@@ -285,6 +286,7 @@ module Ze0
     # spots stand in for, and syntax_suggest's search, which only a
     # program that carries the compiler can meet a SyntaxError for.
     DEFERRED = %w[prism syntax_suggest/api].freeze
+
 
     # A wasm32 module has no regexp engine, which those libraries and
     # rbconfig reach for as they load, so it carries none of them.

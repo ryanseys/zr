@@ -1,5 +1,7 @@
 # The pure-ruby stdlib, copied from ruby 4.0.6 and never edited. A file
 # that does not run names a runtime feature we owe, not a file to change.
+bundled_gems ruby-4.0.6
+bundler 4.0.20 (the site_ruby the pinned ruby carries)
 delegate 0.6.1
 did_you_mean 2.0.3
 english 0.8.1
@@ -18,6 +20,7 @@ optparse 0.8.1
 pp 0.6.3
 prettyprint 0.2.0
 resolv 0.7.0
+rubygems 4.0.20 (the site_ruby the pinned ruby carries)
 securerandom 0.4.1
 shellwords 0.2.2
 singleton 0.3.0

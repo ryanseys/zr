@@ -39,6 +39,8 @@ texts are in `vendor/lib/LICENSES/`.
 | rexml, rss | BSD-2-Clause | `rexml-LICENSE.txt`, `rss-LICENSE.txt` |
 | test-unit | Ruby, BSD-2-Clause, or PSFL (parts) | `test-unit-COPYING`, `test-unit-PSFL` |
 | reline (parts from rb-readline) | Ruby, and BSD-3-Clause for the rb-readline parts | `reline-license_of_rb-readline` |
+| rubygems | Ruby or MIT | `COPYING`, `rubygems-MIT.txt` |
+| bundler | MIT | `bundler-LICENSE.md` |
 | did_you_mean | MIT | `did_you_mean-LICENSE.txt` |
 | error_highlight | MIT | `error_highlight-LICENSE.txt` |
 | syntax_suggest | MIT | `syntax_suggest-LICENSE` |

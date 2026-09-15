@@ -1312,6 +1312,7 @@ module Ze0
         d zr_str_concat_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_bytes_cmp Word a:Ptr alen:Word b:Ptr blen:Word
         d zr_str_cmp Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_str_cmp_other Value recv:Value other:Value
         d zr_str_comparable Bool a:Value b:Value
         d zr_str_ascii_only Bool s:Value
         d zr_str_ascii_only_m Value s:Value

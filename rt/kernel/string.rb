@@ -647,7 +647,7 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_cmp(recv, argc, argv, cref, blk)
   other = Machine.value(Machine.load64(argv, 0))
   if zr_special_p(other) || zr_type(other) != T_STRING
-    return Machine.value(QNIL)
+    return zr_str_cmp_other(recv, other)
   end
   r = zr_bytes_cmp(RString.ptr(recv), RString.len(recv), RString.ptr(other), RString.len(other))
   if r != 0 || zr_str_comparable(recv, other)
@@ -656,6 +656,30 @@ machine def zr_str_cmp(recv, argc, argv, cref, blk)
   a = zr_str_encoding_index(recv)
   b = zr_str_encoding_index(other)
   zr_fix(a < b ? 0 - 1 : 1)
+end
+
+# rb_str_cmp_m for an operand that is no String: what its `to_str`
+# answers compares, else the operand's own `<=>` with the receiver,
+# turned round, as rb_invcmp asks it.
+sig [Value, Value] => Value
+machine def zr_str_cmp_other(recv, other)
+  slot = Machine.slot(8)
+  if !zr_special_p(other) && zr_find_method(zr_class_of(other), Machine.id(:to_str)) != 0
+    s = zr_send(other, Machine.id(:to_str), 0, 0)
+    return s if s == QUNDEF
+    if !zr_special_p(s) && zr_type(s) == T_STRING
+      Machine.store64(slot, 0, Machine.word(s))
+      return zr_str_cmp(recv, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
+    end
+  end
+  Machine.store64(slot, 0, Machine.word(recv))
+  r = zr_send(other, Machine.id(:<=>), 1, slot)
+  if r == QUNDEF || r == QNIL
+    return r
+  end
+  sign = zr_cmpint(r, other, recv)
+  return sign if sign == QUNDEF
+  zr_fix(0 - zr_fix2long(sign))
 end
 
 # Two strings compare only when they hold one encoding, or when both
