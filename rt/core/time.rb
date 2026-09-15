@@ -68,6 +68,10 @@ class Time
 
     private
 
+    # Helpers CRuby writes in C: no backtrace row and no method a
+    # program can list.
+    Primitive.attr! :hidden
+
     def at_ns(ns, zone)
       t = allocate
       t.send(:set, ns, zone.nil? ? :local : parse_zone(zone))
@@ -189,7 +193,7 @@ class Time
       raise ArgumentError, "can't parse: #{str.inspect}" if digits.zero?
       raise ArgumentError, "year must be 4 or more digits: #{str[start, digits]}" if digits < 4
 
-      [Integer(str[0, start + digits]), start + digits]
+      [Integer(str[0, start + digits], 10), start + digits]
     end
 
     # What follows the year: `-mm-dd`, then `hh:mm:ss` and a fraction.
@@ -231,7 +235,7 @@ class Time
         raise ArgumentError, "two digits #{name} is expected#{after}: #{str[pos - 1, 11]}"
       end
 
-      Integer(str[pos, 2])
+      Integer(str[pos, 2], 10)
     end
 
     # Only the second takes a fraction.
@@ -250,7 +254,7 @@ class Time
       digits += 1 while digits < precision && digit?(str[pos + digits])
       raise ArgumentError, "subsecond expected after dot: #{str[clock, pos - clock + (str[pos].nil? ? 0 : 1)]}" if digits.zero?
 
-      value = Integer(str[pos, digits])
+      value = Integer(str[pos, digits], 10)
       pos += digits
       pos += 1 while digit?(str[pos])
       [Rational(value, 10**digits), pos]
@@ -923,6 +927,7 @@ class Time
     private
 
     def iso_weeks_in(year)
+      Primitive.attr! :hidden
       jan1 = (days_from_civil(year, 1, 1) + 4) % 7
       leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
       jan1 == 4 || (leap && jan1 == 3) ? 53 : 52
@@ -1031,6 +1036,7 @@ class Time
   # The year the tail names: its distance below 1900, or above the
   # highest year the word can hold.
   def self.extended_year(year, tail)
+    Primitive.attr! :hidden
     size, rest = Marshal.send(:read_long_bytes, tail)
     raise TypeError, "marshaled time format differ" if size < 0 || size > rest.bytesize
 
@@ -1042,6 +1048,7 @@ class Time
   # The nanoseconds under a microsecond: the exact pair where the dump
   # carries one, else the digits ruby 1.9.1 wrote.
   def self.sub_nanoseconds(extras)
+    Primitive.attr! :hidden
     return Rational(extras[:nano_num], extras[:nano_den] || 1) if extras[:nano_num]
 
     digits = extras[:submicro]
