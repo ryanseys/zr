@@ -26,6 +26,7 @@ module Ze0
         Forward.run(f)
         Fold.run(f)
         Chains.run(f)
+        Blocks.run(f)
         DCE.run(f)
         f
       end
@@ -392,6 +393,110 @@ module Ze0
           # Only what the chain alone reads may move: a value read once
           # is read by the chain, since its reader is in it.
           b.insts.first(stop).select { |i| moved.key?(i.object_id) }
+        end
+      end
+
+      # The blocks: one the entry does not reach goes; one that only
+      # jumps on, taking nothing, is jumped past; one with a single
+      # predecessor whose only successor it is joins that predecessor,
+      # its parameters standing for the arguments the jump carried. Each
+      # round can make the next one's work, so the rounds go on until
+      # nothing moves. The entry block stays first and is never joined.
+      class Blocks
+        def self.run(f) = new(f).run
+
+        def initialize(f)
+          @f = f
+          @rename = {}
+        end
+
+        def run
+          loop { break unless unreachable | bypass | merge }
+          return @f if @rename.empty?
+
+          @f.blocks.each do |b|
+            b.insts.each do |i|
+              i.args.map! { |a| resolve(a) }
+              i.targets&.each { |(_, args)| args.map! { |a| resolve(a) } }
+            end
+          end
+          @f
+        end
+
+        private
+
+        def resolve(v)
+          v = @rename[v] while @rename.key?(v)
+          v
+        end
+
+        def by_name = @f.blocks.to_h { |b| [b.name, b] }
+
+        def successors(b) = (b.insts.last&.targets || []).map(&:first)
+
+        # `{ name => [[block, k], ...] }`: each edge into a block, as the
+        # predecessor and which of its targets.
+        def edges
+          into = Hash.new { |h, k| h[k] = [] }
+          @f.blocks.each do |b|
+            b.insts.last&.targets&.each_with_index { |(name, _), k| into[name] << [b, k] }
+          end
+          into
+        end
+
+        def unreachable
+          named = by_name
+          seen = { @f.entry_block.name => true }
+          work = [@f.entry_block]
+          until work.empty?
+            successors(work.pop).each do |s|
+              next if seen[s]
+
+              seen[s] = true
+              work << named.fetch(s)
+            end
+          end
+          before = @f.blocks.size
+          @f.blocks.select! { |b| seen[b.name] }
+          @f.blocks.size != before
+        end
+
+        def bypass
+          changed = false
+          into = edges
+          @f.blocks.each do |b|
+            next if b.equal?(@f.entry_block) || !b.params.empty? || b.insts.size != 1 || b.insts[0].op != :jump
+
+            name, args = b.insts[0].targets[0]
+            next if name == b.name
+
+            into[b.name].each do |p, k|
+              t = p.insts.last
+              next unless t.op == :jump || args.empty?
+
+              t.targets[k] = [name, args.dup]
+              changed = true
+            end
+          end
+          changed
+        end
+
+        def merge
+          into = edges
+          @f.blocks.each do |b|
+            next if b.equal?(@f.entry_block) || into[b.name].size != 1
+
+            p, = into[b.name][0]
+            t = p.insts.last
+            next if t.op != :jump || p.equal?(b)
+
+            b.params.zip(t.targets[0][1]) { |(v, _), a| @rename[v] = a }
+            p.insts.pop
+            p.insts.concat(b.insts)
+            @f.blocks.delete(b)
+            return true
+          end
+          false
         end
       end
 

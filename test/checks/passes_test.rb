@@ -46,8 +46,8 @@ class PassesTest < Minitest::Test
       f.ret(f.iconst("i64", 0))
     end
     Ze0::IR::Passes.prepare(f, strict: true)
-    assert_equal %i[iconst jump return return], ops(f)
-    assert_equal ["v0"], f.entry_block.insts.last.targets.map { |(name, _)| f.blocks.find { |b| b.name == name }.insts.first.args.first }
+    assert_equal %i[return], ops(f)
+    assert_equal ["v0"], f.entry_block.insts.first.args
     assert_equal 9, answer(f, [9])
   end
 
@@ -100,6 +100,27 @@ class PassesTest < Minitest::Test
     assert_equal %i[iadd iconst icmp brif], f.blocks[1].insts.map(&:op)
     assert_equal was, [[1, 9], [20, 9], [1, 1]].map { |args| answer(f, args) }
     assert_equal [1, 0, 0], was
+  end
+
+  def test_blocks_fold_away
+    f = function("blocks", %w[i64], "i64") do |f, x|
+      # An unreachable arm, a block that only jumps on, and a join with
+      # one predecessor left once the arm is gone.
+      join, (y,) = f.block(%w[i64])
+      hop = f.label
+      dead = f.label
+      f.brif(f.iconst("i8", 1), hop, dead)
+      f.switch(hop)
+      f.jump(join, [x])
+      f.switch(dead)
+      f.jump(join, [f.iconst("i64", 7)])
+      f.switch(join)
+      f.ret(f.iadd(y, f.iconst("i64", 1)))
+    end
+    Ze0::IR::Passes.prepare(f, strict: true)
+    assert_equal 1, f.blocks.size
+    assert_equal %i[iconst iadd return], ops(f)
+    assert_equal 6, answer(f, [5])
   end
 
   def test_a_select_between_one_value_is_that_value
