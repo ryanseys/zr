@@ -1066,6 +1066,10 @@ module Ze0
         d zr_alloc_trace_set Value on:Value
         d zr_alloc_trace_clear Value
         d zr_alloc_trace_info Value v:Value
+        d zr_onig_utf8_len Ptr
+        d zr_onig_ctype_bits Ptr
+        d zr_onig_word_ranges Ptr
+        d zr_onig_fold_rows Ptr
         d zr_pm_take Value b:Ptr
         d zr_pm_parse Value source:Value options:Value
         d zr_pm_parse_comments Value source:Value options:Value
