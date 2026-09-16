@@ -285,6 +285,17 @@ machine def zr_ivar_set_cached(obj, id, v, ic)
     IvEntry.set_value(e, v)
     return v
   end
+  # A plain object outside a ractor, not frozen, whose guess is the row
+  # past its last: the first assignment in an `initialize`, whose row
+  # goes there when none holds `id` yet, with no more of the kernel
+  # between.
+  if !zr_special_p(obj) && (RBasic.flags(obj) & (T_MASK | FL_FREEZE)) == T_OBJECT && Task.ractor(zr_task()) == 0
+    t = RObject.iv(obj)
+    if IvarCache.index(ic) == IvTab.len(t) && zr_ivtab_row(t, id) == 0
+      zr_ivtab_append(t, id, v)
+      return v
+    end
+  end
   g = zr_ractor_guard(obj)
   if g == QUNDEF
     return g

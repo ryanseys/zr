@@ -266,26 +266,35 @@ sig [Ptr, Word, Value] => Void
 machine def zr_ivtab_set(t, id, v)
   e = zr_ivtab_row(t, id)
   if e == 0
-    n = IvTab.len(t)
-    if n == IvTab.cap(t)
-      cap = n * 2
-      if cap < 4
-        cap = 4
-      end
-      rows = zr_xmalloc(cap * IvEntry.size)
-      if IvTab.rows(t) != 0
-        zr_memcpy(rows, IvTab.rows(t), n * IvEntry.size)
-        if !zr_ivtab_embedded_p(t)
-          zr_xfree(IvTab.rows(t))
-        end
-      end
-      IvTab.set_rows(t, rows)
-      IvTab.set_cap(t, cap)
-    end
-    e = IvTab.rows(t) + (n * IvEntry.size)
-    IvEntry.set_id(e, id)
-    IvTab.set_len(t, n + 1)
+    zr_ivtab_append(t, id, v)
+  else
+    IvEntry.set_value(e, v)
   end
+end
+
+# A row for `id`, which no row holds yet, past the last; the rows grow
+# when full.
+sig [Ptr, Word, Value] => Void
+machine def zr_ivtab_append(t, id, v)
+  n = IvTab.len(t)
+  if n == IvTab.cap(t)
+    cap = n * 2
+    if cap < 4
+      cap = 4
+    end
+    rows = zr_xmalloc(cap * IvEntry.size)
+    if IvTab.rows(t) != 0
+      zr_memcpy(rows, IvTab.rows(t), n * IvEntry.size)
+      if !zr_ivtab_embedded_p(t)
+        zr_xfree(IvTab.rows(t))
+      end
+    end
+    IvTab.set_rows(t, rows)
+    IvTab.set_cap(t, cap)
+  end
+  e = IvTab.rows(t) + (n * IvEntry.size)
+  IvEntry.set_id(e, id)
+  IvTab.set_len(t, n + 1)
   IvEntry.set_value(e, v)
 end
 
