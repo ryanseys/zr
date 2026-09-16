@@ -151,4 +151,24 @@ class PassesTest < Minitest::Test
     assert_equal %i[return], ops(f)
     assert_equal ["v1"], f.entry_block.insts.first.args
   end
+def test_a_small_leaf_is_inlined_into_its_caller_and_a_cycle_is_left_as_calls
+  plus = function("plus_one", %w[i64], "i64") { |f, x| f.ret(f.iadd(x, f.iconst("i64", 1))) }
+  twice = function("twice_plus", %w[i64], "i64") do |f, x|
+    a = f.call_val(f.callee("plus_one", %w[i64], "i64"), [x])
+    f.ret(f.call_val(f.callee("plus_one", %w[i64], "i64"), [f.imul(a, f.iconst("i64", 2))]))
+  end
+  caller = function("caller", %w[i64], "i64") do |f, x|
+    f.ret(f.call_val(f.callee("twice_plus", %w[i64], "i64"), [x]))
+  end
+  loop_a = function("ping", %w[i64], "i64") { |f, x| f.ret(f.call_val(f.callee("pong", %w[i64], "i64"), [x])) }
+  loop_b = function("pong", %w[i64], "i64") { |f, x| f.ret(f.call_val(f.callee("ping", %w[i64], "i64"), [x])) }
+  functions = [plus, twice, caller, loop_a, loop_b]
+  was = Ze0::IR::Interp.new(functions).answer("caller", [20])
+  Ze0::IR::Passes.inline(functions).each { |f| Ze0::IR::Passes.prepare(f, strict: true) }
+  refute_includes ops(caller), :call
+  refute_includes ops(twice), :call
+  assert_includes ops(loop_a), :call
+  assert_equal was, Ze0::IR::Interp.new(functions).answer("caller", [20])
+  assert_equal 43, was
+end
 end

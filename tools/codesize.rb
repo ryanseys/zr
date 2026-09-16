@@ -15,7 +15,7 @@ all = ARGV.delete("--all")
 was = ARGV.shift
 
 runtime = Ze0::Zr.runtime
-functions = runtime.functions.each { |f| Ze0::IR::Passes.prepare(f) }
+functions = Ze0::IR::Passes.inline(runtime.functions).each { |f| Ze0::IR::Passes.prepare(f) }
 defined = functions.map(&:name).to_set
 
 began = Process.clock_gettime(Process::CLOCK_MONOTONIC)

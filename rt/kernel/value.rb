@@ -163,6 +163,10 @@ end
 
 sig [Value] => Word
 machine def zr_type(v)
+  # A heap object first, its type in its header (zr_class_of).
+  if (Machine.word(v) & 7) == 0 && Machine.word(v) > QUNDEF
+    return RBasic.flags(v) & T_MASK
+  end
   if zr_fixnum_p(v)
     T_FIXNUM
   elsif v == QNIL

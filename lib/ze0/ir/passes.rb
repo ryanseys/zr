@@ -39,6 +39,10 @@ module Ze0
 
       module_function
 
+      # The unit's small leaves inlined into their callers, before the
+      # pipeline runs over each function.
+      def inline(functions) = Inline.run(functions)
+
       # The pipeline, in order.
       def run(f)
         Fold.run(f)
@@ -529,6 +533,128 @@ module Ze0
           f
         end
       end
+      # The small leaf functions of a unit, inlined where they are called:
+      # a callee with no call, no slot and at most LIMIT instructions (a
+      # value's type or class, a frozen test, which the kernel's own
+      # inlining leaves as calls when they return early or loop) is copied
+      # into the caller, its parameters standing for the arguments and
+      # each `return` a jump to the block after the call, which takes the
+      # answer as its parameter. A callee's own calls are inlined first,
+      # so what is then a leaf (zr_class_of after zr_fixnum_p) serves its
+      # callers as one; a cycle is left as calls. A function stays in the
+      # unit whatever was copied out of it, since the unit exports it.
+      class Inline
+        LIMIT = 24
+
+        def self.run(functions) = new(functions).run
+
+        def initialize(functions)
+          @by_name = functions.to_h { |f| [f.name, f] }
+          @state = {}
+        end
+
+        def run
+          @by_name.each_key { |name| settle(name) }
+          @by_name.values
+        end
+
+        private
+
+        # Whether the function named is a leaf small enough to inline,
+        # once its own calls are inlined.
+        def settle(name)
+          case @state[name]
+          when :leaf then return true
+          when :no, :busy then return false
+          end
+          @state[name] = :busy
+          f = @by_name.fetch(name)
+          inline_into(f)
+          @state[name] = leaf?(f) ? :leaf : :no
+          @state[name] == :leaf
+        end
+
+        # No call, no slot read (a slot Mem2Reg promoted away is none),
+        # and few enough instructions.
+        def leaf?(f)
+          count = 0
+          f.blocks.each do |b|
+            b.insts.each do |i|
+              return false if %i[call call_indirect stack_addr].include?(i.op)
+
+              count += 1
+            end
+          end
+          count <= LIMIT
+        end
+
+        def inline_into(f)
+          while (site = site_in(f))
+            expand(f, *site)
+          end
+        end
+
+        # A call in `f` to a function this pass inlines: its block, the
+        # index of the call, the call and the callee.
+        def site_in(f)
+          f.blocks.each do |b|
+            b.insts.each_with_index do |i, k|
+              next unless i.op == :call
+
+              c = f.callees.find { |x| x.fn == i.callee }
+              next if c.nil? || c.from || !c.colocated
+
+              target = @by_name[c.symbol]
+              next if target.nil? || target.equal?(f) || !settle(target.name)
+
+              return [b, k, i, target]
+            end
+          end
+          nil
+        end
+
+        # The call at `k` of `b` replaced by a copy of `target`: `b` ends
+        # in a jump to the copy of the entry, carrying the arguments; what
+        # followed the call moves to a block after the copy, whose
+        # parameter is the call's result.
+        def expand(f, b, k, call, target)
+          rest = f.block_after(b)
+          rest.insts.concat(b.insts[(k + 1)..])
+          b.insts.slice!(k..)
+          rest.params.concat(call.results.zip([target.ret_type]))
+          names = {}
+          target.globals.each { |g| names[g.gv] = f.symbol(g.symbol, colocated: g.colocated) }
+          target.callees.each do |c|
+            sig = target.sigs.find { |s| s.sig == c.sig }
+            names[c.fn] = f.callee(c.symbol, sig.params, sig.ret, colocated: c.colocated, from: c.from)
+          end
+          at = f.blocks.index(b) + 1
+          copies = target.blocks.map do |cb|
+            nb = f.block_beside(at)
+            at += 1
+            names[cb.name] = nb.name
+            cb.params.each { |(v, _)| names[v] = f.value }
+            cb.insts.each { |i| i.results.each { |r| names[r] = f.value } }
+            [cb, nb]
+          end
+          copies.each do |cb, nb|
+            nb.params.concat(cb.params.map { |(v, t)| [names.fetch(v), t] })
+            cb.insts.each { |i| nb.insts << copy(i, names, rest) }
+          end
+          b.insts << Inst.new(:jump, targets: [[names.fetch(target.entry_block.name), call.args]])
+        end
+
+        def copy(i, names, rest)
+          return Inst.new(:jump, targets: [[rest.name, i.args.map { |a| renamed(a, names) }]]) if i.op == :return
+
+          Inst.new(i.op, type: i.type, args: i.args.map { |a| renamed(a, names) }, results: i.results.map { |r| names.fetch(r) },
+                   cond: i.cond, offset: i.offset, callee: i.callee && names.fetch(i.callee, i.callee), flags: i.flags,
+                   targets: i.targets&.map { |(blk, args)| [names.fetch(blk), args.map { |a| renamed(a, names) }] })
+        end
+
+        def renamed(a, names) = a.is_a?(String) ? names.fetch(a, a) : a
+      end
+
     end
   end
 end

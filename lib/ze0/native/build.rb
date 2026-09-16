@@ -134,7 +134,7 @@ module Ze0
       # The same, as an `Obj::Unit`: what an object writer and the JIT
       # loader both take.
       def unit(functions, data, raw: [], export: false, target: Target.default)
-        functions.each { |f| IR::Passes.prepare(f) }
+        IR::Passes.inline(functions).each { |f| IR::Passes.prepare(f) }
         backend(target).unit(functions, data, raw: raw, export: export)
       end
 
@@ -149,7 +149,7 @@ module Ze0
         data = data.dup
         zero_words(functions, data, [])
         functions += stops(functions, raw, data, [])
-        functions.each { |f| IR::Passes.prepare(f) }
+        IR::Passes.inline(functions).each { |f| IR::Passes.prepare(f) }
         File.binwrite(out, Backend::Wasm.emit(functions, data))
         nil
       rescue Backend::Refused => e
@@ -166,7 +166,7 @@ module Ze0
         data = program.data.dup
         zero_words(program.functions, data, pre.data_at.keys)
         functions = program.functions + stops(program.functions, [], data, pre.functions)
-        functions.each { |f| IR::Passes.prepare(f) }
+        IR::Passes.inline(functions).each { |f| IR::Passes.prepare(f) }
         File.binwrite(out, Backend::Wasm.emit(functions, data, prelude: pre))
         nil
       rescue Backend::Refused => e
@@ -183,7 +183,7 @@ module Ze0
         data = runtime.data.dup
         zero_words(runtime.functions, data, pending[:data])
         functions = runtime.functions + stops(runtime.functions, runtime.raw, data, pending[:functions])
-        functions.each { |f| IR::Passes.prepare(f) }
+        IR::Passes.inline(functions).each { |f| IR::Passes.prepare(f) }
         pre = Backend::Wasm.prelude(functions, data, pending: pending)
         Zr.write_cache(path, Marshal.dump(pre))
         pre
