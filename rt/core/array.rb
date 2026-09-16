@@ -495,8 +495,8 @@ class Array
   def to_a = instance_of?(Array) ? self : Array.new(self)
   # Over the elements themselves, as rb_ary_count walks them: never
   # through `each`, with the length read again each time round.
-  def count(item = (none = true), &block)
-    return Primitive.zr_ary_len_m(self) if none && !block
+  def count(item = (none = true))
+    return Primitive.zr_ary_len_m(self) if none && !block_given?
 
     n = 0
     i = 0
@@ -1067,7 +1067,7 @@ class Array
   end
 
   # With a block, the one pass Enumerable makes.
-  def minmax(&block) = block ? super : [min, max]
+  def minmax = block_given? ? super : [min, max]
 end
 
 class Array
