@@ -71,6 +71,18 @@ module Ze0
         end
       end
 
+      # A program lowered for a binary, its functions assembled as each
+      # file is lowered so its IR never stands all at once. The runtime's
+      # object is made first and the runtime's IR let go, so on a cold
+      # cache the two never stand in memory together either.
+      def lower(source, file, target: Target.default)
+        runtime = Zr.runtime(target)
+        runtime.description
+        runtime_object(runtime)
+        runtime.release
+        Zr.program(source, file, target: target) { |f, entry| assemble(f, entry, target: target) }
+      end
+
       # One function of a program as `Zr.program` lowers it, checked and
       # assembled at once, its own symbols the ones `entry` spells.
       def assemble(function, entry, target: Target.default)

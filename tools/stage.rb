@@ -25,7 +25,7 @@ until argv.empty?
 end
 usage unless file && out
 
-program = Ze0::Zr.program(File.read(file), File.expand_path(file))
+program = Ze0::Native::Build.lower(File.read(file), File.expand_path(file))
 why = Dir.mktmpdir("ze0-stage-") do |work|
   Ze0::Native::Build.program(program, out, work: work)
 end

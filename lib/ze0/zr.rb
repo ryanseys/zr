@@ -52,6 +52,8 @@ module Ze0
       # The kernel, lowered: what the core's lowering and the runtime
       # object need, and nothing a program's own lowering does.
       def unit
+        raise "the runtime's IR was released" if @released
+
         @unit ||= Ze0.clock("kernel lowered") do
           Machine::Lower.new(Zr.kernel_files(target).map { |path| [sources.fetch(path), path] }, kernel_symbols).tap(&:run)
         end
@@ -63,7 +65,7 @@ module Ze0
         @description ||= Machine::Description.parse(cached.fetch(:description))
       end
 
-      def raw = unit.raw
+      def raw = @raw || unit.raw
 
       def digest
         # The target goes in first: two targets never share a built form.
@@ -111,6 +113,16 @@ module Ze0
       def functions = unit.functions + lowered.first
 
       def data = unit.data + lowered.last
+
+      # The kernel's and the core's IR let go, once the runtime object
+      # and the cache carry everything a build reads of them: a program
+      # lowered after this never stands in memory beside them. What the
+      # IR answered is refused from then on rather than lowered again.
+      def release
+        @raw = unit.raw
+        @unit = @lowered = nil
+        @released = true
+      end
 
       private
 

@@ -173,13 +173,13 @@ module Ze0
     end
 
     # A binary's functions are assembled as they are lowered, so the IR of
-    # a large program never stands all at once.
+    # a large program never stands all at once (`Native::Build.lower`).
     def lower(input, verb, target, assemble: false)
       source = File.read(input)
       return Machine.compile(source, input) if verb == "machine"
       return Zr.program(source, input, target: target) unless assemble
 
-      Zr.program(source, input, target: target) { |f, entry| Native::Build.assemble(f, entry, target: target) }
+      Native::Build.lower(source, input, target: target)
     rescue Machine::Refused, Hir::Refused, Zr::Lower::Refused => e
       warn "ze0: #{e.message}"
       exit REFUSED
