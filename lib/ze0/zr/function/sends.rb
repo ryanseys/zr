@@ -13,7 +13,11 @@ module Ze0
           :& => "GATE_AND", :| => "GATE_OR", :^ => "GATE_XOR", :>> => "GATE_SHR"
         }.freeze
 
-        OPT_ENTRIES = { :[] => "zr_opt_aref", :[]= => "zr_opt_aset", :<< => "zr_opt_ltlt" }.freeze
+        # The kernel entry of each operator with a core fast path, and
+        # the classes it answers for.
+        OPT_ENTRIES = {
+          :[] => ["zr_opt_aref", %w[G_ARRAY G_HASH]], :[]= => ["zr_opt_aset", %w[G_ARRAY G_HASH]], :<< => ["zr_opt_ltlt", %w[G_ARRAY G_STRING]]
+        }.freeze
         # The operators with a flonum path: the f64 instruction or the
         # fcmp condition, and the gate of Float's method.
         FLOAT_OPS = {
@@ -234,12 +238,36 @@ module Ze0
           argc = keyword_argc(node, argc, argv)
           activate(node)
           if node.opt && node.using.nil? && !traced?
-            checked(kernel(OPT_ENTRIES.fetch(node.name), recv, imm(sym_id(node.name)), argc, argv, imm(send_mode(node))))
+            checked(opt_send(node, recv, argc, argv))
           elsif node.name == :new
             checked(kernel("zr_new_cached", cache("ic", "CallCache", 2), recv, argc, argv, imm(send_mode(node))))
           else
             checked(cached_send(node, recv, argc, argv, @qnil))
           end
+        end
+
+        # `recv[i]`, `recv[i] = v` and `recv << v`: a receiver of a core
+        # class with a fast path takes the kernel's entry, which tests the
+        # method's gate and calls it; any other receiver takes the site's
+        # cell.
+        def opt_send(node, recv, argc, argv)
+          entry, classes = OPT_ENTRIES.fetch(node.name)
+          heap = @f.label
+          core = @f.label
+          other = @f.label
+          merge, (result,) = @f.block(["i64"])
+          pointer = @f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil))
+          @f.brif(pointer, heap, other)
+          switch(heap)
+          klass = @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))
+          builtin = classes.map { |g| @f.icmp("eq", klass, global(g)) }.reduce { |a, b| @f.bor(a, b) }
+          @f.brif(builtin, core, other)
+          switch(core)
+          @f.jump(merge, [kernel(entry, recv, imm(sym_id(node.name)), argc, argv, imm(send_mode(node)))])
+          switch(other)
+          @f.jump(merge, [cached_send(node, recv, argc, argv, @qnil)])
+          switch(merge)
+          result
         end
 
         # A send through the site's own cell (rt/kernel/cache.rb), which
@@ -251,9 +279,9 @@ module Ze0
         # another special constant, a stale cell, the cells off -- is the
         # kernel's send, which fills the cell. A site under `using` asks
         # the kernel every time: a refinement decides, never the cell.
-        def cached_send(node, recv, argc, argv, blk)
+        def cached_send(node, recv, argc, argv, blk, mode: send_mode(node))
           cc = cache("ic", "CallCache")
-          slow = -> { kernel("zr_send_cached", cc, recv, imm(sym_id(node.name)), argc, argv, blk, imm(send_mode(node))) }
+          slow = -> { kernel("zr_send_cached", cc, recv, imm(sym_id(node.name)), argc, argv, blk, imm(mode)) }
           return slow.call if node.using
 
           cell = @l.layout("CallCache")

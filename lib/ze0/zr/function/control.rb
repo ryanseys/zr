@@ -101,8 +101,10 @@ module Ze0
         end
 
         # `case`: the subject waits in a record slot; each `when` value
-        # asks `value === subject` (or is tested itself when there is no
-        # subject), and the first truthy one's body answers.
+        # asks `value === subject` through a cell of its own, as any
+        # receiver's method with no visibility rule (or is tested itself
+        # when there is no subject), and the first truthy one's body
+        # answers.
         def case_when(node)
           base = @sp
           subject_at = value_offset(reserve(1))
@@ -121,7 +123,8 @@ module Ze0
                      elsif node.subject
                        staged([value, Hir::Slot.new(base, value.line)]) do |slots|
                          at_node(value)
-                         truthy(checked(kernel("zr_send", @f.fetch("i64", slots), imm(sym_id(:===)), imm(1), @f.iadd(slots, imm(8)))))
+                         match = Hir::Send.new(value, :===, [node.subject], value.line, false, false, nil, nil, false, false, nil)
+                         truthy(checked(cached_send(match, @f.fetch("i64", slots), imm(1), @f.iadd(slots, imm(8)), @qnil, mode: 0)))
                        end
                      else
                        truthy(expr(value))
