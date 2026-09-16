@@ -10,7 +10,12 @@
 #   which every change to a method table or a chain moves
 #   (`zr_methods_changed`). It is filled only when nothing else decided
 #   the answer: no refinement in use, no box shadow of the class, and a
-#   visibility the caller's self cannot change.
+#   visibility the caller's self cannot change. The site tests the
+#   class and the stamp itself and calls the cell's `fn` straight
+#   (`Zr::Function::Sends#cached_send`); its stamp is the site stamp,
+#   which follows the method stamp while the cells are trusted and is
+#   -1 while they are off or verified, so that every send then comes
+#   through `zr_send_cached`.
 # - A constant's cell keys on the cref, or on the scope of `A::B`, and
 #   on the constant stamp, which moves on every constant write, removal
 #   and flag, on every chain change, and on every cref the collector
@@ -24,9 +29,9 @@
 # of a send's or a constant's cell against a fresh lookup.
 Machine.struct :IvarCache, index: Word
 # `found` is the chain node the entry sat on, which a call hands the
-# frame as a lookup would. `ivar` is the guess an accessor entry reads
-# and writes through.
-Machine.struct :CallCache, klass: Value, stamp: Word, entry: Ptr, found: Value, ivar: IvarCache
+# frame as a lookup would. `fn` is what a hit calls, with the method
+# signature whatever the entry's kind (`zr_entry_fn`).
+Machine.struct :CallCache, klass: Value, stamp: Word, entry: Ptr, found: Value, fn: Ptr
 Machine.struct :ConstCache, key: Value, stamp: Word, value: Value
 
 # Any change a constant lookup could see.
@@ -81,35 +86,67 @@ machine def zr_call_cache_fill(cc, klass, e, mode)
   CallCache.set_stamp(cc, Machine.load64(Machine.static(:mcache_stamp, 8), 0))
   CallCache.set_entry(cc, e)
   CallCache.set_found(cc, zr_entry_found(e))
+  CallCache.set_fn(cc, zr_entry_fn(e))
 end
 
-# A send through the site's cell. A hit calls a compiled def straight
-# away and reads or writes an accessor's ivar through the cell's guess;
-# any other entry goes through `zr_invoke`, as a dispatch would send it.
-# A miss is a dispatch, which fills the cell.
+# What a hit on entry `e` calls with the method signature: a compiled
+# def itself, an accessor's own function, and for any other kind the
+# dispatch's steps, which push the frame and check the arity.
+sig [Ptr] => Ptr
+machine def zr_entry_fn(e)
+  kind = MEntry.kind(e)
+  if kind == KIND_DEF
+    return MEntry.fn(e)
+  end
+  if kind == KIND_ATTR_READER
+    return Machine.addr(:zr_attr_reader_fn)
+  end
+  if kind == KIND_ATTR_WRITER
+    return Machine.addr(:zr_attr_writer_fn)
+  end
+  Machine.addr(:zr_invoke_fn)
+end
+
+# A hit on an entry that is not a compiled def: what a dispatch would
+# do with it. A keywords Hash the site flagged is taken here, as the
+# dispatch takes it.
+sig [Value, Word, Ptr, Ptr, Value, Value] => Value
+machine def zr_invoke_fn(recv, argc, argv, e, blk, found)
+  Task.set_found(zr_task(), found)
+  zr_invoke(e, recv, argc, argv, blk, zr_kw_take())
+end
+
+# An accessor has no frame, so its arity error is the caller's. The
+# ivar's id is the entry's `fn`, and the row guess is the entry's own.
+sig [Value, Word, Ptr, Ptr, Value, Value] => Value
+machine def zr_attr_reader_fn(recv, argc, argv, e, blk, found)
+  if argc != 0
+    return zr_wrong_arity(argc, 0)
+  end
+  Task.set_kw(zr_task(), 0)
+  zr_ivar_get_cached(recv, Machine.word(MEntry.fn(e)), MEntry.ivar(e))
+end
+
+sig [Value, Word, Ptr, Ptr, Value, Value] => Value
+machine def zr_attr_writer_fn(recv, argc, argv, e, blk, found)
+  if argc != 1
+    return zr_wrong_arity(argc, 1)
+  end
+  Task.set_kw(zr_task(), 0)
+  zr_ivar_set_cached(recv, Machine.word(MEntry.fn(e)), Machine.value(Machine.load64(argv, 0)), MEntry.ivar(e))
+end
+
+# A send through the site's cell, for a site whose own test of the cell
+# did not hit (a special constant, a stale cell, a refinement in use,
+# the cells off or verified). A hit here calls the cell's `fn`; a miss
+# is a dispatch, which fills the cell.
 sig [Ptr, Value, Word, Word, Ptr, Value, Word] => Value
 machine def zr_send_cached(cc, recv, mid, argc, argv, blk, mode)
   e = zr_call_cache_hit(cc, recv, mid)
   if e == 0
     return zr_dispatch(cc, recv, mid, argc, argv, mode, blk)
   end
-  kind = MEntry.kind(e)
-  if kind == KIND_DEF && (MEntry.arity(e) < 0 || MEntry.arity(e) == argc)
-    # `zr_invoke`'s steps, but for the keywords flag: a dispatch takes
-    # it and hands it straight back, so it stays as it is.
-    return Machine.call(:method, MEntry.fn(e), recv, argc, argv, e, blk, CallCache.found(cc))
-  end
-  t = Machine.ptr(Machine.load64(Machine.static(:current_task, 8), 0))
-  Task.set_found(t, CallCache.found(cc))
-  if kind == KIND_ATTR_READER && argc == 0
-    Task.set_kw(t, 0)
-    return zr_ivar_get_cached(recv, Machine.word(MEntry.fn(e)), CallCache.ivar(cc))
-  end
-  if kind == KIND_ATTR_WRITER && argc == 1
-    Task.set_kw(t, 0)
-    return zr_ivar_set_cached(recv, Machine.word(MEntry.fn(e)), Machine.value(Machine.load64(argv, 0)), CallCache.ivar(cc))
-  end
-  zr_invoke(e, recv, argc, argv, blk, zr_kw_take())
+  Machine.call(:method, CallCache.fn(cc), recv, argc, argv, e, blk, CallCache.found(cc))
 end
 
 # A `new` call with no block, CRuby's `opt_new`, with a cell for each of

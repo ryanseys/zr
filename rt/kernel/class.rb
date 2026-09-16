@@ -28,7 +28,9 @@ Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Wo
 # continues from as CRuby's alias and zsuper entries do; nil for a
 # definition. `core` is 1 for a row the core library wrote before the
 # program started.
-Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word, from: Value, core: Word
+# `ivar` is the row guess an accessor entry reads and writes through
+# (cache.rb).
+Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word, from: Value, core: Word, ivar: IvarCache
 Machine.struct :CEntry, id: Word, value: Value, file: Ptr, file_len: Word, line: Word, private: Word, deprecated: Word, owner: Value, concealed: Word
 # A compiled method takes `(recv, argc, argv, entry, blk, found)`: its
 # own entry, whose name and cref its frame records, and the chain node
@@ -1070,6 +1072,7 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
   MEntry.set_orig(e, mid)
   MEntry.set_from(e, Machine.value(QNIL))
   MEntry.set_core(e, core ? 1 : 0)
+  IvarCache.set_index(MEntry.ivar(e), 0)
   zr_gates_recheck(mid)
 end
 
@@ -1554,6 +1557,11 @@ machine def zr_mcache_init
       Machine.store64(Machine.static(:mcache_mode, 8), 0, MCACHE_VERIFY)
     end
   end
+  # A site's own test of its cell never hits in either mode: every send
+  # comes through the kernel, which fills no cell or verifies each hit.
+  if Machine.load64(Machine.static(:mcache_mode, 8), 0) != 0
+    Machine.store64(Machine.static(:site_stamp, 8), 0, 0 - 1)
+  end
 end
 
 # A definition, an alias, an undef, a visibility change, a module
@@ -1564,7 +1572,11 @@ end
 sig [] => Void
 machine def zr_methods_changed
   s = Machine.static(:mcache_stamp, 8)
-  Machine.store64(s, 0, Machine.load64(s, 0) + 1)
+  stamp = Machine.load64(s, 0) + 1
+  Machine.store64(s, 0, stamp)
+  if Machine.load64(Machine.static(:mcache_mode, 8), 0) == 0
+    Machine.store64(Machine.static(:site_stamp, 8), 0, stamp)
+  end
   zr_consts_changed()
 end
 

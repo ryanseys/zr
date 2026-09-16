@@ -216,9 +216,47 @@ module Ze0
         end
 
         # A send through the site's own cell (rt/kernel/cache.rb), which
-        # keeps the method the receiver's class answered there last.
+        # keeps the method the receiver's class answered there last. The
+        # site tests the cell itself: a fixnum's class is Integer, a
+        # heap object's is in its header, and when that class is the
+        # cell's and the cell's stamp is the site stamp, the cell's
+        # function is called with the method signature. Anything else --
+        # another special constant, a stale cell, the cells off -- is the
+        # kernel's send, which fills the cell. A site under `using` asks
+        # the kernel every time: a refinement decides, never the cell.
         def cached_send(node, recv, argc, argv, blk)
-          kernel("zr_send_cached", cache("ic", "CallCache"), recv, imm(sym_id(node.name)), argc, argv, blk, imm(send_mode(node)))
+          cc = cache("ic", "CallCache")
+          slow = -> { kernel("zr_send_cached", cc, recv, imm(sym_id(node.name)), argc, argv, blk, imm(send_mode(node))) }
+          return slow.call if node.using
+
+          cell = @l.layout("CallCache")
+          fixnum = @f.label
+          other = @f.label
+          heap = @f.label
+          have, (klass,) = @f.block(["i64"])
+          direct = @f.label
+          miss = @f.label
+          merge, (result,) = @f.block(["i64"])
+          @f.brif(@f.icmp("ne", @f.band(recv, imm(1)), imm(0)), fixnum, other)
+          switch(fixnum)
+          @f.jump(have, [global("G_INTEGER")])
+          switch(other)
+          pointer = @f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil))
+          @f.brif(pointer, heap, miss)
+          switch(heap)
+          @f.jump(have, [@f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))])
+          switch(have)
+          same = @f.band(@f.icmp("eq", klass, @f.fetch("i64", cc, off(cell, "klass"))),
+                         @f.icmp("eq", @f.fetch("i64", cc, off(cell, "stamp")), @f.fetch("i64", static("site_stamp"))))
+          @f.brif(same, direct, miss)
+          switch(direct)
+          fn = @f.fetch("i64", cc, off(cell, "fn"))
+          args = [recv, argc, argv, @f.fetch("i64", cc, off(cell, "entry")), blk, @f.fetch("i64", cc, off(cell, "found"))]
+          @f.jump(merge, [@f.call_indirect_val(@f.sig(ABI.fetch(:def), "i64"), fn, args)])
+          switch(miss)
+          @f.jump(merge, [slow.call])
+          switch(merge)
+          result
         end
 
         # The send with a block: a Proc for a block literal, with the

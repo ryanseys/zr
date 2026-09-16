@@ -335,7 +335,12 @@ machine def zr_dispatch(cc, recv, mid, argc, argv, mode, blk)
   if cc != 0
     zr_call_cache_fill(cc, klass, e, mode)
   end
-  zr_invoke(e, recv, argc, argv, blk, kw)
+  r = zr_invoke(e, recv, argc, argv, blk, kw)
+  # The refinements a site activated were for this send alone: the
+  # lookup, and a builtin such as `send` or `respond_to?` that asks
+  # under them. A site that tests its own cell never asks for them.
+  Task.set_refine(zr_task(), Machine.value(QNIL))
+  r
 end
 
 # `super`: the next method named as the frame's is, past the frame's
