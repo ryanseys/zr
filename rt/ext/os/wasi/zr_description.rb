@@ -239,7 +239,6 @@ module Ze0
         d zr_using_holders Value list:Value mod:Value
         d zr_refined_search Ptr klass:Value mid:Word
         d zr_refined_entry_at Ptr target:Value mid:Word
-        d zr_refined_entry Ptr klass:Value mid:Word
         d zr_found_refinement Value
         d zr_cref_push Value klass:Value outer:Value
         d zr_cref_klass Value cref:Value
@@ -1466,6 +1465,8 @@ module Ze0
         d zr_str_find Word hay:Value needle:Value from:Word
         d zr_bytes_find Word hay:Ptr n:Word needle:Ptr m:Word from:Word
         d zr_str_split_by Value s:Value sep:Value limit_v:Value
+        d zr_str_split_words Value s:Value limit_v:Value
+        d zr_str_blank_sep_p Value sep:Value
         d zr_str_plain_sep_p Value sep:Value
         d zr_str_to_i10 Value s:Value
         d zr_blank_byte_p Bool b:Word

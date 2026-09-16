@@ -361,14 +361,18 @@ class String
   # and a Regexp. A positive limit caps the pieces; a negative one keeps
   # trailing empty pieces; zero drops them.
   def split(pattern = nil, limit = 0)
-    # The common split, by a String's bytes with no limit, asks the
-    # pattern nothing on the way to the kernel.
-    if Primitive.zr_fixnum_p_m(limit) && limit == 0 && Primitive.zr_str_plain_sep_p(pattern) && Primitive.zr_str_valid_p(self)
-      out = split_by_string(pattern, 0)
-      return out unless block_given?
+    # The common splits, by a String's bytes or on blanks with no
+    # limit, ask the pattern nothing on the way to the kernel.
+    if Primitive.zr_fixnum_p_m(limit) && limit == 0 && Primitive.zr_str_valid_p(self)
+      out = if Primitive.zr_str_plain_sep_p(pattern) then split_by_string(pattern, 0)
+            elsif Primitive.zr_str_blank_sep_p(pattern) || (pattern.nil? && $;.nil?) then Primitive.zr_str_split_words(self, 0)
+            end
+      if out
+        return out unless block_given?
 
-      out.each { |piece| yield piece }
-      return self
+        out.each { |piece| yield piece }
+        return self
+      end
     end
 
     limit = Primitive.zr_index_operand_m(limit)

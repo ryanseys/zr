@@ -1234,6 +1234,50 @@ machine def zr_str_split_by(s, sep, limit_v)
   out
 end
 
+# `split` with no pattern or " ": the pieces between runs of blanks,
+# the leading blanks skipped, and what follows the last piece kept
+# under a limit, as split_words reads them.
+sig [Value, Value] => Value
+machine def zr_str_split_words(s, limit_v)
+  limit = zr_fix2long(limit_v)
+  n = RString.len(s)
+  out = zr_ary_new(8)
+  beg = 0
+  while beg < n && zr_blank_byte_p(Machine.word(Machine.load8(RString.ptr(s) + beg, 0)))
+    beg += 1
+  end
+  while beg < n
+    if limit > 0 && limit <= RArray.len(out) + 1
+      break
+    end
+    stop = beg
+    while stop < n && !zr_blank_byte_p(Machine.word(Machine.load8(RString.ptr(s) + stop, 0)))
+      stop += 1
+    end
+    if stop == n
+      break
+    end
+    zr_ary_push(out, zr_str_copy_encoding(zr_str_new(RString.ptr(s) + beg, stop - beg), s))
+    beg = stop
+    while beg < n && zr_blank_byte_p(Machine.word(Machine.load8(RString.ptr(s) + beg, 0)))
+      beg += 1
+    end
+  end
+  if n > 0 && (limit != 0 || n > beg)
+    zr_ary_push(out, zr_str_copy_encoding(zr_str_new(RString.ptr(s) + beg, n - beg), s))
+  end
+  out
+end
+
+# Whether `sep` is the one String that splits on blanks: " ".
+sig [Value] => Value
+machine def zr_str_blank_sep_p(sep)
+  if zr_special_p(sep) || zr_type(sep) != T_STRING
+    return Machine.value(QFALSE)
+  end
+  zr_bool(RString.len(sep) == 1 && Machine.word(Machine.load8(RString.ptr(sep), 0)) == 32)
+end
+
 # Whether `sep` is a String that splits by its bytes: not empty, which
 # splits into characters, and not " ", which splits on blanks.
 sig [Value] => Value
