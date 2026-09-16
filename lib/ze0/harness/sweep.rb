@@ -40,7 +40,10 @@ module Ze0
       }.freeze
 
       # Long enough for the slowest corpus program, short enough that a
-      # miscompile that loops does not stall the sweep.
+      # miscompile that loops does not stall the sweep. A collection at
+      # every allocation marks the live set each time, so a stress run
+      # gets four times as long: a program of 300k allocations over 25k
+      # live objects takes 75 s that way, and under a second plainly.
       LIMIT = 60
 
       Row = Struct.new(:rb, :bucket, :why)
@@ -137,8 +140,8 @@ module Ze0
         env = kase.directives.env.merge(kase.directives.zeo_env)
         env["ZR_GC_STRESS"] = "1" if @gc == "stress"
         argv, run_env = @runner.run(bin, kase.directives.args, env)
-        out = bounded(argv, cwd, stdin, Child::RUN_MB, run_env)
-        return Row.new(rb, :timeout, "ran past #{LIMIT}s") if out.code == :timeout
+        out = bounded(argv, cwd, stdin, Child::RUN_MB, run_env, seconds: limit)
+        return Row.new(rb, :timeout, "ran past #{limit}s") if out.code == :timeout
         return Row.new(rb, :crashed, "held more than #{Child::RUN_MB} MB") if out.code == :memory
 
         actual = Normalize.answer(out, rb, cwd)
@@ -155,10 +158,16 @@ module Ze0
         Row.new(rb, :diverged, diff(expected, actual))
       end
 
-      # A child bounded by the sweep's time limit and by `megabytes`.
-      def bounded(argv, cwd, stdin, megabytes, env = {})
-        Child.run(argv, cwd: cwd, stdin: stdin, env: env, seconds: LIMIT, megabytes: megabytes).first
+      # A child bounded by `seconds` and by `megabytes`.
+      def bounded(argv, cwd, stdin, megabytes, env = {}, seconds: LIMIT)
+        Child.run(argv, cwd: cwd, stdin: stdin, env: env, seconds: seconds, megabytes: megabytes).first
       end
+
+      # The run's limit for `gc`: a stress run gets four times the plain
+      # one.
+      def self.limit(gc) = gc == "stress" ? LIMIT * 4 : LIMIT
+
+      def limit = Sweep.limit(@gc)
 
       def first_line(out)
         text = out.stderr.empty? ? out.stdout : out.stderr
