@@ -18,6 +18,25 @@ module Ze0
     # arguments, and a store to a record slot is never removed, because
     # the collector reads it as a root.
     module Passes
+      # Uses renamed in place through `@rename`, a value to the value that
+      # stands for it now, followed to its end since a replacement may
+      # itself be replaced.
+      module Renaming
+        def rename_uses
+          @f.blocks.each { |b| b.insts.each { |i| rename(i) } }
+        end
+
+        def rename(i)
+          i.args.map! { |a| resolve(a) }
+          i.targets&.each { |(_, args)| args.map! { |a| resolve(a) } }
+        end
+
+        def resolve(v)
+          v = @rename[v] while @rename.key?(v)
+          v
+        end
+      end
+
       module_function
 
       # The pipeline, in order.
@@ -51,6 +70,8 @@ module Ze0
       # untaken arm named may then be unreachable, which is `Blocks`'s to
       # remove.
       class Fold
+        include Renaming
+
         MASK = { "i8" => 0xFF, "i32" => 0xFFFF_FFFF, "i64" => 0xFFFF_FFFF_FFFF_FFFF }.freeze
         SIGNED = %w[slt sle sgt sge].freeze
 
@@ -60,7 +81,7 @@ module Ze0
           @f = f
           @types = Types.new(f).all
           @const = {}
-          @alias = {}
+          @rename = {}
         end
 
         def run
@@ -72,21 +93,11 @@ module Ze0
           end
           # A use laid out before its definition, which a loop can do,
           # is renamed on a second pass.
-          @f.blocks.each { |b| b.insts.each { |i| rename(i) } } unless @alias.empty?
+          rename_uses unless @rename.empty?
           @f
         end
 
         private
-
-        def rename(i)
-          i.args.map! { |a| resolve(a) }
-          i.targets&.each { |(_, args)| args.map! { |a| resolve(a) } }
-        end
-
-        def resolve(v)
-          v = @alias[v] while @alias.key?(v)
-          v
-        end
 
         # The number `v` holds, masked to its type, or nil.
         def constant(v)
@@ -125,7 +136,7 @@ module Ze0
         end
 
         def become(i, v)
-          @alias[i.results[0]] = v
+          @rename[i.results[0]] = v
         end
 
         def fold_binop(i)
@@ -135,7 +146,7 @@ module Ze0
           return become_constant(i, binop(i.op, ka, kb, bits_of(i.results[0]))) if ka && kb
 
           # `x op 0`, `x op 1` and their commuted forms.
-          a, b, ka, kb = b, a, kb, ka if ka && !kb && %i[iadd imul band bor bxor].include?(i.op)
+          a, b, ka, kb = b, a, kb, ka if ka && !kb && Inst::COMMUTATIVE.include?(i.op)
           return unless kb
 
           case i.op
@@ -230,6 +241,8 @@ module Ze0
       # an address that is not a slot's; either forgets everything. A
       # store to a slot forgets what it overlaps.
       class Forward
+        include Renaming
+
         WIDTH = { "i8" => 1, "i32" => 4, "i64" => 8, "f64" => 8 }.freeze
 
         def self.run(f) = new(f).run
@@ -244,14 +257,7 @@ module Ze0
 
         def run
           @f.blocks.each { |b| forward(b) }
-          return @f if @rename.empty?
-
-          @f.blocks.each do |b|
-            b.insts.each do |i|
-              i.args.map! { |a| @rename.fetch(a, a) }
-              i.targets&.each { |(_, args)| args.map! { |a| @rename.fetch(a, a) } }
-            end
-          end
+          rename_uses unless @rename.empty?
           @f
         end
 
@@ -260,7 +266,7 @@ module Ze0
         def forward(b)
           known = {}
           b.insts.reject! do |i|
-            i.args.map! { |a| @rename.fetch(a, a) }
+            rename(i)
             case i.op
             when :iconst then @const[i.results[0]] = i.args[0]
             when :stack_addr then @roots[i.results[0]] = [i.results[0], 0]
@@ -365,7 +371,10 @@ module Ze0
           mid.insts.concat(moved)
           mid.insts << Inst.new(:brif, args: [second], targets: [yes, no])
           b.insts.reject! { |i| i.equal?(gate) || moved.any? { |m| m.equal?(i) } }
-          b.insts[-1] = Inst.new(:brif, args: [first], targets: gate.op == :band ? [[mid.name, []], no] : [yes, [mid.name, []]])
+          # `a && c` asks about `c` only when `a` holds; `a || c` only
+          # when it does not.
+          to_mid = [mid.name, []]
+          b.insts[-1] = Inst.new(:brif, args: [first], targets: gate.op == :band ? [to_mid, no] : [yes, to_mid])
         end
 
         # The instructions of `b` before index `stop` that make `v` and
@@ -403,6 +412,8 @@ module Ze0
       # round can make the next one's work, so the rounds go on until
       # nothing moves. The entry block stays first and is never joined.
       class Blocks
+        include Renaming
+
         def self.run(f) = new(f).run
 
         def initialize(f)
@@ -412,23 +423,11 @@ module Ze0
 
         def run
           loop { break unless unreachable | bypass | merge }
-          return @f if @rename.empty?
-
-          @f.blocks.each do |b|
-            b.insts.each do |i|
-              i.args.map! { |a| resolve(a) }
-              i.targets&.each { |(_, args)| args.map! { |a| resolve(a) } }
-            end
-          end
+          rename_uses unless @rename.empty?
           @f
         end
 
         private
-
-        def resolve(v)
-          v = @rename[v] while @rename.key?(v)
-          v
-        end
 
         def by_name = @f.blocks.to_h { |b| [b.name, b] }
 

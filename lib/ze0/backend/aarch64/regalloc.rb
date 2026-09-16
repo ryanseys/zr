@@ -298,7 +298,7 @@ module Ze0
         # through all ten: for a three-line predicate that was twenty of
         # its sixty-two instructions.
         def scan(order, from, to, crossing)
-          free = { true => CALLEE.dup, false => CALLER.dup }
+          free = { callee: CALLEE.dup, caller: CALLER.dup }
           active = []
           taken = {}
           order.each do |value|
@@ -309,8 +309,8 @@ module Ze0
               release(free, taken.fetch(other))
               true
             end
-            reg = free[false].shift unless crossing[value]
-            reg ||= free[true].shift
+            reg = free[:caller].shift unless crossing[value]
+            reg ||= free[:callee].shift
             if reg.nil?
               held = crossing[value] ? active.select { |other| Regalloc.callee?(taken[other]) } : active
               longest = held.max_by { |other| to[other] }
@@ -327,7 +327,7 @@ module Ze0
 
         # `reg` back in its pool, which stays in pool order.
         def release(free, reg)
-          pool = free[Regalloc.callee?(reg)]
+          pool = free[Regalloc.callee?(reg) ? :callee : :caller]
           at = pool.index { |other| other.to_i > reg.to_i } || pool.size
           pool.insert(at, reg)
         end

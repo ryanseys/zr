@@ -102,6 +102,26 @@ class PassesTest < Minitest::Test
     assert_equal [1, 0, 0], was
   end
 
+  def test_a_branch_on_a_disjunction_asks_the_second_only_when_the_first_fails
+    f = function("either", %w[i64 i64], "i64") do |f, x, y|
+      a = f.icmp("slt", x, f.iconst("i64", 10))
+      c = f.icmp("sgt", y, f.iconst("i64", 3))
+      yes = f.label
+      no = f.label
+      f.brif(f.bor(a, c), yes, no)
+      f.switch(yes)
+      f.ret(f.iconst("i64", 1))
+      f.switch(no)
+      f.ret(f.iconst("i64", 0))
+    end
+    Ze0::IR::Passes.prepare(f, strict: true)
+    first = f.blocks[0].insts.last
+    assert_equal :brif, first.op
+    assert_equal f.blocks[1].name, first.targets[1][0]
+    assert_equal %i[iconst icmp brif], f.blocks[1].insts.map(&:op)
+    assert_equal [1, 1, 0], [[1, 1], [20, 9], [20, 1]].map { |args| answer(f, args) }
+  end
+
   def test_blocks_fold_away
     f = function("blocks", %w[i64], "i64") do |f, x|
       # An unreachable arm, a block that only jumps on, and a join with

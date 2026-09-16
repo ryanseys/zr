@@ -36,8 +36,10 @@ module Ze0
       class Codegen
         include Registers
 
-        SCRATCH = [X9, X10, X11, X12, X13, X14, X15].freeze
-        SCRATCH_W = [W9, W10, W11, W12, W13, W14, W15].freeze
+        # The two registers `parallel_copy` carries values in. x11 and
+        # x12 are named where an instruction needs more; x13 to x15 are
+        # the allocator's, in `Regalloc::CALLER`.
+        SCRATCH = [X9, X10].freeze
         # The IR's condition codes to arm64's.
         CONDS = {
           "eq" => :eq, "ne" => :ne, "slt" => :lt, "sle" => :le, "sgt" => :gt, "sge" => :ge,
@@ -477,12 +479,13 @@ module Ze0
         # `[base, offset]` for `off` from sp, the offset small enough for a
         # scaled immediate of `width` bytes; x17 holds a page base when not.
         #
-        # x17 and not a scratch register: `emit_jump` stages a jump's
-        # arguments in `SCRATCH` and then stores each one, and a store to a
-        # far offset comes back here. With x15 as the page base -- x15 is
-        # `SCRATCH[6]` -- storing argument 5 would destroy argument 6 before
-        # it was stored. x16 and x17 are the linker's veneer registers, dead
-        # across every call and named nowhere else in the backend.
+        # x17 and not a scratch register: a store to a far offset comes
+        # here from inside an instruction whose scratch registers are
+        # already carrying its operands (`parallel_copy` holds a broken
+        # cycle's value in x10 across several stores), so a page base in
+        # one of them would destroy what was about to be stored. x16 and
+        # x17 are the linker's veneer registers, dead across every call
+        # and named nowhere else in the backend.
         def address(off, width)
           return [SP, off] if off % width == 0 && off / width <= 4095
 
@@ -648,8 +651,9 @@ module Ze0
             if r2 && off <= 504
               @asm.public_send(pair, r1, r2, [SP, off])
             else
-              @asm.public_send(single, r1, address(off, 8))
-              @asm.public_send(single, r2, address(off + 8, 8)) if r2
+              base, at = address(off, 8)
+              @asm.public_send(single, r1, [base, at])
+              @asm.public_send(single, r2, [base, at + 8]) if r2
             end
           end
         end

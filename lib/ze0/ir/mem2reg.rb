@@ -29,7 +29,8 @@ module Ze0
     # A `brif` carries no arguments, so every edge one enters a join by
     # is split first: a block of its own that jumps on, laid out before
     # the join so it falls into it. One that ends up carrying nothing
-    # `IR::Passes::Blocks` jumps past again.
+    # `IR::Passes::Blocks` jumps past again: this runs in the kernel
+    # lowering, before `IR::Passes`.
     class Mem2Reg
       def self.run(f) = new(f).run
 
