@@ -172,9 +172,11 @@ machine def zr_hash_copy_from(recv, other)
     entries = zr_xmalloc(RHash.cap(other) * HEntry.size)
     zr_memcpy(entries, RHash.entries(other), RHash.cap(other) * HEntry.size)
     RHash.set_entries(recv, entries)
-    bins = zr_xmalloc(RHash.nbins(other) * 8)
-    zr_memcpy(bins, RHash.bins(other), RHash.nbins(other) * 8)
-    RHash.set_bins(recv, bins)
+    if RHash.nbins(other) != 0
+      bins = zr_xmalloc(RHash.nbins(other) * 8)
+      zr_memcpy(bins, RHash.bins(other), RHash.nbins(other) * 8)
+      RHash.set_bins(recv, bins)
+    end
   end
   RHash.set_len(recv, RHash.len(other))
   RHash.set_live(recv, RHash.live(other))

@@ -265,6 +265,9 @@ sig [Value, Value, Word] => Ptr
 machine def zr_hash_find(h, key, code)
   identity = (RBasic.flags(h) & FL_IDENTITY) != 0
   gen = RHash.gen(h)
+  if RHash.nbins(h) == 0
+    return zr_hash_scan(h, key, code, identity, gen)
+  end
   i = code
   while RHash.nbins(h) != 0
     i = i & (RHash.nbins(h) - 1)
@@ -296,6 +299,37 @@ machine def zr_hash_find(h, key, code)
   0
 end
 
+# A small table has no bins: its entries are read in order, the code
+# first, as the probe reads a bin's. A key's `eql?` that changes the
+# table starts the lookup over, bins or none.
+sig [Value, Value, Word, Bool, Word] => Ptr
+machine def zr_hash_scan(h, key, code, identity, gen)
+  i = 0
+  while i < RHash.len(h)
+    e = RHash.entries(h) + (i * HEntry.size)
+    i += 1
+    if HEntry.live(e) != 0 && HEntry.hash(e) == code
+      if identity
+        if HEntry.key(e) == key
+          return e
+        end
+      else
+        same = zr_key_eql(HEntry.key(e), key)
+        if same == KEY_RAISED
+          return Machine.ptr(HASH_RAISED)
+        end
+        if RHash.gen(h) != gen
+          return zr_hash_find(h, key, code)
+        end
+        if same == KEY_SAME
+          return e
+        end
+      end
+    end
+  end
+  0
+end
+
 # The value for `key` in a table the runtime keeps for itself, or undef
 # when there is none. The key must be a Symbol, a fixnum or a String:
 # the lookup then runs no Ruby code and cannot raise.
@@ -314,6 +348,9 @@ end
 # Entry `n` (its index in the entries) placed in the bins.
 sig [Value, Word] => Void
 machine def zr_hash_bin(h, n)
+  if RHash.nbins(h) == 0
+    return
+  end
   e = RHash.entries(h) + (n * HEntry.size)
   mask = RHash.nbins(h) - 1
   i = HEntry.hash(e) & mask
@@ -324,11 +361,20 @@ machine def zr_hash_bin(h, n)
 end
 
 # The bins rebuilt from the live entries, twice the entry room so the
-# probes stay short.
+# probes stay short. A table of HASH_SMALL entries or fewer keeps no
+# bins: a scan of that many codes costs less than the bins do.
+HASH_SMALL = 8
+
 sig [Value] => Void
 machine def zr_hash_rebins(h)
   if RHash.bins(h) != 0
     zr_xfree(RHash.bins(h))
+  end
+  if RHash.cap(h) <= HASH_SMALL
+    RHash.set_bins(h, 0)
+    RHash.set_nbins(h, 0)
+    RHash.set_gen(h, RHash.gen(h) + 1)
+    return
   end
   nbins = 16
   while nbins < RHash.cap(h) * 2
