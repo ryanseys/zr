@@ -168,6 +168,7 @@ module Ze0
           read
           readdir
           readlink
+          realloc
           realpath
           recvfrom
           recvmsg

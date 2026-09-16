@@ -13,7 +13,6 @@ Machine.import "onig_number_of_captures", [Ptr] => I32
 Machine.import "onig_foreach_name", [Ptr, Ptr, Ptr] => I32
 Machine.import "onig_ze0_set_time_limit", [Word] => Void
 Machine.import "onig_ze0_take_warnings", [Ptr, I32] => I32
-ONIG_MISMATCH = 0 - 1
 ONIGERR_TIME_LIMIT_OVER = 0 - 20
 
 # `reg` is the pattern the source's own encoding built; `alt` is the

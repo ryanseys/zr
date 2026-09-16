@@ -1066,6 +1066,120 @@ module Ze0
         d zr_alloc_trace_set Value on:Value
         d zr_alloc_trace_clear Value
         d zr_alloc_trace_info Value v:Value
+        d zr_onig_utf8_trans Word state:Word c:Word
+        d zr_onig_utf8_precise_len Word p:Ptr e:Ptr
+        d zr_onig_enclen Word enc:Word p:Ptr e:Ptr
+        d zr_onig_enclen_approx Word enc:Word p:Ptr e:Ptr
+        d zr_onig_mbc_head_p Bool enc:Word p:Ptr e:Ptr
+        d zr_onig_mbc_to_code Word enc:Word p:Ptr e:Ptr
+        d zr_onig_code_to_mbc Word enc:Word code:Word buf:Ptr
+        d zr_onig_left_adjust Ptr enc:Word start:Ptr s:Ptr e:Ptr
+        d zr_onig_right_adjust Ptr enc:Word start:Ptr s:Ptr e:Ptr
+        d zr_onig_prev_char_head Ptr enc:Word start:Ptr s:Ptr e:Ptr
+        d zr_onig_step_back Ptr enc:Word start:Ptr s:Ptr e:Ptr n:Word
+        d zr_onig_newline_p Bool p:Ptr e:Ptr
+        d zr_onig_in_code_range_p Bool ranges:Ptr code:Word
+        d zr_onig_code_word_p Bool enc:Word code:Word
+        d zr_onig_mbc_word_p Bool enc:Word s:Ptr e:Ptr
+        d zr_onig_mbc_ascii_word_p Bool enc:Word s:Ptr e:Ptr
+        d zr_onig_ascii_lower Word c:Word
+        d zr_onig_fold_lookup Ptr code:Word
+        d zr_onig_mbc_case_fold Word enc:Word pp:Ptr e:Ptr fold:Ptr
+        d zr_onig_string_cmp_ic Ptr enc:Word s1:Ptr s2:Ptr mblen:Word text_end:Ptr
+        d zr_onig_str_lower_case_match Bool enc:Word t:Ptr tend:Ptr p:Ptr e:Ptr
+        d zr_onig_get_i32 Word p:Ptr
+        d zr_onig_bitset_at Bool p:Ptr c:Word
+        d zr_onig_repeat_range Word m:Ptr id:Word which:Word
+        d zr_onig_now Word
+        d zr_onig_check_interrupt Bool m:Ptr
+        d zr_onig_op_end Word m:Ptr
+        d zr_onig_op_exact Word m:Ptr op:Word
+        d zr_onig_op_exact_mb Word m:Ptr op:Word
+        d zr_onig_cclass_mb Word m:Ptr p:Ptr s:Ptr sbegin:Ptr
+        d zr_onig_cclass_mb_not Word m:Ptr p:Ptr s:Ptr sbegin:Ptr
+        d zr_onig_op_cclass Word m:Ptr op:Word
+        d zr_onig_op_anychar Word m:Ptr op:Word
+        d zr_onig_op_word Word m:Ptr op:Word
+        d zr_onig_op_anchor Word m:Ptr op:Word
+        d zr_onig_backref_one Ptr m:Ptr mem:Word ic:Word
+        d zr_onig_op_backref Word m:Ptr op:Word
+        d zr_onig_op_memory Word m:Ptr op:Word
+        d zr_onig_repeat_inc Word m:Ptr mem:Word si:Word p:Ptr
+        d zr_onig_repeat_inc_ng Word m:Ptr mem:Word si:Word p:Ptr
+        d zr_onig_op_control Word m:Ptr op:Word
+        d zr_onig_null_check_found Word m:Ptr p:Ptr
+        d zr_onig_op_null_check Word m:Ptr op:Word
+        d zr_onig_op_pos Word m:Ptr op:Word
+        d zr_onig_op_absent Word m:Ptr op:Word
+        d zr_onig_op_call Word m:Ptr op:Word
+        d zr_onig_step Word m:Ptr op:Word
+        d zr_onig_match_at Word m:Ptr sstart:Ptr sprev:Ptr
+        d zr_onig_msa_init Void m:Ptr prog:Ptr str:Ptr text_end:Ptr region:Ptr limit:Word
+        d zr_onig_msa_free Void m:Ptr
+        d zr_onig_region_clear Void region:Ptr num_mem:Word
+        d zr_onig_exact Ptr prog:Ptr
+        d zr_onig_exact_end Ptr prog:Ptr
+        d zr_onig_map Ptr prog:Ptr
+        d zr_onig_map_at Word prog:Ptr c:Word
+        d zr_onig_slow_search Ptr enc:Word target:Ptr target_end:Ptr text:Ptr text_end:Ptr text_range:Ptr
+        d zr_onig_slow_search_ic Ptr enc:Word target:Ptr target_end:Ptr text:Ptr text_end:Ptr text_range:Ptr
+        d zr_onig_slow_search_backward Ptr enc:Word target:Ptr target_end:Ptr text:Ptr adjust_text:Ptr text_end:Ptr text_start:Ptr
+        d zr_onig_slow_search_backward_ic Ptr enc:Word target:Ptr target_end:Ptr text:Ptr adjust_text:Ptr text_end:Ptr text_start:Ptr
+        d zr_onig_bm_search_notrev Ptr prog:Ptr target:Ptr target_end:Ptr text:Ptr text_end:Ptr text_range:Ptr
+        d zr_onig_bm_search Ptr prog:Ptr target:Ptr target_end:Ptr text:Ptr text_end:Ptr text_range:Ptr
+        d zr_onig_bm_search_notrev_ic Ptr prog:Ptr target:Ptr target_end:Ptr text:Ptr text_end:Ptr text_range:Ptr
+        d zr_onig_bm_search_ic Ptr prog:Ptr target:Ptr target_end:Ptr text:Ptr text_end:Ptr text_range:Ptr
+        d zr_onig_map_search Ptr prog:Ptr text:Ptr text_range:Ptr text_end:Ptr
+        d zr_onig_map_search_backward Ptr prog:Ptr text:Ptr adjust_text:Ptr text_start:Ptr text_end:Ptr
+        d zr_onig_forward_find Ptr prog:Ptr p:Ptr text_end:Ptr range:Ptr
+        d zr_onig_forward_search_range Bool prog:Ptr str:Ptr text_end:Ptr s:Ptr range:Ptr low:Ptr high:Ptr low_prev:Ptr
+        d zr_onig_backward_find Ptr prog:Ptr p:Ptr range:Ptr adjrange:Ptr text_end:Ptr
+        d zr_onig_backward_search_range Bool prog:Ptr str:Ptr text_end:Ptr s:Ptr range:Ptr adjrange:Ptr low:Ptr high:Ptr
+        d zr_onig_try_at Word m:Ptr s:Ptr prev:Ptr
+        d zr_onig_search_gpos Word m:Ptr global_pos:Ptr start:Ptr range:Ptr
+        d zr_onig_search_forward Word m:Ptr start:Ptr range:Ptr
+        d zr_onig_search_backward Word m:Ptr start:Ptr range:Ptr
+        d zr_onig_search Word prog:Ptr str:Ptr text_end:Ptr start:Ptr range:Ptr region:Ptr limit:Word
+        d zr_onig_match Word prog:Ptr str:Ptr text_end:Ptr at:Ptr region:Ptr limit:Word
+        d zr_onig_stk_at Ptr m:Ptr index:Word
+        d zr_onig_stk_index Word m:Ptr stk:Ptr
+        d zr_onig_mem_start Word m:Ptr n:Word
+        d zr_onig_set_mem_start Void m:Ptr n:Word v:Word
+        d zr_onig_mem_end Word m:Ptr n:Word
+        d zr_onig_set_mem_end Void m:Ptr n:Word v:Word
+        d zr_onig_bit_status_at Bool stats:Word n:Word
+        d zr_onig_mem_start_ptr Ptr m:Ptr mem:Word
+        d zr_onig_mem_end_ptr Ptr m:Ptr mem:Word
+        d zr_onig_stack_double Void m:Ptr
+        d zr_onig_stack_ensure Void m:Ptr
+        d zr_onig_stack_save Void m:Ptr
+        d zr_onig_inherit_null_check Word m:Ptr stk:Ptr
+        d zr_onig_push Void m:Ptr type:Word pat:Ptr s:Ptr sprev:Ptr keep:Ptr
+        d zr_onig_push_type Void m:Ptr type:Word
+        d zr_onig_push_repeat Void m:Ptr id:Word pat:Ptr
+        d zr_onig_push_repeat_inc Void m:Ptr sindex:Word
+        d zr_onig_push_mem_start Void m:Ptr mnum:Word s:Ptr
+        d zr_onig_push_mem_end Void m:Ptr mnum:Word s:Ptr
+        d zr_onig_push_mem_end_mark Void m:Ptr mnum:Word
+        d zr_onig_push_null_check_start Void m:Ptr cnum:Word s:Ptr
+        d zr_onig_push_null_check_end Void m:Ptr cnum:Word
+        d zr_onig_push_call_frame Void m:Ptr pat:Ptr
+        d zr_onig_push_absent_pos Void m:Ptr start:Ptr e:Ptr
+        d zr_onig_restore_mem Void m:Ptr stk:Ptr
+        d zr_onig_undo_repeat_inc Void m:Ptr stk:Ptr
+        d zr_onig_stack_pop Void m:Ptr
+        d zr_onig_stack_pop_til Void m:Ptr stop:Word
+        d zr_onig_stack_void_til Ptr m:Ptr mark:Word
+        d zr_onig_null_check Bool m:Ptr id:Word s:Ptr
+        d zr_onig_null_check_memst_scan Word m:Ptr k:Ptr s:Ptr
+        d zr_onig_null_check_memst Word m:Ptr id:Word s:Ptr
+        d zr_onig_null_check_memst_rec Word m:Ptr id:Word s:Ptr
+        d zr_onig_get_repeat Ptr m:Ptr id:Word
+        d zr_onig_stack_return Ptr m:Ptr
+        d zr_onig_get_mem_start Ptr m:Ptr mnum:Word
+        d zr_onig_mem_in_memp Bool mem:Word num:Word memp:Ptr
+        d zr_onig_get_memnum Word p:Ptr
+        d zr_onig_backref_at_nested_level Bool m:Ptr ignore_case:Word nest:Word mem_num:Word memp:Ptr ps:Ptr send:Ptr
         d zr_onig_utf8_len Ptr
         d zr_onig_ctype_bits Ptr
         d zr_onig_word_ranges Ptr
@@ -2070,6 +2184,158 @@ module Ze0
         c ALLOC_NONE 10
         c ALLOC_FIBER 11
         c ALLOC_GONE 1
+        c ONIG_ENC_ASCII 0
+        c ONIG_ENC_UTF8 1
+        c ONIG_CTYPE_WORD_BIT 4096
+        c ONIG_MBC_CASE_FOLD_MAXLEN 18
+        c ONIG_MISMATCH -1
+        c ONIGERR_MEMORY -5
+        c ONIGERR_UNDEFINED_BYTECODE -13
+        c ONIGERR_UNEXPECTED_BYTECODE -14
+        c ONIGERR_TIMEOUT -23
+        c ONIG_REGION_NOTPOS -1
+        c ONIG_INFINITE_DISTANCE 4611686018427387904
+        c ONIG_HRTIME_MAX 4611686018427387904
+        c ONIG_OPTION_NOTBOL 2048
+        c ONIG_OPTION_NOTEOL 4096
+        c ONIG_OPTION_NOTBOS 8192
+        c ONIG_OPTION_NOTEOS 16384
+        c ONIG_SIZE_BITSET 32
+        c ONIG_SIZE_RELADDR 4
+        c ONIG_SIZE_MEMNUM 2
+        c OP_FINISH 0
+        c OP_END 1
+        c OP_EXACT1 2
+        c OP_EXACT2 3
+        c OP_EXACT3 4
+        c OP_EXACT4 5
+        c OP_EXACT5 6
+        c OP_EXACTN 7
+        c OP_EXACTMB2N1 8
+        c OP_EXACTMB2N2 9
+        c OP_EXACTMB2N3 10
+        c OP_EXACTMB2N 11
+        c OP_EXACTMB3N 12
+        c OP_EXACTMBN 13
+        c OP_EXACT1_IC 14
+        c OP_EXACTN_IC 15
+        c OP_CCLASS 16
+        c OP_CCLASS_MB 17
+        c OP_CCLASS_MIX 18
+        c OP_CCLASS_NOT 19
+        c OP_CCLASS_MB_NOT 20
+        c OP_CCLASS_MIX_NOT 21
+        c OP_ANYCHAR 22
+        c OP_ANYCHAR_ML 23
+        c OP_ANYCHAR_STAR 24
+        c OP_ANYCHAR_ML_STAR 25
+        c OP_ANYCHAR_STAR_PEEK_NEXT 26
+        c OP_ANYCHAR_ML_STAR_PEEK_NEXT 27
+        c OP_WORD 28
+        c OP_NOT_WORD 29
+        c OP_WORD_BOUND 30
+        c OP_NOT_WORD_BOUND 31
+        c OP_ASCII_WORD 34
+        c OP_NOT_ASCII_WORD 35
+        c OP_ASCII_WORD_BOUND 36
+        c OP_NOT_ASCII_WORD_BOUND 37
+        c OP_BEGIN_BUF 40
+        c OP_END_BUF 41
+        c OP_BEGIN_LINE 42
+        c OP_END_LINE 43
+        c OP_SEMI_END_BUF 44
+        c OP_BEGIN_POSITION 45
+        c OP_BACKREF1 46
+        c OP_BACKREF2 47
+        c OP_BACKREFN 48
+        c OP_BACKREFN_IC 49
+        c OP_BACKREF_MULTI 50
+        c OP_BACKREF_MULTI_IC 51
+        c OP_BACKREF_WITH_LEVEL 52
+        c OP_MEMORY_START 53
+        c OP_MEMORY_START_PUSH 54
+        c OP_MEMORY_END_PUSH 55
+        c OP_MEMORY_END_PUSH_REC 56
+        c OP_MEMORY_END 57
+        c OP_MEMORY_END_REC 58
+        c OP_KEEP 59
+        c OP_FAIL 60
+        c OP_JUMP 61
+        c OP_PUSH 62
+        c OP_POP 63
+        c OP_PUSH_IF_PEEK_NEXT 65
+        c OP_REPEAT 66
+        c OP_REPEAT_NG 67
+        c OP_REPEAT_INC 68
+        c OP_REPEAT_INC_NG 69
+        c OP_REPEAT_INC_SG 70
+        c OP_REPEAT_INC_NG_SG 71
+        c OP_NULL_CHECK_START 72
+        c OP_NULL_CHECK_END 73
+        c OP_NULL_CHECK_END_MEMST 74
+        c OP_NULL_CHECK_END_MEMST_PUSH 75
+        c OP_PUSH_POS 76
+        c OP_POP_POS 77
+        c OP_PUSH_POS_NOT 78
+        c OP_FAIL_POS 79
+        c OP_PUSH_STOP_BT 80
+        c OP_POP_STOP_BT 81
+        c OP_LOOK_BEHIND 82
+        c OP_PUSH_LOOK_BEHIND_NOT 83
+        c OP_FAIL_LOOK_BEHIND_NOT 84
+        c OP_PUSH_ABSENT_POS 85
+        c OP_ABSENT 86
+        c OP_ABSENT_END 87
+        c OP_CALL 88
+        c OP_RETURN 89
+        c OP_CONDITION 90
+        c ONIG_OP_NEXT 0
+        c ONIG_OP_FAIL 1
+        c ONIG_OP_FINISH 2
+        c ONIG_OPTIMIZE_NONE 0
+        c ONIG_OPTIMIZE_EXACT 1
+        c ONIG_OPTIMIZE_EXACT_BM 2
+        c ONIG_OPTIMIZE_EXACT_BM_NOT_REV 3
+        c ONIG_OPTIMIZE_EXACT_IC 4
+        c ONIG_OPTIMIZE_MAP 5
+        c ONIG_OPTIMIZE_EXACT_BM_IC 6
+        c ONIG_OPTIMIZE_EXACT_BM_NOT_REV_IC 7
+        c ONIG_ANCHOR_BEGIN_BUF 1
+        c ONIG_ANCHOR_BEGIN_LINE 2
+        c ONIG_ANCHOR_BEGIN_POSITION 4
+        c ONIG_ANCHOR_END_BUF 8
+        c ONIG_ANCHOR_SEMI_END_BUF 16
+        c ONIG_ANCHOR_END_LINE 32
+        c ONIG_ANCHOR_PREC_READ_NOT 2048
+        c ONIG_ANCHOR_LOOK_BEHIND 4096
+        c ONIG_ANCHOR_ANYCHAR_STAR 16384
+        c ONIG_ANCHOR_ANYCHAR_STAR_ML 32768
+        c ONIG_MAX_PTR_NUM 100
+        c STK_ALT 1
+        c STK_LOOK_BEHIND_NOT 2
+        c STK_POS_NOT 3
+        c STK_MEM_START 256
+        c STK_MEM_END 33280
+        c STK_REPEAT_INC 768
+        c STK_NULL_CHECK_START 12288
+        c STK_NULL_CHECK_END 20480
+        c STK_MEM_END_MARK 33792
+        c STK_POS 1280
+        c STK_STOP_BT 1536
+        c STK_REPEAT 1792
+        c STK_CALL_FRAME 2048
+        c STK_RETURN 2304
+        c STK_VOID 2560
+        c STK_ABSENT_POS 2816
+        c STK_ABSENT 3072
+        c STK_MASK_POP_USED 255
+        c STK_MASK_TO_VOID_TARGET 4351
+        c STK_MASK_MEM_END_OR_MARK 32768
+        c ONIG_INVALID_STACK_INDEX -1
+        c ONIG_INIT_MATCH_STACK_SIZE 160
+        c ONIG_STACK_POP_LEVEL_FREE 0
+        c ONIG_STACK_POP_LEVEL_MEM_START 1
+        c ONIG_STACK_POP_LEVEL_ALL 2
         c BUF_LENGTH 0
         c BUF_VALUE 16
         c PM_BUFFER_SIZE 24
@@ -2085,7 +2351,6 @@ module Ze0
         c PENDING_THROW 3
         c G_SYM_PROCS 61
         c GUARD_ROW 3
-        c ONIG_MISMATCH -1
         c ONIGERR_TIME_LIMIT_OVER -20
         c T_REGEXP 31
         c G_REGEXP 42
@@ -2384,6 +2649,9 @@ module Ze0
         s RObject 40 8 basic:0:RBasic iv:16:IvTab
         s AllocTrace 32 8 rows:0:Ptr capa:8:Word used:16:Word on:24:Word
         s AllocRow 48 8 cell:0:Word file:8:Ptr file_len:16:Word line:24:Word meta:32:Ptr generation:40:Word
+        s OnigProg 200 8 magic:0:Word enc:8:Word options:16:Word num_mem:24:Word num_repeat:32:Word num_null_check:40:Word num_call:48:Word bt_mem_start:56:Word bt_mem_end:64:Word pop_level:72:Word code_off:80:Word code_len:88:Word repeat_off:96:Word optimize:104:Word threshold_len:112:Word anchor:120:Word sub_anchor:128:Word anchor_dmin:136:Word anchor_dmax:144:Word dmin:152:Word dmax:160:Word exact_off:168:Word exact_len:176:Word map_off:184:Word case_fold_flag:192:Word
+        s OnigStk 48 8 type:0:Word null_check:8:Word a:16:Word b:24:Word c:32:Word d:40:Word
+        s OnigMatch 264 8 prog:0:Ptr code:8:Ptr enc:16:Word options:24:Word case_fold:32:Word num_mem:40:Word pop_level:48:Word bt_mem_start:56:Word bt_mem_end:64:Word str:72:Ptr text_end:80:Ptr sstart:88:Ptr gpos:96:Ptr region:104:Ptr mopts:112:Word stk_base:120:Ptr stk_end:128:Ptr stk:136:Ptr stk_alloc:144:Ptr stack_p:152:Ptr stack_n:160:Word repeat_stk:168:Ptr mem_start_stk:176:Ptr mem_end_stk:184:Ptr counter:192:Word end_time:200:Word limit:208:Word p:216:Ptr s:224:Ptr sprev:232:Ptr pkeep:240:Ptr aend:248:Ptr best_len:256:Word
         s REnv 64 8 basic:0:RBasic parent:16:Value slots:24:Ptr nslots:32:Word names:40:Ptr cell:48:Value home:56:Ptr
         s RProc 128 8 basic:0:RBasic fn:16:Ptr meta:24:Ptr env:32:Value self:40:Value cref:48:Value blk:56:Value home:64:Ptr serial:72:Word site:80:Word ret_home:88:Ptr ret_serial:96:Word spread:104:Word lambda:112:Word passed:120:Word
         s RRegexp 72 8 basic:0:RBasic source:16:Value options:24:Word reg:32:Ptr names:40:Value text:48:Value alt:56:Ptr limit:64:Word

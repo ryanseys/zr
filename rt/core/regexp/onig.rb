@@ -18,6 +18,7 @@ require_relative "onig/parser"
 require_relative "onig/tune"
 require_relative "onig/optimize"
 require_relative "onig/compile"
+require_relative "onig/program"
 
 class Regexp
   module Onig
