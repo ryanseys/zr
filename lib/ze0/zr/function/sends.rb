@@ -571,19 +571,23 @@ module Ze0
           @f.icmp("eq", @f.band(gates, imm(names.sum { |name| @l.const(name) })), imm(0))
         end
 
-        # `!v` inline while BasicObject#! is the runtime's own.
+        # `!v` inline for nil, true and false while none of their
+        # classes redefines `!` (GATE_NOT); any other receiver sends
+        # `!` through a cell of its own, as a call would. The three are
+        # the only Values under 28 with their low two bits clear.
         def negate(node)
           staged([node.value]) do |slots, base|
             v = @f.fetch("i64", @rec, value_offset(base))
             fast = @f.label
             slow = @f.label
             merge, (result,) = @f.block(["i64"])
-            @f.brif(gate_clear("GATE_NOT"), fast, slow)
+            boolean = @f.icmp("eq", @f.bor(v, imm(28)), imm(28))
+            @f.brif(@f.band(boolean, gate_clear("GATE_NOT")), fast, slow)
             switch(fast)
             @f.jump(merge, [@f.csel(truthy(v), imm(@l.const("QFALSE")), imm(@l.const("QTRUE")))])
             switch(slow)
-            at_node(node)
-            @f.jump(merge, [checked(kernel("zr_send", v, imm(sym_id(:!)), imm(0), @f.iadd(slots, imm(8))))])
+            send = @l.noted(Hir::Send.new(node.value, :!, [], node.line, false, false, nil, nil, false), node)
+            @f.jump(merge, [dispatch(send, v, @f.iadd(slots, imm(8)), imm(0))])
             switch(merge)
             result
           end

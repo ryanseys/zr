@@ -162,6 +162,7 @@ module Ze0
         d zr_class_name_of Value v:Value
         d zr_module_new Value
         d zr_gate_bit Word klass:Value mid:Word
+        d zr_not_gated_p Bool klass:Value
         d zr_gate_row Word i:Word klass:Word mid:Word bit:Word
         d zr_gates_snapshot Void
         d zr_gates_recheck Void mid:Word

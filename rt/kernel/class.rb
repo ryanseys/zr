@@ -803,11 +803,19 @@ machine def zr_gate_bit(klass, mid)
     GATE_LTLT
   elsif klass == zr_global(G_STRING) && mid == Machine.id(:freeze)
     GATE_FREEZE
-  elsif mid == Machine.id(:!)
+  elsif mid == Machine.id(:!) && zr_not_gated_p(klass)
     GATE_NOT
   else
     0
   end
+end
+
+# The classes whose `!` an inline `not` stands in for: nil, true and
+# false answer inline while none of their ancestors redefines `!`.
+sig [Value] => Bool
+machine def zr_not_gated_p(klass)
+  klass == zr_global(G_NIL) || klass == zr_global(G_TRUE) || klass == zr_global(G_FALSE) ||
+    klass == zr_global(G_OBJECT) || klass == zr_global(G_KERNEL) || klass == zr_global(G_BASIC_OBJECT)
 end
 
 # The operators compiled code inlines, each as the program found it when
