@@ -151,6 +151,30 @@ machine def zr_ary_of(argc, argv)
   a
 end
 
+# `(a..b).to_a` over two fixnums, filled here rather than pushed one
+# yield at a time through Enumerable.
+sig [Value, Value, Value] => Value
+machine def zr_fixnum_range_ary(low, high, excl)
+  a = zr_fix2long(low)
+  b = zr_fix2long(high)
+  if excl != QFALSE && excl != QNIL
+    b -= 1
+  end
+  n = b >= a ? b - a + 1 : 0
+  if n > ARY_MAX_SIZE
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("array size too big"), 18)
+  end
+  out = zr_ary_new(n)
+  p = RArray.ptr(out)
+  i = 0
+  while i < n
+    Machine.store64(p + (i * 8), 0, Machine.word(zr_fix(a + i)))
+    i += 1
+  end
+  RArray.set_len(out, n)
+  out
+end
+
 # The Array a splat spreads: nil spreads nothing, an Array is itself,
 # an object that answers `to_a` gives that, anything else is one item.
 sig [Value] => Value

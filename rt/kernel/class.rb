@@ -1689,6 +1689,12 @@ machine def zr_basic_method_p(recv, mid)
   e != 0 && MEntry.core(e) != 0
 end
 
+# The same for the core: `Primitive.zr_basic_method_m(self, :each)`.
+sig [Value, Value] => Value
+machine def zr_basic_method_m(recv, name)
+  zr_bool(zr_basic_method_p(recv, zr_sym2id(name)))
+end
+
 sig [Value] => Value
 machine def zr_class_of(v)
   if zr_fixnum_p(v)

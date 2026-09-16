@@ -14,6 +14,7 @@ module Ze0
         d zr_ary_unshift Void a:Value v:Value
         d zr_ary_store Value a:Value i:Word v:Value
         d zr_ary_of Value argc:Word argv:Ptr
+        d zr_fixnum_range_ary Value low:Value high:Value excl:Value
         d zr_splat_to_a Value v:Value
         d zr_ary_splat Value a:Value v:Value
         d zr_ary_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -215,6 +216,7 @@ module Ze0
         d zr_search_method Ptr klass:Value mid:Word
         d zr_find_method Ptr klass:Value mid:Word
         d zr_basic_method_p Bool recv:Value mid:Word
+        d zr_basic_method_m Value recv:Value name:Value
         d zr_class_of Value v:Value
         d zr_class_inherits Bool klass:Value target:Value
         d zr_is_a Bool v:Value klass:Value

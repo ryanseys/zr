@@ -192,6 +192,9 @@ class Range
 
   def to_a
     raise RangeError, "cannot convert endless range to an array" if @end.nil?
+    if Primitive.zr_fixnum_p_m(@begin) && Primitive.zr_fixnum_p_m(@end) && Primitive.zr_basic_method_m(self, :each)
+      return Primitive.zr_fixnum_range_ary(@begin, @end, @excl)
+    end
 
     super
   end
