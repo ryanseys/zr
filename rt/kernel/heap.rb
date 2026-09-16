@@ -465,11 +465,18 @@ machine def zr_free_cell(cell)
   # The header's poison is what mark checks; the payload's is only there
   # to make a stale read loud, which stress mode is for.
   if Heap.stress(zr_heap()) != 0
-    j = 16
-    while j < CELL
-      Machine.store64(cell + j, 0, 57005)
-      j += 8
-    end
+    zr_poison_payload(cell)
+  end
+end
+
+# Every payload word of `cell` made 0xDEAD: a Value that is no fixnum,
+# no nil and no cell, so a read of it stops the program at once.
+sig [Ptr] => Void
+machine def zr_poison_payload(cell)
+  j = RBasic.size
+  while j < CELL
+    Machine.store64(cell + j, 0, 57005)
+    j += 8
   end
 end
 
@@ -627,8 +634,11 @@ machine def zr_gc_stress
   zr_bool(Heap.stress(zr_heap()) != 0)
 end
 
-# A cell of `type` whose class is `klass`, zeroed past the header. The
-# caller stores the result to its frame record before anything else can
+# A cell of `type` whose class is `klass`, the payload as the free
+# list left it: the constructor writes every field before anything can
+# collect or read the cell, and under stress the payload is poison, so
+# a field it left out reads as 0xDEAD, not as an empty one. The caller
+# stores the result to its frame record before anything else can
 # allocate.
 sig [Word, Value] => Value
 machine def zr_alloc(type, klass)
@@ -649,7 +659,9 @@ machine def zr_alloc(type, klass)
   Heap.set_allocated(h, Heap.allocated(h) + 1)
   Machine.store64(cell, 0, type | FL_ALLOCATED)
   Machine.store64(cell, 8, Machine.word(klass))
-  memset(cell + 16, Machine.i32(0), CELL - 16)
+  if Heap.stress(h) != 0
+    zr_poison_payload(cell)
+  end
   if AllocTrace.on(zr_alloc_trace()) != 0
     zr_alloc_trace_record(cell)
   end

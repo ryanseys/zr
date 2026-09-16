@@ -767,6 +767,7 @@ module Ze0
         d zr_mark_roots Void
         d zr_mark_task Void t:Ptr
         d zr_free_cell Void cell:Ptr
+        d zr_poison_payload Void cell:Ptr
         d zr_sweep_arena Void a:Ptr start:Word stop:Word
         d zr_sweep Void
         d zr_collect Void

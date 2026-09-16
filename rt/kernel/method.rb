@@ -119,6 +119,7 @@ machine def zr_method_missing_new(recv, klass, mid)
   MEntry.set_orig(e, mid)
   MEntry.set_from(e, Machine.value(QNIL))
   MEntry.set_core(e, 0)
+  IvarCache.set_index(MEntry.ivar(e), 0)
   zr_methods_changed()
   m
 end

@@ -45,8 +45,12 @@ sig [Value] => Value
 machine def zr_regexp_alloc(klass)
   re = zr_alloc(T_REGEXP, klass)
   RRegexp.set_source(re, Machine.value(QNIL))
-  RRegexp.set_text(re, Machine.value(QNIL))
+  RRegexp.set_options(re, 0)
+  RRegexp.set_reg(re, 0)
   RRegexp.set_names(re, Machine.value(QNIL))
+  RRegexp.set_text(re, Machine.value(QNIL))
+  RRegexp.set_alt(re, 0)
+  RRegexp.set_limit(re, 0)
   re
 end
 

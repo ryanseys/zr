@@ -83,6 +83,7 @@ machine def zr_fiber_current
     RFiber.set_task(f, Machine.static(:task, Task.size))
     RFiber.set_ctx(f, zr_xmalloc(CONTEXT_BYTES))
     RFiber.set_stack(f, 0)
+    RFiber.set_kroots(f, 0)
     RFiber.set_blk(f, Machine.value(QNIL))
     RFiber.set_status(f, FIBER_RESUMED)
     RFiber.set_prev(f, Machine.value(QNIL))
