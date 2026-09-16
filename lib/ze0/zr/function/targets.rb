@@ -161,9 +161,13 @@ module Ze0
           id = sym_id(ivar_name(node.name))
           ic = cache("iv", "IvarCache")
           slow = @f.label
+          append = @f.label
           done = @f.label
-          row = guessed_ivar_row(ic, id, slow, writing: true)
+          row = guessed_ivar_row(ic, id, slow, writing: true, append: append)
           @f.store(v, row, off(@l.layout("IvEntry"), "value"))
+          @f.jump(done)
+          switch(append)
+          checked(kernel("zr_ivar_append_cached", @self, imm(id), v, ic))
           @f.jump(done)
           switch(slow)
           checked(kernel("zr_ivar_set_cached", @self, imm(id), v, ic))

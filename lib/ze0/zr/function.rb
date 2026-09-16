@@ -400,7 +400,7 @@ module Ze0
       # inline path takes a plain object, class or module read outside
       # a ractor (a ractor's isolation rule is the kernel's), not frozen
       # when `writing`.
-      def guessed_ivar_row(ic, id, slow, writing:)
+      def guessed_ivar_row(ic, id, slow, writing:, append: nil)
         table = @l.layout("IvTab")
         entry = @l.layout("IvEntry")
         plain = @f.label
@@ -412,7 +412,18 @@ module Ze0
         switch(plain)
         t = own_ivar_table(slow, writing)
         i = @f.fetch("i64", ic, off(@l.layout("IvarCache"), "index"))
-        @f.brif(@f.icmp("ult", i, @f.fetch("i64", t, off(table, "len"))), indexed, slow)
+        len = @f.fetch("i64", t, off(table, "len"))
+        if append
+          # A write whose guess is the row past the last, with a row to
+          # spare: the first assignment in an `initialize`, appended at
+          # `append` unless another row holds the name already.
+          past = @f.label
+          @f.brif(@f.icmp("ult", i, len), indexed, past)
+          switch(past)
+          @f.brif(@f.band(@f.icmp("eq", i, len), @f.icmp("ult", len, @f.fetch("i64", t, off(table, "cap")))), append, slow)
+        else
+          @f.brif(@f.icmp("ult", i, len), indexed, slow)
+        end
         switch(indexed)
         row = @f.iadd(@f.fetch("i64", t, off(table, "rows")), @f.ishl(i, imm(Math.log2(entry.size).to_i)))
         @f.brif(@f.icmp("eq", @f.fetch("i64", row, off(entry, "id")), imm(id)), hit, slow)

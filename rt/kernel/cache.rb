@@ -416,6 +416,25 @@ machine def zr_ivar_set_cached(obj, id, v, ic)
   v
 end
 
+# The first assignment of `id` in a plain object outside a ractor, not
+# frozen, whose guess is the row past its last with a row to spare:
+# what the write site tested inline. The row goes there when none
+# holds `id` yet (a site shared by two classes may guess past the end
+# of a table that holds the name lower); else the full write.
+sig [Value, Word, Value, Ptr] => Value
+machine def zr_ivar_append_cached(obj, id, v, ic)
+  t = RObject.iv(obj)
+  n = IvTab.len(t)
+  if n < IvTab.cap(t) && zr_ivtab_row(t, id) == 0
+    e = IvTab.rows(t) + (n * IvEntry.size)
+    IvEntry.set_id(e, id)
+    IvEntry.set_value(e, v)
+    IvTab.set_len(t, n + 1)
+    return v
+  end
+  zr_ivar_set_cached(obj, id, v, ic)
+end
+
 # The row of an object's, class's or module's own table the cell
 # guesses, when it holds `id` and the read is outside a ractor (a
 # ractor's isolation rule is `zr_ractor_guard`'s); else 0. What a site

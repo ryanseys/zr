@@ -124,6 +124,7 @@ module Ze0
         d zr_const_get_at_cached Value cc:Ptr scope:Value id:Word
         d zr_ivar_get_cached Value obj:Value id:Word ic:Ptr
         d zr_ivar_set_cached Value obj:Value id:Word v:Value ic:Ptr
+        d zr_ivar_append_cached Value obj:Value id:Word v:Value ic:Ptr
         d zr_ivar_row_guessed Ptr obj:Value id:Word ic:Ptr
         d zr_ivtab_guess Ptr t:Ptr id:Word ic:Ptr
         d zr_class_alloc Value type:Word sup:Value klass:Value
