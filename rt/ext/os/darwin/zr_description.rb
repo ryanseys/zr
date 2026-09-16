@@ -1078,6 +1078,8 @@ module Ze0
         d zr_block_proc Value b:Value
         d zr_symbol_block Value p:Value argc:Word argv:Ptr blk:Value
         d zr_sym_to_proc Value sym:Value
+        d zr_enum_each Value recv:Value args:Value blk:Value
+        d zr_enum_each_block Value p:Value argc:Word argv:Ptr blk:Value
         d zr_native_proc Value fn:Ptr self_:Value
         d zr_proc_lambda Value p:Value
         d zr_proc_call Value recv:Value argc:Word argv:Ptr cref:Value blk:Value

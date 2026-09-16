@@ -216,10 +216,16 @@ machine def zr_block_proc(b)
   end
   blk = zr_block_proc(RProc.blk(b))
   env = zr_env_escape(RProc.env(b))
+  # The each adapter's block is its self (zr_enum_each), kept with it.
+  self_ = RProc.self(b)
+  if RProc.fn(b) == Machine.addr(:zr_enum_each_block)
+    self_ = zr_block_proc(self_)
+  end
   p = zr_alloc(T_PROC, zr_global(G_PROC))
   zr_memcpy(Machine.ptr(p) + RBasic.size, Machine.ptr(b) + RBasic.size, RProc.size - RBasic.size)
   RProc.set_blk(p, blk)
   RProc.set_env(p, env)
+  RProc.set_self(p, self_)
   p
 end
 
@@ -236,6 +242,49 @@ end
 sig [Value] => Value
 machine def zr_sym_to_proc(sym)
   zr_native_proc(Machine.addr(:zr_symbol_block), sym)
+end
+
+# `each` over `recv` with `blk` given one value per element: the value
+# yielded, or an Array of them when there are several (nil for none),
+# as rb_enum_values_pack packs them, so a core method reads each
+# element without a splat Array of its own. `args` go to `each`, or
+# nil. The adapter is a stack image of a Proc whose self is `blk`; an
+# `each` that keeps its block gets a cell (zr_block_proc).
+sig [Value, Value, Value] => Value
+machine def zr_enum_each(recv, args, blk)
+  d = Machine.slot(RProc.size)
+  p = Machine.value(d)
+  RBasic.set_flags(p, T_PROC | FL_ALLOCATED | FL_MARK | FL_STACK)
+  RBasic.set_klass(p, zr_global(G_PROC))
+  RProc.set_fn(p, Machine.addr(:zr_enum_each_block))
+  RProc.set_meta(p, 0)
+  RProc.set_env(p, Machine.value(QNIL))
+  RProc.set_self(p, blk)
+  RProc.set_cref(p, Machine.value(QNIL))
+  RProc.set_blk(p, Machine.value(QNIL))
+  RProc.set_home(p, 0)
+  RProc.set_serial(p, 0)
+  RProc.set_site(p, 0)
+  RProc.set_ret_home(p, 0)
+  RProc.set_ret_serial(p, 0)
+  RProc.set_spread(p, 0)
+  RProc.set_lambda(p, 0)
+  RProc.set_passed(p, 1)
+  if args == QNIL
+    return zr_send_blk(recv, Machine.id(:each), 0, 0, p)
+  end
+  zr_send_blk(recv, Machine.id(:each), RArray.len(args), RArray.ptr(args), p)
+end
+
+sig [Value, Word, Ptr, Value] => Value
+machine def zr_enum_each_block(p, argc, argv, blk)
+  if argc == 1
+    return zr_yield1(RProc.self(p), Machine.value(Machine.load64(argv, 0)))
+  end
+  if argc == 0
+    return zr_yield1(RProc.self(p), Machine.value(QNIL))
+  end
+  zr_yield1(RProc.self(p), zr_ary_of(argc, argv))
 end
 
 # A lambda whose body is the kernel function `fn`, with `self_` as
@@ -610,6 +659,9 @@ machine def zr_block_call_live(p)
   false
 end
 
+# The kernel's each adapter (zr_enum_each) stands for the block it
+# hands one value at a time to, so that block's `break` leaves the
+# `each` the adapter was given to.
 sig [Value, Value] => Bool
 machine def zr_same_block(given, p)
   if given == p
@@ -617,6 +669,9 @@ machine def zr_same_block(given, p)
   end
   if zr_special_p(given) || zr_type(given) != T_PROC
     return false
+  end
+  if RProc.fn(given) == Machine.addr(:zr_enum_each_block)
+    return zr_same_block(RProc.self(given), p)
   end
   RProc.fn(given) == RProc.fn(p) && RProc.home(given) == RProc.home(p) && RProc.serial(given) == RProc.serial(p) && RProc.site(given) == RProc.site(p)
 end

@@ -19,8 +19,7 @@ module Enumerable
     return to_enum(__callee__) unless block_given?
 
     out = []
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       out << x if yield(x)
       nil
     end
@@ -31,8 +30,7 @@ module Enumerable
     return to_enum(:reject) unless block_given?
 
     out = []
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       out << x unless yield(x)
       nil
     end
@@ -54,8 +52,7 @@ module Enumerable
   def find(ifnone = (omitted = true; nil))
     return to_enum(__callee__, *([ifnone] unless omitted)) unless block_given?
 
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       return x if yield(x)
       nil
     end
@@ -65,8 +62,7 @@ module Enumerable
   def any?(*pattern)
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
     if !pattern.empty?
-      each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(self, nil) do |x|
         return true if pattern[0] === x
         nil
       end
@@ -76,8 +72,7 @@ module Enumerable
         nil
       end
     else
-      each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(self, nil) do |x|
         return true if x
         nil
       end
@@ -88,8 +83,7 @@ module Enumerable
   def all?(*pattern)
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
     if !pattern.empty?
-      each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(self, nil) do |x|
         return false unless pattern[0] === x
         nil
       end
@@ -99,8 +93,7 @@ module Enumerable
         nil
       end
     else
-      each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(self, nil) do |x|
         return false unless x
         nil
       end
@@ -111,8 +104,7 @@ module Enumerable
   def none?(*pattern)
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
     if !pattern.empty?
-      each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(self, nil) do |x|
         return false if pattern[0] === x
         nil
       end
@@ -122,8 +114,7 @@ module Enumerable
         nil
       end
     else
-      each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(self, nil) do |x|
         return false if x
         nil
       end
@@ -134,8 +125,7 @@ module Enumerable
   def count(item = (none = true))
     n = 0
     if !none
-      each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(self, nil) do |x|
         n += 1 if Primitive.zr_rb_equal(x, item)
         nil
       end
@@ -145,8 +135,7 @@ module Enumerable
         nil
       end
     else
-      each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(self, nil) do |x|
         n += 1
         nil
       end
@@ -156,8 +145,7 @@ module Enumerable
 
   def sort(&blk)
     out = []
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       out << x
       nil
     end
@@ -168,8 +156,7 @@ module Enumerable
     return to_enum(:sort_by) unless block_given?
 
     pairs = []
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       pairs << yield(x) << x
       nil
     end
@@ -194,8 +181,7 @@ module Enumerable
 
     out = []
     dropping = true
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       dropping = false if dropping && !yield(x)
       out << x unless dropping
       nil
@@ -206,8 +192,7 @@ module Enumerable
   def each_with_object(memo)
     return to_enum(:each_with_object, memo) { respond_to?(:size) ? size : nil } unless block_given?
 
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       yield(x, memo)
       nil
     end
@@ -245,8 +230,7 @@ module Enumerable
     return to_enum(:group_by) unless block_given?
 
     out = {}
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       k = yield(x)
       (out[k] ||= []) << x
       nil
@@ -259,8 +243,7 @@ module Enumerable
 
     yes = []
     no = []
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       (yield(x) ? yes : no) << x
       nil
     end
@@ -285,8 +268,7 @@ module Enumerable
     return self if total.is_a?(Integer) && total < n
 
     window = []
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       window << x
       window.shift if window.size > n
       yield window.dup if window.size == n
@@ -304,8 +286,7 @@ module Enumerable
     enumerable_size
 
     slice = []
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       slice << x
       if slice.size == n
         yield slice
@@ -320,8 +301,7 @@ module Enumerable
   def each_entry(*args)
     return to_enum(:each_entry, *args) { respond_to?(:size) ? size : nil } unless block_given?
 
-    each(*args) do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, args) do |x|
       yield x
       nil
     end
@@ -335,8 +315,7 @@ module Enumerable
     best = nil
     key = nil
     first = true
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       k = yield(x)
       if first || compared(k, key) < 0
         best = x
@@ -355,8 +334,7 @@ module Enumerable
     best = nil
     key = nil
     first = true
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       k = yield(x)
       if first || compared(k, key) > 0
         best = x
@@ -508,8 +486,7 @@ module Enumerable
     held = nil
     pending = false
     seen = false
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       unless pending
         held = x
         pending = true
@@ -553,8 +530,7 @@ module Enumerable
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
     seen = 0
     if !pattern.empty?
-      each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(self, nil) do |x|
         seen += 1 if pattern[0] === x
         nil
       end
@@ -564,8 +540,7 @@ module Enumerable
         nil
       end
     else
-      each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(self, nil) do |x|
         seen += 1 if x
         nil
       end
@@ -578,16 +553,14 @@ module Enumerable
       raise TypeError, "no implicit conversion of #{conversion_name(counts)} into Hash" unless counts.is_a?(Hash)
       Primitive.zr_frozen_error(counts) if counts.frozen?
 
-      each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(self, nil) do |x|
         counts[x] = (counts[x] || 0) + 1
         nil
       end
       return counts
     end
     out = {}
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       out[x] = (out[x] || 0) + 1
       nil
     end
@@ -605,8 +578,7 @@ module Enumerable
     out = []
     return out if n == 0
 
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       out << x
       break if out.size >= n
       nil
@@ -620,8 +592,7 @@ module Enumerable
 
     out = []
     i = 0
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       out << x if i >= n
       i += 1
       nil
@@ -650,8 +621,7 @@ module Enumerable
 
   def first(n = (none = true))
     if none
-      each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(self, nil) do |x|
         return x
         nil
       end
@@ -664,8 +634,7 @@ module Enumerable
     out = []
     return out if n == 0
 
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       out << x
       break if out.size >= n
       nil
@@ -675,8 +644,7 @@ module Enumerable
 
   def to_a(*args)
     out = []
-    each(*args) do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, args) do |x|
       out << x
       nil
     end
@@ -684,8 +652,7 @@ module Enumerable
   end
 
   def include?(target)
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       return true if Primitive.zr_rb_equal(x, target)
       nil
     end
@@ -698,8 +665,7 @@ module Enumerable
     return Primitive.zr_ary_each_with_index_m(self, block) if args.empty? && Primitive.zr_ary_plain_each_p(self)
 
     i = 0
-    each(*args) do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, args) do |x|
       yield(x, i)
       i += 1
       nil
@@ -717,8 +683,7 @@ module Enumerable
     if op
       acc = args.size == 2 ? args.first : nil
       first = args.size != 2
-      each do |*x|
-        x = Primitive.zr_enum_value(x)
+      Primitive.zr_enum_each(self, nil) do |x|
         if first
           acc = x
           first = false
@@ -730,8 +695,7 @@ module Enumerable
       return acc
     end
     first = args.empty?
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       if first
         acc = x
         first = false
@@ -821,8 +785,7 @@ module Enumerable
 
   def compact
     out = []
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       out << x unless x.nil?
       nil
     end
@@ -860,8 +823,7 @@ module Enumerable
 
     min = max = min_key = max_key = last = last_key = nil
     seen = held = false
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       key = yield(x)
       unless held
         last = x
@@ -900,8 +862,7 @@ module Enumerable
 
   def grep(pattern)
     out = []
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       if pattern === x
         out << (block_given? ? yield(x) : x)
       end
@@ -912,8 +873,7 @@ module Enumerable
 
   def grep_v(pattern)
     out = []
-    each do |*x|
-      x = Primitive.zr_enum_value(x)
+    Primitive.zr_enum_each(self, nil) do |x|
       unless pattern === x
         out << (block_given? ? yield(x) : x)
       end
