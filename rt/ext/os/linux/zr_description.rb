@@ -1631,8 +1631,63 @@ module Ze0
         d zr_crc_multmodp Word a:Word b:Word
         d zr_crc_x2nmodp Word n:Word k:Word
         d zr_crc32_combine Word crc1:Word crc2:Word len2:Word
+        d zr_inflate_fast Void strm:Ptr start:Word
+        d zr_inflate_state_check Word strm:Ptr
+        d zr_inflate_reset_keep Word strm:Ptr
+        d zr_inflate_reset Word strm:Ptr
+        d zr_inflate_reset2 Word strm:Ptr window_bits:Word
+        d zr_inflate_init2 Word strm:Ptr window_bits:Word
+        d zr_inflate_end Word strm:Ptr
+        d zr_inflate_fixed_tables Void st:Ptr
+        d zr_inflate_update_window Word strm:Ptr st:Ptr end_:Ptr copy:Word
+        d zr_inflate_update_check Word st:Ptr check:Word buf:Ptr len:Word
+        d zr_inflate_crc_header Void st:Ptr word:Word n:Word
+        d zr_inf_restore Void strm:Ptr st:Ptr cur:Ptr
+        d zr_inf_load Void strm:Ptr st:Ptr cur:Ptr
+        d zr_inf_pull Bool cur:Ptr
+        d zr_inf_need Bool cur:Ptr n:Word
+        d zr_inf_bits Word cur:Ptr n:Word
+        d zr_inf_drop Void cur:Ptr n:Word
+        d zr_inf_init_bits Void cur:Ptr
+        d zr_inf_byte_bits Void cur:Ptr
+        d zr_inf_bad Word strm:Ptr st:Ptr msg:Ptr
+        d zr_inflate_head Word strm:Ptr st:Ptr cur:Ptr
+        d zr_inflate_gzip_header Word strm:Ptr st:Ptr cur:Ptr
+        d zr_inflate_skip_string Bool st:Ptr cur:Ptr
+        d zr_inflate_dict Word strm:Ptr st:Ptr cur:Ptr
+        d zr_inflate_type Word strm:Ptr st:Ptr cur:Ptr
+        d zr_inflate_build Word st:Ptr type:Word codes:Word root:Word
+        d zr_inflate_decode Word cur:Ptr table:Ptr table_bits:Word
+        d zr_inflate_decode_under Word cur:Ptr table:Ptr last:Word
+        d zr_inflate_table_lens Word strm:Ptr st:Ptr cur:Ptr
+        d zr_inflate_codes Word strm:Ptr st:Ptr cur:Ptr
+        d zr_inflate_check Word strm:Ptr st:Ptr cur:Ptr
+        d zr_inflate Word strm:Ptr flush:Word
+        d zr_inflate_set_dictionary Word strm:Ptr dictionary:Ptr length:Word
+        d zr_inflate_sync_search Word have:Ptr buf:Ptr len:Word
+        d zr_inflate_sync Word strm:Ptr
+        d zr_inflate_sync_point Word strm:Ptr
+        d zr_inf_code Word op:Word bits:Word val:Word
+        d zr_inf_code_op Word c:Word
+        d zr_inf_code_bits Word c:Word
+        d zr_inf_code_val Word c:Word
+        d zr_inflate_table Word type:Word lens:Ptr codes:Word table:Ptr bits:Ptr work:Ptr
+        d zr_zlib_version_text Ptr
+        d zr_zlib_error_text Ptr err:Word
+        d zr_zlib_swap32 Word q:Word
+        d zr_zlib_u32 Word p:Ptr i:Word
+        d zr_zlib_set_u32 Void p:Ptr i:Word v:Word
+        d zr_zlib_byte Word p:Ptr
+        d zr_zlib_copy_bytes Void out:Ptr from:Ptr n:Word
         d zr_crc_table Ptr
         d zr_crc_x2n_table Ptr
+        d zr_inflate_lenfix Ptr
+        d zr_inflate_distfix Ptr
+        d zr_inflate_lbase Ptr
+        d zr_inflate_lext Ptr
+        d zr_inflate_dbase Ptr
+        d zr_inflate_dext Ptr
+        d zr_inflate_order Ptr
         d zr_os_argv Ptr argc:I32 argv:Ptr
         d zr_os_ruby_platform Value
         d zr_os_environ Ptr
@@ -2006,6 +2061,70 @@ module Ze0
         c ADLER_NMAX 5552
         c CRC_POLY 3988292384
         c ZLIB_MASK32 4294967295
+        c INF_HEAD 16180
+        c INF_FLAGS 16181
+        c INF_TIME 16182
+        c INF_OS 16183
+        c INF_EXLEN 16184
+        c INF_EXTRA 16185
+        c INF_NAME 16186
+        c INF_COMMENT 16187
+        c INF_HCRC 16188
+        c INF_DICTID 16189
+        c INF_DICT 16190
+        c INF_TYPE 16191
+        c INF_TYPEDO 16192
+        c INF_STORED 16193
+        c INF_COPY_ 16194
+        c INF_COPY 16195
+        c INF_TABLE 16196
+        c INF_LENLENS 16197
+        c INF_CODELENS 16198
+        c INF_LEN_ 16199
+        c INF_LEN 16200
+        c INF_LENEXT 16201
+        c INF_DIST 16202
+        c INF_DISTEXT 16203
+        c INF_MATCH 16204
+        c INF_LIT 16205
+        c INF_CHECK 16206
+        c INF_LENGTH 16207
+        c INF_DONE 16208
+        c INF_BAD 16209
+        c INF_MEM 16210
+        c INF_SYNC 16211
+        c INF_NEXT 0
+        c INF_LEAVE 1
+        c INF_RETURN 2
+        c INF_LENS_WORDS 320
+        c INF_WORK_WORDS 288
+        c INF_CODES 0
+        c INF_LENS 1
+        c INF_DISTS 2
+        c INF_MAXBITS 15
+        c INF_ENOUGH_LENS 852
+        c INF_ENOUGH_DISTS 592
+        c INF_ENOUGH 1444
+        c Z_NO_FLUSH 0
+        c Z_PARTIAL_FLUSH 1
+        c Z_SYNC_FLUSH 2
+        c Z_FULL_FLUSH 3
+        c Z_FINISH 4
+        c Z_BLOCK 5
+        c Z_TREES 6
+        c Z_OK 0
+        c Z_STREAM_END 1
+        c Z_NEED_DICT 2
+        c Z_ERRNO -1
+        c Z_STREAM_ERROR -2
+        c Z_DATA_ERROR -3
+        c Z_MEM_ERROR -4
+        c Z_BUF_ERROR -5
+        c Z_VERSION_ERROR -6
+        c Z_DEFLATED 8
+        c Z_BINARY 0
+        c Z_TEXT 1
+        c Z_UNKNOWN 2
         c SC_NPROCESSORS_ONLN 84
         c CLOCK_MONOTONIC 1
         c UTSNAME_LEN 390
@@ -2099,6 +2218,9 @@ module Ze0
         s Symtab 40 8 rows:0:Ptr len:8:Word capa:16:Word bins:24:Ptr nbins:32:Word
         s RBasic 16 8 flags:0:Word klass:8:Value
         s WeakList 24 8 ptr:0:Ptr len:8:Word capa:16:Word
+        s InflateState 272 8 strm:0:Ptr mode:8:Word last:16:Word wrap:24:Word havedict:32:Word flags:40:Word dmax:48:Word check:56:Word total:64:Word wbits:72:Word wsize:80:Word whave:88:Word wnext:96:Word window:104:Ptr hold:112:Ptr bits:120:Word length:128:Word offset:136:Word extra:144:Word lencode:152:Ptr distcode:160:Ptr lenbits:168:Word distbits:176:Word ncode:184:Word nlen:192:Word ndist:200:Word have:208:Word nxt:216:Ptr lens:224:Ptr work:232:Ptr codes:240:Ptr sane:248:Word back:256:Word was:264:Word
+        s InfCursor 80 8 nxt:0:Ptr have:8:Word put:16:Ptr left:24:Word hold:32:Ptr bits:40:Word in:48:Word out:56:Word flush:64:Word ret:72:Word
+        s ZStream 80 8 next_in:0:Ptr avail_in:8:Word total_in:16:Word next_out:24:Ptr avail_out:32:Word total_out:40:Word msg:48:Ptr state:56:Ptr data_type:64:Word adler:72:Word
       ROWS
     end
   end
