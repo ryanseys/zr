@@ -109,28 +109,28 @@ module Math
   module_function
 
   def sqrt(x)
-    x = check(x, "sqrt")
+    x = check(x)
     raise DomainError, "Numerical argument is out of domain - sqrt" if x < 0.0
     return 0.0 if x == 0.0
 
     Primitive.zr_math_sqrt(x)
   end
 
-  def cbrt(x) = Primitive.zr_math_call(1, check(x, "cbrt"), 0.0)
-  def sin(x) = Primitive.zr_math_call(2, check(x, "sin"), 0.0)
-  def cos(x) = Primitive.zr_math_call(3, check(x, "cos"), 0.0)
-  def tan(x) = Primitive.zr_math_call(4, check(x, "tan"), 0.0)
-  def atan(x) = Primitive.zr_math_call(5, check(x, "atan"), 0.0)
-  def exp(x) = Primitive.zr_math_call(6, check(x, "exp"), 0.0)
-  def atan2(y, x) = Primitive.zr_math_call(7, check(y, "atan2"), check(x, "atan2"))
-  def hypot(x, y) = Primitive.zr_math_call(8, check(x, "hypot"), check(y, "hypot"))
-  def sinh(x) = Primitive.zr_math_call(9, check(x, "sinh"), 0.0)
-  def cosh(x) = Primitive.zr_math_call(10, check(x, "cosh"), 0.0)
-  def tanh(x) = Primitive.zr_math_call(11, check(x, "tanh"), 0.0)
-  def expm1(x) = Primitive.zr_math_call(24, check(x, "expm1"), 0.0)
+  def cbrt(x) = Primitive.zr_math_call(1, check(x), 0.0)
+  def sin(x) = Primitive.zr_math_call(2, check(x), 0.0)
+  def cos(x) = Primitive.zr_math_call(3, check(x), 0.0)
+  def tan(x) = Primitive.zr_math_call(4, check(x), 0.0)
+  def atan(x) = Primitive.zr_math_call(5, check(x), 0.0)
+  def exp(x) = Primitive.zr_math_call(6, check(x), 0.0)
+  def atan2(y, x) = Primitive.zr_math_call(7, check(y), check(x))
+  def hypot(x, y) = Primitive.zr_math_call(8, check(x), check(y))
+  def sinh(x) = Primitive.zr_math_call(9, check(x), 0.0)
+  def cosh(x) = Primitive.zr_math_call(10, check(x), 0.0)
+  def tanh(x) = Primitive.zr_math_call(11, check(x), 0.0)
+  def expm1(x) = Primitive.zr_math_call(24, check(x), 0.0)
 
   def log1p(x)
-    x = check(x, "log1p")
+    x = check(x)
     raise DomainError, "Numerical argument is out of domain - log1p" if x < -1.0
 
     Primitive.zr_math_call(25, x, 0.0)
@@ -138,13 +138,13 @@ module Math
 
   def log(x, base = nil)
     x, bits = split(x)
-    x = check(x, "log")
+    x = check(x)
     raise DomainError, "Numerical argument is out of domain - log" if x < 0.0
 
     value = Primitive.zr_math_call(12, x, 0.0) + bits * 0.6931471805599453
     return value if base.nil?
 
-    base = check(base, "log")
+    base = check(base)
     raise DomainError, "Numerical argument is out of domain - log" if base < 0.0
 
     value / Primitive.zr_math_call(12, base, 0.0)
@@ -152,7 +152,7 @@ module Math
 
   def log2(x)
     x, bits = split(x)
-    x = check(x, "log2")
+    x = check(x)
     raise DomainError, "Numerical argument is out of domain - log2" if x < 0.0
 
     Primitive.zr_math_call(13, x, 0.0) + bits
@@ -160,37 +160,37 @@ module Math
 
   def log10(x)
     x, bits = split(x)
-    x = check(x, "log10")
+    x = check(x)
     raise DomainError, "Numerical argument is out of domain - log10" if x < 0.0
 
     Primitive.zr_math_call(14, x, 0.0) + bits * 0.3010299956639812
   end
 
   def asin(x)
-    x = check(x, "asin")
+    x = check(x)
     raise DomainError, "Numerical argument is out of domain - asin" if x < -1.0 || x > 1.0
 
     Primitive.zr_math_call(15, x, 0.0)
   end
 
   def acos(x)
-    x = check(x, "acos")
+    x = check(x)
     raise DomainError, "Numerical argument is out of domain - acos" if x < -1.0 || x > 1.0
 
     Primitive.zr_math_call(16, x, 0.0)
   end
 
-  def asinh(x) = Primitive.zr_math_call(17, check(x, "asinh"), 0.0)
+  def asinh(x) = Primitive.zr_math_call(17, check(x), 0.0)
 
   def acosh(x)
-    x = check(x, "acosh")
+    x = check(x)
     raise DomainError, "Numerical argument is out of domain - acosh" if x < 1.0
 
     Primitive.zr_math_call(18, x, 0.0)
   end
 
   def atanh(x)
-    x = check(x, "atanh")
+    x = check(x)
     raise DomainError, "Numerical argument is out of domain - atanh" if x < -1.0 || x > 1.0
 
     Primitive.zr_math_call(19, x, 0.0)
@@ -199,7 +199,7 @@ module Math
   # Gamma is exact at the small positive integers, and refused at zero's
   # negative side and the negative integers.
   def gamma(x)
-    x = check(x, "gamma")
+    x = check(x)
     if x.infinite? && x < 0 || (x < 0 && x.finite? && x == x.floor) || (x == 0 && 1.0 / x < 0)
       raise DomainError, "Numerical argument is out of domain - gamma"
     end
@@ -213,7 +213,7 @@ module Math
   private_constant :FACTORIALS
 
   def lgamma(x)
-    x = check(x, "lgamma")
+    x = check(x)
     raise DomainError, "Numerical argument is out of domain - lgamma" if x.infinite? && x < 0
     return [Float::INFINITY, 1.0 / x < 0 ? -1 : 1] if x == 0
     return [Float::INFINITY, 1] if x.infinite? || (x < 0 && x == x.floor)
@@ -221,28 +221,30 @@ module Math
     Primitive.zr_math_lgamma(x)
   end
 
-  def erf(x) = Primitive.zr_math_call(21, check(x, "erf"), 0.0)
+  def erf(x) = Primitive.zr_math_call(21, check(x), 0.0)
 
-  def erfc(x) = Primitive.zr_math_call(22, check(x, "erfc"), 0.0)
+  def erfc(x) = Primitive.zr_math_call(22, check(x), 0.0)
 
   def frexp(x)
-    x = check(x, "frexp")
+    x = check(x)
     return [x, 0] if x.nan? || x.infinite?
 
     Primitive.zr_math_frexp(x)
   end
 
   def ldexp(fraction, exponent)
-    fraction = check(fraction, "ldexp")
+    fraction = check(fraction)
     exponent = Numeric.send(:int_operand, exponent)
     Primitive.zr_math_call(23, fraction, exponent)
   end
 
-  def check(x, name)
+  # rb_to_float: a Float as it is, any other Numeric through to_f, and
+  # nothing else, whatever answers to_f.
+  def check(x)
     Primitive.attr! :hidden
-    return x.to_f if x.is_a?(Integer)
     return x if x.is_a?(Float)
-    raise TypeError, "can't convert #{x.nil? ? "nil" : x.class} into Float" if x.nil? || x.is_a?(String) || !x.respond_to?(:to_f)
+    return x.to_f if x.is_a?(Integer)
+    raise TypeError, "can't convert #{x.nil? ? "nil" : x.class} into Float" unless x.is_a?(Numeric)
 
     x.to_f
   end
