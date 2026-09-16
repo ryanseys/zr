@@ -1257,12 +1257,17 @@ class IO
     gets(*args, chomp: chomp) || raise(EOFError, "end of file reached")
   end
 
+  # Each line as `gets` reads it, counted in `$.`; `$_` is `gets`'s
+  # alone, as rb_io_each_line leaves it.
   def each_line(*args, chomp: false)
     return to_enum(:each_line, *args, chomp: chomp) unless block_given?
 
+    check_readable
     separator, limit = getline_args(args)
-    while (line = gets(separator, limit, chomp: chomp))
-      yield line
+    while (line = transcoded(read_line(separator, limit)))
+      @lineno += 1
+      $. = @lineno
+      yield chomp ? chomp_line(line, separator) : line
     end
     self
   end
