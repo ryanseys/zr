@@ -285,6 +285,9 @@ end
 
 sig [Word] => Word
 machine def zr_gvar_resolve(id)
+  if IvTab.len(zr_gvar_aliases()) == 0
+    return id
+  end
   target = zr_ivtab_get(zr_gvar_aliases(), id)
   target == QUNDEF ? id : zr_fix2long(target)
 end
