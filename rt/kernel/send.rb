@@ -379,7 +379,8 @@ end
 # `super`: the next method named as the frame's is, past the frame's
 # owner in the receiver's chain; the frame's block passes on unless
 # `blk` is one of its own. In a method `define_method` made, the
-# name and owner are the entry's.
+# owner is the entry's and the name the one it was defined under,
+# which an alias keeps (`orig`), as a def's frame names the def.
 sig [Ptr, Word, Ptr, Value] => Value
 machine def zr_super(rec, argc, argv, blk)
   kw = zr_kw_take()
@@ -387,7 +388,7 @@ machine def zr_super(rec, argc, argv, blk)
   entry = zr_bmethod_entry(rec)
   if entry != 0
     owner = FrameMeta.owner(MEntry.meta(entry))
-    mid = MEntry.mid(entry)
+    mid = MEntry.orig(entry)
   else
     meta = zr_method_meta_of(rec)
     if meta == 0
@@ -455,7 +456,7 @@ machine def zr_super_defined(rec)
   entry = zr_bmethod_entry(rec)
   if entry != 0
     owner = FrameMeta.owner(MEntry.meta(entry))
-    mid = MEntry.mid(entry)
+    mid = MEntry.orig(entry)
   else
     meta = zr_method_meta_of(rec)
     if meta == 0
