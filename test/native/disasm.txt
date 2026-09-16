@@ -170,6 +170,27 @@ block0:
   ldp x29, x30, [sp], #48
   ret
 
+# iadd.stack_chain
+  stp x29, x30, [sp, #-48]!
+  mov x29, sp
+  mov x8, x0
+block0:
+  str x8, [sp, #32]
+  add x8, sp, #40
+  mov x0, x8
+  ldp x29, x30, [sp], #48
+  ret
+
+# store.pair_same
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  mov x8, x0
+block0:
+  movz x9, #8
+  stp x9, x9, [x8, #8]
+  ldp x29, x30, [sp], #16
+  ret
+
 # symbol_value.local
   stp x29, x30, [sp, #-16]!
   mov x29, sp
@@ -907,8 +928,8 @@ block0:
   mul x11, x8, x13
   smulh x12, x8, x13
   cmp x12, x11, asr #63
-  cset x12, ne
   mov x15, x11
+  cset x12, ne
   mov x14, x12
   mov x0, x15
   ldp x29, x30, [sp], #16
@@ -1400,6 +1421,39 @@ block1:
   b epilogue
 block2:
   movz x0, #0
+epilogue:
+  ldp x29, x30, [sp], #16
+  ret
+
+# brif.tst
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  mov x8, x0
+block0:
+  tst x8, #7
+  b.ne block2
+block1:
+  movz x0, #1
+  b epilogue
+block2:
+  movz x0, #0
+epilogue:
+  ldp x29, x30, [sp], #16
+  ret
+
+# brif.overflow
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  mov x8, x0
+  mov x13, x1
+block0:
+  adds x14, x8, x13
+  b.vc block2
+block1:
+  movz x0, #0
+  b epilogue
+block2:
+  mov x0, x14
 epilogue:
   ldp x29, x30, [sp], #16
   ret

@@ -74,6 +74,19 @@ module Ze0
         ops["load.iadd_stack"] = build("load_iadd_stack", [], "i64") do |f|
           f.fetch("i64", f.iadd(f.stack_addr(f.slot(32)), f.iconst("i64", 16)))
         end
+        # A slot's address and two constants, read as a value: one `add`
+        # from sp could make it, with the inner sum read through alone.
+        ops["iadd.stack_chain"] = build("iadd_stack_chain", %w[i64], "i64") do |f, v|
+          inner = f.iadd(f.stack_addr(f.slot(32)), f.iconst("i64", 16))
+          f.store(v, inner)
+          f.iadd(inner, f.iconst("i64", 8))
+        end
+        # One value stored twice, eight bytes apart: one register would do.
+        ops["store.pair_same"] = build("store_pair_same", %w[i64], nil) do |f, p|
+          nil_word = f.iconst("i64", 8)
+          f.store(nil_word, p, 8)
+          f.store(nil_word, p, 16)
+        end
         ops["symbol_value.local"] = build("symbol_local", [], "i64") { |f| f.symbol_value(f.symbol("here")) }
         ops["symbol_value.import"] = build("symbol_import", [], "i64") do |f|
           f.symbol_value(f.symbol("elsewhere", colocated: false))
@@ -236,6 +249,28 @@ module Ze0
           f.ret(f.iconst("i64", 1))
           f.switch(no)
           f.ret(f.iconst("i64", 0))
+        end
+        # A branch on any of some bits of a word: a `tst` would do.
+        ops["brif.tst"] = build("brif_tst", %w[i64], "i64") do |f, a|
+          c = f.icmp("eq", f.band(a, f.iconst("i64", 7)), f.iconst("i64", 0))
+          yes = f.label
+          no = f.label
+          f.brif(c, yes, no)
+          f.switch(yes)
+          f.ret(f.iconst("i64", 1))
+          f.switch(no)
+          f.ret(f.iconst("i64", 0))
+        end
+        # A branch on an overflow flag: `b.vs` reads it straight.
+        ops["brif.overflow"] = build("brif_overflow", %w[i64 i64], "i64") do |f, a, b|
+          sum, flag = f.sadd_overflow(a, b)
+          yes = f.label
+          no = f.label
+          f.brif(flag, yes, no)
+          f.switch(yes)
+          f.ret(f.iconst("i64", 0))
+          f.switch(no)
+          f.ret(sum)
         end
         # Two returns: each could share one epilogue.
         ops["return.twice"] = build("return_twice", %w[i8 i64], "i64") do |f, c, a|

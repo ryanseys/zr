@@ -155,6 +155,8 @@ module Ze0
         def and(d, n, m) = logical(0b00, d, n, m)
         def orr(d, n, m) = logical(0b01, d, n, m)
         def eor(d, n, m) = logical(0b10, d, n, m)
+        def ands(d, n, m) = logical(0b11, d, n, m)
+        def tst(n, m) = ands(n.zr, n, m)
         # A register amount shifts by whatever it holds; an Integer one
         # is a bitfield move, which is what arm64 calls these by. The
         # signatures are the gem's, so `aarch64_test` holds both forms to

@@ -181,13 +181,14 @@ module Ze0
         def plan_fusion
           @fused = {}
           @bit_tests = {}
+          @mask_tests = {}
           @f.blocks.each do |b|
             # What emits nothing where it stands does not part a compare
             # from its reader.
             insts = b.insts.reject { |i| @silent.include?(i.results[0]) }
             insts.each_with_index do |cmp, n|
-              r = cmp.results[0]
-              next unless (cmp.op == :icmp || cmp.op == :fcmp) && @uses[r] == 1
+              r = FLAG_SETTERS.include?(cmp.op) ? cmp.results[1] : cmp.results[0]
+              next unless (cmp.op == :icmp || cmp.op == :fcmp || FLAG_SETTERS.include?(cmp.op)) && @uses[r] == 1
 
               reader = insts[(n + 1)..].find { |i| !FLAG_NEUTRAL.include?(i.op) }
               next unless reader && (reader.op == :brif || reader.op == :select) && reader.args[0] == r
@@ -200,10 +201,22 @@ module Ze0
                 @via[r] = test[0]
               else
                 @fused[cmp] = reader
+                next unless cmp.op == :icmp && (test = mask_test(cmp))
+
+                # `tst` reads the word: the `band` is never made.
+                @mask_tests[cmp] = test
+                m = cmp.args.find { |a| @def_of[a]&.op == :band }
+                @silent << m
+                @via[m] = test[0]
               end
             end
           end
         end
+
+        # The instructions whose second result is a flag they leave in
+        # NZCV as well: an overflow check, whose branch reads `vs`
+        # straight when nothing parts them (`emit_overflow`).
+        FLAG_SETTERS = %i[sadd_overflow ssub_overflow smul_overflow].to_set.freeze
 
         # Two stores of words to the same base, the second eight bytes
         # past the first with nothing that emits between them, are one
@@ -243,6 +256,27 @@ module Ze0
           return unless mask&.positive? && (mask & (mask - 1)).zero?
 
           [x, mask.bit_length - 1, cmp.cond == "ne" ? :tbnz : :tbz]
+        end
+
+        # `[word, mask]` when `cmp` asks whether any of some bits of a
+        # word are set: a `band` of the word and a bitmask immediate,
+        # compared with zero, and nothing else reads the `band`. That is
+        # one `tst`, where the `and` and `cmp` were two.
+        def mask_test(cmp)
+          return unless cmp.cond == "eq" || cmp.cond == "ne"
+
+          m, z = cmp.args
+          m, z = z, m if @const.key?(m)
+          return unless constant(z, type_of(m)) == 0 && @uses[m] == 1 && @def_of[m]&.op == :band
+
+          x, k = @def_of[m].args
+          x, k = k, x if @const.key?(x)
+          return if @const.key?(x)
+
+          mask = constant(k, type_of(x))
+          return unless mask && Assembler.bitmask(mask, wide?(x) ? 64 : 32)
+
+          [x, mask]
         end
 
         # How many times each value is read: by an instruction, or by a
@@ -366,13 +400,20 @@ module Ze0
           # the outer additions of a chain are decided first.
           other = @uses.dup
           memory.each { |v, reads| other[v] -= reads.size }
+          @from_sp = {}
           sums.reverse_each do |v, base, root, k|
-            next unless other[v].zero? && memory[v].all? { |off, width| reaches?(root, k + off, width) }
-
-            @derived[v] = [root, k]
-            @via[v] = root
-            @silent << v
-            other[base] -= 1
+            if other[v].zero? && memory[v].all? { |off, width| reaches?(root, k + off, width) }
+              @derived[v] = [root, k]
+              @via[v] = root
+              @silent << v
+              other[base] -= 1
+            elsif (at = @stack[root])
+              # Read as a value, but a slot's address and a constant: one
+              # `add` from sp, which reads none of the chain. The argument
+              # vector `Zr::Function` passes a send is one of these.
+              @from_sp[v] = at + k
+              other[base] -= 1
+            end
           end
         end
 
@@ -745,6 +786,12 @@ module Ze0
           when :iadd, :isub, :imul, :udiv, :sdiv, :band, :bor, :bxor, :ishl, :ushr, :sshr
             return if @silent.include?(i.results[0])
 
+            if (at = @from_sp[i.results[0]])
+              d = result_in(i.results[0], X11)
+              frame_address(d, at)
+              store_value(i.results[0], d)
+              return
+            end
             emit_binop(i)
           when :urem, :srem then emit_rem(i)
           when :ireduce, :uextend
@@ -874,7 +921,11 @@ module Ze0
         # `str` through one address where it does not.
         def emit_store_pair(first, second)
           a = value_in(first.args[0], X9)
-          b = value_in(second.args[0], X12)
+          # One value, or one number, stored twice is read into one
+          # register: most pairs are two nils.
+          same = first.args[0] == second.args[0] ||
+                 (constant(first.args[0], "i64") && constant(first.args[0], "i64") == constant(second.args[0], "i64"))
+          b = same ? a : value_in(second.args[0], X12)
           base, off = through(first.args[1], X10, first.offset, 8)
           if off <= PAIR_REACH
             @asm.stp a, b, [base, off]
@@ -1046,6 +1097,11 @@ module Ze0
         # A constant on the left goes to the right, and the condition turns
         # round with it.
         def emit_compare(i)
+          if (x, mask = @mask_tests[i])
+            @asm.tst reg_for(x, value_in(x, X9)), mask
+            return CONDS.fetch(i.cond)
+          end
+
           a, b = i.args
           cond = i.cond
           type = type_of(a)
@@ -1137,11 +1193,16 @@ module Ze0
 
         def emit_overflow(i)
           dest = result_in(i.results[0], X11)
-          flag = result_in(i.results[1], X12)
           d, a, b = [dest, value_in(i.args[0], X9), value_in(i.args[1], X10)].map { |x| reg_for(i.args[0], x) }
           i.op == :sadd_overflow ? @asm.adds(d, a, b) : @asm.subs(d, a, b)
-          @asm.cset flag, :vs
           store_value(i.results[0], dest)
+          # The branch or select that follows reads the flags.
+          if (reader = @fused[i])
+            @fused[reader] = :vs
+            return
+          end
+          flag = result_in(i.results[1], X12)
+          @asm.cset flag, :vs
           store_value(i.results[1], flag)
         end
 
@@ -1154,8 +1215,12 @@ module Ze0
           @asm.mul X11, a, b
           @asm.smulh X12, a, b
           @asm.cmp X12, X11, shift: :asr, amount: 63
-          @asm.cset X12, :ne
           store_value(i.results[0], X11)
+          if (reader = @fused[i])
+            @fused[reader] = :ne
+            return
+          end
+          @asm.cset X12, :ne
           store_value(i.results[1], X12)
         end
 

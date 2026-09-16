@@ -363,7 +363,7 @@ module Ze0
         def operator(node, recv, argv)
           arg = @f.fetch("i64", argv)
           both = @f.band(recv, arg)
-          fix = @f.icmp("eq", @f.band(both, imm(1)), imm(1))
+          fix = @f.icmp("ne", @f.band(both, imm(1)), imm(0))
           ok = @f.band(fix, gate_clear(OPS.fetch(node.name)))
           fast = @f.label
           slow = @f.label
