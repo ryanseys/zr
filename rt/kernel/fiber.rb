@@ -28,8 +28,15 @@ machine def zr_fiber_stack_error(err)
 end
 
 sig [] => Ptr
+# The task word and the preemption's poll word (send.rb) share one
+# static, so a compiled function reads both off the one address.
 machine def zr_current_task_slot
-  Machine.static(:current_task, 8)
+  Machine.static(:current_task, 16)
+end
+
+sig [] => Ptr
+machine def zr_poll_slot
+  Machine.static(:current_task, 16) + 8
 end
 
 sig [] => Ptr

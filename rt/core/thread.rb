@@ -181,10 +181,17 @@ class Thread
       @threads << @main
     end
 
-    # A loop back edge in compiled Ruby comes here once the kernel's
-    # count runs out, so a thread that only computes cannot starve its
-    # siblings. A thread with nobody waiting keeps its turn.
+    # A safe point in compiled Ruby comes here when the kernel's poll
+    # word is set (rt/kernel/send.rb), so a thread that only computes
+    # cannot starve its siblings. A thread with nobody waiting keeps its
+    # turn. A tick that lands while the scheduler itself is choosing --
+    # its polling of the waiters iterates, and every iteration is a
+    # safe point -- is no turn: a switch inside a switch would queue a
+    # thread that is parked, and lose it. Nor is one that lands while
+    # the thread is finishing: queued, it would come back alive.
     def preempt
+      return nil if @switching || !@current.alive?
+
       wake_due
       return nil if @queue.empty?
 
@@ -216,19 +223,23 @@ class Thread
       # The scheduler's own frame is the runtime's, not the program's, so
       # a thread parked here shows the line that waited, as CRuby shows.
       Primitive.attr! :hidden
+      @switching = true
       from = @current
       while (to = @queue.shift).nil?
         if !@io_waiters.empty?
           poll_waiters
           wake_due
         elsif @sleepers.empty?
+          @switching = false
           return deadlock if deadly && !@ignore_deadlock
 
+          @switching = true
           Primitive.zr_nanosleep(1_000_000_000)
         elsif (to = next_sleeper)
           break
         end
       end
+      @switching = false
       to.send(:take_over, from) unless to.equal?(from)
       from.send(:interrupted)
     end

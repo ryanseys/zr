@@ -519,6 +519,7 @@ module Ze0
         d zr_ffi_closure_run Void cif:Ptr ret:Ptr args:Ptr user:Ptr
         d zr_fiber_stack_error Value err:Word
         d zr_current_task_slot Ptr
+        d zr_poll_slot Ptr
         d zr_task Ptr
         d zr_task_init Void t:Ptr stack_limit:Ptr
         d zr_ractor_enter_m Value
@@ -1271,6 +1272,7 @@ module Ze0
         d zr_ruby2_hash_new Value h:Value
         d zr_ruby2_hash_p Value h:Value
         d zr_preempt_arm Value receiver:Value message:Value
+        d zr_poll_set Void
         d zr_threaded Value
         d zr_preempt Value
         d zr_preempt_expired Value
@@ -1616,6 +1618,8 @@ module Ze0
         d zr_os_stack_low Word
         d zr_os_stack_high Word
         d zr_os_stack_map Ptr bytes:Word
+        d zr_os_poll_timer Ptr arg:Ptr
+        d zr_os_poll_start Void
         d zr_arch_context_start Void ctx:Ptr entry:Word top:Word
         c G_ARRAY 25
         c G_INDEX_ERROR 26

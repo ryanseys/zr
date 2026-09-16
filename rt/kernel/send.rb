@@ -611,17 +611,32 @@ machine def zr_ruby2_hash_p(h)
 end
 
 # Preemption. A green thread that only computes reaches no blocking
-# call, so nothing else would ever run. Every loop back edge in
-# compiled Ruby calls here; once the count runs out the running thread
-# hands the turn on. Thread arms the receiver and the message when a
-# second thread appears, so a one-thread program pays a count alone.
+# call, so nothing else would ever run. The poll word (`zr_poll_slot`,
+# beside the task word) is the word every safe point reads -- a compiled loop's back edge, a compiled
+# method's entry, and the kernel's own loops through `zr_preempt` --
+# and the kernel runs at a safe point only when it is set: by the
+# timer thread every 100 ms once a second thread started
+# (`zr_os_poll_start`), by a caught signal, and by a collection that
+# queued a finalizer. Under wasm there is no timer thread, so the count
+# is the clock: compiled back edges count it down and the kernel's
+# loops tick it here. Thread arms the receiver and the message when a
+# second thread appears, so a one-thread program hands the turn to no
+# one.
 PREEMPT_TICKS = 20_000
 
 sig [Value, Value] => Value
 machine def zr_preempt_arm(receiver, message)
   Machine.store64(Machine.static(:preempt_mid, 8), 0, zr_sym2id(message))
   Machine.store64(Machine.static(:preempt_to, 8), 0, Machine.word(receiver))
+  zr_os_poll_start()
   Machine.value(QNIL)
+end
+
+# Something wants the next safe point: a signal, a finalizer, the
+# timer.
+sig [] => Void
+machine def zr_poll_set
+  Machine.store64(zr_poll_slot(), 0, 1)
 end
 
 # Whether a second thread ever started. Until one does, every task is
@@ -635,19 +650,20 @@ sig [] => Value
 machine def zr_preempt
   count = Machine.static(:preempt_count, 8)
   n = Machine.load64(count, 0) - 1
-  if n > 0
-    Machine.store64(count, 0, n)
+  Machine.store64(count, 0, n)
+  if n > 0 && Machine.load64(zr_poll_slot(), 0) == 0
     return Machine.value(QNIL)
   end
   zr_preempt_expired()
 end
 
-# The count ran out: it starts again, the handlers of any signal that
-# came run, the finalizers a collection queued run, and the turn goes
-# on if a second thread armed the preemption. Compiled back edges count down inline and call here only
-# when the count reaches zero, which a caught signal makes it do.
+# A safe point that was asked for: the poll word and the count start
+# again, the handlers of any signal that came run, the finalizers a
+# collection queued run, and the turn goes on if a second thread armed
+# the preemption.
 sig [] => Value
 machine def zr_preempt_expired
+  Machine.store64(zr_poll_slot(), 0, 0)
   Machine.store64(Machine.static(:preempt_count, 8), 0, PREEMPT_TICKS)
   if zr_trap_check() == QUNDEF
     return Machine.value(QUNDEF)

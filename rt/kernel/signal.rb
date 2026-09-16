@@ -17,14 +17,14 @@ SIGNAL_OTHER = 4
 
 # The system's handler for a signal Ruby handles: one more of `signo`
 # came. The count only grows, and only here, so the program reads it
-# without a lock. The preemption count runs out at the next back edge,
-# which is where the program asks.
+# without a lock. The next safe point is where the program asks.
 sig [I32] => Void
 machine def zr_trap_caught(signo)
   count = Machine.static(:signal_counts, NSIG * 8) + (Machine.word(signo) * 8)
   Machine.store64(count, 0, Machine.load64(count, 0) + 1)
   Machine.store64(Machine.static(:signal_pending, 8), 0, 1)
   Machine.store64(Machine.static(:preempt_count, 8), 0, 1)
+  zr_poll_set()
   zr_chld_note(signo)
 end
 

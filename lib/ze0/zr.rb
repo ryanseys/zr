@@ -219,7 +219,7 @@ module Ze0
           loader = Hir::Build.road(target)
           program = Hir::Program.new(Hir::Build::EVAL_ROAD, [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
           symbols = Machine::Symbols.new(@runtime.symbols.ids.keys, sites: @runtime.symbols.sites)
-          lower = Lower.new(program, @runtime.description, symbols, entry: "zr_road")
+          lower = Lower.new(program, @runtime.description, symbols, entry: "zr_road", target: target)
           functions, data = lower.run
           files = loader.units.filter_map { |u| u.file if u.file.start_with?("/") }.uniq.sort
           meta = { "key" => files_key(files), "files" => files,
@@ -242,7 +242,7 @@ module Ze0
       carried = road(target)
       hir = Ze0.clock("hir built") { Hir.build(source, file, road: carried, target: target) }
       symbols = hir.evals ? carried.symbols : Machine::Symbols.new(rt.symbols.ids.keys, sites: rt.symbols.sites)
-      lower = Lower.new(hir, rt.description, symbols)
+      lower = Lower.new(hir, rt.description, symbols, target: target)
       functions, data = Ze0.clock(finish ? "program lowered and assembled" : "program lowered") do
         finish ? lower.run { |f| finish.call(f, lower.entry) } : lower.run
       end
@@ -305,12 +305,13 @@ module Ze0
       entries = core_files(target).map do |path|
         entry = "zr_core_#{File.basename(path, ".rb")}"
         source = sources.fetch(path) { File.read(path) }
-        f, d = Lower.new(Hir.build(source, path, road: false, target: target), unit, symbols, entry: entry, internal: true).run
+        f, d = Lower.new(Hir.build(source, path, road: false, target: target), unit, symbols, entry: entry, internal: true,
+                         target: target).run
         functions.concat(f)
         data.concat(d)
         entry
       end
-      f, d = Lower.new(gem_prelude(target), unit, symbols, entry: "zr_gem_prelude", kind: :top).run
+      f, d = Lower.new(gem_prelude(target), unit, symbols, entry: "zr_gem_prelude", kind: :top, target: target).run
       [functions.concat(f) << prelude(entries, unit), data.concat(d)]
     end
 

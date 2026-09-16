@@ -55,3 +55,35 @@ machine def zr_os_stack_map(bytes)
   mprotect(stack, STACK_GUARD_BYTES, Machine.i32(0))
   stack
 end
+
+# The timer thread of the preemption (send.rb): once a second Ruby
+# thread started, it sets the poll word every 100 ms, so that a thread
+# computing with no call into the kernel hands the turn on at its next
+# back edge or method entry, as CRuby's timer thread has it do.
+Machine.import "pthread_create", [Ptr, Ptr, Ptr, Ptr] => I32
+Machine.import "pthread_detach", [Ptr] => I32
+
+sig [Ptr] => Ptr
+machine def zr_os_poll_timer(arg)
+  ts = Machine.slot(16)
+  Machine.store64(ts, 0, 0)
+  Machine.store64(ts, 8, 100000000)
+  while true
+    nanosleep(ts, 0)
+    zr_poll_set()
+  end
+  arg
+end
+
+sig [] => Void
+machine def zr_os_poll_start
+  started = Machine.static(:poll_started, 8)
+  if Machine.load64(started, 0) != 0
+    return
+  end
+  Machine.store64(started, 0, 1)
+  tid = Machine.slot(8)
+  if pthread_create(tid, 0, Machine.addr(:zr_os_poll_timer), 0) == Machine.i32(0)
+    pthread_detach(Machine.ptr(Machine.load64(tid, 0)))
+  end
+end

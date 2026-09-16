@@ -84,9 +84,11 @@ module Ze0
       # which is internal as a unit of one is. `kind` is `:top` for an
       # eval, whose toplevel is a file's, not a program's: it starts no
       # program and prints no parse warning.
-      def initialize(program, kernel, symbols, entry: "zr_toplevel", internal: false, ext: false, kind: :main, outer: nil)
+      def initialize(program, kernel, symbols, entry: "zr_toplevel", internal: false, ext: false, kind: :main, outer: nil,
+                     target: Target.default)
         @program = program
         @kernel = kernel
+        @target = target
         @symbols = symbols
         @entry = entry
         @internal = internal
@@ -137,6 +139,10 @@ module Ze0
       end
 
       # The FrameMeta kind a function of `kind` gets here.
+      # Whether the code goes to the wasm backend, where the preemption
+      # count is the clock (rt/kernel/send.rb).
+      def wasm? = @target.arch == :wasm32
+
       def frame_kind(kind)
         return Function::KINDS.fetch(kind) unless internal?
 

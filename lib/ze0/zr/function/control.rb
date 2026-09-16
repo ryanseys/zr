@@ -56,15 +56,27 @@ module Ze0
           result
         end
 
-        # One tick off the preemption count, inline: the kernel runs only
-        # when the count runs out.
+        # A safe point (rt/kernel/send.rb): the poll word read, and the
+        # kernel run only when it is set. Under wasm the count is the
+        # clock, and one tick comes off it here.
+        #
+        # Not in the runtime's own Ruby. The scheduler and the waits are
+        # written there, and a turn handed on from inside them is a
+        # switch in the middle of a switch; its loops that run long are
+        # the iterators, whose yields the kernel ticks.
         def preempt
-          count = static("preempt_count")
-          n = @f.isub(@f.fetch("i64", count), imm(1))
-          @f.store(n, count)
+          return if @l.internal?
+
           expired = @f.label
           go = @f.label
-          @f.brif(@f.icmp("sle", n, imm(0)), expired, go)
+          if @l.wasm?
+            count = static("preempt_count")
+            n = @f.isub(@f.fetch("i64", count), imm(1))
+            @f.store(n, count)
+            @f.brif(@f.icmp("sle", n, imm(0)), expired, go)
+          else
+            @f.brif(@f.icmp("ne", @f.fetch("i64", static("current_task"), 8), imm(0)), expired, go)
+          end
           switch(expired)
           checked(kernel("zr_preempt_expired"))
           @f.jump(go)

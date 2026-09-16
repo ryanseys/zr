@@ -86,6 +86,9 @@ module Ze0
         @f = IR::Function.new(@name, ABI.fetch(@kind), "i64")
         enter
         bind_params
+        # A method that only recurses has no back edge: its entry is
+        # where it hands the turn on, once its record holds its arguments.
+        preempt if @kind == :def
         trace_open
         if @kind == :block
           @body_label = @f.label

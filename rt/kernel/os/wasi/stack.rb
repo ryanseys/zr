@@ -24,3 +24,8 @@ machine def zr_os_stack_map(bytes)
   zr_os_set_errno(WASI_ENOSYS)
   Machine.ptr(0)
 end
+
+# No timer thread: the preemption count is the clock (send.rb).
+sig [] => Void
+machine def zr_os_poll_start
+end

@@ -93,6 +93,8 @@ machine def zr_weak_prune_table(h, finalizer)
     if HEntry.live(e) != 0 && (zr_dead_p(HEntry.key(e)) || (both && zr_dead_p(HEntry.value(e))))
       if finalizer
         zr_weak_list_push(zr_finalizer_queue(), HEntry.value(e))
+        # It runs at the next safe point.
+        zr_poll_set()
       end
       HEntry.set_live(e, 0)
       HEntry.set_key(e, Machine.value(QNIL))

@@ -56,7 +56,7 @@ machine def zr_call_cache_hit(cc, recv, mid)
   if klass != CallCache.klass(cc) || CallCache.stamp(cc) != Machine.load64(Machine.static(:mcache_stamp, 8), 0)
     return 0
   end
-  if Task.refine(Machine.ptr(Machine.load64(Machine.static(:current_task, 8), 0))) != QNIL
+  if Task.refine(Machine.ptr(Machine.load64(Machine.static(:current_task, 16), 0))) != QNIL
     return 0
   end
   e = CallCache.entry(cc)
