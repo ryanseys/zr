@@ -120,7 +120,7 @@ G_TRUE = 9
 G_FALSE = 10
 G_MAIN = 11
 G_NUMERIC = 13
-G_COUNT = 61
+G_COUNT = 62
 
 sig [] => Ptr
 machine def zr_globals

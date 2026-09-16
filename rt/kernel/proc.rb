@@ -241,8 +241,23 @@ end
 
 sig [Value] => Value
 machine def zr_sym_to_proc(sym)
-  zr_native_proc(Machine.addr(:zr_symbol_block), sym)
+  # One lambda per Symbol for the life of the program, as ruby's
+  # rb_sym_to_proc answers, kept in a table the collector roots.
+  table = zr_global(G_SYM_PROCS)
+  if zr_special_p(table)
+    table = zr_hash_new()
+    zr_set_global(G_SYM_PROCS, table)
+  end
+  found = zr_hash_lookup(table, sym)
+  if found != QUNDEF
+    return found
+  end
+  p = zr_native_proc(Machine.addr(:zr_symbol_block), sym)
+  zr_hash_store(table, sym, p)
+  p
 end
+
+G_SYM_PROCS = 61
 
 # `each` over `recv` with `blk` given one value per element: the value
 # yielded, or an Array of them when there are several (nil for none),
