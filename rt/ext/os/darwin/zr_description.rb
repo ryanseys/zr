@@ -1448,6 +1448,11 @@ module Ze0
         d zr_str_capitalize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_reverse Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_find Word hay:Value needle:Value from:Word
+        d zr_bytes_find Word hay:Ptr n:Word needle:Ptr m:Word from:Word
+        d zr_str_split_by Value s:Value sep:Value limit_v:Value
+        d zr_str_to_i10 Value s:Value
+        d zr_blank_byte_p Bool b:Word
+        d zr_digit_byte_p Bool b:Word
         d zr_str_include_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_index Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_empty_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value

@@ -1031,6 +1031,10 @@ class String
   def to_i(base = 10)
     base = Primitive.zr_index_operand_m(base)
     raise ArgumentError, "invalid radix #{base}" if base < 0 || base == 1 || base > 36
+    if base == 10
+      fast = Primitive.zr_str_to_i10(self)
+      return fast unless fast.nil?
+    end
     return lenient_integer(base == 0 ? -10 : base) if base != 10 || OWN[:include?].bind_call(self, "0d") || OWN[:include?].bind_call(self, "0D")
 
     i = 0
@@ -1638,17 +1642,10 @@ class String
 
   def split_by_string(pattern, limit)
     Primitive.attr! :hidden
-    out = []
-    beg = 0
-    pieces = 1
-    while (i = byte_index(pattern, beg))
-      break if limit > 0 && limit <= pieces
+    pattern = joined(Primitive.zr_str_operand(pattern))
+    raise ArgumentError, "invalid byte sequence in #{pattern.encoding}" unless Primitive.zr_str_valid_p(pattern)
 
-      out << byteslice_of(beg, i - beg)
-      beg = i + pattern.bytesize
-      pieces += 1
-    end
-    split_tail(out, beg, limit)
+    Primitive.zr_str_split_by(self, pattern, limit)
   end
 
   # The text after the last piece: kept under a limit, or when it is

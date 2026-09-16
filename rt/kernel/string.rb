@@ -1108,16 +1108,114 @@ machine def zr_str_find(hay, needle, from)
   if zr_str_valid_p(needle) == QFALSE
     return 0 - 1
   end
-  n = RString.len(hay)
-  m = RString.len(needle)
-  i = from
-  while i + m <= n
-    if zr_bytes_eq(RString.ptr(hay) + i, m, RString.ptr(needle), m)
-      return i
+  zr_bytes_find(RString.ptr(hay), RString.len(hay), RString.ptr(needle), RString.len(needle), from)
+end
+
+Machine.import "memmem", [Ptr, Word, Ptr, Word] => Ptr
+
+# The `m` bytes at `needle` in the `n` at `hay`, at or after byte
+# `from`: the offset, or -1. An empty needle is found at `from`, which
+# is not every libc's memmem answer over an empty rest.
+sig [Ptr, Word, Ptr, Word, Word] => Word
+machine def zr_bytes_find(hay, n, needle, m, from)
+  if from + m > n
+    return 0 - 1
+  end
+  if m == 0
+    return from
+  end
+  p = memmem(hay + from, n - from, needle, m)
+  if p == 0
+    return 0 - 1
+  end
+  p - hay
+end
+
+# `s.split(sep)` by a String's bytes: the piece before each match and,
+# past the last, the rest (kept under a limit, or when it is not
+# empty); a `limit` above 0 caps the pieces. The core checks the
+# encodings and the bytes first, and drops trailing empty pieces for
+# a limit of 0.
+sig [Value, Value, Value] => Value
+machine def zr_str_split_by(s, sep, limit_v)
+  limit = zr_fix2long(limit_v)
+  n = RString.len(s)
+  m = RString.len(sep)
+  out = zr_ary_new(8)
+  beg = 0
+  pieces = 1
+  while limit <= 0 || pieces < limit
+    i = zr_bytes_find(RString.ptr(s), n, RString.ptr(sep), m, beg)
+    if i < 0
+      break
     end
+    zr_ary_push(out, zr_str_copy_encoding(zr_str_new(RString.ptr(s) + beg, i - beg), s))
+    beg = i + m
+    pieces += 1
+  end
+  if n > 0 && (limit != 0 || n > beg)
+    zr_ary_push(out, zr_str_copy_encoding(zr_str_new(RString.ptr(s) + beg, n - beg), s))
+  end
+  out
+end
+
+# `s.to_i` in base 10 when the answer is a fixnum: leading blanks (C's
+# isspace, so not NUL, which the core's strip counts), a sign, digits
+# with single underscores between them, stopping at the first other
+# byte. nil leaves the rest to the core: a `0d` prefix, or a number
+# past 18 digits.
+sig [Value] => Value
+machine def zr_str_to_i10(s)
+  p = RString.ptr(s)
+  n = RString.len(s)
+  i = 0
+  while i < n && zr_blank_byte_p(Machine.word(Machine.load8(p + i, 0)))
     i += 1
   end
-  0 - 1
+  negative = false
+  if i < n
+    b = Machine.word(Machine.load8(p + i, 0))
+    if b == 45 || b == 43
+      negative = b == 45
+      i += 1
+    end
+  end
+  v = 0
+  digits = 0
+  start = i
+  while i < n
+    b = Machine.word(Machine.load8(p + i, 0))
+    if zr_digit_byte_p(b)
+      v = (v * 10) + (b - 48)
+      digits += 1
+      if digits > 18
+        return Machine.value(QNIL)
+      end
+      i += 1
+    elsif b == 95 && digits > 0 && i + 1 < n && zr_digit_byte_p(Machine.word(Machine.load8(p + i + 1, 0)))
+      i += 1
+    else
+      break
+    end
+  end
+  # `0d12`: a prefix the core reads, not a zero.
+  if digits == 1 && i == start + 1 && v == 0 && i < n
+    b = Machine.word(Machine.load8(p + i, 0))
+    if b == 100 || b == 68
+      return Machine.value(QNIL)
+    end
+  end
+  zr_fix(negative ? 0 - v : v)
+end
+
+sig [Word] => Bool
+machine def zr_blank_byte_p(b)
+  b == 32 || (b >= 9 && b <= 13)
+end
+
+sig [Word] => Bool
+machine def zr_digit_byte_p(b)
+  b >= 48 && b <= 57
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
