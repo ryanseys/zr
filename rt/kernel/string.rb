@@ -1504,10 +1504,15 @@ end
 # when deprecation warnings are on, as CHILLED_STRING_MUTATED does.
 sig [Value] => Bool
 machine def zr_modify_frozen_p(v)
-  if zr_str_chilled_p(v)
-    zr_str_unchill(v)
+  if zr_special_p(v)
+    return true
   end
-  zr_frozen_p(v)
+  flags = RBasic.flags(v)
+  if (flags & T_MASK) == T_STRING && (flags & (FL_CHILLED | FL_CHILLED_SYMBOL)) != 0
+    zr_str_unchill(v)
+    flags = RBasic.flags(v)
+  end
+  (flags & FL_FREEZE) != 0
 end
 
 sig [Value] => Value
