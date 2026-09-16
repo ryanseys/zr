@@ -130,7 +130,9 @@ module Ze0
           lstat
           lutimes
           malloc
+          malloc_size
           memchr
+          memmem
           memmove
           memset
           mkdir

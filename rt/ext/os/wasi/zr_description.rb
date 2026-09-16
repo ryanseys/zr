@@ -1688,6 +1688,7 @@ module Ze0
         d zr_os_libffi_path Ptr
         d zr_os_sort Void st:Ptr n:Word
         d zr_os_malloc_size Word p:Ptr
+        d memmem Ptr hay:Ptr n:Word needle:Ptr m:Word
         d zr_os_sigaction I32 signo:I32 fn:Word old:Ptr
         d zr_os_sockaddr_len Word addr:Ptr
         d zr_os_addrinfo_row Value node:Ptr
