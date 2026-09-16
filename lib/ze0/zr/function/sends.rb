@@ -46,7 +46,7 @@ module Ze0
           return primitive(node) if primitive?(node)
 
           recv_node = node.recv || Hir::SelfRef.new(node.line)
-          args = node.args + [node.kwargs].compact
+          args = node.args + keyword_args(node)
           if args.any?(Hir::Splat)
             staged([recv_node], 1) do |slots, base|
               ary = gather(args, base + 1)
@@ -167,7 +167,23 @@ module Ze0
 
         # The count the callee sees: a keywords Hash goes last and flags
         # the task; a splat's last element may be a ruby2_keywords Hash.
+        # A call's keywords among its arguments: `k: v` pairs with plain
+        # Symbol keys go as trailing values under a static table of the
+        # keys, told to the task right before the send; any other
+        # keywords as one Hash the task flags (rt/kernel/send.rb).
+        def keyword_args(node)
+          return [] unless node.kwargs
+          return [node.kwargs] unless Scope.literal_keywords?(node.kwargs)
+
+          node.kwargs.pairs.each_slice(2).map(&:last)
+        end
+
         def keyword_argc(node, argc, argv)
+          if node.kwargs && Scope.literal_keywords?(node.kwargs)
+            ids = node.kwargs.pairs.each_slice(2).map { |key, _| sym_id(key.value) }
+            @f.store(@f.symbol_value(@f.symbol(@l.keyword_table([ids.size, *ids]))), @task_addr, off(@task, "kw"))
+            return argc
+          end
           return kernel("zr_kw_argc", argc, argv) if node.kwargs
           return kernel("zr_kw_ruby2_out", argc, argv) if node.args.any?(Hir::Splat)
 
@@ -342,7 +358,7 @@ module Ze0
             at_node(node)
             checked(kernel("zr_zsuper_in_block", @rec))
           end
-          args = node.args + [node.kwargs].compact
+          args = node.args + keyword_args(node)
           if args.any?(Hir::Splat)
             staged([], 1) do |_, base|
               ary = gather(args, base)

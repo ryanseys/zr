@@ -1006,6 +1006,139 @@ machine def zr_kw_unknown(hash, ids, n)
   zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
 end
 
+# A call's keyword table (`zr_kw_pass`): the count, then the ids. The
+# column of `id` in it, or -1.
+sig [Ptr, Word] => Word
+machine def zr_kw_tab_index(tab, id)
+  n = Machine.load64(tab, 0)
+  i = 0
+  while i < n
+    if Machine.load64(tab + 8 + (i * 8), 0) == id
+      return i
+    end
+    i += 1
+  end
+  0 - 1
+end
+
+# A def's shape cell for the call's table: the column of each of the
+# `m` keywords the def declares (`ids`), or -1, filled once per table
+# after the checks a Hash gets. `mode` 0 refuses an undeclared keyword,
+# 1 leaves it to a `**rest`, 2 (`**nil`) refuses any. nil, or undef
+# with the error pending and the cell as it was.
+sig [Ptr, Ptr, Ptr, Word, Ptr, Word, Word] => Value
+machine def zr_kw_shape(shape, tab, ids, m, required, nreq, mode)
+  if Machine.load64(shape, 0) == Machine.word(tab)
+    return Machine.value(QNIL)
+  end
+  r = zr_kw_missing_tab(tab, required, nreq)
+  return r if r == QUNDEF
+  if mode == 2 && Machine.load64(tab, 0) > 0
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("no keywords accepted"), 20)
+  end
+  if mode == 0
+    r = zr_kw_unknown_tab(tab, ids, m)
+    return r if r == QUNDEF
+  end
+  k = 0
+  while k < m
+    Machine.store64(shape + 8 + (k * 8), 0, zr_kw_tab_index(tab, Machine.load64(ids + (k * 8), 0)))
+    k += 1
+  end
+  Machine.store64(shape, 0, Machine.word(tab))
+  Machine.value(QNIL)
+end
+
+# `zr_kw_missing` for a table.
+sig [Ptr, Ptr, Word] => Value
+machine def zr_kw_missing_tab(tab, ids, n)
+  count = 0
+  i = 0
+  while i < n
+    if zr_kw_tab_index(tab, Machine.load64(ids + (i * 8), 0)) < 0
+      count += 1
+    end
+    i += 1
+  end
+  if count == 0
+    return Machine.value(QNIL)
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, count == 1 ? Machine.bytes("missing keyword: ") : Machine.bytes("missing keywords: "), count == 1 ? 17 : 18)
+  seen = 0
+  i = 0
+  while i < n
+    id = Machine.load64(ids + (i * 8), 0)
+    if zr_kw_tab_index(tab, id) < 0
+      if seen > 0
+        zr_buf_push(b, Machine.bytes(", "), 2)
+      end
+      zr_buf_byte(b, 58)
+      zr_buf_sym(b, id)
+      seen += 1
+    end
+    i += 1
+  end
+  zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+end
+
+# `zr_kw_unknown` for a table.
+sig [Ptr, Ptr, Word] => Value
+machine def zr_kw_unknown_tab(tab, ids, m)
+  n = Machine.load64(tab, 0)
+  count = 0
+  i = 0
+  while i < n
+    if !zr_kw_declared(ids, m, Machine.load64(tab + 8 + (i * 8), 0))
+      count += 1
+    end
+    i += 1
+  end
+  if count == 0
+    return Machine.value(QNIL)
+  end
+  b = Machine.slot(Buf.size)
+  zr_buf_init(b)
+  zr_buf_push(b, count == 1 ? Machine.bytes("unknown keyword: ") : Machine.bytes("unknown keywords: "), count == 1 ? 17 : 18)
+  seen = 0
+  i = 0
+  while i < n
+    id = Machine.load64(tab + 8 + (i * 8), 0)
+    if !zr_kw_declared(ids, m, id)
+      if seen > 0
+        zr_buf_push(b, Machine.bytes(", "), 2)
+      end
+      s = zr_inspect(zr_sym(id))
+      if s == QUNDEF
+        zr_buf_free(b)
+        return s
+      end
+      zr_buf_str(b, s)
+      seen += 1
+    end
+    i += 1
+  end
+  zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+end
+
+# `**rest` from a table: the columns of `vals` the method does not
+# declare, as a Hash.
+sig [Ptr, Ptr, Ptr, Word] => Value
+machine def zr_kw_rest_tab(tab, vals, ids, m)
+  out = zr_hash_new()
+  n = Machine.load64(tab, 0)
+  i = 0
+  while i < n
+    id = Machine.load64(tab + 8 + (i * 8), 0)
+    if !zr_kw_declared(ids, m, id)
+      zr_hash_store(out, zr_sym(id), Machine.value(Machine.load64(vals + (i * 8), 0)))
+    end
+    i += 1
+  end
+  out
+end
+
 # `**rest`: the keywords of `hash` the method does not declare. The
 # entries are copied with their codes, as rb_hash_dup copies them: a
 # key's own `hash` ran at the call and does not run again here.

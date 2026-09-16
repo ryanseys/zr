@@ -85,12 +85,34 @@ machine def zr_wrong_arity_min(given, min)
   zr_wrong_arity_kw(given, min, 0 - 1, 0, 0)
 end
 
-# A call passing keywords sets the task's flag right before the send;
-# the callee that declares keywords takes it, and any other sees the
-# keywords as a trailing Hash.
+# A call passing keywords sets the task's word right before the send:
+# 1 for a flagged trailing Hash, or the address (above 1) of a table
+# -- the count, then the ids -- whose values are the call's last
+# arguments, which is how `k: v` pairs with plain Symbol keys travel. A
+# compiled def takes the word in its prologue: one declaring keywords
+# reads a table's values by column (`zr_kw_shape`), one declaring none
+# makes a table's values one Hash argument (`zr_kw_undeclared`); a
+# builtin, an accessor or a `method_missing` sees a flagged Hash, made
+# on the way (`zr_kw_tab_in`).
 sig [] => Void
 machine def zr_kw_pass
   Task.set_kw(zr_task(), 1)
+end
+
+# A table's values as one Hash, in place of the first of them: the count
+# the call has then.
+sig [Word, Word, Ptr] => Word
+machine def zr_kw_tab_in(tab, argc, argv)
+  n = Machine.load64(tab, 0)
+  count = argc - n
+  h = zr_hash_new()
+  i = 0
+  while i < n
+    zr_hash_store(h, zr_sym(Machine.load64(tab + 8 + (i * 8), 0)), Machine.value(Machine.load64(argv + ((count + i) * 8), 0)))
+    i += 1
+  end
+  Machine.store64(argv + (count * 8), 0, Machine.word(h))
+  count + 1
 end
 
 # The count a send passes when its last argument is the keywords
@@ -133,14 +155,21 @@ machine def zr_ruby2_mark_proc(pr)
   pr
 end
 
-# A marked method taking keywords into its rest: the Hash carries the
-# flag, so a later `*rest` passes it on as keywords again.
-sig [Word, Ptr, Ptr] => Void
-machine def zr_kw_ruby2_in(argc, argv, fn)
-  if zr_kw_take() != 0 && argc > 0 && zr_ivtab_get(zr_ruby2_fns(), Machine.word(fn)) != QUNDEF
+# A def or block declaring no keywords, called with the word `kw` set:
+# a table's values become one Hash argument, and a `ruby2_keywords`
+# rest (the function `fn`, 0 for no rest) flags the Hash it takes, so a
+# later `*rest` passes it on as keywords again. The count the call has
+# then.
+sig [Word, Word, Ptr, Ptr] => Word
+machine def zr_kw_undeclared(kw, argc, argv, fn)
+  if kw > 1
+    argc = zr_kw_tab_in(kw, argc, argv)
+  end
+  if fn != 0 && argc > 0 && zr_ivtab_get(zr_ruby2_fns(), Machine.word(fn)) != QUNDEF
     h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
     RBasic.set_flags(h, RBasic.flags(h) | FL_RUBY2)
   end
+  argc
 end
 
 # A splat whose last element is a flagged Hash passes it as keywords,
@@ -182,6 +211,10 @@ MISS_PROTECTED = 5
 # front of the arguments; the base one raises as a plain miss does.
 sig [Value, Word, Word, Ptr, Value, Word, Word] => Value
 machine def zr_method_missing(recv, mid, argc, argv, blk, kw, reason)
+  if kw > 1
+    argc = zr_kw_tab_in(kw, argc, argv)
+    kw = 1
+  end
   e = zr_find_method(zr_box_view(zr_class_of(recv)), Machine.id(:method_missing))
   if e == 0 || MEntry.fn(e) == Machine.addr(:zr_obj_method_missing)
     return zr_miss_error(recv, mid, reason, argc, argv)
@@ -479,7 +512,12 @@ end
 # back and pushes its own frame; a builtin runs under one pushed here.
 sig [Ptr, Value, Word, Ptr, Value, Word] => Value
 machine def zr_invoke(e, recv, argc, argv, blk, kw)
-  if MEntry.kind(e) == KIND_DEF
+  kind = MEntry.kind(e)
+  if kw > 1 && kind != KIND_DEF && kind != KIND_BMETHOD
+    argc = zr_kw_tab_in(kw, argc, argv)
+    kw = 1
+  end
+  if kind == KIND_DEF
     arity = MEntry.arity(e)
     if arity >= 0 && argc != arity
       return zr_wrong_arity_in(argc, arity, e, recv)

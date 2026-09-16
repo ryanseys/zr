@@ -5,8 +5,10 @@ module Ze0
     class Function
       # Binding the arguments to the parameters: a method's from `argc`
       # and `argv` with CRuby's arity errors, a block's leniently through
-      # the block-argument rules. Keywords arrive as a trailing Hash the
-      # task flags; the flag is taken here.
+      # the block-argument rules. Keywords arrive as the task's word says
+      # (rt/kernel/send.rb, `zr_kw_pass`): a flagged trailing Hash, or
+      # trailing values under a table of their keys; the word is taken
+      # here.
       module Params
         private
 
@@ -19,17 +21,13 @@ module Ze0
 
         def bind_method(p, argc, argv)
           if keywords?(p)
-            argc, kwargs_at = take_keywords(argc, argv)
-          elsif p.rest && p.rest != :implicit
-            # A ruby2_keywords method flags the keywords Hash it takes
-            # into its rest.
-            kernel("zr_kw_ruby2_in", argc, argv, @f.func_addr(@f.callee(@name, ABI.fetch(:def), "i64")))
+            argc, kwargs_at, tab = take_keywords(argc, argv)
           else
-            @f.store(imm(0), @task_addr, off(@task, "kw"))
+            argc = drop_keywords(argc, argv, p.rest && p.rest != :implicit ? :def : nil)
           end
           check_arity(p, argc)
           bind_positional(p, argc, argv, strict: true)
-          bind_keywords(p, kwargs_at) if keywords?(p)
+          bind_keywords(p, kwargs_at, tab, argc, argv) if keywords?(p)
           bind(p.block, kernel("zr_block_proc", @blk)) if p.block
         end
 
@@ -41,12 +39,14 @@ module Ze0
           argc = @f.args[1]
           argv = @f.args[2]
           if keywords?(p)
-            argc, kwargs_at = take_keywords(argc, argv)
-          elsif p.rest && p.rest != :implicit
-            kernel("zr_kw_ruby2_in", argc, argv, @f.func_addr(@f.callee(@name, ABI.fetch(:block), "i64")))
+            argc, kwargs_at, tab = take_keywords(argc, argv)
           else
-            @f.store(imm(0), @task_addr, off(@task, "kw"))
+            argc = drop_keywords(argc, argv, p.rest && p.rest != :implicit ? :block : nil)
           end
+          # A table's values stand behind the positional arguments as
+          # they came, before any spread.
+          count = argc
+          given = argv
           go = @f.label
           strict = @f.label
           @f.brif(lambda?, strict, go)
@@ -60,7 +60,7 @@ module Ze0
           argc = @f.sshr(checked(kernel("zr_block_args", argc, argv, spread, out, keep ? @f.iadd(@rec, imm(keep)) : imm(0))), imm(1))
           argv = @f.fetch("i64", out)
           bind_positional(p, argc, argv, strict: false, keep: keep)
-          bind_keywords(p, kwargs_at) if keywords?(p)
+          bind_keywords(p, kwargs_at, tab, count, given) if keywords?(p)
           bind(p.block, kernel("zr_block_proc", @f.args[3])) if p.block
         end
 
@@ -84,24 +84,58 @@ module Ze0
           @slot_of.fetch(name)
         end
 
-        # The keywords Hash, when the call flagged one, leaves the
-        # positional arguments; it waits in a record slot. A method that
-        # declares none clears the flag, so it cannot leak to a later send.
+        # The keywords the call passed leave the positional arguments:
+        # a flagged Hash waits in a record slot (nil when none came); a
+        # table's values stay where they are, and the table is answered
+        # third (0 for a Hash), for `bind_keywords` to read them by
+        # column. The task's word is cleared, so it cannot leak to a
+        # later send.
         def take_keywords(argc, argv)
           at = value_offset(reserve(1))
+          kw = take_keyword_word
+          table = @f.label
+          hashed = @f.label
           have = @f.label
           none = @f.label
-          merge, (count, hash) = @f.block(%w[i64 i64])
-          flagged = @f.icmp("ne", kernel("zr_kw_take"), imm(0))
-          @f.brif(@f.band(flagged, @f.icmp("sgt", argc, imm(0))), have, none)
+          merge, (count, hash, tab) = @f.block(%w[i64 i64 i64])
+          @f.brif(@f.icmp("ugt", kw, imm(1)), table, hashed)
+          switch(table)
+          @f.jump(merge, [@f.isub(argc, @f.fetch("i64", kw)), @qnil, kw])
+          switch(hashed)
+          @f.brif(@f.band(@f.icmp("ne", kw, imm(0)), @f.icmp("sgt", argc, imm(0))), have, none)
           switch(have)
           last = @f.isub(argc, imm(1))
-          @f.jump(merge, [last, @f.fetch("i64", @f.iadd(argv, @f.ishl(last, imm(3))))])
+          @f.jump(merge, [last, @f.fetch("i64", @f.iadd(argv, @f.ishl(last, imm(3)))), imm(0)])
           switch(none)
-          @f.jump(merge, [argc, @qnil])
+          @f.jump(merge, [argc, @qnil, imm(0)])
           switch(merge)
           @f.store(hash, @rec, at)
-          [count, at]
+          [count, at, tab]
+        end
+
+        # A def or block declaring no keywords clears the task's word; a
+        # table's values become one Hash argument first, and a
+        # ruby2_keywords rest (a def's or a block's function, `abi`)
+        # flags the Hash it takes. The count the call has then.
+        def drop_keywords(argc, argv, abi)
+          kw = take_keyword_word
+          fn = abi ? @f.func_addr(@f.callee(@name, ABI.fetch(abi), "i64")) : imm(0)
+          quick = @f.label
+          slow = @f.label
+          merge, (count,) = @f.block(["i64"])
+          @f.brif(@f.icmp("eq", kw, imm(0)), quick, slow)
+          switch(quick)
+          @f.jump(merge, [argc])
+          switch(slow)
+          @f.jump(merge, [kernel("zr_kw_undeclared", kw, argc, argv, fn)])
+          switch(merge)
+          count
+        end
+
+        def take_keyword_word
+          kw = @f.fetch("i64", @task_addr, off(@task, "kw"))
+          @f.store(imm(0), @task_addr, off(@task, "kw"))
+          kw
         end
 
         # CRuby's messages: an exact count, `min+` with a rest, `min..max`
@@ -256,23 +290,47 @@ module Ze0
         end
 
         # Required keywords are checked first, then unknown ones unless a
-        # `**rest` takes them; then each keyword binds, defaults in order.
-        def bind_keywords(p, kwargs_at)
-          hash = -> { kwargs_at ? @f.fetch("i64", @rec, kwargs_at) : @qnil }
+        # `**rest` takes them: on a Hash by the kernel's probes, on a
+        # table once per table, which fills the def's shape cell with
+        # each declared keyword's column. Then each keyword binds,
+        # defaults in order: a Hash's by a probe, a table's by its column
+        # in the values behind the `count` positional arguments of `argv`.
+        def bind_keywords(p, kwargs_at, tab, count, argv)
+          hash = -> { @f.fetch("i64", @rec, kwargs_at) }
           required = p.keywords.select { |_, default| default.nil? }.map(&:first)
           declared = p.keywords.map(&:first)
-          unless required.empty?
-            ids, n = keyword_ids(required)
-            checked(kernel("zr_kw_missing", hash.call, ids, n))
-          end
           ids, n = keyword_ids(declared)
-          if p.kwrest == :nokey
-            checked(kernel("zr_kw_none", hash.call))
-            return
+          shape = @f.symbol_value(@f.symbol(@l.cache_cell("kw", 8 * (1 + declared.size))))
+          by_table(tab) do |from_table|
+            if from_table
+              mode = { nokey: 2 }.fetch(p.kwrest, p.kwrest ? 1 : 0)
+              req_ids, nreq = required.empty? ? [imm(0), imm(0)] : keyword_ids(required)
+              checked(kernel("zr_kw_shape", shape, tab, ids, n, req_ids, nreq, imm(mode)))
+            else
+              checked(kernel("zr_kw_missing", hash.call, *keyword_ids(required))) unless required.empty?
+              checked(kernel("zr_kw_none", hash.call)) if p.kwrest == :nokey
+              checked(kernel("zr_kw_unknown", hash.call, ids, n)) if p.kwrest.nil?
+            end
+            @qnil
           end
-          checked(kernel("zr_kw_unknown", hash.call, ids, n)) unless p.kwrest
-          p.keywords.each do |name, default|
-            v = kernel("zr_kw_get", hash.call, imm(sym_id(name)))
+          return if p.kwrest == :nokey
+
+          p.keywords.each_with_index do |(name, default), k|
+            v = by_table(tab) do |from_table|
+              next kernel("zr_kw_get", hash.call, imm(sym_id(name))) unless from_table
+
+              column = @f.fetch("i64", shape, 8 * (1 + k))
+              absent = @f.label
+              present = @f.label
+              merge, (found,) = @f.block(["i64"])
+              @f.brif(@f.icmp("slt", column, imm(0)), absent, present)
+              switch(absent)
+              @f.jump(merge, [qundef])
+              switch(present)
+              @f.jump(merge, [arg_at(argv, @f.iadd(count, column))])
+              switch(merge)
+              found
+            end
             if default
               have = @f.label
               miss = @f.label
@@ -287,7 +345,31 @@ module Ze0
             end
             bind(name, v)
           end
-          bind(p.kwrest, checked(kernel("zr_kw_rest", hash.call, ids, n))) if p.kwrest
+          return unless p.kwrest
+
+          rest = by_table(tab) do |from_table|
+            if from_table
+              checked(kernel("zr_kw_rest_tab", tab, @f.iadd(argv, @f.ishl(count, imm(3))), ids, n))
+            else
+              checked(kernel("zr_kw_rest", hash.call, ids, n))
+            end
+          end
+          bind(p.kwrest, rest)
+        end
+
+        # The block's value for a table (`tab` not 0) or for a Hash, whichever
+        # the call passed, as one value.
+        def by_table(tab)
+          table = @f.label
+          hashed = @f.label
+          merge, (v,) = @f.block(["i64"])
+          @f.brif(@f.icmp("ne", tab, imm(0)), table, hashed)
+          switch(table)
+          @f.jump(merge, [yield(true)])
+          switch(hashed)
+          @f.jump(merge, [yield(false)])
+          switch(merge)
+          v
         end
 
         # The ids of `names` as a read-only table, and its length.

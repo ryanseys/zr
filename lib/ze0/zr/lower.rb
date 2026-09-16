@@ -268,7 +268,10 @@ module Ze0
         name
       end
 
-      # A read-only table of symbol ids: the keywords a def declares.
+      # A read-only table of symbol ids: the keywords a def declares, or
+      # a call's keywords behind their count, shared by every site that
+      # passes the same keys in the same order, so a def's shape cell
+      # hits across them.
       def keyword_table(ids)
         @keyword_tables ||= {}
         @keyword_tables[ids] ||= begin

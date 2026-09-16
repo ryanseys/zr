@@ -682,6 +682,11 @@ module Ze0
         d zr_kw_missing Value hash:Value ids:Ptr n:Word
         d zr_kw_none Value hash:Value
         d zr_kw_unknown Value hash:Value ids:Ptr n:Word
+        d zr_kw_tab_index Word tab:Ptr id:Word
+        d zr_kw_shape Value shape:Ptr tab:Ptr ids:Ptr m:Word required:Ptr nreq:Word mode:Word
+        d zr_kw_missing_tab Value tab:Ptr ids:Ptr n:Word
+        d zr_kw_unknown_tab Value tab:Ptr ids:Ptr m:Word
+        d zr_kw_rest_tab Value tab:Ptr vals:Ptr ids:Ptr m:Word
         d zr_kw_rest Value hash:Value ids:Ptr n:Word
         d zr_hash_update Value h:Value other:Value
         d zr_ary_kw_element Value h:Value
@@ -1241,11 +1246,12 @@ module Ze0
         d zr_wrong_arity_range Value given:Word min:Word max:Word
         d zr_wrong_arity_min Value given:Word min:Word
         d zr_kw_pass Void
+        d zr_kw_tab_in Word tab:Word argc:Word argv:Ptr
         d zr_kw_argc Word argc:Word argv:Ptr
         d zr_ruby2_fns Ptr
         d zr_ruby2_mark_m Value klass:Value name:Value
         d zr_ruby2_mark_proc Value pr:Value
-        d zr_kw_ruby2_in Void argc:Word argv:Ptr fn:Ptr
+        d zr_kw_undeclared Word kw:Word argc:Word argv:Ptr fn:Ptr
         d zr_kw_ruby2_out Word argc:Word argv:Ptr
         d zr_kw_take Word
         d zr_method_missing Value recv:Value mid:Word argc:Word argv:Ptr blk:Value kw:Word reason:Word

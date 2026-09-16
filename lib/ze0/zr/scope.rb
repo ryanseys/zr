@@ -97,11 +97,11 @@ module Ze0
         case node
         when Hir::Seq then node.stmts.map { |s| staging(s, base) }.max || base
         when Hir::Send
-          extra = (node.kwargs ? 1 : 0) + (node.safe ? 1 : 0)
+          extra = keyword_slots(node.kwargs) + (node.safe ? 1 : 0)
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
           [top, staging(node.recv, top), staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
         when Hir::Super
-          top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + (node.kwargs ? 1 : 0)
+          top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + keyword_slots(node.kwargs)
           [top, staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
         when Hir::Lambda then base
         when Hir::Autoload then [base + 2, staging(node.recv, base)].max
@@ -205,6 +205,22 @@ module Ze0
 
       def spread?(parts)
         parts.any? { |p| p.is_a?(Hir::Splat) || p.is_a?(Hir::HashSplat) }
+      end
+
+      # Whether a call's keywords are `k: v` pairs with distinct Symbol
+      # keys and no `**`: those travel as trailing values under a static
+      # table of the keys (rt/kernel/send.rb, `zr_kw_pass`); any other
+      # keywords go as one Hash.
+      def literal_keywords?(kwargs)
+        keys = kwargs.pairs.each_slice(2).map(&:first)
+        keys.all? { |key| key.is_a?(Hir::Literal) && key.value.is_a?(Symbol) } && keys.map(&:value).uniq.size == keys.size
+      end
+
+      # The record slots a call's keywords take beside its arguments.
+      def keyword_slots(kwargs)
+        return 0 unless kwargs
+
+        literal_keywords?(kwargs) ? kwargs.pairs.size / 2 : 1
       end
     end
   end
