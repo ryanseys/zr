@@ -10,31 +10,47 @@
 # An arena is ARENA_BYTES of cells aligned to its own size, so a cell's
 # arena is its address with the low bits cleared; the arena's exivar
 # slots follow its cells. The collector runs when the free list is
-# empty, and grows the heap to twice what the sweep found live.
+# empty, and grows the heap to twice what the sweep found live. The
+# arenas are listed in a malloc'd table that doubles when full, so the
+# heap has no ceiling but the machine's.
 CELL = 128
 CELLS = 32768
 ARENA_BYTES = CELL * CELLS
 ARENA_ALLOC = ARENA_BYTES + CELLS * 8
-ARENA_LIMIT = 1024
+ARENA_TABLE = 64
 POISON = 57005 << 8
 
 # Heap state: free head, allocations, collections, stress flag, the
-# last cell handed out, the arena count, the cells the last sweep freed.
-Machine.struct :Heap, free: Ptr, allocated: Word, collections: Word, stress: Word, last: Ptr, disabled: Word, arenas: Word, freed: Word, nanoseconds: Word
+# last cell handed out, the arena count, the cells the last sweep
+# freed, the time collecting, the arena table and its capacity.
+Machine.struct :Heap, free: Ptr, allocated: Word, collections: Word, stress: Word, last: Ptr, disabled: Word, arenas: Word, freed: Word, nanoseconds: Word, table: Ptr, capacity: Word
 
 sig [] => Ptr
 machine def zr_heap
   Machine.static(:heap, Heap.size)
 end
 
-sig [] => Ptr
-machine def zr_arenas
-  Machine.static(:arenas, ARENA_LIMIT * 8)
-end
-
 sig [Word] => Ptr
 machine def zr_arena_at(i)
-  Machine.ptr(Machine.load64(zr_arenas() + (i * 8), 0))
+  Machine.ptr(Machine.load64(Heap.table(zr_heap()) + (i * 8), 0))
+end
+
+# Room in the arena table for one more arena.
+sig [] => Void
+machine def zr_arena_table_grow
+  h = zr_heap()
+  n = Heap.arenas(h)
+  if n < Heap.capacity(h)
+    return
+  end
+  capacity = n == 0 ? ARENA_TABLE : n * 2
+  table = zr_xmalloc(capacity * 8)
+  if n != 0
+    zr_memcpy(table, Heap.table(h), n * 8)
+    free(Heap.table(h))
+  end
+  Heap.set_table(h, table)
+  Heap.set_capacity(h, capacity)
 end
 
 sig [Value] => Ptr
@@ -47,16 +63,14 @@ end
 sig [] => Void
 machine def zr_arena_add
   h = zr_heap()
+  zr_arena_table_grow()
   n = Heap.arenas(h)
-  if n == ARENA_LIMIT
-    zr_memory_exhausted()
-  end
   slot = Machine.slot(8)
   if posix_memalign(slot, ARENA_BYTES, ARENA_ALLOC) != Machine.i32(0)
     zr_memory_exhausted()
   end
   a = Machine.ptr(Machine.load64(slot, 0))
-  Machine.store64(zr_arenas() + (n * 8), 0, Machine.word(a))
+  Machine.store64(Heap.table(h) + (n * 8), 0, Machine.word(a))
   Heap.set_arenas(h, n + 1)
   head = Heap.free(h)
   i = CELLS - 1
@@ -509,7 +523,7 @@ machine def zr_collect
   zr_sweep()
   live =(Heap.arenas(h) * CELLS) - Heap.freed(h)
   want = ((live * 2) + (CELLS - 1)) / CELLS
-  while Heap.arenas(h) < want && Heap.arenas(h) < ARENA_LIMIT
+  while Heap.arenas(h) < want
     zr_arena_add()
   end
   Heap.set_nanoseconds(h, Heap.nanoseconds(h) + (zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC))) - started))
