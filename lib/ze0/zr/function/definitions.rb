@@ -81,10 +81,31 @@ module Ze0
           scope = scope_class(node.scope) if node.scope
           at_node(node)
           if node.scope.nil?
-            checked(kernel("zr_const_get_cached", cache("cc", "ConstCache"), @cref, id))
+            cached_const(@cref, "zr_const_get_cached", id)
           else
-            checked(kernel("zr_const_get_at_cached", cache("cc", "ConstCache"), scope, id))
+            cached_const(scope, "zr_const_get_at_cached", id)
           end
+        end
+
+        # A constant through the site's own cell (rt/kernel/cache.rb):
+        # the value the kernel answered under `key` (the cref, or the
+        # scope) at the constant stamp, read here while both hold; else
+        # the kernel's lookup, which fills the cell.
+        def cached_const(key, lookup, id)
+          cc = cache("cc", "ConstCache")
+          cell = @l.layout("ConstCache")
+          fast = @f.label
+          slow = @f.label
+          merge, (result,) = @f.block(["i64"])
+          same_key = @f.icmp("eq", @f.fetch("i64", cc, off(cell, "key")), key)
+          same_stamp = @f.icmp("eq", @f.fetch("i64", cc, off(cell, "stamp")), @f.fetch("i64", static("const_stamp")))
+          @f.brif(@f.band(same_key, same_stamp), fast, slow)
+          switch(fast)
+          @f.jump(merge, [@f.fetch("i64", cc, off(cell, "value"))])
+          switch(slow)
+          @f.jump(merge, [checked(kernel(lookup, cc, key, id))])
+          switch(merge)
+          result
         end
 
         # The line is the constant's location, which a later mistaken
