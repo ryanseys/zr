@@ -184,7 +184,7 @@ machine def zr_os_wait_fds(fds, events, milliseconds)
   r = Machine.call(:select_call, zr_select_fn(), Machine.i32(top + 1), sets, sets + span, sets + (span * 2), ms < 0 ? 0 : tv)
   if r < Machine.i32(0)
     errno = zr_errno()
-    free(sets)
+    zr_xfree(sets)
     return zr_fix(0 - errno)
   end
   out = zr_ary_new(count)
@@ -207,7 +207,7 @@ machine def zr_os_wait_fds(fds, events, milliseconds)
     zr_ary_push(out, zr_fix(ready & want))
     i += 1
   end
-  free(sets)
+  zr_xfree(sets)
   out
 end
 
@@ -245,7 +245,7 @@ machine def zr_os_wait_fd(fd, events, milliseconds)
   r = Machine.call(:select_call, zr_select_fn(), Machine.i32(n + 1), sets, sets + span, sets + (span * 2), ms < 0 ? 0 : tv)
   if r < Machine.i32(0)
     errno = zr_errno()
-    free(sets)
+    zr_xfree(sets)
     return zr_fix(0 - errno)
   end
   ready = 0
@@ -258,6 +258,6 @@ machine def zr_os_wait_fd(fd, events, milliseconds)
   if (Machine.word(Machine.load32(sets + (span * 2) + word, 0)) & bit) != 0
     ready = ready | WAIT_PRIORITY
   end
-  free(sets)
+  zr_xfree(sets)
   zr_fix(ready)
 end

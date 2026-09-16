@@ -127,7 +127,7 @@ machine def zr_os_wait_fds(fds, events, milliseconds)
   while i < count
     n = zr_fix2long(zr_ary_at(fds, i))
     if n < 0
-      free(entries)
+      zr_xfree(entries)
       return zr_fix(0 - EBADF)
     end
     Machine.store32(entries + (i * 8), 0, Machine.i32(n))
@@ -138,7 +138,7 @@ machine def zr_os_wait_fds(fds, events, milliseconds)
   r = poll(entries, count, Machine.i32(ms < 0 ? 0 - 1 : ms))
   if r < Machine.i32(0)
     errno = zr_errno()
-    free(entries)
+    zr_xfree(entries)
     return zr_fix(0 - errno)
   end
   out = zr_ary_new(count)
@@ -158,7 +158,7 @@ machine def zr_os_wait_fds(fds, events, milliseconds)
     zr_ary_push(out, zr_fix(ready & zr_fix2long(zr_ary_at(events, i))))
     i += 1
   end
-  free(entries)
+  zr_xfree(entries)
   out
 end
 

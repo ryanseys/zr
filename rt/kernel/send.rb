@@ -224,7 +224,7 @@ machine def zr_method_missing(recv, mid, argc, argv, blk, kw, reason)
   zr_memcpy(args + 8, argv, argc * 8)
   Task.set_missing(zr_task(), reason)
   r = zr_invoke(e, recv, argc + 1, args, blk, kw)
-  free(args)
+  zr_xfree(args)
   r
 end
 

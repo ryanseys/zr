@@ -757,6 +757,8 @@ module Ze0
         d zr_sweep_arena Void a:Ptr start:Word stop:Word
         d zr_sweep Void
         d zr_collect Void
+        d zr_gc_malloced Value
+        d zr_gc_malloc_limit Value
         d zr_gc_nanoseconds Value
         d zr_gc_start Value
         d zr_gc_count Value
@@ -1555,6 +1557,7 @@ module Ze0
         d zr_trace_parameters Value meta_word:Value entry_word:Value
         d zr_trace_within Value meta_word:Value target:Value
         d zr_xmalloc Ptr n:Word
+        d zr_xfree Void p:Ptr
         d zr_memory_for_p Value n:Value
         d zr_memory_exhausted Void
         d zr_fixnum_p Bool v:Value
@@ -1634,6 +1637,7 @@ module Ze0
         d zr_os_jit_write Value at:Value bytes:Value
         d zr_os_libffi_path Ptr
         d zr_os_sort Void st:Ptr n:Word
+        d zr_os_malloc_size Word p:Ptr
         d zr_os_sigaction I32 signo:I32 fn:Word old:Ptr
         d zr_smooth_ntz Word x:Word
         d zr_smooth_pntz Word p:Ptr
@@ -1772,6 +1776,7 @@ module Ze0
         c ARENA_ALLOC 4456448
         c ARENA_TABLE 64
         c POISON 14593280
+        c MALLOC_LIMIT 67108864
         c G_BASIC_OBJECT 0
         c G_OBJECT 1
         c G_MODULE 2
@@ -2039,7 +2044,7 @@ module Ze0
         s RFloat 24 8 basic:0:RBasic bits:16:Word
         s RHash 96 8 basic:0:RBasic entries:16:Ptr len:24:Word live:32:Word cap:40:Word default:48:Value default_proc:56:Value bins:64:Ptr nbins:72:Word iter:80:Word gen:88:Word
         s HEntry 32 8 key:0:Value value:8:Value live:16:Word hash:24:Word
-        s Heap 88 8 free:0:Ptr allocated:8:Word collections:16:Word stress:24:Word last:32:Ptr disabled:40:Word arenas:48:Word freed:56:Word nanoseconds:64:Word table:72:Ptr capacity:80:Word
+        s Heap 104 8 free:0:Ptr allocated:8:Word collections:16:Word stress:24:Word last:32:Ptr disabled:40:Word arenas:48:Word freed:56:Word nanoseconds:64:Word table:72:Ptr capacity:80:Word malloced:88:Word malloc_limit:96:Word
         s Frame 88 8 prev:0:Ptr meta:8:Ptr line:16:Word self:24:Value cref:32:Value blk:40:Value entry:48:Ptr defined:56:Value serial:64:Word nvalues:72:Word svars:80:Value
         s Task 128 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value missing:96:Word found:104:Value refine:112:Value ractor:120:Word
         s MarkStack 24 8 ptr:0:Ptr len:8:Word capa:16:Word

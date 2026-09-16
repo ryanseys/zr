@@ -173,7 +173,7 @@ machine def zr_raise_from(exc, top)
     zr_backtrace_capture(exc, top)
   end
   if RException.bt(exc) != QNIL && RException.rows(exc) != 0
-    free(RException.rows(exc))
+    zr_xfree(RException.rows(exc))
     RException.set_rows(exc, 0)
     RException.set_nrows(exc, 0)
   end

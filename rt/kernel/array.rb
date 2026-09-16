@@ -82,7 +82,7 @@ machine def zr_ary_reserve(a, n)
     end
     p = zr_xmalloc(capa * 8)
     zr_memcpy(p, RArray.ptr(a), len * 8)
-    free(RArray.base(a))
+    zr_xfree(RArray.base(a))
     RArray.set_ptr(a, p)
     RArray.set_base(a, p)
     RArray.set_capa(a, capa)

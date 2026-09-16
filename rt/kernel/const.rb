@@ -77,7 +77,7 @@ CONST_INDEX_MIN = 16
 sig [Ptr] => Void
 machine def zr_const_index_drop(ext)
   if ClassExt.cidx(ext) != 0
-    free(ClassExt.cidx(ext))
+    zr_xfree(ClassExt.cidx(ext))
     ClassExt.set_cidx(ext, 0)
   end
 end
@@ -302,7 +302,7 @@ machine def zr_const_write(klass, id, v)
       tab = zr_xmalloc(cap * CEntry.size)
       if ClassExt.ctab(ext) != 0
         zr_memcpy(tab, ClassExt.ctab(ext), n * CEntry.size)
-        free(ClassExt.ctab(ext))
+        zr_xfree(ClassExt.ctab(ext))
       end
       ClassExt.set_ctab(ext, tab)
       ClassExt.set_ccap(ext, cap)

@@ -214,7 +214,7 @@ machine def zr_alloc_trace_room(t)
     i += 1
   end
   if old != 0
-    free(old)
+    zr_xfree(old)
   end
 end
 
@@ -272,7 +272,7 @@ sig [] => Value
 machine def zr_alloc_trace_clear
   t = zr_alloc_trace()
   if AllocTrace.rows(t) != 0
-    free(AllocTrace.rows(t))
+    zr_xfree(AllocTrace.rows(t))
   end
   AllocTrace.set_rows(t, 0)
   AllocTrace.set_capa(t, 0)

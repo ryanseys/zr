@@ -208,7 +208,7 @@ machine def zr_getcwd
     zr_bug(Machine.bytes("the working directory is not available here\n"), 44)
   end
   s = zr_str_new(buf, zr_cstr_len(buf))
-  free(buf)
+  zr_xfree(buf)
   s
 end
 
@@ -460,7 +460,7 @@ machine def zr_feature_real_path(path)
     return path
   end
   real = zr_str_new(p, zr_cstr_len(p))
-  free(p)
+  zr_xfree(p)
   real
 end
 
@@ -719,7 +719,7 @@ machine def zr_path_kind(path)
   buf = zr_xmalloc(STAT_LEN)
   r = Machine.word(stat(RString.ptr(path), buf))
   mode = zr_os_stat_mode(buf) & S_IFMT
-  free(buf)
+  zr_xfree(buf)
   if r != 0
     return zr_fix(0)
   end

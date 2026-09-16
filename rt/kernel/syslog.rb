@@ -25,7 +25,7 @@ sig [] => Value
 machine def zr_syslog_close
   slot = zr_syslog_ident_slot()
   closelog()
-  free(Machine.ptr(Machine.load64(slot, 0)))
+  zr_xfree(Machine.ptr(Machine.load64(slot, 0)))
   Machine.store64(slot, 0, 0)
   Machine.value(QNIL)
 end

@@ -64,7 +64,7 @@ end
 sig [Ptr] => Void
 machine def zr_release_ivtab(t)
   if IvTab.rows(t) != 0 && !zr_ivtab_embedded_p(t)
-    free(IvTab.rows(t))
+    zr_xfree(IvTab.rows(t))
   end
 end
 
@@ -276,7 +276,7 @@ machine def zr_ivtab_set(t, id, v)
       if IvTab.rows(t) != 0
         zr_memcpy(rows, IvTab.rows(t), n * IvEntry.size)
         if !zr_ivtab_embedded_p(t)
-          free(IvTab.rows(t))
+          zr_xfree(IvTab.rows(t))
         end
       end
       IvTab.set_rows(t, rows)

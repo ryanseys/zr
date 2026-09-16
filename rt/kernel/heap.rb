@@ -22,8 +22,16 @@ POISON = 57005 << 8
 
 # Heap state: free head, allocations, collections, stress flag, the
 # last cell handed out, the arena count, the cells the last sweep
-# freed, the time collecting, the arena table and its capacity.
-Machine.struct :Heap, free: Ptr, allocated: Word, collections: Word, stress: Word, last: Ptr, disabled: Word, arenas: Word, freed: Word, nanoseconds: Word, table: Ptr, capacity: Word
+# freed, the time collecting, the arena table and its capacity, the
+# malloc'd payload bytes held (zr_xmalloc, zr_xfree) and the count of
+# them that runs the collector.
+Machine.struct :Heap, free: Ptr, allocated: Word, collections: Word, stress: Word, last: Ptr, disabled: Word, arenas: Word, freed: Word, nanoseconds: Word, table: Ptr, capacity: Word, malloced: Word, malloc_limit: Word
+
+# Payload the heap holds before a collection on that account: four
+# times CRuby's malloc_limit_min, since a collection here marks
+# everything where CRuby's marks the young. After each collection the
+# limit is twice the payload found live, as the cells are, or this.
+MALLOC_LIMIT = 67108864
 
 sig [] => Ptr
 machine def zr_heap
@@ -47,7 +55,7 @@ machine def zr_arena_table_grow
   table = zr_xmalloc(capacity * 8)
   if n != 0
     zr_memcpy(table, Heap.table(h), n * 8)
-    free(Heap.table(h))
+    zr_xfree(Heap.table(h))
   end
   Heap.set_table(h, table)
   Heap.set_capacity(h, capacity)
@@ -132,6 +140,7 @@ end
 sig [] => Void
 machine def zr_heap_init
   h = zr_heap()
+  Heap.set_malloc_limit(h, MALLOC_LIMIT)
   zr_arena_add()
   Heap.set_last(h, zr_arena_at(0) + ((CELLS - 1) * CELL))
   if getenv(Machine.bytes("ZR_GC_STRESS\0")) != 0
@@ -201,7 +210,7 @@ machine def zr_mark_cell(v)
     grown = zr_xmalloc(capa * 8)
     if n > 0
       zr_memcpy(grown, MarkStack.ptr(s), n * 8)
-      free(MarkStack.ptr(s))
+      zr_xfree(MarkStack.ptr(s))
     end
     MarkStack.set_ptr(s, grown)
     MarkStack.set_capa(s, capa)
@@ -257,7 +266,7 @@ sig [Value] => Void
 machine def zr_exivar_free(v)
   t = zr_exivar_tab(v)
   zr_release_ivtab(t)
-  free(t)
+  zr_xfree(t)
   Machine.store64(zr_exivar_slot(v), 0, 0)
 end
 
@@ -526,7 +535,21 @@ machine def zr_collect
   while Heap.arenas(h) < want
     zr_arena_add()
   end
+  limit = Heap.malloced(h) * 2
+  Heap.set_malloc_limit(h, limit < MALLOC_LIMIT ? MALLOC_LIMIT : limit)
   Heap.set_nanoseconds(h, Heap.nanoseconds(h) + (zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC))) - started))
+end
+
+# The payload bytes held, and the count that runs the collector, for
+# GC.stat.
+sig [] => Value
+machine def zr_gc_malloced
+  zr_fix(Heap.malloced(zr_heap()))
+end
+
+sig [] => Value
+machine def zr_gc_malloc_limit
+  zr_fix(Heap.malloc_limit(zr_heap()))
 end
 
 # The nanoseconds every collection so far has taken.
@@ -601,7 +624,7 @@ machine def zr_alloc(type, klass)
   if Heap.stress(h) != 0 && Heap.disabled(h) == 0
     zr_collect()
   end
-  if Heap.free(h) == 0 && Heap.disabled(h) == 0
+  if (Heap.free(h) == 0 || Heap.malloced(h) > Heap.malloc_limit(h)) && Heap.disabled(h) == 0
     zr_collect()
   end
   cell = Heap.free(h)

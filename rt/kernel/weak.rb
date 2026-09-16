@@ -30,7 +30,7 @@ machine def zr_weak_list_push(l, v)
     p = zr_xmalloc(capa * 8)
     if WeakList.ptr(l) != 0
       zr_memcpy(p, WeakList.ptr(l), n * 8)
-      free(WeakList.ptr(l))
+      zr_xfree(WeakList.ptr(l))
     end
     WeakList.set_ptr(l, p)
     WeakList.set_capa(l, capa)

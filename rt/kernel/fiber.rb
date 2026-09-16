@@ -429,10 +429,10 @@ end
 
 sig [Value] => Void
 machine def zr_release_fiber(f)
-  free(RFiber.ctx(f))
+  zr_xfree(RFiber.ctx(f))
   if RFiber.stack(f) != 0
     munmap(RFiber.stack(f), FIBER_STACK_BYTES)
-    free(RFiber.task(f))
+    zr_xfree(RFiber.task(f))
   end
 end
 

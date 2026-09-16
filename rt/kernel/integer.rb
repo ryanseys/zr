@@ -153,7 +153,7 @@ machine def zr_big_route_blk(recv, mid, argc, argv, blk)
   Machine.store64(args, 0, Machine.word(zr_sym(mid)))
   zr_memcpy(args + 8, argv, argc * 8)
   r = zr_send_blk(recv, Machine.id(:big_op), argc + 1, args, blk)
-  free(args)
+  zr_xfree(args)
   r
 end
 

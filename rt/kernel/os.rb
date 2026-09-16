@@ -43,6 +43,7 @@
 #   zr_os_issetugid      [] => Value
 #   zr_os_sigaction      [I32, Word, Ptr] => I32
 #   zr_os_poll_start     [] => Void
+#   zr_os_malloc_size    [Ptr] => Word
 #
 # stacks and loaded code
 #   zr_os_stack_low      [] => Word

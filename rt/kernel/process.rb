@@ -71,9 +71,9 @@ machine def zr_posix_spawn(words, dups, closes, env, chdir, flags)
   r = posix_spawnp(pid, RString.ptr(zr_ary_at(words, 0)), actions, attributes, argv, envp)
   posix_spawn_file_actions_destroy(actions)
   posix_spawnattr_destroy(attributes)
-  free(argv)
+  zr_xfree(argv)
   if env != QNIL
-    free(envp)
+    zr_xfree(envp)
   end
   if r != Machine.i32(0)
     return zr_fix(0 - Machine.word(r))
@@ -196,9 +196,9 @@ machine def zr_spawn_forked(path, words, env, options)
   end
   failure = zr_errno()
   close(writer)
-  free(argv)
+  zr_xfree(argv)
   if env != QNIL
-    free(envp)
+    zr_xfree(envp)
   end
   if pid < 0
     close(reader)
@@ -230,9 +230,9 @@ machine def zr_exec_with(path, words, env, options)
   end
   execve(RString.ptr(path), argv, envp)
   err = zr_errno()
-  free(argv)
+  zr_xfree(argv)
   if env != QNIL
-    free(envp)
+    zr_xfree(envp)
   end
   zr_fix(0 - err)
 end
@@ -441,7 +441,7 @@ machine def zr_proc_setgroups(ids)
     i += 1
   end
   r = setgroups(Machine.i32(n), list)
-  free(list)
+  zr_xfree(list)
   zr_io_status(r)
 end
 

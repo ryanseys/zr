@@ -14,14 +14,30 @@ Machine.import "getenv", [Ptr] => Ptr
 
 # malloc that answers a block, or ends the program as CRuby does when
 # memory runs out: the kernel cannot unwind from inside an allocation,
-# so no NoMemoryError can reach Ruby from here.
+# so no NoMemoryError can reach Ruby from here. The bytes asked for
+# count toward the payload the heap collects by (rt/kernel/heap.rb),
+# and zr_xfree takes the block's own size off again: what a block
+# holds past the ask is not counted in, so the count runs under the
+# payload held, never over it, and stops at zero.
 sig [Word] => Ptr
 machine def zr_xmalloc(n)
   p = malloc(n)
   if p == 0 && n != 0
     zr_memory_exhausted()
   end
+  h = zr_heap()
+  Heap.set_malloced(h, Heap.malloced(h) + n)
   p
+end
+
+sig [Ptr] => Void
+machine def zr_xfree(p)
+  if p != 0
+    h = zr_heap()
+    size = zr_os_malloc_size(p)
+    Heap.set_malloced(h, size > Heap.malloced(h) ? 0 : Heap.malloced(h) - size)
+    free(p)
+  end
 end
 
 # Whether the machine can give a buffer of `n` bytes, which CRuby finds

@@ -31,7 +31,8 @@ module GC
       heap_allocated_pages: pages, heap_empty_pages: 0, heap_allocatable_slots: 0, heap_available_slots: total,
       heap_live_slots: live, heap_free_slots: free, heap_final_slots: 0, heap_marked_slots: 0, heap_eden_pages: pages,
       total_allocated_pages: pages, total_freed_pages: 0, total_allocated_objects: allocated,
-      total_freed_objects: [allocated - live, 0].max, malloc_increase_bytes: 0, malloc_increase_bytes_limit: 16 * 1024 * 1024,
+      total_freed_objects: [allocated - live, 0].max, malloc_increase_bytes: Primitive.zr_gc_malloced,
+      malloc_increase_bytes_limit: Primitive.zr_gc_malloc_limit,
       minor_gc_count: 0, major_gc_count: count, compact_count: 0, read_barrier_faults: 0, total_moved_objects: 0,
       remembered_wb_unprotected_objects: 0, remembered_wb_unprotected_objects_limit: 0, old_objects: 0,
       old_objects_limit: 0, oldmalloc_increase_bytes: 0, oldmalloc_increase_bytes_limit: 16 * 1024 * 1024

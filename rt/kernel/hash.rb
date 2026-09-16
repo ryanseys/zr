@@ -328,7 +328,7 @@ end
 sig [Value] => Void
 machine def zr_hash_rebins(h)
   if RHash.bins(h) != 0
-    free(RHash.bins(h))
+    zr_xfree(RHash.bins(h))
   end
   nbins = 16
   while nbins < RHash.cap(h) * 2
@@ -376,7 +376,7 @@ machine def zr_hash_reserve(h)
     i += 1
   end
   if RHash.entries(h) != 0
-    free(RHash.entries(h))
+    zr_xfree(RHash.entries(h))
   end
   RHash.set_entries(h, entries)
   RHash.set_len(h, j)

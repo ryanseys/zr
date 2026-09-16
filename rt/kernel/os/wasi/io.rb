@@ -425,7 +425,7 @@ end
 sig [Ptr] => I32
 machine def closedir(d)
   r = close(Machine.load32(d, 0))
-  free(d)
+  zr_xfree(d)
   r
 end
 
@@ -445,7 +445,7 @@ machine def zr_os_wait_fds(fds, events, milliseconds)
     n = zr_fix2long(zr_ary_at(fds, i))
     want = zr_fix2long(zr_ary_at(events, i))
     if n < 0
-      free(subs)
+      zr_xfree(subs)
       return zr_fix(0 - EBADF)
     end
     if (want & (WAIT_READABLE | WAIT_PRIORITY)) != 0
@@ -472,8 +472,8 @@ machine def zr_os_wait_fds(fds, events, milliseconds)
   nevents = Machine.slot(8)
   if zr_wasi_status(poll_oneoff(zr_wasi_addr(subs), zr_wasi_addr(got), Machine.i32(used), zr_wasi_addr(nevents))) < Machine.i32(0)
     errno = zr_errno()
-    free(subs)
-    free(got)
+    zr_xfree(subs)
+    zr_xfree(got)
     return zr_fix(0 - errno)
   end
   out = zr_ary_new(count)
@@ -495,8 +495,8 @@ machine def zr_os_wait_fds(fds, events, milliseconds)
     end
     i += 1
   end
-  free(subs)
-  free(got)
+  zr_xfree(subs)
+  zr_xfree(got)
   out
 end
 

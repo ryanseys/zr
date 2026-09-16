@@ -72,7 +72,7 @@ machine def zr_zlib_release(addr, kind)
   else
     inflateEnd(z)
   end
-  free(z)
+  zr_xfree(z)
   Machine.value(QNIL)
 end
 
@@ -116,7 +116,7 @@ machine def zr_zlib_output(z, buf, room)
   if len + room + 1 > RString.capa(buf)
     p = zr_xmalloc(len + room + 1)
     zr_memcpy(p, RString.ptr(buf), len)
-    free(RString.ptr(buf))
+    zr_xfree(RString.ptr(buf))
     RString.set_ptr(buf, p)
     RString.set_capa(buf, len + room + 1)
   end

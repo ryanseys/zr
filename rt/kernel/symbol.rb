@@ -88,7 +88,7 @@ sig [] => Void
 machine def zr_symbol_index_drop
   t = zr_symtab()
   if Symtab.bins(t) != 0
-    free(Symtab.bins(t))
+    zr_xfree(Symtab.bins(t))
     Symtab.set_bins(t, 0)
   end
 end
@@ -180,7 +180,7 @@ machine def zr_intern_tagged(p, n, tag)
     rows = zr_xmalloc(cap * 16)
     if Symtab.rows(t) != 0
       zr_memcpy(rows, Symtab.rows(t), k * 16)
-      free(Symtab.rows(t))
+      zr_xfree(Symtab.rows(t))
     end
     Symtab.set_rows(t, rows)
     Symtab.set_capa(t, cap)

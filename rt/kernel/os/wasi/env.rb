@@ -20,7 +20,7 @@ machine def zr_wasi_table(raw, count, extra)
     i += 1
   end
   Machine.store64(table + (count * 8), 0, 0)
-  free(raw)
+  zr_xfree(raw)
   table
 end
 
@@ -111,7 +111,7 @@ machine def setenv(name, value, overwrite)
     used = (Machine.word(row) - Machine.word(table)) / 8
     grown = zr_xmalloc((used * 2 + 1) * 8)
     zr_memcpy(grown, table, (used + 1) * 8)
-    free(table)
+    zr_xfree(table)
     Machine.store64(cell, 0, Machine.word(grown))
     Machine.store64(cell, 8, used)
     row = grown + (used * 8)

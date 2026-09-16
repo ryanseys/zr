@@ -173,7 +173,7 @@ machine def zr_sock_recvfrom(fd, count, flags)
   while r < 0
     failed = zr_io_retry()
     if failed != QNIL
-      free(buffer)
+      zr_xfree(buffer)
       return failed
     end
     Machine.store32(size, 0, Machine.i32(SOCKADDR_MAX))
@@ -185,7 +185,7 @@ machine def zr_sock_recvfrom(fd, count, flags)
   out = zr_ary_new(2)
   zr_ary_push(out, zr_sock_bytes(buffer, r))
   zr_ary_push(out, zr_sock_addr_str(addr, size))
-  free(buffer)
+  zr_xfree(buffer)
   out
 end
 
@@ -464,8 +464,8 @@ machine def zr_sock_recvmsg(fd, size, flags, room)
   Machine.store32(header, 40, Machine.i32(c))
   r = recvmsg(zr_sock_fd(fd), header, zr_sock_fd(flags))
   if r < 0
-    free(data)
-    free(control)
+    zr_xfree(data)
+    zr_xfree(control)
     return zr_fix(0 - zr_errno())
   end
   namelen = Machine.word(Machine.load32(header, 8))
@@ -474,7 +474,7 @@ machine def zr_sock_recvmsg(fd, size, flags, room)
   zr_ary_push(out, zr_sock_bytes(name, namelen > SOCKADDR_MAX ? SOCKADDR_MAX : namelen))
   zr_ary_push(out, zr_fix(Machine.word(Machine.load32(header, MSGHDR_FLAGS))))
   zr_ary_push(out, zr_sock_bytes(control, Machine.word(Machine.load32(header, 40))))
-  free(data)
-  free(control)
+  zr_xfree(data)
+  zr_xfree(control)
   out
 end

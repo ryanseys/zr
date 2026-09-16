@@ -1096,7 +1096,7 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
       old = ClassExt.mtab(ext)
       if old != 0
         zr_memcpy(tab, old, n * MEntry.size)
-        free(old)
+        zr_xfree(old)
       end
       ClassExt.set_mtab(ext, tab)
       ClassExt.set_mcap(ext, cap)
@@ -1194,7 +1194,7 @@ machine def zr_save_core_row(ext, e)
   tab = zr_xmalloc((n + 1) * MEntry.size)
   if n > 0
     zr_memcpy(tab, ClassExt.saved(ext), n * MEntry.size)
-    free(ClassExt.saved(ext))
+    zr_xfree(ClassExt.saved(ext))
   end
   zr_memcpy(tab + (n * MEntry.size), e, MEntry.size)
   ClassExt.set_saved(ext, tab)
@@ -1833,50 +1833,50 @@ machine def zr_release(v)
   if t == T_ICLASS
     if RClass.origin(RClass.attached(v)) == v
       if ClassExt.mtab(RClass.ext(v)) != 0
-        free(ClassExt.mtab(RClass.ext(v)))
+        zr_xfree(ClassExt.mtab(RClass.ext(v)))
       end
-      free(RClass.ext(v))
+      zr_xfree(RClass.ext(v))
     end
   elsif t == T_CLASS || t == T_MODULE
     ext = RClass.ext(v)
     if ClassExt.mtab(ext) != 0
-      free(ClassExt.mtab(ext))
+      zr_xfree(ClassExt.mtab(ext))
     end
     if ClassExt.saved(ext) != 0
-      free(ClassExt.saved(ext))
+      zr_xfree(ClassExt.saved(ext))
     end
     if ClassExt.ctab(ext) != 0
-      free(ClassExt.ctab(ext))
+      zr_xfree(ClassExt.ctab(ext))
     end
     zr_const_index_drop(ext)
     zr_release_ivtab(ClassExt.iv(ext))
     zr_release_ivtab(ClassExt.cv(ext))
-    free(ext)
+    zr_xfree(ext)
   elsif t == T_STRING
     if RString.ptr(v) != 0
-      free(RString.ptr(v))
+      zr_xfree(RString.ptr(v))
     end
   elsif t == T_EXCEPTION
     if RException.rows(v) != 0
-      free(RException.rows(v))
+      zr_xfree(RException.rows(v))
     end
   elsif t == T_OBJECT
     zr_release_ivtab(RObject.iv(v))
   elsif t == T_ARRAY
-    free(RArray.base(v))
+    zr_xfree(RArray.base(v))
   elsif t == T_HASH
     if RHash.entries(v) != 0
-      free(RHash.entries(v))
+      zr_xfree(RHash.entries(v))
     end
     if RHash.bins(v) != 0
-      free(RHash.bins(v))
+      zr_xfree(RHash.bins(v))
     end
   elsif t == T_FIBER
     zr_release_fiber(v)
   elsif t == T_REGEXP
     zr_release_regexp(v)
   elsif t == T_ENV
-    free(REnv.slots(v))
+    zr_xfree(REnv.slots(v))
   end
 end
 

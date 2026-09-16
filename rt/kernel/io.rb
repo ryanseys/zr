@@ -145,17 +145,17 @@ machine def zr_io_read(fd, count)
   while got < 0
     failed = zr_io_retry()
     if failed != QNIL
-      free(buf)
+      zr_xfree(buf)
       return failed
     end
     got = read(Machine.i32(zr_fix2long(fd)), buf, n)
   end
   if got == 0
-    free(buf)
+    zr_xfree(buf)
     return Machine.value(QNIL)
   end
   s = zr_str_new(buf, got)
-  free(buf)
+  zr_xfree(buf)
   s
 end
 
@@ -167,15 +167,15 @@ machine def zr_io_pread(fd, count, at)
   buf = zr_xmalloc(n + 1)
   got = pread(Machine.i32(zr_fix2long(fd)), buf, n, zr_fix2long(at))
   if got < 0
-    free(buf)
+    zr_xfree(buf)
     return zr_fix(0 - zr_errno())
   end
   if got == 0
-    free(buf)
+    zr_xfree(buf)
     return Machine.value(QNIL)
   end
   s = zr_str_new(buf, got)
-  free(buf)
+  zr_xfree(buf)
   s
 end
 
@@ -534,11 +534,11 @@ machine def zr_readlink_m(path)
   buf = zr_xmalloc(4096)
   n = readlink(RString.ptr(path), buf, 4095)
   if n < 0
-    free(buf)
+    zr_xfree(buf)
     return zr_fix(0 - zr_errno())
   end
   s = zr_str_new(buf, n)
-  free(buf)
+  zr_xfree(buf)
   s
 end
 
@@ -575,7 +575,7 @@ machine def zr_realpath_m(path)
     return zr_fix(0 - zr_errno())
   end
   s = zr_str_new(p, zr_cstr_len(p))
-  free(p)
+  zr_xfree(p)
   s
 end
 

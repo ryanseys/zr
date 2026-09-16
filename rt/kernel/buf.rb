@@ -22,7 +22,7 @@ end
 sig [Ptr] => Void
 machine def zr_buf_free(b)
   if !zr_buf_inline_p(b)
-    free(Buf.ptr(b))
+    zr_xfree(Buf.ptr(b))
   end
   Buf.set_ptr(b, 0)
   Buf.set_len(b, 0)
@@ -40,7 +40,7 @@ machine def zr_buf_reserve(b, n)
     p = zr_xmalloc(capa)
     zr_memcpy(p, Buf.ptr(b), Buf.len(b))
     if !zr_buf_inline_p(b)
-      free(Buf.ptr(b))
+      zr_xfree(Buf.ptr(b))
     end
     Buf.set_ptr(b, p)
     Buf.set_capa(b, capa)

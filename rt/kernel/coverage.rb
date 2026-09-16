@@ -42,7 +42,7 @@ machine def zr_coverage_forget(c)
   while i < Coverage.len(c)
     counts = CovRow.counts(Coverage.rows(c) + (i * CovRow.size))
     if counts != 0
-      free(counts)
+      zr_xfree(counts)
     end
     i += 1
   end
@@ -72,7 +72,7 @@ machine def zr_coverage_row(c, file, file_len, toplevel)
     rows = zr_xmalloc(capa * CovRow.size)
     if Coverage.len(c) > 0
       zr_memcpy(rows, Coverage.rows(c), Coverage.len(c) * CovRow.size)
-      free(Coverage.rows(c))
+      zr_xfree(Coverage.rows(c))
     end
     Coverage.set_rows(c, rows)
     Coverage.set_capa(c, capa)
@@ -111,7 +111,7 @@ machine def zr_coverage_line(rec)
     memset(counts, Machine.i32(0), size * 8)
     if CovRow.counts(row) != 0
       zr_memcpy(counts, CovRow.counts(row), CovRow.size(row) * 8)
-      free(CovRow.counts(row))
+      zr_xfree(CovRow.counts(row))
     end
     CovRow.set_counts(row, counts)
     CovRow.set_size(row, size)
