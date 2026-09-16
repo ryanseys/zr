@@ -300,13 +300,22 @@ module Ze0
           root && [root, k + off]
         end
 
+        # A store forgets what it overlaps. A remembered store is at most
+        # eight bytes wide, so one that overlaps starts within seven
+        # bytes below this one or inside it: those keys are probed, not
+        # the whole table, which a block of many stores would scan at
+        # each of them.
         def remember(known, i)
           v, addr = i.args
           at = slot(addr, i.offset)
           return known.clear unless at
 
+          root, off = at
           width = WIDTH.fetch(@types.fetch(v))
-          known.delete_if { |(root, off), (_, w)| root == at[0] && off < at[1] + width && at[1] < off + w }
+          ((off - 7)...(off + width)).each do |o|
+            held = known[[root, o]]
+            known.delete([root, o]) if held && o + held[1] > off
+          end
           known[at] = [v, width]
         end
 
