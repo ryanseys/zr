@@ -1646,13 +1646,10 @@ end
 # are used: a helper for each would cost more than it saves.
 sig [Value, Word] => Ptr
 machine def zr_find_method(klass, mid)
-  # A refinement in use answers first, and never from the cache: the
-  # cache is keyed by class and name alone.
+  # A refinement in use is asked at its own place in the chain, and
+  # never from the cache: the cache is keyed by class and name alone.
   if Task.refine(zr_task()) != QNIL
-    e = zr_refined_entry(klass, mid)
-    if e != 0
-      return e
-    end
+    return zr_refined_search(klass, mid)
   end
   mode = Machine.load64(Machine.static(:mcache_mode, 8), 0)
   if mode == MCACHE_OFF
@@ -2030,10 +2027,36 @@ machine def zr_using_holders(list, mod)
   zr_ary_splat(list, found)
 end
 
-# The entry a refinement in use answers for `mid` on `klass`, newest
-# first, or 0.
+# The walk a lookup makes with refinements in use: at each node of the
+# chain, a refinement of that node's class or module answers before
+# the node's own table, so a subclass's own method still wins over a
+# refinement of its ancestor, as CRuby resolves a refined entry where
+# the refined class sits.
 sig [Value, Word] => Ptr
-machine def zr_refined_entry(klass, mid)
+machine def zr_refined_search(klass, mid)
+  k = klass
+  while k != QNIL
+    e = zr_refined_entry_at(zr_type(k) == T_ICLASS ? RClass.attached(k) : k, mid)
+    if e != 0
+      return e
+    end
+    e = zr_find_method_at(k, mid)
+    if e != 0
+      if MEntry.kind(e) == KIND_UNDEF
+        return 0
+      end
+      Task.set_found(zr_task(), k)
+      return e
+    end
+    k = RClass.superclass(k)
+  end
+  0
+end
+
+# The entry a refinement in use answers for `mid` on `target` itself,
+# newest first, or 0.
+sig [Value, Word] => Ptr
+machine def zr_refined_entry_at(target, mid)
   list = Task.refine(zr_task())
   if zr_special_p(list) || zr_type(list) != T_ARRAY
     return 0
@@ -2041,7 +2064,7 @@ machine def zr_refined_entry(klass, mid)
   i = RArray.len(list) - 1
   while i >= 0
     h = zr_ary_at(list, i)
-    if !zr_special_p(h) && zr_type(h) == T_MODULE && zr_class_inherits(klass, ClassExt.refined(RClass.ext(h)))
+    if !zr_special_p(h) && zr_type(h) == T_MODULE && ClassExt.refined(RClass.ext(h)) == target
       e = zr_search_method(h, mid)
       if e != 0
         return e
