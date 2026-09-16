@@ -98,6 +98,9 @@ machine def zr_entry_fn(e)
   if kind == KIND_DEF
     return MEntry.fn(e)
   end
+  if kind == KIND_BUILTIN
+    return Machine.addr(:zr_builtin_fn)
+  end
   if kind == KIND_ATTR_READER
     return Machine.addr(:zr_attr_reader_fn)
   end
@@ -123,6 +126,48 @@ sig [Value, Word, Ptr, Ptr, Value, Value] => Value
 machine def zr_invoke_fn(recv, argc, argv, e, blk, found)
   Task.set_found(zr_task(), found)
   zr_invoke(e, recv, argc, argv, blk, zr_kw_take())
+end
+
+# A hit on a builtin entry: the dispatch's steps for a builtin alone
+# (rt/kernel/send.rb, zr_invoke), with no kind to test. A keyword
+# table becomes one Hash argument first; the frame pushed here names
+# the builtin in a backtrace and takes the stack check a compiled
+# prologue makes; the arity is checked under it.
+sig [Value, Word, Ptr, Ptr, Value, Value] => Value
+machine def zr_builtin_fn(recv, argc, argv, e, blk, found)
+  t = zr_task()
+  Task.set_found(t, found)
+  kw = Task.kw(t)
+  if kw > 1
+    argc = zr_kw_tab_in(kw, argc, argv)
+    kw = 1
+  end
+  rec = Machine.slot(Frame.size)
+  if Machine.word(rec) < Machine.word(Task.stack_limit(t))
+    return zr_stack_overflow()
+  end
+  Frame.set_prev(rec, Task.top(t))
+  Frame.set_meta(rec, MEntry.meta(e))
+  Frame.set_line(rec, 0)
+  Frame.set_serial(rec, 0)
+  Frame.set_self(rec, recv)
+  Frame.set_cref(rec, Machine.value(QNIL))
+  Frame.set_blk(rec, blk)
+  Frame.set_nvalues(rec, 0)
+  Frame.set_entry(rec, e)
+  Frame.set_svars(rec, Machine.value(QNIL))
+  Frame.set_defined(rec, Machine.value(QNIL))
+  Task.set_top(t, rec)
+  Task.set_kw(t, kw)
+  arity = MEntry.arity(e)
+  if arity >= 0 && argc != arity
+    r = zr_wrong_arity(argc, arity)
+  else
+    r = Machine.call(:builtin, MEntry.fn(e), recv, argc, argv, Machine.value(QNIL), blk)
+  end
+  Task.set_kw(t, 0)
+  Task.set_top(t, Frame.prev(rec))
+  r
 end
 
 # An accessor has no frame, so its arity error is the caller's. The

@@ -111,6 +111,7 @@ module Ze0
         d zr_call_cache_fill Void cc:Ptr klass:Value e:Ptr mode:Word
         d zr_entry_fn Ptr e:Ptr
         d zr_invoke_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
+        d zr_builtin_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
         d zr_attr_reader_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
         d zr_attr_writer_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
         d zr_send_cached Value cc:Ptr recv:Value mid:Word argc:Word argv:Ptr blk:Value mode:Word
