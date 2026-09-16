@@ -1,8 +1,31 @@
-# zlib over the vendored library (vendor/c/zlib). A z_stream is a
+# zlib over the vendored library (vendor/c/zlib), and the checksums over
+# the kernel's own port of it (rt/kernel/zlib_check.rb). A z_stream is a
 # malloc'd block the extension holds by its address, a Fixnum; each call
 # here sets the fields one zlib call reads, makes it, and answers what
 # it returned. The extension (rt/ext/zlib.rb) keeps the buffers, as
 # zlib.c keeps them, and says how much room the output has.
+#
+# The port is derived from zlib 1.3.1, (C) 1995-2024 Jean-loup Gailly
+# and Mark Adler, under the zlib license:
+#
+#   This software is provided 'as-is', without any express or implied
+#   warranty. In no event will the authors be held liable for any damages
+#   arising from the use of this software.
+#
+#   Permission is granted to anyone to use this software for any purpose,
+#   including commercial applications, and to alter it and redistribute it
+#   freely, subject to the following restrictions:
+#
+#   1. The origin of this software must not be misrepresented; you must not
+#      claim that you wrote the original software. If you use this software
+#      in a product, an acknowledgment in the product documentation would be
+#      appreciated but is not required.
+#   2. Altered source versions must be plainly marked as such, and must not be
+#      misrepresented as being the original software.
+#   3. This notice may not be removed or altered from any source distribution.
+#
+# The Ruby here is an altered version: the same algorithms, written in
+# the kernel dialect. See THIRD_PARTY_NOTICES.md.
 Machine.import "calloc", [Word, Word] => Ptr
 Machine.import "deflateInit2_", [Ptr, I32, I32, I32, I32, I32, Ptr, I32] => I32
 Machine.import "deflate", [Ptr, I32] => I32
@@ -18,11 +41,6 @@ Machine.import "inflateReset", [Ptr] => I32
 Machine.import "inflateSync", [Ptr] => I32
 Machine.import "inflateSyncPoint", [Ptr] => I32
 Machine.import "inflateSetDictionary", [Ptr, Ptr, I32] => I32
-Machine.import "crc32_z", [Word, Ptr, Word] => Word
-Machine.import "adler32_z", [Word, Ptr, Word] => Word
-Machine.import "crc32_combine", [Word, Word, Word] => Word
-Machine.import "adler32_combine", [Word, Word, Word] => Word
-Machine.import "get_crc_table", [] => Ptr
 Machine.import "zlibVersion", [] => Ptr
 Machine.import "zError", [I32] => Ptr
 
@@ -219,23 +237,23 @@ machine def zr_zlib_checksum(kind, sum, str)
     n = RString.len(str)
   end
   if zr_fix2long(kind) == 0
-    return zr_fix(crc32_z(s, p, n))
+    return zr_fix(zr_crc32(s, p, n))
   end
-  zr_fix(adler32_z(s, p, n))
+  zr_fix(zr_adler32(s, p, n))
 end
 
 sig [Value, Value, Value, Value] => Value
 machine def zr_zlib_combine(kind, first, second, len)
   if zr_fix2long(kind) == 0
-    return zr_fix(crc32_combine(zr_fix2long(first), zr_fix2long(second), zr_fix2long(len)))
+    return zr_fix(zr_crc32_combine(zr_fix2long(first), zr_fix2long(second), zr_fix2long(len)))
   end
-  zr_fix(adler32_combine(zr_fix2long(first), zr_fix2long(second), zr_fix2long(len)))
+  zr_fix(zr_adler32_combine(zr_fix2long(first), zr_fix2long(second), zr_fix2long(len)))
 end
 
 # The CRC table's 256 entries, as the bytes of their 32-bit words.
 sig [] => Value
 machine def zr_zlib_crc_table
-  zr_str_new(get_crc_table(), 1024)
+  zr_str_new(zr_crc_table(), 1024)
 end
 
 sig [] => Value

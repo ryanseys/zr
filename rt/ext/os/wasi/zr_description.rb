@@ -1625,6 +1625,14 @@ module Ze0
         d zr_zlib_crc_table Value
         d zr_zlib_version Value
         d zr_zlib_message Value err:Value
+        d zr_adler32 Word adler:Word buf:Ptr len:Word
+        d zr_adler32_combine Word adler1:Word adler2:Word len2:Word
+        d zr_crc32 Word crc:Word buf:Ptr len:Word
+        d zr_crc_multmodp Word a:Word b:Word
+        d zr_crc_x2nmodp Word n:Word k:Word
+        d zr_crc32_combine Word crc1:Word crc2:Word len2:Word
+        d zr_crc_table Ptr
+        d zr_crc_x2n_table Ptr
         d zr_os_ruby_platform Value
         d zr_wasi_table Ptr raw:Ptr count:Word extra:Word
         d zr_os_argv Ptr argc:I32 argv:Ptr
@@ -2045,6 +2053,10 @@ module Ze0
         c ZLIB_INFLATE_RESET 5
         c ZLIB_INFLATE_SYNC 6
         c ZLIB_INFLATE_SYNC_POINT 7
+        c ADLER_BASE 65521
+        c ADLER_NMAX 5552
+        c CRC_POLY 3988292384
+        c ZLIB_MASK32 4294967295
         c SC_NPROCESSORS_ONLN 84
         c UTSNAME_LEN 390
         c UTSNAME_FIELD 65
