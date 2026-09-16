@@ -242,8 +242,8 @@ module Math
   # nothing else, whatever answers to_f.
   def check(x)
     Primitive.attr! :hidden
-    return x if x.is_a?(Float)
-    return x.to_f if x.is_a?(Integer)
+    return x if Primitive.zr_float_p_m(x)
+    return x.to_f if Primitive.zr_integer_p_m(x)
     raise TypeError, "can't convert #{x.nil? ? "nil" : x.class} into Float" unless x.is_a?(Numeric)
 
     x.to_f

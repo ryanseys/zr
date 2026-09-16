@@ -31,6 +31,17 @@ machine def zr_float_p(v)
   zr_flonum_p(v) || (!zr_special_p(v) && zr_type(v) == T_FLOAT)
 end
 
+sig [Value] => Value
+machine def zr_float_p_m(v)
+  zr_bool(zr_float_p(v))
+end
+
+# Whether `v` is an Integer: a fixnum or a bignum.
+sig [Value] => Value
+machine def zr_integer_p_m(v)
+  zr_bool(zr_fixnum_p(v) || zr_big_p(v))
+end
+
 # A Float from a double: a flonum when the exponent's top bits are
 # 011 or 100, the flonum zero for +0.0, else a heap cell.
 sig [F64] => Value
