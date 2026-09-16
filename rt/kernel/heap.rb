@@ -203,6 +203,13 @@ machine def zr_mark_cell(v)
     return
   end
   RBasic.set_flags(v, flags | FL_MARK)
+  # A String or a Float holds no Value: its class is marked here, and
+  # the queue never sees it.
+  t = flags & T_MASK
+  if (t == T_STRING || t == T_FLOAT) && (flags & FL_EXIVAR) == 0
+    zr_mark(RBasic.klass(v))
+    return
+  end
   s = zr_mark_stack()
   n = MarkStack.len(s)
   if n == MarkStack.capa(s)

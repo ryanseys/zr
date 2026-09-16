@@ -1907,11 +1907,21 @@ machine def zr_mark_entry(e)
   end
 end
 
-# What a cell holds besides its class: marked by type.
+# What a cell holds besides its class: marked by type, the common
+# kinds tested first. A String or a Float holds no Value, and
+# zr_mark_cell answers those without queueing them.
 sig [Value] => Void
 machine def zr_mark_children(v)
   t = RBasic.flags(v) & T_MASK
-  if t == T_ICLASS
+  if t == T_OBJECT
+    zr_mark_ivtab(RObject.iv(v))
+  elsif t == T_ARRAY
+    zr_mark_ary(v)
+  elsif t == T_HASH
+    zr_mark_hash(v)
+  elsif t == T_STRING || t == T_FLOAT
+    return
+  elsif t == T_ICLASS
     zr_mark(RClass.superclass(v))
     zr_mark(RClass.attached(v))
     if RClass.origin(RClass.attached(v)) == v
@@ -1942,12 +1952,6 @@ machine def zr_mark_children(v)
       zr_mark(RException.cause(v))
     end
     zr_mark_backtrace_rows(v)
-  elsif t == T_OBJECT
-    zr_mark_ivtab(RObject.iv(v))
-  elsif t == T_ARRAY
-    zr_mark_ary(v)
-  elsif t == T_HASH
-    zr_mark_hash(v)
   elsif t == T_CREF
     zr_mark(RCref.klass(v))
     zr_mark(RCref.lazy(v))
