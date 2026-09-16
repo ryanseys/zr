@@ -28,9 +28,7 @@ class Data
         Primitive.zr_hidden_get(k, :__members__).dup
       end
       klass.define_singleton_method(:inspect) { to_s }
-      members.each_with_index do |member, i|
-        klass.define_method(member) { values_store[i] }
-      end
+      Primitive.zr_struct_readers(klass, members)
       klass.class_eval(&body) if body
       klass
     end

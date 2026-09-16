@@ -544,6 +544,18 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
     end
     return zr_ivar_set(recv, Machine.word(MEntry.fn(e)), Machine.value(Machine.load64(argv, 0)))
   end
+  if MEntry.kind(e) == KIND_STRUCT_AREF
+    if argc != 0
+      return zr_wrong_arity(argc, 0)
+    end
+    return zr_struct_get(recv, e)
+  end
+  if MEntry.kind(e) == KIND_STRUCT_ASET
+    if argc != 1
+      return zr_wrong_arity(argc, 1)
+    end
+    return zr_struct_set(recv, e, Machine.value(Machine.load64(argv, 0)))
+  end
   if MEntry.kind(e) == KIND_FRAMELESS
     Task.set_kw(zr_task(), kw)
     return Machine.call(:builtin, MEntry.fn(e), recv, argc, argv, Machine.value(QNIL), blk)

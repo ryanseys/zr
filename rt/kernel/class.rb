@@ -1125,13 +1125,13 @@ machine def zr_warn_redefined(ext, mid, e, fn, kind, meta, cref)
   end
   # The same definition again, as `alias_method :m, :m` or a second
   # `module_function :m` writes it: the same body, or the same Proc.
-  if MEntry.kind(e) == kind && (kind == KIND_BMETHOD ? MEntry.cref(e) == cref : MEntry.fn(e) == fn && kind != KIND_ATTR_READER && kind != KIND_ATTR_WRITER)
+  if MEntry.kind(e) == kind && (kind == KIND_BMETHOD ? MEntry.cref(e) == cref : MEntry.fn(e) == fn && !zr_word_entry_p(kind))
     return
   end
-  if zr_internal_meta_p(meta) && kind != KIND_ATTR_READER && kind != KIND_ATTR_WRITER
+  if zr_internal_meta_p(meta) && !zr_word_entry_p(kind)
     return
   end
-  if MEntry.fn(e) == 0 && MEntry.kind(e) != KIND_BMETHOD && MEntry.kind(e) != KIND_ATTR_READER && MEntry.kind(e) != KIND_ATTR_WRITER
+  if MEntry.fn(e) == 0 && MEntry.kind(e) != KIND_BMETHOD && !zr_word_entry_p(MEntry.kind(e))
     return
   end
   i = 0

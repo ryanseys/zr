@@ -1480,6 +1480,14 @@ module Ze0
         d zr_str_splice Value s:Value from:Value len:Value other:Value
         d zr_str_push_byte Value recv:Value byte:Value
         d zr_str_bytes_address Value s:Value
+        d zr_struct_readers Value klass:Value members:Value
+        d zr_struct_writers Value klass:Value members:Value
+        d zr_struct_aref_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
+        d zr_struct_aset_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
+        d zr_struct_get Value recv:Value e:Ptr
+        d zr_struct_set Value recv:Value e:Ptr v:Value
+        d zr_struct_values_new Value recv:Value
+        d zr_word_entry_p Bool kind:Word
         d zr_symtab Ptr
         d zr_static_symbol_count Word
         d zr_symbol_row Ptr id:Word
@@ -1920,6 +1928,8 @@ module Ze0
         c G_FSTRINGS 44
         c FL_FSTR 4194304
         c GATE_LTLT 16384
+        c KIND_STRUCT_AREF 10
+        c KIND_STRUCT_ASET 11
         c TRACE_LINE 1
         c TRACE_CALL 8
         c TRACE_RETURN 16

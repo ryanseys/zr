@@ -282,6 +282,15 @@ machine def zr_method_rows(m)
   if meta != 0 && (FrameMeta.file_len(meta) > 0 || FrameMeta.ruby(meta) != 0 || MEntry.kind(e) == KIND_BMETHOD)
     return zr_param_rows(FrameMeta.params(meta), false)
   end
+  # A struct writer names its one parameter `_`, as ruby's does.
+  if MEntry.kind(e) == KIND_STRUCT_ASET
+    row = zr_ary_new(2)
+    zr_ary_push(row, zr_sym(Machine.id(:req)))
+    zr_ary_push(row, zr_sym(Machine.id(:_)))
+    out = zr_ary_new(1)
+    zr_ary_push(out, row)
+    return out
+  end
   zr_arity_rows(zr_method_arity_of(m))
 end
 

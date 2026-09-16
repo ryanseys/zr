@@ -107,6 +107,12 @@ machine def zr_entry_fn(e)
   if kind == KIND_BMETHOD
     return Machine.addr(:zr_bmethod_fn)
   end
+  if kind == KIND_STRUCT_AREF
+    return Machine.addr(:zr_struct_aref_fn)
+  end
+  if kind == KIND_STRUCT_ASET
+    return Machine.addr(:zr_struct_aset_fn)
+  end
   Machine.addr(:zr_invoke_fn)
 end
 

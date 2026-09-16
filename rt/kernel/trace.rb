@@ -82,7 +82,7 @@ machine def zr_trace_c_entry_p(e)
   if zr_trace_ruby_entry_p(e)
     return false
   end
-  if kind == KIND_ATTR_READER || kind == KIND_ATTR_WRITER
+  if zr_word_entry_p(kind)
     return true
   end
   meta = MEntry.meta(e)

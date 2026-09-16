@@ -31,13 +31,9 @@ class Struct
         Primitive.zr_hidden_get(k, :__keyword_init__)
       end
       klass.define_singleton_method(:inspect) { keyword_init? ? "#{self}(keyword_init: true)" : to_s }
-      members.each_with_index do |member, i|
-        klass.define_method(member) { values_store[i] }
-        klass.define_method(:"#{member}=") do |_|
-          Primitive.zr_frozen_error(self) if frozen?
-          values_store[i] = _
-        end
-      end
+      # The accessors are entries of the kernel's (rt/kernel/struct.rb).
+      Primitive.zr_struct_readers(klass, members)
+      Primitive.zr_struct_writers(klass, members)
       klass.class_eval(&body) if body
       klass
     end
