@@ -130,7 +130,7 @@ sig [Value, Value] => Bool
 machine def zr_chain_includes(klass, mod)
   k = klass
   while k != QNIL
-    if k == mod || (zr_type(k) == T_ICLASS && RClass.attached(k) == mod)
+    if k == mod || ((RBasic.flags(k) & T_MASK) == T_ICLASS && RClass.attached(k) == mod)
       return true
     end
     k = RClass.superclass(k)
@@ -1697,6 +1697,12 @@ end
 
 sig [Value] => Value
 machine def zr_class_of(v)
+  # A heap object first, its class in its header: the low three bits
+  # of a cell are clear and its address is past every special value,
+  # where a fixnum is odd, a flonum ends in 10 and a symbol in 1100.
+  if (Machine.word(v) & 7) == 0 && Machine.word(v) > QUNDEF
+    return RBasic.klass(v)
+  end
   if zr_fixnum_p(v)
     zr_global(G_INTEGER)
   elsif v == QNIL
