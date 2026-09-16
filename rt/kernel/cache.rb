@@ -30,8 +30,12 @@
 Machine.struct :IvarCache, index: Word
 # `found` is the chain node the entry sat on, which a call hands the
 # frame as a lookup would. `fn` is what a hit calls, with the method
-# signature whatever the entry's kind (`zr_entry_fn`).
+# signature whatever the entry's kind (`zr_entry_fn`). A site owns
+# CALL_WAYS cells in a row: the first it tests itself, the rest the
+# kernel tests when the first misses, so a site whose receivers come
+# from a few classes hits on each.
 Machine.struct :CallCache, klass: Value, stamp: Word, entry: Ptr, found: Value, fn: Ptr
+CALL_WAYS = 4
 Machine.struct :ConstCache, key: Value, stamp: Word, value: Value
 
 # Any change a constant lookup could see.
@@ -68,8 +72,8 @@ end
 
 # The answer `zr_dispatch` just found for `klass`, into the cell when
 # the class and the stamp alone decided it.
-sig [Ptr, Value, Ptr, Word] => Void
-machine def zr_call_cache_fill(cc, klass, e, mode)
+sig [Ptr, Value, Ptr, Word, Word] => Void
+machine def zr_call_cache_fill(cc, klass, e, mid, mode)
   if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_OFF
     return
   end
@@ -80,6 +84,12 @@ machine def zr_call_cache_fill(cc, klass, e, mode)
   # A private or protected method refuses an explicit receiver by who
   # calls, not by the class.
   if (mode & SEND_MODE) >= 2 && MEntry.vis(e) != VIS_PUBLIC
+    return
+  end
+  # A core send's own entry is not the chain's when the program has
+  # redefined the method: the verifier, which asks the chain, leaves
+  # such a cell empty rather than read it as wrong.
+  if Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_VERIFY && (mode & SEND_CORE) != 0 && e != zr_search_method(klass, mid)
     return
   end
   CallCache.set_klass(cc, klass)
@@ -196,11 +206,33 @@ end
 # is a dispatch, which fills the cell.
 sig [Ptr, Value, Word, Word, Ptr, Value, Word] => Value
 machine def zr_send_cached(cc, recv, mid, argc, argv, blk, mode)
-  e = zr_call_cache_hit(cc, recv, mid)
-  if e == 0
-    return zr_dispatch(cc, recv, mid, argc, argv, mode, blk)
+  way = cc
+  e = zr_call_cache_hit(way, recv, mid)
+  i = 1
+  while e == 0 && i < CALL_WAYS
+    way = cc + (i * CallCache.size)
+    e = zr_call_cache_hit(way, recv, mid)
+    i += 1
   end
-  Machine.call(:method, CallCache.fn(cc), recv, argc, argv, e, blk, CallCache.found(cc))
+  if e == 0
+    return zr_dispatch(zr_call_cache_slot(cc), recv, mid, argc, argv, mode, blk)
+  end
+  Machine.call(:method, CallCache.fn(way), recv, argc, argv, e, blk, CallCache.found(way))
+end
+
+# The cell a dispatch fills: the first that is empty or stale, else
+# the last, so the class the site tests itself keeps the first.
+sig [Ptr] => Ptr
+machine def zr_call_cache_slot(cc)
+  i = 0
+  while i < CALL_WAYS - 1
+    way = cc + (i * CallCache.size)
+    if CallCache.klass(way) == 0 || CallCache.stamp(way) != Machine.load64(Machine.static(:mcache_stamp, 8), 0)
+      return way
+    end
+    i += 1
+  end
+  cc + ((CALL_WAYS - 1) * CallCache.size)
 end
 
 # A `new` call with no block, CRuby's `opt_new`, with a cell for each of
@@ -216,7 +248,7 @@ machine def zr_new_cached(cc, recv, argc, argv, mode)
     klass = zr_box_view(zr_class_of(recv))
     e = zr_find_method(klass, Machine.id(:new))
     if e != 0
-      zr_call_cache_fill(cc, klass, e, mode)
+      zr_call_cache_fill(cc, klass, e, Machine.id(:new), mode)
     end
   end
   if e == 0 || MEntry.fn(e) != Machine.addr(:zr_class_new_instance) || MEntry.vis(e) != VIS_PUBLIC
@@ -224,7 +256,7 @@ machine def zr_new_cached(cc, recv, argc, argv, mode)
   end
   o = zr_class_new_object(recv)
   return o if o == QUNDEF
-  r = zr_send_cached(cc + CallCache.size, o, Machine.id(:initialize), argc, argv, Machine.value(QNIL), 0)
+  r = zr_send_cached(cc + (CallCache.size * CALL_WAYS), o, Machine.id(:initialize), argc, argv, Machine.value(QNIL), 0)
   return r if r == QUNDEF
   o
 end

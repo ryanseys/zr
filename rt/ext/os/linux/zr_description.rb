@@ -108,13 +108,14 @@ module Ze0
         d zr_buf_take_at Value b:Ptr index:Word
         d zr_consts_changed Void
         d zr_call_cache_hit Ptr cc:Ptr recv:Value mid:Word
-        d zr_call_cache_fill Void cc:Ptr klass:Value e:Ptr mode:Word
+        d zr_call_cache_fill Void cc:Ptr klass:Value e:Ptr mid:Word mode:Word
         d zr_entry_fn Ptr e:Ptr
         d zr_invoke_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
         d zr_builtin_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
         d zr_attr_reader_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
         d zr_attr_writer_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
         d zr_send_cached Value cc:Ptr recv:Value mid:Word argc:Word argv:Ptr blk:Value mode:Word
+        d zr_call_cache_slot Ptr cc:Ptr
         d zr_new_cached Value cc:Ptr recv:Value argc:Word argv:Ptr mode:Word
         d zr_const_cacheable Bool e:Ptr
         d zr_const_cache_fill Void cc:Ptr key:Value stamp:Word v:Value
@@ -564,6 +565,8 @@ module Ze0
         d zr_fiber_scheduler_switch Value to:Value
         d zr_flonum_p Bool v:Value
         d zr_float_p Bool v:Value
+        d zr_float_p_m Value v:Value
+        d zr_integer_p_m Value v:Value
         d zr_float_new Value d:F64
         d zr_float_value F64 v:Value
         d zr_float_operand Value recv:Value v:Value out:Ptr mid:Word kind:Word
@@ -1677,6 +1680,7 @@ module Ze0
         c ARY_MAX_SIZE 1152921504606846975
         c G_MASTER_GVARS 48
         c G_BOX 49
+        c CALL_WAYS 4
         c KIND_ATTR_READER 3
         c KIND_ATTR_WRITER 4
         c KIND_FRAMELESS 5

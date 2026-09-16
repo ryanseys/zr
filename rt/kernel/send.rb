@@ -366,7 +366,7 @@ machine def zr_dispatch(cc, recv, mid, argc, argv, mode, blk)
     end
   end
   if cc != 0
-    zr_call_cache_fill(cc, klass, e, mode)
+    zr_call_cache_fill(cc, klass, e, mid, mode)
   end
   r = zr_invoke(e, recv, argc, argv, blk, kw)
   # The refinements a site activated were for this send alone: the

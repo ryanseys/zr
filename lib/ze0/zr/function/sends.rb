@@ -50,6 +50,15 @@ module Ze0
         ].to_set.freeze
         # The bit a send of the core library carries (SEND_CORE).
         SEND_CORE = 8
+        # The cells a send site owns (rt/kernel/cache.rb, CALL_WAYS).
+        CALL_WAYS = 4
+        # The names a Float is sent in numeric code, whose sites find a
+        # flonum's class inline; any other site leaves a flonum to the
+        # kernel, which reads its class as well, for the code's sake.
+        FLONUM_NAMES = (OPS.keys + %i[
+          ** -@ +@ <=> to_i to_f to_s to_r round floor ceil truncate abs divmod fdiv quo
+          nan? finite? infinite? zero? positive? negative? coerce
+        ]).to_set.freeze
 
         private
 
@@ -240,7 +249,7 @@ module Ze0
           if node.opt && node.using.nil? && !traced?
             checked(opt_send(node, recv, argc, argv))
           elsif node.name == :new
-            checked(kernel("zr_new_cached", cache("ic", "CallCache", 2), recv, argc, argv, imm(send_mode(node))))
+            checked(kernel("zr_new_cached", cache("ic", "CallCache", 2 * CALL_WAYS), recv, argc, argv, imm(send_mode(node))))
           else
             checked(cached_send(node, recv, argc, argv, @qnil))
           end
@@ -273,14 +282,15 @@ module Ze0
         # A send through the site's own cell (rt/kernel/cache.rb), which
         # keeps the method the receiver's class answered there last. The
         # site tests the cell itself: a fixnum's class is Integer, a
-        # heap object's is in its header, and when that class is the
-        # cell's and the cell's stamp is the site stamp, the cell's
-        # function is called with the method signature. Anything else --
-        # another special constant, a stale cell, the cells off -- is the
-        # kernel's send, which fills the cell. A site under `using` asks
+        # flonum's Float, a heap object's is in its header, and when
+        # that class is the cell's and the cell's stamp is the site
+        # stamp, the cell's function is called with the method
+        # signature. Anything else -- another special constant, a stale
+        # cell, the cells off -- is the kernel's send, which tests the
+        # site's other cells and fills one. A site under `using` asks
         # the kernel every time: a refinement decides, never the cell.
         def cached_send(node, recv, argc, argv, blk, mode: send_mode(node))
-          cc = cache("ic", "CallCache")
+          cc = cache("ic", "CallCache", CALL_WAYS)
           slow = -> { kernel("zr_send_cached", cc, recv, imm(sym_id(node.name)), argc, argv, blk, imm(mode)) }
           return slow.call if node.using
 
@@ -296,6 +306,14 @@ module Ze0
           switch(fixnum)
           @f.jump(have, [global("G_INTEGER")])
           switch(other)
+          if FLONUM_NAMES.include?(node.name)
+            flonum = @f.label
+            rest = @f.label
+            @f.brif(@f.icmp("eq", @f.band(recv, imm(3)), imm(2)), flonum, rest)
+            switch(flonum)
+            @f.jump(have, [global("G_FLOAT")])
+            switch(rest)
+          end
           pointer = @f.band(@f.icmp("eq", @f.band(recv, imm(7)), imm(0)), @f.icmp("ugt", recv, @qnil))
           @f.brif(pointer, heap, miss)
           switch(heap)
