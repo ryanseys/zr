@@ -8,6 +8,7 @@ class IO
   # that would fill the buffer writes what waits and the text with it,
   # as CRuby's io_binwrite does.
   WBUF_CAPA = 8192
+  NEWLINE = "\n".freeze
   private_constant :WBUF_CAPA
 
   # The streams that hold bytes nothing has written yet. The end of the
@@ -980,7 +981,15 @@ class IO
 
   # One String, the usual call, is its own line: CRuby takes a String
   # as it is and never asks it for `to_s`.
+  # One String is the common call: its bytes, then a newline unless it
+  # ends in one, with no line walk between.
   def puts(*objects)
+    if Primitive.zr_ary_len_m(objects) == 1 && (text = Primitive.zr_ary_at_m(objects, 0)).is_a?(String)
+      check_writable
+      write_bytes(converted(text))
+      write_bytes(NEWLINE) unless Primitive.zr_str_byte_at(text, Primitive.zr_str_bytesize(text) - 1) == 10
+      return nil
+    end
     IO.each_line_of(objects) { |*parts| write(*parts) }
     nil
   end
@@ -1404,7 +1413,7 @@ class IO
 
     if @wbuf.bytesize + text.bytesize < WBUF_CAPA
       PENDING << self if @wbuf.empty?
-      @wbuf << text.b
+      Primitive.zr_str_cat_bytes(@wbuf, text)
       return text.bytesize
     end
     # A scheduler's io_write takes what waits, then the text, as
@@ -1415,7 +1424,7 @@ class IO
     end
     # The buffer is bytes, whatever encoding the text is in.
     held = @wbuf.bytesize
-    waiting = @wbuf << text.b
+    waiting = Primitive.zr_str_cat_bytes(@wbuf, text)
     @wbuf = +"".b
     PENDING.delete(self)
     write_now(waiting) - held

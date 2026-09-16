@@ -561,6 +561,29 @@ machine def zr_str_concat_codepoint(recv, c)
   zr_str_concat(recv, 1, slot, Machine.value(QNIL), Machine.value(QNIL))
 end
 
+# `other`'s bytes onto `recv`, whatever either's encoding: an IO's
+# write buffer takes text as bytes.
+sig [Value, Value] => Value
+machine def zr_str_cat_bytes(recv, other)
+  n = RString.len(recv) + RString.len(other)
+  if n + 1 > RString.capa(recv)
+    capa = RString.capa(recv) * 2
+    if capa < n + 1
+      capa = n + 1
+    end
+    p = zr_xmalloc(capa)
+    zr_memcpy(p, RString.ptr(recv), RString.len(recv))
+    free(RString.ptr(recv))
+    RString.set_ptr(recv, p)
+    RString.set_capa(recv, capa)
+  end
+  zr_memcpy(RString.ptr(recv) + RString.len(recv), RString.ptr(other), RString.len(other))
+  RString.set_len(recv, n)
+  Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
+  zr_str_modified(recv)
+  recv
+end
+
 # `<<` appends in place; a frozen receiver raises.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_str_concat(recv, argc, argv, cref, blk)

@@ -1414,6 +1414,7 @@ module Ze0
         d zr_str_plus Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_times Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_concat_codepoint Value recv:Value c:Word
+        d zr_str_cat_bytes Value recv:Value other:Value
         d zr_str_concat Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_concat_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_bytes_cmp Word a:Ptr alen:Word b:Ptr blen:Word
