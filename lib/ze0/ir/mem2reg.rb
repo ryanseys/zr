@@ -25,6 +25,11 @@ module Ze0
     # store ahead of it in its block asks its predecessors, a block with
     # several makes a parameter first, and a parameter every edge gives the
     # same value is that value. A path with no store at all reads zero.
+    #
+    # A `brif` carries no arguments, so every edge one enters a join by
+    # is split first: a block of its own that jumps on, laid out before
+    # the join so it falls into it. One that ends up carrying nothing
+    # `IR::Passes::Blocks` jumps past again.
     class Mem2Reg
       def self.run(f) = new(f).run
 
@@ -39,14 +44,8 @@ module Ze0
         @preds = predecessors
         return @f if @preds[@f.entry_block.name]&.any?
 
-        loop do
-          plan(slots)
-          wide = branched(slots)
-          break if wide.empty?
-
-          wide.each { |addr| slots.delete(addr) }
-          return @f if slots.empty?
-        end
+        split_edges
+        plan(slots)
         apply(slots)
         @f
       end
@@ -94,6 +93,27 @@ module Ze0
           b.insts.last&.targets&.each { |(name, _)| preds[name] << b }
         end
         preds
+      end
+
+      # A block of its own on each `brif` edge into a block with more
+      # than one predecessor, so that every edge into a join is a jump
+      # that can carry the join's parameters.
+      def split_edges
+        @f.blocks.dup.each do |join|
+          next if @preds[join.name].size < 2
+
+          @preds[join.name].map! do |p|
+            br = p.insts.last
+            next p unless br.op == :brif
+
+            side = @f.block_before(join)
+            side.insts << IR::Inst.new(:jump, targets: [[join.name, []]])
+            k = br.targets.index { |(name, _)| name == join.name }
+            br.targets[k] = [side.name, []]
+            @preds[side.name] = [p]
+            side
+          end
+        end
       end
 
       # Every load's value, and every parameter a join needs, for the
@@ -168,13 +188,6 @@ module Ze0
           break unless dropped
         end
         @joins.reject! { |param, _, _| @rename.key?(param) }
-      end
-
-      # The slots whose parameters sit on a block some `brif` reaches: the
-      # backend passes arguments along a jump alone, so those keep their
-      # slot.
-      def branched(slots)
-        @joins.filter_map { |_, b, addr| addr if @preds[b.name].any? { |p| p.insts.last.op != :jump } }.uniq
       end
 
       def resolve(v)

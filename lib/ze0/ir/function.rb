@@ -359,10 +359,15 @@ module Ze0
       # A new block with no parameters, laid out right after `after`: what
       # a pass makes when it splits a block, so the first half falls into
       # it.
-      def block_after(after)
-        name = block_named([])
-        b = @block_of.fetch(name)
-        @blocks.insert(@blocks.index(after) + 1, b)
+      def block_after(after) = block_beside(@blocks.index(after) + 1)
+
+      # The same, laid out right before `before`: what a pass makes when
+      # it splits an edge, so the new block falls into its target.
+      def block_before(before) = block_beside(@blocks.index(before))
+
+      def block_beside(at)
+        b = @block_of.fetch(block_named([]))
+        @blocks.insert(at, b)
         b
       end
 
