@@ -21,7 +21,7 @@ Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr,
 # program wrote over or removed, which the core library's own sends
 # still reach (see zr_find_core_method).
 Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word, refined: Value, active: Value, boxed: Value, shadow: Value, alloc: Word, cidx: Ptr, cbins: Word,
-                           saved: Ptr, slen: Word
+                           saved: Ptr, slen: Word, supers: Ptr, rank: Word
 # `orig` is the name the method was first defined under, which an
 # alias keeps. `from` is the chain node the entry an alias or a
 # visibility change copied was found on, where `super` in the body
@@ -78,6 +78,8 @@ machine def zr_class_alloc(type, sup, klass)
   ClassExt.set_alloc(ext, 0)
   ClassExt.set_saved(ext, 0)
   ClassExt.set_slen(ext, 0)
+  ClassExt.set_supers(ext, 0)
+  ClassExt.set_rank(ext, 0)
   counter = Machine.static(:class_serial, 8)
   Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
   ClassExt.set_serial(ext, Machine.load64(counter, 0))
@@ -1718,14 +1720,68 @@ machine def zr_class_of(v)
 end
 
 # Whether `klass` is `target` or inherits from it, or includes it.
+# The classes in a class's chain, the nearest last, and their count:
+# `supers[d]` is the ancestor at depth `d`, so a class `c` is an
+# ancestor when its rank is at most `klass`'s and `supers[rank(c) - 1]`
+# is `c`, one step where a walk takes one per ancestor. Built at the
+# first ask from the chain with its proxies skipped. A chain that does
+# not reach BasicObject (a class `Class.allocate` made, not yet
+# initialized) stays unbuilt, since its superclass is still to come;
+# the rank answers 0 for it.
+sig [Value] => Word
+machine def zr_class_rank(klass)
+  ext = RClass.ext(klass)
+  if ClassExt.supers(ext) != 0
+    return ClassExt.rank(ext)
+  end
+  n = 0
+  top = klass
+  k = klass
+  while k != QNIL
+    if (RBasic.flags(k) & T_MASK) == T_CLASS
+      n += 1
+      top = k
+    end
+    k = RClass.superclass(k)
+  end
+  if top != zr_global(G_BASIC_OBJECT)
+    return 0
+  end
+  s = zr_xmalloc(n * 8)
+  i = n
+  k = klass
+  while k != QNIL
+    if (RBasic.flags(k) & T_MASK) == T_CLASS
+      i -= 1
+      Machine.store64(s + (i * 8), 0, Machine.word(k))
+    end
+    k = RClass.superclass(k)
+  end
+  ClassExt.set_supers(ext, s)
+  ClassExt.set_rank(ext, n)
+  n
+end
+
+# Whether `target` is in `klass`'s chain: two classes answer from the
+# superclass list, anything else from a walk.
 sig [Value, Value] => Bool
 machine def zr_class_inherits(klass, target)
+  if !zr_special_p(target) && !zr_special_p(klass) && (RBasic.flags(target) & T_MASK) == T_CLASS && (RBasic.flags(klass) & T_MASK) == T_CLASS
+    r = zr_class_rank(target)
+    n = zr_class_rank(klass)
+    if r != 0 && n != 0
+      return r <= n && Machine.value(Machine.load64(ClassExt.supers(RClass.ext(klass)) + ((r - 1) * 8), 0)) == target
+    end
+  end
   zr_chain_includes(klass, target)
 end
 
 sig [Value, Value] => Bool
 machine def zr_is_a(v, klass)
-  k = zr_box_view(zr_class_of(v))
+  k = zr_class_of(v)
+  if ClassExt.boxed(RClass.ext(k)) != QNIL
+    k = zr_box_view(k)
+  end
   if zr_class_inherits(k, klass)
     return true
   end
@@ -1850,6 +1906,9 @@ machine def zr_release(v)
     end
     if ClassExt.ctab(ext) != 0
       zr_xfree(ClassExt.ctab(ext))
+    end
+    if ClassExt.supers(ext) != 0
+      zr_xfree(ClassExt.supers(ext))
     end
     zr_const_index_drop(ext)
     zr_release_ivtab(ClassExt.iv(ext))

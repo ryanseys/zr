@@ -137,7 +137,7 @@ end
 # The shared class a box shadow stands for, or nil.
 sig [Value] => Value
 machine def zr_box_origin(klass)
-  if zr_special_p(klass) || (zr_type(klass) != T_CLASS && zr_type(klass) != T_MODULE)
+  if !zr_module_p(klass)
     return Machine.value(QNIL)
   end
   ClassExt.shadow(RClass.ext(klass))
@@ -147,7 +147,7 @@ end
 # box may shadow; a class the program or a box made is its own.
 sig [Value] => Value
 machine def zr_box_shared_p(klass)
-  if zr_special_p(klass) || (zr_type(klass) != T_CLASS && zr_type(klass) != T_MODULE)
+  if !zr_module_p(klass)
     return Machine.value(QFALSE)
   end
   zr_bool(ClassExt.serial(RClass.ext(klass)) <= Machine.load64(Machine.static(:master_serial, 8), 0))

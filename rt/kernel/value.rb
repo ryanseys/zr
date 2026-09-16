@@ -161,6 +161,16 @@ machine def zr_symbol_p(v)
   (Machine.word(v) & 255) == SYMBOL_TAG
 end
 
+# Whether `v` is a class or a module: a cell of either type.
+sig [Value] => Bool
+machine def zr_module_p(v)
+  if zr_special_p(v)
+    return false
+  end
+  t = RBasic.flags(v) & T_MASK
+  t == T_CLASS || t == T_MODULE
+end
+
 sig [Value] => Word
 machine def zr_type(v)
   # A heap object first, its type in its header (zr_class_of).

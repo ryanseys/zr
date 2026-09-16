@@ -477,7 +477,13 @@ machine def zr_alloc_kind(klass)
     return kind
   end
   sup = zr_real_superclass(klass)
-  kind = sup == QNIL ? ALLOC_OBJECT : zr_alloc_kind(sup)
+  if sup == QNIL
+    # A class `Class.allocate` made has no allocator until its
+    # superclass arrives, so its answer is not kept; a subclass under
+    # it keeps the answer, as CRuby's does even after that arrival.
+    return klass == zr_global(G_BASIC_OBJECT) ? ALLOC_OBJECT : ALLOC_NONE
+  end
+  kind = zr_alloc_kind(sup)
   ClassExt.set_alloc(RClass.ext(klass), kind)
   kind
 end
@@ -589,7 +595,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_is_a(recv, argc, argv, cref, blk)
   k = Machine.value(Machine.load64(argv, 0))
-  if zr_special_p(k) || (zr_type(k) != T_CLASS && zr_type(k) != T_MODULE)
+  if !zr_module_p(k)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("class or module required"), 24)
   end
   zr_bool(zr_is_a(recv, k))
@@ -598,7 +604,7 @@ end
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_obj_instance_of(recv, argc, argv, cref, blk)
   c = Machine.value(Machine.load64(argv, 0))
-  if zr_special_p(c) || (zr_type(c) != T_CLASS && zr_type(c) != T_MODULE)
+  if !zr_module_p(c)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("class or module required"), 24)
   end
   zr_bool(zr_real_class(recv) == c)

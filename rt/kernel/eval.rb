@@ -59,7 +59,7 @@ end
 # block under the class, given the class.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_class_initialize(recv, argc, argv, cref, blk)
-  if RClass.superclass(recv) != QNIL || RBasic.klass(recv) != zr_global(G_CLASS)
+  if RClass.superclass(recv) != QNIL || recv == zr_global(G_BASIC_OBJECT)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("already initialized class"), 25)
   end
   if argc > 1
@@ -70,6 +70,9 @@ machine def zr_class_initialize(recv, argc, argv, cref, blk)
     sup = Machine.value(Machine.load64(argv, 0))
     r = zr_check_inheritable(sup)
     return r if r == QUNDEF
+    if RClass.superclass(sup) == QNIL && sup != zr_global(G_BASIC_OBJECT)
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't inherit uninitialized class"), 33)
+    end
   end
   RClass.set_superclass(recv, sup)
   zr_methods_changed()
