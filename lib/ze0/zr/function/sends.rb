@@ -269,6 +269,15 @@ module Ze0
           @f.brif(pointer, heap, other)
           switch(heap)
           klass = @f.fetch("i64", recv, off(@l.layout("RBasic"), "klass"))
+          if array_element?(node)
+            array = @f.label
+            rest = @f.label
+            @f.brif(@f.icmp("eq", klass, global("G_ARRAY")), array, rest)
+            switch(array)
+            array_element(node, recv, argv, merge, core)
+            switch(rest)
+            classes -= ["G_ARRAY"]
+          end
           builtin = classes.map { |g| @f.icmp("eq", klass, global(g)) }.reduce { |a, b| @f.bor(a, b) }
           @f.brif(builtin, core, other)
           switch(core)
@@ -277,6 +286,41 @@ module Ze0
           @f.jump(merge, [cached_send(node, recv, argc, argv, @qnil)])
           switch(merge)
           result
+        end
+
+        # `recv[i]` and `recv[i] = v` with one plain index: an Array
+        # receiver reads or writes the element in place.
+        def array_element?(node)
+          plain = node.kwargs.nil? && node.block.nil? && node.args.none? { |a| a.is_a?(Hir::Splat) }
+          plain && node.args.size == (node.name == :[] ? 1 : 2)
+        end
+
+        # The element of an Array `recv` at a fixnum index in range, while
+        # Array's `[]` or `[]=` is its own (the gate) and, for a write,
+        # the Array is not frozen: the value goes to `merge`. A negative
+        # index, one past the end and every other case take `slow`, the
+        # kernel's entry, as before.
+        def array_element(node, recv, argv, merge, slow)
+          fast = @f.label
+          index = @f.fetch("i64", argv)
+          i = @f.sshr(index, imm(1))
+          len = @f.fetch("i64", recv, off(@l.layout("RArray"), "len"))
+          ok = @f.band(@f.icmp("ne", @f.band(index, imm(1)), imm(0)), @f.icmp("ult", i, len))
+          ok = @f.band(ok, gate_clear(node.name == :[] ? "GATE_AREF" : "GATE_ASET"))
+          if node.name == :[]=
+            flags = @f.fetch("i64", recv, off(@l.layout("RBasic"), "flags"))
+            ok = @f.band(ok, @f.icmp("eq", @f.band(flags, imm(@l.const("FL_FREEZE"))), imm(0)))
+          end
+          @f.brif(ok, fast, slow)
+          switch(fast)
+          at = @f.iadd(@f.fetch("i64", recv, off(@l.layout("RArray"), "ptr")), @f.ishl(i, imm(3)))
+          if node.name == :[]
+            @f.jump(merge, [@f.fetch("i64", at)])
+          else
+            value = @f.fetch("i64", argv, 8)
+            @f.store(value, at)
+            @f.jump(merge, [value])
+          end
         end
 
         # A send through the site's own cell (rt/kernel/cache.rb), which
@@ -572,8 +616,7 @@ module Ze0
             y = @f.sshr(b, one)
             unless_equal(y, 0, slow)
             unless_equal(y, -1, slow) if op == :/
-            q = kernel(op == :/ ? "zr_floor_div" : "zr_floor_mod", x, y)
-            @f.bor(@f.ishl(q, one), one)
+            @f.bor(@f.ishl(floored(op, x, y), one), one)
           when :& then @f.band(a, b)
           when :| then @f.bor(a, b)
           when :^ then @f.bor(@f.bxor(a, b), one)
@@ -595,6 +638,22 @@ module Ze0
           ok = @f.label
           @f.brif(@f.icmp("uge", value, imm(n)), escape, ok)
           switch(ok)
+        end
+
+        # `x / y` or `x % y` rounded toward minus infinity, for `y` not
+        # 0: when neither is negative the machine's truncation is that
+        # already, else the kernel's floor.
+        def floored(op, x, y)
+          same = @f.label
+          call = @f.label
+          merge, (q,) = @f.block(["i64"])
+          @f.brif(@f.icmp("sge", @f.bor(x, y), imm(0)), same, call)
+          switch(same)
+          @f.jump(merge, [op == :/ ? @f.sdiv(x, y) : @f.srem(x, y)])
+          switch(call)
+          @f.jump(merge, [kernel(op == :/ ? "zr_floor_div" : "zr_floor_mod", x, y)])
+          switch(merge)
+          q
         end
 
         def unless_equal(value, n, escape)
