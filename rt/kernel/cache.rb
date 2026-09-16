@@ -423,6 +423,11 @@ end
 # of a table that holds the name lower); else the full write.
 sig [Value, Word, Value, Ptr] => Value
 machine def zr_ivar_append_cached(obj, id, v, ic)
+  # The site tests a class or module the same way, over the table in
+  # its extension; only a plain object keeps its table in its cell.
+  if (RBasic.flags(obj) & T_MASK) != T_OBJECT
+    return zr_ivar_set_cached(obj, id, v, ic)
+  end
   t = RObject.iv(obj)
   n = IvTab.len(t)
   if n < IvTab.cap(t) && zr_ivtab_row(t, id) == 0
