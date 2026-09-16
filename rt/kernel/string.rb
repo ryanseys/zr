@@ -1,6 +1,64 @@
 # Strings: a length, a capacity and a buffer outside the arena.
 Machine.struct :RString, basic: RBasic, len: Word, capa: Word, ptr: Ptr
 
+# A String whose bytes live in its own cell, after the header, with
+# room for STR_EMBED_CAPA of them and a NUL. A longer String keeps
+# them in a malloc'd buffer of `capa` + 1 bytes. Either way `ptr`
+# reaches the bytes and `capa` counts the room, so a reader never
+# asks which.
+FL_EMBED = 1 << 7
+FL_EMBED_CLEAR = 0 - FL_EMBED - 1
+STR_EMBED_CAPA = CELL - 40 - 1
+
+sig [Value] => Bool
+machine def zr_str_embedded_p(s)
+  (RBasic.flags(s) & FL_EMBED) != 0
+end
+
+# A buffer with room for `n` bytes and a NUL for `s`, whose old bytes
+# are gone: the cell's own tail when they fit, else a malloc'd one.
+sig [Value, Word] => Void
+machine def zr_str_buf_new(s, n)
+  if n <= STR_EMBED_CAPA
+    RString.set_ptr(s, Machine.ptr(s) + RString.size)
+    RString.set_capa(s, STR_EMBED_CAPA)
+    RBasic.set_flags(s, RBasic.flags(s) | FL_EMBED)
+  else
+    RString.set_ptr(s, zr_xmalloc(n + 1))
+    RString.set_capa(s, n)
+    RBasic.set_flags(s, RBasic.flags(s) & FL_EMBED_CLEAR)
+  end
+end
+
+# The buffer given back when it is malloc'd; the cell's own tail goes
+# with the cell.
+sig [Value] => Void
+machine def zr_str_buf_free(s)
+  if !zr_str_embedded_p(s) && RString.ptr(s) != 0
+    zr_xfree(RString.ptr(s))
+  end
+end
+
+# Room for `n` bytes and a NUL, the bytes kept. A buffer that grows
+# leaves the cell and doubles from then on.
+sig [Value, Word] => Void
+machine def zr_str_reserve(s, n)
+  if n <= RString.capa(s)
+    return
+  end
+  capa = RString.capa(s) * 2
+  if capa < n
+    capa = n
+  end
+  p = zr_xmalloc(capa + 1)
+  zr_memcpy(p, RString.ptr(s), RString.len(s))
+  zr_str_buf_free(s)
+  RString.set_ptr(s, p)
+  RString.set_capa(s, capa)
+  RBasic.set_flags(s, RBasic.flags(s) & FL_EMBED_CLEAR)
+end
+
+
 # A String whose bytes a scan found all below 0x80, which CRuby calls
 # the 7-bit coderange. Every write to the bytes clears it, so a String
 # read many times is scanned once.
@@ -20,12 +78,10 @@ end
 sig [Ptr, Word] => Value
 machine def zr_str_new(bytes, len)
   s = zr_alloc(T_STRING, zr_global(G_STRING))
-  buf = zr_xmalloc(len + 1)
-  zr_memcpy(buf, bytes, len)
-  Machine.store8(buf + len, 0, Machine.i8(0))
-  RString.set_ptr(s, buf)
+  zr_str_buf_new(s, len)
+  zr_memcpy(RString.ptr(s), bytes, len)
+  Machine.store8(RString.ptr(s) + len, 0, Machine.i8(0))
   RString.set_len(s, len)
-  RString.set_capa(s, len)
   s
 end
 
@@ -44,15 +100,24 @@ machine def zr_str_initialize_m(recv, src)
     zr_buf_push(b, Machine.bytes(" into String"), 12)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
-  buf = zr_xmalloc(RString.len(src) + 1)
-  zr_memcpy(buf, RString.ptr(src), RString.len(src))
-  Machine.store8(buf + RString.len(src), 0, Machine.i8(0))
-  zr_xfree(RString.ptr(recv))
-  RString.set_ptr(recv, buf)
-  RString.set_len(recv, RString.len(src))
-  RString.set_capa(recv, RString.len(src))
+  zr_str_take_bytes(recv, src)
   zr_str_modified(recv)
   zr_str_copy_encoding(recv, src)
+end
+
+# `src`'s bytes in place of `recv`'s own, in a buffer of their size;
+# a String is its own source already.
+sig [Value, Value] => Void
+machine def zr_str_take_bytes(recv, src)
+  if Machine.word(recv) == Machine.word(src)
+    return
+  end
+  n = RString.len(src)
+  zr_str_buf_free(recv)
+  zr_str_buf_new(recv, n)
+  zr_memcpy(RString.ptr(recv), RString.ptr(src), n)
+  Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
+  RString.set_len(recv, n)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -566,17 +631,7 @@ end
 sig [Value, Value] => Value
 machine def zr_str_cat_bytes(recv, other)
   n = RString.len(recv) + RString.len(other)
-  if n + 1 > RString.capa(recv)
-    capa = RString.capa(recv) * 2
-    if capa < n + 1
-      capa = n + 1
-    end
-    p = zr_xmalloc(capa)
-    zr_memcpy(p, RString.ptr(recv), RString.len(recv))
-    zr_xfree(RString.ptr(recv))
-    RString.set_ptr(recv, p)
-    RString.set_capa(recv, capa)
-  end
+  zr_str_reserve(recv, n)
   zr_memcpy(RString.ptr(recv) + RString.len(recv), RString.ptr(other), RString.len(other))
   RString.set_len(recv, n)
   Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
@@ -602,17 +657,7 @@ machine def zr_str_concat(recv, argc, argv, cref, blk)
   # Plain ASCII onto plain ASCII stays plain ASCII.
   ascii = (RBasic.flags(recv) & RBasic.flags(other) & FL_ASCII) != 0
   n = RString.len(recv) + RString.len(other)
-  if n + 1 > RString.capa(recv)
-    capa = RString.capa(recv) * 2
-    if capa < n + 1
-      capa = n + 1
-    end
-    p = zr_xmalloc(capa)
-    zr_memcpy(p, RString.ptr(recv), RString.len(recv))
-    zr_xfree(RString.ptr(recv))
-    RString.set_ptr(recv, p)
-    RString.set_capa(recv, capa)
-  end
+  zr_str_reserve(recv, n)
   zr_memcpy(RString.ptr(recv) + RString.len(recv), RString.ptr(other), RString.len(other))
   RString.set_len(recv, n)
   Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))
@@ -1710,14 +1755,7 @@ machine def zr_str_replace(s, other)
   if zr_modify_frozen_p(s)
     return zr_frozen_error(s)
   end
-  n = RString.len(other)
-  buf = zr_xmalloc(n + 1)
-  zr_memcpy(buf, RString.ptr(other), n)
-  Machine.store8(buf + n, 0, Machine.i8(0))
-  zr_xfree(RString.ptr(s))
-  RString.set_ptr(s, buf)
-  RString.set_len(s, n)
-  RString.set_capa(s, n)
+  zr_str_take_bytes(s, other)
   zr_str_modified(s)
   zr_str_copy_encoding(s, other)
 end
@@ -1851,17 +1889,7 @@ machine def zr_str_splice(s, from, len, other)
     src = zr_xmalloc(m + 1)
     zr_memcpy(src, RString.ptr(s), m)
   end
-  if n + 1 > RString.capa(s)
-    capa = RString.capa(s) * 2
-    if capa < n + 1
-      capa = n + 1
-    end
-    p = zr_xmalloc(capa)
-    zr_memcpy(p, RString.ptr(s), old)
-    zr_xfree(RString.ptr(s))
-    RString.set_ptr(s, p)
-    RString.set_capa(s, capa)
-  end
+  zr_str_reserve(s, n)
   if m != cut
     zr_memmove(RString.ptr(s) + at + m, RString.ptr(s) + at + cut, old - at - cut)
   end
@@ -1883,17 +1911,7 @@ machine def zr_str_push_byte(recv, byte)
     return zr_frozen_error(recv)
   end
   n = RString.len(recv) + 1
-  if n + 1 > RString.capa(recv)
-    capa = RString.capa(recv) * 2
-    if capa < n + 1
-      capa = n + 1
-    end
-    p = zr_xmalloc(capa)
-    zr_memcpy(p, RString.ptr(recv), RString.len(recv))
-    zr_xfree(RString.ptr(recv))
-    RString.set_ptr(recv, p)
-    RString.set_capa(recv, capa)
-  end
+  zr_str_reserve(recv, n)
   Machine.store8(RString.ptr(recv) + RString.len(recv), 0, Machine.i8(zr_fix2long(byte)))
   RString.set_len(recv, n)
   Machine.store8(RString.ptr(recv) + n, 0, Machine.i8(0))

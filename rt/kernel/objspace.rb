@@ -145,7 +145,7 @@ machine def zr_objspace_memsize(v)
   t = RBasic.flags(v) & T_MASK
   n = CELL
   if t == T_STRING
-    n += RString.capa(v) + 1
+    n += zr_str_embedded_p(v) ? 0 : RString.capa(v) + 1
   elsif t == T_ARRAY
     n += RArray.capa(v) * 8
   elsif t == T_HASH

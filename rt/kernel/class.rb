@@ -1859,9 +1859,7 @@ machine def zr_release(v)
     zr_release_ivtab(ClassExt.cv(ext))
     zr_xfree(ext)
   elsif t == T_STRING
-    if RString.ptr(v) != 0
-      zr_xfree(RString.ptr(v))
-    end
+    zr_str_buf_free(v)
   elsif t == T_EXCEPTION
     if RException.rows(v) != 0
       zr_xfree(RException.rows(v))

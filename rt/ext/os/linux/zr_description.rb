@@ -1380,9 +1380,14 @@ module Ze0
         d zr_uniform_quicksort Void base:Ptr a:Word stop:Word d:Word
         d zr_uniform_sort Void base:Ptr n:Word
         d zr_sort_by Value pairs:Value
+        d zr_str_embedded_p Bool s:Value
+        d zr_str_buf_new Void s:Value n:Word
+        d zr_str_buf_free Void s:Value
+        d zr_str_reserve Void s:Value n:Word
         d zr_str_modified Void s:Value
         d zr_str_new Value bytes:Ptr len:Word
         d zr_str_initialize_m Value recv:Value src:Value
+        d zr_str_take_bytes Void recv:Value src:Value
         d zr_str_initialize Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_str_to_s Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_frozen_p Bool v:Value
@@ -1888,6 +1893,9 @@ module Ze0
         c SIGNAL_NOTHING 3
         c SIGNAL_OTHER 4
         c SOCKADDR_MAX 256
+        c FL_EMBED 128
+        c FL_EMBED_CLEAR -129
+        c STR_EMBED_CAPA 87
         c FL_ASCII 2097152
         c FL_VALID 8388608
         c FL_ASCII_CLEAR -2097153

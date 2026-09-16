@@ -31,11 +31,9 @@ machine def zr_copy_payload(copy, orig)
     zr_obj_ivtab_init(copy)
     zr_ivtab_copy(RObject.iv(copy), RObject.iv(orig))
   elsif t == T_STRING
-    buf = zr_xmalloc(1)
-    Machine.store8(buf, 0, Machine.i8(0))
-    RString.set_ptr(copy, buf)
+    zr_str_buf_new(copy, 0)
+    Machine.store8(RString.ptr(copy), 0, Machine.i8(0))
     RString.set_len(copy, 0)
-    RString.set_capa(copy, 0)
   elsif t == T_ARRAY
     buf = zr_xmalloc(4 * 8)
     RArray.set_ptr(copy, buf)

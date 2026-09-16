@@ -93,24 +93,23 @@ end
 sig [Ptr] => Value
 machine def zr_buf_take(b)
   n = Buf.len(b)
-  if zr_buf_inline_p(b)
-    # Bytes still in the tail are copied out: the String outlives the
-    # frame the buffer sits in.
-    p = zr_xmalloc(n + 1)
-    zr_memcpy(p, Buf.ptr(b), n)
-    Buf.set_ptr(b, p)
-    Buf.set_capa(b, n + 1)
-  end
-  zr_buf_reserve(b, 1)
-  p = Buf.ptr(b)
-  Machine.store8(p + n, 0, Machine.i8(0))
   s = zr_alloc(T_STRING, zr_global(G_STRING))
-  RString.set_ptr(s, p)
+  if n <= STR_EMBED_CAPA
+    # Bytes that fit the cell are copied in, from the tail or from a
+    # buffer that grew past it and is given back.
+    zr_str_buf_new(s, n)
+    zr_memcpy(RString.ptr(s), Buf.ptr(b), n)
+    zr_buf_free(b)
+  else
+    zr_buf_reserve(b, 1)
+    RString.set_ptr(s, Buf.ptr(b))
+    RString.set_capa(s, Buf.capa(b) - 1)
+    Buf.set_ptr(b, 0)
+    Buf.set_len(b, 0)
+    Buf.set_capa(b, 0)
+  end
+  Machine.store8(RString.ptr(s) + n, 0, Machine.i8(0))
   RString.set_len(s, n)
-  RString.set_capa(s, Buf.capa(b) - 1)
-  Buf.set_ptr(b, 0)
-  Buf.set_len(b, 0)
-  Buf.set_capa(b, 0)
   s
 end
 

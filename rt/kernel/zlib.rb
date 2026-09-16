@@ -113,13 +113,7 @@ machine def zr_zlib_output(z, buf, room)
     return
   end
   len = RString.len(buf)
-  if len + room + 1 > RString.capa(buf)
-    p = zr_xmalloc(len + room + 1)
-    zr_memcpy(p, RString.ptr(buf), len)
-    zr_xfree(RString.ptr(buf))
-    RString.set_ptr(buf, p)
-    RString.set_capa(buf, len + room + 1)
-  end
+  zr_str_reserve(buf, len + room)
   Machine.store64(z, Z_NEXT_OUT, Machine.word(RString.ptr(buf) + len))
   Machine.store32(z, Z_AVAIL_OUT, Machine.i32(room))
 end
