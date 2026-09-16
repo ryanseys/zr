@@ -519,8 +519,13 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
   end
   if kind == KIND_DEF
     arity = MEntry.arity(e)
-    if arity >= 0 && argc != arity
-      return zr_wrong_arity_in(argc, arity, e, recv)
+    if arity >= 0
+      # A table's values are one Hash argument to a def with a fixed
+      # count, which declares no keywords.
+      given = kw > 1 ? argc - Machine.load64(kw, 0) + 1 : argc
+      if given != arity
+        return zr_wrong_arity_in(given, arity, e, recv)
+      end
     end
     Task.set_kw(zr_task(), kw)
     return Machine.call(:method, MEntry.fn(e), recv, argc, argv, e, blk, zr_entry_found(e))
