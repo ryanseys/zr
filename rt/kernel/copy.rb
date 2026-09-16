@@ -77,8 +77,8 @@ machine def zr_copy_payload(copy, orig)
     RRegexp.set_text(copy, Machine.value(QNIL))
     RRegexp.set_names(copy, Machine.value(QNIL))
     RRegexp.set_options(copy, 0)
-    RRegexp.set_reg(copy, 0)
-    RRegexp.set_alt(copy, 0)
+    RRegexp.set_program(copy, Machine.value(QNIL))
+    RRegexp.set_alt(copy, Machine.value(QNIL))
   elsif t != T_PROC && t != T_METHOD
     # The cell already holds the original's words; clear them, or the
     # collector frees what the original still owns when the copy dies.

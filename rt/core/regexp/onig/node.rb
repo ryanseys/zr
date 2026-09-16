@@ -42,10 +42,15 @@ class Regexp
 
       def simple? = SIMPLE.include?(@ntype)
 
+      FIELDS = %i[ntype s flag flags bs mbuf ctype not ascii_range state target lower upper greedy
+                  target_empty_info head_exact next_head_exact is_referred type regnum option call_addr
+                  min_len max_len char_len opt_count back_num backs nest_level car cdr
+                  group_num name unset_addr_list].freeze
+
       # The C's struct copy: every field of `other`, its kind included.
+      # Field by field: the compiled core keeps no ivar table to reflect on.
       def copy_from!(other)
-        other.instance_variables.each { |name| instance_variable_set(name, other.instance_variable_get(name)) }
-        instance_variables.each { |name| remove_instance_variable(name) unless other.instance_variable_defined?(name) }
+        FIELDS.each { |field| send(:"#{field}=", other.send(field)) }
         self
       end
 

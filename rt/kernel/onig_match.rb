@@ -500,10 +500,20 @@ machine def zr_onig_op_anychar(m, op)
   pkeep = OnigMatch.pkeep(m)
   multiline = op == OP_ANYCHAR_ML_STAR || op == OP_ANYCHAR_ML_STAR_PEEK_NEXT
   peek = op == OP_ANYCHAR_STAR_PEEK_NEXT || op == OP_ANYCHAR_ML_STAR_PEEK_NEXT
+  pbegin = p - 1
   while s < e
+    OnigMatch.set_s(m, s)
+    r = zr_onig_check_match_cache(m, pbegin)
+    return ONIG_OP_FAIL if r == 1
+    if r == 2
+      OnigMatch.set_sprev(m, sprev)
+      return ONIG_OP_NEXT
+    end
     if peek
       if Machine.load8(p, 0) == Machine.load8(s, 0)
         zr_onig_push(m, STK_ALT, p + 1, s, sprev, pkeep)
+      else
+        OnigMatch.set_num_fails(m, OnigMatch.num_fails(m) + 1)
       end
     else
       zr_onig_push(m, STK_ALT, p, s, sprev, pkeep)
@@ -820,15 +830,25 @@ machine def zr_onig_op_memory(m, op)
   ONIGERR_UNDEFINED_BYTECODE
 end
 
-# The repeat_inc tail shared by OP_REPEAT_INC and OP_REPEAT_INC_SG.
-sig [Ptr, Word, Word, Ptr] => Word
-machine def zr_onig_repeat_inc(m, mem, si, p)
+# The repeat_inc tail shared by OP_REPEAT_INC and OP_REPEAT_INC_SG;
+# `pbegin` is the opcode's address, 0 for the SG form the cache skips.
+sig [Ptr, Word, Word, Ptr, Ptr] => Word
+machine def zr_onig_repeat_inc(m, mem, si, p, pbegin)
   stkp = zr_onig_stk_at(m, si)
   count = OnigStk.a(stkp) + 1
   OnigStk.set_a(stkp, count)
   if count >= zr_onig_repeat_range(m, mem, 1)
     # end of repeat. Nothing to do.
   elsif count >= zr_onig_repeat_range(m, mem, 0)
+    if pbegin != 0
+      r = zr_onig_check_match_cache(m, pbegin)
+      if r != 0
+        # MATCH_CACHE_HIT: the count this visit added comes off again.
+        OnigStk.set_a(stkp, OnigStk.a(stkp) - 1)
+        return ONIG_OP_FAIL if r == 1
+        return ONIG_OP_NEXT
+      end
+    end
     zr_onig_push(m, STK_ALT, p, OnigMatch.s(m), OnigMatch.sprev(m), OnigMatch.pkeep(m))
     p = Machine.ptr(OnigStk.b(zr_onig_stk_at(m, si)))
   else
@@ -841,8 +861,8 @@ machine def zr_onig_repeat_inc(m, mem, si, p)
 end
 
 # The repeat_inc_ng tail shared by OP_REPEAT_INC_NG and OP_REPEAT_INC_NG_SG.
-sig [Ptr, Word, Word, Ptr] => Word
-machine def zr_onig_repeat_inc_ng(m, mem, si, p)
+sig [Ptr, Word, Word, Ptr, Ptr] => Word
+machine def zr_onig_repeat_inc_ng(m, mem, si, p, pbegin)
   stkp = zr_onig_stk_at(m, si)
   count = OnigStk.a(stkp) + 1
   OnigStk.set_a(stkp, count)
@@ -851,6 +871,11 @@ machine def zr_onig_repeat_inc_ng(m, mem, si, p)
     if count >= zr_onig_repeat_range(m, mem, 0)
       pcode = Machine.ptr(OnigStk.b(stkp))
       zr_onig_push_repeat_inc(m, si)
+      if pbegin != 0
+        r = zr_onig_check_match_cache(m, pbegin)
+        return ONIG_OP_FAIL if r == 1
+        return ONIG_OP_NEXT if r == 2
+      end
       zr_onig_push(m, STK_ALT, pcode, OnigMatch.s(m), OnigMatch.sprev(m), OnigMatch.pkeep(m))
     else
       p = Machine.ptr(OnigStk.b(stkp))
@@ -881,23 +906,31 @@ machine def zr_onig_op_control(m, op)
   if op == OP_PUSH
     addr = zr_onig_get_i32(p)
     p = p + 4
+    r = zr_onig_check_match_cache(m, p - 5)
+    return ONIG_OP_FAIL if r == 1
+    return ONIG_OP_NEXT if r == 2
     zr_onig_push(m, STK_ALT, p + addr, s, OnigMatch.sprev(m), OnigMatch.pkeep(m))
     OnigMatch.set_p(m, p)
     return ONIG_OP_NEXT
   end
   if op == OP_POP
     OnigMatch.set_stk(m, OnigMatch.stk(m) - OnigStk.size)
+    OnigMatch.set_num_fails(m, OnigMatch.num_fails(m) + 1)
     return ONIG_OP_NEXT
   end
   if op == OP_PUSH_IF_PEEK_NEXT
     addr = zr_onig_get_i32(p)
     p = p + 4
+    r = zr_onig_check_match_cache(m, p - 5)
+    return ONIG_OP_FAIL if r == 1
+    return ONIG_OP_NEXT if r == 2
     if Machine.load8(p, 0) == Machine.load8(s, 0)
       p = p + 1
       zr_onig_push(m, STK_ALT, p + addr, s, OnigMatch.sprev(m), OnigMatch.pkeep(m))
       OnigMatch.set_p(m, p)
       return ONIG_OP_NEXT
     end
+    OnigMatch.set_num_fails(m, OnigMatch.num_fails(m) + 1)
     OnigMatch.set_p(m, p + 1)
     return ONIG_OP_NEXT
   end
@@ -909,6 +942,9 @@ machine def zr_onig_op_control(m, op)
     Machine.store64(OnigMatch.repeat_stk(m) + (mem * 8), 0, zr_onig_stk_index(m, OnigMatch.stk(m)))
     zr_onig_push_repeat(m, mem, p)
     if zr_onig_repeat_range(m, mem, 0) == 0
+      r = zr_onig_check_match_cache(m, p - ONIG_SIZE_MEMNUM - 5)
+      return ONIG_OP_FAIL if r == 1
+      return ONIG_OP_NEXT if r == 2
       if op == OP_REPEAT
         zr_onig_push(m, STK_ALT, p + addr, s, OnigMatch.sprev(m), OnigMatch.pkeep(m))
       else
@@ -924,18 +960,18 @@ machine def zr_onig_op_control(m, op)
     p = p + ONIG_SIZE_MEMNUM
     si = Machine.load64(OnigMatch.repeat_stk(m) + (mem * 8), 0)
     if op == OP_REPEAT_INC
-      return zr_onig_repeat_inc(m, mem, si, p)
+      return zr_onig_repeat_inc(m, mem, si, p, p - ONIG_SIZE_MEMNUM - 1)
     end
-    return zr_onig_repeat_inc_ng(m, mem, si, p)
+    return zr_onig_repeat_inc_ng(m, mem, si, p, p - ONIG_SIZE_MEMNUM - 1)
   end
   if op == OP_REPEAT_INC_SG || op == OP_REPEAT_INC_NG_SG
     mem = zr_onig_get_memnum(p)
     p = p + ONIG_SIZE_MEMNUM
     si = zr_onig_stk_index(m, zr_onig_get_repeat(m, mem))
     if op == OP_REPEAT_INC_SG
-      return zr_onig_repeat_inc(m, mem, si, p)
+      return zr_onig_repeat_inc(m, mem, si, p, Machine.ptr(0))
     end
-    return zr_onig_repeat_inc_ng(m, mem, si, p)
+    return zr_onig_repeat_inc_ng(m, mem, si, p, Machine.ptr(0))
   end
   ONIGERR_UNDEFINED_BYTECODE
 end
@@ -1229,6 +1265,11 @@ machine def zr_onig_match_at(m, sstart, sprev)
       OnigMatch.set_s(m, Machine.ptr(OnigStk.b(stk)))
       OnigMatch.set_sprev(m, Machine.ptr(OnigStk.c(stk)))
       OnigMatch.set_pkeep(m, Machine.ptr(OnigStk.d(stk)))
+      r = zr_onig_fail_match_cache(m)
+      if r < 0
+        result = r
+        break
+      end
       if zr_onig_check_interrupt(m)
         result = ONIGERR_TIMEOUT
         break

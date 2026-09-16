@@ -4,12 +4,14 @@ require_relative "helper"
 require_relative "../../lib/ze0/machine/lower"
 require_relative "../../lib/ze0/native/build"
 require_relative "../../lib/ze0/obj/jit/fiddle"
-require_relative "../../rt/core/regexp/onig"
+require_relative "../../lib/ze0/zr"
 
 # The kernel matcher (rt/kernel/onig_*.rb) against ruby's own engine:
 # the core compiles each pattern under this ruby, the kernel unit is
 # JIT-loaded and searches, and `Regexp` on the same subject is the
 # oracle for the position and every capture's byte offsets.
+Ze0::Zr.require_onig
+
 class OnigMatchTest < Minitest::Test
   O = Regexp::Onig
   TYPES = { "Word" => Fiddle::TYPE_LONG, "Ptr" => Fiddle::TYPE_VOIDP, "I32" => Fiddle::TYPE_INT, "I8" => Fiddle::TYPE_CHAR, "Bool" => Fiddle::TYPE_CHAR, "Void" => Fiddle::TYPE_VOID }.freeze
@@ -173,8 +175,23 @@ class OnigMatchTest < Minitest::Test
   end
 
   def test_the_time_limit_stops_a_match
-    got = kernel("(a+)+b", 0, "a" * 40 + "c", limit: 1)
+    got = kernel("(a+)+b\\1", 0, "a" * 40 + "c", limit: 1)
     assert_equal [:error, -23], got
     assert_nil kernel("(a+)+b", 0, "aaac", limit: 10_000_000_000)
+  end
+
+  # The match cache: patterns that backtrack exponentially without it
+  # finish in linear time with it, as they do under ruby.
+  def test_the_match_cache_keeps_matching_linear
+    check("(a+)+$", "a" * 40 + "!")
+    check("(a*)*b", "a" * 40 + "!")
+    check("(?:a|a)*c", "a" * 40)
+    check("(a|aa)+$", "a" * 60 + "b")
+    check("^(?:a?){40}a{40}$", "a" * 40)
+    check("(?:(?=a)a|b)*c", "a" * 30 + "b")
+    check("(?>a|ab)*c", "ab" * 20 + "d")
+    check("(x+x+)+y", "x" * 40)
+    check("(?:.*a){20}b", "a" * 30)
+    check("(?:a+)+(?!b)c", "a" * 40 + "b")
   end
 end

@@ -56,7 +56,9 @@ Machine.struct :OnigMatch,
   stk_base: Ptr, stk_end: Ptr, stk: Ptr, stk_alloc: Ptr, stack_p: Ptr, stack_n: Word,
   repeat_stk: Ptr, mem_start_stk: Ptr, mem_end_stk: Ptr,
   counter: Word, end_time: Word, limit: Word,
-  p: Ptr, s: Ptr, sprev: Ptr, pkeep: Ptr, aend: Ptr, best_len: Word
+  p: Ptr, s: Ptr, sprev: Ptr, pkeep: Ptr, aend: Ptr, best_len: Word,
+  match_cache_status: Word, num_fails: Word, num_cache_opcodes: Word, cache_opcodes: Ptr,
+  num_cache_points: Word, match_cache_buf: Ptr
 
 sig [Ptr, Word] => Ptr
 machine def zr_onig_stk_at(m, index)
@@ -332,13 +334,15 @@ machine def zr_onig_stack_pop(m)
         end
       end
     end
+    zr_onig_memoize_cache_point(m, stk)
   end
   OnigMatch.set_stk(m, stk)
 end
 
 # STACK_POP_TIL_POS_NOT, STACK_POP_TIL_LOOK_BEHIND_NOT and
 # STACK_POP_TIL_ABSENT: pop down to the entry of `stop`, undoing what
-# lies above it.
+# lies above it. Leaving a negative look-ahead counts the backtrack
+# targets it drops as failures and memoizes its cache points.
 sig [Ptr, Word] => Void
 machine def zr_onig_stack_pop_til(m, stop)
   stk = OnigMatch.stk(m)
@@ -354,13 +358,20 @@ machine def zr_onig_stack_pop_til(m, stop)
       zr_onig_undo_repeat_inc(m, stk)
     elsif type == STK_MEM_END
       zr_onig_restore_mem(m, stk)
+    elsif stop == STK_POS_NOT && (type & STK_MASK_TO_VOID_TARGET) != 0
+      OnigMatch.set_num_fails(m, OnigMatch.num_fails(m) + 1)
+    end
+    if stop == STK_POS_NOT
+      zr_onig_memoize_lookaround_cache_point(m, stk)
     end
   end
   OnigMatch.set_stk(m, stk)
 end
 
 # STACK_POS_END and STACK_STOP_BT_END: void every backtrack target above
-# the nearest entry of `mark`, and the mark itself; that entry.
+# the nearest entry of `mark`, and the mark itself; that entry. Each
+# target voided counts as a failure for the match cache; a look-ahead's
+# cache points are memoized, an atomic group's become atomic ones.
 sig [Ptr, Word] => Ptr
 machine def zr_onig_stack_void_til(m, mark)
   k = OnigMatch.stk(m)
@@ -368,10 +379,15 @@ machine def zr_onig_stack_void_til(m, mark)
     k = k - OnigStk.size
     type = OnigStk.type(k)
     if (type & STK_MASK_TO_VOID_TARGET) != 0
+      OnigMatch.set_num_fails(m, OnigMatch.num_fails(m) + 1)
       OnigStk.set_type(k, STK_VOID)
     elsif type == mark
       OnigStk.set_type(k, STK_VOID)
       break
+    elsif mark == STK_POS
+      zr_onig_memoize_lookaround_cache_point(m, k)
+    elsif type == STK_MATCH_CACHE_POINT
+      OnigStk.set_type(k, STK_ATOMIC_MATCH_CACHE_POINT)
     end
   end
   k

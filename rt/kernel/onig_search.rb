@@ -49,6 +49,13 @@ machine def zr_onig_msa_init(m, prog, str, text_end, region, limit)
   OnigMatch.set_end_time(m, 0)
   OnigMatch.set_limit(m, limit)
   OnigMatch.set_best_len(m, ONIG_MISMATCH)
+  # MATCH_ARG_INIT_MATCH_CACHE
+  OnigMatch.set_match_cache_status(m, ONIG_MATCH_CACHE_STATUS_UNINIT)
+  OnigMatch.set_num_fails(m, 0)
+  OnigMatch.set_num_cache_opcodes(m, ONIG_NUM_CACHE_OPCODES_UNINIT)
+  OnigMatch.set_cache_opcodes(m, Machine.ptr(0))
+  OnigMatch.set_num_cache_points(m, 0)
+  OnigMatch.set_match_cache_buf(m, Machine.ptr(0))
   num_repeat = OnigProg.num_repeat(prog)
   # ADD_NUMMEM: group 0 has a slot too, for \g<0>.
   words = num_repeat + ((num_mem + 1) * 2)
@@ -60,11 +67,17 @@ machine def zr_onig_msa_init(m, prog, str, text_end, region, limit)
   OnigMatch.set_stk_alloc(m, arena + (words * 8))
 end
 
-# MATCH_ARG_FREE and the arena.
+# MATCH_ARG_FREE (the match cache's rows and bits with it) and the arena.
 sig [Ptr] => Void
 machine def zr_onig_msa_free(m)
   if OnigMatch.stack_p(m) != 0
     free(OnigMatch.stack_p(m))
+  end
+  if OnigMatch.cache_opcodes(m) != 0
+    free(OnigMatch.cache_opcodes(m))
+  end
+  if OnigMatch.match_cache_buf(m) != 0
+    free(OnigMatch.match_cache_buf(m))
   end
   free(OnigMatch.repeat_stk(m))
 end

@@ -1066,6 +1066,23 @@ module Ze0
         d zr_alloc_trace_set Value on:Value
         d zr_alloc_trace_clear Value
         d zr_alloc_trace_info Value v:Value
+        d zr_onig_cache_skip Ptr m:Ptr op:Word p:Ptr pend:Ptr
+        d zr_onig_count_cache_opcodes Word m:Ptr current_repeat_mem:Word lookaround_nesting:Word pp:Ptr np:Ptr
+        d zr_onig_count_num_cache_opcodes Word m:Ptr np:Ptr
+        d zr_onig_cache_row Word cop:Ptr pbegin:Ptr cache_point:Word current_repeat_mem:Word lookaround_nesting:Word
+        d zr_onig_cache_rows_match_addr Void first:Ptr cop:Ptr match_addr:Ptr
+        d zr_onig_init_cache_opcodes Word m:Ptr current_repeat_mem:Word lookaround_nesting:Word cop:Ptr pp:Ptr npoints:Ptr
+        d zr_onig_init_cache_rows Word m:Ptr rows:Ptr npoints:Ptr
+        d zr_onig_bsearch_cache_opcodes Word rows:Ptr n:Word p:Ptr
+        d zr_onig_find_cache_point Word m:Ptr p:Ptr cop:Ptr
+        d zr_onig_check_extended_cache_point Bool buf:Ptr index:Word mask:Word
+        d zr_onig_memoize_extended_cache_point Void buf:Ptr index:Word mask:Word
+        d zr_onig_memoize_cache_point Void m:Ptr stk:Ptr
+        d zr_onig_memoize_lookaround_cache_point Void m:Ptr stk:Ptr
+        d zr_onig_stack_stop_bt_fail Void m:Ptr
+        d zr_onig_push_cache_point Void m:Ptr index:Word mask:Word
+        d zr_onig_check_match_cache Word m:Ptr pbegin:Ptr
+        d zr_onig_fail_match_cache Word m:Ptr
         d zr_onig_utf8_trans Word state:Word c:Word
         d zr_onig_utf8_precise_len Word p:Ptr e:Ptr
         d zr_onig_enclen Word enc:Word p:Ptr e:Ptr
@@ -1104,8 +1121,8 @@ module Ze0
         d zr_onig_backref_one Ptr m:Ptr mem:Word ic:Word
         d zr_onig_op_backref Word m:Ptr op:Word
         d zr_onig_op_memory Word m:Ptr op:Word
-        d zr_onig_repeat_inc Word m:Ptr mem:Word si:Word p:Ptr
-        d zr_onig_repeat_inc_ng Word m:Ptr mem:Word si:Word p:Ptr
+        d zr_onig_repeat_inc Word m:Ptr mem:Word si:Word p:Ptr pbegin:Ptr
+        d zr_onig_repeat_inc_ng Word m:Ptr mem:Word si:Word p:Ptr pbegin:Ptr
         d zr_onig_op_control Word m:Ptr op:Word
         d zr_onig_null_check_found Word m:Ptr p:Ptr
         d zr_onig_op_null_check Word m:Ptr op:Word
@@ -1346,32 +1363,30 @@ module Ze0
         d zr_iseq_meta_parameters Value meta_word:Value
         d zr_iseq_meta_word Value body:Value
         d zr_debug_frames Value
-        d zr_onig_ready Void
         d zr_regexp_alloc Value klass:Value
         d zr_regexp_copy_from Value re:Value other:Value
-        d zr_regexp_seat Value re:Value source:Value shown:Value options:Value
-        d zr_regexp_warnings Value
-        d zr_regexp_take_warnings Word
-        d zr_regexp_recompile Value re:Value text:Value
-        d zr_regexp_reg_for Ptr re:Value str:Value
-        d zr_regexp_literal Value index:Word bytes:Ptr len:Word options:Word pinned:Word
-        d zr_regexp_once Value index:Word
-        d zr_regexp_once_set Value index:Word re:Value
-        d zr_regexp_source Value re:Value
-        d zr_regexp_options Value re:Value
-        d zr_regexp_p Value v:Value
+        d zr_regexp_seat Value re:Value program:Value text:Value shown:Value options:Value names:Value
+        d zr_regexp_program_for Value re:Value str:Value
         d zr_regexp_captures Value re:Value
         d zr_regexp_names Value re:Value
-        d zr_regexp_name_row I32 name:Ptr name_end:Ptr count:I32 groups:Ptr reg:Ptr arg:Ptr
+        d zr_regexp_region_new Ptr prog:Ptr
         d zr_regexp_search Value re:Value str:Value start:Value backward:Value
-        d zr_regexp_limit_for Word re:Value
-        d zr_regexp_failed Value r:I32
-        d zr_regexp_limit_set Value re:Value nanoseconds:Value
-        d zr_regexp_limit Value re:Value
+        d zr_regexp_failed Value r:Word
         d zr_regexp_match_at Value re:Value str:Value start:Value
-        d zr_region_offsets Value region:Ptr position:Word
+        d zr_region_offsets Value region:Ptr num_mem:Word position:Word
+        d zr_regexp_limit_for Word re:Value
         d zr_mark_regexp Void re:Value
         d zr_release_regexp Void re:Value
+        d zr_regexp_source Value re:Value
+        d zr_regexp_text Value re:Value
+        d zr_str_wide_m Value s:Value
+        d zr_regexp_options Value re:Value
+        d zr_regexp_p Value v:Value
+        d zr_regexp_once Value index:Word
+        d zr_regexp_once_set Value index:Word re:Value
+        d zr_regexp_literal Value index:Word bytes:Ptr len:Word options:Word pinned:Word
+        d zr_regexp_limit_set Value re:Value nanoseconds:Value
+        d zr_regexp_limit Value re:Value
         d zr_backref_home Ptr
         d zr_svars Value home:Ptr
         d zr_svar_get Value home:Ptr i:Word
@@ -2184,6 +2199,15 @@ module Ze0
         c ALLOC_NONE 10
         c ALLOC_FIBER 11
         c ALLOC_GONE 1
+        c ONIG_NUM_CACHE_OPCODES_UNINIT 1
+        c ONIG_NUM_CACHE_OPCODES_IMPOSSIBLE -1
+        c ONIG_MATCH_CACHE_STATUS_UNINIT 1
+        c ONIG_MATCH_CACHE_STATUS_INIT 2
+        c ONIG_MATCH_CACHE_STATUS_DISABLED -1
+        c ONIG_MATCH_CACHE_STATUS_ENABLED 0
+        c ONIG_LONG_MAX_LIMIT 4611686018427387904
+        c STK_MATCH_CACHE_POINT 3328
+        c STK_ATOMIC_MATCH_CACHE_POINT 3584
         c ONIG_ENC_ASCII 0
         c ONIG_ENC_UTF8 1
         c ONIG_CTYPE_WORD_BIT 4096
@@ -2351,7 +2375,6 @@ module Ze0
         c PENDING_THROW 3
         c G_SYM_PROCS 61
         c GUARD_ROW 3
-        c ONIGERR_TIME_LIMIT_OVER -20
         c T_REGEXP 31
         c G_REGEXP 42
         c G_REGEXP_LITERALS 43
@@ -2649,12 +2672,13 @@ module Ze0
         s RObject 40 8 basic:0:RBasic iv:16:IvTab
         s AllocTrace 32 8 rows:0:Ptr capa:8:Word used:16:Word on:24:Word
         s AllocRow 48 8 cell:0:Word file:8:Ptr file_len:16:Word line:24:Word meta:32:Ptr generation:40:Word
+        s OnigCacheOp 56 8 addr:0:Ptr cache_point:8:Word outer_repeat_mem:16:Word at_outer:24:Word in_outer:32:Word lookaround_nesting:40:Word match_addr:48:Ptr
         s OnigProg 200 8 magic:0:Word enc:8:Word options:16:Word num_mem:24:Word num_repeat:32:Word num_null_check:40:Word num_call:48:Word bt_mem_start:56:Word bt_mem_end:64:Word pop_level:72:Word code_off:80:Word code_len:88:Word repeat_off:96:Word optimize:104:Word threshold_len:112:Word anchor:120:Word sub_anchor:128:Word anchor_dmin:136:Word anchor_dmax:144:Word dmin:152:Word dmax:160:Word exact_off:168:Word exact_len:176:Word map_off:184:Word case_fold_flag:192:Word
         s OnigStk 48 8 type:0:Word null_check:8:Word a:16:Word b:24:Word c:32:Word d:40:Word
-        s OnigMatch 264 8 prog:0:Ptr code:8:Ptr enc:16:Word options:24:Word case_fold:32:Word num_mem:40:Word pop_level:48:Word bt_mem_start:56:Word bt_mem_end:64:Word str:72:Ptr text_end:80:Ptr sstart:88:Ptr gpos:96:Ptr region:104:Ptr mopts:112:Word stk_base:120:Ptr stk_end:128:Ptr stk:136:Ptr stk_alloc:144:Ptr stack_p:152:Ptr stack_n:160:Word repeat_stk:168:Ptr mem_start_stk:176:Ptr mem_end_stk:184:Ptr counter:192:Word end_time:200:Word limit:208:Word p:216:Ptr s:224:Ptr sprev:232:Ptr pkeep:240:Ptr aend:248:Ptr best_len:256:Word
+        s OnigMatch 312 8 prog:0:Ptr code:8:Ptr enc:16:Word options:24:Word case_fold:32:Word num_mem:40:Word pop_level:48:Word bt_mem_start:56:Word bt_mem_end:64:Word str:72:Ptr text_end:80:Ptr sstart:88:Ptr gpos:96:Ptr region:104:Ptr mopts:112:Word stk_base:120:Ptr stk_end:128:Ptr stk:136:Ptr stk_alloc:144:Ptr stack_p:152:Ptr stack_n:160:Word repeat_stk:168:Ptr mem_start_stk:176:Ptr mem_end_stk:184:Ptr counter:192:Word end_time:200:Word limit:208:Word p:216:Ptr s:224:Ptr sprev:232:Ptr pkeep:240:Ptr aend:248:Ptr best_len:256:Word match_cache_status:264:Word num_fails:272:Word num_cache_opcodes:280:Word cache_opcodes:288:Ptr num_cache_points:296:Word match_cache_buf:304:Ptr
         s REnv 64 8 basic:0:RBasic parent:16:Value slots:24:Ptr nslots:32:Word names:40:Ptr cell:48:Value home:56:Ptr
         s RProc 128 8 basic:0:RBasic fn:16:Ptr meta:24:Ptr env:32:Value self:40:Value cref:48:Value blk:56:Value home:64:Ptr serial:72:Word site:80:Word ret_home:88:Ptr ret_serial:96:Word spread:104:Word lambda:112:Word passed:120:Word
-        s RRegexp 72 8 basic:0:RBasic source:16:Value options:24:Word reg:32:Ptr names:40:Value text:48:Value alt:56:Ptr limit:64:Word
+        s RRegexp 72 8 basic:0:RBasic source:16:Value options:24:Word program:32:Value names:40:Value text:48:Value alt:56:Value limit:64:Word
         s Sort 32 8 base:0:Ptr stride:8:Word blk:16:Value failed:24:Word
         s Pair 16 8 key:0:Value elem:8:Value
         s RString 40 8 basic:0:RBasic len:16:Word capa:24:Word ptr:32:Ptr

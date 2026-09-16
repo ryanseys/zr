@@ -559,6 +559,7 @@ class Regexp
                 @p = psave
                 (len - 1).times { @p = fetch_token_in_cc(tok, @p) }
                 fetched = false
+                i = len
               end
 
               if i == 1

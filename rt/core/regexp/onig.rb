@@ -6,19 +6,9 @@
 # under the BSD-2-Clause license reproduced in rt/core/regexp.rb. This
 # is an altered version: the same algorithms in Ruby.
 #
-# The files load under CRuby too, so tools/regexp_diff.rb and the
-# checks can hold them to ruby's own engine on the host.
-require_relative "onig/syntax"
-require_relative "onig/errors"
-require_relative "unicode_tables"
-require_relative "onig/encoding"
-require_relative "onig/node"
-require_relative "onig/lexer"
-require_relative "onig/parser"
-require_relative "onig/tune"
-require_relative "onig/optimize"
-require_relative "onig/compile"
-require_relative "onig/program"
+# The files load under CRuby too (Ze0::Zr.require_onig), so
+# tools/regexp_diff.rb and the checks can hold them to ruby's own
+# engine on the host.
 
 class Regexp
   module Onig

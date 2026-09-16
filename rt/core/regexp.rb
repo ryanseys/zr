@@ -1,4 +1,5 @@
-# Regexp and MatchData over the kernel's oniguruma binding. A match
+# Regexp and MatchData over Regexp::Onig (rt/core/regexp/onig, the
+# compiler) and the kernel's matcher (rt/kernel/onig_*.rb). A match
 # answers byte offsets; MatchData turns them into strings and
 # character positions. The last match lives in the asking method's
 # frame (`$~`), which the kernel reads and writes.
@@ -12,42 +13,6 @@ class Regexp
   FIXEDENCODING = 16
   NOENCODING = 32
 
-  ERRORS = {
-    -5 => "fail to memory allocation", -6 => "undefined type (bug)", -11 => "internal parser error (bug)",
-    -12 => "stack error (bug)", -13 => "undefined bytecode (bug)", -14 => "unexpected bytecode (bug)",
-    -15 => "match-stack limit over", -16 => "parse depth limit over", -17 => "retry-limit-in-match over",
-    -18 => "retry-limit-in-search over", -19 => "subexp-call-limit-in-search over",
-    -21 => "default multibyte-encoding is not set",
-    -22 => "can't convert to wide-char on specified multibyte-encoding", -23 => "fail to initialize",
-    -30 => "invalid argument", -100 => "end pattern at left brace", -101 => "end pattern at left bracket",
-    -102 => "empty char-class", -103 => "premature end of char-class", -104 => "end pattern at escape",
-    -105 => "end pattern at meta", -106 => "end pattern at control", -108 => "invalid meta-code syntax",
-    -109 => "invalid control-code syntax", -110 => "char-class value at end of range",
-    -111 => "char-class value at start of range", -112 => "unmatched range specifier in char-class",
-    -113 => "target of repeat operator is not specified", -114 => "target of repeat operator is invalid",
-    -115 => "nested repeat operator", -116 => "unmatched close parenthesis",
-    -117 => "end pattern with unmatched parenthesis", -118 => "end pattern in group",
-    -119 => "undefined group option", -120 => "invalid group option", -121 => "invalid POSIX bracket type",
-    -122 => "invalid pattern in look-behind", -123 => "invalid repeat range {lower,upper}", -200 => "too big number",
-    -201 => "too big number for repeat range", -202 => "upper is smaller than lower in repeat range",
-    -203 => "empty range in char class", -204 => "mismatch multibyte code length in char-class range",
-    -205 => "too many multibyte code ranges are specified", -206 => "too short multibyte code string",
-    -207 => "too big backref number", -208 => "invalid backref number/name",
-    -209 => "numbered backref/call is not allowed. (use name)", -210 => "too many captures",
-    -212 => "too long wide-char value", -213 => "undefined operator", -214 => "group name is empty",
-    -215 => "invalid group name <%n>", -216 => "invalid char in group name <%n>",
-    -217 => "undefined name <%n> reference", -218 => "undefined group <%n> reference",
-    -219 => "multiplex defined name <%n>", -220 => "multiplex definition name <%n> call",
-    -221 => "never ending recursion", -222 => "group number is too big for capture history",
-    -223 => "invalid character property name {%n}", -224 => "invalid if-else syntax",
-    -225 => "invalid absent group pattern", -226 => "invalid absent group generator pattern",
-    -227 => "invalid callout pattern", -228 => "invalid callout name", -229 => "undefined callout name",
-    -230 => "invalid callout body", -231 => "invalid callout tag name", -232 => "invalid callout arg",
-    -400 => "invalid code point value", -401 => "too big wide-char value",
-    -402 => "not supported encoding combination", -403 => "invalid combination of options",
-    -406 => "very inefficient pattern", -500 => "library is not initialized"
-  }.freeze
-  private_constant :ERRORS
 
   # `Regexp.new` is `Class#new`, as it is in CRuby: `allocate` makes the
   # husk and this seats the pattern in it. A subclass whose own
@@ -145,26 +110,20 @@ class Regexp
   def self.seat(re, source, bits, warns: true)
     source = source.dup.freeze unless source.frozen?
     written = "/#{source}/#{(bits & MULTILINE != 0 ? 'm' : '')}#{(bits & IGNORECASE != 0 ? 'i' : '')}#{(bits & EXTENDED != 0 ? 'x' : '')}"
-    raise RegexpError, "upper is smaller than lower in repeat range: #{written}" if inverted_interval?(source)
-
     begin
       encoding, bits = encoding_for(source, bits)
       text = Pattern.engine_text(source, bits & EXTENDED != 0, encoding == Encoding::BINARY)
+      compiled, warnings = Onig.compile(text, bits & (IGNORECASE | EXTENDED | MULTILINE), engine_encoding(text))
     rescue RegexpError => e
       raise RegexpError, "#{e.message}: #{written}"
     end
     # reg_set_source: the source reads in the pattern's encoding.
     source = source.dup.force_encoding(encoding).freeze unless source.encoding == encoding
-    result = Primitive.zr_regexp_seat(re, text.frozen? ? text : text.dup.freeze, source, bits)
-    Primitive.zr_state_set(re, :encoding, encoding) unless result.is_a?(Array)
-    warnings = Primitive.zr_regexp_warnings
+    text = text.dup.freeze unless text.frozen?
+    Primitive.zr_regexp_seat(re, Onig::Program.pack(compiled), text, source, bits, name_rows_of(compiled, encoding))
+    Primitive.zr_state_set(re, :encoding, encoding)
     warn_of(warnings, source) if warns
-    if result.is_a?(Array)
-      code, at = result
-      reason = (ERRORS[code] || "regexp error #{code}").sub("%n", at.to_s)
-      raise RegexpError, "#{reason}: #{written}"
-    end
-    result
+    re
   end
   private_class_method :seat
 
@@ -202,28 +161,42 @@ class Regexp
   end
   private_class_method :encoding_for
 
+  # The engine that reads `text`: Onigmo's UTF-8 for a wide (UTF-8-like)
+  # text, its bytewise ASCII for any other.
+  def self.engine_encoding(text)
+    Primitive.attr! :hidden
+    Primitive.zr_str_wide_m(text) ? Onig::Enc::UTF8_ENC : Onig::Enc::ASCII_ENC
+  end
+  private_class_method :engine_encoding
+
+  # The named groups of a compiled pattern, [[name, [group numbers]], ...]
+  # in definition order, the names in the pattern's encoding.
+  def self.name_rows_of(compiled, encoding)
+    Primitive.attr! :hidden
+    return [].freeze unless compiled.name_table
+
+    compiled.name_table.map { |name, entry| [name.dup.force_encoding(encoding).freeze, entry.back_refs.dup.freeze].freeze }.freeze
+  end
+  private_class_method :name_rows_of
+
   # What the engine warned of as it compiled `source`, each warning
   # naming the pattern as written. One ruby gives only when verbose
   # waits for $VERBOSE.
   def self.warn_of(warnings, source)
     Primitive.attr! :hidden
-    Pattern.bare_properties(source).each do |letter|
-      Primitive.zr_warn_here_m("invalid Unicode Property \\#{letter}: /#{source}/")
-    end
-    warnings&.each_line(chomp: true) do |line|
-      next if line.start_with?("V") && !$VERBOSE
+    warnings.rows.each do |row|
+      next if row.verbose && !$VERBOSE
 
-      message = line[1..]
+      message = row.text
       message = "#{message[0, message.index(': /')]}: /#{source}/" if message.include?(": /")
       Primitive.zr_warn_here_m(message)
     end
   end
   private_class_method :warn_of
 
-  # A dup or clone compiles its own pattern from the same source.
   # rb_reg_init_copy: what `dup` and `clone` fill a husk with -- the
-  # other Regexp's pattern, compiled for the copy -- and a refusal for a
-  # Regexp that already holds one.
+  # other Regexp's pattern, which the copy shares -- and a refusal for
+  # a Regexp that already holds one.
   def initialize_copy(other)
     return self if equal?(other)
 
@@ -236,37 +209,18 @@ class Regexp
   end
   private :initialize_copy
 
-  def recompile
+  # The program a subject of the other width reads (wide: UTF-8-like):
+  # the engine text compiled again under that encoding, or false when
+  # it refuses the text, and then the program the pattern has serves.
+  def alt_program(wide)
     Primitive.attr! :hidden
-    text = Pattern.engine_text(source, options & EXTENDED != 0, encoding == Encoding::BINARY)
-    Primitive.zr_regexp_recompile(self, text.frozen? ? text : text.dup.freeze)
-  end
-  private :recompile
-
-  # `a{2,1}`: an interval whose upper bound is below its lower one, which
-  # Ruby refuses where oniguruma would read it as possessive.
-  def self.inverted_interval?(source)
-    in_class = false
-    i = 0
-    while i < source.size
-      c = source[i]
-      if c == "\\"
-        i += 1
-      elsif c == "["
-        in_class = true
-      elsif c == "]"
-        in_class = false
-      elsif c == "{" && !in_class && (stop = source.index("}", i))
-        low, high = source[(i + 1)...stop].split(",", 2)
-        return true if high && low.match?(/\A\d+\z/) && high.match?(/\A\d+\z/) && low.to_i > high.to_i
-
-        i = stop
-      end
-      i += 1
-    end
+    text = Primitive.zr_regexp_text(self)
+    compiled, = Onig.compile(text, options & (IGNORECASE | EXTENDED | MULTILINE), wide ? Onig::Enc::UTF8_ENC : Onig::Enc::ASCII_ENC)
+    Onig::Program.pack(compiled)
+  rescue RegexpError
     false
   end
-  private_class_method :inverted_interval?
+  private :alt_program
 
   def self.compile(*args, **options) = new(*args, **options)
 

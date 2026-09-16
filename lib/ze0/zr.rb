@@ -21,7 +21,16 @@ module Ze0
     # file of that name, under rt/core/os/<os>/: the numbers each OS
     # gives the constants the portable file after it goes on to use, in
     # the order ruby defines them.
-    CORE_NAMES = %w[module warning encodings transcode cjk exception enumerable enumerator comparable integer bignum array hash range struct unicode string converter iso2022 ruled emoji kernel float proc binding format os/errno os/io_constants io io_buffer os/process_constants process signal env os/file_constants file argf data os/clock_constants gc random thread builtin_lines trace_point monitor time set ractor marshal pack regexp_pattern regexp pathname rational complex objectspace rubyvm box].freeze
+    # Regexp::Onig, the regular expression compiler (rt/core/regexp/onig),
+    # in the order its files define what the next one reads.
+    ONIG_NAMES = %w[regexp/unicode_tables regexp/onig/syntax regexp/onig/errors regexp/onig/encoding regexp/onig/node regexp/onig/lexer regexp/onig/parser regexp/onig/tune regexp/onig/optimize regexp/onig/compile regexp/onig/program regexp/onig].freeze
+    CORE_NAMES = (%w[module warning encodings transcode cjk exception enumerable enumerator comparable integer bignum array hash range struct unicode string converter iso2022 ruled emoji kernel float proc binding format os/errno os/io_constants io io_buffer os/process_constants process signal env os/file_constants file argf data os/clock_constants gc random thread builtin_lines trace_point monitor time set ractor marshal pack] + ONIG_NAMES + %w[regexp_pattern regexp pathname rational complex objectspace rubyvm box]).freeze
+
+    # Regexp::Onig under the host ruby, for the tools and checks that
+    # hold it to ruby's engine.
+    def self.require_onig
+      ONIG_NAMES.each { |name| require File.join(Paths::RT, "core/#{name}.rb") }
+    end
 
     # Where the runtime's built forms live, keyed on the digest of
     # everything they depend on: the runtime sources and the compiler.

@@ -1,40 +1,48 @@
-# Regexp over oniguruma: a T_REGEXP cell holds the compiled pattern;
-# a search answers the byte offsets of every group. The last match
-# (`$~`) lives in the frame record of the method that asked, as
-# CRuby keeps it.
-Machine.import "onig_initialize", [Ptr, I32] => I32
-Machine.import "onig_new", [Ptr, Ptr, Ptr, I32, Ptr, Ptr, Ptr] => I32
-Machine.import "onig_free", [Ptr] => Void
-Machine.import "onig_search", [Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, I32] => I32
-Machine.import "onig_match", [Ptr, Ptr, Ptr, Ptr, Ptr, I32] => I32
-Machine.import "onig_region_new", [] => Ptr
-Machine.import "onig_region_free", [Ptr, I32] => Void
-Machine.import "onig_number_of_captures", [Ptr] => I32
-Machine.import "onig_foreach_name", [Ptr, Ptr, Ptr] => I32
-Machine.import "onig_ze0_set_time_limit", [Word] => Void
-Machine.import "onig_ze0_take_warnings", [Ptr, I32] => I32
-ONIGERR_TIME_LIMIT_OVER = 0 - 20
+# Regexp over the kernel's Onigmo matcher (rt/kernel/onig_*.rb): a
+# T_REGEXP cell holds the program the core compiled; a search answers
+# the byte offsets of every group. The last match (`$~`) lives in the
+# frame record of the method that asked, as CRuby keeps it.
+#
+# The matcher, its encoders, tables and stack (rt/kernel/onig_*.rb) and
+# the core's parser, tree setup, optimizer and compiler
+# (rt/core/regexp/onig/*) are Onigmo, the regular expression engine of
+# CRuby 4.0.6, written again in Ruby:
+#
+#   Copyright (c) 2002-2013 K.Kosako <sndgk393 AT ybb DOT ne DOT jp>
+#   Copyright (c) 2011-2016 K.Takata <kentkt AT csc DOT jp>
+#   All rights reserved.
+#
+#   Redistribution and use in source and binary forms, with or without
+#   modification, are permitted provided that the following conditions
+#   are met:
+#   1. Redistributions of source code must retain the above copyright
+#      notice, this list of conditions and the following disclaimer.
+#   2. Redistributions in binary form must reproduce the above copyright
+#      notice, this list of conditions and the following disclaimer in the
+#      documentation and/or other materials provided with the distribution.
+#
+#   THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+#   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+#   ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+#   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+#   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+#   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+#   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+#   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+#   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+#   SUCH DAMAGE.
 
-# `reg` is the pattern the source's own encoding built; `alt` is the
-# byte-oriented twin a byte-oriented subject asks for, compiled on
-# first use from `text`, the engine text. `limit` is the pattern's own
-# timeout in nanoseconds, 0 for none.
-Machine.struct :RRegexp, basic: RBasic, source: Value, options: Word, reg: Ptr, names: Value, text: Value, alt: Ptr, limit: Word
+# `program` is the pattern the source's own encoding built, as the
+# program String of rt/core/regexp/onig/program.rb; `alt` is the
+# byte-oriented (or wide) twin a subject of the other kind asks for,
+# compiled by the core on first use from `text`, the engine text.
+# `names` holds [[name, [group numbers]], ...]. `limit` is the
+# pattern's own timeout in nanoseconds, 0 for none.
+Machine.struct :RRegexp, basic: RBasic, source: Value, options: Word, program: Value, names: Value, text: Value, alt: Value, limit: Word
 T_REGEXP = 31
 G_REGEXP = 42
 G_REGEXP_LITERALS = 43
-
-sig [] => Void
-machine def zr_onig_ready
-  flag = Machine.static(:onig_ready, 8)
-  if Machine.load64(flag, 0) == 0
-    encodings = Machine.slot(16)
-    Machine.store64(encodings, 0, Machine.word(Machine.extern(:OnigEncodingUTF8)))
-    Machine.store64(encodings, 8, Machine.word(Machine.extern(:OnigEncodingASCII)))
-    onig_initialize(encodings, Machine.i32(2))
-    Machine.store64(flag, 0, 1)
-  end
-end
 
 # `Regexp.allocate`: a regexp cell with no pattern in it, which every
 # reader names as uninitialized until an `initialize` seats one. This
@@ -46,118 +54,213 @@ machine def zr_regexp_alloc(klass)
   RRegexp.set_source(re, Machine.value(QNIL))
   RRegexp.set_text(re, Machine.value(QNIL))
   RRegexp.set_names(re, Machine.value(QNIL))
+  RRegexp.set_program(re, Machine.value(QNIL))
+  RRegexp.set_alt(re, Machine.value(QNIL))
   re
 end
 
-# The pattern `other` holds, in the husk `re`: its source, options and
-# names, compiled again so the copy has an engine handle of its own.
+# The pattern `other` holds, in the husk `re`: its source, options,
+# names and programs, which never change, so the copy shares them.
 sig [Value, Value] => Value
 machine def zr_regexp_copy_from(re, other)
   RRegexp.set_source(re, RRegexp.source(other))
   RRegexp.set_options(re, RRegexp.options(other))
   RRegexp.set_names(re, RRegexp.names(other))
   RRegexp.set_text(re, RRegexp.text(other))
+  RRegexp.set_program(re, RRegexp.program(other))
+  RRegexp.set_alt(re, RRegexp.alt(other))
   RRegexp.set_limit(re, RRegexp.limit(other))
-  zr_send(re, Machine.id(:recompile), 0, 0)
+  re
 end
 
-# The pattern `source` (what the engine reads), compiled with `options`
-# (Ruby's bits, which are oniguruma's) and seated in the husk `re`: the
-# Regexp, or [error code, the text the error points at] for the core to
-# raise. `shown` is the text as written, which the Regexp reports as
-# its source.
-sig [Value, Value, Value, Value] => Value
-machine def zr_regexp_seat(re, source, shown, options)
-  zr_onig_ready()
-  reg = Machine.slot(8)
-  info = Machine.slot(24)
-  Machine.store64(info, 0, 0)
-  Machine.store64(info, 8, 0)
-  Machine.store64(info, 16, 0)
-  enc = zr_str_wide_p(source) ? Machine.extern(:OnigEncodingUTF8) : Machine.extern(:OnigEncodingASCII)
-  r = onig_new(reg, RString.ptr(source), RString.ptr(source) + RString.len(source), Machine.i32(zr_fix2long(options) & 7), enc, Machine.extern(:OnigSyntaxRuby), info)
-  if r != Machine.i32(0)
-    out = zr_ary_new(2)
-    code = Machine.word(r)
-    if code >= 2147483648
-      code -= 4294967296
-    end
-    zr_ary_push(out, zr_fix(code))
-    par = Machine.ptr(Machine.load64(info, 8))
-    par_end = Machine.ptr(Machine.load64(info, 16))
-    zr_ary_push(out, par == 0 ? Machine.value(QNIL) : zr_str_new(par, par_end - par))
-    return out
-  end
-  RRegexp.set_text(re, source)
-  RRegexp.set_alt(re, 0)
+# The compiled `program` of the engine `text`, seated in the husk `re`
+# with the `options` (Ruby's bits) it compiled under, `shown` (the text
+# as written, which the Regexp reports as its source) and its `names`.
+sig [Value, Value, Value, Value, Value, Value] => Value
+machine def zr_regexp_seat(re, program, text, shown, options, names)
+  RRegexp.set_program(re, program)
+  RRegexp.set_alt(re, Machine.value(QNIL))
+  RRegexp.set_text(re, text)
   RRegexp.set_source(re, shown)
   RRegexp.set_options(re, zr_fix2long(options))
-  RRegexp.set_reg(re, Machine.ptr(Machine.load64(reg, 0)))
-  RRegexp.set_names(re, Machine.value(QNIL))
+  RRegexp.set_names(re, names)
   re
 end
 
-# The warnings the engine gave as it compiled the last pattern, one to
-# a line, or nil for none.
-sig [] => Value
-machine def zr_regexp_warnings
-  n = zr_regexp_take_warnings()
-  n == 0 ? Machine.value(QNIL) : zr_str_new(Machine.static(:onig_warnings, 2048), n)
-end
-
-# Takes the engine's warnings from it, answering how many bytes they
-# hold. A pattern compiled again for a copy or a twin warns of nothing
-# its first compile did not, so those compiles drop theirs.
-sig [] => Word
-machine def zr_regexp_take_warnings
-  Machine.word(onig_ze0_take_warnings(Machine.static(:onig_warnings, 2048), Machine.i32(2048)))
-end
-
-# A copy's own compiled pattern, from the engine text the core rebuilds
-# for it; the text compiled once already, so it compiles again.
+# The program to search `str` with. A regexp built from ASCII source
+# reads any ASCII-compatible subject, so a byte-oriented subject gets a
+# byte-oriented program over the same engine text, which the core
+# compiles the first time (Regexp#alt_program); a text the other
+# encoding refuses keeps the program it has. The send can collect, so
+# a caller reads the subject's bytes after this.
 sig [Value, Value] => Value
-machine def zr_regexp_recompile(re, text)
-  reg = Machine.slot(8)
-  info = Machine.slot(24)
-  Machine.store64(info, 0, 0)
-  Machine.store64(info, 8, 0)
-  Machine.store64(info, 16, 0)
-  enc = zr_str_wide_p(text) ? Machine.extern(:OnigEncodingUTF8) : Machine.extern(:OnigEncodingASCII)
-  onig_new(reg, RString.ptr(text), RString.ptr(text) + RString.len(text), Machine.i32(RRegexp.options(re) & 7), enc, Machine.extern(:OnigSyntaxRuby), info)
-  zr_regexp_take_warnings()
-  RRegexp.set_text(re, text)
-  RRegexp.set_alt(re, 0)
-  RRegexp.set_reg(re, Machine.ptr(Machine.load64(reg, 0)))
-  re
-end
-
-# The pattern to search `str` with. A regexp built from ASCII source
-# reads any ASCII-compatible subject, so a byte-oriented subject gets
-# a byte-oriented pattern over the same engine text.
-sig [Value, Value] => Ptr
-machine def zr_regexp_reg_for(re, str)
-  if zr_str_wide_p(str) == zr_str_wide_p(RRegexp.text(re))
-    return RRegexp.reg(re)
+machine def zr_regexp_program_for(re, str)
+  wide = zr_str_wide_p(str)
+  if wide == zr_str_wide_p(RRegexp.text(re))
+    return RRegexp.program(re)
   end
-  if RRegexp.alt(re) == 0
-    reg = Machine.slot(8)
-    Machine.store64(reg, 0, 0)
-    info = Machine.slot(24)
-    Machine.store64(info, 0, 0)
-    Machine.store64(info, 8, 0)
-    Machine.store64(info, 16, 0)
-    text = RRegexp.text(re)
-    enc = zr_str_wide_p(str) ? Machine.extern(:OnigEncodingUTF8) : Machine.extern(:OnigEncodingASCII)
-    r = onig_new(reg, RString.ptr(text), RString.ptr(text) + RString.len(text), Machine.i32(RRegexp.options(re) & 7), enc, Machine.extern(:OnigSyntaxRuby), info)
-    zr_regexp_take_warnings()
-    # The text may hold bytes the other encoding refuses, and then the
-    # pattern it already has is the only one there is.
-    if r != Machine.i32(0)
-      return RRegexp.reg(re)
+  if RRegexp.alt(re) == QNIL
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(zr_bool(wide)))
+    alt = zr_send(re, Machine.id(:alt_program), 1, slot)
+    return alt if alt == QUNDEF
+    if alt == QFALSE
+      alt = RRegexp.program(re)
     end
-    RRegexp.set_alt(re, Machine.ptr(Machine.load64(reg, 0)))
+    RRegexp.set_alt(re, alt)
   end
   RRegexp.alt(re)
+end
+
+# The number of groups the program captures.
+sig [Value] => Value
+machine def zr_regexp_captures(re)
+  zr_fix(OnigProg.num_mem(RString.ptr(RRegexp.program(re))))
+end
+
+# The named groups: [[name, [group numbers]], ...].
+sig [Value] => Value
+machine def zr_regexp_names(re)
+  RRegexp.names(re)
+end
+
+# The region a search of `program` fills: 2 * (num_mem + 1) words.
+sig [Ptr] => Ptr
+machine def zr_regexp_region_new(prog)
+  n = OnigProg.num_mem(prog) + 1
+  region = malloc(n * 16)
+  abort() if region == 0
+  region
+end
+
+# Search `str` from byte `start` (backwards to it when `backward`):
+# nil, or [position, begin0, end0, begin1, end1, ...]: the byte the
+# match started at (before a `\K`), then every group's offsets, -1
+# for a group that did not take part.
+sig [Value, Value, Value, Value] => Value
+machine def zr_regexp_search(re, str, start, backward)
+  program = zr_regexp_program_for(re, str)
+  return program if program == QUNDEF
+  prog = RString.ptr(program)
+  region = zr_regexp_region_new(prog)
+  base = RString.ptr(str)
+  stop = base + RString.len(str)
+  from = base + zr_fix2long(start)
+  range = backward == QTRUE ? base : stop
+  r = zr_onig_search(prog, base, stop, from, range, region, zr_regexp_limit_for(re))
+  if r < 0
+    free(region)
+    return zr_regexp_failed(r)
+  end
+  out = zr_region_offsets(region, OnigProg.num_mem(prog), r)
+  free(region)
+  out
+end
+
+# A search that found nothing (nil), or one the time limit stopped.
+sig [Word] => Value
+machine def zr_regexp_failed(r)
+  if r != ONIGERR_TIMEOUT
+    return Machine.value(QNIL)
+  end
+  error = zr_const_get_at(zr_core_class(Machine.id(:Regexp)), Machine.id(:TimeoutError))
+  return error if error == QUNDEF
+  zr_raise_msg(error, Machine.bytes("regexp match timeout"), 20)
+end
+
+# Match `str` at exactly byte `start`, as `\A`-anchored would.
+sig [Value, Value, Value] => Value
+machine def zr_regexp_match_at(re, str, start)
+  program = zr_regexp_program_for(re, str)
+  return program if program == QUNDEF
+  prog = RString.ptr(program)
+  region = zr_regexp_region_new(prog)
+  base = RString.ptr(str)
+  stop = base + RString.len(str)
+  r = zr_onig_match(prog, base, stop, base + zr_fix2long(start), region, zr_regexp_limit_for(re))
+  if r < 0
+    free(region)
+    return zr_regexp_failed(r)
+  end
+  out = zr_region_offsets(region, OnigProg.num_mem(prog), zr_fix2long(start))
+  free(region)
+  out
+end
+
+# [position, beg0, end0, ...] from a region of num_mem + 1 groups.
+sig [Ptr, Word, Word] => Value
+machine def zr_region_offsets(region, num_mem, position)
+  n = num_mem + 1
+  out = zr_ary_new(n * 2 + 1)
+  zr_ary_push(out, zr_fix(position))
+  i = 0
+  while i < n
+    zr_ary_push(out, zr_fix(Machine.load64(region + (i * 16), 0)))
+    zr_ary_push(out, zr_fix(Machine.load64(region + (i * 16), 8)))
+    i += 1
+  end
+  out
+end
+
+# The nanoseconds a match of `re` may take: its own timeout, else
+# Regexp.timeout, else 0 for no limit.
+sig [Value] => Word
+machine def zr_regexp_limit_for(re)
+  RRegexp.limit(re) != 0 ? RRegexp.limit(re) : Machine.load64(Machine.static(:regexp_limit, 8), 0)
+end
+
+sig [Value] => Void
+machine def zr_mark_regexp(re)
+  zr_mark(RRegexp.source(re))
+  zr_mark(RRegexp.text(re))
+  zr_mark(RRegexp.names(re))
+  zr_mark(RRegexp.program(re))
+  zr_mark(RRegexp.alt(re))
+end
+
+# A regexp holds nothing outside the heap.
+sig [Value] => Void
+machine def zr_release_regexp(re)
+end
+
+sig [Value] => Value
+machine def zr_regexp_source(re)
+  RRegexp.source(re)
+end
+
+# The engine text the pattern compiled from.
+sig [Value] => Value
+machine def zr_regexp_text(re)
+  RRegexp.text(re)
+end
+
+# Whether a String's encoding is wide (UTF-8 or a UTF-8-like one), as
+# the engine choice reads it.
+sig [Value] => Value
+machine def zr_str_wide_m(s)
+  zr_bool(zr_str_wide_p(s))
+end
+
+sig [Value] => Value
+machine def zr_regexp_options(re)
+  zr_fix(RRegexp.options(re))
+end
+
+sig [Value] => Value
+machine def zr_regexp_p(v)
+  zr_bool(!zr_special_p(v) && zr_type(v) == T_REGEXP)
+end
+
+# `/#{x}/o`: the site's regexp, made once. nil until the site has run.
+sig [Word] => Value
+machine def zr_regexp_once(index)
+  zr_site_literal(G_REGEXP_LITERALS, index)
+end
+
+sig [Word, Value] => Value
+machine def zr_regexp_once_set(index, re)
+  zr_site_literal_set(G_REGEXP_LITERALS, index, re)
+  re
 end
 
 # A regexp literal: compiled by the core the first time its site runs,
@@ -180,108 +283,6 @@ machine def zr_regexp_literal(index, bytes, len, options, pinned)
   re
 end
 
-# `/#{x}/o`: the site's regexp, made once. nil until the site has run.
-sig [Word] => Value
-machine def zr_regexp_once(index)
-  zr_site_literal(G_REGEXP_LITERALS, index)
-end
-
-sig [Word, Value] => Value
-machine def zr_regexp_once_set(index, re)
-  zr_site_literal_set(G_REGEXP_LITERALS, index, re)
-  re
-end
-
-sig [Value] => Value
-machine def zr_regexp_source(re)
-  RRegexp.source(re)
-end
-
-sig [Value] => Value
-machine def zr_regexp_options(re)
-  zr_fix(RRegexp.options(re))
-end
-
-sig [Value] => Value
-machine def zr_regexp_p(v)
-  zr_bool(!zr_special_p(v) && zr_type(v) == T_REGEXP)
-end
-
-sig [Value] => Value
-machine def zr_regexp_captures(re)
-  zr_fix(Machine.word(onig_number_of_captures(RRegexp.reg(re))))
-end
-
-# The named groups: [[name, [group numbers]], ...].
-sig [Value] => Value
-machine def zr_regexp_names(re)
-  if RRegexp.names(re) != QNIL
-    return RRegexp.names(re)
-  end
-  out = zr_ary_new(4)
-  onig_foreach_name(RRegexp.reg(re), Machine.addr(:zr_regexp_name_row), Machine.ptr(Machine.word(out)))
-  RRegexp.set_names(re, out)
-  out
-end
-
-sig [Ptr, Ptr, I32, Ptr, Ptr, Ptr] => I32
-machine def zr_regexp_name_row(name, name_end, count, groups, reg, arg)
-  out = Machine.value(Machine.word(arg))
-  row = zr_ary_new(2)
-  zr_ary_push(row, zr_str_new(name, name_end - name))
-  numbers = zr_ary_new(2)
-  i = 0
-  while i < Machine.word(count)
-    n = Machine.word(Machine.load32(groups + (i * 4), 0))
-    zr_ary_push(numbers, zr_fix(n))
-    i += 1
-  end
-  zr_ary_push(row, numbers)
-  zr_ary_push(out, row)
-  Machine.i32(0)
-end
-
-# Search `str` from byte `start` (backwards to it when `backward`):
-# nil, or [position, begin0, end0, begin1, end1, ...]: the byte the
-# match started at (before a `\K`), then every group's offsets, -1
-# for a group that did not take part.
-sig [Value, Value, Value, Value] => Value
-machine def zr_regexp_search(re, str, start, backward)
-  region = onig_region_new()
-  base = RString.ptr(str)
-  stop = base + RString.len(str)
-  from = base + zr_fix2long(start)
-  range = backward == QTRUE ? base : stop
-  onig_ze0_set_time_limit(zr_regexp_limit_for(re))
-  r = onig_search(zr_regexp_reg_for(re, str), base, stop, from, range, region, Machine.i32(0))
-  if r < Machine.i32(0)
-    onig_region_free(region, Machine.i32(1))
-    return zr_regexp_failed(r)
-  end
-  code = Machine.word(r)
-  out = zr_region_offsets(region, code)
-  onig_region_free(region, Machine.i32(1))
-  out
-end
-
-# The nanoseconds a match of `re` may take: its own timeout, else
-# Regexp.timeout, else 0 for no limit.
-sig [Value] => Word
-machine def zr_regexp_limit_for(re)
-  RRegexp.limit(re) != 0 ? RRegexp.limit(re) : Machine.load64(Machine.static(:regexp_limit, 8), 0)
-end
-
-# A search that found nothing (nil), or one the time limit stopped.
-sig [I32] => Value
-machine def zr_regexp_failed(r)
-  if r != Machine.i32(ONIGERR_TIME_LIMIT_OVER)
-    return Machine.value(QNIL)
-  end
-  error = zr_const_get_at(zr_core_class(Machine.id(:Regexp)), Machine.id(:TimeoutError))
-  return error if error == QUNDEF
-  zr_raise_msg(error, Machine.bytes("regexp match timeout"), 20)
-end
-
 # A timeout in nanoseconds, 0 for none: `re`'s own, or Regexp.timeout
 # where `re` is nil. The answer is the timeout set.
 sig [Value, Value] => Value
@@ -297,64 +298,6 @@ end
 sig [Value] => Value
 machine def zr_regexp_limit(re)
   zr_fix(re == QNIL ? Machine.load64(Machine.static(:regexp_limit, 8), 0) : RRegexp.limit(re))
-end
-
-# Match `str` at exactly byte `start`, as `\A`-anchored would.
-sig [Value, Value, Value] => Value
-machine def zr_regexp_match_at(re, str, start)
-  region = onig_region_new()
-  base = RString.ptr(str)
-  stop = base + RString.len(str)
-  onig_ze0_set_time_limit(zr_regexp_limit_for(re))
-  r = onig_match(zr_regexp_reg_for(re, str), base, stop, base + zr_fix2long(start), region, Machine.i32(0))
-  if r < Machine.i32(0)
-    onig_region_free(region, Machine.i32(1))
-    return zr_regexp_failed(r)
-  end
-  out = zr_region_offsets(region, zr_fix2long(start))
-  onig_region_free(region, Machine.i32(1))
-  out
-end
-
-sig [Ptr, Word] => Value
-machine def zr_region_offsets(region, position)
-  n = Machine.word(Machine.load32(region, 4))
-  begs = Machine.ptr(Machine.load64(region, 8))
-  ends = Machine.ptr(Machine.load64(region, 16))
-  out = zr_ary_new(n * 2 + 1)
-  zr_ary_push(out, zr_fix(position))
-  i = 0
-  while i < n
-    b = Machine.word(Machine.load32(begs + (i * 4), 0))
-    e = Machine.word(Machine.load32(ends + (i * 4), 0))
-    if b >= 2147483648
-      b = 0 - 1
-    end
-    if e >= 2147483648
-      e = 0 - 1
-    end
-    zr_ary_push(out, zr_fix(b))
-    zr_ary_push(out, zr_fix(e))
-    i += 1
-  end
-  out
-end
-
-sig [Value] => Void
-machine def zr_mark_regexp(re)
-  zr_mark(RRegexp.source(re))
-  zr_mark(RRegexp.text(re))
-  zr_mark(RRegexp.names(re))
-end
-
-sig [Value] => Void
-machine def zr_release_regexp(re)
-  if RRegexp.reg(re) != 0
-    onig_free(RRegexp.reg(re))
-  end
-  if RRegexp.alt(re) != 0
-    onig_free(RRegexp.alt(re))
-  end
 end
 
 # The frame record whose `$~` the running code sees: a block's is its
