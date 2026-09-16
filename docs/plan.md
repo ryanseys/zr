@@ -230,12 +230,13 @@ end
 Frame record. Every compiled Ruby function reserves one addressable slot:
 
 ```
-Frame { prev: Ptr, meta: Ptr (FrameMeta: name, owner, file, kind, params, ...), line: Word, serial: Word,
-        self: Value, cref: Value, blk: Value, nvalues: Word, mid: Word, svar: Value, lastline: Value,
-        defined: Value }  followed by values: Value[nvalues] (locals, staging slots, prologue slots)
+Frame { prev: Ptr, meta: Ptr (FrameMeta: name, owner, file, kind, params, ...), line: Word,
+        self: Value, cref: Value, blk: Value, entry: Ptr (the MEntry a method was called through, 0 otherwise),
+        defined: Value, serial: Word (0 until `zr_frame_serial` first gives one), nvalues: Word,
+        svars: Value (nil, or [$~, $_] once one is written) }  followed by values: Value[nvalues] (locals, staging slots, prologue slots)
 ```
 
-Prologue: the stack check against `Task.stack_limit`; the fourteen header stores; `f.serial = ++task.serial`; a nil-fill of every value slot; `f.prev = task.top; task.top = &f`. Epilogue, on the normal and the `QUNDEF` path alike: `task.top = f.prev`. The invariant: no `Value` lives in an SSA register across a call that can allocate or raise. A receiver is stored to a staging slot before its arguments are evaluated, and each argument's result before the next is evaluated; a call reads them back into registers, and the callee's prologue stores them before anything can allocate. A scope that holds a block literal keeps every local in a heap `REnv{parent, slots, nslots, names}` made in its prologue, read and written through `zr_env_get`/`zr_env_set`; every block literal is an `RProc` cell made at the send that carries it.
+Prologue: the entry and `defined` stored, then the stack check against `Task.stack_limit`; the other header stores; a nil-fill of every value slot but a plain required parameter's, which takes its argument straight after the arity check; `f.prev = task.top; task.top = &f`. Epilogue, on the normal and the `QUNDEF` path alike: `task.top = f.prev`. The invariant: no `Value` lives in an SSA register across a call that can allocate or raise. A receiver is stored to a staging slot before its arguments are evaluated, and each argument's result before the next is evaluated; a call reads them back into registers, and the callee's prologue stores them before anything can allocate. A scope that holds a block literal keeps every local in a heap `REnv{parent, slots, nslots, names}` made in its prologue, read and written through `zr_env_get`/`zr_env_set`; every block literal is an `RProc` cell made at the send that carries it.
 
 Heap. One cell size, 128 bytes, in arenas of 32,768 cells (4 MiB) aligned to their own size, so a cell's arena is its address with the low bits cleared; the arena's exivar slots follow its cells; at most 1,024 arenas. A free list threads the free cells; `zr_alloc` takes the head and zeroes the cell. Payload buffers (string bytes, array slots, hash entries, env slots) come from malloc and are freed by the sweep (`zr_release`), so a `Ptr` derived from a rooted `Value` stays valid until a mutation reallocates it. The header carries the mark bit (`FL_MARK`) and `FL_ALLOCATED`; there is no side bitmap, no size class, no large-object space and no `PERMANENT` set: class objects and frozen literals are ordinary cells, marked from the globals at every collection.
 

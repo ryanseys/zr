@@ -172,10 +172,10 @@ machine def zr_proc_new(meta, env, self_, cref, blk, home, site_and_spread, ret_
   RProc.set_cref(p, cref)
   RProc.set_blk(p, blk)
   RProc.set_home(p, home)
-  RProc.set_serial(p, Frame.serial(home))
+  RProc.set_serial(p, zr_frame_serial(home))
   RProc.set_site(p, site)
   RProc.set_ret_home(p, ret_home)
-  RProc.set_ret_serial(p, Frame.serial(ret_home))
+  RProc.set_ret_serial(p, zr_frame_serial(ret_home))
   RProc.set_spread(p, spread)
   RProc.set_lambda(p, 0)
   RProc.set_passed(p, 0)
@@ -468,6 +468,32 @@ machine def zr_block_argc(kept, argc)
   RArray.len(kept)
 end
 
+# The serial that tells the frame at `rec` from any other at that
+# address: given the first time something asks, since most frames are
+# never a home. A frame that never asked has 0, which no home carries.
+sig [Ptr] => Word
+machine def zr_frame_serial(rec)
+  if rec == 0
+    return 0
+  end
+  s = Frame.serial(rec)
+  if s == 0
+    t = zr_task()
+    s = Task.serial(t) + 1
+    Task.set_serial(t, s)
+    Frame.set_serial(rec, s)
+  end
+  s
+end
+
+# The name the method frame `rec` was called by, or 0 for a frame that
+# is no method's or whose name is its meta's.
+sig [Ptr] => Word
+machine def zr_frame_mid(rec)
+  e = Frame.entry(rec)
+  e == 0 ? 0 : MEntry.mid(e)
+end
+
 # Whether the frame `home` with `serial` is still on the stack.
 sig [Ptr, Word] => Bool
 machine def zr_frame_live(home, serial)
@@ -755,8 +781,8 @@ machine def zr_enum_for(recv, mid, argc, argv, size)
   # for `each` -- answers an enumerator that names the alias, as ruby's
   # records the called name.
   top = Task.top(zr_task())
-  if Frame.mid(top) != 0 && Frame.meta(top) != 0 && FrameMeta.kind(Frame.meta(top)) == KIND_BUILTIN
-    mid = Frame.mid(top)
+  if Frame.entry(top) != 0 && Frame.meta(top) != 0 && FrameMeta.kind(Frame.meta(top)) == KIND_BUILTIN
+    mid = zr_frame_mid(top)
   end
   args = zr_ary_new(argc + 2)
   zr_ary_push(args, zr_sym(mid))

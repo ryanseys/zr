@@ -119,9 +119,26 @@ module Ze0
                end
           required = p.keywords.select { |_, default| default.nil? }.map(&:first)
           fail_unless(ok) do
+            # The slots the prologue left for the arguments hold nothing
+            # yet, and the raise below collects.
+            direct_params.each { |name| write_local(slot_of(name), 0, @qnil) }
             ids, n = required.empty? ? [imm(0), imm(0)] : keyword_ids(required)
             kernel("zr_wrong_arity_kw", argc, imm(req), imm(max), ids, n)
           end
+        end
+
+        # The parameters whose slots take their arguments with no nil
+        # first: a method's plain required ones, when nothing between the
+        # record's link and their stores can collect. Keywords are taken
+        # into a Hash before the arity check, and a ruby2_keywords rest
+        # is flagged, so those methods fill every slot as before.
+        def direct_params
+          return [] unless @kind == :def && !@has_env
+
+          p = @def.params
+          return [] if keywords?(p) || (p.rest && p.rest != :implicit)
+
+          p.required.reject { |name| name.is_a?(Hir::MultiTarget) || p.required.count(name) > 1 }
         end
 
         # The block raises; its answer leaves the function.

@@ -1489,7 +1489,7 @@ sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_f_notimplement(recv, argc, argv, cref, blk)
   b = Machine.slot(Buf.size)
   zr_buf_init(b)
-  zr_buf_sym(b, Frame.mid(Task.top(zr_task())))
+  zr_buf_sym(b, zr_frame_mid(Task.top(zr_task())))
   zr_buf_push(b, Machine.bytes("() function is unimplemented on this machine"), 44)
   zr_raise_buf(zr_core_class(Machine.id(:NotImplementedError)), b)
 end

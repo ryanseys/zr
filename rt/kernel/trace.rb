@@ -226,7 +226,7 @@ machine def zr_trace_send(rec, event, value)
     while home != 0 && Frame.meta(home) != method
       home = Frame.prev(home)
     end
-    zr_ary_push(row, zr_sym(home == 0 || Frame.mid(home) == 0 ? FrameMeta.name(method) : Frame.mid(home)))
+    zr_ary_push(row, zr_sym(home == 0 || zr_frame_mid(home) == 0 ? FrameMeta.name(method) : zr_frame_mid(home)))
     zr_ary_push(row, FrameMeta.owner(method))
   elsif entry != 0
     # A define_method body runs as a block, under its method's name.
@@ -239,7 +239,7 @@ machine def zr_trace_send(rec, event, value)
     zr_ary_push(row, Machine.value(QNIL))
   end
   zr_ary_push(row, Frame.self(rec))
-  zr_ary_push(row, zr_fix(Frame.serial(rec)))
+  zr_ary_push(row, zr_fix(zr_frame_serial(rec)))
   zr_ary_push(row, zr_fix(Machine.word(Frame.meta(rec))))
   zr_ary_push(row, zr_fix(entry))
   zr_trace_run(row)

@@ -73,10 +73,15 @@ end
 
 # The frame chain the collector walks: a record is a Frame followed by
 # `nvalues` Values.
-# `mid` is the name a method frame was called by, an alias's own.
-# `defined` is the class or proxy the method was found in, which `super`
-# continues from (a module included twice has two proxies).
-Machine.struct :Frame, prev: Ptr, meta: Ptr, line: Word, serial: Word, self: Value, cref: Value, blk: Value, nvalues: Word, mid: Word, svar: Value, lastline: Value, defined: Value
+# `entry` is the method entry a method frame was called through, whose
+# `mid` is the name it was called by, an alias's own; 0 for a frame that
+# is no method's. `defined` is the class or proxy the method was found
+# in, which `super` continues from (a module included twice has two
+# proxies). `serial` tells one frame at an address from the next: 0
+# until something needs it (`zr_frame_serial`). `svars` is nil until
+# `$~` or `$_` is written under the frame, then a two-element Array of
+# them (`zr_svars`).
+Machine.struct :Frame, prev: Ptr, meta: Ptr, line: Word, self: Value, cref: Value, blk: Value, entry: Ptr, defined: Value, serial: Word, nvalues: Word, svars: Value
 Machine.struct :Task, top: Ptr, serial: Word, pending: Value, errinfo: Value, pending_kind: Word, pending_home: Ptr, pending_site: Word, kw: Word, stack_limit: Ptr, guards: Value, catches: Value, throw_tag: Value, missing: Word, found: Value, refine: Value, ractor: Word
 
 # The runtime's own roots: the core classes and the main object.
@@ -396,8 +401,7 @@ machine def zr_mark_task(t)
     zr_mark(Frame.self(rec))
     zr_mark(Frame.cref(rec))
     zr_mark(Frame.blk(rec))
-    zr_mark(Frame.svar(rec))
-    zr_mark(Frame.lastline(rec))
+    zr_mark(Frame.svars(rec))
     zr_mark(Frame.defined(rec))
     n = Frame.nvalues(rec)
     i = 0

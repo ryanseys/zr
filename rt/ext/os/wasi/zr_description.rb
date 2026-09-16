@@ -1072,6 +1072,8 @@ module Ze0
         d zr_block_spread Value a:Value spread:Word argv_out:Ptr keep:Ptr
         d zr_block_argv Ptr kept:Value argv:Ptr
         d zr_block_argc Word kept:Value argc:Word
+        d zr_frame_serial Word rec:Ptr
+        d zr_frame_mid Word rec:Ptr
         d zr_frame_live Bool home:Ptr serial:Word
         d zr_signal Value kind:Word value:Value home:Ptr site:Word
         d zr_local_jump_error Value bytes:Ptr len:Word reason:Word v:Value
@@ -1218,6 +1220,8 @@ module Ze0
         d zr_mark_regexp Void re:Value
         d zr_release_regexp Void re:Value
         d zr_backref_home Ptr
+        d zr_svars Value home:Ptr
+        d zr_svar_get Value home:Ptr i:Word
         d zr_backref_set Value v:Value
         d zr_backref_assign Value v:Value
         d zr_backref_get Value
@@ -2023,7 +2027,7 @@ module Ze0
         s RHash 96 8 basic:0:RBasic entries:16:Ptr len:24:Word live:32:Word cap:40:Word default:48:Value default_proc:56:Value bins:64:Ptr nbins:72:Word iter:80:Word gen:88:Word
         s HEntry 32 8 key:0:Value value:8:Value live:16:Word hash:24:Word
         s Heap 72 8 free:0:Ptr allocated:8:Word collections:16:Word stress:24:Word last:32:Ptr disabled:40:Word arenas:48:Word freed:56:Word nanoseconds:64:Word
-        s Frame 96 8 prev:0:Ptr meta:8:Ptr line:16:Word serial:24:Word self:32:Value cref:40:Value blk:48:Value nvalues:56:Word mid:64:Word svar:72:Value lastline:80:Value defined:88:Value
+        s Frame 88 8 prev:0:Ptr meta:8:Ptr line:16:Word self:24:Value cref:32:Value blk:40:Value entry:48:Ptr defined:56:Value serial:64:Word nvalues:72:Word svars:80:Value
         s Task 128 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value missing:96:Word found:104:Value refine:112:Value ractor:120:Word
         s MarkStack 24 8 ptr:0:Ptr len:8:Word capa:16:Word
         s RMethod 128 8 basic:0:RBasic recv:16:Value klass:24:Value owner:32:Value entry:40:MEntry

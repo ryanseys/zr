@@ -388,11 +388,31 @@ machine def zr_backref_home
   0
 end
 
+# The frame's `$~` and `$_`, in an Array made the first time one is
+# written under it.
+sig [Ptr] => Value
+machine def zr_svars(home)
+  cell = Frame.svars(home)
+  if cell == QNIL
+    cell = zr_ary_new(2)
+    zr_ary_push(cell, Machine.value(QNIL))
+    zr_ary_push(cell, Machine.value(QNIL))
+    Frame.set_svars(home, cell)
+  end
+  cell
+end
+
+sig [Ptr, Word] => Value
+machine def zr_svar_get(home, i)
+  cell = Frame.svars(home)
+  cell == QNIL ? Machine.value(QNIL) : zr_ary_at(cell, i)
+end
+
 sig [Value] => Value
 machine def zr_backref_set(v)
   home = zr_backref_home()
   if home != 0
-    Frame.set_svar(home, v)
+    zr_ary_store(zr_svars(home), 0, v)
   end
   v
 end
@@ -414,7 +434,7 @@ end
 sig [] => Value
 machine def zr_backref_get
   home = zr_backref_home()
-  home == 0 ? Machine.value(QNIL) : Frame.svar(home)
+  home == 0 ? Machine.value(QNIL) : zr_svar_get(home, 0)
 end
 
 # A match's registers, read as CRuby's rb_reg_nth_match and its kin
@@ -479,7 +499,7 @@ sig [Value] => Value
 machine def zr_lastline_set(v)
   home = zr_backref_home()
   if home != 0
-    Frame.set_lastline(home, v)
+    zr_ary_store(zr_svars(home), 1, v)
   end
   v
 end
@@ -487,5 +507,5 @@ end
 sig [] => Value
 machine def zr_lastline_get
   home = zr_backref_home()
-  home == 0 ? Machine.value(QNIL) : Frame.lastline(home)
+  home == 0 ? Machine.value(QNIL) : zr_svar_get(home, 1)
 end

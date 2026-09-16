@@ -414,10 +414,11 @@ machine def zr_kernel_callee(recv, argc, argv, cref, blk)
   if FrameMeta.kind(meta) != KIND_DEF && FrameMeta.kind(meta) != KIND_BMETHOD && FrameMeta.kind(meta) != KIND_BUILTIN
     return Machine.value(QNIL)
   end
-  if Frame.mid(rec) == 0
+  mid = zr_frame_mid(rec)
+  if mid == 0
     return zr_sym(FrameMeta.name(meta))
   end
-  zr_sym(Frame.mid(rec))
+  zr_sym(mid)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value

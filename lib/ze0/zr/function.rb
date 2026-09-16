@@ -182,7 +182,7 @@ module Ze0
         # off the entry, and both go into the record before the stack
         # check so that nothing holds them across it.
         if @kind == :def
-          @f.store(entry_field("mid"), @rec, off(@frame, "mid"))
+          @f.store(@f.args[3], @rec, off(@frame, "entry"))
           @f.store(@f.args[5], @rec, off(@frame, "defined"))
           cref = entry_field("cref")
         end
@@ -199,13 +199,6 @@ module Ze0
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @line = line | (node_id << 32)
         @f.store(imm(@line), @rec, off(@frame, "line"))
-        serial = @f.iadd(@f.fetch("i64", @task_addr, off(@task, "serial")), imm(1))
-        @f.store(serial, @task_addr, off(@task, "serial"))
-        @f.store(serial, @rec, off(@frame, "serial"))
-        unless @kind == :def
-          @f.store(imm(0), @rec, off(@frame, "mid"))
-          @f.store(imm(@l.const("QNIL")), @rec, off(@frame, "defined"))
-        end
         @proc = @f.args[0] if @kind == :block
         @qnil = imm(@l.const("QNIL"))
         @self = case @kind
@@ -230,15 +223,25 @@ module Ze0
         @f.store(@self, @rec, off(@frame, "self"))
         @f.store(@cref, @rec, off(@frame, "cref"))
         @f.store(@blk, @rec, off(@frame, "blk"))
+        unless @kind == :def
+          @f.store(imm(0), @rec, off(@frame, "entry"))
+          @f.store(@qnil, @rec, off(@frame, "defined"))
+        end
+        # The serial is given when something first needs one
+        # (`zr_frame_serial`); `$~` and `$_` are made when first written.
+        @f.store(imm(0), @rec, off(@frame, "serial"))
+        @f.store(imm(@nvalues), @rec, off(@frame, "nvalues"))
+        @f.store(@qnil, @rec, off(@frame, "svars"))
         # A refinement in use belongs to the call site, not to what the
         # site called: a ruby frame of its own starts with none.
-        @f.store(imm(@l.const("QNIL")), @task_addr, off(@task, "refine"))
-        @f.store(imm(@nvalues), @rec, off(@frame, "nvalues"))
-        @f.store(imm(@l.const("QNIL")), @rec, off(@frame, "svar"))
-        @f.store(imm(@l.const("QNIL")), @rec, off(@frame, "lastline"))
+        @f.store(@qnil, @task_addr, off(@task, "refine"))
         program_start if @kind == :main && !@l.internal?
         parse_warnings if %i[main top eval].include?(@kind) && !@l.internal?
-        (0...@nvalues).each { |i| @f.store(@qnil, @rec, value_offset(i)) }
+        # A required parameter's slot takes the argument straight from
+        # argv once the arity is checked (`bind_method`), with nothing
+        # that can collect in between: it needs no nil first.
+        skip = direct_params.map { |name| slot_of(name) }
+        (0...@nvalues).each { |i| @f.store(@qnil, @rec, value_offset(i)) unless skip.include?(i) }
         @f.store(@rec, @task_addr, off(@task, "top"))
         return unless @has_env
 

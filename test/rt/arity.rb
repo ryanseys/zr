@@ -12,10 +12,9 @@ machine def zr_toplevel
   Frame.set_self(rec, zr_global(G_MAIN))
   Frame.set_cref(rec, Machine.value(QNIL))
   Frame.set_blk(rec, Machine.value(QNIL))
-  Frame.set_svar(rec, Machine.value(QNIL))
-  Frame.set_lastline(rec, Machine.value(QNIL))
+  Frame.set_svars(rec, Machine.value(QNIL))
   Frame.set_serial(rec, 0)
-  Frame.set_mid(rec, 0)
+  Frame.set_entry(rec, 0)
   # The collector marks `defined` with the rest of the record, so it
   # holds a Value like every other field it reads, not what the stack had.
   Frame.set_defined(rec, Machine.value(QNIL))
