@@ -29,6 +29,8 @@ module Ze0
         d zr_ary_push_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_pop Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_shift Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_ary_reverse_bang Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_ary_reversed Value a:Value
         d zr_ary_drop_front Void a:Value k:Word
         d zr_ary_unshift_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_count Value argc:Word argv:Ptr n:Word out:Ptr

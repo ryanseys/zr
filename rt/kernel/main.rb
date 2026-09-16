@@ -375,6 +375,7 @@ machine def zr_boot
   zr_builtin(zr_global(G_ARRAY), Machine.id(:shift), Machine.addr(:zr_ary_shift), 0 - 1)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:unshift), Machine.addr(:zr_ary_unshift_m), 0 - 1)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:prepend), Machine.addr(:zr_ary_unshift_m), 0 - 1)
+  zr_builtin(zr_global(G_ARRAY), Machine.id(:reverse!), Machine.addr(:zr_ary_reverse_bang), 0)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:size), Machine.addr(:zr_ary_length), 0)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:length), Machine.addr(:zr_ary_length), 0)
   zr_builtin(zr_global(G_ARRAY), Machine.id(:empty?), Machine.addr(:zr_ary_empty_p), 0)

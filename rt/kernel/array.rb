@@ -570,6 +570,41 @@ machine def zr_ary_shift(recv, argc, argv, cref, blk)
   taken
 end
 
+# `reverse!` in place, and the reversed copy `reverse` and
+# `reverse_each` read.
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_reverse_bang(recv, argc, argv, cref, blk)
+  if zr_modify_frozen_p(recv)
+    return zr_frozen_error(recv)
+  end
+  p = RArray.ptr(recv)
+  i = 0
+  j = RArray.len(recv) - 1
+  while i < j
+    v = Machine.load64(p + (i * 8), 0)
+    Machine.store64(p + (i * 8), 0, Machine.load64(p + (j * 8), 0))
+    Machine.store64(p + (j * 8), 0, v)
+    i += 1
+    j -= 1
+  end
+  recv
+end
+
+sig [Value] => Value
+machine def zr_ary_reversed(a)
+  n = RArray.len(a)
+  out = zr_ary_new(n)
+  p = RArray.ptr(a)
+  q = RArray.ptr(out)
+  i = 0
+  while i < n
+    Machine.store64(q + (i * 8), 0, Machine.load64(p + ((n - 1 - i) * 8), 0))
+    i += 1
+  end
+  RArray.set_len(out, n)
+  out
+end
+
 sig [Value, Word] => Void
 machine def zr_ary_drop_front(a, k)
   RArray.set_ptr(a, RArray.ptr(a) + (k * 8))

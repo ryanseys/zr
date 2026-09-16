@@ -59,16 +59,10 @@ class Array
 
   def reverse = reversed
 
-  # rb_ary_reverse's copy, which reverse! makes as a function.
+  # rb_ary_reverse's copy.
   def reversed
     Primitive.attr! :hidden
-    out = []
-    i = Primitive.zr_ary_len_m(self) - 1
-    while i >= 0
-      out << Primitive.zr_ary_aref1_m(self, i)
-      i -= 1
-    end
-    out
+    Primitive.zr_ary_reversed(self)
   end
 
   def last(n = (none = true))
@@ -718,10 +712,7 @@ class Array
     replaced(kept)
   end
 
-  def reverse!
-    Primitive.zr_frozen_error(self) if frozen?
-    replaced(reversed)
-  end
+
 
   # Nested Arrays (and what `to_ary` answers) spread out `depth` levels;
   # a recursive Array is an error only when the depth is unbounded.
