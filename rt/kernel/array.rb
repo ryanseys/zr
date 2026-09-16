@@ -519,16 +519,102 @@ machine def zr_ary_push_m(recv, argc, argv, cref, blk)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
+# Array's stack operations, `pop`, `shift` and `unshift` (`first` and
+# `last` are ruby's own Ruby, rt/core/array.rb). The count of `pop(n)`
+# and `shift(n)` is read here (zr_ary_count), so a call with none stays
+# a few loads; a shift leaves the elements where they are and moves
+# `ptr` past the first (the gap an unshift takes back, and
+# zr_ary_reserve closes).
+sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_pop(recv, argc, argv, cref, blk)
   if zr_modify_frozen_p(recv)
     return zr_frozen_error(recv)
   end
   n = RArray.len(recv)
-  if n == 0
-    return Machine.value(QNIL)
+  if argc == 0
+    if n == 0
+      return Machine.value(QNIL)
+    end
+    RArray.set_len(recv, n - 1)
+    return Machine.value(Machine.load64(RArray.ptr(recv) + ((n - 1) * 8), 0))
   end
-  RArray.set_len(recv, n - 1)
-  Machine.value(Machine.load64(RArray.ptr(recv) + ((n - 1) * 8), 0))
+  out = Machine.slot(8)
+  r = zr_ary_count(argc, argv, n, out)
+  return r if r == QUNDEF
+  k = Machine.load64(out, 0)
+  taken = zr_ary_of(k, RArray.ptr(recv) + ((n - k) * 8))
+  RArray.set_len(recv, n - k)
+  taken
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_shift(recv, argc, argv, cref, blk)
+  if zr_modify_frozen_p(recv)
+    return zr_frozen_error(recv)
+  end
+  n = RArray.len(recv)
+  if argc == 0
+    if n == 0
+      return Machine.value(QNIL)
+    end
+    v = Machine.value(Machine.load64(RArray.ptr(recv), 0))
+    zr_ary_drop_front(recv, 1)
+    return v
+  end
+  out = Machine.slot(8)
+  r = zr_ary_count(argc, argv, n, out)
+  return r if r == QUNDEF
+  k = Machine.load64(out, 0)
+  taken = zr_ary_of(k, RArray.ptr(recv))
+  zr_ary_drop_front(recv, k)
+  taken
+end
+
+sig [Value, Word] => Void
+machine def zr_ary_drop_front(a, k)
+  RArray.set_ptr(a, RArray.ptr(a) + (k * 8))
+  RArray.set_capa(a, RArray.capa(a) - k)
+  RArray.set_len(a, RArray.len(a) - k)
+end
+
+sig [Value, Word, Ptr, Value, Value] => Value
+machine def zr_ary_unshift_m(recv, argc, argv, cref, blk)
+  if zr_modify_frozen_p(recv)
+    return zr_frozen_error(recv)
+  end
+  if argc == 0
+    return recv
+  end
+  n = RArray.len(recv)
+  if argc <= (RArray.ptr(recv) - RArray.base(recv)) / 8
+    RArray.set_ptr(recv, RArray.ptr(recv) - (argc * 8))
+    RArray.set_capa(recv, RArray.capa(recv) + argc)
+  else
+    zr_ary_reserve(recv, n + argc)
+    zr_memmove(RArray.ptr(recv) + (argc * 8), RArray.ptr(recv), n * 8)
+  end
+  zr_memcpy(RArray.ptr(recv), argv, argc * 8)
+  RArray.set_len(recv, n + argc)
+  recv
+end
+
+# The count `pop(n)` and `shift(n)` take, capped at the `n` elements
+# there are, into `out`.
+sig [Word, Ptr, Word, Ptr] => Value
+machine def zr_ary_count(argc, argv, n, out)
+  if argc != 1
+    return zr_wrong_arity_range(argc, 0, 1)
+  end
+  r = zr_index_operand(Machine.value(Machine.load64(argv, 0)), out)
+  return r if r == QUNDEF
+  k = Machine.load64(out, 0)
+  if k < 0
+    return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("negative array size"), 19)
+  end
+  if k > n
+    Machine.store64(out, 0, n)
+  end
+  Machine.value(QNIL)
 end
 
 sig [Value, Word, Ptr, Value, Value] => Value
@@ -810,8 +896,4 @@ machine def zr_index_operand_m(v)
   zr_int_from_word(Machine.load64(out, 0))
 end
 
-# `pop` for the core.
-sig [Value] => Value
-machine def zr_ary_pop_m(recv)
-  zr_ary_pop(recv, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
-end
+

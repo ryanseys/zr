@@ -514,43 +514,6 @@ class Array
     n
   end
 
-  # `pop(n)` takes the last n.
-  def pop(n = (none = true))
-    return Primitive.zr_ary_pop_m(self) if none
-
-    n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, "negative array size" if n < 0
-    Primitive.zr_frozen_error(self) if frozen?
-
-    count = Primitive.zr_ary_len_m(self)
-    from = n > count ? 0 : count - n
-    out = Primitive.zr_ary_aref2_m(self, from, count - from)
-    Primitive.zr_ary_splice(self, from, out.size, [])
-    out
-  end
-
-  def shift(n = (none = true))
-    if none
-      return nil if (Primitive.zr_ary_len_m(self) == 0)
-
-      first = Primitive.zr_ary_aref1_m(self, 0)
-      Primitive.zr_ary_splice(self, 0, 1, [])
-      return first
-    end
-    n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, "negative array size" if n < 0
-
-    out = Primitive.zr_ary_aref2_m(self, 0, n)
-    Primitive.zr_ary_splice(self, 0, out.size, [])
-    out
-  end
-
-  def unshift(*vals)
-    Primitive.zr_ary_splice(self, 0, 0, vals)
-  end
-
-  def prepend(*vals) = Primitive.zr_ary_splice(self, 0, 0, vals)
-
   def append(*vals) = Primitive.zr_ary_splice(self, Primitive.zr_ary_len_m(self), 0, vals)
 
   # A frozen receiver refuses before the index is read, and an index

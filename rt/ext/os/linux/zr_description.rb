@@ -28,6 +28,10 @@ module Ze0
         d zr_ary_aset_at Value recv:Value index:Value v:Value
         d zr_ary_push_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_pop Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_ary_shift Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_ary_drop_front Void a:Value k:Word
+        d zr_ary_unshift_m Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_ary_count Value argc:Word argv:Ptr n:Word out:Ptr
         d zr_ary_length Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_empty_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_ary_first Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
@@ -43,7 +47,6 @@ module Ze0
         d zr_memmove Void to:Ptr from:Ptr n:Word
         d zr_ary_clear Value a:Value unused:Value
         d zr_index_operand_m Value v:Value
-        d zr_ary_pop_m Value recv:Value
         d zr_caller_frame Ptr
         d zr_eval_cref Value
         d zr_eval_block Value
