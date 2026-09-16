@@ -147,7 +147,7 @@ machine def zr_objspace_memsize(v)
   if t == T_STRING
     n += zr_str_embedded_p(v) ? 0 : RString.capa(v) + 1
   elsif t == T_ARRAY
-    n += RArray.capa(v) * 8
+    n += zr_ary_embedded_p(v) ? 0 : RArray.capa(v) * 8
   elsif t == T_HASH
     n += (RHash.cap(v) * HEntry.size) + (RHash.nbins(v) * 8)
   end

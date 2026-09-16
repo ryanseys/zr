@@ -35,11 +35,7 @@ machine def zr_copy_payload(copy, orig)
     Machine.store8(RString.ptr(copy), 0, Machine.i8(0))
     RString.set_len(copy, 0)
   elsif t == T_ARRAY
-    buf = zr_xmalloc(4 * 8)
-    RArray.set_ptr(copy, buf)
-    RArray.set_base(copy, buf)
-    RArray.set_len(copy, 0)
-    RArray.set_capa(copy, 4)
+    zr_ary_buf_new(copy, 0)
   elsif t == T_HASH
     RHash.set_entries(copy, 0)
     RHash.set_len(copy, 0)

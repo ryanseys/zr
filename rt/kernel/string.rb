@@ -5,7 +5,7 @@ Machine.struct :RString, basic: RBasic, len: Word, capa: Word, ptr: Ptr
 # room for STR_EMBED_CAPA of them and a NUL. A longer String keeps
 # them in a malloc'd buffer of `capa` + 1 bytes. Either way `ptr`
 # reaches the bytes and `capa` counts the room, so a reader never
-# asks which.
+# asks which. An Array keeps its elements the same way (ARY_EMBED_CAPA).
 FL_EMBED = 1 << 7
 FL_EMBED_CLEAR = 0 - FL_EMBED - 1
 STR_EMBED_CAPA = CELL - 40 - 1

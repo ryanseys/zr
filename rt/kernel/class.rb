@@ -2018,7 +2018,7 @@ machine def zr_release(v)
   elsif t == T_OBJECT
     zr_release_ivtab(RObject.iv(v))
   elsif t == T_ARRAY
-    zr_xfree(RArray.base(v))
+    zr_ary_buf_free(v)
   elsif t == T_HASH
     if RHash.entries(v) != 0
       zr_xfree(RHash.entries(v))

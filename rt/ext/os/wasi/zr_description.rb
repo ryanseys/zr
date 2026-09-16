@@ -4,6 +4,9 @@ module Ze0
     class Description
       KERNEL = <<~ROWS
         d zr_ary_max_size Value
+        d zr_ary_embedded_p Bool a:Value
+        d zr_ary_buf_new Void a:Value capa:Word
+        d zr_ary_buf_free Void a:Value
         d zr_ary_new Value capa:Word
         d zr_ary_len_m Value a:Value
         d zr_ary_at_m Value a:Value i:Value
@@ -1742,6 +1745,7 @@ module Ze0
         c G_ARRAY 25
         c G_INDEX_ERROR 26
         c ARY_MAX_SIZE 1152921504606846975
+        c ARY_EMBED_CAPA 10
         c G_MASTER_GVARS 48
         c G_BOX 49
         c CALL_WAYS 4
