@@ -213,6 +213,11 @@ module Ze0
         d zr_define_notimplement Value klass:Value name:Value
         d zr_builtin_private Void klass:Value mid:Word fn:Ptr arity:Word
         d zr_builtin_hidden Void klass:Value mid:Word fn:Ptr arity:Word
+        d zr_method_index_drop Void ext:Ptr
+        d zr_method_index_put Void ext:Ptr row:Word
+        d zr_method_index_build Void ext:Ptr
+        d zr_method_index_add Void ext:Ptr row:Word
+        d zr_method_index_find Word ext:Ptr mid:Word
         d zr_find_method_at Ptr klass:Value mid:Word
         d zr_mcache_init Void
         d zr_methods_changed Void
@@ -1684,6 +1689,7 @@ module Ze0
         c GATE_ROWS 31
         c ROW_CORE 256
         c CORE_KEY 4611686018427387904
+        c METHOD_INDEX_MIN 16
         c MCACHE_ROWS 2048
         c MCACHE_OFF 1
         c MCACHE_VERIFY 2
@@ -2022,7 +2028,7 @@ module Ze0
         s ConstCache 24 8 key:0:Value stamp:8:Word value:16:Value
         s SuperCache 48 8 node:0:Value mid:8:Word stamp:16:Word entry:24:Ptr found:32:Value fn:40:Ptr
         s RClass 56 8 basic:0:RBasic name:16:Value superclass:24:Value ext:32:Ptr attached:40:Value origin:48:Value
-        s ClassExt 192 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word refined:104:Value active:112:Value boxed:120:Value shadow:128:Value alloc:136:Word cidx:144:Ptr cbins:152:Word saved:160:Ptr slen:168:Word supers:176:Ptr rank:184:Word
+        s ClassExt 208 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word refined:104:Value active:112:Value boxed:120:Value shadow:128:Value alloc:136:Word cidx:144:Ptr cbins:152:Word saved:160:Ptr slen:168:Word supers:176:Ptr rank:184:Word midx:192:Ptr mbins:200:Word
         s MEntry 88 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value core:72:Word ivar:80:IvarCache
         s CEntry 72 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value concealed:64:Word
         s GateRow 40 8 klass:0:Word mid:8:Word bit:16:Word fn:24:Ptr vis:32:Word

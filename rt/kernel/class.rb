@@ -21,7 +21,7 @@ Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr,
 # program wrote over or removed, which the core library's own sends
 # still reach (see zr_find_core_method).
 Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word, refined: Value, active: Value, boxed: Value, shadow: Value, alloc: Word, cidx: Ptr, cbins: Word,
-                           saved: Ptr, slen: Word, supers: Ptr, rank: Word
+                           saved: Ptr, slen: Word, supers: Ptr, rank: Word, midx: Ptr, mbins: Word
 # `orig` is the name the method was first defined under, which an
 # alias keeps. `from` is the chain node the entry an alias or a
 # visibility change copied was found on, where `super` in the body
@@ -80,6 +80,8 @@ machine def zr_class_alloc(type, sup, klass)
   ClassExt.set_slen(ext, 0)
   ClassExt.set_supers(ext, 0)
   ClassExt.set_rank(ext, 0)
+  ClassExt.set_midx(ext, 0)
+  ClassExt.set_mbins(ext, 0)
   counter = Machine.static(:class_serial, 8)
   Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
   ClassExt.set_serial(ext, Machine.load64(counter, 0))
@@ -285,6 +287,9 @@ machine def zr_ensure_origin(klass)
   ClassExt.set_mtab(RClass.ext(klass), 0)
   ClassExt.set_mlen(RClass.ext(klass), 0)
   ClassExt.set_mcap(RClass.ext(klass), 0)
+  # The table's index went with the table, to the origin's copy.
+  ClassExt.set_midx(RClass.ext(klass), 0)
+  ClassExt.set_mbins(RClass.ext(klass), 0)
   ClassExt.set_saved(RClass.ext(klass), 0)
   ClassExt.set_slen(RClass.ext(klass), 0)
   i = 0
@@ -1105,6 +1110,8 @@ machine def zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis)
     end
     e = ClassExt.mtab(ext) + (n * MEntry.size)
     ClassExt.set_mlen(ext, n + 1)
+    MEntry.set_mid(e, mid)
+    zr_method_index_add(ext, n)
   end
   MEntry.set_mid(e, mid)
   MEntry.set_fn(e, fn)
@@ -1563,11 +1570,93 @@ machine def zr_builtin_hidden(klass, mid, fn, arity)
 end
 
 # The entry for `mid` on `klass` alone, or 0; the last definition wins.
+# A method table this long or longer is found through a hash index of
+# its names, built when a lookup first needs it and dropped when a row
+# leaves (const.rb has the same for constants): Kernel's and Object's
+# hold hundreds of rows, and every chain walk passes them. A shorter
+# table is scanned. A name has one row (a redefinition takes the row it
+# had), so a bin holds that row's number plus one, zero when empty.
+METHOD_INDEX_MIN = 16
+
+sig [Ptr] => Void
+machine def zr_method_index_drop(ext)
+  if ClassExt.midx(ext) != 0
+    zr_xfree(ClassExt.midx(ext))
+    ClassExt.set_midx(ext, 0)
+  end
+end
+
+sig [Ptr, Word] => Void
+machine def zr_method_index_put(ext, row)
+  mask = ClassExt.mbins(ext) - 1
+  h = (MEntry.mid(ClassExt.mtab(ext) + (row * MEntry.size)) * 2654435761) & mask
+  while Machine.load64(ClassExt.midx(ext) + (h * 8), 0) != 0
+    h = (h + 1) & mask
+  end
+  Machine.store64(ClassExt.midx(ext) + (h * 8), 0, row + 1)
+end
+
+# Every row into a fresh index with at least four bins a row.
+sig [Ptr] => Void
+machine def zr_method_index_build(ext)
+  zr_method_index_drop(ext)
+  n = ClassExt.mlen(ext)
+  bins = 64
+  while bins < n * 4
+    bins = bins * 2
+  end
+  ClassExt.set_midx(ext, zr_xmalloc(bins * 8))
+  memset(ClassExt.midx(ext), Machine.i32(0), bins * 8)
+  ClassExt.set_mbins(ext, bins)
+  i = 0
+  while i < n
+    zr_method_index_put(ext, i)
+    i += 1
+  end
+end
+
+# A new last row: into the index while the bins stay under half full,
+# else the index goes and the next lookup builds a bigger one.
+sig [Ptr, Word] => Void
+machine def zr_method_index_add(ext, row)
+  if ClassExt.midx(ext) == 0
+    return
+  end
+  if (row + 1) * 2 > ClassExt.mbins(ext)
+    zr_method_index_drop(ext)
+    return
+  end
+  zr_method_index_put(ext, row)
+end
+
+# The row number of `mid` in the table plus one, or 0.
+sig [Ptr, Word] => Word
+machine def zr_method_index_find(ext, mid)
+  if ClassExt.midx(ext) == 0
+    zr_method_index_build(ext)
+  end
+  mask = ClassExt.mbins(ext) - 1
+  h = (mid * 2654435761) & mask
+  slot = Machine.load64(ClassExt.midx(ext) + (h * 8), 0)
+  while slot != 0
+    if MEntry.mid(ClassExt.mtab(ext) + ((slot - 1) * MEntry.size)) == mid
+      return slot
+    end
+    h = (h + 1) & mask
+    slot = Machine.load64(ClassExt.midx(ext) + (h * 8), 0)
+  end
+  0
+end
+
 sig [Value, Word] => Ptr
 machine def zr_find_method_at(klass, mid)
   ext = RClass.ext(klass)
   n = ClassExt.mlen(ext)
   tab = ClassExt.mtab(ext)
+  if n >= METHOD_INDEX_MIN
+    slot = zr_method_index_find(ext, mid)
+    return slot == 0 ? 0 : tab + ((slot - 1) * MEntry.size)
+  end
   i = n - 1
   while i >= 0
     e = tab + (i * MEntry.size)
@@ -1894,6 +1983,7 @@ machine def zr_release(v)
       if ClassExt.mtab(RClass.ext(v)) != 0
         zr_xfree(ClassExt.mtab(RClass.ext(v)))
       end
+      zr_method_index_drop(RClass.ext(v))
       zr_xfree(RClass.ext(v))
     end
   elsif t == T_CLASS || t == T_MODULE
@@ -1910,6 +2000,7 @@ machine def zr_release(v)
     if ClassExt.supers(ext) != 0
       zr_xfree(ClassExt.supers(ext))
     end
+    zr_method_index_drop(ext)
     zr_const_index_drop(ext)
     zr_release_ivtab(ClassExt.iv(ext))
     zr_release_ivtab(ClassExt.cv(ext))
