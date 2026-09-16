@@ -127,6 +127,9 @@ module Ze0
           switch(quick)
           @f.jump(merge, [argc])
           switch(slow)
+          # The Hash a table becomes is allocated before the arity check
+          # fills the slots the prologue left for the arguments.
+          direct_params.each { |name| write_local(slot_of(name), 0, @qnil) }
           @f.jump(merge, [kernel("zr_kw_undeclared", kw, argc, argv, fn)])
           switch(merge)
           count
