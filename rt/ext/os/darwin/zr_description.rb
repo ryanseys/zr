@@ -1256,6 +1256,7 @@ module Ze0
         d zr_zsuper_outside Value rec:Ptr
         d zr_invoke Value e:Ptr recv:Value argc:Word argv:Ptr blk:Value kw:Word
         d zr_wrong_arity_in Value given:Word expected:Word e:Ptr recv:Value
+        d zr_entry_found Value e:Ptr
         d zr_send Value recv:Value mid:Word argc:Word argv:Ptr
         d zr_call Value recv:Value mid:Word argc:Word argv:Ptr
         d zr_send_blk Value recv:Value mid:Word argc:Word argv:Ptr blk:Value
@@ -1946,7 +1947,7 @@ module Ze0
         s HEntry 32 8 key:0:Value value:8:Value live:16:Word hash:24:Word
         s Heap 72 8 free:0:Ptr allocated:8:Word collections:16:Word stress:24:Word last:32:Ptr disabled:40:Word arenas:48:Word freed:56:Word nanoseconds:64:Word
         s Frame 96 8 prev:0:Ptr meta:8:Ptr line:16:Word serial:24:Word self:32:Value cref:40:Value blk:48:Value nvalues:56:Word mid:64:Word svar:72:Value lastline:80:Value defined:88:Value
-        s Task 136 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value mid:96:Word missing:104:Word found:112:Value refine:120:Value ractor:128:Word
+        s Task 128 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value missing:96:Word found:104:Value refine:112:Value ractor:120:Word
         s MarkStack 24 8 ptr:0:Ptr len:8:Word capa:16:Word
         s RMethod 120 8 basic:0:RBasic recv:16:Value klass:24:Value owner:32:Value entry:40:MEntry
         s IvTab 24 8 rows:0:Ptr len:8:Word cap:16:Word

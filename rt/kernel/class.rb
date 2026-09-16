@@ -30,7 +30,11 @@ Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Wo
 # program started.
 Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word, from: Value, core: Word
 Machine.struct :CEntry, id: Word, value: Value, file: Ptr, file_len: Word, line: Word, private: Word, deprecated: Word, owner: Value, concealed: Word
-Machine.sig :method, [Value, Word, Ptr, Value, Value] => Value
+# A compiled method takes `(recv, argc, argv, entry, blk, found)`: its
+# own entry, whose name and cref its frame records, and the chain node
+# the lookup found it on. A builtin takes `(recv, argc, argv, cref, blk)`.
+Machine.sig :method, [Value, Word, Ptr, Ptr, Value, Value] => Value
+Machine.sig :builtin, [Value, Word, Ptr, Value, Value] => Value
 # Method kinds beyond a compiled def and a builtin: accessors keep the
 # ivar's id in `fn`.
 KIND_ATTR_READER = 3

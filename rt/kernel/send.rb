@@ -480,11 +480,7 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
       return zr_wrong_arity_in(argc, arity, e, recv)
     end
     Task.set_kw(zr_task(), kw)
-    Task.set_mid(zr_task(), MEntry.mid(e))
-    if MEntry.from(e) != QNIL
-      Task.set_found(zr_task(), MEntry.from(e))
-    end
-    return Machine.call(:method, MEntry.fn(e), recv, argc, argv, MEntry.cref(e), blk)
+    return Machine.call(:method, MEntry.fn(e), recv, argc, argv, e, blk, zr_entry_found(e))
   end
   # An accessor has no frame, so its arity error is the caller's.
   if MEntry.kind(e) == KIND_ATTR_READER
@@ -501,7 +497,7 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
   end
   if MEntry.kind(e) == KIND_FRAMELESS
     Task.set_kw(zr_task(), kw)
-    return Machine.call(:method, MEntry.fn(e), recv, argc, argv, Machine.value(QNIL), blk)
+    return Machine.call(:builtin, MEntry.fn(e), recv, argc, argv, Machine.value(QNIL), blk)
   end
   if MEntry.kind(e) == KIND_BMETHOD
     Task.set_kw(zr_task(), kw)
@@ -538,7 +534,7 @@ machine def zr_invoke(e, recv, argc, argv, blk, kw)
   if arity >= 0 && argc != arity
     r = zr_wrong_arity(argc, arity)
   else
-    r = Machine.call(:method, MEntry.fn(e), recv, argc, argv, Machine.value(QNIL), blk)
+    r = Machine.call(:builtin, MEntry.fn(e), recv, argc, argv, Machine.value(QNIL), blk)
   end
   Task.set_kw(t, 0)
   Task.set_top(t, Frame.prev(rec))
@@ -567,6 +563,15 @@ machine def zr_wrong_arity_in(given, expected, e, recv)
   r = zr_wrong_arity(given, expected)
   Task.set_top(t, Frame.prev(rec))
   r
+end
+
+# The chain node a method's frame records as where it was defined: the
+# one an alias or a visibility copy came from, else the one the lookup
+# just found it on.
+sig [Ptr] => Value
+machine def zr_entry_found(e)
+  from = MEntry.from(e)
+  from != QNIL ? from : Task.found(zr_task())
 end
 
 # The kernel's own sends, which have no site and so no cell. Compiled

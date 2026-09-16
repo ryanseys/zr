@@ -80,7 +80,7 @@ machine def zr_call_cache_fill(cc, klass, e, mode)
   CallCache.set_klass(cc, klass)
   CallCache.set_stamp(cc, Machine.load64(Machine.static(:mcache_stamp, 8), 0))
   CallCache.set_entry(cc, e)
-  CallCache.set_found(cc, Task.found(t))
+  CallCache.set_found(cc, zr_entry_found(e))
 end
 
 # A send through the site's cell. A hit calls a compiled def straight
@@ -93,18 +93,14 @@ machine def zr_send_cached(cc, recv, mid, argc, argv, blk, mode)
   if e == 0
     return zr_dispatch(cc, recv, mid, argc, argv, mode, blk)
   end
-  t = Machine.ptr(Machine.load64(Machine.static(:current_task, 8), 0))
-  Task.set_found(t, CallCache.found(cc))
   kind = MEntry.kind(e)
   if kind == KIND_DEF && (MEntry.arity(e) < 0 || MEntry.arity(e) == argc)
     # `zr_invoke`'s steps, but for the keywords flag: a dispatch takes
     # it and hands it straight back, so it stays as it is.
-    Task.set_mid(t, MEntry.mid(e))
-    if MEntry.from(e) != QNIL
-      Task.set_found(t, MEntry.from(e))
-    end
-    return Machine.call(:method, MEntry.fn(e), recv, argc, argv, MEntry.cref(e), blk)
+    return Machine.call(:method, MEntry.fn(e), recv, argc, argv, e, blk, CallCache.found(cc))
   end
+  t = Machine.ptr(Machine.load64(Machine.static(:current_task, 8), 0))
+  Task.set_found(t, CallCache.found(cc))
   if kind == KIND_ATTR_READER && argc == 0
     Task.set_kw(t, 0)
     return zr_ivar_get_cached(recv, Machine.word(MEntry.fn(e)), CallCache.ivar(cc))

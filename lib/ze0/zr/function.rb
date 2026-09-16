@@ -43,7 +43,7 @@ module Ze0
       include Tracing
 
       KINDS = { main: "KIND_MAIN", top: "KIND_TOP", def: "KIND_DEF", class: "KIND_CLASS", module: "KIND_MODULE", sclass: "KIND_SCLASS", block: "KIND_BLOCK", eval: "KIND_EVAL" }.freeze
-      ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64], eval: %w[i64 i64 i64 i64] }.freeze
+      ABI = { main: [], top: [], def: %w[i64 i64 i64 i64 i64 i64], class: %w[i64 i64], module: %w[i64 i64], sclass: %w[i64 i64], block: %w[i64 i64 i64 i64], eval: %w[i64 i64 i64 i64] }.freeze
 
       attr_reader :meta, :outer, :kind
 
@@ -177,6 +177,15 @@ module Ze0
         @record = @f.slot(@frame.size + (8 * @nvalues))
         @rec = @f.stack_addr(@record)
         @task_addr = @f.fetch("i64", static("current_task"), 0)
+        # A method is called with its own entry and the chain node it
+        # was found on (`Machine.sig :method`): its name and cref come
+        # off the entry, and both go into the record before the stack
+        # check so that nothing holds them across it.
+        if @kind == :def
+          @f.store(entry_field("mid"), @rec, off(@frame, "mid"))
+          @f.store(@f.args[5], @rec, off(@frame, "defined"))
+          cref = entry_field("cref")
+        end
         stack_check
         @prev = @f.fetch("i64", @task_addr, off(@task, "top"))
         @f.store(@prev, @rec, off(@frame, "prev"))
@@ -193,8 +202,10 @@ module Ze0
         serial = @f.iadd(@f.fetch("i64", @task_addr, off(@task, "serial")), imm(1))
         @f.store(serial, @task_addr, off(@task, "serial"))
         @f.store(serial, @rec, off(@frame, "serial"))
-        @f.store(@kind == :def ? @f.fetch("i64", @task_addr, off(@task, "mid")) : imm(0), @rec, off(@frame, "mid"))
-        @f.store(@kind == :def ? @f.fetch("i64", @task_addr, off(@task, "found")) : imm(@l.const("QNIL")), @rec, off(@frame, "defined"))
+        unless @kind == :def
+          @f.store(imm(0), @rec, off(@frame, "mid"))
+          @f.store(imm(@l.const("QNIL")), @rec, off(@frame, "defined"))
+        end
         @proc = @f.args[0] if @kind == :block
         @qnil = imm(@l.const("QNIL"))
         @self = case @kind
@@ -204,7 +215,7 @@ module Ze0
                 end
         @cref = case @kind
                 when :main, :top then global("G_TOP_CREF")
-                when :def then @f.args[3]
+                when :def then cref
                 when :block then proc_field("cref")
                 else @f.args[1]
                 end
@@ -458,6 +469,11 @@ module Ze0
 
       def proc_field(name)
         @f.fetch("i64", @proc, off(@proc_layout, name))
+      end
+
+      # In a method: a field of the entry it was called through.
+      def entry_field(name)
+        @f.fetch("i64", @f.args[3], off(@l.layout("MEntry"), name))
       end
 
       # In a block function: whether this Proc is a lambda.
