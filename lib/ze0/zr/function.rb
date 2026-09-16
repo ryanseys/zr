@@ -390,6 +390,55 @@ module Ze0
         @f.symbol_value(@f.symbol(@l.cache_cell(prefix, @l.layout(layout).size * count)))
       end
 
+      # `@name` and `@name = v` at their sites: the row of self's table
+      # the site's cell `ic` guesses, answered in a block of its own when
+      # the guess holds `id`, else the branch to `slow`, the kernel's
+      # read or write, which sets the guess (rt/kernel/cache.rb). The
+      # inline path takes a plain object, class or module read outside
+      # a ractor (a ractor's isolation rule is the kernel's), not frozen
+      # when `writing`.
+      def guessed_ivar_row(ic, id, slow, writing:)
+        table = @l.layout("IvTab")
+        entry = @l.layout("IvEntry")
+        plain = @f.label
+        indexed = @f.label
+        hit = @f.label
+        pointer = @f.band(@f.icmp("eq", @f.band(@self, imm(7)), imm(0)), @f.icmp("ugt", @self, @qnil))
+        outside = @f.icmp("eq", @f.fetch("i64", @task_addr, off(@task, "ractor")), imm(0))
+        @f.brif(@f.band(pointer, outside), plain, slow)
+        switch(plain)
+        t = own_ivar_table(slow, writing)
+        i = @f.fetch("i64", ic, off(@l.layout("IvarCache"), "index"))
+        @f.brif(@f.icmp("ult", i, @f.fetch("i64", t, off(table, "len"))), indexed, slow)
+        switch(indexed)
+        row = @f.iadd(@f.fetch("i64", t, off(table, "rows")), @f.ishl(i, imm(Math.log2(entry.size).to_i)))
+        @f.brif(@f.icmp("eq", @f.fetch("i64", row, off(entry, "id")), imm(id)), hit, slow)
+        switch(hit)
+        row
+      end
+
+      # The ivar table self keeps as its own: in its cell for a plain
+      # object, in its extension for a class or module; `slow` for any
+      # other kind, or a frozen one when `writing`.
+      def own_ivar_table(slow, writing)
+        object = @f.label
+        other = @f.label
+        classy = @f.label
+        found, (t,) = @f.block(["i64"])
+        mask = @l.const("T_MASK") | (writing ? @l.const("FL_FREEZE") : 0)
+        kind = @f.band(@f.fetch("i64", @self, off(@l.layout("RBasic"), "flags")), imm(mask))
+        @f.brif(@f.icmp("eq", kind, imm(@l.const("T_OBJECT"))), object, other)
+        switch(object)
+        @f.jump(found, [@f.iadd(@self, imm(off(@l.layout("RObject"), "iv")))])
+        switch(other)
+        @f.brif(@f.bor(@f.icmp("eq", kind, imm(@l.const("T_CLASS"))), @f.icmp("eq", kind, imm(@l.const("T_MODULE")))), classy, slow)
+        switch(classy)
+        ext = @f.fetch("i64", @self, off(@l.layout("RClass"), "ext"))
+        @f.jump(found, [@f.iadd(ext, imm(off(@l.layout("ClassExt"), "iv")))])
+        switch(found)
+        t
+      end
+
       # The Env `depth` scopes up: this scope's own, or the Proc's chain,
       # walked inline, a parent a load.
       def env_at(depth)

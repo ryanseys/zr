@@ -154,10 +154,22 @@ module Ze0
           end
         end
 
-        # A frozen receiver refuses the write at this line.
+        # `@name = v`: a store into the guessed row inline; else the
+        # kernel's write, which a frozen receiver refuses at this line.
         def ivar_write(node, v)
           at_node(node)
-          checked(kernel("zr_ivar_set_cached", @self, imm(sym_id(ivar_name(node.name))), v, cache("iv", "IvarCache")))
+          id = sym_id(ivar_name(node.name))
+          ic = cache("iv", "IvarCache")
+          slow = @f.label
+          done = @f.label
+          row = guessed_ivar_row(ic, id, slow, writing: true)
+          @f.store(v, row, off(@l.layout("IvEntry"), "value"))
+          @f.jump(done)
+          switch(slow)
+          checked(kernel("zr_ivar_set_cached", @self, imm(id), v, ic))
+          @f.jump(done)
+          switch(done)
+          v
         end
 
         def assign_target(target, v, prepared)

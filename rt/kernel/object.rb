@@ -1,9 +1,15 @@
-# Objects: a class and an ivar table (id, value rows) outside the
-# arena; a class or module keeps the same table in its extension.
-# Reflection, identity, inspect and p live here too.
+# Objects: a class and an ivar table (id, value rows); a class or
+# module keeps the same table in its extension. An object's first rows
+# live in its cell after the table, and rows past them are malloc'd:
+# a release or a copy frees only those. A site reads and writes the
+# row its cell guesses inline (the lowering's `guessed_ivar_row`), and
+# comes here for the rest. Reflection, identity, inspect and p live
+# here too.
 Machine.struct :IvTab, rows: Ptr, len: Word, cap: Word
 Machine.struct :IvEntry, id: Word, value: Value
 Machine.struct :RObject, basic: RBasic, iv: IvTab
+# (CELL - RObject.size) / IvEntry.size
+IV_EMBEDDED = 5
 
 sig [Ptr] => Void
 machine def zr_ivtab_init(t)
@@ -57,16 +63,30 @@ end
 
 sig [Ptr] => Void
 machine def zr_release_ivtab(t)
-  if IvTab.rows(t) != 0
+  if IvTab.rows(t) != 0 && !zr_ivtab_embedded_p(t)
     free(IvTab.rows(t))
   end
+end
+
+sig [Ptr] => Bool
+machine def zr_ivtab_embedded_p(t)
+  IvTab.rows(t) == t + IvTab.size
 end
 
 sig [Value] => Value
 machine def zr_obj_alloc(klass)
   o = zr_alloc(T_OBJECT, klass)
-  zr_ivtab_init(RObject.iv(o))
+  zr_obj_ivtab_init(o)
   o
+end
+
+# An object's table over the rows in its own cell, empty.
+sig [Value] => Void
+machine def zr_obj_ivtab_init(o)
+  t = RObject.iv(o)
+  IvTab.set_rows(t, t + IvTab.size)
+  IvTab.set_len(t, 0)
+  IvTab.set_cap(t, IV_EMBEDDED)
 end
 
 # The row for `id` in the table `t`, or 0.
@@ -255,7 +275,9 @@ machine def zr_ivtab_set(t, id, v)
       rows = zr_xmalloc(cap * IvEntry.size)
       if IvTab.rows(t) != 0
         zr_memcpy(rows, IvTab.rows(t), n * IvEntry.size)
-        free(IvTab.rows(t))
+        if !zr_ivtab_embedded_p(t)
+          free(IvTab.rows(t))
+        end
       end
       IvTab.set_rows(t, rows)
       IvTab.set_cap(t, cap)

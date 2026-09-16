@@ -51,7 +51,7 @@ module Ze0
           when Hir::RegexpLit
             checked(kernel("zr_regexp_literal", imm(@l.literal_index), @f.symbol_value(@f.symbol(@l.literal(node.source))), imm(node.source.bytesize), imm(node.options),
                            imm(node.pinned ? ENCODING_INDEX.fetch(node.pinned) : -1)))
-          when Hir::IvarRead then checked(kernel("zr_ivar_get_cached", @self, imm(sym_id(ivar_name(node.name))), cache("iv", "IvarCache")))
+          when Hir::IvarRead then ivar_read(node)
           when Hir::FrozenString then checked(string_literal(node.value, "zr_str_literal_freeze"))
           when Hir::GvarRead then gvar_read(node)
           when Hir::BackRef then back_ref(node)
@@ -118,6 +118,22 @@ module Ze0
 
         # `{k => v, **h}`: pairs stored one by one into a Hash kept in a
         # record slot when a double splat is among them.
+        # `@name`: the guessed row's value inline, nil for a row unset;
+        # else the kernel's read.
+        def ivar_read(node)
+          id = sym_id(ivar_name(node.name))
+          ic = cache("iv", "IvarCache")
+          slow = @f.label
+          merge, (v,) = @f.block(["i64"])
+          row = guessed_ivar_row(ic, id, slow, writing: false)
+          found = @f.fetch("i64", row, off(@l.layout("IvEntry"), "value"))
+          @f.jump(merge, [@f.csel(@f.icmp("eq", found, qundef), @qnil, found)])
+          switch(slow)
+          @f.jump(merge, [checked(kernel("zr_ivar_get_cached", @self, imm(id), ic))])
+          switch(merge)
+          v
+        end
+
         def hash_literal(node)
           return staged(node.pairs) { |argv| checked(kernel("zr_hash_of", imm(node.pairs.size / 2), argv)) } unless node.pairs.any?(Hir::HashSplat)
 

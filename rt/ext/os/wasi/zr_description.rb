@@ -116,6 +116,7 @@ module Ze0
         d zr_const_get_at_cached Value cc:Ptr scope:Value id:Word
         d zr_ivar_get_cached Value obj:Value id:Word ic:Ptr
         d zr_ivar_set_cached Value obj:Value id:Word v:Value ic:Ptr
+        d zr_ivar_row_guessed Ptr obj:Value id:Word ic:Ptr
         d zr_ivtab_guess Ptr t:Ptr id:Word ic:Ptr
         d zr_class_alloc Value type:Word sup:Value klass:Value
         d zr_check_inheritable Value sup:Value
@@ -927,7 +928,9 @@ module Ze0
         d zr_ivtab_for_write Ptr v:Value
         d zr_mark_ivtab Void t:Ptr
         d zr_release_ivtab Void t:Ptr
+        d zr_ivtab_embedded_p Bool t:Ptr
         d zr_obj_alloc Value klass:Value
+        d zr_obj_ivtab_init Void o:Value
         d zr_ivtab_row Ptr t:Ptr id:Word
         d zr_ivtab_get Value t:Ptr id:Word
         d zr_ractor_guard Value obj:Value
@@ -1840,6 +1843,7 @@ module Ze0
         c PARAM_KEYREST 5
         c PARAM_BLOCK 6
         c PARAM_NOKEY 7
+        c IV_EMBEDDED 5
         c G_RANGE 12
         c G_RANGE_LITERALS 51
         c ALLOC_OBJECT 1

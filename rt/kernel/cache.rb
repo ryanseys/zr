@@ -247,6 +247,11 @@ end
 # answer.
 sig [Value, Word, Ptr] => Value
 machine def zr_ivar_get_cached(obj, id, ic)
+  e = zr_ivar_row_guessed(obj, id, ic)
+  if e != 0
+    v = IvEntry.value(e)
+    return v == QUNDEF ? Machine.value(QNIL) : v
+  end
   g = zr_ractor_guard(obj)
   if g == QUNDEF
     return g
@@ -266,6 +271,11 @@ end
 # answer.
 sig [Value, Word, Value, Ptr] => Value
 machine def zr_ivar_set_cached(obj, id, v, ic)
+  e = zr_ivar_row_guessed(obj, id, ic)
+  if e != 0 && (RBasic.flags(obj) & FL_FREEZE) == 0
+    IvEntry.set_value(e, v)
+    return v
+  end
   g = zr_ractor_guard(obj)
   if g == QUNDEF
     return g
@@ -283,6 +293,32 @@ machine def zr_ivar_set_cached(obj, id, v, ic)
     IvEntry.set_value(e, v)
   end
   v
+end
+
+# The row of an object's, class's or module's own table the cell
+# guesses, when it holds `id` and the read is outside a ractor (a
+# ractor's isolation rule is `zr_ractor_guard`'s); else 0. What a site
+# tests inline before it calls here (the lowering's
+# `guessed_ivar_row`); an accessor's entry comes straight here.
+sig [Value, Word, Ptr] => Ptr
+machine def zr_ivar_row_guessed(obj, id, ic)
+  if zr_special_p(obj) || Task.ractor(zr_task()) != 0
+    return 0
+  end
+  kind = RBasic.flags(obj) & T_MASK
+  if kind == T_OBJECT
+    t = RObject.iv(obj)
+  elsif kind == T_CLASS || kind == T_MODULE
+    t = ClassExt.iv(RClass.ext(obj))
+  else
+    return 0
+  end
+  i = IvarCache.index(ic)
+  if i >= IvTab.len(t)
+    return 0
+  end
+  e = IvTab.rows(t) + (i * IvEntry.size)
+  IvEntry.id(e) == id ? e : 0
 end
 
 # The row for `id` in the table `t`, or 0: the guessed one when it holds

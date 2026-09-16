@@ -8,7 +8,7 @@
 # stay with the original.
 sig [Ptr, Ptr] => Void
 machine def zr_ivtab_copy(to, from)
-  zr_ivtab_init(to)
+  IvTab.set_len(to, 0)
   i = 0
   while i < IvTab.len(from)
     e = IvTab.rows(from) + (i * IvEntry.size)
@@ -27,6 +27,8 @@ sig [Value, Value] => Value
 machine def zr_copy_payload(copy, orig)
   t = zr_type(orig)
   if t == T_OBJECT
+    # The cell's bytes came over, rows pointer and all.
+    zr_obj_ivtab_init(copy)
     zr_ivtab_copy(RObject.iv(copy), RObject.iv(orig))
   elsif t == T_STRING
     buf = zr_xmalloc(1)
