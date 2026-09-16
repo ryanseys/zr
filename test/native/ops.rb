@@ -59,6 +59,13 @@ module Ze0
           f.store(v, p, 8)
           f.store(f.iconst("i64", 8), p, 16)
         end
+        # The same past the pair's reach, on a slot so far up a frame that
+        # the second store's offset needs sp paged through x17.
+        ops["store.pair_far"] = build("store_pair_far", %w[i64], nil) do |f, v|
+          p = f.stack_addr(f.slot(40_000))
+          f.store(v, p, 32_744)
+          f.store(f.iconst("i64", 8), p, 32_752)
+        end
         # A load whose address is a constant past a base: the constant
         # could fold into the load's own offset.
         ops["load.iadd_base"] = build("load_iadd_base", %w[i64], "i64") do |f, p|

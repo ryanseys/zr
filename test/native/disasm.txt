@@ -136,6 +136,21 @@ block0:
   ldp x29, x30, [sp], #16
   ret
 
+# store.pair_far
+  stp x29, x30, [sp, #-16]!
+  mov x29, sp
+  sub sp, sp, #9, lsl #12
+  sub sp, sp, #0xc50
+  mov x8, x0
+block0:
+  movz x12, #8
+  str x8, [sp, #0x7ff8]
+  add x17, sp, #8, lsl #12
+  str x12, [x17]
+  mov sp, x29
+  ldp x29, x30, [sp], #16
+  ret
+
 # load.iadd_base
   stp x29, x30, [sp, #-16]!
   mov x29, sp

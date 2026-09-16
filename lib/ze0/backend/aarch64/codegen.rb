@@ -876,7 +876,9 @@ module Ze0
             @asm.stp a, b, [base, off]
           else
             @asm.str a, [base, off]
-            @asm.str b, reach(base, off + 8, 8)
+            # sp is no base for `reach`: the register-form `add` reads
+            # register 31 as xzr. `address` pages sp through x17.
+            @asm.str b, base.equal?(SP) ? address(off + 8, 8) : reach(base, off + 8, 8)
           end
         end
 
