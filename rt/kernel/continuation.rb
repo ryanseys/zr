@@ -62,9 +62,15 @@ machine def zr_cont_roots(roots)
     zr_ary_push(roots, zr_block_proc(Frame.blk(rec)))
     zr_ary_push(roots, Frame.svars(rec))
     zr_ary_push(roots, Frame.defined(rec))
+    # A record's Env image is the stack's, not a cell: its slots are
+    # the record's own, pushed here as they come.
     i = 0
     while i < Frame.nvalues(rec)
-      zr_ary_push(roots, Machine.value(Machine.load64(rec + Frame.size + (i * 8), 0)))
+      v = Machine.value(Machine.load64(rec + Frame.size + (i * 8), 0))
+      if !zr_special_p(v) && (RBasic.flags(v) & FL_STACK) != 0
+        v = Machine.value(QNIL)
+      end
+      zr_ary_push(roots, v)
       i += 1
     end
     rec = Frame.prev(rec)

@@ -16,7 +16,16 @@
 # no cell ever points into a stack. A frame gives its serial when it
 # makes a block, so a descriptor's frame is told from a later frame at
 # the same address as a Proc's is.
-Machine.struct :REnv, basic: RBasic, parent: Value, slots: Ptr, nslots: Word, names: Ptr
+#
+# A method's or a block's Env starts in its record the same way: an
+# REnv image flagged FL_STACK whose `slots` are the record's own local
+# slots, which the frame roots. The first keeper of the frame's scope
+# (`zr_env_escape`: a Proc made from one of its blocks, a Binding, an
+# eval) copies the Env to a cell, its parents first, points the image's
+# `slots` at the copy's and keeps the cell in `cell` and in the frame's
+# env slot, so the frame and every block of it read and write the
+# cell's slots from then on, and a second keeper gets the same cell.
+Machine.struct :REnv, basic: RBasic, parent: Value, slots: Ptr, nslots: Word, names: Ptr, cell: Value, home: Ptr
 Machine.struct :RProc, basic: RBasic, fn: Ptr, meta: Ptr, env: Value, self: Value, cref: Value, blk: Value, home: Ptr, serial: Word, site: Word, ret_home: Ptr, ret_serial: Word, spread: Word, lambda: Word, passed: Word
 Machine.sig :block, [Value, Word, Ptr, Value] => Value
 T_ENV = 26
@@ -47,6 +56,29 @@ machine def zr_env_new(parent, n, names)
     i += 1
   end
   REnv.set_slots(e, slots)
+  REnv.set_cell(e, Machine.value(QNIL))
+  REnv.set_home(e, 0)
+  e
+end
+
+# The Env `env` as a cell: itself when it is one; a record's image
+# becomes a cell once, its parents first, and its frame reads and
+# writes the cell's slots from then on.
+sig [Value] => Value
+machine def zr_env_escape(env)
+  if env == QNIL || (RBasic.flags(env) & FL_STACK) == 0
+    return env
+  end
+  if REnv.cell(env) != QNIL
+    return REnv.cell(env)
+  end
+  parent = zr_env_escape(REnv.parent(env))
+  n = REnv.nslots(env)
+  e = zr_env_new(parent, n, REnv.names(env))
+  zr_memcpy(REnv.slots(e), REnv.slots(env), n * 8)
+  REnv.set_slots(env, REnv.slots(e))
+  REnv.set_cell(env, e)
+  Machine.store64(REnv.home(env) + Frame.size, 0, Machine.word(e))
   e
 end
 
@@ -183,9 +215,11 @@ machine def zr_block_proc(b)
     return b
   end
   blk = zr_block_proc(RProc.blk(b))
+  env = zr_env_escape(RProc.env(b))
   p = zr_alloc(T_PROC, zr_global(G_PROC))
   zr_memcpy(Machine.ptr(p) + RBasic.size, Machine.ptr(b) + RBasic.size, RProc.size - RBasic.size)
   RProc.set_blk(p, blk)
+  RProc.set_env(p, env)
   p
 end
 

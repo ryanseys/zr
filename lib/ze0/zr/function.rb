@@ -175,7 +175,10 @@ module Ze0
       end
 
       def enter
-        @base = @has_env ? 1 : @locals.size
+        @base = if stack_env? then 1 + @locals.size
+                elsif @has_env then 1
+                else @locals.size
+                end
         @nvalues = @base + [Scope.staging(@body), *default_expressions.map { |e| Scope.staging(e) }].max + prologue_slots
         @sp = @base
         @record = @f.slot(@frame.size + (8 * @nvalues))
@@ -249,14 +252,34 @@ module Ze0
         @f.store(@rec, @task_addr, off(@task, "top"))
         return unless @has_env
 
-        if @kind == :eval
-          @env = @f.args[2]
-        else
-          parent = @kind == :block ? proc_field("env") : @qnil
-          @env = kernel("zr_env_new", parent, imm(@locals.size), @f.symbol_value(@f.symbol(locals_table)))
-        end
+        parent = @kind == :block ? proc_field("env") : @qnil
+        @env = if @kind == :eval then @f.args[2]
+               elsif stack_env? then env_image(parent)
+               else kernel("zr_env_new", parent, imm(@locals.size), @f.symbol_value(@f.symbol(locals_table)))
+               end
         @f.store(@env, @rec, value_offset(0))
         kernel("zr_toplevel_binding", @env, @self, @cref, @f.symbol_value(@f.symbol(@meta))) if @kind == :main && !@l.internal?
+      end
+
+      # A method's or a block's Env starts in its record: an REnv image
+      # whose slots are the record's own local slots (1 up to the count),
+      # flagged a stack's and marked already, so the collector reads
+      # nothing through it. The first keeper of the scope moves it to a
+      # cell (`zr_env_escape`, rt/kernel/proc.rb) and points the image's
+      # `slots` at the cell's, which every read and write loads first.
+      def stack_env? = @has_env && %i[def block].include?(@kind)
+
+      def env_image(parent)
+        env = @f.stack_addr(@f.slot(@env_layout.size))
+        basic = @l.layout("RBasic")
+        @f.store(imm(%w[T_ENV FL_ALLOCATED FL_MARK FL_STACK].sum { |c| @l.const(c) }), env, off(basic, "flags"))
+        @f.store(@qnil, env, off(basic, "klass"))
+        fields = {
+          "parent" => parent, "slots" => @f.iadd(@rec, imm(value_offset(1))), "nslots" => imm(@locals.size),
+          "names" => @f.symbol_value(@f.symbol(locals_table)), "cell" => @qnil, "home" => @rec
+        }
+        fields.each { |name, v| @f.store(v, env, off(@env_layout, name)) }
+        env
       end
 
       # SystemStackError when the record would sit below the task's stack

@@ -1043,6 +1043,7 @@ module Ze0
         d zr_pm_parse_success Value source:Value options:Value
         d zr_pm_version Value
         d zr_env_new Value parent:Value n:Word names:Ptr
+        d zr_env_escape Value env:Value
         d zr_env_up Value env:Value depth:Word
         d zr_env_get Value env:Value i:Word
         d zr_env_set Value env:Value i:Word v:Value
@@ -2040,7 +2041,7 @@ module Ze0
         s RObject 40 8 basic:0:RBasic iv:16:IvTab
         s AllocTrace 32 8 rows:0:Ptr capa:8:Word used:16:Word on:24:Word
         s AllocRow 48 8 cell:0:Word file:8:Ptr file_len:16:Word line:24:Word meta:32:Ptr generation:40:Word
-        s REnv 48 8 basic:0:RBasic parent:16:Value slots:24:Ptr nslots:32:Word names:40:Ptr
+        s REnv 64 8 basic:0:RBasic parent:16:Value slots:24:Ptr nslots:32:Word names:40:Ptr cell:48:Value home:56:Ptr
         s RProc 128 8 basic:0:RBasic fn:16:Ptr meta:24:Ptr env:32:Value self:40:Value cref:48:Value blk:56:Value home:64:Ptr serial:72:Word site:80:Word ret_home:88:Ptr ret_serial:96:Word spread:104:Word lambda:112:Word passed:120:Word
         s RRegexp 72 8 basic:0:RBasic source:16:Value options:24:Word reg:32:Ptr names:40:Value text:48:Value alt:56:Ptr limit:64:Word
         s Sort 32 8 base:0:Ptr stride:8:Word blk:16:Value failed:24:Word

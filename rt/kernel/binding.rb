@@ -67,15 +67,15 @@ machine def zr_local_names(table)
   a
 end
 
-# The Env a frame keeps its locals in, or nil where it keeps them in the
-# record alone. A scope that names an eval or a binding always has one,
-# which is what `Scope.opens_locals?` is for.
+# The Env a frame keeps its locals in, as a cell, or nil where it keeps
+# them in the record alone. A scope that names an eval or a binding
+# always has one, which is what `Scope.opens_locals?` is for.
 sig [Ptr] => Value
 machine def zr_frame_env(rec)
   if FrameMeta.env(Frame.meta(rec)) == 0
     return Machine.value(QNIL)
   end
-  Machine.value(Machine.load64(rec + Frame.size, 0))
+  zr_env_escape(Machine.value(Machine.load64(rec + Frame.size, 0)))
 end
 
 sig [] => Value
