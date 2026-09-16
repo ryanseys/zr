@@ -230,9 +230,12 @@ module Ze0
         @f.store(@self, @rec, off(@frame, "self"))
         @f.store(@cref, @rec, off(@frame, "cref"))
         @f.store(@blk, @rec, off(@frame, "blk"))
+        # A block's frame keeps the block its call was given in `defined`
+        # (a def's keeps the node it was found on): a `define_method`
+        # body finds the block a `break` leaves through there.
         unless @kind == :def
           @f.store(imm(0), @rec, off(@frame, "entry"))
-          @f.store(@qnil, @rec, off(@frame, "defined"))
+          @f.store(@kind == :block ? @f.args[3] : @qnil, @rec, off(@frame, "defined"))
         end
         # The serial is given when something first needs one
         # (`zr_frame_serial`); `$~` and `$_` are made when first written.

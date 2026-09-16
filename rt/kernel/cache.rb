@@ -104,6 +104,9 @@ machine def zr_entry_fn(e)
   if kind == KIND_ATTR_WRITER
     return Machine.addr(:zr_attr_writer_fn)
   end
+  if kind == KIND_BMETHOD
+    return Machine.addr(:zr_bmethod_fn)
+  end
   Machine.addr(:zr_invoke_fn)
 end
 

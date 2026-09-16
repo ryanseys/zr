@@ -12,7 +12,7 @@
 # so the collector reads nothing through it: what it names, its frame
 # roots. A kernel def that keeps a block past the call -- as a `&b`
 # parameter, in a Binding, a Fiber, a Hash's default, an at_exit hook,
-# a define_method's cref -- takes it through `zr_block_proc` first, so
+# a define_method's body -- takes it through `zr_block_proc` first, so
 # no cell ever points into a stack. A frame gives its serial when it
 # makes a block, so a descriptor's frame is told from a later frame at
 # the same address as a Proc's is.
@@ -599,8 +599,8 @@ machine def zr_block_call_live(p)
   while rec != 0 && rec != home
     if Frame.prev(rec) == home
       # A `define_method` method was given its block by the call, not by
-      # where its body was written.
-      if zr_bmethod_entry(rec) != 0 && zr_same_block(RCref.blk(Frame.cref(rec)), p)
+      # where its body was written: its frame keeps that one in `defined`.
+      if zr_bmethod_entry(rec) != 0 && zr_same_block(Frame.defined(rec), p)
         return true
       end
       return zr_same_block(Frame.blk(rec), p)

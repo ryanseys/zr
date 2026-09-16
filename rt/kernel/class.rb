@@ -28,8 +28,11 @@ Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Wo
 # continues from as CRuby's alias and zsuper entries do; nil for a
 # definition. `core` is 1 for a row the core library wrote before the
 # program started.
-# `ivar` is the row guess an accessor entry reads and writes through
-# (cache.rb).
+# `ivar` is the word a kind keeps beside its function: the row guess an
+# accessor reads and writes through (cache.rb), or the cref a
+# `define_method` body runs under, made at the first call (eval.rb,
+# `zr_bmethod_cref`). An entry is 88 bytes: a Method's cell embeds one
+# after three Values, and a 128-byte cell holds no more.
 Machine.struct :MEntry, mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value, vis: Word, orig: Word, from: Value, core: Word, ivar: IvarCache
 Machine.struct :CEntry, id: Word, value: Value, file: Ptr, file_len: Word, line: Word, private: Word, deprecated: Word, owner: Value, concealed: Word
 # A compiled method takes `(recv, argc, argv, entry, blk, found)`: its
@@ -1718,18 +1721,27 @@ end
 # A method table's crefs, and the Procs of the methods a block made.
 sig [Ptr] => Void
 machine def zr_mark_mtab(ext)
-  n = ClassExt.mlen(ext)
+  zr_mark_entries(ClassExt.mtab(ext), ClassExt.mlen(ext))
+  zr_mark_entries(ClassExt.saved(ext), ClassExt.slen(ext))
+end
+
+# What `n` method entries from `tab` hold: a cref or a body, the node
+# a copy came from, and a define_method body's own cref.
+sig [Ptr, Word] => Void
+machine def zr_mark_entries(tab, n)
   i = 0
   while i < n
-    zr_mark(MEntry.cref(ClassExt.mtab(ext) + (i * MEntry.size)))
-    zr_mark(MEntry.from(ClassExt.mtab(ext) + (i * MEntry.size)))
+    zr_mark_entry(tab + (i * MEntry.size))
     i += 1
   end
-  i = 0
-  while i < ClassExt.slen(ext)
-    zr_mark(MEntry.cref(ClassExt.saved(ext) + (i * MEntry.size)))
-    zr_mark(MEntry.from(ClassExt.saved(ext) + (i * MEntry.size)))
-    i += 1
+end
+
+sig [Ptr] => Void
+machine def zr_mark_entry(e)
+  zr_mark(MEntry.cref(e))
+  zr_mark(MEntry.from(e))
+  if MEntry.kind(e) == KIND_BMETHOD
+    zr_mark(zr_bmethod_cref_kept(e))
   end
 end
 
@@ -1777,7 +1789,6 @@ machine def zr_mark_children(v)
   elsif t == T_CREF
     zr_mark(RCref.klass(v))
     zr_mark(RCref.lazy(v))
-    zr_mark(RCref.blk(v))
     zr_mark(RCref.next(v))
   elsif t == T_ENV
     zr_mark_env(v)

@@ -213,6 +213,8 @@ module Ze0
         d zr_class_inherits Bool klass:Value target:Value
         d zr_is_a Bool v:Value klass:Value
         d zr_mark_mtab Void ext:Ptr
+        d zr_mark_entries Void tab:Ptr n:Word
+        d zr_mark_entry Void e:Ptr
         d zr_mark_children Void v:Value
         d zr_release Void v:Value
         d zr_mod_set_temporary_name Value mod:Value name:Value
@@ -446,6 +448,9 @@ module Ze0
         d zr_cref_in_context Value frame:Ptr mod:Value
         d zr_obj_define_singleton_method Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_bmethod_call Value e:Ptr recv:Value argc:Word argv:Ptr blk:Value
+        d zr_bmethod_fn Value recv:Value argc:Word argv:Ptr e:Ptr blk:Value found:Value
+        d zr_bmethod_cref Value e:Ptr
+        d zr_bmethod_cref_kept Value e:Ptr
         d zr_refine_body Value blk:Value holder:Value
         d zr_mark_backtrace_rows Void exc:Value
         d zr_frame_line Word rec:Ptr
@@ -1966,7 +1971,7 @@ module Ze0
         s CEntry 72 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value concealed:64:Word
         s GateRow 40 8 klass:0:Word mid:8:Word bit:16:Word fn:24:Ptr vis:32:Word
         s MCache 40 8 klass:0:Value mid:8:Word entry:16:Ptr found:24:Value stamp:32:Word
-        s RCref 80 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr lazy:64:Value blk:72:Value
+        s RCref 72 8 basic:0:RBasic klass:16:Value next:24:Value vis:32:Word modfn:40:Word eval:48:Word entry:56:Ptr lazy:64:Value
         s ContState 56 8 low:0:Word high:8:Word bytes:16:Ptr ctx:24:Ptr task:32:Ptr kroots:40:Ptr resumed:48:Word
         s Coverage 48 8 rows:0:Ptr len:8:Word capa:16:Word setup:24:Word running:32:Word last:40:Ptr
         s CovRow 40 8 file:0:Ptr file_len:8:Word counts:16:Ptr size:24:Word measured:32:Word

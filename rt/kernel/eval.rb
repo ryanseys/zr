@@ -6,7 +6,10 @@
 # class variables look through it (see RCref).
 
 # A method whose body is a block: the entry's `cref` slot holds the
-# Proc, and a call runs it under the receiver as a lambda.
+# Proc, and a call runs it under the receiver as a lambda. The call
+# allocates nothing: the body's image goes on the stack with the
+# receiver as self (`zr_bmethod_call`), under a cref the entry makes
+# once and keeps (`zr_bmethod_cref`).
 KIND_BMETHOD = 8
 
 sig [Value, Value, Value] => Value
@@ -266,7 +269,12 @@ machine def zr_obj_define_singleton_method(recv, argc, argv, cref, blk)
 end
 
 # The call of a method made by `define_method`: the block as a lambda
-# under the receiver, defining into the owner.
+# under the receiver, defining into the owner. The body's image is
+# written to the stack as a send writes a block literal (proc.rb): a
+# descriptor of this call alone, whose frame roots what it names. The
+# block the call was given goes to the body as its own block, which
+# its frame keeps in `defined` (a block's frame `blk` is the block of
+# the method the body was written in).
 sig [Ptr, Value, Word, Ptr, Value] => Value
 machine def zr_bmethod_call(e, recv, argc, argv, blk)
   body = MEntry.cref(e)
@@ -274,18 +282,51 @@ machine def zr_bmethod_call(e, recv, argc, argv, blk)
     # a Symbol's or Method's Proc works on its arguments alone
     return Machine.call(:block, RProc.fn(body), body, argc, argv, blk)
   end
-  # The block this call was given, which the body's frame cannot hold: a
-  # block's frame keeps the block of the method it was written in.
-  blk = zr_block_proc(blk)
-  cref = zr_cref_push_eval(FrameMeta.owner(MEntry.meta(e)), RProc.cref(body))
-  RCref.set_entry(cref, e)
-  RCref.set_blk(cref, blk)
-  p = zr_proc_under(body, recv, cref)
+  d = Machine.slot(RProc.size)
+  zr_memcpy(d, Machine.ptr(body), RProc.size)
+  p = Machine.value(d)
+  RBasic.set_flags(p, T_PROC | FL_ALLOCATED | FL_MARK | FL_STACK)
+  RProc.set_self(p, recv)
+  RProc.set_cref(p, zr_bmethod_cref(e))
   RProc.set_lambda(p, 1)
   RProc.set_home(p, 0)
+  if (Machine.load64(Machine.static(:trace_events, 8), 0) & (TRACE_CALL | TRACE_RETURN)) == 0
+    return Machine.call(:block, RProc.fn(p), p, argc, argv, blk)
+  end
   fired = zr_trace_bmethod(TRACE_CALL, e, recv, Machine.value(QNIL))
   return fired if fired == QUNDEF
   zr_trace_bmethod(TRACE_RETURN, e, recv, Machine.call(:block, RProc.fn(p), p, argc, argv, blk))
+end
+
+# A hit on a define_method entry at a compiled site.
+sig [Value, Word, Ptr, Ptr, Value, Value] => Value
+machine def zr_bmethod_fn(recv, argc, argv, e, blk, found)
+  zr_bmethod_call(e, recv, argc, argv, blk)
+end
+
+# The cref a define_method body runs under, made at the entry's first
+# call and kept in its `ivar` word: the owner as the definee of a `def`
+# in the body, over the block's own cref, naming the entry so `super`,
+# a trace and a `break` know the method. A row copied to a Method, a
+# saved row or another class makes its own, as its entry is not this
+# one.
+sig [Ptr] => Value
+machine def zr_bmethod_cref(e)
+  c = zr_bmethod_cref_kept(e)
+  if c != QNIL && RCref.entry(c) == e
+    return c
+  end
+  c = zr_cref_push_eval(FrameMeta.owner(MEntry.meta(e)), RProc.cref(MEntry.cref(e)))
+  RCref.set_entry(c, e)
+  IvarCache.set_index(MEntry.ivar(e), Machine.word(c))
+  c
+end
+
+# The cref a define_method entry has made, or nil before its first call.
+sig [Ptr] => Value
+machine def zr_bmethod_cref_kept(e)
+  kept = IvarCache.index(MEntry.ivar(e))
+  kept == 0 ? Machine.value(QNIL) : Machine.value(kept)
 end
 
 # The body of a `refine` block, under the holder module: a `def` in it

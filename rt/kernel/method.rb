@@ -20,8 +20,7 @@ machine def zr_mark_method(m)
   zr_mark(RMethod.recv(m))
   zr_mark(RMethod.klass(m))
   zr_mark(RMethod.owner(m))
-  zr_mark(MEntry.cref(RMethod.entry(m)))
-  zr_mark(MEntry.from(RMethod.entry(m)))
+  zr_mark_entry(RMethod.entry(m))
 end
 
 # The module in `klass`'s chain whose own table answers `mid`, or nil.

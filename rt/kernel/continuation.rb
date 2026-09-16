@@ -61,7 +61,8 @@ machine def zr_cont_roots(roots)
     zr_ary_push(roots, Frame.cref(rec))
     zr_ary_push(roots, zr_block_proc(Frame.blk(rec)))
     zr_ary_push(roots, Frame.svars(rec))
-    zr_ary_push(roots, Frame.defined(rec))
+    # a block's frame keeps the block its call was given there
+    zr_ary_push(roots, zr_block_proc(Frame.defined(rec)))
     # A record's Env image is the stack's, not a cell: its slots are
     # the record's own, pushed here as they come.
     i = 0
