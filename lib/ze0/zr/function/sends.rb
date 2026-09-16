@@ -437,7 +437,8 @@ module Ze0
                 end
           at_node(node)
           argc = keyword_argc(node, argc, argv)
-          call = -> { kernel("zr_super", @rec, argc, argv, blk) }
+          activate(node)
+          call = -> { kernel("zr_super", cache("sc", "SuperCache"), @rec, argc, argv, blk) }
           site ? catching_break(site, &call) : checked(call.call)
         end
 

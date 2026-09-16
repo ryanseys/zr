@@ -37,6 +37,10 @@ Machine.struct :IvarCache, index: Word
 Machine.struct :CallCache, klass: Value, stamp: Word, entry: Ptr, found: Value, fn: Ptr
 CALL_WAYS = 4
 Machine.struct :ConstCache, key: Value, stamp: Word, value: Value
+# A `super` site's cell: the chain node the method runs from and the
+# name, which together decide the next method, and what the lookup
+# found for them under the method stamp (rt/kernel/send.rb, zr_super).
+Machine.struct :SuperCache, node: Value, mid: Word, stamp: Word, entry: Ptr, found: Value, fn: Ptr
 
 # Any change a constant lookup could see.
 sig [] => Void

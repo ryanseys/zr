@@ -138,7 +138,9 @@ module Ze0
     # passing the method's own parameters on as they stand. `in_block`
     # marks a bare `super` in a block of a def, which CRuby refuses when
     # the block runs as a method `define_method` made.
-    Super = Struct.new(:args, :kwargs, :block, :line, :in_block)
+    # `using` is the activation in force where the super stands, as on
+    # a Send: ruby resolves a super under the refinements of its scope.
+    Super = Struct.new(:args, :kwargs, :block, :line, :in_block, :using)
     ZSuper = Struct.new(:block, :line)
     Break = Struct.new(:value, :line)
     Next = Struct.new(:value, :line)

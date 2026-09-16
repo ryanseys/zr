@@ -237,6 +237,8 @@ module Ze0
         d zr_using_default Value id:Word from:Word
         d zr_using_activate Value id:Word mod:Value from:Word
         d zr_using_holders Value list:Value mod:Value
+        d zr_refined_search Ptr klass:Value mid:Word
+        d zr_refined_entry_at Ptr target:Value mid:Word
         d zr_refined_entry Ptr klass:Value mid:Word
         d zr_found_refinement Value
         d zr_cref_push Value klass:Value outer:Value
@@ -663,6 +665,7 @@ module Ze0
         d zr_bytes_hash Word p:Ptr n:Word
         d zr_hash_entry Ptr h:Value key:Value
         d zr_hash_find Ptr h:Value key:Value code:Word
+        d zr_hash_scan Ptr h:Value key:Value code:Word identity:Bool gen:Word
         d zr_hash_lookup Value h:Value key:Value
         d zr_hash_bin Void h:Value n:Word
         d zr_hash_rebins Void h:Value
@@ -1287,7 +1290,7 @@ module Ze0
         d zr_buf_receiver Value b:Ptr recv:Value
         d zr_visibility_refused Word e:Ptr mode:Word
         d zr_dispatch Value cc:Ptr recv:Value mid:Word argc:Word argv:Ptr mode:Word blk:Value
-        d zr_super Value rec:Ptr argc:Word argv:Ptr blk:Value
+        d zr_super Value cc:Ptr rec:Ptr argc:Word argv:Ptr blk:Value
         d zr_frame_defined Value rec:Ptr
         d zr_bmethod_entry Ptr rec:Ptr
         d zr_method_meta_of Ptr rec:Ptr
@@ -1782,6 +1785,7 @@ module Ze0
         c KEY_DIFFERENT 0
         c KEY_SAME 1
         c KEY_RAISED 2
+        c HASH_SMALL 8
         c CELL 128
         c CELLS 32768
         c ARENA_BYTES 4194304
@@ -1802,7 +1806,7 @@ module Ze0
         c G_FALSE 10
         c G_MAIN 11
         c G_NUMERIC 13
-        c G_COUNT 61
+        c G_COUNT 62
         c MARKED 96
         c GATE_PLUS 1
         c GATE_MINUS 2
@@ -1876,6 +1880,7 @@ module Ze0
         c PENDING_BREAK 1
         c PENDING_RETURN 2
         c PENDING_THROW 3
+        c G_SYM_PROCS 61
         c GUARD_ROW 3
         c ONIG_MISMATCH -1
         c ONIGERR_TIME_LIMIT_OVER -20
@@ -2041,6 +2046,7 @@ module Ze0
         s IvarCache 8 8 index:0:Word
         s CallCache 40 8 klass:0:Value stamp:8:Word entry:16:Ptr found:24:Value fn:32:Ptr
         s ConstCache 24 8 key:0:Value stamp:8:Word value:16:Value
+        s SuperCache 48 8 node:0:Value mid:8:Word stamp:16:Word entry:24:Ptr found:32:Value fn:40:Ptr
         s RClass 56 8 basic:0:RBasic name:16:Value superclass:24:Value ext:32:Ptr attached:40:Value origin:48:Value
         s ClassExt 176 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word refined:104:Value active:112:Value boxed:120:Value shadow:128:Value alloc:136:Word cidx:144:Ptr cbins:152:Word saved:160:Ptr slen:168:Word
         s MEntry 88 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value core:72:Word ivar:80:IvarCache

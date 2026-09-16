@@ -963,7 +963,7 @@ module Ze0
         return unless node.is_a?(Struct)
 
         seen[node.object_id] = true
-        node.using = @using if node.is_a?(Send) && node.using.nil?
+        node.using = @using if (node.is_a?(Send) || node.is_a?(Super)) && node.using.nil?
         node.each_pair { |_, child| mark_using(child, seen) }
       end
 

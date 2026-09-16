@@ -381,9 +381,8 @@ end
 # `blk` is one of its own. In a method `define_method` made, the
 # owner is the entry's and the name the one it was defined under,
 # which an alias keeps (`orig`), as a def's frame names the def.
-sig [Ptr, Word, Ptr, Value] => Value
-machine def zr_super(rec, argc, argv, blk)
-  kw = zr_kw_take()
+sig [Ptr, Ptr, Word, Ptr, Value] => Value
+machine def zr_super(cc, rec, argc, argv, blk)
   recv = Frame.self(rec)
   entry = zr_bmethod_entry(rec)
   if entry != 0
@@ -392,23 +391,47 @@ machine def zr_super(rec, argc, argv, blk)
   else
     meta = zr_method_meta_of(rec)
     if meta == 0
+      zr_kw_take()
       return zr_raise_msg(zr_global(G_NO_METHOD_ERROR), Machine.bytes("super called outside of method"), 30)
     end
     owner = FrameMeta.owner(meta)
     mid = FrameMeta.name(meta)
   end
   k = zr_super_from(rec, recv, owner)
+  # The site's cell answers for the node and name it was filled for,
+  # under the method stamp, as a send's cell does; the callee reads
+  # the keywords the site left.
+  t = zr_task()
+  if cc != 0 && k != QNIL && SuperCache.node(cc) == k && SuperCache.mid(cc) == mid && SuperCache.stamp(cc) == Machine.load64(Machine.static(:mcache_stamp, 8), 0) && Task.refine(t) == QNIL
+    return Machine.call(:method, SuperCache.fn(cc), recv, argc, argv, SuperCache.entry(cc), blk, SuperCache.found(cc))
+  end
+  kw = zr_kw_take()
   e = 0
+  refined = false
   if k != QNIL && zr_type(k) == T_MODULE && ClassExt.refined(RClass.ext(k)) != QNIL
-    # `super` in a refined method reaches what the refinement overrode.
-    e = zr_find_method(ClassExt.refined(RClass.ext(k)), mid)
+    # `super` in a refined method reaches what the refinement overrode:
+    # the refined class's own chain, with no refinement asked, or the
+    # refinement would answer itself again.
+    e = zr_search_method(ClassExt.refined(RClass.ext(k)), mid)
+    refined = true
   elsif k != QNIL
     e = zr_find_method(RClass.superclass(k), mid)
   end
   if e == 0
     return zr_no_method_from(recv, mid, false, true, argc, argv)
   end
-  zr_invoke(e, recv, argc, argv, blk, kw)
+  if cc != 0 && !refined && Task.refine(t) == QNIL && Machine.load64(Machine.static(:mcache_mode, 8), 0) == 0
+    SuperCache.set_node(cc, k)
+    SuperCache.set_mid(cc, mid)
+    SuperCache.set_stamp(cc, Machine.load64(Machine.static(:mcache_stamp, 8), 0))
+    SuperCache.set_entry(cc, e)
+    SuperCache.set_found(cc, zr_entry_found(e))
+    SuperCache.set_fn(cc, zr_entry_fn(e))
+  end
+  r = zr_invoke(e, recv, argc, argv, blk, kw)
+  # The refinements the site activated were for this super alone.
+  Task.set_refine(t, Machine.value(QNIL))
+  r
 end
 
 # The chain node the method the frame runs in (through its blocks)
