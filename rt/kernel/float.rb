@@ -9,6 +9,17 @@ T_FLOAT = 4
 G_FLOAT = 40
 FLONUM_ZERO = 9223372036854775810
 INF_BITS = 9218868437227405312
+# The gates of Float's operators compiled code inlines on flonums
+# (the lowering's `float_path`), beside Integer's (rt/kernel/integer.rb).
+GATE_FLO_PLUS = 4194304
+GATE_FLO_MINUS = 8388608
+GATE_FLO_MUL = 16777216
+GATE_FLO_DIV = 33554432
+GATE_FLO_LT = 67108864
+GATE_FLO_LE = 134217728
+GATE_FLO_GT = 268435456
+GATE_FLO_GE = 536870912
+GATE_FLO_EQ = 1073741824
 
 sig [Value] => Bool
 machine def zr_flonum_p(v)

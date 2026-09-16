@@ -766,6 +766,28 @@ machine def zr_gate_bit(klass, mid)
     else
       0
     end
+  elsif klass == zr_global(G_FLOAT)
+    if mid == Machine.id(:+)
+      GATE_FLO_PLUS
+    elsif mid == Machine.id(:-)
+      GATE_FLO_MINUS
+    elsif mid == Machine.id(:*)
+      GATE_FLO_MUL
+    elsif mid == Machine.id(:/)
+      GATE_FLO_DIV
+    elsif mid == Machine.id(:<)
+      GATE_FLO_LT
+    elsif mid == Machine.id(:<=)
+      GATE_FLO_LE
+    elsif mid == Machine.id(:>)
+      GATE_FLO_GT
+    elsif mid == Machine.id(:>=)
+      GATE_FLO_GE
+    elsif mid == Machine.id(:==)
+      GATE_FLO_EQ
+    else
+      0
+    end
   elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:[])
     GATE_AREF
   elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:[]=)
@@ -789,7 +811,7 @@ end
 # it started: the class the gate guards (a global's index), the name,
 # the gate bit, and the body and visibility that class found then.
 Machine.struct :GateRow, klass: Word, mid: Word, bit: Word, fn: Ptr, vis: Word
-GATE_ROWS = 22
+GATE_ROWS = 31
 
 sig [Word, Word, Word, Word] => Word
 machine def zr_gate_row(i, klass, mid, bit)
@@ -830,7 +852,16 @@ machine def zr_gates_snapshot
   i = zr_gate_row(i, G_HASH, Machine.id(:[]=), GATE_HASH_ASET)
   i = zr_gate_row(i, G_ARRAY, Machine.id(:<<), GATE_LTLT)
   i = zr_gate_row(i, G_STRING, Machine.id(:<<), GATE_LTLT)
-  zr_gate_row(i, G_STRING, Machine.id(:freeze), GATE_FREEZE)
+  i = zr_gate_row(i, G_STRING, Machine.id(:freeze), GATE_FREEZE)
+  i = zr_gate_row(i, G_FLOAT, Machine.id(:+), GATE_FLO_PLUS)
+  i = zr_gate_row(i, G_FLOAT, Machine.id(:-), GATE_FLO_MINUS)
+  i = zr_gate_row(i, G_FLOAT, Machine.id(:*), GATE_FLO_MUL)
+  i = zr_gate_row(i, G_FLOAT, Machine.id(:/), GATE_FLO_DIV)
+  i = zr_gate_row(i, G_FLOAT, Machine.id(:<), GATE_FLO_LT)
+  i = zr_gate_row(i, G_FLOAT, Machine.id(:<=), GATE_FLO_LE)
+  i = zr_gate_row(i, G_FLOAT, Machine.id(:>), GATE_FLO_GT)
+  i = zr_gate_row(i, G_FLOAT, Machine.id(:>=), GATE_FLO_GE)
+  zr_gate_row(i, G_FLOAT, Machine.id(:==), GATE_FLO_EQ)
   Machine.store64(Machine.static(:gates_taken, 8), 0, 1)
 end
 

@@ -14,6 +14,17 @@ module Ze0
         }.freeze
 
         OPT_ENTRIES = { :[] => "zr_opt_aref", :[]= => "zr_opt_aset", :<< => "zr_opt_ltlt" }.freeze
+        # The operators with a flonum path: the f64 instruction or the
+        # fcmp condition, and the gate of Float's method.
+        FLOAT_OPS = {
+          :+ => [:fadd, "GATE_FLO_PLUS"], :- => [:fsub, "GATE_FLO_MINUS"], :* => [:fmul, "GATE_FLO_MUL"], :/ => [:fdiv, "GATE_FLO_DIV"],
+          :< => ["lt", "GATE_FLO_LT"], :<= => ["le", "GATE_FLO_LE"], :> => ["gt", "GATE_FLO_GT"], :>= => ["ge", "GATE_FLO_GE"],
+          :== => ["eq", "GATE_FLO_EQ"]
+        }.freeze
+        # The bits of +0.0 as a flonum, and of the double the rotation
+        # cannot carry (rt/kernel/float.rb).
+        FLONUM_ZERO = 9223372036854775810 - (1 << 64)
+        FLONUM_HOLE = 3458764513820540928
 
         # The names CRuby's C sends by name even to its own classes'
         # instances, so the method a program defines answers them: the
@@ -402,15 +413,102 @@ module Ze0
           ok = @f.band(fix, gate_clear(OPS.fetch(node.name)))
           fast = @f.label
           slow = @f.label
+          floating = @f.label if float_path?(node)
           merge, (result,) = @f.block(["i64"])
-          @f.brif(ok, fast, slow)
+          @f.brif(ok, fast, floating || slow)
           switch(fast)
           value = fast_path(node.name, recv, arg, slow)
           @f.jump(merge, [value])
+          if floating
+            switch(floating)
+            @f.jump(merge, [float_path(node.name, recv, arg, slow)])
+          end
           switch(slow)
           @f.jump(merge, [dispatch(node, recv, argv, imm(1))])
           switch(merge)
           result
+        end
+
+        # Whether the site gets the flonum path (`float_path`), which is
+        # some forty instructions: an operator with one, unless an
+        # operand is an Integer literal of a sum, a difference or a
+        # comparison, which count and index far more often than they
+        # meet a Float (`x * 2` and `x / 2` keep it).
+        def float_path?(node)
+          return false unless FLOAT_OPS.key?(node.name)
+          return true if %i[* /].include?(node.name)
+
+          [node.recv, node.args.first].none? { |n| n.is_a?(Hir::Literal) && n.value.is_a?(Integer) }
+        end
+
+        # The flonum path: both operands flonums, or one a flonum and
+        # the other a fixnum (within 2^53 for a comparison, which ruby
+        # makes exactly), with Integer's and Float's gates for the
+        # operator both clear; the arithmetic on doubles, answered as a
+        # flonum again or the kernel's heap Float; a comparison as
+        # ruby's, false with a NaN. Anything else takes `slow`.
+        def float_path(op, a, b, slow)
+          fop, gate = FLOAT_OPS.fetch(op)
+          compare = fop.is_a?(String)
+          go = @f.label
+          numbers = @f.band(number?(a, compare), number?(b, compare))
+          some_flonum = @f.bor(flonum?(a), flonum?(b))
+          gates = gates_clear(OPS.fetch(op), gate)
+          @f.brif(@f.band(@f.band(numbers, some_flonum), gates), go, slow)
+          switch(go)
+          x = as_double(a)
+          y = as_double(b)
+          return @f.csel(@f.fcmp(fop, x, y), imm(@l.const("QTRUE")), imm(@l.const("QFALSE"))) if compare
+
+          float_value(@f.fbinop(fop, x, y))
+        end
+
+        def flonum?(v) = @f.icmp("eq", @f.band(v, imm(3)), imm(2))
+
+        # A flonum or a fixnum, the fixnum within 2^53 either way when
+        # `exact`.
+        def number?(v, exact)
+          fix = @f.icmp("ne", @f.band(v, imm(1)), imm(0))
+          fix = @f.band(fix, @f.icmp("ult", @f.iadd(@f.sshr(v, imm(1)), imm(1 << 53)), imm(1 << 54))) if exact
+          @f.bor(flonum?(v), fix)
+        end
+
+        # The double a flonum or a fixnum `v` holds: `zr_float_value`'s
+        # rotation, +0.0 for the flonum zero, a fixnum converted.
+        def as_double(v)
+          sign = @f.ushr(v, imm(63))
+          x = @f.bor(@f.isub(imm(2), sign), @f.band(v, imm(-4)))
+          rotated = @f.bor(@f.ushr(x, imm(3)), @f.ishl(x, imm(61)))
+          decoded = @f.csel(@f.icmp("eq", v, imm(FLONUM_ZERO)), imm(0), rotated)
+          converted = @f.bitcast("i64", @f.fcvt_from_sint(@f.sshr(v, imm(1))))
+          @f.bitcast("f64", @f.csel(flonum?(v), decoded, converted))
+        end
+
+        # `zr_float_new` inline: a flonum when the exponent's top bits
+        # are 011 or 100, the flonum zero for +0.0, else the kernel's
+        # cell.
+        def float_value(d)
+          b = @f.bitcast("i64", d)
+          top = @f.band(@f.ushr(b, imm(60)), imm(7))
+          fits = @f.band(@f.icmp("ne", b, imm(FLONUM_HOLE)), @f.icmp("ult", @f.isub(top, imm(3)), imm(2)))
+          rotated = @f.bor(@f.ishl(b, imm(3)), @f.ushr(b, imm(61)))
+          flonum = @f.bor(@f.band(rotated, imm(-2)), imm(2))
+          rotate = @f.label
+          other = @f.label
+          zero = @f.label
+          heap = @f.label
+          merge, (v,) = @f.block(["i64"])
+          @f.brif(fits, rotate, other)
+          switch(rotate)
+          @f.jump(merge, [flonum])
+          switch(other)
+          @f.brif(@f.icmp("eq", b, imm(0)), zero, heap)
+          switch(zero)
+          @f.jump(merge, [imm(FLONUM_ZERO)])
+          switch(heap)
+          @f.jump(merge, [kernel("zr_float_new", d)])
+          switch(merge)
+          v
         end
 
         # The tagged result of `op` on tagged fixnums `a` and `b`; a
@@ -465,9 +563,12 @@ module Ze0
           value
         end
 
-        def gate_clear(name)
+        def gate_clear(name) = gates_clear(name)
+
+        # Whether every one of the gates named is clear: one load.
+        def gates_clear(*names)
           gates = @f.fetch("i64", static("gates"))
-          @f.icmp("eq", @f.band(gates, imm(@l.const(name))), imm(0))
+          @f.icmp("eq", @f.band(gates, imm(names.sum { |name| @l.const(name) })), imm(0))
         end
 
         # `!v` inline while BasicObject#! is the runtime's own.
