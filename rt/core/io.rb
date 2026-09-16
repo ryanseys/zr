@@ -9,7 +9,7 @@ class IO
   # as CRuby's io_binwrite does.
   WBUF_CAPA = 8192
   NEWLINE = "\n".freeze
-  private_constant :WBUF_CAPA
+  private_constant :WBUF_CAPA, :NEWLINE
 
   # The streams that hold bytes nothing has written yet. The end of the
   # program writes them; `exit!` never does, because _exit(2) drops
