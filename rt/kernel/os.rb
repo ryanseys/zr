@@ -42,6 +42,7 @@
 #   zr_os_setid          [Value, Value] => Value
 #   zr_os_issetugid      [] => Value
 #   zr_os_sigaction      [I32, Word, Ptr] => I32
+#   zr_os_poll_start     [] => Void
 #
 # stacks and loaded code
 #   zr_os_stack_low      [] => Word

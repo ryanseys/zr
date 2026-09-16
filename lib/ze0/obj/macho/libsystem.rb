@@ -156,6 +156,8 @@ module Ze0
           posix_spawnp
           pow
           pread
+          pthread_create
+          pthread_detach
           pthread_get_stackaddr_np
           pthread_get_stacksize_np
           pthread_jit_write_protect_np

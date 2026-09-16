@@ -94,7 +94,7 @@ Machine.import "pthread_create", [Ptr, Ptr, Ptr, Ptr] => I32
 Machine.import "pthread_detach", [Ptr] => I32
 
 sig [Ptr] => Ptr
-machine def zr_os_poll_timer(arg)
+machine def zr_poll_timer(arg)
   ts = Machine.slot(16)
   Machine.store64(ts, 0, 0)
   Machine.store64(ts, 8, 100000000)
@@ -113,7 +113,7 @@ machine def zr_os_poll_start
   end
   Machine.store64(started, 0, 1)
   tid = Machine.slot(8)
-  if pthread_create(tid, 0, Machine.addr(:zr_os_poll_timer), 0) == Machine.i32(0)
+  if pthread_create(tid, 0, Machine.addr(:zr_poll_timer), 0) == Machine.i32(0)
     pthread_detach(Machine.ptr(Machine.load64(tid, 0)))
   end
 end

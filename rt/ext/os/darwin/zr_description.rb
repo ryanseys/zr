@@ -1628,7 +1628,7 @@ module Ze0
         d zr_os_stack_low Word
         d zr_os_stack_high Word
         d zr_os_stack_map Ptr bytes:Word
-        d zr_os_poll_timer Ptr arg:Ptr
+        d zr_poll_timer Ptr arg:Ptr
         d zr_os_poll_start Void
         d zr_arch_context_start Void ctx:Ptr entry:Word top:Word
         c G_ARRAY 25
