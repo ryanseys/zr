@@ -139,6 +139,79 @@ end
 
 def distfix = inflate_table(:dists, [5] * 32, 5)
 
+# trees.c's extra-bit counts and the order the bit length code lengths
+# are sent in.
+EXTRA_LBITS = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0].freeze
+EXTRA_DBITS = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13].freeze
+EXTRA_BLBITS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 7].freeze
+BL_ORDER = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15].freeze
+
+# trees.c's bi_reverse: the low `len` bits of `code`, the other way.
+def bi_reverse(code, len)
+  res = 0
+  len.times do
+    res = (res << 1) | (code & 1)
+    code >>= 1
+  end
+  res
+end
+
+# trees.c's tr_static_init: the length and distance code maps and the
+# static trees, as trees.h ships them.
+def static_tables
+  base_length = []
+  length_code = []
+  length = 0
+  (0...28).each do |code|
+    base_length[code] = length
+    (1 << EXTRA_LBITS[code]).times { length_code[length] = code; length += 1 }
+  end
+  length_code[255] = 28
+  base_length[28] = 0
+  base_dist = []
+  dist_code = Array.new(512, 0)
+  dist = 0
+  (0...16).each do |code|
+    base_dist[code] = dist
+    (1 << EXTRA_DBITS[code]).times { dist_code[dist] = code; dist += 1 }
+  end
+  dist >>= 7
+  (16...30).each do |code|
+    base_dist[code] = dist << 7
+    (1 << (EXTRA_DBITS[code] - 7)).times { dist_code[256 + dist] = code; dist += 1 }
+  end
+  lens = ([8] * 144) + ([9] * 112) + ([7] * 24) + ([8] * 8)
+  bl_count = Array.new(16, 0)
+  lens.each { |len| bl_count[len] += 1 }
+  next_code = Array.new(16, 0)
+  code = 0
+  (1..15).each do |bits|
+    code = (code + bl_count[bits - 1]) << 1
+    next_code[bits] = code
+  end
+  static_ltree = lens.map do |len|
+    c = bi_reverse(next_code[len], len)
+    next_code[len] += 1
+    [c, len]
+  end
+  static_dtree = (0...30).map { |n| [bi_reverse(n, 5), 5] }
+  { static_ltree: static_ltree, static_dtree: static_dtree, dist_code: dist_code, length_code: length_code, base_length: base_length, base_dist: base_dist }
+end
+
+# trees.h's `{{code},{len}}` rows named `name`, as [code, len] pairs.
+def c_pairs(path, name)
+  text = File.read(path)
+  body = text[/#{name}\[[^\]]*\] = \{(.*?)\};/m, 1] or abort("no #{name} in #{path}")
+  body.scan(/\{\{\s*(\d+)\},\{\s*(\d+)\}\}/).map { |c, l| [c.to_i, l.to_i] }
+end
+
+# A C header's plain integer array named `name`.
+def c_ints(path, name)
+  text = File.read(path)
+  body = text[/#{name}\[[^\]]*\]\s*=\s*\{(.*?)\};/m, 1] or abort("no #{name} in #{path}")
+  body.scan(/\d+/).map(&:to_i)
+end
+
 # A def answering `words` as little-endian 32-bit cells, in rows of 32
 # bytes joined by line continuations.
 def emit_u32(name, words, comment)
@@ -172,6 +245,13 @@ if ARGV.include?("--check")
   raise "x2n_table differs" unless c_array(File.join(src, "crc32.h"), "x2n_table") == x2n_table
   raise "lenfix differs" unless c_codes(File.join(src, "inffixed.h"), "lenfix") == lenfix
   raise "distfix differs" unless c_codes(File.join(src, "inffixed.h"), "distfix") == distfix
+  t = static_tables
+  raise "static_ltree differs" unless c_pairs(File.join(src, "trees.h"), "static_ltree") == t[:static_ltree]
+  raise "static_dtree differs" unless c_pairs(File.join(src, "trees.h"), "static_dtree") == t[:static_dtree]
+  raise "_dist_code differs" unless c_ints(File.join(src, "trees.h"), "_dist_code") == t[:dist_code]
+  raise "_length_code differs" unless c_ints(File.join(src, "trees.h"), "_length_code") == t[:length_code]
+  raise "base_length differs" unless c_ints(File.join(src, "trees.h"), "base_length") == t[:base_length]
+  raise "base_dist differs" unless c_ints(File.join(src, "trees.h"), "base_dist") == t[:base_dist]
   puts "zlib tables match vendor/c/zlib"
   exit
 end
@@ -190,3 +270,15 @@ emit_u32("zr_inflate_lext", LEXT, "The extra bits of the length codes, with the 
 emit_u32("zr_inflate_dbase", DBASE, "The base distances of the distance codes 0..29, then two zeros: inftrees.c's dbase.")
 emit_u32("zr_inflate_dext", DEXT, "The extra bits of the distance codes, with the two invalid codes marked: inftrees.c's dext.")
 emit_u32("zr_inflate_order", ORDER, "The order the code length code lengths arrive in: inflate.c's order.")
+t = static_tables
+emit_u32("zr_tr_static_ltree", t[:static_ltree].flatten, "The static literal and length tree, 288 entries of code then length: trees.h's static_ltree.")
+emit_u32("zr_tr_static_dtree", t[:static_dtree].flatten, "The static distance tree, 30 entries of code then length: trees.h's static_dtree.")
+emit_u32("zr_tr_dist_code", t[:dist_code], "The distance code of each distance: 256 for distances 0..255, then 256 for the high bits of the rest: trees.h's _dist_code.")
+emit_u32("zr_tr_length_code", t[:length_code], "The length code of each match length past the minimum: trees.h's _length_code.")
+emit_u32("zr_tr_base_length", t[:base_length], "The first length of each length code: trees.h's base_length.")
+emit_u32("zr_tr_base_dist", t[:base_dist], "The first distance of each distance code: trees.h's base_dist.")
+emit_u32("zr_tr_extra_lbits", EXTRA_LBITS, "The extra bits of each length code: trees.c's extra_lbits.")
+emit_u32("zr_tr_extra_dbits", EXTRA_DBITS, "The extra bits of each distance code: trees.c's extra_dbits.")
+emit_u32("zr_tr_extra_blbits", EXTRA_BLBITS, "The extra bits of each bit length code: trees.c's extra_blbits.")
+emit_u32("zr_tr_bl_order", BL_ORDER, "The order the bit length code lengths are sent in: trees.c's bl_order.")
+emit_u32("zr_deflate_config_table", [0, 0, 0, 0, 4, 4, 8, 4, 4, 5, 16, 8, 4, 6, 32, 32, 4, 4, 16, 16, 8, 16, 32, 32, 8, 16, 128, 128, 8, 32, 128, 256, 32, 128, 258, 1024, 32, 258, 258, 4096], "Each level's good, lazy, nice and chain lengths: deflate.c's configuration_table, whose func column zr_deflate_kind answers.")

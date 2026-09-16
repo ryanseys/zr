@@ -1631,6 +1631,40 @@ module Ze0
         d zr_crc_multmodp Word a:Word b:Word
         d zr_crc_x2nmodp Word n:Word k:Word
         d zr_crc32_combine Word crc1:Word crc2:Word len2:Word
+        d zr_deflate_config Word level:Word col:Word
+        d zr_deflate_kind Word level:Word
+        d zr_deflate_max_dist Word s:Ptr
+        d zr_deflate_rank Word f:Word
+        d zr_deflate_hash Word s:Ptr h:Word c:Word
+        d zr_deflate_window_byte Word s:Ptr i:Word
+        d zr_deflate_insert_string Word s:Ptr str:Word
+        d zr_deflate_clear_hash Void s:Ptr
+        d zr_deflate_slide_hash Void s:Ptr
+        d zr_deflate_read_buf Word strm:Ptr s:Ptr buf:Ptr size:Word
+        d zr_deflate_fill_window Void s:Ptr
+        d zr_deflate_state_check Word strm:Ptr
+        d zr_deflate_point_tail Void s:Ptr
+        d zr_deflate_end Word strm:Ptr
+        d zr_deflate_init2 Word strm:Ptr level:Word method:Word window_bits:Word mem_level:Word strategy:Word
+        d zr_deflate_set_dictionary Word strm:Ptr dictionary:Ptr dict_length:Word
+        d zr_deflate_reset_keep Word strm:Ptr
+        d zr_deflate_lm_init Void s:Ptr
+        d zr_deflate_reset Word strm:Ptr
+        d zr_deflate_params Word strm:Ptr level:Word strategy:Word
+        d zr_deflate_put_short_msb Void s:Ptr b:Word
+        d zr_deflate_flush_pending Void strm:Ptr
+        d zr_deflate_err Word strm:Ptr err:Word
+        d zr_deflate Word strm:Ptr flush:Word
+        d zr_deflate_copy Word dest:Ptr source:Ptr
+        d zr_deflate_longest_match Word s:Ptr cur_match:Word
+        d zr_deflate_flush_block_only Void s:Ptr last:Word
+        d zr_deflate_stored Word s:Ptr flush:Word
+        d zr_deflate_flush_block Word s:Ptr last:Word
+        d zr_deflate_block_end Word s:Ptr flush:Word
+        d zr_deflate_fast Word s:Ptr flush:Word
+        d zr_deflate_slow Word s:Ptr flush:Word
+        d zr_deflate_rle Word s:Ptr flush:Word
+        d zr_deflate_huff Word s:Ptr flush:Word
         d zr_inflate_fast Void strm:Ptr start:Word
         d zr_inflate_state_check Word strm:Ptr
         d zr_inflate_reset_keep Word strm:Ptr
@@ -1688,6 +1722,53 @@ module Ze0
         d zr_inflate_dbase Ptr
         d zr_inflate_dext Ptr
         d zr_inflate_order Ptr
+        d zr_tr_static_ltree Ptr
+        d zr_tr_static_dtree Ptr
+        d zr_tr_dist_code Ptr
+        d zr_tr_length_code Ptr
+        d zr_tr_base_length Ptr
+        d zr_tr_base_dist Ptr
+        d zr_tr_extra_lbits Ptr
+        d zr_tr_extra_dbits Ptr
+        d zr_tr_extra_blbits Ptr
+        d zr_tr_bl_order Ptr
+        d zr_deflate_config_table Ptr
+        d zr_tr_freq Word tree:Ptr n:Word
+        d zr_tr_set_freq Void tree:Ptr n:Word v:Word
+        d zr_tr_code Word tree:Ptr n:Word
+        d zr_tr_set_code Void tree:Ptr n:Word v:Word
+        d zr_tr_len Word tree:Ptr n:Word
+        d zr_tr_set_len Void tree:Ptr n:Word v:Word
+        d zr_tr_dad Word tree:Ptr n:Word
+        d zr_tr_set_dad Void tree:Ptr n:Word v:Word
+        d zr_tr_d_code Word dist:Word
+        d zr_tr_put_byte Void s:Ptr c:Word
+        d zr_tr_put_short Void s:Ptr w:Word
+        d zr_tr_bi_reverse Word code:Word len:Word
+        d zr_tr_bi_flush Void s:Ptr
+        d zr_tr_bi_windup Void s:Ptr
+        d zr_tr_send_bits Void s:Ptr value:Word length:Word
+        d zr_tr_send_code Void s:Ptr c:Word tree:Ptr
+        d zr_tr_gen_codes Void tree:Ptr max_code:Word bl_count:Ptr
+        d zr_tr_init_block Void s:Ptr
+        d zr_tr_init Void s:Ptr
+        d zr_tr_smaller Bool tree:Ptr n:Word m:Word depth:Ptr
+        d zr_tr_heap Word s:Ptr i:Word
+        d zr_tr_set_heap Void s:Ptr i:Word v:Word
+        d zr_tr_pqdownheap Void s:Ptr tree:Ptr k:Word
+        d zr_tr_gen_bitlen Void s:Ptr tree:Ptr max_code:Word stree:Ptr extra:Ptr base:Word max_length:Word
+        d zr_tr_build_tree Void s:Ptr which:Word
+        d zr_tr_scan_tree Void s:Ptr tree:Ptr max_code:Word
+        d zr_tr_send_tree Void s:Ptr tree:Ptr max_code:Word
+        d zr_tr_build_bl_tree Word s:Ptr
+        d zr_tr_send_all_trees Void s:Ptr lcodes:Word dcodes:Word blcodes:Word
+        d zr_tr_stored_block Void s:Ptr buf:Ptr stored_len:Word last:Word
+        d zr_tr_flush_bits Void s:Ptr
+        d zr_tr_align Void s:Ptr
+        d zr_tr_compress_block Void s:Ptr ltree:Ptr dtree:Ptr
+        d zr_tr_detect_data_type Word s:Ptr
+        d zr_tr_flush_block Void s:Ptr buf:Ptr stored_len:Word last:Word
+        d zr_tr_tally Word s:Ptr dist:Word lc:Word
         d zr_os_argv Ptr argc:I32 argv:Ptr
         d zr_os_ruby_platform Value
         d zr_os_environ Ptr
@@ -1743,6 +1824,7 @@ module Ze0
         d zr_os_stack_map Ptr bytes:Word
         d zr_poll_timer Ptr arg:Ptr
         d zr_os_poll_start Void
+        d zr_zlib_os_code Word
         d zr_arch_context_start Void ctx:Ptr entry:Word top:Word
         c G_ARRAY 25
         c G_INDEX_ERROR 26
@@ -2061,6 +2143,40 @@ module Ze0
         c ADLER_NMAX 5552
         c CRC_POLY 3988292384
         c ZLIB_MASK32 4294967295
+        c DEF_INIT_STATE 42
+        c DEF_GZIP_STATE 57
+        c DEF_EXTRA_STATE 69
+        c DEF_NAME_STATE 73
+        c DEF_COMMENT_STATE 91
+        c DEF_HCRC_STATE 103
+        c DEF_BUSY_STATE 113
+        c DEF_FINISH_STATE 666
+        c DEF_NEED_MORE 0
+        c DEF_BLOCK_DONE 1
+        c DEF_FINISH_STARTED 2
+        c DEF_FINISH_DONE 3
+        c DEF_KIND_STORED 0
+        c DEF_KIND_FAST 1
+        c DEF_KIND_SLOW 2
+        c DEF_TOO_FAR 4096
+        c DEF_MIN_LOOKAHEAD 262
+        c DEF_WIN_INIT 258
+        c DEF_MAX_STORED 65535
+        c DEF_MAX_MEM_LEVEL 9
+        c DEF_PRESET_DICT 32
+        c DEF_NIL 0
+        c Z_DEFAULT_COMPRESSION -1
+        c Z_FILTERED 1
+        c Z_HUFFMAN_ONLY 2
+        c Z_RLE 3
+        c Z_FIXED 4
+        c DEF_LTREE_BYTES 4584
+        c DEF_DTREE_BYTES 488
+        c DEF_BLTREE_BYTES 312
+        c DEF_BL_COUNT_BYTES 64
+        c DEF_HEAP_BYTES 2292
+        c DEF_DEPTH_BYTES 576
+        c DEF_TAIL_BYTES 8316
         c INF_HEAD 16180
         c INF_FLAGS 16181
         c INF_TIME 16182
@@ -2125,6 +2241,28 @@ module Ze0
         c Z_BINARY 0
         c Z_TEXT 1
         c Z_UNKNOWN 2
+        c TR_MAX_BITS 15
+        c TR_MAX_BL_BITS 7
+        c TR_LITERALS 256
+        c TR_LENGTH_CODES 29
+        c TR_L_CODES 286
+        c TR_D_CODES 30
+        c TR_BL_CODES 19
+        c TR_HEAP_SIZE 573
+        c TR_END_BLOCK 256
+        c TR_REP_3_6 16
+        c TR_REPZ_3_10 17
+        c TR_REPZ_11_138 18
+        c TR_BUF_SIZE 16
+        c TR_STORED_BLOCK 0
+        c TR_STATIC_TREES 1
+        c TR_DYN_TREES 2
+        c TR_SMALLEST 1
+        c MIN_MATCH 3
+        c MAX_MATCH 258
+        c TR_LTREE 0
+        c TR_DTREE 1
+        c TR_BLTREE 2
         c SC_NPROCESSORS_ONLN 84
         c CLOCK_MONOTONIC 1
         c UTSNAME_LEN 390
@@ -2218,6 +2356,7 @@ module Ze0
         s Symtab 40 8 rows:0:Ptr len:8:Word capa:16:Word bins:24:Ptr nbins:32:Word
         s RBasic 16 8 flags:0:Word klass:8:Value
         s WeakList 24 8 ptr:0:Ptr len:8:Word capa:16:Word
+        s DeflateState 448 8 strm:0:Ptr status:8:Word pending_buf:16:Ptr pending_buf_size:24:Word pending_out:32:Ptr pending:40:Word wrap:48:Word last_flush:56:Word w_size:64:Word w_bits:72:Word w_mask:80:Word window:88:Ptr window_size:96:Word prev:104:Ptr head:112:Ptr ins_h:120:Word hash_size:128:Word hash_bits:136:Word hash_mask:144:Word hash_shift:152:Word block_start:160:Word match_length:168:Word prev_match:176:Word match_available:184:Word strstart:192:Word match_start:200:Word lookahead:208:Word prev_length:216:Word max_chain_length:224:Word max_lazy_match:232:Word level:240:Word strategy:248:Word good_match:256:Word nice_match:264:Word dyn_ltree:272:Ptr dyn_dtree:280:Ptr bl_tree:288:Ptr l_max_code:296:Word d_max_code:304:Word bl_max_code:312:Word bl_count:320:Ptr heap:328:Ptr heap_len:336:Word heap_max:344:Word depth:352:Ptr sym_buf:360:Ptr lit_bufsize:368:Word sym_next:376:Word sym_end:384:Word opt_len:392:Word static_len:400:Word matches:408:Word insert:416:Word bi_buf:424:Word bi_valid:432:Word high_water:440:Word
         s InflateState 272 8 strm:0:Ptr mode:8:Word last:16:Word wrap:24:Word havedict:32:Word flags:40:Word dmax:48:Word check:56:Word total:64:Word wbits:72:Word wsize:80:Word whave:88:Word wnext:96:Word window:104:Ptr hold:112:Ptr bits:120:Word length:128:Word offset:136:Word extra:144:Word lencode:152:Ptr distcode:160:Ptr lenbits:168:Word distbits:176:Word ncode:184:Word nlen:192:Word ndist:200:Word have:208:Word nxt:216:Ptr lens:224:Ptr work:232:Ptr codes:240:Ptr sane:248:Word back:256:Word was:264:Word
         s InfCursor 80 8 nxt:0:Ptr have:8:Word put:16:Ptr left:24:Word hold:32:Ptr bits:40:Word in:48:Word out:56:Word flush:64:Word ret:72:Word
         s ZStream 80 8 next_in:0:Ptr avail_in:8:Word total_in:16:Word next_out:24:Ptr avail_out:32:Word total_out:40:Word msg:48:Ptr state:56:Ptr data_type:64:Word adler:72:Word

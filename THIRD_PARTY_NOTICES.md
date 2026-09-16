@@ -55,7 +55,7 @@ unedited, under Ruby or BSD-2-Clause.
 | `rt/kernel/fpconv.rb` | fpconv (Andreas Samoljuk), as vendored by the json gem | MIT |
 | `rt/kernel/float.rb` (the Ryu section), `rt/kernel/ryu_tables.rb` | Ryu (Ulf Adams) | Apache-2.0 or Boost-1.0 |
 | `rt/ext/date/parse.rb` | CRuby's `date_parse.c` (date gem) | Ruby or BSD-2-Clause |
-| `rt/kernel/zlib_check.rb`, `rt/kernel/zlib_tables.rb`, `rt/kernel/zlib_stream.rb`, `rt/kernel/zlib_inftrees.rb`, `rt/kernel/zlib_inffast.rb`, `rt/kernel/zlib_inflate.rb` | zlib 1.3.1 (Jean-loup Gailly and Mark Adler); the license text is in `rt/kernel/zlib.rb` | Zlib |
+| `rt/kernel/zlib_check.rb`, `rt/kernel/zlib_tables.rb`, `rt/kernel/zlib_stream.rb`, `rt/kernel/zlib_inftrees.rb`, `rt/kernel/zlib_inffast.rb`, `rt/kernel/zlib_inflate.rb`, `rt/kernel/zlib_trees.rb`, `rt/kernel/zlib_deflate.rb`, `rt/kernel/os/*/zlib.rb` | zlib 1.3.1 (Jean-loup Gailly and Mark Adler); the license text is in `rt/kernel/zlib.rb` | Zlib |
 
 ## Benchmarks (repository only, not in the gem)
 

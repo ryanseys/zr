@@ -10,14 +10,21 @@
 #   ruby -Ilib tools/zlib_diff.rb --check [--cases N] [--seed S]
 #   ruby -Ilib tools/zlib_diff.rb --inflate [--cases N] [--seed S]
 #   ruby -Ilib tools/zlib_diff.rb --inflate-corrupt [--cases N] [--seed S]
+#   ruby -Ilib tools/zlib_diff.rb --deflate [--cases N] [--seed S] [--levels 0,1] [--strategies 2,3]
+#   ruby -Ilib tools/zlib_diff.rb --deflate --grid [--seed S]
 #
 # --check: adler32, crc32, their combines and the crc table.
 # --inflate: streams ruby deflated under every wrapper, level and
 #   strategy, inflated under chunkings of the input and the output.
 # --inflate-corrupt: the same streams truncated, flipped, and given
 #   wrong windows and dictionaries.
+# --deflate: random inputs deflated by both sides under random
+#   parameters, chunkings, flushes, dictionaries, params calls, resets
+#   and copies, every byte compared; --grid runs every level, strategy,
+#   wrapper and memLevel once.
 require "zlib"
 require "fiddle"
+require "fileutils"
 require "ze0/machine/lower"
 require "ze0/native/build"
 require "ze0/obj/jit/fiddle"
@@ -41,7 +48,7 @@ module ZlibDiff
     attr_reader :layouts
 
     def initialize
-      paths = Dir[File.join(ROOT, "rt/kernel/zlib_*.rb")].sort
+      paths = (Dir[File.join(ROOT, "rt/kernel/zlib_*.rb")] + [File.join(ROOT, "rt/kernel/os/darwin/zlib.rb")]).sort
       lower = Ze0::Machine.unit(paths)
       unit = Ze0::Native::Build.unit(lower.functions, lower.data, raw: lower.raw)
       @symbols = Ze0::Obj::JIT.load(unit, host: Ze0::Obj::JIT::Fiddle.new)
@@ -138,10 +145,17 @@ module ZlibDiff
     def sync = @port.call("zr_inflate_sync", @strm)
     def sync_point = @port.call("zr_inflate_sync_point", @strm)
     def dictionary(bytes) = @port.call("zr_inflate_set_dictionary", @strm, bytes, bytes.bytesize)
+    def init_deflate(level, wbits, memlevel, strategy) = @port.call("zr_deflate_init2", @strm, level, 8, wbits, memlevel, strategy)
+    def deflate_end = @port.call("zr_deflate_end", @strm)
+    def deflate_reset = @port.call("zr_deflate_reset", @strm)
+    def deflate_dictionary(bytes) = @port.call("zr_deflate_set_dictionary", @strm, bytes, bytes.bytesize)
+    def copy_from(other) = @port.call("zr_deflate_copy", @strm, other.strm)
 
     def run(op, flush)
       case op
       when :inflate then @port.call("zr_inflate", @strm, flush)
+      when :deflate then @port.call("zr_deflate", @strm, flush)
+      when :params then @port.call("zr_deflate_params", @strm, *flush)
       else raise "no op #{op}"
       end
     end
@@ -174,10 +188,17 @@ module ZlibDiff
     def sync = @libz.fn("inflateSync", [P], I).call(@strm)
     def sync_point = @libz.fn("inflateSyncPoint", [P], I).call(@strm)
     def dictionary(bytes) = @libz.fn("inflateSetDictionary", [P, P, I], I).call(@strm, bytes, bytes.bytesize)
+    def init_deflate(level, wbits, memlevel, strategy) = @libz.fn("deflateInit2_", [P, I, I, I, I, I, P, I], I).call(@strm, level, 8, wbits, memlevel, strategy, @libz.version_ptr, Libz::SIZE)
+    def deflate_end = @libz.fn("deflateEnd", [P], I).call(@strm)
+    def deflate_reset = @libz.fn("deflateReset", [P], I).call(@strm)
+    def deflate_dictionary(bytes) = @libz.fn("deflateSetDictionary", [P, P, I], I).call(@strm, bytes, bytes.bytesize)
+    def copy_from(other) = @libz.fn("deflateCopy", [P, P], I).call(@strm, other.strm)
 
     def run(op, flush)
       case op
       when :inflate then @libz.fn("inflate", [P, I], I).call(@strm, flush)
+      when :deflate then @libz.fn("deflate", [P, I], I).call(@strm, flush)
+      when :params then @libz.fn("deflateParams", [P, I, I], I).call(@strm, *flush)
       else raise "no op #{op}"
       end
     end
@@ -192,18 +213,27 @@ module ZlibDiff
       @name = name
       @step = 0
       @log = []
+      @script = []
     end
+
+    # The calls so far, as a script --replay runs again.
+    attr_reader :script
+
+    DUMP = File.join(ROOT, "tmp/zlib_diff_fail.bin")
 
     def each_side = [@libz, @port]
 
     def same(what, expected, got)
       return if expected == got
 
-      abort "#{@name}, step #{@step} (#{what}): ruby's zlib #{expected.inspect}, port #{got.inspect}\n  steps: #{@log.last(8).join(" | ")}"
+      FileUtils.mkdir_p(File.dirname(DUMP))
+      File.binwrite(DUMP, Marshal.dump(@script))
+      abort "#{@name}, step #{@step} (#{what}): ruby's zlib #{expected.inspect}, port #{got.inspect}\n  steps:\n    #{@log.join("\n    ")}\n  the calls are in #{DUMP}; --replay runs them again"
     end
 
-    def check(what, &block)
+    def check(what, entry = nil, &block)
       @step += 1
+      @script << entry if entry
       expected = block.call(@libz)
       got = block.call(@port)
       @log << "#{what} -> #{expected.inspect[0, 60]}"
@@ -212,15 +242,30 @@ module ZlibDiff
       expected
     end
 
-    def init_inflate(wbits) = check("inflateInit2(#{wbits})") { |s| s.init_inflate(wbits) }
-    def input(bytes) = each_side.each { |s| s.input(bytes) }
-    def call(op, flush, room) = check("#{op}(flush #{flush}, room #{room})") { |s| s.call(op, flush, room) }
-    def end_stream = check("end") { |s| s.end_stream }
-    def reset = check("reset") { |s| s.reset }
-    def sync = check("inflateSync") { |s| s.sync }
-    def sync_point = check("inflateSyncPoint") { |s| s.sync_point }
-    def dictionary(bytes) = check("inflateSetDictionary(#{bytes.bytesize})") { |s| s.dictionary(bytes) }
+    def init_inflate(wbits) = check("inflateInit2(#{wbits})", [:init_inflate, wbits]) { |s| s.init_inflate(wbits) }
+    def input(bytes)
+      @script << [:input, bytes]
+      each_side.each { |s| s.input(bytes) }
+    end
+    def call(op, flush, room) = check("#{op}(flush #{flush}, room #{room})", [:call, op, flush, room]) { |s| s.call(op, flush, room) }
+    def end_stream = check("end", [:end_stream]) { |s| s.end_stream }
+    def reset = check("reset", [:reset]) { |s| s.reset }
+    def sync = check("inflateSync", [:sync]) { |s| s.sync }
+    def sync_point = check("inflateSyncPoint", [:sync_point]) { |s| s.sync_point }
+    def dictionary(bytes) = check("inflateSetDictionary(#{bytes.bytesize})", [:dictionary, bytes]) { |s| s.dictionary(bytes) }
+    def init_deflate(level, wbits, memlevel, strategy) = check("deflateInit2(#{level}, #{wbits}, #{memlevel}, #{strategy})", [:init_deflate, level, wbits, memlevel, strategy]) { |s| s.init_deflate(level, wbits, memlevel, strategy) }
+    def deflate_end = check("deflateEnd", [:deflate_end]) { |s| s.deflate_end }
+    def deflate_reset = check("deflateReset", [:deflate_reset]) { |s| s.deflate_reset }
+    def deflate_dictionary(bytes) = check("deflateSetDictionary(#{bytes.bytesize})", [:deflate_dictionary, bytes]) { |s| s.deflate_dictionary(bytes) }
+    def params(level, strategy, room) = check("deflateParams(#{level}, #{strategy}, room #{room})", [:params, level, strategy, room]) { |s| s.call(:params, [level, strategy], room) }
     def avail_in = @libz.get(:avail_in)
+
+    # A pair of copies of this pair's streams, made with deflateCopy.
+    def copy(port, libz, name)
+      twin = Pair.new(port, libz, name)
+      twin.check("deflateCopy") { |s| s.copy_from(s.is_a?(PortSide) ? @port : @libz) }
+      twin
+    end
   end
 
   # Sample inputs, seeded.
@@ -447,17 +492,154 @@ module ZlibDiff
     end
   end
 
+  # Deflate: both sides given the same input and the same calls.
+  class Deflate
+    FLUSHES = [Z_NO_FLUSH, Z_NO_FLUSH, Z_NO_FLUSH, Z_NO_FLUSH, 1, Z_SYNC_FLUSH, 3, 5].freeze
+
+    def initialize(port, libz, seed, cases, levels: nil, strategies: nil, grid: false)
+      @port = port
+      @libz = libz
+      @random = Random.new(seed)
+      @samples = Samples.new(@random)
+      @cases = cases
+      @levels = levels
+      @strategies = strategies
+      @grid = grid
+      @bytes = 0
+      @streams = 0
+    end
+
+    def level = @levels ? @levels.sample(random: @random) : @samples.level
+    def strategy = @strategies ? @strategies.sample(random: @random) : @samples.strategy
+
+    # `out` inflated by ruby, which must give back `data`.
+    def round_trip(out, wbits, dict, data, name)
+      z = Zlib::Inflate.new(wbits.negative? ? -15 : 47)
+      z.set_dictionary(dict) if dict && wbits.negative?
+      got = begin
+        z.inflate(out)
+      rescue Zlib::NeedDict
+        z.set_dictionary(dict)
+        z.inflate("")
+      end
+      got << z.finish
+      z.close
+      abort "#{name}: ruby inflates the port's output to something else" unless got == data
+    end
+
+    # One deflate of `data` on `pair`, chunked, with the events of a
+    # real caller; answers the output.
+    def drive(pair, data, chunks, wbits, dict, name, events: true)
+      out = +""
+      steps = 0
+      finishing = false
+      rc = Z_OK
+      loop do
+        pair.input(chunks.shift) if pair.avail_in.zero? && !chunks.empty?
+        finishing = true if chunks.empty? && pair.avail_in.zero? && @random.rand(3).zero?
+        finishing = true if chunks.empty? && steps > 40
+        flush = finishing ? Z_FINISH : FLUSHES.sample(random: @random)
+        if events && !finishing && @random.rand(20).zero?
+          _, bytes = pair.params(level, strategy, @samples.room)
+          out << bytes
+        end
+        if events && !finishing && @random.rand(40).zero?
+          twin = pair.copy(@port, @libz, "#{name}, a copy")
+          twin_out = out.dup
+          twin_out << drive(twin, data, chunks.dup, wbits, dict, "#{name}, a copy", events: false)
+          twin.deflate_end
+          round_trip(twin_out, wbits, dict, data, "#{name}, a copy")
+        end
+        rc, bytes = pair.call(:deflate, flush, @samples.room)
+        out << bytes
+        steps += 1
+        break if rc == Z_STREAM_END || rc == Z_STREAM_ERROR
+        abort "#{name}: no end after #{steps} steps" if steps > 200_000
+      end
+      abort "#{name}: ended with #{rc}" unless rc == Z_STREAM_END
+      @streams += 1
+      out
+    end
+
+    def chunked(data)
+      chunks = []
+      rest = data
+      until rest.empty?
+        n = [@samples.chunk_size, rest.bytesize].min
+        chunks << rest.byteslice(0, n)
+        rest = rest.byteslice(n..)
+      end
+      chunks << "" if chunks.empty?
+      chunks
+    end
+
+    def one(level, strategy, wbits, memlevel, data, name)
+      pair = Pair.new(@port, @libz, name)
+      pair.init_deflate(level, wbits, memlevel, strategy)
+      dict = nil
+      if wbits <= 15 && @random.rand(8).zero?
+        dict = @samples.text(@random.rand(1..40_000))
+        pair.deflate_dictionary(dict)
+      end
+      out = drive(pair, data, chunked(data), wbits, dict, name)
+      round_trip(out, wbits, dict, data, name)
+      @bytes += data.bytesize
+      if @random.rand(5).zero?
+        pair.deflate_reset
+        again = @samples.any
+        out = drive(pair, again, chunked(again), wbits, nil, "#{name}, after a reset")
+        round_trip(out, wbits, nil, again, "#{name}, after a reset")
+        @bytes += again.bytesize
+      end
+      pair.deflate_end
+    end
+
+    def run
+      if @grid
+        data = @samples.mixed.byteslice(0, 60_000)
+        (-1..9).each do |lv|
+          (0..4).each do |st|
+            [-15, 15, 31].each do |wb|
+              (1..9).each do |ml|
+                one(lv, st, wb, ml, data, "deflate grid level #{lv} strategy #{st} wbits #{wb} memLevel #{ml}")
+              end
+            end
+          end
+        end
+        puts "deflate grid: #{@streams} streams agree, #{@bytes} bytes round-tripped"
+        return
+      end
+      @cases.times do |i|
+        data = @samples.any
+        dwbits, = @samples.wbits
+        lv = level
+        st = strategy
+        ml = @samples.memlevel
+        one(lv, st, dwbits, ml, data, "deflate case #{i} (#{data.bytesize} bytes, level #{lv}, strategy #{st}, wbits #{dwbits}, memLevel #{ml})")
+      end
+      puts "deflate: #{@cases} cases, #{@streams} streams agree, #{@bytes} bytes round-tripped"
+    end
+  end
+
   def self.main(argv)
-    mode = argv.find { |a| a.start_with?("--") && !%w[--cases --seed].include?(a) }
+    mode = argv.find { |a| a.start_with?("--") && !%w[--cases --seed --levels --strategies --grid].include?(a) }
     cases = (argv.index("--cases") ? argv[argv.index("--cases") + 1] : "300").to_i
     seed = (argv.index("--seed") ? argv[argv.index("--seed") + 1] : "1").to_i
+    levels = argv.index("--levels") ? argv[argv.index("--levels") + 1].split(",").map(&:to_i) : nil
+    strategies = argv.index("--strategies") ? argv[argv.index("--strategies") + 1].split(",").map(&:to_i) : nil
     abort "ruby's zlib is #{Zlib::ZLIB_VERSION}, not 1.3.1: the recordings would not be ruby's" unless Zlib::ZLIB_VERSION == "1.3.1"
     port = Port.new
     case mode
     when "--check" then Check.new(port, seed, cases).run
     when "--inflate" then Inflate.new(port, Libz.new, seed, cases).run
     when "--inflate-corrupt" then Inflate.new(port, Libz.new, seed, cases, corrupt: true).run
-    else abort "usage: ruby -Ilib tools/zlib_diff.rb --check|--inflate|--inflate-corrupt [--cases N] [--seed S]"
+    when "--deflate" then Deflate.new(port, Libz.new, seed, cases, levels: levels, strategies: strategies, grid: argv.include?("--grid")).run
+    when "--replay"
+      script = Marshal.load(File.binread(argv[argv.index("--replay") + 1]))
+      pair = Pair.new(port, Libz.new, "replay")
+      script.each { |step, *args| pair.public_send(step, *args) }
+      puts "replay: #{script.size} steps agree"
+    else abort "usage: ruby -Ilib tools/zlib_diff.rb --check|--inflate|--inflate-corrupt|--deflate [--grid] [--cases N] [--seed S] [--levels L,L] [--strategies S,S]"
     end
   end
 end
