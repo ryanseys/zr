@@ -462,8 +462,11 @@ end
 # `a[i]`, `a[beg, len]` and `a[range]`.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_ary_aref(recv, argc, argv, cref, blk)
-  out = Machine.slot(16)
   first = Machine.value(Machine.load64(argv, 0))
+  if argc == 1 && zr_fixnum_p(first)
+    return zr_ary_at(recv, zr_fix2long(first))
+  end
+  out = Machine.slot(16)
   if argc == 2
     r = zr_index_operand(first, out)
     return r if r == QUNDEF

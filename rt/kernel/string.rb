@@ -1225,7 +1225,24 @@ machine def zr_str_split_by(s, sep, limit_v)
   if n > 0 && (limit != 0 || n > beg)
     zr_ary_push(out, zr_str_copy_encoding(zr_str_new(RString.ptr(s) + beg, n - beg), s))
   end
+  # No limit drops the empty pieces at the end.
+  if limit == 0
+    while RArray.len(out) > 0 && RString.len(zr_ary_at(out, RArray.len(out) - 1)) == 0
+      RArray.set_len(out, RArray.len(out) - 1)
+    end
+  end
   out
+end
+
+# Whether `sep` is a String that splits by its bytes: not empty, which
+# splits into characters, and not " ", which splits on blanks.
+sig [Value] => Value
+machine def zr_str_plain_sep_p(sep)
+  if zr_special_p(sep) || zr_type(sep) != T_STRING
+    return Machine.value(QFALSE)
+  end
+  n = RString.len(sep)
+  zr_bool(n > 1 || (n == 1 && Machine.word(Machine.load8(RString.ptr(sep), 0)) != 32))
 end
 
 # `s.to_i` in base 10 when the answer is a fixnum: leading blanks (C's

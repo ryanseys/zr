@@ -1460,6 +1460,7 @@ module Ze0
         d zr_str_find Word hay:Value needle:Value from:Word
         d zr_bytes_find Word hay:Ptr n:Word needle:Ptr m:Word from:Word
         d zr_str_split_by Value s:Value sep:Value limit_v:Value
+        d zr_str_plain_sep_p Value sep:Value
         d zr_str_to_i10 Value s:Value
         d zr_blank_byte_p Bool b:Word
         d zr_digit_byte_p Bool b:Word
