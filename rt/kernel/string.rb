@@ -880,7 +880,8 @@ end
 sig [Value] => Word
 machine def zr_str_char_count(s)
   n = RString.len(s)
-  if (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
+  # A scan that found the bytes ASCII answers first: one flag test.
+  if (RBasic.flags(s) & FL_ASCII) != 0 || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
     return n
   end
   count = 0
@@ -898,7 +899,7 @@ sig [Value, Word] => Word
 machine def zr_str_char_offset(s, index)
   n = RString.len(s)
   # One byte a character: the index is the offset.
-  if (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
+  if (RBasic.flags(s) & FL_ASCII) != 0 || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
     if index < 0
       index += n
     end
