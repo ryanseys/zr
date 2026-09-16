@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # ze0 has no C extension. RubyGems runs this file as a gem installs, and
-# ze0 uses the step to build the vendored C (prism, oniguruma, zlib) into
+# ze0 uses the step to build the vendored C (prism and oniguruma) into
 # the gem's vendor/build, while the gem's directory can still be written.
 # A native binary links against those archives.
 #

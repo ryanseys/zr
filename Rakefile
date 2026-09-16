@@ -10,7 +10,7 @@ def ze0(*args)
   sh(Gem.ruby, ZE0, *args)
 end
 
-desc "Build the vendored C archives (prism, oniguruma, zlib)"
+desc "Build the vendored C archives (prism, oniguruma)"
 task :compile do
   ze0("deps", "build")
 end

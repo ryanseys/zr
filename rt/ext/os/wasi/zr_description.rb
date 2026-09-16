@@ -2172,16 +2172,6 @@ module Ze0
         c WEAK_BOTH 1
         c WEAK_KEY 2
         c G_FINALIZERS 45
-        c Z_NEXT_IN 0
-        c Z_AVAIL_IN 8
-        c Z_TOTAL_IN 16
-        c Z_NEXT_OUT 24
-        c Z_AVAIL_OUT 32
-        c Z_TOTAL_OUT 40
-        c Z_MSG 48
-        c Z_DATA_TYPE 88
-        c Z_ADLER 96
-        c Z_STREAM_SIZE 112
         c ZLIB_DEFLATE 0
         c ZLIB_INFLATE 1
         c ZLIB_DEFLATE_END 2

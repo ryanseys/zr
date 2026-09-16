@@ -17,7 +17,6 @@ module Ze0
   # so a gem's extracted files, whatever their mtimes, never pass for a
   # build they are not.
   module Deps
-    ZLIB_SOURCES = %w[adler32 crc32 deflate inffast inflate inftrees trees zutil].freeze
     ONIG_SOURCES = %w[regcomp regenc regerror regexec regext regparse regsyntax regtrav regversion st onig_init unicode unicode_fold1_key unicode_fold2_key unicode_fold3_key unicode_unfold_key ascii utf8].freeze
 
     # A build that cannot write where the archives go.
@@ -34,16 +33,6 @@ module Ze0
       flags = ["-DHAVE_CONFIG_H", "-DONIG_DISABLE_DIRECT_THREADING", "-I#{src}"]
       archive(target, "libonig.a", Dir[File.join(src, "*.[ch]")], flags) do |objects|
         ONIG_SOURCES.map { |name| compile(target, File.join(src, "#{name}.c"), File.join(objects, "#{name}.o"), flags) }
-      end
-    end
-
-    # zlib, the version ruby 4.0.6 links, so a deflate writes the bytes
-    # ruby's writes: the archive's path.
-    def zlib(target = Target.default)
-      src = File.join(Paths::VENDOR, "c/zlib")
-      flags = ["-DHAVE_UNISTD_H", "-I#{src}"]
-      archive(target, "libz.a", Dir[File.join(src, "*.[ch]")], flags) do |objects|
-        ZLIB_SOURCES.map { |name| compile(target, File.join(src, "#{name}.c"), File.join(objects, "#{name}.o"), flags) }
       end
     end
 
@@ -120,7 +109,7 @@ module Ze0
 
     # `target`'s archives, built where they are stale.
     def build(target = Target.default)
-      [onig(target), prism(target), zlib(target)]
+      [onig(target), prism(target)]
     end
   end
 end

@@ -10,7 +10,6 @@ version, its license, and where its license text is.
 |---|---|---|---|---|
 | prism | 1.9.0 | MIT | `vendor/c/prism` | `vendor/c/prism/LICENSE.md` |
 | oniguruma (UTF-8 and ASCII subset, with changes marked `ze0:`) | 6.9.10 | BSD-2-Clause | `vendor/c/oniguruma` | `vendor/c/oniguruma/COPYING` |
-| zlib (subset) | 1.3.1 | Zlib | `vendor/c/zlib` | `vendor/c/zlib/LICENSE` |
 
 ## Ruby halves of extension gems
 

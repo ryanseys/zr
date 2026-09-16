@@ -1,9 +1,8 @@
-# zlib over the vendored library (vendor/c/zlib), and the checksums over
-# the kernel's own port of it (rt/kernel/zlib_check.rb). A z_stream is a
-# malloc'd block the extension holds by its address, a Fixnum; each call
-# here sets the fields one zlib call reads, makes it, and answers what
-# it returned. The extension (rt/ext/zlib.rb) keeps the buffers, as
-# zlib.c keeps them, and says how much room the output has.
+# zlib, as the kernel's own port of it (rt/kernel/zlib_*.rb). A stream
+# is a malloc'd ZStream the extension holds by its address, a Fixnum;
+# each call here sets the fields one zlib call reads, makes it, and
+# answers what it returned. The extension (rt/ext/zlib.rb) keeps the
+# buffers, as zlib.c keeps them, and says how much room the output has.
 #
 # The port is derived from zlib 1.3.1, (C) 1995-2024 Jean-loup Gailly
 # and Mark Adler, under the zlib license:
@@ -26,35 +25,6 @@
 #
 # The Ruby here is an altered version: the same algorithms, written in
 # the kernel dialect. See THIRD_PARTY_NOTICES.md.
-Machine.import "calloc", [Word, Word] => Ptr
-Machine.import "deflateInit2_", [Ptr, I32, I32, I32, I32, I32, Ptr, I32] => I32
-Machine.import "deflate", [Ptr, I32] => I32
-Machine.import "deflateEnd", [Ptr] => I32
-Machine.import "deflateReset", [Ptr] => I32
-Machine.import "deflateParams", [Ptr, I32, I32] => I32
-Machine.import "deflateSetDictionary", [Ptr, Ptr, I32] => I32
-Machine.import "deflateCopy", [Ptr, Ptr] => I32
-Machine.import "inflateInit2_", [Ptr, I32, Ptr, I32] => I32
-Machine.import "inflate", [Ptr, I32] => I32
-Machine.import "inflateEnd", [Ptr] => I32
-Machine.import "inflateReset", [Ptr] => I32
-Machine.import "inflateSync", [Ptr] => I32
-Machine.import "inflateSyncPoint", [Ptr] => I32
-Machine.import "inflateSetDictionary", [Ptr, Ptr, I32] => I32
-Machine.import "zlibVersion", [] => Ptr
-Machine.import "zError", [I32] => Ptr
-
-# z_stream's fields, as zlib.h lays them out on a 64-bit host.
-Z_NEXT_IN = 0
-Z_AVAIL_IN = 8
-Z_TOTAL_IN = 16
-Z_NEXT_OUT = 24
-Z_AVAIL_OUT = 32
-Z_TOTAL_OUT = 40
-Z_MSG = 48
-Z_DATA_TYPE = 88
-Z_ADLER = 96
-Z_STREAM_SIZE = 112
 
 # What zr_zlib_call runs.
 ZLIB_DEFLATE = 0
@@ -71,13 +41,14 @@ machine def zr_zlib_stream(addr)
   Machine.ptr(zr_fix2long(addr))
 end
 
-# A zeroed z_stream: zlib's own allocator, no input, no output.
+# A zeroed stream: no state, no input, no output.
 sig [] => Value
 machine def zr_zlib_new
-  z = calloc(1, Z_STREAM_SIZE)
+  z = malloc(ZStream.size)
   if z == 0
     zr_memory_exhausted()
   end
+  memset(z, Machine.i32(0), ZStream.size)
   zr_fix(Machine.word(z))
 end
 
@@ -86,9 +57,9 @@ sig [Value, Value] => Value
 machine def zr_zlib_release(addr, kind)
   z = zr_zlib_stream(addr)
   if zr_fix2long(kind) == ZLIB_DEFLATE
-    deflateEnd(z)
+    zr_deflate_end(z)
   else
-    inflateEnd(z)
+    zr_inflate_end(z)
   end
   zr_xfree(z)
   Machine.value(QNIL)
@@ -98,11 +69,10 @@ end
 sig [Value, Value, Value, Value, Value, Value] => Value
 machine def zr_zlib_init(addr, kind, level, wbits, memlevel, strategy)
   z = zr_zlib_stream(addr)
-  version = Machine.bytes("1.3.1\0")
   if zr_fix2long(kind) == ZLIB_DEFLATE
-    return zr_fix(Machine.sword(deflateInit2_(z, Machine.i32(zr_fix2long(level)), Machine.i32(8), Machine.i32(zr_fix2long(wbits)), Machine.i32(zr_fix2long(memlevel)), Machine.i32(zr_fix2long(strategy)), version, Machine.i32(Z_STREAM_SIZE))))
+    return zr_fix(zr_deflate_init2(z, zr_fix2long(level), Z_DEFLATED, zr_fix2long(wbits), zr_fix2long(memlevel), zr_fix2long(strategy)))
   end
-  zr_fix(Machine.sword(inflateInit2_(z, Machine.i32(zr_fix2long(wbits)), version, Machine.i32(Z_STREAM_SIZE))))
+  zr_fix(zr_inflate_init2(z, zr_fix2long(wbits)))
 end
 
 # The input the next calls read: `str`'s bytes from `offset`, or none.
@@ -111,12 +81,12 @@ sig [Value, Value, Value] => Value
 machine def zr_zlib_input(addr, str, offset)
   z = zr_zlib_stream(addr)
   if str == QNIL
-    Machine.store64(z, Z_NEXT_IN, Machine.word(Machine.bytes("\0")))
-    Machine.store32(z, Z_AVAIL_IN, Machine.i32(0))
+    ZStream.set_next_in(z, Machine.bytes("\0"))
+    ZStream.set_avail_in(z, 0)
   else
     at = zr_fix2long(offset)
-    Machine.store64(z, Z_NEXT_IN, Machine.word(RString.ptr(str) + at))
-    Machine.store32(z, Z_AVAIL_IN, Machine.i32(RString.len(str) - at))
+    ZStream.set_next_in(z, RString.ptr(str) + at)
+    ZStream.set_avail_in(z, RString.len(str) - at)
   end
   Machine.value(QNIL)
 end
@@ -126,14 +96,14 @@ end
 sig [Ptr, Value, Word] => Void
 machine def zr_zlib_output(z, buf, room)
   if buf == QNIL
-    Machine.store64(z, Z_NEXT_OUT, 0)
-    Machine.store32(z, Z_AVAIL_OUT, Machine.i32(0))
+    ZStream.set_next_out(z, 0)
+    ZStream.set_avail_out(z, 0)
     return
   end
   len = RString.len(buf)
   zr_str_reserve(buf, len + room)
-  Machine.store64(z, Z_NEXT_OUT, Machine.word(RString.ptr(buf) + len))
-  Machine.store32(z, Z_AVAIL_OUT, Machine.i32(room))
+  ZStream.set_next_out(z, RString.ptr(buf) + len)
+  ZStream.set_avail_out(z, room)
 end
 
 # What the call wrote, counted into `buf`'s length.
@@ -142,7 +112,7 @@ machine def zr_zlib_output_taken(z, buf)
   if buf == QNIL
     return
   end
-  len = Machine.ptr(Machine.load64(z, Z_NEXT_OUT)) - RString.ptr(buf)
+  len = ZStream.next_out(z) - RString.ptr(buf)
   RString.set_len(buf, len)
   Machine.store8(RString.ptr(buf) + len, 0, Machine.i8(0))
   zr_str_modified(buf)
@@ -154,25 +124,25 @@ sig [Value, Value, Value, Value, Value] => Value
 machine def zr_zlib_call(addr, op, flush, buf, room)
   z = zr_zlib_stream(addr)
   o = zr_fix2long(op)
-  f = Machine.i32(zr_fix2long(flush))
+  f = zr_fix2long(flush)
   zr_zlib_output(z, buf, zr_fix2long(room))
   err = 0
   if o == ZLIB_DEFLATE
-    err = Machine.sword(deflate(z, f))
+    err = zr_deflate(z, f)
   elsif o == ZLIB_INFLATE
-    err = Machine.sword(inflate(z, f))
+    err = zr_inflate(z, f)
   elsif o == ZLIB_DEFLATE_END
-    err = Machine.sword(deflateEnd(z))
+    err = zr_deflate_end(z)
   elsif o == ZLIB_INFLATE_END
-    err = Machine.sword(inflateEnd(z))
+    err = zr_inflate_end(z)
   elsif o == ZLIB_DEFLATE_RESET
-    err = Machine.sword(deflateReset(z))
+    err = zr_deflate_reset(z)
   elsif o == ZLIB_INFLATE_RESET
-    err = Machine.sword(inflateReset(z))
+    err = zr_inflate_reset(z)
   elsif o == ZLIB_INFLATE_SYNC
-    err = Machine.sword(inflateSync(z))
+    err = zr_inflate_sync(z)
   else
-    err = Machine.sword(inflateSyncPoint(z))
+    err = zr_inflate_sync_point(z)
   end
   zr_zlib_output_taken(z, buf)
   zr_fix(err)
@@ -183,7 +153,7 @@ sig [Value, Value, Value, Value, Value] => Value
 machine def zr_zlib_params(addr, level, strategy, buf, room)
   z = zr_zlib_stream(addr)
   zr_zlib_output(z, buf, zr_fix2long(room))
-  err = Machine.sword(deflateParams(z, Machine.i32(zr_fix2long(level)), Machine.i32(zr_fix2long(strategy))))
+  err = zr_deflate_params(z, zr_fix2long(level), zr_fix2long(strategy))
   zr_zlib_output_taken(z, buf)
   zr_fix(err)
 end
@@ -192,14 +162,14 @@ sig [Value, Value, Value] => Value
 machine def zr_zlib_dictionary(addr, kind, dict)
   z = zr_zlib_stream(addr)
   if zr_fix2long(kind) == ZLIB_DEFLATE
-    return zr_fix(Machine.sword(deflateSetDictionary(z, RString.ptr(dict), Machine.i32(RString.len(dict)))))
+    return zr_fix(zr_deflate_set_dictionary(z, RString.ptr(dict), RString.len(dict)))
   end
-  zr_fix(Machine.sword(inflateSetDictionary(z, RString.ptr(dict), Machine.i32(RString.len(dict)))))
+  zr_fix(zr_inflate_set_dictionary(z, RString.ptr(dict), RString.len(dict)))
 end
 
 sig [Value, Value] => Value
 machine def zr_zlib_copy(dest, source)
-  zr_fix(Machine.sword(deflateCopy(zr_zlib_stream(dest), zr_zlib_stream(source))))
+  zr_fix(zr_deflate_copy(zr_zlib_stream(dest), zr_zlib_stream(source)))
 end
 
 # [avail_in, total_in, avail_out, total_out, data_type, adler, msg]
@@ -207,13 +177,13 @@ sig [Value] => Value
 machine def zr_zlib_fields(addr)
   z = zr_zlib_stream(addr)
   out = zr_ary_new(7)
-  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(z, Z_AVAIL_IN))))
-  zr_ary_push(out, zr_fix(Machine.load64(z, Z_TOTAL_IN)))
-  zr_ary_push(out, zr_fix(Machine.word(Machine.load32(z, Z_AVAIL_OUT))))
-  zr_ary_push(out, zr_fix(Machine.load64(z, Z_TOTAL_OUT)))
-  zr_ary_push(out, zr_fix(Machine.sword(Machine.load32(z, Z_DATA_TYPE))))
-  zr_ary_push(out, zr_fix(Machine.load64(z, Z_ADLER)))
-  zr_ary_push(out, zr_cstr_str(Machine.ptr(Machine.load64(z, Z_MSG))))
+  zr_ary_push(out, zr_fix(ZStream.avail_in(z)))
+  zr_ary_push(out, zr_fix(ZStream.total_in(z)))
+  zr_ary_push(out, zr_fix(ZStream.avail_out(z)))
+  zr_ary_push(out, zr_fix(ZStream.total_out(z)))
+  zr_ary_push(out, zr_fix(ZStream.data_type(z)))
+  zr_ary_push(out, zr_fix(ZStream.adler(z)))
+  zr_ary_push(out, zr_cstr_str(ZStream.msg(z)))
   out
 end
 
@@ -221,7 +191,7 @@ end
 sig [Value, Value] => Value
 machine def zr_zlib_count_in(addr, n)
   z = zr_zlib_stream(addr)
-  Machine.store64(z, Z_TOTAL_IN, Machine.load64(z, Z_TOTAL_IN) + zr_fix2long(n))
+  ZStream.set_total_in(z, ZStream.total_in(z) + zr_fix2long(n))
   Machine.value(QNIL)
 end
 
@@ -258,10 +228,10 @@ end
 
 sig [] => Value
 machine def zr_zlib_version
-  zr_cstr_str(zlibVersion())
+  zr_cstr_str(zr_zlib_version_text())
 end
 
 sig [Value] => Value
 machine def zr_zlib_message(err)
-  zr_cstr_str(zError(Machine.i32(zr_fix2long(err))))
+  zr_cstr_str(zr_zlib_error_text(zr_fix2long(err)))
 end

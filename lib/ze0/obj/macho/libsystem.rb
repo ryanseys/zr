@@ -28,7 +28,6 @@ module Ze0
           atan2
           atanh
           bind
-          calloc
           cbrt
           chdir
           chmod

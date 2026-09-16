@@ -4,7 +4,7 @@
 # stays reproducible after the C is gone.
 #
 #   ruby tools/zlib_tables.rb > rt/kernel/zlib_tables.rb
-#   ruby tools/zlib_tables.rb --check   # diffs against vendor/c/zlib while it exists
+#   ZLIB_SRC=/path/to/zlib-1.3.1 ruby tools/zlib_tables.rb --check   # diffs against zlib's own headers
 POLY = 0xedb88320
 
 # crc32.c's make_crc_table: the CRC of every byte value.
@@ -240,7 +240,7 @@ def c_codes(path, name)
 end
 
 if ARGV.include?("--check")
-  src = File.expand_path("../vendor/c/zlib", __dir__)
+  src = ENV.fetch("ZLIB_SRC") { abort "ZLIB_SRC names a zlib 1.3.1 source tree to check against" }
   raise "crc_table differs" unless c_array(File.join(src, "crc32.h"), "crc_table") == crc_table
   raise "x2n_table differs" unless c_array(File.join(src, "crc32.h"), "x2n_table") == x2n_table
   raise "lenfix differs" unless c_codes(File.join(src, "inffixed.h"), "lenfix") == lenfix

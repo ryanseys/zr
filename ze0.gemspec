@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.description = <<~TEXT
     ze0 compiles Ruby programs to native aarch64-apple-darwin binaries on an
     Apple Silicon Mac, and to WASI modules on any host. The compiler and the
-    runtime are Ruby; prism, oniguruma and zlib are vendored C.
+    runtime are Ruby; prism and oniguruma are vendored C.
   TEXT
   spec.homepage = "https://github.com/ryanseys/ze0"
   spec.license = "MIT" # the vendored parts: THIRD_PARTY_NOTICES.md
