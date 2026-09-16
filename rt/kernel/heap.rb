@@ -516,10 +516,12 @@ machine def zr_sweep
   zr_sweep_arena(home, split + 1, CELLS - 1)
 end
 
-# Collect; then grow to twice the live set, which is the capacity that
-# leaves half the cells free for the round after this one. The sweep
-# counted what came free, so the live set is known and the heap reaches
-# the size it wants in one step, with nothing to overshoot.
+# Collect; then grow to twice the live set and two arenas more: the
+# capacity that leaves half the cells free for the round after this
+# one, and a small program a run of allocations between collections
+# that each mark the runtime's own objects again. The sweep counted
+# what came free, so the live set is known and the heap reaches the
+# size it wants in one step, with nothing to overshoot.
 sig [] => Void
 machine def zr_collect
   h = zr_heap()
@@ -531,7 +533,7 @@ machine def zr_collect
   zr_weak_prune()
   zr_sweep()
   live =(Heap.arenas(h) * CELLS) - Heap.freed(h)
-  want = ((live * 2) + (CELLS - 1)) / CELLS
+  want = ((live * 2) + (CELLS - 1)) / CELLS + 1
   while Heap.arenas(h) < want
     zr_arena_add()
   end
