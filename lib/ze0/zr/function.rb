@@ -64,6 +64,7 @@ module Ze0
         @task = lower.layout("Task")
         @cref_layout = lower.layout("RCref")
         @proc_layout = lower.layout("RProc")
+        @env_layout = lower.layout("REnv")
         @slot_of = locals.each_with_index.to_h
         lower.spell(locals)
         # The locals this scope reaches outside itself: each one's depth
@@ -366,21 +367,26 @@ module Ze0
         @f.symbol_value(@f.symbol(@l.cache_cell(prefix, @l.layout(layout).size * count)))
       end
 
-      # The Env `depth` scopes up: this scope's own, or the Proc's chain.
+      # The Env `depth` scopes up: this scope's own, or the Proc's chain,
+      # walked inline, a parent a load.
       def env_at(depth)
-        if @has_env
-          depth.zero? ? @env : kernel("zr_env_up", @env, imm(depth))
-        else
-          base = proc_field("env")
-          depth == 1 ? base : kernel("zr_env_up", base, imm(depth - 1))
-        end
+        env, up = @has_env ? [@env, depth] : [proc_field("env"), depth - 1]
+        up.times { env = @f.fetch("i64", env, off(@env_layout, "parent")) }
+        env
+      end
+
+      # Slot `i` of the Env `depth` scopes up: a load of the slots and a
+      # load or store at the slot, inline, since every local of a scope
+      # that holds a block lives there (rt/kernel/proc.rb).
+      def env_slot(i, depth)
+        [@f.fetch("i64", env_at(depth), off(@env_layout, "slots")), 8 * i]
       end
 
       def read_local(i, depth, name = nil)
         capture(name, depth, write: false)
         return @f.fetch("i64", @rec, value_offset(i)) if depth.zero? && !@has_env
 
-        kernel("zr_env_get", env_at(depth), imm(i))
+        @f.fetch("i64", *env_slot(i, depth))
       end
 
       def write_local(i, depth, v, name = nil)
@@ -388,7 +394,7 @@ module Ze0
         if depth.zero? && !@has_env
           @f.store(v, @rec, value_offset(i))
         else
-          kernel("zr_env_set", env_at(depth), imm(i), v)
+          @f.store(v, *env_slot(i, depth))
         end
         v
       end
