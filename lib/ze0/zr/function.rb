@@ -483,6 +483,23 @@ module Ze0
         @f.fetch("i64", @proc, off(@proc_layout, name))
       end
 
+      # This frame's serial, given now when it has none yet: a block
+      # descriptor carries it, so a later frame at the same address is
+      # told from this one (`zr_frame_live`).
+      def frame_serial
+        have = @f.fetch("i64", @rec, off(@frame, "serial"))
+        give = @f.label
+        keep = @f.label
+        merge, (serial,) = @f.block(["i64"])
+        @f.brif(@f.icmp("eq", have, imm(0)), give, keep)
+        switch(keep)
+        @f.jump(merge, [have])
+        switch(give)
+        @f.jump(merge, [kernel("zr_frame_serial", @rec)])
+        switch(merge)
+        serial
+      end
+
       # In a method: a field of the entry it was called through.
       def entry_field(name)
         @f.fetch("i64", @f.args[3], off(@l.layout("MEntry"), name))

@@ -758,8 +758,9 @@ machine def zr_debug_frames
         zr_ary_push(entry, Machine.value(QNIL))
         zr_ary_push(entry, zr_fix(0))
       else
+        blk = zr_block_proc(Frame.blk(rec))
         bound = zr_binding_of(meta, zr_frame_env(rec), Frame.self(rec), Frame.cref(rec))
-        RProc.set_blk(bound, Frame.blk(rec))
+        RProc.set_blk(bound, blk)
         RProc.set_serial(bound, zr_frame_line(rec))
         zr_ary_push(entry, bound)
         zr_ary_push(entry, zr_fix(Machine.word(meta)))

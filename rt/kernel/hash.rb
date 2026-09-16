@@ -870,7 +870,7 @@ machine def zr_hash_init(recv, capacity, unset, ifnone, blk)
       return zr_wrong_arity(1, 0)
     end
     RHash.set_default(recv, Machine.value(QNIL))
-    RHash.set_default_proc(recv, blk)
+    RHash.set_default_proc(recv, zr_block_proc(blk))
     return recv
   end
   RHash.set_default(recv, unset == QTRUE ? Machine.value(QNIL) : ifnone)

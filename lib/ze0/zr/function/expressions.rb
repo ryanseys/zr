@@ -103,10 +103,8 @@ module Ze0
         # `-> { }`: a Proc marked a lambda; its `break` and `return` stay
         # inside it, so it has no call site to answer to.
         def lambda_literal(node)
-          slot = reserve(1)
-          _, proc = make_proc(node.block, slot)
-          @sp = slot
-          kernel("zr_proc_lambda", proc)
+          _, block = make_block(node.block)
+          kernel("zr_proc_lambda", block)
         end
 
         def array_literal(node)

@@ -1053,7 +1053,7 @@ module Ze0
         d zr_proc_capture_rows_m Value p:Value
         d zr_proc_isolated_m Value p:Value self_:Value lambda:Value
         d zr_proc_captures_table Ptr p:Value
-        d zr_proc_new Value meta:Ptr env:Value self_:Value cref:Value blk:Value home:Ptr site_and_spread:Word ret_home:Ptr
+        d zr_block_proc Value b:Value
         d zr_symbol_block Value p:Value argc:Word argv:Ptr blk:Value
         d zr_sym_to_proc Value sym:Value
         d zr_native_proc Value fn:Ptr self_:Value
@@ -1789,6 +1789,7 @@ module Ze0
         c PM_BUFFER_SIZE 24
         c T_ENV 26
         c T_PROC 27
+        c FL_STACK 512
         c FL_ISOLATED 8192
         c G_PROC 28
         c G_LOCAL_JUMP_ERROR 29

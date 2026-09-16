@@ -48,17 +48,17 @@ module Ze0
           recv_node = node.recv || Hir::SelfRef.new(node.line)
           args = node.args + [node.kwargs].compact
           if args.any?(Hir::Splat)
-            staged([recv_node], 1 + (node.block ? 1 : 0)) do |slots, base|
+            staged([recv_node], 1) do |slots, base|
               ary = gather(args, base + 1)
               # A write answers the value it wrote, which is the last thing
               # gathered, not whatever the writer returned.
               last = node.write ? kernel("zr_ary_at", ary, @f.isub(array_len(ary), imm(1))) : nil
-              r = send_staged(node, @f.fetch("i64", slots), array_ptr(ary), array_len(ary), base + 2)
+              r = send_staged(node, @f.fetch("i64", slots), array_ptr(ary), array_len(ary))
               node.write ? last : r
             end
           else
-            staged([recv_node, *args], node.block ? 1 : 0) do |slots, base|
-              r = send_staged(node, @f.fetch("i64", slots), @f.iadd(slots, imm(8)), imm(args.size), base + 1 + args.size)
+            staged([recv_node, *args]) do |slots|
+              r = send_staged(node, @f.fetch("i64", slots), @f.iadd(slots, imm(8)), imm(args.size))
               node.write ? @f.fetch("i64", slots, 8 * node.args.size) : r
             end
           end
@@ -108,11 +108,11 @@ module Ze0
           d.params.each { |name, type| @l.refuse(node, "Primitive.#{node.name}'s #{name} is a #{type}, not a Value") unless type == "Value" }
           @l.refuse(node, "Primitive.#{node.name} answers a #{d.ret}, not a Value") unless d.ret == "Value"
           at_node(node)
-          staged(node.args, node.block ? 1 : 0) do |_, base|
+          staged(node.args) do |_, base|
             args = node.args.each_index.map { |i| @f.fetch("i64", @rec, value_offset(base + i)) }
             if node.block
-              site, proc = make_proc(node.block, base + node.args.size)
-              catching_break(site) { kernel(node.name.to_s, *args, proc) }
+              site, block = make_block(node.block)
+              catching_break(site) { kernel(node.name.to_s, *args, block) }
             else
               checked(kernel(node.name.to_s, *args))
             end
@@ -133,9 +133,9 @@ module Ze0
         end
 
         # A traced program sends every operator, so a :c_call sees it.
-        def send_staged(node, recv, argv, argc, block_slot)
+        def send_staged(node, recv, argv, argc)
           if node.block
-            call_with_block(node, recv, argv, argc, block_slot)
+            call_with_block(node, recv, argv, argc)
           elsif node.args.size == 1 && node.kwargs.nil? && OPS.key?(node.name) && !node.vcall && node.using.nil? && !traced?
             operator(node, recv, argv)
           else
@@ -259,9 +259,9 @@ module Ze0
           result
         end
 
-        # The send with a block: a Proc for a block literal, with the
-        # site's own `break` caught on the way out, or the `&value`.
-        def call_with_block(node, recv, argv, argc, slot)
+        # The send with a block: a descriptor for a block literal, with
+        # the site's own `break` caught on the way out, or the `&value`.
+        def call_with_block(node, recv, argv, argc)
           if node.block.is_a?(Hir::BlockPass)
             proc = checked(kernel("zr_block_pass", expr(node.block.value)))
             at_node(node)
@@ -270,16 +270,20 @@ module Ze0
             return checked(cached_send(node, recv, argc, argv, proc))
           end
 
-          site, proc = make_proc(node.block, slot)
+          site, block = make_block(node.block)
           at_node(node)
           argc = keyword_argc(node, argc, argv)
           activate(node)
-          catching_break(site) { cached_send(node, recv, argc, argv, proc) }
+          catching_break(site) { cached_send(node, recv, argc, argv, block) }
         end
 
-        # A Proc for the block literal, kept in the record slot `slot`,
-        # and its site number.
-        def make_proc(block, slot)
+        # The block literal's descriptor and its site number. The
+        # descriptor is a Proc's image in a slot of this record, written
+        # by stores alone: no cell, unless a kernel def keeps the block
+        # (`zr_block_proc`, rt/kernel/proc.rb). Its flags say it is a
+        # stack's and marked already, so the collector reads nothing
+        # through it: what it names, this frame roots.
+        def make_block(block)
           fn = @l.block(block, self)
           site = (@sites += 1)
           # Where a `return` written in the block lands. A block inside a
@@ -287,11 +291,26 @@ module Ze0
           # names what that block names, unless the block is a lambda:
           # a lambda is the innermost frame a return can leave, so the
           # answer is known only when the proc is called.
-          ret_home = @kind == :block ? @f.csel(lambda?, @rec, proc_field("ret_home")) : @rec
-          proc = kernel("zr_proc_new", @f.symbol_value(@f.symbol("zr_meta_#{fn}")), @env, @self, @cref, @blk, @rec,
-                        imm((site << 32) | (block.params.spread? ? 1 : 0)), ret_home)
-          @f.store(proc, @rec, value_offset(slot))
-          [site, proc]
+          serial = frame_serial
+          ret_home, ret_serial = if @kind == :block
+                                   [@f.csel(lambda?, @rec, proc_field("ret_home")), @f.csel(lambda?, serial, proc_field("ret_serial"))]
+                                 else
+                                   [@rec, serial]
+                                 end
+          fields = {
+            "fn" => @f.func_addr(@f.callee(fn, ABI.fetch(:block), "i64")),
+            "meta" => @f.symbol_value(@f.symbol("zr_meta_#{fn}")),
+            "env" => @env, "self" => @self, "cref" => @cref, "blk" => @blk,
+            "home" => @rec, "serial" => serial, "site" => imm(site),
+            "ret_home" => ret_home, "ret_serial" => ret_serial,
+            "spread" => imm(block.params.spread? ? 1 : 0), "lambda" => imm(0), "passed" => imm(0)
+          }
+          desc = @f.stack_addr(@f.slot(@proc_layout.size))
+          basic = @l.layout("RBasic")
+          @f.store(imm(%w[T_PROC FL_ALLOCATED FL_MARK FL_STACK].sum { |c| @l.const(c) }), desc, off(basic, "flags"))
+          @f.store(global("G_PROC"), desc, off(basic, "klass"))
+          fields.each { |name, v| @f.store(v, desc, off(@proc_layout, name)) }
+          [site, desc]
         end
 
         # The block's call answered; a `break` from the block literal at
@@ -325,23 +344,23 @@ module Ze0
           end
           args = node.args + [node.kwargs].compact
           if args.any?(Hir::Splat)
-            staged([], 1 + (node.block ? 1 : 0)) do |_, base|
+            staged([], 1) do |_, base|
               ary = gather(args, base)
-              super_staged(node, array_ptr(ary), array_len(ary), base + 1)
+              super_staged(node, array_ptr(ary), array_len(ary))
             end
           else
-            staged(args, node.block ? 1 : 0) { |slots, base| super_staged(node, slots, imm(args.size), base + args.size) }
+            staged(args) { |slots| super_staged(node, slots, imm(args.size)) }
           end
         end
 
-        def super_staged(node, argv, argc, block_slot)
+        def super_staged(node, argv, argc)
           site = nil
           blk = case node.block
                 when nil then @blk
                 when Hir::BlockPass then checked(kernel("zr_block_pass", expr(node.block.value)))
                 else
-                  site, proc = make_proc(node.block, block_slot)
-                  proc
+                  site, block = make_block(node.block)
+                  block
                 end
           at_node(node)
           argc = keyword_argc(node, argc, argv)

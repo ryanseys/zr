@@ -5,11 +5,24 @@
 # a `break` returns to (with the call site's number) and the method a
 # `return` leaves. A `break` or `return` is a signal beside `raise`:
 # the task's pending kind says which.
+#
+# A block literal is no Proc cell until something keeps it. The send
+# that carries it writes a Proc's image into a slot of its own record
+# (`make_block` in the lowering), flagged FL_STACK and marked already,
+# so the collector reads nothing through it: what it names, its frame
+# roots. A kernel def that keeps a block past the call -- as a `&b`
+# parameter, in a Binding, a Fiber, a Hash's default, an at_exit hook,
+# a define_method's cref -- takes it through `zr_block_proc` first, so
+# no cell ever points into a stack. A frame gives its serial when it
+# makes a block, so a descriptor's frame is told from a later frame at
+# the same address as a Proc's is.
 Machine.struct :REnv, basic: RBasic, parent: Value, slots: Ptr, nslots: Word, names: Ptr
 Machine.struct :RProc, basic: RBasic, fn: Ptr, meta: Ptr, env: Value, self: Value, cref: Value, blk: Value, home: Ptr, serial: Word, site: Word, ret_home: Ptr, ret_serial: Word, spread: Word, lambda: Word, passed: Word
 Machine.sig :block, [Value, Word, Ptr, Value] => Value
 T_ENV = 26
 T_PROC = 27
+# A block literal's descriptor in the record of the send that carries it.
+FL_STACK = 1 << 9
 # A Proc `Ractor.shareable_proc` made: frozen, calling nothing it did not
 # copy, and with no Binding to reach its scope through. A copy of it is
 # an ordinary Proc again, so the bit is not carried over.
@@ -74,12 +87,13 @@ machine def zr_mark_proc(p)
   zr_mark(RProc.env(p))
   zr_mark(RProc.self(p))
   zr_mark(RProc.cref(p))
-  zr_mark(RProc.blk(p))
+  blk = RProc.blk(p)
+  if blk != QNIL && (RBasic.flags(blk) & FL_STACK) != 0
+    zr_bug(Machine.bytes("a Proc holds a block descriptor of a stack: a keeper missed zr_block_proc\n"), 75)
+  end
+  zr_mark(blk)
 end
 
-# A Proc for a block written in the frame `home` (the call site
-# `site`, packed above the spread flag: whether a lone Array argument
-# spreads over the parameters), whose method's frame is `ret_home`.
 # The same block with another self, which is what a Ractor runs: the
 # block's body answers to the ractor, and no frame stands between the
 # call and the body where a report would show one.
@@ -160,25 +174,18 @@ machine def zr_proc_captures_table(p)
   FrameMeta.captures(meta)
 end
 
-sig [Ptr, Value, Value, Value, Value, Ptr, Word, Ptr] => Value
-machine def zr_proc_new(meta, env, self_, cref, blk, home, site_and_spread, ret_home)
-  site = site_and_spread >> 32
-  spread = site_and_spread & 4294967295
+# A block as an object: a Proc is one already; a literal's descriptor
+# becomes a Proc of its own cell, its own block first, so a Proc keeps
+# no descriptor. The same descriptor kept twice makes two Procs.
+sig [Value] => Value
+machine def zr_block_proc(b)
+  if b == QNIL || (RBasic.flags(b) & FL_STACK) == 0
+    return b
+  end
+  blk = zr_block_proc(RProc.blk(b))
   p = zr_alloc(T_PROC, zr_global(G_PROC))
-  RProc.set_fn(p, FrameMeta.fn(meta))
-  RProc.set_meta(p, meta)
-  RProc.set_env(p, env)
-  RProc.set_self(p, self_)
-  RProc.set_cref(p, cref)
+  zr_memcpy(Machine.ptr(p) + RBasic.size, Machine.ptr(b) + RBasic.size, RProc.size - RBasic.size)
   RProc.set_blk(p, blk)
-  RProc.set_home(p, home)
-  RProc.set_serial(p, zr_frame_serial(home))
-  RProc.set_site(p, site)
-  RProc.set_ret_home(p, ret_home)
-  RProc.set_ret_serial(p, zr_frame_serial(ret_home))
-  RProc.set_spread(p, spread)
-  RProc.set_lambda(p, 0)
-  RProc.set_passed(p, 0)
   p
 end
 
@@ -219,8 +226,11 @@ machine def zr_native_proc(fn, self_)
   p
 end
 
+# `-> { }`: the literal's Proc, a lambda, with no call site for a
+# `break` to reach.
 sig [Value] => Value
 machine def zr_proc_lambda(p)
+  p = zr_block_proc(p)
   RProc.set_lambda(p, 1)
   RProc.set_home(p, 0)
   p
@@ -285,8 +295,9 @@ machine def zr_kernel_proc(recv, argc, argv, cref, blk)
   if blk == QNIL
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("tried to create Proc object without a block"), 43)
   end
-  RProc.set_home(blk, 0)
-  blk
+  p = zr_block_proc(blk)
+  RProc.set_home(p, 0)
+  p
 end
 
 # `Proc.new { }`: as `proc`, and the arguments go to `initialize`, as
@@ -321,8 +332,9 @@ machine def zr_kernel_lambda(recv, argc, argv, cref, blk)
     end
     return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("the lambda method requires a literal block"), 42)
   end
-  RProc.set_lambda(blk, 1)
-  blk
+  p = zr_block_proc(blk)
+  RProc.set_lambda(p, 1)
+  p
 end
 
 # `&value` at a call: nil passes no block, a Proc itself (marked as

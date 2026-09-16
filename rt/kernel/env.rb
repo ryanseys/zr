@@ -39,6 +39,7 @@ end
 # `at_exit`: the handlers, run last first when the program ends.
 sig [Value] => Value
 machine def zr_at_exit_add(blk)
+  blk = zr_block_proc(blk)
   hooks = zr_global(G_AT_EXIT)
   if zr_special_p(hooks)
     hooks = zr_ary_new(4)

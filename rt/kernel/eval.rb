@@ -11,8 +11,10 @@ KIND_BMETHOD = 8
 
 sig [Value, Value, Value] => Value
 machine def zr_proc_under(p, self_, cref)
+  blk = zr_block_proc(RProc.blk(p))
   copy = zr_alloc(T_PROC, zr_global(G_PROC))
   zr_memcpy(Machine.ptr(copy) + RBasic.size, Machine.ptr(p) + RBasic.size, RProc.size - RBasic.size)
+  RProc.set_blk(copy, blk)
   RProc.set_self(copy, self_)
   RProc.set_cref(copy, cref)
   copy
@@ -177,7 +179,7 @@ machine def zr_mod_define_method(recv, argc, argv, cref, blk)
   r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
   return r if r == QUNDEF
   mid = Machine.load64(slot, 0)
-  body = blk
+  body = zr_block_proc(blk)
   caller = Frame.prev(Task.top(zr_task()))
   cref = zr_cref_in_context(caller, recv)
   if argc > 1
@@ -272,10 +274,11 @@ machine def zr_bmethod_call(e, recv, argc, argv, blk)
     # a Symbol's or Method's Proc works on its arguments alone
     return Machine.call(:block, RProc.fn(body), body, argc, argv, blk)
   end
-  cref = zr_cref_push_eval(FrameMeta.owner(MEntry.meta(e)), RProc.cref(body))
-  RCref.set_entry(cref, e)
   # The block this call was given, which the body's frame cannot hold: a
   # block's frame keeps the block of the method it was written in.
+  blk = zr_block_proc(blk)
+  cref = zr_cref_push_eval(FrameMeta.owner(MEntry.meta(e)), RProc.cref(body))
+  RCref.set_entry(cref, e)
   RCref.set_blk(cref, blk)
   p = zr_proc_under(body, recv, cref)
   RProc.set_lambda(p, 1)

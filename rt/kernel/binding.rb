@@ -144,8 +144,9 @@ end
 sig [] => Value
 machine def zr_binding
   rec = zr_caller_frame()
+  blk = zr_block_proc(Frame.blk(rec))
   b = zr_binding_of(Frame.meta(rec), zr_frame_env(rec), Frame.self(rec), Frame.cref(rec))
-  RProc.set_blk(b, Frame.blk(rec))
+  RProc.set_blk(b, blk)
   RProc.set_serial(b, zr_frame_line(rec))
   b
 end

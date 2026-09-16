@@ -30,7 +30,7 @@ module Ze0
           check_arity(p, argc)
           bind_positional(p, argc, argv, strict: true)
           bind_keywords(p, kwargs_at) if keywords?(p)
-          bind(p.block, @blk) if p.block
+          bind(p.block, kernel("zr_block_proc", @blk)) if p.block
         end
 
         # A lambda checks its arity and never spreads; the same function
@@ -61,7 +61,7 @@ module Ze0
           argv = @f.fetch("i64", out)
           bind_positional(p, argc, argv, strict: false, keep: keep)
           bind_keywords(p, kwargs_at) if keywords?(p)
-          bind(p.block, @f.args[3]) if p.block
+          bind(p.block, kernel("zr_block_proc", @f.args[3])) if p.block
         end
 
         # A block with no parameters takes anything, unless it is a lambda

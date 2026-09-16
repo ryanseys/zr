@@ -59,7 +59,7 @@ machine def zr_cont_roots(roots)
   while rec != 0
     zr_ary_push(roots, Frame.self(rec))
     zr_ary_push(roots, Frame.cref(rec))
-    zr_ary_push(roots, Frame.blk(rec))
+    zr_ary_push(roots, zr_block_proc(Frame.blk(rec)))
     zr_ary_push(roots, Frame.svars(rec))
     zr_ary_push(roots, Frame.defined(rec))
     i = 0

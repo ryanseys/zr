@@ -97,14 +97,13 @@ module Ze0
         case node
         when Hir::Seq then node.stmts.map { |s| staging(s, base) }.max || base
         when Hir::Send
-          extra = (node.kwargs ? 1 : 0) + (node.block ? 1 : 0) + (node.safe ? 1 : 0)
+          extra = (node.kwargs ? 1 : 0) + (node.safe ? 1 : 0)
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
           [top, staging(node.recv, top), staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
         when Hir::Super
-          extra = (node.kwargs ? 1 : 0) + (node.block ? 1 : 0)
-          top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
+          top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + (node.kwargs ? 1 : 0)
           [top, staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
-        when Hir::Lambda then base + 1
+        when Hir::Lambda then base
         when Hir::Autoload then [base + 2, staging(node.recv, base)].max
         when Hir::Splat, Hir::HashSplat, Hir::BlockPass, Hir::Using then staging(node.value, base)
         when Hir::KwSplatElement then staging(node.pairs, base)

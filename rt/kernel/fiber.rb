@@ -132,7 +132,7 @@ machine def zr_fiber_make(recv, argc, argv, cref, blk)
   end
   cur = zr_fiber_current()
   f = recv
-  RFiber.set_blk(f, blk)
+  RFiber.set_blk(f, zr_block_proc(blk))
   RFiber.set_status(f, FIBER_CREATED)
   RFiber.set_prev(f, Machine.value(QNIL))
   RFiber.set_resuming(f, Machine.value(QNIL))
