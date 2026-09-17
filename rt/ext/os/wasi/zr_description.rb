@@ -1411,6 +1411,8 @@ module Ze0
         d zr_regexp_failed Value r:Word
         d zr_regexp_match_at Value re:Value program:Value str:Value start:Value
         d zr_region_offsets Value region:Ptr num_mem:Word position:Word
+        d zr_region_offsets_after Value region:Ptr num_mem:Word position:Word base:Word
+        d zr_regexp_scan_in Value re:Value program:Value str:Value base:Value start:Value search:Value
         d zr_regexp_limit_for Word re:Value
         d zr_mark_regexp Void re:Value
         d zr_release_regexp Void re:Value
@@ -1576,9 +1578,14 @@ module Ze0
         d zr_str_wide_p Bool s:Value
         d zr_str_mb_p Bool s:Value
         d zr_str_mb_len Word s:Value off:Word
+        d zr_str_mb_precise_len_m Value s:Value from:Value to:Value
+        d zr_str_mb_max_len_m Value s:Value
         d zr_str_bad_bytes Value s:Value
         d zr_enc_ascii_compat_p Bool index:Word
         d zr_str_unit Word s:Value
+        d zr_str_unit_m Value s:Value
+        d zr_str_mb_p_m Value s:Value
+        d zr_str_mark_valid_m Value s:Value
         d zr_str_unit_at Word s:Value off:Word unit:Word
         d zr_unit_char_len Word s:Value off:Word unit:Word
         d zr_unit_char_valid_p Bool s:Value off:Word len:Word unit:Word

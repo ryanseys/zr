@@ -177,15 +177,54 @@ end
 # [position, beg0, end0, ...] from a region of num_mem + 1 groups.
 sig [Ptr, Word, Word] => Value
 machine def zr_region_offsets(region, num_mem, position)
+  zr_region_offsets_after(region, num_mem, position, 0)
+end
+
+# The same offsets from a match whose text began `base` bytes into the
+# String, counted from the String's start; -1 stays -1.
+sig [Ptr, Word, Word, Word] => Value
+machine def zr_region_offsets_after(region, num_mem, position, base)
   n = num_mem + 1
   out = zr_ary_new(n * 2 + 1)
-  zr_ary_push(out, zr_fix(position))
+  zr_ary_push(out, zr_fix(position + base))
   i = 0
   while i < n
-    zr_ary_push(out, zr_fix(Machine.load64(region + (i * 16), 0)))
-    zr_ary_push(out, zr_fix(Machine.load64(region + (i * 16), 8)))
+    beg = Machine.word(Machine.load64(region + (i * 16), 0))
+    stop = Machine.word(Machine.load64(region + (i * 16), 8))
+    zr_ary_push(out, zr_fix(beg < 0 ? beg : beg + base))
+    zr_ary_push(out, zr_fix(stop < 0 ? stop : stop + base))
     i += 1
   end
+  out
+end
+
+# StringScanner's onig_match and onig_search: the text starts `base`
+# bytes into `str` (the scan pointer, or 0 for a fixed anchor), and the
+# match is tried at byte `start`, or searched for from it to the end.
+# Offsets count from the String's start.
+sig [Value, Value, Value, Value, Value, Value] => Value
+machine def zr_regexp_scan_in(re, program, str, base, start, search)
+  if program == QNIL
+    program = RRegexp.program(re)
+  end
+  prog = RString.ptr(program)
+  region = zr_regexp_region_new(prog)
+  origin = RString.ptr(str) + zr_fix2long(base)
+  stop = RString.ptr(str) + RString.len(str)
+  at = RString.ptr(str) + zr_fix2long(start)
+  r = 0
+  if search == QTRUE
+    r = zr_onig_search(prog, origin, stop, at, stop, region, zr_regexp_limit_for(re))
+  else
+    r = zr_onig_match(prog, origin, stop, at, region, zr_regexp_limit_for(re))
+  end
+  if r < 0
+    free(region)
+    return zr_regexp_failed(r)
+  end
+  position = search == QTRUE ? r : zr_fix2long(start) - zr_fix2long(base)
+  out = zr_region_offsets_after(region, OnigProg.num_mem(prog), position, zr_fix2long(base))
+  free(region)
   out
 end
 

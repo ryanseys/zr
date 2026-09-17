@@ -328,6 +328,24 @@ machine def zr_str_unit(s)
   0
 end
 
+sig [Value] => Value
+machine def zr_str_unit_m(s)
+  zr_fix(zr_str_unit(s))
+end
+
+sig [Value] => Value
+machine def zr_str_mb_p_m(s)
+  zr_bool(zr_str_mb_p(s))
+end
+
+# Marks the String's bytes as valid without a scan, as CRuby sets a
+# coderange it carries over from another String.
+sig [Value] => Value
+machine def zr_str_mark_valid_m(s)
+  RBasic.set_flags(s, RBasic.flags(s) | FL_VALID)
+  s
+end
+
 # The code unit at byte `off`, read in the String's byte order.
 sig [Value, Word, Word] => Word
 machine def zr_str_unit_at(s, off, unit)

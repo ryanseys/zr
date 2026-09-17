@@ -1,0 +1,114 @@
+# A StringScanner over UTF-16, UTF-32 or a legacy multibyte text scans
+# with patterns of the text's encoding, steps a character at a time
+# with getch, and reports byte positions and character positions apart.
+require "strscan"
+
+def shown(v)
+  case v
+  when String then v.valid_encoding? && v.encoding != Encoding::BINARY ? [v.encoding.name, v.encode("UTF-8")] : [v.encoding.name, v.b]
+  when Array then v.map { |x| shown(x) }
+  else v
+  end
+end
+
+def show(label)
+  p [label, shown(yield)]
+rescue StandardError => e
+  p [label, e.class, e.message.b]
+end
+
+%w[UTF-16LE UTF-16BE UTF-32LE UTF-32BE GB18030 EUC-JP Shift_JIS Big5 EUC-KR CESU-8].each do |name|
+  e = ->(s) { s.encode(name) }
+  r = ->(s) { Regexp.new(e.(s)) }
+  sample = name.start_with?("EUC-JP", "Shift") ? "カナ 表示 end" : (name == "Big5" ? "中文 測試 end" : (name == "EUC-KR" ? "한국 세계 end" : "Grüße 世界😀 end"))
+  show(:"#{name}_scan") do
+    s = StringScanner.new(e.(sample))
+    [s.scan(r.("\\S+")), s.pos, s.charpos, s.matched, s.matched_size, s.pre_match, s.skip(r.("\\s+")), s.check(r.("\\S")), s.rest_size]
+  end
+  show(:"#{name}_getch") do
+    s = StringScanner.new(e.(sample))
+    [s.getch, s.getch, s.get_byte, s.pos, s.charpos, s.peek(2).bytesize, s.rest.encoding]
+  end
+  show(:"#{name}_until") do
+    s = StringScanner.new(e.(sample))
+    [s.scan_until(r.("\\s")), s.pos, s.charpos, s.search_full(r.("e"), false, false), s.exist?(r.("d")), s.check_until(r.("d$")), s.eos?]
+  end
+  show(:"#{name}_groups") do
+    s = StringScanner.new(e.(sample))
+    s.scan(r.("(?<a>\\S)(\\S)"))
+    [s[1], s[:a], s.captures, s.values_at(0, 2), s.size, s.named_captures]
+  end
+  show(:"#{name}_string_pattern") do
+    s = StringScanner.new(e.(sample))
+    [s.scan(e.(sample[0, 2])), s.pos, s.skip_until(e.("e")), s.charpos, s.scan_until(e.("d")), s.pos]
+  end
+  show(:"#{name}_unscan") do
+    s = StringScanner.new(e.(sample))
+    s.scan(r.("\\S+"))
+    s.unscan
+    s.pos = 2 * e.("a").bytesize
+    [s.pos, s.charpos, s.getch, s.inspect.b]
+  end
+end
+
+__END__
+[:"UTF-16LE_scan", [["UTF-16LE", "Grüße"], 10, 5, ["UTF-16LE", "Grüße"], 10, ["UTF-16LE", ""], 2, ["UTF-16LE", "世"], 16]]
+[:"UTF-16LE_getch", [["UTF-16LE", "G"], ["UTF-16LE", "r"], ["UTF-16LE", "\xFC"], 5, 3, 2, #<Encoding:UTF-16LE>]]
+[:"UTF-16LE_until", [["UTF-16LE", "Grüße "], 12, 6, 12, 16, ["UTF-16LE", "世界😀 end"], false]]
+[:"UTF-16LE_groups", IndexError, "undefined group name reference: a"]
+[:"UTF-16LE_string_pattern", [["UTF-16LE", "Gr"], 4, 6, 5, ["UTF-16LE", " 世界😀 end"], 28]]
+[:"UTF-16LE_unscan", [4, 2, ["UTF-16LE", "ü"], ["ASCII-8BIT", "#<StringScanner 6/28 \"...\\x00r\\x00\\xFC\\x00\" @ \"\\xDF\\x00e\\x00 ...\">"]]]
+[:"UTF-16BE_scan", [["UTF-16BE", "Grüße"], 10, 5, ["UTF-16BE", "Grüße"], 10, ["UTF-16BE", ""], 2, ["UTF-16BE", "世"], 16]]
+[:"UTF-16BE_getch", [["UTF-16BE", "G"], ["UTF-16BE", "r"], ["UTF-16BE", "\x00"], 5, 3, 2, #<Encoding:UTF-16BE>]]
+[:"UTF-16BE_until", [["UTF-16BE", "Grüße "], 12, 6, 12, 16, ["UTF-16BE", "世界😀 end"], false]]
+[:"UTF-16BE_groups", IndexError, "undefined group name reference: a"]
+[:"UTF-16BE_string_pattern", [["UTF-16BE", "Gr"], 4, 6, 5, ["UTF-16BE", " 世界😀 end"], 28]]
+[:"UTF-16BE_unscan", [4, 2, ["UTF-16BE", "ü"], ["ASCII-8BIT", "#<StringScanner 6/28 \"...G\\x00r\\x00\\xFC\" @ \"\\x00\\xDF\\x00e\\x00...\">"]]]
+[:"UTF-32LE_scan", [["UTF-32LE", "Grüße"], 20, 5, ["UTF-32LE", "Grüße"], 20, ["UTF-32LE", ""], 4, ["UTF-32LE", "世"], 28]]
+[:"UTF-32LE_getch", [["UTF-32LE", "G"], ["UTF-32LE", "r"], ["UTF-32LE", "\xFC"], 9, 3, 2, #<Encoding:UTF-32LE>]]
+[:"UTF-32LE_until", [["UTF-32LE", "Grüße "], 24, 6, 20, 28, ["UTF-32LE", "世界😀 end"], false]]
+[:"UTF-32LE_groups", IndexError, "undefined group name reference: a"]
+[:"UTF-32LE_string_pattern", [["UTF-32LE", "Gr"], 8, 12, 5, ["UTF-32LE", " 世界😀 end"], 52]]
+[:"UTF-32LE_unscan", [8, 2, ["UTF-32LE", "ü"], ["ASCII-8BIT", "#<StringScanner 12/52 \"...\\x00\\xFC\\x00\\x00\\x00\" @ \"\\xDF\\x00\\x00\\x00e...\">"]]]
+[:"UTF-32BE_scan", [["UTF-32BE", "Grüße"], 20, 5, ["UTF-32BE", "Grüße"], 20, ["UTF-32BE", ""], 4, ["UTF-32BE", "世"], 28]]
+[:"UTF-32BE_getch", [["UTF-32BE", "G"], ["UTF-32BE", "r"], ["UTF-32BE", "\x00"], 9, 3, 2, #<Encoding:UTF-32BE>]]
+[:"UTF-32BE_until", [["UTF-32BE", "Grüße "], 24, 6, 20, 28, ["UTF-32BE", "世界😀 end"], false]]
+[:"UTF-32BE_groups", IndexError, "undefined group name reference: a"]
+[:"UTF-32BE_string_pattern", [["UTF-32BE", "Gr"], 8, 12, 5, ["UTF-32BE", " 世界😀 end"], 52]]
+[:"UTF-32BE_unscan", [8, 2, ["UTF-32BE", "ü"], ["ASCII-8BIT", "#<StringScanner 12/52 \"...r\\x00\\x00\\x00\\xFC\" @ \"\\x00\\x00\\x00\\xDF\\x00...\">"]]]
+[:GB18030_scan, [["GB18030", "Grüße"], 9, 5, ["GB18030", "Grüße"], 9, ["GB18030", ""], 1, ["GB18030", "世"], 12]]
+[:GB18030_getch, [["GB18030", "G"], ["GB18030", "r"], ["GB18030", "\xA8"], 3, 3, 2, #<Encoding:GB18030>]]
+[:GB18030_until, [["GB18030", "Grüße "], 10, 6, 10, 12, ["GB18030", "世界😀 end"], false]]
+[:GB18030_groups, [["GB18030", "G"], ["GB18030", "G"], [["GB18030", "G"]], [["GB18030", "Gr"], nil], 2, {"a" => "G"}]]
+[:GB18030_string_pattern, [["GB18030", "Gr"], 2, 7, 5, ["GB18030", " 世界😀 end"], 22]]
+[:GB18030_unscan, [2, 2, ["GB18030", "ü"], ["ASCII-8BIT", "#<StringScanner 4/22 \"Gr\\xA8\\xB9\" @ \"\\x810\\x898e...\">"]]]
+[:"EUC-JP_scan", [["EUC-JP", "カナ"], 4, 2, ["EUC-JP", "カナ"], 4, ["EUC-JP", ""], 1, ["EUC-JP", "表"], 8]]
+[:"EUC-JP_getch", [["EUC-JP", "カ"], ["EUC-JP", "ナ"], ["EUC-JP", " "], 5, 3, 2, #<Encoding:EUC-JP>]]
+[:"EUC-JP_until", [["EUC-JP", "カナ "], 5, 3, 6, 8, ["EUC-JP", "表示 end"], false]]
+[:"EUC-JP_groups", [["EUC-JP", "カ"], ["EUC-JP", "カ"], [["EUC-JP", "カ"]], [["EUC-JP", "カナ"], nil], 2, {"a" => "\x{A5AB}"}]]
+[:"EUC-JP_string_pattern", [["EUC-JP", "カナ"], 4, 7, 7, ["EUC-JP", "nd"], 13]]
+[:"EUC-JP_unscan", [2, 1, ["EUC-JP", "ナ"], ["ASCII-8BIT", "#<StringScanner 4/13 \"\\xA5\\xAB\\xA5\\xCA\" @ \" \\xC9\\xBD\\xBC\\xA8...\">"]]]
+[:Shift_JIS_scan, [["Shift_JIS", "カナ"], 4, 2, ["Shift_JIS", "カナ"], 4, ["Shift_JIS", ""], 1, ["Shift_JIS", "表"], 8]]
+[:Shift_JIS_getch, [["Shift_JIS", "カ"], ["Shift_JIS", "ナ"], ["Shift_JIS", " "], 5, 3, 2, #<Encoding:Shift_JIS>]]
+[:Shift_JIS_until, [["Shift_JIS", "カナ "], 5, 3, 6, 8, ["Shift_JIS", "表示 end"], false]]
+[:Shift_JIS_groups, [["Shift_JIS", "カ"], ["Shift_JIS", "カ"], [["Shift_JIS", "カ"]], [["Shift_JIS", "カナ"], nil], 2, {"a" => "\x{834A}"}]]
+[:Shift_JIS_string_pattern, [["Shift_JIS", "カナ"], 4, 7, 7, ["Shift_JIS", "nd"], 13]]
+[:Shift_JIS_unscan, [2, 1, ["Shift_JIS", "ナ"], ["ASCII-8BIT", "#<StringScanner 4/13 \"\\x83J\\x83i\" @ \" \\x95\\\\\\x8E\\xA6...\">"]]]
+[:Big5_scan, [["Big5", "中文"], 4, 2, ["Big5", "中文"], 4, ["Big5", ""], 1, ["Big5", "測"], 8]]
+[:Big5_getch, [["Big5", "中"], ["Big5", "文"], ["Big5", " "], 5, 3, 2, #<Encoding:Big5>]]
+[:Big5_until, [["Big5", "中文 "], 5, 3, 6, 8, ["Big5", "測試 end"], false]]
+[:Big5_groups, [["Big5", "中"], ["Big5", "中"], [["Big5", "中"]], [["Big5", "中文"], nil], 2, {"a" => "\x{A4A4}"}]]
+[:Big5_string_pattern, [["Big5", "中文"], 4, 7, 7, ["Big5", "nd"], 13]]
+[:Big5_unscan, [2, 1, ["Big5", "文"], ["ASCII-8BIT", "#<StringScanner 4/13 \"\\xA4\\xA4\\xA4\\xE5\" @ \" \\xB4\\xFA\\xB8\\xD5...\">"]]]
+[:"EUC-KR_scan", [["EUC-KR", "한국"], 4, 2, ["EUC-KR", "한국"], 4, ["EUC-KR", ""], 1, ["EUC-KR", "세"], 8]]
+[:"EUC-KR_getch", [["EUC-KR", "한"], ["EUC-KR", "국"], ["EUC-KR", " "], 5, 3, 2, #<Encoding:EUC-KR>]]
+[:"EUC-KR_until", [["EUC-KR", "한국 "], 5, 3, 6, 8, ["EUC-KR", "세계 end"], false]]
+[:"EUC-KR_groups", [["EUC-KR", "한"], ["EUC-KR", "한"], [["EUC-KR", "한"]], [["EUC-KR", "한국"], nil], 2, {"a" => "\x{C7D1}"}]]
+[:"EUC-KR_string_pattern", [["EUC-KR", "한국"], 4, 7, 7, ["EUC-KR", "nd"], 13]]
+[:"EUC-KR_unscan", [2, 1, ["EUC-KR", "국"], ["ASCII-8BIT", "#<StringScanner 4/13 \"\\xC7\\xD1\\xB1\\xB9\" @ \" \\xBC\\xBC\\xB0\\xE8...\">"]]]
+[:"CESU-8_scan", [["CESU-8", "Grüße"], 7, 5, ["CESU-8", "Grüße"], 7, ["CESU-8", ""], 1, ["CESU-8", "世"], 16]]
+[:"CESU-8_getch", [["CESU-8", "G"], ["CESU-8", "r"], ["CESU-8", "\xC3"], 3, 3, 2, #<Encoding:CESU-8>]]
+[:"CESU-8_until", [["CESU-8", "Grüße "], 8, 6, 14, 16, ["CESU-8", "世界😀 end"], false]]
+[:"CESU-8_groups", [["CESU-8", "G"], ["CESU-8", "G"], [["CESU-8", "G"]], [["CESU-8", "Gr"], nil], 2, {"a" => "G"}]]
+[:"CESU-8_string_pattern", [["CESU-8", "Gr"], 2, 5, 5, ["CESU-8", " 世界😀 end"], 24]]
+[:"CESU-8_unscan", [2, 2, ["CESU-8", "ü"], ["ASCII-8BIT", "#<StringScanner 4/24 \"Gr\\xC3\\xBC\" @ \"\\xC3\\x9Fe \\xE4...\">"]]]

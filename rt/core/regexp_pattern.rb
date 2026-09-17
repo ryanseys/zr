@@ -201,11 +201,16 @@ class Regexp
         end
         break
       end
-      out = "(?".b
-      out << option_letters(options)
-      out << "-" << option_letters(~options) if options & ENGINE_OPTIONS != ENGINE_OPTIONS
-      out << ":"
-      out << expr_str(bytes.byteslice(at, len), encoding, nil, term) << ")"
+      head = +"(?"
+      head << option_letters(options)
+      head << "-" << option_letters(~options) if options & ENGINE_OPTIONS != ENGINE_OPTIONS
+      head << ":"
+      # rb_str_buf_cat2 writes the ASCII around the source as characters
+      # of the pattern's encoding, two or four bytes each in UTF-16 or
+      # UTF-32.
+      wide = !encoding.ascii_compatible?
+      out = (wide ? head.encode(encoding) : head).b
+      out << expr_str(bytes.byteslice(at, len), encoding, nil, term) << (wide ? ")".encode(encoding).b : ")")
       out.force_encoding(encoding)
     end
 

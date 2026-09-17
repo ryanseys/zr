@@ -240,6 +240,7 @@ class String
   # off instead, as `delete` picks them.
   def strip(*selectors)
     return stripped(selectors, true, true) unless selectors.empty?
+    return wide_stripped(true, true) if Primitive.zr_str_unit_m(self) != 0
 
     broken_tail!
     stop = Primitive.zr_str_space_start(self, Primitive.zr_str_bytesize(self), true)
@@ -249,6 +250,7 @@ class String
 
   def lstrip(*selectors)
     return stripped(selectors, true, false) unless selectors.empty?
+    return wide_stripped(true, false) if Primitive.zr_str_unit_m(self) != 0
 
     start = Primitive.zr_str_space_end(self, 0, true)
     byteslice_of(start, Primitive.zr_str_bytesize(self) - start)
@@ -256,6 +258,7 @@ class String
 
   def rstrip(*selectors)
     return stripped(selectors, false, true) unless selectors.empty?
+    return wide_stripped(false, true) if Primitive.zr_str_unit_m(self) != 0
 
     broken_tail!
     byteslice_of(0, Primitive.zr_str_space_start(self, Primitive.zr_str_bytesize(self), true))
@@ -273,6 +276,56 @@ class String
     byteslice_of(start, Primitive.zr_str_bytesize(self) - start - tail.sum(&:bytesize))
   end
 
+  # lstrip_offset and rstrip_offset over a text of UTF-16 or UTF-32,
+  # which reads code points: NUL and ASCII whitespace come off.
+  def wide_stripped(left, right)
+    Primitive.attr! :hidden
+    enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    bytes = OWN[:b].bind_call(self)
+    onig = Regexp.encoder(enc)
+    e = bytes.bytesize
+    start = 0
+    if left
+      while start < e
+        code, n = codepoint_len(bytes, start, onig, enc)
+        break if code != 0 && !ascii_space?(code)
+
+        start += n
+      end
+    end
+    stop = e
+    if right
+      broken_tail!
+      while (prev = onig.prev_char_head(bytes, start, stop, e))
+        code, = codepoint_len(bytes, prev, onig, enc)
+        break if code != 0 && !ascii_space?(code)
+
+        stop = prev
+      end
+    end
+    return copied if start == 0 && stop == e
+
+    byteslice_of(start, stop - start)
+  end
+
+  # rb_enc_codepoint_len: [the code point at `at`, its byte length],
+  # refused where no character starts.
+  def codepoint_len(bytes, at, onig, enc)
+    Primitive.attr! :hidden
+    raise ArgumentError, "empty string" if at >= bytes.bytesize
+
+    n = onig.precise_mbclen(bytes, at)
+    raise ArgumentError, "invalid byte sequence in #{enc}" unless n > 0
+
+    [onig.mbc_to_code(bytes, at, bytes.bytesize), n]
+  end
+
+  # rb_isspace: ASCII's whitespace, over a code point.
+  def ascii_space?(code)
+    Primitive.attr! :hidden
+    code == 0x20 || (code >= 0x09 && code <= 0x0D)
+  end
+
   def broken_tail!
     Primitive.attr! :hidden
     raise Encoding::CompatibilityError, "invalid byte sequence in #{Encoding.at(Primitive.zr_str_encoding_index_m(self))}" unless (Primitive.zr_str_bytesize(self) == 0) || Primitive.zr_str_valid_p(self)
@@ -281,6 +334,7 @@ class String
   def chomp(separator = $/)
     separator = Primitive.zr_str_operand(separator) unless separator.nil?
     return copied if separator.nil? || (Primitive.zr_str_bytesize(self) == 0)
+    return byteslice_of(0, chompped_length(separator)) if Primitive.zr_str_unit_m(self) != 0 || Primitive.zr_str_mb_p_m(self) || Primitive.zr_str_unit_m(separator) != 0
 
     if separator == "\n"
       return byteslice_of(0, Primitive.zr_str_bytesize(self) - 2) if OWN[:end_with?].bind_call(self, "\r\n")
@@ -297,17 +351,130 @@ class String
   end
 
   def chop
-    return "" if (Primitive.zr_str_bytesize(self) == 0)
+    return byteslice_of(0, chopped_length) if Primitive.zr_str_bytesize(self) == 0 || Primitive.zr_str_unit_m(self) != 0 || Primitive.zr_str_mb_p_m(self)
     return byteslice_of(0, Primitive.zr_str_bytesize(self) - 2) if OWN[:end_with?].bind_call(self, "\r\n")
 
     byteslice_of(0, Primitive.zr_str_char_offset_m(self, -1))
+  end
+
+  # chompped_length: the bytes left once `rs` comes off the end. The
+  # default separator takes a newline, a carriage return or both; ""
+  # takes every trailing newline; another separator comes off only at a
+  # character's start.
+  def chompped_length(rs)
+    Primitive.attr! :hidden
+    len = Primitive.zr_str_bytesize(self)
+    return 0 if len == 0
+
+    bytes = OWN[:b].bind_call(self)
+    return smart_chomp(bytes, len) if rs.equal?(String.default_rs)
+
+    enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    onig = Regexp.encoder(enc)
+    e = len
+    if Primitive.zr_str_bytesize(rs) == 0
+      min = onig.min_len
+      if min > 1
+        while e > 0
+          pp = onig.left_adjust_char_head(bytes, 0, e - min, e)
+          break unless pp >= 0 && onig.mbc_newline?(bytes, pp, e)
+
+          e = pp
+          pp -= min
+          if pp >= 0
+            pp = onig.left_adjust_char_head(bytes, 0, pp, e)
+            e = pp if onig.ascget(bytes, pp, false)&.first == 0x0D
+          end
+        end
+      else
+        while e > 0 && bytes.getbyte(e - 1) == 0x0A
+          e -= 1
+          e -= 1 if e > 0 && bytes.getbyte(e - 1) == 0x0D
+        end
+      end
+      return e
+    end
+    rslen = Primitive.zr_str_bytesize(rs)
+    return len if rslen > len
+
+    rs_bytes = OWN[:b].bind_call(rs)
+    rs_onig = Regexp.encoder(Encoding.at(Primitive.zr_str_encoding_index_m(rs)))
+    newline = rs_bytes.getbyte(rslen - 1)
+    if rslen == rs_onig.min_len
+      if rslen == 1
+        return smart_chomp(bytes, e) if newline == 0x0A
+      elsif rs_onig.mbc_newline?(rs_bytes, 0, rslen)
+        return smart_chomp(bytes, e)
+      end
+    end
+    enc = Encoding.compatible?(self, rs) || Encoding.incompatible(self, rs)
+    return len unless Primitive.zr_str_valid_p(rs)
+
+    pp = e - rslen
+    if bytes.getbyte(len - 1) == newline && (rslen <= 1 || bytes.byteslice(pp, rslen) == rs_bytes)
+      return len - rslen if Regexp.encoder(enc).left_adjust_char_head(bytes, 0, pp, e) == pp
+    end
+    len
+  end
+
+  # smart_chomp: a newline, a carriage return, or the two together.
+  def smart_chomp(bytes, e)
+    Primitive.attr! :hidden
+    onig = Regexp.encoder(Encoding.at(Primitive.zr_str_encoding_index_m(self)))
+    min = onig.min_len
+    if min > 1
+      pp = onig.left_adjust_char_head(bytes, 0, e - min, e)
+      e = pp if pp >= 0 && onig.mbc_newline?(bytes, pp, e)
+      pp = e - min
+      if pp >= 0
+        pp = onig.left_adjust_char_head(bytes, 0, pp, e)
+        e = pp if onig.ascget(bytes, pp, false)&.first == 0x0D
+      end
+    else
+      case bytes.getbyte(e - 1)
+      when 0x0A
+        e -= 1
+        e -= 1 if e > 0 && bytes.getbyte(e - 1) == 0x0D
+      when 0x0D
+        e -= 1
+      end
+    end
+    e
+  end
+
+  # chopped_length: the bytes before the last character, or before a
+  # carriage return and newline together.
+  def chopped_length
+    Primitive.attr! :hidden
+    e = Primitive.zr_str_bytesize(self)
+    return 0 if e == 0
+
+    enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    compat = enc.ascii_compatible?
+    bytes = OWN[:b].bind_call(self)
+    onig = Regexp.encoder(enc)
+    p = onig.prev_char_head(bytes, 0, e, e)
+    return 0 unless p
+
+    if p > 0 && onig.ascget(bytes, p, compat)&.first == 0x0A
+      p2 = onig.prev_char_head(bytes, 0, p, e)
+      p = p2 if p2 && onig.ascget(bytes, p2, compat)&.first == 0x0D
+    end
+    p
+  end
+
+  # An empty String in the receiver's encoding, which a result built a
+  # piece at a time keeps when every piece is plain ASCII or none is left.
+  def empty_like
+    Primitive.attr! :hidden
+    OWN[:force_encoding].bind_call(+"", Encoding.at(Primitive.zr_str_encoding_index_m(self)))
   end
 
   def squeeze(*sets)
     raise ArgumentError, "invalid byte sequence in #{Encoding.at(Primitive.zr_str_encoding_index_m(self))}" unless Primitive.zr_str_valid_p(self)
 
     member = sets.empty? ? nil : charset_test(sets)
-    out = +""
+    out = empty_like
     last = nil
     OWN[:each_char].bind_call(self) do |c|
       out << c unless c == last && (member.nil? || member.call(c.ord))
@@ -316,33 +483,122 @@ class String
     out
   end
 
-  # The lines up to and including `separator`: nil keeps the whole
-  # text, "" splits paragraphs at blank lines (extra blank lines are
-  # dropped), `chomp` strips the separator.
+  # rb_default_rs: the separator `$/` holds until a program sets
+  # another. Lines split at this one object read it in the text's own
+  # encoding, so a UTF-16 text splits at its own newline.
+  # Made on first use: the Encoding constants come later in this file.
+  DEFAULT_RS = []
+  private_constant :DEFAULT_RS
+
+  def self.default_rs
+    Primitive.attr! :hidden
+    DEFAULT_RS[0] ||= "\n".b.force_encoding(Encoding::US_ASCII).freeze
+  end
+
+  # rb_str_enumerate_lines: the lines up to and including `separator`,
+  # read a character at a time in the text's encoding. nil keeps the
+  # whole text, "" splits paragraphs at blank lines, `chomp` strips
+  # the separator.
   def lines(separator = $/, chomp: false, &block)
     return OWN[:each_line].bind_call(self, separator, chomp: chomp, &block) if block
-    return [] if (Primitive.zr_str_bytesize(self) == 0)
-    return [copied] if separator.nil?
+    return [self] if separator.nil?
+    return [] if Primitive.zr_str_bytesize(self) == 0
 
-    separator = Primitive.zr_str_operand(separator)
-    paragraph = separator.empty?
-    separator = "\n\n" if paragraph
+    rs = Primitive.zr_str_operand(separator)
+    enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    Encoding.incompatible(self, rs) unless rs.equal?(String.default_rs) || (enc = Encoding.compatible?(self, rs))
+    bytes = OWN[:b].bind_call(self)
+    return paragraphs(bytes, enc, chomp) if Primitive.zr_str_bytesize(rs) == 0
+
+    onig = Regexp.encoder(enc)
+    rs_bytes = OWN[:b].bind_call(rs)
+    newline = rs_bytes.bytesize == onig.min_len && onig.mbc_newline?(rs_bytes, 0, rs_bytes.bytesize)
+    rs_bytes = OWN[:encode].bind_call(rs, enc).b if rs.equal?(String.default_rs) && !enc.ascii_compatible?
+    rslen = rs_bytes.bytesize
+    pend = bytes.bytesize
     out = []
-    start = 0
-    while start < Primitive.zr_str_bytesize(self)
-      stop = byte_index(separator, start)
-      if stop.nil?
-        out << (chomp && !paragraph ? byteslice_of(start, Primitive.zr_str_bytesize(self) - start).chomp(separator == "\n" ? nil : separator) : byteslice_of(start, Primitive.zr_str_bytesize(self) - start))
-        break
+    at = 0
+    while at < pend
+      hit = Primitive.zr_str_find_from(bytes, rs_bytes, at)
+      break unless hit
+
+      adjusted = onig.right_adjust_char_head(bytes, at, hit, pend)
+      if hit != adjusted
+        at = adjusted
+        next
       end
-      stop += separator.bytesize
-      line = byteslice_of(start, chomp ? stop - start - separator.bytesize : stop - start)
-      line = line.chomp if chomp && separator == "\n" && line.end_with?("\r")
-      out << line
-      stop += 1 while paragraph && stop < Primitive.zr_str_bytesize(self) && Primitive.zr_str_byte_at(self, stop) == 10
-      start = stop
+      stop = hit += rslen
+      stop = newline ? chomp_newline(bytes, at, stop, onig, enc.ascii_compatible?) : stop - rslen if chomp
+      out << byteslice_of(at, stop - at)
+      at = hit
+    end
+    if at != pend
+      if chomp
+        if newline
+          pend = chomp_newline(bytes, at, pend, onig, enc.ascii_compatible?)
+        elsif pend - at >= rslen && bytes.byteslice(pend - rslen, rslen) == rs_bytes
+          pend -= rslen
+        end
+      end
+      out << byteslice_of(at, pend - at)
     end
     out
+  end
+
+  # The paragraph mode of rb_str_enumerate_lines: a line runs to the end
+  # of the blank lines after it, and `chomp` keeps only its last newline
+  # off.
+  def paragraphs(bytes, enc, chomp)
+    Primitive.attr! :hidden
+    onig = Regexp.encoder(enc)
+    compat = enc.ascii_compatible?
+    pend = bytes.bytesize
+    out = []
+    start = 0
+    stop = 0
+    eol = nil
+    while stop < pend
+      chomp_rslen = 0
+      rslen = 0
+      loop do
+        c, n = onig.ascget(bytes, stop, compat)
+        n = 0 if c != 0x0D
+        rslen = n + onig.mbclen(bytes, stop + n)
+        if onig.mbc_newline?(bytes, stop + n, pend)
+          break if eol == stop
+
+          stop += rslen
+          if start
+            eol = stop
+            chomp_rslen = -rslen
+          end
+        else
+          start ||= stop
+          stop += rslen
+        end
+        rslen = 0
+        break unless stop < pend
+      end
+      break unless start
+
+      chomp_rslen = 0 if rslen == 0
+      out << byteslice_of(start, stop - start + (chomp ? chomp_rslen : rslen))
+      start = eol = nil
+    end
+    out
+  end
+
+  # chomp_newline: `stop` moved back over one newline, and a carriage
+  # return before it.
+  def chomp_newline(bytes, start, stop, onig, compat)
+    Primitive.attr! :hidden
+    prev = onig.prev_char_head(bytes, start, stop, stop)
+    if onig.mbc_newline?(bytes, prev, stop)
+      stop = prev
+      prev = onig.prev_char_head(bytes, start, stop, stop)
+      stop = prev if prev && onig.ascget(bytes.byteslice(0, stop), prev, compat)&.first == 0x0D
+    end
+    stop
   end
 
   def each_line(separator = (nosep = true), chomp: (nochomp = true), &block)
@@ -363,7 +619,7 @@ class String
   def split(pattern = nil, limit = 0)
     # The common splits, by a String's bytes or on blanks with no
     # limit, ask the pattern nothing on the way to the kernel.
-    if Primitive.zr_fixnum_p_m(limit) && limit == 0 && Primitive.zr_str_valid_p(self)
+    if Primitive.zr_fixnum_p_m(limit) && limit == 0 && Primitive.zr_str_valid_p(self) && Primitive.zr_str_unit_m(self) == 0 && (!pattern.is_a?(String) || Primitive.zr_str_unit_m(pattern) == 0)
       out = if Primitive.zr_str_plain_sep_p(pattern) then split_by_string(pattern, 0)
             elsif Primitive.zr_str_blank_sep_p(pattern) || (pattern.nil? && $;.nil?) then Primitive.zr_str_split_words(self, 0)
             end
@@ -384,7 +640,7 @@ class String
     # A split by words, characters or a String reads every character.
     raise ArgumentError, "invalid byte sequence in #{Encoding.at(Primitive.zr_str_encoding_index_m(self))}" unless pattern.is_a?(Regexp) || Primitive.zr_str_valid_p(self)
 
-    out = if pattern.nil? || pattern == " " then split_words(limit)
+    out = if pattern.nil? || (pattern.is_a?(String) && awk_pattern?(pattern)) then split_words(limit)
           elsif pattern.is_a?(Regexp) then split_by_regexp(pattern, limit)
           elsif !pattern.is_a?(String) then raise TypeError, "wrong argument type #{conversion_name(pattern)} (expected Regexp)"
           elsif pattern.empty? then split_chars(limit)
@@ -420,7 +676,7 @@ class String
       end
       enc = Encoding.at(Primitive.zr_str_encoding_index_m(repl))
     end
-    out = byteslice_of(0, from).b << repl.b << byteslice_of(to, size - to).b
+    out = byteslice_of(0, from).b << OWN[:b].bind_call(repl) << byteslice_of(to, size - to).b
     OWN[:force_encoding].bind_call(out, enc)
   end
 
@@ -495,14 +751,49 @@ class String
       Primitive.zr_backref_set(match)
       return match && match.begin(0)
     end
-    needle = joined(Primitive.zr_str_operand(needle))
-    return nil unless needle.valid_encoding?
+    needle = Primitive.zr_str_operand(needle)
+    enc = Encoding.compatible?(self, needle) || Encoding.incompatible(self, needle)
+    return nil unless Primitive.zr_str_valid_p(needle)
 
-    i = [from, Primitive.zr_str_bytesize(self) - needle.bytesize].min
-    while i >= 0
-      return Primitive.zr_str_byte_to_char(self, i) if char_boundary?(i) && byteslice_of(i, needle.bytesize) == needle
+    slen = Primitive.zr_str_length_m(needle)
+    return nil if count < slen
 
-      i -= 1
+    pos = [start, count].min
+    pos = count - slen if count - pos < slen
+    return pos if count == 0
+
+    sub = OWN[:b].bind_call(needle)
+    if pos == 0
+      return byteslice_of(0, sub.bytesize).b == sub ? 0 : nil
+    end
+
+    at = str_rindex(sub, Primitive.zr_str_char_offset_m(self, pos), enc)
+    at && Primitive.zr_str_byte_to_char(self, at)
+  end
+
+  # str_rindex: the last start at or before byte `s` where `sub`'s bytes
+  # sit at a character's start. A hit inside a character skips that
+  # whole character, as CRuby's search does.
+  def str_rindex(sub, s, enc)
+    Primitive.attr! :hidden
+    slen = sub.bytesize
+    return s if slen == 0
+    return s if byteslice_of(s, slen).b == sub
+
+    bytes = OWN[:b].bind_call(self)
+    onig = Regexp.encoder(enc)
+    e = bytes.bytesize
+    lead = sub.getbyte(0)
+    searchlen = s + 1
+    while searchlen > 0
+      hit = searchlen - 1
+      hit -= 1 while hit >= 0 && bytes.getbyte(hit) != lead
+      break if hit < 0
+
+      adjusted = onig.left_adjust_char_head(bytes, 0, hit, e)
+      return hit if hit == adjusted && bytes.byteslice(hit, slen) == sub
+
+      searchlen = adjusted
     end
     nil
   end
@@ -518,7 +809,7 @@ class String
     raise ArgumentError, "wrong number of arguments (given 0, expected 1+)" if sets.empty?
 
     member = charset_test(sets)
-    out = +""
+    out = empty_like
     OWN[:each_char].bind_call(self) { |c| out << c unless member.call(c.ord) }
     out
   end
@@ -544,34 +835,68 @@ class String
   # counts as a letter or digit by its Unicode class, and steps by
   # codepoint.
   def succ
-    return Primitive.zr_str_succ_ascii(self) if Primitive.zr_str_ascii_only_m(self)
+    index = Primitive.zr_str_encoding_index_m(self)
+    return Primitive.zr_str_succ_ascii(self) if index <= 2 && Primitive.zr_str_ascii_only_m(self)
 
-    chars = self.chars
-    carry_at = nil
-    carry = nil
-    last = nil
-    i = chars.size - 1
-    while i >= 0
-      c = chars[i]
-      break if last && ascii_kind(last) && ascii_kind(c) && ascii_kind(last) != ascii_kind(c)
+    enc = Encoding.at(index)
+    bytes = OWN[:b].bind_call(self)
+    e = bytes.bytesize
+    return copied if e == 0
 
-      if c.match?(/[[:alnum:]]/)
-        stepped, wrapped = step_alnum(c)
-        chars[i] = stepped
-        return chars.join unless wrapped
-
-        carry_at = i
-        carry = stepped
-        last = c
+    onig = Regexp.encoder(enc)
+    s = e
+    last_alnum = nil
+    found_alnum = false
+    carry = "\x01".b
+    carry_pos = 0
+    carry_len = 1
+    neighbor = :found
+    while (s = onig.prev_char_head(bytes, 0, s, e))
+      if neighbor == :not_char && last_alnum
+        was = bytes.getbyte(last_alnum)
+        now = bytes.getbyte(s)
+        break if ascii_alpha?(was) ? ascii_digit?(now) : ascii_digit?(was) && ascii_alpha?(now)
       end
-      i -= 1
+      l = onig.precise_mbclen(bytes, s)
+      next unless l > 0
+
+      char = bytes.byteslice(s, l)
+      neighbor, wrapped = succ_alnum_char(char, onig)
+      next if neighbor == :not_char
+
+      bytes[s, l] = char
+      return bytes.force_encoding(enc) if neighbor == :found
+
+      carry = wrapped
+      last_alnum = s
+      found_alnum = true
+      carry_pos = s
+      carry_len = l
     end
-    if last.nil?
-      chars[-1] = (chars[-1].ord + 1).chr(Encoding::UTF_8)
-    else
-      chars.insert(carry_at, carry)
+    unless found_alnum
+      s = e
+      while (s = onig.prev_char_head(bytes, 0, s, e))
+        l = onig.precise_mbclen(bytes, s)
+        next unless l > 0
+
+        char = bytes.byteslice(s, l)
+        neighbor = succ_char(char, onig)
+        bytes[s, l] = char unless neighbor == :not_char
+        return bytes.force_encoding(enc) if neighbor == :found
+
+        char = bytes.byteslice(s, l)
+        if onig.precise_mbclen(char, 0) != l
+          succ_char(char, onig)
+          bytes[s, l] = char
+        end
+        unless enc.ascii_compatible?
+          carry = bytes.byteslice(s, l)
+          carry_len = l
+        end
+        carry_pos = s
+      end
     end
-    chars.join
+    (bytes.byteslice(0, carry_pos) << carry.byteslice(0, carry_len) << bytes.byteslice(carry_pos, e - carry_pos)).force_encoding(enc)
   end
 
   alias next succ
@@ -582,35 +907,101 @@ class String
 
   alias next! succ!
 
-  def ascii_kind(c)
+  def ascii_alpha?(byte)
     Primitive.attr! :hidden
-    return nil if c.ord >= 128
-
-    c.match?(/[[:digit:]]/) ? :digit : (c.match?(/[[:alpha:]]/) ? :alpha : nil)
+    (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A)
   end
-  private :ascii_kind
 
-  # A letter or digit stepped once: the next of its kind, or its
-  # kind's first with a carry.
-  def step_alnum(c)
+  def ascii_digit?(byte)
     Primitive.attr! :hidden
-    case c
-    when "z" then ["a", true]
-    when "Z" then ["A", true]
-    when "9" then ["0", true]
-    else
-      return [(c.ord + 1).chr, false] if c.ord < 128
+    byte >= 0x30 && byte <= 0x39
+  end
 
-      kind = c.match?(/[[:digit:]]/) ? /[[:digit:]]/ : /[[:alpha:]]/
-      stepped = (c.ord + 1).chr(Encoding::UTF_8)
-      return [stepped, false] if stepped.match?(kind)
+  # ONIGENC_CTYPE_ALPHA, _DIGIT and _PRINT (Regexp::Onig::CType).
+  ONIG_ALPHA = 1
+  ONIG_DIGIT = 4
+  ONIG_PRINT = 7
+  private_constant :ONIG_ALPHA, :ONIG_DIGIT, :ONIG_PRINT
 
-      first = c.ord
-      first -= 1 while first > 0 && (first - 1).chr(Encoding::UTF_8).match?(kind)
-      [first.chr(Encoding::UTF_8), true]
+  # enc_succ_char and enc_pred_char: the character `char` (a binary
+  # String, changed in place) moved one on or back. A wide encoding
+  # steps its code point; any other steps the bytes, carrying, until
+  # they make a character of the same length. :found, :wrapped past the
+  # last or first, or :not_char.
+  def succ_char(char, onig, step = 1)
+    Primitive.attr! :hidden
+    len = char.bytesize
+    if onig.min_len > 1
+      return :not_char unless onig.precise_mbclen(char, 0) > 0
+
+      code = onig.mbc_to_code(char, 0, len)
+      return :not_char if step < 0 && code == 0
+
+      code += step
+      l = onig.code_to_mbclen(code)
+      return :not_char if l == 0
+      return :wrapped if l != len
+
+      char.replace(onig.code_to_mbc(code))
+      return onig.precise_mbclen(char, 0) > 0 ? :found : :not_char
+    end
+    wrap, fill = step > 0 ? [0xFF, 0] : [0, 0xFF]
+    loop do
+      i = len - 1
+      while i >= 0 && char.getbyte(i) == wrap
+        char.setbyte(i, fill)
+        i -= 1
+      end
+      return :wrapped if i < 0
+
+      char.setbyte(i, char.getbyte(i) + step)
+      l = onig.precise_mbclen(char, 0)
+      if l > 0
+        return :found if l == len
+
+        (l...len).each { |k| char.setbyte(k, wrap) }
+      end
+      next unless l == -1 && i < len - 1
+
+      len2 = len - 1
+      len2 -= 1 while len2 > 0 && onig.precise_mbclen(char.byteslice(0, len2), 0) == -1
+      (len2 + 1...len).each { |k| char.setbyte(k, wrap) }
     end
   end
-  private :step_alnum
+
+  # enc_succ_alnum_char: a letter or digit moved one on within its run
+  # of letters or digits, [:found], or wrapped to the run's first with
+  # the character that carries, [:wrapped, carry]; [:not_char] for any
+  # other character, or a run of one.
+  def succ_alnum_char(char, onig)
+    Primitive.attr! :hidden
+    len = char.bytesize
+    code = onig.mbc_to_code(char, 0, len)
+    ctype = if onig.code_ctype?(code, ONIG_DIGIT) then ONIG_DIGIT
+            elsif onig.code_ctype?(code, ONIG_ALPHA) then ONIG_ALPHA
+            else return [:not_char]
+            end
+    save = char.dup
+    # One gap is skipped, as U+03A2 lies between Greek capitals.
+    2.times do
+      return [:found] if succ_char(char, onig) == :found && onig.code_ctype?(onig.mbc_to_code(char, 0, len), ctype)
+    end
+    char.replace(save)
+    range = 1
+    loop do
+      save = char.dup
+      unless succ_char(char, onig, -1) == :found && onig.code_ctype?(onig.mbc_to_code(char, 0, len), ctype)
+        char.replace(save)
+        break
+      end
+      range += 1
+    end
+    return [:not_char] if range == 1
+
+    carry = char.dup
+    succ_char(carry, onig) if ctype == ONIG_DIGIT
+    [:wrapped, carry]
+  end
 
   def delete_prefix!(prefix)
     OWN[:start_with?].bind_call(self, prefix) ? mutate(delete_prefix(prefix)) : nil
@@ -745,26 +1136,26 @@ class String
     if sep.is_a?(Regexp)
       match = sep.send(:search, self, 0, false)
       Primitive.zr_backref_set(match)
-      return [copied, "", ""] unless match
+      return [copied, empty_like, empty_like] unless match
 
       from, to = match.byteoffset(0)
       return [byteslice_of(0, from), match[0], byteslice_of(to, Primitive.zr_str_bytesize(self) - to)]
     end
     at = byte_index(sep, 0)
-    at ? [byteslice_of(0, at), sep.dup, byteslice_of(at + sep.bytesize, Primitive.zr_str_bytesize(self) - at - sep.bytesize)] : [copied, "", ""]
+    at ? [byteslice_of(0, at), sep.dup, byteslice_of(at + sep.bytesize, Primitive.zr_str_bytesize(self) - at - sep.bytesize)] : [copied, empty_like, empty_like]
   end
 
   def rpartition(sep)
     if sep.is_a?(Regexp)
       match = sep.send(:search, self, Primitive.zr_str_bytesize(self), true)
       Primitive.zr_backref_set(match)
-      return ["", "", copied] unless match
+      return [empty_like, empty_like, copied] unless match
 
       from, to = match.byteoffset(0)
       return [byteslice_of(0, from), match[0], byteslice_of(to, Primitive.zr_str_bytesize(self) - to)]
     end
     at = OWN[:rindex].bind_call(self, sep)
-    return ["", "", copied] unless at
+    return [empty_like, empty_like, copied] unless at
 
     at = Primitive.zr_str_char_offset_m(self, at)
     [byteslice_of(0, at), sep.dup, byteslice_of(at + sep.bytesize, Primitive.zr_str_bytesize(self) - at - sep.bytesize)]
@@ -1057,11 +1448,11 @@ class String
 
   def oct = lenient_integer(-8)
 
-  def center(width, pad = " ") = justify(width, pad, :center)
+  def center(width, pad = (nopad = true)) = justify(width, nopad ? nil : pad, :center)
 
-  def ljust(width, pad = " ") = justify(width, pad, :left)
+  def ljust(width, pad = (nopad = true)) = justify(width, nopad ? nil : pad, :left)
 
-  def rjust(width, pad = " ") = justify(width, pad, :right)
+  def rjust(width, pad = (nopad = true)) = justify(width, nopad ? nil : pad, :right)
 
   def to_i(base = 10)
     base = Primitive.zr_index_operand_m(base)
@@ -1294,7 +1685,7 @@ class String
                     end
     end
     mb = Encoding.mb?(encoding)
-    out = +""
+    out = empty_like
     i = 0
     while i < Primitive.zr_str_bytesize(self)
       step = Primitive.zr_str_char_len_at_m(self, i)
@@ -1559,7 +1950,7 @@ class String
     Primitive.attr! :hidden
     source, negated = charset(joined(Primitive.zr_str_operand(from)))
     target, = charset(joined(Primitive.zr_str_operand(to)))
-    out = +""
+    out = empty_like
     last = nil
     OWN[:each_char].bind_call(self) do |c|
       at = charset_index(source, c.ord)
@@ -1673,8 +2064,22 @@ class String
   # awk-style words: runs of bytes between whitespace, which for split
   # leaves NUL out. The piece that would reach `limit`, and a last word
   # that runs to the end, are the tail.
+  # literal_split_pattern: whether the pattern is one space, read in its
+  # own encoding.
+  def awk_pattern?(pattern)
+    Primitive.attr! :hidden
+    enc = Encoding.at(Primitive.zr_str_encoding_index_m(pattern))
+    bytes = OWN[:b].bind_call(pattern)
+    return bytes == " " if enc.ascii_compatible?
+
+    code, n = Regexp.encoder(enc).ascget(bytes, 0, false)
+    code == 0x20 && n == bytes.bytesize
+  end
+
   def split_words(limit)
     Primitive.attr! :hidden
+    return wide_words(limit) if Primitive.zr_str_unit_m(self) != 0
+
     out = []
     beg = Primitive.zr_str_space_end(self, 0, false)
     while beg < Primitive.zr_str_bytesize(self)
@@ -1685,6 +2090,41 @@ class String
 
       out << byteslice_of(beg, stop - beg)
       beg = Primitive.zr_str_space_end(self, stop, false)
+    end
+    split_tail(out, beg, limit)
+  end
+
+  # The awk split of rb_str_split_m over code points, for a text of
+  # UTF-16 or UTF-32.
+  def wide_words(limit)
+    Primitive.attr! :hidden
+    enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    bytes = OWN[:b].bind_call(self)
+    onig = Regexp.encoder(enc)
+    e = bytes.bytesize
+    out = []
+    at = 0
+    beg = 0
+    stop = 0
+    skip = true
+    while at < e
+      code, n = codepoint_len(bytes, at, onig, enc)
+      at += n
+      if skip
+        if ascii_space?(code)
+          beg = at
+        else
+          stop = at
+          skip = false
+          break if limit > 0 && limit <= out.size + 1
+        end
+      elsif ascii_space?(code)
+        out << byteslice_of(beg, stop - beg)
+        skip = true
+        beg = at
+      else
+        stop = at
+      end
     end
     split_tail(out, beg, limit)
   end
@@ -1756,10 +2196,10 @@ class String
     Primitive.attr! :hidden
     return repl unless Primitive.zr_str_find_from(repl, "\\", 0)
 
-    bytes = repl.b
+    bytes = OWN[:b].bind_call(repl)
     enc = Encoding.at(Primitive.zr_str_encoding_index_m(repl))
     compat = enc.ascii_compatible?
-    onig = Regexp::Onig::Enc.reader(enc)
+    onig = Regexp.encoder(enc)
     e = bytes.bytesize
     val = nil
     p = s = 0
@@ -1774,11 +2214,11 @@ class String
       next if c != 0x5C || s == e
 
       val ||= OWN[:force_encoding].bind_call(+"", Encoding::BINARY)
-      val.send(:buf_cat, repl.byteslice(p, ss - p))
+      val.send(:buf_cat, Primitive.zr_str_byteslice(repl, p, ss - p))
       c, clen = onig.ascget(bytes, s, compat)
       if c.nil?
         s += onig.mbclen(bytes, s)
-        val.send(:buf_cat, repl.byteslice(ss, s - ss))
+        val.send(:buf_cat, Primitive.zr_str_byteslice(repl, ss, s - ss))
         p = s
         next
       end
@@ -1792,7 +2232,7 @@ class String
       when 0x6B # k
         lt, lt_len = s < e ? onig.ascget(bytes, s, compat) : nil
         if lt != 0x3C
-          val.send(:buf_cat, repl.byteslice(ss, s - ss))
+          val.send(:buf_cat, Primitive.zr_str_byteslice(repl, ss, s - ss))
           next
         end
         name = name_end = s + lt_len
@@ -1805,7 +2245,7 @@ class String
         end
         raise RuntimeError, "invalid group name reference format" unless name_end < e
 
-        no = regsub_name_number(regexp, repl.byteslice(name, name_end - name), match)
+        no = regsub_name_number(regexp, Primitive.zr_str_byteslice(repl, name, name_end - name), match)
         p = s = name_end + gt_len
       when 0x30, 0x26 # 0 &
         no = 0
@@ -1821,10 +2261,10 @@ class String
         no -= 1 while no > 0 && match.byteoffset(no)[0].nil?
         next if no == 0
       when 0x5C
-        val.send(:buf_cat, repl.byteslice(s - clen, clen))
+        val.send(:buf_cat, Primitive.zr_str_byteslice(repl, s - clen, clen))
         next
       else
-        val.send(:buf_cat, repl.byteslice(ss, s - ss))
+        val.send(:buf_cat, Primitive.zr_str_byteslice(repl, ss, s - ss))
         next
       end
       next if no >= match.size
@@ -1834,7 +2274,7 @@ class String
     end
     return repl unless val
 
-    val.send(:buf_cat, repl.byteslice(p, e - p)) if p < e
+    val.send(:buf_cat, Primitive.zr_str_byteslice(repl, p, e - p)) if p < e
     val
   end
 
@@ -1859,12 +2299,12 @@ class String
     shown = Encoding.default_internal || Encoding.default_external
     return escape if !enc.equal?(shown) && !(enc.ascii_compatible? && Primitive.zr_str_ascii_only_m(self))
 
-    bytes = b
-    onig = Regexp::Onig::Enc.reader(enc)
+    bytes = OWN[:b].bind_call(self)
+    onig = Regexp.encoder(enc)
     at = 0
     while at < bytes.bytesize
       len = onig.precise_mbclen(bytes, at)
-      return escape if len <= 0 || !onig.code_ctype?(onig.mbc_to_code(bytes, at, bytes.bytesize), Regexp::Onig::CType::PRINT)
+      return escape if len <= 0 || !onig.code_ctype?(onig.mbc_to_code(bytes, at, bytes.bytesize), ONIG_PRINT)
 
       at += len
     end
@@ -1988,7 +2428,7 @@ class String
     return recoded_case(kind, options) if Encoding.cased?(Encoding.at(Primitive.zr_str_encoding_index_m(self))) && !Primitive.zr_str_ascii_only_m(self)
     return Primitive.zr_str_map_case_m(self, KERNEL_CASE[kind]) if mode != :turkic && KERNEL_CASE.key?(kind) && Primitive.zr_str_ascii_check(self)
 
-    out = +""
+    out = empty_like
     characters.each_with_index do |char, i|
       step = kind == :title ? (i.zero? ? :title : :down) : kind
       out << case_char(char, step, mode)
@@ -2072,28 +2512,46 @@ class String
     Primitive.zr_str_find_from(self, needle, start)
   end
 
+  # rb_str_justify: `pad` (nil for the one space byte) repeated on the
+  # sides, whole copies and then the characters of it that fit.
   def justify(width, pad, side)
     Primitive.attr! :hidden
+    enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
     width = Primitive.zr_index_operand_m(width)
-    pad = Primitive.zr_str_operand(pad)
-    raise ArgumentError, "zero width padding" if pad.empty?
+    if pad
+      pad = Primitive.zr_str_operand(pad)
+      enc = Encoding.compatible?(self, pad) || Encoding.incompatible(self, pad)
+      fill = OWN[:b].bind_call(pad)
+      fclen = Primitive.zr_str_length_m(pad)
+      raise ArgumentError, "zero width padding" if fill.empty? || fclen == 0
+    else
+      fill = " ".b
+      fclen = 1
+    end
+    len = Primitive.zr_str_length_m(self)
+    return copied if width < 0 || len >= width
 
-    joined = Encoding.compatible?(self, pad)
-    Encoding.incompatible(self, pad) if joined.nil?
-    count = Primitive.zr_str_length_m(self)
-    return copied if width <= count
+    n = width - len
+    llen = side == :left ? 0 : (side == :right ? n : n / 2)
+    rlen = n - llen
+    size = Primitive.zr_str_bytesize(self)
+    llen2 = fill.bytesize > 1 ? Primitive.zr_str_char_offset_m(pad, llen % fclen) : 0
+    rlen2 = fill.bytesize > 1 ? Primitive.zr_str_char_offset_m(pad, rlen % fclen) : 0
+    raise ArgumentError, "argument too big" if ((llen / fclen) + (rlen / fclen)) * fill.bytesize + llen2 + rlen2 + size >= 1 << 63
 
-    fill = width - count
-    left = side == :left ? 0 : (side == :right ? fill : fill / 2)
-    right = fill - left
-    (padding(left, pad) + self + padding(right, pad)).force_encoding(joined)
+    out = padding(fill, llen, fclen, llen2) << OWN[:b].bind_call(self) << padding(fill, rlen, fclen, rlen2)
+    OWN[:force_encoding].bind_call(out, enc)
+    # The result keeps the text's coderange, and the pad's, unscanned:
+    # a space byte in UTF-32 still reads as valid.
+    Primitive.zr_str_mark_valid_m(out) if Primitive.zr_str_valid_p(self) && (pad.nil? || Primitive.zr_str_valid_p(pad))
+    out
   end
 
-  def padding(n, pad)
+  def padding(fill, n, fclen, tail)
     Primitive.attr! :hidden
-    out = +""
-    out << pad while out.size < n
-    out[0, n]
+    return fill * n if fill.bytesize <= 1
+
+    fill * (n / fclen) << fill.byteslice(0, n % fclen > 0 ? tail : 0)
   end
 
   # The rows as they stand at boot, which String's own methods call as
@@ -2765,40 +3223,68 @@ class Encoding
       invalid(bytes.first(unit), nil, false, from.name) if big.nil?
       i = unit
     end
-    read = ->(at) { (big ? bytes[at, unit] : bytes[at, unit].reverse).inject(0) { |code, byte| (code << 8) | byte } }
     while i < bytes.size
-      if bytes.size - i < unit
+      kind, a, b = unit_step(bytes, i, unit, big)
+      case kind
+      when :char
+        points << a
+        i += b
+      when :incomplete
         bad.(bytes[i..], nil, true)
         break
-      end
-      code = read.(i)
-      if unit == 4
-        code > 0x10FFFF || code.between?(0xD800, 0xDFFF) ? bad.(bytes[i, 4], nil, false) : points << code
-        i += 4
-      elsif code.between?(0xDC00, 0xDFFF)
-        bad.(bytes[i, 2], nil, false)
-        i += 2
-      elsif code.between?(0xD800, 0xDBFF)
-        if bytes.size - i < 4
-          bad.(bytes[i..], nil, true)
-          break
-        end
-        low = read.(i + 2)
-        if low.between?(0xDC00, 0xDFFF)
-          points << (0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00))
-          i += 4
-        else
-          bad.(bytes[i, 2], bytes[i + 2, 2], false)
-          i += 2
-        end
       else
-        points << code
-        i += 2
+        bad.(bytes[i, a], b.zero? ? nil : bytes[i + a, b], false)
+        i += a
       end
     end
     points.pack("U*")
   end
   private_class_method :units_to_utf8
+
+  # One step of the from_UTF_16LE/BE and from_UTF_32LE/BE transcoders
+  # (enc/trans/utf_16_32.trans) at byte `at`: [:char, code point,
+  # length], [:incomplete] where the text ends inside a character, or
+  # [:invalid, error length, read-again length]. A byte the table
+  # refuses inside the first unit takes the rest of that unit with it.
+  def self.unit_step(bytes, at, unit, big)
+    Primitive.attr! :hidden
+    rest = bytes.size - at
+    b = ->(k) { bytes[at + k] }
+    refuse = ->(len) { len <= unit ? [:invalid, [unit, rest].min, 0] : [:invalid, ((len - 1) / unit) * unit, len - ((len - 1) / unit) * unit] }
+    if unit == 2
+      hi = big ? 0 : 1
+      return [:incomplete] if rest < 1 + hi
+      return refuse.(1 + hi) if b.(hi).between?(0xDC, 0xDF)
+      return [:incomplete] if rest < 2
+
+      code = big ? (b.(0) << 8) | b.(1) : (b.(1) << 8) | b.(0)
+      return [:char, code, 2] unless b.(hi).between?(0xD8, 0xDB)
+      return [:incomplete] if rest < 3 + hi
+      return refuse.(3 + hi) unless b.(2 + hi).between?(0xDC, 0xDF)
+      return [:incomplete] if rest < 4
+
+      low = big ? (b.(2) << 8) | b.(3) : (b.(3) << 8) | b.(2)
+      return [:char, 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00), 4]
+    end
+    if big
+      return refuse.(1) unless b.(0) == 0
+      return [:incomplete] if rest < 2
+      return refuse.(2) unless b.(1) <= 0x10
+      return [:incomplete] if rest < 3
+      return refuse.(3) if b.(1) == 0 && b.(2).between?(0xD8, 0xDF)
+      return [:incomplete] if rest < 4
+
+      return [:char, (b.(1) << 16) | (b.(2) << 8) | b.(3), 4]
+    end
+    return [:incomplete] if rest < 2
+    return [:incomplete] if rest < 3
+    return refuse.(3) unless b.(2) <= 0x10 && (b.(2) != 0 || !b.(1).between?(0xD8, 0xDF))
+    return [:incomplete] if rest < 4
+    return refuse.(4) unless b.(3) == 0
+
+    [:char, (b.(2) << 16) | (b.(1) << 8) | b.(0), 4]
+  end
+  private_class_method :unit_step
 
   # Each character of a multibyte String read as its code point, written
   # as UTF-8. The rows say where a character ends: a slot that starts a

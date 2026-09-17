@@ -9,10 +9,11 @@
 # character taken on its own has a range and no groups, which is how
 # `get_byte` answers a raw byte of a multibyte character.
 #
-# A scan matches the rest of the string from `pos`, so `\A`, `^` and `\G`
-# all read the scan pointer as the start; `fixed_anchor: true` matches
-# against the whole string at the pointer instead, where `\A` keeps the
-# real beginning.
+# A scan hands the compiled pattern the string in place with the scan
+# pointer as the text's start, as strscan.c's onig_match and onig_search
+# do, so `\A`, `^` and `\G` all read the pointer as the start;
+# `fixed_anchor: true` starts the text at the string's own beginning,
+# where `\A` keeps the real beginning.
 #
 # CRuby keeps all of this in a C struct, so a program sees no instance
 # variable on a scanner: the fields live in hidden slots, which leaves
@@ -218,15 +219,15 @@ class StringScanner
 
   def named_captures = groups ? groups.named_captures : {}
 
-  # `#<StringScanner 5/11 "test " @ "strin...">`: the place, the text the
-  # last scan took, and what waits. A scanner that has taken nothing
-  # names no text, and one at the end says so alone.
+  # `#<StringScanner 5/11 "test " @ "strin...">`: the place, the five
+  # bytes each side of the pointer, and what waits. A scanner that has
+  # taken nothing names no text, and one at the end says so alone.
   def inspect
-    return "#<StringScanner (uninitialized)>" if Primitive.zr_hidden_get(self, :__string__).nil?
-    return "#<StringScanner fin>" if eos?
-    return "#<StringScanner #{pos}/#{string.bytesize} @ #{after}>" if pos.zero?
+    return "#<#{self.class} (uninitialized)>" if Primitive.zr_hidden_get(self, :__string__).nil?
+    return "#<#{self.class} fin>" if eos?
+    return "#<#{self.class} #{pos}/#{string.bytesize} @ #{after}>" if pos.zero?
 
-    "#<StringScanner #{pos}/#{string.bytesize} #{before} @ #{after}>"
+    "#<#{self.class} #{pos}/#{string.bytesize} #{before} @ #{after}>"
   end
 
   def fixed_anchor?
@@ -288,41 +289,62 @@ class StringScanner
   # span runs from the pointer to the end of the match, which is what a
   # `_until` form answers; `answer` decides whether the bytes or their
   # count comes back, and `advance` whether the pointer moves past them.
+  # strscan_do_scan: `pattern` at the scan pointer (`anchored`) or
+  # anywhere past it. A Regexp runs in place over the string; a String
+  # compares its bytes. The span runs from the pointer to the end of the
+  # match, which is what a `_until` form answers; `answer` decides whether
+  # the bytes or their count comes back, and `advance` whether the
+  # pointer moves past them.
   def run(pattern, anchored, answer, advance)
     unless pattern.is_a?(Regexp)
       pattern = String.try_convert(pattern) or raise TypeError, "no implicit conversion of #{conversion_name(pattern)} into String"
     end
-    if fixed_anchor?
-      # The whole string is the subject, so `\A` means its real start and
-      # `\G` holds the match at the pointer.
-      m = matcher(pattern, anchored, "\\G").match(string, char_index(string, pos))
-      base = 0
-    else
-      m = matcher(pattern, anchored, "\\A").match(rest, 0)
-      base = pos
-    end
-    return clear_match unless m
+    text = string
+    clear_match
+    return nil if pos > text.bytesize
 
     was = pos
-    from = base + m.bytebegin(0)
+    if pattern.is_a?(Regexp)
+      m = pattern.send(:scan_in, text, fixed_anchor? ? 0 : was, was, !anchored)
+      return nil unless m
+
+      from = m.bytebegin(0)
+      len = m.byteend(0) - from
+    else
+      len = pattern.bytesize
+      if text.bytesize - was < len
+        enc_check(text, pattern)
+        return nil
+      end
+      if anchored
+        enc_check(text, pattern)
+        return nil unless text.byteslice(was, len).b == pattern.b
+
+        from = was
+      else
+        Encoding.compatible?(text, pattern) or Encoding.send(:incompatible, text, pattern)
+        from = Primitive.zr_str_find_from(text, pattern, was)
+        return nil unless from
+      end
+      m = nil
+    end
     Primitive.zr_hidden_set(self, :__from__, from)
-    Primitive.zr_hidden_set(self, :__len__, m.byteend(0) - m.bytebegin(0))
+    Primitive.zr_hidden_set(self, :__len__, len)
     Primitive.zr_hidden_set(self, :__groups__, m)
     Primitive.zr_hidden_set(self, :__prev__, was)
-    span = from + match_len - was
-    Primitive.zr_hidden_set(self, :__pos__, from + match_len) if advance
-    answer ? string.byteslice(was, span) : span
+    span = from + len - was
+    Primitive.zr_hidden_set(self, :__pos__, from + len) if advance
+    answer ? text.byteslice(was, span) : span
   end
 
-  def matcher(pattern, anchored, anchor)
-    source = pattern.is_a?(Regexp) ? pattern.source : Regexp.escape(pattern)
-    return Regexp.new("#{anchor}(?:#{source})", pattern.is_a?(Regexp) ? pattern.options : 0) if anchored
-    return pattern if pattern.is_a?(Regexp)
+  # strscan_enc_check: two Strings of different encodings must be able
+  # to meet.
+  def enc_check(text, pattern)
+    Primitive.attr! :hidden
+    return if text.encoding == pattern.encoding
 
-    Regexp.new(source)
+    Encoding.compatible?(text, pattern) or Encoding.send(:incompatible, text, pattern)
   end
-
-  def char_index(text, byte) = byte.zero? ? 0 : text.byteslice(0, byte).length
 
   # A byte or a character taken on its own: a match of its own bytes,
   # with no groups behind it.
@@ -344,17 +366,17 @@ class StringScanner
     nil
   end
 
-  # The five characters each side of the pointer, with the dots that
-  # say more stands there, as ruby shows them.
+  # inspect1 and inspect2: the five bytes each side of the pointer, with
+  # the dots that say more stands there, dumped as bytes.
   def before
     Primitive.attr! :hidden
-    text = string.byteslice(0, pos)
-    "#{"..." if text.length > 5}#{text[-5..] || text}".inspect
+    text = pos > 5 ? "...".b + string.byteslice(pos - 5, 5).b : string.byteslice(0, pos).b
+    text.dump
   end
 
   def after
     Primitive.attr! :hidden
-    text = rest
-    "#{text[0, 5]}#{"..." if text.length > 5}".inspect
+    text = rest_size > 5 ? string.byteslice(pos, 5).b + "..." : rest.b
+    text.dump
   end
 end

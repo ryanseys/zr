@@ -216,29 +216,62 @@ class Regexp
 
   def self.compile(*args, **options) = new(*args, **options)
 
-  # A String whose regexp meaning is its own bytes.
+  # String#b as it stands at boot, which the C never asks a String for.
+  STRING_B = String.instance_method(:b)
+  private_constant :STRING_B
+
+  # The Onigmo encoder a String in `encoding` is read with, for String's
+  # own methods: Onig itself stays Regexp's.
+  def self.encoder(encoding)
+    Primitive.attr! :hidden
+    Onig::Enc.reader(encoding)
+  end
+
+  # What rb_reg_quote writes for each metacharacter it escapes.
+  QUOTED = {
+    0x5B => "\\[", 0x5D => "\\]", 0x7B => "\\{", 0x7D => "\\}", 0x28 => "\\(", 0x29 => "\\)", 0x7C => "\\|", 0x2D => "\\-",
+    0x2A => "\\*", 0x2E => "\\.", 0x5C => "\\\\", 0x3F => "\\?", 0x2B => "\\+", 0x5E => "\\^", 0x24 => "\\$", 0x23 => "\\#",
+    0x20 => "\\ ", 0x09 => "\\t", 0x0A => "\\n", 0x0D => "\\r", 0x0C => "\\f", 0x0B => "\\v",
+  }.freeze
+  private_constant :QUOTED
+
+  # rb_reg_quote: a String whose regexp meaning is its own characters,
+  # read a character at a time in its own encoding and written back in
+  # it. Text of plain ASCII answers in US-ASCII.
   def self.escape(text)
     text = text.is_a?(Symbol) ? text.to_s : Primitive.zr_str_operand(text)
-    out = +""
-    text.each_char do |c|
-      out << case c
-             when ".", "*", "?", "+", "^", "$", "|", "(", ")", "[", "]", "{", "}", "\\", "-", "#" then "\\#{c}"
-             when " " then "\\ "
-             when "\t" then "\\t"
-             when "\n" then "\\n"
-             when "\r" then "\\r"
-             when "\f" then "\\f"
-             when "\v" then "\\v"
-             else c
-             end
+    enc = text.encoding
+    compat = enc.ascii_compatible?
+    ascii_only = compat && Primitive.zr_str_ascii_only_m(text)
+    bytes = STRING_B.bind_call(text)
+    onig = Onig::Enc.reader(enc)
+    out = nil
+    at = 0
+    while at < bytes.bytesize
+      c, clen = onig.ascget(bytes, at, compat)
+      if c.nil?
+        len = onig.mbclen(bytes, at)
+        out << bytes.byteslice(at, len) if out
+        at += len
+        next
+      end
+      quoted = QUOTED[c]
+      out ||= bytes.byteslice(0, at) if quoted
+      if out
+        piece = quoted || c.chr
+        out << (compat || enc.dummy? ? piece : piece.encode(enc).b)
+      end
+      at += clen
     end
-    out
+    out ||= bytes
+    out.force_encoding(ascii_only ? Encoding::US_ASCII : enc)
   end
 
   def self.quote(text) = escape(text)
 
   # rb_reg_s_union: the patterns joined by `|`, in the one encoding they
-  # agree on.
+  # agree on: an ASCII-incompatible one, else a fixed one, else binary.
+  # Each `|` is written in the encoding the source has so far.
   def self.union(*patterns)
     listed = patterns.size == 1 ? Array.try_convert(patterns[0]) : nil
     patterns = listed if listed
@@ -249,31 +282,47 @@ class Regexp
     end
 
     ascii_only = false
-    compatible = nil
+    fixed = nil
     incompatible = nil
     agree = lambda do |held, encoding|
       raise ArgumentError, "incompatible encodings: #{held.name} and #{encoding.name}" if held && held != encoding
 
       encoding
     end
-    source = patterns.each_with_index.map do |pattern, i|
-      regexp = Regexp.try_convert(pattern)
-      text = regexp ? regexp.to_s : escape(pattern = Primitive.zr_str_operand(pattern))
-      encoding = regexp ? regexp.encoding : pattern.encoding
-      if !encoding.ascii_compatible?
-        incompatible = agree.call(incompatible, encoding)
-      elsif regexp ? regexp.fixed_encoding? : !pattern.ascii_only?
-        compatible = agree.call(compatible, encoding)
+    source = nil
+    source_encoding = nil
+    patterns.each_with_index do |pattern, i|
+      if i.positive?
+        source << (source_encoding.ascii_compatible? || source_encoding.dummy? ? "|" : "|".encode(source_encoding).b)
+      end
+      if (regexp = Regexp.try_convert(pattern))
+        encoding = regexp.encoding
+        if !encoding.ascii_compatible? then incompatible = agree.call(incompatible, encoding)
+        elsif regexp.fixed_encoding? then fixed = agree.call(fixed, encoding)
+        else ascii_only = true
+        end
+        text = regexp.to_s
       else
-        ascii_only = true
+        pattern = Primitive.zr_str_operand(pattern)
+        encoding = pattern.encoding
+        if !encoding.ascii_compatible? then incompatible = agree.call(incompatible, encoding)
+        elsif Primitive.zr_str_ascii_only_m(pattern) then ascii_only = true
+        else fixed = agree.call(fixed, encoding)
+        end
+        text = escape(pattern)
       end
       if incompatible
         raise ArgumentError, "ASCII incompatible encoding: #{incompatible.name}" if ascii_only
-        raise ArgumentError, "incompatible encodings: #{incompatible.name} and #{compatible.name}" if compatible
+        raise ArgumentError, "incompatible encodings: #{incompatible.name} and #{fixed.name}" if fixed
       end
-      i.zero? ? text.b : "|#{text}".b
-    end.join
-    new(source.force_encoding(incompatible || compatible || Encoding::BINARY))
+      if i.zero?
+        source = text.b
+        source_encoding = text.encoding
+      else
+        source << text.b
+      end
+    end
+    new(source.force_encoding(incompatible || fixed || Encoding::BINARY))
   end
 
   def self.last_match(index = nil)
@@ -311,9 +360,20 @@ class Regexp
 
   def casefold? = options & IGNORECASE != 0
 
-  def names = name_rows.map(&:first)
+  # reg_names_iter: each name in the encoding the engine reads the
+  # pattern in now, which a match of text in another encoding changes.
+  def names = name_rows.map { |name, _| name.b.force_encoding(engine_encoding) }
 
-  def named_captures = name_rows.to_h { |name, groups| [name, groups] }
+  # reg_named_captures_iter writes each name as bytes.
+  def named_captures = name_rows.to_h { |name, groups| [name.b, groups] }
+
+  # The encoding the engine reads the pattern in: the pattern's own
+  # until a match of text in another encoding compiles it again.
+  def engine_encoding
+    Primitive.attr! :hidden
+    programs = Primitive.zr_regexp_alt(self)
+    programs ? programs[:engine] : encoding
+  end
 
   def timeout = Regexp.send(:seconds, Primitive.zr_regexp_limit(self))
 
@@ -513,6 +573,17 @@ class Regexp
     offsets = Primitive.zr_regexp_match_at(self, program_for(text), text, from)
     offsets && MatchData.send(:for, self, text, offsets)
   end
+
+  # StringScanner's match at byte `from`, or search from it (`search`),
+  # over a text that starts `base` bytes into `text`, in place.
+  def scan_in(text, base, from, search)
+    Primitive.attr! :hidden
+    offsets = Primitive.zr_regexp_scan_in(self, program_for(text), text, base, from, search)
+    offsets && MatchData.send(:for, self, text, offsets)
+  end
+
+  # The engine is Regexp's own, as Onigmo is CRuby's C.
+  private_constant :Onig
 end
 
 class MatchData
@@ -590,6 +661,7 @@ class MatchData
 
     regexp.send(:name_rows).to_h do |name, groups|
       value = groups.reverse.map { |g| group(g) }.find { |v| !v.nil? }
+      name = name.b.force_encoding(regexp.send(:engine_encoding))
       [symbolize_names ? name.to_sym : name, value]
     end
   end
