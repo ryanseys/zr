@@ -1523,6 +1523,8 @@ module Ze0
         d zr_str_buf_free Void s:Value
         d zr_str_reserve Void s:Value n:Word
         d zr_str_modified Void s:Value
+        d zr_str_snapshot_p Value s:Value
+        d zr_str_snapshot_set Value s:Value
         d zr_str_new Value bytes:Ptr len:Word
         d zr_str_initialize_m Value recv:Value src:Value
         d zr_str_take_bytes Void recv:Value src:Value
@@ -2348,7 +2350,9 @@ module Ze0
         c FL_ASCII 2097152
         c FL_VALID 8388608
         c FL_ASCII_CLEAR -2097153
-        c FL_SCANS_CLEAR -10485761
+        c FL_SNAPSHOT 4294967296
+        c FL_SNAPSHOT_CLEAR -4294967297
+        c FL_SCANS_CLEAR -4305453057
         c G_FROZEN_ERROR 27
         c FL_CHILLED 32768
         c FL_CHILLED_SYMBOL 65536

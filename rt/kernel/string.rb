@@ -67,12 +67,31 @@ FL_ASCII = 1 << 21
 # The same writes clear it, and so does a new encoding.
 FL_VALID = 1 << 23
 FL_ASCII_CLEAR = 0 - FL_ASCII - 1
-FL_SCANS_CLEAR = 0 - FL_ASCII - FL_VALID - 1
+# A String whose frozen copy MatchData keeps (MatchData.snapshot) is
+# still the copy: nothing has changed it since. Every change clears it,
+# and asks the frozen check first (zr_modify_frozen_p), which clears it
+# too, before a byte moves. Bits 24 to 31 hold the encoding
+# (FL_ENC_SHIFT); nothing above them is taken.
+FL_SNAPSHOT = 1 << 32
+FL_SNAPSHOT_CLEAR = 0 - FL_SNAPSHOT - 1
+FL_SCANS_CLEAR = 0 - FL_ASCII - FL_VALID - FL_SNAPSHOT - 1
 
 # The bytes of `s` changed: what a scan found about them is gone.
 sig [Value] => Void
 machine def zr_str_modified(s)
   RBasic.set_flags(s, RBasic.flags(s) & FL_SCANS_CLEAR)
+end
+
+# Whether `s` is unchanged since MatchData.snapshot last copied it.
+sig [Value] => Value
+machine def zr_str_snapshot_p(s)
+  zr_bool((RBasic.flags(s) & FL_SNAPSHOT) != 0)
+end
+
+sig [Value] => Value
+machine def zr_str_snapshot_set(s)
+  RBasic.set_flags(s, RBasic.flags(s) | FL_SNAPSHOT)
+  s
 end
 
 sig [Ptr, Word] => Value
@@ -1619,6 +1638,9 @@ machine def zr_modify_frozen_p(v)
     zr_str_unchill(v)
     flags = RBasic.flags(v)
   end
+  if (flags & T_MASK) == T_STRING && (flags & FL_SNAPSHOT) != 0
+    RBasic.set_flags(v, flags & FL_SNAPSHOT_CLEAR)
+  end
   (flags & FL_FREEZE) != 0
 end
 
@@ -1880,6 +1902,7 @@ machine def zr_str_shift_front(s, n)
     k = len
   end
   out = zr_str_copy_encoding(zr_str_new(RString.ptr(s), k), s)
+  RBasic.set_flags(s, RBasic.flags(s) & FL_SNAPSHOT_CLEAR)
   zr_memmove(RString.ptr(s), RString.ptr(s) + k, len - k)
   RString.set_len(s, len - k)
   Machine.store8(RString.ptr(s) + len - k, 0, Machine.i8(0))

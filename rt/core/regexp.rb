@@ -396,7 +396,7 @@ class Regexp
   # The character the search matched at (before a `\K`), or nil.
   def =~(text)
     result = match(text)
-    result && Primitive.zr_str_byte_to_char(result.string, result.send(:position))
+    result && Primitive.zr_str_byte_to_char(result.send(:text), result.send(:position))
   end
 
   def ===(text)
@@ -523,6 +523,32 @@ class MatchData
   end
   private_class_method :for
 
+  # The frozen text a MatchData reads. CRuby shares the text's buffer
+  # with a frozen String (rb_str_new_frozen), so a match costs nothing for
+  # the length of its text. The copy here is made once and kept for the
+  # text while no change has reached it (FL_SNAPSHOT, which every change
+  # clears): a copy for each match made a scan over a long text quadratic
+  # in its length. `MatchData#string` is a String of the match's own.
+  # The few texts matched most recently keep theirs, so a loop that
+  # matches a second text inside the first does not copy either again.
+  SNAPSHOTS = []
+  private_constant :SNAPSHOTS
+
+  def self.snapshot(text)
+    return text if text.frozen?
+
+    if Primitive.zr_str_snapshot_p(text)
+      SNAPSHOTS.each { |kept, copy| return copy if kept.equal?(text) }
+    end
+    copy = Primitive.zr_str_new_frozen_m(text)
+    SNAPSHOTS.reject! { |kept, _| kept.equal?(text) }
+    SNAPSHOTS.unshift([text, copy])
+    SNAPSHOTS.pop if SNAPSHOTS.size > 4
+    Primitive.zr_str_snapshot_set(text)
+    copy
+  end
+  private_class_method :snapshot
+
   # A MatchData comes from a match, never from a constructor, so ruby
   # takes both spellings away.
   class << self
@@ -532,13 +558,20 @@ class MatchData
   # A MatchData copies the match it is given, of its own kind only.
   private def initialize_copy(other)
     super
-    %i[regexp string position offsets].each { |part| Primitive.zr_hidden_set(self, part, Primitive.zr_hidden_get(other, part)) }
+    other.string
+    %i[regexp string shown position offsets].each { |part| Primitive.zr_hidden_set(self, part, Primitive.zr_hidden_get(other, part)) }
     self
   end
 
   def regexp = Primitive.zr_hidden_get(self, :regexp)
 
-  def string = Primitive.zr_hidden_get(self, :string)
+  # The text as it was, a frozen String of this match's own, as CRuby
+  # gives each MatchData; made the first time it is asked for from the
+  # copy every match of the text shares (`text`). A frozen text is its
+  # own.
+  def string
+    Primitive.zr_hidden_get(self, :shown) || Primitive.zr_state_set(self, :shown, Primitive.zr_str_new_frozen_m(text))
+  end
 
   def names = regexp.is_a?(Regexp) ? regexp.names : []
 
@@ -602,12 +635,12 @@ class MatchData
 
   def begin(index)
     b = byte_begin(index)
-    b && Primitive.zr_str_byte_to_char(string, b)
+    b && Primitive.zr_str_byte_to_char(text, b)
   end
 
   def end(index)
     e = byte_end(index)
-    e && Primitive.zr_str_byte_to_char(string, e)
+    e && Primitive.zr_str_byte_to_char(text, e)
   end
 
   def offset(index)
@@ -629,19 +662,19 @@ class MatchData
     value && value.size
   end
 
-  def pre_match = Primitive.zr_str_byteslice(string, 0, offsets[0])
+  def pre_match = Primitive.zr_str_byteslice(text, 0, offsets[0])
 
-  def post_match = Primitive.zr_str_byteslice(string, offsets[1], Primitive.zr_str_bytesize(string) - offsets[1])
+  def post_match = Primitive.zr_str_byteslice(text, offsets[1], Primitive.zr_str_bytesize(text) - offsets[1])
 
   def to_s = group(0)
 
   def ==(other)
-    other.is_a?(MatchData) && regexp == other.regexp && string == other.string && offsets == other.send(:offsets)
+    other.is_a?(MatchData) && regexp == other.regexp && text == other.send(:text) && offsets == other.send(:offsets)
   end
 
   alias eql? ==
 
-  def hash = [regexp, string, offsets].hash
+  def hash = [regexp, text, offsets].hash
 
   def inspect
     labels = Array.new(size - 1) { |i| (i + 1).to_s }
@@ -658,7 +691,8 @@ class MatchData
   def matched(regexp, text, offsets)
     Primitive.attr! :hidden
     Primitive.zr_hidden_set(self, :regexp, regexp)
-    Primitive.zr_hidden_set(self, :string, text.frozen? ? text : Primitive.zr_str_new_frozen_m(text))
+    Primitive.zr_hidden_set(self, :string, MatchData.send(:snapshot, text))
+    Primitive.zr_hidden_set(self, :shown, text) if text.frozen?
     Primitive.zr_hidden_set(self, :position, offsets[0])
     Primitive.zr_hidden_set(self, :offsets, offsets.drop(1))
   end
@@ -666,6 +700,12 @@ class MatchData
   def offsets
     Primitive.attr! :hidden
     Primitive.zr_hidden_get(self, :offsets)
+  end
+
+  # The frozen text the match was made in, shared by every match of it.
+  def text
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :string)
   end
 
   # The byte the search matched at, which a `\K` may leave before the
@@ -678,7 +718,7 @@ class MatchData
   def group(index)
     Primitive.attr! :hidden
     b = offsets[index * 2]
-    b < 0 ? nil : Primitive.zr_str_byteslice(string, b, offsets[index * 2 + 1] - b)
+    b < 0 ? nil : Primitive.zr_str_byteslice(text, b, offsets[index * 2 + 1] - b)
   end
 
   def byte_begin(index)

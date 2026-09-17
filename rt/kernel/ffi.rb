@@ -108,6 +108,9 @@ end
 # a byte past its length for that NUL.
 sig [Value] => Ptr
 machine def zr_ffi_cstr(str)
+  # C may write through the address, so a MatchData copy is no longer
+  # known to hold the bytes.
+  RBasic.set_flags(str, RBasic.flags(str) & FL_SNAPSHOT_CLEAR)
   Machine.store8(RString.ptr(str) + RString.len(str), 0, Machine.i8(0))
   RString.ptr(str)
 end
