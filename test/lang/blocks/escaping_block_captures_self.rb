@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # A Foo stores a block that captured `self`.
-#@ gccheck: cycle leak: 3 objects (Array x1, Foo x1, Proc x1)
+# At exit: cycle leak: 3 objects (Array x1, Foo x1, Proc x1)
 # A block that escapes inlining -- stored in an ivar, so it becomes a real
 # _proc_<n> function -- and references self (here calls the instance method
 # `record` and, through it, the `@log` ivar) must capture self through the proc

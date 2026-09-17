@@ -99,6 +99,54 @@ describe "Marshal programs" do
     OUT
   end
 
+  it "marshal dump load roundtrip and wire format" do
+    result = ze0(<<~'RUBY')
+      # Marshal round-trips the value tower (primitives, bignum, array, hash,
+      # Rational, shared refs and cycles) and writes CRuby's exact wire bytes for
+      # symbols (with ;-symlinks) and floats.
+      #
+      # The cycle it round-trips, and the copy that came back: both alive at exit.
+      # At exit: cycle leak: 2 objects (Array x2)
+
+      def rt(x) = Marshal.load(Marshal.dump(x))
+      p rt(42)
+      p rt(-987654321)
+      p rt(3.14)
+      p rt("hi")
+      p rt(:sym)
+      p rt([1, "x", :y, nil, true])
+      p rt(2 ** 200)
+      p rt(Rational(3, 4))
+      p [rt(Rational(1, 3)), rt(Rational(2, 5))]
+      shared = [1, 2]
+      sg = rt([shared, shared])
+      sg[0] << 99
+      p sg[1]
+      cyc = [10]
+      cyc << cyc
+      dc = rt(cyc)
+      p dc[1][1][0]
+      puts Marshal.dump([:ab, :cd, :ab]).bytes.join(",")
+      puts Marshal.dump(100.0).bytes.join(",")
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      42
+      -987654321
+      3.14
+      "hi"
+      :sym
+      [1, "x", :y, nil, true]
+      1606938044258990275541962092341162602522202993782792835301376
+      (3/4)
+      [(1/3), (2/5)]
+      [1, 2, 99]
+      10
+      4,8,91,8,58,7,97,98,58,7,99,100,59,0
+      4,8,102,8,49,101,50
+    OUT
+  end
+
   it "marshal entry options" do
     _(ze0(<<~'RUBY')).must_answer "[4, 8]\n:sym\n[true, true]\n[\"Array\", \"Integer\", \"String\", \"TrueClass\"]\nArgumentError: exceed depth limit\nTypeError: incompatible marshal file format (can't be read)\n\tformat version 4.8 required; 9.8 given\n"
       # Marshal's entry surface beyond the byte format (which matches
@@ -226,6 +274,172 @@ describe "Marshal programs" do
     OUT
   end
 
+  it "marshal roundtrip" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # Marshal's object-link table needs shared references and cycles to exercise it.
+      # At exit: cycle leak: 2 objects (Array x2)
+      # Marshal.dump / Marshal.load round-trip (Phase 1): primitives, Array, Hash.
+      def rt(x) = Marshal.load(Marshal.dump(x))
+      p rt(42)
+      p rt(-7)
+      p rt(0)
+      p rt(122)
+      p rt(123)
+      p rt(1234567890)
+      p rt(-987654321)
+      p rt(3.14)
+      p rt(-2.5)
+      p rt(nil)
+      p rt(true)
+      p rt(false)
+      p rt("hello")
+      p rt("")
+      p rt(:a_symbol)
+      p rt([1, 2, 3])
+      p rt(["a", "b", "c"])
+      p rt([1, "x", :y, nil, true, [2, 3]])
+      p rt([])
+      # Hashes are loaded as a general hash; verify via element access (Hash#inspect
+      # of a polymorphic hash is a separate, pre-existing gap).
+      h = rt({"a" => 1, "b" => 2})
+      puts h["a"]
+      puts h["b"]
+      g = rt({x: [1, 2], y: "z"})
+      puts g[:x].inspect
+      puts g[:y]
+      # Bignum.
+      p rt(123456789012345678901234567890)
+      p rt(-99999999999999999999999999999999)
+      p rt(2 ** 200)
+      p rt([1, 100000000000000000000, "z"])
+      # Shared references and cycles (CRuby's object-link table).
+      shared = [1, 2]
+      sg = rt([shared, shared])
+      sg[0] << 99
+      p sg[1]
+      cyc = [10]
+      cyc << cyc
+      dc = rt(cyc)
+      p dc[0]
+      p dc.length
+      p dc[1][1][0]
+      sh = {n: 1}
+      eh = rt([sh, sh])
+      eh[0][:m] = 5
+      p eh[1][:m]
+      # Complex and Rational (CRuby `U` user-marshal form). Zeo's Complex is
+      # float-only, so its components round-trip as Floats.
+      p rt(Rational(3, 4))
+      p rt(Rational(-1, 2))
+      p rt(Rational(5, 1))
+      p rt(Complex(1.5, -2.5))
+      p rt([Rational(1, 3), Rational(2, 5)])
+      rc = rt({r: Rational(7, 8), c: Complex(1.5, -2.5)})
+      puts rc[:r]
+      puts rc[:c]
+      # Plain user objects (CRuby `o` form). Verified via attribute access, since an
+      # object's #inspect carries a non-deterministic address.
+      class MPoint
+        def initialize(x, y, label)
+          @x = x
+          @y = y
+          @label = label
+        end
+        attr_reader :x, :y, :label
+      end
+      mp = rt(MPoint.new(3, 4, "pt"))
+      puts mp.x
+      puts mp.y
+      puts mp.label
+      # nil ivar round-trips as nil
+      class MNil
+        def initialize(a); @a = a; end
+        attr_reader :a, :b
+      end
+      mn = rt(MNil.new(10))
+      p mn.a
+      p mn.b
+      # nested user object + poly ivar holding mixed values
+      class MInner
+        def initialize(v); @v = v; end
+        attr_reader :v
+      end
+      class MOuter
+        def initialize(inner, item); @inner = inner; @item = item; end
+        attr_reader :inner, :item
+      end
+      mo = rt(MOuter.new(MInner.new(42), "tag"))
+      puts mo.inner.v
+      puts mo.item
+      mo2 = rt(MOuter.new(MInner.new(7), [1, 2]))
+      puts mo2.inner.v
+      p mo2.item
+      # shared object reference round-trips as a shared object
+      mshared = MInner.new(99)
+      mpair = rt([mshared, mshared])
+      p mpair[0].v
+      p mpair[1].v
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      42
+      -7
+      0
+      122
+      123
+      1234567890
+      -987654321
+      3.14
+      -2.5
+      nil
+      true
+      false
+      "hello"
+      ""
+      :a_symbol
+      [1, 2, 3]
+      ["a", "b", "c"]
+      [1, "x", :y, nil, true, [2, 3]]
+      []
+      1
+      2
+      [1, 2]
+      z
+      123456789012345678901234567890
+      -99999999999999999999999999999999
+      1606938044258990275541962092341162602522202993782792835301376
+      [1, 100000000000000000000, "z"]
+      [1, 2, 99]
+      10
+      2
+      10
+      5
+      (3/4)
+      (-1/2)
+      (5/1)
+      (1.5-2.5i)
+      [(1/3), (2/5)]
+      7/8
+      1.5-2.5i
+      3
+      4
+      pt
+      10
+      nil
+      42
+      tag
+      7
+      [1, 2]
+      99
+      99
+    OUT
+  end
+
   it "marshal string ivars round trip" do
     result = ze0(<<~'RUBY')
       # Instance variables on a STRING survive a Marshal round-trip (the I
@@ -266,6 +480,65 @@ describe "Marshal programs" do
       [:a, :a]
       [100.0, 1.0e-09, 0.0]
       3
+    OUT
+  end
+
+  it "marshal value fidelity" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # Marshal's object-link table needs shared references and cycles to exercise it.
+      # At exit: cycle leak: 2 objects (Array x2)
+      # `Marshal` must round-trip a value to something `==` to it. Two shapes come
+      # back wrong:
+      #
+      #   * a `Range` cannot be dumped at all -- `TypeError: no _dump_data is defined
+      #     for class Range` -- so any structure CONTAINING one fails with it;
+      #   * a `Hash`'s default value is dropped, so `Hash.new(0)` loads back with a
+      #     nil default and the first `h[k] += 1` against it raises.
+      #
+      # Ruby marshals a Range as an ordinary object with three ivars (`@begin`,
+      # `@end`, `@excl`) and writes a hash's default alongside its entries
+      # (`marshal.c`'s `w_object` has a dedicated `TYPE_HASH_DEF`). zeo's dumper
+      # reaches neither, and the Range case surfaces as an error about a C-extension
+      # hook that has nothing to do with what the caller wrote.
+      #
+      # Marshal is how a value crosses a process or a cache boundary, so a silently
+      # dropped default is the worse of the two: it fails later, somewhere else.
+
+      p Marshal.load(Marshal.dump(1..2))
+      p Marshal.load(Marshal.dump([1, (1...5), :x]))
+
+      p Marshal.load(Marshal.dump({a: 1, b: [2, 3]}))
+
+      h = Hash.new(0)
+      h[:seen] = 1
+      loaded = Marshal.load(Marshal.dump(h))
+      p loaded
+      p loaded[:missing]
+
+      # These already round-trip, so a fix must keep them.
+      p Marshal.load(Marshal.dump([1, "a", :b, nil, true, 1.5]))
+      s = +"shared"
+      pair = Marshal.load(Marshal.dump([s, s]))
+      p pair[0].equal?(pair[1])
+      cyc = [1]
+      cyc << cyc
+      p Marshal.load(Marshal.dump(cyc))[1].class
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1..2
+      [1, 1...5, :x]
+      {a: 1, b: [2, 3]}
+      {seen: 1}
+      0
+      [1, "a", :b, nil, true, 1.5]
+      true
+      Array
     OUT
   end
 

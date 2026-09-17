@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # `@right = self`, plus a Node and a Column pointing at each other. The ring IS the subject.
-#@ gccheck: cycle leak: 2 objects (Column x1, Node x1)
+# At exit: cycle leak: 2 objects (Column x1, Node x1)
 # An attribute that holds a base class AND its subclass reads as a boxed value.
 # A local assigned from one had settled on the object type, and kept the
 # pointer while the read handed back an sp_RbVal -- every such assignment was a

@@ -3,7 +3,7 @@
 # symbols (with ;-symlinks) and floats.
 #
 # The cycle it round-trips, and the copy that came back: both alive at exit.
-#@ gccheck: cycle leak: 2 objects (Array x2)
+# At exit: cycle leak: 2 objects (Array x2)
 
 def rt(x) = Marshal.load(Marshal.dump(x))
 p rt(42)

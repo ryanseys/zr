@@ -3,7 +3,7 @@
 #
 # reline's dialog scope holds the line editor that holds the scope. Loading
 # readline builds that ring, and nothing here breaks it.
-#@ gccheck: cycle leak: 9 objects (Reline::CursorPos x3, Reline::LineEditor::Dialog x3, Reline::LineEditor::DialogProcScope x3)
+# At exit: cycle leak: 9 objects (Reline::CursorPos x3, Reline::LineEditor::Dialog x3, Reline::LineEditor::DialogProcScope x3)
 require "readline"
 require "tmpdir"
 

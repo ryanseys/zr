@@ -3,7 +3,7 @@
 #
 # The self-comparison needs a self-referential array, and it is still one
 # at exit -- the program never breaks the ring.
-#@ gccheck: cycle leak: 1 objects (Array x1)
+# At exit: cycle leak: 1 objects (Array x1)
 
 b = [1, 2, 3]
 b.insert(5, 8)

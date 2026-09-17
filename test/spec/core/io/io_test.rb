@@ -2034,6 +2034,31 @@ describe "IO programs" do
     OUT
   end
 
+  it "self referential collections print recursion markers" do
+    result = ze0(<<~'RUBY')
+      # Pre-15.2 both of these self-deadlocked on the collection's own
+      # non-reentrant payload Mutex.
+      #
+      # The two rings the program prints are the two it leaves alive.
+      # At exit: cycle leak: 2 objects (Array x1, Hash x1)
+
+      a = [1, 2]
+      a << a
+      puts a
+
+      h = { k: 1 }
+      h[:me] = h
+      puts h
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+      2
+      [...]
+      {k: 1, me: {...}}
+    OUT
+  end
+
   it "self test block in a required file" do
     result = ze0(<<~'RUBY', files: {"self_test_block_in_a_required_file/lib.rb" => "class Memcache\n  def get = \"get a\\r\\n\"\nend\n\nif __FILE__ == $0\n  class TestConnection < Memcache\n    def initialize = raise(\"the self-test block ran\")\n  end\n\n  Memcache.new.get\nend\n"})
       # `if __FILE__ == $0` -- the self-test block every second library file ends

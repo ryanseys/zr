@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # Two rings: `a << a`, and `b << [2, b]` whose inner array is the third array. The nested one is the row that proves the guard is a stack.
-#@ gccheck: cycle leak: 3 objects (Array x3)
+# At exit: cycle leak: 3 objects (Array x3)
 # `Array#join` on a self-referential array raises ArgumentError
 # ("recursive array join"). It used to abort the process: the receiver's
 # lock was still held when the nested join re-entered it, which is a

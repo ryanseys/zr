@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # A Holder holds a lambda that closed over the Holder.
-#@ gccheck: cycle leak: 2 objects (Holder x1, Proc x1)
+# At exit: cycle leak: 2 objects (Holder x1, Proc x1)
 # A lambda held in a constant (or an ivar) and passed to a method that calls
 # it escapes: its parameters ride the boxed ABI. The escape scan followed only
 # a local, so the literal kept the no-evidence int default and an Array

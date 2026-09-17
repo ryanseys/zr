@@ -464,6 +464,172 @@ describe "Classes: inheritance and ancestors" do
     OUT
   end
 
+  it "dlx subclass ring attr" do
+    _(ze0(<<~'RUBY')).must_answer "[[\"1\", \"3\"], [\"2\", \"3\"]]\n"
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # Dancing Links. The whole data structure is a ring of Columns and Nodes by definition.
+      # At exit: cycle leak: 10 objects (Node x6, Column x4)
+      # A ring whose fields hold both a base class and its subclass: reading one
+      # yields a polymorphic value, and the local it is bound to has to be poly too.
+      # The callee's return widened only after the local was derived, so the C
+      # assigned an sp_RbVal to an sp_Node * and the build failed (#3964).
+      class Node
+        attr_accessor :left, :right, :up, :down, :column
+
+        def initialize
+          @left = self
+          @right = self
+          @up = self
+          @down = self
+          @column = nil
+        end
+
+        def link_right(node)
+          node.right = @right
+          node.left = self
+          @right.left = node
+          @right = node
+          node
+        end
+
+        def link_down(node)
+          node.down = @down
+          node.up = self
+          @down.up = node
+          @down = node
+          node
+        end
+      end
+
+      class Column < Node
+        attr_accessor :size, :name
+
+        def initialize(name)
+          super()
+          @size = 0
+          @name = name
+        end
+
+        def cover
+          right.left = left
+          left.right = right
+          i = down
+          while !i.equal?(self)
+            j = i.right
+            while !j.equal?(i)
+              j.down.up = j.up
+              j.up.down = j.down
+              j.column.size -= 1
+              j = j.right
+            end
+            i = i.down
+          end
+        end
+
+        def uncover
+          i = up
+          while !i.equal?(self)
+            j = i.left
+            while !j.equal?(i)
+              j.column.size += 1
+              j.down.up = j
+              j.up.down = j
+              j = j.left
+            end
+            i = i.up
+          end
+          right.left = self
+          left.right = self
+        end
+      end
+
+      class ExactCover
+        def initialize(columns, rows)
+          @root = Column.new("root")
+          @cols = {}
+          columns.each do |cname|
+            col = Column.new(cname)
+            @root.link_right(col)
+            @cols[cname] = col
+          end
+          rows.each do |row|
+            first = nil
+            row.each do |cname|
+              col = @cols[cname]
+              node = Node.new
+              node.column = col
+              col.link_down(node)
+              col.size += 1
+              first = first.nil? ? node : first.link_right(node)
+            end
+          end
+          @solution = []
+          @results = []
+        end
+
+        def smallest_column
+          best = nil
+          c = @root.right
+          while !c.equal?(@root)
+            best = c if best.nil? || c.size < best.size
+            c = c.right
+          end
+          best
+        end
+
+        def remaining_columns
+          n = 0
+          c = @root.right
+          while !c.equal?(@root)
+            n += 1
+            c = c.right
+          end
+          n
+        end
+
+        def search
+          if @root.right.equal?(@root)
+            @results << @solution.map { |n| n.column.name }.sort
+            return
+          end
+          col = smallest_column
+          return if col.nil? || col.size.zero?
+          col.cover
+          r = col.down
+          while !r.equal?(col)
+            @solution.push(r)
+            j = r.right
+            while !j.equal?(r)
+              j.column.cover
+              j = j.right
+            end
+            search
+            @solution.pop
+            j = r.left
+            while !j.equal?(r)
+              j.column.uncover
+              j = j.left
+            end
+            r = r.down
+          end
+          col.uncover
+        end
+
+        def solve
+          search
+          @results
+        end
+      end
+
+      ec = ExactCover.new(%w[1 2 3], [%w[1 2], %w[3], %w[1], %w[2 3]])
+      p ec.solve.sort
+    RUBY
+  end
+
   it "forward args new and super" do
     result = ze0(<<~'RUBY')
       # `...` argument forwarding in the two positions that bypassed the shared
@@ -1880,6 +2046,184 @@ describe "Classes: inheritance and ancestors" do
     OUT
   end
 
+  it "subclass ring dispatch" do
+    _(ze0(<<~'RUBY')).must_answer "[[\"A\", \"B\"]]\n"
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # A ring of Columns and Nodes, which is the dispatch shape under test.
+      # At exit: cycle leak: 7 objects (Column x4, Node x3)
+      # A circular doubly-linked structure whose left/right/up/down fields hold both
+      # a base class and its subclass -- Knuth's Dancing Links, which is where the
+      # report found it (#4023). Two things were wrong, and both come from the same
+      # place: a slot typed as a class that HAS subclasses is only its STATIC type,
+      # because an inherited method storing `self` types the slot as the class that
+      # DEFINED the method while the object can be any subclass.
+      #
+      # The read was emitted as a boxed value and assigned to a base-class local, so
+      # the build aborted; and where it did compile, a subclass-only method on such a
+      # read was refused outright:
+      #
+      #   undefined method 'size' for an instance of Node
+      #
+      # Both are answers the runtime object gives perfectly well, so the call
+      # dispatches at run time now.
+      class Node
+        attr_accessor :left, :right, :up, :down, :column, :row_name
+
+        def initialize(row_name = nil)
+          @row_name = row_name
+          @left = self
+          @right = self
+          @up = self
+          @down = self
+          @column = nil
+        end
+
+        def append_to_row(other)
+          @left = other
+          @right = other.right
+          other.right.left = self
+          other.right = self
+          self
+        end
+      end
+
+      class Column < Node
+        attr_accessor :size, :name
+
+        def initialize(name)
+          super(nil)
+          @name = name
+          @size = 0
+          @column = self
+        end
+
+        def cover
+          right.left = left
+          left.right = right
+          i = down
+          while !i.equal?(self)
+            j = i.right
+            while !j.equal?(i)
+              j.down.up = j.up
+              j.up.down = j.down
+              j.column.size -= 1
+              j = j.right
+            end
+            i = i.down
+          end
+        end
+
+        def uncover
+          i = up
+          while !i.equal?(self)
+            j = i.left
+            while !j.equal?(i)
+              j.column.size += 1
+              j.down.up = j
+              j.up.down = j
+              j = j.left
+            end
+            i = i.up
+          end
+          right.left = self
+          left.right = self
+        end
+      end
+
+      class ExactCover
+        attr_reader :solutions
+
+        def initialize(column_names)
+          @root = Column.new("__root__")
+          @columns = {}
+          column_names.each do |name|
+            col = Column.new(name)
+            col.append_to_row(@root.left)
+            @columns[name] = col
+          end
+          @solutions = []
+          @stack = []
+        end
+
+        def add_row(name, members)
+          first = nil
+          members.each do |member|
+            col = @columns.fetch(member)
+            node = Node.new(name)
+            node.column = col
+            node.up = col.up
+            node.down = col
+            col.up.down = node
+            col.up = node
+            col.size += 1
+            first = first.nil? ? node : node.append_to_row(first.left)
+          end
+          self
+        end
+
+        def search
+          if @root.right.equal?(@root)
+            @solutions << @stack.map(&:row_name).sort
+            return
+          end
+          col = smallest_column
+          return if col.size.zero?
+
+          col.cover
+          row = col.down
+          while !row.equal?(col)
+            @stack.push(row)
+            node = row.right
+            while !node.equal?(row)
+              node.column.cover
+              node = node.right
+            end
+            search
+            @stack.pop
+            node = row.left
+            while !node.equal?(row)
+              node.column.uncover
+              node = node.left
+            end
+            row = row.down
+          end
+          col.uncover
+        end
+
+        def remaining_columns
+          names = []
+          col = @root.right
+          while !col.equal?(@root)
+            names << "#{col.name}(#{col.size})"
+            col = col.right
+          end
+          names
+        end
+
+        private
+
+        def smallest_column
+          best = @root.right
+          col = best.right
+          while !col.equal?(@root)
+            best = col if col.size < best.size
+            col = col.right
+          end
+          best
+        end
+      end
+      k = ExactCover.new(%w[1 2 3])
+      k.add_row("A", %w[1 2])
+      k.add_row("B", %w[3])
+      k.search
+      p k.solutions
+    RUBY
+  end
+
   it "subclass through base slot" do
     result = ze0(<<~'RUBY')
       # A slot typed as a class that HAS subclasses is only its STATIC type: an
@@ -1938,6 +2282,89 @@ describe "Classes: inheritance and ancestors" do
       Node
       "nil"
       9
+    OUT
+  end
+
+  it "subclass via parent accessor" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # A parent method writes `self` into its own accessor.
+      # At exit: cycle leak: 1 objects (Column x1)
+      # A parent holds an accessor pointing at another object of the same family, and
+      # a parent method writes `self` into it. Reading it back and calling a method
+      # only the subclass defines raised NoMethodError naming the subclass, which
+      # does define it (#4036).
+      #
+      # Two faults met here. The ivar's type was widened to poly in the class that
+      # DEFINES the reader and nowhere else, so the parent and the subclass laid the
+      # same inherited ivar out differently -- and an inherited ivar has one layout or
+      # nothing works through the parent pointer. That widening was superseded by the
+      # run-time dispatch #4023 added, and is gone.
+      #
+      # Then `name` itself: a user READER owns the name just as a user method does,
+      # and counting methods alone let Method#name / Class#name claim the call.
+      class Node
+        attr_accessor :right
+        def initialize
+          @right = self
+        end
+
+        def link(other)
+          other.right = self
+          self
+        end
+      end
+
+      class Column < Node
+        attr_accessor :name
+        def initialize(name)
+          super()
+          @name = name
+        end
+      end
+
+      root = Column.new("root")
+      Column.new("a").link(root)
+      p root.right.name
+      p root.right.class
+      p root.right.right.name
+
+      # the same shape with a method rather than a reader
+      class Node2
+        attr_accessor :peer
+        def attach(other)
+          other.peer = self
+          self
+        end
+      end
+      class Leaf < Node2
+        def initialize(v) = @v = v
+        def value = @v
+      end
+      b = Leaf.new(2)
+      Leaf.new(1).attach(b)
+      p b.peer.value
+
+      # a plain reader named `name`, with no inheritance in sight
+      class Plain
+        attr_reader :name
+        def initialize(n) = @name = n
+      end
+      p Plain.new("x").name
+      p [Plain.new("y")].first.name
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "a"
+      Column
+      "a"
+      1
+      "x"
+      "y"
     OUT
   end
 

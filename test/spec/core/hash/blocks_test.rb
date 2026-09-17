@@ -1046,6 +1046,64 @@ describe "Hash: blocks and yields" do
     OUT
   end
 
+  it "hash or write rhs short circuits" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # `f = ->(n) { memo[n] ||= f.call(...) }` -- a lambda reaching itself through a captured local.
+      # At exit: cycle leak: 4 objects (cell x2, Hash x1, Proc x1)
+      # `h[k] ||= rhs` must not evaluate any part of rhs when the key is present:
+      # a memoizing lambda whose rhs calls itself twice otherwise recurses forever.
+      memo = { 0 => 0, 1 => 1 }
+      f = nil
+      f = ->(n) { memo[n] ||= f.call(n - 1) + f.call(n - 2) }
+      p f.call(2)
+      p f.call(10)
+      p memo[10]
+
+      # &&= on the same shape
+      seen = { "a" => 1 }
+      g = ->(k) { seen[k] &&= seen[k] + 100 }
+      p g.call("a")
+      p g.call("b")
+      p seen
+
+      # a string-keyed hash, and a plain local ||= with a call on the right
+      counts = {}
+      def bump(h, k)
+        h[k] ||= expensive(k)
+      end
+      def expensive(k)
+        puts "computing #{k}"
+        k.length
+      end
+      p bump(counts, "xy")
+      p bump(counts, "xy")
+      p counts
+
+      arr = [nil, 2]
+      arr[0] ||= 41
+      p arr
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+      55
+      55
+      101
+      nil
+      {"a" => 101}
+      computing xy
+      2
+      2
+      {"xy" => 2}
+      [41, 2]
+    OUT
+  end
+
   it "hash solo block pair" do
     result = ze0(<<~'RUBY')
       # A SOLO block param on Hash Enumerables receives what CRuby yields it:

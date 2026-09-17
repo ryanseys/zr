@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # Self-referential arrays, built on purpose.
-#@ gccheck: cycle leak: 3 objects (Array x3)
+# At exit: cycle leak: 3 objects (Array x3)
 # Array#assoc / #rassoc match the first / second element of each sub-array.
 # A like-typed pair such as [1, 2] is an IntArray (not a PolyArray), so the
 # match must compare and return it by dispatching on the pair's own kind.

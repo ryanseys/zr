@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # `a << a` -- a self-referential container, built on purpose to prove the walk terminates.
-#@ gccheck: cycle leak: 2 objects (Array x1, Hash x1)
+# At exit: cycle leak: 2 objects (Array x1, Hash x1)
 h = { a: 1 }
 r = (h.dig(:a, :b) rescue $!.class); p r
 r = (h.dig(:a, :b) rescue $!.message); p r

@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # Dancing Links. The whole data structure is a ring of Columns and Nodes by definition.
-#@ gccheck: cycle leak: 10 objects (Node x6, Column x4)
+# At exit: cycle leak: 10 objects (Node x6, Column x4)
 # A ring whose fields hold both a base class and its subclass: reading one
 # yields a polymorphic value, and the local it is bound to has to be poly too.
 # The callee's return widened only after the local was derived, so the C

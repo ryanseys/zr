@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # A ring of Columns and Nodes, which is the dispatch shape under test.
-#@ gccheck: cycle leak: 7 objects (Column x4, Node x3)
+# At exit: cycle leak: 7 objects (Column x4, Node x3)
 # A circular doubly-linked structure whose left/right/up/down fields hold both
 # a base class and its subclass -- Knuth's Dancing Links, which is where the
 # report found it (#4023). Two things were wrong, and both come from the same

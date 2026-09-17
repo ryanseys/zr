@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # A Deferred holds the proc whose home it is, so the object and its proc own each other.
-#@ gccheck: cycle leak: 2 objects (Deferred x1, Proc x1)
+# At exit: cycle leak: 2 objects (Deferred x1, Proc x1)
 # A non-lambda Proc's `return` is a NON-LOCAL return: it returns from the
 # method that created the Proc, while that method is still on the stack. Once
 # that home method has unwound, the same `return` raises LocalJumpError

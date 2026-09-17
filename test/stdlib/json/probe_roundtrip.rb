@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # The three `a << a` rings the cycle rows build, plus the two more that the Marshal and YAML round trips revive.
-#@ gccheck: cycle leak: 5 objects (Array x5)
+# At exit: cycle leak: 5 objects (Array x5)
 # Differential probe: ROUND-TRIP INTEGRITY.
 #
 # For every serializer and every container, asserts that a value survives

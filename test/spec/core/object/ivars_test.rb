@@ -1720,6 +1720,42 @@ describe "Object: instance and class variables" do
     OUT
   end
 
+  it "ivar widen poly writer" do
+    _(ze0(<<~'RUBY')).must_answer "2\n"
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # `c.neighbours` is filled with the cells including `c` itself.
+      # At exit: cycle leak: 6 objects (Array x3, Cell x3)
+      # An ivar seeded empty in initialize (`@n = []` -> int-array) must widen when an
+      # external attr-writer assigns a wider value through a *poly* receiver -- e.g. an
+      # element read from a poly array/hash (#1508). Inference attributes the write to
+      # the unique class defining that attr-writer.
+      class Cell
+        attr_accessor :alive, :neighbours
+        def initialize(a)
+          @alive = a
+          @neighbours = []
+        end
+        def alive_count = neighbours.count(&:alive)
+      end
+      class World
+        def initialize
+          @cells = { "a" => Cell.new(true), "b" => Cell.new(false), "c" => Cell.new(true) }
+        end
+        def at(k) = @cells[k]                      # poly value from a poly hash
+        def link
+          c = @cells["a"]                          # c is poly
+          c.neighbours = ["b", "c", "a"].filter_map { |k| at(k) }
+          c.alive_count
+        end
+      end
+      p World.new.link                             # b=false, c=true, a=true -> 2
+    RUBY
+  end
+
   it "ivars" do
     _(ze0(<<~'RUBY')).must_answer "5\n"
       class Point
@@ -2264,6 +2300,78 @@ describe "Object: instance and class variables" do
       9
       10
       done
+    OUT
+  end
+
+  it "self referential ivar reader" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # The golden's whole subject: an ivar pointing at its own owner.
+      # At exit: cycle leak: 3 objects (Cell3 x1, Column x1, Column2 x1)
+      class Node
+        attr_accessor :right
+
+        def initialize
+          @right = self
+        end
+      end
+
+      class Column < Node
+        def peek
+          n = right
+          p n.equal?(self)
+        end
+
+        def relink
+          right.right = self
+        end
+      end
+
+      col = Column.new
+      col.peek
+      col.relink
+      puts "ok"
+
+      class Node2
+        attr_accessor :nxt
+        def initialize; @nxt = self; end
+        def peek; t = nxt; p t.equal?(self); end
+      end
+      class Column2 < Node2
+        def relink; t = nxt; t.nxt = self; end
+      end
+      c2 = Column2.new
+      c2.peek
+      c2.relink
+
+      class Node3
+        attr_accessor :left, :right
+        def initialize; @left = self; @right = self; end
+        def peek; a = left; b = right; p [a.equal?(self), b.equal?(self)]; end
+      end
+      class Column3 < Node3
+        def relink; right.right = self; left.left = self; end
+      end
+      class Cell3 < Column3
+        def hop; n = right; n.left = self; end
+      end
+      x = Cell3.new
+      x.peek
+      x.relink
+      x.hop
+      puts "ok"
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      ok
+      true
+      [true, true]
+      ok
     OUT
   end
 

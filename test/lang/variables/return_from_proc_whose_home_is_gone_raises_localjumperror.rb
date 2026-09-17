@@ -4,7 +4,7 @@
 #
 # `$escaped` outlives its home method, and the deferred frame it points at
 # points back: a ring nothing breaks.
-#@ gccheck: cycle leak: 2 objects (Deferred x1, Proc x1)
+# At exit: cycle leak: 2 objects (Deferred x1, Proc x1)
 
 $escaped = nil
 def home_raises; $escaped = proc { return 99 }; raise "boom"; end

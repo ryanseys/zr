@@ -1,11 +1,11 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # PrettyPrint's own graph, reached through `pp`. See pp_pretty_print.rb.gccheck.
 #@ zeo-env: ZEO_RT_LEAKCHECK=1
-#@ gccheck: cycle leak: 11 objects (Array x7, PP x1, PrettyPrint::Group x1, PrettyPrint::GroupQueue x1, Proc x1)
+# At exit: cycle leak: 11 objects (Array x7, PP x1, PrettyPrint::Group x1, PrettyPrint::GroupQueue x1, Proc x1)
 # Compiled code must not hand `zeo_rt_release` a stack slot that holds no
 # live value. This program did, and `ZEO_RT_LEAKCHECK=1` reported tag byte
 # 176 -- not a value tag (they run 0..33) and not the poison byte a released

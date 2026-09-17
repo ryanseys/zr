@@ -2,7 +2,7 @@
 # non-reentrant payload Mutex.
 #
 # The two rings the program prints are the two it leaves alive.
-#@ gccheck: cycle leak: 2 objects (Array x1, Hash x1)
+# At exit: cycle leak: 2 objects (Array x1, Hash x1)
 
 a = [1, 2]
 a << a

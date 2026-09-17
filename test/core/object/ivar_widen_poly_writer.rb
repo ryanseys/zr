@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # `c.neighbours` is filled with the cells including `c` itself.
-#@ gccheck: cycle leak: 6 objects (Array x3, Cell x3)
+# At exit: cycle leak: 6 objects (Array x3, Cell x3)
 # An ivar seeded empty in initialize (`@n = []` -> int-array) must widen when an
 # external attr-writer assigns a wider value through a *poly* receiver -- e.g. an
 # element read from a poly array/hash (#1508). Inference attributes the write to

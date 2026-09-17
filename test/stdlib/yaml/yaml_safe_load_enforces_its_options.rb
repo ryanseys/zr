@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # The last row loads a mapping whose `*x` alias resolves to the mapping itself, which is why it prints `{...}`.
-#@ gccheck: cycle leak: 1 objects (Hash x1)
+# At exit: cycle leak: 1 objects (Hash x1)
 # `YAML.safe_load`'s option machinery: an alias without `aliases: true`
 # raises Psych::AliasesNotEnabled (zeo silently resolves `*x` to nil --
 # data loss -- and ignores the option, so even `aliases: true` answers

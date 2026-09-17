@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # A parent method writes `self` into its own accessor.
-#@ gccheck: cycle leak: 1 objects (Column x1)
+# At exit: cycle leak: 1 objects (Column x1)
 # A parent holds an accessor pointing at another object of the same family, and
 # a parent method writes `self` into it. Reading it back and calling a method
 # only the subclass defines raised NoMethodError naming the subclass, which

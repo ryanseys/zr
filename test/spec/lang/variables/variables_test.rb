@@ -1774,6 +1774,152 @@ describe "Variables programs" do
     RUBY
   end
 
+  it "nonlocal return and localjump" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # A Deferred holds the proc whose home it is, so the object and its proc own each other.
+      # At exit: cycle leak: 2 objects (Deferred x1, Proc x1)
+      # A non-lambda Proc's `return` is a NON-LOCAL return: it returns from the
+      # method that created the Proc, while that method is still on the stack. Once
+      # that home method has unwound, the same `return` raises LocalJumpError
+      # instead of jumping into a freed frame. A lambda's `return` is always local.
+
+      # --- Live home: return from the creating method ---
+      def simple; proc { return 30 }.call; 40; end
+      p simple                              # 30
+
+      def conditional(x); proc { return "yes" if x > 0 }.call; "no"; end
+      p conditional(5)                      # "yes"
+      p conditional(-1)                     # "no"
+
+      def multi; proc { return 1, 2, 3 }.call; [9]; end
+      p multi                               # [1, 2, 3]
+
+      # Through a builtin iterator (the return unwinds out of `each` and the method).
+      def first_hit; proc { [1, 2, 3].each { |x| return x * 10 if x == 2 }; :none }.call; end
+      p first_hit                           # 20
+
+      # Through `yield` into a user method.
+      def gives; yield; end
+      def via_yield; gives { return 55 }; 66; end
+      p via_yield                           # 55
+
+      # Nested returning-proc methods: inner's return unwinds only inner.
+      def inner; proc { return "IR" }.call; "IN"; end
+      def outer; x = inner; proc { return "O:#{x}" }.call; "ON"; end
+      p outer                               # "O:IR"
+
+      # A lambda's return stays local to the lambda.
+      def with_lambda; -> { return 30 }.call; 40; end
+      p with_lambda                         # 40
+
+      # --- Dead home: LocalJumpError ---
+      # Home escaped via an exception, Proc called afterward.
+      $escaped = nil
+      def home_raises; $escaped = proc { return 99 }; raise "boom"; end
+      begin; home_raises; rescue; end
+      begin
+        $escaped.call
+      rescue LocalJumpError => e
+        puts "after exception: #{e.message}"
+      end
+
+      # Home returned normally, Proc stored on an object and fired later.
+      class Deferred
+        def arm; @job = proc { return :never }; self; end
+        def fire; @job.call; end
+      end
+      begin
+        Deferred.new.arm.fire
+      rescue LocalJumpError => e
+        puts "after normal exit: #{e.message}"
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      30
+      "yes"
+      "no"
+      [1, 2, 3]
+      20
+      55
+      "O:IR"
+      40
+      after exception: unexpected return
+      after normal exit: unexpected return
+    OUT
+  end
+
+  it "object local boxed write" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # `@right = self`, plus a Node and a Column pointing at each other. The ring IS the subject.
+      # At exit: cycle leak: 2 objects (Column x1, Node x1)
+      # An attribute that holds a base class AND its subclass reads as a boxed value.
+      # A local assigned from one had settled on the object type, and kept the
+      # pointer while the read handed back an sp_RbVal -- every such assignment was a
+      # build error (#4023):
+      #
+      #   error: incompatible types when assigning to type 'sp_Node *' from 'sp_RbVal'
+      class Node
+        attr_accessor :right, :column
+
+        def initialize
+          @right = self
+          @column = nil
+        end
+      end
+
+      class Column < Node
+        attr_accessor :size
+
+        def initialize
+          super()
+          @size = 0
+          @column = self
+        end
+      end
+
+      col = Column.new
+      n = Node.new
+      n.right = col
+      n.column = col
+      col.right = n
+
+      # the ring holds both classes, so each read is boxed
+      j = n.right
+      p j.class
+      k = j.right
+      p k.class
+      m = n.column
+      p m.class
+      p m.size
+
+      # walking it keeps working
+      cur = col
+      2.times do
+        cur = cur.right
+      end
+      p cur.class
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Column
+      Node
+      Column
+      0
+      Column
+    OUT
+  end
+
   it "object local written in a branch" do
     result = ze0(<<~'RUBY')
       # A local holding a user-class instance, assigned somewhere other than a
@@ -2308,6 +2454,51 @@ describe "Variables programs" do
       5
       103
       2
+    OUT
+  end
+
+  it "return from proc whose home is gone raises localjumperror" do
+    result = ze0(<<~'RUBY')
+      # Once the home method has unwound -- via exception OR normal return --
+      # the Proc's `return` finds no live home and raises LocalJumpError rather
+      # than leaking a Signal::Return.
+      #
+      # `$escaped` outlives its home method, and the deferred frame it points at
+      # points back: a ring nothing breaks.
+      # At exit: cycle leak: 2 objects (Deferred x1, Proc x1)
+
+      $escaped = nil
+      def home_raises; $escaped = proc { return 99 }; raise "boom"; end
+      begin; home_raises; rescue; end
+      begin
+        $escaped.call; puts "WRONG"
+      rescue LocalJumpError => e
+        puts "exc: #{e.message}"
+      end
+
+      class Deferred
+        def arm; @job = proc { return :never }; self; end
+        def fire; @job.call; end
+      end
+      begin
+        Deferred.new.arm.fire; puts "WRONG"
+      rescue LocalJumpError => e
+        puts "norm: #{e.message}"
+      end
+
+      def collect; [proc { return 4 }]; end
+      arr = collect
+      begin
+        arr[0].call; puts "WRONG"
+      rescue LocalJumpError => e
+        puts "arr: #{e.message}"
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      exc: unexpected return
+      norm: unexpected return
+      arr: unexpected return
     OUT
   end
 

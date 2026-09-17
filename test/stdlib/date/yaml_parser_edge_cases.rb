@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # Three self-referential documents: a sequence that aliases itself, a mapping that aliases itself, and the `a` / `b` pair where `c: *a` closes the ring.
-#@ gccheck: cycle leak: 4 objects (Hash x3, Array x1)
+# At exit: cycle leak: 4 objects (Hash x3, Array x1)
 # Every hostile shape the YAML loader has to survive, as ANSWERS rather
 # than as a promise. The point of the file is that none of these ends the
 # process: each row is either a value or a Ruby exception, and the golden

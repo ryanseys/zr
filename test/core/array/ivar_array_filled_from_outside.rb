@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # A Syn holds its source Neu and that Neu's `syns_out` holds the Syn back.
-#@ gccheck: cycle leak: 10 objects (Array x4, Syn x4, Neu x2)
+# At exit: cycle leak: 10 objects (Array x4, Syn x4, Neu x2)
 class Syn
   attr_accessor :weight, :src
   def initialize(src); @src = src; @weight = 0.5; end

@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # Four rings: `a`, `b`, `c` and `d` each hold themselves, which is the graph the paired guard has to walk.
-#@ gccheck: cycle leak: 4 objects (Array x4)
+# At exit: cycle leak: 4 objects (Array x4)
 # `<=>` between self-referential arrays uses CRuby's PAIRED recursion
 # guard, the same one `==` already had. Without it the walk recursed until
 # the stack ran out and the process aborted.

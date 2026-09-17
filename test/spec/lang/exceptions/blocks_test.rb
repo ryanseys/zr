@@ -506,6 +506,40 @@ describe "Exceptions: blocks and yields" do
     RUBY
   end
 
+  it "recursion ten thousand deep" do
+    result = ze0(<<~'RUBY')
+      # Bounded recursion 10_000 deep -- plain, mutual, through a lambda, and on a
+      # spawned thread -- answers rather than raising. CRuby's default VM stack
+      # takes this depth; zeo's frames are native frames on a 64 MiB stack
+      # (`zeo_rt::exec::MAIN_STACK_SIZE`), which the darwin link line sizes and a
+      # spawned thread carries elsewhere. `infinite_recursion_aborts.rb` pins the
+      # other side: past the stack, `SystemStackError` is rescuable.
+      #
+      # The lambda recurses by naming itself, so it holds the cell that holds it.
+      # At exit: cycle leak: 2 objects (Proc x1, cell x1)
+
+      def down(n) = n.zero? ? 0 : 1 + down(n - 1)
+      p down(10_000)
+
+      def ping(n) = n.zero? ? :ping : pong(n - 1)
+      def pong(n) = n.zero? ? :pong : ping(n - 1)
+      p ping(10_000)
+
+      count = nil
+      count = ->(n) { n.zero? ? 0 : 1 + count.(n - 1) }
+      p count.(10_000)
+
+      p Thread.new { down(10_000) }.value
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      10000
+      :ping
+      10000
+      10000
+    OUT
+  end
+
   it "rescue bind in lambda proc body" do
     result = ze0(<<~'RUBY')
       # `rescue => e` inside a lambda / proc body binds `e` as a body-local

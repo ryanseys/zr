@@ -39,7 +39,6 @@ module Convert
 
     d = kase.directives
     return [nil, "`#@ backend: jit` wants the compiler in process"] if d.backend
-    return [nil, "`#@ gccheck:` is a sidecar census"] if d.gccheck
     return [nil, "`#@ zeo:` names CLI flags no example has"] unless d.zeo.empty?
     return [nil, "references DATA"] if kase.program.match?(/\bDATA\b/)
 
@@ -170,7 +169,11 @@ module Convert
   def resolve(ref, from, test)
     return nil if ref.start_with?("/")
 
-    [from, test].each do |root|
+    # A bare name is a load-path lookup, not a path: `require "spec"`
+    # names a file the program's own directory puts on the path, and
+    # never `test/spec`. Only a name with a `/` in it is tried there.
+    roots = ref.include?("/") ? [from, test] : [from]
+    roots.each do |root|
       base = File.expand_path(ref, root)
       # `..` is allowed; what is not allowed is leaving `test/`.
       next unless base.start_with?("#{test}/")

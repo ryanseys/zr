@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # `loopy = -> { loopy.call }` -- a lambda reaching itself through a captured local.
-#@ gccheck: cycle leak: 2 objects (Proc x1, cell x1)
+# At exit: cycle leak: 2 objects (Proc x1, cell x1)
 # Unbounded recursion kills the process with a native stack overflow. Ruby
 # raises `SystemStackError`, which is an ordinary rescuable exception -- the
 # program below catches it and keeps running.

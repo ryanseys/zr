@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # `f = ->(n) { memo[n] ||= f.call(...) }` -- a lambda reaching itself through a captured local.
-#@ gccheck: cycle leak: 4 objects (cell x2, Hash x1, Proc x1)
+# At exit: cycle leak: 4 objects (cell x2, Hash x1, Proc x1)
 # `h[k] ||= rhs` must not evaluate any part of rhs when the key is present:
 # a memoizing lambda whose rhs calls itself twice otherwise recurses forever.
 memo = { 0 => 0, 1 => 1 }

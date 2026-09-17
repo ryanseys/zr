@@ -6,14 +6,14 @@
 # every allocation into the registry it walks costs +1.54% geomean over the
 # bench corpus, and a program that never makes a cycle should not pay for
 # one. Turning it on by default is a separate decision with its own number.
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # The golden's whole subject: three Node rings built on purpose and never broken.
 #@ zeo-env: ZEO_GC=1
-#@ gccheck: cycle leak: 3 objects (Node x3)
+# At exit: cycle leak: 3 objects (Node x3)
 # zeo's heap is reference counted, so a cycle's counts never reach zero and
 # nothing in it is ever dropped. The cycle collector reconciles those counts
 # against an allocation registry instead of tracing from roots -- zeo has no

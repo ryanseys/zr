@@ -1,13 +1,13 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # One ring: `loop_a = ["x"]; loop_a << loop_a`, the self-referential array
 # that makes `File.join` raise ArgumentError. `ZEO_RT_GCRINGS=1` names it --
 # "Array[2] (held by Array[2], holds Array[2])" is a two-element array that
 # holds itself, and the only such array in the file.
-#@ gccheck: cycle leak: 1 objects (Array x1)
+# At exit: cycle leak: 1 objects (Array x1)
 require "pathname"
 require "stringio"
 

@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # A torus grid: every Cell holds its neighbours and the wraparound closes the ring.
-#@ gccheck: cycle leak: 24 objects (Array x12, Cell x12)
+# At exit: cycle leak: 24 objects (Array x12, Cell x12)
 # A proc lifted out of a NESTED block reads the enclosing INLINED loop's
 # variable. The outer `each_with_index` is spliced into a C loop, so `y` binds
 # to a plain C slot; the inner block is materialized as a proc by the runtime

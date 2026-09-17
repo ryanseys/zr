@@ -1599,6 +1599,74 @@ describe "Array programs" do
     OUT
   end
 
+  it "ivar array filled from outside" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # A Syn holds its source Neu and that Neu's `syns_out` holds the Syn back.
+      # At exit: cycle leak: 10 objects (Array x4, Syn x4, Neu x2)
+      class Syn
+        attr_accessor :weight, :src
+        def initialize(src); @src = src; @weight = 0.5; end
+      end
+      class Neu
+        attr_accessor :syns_in, :syns_out, :output
+        def initialize; @syns_in = []; @syns_out = []; @output = 1.0; end
+      end
+      class Net
+        def initialize(n)
+          @a = (1..n).map { Neu.new }
+          @b = (1..n).map { Neu.new }
+          @a.each do |src|
+            @b.each do |dst|
+              s = Syn.new(src)
+              src.syns_out << s
+              dst.syns_in << s
+            end
+          end
+        end
+        def upd(rate)
+          @b.each do |nu|
+            nu.syns_in.each do |s|
+              s.weight += rate * 0.1 * s.src.output
+            end
+          end
+        end
+        def show
+          p @b[0].syns_in.length
+          p @b[0].syns_in[0].weight.round(3)
+          p @a[0].syns_out[0].src.output
+        end
+      end
+      n = Net.new(2)
+      n.upd(1.0)
+      n.show
+
+      class Bag
+        attr_reader :items
+        def initialize; @items = []; end
+      end
+      b = Bag.new
+      b.items << "x"
+      b.items << "y"
+      p b.items.length
+      p b.items[0].upcase
+      p b.items.join("-")
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2
+      0.6
+      1.0
+      2
+      "X"
+      "x-y"
+    OUT
+  end
+
   it "ivar array pushed through boxed param" do
     result = ze0(<<~'RUBY')
       # `@rows = []` carries no element evidence, so it takes the empty-array
@@ -2034,6 +2102,116 @@ describe "Array programs" do
 
       puts [1, 2].marker
     RUBY
+  end
+
+  it "recursive array flatten overflows" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # A self-containing array, which is what `flatten` is supposed to refuse.
+      # At exit: cycle leak: 1 objects (Array x1)
+      # A self-referential array kills the process with a native stack overflow where
+      # ruby raises `ArgumentError: tried to flatten recursive array`.
+      #
+      # A `flatten` that recurses per nested Array with no record of what it has
+      # already entered runs the native stack out on `a << a`. Ruby tracks the
+      # arrays currently being flattened and raises on re-entry (`rb_ary_flatten`,
+      # using its recursion guard).
+      #
+      # `inspect` and `==` already handle the same cycle -- both answer correctly
+      # below -- so the guard exists elsewhere in the runtime and `flatten` simply
+      # does not use it. An abort is the worst failure mode available: nothing can
+      # rescue it, and the exit status is a signal rather than 1.
+
+      a = [1]
+      a << a
+      p a.inspect
+      p a == a.dup
+
+      begin
+        a.flatten
+      rescue ArgumentError => e
+        puts "#{e.class}: #{e.message}"
+      end
+
+      # The depth-limited form stops before re-entry and must NOT raise.
+      p a.flatten(1).size
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "[1, [...]]"
+      true
+      ArgumentError: tried to flatten recursive array
+      3
+    OUT
+  end
+
+  it "recursive array join aborts" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # Two rings: `a << a`, and `b << [2, b]` whose inner array is the third array. The nested one is the row that proves the guard is a stack.
+      # At exit: cycle leak: 3 objects (Array x3)
+      # `Array#join` on a self-referential array raises ArgumentError
+      # ("recursive array join"). It used to abort the process: the receiver's
+      # lock was still held when the nested join re-entered it, which is a
+      # re-entrant container access, and in a release build that aliases rather
+      # than asserting.
+      #
+      # The guard is only half the fix. Hoisting the payload clone OUT of the
+      # recursive call's argument list is the other half, and the SOUNDNESS half
+      # -- the caller-side rule the whole bug class comes down to is: never hold
+      # a `.lock()` inside a call-argument expression that also contains the
+      # recursive call.
+
+      a = [1]
+      a << a
+      begin
+        a.join(",")
+      rescue ArgumentError => e
+        puts e.message
+      end
+
+      # Nested one level deeper, so the guard has to be a STACK and not a flag
+      # on the receiver.
+      b = [1]
+      b << [2, b]
+      begin
+        b.join(",")
+      rescue ArgumentError => e
+        puts e.message
+      end
+
+      # A sibling is not a cycle: the same array twice is legal, and stays legal.
+      # This is what a monotonic visited-set would break.
+      c = [1, 2]
+      p [c, c].join(",")
+      p [c, [c, c]].join("-")
+
+      # Every ordinary join still works, including the nested and separatorless
+      # forms.
+      p [1, [2, [3, 4]], 5].join("-")
+      p [1, [2]].join
+      p [].join(",")
+      p [[], [[]]].join(",")
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      recursive array join
+      recursive array join
+      "1,2,1,2"
+      "1-2-1-2-1-2"
+      "1-2-3-4-5"
+      "12"
+      ""
+      ","
+    OUT
   end
 
   it "rest and post params bind a real array" do

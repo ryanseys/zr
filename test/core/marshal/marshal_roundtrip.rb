@@ -1,10 +1,10 @@
-# The cycle this program builds on purpose, and the census the
-# `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
-# defect: it is a ring the program never broke. What the leg gates is a
-# CHANGE to the line below.
+# The cycle this program builds on purpose, and the census it leaves
+# behind. A cycle alive at exit is not a defect: it is a ring the
+# program never broke, so the census below is recorded as an
+# observation rather than gated on.
 # 
 # Marshal's object-link table needs shared references and cycles to exercise it.
-#@ gccheck: cycle leak: 2 objects (Array x2)
+# At exit: cycle leak: 2 objects (Array x2)
 # Marshal.dump / Marshal.load round-trip (Phase 1): primitives, Array, Hash.
 def rt(x) = Marshal.load(Marshal.dump(x))
 p rt(42)

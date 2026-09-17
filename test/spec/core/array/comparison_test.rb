@@ -152,6 +152,72 @@ describe "Array: comparison and equality" do
     OUT
   end
 
+  it "array spaceship" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # A self-referential array, built on purpose to prove the comparison terminates.
+      # At exit: cycle leak: 1 objects (Array x1)
+      # Array#<=>: lexicographic element-wise comparison with a length tiebreak,
+      # across every array kind. Receivers go through per-type method params so each
+      # stays a concrete typed (or boxed-poly) array rather than constant folding.
+      # A typed comparison whose elements are mutually incomparable yields nil.
+      def ints(a); a; end
+      def strs(a); a; end
+      def flts(a); a; end
+      def polys(a); a; end
+
+      # element difference decides before length
+      p(ints([1, 2, 3]) <=> ints([1, 2, 4]))
+      p(ints([1, 2, 4]) <=> ints([1, 2, 3]))
+      p(ints([1, 2, 3]) <=> ints([1, 2, 3]))
+
+      # equal prefix: the shorter array is smaller
+      p(ints([1, 2, 3]) <=> ints([1, 2]))
+      p(ints([1, 2]) <=> ints([1, 2, 3]))
+
+      # string and float arrays compare the same way
+      p(strs(%w[a b]) <=> strs(%w[a c]))
+      p(strs(%w[a b c]) <=> strs(%w[a b]))
+      p(flts([1.0, 2.0]) <=> flts([1.0, 2.0, 3.0]))
+      p(flts([2.5]) <=> flts([1.5]))
+
+      # poly arrays (mixed element kinds), passed through a method param
+      p(polys([1, "a"]) <=> polys([1, "b"]))
+      p(polys([1, 2]) <=> polys([1, 2, 3]))
+
+      # mutually incomparable element kinds: nil
+      p(ints([1, 2]) <=> strs(["a"]))
+
+      # an array compared to itself is 0; a self-referential array still terminates
+      a = ints([1, 2, 3])
+      p(a <=> a)
+      r = polys([1, 2])
+      r.push(r)
+      p(r <=> r)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      -1
+      1
+      0
+      1
+      -1
+      -1
+      1
+      -1
+      1
+      -1
+      -1
+      nil
+      0
+      0
+    OUT
+  end
+
   it "array uniq hash collision skips eql" do
     result = ze0(<<~'RUBY')
       # `Array#uniq` confirms hash-equal candidates with `eql?`.
@@ -234,6 +300,67 @@ describe "Array: comparison and equality" do
     OUT
   end
 
+  it "hash dig and hash key" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # `a << a` -- a self-referential container, built on purpose to prove the walk terminates.
+      # At exit: cycle leak: 2 objects (Array x1, Hash x1)
+      h = { a: 1 }
+      r = (h.dig(:a, :b) rescue $!.class); p r
+      r = (h.dig(:a, :b) rescue $!.message); p r
+      r = ({ a: "str" }.dig(:a, :b) rescue $!.class); p r
+
+      # the walk still ends quietly at a missing key
+      p h.dig(:zz)
+      p h.dig(:zz, :deeper)
+
+      # and still walks what it can
+      p({ a: { b: { c: 7 } } }.dig(:a, :b, :c))
+      p({ a: [10, 20] }.dig(:a, 1))
+      p({ a: { b: [1, { c: 2 }] } }.dig(:a, :b, 1, :c))
+
+      # Hash#hash is content-based and order-independent
+      p({ a: 1 }.hash == { a: 1 }.hash)
+      p({ a: 1, b: 2 }.hash == { b: 2, a: 1 }.hash)
+      p({ a: 1 }.hash == { a: 2 }.hash)
+      p({ "x" => [1, 2] }.hash == { "x" => [1, 2] }.hash)
+      p({}.hash == {}.hash)
+      p({ a: 1 }.eql?({ a: 1 }))
+
+      # self-referential containers terminate (CRuby answers a fixed value for the
+      # recursive reference; the walk is depth-capped here)
+      h2 = {}
+      h2[:me] = h2
+      p(h2.hash == h2[:me].hash)
+      a = []
+      a << a
+      p(a.hash == a[0].hash)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      TypeError
+      "Integer does not have #dig method"
+      TypeError
+      nil
+      nil
+      7
+      20
+      2
+      true
+      true
+      false
+      true
+      true
+      true
+      true
+      true
+    OUT
+  end
+
   it "hash keyed by an array hashes structurally not by identity" do
     _(ze0(<<~'RUBY')).must_answer "pair\n"
       h = {}
@@ -281,6 +408,70 @@ describe "Array: comparison and equality" do
       true
       false
       done
+    OUT
+  end
+
+  it "recursive array spaceship overflows" do
+    result = ze0(<<~'RUBY')
+      # The cycle this program builds on purpose, and the census it leaves
+      # behind. A cycle alive at exit is not a defect: it is a ring the
+      # program never broke, so the census below is recorded as an
+      # observation rather than gated on.
+      # 
+      # Four rings: `a`, `b`, `c` and `d` each hold themselves, which is the graph the paired guard has to walk.
+      # At exit: cycle leak: 4 objects (Array x4)
+      # `<=>` between self-referential arrays uses CRuby's PAIRED recursion
+      # guard, the same one `==` already had. Without it the walk recursed until
+      # the stack ran out and the process aborted.
+      #
+      # A revisited pair does NOT answer 0. CRuby's `recursive_cmp` hands back
+      # `Qundef` and `rb_ary_cmp` falls through to the LENGTH comparison, so the
+      # two agree for equal-length arrays and differ otherwise -- which is what
+      # the third row below is for.
+
+      a = [1]
+      a << a
+      b = [1]
+      b << b
+      p a == b
+      p(a <=> b)
+
+      # Different lengths: the length comparison is what answers, not 0.
+      c = [1]
+      c << c
+      d = [1]
+      d << d << 3
+      p(c <=> d)
+      p(d <=> c)
+
+      # The pair is ORDERED, so `a <=> b` and `b <=> a` are different
+      # comparisons and both terminate.
+      p(b <=> a)
+
+      # A shared element is not a cycle, and still compares element-wise.
+      shared = [1, 2]
+      p([shared, 3] <=> [shared, 4])
+      p([shared] <=> [shared])
+
+      # Ordinary comparisons are untouched.
+      p([1, 2] <=> [1, 3])
+      p([1, 2] <=> [1, 2, 3])
+      p([[1], [2]] <=> [[1], [2]])
+      p(([1] <=> ["a"]).inspect)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      0
+      -1
+      1
+      0
+      -1
+      0
+      -1
+      -1
+      0
+      "nil"
     OUT
   end
 end
