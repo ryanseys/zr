@@ -25,10 +25,10 @@ require "etc"
 require "fileutils"
 require "rbconfig"
 require "tmpdir"
-require_relative "../lib/ze0/harness/case"
-require_relative "../lib/ze0/harness/child"
-require_relative "../lib/ze0/harness/sweep"
-require_relative "../lib/ze0/harness/runner"
+require_relative "../test/support/harness/case"
+require_relative "../test/support/harness/child"
+require_relative "../test/support/harness/sweep"
+require_relative "../test/support/harness/runner"
 
 ROOT = File.expand_path("..", __dir__)
 TESTS = File.join(ROOT, "test")

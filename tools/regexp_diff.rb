@@ -2,7 +2,7 @@
 # compiles each pattern under this ruby, the kernel matcher searches
 # JIT-loaded, and Regexp on the same subject is the oracle for the
 # compile error, the warnings, the position and every capture's byte
-# offsets (lib/ze0/harness/regexp_diff.rb).
+# offsets (test/support/harness/regexp_diff.rb).
 #
 #   ruby tools/regexp_diff.rb --fuzz 3000 [--seed 1]
 #   ruby tools/regexp_diff.rb --encodings 3000 [--seed 1]
@@ -14,8 +14,8 @@
 # adds the 20 worst kernel/ruby time ratios; `--patterns` prints the
 # distinct patterns as they are met. The exit status is the number of
 # divergences, capped at 255.
-$LOAD_PATH.unshift File.expand_path("../lib", __dir__)
-require "ze0/harness/regexp_diff"
+$LOAD_PATH.unshift File.expand_path("../lib", __dir__), File.expand_path("../test/support", __dir__)
+require "harness/regexp_diff"
 
 ROOT = File.expand_path("..", __dir__)
 ROOTS = {

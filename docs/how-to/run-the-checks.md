@@ -6,11 +6,11 @@ your change, and the full set before you merge.
 
 ## Run the checks that cover a change
 
-The checks are Minitest files in `test/checks/`. Give `bin/ze0 check`
-part of each file name:
+The checks are Minitest files in `test/unit/`. `FILTER` gives part of
+each file name:
 
 ```console
-$ bin/ze0 check hygiene exe target
+$ rake test:unit FILTER="hygiene exe target"
 ```
 
 Each file runs in a process of its own. A file that declares
@@ -19,13 +19,13 @@ Each file runs in a process of its own. A file that declares
 To run one check file with Minitest's own options, run it directly:
 
 ```console
-$ ruby --yjit -Ilib test/checks/wasm_test.rb -n test_data_objects_share_a_segment
+$ rake 'test:one[test/unit/wasm_test.rb,-n test_data_objects_share_a_segment]'
 ```
 
 ## Run every check
 
 ```console
-$ bin/ze0 check
+$ rake test:unit
 ```
 
 This takes several minutes. It runs up to four files at a time. To change that
@@ -40,7 +40,7 @@ When your change is meant to change one of these, write it again with
 `ZE0_BLESS=1`, then read the diff:
 
 ```console
-$ ZE0_BLESS=1 bin/ze0 check description
+$ ZE0_BLESS=1 rake test:unit FILTER=description
 $ git diff rt/ext/os/
 ```
 
@@ -81,8 +81,8 @@ file already lists.
 Run these after a change to the compiler or the kernel's layouts:
 
 ```console
-$ bin/ze0 stage1
-$ bin/ze0 stage2
+$ rake stage1
+$ rake stage2
 ```
 
 `stage1` compiles the compiler twice and wants the same bytes both
@@ -91,13 +91,15 @@ binary that ruby built. `stage2` takes about ten minutes and 5 GB of
 memory, so run it alone. To learn why these matter, read
 [Bootstrapping](../explanation/bootstrapping.md).
 
-## Use rake
+## Every task
 
-The Rakefile calls `bin/ze0`:
+`rake -T` names them all. The ones a change usually wants:
 
 ```console
-$ bundle exec rake               # rake check
-$ bundle exec rake "check[exe zr]"
-$ bundle exec rake "corpus[lang/blocks/]"
+$ bundle exec rake                       # every test
+$ bundle exec rake test:unit             # ze0's internals, seconds
+$ bundle exec rake test:spec             # Ruby held to ruby
+$ bundle exec rake test:spec FILTER=string
+$ bundle exec rake test:spec GC=stress
 $ bundle exec rake stage1 stage2
 ```

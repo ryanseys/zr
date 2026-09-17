@@ -31,7 +31,7 @@ require "fileutils"
 require "pathname"
 require "rbconfig"
 require "set"
-require_relative "../lib/ze0/harness/sweep"
+require_relative "../test/support/harness/sweep"
 
 module Gap
   TEST = File.expand_path("../test", __dir__)

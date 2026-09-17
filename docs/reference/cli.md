@@ -102,7 +102,7 @@ beside `ruby` and `ruby --yjit`.
 
 ### `bin/ze0 check`
 
-Runs each `test/checks/*_test.rb` file whose name holds one of the
+Runs each `test/unit/*_test.rb` file whose name holds one of the
 arguments, or all of them, one process per file or shard.
 
 ### `bin/ze0 stage1` and `bin/ze0 stage2`

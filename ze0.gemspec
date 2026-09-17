@@ -25,12 +25,12 @@ Gem::Specification.new do |spec|
   }
 
   # The compiler, its runtime and the vendored sources. The corpus, the
-  # checks, tools/ and the test harness stay in the repository.
+  # checks, tools/ and test/ stay in the repository.
   spec.files = Dir.chdir(__dir__) do
     `git ls-files -z`.split("\x0").select do |file|
       file.match?(%r{\A(exe|lib|rt|vendor/(ext|lib))/}) ||
         %w[LICENSE.txt THIRD_PARTY_NOTICES.md README.md CHANGELOG.md].include?(file)
-    end.reject { |file| file.start_with?("lib/ze0/harness/") }
+    end
   end
   spec.bindir = "exe"
   spec.executables = ["ze0"]

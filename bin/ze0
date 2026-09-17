@@ -31,7 +31,7 @@ def step(what, &) = Ze0::CLI.step(what, &)
 # corpus runs what it builds, so a target this host cannot run is refused
 # here rather than as a failed row per program.
 def corpus_target(args)
-  require_relative "../lib/ze0/harness/runner"
+  require_relative "../test/support/harness/runner"
   target = Ze0::Target.default
   if (i = args.index("--target"))
     triple = args[i + 1] or usage
@@ -45,7 +45,7 @@ end
 
 case ARGV.first
 when "test"
-  require_relative "../lib/ze0/harness/sweep"
+  require_relative "../test/support/harness/sweep"
   require "etc"
   args = ARGV.drop(1)
   usage if args.include?("-h") || args.include?("--help")
@@ -82,7 +82,7 @@ when "test"
   end
   exit(passed ? 0 : 1)
 when "bench"
-  require_relative "../lib/ze0/harness/bench"
+  require_relative "../test/support/harness/bench"
   args = ARGV.drop(1)
   usage if args.include?("-h") || args.include?("--help")
   runs = Ze0::Harness::Bench::RUNS
@@ -199,7 +199,7 @@ when "check"
   # compiler's own Ruby.
   require "etc"
   filters = ARGV.drop(1)
-  files = Dir[File.join(ROOT, "test/checks/*_test.rb")].sort
+  files = Dir[File.join(ROOT, "test/unit/*_test.rb")].sort
   files = files.select { |f| filters.any? { |a| File.basename(f).include?(a) } } unless filters.empty?
   abort("ze0 check: nothing matches #{filters.join(" ")}") if files.empty?
 
@@ -228,7 +228,7 @@ when "check"
         file, shard = (queue.pop(true) rescue break)
         began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         out = IO.popen(shard ? { "ZE0_SHARD" => shard } : {},
-                       [RbConfig.ruby, "--yjit", "-I#{File.join(ROOT, "lib")}", file], err: %i[child out], &:read)
+                       [RbConfig.ruby, "--yjit", "-I#{File.join(ROOT, "lib")}", "-I#{File.join(ROOT, "test")}", file], err: %i[child out], &:read)
         ok = $?.success?
         say.synchronize do
           rows << [file, shard, ok, out]

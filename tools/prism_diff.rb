@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # The pure-Ruby prism against ruby's own C prism, file by file
-# (lib/ze0/harness/prism_diff.rb).
+# (test/support/harness/prism_diff.rb).
 #
 #   ruby tools/prism_diff.rb --writer [--corpus NAMES] [--only GLOB]
 #   ruby tools/prism_diff.rb --lex [--states] [--corpus NAMES] [--only GLOB] [--show N]
@@ -23,8 +23,8 @@
 # The exit status is 1 when any case differs.
 require "fileutils"
 require "optparse"
-$LOAD_PATH.unshift File.expand_path("../lib", __dir__)
-require "ze0/harness/prism_diff"
+$LOAD_PATH.unshift File.expand_path("../lib", __dir__), File.expand_path("../test/support", __dir__)
+require "harness/prism_diff"
 
 mode = nil
 corpora = %w[fixtures errors]

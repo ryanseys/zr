@@ -2,7 +2,7 @@
 
 # prism 1.9.0's own test suite (test/prism, extracted from ~/dev/prism into
 # tmp/prism-1.9.0) on the Ruby port, each file beside its run on ruby's C
-# extension (lib/ze0/harness/prism_diff.rb).
+# extension (test/support/harness/prism_diff.rb).
 #
 #   ruby tools/prism_upstream_tests.rb [--only GLOB] [--jobs N] [--show N]
 #
@@ -12,8 +12,8 @@
 # parser is prism) runs no tests on either backend. --only is a glob over paths such as prism/api/*_test.rb.
 # The exit status is 1 when any file does not pass.
 require "optparse"
-$LOAD_PATH.unshift File.expand_path("../lib", __dir__)
-require "ze0/harness/prism_diff"
+$LOAD_PATH.unshift File.expand_path("../lib", __dir__), File.expand_path("../test/support", __dir__)
+require "harness/prism_diff"
 
 only = nil
 jobs = 3

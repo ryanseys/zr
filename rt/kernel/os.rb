@@ -1,7 +1,7 @@
 # The OS layer: every call the kernel makes that an operating system
 # answers in its own way. Each OS implements all of them under
 # rt/kernel/os/<os>/, beside whatever helpers and constants it needs, and
-# the rest of the kernel calls only these. `test/checks/os_api_test.rb`
+# the rest of the kernel calls only these. `test/unit/os_api_test.rb`
 # holds each OS to this list, name and signature.
 #
 # The constants each OS defines as well:

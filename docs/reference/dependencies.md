@@ -28,8 +28,8 @@ Tools does not pair its `ld` with an SDK it cannot read. A
 | Dependency | Why | Used by |
 |---|---|---|
 | ruby 4.0.6 (`.ruby-version`) | the host, and the only oracle for the corpus | everything |
-| `minitest` gem ~> 6.0 | runs the checks | `test/checks/` |
-| `aarch64` gem ~> 3.0 | pure Ruby, generated from the ARM specification; the checks hold ze0's encoder to it | `test/checks/aarch64_test.rb` |
+| `minitest` gem ~> 6.0 | runs every test | `test/unit/` |
+| `aarch64` gem ~> 3.0 | pure Ruby, generated from the ARM specification; the checks hold ze0's encoder to it | `test/unit/aarch64_test.rb` |
 | `fiddle` gem ~> 1.1 | loads code into the checks' own process | `lib/ze0/obj/jit/fiddle.rb` |
 | `rake` gem ~> 13.0 | the Rakefile's tasks | `Rakefile` |
 | `vernier` gem ~> 1.0 | profiles the compiler; never part of a build or a check | by hand |

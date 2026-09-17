@@ -9,7 +9,7 @@ kernel, as opposed to a method the program defines.
 **Cell.** A fixed-size block of the heap that holds one object: 32, 64,
 128 or 256 bytes.
 
-**Check.** A Minitest file in `test/checks/`, run by `bin/ze0 check`.
+**Check.** A Minitest file in `test/unit/`, run by `bin/ze0 check`.
 
 **Core library.** `rt/core/`: Ruby's core classes, written in ordinary
 Ruby over the kernel.

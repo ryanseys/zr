@@ -16,7 +16,7 @@
 # ruby.wasm under wasmtime is not.
 require "open3"
 require "shellwords"
-require_relative "../lib/ze0/harness/case"
+require_relative "../test/support/harness/case"
 
 ROOT = File.expand_path("../test", __dir__)
 
