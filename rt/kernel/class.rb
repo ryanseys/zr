@@ -1228,15 +1228,21 @@ end
 
 # Whether the core library's own sends to an instance of `klass` reach
 # the core library's methods: a class the runtime made before the
-# program started, a singleton class counting as the class it stands
-# ahead of.
+# program started. A class's singleton class counts as the class it is
+# attached to, so a program's subclass keeps its own class methods; any
+# other singleton class counts as the class it stands ahead of.
 sig [Value] => Bool
 machine def zr_core_class_p(klass)
   if !zr_program_started_p()
     return false
   end
   while klass != QNIL && (RBasic.flags(klass) & FL_SINGLETON) != 0
-    klass = RClass.superclass(klass)
+    attached = RClass.attached(klass)
+    if !zr_special_p(attached) && (zr_type(attached) == T_CLASS || zr_type(attached) == T_MODULE)
+      klass = attached
+    else
+      klass = RClass.superclass(klass)
+    end
   end
   klass != QNIL && ClassExt.serial(RClass.ext(klass)) <= Machine.load64(Machine.static(:master_serial, 8), 0)
 end
