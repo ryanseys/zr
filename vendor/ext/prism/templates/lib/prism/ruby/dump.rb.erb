@@ -1,0 +1,289 @@
+module Prism
+  module Ruby
+    # serialize.c: a parse as the bytes prism's C library writes for it,
+    # which `Prism.dump` answers and `Prism.load` reads back.
+    #
+    # A tree of nodes does not carry everything the bytes hold, so the
+    # writer takes the rest beside the result:
+    #
+    # * `pool`, the constant pool as the parser built it. It answers `size`,
+    #   and `each_bucket`, which yields `[id, bytes, source_offset]` for each
+    #   constant in the order of its hash table's buckets (the order the C
+    #   writes owned constants' bytes in); `source_offset` is nil for a
+    #   constant the pool owns.
+    # * `shared`, a Hash by identity from each String that is a slice of the
+    #   source to its offset there. Every other String is written as bytes
+    #   of its own.
+    # * `negative_zeros`, the ids of the nodes whose integer is a negated
+    #   zero (`-0`), which pm_integer_t keeps a sign for and Integer cannot.
+    class Dump
+      # PRISM_VERSION_MAJOR, _MINOR and _PATCH.
+      VERSION = [1, 9, 0].freeze
+
+      # pm_diagnostic_id_t: errors first, then warnings.
+      DIAGNOSTIC_TYPES = [
+        <%- errors.each do |error| -%>
+        <%= error.name.downcase.to_sym.inspect %>,
+        <%- end -%>
+        <%- warnings.each do |warning| -%>
+        <%= warning.name.downcase.to_sym.inspect %>,
+        <%- end -%>
+      ].each_with_index.to_h.freeze
+
+      # pm_error_level_t and pm_warning_level_t.
+      ERROR_LEVELS = { syntax: 0, argument: 1, load: 2 }.freeze
+      WARNING_LEVELS = { default: 0, verbose: 1 }.freeze
+
+      # pm_serialize_parse: the header, the content, and a closing zero.
+      def self.parse(result, encoding_name:, pool:, shared:, negative_zeros: [])
+        new(pool, shared, negative_zeros).parse(result, encoding_name)
+      end
+
+      def initialize(pool, shared, negative_zeros)
+        @pool = pool
+        @shared = shared
+        @negative_zeros = negative_zeros
+        @buffer = String.new(encoding: Encoding::BINARY)
+        @ids = {}
+        pool.each_bucket { |id, bytes, _| @ids[bytes.b] = id }
+      end
+
+      def parse(result, encoding_name)
+        header
+        content(result, encoding_name)
+        byte(0)
+        @buffer
+      end
+
+      private
+
+      # pm_serialize_header: the magic, the version, and 0 for a dump
+      # that keeps every location.
+      def header
+        @buffer << "PRISM"
+        VERSION.each { |part| byte(part) }
+        byte(0)
+      end
+
+      # pm_serialize_content: the metadata, a slot for the constant pool's
+      # offset, the pool's size, the tree, then the pool.
+      def content(result, encoding_name)
+        metadata(result, encoding_name)
+        slot = @buffer.bytesize
+        @buffer << "\0\0\0\0"
+        varuint(@pool.size)
+        node(result.value)
+        @buffer[slot, 4] = [@buffer.bytesize].pack("L")
+        constant_pool
+      end
+
+      # The table of constants, eight bytes each in id order: a source
+      # offset or, with the top bit set, the offset of bytes written after
+      # the table, then the length.
+      def constant_pool
+        table = @buffer.bytesize
+        @buffer << ("\0" * (@pool.size * 8))
+        @pool.each_bucket do |id, bytes, source_offset|
+          start = source_offset
+          if start.nil?
+            start = @buffer.bytesize | (1 << 31)
+            @buffer << bytes
+          end
+          @buffer[table + (id - 1) * 8, 8] = [start, bytes.bytesize].pack("L2")
+        end
+      end
+
+      # pm_serialize_metadata
+      def metadata(result, encoding_name)
+        embedded(encoding_name)
+        varsint(result.source.start_line)
+        offsets = result.source.offsets
+        varuint(offsets.size)
+        offsets.each { |offset| varuint(offset) }
+        comments(result.comments)
+        magic_comments(result.magic_comments)
+        optional_location(result.data_loc)
+        diagnostics(result.errors, ERROR_LEVELS)
+        diagnostics(result.warnings, WARNING_LEVELS)
+      end
+
+      # pm_serialize_comment_list
+      def comments(comments)
+        varuint(comments.size)
+        comments.each do |comment|
+          byte(comment.is_a?(EmbDocComment) ? 1 : 0)
+          location(comment.location)
+        end
+      end
+
+      # pm_serialize_magic_comment_list
+      def magic_comments(magic_comments)
+        varuint(magic_comments.size)
+        magic_comments.each do |magic_comment|
+          location(magic_comment.key_loc)
+          location(magic_comment.value_loc)
+        end
+      end
+
+      # pm_serialize_diagnostic_list
+      def diagnostics(diagnostics, levels)
+        varuint(diagnostics.size)
+        diagnostics.each do |diagnostic|
+          varuint(DIAGNOSTIC_TYPES.fetch(diagnostic.type))
+          embedded(diagnostic.message)
+          location(diagnostic.location)
+          byte(levels.fetch(diagnostic.level))
+        end
+      end
+
+      # pm_serialize_node
+      def node(node)
+        byte(NODE_TYPES.fetch(node.type))
+        offset = @buffer.bytesize
+        varuint(node.node_id)
+        varuint(node.start_offset)
+        varuint(node.end_offset - node.start_offset)
+
+        case node.type
+        <%- nodes.each do |node| -%>
+        when <%= node.human.to_sym.inspect %>
+          <%- if node.needs_serialized_length? -%>
+          length_slot = @buffer.bytesize
+          @buffer << "\0\0\0\0"
+          <%- end -%>
+          varuint(node.__send__(:flags))
+          <%- node.fields.each do |field| -%>
+          <%- case field -%>
+          <%- when Prism::Template::NodeField -%>
+          node(node.<%= field.name %>)
+          <%- when Prism::Template::OptionalNodeField -%>
+          optional_node(node.<%= field.name %>)
+          <%- when Prism::Template::StringField -%>
+          string(node.<%= field.name %>)
+          <%- when Prism::Template::NodeListField -%>
+          nodes(node.<%= field.name %>)
+          <%- when Prism::Template::ConstantField -%>
+          constant(node.<%= field.name %>)
+          <%- when Prism::Template::OptionalConstantField -%>
+          optional_constant(node.<%= field.name %>)
+          <%- when Prism::Template::ConstantListField -%>
+          constants(node.<%= field.name %>)
+          <%- when Prism::Template::LocationField -%>
+          location(node.<%= field.name %>)
+          <%- when Prism::Template::OptionalLocationField -%>
+          optional_location(node.<%= field.name %>)
+          <%- when Prism::Template::UInt8Field -%>
+          byte(node.<%= field.name %>)
+          <%- when Prism::Template::UInt32Field -%>
+          varuint(node.<%= field.name %>)
+          <%- when Prism::Template::IntegerField -%>
+          integer(node.<%= field.name %>, node.node_id)
+          <%- when Prism::Template::DoubleField -%>
+          @buffer << [node.<%= field.name %>].pack("D")
+          <%- else -%>
+          <%- raise -%>
+          <%- end -%>
+          <%- end -%>
+          <%- if node.needs_serialized_length? -%>
+          @buffer[length_slot, 4] = [@buffer.bytesize - offset - 4].pack("L")
+          <%- end -%>
+        <%- end -%>
+        end
+      end
+
+      # The number of each node type, in config.yml's order by name.
+      NODE_TYPES = {
+        <%- nodes.each_with_index do |node, index| -%>
+        <%= node.human.to_sym.inspect %> => <%= index + 1 %>,
+        <%- end -%>
+      }.freeze
+
+      def optional_node(node)
+        node.nil? ? byte(0) : node(node)
+      end
+
+      def nodes(nodes)
+        varuint(nodes.size)
+        nodes.each { |node| node(node) }
+      end
+
+      # pm_serialize_string: a slice of the source by offset, or bytes.
+      def string(string)
+        if (offset = @shared[string])
+          byte(1)
+          varuint(offset)
+          varuint(string.bytesize)
+        else
+          byte(2)
+          embedded(string)
+        end
+      end
+
+      def constant(symbol)
+        varuint(@ids.fetch(symbol.name.b))
+      end
+
+      def optional_constant(symbol)
+        symbol.nil? ? varuint(0) : constant(symbol)
+      end
+
+      def constants(symbols)
+        varuint(symbols.size)
+        symbols.each { |symbol| constant(symbol) }
+      end
+
+      # pm_serialize_location
+      def location(location)
+        varuint(location.start_offset)
+        varuint(location.length)
+      end
+
+      def optional_location(location)
+        if location.nil?
+          byte(0)
+        else
+          byte(1)
+          location(location)
+        end
+      end
+
+      # pm_serialize_integer: the sign, then the magnitude in 32-bit words,
+      # least significant first.
+      def integer(value, node_id)
+        byte(value.negative? || (value.zero? && @negative_zeros.include?(node_id)) ? 1 : 0)
+        magnitude = value.abs
+        words = []
+        loop do
+          words << (magnitude & 0xFFFF_FFFF)
+          magnitude >>= 32
+          break if magnitude.zero?
+        end
+        varuint(words.size)
+        words.each { |word| varuint(word) }
+      end
+
+      def embedded(bytes)
+        varuint(bytes.bytesize)
+        @buffer << bytes.b
+      end
+
+      def byte(value)
+        @buffer << value
+      end
+
+      # pm_buffer_append_varuint: LEB128.
+      def varuint(value)
+        while value >= 128
+          @buffer << ((value & 127) | 128)
+          value >>= 7
+        end
+        @buffer << value
+      end
+
+      # pm_buffer_append_varsint: the zigzag form of an int32_t.
+      def varsint(value)
+        varuint(((value << 1) ^ (value >> 31)) & 0xFFFF_FFFF)
+      end
+    end
+  end
+end
