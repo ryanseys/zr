@@ -72,7 +72,8 @@ module Ze0
                     data: [%i[dconst data], data_vm, data_filesize] }.transform_values do |parts, start, size|
             parts.inject(+"".b) { |out, part| pad(out, block.at(part) - start) << block.bytes(part) }.then { |out| pad(out, size) }
           end
-          bounds = { got: [got_vm, got_size], data: [data_vm, data_vmsize] }
+          # A slot lies in the bytes the file holds: the zero-fill tail has none.
+          bounds = { got: [got_vm, got_size], data: [data_vm, data_filesize] }
           rows = block.fixups.group_by do |slot, *|
             SEGMENTS.find { |s| slot >= bounds[s][0] && slot < bounds[s][0] + bounds[s][1] } or
               raise Refused, "a fixup outside the data"

@@ -352,9 +352,13 @@ module Ze0
 
         module_function
 
-        # For the slot addresses `slots` in a segment at `start` of `size`
-        # bytes: the start of each page's chain, and each slot's distance
-        # to the next, in strides.
+        # For the slot addresses `slots` in a segment at `start` whose file
+        # holds `size` bytes: the start of each page's chain, and each
+        # slot's distance to the next, in strides. The starts cover the file
+        # bytes and not the zero-fill tail: dyld maps `page_count` pages of
+        # the file for the kernel to fix up, and a count past the file maps
+        # the next segment's bytes over the tail, where the kernel's pager
+        # then finds and caches them unfixed.
         def thread(slots, start, size)
           starts = Array.new(Patch.align(size, PAGE) / PAGE, START_NONE)
           nexts = {}

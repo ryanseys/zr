@@ -284,11 +284,11 @@ module Ze0
           end
           # By index: a segment's hash would hash its bytes.
           own = @segments.select { |s| s.pieces.first[1].nil? && (s.prot & WRITE) != 0 }
-          @top.fixups.group_by { |slot, *| own.index { |s| slot >= s.vm && slot < s.vm + s.vmsize } }.each do |n, rows|
+          @top.fixups.group_by { |slot, *| own.index { |s| slot >= s.vm && slot < s.vm + s.filesize } }.each do |n, rows|
             raise Refused, "a fixup outside the data" unless n
 
             s = own[n]
-            s.starts, nexts = Chains.thread(rows.map(&:first), s.vm, s.vmsize)
+            s.starts, nexts = Chains.thread(rows.map(&:first), s.vm, s.filesize)
             bytes = s.pieces.first[0]
             rows.each do |slot, kind, target, addend|
               word = kind == :rebase ? Chains.rebase(target - BASE, nexts[slot]) : bound(target, addend, nexts[slot])
