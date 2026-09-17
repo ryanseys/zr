@@ -15,12 +15,16 @@ Machine.sig :ffi_call, [Ptr, Ptr, Ptr, Ptr] => Void
 Machine.sig :ffi_closure_alloc, [Word, Ptr] => Ptr
 Machine.sig :ffi_prep_closure_loc, [Ptr, Ptr, Ptr, Ptr, Ptr] => I32
 Machine.sig :ffi_closure_free, [Ptr] => Void
+Machine.sig :c_words, [Word, Word, Word, Word, Word, Word, Word, Word] => Word
+Machine.sig :c_words_f64, [Word, Word, Word, Word, Word, Word, Word, F64] => Word
 
 RTLD_LAZY = 1
 # The callable a closure runs, and what a callback left unfinished: the
 # signal it raised, held until the C call that ran it returns.
 G_FFI_CALLBACK = 58
 G_FFI_UNWIND = 59
+# The callable the callback entries below run.
+G_C_CALLBACK = 62
 # sizeof(ffi_closure) on arm64.
 FFI_CLOSURE_SIZE = 40
 
@@ -108,9 +112,9 @@ end
 # a byte past its length for that NUL.
 sig [Value] => Ptr
 machine def zr_ffi_cstr(str)
-  # C may write through the address, so a MatchData copy is no longer
-  # known to hold the bytes.
-  RBasic.set_flags(str, RBasic.flags(str) & FL_SNAPSHOT_CLEAR)
+  # C may write through the address, so what a scan found about the
+  # bytes, and a MatchData copy's claim to hold them, no longer stand.
+  RBasic.set_flags(str, RBasic.flags(str) & FL_SCANS_CLEAR)
   Machine.store8(RString.ptr(str) + RString.len(str), 0, Machine.i8(0))
   RString.ptr(str)
 end
@@ -181,18 +185,44 @@ machine def zr_ffi_call(cif, fn, rvalue, avalues)
   call = zr_ffi_fn(Machine.static(:ffi_call_fn, 8), Machine.bytes("ffi_call\0"))
   Machine.call(:ffi_call, call, zr_ffi_ptr(cif), zr_ffi_ptr(fn), zr_ffi_ptr(rvalue), zr_ffi_ptr(avalues))
   errno = zr_errno()
-  left = zr_global(G_FFI_UNWIND)
-  zr_set_global(G_FFI_UNWIND, outer)
-  if !zr_special_p(left)
-    t = zr_task()
-    Task.set_pending(t, zr_ary_at(left, 0))
-    Task.set_throw_tag(t, zr_ary_at(left, 1))
-    Task.set_pending_kind(t, zr_fix2long(zr_ary_at(left, 2)))
-    Task.set_pending_home(t, Machine.ptr(zr_fix2long(zr_ary_at(left, 3))))
-    Task.set_pending_site(t, zr_fix2long(zr_ary_at(left, 4)))
+  if zr_ffi_resume(outer)
     return Machine.value(QUNDEF)
   end
   zr_fix(errno)
+end
+
+# After a C call: true when a callback left a signal, which is now the
+# task's pending one. The unwind slot goes back to what the caller had.
+sig [Value] => Bool
+machine def zr_ffi_resume(outer)
+  left = zr_global(G_FFI_UNWIND)
+  zr_set_global(G_FFI_UNWIND, outer)
+  if zr_special_p(left)
+    return false
+  end
+  t = zr_task()
+  Task.set_pending(t, zr_ary_at(left, 0))
+  Task.set_throw_tag(t, zr_ary_at(left, 1))
+  Task.set_pending_kind(t, zr_fix2long(zr_ary_at(left, 2)))
+  Task.set_pending_home(t, Machine.ptr(zr_fix2long(zr_ary_at(left, 3))))
+  Task.set_pending_site(t, zr_fix2long(zr_ary_at(left, 4)))
+  true
+end
+
+# Inside a callback: the task's pending signal, which cannot unwind
+# through C's frames, waits in the unwind slot for the C call to return.
+sig [] => Void
+machine def zr_ffi_park
+  t = zr_task()
+  left = zr_ary_new(5)
+  zr_ary_push(left, Task.pending(t))
+  zr_ary_push(left, Task.throw_tag(t))
+  zr_ary_push(left, zr_fix(Task.pending_kind(t)))
+  zr_ary_push(left, zr_fix(Machine.word(Task.pending_home(t))))
+  zr_ary_push(left, zr_fix(Task.pending_site(t)))
+  Task.set_pending(t, Machine.value(QNIL))
+  Task.set_throw_tag(t, Machine.value(QNIL))
+  zr_set_global(G_FFI_UNWIND, left)
 end
 
 # errno as a C call finds it.
@@ -246,15 +276,380 @@ machine def zr_ffi_closure_run(cif, ret, args, user)
   Machine.store64(argv, 16, Machine.word(zr_ffi_addr(args)))
   r = zr_send(zr_global(G_FFI_CALLBACK), Machine.id(:call), 3, argv)
   if r == QUNDEF
-    t = zr_task()
-    left = zr_ary_new(5)
-    zr_ary_push(left, Task.pending(t))
-    zr_ary_push(left, Task.throw_tag(t))
-    zr_ary_push(left, zr_fix(Task.pending_kind(t)))
-    zr_ary_push(left, zr_fix(Machine.word(Task.pending_home(t))))
-    zr_ary_push(left, zr_fix(Task.pending_site(t)))
-    Task.set_pending(t, Machine.value(QNIL))
-    Task.set_throw_tag(t, Machine.value(QNIL))
-    zr_set_global(G_FFI_UNWIND, left)
+    zr_ffi_park()
   end
+end
+
+# A direct C call, for a library whose functions take integer and
+# pointer arguments only: arm64 passes the first eight in x0-x7, so a
+# function of fewer arguments ignores the rest. `args` is an Array of at
+# most eight Integers, each in the signed 64-bit range; the answer is x0
+# as a signed Integer, which the caller narrows to the declared type. No
+# variadic function goes this way, since arm64 darwin passes the variadic
+# part on the stack. A callback that raised while C ran raises here, as
+# with zr_ffi_call.
+sig [Value, Value] => Value
+machine def zr_c_call(fn, args)
+  zr_c_invoke(fn, args, Machine.ptr(0))
+end
+
+# zr_c_call, answering [answer, errno] as errno stood when C returned.
+sig [Value, Value] => Value
+machine def zr_c_call_errno(fn, args)
+  errno = Machine.slot(8)
+  r = zr_c_invoke(fn, args, errno)
+  if r == QUNDEF
+    return r
+  end
+  out = zr_ary_new(2)
+  zr_ary_push(out, r)
+  zr_ary_push(out, zr_fix(Machine.sword(Machine.load64(errno, 0))))
+  out
+end
+
+# zr_c_call for a function whose one floating-point argument travels in
+# d0, whatever its place among the others: `f`, a Float, beside at most
+# seven words.
+sig [Value, Value, Value] => Value
+machine def zr_c_call_f64(fn, args, f)
+  words = Machine.slot(64)
+  zr_c_words(args, words)
+  outer = zr_global(G_FFI_UNWIND)
+  zr_set_global(G_FFI_UNWIND, Machine.value(QNIL))
+  r = Machine.call(:c_words_f64, zr_ffi_ptr(fn), Machine.load64(words, 0), Machine.load64(words, 8), Machine.load64(words, 16), Machine.load64(words, 24), Machine.load64(words, 32), Machine.load64(words, 40), Machine.load64(words, 48), zr_float_value(f))
+  if zr_ffi_resume(outer)
+    return Machine.value(QUNDEF)
+  end
+  zr_int_from_word(r)
+end
+
+# The eight words `args` gives x0-x7, zero past its end, into `words`.
+sig [Value, Ptr] => Void
+machine def zr_c_words(args, words)
+  n = RArray.len(args)
+  i = 0
+  while i < 8
+    w = 0
+    if i < n
+      w = Machine.word(zr_ffi_ptr(zr_ary_at(args, i)))
+    end
+    Machine.store64(words + i * 8, 0, w)
+    i = i + 1
+  end
+end
+
+sig [Value, Value, Ptr] => Value
+machine def zr_c_invoke(fn, args, errno)
+  words = Machine.slot(64)
+  zr_c_words(args, words)
+  outer = zr_global(G_FFI_UNWIND)
+  zr_set_global(G_FFI_UNWIND, Machine.value(QNIL))
+  r = Machine.call(:c_words, zr_ffi_ptr(fn), Machine.load64(words, 0), Machine.load64(words, 8), Machine.load64(words, 16), Machine.load64(words, 24), Machine.load64(words, 32), Machine.load64(words, 40), Machine.load64(words, 48), Machine.load64(words, 56))
+  if Machine.word(errno) != 0
+    Machine.store64(errno, 0, Machine.word(zr_errno()))
+  end
+  if zr_ffi_resume(outer)
+    return Machine.value(QUNDEF)
+  end
+  zr_int_from_word(r)
+end
+
+# The callable every callback entry runs, called with the entry's number
+# and an Array of its seven arguments.
+sig [Value] => Value
+machine def zr_c_callback_set(callable)
+  zr_set_global(G_C_CALLBACK, callable)
+  Machine.value(QNIL)
+end
+
+# The address of callback entry `k`, a C function of at most seven
+# integer or pointer arguments, which answers what the callable answers
+# for `k`: an Integer, or 0 for anything else.
+sig [Value] => Value
+machine def zr_c_callback_addr(k)
+  n = zr_fix2long(k)
+  if n == 0
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_0))
+  end
+  if n == 1
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_1))
+  end
+  if n == 2
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_2))
+  end
+  if n == 3
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_3))
+  end
+  if n == 4
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_4))
+  end
+  if n == 5
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_5))
+  end
+  if n == 6
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_6))
+  end
+  if n == 7
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_7))
+  end
+  if n == 8
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_8))
+  end
+  if n == 9
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_9))
+  end
+  if n == 10
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_10))
+  end
+  if n == 11
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_11))
+  end
+  if n == 12
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_12))
+  end
+  if n == 13
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_13))
+  end
+  if n == 14
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_14))
+  end
+  if n == 15
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_15))
+  end
+  if n == 16
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_16))
+  end
+  if n == 17
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_17))
+  end
+  if n == 18
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_18))
+  end
+  if n == 19
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_19))
+  end
+  if n == 20
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_20))
+  end
+  if n == 21
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_21))
+  end
+  if n == 22
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_22))
+  end
+  if n == 23
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_23))
+  end
+  if n == 24
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_24))
+  end
+  if n == 25
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_25))
+  end
+  if n == 26
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_26))
+  end
+  if n == 27
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_27))
+  end
+  if n == 28
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_28))
+  end
+  if n == 29
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_29))
+  end
+  if n == 30
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_30))
+  end
+  if n == 31
+    return zr_ffi_addr(Machine.addr(:zr_c_callback_31))
+  end
+  Machine.value(QNIL)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback(k, a, b, c, d, e, f, g)
+  argv = Machine.slot(16)
+  Machine.store64(argv, 0, Machine.word(zr_fix(k)))
+  words = zr_ary_new(7)
+  Machine.store64(argv, 8, Machine.word(words))
+  zr_ary_push(words, zr_int_from_word(a))
+  zr_ary_push(words, zr_int_from_word(b))
+  zr_ary_push(words, zr_int_from_word(c))
+  zr_ary_push(words, zr_int_from_word(d))
+  zr_ary_push(words, zr_int_from_word(e))
+  zr_ary_push(words, zr_int_from_word(f))
+  zr_ary_push(words, zr_int_from_word(g))
+  r = zr_send(zr_global(G_C_CALLBACK), Machine.id(:call), 2, argv)
+  if r == QUNDEF
+    zr_ffi_park()
+    return 0
+  end
+  if zr_fixnum_p(r) || zr_big_p(r)
+    return Machine.word(zr_ffi_ptr(r))
+  end
+  0
+end
+
+# The callback entries C calls: thirty-two functions, as many as a
+# library port keeps at once, since each stands for one C function of its
+# own.
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_0(a, b, c, d, e, f, g)
+  zr_c_callback(0, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_1(a, b, c, d, e, f, g)
+  zr_c_callback(1, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_2(a, b, c, d, e, f, g)
+  zr_c_callback(2, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_3(a, b, c, d, e, f, g)
+  zr_c_callback(3, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_4(a, b, c, d, e, f, g)
+  zr_c_callback(4, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_5(a, b, c, d, e, f, g)
+  zr_c_callback(5, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_6(a, b, c, d, e, f, g)
+  zr_c_callback(6, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_7(a, b, c, d, e, f, g)
+  zr_c_callback(7, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_8(a, b, c, d, e, f, g)
+  zr_c_callback(8, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_9(a, b, c, d, e, f, g)
+  zr_c_callback(9, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_10(a, b, c, d, e, f, g)
+  zr_c_callback(10, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_11(a, b, c, d, e, f, g)
+  zr_c_callback(11, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_12(a, b, c, d, e, f, g)
+  zr_c_callback(12, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_13(a, b, c, d, e, f, g)
+  zr_c_callback(13, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_14(a, b, c, d, e, f, g)
+  zr_c_callback(14, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_15(a, b, c, d, e, f, g)
+  zr_c_callback(15, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_16(a, b, c, d, e, f, g)
+  zr_c_callback(16, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_17(a, b, c, d, e, f, g)
+  zr_c_callback(17, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_18(a, b, c, d, e, f, g)
+  zr_c_callback(18, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_19(a, b, c, d, e, f, g)
+  zr_c_callback(19, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_20(a, b, c, d, e, f, g)
+  zr_c_callback(20, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_21(a, b, c, d, e, f, g)
+  zr_c_callback(21, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_22(a, b, c, d, e, f, g)
+  zr_c_callback(22, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_23(a, b, c, d, e, f, g)
+  zr_c_callback(23, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_24(a, b, c, d, e, f, g)
+  zr_c_callback(24, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_25(a, b, c, d, e, f, g)
+  zr_c_callback(25, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_26(a, b, c, d, e, f, g)
+  zr_c_callback(26, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_27(a, b, c, d, e, f, g)
+  zr_c_callback(27, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_28(a, b, c, d, e, f, g)
+  zr_c_callback(28, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_29(a, b, c, d, e, f, g)
+  zr_c_callback(29, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_30(a, b, c, d, e, f, g)
+  zr_c_callback(30, a, b, c, d, e, f, g)
+end
+
+sig [Word, Word, Word, Word, Word, Word, Word] => Word
+machine def zr_c_callback_31(a, b, c, d, e, f, g)
+  zr_c_callback(31, a, b, c, d, e, f, g)
 end

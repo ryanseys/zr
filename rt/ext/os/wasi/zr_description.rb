@@ -549,11 +549,53 @@ module Ze0
         d zr_ffi_type Value name:Value
         d zr_ffi_prep Value cif:Value abi:Value nfixed:Value nargs:Value rtype:Value atypes:Value
         d zr_ffi_call Value cif:Value fn:Value rvalue:Value avalues:Value
+        d zr_ffi_resume Bool outer:Value
+        d zr_ffi_park Void
         d zr_ffi_set_errno Value n:Value
         d zr_ffi_callback_set Value callable:Value
         d zr_ffi_closure Value cif:Value id:Value
         d zr_ffi_closure_free Value closure:Value
         d zr_ffi_closure_run Void cif:Ptr ret:Ptr args:Ptr user:Ptr
+        d zr_c_call Value fn:Value args:Value
+        d zr_c_call_errno Value fn:Value args:Value
+        d zr_c_call_f64 Value fn:Value args:Value f:Value
+        d zr_c_words Void args:Value words:Ptr
+        d zr_c_invoke Value fn:Value args:Value errno:Ptr
+        d zr_c_callback_set Value callable:Value
+        d zr_c_callback_addr Value k:Value
+        d zr_c_callback Word k:Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_0 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_1 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_2 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_3 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_4 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_5 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_6 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_7 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_8 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_9 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_10 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_11 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_12 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_13 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_14 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_15 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_16 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_17 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_18 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_19 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_20 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_21 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_22 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_23 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_24 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_25 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_26 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_27 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_28 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_29 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_30 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
+        d zr_c_callback_31 Word a:Word b:Word c:Word d:Word e:Word f:Word g:Word
         d zr_fiber_stack_error Value err:Word
         d zr_current_task_slot Ptr
         d zr_poll_slot Ptr
@@ -2147,6 +2189,7 @@ module Ze0
         c RTLD_LAZY 1
         c G_FFI_CALLBACK 58
         c G_FFI_UNWIND 59
+        c G_C_CALLBACK 62
         c FFI_CLOSURE_SIZE 40
         c T_FIBER 30
         c G_FIBER 39
@@ -2203,7 +2246,7 @@ module Ze0
         c G_FALSE 10
         c G_MAIN 11
         c G_NUMERIC 13
-        c G_COUNT 62
+        c G_COUNT 63
         c MARKED 96
         c GATE_PLUS 1
         c GATE_MINUS 2
