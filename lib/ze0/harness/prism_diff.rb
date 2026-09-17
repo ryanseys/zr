@@ -199,6 +199,36 @@ module Ze0
           [c.name, difference(dump, again)] unless again == dump
         end
       end
+
+      # The lexer alone against Prism.lex: each token's type and byte range,
+      # and with `states` its lex state. A lexer with no parser behind it
+      # differs wherever the parser moves the lex state, so this compares the
+      # tokens up to the first difference and names it. Cases that reach a
+      # lex mode not written yet count as `unsupported`. Answers
+      # `[failures, unsupported]`, a failure as `[name, why]`.
+      def lex(cases, states: false)
+        require File.join(ROOT, "rt/ext/prism/ruby")
+        unsupported = 0
+        failures = cases.filter_map do |c|
+          expected = Prism.lex(c.source, **c.options).value.map do |token, state|
+            [token.type, token.location.start_offset, token.location.length, (state if states)]
+          end
+          actual = begin
+            Prism::Ruby.lex_tokens(c.source, **c.options).map { |type, start, length, state| [type, start, length, (state if states)] }
+          rescue NotImplementedError
+            unsupported += 1
+            next
+          rescue StandardError => e
+            next [c.name, "#{e.class}: #{e.message}\n  #{e.backtrace.first(3).join("\n  ")}"]
+          end
+          next if actual == expected
+
+          at = (0...[expected.size, actual.size].max).find { |i| expected[i] != actual[i] }
+          line = c.source.byteslice(0, (expected[at] || actual[at] || [nil, c.source.bytesize])[1]).count("\n") + 1
+          [c.name, "token #{at} (line #{line}): C #{expected[at].inspect}, Ruby #{actual[at].inspect}"]
+        end
+        [failures, unsupported]
+      end
     end
   end
 end

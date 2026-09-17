@@ -12,12 +12,26 @@ class PrismTest < Minitest::Test
   def test_the_generated_files_are_current
     out = IO.popen([RbConfig.ruby, File.join(ROOT, "tools/prism_generate.rb"), "--check"], err: %i[child out], &:read)
     assert $?.success?, out
+    out = IO.popen([RbConfig.ruby, File.join(ROOT, "tools/prism_encoding_tables.rb"), "--check"], err: %i[child out], &:read)
+    assert $?.success?, out
   end
 
   def test_the_writer_writes_ze0s_own_ruby_as_the_c_does
     cases = PrismDiff.cases(%w[rt lib])
     assert_operator cases.size, :>, 300
     assert_empty PrismDiff.writer(cases).first(5)
+  end
+
+  # The lexer with no parser behind it: every fixture and error file it can
+  # lex so far gives C's tokens, except where the parser moves the lex state
+  # (lambda braces, `do` loops, labels, ignored newlines), and none raises.
+  def test_the_lexer_alone_lexes_prisms_fixtures_and_errors_as_the_c_does
+    skip "no prism checkout at #{PrismDiff::CHECKOUT}" unless PrismDiff.upstream
+
+    cases = PrismDiff.cases(%w[fixtures errors])
+    failures, unsupported = PrismDiff.lex(cases)
+    assert_empty failures.select { |_, why| why.include?("Error") }.first(5)
+    assert_operator cases.size - failures.size - unsupported, :>=, 3688
   end
 
   def test_the_writer_writes_prisms_fixtures_and_errors_as_the_c_does
