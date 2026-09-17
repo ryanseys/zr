@@ -31,15 +31,17 @@ to the compiler.
 ## What `stage2` checks
 
 `bin/ze0 stage2` builds stage 1 with ruby, then runs stage 1 to build
-stage 2, and compares the two binaries. The bytes that the system
-linker writes and no input decides (on macOS, a UUID and a signature)
-are left out of the comparison.
+stage 2, and compares the two binaries. ze0's own linker links both,
+and stage 2's link runs inside the compiled compiler, so the check
+covers the linker too. The UUID and the signature are left out of the
+comparison, because under `ZE0_LINK=cc` the system linker writes them
+and no input decides them.
 
 This is a much larger test than any corpus program. The compiler is
 tens of thousands of lines of real Ruby: the prism port, the HIR build,
-the lowering, the IR passes, the backend and the object writers. If
-compiled ze0 answers differently from ze0 on CRuby anywhere on that
-path, the bytes differ.
+the lowering, the IR passes, the backend, the object writers and the
+linker. If compiled ze0 answers differently from ze0 on CRuby anywhere
+on that path, the bytes differ.
 
 It is also slow. Stage 1 runs the whole compiler as compiled code, and
 building stage 2 takes several minutes and several gigabytes.

@@ -5,9 +5,9 @@ require_relative "../target"
 
 module Ze0
   module Native
-    # The link step: objects to a binary, with the
-    # target's linker through its `cc`. `Link::Darwin` and `Link::Static` say
-    # which objects a target's link takes and which flags; this runs it.
+    # The link step through a target's `cc`: objects to a binary.
+    # `Link::Darwin` runs it only for what ze0's own Mach-O linker refuses,
+    # or under `ZE0_LINK=cc`; `Link::Static` for every ELF binary.
     module Link
       # The main thread's stack, which holds ruby frames as native frames.
       # `rt/kernel/fiber.rb` sizes every other task's.

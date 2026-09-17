@@ -105,6 +105,7 @@ module Ze0
           getsockopt
           getuid
           grantpt
+          h_errno
           hstrerror
           hypot
           if_indextoname

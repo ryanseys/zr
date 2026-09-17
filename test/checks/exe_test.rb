@@ -8,13 +8,10 @@ require_relative "../../lib/ze0/obj/macho/stamps"
 require_relative "../native/fixtures"
 
 # The link, in Ruby. Every program whose imports are all libSystem's --
-# the hand-written IR floor and the whole kernel dialect -- becomes a
-# signed `MH_EXECUTE` that `Obj::MachO::Executable` wrote by itself, and it prints what
-# the linked binary prints.
-#
-# `native_test.rb` and `zr_test.rb` run the same programs through `cc`,
-# so a failure here is this writer's and a failure there is the
-# backend's.
+# the hand-written IR floor, the whole kernel dialect, and a Ruby program
+# with the runtime's object -- becomes a signed `MH_EXECUTE` that
+# `Obj::MachO::Executable` wrote by itself, and it prints what the linked
+# binary prints. The checks that link through `cc` say so by name.
 class ExeTest < Minitest::Test
   # Mach-O, libSystem and the darwin JIT: only a darwin host has them.
   def setup
@@ -152,6 +149,59 @@ class ExeTest < Minitest::Test
       why = Ze0::Obj::MachO::Executable.write(Ze0::Native::Build.unit([f], []), File.join(dir, "parse"))
       assert_equal "zr_elsewhere is not libSystem's", why
       refute File.exist?(File.join(dir, "parse")), "it wrote a file it had refused"
+    end
+  end
+
+  # The object the next checks link beside a unit of their own: a
+  # function that writes what it is given, and a message.
+  def other_object(name = "shout")
+    f = Ze0::IR::Function.new(name, %w[i64 i64], "i64")
+    write = f.callee("write", %w[i32 i64 i64], "i64", colocated: false)
+    f.ret(f.call_val(write, [f.iconst("i32", 1), f.args[0], f.args[1]]))
+    data = [Ze0::Obj::Data.new("b_msg", :text_const, "unused from b\n", align: 8)]
+    Ze0::Obj::MachO::ObjectFile.write(Ze0::Native::Build.unit([f], data, export: true))
+  end
+
+  # A unit that reaches into `other_object` three ways: a call, an
+  # address loaded through the GOT, and a pointer in its own data whose
+  # addend skips into the message.
+  def reaching_unit
+    f = Ze0::IR::Function.new("main", %w[i32 i64], "i32")
+    shout = f.callee("shout", %w[i64 i64], "i64", colocated: false)
+    pointer = f.fetch("i64", f.symbol_value(f.symbol("a_ptr")))
+    f.call(shout, [pointer, f.iconst("i64", 7)])
+    f.call(shout, [f.symbol_value(f.symbol("b_msg", colocated: false)), f.iconst("i64", 7)])
+    f.ret(f.iconst("i32", 0))
+    data = [Ze0::Obj::Data.new("a_ptr", :data, "\0".b * 8, relocs: [Ze0::Obj::Reloc.new(0, :abs64, "b_msg", 7)], align: 8)]
+    Ze0::Native::Build.unit([f], data)
+  end
+
+  def test_a_unit_links_with_another_object
+    Dir.mktmpdir("ze0-exe-") do |dir|
+      bin = File.join(dir, "two")
+      assert_nil Ze0::Obj::MachO::Executable.write(reaching_unit, bin, objects: [other_object])
+      assert_equal [0, "from b\nunused "], ran(bin)
+    end
+  end
+
+  # A program whose JIT finds symbols with `dlsym` has them in the
+  # exports trie; one that does not exports its header alone.
+  def test_exports_put_every_global_in_the_trie
+    Dir.mktmpdir("ze0-exe-") do |dir|
+      bin = File.join(dir, "exported")
+      assert_nil Ze0::Obj::MachO::Executable.write(reaching_unit, bin, objects: [other_object], exports: true)
+      exports = IO.popen(["dyld_info", "-exports", bin], err: %i[child out], &:read).scan(/^\s+0x\h+\s+(\S+)$/).flatten
+      assert_equal %w[__mh_execute_header _b_msg _main _shout], exports.sort
+      assert_equal [0, "from b\nunused "], ran(bin)
+    end
+  end
+
+  def test_a_global_defined_twice_is_refused_by_name
+    Dir.mktmpdir("ze0-exe-") do |dir|
+      bin = File.join(dir, "twice")
+      why = Ze0::Obj::MachO::Executable.write(reaching_unit, bin, objects: [other_object, other_object])
+      assert_equal "b_msg is defined twice", why
+      refute File.exist?(bin), "it wrote a file it had refused"
     end
   end
 

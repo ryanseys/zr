@@ -5,25 +5,33 @@ require "digest"
 require_relative "../model"
 require_relative "../patch"
 require_relative "../../backend/aarch64/relocs"
+require_relative "object_file"
 require_relative "libsystem"
 
 module Ze0
   module Obj
     module MachO
-      # An `Obj::Unit` to a complete, signed `MH_EXECUTE` that runs: the
-      # link step, in Ruby, for a program whose every import is libSystem's.
+      # Objects to a complete, signed `MH_EXECUTE` that runs: the link
+      # step, in Ruby, for a program whose every import is libSystem's.
       #
-      # `Obj::JIT` already solved the interesting half -- lay code and data
-      # out, give each import a stub and a GOT slot, apply every relocation
-      # -- and `Obj::Patch` is that engine, shared by both. What is added
-      # here is the Mach-O container, chained fixups so a position-
-      # independent image can be rebased and bound, and the ad-hoc code
-      # signature Apple Silicon will not run a binary without.
+      # It links the objects `ObjectFile` writes -- a program's own, the
+      # runtime's and the eval road's, all read back with
+      # `ObjectFile.read` -- and nothing else. Each input section goes
+      # into the output section of its kind, in input order. A symbol
+      # one object leaves undefined is another object's global, or an
+      # import from libSystem. Each import gets a stub and a GOT slot,
+      # and every relocation is applied here. What is added is the
+      # Mach-O container, chained fixups so a position-independent image
+      # can be rebased and bound, an exports trie for a program whose
+      # JIT finds symbols by name, and the ad-hoc code signature Apple
+      # Silicon will not run a binary without.
       #
-      # It refuses rather than guesses. A symbol libSystem does not define
-      # is another object's, and reading objects is a real linker;
-      # `Native::Link` keeps those programs, and this says which symbol
-      # sent them there.
+      # It does not strip: nearly all of the runtime is reachable from its
+      # dispatch tables, and `ld -dead_strip` removed less than one percent.
+      #
+      # It refuses rather than guesses. A symbol no object defines and
+      # libSystem does not define either would not be found by dyld, and
+      # this says which symbol it is.
       class Executable
         PAGE = 0x4000
         # Where the image goes, above the four unmapped gigabytes that make
@@ -34,7 +42,10 @@ module Ze0
         # that no linker touched, so this does, and the two roads give a
         # program the same room.
         STACK = 0x400_0000
+        # The oldest macOS a binary loads on, and the SDK it says it was
+        # built against, which is the same: no SDK is read.
         MIN_MACOS = (14 << 16) | (0 << 8)
+        SDK = MIN_MACOS
 
         MH_MAGIC_64 = 0xFEEDFACF
         CPU_TYPE_ARM64 = 0x0100_000C
@@ -60,6 +71,12 @@ module Ze0
         S_REGULAR = 0
         S_ZEROFILL = 1
         CODE = 0x8000_0000 | 0x0000_0400 # PURE_INSTRUCTIONS | SOME_INSTRUCTIONS
+
+        # <mach-o/nlist.h>: a symbol's type byte.
+        N_STAB = 0xE0
+        N_TYPE = 0x0E
+        N_EXT = 0x01
+        N_UNDF = 0x0
         N_SECT = 0xE
 
         DYLINKER = "/usr/lib/dyld"
@@ -74,48 +91,50 @@ module Ze0
         # `adrp x16, got@PAGE; ldr x16, [x16, got@PAGEOFF]; br x16`
         STUB = 12
 
-        # A section of the image, and where its bytes came from.
-        Part = Struct.new(:name, :segment, :flags, :items, :size, :at, :fixups, keyword_init: true)
+        # The relocation kind of each arm64 relocation type an object holds.
+        KINDS = ObjectFile::RELOC.to_h { |kind, (type, _, _)| [type, kind] }.freeze
+        ABS64 = ObjectFile::RELOC.fetch(:abs64).first
+        BRANCH26 = ObjectFile::RELOC.fetch(:branch26).first
+        GOT = ObjectFile::RELOC.values_at(:got_page21, :got_pageoff12).map(&:first).freeze
 
-        # This unit is one `ld` has to link, and here is why.
+        # A section of the image. `chunks` are the input sections in it, each
+        # `[input, section index, offset]`; `__stubs` and `__got` have none.
+        Part = Struct.new(:name, :segment, :flags, :from, :chunks, :size, :align, :at, :fixups, keyword_init: true)
+
+        # These objects are not ones this links, and here is why.
         class Refused < StandardError; end
 
-        # Writes `out` and answers nil, or answers the reason `ld` is needed
-        # and writes nothing.
-        def self.write(unit, out, stack: STACK, entry: "main")
-          new(unit, out, stack: stack, entry: entry).write
+        # Writes `out` from `unit` and the object files `objects` (their
+        # bytes), and answers nil; or answers why it cannot link them and
+        # writes nothing. `exports` puts every global in the exports trie,
+        # where `dlsym` finds it.
+        def self.write(unit, out, objects: [], exports: false, stack: STACK, entry: "main")
+          new([ObjectFile.write(unit), *objects], out, exports: exports, stack: stack, entry: entry).write
         rescue Refused => e
           e.message
         end
 
-        # Whether libSystem defines `name`. One it does not is a vendored
-        # archive's, and dyld would not find it either. The answer comes
-        # from the committed list, not from this host's libSystem, so it is
-        # the same on every host; a name missing from the list is refused,
-        # and `cc` links it.
+        # Whether libSystem defines `name`. The answer comes from the
+        # committed list, not from this host's libSystem, so it is the same
+        # on every host; a name missing from the list is refused.
         def self.libsystem?(name) = LIBSYSTEM_NAMES.include?(name)
 
-        def initialize(unit, out, stack: STACK, entry: "main")
-          @unit = unit
+        def initialize(objects, out, exports: false, stack: STACK, entry: "main")
+          @inputs = objects.map { |bytes| ObjectFile.read(bytes) }
           @out = out
+          @exports = exports
           @stack = stack
           @entry = entry
-          @addr = {}
           @fixups = []
         end
 
         def write
-          @imports = @unit.imports.sort
-          # A defined symbol reached through the GOT keeps a slot too, one
-          # dyld rebases: the code loads an address out of it, never the
-          # symbol's own bytes.
-          @got_locals = (@unit.functions + @unit.data).flat_map(&:relocs)
-                                                       .select { |r| %i[got_page21 got_pageoff12].include?(r.kind) }
-                                                       .map(&:symbol).uniq.sort - @imports
+          resolve
           outside = @imports.reject { |name| self.class.libsystem?(name) }
           raise Refused, "#{outside.first} is not libSystem's" unless outside.empty?
-          raise Refused, "nothing named #{@entry} to enter at" unless @unit.functions.any? { |f| f.name == @entry }
 
+          @entry_symbol = entry_symbol or raise Refused, "nothing named #{@entry} to enter at"
+          got_slots
           lay_out
           File.binwrite(@out, stamped(assemble))
           File.chmod(0o755, @out)
@@ -124,6 +143,82 @@ module Ze0
 
         private
 
+        # --- symbols -------------------------------------------------------
+
+        # Every global each input defines, then what each undefined symbol
+        # is: `[input, symbol]` for another input's global, or the name of
+        # an import. `@links[input]` holds the answer for each undefined
+        # symbol; a defined symbol is its own.
+        def resolve
+          @globals = {}
+          undefined = []
+          @inputs.each_with_index do |o, i|
+            o.count.times do |s|
+              type = o.type(s)
+              next unless (type & N_STAB).zero? && (type & N_EXT) != 0
+
+              if (type & N_TYPE) == N_SECT
+                name = o.name(s)
+                raise Refused, "#{name.delete_prefix("_")} is defined twice" if @globals.key?(name)
+
+                @globals[name] = [i, s]
+              elsif (type & N_TYPE) == N_UNDF
+                undefined << [i, s]
+              end
+            end
+          end
+          imports = {}
+          @links = Array.new(@inputs.size) { {} }
+          undefined.each do |i, s|
+            name = @inputs[i].name(s)
+            @links[i][s] = @globals[name] || (imports[name] = name.delete_prefix("_"))
+          end
+          @imports = imports.values.sort
+          @import_index = @imports.each_with_index.to_h
+        end
+
+        # `[input, symbol]` of the entry: a global, else a local of that name.
+        def entry_symbol
+          name = "_#{@entry}"
+          return @globals[name] if @globals.key?(name)
+
+          @inputs.each_with_index do |o, i|
+            o.count.times do |s|
+              return [i, s] if (o.type(s) & (N_STAB | N_TYPE)) == N_SECT && o.name(s) == name
+            end
+          end
+          nil
+        end
+
+        # What symbol `s` of input `i` stands for: an import's name, or the
+        # `[input, symbol]` that defines it.
+        def meaning(i, s) = @links[i].fetch(s) { [i, s] }
+
+        # One GOT slot an import, then one a defined symbol some code loads
+        # an address of through the GOT: dyld rebases that slot, so the code
+        # loads the symbol's address, never its bytes.
+        def got_slots
+          @got = @imports.dup
+          seen = @got.to_h { |name| [name, true] }
+          @inputs.each_with_index do |o, i|
+            o.sections.each do |section|
+              words = section.relocs
+              j = 1
+              while j < words.size
+                info = words[j]
+                j += 2
+                next unless GOT.include?(info >> 28)
+
+                key = meaning(i, info & 0xFF_FFFF)
+                next if seen[key]
+
+                seen[key] = true
+                @got << key
+              end
+            end
+          end
+        end
+
         # --- layout --------------------------------------------------------
 
         # Every section's place. A section's address is its file offset
@@ -131,14 +226,17 @@ module Ze0
         # apart; `__bss` is the one exception, and it has no file bytes.
         def lay_out
           @parts = [
-            part("__text", "__TEXT", CODE, :function),
+            part("__text", "__TEXT", CODE, %w[__TEXT __text]),
             part("__stubs", "__TEXT", CODE, nil, size: @imports.size * STUB),
-            part("__const", "__TEXT", S_REGULAR, :text_const),
-            part("__got", "__DATA_CONST", S_REGULAR, nil, size: (@imports.size + @got_locals.size) * 8, fixups: true),
-            part("__const", "__DATA_CONST", S_REGULAR, :data_const, fixups: true),
-            part("__data", "__DATA", S_REGULAR, :data, fixups: true),
-            part("__bss", "__DATA", S_ZEROFILL, :bss)
+            part("__const", "__TEXT", S_REGULAR, %w[__TEXT __const]),
+            part("__got", "__DATA_CONST", S_REGULAR, nil, size: @got.size * 8, fixups: true),
+            part("__const", "__DATA_CONST", S_REGULAR, %w[__DATA __const], fixups: true),
+            part("__data", "__DATA", S_REGULAR, %w[__DATA __data], fixups: true),
+            part("__bss", "__DATA", S_ZEROFILL, %w[__DATA __bss])
           ]
+          stray = @inputs.flat_map(&:sections).find { |s| s.size.positive? && @parts.none? { |p| p.from == [s.segment, s.name] } }
+          raise Refused, "a #{stray.segment},#{stray.name} section, which no part of the image holds" if stray
+
           # A section with nothing in it is not written, and a segment whose
           # sections are all empty is not a segment: an image with a
           # zero-length one does not load.
@@ -148,7 +246,7 @@ module Ze0
           at = head
           @parts.each_with_index do |p, i|
             at = Patch.align(at, PAGE) if i.positive? && p.segment != @parts[i - 1].segment
-            p.at = Patch.align(at, 16)
+            p.at = Patch.align(at, 1 << p.align)
             at = p.at + p.size
           end
           @text_size = Patch.align(segment_end("__TEXT"), PAGE)
@@ -159,17 +257,28 @@ module Ze0
           addresses
         end
 
-        # A section. `section` names the `Obj` items that land in it, and a
-        # section with no items -- `__stubs`, `__got` -- is given its size
-        # instead.
-        def part(name, segment, flags, section, size: nil, fixups: false)
-          items = case section
-                  when nil then nil
-                  when :function then Patch.layout(@unit.functions, 4)
-                  else Patch.layout(@unit.data.select { |d| d.section == section }, 8)
-                  end
-          Part.new(name: name, segment: segment, flags: flags, items: items,
-                   size: size || items[:size], fixups: fixups)
+        # A section of the image. `from` names the input sections that land
+        # in it, and a section with none -- `__stubs`, `__got` -- is given
+        # its size instead. Each input's section starts at its own
+        # alignment, and the whole section at the widest of them.
+        def part(name, segment, flags, from, size: nil, fixups: false)
+          chunks = nil
+          align = 4
+          if from
+            chunks = []
+            size = 0
+            @inputs.each_with_index do |o, i|
+              o.sections.each_with_index do |section, k|
+                next unless [section.segment, section.name] == from
+
+                align = [align, section.align].max
+                size = Patch.align(size, 1 << section.align) if section.size.positive?
+                chunks << [i, k, size]
+                size += section.size
+              end
+            end
+          end
+          Part.new(name: name, segment: segment, flags: flags, from: from, chunks: chunks, size: size, align: align, fixups: fixups)
         end
 
         def part_named(name, segment) = @parts.find { |p| p.name == name && p.segment == segment }
@@ -177,19 +286,37 @@ module Ze0
         def segment_start(name) = in_segment(name).first.at.to_i
         def segment_end(name) = in_segment(name).then { |ps| ps.last.at.to_i + ps.last.size }
 
+        # Every symbol's address: an input section's symbols move with it,
+        # and an undefined one is where its definition went.
         def addresses
-          @parts.each do |p|
-            next unless p.items
-
-            p.items[:at].each { |item, off| @addr[item.name] = BASE + p.at + off }
+          # Per input, each section's address in the image and the ordinal
+          # of the image section that holds it.
+          @placed = @inputs.map { |o| Array.new(o.sections.size) }
+          @ordinal = @inputs.map { |o| Array.new(o.sections.size) }
+          @parts.each_with_index do |p, n|
+            p.chunks&.each do |i, k, off|
+              @placed[i][k] = BASE + p.at + off
+              @ordinal[i][k] = n + 1
+            end
           end
-          # A program with no imports has neither section, and needs
-          # neither table.
+          @addr = @inputs.each_with_index.map do |o, i|
+            Array.new(o.count) do |s|
+              next unless (o.type(s) & (N_STAB | N_TYPE)) == N_SECT
+
+              # A section no bytes were placed for puts its symbols at the base.
+              k = o.sect(s) - 1
+              (@placed[i][k] || BASE) + o.value(s) - o.sections[k].addr
+            end
+          end
+          @links.each_with_index do |links, i|
+            links.each { |s, to| @addr[i][s] = @addr[to[0]][to[1]] if to.is_a?(Array) }
+          end
+          # A program with no imports has neither table.
           stubs = part_named("__stubs", "__TEXT")&.at
           got = part_named("__got", "__DATA_CONST")&.at
           @stub_at = @imports.each_with_index.to_h { |n, i| [n, BASE + stubs + (i * STUB)] }
-          @got_at = (@imports + @got_locals).each_with_index.to_h { |n, i| [n, BASE + got + (i * 8)] }
-          @entry_at = @addr.fetch(@entry) - BASE
+          @got_at = @got.each_with_index.to_h { |key, i| [key, BASE + got + (i * 8)] }
+          @entry_at = @addr[@entry_symbol[0]][@entry_symbol[1]] - BASE
         end
 
         # --- bytes ---------------------------------------------------------
@@ -219,41 +346,75 @@ module Ze0
         end
 
         # A section's bytes: the two tables build themselves, and every
-        # other section is its items with the gaps between them zero.
-        # `__bss` has no bytes at all -- that is what it is.
+        # other section is its inputs' bytes, relocated, with the gaps
+        # between them zero. `__bss` has no bytes at all -- that is what it
+        # is.
         def bytes_of(part)
           return "".b if part.flags == S_ZEROFILL
           return stub_bytes(part) if part.name == "__stubs"
           return got_bytes(part) if part.name == "__got"
 
-          part.items[:at].inject(+"".b) do |out, (item, off)|
+          out = +"".b
+          part.chunks.each do |i, k, off|
             pad(out, off)
-            out << patched(item, BASE + part.at + off, part)
+            out << @inputs[i].sections[k].bytes
           end
+          part.chunks.each { |i, k, off| relocate(part, out, off, i, @inputs[i].sections[k].relocs) }
+          out
         end
 
-        # `item` with every relocation applied. A call reaches an import
-        # through its stub and an address through its GOT slot; everything
-        # else is at its own place in the image. An `abs64` slot holds a
-        # chain entry rather than the address, so it is recorded here and
-        # overwritten once the chains are threaded.
-        def patched(item, base, part)
-          Patch.apply(item, base, Backend::Aarch64::Relocs) do |r|
-            case r.kind
-            when :abs64
-              raise Refused, "an absolute relocation in #{part.name}" unless part.fixups
-
-              here = base + r.offset - BASE
-              at = @addr[r.symbol]
-              @fixups << [part.segment, here, at ? :rebase : :bind, at ? at - BASE : @imports.index(r.symbol)]
-              at || @got_at.fetch(r.symbol)
-            when :got_page21, :got_pageoff12
-              @got_at.fetch(r.symbol)
-            when :branch26
-              @addr[r.symbol] || @stub_at.fetch(r.symbol)
-            else
-              @addr[r.symbol] or raise Refused, "#{r.symbol} has no place in the image"
+        # Applies one input section's relocations to its bytes at `off` in
+        # `out`. A call reaches an import through its stub and an address
+        # through its GOT slot; everything else is at its own place in the
+        # image. An `abs64` slot holds a chain entry rather than the
+        # address, so it is recorded here and overwritten once the chains
+        # are threaded; its addend is what the slot held.
+        def relocate(part, out, off, i, words)
+          addr = @addr[i]
+          base = BASE + part.at + off
+          addend = 0
+          j = 0
+          while j < words.size
+            at = words[j]
+            info = words[j + 1]
+            j += 2
+            type = info >> 28
+            if type == ObjectFile::ARM64_RELOC_ADDEND
+              addend = ((info & 0xFF_FFFF) ^ 0x80_0000) - 0x80_0000
+              next
             end
+            raise Refused, "a relocation that names a section, not a symbol" if info[27].zero?
+
+            s = info & 0xFF_FFFF
+            here = off + at
+            place = base + at
+            target = addr[s]
+            if type == ABS64
+              raise Refused, "an absolute relocation in #{part.segment},#{part.name}" unless part.fixups
+
+              held = out.unpack1("q<", offset: here)
+              if target
+                @fixups << [part.segment, place - BASE, :rebase, target + held - BASE]
+              else
+                raise Refused, "an addend to #{@links[i][s]}, an import" unless held.zero?
+
+                @fixups << [part.segment, place - BASE, :bind, @import_index.fetch(@links[i][s])]
+              end
+            else
+              kind = KINDS[type] or raise Refused, "a relocation of type #{type}"
+              if GOT.include?(type)
+                target = @got_at.fetch(meaning(i, s))
+              elsif type == BRANCH26
+                target ||= @stub_at.fetch(@links[i][s])
+              elsif target.nil?
+                raise Refused, "#{@links[i][s]} has no place in the image"
+              end
+              word = Backend::Aarch64::Relocs.encode(kind, out.unpack1("L<", offset: here), target + addend, place)
+              raise Refused, "a #{kind} to #{@inputs[i].name(s).delete_prefix("_")} is out of reach" unless word
+
+              out.bytesplice(here, 4, [word].pack("L<"))
+            end
+            addend = 0
           end
         end
 
@@ -273,11 +434,15 @@ module Ze0
         # one a defined symbol the code reaches through the GOT, each a
         # rebase of that symbol's address.
         def got_bytes(part)
-          @imports.each_index { |i| @fixups << [part.segment, part.at + (i * 8), :bind, i] }
-          @got_locals.each_with_index do |name, i|
-            @fixups << [part.segment, part.at + ((@imports.size + i) * 8), :rebase, @addr.fetch(name) - BASE]
+          @got.each_with_index do |key, n|
+            at = part.at + (n * 8)
+            @fixups << if key.is_a?(String)
+                         [part.segment, at, :bind, @import_index.fetch(key)]
+                       else
+                         [part.segment, at, :rebase, @addr[key[0]][key[1]] - BASE]
+                       end
           end
-          "\0".b * ((@imports.size + @got_locals.size) * 8)
+          "\0".b * (@got.size * 8)
         end
 
         # --- chained fixups ------------------------------------------------
@@ -347,9 +512,9 @@ module Ze0
 
         # --- __LINKEDIT ----------------------------------------------------
 
-        # The fixups, the symbol table, and the names: everything the loader
-        # reads and nothing the program runs. The signature goes after it,
-        # and its size is fixed by where it starts.
+        # The fixups, the exports, the symbol table, and the names:
+        # everything the loader reads and nothing the program runs. The
+        # signature goes after it, and its size is fixed by where it starts.
         def linkedit
           fixups = chained_fixups
           trie = exports_trie
@@ -376,31 +541,112 @@ module Ze0
           out
         end
 
-        # The one symbol an executable exports: its own header, at offset
-        # zero, which is what `-no_exported_symbols` leaves behind. A root
-        # node holding one terminal child spelled "__mh_execute_header".
+        # The exports trie: the image's own header at offset zero, which is
+        # all `-no_exported_symbols` leaves behind, and with `exports` every
+        # global besides. Each node is its terminal (flags and address, if a
+        # name ends there) and its edges, each an edge's bytes and the
+        # offset of the node it leads to. An offset's size depends on where
+        # the nodes land, so the layout runs until no offset moves.
         def exports_trie
-          leaf = [2, 0, 0, 0].pack("C4")
-          root = [0, 1].pack("C2") + "__mh_execute_header\0".b
-          root += [root.bytesize + 1].pack("C")
-          (root + leaf).then { |t| t + ("\0".b * (-t.bytesize % 8)) }
+          names = { "__mh_execute_header" => 0 }
+          @globals.each { |name, (i, s)| names[name] = @addr[i][s] - BASE } if @exports
+          entries = names.sort_by(&:first)
+          nodes = []
+          trie_node(entries, 0, entries.size, 0, nodes)
+          # Each node's size less its offsets, which is all that moves.
+          fixed = nodes.map do |address, edges|
+            terminal = address ? 1 + uleb_size(address) : 0
+            uleb_size(terminal) + terminal + 1 + edges.sum { |edge, _| edge.bytesize + 1 }
+          end
+          offsets = Array.new(nodes.size, 0)
+          loop do
+            at = 0
+            moved = false
+            nodes.each_with_index do |(_, edges), n|
+              moved = true unless offsets[n] == at
+              offsets[n] = at
+              at += fixed[n]
+              edges.each { |_, child| at += uleb_size(offsets[child]) }
+            end
+            break unless moved
+          end
+          out = +"".b
+          nodes.each { |address, edges| trie_bytes(out, address, edges, offsets) }
+          out << ("\0".b * (-out.bytesize % 8))
         end
 
-        # Every name this image defines, as a local symbol: `nm` can read
-        # the binary, and nothing is exported.
-        def symbol_table
-          strings = +"\0".b
-          rows = +"".b
-          @parts.each_with_index do |p, i|
-            next unless p.items
+        # The node for `entries[lo...hi]`, which share their first `depth`
+        # bytes, added to `nodes` before the nodes under it: `[address or
+        # nil, [[edge bytes, node index], ...]]`. The entries are sorted, so
+        # a run of them that shares a next byte shares as much as its first
+        # and last do.
+        def trie_node(entries, lo, hi, depth, nodes)
+          node = [nil, []]
+          nodes << node
+          if entries[lo][0].bytesize == depth
+            node[0] = entries[lo][1]
+            lo += 1
+          end
+          while lo < hi
+            first = entries[lo][0]
+            byte = first.getbyte(depth)
+            run = lo + 1
+            run += 1 while run < hi && entries[run][0].getbyte(depth) == byte
+            last = entries[run - 1][0]
+            len = depth + 1
+            len += 1 while len < first.bytesize && len < last.bytesize && first.getbyte(len) == last.getbyte(len)
+            node[1] << [first.byteslice(depth, len - depth), nodes.size]
+            trie_node(entries, lo, run, len, nodes)
+            lo = run
+          end
+          node
+        end
 
-            p.items[:at].each do |item, off|
-              rows << [strings.bytesize].pack("L<") << [N_SECT, i + 1, 0].pack("CCS<")
-              rows << [BASE + p.at + off].pack("Q<")
-              strings << "_#{item.name}\0".b
+        # One node onto `out`. A terminal is two ULEB128s, flags (none) and
+        # the address, and its size fits in one byte.
+        def trie_bytes(out, address, edges, offsets)
+          if address
+            out << (1 + uleb_size(address)) << 0
+            uleb(out, address)
+          else
+            out << 0
+          end
+          out << edges.size
+          edges.each do |edge, n|
+            out << edge << 0
+            uleb(out, offsets[n])
+          end
+        end
+
+        def uleb_size(n) = n.zero? ? 1 : (n.bit_length + 6) / 7
+
+        def uleb(out, n)
+          while n >= 0x80
+            out << ((n & 0x7F) | 0x80)
+            n >>= 7
+          end
+          out << n
+        end
+
+        # Every symbol an input defines, as a local symbol at its address in
+        # the image: `nm` can read the binary, and the exports trie says
+        # what is exported. The names are the inputs' own string tables, one
+        # after another.
+        def symbol_table
+          strings = +"".b
+          words = []
+          @inputs.each_with_index do |o, i|
+            base = strings.bytesize
+            strings << o.strings
+            o.count.times do |s|
+              next unless (o.type(s) & (N_STAB | N_TYPE)) == N_SECT && @ordinal[i][o.sect(s) - 1]
+
+              words << ((o.strx(s) + base) | (N_SECT << 32) | (@ordinal[i][o.sect(s) - 1] << 40))
+              words << @addr[i][s]
             end
           end
-          [rows, strings + ("\0".b * (-strings.bytesize % 8))]
+          strings = "\0".b if strings.empty?
+          [words.pack("Q<*"), strings + ("\0".b * (-strings.bytesize % 8))]
         end
 
         # --- load commands -------------------------------------------------
@@ -422,7 +668,7 @@ module Ze0
           out << command(LC_SYMTAB, [@symoff.to_i, @nsyms.to_i, @stroff.to_i, @strsize.to_i].pack("L<4"))
           out << command(LC_DYSYMTAB, ([0, @nsyms.to_i, @nsyms.to_i, 0, @nsyms.to_i, 0] + ([0] * 12)).pack("L<18"))
           out << command(LC_LOAD_DYLINKER, [12].pack("L<") + name(DYLINKER))
-          out << command(LC_BUILD_VERSION, [1, MIN_MACOS, MIN_MACOS, 0].pack("L<4"))
+          out << command(LC_BUILD_VERSION, [1, MIN_MACOS, SDK, 0].pack("L<4"))
           @uuid_at = 32 + out.sum(&:bytesize) + 8
           out << command(LC_UUID, "\0".b * 16)
           out << command(LC_MAIN, [@entry_at.to_i, @stack].pack("Q<2"))
@@ -461,7 +707,7 @@ module Ze0
         def section(part)
           [part.name.ljust(16, "\0"), part.segment.ljust(16, "\0")].pack("a16a16") +
             [BASE + part.at.to_i, part.size].pack("Q<2") +
-            [part.flags == S_ZEROFILL ? 0 : part.at.to_i, 4, 0, 0, part.flags, 0, 0, 0].pack("L<8")
+            [part.flags == S_ZEROFILL ? 0 : part.at.to_i, part.align, 0, 0, part.flags, 0, 0, 0].pack("L<8")
         end
 
         # --- the stamps ----------------------------------------------------

@@ -81,9 +81,15 @@ module Ze0
     # The output `emit` names: `:native` for nil, else the symbol.
     def self.road(emit) = emit ? emit.to_sym : :native
 
-    # Whether this host has the tool a native link for this target runs:
-    # its C compiler driver, the host's own or a cross toolchain's.
-    def linkable? = !tool("cc").nil?
+    # Whether this host can link a binary for this target. ze0's own
+    # Mach-O linker needs no tool, on any host, unless `ZE0_LINK=cc`
+    # asks for the system linker; every other link runs the target's C
+    # compiler driver, the host's own or a cross toolchain's.
+    def linkable?
+      return true if link == :darwin && ENV["ZE0_LINK"] != "cc"
+
+      !tool("cc").nil?
+    end
 
     # The command this host runs as the target's `name` ("cc"), or
     # nil: on the target's own host the plain tool, elsewhere a cross

@@ -8,16 +8,16 @@ assembler source in the repository.
 | Dependency | Why | Needed for |
 |---|---|---|
 | ruby 4.0.6, or a later 4.0 release | runs the compiler | everything |
-| `cc` (Xcode Command Line Tools on macOS) | links a binary with the runtime's object | native binaries |
-| `ld` | runs under `cc` | native binaries |
 | libSystem | the only dynamic library a macOS binary loads | macOS binaries |
+| `cc` (Xcode Command Line Tools) | links a macOS binary only under `ZE0_LINK=cc`, or when ze0's own linker refuses one | optional |
 | musl's `cc`, or `aarch64-linux-musl-gcc` | links a static binary | `aarch64-linux-musl` binaries |
 | wasmtime | runs a module; `ze0 run --emit wasm` calls it | running WASI modules |
 
 The gem has no runtime gem dependencies, and its install compiles
 nothing.
 
-ze0 runs `cc` with `DEVELOPER_DIR` and `SDKROOT` set to the install
+ze0 links a macOS binary itself (`Obj::MachO::Executable`). When it
+runs `cc`, it sets `DEVELOPER_DIR` and `SDKROOT` to the install
 that the SDK comes from, so that an Xcode older than the Command Line
 Tools does not pair its `ld` with an SDK it cannot read. A
 `DEVELOPER_DIR` or `SDKROOT` that you set yourself is kept.

@@ -36,12 +36,11 @@ class TargetTest < Minitest::Test
     end
   end
 
-  def test_a_native_binary_is_refused_off_its_host
+  # ze0's own linker writes a Mach-O binary, so every host builds one; an
+  # ELF binary needs the target's own cc.
+  def test_a_darwin_binary_needs_no_toolchain
     darwin = Ze0::Target::AARCH64_DARWIN
-    if darwin.native?
-      assert_nil darwin.refusal("obj")
-    else
-      assert_match(/needs a aarch64-apple-darwin host/, darwin.refusal(nil))
-    end
+    assert_nil darwin.refusal("obj")
+    assert_nil darwin.refusal(nil) unless ENV["ZE0_LINK"] == "cc"
   end
 end

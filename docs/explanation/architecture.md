@@ -6,14 +6,14 @@ why the compiler has the layers it has.
 ```
 app.rb ─┐
 rt/**   ├─ prism ─► HIR ─► IR ─► passes ─┬─► aarch64 backend ─► Obj ─┬─► Mach-O executable writer ─► binary
-        │                                │                          ├─► Mach-O or ELF object ─► cc ─► binary
+        │                                │                          ├─► ELF object ─► cc ─► Linux binary
         │                                │                          └─► JIT loader (eval, in process)
         │                                ├─► wasm emitter ─► WASI module
         │                                └─► IR interpreter (a second opinion, not a road)
 ```
 
-Every box is Ruby. The only tools outside ze0 are `cc`, to link some
-binaries, and wasmtime, to run modules.
+Every box is Ruby. The only tools outside ze0 are `cc`, to link a
+Linux binary, and wasmtime, to run modules.
 
 ## Parsing: prism
 
@@ -77,16 +77,17 @@ is a second answer, so a miscompile shows as a disagreement.
 The backend writes an `Obj`: functions, data, relocations and symbols,
 with no file format. Three writers read it:
 
-- `Obj::MachO::Executable` writes a complete, signed macOS executable,
-  with no linker. It links a unit that is the whole program and imports
-  only from libSystem, such as a kernel-dialect program.
-- The Mach-O and ELF object writers write objects for `cc` to link.
+- `Obj::MachO::Executable` is ze0's macOS linker. It reads Mach-O
+  objects back, links them, and writes a complete, signed executable
+  that imports only from libSystem.
+- The Mach-O and ELF object writers write objects: the cached runtime,
+  `--emit obj`, and the ELF objects that `cc` links for Linux.
 - `Obj::JIT` loads code into the running process, for `eval`.
 
 The runtime is large, so ze0 compiles it once for each version of its
 sources and keeps the object in the cache (`rt-<digest>.o`). A program's
-build lowers only the program, and `cc` links it beside the cached
-runtime.
+build lowers only the program, and ze0's linker links it beside the
+cached runtime.
 A cold build assembles the runtime in parallel worker processes, and
 the result is the same bytes for any number of workers.
 

@@ -27,11 +27,10 @@ $ gem install ze0
 You need:
 
 - ruby 4.0.6, or a later 4.0 release;
-- on an Apple Silicon Mac, the Xcode Command Line Tools
-  (`xcode-select --install`), to build native binaries;
 - [wasmtime](https://wasmtime.dev), to run WebAssembly modules.
 
-The install compiles nothing.
+The install compiles nothing. ze0 links a macOS binary itself, so it
+needs no C compiler and no linker.
 
 ## Use
 

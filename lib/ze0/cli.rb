@@ -18,10 +18,9 @@ module Ze0
       ze0 targets                           the targets ze0 builds for, and what this host can do
       ze0 version                           print ze0's version
 
-      ZE0_LINK picks the linker: `ruby` for ze0's own Mach-O linker alone,
-      which names what it cannot link; `cc` for the system linker; unset to
-      take ze0's where it reaches and cc for a program that links the
-      runtime as an object of its own.
+      ZE0_LINK picks the macOS linker: unset for ze0's own, and cc for what
+      it cannot link; `ruby` for ze0's alone, which names what it cannot
+      link; `cc` for the system linker.
       ZE0_CACHE names the runtime cache.
 
       ruby is the oracle: every corpus program carries ruby 4.0.6's recorded
@@ -151,17 +150,16 @@ module Ze0
     end
 
     # A build this host cannot make for `target` is refused before the
-    # compile starts. `ZE0_LINK=ruby` builds with `Obj::MachO::Executable`
-    # alone, which needs no `cc`, though only an aarch64-apple-darwin host
-    # can run what it wrote. A cross toolchain builds a binary that only
-    # its own host runs.
+    # compile starts. ze0's own Mach-O linker builds an
+    # aarch64-apple-darwin binary on any host, though only that host can
+    # run it; a cross toolchain builds a binary that only its own host
+    # runs.
     def refuse(input, verb, emit, target)
       why = target.refusal(emit)
       if why.nil? && verb == "run" && emit.nil? && !target.native?
         why = "a #{target.triple} binary runs only on a #{target.triple} host; `ze0 build` writes one here"
       end
       return unless why
-      return if emit.nil? && verb != "run" && ENV["ZE0_LINK"] == "ruby" && target.roads.include?(:native)
 
       warn "ze0: #{input}: #{why}"
       exit REFUSED

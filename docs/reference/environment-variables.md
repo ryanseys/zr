@@ -7,7 +7,7 @@ These change what `ze0` and `bin/ze0` do.
 | Variable | Values | Effect |
 |---|---|---|
 | `ZE0_CACHE` | a directory | Where ze0 keeps the compiled runtime. The default is `~/Library/Caches/ze0/rt` on macOS, `$XDG_CACHE_HOME/ze0/rt` or `~/.cache/ze0/rt` elsewhere, and `tmp/rt` in a checkout. |
-| `ZE0_LINK` | `auto` (default), `ruby`, `cc` | The macOS linker. `auto`: ze0's own Mach-O writer for a unit that is the whole program and imports only from libSystem (a `ze0 machine` build), else `cc`. `ruby`: ze0's writer only; it names what it cannot link. `cc`: the system linker always. A Ruby program links the cached runtime as an object of its own, so `cc` links it. |
+| `ZE0_LINK` | `auto` (default), `ruby`, `cc` | The macOS linker. `auto`: ze0's own Mach-O linker, and `cc` for a link it refuses. `ruby`: ze0's linker only; it names what it cannot link. `cc`: the system linker always. |
 | `ZE0_JOBS` | a number | How many worker processes assemble a large unit (default: one per core, at most 6). For `bin/ze0 check`: how many check processes run at once (default: at most 4). |
 | `ZE0_TIMING` | `1` | Prints the seconds each phase of a build takes to stderr. |
 | `ZE0_VERIFY` | `1` | Checks dominance and types in every IR function before it is assembled. |

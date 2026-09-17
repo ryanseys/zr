@@ -13,7 +13,7 @@ ruby 4.0.6. `Ze0::Target` (`lib/ze0/target.rb`) defines each target.
 
 | Output | Host requirement |
 |---|---|
-| `aarch64-apple-darwin` binary | an Apple Silicon Mac with `cc` (Xcode Command Line Tools) |
+| `aarch64-apple-darwin` binary | any host: ze0 links it |
 | `aarch64-linux-musl` binary | an aarch64 Linux host with musl's `cc`, or any host with `aarch64-linux-musl-gcc` on the `PATH` |
 | WASI module | any host |
 | Mach-O or ELF object | any host |
@@ -25,7 +25,7 @@ cannot link a binary, `ze0 build` without `--emit` exits with status 3.
 
 | | darwin | linux-musl | wasi |
 |---|---|---|---|
-| Linker | `cc`; ze0's own Mach-O writer for a kernel-dialect unit | `cc -static` | none: one module |
+| Linker | ze0's own (`Obj::MachO::Executable`) | `cc -static` | none: one module |
 | `Fiber`, `Thread`, `Ractor` | yes | yes | no: a module has one stack; `Fiber.new` raises `FiberError` |
 | `eval` of a string | yes | no: a static binary cannot load code | no |
 | FFI (`ffi`, `fiddle`) | yes | no | no |

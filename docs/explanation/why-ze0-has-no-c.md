@@ -63,7 +63,7 @@ test of it.
 ze0 still uses some tools and libraries that are not Ruby, and does not
 own them:
 
-- `cc`, to link a native binary with the runtime's object;
+- `cc`, to link a static Linux binary;
 - libSystem on macOS, and musl on Linux;
 - wasmtime, to run modules;
 - libffi, which the `ffi` gem loads at run time.

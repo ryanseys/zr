@@ -53,7 +53,61 @@ module Ze0
 
         Placed = Struct.new(:item, :section, :addr)
 
+        # An object as `read` answers it. `symbols` holds two words a
+        # symbol, as `nlist_64` packs them: the string offset, type,
+        # section and description in the first, the value in the second.
+        # `strings` is the string table.
+        Read = Struct.new(:sections, :symbols, :strings, keyword_init: true) do
+          def count = symbols.size / 2
+          def strx(index) = symbols[index * 2] & 0xFFFF_FFFF
+          def type(index) = (symbols[index * 2] >> 32) & 0xFF
+          def sect(index) = (symbols[index * 2] >> 40) & 0xFF
+          def value(index) = symbols[(index * 2) + 1]
+
+          def name(index)
+            at = strx(index)
+            strings.byteslice(at, strings.index("\0", at) - at)
+          end
+        end
+
+        # A section as `read` answers it: `relocs` holds two words a
+        # `relocation_info`, the address and the packed rest.
+        Section = Struct.new(:name, :segment, :addr, :size, :align, :flags, :bytes, :relocs, keyword_init: true)
+
         module_function
+
+        # An object this module wrote, read back: what a link needs of it.
+        # It reads the one shape `write` makes, and refuses any other.
+        def read(bytes)
+          magic, cpu, _sub, type, ncmds = bytes.unpack("L<5")
+          unless magic == MH_MAGIC_64 && cpu == CPU_TYPE_ARM64 && type == MH_OBJECT
+            raise ArgumentError, "not an arm64 Mach-O object"
+          end
+
+          sections = []
+          symbols = strings = nil
+          at = 32
+          ncmds.times do
+            cmd, size = bytes.unpack("@#{at}L<2")
+            case cmd
+            when LC_SEGMENT_64
+              bytes.unpack1("@#{at + 64}L<").times do |i|
+                s = at + 72 + (i * 80)
+                name, segment = bytes.unpack("@#{s}a16a16").map { |n| n.delete("\0") }
+                addr, size_, offset, align, reloff, nreloc, flags = bytes.unpack("@#{s + 32}Q<2L<6")
+                sections << Section.new(name: name, segment: segment, addr: addr, size: size_, align: align, flags: flags,
+                                        bytes: flags == S_ZEROFILL ? nil : bytes.byteslice(offset, size_),
+                                        relocs: nreloc.zero? ? [] : bytes.unpack("@#{reloff}L<#{nreloc * 2}"))
+              end
+            when LC_SYMTAB
+              symoff, nsyms, stroff, strsize = bytes.unpack("@#{at + 8}L<4")
+              symbols = nsyms.zero? ? [] : bytes.unpack("@#{symoff}Q<#{nsyms * 2}")
+              strings = bytes.byteslice(stroff, strsize)
+            end
+            at += size
+          end
+          Read.new(sections: sections, symbols: symbols || [], strings: strings || "\0".b)
+        end
 
         # The file's bytes.
         def write(unit, minos: [14, 0, 0])
@@ -77,7 +131,7 @@ module Ze0
               s[:size] += pad
               placed << Placed.new(item, si, addr + s[:size])
               s[:items] << [item, s[:size]]
-              s[:bytes] << item.bytes unless s[:flags] == S_ZEROFILL
+              s[:bytes] << with_addends(item) unless s[:flags] == S_ZEROFILL
               s[:size] += item.size
             end
             addr += s[:size]
@@ -170,6 +224,15 @@ module Ze0
           %i[local export import].flat_map do |l|
             (defined + imports).select { |s| s[:linkage] == l }.sort_by { |s| s[:name] }
           end
+        end
+
+        # An item's bytes. An `abs64` relocation keeps its addend in the slot
+        # it patches, which is where `ld` reads it.
+        def with_addends(item)
+          sums = item.relocs.select { |r| r.kind == :abs64 && r.addend.to_i != 0 }
+          return item.bytes if sums.empty?
+
+          sums.each_with_object(item.bytes.dup) { |r, bytes| bytes[r.offset, 8] = [r.addend].pack("q<") }
         end
 
         # `[address, [entries]]`: the packed relocation_info rows for one

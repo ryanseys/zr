@@ -9,9 +9,9 @@ module Ze0
   module Native
     module Link
       # A Mach-O binary for aarch64-apple-darwin. `Obj::MachO::Executable`
-      # writes the binary when the unit is the whole program and every
-      # import is libSystem's; otherwise `cc` links the object with the
-      # runtime's.
+      # links the program's object with the runtime's and writes the
+      # binary; `cc` links only what it refuses, or every program under
+      # `ZE0_LINK=cc`.
       module Darwin
         # `ld` turns this into `LC_MAIN.stacksize`. `Obj::MachO::Executable`
         # writes that field itself from the same number, so a program gets
@@ -27,18 +27,16 @@ module Ze0
         module_function
 
         # Answers nil, or the message of the step that refused. `road`
-        # picks the linker and holds it to it: `ruby` answers what
-        # `Obj::MachO::Executable` could not link rather than quietly
-        # reaching for `cc`, and `cc` skips it altogether.
+        # picks the linker: `auto` takes `Obj::MachO::Executable` and `cc`
+        # for what it refuses, `ruby` answers what it refused rather than
+        # reaching for `cc`, and `cc` skips it. A program that does not
+        # strip evals, and its JIT finds the runtime's functions by name,
+        # so every global is exported.
         def link(image, out, work:, objects:, strip:, road:, target:)
           unless road == "cc"
-            why = if objects.empty?
-                    Obj::MachO::Executable.write(image, out)
-                  else
-                    "the runtime is linked in as an object of its own"
-                  end
+            why = Obj::MachO::Executable.write(image, out, objects: objects.map { |o| File.binread(o) }, exports: !strip)
             return nil unless why
-            return "Obj::MachO::Executable cannot link this: #{why}" if road == "ruby"
+            return "Obj::MachO::Executable cannot link this: #{why}" if road == "ruby" || !target.tool("cc")
           end
           obj = File.join(work, "unit.o")
           File.binwrite(obj, Obj::MachO::ObjectFile.write(image))
