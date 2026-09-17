@@ -623,9 +623,11 @@ module Ze0
         end
 
         # The call at `k` of `b` replaced by a copy of `target`: `b` ends
-        # in a jump to the copy of the entry, carrying the arguments; what
-        # followed the call moves to a block after the copy, whose
-        # parameter is the call's result.
+        # in a jump to the copy of the entry, whose parameters are the
+        # arguments themselves when no block of `target` jumps back to its
+        # entry (so a constant argument folds in the copy), else carried
+        # by the jump; what followed the call moves to a block after the
+        # copy, whose parameter is the call's result.
         def expand(f, b, k, call, target)
           rest = f.block_after(b)
           rest.insts.concat(b.insts[(k + 1)..])
@@ -637,20 +639,23 @@ module Ze0
             sig = target.sigs.find { |s| s.sig == c.sig }
             names[c.fn] = f.callee(c.symbol, sig.params, sig.ret, colocated: c.colocated, from: c.from)
           end
+          entry = target.entry_block
+          passed = target.blocks.none? { |cb| cb.insts.last.targets&.any? { |(blk, _)| blk == entry.name } }
+          entry.params.zip(call.args) { |(v, _), arg| names[v] = arg } if passed
           at = f.blocks.index(b) + 1
           copies = target.blocks.map do |cb|
             nb = f.block_beside(at)
             at += 1
             names[cb.name] = nb.name
-            cb.params.each { |(v, _)| names[v] = f.value }
+            cb.params.each { |(v, _)| names[v] = f.value } unless passed && cb.equal?(entry)
             cb.insts.each { |i| i.results.each { |r| names[r] = f.value } }
             [cb, nb]
           end
           copies.each do |cb, nb|
-            nb.params.concat(cb.params.map { |(v, t)| [names.fetch(v), t] })
+            nb.params.concat(cb.params.map { |(v, t)| [names.fetch(v), t] }) unless passed && cb.equal?(entry)
             cb.insts.each { |i| nb.insts << copy(i, names, rest) }
           end
-          b.insts << Inst.new(:jump, targets: [[names.fetch(target.entry_block.name), call.args]])
+          b.insts << Inst.new(:jump, targets: [[names.fetch(entry.name), passed ? [] : call.args]])
         end
 
         def copy(i, names, rest)
