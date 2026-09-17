@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# zlib.c, in ruby, over zlib itself (vendor/c/zlib, reached through
-# rt/kernel/zlib.rb). The extension's structs are classes here: Stream
+# zlib.c, in ruby, over ze0's port of zlib (rt/kernel/zlib_*.rb, reached
+# through rt/kernel/zlib.rb). The extension's structs are classes here: Stream
 # is `struct zstream`, the z_stream and the buffers around it, and
 # GzFile is `struct gzfile`, a stream and the gzip container's fields. A Deflate, an Inflate or a GzipFile holds its own
 # in a hidden slot, as a TypedData object holds its struct.

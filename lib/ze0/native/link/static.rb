@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative "../link"
-require_relative "../../deps"
 require_relative "../../obj/elf/object_file"
 
 module Ze0
@@ -28,7 +27,7 @@ module Ze0
 
           obj = File.join(work, "unit.o")
           File.binwrite(obj, Obj::Elf::ObjectFile.write(image))
-          Link.run(objects + [obj], out, archives: Deps.build(target), flags: FLAGS + (strip ? STRIP_FLAGS : []), target: target)
+          Link.run(objects + [obj], out, flags: FLAGS + (strip ? STRIP_FLAGS : []), target: target)
         end
 
         # The byte ranges of a linked binary that no input decides: none,

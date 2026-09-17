@@ -15,15 +15,14 @@ module Ze0
       ze0 machine <file.rb> -o <bin>        compile a kernel-dialect file alone
                    [--emit obj|wasm] [--target <triple>]
       ze0 zr run|build|machine ...          the same three commands, by their older names
-      ze0 deps build                        build the vendored C dependencies
       ze0 targets                           the targets ze0 builds for, and what this host can do
       ze0 version                           print ze0's version
 
       ZE0_LINK picks the linker: `ruby` for ze0's own Mach-O linker alone,
       which names what it cannot link; `cc` for the system linker; unset to
-      take ze0's where it reaches and cc for a program that needs the
-      vendored archives.
-      ZE0_CACHE names the runtime cache; ZE0_BUILD the vendored archives.
+      take ze0's where it reaches and cc for a program that links the
+      runtime as an object of its own.
+      ZE0_CACHE names the runtime cache.
 
       ruby is the oracle: every corpus program carries ruby 4.0.6's recorded
       answer, and ze0 is held to it or refuses by name.
@@ -82,10 +81,6 @@ module Ze0
       case args.first
       when "run", "build", "machine" then compile(args, extra)
       when "zr" then compile(args.drop(1), extra)
-      when "deps"
-        usage(extra) unless args[1] == "build" && args.size == 2
-        require_relative "deps"
-        puts Deps.build
       when "targets" then targets
       when "version", "--version", "-v" then puts "ze0 #{VERSION}"
       when "help", "-h", "--help"

@@ -4,12 +4,6 @@ ze0's own code is under the MIT License (`LICENSE.txt`). The gem also
 ships code that other people wrote. This file names each part, its
 version, its license, and where its license text is.
 
-## Vendored C, compiled into native binaries
-
-| Component | Version | License | Path | License text |
-|---|---|---|---|---|
-| prism | 1.9.0 | MIT | `vendor/c/prism` | `vendor/c/prism/LICENSE.md` |
-
 ## Ruby halves of extension gems
 
 | Component | Version | License | Path | License text |
@@ -55,6 +49,7 @@ unedited, under Ruby or BSD-2-Clause.
 | `rt/ext/date/parse.rb` | CRuby's `date_parse.c` (date gem) | Ruby or BSD-2-Clause |
 | `rt/core/regexp/onig.rb`, `rt/core/regexp/onig/*.rb`, `rt/core/regexp/unicode_tables.rb`, `rt/kernel/regexp.rb`, `rt/kernel/onig_enc.rb`, `rt/kernel/onig_stack.rb`, `rt/kernel/onig_match.rb`, `rt/kernel/onig_cache.rb`, `rt/kernel/onig_search.rb` | Onigmo, the regular expression engine of CRuby 4.0.6 (K. Kosako, K. Takata); the license text is in `rt/kernel/regexp.rb` | BSD-2-Clause |
 | `rt/core/regexp_pattern.rb` | CRuby 4.0.6's `re.c` (the preprocess, encoding and description functions) | Ruby or BSD-2-Clause |
+| `rt/ext/prism/prism.rb`, `rt/ext/prism/ruby/*.rb` | prism 1.9.0's C (the parser, lexer, encodings, options, serializer and extension); the license text is in `vendor/ext/prism/LICENSE.md` | MIT |
 | `rt/kernel/zlib_check.rb`, `rt/kernel/zlib_tables.rb`, `rt/kernel/zlib_stream.rb`, `rt/kernel/zlib_inftrees.rb`, `rt/kernel/zlib_inffast.rb`, `rt/kernel/zlib_inflate.rb`, `rt/kernel/zlib_trees.rb`, `rt/kernel/zlib_deflate.rb`, `rt/kernel/os/*/zlib.rb` | zlib 1.3.1 (Jean-loup Gailly and Mark Adler); the license text is in `rt/kernel/zlib.rb` | Zlib |
 
 ## Benchmarks (repository only, not in the gem)

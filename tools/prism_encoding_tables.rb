@@ -4,8 +4,8 @@
 # src/encoding.c and include/prism/encoding.h: the Unicode code point
 # ranges, the byte tables, the UTF-8 decoder's state table, each
 # encoding's name and functions in pm_encoding_t order, and the names
-# pm_encoding_find answers to. The C comes from vendor/c/prism while it
-# is vendored, else from the v1.9.0 tag of ~/dev/prism.
+# pm_encoding_find answers to. The C comes from the v1.9.0 tag of
+# ~/dev/prism.
 #
 #   ruby tools/prism_encoding_tables.rb [--check]
 module PrismEncodingTables
@@ -15,11 +15,8 @@ module PrismEncodingTables
   module_function
 
   def c_source(path)
-    vendored = File.join(ROOT, "vendor/c/prism", path)
-    return File.read(vendored) if File.exist?(vendored)
-
     IO.popen(["git", "-C", File.expand_path("~/dev/prism"), "show", "v1.9.0:#{path}"], &:read).tap do
-      raise "no #{path} in vendor/c/prism or ~/dev/prism at v1.9.0" unless $?.success?
+      raise "no #{path} in ~/dev/prism at v1.9.0" unless $?.success?
     end
   end
 

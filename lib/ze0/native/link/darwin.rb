@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative "../link"
-require_relative "../../deps"
 require_relative "../../obj/macho/object_file"
 require_relative "../../obj/macho/executable"
 require_relative "../../obj/macho/stamps"
@@ -12,7 +11,7 @@ module Ze0
       # A Mach-O binary for aarch64-apple-darwin. `Obj::MachO::Executable`
       # writes the binary when the unit is the whole program and every
       # import is libSystem's; otherwise `cc` links the object with the
-      # vendored archives.
+      # runtime's.
       module Darwin
         # `ld` turns this into `LC_MAIN.stacksize`. `Obj::MachO::Executable`
         # writes that field itself from the same number, so a program gets
@@ -43,7 +42,7 @@ module Ze0
           end
           obj = File.join(work, "unit.o")
           File.binwrite(obj, Obj::MachO::ObjectFile.write(image))
-          Link.run(objects + [obj], out, archives: Deps.build(target), flags: STACK_FLAGS + (strip ? STRIP_FLAGS : []), target: target)
+          Link.run(objects + [obj], out, flags: STACK_FLAGS + (strip ? STRIP_FLAGS : []), target: target)
         end
 
         # The byte ranges of a linked binary that no input decides: the

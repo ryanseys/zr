@@ -2,8 +2,8 @@
 
 module Ze0
   module Native
-    # The C toolchain ze0 runs: `cc` to compile the vendored C and to
-    # link, `ar` to archive it, each the target's own (`Target#tool`).
+    # The C toolchain ze0 runs: `cc` to link, the target's own
+    # (`Target#tool`).
     #
     # On macOS `cc` finds its SDK and its `ld` on two roads that can part:
     # clang takes the newest SDK it finds, and `ld` comes from the
@@ -16,12 +16,12 @@ module Ze0
     module Toolchain
       module_function
 
-      # The environment a `cc` or `ar` runs under.
+      # The environment a `cc` runs under.
       def env
         @env ||= pinned
       end
 
-      # The command `target`'s `name` ("cc" or "ar") runs as: the host's
+      # The command `target`'s `name` ("cc") runs as: the host's
       # own or a cross toolchain's, else the plain name, whose failure to
       # run says what is missing.
       def command(target, name) = target.tool(name) || name
@@ -32,8 +32,7 @@ module Ze0
         [log, $?.success?]
       end
 
-      # The user's own DEVELOPER_DIR and SDKROOT come back as they are, so
-      # an archive stamp names the toolchain that built it.
+      # The user's own DEVELOPER_DIR and SDKROOT come back as they are.
       def pinned
         chosen = ENV.slice("DEVELOPER_DIR", "SDKROOT")
         return chosen unless chosen.empty?

@@ -16,8 +16,6 @@ jobs:
           ruby-version: .ruby-version
           bundler-cache: true
       - uses: bytecodealliance/actions/wasmtime/setup@v1
-      - name: Build the vendored C
-        run: bundle exec rake compile
       - name: Run the checks
         run: bundle exec rake check
       - name: Build the gem
@@ -100,8 +98,6 @@ jobs:
           docker exec alpine git config --global --add safe.directory /ze0
           docker exec alpine bundle config set --global without development
           docker exec alpine bundle install
-      - name: Build the vendored C
-        run: docker exec alpine bundle exec rake compile
       - name: Run the checks this target answers
         run: docker exec alpine bin/ze0 check target elf interp os_api description case_format
       - name: Run ze0's own programs against the baseline

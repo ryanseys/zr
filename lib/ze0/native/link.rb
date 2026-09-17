@@ -5,7 +5,7 @@ require_relative "../target"
 
 module Ze0
   module Native
-    # The link step: objects and static archives to a binary, with the
+    # The link step: objects to a binary, with the
     # target's linker through its `cc`. `Link::Darwin` and `Link::Static` say
     # which objects a target's link takes and which flags; this runs it.
     module Link
@@ -16,8 +16,8 @@ module Ze0
       module_function
 
       # Answers nil, or the linker's message when it refused.
-      def run(objects, out, archives: [], flags: [], target: Target.default)
-        log, ok = Toolchain.run([Toolchain.command(target, "cc"), "-o", out, *objects, *archives, *flags])
+      def run(objects, out, flags: [], target: Target.default)
+        log, ok = Toolchain.run([Toolchain.command(target, "cc"), "-o", out, *objects, *flags])
         ok ? nil : log.strip
       end
     end

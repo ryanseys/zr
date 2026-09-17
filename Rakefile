@@ -10,11 +10,6 @@ def ze0(*args)
   sh(Gem.ruby, ZE0, *args)
 end
 
-desc "Build the vendored C archive (prism)"
-task :compile do
-  ze0("deps", "build")
-end
-
 desc "Run the repo's own checks: rake check or rake 'check[exe zr]'"
 task :check, [:filters] do |_, args|
   ze0("check", *args[:filters].to_s.split)

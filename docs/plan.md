@@ -326,17 +326,16 @@ Linux and x86-64 (seams kept: target triple, pointer width, `sys_*.rb`, object f
 
 ## 12. Toolchain, layout, ownership
 
-Stage-0 host: CRuby 4.0.6 (`.ruby-version`, the oracle). Gems used by the compiler under CRuby: prism, `aarch64` (or our own encoder table), `jit_buffer`-style Fiddle calls for `Obj::JIT`. Vendored C (prism; zlib and Onigmo are Ruby ports since 2026-09-16) built by `ze0 deps build` with `cc`. Apple tools: `cc` (required, to compile the vendored C and to link a program that reaches it), `ld` through it, `ar` for the vendored archives, `otool`/`nm` (dev-only checks). `Obj::Exe` links everything else. wasmtime for Part D. The README names every one.
+Stage-0 host: CRuby 4.0.6 (`.ruby-version`, the oracle). Gems used by the compiler under CRuby: `aarch64` (or our own encoder table), `jit_buffer`-style Fiddle calls for `Obj::JIT`. No vendored C: zlib and Onigmo are Ruby ports since 2026-09-16, prism since 2026-09-17. Apple tools: `cc` (to link a program that carries the runtime as an object of its own), `ld` through it, `otool`/`nm` (dev-only checks). `Obj::Exe` links everything else. wasmtime for Part D. The README names every one.
 
 Layout of `~/dev/ze0` as one RubyGem (2026-09-14; the README's Layout section is the file-by-file map):
 
 ```
 ze0.gemspec, Gemfile, Rakefile   the gem: a ruby-platform gem, require path lib/ only
-exe/ze0                          the gem's CLI; lib/ze0/cli.rb holds run, build, machine, deps, version
+exe/ze0                          the gem's CLI; lib/ze0/cli.rb holds run, build, machine, targets, version
 bin/ze0                          the checkout's CLI: the gem's commands, plus test, bench, check, stage1, stage2
-ext/ze0/extconf.rb               builds the vendored C into vendor/build/<target>/ as the gem installs
 lib/ze0.rb, lib/ze0/version.rb   the entry
-lib/ze0/paths.rb                 root, rt, vendor, build and cache directories, named once
+lib/ze0/paths.rb                 root, rt, vendor and cache directories, named once
 lib/ze0/target.rb                the targets ze0 emits, and what this host can build
 lib/ze0/{hir,zr,machine,ir}/     the compiler's front and middle
 lib/ze0/backend/{aarch64,wasm}/  the backends, under one Backend::Refused
@@ -345,7 +344,7 @@ lib/ze0/harness/                 the test-file format and the corpus sweep (repo
 rt/{kernel,core,ext}/            the runtime; beside lib/, never on a load path
 rt/{kernel,core,ext}/os/<os>/    the runtime's OS layer; rt/kernel/os.rb names its calls
 rt/kernel/arch/<arch>/           the runtime's machine layer
-vendor/c, vendor/ext, vendor/lib the vendored C, extension gems' Ruby halves, ruby's stdlib
+vendor/ext, vendor/lib           extension gems' Ruby halves, ruby's stdlib
 tools/, test/, docs/             repository only
 ```
 

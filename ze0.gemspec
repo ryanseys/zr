@@ -28,7 +28,7 @@ Gem::Specification.new do |spec|
   # checks, tools/ and the test harness stay in the repository.
   spec.files = Dir.chdir(__dir__) do
     `git ls-files -z`.split("\x0").select do |file|
-      file.match?(%r{\A(exe|ext|lib|rt|vendor/(c|ext|lib))/}) ||
+      file.match?(%r{\A(exe|lib|rt|vendor/(ext|lib))/}) ||
         %w[LICENSE.txt THIRD_PARTY_NOTICES.md README.md CHANGELOG.md].include?(file)
     end.reject { |file| file.start_with?("lib/ze0/harness/") }
   end
@@ -37,5 +37,4 @@ Gem::Specification.new do |spec|
   # Only lib/: rt/ and vendor/ hold files named like ruby's own libraries
   # (rbconfig, set, json), and must never shadow them.
   spec.require_paths = ["lib"]
-  spec.extensions = ["ext/ze0/extconf.rb"]
 end

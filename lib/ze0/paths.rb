@@ -11,13 +11,9 @@ module Ze0
     # ordinary Ruby.
     RT = File.join(ROOT, "rt")
 
-    # The vendored C, the Ruby halves of extension gems, and ruby's own
-    # pure-Ruby standard library.
+    # The Ruby halves of extension gems, and ruby's own pure-Ruby
+    # standard library.
     VENDOR = File.join(ROOT, "vendor")
-
-    # The vendored C's archives, one directory per target. A gem install
-    # builds them here; `ZE0_BUILD` names another place.
-    BUILD = ENV["ZE0_BUILD"] || File.join(VENDOR, "build")
 
     # A git checkout, or a worktree of one, where `.git` is a file.
     def self.checkout? = File.exist?(File.join(ROOT, ".git"))

@@ -81,11 +81,11 @@ module Ze0
     # The output `emit` names: `:native` for nil, else the symbol.
     def self.road(emit) = emit ? emit.to_sym : :native
 
-    # Whether this host has the tools a native link for this target runs:
-    # its C compiler and archiver, the host's own or a cross toolchain's.
-    def linkable? = !tool("cc").nil? && !tool("ar").nil?
+    # Whether this host has the tool a native link for this target runs:
+    # its C compiler driver, the host's own or a cross toolchain's.
+    def linkable? = !tool("cc").nil?
 
-    # The command this host runs as the target's `name` ("cc" or "ar"), or
+    # The command this host runs as the target's `name` ("cc"), or
     # nil: on the target's own host the plain tool, elsewhere a cross
     # toolchain's, named by the triple as musl-cross and crosstool name
     # theirs (`aarch64-linux-musl-gcc`).
@@ -113,10 +113,10 @@ module Ze0
       return nil if linkable?
 
       if native?
-        "a native binary needs cc and ar on the PATH (xcode-select --install); " \
+        "a native binary needs cc on the PATH (xcode-select --install); " \
           "--emit wasm and --emit obj work without them"
       else
-        "a native binary for #{triple} needs a #{triple} host with cc, or #{triple}-gcc and #{triple}-ar " \
+        "a native binary for #{triple} needs a #{triple} host with cc, or #{triple}-gcc " \
           "on the PATH; this host is #{Target.host_triple}; --emit obj works here"
       end
     end

@@ -21,9 +21,9 @@ module Ze0
       # signature Apple Silicon will not run a binary without.
       #
       # It refuses rather than guesses. A symbol libSystem does not define
-      # belongs to one of the vendored archives, and reading an archive is a
-      # real linker; `Native::Link` keeps those programs, and this says
-      # which symbol sent them there.
+      # is another object's, and reading objects is a real linker;
+      # `Native::Link` keeps those programs, and this says which symbol
+      # sent them there.
       class Executable
         PAGE = 0x4000
         # Where the image goes, above the four unmapped gigabytes that make
