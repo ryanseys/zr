@@ -27,6 +27,8 @@ module Ze0
         end
 
         def rename(i)
+          return if @rename.empty?
+
           i.args.map! { |a| resolve(a) }
           i.targets&.each { |(_, args)| args.map! { |a| resolve(a) } }
         end
@@ -81,9 +83,11 @@ module Ze0
 
         def self.run(f) = new(f).run
 
+        # Only a constant's type is ever asked for, and a constant's type
+        # is known where it is made, so `@const` keeps each constant's
+        # number with its type and no pass types the whole function.
         def initialize(f)
           @f = f
-          @types = Types.new(f).all
           @const = {}
           @rename = {}
         end
@@ -105,13 +109,16 @@ module Ze0
 
         # The number `v` holds, masked to its type, or nil.
         def constant(v)
-          k = @const[v]
-          k && k & MASK.fetch(@types.fetch(v))
+          k, type = @const[v]
+          k && k & MASK.fetch(type)
         end
+
+        # The type of the constant `v`.
+        def constant_type(v) = @const.fetch(v).last
 
         def fold(i)
           case i.op
-          when :iconst then @const[i.results[0]] = i.args[0]
+          when :iconst then @const[i.results[0]] = [i.args[0], i.type]
           when *Inst::BINOPS then fold_binop(i)
           when :icmp then fold_compare(i)
           when :select then fold_select(i)
@@ -120,9 +127,9 @@ module Ze0
           end
         end
 
-        # The type of an instruction's result names the width of its
-        # arithmetic: 64 bits for `i64`, 32 for anything narrower.
-        def bits_of(v) = @types.fetch(v) == "i64" ? 64 : 32
+        # A result's type names the width of its arithmetic: 64 bits for
+        # `i64`, 32 for anything narrower.
+        def bits_of(type) = type == "i64" ? 64 : 32
 
         def signed(raw, bits)
           top = 1 << (bits - 1)
@@ -131,12 +138,11 @@ module Ze0
 
         def quotient(a, b) = (a.negative?) == (b.negative?) ? a.abs / b.abs : -(a.abs / b.abs)
 
-        def become_constant(i, n)
-          r = i.results[0]
+        def become_constant(i, n, type)
           i.op = :iconst
-          i.type = @types.fetch(r)
-          i.args = [n & MASK.fetch(i.type)]
-          @const[r] = i.args[0]
+          i.type = type
+          i.args = [n & MASK.fetch(type)]
+          @const[i.results[0]] = [i.args[0], type]
         end
 
         def become(i, v)
@@ -147,7 +153,10 @@ module Ze0
           a, b = i.args
           ka = constant(a)
           kb = constant(b)
-          return become_constant(i, binop(i.op, ka, kb, bits_of(i.results[0]))) if ka && kb
+          # A binop's operands and result share a type, one of them here
+          # a constant's.
+          type = i.type || constant_type(ka ? a : b) if ka || kb
+          return become_constant(i, binop(i.op, ka, kb, bits_of(type)), type) if ka && kb
 
           # `x op 0`, `x op 1` and their commuted forms.
           a, b, ka, kb = b, a, kb, ka if ka && !kb && Inst::COMMUTATIVE.include?(i.op)
@@ -157,11 +166,11 @@ module Ze0
           when :iadd, :isub, :bor, :bxor, :ishl, :ushr, :sshr then become(i, a) if kb.zero?
           when :imul
             become(i, a) if kb == 1
-            become_constant(i, 0) if kb.zero?
+            become_constant(i, 0, type) if kb.zero?
           when :udiv, :sdiv then become(i, a) if kb == 1
           when :band
-            become_constant(i, 0) if kb.zero?
-            become(i, a) if kb == MASK.fetch(@types.fetch(a))
+            become_constant(i, 0, type) if kb.zero?
+            become(i, a) if kb == MASK.fetch(type)
           end
         end
 
@@ -193,7 +202,7 @@ module Ze0
           b = constant(i.args[1])
           return unless a && b
 
-          bits = bits_of(i.args[0])
+          bits = bits_of(constant_type(i.args[0]))
           a, b = signed(a, bits), signed(b, bits) if SIGNED.include?(i.cond)
           held = case i.cond
                  when "eq" then a == b
@@ -203,7 +212,7 @@ module Ze0
                  when "sgt", "ugt" then a > b
                  when "sge", "uge" then a >= b
                  end
-          become_constant(i, held ? 1 : 0)
+          become_constant(i, held ? 1 : 0, "i8")
         end
 
         def fold_select(i)
@@ -218,9 +227,9 @@ module Ze0
           k = constant(i.args[0])
           return unless k
 
-          from = @types.fetch(i.args[0])
+          from = constant_type(i.args[0])
           k = signed(k, from == "i8" ? 8 : 32) if i.op == :sextend
-          become_constant(i, k)
+          become_constant(i, k, i.type)
         end
 
         def fold_branch(i)
