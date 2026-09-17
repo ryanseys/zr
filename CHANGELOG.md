@@ -25,6 +25,9 @@ The first release as a RubyGem.
 - A class method that the core library sends by name reaches a program
   subclass's own definition: `OpenSSL::Digest.hexdigest("SHA1", data)`
   called `Digest::Class.digest` and skipped the override.
+- `IO.select` works on a stream whose class defines its own `send`, as
+  `Socket` does: the core library's `send(:name)` is always Kernel#send.
+- `IO.pipe` called on a subclass makes both ends of that subclass.
 - A binary whose program data reaches 124 pages boots: the chained
   fixup starts cover only a segment's file bytes, as ld64 writes them.
 - The runtime cache goes to the user's cache directory
