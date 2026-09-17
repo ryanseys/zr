@@ -15,11 +15,13 @@ module Ze0
 
       # `functions` compiled, `raw` functions as they are, and `data`, as
       # one `Obj::Unit`. `export` makes every data object visible to the
-      # link, for an object another refers to.
+      # link, for an object another refers to. A block given assembles the
+      # functions itself, in order, from the functions and the unit's
+      # defined names (`Native::Build.unit` assembles in workers).
       def unit(functions, data, raw: [], export: false)
         out = Obj::Unit.new
         defined = (functions.map(&:name) + data.map(&:name) + raw.map(&:name)).to_set
-        functions.each { |f| out.functions << assemble(f, defined) }
+        out.functions.concat(block_given? ? yield(functions, defined) : functions.map { |f| assemble(f, defined) })
         raw.each { |r| out.functions << r }
         data.each { |d| out.data << (export ? exported(d) : d) }
         out

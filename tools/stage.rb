@@ -25,9 +25,10 @@ until argv.empty?
 end
 usage unless file && out
 
-program = Ze0::Native::Build.lower(File.read(file), File.expand_path(file))
+# The stage binary builds in one process: it has no fork to hand work to.
+program = Ze0::Native::Build.lower(File.read(file), File.expand_path(file), jobs: 1)
 why = Dir.mktmpdir("ze0-stage-") do |work|
-  Ze0::Native::Build.program(program, out, work: work)
+  Ze0::Native::Build.program(program, out, work: work, jobs: 1)
 end
 abort("stage: #{why}") if why
 puts "#{out}: #{File.size(out)} bytes"
