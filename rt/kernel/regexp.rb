@@ -43,7 +43,7 @@ end
 # the husk its own initialize fills is a real regexp from the start.
 sig [Value] => Value
 machine def zr_regexp_alloc(klass)
-  re = zr_alloc(T_REGEXP, klass)
+  re = zr_alloc(T_REGEXP, klass, RRegexp.size)
   RRegexp.set_source(re, Machine.value(QNIL))
   RRegexp.set_options(re, 0)
   RRegexp.set_reg(re, 0)

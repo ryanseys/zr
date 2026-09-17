@@ -177,7 +177,7 @@ end
 
 sig [Ptr, Value, Value, Value] => Value
 machine def zr_binding_of(meta, env, self_, cref)
-  b = zr_alloc(T_PROC, zr_core_class(Machine.id(:Binding)))
+  b = zr_alloc(T_PROC, zr_core_class(Machine.id(:Binding)), RProc.size)
   RProc.set_fn(b, 0)
   RProc.set_meta(b, meta)
   RProc.set_env(b, env)

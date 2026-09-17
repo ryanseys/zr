@@ -21,7 +21,7 @@ Machine.struct :RClass, basic: RBasic, name: Value, superclass: Value, ext: Ptr,
 # program wrote over or removed, which the core library's own sends
 # still reach (see zr_find_core_method).
 Machine.struct :ClassExt, mtab: Ptr, mlen: Word, mcap: Word, ctab: Ptr, clen: Word, ccap: Word, iv: IvTab, cv: IvTab, serial: Word, refined: Value, active: Value, boxed: Value, shadow: Value, alloc: Word, cidx: Ptr, cbins: Word,
-                           saved: Ptr, slen: Word, supers: Ptr, rank: Word, midx: Ptr, mbins: Word
+                           saved: Ptr, slen: Word, supers: Ptr, rank: Word, midx: Ptr, mbins: Word, obj_bytes: Word
 # `orig` is the name the method was first defined under, which an
 # alias keeps. `from` is the chain node the entry an alias or a
 # visibility change copied was found on, where `super` in the body
@@ -55,7 +55,7 @@ KIND_MISSING = 9
 
 sig [Word, Value, Value] => Value
 machine def zr_class_alloc(type, sup, klass)
-  c = zr_alloc(type, klass)
+  c = zr_alloc(type, klass, RClass.size)
   RClass.set_name(c, Machine.value(QNIL))
   RClass.set_superclass(c, sup)
   RClass.set_attached(c, Machine.value(QNIL))
@@ -82,6 +82,7 @@ machine def zr_class_alloc(type, sup, klass)
   ClassExt.set_rank(ext, 0)
   ClassExt.set_midx(ext, 0)
   ClassExt.set_mbins(ext, 0)
+  ClassExt.set_obj_bytes(ext, RObject.size)
   counter = Machine.static(:class_serial, 8)
   Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
   ClassExt.set_serial(ext, Machine.load64(counter, 0))
@@ -147,7 +148,7 @@ end
 sig [Value, Value] => Value
 machine def zr_iclass_new(node, sup)
   mod = zr_type(node) == T_ICLASS ? RClass.attached(node) : node
-  ic = zr_alloc(T_ICLASS, mod)
+  ic = zr_alloc(T_ICLASS, mod, RClass.size)
   RClass.set_name(ic, Machine.value(QNIL))
   RClass.set_superclass(ic, sup)
   RClass.set_ext(ic, RClass.ext(node))
@@ -230,9 +231,11 @@ machine def zr_proxies_of(mod)
   a = 0
   while a < Heap.arenas(zr_heap())
     base = zr_arena_at(a)
+    first = zr_arena_first(base)
+    bytes = ArenaHead.cell(base)
     i = 0
-    while i < CELLS
-      cell = base + (i * CELL)
+    while i < ArenaHead.ncells(base)
+      cell = first + (i * bytes)
       flags = Machine.load64(cell, 0)
       if (flags & FL_ALLOCATED) != 0 && (flags & T_MASK) == T_ICLASS
         ic = Machine.value(cell)
@@ -1276,7 +1279,7 @@ machine def zr_find_core_method(klass, mid)
     return zr_search_core_method(klass, mid)
   end
   key = mid | CORE_KEY
-  h = ((Machine.word(klass) / CELL) ^ (key * 31)) & (MCACHE_ROWS - 1)
+  h = ((Machine.word(klass) / CELL_MIN) ^ (key * 31)) & (MCACHE_ROWS - 1)
   row = Machine.static(:mcache, MCACHE_ROWS * MCache.size) + (h * MCache.size)
   stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
   if MCache.stamp(row) == stamp && MCache.klass(row) == klass && MCache.mid(row) == key
@@ -1746,8 +1749,8 @@ machine def zr_find_method(klass, mid)
   if mode == MCACHE_OFF
     return zr_search_method(klass, mid)
   end
-  # A cell is CELL-aligned, so its low bits carry nothing.
-  h = ((Machine.word(klass) / CELL) ^ (mid * 31)) & (MCACHE_ROWS - 1)
+  # A cell is CELL_MIN-aligned, so its low bits carry nothing.
+  h = ((Machine.word(klass) / CELL_MIN) ^ (mid * 31)) & (MCACHE_ROWS - 1)
   row = Machine.static(:mcache, MCACHE_ROWS * MCache.size) + (h * MCache.size)
   stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
   if MCache.stamp(row) == stamp && MCache.klass(row) == klass && MCache.mid(row) == mid

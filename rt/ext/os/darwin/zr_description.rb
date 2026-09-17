@@ -5,6 +5,8 @@ module Ze0
       KERNEL = <<~ROWS
         d zr_ary_max_size Value
         d zr_ary_embedded_p Bool a:Value
+        d zr_ary_embed_capa Word a:Value
+        d zr_ary_cell_bytes Word capa:Word
         d zr_ary_buf_new Void a:Value capa:Word
         d zr_ary_buf_free Void a:Value
         d zr_ary_new Value capa:Word
@@ -740,7 +742,15 @@ module Ze0
         d zr_arena_at Ptr i:Word
         d zr_arena_table_grow Void
         d zr_arena_of Ptr v:Value
-        d zr_arena_add Void
+        d zr_size_class Ptr c:Word
+        d zr_size_class_for Word bytes:Word
+        d zr_cell_bytes Word v:Value
+        d zr_arena_first Ptr a:Ptr
+        d zr_arena_exivars Ptr a:Ptr
+        d zr_cell_index Word v:Value
+        d zr_arena_add Void c:Word
+        d zr_arena_reserve Void a:Ptr chain:Ptr
+        d zr_arena_unreserve Void sc:Ptr
         d zr_globals Ptr
         d zr_global Value i:Word
         d zr_set_global Void i:Word v:Value
@@ -748,6 +758,7 @@ module Ze0
         d zr_marking Ptr
         d zr_mark_stack Ptr
         d zr_mark Void v:Value
+        d zr_mark_every Ptr
         d zr_mark_cell Void v:Value
         d zr_mark_drain Void
         d zr_exivar_slot Ptr v:Value
@@ -769,22 +780,24 @@ module Ze0
         d zr_gvar_defined_m Value name:Value
         d zr_mark_roots Void
         d zr_mark_task Void t:Ptr
-        d zr_free_cell Void cell:Ptr
-        d zr_poison_payload Void cell:Ptr
-        d zr_sweep_arena Void a:Ptr start:Word stop:Word
+        d zr_free_cell Void cell:Ptr bytes:Word
+        d zr_poison_payload Void cell:Ptr bytes:Word
+        d zr_sweep_arena Void a:Ptr start:Word stop:Word whole:Bool
         d zr_sweep Void
-        d zr_collect Void
+        d zr_collect Void wanting:Word
         d zr_gc_malloced Value
         d zr_gc_malloc_limit Value
         d zr_gc_nanoseconds Value
         d zr_gc_start Value
         d zr_gc_count Value
         d zr_gc_allocated Value
-        d zr_gc_live_slots Value
+        d zr_gc_pool Value c:Value
+        d zr_gc_arenas Value
+        d zr_heap_cells Word
         d zr_gc_set_disabled Value flag:Value
         d zr_gc_set_stress Value flag:Value
         d zr_gc_stress Value
-        d zr_alloc Value type:Word klass:Value
+        d zr_alloc Value type:Word klass:Value bytes:Word
         d zr_kroots Ptr
         d zr_mark_kernel_roots Void
         d zr_mark_kernel_roots_from Void frame:Ptr
@@ -962,6 +975,7 @@ module Ze0
         d zr_release_ivtab Void t:Ptr
         d zr_ivtab_embedded_p Bool t:Ptr
         d zr_obj_alloc Value klass:Value
+        d zr_obj_ivars_seen Void o:Value n:Word
         d zr_obj_ivtab_init Void o:Value
         d zr_ivtab_row Ptr t:Ptr id:Word
         d zr_ivtab_get Value t:Ptr id:Word
@@ -1397,6 +1411,8 @@ module Ze0
         d zr_uniform_sort Void base:Ptr n:Word
         d zr_sort_by Value pairs:Value
         d zr_str_embedded_p Bool s:Value
+        d zr_str_embed_capa Word s:Value
+        d zr_str_cell_bytes Word n:Word
         d zr_str_buf_new Void s:Value n:Word
         d zr_str_buf_free Void s:Value
         d zr_str_reserve Void s:Value n:Word
@@ -1681,7 +1697,6 @@ module Ze0
         c G_ARRAY 25
         c G_INDEX_ERROR 26
         c ARY_MAX_SIZE 1152921504606846975
-        c ARY_EMBED_CAPA 10
         c G_MASTER_GVARS 48
         c G_BOX 49
         c CALL_WAYS 4
@@ -1788,11 +1803,13 @@ module Ze0
         c KEY_SAME 1
         c KEY_RAISED 2
         c HASH_SMALL 8
-        c CELL 128
-        c CELLS 32768
         c ARENA_BYTES 4194304
-        c ARENA_ALLOC 4456448
+        c ARENA_HEAD 256
+        c ARENA_CELLS 8192
         c ARENA_TABLE 64
+        c CELL_MIN 32
+        c CELL_MAX 256
+        c SIZE_CLASSES 4
         c POISON 14593280
         c MALLOC_LIMIT 67108864
         c G_BASIC_OBJECT 0
@@ -1854,7 +1871,6 @@ module Ze0
         c PARAM_KEYREST 5
         c PARAM_BLOCK 6
         c PARAM_NOKEY 7
-        c IV_EMBEDDED 5
         c G_RANGE 12
         c G_RANGE_LITERALS 51
         c ALLOC_OBJECT 1
@@ -1907,7 +1923,6 @@ module Ze0
         c SOCKADDR_MAX 256
         c FL_EMBED 128
         c FL_EMBED_CLEAR -129
-        c STR_EMBED_CAPA 87
         c FL_ASCII 2097152
         c FL_VALID 8388608
         c FL_ASCII_CLEAR -2097153
@@ -2033,7 +2048,7 @@ module Ze0
         s ConstCache 24 8 key:0:Value stamp:8:Word value:16:Value
         s SuperCache 48 8 node:0:Value mid:8:Word stamp:16:Word entry:24:Ptr found:32:Value fn:40:Ptr
         s RClass 56 8 basic:0:RBasic name:16:Value superclass:24:Value ext:32:Ptr attached:40:Value origin:48:Value
-        s ClassExt 208 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word refined:104:Value active:112:Value boxed:120:Value shadow:128:Value alloc:136:Word cidx:144:Ptr cbins:152:Word saved:160:Ptr slen:168:Word supers:176:Ptr rank:184:Word midx:192:Ptr mbins:200:Word
+        s ClassExt 216 8 mtab:0:Ptr mlen:8:Word mcap:16:Word ctab:24:Ptr clen:32:Word ccap:40:Word iv:48:IvTab cv:72:IvTab serial:96:Word refined:104:Value active:112:Value boxed:120:Value shadow:128:Value alloc:136:Word cidx:144:Ptr cbins:152:Word saved:160:Ptr slen:168:Word supers:176:Ptr rank:184:Word midx:192:Ptr mbins:200:Word obj_bytes:208:Word
         s MEntry 88 8 mid:0:Word fn:8:Ptr arity:16:Word kind:24:Word meta:32:Ptr cref:40:Value vis:48:Word orig:56:Word from:64:Value core:72:Word ivar:80:IvarCache
         s CEntry 72 8 id:0:Word value:8:Value file:16:Ptr file_len:24:Word line:32:Word private:40:Word deprecated:48:Word owner:56:Value concealed:64:Word
         s GateRow 40 8 klass:0:Word mid:8:Word bit:16:Word fn:24:Ptr vis:32:Word
@@ -2050,7 +2065,9 @@ module Ze0
         s RFloat 24 8 basic:0:RBasic bits:16:Word
         s RHash 96 8 basic:0:RBasic entries:16:Ptr len:24:Word live:32:Word cap:40:Word default:48:Value default_proc:56:Value bins:64:Ptr nbins:72:Word iter:80:Word gen:88:Word
         s HEntry 32 8 key:0:Value value:8:Value live:16:Word hash:24:Word
-        s Heap 104 8 free:0:Ptr allocated:8:Word collections:16:Word stress:24:Word last:32:Ptr disabled:40:Word arenas:48:Word freed:56:Word nanoseconds:64:Word table:72:Ptr capacity:80:Word malloced:88:Word malloc_limit:96:Word
+        s ArenaHead 56 8 cell:0:Word shift:8:Word ncells:16:Word index:24:Word reserved:32:Word chain:40:Ptr next:48:Ptr
+        s SizeClass 48 8 free:0:Ptr last:8:Ptr freed:16:Word arenas:24:Word reserve:32:Ptr allocated:40:Word
+        s Heap 72 8 collections:0:Word stress:8:Word disabled:16:Word arenas:24:Word nanoseconds:32:Word table:40:Ptr capacity:48:Word malloced:56:Word malloc_limit:64:Word
         s Frame 88 8 prev:0:Ptr meta:8:Ptr line:16:Word self:24:Value cref:32:Value blk:40:Value entry:48:Ptr defined:56:Value serial:64:Word nvalues:72:Word svars:80:Value
         s Task 128 8 top:0:Ptr serial:8:Word pending:16:Value errinfo:24:Value pending_kind:32:Word pending_home:40:Ptr pending_site:48:Word kw:56:Word stack_limit:64:Ptr guards:72:Value catches:80:Value throw_tag:88:Value missing:96:Word found:104:Value refine:112:Value ractor:120:Word
         s MarkStack 24 8 ptr:0:Ptr len:8:Word capa:16:Word

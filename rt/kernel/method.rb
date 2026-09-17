@@ -91,7 +91,7 @@ machine def zr_method_new(recv, klass, mid)
   if owner == QNIL
     owner = zr_method_owner(klass, mid)
   end
-  m = zr_alloc(T_METHOD, zr_global(recv == QUNDEF ? G_UNBOUND_METHOD : G_METHOD))
+  m = zr_alloc(T_METHOD, zr_global(recv == QUNDEF ? G_UNBOUND_METHOD : G_METHOD), RMethod.size)
   RMethod.set_recv(m, recv)
   RMethod.set_klass(m, klass)
   RMethod.set_owner(m, owner)
@@ -104,7 +104,7 @@ end
 # class when the receiver has one), any number of arguments.
 sig [Value, Value, Word] => Value
 machine def zr_method_missing_new(recv, klass, mid)
-  m = zr_alloc(T_METHOD, zr_global(G_METHOD))
+  m = zr_alloc(T_METHOD, zr_global(G_METHOD), RMethod.size)
   RMethod.set_recv(m, recv)
   RMethod.set_klass(m, klass)
   RMethod.set_owner(m, klass)
@@ -435,7 +435,7 @@ end
 
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_method_unbind(recv, argc, argv, cref, blk)
-  m = zr_alloc(T_METHOD, zr_global(G_UNBOUND_METHOD))
+  m = zr_alloc(T_METHOD, zr_global(G_UNBOUND_METHOD), RMethod.size)
   RMethod.set_recv(m, Machine.value(QUNDEF))
   RMethod.set_klass(m, RMethod.klass(recv))
   RMethod.set_owner(m, RMethod.owner(recv))
@@ -458,7 +458,7 @@ machine def zr_method_bind_to(m, obj)
     zr_buf_class(b, owner)
     return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
-  bound = zr_alloc(T_METHOD, zr_global(G_METHOD))
+  bound = zr_alloc(T_METHOD, zr_global(G_METHOD), RMethod.size)
   RMethod.set_recv(bound, obj)
   RMethod.set_klass(bound, zr_class_of(obj))
   RMethod.set_owner(bound, owner)

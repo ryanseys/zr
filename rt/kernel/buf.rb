@@ -93,8 +93,8 @@ end
 sig [Ptr] => Value
 machine def zr_buf_take(b)
   n = Buf.len(b)
-  s = zr_alloc(T_STRING, zr_global(G_STRING))
-  if n <= STR_EMBED_CAPA
+  s = zr_alloc(T_STRING, zr_global(G_STRING), zr_str_cell_bytes(n))
+  if n <= zr_str_embed_capa(s)
     # Bytes that fit the cell are copied in, from the tail or from a
     # buffer that grew past it and is given back.
     zr_str_buf_new(s, n)

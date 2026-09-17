@@ -14,27 +14,39 @@ machine def zr_ary_max_size
   zr_fix(ARY_MAX_SIZE)
 end
 
-# An Array whose elements live in its own cell, after the header, with
-# room for ARY_EMBED_CAPA of them. A longer one keeps them in a
-# malloc'd block, `base`, which `ptr` may start inside once a shift has
-# moved it. Either way `ptr` reaches the elements and `capa` counts the
-# room from there, so a reader never asks which (FL_EMBED, a String's
-# flag too).
-# (CELL - RArray.size) / 8
-ARY_EMBED_CAPA = 10
-
+# An Array whose elements live in its own cell, after the header, as
+# many as the cell has room for. A longer one keeps them in a malloc'd
+# block, `base`, which `ptr` may start inside once a shift has moved
+# it. Either way `ptr` reaches the elements and `capa` counts the room
+# from there, so a reader never asks which (FL_EMBED, a String's flag
+# too).
 sig [Value] => Bool
 machine def zr_ary_embedded_p(a)
   (RBasic.flags(a) & FL_EMBED) != 0
+end
+
+# The elements `a`'s own cell holds: 2 in a 64-byte cell, 10 in 128,
+# 26 in 256.
+sig [Value] => Word
+machine def zr_ary_embed_capa(a)
+  (zr_cell_bytes(a) - RArray.size) / 8
+end
+
+# The cell an Array of `capa` elements takes: one that holds them all,
+# else the smallest, with the elements malloc'd.
+sig [Word] => Word
+machine def zr_ary_cell_bytes(capa)
+  bytes = RArray.size + (capa * 8)
+  bytes <= CELL_MAX ? bytes : RArray.size
 end
 
 # Room for `capa` elements in `a`, whose old ones are gone: the cell's
 # own tail when they fit, else a malloc'd block.
 sig [Value, Word] => Void
 machine def zr_ary_buf_new(a, capa)
-  if capa <= ARY_EMBED_CAPA
+  if capa <= zr_ary_embed_capa(a)
     buf = Machine.ptr(a) + RArray.size
-    capa = ARY_EMBED_CAPA
+    capa = zr_ary_embed_capa(a)
     RBasic.set_flags(a, RBasic.flags(a) | FL_EMBED)
   else
     buf = zr_xmalloc(capa * 8)
@@ -57,7 +69,7 @@ end
 
 sig [Word] => Value
 machine def zr_ary_new(capa)
-  a = zr_alloc(T_ARRAY, zr_global(G_ARRAY))
+  a = zr_alloc(T_ARRAY, zr_global(G_ARRAY), zr_ary_cell_bytes(capa))
   zr_ary_buf_new(a, capa)
   a
 end

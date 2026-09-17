@@ -55,7 +55,7 @@ machine def zr_float_new(d)
   if b == 0
     return Machine.value(FLONUM_ZERO)
   end
-  f = zr_alloc(T_FLOAT, zr_global(G_FLOAT))
+  f = zr_alloc(T_FLOAT, zr_global(G_FLOAT), RFloat.size)
   RFloat.set_bits(f, Machine.word(b))
   RBasic.set_flags(f, RBasic.flags(f) | FL_FREEZE)
   f

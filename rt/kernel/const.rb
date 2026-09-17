@@ -23,7 +23,7 @@ G_TOP_CREF = 24
 
 sig [Value, Value] => Value
 machine def zr_cref_push(klass, outer)
-  c = zr_alloc(T_CREF, Machine.value(QNIL))
+  c = zr_alloc(T_CREF, Machine.value(QNIL), RCref.size)
   RCref.set_klass(c, klass)
   RCref.set_next(c, outer)
   RCref.set_vis(c, VIS_PUBLIC)

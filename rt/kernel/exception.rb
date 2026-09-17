@@ -155,7 +155,7 @@ end
 
 sig [Value, Value] => Value
 machine def zr_exc_new(klass, message)
-  e = zr_alloc(T_EXCEPTION, klass)
+  e = zr_alloc(T_EXCEPTION, klass, RException.size)
   RException.set_message(e, message)
   RException.set_rows(e, 0)
   RException.set_nrows(e, 0)

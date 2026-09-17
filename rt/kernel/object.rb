@@ -8,8 +8,6 @@
 Machine.struct :IvTab, rows: Ptr, len: Word, cap: Word
 Machine.struct :IvEntry, id: Word, value: Value
 Machine.struct :RObject, basic: RBasic, iv: IvTab
-# (CELL - RObject.size) / IvEntry.size
-IV_EMBEDDED = 5
 
 sig [Ptr] => Void
 machine def zr_ivtab_init(t)
@@ -73,11 +71,28 @@ machine def zr_ivtab_embedded_p(t)
   IvTab.rows(t) == t + IvTab.size
 end
 
+# An instance of `klass` in the cell its class's instances have needed
+# so far (ClassExt.obj_bytes): room for one row in 64 bytes, 5 in 128,
+# 13 in 256.
 sig [Value] => Value
 machine def zr_obj_alloc(klass)
-  o = zr_alloc(T_OBJECT, klass)
+  o = zr_alloc(T_OBJECT, klass, ClassExt.obj_bytes(RClass.ext(klass)))
   zr_obj_ivtab_init(o)
   o
+end
+
+# An object's table outgrew its cell: the class's next instances get a
+# cell with room for `n` rows, or the largest.
+sig [Value, Word] => Void
+machine def zr_obj_ivars_seen(o, n)
+  ext = RClass.ext(zr_real_class(o))
+  bytes = RObject.size + (n * IvEntry.size)
+  if bytes > CELL_MAX
+    bytes = CELL_MAX
+  end
+  if bytes > ClassExt.obj_bytes(ext)
+    ClassExt.set_obj_bytes(ext, bytes)
+  end
 end
 
 # An object's table over the rows in its own cell, empty.
@@ -86,7 +101,7 @@ machine def zr_obj_ivtab_init(o)
   t = RObject.iv(o)
   IvTab.set_rows(t, t + IvTab.size)
   IvTab.set_len(t, 0)
-  IvTab.set_cap(t, IV_EMBEDDED)
+  IvTab.set_cap(t, (zr_cell_bytes(o) - RObject.size) / IvEntry.size)
 end
 
 # The row for `id` in the table `t`, or 0.
@@ -285,7 +300,9 @@ machine def zr_ivtab_append(t, id, v)
     rows = zr_xmalloc(cap * IvEntry.size)
     if IvTab.rows(t) != 0
       zr_memcpy(rows, IvTab.rows(t), n * IvEntry.size)
-      if !zr_ivtab_embedded_p(t)
+      if zr_ivtab_embedded_p(t)
+        zr_obj_ivars_seen(Machine.value(t - RBasic.size), n + 1)
+      else
         zr_xfree(IvTab.rows(t))
       end
     end

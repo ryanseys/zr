@@ -45,7 +45,7 @@ PENDING_THROW = 3
 
 sig [Value, Word, Ptr] => Value
 machine def zr_env_new(parent, n, names)
-  e = zr_alloc(T_ENV, Machine.value(QNIL))
+  e = zr_alloc(T_ENV, Machine.value(QNIL), REnv.size)
   REnv.set_parent(e, parent)
   REnv.set_nslots(e, n)
   REnv.set_names(e, names)
@@ -221,7 +221,7 @@ machine def zr_block_proc(b)
   if RProc.fn(b) == Machine.addr(:zr_enum_each_block)
     self_ = zr_block_proc(self_)
   end
-  p = zr_alloc(T_PROC, zr_global(G_PROC))
+  p = zr_alloc(T_PROC, zr_global(G_PROC), RProc.size)
   zr_memcpy(Machine.ptr(p) + RBasic.size, Machine.ptr(b) + RBasic.size, RProc.size - RBasic.size)
   RProc.set_blk(p, blk)
   RProc.set_env(p, env)
@@ -306,7 +306,7 @@ end
 # what it works on: a Symbol's or a Method's Proc.
 sig [Ptr, Value] => Value
 machine def zr_native_proc(fn, self_)
-  p = zr_alloc(T_PROC, zr_global(G_PROC))
+  p = zr_alloc(T_PROC, zr_global(G_PROC), RProc.size)
   RProc.set_fn(p, fn)
   RProc.set_meta(p, 0)
   RProc.set_env(p, Machine.value(QNIL))

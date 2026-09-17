@@ -22,7 +22,7 @@ module GC
   def self.stat(hash_or_key = nil)
     Primitive.attr! :ruby
     total, free = Primitive.zr_objspace_census
-    pages = total / 32_768
+    pages = Primitive.zr_gc_arenas
     live = total - free
     allocated = Primitive.zr_gc_allocated
     count = Primitive.zr_gc_count
@@ -97,10 +97,10 @@ module GC
   # of its own to add.
   OPTS = %w[USE_RGENGC RGENGC_ESTIMATE_OLDMALLOC GC_ENABLE_LAZY_SWEEP GC_COMPACTION_SUPPORTED].freeze
 
-  # The heap's own sizes: one 128-byte cell for every object.
+  # The heap's own sizes: cells of 32 to 256 bytes in 4 MiB arenas.
   INTERNAL_CONSTANTS = {
-    DEBUG: false, BASE_SLOT_SIZE: 128, RBASIC_SIZE: 16, RVALUE_OVERHEAD: 0, HEAP_PAGE_OBJ_LIMIT: 512,
-    HEAP_PAGE_BITMAP_SIZE: 64, HEAP_PAGE_SIZE: 65536, HEAP_COUNT: 1, RVARGC_MAX_ALLOCATE_SIZE: 128, RVALUE_OLD_AGE: 3
+    DEBUG: false, BASE_SLOT_SIZE: 32, RBASIC_SIZE: 16, RVALUE_OVERHEAD: 0, HEAP_PAGE_OBJ_LIMIT: 131_064,
+    HEAP_PAGE_BITMAP_SIZE: 16_384, HEAP_PAGE_SIZE: 4_194_304, HEAP_COUNT: 5, RVARGC_MAX_ALLOCATE_SIZE: 256, RVALUE_OLD_AGE: 3
   }.freeze
 
   # Nothing moves here, so a compaction considers no object at all.
@@ -136,21 +136,48 @@ module GC
     { rgengc_allow_full_mark: true, implementation: "default" }
   end
 
-  # One pool of one cell size holds every object.
+  # The four pools of 32, 64, 128 and 256-byte cells, and a fifth that
+  # stays empty, so a pool index ruby answers is answered here too.
+  POOLS = 5
+  private_constant :POOLS
+
+  # One pool's numbers, or every pool's under its index, as
+  # rb_gc_impl_stat_heap answers them: into the Hash given, or one of
+  # them by name.
   def self.stat_heap(heap_name = nil, hash_or_key = nil)
     Primitive.attr! :ruby
-    out = hash_or_key.nil? ? {} : hash_or_key
-    stats = {
-      slot_size: 128,
-      heap_live_slots: Primitive.zr_gc_live_slots,
-      heap_free_slots: 0,
-      total_allocated_objects: Primitive.zr_gc_allocated
-    }
-    return out.merge!(0 => stats) if heap_name.nil?
-    raise RangeError, "pool index out of range" unless heap_name == 0
+    if heap_name.nil?
+      raise TypeError, "non-hash given" unless hash_or_key.nil? || hash_or_key.is_a?(Hash)
 
-    out.merge!(stats)
+      out = hash_or_key || {}
+      POOLS.times { |pool| out[pool] = pool_stats(pool, out[pool].is_a?(Hash) ? out[pool] : {}) }
+      return out
+    end
+    raise TypeError, "heap_name must be nil or an Integer" unless heap_name.is_a?(Integer)
+    raise ArgumentError, "size pool index out of range" unless (0...POOLS).cover?(heap_name)
+
+    case hash_or_key
+    when nil then pool_stats(heap_name, {})
+    when Hash then pool_stats(heap_name, hash_or_key)
+    when Symbol then pool_stats(heap_name, {}).fetch(hash_or_key) { raise ArgumentError, "unknown key: #{hash_or_key}" }
+    else raise TypeError, "non-hash or symbol given"
+    end
   end
+
+  # Pool `pool`'s numbers written into `out`, in CRuby's key order. An
+  # arena here is a page; nothing waits to be finalized or forces a
+  # major collection.
+  def self.pool_stats(pool, out)
+    Primitive.attr! :hidden
+    slot_size, live, free, pages, allocated = Primitive.zr_gc_pool(pool)
+    out.merge!(
+      slot_size: slot_size, heap_live_slots: live, heap_free_slots: free, heap_final_slots: 0,
+      heap_eden_pages: pages, heap_eden_slots: live + free, total_allocated_pages: pages,
+      force_major_gc_count: 0, force_incremental_marking_finish_count: 0,
+      total_allocated_objects: allocated, total_freed_objects: [allocated - live, 0].max
+    )
+  end
+  private_class_method :pool_stats
 
   def garbage_collect(full_mark: true, immediate_mark: true, immediate_sweep: true)
     Primitive.attr! :ruby
