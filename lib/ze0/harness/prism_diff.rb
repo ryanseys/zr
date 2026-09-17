@@ -200,6 +200,22 @@ module Ze0
         end
       end
 
+      # The Ruby parser against the C: each case's Prism.dump written by
+      # Prism::Ruby.dump, byte for byte. Answers the cases that differ as
+      # `[name, why]`.
+      def dump(cases)
+        require File.join(ROOT, "rt/ext/prism/ruby")
+        cases.filter_map do |c|
+          expected = Prism.dump(c.source, **c.options)
+          actual = begin
+            Prism::Ruby.dump(c.source, **c.options)
+          rescue StandardError, SystemStackError => e
+            next [c.name, "#{e.class}: #{e.message}\n  #{e.backtrace.first(4).join("\n  ")}"]
+          end
+          [c.name, difference(expected, actual)] unless actual == expected
+        end
+      end
+
       # The lexer alone against Prism.lex: each token's type and byte range,
       # and with `states` its lex state. A lexer with no parser behind it
       # differs wherever the parser moves the lex state, so this compares the

@@ -12,7 +12,20 @@ require_relative "strpbrk"
 module Prism
   module Ruby
     # pm_token_t, where a token is copied by value.
-    Token = Struct.new(:type, :start, :end)
+    Token = Struct.new(:type, :start, :end) do
+      # Whether the token is not the PM_TOKEN_NOT_PROVIDED stand-in.
+      def provided? = type != :NOT_PROVIDED
+
+      # PM_LOCATION_TOKEN_VALUE, packed as `(start << 32) | length`.
+      def location = (start << 32) | (self.end - start)
+
+      # PM_OPTIONAL_LOCATION_TOKEN_VALUE: nil for a token not provided.
+      def optional_location = provided? ? location : nil
+    end
+
+    # not_provided: the stand-in for a token that is absent without error,
+    # at the start of the source.
+    NOT_PROVIDED = Token.new(:NOT_PROVIDED, 0, 0).freeze
 
     # A diagnostic in discovery order: its id (a ParseError#type Symbol),
     # its byte range, its message bytes and its level.
@@ -99,7 +112,7 @@ module Prism
         @encoding = Encodings::UTF_8
         @encoding_comment_start = 0
         @lex_callback = nil
-        @filepath = options.filepath
+        @filepath = options.filepath || "".b
         @constant_pool = ConstantPool.new(@source, [@end / 95, 4].max)
         # pm_newline_list_t: the offset each line starts at.
         @newlines = [0]
@@ -122,6 +135,13 @@ module Prism
         @semantic_token_seen = false
         @current_regular_expression_ascii_only = false
         @warn_mismatched_indentation = true
+
+        # The Source the nodes hold, its line offsets filled in after the parse.
+        @node_source = Prism::Source.for(source.dup)
+        # The Symbol of each constant id, made on first use.
+        @constant_symbols = []
+        # The ids of the numeric nodes negated to a zero (`-0`).
+        @negative_zeros = []
 
         read_options(options)
         @version = Options::VERSION_LATEST if @version == 0

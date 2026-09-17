@@ -1,0 +1,70 @@
+module Prism
+  module Ruby
+    # The parser's view of a node: prism.c reads and changes nodes after it
+    # creates them, and the nodes are immutable outside the parser, so the
+    # writers are a refinement that only the parser's files use.
+    #
+    # While the parser runs, a node's location and each location field are
+    # packed as `(start << 32) | length` (nil for an absent optional one).
+    # Inside the refinement their readers answer the packed value; outside,
+    # the node's own readers inflate it to a Location.
+    module Mutation
+      # Packed locations.
+      module Location
+        module_function
+
+        def pack(start, finish) = (start << 32) | ((finish - start) & 0xFFFF_FFFF)
+
+        def packed_end(location)
+          length = location & 0xFFFF_FFFF
+          length -= 0x1_0000_0000 if length >= 0x8000_0000
+          (location >> 32) + length
+        end
+      end
+
+      refine Node do
+        attr_accessor :location, :flags
+
+        # pm_node_flag_set
+        def flag_set(flag) = @flags |= flag
+
+        # pm_node_flag_unset
+        def flag_unset(flag) = @flags &= ~flag
+
+        # PM_NODE_FLAG_P
+        def flag?(flag) = @flags.anybits?(flag)
+
+        # The length is signed in its 32 bits, as the C sets a start past the
+        # end for a moment before it sets the end.
+        def start_offset = @location >> 32
+        def end_offset = Location.packed_end(@location)
+
+        def start_offset=(start)
+          @location = Location.pack(start, end_offset)
+        end
+
+        def end_offset=(finish)
+          @location = Location.pack(start_offset, finish)
+        end
+      end
+      <%- nodes.each do |node| -%>
+      <%- next if node.fields.empty? -%>
+      <%- locations, others = node.fields.partition { |field| field.is_a?(Prism::Template::LocationField) || field.is_a?(Prism::Template::OptionalLocationField) } -%>
+
+      refine <%= node.name %> do
+        <%- unless locations.empty? -%>
+        attr_accessor <%= locations.map { |field| ":#{field.name}" }.join(", ") %>
+        <%- end -%>
+        <%- unless others.empty? -%>
+        attr_writer <%= others.map { |field| ":#{field.name}" }.join(", ") %>
+        <%- end -%>
+        <%- if node.fields.size > 0 -%>
+
+        # The fields in the constructor's order, raw.
+        def fields = [<%= node.fields.map { |field| "@#{field.name}" }.join(", ") %>]
+        <%- end -%>
+      end
+      <%- end -%>
+    end
+  end
+end

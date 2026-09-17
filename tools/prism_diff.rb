@@ -7,6 +7,7 @@
 #   ruby tools/prism_diff.rb --lex [--states] [--corpus NAMES] [--only GLOB] [--show N]
 #
 # --writer: each C dump written again by Prism::Ruby::Dump, byte for byte.
+# --dump: Prism::Ruby.dump, the Ruby parser and writer, against Prism.dump.
 # --lex: the lexer alone against Prism.lex's token types and ranges (and
 # with --states, lex states); cases in a lex mode not yet written are
 # counted apart.
@@ -26,13 +27,14 @@ states = false
 show = 20
 OptionParser.new do |o|
   o.on("--writer") { mode = :writer }
+  o.on("--dump") { mode = :dump }
   o.on("--lex") { mode = :lex }
   o.on("--states") { states = true }
   o.on("--corpus NAMES") { |names| corpora = names.split(",") }
   o.on("--only GLOB") { |glob| only = glob }
   o.on("--show N", Integer) { |n| show = n }
 end.parse!
-abort "usage: ruby tools/prism_diff.rb --writer|--lex [--states] [--corpus NAMES] [--only GLOB] [--show N]" unless mode
+abort "usage: ruby tools/prism_diff.rb --writer|--dump|--lex [--states] [--corpus NAMES] [--only GLOB] [--show N]" unless mode
 
 diff = Ze0::Harness::PrismDiff
 cases = diff.cases(corpora, only: only)
@@ -40,6 +42,7 @@ unsupported = 0
 failures =
   case mode
   when :writer then diff.writer(cases)
+  when :dump then diff.dump(cases)
   when :lex then diff.lex(cases, states: states).tap { |_, count| unsupported = count }.first
   end
 failures.first(show).each { |name, why| puts "differs #{name}: #{why}" }
