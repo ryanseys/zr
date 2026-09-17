@@ -493,8 +493,13 @@ module Ze0
           changed
         end
 
+        # Every such block joined in one round, in layout order: a block
+        # that takes another's instructions takes its edges out too, so a
+        # later block whose predecessor was joined joins the block that
+        # took it.
         def merge
           into = edges
+          joined = {}.compare_by_identity
           @f.blocks.each do |b|
             next if b.equal?(@f.entry_block) || into[b.name].size != 1
 
@@ -505,10 +510,13 @@ module Ze0
             b.params.zip(t.targets[0][1]) { |(v, _), a| @rename[v] = a }
             p.insts.pop
             p.insts.concat(b.insts)
-            @f.blocks.delete(b)
-            return true
+            b.insts.last&.targets&.each_with_index do |(name, _), k|
+              into[name].map! { |from, at| from.equal?(b) && at == k ? [p, k] : [from, at] }
+            end
+            joined[b] = true
           end
-          false
+          @f.blocks.reject! { |b| joined.key?(b) } unless joined.empty?
+          !joined.empty?
         end
       end
 
@@ -520,27 +528,38 @@ module Ze0
                    fcvt_from_sint fcvt_to_sint_sat] +
                 Inst::BINOPS + Inst::FBINOPS + Inst::FUNOPS + Inst::PAIRS).to_set.freeze
 
+        # Each value's readers counted once; an instruction found dead
+        # takes one reader off each of its operands, and an operand's
+        # instruction left with none is dead in turn.
         def self.run(f)
-          loop do
-            used = Set.new
-            f.blocks.each do |b|
-              b.insts.each do |i|
-                i.args.each { |a| used << a if IR.value?(a) }
-                i.targets&.each { |(_, args)| args.each { |a| used << a } }
-              end
+          readers = Hash.new(0)
+          defined = {}
+          f.blocks.each do |b|
+            b.insts.each do |i|
+              i.args.each { |a| readers[a] += 1 if IR.value?(a) }
+              i.targets&.each { |(_, args)| args.each { |a| readers[a] += 1 } }
+              i.results.each { |r| defined[r] = i }
             end
-            removed = false
-            f.blocks.each do |b|
-              b.insts.reject! do |i|
-                next false unless PURE.include?(i.op) && i.results.none? { |r| used.include?(r) }
-
-                removed = true
-              end
-            end
-            break unless removed
           end
+          dead = {}.compare_by_identity
+          work = f.blocks.flat_map { |b| b.insts.select { |i| unread?(i, readers) } }
+          while (i = work.pop)
+            next if dead.key?(i)
+
+            dead[i] = true
+            i.args.each do |a|
+              next unless IR.value?(a)
+
+              readers[a] -= 1
+              d = defined[a]
+              work << d if d && readers[a].zero? && unread?(d, readers)
+            end
+          end
+          f.blocks.each { |b| b.insts.reject! { |i| dead.key?(i) } } unless dead.empty?
           f
         end
+
+        def self.unread?(i, readers) = PURE.include?(i.op) && i.results.none? { |r| readers[r].positive? }
       end
       # The small leaf functions of a unit, inlined where they are called:
       # a callee with no call, no slot and at most LIMIT instructions (a
