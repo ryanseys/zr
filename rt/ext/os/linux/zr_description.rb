@@ -362,8 +362,17 @@ module Ze0
         d zr_digest_blocks Value algo:Value state:Value data:Value
         d zr_enc_mb_p Bool index:Word
         d zr_enc_utf8_like_p Bool index:Word
-        d zr_mb_lead_len Word index:Word lead:Word second:Word
-        d zr_mb_trail_ok Bool index:Word lead:Word place:Word byte:Word
+        d zr_enc_mb_descriptor Word index:Word
+        d zr_enc_mb_euc_jp Ptr
+        d zr_enc_mb_windows_31j Ptr
+        d zr_enc_mb_big5 Ptr
+        d zr_enc_mb_cesu_8 Ptr
+        d zr_enc_mb_cp949 Ptr
+        d zr_enc_mb_emacs_mule Ptr
+        d zr_enc_mb_euc_kr Ptr
+        d zr_enc_mb_euc_tw Ptr
+        d zr_enc_mb_gb18030 Ptr
+        d zr_enc_mb_gbk Ptr
         d zr_args_init Void argc:I32 argv:Ptr
         d zr_cstr_len Word p:Ptr
         d zr_program_args Value

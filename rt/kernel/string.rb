@@ -275,29 +275,27 @@ end
 # the text ends in the middle of.
 sig [Value, Word] => Word
 machine def zr_str_mb_len(s, off)
-  index = zr_str_encoding_index(s)
   p = RString.ptr(s) + off
-  rest = RString.len(s) - off
-  lead = Machine.word(Machine.load8(p, 0))
-  if lead < 128
+  if Machine.word(Machine.load8(p, 0)) < 128
     return 1
   end
-  second = rest > 1 ? Machine.word(Machine.load8(p + 1, 0)) : 0
-  n = zr_mb_lead_len(index, lead, second)
-  if n < 2
-    return n
-  end
-  if rest < n
-    return 0
-  end
-  i = 1
-  while i < n
-    if !zr_mb_trail_ok(index, lead, i, Machine.word(Machine.load8(p + i, 0)))
-      return 0
-    end
-    i += 1
-  end
-  n
+  n = zr_onig_precise_len(zr_enc_mb_descriptor(zr_str_encoding_index(s)), p, RString.ptr(s) + RString.len(s))
+  n > 0 ? n : 0
+end
+
+# rb_enc_precise_mbclen over bytes `from` up to `to` of a multibyte
+# String: the character's length, -1 for bytes that make none, or less
+# than -1 when the bytes stop inside one.
+sig [Value, Value, Value] => Value
+machine def zr_str_mb_precise_len_m(s, from, to)
+  p = RString.ptr(s)
+  zr_fix(zr_onig_precise_len(zr_enc_mb_descriptor(zr_str_encoding_index(s)), p + zr_fix2long(from), p + zr_fix2long(to)))
+end
+
+# rb_enc_mbmaxlen of a multibyte String's encoding.
+sig [Value] => Value
+machine def zr_str_mb_max_len_m(s)
+  zr_fix(OnigEnc.max_len(Machine.ptr(zr_enc_mb_descriptor(zr_str_encoding_index(s)))))
 end
 
 # The stop a String whose bytes make no character raises. Encoding

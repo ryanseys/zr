@@ -8,8 +8,8 @@
 # lies from the one before it in the row, folded onto the positive
 # numbers. Rows repeat between encodings, so each one is written once
 # in MB_ROWS. Where a character ends is another question, which
-# rt/kernel/enc_mb.rb answers: ruby's converters are narrower than its
-# own character counts.
+# rt/kernel/enc_mb.rb answers from Onigmo's own tables: ruby's
+# converters are narrower than its own character counts.
 class Encoding
   MB = {
     "EUC-JP" => [

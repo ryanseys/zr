@@ -1263,7 +1263,16 @@ class String
   def scrub(replacement = nil)
     return copied if Primitive.zr_str_valid_p(self)
 
-    replacement = (Encoding.wide?(Encoding.at(Primitive.zr_str_encoding_index_m(self))) ? "\uFFFD".encode(Encoding.at(Primitive.zr_str_encoding_index_m(self))) : "\uFFFD") if replacement.nil? && !block_given?
+    encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    # U+FFFD in UTF-8 itself and in UTF-16 and UTF-32; "?" in every other
+    # encoding, UTF8-MAC and CESU-8 as well.
+    if replacement.nil? && !block_given?
+      replacement = if Encoding.wide?(encoding) then "\uFFFD".encode(encoding)
+                    elsif encoding.equal?(Encoding::UTF_8) then "\uFFFD"
+                    else "?"
+                    end
+    end
+    mb = Encoding.mb?(encoding)
     out = +""
     i = 0
     while i < Primitive.zr_str_bytesize(self)
@@ -1272,11 +1281,29 @@ class String
       if piece.valid_encoding?
         out << piece
       else
+        piece = byteslice(i, step = mb_scrub_len(i)) if mb
         out << (block_given? ? yield(piece) : replacement)
       end
       i += step
     end
     out
+  end
+
+  # rb_enc_str_scrub's run of broken bytes at `at` in a multibyte
+  # encoding: the rest of the text when a character stops inside it,
+  # else the longest start of a character shorter than the encoding's
+  # longest, or one byte.
+  def mb_scrub_len(at)
+    Primitive.attr! :hidden
+    size = Primitive.zr_str_bytesize(self)
+    return size - at if Primitive.zr_str_mb_precise_len_m(self, at, size) < -1
+
+    clen = [Primitive.zr_str_mb_max_len_m(self), size - at].min
+    return 1 if clen <= 2
+
+    clen -= 1
+    clen -= 1 while clen > 1 && Primitive.zr_str_mb_precise_len_m(self, at, at + clen) == -1
+    clen
   end
 
   def scrub!(replacement = nil, &block)
