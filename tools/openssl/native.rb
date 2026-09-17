@@ -38,6 +38,12 @@ module OpenSSL
         resume { function.call(*words.map { |w| w.is_a?(Fiddle::Pointer) ? w.to_i : w }, float) }
       end
 
+      def call_wide(address, widths, words)
+        types = widths.map { |bits| bits == 32 ? Fiddle::TYPE_INT : Fiddle::TYPE_LONG_LONG }
+        function = (@functions ||= {})[[address, types]] ||= Fiddle::Function.new(address, types, Fiddle::TYPE_LONG_LONG)
+        resume { function.call(*words.map { |w| w.is_a?(Fiddle::Pointer) ? w.to_i : w }) }
+      end
+
       def address(string) = Fiddle::Pointer[string].to_i
 
       # A NUL-ended copy, kept alive by the argument list that holds it:

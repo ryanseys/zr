@@ -32,6 +32,8 @@ module OpenSSL
     }.freeze
 
     PARAMS = %i[int uint uchar long int64 ulong uint64 size_t pointer string buffer double].freeze
+    # The parameters C passes in 32 bits.
+    NARROW = %i[int uint uchar].freeze
 
     class << self
       # The directories searched for the library, most specific first:
@@ -78,7 +80,7 @@ module OpenSSL
         raise LoadError, "OpenSSL 3 was not found; set OPENSSL_DIR to its prefix. Looked for: #{tried.join(", ")}"
       end
 
-      attr_reader :path
+      def path = @path
 
       # Binds `name`, a function taking `params` and answering `returns`
       # (the names in PARAMS and RETURNS), as a method of that name.
@@ -101,11 +103,17 @@ module OpenSSL
         strings = params.each_index.select { |i| params[i] == :string }
         double = params.last == :double
         raise ArgumentError, "#{name}: a :double call has no errno" if double && errno
+        # Past eight arguments some go on the stack, where an int takes
+        # four bytes: such a call goes through libffi with each width.
+        widths = params.map { |type| NARROW.include?(type) ? 32 : 64 } if arity > 8
+        raise ArgumentError, "#{name}: a call past eight arguments takes no :double or errno" if widths && (double || errno)
         define_singleton_method(as) do |*args|
           raise ArgumentError, "wrong number of arguments (given #{args.size}, expected #{arity}) for #{name}" unless args.size == arity
 
           strings.each { |i| args[i] = Native.cstring(args[i]) if args[i].is_a?(String) }
-          if double
+          if widths
+            answer.(Native.call_wide(address, widths, args.map! { |arg| Lib.word(arg) }))
+          elsif double
             float = args.pop
             answer.(Native.call_double(address, args.map! { |arg| Lib.word(arg) }, float))
           elsif errno

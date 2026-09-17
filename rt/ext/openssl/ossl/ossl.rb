@@ -112,9 +112,11 @@ module OpenSSL
     class << self
       # dOSSL: whether the error queue's entries are written to stderr as
       # they are dropped.
-      attr_writer :debug
-
       def debug = @debug || false
+
+      def debug=(value)
+        @debug = value
+      end
 
       # ossl_make_error: an instance of `klass` whose message is `message`
       # followed by the reason of the newest error in OpenSSL's queue, and
@@ -417,8 +419,10 @@ module OpenSSL
     # name or a Proc, once the collector takes this handle. The handle is
     # a separate object so that a copy of the Ruby object, which shares
     # it until initialize_copy sets its own, never frees it twice.
+    # (A reader method and not attr_reader, as throughout the port: in
+    # ze0 an attr_* method of the runtime's own files reads a hidden field.)
     class Handle
-      attr_reader :address
+      def address = @address
 
       def initialize(address, free)
         @address = address
@@ -444,7 +448,7 @@ module OpenSSL
     # object, where the C extension's allocation function does; it is
     # given the object when it takes an argument.
     class DataType
-      attr_reader :name
+      def name = @name
 
       def initialize(name, klass, free, missing = nil, alloc: nil)
         @name = name
