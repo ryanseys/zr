@@ -1073,7 +1073,7 @@ class String
     raise IndexError, "offset #{start} does not land on character boundary" unless char_boundary?(start)
     raise IndexError, "offset #{start + length} does not land on character boundary" unless char_boundary?(start + length)
 
-    mutate(byteslice_of(0, start) + text + byteslice_of(start + length, Primitive.zr_str_bytesize(self) - start - length))
+    Primitive.zr_str_splice(self, start, length, text)
   end
 
   def self.try_convert(object)

@@ -107,12 +107,19 @@ module Packing
   end
   private_class_method :quoted_printable, :decode_quoted_printable
 
-  # The bytes an unpack reads, from `offset` on.
+  # The byte an unpack starts at. The directives read the String where
+  # it is, from there on: a copy of a long String for each unpack1 at
+  # an offset makes a reader of records quadratic.
   def self.from(text, offset)
     raise ArgumentError, "offset can't be negative" if offset < 0
     raise ArgumentError, "offset outside of string" if offset > text.bytesize
 
-    text.b.byteslice(offset, text.bytesize - offset) || "".b
+    offset
+  end
+
+  # `n` bytes of `bytes` from `at` as a binary String of their own.
+  def self.chunk(bytes, at, n)
+    (bytes.byteslice(at, n) || "".b).force_encoding(Encoding::BINARY)
   end
 
   # Uuencoding: a line holds `count` bytes rounded down to a multiple
@@ -451,9 +458,11 @@ module Packing
     (sign << 31) | (e << 23) | kept
   end
 
-  def self.unpack(bytes, template, single, associates = nil)
+  # From byte `base` on; `@` and `X` count from the String's start, as
+  # CRuby's do whatever the offset.
+  def self.unpack(bytes, template, single, associates = nil, base = 0)
     out = []
-    at = 0
+    at = base
     directives(template, "unpack").each do |c, count, big|
       case c
       when "x"
@@ -473,7 +482,7 @@ module Packing
         at = n
       when "a", "A", "Z"
         n = count == :all ? bytes.bytesize - at : (count || 1)
-        chunk = bytes.byteslice(at, n) || "".b
+        chunk = chunk(bytes, at, n)
         if c == "Z"
           stop = chunk.index("\0")
           if stop
@@ -495,15 +504,15 @@ module Packing
         out << unpack_bits(bytes, at, n, c == "B")
         at += (n + 7) / 8
       when "m"
-        rest = bytes.byteslice(at, bytes.bytesize - at) || "".b
+        rest = chunk(bytes, at, bytes.bytesize - at)
         out << decode_base64(rest, count == 0)
         at = bytes.bytesize
       when "M"
-        rest = bytes.byteslice(at, bytes.bytesize - at) || "".b
+        rest = chunk(bytes, at, bytes.bytesize - at)
         out << decode_quoted_printable(rest)
         at = bytes.bytesize
       when "u"
-        rest = bytes.byteslice(at, bytes.bytesize - at) || "".b
+        rest = chunk(bytes, at, bytes.bytesize - at)
         out << uudecode(rest)
         at = bytes.bytesize
       when "p"
@@ -529,10 +538,10 @@ module Packing
         end
       when "U"
         n = count == :all ? nil : (count || 1)
-        text = bytes.dup.force_encoding("UTF-8")
+        text = chunk(bytes, base, bytes.bytesize - base).force_encoding("UTF-8")
         while (n.nil? || n > 0) && at < bytes.bytesize
-          len = Primitive.zr_str_char_len_at_m(text, at)
-          char = text.byteslice(at, len)
+          len = Primitive.zr_str_char_len_at_m(text, at - base)
+          char = text.byteslice(at - base, len)
           raise ArgumentError, "malformed UTF-8 character" if len == 1 && bytes.getbyte(at) >= 128
 
           out << char.ord
@@ -695,7 +704,8 @@ class String
   # as CRuby's unpack does.
   def unpack(fmt, offset: 0)
     Primitive.attr! :ruby
-    values = Packing.unpack(Packing.from(plain, offset), Primitive.zr_str_operand(fmt), false, Packing.associated(self))
+    bytes = plain
+    values = Packing.unpack(bytes, Primitive.zr_str_operand(fmt), false, Packing.associated(self), Packing.from(bytes, offset))
     return values unless block_given?
 
     values.each { |value| yield value }
@@ -704,6 +714,7 @@ class String
 
   def unpack1(fmt, offset: 0)
     Primitive.attr! :ruby
-    Packing.unpack(Packing.from(plain, offset), Primitive.zr_str_operand(fmt), true, Packing.associated(self)).first
+    bytes = plain
+    Packing.unpack(bytes, Primitive.zr_str_operand(fmt), true, Packing.associated(self), Packing.from(bytes, offset)).first
   end
 end

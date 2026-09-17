@@ -703,8 +703,10 @@ machine def zr_str_concat(recv, argc, argv, cref, blk)
     return zr_str_join_incompatible(recv, other)
   end
   index = zr_str_join_index(recv, other)
-  # Plain ASCII onto plain ASCII stays plain ASCII.
-  ascii = (RBasic.flags(recv) & RBasic.flags(other) & FL_ASCII) != 0
+  # Plain ASCII onto plain ASCII stays plain ASCII. The piece is scanned
+  # when the receiver is known ASCII: a scan of the piece costs what its
+  # copy does, and a lost flag makes the next join scan the whole receiver.
+  ascii = (RBasic.flags(recv) & FL_ASCII) != 0 && zr_str_ascii_bytes_p(other)
   n = RString.len(recv) + RString.len(other)
   zr_str_reserve(recv, n)
   zr_memcpy(RString.ptr(recv) + RString.len(recv), RString.ptr(other), RString.len(other))
@@ -984,6 +986,10 @@ end
 sig [Value, Value] => Value
 machine def zr_str_byte_to_char(s, off)
   stop = zr_fix2long(off)
+  # One byte a character: the offset is the index.
+  if (RBasic.flags(s) & FL_ASCII) != 0 || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
+    return off
+  end
   i = 0
   count = 0
   while i < stop
@@ -1993,6 +1999,9 @@ machine def zr_str_splice(s, from, len, other)
     return zr_str_join_incompatible(s, other)
   end
   index = zr_str_join_index(s, other)
+  # ASCII spliced into ASCII stays ASCII, as rb_str_update_1 keeps the
+  # 7-bit coderange: a lost flag makes the next index scan the whole string.
+  ascii = (RBasic.flags(s) & FL_ASCII) != 0 && zr_str_ascii_bytes_p(other)
   at = zr_fix2long(from)
   cut = zr_fix2long(len)
   m = RString.len(other)
@@ -2014,7 +2023,9 @@ machine def zr_str_splice(s, from, len, other)
   end
   RString.set_len(s, n)
   Machine.store8(RString.ptr(s) + n, 0, Machine.i8(0))
-  zr_str_modified(s)
+  if !ascii
+    zr_str_modified(s)
+  end
   zr_str_set_index(s, index)
   s
 end

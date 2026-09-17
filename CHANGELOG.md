@@ -24,6 +24,10 @@ The first release as a RubyGem.
   relocates only the program: 0.08 s for a small program. `ZE0_LINK=cc`
   links with the system linker instead, and `cc` links what ze0's linker
   refuses.
+- In a binary, `String#index` from an offset, `bytesplice`, `unpack` and
+  `unpack1` at an offset, and `<<` of text in another encoding take time
+  in proportion to the work, not to the String's length. `unpack`'s `@`
+  and `X` count from the String's start, as ruby's do.
 - `cc` runs with `DEVELOPER_DIR` and `SDKROOT` pinned to the
   install the SDK comes from, so ze0 links with the macOS 27.0 SDK when
   the selected Xcode is older than the Command Line Tools.
