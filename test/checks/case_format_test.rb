@@ -46,6 +46,14 @@ class CaseFormatTest < Minitest::Test
     assert_raises(ArgumentError) { Case.new("#@ only: plan9\nputs 1\n") }
   end
 
+  def test_needs_names_a_library_the_machine_must_have
+    c = Case.new("#@ needs: libssl\nputs 1\n")
+    assert_equal ["libssl"], c.directives.needs
+    assert_equal "libssl", c.unmet_need("wasi")
+    assert_nil Case.new("puts 1\n").unmet_need("wasi")
+    assert_raises(ArgumentError) { Case.new("#@ needs: libfoo\nputs 1\n") }
+  end
+
   def test_no_trailer_means_no_recording
     refute Case.new("puts 1\n").recorded?
     assert Case.new("puts 1\n__END__").recorded?

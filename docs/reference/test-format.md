@@ -45,6 +45,7 @@ in any order. An unknown key fails the case rather than being ignored.
 | `#@ zeo: <flags>` | flags for the compiled program's CLI only (kept from the recordings) |
 | `#@ zeo-env: K=V ...` | environment for the zeo child only |
 | `#@ only: <platforms>` | skip on every platform the list does not name: `macos`, `linux`, `wasi`, separated by commas or spaces |
+| `#@ needs: libssl` | skip where the library is absent: libssl 3 in `OPENSSL_DIR` or the Homebrew and MacPorts prefixes, on macOS only |
 | `#@ backend: jit` | skip wherever a real link is used; the program needs the compiler and itself in one process |
 | `#@ gccheck: <line>` | the exit cycle census this program is expected to report |
 | `#@ build-mb: <megabytes>` | the build's memory bound, for a program known to need more than `ZE0_BUILD_MB` |

@@ -164,6 +164,10 @@ def one(rb, options)
     lines << "  #{"skipped".ljust(10)} only on #{directives.only.join(", ")}"
     return Row.new(rel, :skipped, lines, 0, 0, "only #{directives.only.join(", ")}")
   end
+  if (need = kase.unmet_need(RUNNER.platform))
+    lines << "  #{"skipped".ljust(10)} needs #{need}, which this machine lacks"
+    return Row.new(rel, :skipped, lines, 0, 0, "needs #{need}")
+  end
 
   work = Dir.mktmpdir("ze0-tool-test-")
   keep = options[:keep]

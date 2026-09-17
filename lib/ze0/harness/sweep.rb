@@ -122,6 +122,9 @@ module Ze0
         kase = Case.read(rb)
         return Row.new(rb, :skipped, "no recording") unless kase.recorded?
         return Row.new(rb, :skipped, "only #{kase.directives.only.join(", ")}") unless kase.runs_on?(@runner.platform)
+        if (need = kase.unmet_need(@runner.platform))
+          return Row.new(rb, :skipped, "needs #{need}")
+        end
         return Row.new(rb, :skipped, "needs the compiler in process") if kase.directives.backend
 
         cwd = File.join(@root, "test")

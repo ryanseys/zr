@@ -22,15 +22,34 @@ module Ze0
       end
     end
 
-    Directives = Struct.new(:args, :stdin, :env, :ruby, :zeo, :zeo_env, :only, :backend, :gccheck, :build_mb) do
+    Directives = Struct.new(:args, :stdin, :env, :ruby, :zeo, :zeo_env, :only, :needs, :backend, :gccheck, :build_mb) do
       def self.blank
-        new([], nil, {}, [], [], {}, nil, nil, nil, nil)
+        new([], nil, {}, [], [], {}, nil, [], nil, nil, nil)
       end
+    end
+
+    # What a `#@ needs:` name asks of the machine that runs a program.
+    module Needs
+      # libssl 3 where `require "openssl"` looks for it
+      # (rt/ext/openssl/ossl/library.rb): OPENSSL_DIR's lib alone when it
+      # is set, else the Homebrew and MacPorts prefixes. Only a macOS
+      # binary opens a library; the linux and wasi targets cannot.
+      def self.libssl?(platform)
+        return false unless platform == "macos"
+
+        prefix = ENV.fetch("OPENSSL_DIR", "")
+        dirs = prefix.empty? ? %w[/opt/homebrew/opt/openssl@3/lib /usr/local/opt/openssl@3/lib /opt/local/lib] : [File.join(prefix, "lib")]
+        dirs.any? { |dir| File.exist?(File.join(dir, "libssl.3.dylib")) }
+      end
+
+      CHECKS = { "libssl" => method(:libssl?) }.freeze
+
+      def self.met?(name, platform) = CHECKS.fetch(name).call(platform)
     end
 
     class Case
       END_MARK = "__END__"
-      KEYS = %w[args stdin env ruby zeo zeo-env only backend gccheck build-mb].freeze
+      KEYS = %w[args stdin env ruby zeo zeo-env only needs backend gccheck build-mb].freeze
       # The platforms a recording answers for. macOS's sections carry no
       # prefix; every other platform's are the ones where its answer parts
       # from macOS's.
@@ -77,6 +96,9 @@ module Ze0
       # names it.
       def runs_on?(platform) = @directives.only.nil? || @directives.only.include?(platform)
 
+      # The first `#@ needs:` name `platform` lacks, or nil.
+      def unmet_need(platform) = @directives.needs.find { |name| !Needs.met?(name, platform) }
+
       private
 
       def split(bytes)
@@ -115,6 +137,10 @@ module Ze0
             d.only = need.call.split(/[\s,]+/)
             unknown = d.only - PLATFORMS
             raise ArgumentError, "#{@path}: line #{n}: unknown platform #{unknown.first.inspect}" unless unknown.empty?
+          when "needs"
+            d.needs = need.call.split(/[\s,]+/)
+            unknown = d.needs - Needs::CHECKS.keys
+            raise ArgumentError, "#{@path}: line #{n}: unknown need #{unknown.first.inspect}" unless unknown.empty?
           when "backend"
             d.backend = need.call
             raise ArgumentError, "#{@path}: line #{n}: `#@ backend: jit` is the only form" unless d.backend == "jit"
