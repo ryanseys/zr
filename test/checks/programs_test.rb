@@ -80,7 +80,10 @@ class ProgramsTest < Minitest::Test
       Dir.mktmpdir("ze0-programs-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
         assert_nil Ze0::Native::Build.wasm_program(program, wasm)
-        check(name, {}, [WASMTIME, *WASM_FLAGS, wasm], want, rb)
+        # The program's directory at its own path, as ruby sees it:
+        # error_highlight reads the source line it points at from there.
+        here = File.dirname(rb)
+        check(name, {}, [WASMTIME, "run", *WASM_FLAGS, "--dir", "#{here}::#{here}", wasm], want, rb)
       end
     end
   end
