@@ -5,7 +5,6 @@ require "tmpdir"
 require_relative "harness/case"
 require_relative "harness/child"
 require_relative "harness/runner"
-require_relative "../../lib/ze0/target"
 
 module Ze0
   # The end-to-end tier: whole programs, built the way anyone builds one
@@ -44,10 +43,13 @@ module Ze0
       path = File.join(ROOT, "test/baselines", "#{target.triple}.txt")
       return {} unless File.file?(path)
 
-      File.readlines(path, chomp: true).filter_map do |line|
+      File.readlines(path, chomp: true).each_with_index.filter_map do |line, n|
         next if line.empty? || line.start_with?("#")
 
-        line.split("\t", 2)
+        rb, why = line.split("\t", 2)
+        raise ArgumentError, "#{path}: line #{n + 1}: a row is a path and a reason, separated by a tab" unless why
+
+        [rb, why]
       end.to_h
     end
 
@@ -55,7 +57,7 @@ module Ze0
     # `-n /socket/` runs the one and `-n /core_process/` runs the five.
     # A shard takes every nth program, which spreads the slow ones.
     def self.define(suite)
-      target = (name = ENV["ZE0_TARGET"]) ? Target.for(name) : Target.default
+      target = Harness::Runner.named(ENV["ZE0_TARGET"])
       runner = Harness::Runner.new(ROOT, target)
       allowed = baseline(target)
       mine, of = shard

@@ -2,7 +2,7 @@
 
 module Ze0
   module Harness
-    # One corpus program: the Ruby source above `__END__`, the `#@` header
+    # One whole program: the Ruby source above `__END__`, the `#@` header
     # directives, and ruby's recorded answer below. The recording is the
     # oracle: ruby 4.0.6 wrote it once, and nothing here re-runs ruby.
     #

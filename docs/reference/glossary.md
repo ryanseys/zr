@@ -10,13 +10,8 @@ kernel, as opposed to a method the program defines.
 **Cell.** A fixed-size block of the heap that holds one object: 32, 64,
 128 or 256 bytes.
 
-**Unit.** A Minitest file in `test/unit/`, run by `rake test:unit`.
-
 **Core library.** `rt/core/`: Ruby's core classes, written in ordinary
 Ruby over the kernel.
-
-**Example.** One `it` block in a spec file: a Ruby program written
-inline, compiled by ze0, and held to what ruby answered.
 
 **Cref.** The lexical scope a method or block runs in: where a `def`
 lands and where constants are looked up.
@@ -29,6 +24,9 @@ carries it instead of the kernel's sources.
 ruby's recording.
 
 **Env.** The cell that holds the locals a block captures.
+
+**Example.** One `it` block in a spec file: a Ruby program written
+inline, compiled by ze0, and held to what ruby answered.
 
 **Frame record.** The block of a function's machine frame that holds
 its Ruby state: self, the line, and every Value it holds. The collector
@@ -85,6 +83,8 @@ on tasks.
 
 **Undef.** The Value `0x34`. A function answers it to say a signal is
 pending.
+
+**Unit.** A Minitest file in `test/unit/`, run by `rake test:unit`.
 
 **zr.** The runtime's name: its symbols are `zr_*`, and its environment
 variables `ZR_*`.

@@ -79,7 +79,7 @@ module Ze0
     # one, as the cross-target rows of CI do; a triple this host cannot
     # run is refused where it is named rather than at every example.
     def target
-      @target ||= (name = ENV["ZE0_TARGET"]) ? Target.for(name) : Target.default
+      @target ||= Harness::Runner.named(ENV["ZE0_TARGET"])
     end
 
     # The runner that knows how to start what this target builds: a

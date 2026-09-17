@@ -41,7 +41,7 @@ namespace :test do
     supervise("test/spec/**/*_test.rb", env: ENV["GC"] == "stress" ? { "ZR_GC_STRESS" => "1" } : {})
   end
 
-  desc "Whole programs through a real link"
+  desc "Whole programs through a real link; TARGET= names another triple"
   task :e2e do
     # The programs are `.rb` files with ruby's answer under `__END__`;
     # the driver beside them is what minitest runs.

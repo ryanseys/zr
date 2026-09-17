@@ -6,8 +6,8 @@ require_relative "../../../lib/ze0/target"
 
 module Ze0
   module Harness
-    # How the corpus builds a program for one target and runs what it
-    # built, and whose recording the answer is held to. A native binary
+    # How a whole program is built for one target and what it built is
+    # run, and whose recording the answer is held to. A native binary
     # runs on its own host; a wasm module runs under wasmtime, with the
     # test directory preopened and the environment passed in by name.
     class Runner
@@ -15,6 +15,16 @@ module Ze0
       PLATFORMS = { darwin: "macos", linux: "linux", wasi: "wasi" }.freeze
 
       attr_reader :target
+
+      # The target a run builds for: the host's own, or the one
+      # `ZE0_TARGET` names, as the cross-target rows of CI do. A triple
+      # no target answers to is named here rather than failing later.
+      def self.named(triple)
+        return Target.default if triple.nil? || triple.empty?
+
+        Target.fetch(triple) or raise ArgumentError, "no target #{triple}; `ze0 targets` names them"
+      end
+
 
       def initialize(root, target = Target.default)
         @root = root
@@ -30,11 +40,11 @@ module Ze0
         if wasm?
           return nil if Target.tool?("wasmtime")
 
-          return "the corpus runs #{@target.triple} modules under wasmtime, which is not on the PATH"
+          return "#{@target.triple} modules run under wasmtime, which is not on the PATH"
         end
         return nil if @target.native?
 
-        "the corpus runs #{@target.triple} binaries only on their own host, and this host is #{Target.host_triple}"
+        "#{@target.triple} binaries run only on their own host, and this host is #{Target.host_triple}"
       end
 
       # The build of `rel` into `out`: ruby without rubygems, which the
@@ -56,7 +66,7 @@ module Ze0
       end
 
       # wasmtime's report of a trap, which ends the module as abort(3)
-      # ends a process: the corpus counts it as a crash.
+      # ends a process, and counts as a crash.
       def trapped?(answer) = wasm? && answer.stderr.include?("wasm trap: ")
     end
   end

@@ -7,13 +7,12 @@ require_relative "sweep"
 
 module Ze0
   module Harness
-    # `ze0 bench`: how long the binary ze0 built takes, beside the ruby
+    # `rake bench`: how long the binary ze0 built takes, beside the ruby
     # that recorded its answer.
     #
-    # `test/bench` is a corpus suite like every other one -- `ze0 test
-    # bench::` already compiles, runs and answer-checks all 61 of its
-    # programs -- so what is here is the clock and the comparison
-    # columns, and nothing that reads a program.
+    # `test/bench` holds whole programs in the same format `test/e2e`
+    # does, so what is here is the clock and the comparison columns, and
+    # nothing that reads a program.
     #
     # **The answer is checked before any time is kept.** The speed of a
     # wrong answer means nothing, and a codegen step that trades an

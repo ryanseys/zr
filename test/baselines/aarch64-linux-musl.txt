@@ -1,0 +1,7 @@
+# The end-to-end programs aarch64-linux-musl is allowed to fail, and
+# why. One path and reason a line, separated by a tab; a `#` line is a
+# comment.
+#
+# A named program that fails is skipped with its reason. A named program
+# that PASSES fails the run and says to take it off this file, so a row
+# cannot go stale without anyone noticing.
