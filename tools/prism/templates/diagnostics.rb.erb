@@ -2,7 +2,7 @@
   # The message table is C (templates/src/diagnostic.c.erb), not config.yml:
   # read each `[PM_ERR_NAME] = { "text" PRIi32 "text", PM_ERROR_LEVEL_X }`
   # row, joining the literal's pieces as the C compiler does.
-  table = File.read(File.expand_path("../../../src/diagnostic.c.erb", __dir__))
+  table = File.read(File.join(upstream, "src/diagnostic.c.erb"))
   messages = table.scan(/^\s*\[PM_((?:ERR|WARN)_\w+)\]\s*=\s*\{\s*((?:"(?:[^"\\]|\\.)*"|PRIi32|\s)+),\s*PM_(?:ERROR|WARNING)_LEVEL_(\w+)\s*\}/).to_h do |name, text, level|
     pieces = text.scan(/"((?:[^"\\]|\\.)*)"|PRIi32/).map { |(piece)| piece.nil? ? "d" : piece.gsub(/\\(.)/, "\\1") }
     [name, [pieces.join, level.downcase.to_sym]]

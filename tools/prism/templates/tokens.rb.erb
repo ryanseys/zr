@@ -1,7 +1,7 @@
 <%-
   # The human names are C (templates/src/token_type.c.erb's
   # pm_token_type_human), where one return may follow several cases.
-  source = File.read(File.expand_path("../../../src/token_type.c.erb", __dir__))
+  source = File.read(File.join(upstream, "src/token_type.c.erb"))
   body = source[/pm_token_type_human\(.*\z/m]
   human = {}
   pending = []

@@ -5,7 +5,7 @@ require "prism"
 
 module Ze0
   module Harness
-    # The pure-Ruby prism (vendor/ext/prism/lib/prism/ruby) held to ruby's
+    # The pure-Ruby prism (rt/ext/prism/ruby) held to ruby's
     # own C prism, file by file, with ruby as the only oracle.
     #
     # `writer` proves Prism::Ruby::Dump before a parser exists: each file's
@@ -187,7 +187,7 @@ module Ze0
       # Each case's C dump written again by the Ruby writer: the cases that
       # differ, as `[name, why]`.
       def writer(cases)
-        require File.join(ROOT, "vendor/ext/prism/lib/prism/ruby/dump")
+        require File.join(ROOT, "rt/ext/prism/ruby/dump")
         cases.filter_map do |c|
           dump = Prism.dump(c.source, **c.options)
           again = begin
