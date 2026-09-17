@@ -26,7 +26,6 @@ path itself.
 | `ruby tools/convert_verify.rb <spec> <dir>` | holds a written spec to the cases it came from |
 | `ruby -Ilib -Itest tools/measure_spec.rb <dir> [--limit N]` | what a compile costs, and how the heap grows |
 | `rake record[case]` | runs ruby and writes its answer under `__END__` |
-| `rake gaps:demote[case]`, `gaps:promote[case,dir]`, `gaps:sweep` | moves a program in and out of `test/gaps/` |
 
 ## Holding ports to ruby
 

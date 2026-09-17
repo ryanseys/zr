@@ -49,6 +49,7 @@ in any order. An unknown key fails the case rather than being ignored.
 | `#@ backend: jit` | skip wherever a real link is used; the program needs the compiler and itself in one process |
 | `#@ gccheck: <line>` | the exit cycle census this program is expected to report |
 | `#@ build-mb: <megabytes>` | the build's memory bound, for a program known to need more than `ZE0_BUILD_MB` |
+| `#@ skip: <why>` | ze0 does not answer this one yet, and this is what it waits on |
 
 ## The trailer
 
@@ -96,7 +97,6 @@ matching `^##+@`. So any output round-trips.
 | `test/milestones/` | whole require graphs | ruby |
 | `test/ze0/` | the programs ze0's own subset is held to | ruby |
 | `test/bench/` | the benchmark bank's inputs | ruby |
-| `test/gaps/` | programs ze0 does not get right yet; ordinary here | ruby |
 
 The four topic roots are exactly two levels deep: `<topic>/<area>/<name>.rb`.
 Anything deeper is a fixture, not a case. A directory named `<name>/` beside

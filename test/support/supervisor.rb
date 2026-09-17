@@ -28,7 +28,13 @@ module Ze0
       SHARDS = /^# shards: (\d+)$/
 
       Row = Struct.new(:file, :shard, :ok, :out, :seconds) do
-        def name = File.basename(file, "_test.rb") + (shard ? " #{shard}" : "")
+        # `core/string/frozen`, not `frozen`: a subject name repeats
+        # across areas, and the area is what tells two of them apart.
+        def name
+          parts = file.delete_suffix("_test.rb").split("/")
+          parts.last(3).join("/").delete_prefix("spec/") + (shard ? " #{shard}" : "")
+        end
+
         def tally = out[/^\d+ runs.*$/]
       end
 
@@ -86,7 +92,7 @@ module Ze0
       def load_path = ["-I#{File.join(@root, "lib")}", "-I#{File.join(@root, "test")}"]
 
       def report(row, at, total)
-        @io.puts format("[%*d/%d] %-22s %6.1fs  %s%s", total.to_s.size, at, total, row.name, row.seconds,
+        @io.puts format("[%*d/%d] %-34s %6.1fs  %s%s", total.to_s.size, at, total, row.name, row.seconds,
                         row.tally || "did not report a tally", row.ok ? "" : "  <-")
       end
 

@@ -5,8 +5,9 @@
 # anything -- the trailer is already ruby's word -- so a literal this
 # writes still traces to ruby 4.0.6. `rake oracle:verify` re-checks them.
 #
-#   ruby tools/convert.rb --out test/spec/core/string/upcase_test.rb \
-#     --describe "String#upcase" <case path>...
+#   ruby tools/convert.rb --area core/string             # writes test/spec/core/string/
+#   ruby tools/convert.rb --out test/spec/core/string/frozen_test.rb \
+#     --describe "String: frozen literals" <case path>...
 #   ruby tools/convert.rb --plan test/core/string        # what would convert
 #
 # A case this cannot express is refused by name rather than converted
@@ -15,6 +16,7 @@
 require "fileutils"
 require "optparse"
 require_relative "../test/support/harness/case"
+require_relative "subjects"
 
 module Convert
   ROOT = File.expand_path("..", __dir__)
@@ -26,7 +28,7 @@ module Convert
   # Directives that map straight onto a `ze0` keyword.
   PASSED = { args: :argv, env: :env, stdin: :stdin }.freeze
 
-  Example = Struct.new(:name, :source, :expected, :directives, :path, :files, keyword_init: true)
+  Example = Struct.new(:name, :source, :expected, :directives, :path, :files, :stdin, keyword_init: true)
 
   module_function
 
@@ -46,14 +48,21 @@ module Convert
     return [nil, "every line is a directive or a comment"] if source.strip.empty?
     return [nil, "no heredoc terminator is free"] unless terminator(source)
 
-    files = files_for(rb)
+    files = files_for(rb, d)
     rel = rb.delete_prefix("#{ROOT}/test/")
     # A key that climbs out of the program's own directory only lands
     # where the program looks for it if the program sits where it sat.
-    path = path_for(rb, kase) || (rel if files.each_key.any? { |k| k.start_with?("..") })
+    # A file the program is handed, or one above its own directory, only
+    # lands where the program looks for it if the program sits where it
+    # sat.
+    named = files.each_key.any? { |k| k.start_with?("..") } ||
+            d.args.any? { |arg| resolve(arg, File.join(ROOT, "test"), File.join(ROOT, "test")) }
+    path = path_for(rb, kase) || (rel if named)
+
+    stdin = d.stdin && File.binread(File.join(File.dirname(rb), d.stdin))
 
     [Example.new(name: name_of(rb), source: source, expected: expected(kase, rb),
-                 directives: d, path: path, files: files), nil]
+                 directives: d, path: path, files: files, stdin: stdin), nil]
   end
 
   # What an example asserts. `ze0` answers a scrubbed result -- an
@@ -71,7 +80,10 @@ module Convert
   # bytes come back as text, since a spec file is Ruby source and a
   # program that is not UTF-8 cannot be inlined into one.
   def strip(program)
-    program.each_line.reject { |line| line.start_with?("#@") }.join.force_encoding(Encoding::UTF_8)
+    # Blanked, not dropped: a program's own backtraces name its line
+    # numbers, and dropping two directive lines moves every line under
+    # them.
+    program.each_line.map { |line| line.start_with?("#@") ? "\n" : line }.join.force_encoding(Encoding::UTF_8)
   end
 
   # An example reads as a sentence, which is what the file name already
@@ -93,7 +105,7 @@ module Convert
   # what the source actually names is what counts, followed as far as it
   # goes. `test/` is the other root, since that is where a program runs
   # and where `fixtures/` answers from.
-  def files_for(rb)
+  def files_for(rb, directives)
     dir = File.dirname(rb)
     test = File.join(ROOT, "test")
     out = {}
@@ -102,8 +114,20 @@ module Convert
     # the name plainly -- `autoload :C, "#{__dir__}/x/y"` does not.
     beside = rb.sub(/\.rb\z/, "")
     if File.directory?(beside)
-      Dir[File.join(beside, "**/*")].select { |f| File.file?(f) }.each { |f| out[relative(f, dir)] = File.binread(f) }
+      Dir[File.join(beside, "**/*")].each { |f| out[relative(f, dir)] = contents(f) if File.file?(f) || File.symlink?(f) }
     end
+    # `#@ args: core/io/argf_input.txt` names a file from the directory
+    # the program runs in. The source never spells it, so the directives
+    # are read too.
+    directives.args.each do |arg|
+      target = resolve(arg, test, test)
+      next unless target && File.file?(target)
+
+      # The key is where the program's own directory would find it, and
+      # the program keeps its own path so that the two agree.
+      out[relative(target, dir)] ||= File.binread(target)
+    end
+
     queue = [rb]
     until queue.empty?
       file = queue.shift
@@ -112,8 +136,8 @@ module Convert
         next if target.nil? || target == rb
 
         if File.directory?(target)
-          Dir[File.join(target, "**/*")].select { |f| File.file?(f) }.each do |f|
-            out[relative(f, dir)] ||= File.binread(f)
+          Dir[File.join(target, "**/*")].each do |f|
+            out[relative(f, dir)] ||= contents(f) if File.file?(f) || File.symlink?(f)
           end
           next
         end
@@ -162,6 +186,13 @@ module Convert
     Pathname.new(target).relative_path_from(Pathname.new(dir)).to_s
   end
 
+  # A file's bytes, or where a link points: `Dir[]` does not follow a
+  # link that points at a directory, and a program that asks whether two
+  # paths are one file needs the link and not a copy.
+  def contents(path)
+    File.symlink?(path) ? { symlink: File.readlink(path) } : File.binread(path)
+  end
+
   def terminator(source)
     TERMINATORS.find { |t| source.each_line.none? { |line| line.strip == t } }
   end
@@ -195,6 +226,7 @@ module Convert
     out = []
     d = example.directives
     out << "path: #{example.path.inspect}" if example.path
+    out << "stdin: #{literal(example.stdin)}" if example.stdin
     out << "argv: #{d.args.inspect}" unless d.args.empty?
     out << "env: #{d.env.inspect}" unless d.env.empty?
     out << "env: #{d.zeo_env.inspect}" unless d.zeo_env.empty?
@@ -207,28 +239,49 @@ module Convert
   def guards(example)
     d = example.directives
     out = []
+    # A gap says what it is waiting on and stays where it belongs; the
+    # day ze0 answers it, the line comes off.
+    out << "skip #{d.skip.inspect}" if d.skip
     out << "skip \"runs only on #{d.only.join(", ")}\" unless #{d.only.inspect}.include?(Ze0::Spec.platform)" if d.only
     d.needs.each { |need| out << "skip \"needs #{need}\" unless Ze0::Spec.need?(#{need.inspect})" }
     out
   end
 
   def example(ex)
-    want = ex.expected
-    plain = want.stderr.empty? && want.code == 0 && want.signal.nil?
-    body = plain && guards(ex).empty? && !heredoc?(want.stdout) ? compact(ex) : full(ex)
+    body = compact?(ex) ? compact(ex) : full(ex)
     ["  it #{ex.name.inspect} do", *body.map { |l| l.empty? ? l : "  #{l}" }, "  end"]
   end
 
-  # One assertion, with the program trailing it: the shape 97 cases in a
-  # hundred take.
+  # One line holds the whole example when there is nothing to guard and
+  # the answer is short enough to read at the end of it.
+  def compact?(ex) = guards(ex).empty? && !heredoc?(ex.expected.stdout)
+
+  # What `must_answer` is told beyond stdout. Each is the recording's
+  # own word: an absent `#@ stderr` means stderr is empty, and an
+  # absent `#@ exit` means the status is zero, so the defaults say what
+  # the trailer said.
+  def answer_options(ex)
+    want = ex.expected
+    out = []
+    out << "stderr: #{literal(want.stderr)}" unless want.stderr.empty?
+    # A process a signal ended carries no status at all, so `status:` is
+    # nil there and not zero.
+    out << "status: #{want.code.inspect}" unless want.code == 0
+    out << "signal: #{want.signal}" if want.signal
+    out
+  end
+
   def compact(ex)
     t = terminator(ex.source)
     call = ["<<~'#{t}'", *keywords(ex)].join(", ")
-    ["  _(ze0(#{call}).stdout).must_equal #{literal(ex.expected.stdout)}",
+    want = [literal(ex.expected.stdout), *answer_options(ex)].join(", ")
+    ["  _(ze0(#{call})).must_answer #{want}",
      *ex.source.each_line.map { |l| l.chomp.empty? ? "" : "    #{l.chomp}" }, "  #{t}"]
   end
 
-  # Arrange, act, assert: the program, then what it is held to.
+  # Arrange, act, assert: the program, then the whole answer it is held
+  # to, written as the program's own output where that reads better than
+  # one long escape.
   def full(ex)
     t = terminator(ex.source)
     want = ex.expected
@@ -238,22 +291,14 @@ module Convert
     out << "  result = ze0(#{call})"
     out.concat(ex.source.each_line.map { |l| l.chomp.empty? ? "" : "    #{l.chomp}" })
     out << "  #{t}" << ""
-    out << if heredoc?(want.stdout)
-             "  _(result.stdout).must_equal <<~'OUT'"
-           else
-             "  _(result.stdout).must_equal #{literal(want.stdout)}"
-           end
-    out.concat(heredoc(want.stdout, "  ")) if heredoc?(want.stdout)
-    unless want.stderr.empty?
-      if heredoc?(want.stderr)
-        out << "  _(result.stderr).must_equal <<~'OUT'"
-        out.concat(heredoc(want.stderr, "  "))
-      else
-        out << "  _(result.stderr).must_equal #{literal(want.stderr)}"
-      end
+
+    options = answer_options(ex)
+    if heredoc?(want.stdout)
+      out << "  _(result).must_answer #{["<<~'OUT'", *options].join(", ")}"
+      out.concat(heredoc(want.stdout, "  "))
+    else
+      out << "  _(result).must_answer #{[literal(want.stdout), *options].join(", ")}"
     end
-    out << "  _(result.status).must_equal #{want.code}" if want.code && want.code != 0
-    out << "  _(result.signal).must_equal #{want.signal}" if want.signal
     out
   end
 
@@ -271,7 +316,53 @@ end
 
 # The command, when this file is the one ruby was given.
 if $PROGRAM_NAME == __FILE__
-  out = nil
+  # An area at a time: every case planned, grouped, and written to the
+# file its subject names.
+def convert_area(area)
+  dir = File.join(Convert::ROOT, "test", area)
+  abort("convert: no area #{area}") unless File.directory?(dir)
+
+  cases = Dir[File.join(dir, "*.rb")].sort.filter_map do |rb|
+    kase = (Ze0::Harness::Case.read(rb) rescue next)
+    kase.recorded? ? [rb, kase.program] : nil
+  end
+  plan = Subjects.plan(area, cases)
+
+  written = 0
+  refused = []
+  plan.group_by { |_, (path, describe, _)| [path, describe] }.each do |(path, describe), rows|
+    examples = rows.filter_map do |rb, (_, _, drop)|
+      ex, why = Convert.read(rb)
+      unless ex
+        refused << [rb, why]
+        next
+      end
+
+      ex.name = Subjects.name_for(rb, drop)
+      ex
+    end
+    next if examples.empty?
+
+    out = File.join(Convert::ROOT, "test/spec", path)
+    FileUtils.mkdir_p(File.dirname(out))
+    File.write(out, Convert.file(describe, examples.sort_by(&:name)))
+    written += 1
+  end
+  refused.each { |rb, why| warn "refused #{rb.delete_prefix("#{Convert::ROOT}/")}: #{why}" }
+  puts format("%-24s %4d example(s) -> %2d file(s), %d refused", area, plan.size - refused.size, written, refused.size)
+  refused.size
+end
+
+if ARGV.first == "--area"
+  ARGV.shift
+  abort("usage: ruby tools/convert.rb --area <area>...") if ARGV.empty?
+  # A refused case is named, not fatal: it stays a corpus program and
+  # the end-to-end tier carries it.
+  ARGV.each { |area| convert_area(area) }
+  exit 0
+end
+
+out = nil
   describe = nil
   plan = false
   OptionParser.new do |o|

@@ -54,9 +54,10 @@ for libraries. `bin/ze0 test` builds each one, runs it, and puts it in
 a bucket. Only three buckets are defects: `diverged`, `crashed` and
 `timeout`.
 
-A program that ze0 does not answer yet moves to `test/gaps/`. The topic
-directories then pass completely, and a new failure in them is always
-news.
+An example ze0 does not answer yet says so where it sits, with
+`skip "<what it waits on>"`. Every other example passes, so a new
+failure is always news, and a gap is a line to delete rather than a file
+to move back.
 
 ## More than the corpus
 

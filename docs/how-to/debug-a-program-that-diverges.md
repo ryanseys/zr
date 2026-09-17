@@ -98,15 +98,16 @@ to find the line.
 
 ## When ze0 cannot do it yet
 
-If the fix is large, move the case to `test/gaps/` so that its topic
-directory keeps passing:
+If the fix is large, leave the example where it belongs and say what it
+waits on:
 
-```console
-$ ruby tools/gap.rb core/string/a_case.rb
+```ruby
+it "converts through the carrier's own UTF-8" do
+  skip "the carrier tables hold Unicode's code points"
+  ...
+end
 ```
 
-When the case matches later, move it back:
-
-```console
-$ ruby tools/gap.rb --promote gaps/a_case.rb
-```
+A skipped example is counted and named at the end of a run, so the gap
+stays visible. The day ze0 answers it, the line comes off -- and nothing
+was moved, so nothing has to be moved back.

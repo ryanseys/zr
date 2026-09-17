@@ -12,6 +12,8 @@
 # conversion lost nothing, and it costs a second for a whole area.
 
 require_relative "../test/support/harness/case"
+require_relative "subjects"
+require_relative "convert"
 
 # What a guard asks of the machine. The real ones live in
 # `test/support/spec.rb`, which loads the whole compiler; a verifier
@@ -74,6 +76,17 @@ module ConvertVerify
         @example.want[@value] = want
         want
       end
+
+      # `_(result).must_answer "AB\n", stderr: "...", status: 1` says
+      # all four parts at once, and the defaults are what a recording
+      # means by leaving a section out.
+      def must_answer(stdout, stderr: "", status: 0, signal: nil)
+        @example.want[:stdout] = stdout
+        @example.want[:stderr] = stderr
+        @example.want[:status] = status
+        @example.want[:signal] = signal
+        self
+      end
     end
   end
 
@@ -94,7 +107,8 @@ module ConvertVerify
     want = Ze0::Harness::Answer.new(Ze0::Harness::Normalize.bytes(kase.answer.stdout, rb, dir),
                                     Ze0::Harness::Normalize.bytes(kase.answer.stderr, rb, dir),
                                     kase.answer.code, kase.answer.signal)
-    program = kase.program.each_line.reject { |l| l.start_with?("#@") }.join.force_encoding(Encoding::UTF_8)
+    # The converter's own reading, so the two never drift apart.
+    program = Convert.strip(kase.program)
 
     if seen.kwargs.nil?
       why = seen.want[:error]
@@ -107,7 +121,7 @@ module ConvertVerify
       out << "stderr: #{apart(text(want.stderr), seen.want[:stderr])}"
     end
     code = seen.want.fetch(:status, 0)
-    out << "status: recorded #{want.code}, spec #{code}" unless (want.code || 0) == code
+    out << "status: recorded #{want.code.inspect}, spec #{code.inspect}" unless want.code == code
     signal = seen.want[:signal]
     out << "signal: recorded #{want.signal}, spec #{signal}" unless want.signal == signal
     out << "argv: recorded #{d.args.inspect}, spec #{seen.kwargs.fetch(:argv, []).inspect}" unless d.args == seen.kwargs.fetch(:argv, [])
@@ -130,6 +144,53 @@ module ConvertVerify
     n = want.lines.zip(got.lines).index { |a, b| a != b } || 0
     "line #{n + 1}: recorded #{want.lines[n].inspect}, spec #{got.lines[n].inspect}"
   end
+end
+
+# An area at a time: every spec file it was written to, held to every
+# case it came from.
+def verify_area(area)
+  root = ConvertVerify::ROOT
+  dir = File.join(root, "test", area)
+  cases = Dir[File.join(dir, "*.rb")].sort.filter_map do |rb|
+    kase = (Ze0::Harness::Case.read(rb) rescue next)
+    kase.recorded? ? [rb, kase.program] : nil
+  end
+  plan = Subjects.plan(area, cases)
+
+  seen = {}
+  Dir[File.join(root, "test/spec", area, "*_test.rb")].sort.each do |spec|
+    ConvertVerify.load(spec).each { |ex| (seen[[spec, ex.name]] = ex) }
+  end
+
+  differences = []
+  checked = 0
+  plan.each do |rb, (path, _, drop)|
+    ex, why = Convert.read(rb)
+    next unless ex # refused by the converter, and named there
+
+    name = Subjects.name_for(rb, drop)
+    spec = File.join(root, "test/spec", path)
+    example = seen.delete([spec, name])
+    rel = rb.delete_prefix("#{root}/")
+    unless example
+      differences << "#{rel}: no example #{name.inspect} in #{path}"
+      next
+    end
+
+    checked += 1
+    differences.concat(ConvertVerify.differences(example, Ze0::Harness::Case.read(rb), rb))
+  end
+  seen.each_key { |spec, name| differences << "#{spec.delete_prefix("#{root}/")}: #{name.inspect} matches no case" }
+
+  differences.first(5).each { |why| warn why }
+  puts format("%-24s %4d example(s) checked, %d difference(s)", area, checked, differences.size)
+  differences.size
+end
+
+if ARGV.first == "--area"
+  ARGV.shift
+  abort("usage: ruby tools/convert_verify.rb --area <area>...") if ARGV.empty?
+  exit(ARGV.sum { |area| verify_area(area) }.zero? ? 0 : 1)
 end
 
 spec, *cases = ARGV

@@ -57,7 +57,6 @@ into programs, and the host ruby never loads them. A file such as
 | `test/lang/`, `test/core/`, `test/stdlib/` | the corpus, by topic and area |
 | `test/compiler/`, `test/aot/`, `test/milestones/` | compiler behaviour, programs linked for real, whole require graphs |
 | `test/ze0/` | the programs ze0's own subset is held to |
-| `test/gaps/` | corpus programs ze0 does not answer yet |
 | `test/bench/` | the benchmarks and their results |
 | `test/baselines/` | the rows a target other than macOS is allowed to fail |
 | `test/programs/` | Ruby programs run against a live ruby by `programs_test` |

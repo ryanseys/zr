@@ -32,7 +32,9 @@ recording.
 its Ruby state: self, the line, and every Value it holds. The collector
 reads it. See [Runtime layouts](runtime-layouts.md).
 
-**Gap.** A case ze0 does not answer yet, kept in `test/gaps/`.
+**Gap.** An example ze0 does not answer yet. It stays where it
+belongs and says what it waits on, with `skip "..."`; the day ze0
+answers it, the line comes off.
 
 **HIR.** The compiler's tree form of a program: prism's tree, desugared
 and name-resolved.

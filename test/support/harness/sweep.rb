@@ -36,7 +36,7 @@ module Ze0
       # program sits under each.
       SUITES = {
         "lang" => 2, "core" => 2, "stdlib" => 2, "compiler" => 2,
-        "aot" => 1, "bench" => 1, "milestones" => 1, "ze0" => 1, "gaps" => 1
+        "aot" => 1, "bench" => 1, "milestones" => 1, "ze0" => 1
       }.freeze
 
       # Long enough for the slowest corpus program, short enough that a
@@ -126,6 +126,9 @@ module Ze0
           return Row.new(rb, :skipped, "needs #{need}")
         end
         return Row.new(rb, :skipped, "needs the compiler in process") if kase.directives.backend
+        # A program ze0 does not answer yet says so where it lives,
+        # rather than being moved somewhere that means it.
+        return Row.new(rb, :skipped, kase.directives.skip) if kase.directives.skip
 
         cwd = File.join(@root, "test")
         rel = rb.delete_prefix("#{cwd}/")

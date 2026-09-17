@@ -8,5 +8,6 @@
 require_relative "test_helper"
 require_relative "support/spec"
 
-# `ze0 "puts 1"` inside an `it` block.
+# `ze0 "puts 1"` inside an `it` block, and `_(result).must_answer "1\n"`.
 Minitest::Spec.include(Ze0::Spec::DSL)
+Minitest::Expectation.include(Ze0::Spec::Expectation)

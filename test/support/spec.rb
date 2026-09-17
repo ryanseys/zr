@@ -93,10 +93,18 @@ module Ze0
         files.each do |name, bytes|
           beside = File.expand_path(name, File.dirname(rb))
           FileUtils.mkdir_p(File.dirname(beside))
-          File.binwrite(beside, bytes)
+          # `{ symlink: "lib" }` is a link, not a file: a program that
+          # asks whether two paths reach one file needs one.
+          bytes.is_a?(Hash) ? File.symlink(bytes.fetch(:symlink), beside) : File.binwrite(beside, bytes)
         end
 
-        program = lower(source, rb, target)
+        # From the directory the program runs in, under the name it
+        # answers to: `ze0 build` is given a relative path, and what it
+        # is given is what the binary's backtraces carry. Compiling with
+        # an absolute path would name the temporary directory instead.
+        # The chdir is safe because a spec file is a process of its own
+        # and minitest runs its examples one at a time.
+        program = Dir.chdir(run) { lower(source, path, target) }
         return program if program.is_a?(Symbol) || program.is_a?(Array)
 
         bin = File.join(work, "p")
@@ -118,6 +126,29 @@ module Ze0
       [:refused, e.message]
     rescue Backend::Refused => e
       [:backend, e.message]
+    rescue SyntaxError => e
+      # ruby reports a program that does not parse and exits 1, and so
+      # does the binary, with ruby's own report. `Ze0::CLI.lower` does
+      # this the same way, and the two must stay the same way.
+      report = syntax_report(rb)
+      return [:refused, "a required file does not parse: #{e.message.lines.first.chomp}"] unless report
+
+      Native::Build.lower("$stderr.write(#{report.inspect})\nexit 1\n", rb, target: target)
+    end
+
+    # ruby's own report for a file that does not parse, or nil when ruby
+    # parses it and the stop came from something it required.
+    def syntax_report(rb)
+      begin
+        require "rubygems"
+        require "syntax_suggest/core_ext"
+      rescue LoadError
+        nil
+      end
+      RubyVM::InstructionSequence.compile_file(rb)
+      nil
+    rescue SyntaxError => own
+      "#{rb}: #{own.detailed_message(highlight: false)}\n"
     end
 
     # What the binary said, or why it does not count as an answer.
@@ -129,6 +160,23 @@ module Ze0
       end
 
       Result.new(text(answer.stdout), text(answer.stderr), answer.code, answer.signal)
+    end
+
+    # `_(result).must_answer "AB\n"` -- the whole answer, not a part of
+    # it. stderr must be empty and the status zero unless the example
+    # says otherwise, which is what the recordings mean: a trailer with
+    # no `#@ stderr` says stderr **is** empty, and one with no
+    # `#@ exit` says the status **is** zero. An example that asserted
+    # stdout alone would pass a program that also wrote a backtrace.
+    module Expectation
+      def must_answer(stdout, stderr: "", status: 0, signal: nil)
+        result = target
+        ctx.assert_equal stdout, result.stdout, "stdout"
+        ctx.assert_equal stderr, result.stderr, "stderr"
+        signal.nil? ? ctx.assert_nil(result.signal, "signal") : ctx.assert_equal(signal, result.signal, "signal")
+        status.nil? ? ctx.assert_nil(result.status, "exit status") : ctx.assert_equal(status, result.status, "exit status")
+        result
+      end
     end
 
     # What a spec example says: `ze0 "puts 1"` answers a Result, or

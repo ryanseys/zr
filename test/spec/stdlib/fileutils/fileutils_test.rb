@@ -1,0 +1,81 @@
+# frozen_string_literal: true
+
+require "spec_helper"
+
+describe "Fileutils programs" do
+  it "fileutils" do
+    result = ze0(<<~'RUBY')
+      # FileUtils -- the vendored pure-Ruby stdlib gem (gems/fileutils), compiled
+      # from its real upstream source, not reimplemented. Exercises the core file
+      # operations rubygems/bundler rely on; every line is oracle-matched.
+      require "fileutils"
+
+      puts FileUtils::VERSION
+      puts FileUtils.respond_to?(:mkdir_p)
+
+      d = "/tmp/zeo_fileutils_example"
+      FileUtils.rm_rf(d) # a clean slate, idempotent across runs
+
+      FileUtils.mkdir_p("#{d}/a/b/c")
+      puts Dir.exist?("#{d}/a/b/c")
+
+      File.write("#{d}/a/src.txt", "hello")
+      FileUtils.cp("#{d}/a/src.txt", "#{d}/a/copy.txt")
+      puts File.read("#{d}/a/copy.txt")
+
+      FileUtils.mv("#{d}/a/copy.txt", "#{d}/a/moved.txt")
+      puts File.exist?("#{d}/a/moved.txt")
+      puts File.exist?("#{d}/a/copy.txt")
+
+      FileUtils.touch("#{d}/a/t.txt")
+      puts File.exist?("#{d}/a/t.txt")
+
+      FileUtils.rm_rf(d)
+      puts Dir.exist?(d)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1.8.0
+      true
+      true
+      hello
+      true
+      false
+      true
+      false
+    OUT
+  end
+
+  it "fileutils core commands run from the vendored gem" do
+    result = ze0(<<~'RUBY', files: {"fileutils.rb" => "# FileUtils -- the vendored pure-Ruby stdlib gem (gems/fileutils), compiled\n# from its real upstream source, not reimplemented. Exercises the core file\n# operations rubygems/bundler rely on; every line is oracle-matched.\nrequire \"fileutils\"\n\nputs FileUtils::VERSION\nputs FileUtils.respond_to?(:mkdir_p)\n\nd = \"/tmp/zeo_fileutils_example\"\nFileUtils.rm_rf(d) # a clean slate, idempotent across runs\n\nFileUtils.mkdir_p(\"\#{d}/a/b/c\")\nputs Dir.exist?(\"\#{d}/a/b/c\")\n\nFile.write(\"\#{d}/a/src.txt\", \"hello\")\nFileUtils.cp(\"\#{d}/a/src.txt\", \"\#{d}/a/copy.txt\")\nputs File.read(\"\#{d}/a/copy.txt\")\n\nFileUtils.mv(\"\#{d}/a/copy.txt\", \"\#{d}/a/moved.txt\")\nputs File.exist?(\"\#{d}/a/moved.txt\")\nputs File.exist?(\"\#{d}/a/copy.txt\")\n\nFileUtils.touch(\"\#{d}/a/t.txt\")\nputs File.exist?(\"\#{d}/a/t.txt\")\n\nFileUtils.rm_rf(d)\nputs Dir.exist?(d)\n__END__\n1.8.0\ntrue\ntrue\nhello\ntrue\nfalse\ntrue\nfalse\n"})
+      # `require "fileutils"` compiles the real upstream gem the lock resolves,
+      # including its load-time module metaprogramming (module_function, extend
+      # self, class << self, a platform-conditional StreamUtils_), and the core
+      # file operations bundler relies on work.
+
+      require "fileutils"
+      puts FileUtils::VERSION
+      puts FileUtils.respond_to?(:mkdir_p)
+      d = "/tmp/zeo_fu_e2e_#{Process.pid}"
+      FileUtils.rm_rf(d)
+      FileUtils.mkdir_p("#{d}/a/b")
+      puts Dir.exist?("#{d}/a/b")
+      File.write("#{d}/a/f", "hi")
+      FileUtils.cp("#{d}/a/f", "#{d}/a/g")
+      puts File.read("#{d}/a/g")
+      FileUtils.mv("#{d}/a/g", "#{d}/a/h")
+      puts File.exist?("#{d}/a/h")
+      FileUtils.rm_rf(d)
+      puts Dir.exist?(d)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1.8.0
+      true
+      true
+      hi
+      true
+      false
+    OUT
+  end
+end

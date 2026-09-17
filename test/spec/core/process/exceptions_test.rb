@@ -1,0 +1,265 @@
+# frozen_string_literal: true
+
+require "spec_helper"
+
+describe "Process: raising and rescuing" do
+  it "at exit handler raise reports" do
+    result = ze0(<<~'RUBY', path: "core/process/at_exit_handler_raise_reports.rb")
+      # An exception inside an at_exit handler is reported immediately, and the
+      # remaining handlers still run (CRuby's rule; the status becomes 1).
+      at_exit { puts "h-after" }
+      at_exit { raise "handler boom" }
+      at_exit { puts "h-before" }
+      puts "body"
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: "core/process/at_exit_handler_raise_reports.rb:4:in 'block in <main>': handler boom (RuntimeError)\n", status: 1
+      body
+      h-before
+      h-after
+    OUT
+  end
+
+  it "at exit handler that raises sets status 1" do
+    result = ze0(<<~'RUBY', path: "core/process/an_at_exit_handler_that_raises_sets_status_1.rb")
+      # The handler's error is reported, the next handler still runs, and the
+      # program ends with status 1.
+      at_exit { puts :second }
+      at_exit { raise "x" }
+      puts 1
+
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: "core/process/an_at_exit_handler_that_raises_sets_status_1.rb:4:in 'block in <main>': x (RuntimeError)\n", status: 1
+      1
+      second
+    OUT
+  end
+
+  it "class bodies execute at their document position and rerun per reopen" do
+    result = ze0(<<~'RUBY', path: "core/process/class_bodies_execute_at_their_document_position_and_rerun_per_reopen.rb")
+      # Real Ruby runs a class/module body WHERE IT APPEARS, interleaved
+      # with surrounding top-level code, re-executing each reopen's body at
+      # its own site; a rescued raise inside a module body shows the
+      # `<module:M>` frame and `<main>` at the `module` keyword's line.
+      # (Bodies used to be hoisted wholesale to the head of `run_main`,
+      # printing before earlier top-level output and reading line 0.)
+
+      puts "top1"
+      class Foo
+        puts "body1"
+      end
+      puts "top2"
+      class Foo
+        puts "body2"
+      end
+      class Outer
+        puts "outer start"
+        class Inner
+          puts "inner body"
+        end
+        puts "outer end"
+      end
+      module M
+        begin
+          raise "inmod"
+        rescue => e
+          puts "rescued: #{e.backtrace[0]}"
+          puts "from: #{e.backtrace[1]}"
+        end
+      end
+      puts "top3"
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      top1
+      body1
+      top2
+      body2
+      outer start
+      inner body
+      outer end
+      rescued: core/process/class_bodies_execute_at_their_document_position_and_rerun_per_reopen.rb:25:in '<module:M>'
+      from: core/process/class_bodies_execute_at_their_document_position_and_rerun_per_reopen.rb:23:in '<main>'
+      top3
+    OUT
+  end
+
+  it "failed exec names the program" do
+    _(ze0(<<~'RUBY')).must_answer "Errno::ENOENT: No such file or directory - /no/such/program-zeo\n"
+      begin
+        exec("/no/such/program-zeo")
+      rescue SystemCallError => e
+        puts "#{e.class}: #{e.message}"
+      end
+    RUBY
+  end
+
+  it "instance exec no block error" do
+    result = ze0(<<~'RUBY')
+      # Blockless instance_exec is LocalJumpError; blockless instance_eval (no
+      # source string either) is the arity ArgumentError. Both oracle shapes.
+      o = Object.new
+      begin
+        o.instance_exec
+      rescue LocalJumpError => e
+        puts "exec: #{e.class}: #{e.message}"
+      end
+      begin
+        o.instance_eval
+      rescue ArgumentError => e
+        puts "eval: #{e.class}: #{e.message}"
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      exec: LocalJumpError: no block given
+      eval: ArgumentError: wrong number of arguments (given 0, expected 1..3)
+    OUT
+  end
+
+  it "process cputime clocks" do
+    result = ze0(<<~'RUBY')
+      # The CPU-time clock ids resolve to Integers. Their exact value is the
+      # platform's own clock id (it differs between Linux and macOS), so assert the
+      # type, not the value. Regression for #2666.
+      p((Process::CLOCK_PROCESS_CPUTIME_ID rescue $!.class).is_a?(Integer))
+      p((Process::CLOCK_THREAD_CPUTIME_ID rescue $!.class).is_a?(Integer))
+      p(Process::CLOCK_MONOTONIC.is_a?(Integer))
+      p(Process::CLOCK_REALTIME.is_a?(Integer))
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      true
+      true
+    OUT
+  end
+
+  it "signal module" do
+    result = ze0(<<~'RUBY')
+      # The Signal module and the SignalException/Interrupt hierarchy: name<->number
+      # resolution (signame/list), trap as a validated no-op returning the prior
+      # handler, and #signo/#signm on the exception objects.
+      puts Signal.list["INT"]
+      puts Signal.list["TERM"]
+      puts Signal.signame(9)
+      p Signal.signame(999)
+      p Signal.signame(2.9)
+      puts Signal.trap("USR1", "IGNORE")
+      puts Signal.trap("USR1", "DEFAULT")
+      p(begin; Signal.trap("NOPE", "IGNORE"); rescue => e; e.class; end)
+
+      e = SignalException.new("INT")
+      puts e.signo
+      puts e.message
+      puts SignalException.new(9).message
+      p(begin; SignalException.new("NOPE"); rescue => x; x.class; end)
+
+      i = Interrupt.new
+      puts i.signo
+      puts i.message
+      puts Interrupt.new("stop").message
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2
+      15
+      KILL
+      nil
+      "INT"
+      DEFAULT
+      IGNORE
+      ArgumentError
+      2
+      SIGINT
+      SIGKILL
+      ArgumentError
+      2
+      Interrupt
+      stop
+    OUT
+  end
+
+  it "trap quotes the signal name" do
+    _(ze0(<<~'RUBY')).must_answer "unsupported signal 'SIGNOPE'\n"
+      # `trap`'s unsupported-signal ArgumentError uses straight quotes in ruby 4
+      # ("unsupported signal 'SIGNOPE'"); zeo still uses the old backtick form.
+      # (Found by the 2026-08-24 probe sweep.)
+      begin
+        trap("NOPE") { }
+      rescue ArgumentError => e
+        puts e.message
+      end
+    RUBY
+  end
+
+  it "uncaught exceptions still exit nonzero through the coroutine boundary" do
+    _(ze0(<<~'RUBY', path: "core/process/uncaught_exceptions_still_exit_nonzero_through_the_coroutine_boundary.rb")).must_answer "", stderr: "core/process/uncaught_exceptions_still_exit_nonzero_through_the_coroutine_boundary.rb:4:in '<main>': through the boundary (RuntimeError)\n", status: 1
+      # The top-level uncaught-raise contract (message on stderr, exit 1) must
+      # survive the main body's Result crossing back to the OS main thread.
+
+      raise "through the boundary"
+    RUBY
+  end
+
+  it "uncaught interrupt is reported and ends by sigint" do
+    _(ze0(<<~'RUBY', path: "core/process/an_uncaught_interrupt_is_reported_and_ends_by_sigint.rb")).must_answer "handler\n", stderr: "core/process/an_uncaught_interrupt_is_reported_and_ends_by_sigint.rb:4:in '<main>': Interrupt (Interrupt)\n", status: nil, signal: 2
+      # Interrupt, unlike the other signals, is reported before the process
+      # ends by SIGINT.
+      at_exit { puts :handler }
+      raise Interrupt
+
+    RUBY
+  end
+
+  it "uncaught no method error exits via the ordinary top level handler" do
+    _(ze0(<<~'RUBY', path: "core/process/an_uncaught_no_method_error_exits_via_the_ordinary_top_level_handler.rb")).must_answer "", stderr: "core/process/an_uncaught_no_method_error_exits_via_the_ordinary_top_level_handler.rb:3:in '<main>': undefined method 'missing' for an instance of Plain (NoMethodError)\n\nPlain.new.send(:missing)\n         ^^^^^\n", status: 1
+      class Plain
+      end
+      Plain.new.send(:missing)
+    RUBY
+  end
+
+  it "uncaught raise with no rescue anywhere exits with the message" do
+    _(ze0(<<~'RUBY', path: "core/process/uncaught_raise_with_no_rescue_anywhere_exits_with_the_message.rb")).must_answer "", stderr: "core/process/uncaught_raise_with_no_rescue_anywhere_exits_with_the_message.rb:1:in '<main>': boom (RuntimeError)\n", status: 1
+      raise "boom"
+    RUBY
+  end
+
+  it "uncaught signal exception ends by its signal" do
+    result = ze0(<<~'RUBY')
+      # The handlers run, nothing is reported, and the process ends by the
+      # signal itself.
+      at_exit { puts :handler, $!.class }
+      raise SignalException, "TERM"
+
+    RUBY
+
+    _(result).must_answer <<~'OUT', status: nil, signal: 15
+      handler
+      SignalException
+    OUT
+  end
+
+  it "unrescued definition raise aborts where ruby aborts" do
+    _(ze0(<<~'RUBY', path: "core/process/an_unrescued_definition_raise_aborts_where_ruby_aborts.rb")).must_answer "before\n", stderr: "core/process/an_unrescued_definition_raise_aborts_where_ruby_aborts.rb:11:in '<main>': superclass mismatch for class Sub (TypeError)\n", status: 1
+      # The other half of `a_definition_ruby_raises_on_raises`: with nothing to
+      # catch it, the program runs up to the definition and then dies exactly where
+      # ruby dies -- same message, same backtrace line, same exit status. The
+      # statements ABOVE it still run and still print, which is what a compile-time
+      # refusal took away.
+      puts "before"
+
+      class Base; end
+      class Other; end
+      class Sub < Base; end
+      class Sub < Other
+        def never = "unreachable"
+      end
+
+      puts "after"
+    RUBY
+  end
+end

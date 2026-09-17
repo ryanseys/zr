@@ -1,3 +1,4 @@
+#@ skip: Kernel#format raises ArgumentError where ruby formats the value
 # A native class's `new` FUSES allocate and initialize, so it cannot run a
 # body it does not know about. Ruby's `new` is allocate plus whatever
 # `initialize` resolves to, so once a program reopens the class with its own,

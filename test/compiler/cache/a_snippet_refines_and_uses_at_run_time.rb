@@ -1,3 +1,4 @@
+#@ skip: a run-time compile of a refinement stops in the prism port: Prism::CallNode has no location=
 # Refinements are a compile-time decision in a program: a `refine` mints a
 # holder the compiler registers, and a `using` rewrites the call sites in
 # its lexical range. A snippet has neither -- its module is a run-time

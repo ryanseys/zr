@@ -54,6 +54,14 @@ class CaseFormatTest < Minitest::Test
     assert_raises(ArgumentError) { Case.new("#@ needs: libfoo\nputs 1\n") }
   end
 
+  # A program ze0 does not answer yet stays where it belongs and says
+  # what it waits on, rather than moving to a directory that means it.
+  def test_skip_says_what_a_gap_waits_on
+    c = Case.new("#@ skip: ripper is declined\nputs 1\n__END__\n1\n")
+    assert_equal "ripper is declined", c.directives.skip
+    assert_nil Case.new("puts 1\n").directives.skip
+  end
+
   def test_no_trailer_means_no_recording
     refute Case.new("puts 1\n").recorded?
     assert Case.new("puts 1\n__END__").recorded?

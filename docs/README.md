@@ -17,6 +17,7 @@ Lessons that take you from nothing to a result, one step at a time.
 Steps for a goal you already have.
 
 - [How to build for another target](how-to/build-for-another-target.md)
+- [How to add a spec](how-to/add-a-spec.md)
 - [How to run the checks](how-to/run-the-checks.md)
 - [How to debug a program that diverges](how-to/debug-a-program-that-diverges.md)
 - [How to add a method to the core library](how-to/add-a-core-method.md)

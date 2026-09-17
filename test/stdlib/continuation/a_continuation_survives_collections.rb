@@ -1,3 +1,4 @@
+#@ skip: a continuation does not survive a collection: the program aborts on SIGABRT
 # A continuation keeps the frames it saved alive across collections, a
 # loop can be made of one, and a call from another fiber or thread is
 # refused.

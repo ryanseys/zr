@@ -40,7 +40,9 @@ namespace :test do
 
   desc "Whole programs through a real link"
   task :e2e do
-    next puts("rake test:e2e: no programs yet") if Dir[File.join(ROOT, "test/e2e/**/*.rb")].empty?
+    # The programs are `.rb` files with ruby's answer under `__END__`;
+    # the driver beside them is what minitest runs.
+    next puts("rake test:e2e: no driver yet") if Dir[File.join(ROOT, "test/e2e/**/*_test.rb")].empty?
 
     supervise("test/e2e/**/*_test.rb")
   end
@@ -161,19 +163,6 @@ namespace :diff do
 
   desc "Run ruby 4.0.6's test/openssl against the port"
   task(:openssl, [:opts]) { |_, args| ruby_run(File.join(ROOT, "tools/openssl/suite.rb"), *args[:opts].to_s.split) }
-end
-
-# A program ze0 does not answer yet lives in test/gaps/, and comes back
-# the day it does.
-namespace :gaps do
-  desc "Move a case ze0 no longer matches into test/gaps/"
-  task(:demote, [:case]) { |_, args| tool("gap", *Array(args[:case])) }
-
-  desc "Move a gap that matches back to its topic"
-  task(:promote, [:case, :dir]) { |_, args| tool("gap", "--promote", args[:case], *Array(args[:dir])) }
-
-  desc "Move every defect row of a sweep into test/gaps/"
-  task(:sweep) { tool("gap", "--sweep", File.join(ROOT, "tmp/sweep.txt")) }
 end
 
 desc "Count the instructions the backend writes for the runtime"
