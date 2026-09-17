@@ -2005,10 +2005,6 @@ module Ze0
         d zr_zlib_os_code Word
         d zr_arch_context_start Void ctx:Ptr entry:Word top:Word
         d zr_switch Void from:Ptr to:Ptr
-        d onig_initialize I32 encodings:Ptr count:I32
-        d onig_new I32 reg:Ptr pattern:Ptr pattern_end:Ptr options:I32 enc:Ptr syntax:Ptr info:Ptr
-        d onig_free Void reg:Ptr
-        d onig_ze0_take_warnings I32 buf:Ptr len:I32
         c G_ARRAY 25
         c G_INDEX_ERROR 26
         c ARY_MAX_SIZE 1152921504606846975

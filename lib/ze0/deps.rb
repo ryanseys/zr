@@ -7,7 +7,7 @@ require_relative "target"
 require_relative "native/toolchain"
 
 module Ze0
-  # The vendored C dependencies, built with cc into static archives under
+  # The vendored C dependency (prism), built with cc into a static archive under
   # `Paths::BUILD`, one directory per target triple. A gem install builds them
   # (`ext/ze0/extconf.rb`); a checkout builds them on its first link.
   #
@@ -17,8 +17,6 @@ module Ze0
   # so a gem's extracted files, whatever their mtimes, never pass for a
   # build they are not.
   module Deps
-    ONIG_SOURCES = %w[regcomp regenc regerror regexec regext regparse regsyntax regtrav regversion st onig_init unicode unicode_fold1_key unicode_fold2_key unicode_fold3_key unicode_unfold_key ascii utf8].freeze
-
     # A build that cannot write where the archives go.
     class Unwritable < StandardError; end
 
@@ -26,15 +24,6 @@ module Ze0
 
     # Where `target`'s archives live.
     def dir(target) = File.join(Paths::BUILD, target.triple)
-
-    # Oniguruma for UTF-8 and ASCII: the archive's path.
-    def onig(target = Target.default)
-      src = File.join(Paths::VENDOR, "c/oniguruma")
-      flags = ["-DHAVE_CONFIG_H", "-DONIG_DISABLE_DIRECT_THREADING", "-I#{src}"]
-      archive(target, "libonig.a", Dir[File.join(src, "*.[ch]")], flags) do |objects|
-        ONIG_SOURCES.map { |name| compile(target, File.join(src, "#{name}.c"), File.join(objects, "#{name}.o"), flags) }
-      end
-    end
 
     # Prism, the parser ruby itself uses: the archive's path. The gem
     # carries its own sources, and every file under src builds.
@@ -109,7 +98,7 @@ module Ze0
 
     # `target`'s archives, built where they are stale.
     def build(target = Target.default)
-      [onig(target), prism(target)]
+      [prism(target)]
     end
   end
 end

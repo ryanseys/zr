@@ -146,12 +146,12 @@ class ExeTest < Minitest::Test
   # fallback to `cc` is never a mystery.
   def test_an_archive_symbol_is_refused_by_name
     f = Ze0::IR::Function.new("main", %w[i32 i64], "i32")
-    f.call(f.callee("onig_new", %w[i64], nil, colocated: false), [f.iconst("i64", 0)])
+    f.call(f.callee("pm_buffer_init", %w[i64], nil, colocated: false), [f.iconst("i64", 0)])
     f.ret(f.iconst("i32", 0))
     Dir.mktmpdir("ze0-exe-") do |dir|
-      why = Ze0::Obj::MachO::Executable.write(Ze0::Native::Build.unit([f], []), File.join(dir, "regexp"))
-      assert_equal "onig_new is not libSystem's", why
-      refute File.exist?(File.join(dir, "regexp")), "it wrote a file it had refused"
+      why = Ze0::Obj::MachO::Executable.write(Ze0::Native::Build.unit([f], []), File.join(dir, "parse"))
+      assert_equal "pm_buffer_init is not libSystem's", why
+      refute File.exist?(File.join(dir, "parse")), "it wrote a file it had refused"
     end
   end
 

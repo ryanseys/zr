@@ -18,8 +18,8 @@ $ gem install ze0
 
 ze0 needs ruby 4.0.6 or a later 4.0 release. On an Apple Silicon Mac, it
 also needs the Xcode Command Line Tools (`xcode-select --install`) for
-native binaries. The install builds the vendored C (prism and oniguruma)
-into the gem, which takes a few seconds.
+native binaries. The install builds the vendored C (prism) into the gem,
+which takes a few seconds.
 
 ## Usage
 
@@ -131,7 +131,7 @@ rt/core/                 the core library, in ordinary Ruby
 rt/core/os/<os>/         the numbers an OS gives errno, File, IO and Process constants
 rt/ext/                  the native halves of extensions, in ordinary Ruby
 rt/ext/os/<os>/          an OS's extension tables (fcntl, etc, socket) and the eval description
-vendor/c/                the three vendored C libraries
+vendor/c/                the vendored C library (prism)
 vendor/ext/<gem>/lib     the Ruby halves of extension gems
 vendor/lib/              ruby's pure-Ruby standard library and bundled gems, unedited
 test/lang, core, ...     the corpus: one program per file, ruby's answer under __END__
@@ -168,7 +168,7 @@ ze0 emits `aarch64-apple-darwin` binaries and WASI modules.
 | `minitest` gem ~> 6.0 | runs `bin/ze0 check` (development) | `test/checks/` |
 | `aarch64` gem ~> 3.0 | pure Ruby, generated from the ARM specification: the authority our own encoder is held to. It never enters a compiled program. (development) | `test/checks/aarch64_test.rb` |
 | `fiddle` gem ~> 1.1 | loads code into the checks' own process (development) | `lib/ze0/obj/jit/fiddle.rb` |
-| `cc` | **compiles** the vendored C, and **links** a binary that reaches it | `lib/ze0/deps.rb`, `lib/ze0/native/link.rb` |
+| `cc` | **compiles** the vendored C, and **links** a binary that carries the runtime as an object | `lib/ze0/deps.rb`, `lib/ze0/native/link.rb` |
 | `ld` | invoked by `cc` for those binaries | through `cc` |
 | `ar` | archives the vendored C into `vendor/build/<target>/*.a` | `lib/ze0/deps.rb` |
 | libSystem | the only dylib a ze0 binary loads | every binary |
@@ -181,8 +181,8 @@ all libSystem's, which is all of `test/native` and `test/zr`. Which names
 are libSystem's comes from `lib/ze0/obj/macho/libsystem.rb`, which
 `tools/libsystem.rb` writes, so the answer is the same on every host.
 
-A program that reaches oniguruma or prism still needs a linker that reads
-archives, and that is `cc`. `ZE0_LINK=ruby` refuses such a program by
+A program that reaches prism, or links the runtime as an object of its
+own, still needs a linker that reads objects and archives, and that is `cc`. `ZE0_LINK=ruby` refuses such a program by
 naming the symbol instead of falling back, and `ZE0_LINK=cc` takes the
 system linker throughout.
 
@@ -191,12 +191,22 @@ system linker throughout.
 | Library | Why it is C |
 |---|---|
 | prism (`vendor/c/prism`) | the parser ruby itself uses. Matching ruby's answers means matching ruby's parser, and prism has no Ruby implementation. |
-| oniguruma (`vendor/c/oniguruma`) | the engine CRuby's `Regexp` semantics are defined by, down to its backtracking limits and its character tables. |
 
 zlib is not among them any more: `rt/kernel/zlib_*.rb` is a port of zlib
 1.3.1 in the kernel dialect, held to ruby's own zlib byte for byte by
 `tools/zlib_diff.rb`, so a deflate writes the bytes ruby's writes and
 `require "zlib"` works on every target, wasm included.
+
+Nor is oniguruma: `Regexp` runs on a port of Onigmo, CRuby 4.0.6's own
+engine. Its parser, tree setup, optimizer and compiler are plain Ruby in
+`rt/core/regexp/onig/`, ruby's preprocess of a pattern is
+`rt/core/regexp_pattern.rb`, and the matcher, search drivers and match
+cache are the kernel dialect in `rt/kernel/onig_*.rb`. `tools/regexp_diff.rb`
+holds it to ruby's own engine (errors, warnings and every capture's
+offsets) over the corpus's patterns and a fuzzer, and
+`test/checks/regexp_diff_test.rb` keeps a sample of those cases. It
+carries Onigmo's UTF-8 and ASCII encodings; a pattern in another
+multibyte or single-byte encoding is read byte by byte, as before.
 
 Each archive has a stamp beside it: the digest of its inputs' bytes, the
 flags and the toolchain. An archive whose stamp differs is built again.

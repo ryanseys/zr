@@ -1,4 +1,3 @@
-# native only: regexp patterns have no wasm form
 def t; yield; rescue NoMatchingPatternError => e; p [e.class, e.message, (e.key rescue nil), (e.matchee rescue nil)]; end
 t { 1 => String }
 t { {a: 1} => {b:} }

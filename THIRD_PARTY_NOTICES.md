@@ -9,7 +9,6 @@ version, its license, and where its license text is.
 | Component | Version | License | Path | License text |
 |---|---|---|---|---|
 | prism | 1.9.0 | MIT | `vendor/c/prism` | `vendor/c/prism/LICENSE.md` |
-| oniguruma (UTF-8 and ASCII subset, with changes marked `ze0:`) | 6.9.10 | BSD-2-Clause | `vendor/c/oniguruma` | `vendor/c/oniguruma/COPYING` |
 
 ## Ruby halves of extension gems
 
@@ -54,6 +53,8 @@ unedited, under Ruby or BSD-2-Clause.
 | `rt/kernel/fpconv.rb` | fpconv (Andreas Samoljuk), as vendored by the json gem | MIT |
 | `rt/kernel/float.rb` (the Ryu section), `rt/kernel/ryu_tables.rb` | Ryu (Ulf Adams) | Apache-2.0 or Boost-1.0 |
 | `rt/ext/date/parse.rb` | CRuby's `date_parse.c` (date gem) | Ruby or BSD-2-Clause |
+| `rt/core/regexp/onig.rb`, `rt/core/regexp/onig/*.rb`, `rt/core/regexp/unicode_tables.rb`, `rt/kernel/regexp.rb`, `rt/kernel/onig_enc.rb`, `rt/kernel/onig_stack.rb`, `rt/kernel/onig_match.rb`, `rt/kernel/onig_cache.rb`, `rt/kernel/onig_search.rb` | Onigmo, the regular expression engine of CRuby 4.0.6 (K. Kosako, K. Takata); the license text is in `rt/kernel/regexp.rb` | BSD-2-Clause |
+| `rt/core/regexp_pattern.rb` | CRuby 4.0.6's `re.c` (the preprocess, encoding and description functions) | Ruby or BSD-2-Clause |
 | `rt/kernel/zlib_check.rb`, `rt/kernel/zlib_tables.rb`, `rt/kernel/zlib_stream.rb`, `rt/kernel/zlib_inftrees.rb`, `rt/kernel/zlib_inffast.rb`, `rt/kernel/zlib_inflate.rb`, `rt/kernel/zlib_trees.rb`, `rt/kernel/zlib_deflate.rb`, `rt/kernel/os/*/zlib.rb` | zlib 1.3.1 (Jean-loup Gailly and Mark Adler); the license text is in `rt/kernel/zlib.rb` | Zlib |
 
 ## Benchmarks (repository only, not in the gem)

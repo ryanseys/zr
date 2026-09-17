@@ -1,4 +1,3 @@
-# native only: the regexp engine has no wasm form
 p Rational(1, 3), Rational(4, 2), Rational(-1, 3), Rational(1, -3), Rational(0, 5), Rational(3), Rational("1/3"), Rational("0.75"), Rational("-1.5e2"), Rational("2"), Rational(" 3/4 "), Rational("1_000/3"), Rational(0.5), Rational(0.1), Rational(1.5, 2), Rational(Rational(1, 2), 3), Rational(1, Rational(2, 3)), Rational("1.5", "3"), 1r, 3.5r, 1/3r, 2/4r
 p((Rational(1, 0) rescue $!.class), (Rational("x") rescue $!.message), Rational("x", exception: false), (Rational(nil) rescue $!.message), Rational(nil, exception: false), (Rational(Float::NAN) rescue $!.class), (Rational(1, 0.0) rescue $!.class))
 r = Rational(3, 4)

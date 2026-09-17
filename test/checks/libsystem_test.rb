@@ -33,7 +33,7 @@ class LibsystemTest < Minitest::Test
   end
 
   def test_a_name_off_the_list_is_not_libsystems
-    refute Ze0::Obj::MachO::Executable.libsystem?("onig_new")
+    refute Ze0::Obj::MachO::Executable.libsystem?("pm_buffer_init")
     assert Ze0::Obj::MachO::Executable.libsystem?("write")
   end
 end

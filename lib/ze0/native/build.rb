@@ -142,7 +142,7 @@ module Ze0
       # or a libc call neither the OS layer nor the floor answers, has no
       # wasm form:
       # its place is taken by a function that stops by name when called.
-      # Data another library defines (an oniguruma encoding) has none
+      # Data another library defines has none
       # either: its place is a zero word, since every call that reads it
       # is a stop.
       def wasm(functions, data, out, raw: [])

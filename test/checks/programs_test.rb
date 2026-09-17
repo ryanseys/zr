@@ -7,9 +7,7 @@ require_relative "../../lib/ze0/harness/case"
 
 # Ruby programs on the zr runtime: each `test/programs/<name>.rb` runs
 # under ruby, the oracle, and then compiled with the kernel and under
-# wasmtime; stdout, stderr and the exit status must agree. A wasm32
-# module carries no regexp engine and so none of the gem prelude's
-# libraries, and its oracle runs without error_highlight and did_you_mean.
+# wasmtime; stdout, stderr and the exit status must agree.
 # A program whose first line says "native only" reads the host (its
 # environment or working directory) and skips the wasm road; one whose
 # first line says "no stress" allocates too much for a collection at
@@ -42,8 +40,8 @@ class ProgramsTest < Minitest::Test
     end
   end
 
-  def oracle(rb, wasm: false)
-    capture({}, [RbConfig.ruby, *(wasm ? %w[--disable-error_highlight --disable-did_you_mean] : []), rb])
+  def oracle(rb)
+    capture({}, [RbConfig.ruby, rb])
   end
 
   def scrub(text, rb)
@@ -77,7 +75,7 @@ class ProgramsTest < Minitest::Test
       skip "wasmtime is not installed" unless Checks.wasmtime?
       skip "the program reads the host" if File.open(rb, &:readline).include?("native only")
 
-      want = oracle(rb, wasm: true)
+      want = oracle(rb)
       program = Ze0::Zr.program(File.read(rb), rb, target: Ze0::Target::WASM32_WASI)
       Dir.mktmpdir("ze0-programs-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")

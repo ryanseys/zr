@@ -141,7 +141,7 @@ when "stage2"
   # Both are written under the same base name, since macOS's ad-hoc
   # signature carries the output's base name.
   #
-  # The compiler reaches oniguruma, so `cc` links it. What that link
+  # The compiler reaches prism, so `cc` links it. What that link
   # writes and no input decides (on macOS, `ld`'s fresh UUID and the
   # signature over its page) is blanked, so that what is compared is what
   # the compiler decided.

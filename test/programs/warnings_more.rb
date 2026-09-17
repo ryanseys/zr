@@ -1,4 +1,3 @@
-# native only: warn with uplevel: takes a regexp, which a wasm32 module has no engine for
 # Warning as a module a program can turn off, redirect, or catch, and
 # the constants a module says are on their way out.
 p Warning.categories, Warning[:deprecated], Warning[:experimental]

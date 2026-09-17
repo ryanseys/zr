@@ -1,4 +1,3 @@
-# native only: the regexps below have no engine in a wasm32 module
 # Unicode case mapping: the full tables, the options ruby takes, and
 # the grapheme clusters the regex engine finds.
 p "abc".upcase, "ABC".downcase, "abc".capitalize, "aBc".swapcase

@@ -349,12 +349,8 @@ module Ze0
     # program that carries the compiler can meet a SyntaxError for.
     DEFERRED = %w[prism syntax_suggest/api].freeze
 
-
-    # A wasm32 module has no regexp engine, which those libraries and
-    # rbconfig reach for as they load, so it carries none of them.
+    # The gem prelude as one program for `target`.
     def gem_prelude(target = Target.default)
-      return Hir::Program.new("<internal:gem_prelude>", [], Hir::Seq.new([], 0), [], [], false, {}, false, {}, {}) if target.arch == :wasm32
-
       loader = Hir::Build::Loader.new(Hir::Build.stdlib(target), deferred: DEFERRED,
                                                                  preloaded: Hir::Build::PRELOADED - Hir::Build::GEM_PRELOADED)
       main = loader.unit("<internal:gem_prelude>", File.read(GEM_PRELUDE))

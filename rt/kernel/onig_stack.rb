@@ -3,7 +3,6 @@
 # starts in the search's arena and doubles into the heap. Derived from
 # Onigmo; the license is in rt/kernel/regexp.rb.
 Machine.import "malloc", [Word] => Ptr
-Machine.import "realloc", [Ptr, Word] => Ptr
 Machine.import "free", [Ptr] => Void
 Machine.import "memmove", [Ptr, Ptr, Word] => Ptr
 Machine.import "abort", [] => Void
@@ -117,21 +116,19 @@ machine def zr_onig_mem_end_ptr(m, mem)
 end
 
 # stack_double: twice the room, copying out of the arena the first time
-# and growing the heap block after.
+# and out of the smaller heap block after, which goes: realloc's work
+# spelled out, since a wasm module's allocator has no realloc.
 sig [Ptr] => Void
 machine def zr_onig_stack_double(m)
   base = OnigMatch.stk_base(m)
   n = Machine.word((OnigMatch.stk_end(m) - base) / OnigStk.size)
-  if base == OnigMatch.stk_alloc(m) && OnigMatch.stack_p(m) == 0
-    x = malloc(OnigStk.size * n * 2)
-    abort() if x == 0
-    memmove(x, base, n * OnigStk.size)
-    n = n * 2
-  else
-    n = n * 2
-    x = realloc(base, OnigStk.size * n)
-    abort() if x == 0
+  x = malloc(OnigStk.size * n * 2)
+  abort() if x == 0
+  memmove(x, base, n * OnigStk.size)
+  if base != OnigMatch.stk_alloc(m) || OnigMatch.stack_p(m) != 0
+    free(base)
   end
+  n = n * 2
   OnigMatch.set_stk(m, x + (OnigMatch.stk(m) - base))
   OnigMatch.set_stk_base(m, x)
   OnigMatch.set_stk_end(m, x + (n * OnigStk.size))

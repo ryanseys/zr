@@ -10,6 +10,13 @@ class Regexp
 
     module_function
 
+    # The option bits, as Regexp names them; regexp.rb, which defines
+    # those, loads after this file.
+    IGNORECASE = 1
+    EXTENDED = 2
+    MULTILINE = 4
+    FIXEDENCODING = 16
+    NOENCODING = 32
     ENGINE_OPTIONS = IGNORECASE | EXTENDED | MULTILINE
     # The encodings whose characters the engine reads as UTF-8.
     WIDE = %w[UTF-8 UTF8-MAC UTF8-DoCoMo UTF8-KDDI UTF8-SoftBank].freeze
