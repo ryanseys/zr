@@ -216,6 +216,86 @@ module Ze0
         end
       end
 
+      # The first place two object graphs differ, as `path: why`, or nil.
+      # Objects compare by class, frozenness and instance variables; Strings
+      # by bytes and encoding; Floats by their bits. An object met again must
+      # be met again at the same place in the other graph, as every node
+      # shares its result's Source.
+      class Graph
+        def self.difference(expected, actual) = new.difference(expected, actual, "result")
+
+        def initialize
+          @seen = {}.compare_by_identity
+        end
+
+        def difference(expected, actual, path)
+          return "#{path}: C #{expected.class}, Ruby #{actual.class}" unless expected.class == actual.class
+          return "#{path}: C frozen #{expected.frozen?}, Ruby frozen #{actual.frozen?}" unless expected.frozen? == actual.frozen?
+
+          case expected
+          when String, Symbol
+            "#{path}: C #{expected.inspect} (#{expected.encoding}), Ruby #{actual.inspect} (#{actual.encoding})" unless expected.to_s.b == actual.to_s.b && expected.encoding == actual.encoding
+          when Float
+            "#{path}: C #{expected}, Ruby #{actual}" unless [expected].pack("G") == [actual].pack("G")
+          when Integer, NilClass, TrueClass, FalseClass, Module
+            "#{path}: C #{expected.inspect}, Ruby #{actual.inspect}" unless expected.equal?(actual) || expected == actual
+          when Array
+            return "#{path}: C #{expected.size} elements, Ruby #{actual.size}" unless expected.size == actual.size
+
+            expected.each_with_index do |value, index|
+              why = difference(value, actual[index], "#{path}[#{index}]")
+              return why if why
+            end
+            nil
+          else
+            if (seen = @seen[expected])
+              return seen.equal?(actual) ? nil : "#{path}: C meets an object again, Ruby a different one"
+            end
+
+            @seen[expected] = actual
+            names = expected.instance_variables
+            return "#{path}: C #{names}, Ruby #{actual.instance_variables}" unless names == actual.instance_variables
+
+            names.each do |name|
+              why = difference(expected.instance_variable_get(name), actual.instance_variable_get(name), "#{path}.#{name.to_s.delete_prefix("@")}")
+              return why if why
+            end
+            nil
+          end
+        end
+      end
+
+      # The entry points compared object for object (Graph) with the C
+      # extension's: each case through `Prism.<method>` and
+      # `Prism::Ruby.<method>` with its options.
+      def api(cases, method, **extra)
+        require File.join(ROOT, "rt/ext/prism/ruby")
+        cases.filter_map do |c|
+          why = call_difference(Prism, Prism::Ruby) { |receiver| receiver.public_send(method, c.source, **c.options, **extra) }
+          [c.name, why] if why
+        end
+      end
+
+      # How what the block answers given the C extension's receiver (Prism,
+      # Prism::Pack, Prism::StringQuery) differs from what it answers given the
+      # Ruby port's, or nil. A raised error is an answer too, compared by class
+      # and message.
+      def call_difference(c, ruby)
+        expected = answer { yield c }
+        actual = answer { yield ruby }
+        why = Graph.difference(expected.first(3), actual.first(3))
+        return why unless why && actual.first == :raised && expected.first != :raised
+
+        "#{why}\n  #{actual[1]}: #{actual[2]}\n  #{actual[3].join("\n  ")}"
+      end
+
+      # What the block answers, or `[:raised, class, message, backtrace]`.
+      def answer
+        [yield]
+      rescue StandardError, SystemStackError => e
+        [:raised, e.class, e.message, e.backtrace.first(4)]
+      end
+
       # Bytes the fuzzer inserts: the characters that open, close or join
       # constructs.
       FUZZ_BYTES = "()[]{}|&*,.:;=<>?!@$#%'\"`\\/\n -+^~_1aZ".b

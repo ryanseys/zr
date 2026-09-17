@@ -1,0 +1,52 @@
+module Prism
+  module Ruby
+    # api_node.c's pm_ast_new: what the C extension does to each node as it
+    # hands a tree to Ruby. The parser built the nodes already; left to do
+    # is that strings take the encoding the tree is read in and freeze, a
+    # constant not valid in that encoding reads `:?`, and under
+    # `freeze: true` each location becomes a frozen Location and each node
+    # and list freezes.
+    class AST
+      # Each node's part of the work, visible to AST alone.
+      module Reify
+        <%- nodes.each_with_index do |node, index| -%>
+        <%- strings = node.fields.grep(Prism::Template::StringField) -%>
+        <%- constants = node.fields.grep(Prism::Template::ConstantField) + node.fields.grep(Prism::Template::OptionalConstantField) -%>
+        <%- constant_lists = node.fields.grep(Prism::Template::ConstantListField) -%>
+        <%- node_lists = node.fields.grep(Prism::Template::NodeListField) -%>
+        <%- locations = node.fields.grep(Prism::Template::LocationField) -%>
+        <%- optional_locations = node.fields.grep(Prism::Template::OptionalLocationField) -%>
+        <%- if index > 0 -%>
+
+        <%- end -%>
+        refine <%= node.name %> do
+          def reify(ast)
+            <%- strings.each do |field| -%>
+            @<%= field.name %> = ast.string(@<%= field.name %>)
+            <%- end -%>
+            <%- constants.each do |field| -%>
+            @<%= field.name %> = ast.constant(@<%= field.name %>)
+            <%- end -%>
+            <%- constant_lists.each do |field| -%>
+            ast.constants(@<%= field.name %>)
+            <%- end -%>
+            return unless ast.freeze?
+
+            @location = ast.location(@location)
+            <%- locations.each do |field| -%>
+            @<%= field.name %> = ast.location(@<%= field.name %>)
+            <%- end -%>
+            <%- optional_locations.each do |field| -%>
+            @<%= field.name %> = ast.location(@<%= field.name %>) if @<%= field.name %>
+            <%- end -%>
+            <%- (node_lists + constant_lists).each do |field| -%>
+            @<%= field.name %>.freeze
+            <%- end -%>
+            freeze
+          end
+        end
+        <%- end -%>
+      end
+    end
+  end
+end

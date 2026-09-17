@@ -5,9 +5,13 @@
 #
 #   ruby tools/prism_diff.rb --writer [--corpus NAMES] [--only GLOB]
 #   ruby tools/prism_diff.rb --lex [--states] [--corpus NAMES] [--only GLOB] [--show N]
+#   ruby tools/prism_diff.rb --api METHOD [--freeze] [--corpus NAMES] [--only GLOB]
 #
 # --writer: each C dump written again by Prism::Ruby::Dump, byte for byte.
 # --dump: Prism::Ruby.dump, the Ruby parser and writer, against Prism.dump.
+# --api METHOD: Prism::Ruby.METHOD (parse, lex, parse_lex, parse_comments,
+# parse_success?) against Prism.METHOD, object for object; with --freeze,
+# under `freeze: true`.
 # --lex: the lexer alone against Prism.lex's token types and ranges (and
 # with --states, lex states); cases in a lex mode not yet written are
 # counted apart.
@@ -29,10 +33,14 @@ states = false
 show = 20
 fuzz = nil
 seed = 1
+method = nil
+freeze = false
 OptionParser.new do |o|
   o.on("--writer") { mode = :writer }
   o.on("--dump") { mode = :dump }
   o.on("--lex") { mode = :lex }
+  o.on("--api METHOD") { |name| mode = :api; method = name.to_sym }
+  o.on("--freeze") { freeze = true }
   o.on("--states") { states = true }
   o.on("--corpus NAMES") { |names| corpora = names.split(",") }
   o.on("--only GLOB") { |glob| only = glob }
@@ -40,7 +48,7 @@ OptionParser.new do |o|
   o.on("--fuzz N", Integer) { |n| fuzz = n }
   o.on("--seed N", Integer) { |n| seed = n }
 end.parse!
-abort "usage: ruby tools/prism_diff.rb --writer|--dump|--lex [--states] [--corpus NAMES] [--only GLOB] [--show N]" unless mode
+abort "usage: ruby tools/prism_diff.rb --writer|--dump|--lex|--api METHOD [--states] [--freeze] [--corpus NAMES] [--only GLOB] [--show N]" unless mode
 
 diff = Ze0::Harness::PrismDiff
 cases = diff.cases(corpora, only: only)
@@ -50,6 +58,7 @@ failures =
   case mode
   when :writer then diff.writer(cases)
   when :dump then diff.dump(cases)
+  when :api then freeze ? diff.api(cases, method, freeze: true) : diff.api(cases, method)
   when :lex then diff.lex(cases, states: states).tap { |_, count| unsupported = count }.first
   end
 failures.first(show).each { |name, why| puts "differs #{name}: #{why}" }

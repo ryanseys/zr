@@ -27,7 +27,10 @@ module Prism
         encoding = Encodings.find(bytes)
         return false if encoding.nil?
 
-        @encoding = encoding
+        if encoding != @encoding
+          @encoding = encoding
+          @encoding_changed_callback&.call
+        end
         @encoding_changed = encoding != Encodings::UTF_8
         true
       end

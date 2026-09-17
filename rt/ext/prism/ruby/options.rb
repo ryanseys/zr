@@ -4,6 +4,7 @@ module Prism
   module Ruby
     # pm_options_t, read from the keywords of a Prism call as the C
     # extension reads them (extension.c build_options_i), with its errors.
+    # The messages of those errors are binary, as rb_raise makes them.
     class Options
       # pm_options_version_t
       VERSION_CRUBY_3_3 = 1
@@ -19,6 +20,12 @@ module Prism
 
       # PM_OPTIONS_COMMAND_LINE_*
       COMMAND_LINE = { "a" => 0x1, "e" => 0x2, "l" => 0x4, "n" => 0x8, "p" => 0x10, "x" => 0x20 }.freeze
+
+      # The range of a C int.
+      INT = -(2**31)..(2**31 - 1)
+
+      # The range of a C long.
+      LONG = -(2**63)..(2**63 - 1)
 
       # PM_OPTIONS_SCOPE_FORWARDING_*
       FORWARDING = { :* => 0x1, :** => 0x2, :& => 0x4, :"..." => 0x8 }.freeze
@@ -43,9 +50,8 @@ module Prism
         @scopes = []
         keywords.each { |key, value| read(key, value) }
         return if filepath.nil?
-        raise TypeError, "wrong argument type #{filepath.class} (expected String)" unless filepath.is_a?(String)
 
-        @filepath = filepath
+        @filepath = c_string(Options.check_type(filepath, String))
       end
 
       def encoding_locked? = @encoding_locked
@@ -53,36 +59,62 @@ module Prism
       def partial_script? = @partial_script
       def freeze? = @freeze
 
+      # Check_Type: the value, or the TypeError of one not of the type.
+      def self.check_type(value, type, expected = type.name)
+        raise TypeError, "wrong argument type #{value.class} (expected #{expected})".b unless value.is_a?(type)
+
+        value
+      end
+
+      # A String as C reads it through its pointer: up to the first NUL.
+      def self.c_string(value) = (at = value.byteindex("\0")) ? value.byteslice(0, at) : value
+
       private
 
       # build_options_i
       def read(key, value)
         case key
-        when :filepath then @filepath = string(value) unless value.nil?
+        when :filepath then @filepath = c_string(string(value)) unless value.nil?
         when :encoding
           if value == false
             @encoding_locked = true
           elsif !value.nil?
             @encoding = (value.is_a?(::Encoding) ? value : ::Encoding.find(value)).name
           end
-        when :line then @line = Integer(value) unless value.nil?
+        when :line then @line = int(value) unless value.nil?
         when :frozen_string_literal
           @frozen_string_literal = value ? FROZEN_STRING_LITERAL_ENABLED : FROZEN_STRING_LITERAL_DISABLED unless value.nil?
         when :version then @version = read_version(value) unless value.nil?
         when :scopes then @scopes = read_scopes(value) unless value.nil?
-        when :command_line then @command_line = read_command_line(string(value)) unless value.nil?
+        when :command_line then @command_line = read_command_line(c_string(string(value))) unless value.nil?
         when :main_script then @main_script = value ? true : false unless value.nil?
         when :partial_script then @partial_script = value ? true : false unless value.nil?
         when :freeze then @freeze = value ? true : false unless value.nil?
-        else raise ArgumentError, "unknown keyword: #{key.inspect}"
+        else raise ArgumentError, "unknown keyword: #{key}".b
         end
       end
 
       # check_string
-      def string(value)
-        raise TypeError, "wrong argument type #{value.class} (expected String)" unless value.is_a?(String)
+      def string(value) = Options.check_type(value, String)
 
-        value
+      def c_string(value) = Options.c_string(value)
+
+      # NUM2INT: the value as a long (rb_num2long), then in an int's range.
+      def int(value)
+        long =
+          if value.is_a?(Float)
+            raise RangeError, "float #{format("%-.10g", value)} out of range of integer".b unless value.finite? && LONG.cover?(value.truncate)
+
+            value.truncate
+          else
+            integer = Integer.try_convert(value) || raise(TypeError, "no implicit conversion of #{value.class} into Integer".b)
+            raise RangeError, "bignum too big to convert into 'long'".b unless LONG.cover?(integer)
+
+            integer
+          end
+        raise RangeError, "integer #{long} too #{long.negative? ? "small" : "big"} to convert to 'int'".b unless INT.cover?(long)
+
+        long
       end
 
       def read_version(value)
@@ -93,7 +125,7 @@ module Prism
 
           found
         else
-          version_number(text) || raise(ArgumentError, "invalid version: #{value}")
+          version_number(text) || raise(ArgumentError, "invalid version: #{value}".b)
         end
       end
 
@@ -113,21 +145,21 @@ module Prism
       end
 
       def read_command_line(text)
-        text.each_char.reduce(0) do |flags, char|
-          flags | COMMAND_LINE.fetch(char) { raise ArgumentError, "invalid command line flag: '#{char}'" }
+        text.b.each_char.reduce(0) do |flags, char|
+          flags | COMMAND_LINE.fetch(char) { raise ArgumentError, "invalid command line flag: '#{char}'".b }
         end
       end
 
       # build_options_scopes
       def read_scopes(value)
-        raise TypeError, "wrong argument type #{value.class} (expected Array)" unless value.is_a?(Array)
+        Options.check_type(value, Array)
 
         value.map do |scope|
           locals, forwarding =
             case scope
             when Array then [scope, 0]
             when Prism::Scope then scope_parts(scope)
-            else raise TypeError, "wrong argument type #{scope.class} (expected Array or Prism::Scope)"
+            else raise TypeError, "wrong argument type #{scope.class} (expected Array or Prism::Scope)".b
             end
           EvalScope.new(locals.map { |local| symbol(local).name }, forwarding)
         end
@@ -135,22 +167,18 @@ module Prism
 
       def scope_parts(scope)
         locals = scope.instance_variable_get(:@locals)
-        raise TypeError, "wrong argument type #{locals.class} (expected Array)" unless locals.is_a?(Array)
+        Options.check_type(locals, Array)
 
         names = scope.instance_variable_get(:@forwarding)
-        raise TypeError, "wrong argument type #{names.class} (expected Array)" unless names.is_a?(Array)
+        Options.check_type(names, Array)
 
         forwarding = names.reduce(0) do |flags, name|
-          flags | FORWARDING.fetch(symbol(name)) { raise ArgumentError, "invalid forwarding value: #{name}" }
+          flags | FORWARDING.fetch(symbol(name)) { raise ArgumentError, "invalid forwarding value: #{name}".b }
         end
         [locals, forwarding]
       end
 
-      def symbol(value)
-        raise TypeError, "wrong argument type #{value.class} (expected Symbol)" unless value.is_a?(Symbol)
-
-        value
-      end
+      def symbol(value) = Options.check_type(value, Symbol)
     end
   end
 end

@@ -75,7 +75,18 @@ module Prism
       TAB_WHITESPACE_SIZE = 8
 
       attr_reader :source, :errors, :warnings, :comments, :magic_comments, :data_loc, :newlines,
-                  :constant_pool, :encoding, :start_line, :options
+                  :constant_pool, :encoding, :start_line, :options, :shared_strings, :negative_zeros
+
+      # The Source each node holds.
+      attr_accessor :node_source
+
+      # pm_lex_callback_t: called with each token's type, start and end, and
+      # the lex state after it.
+      attr_writer :lex_callback
+
+      # pm_encoding_changed_callback_t: called when a magic comment changes
+      # the encoding.
+      attr_writer :encoding_changed_callback
 
       # pm_parser_init
       def initialize(source, options)
@@ -112,7 +123,8 @@ module Prism
         @encoding = Encodings::UTF_8
         @encoding_comment_start = 0
         @lex_callback = nil
-        @filepath = options.filepath || "".b
+        @encoding_changed_callback = nil
+        @filepath = (options.filepath || "").b
         @constant_pool = ConstantPool.new(@source, [@end / 95, 4].max)
         # pm_newline_list_t: the offset each line starts at.
         @newlines = [0]
@@ -136,8 +148,7 @@ module Prism
         @current_regular_expression_ascii_only = false
         @warn_mismatched_indentation = true
 
-        # The Source the nodes hold, its line offsets filled in after the parse.
-        @node_source = Prism::Source.for(source.dup)
+        @node_source = nil
         # The Symbol of each constant id, made on first use.
         @constant_symbols = []
         # The ids of the numeric nodes negated to a zero (`-0`).
@@ -150,6 +161,10 @@ module Prism
         find_shebang(options)
         @encoding_comment_start += strspn_inline_whitespace(@encoding_comment_start, @end)
       end
+
+      # Whether a lex mode other than the default one is open (the lex mode
+      # stack's index past 0).
+      def lex_mode_nested? = @lex_modes.size > 1
 
       def current_token = Token.new(@current_type, @current_start, @current_end)
       def previous_token = Token.new(@previous_type, @previous_start, @previous_end)
