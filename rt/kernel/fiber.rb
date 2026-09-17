@@ -79,10 +79,11 @@ machine def zr_fiber_current
   slot = Machine.static(:current_fiber, 8)
   f = Machine.value(Machine.load64(slot, 0))
   if zr_special_p(f)
-    f = zr_alloc(T_FIBER, zr_global(G_FIBER))
+    f = zr_alloc(T_FIBER, zr_global(G_FIBER), RFiber.size)
     RFiber.set_task(f, Machine.static(:task, Task.size))
     RFiber.set_ctx(f, zr_xmalloc(CONTEXT_BYTES))
     RFiber.set_stack(f, 0)
+    RFiber.set_kroots(f, 0)
     RFiber.set_blk(f, Machine.value(QNIL))
     RFiber.set_status(f, FIBER_RESUMED)
     RFiber.set_prev(f, Machine.value(QNIL))
@@ -106,7 +107,7 @@ end
 # context, no stack and no task, which refuses to run.
 sig [Value] => Value
 machine def zr_fiber_alloc(klass)
-  f = zr_alloc(T_FIBER, klass)
+  f = zr_alloc(T_FIBER, klass, RFiber.size)
   RFiber.set_task(f, 0)
   RFiber.set_ctx(f, 0)
   RFiber.set_stack(f, 0)

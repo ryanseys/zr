@@ -115,15 +115,15 @@ machine def zr_frame_helper_p(rec)
   FrameMeta.kind(meta) == KIND_HIDDEN
 end
 
-# One row per frame from `top` outward, into a fresh buffer.
+# One row per shown frame from `top` outward, into a fresh buffer sized
+# to the whole chain: which frames show is decided once, on the walk
+# that fills the rows, not on a walk that counts them first.
 sig [Value, Ptr] => Void
 machine def zr_backtrace_capture(exc, top)
   n = 0
   rec = top
   while rec != 0
-    if zr_frame_shown_p(rec)
-      n += 1
-    end
+    n += 1
     rec = Frame.prev(rec)
   end
   rows = zr_xmalloc(n * BtRow.size)
@@ -150,12 +150,12 @@ machine def zr_backtrace_capture(exc, top)
     rec = Frame.prev(rec)
   end
   RException.set_rows(exc, rows)
-  RException.set_nrows(exc, n)
+  RException.set_nrows(exc, i)
 end
 
 sig [Value, Value] => Value
 machine def zr_exc_new(klass, message)
-  e = zr_alloc(T_EXCEPTION, klass)
+  e = zr_alloc(T_EXCEPTION, klass, RException.size)
   RException.set_message(e, message)
   RException.set_rows(e, 0)
   RException.set_nrows(e, 0)

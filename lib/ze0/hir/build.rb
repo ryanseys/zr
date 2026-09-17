@@ -86,11 +86,18 @@ module Ze0
 
       # The compiler alone, as the units a road holds: the loader has
       # built them, and its flags say what a program that carries them
-      # needs beside them.
+      # needs beside them. The road holds the preludes too (rbconfig,
+      # the normalizer, the pretty printer, the syntax tree translator):
+      # a program that evals may need any of them, and lowered here they
+      # are lowered once, not with every such program.
       def self.road(target = Target.default)
         Loader.new(stdlib(target)).tap do |loader|
           eval_road(loader)
           rubygems(loader)
+          rbconfig(loader)
+          normalizer(loader)
+          pretty_printer(loader)
+          ast_translator(loader)
         end
       end
 

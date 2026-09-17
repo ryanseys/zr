@@ -51,6 +51,47 @@ class PassesTest < Minitest::Test
     assert_equal 9, answer(f, [9])
   end
 
+  def test_a_parameter_every_edge_gives_one_constant_folds_where_it_is_read
+    f = function("joined", %w[i64], "i64") do |f, p|
+      yes = f.label
+      no = f.label
+      join, (size,) = f.block(["i64"])
+      f.brif(f.icmp("eq", p, f.iconst("i64", 0)), yes, no)
+      f.switch(yes)
+      f.jump(join, [f.iconst("i64", 24)])
+      f.switch(no)
+      f.jump(join, [f.iconst("i64", 24)])
+      f.switch(join)
+      small = f.label
+      large = f.label
+      f.brif(f.icmp("sle", size, f.iconst("i64", 32)), small, large)
+      f.switch(small)
+      f.ret(f.iadd(p, f.iconst("i64", 1)))
+      f.switch(large)
+      f.ret(f.iconst("i64", 0))
+    end
+    Ze0::IR::Passes.prepare(f, strict: true)
+    assert_equal 1, ops(f).count(:icmp), "only the entry's own test is left"
+    assert_equal [1, 8], [answer(f, [0]), answer(f, [7])]
+  end
+
+  def test_a_loop_head_is_not_taken_for_a_constant
+    f = function("loop", %w[i64], "i64") do |f, n|
+      head, (i,) = f.block(["i64"])
+      body = f.label
+      done = f.label
+      f.jump(head, [f.iconst("i64", 0)])
+      f.switch(head)
+      f.brif(f.icmp("slt", i, n), body, done)
+      f.switch(body)
+      f.jump(head, [f.iadd(i, f.iconst("i64", 1))])
+      f.switch(done)
+      f.ret(i)
+    end
+    Ze0::IR::Passes.prepare(f, strict: true)
+    assert_equal [5, 0], [answer(f, [5]), answer(f, [-3])]
+  end
+
   def test_dead_code_goes_and_a_store_stays
     f = function("dead", %w[i64], nil) do |f, p|
       f.iconst("i64", 5)

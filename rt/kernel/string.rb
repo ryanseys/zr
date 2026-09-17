@@ -1,27 +1,41 @@
 # Strings: a length, a capacity and a buffer outside the arena.
 Machine.struct :RString, basic: RBasic, len: Word, capa: Word, ptr: Ptr
 
-# A String whose bytes live in its own cell, after the header, with
-# room for STR_EMBED_CAPA of them and a NUL. A longer String keeps
-# them in a malloc'd buffer of `capa` + 1 bytes. Either way `ptr`
-# reaches the bytes and `capa` counts the room, so a reader never
-# asks which.
+# A String whose bytes live in its own cell, after the header, as many
+# as the cell has room for and a NUL. A longer String keeps them in a
+# malloc'd buffer of `capa` + 1 bytes. Either way `ptr` reaches the
+# bytes and `capa` counts the room, so a reader never asks which. An
+# Array keeps its elements the same way.
 FL_EMBED = 1 << 7
 FL_EMBED_CLEAR = 0 - FL_EMBED - 1
-STR_EMBED_CAPA = CELL - 40 - 1
 
 sig [Value] => Bool
 machine def zr_str_embedded_p(s)
   (RBasic.flags(s) & FL_EMBED) != 0
 end
 
+# The bytes `s`'s own cell holds besides the NUL: 23 in a 64-byte cell,
+# 87 in 128, 215 in 256.
+sig [Value] => Word
+machine def zr_str_embed_capa(s)
+  zr_cell_bytes(s) - RString.size - 1
+end
+
+# The cell a String of `n` bytes takes: one that holds them and the
+# NUL, else the smallest, with the bytes malloc'd.
+sig [Word] => Word
+machine def zr_str_cell_bytes(n)
+  bytes = RString.size + n + 1
+  bytes <= CELL_MAX ? bytes : RString.size
+end
+
 # A buffer with room for `n` bytes and a NUL for `s`, whose old bytes
 # are gone: the cell's own tail when they fit, else a malloc'd one.
 sig [Value, Word] => Void
 machine def zr_str_buf_new(s, n)
-  if n <= STR_EMBED_CAPA
+  if n <= zr_str_embed_capa(s)
     RString.set_ptr(s, Machine.ptr(s) + RString.size)
-    RString.set_capa(s, STR_EMBED_CAPA)
+    RString.set_capa(s, zr_str_embed_capa(s))
     RBasic.set_flags(s, RBasic.flags(s) | FL_EMBED)
   else
     RString.set_ptr(s, zr_xmalloc(n + 1))
@@ -96,7 +110,7 @@ end
 
 sig [Ptr, Word] => Value
 machine def zr_str_new(bytes, len)
-  s = zr_alloc(T_STRING, zr_global(G_STRING))
+  s = zr_alloc(T_STRING, zr_global(G_STRING), zr_str_cell_bytes(len))
   zr_str_buf_new(s, len)
   zr_memcpy(RString.ptr(s), bytes, len)
   Machine.store8(RString.ptr(s) + len, 0, Machine.i8(0))

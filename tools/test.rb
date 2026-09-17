@@ -27,12 +27,13 @@ require "rbconfig"
 require "tmpdir"
 require_relative "../lib/ze0/harness/case"
 require_relative "../lib/ze0/harness/child"
+require_relative "../lib/ze0/harness/sweep"
 require_relative "../lib/ze0/harness/runner"
 
 ROOT = File.expand_path("..", __dir__)
 TESTS = File.join(ROOT, "test")
 
-options = { gc: "plain", timeout: 60, keep: false, verbose: false, diff: 20, jobs: nil, target: Ze0::Target.default }
+options = { gc: "plain", timeout: nil, keep: false, verbose: false, diff: 20, jobs: nil, target: Ze0::Target.default }
 filters = []
 argv = ARGV.dup
 until argv.empty?
@@ -48,6 +49,7 @@ until argv.empty?
   else filters << word
   end
 end
+options[:timeout] ||= Ze0::Harness::Sweep.limit(options[:gc])
 abort "usage: ruby tools/test.rb <case path>... [--jobs N] [--gc plain|stress] [--keep] [--verbose] [--diff N] [--timeout N] [--target <triple>]" if filters.empty?
 RUNNER = Ze0::Harness::Runner.new(ROOT, options[:target])
 abort RUNNER.refusal if RUNNER.refusal

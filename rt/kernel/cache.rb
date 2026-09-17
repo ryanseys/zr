@@ -210,18 +210,38 @@ end
 # is a dispatch, which fills the cell.
 sig [Ptr, Value, Word, Word, Ptr, Value, Word] => Value
 machine def zr_send_cached(cc, recv, mid, argc, argv, blk, mode)
-  way = cc
-  e = zr_call_cache_hit(way, recv, mid)
-  i = 1
-  while e == 0 && i < CALL_WAYS
-    way = cc + (i * CallCache.size)
-    e = zr_call_cache_hit(way, recv, mid)
-    i += 1
+  if Task.refine(zr_task()) == QNIL
+    # The class and the stamp once, then each way in place. The site
+    # tested the first way itself for a cell or a fixnum receiver; any
+    # other receiver reached it untested, and under ZR_MCACHE=verify
+    # no site's own test hits, so the first way is tested here and
+    # every hit is held to the chain.
+    w = Machine.word(recv)
+    verify = Machine.load64(Machine.static(:mcache_mode, 8), 0) == MCACHE_VERIFY
+    if (w & 7) == 0 && w > QUNDEF
+      klass = RBasic.klass(recv)
+      i = verify ? 0 : 1
+    elsif (w & 1) != 0
+      klass = zr_global(G_INTEGER)
+      i = verify ? 0 : 1
+    else
+      klass = zr_class_of(recv)
+      i = 0
+    end
+    stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
+    while i < CALL_WAYS
+      way = cc + (i * CallCache.size)
+      if CallCache.klass(way) == klass && CallCache.stamp(way) == stamp
+        e = CallCache.entry(way)
+        if verify && e != zr_search_method(klass, mid)
+          zr_bug(Machine.bytes("a call cache answered what the chain does not\n"), 46)
+        end
+        return Machine.call(:method, CallCache.fn(way), recv, argc, argv, e, blk, CallCache.found(way))
+      end
+      i += 1
+    end
   end
-  if e == 0
-    return zr_dispatch(zr_call_cache_slot(cc), recv, mid, argc, argv, mode, blk)
-  end
-  Machine.call(:method, CallCache.fn(way), recv, argc, argv, e, blk, CallCache.found(way))
+  zr_dispatch(zr_call_cache_slot(cc), recv, mid, argc, argv, mode, blk)
 end
 
 # The cell a dispatch fills: the first that is empty or stale, else

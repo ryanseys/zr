@@ -15,10 +15,10 @@ module Ze0
   class Eval
     # The compiler loads with the first string a program evals, not as
     # the program boots. Most programs that could eval never do, and
-    # loading it makes some twelve thousand objects: every one a
-    # collection keeps marking, and one a collection under stress.
+    # loading it makes some hundred thousand objects, ninety thousand
+    # of them live for the rest of the run.
     def self.current
-      @current ||= begin
+      @current ||= plainly do
         require_relative "hir"
         require_relative "zr/lower"
         require_relative "backend/aarch64"
@@ -26,6 +26,20 @@ module Ze0
         require "zr_description"
         new(Runtime.new)
       end
+    end
+
+    # The compiler runs under the plain collector. A collection at every
+    # allocation (ZR_GC_STRESS) is for the program's own code: the
+    # compiler's boot leaves ninety thousand objects live, and an eval
+    # would mark every one of them again at each of its own thirty
+    # thousand allocations, so a program that evals once would run for
+    # minutes.
+    def self.plainly
+      stress = GC.stress
+      GC.stress = false
+      yield
+    ensure
+      GC.stress = stress
     end
 
     def initialize(runtime)
@@ -45,20 +59,12 @@ module Ze0
     # invents stays its own. `method` is the parameters of the method the
     # scope runs inside, or nil outside one.
     def compile(source, file, line = 1, scopes = [], method = nil)
-      @count += 1
-      name = "zr_eval_#{@count}"
-      hir = begin
-        Hir.build(string(source), string(file), road: false, line: line.to_int, scopes: [*scopes.reverse, []], method: method)
-      rescue SyntaxError => e
-        # The error is the eval's, raised where the eval stands, unless it
-        # names only the string, as a stray `yield`'s does.
-        e.set_backtrace(caller_locations(1)) unless e.backtrace == [e.path]
-        raise e
-      end
-      functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run
-      symbols = Obj::JIT.load(unit(functions, data), host: @host)
-      metas = symbols.select { |symbol, _| symbol.start_with?("zr_meta_") }.values
-      [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}"), metas]
+      Eval.plainly { compiled(source, file, line, scopes, method) }
+    rescue SyntaxError => e
+      # The error is the eval's, raised where the eval stands, unless it
+      # names only the string, as a stray `yield`'s does.
+      e.set_backtrace(caller_locations(1)) unless e.backtrace == [e.path]
+      raise e
     end
 
     # The address of the toplevel of the file at `path`, compiled as a
@@ -66,15 +72,27 @@ module Ze0
     # among the native halves is the runtime's own, where `Primitive`
     # resolves.
     def compile_file(path)
-      @count += 1
-      name = "zr_load_#{@count}"
-      hir = Hir.build(File.read(path), path, road: false)
-      ext = path.start_with?("#{Hir::Build::EXT}/")
-      functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :top, ext: ext).run
-      Obj::JIT.load(unit(functions, data), host: @host).fetch(name)
+      Eval.plainly do
+        @count += 1
+        name = "zr_load_#{@count}"
+        hir = Hir.build(File.read(path), path, road: false)
+        ext = path.start_with?("#{Hir::Build::EXT}/")
+        functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :top, ext: ext).run
+        Obj::JIT.load(unit(functions, data), host: @host).fetch(name)
+      end
     end
 
     private
+
+    def compiled(source, file, line, scopes, method)
+      @count += 1
+      name = "zr_eval_#{@count}"
+      hir = Hir.build(string(source), string(file), road: false, line: line.to_int, scopes: [*scopes.reverse, []], method: method)
+      functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run
+      symbols = Obj::JIT.load(unit(functions, data), host: @host)
+      metas = symbols.select { |symbol, _| symbol.start_with?("zr_meta_") }.values
+      [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}"), metas]
+    end
 
     # The Outer chain for `scopes`, innermost first, as the lowering
     # walks it: one step out per Env the asking frame reaches.

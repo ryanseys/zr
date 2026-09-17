@@ -15,7 +15,7 @@ KIND_BMETHOD = 8
 sig [Value, Value, Value] => Value
 machine def zr_proc_under(p, self_, cref)
   blk = zr_block_proc(RProc.blk(p))
-  copy = zr_alloc(T_PROC, zr_global(G_PROC))
+  copy = zr_alloc(T_PROC, zr_global(G_PROC), RProc.size)
   zr_memcpy(Machine.ptr(copy) + RBasic.size, Machine.ptr(p) + RBasic.size, RProc.size - RBasic.size)
   RProc.set_blk(copy, blk)
   RProc.set_self(copy, self_)

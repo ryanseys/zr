@@ -49,11 +49,13 @@ G_REGEXP_LITERALS = 43
 # the husk its own initialize fills is a real regexp from the start.
 sig [Value] => Value
 machine def zr_regexp_alloc(klass)
-  re = zr_alloc(T_REGEXP, klass)
+  re = zr_alloc(T_REGEXP, klass, RRegexp.size)
   RRegexp.set_source(re, Machine.value(QNIL))
+  RRegexp.set_options(re, 0)
   RRegexp.set_names(re, Machine.value(QNIL))
   RRegexp.set_program(re, Machine.value(QNIL))
   RRegexp.set_alt(re, Machine.value(QNIL))
+  RRegexp.set_limit(re, 0)
   re
 end
 

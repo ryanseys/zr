@@ -9,6 +9,7 @@
 sig [Ptr, Ptr] => Void
 machine def zr_ivtab_copy(to, from)
   IvTab.set_len(to, 0)
+  IvTab.set_names(to, 0)
   i = 0
   while i < IvTab.len(from)
     e = IvTab.rows(from) + (i * IvEntry.size)
@@ -35,11 +36,7 @@ machine def zr_copy_payload(copy, orig)
     Machine.store8(RString.ptr(copy), 0, Machine.i8(0))
     RString.set_len(copy, 0)
   elsif t == T_ARRAY
-    buf = zr_xmalloc(4 * 8)
-    RArray.set_ptr(copy, buf)
-    RArray.set_base(copy, buf)
-    RArray.set_len(copy, 0)
-    RArray.set_capa(copy, 4)
+    zr_ary_buf_new(copy, 0)
   elsif t == T_HASH
     RHash.set_entries(copy, 0)
     RHash.set_len(copy, 0)
@@ -81,7 +78,7 @@ machine def zr_copy_payload(copy, orig)
   elsif t != T_PROC && t != T_METHOD
     # The cell already holds the original's words; clear them, or the
     # collector frees what the original still owns when the copy dies.
-    memset(Machine.ptr(copy) + RBasic.size, Machine.i32(0), CELL - RBasic.size)
+    memset(Machine.ptr(copy) + RBasic.size, Machine.i32(0), zr_cell_bytes(copy) - RBasic.size)
     return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't copy this kind of object"), 30)
   end
   if (RBasic.flags(orig) & FL_EXIVAR) != 0
@@ -94,8 +91,9 @@ end
 # frozen and singleton facts are the caller's to keep or drop.
 sig [Value] => Value
 machine def zr_copy_cell(orig)
-  copy = zr_alloc(zr_type(orig), zr_real_class(orig))
-  zr_memcpy(Machine.ptr(copy) + RBasic.size, Machine.ptr(orig) + RBasic.size, CELL - RBasic.size)
+  bytes = zr_cell_bytes(orig)
+  copy = zr_alloc(zr_type(orig), zr_real_class(orig), bytes)
+  zr_memcpy(Machine.ptr(copy) + RBasic.size, Machine.ptr(orig) + RBasic.size, bytes - RBasic.size)
   zr_copy_payload(copy, orig)
 end
 

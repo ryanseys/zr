@@ -68,6 +68,7 @@ module Ze0
         @collectors = []
         @collects = nil
         @inline = {}
+        @inlined = []
       end
 
       def run
@@ -114,8 +115,44 @@ module Ze0
         return false unless callee.is_a?(Def)
 
         @inline.fetch(callee.name) do
-          @inline[callee.name] = !collects?(callee.name) && callee.node.body && small?(callee.node.body, [INLINE_NODES])
+          @inline[callee.name] =
+            if @inlined.include?(callee.name)
+              tail_collecting?(callee.node.body) or
+                refuse(callee.node, "#{callee.name} is `Machine.inline`, so it may run the collector only in the call that ends an arm")
+            else
+              !collects?(callee.name) && callee.node.body && small?(callee.node.body, [INLINE_NODES])
+            end
         end
+      end
+
+      # A body declared `Machine.inline`, whatever its size, runs the
+      # collector only through the call an arm of its last `if` ends with,
+      # whose arguments collect nothing. That call answers the body, so no
+      # Value of the body is used after a collection, and the call roots
+      # its own arguments; the caller roots what it holds as it would
+      # around a call.
+      def tail_collecting?(node)
+        case node
+        when nil then true
+        when Prism::StatementsNode
+          *init, last = node.body
+          init.none? { |s| collecting?(s) } && tail_collecting?(last)
+        when Prism::IfNode
+          !collecting?(node.predicate) && tail_collecting?(node.statements) && tail_collecting?(node.subsequent)
+        when Prism::ElseNode then tail_collecting?(node.statements)
+        when Prism::CallNode then jumpless?(node) && !collecting?(node.receiver) && !collecting?(node.arguments)
+        else jumpless?(node) && !collecting?(node)
+        end
+      end
+
+      def collecting?(node) = calls_in(node).any? { |name| collects?(name) }
+
+      # No `return`, `while` or `break`, which would mean something else
+      # in the caller.
+      def jumpless?(node)
+        return false if node.is_a?(Prism::ReturnNode) || node.is_a?(Prism::WhileNode) || node.is_a?(Prism::BreakNode)
+
+        node.compact_child_nodes.all? { |c| jumpless?(c) }
       end
 
       # Prism nodes an inlined body may have, at most.
@@ -195,6 +232,9 @@ module Ze0
           when :collects
             refuse(node, "`Machine.collects` takes the symbol of a machine def") unless machine?(node.receiver) && node.arguments&.arguments&.first.is_a?(Prism::SymbolNode)
             @collectors << node.arguments.arguments.first.unescaped
+          when :inline
+            refuse(node, "`Machine.inline` takes the symbol of a machine def") unless machine?(node.receiver) && node.arguments&.arguments&.first.is_a?(Prism::SymbolNode)
+            @inlined << node.arguments.arguments.first.unescaped
           when :raw
             refuse(node, "a raw function is `Machine.raw \"name\"`") unless machine?(node.receiver)
             name = node.arguments.arguments.first.unescaped

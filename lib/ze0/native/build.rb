@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "digest"
+require "etc"
 require "json"
 require "fileutils"
 require_relative "../ir"
@@ -16,6 +17,7 @@ require_relative "../obj/elf/object_file"
 require_relative "../machine/lower"
 require_relative "../zr"
 require_relative "../clock"
+require_relative "parallel"
 
 module Ze0
   module Native
@@ -28,6 +30,16 @@ module Ze0
 
       # Which linker writes a binary: `auto`, `ruby` or `cc`.
       ROAD = ENV.fetch("ZE0_LINK", "auto")
+
+      # A unit of fewer IR instructions than this assembles in this
+      # process: a worker costs more than a program's own functions do.
+      PARALLEL_FLOOR = 200_000
+
+      # How many workers a large unit assembles in: `ZE0_JOBS`, else one
+      # per core up to six. Each worker holds half a gigabyte or more of
+      # its own, and on a 16 GB machine eight took longer than six and
+      # twelve as long as one.
+      def jobs = Integer(ENV.fetch("ZE0_JOBS") { [Etc.nprocessors, 6].min })
 
       # The native backend for `target`.
       def backend(target)
@@ -49,8 +61,8 @@ module Ze0
       # prebuilt objects linked in beside this one; `strip` leaves out what
       # nothing calls. `road` (`ZE0_LINK`) picks the linker where the
       # target has more than one.
-      def binary(functions, data, out, work:, raw: [], objects: [], strip: false, road: ROAD, target: Target.default)
-        image = unit(functions, data, raw: raw, export: !objects.empty?, target: target)
+      def binary(functions, data, out, work:, raw: [], objects: [], strip: false, road: ROAD, target: Target.default, jobs: Build.jobs)
+        image = unit(functions, data, raw: raw, export: !objects.empty?, target: target, jobs: jobs)
         linker(target).link(image, out, work: work, objects: objects, strip: strip, road: road, target: target)
       rescue Backend::Refused => e
         e.message
@@ -61,13 +73,13 @@ module Ze0
       # symbol, since its JIT finds kernel functions by name.
       #
       # Functions already assembled (`assemble`) go in as they are.
-      def program(program, out, work:)
-        objects = [runtime_object(program.runtime)]
-        objects << road_object(program.evals) if program.evals
+      def program(program, out, work:, jobs: Build.jobs)
+        objects = [runtime_object(program.runtime, jobs: jobs)]
+        objects << road_object(program.evals, jobs: jobs) if program.evals
         functions, raw = program.functions.partition { |f| f.is_a?(IR::Function) }
         Ze0.clock("program object written and linked") do
           binary(functions, program.data, out, work: work, raw: raw, objects: objects, strip: !program.evals,
-                                                           target: program.runtime.target)
+                                                           target: program.runtime.target, jobs: jobs)
         end
       end
 
@@ -75,10 +87,10 @@ module Ze0
       # file is lowered so its IR never stands all at once. The runtime's
       # object is made first and the runtime's IR let go, so on a cold
       # cache the two never stand in memory together either.
-      def lower(source, file, target: Target.default)
+      def lower(source, file, target: Target.default, jobs: Build.jobs)
         runtime = Zr.runtime(target)
         runtime.description
-        runtime_object(runtime)
+        runtime_object(runtime, jobs: jobs)
         runtime.release
         Zr.program(source, file, target: target) { |f, entry| assemble(f, entry, target: target) }
       end
@@ -91,13 +103,13 @@ module Ze0
       end
 
       # The compiler's object, built once per road.
-      def road_object(road)
+      def road_object(road, jobs: Build.jobs)
         obj = road.object_path
         return obj if File.exist?(obj)
 
         Dir.mktmpdir("ze0-road-") do |work|
           fresh = File.join(work, "road.o")
-          why = Ze0.clock("eval road object assembled and written") { object(road.functions, road.data, fresh, export: true, target: road.target) }
+          why = Ze0.clock("eval road object assembled and written") { object(road.functions, road.data, fresh, export: true, target: road.target, jobs: jobs) }
           raise "the compiler did not build: #{why}" if why
 
           Zr.write_cache(obj, File.binread(fresh))
@@ -106,14 +118,14 @@ module Ze0
       end
 
       # The runtime's object, built once per digest (which names the target).
-      def runtime_object(runtime)
+      def runtime_object(runtime, jobs: Build.jobs)
         obj = File.join(Zr::CACHE, "rt-#{runtime.digest}.o")
         return obj if File.exist?(obj)
 
         Dir.mktmpdir("ze0-rt-") do |work|
           fresh = File.join(work, "rt.o")
           why = Ze0.clock("runtime object assembled and written") do
-            object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true, target: runtime.target)
+            object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true, target: runtime.target, jobs: jobs)
           end
           raise "the runtime did not build: #{why}" if why
 
@@ -124,18 +136,26 @@ module Ze0
 
       # Functions and data to one object file. `export` makes every data
       # object visible to the link, for an object another refers to.
-      def object(functions, data, obj, raw: [], export: false, target: Target.default)
-        File.binwrite(obj, writer(target).write(unit(functions, data, raw: raw, export: export, target: target)))
+      def object(functions, data, obj, raw: [], export: false, target: Target.default, jobs: Build.jobs)
+        File.binwrite(obj, writer(target).write(unit(functions, data, raw: raw, export: export, target: target, jobs: jobs)))
         nil
       rescue Backend::Refused => e
         e.message
       end
 
       # The same, as an `Obj::Unit`: what an object writer and the JIT
-      # loader both take.
-      def unit(functions, data, raw: [], export: false, target: Target.default)
-        IR::Passes.inline(functions).each { |f| IR::Passes.prepare(f) }
-        backend(target).unit(functions, data, raw: raw, export: export)
+      # loader both take. The inlining sees the whole unit, so it runs
+      # here; each function's passes and assembly need only the function
+      # and the unit's names, so a large unit runs them in `jobs` workers.
+      def unit(functions, data, raw: [], export: false, target: Target.default, jobs: Build.jobs, floor: PARALLEL_FLOOR)
+        IR::Passes.inline(functions)
+        emitter = backend(target)
+        emitter.unit(functions, data, raw: raw, export: export) do |all, defined|
+          Parallel.map(all, jobs: jobs, weight: ->(f) { f.blocks.sum { |b| b.insts.size } }, floor: floor) do |f|
+            IR::Passes.prepare(f)
+            emitter.assemble(f, defined)
+          end
+        end
       end
 
       # The same functions and data as one WASI module. A raw function,

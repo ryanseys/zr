@@ -412,7 +412,29 @@ module Ze0
         switch(plain)
         t = own_ivar_table(slow, writing)
         i = @f.fetch("i64", ic, off(@l.layout("IvarCache"), "index"))
-        @f.brif(@f.icmp("ult", i, @f.fetch("i64", t, off(table, "len"))), indexed, slow)
+        len = @f.fetch("i64", t, off(table, "len"))
+        if block_given?
+          # A write whose guess is the row past the last of a plain
+          # object's table, with a row to spare: the first assignment in
+          # an `initialize`, which the block appends when the table's
+          # names answer that no row holds the name (a site shared by two
+          # classes may guess past the end of a table that holds it).
+          past = @f.label
+          room = @f.label
+          append = @f.label
+          @f.brif(@f.icmp("ult", i, len), indexed, past)
+          switch(past)
+          in_cell = @f.icmp("eq", t, @f.iadd(@self, imm(off(@l.layout("RObject"), "iv"))))
+          @f.brif(@f.band(@f.icmp("eq", i, len), in_cell), room, slow)
+          switch(room)
+          spare = @f.icmp("ult", len, @f.fetch("i64", t, off(table, "cap")))
+          unnamed = @f.icmp("eq", @f.band(@f.fetch("i64", t, off(table, "names")), imm(ivar_name_bit(id))), imm(0))
+          @f.brif(@f.band(spare, unnamed), append, slow)
+          switch(append)
+          yield t, len
+        else
+          @f.brif(@f.icmp("ult", i, len), indexed, slow)
+        end
         switch(indexed)
         row = @f.iadd(@f.fetch("i64", t, off(table, "rows")), @f.ishl(i, imm(Math.log2(entry.size).to_i)))
         @f.brif(@f.icmp("eq", @f.fetch("i64", row, off(entry, "id")), imm(id)), hit, slow)
@@ -552,6 +574,13 @@ module Ze0
 
       def sym_id(name)
         @l.symbols.id(name)
+      end
+
+      # The bit of an ivar table's `names` that stands for the name `id`
+      # (rt/kernel/object.rb, zr_ivtab_name_bit), as a signed word.
+      def ivar_name_bit(id)
+        bit = 1 << (id & 63)
+        bit < 1 << 63 ? bit : bit - (1 << 64)
       end
 
       def proc_field(name)

@@ -23,7 +23,7 @@ KEY_RAISED = 2
 
 sig [] => Value
 machine def zr_hash_new
-  h = zr_alloc(T_HASH, zr_global(G_HASH))
+  h = zr_alloc(T_HASH, zr_global(G_HASH), RHash.size)
   RHash.set_entries(h, 0)
   RHash.set_len(h, 0)
   RHash.set_live(h, 0)

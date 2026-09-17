@@ -33,9 +33,11 @@ machine def zr_objspace_objects(mod)
   a = 0
   while a < Heap.arenas(zr_heap())
     base = zr_arena_at(a)
+    first = zr_arena_first(base)
+    bytes = ArenaHead.cell(base)
     i = 0
-    while i < CELLS
-      v = Machine.value(base + (i * CELL))
+    while i < ArenaHead.ncells(base)
+      v = Machine.value(first + (i * bytes))
       if (RBasic.flags(v) & FL_ALLOCATED) != 0 && Machine.word(v) != Machine.word(out) && zr_objspace_visible_p(v)
         if mod == QNIL || zr_is_a(v, mod)
           zr_ary_push(out, v)
@@ -58,9 +60,11 @@ machine def zr_objspace_census
   a = 0
   while a < Heap.arenas(zr_heap())
     base = zr_arena_at(a)
+    first = zr_arena_first(base)
+    bytes = ArenaHead.cell(base)
     i = 0
-    while i < CELLS
-      flags = Machine.load64(base + (i * CELL), 0)
+    while i < ArenaHead.ncells(base)
+      flags = Machine.load64(first + (i * bytes), 0)
       if (flags & FL_ALLOCATED) == 0
         free_cells += 1
       else
@@ -72,7 +76,7 @@ machine def zr_objspace_census
     a += 1
   end
   out = zr_ary_new(34)
-  zr_ary_push(out, zr_fix(Heap.arenas(zr_heap()) * CELLS))
+  zr_ary_push(out, zr_fix(zr_heap_cells()))
   zr_ary_push(out, zr_fix(free_cells))
   t = 0
   while t < 32
@@ -89,9 +93,11 @@ machine def zr_objspace_id2ref(id)
   a = 0
   while a < Heap.arenas(zr_heap())
     base = zr_arena_at(a)
+    first = zr_arena_first(base)
+    bytes = ArenaHead.cell(base)
     i = 0
-    while i < CELLS
-      v = Machine.value(base + (i * CELL))
+    while i < ArenaHead.ncells(base)
+      v = Machine.value(first + (i * bytes))
       if (RBasic.flags(v) & FL_ALLOCATED) != 0 && zr_objspace_visible_p(v)
         t = zr_ivtab(v)
         if t != 0 && zr_ivtab_get(t, Machine.id(:__object_id__)) == id
@@ -117,11 +123,13 @@ machine def zr_objspace_reachable(v)
   end
   s = zr_mark_stack()
   from = MarkStack.len(s)
+  Machine.store64(zr_mark_every(), 0, 1)
   zr_mark(RBasic.klass(v))
   zr_mark_children(v)
   if (RBasic.flags(v) & FL_EXIVAR) != 0
     zr_mark_ivtab(zr_exivar_tab(v))
   end
+  Machine.store64(zr_mark_every(), 0, 0)
   i = from
   while i < MarkStack.len(s)
     child = Machine.value(Machine.load64(MarkStack.ptr(s) + (i * 8), 0))
@@ -143,11 +151,11 @@ machine def zr_objspace_memsize(v)
     return zr_fix(0)
   end
   t = RBasic.flags(v) & T_MASK
-  n = CELL
+  n = zr_cell_bytes(v)
   if t == T_STRING
     n += zr_str_embedded_p(v) ? 0 : RString.capa(v) + 1
   elsif t == T_ARRAY
-    n += RArray.capa(v) * 8
+    n += zr_ary_embedded_p(v) ? 0 : RArray.capa(v) * 8
   elsif t == T_HASH
     n += (RHash.cap(v) * HEntry.size) + (RHash.nbins(v) * 8)
   end
@@ -174,7 +182,7 @@ end
 sig [Ptr, Word] => Ptr
 machine def zr_alloc_trace_probe(t, cell)
   mask = AllocTrace.capa(t) - 1
-  i = ((cell / CELL) * 2654435761) & mask
+  i = ((cell / CELL_MIN) * 2654435761) & mask
   row = AllocTrace.rows(t) + (i * AllocRow.size)
   free_row = 0
   while AllocRow.cell(row) != cell && AllocRow.cell(row) != 0
@@ -265,6 +273,7 @@ end
 sig [Value] => Value
 machine def zr_alloc_trace_set(on)
   AllocTrace.set_on(zr_alloc_trace(), on == QTRUE ? 1 : 0)
+  zr_heap_slow_update()
   Machine.value(QNIL)
 end
 

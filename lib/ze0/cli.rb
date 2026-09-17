@@ -190,6 +190,16 @@ module Ze0
       # does the binary, with ruby's own report. A required file that does
       # not parse raises as the require runs, which ze0 does not do yet.
       report = begin
+        # ruby's report goes through syntax_suggest, which ruby's boot
+        # loads and a process started with --disable-gems (a harness
+        # child) does not; rubygems first, so the bundled gem answers
+        # and not the older copy under lib/ruby.
+        begin
+          require "rubygems"
+          require "syntax_suggest/core_ext"
+        rescue LoadError
+          nil
+        end
         RubyVM::InstructionSequence.compile_file(input)
         nil
       rescue SyntaxError => own

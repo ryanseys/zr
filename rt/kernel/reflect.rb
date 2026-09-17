@@ -493,6 +493,7 @@ machine def zr_mod_remove_method(recv, argc, argv, cref, blk)
       zr_memmove(e, e + MEntry.size, last - e)
     end
     ClassExt.set_mlen(ext, ClassExt.mlen(ext) - 1)
+    zr_method_index_drop(ext)
     zr_methods_changed()
     zr_gates_recheck(mid)
     r = zr_method_removed(recv, mid)
@@ -575,9 +576,11 @@ machine def zr_class_subclasses(recv, argc, argv, cref, blk)
   a = 0
   while a < Heap.arenas(zr_heap())
     base = zr_arena_at(a)
+    first = zr_arena_first(base)
+    bytes = ArenaHead.cell(base)
     i = 0
-    while i < CELLS
-      cell = base + (i * CELL)
+    while i < ArenaHead.ncells(base)
+      cell = first + (i * bytes)
       flags = Machine.load64(cell, 0)
       if (flags & FL_ALLOCATED) != 0 && (flags & T_MASK) == T_CLASS && (flags & FL_SINGLETON) == 0
         k = Machine.value(cell)

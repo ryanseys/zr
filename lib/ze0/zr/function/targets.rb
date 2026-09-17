@@ -162,7 +162,10 @@ module Ze0
           ic = cache("iv", "IvarCache")
           slow = @f.label
           done = @f.label
-          row = guessed_ivar_row(ic, id, slow, writing: true)
+          row = guessed_ivar_row(ic, id, slow, writing: true) do |t, len|
+            append_ivar_row(t, len, id, v)
+            @f.jump(done)
+          end
           @f.store(v, row, off(@l.layout("IvEntry"), "value"))
           @f.jump(done)
           switch(slow)
@@ -170,6 +173,18 @@ module Ze0
           @f.jump(done)
           switch(done)
           v
+        end
+
+        # A row for `id` holding `v` past the last of table `t`, whose
+        # length is `len`, and the name's bit in the table's names.
+        def append_ivar_row(t, len, id, v)
+          table = @l.layout("IvTab")
+          entry = @l.layout("IvEntry")
+          row = @f.iadd(@f.fetch("i64", t, off(table, "rows")), @f.ishl(len, imm(Math.log2(entry.size).to_i)))
+          @f.store(imm(id), row, off(entry, "id"))
+          @f.store(v, row, off(entry, "value"))
+          @f.store(@f.iadd(len, imm(1)), t, off(table, "len"))
+          @f.store(@f.bor(@f.fetch("i64", t, off(table, "names")), imm(ivar_name_bit(id))), t, off(table, "names"))
         end
 
         def assign_target(target, v, prepared)

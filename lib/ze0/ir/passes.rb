@@ -27,6 +27,8 @@ module Ze0
         end
 
         def rename(i)
+          return if @rename.empty?
+
           i.args.map! { |a| resolve(a) }
           i.targets&.each { |(_, args)| args.map! { |a| resolve(a) } }
         end
@@ -81,19 +83,34 @@ module Ze0
 
         def self.run(f) = new(f).run
 
+        # Only a constant's type is ever asked for, and a constant's type
+        # is known where it is made, so `@const` keeps each constant's
+        # number with its type and no pass types the whole function.
         def initialize(f)
           @f = f
-          @types = Types.new(f).all
           @const = {}
           @rename = {}
         end
 
+        # Blocks in layout order. A block whose predecessors all come
+        # before it is settled on entry: no edge from any of them reaches
+        # it unless that predecessor was reached and its terminator, once
+        # folded, still names it. A settled block no edge reaches is dead,
+        # and its own edges count for nothing; a parameter every edge that
+        # does reach it gives the same constant is that constant. A block
+        # a later one jumps back to (a loop's head) is never settled.
         def run
-          @f.blocks.each do |b|
-            b.insts.each do |i|
-              rename(i)
-              fold(i)
-            end
+          arriving = Hash.new { |h, name| h[name] = [] }
+          laid = @f.blocks.each_with_index.to_h { |b, at| [b.name, at] }
+          before = predecessors
+          @f.blocks.each_with_index do |b, at|
+            settled = !b.equal?(@f.entry_block) && before[b.name].all? { |p| laid.fetch(p) < at }
+            edges = arriving[b.name]
+            next fold_insts(b) if settled && edges.empty?
+
+            enter(b, edges) if settled
+            fold_insts(b)
+            b.insts.last&.targets&.each { |(name, args)| arriving[name] << args }
           end
           # A use laid out before its definition, which a loop can do,
           # is renamed on a second pass.
@@ -103,15 +120,44 @@ module Ze0
 
         private
 
+        def fold_insts(b)
+          b.insts.each do |i|
+            rename(i)
+            fold(i)
+          end
+        end
+
+        # Each block's predecessors by name, from the terminators as they
+        # stand before any folds.
+        def predecessors
+          into = Hash.new { |h, name| h[name] = [] }
+          @f.blocks.each { |b| b.insts.last&.targets&.each { |(name, _)| into[name] << b.name } }
+          into
+        end
+
+        # Each parameter of `b` that every edge in `edges` gives the same
+        # constant, known as that constant.
+        def enter(b, edges)
+          b.params.each_with_index do |(v, type), k|
+            first = constant(edges[0][k])
+            next unless first && edges.all? { |args| constant(args[k]) == first }
+
+            @const[v] = [first, type]
+          end
+        end
+
         # The number `v` holds, masked to its type, or nil.
         def constant(v)
-          k = @const[v]
-          k && k & MASK.fetch(@types.fetch(v))
+          k, type = @const[v]
+          k && k & MASK.fetch(type)
         end
+
+        # The type of the constant `v`.
+        def constant_type(v) = @const.fetch(v).last
 
         def fold(i)
           case i.op
-          when :iconst then @const[i.results[0]] = i.args[0]
+          when :iconst then @const[i.results[0]] = [i.args[0], i.type]
           when *Inst::BINOPS then fold_binop(i)
           when :icmp then fold_compare(i)
           when :select then fold_select(i)
@@ -120,9 +166,9 @@ module Ze0
           end
         end
 
-        # The type of an instruction's result names the width of its
-        # arithmetic: 64 bits for `i64`, 32 for anything narrower.
-        def bits_of(v) = @types.fetch(v) == "i64" ? 64 : 32
+        # A result's type names the width of its arithmetic: 64 bits for
+        # `i64`, 32 for anything narrower.
+        def bits_of(type) = type == "i64" ? 64 : 32
 
         def signed(raw, bits)
           top = 1 << (bits - 1)
@@ -131,12 +177,11 @@ module Ze0
 
         def quotient(a, b) = (a.negative?) == (b.negative?) ? a.abs / b.abs : -(a.abs / b.abs)
 
-        def become_constant(i, n)
-          r = i.results[0]
+        def become_constant(i, n, type)
           i.op = :iconst
-          i.type = @types.fetch(r)
-          i.args = [n & MASK.fetch(i.type)]
-          @const[r] = i.args[0]
+          i.type = type
+          i.args = [n & MASK.fetch(type)]
+          @const[i.results[0]] = [i.args[0], type]
         end
 
         def become(i, v)
@@ -147,7 +192,10 @@ module Ze0
           a, b = i.args
           ka = constant(a)
           kb = constant(b)
-          return become_constant(i, binop(i.op, ka, kb, bits_of(i.results[0]))) if ka && kb
+          # A binop's operands and result share a type, one of them here
+          # a constant's.
+          type = i.type || constant_type(ka ? a : b) if ka || kb
+          return become_constant(i, binop(i.op, ka, kb, bits_of(type)), type) if ka && kb
 
           # `x op 0`, `x op 1` and their commuted forms.
           a, b, ka, kb = b, a, kb, ka if ka && !kb && Inst::COMMUTATIVE.include?(i.op)
@@ -157,11 +205,11 @@ module Ze0
           when :iadd, :isub, :bor, :bxor, :ishl, :ushr, :sshr then become(i, a) if kb.zero?
           when :imul
             become(i, a) if kb == 1
-            become_constant(i, 0) if kb.zero?
+            become_constant(i, 0, type) if kb.zero?
           when :udiv, :sdiv then become(i, a) if kb == 1
           when :band
-            become_constant(i, 0) if kb.zero?
-            become(i, a) if kb == MASK.fetch(@types.fetch(a))
+            become_constant(i, 0, type) if kb.zero?
+            become(i, a) if kb == MASK.fetch(type)
           end
         end
 
@@ -193,7 +241,7 @@ module Ze0
           b = constant(i.args[1])
           return unless a && b
 
-          bits = bits_of(i.args[0])
+          bits = bits_of(constant_type(i.args[0]))
           a, b = signed(a, bits), signed(b, bits) if SIGNED.include?(i.cond)
           held = case i.cond
                  when "eq" then a == b
@@ -203,7 +251,7 @@ module Ze0
                  when "sgt", "ugt" then a > b
                  when "sge", "uge" then a >= b
                  end
-          become_constant(i, held ? 1 : 0)
+          become_constant(i, held ? 1 : 0, "i8")
         end
 
         def fold_select(i)
@@ -218,9 +266,9 @@ module Ze0
           k = constant(i.args[0])
           return unless k
 
-          from = @types.fetch(i.args[0])
+          from = constant_type(i.args[0])
           k = signed(k, from == "i8" ? 8 : 32) if i.op == :sextend
-          become_constant(i, k)
+          become_constant(i, k, i.type)
         end
 
         def fold_branch(i)
@@ -300,13 +348,22 @@ module Ze0
           root && [root, k + off]
         end
 
+        # A store forgets what it overlaps. A remembered store is at most
+        # eight bytes wide, so one that overlaps starts within seven
+        # bytes below this one or inside it: those keys are probed, not
+        # the whole table, which a block of many stores would scan at
+        # each of them.
         def remember(known, i)
           v, addr = i.args
           at = slot(addr, i.offset)
           return known.clear unless at
 
+          root, off = at
           width = WIDTH.fetch(@types.fetch(v))
-          known.delete_if { |(root, off), (_, w)| root == at[0] && off < at[1] + width && at[1] < off + w }
+          ((off - 7)...(off + width)).each do |o|
+            held = known[[root, o]]
+            known.delete([root, o]) if held && o + held[1] > off
+          end
           known[at] = [v, width]
         end
 
@@ -484,8 +541,13 @@ module Ze0
           changed
         end
 
+        # Every such block joined in one round, in layout order: a block
+        # that takes another's instructions takes its edges out too, so a
+        # later block whose predecessor was joined joins the block that
+        # took it.
         def merge
           into = edges
+          joined = {}.compare_by_identity
           @f.blocks.each do |b|
             next if b.equal?(@f.entry_block) || into[b.name].size != 1
 
@@ -496,10 +558,13 @@ module Ze0
             b.params.zip(t.targets[0][1]) { |(v, _), a| @rename[v] = a }
             p.insts.pop
             p.insts.concat(b.insts)
-            @f.blocks.delete(b)
-            return true
+            b.insts.last&.targets&.each_with_index do |(name, _), k|
+              into[name].map! { |from, at| from.equal?(b) && at == k ? [p, k] : [from, at] }
+            end
+            joined[b] = true
           end
-          false
+          @f.blocks.reject! { |b| joined.key?(b) } unless joined.empty?
+          !joined.empty?
         end
       end
 
@@ -511,27 +576,38 @@ module Ze0
                    fcvt_from_sint fcvt_to_sint_sat] +
                 Inst::BINOPS + Inst::FBINOPS + Inst::FUNOPS + Inst::PAIRS).to_set.freeze
 
+        # Each value's readers counted once; an instruction found dead
+        # takes one reader off each of its operands, and an operand's
+        # instruction left with none is dead in turn.
         def self.run(f)
-          loop do
-            used = Set.new
-            f.blocks.each do |b|
-              b.insts.each do |i|
-                i.args.each { |a| used << a if IR.value?(a) }
-                i.targets&.each { |(_, args)| args.each { |a| used << a } }
-              end
+          readers = Hash.new(0)
+          defined = {}
+          f.blocks.each do |b|
+            b.insts.each do |i|
+              i.args.each { |a| readers[a] += 1 if IR.value?(a) }
+              i.targets&.each { |(_, args)| args.each { |a| readers[a] += 1 } }
+              i.results.each { |r| defined[r] = i }
             end
-            removed = false
-            f.blocks.each do |b|
-              b.insts.reject! do |i|
-                next false unless PURE.include?(i.op) && i.results.none? { |r| used.include?(r) }
-
-                removed = true
-              end
-            end
-            break unless removed
           end
+          dead = {}.compare_by_identity
+          work = f.blocks.flat_map { |b| b.insts.select { |i| unread?(i, readers) } }
+          while (i = work.pop)
+            next if dead.key?(i)
+
+            dead[i] = true
+            i.args.each do |a|
+              next unless IR.value?(a)
+
+              readers[a] -= 1
+              d = defined[a]
+              work << d if d && readers[a].zero? && unread?(d, readers)
+            end
+          end
+          f.blocks.each { |b| b.insts.reject! { |i| dead.key?(i) } } unless dead.empty?
           f
         end
+
+        def self.unread?(i, readers) = PURE.include?(i.op) && i.results.none? { |r| readers[r].positive? }
       end
       # The small leaf functions of a unit, inlined where they are called:
       # a callee with no call, no slot and at most LIMIT instructions (a
@@ -614,9 +690,11 @@ module Ze0
         end
 
         # The call at `k` of `b` replaced by a copy of `target`: `b` ends
-        # in a jump to the copy of the entry, carrying the arguments; what
-        # followed the call moves to a block after the copy, whose
-        # parameter is the call's result.
+        # in a jump to the copy of the entry, whose parameters are the
+        # arguments themselves when no block of `target` jumps back to its
+        # entry (so a constant argument folds in the copy), else carried
+        # by the jump; what followed the call moves to a block after the
+        # copy, whose parameter is the call's result.
         def expand(f, b, k, call, target)
           rest = f.block_after(b)
           rest.insts.concat(b.insts[(k + 1)..])
@@ -628,20 +706,23 @@ module Ze0
             sig = target.sigs.find { |s| s.sig == c.sig }
             names[c.fn] = f.callee(c.symbol, sig.params, sig.ret, colocated: c.colocated, from: c.from)
           end
+          entry = target.entry_block
+          passed = target.blocks.none? { |cb| cb.insts.last.targets&.any? { |(blk, _)| blk == entry.name } }
+          entry.params.zip(call.args) { |(v, _), arg| names[v] = arg } if passed
           at = f.blocks.index(b) + 1
           copies = target.blocks.map do |cb|
             nb = f.block_beside(at)
             at += 1
             names[cb.name] = nb.name
-            cb.params.each { |(v, _)| names[v] = f.value }
+            cb.params.each { |(v, _)| names[v] = f.value } unless passed && cb.equal?(entry)
             cb.insts.each { |i| i.results.each { |r| names[r] = f.value } }
             [cb, nb]
           end
           copies.each do |cb, nb|
-            nb.params.concat(cb.params.map { |(v, t)| [names.fetch(v), t] })
+            nb.params.concat(cb.params.map { |(v, t)| [names.fetch(v), t] }) unless passed && cb.equal?(entry)
             cb.insts.each { |i| nb.insts << copy(i, names, rest) }
           end
-          b.insts << Inst.new(:jump, targets: [[names.fetch(target.entry_block.name), call.args]])
+          b.insts << Inst.new(:jump, targets: [[names.fetch(entry.name), passed ? [] : call.args]])
         end
 
         def copy(i, names, rest)

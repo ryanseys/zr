@@ -5,17 +5,25 @@
 # row its cell guesses inline (the lowering's `guessed_ivar_row`), and
 # comes here for the rest. Reflection, identity, inspect and p live
 # here too.
-Machine.struct :IvTab, rows: Ptr, len: Word, cap: Word
+# `names` has bit `id & 63` set for every name a row was given, so a
+# clear bit answers that no row holds the name without a scan; a row
+# taken out leaves its bit.
+Machine.struct :IvTab, rows: Ptr, len: Word, cap: Word, names: Word
 Machine.struct :IvEntry, id: Word, value: Value
 Machine.struct :RObject, basic: RBasic, iv: IvTab
-# (CELL - RObject.size) / IvEntry.size
-IV_EMBEDDED = 5
 
 sig [Ptr] => Void
 machine def zr_ivtab_init(t)
   IvTab.set_rows(t, 0)
   IvTab.set_len(t, 0)
   IvTab.set_cap(t, 0)
+  IvTab.set_names(t, 0)
+end
+
+# The bit of `IvTab.names` that stands for `id`.
+sig [Word] => Word
+machine def zr_ivtab_name_bit(id)
+  Machine.word(1) << (id & 63)
 end
 
 # The ivar table of `v`, or 0 when it has none yet: an object's or a
@@ -73,11 +81,28 @@ machine def zr_ivtab_embedded_p(t)
   IvTab.rows(t) == t + IvTab.size
 end
 
+# An instance of `klass` in the cell its class's instances have needed
+# so far (ClassExt.obj_bytes): room for one row in 64 bytes, 5 in 128,
+# 13 in 256.
 sig [Value] => Value
 machine def zr_obj_alloc(klass)
-  o = zr_alloc(T_OBJECT, klass)
+  o = zr_alloc(T_OBJECT, klass, ClassExt.obj_bytes(RClass.ext(klass)))
   zr_obj_ivtab_init(o)
   o
+end
+
+# An object's table outgrew its cell: the class's next instances get a
+# cell with room for `n` rows, or the largest.
+sig [Value, Word] => Void
+machine def zr_obj_ivars_seen(o, n)
+  ext = RClass.ext(zr_real_class(o))
+  bytes = RObject.size + (n * IvEntry.size)
+  if bytes > CELL_MAX
+    bytes = CELL_MAX
+  end
+  if bytes > ClassExt.obj_bytes(ext)
+    ClassExt.set_obj_bytes(ext, bytes)
+  end
 end
 
 # An object's table over the rows in its own cell, empty.
@@ -86,12 +111,16 @@ machine def zr_obj_ivtab_init(o)
   t = RObject.iv(o)
   IvTab.set_rows(t, t + IvTab.size)
   IvTab.set_len(t, 0)
-  IvTab.set_cap(t, IV_EMBEDDED)
+  IvTab.set_cap(t, (zr_cell_bytes(o) - RObject.size) / IvEntry.size)
+  IvTab.set_names(t, 0)
 end
 
 # The row for `id` in the table `t`, or 0.
 sig [Ptr, Word] => Ptr
 machine def zr_ivtab_row(t, id)
+  if (IvTab.names(t) & zr_ivtab_name_bit(id)) == 0
+    return 0
+  end
   n = IvTab.len(t)
   i = 0
   while i < n
@@ -285,7 +314,9 @@ machine def zr_ivtab_append(t, id, v)
     rows = zr_xmalloc(cap * IvEntry.size)
     if IvTab.rows(t) != 0
       zr_memcpy(rows, IvTab.rows(t), n * IvEntry.size)
-      if !zr_ivtab_embedded_p(t)
+      if zr_ivtab_embedded_p(t)
+        zr_obj_ivars_seen(Machine.value(t - RBasic.size), n + 1)
+      else
         zr_xfree(IvTab.rows(t))
       end
     end
@@ -295,6 +326,7 @@ machine def zr_ivtab_append(t, id, v)
   e = IvTab.rows(t) + (n * IvEntry.size)
   IvEntry.set_id(e, id)
   IvTab.set_len(t, n + 1)
+  IvTab.set_names(t, IvTab.names(t) | zr_ivtab_name_bit(id))
   IvEntry.set_value(e, v)
 end
 
