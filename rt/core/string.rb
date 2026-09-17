@@ -407,32 +407,53 @@ class String
     Primitive.zr_backref_set(match)
     return copied unless match
 
-    at = match.byteoffset(0)
-    byteslice_of(0, at[0]) + replacement_for(match, replacement, &block) + byteslice_of(at[1], Primitive.zr_str_bytesize(self) - at[1])
+    from, to = match.byteoffset(0)
+    repl = replacement_for(match, replacement, pattern.is_a?(Regexp) ? pattern : nil, &block)
+    size = Primitive.zr_str_bytesize(self)
+    # rb_str_sub_bang: the encoding the text and the replacement share, or
+    # the replacement's own where the text around the match is plain ASCII.
+    enc = Encoding.compatible?(self, repl)
+    unless enc
+      own = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+      unless own.ascii_compatible? && byteslice_of(0, from).b.ascii_only? && byteslice_of(to, size - to).b.ascii_only?
+        buf_incompatible(own, Encoding.at(Primitive.zr_str_encoding_index_m(repl)))
+      end
+      enc = Encoding.at(Primitive.zr_str_encoding_index_m(repl))
+    end
+    out = byteslice_of(0, from).b << repl.b << byteslice_of(to, size - to).b
+    OWN[:force_encoding].bind_call(out, enc)
   end
 
   def gsub(pattern, replacement = nil, &block)
     return to_enum(:gsub, pattern) if replacement.nil? && block.nil?
 
-    out = +""
+    regexp = pattern.is_a?(Regexp) ? pattern : nil
+    # str_gsub: the text between matches and each replacement join onto a
+    # buffer in the receiver's encoding, as rb_enc_str_buf_cat joins them.
+    out = nil
     start = 0
     last = nil
     while start <= Primitive.zr_str_bytesize(self) && (match = first_match(pattern, start))
+      out ||= OWN[:force_encoding].bind_call(+"", Encoding.at(Primitive.zr_str_encoding_index_m(self)))
       last = match
       Primitive.zr_backref_set(match)
       from, to = match.byteoffset(0)
-      out << byteslice_of(start, from - start) << replacement_for(match, replacement, &block)
+      val = replacement_for(match, replacement, regexp, &block)
+      out.send(:buf_cat, byteslice_of(start, from - start)) if from > start
+      out.send(:buf_cat, val)
       start = to
       if to == from
         break if to >= Primitive.zr_str_bytesize(self)
 
         step = Primitive.zr_str_char_len_at_m(self, to)
-        out << byteslice_of(to, step)
+        out.send(:buf_cat, byteslice_of(to, step))
         start = to + step
       end
     end
     Primitive.zr_backref_set(last)
-    out << byteslice_of(start, Primitive.zr_str_bytesize(self) - start) if Primitive.zr_str_bytesize(self) > start
+    return copied unless out
+
+    out.send(:buf_cat, byteslice_of(start, Primitive.zr_str_bytesize(self) - start)) if Primitive.zr_str_bytesize(self) > start
     out
   end
 
@@ -1715,48 +1736,168 @@ class String
   end
 
   # What replaces one match: the block's answer, the Hash's entry, or
-  # the replacement text with its backreferences filled in, read from
-  # the match's registers as CRuby's rb_reg_regsub reads them.
-  def replacement_for(match, replacement, &block)
+  # the replacement text with its backreferences filled in by
+  # rb_reg_regsub. `regexp` is nil for a String pattern.
+  def replacement_for(match, replacement, regexp, &block)
     Primitive.attr! :hidden
     whole = Primitive.zr_match_nth(match, 0)
     return yield(whole).to_s if block
     return replacement[whole].to_s if replacement.is_a?(Hash)
 
-    text = replacement.to_str
-    return text unless text.include?("\\")
+    regsub(replacement.to_str, match, regexp)
+  end
 
-    numbered = !match.regexp.is_a?(Regexp) || match.regexp.names.empty?
-    out = +""
-    i = 0
-    while i < text.bytesize
-      c = text[i]
-      if c != "\\" || i + 1 >= text.bytesize
-        out << c
-        i += 1
+  # rb_reg_regsub: `repl` with each `\1`, `\k<name>`, `\0`, `\&`,
+  # `` \` ``, `\'`, `\+` and `\\` filled in from the match on the
+  # receiver. The replacement is read a character at a time in its own
+  # encoding, so a UTF-16 backslash is one and a Shift_JIS trail byte is
+  # not. The pieces join as rb_enc_str_buf_cat joins them.
+  def regsub(repl, match, regexp)
+    Primitive.attr! :hidden
+    return repl unless Primitive.zr_str_find_from(repl, "\\", 0)
+
+    bytes = repl.b
+    enc = Encoding.at(Primitive.zr_str_encoding_index_m(repl))
+    compat = enc.ascii_compatible?
+    onig = Regexp::Onig::Enc.reader(enc)
+    e = bytes.bytesize
+    val = nil
+    p = s = 0
+    while s < e
+      c, clen = onig.ascget(bytes, s, compat)
+      if c.nil?
+        s += onig.mbclen(bytes, s)
         next
       end
-      d = text[i + 1]
-      i += 2
-      case d
-      when "0", "&" then out << whole
-      when "1".."9" then out << (numbered ? Primitive.zr_match_nth(match, d.to_i).to_s : "")
-      when "+" then out << Primitive.zr_match_last(match).to_s
-      when "\\" then out << "\\"
-      when "`" then out << Primitive.zr_match_pre(match)
-      when "'" then out << Primitive.zr_match_post(match)
-      when "k"
-        close = text.index(">", i)
-        if text[i] == "<" && close
-          out << match[text[i + 1...close]].to_s
-          i = close + 1
-        else
-          out << "\\k"
+      ss = s
+      s += clen
+      next if c != 0x5C || s == e
+
+      val ||= OWN[:force_encoding].bind_call(+"", Encoding::BINARY)
+      val.send(:buf_cat, repl.byteslice(p, ss - p))
+      c, clen = onig.ascget(bytes, s, compat)
+      if c.nil?
+        s += onig.mbclen(bytes, s)
+        val.send(:buf_cat, repl.byteslice(ss, s - ss))
+        p = s
+        next
+      end
+      s += clen
+      p = s
+      case c
+      when 0x31..0x39
+        next unless regexp && regexp.send(:name_rows).empty?
+
+        no = c - 0x30
+      when 0x6B # k
+        lt, lt_len = s < e ? onig.ascget(bytes, s, compat) : nil
+        if lt != 0x3C
+          val.send(:buf_cat, repl.byteslice(ss, s - ss))
+          next
         end
-      else out << "\\" << d
+        name = name_end = s + lt_len
+        gt_len = 0
+        while name_end < e
+          gt, gt_len = onig.ascget(bytes, name_end, compat)
+          break if gt == 0x3E
+
+          name_end += gt.nil? ? onig.mbclen(bytes, name_end) : gt_len
+        end
+        raise RuntimeError, "invalid group name reference format" unless name_end < e
+
+        no = regsub_name_number(regexp, repl.byteslice(name, name_end - name), match)
+        p = s = name_end + gt_len
+      when 0x30, 0x26 # 0 &
+        no = 0
+      when 0x60 # `
+        val.send(:buf_cat, byteslice_of(0, match.byteoffset(0)[0]))
+        next
+      when 0x27 # '
+        to = match.byteoffset(0)[1]
+        val.send(:buf_cat, byteslice_of(to, Primitive.zr_str_bytesize(self) - to))
+        next
+      when 0x2B # +
+        no = match.size - 1
+        no -= 1 while no > 0 && match.byteoffset(no)[0].nil?
+        next if no == 0
+      when 0x5C
+        val.send(:buf_cat, repl.byteslice(s - clen, clen))
+        next
+      else
+        val.send(:buf_cat, repl.byteslice(ss, s - ss))
+        next
+      end
+      next if no >= match.size
+
+      from, to = match.byteoffset(no)
+      val.send(:buf_cat, byteslice_of(from, to - from)) if from
+    end
+    return repl unless val
+
+    val.send(:buf_cat, repl.byteslice(p, e - p)) if p < e
+    val
+  end
+
+  # NAME_TO_NUMBER: the group `\k<name>` reads, the last of a repeated
+  # name's groups that took part in the match. A String pattern has no
+  # names, and a name whose encoding cannot meet the pattern's names
+  # none.
+  def regsub_name_number(regexp, name, match)
+    Primitive.attr! :hidden
+    if regexp && Encoding.compatible?(regexp.source, name)
+      row = regexp.send(:name_rows).find { |n, _| n.b == name.b }
+      return row[1].reverse.find { |g| match.byteoffset(g)[0] } || row[1].last if row
+    end
+    raise IndexError, "undefined group name reference: ".b << name.send(:quote_unprintable)
+  end
+
+  # rb_str_quote_unprintable: the text as it is when it is printable in
+  # the encoding messages are shown in, else escaped.
+  def quote_unprintable
+    Primitive.attr! :hidden
+    enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    shown = Encoding.default_internal || Encoding.default_external
+    return escape if !enc.equal?(shown) && !(enc.ascii_compatible? && Primitive.zr_str_ascii_only_m(self))
+
+    bytes = b
+    onig = Regexp::Onig::Enc.reader(enc)
+    at = 0
+    while at < bytes.bytesize
+      len = onig.precise_mbclen(bytes, at)
+      return escape if len <= 0 || !onig.code_ctype?(onig.mbc_to_code(bytes, at, bytes.bytesize), Regexp::Onig::CType::PRINT)
+
+      at += len
+    end
+    self
+  end
+
+  # rb_enc_cr_str_buf_cat: `piece` onto the receiver, a buffer only its
+  # caller holds. The buffer takes the piece's encoding while it is
+  # empty and the two cannot share one, or while it is plain ASCII and
+  # the piece is not; two encodings past ASCII on both sides raise.
+  def buf_cat(piece)
+    Primitive.attr! :hidden
+    enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    other = Encoding.at(Primitive.zr_str_encoding_index_m(piece))
+    unless enc.equal?(other)
+      if !enc.ascii_compatible? || !other.ascii_compatible?
+        return self if Primitive.zr_str_bytesize(piece) == 0
+
+        buf_incompatible(enc, other) unless Primitive.zr_str_bytesize(self) == 0
+        OWN[:force_encoding].bind_call(self, other)
+      else
+        mine = Primitive.zr_str_bytesize(self) == 0 || Primitive.zr_str_ascii_only_m(self)
+        theirs = Primitive.zr_str_ascii_only_m(piece)
+        buf_incompatible(enc, other) unless mine || theirs
+        OWN[:force_encoding].bind_call(self, other) if mine && !theirs
       end
     end
-    out
+    Primitive.zr_str_cat_bytes(self, piece)
+  end
+
+  def buf_incompatible(enc, other)
+    Primitive.attr! :hidden
+    raise Encoding::CompatibilityError, "incompatible character encodings: #{Encoding.shown(enc)} and #{Encoding.shown(other)}"
   end
 
   # split by a Regexp, as CRuby walks it: the text between matches with

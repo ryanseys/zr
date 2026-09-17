@@ -221,7 +221,7 @@ class Regexp
     # classes. The answer is bytes; the caller sets the encoding.
     def expr_str(text, enc, resenc, term)
       bytes = text.b
-      onig = onig_for(enc)
+      onig = Onig::Enc.reader(enc)
       compat = enc.ascii_compatible?
       n = bytes.bytesize
       need_escape = !(compat && bytes.dup.force_encoding(enc).valid_encoding?)
@@ -230,7 +230,7 @@ class Regexp
         c = bytes.getbyte(i)
         if c >= 0x80
           need_escape = true unless enc == resenc
-          i += mbclen(bytes, i, onig)
+          i += onig.mbclen(bytes, i)
         elsif c != term.ord && onig.code_ctype?(c, Onig::CType::PRINT)
           i += 1
         else
@@ -242,14 +242,14 @@ class Regexp
       out = "".b
       i = 0
       while i < n
-        c, clen = ascget(bytes, i, compat, onig)
+        c, clen = onig.ascget(bytes, i, compat)
         if c == 0x5c && i + clen < n
-          m = clen + mbclen(bytes, i + clen, onig)
+          m = clen + onig.mbclen(bytes, i + clen)
           out << bytes.byteslice(i, m)
           i += m
           next
         elsif c.nil?
-          clen = precise_mbclen(bytes, i, onig)
+          clen = onig.precise_mbclen(bytes, i)
           if clen <= 0
             out << format("\\x%02X", bytes.getbyte(i))
             clen = 1
@@ -270,46 +270,6 @@ class Regexp
         i += clen
       end
       out
-    end
-    
-    # The Onigmo encoding that reads `enc`; a dummy encoding reads as
-    # ASCII-8BIT, which ruby replicates it from.
-    def onig_for(enc) = enc.dummy? ? Onig::Enc::ASCII_ENC : Onig::Enc.for(enc)
-    
-    # rb_enc_ascget: [the ASCII character at `i` and its byte length], or
-    # nil when the character there is past ASCII or no character.
-    def ascget(bytes, i, compat, onig)
-      return nil if i >= bytes.bytesize
-    
-      if compat
-        c = bytes.getbyte(i)
-        return c < 0x80 ? [c, 1] : nil
-      end
-      len = precise_mbclen(bytes, i, onig)
-      return nil if len <= 0
-    
-      c = onig.mbc_to_code(bytes, i, bytes.bytesize)
-      c < 0x80 ? [c, len] : nil
-    end
-    
-    # rb_enc_precise_mbclen: a positive length, or the negative
-    # ONIGENC_CONSTRUCT_MBCLEN_* of an invalid or cut character.
-    def precise_mbclen(bytes, i, onig)
-      left = bytes.bytesize - i
-      return -2 if left <= 0
-    
-      len = onig.precise_len(bytes, i, bytes.bytesize)
-      len > 0 && left < len ? -1 - (len - left) : len
-    end
-    
-    # rb_enc_mbclen: the character's length, or the encoding's shortest
-    # where no whole character starts.
-    def mbclen(bytes, i, onig)
-      left = bytes.bytesize - i
-      len = precise_mbclen(bytes, i, onig)
-      return len if len > 0 && len <= left
-    
-      onig.min_len <= left ? onig.min_len : left
     end
     
     # rb_str_buf_cat_escaped_char, for a character past ASCII.
@@ -581,7 +541,7 @@ class Regexp
 
       # rb_enc_precise_mbclen at `at`, refused when no character starts there.
       def char_len(at)
-        len = Pattern.precise_mbclen(@s, at, Pattern.onig_for(@enc))
+        len = Onig::Enc.reader(@enc).precise_mbclen(@s, at)
         raise RegexpError, "invalid multibyte character" if len <= 0
 
         len
@@ -591,14 +551,14 @@ class Regexp
     end
 
     # rb_enc_mbmaxlen
-    def mbmaxlen(enc) = onig_for(enc).max_len
+    def mbmaxlen(enc) = Onig::Enc.reader(enc).max_len
 
     # MBCLEN_NEEDMORE_P: whether `bytes` are the start of a character of
     # `enc` that more bytes complete.
-    def needs_more?(bytes, enc) = precise_mbclen(bytes.pack("C*"), 0, onig_for(enc)) < -1
+    def needs_more?(bytes, enc) = Onig::Enc.reader(enc).precise_mbclen(bytes.pack("C*"), 0) < -1
 
     # MBCLEN_INVALID_P: `bytes` are neither a character nor the start of one.
-    def invalid?(bytes, enc) = precise_mbclen(bytes.pack("C*"), 0, onig_for(enc)) == -1
+    def invalid?(bytes, enc) = Onig::Enc.reader(enc).precise_mbclen(bytes.pack("C*"), 0) == -1
 
     # One `\M-X` / `\C-X` / `\cX` run at `i` as [byte, index past it].
     def escaped_byte(b, i)

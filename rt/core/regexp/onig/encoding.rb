@@ -28,6 +28,44 @@ class Regexp
           end
         end
 
+        # rb_enc_precise_mbclen over the rest of `bytes`: a positive length,
+        # or the negative ONIGENC_CONSTRUCT_MBCLEN_* of an invalid or cut
+        # character.
+        def precise_mbclen(bytes, i)
+          left = bytes.bytesize - i
+          return -2 if left <= 0
+
+          n = precise_len(bytes, i, bytes.bytesize)
+          n > 0 && left < n ? -1 - (n - left) : n
+        end
+
+        # rb_enc_mbclen: the character's length, or the encoding's shortest
+        # where no whole character starts.
+        def mbclen(bytes, i)
+          left = bytes.bytesize - i
+          n = precise_mbclen(bytes, i)
+          return n if n > 0 && n <= left
+
+          min_len <= left ? min_len : left
+        end
+
+        # rb_enc_ascget: [the ASCII character at `i`, its byte length], or
+        # nil when the character there is past ASCII or no character.
+        # `compat` says the encoding is ASCII-compatible.
+        def ascget(bytes, i, compat)
+          return nil if i >= bytes.bytesize
+
+          if compat
+            c = bytes.getbyte(i)
+            return c < 0x80 ? [c, 1] : nil
+          end
+          n = precise_mbclen(bytes, i)
+          return nil if n <= 0
+
+          c = mbc_to_code(bytes, i, bytes.bytesize)
+          c < 0x80 ? [c, n] : nil
+        end
+
         # onigenc_mbclen_approximate: the length the lead byte announces
         # even past `e`.
         def len_approx(s, p, e)
@@ -370,6 +408,10 @@ class Regexp
       US_ASCII_ENC = SingleByte.new("US-ASCII", nil, nil, :ascii, false, nil, 0, us_ascii: true).freeze
 
       @encodings = {}
+
+      # The Onigmo encoding a String in `encoding` is read with: a dummy
+      # encoding reads as ASCII-8BIT, which ruby replicates it from.
+      def self.reader(encoding) = encoding.dummy? ? ASCII_ENC : self.for(encoding)
 
       # The Onigmo encoding that reads ruby's `encoding` (a replica reads
       # with its base's), made once.
