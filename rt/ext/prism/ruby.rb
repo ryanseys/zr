@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# shareable_constant_value: literal
 
 # prism's parser in Ruby: a port of prism 1.9.0's C (src/prism.c and its
 # helpers), which rt/ext/prism.so.rb stands on in place of the C extension.

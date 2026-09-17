@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# shareable_constant_value: literal
 
 module Prism
   module Ruby
@@ -19,7 +20,7 @@ module Prism
       FROZEN_STRING_LITERAL_ENABLED = 1
 
       # PM_OPTIONS_COMMAND_LINE_*
-      COMMAND_LINE = { "a" => 0x1, "e" => 0x2, "l" => 0x4, "n" => 0x8, "p" => 0x10, "x" => 0x20 }.freeze
+      COMMAND_LINE = { "a" => 0x1, "e" => 0x2, "l" => 0x4, "n" => 0x8, "p" => 0x10, "x" => 0x20 }
 
       # The range of a C int.
       INT = -(2**31)..(2**31 - 1)
@@ -28,7 +29,7 @@ module Prism
       LONG = -(2**63)..(2**63 - 1)
 
       # PM_OPTIONS_SCOPE_FORWARDING_*
-      FORWARDING = { :* => 0x1, :** => 0x2, :& => 0x4, :"..." => 0x8 }.freeze
+      FORWARDING = { :* => 0x1, :** => 0x2, :& => 0x4, :"..." => 0x8 }
 
       # A scope an eval parses inside: local names as Strings, and what the
       # scope forwards.

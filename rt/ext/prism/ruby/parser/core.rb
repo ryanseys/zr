@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# shareable_constant_value: literal
 
 using Prism::Ruby::Mutation
 
@@ -172,7 +173,7 @@ module Prism
         unless: %i[KEYWORD_ELSE KEYWORD_END],
         until: %i[KEYWORD_END],
         while: %i[KEYWORD_END]
-      }.freeze
+      }
 
       # The contexts inside a method (true) or a class body that ends the
       # search (false), for context_def_p.
@@ -181,7 +182,7 @@ module Prism
         class: false, class_ensure: false, class_rescue: false, class_else: false,
         module: false, module_ensure: false, module_rescue: false, module_else: false,
         sclass: false, sclass_ensure: false, sclass_rescue: false, sclass_else: false
-      }.freeze
+      }
 
       # context_human
       CONTEXT_HUMAN = {
@@ -204,7 +205,7 @@ module Prism
         rescue_modifier: "'rescue' clause", sclass_rescue: "'rescue' clause",
         sclass: "singleton class definition", ternary: "ternary expression", unless: "unless statement",
         until: "until statement", while: "while statement"
-      }.freeze
+      }
 
       private
 
@@ -354,7 +355,7 @@ module Prism
         SourceFileNode => :expression_not_writable_file, SourceLineNode => :expression_not_writable_line,
         NilNode => :expression_not_writable_nil, SelfNode => :expression_not_writable_self,
         TrueNode => :expression_not_writable_true
-      }.freeze
+      }
 
       # parse_unwriteable_target: `nil`, `self` and the like become local
       # targets, with an error naming them.

@@ -1,35 +1,36 @@
 # frozen_string_literal: true
+# shareable_constant_value: literal
 
 module Prism
   module Ruby
     # A lex mode's breakpoints, pm_strpbrk's charset: the bytes a scan stops
-    # at, and NUL, which strchr finds as the charset's own terminator. One
-    # instance per distinct charset, with the patterns that find the next
-    # stop with or without the bytes past ASCII.
+    # at, and NUL, which strchr finds as the charset's own terminator, with
+    # the patterns that find the next stop with or without the bytes past
+    # ASCII. Frozen, so that every Ractor shares the heredoc charsets.
     class Breakpoints
-      @all = {}
-
-      def self.[](bytes) = @all[bytes] ||= new(bytes)
-
       def initialize(bytes)
         stops = bytes.bytes | [0]
         @mask = stops.sum { |byte| 1 << byte }
         set = stops.map { |byte| format("\\x%02X", byte) }.join
-        @ascii = Regexp.new("[#{set}]", Regexp::NOENCODING)
-        @past_ascii = Regexp.new("[#{set}\\x80-\\xFF]", Regexp::NOENCODING)
+        @ascii = Regexp.new("[#{set}]", Regexp::NOENCODING).freeze
+        @past_ascii = Regexp.new("[#{set}\\x80-\\xFF]", Regexp::NOENCODING).freeze
+        freeze
       end
 
       def include?(byte) = @mask[byte] == 1
 
       def pattern(past_ascii) = past_ascii ? @past_ascii : @ascii
 
-      HEREDOC = self["\r\n\\#"]
-      HEREDOC_SINGLE_QUOTE = self["\r\n\\"]
+      HEREDOC = new("\r\n\\#")
+      HEREDOC_SINGLE_QUOTE = new("\r\n\\")
     end
 
     # util/pm_strpbrk.c
     class Parser
       private
+
+      # The Breakpoints of a charset, made once per parse.
+      def breakpoints(bytes) = @breakpoints[bytes] ||= Breakpoints.new(bytes)
 
       # pm_strpbrk: the offset of the first breakpoint at or after `from`,
       # or nil. A character past ASCII is stepped over whole in the source's

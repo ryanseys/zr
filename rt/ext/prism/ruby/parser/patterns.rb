@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# shareable_constant_value: literal
 
 using Prism::Ruby::Mutation
 
@@ -160,7 +161,7 @@ module Prism
       end
 
       # The tokens after a hash pattern key that leave its value out.
-      PATTERN_HASH_VALUE_ENDS = %i[COMMA KEYWORD_THEN BRACE_RIGHT BRACKET_RIGHT PARENTHESIS_RIGHT NEWLINE SEMICOLON].freeze
+      PATTERN_HASH_VALUE_ENDS = %i[COMMA KEYWORD_THEN BRACE_RIGHT BRACKET_RIGHT PARENTHESIS_RIGHT NEWLINE SEMICOLON]
 
       # parse_pattern_hash: a hash pattern from its first key or rest.
       def parse_pattern_hash(captures, first_node, depth)

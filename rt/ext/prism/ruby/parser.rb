@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# shareable_constant_value: literal
 
 require_relative "characters"
 require_relative "encoding"
@@ -102,6 +103,7 @@ module Prism
         @do_loop_stack = 0
         @accepts_block_stack = 0
         @lex_modes = [LexMode.new(:default)]
+        @breakpoints = {}
         @lex_mode = @lex_modes.last
         @previous_type = :EOF
         @previous_start = @previous_end = 0
@@ -328,7 +330,7 @@ module Prism
         breakpoints << "#" if interpolation
         breakpoints << incrementor if incrementor != 0
         @explicit_encoding = nil
-        lex_mode_push(LexMode.new(:list, 0, interpolation, nil, incrementor, terminator, Breakpoints[breakpoints]))
+        lex_mode_push(LexMode.new(:list, 0, interpolation, nil, incrementor, terminator, breakpoints(breakpoints)))
       end
 
       # lex_mode_push_list_eof
@@ -340,7 +342,7 @@ module Prism
         breakpoints << terminator if terminator != 0
         breakpoints << incrementor if incrementor != 0
         @explicit_encoding = nil
-        lex_mode_push(LexMode.new(:regexp, 0, nil, nil, incrementor, terminator, Breakpoints[breakpoints]))
+        lex_mode_push(LexMode.new(:regexp, 0, nil, nil, incrementor, terminator, breakpoints(breakpoints)))
       end
 
       # lex_mode_push_string
@@ -350,7 +352,7 @@ module Prism
         breakpoints << "#" if interpolation
         breakpoints << incrementor if incrementor != 0
         @explicit_encoding = nil
-        lex_mode_push(LexMode.new(:string, 0, interpolation, label_allowed, incrementor, terminator, Breakpoints[breakpoints]))
+        lex_mode_push(LexMode.new(:string, 0, interpolation, label_allowed, incrementor, terminator, breakpoints(breakpoints)))
       end
 
       # lex_mode_push_string_eof

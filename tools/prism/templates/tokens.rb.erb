@@ -27,14 +27,14 @@ module Prism
         <%- tokens.each do |token| -%>
         <%= token.name.to_sym.inspect %>,
         <%- end -%>
-      ].freeze
+      ]
 
       # pm_token_type_human
       HUMAN = {
         <%- tokens.each do |token| -%>
         <%= token.name.to_sym.inspect %> => <%= human.fetch(token.name).inspect %>,
         <%- end -%>
-      }.freeze
+      }
     end
   end
 end

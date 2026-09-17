@@ -2,6 +2,7 @@
 
 require "fileutils"
 require "prism"
+require_relative "child"
 
 module Ze0
   module Harness
@@ -27,16 +28,64 @@ module Ze0
 
       module_function
 
+      # The parts of prism's v1.9.0 tag the checks read, extracted on first
+      # use: the tests and the snapshots they compare against.
+      UPSTREAM_PARTS = %w[test/prism snapshots].freeze
+
       # test/prism at prism's v1.9.0 tag, extracted on first use; nil when
       # there is no checkout to extract it from.
       def upstream
         tests = File.join(UPSTREAM, "test/prism")
-        return tests if File.directory?(tests)
+        missing = UPSTREAM_PARTS.reject { |part| File.directory?(File.join(UPSTREAM, part)) }
+        return tests if missing.empty?
         return unless File.directory?(CHECKOUT)
 
         FileUtils.mkdir_p(File.dirname(UPSTREAM))
-        system("git -C #{CHECKOUT} archive --prefix=prism-1.9.0/ v1.9.0 test/prism | tar -x -C #{File.dirname(UPSTREAM)}", exception: true)
+        system("git -C #{CHECKOUT} archive --prefix=prism-1.9.0/ v1.9.0 #{missing.join(" ")} | tar -x -C #{File.dirname(UPSTREAM)}", exception: true)
         tests
+      end
+
+      # The directory whose prism/prism.rb stands in for the C extension.
+      RUBY_BACKEND = File.join(ROOT, "tools/prism/ruby_backend")
+
+      # A test file's counts as test-unit reports them.
+      TestRun = Struct.new(:file, :tests, :assertions, :failures, :errors, :pendings, :omissions, :output) do
+        def passed? = !tests.nil? && failures.zero? && errors.zero?
+        def counts = to_a[1..6]
+      end
+
+      # prism's own test files (test/prism/**/*_test.rb at v1.9.0), each run
+      # in its own ruby, on the C extension or on the Ruby port (`backend`
+      # :c or :ruby), at most `jobs` at a time, each bounded in time and in
+      # resident memory. Answers a TestRun per file.
+      def upstream_tests(backend, only: nil, jobs: 3, seconds: 600, megabytes: 3000)
+        base = File.dirname(upstream || raise("no prism checkout at #{CHECKOUT}"))
+        check = "exit(Prism.method(:parse).source_location.nil? ? 1 : 0)"
+        raise "the Ruby backend does not load from #{RUBY_BACKEND}" if backend == :ruby && !system(RbConfig.ruby, "-I", RUBY_BACKEND, "-rprism", "-e", check)
+        files = Dir.glob("prism/**/*_test.rb", base: base).sort
+        files = files.select { |file| File.fnmatch?(only, file, File::FNM_PATHNAME | File::FNM_EXTGLOB) } if only
+        queue = Queue.new
+        files.each { |file| queue << file }
+        queue.close
+        runs = Array.new(jobs) do
+          Thread.new do
+            done = []
+            while (file = queue.pop)
+              done << upstream_test(base, file, backend, seconds, megabytes)
+            end
+            done
+          end
+        end.flat_map(&:value)
+        runs.sort_by(&:file)
+      end
+
+      def upstream_test(base, file, backend, seconds, megabytes)
+        includes = backend == :ruby ? ["-I", RUBY_BACKEND] : []
+        answer, = Child.run([RbConfig.ruby, *includes, "-I", base, File.join(base, file)], cwd: File.dirname(base), seconds: seconds, megabytes: megabytes)
+        output = "#{answer.stdout}#{answer.stderr}"
+        output += "\n(stopped: #{answer.code})" if answer.code.is_a?(Symbol)
+        counts = output[/^(\d+) tests, (\d+) assertions, (\d+) failures, (\d+) errors, (\d+) pendings, (\d+) omissions/]
+        TestRun.new(file, *(counts ? Regexp.last_match.captures.map(&:to_i) : Array.new(6)), output)
       end
 
       # test_helper.rb's ruby_versions_for: `3.4/x.txt` from 3.4 on,

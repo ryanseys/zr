@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# shareable_constant_value: literal
 
 using Prism::Ruby::Mutation
 
@@ -30,7 +31,7 @@ module Prism
       FORMAL_ARGUMENT_ERRORS = {
         CONSTANT: :argument_formal_constant, INSTANCE_VARIABLE: :argument_formal_ivar,
         GLOBAL_VARIABLE: :argument_formal_global, CLASS_VARIABLE: :argument_formal_class
-      }.freeze
+      }
 
       private
 
@@ -433,7 +434,7 @@ module Prism
         class: %i[class_rescue class_else class_ensure], def: %i[def_rescue def_else def_ensure],
         lambda: %i[lambda_rescue lambda_else lambda_ensure], module: %i[module_rescue module_else module_ensure],
         sclass: %i[sclass_rescue sclass_else sclass_ensure]
-      }.freeze
+      }
 
       # parse_rescues: the rescue, else and ensure clauses and the end of
       # `parent_node`, a begin node. `opening` (or nil) is the token whose
@@ -833,7 +834,7 @@ module Prism
         block_parameters: :valid, def_else: :valid, def_ensure: :valid, def_params: :valid, def_rescue: :valid,
         def: :valid, lambda_braces: :valid, lambda_do_end: :valid, lambda_else: :valid, lambda_ensure: :valid,
         lambda_rescue: :valid
-      }.freeze
+      }
 
       # parse_return: an error for a return in a class or module body, or
       # from 3.4 in a singleton class body.
@@ -861,7 +862,7 @@ module Prism
         def: :invalid, def_params: :invalid, def_else: :invalid, def_ensure: :invalid, def_rescue: :invalid,
         main: :invalid, preexe: :invalid, sclass: :invalid, sclass_else: :invalid, sclass_ensure: :invalid,
         sclass_rescue: :invalid
-      }.freeze
+      }
 
       # parse_block_exit: a break, next or redo outside a block may still be
       # valid inside a while or until modifier, so it waits in the block

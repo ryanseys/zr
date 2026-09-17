@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# shareable_constant_value: literal
 
 module Prism
   module Ruby
@@ -49,13 +50,13 @@ module Prism
         "@" => %i[MOVE SIGNED_NA ENDIAN_NA SIZE_NA],
         "X" => %i[BACK SIGNED_NA ENDIAN_NA SIZE_NA],
         "x" => %i[NULL SIGNED_NA ENDIAN_NA SIZE_NA]
-      }.freeze
+      }
 
       # The integer directives whose size a ! or _ cannot change.
-      FIXED_SIZE = %w[n N v V].freeze
+      FIXED_SIZE = %w[n N v V]
 
       # The native size a ! or _ gives each fixed size.
-      NATIVE_SIZES = { SIZE_16: :SIZE_SHORT, SIZE_32: :SIZE_LONG, SIZE_64: :SIZE_LONG_LONG }.freeze
+      NATIVE_SIZES = { SIZE_16: :SIZE_SHORT, SIZE_32: :SIZE_LONG, SIZE_64: :SIZE_LONG_LONG }
 
       # A directive as pm_pack_parse reads it.
       Directive = Struct.new(:type, :signed, :endian, :size, :length_type, :length)

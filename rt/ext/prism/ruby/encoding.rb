@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# shareable_constant_value: literal
 
 require_relative "encoding_tables"
 
@@ -360,7 +361,7 @@ module Prism
           else
             Multibyte.new(name, width.delete_suffix("_char_width").to_sym, isupper == "euc_jp_isupper_char" ? :euc_jp : :ascii)
           end
-        [id, encoding]
+        [id, encoding.freeze]
       end.freeze
 
       UTF_8 = ALL.fetch(:UTF_8)

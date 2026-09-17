@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# shareable_constant_value: literal
 
 using Prism::Ruby::Mutation
 
@@ -833,7 +834,7 @@ module Prism
         KEYWORD_NIL: :nil_node, KEYWORD_SELF: :self_node, KEYWORD_TRUE: :true_node, KEYWORD_FALSE: :false_node,
         KEYWORD___FILE__: :source_file_node, KEYWORD___LINE__: :source_line_node,
         KEYWORD___ENCODING__: :source_encoding_node
-      }.freeze
+      }
 
       # def name(params) ... end, def name = value
       def parse_def(binding_power, accepts_command_call, depth)
@@ -1826,7 +1827,7 @@ module Prism
         module_else: :else, sclass_else: :else,
         begin_ensure: :ensure, block_ensure: :ensure, class_ensure: :ensure, def_ensure: :ensure,
         lambda_ensure: :ensure, module_ensure: :ensure, sclass_ensure: :ensure
-      }.freeze
+      }
 
       def parse_retry(node)
         through = nil
@@ -1854,7 +1855,7 @@ module Prism
         class: :invalid, class_ensure: :invalid, class_rescue: :invalid, class_else: :invalid, main: :invalid,
         module: :invalid, module_ensure: :invalid, module_rescue: :invalid, module_else: :invalid, sclass: :invalid,
         sclass_rescue: :invalid, sclass_ensure: :invalid, sclass_else: :invalid
-      }.freeze
+      }
 
       def parse_yield(node)
         @contexts.reverse_each do |context|

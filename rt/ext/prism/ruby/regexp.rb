@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# shareable_constant_value: literal
 
 module Prism
   module Ruby
@@ -20,7 +21,7 @@ module Prism
       OPTION_DEFAULTS = {
         0x69 => OPTION_TOGGLEABLE, 0x6D => OPTION_TOGGLEABLE, 0x78 => OPTION_TOGGLEABLE,
         0x64 => OPTION_ADDABLE, 0x61 => OPTION_ADDABLE, 0x75 => OPTION_ADDABLE
-      }.freeze
+      }
 
       # `encoding` is the parser's when `encoding_changed`, for multibyte
       # characters whose trailing bytes can look like ASCII. `on_name`

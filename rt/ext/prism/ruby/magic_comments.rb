@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# shareable_constant_value: literal
 
 module Prism
   module Ruby
@@ -240,7 +241,7 @@ module Prism
       # pm_parser_scope_shareable_constant_set, over every open scope.
       SHAREABLE_CONSTANT_VALUES = {
         "none" => 0, "literal" => 1 << 2, "experimental_everything" => 1 << 3, "experimental_copy" => 1 << 4
-      }.freeze
+      }
 
       def magic_comment_shareable_constant_value(key, value_start, value_length)
         cursor = @current_start

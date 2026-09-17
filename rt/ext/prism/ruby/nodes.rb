@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# shareable_constant_value: literal
 
 using Prism::Ruby::Mutation
 
@@ -1363,7 +1364,7 @@ module Prism
       INTEGER_BASES = {
         IntegerBaseFlags::BINARY => :binary, IntegerBaseFlags::OCTAL => :octal,
         IntegerBaseFlags::DECIMAL => :decimal, IntegerBaseFlags::HEXADECIMAL => :hexadecimal
-      }.freeze
+      }
 
       # pm_integer_parse: the value of digits in `base` (:default, :binary,
       # :octal, :decimal, :hexadecimal or :unknown) from `start` to `finish`,

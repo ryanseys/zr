@@ -161,4 +161,16 @@ end
     end
     assert_empty failures.first(5)
   end
+
+  # prism 1.9.0's own test suite on the Ruby port (tools/prism_upstream_tests.rb
+  # runs it beside the C extension). A file that returns before its tests,
+  # on a ruby whose own parser is prism, runs none.
+  def test_prisms_own_test_suite_passes_on_the_ruby_port
+    skip "no prism checkout at #{PrismDiff::CHECKOUT}" unless PrismDiff.upstream
+
+    runs = PrismDiff.upstream_tests(:ruby)
+    assert_operator runs.count(&:passed?), :>=, 63
+    failures = runs.reject { |run| run.passed? || run.tests.nil? }.map { |run| "#{run.file}\n#{run.output.lines.last(30).join}" }
+    assert_empty failures.first(3)
+  end
 end

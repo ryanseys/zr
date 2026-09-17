@@ -24,13 +24,13 @@ module Prism
         <%- errors.each do |error| -%>
         <%= error.name.downcase.to_sym.inspect %> => <%= messages["ERR_#{error.name}"].inspect %>,
         <%- end -%>
-      }.freeze
+      }
 
       WARNINGS = {
         <%- warnings.each do |warning| -%>
         <%= warning.name.downcase.to_sym.inspect %> => <%= messages["WARN_#{warning.name}"].inspect %>,
         <%- end -%>
-      }.freeze
+      }
     end
   end
 end

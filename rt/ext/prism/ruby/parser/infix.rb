@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# shareable_constant_value: literal
 
 using Prism::Ruby::Mutation
 
@@ -16,26 +17,26 @@ module Prism
         local_variable: %i[local_variable_and_write_node local_variable_or_write_node local_variable_operator_write_node],
         index: %i[index_and_write_node index_or_write_node index_operator_write_node],
         call: %i[call_and_write_node call_or_write_node call_operator_write_node]
-      }.freeze
+      }
 
       # The errors of each operator write: [value missing, multiple write].
       OPERATOR_WRITE_ERRORS = [
         %i[expect_expression_after_ampampeq ampampeq_multi_assign],
         %i[expect_expression_after_pipepipeeq pipepipeeq_multi_assign],
         %i[expect_expression_after_operator operator_multi_assign]
-      ].freeze
+      ]
 
       # The binary operators that may follow a rescue modifier's or `and`'s
       # match only on a new statement.
       BINARY_OPERATORS = %i[
         UAMPERSAND USTAR USTAR_STAR BANG_EQUAL BANG_TILDE EQUAL_EQUAL EQUAL_EQUAL_EQUAL LESS_EQUAL_GREATER CARET PIPE
         AMPERSAND GREATER_GREATER LESS_LESS MINUS PLUS PERCENT SLASH STAR STAR_STAR
-      ].freeze
+      ]
 
       OPERATOR_ASSIGNMENTS = %i[
         AMPERSAND_EQUAL CARET_EQUAL GREATER_GREATER_EQUAL LESS_LESS_EQUAL MINUS_EQUAL PERCENT_EQUAL PIPE_EQUAL
         PLUS_EQUAL SLASH_EQUAL STAR_EQUAL STAR_STAR_EQUAL
-      ].freeze
+      ]
 
       private
 
@@ -794,7 +795,7 @@ module Prism
       DEPTH_MAXIMUM = 10_000
 
       # The statements that end an expression unless a modifier follows.
-      STATEMENT_NODES = [PreExecutionNode, PostExecutionNode, AliasGlobalVariableNode, AliasMethodNode, MultiWriteNode, UndefNode].freeze
+      STATEMENT_NODES = [PreExecutionNode, PostExecutionNode, AliasGlobalVariableNode, AliasMethodNode, MultiWriteNode, UndefNode]
 
       # The writes that end an expression when their value is an array
       # without brackets.
