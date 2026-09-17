@@ -110,6 +110,7 @@ begin
 rescue OpenSSL::OpenSSLError => e
   puts "caught as OpenSSLError"
 end
+#@ needs: libssl
 __END__
 -- versions --
 "4.0.2"

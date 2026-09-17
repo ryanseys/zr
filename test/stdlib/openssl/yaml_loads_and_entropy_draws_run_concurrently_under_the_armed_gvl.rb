@@ -13,6 +13,7 @@ p docs[0]["name"]
 p docs[1]["count"]
 p entropy.value.bytesize
 File.delete(y)
+#@ needs: libssl
 __END__
 "zeo"
 3

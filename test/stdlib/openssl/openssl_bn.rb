@@ -81,6 +81,7 @@ puts "-- randomness contracts --"
 p OpenSSL::BN.rand(64).num_bits <= 64
 p OpenSSL::BN.rand_range(OpenSSL::BN.new(100)) < 100
 p OpenSSL::BN.generate_prime(32).prime?
+#@ needs: libssl
 __END__
 -- construction --
 OpenSSL::BN

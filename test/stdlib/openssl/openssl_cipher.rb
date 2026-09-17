@@ -159,6 +159,7 @@ kv2.decrypt
 kv2.pkcs5_keyivgen("passphrase")
 p kv2.update(e1) + kv2.final
 p e1.unpack1("H*")
+#@ needs: libssl
 __END__
 -- metadata --
 OpenSSL::Cipher

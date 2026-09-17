@@ -73,6 +73,7 @@ begin
 rescue TypeError => e
   p [e.class, e.message]
 end
+#@ needs: libssl
 __END__
 ["cert", OpenSSL::X509::Certificate, true]
 ["md5", true]

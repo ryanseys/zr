@@ -1,14 +1,2 @@
-gaps/openssl_digest.rb	aot/openssl_digest.rb
 gaps/an_rspec_suite_runs.rb	milestones/an_rspec_suite_runs.rb
-gaps/a_subclass_of_any_native_class.rb	stdlib/digest/a_subclass_of_any_native_class.rb
 gaps/the_toplevel_runs_on_the_process_main_thread.rb	stdlib/ffi/the_toplevel_runs_on_the_process_main_thread.rb
-gaps/a_subclass_of_a_native_type_wraps_one.rb	stdlib/openssl/a_subclass_of_a_native_type_wraps_one.rb
-gaps/an_https_keepalive_request_completes.rb	stdlib/openssl/an_https_keepalive_request_completes.rb
-gaps/openssl_bn.rb	stdlib/openssl/openssl_bn.rb
-gaps/openssl_buffering.rb	stdlib/openssl/openssl_buffering.rb
-gaps/openssl_cipher.rb	stdlib/openssl/openssl_cipher.rb
-gaps/openssl_digest_hmac_kdf.rb	stdlib/openssl/openssl_digest_hmac_kdf.rb
-gaps/openssl_secure_compare.rb	stdlib/openssl/openssl_secure_compare.rb
-gaps/openssl_ssl_surface.rb	stdlib/openssl/openssl_ssl_surface.rb
-gaps/openssl_tls_client.rb	stdlib/openssl/openssl_tls_client.rb
-gaps/yaml_loads_and_entropy_draws_run_concurrently_under_the_armed_gvl.rb	stdlib/openssl/yaml_loads_and_entropy_draws_run_concurrently_under_the_armed_gvl.rb

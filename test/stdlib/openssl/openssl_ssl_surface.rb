@@ -70,6 +70,7 @@ puts "-- errors --"
 p OpenSSL::SSL::SSLError.superclass
 p OpenSSL::SSL::SSLError.ancestors.include?(OpenSSL::OpenSSLError)
 p OpenSSL::X509::Certificate.superclass
+#@ needs: libssl
 __END__
 -- constants --
 0

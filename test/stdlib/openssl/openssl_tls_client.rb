@@ -51,6 +51,7 @@ ssl.sync_close = true
 ssl.close
 p sock.closed?
 srv.close
+#@ needs: libssl
 __END__
 -- identity --
 OpenSSL::SSL::SSLSocket

@@ -124,6 +124,7 @@ t << "!"
 p t.written
 p t.flush.equal?(t)
 p Tape.new("").close
+#@ needs: libssl
 __END__
 -- the module --
 true

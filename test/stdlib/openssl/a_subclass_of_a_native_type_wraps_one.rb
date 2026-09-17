@@ -130,6 +130,7 @@ p f.resume
 p f.resume
 p f.resume
 p f.alive?
+#@ needs: libssl
 __END__
 "work"
 3

@@ -13,6 +13,7 @@ begin
 rescue ArgumentError => e
   puts "ArgumentError: #{e.message}"
 end
+#@ needs: libssl
 __END__
 true
 false

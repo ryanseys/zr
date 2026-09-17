@@ -90,6 +90,7 @@ begin
 rescue EOFError => e
   puts "raise: #{e.class}"
 end
+#@ needs: libssl
 __END__
 data:  "ab" reused_outbuf=false
 eof:   nil
