@@ -66,6 +66,7 @@ module Ze0
         # them into one Array there), keywords last as a Hash the task
         # flags, then the send.
         def call(node)
+          return call(node.dup.tap { |n| n.name = :__send__ }) if kernel_send?(node)
           return safe_call(node) if node.safe
           return primitive(node) if primitive?(node)
 
@@ -86,6 +87,13 @@ module Ze0
               node.write ? @f.fetch("i64", slots, 8 * node.args.size) : r
             end
           end
+        end
+
+        # In the runtime's own Ruby, `recv.send(:name, ...)` is Kernel#send,
+        # as rb_funcall is in CRuby's C: a class with a `send` of its own,
+        # BasicSocket's, does not take the call. It goes as `__send__`.
+        def kernel_send?(node)
+          @l.internal? && node.name == :send && node.args.first.is_a?(Hir::Literal) && node.args.first.value.is_a?(Symbol)
         end
 
         # `recv&.name(args)`: nil when the receiver is, with the arguments
