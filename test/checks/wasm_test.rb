@@ -60,6 +60,46 @@ class WasmTest < Minitest::Test
     end
   end
 
+  # Initialized data goes before bss, and objects side by side share a
+  # segment. A module that carries the compiler has some 90,000 data
+  # objects, and wasmtime 48 cannot compile past 65,535 segments.
+  def test_data_objects_share_a_segment
+    functions, data = Ze0::Machine.compile(IMPORTED, "imported.rb")
+    data += 100.times.flat_map do |i|
+      [Ze0::Obj::Data.new("zr_test_data_#{i}", :data, i.to_s, align: 8), Ze0::Obj::Data.new("zr_test_bss_#{i}", :bss, 64, align: 8)]
+    end
+    Dir.mktmpdir("ze0-wasm-") do |dir|
+      wasm = File.join(dir, "segments.wasm")
+      assert_nil Ze0::Native::Build.wasm(functions, data, wasm)
+      assert_equal 1, data_segments(File.binread(wasm))
+      run_module(wasm, "hi\n")
+    end
+  end
+
+  # How many segments a module's data section holds.
+  def data_segments(bytes)
+    at = 8
+    leb = lambda do
+      value = shift = 0
+      loop do
+        byte = bytes.getbyte(at)
+        at += 1
+        value |= (byte & 0x7F) << shift
+        shift += 7
+        return value if byte < 0x80
+      end
+    end
+    while at < bytes.bytesize
+      id = bytes.getbyte(at)
+      at += 1
+      size = leb.()
+      return leb.() if id == 11
+
+      at += size
+    end
+    0
+  end
+
   # A program on the WASI layer reads what the host hands it: its
   # arguments, its environment, and the files of a preopened directory.
   # The answer is what ruby 4.0 for wasm32-wasi printed for the same

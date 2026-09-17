@@ -34,6 +34,11 @@ module Ze0
         SCRATCH = 16
         DATA_BASE = 32
         STACK_PAGES = 16
+        # Data objects at most this many bytes apart share a segment.
+        # wasmtime 48 checks each segment against its own alias region in a
+        # module's startup function, and a function holds at most 65,535
+        # regions; wasm itself allows 100,000 segments.
+        SEGMENT_GAP = 16
 
         TYPE = { "i8" => 0x7F, "i32" => 0x7F, "i64" => 0x7E, "f64" => 0x7C }.freeze
         OP = {
@@ -121,9 +126,24 @@ module Ze0
           out << section(7, vec([name("memory") + "\x02".b + leb(0), name("_start") + "\0".b + leb(@index["_start"])]))
           out << section(9, vec(["\0".b + i32c(1) + "\x0B".b + vec(@table.map { |n| leb(function_index(n)) })])) unless @table.empty?
           out << section(10, vec(bodies))
-          segments = (pre ? pre.segments : []) + @data.reject { |d| d.section == :bss }.map { |d| [@data_at[d.name], patched(d)] }
-          out << section(11, vec(segments.map { |at, bytes| "\0".b + "\x41".b + sleb(at) + "\x0B".b + vec_bytes(bytes) }))
+          placed = (pre ? pre.segments : []) + @data.reject { |d| d.section == :bss }.map { |d| [@data_at[d.name], patched(d)] }
+          out << section(11, vec(segments(placed).map { |at, bytes| "\0".b + "\x41".b + sleb(at) + "\x0B".b + vec_bytes(bytes) }))
           out
+        end
+
+        # The active data segments for `[address, bytes]` objects: objects
+        # closer than SEGMENT_GAP bytes share one segment, with zeros between
+        # them.
+        def segments(placed)
+          placed.sort_by(&:first).each_with_object([]) do |(at, bytes), runs|
+            run = runs.last
+            gap = run && at - (run[0] + run[1].bytesize)
+            if gap && gap <= SEGMENT_GAP
+              run[1] << ("\0".b * gap) << bytes
+            else
+              runs << [at, bytes.b]
+            end
+          end
         end
 
         # Function index space: imports first, then the shims, then the
@@ -149,9 +169,11 @@ module Ze0
 
             first = pre.pending[:functions]
             @functions = @functions.sort_by.with_index { |f, i| [first.index(f.name) || first.size, i] }
-            first = pre.pending[:data].keys
-            @data = @data.sort_by.with_index { |d, i| [first.index(d.name) || first.size, i] }
           end
+          # Initialized data before bss, so that the bytes a module writes
+          # are one run and not one segment between each two zero objects.
+          first = pre ? pre.pending[:data].keys : []
+          @data = @data.sort_by.with_index { |d, i| [first.index(d.name) || first.size, d.section == :bss ? 1 : 0, i] }
           @functions.each { |f| @index[f.name] = @index.size }
           @types = pre ? pre.types.dup : []
           place_data(pre ? pre.data_end : DATA_BASE, pre ? pre.data_at.dup : {})
