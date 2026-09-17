@@ -400,7 +400,7 @@ module Ze0
       # inline path takes a plain object, class or module read outside
       # a ractor (a ractor's isolation rule is the kernel's), not frozen
       # when `writing`.
-      def guessed_ivar_row(ic, id, slow, writing:, append: nil)
+      def guessed_ivar_row(ic, id, slow, writing:)
         table = @l.layout("IvTab")
         entry = @l.layout("IvEntry")
         plain = @f.label
@@ -413,14 +413,25 @@ module Ze0
         t = own_ivar_table(slow, writing)
         i = @f.fetch("i64", ic, off(@l.layout("IvarCache"), "index"))
         len = @f.fetch("i64", t, off(table, "len"))
-        if append
-          # A write whose guess is the row past the last, with a row to
-          # spare: the first assignment in an `initialize`, appended at
-          # `append` unless another row holds the name already.
+        if block_given?
+          # A write whose guess is the row past the last of a plain
+          # object's table, with a row to spare: the first assignment in
+          # an `initialize`, which the block appends when the table's
+          # names answer that no row holds the name (a site shared by two
+          # classes may guess past the end of a table that holds it).
           past = @f.label
+          room = @f.label
+          append = @f.label
           @f.brif(@f.icmp("ult", i, len), indexed, past)
           switch(past)
-          @f.brif(@f.band(@f.icmp("eq", i, len), @f.icmp("ult", len, @f.fetch("i64", t, off(table, "cap")))), append, slow)
+          in_cell = @f.icmp("eq", t, @f.iadd(@self, imm(off(@l.layout("RObject"), "iv"))))
+          @f.brif(@f.band(@f.icmp("eq", i, len), in_cell), room, slow)
+          switch(room)
+          spare = @f.icmp("ult", len, @f.fetch("i64", t, off(table, "cap")))
+          unnamed = @f.icmp("eq", @f.band(@f.fetch("i64", t, off(table, "names")), imm(ivar_name_bit(id))), imm(0))
+          @f.brif(@f.band(spare, unnamed), append, slow)
+          switch(append)
+          yield t, len
         else
           @f.brif(@f.icmp("ult", i, len), indexed, slow)
         end
@@ -563,6 +574,13 @@ module Ze0
 
       def sym_id(name)
         @l.symbols.id(name)
+      end
+
+      # The bit of an ivar table's `names` that stands for the name `id`
+      # (rt/kernel/object.rb, zr_ivtab_name_bit), as a signed word.
+      def ivar_name_bit(id)
+        bit = 1 << (id & 63)
+        bit < 1 << 63 ? bit : bit - (1 << 64)
       end
 
       def proc_field(name)

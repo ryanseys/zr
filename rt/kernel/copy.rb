@@ -9,6 +9,7 @@
 sig [Ptr, Ptr] => Void
 machine def zr_ivtab_copy(to, from)
   IvTab.set_len(to, 0)
+  IvTab.set_names(to, 0)
   i = 0
   while i < IvTab.len(from)
     e = IvTab.rows(from) + (i * IvEntry.size)

@@ -5,7 +5,10 @@
 # row its cell guesses inline (the lowering's `guessed_ivar_row`), and
 # comes here for the rest. Reflection, identity, inspect and p live
 # here too.
-Machine.struct :IvTab, rows: Ptr, len: Word, cap: Word
+# `names` has bit `id & 63` set for every name a row was given, so a
+# clear bit answers that no row holds the name without a scan; a row
+# taken out leaves its bit.
+Machine.struct :IvTab, rows: Ptr, len: Word, cap: Word, names: Word
 Machine.struct :IvEntry, id: Word, value: Value
 Machine.struct :RObject, basic: RBasic, iv: IvTab
 
@@ -14,6 +17,13 @@ machine def zr_ivtab_init(t)
   IvTab.set_rows(t, 0)
   IvTab.set_len(t, 0)
   IvTab.set_cap(t, 0)
+  IvTab.set_names(t, 0)
+end
+
+# The bit of `IvTab.names` that stands for `id`.
+sig [Word] => Word
+machine def zr_ivtab_name_bit(id)
+  Machine.word(1) << (id & 63)
 end
 
 # The ivar table of `v`, or 0 when it has none yet: an object's or a
@@ -102,11 +112,15 @@ machine def zr_obj_ivtab_init(o)
   IvTab.set_rows(t, t + IvTab.size)
   IvTab.set_len(t, 0)
   IvTab.set_cap(t, (zr_cell_bytes(o) - RObject.size) / IvEntry.size)
+  IvTab.set_names(t, 0)
 end
 
 # The row for `id` in the table `t`, or 0.
 sig [Ptr, Word] => Ptr
 machine def zr_ivtab_row(t, id)
+  if (IvTab.names(t) & zr_ivtab_name_bit(id)) == 0
+    return 0
+  end
   n = IvTab.len(t)
   i = 0
   while i < n
@@ -312,6 +326,7 @@ machine def zr_ivtab_append(t, id, v)
   e = IvTab.rows(t) + (n * IvEntry.size)
   IvEntry.set_id(e, id)
   IvTab.set_len(t, n + 1)
+  IvTab.set_names(t, IvTab.names(t) | zr_ivtab_name_bit(id))
   IvEntry.set_value(e, v)
 end
 
