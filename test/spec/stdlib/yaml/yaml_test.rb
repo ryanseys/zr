@@ -27,7 +27,7 @@ describe "YAML programs" do
   end
 
   it "nested collection as a mapping value ends its turn" do
-    _(ze0(<<~'RUBY')).must_answer "---\na:\n- 1\n-\n- true\nb:\n  c: 1\n  e:\n    f:\n    - 2\nd: x\n---\n- a:\n    b:\n    - 1\n  g: 3\n- 2\n---\n? - 1\n  - 2\n: x: 1\n\"y\": []\n{\"a\" => [1], \"b\" => {\"c\" => 1}}\n---\n? a: 1\n  b: 2\n: - 3\n  - z: 1\n? - - 1\n: 1\nk:\n  ? - 1\n  : ? - 2\n    : 3\n---\n- - - 1\n    - 2\n- a:\n    b:\n    - - 1\n---\np: &1\n- 1\nq: *1\nr:\n  s: *1\n"
+    result = ze0(<<~'RUBY')
       # A collection that is the value of a mapping key takes that key's turn, so the
       # next node is a key again; a collection as a key shares its `?` line.
 
@@ -42,6 +42,8 @@ describe "YAML programs" do
       puts({"p" => a, "q" => a, "r" => {"s" => a}}.to_yaml)
 
     RUBY
+
+    _(result).must_answer "---\na:\n- 1\n-\n- true\nb:\n  c: 1\n  e:\n    f:\n    - 2\nd: x\n---\n- a:\n    b:\n    - 1\n  g: 3\n- 2\n---\n? - 1\n  - 2\n: x: 1\n\"y\": []\n{\"a\" => [1], \"b\" => {\"c\" => 1}}\n---\n? a: 1\n  b: 2\n: - 3\n  - z: 1\n? - - 1\n: 1\nk:\n  ? - 1\n  : ? - 2\n    : 3\n---\n- - - 1\n    - 2\n- a:\n    b:\n    - - 1\n---\np: &1\n- 1\nq: *1\nr:\n  s: *1\n"
   end
 
   it "psych parse node tree" do

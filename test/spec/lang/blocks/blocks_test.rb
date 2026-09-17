@@ -2994,11 +2994,13 @@ describe "Blocks programs" do
   end
 
   it "proc ruby2 keywords warning" do
-    _(ze0(<<~'RUBY', path: "lang/blocks/proc_ruby2_keywords_warning.rb")).must_answer ":done\n", stderr: "lang/blocks/proc_ruby2_keywords_warning.rb:2: warning: Skipping set of ruby2_keywords flag for proc (proc accepts keywords or post arguments or proc does not accept argument splat)\n"
+    result = ze0(<<~'RUBY', path: "lang/blocks/proc_ruby2_keywords_warning.rb")
       pr = proc { |x| x }
       pr.ruby2_keywords
       p :done
     RUBY
+
+    _(result).must_answer ":done\n", stderr: "lang/blocks/proc_ruby2_keywords_warning.rb:2: warning: Skipping set of ruby2_keywords flag for proc (proc accepts keywords or post arguments or proc does not accept argument splat)\n"
   end
 
   it "procs own block param receives the call site block" do

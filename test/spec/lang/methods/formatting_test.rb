@@ -974,7 +974,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "method added watermark" do
-    _(ze0(<<~'RUBY')).must_answer "first: own=[:first] defined?(later)=false respond_to=false\nlater: own=[:first, :later] defined?(later)=true respond_to=true\nlast: own=[:first, :last, :later] defined?(later)=true respond_to=true\n-- once the class is built, everything is visible again\n[[:first, :last, :later], true]\n-- instance_method raises for a name that does not exist yet\n  NameError: undefined method 'two' for class 'R'\n-- visibility predicates follow the same watermark\n  public?=false private?=false\n-- an INHERITED name is not hidden: it exists, whatever this class reached\n  shared defined?=true own=[:own]\n-- a redefinition does not hide the name it already defined\n  x: defined?=true\n  x: defined?=true\n-- a runtime definition needs no watermark: it really is the last one\n  runtime a: own=[:a]\n  runtime b: own=[:a, :b]\n"
+    result = ze0(<<~'RUBY')
       # Ruby's definition hook sees a HALF-BUILT class: at `method_added(:a)`,
       # `instance_methods(false)` answers `[:a]` alone, and a `def b` written below is
       # not defined yet.
@@ -1055,6 +1055,8 @@ describe "Methods: formatting and inspection" do
         def b = 2
       end
     RUBY
+
+    _(result).must_answer "first: own=[:first] defined?(later)=false respond_to=false\nlater: own=[:first, :later] defined?(later)=true respond_to=true\nlast: own=[:first, :last, :later] defined?(later)=true respond_to=true\n-- once the class is built, everything is visible again\n[[:first, :last, :later], true]\n-- instance_method raises for a name that does not exist yet\n  NameError: undefined method 'two' for class 'R'\n-- visibility predicates follow the same watermark\n  public?=false private?=false\n-- an INHERITED name is not hidden: it exists, whatever this class reached\n  shared defined?=true own=[:own]\n-- a redefinition does not hide the name it already defined\n  x: defined?=true\n  x: defined?=true\n-- a runtime definition needs no watermark: it really is the last one\n  runtime a: own=[:a]\n  runtime b: own=[:a, :b]\n"
   end
 
   it "method in container" do
@@ -2468,7 +2470,7 @@ describe "Methods: formatting and inspection" do
   end
 
   it "visibility explicit receiver" do
-    _(ze0(<<~'RUBY')).must_answer ":pub\nNoMethodError: private method 'priv' called for an instance\nNoMethodError: protected method 'prot' called for an instan\nNoMethodError: private method 'sec' called for an instance \n:priv\n:priv\n:prot\n:priv\nNoMethodError: private method 'priv' called for an instance\nfalse\ntrue\ntrue\ntrue\nNoMethodError: protected method 'balance' called for an ins\n10\nNoMethodError: private method 'secret' called for an instan\nNoMethodError: protected method 'balance' called for an ins\nNoMethodError: private method 'secret' called for an instan\n:open\nNoMethodError: private method 'hidden' called for an instan\nfalse\nNoMethodError: private method 'secret' called for an instan\n\"acct:42\"\nNoMethodError: protected method 'balance' called for an ins\n[:secret, Account]\nNoMethodError: private method 'w=' called for an instance o\nNoMethodError: private method 'w=' called for an instance o\n8\nNoMethodError: private method 'mpriv' called for an instanc\nNoMethodError: protected method 'mprot' called for an insta\n:mpriv\n:mprot\nNoMethodError: protected method 'amount' called for an inst\n1\nNoMethodError: protected method 'amount' called for an inst\n1\n1\n1\nNoMethodError: protected method 'amount' called for an inst\nNoMethodError: protected method 'amount' called for an inst\n"
+    result = ze0(<<~'RUBY')
       # Ruby's THIRD call mode: an explicit receiver enforces visibility, where a
       # receiverless call does not. A `protected` method is reachable only when the
       # CALLER'S SELF is kind_of the method's owner.
@@ -2592,5 +2594,7 @@ describe "Methods: formatting and inspection" do
       end
       t { p Vault.peek_singleton(Vault.new(1)) }
     RUBY
+
+    _(result).must_answer ":pub\nNoMethodError: private method 'priv' called for an instance\nNoMethodError: protected method 'prot' called for an instan\nNoMethodError: private method 'sec' called for an instance \n:priv\n:priv\n:prot\n:priv\nNoMethodError: private method 'priv' called for an instance\nfalse\ntrue\ntrue\ntrue\nNoMethodError: protected method 'balance' called for an ins\n10\nNoMethodError: private method 'secret' called for an instan\nNoMethodError: protected method 'balance' called for an ins\nNoMethodError: private method 'secret' called for an instan\n:open\nNoMethodError: private method 'hidden' called for an instan\nfalse\nNoMethodError: private method 'secret' called for an instan\n\"acct:42\"\nNoMethodError: protected method 'balance' called for an ins\n[:secret, Account]\nNoMethodError: private method 'w=' called for an instance o\nNoMethodError: private method 'w=' called for an instance o\n8\nNoMethodError: private method 'mpriv' called for an instanc\nNoMethodError: protected method 'mprot' called for an insta\n:mpriv\n:mprot\nNoMethodError: protected method 'amount' called for an inst\n1\nNoMethodError: protected method 'amount' called for an inst\n1\n1\n1\nNoMethodError: protected method 'amount' called for an inst\nNoMethodError: protected method 'amount' called for an inst\n"
   end
 end

@@ -1610,7 +1610,7 @@ describe "String: slicing" do
   end
 
   it "string range each inspect" do
-    _(ze0(<<~'RUBY')).must_answer "abcde\nabc\naa ab ac \n26\n\"a\"..\"c\"\n\"a\"...\"e\"\n\"aa\"..\"ac\"\n15\n1..5\n1...5\n"
+    result = ze0(<<~'RUBY')
       # String-endpoint ranges have no int sp_Range representation. Iterating one
       # with a block (materialized as a succ-sequence) and inspecting a literal now
       # work instead of miscompiling. (Accumulating the yielded strings into an array
@@ -1647,6 +1647,8 @@ describe "String: slicing" do
       p (1..5)
       p (1...5)
     RUBY
+
+    _(result).must_answer "abcde\nabc\naa ab ac \n26\n\"a\"..\"c\"\n\"a\"...\"e\"\n\"aa\"..\"ac\"\n15\n1..5\n1...5\n"
   end
 
   it "string range include iterates" do

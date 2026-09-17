@@ -240,7 +240,7 @@ describe "Struct: inheritance and ancestors" do
   end
 
   it "struct constructor frame names the subclass" do
-    _(ze0(<<~'RUBY', path: "core/struct/a_struct_constructor_frame_names_the_subclass.rb")).must_answer "a_struct_constructor_frame_names_the_subclass.rb:32:in 'D2#initialize'\na_struct_constructor_frame_names_the_subclass.rb:37:in 'D.new'\na_struct_constructor_frame_names_the_subclass.rb:46:in 'S2#initialize'\na_struct_constructor_frame_names_the_subclass.rb:50:in '<main>'\nData sub-subclass:\n  a_struct_constructor_frame_names_the_subclass.rb:32:in 'D2#initialize'\n  a_struct_constructor_frame_names_the_subclass.rb:67:in 'D3#initialize'\nData direct, arity error:\n  a_struct_constructor_frame_names_the_subclass.rb:75:in 'DD.new'\n  a_struct_constructor_frame_names_the_subclass.rb:75:in 'block in <main>'\nnamed runtime class:\n  a_struct_constructor_frame_names_the_subclass.rb:81:in 'Named#boom'\nanonymous runtime class:\n  a_struct_constructor_frame_names_the_subclass.rb:88:in 'boom'\nsubclass of a runtime class:\n  a_struct_constructor_frame_names_the_subclass.rb:96:in 'NamedSub#other'\ntop-level def called from a runtime method:\n  a_struct_constructor_frame_names_the_subclass.rb:104:in 'Object#top_level_helper'\n  a_struct_constructor_frame_names_the_subclass.rb:108:in 'Leaky#outer'\n"
+    result = ze0(<<~'RUBY', path: "core/struct/a_struct_constructor_frame_names_the_subclass.rb")
       # A `Data` subclass's constructor reports the two frames ruby reports, and its
       # `Struct` twin still reports its one.
       #
@@ -353,6 +353,8 @@ describe "Struct: inheritance and ancestors" do
       end
       frames("top-level def called from a runtime method") { Leaky.new.outer }
     RUBY
+
+    _(result).must_answer "a_struct_constructor_frame_names_the_subclass.rb:32:in 'D2#initialize'\na_struct_constructor_frame_names_the_subclass.rb:37:in 'D.new'\na_struct_constructor_frame_names_the_subclass.rb:46:in 'S2#initialize'\na_struct_constructor_frame_names_the_subclass.rb:50:in '<main>'\nData sub-subclass:\n  a_struct_constructor_frame_names_the_subclass.rb:32:in 'D2#initialize'\n  a_struct_constructor_frame_names_the_subclass.rb:67:in 'D3#initialize'\nData direct, arity error:\n  a_struct_constructor_frame_names_the_subclass.rb:75:in 'DD.new'\n  a_struct_constructor_frame_names_the_subclass.rb:75:in 'block in <main>'\nnamed runtime class:\n  a_struct_constructor_frame_names_the_subclass.rb:81:in 'Named#boom'\nanonymous runtime class:\n  a_struct_constructor_frame_names_the_subclass.rb:88:in 'boom'\nsubclass of a runtime class:\n  a_struct_constructor_frame_names_the_subclass.rb:96:in 'NamedSub#other'\ntop-level def called from a runtime method:\n  a_struct_constructor_frame_names_the_subclass.rb:104:in 'Object#top_level_helper'\n  a_struct_constructor_frame_names_the_subclass.rb:108:in 'Leaky#outer'\n"
   end
 
   it "struct custom initialize super" do

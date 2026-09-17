@@ -33,7 +33,7 @@ Facts about commands, formats and layouts.
 - [Environment variables](reference/environment-variables.md)
 - [Targets](reference/targets.md)
 - [Dependencies](reference/dependencies.md)
-- [The test format](reference/test-format.md)
+- [The program format](reference/test-format.md)
 - [Tools](reference/tools.md)
 - [Repository layout](reference/repository-layout.md)
 - [The kernel dialect](reference/kernel-dialect.md)

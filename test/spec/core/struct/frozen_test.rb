@@ -324,7 +324,7 @@ describe "Struct: frozen literals" do
   end
 
   it "struct compiled class" do
-    _(ze0(<<~'RUBY')).must_answer "1\n2\n[1, 2]\n[:x, :y]\n[:x, :y]\n2\n2\ntrue\nfalse\ntrue\ntrue\n[]\nnil\nfalse\n[:@note]\n\"hi\"\n1\n1\n2\n2\n1\n2\n[10, 20]\n{x: 10, y: 20}\n\"#<struct Point x=10, y=20>\"\n\"#<struct Point x=10, y=20>\"\n[1, nil]\n[nil, nil]\nArgumentError\nIndexError\nNameError\n10 20 \nx=10 y=20 \n10\n20\n[10, 20]\n[10, 20]\n[10, 20]\n[10, 20]\n[3, 4]\ntrue\ntrue\nStruct\n[10, 20]\n[10, 20]\nfalse\n[20, 40]\n[20]\ntrue\n[4, 5]\n[:x, :y]\n9\n4\ntrue\n2\nFrozenError\n"
+    result = ze0(<<~'RUBY')
       # A `NAME = Struct.new(:a, :b)` with a literal member list compiles to a real
       # class whose members are slots rather than an overlay minted at runtime. What
       # the program can observe must not change, so this pins the whole protocol
@@ -421,5 +421,7 @@ describe "Struct: frozen literals" do
         p e.class
       end
     RUBY
+
+    _(result).must_answer "1\n2\n[1, 2]\n[:x, :y]\n[:x, :y]\n2\n2\ntrue\nfalse\ntrue\ntrue\n[]\nnil\nfalse\n[:@note]\n\"hi\"\n1\n1\n2\n2\n1\n2\n[10, 20]\n{x: 10, y: 20}\n\"#<struct Point x=10, y=20>\"\n\"#<struct Point x=10, y=20>\"\n[1, nil]\n[nil, nil]\nArgumentError\nIndexError\nNameError\n10 20 \nx=10 y=20 \n10\n20\n[10, 20]\n[10, 20]\n[10, 20]\n[10, 20]\n[3, 4]\ntrue\ntrue\nStruct\n[10, 20]\n[10, 20]\nfalse\n[20, 40]\n[20]\ntrue\n[4, 5]\n[:x, :y]\n9\n4\ntrue\n2\nFrozenError\n"
   end
 end

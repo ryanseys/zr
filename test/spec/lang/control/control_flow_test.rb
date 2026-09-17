@@ -848,7 +848,7 @@ describe "Control: control flow" do
   end
 
   it "for and redo" do
-    _(ze0(<<~'RUBY')).must_answer "123\n3\n[1, 2]\n[3, 4]\n[3, 4]\n[[:one, 1], [:two, 2]]\n:two\n2\n[:three, 3]\n12\n[1, 3]\n4\n[1, 2]\n1231...4\n\n20\n1x 1y 2x 2y \n\"stop\"\n2\n\"undefined method 'each' for an instance of Integer\"\n2\n:none\n[1, [:e, 1], [:e, 2], 3, [:e, 3], [:e, 4]]\n[2, 2]\n[2, 5]\n[10, 11, 12]\n[1, 2, 3]\n[nil, 1, nil, 2]\n:outer\n[1, 2, 3]\n"
+    result = ze0(<<~'RUBY')
       # frozen_string_literal: true
 
       # `for` performs NO type dispatch -- ruby compiles it to `coll.each { |x|
@@ -1015,6 +1015,8 @@ describe "Control: control flow" do
       end
       p kept
     RUBY
+
+    _(result).must_answer "123\n3\n[1, 2]\n[3, 4]\n[3, 4]\n[[:one, 1], [:two, 2]]\n:two\n2\n[:three, 3]\n12\n[1, 3]\n4\n[1, 2]\n1231...4\n\n20\n1x 1y 2x 2y \n\"stop\"\n2\n\"undefined method 'each' for an instance of Integer\"\n2\n:none\n[1, [:e, 1], [:e, 2], 3, [:e, 3], [:e, 4]]\n[2, 2]\n[2, 5]\n[10, 11, 12]\n[1, 2, 3]\n[nil, 1, nil, 2]\n:outer\n[1, 2, 3]\n"
   end
 
   it "for over paren collection" do

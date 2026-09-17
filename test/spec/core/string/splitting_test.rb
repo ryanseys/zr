@@ -140,7 +140,7 @@ describe "String: splitting and joining" do
   end
 
   it "reopen split superclass dispatch" do
-    _(ze0(<<~'RUBY', path: "core/string/reopen_split_superclass_dispatch.rb")).must_answer "", stderr: "core/string/reopen_split_superclass_dispatch.rb:25:in '<module:M>': superclass mismatch for class Sub (TypeError)\n\tfrom core/string/reopen_split_superclass_dispatch.rb:7:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "core/string/reopen_split_superclass_dispatch.rb")
       # Imported from the spinel corpus at c55d9bdb.
       # A class opened BARE and reopened with a superclass is ruby's own
       # `TypeError: superclass mismatch for class Sub` -- a real bare `class Sub`
@@ -180,6 +180,8 @@ describe "String: splitting and joining" do
 
       puts Child.new.run
     RUBY
+
+    _(result).must_answer "", stderr: "core/string/reopen_split_superclass_dispatch.rb:25:in '<module:M>': superclass mismatch for class Sub (TypeError)\n\tfrom core/string/reopen_split_superclass_dispatch.rb:7:in '<main>'\n", status: 1
   end
 
   it "split default separator global" do
@@ -223,7 +225,7 @@ describe "String: splitting and joining" do
   end
 
   it "split on blanks goes straight to the kernel" do
-    _(ze0(<<~'RUBY')).must_answer "[\"a\", \"b\", \"c\"]\n[\"a\", \"b\", \"c\"]\n[\"a\", \"b\\tc\\n\"]\n[\"a\", \"b\", \"c\", \"\"]\n[]\n[]\n[\"a\"]\n[\"a\", \"\"]\n[\"a\", \"b\", \"\"]\nxyz\"x y z\"\n[\" a\", \"b\"]\n\n[\"a\", \"b\"]\n[\"a\\u0000b\", \"c\"]\n[\"a\", \"b c\"]\n[\"a\", \"b c\"]\n[\"a,b\", \"c\"]\n[\"a,b\", \"c\"]\n[#<Encoding:UTF-8>]\nArgumentError\none two three \n0\n\"kept\"\n\"one\\n\"\n\"one\\n\"\n0\n[\"a\", \"b\"]\n[\"a\\nb\"]\n"
+    result = ze0(<<~'RUBY')
       # A split with no pattern, or on " ", with no limit takes the kernel's
       # word scan; it agrees with the limit forms, `$;`, a block, tabs and
       # newlines, and IO#each_line counts `$.` without touching `$_`.
@@ -249,6 +251,8 @@ describe "String: splitting and joining" do
       p StringIO.new("a\nb").each_line(chomp: true).to_a, StringIO.new("a\nb").each_line("").to_a
 
     RUBY
+
+    _(result).must_answer "[\"a\", \"b\", \"c\"]\n[\"a\", \"b\", \"c\"]\n[\"a\", \"b\\tc\\n\"]\n[\"a\", \"b\", \"c\", \"\"]\n[]\n[]\n[\"a\"]\n[\"a\", \"\"]\n[\"a\", \"b\", \"\"]\nxyz\"x y z\"\n[\" a\", \"b\"]\n\n[\"a\", \"b\"]\n[\"a\\u0000b\", \"c\"]\n[\"a\", \"b c\"]\n[\"a\", \"b c\"]\n[\"a,b\", \"c\"]\n[\"a,b\", \"c\"]\n[#<Encoding:UTF-8>]\nArgumentError\none two three \n0\n\"kept\"\n\"one\\n\"\n\"one\\n\"\n0\n[\"a\", \"b\"]\n[\"a\\nb\"]\n"
   end
 
   it "split on unresolved chain" do

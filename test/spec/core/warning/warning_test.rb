@@ -162,7 +162,7 @@ describe "Warning programs" do
   end
 
   it "warn with uplevel" do
-    _(ze0(<<~'RUBY', path: "core/warning/warn_with_uplevel.rb")).must_answer "", stderr: "core/warning/warn_with_uplevel.rb:5: warning: inside helper\ncore/warning/warn_with_uplevel.rb:9: warning: callers fault\nno uplevel control\n"
+    result = ze0(<<~'RUBY', path: "core/warning/warn_with_uplevel.rb")
       # Kernel#warn with `uplevel:` prefixes the message with the caller frame's
       # "file:line: warning: ". zeo's warn ignores the option and prints the bare
       # message.
@@ -174,5 +174,7 @@ describe "Warning programs" do
       helper
       warn "no uplevel control"
     RUBY
+
+    _(result).must_answer "", stderr: "core/warning/warn_with_uplevel.rb:5: warning: inside helper\ncore/warning/warn_with_uplevel.rb:9: warning: callers fault\nno uplevel control\n"
   end
 end

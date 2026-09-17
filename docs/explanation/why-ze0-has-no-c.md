@@ -52,7 +52,7 @@ compare it with ruby's own C, case by case, before ze0 compiles it:
   diagnostic, object for object, over prism's fixtures and ze0's own
   source files. prism's own test suite also passes on the port.
 - `tools/regexp_diff.rb` compares errors, warnings and every capture's
-  offsets, over the corpus's patterns and a fuzzer.
+  offsets, over every pattern the tests hold and a fuzzer.
 - `tools/zlib_diff.rb` compares compressed bytes, byte for byte.
 
 The host compiler uses the prism port too, so every build of ze0 is a

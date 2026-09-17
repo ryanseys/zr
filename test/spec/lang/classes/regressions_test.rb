@@ -2076,7 +2076,7 @@ describe "Classes: regressions" do
   end
 
   it "bundle class 18" do
-    _(ze0(<<~'RUBY')).must_answer "0 0 0 0 0 0 1 2 3 4 5 6 7 0 0 8 9 10 11 12 13 14 15 0 \ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\nfalse\nfalse\ntrue\ntrue\ntrue\ntokyo\n"
+    result = ze0(<<~'RUBY')
       # Bundled tests:
       #   - intarray_slice_assign_from_intarray_ptr_array_first
       #   - introspect
@@ -2179,6 +2179,8 @@ describe "Classes: regressions" do
       puts b.visit({ "inner" => { "k" => "tokyo" } })
 
     RUBY
+
+    _(result).must_answer "0 0 0 0 0 0 1 2 3 4 5 6 7 0 0 8 9 10 11 12 13 14 15 0 \ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\nfalse\nfalse\ntrue\ntrue\ntrue\ntokyo\n"
   end
 
   it "bundle class 19" do

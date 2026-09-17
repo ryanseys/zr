@@ -156,7 +156,7 @@ describe "Exceptions: defining and naming methods" do
   end
 
   it "error highlight library" do
-    _(ze0(<<~'RUBY')).must_answer "false\n\"constant\"\ntrue\nundefined method 'nope' for nil (NoMethodError)\n\n  nil.nope\n     ^^^^^\n"
+    result = ze0(<<~'RUBY')
       # error_highlight is loaded before the program, as ruby's gem prelude
       # loads it: a require of it answers false, and `detailed_message` shows
       # the line with a caret run under the call that failed. The program
@@ -174,6 +174,8 @@ describe "Exceptions: defining and naming methods" do
       boom
 
     RUBY
+
+    _(result).must_answer "false\n\"constant\"\ntrue\nundefined method 'nope' for nil (NoMethodError)\n\n  nil.nope\n     ^^^^^\n"
   end
 
   it "exceptions" do

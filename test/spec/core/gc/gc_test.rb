@@ -1031,7 +1031,7 @@ describe "GC programs" do
   end
 
   it "gc full cycle space bound" do
-    _(ze0(<<~'RUBY', path: "core/gc/gc_full_cycle_space_bound.rb")).must_answer "live set: 1000\n", stderr: "core/gc/gc_full_cycle_space_bound.rb:32:in '<main>': undefined method '>' for nil (NoMethodError)\n\nputs \"full sweeps kept running: \" + (g[\"full_runs\"] > 6 ? \"yes\" : \"no\")\n                                                    ^\n", status: 1
+    result = ze0(<<~'RUBY', path: "core/gc/gc_full_cycle_space_bound.rb")
       # The adaptive full-cycle interval bounds the TIME between full sweeps and
       # nothing bounded the SPACE. Once the cadence has ratcheted up, a phase that
       # promotes heavily piles garbage onto an old list nothing walks: full_runs
@@ -1066,6 +1066,8 @@ describe "GC programs" do
       puts "full sweeps kept running: " + (g["full_runs"] > 6 ? "yes" : "no")
       puts "old generation bounded: " + (g["old_bytes"] < 10_000_000 ? "yes" : "no")
     RUBY
+
+    _(result).must_answer "live set: 1000\n", stderr: "core/gc/gc_full_cycle_space_bound.rb:32:in '<main>': undefined method '>' for nil (NoMethodError)\n\nputs \"full sweeps kept running: \" + (g[\"full_runs\"] > 6 ? \"yes\" : \"no\")\n                                                    ^\n", status: 1
   end
 
   it "gc latest gc info key" do
@@ -1314,7 +1316,7 @@ describe "GC programs" do
   end
 
   it "gc threshold no runaway" do
-    _(ze0(<<~'RUBY', path: "core/gc/gc_threshold_no_runaway.rb")).must_answer "retained: 7\n", stderr: "core/gc/gc_threshold_no_runaway.rb:32:in '<main>': undefined method '>' for nil (NoMethodError)\n\nputs \"threshold positive: \" + (g[\"threshold\"] > 0 ? \"yes\" : \"no\")\n                                              ^\n", status: 1
+    result = ze0(<<~'RUBY', path: "core/gc/gc_threshold_no_runaway.rb")
       # The collector recomputes its live-byte counter from the live set and THEN
       # sweeps, so a dead object's finalizer subtracted buffer bytes the fresh total
       # had never counted. Churning large arrays walked the counter below zero; the
@@ -1350,6 +1352,8 @@ describe "GC programs" do
       puts "collector still running: " + (g["cycle"] > 8 ? "yes" : "no")
       puts "heap bounded: " + (g["bytes"] < 400_000_000 ? "yes" : "no")
     RUBY
+
+    _(result).must_answer "retained: 7\n", stderr: "core/gc/gc_threshold_no_runaway.rb:32:in '<main>': undefined method '>' for nil (NoMethodError)\n\nputs \"threshold positive: \" + (g[\"threshold\"] > 0 ? \"yes\" : \"no\")\n                                              ^\n", status: 1
   end
 
   it "generator element cycle" do

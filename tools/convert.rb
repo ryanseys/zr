@@ -105,7 +105,10 @@ module Convert
   def path_for(rb, kase)
     rel = rb.delete_prefix("#{ROOT}/test/")
     text = kase.answer.stdout + kase.answer.stderr
-    rel if text.include?(rel) || text.include?(File.basename(rb))
+    # Its own name, or any name under its own directory: a program that
+    # requires out of a directory beside it prints THAT file's path, and
+    # the path is only right if the program still sits where it sat.
+    rel if [rel, File.basename(rb), "#{File.dirname(rel)}/"].any? { |name| text.include?(name) }
   end
 
   # The files the program reaches for, keyed by the name it reaches for
@@ -268,8 +271,17 @@ module Convert
   end
 
   # One line holds the whole example when there is nothing to guard and
-  # the answer is short enough to read at the end of it.
-  def compact?(ex) = guards(ex).empty? && ex.elsewhere.empty? && !heredoc?(ex.expected.stdout)
+  # the answer is short enough to read at the end of it. A line past
+  # `WIDTH` is not: a path, a stdout and a backtrace on one line read as
+  # none of the three, so the example takes the arrange-act-assert shape
+  # instead.
+  WIDTH = 120
+
+  def compact?(ex)
+    return false unless guards(ex).empty? && ex.elsewhere.empty? && !heredoc?(ex.expected.stdout)
+
+    compact(ex).first.length <= WIDTH
+  end
 
   # What `must_answer` is told beyond stdout. Each is the recording's
   # own word: an absent `#@ stderr` means stderr is empty, and an

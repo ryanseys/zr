@@ -364,7 +364,7 @@ describe "Builtins: raising and rescuing" do
   end
 
   it "frozen error raised inside a thread surfaces at join" do
-    _(ze0(<<~'RUBY', path: "compiler/builtins/a_frozen_error_raised_inside_a_thread_surfaces_at_join.rb")).must_answer "at join: can't modify frozen Array: [1]\n", stderr: "#<Thread:0xADDR compiler/builtins/a_frozen_error_raised_inside_a_thread_surfaces_at_join.rb:3 run> terminated with exception (report_on_exception is true):\ncompiler/builtins/a_frozen_error_raised_inside_a_thread_surfaces_at_join.rb:3:in 'block in <main>': can't modify frozen Array: [1] (FrozenError)\n"
+    result = ze0(<<~'RUBY', path: "compiler/builtins/a_frozen_error_raised_inside_a_thread_surfaces_at_join.rb")
       a = [1]
       a.freeze
       t = Thread.new { a[0] = 9 }
@@ -374,6 +374,8 @@ describe "Builtins: raising and rescuing" do
         puts "at join: #{e.send(:message)}"
       end
     RUBY
+
+    _(result).must_answer "at join: can't modify frozen Array: [1]\n", stderr: "#<Thread:0xADDR compiler/builtins/a_frozen_error_raised_inside_a_thread_surfaces_at_join.rb:3 run> terminated with exception (report_on_exception is true):\ncompiler/builtins/a_frozen_error_raised_inside_a_thread_surfaces_at_join.rb:3:in 'block in <main>': can't modify frozen Array: [1] (FrozenError)\n"
   end
 
   it "kernel raise is a real dispatch row reachable through send" do

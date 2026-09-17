@@ -437,12 +437,14 @@ describe "JSON programs" do
   end
 
   it "json parse and generate match ruby" do
-    _(ze0(<<~'RUBY')).must_answer "{\"a\":1,\"b\":[2,3.5,null,true]}\n{\"x\" => [1, 2, 3]}\n{\n  \"k\": [\n    1,\n    2\n  ]\n}\n"
+    result = ze0(<<~'RUBY')
       require "json"
       puts JSON.generate({"a" => 1, "b" => [2, 3.5, nil, true]})
       puts JSON.parse('{"x":[1,2,3]}').inspect
       puts JSON.pretty_generate({"k" => [1, 2]})
     RUBY
+
+    _(result).must_answer "{\"a\":1,\"b\":[2,3.5,null,true]}\n{\"x\" => [1, 2, 3]}\n{\n  \"k\": [\n    1,\n    2\n  ]\n}\n"
   end
 
   it "json parse freeze" do
@@ -791,7 +793,7 @@ describe "JSON programs" do
   end
 
   it "json parser stress" do
-    _(ze0(<<~'RUBY')).must_answer "outcomes\n  nesting\t2\n  parser\t25328\n  value\t920\nround trips\t21\nstill running\ttrue\n"
+    result = ze0(<<~'RUBY')
       # The GENERATED half of the parser's safety net: tens of thousands of
       # inputs nobody wrote by hand, checked for the one property that matters at
       # this scale -- the program is still running afterwards.
@@ -937,10 +939,12 @@ describe "JSON programs" do
       puts "round trips\t#{round}"
       puts "still running\ttrue"
     RUBY
+
+    _(result).must_answer "outcomes\n  nesting\t2\n  parser\t25328\n  value\t920\nround trips\t21\nstill running\ttrue\n"
   end
 
   it "json roundtrip" do
-    _(ze0(<<~'RUBY')).must_answer "{\"name\":\"zeo\",\"tags\":[\"ruby\",\"aot\"],\"n\":42,\"ok\":true,\"nil\":null}\ntrue\n{\n  \"a\": [\n    1,\n    2\n  ]\n}\n{deep: {list: [1, 2, 3]}}\n"
+    result = ze0(<<~'RUBY')
       # The json extension links into the binary: generation and parsing both run
       # native code the link line has to carry.
       require "json"
@@ -951,6 +955,8 @@ describe "JSON programs" do
       puts JSON.pretty_generate("a" => [1, 2])
       p JSON.parse('{"deep":{"list":[1,2,3]}}', symbolize_names: true)
     RUBY
+
+    _(result).must_answer "{\"name\":\"zeo\",\"tags\":[\"ruby\",\"aot\"],\"n\":42,\"ok\":true,\"nil\":null}\ntrue\n{\n  \"a\": [\n    1,\n    2\n  ]\n}\n{deep: {list: [1, 2, 3]}}\n"
   end
 
   it "json to json" do
@@ -1612,7 +1618,7 @@ describe "JSON programs" do
   end
 
   it "user to json nested" do
-    _(ze0(<<~'RUBY')).must_answer "\"{\\\"x\\\":1,\\\"y\\\":2}\"\n\"{\\\"points\\\":[{\\\"x\\\":1,\\\"y\\\":2},{\\\"x\\\":3,\\\"y\\\":4}],\\\"n\\\":2}\"\n[\n  {\n    \"x\": 5,\n    \"y\": 6\n  }\n]\n"
+    result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # A user object nested in a JSON structure is rendered by inspect rather
       # than its own to_json.
@@ -1634,5 +1640,7 @@ describe "JSON programs" do
       p JSON.generate({ points: [Point.new(1, 2), Point.new(3, 4)], n: 2 })
       puts JSON.pretty_generate([Point.new(5, 6)])
     RUBY
+
+    _(result).must_answer "\"{\\\"x\\\":1,\\\"y\\\":2}\"\n\"{\\\"points\\\":[{\\\"x\\\":1,\\\"y\\\":2},{\\\"x\\\":3,\\\"y\\\":4}],\\\"n\\\":2}\"\n[\n  {\n    \"x\": 5,\n    \"y\": 6\n  }\n]\n"
   end
 end

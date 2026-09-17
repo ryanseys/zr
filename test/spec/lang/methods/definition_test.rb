@@ -867,7 +867,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias whose source resolves nowhere is a name error at program start" do
-    _(ze0(<<~'RUBY', path: "lang/methods/an_alias_whose_source_resolves_nowhere_is_a_name_error_at_program_start.rb")).must_answer "", stderr: "lang/methods/an_alias_whose_source_resolves_nowhere_is_a_name_error_at_program_start.rb:6:in 'Module#alias_method': undefined method 'nope_missing' for class 'Typo' (NameError)\n\n  alias_method :foo, :nope_missing\n  ^^^^^^^^^^^^\n\tfrom lang/methods/an_alias_whose_source_resolves_nowhere_is_a_name_error_at_program_start.rb:6:in '<class:Typo>'\n\tfrom lang/methods/an_alias_whose_source_resolves_nowhere_is_a_name_error_at_program_start.rb:5:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "lang/methods/an_alias_whose_source_resolves_nowhere_is_a_name_error_at_program_start.rb")
       # `alias_method :foo, :nope_missing`: real Ruby raises NameError when the
       # class body EXECUTES (runtime, not compile time) -- mirrored by
       # `validate_aliases` at startup, with CRuby's message.
@@ -877,6 +877,8 @@ describe "Methods: defining and naming methods" do
       end
       puts "unreached"
     RUBY
+
+    _(result).must_answer "", stderr: "lang/methods/an_alias_whose_source_resolves_nowhere_is_a_name_error_at_program_start.rb:6:in 'Module#alias_method': undefined method 'nope_missing' for class 'Typo' (NameError)\n\n  alias_method :foo, :nope_missing\n  ^^^^^^^^^^^^\n\tfrom lang/methods/an_alias_whose_source_resolves_nowhere_is_a_name_error_at_program_start.rb:6:in '<class:Typo>'\n\tfrom lang/methods/an_alias_whose_source_resolves_nowhere_is_a_name_error_at_program_start.rb:5:in '<main>'\n", status: 1
   end
 
   it "arg forwarding to rest callee" do
@@ -2691,13 +2693,15 @@ describe "Methods: defining and naming methods" do
   end
 
   it "wrong arity" do
-    _(ze0(<<~'RUBY', path: "ze0/wrong_arity.rb")).must_answer "3\n", stderr: "ze0/wrong_arity.rb:1:in 'Object#two': wrong number of arguments (given 1, expected 2) (ArgumentError)\n\n    caller: ze0/wrong_arity.rb:5\n    | puts two(1)\n           ^^^\n    callee: ze0/wrong_arity.rb:1\n    | def two(a, b)\n          ^^^\n\tfrom ze0/wrong_arity.rb:5:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "ze0/wrong_arity.rb")
       def two(a, b)
         a + b
       end
       puts two(1, 2)
       puts two(1)
     RUBY
+
+    _(result).must_answer "3\n", stderr: "ze0/wrong_arity.rb:1:in 'Object#two': wrong number of arguments (given 1, expected 2) (ArgumentError)\n\n    caller: ze0/wrong_arity.rb:5\n    | puts two(1)\n           ^^^\n    callee: ze0/wrong_arity.rb:1\n    | def two(a, b)\n          ^^^\n\tfrom ze0/wrong_arity.rb:5:in '<main>'\n", status: 1
   end
 
   it "zsuper in define method" do

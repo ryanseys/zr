@@ -148,7 +148,7 @@ describe "Marshal programs" do
   end
 
   it "marshal entry options" do
-    _(ze0(<<~'RUBY')).must_answer "[4, 8]\n:sym\n[true, true]\n[\"Array\", \"Integer\", \"String\", \"TrueClass\"]\nArgumentError: exceed depth limit\nTypeError: incompatible marshal file format (can't be read)\n\tformat version 4.8 required; 9.8 given\n"
+    result = ze0(<<~'RUBY')
       # Marshal's entry surface beyond the byte format (which matches
       # exactly): `dump(obj, io)` WRITES to the IO (zeo writes nothing),
       # `load` accepts an IO source, `freeze: true` freezes the graph, the
@@ -173,6 +173,8 @@ describe "Marshal programs" do
       show { Marshal.dump([[1]], 1) }
       show { Marshal.load("\x09\x08T") }
     RUBY
+
+    _(result).must_answer "[4, 8]\n:sym\n[true, true]\n[\"Array\", \"Integer\", \"String\", \"TrueClass\"]\nArgumentError: exceed depth limit\nTypeError: incompatible marshal file format (can't be read)\n\tformat version 4.8 required; 9.8 given\n"
   end
 
   it "marshal exceptions and extends" do

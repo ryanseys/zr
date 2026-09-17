@@ -124,7 +124,7 @@ describe "Kernel: loading files" do
   end
 
   it "computed require reveals the gated constant" do
-    _(ze0(<<~'RUBY')).must_answer "before\n  StringIO\tabsent\n  StringScanner\tabsent\n  BigDecimal\tabsent\n  Etc\tabsent\nafter\n  StringIO\tStringIO\n  StringScanner\tStringScanner\n  BigDecimal\tBigDecimal\n  Etc\tEtc\nhello\nab\n0.15e1\ntrue\n"
+    result = ze0(<<~'RUBY')
       # Loading a feature is only half of a `require`: the constant it gates has to
       # start existing at that line, and not before.
       #
@@ -158,6 +158,8 @@ describe "Kernel: loading files" do
       puts BigDecimal("1.25") + BigDecimal("0.25")
       puts Etc.respond_to?(:getpwuid)
     RUBY
+
+    _(result).must_answer "before\n  StringIO\tabsent\n  StringScanner\tabsent\n  BigDecimal\tabsent\n  Etc\tabsent\nafter\n  StringIO\tStringIO\n  StringScanner\tStringScanner\n  BigDecimal\tBigDecimal\n  Etc\tEtc\nhello\nab\n0.15e1\ntrue\n"
   end
 
   it "deferred require reopens container" do
@@ -652,13 +654,15 @@ describe "Kernel: loading files" do
   end
 
   it "run time compile reruns a loaded feature" do
-    _(ze0(<<~'RUBY', path: "core/kernel/a_run_time_compile_reruns_a_loaded_feature.rb", files: {"../../fixtures/reloaded_feature/wants_forwardable.rb" => "require \"forwardable\"\nmodule WantsForwardable\n  def self.ok = Forwardable::VERSION.is_a?(String)\nend\n"})).must_answer "true\n"
+    result = ze0(<<~'RUBY', path: "core/kernel/a_run_time_compile_reruns_a_loaded_feature.rb", files: {"../../fixtures/reloaded_feature/wants_forwardable.rb" => "require \"forwardable\"\nmodule WantsForwardable\n  def self.ok = Forwardable::VERSION.is_a?(String)\nend\n"})
       require "forwardable"
       $LOAD_PATH.unshift(File.expand_path("../../fixtures/reloaded_feature", __dir__))
       name = "wants_forwardable"
       require name
       p WantsForwardable.ok
     RUBY
+
+    _(result).must_answer "true\n"
   end
 
   it "runtime required gems dependency loads" do

@@ -353,7 +353,7 @@ describe "Require: constants" do
   end
 
   it "nested read under an autoload runs the target" do
-    _(ze0(<<~'RUBY', files: {"autoload_nested_fixture/ns.rb" => "puts \"  ns.rb body ran\"\nmodule NS\n  LOADED = true\n  module Inner\n    class Deep\n      def self.hi = \"deep\"\n    end\n  end\nend\n"})).must_answer "before\nafter the declaration\ntrue\nfirst read\n  ns.rb body ran\n\"deep\"\ntrue\nnil\n"
+    result = ze0(<<~'RUBY', files: {"autoload_nested_fixture/ns.rb" => "puts \"  ns.rb body ran\"\nmodule NS\n  LOADED = true\n  module Inner\n    class Deep\n      def self.hi = \"deep\"\n    end\n  end\nend\n"})
       # An `autoload` names a NAMESPACE far more often than it names the leaf a
       # program reads: net/http writes `autoload :OpenSSL, "openssl"` and then reads
       # `OpenSSL::SSL::SSLContext`. The read has to run the target, so the gate at
@@ -378,6 +378,8 @@ describe "Require: constants" do
       p NS::LOADED
       p Object.autoload?(:NS)
     RUBY
+
+    _(result).must_answer "before\nafter the declaration\ntrue\nfirst read\n  ns.rb body ran\n\"deep\"\ntrue\nnil\n"
   end
 
   it "superclass reference runs its autoload" do

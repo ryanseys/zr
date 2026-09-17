@@ -737,7 +737,7 @@ describe "Exceptions: control flow" do
   end
 
   it "raise with an explicit message and class" do
-    _(ze0(<<~'RUBY', path: "lang/exceptions/raise_with_an_explicit_message_and_class.rb")).must_answer "10\n", stderr: "lang/exceptions/raise_with_an_explicit_message_and_class.rb:5:in 'Risky#check': bad value: -1 (MyError)\n\tfrom lang/exceptions/raise_with_an_explicit_message_and_class.rb:11:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "lang/exceptions/raise_with_an_explicit_message_and_class.rb")
       class MyError < StandardError
       end
       class Risky
@@ -750,6 +750,8 @@ describe "Exceptions: control flow" do
       puts r.check(5)
       puts r.check(-1)
     RUBY
+
+    _(result).must_answer "10\n", stderr: "lang/exceptions/raise_with_an_explicit_message_and_class.rb:5:in 'Risky#check': bad value: -1 (MyError)\n\tfrom lang/exceptions/raise_with_an_explicit_message_and_class.rb:11:in '<main>'\n", status: 1
   end
 
   it "rescue" do

@@ -1436,7 +1436,7 @@ describe "Eval programs" do
   end
 
   it "eval dynamic" do
-    _(ze0(<<~'RUBY')).must_answer "7\n[1, 2, 3]\nRUBY\n5\n30\nx squared is 25\n42\nyes\n15\nfallback\nInteger\n3.142\n12.0\n4\n2\n[1, 2, 3, 4, 5]\nhi\n42\nno implicit conversion of Integer into String\ncaught SyntaxError\n"
+    result = ze0(<<~'RUBY')
       # Runtime string `eval` (#97 stage 2). Each source is a runtime VALUE (a
       # variable, not a string literal), so it runs through the eval VM -- a
       # tree-walking interpreter over prism, linked into the runtime -- rather than
@@ -1501,6 +1501,8 @@ describe "Eval programs" do
         puts "caught SyntaxError"
       end
     RUBY
+
+    _(result).must_answer "7\n[1, 2, 3]\nRUBY\n5\n30\nx squared is 25\n42\nyes\n15\nfallback\nInteger\n3.142\n12.0\n4\n2\n[1, 2, 3, 4, 5]\nhi\n42\nno implicit conversion of Integer into String\ncaught SyntaxError\n"
   end
 
   it "eval instance eval" do

@@ -489,7 +489,7 @@ describe "Hash: enumeration" do
   end
 
   it "hash each with object" do
-    _(ze0(<<~'RUBY', path: "core/hash/hash_each_with_object.rb")).must_answer "[10, 20, 30]\n", stderr: "core/hash/hash_each_with_object.rb:15:in 'block in <main>': undefined method '<<' for nil (NoMethodError)\n\nresult2 = h.each_with_object([]) { |k, v, memo| memo << v * 100 }\n                                                     ^^\n\tfrom core/hash/hash_each_with_object.rb:15:in 'Hash#each'\n\tfrom core/hash/hash_each_with_object.rb:15:in 'Enumerable#each_with_object'\n\tfrom core/hash/hash_each_with_object.rb:15:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "core/hash/hash_each_with_object.rb")
       # Hash#each_with_object — iterates k,v pairs and threads `memo`
       # through the block. The destructured form `|(k,v), memo|` matches
       # the MultiTargetNode containing the two names; the flat 3-param
@@ -507,6 +507,8 @@ describe "Hash: enumeration" do
       result2 = h.each_with_object([]) { |k, v, memo| memo << v * 100 }
       puts result2.inspect
     RUBY
+
+    _(result).must_answer "[10, 20, 30]\n", stderr: "core/hash/hash_each_with_object.rb:15:in 'block in <main>': undefined method '<<' for nil (NoMethodError)\n\nresult2 = h.each_with_object([]) { |k, v, memo| memo << v * 100 }\n                                                     ^^\n\tfrom core/hash/hash_each_with_object.rb:15:in 'Hash#each'\n\tfrom core/hash/hash_each_with_object.rb:15:in 'Enumerable#each_with_object'\n\tfrom core/hash/hash_each_with_object.rb:15:in '<main>'\n", status: 1
   end
 
   it "hash empty literal and map" do

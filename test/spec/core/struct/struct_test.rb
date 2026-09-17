@@ -1168,7 +1168,7 @@ describe "Struct programs" do
   end
 
   it "struct block constant init" do
-    _(ze0(<<~'RUBY', path: "core/struct/struct_block_constant_init.rb")).must_answer "", stderr: "core/struct/struct_block_constant_init.rb:20:in '<main>': uninitialized constant Line::FLAGS (NameError)\n\nputs Line::FLAGS[:TWOSIDED]\n         ^^^^^^^\n", status: 1
+    result = ze0(<<~'RUBY', path: "core/struct/struct_block_constant_init.rb")
       # A constant assigned inside a `Struct.new(...) do ... end` block body must be
       # initialized. register_structs consumes the block only for class/ivar/method
       # registration, never as executable statements, so such a constant stayed
@@ -1194,6 +1194,8 @@ describe "Struct programs" do
       puts Line.new(0x0001).two_sided?
       puts l.flag(:SECRET)
     RUBY
+
+    _(result).must_answer "", stderr: "core/struct/struct_block_constant_init.rb:20:in '<main>': uninitialized constant Line::FLAGS (NameError)\n\nputs Line::FLAGS[:TWOSIDED]\n         ^^^^^^^\n", status: 1
   end
 
   it "struct block overrides bracket" do

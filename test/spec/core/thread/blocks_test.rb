@@ -470,7 +470,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "fiber works inside a ractor" do
-    _(ze0(<<~'RUBY', path: "core/thread/a_fiber_works_inside_a_ractor.rb")).must_answer "3\n", stderr: "core/thread/a_fiber_works_inside_a_ractor.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    result = ze0(<<~'RUBY', path: "core/thread/a_fiber_works_inside_a_ractor.rb")
       # The fiber table is thread-pinned and a Ractor is its own OS thread --
       # create and drive entirely within it.
 
@@ -485,6 +485,8 @@ describe "Thread: blocks and yields" do
       end
       puts r.value
     RUBY
+
+    _(result).must_answer "3\n", stderr: "core/thread/a_fiber_works_inside_a_ractor.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
   end
 
   it "fiber yield at the root raises a fiber error" do
@@ -852,7 +854,7 @@ describe "Thread: blocks and yields" do
   end
 
   it "ractor block reading an enclosing ivar raises inside the ractor" do
-    _(ze0(<<~'RUBY', path: "core/thread/a_ractor_block_reading_an_enclosing_ivar_raises_inside_the_ractor.rb")).must_answer "cause: Ractor::IsolationError: can not access instance variables of shareable objects from non-main Ractors\n", stderr: "core/thread/a_ractor_block_reading_an_enclosing_ivar_raises_inside_the_ractor.rb:10: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    result = ze0(<<~'RUBY', path: "core/thread/a_ractor_block_reading_an_enclosing_ivar_raises_inside_the_ractor.rb")
       # Ruby isolates the Proc and rebinds its `self` to the RACTOR, so `@n` is
       # an ivar of a shareable object -- `Ractor::IsolationError` in the ractor,
       # surfacing as `Ractor::RemoteError` at `#value`. zeo used to refuse to
@@ -869,6 +871,8 @@ describe "Thread: blocks and yields" do
       end
       Holder.new.go
     RUBY
+
+    _(result).must_answer "cause: Ractor::IsolationError: can not access instance variables of shareable objects from non-main Ractors\n", stderr: "core/thread/a_ractor_block_reading_an_enclosing_ivar_raises_inside_the_ractor.rb:10: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
   end
 
   it "ractor new with proc arg" do

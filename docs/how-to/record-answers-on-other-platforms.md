@@ -1,21 +1,24 @@
 # How to record answers on other platforms
 
-This guide shows you how to record where a case's answer on Linux or
-WASI differs from its answer on macOS. The format of these sections is
-in [The test format](../reference/test-format.md).
+This guide shows you how to record where a program's answer on Linux
+or WASI differs from its answer on macOS. The format of these sections
+is in [The program format](../reference/test-format.md).
 
-A case always has macOS's answer first. Record it on a Mac:
+A program always has macOS's answer first. Record it on a Mac:
 
 ```console
-$ ruby tools/record.rb core/io/a_case.rb
+$ rake 'record[e2e/core/io/a_program.rb]'
 ```
+
+A spec example says the same thing with `linux:` or `wasi:` beside its
+answer; see [How to add a spec](add-a-spec.md).
 
 ## Record the Linux answer
 
 Run the same tool on a Linux machine, with ruby 4.0.6, and name the OS:
 
 ```console
-$ ruby tools/record.rb --os linux core/io/a_case.rb
+$ ruby tools/record.rb --os linux e2e/core/io/a_program.rb
 ```
 
 The tool writes only the sections where Linux's answer differs, such as
@@ -28,7 +31,7 @@ To use the Alpine container that CI uses:
 $ docker run -d --name alpine -v "$PWD:/ze0" -w /ze0 ruby:4.0.6-alpine sleep infinity
 $ docker exec alpine apk add --no-cache build-base git
 $ docker exec alpine bundle install
-$ docker exec alpine ruby tools/record.rb --os linux core/io/a_case.rb
+$ docker exec alpine ruby tools/record.rb --os linux e2e/core/io/a_program.rb
 ```
 
 ## Record the WASI answer
@@ -38,7 +41,7 @@ command that runs it with `--ruby`. The tool adds the case's path and
 arguments after that command:
 
 ```console
-$ ruby tools/record.rb --os wasi --ruby "<command that runs ruby.wasm>" core/io/a_case.rb
+$ ruby tools/record.rb --os wasi --ruby "<command that runs ruby.wasm>" e2e/core/io/a_program.rb
 ```
 
 ## Run a case on one platform only

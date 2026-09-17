@@ -38,10 +38,11 @@ module Ze0
       end
 
       # The build of `rel` into `out`: ruby without rubygems, which the
-      # compiler never asks for, under the collector tuning `bin/ze0`
-      # would otherwise start a second process to get.
+      # compiler never asks for, under the collector tuning `ze0` would
+      # otherwise start a second process to get.
       def build_argv(rel, out)
-        [RbConfig.ruby, "--disable-gems", File.join(@root, "bin/ze0"), "zr", "build", rel, "-o", out, "--target", @target.triple]
+        [RbConfig.ruby, "--disable-gems", File.join(@root, "exe/ze0"), "zr", "build", rel, "-o", out,
+         "--target", @target.triple]
       end
 
       def build_env = CLI::GC_ENV

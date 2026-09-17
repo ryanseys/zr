@@ -296,7 +296,7 @@ describe "Exceptions programs" do
   end
 
   it "case in with no matching arm and no else raises" do
-    _(ze0(<<~'RUBY', path: "lang/exceptions/case_in_with_no_matching_arm_and_no_else_raises.rb")).must_answer "", stderr: "lang/exceptions/case_in_with_no_matching_arm_and_no_else_raises.rb:4:in '<main>': 5: String === 5 does not return true (NoMatchingPatternError)\n", status: 1
+    result = ze0(<<~'RUBY', path: "lang/exceptions/case_in_with_no_matching_arm_and_no_else_raises.rb")
       # The message names the value and the sub-test that rejected it,
       # which is the whole diagnostic for a `case/in` -- oracle-verified.
 
@@ -305,6 +305,8 @@ describe "Exceptions programs" do
         puts "no"
       end
     RUBY
+
+    _(result).must_answer "", stderr: "lang/exceptions/case_in_with_no_matching_arm_and_no_else_raises.rb:4:in '<main>': 5: String === 5 does not return true (NoMatchingPatternError)\n", status: 1
   end
 
   it "catch throw delivers values and uncaught throw raises" do
@@ -420,7 +422,7 @@ describe "Exceptions programs" do
   end
 
   it "core error shows only ruby frames" do
-    _(ze0(<<~'RUBY', path: "lang/exceptions/a_core_error_shows_only_ruby_frames.rb")).must_answer "NoMethodError: undefined method 'foo' for an instance of String\na_core_error_shows_only_ruby_frames.rb:12:block (2 levels) in <main>\na_core_error_shows_only_ruby_frames.rb:12:Array#map\na_core_error_shows_only_ruby_frames.rb:12:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:12:<main>\nNoMethodError: undefined method 'zork' for an instance of Integer\na_core_error_shows_only_ruby_frames.rb:13:block (2 levels) in <main>\na_core_error_shows_only_ruby_frames.rb:13:Array#each\na_core_error_shows_only_ruby_frames.rb:13:Enumerable#sort_by\na_core_error_shows_only_ruby_frames.rb:13:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:13:<main>\nArgumentError: invalid value for Integer(): \"x\"\na_core_error_shows_only_ruby_frames.rb:14:Kernel#Integer\na_core_error_shows_only_ruby_frames.rb:14:block (2 levels) in <main>\na_core_error_shows_only_ruby_frames.rb:14:Array#map\na_core_error_shows_only_ruby_frames.rb:14:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:14:<main>\nJSON::ParserError: expected object key, got EOF at line 1 column 2\ncommon.rb:364:JSON::Ext::Parser.parse\ncommon.rb:364:JSON.parse\na_core_error_shows_only_ruby_frames.rb:15:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:15:<main>\nKeyError: key not found: :b\na_core_error_shows_only_ruby_frames.rb:16:Hash#fetch\na_core_error_shows_only_ruby_frames.rb:16:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:16:<main>\nIndexError: index 5 outside of array bounds: -1...1\na_core_error_shows_only_ruby_frames.rb:17:Array#fetch\na_core_error_shows_only_ruby_frames.rb:17:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:17:<main>\nArgumentError: comparison of Integer with String failed\na_core_error_shows_only_ruby_frames.rb:18:Array#sort\na_core_error_shows_only_ruby_frames.rb:18:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:18:<main>\nArgumentError: invalid slice size\na_core_error_shows_only_ruby_frames.rb:19:Enumerable#each_slice\na_core_error_shows_only_ruby_frames.rb:19:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:19:<main>\nArgumentError: @ outside of string\na_core_error_shows_only_ruby_frames.rb:20:String#unpack\na_core_error_shows_only_ruby_frames.rb:20:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:20:<main>\nRuntimeError: in min_by\na_core_error_shows_only_ruby_frames.rb:21:block (2 levels) in <main>\na_core_error_shows_only_ruby_frames.rb:21:Array#each\na_core_error_shows_only_ruby_frames.rb:21:Enumerable#min_by\na_core_error_shows_only_ruby_frames.rb:21:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:21:<main>\nRuntimeError: in each\na_core_error_shows_only_ruby_frames.rb:22:block (2 levels) in <main>\na_core_error_shows_only_ruby_frames.rb:22:Hash#each\na_core_error_shows_only_ruby_frames.rb:22:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:22:<main>\nSyntaxError: (eval at lang/exceptions/a_core_error_shows_only_ruby_frames.rb:23):1: syntax errors found\n> 1 | 1 +\n    |    ^ unexpected end-of-input, assuming it is closing the parent top level context\n    |    ^ unexpected end-of-input; expected an expression after the operator\na_core_error_shows_only_ruby_frames.rb:23:Kernel#eval\na_core_error_shows_only_ruby_frames.rb:23:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:23:<main>\nArgumentError: struct size differs\na_core_error_shows_only_ruby_frames.rb:24:Struct#initialize\na_core_error_shows_only_ruby_frames.rb:24:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:24:<main>\nEncoding::ConverterNotFoundError: code converter not found (UTF-8 to NOPE)\na_core_error_shows_only_ruby_frames.rb:25:String#encode\na_core_error_shows_only_ruby_frames.rb:25:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:25:<main>\nArgumentError: min argument must be less than or equal to max argument\na_core_error_shows_only_ruby_frames.rb:26:Comparable#clamp\na_core_error_shows_only_ruby_frames.rb:26:UnboundMethod#bind_call\na_core_error_shows_only_ruby_frames.rb:26:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:26:<main>\n"
+    result = ze0(<<~'RUBY', path: "lang/exceptions/a_core_error_shows_only_ruby_frames.rb")
       # An error a core method raises shows the frames of the methods the
       # program called and the C methods ruby shows, and none of the helpers
       # the runtime keeps for itself: in a block, in sort_by, in Integer(), in
@@ -449,6 +451,8 @@ describe "Exceptions programs" do
       show { Comparable.instance_method(:clamp).bind_call(3, 5, 1) }
 
     RUBY
+
+    _(result).must_answer "NoMethodError: undefined method 'foo' for an instance of String\na_core_error_shows_only_ruby_frames.rb:12:block (2 levels) in <main>\na_core_error_shows_only_ruby_frames.rb:12:Array#map\na_core_error_shows_only_ruby_frames.rb:12:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:12:<main>\nNoMethodError: undefined method 'zork' for an instance of Integer\na_core_error_shows_only_ruby_frames.rb:13:block (2 levels) in <main>\na_core_error_shows_only_ruby_frames.rb:13:Array#each\na_core_error_shows_only_ruby_frames.rb:13:Enumerable#sort_by\na_core_error_shows_only_ruby_frames.rb:13:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:13:<main>\nArgumentError: invalid value for Integer(): \"x\"\na_core_error_shows_only_ruby_frames.rb:14:Kernel#Integer\na_core_error_shows_only_ruby_frames.rb:14:block (2 levels) in <main>\na_core_error_shows_only_ruby_frames.rb:14:Array#map\na_core_error_shows_only_ruby_frames.rb:14:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:14:<main>\nJSON::ParserError: expected object key, got EOF at line 1 column 2\ncommon.rb:364:JSON::Ext::Parser.parse\ncommon.rb:364:JSON.parse\na_core_error_shows_only_ruby_frames.rb:15:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:15:<main>\nKeyError: key not found: :b\na_core_error_shows_only_ruby_frames.rb:16:Hash#fetch\na_core_error_shows_only_ruby_frames.rb:16:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:16:<main>\nIndexError: index 5 outside of array bounds: -1...1\na_core_error_shows_only_ruby_frames.rb:17:Array#fetch\na_core_error_shows_only_ruby_frames.rb:17:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:17:<main>\nArgumentError: comparison of Integer with String failed\na_core_error_shows_only_ruby_frames.rb:18:Array#sort\na_core_error_shows_only_ruby_frames.rb:18:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:18:<main>\nArgumentError: invalid slice size\na_core_error_shows_only_ruby_frames.rb:19:Enumerable#each_slice\na_core_error_shows_only_ruby_frames.rb:19:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:19:<main>\nArgumentError: @ outside of string\na_core_error_shows_only_ruby_frames.rb:20:String#unpack\na_core_error_shows_only_ruby_frames.rb:20:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:20:<main>\nRuntimeError: in min_by\na_core_error_shows_only_ruby_frames.rb:21:block (2 levels) in <main>\na_core_error_shows_only_ruby_frames.rb:21:Array#each\na_core_error_shows_only_ruby_frames.rb:21:Enumerable#min_by\na_core_error_shows_only_ruby_frames.rb:21:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:21:<main>\nRuntimeError: in each\na_core_error_shows_only_ruby_frames.rb:22:block (2 levels) in <main>\na_core_error_shows_only_ruby_frames.rb:22:Hash#each\na_core_error_shows_only_ruby_frames.rb:22:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:22:<main>\nSyntaxError: (eval at lang/exceptions/a_core_error_shows_only_ruby_frames.rb:23):1: syntax errors found\n> 1 | 1 +\n    |    ^ unexpected end-of-input, assuming it is closing the parent top level context\n    |    ^ unexpected end-of-input; expected an expression after the operator\na_core_error_shows_only_ruby_frames.rb:23:Kernel#eval\na_core_error_shows_only_ruby_frames.rb:23:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:23:<main>\nArgumentError: struct size differs\na_core_error_shows_only_ruby_frames.rb:24:Struct#initialize\na_core_error_shows_only_ruby_frames.rb:24:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:24:<main>\nEncoding::ConverterNotFoundError: code converter not found (UTF-8 to NOPE)\na_core_error_shows_only_ruby_frames.rb:25:String#encode\na_core_error_shows_only_ruby_frames.rb:25:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:25:<main>\nArgumentError: min argument must be less than or equal to max argument\na_core_error_shows_only_ruby_frames.rb:26:Comparable#clamp\na_core_error_shows_only_ruby_frames.rb:26:UnboundMethod#bind_call\na_core_error_shows_only_ruby_frames.rb:26:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:26:<main>\n"
   end
 
   it "core error shows only ruby frames pack" do
@@ -1615,7 +1619,7 @@ describe "Exceptions programs" do
   end
 
   it "multi line exception message keeps its class tag on line one" do
-    _(ze0(<<~'RUBY', path: "lang/exceptions/a_multi_line_exception_message_keeps_its_class_tag_on_line_one.rb")).must_answer "", stderr: "lang/exceptions/a_multi_line_exception_message_keeps_its_class_tag_on_line_one.rb:9:in '<main>': first (ArgumentError)\nsecond\nthird\n\nraise ArgumentError, \"first\\nsecond\\nthird\"\n      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n", status: 1
+    result = ze0(<<~'RUBY', path: "lang/exceptions/a_multi_line_exception_message_keeps_its_class_tag_on_line_one.rb")
       # CRuby's uncaught-exception report puts the class tag at the end of the
       # message's FIRST line and lets the rest run underneath, unindented -- the
       # `error_pos`/`print_errinfo` split. zeo appended it after the whole message,
@@ -1626,6 +1630,8 @@ describe "Exceptions programs" do
       # `<file>:<line>: previous definition of X was here` on the next.
       raise ArgumentError, "first\nsecond\nthird"
     RUBY
+
+    _(result).must_answer "", stderr: "lang/exceptions/a_multi_line_exception_message_keeps_its_class_tag_on_line_one.rb:9:in '<main>': first (ArgumentError)\nsecond\nthird\n\nraise ArgumentError, \"first\\nsecond\\nthird\"\n      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n", status: 1
   end
 
   it "native exception hides its message ivar" do
@@ -2054,7 +2060,7 @@ describe "Exceptions programs" do
   end
 
   it "prepend on builtin exception ignored" do
-    _(ze0(<<~'RUBY')).must_answer "\"[undefined method 'lenght' for an instance of String (NoMethodError)\\n\\n  \\\"abc\\\".lenght\\n       ^^^^^^^\\nDid you mean?  length]\"\n"
+    result = ze0(<<~'RUBY')
       module Wrap
         def detailed_message(highlight: true, **)
           "[" + super + "]"
@@ -2069,6 +2075,8 @@ describe "Exceptions programs" do
         p e.detailed_message(highlight: false)
       end
     RUBY
+
+    _(result).must_answer "\"[undefined method 'lenght' for an instance of String (NoMethodError)\\n\\n  \\\"abc\\\".lenght\\n       ^^^^^^^\\nDid you mean?  length]\"\n"
   end
 
   it "private method called with an explicit receiver raises at runtime" do
@@ -2511,7 +2519,7 @@ describe "Exceptions programs" do
   end
 
   it "raise with a bare class defaults the message to the class name" do
-    _(ze0(<<~'RUBY', path: "lang/exceptions/raise_with_a_bare_class_defaults_the_message_to_the_class_name.rb")).must_answer "", stderr: "lang/exceptions/raise_with_a_bare_class_defaults_the_message_to_the_class_name.rb:10:in 'Box#check': MyError (MyError)\n\tfrom lang/exceptions/raise_with_a_bare_class_defaults_the_message_to_the_class_name.rb:13:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "lang/exceptions/raise_with_a_bare_class_defaults_the_message_to_the_class_name.rb")
       # Assert the UNCAUGHT path here (see the `rescue` tests below for the
       # caught path): an unhandled `raise MyError` (no explicit message) exits 1 with the
       # class's own name as the message (no runtime `self.class` reflection
@@ -2526,6 +2534,8 @@ describe "Exceptions programs" do
       end
       Box.new.check
     RUBY
+
+    _(result).must_answer "", stderr: "lang/exceptions/raise_with_a_bare_class_defaults_the_message_to_the_class_name.rb:10:in 'Box#check': MyError (MyError)\n\tfrom lang/exceptions/raise_with_a_bare_class_defaults_the_message_to_the_class_name.rb:13:in '<main>'\n", status: 1
   end
 
   it "raise with an exception hook" do
@@ -3209,7 +3219,7 @@ describe "Exceptions programs" do
   end
 
   it "uncaught error reports its causes" do
-    _(ze0(<<~'RUBY', path: "lang/exceptions/an_uncaught_error_reports_its_causes.rb")).must_answer "", stderr: "lang/exceptions/an_uncaught_error_reports_its_causes.rb:10:in 'Object#b': b (Outer)\n\tfrom lang/exceptions/an_uncaught_error_reports_its_causes.rb:13:in '<main>'\nlang/exceptions/an_uncaught_error_reports_its_causes.rb:5:in 'Object#a': a (RuntimeError)\n\tfrom lang/exceptions/an_uncaught_error_reports_its_causes.rb:8:in 'Object#b'\n\tfrom lang/exceptions/an_uncaught_error_reports_its_causes.rb:13:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "lang/exceptions/an_uncaught_error_reports_its_causes.rb")
       # The report of an uncaught exception names each cause after it, each
       # once, as full_message does.
       class Outer < StandardError; end
@@ -3225,10 +3235,12 @@ describe "Exceptions programs" do
       b
 
     RUBY
+
+    _(result).must_answer "", stderr: "lang/exceptions/an_uncaught_error_reports_its_causes.rb:10:in 'Object#b': b (Outer)\n\tfrom lang/exceptions/an_uncaught_error_reports_its_causes.rb:13:in '<main>'\nlang/exceptions/an_uncaught_error_reports_its_causes.rb:5:in 'Object#a': a (RuntimeError)\n\tfrom lang/exceptions/an_uncaught_error_reports_its_causes.rb:8:in 'Object#b'\n\tfrom lang/exceptions/an_uncaught_error_reports_its_causes.rb:13:in '<main>'\n", status: 1
   end
 
   it "uncaught exception report matches cruby shape" do
-    _(ze0(<<~'RUBY', path: "lang/exceptions/uncaught_exception_report_matches_cruby_shape.rb")).must_answer "", stderr: "lang/exceptions/uncaught_exception_report_matches_cruby_shape.rb:4:in 'Object#inner': boom (RuntimeError)\n\tfrom lang/exceptions/uncaught_exception_report_matches_cruby_shape.rb:5:in 'Object#outer'\n\tfrom lang/exceptions/uncaught_exception_report_matches_cruby_shape.rb:6:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "lang/exceptions/uncaught_exception_report_matches_cruby_shape.rb")
       # The top-level report: innermost frame heads the message line, outer
       # frames follow tab-indented -- verbatim ruby 4.0.6 (as `-e`).
 
@@ -3236,6 +3248,8 @@ describe "Exceptions programs" do
       def outer; inner; end
       outer
     RUBY
+
+    _(result).must_answer "", stderr: "lang/exceptions/uncaught_exception_report_matches_cruby_shape.rb:4:in 'Object#inner': boom (RuntimeError)\n\tfrom lang/exceptions/uncaught_exception_report_matches_cruby_shape.rb:5:in 'Object#outer'\n\tfrom lang/exceptions/uncaught_exception_report_matches_cruby_shape.rb:6:in '<main>'\n", status: 1
   end
 
   it "unshareable message is deep copied across the boundary" do

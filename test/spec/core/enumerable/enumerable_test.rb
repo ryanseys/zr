@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Enumerable programs" do
   it "autoload is lazy" do
-    _(ze0(<<~'RUBY', files: {"autoload_fixture/late.rb" => "puts \"  late.rb body ran\"\nmodule AL\n  LOADED_AT = \"body\"\n  class Late\n    def self.hi = \"hi\"\n  end\nend\n"})).must_answer "before the module\n  module body, before the autoload\n  module body, after the autoload\nafter the module\ntrue\ntrue\nnil\nfirst read\n  late.rb body ran\n\"hi\"\n\"body\"\nnil\n"
+    result = ze0(<<~'RUBY', files: {"autoload_fixture/late.rb" => "puts \"  late.rb body ran\"\nmodule AL\n  LOADED_AT = \"body\"\n  class Late\n    def self.hi = \"hi\"\n  end\nend\n"})
       # `Module#autoload` runs its target at the DECLARATION, where ruby runs it at
       # the constant's first READ.
       #
@@ -46,6 +46,8 @@ describe "Enumerable programs" do
       # Once the feature has loaded, ruby answers nil.
       p AL.autoload?(:Late)
     RUBY
+
+    _(result).must_answer "before the module\n  module body, before the autoload\n  module body, after the autoload\nafter the module\ntrue\ntrue\nnil\nfirst read\n  late.rb body ran\n\"hi\"\n\"body\"\nnil\n"
   end
 
   it "autoload lazy at declaration" do

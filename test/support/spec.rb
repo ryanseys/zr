@@ -97,6 +97,12 @@ module Ze0
     # program's own fixtures beside it.
     def build_and_run(source, path:, argv: [], env: {}, stdin: nil, files: {}, seconds: nil)
       Dir.mktmpdir("ze0-spec-") do |work|
+        # The resolved path, not the one `mktmpdir` hands back: on macOS
+        # `/var` is a link to `/private/var`, and a program that prints a
+        # path of its own prints the resolved one. The scrub that turns
+        # an absolute path back into a relative one has to be looking at
+        # the same bytes, or it leaves `/private` glued to the front.
+        work = File.realpath(work)
         run = File.join(work, "run")
         rb = File.join(run, path)
         FileUtils.mkdir_p(File.dirname(rb))

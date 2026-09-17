@@ -646,7 +646,7 @@ describe "Thread: frozen literals" do
   end
 
   it "unfrozen object sent across a ractor boundary deep copies" do
-    _(ze0(<<~'RUBY', path: "core/thread/an_unfrozen_object_sent_across_a_ractor_boundary_deep_copies.rb")).must_answer "[\"payload-seen\", \"payload\"]\n", stderr: "core/thread/an_unfrozen_object_sent_across_a_ractor_boundary_deep_copies.rb:12: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    result = ze0(<<~'RUBY', path: "core/thread/an_unfrozen_object_sent_across_a_ractor_boundary_deep_copies.rb")
       # CRuby's rule, now real here too: an unfrozen plain object crosses as
       # a deep copy (dup + ivar rewrite -- `ractor::cross_graph`), so the
       # receiver sees the value and later mutation of the source's graph
@@ -668,5 +668,7 @@ describe "Thread: frozen literals" do
       out = sink.value
       p [out, b.v]
     RUBY
+
+    _(result).must_answer "[\"payload-seen\", \"payload\"]\n", stderr: "core/thread/an_unfrozen_object_sent_across_a_ractor_boundary_deep_copies.rb:12: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
   end
 end

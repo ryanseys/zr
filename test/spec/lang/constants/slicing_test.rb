@@ -178,7 +178,7 @@ describe "Constants: slicing" do
   end
 
   it "reassigned constant warning" do
-    _(ze0(<<~'RUBY', path: "lang/constants/reassigned_constant_warning.rb")).must_answer "2\n", stderr: "lang/constants/reassigned_constant_warning.rb:17: warning: already initialized constant D\nlang/constants/reassigned_constant_warning.rb:16: warning: previous definition of D was here\nlang/constants/reassigned_constant_warning.rb:22: warning: already initialized constant M::E\nlang/constants/reassigned_constant_warning.rb:21: warning: previous definition of E was here\nlang/constants/reassigned_constant_warning.rb:33: warning: already initialized constant G\nlang/constants/reassigned_constant_warning.rb:32: warning: previous definition of G was here\n"
+    result = ze0(<<~'RUBY', path: "lang/constants/reassigned_constant_warning.rb")
       # Assigning a constant that already has a value warns TWICE on stderr -- once
       # at the new assignment, once naming where the previous one was. zeo assigns
       # silently, so the one diagnostic that catches a constant clobbered by a
@@ -213,6 +213,8 @@ describe "Constants: slicing" do
       G = 5
       Object.const_set(:G, 6)
     RUBY
+
+    _(result).must_answer "2\n", stderr: "lang/constants/reassigned_constant_warning.rb:17: warning: already initialized constant D\nlang/constants/reassigned_constant_warning.rb:16: warning: previous definition of D was here\nlang/constants/reassigned_constant_warning.rb:22: warning: already initialized constant M::E\nlang/constants/reassigned_constant_warning.rb:21: warning: previous definition of E was here\nlang/constants/reassigned_constant_warning.rb:33: warning: already initialized constant G\nlang/constants/reassigned_constant_warning.rb:32: warning: previous definition of G was here\n"
   end
 
   it "scoped names" do

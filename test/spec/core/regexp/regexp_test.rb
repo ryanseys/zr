@@ -2337,7 +2337,7 @@ describe "Regexp programs" do
   end
 
   it "string partition regex and puts" do
-    _(ze0(<<~'RUBY')).must_answer "hello\n \nworld\n[\"hell\", \"o\", \" world\"]\n[\"hello\", \",\", \"world\"]\n[\"no-sep\", \"\", \"\"]\n"
+    result = ze0(<<~'RUBY')
       # Issue #854: String#partition with regex used to SEGV (the
       # string-only path passed the regex pattern pointer to strstr);
       # `puts <tuple>` with a partition result printed the struct
@@ -2347,6 +2347,8 @@ describe "Regexp programs" do
       puts "hello,world".partition(",").inspect
       puts "no-sep".partition(",").inspect
     RUBY
+
+    _(result).must_answer "hello\n \nworld\n[\"hell\", \"o\", \" world\"]\n[\"hello\", \",\", \"world\"]\n[\"no-sep\", \"\", \"\"]\n"
   end
 
   it "string rpartition regex" do

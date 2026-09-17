@@ -753,7 +753,7 @@ describe "Thread: raising and rescuing" do
   end
 
   it "uncaught exception in a ractor wraps in remote error at value" do
-    _(ze0(<<~'RUBY', path: "core/thread/an_uncaught_exception_in_a_ractor_wraps_in_remote_error_at_value.rb")).must_answer "rescued: thrown by remote Ractor. / RuntimeError / ractor boom\n", stderr: "core/thread/an_uncaught_exception_in_a_ractor_wraps_in_remote_error_at_value.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.\n#<Thread:0xADDR run> terminated with exception (report_on_exception is true):\ncore/thread/an_uncaught_exception_in_a_ractor_wraps_in_remote_error_at_value.rb:5:in 'block in <main>': ractor boom (RuntimeError)\n"
+    result = ze0(<<~'RUBY', path: "core/thread/an_uncaught_exception_in_a_ractor_wraps_in_remote_error_at_value.rb")
       # The port model relays the failure as CRuby does: a
       # `Ractor::RemoteError` whose `#cause` is the original exception.
 
@@ -766,6 +766,8 @@ describe "Thread: raising and rescuing" do
         puts "rescued: #{e.send(:message)} / #{e.cause.class} / #{e.cause.send(:message)}"
       end
     RUBY
+
+    _(result).must_answer "rescued: thrown by remote Ractor. / RuntimeError / ractor boom\n", stderr: "core/thread/an_uncaught_exception_in_a_ractor_wraps_in_remote_error_at_value.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.\n#<Thread:0xADDR run> terminated with exception (report_on_exception is true):\ncore/thread/an_uncaught_exception_in_a_ractor_wraps_in_remote_error_at_value.rb:5:in 'block in <main>': ractor boom (RuntimeError)\n"
   end
 
   it "uncaught exception in a thread reraises at join and value" do

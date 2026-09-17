@@ -149,7 +149,7 @@ describe "Array: regressions" do
   end
 
   it "bundle array a" do
-    _(ze0(<<~'RUBY')).must_answer "5\n55\n10\n1\n10\n1\n1\n10\ntrue\nfalse\n10\n4\n8\n1\n8\n8\n7\n1\n2\n4\ndone\n[1, 1, 2]\n[2, 3]\n[2, 2]\n[1, 2, 1, 1]\n[\"a\", \"a\", \"b\"]\n[\"a\", \"b\", \"a\", \"a\"]\n[1.0, 1.0, 2.0]\n[1.5, 1.5]\n[1, 1, 2]\n[\"a\", \"a\"]\n9\n9\n1\n2\n9\n9\n1\n0\n0\n5\n1\n3\n7\n7\n7\n3\n9\n9\n3\n3\n9\n9\n3\n5\n5\n5\n1\n21\n1\n8\n6\n5\n3\n3\n3\n3\nhello\nhello, world, foo\n1\n1\n42\n21\n3\n13\ndone\n1\n7\n9\n1\n1\n3\n0\n2\n4\n1.5\n2.5\n6\na\nb\n4\nx\ny\n6\n5\n0\n0\ndone\n5\n0\n4\n8\n20\n3\n42\n42\n0\n3\n3\n7\n11\nhello world\nfoo bar\n3\n10 20 \n30 40 \n50 60 \n"
+    result = ze0(<<~'RUBY')
       # Bundled tests:
       #   - array2
       #   - array3
@@ -551,6 +551,8 @@ describe "Array: regressions" do
       t_array_of_array
 
     RUBY
+
+    _(result).must_answer "5\n55\n10\n1\n10\n1\n1\n10\ntrue\nfalse\n10\n4\n8\n1\n8\n8\n7\n1\n2\n4\ndone\n[1, 1, 2]\n[2, 3]\n[2, 2]\n[1, 2, 1, 1]\n[\"a\", \"a\", \"b\"]\n[\"a\", \"b\", \"a\", \"a\"]\n[1.0, 1.0, 2.0]\n[1.5, 1.5]\n[1, 1, 2]\n[\"a\", \"a\"]\n9\n9\n1\n2\n9\n9\n1\n0\n0\n5\n1\n3\n7\n7\n7\n3\n9\n9\n3\n3\n9\n9\n3\n5\n5\n5\n1\n21\n1\n8\n6\n5\n3\n3\n3\n3\nhello\nhello, world, foo\n1\n1\n42\n21\n3\n13\ndone\n1\n7\n9\n1\n1\n3\n0\n2\n4\n1.5\n2.5\n6\na\nb\n4\nx\ny\n6\n5\n0\n0\ndone\n5\n0\n4\n8\n20\n3\n42\n42\n0\n3\n3\n7\n11\nhello world\nfoo bar\n3\n10 20 \n30 40 \n50 60 \n"
   end
 
   it "bundle array b" do

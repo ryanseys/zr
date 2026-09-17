@@ -104,10 +104,12 @@ describe "Integer programs" do
   end
 
   it "division by zero" do
-    _(ze0(<<~'RUBY', path: "ze0/division_by_zero.rb")).must_answer "2\n", stderr: "ze0/division_by_zero.rb:2:in 'Integer#/': divided by 0 (ZeroDivisionError)\n\tfrom ze0/division_by_zero.rb:2:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "ze0/division_by_zero.rb")
       puts 6 / 3
       puts 6 / 0
     RUBY
+
+    _(result).must_answer "2\n", stderr: "ze0/division_by_zero.rb:2:in 'Integer#/': divided by 0 (ZeroDivisionError)\n\tfrom ze0/division_by_zero.rb:2:in '<main>'\n", status: 1
   end
 
   it "overflow to bignum" do

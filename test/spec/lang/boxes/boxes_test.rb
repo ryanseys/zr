@@ -106,7 +106,7 @@ describe "Boxes programs" do
   end
 
   it "box exceptions are rescuable in main" do
-    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"box_exceptions_are_rescuable_in_main/main.rb" => "box = Ruby::Box.new\nbox.require_relative \"thrower\"\nbegin\n  box::Thrower.go\nrescue StandardError => e\n  puts \"rescued: \#{e.message} (\#{e.class})\"\nend\n", "box_exceptions_are_rescuable_in_main/thrower.rb" => "class BoxError < StandardError\nend\nclass Thrower\n  def self.go\n    raise BoxError, \"from the box\"\n  end\nend\n"})).must_answer "rescued: from the box (BoxError)\n"
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"box_exceptions_are_rescuable_in_main/main.rb" => "box = Ruby::Box.new\nbox.require_relative \"thrower\"\nbegin\n  box::Thrower.go\nrescue StandardError => e\n  puts \"rescued: \#{e.message} (\#{e.class})\"\nend\n", "box_exceptions_are_rescuable_in_main/thrower.rb" => "class BoxError < StandardError\nend\nclass Thrower\n  def self.go\n    raise BoxError, \"from the box\"\n  end\nend\n"})
       # Exceptions cross the boundary as plain references: a box-defined
       # `BoxError < StandardError` raised from box code is rescuable in main
       # through the SHARED bootstrap superclass chain, and `e.class` names it.
@@ -115,6 +115,8 @@ describe "Boxes programs" do
 
       require_relative "box_exceptions_are_rescuable_in_main/main"
     RUBY
+
+    _(result).must_answer "rescued: from the box (BoxError)\n"
   end
 
   it "box handle carries cruby ids" do
@@ -579,7 +581,7 @@ describe "Boxes programs" do
   end
 
   it "box snippet names itself in a backtrace" do
-    _(ze0(<<~'RUBY', path: "lang/boxes/a_box_snippet_names_itself_in_a_backtrace.rb", env: {"RUBY_BOX" => "1"})).must_answer "", stderr: "eval:1:in '<compiled>': uninitialized constant K (NameError)\n\tfrom lang/boxes/a_box_snippet_names_itself_in_a_backtrace.rb:24:in 'Ruby::Box#eval'\n\tfrom lang/boxes/a_box_snippet_names_itself_in_a_backtrace.rb:24:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "lang/boxes/a_box_snippet_names_itself_in_a_backtrace.rb", env: {"RUBY_BOX" => "1"})
 
 
       # A box's snippet names itself differently from every other eval, in three
@@ -605,6 +607,8 @@ describe "Boxes programs" do
       src = ["K", ""].first
       p b.eval(src)
     RUBY
+
+    _(result).must_answer "", stderr: "eval:1:in '<compiled>': uninitialized constant K (NameError)\n\tfrom lang/boxes/a_box_snippet_names_itself_in_a_backtrace.rb:24:in 'Ruby::Box#eval'\n\tfrom lang/boxes/a_box_snippet_names_itself_in_a_backtrace.rb:24:in '<main>'\n", status: 1
   end
 
   it "box unbox local assign cond" do

@@ -341,7 +341,7 @@ describe "Fusion programs" do
   end
 
   it "autoload nested in a module eagerly splices the feature file" do
-    _(ze0(<<~'RUBY', files: {"autoload_nested_in_a_module_eagerly_splices_the_feature_file/lib/greeter.rb" => "module App\n  module Greeter\n    def self.hi(n); \"hi \#{n}\"; end\n  end\nend\n", "autoload_nested_in_a_module_eagerly_splices_the_feature_file/main.rb" => "module App\n  autoload :Greeter, \"greeter\"\nend\nputs App::Greeter.hi(\"bob\")\n"})).must_answer "hi bob\n"
+    result = ze0(<<~'RUBY', files: {"autoload_nested_in_a_module_eagerly_splices_the_feature_file/lib/greeter.rb" => "module App\n  module Greeter\n    def self.hi(n); \"hi \#{n}\"; end\n  end\nend\n", "autoload_nested_in_a_module_eagerly_splices_the_feature_file/main.rb" => "module App\n  autoload :Greeter, \"greeter\"\nend\nputs App::Greeter.hi(\"bob\")\n"})
       # #101: `autoload :Const, "feature"` is treated as a compile-time
       # require -- the loader's eager pre-pass splices the feature file (at any
       # structural nesting) so the constant is defined; the `autoload` call
@@ -352,6 +352,8 @@ describe "Fusion programs" do
       $LOAD_PATH.unshift(File.expand_path("autoload_nested_in_a_module_eagerly_splices_the_feature_file/lib", __dir__))
       require_relative "autoload_nested_in_a_module_eagerly_splices_the_feature_file/main"
     RUBY
+
+    _(result).must_answer "hi bob\n"
   end
 
   it "case in class check pattern binds and statically narrows to int" do
@@ -1531,7 +1533,7 @@ describe "Fusion programs" do
   end
 
   it "issue 3330 unresolved at typed slots" do
-    _(ze0(<<~'RUBY', path: "compiler/fusion/issue_3330_unresolved_at_typed_slots.rb")).must_answer "", stderr: "compiler/fusion/issue_3330_unresolved_at_typed_slots.rb:5:in '<module:Sock>': uninitialized constant Sock::FFI (NameError)\n\n  extend FFI\n         ^^^\n\tfrom compiler/fusion/issue_3330_unresolved_at_typed_slots.rb:4:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "compiler/fusion/issue_3330_unresolved_at_typed_slots.rb")
       # `include`/`extend`/`prepend` are ordinary method calls, so an unresolved
       # target is a RUNTIME NameError raised from the class body -- on the directive's
       # own line, with the enclosing bodies below it -- not a compile-time rejection.
@@ -1553,6 +1555,8 @@ describe "Fusion programs" do
 
       puts "ok"
     RUBY
+
+    _(result).must_answer "", stderr: "compiler/fusion/issue_3330_unresolved_at_typed_slots.rb:5:in '<module:Sock>': uninitialized constant Sock::FFI (NameError)\n\n  extend FFI\n         ^^^\n\tfrom compiler/fusion/issue_3330_unresolved_at_typed_slots.rb:4:in '<main>'\n", status: 1
   end
 
   it "ivar int table narrowing" do
@@ -2901,7 +2905,7 @@ describe "Fusion programs" do
   end
 
   it "string split inline arg gc root" do
-    _(ze0(<<~'RUBY', path: "compiler/fusion/string_split_inline_arg_gc_root.rb")).must_answer "", stderr: "compiler/fusion/string_split_inline_arg_gc_root.rb:7:in 'Object#churn_gc': undefined method '<=' for nil (NoMethodError)\n\n  while GC.stat[\"bytes\"] <= GC.stat[\"threshold\"] && keep.length < 64\n                         ^^\n\tfrom compiler/fusion/string_split_inline_arg_gc_root.rb:43:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "compiler/fusion/string_split_inline_arg_gc_root.rb")
       # Inline split arguments must stay valid across compiled split calls with
       # GC-managed pressure nearby. The pressure loop grows retained int arrays so
       # runtime allocation and collection paths are exercised before each split.
@@ -2980,6 +2984,8 @@ describe "Fusion programs" do
 
       puts(ok ? "ok" : "bad")
     RUBY
+
+    _(result).must_answer "", stderr: "compiler/fusion/string_split_inline_arg_gc_root.rb:7:in 'Object#churn_gc': undefined method '<=' for nil (NoMethodError)\n\n  while GC.stat[\"bytes\"] <= GC.stat[\"threshold\"] && keep.length < 64\n                         ^^\n\tfrom compiler/fusion/string_split_inline_arg_gc_root.rb:43:in '<main>'\n", status: 1
   end
 
   it "typed array include cross type" do

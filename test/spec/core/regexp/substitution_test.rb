@@ -95,7 +95,7 @@ describe "Regexp: substitution" do
   end
 
   it "matchdata gsub named backref" do
-    _(ze0(<<~'RUBY')).must_answer "f[oo]bar\nbacd\na-ab\n\"[y]z\"\n\"[]z\"\nf[oo]bar\n\\k'g'\nIndexError: undefined group name reference: y\nIndexError: undefined group name reference: \n"
+    result = ze0(<<~'RUBY')
       # String#gsub / #sub expand `\k<name>` in the replacement to the named capture
       # group (empty when the group did not participate). An unknown or empty name
       # raises IndexError, mirroring md[:name]. `\k'name'` is regex-only and stays
@@ -131,6 +131,8 @@ describe "Regexp: substitution" do
         puts "#{e.class}: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer "f[oo]bar\nbacd\na-ab\n\"[y]z\"\n\"[]z\"\nf[oo]bar\n\\k'g'\nIndexError: undefined group name reference: y\nIndexError: undefined group name reference: \n"
   end
 
   it "poly gsub block" do

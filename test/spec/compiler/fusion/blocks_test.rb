@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Fusion: blocks and yields" do
   it "block forward recv typed" do
-    _(ze0(<<~'RUBY')).must_answer "1-basic\n42\n3-mixed\n  body\n4-thrice\n4-thrice\n4-thrice\n5-arg=7\n150\n7-no-block\ndone\n"
+    result = ze0(<<~'RUBY')
       # Typed-receiver `recv.m { ... }` &block forwarding (Site B).
       #
       # Pre-fix `compile_object_method_expr` dropped the literal block: the
@@ -88,6 +88,8 @@ describe "Fusion: blocks and yields" do
 
       puts "done"
     RUBY
+
+    _(result).must_answer "1-basic\n42\n3-mixed\n  body\n4-thrice\n4-thrice\n4-thrice\n5-arg=7\n150\n7-no-block\ndone\n"
   end
 
   it "block given inline call site" do

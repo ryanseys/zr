@@ -45,7 +45,10 @@ module Oracle
   def ask(example)
     kwargs = example.kwargs
     Dir.mktmpdir("ze0-oracle-") do |work|
-      run = File.join(work, "run")
+      # `/var` is a link to `/private/var` on macOS, and a program that
+      # prints a path of its own prints the resolved one; the scrub has
+      # to be looking at the same bytes.
+      run = File.join(File.realpath(work), "run")
       rb = File.join(run, kwargs.fetch(:path, "spec.rb"))
       FileUtils.mkdir_p(File.dirname(rb))
       File.write(rb, example.source)

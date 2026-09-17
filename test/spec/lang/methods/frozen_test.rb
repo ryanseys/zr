@@ -570,7 +570,7 @@ describe "Methods: frozen literals" do
   end
 
   it "tail forms" do
-    _(ze0(<<~'RUBY')).must_answer "[:small, :small, :round, :round, :ninety_nine, :other]\nmatched by class\n:from_main\n:from_main\n[:inspect, :only_main, :to_s]\nNoMethodError: only_main\n\"super: no superclass method 'no_parent' for main\"\n\"dyn(base[9])\"\n\"none\"\n\"none\"\nRuntimeError: implicit argument passing of super from \n"
+    result = ze0(<<~'RUBY')
       # frozen_string_literal: true
 
       # Three forms that need no machinery of their own.
@@ -641,6 +641,8 @@ describe "Methods: frozen literals" do
         puts "RuntimeError: #{e.message[0, 40]}"
       end
     RUBY
+
+    _(result).must_answer "[:small, :small, :round, :round, :ninety_nine, :other]\nmatched by class\n:from_main\n:from_main\n[:inspect, :only_main, :to_s]\nNoMethodError: only_main\n\"super: no superclass method 'no_parent' for main\"\n\"dyn(base[9])\"\n\"none\"\n\"none\"\nRuntimeError: implicit argument passing of super from \n"
   end
 
   it "tail forms two" do

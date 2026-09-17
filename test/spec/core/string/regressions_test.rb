@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "String: regressions" do
   it "bundle string a" do
-    _(ze0(<<~'RUBY')).must_answer "0\n1\n2\n3\nA\nB\nC\n3\n1\n1\n1\na\nb\nc\nALPHA\nBETA\nGAMMA\n0\nROW0\nROW1\nROW2\n3\nbeta\ngamma\ndelta\n2\nbeta\ngamma\n2\ndelta\nepsilon\n3\ngamma\nepsilon\nalpha\nepsilon\nbeta:gamma:delta\nhello, world!\na and b\n100% of coverage\n[x][y][z]\na\nno formatting here\n    hi    \n   hi    \n----hi----\n---hi----\nababhiabab\nabahiabab\nhiababab\nhixyzxyz\nabababhi\nxyzxyzhi\nhello\nhello\nhello\ndone\nh\nw\nd\no\ndone\nhell\nhello\nhello\n\n\nab\n97\n98\n65\n49\n122\n97\n10\n195\n169\n532\n532\nhello\n2\n4\n2\n1\n1\n1\n1\n3\n6\n42\n00007\n3.14\nhello!\n"
+    result = ze0(<<~'RUBY')
       # Bundled tests:
       #   - str_array_each
       #   - str_array_map
@@ -284,10 +284,12 @@ describe "String: regressions" do
       t_string_format_single
 
     RUBY
+
+    _(result).must_answer "0\n1\n2\n3\nA\nB\nC\n3\n1\n1\n1\na\nb\nc\nALPHA\nBETA\nGAMMA\n0\nROW0\nROW1\nROW2\n3\nbeta\ngamma\ndelta\n2\nbeta\ngamma\n2\ndelta\nepsilon\n3\ngamma\nepsilon\nalpha\nepsilon\nbeta:gamma:delta\nhello, world!\na and b\n100% of coverage\n[x][y][z]\na\nno formatting here\n    hi    \n   hi    \n----hi----\n---hi----\nababhiabab\nabahiabab\nhiababab\nhixyzxyz\nabababhi\nxyzxyzhi\nhello\nhello\nhello\ndone\nh\nw\nd\no\ndone\nhell\nhello\nhello\n\n\nab\n97\n98\n65\n49\n122\n97\n10\n195\n169\n532\n532\nhello\n2\n4\n2\n1\n1\n1\n1\n3\n6\n42\n00007\n3.14\nhello!\n"
   end
 
   it "bundle string b" do
-    _(ze0(<<~'RUBY')).must_answer "[\"hello\\n\", \"world\\n\"]\n[\"hello\\n\", \"world\"]\n[\"single line\"]\n[]\n[\"\\n\", \"\\n\", \"\\n\"]\n2\nhello\nworld\nhello\n13\nHELLO, WORLD!\nhello, world!\ntrue\nfalse\nfoobar\n42\nHello, World!\n  Hello, World!  \nHello world\ndlrow olleh\n5\ntrue\ntrue\nheLLo worLd\nhell0 world\n2\nhahaha\ntrue\nfalse\ntrue\nhi        \n        hi\n    hi    \nhi********\n00000000hi\nhello  \n  hello\nhippo\nhe wrd\nabc\n3\n3\n314\nell\nhe\n255\n63\nhello\nhello\ntrue\ntest\ndone\nhello world!\n12\n0,1,2,3,4,\nHELLO WORLD\ndlroW olleH\ntrue\nworld\n0\na\ni\n9\nhell0 w0rld\n3\nfoobar\nfoobarbaz\ntesting\n11\nhello world\nHello World\nHello world\ntrue\ntrue\nfalse\nHerro Worrd\nHello Ruby\n42\nhi        \n        hi\ntrue\nfalse\ndone\n"
+    result = ze0(<<~'RUBY')
       # Bundled tests:
       #   - string_lines
       #   - strings
@@ -515,6 +517,8 @@ describe "String: regressions" do
       t_mutable_str
 
     RUBY
+
+    _(result).must_answer "[\"hello\\n\", \"world\\n\"]\n[\"hello\\n\", \"world\"]\n[\"single line\"]\n[]\n[\"\\n\", \"\\n\", \"\\n\"]\n2\nhello\nworld\nhello\n13\nHELLO, WORLD!\nhello, world!\ntrue\nfalse\nfoobar\n42\nHello, World!\n  Hello, World!  \nHello world\ndlrow olleh\n5\ntrue\ntrue\nheLLo worLd\nhell0 world\n2\nhahaha\ntrue\nfalse\ntrue\nhi        \n        hi\n    hi    \nhi********\n00000000hi\nhello  \n  hello\nhippo\nhe wrd\nabc\n3\n3\n314\nell\nhe\n255\n63\nhello\nhello\ntrue\ntest\ndone\nhello world!\n12\n0,1,2,3,4,\nHELLO WORLD\ndlroW olleH\ntrue\nworld\n0\na\ni\n9\nhell0 w0rld\n3\nfoobar\nfoobarbaz\ntesting\n11\nhello world\nHello World\nHello world\ntrue\ntrue\nfalse\nHerro Worrd\nHello Ruby\n42\nhi        \n        hi\ntrue\nfalse\ndone\n"
   end
 
   it "bundle string c" do

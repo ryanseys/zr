@@ -8,7 +8,7 @@ require_relative "../../lib/ze0/obj/macho/executable"
 require_relative "../../lib/ze0/obj/jit/fiddle"
 require_relative "../../lib/ze0/ir/interp"
 require_relative "../../lib/ze0/backend/aarch64/listing"
-require_relative "../support/harness/sweep"
+require_relative "../support/e2e"
 
 # One limit on ze0's Ruby: no method it defines may share a name with an
 # `Object` or `Kernel` method. `Lower#send` did, for a while: a private

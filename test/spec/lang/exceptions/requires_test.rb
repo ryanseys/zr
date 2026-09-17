@@ -34,7 +34,7 @@ describe "Exceptions: loading files" do
   end
 
   it "did you mean library" do
-    _(ze0(<<~'RUBY')).must_answer "false\n\"constant\"\n[\"length\"]\nundefined local variable or method 'frist_name' for main (NameError)\n\n  frist_name\n  ^^^^^^^^^^\nDid you mean?  first_name\n"
+    result = ze0(<<~'RUBY')
       # did_you_mean is loaded before the program, as ruby's gem prelude loads
       # it, and a NameError names the locals and methods it may have meant.
       p require("did_you_mean")
@@ -48,6 +48,8 @@ describe "Exceptions: loading files" do
       end
 
     RUBY
+
+    _(result).must_answer "false\n\"constant\"\n[\"length\"]\nundefined local variable or method 'frist_name' for main (NameError)\n\n  frist_name\n  ^^^^^^^^^^\nDid you mean?  first_name\n"
   end
 
   it "load error path" do
@@ -113,7 +115,7 @@ describe "Exceptions: loading files" do
   end
 
   it "require gated extension constant is a name error without its require" do
-    _(ze0(<<~'RUBY', path: "lang/exceptions/require_gated_extension_constant_is_a_name_error_without_its_require.rb")).must_answer "", stderr: "lang/exceptions/require_gated_extension_constant_is_a_name_error_without_its_require.rb:9:in '<main>': uninitialized constant Base64 (NameError)\n\nputs Base64.strict_encode64(\"hi\")\n     ^^^^^^\n", status: 1
+    result = ze0(<<~'RUBY', path: "lang/exceptions/require_gated_extension_constant_is_a_name_error_without_its_require.rb")
       # The ext require-gate: a require-gated builtin's constant
       # (`Base64`, gated by `"base64"`) is INVISIBLE until `require "base64"`
       # activates it -- referencing it un-required raises `NameError:
@@ -124,6 +126,8 @@ describe "Exceptions: loading files" do
 
       puts Base64.strict_encode64("hi")
     RUBY
+
+    _(result).must_answer "", stderr: "lang/exceptions/require_gated_extension_constant_is_a_name_error_without_its_require.rb:9:in '<main>': uninitialized constant Base64 (NameError)\n\nputs Base64.strict_encode64(\"hi\")\n     ^^^^^^\n", status: 1
   end
 
   it "require gated extension name error is rescuable" do

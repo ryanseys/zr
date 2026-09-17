@@ -734,7 +734,7 @@ describe "String: frozen literals" do
   end
 
   it "str method nil arg no segv" do
-    _(ze0(<<~'RUBY', path: "core/string/str_method_nil_arg_no_segv.rb")).must_answer "", stderr: "core/string/str_method_nil_arg_no_segv.rb:19:in 'String#count': wrong number of arguments (given 0, expected 1+) (ArgumentError)\n\n    caller: core/string/str_method_nil_arg_no_segv.rb:19\n    |   \"foo\".count\n             ^^^^^^\n\tfrom core/string/str_method_nil_arg_no_segv.rb:19:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "core/string/str_method_nil_arg_no_segv.rb")
       # #504. Several String methods receiving the wrong arg shape used
       # to SEGV. CRuby raises ArgumentError; spinel can't raise but we
       # should at least not crash. Codegen emits compile_arg0 -> "0"
@@ -783,6 +783,8 @@ describe "String: frozen literals" do
       str2.setbyte(0, 98)
       puts str2  # "b" (heap, mutates)
     RUBY
+
+    _(result).must_answer "", stderr: "core/string/str_method_nil_arg_no_segv.rb:19:in 'String#count': wrong number of arguments (given 0, expected 1+) (ArgumentError)\n\n    caller: core/string/str_method_nil_arg_no_segv.rb:19\n    |   \"foo\".count\n             ^^^^^^\n\tfrom core/string/str_method_nil_arg_no_segv.rb:19:in '<main>'\n", status: 1
   end
 
   it "string arg conformance" do

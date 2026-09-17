@@ -339,7 +339,7 @@ describe "Constants programs" do
   end
 
   it "const added hook" do
-    _(ze0(<<~'RUBY')).must_answer "== a plain write, a class, a module\nOuter const_added X\nOuter const_added Inner\n  (inner body runs after its name is announced)\nOuter const_added M\nOuter const_added S\nOuter const_added D\nOuter const_added K\n== a reopen declares nothing\n  (inner reopened -- no announcement)\nOuter const_added Z\n== every assignment announces, re-assignment included\nOuter const_added Z\n== const_added, then inherited, then the body\nBase const_added Child\nBase inherited Base::Child\n  (child body)\n== the runtime shapes\nRuntime const_added VIA_SET\nRuntime const_added LAZY\nRuntime const_added LAZY\n== an explicit scope announces on that scope\nOuter const_added FROM_OUTSIDE\n== a module with no hook stays silent\n[:QUIET_CONST, :QuietInner]\n"
+    result = ze0(<<~'RUBY')
       # `Module#const_added` -- ruby announces a constant the moment it becomes
       # readable, on the module it was set on, with the constant's own leaf name.
       #
@@ -407,6 +407,8 @@ describe "Constants programs" do
       end
       p Quiet.constants.sort
     RUBY
+
+    _(result).must_answer "== a plain write, a class, a module\nOuter const_added X\nOuter const_added Inner\n  (inner body runs after its name is announced)\nOuter const_added M\nOuter const_added S\nOuter const_added D\nOuter const_added K\n== a reopen declares nothing\n  (inner reopened -- no announcement)\nOuter const_added Z\n== every assignment announces, re-assignment included\nOuter const_added Z\n== const_added, then inherited, then the body\nBase const_added Child\nBase inherited Base::Child\n  (child body)\n== the runtime shapes\nRuntime const_added VIA_SET\nRuntime const_added LAZY\nRuntime const_added LAZY\n== an explicit scope announces on that scope\nOuter const_added FROM_OUTSIDE\n== a module with no hook stays silent\n[:QUIET_CONST, :QuietInner]\n"
   end
 
   it "const compound assign" do
@@ -462,7 +464,7 @@ describe "Constants programs" do
   end
 
   it "const defined invalid name" do
-    _(ze0(<<~'RUBY')).must_answer "true\ntrue\nfalse\nfalse\nfalse\nwrong constant name name\nwrong constant name _Foo\nwrong constant name @x\nwrong constant name 1A\nwrong constant name A B\nwrong constant name \nwrong constant name lower\n"
+    result = ze0(<<~'RUBY')
       # Module#const_defined? validates the constant name. A defined name answers
       # true, an undefined-but-well-formed name answers false, and a malformed name
       # (lowercase / leading underscore / a non-identifier byte) raises NameError
@@ -493,6 +495,8 @@ describe "Constants programs" do
       check { M.const_defined?("") }
       check { M.const_defined?(:lower) }
     RUBY
+
+    _(result).must_answer "true\ntrue\nfalse\nfalse\nfalse\nwrong constant name name\nwrong constant name _Foo\nwrong constant name @x\nwrong constant name 1A\nwrong constant name A B\nwrong constant name \nwrong constant name lower\n"
   end
 
   it "const get builtin" do

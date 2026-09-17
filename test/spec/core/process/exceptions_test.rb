@@ -196,36 +196,44 @@ describe "Process: raising and rescuing" do
   end
 
   it "uncaught exceptions still exit nonzero through the coroutine boundary" do
-    _(ze0(<<~'RUBY', path: "core/process/uncaught_exceptions_still_exit_nonzero_through_the_coroutine_boundary.rb")).must_answer "", stderr: "core/process/uncaught_exceptions_still_exit_nonzero_through_the_coroutine_boundary.rb:4:in '<main>': through the boundary (RuntimeError)\n", status: 1
+    result = ze0(<<~'RUBY', path: "core/process/uncaught_exceptions_still_exit_nonzero_through_the_coroutine_boundary.rb")
       # The top-level uncaught-raise contract (message on stderr, exit 1) must
       # survive the main body's Result crossing back to the OS main thread.
 
       raise "through the boundary"
     RUBY
+
+    _(result).must_answer "", stderr: "core/process/uncaught_exceptions_still_exit_nonzero_through_the_coroutine_boundary.rb:4:in '<main>': through the boundary (RuntimeError)\n", status: 1
   end
 
   it "uncaught interrupt is reported and ends by sigint" do
-    _(ze0(<<~'RUBY', path: "core/process/an_uncaught_interrupt_is_reported_and_ends_by_sigint.rb")).must_answer "handler\n", stderr: "core/process/an_uncaught_interrupt_is_reported_and_ends_by_sigint.rb:4:in '<main>': Interrupt (Interrupt)\n", status: nil, signal: 2
+    result = ze0(<<~'RUBY', path: "core/process/an_uncaught_interrupt_is_reported_and_ends_by_sigint.rb")
       # Interrupt, unlike the other signals, is reported before the process
       # ends by SIGINT.
       at_exit { puts :handler }
       raise Interrupt
 
     RUBY
+
+    _(result).must_answer "handler\n", stderr: "core/process/an_uncaught_interrupt_is_reported_and_ends_by_sigint.rb:4:in '<main>': Interrupt (Interrupt)\n", status: nil, signal: 2
   end
 
   it "uncaught no method error exits via the ordinary top level handler" do
-    _(ze0(<<~'RUBY', path: "core/process/an_uncaught_no_method_error_exits_via_the_ordinary_top_level_handler.rb")).must_answer "", stderr: "core/process/an_uncaught_no_method_error_exits_via_the_ordinary_top_level_handler.rb:3:in '<main>': undefined method 'missing' for an instance of Plain (NoMethodError)\n\nPlain.new.send(:missing)\n         ^^^^^\n", status: 1
+    result = ze0(<<~'RUBY', path: "core/process/an_uncaught_no_method_error_exits_via_the_ordinary_top_level_handler.rb")
       class Plain
       end
       Plain.new.send(:missing)
     RUBY
+
+    _(result).must_answer "", stderr: "core/process/an_uncaught_no_method_error_exits_via_the_ordinary_top_level_handler.rb:3:in '<main>': undefined method 'missing' for an instance of Plain (NoMethodError)\n\nPlain.new.send(:missing)\n         ^^^^^\n", status: 1
   end
 
   it "uncaught raise with no rescue anywhere exits with the message" do
-    _(ze0(<<~'RUBY', path: "core/process/uncaught_raise_with_no_rescue_anywhere_exits_with_the_message.rb")).must_answer "", stderr: "core/process/uncaught_raise_with_no_rescue_anywhere_exits_with_the_message.rb:1:in '<main>': boom (RuntimeError)\n", status: 1
+    result = ze0(<<~'RUBY', path: "core/process/uncaught_raise_with_no_rescue_anywhere_exits_with_the_message.rb")
       raise "boom"
     RUBY
+
+    _(result).must_answer "", stderr: "core/process/uncaught_raise_with_no_rescue_anywhere_exits_with_the_message.rb:1:in '<main>': boom (RuntimeError)\n", status: 1
   end
 
   it "uncaught signal exception ends by its signal" do
@@ -244,7 +252,7 @@ describe "Process: raising and rescuing" do
   end
 
   it "unrescued definition raise aborts where ruby aborts" do
-    _(ze0(<<~'RUBY', path: "core/process/an_unrescued_definition_raise_aborts_where_ruby_aborts.rb")).must_answer "before\n", stderr: "core/process/an_unrescued_definition_raise_aborts_where_ruby_aborts.rb:11:in '<main>': superclass mismatch for class Sub (TypeError)\n", status: 1
+    result = ze0(<<~'RUBY', path: "core/process/an_unrescued_definition_raise_aborts_where_ruby_aborts.rb")
       # The other half of `a_definition_ruby_raises_on_raises`: with nothing to
       # catch it, the program runs up to the definition and then dies exactly where
       # ruby dies -- same message, same backtrace line, same exit status. The
@@ -261,5 +269,7 @@ describe "Process: raising and rescuing" do
 
       puts "after"
     RUBY
+
+    _(result).must_answer "before\n", stderr: "core/process/an_unrescued_definition_raise_aborts_where_ruby_aborts.rb:11:in '<main>': superclass mismatch for class Sub (TypeError)\n", status: 1
   end
 end

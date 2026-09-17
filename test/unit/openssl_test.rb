@@ -52,7 +52,7 @@ class OpenSSLTest < Minitest::Test
     rb = File.join(dir, "require_openssl.rb")
     File.write(rb, PROGRAM)
     bin = File.join(dir, "require_openssl")
-    out = IO.popen([RbConfig.ruby, "--disable-gems", File.join(ROOT, "bin/ze0"), "zr", "build", rb, "-o", bin],
+    out = IO.popen([RbConfig.ruby, "--disable-gems", File.join(ROOT, "exe/ze0"), "zr", "build", rb, "-o", bin],
                    err: %i[child out], &:read)
     assert $?.success?, "the build failed: #{out}"
     bin

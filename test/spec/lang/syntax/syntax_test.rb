@@ -1778,7 +1778,7 @@ describe "Syntax programs" do
   end
 
   it "program that does not parse prints rubys report" do
-    _(ze0(<<~'RUBY', path: "lang/syntax/a_program_that_does_not_parse_prints_rubys_report.rb")).must_answer "", stderr: "lang/syntax/a_program_that_does_not_parse_prints_rubys_report.rb: --> lang/syntax/a_program_that_does_not_parse_prints_rubys_report.rb\n\ninvalid method name; a setter method cannot be defined in an endless method definition\n\n> 3  puts \"never printed\"\n> 4  class O; def s=(v) = @s = v; end\n\nlang/syntax/a_program_that_does_not_parse_prints_rubys_report.rb:4: syntax error found (SyntaxError)\n  2 | # running any of it.\n  3 | puts \"never printed\"\n> 4 | class O; def s=(v) = @s = v; end\n    |              ^~ invalid method name; a setter method cannot be defined in an endless method definition\n  5 | # The two lines after the error are in the report, so the recording\n  6 | # below never is.\n\n", status: 1
+    result = ze0(<<~'RUBY', path: "lang/syntax/a_program_that_does_not_parse_prints_rubys_report.rb")
       # ruby reports a program that does not parse, and exits 1 without
       # running any of it.
       puts "never printed"
@@ -1786,6 +1786,8 @@ describe "Syntax programs" do
       # The two lines after the error are in the report, so the recording
       # below never is.
     RUBY
+
+    _(result).must_answer "", stderr: "lang/syntax/a_program_that_does_not_parse_prints_rubys_report.rb: --> lang/syntax/a_program_that_does_not_parse_prints_rubys_report.rb\n\ninvalid method name; a setter method cannot be defined in an endless method definition\n\n> 3  puts \"never printed\"\n> 4  class O; def s=(v) = @s = v; end\n\nlang/syntax/a_program_that_does_not_parse_prints_rubys_report.rb:4: syntax error found (SyntaxError)\n  2 | # running any of it.\n  3 | puts \"never printed\"\n> 4 | class O; def s=(v) = @s = v; end\n    |              ^~ invalid method name; a setter method cannot be defined in an endless method definition\n  5 | # The two lines after the error are in the report, so the recording\n  6 | # below never is.\n\n", status: 1
   end
 
   it "ruby engine identifies as ruby" do

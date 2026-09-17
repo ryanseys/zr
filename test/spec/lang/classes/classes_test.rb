@@ -1614,7 +1614,7 @@ describe "Classes programs" do
   end
 
   it "constructor pushes the frames ruby pushes" do
-    _(ze0(<<~'RUBY', path: "lang/classes/a_constructor_pushes_the_frames_ruby_pushes.rb")).must_answer "plain class:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:30:in 'P1#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:33:in 'block in <main>'\nstruct subclass:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:40:in 'S2#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:43:in 'block in <main>'\nexception subclass:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:49:in 'E1#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:52:in 'block in <main>'\narity error, no initialize:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:56:in 'BasicObject#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:56:in 'block in <main>'\nClass.new minting:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:59:in 'block (2 levels) in <main>'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:59:in 'Class#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:59:in 'Class#new'\nModule.new minting:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:60:in 'block (2 levels) in <main>'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:60:in 'Module#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:60:in 'Class#new'\nsubclass calling super:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:30:in 'P1#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:65:in 'P3#initialize'\nallocate then raise:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:71:in 'block in <main>'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:21:in 'Object#frames'\n"
+    result = ze0(<<~'RUBY', path: "lang/classes/a_constructor_pushes_the_frames_ruby_pushes.rb")
       # `Foo.new` pushes NO backtrace frame of its own. zeo pushed `Class#new` for
       # every construction, so a raise from any `initialize` reported one frame ruby
       # does not have.
@@ -1687,6 +1687,8 @@ describe "Classes programs" do
       # --- `allocate` skips `initialize` entirely, so nothing to frame
       frames("allocate then raise") { P1.allocate.instance_variable_get(:@nope) || raise("after allocate") }
     RUBY
+
+    _(result).must_answer "plain class:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:30:in 'P1#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:33:in 'block in <main>'\nstruct subclass:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:40:in 'S2#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:43:in 'block in <main>'\nexception subclass:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:49:in 'E1#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:52:in 'block in <main>'\narity error, no initialize:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:56:in 'BasicObject#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:56:in 'block in <main>'\nClass.new minting:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:59:in 'block (2 levels) in <main>'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:59:in 'Class#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:59:in 'Class#new'\nModule.new minting:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:60:in 'block (2 levels) in <main>'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:60:in 'Module#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:60:in 'Class#new'\nsubclass calling super:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:30:in 'P1#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:65:in 'P3#initialize'\nallocate then raise:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:71:in 'block in <main>'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:21:in 'Object#frames'\n"
   end
 
   it "def with class receiver" do
@@ -1815,7 +1817,7 @@ describe "Classes programs" do
   end
 
   it "definition hooks when compiled" do
-    _(ze0(<<~'RUBY', path: "lang/classes/definition_hooks_when_compiled.rb")).must_answer "== top-level def, on Object\nObject added toplevel_one\n== every shape a class body can write\nC s_added singleton_method_added\nC added a\n  (an ordinary statement between defs keeps its place)\nC added b\nC added b\nC added acc\nC added acc=\nC added ro\nC added c\nC added d\nC s_added klass_method\nC s_added via_sclass\n== a reopen reports too, and `undef` has its own hook\nC added reopened\nC undefined a\n== a nested class has no hook of its own, so Object's answers\nObject added inner_method\nOuter added outer_method\n== a subclass inherits the hook\nC added sub_method\n== a bare `private` changes visibility, not whether the def reports\nV added hidden\nV added shown\n== bare `module_function` reports both halves\nMF s_added singleton_method_added\nMF added after_modfunc\nMF s_added after_modfunc\n[[\"lang/classes/definition_hooks_when_compiled.rb\", 72], [\"lang/classes/definition_hooks_when_compiled.rb\", 72]]\n"
+    result = ze0(<<~'RUBY', path: "lang/classes/definition_hooks_when_compiled.rb")
       # The same six hooks as `definition_hooks_at_runtime.rb`, but for definitions
       # written in a class body -- which zeo compiles into a method table rather than
       # running, so the report has to be put back at the definition's position.
@@ -1892,6 +1894,8 @@ describe "Classes programs" do
       # Both halves are the same definition, so both name the `def`'s own line.
       p [MF.method(:after_modfunc).source_location, MF.instance_method(:after_modfunc).source_location]
     RUBY
+
+    _(result).must_answer "== top-level def, on Object\nObject added toplevel_one\n== every shape a class body can write\nC s_added singleton_method_added\nC added a\n  (an ordinary statement between defs keeps its place)\nC added b\nC added b\nC added acc\nC added acc=\nC added ro\nC added c\nC added d\nC s_added klass_method\nC s_added via_sclass\n== a reopen reports too, and `undef` has its own hook\nC added reopened\nC undefined a\n== a nested class has no hook of its own, so Object's answers\nObject added inner_method\nOuter added outer_method\n== a subclass inherits the hook\nC added sub_method\n== a bare `private` changes visibility, not whether the def reports\nV added hidden\nV added shown\n== bare `module_function` reports both halves\nMF s_added singleton_method_added\nMF added after_modfunc\nMF s_added after_modfunc\n[[\"lang/classes/definition_hooks_when_compiled.rb\", 72], [\"lang/classes/definition_hooks_when_compiled.rb\", 72]]\n"
   end
 
   it "dot class reflects every receiver kind" do
@@ -2362,7 +2366,7 @@ describe "Classes programs" do
   end
 
   it "issue class variable toplevel scope" do
-    _(ze0(<<~'RUBY', path: "lang/classes/issue_class_variable_toplevel_scope.rb")).must_answer "", stderr: "lang/classes/issue_class_variable_toplevel_scope.rb:8:in 'block in <main>': class variable access from toplevel (RuntimeError)\n\tfrom lang/classes/issue_class_variable_toplevel_scope.rb:7:in 'Class#initialize'\n\tfrom lang/classes/issue_class_variable_toplevel_scope.rb:7:in 'Class#new'\n\tfrom lang/classes/issue_class_variable_toplevel_scope.rb:7:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "lang/classes/issue_class_variable_toplevel_scope.rb")
       # A class variable (`@@cv`) assigned inside a `Class.new { ... }` block
       # should raise RuntimeError ("class variable access from toplevel"): class
       # variables resolve through the LEXICAL scope, and a `do...end` block (unlike
@@ -2374,6 +2378,8 @@ describe "Classes programs" do
       end
       p klass.class_variables
     RUBY
+
+    _(result).must_answer "", stderr: "lang/classes/issue_class_variable_toplevel_scope.rb:8:in 'block in <main>': class variable access from toplevel (RuntimeError)\n\tfrom lang/classes/issue_class_variable_toplevel_scope.rb:7:in 'Class#initialize'\n\tfrom lang/classes/issue_class_variable_toplevel_scope.rb:7:in 'Class#new'\n\tfrom lang/classes/issue_class_variable_toplevel_scope.rb:7:in '<main>'\n", status: 1
   end
 
   it "masgn classvar target" do
@@ -3323,7 +3329,7 @@ describe "Classes programs" do
   end
 
   it "runtime class names its own frames" do
-    _(ze0(<<~'RUBY', path: "lang/classes/a_runtime_class_names_its_own_frames.rb")).must_answer "constant-named:\n  a_runtime_class_names_its_own_frames.rb:23:in 'K#m'\nanonymous:\n  a_runtime_class_names_its_own_frames.rb:31:in 'm'\nsubclass of a runtime class:\n  a_runtime_class_names_its_own_frames.rb:39:in 'Sub#n'\nruntime module method:\n  a_runtime_class_names_its_own_frames.rb:47:in 'M#mm'\nnested under a runtime namespace:\n  a_runtime_class_names_its_own_frames.rb:59:in 'NS::Inner#deep'\ntop-level def called from a runtime method:\n  a_runtime_class_names_its_own_frames.rb:68:in 'Object#helper'\n  a_runtime_class_names_its_own_frames.rb:72:in 'Caller#outer'\ndefine_method block:\n  a_runtime_class_names_its_own_frames.rb:80:in 'block (2 levels) in <main>'\nordinary compiled class:\n  a_runtime_class_names_its_own_frames.rb:87:in 'Plain#p1'\n"
+    result = ze0(<<~'RUBY', path: "lang/classes/a_runtime_class_names_its_own_frames.rb")
       # A method of a RUNTIME-minted class names its frame after that class.
       #
       # A `def` inside such a body is lifted to a top-level method and installed on
@@ -3415,6 +3421,8 @@ describe "Classes programs" do
       end
       frames("ordinary compiled class") { Plain.new.p1 }
     RUBY
+
+    _(result).must_answer "constant-named:\n  a_runtime_class_names_its_own_frames.rb:23:in 'K#m'\nanonymous:\n  a_runtime_class_names_its_own_frames.rb:31:in 'm'\nsubclass of a runtime class:\n  a_runtime_class_names_its_own_frames.rb:39:in 'Sub#n'\nruntime module method:\n  a_runtime_class_names_its_own_frames.rb:47:in 'M#mm'\nnested under a runtime namespace:\n  a_runtime_class_names_its_own_frames.rb:59:in 'NS::Inner#deep'\ntop-level def called from a runtime method:\n  a_runtime_class_names_its_own_frames.rb:68:in 'Object#helper'\n  a_runtime_class_names_its_own_frames.rb:72:in 'Caller#outer'\ndefine_method block:\n  a_runtime_class_names_its_own_frames.rb:80:in 'block (2 levels) in <main>'\nordinary compiled class:\n  a_runtime_class_names_its_own_frames.rb:87:in 'Plain#p1'\n"
   end
 
   it "same leaf class name in two namespaces stays distinct" do

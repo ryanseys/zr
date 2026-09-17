@@ -71,8 +71,8 @@ class CaseFormatTest < Minitest::Test
     assert_raises(ArgumentError) { Case.new("#@ bogus: 1\nputs 1\n") }
   end
 
-  def test_every_corpus_program_parses
-    Dir[File.join(ROOT, "test/{lang,core,stdlib,compiler,aot,bench,milestones,ze0,gaps}/**/*.rb")].each do |rb|
+  def test_every_program_parses
+    Dir[File.join(ROOT, "test/{e2e,bench}/**/*.rb")].reject { |rb| rb.end_with?("_test.rb") }.each do |rb|
       Case.read(rb)
     end
   end

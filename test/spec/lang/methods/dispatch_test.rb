@@ -525,7 +525,7 @@ describe "Methods: dispatch" do
   end
 
   it "method added dispatch watermark" do
-    _(ze0(<<~'RUBY')).must_answer "  NoMethodError: undefined method 'later' for an instance of Probe\n  NoMethodError: undefined method 'later' for an instance of Probe\n  NoMethodError: undefined method 'later' for an instance of Probe\n  NameError: undefined method 'later' for class 'Probe'\n  NameError: undefined method 'later' for class 'Probe'\n  ok: false\n  ok: false\n  ok: [:first]\n  ok: \"from Base\"\n  ok: String\n== and every one of them answers once the class is whole\n[2, \"from Probe\", [:first, :later, :shared]]\n== method_missing still gets its chance\n  method_missing(two)\n2\n== the truncation lifts as soon as the hook returns\n  added a, b reachable: false\n  added b, b reachable: true\n[1, 2]\n== an unrelated class is never truncated\n  Other#wide -> other\n[\"narrow\", \"other\"]\n"
+    result = ze0(<<~'RUBY')
       # A definition hook sees the class only as far as it has been built. The
       # REFLECTION half of that is `tests/method_added_watermark.rb`; this is the
       # DISPATCH half -- calling a method written below the `def` the hook is
@@ -615,6 +615,8 @@ describe "Methods: dispatch" do
       end
       p [Narrow.new.wide, Other.new.wide]
     RUBY
+
+    _(result).must_answer "  NoMethodError: undefined method 'later' for an instance of Probe\n  NoMethodError: undefined method 'later' for an instance of Probe\n  NoMethodError: undefined method 'later' for an instance of Probe\n  NameError: undefined method 'later' for class 'Probe'\n  NameError: undefined method 'later' for class 'Probe'\n  ok: false\n  ok: false\n  ok: [:first]\n  ok: \"from Base\"\n  ok: String\n== and every one of them answers once the class is whole\n[2, \"from Probe\", [:first, :later, :shared]]\n== method_missing still gets its chance\n  method_missing(two)\n2\n== the truncation lifts as soon as the hook returns\n  added a, b reachable: false\n  added b, b reachable: true\n[1, 2]\n== an unrelated class is never truncated\n  Other#wide -> other\n[\"narrow\", \"other\"]\n"
   end
 
   it "nil default param widens to poly" do

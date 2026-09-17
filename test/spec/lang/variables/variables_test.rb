@@ -801,7 +801,7 @@ describe "Variables programs" do
   end
 
   it "earlier i root shadows a later same named stdlib file" do
-    _(ze0(<<~'RUBY', files: {"an_earlier_i_root_shadows_a_later_same_named_stdlib_file/main.rb" => "require \"patched\"\nputs Patched.source\n", "an_earlier_i_root_shadows_a_later_same_named_stdlib_file/stdliblib/patched.rb" => "module Patched\n  def self.source = \"stdlib original\"\nend\n", "an_earlier_i_root_shadows_a_later_same_named_stdlib_file/userlib/patched.rb" => "module Patched\n  def self.source = \"user override\"\nend\n"})).must_answer "stdlib original\n"
+    result = ze0(<<~'RUBY', files: {"an_earlier_i_root_shadows_a_later_same_named_stdlib_file/main.rb" => "require \"patched\"\nputs Patched.source\n", "an_earlier_i_root_shadows_a_later_same_named_stdlib_file/stdliblib/patched.rb" => "module Patched\n  def self.source = \"stdlib original\"\nend\n", "an_earlier_i_root_shadows_a_later_same_named_stdlib_file/userlib/patched.rb" => "module Patched\n  def self.source = \"user override\"\nend\n"})
       # The documented precedence: `-I` roots are searched in order, first hit
       # wins (Ruby's own `$LOAD_PATH` rule) -- so a user root placed BEFORE the
       # stdlib checkout shadows the stdlib copy of a same-named feature, and the
@@ -811,6 +811,8 @@ describe "Variables programs" do
       $LOAD_PATH.unshift(File.expand_path("an_earlier_i_root_shadows_a_later_same_named_stdlib_file/stdliblib", __dir__))
       require_relative "an_earlier_i_root_shadows_a_later_same_named_stdlib_file/main"
     RUBY
+
+    _(result).must_answer "stdlib original\n"
   end
 
   it "eval locals defined and read within one scope" do
@@ -2403,7 +2405,7 @@ describe "Variables programs" do
   end
 
   it "other compound assignment operators still raise on an undefined constant" do
-    _(ze0(<<~'RUBY', path: "lang/variables/other_compound_assignment_operators_still_raise_on_an_undefined_constant.rb")).must_answer "", stderr: "lang/variables/other_compound_assignment_operators_still_raise_on_an_undefined_constant.rb:8:in '<main>': uninitialized constant UNDEF (NameError)\n", status: 1
+    result = ze0(<<~'RUBY', path: "lang/variables/other_compound_assignment_operators_still_raise_on_an_undefined_constant.rb")
       # Regression guard for the fix above: `||=`'s new leniency must NOT
       # leak into `+=`/`&&=` -- confirmed against real `ruby` that those
       # still raise on a genuinely undefined constant. An uncaught Ruby
@@ -2414,6 +2416,8 @@ describe "Variables programs" do
       UNDEF += 1
 
     RUBY
+
+    _(result).must_answer "", stderr: "lang/variables/other_compound_assignment_operators_still_raise_on_an_undefined_constant.rb:8:in '<main>': uninitialized constant UNDEF (NameError)\n", status: 1
   end
 
   it "output separator globals are honoured" do

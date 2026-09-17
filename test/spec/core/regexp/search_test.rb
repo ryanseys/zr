@@ -1160,9 +1160,11 @@ describe "Regexp: searching and matching" do
   end
 
   it "match required one liner raises no matching pattern error on failure" do
-    _(ze0(<<~'RUBY', path: "core/regexp/match_required_one_liner_raises_no_matching_pattern_error_on_failure.rb")).must_answer "", stderr: "core/regexp/match_required_one_liner_raises_no_matching_pattern_error_on_failure.rb:1:in '<main>': 5: String === 5 does not return true (NoMatchingPatternError)\n", status: 1
+    result = ze0(<<~'RUBY', path: "core/regexp/match_required_one_liner_raises_no_matching_pattern_error_on_failure.rb")
       5 => String
     RUBY
+
+    _(result).must_answer "", stderr: "core/regexp/match_required_one_liner_raises_no_matching_pattern_error_on_failure.rb:1:in '<main>': 5: String === 5 does not return true (NoMatchingPatternError)\n", status: 1
   end
 
   it "match tilde pre post" do
@@ -1912,7 +1914,7 @@ describe "Regexp: searching and matching" do
   end
 
   it "regex capture scan toproc count" do
-    _(ze0(<<~'RUBY')).must_answer "\"01\"\n\"hello\"\n\"2024\"\nnil\n\"ll\"\nHELLO WORLD \n\"hello world\"\n[2, 3]\n[2, 3]\n[2, 0]\n[2, 1]\n3\n\"HI\"\n5\n[[\"a\", \"b\"], [\"a\", \"c\"], [\"b\", \"c\"]]\n[[:a, :b], [:a, :c], [:b, :c]]\n[[1.0, 2.0], [1.0, 3.0], [2.0, 3.0]]\n[[\"a\", \"b\"], [\"a\", \"c\"], [\"b\", \"a\"], [\"b\", \"c\"], [\"c\", \"a\"], [\"c\", \"b\"]]\n[[\"a\", \"a\"], [\"a\", \"b\"], [\"b\", \"b\"]]\n[\"A\", \"B\", \"C\"]\n\"HelloWorld\"\n0\n[\"a\", \"B\", \"c\"]\n[\"1\", \"2\"]\n"
+    result = ze0(<<~'RUBY')
       # s[/re/, n] and s[/re/, :name] captures, the String#scan block form,
       # count on a boxed-array block parameter, explicit Symbol#to_proc, and
       # combination/permutation over non-integer arrays.
@@ -1944,6 +1946,8 @@ describe "Regexp: searching and matching" do
       p "aBc".scan(/[A-Z]/i)
       p "x1y2".scan(/[a-m0-5]/i)
     RUBY
+
+    _(result).must_answer "\"01\"\n\"hello\"\n\"2024\"\nnil\n\"ll\"\nHELLO WORLD \n\"hello world\"\n[2, 3]\n[2, 3]\n[2, 0]\n[2, 1]\n3\n\"HI\"\n5\n[[\"a\", \"b\"], [\"a\", \"c\"], [\"b\", \"c\"]]\n[[:a, :b], [:a, :c], [:b, :c]]\n[[1.0, 2.0], [1.0, 3.0], [2.0, 3.0]]\n[[\"a\", \"b\"], [\"a\", \"c\"], [\"b\", \"a\"], [\"b\", \"c\"], [\"c\", \"a\"], [\"c\", \"b\"]]\n[[\"a\", \"a\"], [\"a\", \"b\"], [\"b\", \"b\"]]\n[\"A\", \"B\", \"C\"]\n\"HelloWorld\"\n0\n[\"a\", \"B\", \"c\"]\n[\"1\", \"2\"]\n"
   end
 
   it "regex fancy" do

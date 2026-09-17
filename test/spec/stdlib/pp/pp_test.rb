@@ -117,7 +117,7 @@ describe "PP programs" do
   end
 
   it "first pp loads pp rb" do
-    _(ze0(<<~'RUBY')).must_answer "0\n{aaaaaaaaaa: \"bbbbbbbbbbbbbbbbbbbb\",\n cccccccccccc: \"dddddddddddddddddddd\",\n eeeeeeeeeeee: [1, 2, 3, 4, 5, 6, 7, 8, 9]}\n1\n#<struct S\n aaaaaaaaaaaaaaa=\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\n bbbbbbbbbbbbbbbbbbbb=\"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\n ccccccccccccccccc=[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]>\nP(1, 2)\n3\nnil\n[1]\n[1]\nKernel\n-1\n\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\n"
+    result = ze0(<<~'RUBY')
       # The first pp requires ruby's pp.rb, as CRuby's prelude does, so a wide
       # object wraps and a pretty_print method answers for its object.
 
@@ -139,15 +139,19 @@ describe "PP programs" do
       pp "x" * 100
 
     RUBY
+
+    _(result).must_answer "0\n{aaaaaaaaaa: \"bbbbbbbbbbbbbbbbbbbb\",\n cccccccccccc: \"dddddddddddddddddddd\",\n eeeeeeeeeeee: [1, 2, 3, 4, 5, 6, 7, 8, 9]}\n1\n#<struct S\n aaaaaaaaaaaaaaa=\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\n bbbbbbbbbbbbbbbbbbbb=\"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\",\n ccccccccccccccccc=[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]>\nP(1, 2)\n3\nnil\n[1]\n[1]\nKernel\n-1\n\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\n"
   end
 
   it "pp guards its console require" do
-    _(ze0(<<~'RUBY')).must_answer "{alpha: \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\n beta:\n  [1,\n   2,\n   3,\n   4,\n   5,\n   6,\n   7,\n   8,\n   9,\n   10,\n   11,\n   12,\n   13,\n   14,\n   15,\n   16,\n   17,\n   18,\n   19,\n   20,\n   21,\n   22,\n   23,\n   24,\n   25,\n   26,\n   27,\n   28,\n   29,\n   30],\n gamma:\n  {delta: \"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\", epsilon: [:a, :b, :c]}}\n"
+    result = ze0(<<~'RUBY')
       # pp asks io/console for the width under a `rescue LoadError`, so a
       # wide structure prints whether or not a console library is present.
       require "pp"
       pp({alpha: "x" * 60, beta: (1..30).to_a, gamma: {delta: "y" * 40, epsilon: [:a, :b, :c]}})
     RUBY
+
+    _(result).must_answer "{alpha: \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\n beta:\n  [1,\n   2,\n   3,\n   4,\n   5,\n   6,\n   7,\n   8,\n   9,\n   10,\n   11,\n   12,\n   13,\n   14,\n   15,\n   16,\n   17,\n   18,\n   19,\n   20,\n   21,\n   22,\n   23,\n   24,\n   25,\n   26,\n   27,\n   28,\n   29,\n   30],\n gamma:\n  {delta: \"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\", epsilon: [:a, :b, :c]}}\n"
   end
 
   it "pp pretty print" do

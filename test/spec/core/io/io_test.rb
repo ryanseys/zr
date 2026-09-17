@@ -123,13 +123,15 @@ describe "IO programs" do
   end
 
   it "autoload with file expand path dir resolves a sibling file" do
-    _(ze0(<<~'RUBY', files: {"autoload_with_file_expand_path_dir_resolves_a_sibling_file/main.rb" => "class Config\n  autoload :Mirror, File.expand_path(\"mirror\", __dir__)\nend\nputs Config::Mirror.name\n", "autoload_with_file_expand_path_dir_resolves_a_sibling_file/mirror.rb" => "class Config\n  class Mirror\n    def self.name; \"mirror!\"; end\n  end\nend\n"})).must_answer "mirror!\n"
+    result = ze0(<<~'RUBY', files: {"autoload_with_file_expand_path_dir_resolves_a_sibling_file/main.rb" => "class Config\n  autoload :Mirror, File.expand_path(\"mirror\", __dir__)\nend\nputs Config::Mirror.name\n", "autoload_with_file_expand_path_dir_resolves_a_sibling_file/mirror.rb" => "class Config\n  class Mirror\n    def self.name; \"mirror!\"; end\n  end\nend\n"})
       # The dominant stdlib/bundler idiom: `autoload :C, File.expand_path("c",
       # __dir__)` -- a computed sibling path. Resolved at compile time from the
       # requiring file's directory.
 
       require_relative "autoload_with_file_expand_path_dir_resolves_a_sibling_file/main"
     RUBY
+
+    _(result).must_answer "mirror!\n"
   end
 
   it "backtick captures stdout and sets child status" do
@@ -1216,10 +1218,12 @@ describe "IO programs" do
   end
 
   it "io buffer experimental warning" do
-    _(ze0(<<~'RUBY', path: "core/io/io_buffer_experimental_warning.rb")).must_answer "8\n", stderr: "core/io/io_buffer_experimental_warning.rb:1: warning: IO::Buffer is experimental and both the Ruby and C interface may change in the future!\n"
+    result = ze0(<<~'RUBY', path: "core/io/io_buffer_experimental_warning.rb")
       b = IO::Buffer.new(8)
       p b.size
     RUBY
+
+    _(result).must_answer "8\n", stderr: "core/io/io_buffer_experimental_warning.rb:1: warning: IO::Buffer is experimental and both the Ruby and C interface may change in the future!\n"
   end
 
   it "io buffered read position" do
@@ -2201,7 +2205,7 @@ describe "IO programs" do
   end
 
   it "stdout survives exit" do
-    _(ze0(<<~'RUBY')).must_answer "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", stderr: "[at_exit ran]"
+    result = ze0(<<~'RUBY')
       # `exit` raises SystemExit, so the buffer is written on the way out and the
       # `at_exit` handler runs first -- the same return-to-C-`main` path as
       # falling off the end, reached through the exception.
@@ -2209,6 +2213,8 @@ describe "IO programs" do
       print "A" * 300
       exit 0
     RUBY
+
+    _(result).must_answer "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", stderr: "[at_exit ran]"
   end
 
   it "thread file gets" do

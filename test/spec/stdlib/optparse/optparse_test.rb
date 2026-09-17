@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Optparse programs" do
   it "optparse abbreviation resolves" do
-    _(ze0(<<~'RUBY')).must_answer ":v\nOptionParser::AmbiguousOption: ambiguous option: --fooba\nDid you mean?  foobar\n               foobaz\n"
+    result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -32,10 +32,12 @@ describe "Optparse programs" do
         puts "#{e.class}: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer ":v\nOptionParser::AmbiguousOption: ambiguous option: --fooba\nDid you mean?  foobar\n               foobaz\n"
   end
 
   it "optparse subset" do
-    _(ze0(<<~'RUBY')).must_answer "[\"file.txt\", \"-notaflag\"]\n[\"file.txt\", \"-notaflag\"]\ntrue\n\"matz\"\n\"3\"\nUsage: demo [options] FILE\n\n    -v, --verbose                    run verbosely\n    -n, --name NAME                  the name\n    -c, --count=N                    how many\n[\"x\"]\n\"invalid option: --nope\"\ntrue\n\"missing argument: --name\"\n"
+    result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
@@ -82,6 +84,8 @@ describe "Optparse programs" do
         p e.message
       end
     RUBY
+
+    _(result).must_answer "[\"file.txt\", \"-notaflag\"]\n[\"file.txt\", \"-notaflag\"]\ntrue\n\"matz\"\n\"3\"\nUsage: demo [options] FILE\n\n    -v, --verbose                    run verbosely\n    -n, --name NAME                  the name\n    -c, --count=N                    how many\n[\"x\"]\n\"invalid option: --nope\"\ntrue\n\"missing argument: --name\"\n"
   end
 
   it "require first line" do

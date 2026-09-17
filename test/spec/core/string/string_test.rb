@@ -345,7 +345,7 @@ describe "String programs" do
   end
 
   it "gc stat string heap" do
-    _(ze0(<<~'RUBY', path: "core/string/gc_stat_string_heap.rb")).must_answer "", stderr: "core/string/gc_stat_string_heap.rb:13:in '<main>': undefined method '>=' for nil (NoMethodError)\n\nputs \"str_count >= 1000: \" + (g[\"str_count\"] >= 1000 ? \"yes\" : \"no\")\n                                             ^^\n", status: 1
+    result = ze0(<<~'RUBY', path: "core/string/gc_stat_string_heap.rb")
       # GC.stat surfaces the string heap (str_bytes / str_count). Spinel allocates
       # string data on a separate malloc'd heap (sp_str_heap) that is deliberately
       # excluded from the object-heap `bytes` figure (see sp_str_alloc), so a
@@ -362,6 +362,8 @@ describe "String programs" do
       puts "str_bytes > 0: " + (g["str_bytes"] > 0 ? "yes" : "no")
       puts "retained: " + arr.length.to_s
     RUBY
+
+    _(result).must_answer "", stderr: "core/string/gc_stat_string_heap.rb:13:in '<main>': undefined method '>=' for nil (NoMethodError)\n\nputs \"str_count >= 1000: \" + (g[\"str_count\"] >= 1000 ? \"yes\" : \"no\")\n                                             ^^\n", status: 1
   end
 
   it "gc str arg rooted" do
@@ -569,7 +571,7 @@ describe "String programs" do
   end
 
   it "io buffer reads and writes bytes in place" do
-    _(ze0(<<~'RUBY')).must_answer "Integer\n65536\n[1, 2, 4, 8, 32, 64, 128]\n[4, 8, 4, 8]\n1\n12\n[8, false, true, false, true, false]\n4660\n\"\\x124\\x00\\x00\\x00\\x00\\x00\\x00\"\n\"#<IO::Buffer 0xADDR+8 INTERNAL>\"\n\"#<IO::Buffer 0xADDR+8 INTERNAL>\\n0xADDR  12 34 00 00 00 00 00 00                         .4......\"\n\"hi\"\n\"\\x124\"\nString\n[6, true, true, \"abcdef\"]\n[IO::Buffer::AccessError, \"Buffer is not writable!\"]\n[false, \"Zbcdef\"]\n\"Zbcdef\"\n\"xyz\"\n[[18, 52]]\n\"\\x00\\x00\\x00\\x00\"\n[7, 7]\n[ArgumentError, \"Type extends beyond end of buffer! (offset=5 > size=2)\"]\n[RuntimeError, RuntimeError, RuntimeError, RuntimeError, ArgumentError]\nObject\nU8=1 S8=1 U16=2 S16=2 U32=4 S32=4 U64=8 S64=8 u16=2 s16=2 u32=4 s32=4 u64=8 s64=8 F32=4 F64=8 f32=4 f64=8 \n[52, 18]\n-1\n1.5\n[1.5, [0, 0, 192, 63]]\n[0, 0, 0, 0]\n[[0, 0], [1, 0], [2, 0], [3, 0]]\ntrue\n\"bc\"\n-1\n[15, 0]\n[ArgumentError, \"Invalid type name!\"]\n[IO::Buffer::AccessError, \"Cannot resize external buffer!\"]\n[true, 0]\n"
+    result = ze0(<<~'RUBY')
       # IO::Buffer is a window on bytes: its own, or a String's. A buffer made
       # `for` a String reads and writes that String's bytes in place, which is
       # what ruby means by locking the string for the block. Addresses in the
@@ -625,6 +627,8 @@ describe "String programs" do
       e2 = IO::Buffer.new(2); e2.free; p [e2.null?, e2.size]
       begin; e2.get_string; rescue => e; p [e.class, e.message]; end
     RUBY
+
+    _(result).must_answer "Integer\n65536\n[1, 2, 4, 8, 32, 64, 128]\n[4, 8, 4, 8]\n1\n12\n[8, false, true, false, true, false]\n4660\n\"\\x124\\x00\\x00\\x00\\x00\\x00\\x00\"\n\"#<IO::Buffer 0xADDR+8 INTERNAL>\"\n\"#<IO::Buffer 0xADDR+8 INTERNAL>\\n0xADDR  12 34 00 00 00 00 00 00                         .4......\"\n\"hi\"\n\"\\x124\"\nString\n[6, true, true, \"abcdef\"]\n[IO::Buffer::AccessError, \"Buffer is not writable!\"]\n[false, \"Zbcdef\"]\n\"Zbcdef\"\n\"xyz\"\n[[18, 52]]\n\"\\x00\\x00\\x00\\x00\"\n[7, 7]\n[ArgumentError, \"Type extends beyond end of buffer! (offset=5 > size=2)\"]\n[RuntimeError, RuntimeError, RuntimeError, RuntimeError, ArgumentError]\nObject\nU8=1 S8=1 U16=2 S16=2 U32=4 S32=4 U64=8 S64=8 u16=2 s16=2 u32=4 s32=4 u64=8 s64=8 F32=4 F64=8 f32=4 f64=8 \n[52, 18]\n-1\n1.5\n[1.5, [0, 0, 192, 63]]\n[0, 0, 0, 0]\n[[0, 0], [1, 0], [2, 0], [3, 0]]\ntrue\n\"bc\"\n-1\n[15, 0]\n[ArgumentError, \"Invalid type name!\"]\n[IO::Buffer::AccessError, \"Cannot resize external buffer!\"]\n[true, 0]\n"
   end
 
   it "issue string subclass new with arg" do
@@ -850,7 +854,7 @@ describe "String programs" do
   end
 
   it "raise of a plain string is an implicit runtime error" do
-    _(ze0(<<~'RUBY', path: "core/string/raise_of_a_plain_string_is_an_implicit_runtime_error.rb")).must_answer "", stderr: "core/string/raise_of_a_plain_string_is_an_implicit_runtime_error.rb:3:in 'Risky#check': plain string error (RuntimeError)\n\tfrom core/string/raise_of_a_plain_string_is_an_implicit_runtime_error.rb:6:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "core/string/raise_of_a_plain_string_is_an_implicit_runtime_error.rb")
       class Risky
         def check
           raise "plain string error"
@@ -858,6 +862,8 @@ describe "String programs" do
       end
       Risky.new.check
     RUBY
+
+    _(result).must_answer "", stderr: "core/string/raise_of_a_plain_string_is_an_implicit_runtime_error.rb:3:in 'Risky#check': plain string error (RuntimeError)\n\tfrom core/string/raise_of_a_plain_string_is_an_implicit_runtime_error.rb:6:in '<main>'\n", status: 1
   end
 
   it "ruby engine name" do

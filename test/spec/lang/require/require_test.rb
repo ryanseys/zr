@@ -169,7 +169,7 @@ describe "Require programs" do
   end
 
   it "load with a wrap argument lowers to a runtime loaderror" do
-    _(ze0(<<~'RUBY', files: {"load_with_a_wrap_argument_lowers_to_a_runtime_loaderror/main.rb" => "begin\n  load \"./w.rb\", true\nrescue LoadError => e\n  puts e.message\nend\n", "load_with_a_wrap_argument_lowers_to_a_runtime_loaderror/w.rb" => "puts 1\n"})).must_answer "1\n"
+    result = ze0(<<~'RUBY', files: {"load_with_a_wrap_argument_lowers_to_a_runtime_loaderror/main.rb" => "begin\n  load \"./w.rb\", true\nrescue LoadError => e\n  puts e.message\nend\n", "load_with_a_wrap_argument_lowers_to_a_runtime_loaderror/w.rb" => "puts 1\n"})
       # `load "file", wrap` needs load-time anonymous-module scoping this compiler
       # lacks, so the wrap form lowers to a runtime `Kernel#load` that raises
       # LoadError (the literal no-wrap form is spliced and executed instead).
@@ -177,6 +177,8 @@ describe "Require programs" do
       Dir.chdir(File.expand_path("load_with_a_wrap_argument_lowers_to_a_runtime_loaderror", __dir__))
       require_relative "load_with_a_wrap_argument_lowers_to_a_runtime_loaderror/main"
     RUBY
+
+    _(result).must_answer "1\n"
   end
 
   it "lrama features" do
@@ -368,14 +370,16 @@ describe "Require programs" do
   end
 
   it "reopening via load twice merges cleanly" do
-    _(ze0(<<~'RUBY', files: {"reopening_via_load_twice_merges_cleanly/counter.rb" => "class Counter\n  def bump\n    1\n  end\nend\n", "reopening_via_load_twice_merges_cleanly/main.rb" => "load \"./counter.rb\"\nload \"./counter.rb\"\nputs Counter.new.bump\n"})).must_answer "1\n"
+    result = ze0(<<~'RUBY', files: {"reopening_via_load_twice_merges_cleanly/counter.rb" => "class Counter\n  def bump\n    1\n  end\nend\n", "reopening_via_load_twice_merges_cleanly/main.rb" => "load \"./counter.rb\"\nload \"./counter.rb\"\nputs Counter.new.bump\n"})
       Dir.chdir(File.expand_path("reopening_via_load_twice_merges_cleanly", __dir__))
       require_relative "reopening_via_load_twice_merges_cleanly/main"
     RUBY
+
+    _(result).must_answer "1\n"
   end
 
   it "require relative" do
-    result = ze0(<<~'RUBY', files: {"require_relative/deeper.rb" => "# frozen_string_literal: true\n\n# A required file's top level is its own scope: this `mark` and the one\n# in the file that required it are two names with two slots.\nmark = \"deeper\"\n\nmodule Spliced\n  module Deeper\n    EXTRA = \"+\"\n  end\nend\n\nDEEPER_MARK = mark\n", "require_relative/shared.rb" => "# frozen_string_literal: true\n\nrequire_relative \"deeper\"\n\nmark = \"shared\"\n[\"!\"].each { |s| mark += s }\n\nmodule Spliced\n  MARK = \"!\"\n\n  class Helper\n    def self.help = \"helped\#{Deeper::EXTRA}\#{MARK}\"\n    def self.boom = raise(ArgumentError, \"from the spliced file\")\n  end\nend\n\nSHARED_MARK = mark\n"})
+    result = ze0(<<~'RUBY', path: "ze0/require_relative.rb", files: {"require_relative/deeper.rb" => "# frozen_string_literal: true\n\n# A required file's top level is its own scope: this `mark` and the one\n# in the file that required it are two names with two slots.\nmark = \"deeper\"\n\nmodule Spliced\n  module Deeper\n    EXTRA = \"+\"\n  end\nend\n\nDEEPER_MARK = mark\n", "require_relative/shared.rb" => "# frozen_string_literal: true\n\nrequire_relative \"deeper\"\n\nmark = \"shared\"\n[\"!\"].each { |s| mark += s }\n\nmodule Spliced\n  MARK = \"!\"\n\n  class Helper\n    def self.help = \"helped\#{Deeper::EXTRA}\#{MARK}\"\n    def self.boom = raise(ArgumentError, \"from the spliced file\")\n  end\nend\n\nSHARED_MARK = mark\n"})
       # frozen_string_literal: true
 
       # `require_relative` resolves here, not at run time: the target's
@@ -479,7 +483,7 @@ describe "Require programs" do
   end
 
   it "stdlib style feature drops in through an i search root" do
-    _(ze0(<<~'RUBY', files: {"a_stdlib_style_feature_drops_in_through_an_i_search_root/main.rb" => "require \"shellish\"\nputs Shellish.escape(\"a b c\")\n", "a_stdlib_style_feature_drops_in_through_an_i_search_root/rubylib/shellish.rb" => "module Shellish\n  def self.escape(s)\n    s.gsub(\" \", \"\\\\ \")\n  end\nend\n"})).must_answer "a\\ b\\ c\n"
+    result = ze0(<<~'RUBY', files: {"a_stdlib_style_feature_drops_in_through_an_i_search_root/main.rb" => "require \"shellish\"\nputs Shellish.escape(\"a b c\")\n", "a_stdlib_style_feature_drops_in_through_an_i_search_root/rubylib/shellish.rb" => "module Shellish\n  def self.escape(s)\n    s.gsub(\" \", \"\\\\ \")\n  end\nend\n"})
       # stdlib is delivered as ordinary `-I <lib>` load-path roots (no
       # bespoke flag) -- pointing `-I` at a Ruby checkout's `lib` makes each
       # `require "feature"` resolve a real stdlib `.rb`. This models that with a
@@ -489,6 +493,8 @@ describe "Require programs" do
       $LOAD_PATH.unshift(File.expand_path("a_stdlib_style_feature_drops_in_through_an_i_search_root/rubylib", __dir__))
       require_relative "a_stdlib_style_feature_drops_in_through_an_i_search_root/main"
     RUBY
+
+    _(result).must_answer "a\\ b\\ c\n"
   end
 
   it "top level return ends only its file" do

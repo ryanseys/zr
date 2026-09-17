@@ -20,7 +20,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "format directives" do
-    _(ze0(<<~'RUBY')).must_answer "Ada is 36\nHello, world!\n1010\n0b1010\n0xff / 010\n00001010\n   42|\n42   |\n3.14\nhello world\nFF\n0x1p-1\n03.14\n"
+    result = ze0(<<~'RUBY')
       # `format` (aka `sprintf`, and `String#%`) supports the full C-style directive
       # set, plus Ruby's named and positional references.
 
@@ -50,6 +50,8 @@ describe "Format: formatting and inspection" do
       # All of this works through String#% too.
       puts("%<x>05.2f" % { x: 3.14159 })                         # 03.14
     RUBY
+
+    _(result).must_answer "Ada is 36\nHello, world!\n1010\n0b1010\n0xff / 010\n00001010\n   42|\n42   |\n3.14\nhello world\nFF\n0x1p-1\n03.14\n"
   end
 
   it "format directives named positional star and alternate form" do
@@ -87,7 +89,7 @@ describe "Format: formatting and inspection" do
   end
 
   it "format fixed precision rounding" do
-    _(ze0(<<~'RUBY')).must_answer "2.68\n0.2\n2.68 1.00 8.84 0.14 1.12 2.34 3.04 1.26 0.62 4.98\n0.2 0.2 0.4 0.4 0.6 0.6 0.8 0.8\n-2.68 -2.34 -0.15\n0.10000000000000000555\n2.67499999999999982\n-0002.68\n+2.68\n      2.68|\n2.68      |\n2 4 0\n0.333333\n0.01\n2.68e+00 2.68\n2.68 2.34\n2.68\n"
+    result = ze0(<<~'RUBY')
       puts format("%.2f", 2.675)
       puts format("%.1f", 0.15)
       vals = [2.675, 1.005, 8.835, 0.145, 1.115, 2.345, 3.045, 1.255, 0.615, 4.985]
@@ -112,6 +114,8 @@ describe "Format: formatting and inspection" do
       printf("%.2f %.2f\n", 2.675, 2.345)
       puts "%.2f" % 2.675
     RUBY
+
+    _(result).must_answer "2.68\n0.2\n2.68 1.00 8.84 0.14 1.12 2.34 3.04 1.26 0.62 4.98\n0.2 0.2 0.4 0.4 0.6 0.6 0.8 0.8\n-2.68 -2.34 -0.15\n0.10000000000000000555\n2.67499999999999982\n-0002.68\n+2.68\n      2.68|\n2.68      |\n2 4 0\n0.333333\n0.01\n2.68e+00 2.68\n2.68 2.34\n2.68\n"
   end
 
   it "format flags mro errinfo" do

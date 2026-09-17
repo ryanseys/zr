@@ -1663,7 +1663,7 @@ describe "Numeric programs" do
   end
 
   it "numeric subclass limits" do
-    _(ze0(<<~'RUBY', path: "core/numeric/numeric_subclass_limits.rb")).must_answer "", stderr: "core/numeric/numeric_subclass_limits.rb:27:in 'Comparable#<': comparison of Deg with 0 failed (ArgumentError)\n\n  p n.i\n    ^^^\n\tfrom core/numeric/numeric_subclass_limits.rb:27:in 'Complex#inspect'\n\tfrom core/numeric/numeric_subclass_limits.rb:27:in 'Kernel#p'\n\tfrom core/numeric/numeric_subclass_limits.rb:27:in '<main>'\n", status: 1
+    result = ze0(<<~'RUBY', path: "core/numeric/numeric_subclass_limits.rb")
       # WAITING ON `builtin_frames_in_a_backtrace`. Complex now holds a user
       # `Numeric` subclass and dispatches every component operation, so this file
       # raises ruby's ArgumentError from ruby's line with ruby's message -- what is
@@ -1695,6 +1695,8 @@ describe "Numeric programs" do
         puts "i: #{e.message}"
       end
     RUBY
+
+    _(result).must_answer "", stderr: "core/numeric/numeric_subclass_limits.rb:27:in 'Comparable#<': comparison of Deg with 0 failed (ArgumentError)\n\n  p n.i\n    ^^^\n\tfrom core/numeric/numeric_subclass_limits.rb:27:in 'Complex#inspect'\n\tfrom core/numeric/numeric_subclass_limits.rb:27:in 'Kernel#p'\n\tfrom core/numeric/numeric_subclass_limits.rb:27:in '<main>'\n", status: 1
   end
 
   it "polyarray insert delete at" do
