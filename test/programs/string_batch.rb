@@ -1,3 +1,4 @@
+# native only: pipe has no wasm form
 p "a\nb\n".lines("b"), "a--b--c".lines("--"), "a\n\nb\n\n\nc".lines(""), "abc".each_line("b").to_a, "a\nb".lines(chomp: true), "a--b".lines("--", chomp: true), "a\r\nb\r\n".lines(chomp: true), "a\nb".lines(nil), "".lines, "a\n\n\n\nb".lines(""), "a\n\nb".lines("", chomp: true), "abc".lines("c"), "x\ny\n".each_line { |l| print l.inspect, " " }
 puts
 p ("a".."e").step(2).to_a, ("a".."e").step(2).class, ("a".."e").step(1).to_a, ("aa".."ad").step(3).to_a, (("a".."e").step(0) rescue $!.message), ("a".."c").step(2) { |s| print s }, ("a".."e") % 2
