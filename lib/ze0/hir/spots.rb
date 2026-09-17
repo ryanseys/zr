@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "prism"
+require_relative "../prism"
 require "error_highlight"
 
 module Ze0

@@ -10,7 +10,7 @@
 # method, and holds its `<internal:file>` path, the line its def starts
 # on, and the line its body ends on, which is where ruby reports the
 # return.
-require "prism"
+require_relative "../lib/ze0/prism"
 
 REVISION = "03b6d3f8898a28604fe6cb00eae3226b821168f4"
 CHECKOUT = File.expand_path("~/dev/github.com/ruby/ruby")

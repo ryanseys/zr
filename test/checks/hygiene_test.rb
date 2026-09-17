@@ -41,4 +41,15 @@ class HygieneTest < Minitest::Test
     end
     assert_empty shadows.sort, "ze0 shadows Object/Kernel methods"
   end
+
+  # The compiler parses with prism through lib/ze0/prism.rb, which puts the
+  # Ruby port in place of the C extension: a file that required prism
+  # itself would load the C first, and the port would not load. The
+  # harness that holds the port to the C loads the C on purpose.
+  def test_the_compiler_requires_prism_only_through_ze0_prism
+    direct = Dir[File.join(ROOT, "{lib,tools,exe}/**/*.rb")].reject { |file| file.include?("/lib/ze0/harness/") }.select do |file|
+      File.read(file).match?(/^\s*require ["']prism["']/) && !file.end_with?("/lib/ze0/prism.rb")
+    end
+    assert_empty direct.map { |file| file.delete_prefix("#{ROOT}/") }
+  end
 end

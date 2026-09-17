@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "prism"
+require_relative "../prism"
 require_relative "../ir"
 require_relative "../obj/model"
 require_relative "../backend/aarch64/stub"
@@ -73,7 +73,7 @@ module Ze0
 
       def run
         @sources.each do |source, file|
-          result = Prism.parse(source, filepath: file)
+          result = Ze0.parse(source, filepath: file)
           unless result.errors.empty?
             e = result.errors.first
             raise SyntaxError, "#{file}:#{e.location.start_line}: #{e.message}"

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "prism"
+require_relative "../prism"
 require_relative "../paths"
 require_relative "../target"
 require_relative "node"
@@ -401,7 +401,7 @@ module Ze0
         end
 
         def unit(file, source = File.read(file), line = 1, scopes = nil, method: nil)
-          result = scopes ? Prism.parse(source, filepath: file, line: line, scopes: scopes) : Prism.parse(source, filepath: file, line: line)
+          result = scopes ? Ze0.parse(source, filepath: file, line: line, scopes: scopes) : Ze0.parse(source, filepath: file, line: line)
           raise SyntaxReport.error(result, file) unless result.errors.empty?
           stray = scopes && method.nil? && invalid_yields(source, file, line)
           raise stray if stray
@@ -426,7 +426,7 @@ module Ze0
         # is not told the string runs inside other scopes, so it is asked
         # that way; ruby names every one, a line each.
         def invalid_yields(source, file, line)
-          yields = Prism.parse(source, filepath: file, line: line).errors.select { |e| e.type == :invalid_yield }
+          yields = Ze0.parse(source, filepath: file, line: line).errors.select { |e| e.type == :invalid_yield }
           return nil if yields.empty?
 
           SyntaxError.new(yields.map { |e| "#{file}:#{e.location.start_line}: #{e.message}" }.join("\n")).tap do |exc|

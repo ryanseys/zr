@@ -46,7 +46,7 @@ module Ze0
       end
 
       # The directory whose prism/prism.rb stands in for the C extension.
-      RUBY_BACKEND = File.join(ROOT, "tools/prism/ruby_backend")
+      RUBY_BACKEND = File.join(ROOT, "lib/ze0/prism_backend")
 
       # A test file's counts as test-unit reports them.
       TestRun = Struct.new(:file, :tests, :assertions, :failures, :errors, :pendings, :omissions, :output) do
