@@ -92,12 +92,25 @@ module Ze0
           @rename = {}
         end
 
+        # Blocks in layout order. A block whose predecessors all come
+        # before it is settled on entry: no edge from any of them reaches
+        # it unless that predecessor was reached and its terminator, once
+        # folded, still names it. A settled block no edge reaches is dead,
+        # and its own edges count for nothing; a parameter every edge that
+        # does reach it gives the same constant is that constant. A block
+        # a later one jumps back to (a loop's head) is never settled.
         def run
-          @f.blocks.each do |b|
-            b.insts.each do |i|
-              rename(i)
-              fold(i)
-            end
+          arriving = Hash.new { |h, name| h[name] = [] }
+          laid = @f.blocks.each_with_index.to_h { |b, at| [b.name, at] }
+          before = predecessors
+          @f.blocks.each_with_index do |b, at|
+            settled = !b.equal?(@f.entry_block) && before[b.name].all? { |p| laid.fetch(p) < at }
+            edges = arriving[b.name]
+            next fold_insts(b) if settled && edges.empty?
+
+            enter(b, edges) if settled
+            fold_insts(b)
+            b.insts.last&.targets&.each { |(name, args)| arriving[name] << args }
           end
           # A use laid out before its definition, which a loop can do,
           # is renamed on a second pass.
@@ -106,6 +119,32 @@ module Ze0
         end
 
         private
+
+        def fold_insts(b)
+          b.insts.each do |i|
+            rename(i)
+            fold(i)
+          end
+        end
+
+        # Each block's predecessors by name, from the terminators as they
+        # stand before any folds.
+        def predecessors
+          into = Hash.new { |h, name| h[name] = [] }
+          @f.blocks.each { |b| b.insts.last&.targets&.each { |(name, _)| into[name] << b.name } }
+          into
+        end
+
+        # Each parameter of `b` that every edge in `edges` gives the same
+        # constant, known as that constant.
+        def enter(b, edges)
+          b.params.each_with_index do |(v, type), k|
+            first = constant(edges[0][k])
+            next unless first && edges.all? { |args| constant(args[k]) == first }
+
+            @const[v] = [first, type]
+          end
+        end
 
         # The number `v` holds, masked to its type, or nil.
         def constant(v)
