@@ -22,16 +22,18 @@ class PrismTest < Minitest::Test
     assert_empty PrismDiff.writer(cases).first(5)
   end
 
-  # The lexer with no parser behind it: every fixture and error file it can
-  # lex so far gives C's tokens, except where the parser moves the lex state
-  # (lambda braces, `do` loops, labels, ignored newlines), and none raises.
+  # The lexer with no parser behind it: every fixture and error file lexes
+  # in every mode and gives C's tokens, except where the parser moves the
+  # lex state (lambda braces, `do` loops, labels, ignored newlines,
+  # interpolation), and none raises.
   def test_the_lexer_alone_lexes_prisms_fixtures_and_errors_as_the_c_does
     skip "no prism checkout at #{PrismDiff::CHECKOUT}" unless PrismDiff.upstream
 
     cases = PrismDiff.cases(%w[fixtures errors])
     failures, unsupported = PrismDiff.lex(cases)
     assert_empty failures.select { |_, why| why.include?("Error") }.first(5)
-    assert_operator cases.size - failures.size - unsupported, :>=, 3688
+    assert_equal 0, unsupported
+    assert_operator cases.size - failures.size, :>=, 4744
   end
 
   def test_the_writer_writes_prisms_fixtures_and_errors_as_the_c_does

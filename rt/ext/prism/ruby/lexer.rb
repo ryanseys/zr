@@ -26,8 +26,7 @@ module Prism
         case @lex_mode.mode
         when :default, :embexpr, :embvar then lex_default(previous_command_start, semantic_token_seen)
         when :list then lex_list
-        when :regexp then lex_regexp
-        when :string then lex_string
+        when :string, :regexp then lex_literal
         when :heredoc then lex_heredoc
         end
       end

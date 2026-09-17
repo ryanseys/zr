@@ -7,6 +7,7 @@ require_relative "diagnostics"
 require_relative "tokens"
 require_relative "scope"
 require_relative "options"
+require_relative "strpbrk"
 
 module Prism
   module Ruby
@@ -292,7 +293,7 @@ module Prism
         breakpoints << "#" if interpolation
         breakpoints << incrementor if incrementor != 0
         @explicit_encoding = nil
-        lex_mode_push(LexMode.new(:list, 0, interpolation, nil, incrementor, terminator, breakpoints))
+        lex_mode_push(LexMode.new(:list, 0, interpolation, nil, incrementor, terminator, Breakpoints[breakpoints]))
       end
 
       # lex_mode_push_list_eof
@@ -304,7 +305,7 @@ module Prism
         breakpoints << terminator if terminator != 0
         breakpoints << incrementor if incrementor != 0
         @explicit_encoding = nil
-        lex_mode_push(LexMode.new(:regexp, 0, nil, nil, incrementor, terminator, breakpoints))
+        lex_mode_push(LexMode.new(:regexp, 0, nil, nil, incrementor, terminator, Breakpoints[breakpoints]))
       end
 
       # lex_mode_push_string
@@ -314,7 +315,7 @@ module Prism
         breakpoints << "#" if interpolation
         breakpoints << incrementor if incrementor != 0
         @explicit_encoding = nil
-        lex_mode_push(LexMode.new(:string, 0, interpolation, label_allowed, incrementor, terminator, breakpoints))
+        lex_mode_push(LexMode.new(:string, 0, interpolation, label_allowed, incrementor, terminator, Breakpoints[breakpoints]))
       end
 
       # lex_mode_push_string_eof
