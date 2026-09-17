@@ -19,6 +19,9 @@ def supervise(glob, env: {})
   filter = ENV["FILTER"].to_s.split
   files = files.select { |f| filter.any? { |a| File.basename(f).include?(a) } } unless filter.empty?
   abort("rake: nothing matches #{filter.join(" ")}") if files.empty?
+  # `TARGET=wasm32-wasi` builds every program for that triple and runs
+  # it the way that triple is run, as the cross-target rows of CI do.
+  env = env.merge("ZE0_TARGET" => ENV["TARGET"]) if ENV["TARGET"]
   Ze0::Test::Supervisor.new(ROOT, env: env).run(files) or exit(1)
 end
 
@@ -31,7 +34,7 @@ namespace :test do
     supervise("test/unit/*_test.rb")
   end
 
-  desc "Ruby held to ruby, program by program; FILTER= picks files, GC=stress collects at every allocation"
+  desc "Ruby held to ruby, program by program; FILTER= picks files, GC=stress collects at every allocation, TARGET= names another triple"
   task :spec do
     next puts("rake test:spec: no specs yet") if Dir[File.join(ROOT, "test/spec/**/*_test.rb")].empty?
 
@@ -54,22 +57,22 @@ namespace :test do
   end
 end
 
-desc "How long does what ze0 built take?"
-task :bench, [:filters] do |_, args|
-  ruby_run(File.join(ROOT, "bin/ze0"), "bench", *args[:filters].to_s.split)
-end
+desc "How long does what ze0 built take? rake 'bench[--runs 5 fib]'"
+task(:bench, [:filters]) { |_, args| tool("bench", *args[:filters].to_s.split) }
 
 desc "ze0 compiles itself twice, to the same bytes"
-task(:stage1) { ruby_run(File.join(ROOT, "bin/ze0"), "stage1") }
+task(:stage1) { tool("stage1") }
 
 desc "The compiler compiled by itself is a fixed point"
-task(:stage2) { ruby_run(File.join(ROOT, "bin/ze0"), "stage2") }
+task(:stage2) { tool("stage2") }
 
 # Every literal a spec asserts was lifted from a trailer ruby wrote, and
-# this is what says it still is.
-desc "Every spec literal re-checked against ruby 4.0.6"
-task :oracle do
-  abort("rake oracle: not written until the first area converts")
+# this is what says it still is. It compiles nothing: each program is
+# run under the ruby the `.ruby-version` pins and held to what its
+# example claims.
+desc "Every spec literal re-checked against ruby 4.0.6: rake 'oracle[test/spec/core/string]'"
+task :oracle, [:path] do |_, args|
+  tool("oracle", args[:path] || "test/spec")
 end
 
 # Each writes a file from an oracle: ruby, or a C source read at

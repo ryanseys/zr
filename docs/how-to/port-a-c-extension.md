@@ -67,7 +67,7 @@ do, and run them:
 
 ```console
 $ ruby tools/record.rb stdlib/digest/sha256_of_a_file.rb
-$ bin/ze0 test stdlib/digest/
+$ rake test:spec FILTER=digest
 ```
 
 ## Platform tables

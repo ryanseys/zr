@@ -555,12 +555,17 @@ describe "Numeric: arithmetic" do
       p((-8.0) ** (1.0 / 3)) rescue puts "raised2"
     RUBY
 
-    _(result).must_answer <<~'OUT'
+    _(result).must_answer <<~'OUT', linux: <<~'LINUX'
       (0.0+1.4142135623730951i)
       1.4142135623730951
       4.0
       (1.0+1.7320508075688772i)
     OUT
+      (0.0+1.4142135623730951i)
+      1.4142135623730951
+      4.0
+      (1.0000000000000002+1.7320508075688772i)
+    LINUX
   end
 
   it "float quo step by" do

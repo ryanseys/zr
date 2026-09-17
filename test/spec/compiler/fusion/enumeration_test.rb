@@ -200,7 +200,7 @@ describe "Fusion: enumeration" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
+    _(result).must_answer <<~'OUT', linux: <<~'LINUX'
       10
       30
       10
@@ -212,6 +212,17 @@ describe "Fusion: enumeration" do
       [1, 3, 0, 2, 4]
       comparison of NoCmp with NoCmp failed
     OUT
+      10
+      30
+      10
+      30
+      30
+      10
+      3
+      false
+      [3, 1, 0, 2, 4]
+      comparison of NoCmp with NoCmp failed
+    LINUX
   end
 
   it "redefined array each beats the splice" do

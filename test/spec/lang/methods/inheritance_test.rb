@@ -1026,6 +1026,110 @@ describe "Methods: inheritance and ancestors" do
     RUBY
   end
 
+  it "super channels" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
+      # `super` sends through the same three channels an ordinary call does:
+      # positionals with a `*` splat spread among them, a keyword Hash of its
+      # own, and the block. The Array the runtime reads is built here, so a
+      # splat is one different push and nothing else changes.
+
+      class Base
+        def go(*args, **kw)
+          ["base", args, kw]
+        end
+
+        def pair(a, b) = "#{a}/#{b}"
+      end
+
+      class Kid < Base
+        def go(*args, **kw) = super(*args, **kw)
+      end
+
+      class Splatter < Base
+        def go(head, *rest) = super(head, *rest, tail: rest.size)
+
+        def pair(a, b) = super(*[a, b])
+      end
+
+      p Kid.new.go(1, 2, a: 3)
+      p Kid.new.go
+      p Splatter.new.go(1, 2, 3)
+      p Splatter.new.pair(:x, :y)
+
+      # A module's `super` walks the ancestors above the module, not above the
+      # class the method was called on.
+      module Loud
+        def speak(word)
+          "#{super(word)}!"
+        end
+      end
+
+      class Quiet
+        def speak(word) = word
+      end
+
+      class Shouter < Quiet
+      end
+      Shouter.include(Loud)
+
+      p Shouter.new.speak("hi")
+      p Shouter.ancestors.take(3).map(&:to_s)
+
+      # A body the runtime installed has no defining class until it runs, so
+      # the target comes off the method-frame stack instead.
+      P = Module.new do
+        def label(*parts, sep: "-")
+          "<#{super(*parts, sep: sep)}>"
+        end
+
+        def each_upper
+          super { |v| yield v.upcase }
+        end
+      end
+
+      class Plain
+        def label(*parts, sep: "-") = parts.join(sep)
+
+        def each_upper
+          yield "a"
+          yield "b"
+        end
+      end
+      Plain.prepend(P)
+
+      p Plain.new.label("a", "b")
+      p Plain.new.label("a", "b", sep: "+")
+
+      seen = []
+      Plain.new.each_upper { |v| seen << v }
+      p seen
+
+      # A bare `super` still forwards the parameters by their CURRENT values.
+      class Renamer < Base
+        def pair(a, b)
+          a = "#{a}#{a}"
+          super
+        end
+      end
+      p Renamer.new.pair("q", "r")
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["base", [1, 2], {a: 3}]
+      ["base", [], {}]
+      ["base", [1, 2, 3], {tail: 2}]
+      "x/y"
+      "hi!"
+      ["Shouter", "Loud", "Quiet"]
+      "<a-b>"
+      "<a+b>"
+      ["A", "B"]
+      "qq/r"
+    OUT
+  end
+
   it "super from an extended module method resolves the singleton chain" do
     _(ze0(<<~'RUBY')).must_answer "base!\n"
       # `extend M` puts M in the receiver's SINGLETON-class chain -- a `super`
@@ -1066,6 +1170,98 @@ describe "Methods: inheritance and ancestors" do
       end
       puts Widget.new.tag
     RUBY
+  end
+
+  it "super in a block" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
+      # `super` resumes the MRO walk above the class the `def` was WRITTEN in.
+      # A block has no method of its own, so a `super` in one belongs to the
+      # method that wrote the block -- and a class method walks the singleton
+      # chain instead.
+
+      class Base
+        def greet(a, b = 2) = "base #{a} #{b}"
+        def with_block = "base #{yield 5}"
+        def self.make(x) = "base make #{x}"
+        def channels(*xs, **k) = "base #{xs} #{k}"
+      end
+
+      class Child < Base
+        # A bare `super` sends the parameters by their CURRENT values, which
+        # the block has to carry even though it names none of them.
+        def greet(a, b = 2)
+          a = a.upcase
+          [1].map { [1].map { super } }.flatten.first
+        end
+
+        # The block a bare `super` forwards is the enclosing method's, the
+        # same channel a bare `yield` written there reads.
+        def with_block
+          [1].map { super }.first
+        end
+
+        def self.make(x)
+          [1].map { super }.first
+        end
+
+        # Every argument channel, forwarded by a bare `super`.
+        def channels(*xs, **k) = super
+      end
+
+      p Child.new.greet("q")
+      p Child.new.with_block { |n| n * 3 }
+      p Child.make(4)
+      p Child.new.channels(1, 2, a: 3)
+
+      # An inherited class method keeps walking from where it was written.
+      class Grand < Child; end
+      p Grand.make(9)
+
+      # A lambda is a block too.
+      class Lam < Base
+        def greet(a, b = 2)
+          l = -> { super }
+          l.call
+        end
+      end
+      p Lam.new.greet("l")
+
+      # A block written AT the `super` replaces the one that would forward.
+      class Blocky < Base
+        def with_block
+          [1].map { super { |n| n + 100 } }.first
+        end
+      end
+      p Blocky.new.with_block
+
+      # The anonymous channels forward by the names ruby gives them.
+      class Anon < Base
+        def channels(*, **) = super
+      end
+      p Anon.new.channels(6, z: 7)
+
+      # A `class << self` body writes the same singleton row a `def self.x` does.
+      class Singly < Base
+        class << self
+          def make(x) = super
+        end
+      end
+      p Singly.make(8)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "base Q 2"
+      "base 15"
+      "base make 4"
+      "base [1, 2] {a: 3}"
+      "base make 9"
+      "base l 2"
+      "base 105"
+      "base [6] {z: 7}"
+      "base make 8"
+    OUT
   end
 
   it "super in an aliased define method body names the original" do

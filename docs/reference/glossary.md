@@ -3,18 +3,20 @@
 **Builtin.** A method the runtime defines, from the core library or the
 kernel, as opposed to a method the program defines.
 
-**Case.** One corpus program: a `.rb` file with ruby's answer under
-`__END__`. See [The test format](test-format.md).
+**Case.** One whole program: a `.rb` file with ruby's answer under
+`__END__`, in `test/e2e/` or `test/bench/`. See
+[The program format](test-format.md).
 
 **Cell.** A fixed-size block of the heap that holds one object: 32, 64,
 128 or 256 bytes.
 
-**Check.** A Minitest file in `test/unit/`, run by `bin/ze0 check`.
+**Unit.** A Minitest file in `test/unit/`, run by `rake test:unit`.
 
 **Core library.** `rt/core/`: Ruby's core classes, written in ordinary
 Ruby over the kernel.
 
-**Corpus.** The directories of cases under `test/` that ze0 is held to.
+**Example.** One `it` block in a spec file: a Ruby program written
+inline, compiled by ze0, and held to what ruby answered.
 
 **Cref.** The lexical scope a method or block runs in: where a `def`
 lands and where constants are looked up.
@@ -23,8 +25,8 @@ lands and where constants are looked up.
 as text (`rt/ext/os/<os>/zr_description.rb`). A program that evals
 carries it instead of the kernel's sources.
 
-**Diverged.** A case whose binary answered something other than ruby's
-recording.
+**Diverged.** A program whose binary answered something other than
+ruby's recording.
 
 **Env.** The cell that holds the locals a block captures.
 

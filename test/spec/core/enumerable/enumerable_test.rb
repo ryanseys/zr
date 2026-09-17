@@ -1075,7 +1075,7 @@ describe "Enumerable programs" do
       t("nil from the block") { pairs.min(2) { |_a, _b| nil } }
     RUBY
 
-    _(result).must_answer <<~'OUT'
+    _(result).must_answer <<~'OUT', linux: <<~'LINUX'
       min_by(3)                [[0, 3], [0, 0], [0, 6]]
       max_by(3)                [[2, 11], [2, 2], [2, 5]]
       min(3)                   [[0, 3], [0, 0], [0, 6]]
@@ -1096,6 +1096,26 @@ describe "Enumerable programs" do
       incomparable             ArgumentError: comparison of String with 1 failed
       nil from the block       ArgumentError: comparison of Array with Array failed
     OUT
+      min_by(3)                [[0, 3], [0, 0], [0, 6]]
+      max_by(3)                [[2, 11], [2, 2], [2, 5]]
+      min(3)                   [[0, 3], [0, 0], [0, 6]]
+      max(3)                   [[2, 11], [2, 2], [2, 5]]
+      min_by(1)                [[0, 0]]
+      min_by(20)               [[0, 21], [0, 51], [0, 18], [0, 39]]
+      min_by(60)               [[0, 0], [0, 24], [0, 54]]
+      min_by past the end      60
+      min_by(0)                []
+      min(0)                   []
+      negative                 ArgumentError: negative size (-1)
+      enumerator               [[[0, 3], 3], [[0, 0], 0], [[0, 6], 6]]
+      a range                  [20, 8, 36]
+      distinct keys min        [1, 3]
+      distinct keys max        [9, 5]
+      all equal                [[0, 7], [0, 0], [0, 14], [0, 13]]
+      strings                  ["fig", "date"]
+      incomparable             ArgumentError: comparison of String with 1 failed
+      nil from the block       ArgumentError: comparison of Array with Array failed
+    LINUX
   end
 
   it "non number ends the compensated sum" do

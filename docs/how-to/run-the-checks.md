@@ -1,12 +1,21 @@
 # How to run the checks
 
 This guide shows you how to run ze0's own tests in a checkout: the
-checks, the corpus, and the bootstrap. Run the smallest set that covers
-your change, and the full set before you merge.
+units, the specs, the end-to-end programs and the bootstrap. Run the
+smallest set that covers your change, and the full set before you
+merge.
 
-## Run the checks that cover a change
+Three tiers, in the order you reach for them:
 
-The checks are Minitest files in `test/unit/`. `FILTER` gives part of
+| Tier | Holds | Costs |
+|---|---|---|
+| `rake test:unit` | ze0's own internals | minutes |
+| `rake test:spec` | Ruby held to ruby, one compile an example | twelve minutes |
+| `rake test:e2e` | whole programs through a real link | a minute |
+
+## Run the units that cover a change
+
+The units are Minitest files in `test/unit/`. `FILTER` gives part of
 each file name:
 
 ```console
@@ -47,34 +56,64 @@ $ git diff rt/ext/os/
 A change to a kernel def's signature, a struct or a constant under
 `rt/kernel/` always needs the description written again.
 
-## Run the corpus
+## Run the specs that cover a change
 
-Run a directory, or any part of a case's name:
-
-```console
-$ bin/ze0 test lang/blocks/
-$ bin/ze0 test core/string/ core/array/
-$ bin/ze0 test ze0::
-```
-
-To collect at every allocation, add `--gc stress`. Use it for a change
-to the heap, the frames or the roots:
+The specs are in `test/spec/<suite>/<area>/`, and `FILTER` gives part
+of each file name:
 
 ```console
-$ bin/ze0 test lang/blocks/ --gc stress
+$ rake test:spec FILTER="string blocks"
 ```
 
-To run every program, use `--all`. This takes a long time, so run it
-before a release, not for each change.
-
-## Run the corpus for another target
+One file runs standalone with minitest's own options, which is the
+fastest way to reach one example:
 
 ```console
-$ bin/ze0 test ze0:: --target wasm32-wasi --baseline test/baselines/wasm32-wasi.txt
+$ ruby -Ilib -Itest test/spec/core/string/frozen_test.rb -n "/deduplicated/"
 ```
 
-With `--baseline`, the run passes when each defect is one the baseline
-file already lists.
+To collect at every allocation, add `GC=stress`. Use it for a change to
+the heap, the frames or the roots:
+
+```console
+$ rake test:spec FILTER=blocks GC=stress
+```
+
+`rake test:spec` with no filter runs all of them: about twelve minutes,
+four files at a time. Set `ZE0_JOBS` to change that number.
+
+## Run the end-to-end programs
+
+These build whole programs through a real link, in a child of their
+own, and hold each binary to ruby's recording:
+
+```console
+$ rake test:e2e
+$ ruby -Ilib -Itest test/e2e/binaries_test.rb -n /socket/
+```
+
+## Run for another target
+
+```console
+$ rake test:e2e TARGET=wasm32-wasi
+$ rake test:spec TARGET=aarch64-linux-musl FILTER=blocks
+```
+
+A target on its way in is held to what it did rather than to the whole
+tier: `test/baselines/<triple>.txt` names the programs it is allowed to
+fail. A named program that now passes fails the run, so the file cannot
+go stale. See [The program format](../reference/test-format.md).
+
+## Check that a literal is still ruby's word
+
+Every literal a spec asserts was lifted from an answer ruby recorded.
+`rake oracle` runs each program under the ruby the `.ruby-version`
+pins and holds the example to it, compiling nothing:
+
+```console
+$ rake 'oracle[test/spec/core/string]'
+$ rake oracle
+```
 
 ## Check the bootstrap
 
@@ -101,5 +140,7 @@ $ bundle exec rake test:unit             # ze0's internals, seconds
 $ bundle exec rake test:spec             # Ruby held to ruby
 $ bundle exec rake test:spec FILTER=string
 $ bundle exec rake test:spec GC=stress
+$ bundle exec rake test:e2e             # whole programs through a real link
+$ bundle exec rake oracle               # every literal re-checked against ruby
 $ bundle exec rake stage1 stage2
 ```

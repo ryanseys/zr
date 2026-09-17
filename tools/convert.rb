@@ -28,7 +28,8 @@ module Convert
   # Directives that map straight onto a `ze0` keyword.
   PASSED = { args: :argv, env: :env, stdin: :stdin }.freeze
 
-  Example = Struct.new(:name, :source, :expected, :directives, :path, :files, :stdin, keyword_init: true)
+  Example = Struct.new(:name, :source, :expected, :elsewhere, :directives, :path, :files, :stdin,
+                       keyword_init: true)
 
   module_function
 
@@ -38,9 +39,9 @@ module Convert
     return [nil, "no recording"] unless kase.recorded?
 
     d = kase.directives
-    return [nil, "`#@ backend: jit` wants the compiler in process"] if d.backend
-    return [nil, "`#@ zeo:` names CLI flags no example has"] unless d.zeo.empty?
-    return [nil, "references DATA"] if kase.program.match?(/\bDATA\b/)
+    # `DATA` is the program's own trailer, which an inlined heredoc has
+    # no room for. A comment that merely says the word is not that.
+    return [nil, "references DATA"] if kase.program.gsub(/#.*$/, "").match?(/\bDATA\b/)
 
     source = strip(kase.program)
     return [nil, "the program is not UTF-8"] unless source.valid_encoding?
@@ -61,18 +62,28 @@ module Convert
     stdin = d.stdin && File.binread(File.join(File.dirname(rb), d.stdin))
 
     [Example.new(name: name_of(rb), source: source, expected: expected(kase, rb),
-                 directives: d, path: path, files: files, stdin: stdin), nil]
+                 elsewhere: elsewhere(kase, rb), directives: d, path: path, files: files, stdin: stdin), nil]
   end
 
   # What an example asserts. `ze0` answers a scrubbed result -- an
   # object address and a thread id are the program's own each run -- so
   # the literal is scrubbed the same way, and the two can be equal.
-  def expected(kase, rb)
-    want = kase.answer
+  def expected(kase, rb, platform = "macos")
+    want = kase.expected(platform)
     dir = File.dirname(rb)
     Ze0::Harness::Answer.new(Ze0::Harness::Normalize.bytes(want.stdout, rb, dir),
                              Ze0::Harness::Normalize.bytes(want.stderr, rb, dir),
                              want.code, want.signal)
+  end
+
+  # The platforms whose stdout parts from macOS's, which is what a
+  # `#@ linux stdout` section in a recording says. Only stdout has ever
+  # parted, so only stdout is carried.
+  def elsewhere(kase, rb)
+    (Ze0::Harness::Case::PREFIXED).to_h do |platform|
+      want = expected(kase, rb, platform)
+      [platform, want.stdout == expected(kase, rb).stdout ? nil : want.stdout]
+    end.compact
   end
 
   # The directive lines go: an example carries them as arguments. The
@@ -219,10 +230,11 @@ module Convert
     text.lines.none? { |line| line.start_with?(" ", "\t") || line.match?(/[ \t]\n\z/) || TERMINATORS.include?(line.chomp) }
   end
 
-  # The expected output as a heredoc body, indented under `at`.
-  def heredoc(bytes, at)
+  # The expected output as a heredoc body, indented under `at` and
+  # closed by `term`.
+  def heredoc(bytes, at, term = "OUT")
     text = bytes.dup.force_encoding(Encoding::UTF_8)
-    [*text.lines.map { |l| l.chomp.empty? ? "" : "#{at}  #{l.chomp}" }, "#{at}OUT"]
+    [*text.lines.map { |l| l.chomp.empty? ? "" : "#{at}  #{l.chomp}" }, "#{at}#{term}"]
   end
 
   def keywords(example)
@@ -257,7 +269,7 @@ module Convert
 
   # One line holds the whole example when there is nothing to guard and
   # the answer is short enough to read at the end of it.
-  def compact?(ex) = guards(ex).empty? && !heredoc?(ex.expected.stdout)
+  def compact?(ex) = guards(ex).empty? && ex.elsewhere.empty? && !heredoc?(ex.expected.stdout)
 
   # What `must_answer` is told beyond stdout. Each is the recording's
   # own word: an absent `#@ stderr` means stderr is empty, and an
@@ -295,17 +307,58 @@ module Convert
     out.concat(ex.source.each_line.map { |l| l.chomp.empty? ? "" : "    #{l.chomp}" })
     out << "  #{t}" << ""
 
+    # Heredocs read as the program's own output, and several on one
+    # line hold their bodies in the order their markers appear -- which
+    # is what the platforms that part from macOS's stdout need.
+    bodies = []
+    head = if heredoc?(want.stdout)
+             bodies << [want.stdout, "OUT"]
+             "<<~'OUT'"
+           else
+             literal(want.stdout)
+           end
     options = answer_options(ex)
-    if heredoc?(want.stdout)
-      out << "  _(result).must_answer #{["<<~'OUT'", *options].join(", ")}"
-      out.concat(heredoc(want.stdout, "  "))
-    else
-      out << "  _(result).must_answer #{[literal(want.stdout), *options].join(", ")}"
+    ex.elsewhere.each do |platform, stdout|
+      term = platform.upcase
+      options << if heredoc?(stdout)
+                   bodies << [stdout, term]
+                   "#{platform}: <<~'#{term}'"
+                 else
+                   "#{platform}: #{literal(stdout)}"
+                 end
     end
+    out << "  _(result).must_answer #{[head, *options].join(", ")}"
+    bodies.each { |text, term| out.concat(heredoc(text, "  ", term)) }
     out
   end
 
+  # The cases from a suite of its own that an area takes in: `test/ze0`,
+  # `test/aot` and `test/milestones` each held programs that `lang/`,
+  # `core/`, `stdlib/` or `compiler/` already covers. `tools/refile.tsv`
+  # says which goes where; a program that stays whole is not listed.
+  def taken_in
+    map = File.join(ROOT, "tools/refile.tsv")
+    return Hash.new([]) unless File.file?(map)
+
+    rows = File.readlines(map, chomp: true).filter_map do |line|
+      next if line.empty? || line.start_with?("#")
+
+      rb, area = line.split("\t", 2)
+      raise "#{map}: no area on #{line.inspect}" unless area
+
+      [File.join(ROOT, rb), area]
+    end
+    rows.group_by(&:last).transform_values { |v| v.map(&:first) }.tap { |h| h.default = [] }
+  end
+
   def file(describe, examples)
+    # Two examples of one name define one method: minitest names a test
+    # after its sentence, and the second `def` would quietly replace the
+    # first. An area that takes in a case from elsewhere is where this
+    # happens, so it is caught here rather than counted later.
+    twice = examples.map(&:name).tally.select { |_, n| n > 1 }.keys
+    raise "two examples named #{twice.first.inspect} in #{describe.inspect}" unless twice.empty?
+
     lines = ["# frozen_string_literal: true", "", 'require "spec_helper"', "",
              "describe #{describe.inspect} do"]
     examples.each_with_index do |ex, i|
@@ -321,11 +374,11 @@ end
 if $PROGRAM_NAME == __FILE__
   # An area at a time: every case planned, grouped, and written to the
 # file its subject names.
-def convert_area(area)
+def convert_area(area, taken_in = [])
   dir = File.join(Convert::ROOT, "test", area)
   abort("convert: no area #{area}") unless File.directory?(dir)
 
-  cases = Dir[File.join(dir, "*.rb")].sort.filter_map do |rb|
+  cases = (Dir[File.join(dir, "*.rb")] + taken_in).sort.filter_map do |rb|
     kase = (Ze0::Harness::Case.read(rb) rescue next)
     kase.recorded? ? [rb, kase.program] : nil
   end
@@ -361,7 +414,8 @@ if ARGV.first == "--area"
   abort("usage: ruby tools/convert.rb --area <area>...") if ARGV.empty?
   # A refused case is named, not fatal: it stays a corpus program and
   # the end-to-end tier carries it.
-  ARGV.each { |area| convert_area(area) }
+  taken = Convert.taken_in
+  ARGV.each { |area| convert_area(area, taken[area]) }
   exit 0
 end
 

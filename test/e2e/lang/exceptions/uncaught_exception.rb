@@ -9,12 +9,15 @@ def outer
 end
 
 outer
+
+
+
 __END__
 #@ stderr
-aot/uncaught_exception.rb:4:in 'Object#inner': bad thing (ArgumentError)
+e2e/lang/exceptions/uncaught_exception.rb:4:in 'Object#inner': bad thing (ArgumentError)
 
   raise ArgumentError, "bad thing"
         ^^^^^^^^^^^^^^^^^^^^^^^^^^
-	from aot/uncaught_exception.rb:8:in 'Object#outer'
-	from aot/uncaught_exception.rb:11:in '<main>'
+	from e2e/lang/exceptions/uncaught_exception.rb:8:in 'Object#outer'
+	from e2e/lang/exceptions/uncaught_exception.rb:11:in '<main>'
 #@ exit 1

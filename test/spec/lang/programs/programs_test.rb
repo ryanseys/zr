@@ -690,6 +690,12 @@ describe "Programs programs" do
     RUBY
   end
 
+  it "hello world" do
+    _(ze0(<<~'RUBY')).must_answer "Hello, world!\n"
+      puts "Hello, world!"
+    RUBY
+  end
+
   it "i1021" do
     result = ze0(<<~'RUBY', path: "lang/programs/i1021.rb")
       s = GC.stat
@@ -903,6 +909,45 @@ describe "Programs programs" do
       "123"
       "abcde"
       "abcde"
+    OUT
+  end
+
+  it "toplevel return" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
+      # A `return` written at a file's top level ends that file: ruby stops
+      # reading it there, and the value is dropped.
+
+      puts "start"
+
+      def helper = :helper
+      p helper
+
+      return if [].any?
+
+      puts "still here"
+
+      class C
+        def go
+          return :from_method
+        end
+      end
+      p C.new.go
+
+      [1].each { p :in_block }
+
+      return if [1].any?
+
+      puts "never"
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      start
+      :helper
+      still here
+      :from_method
+      :in_block
     OUT
   end
 

@@ -2934,13 +2934,19 @@ describe "Enumerable: enumeration" do
       p [1, 2].min_by(1) { |x| x }
     RUBY
 
-    _(result).must_answer <<~'OUT'
+    _(result).must_answer <<~'OUT', linux: <<~'LINUX'
       [["Bob", 92], ["Eve", 92]]
       [["Kim", 95], ["Bob", 92], ["Eve", 92]]
       []
       [3, 2]
       [1]
     OUT
+      [["Bob", 92], ["Eve", 92]]
+      [["Kim", 95], ["Eve", 92], ["Bob", 92]]
+      []
+      [3, 2]
+      [1]
+    LINUX
   end
 
   it "reduce acc shadow" do
@@ -3119,7 +3125,7 @@ describe "Enumerable: enumeration" do
       show("enumerator, not array") { pairs.each_with_index.sort_by { |x,| x[0] }.first(4) }
     RUBY
 
-    _(result).must_answer <<~'OUT'
+    _(result).must_answer <<~'OUT', linux: <<~'LINUX'
       fixnum keys                [[0, 57], [0, 54], [0, 51], [0, 48], [0, 45], [0, 42], [0, 39], [0, 36]]
       float keys                 [[0, 57], [0, 54], [0, 51], [0, 48], [0, 45], [0, 42]]
       mixed fixnum and float     [[0, 36], [0, 32], [0, 28], [0, 24], [0, 20], [0, 16]]
@@ -3132,6 +3138,18 @@ describe "Enumerable: enumeration" do
       a nan fails the sort       ArgumentError: comparison of Float with NaN failed
       enumerator, not array      [[[0, 57], 57], [[0, 54], 54], [[0, 51], 51], [[0, 48], 48]]
     OUT
+      fixnum keys                [[0, 57], [0, 54], [0, 51], [0, 48], [0, 45], [0, 42], [0, 39], [0, 36]]
+      float keys                 [[0, 57], [0, 54], [0, 51], [0, 48], [0, 45], [0, 42]]
+      mixed fixnum and float     [[0, 36], [0, 32], [0, 28], [0, 24], [0, 20], [0, 16]]
+      string keys leave uniform  [[0, 0], [0, 24], [0, 54], [0, 3], [0, 36], [0, 42]]
+      a bignum leaves uniform    [[1, 4], [1, 1], [1, 28], [1, 22]]
+      every key equal            [0, 1, 2, 3, 4, 5]
+      descending keys            [[3, 31], [3, 27], [3, 23], [3, 19], [3, 35]]
+      insertion sort, n <= 16    [[0, 0], [0, 2], [0, 4], [0, 6], [0, 8], [0, 10], [0, 12], [0, 14], [1, 1], [1, 3], [1, 5], [1, 7], [1, 9], [1, 11], [1, 13]]
+      already ordered            [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]]
+      a nan fails the sort       ArgumentError: comparison of Float with NaN failed
+      enumerator, not array      [[[0, 57], 57], [[0, 54], 54], [[0, 51], 51], [[0, 48], 48]]
+    LINUX
   end
 
   it "sort by with index" do
@@ -3227,7 +3245,7 @@ describe "Enumerable: enumeration" do
       puts ["banana","cat","ape"].max { |a,b| a.length <=> b.length }
     RUBY
 
-    _(result).must_answer <<~'OUT'
+    _(result).must_answer <<~'OUT', linux: <<~'LINUX'
       [5, 4, 3, 1, 1]
       ["c", "b", "a"]
       ["cat", "ape", "banana"]
@@ -3236,6 +3254,14 @@ describe "Enumerable: enumeration" do
       cat
       banana
     OUT
+      [5, 4, 3, 1, 1]
+      ["c", "b", "a"]
+      ["ape", "cat", "banana"]
+      5
+      1
+      cat
+      banana
+    LINUX
   end
 
   it "sort mixed type raises" do
@@ -3353,7 +3379,7 @@ describe "Enumerable: enumeration" do
       p tagged.sort { |x, y| x[0] <=> y[0] }.first(6)
     RUBY
 
-    _(result).must_answer <<~'OUT'
+    _(result).must_answer <<~'OUT', linux: <<~'LINUX'
       [0, 1, 2, 3, 3, 3, 5, 7, 8, 9]
       [9, 8, 7, 5, 3, 3, 3, 2, 1, 0]
       [5, 3, 9, 1, 3, 7, 0, 3, 8, 2]
@@ -3371,6 +3397,23 @@ describe "Enumerable: enumeration" do
       2002
       [[0, 3], [0, 21], [0, 0], [0, 39], [0, 24], [0, 9]]
     OUT
+      [0, 1, 2, 3, 3, 3, 5, 7, 8, 9]
+      [9, 8, 7, 5, 3, 3, 3, 2, 1, 0]
+      [5, 3, 9, 1, 3, 7, 0, 3, 8, 2]
+      [0, 1, 2, 3, 3, 3, 5, 7, 8, 9]
+      ["apple", "Apple", "banana", "date", "fig", "Fig", "kiwi", "pear"]
+      [[0, "d"], [0, "b"], [1, "a"], [1, "c"], [1, "f"], [2, "e"]]
+      [-1.0, 0.0, 2.25, 3.5]
+      []
+      [7]
+      [1, 2]
+      [["a", 1], ["b", 2], ["c", 3]]
+      [1, 2, 3]
+      true
+      0
+      2002
+      [[0, 0], [0, 24], [0, 54], [0, 3], [0, 36], [0, 42]]
+    LINUX
   end
 
   it "ternary lazy arms" do

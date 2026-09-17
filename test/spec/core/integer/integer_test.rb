@@ -3,6 +3,70 @@
 require "spec_helper"
 
 describe "Integer programs" do
+  it "arithmetic and compare" do
+    result = ze0(<<~'RUBY')
+      puts 1 + 2
+      puts 7 - 10
+      puts 6 * 7
+      puts 7 / 2
+      puts -7 / 2
+      puts 7 % 3
+      puts 2 ** 10
+      puts (1 + 2) * 3
+      puts 1 < 2
+      puts 2 < 1
+      puts 3 <= 3
+      puts 3 >= 4
+      puts 5 == 5
+      puts 5 == 6
+      puts 1 == 1.0
+      puts 1.5 < 2
+      puts "a" == "a"
+      puts "a" == "b"
+      puts 2 > 1.5
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      3
+      -3
+      42
+      3
+      -4
+      1
+      1024
+      9
+      true
+      false
+      true
+      false
+      true
+      false
+      true
+      true
+      true
+      false
+      true
+    OUT
+  end
+
+  it "bignum math" do
+    result = ze0(<<~'RUBY')
+      # Arbitrary-precision integers: the bignum library is linked and the results
+      # are exact.
+      puts (2**200).to_s
+      puts (3**64) / 7
+      puts 100.downto(1).reduce(:*).to_s.length
+      puts (10**30 + 1) % 97
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1606938044258990275541962092341162602522202993782792835301376
+      490526260041787497808264155611
+      158
+      86
+    OUT
+  end
+
   it "bit operators bignum bounds and float ids" do
     result = ze0(<<~'RUBY')
       # A bit operator coerces as CRuby's bit_coerce does and names a Float
@@ -36,6 +100,30 @@ describe "Integer programs" do
       Integer
       true
       Integer
+    OUT
+  end
+
+  it "division by zero" do
+    _(ze0(<<~'RUBY', path: "ze0/division_by_zero.rb")).must_answer "2\n", stderr: "ze0/division_by_zero.rb:2:in 'Integer#/': divided by 0 (ZeroDivisionError)\n\tfrom ze0/division_by_zero.rb:2:in '<main>'\n", status: 1
+      puts 6 / 3
+      puts 6 / 0
+    RUBY
+  end
+
+  it "overflow to bignum" do
+    result = ze0(<<~'RUBY')
+      x = 9223372036854775807
+      puts x + 1
+      puts x * 2
+      puts 0 - x - x
+      puts x + 1 - 1
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      9223372036854775808
+      18446744073709551614
+      -18446744073709551614
+      9223372036854775807
     OUT
   end
 

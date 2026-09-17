@@ -11,21 +11,13 @@ path itself.
 |---|---|
 | `rake test` | the units, the specs and the end-to-end programs |
 | `rake test:unit [FILTER=exe,zr]` | ze0's own internals |
-| `rake test:spec [FILTER=] [GC=stress]` | Ruby held to ruby, program by program |
-| `rake test:e2e` | whole programs through a real link |
+| `rake test:spec [FILTER=] [GC=stress] [TARGET=]` | Ruby held to ruby, program by program |
+| `rake test:e2e [TARGET=]` | whole programs through a real link |
 | `rake 'test:one[test/unit/zr_test.rb,-n /gc/]'` | one file, with minitest's own options |
-| `rake bench[filters]` | how long does what ze0 built take? |
+| `rake 'oracle[test/spec/core/string]'` | every spec literal re-checked against ruby 4.0.6 |
+| `rake 'record[e2e/core/io/hello.rb]'` | runs ruby and writes its answer under `__END__` |
+| `rake 'bench[--runs 5 fib]'` | how long does what ze0 built take? |
 | `rake stage1`, `rake stage2` | the bootstrap |
-
-## The corpus, while it converts
-
-| Tool | Does |
-|---|---|
-| `ruby tools/convert.rb --plan <dir>` | which cases convert to specs, and why the rest do not |
-| `ruby tools/convert.rb --describe TEXT --out PATH <dir>` | writes the specs |
-| `ruby tools/convert_verify.rb <spec> <dir>` | holds a written spec to the cases it came from |
-| `ruby -Ilib -Itest tools/measure_spec.rb <dir> [--limit N]` | what a compile costs, and how the heap grows |
-| `rake record[case]` | runs ruby and writes its answer under `__END__` |
 
 ## Holding ports to ruby
 

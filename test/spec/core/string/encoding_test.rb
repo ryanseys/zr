@@ -185,6 +185,26 @@ describe "String: encodings" do
     OUT
   end
 
+  it "string case tables" do
+    result = ze0(<<~'RUBY')
+      # Unicode case mapping and normalization tables reach the binary's data.
+      puts "straße".upcase
+      puts "İSTANBUL".downcase
+      puts "ǆ".upcase, "ǆ".capitalize
+      puts "ABC".swapcase
+      puts "é" == "é".unicode_normalize(:nfc)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      STRASSE
+      i̇stanbul
+      Ǆ
+      ǅ
+      abc
+      true
+    OUT
+  end
+
   it "string dump undump" do
     result = ze0(<<~'RUBY')
       # String#dump: a re-parseable literal; String#undump: its inverse.

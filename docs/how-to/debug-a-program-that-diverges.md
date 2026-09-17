@@ -6,41 +6,36 @@ its exit status differs from the recording.
 
 ## See the whole difference
 
-Run the case with `tools/test.rb`:
+Run the one example, by name, in a process of its own:
 
 ```console
-$ ruby tools/test.rb core/string/a_case.rb
+$ ruby -Ilib -Itest test/spec/core/string/slicing_test.rb -n "/a case/"
 ```
 
-It prints the build, the run, and every line where the two answers
-part. It also writes a full report. Read the report instead of running
-the case again:
+Minitest prints every line where the two answers part, one part at a
+time: stdout, stderr, the signal and the exit status. `must_answer`
+asserts all four, so the message names which one moved.
+
+To run everything an area holds, and see only what failed:
 
 ```console
-$ cat tmp/test-report/core/string/a_case.rb.txt
-```
-
-The binary and its output stay in `tmp/test-failed/<case>/`.
-
-To run a directory in parallel and see only what failed:
-
-```console
-$ ruby tools/test.rb core/string --jobs 3
+$ rake test:spec FILTER=string
 ```
 
 ## Make the program smaller
 
-Copy the program to a scratch file, and remove lines until the
-difference stays with the fewest lines. Compare with ruby at each step:
+Copy the program out of the example into a scratch file, and remove
+lines until the difference stays with the fewest lines. Compare with
+ruby at each step:
 
 ```console
 $ ruby small.rb
-$ bin/ze0 run small.rb
+$ exe/ze0 run small.rb
 ```
 
-A small program makes the cause easy to see. When you fix it, record the
-small program as a new case, as in
-[Add your first corpus case](../tutorials/add-your-first-corpus-case.md).
+A small program makes the cause easy to see. When you fix it, keep the
+small program as a new example, as in
+[Add your first spec](../tutorials/add-your-first-spec.md).
 
 ## Find which part of ze0 is wrong
 
@@ -52,7 +47,7 @@ question.
   see:
 
   ```console
-  $ ruby tools/test.rb core/string/a_case.rb --gc stress
+  $ rake test:spec FILTER=string GC=stress
   $ ZR_GC_STRESS=1 ./binary
   ```
 
@@ -71,7 +66,7 @@ question.
   built:
 
   ```console
-  $ ZE0_VERIFY=1 bin/ze0 run small.rb
+  $ ZE0_VERIFY=1 exe/ze0 run small.rb
   ```
 
 - **The platform.** Build the same program as a wasm module. If the
@@ -79,7 +74,7 @@ question.
   backend or the darwin layer:
 
   ```console
-  $ bin/ze0 build small.rb -o small.wasm --emit wasm && wasmtime small.wasm
+  $ exe/ze0 build small.rb -o small.wasm --emit wasm && wasmtime small.wasm
   ```
 
 ## Read a crash in lldb

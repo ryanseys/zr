@@ -336,6 +336,32 @@ describe "Control: control flow" do
     OUT
   end
 
+  it "collatz" do
+    result = ze0(<<~'RUBY')
+      def steps(n)
+        count = 0
+        while n != 1
+          if n % 2 == 0
+            n = n / 2
+          else
+            n = 3 * n + 1
+          end
+          count = count + 1
+        end
+        count
+      end
+      puts steps(27)
+      puts steps(1)
+      puts steps(97)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      111
+      0
+      118
+    OUT
+  end
+
   it "concealed class answers nil until reopened" do
     result = ze0(<<~'RUBY')
       def probe? = false
@@ -821,6 +847,176 @@ describe "Control: control flow" do
     OUT
   end
 
+  it "for and redo" do
+    _(ze0(<<~'RUBY')).must_answer "123\n3\n[1, 2]\n[3, 4]\n[3, 4]\n[[:one, 1], [:two, 2]]\n:two\n2\n[:three, 3]\n12\n[1, 3]\n4\n[1, 2]\n1231...4\n\n20\n1x 1y 2x 2y \n\"stop\"\n2\n\"undefined method 'each' for an instance of Integer\"\n2\n:none\n[1, [:e, 1], [:e, 2], 3, [:e, 3], [:e, 4]]\n[2, 2]\n[2, 5]\n[10, 11, 12]\n[1, 2, 3]\n[nil, 1, nil, 2]\n:outer\n[1, 2, 3]\n"
+      # frozen_string_literal: true
+
+      # `for` performs NO type dispatch -- ruby compiles it to `coll.each { |x|
+      # ... }` -- and it opens NO scope: the index is a name of the body
+      # around it and outlives the loop. `redo` runs the body again without
+      # stepping, and a block-local is a name the block alone can see.
+
+      for i in 1..3
+        print i
+      end
+      puts
+      p i
+
+      for a, b in [[1, 2], [3, 4]]
+        p [a, b]
+      end
+      p [a, b]
+
+      pairs = []
+      for key, value in { one: 1, two: 2 }
+        pairs << [key, value]
+      end
+      p pairs, key, value
+
+      # A single index over a multi-value yield binds the WHOLE pair.
+      for pair in { three: 3 }
+        p pair
+      end
+
+      # The Array is live: what the body appends is walked.
+      grown = [1]
+      for g in grown
+        grown << 2 if g == 1
+        print g
+      end
+      puts
+
+      out = []
+      for x in [1, 2, 3, 4]
+        next if x == 2
+        break if x == 4
+
+        out << x
+      end
+      p out, x
+
+      # Running out answers the collection; a `break` supplies its own.
+      p(for c in [1, 2] do end)
+      p(for d in (1...4) do print d end)
+      puts
+      p(for e in [1, 2, 3] do break e * 10 if e == 2 end)
+
+      for outer in [1, 2]
+        for inner in %i[x y]
+          print "#{outer}#{inner} "
+        end
+      end
+      puts
+
+      # A raise inside the body leaves the loop's own state behind cleanly.
+      begin
+        for r in [1, 2]
+          raise ArgumentError, "stop" if r == 2
+        end
+      rescue ArgumentError => err
+        p err.message, r
+      end
+
+      begin
+        for n in 5
+          p n
+        end
+      rescue NoMethodError => err
+        p err.message
+      end
+
+      def first_over(list, limit)
+        for item in list
+          return item if item > limit
+        end
+        :none
+      end
+
+      p first_over([1, 2, 3], 1), first_over([1], 9)
+
+      # An `ensure` the jump crosses runs its clause and the jump goes on.
+      def guarded(list)
+        log = []
+        for n in list
+          begin
+            next if n == 2
+            break if n == 4
+
+            log << n
+          ensure
+            log << [:e, n]
+          end
+        end
+        log
+      end
+
+      p guarded([1, 2, 3, 4, 5])
+
+      # `redo` in a native loop steps nothing.
+      turns = 0
+      count = 0
+      while count < 2
+        count += 1
+        turns += 1
+        redo if turns == 1
+      end
+      p [count, turns]
+
+      for z in [1, 2]
+        turns += 1
+        redo if turns == 3
+      end
+      p [z, turns]
+
+      # `redo` in a block re-enters PAST the bindings, so the parameter keeps
+      # what the body assigned to it.
+      steps = []
+      [10].each do |v|
+        steps << v
+        if v < 12
+          v += 1
+          redo
+        end
+      end
+      p steps
+
+      # ...and an `ensure` in the way runs each time round.
+      log = []
+      attempts = 0
+      [1].each do |_|
+        begin
+          attempts += 1
+          redo if attempts < 3
+        ensure
+          log << attempts
+        end
+      end
+      p log
+
+      # A block-local starts nil every invocation and never touches the name
+      # outside it.
+      scratch = :outer
+      seen = []
+      [1, 2].each do |n; scratch|
+        seen << scratch
+        scratch = n
+        seen << scratch
+      end
+      p seen, scratch
+
+      # It survives a redo, exactly as a parameter does.
+      kept = []
+      rounds = 0
+      [1].each do |_; held|
+        held = (held || 0) + 1
+        kept << held
+        rounds += 1
+        redo if rounds < 3
+      end
+      p kept
+    RUBY
+  end
+
   it "for over paren collection" do
     result = ze0(<<~'RUBY')
       # A parenthesized collection in a for loop must iterate like the bare form.
@@ -1096,6 +1292,125 @@ describe "Control: control flow" do
       "done:2"
       6
       99
+    OUT
+  end
+
+  it "loop control" do
+    result = ze0(<<~'RUBY')
+      # `break` and `next` inside a loop are the LOOP's, whether the loop is
+      # written in a method or inside a block; only a jump with no loop around
+      # it is the block's.
+      def first_square_over(limit)
+        i = 0
+        while true
+          i += 1
+          break if i * i > limit
+        end
+        i
+      end
+      p first_square_over(50)
+
+      def odds_below(n)
+        out = []
+        i = 0
+        while i < n
+          i += 1
+          next if i % 2 == 0
+          out << i
+        end
+        out
+      end
+      p odds_below(7)
+
+      p [1, 2].map { |n| i = 0; while i < 10; i += 1; break if i == n + 2; end; i }
+      p [1].map { o = []; i = 0; while i < 5; i += 1; next if i == 2; o << i; end; o }
+      p [1].map { i = 0; until i > 2; i += 1; break :early; end; i }
+      p [1].map { i = 0; (i += 1; break :modifier if i > 1) while true; i }
+
+      # A `while` answers nil, or whatever a `break` gave it.
+      p(while true; break 7; end)
+      i = 0
+      p(while i < 2; i += 1; end)
+
+      # A block written inside a loop keeps its own `break`.
+      seen = []
+      n = 0
+      while n < 3
+        n += 1
+        seen << [1, 2, 3].each { |x| break x * 10 if x == 2 }
+      end
+      p seen
+
+      # Nested loops: the inner `break` leaves only the inner one.
+      pairs = []
+      i = 0
+      while i < 3
+        i += 1
+        j = 0
+        while j < 9
+          j += 1
+          break if j == 2
+        end
+        pairs << [i, j]
+      end
+      p pairs
+
+      # A jump out of a `rescue` clause inside a loop pops only what it opened.
+      kept = []
+      i = 0
+      while i < 5
+        i += 1
+        begin
+          raise "stop" if i == 4
+          next if i == 2
+          kept << i
+        rescue StandardError
+          break
+        end
+      end
+      p kept
+
+      # `else` runs only when the body finished, and outside the clauses.
+      p(begin
+          "a" + "b"
+        rescue StandardError
+          :rescued
+        else
+          "c" + "d"
+        end)
+      p(begin
+          raise "boom"
+        rescue StandardError
+          :rescued
+        else
+          :else_ran
+        end)
+
+      # A method defined twice keeps the last one, as ruby does.
+      class Twice
+        def answer = 1
+        def answer(_x) = 2
+      end
+      p Twice.new.answer(0)
+      p Twice.instance_method(:answer).arity
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      8
+      [1, 3, 5, 7]
+      [3, 4]
+      [[1, 3, 4, 5]]
+      [1]
+      [2]
+      7
+      nil
+      [20, 20, 20]
+      [[1, 2], [2, 2], [3, 2]]
+      [1, 3]
+      "cd"
+      :rescued
+      2
+      1
     OUT
   end
 
@@ -2158,6 +2473,40 @@ describe "Control: control flow" do
     _(result).must_answer <<~'OUT'
       3
       6
+    OUT
+  end
+
+  it "return inside while" do
+    result = ze0(<<~'RUBY')
+      def first_over(limit)
+        i = 0
+        while true
+          i = i + 1
+          if i * i > limit
+            return i
+          end
+        end
+      end
+      puts first_over(50)
+      puts first_over(0)
+      def early(n)
+        return "neg" if n < 0
+        "pos"
+      end
+      puts early(-1)
+      puts early(1)
+      def bare
+        return
+      end
+      p bare
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      8
+      1
+      neg
+      pos
+      nil
     OUT
   end
 

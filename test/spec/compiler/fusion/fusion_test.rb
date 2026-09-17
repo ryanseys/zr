@@ -1825,10 +1825,13 @@ describe "Fusion programs" do
       p sort_pairs(3)
     RUBY
 
-    _(result).must_answer <<~'OUT'
+    _(result).must_answer <<~'OUT', linux: <<~'LINUX'
       [[2, 5, 4, 1, 7, 3, 6, 0], [3, 1, 0, 3, 1, 0, 3, 2]]
       [[0, 2, 1], [0, 2, 1]]
     OUT
+      [[2, 5, 1, 4, 7, 3, 0, 6], [3, 1, 0, 3, 1, 0, 3, 2]]
+      [[0, 2, 1], [0, 2, 1]]
+    LINUX
   end
 
   it "nested array element narrows" do

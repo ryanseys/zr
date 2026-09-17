@@ -9,8 +9,8 @@ Lessons that take you from nothing to a result, one step at a time.
 - [Compile your first program](tutorials/compile-your-first-program.md):
   install ze0, and build one Ruby file as a binary and as a WebAssembly
   module.
-- [Add your first corpus case](tutorials/add-your-first-corpus-case.md):
-  work in a checkout, record ruby's answer, and see ze0 match it.
+- [Add your first spec](tutorials/add-your-first-spec.md): work in a
+  checkout, ask ruby for the answer, and see ze0 match it.
 
 ## How-to guides: get a task done
 
@@ -29,7 +29,7 @@ Steps for a goal you already have.
 
 Facts about commands, formats and layouts.
 
-- [Command line](reference/cli.md): `ze0`, `bin/ze0` and the rake tasks
+- [Command line](reference/cli.md): `ze0` and the rake tasks
 - [Environment variables](reference/environment-variables.md)
 - [Targets](reference/targets.md)
 - [Dependencies](reference/dependencies.md)

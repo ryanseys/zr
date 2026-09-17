@@ -90,11 +90,11 @@ Read more in [Architecture](docs/explanation/architecture.md) and
 $ git clone https://github.com/ryanseys/ze0.git
 $ cd ze0
 $ bundle install
-$ bin/ze0 test lang/blocks/     # corpus programs against ruby's answers
-$ bin/ze0 check                 # the repository's own checks
+$ rake test:spec FILTER=blocks  # Ruby held to ruby, program by program
+$ rake test:unit                # ze0's own internals
 ```
 
-The tutorial [Add your first corpus case](docs/tutorials/add-your-first-corpus-case.md)
+The tutorial [Add your first spec](docs/tutorials/add-your-first-spec.md)
 walks through the loop behind most changes. Then see:
 
 - [How to debug a program that diverges](docs/how-to/debug-a-program-that-diverges.md)

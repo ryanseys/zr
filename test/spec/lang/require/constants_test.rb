@@ -3,6 +3,35 @@
 require "spec_helper"
 
 describe "Require: constants" do
+  it "autoload" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
+      # `autoload :C, "feature"` names a file that PROVIDES `C`. ze0 has no
+      # lazy units, so the file is spliced in and the constant is there before
+      # anything asks for it -- zeo's own stated divergence from CRuby: the
+      # file runs at the `autoload` statement rather than at first constant
+      # access, and even if the constant is never referenced.
+      #
+      # A feature no load path carries is one the runtime already holds, and
+      # the declaration opens its gate where it stands.
+
+      autoload :JSON, "json"
+
+      p JSON.name
+      p JSON.instance_of?(Module)
+
+      # The declaration itself answers nil.
+      p(autoload(:JSON, "json"))
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "JSON"
+      true
+      nil
+    OUT
+  end
+
   it "autoload dsl computes its own path" do
     result = ze0(<<~'RUBY', files: {"autoload_dsl_computes_its_own_path/mylib/model.rb" => "module MyLib\n  class Model\n    def self.hello\n      \"model loaded\"\n    end\n  end\nend\n", "autoload_dsl_computes_its_own_path/mylib.rb" => "module MyLib\n  # `ActiveSupport::Autoload`'s shape, in miniature: an `autoload` written in\n  # plain Ruby that derives the path from the constant and hands it to the real\n  # `Module#autoload` through `super`. Nothing here is known to the compiler --\n  # the string only exists while the program runs.\n  module Autoload\n    def autoload(const_name, path = nil)\n      path ||= File.expand_path(\"mylib/\#{const_name.to_s.downcase}\", __dir__)\n      super const_name, path\n    end\n  end\n\n  extend Autoload\n\n  autoload :Model\nend\n"})
       require_relative "autoload_dsl_computes_its_own_path/mylib"
@@ -86,6 +115,48 @@ describe "Require: constants" do
       bare ask	"constant"
       still unloaded	nil
       after read	true
+    OUT
+  end
+
+  it "autoload paths" do
+    result = ze0(<<~'RUBY', files: {"autoload_paths/base.rb" => "puts \"base ran\"\n\nclass PathBase\n  LIMIT = 7\n  def limit = LIMIT\nend\n", "autoload_paths/target.rb" => "puts \"target ran\"\n\nmodule Paths\n  class Widget\n    KIND = :widget\n    def kind = KIND\n  end\nend\n"})
+      # frozen_string_literal: true
+
+      # An `autoload` target the compile can NAME becomes a lazily linked unit
+      # and the declaration stays a real call, so the file runs when the
+      # constant is first read -- CRuby's own order. Three spellings resolve
+      # here: a plain feature, `"#{__dir__}/..."` and
+      # `File.expand_path("...", __dir__)`.
+      #
+      # A superclass clause is a read too, and so is the receiver of a `Foo.new`
+      # the compile constructs directly.
+
+      module Paths
+        autoload :Widget, "#{__dir__}/autoload_paths/target"
+      end
+
+      autoload :PathBase, File.expand_path("autoload_paths/base", __dir__)
+
+      puts "before the read"
+      p Paths.autoload?(:Widget) != nil
+      p Paths::Widget.new.kind
+      p Paths.autoload?(:Widget)
+
+      class PathSub < PathBase
+      end
+      p PathSub.new.limit
+      p PathSub.superclass
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      before the read
+      true
+      target ran
+      :widget
+      nil
+      base ran
+      7
+      PathBase
     OUT
   end
 

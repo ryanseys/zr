@@ -14,89 +14,16 @@
 require_relative "../test/support/harness/case"
 require_relative "subjects"
 require_relative "convert"
-
-# What a guard asks of the machine. The real ones live in
-# `test/support/spec.rb`, which loads the whole compiler; a verifier
-# that compiles nothing answers them itself.
-module Ze0
-  module Spec
-    def self.platform = "macos"
-    def self.need?(_name) = true
-  end
-end
+require_relative "../test/support/reader"
 
 module ConvertVerify
   ROOT = File.expand_path("..", __dir__)
 
-  Seen = Struct.new(:name, :source, :kwargs, :want, keyword_init: true)
-
-  # The world a spec file is loaded into: `describe`/`it` collect, `ze0`
-  # records, `_(x).must_equal y` records, and nothing else happens.
-  class Sandbox
-    attr_reader :seen
-
-    def initialize = @seen = []
-
-    def describe(_name, &block) = instance_eval(&block)
-
-    def it(name, &block)
-      @current = Seen.new(name: name, want: {})
-      @seen << @current
-      instance_eval(&block)
-    rescue StandardError => e
-      @current.want[:error] = e
-    end
-
-    def ze0(source, **kwargs)
-      @current.source = source
-      @current.kwargs = kwargs
-      Recorder.new(@current, :result)
-    end
-
-    # `_(result.stdout)` hands back the stream the chain already named;
-    # `_(ze0(...).stdout)` is the same chain written in one line.
-    def _(value) = value.is_a?(Recorder) ? value : Recorder.new(@current, value)
-
-    def skip(_why = nil) = nil
-
-    # `_(result.stdout).must_equal "AB\n"` lands here: the left side says
-    # which stream, the right side is what ruby recorded.
-    class Recorder
-      def initialize(example, value)
-        @example = example
-        @value = value
-      end
-
-      def stdout = Recorder.new(@example, :stdout)
-      def stderr = Recorder.new(@example, :stderr)
-      def status = Recorder.new(@example, :status)
-      def signal = Recorder.new(@example, :signal)
-
-      def must_equal(want)
-        @example.want[@value] = want
-        want
-      end
-
-      # `_(result).must_answer "AB\n", stderr: "...", status: 1` says
-      # all four parts at once, and the defaults are what a recording
-      # means by leaving a section out.
-      def must_answer(stdout, stderr: "", status: 0, signal: nil)
-        @example.want[:stdout] = stdout
-        @example.want[:stderr] = stderr
-        @example.want[:status] = status
-        @example.want[:signal] = signal
-        self
-      end
-    end
-  end
+  Seen = Ze0::Reader::Example
 
   module_function
 
-  def load(path)
-    box = Sandbox.new
-    box.instance_eval(File.read(path).sub(/^require "spec_helper"$/, ""), path)
-    box.seen
-  end
+  def load(path) = Ze0::Reader.read(path)
 
   # Every way an example may part from its case.
   def differences(seen, kase, rb)
@@ -124,6 +51,18 @@ module ConvertVerify
     out << "status: recorded #{want.code.inspect}, spec #{code.inspect}" unless want.code == code
     signal = seen.want[:signal]
     out << "signal: recorded #{want.signal}, spec #{signal}" unless want.signal == signal
+    # The platforms whose stdout parts from macOS's, each named by its
+    # own section in the recording.
+    Ze0::Harness::Case::PREFIXED.each do |platform|
+      recorded = Ze0::Harness::Normalize.bytes(kase.expected(platform).stdout, rb, dir)
+      # Bytes, not strings: both sides come from `Normalize`, and a
+      # UTF-8 string never equals the same bytes tagged binary.
+      recorded = nil if recorded.b == want.stdout.b
+      spec = seen.want.fetch(:elsewhere, {})[platform]
+      next if recorded.nil? ? spec.nil? : same?(recorded, spec)
+
+      out << "#{platform} stdout: #{apart(text(recorded.to_s), spec.to_s)}"
+    end
     out << "argv: recorded #{d.args.inspect}, spec #{seen.kwargs.fetch(:argv, []).inspect}" unless d.args == seen.kwargs.fetch(:argv, [])
     env = d.env.merge(d.zeo_env)
     out << "env: recorded #{env.inspect}, spec #{seen.kwargs.fetch(:env, {}).inspect}" unless env == seen.kwargs.fetch(:env, {})
@@ -148,10 +87,10 @@ end
 
 # An area at a time: every spec file it was written to, held to every
 # case it came from.
-def verify_area(area)
+def verify_area(area, taken_in = [])
   root = ConvertVerify::ROOT
   dir = File.join(root, "test", area)
-  cases = Dir[File.join(dir, "*.rb")].sort.filter_map do |rb|
+  cases = (Dir[File.join(dir, "*.rb")] + taken_in).sort.filter_map do |rb|
     kase = (Ze0::Harness::Case.read(rb) rescue next)
     kase.recorded? ? [rb, kase.program] : nil
   end
@@ -190,7 +129,8 @@ end
 if ARGV.first == "--area"
   ARGV.shift
   abort("usage: ruby tools/convert_verify.rb --area <area>...") if ARGV.empty?
-  exit(ARGV.sum { |area| verify_area(area) }.zero? ? 0 : 1)
+  taken = Convert.taken_in
+  exit(ARGV.sum { |area| verify_area(area, taken[area]) }.zero? ? 0 : 1)
 end
 
 spec, *cases = ARGV

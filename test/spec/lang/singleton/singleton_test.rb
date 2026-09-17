@@ -1214,6 +1214,105 @@ describe "Singleton programs" do
     OUT
   end
 
+  it "singleton body" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
+      # A `class << obj` body opens the object's SINGLETON class, which no row
+      # can name -- a singleton is minted per object at run time. Each `def`
+      # becomes a `define_singleton_method`, and every other statement is
+      # lowered with `self` bound to `obj.singleton_class`, which is what
+      # `self` is inside that body.
+
+      class Config
+        class << self
+          def direct = :direct
+
+          alias aliased direct
+
+          attr_accessor :level
+
+          # `self` is the singleton class, so a receiverless macro and an
+          # explicit `self.` call both name it.
+          self.send(:define_method, :made) { :made }
+
+          private
+
+          def hidden = :hidden
+        end
+      end
+
+      p Config.direct, Config.aliased, Config.made
+      Config.level = 3
+      p Config.level
+      p Config.singleton_class.private_instance_methods(false).sort
+      p(begin
+        Config.hidden
+      rescue NoMethodError
+        :private
+      end)
+
+      # A block written in the body closes over that `self` too.
+      class Made
+        class << self
+          %w[a b].each { |n| define_method("m_#{n}") { n } }
+        end
+      end
+
+      p Made.m_a, Made.m_b
+
+      # An arbitrary statement runs where it stands.
+      $log = []
+
+      class Logged
+        class << self
+          $log << :before
+          def one = 1
+          $log << :after
+        end
+      end
+
+      p $log, Logged.one
+
+      # `undef` retires the name on the singleton class.
+      class Retired
+        class << self
+          def gone = :gone
+          undef gone
+        end
+      end
+
+      p Retired.respond_to?(:gone)
+
+      # `class << obj` on a plain object opens that one object's singleton.
+      o = Object.new
+
+      class << o
+        def only = :only
+      end
+
+      p o.only, o.singleton_methods
+      p Object.new.respond_to?(:only)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :direct
+      :direct
+      :made
+      3
+      [:hidden]
+      :private
+      "a"
+      "b"
+      [:before, :after]
+      1
+      false
+      :only
+      [:only]
+      false
+    OUT
+  end
+
   it "singleton body class and self path" do
     result = ze0(<<~'RUBY')
       # Two things a `class << self` body can hold that zeo used to reject outright,
@@ -1289,6 +1388,181 @@ describe "Singleton programs" do
       "uninitialized constant Sized::MAX"
       String
       "String"
+    OUT
+  end
+
+  it "singleton body cref" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
+      # `class << self` opens the class's SINGLETON, which is a class in its own
+      # right: a constant written there belongs to it and not to the class, the
+      # class methods beside it read the constant through the cref, and
+      # `Module.nesting` reports it. So the body gets a row of its own, named
+      # `#<Class:Owner>` -- a name no Ruby constant can collide with. Only the
+      # runtime mints a singleton, so the row names the class it is the
+      # singleton of and the backend ties the two.
+
+      class Config
+        class << self
+          PREFIX = "cfg:"
+          LIMIT = 3
+
+          def key(n) = "#{PREFIX}#{n}"
+          def capped(n) = n > LIMIT ? LIMIT : n
+          def nesting = Module.nesting.map(&:to_s)
+        end
+      end
+
+      p Config.key("host")
+      p Config.capped(9)
+      p Config.nesting
+      p Config.const_defined?(:PREFIX, false)
+      p Config.singleton_class.const_defined?(:PREFIX, false)
+      p Config.singleton_class.constants(false).sort
+
+      # A second body reopens the SAME singleton, so its constants join the
+      # first body's, and a class method written OUTSIDE cannot reach them by
+      # bare name.
+      class Config
+        class << self
+          SUFFIX = "!"
+
+          def both = [PREFIX, SUFFIX]
+        end
+
+        def self.blind
+          PREFIX
+        rescue NameError
+          :name_error
+        end
+      end
+
+      p Config.both
+      p Config.blind
+
+      # The surrogate sits in the full lexical chain, so a body in `A::B` reads
+      # A's constants -- and the enclosing scope's are shadowed by its own.
+      module A
+        ROOT = :a_const
+        SHADOWED = :from_module
+
+        module B
+          class << self
+            INNER = :inner
+            SHADOWED = :from_singleton
+
+            def chain = [INNER, ROOT, SHADOWED]
+            def nest = Module.nesting.map(&:to_s)
+          end
+        end
+      end
+
+      p A::B.chain
+      p A::B.nest
+
+      # The surrogate is the body's DEFINEE too, so a `def` written in a block
+      # here installs on the singleton, which is where ruby installs it.
+      class Late
+        class << self
+          def install
+            [1].each { def inner = :inner }
+            :installed
+          end
+        end
+      end
+
+      p Late.install
+      p Late.singleton_methods(false).sort
+      p Late.inner
+
+      # A `class` written here belongs to the singleton too -- `class X` IS a
+      # constant write with a body -- and a `class << self` beside it opens the
+      # surrogate's own singleton, the same construct one level deeper.
+      module Color
+        class << self
+          class Visitor
+            def initialize(name) = @name = name
+            def render = "<#{@name}>"
+          end
+
+          class << self
+            SUFFIX = "!"
+            def shout(s) = s + SUFFIX
+          end
+
+          def paint(name) = Visitor.new(name).render
+        end
+      end
+
+      p Color.paint("red")
+      p Color.singleton_class.shout("hi")
+      p Color.singleton_class.const_defined?(:Visitor)
+      p Color.constants
+      p Color.singleton_class.singleton_class.const_defined?(:SUFFIX)
+
+      # `def self.x` here defines on the singleton's OWN singleton, one level
+      # further up than a bare `def`.
+      class MetaHost
+        class << self
+          def plain = "plain"
+          def self.meta = "meta"
+        end
+      end
+
+      p MetaHost.plain
+      p(begin; MetaHost.meta; rescue NoMethodError; :no_such_method; end)
+      p MetaHost.singleton_class.meta
+
+      # The body has a backtrace frame of its own, labelled `singleton class`,
+      # and its own locals, shared across the whole of it.
+      begin
+        class Walked
+          class << self
+            step = 1
+            total = step + 1
+            raise "at #{total}"
+          end
+        end
+      rescue RuntimeError => e
+        p [e.message, e.backtrace.first[/:\d+:in '.*'/]]
+      end
+
+      # A `class << obj` on any other receiver keeps the per-object road: its
+      # `def`s are singleton methods of that object.
+      target = Object.new
+      class << target
+        def only_mine = :mine
+      end
+      p target.only_mine
+      p target.singleton_methods
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "cfg:host"
+      3
+      ["#<Class:Config>", "Config"]
+      false
+      true
+      [:LIMIT, :PREFIX]
+      ["cfg:", "!"]
+      :name_error
+      [:inner, :a_const, :from_singleton]
+      ["#<Class:A::B>", "A::B", "A"]
+      :installed
+      [:inner, :install]
+      :inner
+      "<red>"
+      "hi!"
+      true
+      []
+      true
+      "plain"
+      :no_such_method
+      "meta"
+      ["at 2", ":129:in 'singleton class'"]
+      :mine
+      [:only_mine]
     OUT
   end
 
@@ -2143,6 +2417,168 @@ describe "Singleton programs" do
       p MetaBoth.singleton_class.meta
       p MetaBoth.singleton_class.mixed
     RUBY
+  end
+
+  it "singleton class" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
+      # `class << obj` opens the object's singleton class, which no class row
+      # can name: a singleton is minted per object at run time. So each `def`
+      # in the body is installed on the object itself, and a `private` run
+      # marks the methods below it on the singleton class -- which is exactly
+      # how ruby spells a private singleton method.
+
+      class Box
+        class << self
+          def make(v) = new(v)
+
+          def label = "box"
+
+          def described = "#{label}: #{secret}"
+
+          private
+
+          def secret = :quiet
+        end
+
+        def initialize(v)
+          @v = v
+        end
+
+        attr_reader :v
+      end
+
+      p Box.make(3).v
+      p Box.label
+      p Box.described
+      p Box.singleton_methods.sort
+      p Box.respond_to?(:secret), Box.respond_to?(:secret, true)
+      p Box.singleton_class.private_method_defined?(:secret)
+
+      # A named method retagged where the verb stands, rather than a mode over
+      # the lines below it.
+      class Later
+        class << self
+          def one = 1
+          def two = 2
+
+          private :two
+        end
+      end
+
+      p Later.one
+      p Later.singleton_methods.sort
+      p Later.respond_to?(:two), Later.respond_to?(:two, true)
+
+      # `class << obj` on a plain object touches that object alone.
+      one = Object.new
+      class << one
+        def only_mine = :mine
+      end
+
+      p one.only_mine
+      p Object.new.respond_to?(:only_mine)
+      p one.singleton_methods
+
+      # A singleton method takes arguments and a block like any other.
+      class Maker
+        class << self
+          def build(*parts, sep: "-")
+            yield parts.join(sep)
+          end
+        end
+      end
+
+      p Maker.build("a", "b") { |s| s.upcase }
+      p Maker.build("a", "b", sep: "+") { |s| s }
+      p Maker.method(:build).arity
+      # `def obj.name` is `class << obj` with one method in it: the object no
+      # compile can know gets the method where the statement stands.
+      plain = Object.new
+
+      def plain.greet(who = "you") = "hi #{who}"
+
+      # The body is a LAMBDA, so a `return` leaves the method rather than the
+      # block it was built from.
+      def plain.early(n)
+        return :small if n < 3
+
+        :big
+      end
+
+      p plain.greet
+      p plain.greet("ada")
+      p plain.early(1), plain.early(9)
+      p plain.singleton_methods.sort
+      p plain.method(:greet).arity
+      p plain.method(:greet).parameters
+      p plain.respond_to?(:greet)
+      p Object.new.respond_to?(:greet)
+
+      # The statement answers the method's name, like any other `def`.
+      p(def plain.later = 1)
+      p plain.later
+
+      # A class object takes one: that is a class method by another name.
+      class Boxed
+        def initialize(v) = @v = v
+      end
+
+      def Boxed.of(v) = new(v)
+      def Boxed.tag = :boxed
+
+      p Boxed.of(3).class
+      p Boxed.tag
+      p Boxed.singleton_methods.sort
+
+      # `def self.name` inside a block installs on whatever `self` is there,
+      # which inside `Module.new` is the new module.
+      Made = Module.new do
+        def self.built = :made
+
+        def instance_side = :inst
+      end
+
+      p Made.built
+      p Made.instance_methods(false)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      3
+      "box"
+      "box: quiet"
+      [:described, :label, :make]
+      false
+      true
+      true
+      1
+      [:one]
+      false
+      true
+      :mine
+      false
+      [:only_mine]
+      "A-B"
+      "a+b"
+      -1
+      "hi you"
+      "hi ada"
+      :small
+      :big
+      [:early, :greet]
+      -1
+      [[:opt, :who]]
+      true
+      false
+      :later
+      1
+      Boxed
+      :boxed
+      [:of, :tag]
+      :made
+      [:instance_side]
+    OUT
   end
 
   it "singleton class object" do

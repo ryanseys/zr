@@ -29,7 +29,7 @@ def escaped(text) = text.gsub(/^(#+@)/, '#\1')
 def section(text) = text.empty? || text.end_with?("\n") ? escaped(text) : "#{escaped(text)}\n#@ nonl\n"
 
 # The header directives that shape the run of the oracle. The others
-# (`zeo:`, `only:`, `needs:`, `backend:`) say nothing about ruby.
+# (`only:`, `needs:`) say nothing about ruby.
 def directives(source, path)
   head = source.split(/^__END__$/, 2).first
   rows = head.scan(/^#@ (\w+):[ \t]*(.*)$/).to_h

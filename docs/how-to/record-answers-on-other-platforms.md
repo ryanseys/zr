@@ -52,12 +52,15 @@ with a directive above `__END__`:
 
 ## Check a target against its baseline
 
-A target that does not pass the whole corpus yet has a baseline: the
-list of rows it is allowed to fail. Run it with the baseline:
+A target that does not pass the whole tier yet has a baseline:
+`test/baselines/<triple>.txt` names the programs it is allowed to fail,
+one `<path>` and reason a line, separated by a tab. The run reads it
+itself:
 
 ```console
-$ bin/ze0 test ze0:: --target wasm32-wasi --baseline test/baselines/wasm32-wasi.txt
+$ rake test:e2e TARGET=wasm32-wasi
 ```
 
-When a change fixes rows, write the baseline again from the sweep's
-output, `tmp/sweep.txt`.
+A named program that fails is skipped with its reason. A named program
+that **passes** fails the run and says to take it off the file, so when
+a change fixes one you learn about it rather than having to look.

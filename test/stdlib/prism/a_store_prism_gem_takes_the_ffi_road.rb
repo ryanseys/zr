@@ -8,7 +8,7 @@
 # `"ruby"`. Recorded as a note; `crates/zeo/tests/fixtures/capi_sweep/
 # XFAIL.json` carries the same finding for the sweep.
 #@ zeo-env: ZEO_DISABLE_BUILTIN=prism
-#@ zeo: --gem-path vendor/gems --bundle-gemfile Gemfile
+
 require "prism"
 
 r = Prism.parse("1 + 2\n")

@@ -478,6 +478,35 @@ describe "String: case mapping" do
     OUT
   end
 
+  it "string methods" do
+    result = ze0(<<~'RUBY')
+      puts "abc".upcase
+      puts "ABC".downcase
+      puts "abc".length
+      puts "abc".reverse
+      puts "a" + "b"
+      puts "ab" * 3
+      s = "hello"
+      puts s.capitalize
+      puts s.include?("ell")
+      puts s.index("l")
+      p "x".succ
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ABC
+      abc
+      3
+      cba
+      ab
+      ababab
+      Hello
+      true
+      2
+      "y"
+    OUT
+  end
+
   it "string param inference from body" do
     result = ze0(<<~'RUBY')
       # #450 cascade 2: a method like

@@ -506,321 +506,6 @@ describe "Methods programs" do
     OUT
   end
 
-  it "class method barrier follows the visibility timeline" do
-    result = ze0(<<~'RUBY')
-      class C
-        def self.helper(x) = x + 1
-      end
-
-      module M
-        def bonus(x) = x + 100
-      end
-
-      # ONE call site, asked again after every change -- the site remembers its
-      # barrier verdict, so each answer has to be the one ruby gives at that moment.
-      def ask(n)
-        C.helper(n)
-      rescue NoMethodError => e
-        e.message
-      end
-
-      def ask_bonus(n)
-        C.bonus(n)
-      rescue NoMethodError => e
-        e.message
-      end
-
-      # A name Class supplies and C does not, so the barrier falls through.
-      def ask_frozen
-        C.frozen?
-      rescue NoMethodError => e
-        e.message
-      end
-
-      puts ask(1)
-      puts ask_bonus(1)
-      puts ask_frozen
-
-      C.private_class_method(:helper)
-      puts ask(2)
-
-      C.public_class_method(:helper)
-      puts ask(3)
-
-      C.define_singleton_method(:helper) { |x| x * 10 }
-      puts ask(4)
-
-      C.extend(M)
-      puts ask(5)
-      puts ask_bonus(5)
-
-      C.singleton_class.send(:private, :bonus)
-      puts ask_bonus(6)
-
-      C.singleton_class.send(:public, :bonus)
-      puts ask_bonus(7)
-
-      C.freeze
-      puts ask_frozen
-      puts ask(8)
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      2
-      undefined method 'bonus' for class C
-      false
-      private method 'helper' called for class C
-      4
-      40
-      50
-      105
-      private method 'bonus' called for class C
-      107
-      true
-      80
-    OUT
-  end
-
-  it "class method int table arg" do
-    _(ze0(<<~'RUBY')).must_answer "18\n"
-      # A namespace module whose methods are all `self.` ones passes a table of int
-      # arrays between two of them. Emission resolves `M.consume(...)` through the
-      # class-method chain, so the narrowing pass has to resolve it the same way --
-      # otherwise the argument is an unattributable escape, the table stays a boxed
-      # poly array, and every helper it feeds binds a boxed parameter.
-      class F
-        def self.mul(a, b)
-          (a * b) % 97
-        end
-      end
-
-      class M
-        def self.consume(rows, s)
-          acc = 0
-          i = 0
-          while i < rows.length
-            row = rows[i]
-            acc += F.mul(row[0], s)
-            i += 1
-          end
-          acc
-        end
-      end
-
-      rows = Array.new(4) { |c| [c, c + 1, c + 2] }
-      p M.consume(rows, 3)
-    RUBY
-  end
-
-  it "class method redefinition timeline" do
-    result = ze0(<<~'RUBY')
-      # Ruby installs each `def` WHERE IT STANDS, so a call written between two
-      # same-name definitions answers the FIRST body. zeo's static tables carry only
-      # the last-def-wins winner, so `analyze::redefs` puts the timeline in the
-      # runtime overlay instead: the first body installs at boot, and each later one
-      # re-installs at its own document position.
-      #
-      # The instance channel had that; the class-method channel did not -- `redefs`
-      # skipped `is_class_method` outright, so `C.t` answered the reopened body from
-      # the program's first line. The two channels are separate maps and separate
-      # hooks, which is what this file sweeps.
-      #
-      # No call-site change was needed: a class-method send is already dynamic (it
-      # has an explicit receiver), and the overlay outranks the frozen row. What was
-      # missing was the install.
-
-      puts "== a reopen across class bodies"
-      class C
-        def self.t = "t1"
-      end
-      p C.t
-      class C
-        def self.t = "t2"
-      end
-      p C.t
-
-      puts "== module_function reaches it the same way"
-      module F
-        module_function
-        def g = "g1"
-      end
-      p F.g
-      module F
-        module_function
-        def g = "g2"
-      end
-      p F.g
-
-      puts "== three bodies, and every window sees its own"
-      class Three
-        def self.v = 1
-      end
-      a = Three.v
-      class Three
-        def self.v = 2
-      end
-      b = Three.v
-      class Three
-        def self.v = 3
-      end
-      p [a, b, Three.v]
-
-      puts "== two definitions in ONE body with a statement between"
-      class Between
-        def self.w = "first"
-        SEEN = w
-        def self.w = "second"
-      end
-      p [Between::SEEN, Between.w]
-
-      puts "== the two channels do not interfere"
-      class Both
-        def self.n = "cls1"
-        def n = "inst1"
-      end
-      p [Both.n, Both.new.n]
-      class Both
-        def self.n = "cls2"
-        def n = "inst2"
-      end
-      p [Both.n, Both.new.n]
-
-      puts "== a redefined class method keeps its arguments, block and keywords"
-      class Args
-        def self.k(a, b = 2, *rest, c:, d: 4, &blk) = "1:#{a},#{b},#{rest},#{c},#{d},#{blk&.call}"
-      end
-      p Args.k(1, c: 3) { "blk" }
-      class Args
-        def self.k(a, b = 2, *rest, c:, d: 4, &blk) = "2:#{a},#{b},#{rest},#{c},#{d},#{blk&.call}"
-      end
-      p Args.k(1, 9, 8, c: 3, d: 7) { "blk" }
-
-      puts "== self is the CLASS in every body: class-level ivars and cvars"
-      class SelfIsClass
-        @tag = "ivar"
-        @@shared = "cvar"
-        def self.s = "1:#{@tag}/#{@@shared}"
-      end
-      p SelfIsClass.s
-      class SelfIsClass
-        def self.s = "2:#{@tag}/#{@@shared}"
-      end
-      p SelfIsClass.s
-
-      puts "== super from a redefined class method"
-      class SuperBase
-        def self.s = "base"
-      end
-      class SuperSub < SuperBase
-        def self.s = "1(#{super})"
-      end
-      p SuperSub.s
-      class SuperSub
-        def self.s = "2(#{super})"
-      end
-      p SuperSub.s
-
-      puts "== a subclass sees the timeline of the parent's class method"
-      class PBase
-        def self.p1 = "p1"
-      end
-      class PSub < PBase; end
-      before = PSub.p1
-      class PBase
-        def self.p1 = "p2"
-      end
-      p [before, PSub.p1]
-
-      puts "== a module's own def self.x"
-      module ModSelf
-        def self.m = "m1"
-      end
-      p ModSelf.m
-      module ModSelf
-        def self.m = "m2"
-      end
-      p ModSelf.m
-
-      puts "== reflection names the owner, and the last body's report"
-      # `#arity`/`#parameters` in the WINDOW report the FINAL body on both channels
-      # -- the meta rows are static and the timeline lives in the overlay. See
-      # `tests/gaps/a_redefinition_window_reports_the_last_body.rb`.
-      class Reflect
-        def self.r = "r1"
-      end
-      p [Reflect.method(:r).owner.to_s, Reflect.r]
-      class Reflect
-        def self.r(x) = "r2#{x}"
-      end
-      p [Reflect.method(:r).owner.to_s, Reflect.method(:r).arity, Reflect.r("!")]
-
-      puts "== singleton_method_added reports each definition where it stands"
-      class Hooked
-        def self.singleton_method_added(n)
-          (@seen ||= []) << n unless n == :singleton_method_added
-          super
-        end
-        def self.a = "a1"
-      end
-      p Hooked.instance_variable_get(:@seen)
-      class Hooked
-        def self.a = "a2"
-      end
-      p [Hooked.instance_variable_get(:@seen), Hooked.a]
-
-      puts "== a redefinition clears the private mark, as ruby does"
-      # Only the SECOND half is asserted here: a `private_class_method` mark made
-      # BEFORE the reopen is not enforced inside the window -- the same on both
-      # channels, and the same gap file as the arity above.
-      class Vis
-        def self.v = "v1"
-        private_class_method :v
-      end
-      class Vis
-        def self.v = "v2"
-      end
-      p Vis.v
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      == a reopen across class bodies
-      "t1"
-      "t2"
-      == module_function reaches it the same way
-      "g1"
-      "g2"
-      == three bodies, and every window sees its own
-      [1, 2, 3]
-      == two definitions in ONE body with a statement between
-      ["first", "second"]
-      == the two channels do not interfere
-      ["cls1", "inst1"]
-      ["cls2", "inst2"]
-      == a redefined class method keeps its arguments, block and keywords
-      "1:1,2,[],3,4,blk"
-      "2:1,9,[8],3,7,blk"
-      == self is the CLASS in every body: class-level ivars and cvars
-      "1:ivar/cvar"
-      "2:ivar/cvar"
-      == super from a redefined class method
-      "1(base)"
-      "2(base)"
-      == a subclass sees the timeline of the parent's class method
-      ["p1", "p2"]
-      == a module's own def self.x
-      "m1"
-      "m2"
-      == reflection names the owner, and the last body's report
-      ["#<Class:Reflect>", "r1"]
-      ["#<Class:Reflect>", 1, "r2!"]
-      == singleton_method_added reports each definition where it stands
-      [:a]
-      [[:a, :a], "a2"]
-      == a redefinition clears the private mark, as ruby does
-      "v2"
-    OUT
-  end
-
   it "class method site stays correct when the class changes" do
     _(ze0(<<~'RUBY')).must_answer "9 9 9 \nNoMethodError\n[1, 1]\n[2, 2]\n[\"hi\", \"hi\"]\n[:anything, [1, 2]]\n[:anything, [1, 2]]\n[4, 4]\n[5.0, 5.0]\n[\"x\", \"x\"]\n[:x, :y]\n[1, 2]\n[3, 4]\n[\"base\", \"base\"]\nab ab \n"
       # A `Target.name` call site caches the class method it resolved. Everything
@@ -1905,65 +1590,6 @@ describe "Methods programs" do
     OUT
   end
 
-  it "later def self reaches back" do
-    result = ze0(<<~'RUBY')
-      # A later `def self.x` installs at its OWN line: a call written above the
-      # reopen answers the earlier body, as ruby's install-where-it-stands rule
-      # requires. `module_function` reaches it the same way -- its class-method copy
-      # is an ordinary `def self.x` by the time analyze is done.
-      #
-      # `analyze::redefs` skipped `is_class_method` in both of its history scans, so
-      # a `(class, name)` pair on the singleton channel was never even a candidate.
-      # It counts the two channels APART now -- `def x` and `def self.x` are
-      # different methods, and only same-channel bodies supersede one another -- and
-      # each candidate carries which channel it is on, through the boot row, the
-      # spliced install and the emitted body (whose `self` is the CLASS).
-      #
-      # NO call-site change was needed, which is what made this smaller than it
-      # looked: a class-method send already has an explicit receiver and is already
-      # dynamic, and the overlay outranks the frozen row. What was missing was the
-      # install -- `runtime_replace_class_method_c`, whose overlay map holds an
-      # `RProc` where a compiled trampoline is a `ValueFn`, so the fn is wrapped as
-      # the value-receiver proc every class-method row there already is.
-      #
-      # One ordering fix rode with it: materialization copies an inherited
-      # `def self.x` onto every descendant, so a SUBCLASS answered the flattened
-      # copy of the final body and lost the parent's timeline entirely. The
-      # ancestors' overlay is probed before that flat table now, stopping at the
-      # first ancestor that really defines the name.
-      #
-      # The wider sweep is `tests/class_method_redefinition_timeline.rb`; what the
-      # window still misreports is `tests/gaps/a_redefinition_window_reports_the_last_body.rb`.
-
-      class C
-        def self.t = "t1"
-      end
-      p C.t
-      class C
-        def self.t = "t2"
-      end
-      p C.t
-
-      module F
-        module_function
-        def g = "g1"
-      end
-      p F.g
-      module F
-        module_function
-        def g = "g2"
-      end
-      p F.g
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      "t1"
-      "t2"
-      "g1"
-      "g2"
-    OUT
-  end
-
   it "map shadowed param poly arg" do
     result = ze0(<<~'RUBY')
       # A value-position map whose block param feeds a poly-widened callee param.
@@ -2339,44 +1965,6 @@ describe "Methods programs" do
       Animal
       :speak
       "bark!"
-    OUT
-  end
-
-  it "method introspection" do
-    result = ze0(<<~'RUBY')
-      # Test __method__, freeze/frozen?
-
-      # __method__
-      def greet
-        puts __method__  # greet
-      end
-      greet
-
-      def calculate
-        puts __method__  # calculate
-      end
-      calculate
-
-      # freeze / frozen? (AOT treats everything as frozen)
-      s = "hello"
-      s.freeze
-      puts s           # hello
-      puts s.frozen?   # true
-
-      # Integer#freeze (no-op)
-      n = 42
-      puts n.frozen?   # true
-
-      puts "done"
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      greet
-      calculate
-      hello
-      true
-      true
-      done
     OUT
   end
 
@@ -2955,84 +2543,6 @@ describe "Methods programs" do
     OUT
   end
 
-  it "module singleton new user method" do
-    result = ze0(<<~'RUBY')
-      # `module M; def self.new(x); ...; end; end` defines a user-level
-      # class method, NOT a constructor (modules can't be instantiated).
-      # Pre-fix the call `M.new(args)` hit compile_constructor_expr's
-      # user-class arm and emitted `sp_box_obj(<result>, <mod_cls_id>)`,
-      # mis-boxing the return as an instance of the module regardless of
-      # the user method's declared return type. Sibling methods on the
-      # same module (`def self.edit`) emitted correctly via the regular
-      # class-method dispatch. Issue #625.
-
-      module Views
-        module Articles
-          def self.new(x)
-            "rendered_#{x}"
-          end
-
-          def self.edit(x)
-            "edited_#{x}"
-          end
-        end
-      end
-
-      puts Views::Articles.new("a")
-      puts Views::Articles.edit("b")
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      rendered_a
-      edited_b
-    OUT
-  end
-
-  it "nonlocal return from proc unwinds the home method" do
-    result = ze0(<<~'RUBY')
-      # A non-lambda Proc's `return` returns from its creating method (live
-      # home), including through builtin iterators and `yield`; a lambda's is
-      # local.
-
-      def simple; proc { return 30 }.call; 40; end
-      p simple
-      def cond(x); proc { return "yes" if x > 0 }.call; "no"; end
-      p cond(5); p cond(-1)
-      def multi; proc { return 1, 2, 3 }.call; [9]; end
-      p multi
-      def thru_each; proc { [1,2,3].each { |x| return x*10 if x==2 }; :none }.call; end
-      p thru_each
-      def thru_ewi; proc { [10,20,30].each_with_index { |v,i| return i if v==20 }; -1 }.call; end
-      p thru_ewi
-      def gives; yield; end
-      def via_yield; gives { return 55 }; 66; end
-      p via_yield
-      def inner; proc { return "IR" }.call; "IN"; end
-      def outer; x = inner; proc { return "O:#{x}" }.call; "ON"; end
-      p outer
-      def cd(n, acc); proc { return acc if n==0 }.call; cd(n-1, acc+n); end
-      p cd(5, 0)
-      def with_lambda; -> { return 30 }.call; 40; end
-      p with_lambda
-      def dbl(x); proc { return x*2 }.call; -1; end
-      s = 0; 300.times { |i| s += dbl(i) }; p s
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      30
-      "yes"
-      "no"
-      [1, 2, 3]
-      20
-      1
-      55
-      "O:IR"
-      15
-      40
-      89700
-    OUT
-  end
-
   it "op method bitwise" do
     result = ze0(<<~'RUBY')
       # User-defined | & ^ % dispatch to the class method (mangled C name),
@@ -3158,107 +2668,6 @@ describe "Methods programs" do
       ["hi", "yo"]
       [4, 12]
       [4, 40]
-    OUT
-  end
-
-  it "param inference if predicate" do
-    result = ze0(<<~'RUBY')
-      # Issue #314 (A): `infer_cls_meth_param_from_body`'s walker missed
-      # IfNode predicates and else-branches when collecting param method
-      # usages, leaving the param at the "int" default and routing
-      # `<param>.method(...)` accesses through the int-class fallback —
-      # which silently picks the first user class that defines the
-      # method and casts the int to that class's struct pointer.
-      #
-      # Body shape:
-      #   def update(p)
-      #     if p.title.nil?      # predicate uses p — was invisible
-      #       nil
-      #     else
-      #       self.title = p.title   # else-branch uses p — was invisible
-      #     end
-      #   end
-      #
-      # `collect_param_methods` walked @nd_body but not @nd_predicate /
-      # @nd_subsequent / @nd_else_clause. With ONLY `p.title` inside an
-      # `if/else`, called == [] and the param-from-body inference skipped
-      # the method entirely.
-      #
-      # Fix: extend the walk to predicate, subsequent, else_clause,
-      # collection (for-in), block, elements, parts, conditions
-      # (case/when). Now `called=["title"]` is collected and
-      # `class_has_all_methods` picks a class that defines `title`.
-      #
-      # Surfaced via Roundhouse's emitted real-blog where `Article#update
-      # (p)`'s body has exactly this shape and the resulting `mrb_int lv_p`
-      # routed `p.title` and `p.body` to two different user classes
-      # (ArticleRow for one, ActionResponse for the other) — same `lv_p`
-      # cast to two different struct pointers, structurally invalid C.
-
-      class P
-        def title
-          @title
-        end
-        def title=(v)
-          @title = v
-        end
-        def body
-          @body
-        end
-        def body=(v)
-          @body = v
-        end
-      end
-
-      class App
-        # `p` is used ONLY inside the if-predicate (`p.title.nil?`),
-        # nowhere in the IfNode's body or else-branch. Pre-fix the
-        # collect_param_methods walker missed @nd_predicate /
-        # @nd_subsequent / @nd_else_clause, so called == [] and the
-        # param-from-body inference left `p` at "int". The
-        # int-class fallback then routed `p.title` through
-        # `((sp_<first-class-with-title> *)lv_p)->iv_title` — picking
-        # whichever user class happened to be declared first that has
-        # a `title` method. In Roundhouse that's a wildly different
-        # struct than the actual `ArticleParams` the call site passes.
-        def status(p)
-          if p.title.nil?
-            "no-title"
-          else
-            "has-title"
-          end
-        end
-      end
-
-      # IMPORTANT: don't call `App#status` directly — the call-site
-      # widening pass would pin `p` to obj_P and mask the body-walker
-      # bug. The test verifies that body-walker-derived inference fires
-      # even without a call site, by ensuring the C compiles cleanly
-      # despite multiple user classes (P, Other) that define `title`.
-
-      class Other
-        def title; "wrong"; end
-      end
-
-      # Pin both classes' instances at the top level so they appear in
-      # the symbol table.
-      o = Other.new
-      puts o.title             # wrong
-
-      q = P.new
-      q.title = "hello"
-      puts q.title             # hello
-
-      # `App#status` is defined but never called — purely body-walker
-      # determines `p`'s type. Pre-fix: left at "int", emitted broken C
-      # routing through whichever class came first.
-      puts "compiled-cleanly"
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      wrong
-      hello
-      compiled-cleanly
     OUT
   end
 
@@ -3401,6 +2810,173 @@ describe "Methods programs" do
       42
       [1, 2]
       5
+    OUT
+  end
+
+  it "parameters" do
+    result = ze0(<<~'RUBY')
+      def opt(a, b = 10, c = b + 1)
+        [a, b, c]
+      end
+
+      def rest(a, *r)
+        [a, r]
+      end
+
+      def post(a, *m, z)
+        [a, m, z]
+      end
+
+      def kw(a:, b: 5)
+        [a, b]
+      end
+
+      def kwrest(a, **o)
+        [a, o]
+      end
+
+      def blockp(a, &b)
+        b.nil? ? :none : b.call(a)
+      end
+
+      def everything(a, b = 2, *m, z, k:, j: 9, **o, &blk)
+        [a, b, m, z, k, j, o, blk.nil?]
+      end
+
+      class Box
+        def initialize(value, label: "box")
+          @value = value
+          @label = label
+        end
+
+        def to_s
+          "#{@label}=#{@value}"
+        end
+
+        def with(*extra, **opts)
+          [@value, extra, opts]
+        end
+
+        def each_pair
+          @value.each { |v| yield(v, @label) }
+        end
+      end
+
+      p opt(1)
+      p opt(1, 2)
+      p opt(1, 2, 3)
+      p rest(1)
+      p rest(1, 2, 3)
+      p post(1, 9)
+      p post(1, 2, 3, 9)
+      p kw(a: 1)
+      p kw(a: 1, b: 2)
+      p kwrest(1)
+      p kwrest(1, x: 2, y: 3)
+      p blockp(4)
+      p blockp(4) { |n| n * 2 }
+      p everything(1, 2, 3, 4, 5, k: 6)
+      p everything(1, 2, 3, k: 6, j: 7, extra: 8) { }
+
+      p method(:opt).parameters
+      p method(:everything).parameters
+      p method(:opt).arity
+      p method(:everything).arity
+
+      p [1, 2, 3].map { |x, y = 10| [x, y] }
+      p [[1, 2], [3, 4]].map { |a, *r| [a, r] }
+
+      double = ->(x) { x * 2 }
+      p double.call(5)
+      p double.(6)
+      p double[7]
+      p double.lambda?
+      p double.arity
+      p double.parameters
+      p [1, 2, 3].map(&double)
+      p ["a", "b"].map(&:upcase)
+
+      add = ->(a, b = 1) { a + b }
+      p add.call(2)
+      p add.call(2, 3)
+      p add.arity
+
+      # A `->` closes over a name the same way a block does: one shared cell,
+      # not a copy taken where the lambda was written.
+      tally = 0
+      count = ->(n) { tally += n }
+      count.call(3)
+      count.call(4)
+      p tally
+
+      pr = proc { |a, b = 1| [a, b] }
+      p pr.call(7)
+      p pr.arity
+      p lambda { |a, b = 1| }.arity
+      p proc { |a, *r| }.arity
+
+      puts Box.new(1)
+      puts Box.new(2, label: "two")
+      p Box.new(3).with(4, 5, a: 6)
+      Box.new([7, 8], label: "n").each_pair { |v, l| puts "#{l}:#{v}" }
+
+      # `_1`/`_2` and `it` are that many required positionals, under the names
+      # ruby gives them, so they answer a block's ordinary arity.
+      p [1, 2].map { _1 * 2 }
+      p({ "a" => 1 }.map { _1 + _2.to_s })
+      p [1, 2].map { it * 2 }
+      p proc { _1 + _2 }.arity
+      p proc { it }.arity
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 10, 11]
+      [1, 2, 3]
+      [1, 2, 3]
+      [1, []]
+      [1, [2, 3]]
+      [1, [], 9]
+      [1, [2, 3], 9]
+      [1, 5]
+      [1, 2]
+      [1, {}]
+      [1, {x: 2, y: 3}]
+      :none
+      8
+      [1, 2, [3, 4], 5, 6, 9, {}, true]
+      [1, 2, [], 3, 6, 7, {extra: 8}, false]
+      [[:req, :a], [:opt, :b], [:opt, :c]]
+      [[:req, :a], [:opt, :b], [:rest, :m], [:req, :z], [:keyreq, :k], [:key, :j], [:keyrest, :o], [:block, :blk]]
+      -2
+      -4
+      [[1, 10], [2, 10], [3, 10]]
+      [[1, [2]], [3, [4]]]
+      10
+      12
+      14
+      true
+      1
+      [[:req, :x]]
+      [2, 4, 6]
+      ["A", "B"]
+      3
+      5
+      -2
+      7
+      [7, 1]
+      1
+      -2
+      -2
+      box=1
+      two=2
+      [3, [4, 5], {a: 6}]
+      n:7
+      n:8
+      [2, 4]
+      ["a1"]
+      [2, 4]
+      2
+      1
     OUT
   end
 
@@ -3948,61 +3524,6 @@ describe "Methods programs" do
       10
       18
       2
-    OUT
-  end
-
-  it "splat return" do
-    result = ze0(<<~'RUBY')
-      # `return *x` returns the splat-to-array of x: a scalar wraps in a one-element
-      # array, an array stays itself, nil becomes []. Spinel previously emitted C
-      # whose return type (the splat's element type) conflicted with the array value.
-      def f(x); return *x; end
-      p f(1)              # [1]
-      p f([1, 2, 3])      # [1, 2, 3]
-      p f(nil)            # []
-      p f("hi")           # ["hi"]
-      p f([])             # []
-
-      # The returned array is a real Array usable downstream.
-      p f(5).map { |n| n * 2 }        # [10]
-      p f([1, 2]).sum                 # 3
-
-      # A conditional splat return alongside an ordinary return keeps both typed as
-      # an array (the method return unifies to a poly array).
-      def g(x)
-        return *x if x
-        [0]
-      end
-      p g(3)              # [3]
-      p g(nil)            # [0]
-
-      # A conditional splat return whose other branch is a non-array (scalar) forces
-      # the method return type to poly (not a poly array), so the splat value is
-      # boxed rather than array-typed. It must still splat-to-array correctly.
-      def hp(cond, x)
-        return *x if cond
-        1
-      end
-      p hp(true, [1, 2])  # [1, 2]
-      p hp(false, nil)    # 1
-      p hp(true, 5)       # [5]
-      p hp(true, nil)     # []
-    RUBY
-
-    _(result).must_answer <<~'OUT'
-      [1]
-      [1, 2, 3]
-      []
-      ["hi"]
-      []
-      [10]
-      3
-      [3]
-      [0]
-      [1, 2]
-      1
-      [5]
-      []
     OUT
   end
 

@@ -16,8 +16,8 @@ jobs:
           ruby-version: .ruby-version
           bundler-cache: true
       - uses: bytecodealliance/actions/wasmtime/setup@v1
-      - name: Run the checks
-        run: bundle exec rake check
+      - name: Run every test
+        run: bundle exec rake test
       - name: Build the gem
         run: gem build ze0.gemspec
       # The same install path on both hosts: the runtime carries its
@@ -98,11 +98,10 @@ jobs:
           docker exec alpine git config --global --add safe.directory /ze0
           docker exec alpine bundle config set --global without development
           docker exec alpine bundle install
-      - name: Run the checks this target answers
-        run: docker exec alpine bin/ze0 check target elf interp os_api description case_format
-      - name: Run ze0's own programs against the baseline
-        run: |
-          docker exec alpine bin/ze0 test ze0:: --target aarch64-linux-musl --baseline test/baselines/aarch64-linux-musl.txt
+      - name: Run the units this target answers
+        run: docker exec alpine bundle exec rake test:unit FILTER="target elf interp os_api description case_format"
+      - name: Build and run whole programs for this target
+        run: docker exec -e TARGET=aarch64-linux-musl alpine bundle exec rake test:e2e
       - name: Write the linux tables again and compare
         run: |
           docker exec alpine wget -qO /tmp/mkconstants.rb https://raw.githubusercontent.com/ruby/ruby/03b6d3f8898a28604fe6cb00eae3226b821168f4/ext/socket/mkconstants.rb
@@ -118,11 +117,10 @@ jobs:
           ruby-version: .ruby-version
           bundler-cache: true
       - uses: bytecodealliance/actions/wasmtime/setup@v1
-      - name: Run the checks this target answers
-        run: bin/ze0 check wasm os_api target description case_format
-      - name: Run ze0's own programs against the baseline
-        run: |
-          bin/ze0 test ze0:: --target wasm32-wasi --baseline test/baselines/wasm32-wasi.txt
+      - name: Run the units this target answers
+        run: bundle exec rake test:unit FILTER="wasm os_api target description case_format"
+      - name: Build and run whole programs for this target
+        run: TARGET=wasm32-wasi bundle exec rake test:e2e
 
   same-bytes:
     name: output does not depend on the host

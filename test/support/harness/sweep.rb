@@ -125,7 +125,6 @@ module Ze0
         if (need = kase.unmet_need(@runner.platform))
           return Row.new(rb, :skipped, "needs #{need}")
         end
-        return Row.new(rb, :skipped, "needs the compiler in process") if kase.directives.backend
         # A program ze0 does not answer yet says so where it lives,
         # rather than being moved somewhere that means it.
         return Row.new(rb, :skipped, kase.directives.skip) if kase.directives.skip

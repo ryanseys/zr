@@ -440,6 +440,27 @@ describe "Marshal programs" do
     OUT
   end
 
+  it "marshal roundtrips a struct graph" do
+    result = ze0(<<~'RUBY')
+      # Marshal writes and reads a graph of core objects inside the binary.
+      Point = Struct.new(:x, :y)
+      data = { list: [1, 2.5, "three", :four], point: Point.new(6, 7), set: (1..3).to_a }
+      bytes = Marshal.dump(data)
+      back = Marshal.load(bytes)
+      p back[:list]
+      p back[:point].to_a
+      p back == data
+      puts bytes.encoding
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 2.5, "three", :four]
+      [6, 7]
+      true
+      ASCII-8BIT
+    OUT
+  end
+
   it "marshal string ivars round trip" do
     result = ze0(<<~'RUBY')
       # Instance variables on a STRING survive a Marshal round-trip (the I
@@ -702,6 +723,34 @@ describe "Marshal programs" do
       false
       true
       false
+    OUT
+  end
+
+  it "refuses the undumpable" do
+    result = ze0(<<~'RUBY')
+      # `Marshal.dump` refuses what cannot round-trip: an object with a singleton
+      # ("singleton can't be dumped") and an IO ("can't dump IO"). zeo dumps both
+      # happily, silently losing the singleton and the stream -- wrong DATA, not
+      # just a missing error. (Found by the 2026-08-24 probe sweep.)
+      o = Object.new
+      def o.only_mine = 1
+      begin
+        Marshal.dump(o)
+        puts "singleton dumped"
+      rescue TypeError => e
+        puts e.message
+      end
+      begin
+        Marshal.dump($stdout)
+        puts "io dumped"
+      rescue TypeError => e
+        puts e.message
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      singleton can't be dumped
+      can't dump IO
     OUT
   end
 

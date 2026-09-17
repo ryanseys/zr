@@ -1,4 +1,10 @@
 #@ args: --seed 42
+# This program lives in `stdlib/testing/` and not in `stdlib/minitest/`
+# because minitest filters its own frames out of a backtrace with
+# `%r%lib/minitest%` -- and `stdlib/minitest` matches it. A program on
+# that path filters ITS OWN frames out, the filter falls through to the
+# whole backtrace, and ruby's answer becomes seventeen absolute paths
+# into whoever's gem store recorded it.
 # MILESTONE: a REAL minitest suite, written the way anyone writes one, runs
 # under zeo and reports what ruby reports -- passes, failures, errors, skips,
 # assertion counts and the exit status.
@@ -84,6 +90,11 @@ describe "the spec style" do
     _([]).wont_be :any?
   end
 end
+
+
+
+
+
 __END__
 Run options: --seed <n>
 
@@ -96,10 +107,10 @@ Finished in <time>
   1) Error:
 FailuresTest#test_errors:
 ArgumentError: boom
-    milestones/a_minitest_suite_runs.rb:48:in 'FailuresTest#test_errors'
+    e2e/stdlib/testing/a_minitest_suite_runs.rb:54:in 'FailuresTest#test_errors'
 
   2) Failure:
-FailuresTest#test_fails [milestones/a_minitest_suite_runs.rb:44]:
+FailuresTest#test_fails [e2e/stdlib/testing/a_minitest_suite_runs.rb:50]:
 one is not two.
 Expected: 1
   Actual: 2

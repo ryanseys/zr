@@ -11,7 +11,7 @@ record ruby's answer:
 
 ```console
 $ ruby tools/record.rb core/string/squeeze_keeps_one_of_each_run.rb
-$ ruby tools/test.rb core/string/squeeze_keeps_one_of_each_run.rb
+$ ruby -Ilib -Itest test/spec/core/string/string_test.rb -n "/squeeze/"
 ```
 
 The case diverges or fails to build now. It is the proof of your fix.
@@ -76,7 +76,7 @@ Then write the eval descriptions again, since they list every kernel
 def:
 
 ```console
-$ ZE0_BLESS=1 bin/ze0 check description
+$ ZE0_BLESS=1 rake test:unit FILTER=description
 ```
 
 ## 5. Add a new file, if the class has none
@@ -88,7 +88,7 @@ module before the classes that include it.
 ## 6. Run the case again
 
 ```console
-$ ruby tools/test.rb core/string/squeeze_keeps_one_of_each_run.rb
+$ ruby -Ilib -Itest test/spec/core/string/string_test.rb -n "/squeeze/"
 ```
 
 The first build after a change under `rt/` compiles the runtime again,
@@ -96,7 +96,7 @@ so it takes longer. Then run the class's directory, to see that nothing
 else changed:
 
 ```console
-$ bin/ze0 test core/string/
+$ rake test:spec FILTER=string
 ```
 
 ## Mark helpers and Ruby-written methods

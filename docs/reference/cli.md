@@ -1,8 +1,8 @@
 # Command line
 
-ze0 has two commands. `ze0` is the gem's command. `bin/ze0` is the
-checkout's command: it has every `ze0` command and five more that need
-the tests and tools in the repository.
+`ze0` is the gem's command, and the only one. In a checkout it is
+`exe/ze0`, and everything the repository itself needs -- the tests, the
+bootstrap, the benchmark bank, the generated tables -- is a rake task.
 
 ## `ze0`
 
@@ -53,72 +53,45 @@ build for it now.
 | 2 | the command line is wrong; the usage goes to stderr |
 | 3 | ze0 refused the program, or this host cannot build the target; the message names the form and its line, or the missing tool |
 
-## `bin/ze0`
-
-```
-ze0 test <filter>... | --all          does ze0 answer what ruby answered?
-             [--gc plain|stress] [--show N] [--target <triple>] [--baseline <rows>]
-ze0 bench [<filter>...]               how long does what ze0 built take?
-             [--runs N] [--target <triple>]
-ze0 check [<file>...]                 the repo's own checks, a process a file
-ze0 stage1                            ze0 compiles itself, twice, to the same bytes
-ze0 stage2                            the compiler compiled by itself is a fixed point
-```
-
-### `bin/ze0 test`
-
-Builds and runs corpus programs and compares each answer with its
-recording.
-
-| Argument | Meaning |
-|---|---|
-| `<filter>` | a directory (`lang/blocks/`), a suite (`ze0::`) or any part of a case's name (`core::string/upcase`) |
-| `--all` | every program in the corpus |
-| `--gc stress` | collect at every allocation (`ZR_GC_STRESS=1`) |
-| `--show N` | list at most N rows of each bucket (default 10) |
-| `--target <triple>` | build and run for that target |
-| `--baseline <file>` | pass when every defect row is one the file lists |
-
-Every program goes into one bucket:
-
-| Bucket | Meaning |
-|---|---|
-| `skipped` | no recording, or a directive opts the program out |
-| `refused` | ze0 named a form it does not compile, at its line |
-| `backend` | the build made no binary, or passed its memory bound |
-| `matched` | the binary answered what ruby answered |
-| `diverged` | the binary answered something else |
-| `crashed` | the binary died on a signal ruby did not, or passed its memory bound |
-| `timeout` | the binary ran past the time limit |
-
-Only `diverged`, `crashed` and `timeout` are defects. Every row goes to
-`tmp/sweep.txt`.
-
-### `bin/ze0 bench`
-
-Builds each benchmark in `test/bench/` that matches a filter, checks
-its answer, and prints the median time of `--runs` runs (default 3)
-beside `ruby` and `ruby --yjit`.
-
-### `bin/ze0 check`
-
-Runs each `test/unit/*_test.rb` file whose name holds one of the
-arguments, or all of them, one process per file or shard.
-
-### `bin/ze0 stage1` and `bin/ze0 stage2`
-
-`stage1` compiles the compiler (`tools/stage.rb`) twice, in two
-processes with separate caches, and compares the compiler's and the
-runtime's object bytes. `stage2` builds the compiler with ruby, then
-with that binary, and compares the two binaries.
-
 ## Rake tasks
+
+`rake -T` names them all. These are the ones a change reaches for.
+
+### Tests
 
 | Task | Runs |
 |---|---|
-| `rake` or `rake check` | `bin/ze0 check` |
-| `rake "check[exe zr]"` | `bin/ze0 check exe zr` |
-| `rake "corpus[lang/blocks/]"` | `bin/ze0 test lang/blocks/`; with no argument, `--all` |
-| `rake stage1`, `rake stage2` | `bin/ze0 stage1`, `bin/ze0 stage2` |
+| `rake` or `rake test` | the units, the specs and the end-to-end programs |
+| `rake test:unit [FILTER=exe,zr]` | ze0's own internals, a process a file |
+| `rake test:spec [FILTER=] [GC=stress] [TARGET=]` | Ruby held to ruby, one compile an example |
+| `rake test:e2e [TARGET=]` | whole programs through a real link |
+| `rake 'test:one[test/unit/zr_test.rb,-n /gc/]'` | one file, with minitest's own options |
+
+`FILTER` takes words, and a file whose base name holds one of them
+runs. `GC=stress` collects at every allocation (`ZR_GC_STRESS=1`).
+`TARGET` names a triple to build and run for; a target on its way in is
+held to `test/baselines/<triple>.txt` rather than to the whole tier.
+
+A spec example that ze0 refuses, or whose build produced no binary,
+skips and is counted; only a wrong answer, a crash or a timeout fails.
+That is the same division the buckets used to draw.
+
+### The oracle, the bank and the bootstrap
+
+| Task | Runs |
+|---|---|
+| `rake 'oracle[test/spec/core/string]'` | every spec literal re-checked against ruby 4.0.6, compiling nothing |
+| `rake 'record[e2e/core/io/hello.rb]'` | runs ruby and writes its answer under `__END__` |
+| `rake 'bench[--runs 5 fib]'` | builds each benchmark in `test/bench/` that matches, checks its answer, and prints the median of `--runs` runs (default 3) beside `ruby` and `ruby --yjit` |
+| `rake stage1` | compiles the compiler (`tools/stage.rb`) twice, in two processes with separate caches, and compares the compiler's and the runtime's object bytes |
+| `rake stage2` | builds the compiler with ruby, then with that binary, and compares the two binaries |
+
+### The rest
+
+| Task | Runs |
+|---|---|
 | `MKCONSTANTS=<path> rake tables` | the OS table tools, then fails on a difference |
+| `rake gen:*` | writes a generated file from its oracle; see [Tools](tools.md) |
+| `rake diff:*` | holds a Ruby port to ruby's own implementation |
+| `rake 'codesize[--all]'` | counts the instructions the backend writes for the runtime |
 | `rake build`, `rake release` | Bundler's gem tasks |

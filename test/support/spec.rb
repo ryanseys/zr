@@ -74,8 +74,19 @@ module Ze0
 
     module_function
 
+    # The target every example is built for. `ZE0_TARGET` names another
+    # one, as the cross-target rows of CI do; a triple this host cannot
+    # run is refused where it is named rather than at every example.
+    def target
+      @target ||= (name = ENV["ZE0_TARGET"]) ? Target.for(name) : Target.default
+    end
+
+    # The runner that knows how to start what this target builds: a
+    # binary on its own host, a module under wasmtime.
+    def runner = @runner ||= Harness::Runner.new(DSL::ROOT, target)
+
     # The name the recordings use for the machine these examples run on.
-    def platform = Harness::Runner::PLATFORMS.fetch(Target.default.os)
+    def platform = runner.platform
 
     # Whether this machine has what a `#@ needs:` name asked for.
     def need?(name) = Harness::Needs.met?(name, platform)
@@ -84,7 +95,7 @@ module Ze0
     # name the program answers to -- its backtraces carry it -- and is
     # relative to the directory the program runs in. `files` writes the
     # program's own fixtures beside it.
-    def build_and_run(source, path:, argv: [], env: {}, stdin: nil, files: {}, target: Target.default, seconds: nil)
+    def build_and_run(source, path:, argv: [], env: {}, stdin: nil, files: {}, seconds: nil)
       Dir.mktmpdir("ze0-spec-") do |work|
         run = File.join(work, "run")
         rb = File.join(run, path)
@@ -112,9 +123,12 @@ module Ze0
           return [:backend, why]
         end
 
-        out, = Harness::Child.run([bin, *argv], cwd: run, stdin: stdin, env: env,
-                                               seconds: seconds || Spec.limit,
-                                               megabytes: Harness::Child::RUN_MB)
+        # A binary starts on its own host; a wasm module starts under
+        # wasmtime, with the directory it runs in preopened.
+        command, child_env = runner.run(bin, argv, env)
+        out, = Harness::Child.run(command, cwd: run, stdin: stdin, env: child_env,
+                                           seconds: seconds || Spec.limit,
+                                           megabytes: Harness::Child::RUN_MB)
         verdict(Harness::Normalize.answer(out, rb, run))
       end
     end
@@ -169,8 +183,13 @@ module Ze0
     # `#@ exit` says the status **is** zero. An example that asserted
     # stdout alone would pass a program that also wrote a backtrace.
     module Expectation
-      def must_answer(stdout, stderr: "", status: 0, signal: nil)
+      # `linux:` and `wasi:` give that platform's stdout in place of
+      # this one, which is what a `#@ linux stdout` section in a
+      # recording says. A platform a call does not name answers what
+      # macOS answers, as a recording without its section does.
+      def must_answer(stdout, stderr: "", status: 0, signal: nil, linux: nil, wasi: nil)
         result = target
+        stdout = { "linux" => linux, "wasi" => wasi }.fetch(Spec.platform, nil) || stdout
         ctx.assert_equal stdout, result.stdout, "stdout"
         ctx.assert_equal stderr, result.stderr, "stderr"
         signal.nil? ? ctx.assert_nil(result.signal, "signal") : ctx.assert_equal(signal, result.signal, "signal")

@@ -247,6 +247,22 @@ describe "JSON programs" do
     OUT
   end
 
+  it "json big integers stay exact" do
+    result = ze0(<<~'RUBY')
+      # `JSON.parse` keeps an integer beyond f64 EXACT (a Bignum); zeo's
+      # serde_json path converts it to Float and silently loses precision --
+      # wrong DATA, the sharpest kind. (Found by the 2026-08-24 probe sweep.)
+      require "json"
+      p JSON.parse('{"x":123456789012345678901234567890}')["x"]
+      p JSON.parse("[9007199254740993]").first
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      123456789012345678901234567890
+      9007199254740993
+    OUT
+  end
+
   it "json generate cycle aborts" do
     _(ze0(<<~'RUBY')).must_answer "JSON::NestingError\n"
       # The cycle this program builds on purpose, and the census it leaves
@@ -920,6 +936,20 @@ describe "JSON programs" do
       tally.keys.sort.each { |k| puts "  #{k}\t#{tally[k]}" }
       puts "round trips\t#{round}"
       puts "still running\ttrue"
+    RUBY
+  end
+
+  it "json roundtrip" do
+    _(ze0(<<~'RUBY')).must_answer "{\"name\":\"zeo\",\"tags\":[\"ruby\",\"aot\"],\"n\":42,\"ok\":true,\"nil\":null}\ntrue\n{\n  \"a\": [\n    1,\n    2\n  ]\n}\n{deep: {list: [1, 2, 3]}}\n"
+      # The json extension links into the binary: generation and parsing both run
+      # native code the link line has to carry.
+      require "json"
+      doc = { "name" => "zeo", "tags" => %w[ruby aot], "n" => 42, "ok" => true, "nil" => nil }
+      text = JSON.generate(doc)
+      puts text
+      p JSON.parse(text) == doc
+      puts JSON.pretty_generate("a" => [1, 2])
+      p JSON.parse('{"deep":{"list":[1,2,3]}}', symbolize_names: true)
     RUBY
   end
 

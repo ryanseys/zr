@@ -6,7 +6,7 @@ asserts.
 
 ## Write one
 
-Specs live in `test/spec/<topic>/<area>/<subject>_test.rb`. Find the
+Specs live in `test/spec/<suite>/<area>/<subject>_test.rb`. Find the
 file whose subject your program is about — `core/string/frozen_test.rb`,
 `lang/blocks/enumeration_test.rb` — and add an example to it:
 
@@ -77,8 +77,20 @@ naming the form, and joins the refusal census at the end of the run.
 That is the roadmap, not a failure. A program that diverges, crashes or
 runs past its limit fails.
 
+## Hold the literal to ruby again
+
+`rake oracle` runs each example's program under the ruby the
+`.ruby-version` pins and holds the example to what it said, compiling
+nothing. It is how a hand-written literal earns the same standing as a
+lifted one:
+
+```console
+$ rake 'oracle[test/spec/core/string/frozen_test.rb]'
+```
+
 ## A whole program, end to end
 
-A program that needs a real link, a whole require graph, or an exit
-cycle census is not a spec. Those live in `test/e2e/` as programs with
-ruby's answer under `__END__`; see [The test format](../reference/test-format.md).
+A program that needs a real link or a whole require graph is not a
+spec. Those live in `test/e2e/<suite>/<area>/` as programs with ruby's
+answer under `__END__`; see
+[The program format](../reference/test-format.md).

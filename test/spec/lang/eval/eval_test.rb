@@ -372,6 +372,82 @@ describe "Eval programs" do
     OUT
   end
 
+  it "bindings" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
+      # `binding` and `local_variables` read the CALLER's scope, so no method
+      # row can answer them: the compile writes them out of the cells the
+      # scope's names live in. A cell is the only storage a Binding can share,
+      # so a scope that takes one keeps every name in one.
+
+      def method_scope
+        x = 1
+        y = "two"
+        b = binding
+        [b.local_variables, b.local_variable_get(:x), b.receiver.class]
+      end
+      p method_scope
+      p local_variables
+
+      # The names come back the way ruby orders them: the innermost scope's
+      # own first, then the enclosing ones a block carries.
+      outer = 1
+      [9].each { |i| inner = 2; p local_variables }
+
+      # A binding writes back through the same cell the scope reads.
+      def written_back
+        n = 1
+        binding.local_variable_set(:n, 9)
+        n
+      end
+      p written_back
+
+      # `Proc#binding` is the scope the proc was BUILT in: its own locals do
+      # not exist until it runs.
+      def make
+        hidden = :in_make
+        proc { hidden }
+      end
+      pr = make
+      p [pr.binding.local_variables, pr.binding.local_variable_get(:hidden)]
+
+      # A bare `eval` runs in the caller's binding, and so does one handed nil.
+      zz = 11
+      p [eval("zz + 1"), eval("zz + 2", nil), eval("zz + 3", binding)]
+
+      # `TOPLEVEL_BINDING` is `<main>`'s own frame.
+      p TOPLEVEL_BINDING.class
+      p TOPLEVEL_BINDING.source_location
+      p TOPLEVEL_BINDING.local_variable_get(:zz)
+
+      # A method's binding sees the receiver's instance variables and its cref.
+      class Holder
+        LIMIT = 5
+        def initialize = @v = 10
+        def peek
+          y = 1
+          binding
+        end
+      end
+      hb = Holder.new.peek
+      p [hb.eval("@v"), hb.eval("y"), hb.eval("LIMIT")]
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [[:x, :y, :b], 1, Object]
+      [:outer, :pr, :zz, :hb]
+      [:i, :inner, :outer, :pr, :zz, :hb]
+      9
+      [[:hidden], :in_make]
+      [12, 13, 14]
+      Binding
+      ["<main>", 0]
+      11
+      [10, 1, 5]
+    OUT
+  end
+
   it "bm instance eval" do
     result = ze0(<<~'RUBY')
       # Test instance_eval { block } block-form lifting.
@@ -1659,6 +1735,57 @@ describe "Eval programs" do
     _(ze0(<<~'RUBY')).must_answer "7\n"
       op = "-"; puts eval("10 #{op} 3")
     RUBY
+  end
+
+  it "eval strings" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
+      # The verbs that run a STRING of ruby. There is nothing for the compile
+      # to see, so the sidecar asks the backend to link the run-time compiler
+      # and the string is compiled where it runs.
+
+      p eval("1 + 2")
+      p eval("[1, 2].map { |n| n * 3 }")
+
+      # `class_eval` installs into the class it is called on.
+      class Counter
+        def initialize = @n = 0
+      end
+      Counter.class_eval("def bump = @n += 1")
+      c = Counter.new
+      c.bump
+      p c.bump
+
+      # `module_eval` reaches a module's own singleton.
+      module Tools; end
+      Tools.module_eval("def self.twice(x) = x * 2")
+      p Tools.twice(21)
+
+      # `instance_eval` runs with the receiver as `self`, so a `def` there is
+      # that one object's.
+      o = Object.new
+      o.instance_eval("def only_mine = :mine")
+      p o.only_mine
+      p(o.instance_eval("self") == o)
+
+      # A string that does not parse raises where the eval stands.
+      begin
+        eval("1 +")
+      rescue SyntaxError
+        puts "SyntaxError"
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      3
+      [3, 6]
+      2
+      42
+      :mine
+      true
+      SyntaxError
+    OUT
   end
 
   it "eval vm defined and forwarding" do

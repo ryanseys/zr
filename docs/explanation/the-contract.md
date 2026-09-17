@@ -38,30 +38,35 @@ one place: ruby 4.0.6, the version in `.ruby-version`. It never compares
 with another implementation, and a person never writes an expected
 answer by hand.
 
-Each corpus program carries ruby's answer under `__END__`, written by
-`tools/record.rb`. A recording is made once. If the right answer
-changes, the program has changed, so it is a new case.
+Every literal a spec asserts was written by ruby and lifted from a
+recording ruby made, and `rake oracle` re-asks ruby for each one. The
+whole programs in `test/e2e/` and `test/bench/` carry ruby's answer
+under `__END__`, written by `rake record`. A recording is made once. If
+the right answer changes, the program has changed, so it is a new
+program.
 
 The ports follow the same rule. `tools/prism_diff.rb`,
 `tools/regexp_diff.rb` and `tools/zlib_diff.rb` compare the Ruby ports
 with ruby's own C on the host, case by case.
 
-## How the corpus keeps the promise
+## How the specs keep the promise
 
-The corpus is thousands of small programs under `test/`, grouped by
-topic: `lang/` for the language, `core/` for core classes, `stdlib/`
-for libraries. `bin/ze0 test` builds each one, runs it, and puts it in
-a bucket. Only three buckets are defects: `diverged`, `crashed` and
-`timeout`.
+`test/spec/` holds thousands of small programs, grouped by area:
+`lang/` for the language, `core/` for core classes, `stdlib/` for
+libraries, `compiler/` for what ze0 does with them. `rake test:spec`
+compiles each one, runs what it built, and holds all four parts of the
+answer -- stdout, stderr, the signal and the exit status -- to what
+ruby said. A program ze0 refuses, or cannot build, **skips** and is
+counted; only a wrong answer, a crash or a timeout fails.
 
 An example ze0 does not answer yet says so where it sits, with
 `skip "<what it waits on>"`. Every other example passes, so a new
 failure is always news, and a gap is a line to delete rather than a file
 to move back.
 
-## More than the corpus
+## More than the answers
 
-The corpus tests answers. Other checks test the parts that make the
+The specs test answers. The units test the parts that make the
 answers:
 
 - `IR::Interp` runs IR without the backend. When the binary and the
@@ -72,5 +77,5 @@ answers:
   collector does not see fails at once instead of rarely.
 - `ZR_MCACHE=verify` checks every method cache hit against a fresh
   lookup.
-- `bin/ze0 stage1` and `stage2` compile the compiler with itself and
+- `rake stage1` and `rake stage2` compile the compiler with itself and
   compare bytes. See [Bootstrapping](bootstrapping.md).

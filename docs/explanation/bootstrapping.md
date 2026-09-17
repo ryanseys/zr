@@ -1,12 +1,12 @@
 # Bootstrapping
 
 ze0 is written in Ruby, and it compiles Ruby. So it can compile itself.
-This page explains why that matters, and what `bin/ze0 stage1` and
-`bin/ze0 stage2` check.
+This page explains why that matters, and what `rake stage1` and
+`rake stage2` check.
 
 ## The stages
 
-- **Stage 0** is ze0 running on CRuby: `bin/ze0`.
+- **Stage 0** is ze0 running on CRuby: `exe/ze0`.
 - **Stage 1** is the compiler that stage 0 builds: a native binary of
   `tools/stage.rb`, which is ze0's compiler as a program.
 - **Stage 2** is the compiler that stage 1 builds from the same source.
@@ -18,7 +18,7 @@ is a *fixed point*.
 
 ## What `stage1` checks
 
-`bin/ze0 stage1` runs stage 0 twice, in two processes with two separate
+`rake stage1` runs stage 0 twice, in two processes with two separate
 caches, and compiles the compiler to an object each time. It compares
 the two compiler objects and the two runtime objects byte for byte.
 
@@ -30,14 +30,14 @@ to the compiler.
 
 ## What `stage2` checks
 
-`bin/ze0 stage2` builds stage 1 with ruby, then runs stage 1 to build
+`rake stage2` builds stage 1 with ruby, then runs stage 1 to build
 stage 2, and compares the two binaries. ze0's own linker links both,
 and stage 2's link runs inside the compiled compiler, so the check
 covers the linker too. The UUID and the signature are left out of the
 comparison, because under `ZE0_LINK=cc` the system linker writes them
 and no input decides them.
 
-This is a much larger test than any corpus program. The compiler is
+This is a much larger test than any spec or program. The compiler is
 tens of thousands of lines of real Ruby: the prism port, the HIR build,
 the lowering, the IR passes, the backend, the object writers and the
 linker. If compiled ze0 answers differently from ze0 on CRuby anywhere

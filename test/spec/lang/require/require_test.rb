@@ -3,6 +3,60 @@
 require "spec_helper"
 
 describe "Require programs" do
+  it "bundled libraries" do
+    result = ze0(<<~'RUBY')
+      # ze0 searches the same library tiers `zeo build` does -- the Ruby halves of
+      # the runtime's extensions, the pure-Ruby ports, rubygems and bundler, and
+      # the store `Gemfile.lock` resolves -- so a plain `require` of a bundled gem
+      # reaches one library on both roads.
+      require "csv"
+      require "forwardable"
+      require "tempfile"
+      require "abbrev"
+
+      p CSV.generate_line(%w[a b c])
+      p Abbrev.abbrev(%w[ruby]).keys.sort
+
+      class Wrapped
+        extend Forwardable
+        def_delegator :@list, :size
+        def initialize(list) = @list = list
+      end
+      p Wrapped.new([1, 2, 3]).size
+
+      Tempfile.create("ze0") do |f|
+        f.write("written")
+        f.flush
+        p File.read(f.path)
+      end
+
+      # `English` aliases a global to a match special, which prism gives a node
+      # type of its own.
+      require "English"
+      "hello world" =~ /o (w\w+)/
+      p [$MATCH, $PREMATCH, $POSTMATCH, $LAST_PAREN_MATCH]
+
+      # `tmpdir` puts a module inside its `class Dir` reopen, and a constant
+      # inside a `class << obj` body.
+      require "tmpdir"
+      p Dir.tmpdir.is_a?(String)
+
+      # A spliced file records itself in `$LOADED_FEATURES` before it runs, the
+      # way CRuby's `rb_provide_feature` does.
+      p $LOADED_FEATURES.any? { |f| f.end_with?("abbrev.rb") }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "a,b,c\n"
+      ["r", "ru", "rub", "ruby"]
+      3
+      "written"
+      ["o world", "hell", "", "world"]
+      true
+      true
+    OUT
+  end
+
   it "features" do
     _(ze0(<<~'RUBY')).must_answer "0:10\n1:20\n2:30\n15\n12345\nhippo\nhi    |\n    hi|\n20\n"
       # Test various Ruby features
@@ -318,6 +372,77 @@ describe "Require programs" do
       Dir.chdir(File.expand_path("reopening_via_load_twice_merges_cleanly", __dir__))
       require_relative "reopening_via_load_twice_merges_cleanly/main"
     RUBY
+  end
+
+  it "require relative" do
+    result = ze0(<<~'RUBY', files: {"require_relative/deeper.rb" => "# frozen_string_literal: true\n\n# A required file's top level is its own scope: this `mark` and the one\n# in the file that required it are two names with two slots.\nmark = \"deeper\"\n\nmodule Spliced\n  module Deeper\n    EXTRA = \"+\"\n  end\nend\n\nDEEPER_MARK = mark\n", "require_relative/shared.rb" => "# frozen_string_literal: true\n\nrequire_relative \"deeper\"\n\nmark = \"shared\"\n[\"!\"].each { |s| mark += s }\n\nmodule Spliced\n  MARK = \"!\"\n\n  class Helper\n    def self.help = \"helped\#{Deeper::EXTRA}\#{MARK}\"\n    def self.boom = raise(ArgumentError, \"from the spliced file\")\n  end\nend\n\nSHARED_MARK = mark\n"})
+      # frozen_string_literal: true
+
+      # `require_relative` resolves here, not at run time: the target's
+      # statements are spliced in at the call's position, once per file.
+      # A second require of the same path adds nothing.
+      require_relative "require_relative/shared"
+      require_relative "require_relative/shared"
+
+      # Each file's top level is its own scope, so all three `mark`s are
+      # different names and this one is untouched by the two spliced in above.
+      mark = "main"
+
+      module Spliced
+        # Reopened from another file: one class row, one body per `module`
+        # statement, and the constants of both.
+        VERSION = 2
+
+        def self.report = "#{Helper.help} #{VERSION} #{Deeper::EXTRA}"
+      end
+
+      p mark, SHARED_MARK, DEEPER_MARK
+      p Spliced.report
+      p Spliced::Helper.help
+      p Spliced::MARK, Spliced::VERSION, Spliced::Deeper::EXTRA
+      p Spliced.constants.sort
+      p Spliced::Helper.singleton_methods.sort
+
+      begin
+        Spliced::Helper.boom
+      rescue ArgumentError => e
+        # A `def` names the file it was WRITTEN in, not the one being compiled.
+        p e.message, e.backtrace.first
+      end
+
+      p Spliced::Helper.method(:help).source_location.first
+
+      # A `require` no root carries names a feature the runtime already holds.
+      # The backend registers the classes it gates, CONCEALED, and the call
+      # opens the gate where it stands. The answer is folded as ruby folds it.
+      p require("json")
+      p require("json")
+      p JSON.name, JSON.instance_of?(Module)
+      p require("digest")
+      p Digest.name
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "main"
+      "shared!"
+      "deeper"
+      "helped+! 2 +"
+      "helped+!"
+      "!"
+      2
+      "+"
+      [:Deeper, :Helper, :MARK, :VERSION]
+      [:boom, :help]
+      "from the spliced file"
+      "ze0/require_relative/shared.rb:13:in 'Spliced::Helper.boom'"
+      "ze0/require_relative/shared.rb"
+      true
+      false
+      "JSON"
+      true
+      true
+      "Digest"
+    OUT
   end
 
   it "require relative in a method runs when the method does" do

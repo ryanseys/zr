@@ -3,6 +3,218 @@
 require "spec_helper"
 
 describe "Misc programs" do
+  it "defined" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
+      # `defined?(expr)` answers ruby's prose for what the expression IS, or
+      # nil when it is not there. What is inside never runs for its value: a
+      # method is asked about rather than called, and an assignment does not
+      # assign. The parts that ARE evaluated -- a call's receiver, a constant's
+      # scope -- run under a landing that swallows a raise and answers nil.
+
+      x = 1
+      p defined?(x)
+      p defined?(nope)
+      p defined?(self)
+      p defined?(nil), defined?(true), defined?(false)
+      p defined?([1, 2]), defined?("s"), defined?(:s), defined?(1..2)
+      p defined?(if x then 1 end)
+
+      # The assignment does not run.
+      p defined?(y = 2)
+      p defined?(y)
+
+      p defined?(String)
+      p defined?(Missing)
+      p defined?(String::Comparable)
+      p defined?(Missing::Thing)
+
+      p defined?($stdout)
+      p defined?($never_set_anywhere)
+
+      p defined?(puts)
+      p defined?("a".upcase)
+      p defined?("a".nope)
+      p defined?(nothing.here)
+      p defined?(1 + 1)
+      p defined?(x.between?(0, 2))
+
+      class Holder
+        def initialize = @set = 1
+
+        def report
+          [defined?(@set), defined?(@unset), defined?(helper), defined?(self.helper)]
+        end
+
+        private
+
+        def helper = 1
+      end
+
+      p Holder.new.report
+
+      def with_block = defined?(yield)
+      p with_block { 1 }
+      p with_block
+
+      # The receiver is evaluated, so its side effect happens once; the method
+      # is not called at all.
+      seen = []
+      answer = defined?(seen.push(1).nope)
+      p answer, seen
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "local-variable"
+      nil
+      "self"
+      "nil"
+      "true"
+      "false"
+      "expression"
+      "expression"
+      "expression"
+      "expression"
+      "expression"
+      "assignment"
+      "local-variable"
+      "constant"
+      nil
+      nil
+      nil
+      "global-variable"
+      nil
+      "method"
+      "method"
+      nil
+      nil
+      "method"
+      "method"
+      ["instance-variable", nil, "method", nil]
+      "yield"
+      nil
+      nil
+      [1]
+    OUT
+  end
+
+  it "names and case" do
+    result = ze0(<<~'RUBY')
+      LIMIT = 10
+      GREETING = "hi"
+
+      def describe(n)
+        case n
+        when 0 then "zero"
+        when 1, 2 then "small"
+        when 3..5 then "medium"
+        when Float then "float"
+        else "large"
+        end
+      end
+
+      $seen = 0
+      @memo = nil
+
+      p LIMIT
+      p GREETING
+      p Float::INFINITY
+      p Integer
+      p LIMIT + 1
+
+      p describe(0)
+      p describe(2)
+      p describe(4)
+      p describe(1.5)
+      p describe(99)
+
+      p(case
+        when LIMIT > 100 then :huge
+        when LIMIT > 5 then :big
+        else :small
+        end)
+      p(case 7 when 1 then :one end)
+
+      $seen += 1
+      $seen += 1
+      p $seen
+      p $never_assigned
+
+      @memo ||= [GREETING]
+      @memo ||= ["ignored"]
+      p @memo
+      p @never_set
+
+      flag = nil
+      flag ||= "on"
+      p flag
+      kept = 1
+      kept &&= kept + 1
+      p kept
+      gone = nil
+      gone &&= 99
+      p gone
+
+      p 1 && 2
+      p nil && 2
+      p false || :fallback
+      p 1 || :unused
+      p !true
+      p !nil
+      p LIMIT > 5 ? "over" : "under"
+
+      n = 0
+      n += 2 while n < 6
+      p n
+      puts "modifier" if n == 6
+      puts "unless" unless n.zero?
+
+      p 5.send(:+, 6)
+      p GREETING.public_send(:upcase)
+      p GREETING.respond_to?(:upcase)
+      p GREETING.respond_to?(:nope)
+      p 3.method(:*).call(4)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      10
+      "hi"
+      Infinity
+      Integer
+      11
+      "zero"
+      "small"
+      "medium"
+      "float"
+      "large"
+      :big
+      nil
+      2
+      nil
+      ["hi"]
+      nil
+      "on"
+      2
+      nil
+      2
+      nil
+      :fallback
+      1
+      false
+      true
+      "over"
+      6
+      modifier
+      unless
+      11
+      "HI"
+      true
+      false
+      12
+    OUT
+  end
+
   it "sp net poll persistent" do
     _(ze0(<<~'RUBY', path: "lang/misc/sp_net_poll_persistent.rb")).must_answer "", stderr: "lang/misc/sp_net_poll_persistent.rb:10:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)\n\n  ffi_func :sp_net_poll_register,   [:int, :int], :int\n  ^^^^^^^^\n\tfrom lang/misc/sp_net_poll_persistent.rb:9:in '<main>'\n", status: 1
       # Persistent registration: register once per connection, then read only what

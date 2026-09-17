@@ -337,6 +337,46 @@ describe "Control programs" do
     OUT
   end
 
+  it "begin and end" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
+      # `BEGIN { }` runs before the rest of the file, in the order the file
+      # writes them. `END { }` runs at exit, last registered first, which is
+      # the queue `at_exit` shares.
+
+      puts "main"
+      BEGIN { puts "begin one" }
+      END { puts "end one" }
+      BEGIN { puts "begin two" }
+      END { puts "end two" }
+      at_exit { puts "at_exit" }
+      puts "done"
+
+      # A `BEGIN` shares the top-level names, so what it writes is there after.
+      BEGIN { started = :yes }
+      p defined?(started)
+
+      # An `END` reads the enclosing names by reference, so it sees the value
+      # they hold at exit, not the one they held where it was written.
+      counter = 1
+      END { puts "end saw counter=#{counter}" }
+      counter = 2
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      begin one
+      begin two
+      main
+      done
+      "local-variable"
+      end saw counter=2
+      at_exit
+      end two
+      end one
+    OUT
+  end
+
   it "bigint poly container" do
     result = ze0(<<~'RUBY')
       # A bigint value stored in a heterogeneous (poly) Array or Hash used to box as
@@ -662,6 +702,253 @@ describe "Control programs" do
     _(result).must_answer <<~'OUT'
       5
       42
+    OUT
+  end
+
+  it "control flow" do
+    result = ze0(<<~'RUBY', path: "ze0/control_flow.rb")
+      def grade(n)
+        if n >= 90
+          "A"
+        elsif n >= 80
+          "B"
+        elsif n >= 70
+          "C"
+        else
+          "F"
+        end
+      end
+
+      def classify(n)
+        if n < 0
+          if n < -10
+            "very negative"
+          else
+            "negative"
+          end
+        else
+          if n == 0
+            "zero"
+          elsif n > 10
+            "big"
+          else
+            "small"
+          end
+        end
+      end
+
+      i = 0
+      s = 0
+      while i < 100
+        s = s + i
+        i = i + 1
+      end
+      puts s
+
+      n = 10
+      f = 1
+      while n > 1
+        f = f * n
+        n = n - 1
+      end
+      puts f
+
+      w = while false do end
+      p w
+
+      i = 0
+      until i == 3
+        i = i + 1
+      end
+      p i
+
+      unless i == 3
+        puts "no"
+      else
+        puts "yes"
+      end
+
+      unless i == 4
+        puts "not four"
+      end
+
+      z = until true do end
+      p z
+
+      puts grade(95)
+      puts grade(85)
+      puts grade(75)
+      puts grade(10)
+
+      x = if 1 < 2 then 10 else 20 end
+      puts x
+      y = if 1 > 2 then 10 end
+      p y
+      puts(if false then 1 else 2 end)
+
+      puts classify(-20)
+      puts classify(-5)
+      puts classify(0)
+      puts classify(5)
+      puts classify(50)
+
+      # `begin` with no clause is a grouping, and the memo shape ze0's own
+      # sources are full of.
+      memo = {}
+      memo[:k] ||= begin
+        1 + 1
+      end
+      p memo
+
+      def catch_it
+        raise "boom"
+      rescue => e
+        "caught #{e.class}: #{e.message}"
+      end
+      p catch_it
+
+      def by_class(err)
+        begin
+          raise err, "m"
+        rescue TypeError, ArgumentError => x
+          "listed #{x.class}"
+        rescue StandardError
+          "standard"
+        end
+      end
+      p by_class(ArgumentError), by_class(TypeError), by_class(RuntimeError)
+
+      p(begin
+        raise "b"
+      rescue
+        42
+      end)
+
+      p(begin
+        7
+      rescue
+        :caught
+      else
+        :fine
+      end)
+
+      begin
+        raise "outer"
+      rescue => a
+        begin
+          raise "inner"
+        rescue => b
+          p $!.message
+        end
+        p $!.message, a.message, b.message
+      end
+      p $!
+
+      class Fussy < StandardError
+        def initialize(msg = "fussy") = super
+      end
+
+      begin
+        begin
+          raise Fussy
+        rescue ArgumentError
+          p :never
+        end
+      rescue Fussy => e
+        p e.message, e.class
+      end
+
+      def deep = raise("down there")
+      def shallow
+        deep
+      rescue => e
+        e.backtrace.first(2)
+      end
+      p shallow
+
+      def early
+        begin
+          raise "x"
+        rescue => e
+          return "returned #{e.message}"
+        end
+        :never
+      end
+      p early, $!
+
+      acc = [1, 2, 3].map do |i|
+        begin
+          raise "e#{i}" if i == 2
+          i
+        rescue => e
+          next e.message
+        end
+      end
+      p acc
+
+      stopped = [1, 2].each do |i|
+        begin
+          raise "x"
+        rescue
+          break :stopped
+        end
+      end
+      p stopped
+
+      i = 0
+      seen = []
+      while i < 3
+        begin
+          raise "e" if i == 1
+          seen << i
+        rescue => e
+          seen << e.message
+        end
+        i += 1
+      end
+      p seen
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      4950
+      3628800
+      nil
+      3
+      yes
+      not four
+      nil
+      A
+      B
+      C
+      F
+      10
+      nil
+      2
+      very negative
+      negative
+      zero
+      small
+      big
+      {k: 2}
+      "caught RuntimeError: boom"
+      "listed ArgumentError"
+      "listed TypeError"
+      "standard"
+      42
+      :fine
+      "inner"
+      "outer"
+      "outer"
+      "inner"
+      nil
+      "fussy"
+      Fussy
+      ["ze0/control_flow.rb:152:in 'Object#deep'", "ze0/control_flow.rb:154:in 'Object#shallow'"]
+      "returned x"
+      nil
+      [1, "e2", 3]
+      :stopped
+      [0, "e", 2]
     OUT
   end
 
@@ -1211,6 +1498,60 @@ describe "Control programs" do
       [2, 4]
       {"a" => 1}
       {"a" => 1}
+    OUT
+  end
+
+  it "jump values" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
+      # A `return`, `next` or `break` that carries more than one value answers
+      # one Array, and a lone `*xs` does too.
+
+      def pair = return 1, 2
+      def three
+        return 3, 4, 5
+      end
+      def spread(a)
+        return *a
+      end
+      def leading(a)
+        return 1, *a
+      end
+      p pair
+      p three
+      p spread([7, 8])
+      p spread([9])
+      p leading([2, 3])
+
+      # The same rule for the two jumps a block writes.
+      p([1].map { next 5, 6 })
+      def broken
+        [1, 2].each { break 7, 8 }
+      end
+      p broken
+      p [1, 2].map { |i| next i, i }
+
+      # One value stays one value, and none is nil.
+      def single = return 1
+      def bare
+        return
+      end
+      p single
+      p bare
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 2]
+      [3, 4, 5]
+      [7, 8]
+      [9]
+      [1, 2, 3]
+      [[5, 6]]
+      [7, 8]
+      [[1, 1], [2, 2]]
+      1
+      nil
     OUT
   end
 

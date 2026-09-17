@@ -158,6 +158,28 @@ describe "Constants programs" do
     OUT
   end
 
+  it "big constant table" do
+    result = ze0(<<~'RUBY')
+      # A large constant table lands in the binary's data section whole.
+      SQUARES = (1..64).map { |n| n * n }.freeze
+      NAMES = %w[
+        ada alan alonzo barbara claude dennis donald edsger grace guido james
+        john ken linus margaret niklaus ole rich robin tony yukihiro
+      ].freeze
+      CODES = { ok: 0, warn: 1, err: 2, fatal: 3 }.freeze
+      puts SQUARES.sum
+      puts NAMES.length, NAMES.max_by(&:length)
+      p CODES.sort_by { |_, v| -v }.first
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      89440
+      21
+      margaret
+      [:fatal, 3]
+    OUT
+  end
+
   it "boxs constant is its own" do
     result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
       # The CONSTANT channel, both halves. A box's `Object.const_set` is
@@ -2259,6 +2281,180 @@ describe "Constants programs" do
     OUT
   end
 
+  it "nesting and assignment" do
+    result = ze0(<<~'RUBY')
+      module Store
+        LIMIT = 3
+
+        class Item
+          KIND = "item"
+
+          def initialize(name, price)
+            @name = name
+            @price = price
+          end
+
+          def name
+            @name
+          end
+
+          def price
+            @price
+          end
+
+          def kind
+            [KIND, LIMIT]
+          end
+
+          def to_s
+            "#{@name}@#{@price}"
+          end
+        end
+
+        class Discounted < Item
+          def price
+            @price / 2
+          end
+        end
+
+        module Format
+          SEP = ", "
+
+          def self.join(parts)
+            parts.join(SEP)
+          end
+        end
+
+        def self.build(name, price)
+          Item.new(name, price)
+        end
+      end
+
+      p Store
+      p Store::Item
+      p Store::Item::KIND
+      p Store::LIMIT
+      p Store::Item.name
+      p Store::Format::SEP
+
+      item = Store::Item.new("pen", 10)
+      p item.name
+      p item.kind
+      puts item
+      p Store.build("cup", 8).price
+      p Store::Discounted.new("hat", 20).price
+      p Store::Discounted.superclass
+      p Store::Format.join(["a", "b"])
+
+      a, b = 1, 2
+      p [a, b]
+      a, b = b, a
+      p [a, b]
+      c, d = [3, 4]
+      p [c, d]
+      e, f = 5
+      p [e, f]
+      g, *rest = [1, 2, 3, 4]
+      p [g, rest]
+      *init, last = [1, 2, 3]
+      p [init, last]
+      h, (i, j), k = 1, [2, 3], 4
+      p [h, i, j, k]
+      x, = [9, 8]
+      p x
+      $g1, $g2 = 1, 2
+      p [$g1, $g2]
+      @m, @n = 3, 4
+      p [@m, @n]
+      P1, P2 = 5, 6
+      p [P1, P2]
+      arr = [0, 0]
+      arr[0], arr[1] = 7, 8
+      p arr
+
+      def two
+        [1, 2]
+      end
+      m, n = two
+      p [m, n]
+
+      word = /\A[a-z]+\z/
+      p word
+      p "abc".match?(word)
+      p "Abc".match?(word)
+      p "Abc".match?(/\Aa/i)
+      p "a-b-c".split(/-/)
+      p "x1y2".gsub(/\d/) { |digit| "<#{digit}>" }
+      p word.source
+
+      counts = {}
+      counts["k"] ||= 1
+      counts["k"] ||= 2
+      counts["k"] += 10
+      p counts
+
+      class Holder
+        def initialize
+          @v = nil
+        end
+
+        def v
+          @v
+        end
+
+        def v=(value)
+          @v = value
+        end
+      end
+
+      hold = Holder.new
+      hold.v ||= "first"
+      hold.v ||= "second"
+      p hold.v
+      hold.v &&= "#{hold.v}!"
+      p hold.v
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Store
+      Store::Item
+      "item"
+      3
+      "Store::Item"
+      ", "
+      "pen"
+      ["item", 3]
+      pen@10
+      8
+      10
+      Store::Item
+      "a, b"
+      [1, 2]
+      [2, 1]
+      [3, 4]
+      [5, nil]
+      [1, [2, 3, 4]]
+      [[1, 2], 3]
+      [1, 2, 3, 4]
+      9
+      [1, 2]
+      [3, 4]
+      [5, 6]
+      [7, 8]
+      [1, 2]
+      /\A[a-z]+\z/
+      true
+      false
+      true
+      ["a", "b", "c"]
+      "x<1>y<2>"
+      "\\A[a-z]+\\z"
+      {"k" => 11}
+      "first"
+      "first!"
+    OUT
+  end
+
   it "parameter default assigns the scope s own local" do
     result = ze0(<<~'RUBY')
       # `def discard(key = (no_arg = true))` is ruby's idiom for "was an argument
@@ -2689,6 +2885,77 @@ describe "Constants programs" do
       nil
       :
       true
+      true
+    OUT
+  end
+
+  it "runtime names" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
+      # A name only the run time builds. Each of these verbs mints its methods
+      # where it stands rather than from a row, so the compile has nothing to
+      # emit and the call goes out as an ordinary send.
+
+      class Fields
+        %i[a b].each { |n| attr_accessor n }
+
+        def initialize
+          @a = 1
+          @b = 2
+        end
+
+        def orig = :orig
+
+        COPY = :copy
+        alias_method COPY, :orig
+      end
+
+      f = Fields.new
+      p f.a, f.b
+      f.a = 9
+      p f.a, f.copy
+      p Fields.instance_methods(false).sort
+
+      # An interpolated `alias` and `undef` name is a value the runtime takes
+      # exactly as it takes a literal.
+      class Named
+        def base = :base
+
+        n = 1
+        alias :"base#{n}" :base
+      end
+
+      p Named.new.base1
+
+      class Retired
+        def gone = :gone
+        n = 2
+        def gone2 = :gone2
+        undef :"gone#{n}"
+      end
+
+      p Retired.new.gone
+      p Retired.new.respond_to?(:gone2)
+
+      # `` `cmd` `` runs the string through the shell, interpolated or not.
+      p `echo one`.strip
+      who = "two"
+      p `echo #{who}`.strip
+      p $?.success?
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+      2
+      9
+      :orig
+      [:a, :a=, :b, :b=, :copy, :orig]
+      :base
+      :gone
+      false
+      "one"
+      "two"
       true
     OUT
   end
@@ -3484,6 +3751,72 @@ describe "Constants programs" do
       uninitialized constant Nowhere | name=:Nowhere | :22:in 'block in <main>'
       uninitialized constant Pkg::Inner::Gone | name=:Gone | :28:in 'block in <module:Inner>'
       reached the include
+    OUT
+  end
+
+  it "writes" do
+    result = ze0(<<~'RUBY', path: "ze0/constant_writes.rb")
+      # frozen_string_literal: true
+
+      # The operator writes a constant takes. `||=` is the one read that
+      # tolerates an unassigned name; the other two ask for it outright.
+
+      FIRST = 1
+      FIRST_TWICE = FIRST + 1
+      p FIRST_TWICE
+
+      MAYBE ||= 5
+      p MAYBE
+
+      EMPTY = nil
+      EMPTY ||= 7
+      p EMPTY
+
+      BOTH = 3
+      BOTH &&= BOTH * 2
+      p BOTH
+
+      module Holder
+        COUNT = 1
+      end
+
+      Holder::COUNT += 1
+      p Holder::COUNT
+
+      Holder::EXTRA ||= 9
+      p Holder::EXTRA
+
+      Holder::COUNT &&= 100
+      p Holder::COUNT
+
+      # A pattern in parentheses is the pattern inside, and an `[a,]` trailing
+      # comma opens the length without binding anything.
+      def kind(v)
+        case v
+        in (Integer | Float) then :number
+        in [only,] then [:first, only]
+        else :other
+        end
+      end
+
+      p kind(1), kind(2.5), kind([1, 2, 3]), kind("x")
+      [1, 2, 3] => [head,]
+      p head
+    RUBY
+
+    _(result).must_answer <<~'OUT', stderr: "ze0/constant_writes.rb:14: warning: already initialized constant EMPTY\nze0/constant_writes.rb:13: warning: previous definition of EMPTY was here\nze0/constant_writes.rb:18: warning: already initialized constant BOTH\nze0/constant_writes.rb:17: warning: previous definition of BOTH was here\nze0/constant_writes.rb:25: warning: already initialized constant Holder::COUNT\nze0/constant_writes.rb:22: warning: previous definition of COUNT was here\nze0/constant_writes.rb:31: warning: already initialized constant Holder::COUNT\nze0/constant_writes.rb:25: warning: previous definition of COUNT was here\n"
+      2
+      5
+      7
+      6
+      2
+      9
+      100
+      :number
+      :number
+      [:first, 1]
+      :other
+      1
     OUT
   end
 end

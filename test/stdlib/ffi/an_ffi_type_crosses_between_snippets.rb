@@ -1,4 +1,3 @@
-#@ backend: jit
 # An FFI type declared in one compile can be NAMED by the next.
 #
 # A field type has to resolve to a byte width and an OFFSET at lowering time,

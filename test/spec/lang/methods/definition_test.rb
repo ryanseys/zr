@@ -37,6 +37,77 @@ describe "Methods: defining and naming methods" do
     OUT
   end
 
+  it "alias and names" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
+      # `alias` names a method wherever it is written -- the definee is `self`
+      # where `self` is a class or a module, and the enclosing class
+      # otherwise, which at the top level is `Object`.
+
+      def hello = "hi"
+      alias howdy hello
+      p howdy
+
+      class C
+        def a = 1
+      end
+
+      # A reopen names the same class, so the alias lands where `a` is.
+      class C
+        alias b a
+      end
+      p C.new.b
+
+      # `alias $new $old` names the STORAGE, so a write through either name is
+      # visible through both.
+      $first = 1
+      alias $second $first
+      $second = 2
+      p $first
+
+      # These verbs take a name, and ruby lets it be written as a String.
+      class Named
+        attr_reader "x"
+        attr_writer "y"
+        attr_accessor "z"
+        alias_method "w", "x"
+
+        def initialize
+          @x = 1
+          @y = 2
+          @z = 3
+        end
+
+        def hidden = :h
+        private "hidden"
+
+        # One the declaration pass cannot reach -- written inside another
+        # expression -- is an ordinary send of `Module#attr_reader`.
+        p(attr_reader(:late))
+      end
+
+      n = Named.new
+      p n.x, n.w
+      n.z = 8
+      p n.z
+      p Named.instance_methods(false).sort
+      p Named.private_instance_methods(false).sort
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "hi"
+      1
+      2
+      [:late]
+      1
+      1
+      8
+      [:late, :w, :x, :y=, :z, :z=]
+      [:hidden, :initialize]
+    OUT
+  end
+
   it "alias binds a body from another stream" do
     result = ze0(<<~'RUBY', files: {"an_alias_binds_a_body_from_another_stream/lib/thing_core.rb" => "module Streamed\n  class Thing\n    attr_reader :v\n    def initialize(v) = @v = v\n    def ==(other) = other.is_a?(Thing) && v == other.v\n    def hash = v.hash\n  end\nend\n", "an_alias_binds_a_body_from_another_stream/lib/thing_ext.rb" => "require \"thing_core\"\nmodule Streamed\n  class Thing\n    alias_method :eql?, :==\n  end\nend\n"})
       # `alias_method :eql?, :==` in one file, `def ==` in another. The alias must
@@ -1131,6 +1202,25 @@ describe "Methods: defining and naming methods" do
     OUT
   end
 
+  it "def reflection" do
+    result = ze0(<<~'RUBY')
+      def twice(n)
+        n * 2
+      end
+      puts twice(5)
+      puts respond_to?(:twice, true)
+      p method(:twice).arity
+      p method(:twice).parameters
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      10
+      true
+      1
+      [[:req, :n]]
+    OUT
+  end
+
   it "define method accepts a method object body" do
     result = ze0(<<~'RUBY')
       # `define_method(name, method_obj)` / `define_singleton_method(name,
@@ -1184,6 +1274,31 @@ describe "Methods: defining and naming methods" do
       "pong z"
       36
       done
+    OUT
+  end
+
+  it "define method and send" do
+    result = ze0(<<~'RUBY')
+      # Method definition and dispatch at run time: the binary carries the method
+      # tables and the reflection paths that build them.
+      class Calculator
+        %i[add sub].each do |op|
+          define_method(op) { |a, b| op == :add ? a + b : a - b }
+        end
+      end
+      c = Calculator.new
+      puts c.send(:add, 2, 3), c.public_send(:sub, 9, 4)
+      p Calculator.instance_methods(false).sort
+      p c.method(:add).arity
+      p c.respond_to?(:mul)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      5
+      5
+      [:add, :sub]
+      2
+      false
     OUT
   end
 
@@ -2573,6 +2688,16 @@ describe "Methods: defining and naming methods" do
       true
       shh
     OUT
+  end
+
+  it "wrong arity" do
+    _(ze0(<<~'RUBY', path: "ze0/wrong_arity.rb")).must_answer "3\n", stderr: "ze0/wrong_arity.rb:1:in 'Object#two': wrong number of arguments (given 1, expected 2) (ArgumentError)\n\n    caller: ze0/wrong_arity.rb:5\n    | puts two(1)\n           ^^^\n    callee: ze0/wrong_arity.rb:1\n    | def two(a, b)\n          ^^^\n\tfrom ze0/wrong_arity.rb:5:in '<main>'\n", status: 1
+      def two(a, b)
+        a + b
+      end
+      puts two(1, 2)
+      puts two(1)
+    RUBY
   end
 
   it "zsuper in define method" do

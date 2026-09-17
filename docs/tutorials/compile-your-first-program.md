@@ -146,6 +146,6 @@ Next steps:
 - To see which targets your machine can build, run `ze0 targets`, or
   read [How to build for another target](../how-to/build-for-another-target.md).
 - To help make ze0 answer more programs, follow
-  [Add your first corpus case](add-your-first-corpus-case.md).
+  [Add your first spec](add-your-first-spec.md).
 - To learn why ze0 holds itself to ruby's answers, read
   [The contract: ruby's answer or a refusal](../explanation/the-contract.md).

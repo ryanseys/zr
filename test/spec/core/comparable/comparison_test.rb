@@ -418,7 +418,7 @@ describe "Comparable: comparison and equality" do
       p empty.minmax
     RUBY
 
-    _(result).must_answer <<~'OUT'
+    _(result).must_answer <<~'OUT', linux: <<~'LINUX'
       [10, 20, 30]
       10
       30
@@ -437,5 +437,23 @@ describe "Comparable: comparison and equality" do
       -1
       [nil, nil]
     OUT
+      [10, 20, 30]
+      10
+      30
+      30
+      10
+      20
+      comparison of Weight with String failed
+      comparison of String with Weight failed
+      comparison of Weight with String failed
+      comparison of Weight with String failed
+      comparison of String with Weight failed
+      [10, 30]
+      [10, 20]
+      [30, 20]
+      0
+      -1
+      [nil, nil]
+    LINUX
   end
 end

@@ -20,7 +20,7 @@
 
 # The locked rake, so the program resolves against what the oracle store
 # holds rather than a version that goes stale with the next bump.
-LOCK = File.read(File.expand_path("../../Gemfile.lock", __dir__))
+LOCK = File.read(File.expand_path("../../../../Gemfile.lock", __dir__))
 RAKE = LOCK[/^    rake \(([^)]+)\)/, 1]
 MINITEST = LOCK[/^    minitest \(([^)]+)\)/, 1]
 require "tmpdir"
@@ -75,6 +75,7 @@ Dir.mktmpdir do |dir|
   p rake.requirement.to_s == "= #{RAKE}"
   p rake.groups
 end
+
 __END__
 true
 true
