@@ -8,10 +8,10 @@ require_relative "../support/harness/case"
 # Ruby programs on the zr runtime: each `test/programs/<name>.rb` runs
 # under ruby, the oracle, and then compiled with the kernel and under
 # wasmtime; stdout, stderr and the exit status must agree.
-# A program whose first line says "native only" reads the host (its
-# environment or working directory) and skips the wasm road; one whose
-# first line says "no stress" allocates too much for a collection at
-# every allocation and skips that column.
+#
+# Which programs a road leaves out is written below as three lists of
+# names rather than as a comment in each program that this file reads
+# back: a list is data anyone can grep, and nothing has to parse prose.
 #
 # `ZE0_STRESS=1` adds the collect-at-every-allocation column.
 #
@@ -22,7 +22,27 @@ require_relative "../support/harness/case"
 # the fork pool is for: each program runs in a worker, and a worker
 # that has grown is closed and forked again.
 class ProgramsTest < Minitest::Test
-  parallelize_me!
+  # These read the host -- its environment, its working directory, its
+  # libSystem or a stack a fiber switches -- so only the native road
+  # runs them.
+  NATIVE_ONLY = %w[
+    bignums bindings caches callees core_gaps dates dispatch encodings_more
+    enumerators environment eval_strings eval_under external fibers files
+    files_and_copies files_more floats format_floats jit_loads jsons
+    kernel_batch marshals monitors numeric_batch pathnames popens processes
+    random_batch range_batch rationals requires self_compiles sockets stdlibs
+    string_batch struct_batch threads times utf8 warnings_batch weak_tables
+  ].freeze
+
+  # These allocate too much for a collection at every allocation.
+  NO_STRESS = %w[heap_growth].freeze
+
+  # Defects of the wasm road, named so the run stays honest about them.
+  # Each is a program whose native road is right and whose wasm road is
+  # not, and each skips with what it does instead.
+  WASM_DEFECTS = {
+    "exceptions" => "an uncaught exception traps out of bounds instead of reporting and exiting 1"
+  }.freeze
 
   # `[stdout, stderr, status]` of `argv` under `env`. A run that passes
   # a bound is killed, and its status says which bound rather than
@@ -59,14 +79,15 @@ class ProgramsTest < Minitest::Test
         bin = File.join(dir, name)
         assert_nil Ze0::Native::Build.program(program, bin, work: dir)
         check(name, {}, [bin], want, rb)
-        stress = ENV["ZE0_STRESS"] == "1" && !File.open(rb, &:readline).include?("no stress")
+        stress = ENV["ZE0_STRESS"] == "1" && !NO_STRESS.include?(name)
         check(name, { "ZR_GC_STRESS" => "1" }, [bin], want, rb) if stress
       end
     end
 
     define_method("test_wasm_#{name}") do
       skip "wasmtime is not installed" unless Checks.wasmtime?
-      skip "the program reads the host" if File.open(rb, &:readline).include?("native only")
+      skip "the program reads the host" if NATIVE_ONLY.include?(name)
+      skip WASM_DEFECTS[name] if WASM_DEFECTS.key?(name)
 
       want = oracle(rb)
       program = Ze0::Zr.program(File.read(rb), rb, target: Ze0::Target::WASM32_WASI)

@@ -311,9 +311,13 @@ module Ze0
 
       # The regexp literals, Regexp.new strings and string literals of a
       # Ruby file, through prism: [[pattern, options], ...] and subjects.
-      def self.harvest_file(path)
+      def self.harvest_file(path) = harvest(File.read(path))
+
+      # The patterns and the subjects `source` writes, from its syntax
+      # tree. `depth` bounds the walk into strings, described below.
+      def self.harvest(source, depth = 0)
         require "prism"
-        result = Prism.parse(File.read(path))
+        result = Prism.parse(source)
         patterns = []
         subjects = []
         queue = [result.value]
@@ -331,6 +335,11 @@ module Ze0
           when Prism::StringNode
             s = node.unescaped
             subjects << s if s.bytesize.between?(1, 120) && s.valid_encoding?
+            # A spec holds the program it compiles as a string, so the
+            # patterns that program writes are inside one. Anything long
+            # enough to be a program is parsed again; a string that is
+            # not Ruby yields nothing and costs one parse.
+            patterns.concat(harvest(s, depth + 1).first) if depth.zero? && s.bytesize > 40 && s.include?("\n") && s.valid_encoding?
           when Prism::CallNode
             if node.name == :new && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Regexp && node.arguments
               first, second = node.arguments.arguments

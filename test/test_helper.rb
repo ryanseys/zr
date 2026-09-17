@@ -7,10 +7,16 @@ require_relative "support/fork_pool"
 require "tmpdir"
 require "fileutils"
 
-# Every suite that says `parallelize_me!` runs in forked workers rather
-# than in threads: what these tests do is the compiler's own Ruby, and
-# the GVL lets one thread at a time hold it. `MT_CPU` says how many.
+# Every example runs in a forked worker rather than in a thread: what
+# these tests do is the compiler's own Ruby, and the GVL lets one
+# thread at a time hold it. `MT_CPU` says how many workers.
+#
+# Every suite, and not a chosen few: a suite left serial runs in this
+# process, and one compile here grows a heap ruby never gives back --
+# which every later worker then inherits, because a fork starts from
+# whatever this process has become. The parent stays a dispatcher.
 Minitest.parallel_executor = Ze0::Test::ForkPool.new
+Minitest::Test.parallelize_me!
 
 # How far along, and how much longer. A tier runs for minutes, and a
 # line of dots says neither. CI writes the JUnit file as well, which is

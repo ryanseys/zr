@@ -13,8 +13,6 @@ require "support/e2e"
 Minitest.parallel_executor = Ze0::Test::ForkPool.new(size: Integer(ENV.fetch("MT_CPU", 4)))
 
 class BinariesTest < Minitest::Test
-  parallelize_me!
-
   include Ze0::E2E::DSL
 
   Ze0::E2E.define(self)

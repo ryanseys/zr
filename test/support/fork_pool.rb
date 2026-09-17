@@ -31,10 +31,27 @@ module Ze0
     # example it was holding as an error naming that example, instead of
     # stopping the run with no answer for anything.
     class ForkPool
-      # How many workers. `MT_CPU` is minitest's own name for this. Two
-      # cores are left alone: a worker's own child -- the program it
-      # built -- wants one while the worker waits for it.
-      def self.size = Integer(ENV.fetch("MT_CPU") { [Etc.nprocessors - 2, 1].max })
+      # What a worker and the child it starts hold between them, in
+      # gigabytes: a compile wants most of one, and the binary it built
+      # -- or wasmtime -- wants as much again.
+      WORKER_GB = 2
+
+      # How many workers. `MT_CPU` is minitest's own name for this.
+      #
+      # Memory bounds this and not cores. A machine short of it swaps,
+      # and a run that swaps does not fail: it takes ten times as long.
+      # Twelve workers on this sixteen-gigabyte laptop turned a
+      # sixty-five second tier into eleven minutes and a hundred errors,
+      # which is the whole reason for the cap.
+      def self.size = Integer(ENV.fetch("MT_CPU") { [[Etc.nprocessors, gigabytes / WORKER_GB].min, 1].max })
+
+      # What this machine has. POSIX answers on macOS and on musl
+      # alike; a machine that will not say is treated as a small one.
+      def self.gigabytes
+        Etc.sysconf(Etc::SC_PHYS_PAGES) * Etc.sysconf(Etc::SC_PAGE_SIZE) / (1 << 30)
+      rescue StandardError, NotImplementedError
+        8
+      end
 
       # What a worker may reside in before it is retired, in megabytes.
       # The pilot measured a process at 426 MB over 388 compiles and at
@@ -129,13 +146,28 @@ module Ze0
             # does not need to be: a worker is a fork of the parent and
             # holds the same list in the same order.
             at, name = Marshal.load(jobs)
-            result = Minitest::Runnable.runnables[at].new(name).run
-            Marshal.dump([portable(result), resident], back)
+            answer(Minitest::Runnable.runnables[at].new(name).run, back)
           end
         rescue EOFError, IOError
           nil # the parent has gone
         ensure
           exit!(0)
+        end
+
+        # The result, and what this process now resides in. Even
+        # neutered, a result can hold something Marshal will not take;
+        # a bare one saying so beats dying and leaving the parent to
+        # report that a worker went quiet.
+        def self.answer(result, back)
+          Marshal.dump([portable(result), resident], back)
+        rescue TypeError => e
+          bare = Minitest::Result.new(result.name)
+          bare.klass = result.klass
+          bare.source_location = result.source_location
+          bare.assertions = result.assertions
+          bare.time = result.time
+          bare.failures << Minitest::UnexpectedError.new(flat(RuntimeError.new("this result does not cross a pipe: #{e.message}")))
+          Marshal.dump([bare, resident], back)
         end
 
         # A failure holds an exception, and an exception the compiler
@@ -189,6 +221,15 @@ module Ze0
         # What killed it, asked for once the pipe has said it is gone.
         def why
           @why ||= begin
+            # Whatever went wrong on the pipe, this is not a worker we
+            # can talk to any more, and `wait2` would wait forever on
+            # one that is somehow still alive. A signal to a process
+            # already gone leaves the status it died with standing.
+            begin
+              Process.kill("KILL", @pid)
+            rescue Errno::ESRCH
+              nil
+            end
             _, @status = Process.wait2(@pid)
             if @status.nil?
               "the worker went without a status"
