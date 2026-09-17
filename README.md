@@ -4,7 +4,9 @@ ze0 compiles Ruby programs to native binaries, and is itself written in
 Ruby. The contract is CRuby's: a program answers exactly what ruby 4.0.6
 answers, or ze0 refuses it by name at the line. ruby is the only oracle.
 
-Nothing ze0 owns is written in C, Rust or assembler. prism parses,
+Nothing ze0 owns is written in C, Rust or assembler. prism parses (its
+Ruby half, over `rt/ext/prism/ruby`, ze0's Ruby port of its C, on the
+host and in every binary),
 `lib/ze0/hir/` builds a tree HIR, `lib/ze0/zr/` and `lib/ze0/machine/`
 lower it to one SSA IR, and three emitters take it from there: the
 aarch64 backend writes machine code, the Mach-O writer writes the object,
@@ -164,7 +166,6 @@ ze0 emits `aarch64-apple-darwin` binaries and WASI modules.
 | Dependency | Why | Where |
 |---|---|---|
 | ruby 4.0.6 (`.ruby-version`) | the stage-0 host, and the only oracle | everywhere |
-| `prism` gem ~> 1.9.0 | parses Ruby | `lib/ze0/hir/build.rb` |
 | `minitest` gem ~> 6.0 | runs `bin/ze0 check` (development) | `test/checks/` |
 | `aarch64` gem ~> 3.0 | pure Ruby, generated from the ARM specification: the authority our own encoder is held to. It never enters a compiled program. (development) | `test/checks/aarch64_test.rb` |
 | `fiddle` gem ~> 1.1 | loads code into the checks' own process (development) | `lib/ze0/obj/jit/fiddle.rb` |

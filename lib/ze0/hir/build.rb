@@ -19,6 +19,11 @@ module Ze0
       # The extensions whose native half is ours. A file here is part of
       # the runtime, so it may name a kernel def through `Primitive`.
       EXT = File.join(Paths::RT, "ext")
+      # The files of prism's port that change the prism gem's nodes after
+      # they are built. They are the runtime's own code, but the instance
+      # variables they write are the gem's, which its Ruby reads as ruby
+      # shows them.
+      VISIBLE_IVARS = %w[mutation ast].map { |name| File.join(EXT, "prism/ruby/#{name}.rb") }.freeze
       # The runtime's own Ruby, the core library and the extensions: code
       # a TracePoint never sees.
       RUNTIME = Paths::RT
@@ -766,14 +771,39 @@ module Ze0
         write = expr(node.write)
         ractor = ConstRead.new(nil, :Ractor, line)
         write.value =
-          if node.literal? && !shareable_literal?(node.write.value)
-            Send.new(ractor, :ensure_shareable, [write.value, Literal.new(constant_written(node.write), line)], line, false)
+          if node.literal?
+            literally_shareable(node.write.value, write.value, constant_written(node.write), line)
           elsif node.experimental_copy?
             Send.new(ractor, :make_shareable, [write.value], line, false, nil, nil, HashLit.new([Literal.new(:copy, line), Literal.new(true, line)], line))
           else
             Send.new(ractor, :make_shareable, [write.value], line, false)
           end
         write
+      end
+
+      # `literal`'s value, as prism_compile.c's
+      # pm_compile_shareable_constant_value builds it: an Array or Hash
+      # literal holds each of its elements so built, and is made shareable
+      # as a whole; a value of literals alone is made shareable; any other
+      # value must be shareable already, an interpolated String once it is
+      # deduplicated. `top` is the constant's own value, not an element.
+      def literally_shareable(node, value, name, line, top: true)
+        ractor = ConstRead.new(nil, :Ractor, line)
+        whole = ->(built) { top ? Send.new(ractor, :make_shareable, [built], line, false) : built }
+        if shareable_literal?(node)
+          whole.(value)
+        elsif node.is_a?(Prism::ArrayNode) && node.elements.none? { |e| e.is_a?(Prism::SplatNode) || e.is_a?(Prism::KeywordHashNode) }
+          value.elements = node.elements.zip(value.elements).map { |e, v| literally_shareable(e, v, name, line, top: false) }
+          whole.(value)
+        elsif node.is_a?(Prism::HashNode) && node.elements.all?(Prism::AssocNode)
+          value.pairs = value.pairs.each_slice(2).zip(node.elements).flat_map do |(key, v), e|
+            [key, literally_shareable(e.value.is_a?(Prism::ImplicitNode) ? e.value.value : e.value, v, name, line, top: false)]
+          end
+          whole.(value)
+        else
+          value = Send.new(value, :-@, [], line, false) if node.is_a?(Prism::InterpolatedStringNode)
+          Send.new(ractor, :ensure_shareable, [value, Literal.new(name, line)], line, false)
+        end
       end
 
       # The name a shareable constant write names, for the error.
@@ -970,7 +1000,7 @@ module Ze0
         return unless node.is_a?(Struct)
 
         seen[node.object_id] = true
-        node.using = @using if (node.is_a?(Send) || node.is_a?(Super)) && node.using.nil?
+        node.using = @using if [Send, Super, AttrOpAssign, IndexOpAssign].any? { |type| node.is_a?(type) } && node.using.nil?
         node.each_pair { |_, child| mark_using(child, seen) }
       end
 

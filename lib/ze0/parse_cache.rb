@@ -19,7 +19,7 @@ module Ze0
     DIRECTORY = File.join(Paths::CACHE, "parse")
 
     # The files a parse runs, beside the gem's Ruby half.
-    OWN = [File.expand_path("../../rt/ext/prism/ruby/**/*.rb", __dir__), File.join(__dir__, "prism_backend/**/*.rb"),
+    OWN = [File.expand_path("../../rt/ext/prism/{prism.rb,ruby/**/*.rb}", __dir__), File.join(__dir__, "prism_backend/**/*.rb"),
            File.join(__dir__, "prism.rb"), __FILE__].freeze
 
     module_function

@@ -1,7 +1,6 @@
-# native only: prism is linked C, which has no wasm form here
-# prism, the parser ruby itself uses, linked in and reached through four
-# calls: it serializes a parse into a buffer and `Prism::Serialize`, which
-# is ordinary ruby, reads the bytes back into nodes.
+# native only: a program that requires prism carries the compiler, which the wasm road does not build
+# prism, the parser ruby itself uses: its Ruby half over ze0's Ruby port of
+# its C, compiled into the binary like any other Ruby.
 
 require "prism"
 puts Prism::VERSION

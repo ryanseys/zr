@@ -38,9 +38,4 @@ Gem::Specification.new do |spec|
   # (rbconfig, set, json), and must never shadow them.
   spec.require_paths = ["lib"]
   spec.extensions = ["ext/ze0/extconf.rb"]
-
-  # The host parser's Ruby half. ze0's Ruby port of prism's C
-  # (rt/ext/prism/ruby) stands in for the gem's C extension, so the node
-  # shapes must be prism 1.9.0's, which are ruby 4.0.6's.
-  spec.add_dependency "prism", "~> 1.9.0"
 end

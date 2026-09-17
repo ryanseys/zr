@@ -10,8 +10,10 @@ require_relative "../../lib/ze0/harness/prism_diff"
 class ParseCacheTest < Minitest::Test
   ParseCache = Ze0::ParseCache
 
-  def test_the_host_parses_with_the_ruby_port_and_no_c
-    assert_equal File.join(ROOT, "rt/ext/prism/ruby/init.rb"), Prism.method(:parse).source_location.first
+  def test_the_host_parses_with_the_ruby_port_and_the_vendored_ruby_half
+    assert_equal File.join(ROOT, "rt/ext/prism/prism.rb"), Prism.method(:parse).source_location.first
+    assert_equal File.join(ROOT, "vendor/ext/prism/lib/prism.rb"), $LOAD_PATH.resolve_feature_path("prism").last
+    assert_includes $LOADED_FEATURES, File.join(ROOT, "vendor/ext/prism/lib/prism/node.rb")
     assert_empty $LOADED_FEATURES.grep(/prism\.(bundle|so)\z/)
   end
 
@@ -31,7 +33,7 @@ class ParseCacheTest < Minitest::Test
   def test_the_parser_digest_covers_the_port_the_backend_and_the_gems_ruby_half
     files = ParseCache.parser_files
     [
-      "rt/ext/prism/ruby/parser/core.rb", "rt/ext/prism/ruby/lexer.rb", "rt/ext/prism/ruby/ast.rb", "rt/ext/prism/ruby/init.rb",
+      "rt/ext/prism/ruby/parser/core.rb", "rt/ext/prism/ruby/lexer.rb", "rt/ext/prism/ruby/ast.rb", "rt/ext/prism/prism.rb",
       "lib/ze0/prism_backend/prism/prism.rb", "lib/ze0/prism.rb", "lib/ze0/parse_cache.rb"
     ].each { |path| assert_includes files, File.join(ROOT, path) }
     gem = $LOAD_PATH.resolve_feature_path("prism").last

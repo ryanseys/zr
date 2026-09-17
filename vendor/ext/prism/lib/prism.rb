@@ -1,12 +1,6 @@
 # frozen_string_literal: true
 # :markup: markdown
 
-# zeo: pull in the statically linked native half FIRST, so `Prism`'s private
-# `serialize_*` class methods exist for `prism/zeo.rb` to call. CRuby's loader
-# idiom -- see `ext/strscan/lib/strscan.rb` for the same shape and the reason
-# for it.
-require "prism.so"
-
 # The Prism Ruby parser.
 #
 # "Parsing Ruby is suddenly manageable!"
@@ -33,8 +27,8 @@ module Prism
   autoload :Relocation, "prism/relocation"
   autoload :Serialize, "prism/serialize"
   autoload :StringQuery, "prism/string_query"
-  # zeo: `Prism::Translation` (the `parser`- and `ripper`-gem adapters) is not
-  # vendored -- it subclasses those third-party gems, which zeo does not ship.
+  # ze0: `Prism::Translation` (the `parser`- and `ripper`-gem adapters) is not
+  # vendored -- it subclasses those third-party gems, which ze0 does not ship.
   autoload :Visitor, "prism/visitor"
 
   # Some of these constants are not meant to be exposed, so marking them as
@@ -88,14 +82,18 @@ require_relative "prism/node"
 require_relative "prism/node_ext"
 require_relative "prism/parse_result"
 
-# zeo: upstream picks between the C extension (CRuby) and the FFI backend
-# (every other engine) here. zeo reports `:CEXT`, the value CRuby reports, for
-# the same reason `RUBY_ENGINE` is `"ruby"`: a gem branching on this should take
-# the path zeo actually implements. It is also the honest description -- the
-# prism C library is linked in, not `dlopen`ed, and reached through native
-# entry points on `Prism` exactly as the C extension's are. Only the shape of
-# those entry points follows the FFI backend: `pm_serialize_*` writing buffers
-# that `Prism::Serialize` decodes in Ruby, rather than a tree built in C.
-Prism::BACKEND = :CEXT
+# This is a Ruby implementation of the prism parser. If we're running on CRuby
+# and we haven't explicitly set the PRISM_FFI_BACKEND environment variable, then
+# it's going to require the built library. Otherwise, it's going to require a
+# module that uses FFI to call into the library.
+if RUBY_ENGINE == "ruby" and !ENV["PRISM_FFI_BACKEND"]
+  # The C extension is the default backend on CRuby.
+  Prism::BACKEND = :CEXT
 
-require_relative "prism/zeo"
+  require "prism/prism"
+else
+  # The FFI backend is used on other Ruby implementations.
+  Prism::BACKEND = :FFI
+
+  require_relative "prism/ffi"
+end

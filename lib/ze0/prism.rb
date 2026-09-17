@@ -1,14 +1,21 @@
 # frozen_string_literal: true
 
-# The host's prism: the prism gem's Ruby half over ze0's Ruby port of
-# prism's C (rt/ext/prism/ruby), in place of the gem's C extension, so the
-# compiler parses with the code a ze0 binary carries. The directory holds
-# prism/prism.rb alone, so it hides nothing else on the load path. A
-# process that loaded the C extension first keeps it: the two answer
-# alike, object for object. A ze0 binary that carries the compiler finds
-# no prism on its load path, since it has prism compiled in, and leaves
-# the load path as it is.
-$LOAD_PATH.unshift(File.expand_path("prism_backend", __dir__)) if $LOAD_PATH.resolve_feature_path("prism")
+module Ze0
+  # Whether ruby itself runs the compiler: ruby finds a prism on its load
+  # path, where a ze0 binary that carries the compiler has prism compiled
+  # in and no load path to search.
+  HOSTED = !$LOAD_PATH.resolve_feature_path("prism").nil?
+end
+
+# The host's prism: the vendored Ruby half of prism 1.9.0
+# (vendor/ext/prism/lib) over ze0's Ruby port of prism's C
+# (rt/ext/prism/ruby), the same tree a ze0 binary carries. Both
+# directories go ahead of ruby's own prism; prism_backend holds
+# prism/prism.rb alone. A process that loaded ruby's prism first keeps
+# it: the two answer alike, object for object.
+if Ze0::HOSTED
+  $LOAD_PATH.unshift(File.expand_path("../../vendor/ext/prism/lib", __dir__), File.expand_path("prism_backend", __dir__))
+end
 require "prism"
 
 module Ze0
@@ -19,6 +26,6 @@ module Ze0
   end
 end
 
-# The C extension parses fast enough without a cache, and the compiler a
-# binary carries has neither the port nor a cache to write.
-require_relative "parse_cache" if Prism.method(:parse).source_location&.first == File.expand_path("../../rt/ext/prism/ruby/init.rb", __dir__)
+# ruby's own prism parses fast enough without a cache, and a binary has no
+# cache to write.
+require_relative "parse_cache" if Ze0::HOSTED && Prism.method(:parse).source_location&.first == File.expand_path("../../rt/ext/prism/prism.rb", __dir__)

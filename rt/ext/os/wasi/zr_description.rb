@@ -1264,13 +1264,6 @@ module Ze0
         d zr_onig_ctype_bits Ptr
         d zr_onig_word_ranges Ptr
         d zr_onig_fold_rows Ptr
-        d zr_pm_take Value b:Ptr
-        d zr_pm_parse Value source:Value options:Value
-        d zr_pm_parse_comments Value source:Value options:Value
-        d zr_pm_lex Value source:Value options:Value
-        d zr_pm_parse_lex Value source:Value options:Value
-        d zr_pm_parse_success Value source:Value options:Value
-        d zr_pm_version Value
         d zr_env_new Value parent:Value n:Word names:Ptr
         d zr_env_escape Value env:Value
         d zr_env_up Value env:Value depth:Word
@@ -2445,9 +2438,6 @@ module Ze0
         c ONIG_STACK_POP_LEVEL_FREE 0
         c ONIG_STACK_POP_LEVEL_MEM_START 1
         c ONIG_STACK_POP_LEVEL_ALL 2
-        c BUF_LENGTH 0
-        c BUF_VALUE 16
-        c PM_BUFFER_SIZE 24
         c T_ENV 26
         c T_PROC 27
         c FL_STACK 512

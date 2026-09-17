@@ -61,10 +61,12 @@ module Ze0
     Slot = Struct.new(:index, :line)
     # `recv[args] op= value` and `recv.name op= value`, the receiver and
     # arguments evaluated once; `op` is an operator, or :or / :and.
-    IndexOpAssign = Struct.new(:recv, :args, :op, :value, :line)
+    # `using` is the refinements in force, as a Send's, for each of the
+    # sends it makes.
+    IndexOpAssign = Struct.new(:recv, :args, :op, :value, :line, :using)
     # `safe` is `recv&.name op= value`: nil, with nothing else run,
     # when the receiver is nil.
-    AttrOpAssign = Struct.new(:recv, :name, :op, :value, :line, :safe)
+    AttrOpAssign = Struct.new(:recv, :name, :op, :value, :line, :safe, :using)
     # `*value` among arguments or elements.
     Splat = Struct.new(:value, :line)
     # `**value` among a hash literal's pairs: the key, with a nil value.

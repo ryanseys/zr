@@ -14,6 +14,11 @@ module Prism
     # packed as `(start << 32) | length` (nil for an absent optional one).
     # Inside the refinement their readers answer the packed value; outside,
     # the node's own readers inflate it to a Location.
+    #
+    # The readers and writers are plain methods rather than attr_accessor:
+    # in a ze0 binary the runtime's own attributes name its hidden fields,
+    # while these name the gem's instance variables (VISIBLE_IVARS in
+    # lib/ze0/hir/build.rb).
     module Mutation
       # Packed locations.
       module Location
@@ -29,7 +34,17 @@ module Prism
       end
 
       refine Node do
-        attr_accessor :location, :flags
+        def location = @location
+
+        def location=(location)
+          @location = location
+        end
+
+        def flags = @flags
+
+        def flags=(flags)
+          @flags = flags
+        end
 
         # pm_node_flag_set
         def flag_set(flag) = @flags |= flag
@@ -55,1066 +70,3153 @@ module Prism
       end
 
       refine AliasGlobalVariableNode do
-        attr_accessor :keyword_loc
-        attr_writer :new_name, :old_name
+        def keyword_loc = @keyword_loc
+
+        def new_name=(new_name)
+          @new_name = new_name
+        end
+
+        def old_name=(old_name)
+          @old_name = old_name
+        end
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@new_name, @old_name, @keyword_loc]
       end
 
       refine AliasMethodNode do
-        attr_accessor :keyword_loc
-        attr_writer :new_name, :old_name
+        def keyword_loc = @keyword_loc
+
+        def new_name=(new_name)
+          @new_name = new_name
+        end
+
+        def old_name=(old_name)
+          @old_name = old_name
+        end
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@new_name, @old_name, @keyword_loc]
       end
 
       refine AlternationPatternNode do
-        attr_accessor :operator_loc
-        attr_writer :left, :right
+        def operator_loc = @operator_loc
+
+        def left=(left)
+          @left = left
+        end
+
+        def right=(right)
+          @right = right
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@left, @right, @operator_loc]
       end
 
       refine AndNode do
-        attr_accessor :operator_loc
-        attr_writer :left, :right
+        def operator_loc = @operator_loc
+
+        def left=(left)
+          @left = left
+        end
+
+        def right=(right)
+          @right = right
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@left, @right, @operator_loc]
       end
 
       refine ArgumentsNode do
-        attr_writer :arguments
+        def arguments=(arguments)
+          @arguments = arguments
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@arguments]
       end
 
       refine ArrayNode do
-        attr_accessor :opening_loc, :closing_loc
-        attr_writer :elements
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def elements=(elements)
+          @elements = elements
+        end
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@elements, @opening_loc, @closing_loc]
       end
 
       refine ArrayPatternNode do
-        attr_accessor :opening_loc, :closing_loc
-        attr_writer :constant, :requireds, :rest, :posts
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def constant=(constant)
+          @constant = constant
+        end
+
+        def requireds=(requireds)
+          @requireds = requireds
+        end
+
+        def rest=(rest)
+          @rest = rest
+        end
+
+        def posts=(posts)
+          @posts = posts
+        end
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@constant, @requireds, @rest, @posts, @opening_loc, @closing_loc]
       end
 
       refine AssocNode do
-        attr_accessor :operator_loc
-        attr_writer :key, :value
+        def operator_loc = @operator_loc
+
+        def key=(key)
+          @key = key
+        end
+
+        def value=(value)
+          @value = value
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@key, @value, @operator_loc]
       end
 
       refine AssocSplatNode do
-        attr_accessor :operator_loc
-        attr_writer :value
+        def operator_loc = @operator_loc
+
+        def value=(value)
+          @value = value
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@value, @operator_loc]
       end
 
       refine BackReferenceReadNode do
-        attr_writer :name
+        def name=(name)
+          @name = name
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name]
       end
 
       refine BeginNode do
-        attr_accessor :begin_keyword_loc, :end_keyword_loc
-        attr_writer :statements, :rescue_clause, :else_clause, :ensure_clause
+        def begin_keyword_loc = @begin_keyword_loc
+
+        def end_keyword_loc = @end_keyword_loc
+
+        def begin_keyword_loc=(begin_keyword_loc)
+          @begin_keyword_loc = begin_keyword_loc
+        end
+
+        def statements=(statements)
+          @statements = statements
+        end
+
+        def rescue_clause=(rescue_clause)
+          @rescue_clause = rescue_clause
+        end
+
+        def else_clause=(else_clause)
+          @else_clause = else_clause
+        end
+
+        def ensure_clause=(ensure_clause)
+          @ensure_clause = ensure_clause
+        end
+
+        def end_keyword_loc=(end_keyword_loc)
+          @end_keyword_loc = end_keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@begin_keyword_loc, @statements, @rescue_clause, @else_clause, @ensure_clause, @end_keyword_loc]
       end
 
       refine BlockArgumentNode do
-        attr_accessor :operator_loc
-        attr_writer :expression
+        def operator_loc = @operator_loc
+
+        def expression=(expression)
+          @expression = expression
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@expression, @operator_loc]
       end
 
       refine BlockLocalVariableNode do
-        attr_writer :name
+        def name=(name)
+          @name = name
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name]
       end
 
       refine BlockNode do
-        attr_accessor :opening_loc, :closing_loc
-        attr_writer :locals, :parameters, :body
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def locals=(locals)
+          @locals = locals
+        end
+
+        def parameters=(parameters)
+          @parameters = parameters
+        end
+
+        def body=(body)
+          @body = body
+        end
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@locals, @parameters, @body, @opening_loc, @closing_loc]
       end
 
       refine BlockParameterNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @operator_loc]
       end
 
       refine BlockParametersNode do
-        attr_accessor :opening_loc, :closing_loc
-        attr_writer :parameters, :locals
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def parameters=(parameters)
+          @parameters = parameters
+        end
+
+        def locals=(locals)
+          @locals = locals
+        end
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@parameters, @locals, @opening_loc, @closing_loc]
       end
 
       refine BreakNode do
-        attr_accessor :keyword_loc
-        attr_writer :arguments
+        def keyword_loc = @keyword_loc
+
+        def arguments=(arguments)
+          @arguments = arguments
+        end
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@arguments, @keyword_loc]
       end
 
       refine CallAndWriteNode do
-        attr_accessor :call_operator_loc, :message_loc, :operator_loc
-        attr_writer :receiver, :read_name, :write_name, :value
+        def call_operator_loc = @call_operator_loc
+
+        def message_loc = @message_loc
+
+        def operator_loc = @operator_loc
+
+        def receiver=(receiver)
+          @receiver = receiver
+        end
+
+        def call_operator_loc=(call_operator_loc)
+          @call_operator_loc = call_operator_loc
+        end
+
+        def message_loc=(message_loc)
+          @message_loc = message_loc
+        end
+
+        def read_name=(read_name)
+          @read_name = read_name
+        end
+
+        def write_name=(write_name)
+          @write_name = write_name
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@receiver, @call_operator_loc, @message_loc, @read_name, @write_name, @operator_loc, @value]
       end
 
       refine CallNode do
-        attr_accessor :call_operator_loc, :message_loc, :opening_loc, :closing_loc, :equal_loc
-        attr_writer :receiver, :name, :arguments, :block
+        def call_operator_loc = @call_operator_loc
+
+        def message_loc = @message_loc
+
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def equal_loc = @equal_loc
+
+        def receiver=(receiver)
+          @receiver = receiver
+        end
+
+        def call_operator_loc=(call_operator_loc)
+          @call_operator_loc = call_operator_loc
+        end
+
+        def name=(name)
+          @name = name
+        end
+
+        def message_loc=(message_loc)
+          @message_loc = message_loc
+        end
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def arguments=(arguments)
+          @arguments = arguments
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
+
+        def equal_loc=(equal_loc)
+          @equal_loc = equal_loc
+        end
+
+        def block=(block)
+          @block = block
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@receiver, @call_operator_loc, @name, @message_loc, @opening_loc, @arguments, @closing_loc, @equal_loc, @block]
       end
 
       refine CallOperatorWriteNode do
-        attr_accessor :call_operator_loc, :message_loc, :binary_operator_loc
-        attr_writer :receiver, :read_name, :write_name, :binary_operator, :value
+        def call_operator_loc = @call_operator_loc
+
+        def message_loc = @message_loc
+
+        def binary_operator_loc = @binary_operator_loc
+
+        def receiver=(receiver)
+          @receiver = receiver
+        end
+
+        def call_operator_loc=(call_operator_loc)
+          @call_operator_loc = call_operator_loc
+        end
+
+        def message_loc=(message_loc)
+          @message_loc = message_loc
+        end
+
+        def read_name=(read_name)
+          @read_name = read_name
+        end
+
+        def write_name=(write_name)
+          @write_name = write_name
+        end
+
+        def binary_operator=(binary_operator)
+          @binary_operator = binary_operator
+        end
+
+        def binary_operator_loc=(binary_operator_loc)
+          @binary_operator_loc = binary_operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@receiver, @call_operator_loc, @message_loc, @read_name, @write_name, @binary_operator, @binary_operator_loc, @value]
       end
 
       refine CallOrWriteNode do
-        attr_accessor :call_operator_loc, :message_loc, :operator_loc
-        attr_writer :receiver, :read_name, :write_name, :value
+        def call_operator_loc = @call_operator_loc
+
+        def message_loc = @message_loc
+
+        def operator_loc = @operator_loc
+
+        def receiver=(receiver)
+          @receiver = receiver
+        end
+
+        def call_operator_loc=(call_operator_loc)
+          @call_operator_loc = call_operator_loc
+        end
+
+        def message_loc=(message_loc)
+          @message_loc = message_loc
+        end
+
+        def read_name=(read_name)
+          @read_name = read_name
+        end
+
+        def write_name=(write_name)
+          @write_name = write_name
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@receiver, @call_operator_loc, @message_loc, @read_name, @write_name, @operator_loc, @value]
       end
 
       refine CallTargetNode do
-        attr_accessor :call_operator_loc, :message_loc
-        attr_writer :receiver, :name
+        def call_operator_loc = @call_operator_loc
+
+        def message_loc = @message_loc
+
+        def receiver=(receiver)
+          @receiver = receiver
+        end
+
+        def call_operator_loc=(call_operator_loc)
+          @call_operator_loc = call_operator_loc
+        end
+
+        def name=(name)
+          @name = name
+        end
+
+        def message_loc=(message_loc)
+          @message_loc = message_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@receiver, @call_operator_loc, @name, @message_loc]
       end
 
       refine CapturePatternNode do
-        attr_accessor :operator_loc
-        attr_writer :value, :target
+        def operator_loc = @operator_loc
+
+        def value=(value)
+          @value = value
+        end
+
+        def target=(target)
+          @target = target
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@value, @target, @operator_loc]
       end
 
       refine CaseMatchNode do
-        attr_accessor :case_keyword_loc, :end_keyword_loc
-        attr_writer :predicate, :conditions, :else_clause
+        def case_keyword_loc = @case_keyword_loc
+
+        def end_keyword_loc = @end_keyword_loc
+
+        def predicate=(predicate)
+          @predicate = predicate
+        end
+
+        def conditions=(conditions)
+          @conditions = conditions
+        end
+
+        def else_clause=(else_clause)
+          @else_clause = else_clause
+        end
+
+        def case_keyword_loc=(case_keyword_loc)
+          @case_keyword_loc = case_keyword_loc
+        end
+
+        def end_keyword_loc=(end_keyword_loc)
+          @end_keyword_loc = end_keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@predicate, @conditions, @else_clause, @case_keyword_loc, @end_keyword_loc]
       end
 
       refine CaseNode do
-        attr_accessor :case_keyword_loc, :end_keyword_loc
-        attr_writer :predicate, :conditions, :else_clause
+        def case_keyword_loc = @case_keyword_loc
+
+        def end_keyword_loc = @end_keyword_loc
+
+        def predicate=(predicate)
+          @predicate = predicate
+        end
+
+        def conditions=(conditions)
+          @conditions = conditions
+        end
+
+        def else_clause=(else_clause)
+          @else_clause = else_clause
+        end
+
+        def case_keyword_loc=(case_keyword_loc)
+          @case_keyword_loc = case_keyword_loc
+        end
+
+        def end_keyword_loc=(end_keyword_loc)
+          @end_keyword_loc = end_keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@predicate, @conditions, @else_clause, @case_keyword_loc, @end_keyword_loc]
       end
 
       refine ClassNode do
-        attr_accessor :class_keyword_loc, :inheritance_operator_loc, :end_keyword_loc
-        attr_writer :locals, :constant_path, :superclass, :body, :name
+        def class_keyword_loc = @class_keyword_loc
+
+        def inheritance_operator_loc = @inheritance_operator_loc
+
+        def end_keyword_loc = @end_keyword_loc
+
+        def locals=(locals)
+          @locals = locals
+        end
+
+        def class_keyword_loc=(class_keyword_loc)
+          @class_keyword_loc = class_keyword_loc
+        end
+
+        def constant_path=(constant_path)
+          @constant_path = constant_path
+        end
+
+        def inheritance_operator_loc=(inheritance_operator_loc)
+          @inheritance_operator_loc = inheritance_operator_loc
+        end
+
+        def superclass=(superclass)
+          @superclass = superclass
+        end
+
+        def body=(body)
+          @body = body
+        end
+
+        def end_keyword_loc=(end_keyword_loc)
+          @end_keyword_loc = end_keyword_loc
+        end
+
+        def name=(name)
+          @name = name
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@locals, @class_keyword_loc, @constant_path, @inheritance_operator_loc, @superclass, @body, @end_keyword_loc, @name]
       end
 
       refine ClassVariableAndWriteNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name, :value
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @operator_loc, @value]
       end
 
       refine ClassVariableOperatorWriteNode do
-        attr_accessor :name_loc, :binary_operator_loc
-        attr_writer :name, :value, :binary_operator
+        def name_loc = @name_loc
+
+        def binary_operator_loc = @binary_operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def binary_operator_loc=(binary_operator_loc)
+          @binary_operator_loc = binary_operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
+
+        def binary_operator=(binary_operator)
+          @binary_operator = binary_operator
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @binary_operator_loc, @value, @binary_operator]
       end
 
       refine ClassVariableOrWriteNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name, :value
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @operator_loc, @value]
       end
 
       refine ClassVariableReadNode do
-        attr_writer :name
+        def name=(name)
+          @name = name
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name]
       end
 
       refine ClassVariableTargetNode do
-        attr_writer :name
+        def name=(name)
+          @name = name
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name]
       end
 
       refine ClassVariableWriteNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name, :value
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @value, @operator_loc]
       end
 
       refine ConstantAndWriteNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name, :value
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @operator_loc, @value]
       end
 
       refine ConstantOperatorWriteNode do
-        attr_accessor :name_loc, :binary_operator_loc
-        attr_writer :name, :value, :binary_operator
+        def name_loc = @name_loc
+
+        def binary_operator_loc = @binary_operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def binary_operator_loc=(binary_operator_loc)
+          @binary_operator_loc = binary_operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
+
+        def binary_operator=(binary_operator)
+          @binary_operator = binary_operator
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @binary_operator_loc, @value, @binary_operator]
       end
 
       refine ConstantOrWriteNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name, :value
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @operator_loc, @value]
       end
 
       refine ConstantPathAndWriteNode do
-        attr_accessor :operator_loc
-        attr_writer :target, :value
+        def operator_loc = @operator_loc
+
+        def target=(target)
+          @target = target
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@target, @operator_loc, @value]
       end
 
       refine ConstantPathNode do
-        attr_accessor :delimiter_loc, :name_loc
-        attr_writer :parent, :name
+        def delimiter_loc = @delimiter_loc
+
+        def name_loc = @name_loc
+
+        def parent=(parent)
+          @parent = parent
+        end
+
+        def name=(name)
+          @name = name
+        end
+
+        def delimiter_loc=(delimiter_loc)
+          @delimiter_loc = delimiter_loc
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@parent, @name, @delimiter_loc, @name_loc]
       end
 
       refine ConstantPathOperatorWriteNode do
-        attr_accessor :binary_operator_loc
-        attr_writer :target, :value, :binary_operator
+        def binary_operator_loc = @binary_operator_loc
+
+        def target=(target)
+          @target = target
+        end
+
+        def binary_operator_loc=(binary_operator_loc)
+          @binary_operator_loc = binary_operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
+
+        def binary_operator=(binary_operator)
+          @binary_operator = binary_operator
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@target, @binary_operator_loc, @value, @binary_operator]
       end
 
       refine ConstantPathOrWriteNode do
-        attr_accessor :operator_loc
-        attr_writer :target, :value
+        def operator_loc = @operator_loc
+
+        def target=(target)
+          @target = target
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@target, @operator_loc, @value]
       end
 
       refine ConstantPathTargetNode do
-        attr_accessor :delimiter_loc, :name_loc
-        attr_writer :parent, :name
+        def delimiter_loc = @delimiter_loc
+
+        def name_loc = @name_loc
+
+        def parent=(parent)
+          @parent = parent
+        end
+
+        def name=(name)
+          @name = name
+        end
+
+        def delimiter_loc=(delimiter_loc)
+          @delimiter_loc = delimiter_loc
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@parent, @name, @delimiter_loc, @name_loc]
       end
 
       refine ConstantPathWriteNode do
-        attr_accessor :operator_loc
-        attr_writer :target, :value
+        def operator_loc = @operator_loc
+
+        def target=(target)
+          @target = target
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@target, @operator_loc, @value]
       end
 
       refine ConstantReadNode do
-        attr_writer :name
+        def name=(name)
+          @name = name
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name]
       end
 
       refine ConstantTargetNode do
-        attr_writer :name
+        def name=(name)
+          @name = name
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name]
       end
 
       refine ConstantWriteNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name, :value
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @value, @operator_loc]
       end
 
       refine DefNode do
-        attr_accessor :name_loc, :def_keyword_loc, :operator_loc, :lparen_loc, :rparen_loc, :equal_loc, :end_keyword_loc
-        attr_writer :name, :receiver, :parameters, :body, :locals
+        def name_loc = @name_loc
+
+        def def_keyword_loc = @def_keyword_loc
+
+        def operator_loc = @operator_loc
+
+        def lparen_loc = @lparen_loc
+
+        def rparen_loc = @rparen_loc
+
+        def equal_loc = @equal_loc
+
+        def end_keyword_loc = @end_keyword_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def receiver=(receiver)
+          @receiver = receiver
+        end
+
+        def parameters=(parameters)
+          @parameters = parameters
+        end
+
+        def body=(body)
+          @body = body
+        end
+
+        def locals=(locals)
+          @locals = locals
+        end
+
+        def def_keyword_loc=(def_keyword_loc)
+          @def_keyword_loc = def_keyword_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def lparen_loc=(lparen_loc)
+          @lparen_loc = lparen_loc
+        end
+
+        def rparen_loc=(rparen_loc)
+          @rparen_loc = rparen_loc
+        end
+
+        def equal_loc=(equal_loc)
+          @equal_loc = equal_loc
+        end
+
+        def end_keyword_loc=(end_keyword_loc)
+          @end_keyword_loc = end_keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @receiver, @parameters, @body, @locals, @def_keyword_loc, @operator_loc, @lparen_loc, @rparen_loc, @equal_loc, @end_keyword_loc]
       end
 
       refine DefinedNode do
-        attr_accessor :lparen_loc, :rparen_loc, :keyword_loc
-        attr_writer :value
+        def lparen_loc = @lparen_loc
+
+        def rparen_loc = @rparen_loc
+
+        def keyword_loc = @keyword_loc
+
+        def lparen_loc=(lparen_loc)
+          @lparen_loc = lparen_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
+
+        def rparen_loc=(rparen_loc)
+          @rparen_loc = rparen_loc
+        end
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@lparen_loc, @value, @rparen_loc, @keyword_loc]
       end
 
       refine ElseNode do
-        attr_accessor :else_keyword_loc, :end_keyword_loc
-        attr_writer :statements
+        def else_keyword_loc = @else_keyword_loc
+
+        def end_keyword_loc = @end_keyword_loc
+
+        def else_keyword_loc=(else_keyword_loc)
+          @else_keyword_loc = else_keyword_loc
+        end
+
+        def statements=(statements)
+          @statements = statements
+        end
+
+        def end_keyword_loc=(end_keyword_loc)
+          @end_keyword_loc = end_keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@else_keyword_loc, @statements, @end_keyword_loc]
       end
 
       refine EmbeddedStatementsNode do
-        attr_accessor :opening_loc, :closing_loc
-        attr_writer :statements
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def statements=(statements)
+          @statements = statements
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@opening_loc, @statements, @closing_loc]
       end
 
       refine EmbeddedVariableNode do
-        attr_accessor :operator_loc
-        attr_writer :variable
+        def operator_loc = @operator_loc
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def variable=(variable)
+          @variable = variable
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@operator_loc, @variable]
       end
 
       refine EnsureNode do
-        attr_accessor :ensure_keyword_loc, :end_keyword_loc
-        attr_writer :statements
+        def ensure_keyword_loc = @ensure_keyword_loc
+
+        def end_keyword_loc = @end_keyword_loc
+
+        def ensure_keyword_loc=(ensure_keyword_loc)
+          @ensure_keyword_loc = ensure_keyword_loc
+        end
+
+        def statements=(statements)
+          @statements = statements
+        end
+
+        def end_keyword_loc=(end_keyword_loc)
+          @end_keyword_loc = end_keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@ensure_keyword_loc, @statements, @end_keyword_loc]
       end
 
       refine FindPatternNode do
-        attr_accessor :opening_loc, :closing_loc
-        attr_writer :constant, :left, :requireds, :right
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def constant=(constant)
+          @constant = constant
+        end
+
+        def left=(left)
+          @left = left
+        end
+
+        def requireds=(requireds)
+          @requireds = requireds
+        end
+
+        def right=(right)
+          @right = right
+        end
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@constant, @left, @requireds, @right, @opening_loc, @closing_loc]
       end
 
       refine FlipFlopNode do
-        attr_accessor :operator_loc
-        attr_writer :left, :right
+        def operator_loc = @operator_loc
+
+        def left=(left)
+          @left = left
+        end
+
+        def right=(right)
+          @right = right
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@left, @right, @operator_loc]
       end
 
       refine FloatNode do
-        attr_writer :value
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@value]
       end
 
       refine ForNode do
-        attr_accessor :for_keyword_loc, :in_keyword_loc, :do_keyword_loc, :end_keyword_loc
-        attr_writer :index, :collection, :statements
+        def for_keyword_loc = @for_keyword_loc
+
+        def in_keyword_loc = @in_keyword_loc
+
+        def do_keyword_loc = @do_keyword_loc
+
+        def end_keyword_loc = @end_keyword_loc
+
+        def index=(index)
+          @index = index
+        end
+
+        def collection=(collection)
+          @collection = collection
+        end
+
+        def statements=(statements)
+          @statements = statements
+        end
+
+        def for_keyword_loc=(for_keyword_loc)
+          @for_keyword_loc = for_keyword_loc
+        end
+
+        def in_keyword_loc=(in_keyword_loc)
+          @in_keyword_loc = in_keyword_loc
+        end
+
+        def do_keyword_loc=(do_keyword_loc)
+          @do_keyword_loc = do_keyword_loc
+        end
+
+        def end_keyword_loc=(end_keyword_loc)
+          @end_keyword_loc = end_keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@index, @collection, @statements, @for_keyword_loc, @in_keyword_loc, @do_keyword_loc, @end_keyword_loc]
       end
 
       refine ForwardingSuperNode do
-        attr_writer :block
+        def block=(block)
+          @block = block
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@block]
       end
 
       refine GlobalVariableAndWriteNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name, :value
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @operator_loc, @value]
       end
 
       refine GlobalVariableOperatorWriteNode do
-        attr_accessor :name_loc, :binary_operator_loc
-        attr_writer :name, :value, :binary_operator
+        def name_loc = @name_loc
+
+        def binary_operator_loc = @binary_operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def binary_operator_loc=(binary_operator_loc)
+          @binary_operator_loc = binary_operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
+
+        def binary_operator=(binary_operator)
+          @binary_operator = binary_operator
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @binary_operator_loc, @value, @binary_operator]
       end
 
       refine GlobalVariableOrWriteNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name, :value
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @operator_loc, @value]
       end
 
       refine GlobalVariableReadNode do
-        attr_writer :name
+        def name=(name)
+          @name = name
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name]
       end
 
       refine GlobalVariableTargetNode do
-        attr_writer :name
+        def name=(name)
+          @name = name
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name]
       end
 
       refine GlobalVariableWriteNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name, :value
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @value, @operator_loc]
       end
 
       refine HashNode do
-        attr_accessor :opening_loc, :closing_loc
-        attr_writer :elements
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def elements=(elements)
+          @elements = elements
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@opening_loc, @elements, @closing_loc]
       end
 
       refine HashPatternNode do
-        attr_accessor :opening_loc, :closing_loc
-        attr_writer :constant, :elements, :rest
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def constant=(constant)
+          @constant = constant
+        end
+
+        def elements=(elements)
+          @elements = elements
+        end
+
+        def rest=(rest)
+          @rest = rest
+        end
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@constant, @elements, @rest, @opening_loc, @closing_loc]
       end
 
       refine IfNode do
-        attr_accessor :if_keyword_loc, :then_keyword_loc, :end_keyword_loc
-        attr_writer :predicate, :statements, :subsequent
+        def if_keyword_loc = @if_keyword_loc
+
+        def then_keyword_loc = @then_keyword_loc
+
+        def end_keyword_loc = @end_keyword_loc
+
+        def if_keyword_loc=(if_keyword_loc)
+          @if_keyword_loc = if_keyword_loc
+        end
+
+        def predicate=(predicate)
+          @predicate = predicate
+        end
+
+        def then_keyword_loc=(then_keyword_loc)
+          @then_keyword_loc = then_keyword_loc
+        end
+
+        def statements=(statements)
+          @statements = statements
+        end
+
+        def subsequent=(subsequent)
+          @subsequent = subsequent
+        end
+
+        def end_keyword_loc=(end_keyword_loc)
+          @end_keyword_loc = end_keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@if_keyword_loc, @predicate, @then_keyword_loc, @statements, @subsequent, @end_keyword_loc]
       end
 
       refine ImaginaryNode do
-        attr_writer :numeric
+        def numeric=(numeric)
+          @numeric = numeric
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@numeric]
       end
 
       refine ImplicitNode do
-        attr_writer :value
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@value]
       end
 
       refine InNode do
-        attr_accessor :in_loc, :then_loc
-        attr_writer :pattern, :statements
+        def in_loc = @in_loc
+
+        def then_loc = @then_loc
+
+        def pattern=(pattern)
+          @pattern = pattern
+        end
+
+        def statements=(statements)
+          @statements = statements
+        end
+
+        def in_loc=(in_loc)
+          @in_loc = in_loc
+        end
+
+        def then_loc=(then_loc)
+          @then_loc = then_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@pattern, @statements, @in_loc, @then_loc]
       end
 
       refine IndexAndWriteNode do
-        attr_accessor :call_operator_loc, :opening_loc, :closing_loc, :operator_loc
-        attr_writer :receiver, :arguments, :block, :value
+        def call_operator_loc = @call_operator_loc
+
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def operator_loc = @operator_loc
+
+        def receiver=(receiver)
+          @receiver = receiver
+        end
+
+        def call_operator_loc=(call_operator_loc)
+          @call_operator_loc = call_operator_loc
+        end
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def arguments=(arguments)
+          @arguments = arguments
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
+
+        def block=(block)
+          @block = block
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@receiver, @call_operator_loc, @opening_loc, @arguments, @closing_loc, @block, @operator_loc, @value]
       end
 
       refine IndexOperatorWriteNode do
-        attr_accessor :call_operator_loc, :opening_loc, :closing_loc, :binary_operator_loc
-        attr_writer :receiver, :arguments, :block, :binary_operator, :value
+        def call_operator_loc = @call_operator_loc
+
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def binary_operator_loc = @binary_operator_loc
+
+        def receiver=(receiver)
+          @receiver = receiver
+        end
+
+        def call_operator_loc=(call_operator_loc)
+          @call_operator_loc = call_operator_loc
+        end
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def arguments=(arguments)
+          @arguments = arguments
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
+
+        def block=(block)
+          @block = block
+        end
+
+        def binary_operator=(binary_operator)
+          @binary_operator = binary_operator
+        end
+
+        def binary_operator_loc=(binary_operator_loc)
+          @binary_operator_loc = binary_operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@receiver, @call_operator_loc, @opening_loc, @arguments, @closing_loc, @block, @binary_operator, @binary_operator_loc, @value]
       end
 
       refine IndexOrWriteNode do
-        attr_accessor :call_operator_loc, :opening_loc, :closing_loc, :operator_loc
-        attr_writer :receiver, :arguments, :block, :value
+        def call_operator_loc = @call_operator_loc
+
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def operator_loc = @operator_loc
+
+        def receiver=(receiver)
+          @receiver = receiver
+        end
+
+        def call_operator_loc=(call_operator_loc)
+          @call_operator_loc = call_operator_loc
+        end
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def arguments=(arguments)
+          @arguments = arguments
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
+
+        def block=(block)
+          @block = block
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@receiver, @call_operator_loc, @opening_loc, @arguments, @closing_loc, @block, @operator_loc, @value]
       end
 
       refine IndexTargetNode do
-        attr_accessor :opening_loc, :closing_loc
-        attr_writer :receiver, :arguments, :block
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def receiver=(receiver)
+          @receiver = receiver
+        end
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def arguments=(arguments)
+          @arguments = arguments
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
+
+        def block=(block)
+          @block = block
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@receiver, @opening_loc, @arguments, @closing_loc, @block]
       end
 
       refine InstanceVariableAndWriteNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name, :value
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @operator_loc, @value]
       end
 
       refine InstanceVariableOperatorWriteNode do
-        attr_accessor :name_loc, :binary_operator_loc
-        attr_writer :name, :value, :binary_operator
+        def name_loc = @name_loc
+
+        def binary_operator_loc = @binary_operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def binary_operator_loc=(binary_operator_loc)
+          @binary_operator_loc = binary_operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
+
+        def binary_operator=(binary_operator)
+          @binary_operator = binary_operator
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @binary_operator_loc, @value, @binary_operator]
       end
 
       refine InstanceVariableOrWriteNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name, :value
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @operator_loc, @value]
       end
 
       refine InstanceVariableReadNode do
-        attr_writer :name
+        def name=(name)
+          @name = name
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name]
       end
 
       refine InstanceVariableTargetNode do
-        attr_writer :name
+        def name=(name)
+          @name = name
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name]
       end
 
       refine InstanceVariableWriteNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name, :value
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @value, @operator_loc]
       end
 
       refine IntegerNode do
-        attr_writer :value
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@value]
       end
 
       refine InterpolatedMatchLastLineNode do
-        attr_accessor :opening_loc, :closing_loc
-        attr_writer :parts
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def parts=(parts)
+          @parts = parts
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@opening_loc, @parts, @closing_loc]
       end
 
       refine InterpolatedRegularExpressionNode do
-        attr_accessor :opening_loc, :closing_loc
-        attr_writer :parts
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def parts=(parts)
+          @parts = parts
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@opening_loc, @parts, @closing_loc]
       end
 
       refine InterpolatedStringNode do
-        attr_accessor :opening_loc, :closing_loc
-        attr_writer :parts
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def parts=(parts)
+          @parts = parts
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@opening_loc, @parts, @closing_loc]
       end
 
       refine InterpolatedSymbolNode do
-        attr_accessor :opening_loc, :closing_loc
-        attr_writer :parts
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def parts=(parts)
+          @parts = parts
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@opening_loc, @parts, @closing_loc]
       end
 
       refine InterpolatedXStringNode do
-        attr_accessor :opening_loc, :closing_loc
-        attr_writer :parts
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def parts=(parts)
+          @parts = parts
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@opening_loc, @parts, @closing_loc]
       end
 
       refine KeywordHashNode do
-        attr_writer :elements
+        def elements=(elements)
+          @elements = elements
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@elements]
       end
 
       refine KeywordRestParameterNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @operator_loc]
       end
 
       refine LambdaNode do
-        attr_accessor :operator_loc, :opening_loc, :closing_loc
-        attr_writer :locals, :parameters, :body
+        def operator_loc = @operator_loc
+
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def locals=(locals)
+          @locals = locals
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
+
+        def parameters=(parameters)
+          @parameters = parameters
+        end
+
+        def body=(body)
+          @body = body
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@locals, @operator_loc, @opening_loc, @closing_loc, @parameters, @body]
       end
 
       refine LocalVariableAndWriteNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :value, :name, :depth
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
+
+        def name=(name)
+          @name = name
+        end
+
+        def depth=(depth)
+          @depth = depth
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name_loc, @operator_loc, @value, @name, @depth]
       end
 
       refine LocalVariableOperatorWriteNode do
-        attr_accessor :name_loc, :binary_operator_loc
-        attr_writer :value, :name, :binary_operator, :depth
+        def name_loc = @name_loc
+
+        def binary_operator_loc = @binary_operator_loc
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def binary_operator_loc=(binary_operator_loc)
+          @binary_operator_loc = binary_operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
+
+        def name=(name)
+          @name = name
+        end
+
+        def binary_operator=(binary_operator)
+          @binary_operator = binary_operator
+        end
+
+        def depth=(depth)
+          @depth = depth
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name_loc, @binary_operator_loc, @value, @name, @binary_operator, @depth]
       end
 
       refine LocalVariableOrWriteNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :value, :name, :depth
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
+
+        def name=(name)
+          @name = name
+        end
+
+        def depth=(depth)
+          @depth = depth
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name_loc, @operator_loc, @value, @name, @depth]
       end
 
       refine LocalVariableReadNode do
-        attr_writer :name, :depth
+        def name=(name)
+          @name = name
+        end
+
+        def depth=(depth)
+          @depth = depth
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @depth]
       end
 
       refine LocalVariableTargetNode do
-        attr_writer :name, :depth
+        def name=(name)
+          @name = name
+        end
+
+        def depth=(depth)
+          @depth = depth
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @depth]
       end
 
       refine LocalVariableWriteNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name, :depth, :value
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def depth=(depth)
+          @depth = depth
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @depth, @name_loc, @value, @operator_loc]
       end
 
       refine MatchLastLineNode do
-        attr_accessor :opening_loc, :content_loc, :closing_loc
-        attr_writer :unescaped
+        def opening_loc = @opening_loc
+
+        def content_loc = @content_loc
+
+        def closing_loc = @closing_loc
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def content_loc=(content_loc)
+          @content_loc = content_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
+
+        def unescaped=(unescaped)
+          @unescaped = unescaped
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@opening_loc, @content_loc, @closing_loc, @unescaped]
       end
 
       refine MatchPredicateNode do
-        attr_accessor :operator_loc
-        attr_writer :value, :pattern
+        def operator_loc = @operator_loc
+
+        def value=(value)
+          @value = value
+        end
+
+        def pattern=(pattern)
+          @pattern = pattern
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@value, @pattern, @operator_loc]
       end
 
       refine MatchRequiredNode do
-        attr_accessor :operator_loc
-        attr_writer :value, :pattern
+        def operator_loc = @operator_loc
+
+        def value=(value)
+          @value = value
+        end
+
+        def pattern=(pattern)
+          @pattern = pattern
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@value, @pattern, @operator_loc]
       end
 
       refine MatchWriteNode do
-        attr_writer :call, :targets
+        def call=(call)
+          @call = call
+        end
+
+        def targets=(targets)
+          @targets = targets
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@call, @targets]
       end
 
       refine ModuleNode do
-        attr_accessor :module_keyword_loc, :end_keyword_loc
-        attr_writer :locals, :constant_path, :body, :name
+        def module_keyword_loc = @module_keyword_loc
+
+        def end_keyword_loc = @end_keyword_loc
+
+        def locals=(locals)
+          @locals = locals
+        end
+
+        def module_keyword_loc=(module_keyword_loc)
+          @module_keyword_loc = module_keyword_loc
+        end
+
+        def constant_path=(constant_path)
+          @constant_path = constant_path
+        end
+
+        def body=(body)
+          @body = body
+        end
+
+        def end_keyword_loc=(end_keyword_loc)
+          @end_keyword_loc = end_keyword_loc
+        end
+
+        def name=(name)
+          @name = name
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@locals, @module_keyword_loc, @constant_path, @body, @end_keyword_loc, @name]
       end
 
       refine MultiTargetNode do
-        attr_accessor :lparen_loc, :rparen_loc
-        attr_writer :lefts, :rest, :rights
+        def lparen_loc = @lparen_loc
+
+        def rparen_loc = @rparen_loc
+
+        def lefts=(lefts)
+          @lefts = lefts
+        end
+
+        def rest=(rest)
+          @rest = rest
+        end
+
+        def rights=(rights)
+          @rights = rights
+        end
+
+        def lparen_loc=(lparen_loc)
+          @lparen_loc = lparen_loc
+        end
+
+        def rparen_loc=(rparen_loc)
+          @rparen_loc = rparen_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@lefts, @rest, @rights, @lparen_loc, @rparen_loc]
       end
 
       refine MultiWriteNode do
-        attr_accessor :lparen_loc, :rparen_loc, :operator_loc
-        attr_writer :lefts, :rest, :rights, :value
+        def lparen_loc = @lparen_loc
+
+        def rparen_loc = @rparen_loc
+
+        def operator_loc = @operator_loc
+
+        def lefts=(lefts)
+          @lefts = lefts
+        end
+
+        def rest=(rest)
+          @rest = rest
+        end
+
+        def rights=(rights)
+          @rights = rights
+        end
+
+        def lparen_loc=(lparen_loc)
+          @lparen_loc = lparen_loc
+        end
+
+        def rparen_loc=(rparen_loc)
+          @rparen_loc = rparen_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@lefts, @rest, @rights, @lparen_loc, @rparen_loc, @operator_loc, @value]
       end
 
       refine NextNode do
-        attr_accessor :keyword_loc
-        attr_writer :arguments
+        def keyword_loc = @keyword_loc
+
+        def arguments=(arguments)
+          @arguments = arguments
+        end
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@arguments, @keyword_loc]
       end
 
       refine NoKeywordsParameterNode do
-        attr_accessor :operator_loc, :keyword_loc
+        def operator_loc = @operator_loc
+
+        def keyword_loc = @keyword_loc
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@operator_loc, @keyword_loc]
       end
 
       refine NumberedParametersNode do
-        attr_writer :maximum
+        def maximum=(maximum)
+          @maximum = maximum
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@maximum]
       end
 
       refine NumberedReferenceReadNode do
-        attr_writer :number
+        def number=(number)
+          @number = number
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@number]
       end
 
       refine OptionalKeywordParameterNode do
-        attr_accessor :name_loc
-        attr_writer :name, :value
+        def name_loc = @name_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @value]
       end
 
       refine OptionalParameterNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name, :value
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def value=(value)
+          @value = value
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @operator_loc, @value]
       end
 
       refine OrNode do
-        attr_accessor :operator_loc
-        attr_writer :left, :right
+        def operator_loc = @operator_loc
+
+        def left=(left)
+          @left = left
+        end
+
+        def right=(right)
+          @right = right
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@left, @right, @operator_loc]
       end
 
       refine ParametersNode do
-        attr_writer :requireds, :optionals, :rest, :posts, :keywords, :keyword_rest, :block
+        def requireds=(requireds)
+          @requireds = requireds
+        end
+
+        def optionals=(optionals)
+          @optionals = optionals
+        end
+
+        def rest=(rest)
+          @rest = rest
+        end
+
+        def posts=(posts)
+          @posts = posts
+        end
+
+        def keywords=(keywords)
+          @keywords = keywords
+        end
+
+        def keyword_rest=(keyword_rest)
+          @keyword_rest = keyword_rest
+        end
+
+        def block=(block)
+          @block = block
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@requireds, @optionals, @rest, @posts, @keywords, @keyword_rest, @block]
       end
 
       refine ParenthesesNode do
-        attr_accessor :opening_loc, :closing_loc
-        attr_writer :body
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def body=(body)
+          @body = body
+        end
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@body, @opening_loc, @closing_loc]
       end
 
       refine PinnedExpressionNode do
-        attr_accessor :operator_loc, :lparen_loc, :rparen_loc
-        attr_writer :expression
+        def operator_loc = @operator_loc
+
+        def lparen_loc = @lparen_loc
+
+        def rparen_loc = @rparen_loc
+
+        def expression=(expression)
+          @expression = expression
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def lparen_loc=(lparen_loc)
+          @lparen_loc = lparen_loc
+        end
+
+        def rparen_loc=(rparen_loc)
+          @rparen_loc = rparen_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@expression, @operator_loc, @lparen_loc, @rparen_loc]
       end
 
       refine PinnedVariableNode do
-        attr_accessor :operator_loc
-        attr_writer :variable
+        def operator_loc = @operator_loc
+
+        def variable=(variable)
+          @variable = variable
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@variable, @operator_loc]
       end
 
       refine PostExecutionNode do
-        attr_accessor :keyword_loc, :opening_loc, :closing_loc
-        attr_writer :statements
+        def keyword_loc = @keyword_loc
+
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def statements=(statements)
+          @statements = statements
+        end
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@statements, @keyword_loc, @opening_loc, @closing_loc]
       end
 
       refine PreExecutionNode do
-        attr_accessor :keyword_loc, :opening_loc, :closing_loc
-        attr_writer :statements
+        def keyword_loc = @keyword_loc
+
+        def opening_loc = @opening_loc
+
+        def closing_loc = @closing_loc
+
+        def statements=(statements)
+          @statements = statements
+        end
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@statements, @keyword_loc, @opening_loc, @closing_loc]
       end
 
       refine ProgramNode do
-        attr_writer :locals, :statements
+        def locals=(locals)
+          @locals = locals
+        end
+
+        def statements=(statements)
+          @statements = statements
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@locals, @statements]
       end
 
       refine RangeNode do
-        attr_accessor :operator_loc
-        attr_writer :left, :right
+        def operator_loc = @operator_loc
+
+        def left=(left)
+          @left = left
+        end
+
+        def right=(right)
+          @right = right
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@left, @right, @operator_loc]
       end
 
       refine RationalNode do
-        attr_writer :numerator, :denominator
+        def numerator=(numerator)
+          @numerator = numerator
+        end
+
+        def denominator=(denominator)
+          @denominator = denominator
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@numerator, @denominator]
       end
 
       refine RegularExpressionNode do
-        attr_accessor :opening_loc, :content_loc, :closing_loc
-        attr_writer :unescaped
+        def opening_loc = @opening_loc
+
+        def content_loc = @content_loc
+
+        def closing_loc = @closing_loc
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def content_loc=(content_loc)
+          @content_loc = content_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
+
+        def unescaped=(unescaped)
+          @unescaped = unescaped
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@opening_loc, @content_loc, @closing_loc, @unescaped]
       end
 
       refine RequiredKeywordParameterNode do
-        attr_accessor :name_loc
-        attr_writer :name
+        def name_loc = @name_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc]
       end
 
       refine RequiredParameterNode do
-        attr_writer :name
+        def name=(name)
+          @name = name
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name]
       end
 
       refine RescueModifierNode do
-        attr_accessor :keyword_loc
-        attr_writer :expression, :rescue_expression
+        def keyword_loc = @keyword_loc
+
+        def expression=(expression)
+          @expression = expression
+        end
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
+
+        def rescue_expression=(rescue_expression)
+          @rescue_expression = rescue_expression
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@expression, @keyword_loc, @rescue_expression]
       end
 
       refine RescueNode do
-        attr_accessor :keyword_loc, :operator_loc, :then_keyword_loc
-        attr_writer :exceptions, :reference, :statements, :subsequent
+        def keyword_loc = @keyword_loc
+
+        def operator_loc = @operator_loc
+
+        def then_keyword_loc = @then_keyword_loc
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
+
+        def exceptions=(exceptions)
+          @exceptions = exceptions
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def reference=(reference)
+          @reference = reference
+        end
+
+        def then_keyword_loc=(then_keyword_loc)
+          @then_keyword_loc = then_keyword_loc
+        end
+
+        def statements=(statements)
+          @statements = statements
+        end
+
+        def subsequent=(subsequent)
+          @subsequent = subsequent
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@keyword_loc, @exceptions, @operator_loc, @reference, @then_keyword_loc, @statements, @subsequent]
       end
 
       refine RestParameterNode do
-        attr_accessor :name_loc, :operator_loc
-        attr_writer :name
+        def name_loc = @name_loc
+
+        def operator_loc = @operator_loc
+
+        def name=(name)
+          @name = name
+        end
+
+        def name_loc=(name_loc)
+          @name_loc = name_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@name, @name_loc, @operator_loc]
       end
 
       refine ReturnNode do
-        attr_accessor :keyword_loc
-        attr_writer :arguments
+        def keyword_loc = @keyword_loc
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
+
+        def arguments=(arguments)
+          @arguments = arguments
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@keyword_loc, @arguments]
       end
 
       refine ShareableConstantNode do
-        attr_writer :write
+        def write=(write)
+          @write = write
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@write]
       end
 
       refine SingletonClassNode do
-        attr_accessor :class_keyword_loc, :operator_loc, :end_keyword_loc
-        attr_writer :locals, :expression, :body
+        def class_keyword_loc = @class_keyword_loc
+
+        def operator_loc = @operator_loc
+
+        def end_keyword_loc = @end_keyword_loc
+
+        def locals=(locals)
+          @locals = locals
+        end
+
+        def class_keyword_loc=(class_keyword_loc)
+          @class_keyword_loc = class_keyword_loc
+        end
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def expression=(expression)
+          @expression = expression
+        end
+
+        def body=(body)
+          @body = body
+        end
+
+        def end_keyword_loc=(end_keyword_loc)
+          @end_keyword_loc = end_keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@locals, @class_keyword_loc, @operator_loc, @expression, @body, @end_keyword_loc]
       end
 
       refine SourceFileNode do
-        attr_writer :filepath
+        def filepath=(filepath)
+          @filepath = filepath
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@filepath]
       end
 
       refine SplatNode do
-        attr_accessor :operator_loc
-        attr_writer :expression
+        def operator_loc = @operator_loc
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def expression=(expression)
+          @expression = expression
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@operator_loc, @expression]
       end
 
       refine StatementsNode do
-        attr_writer :body
+        def body=(body)
+          @body = body
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@body]
       end
 
       refine StringNode do
-        attr_accessor :opening_loc, :content_loc, :closing_loc
-        attr_writer :unescaped
+        def opening_loc = @opening_loc
+
+        def content_loc = @content_loc
+
+        def closing_loc = @closing_loc
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def content_loc=(content_loc)
+          @content_loc = content_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
+
+        def unescaped=(unescaped)
+          @unescaped = unescaped
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@opening_loc, @content_loc, @closing_loc, @unescaped]
       end
 
       refine SuperNode do
-        attr_accessor :keyword_loc, :lparen_loc, :rparen_loc
-        attr_writer :arguments, :block
+        def keyword_loc = @keyword_loc
+
+        def lparen_loc = @lparen_loc
+
+        def rparen_loc = @rparen_loc
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
+
+        def lparen_loc=(lparen_loc)
+          @lparen_loc = lparen_loc
+        end
+
+        def arguments=(arguments)
+          @arguments = arguments
+        end
+
+        def rparen_loc=(rparen_loc)
+          @rparen_loc = rparen_loc
+        end
+
+        def block=(block)
+          @block = block
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@keyword_loc, @lparen_loc, @arguments, @rparen_loc, @block]
       end
 
       refine SymbolNode do
-        attr_accessor :opening_loc, :value_loc, :closing_loc
-        attr_writer :unescaped
+        def opening_loc = @opening_loc
+
+        def value_loc = @value_loc
+
+        def closing_loc = @closing_loc
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def value_loc=(value_loc)
+          @value_loc = value_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
+
+        def unescaped=(unescaped)
+          @unescaped = unescaped
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@opening_loc, @value_loc, @closing_loc, @unescaped]
       end
 
       refine UndefNode do
-        attr_accessor :keyword_loc
-        attr_writer :names
+        def keyword_loc = @keyword_loc
+
+        def names=(names)
+          @names = names
+        end
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@names, @keyword_loc]
       end
 
       refine UnlessNode do
-        attr_accessor :keyword_loc, :then_keyword_loc, :end_keyword_loc
-        attr_writer :predicate, :statements, :else_clause
+        def keyword_loc = @keyword_loc
+
+        def then_keyword_loc = @then_keyword_loc
+
+        def end_keyword_loc = @end_keyword_loc
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
+
+        def predicate=(predicate)
+          @predicate = predicate
+        end
+
+        def then_keyword_loc=(then_keyword_loc)
+          @then_keyword_loc = then_keyword_loc
+        end
+
+        def statements=(statements)
+          @statements = statements
+        end
+
+        def else_clause=(else_clause)
+          @else_clause = else_clause
+        end
+
+        def end_keyword_loc=(end_keyword_loc)
+          @end_keyword_loc = end_keyword_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@keyword_loc, @predicate, @then_keyword_loc, @statements, @else_clause, @end_keyword_loc]
       end
 
       refine UntilNode do
-        attr_accessor :keyword_loc, :do_keyword_loc, :closing_loc
-        attr_writer :predicate, :statements
+        def keyword_loc = @keyword_loc
+
+        def do_keyword_loc = @do_keyword_loc
+
+        def closing_loc = @closing_loc
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
+
+        def do_keyword_loc=(do_keyword_loc)
+          @do_keyword_loc = do_keyword_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
+
+        def predicate=(predicate)
+          @predicate = predicate
+        end
+
+        def statements=(statements)
+          @statements = statements
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@keyword_loc, @do_keyword_loc, @closing_loc, @predicate, @statements]
       end
 
       refine WhenNode do
-        attr_accessor :keyword_loc, :then_keyword_loc
-        attr_writer :conditions, :statements
+        def keyword_loc = @keyword_loc
+
+        def then_keyword_loc = @then_keyword_loc
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
+
+        def conditions=(conditions)
+          @conditions = conditions
+        end
+
+        def then_keyword_loc=(then_keyword_loc)
+          @then_keyword_loc = then_keyword_loc
+        end
+
+        def statements=(statements)
+          @statements = statements
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@keyword_loc, @conditions, @then_keyword_loc, @statements]
       end
 
       refine WhileNode do
-        attr_accessor :keyword_loc, :do_keyword_loc, :closing_loc
-        attr_writer :predicate, :statements
+        def keyword_loc = @keyword_loc
+
+        def do_keyword_loc = @do_keyword_loc
+
+        def closing_loc = @closing_loc
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
+
+        def do_keyword_loc=(do_keyword_loc)
+          @do_keyword_loc = do_keyword_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
+
+        def predicate=(predicate)
+          @predicate = predicate
+        end
+
+        def statements=(statements)
+          @statements = statements
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@keyword_loc, @do_keyword_loc, @closing_loc, @predicate, @statements]
       end
 
       refine XStringNode do
-        attr_accessor :opening_loc, :content_loc, :closing_loc
-        attr_writer :unescaped
+        def opening_loc = @opening_loc
+
+        def content_loc = @content_loc
+
+        def closing_loc = @closing_loc
+
+        def opening_loc=(opening_loc)
+          @opening_loc = opening_loc
+        end
+
+        def content_loc=(content_loc)
+          @content_loc = content_loc
+        end
+
+        def closing_loc=(closing_loc)
+          @closing_loc = closing_loc
+        end
+
+        def unescaped=(unescaped)
+          @unescaped = unescaped
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@opening_loc, @content_loc, @closing_loc, @unescaped]
       end
 
       refine YieldNode do
-        attr_accessor :keyword_loc, :lparen_loc, :rparen_loc
-        attr_writer :arguments
+        def keyword_loc = @keyword_loc
+
+        def lparen_loc = @lparen_loc
+
+        def rparen_loc = @rparen_loc
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
+
+        def lparen_loc=(lparen_loc)
+          @lparen_loc = lparen_loc
+        end
+
+        def arguments=(arguments)
+          @arguments = arguments
+        end
+
+        def rparen_loc=(rparen_loc)
+          @rparen_loc = rparen_loc
+        end
 
         # The fields in the constructor's order, raw.
         def fields = [@keyword_loc, @lparen_loc, @arguments, @rparen_loc]

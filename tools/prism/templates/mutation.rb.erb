@@ -8,6 +8,11 @@ module Prism
     # packed as `(start << 32) | length` (nil for an absent optional one).
     # Inside the refinement their readers answer the packed value; outside,
     # the node's own readers inflate it to a Location.
+    #
+    # The readers and writers are plain methods rather than attr_accessor:
+    # in a ze0 binary the runtime's own attributes name its hidden fields,
+    # while these name the gem's instance variables (VISIBLE_IVARS in
+    # lib/ze0/hir/build.rb).
     module Mutation
       # Packed locations.
       module Location
@@ -23,7 +28,17 @@ module Prism
       end
 
       refine Node do
-        attr_accessor :location, :flags
+        def location = @location
+
+        def location=(location)
+          @location = location
+        end
+
+        def flags = @flags
+
+        def flags=(flags)
+          @flags = flags
+        end
 
         # pm_node_flag_set
         def flag_set(flag) = @flags |= flag
@@ -52,14 +67,17 @@ module Prism
       <%- locations, others = node.fields.partition { |field| field.is_a?(Prism::Template::LocationField) || field.is_a?(Prism::Template::OptionalLocationField) } -%>
 
       refine <%= node.name %> do
-        <%- unless locations.empty? -%>
-        attr_accessor <%= locations.map { |field| ":#{field.name}" }.join(", ") %>
+        <%- locations.each do |field| -%>
+        def <%= field.name %> = @<%= field.name %>
+
         <%- end -%>
-        <%- unless others.empty? -%>
-        attr_writer <%= others.map { |field| ":#{field.name}" }.join(", ") %>
+        <%- node.fields.each do |field| -%>
+        def <%= field.name %>=(<%= field.name %>)
+          @<%= field.name %> = <%= field.name %>
+        end
+
         <%- end -%>
         <%- if node.fields.size > 0 -%>
-
         # The fields in the constructor's order, raw.
         def fields = [<%= node.fields.map { |field| "@#{field.name}" }.join(", ") %>]
         <%- end -%>

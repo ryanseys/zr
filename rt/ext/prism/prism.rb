@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 # shareable_constant_value: literal
 
-require_relative "../ruby"
+require_relative "ruby"
 
 # Init_prism (extension.c) and Init_prism_pack (api_pack.c): the Prism
 # constant and singleton methods prism's C extension defines, answered by
