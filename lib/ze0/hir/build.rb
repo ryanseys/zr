@@ -19,11 +19,14 @@ module Ze0
       # The extensions whose native half is ours. A file here is part of
       # the runtime, so it may name a kernel def through `Primitive`.
       EXT = File.join(Paths::RT, "ext")
-      # The files of prism's port that change the prism gem's nodes after
-      # they are built. They are the runtime's own code, but the instance
-      # variables they write are the gem's, which its Ruby reads as ruby
-      # shows them.
-      VISIBLE_IVARS = %w[mutation ast].map { |name| File.join(EXT, "prism/ruby/#{name}.rb") }.freeze
+      # The runtime's files whose instance variables a program sees as ruby
+      # shows them: prism's port, which changes the prism gem's nodes after
+      # they are built, and openssl's, whose C names every instance
+      # variable it shows and keeps the rest in hidden slots.
+      VISIBLE_IVARS = [
+        *%w[mutation ast].map { |name| File.join(EXT, "prism/ruby/#{name}.rb") },
+        File.join(EXT, "openssl.so.rb"), *Dir[File.join(EXT, "openssl/ossl/*.rb")].sort
+      ].freeze
       # The runtime's own Ruby, the core library and the extensions: code
       # a TracePoint never sees.
       RUNTIME = Paths::RT
@@ -33,7 +36,7 @@ module Ze0
       # The ruby half of an extension, as its gem ships it. A gem is on
       # the path only once its native half answers, so a require of one
       # we do not carry stops by name instead of failing halfway in.
-      GEMS = %w[prism json psych bigdecimal digest syslog socket ffi].map { |name| File.join(Paths::VENDOR, "ext/#{name}/lib") }.freeze
+      GEMS = %w[prism json psych bigdecimal digest syslog socket ffi openssl].map { |name| File.join(Paths::VENDOR, "ext/#{name}/lib") }.freeze
       # A bundled gem that tells its own files from a program's by the
       # directory they are in, which must hold that gem alone.
       BUNDLED = %w[power_assert].map { |name| File.join(Paths::VENDOR, "gems/#{name}/lib") }.freeze

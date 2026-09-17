@@ -165,7 +165,8 @@ module Ze0
       # own, the core library's and the native halves', are hidden, named
       # without their `@` as CRuby names the fields its C keeps, so a
       # program sees none of them; a def marked `:ivars` keeps the ones
-      # CRuby writes in Ruby, and so does prism's port (VISIBLE_IVARS).
+      # CRuby writes in Ruby, and so do prism's and openssl's ports
+      # (VISIBLE_IVARS).
       def ivar_name(name)
         return name unless @l.internal?
         return name if Hir::Build::VISIBLE_IVARS.include?(@l.file)

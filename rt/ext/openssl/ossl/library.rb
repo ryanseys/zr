@@ -1,0 +1,167 @@
+# frozen_string_literal: true
+
+module OpenSSL
+  # libssl and libcrypto 3, as the host installs them: found and opened
+  # once, when the program requires openssl. Each file of the port binds
+  # the functions it calls with Lib.attach, which gives the module a
+  # method of the C name, and writes the header macros it uses as Ruby
+  # beside them. A function this library lacks gets no method, so
+  # `Lib.respond_to?(name)` answers what extconf.rb's have_func answers.
+  module Lib
+    # The oldest release the port runs on: OpenSSL 3.0.0.
+    MINIMUM_VERSION = 0x30000000
+
+    WORD_BITS = 64
+    WORD_MASK = (1 << WORD_BITS) - 1
+    SIGN_BIT = 1 << (WORD_BITS - 1)
+
+    # How each C answer becomes a Ruby value, from the signed word x0
+    # holds. A narrower type takes the low bits, as C's caller does.
+    RETURNS = {
+      void: ->(_) {},
+      int: ->(word) { ((word & 0xffff_ffff) ^ 0x8000_0000) - 0x8000_0000 },
+      uint: ->(word) { word & 0xffff_ffff },
+      uchar: ->(word) { word & 0xff },
+      long: ->(word) { word },
+      int64: ->(word) { word },
+      ulong: ->(word) { word & WORD_MASK },
+      uint64: ->(word) { word & WORD_MASK },
+      size_t: ->(word) { word & WORD_MASK },
+      pointer: ->(word) { word & WORD_MASK },
+      string: ->(word) { word.zero? ? nil : Lib.string(word & WORD_MASK) }
+    }.freeze
+
+    PARAMS = %i[int uint uchar long int64 ulong uint64 size_t pointer string buffer double].freeze
+
+    class << self
+      # The directories searched for the library, most specific first:
+      # OPENSSL_DIR's lib alone when it is set.
+      def directories
+        if (prefix = ENV["OPENSSL_DIR"]) && !prefix.empty?
+          [File.join(prefix, "lib")]
+        elsif RUBY_PLATFORM.include?("darwin")
+          # Never /usr/lib: macOS's libssl there ends the process that
+          # opens it.
+          %w[/opt/homebrew/opt/openssl@3/lib /usr/local/opt/openssl@3/lib /opt/local/lib]
+        else
+          %w[/usr/lib /usr/local/lib /usr/lib64]
+        end
+      end
+
+      def file_name = RUBY_PLATFORM.include?("darwin") ? "libssl.3.dylib" : "libssl.so.3"
+
+      # Opens libssl, whose image brings its own libcrypto, so every
+      # symbol the port binds comes through this one handle. Raises
+      # LoadError naming each place looked in when none holds OpenSSL 3.
+      def load
+        return @handle if @handle
+
+        tried = []
+        candidates = directories.map { |dir| File.join(dir, file_name) }
+        # The dynamic loader's own search, where OPENSSL_DIR does not rule.
+        candidates << file_name if ENV.fetch("OPENSSL_DIR", "").empty?
+        candidates.each do |path|
+          next tried << "#{path} (no such file)" if path.include?("/") && !File.exist?(path)
+
+          handle = Native.open(path)
+          next tried << "#{path} (#{Native.error})" if handle.nil?
+
+          version = Native.symbol(handle, "OpenSSL_version_num")
+          next tried << "#{path} (not OpenSSL)" if version.zero?
+
+          number = RETURNS[:ulong].(Native.call(version, []))
+          next tried << format("%s (OpenSSL %#x is older than 3.0)", path, number) if number < MINIMUM_VERSION
+
+          @path = path
+          return @handle = handle
+        end
+        raise LoadError, "OpenSSL 3 was not found; set OPENSSL_DIR to its prefix. Looked for: #{tried.join(", ")}"
+      end
+
+      attr_reader :path
+
+      # Binds `name`, a function taking `params` and answering `returns`
+      # (the names in PARAMS and RETURNS), as a method of that name.
+      # Integers pass as they are, nil as NULL, true and false as 1 and
+      # 0. A :string argument is text C reads up to a NUL; a :buffer is a
+      # String whose bytes C reads or writes in place; a :double, which
+      # only the last parameter may be, a Float.
+      def attach(name, params, returns)
+        address = Native.symbol(@handle, name.to_s)
+        return if address.zero?
+
+        unknown = params - PARAMS
+        raise ArgumentError, "#{name}: unknown parameter types #{unknown}" unless unknown.empty?
+        raise ArgumentError, "#{name}: only the last parameter may be a :double" if params[0...-1].include?(:double)
+
+        answer = RETURNS.fetch(returns)
+        arity = params.size
+        strings = params.each_index.select { |i| params[i] == :string }
+        double = params.last == :double
+        define_singleton_method(name) do |*args|
+          raise ArgumentError, "wrong number of arguments (given #{args.size}, expected #{arity}) for #{name}" unless args.size == arity
+
+          strings.each { |i| args[i] = Native.cstring(args[i]) if args[i].is_a?(String) }
+          if double
+            float = args.pop
+            answer.(Native.call_double(address, args.map! { |arg| Lib.word(arg) }, float))
+          else
+            answer.(Native.call(address, args.map! { |arg| Lib.word(arg) }))
+          end
+        end
+      end
+
+      # Binds each of `table`'s rows: name => [params, returns].
+      def attach_all(table) = table.each { |name, (params, returns)| attach(name, params, returns) }
+
+      # An argument as the signed word x0-x7 carry.
+      def word(value)
+        case value
+        when Integer then value & SIGN_BIT == 0 ? value & WORD_MASK : (value & WORD_MASK) - (1 << WORD_BITS)
+        when nil, false then 0
+        when true then 1
+        when String then Native.address(value)
+        else value
+        end
+      end
+
+      # -- memory ----------------------------------------------------------
+
+      # `size` zero bytes C may write into: an out-parameter or an output
+      # buffer, read back with unpack or byteslice.
+      def buffer(size) = ("\0" * size).b
+
+      def read(address, length) = length.zero? ? "".b : Native.read(address, length)
+
+      # The NUL-ended text at `address`, in binary.
+      def string(address) = Native.read(address, Native.strlen(address))
+
+      def write(address, bytes) = Native.write(address, bytes)
+
+      def read_pointer(address) = Native.read(address, 8).unpack1("J")
+
+      def read_int(address) = Native.read(address, 4).unpack1("l")
+
+      # The address a buffer of pointers holds at `index`.
+      def pointer_at(buffer, index = 0) = buffer.unpack1("J", offset: index * 8)
+
+      # -- callbacks -------------------------------------------------------
+
+      # A C function, for OpenSSL to call back, that runs `block` with its
+      # arguments as signed Integers (seven of them; C passes fewer, and
+      # the rest mean nothing) and answers what the block answers, an
+      # Integer. Each is made once, where the C extension has a static
+      # function, since the kernel keeps a fixed number of entries.
+      def callback(&block)
+        @callbacks ||= []
+        Native.dispatch(->(index, args) { @callbacks[index].call(*args) }) if @callbacks.empty?
+        @callbacks << block
+        address = Native.callback(@callbacks.size - 1)
+        raise ScriptError, "the port holds more C callbacks than the kernel has entries" if address.nil?
+
+        address
+      end
+    end
+  end
+  private_constant :Lib
+end
