@@ -8,7 +8,7 @@ These change what `ze0` and the rake tasks do.
 |---|---|---|
 | `ZE0_CACHE` | a directory | Where ze0 keeps the compiled runtime. The default is `~/Library/Caches/ze0/rt` on macOS, `$XDG_CACHE_HOME/ze0/rt` or `~/.cache/ze0/rt` elsewhere, and `tmp/rt` in a checkout. |
 | `ZE0_LINK` | `auto` (default), `ruby`, `cc` | The macOS linker. `auto`: ze0's own Mach-O linker, and `cc` for a link it refuses. `ruby`: ze0's linker only; it names what it cannot link. `cc`: the system linker always. |
-| `ZE0_JOBS` | a number | How many worker processes assemble a large unit (default: one per core, at most 6). For `rake test:*`: how many test processes run at once (default: at most 4). |
+| `ZE0_JOBS` | a number | How many worker processes assemble a large unit (default: one per core, at most 6). |
 | `ZE0_TIMING` | `1` | Prints the seconds each phase of a build takes to stderr. |
 | `ZE0_VERIFY` | `1` | Checks dominance and types in every IR function before it is assembled. |
 | `ZE0_YJIT` | `0` | Runs the compiler without YJIT. |
@@ -34,7 +34,9 @@ These change the rake test tasks.
 |---|---|---|
 | `ZE0_BLESS` | `1` | Writes a snapshot check's expected file again instead of comparing: HIR dumps, the disassembly listing, the eval descriptions, the libSystem list. |
 | `ZE0_STRESS` | `1` | Adds a `ZR_GC_STRESS=1` run to each program in `programs_test`. |
-| `ZE0_SHARD` | `i/n` | Runs shard `i` of `n` of a sharded test file. The supervisor sets it. |
+| `MT_CPU` | a number | How many workers a tier forks (default: one per core, less two). Minitest's own name for this. |
+| `ZE0_RECYCLE_MB` | megabytes | What a worker may reside in before it is closed and forked again (default 600). |
+| `N`, `X`, `A` | minitest switches | `N=/utf8/` runs the examples whose name matches, `X=` leaves some out, `A=` passes anything else to minitest. |
 | `ZE0_LIMIT` | seconds | The time bound for a program a check runs (default 60). |
 | `ZE0_RESIDENT` | megabytes | The memory bound for a program a check runs (default 2048). |
 | `ZE0_WASM_MEMORY` | bytes | wasmtime's `max-memory-size` in the checks (default 1 GiB). |

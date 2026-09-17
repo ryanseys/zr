@@ -10,10 +10,10 @@ path itself.
 | Task | Does |
 |---|---|
 | `rake test` | the units, the specs and the end-to-end programs |
-| `rake test:unit [FILTER=exe,zr]` | ze0's own internals |
-| `rake test:spec [FILTER=] [GC=stress] [TARGET=]` | Ruby held to ruby, program by program |
+| `rake test:unit [N=/Exe/]` | ze0's own internals |
+| `rake test:spec [N=] [GC=stress] [TARGET=]` | Ruby held to ruby, program by program |
 | `rake test:e2e [TARGET=]` | whole programs through a real link |
-| `rake 'test:one[test/unit/zr_test.rb,-n /gc/]'` | one file, with minitest's own options |
+| `minitest test/unit/zr_test.rb -n /gc/` | one file, or one example |
 | `rake 'oracle[test/spec/core/string]'` | every spec literal re-checked against ruby 4.0.6 |
 | `rake 'record[e2e/core/io/hello.rb]'` | runs ruby and writes its answer under `__END__` |
 | `rake 'bench[--runs 5 fib]'` | how long does what ze0 built take? |
@@ -57,7 +57,7 @@ by hand.
 
 `rt/ext/os/<os>/zr_description.rb` and `lib/ze0/obj/macho/libsystem.rb`
 are snapshots the checks hold rather than tasks:
-`ZE0_BLESS=1 rake test:unit FILTER=description` writes them again.
+`ZE0_BLESS=1 rake test:unit N=/Description/` writes them again.
 
 ## Measurement and bootstrap
 

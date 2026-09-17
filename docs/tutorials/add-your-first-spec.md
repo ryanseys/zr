@@ -92,8 +92,8 @@ exit status. All four held.
 Now run the file, and then its area:
 
 ```console
-$ rake 'test:one[test/spec/lang/misc/enumeration_test.rb]'
-$ rake test:spec FILTER=misc
+$ bundle exec minitest test/spec/lang/misc/enumeration_test.rb
+$ bundle exec minitest test/spec/lang/misc
 ```
 
 ## Hold your literal to ruby

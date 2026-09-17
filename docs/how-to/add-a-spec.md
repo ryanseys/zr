@@ -54,9 +54,9 @@ backtrace, or `__FILE__`. Everything else takes the default.
 ## Run it
 
 ```console
-$ rake 'test:one[test/spec/core/string/frozen_test.rb]'
+$ bundle exec minitest test/spec/core/string/frozen_test.rb
 $ ruby -Ilib -Itest test/spec/core/string/frozen_test.rb -n "/encoding/"
-$ rake test:spec FILTER=string
+$ bundle exec minitest test/spec/core/string
 ```
 
 ## Where the answer comes from

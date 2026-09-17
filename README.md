@@ -90,7 +90,7 @@ Read more in [Architecture](docs/explanation/architecture.md) and
 $ git clone https://github.com/ryanseys/ze0.git
 $ cd ze0
 $ bundle install
-$ rake test:spec FILTER=blocks  # Ruby held to ruby, program by program
+$ rake test:spec N=/blocks/  # Ruby held to ruby, program by program
 $ rake test:unit                # ze0's own internals
 ```
 

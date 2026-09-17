@@ -99,7 +99,10 @@ jobs:
           docker exec alpine bundle config set --global without development
           docker exec alpine bundle install
       - name: Run the units this target answers
-        run: docker exec alpine bundle exec rake test:unit FILTER="target elf interp os_api description case_format"
+        run: >-
+          docker exec alpine bundle exec minitest
+          test/unit/target_test.rb test/unit/elf_test.rb test/unit/interp_test.rb
+          test/unit/os_api_test.rb test/unit/description_test.rb test/unit/case_format_test.rb
       - name: Build and run whole programs for this target
         run: docker exec -e TARGET=aarch64-linux-musl alpine bundle exec rake test:e2e
       - name: Write the linux tables again and compare
@@ -118,7 +121,10 @@ jobs:
           bundler-cache: true
       - uses: bytecodealliance/actions/wasmtime/setup@v1
       - name: Run the units this target answers
-        run: bundle exec rake test:unit FILTER="wasm os_api target description case_format"
+        run: >-
+          bundle exec minitest
+          test/unit/wasm_test.rb test/unit/wasm_locals_test.rb test/unit/os_api_test.rb
+          test/unit/target_test.rb test/unit/description_test.rb test/unit/case_format_test.rb
       - name: Build and run whole programs for this target
         run: TARGET=wasm32-wasi bundle exec rake test:e2e
 

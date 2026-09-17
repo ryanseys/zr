@@ -31,10 +31,6 @@ module Ze0
     # being one.
     def self.programs = Dir[File.join(ROOT, "test/e2e/*/*/*.rb")].sort
 
-    # `[this shard, how many]`, counting from one: the driver says how
-    # many it wants, and the supervisor starts a process for each.
-    def self.shard = (ENV["ZE0_SHARD"] || "1/1").split("/").map { |n| Integer(n) }
-
     # The programs a target is allowed to fail, and why, read from
     # `test/baselines/<triple>.txt`. A target on its way in is held to
     # what it did rather than to the whole tier -- and a row that now
@@ -55,15 +51,11 @@ module Ze0
 
     # The programs as tests on `suite`, named by area and program, so
     # `-n /socket/` runs the one and `-n /core_process/` runs the five.
-    # A shard takes every nth program, which spreads the slow ones.
     def self.define(suite)
       target = Harness::Runner.named(ENV["ZE0_TARGET"])
       runner = Harness::Runner.new(ROOT, target)
       allowed = baseline(target)
-      mine, of = shard
-      programs.each_with_index do |rb, i|
-        next unless (i % of) + 1 == mine
-
+      programs.each do |rb|
         name = rb.delete_prefix("#{File.join(ROOT, "test/e2e")}/").delete_suffix(".rb").tr("/", "_")
         why = allowed[rb.delete_prefix("#{ROOT}/test/")]
         suite.define_method("test_#{name}") { build_and_answer(rb, runner, why) }

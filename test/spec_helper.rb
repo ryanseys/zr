@@ -11,3 +11,8 @@ require_relative "support/spec"
 # `ze0 "puts 1"` inside an `it` block, and `_(result).must_answer "1\n"`.
 Minitest::Spec.include(Ze0::Spec::DSL)
 Minitest::Expectation.include(Ze0::Spec::Expectation)
+
+# One example is one compile, and a compile is the unit of work the
+# pool hands to a worker. Said on `Minitest::Spec` it reaches every
+# `describe` in the tier, so no spec file has to remember.
+Minitest::Spec.parallelize_me!

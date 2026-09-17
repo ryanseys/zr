@@ -19,7 +19,7 @@ asserts all four, so the message names which one moved.
 To run everything an area holds, and see only what failed:
 
 ```console
-$ rake test:spec FILTER=string
+$ bundle exec minitest test/spec/core/string
 ```
 
 ## Make the program smaller
@@ -47,7 +47,7 @@ question.
   see:
 
   ```console
-  $ rake test:spec FILTER=string GC=stress
+  $ bundle exec minitest test/spec/core/string GC=stress
   $ ZR_GC_STRESS=1 ./binary
   ```
 

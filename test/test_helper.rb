@@ -1,9 +1,24 @@
 # frozen_string_literal: true
 
 require "minitest/autorun"
+require "minitest/reporters"
 require_relative "../lib/ze0/target"
+require_relative "support/fork_pool"
 require "tmpdir"
 require "fileutils"
+
+# Every suite that says `parallelize_me!` runs in forked workers rather
+# than in threads: what these tests do is the compiler's own Ruby, and
+# the GVL lets one thread at a time hold it. `MT_CPU` says how many.
+Minitest.parallel_executor = Ze0::Test::ForkPool.new
+
+# How far along, and how much longer. A tier runs for minutes, and a
+# line of dots says neither. CI writes the JUnit file as well, which is
+# what renders a failure in the web view.
+Minitest::Reporters.use!(
+  [Minitest::Reporters::ProgressReporter.new,
+   *(Minitest::Reporters::JUnitReporter.new(File.expand_path("../tmp/junit", __dir__)) if ENV["CI"])]
+)
 
 ROOT = File.expand_path("..", __dir__)
 

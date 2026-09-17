@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "bundler/gem_tasks"
+require "minitest/test_task"
 
 ROOT = __dir__
 
@@ -13,49 +14,46 @@ end
 
 def tool(name, *args, env: {}) = ruby_run(File.join(ROOT, "tools", "#{name}.rb"), *args, env: env)
 
-def supervise(glob, env: {})
-  require_relative "test/support/supervisor"
-  files = Dir[File.join(ROOT, glob)].sort
-  filter = ENV["FILTER"].to_s.split
-  files = files.select { |f| filter.any? { |a| File.basename(f).include?(a) } } unless filter.empty?
-  abort("rake: nothing matches #{filter.join(" ")}") if files.empty?
-  # `TARGET=wasm32-wasi` builds every program for that triple and runs
-  # it the way that triple is run, as the cross-target rows of CI do.
-  env = env.merge("ZE0_TARGET" => ENV["TARGET"]) if ENV["TARGET"]
-  Ze0::Test::Supervisor.new(ROOT, env: env).run(files) or exit(1)
+# `TARGET=wasm32-wasi` builds every program for that triple and runs it
+# the way that triple is run, as the cross-target rows of CI do;
+# `GC=stress` collects at every allocation.
+ENV["ZE0_TARGET"] = ENV["TARGET"] if ENV["TARGET"]
+ENV["ZR_GC_STRESS"] = "1" if ENV["GC"] == "stress"
+
+# One tier: every file under `glob`, loaded into one process, which
+# hands each example to a forked worker (`test/support/fork_pool.rb`).
+#
+# `Minitest::TestTask` is the front door, so a tier answers to
+# minitest's own switches rather than to a language of ours: `N=/utf8/`
+# runs the examples whose name matches, `X=` leaves some out, `A=-v`
+# passes anything else through, and `MT_CPU=` says how many workers.
+# It also defines `<tier>:slow` (the slowest 25), `<tier>:isolated`
+# (which files fail when run alone) and `<tier>:cmd` beside each tier.
+def tier(name, glob, framework, what)
+  Minitest::TestTask.create(name) do |t|
+    t.libs = %w[lib test]
+    # The tests are the compiler's own Ruby, as `ze0` itself is.
+    t.test_prelude = %(RubyVM::YJIT.enable)
+    t.framework = %(require "#{framework}")
+    t.test_globs = [File.join(ROOT, glob)]
+    t.warning = false
+  end
+  # Rake joins descriptions rather than replacing them, so the generic
+  # one TestTask wrote comes off before ours goes on.
+  Rake::Task[name].clear_comments
+  desc what
+  task name
 end
 
 desc "Every test: the units, the specs and the end-to-end programs"
 task test: %w[test:unit test:spec test:e2e]
 
-namespace :test do
-  desc "ze0's own internals; FILTER=exe,zr picks files"
-  task :unit do
-    supervise("test/unit/*_test.rb")
-  end
-
-  desc "Ruby held to ruby, program by program; FILTER= picks files, GC=stress collects at every allocation, TARGET= names another triple"
-  task :spec do
-    next puts("rake test:spec: no specs yet") if Dir[File.join(ROOT, "test/spec/**/*_test.rb")].empty?
-
-    supervise("test/spec/**/*_test.rb", env: ENV["GC"] == "stress" ? { "ZR_GC_STRESS" => "1" } : {})
-  end
-
-  desc "Whole programs through a real link; TARGET= names another triple"
-  task :e2e do
-    # The programs are `.rb` files with ruby's answer under `__END__`;
-    # the driver beside them is what minitest runs.
-    next puts("rake test:e2e: no driver yet") if Dir[File.join(ROOT, "test/e2e/**/*_test.rb")].empty?
-
-    supervise("test/e2e/**/*_test.rb")
-  end
-
-  desc "One file, with minitest's own options: rake 'test:one[test/unit/zr_test.rb,-n /gc/]'"
-  task :one, [:file, :opts] do |_, args|
-    abort("rake test:one: name a file") unless args[:file]
-    ruby_run("--yjit", args[:file], *args[:opts].to_s.split)
-  end
-end
+tier "test:unit", "test/unit/*_test.rb", "test_helper",
+     "ze0's own internals"
+tier "test:spec", "test/spec/**/*_test.rb", "spec_helper",
+     "Ruby held to ruby, program by program"
+tier "test:e2e", "test/e2e/**/*_test.rb", "test_helper",
+     "Whole programs through a real link"
 
 desc "How long does what ze0 built take? rake 'bench[--runs 5 fib]'"
 task(:bench, [:filters]) { |_, args| tool("bench", *args[:filters].to_s.split) }

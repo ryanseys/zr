@@ -14,12 +14,12 @@ module Ze0
   # What a spec example is: a Ruby program ze0 compiles, runs, and is
   # held to ruby 4.0.6's answer for.
   #
-  # The compile happens in this process. A fresh ruby would reload the
-  # whole compiler for every example, and that fixed cost is the whole
-  # cost of a small program; loading it once and compiling many is what
-  # makes a suite of thousands finish. Ruby does not give heap pages
-  # back, so a process is bounded by `Supervisor`, which starts one per
-  # file and recycles it.
+  # The compile happens in the worker that was handed the example. A
+  # fresh ruby would reload the whole compiler for every one, and that
+  # fixed cost is the whole cost of a small program; loading it once and
+  # compiling many is what makes a suite of thousands finish. Ruby does
+  # not give heap pages back, so `ForkPool` closes a worker that has
+  # grown and forks another from the parent, which has not.
   module Spec
     # What a compiled program said. `signal` is set and `status` nil
     # when a signal ended it, as a process a signal ends has no status.
@@ -52,25 +52,41 @@ module Ze0
     # the NotImplementedError or LoadError it raised, or a kernel stop.
     STOP = /^(?:ze0: |.*?:in '[^']*': )?(.* is not implemented yet)(?: \((?:NotImplementedError|LoadError)\))?$/
 
-    # The census every process writes and the run adds up: the buckets
-    # `ze0 test` counted, and the sentence each refusal names.
-    class Census
-      def initialize = @rows = []
+    # The buckets `ze0 test` counted, added up at the end of a run.
+    #
+    # An example ze0 refused makes no claim about ruby and skips, but
+    # which forms it refused is the roadmap. Each one leaves its bucket
+    # and the sentence it named in the result's metadata, which minitest
+    # carries back from the worker that ran it, and this counts them.
+    # It is a minitest plugin, which is how a run gains a report.
+    module Census
+      KEY = :ze0_refusal
 
-      def <<(row) = @rows << row
-
-      def save(path)
-        return if @rows.empty?
-
-        FileUtils.mkdir_p(File.dirname(path))
-        File.open(path, "a") { |f| @rows.each { |bucket, why| f.puts("#{bucket}\t#{why}") } }
+      def self.minitest_plugin_init(options)
+        Minitest.reporter << Reporter.new(options[:io])
       end
 
-      def self.current = @current ||= new
+      class Reporter < Minitest::AbstractReporter
+        def initialize(io)
+          super()
+          @io = io
+          @rows = Hash.new(0)
+        end
 
-      # Where this process leaves its rows. One file a process: two
-      # writers never share a line.
-      def self.path(root) = File.join(root, "tmp", "census", "#{Process.pid}.tsv")
+        def record(result)
+          row = result.metadata[KEY] if result.metadata?
+          @rows[row] += 1 if row
+        end
+
+        def report
+          return if @rows.empty?
+
+          @rows.group_by { |(bucket, _), _| bucket }.sort.each do |bucket, rows|
+            @io.puts format("\n%d %s, by shape:", rows.sum(&:last), bucket)
+            rows.sort_by { |row, n| [-n, row.last] }.each { |(_, why), n| @io.puts format("%6d  %s", n, why) }
+          end
+        end
+      end
     end
 
     module_function
@@ -120,8 +136,8 @@ module Ze0
         # answers to: `ze0 build` is given a relative path, and what it
         # is given is what the binary's backtraces carry. Compiling with
         # an absolute path would name the temporary directory instead.
-        # The chdir is safe because a spec file is a process of its own
-        # and minitest runs its examples one at a time.
+        # The chdir is safe because a worker is a process of its own and
+        # runs the examples it is handed one at a time.
         program = Dir.chdir(run) { lower(source, path, target) }
         return program if program.is_a?(Symbol) || program.is_a?(Array)
 
@@ -221,7 +237,7 @@ module Ze0
         bucket, why = out
         raise Minitest::Assertion, "#{bucket}: #{why}" if bucket == :timeout
 
-        Spec::Census.current << [bucket, shape(why)]
+        metadata[Spec::Census::KEY] = [bucket, shape(why)]
         skip("#{bucket}: #{why}")
       end
 
@@ -240,6 +256,4 @@ module Ze0
   end
 end
 
-Minitest.after_run do
-  Ze0::Spec::Census.current.save(Ze0::Spec::Census.path(Ze0::Spec::DSL::ROOT))
-end
+Minitest.register_plugin(Ze0::Spec::Census)

@@ -48,9 +48,9 @@ into programs, and the host ruby never loads them. A file such as
 | `docs/` | this documentation |
 | `test/test_helper.rb` | what every test file requires |
 | `test/spec_helper.rb` | what a spec file requires: the helper, plus `ze0` |
-| `test/support/` | the test library: the harness, the spec road, the process supervisor |
+| `test/support/` | the test library: the harness, the spec road, the fork pool |
 | `test/support/harness/` | the case format, the child bound, the benchmark runner, and the diff harnesses |
-| `test/unit/` | ze0's own internals: Minitest files `rake test:unit` runs |
+| `test/unit/` | ze0's own internals: minitest files `rake test:unit` runs |
 | `test/spec/` | Ruby held to ruby, program by program: `rake test:spec` |
 | `test/e2e/` | whole programs through a real link: `rake test:e2e`, filed by area as the specs are |
 | `test/bench/` | the benchmarks and their results |

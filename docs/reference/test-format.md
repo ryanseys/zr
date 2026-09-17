@@ -87,7 +87,7 @@ from any line matching `^##+@`. So any output round-trips.
 - A program may not reference `DATA`. Ruby would hand it the trailer.
 - A program may not read `__FILE__` as a file, for the same reason.
 
-`rake test:unit FILTER=case_format` holds both.
+`rake test:unit N=/CaseFormat/` holds both.
 
 ## Where a program goes
 

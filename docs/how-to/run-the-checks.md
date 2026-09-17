@@ -10,36 +10,62 @@ Three tiers, in the order you reach for them:
 | Tier | Holds | Costs |
 |---|---|---|
 | `rake test:unit` | ze0's own internals | minutes |
-| `rake test:spec` | Ruby held to ruby, one compile an example | twelve minutes |
+| `rake test:spec` | Ruby held to ruby, one compile an example | minutes |
 | `rake test:e2e` | whole programs through a real link | a minute |
+
+Each tier is a `Minitest::TestTask`, so each takes minitest's own
+switches rather than a language of ours:
+
+| Say | To |
+|---|---|
+| `N=/utf8/` | run only the examples whose name matches |
+| `X=/slow/` | leave out the examples whose name matches |
+| `A="--verbose"` | pass anything else to minitest |
+| `MT_CPU=4` | run four workers instead of the default |
+
+A tier also defines three tasks beside it: `rake test:spec:slow` names
+the slowest 25 examples, `rake test:unit:isolated` says which files
+fail when run on their own, and `rake test:spec:cmd` prints the command
+without running it.
+
+## How a tier runs
+
+One process loads every file in the tier and then hands each example
+to a forked worker, several at a time. Forking is what makes this
+parallel at all -- a ze0 compile is the compiler's own Ruby, and the
+GVL lets one thread at a time hold it -- and it is also what bounds
+memory, because ruby never gives heap pages back. A worker that grows
+past `ZE0_RECYCLE_MB` is closed and another is forked in its place.
+
+`MT_CPU` says how many workers. The default leaves two cores alone,
+because a worker's own child -- the program it built -- wants one while
+the worker waits for it.
+
+## Run one file, or one example
+
+The `minitest` command takes files, directories and line numbers, and
+puts `test` and `lib` on the load path itself:
+
+```console
+$ bundle exec minitest test/unit/wasm_test.rb
+$ bundle exec minitest test/spec/core/string -n /deduplicated/
+$ bundle exec minitest test/spec/core/string/frozen_test.rb:214
+```
+
+When a run fails it prints the command to rerun each failure on its
+own. `--bisect` finds the pair of examples where one breaks the other.
 
 ## Run the units that cover a change
 
-The units are Minitest files in `test/unit/`. `FILTER` gives part of
-each file name:
+The units are minitest files in `test/unit/`, named after the class
+they hold:
 
 ```console
-$ rake test:unit FILTER="hygiene exe target"
+$ bundle exec minitest test/unit/hygiene_test.rb test/unit/exe_test.rb
+$ rake test:unit N=/Hygiene|Exe|Target/
 ```
 
-Each file runs in a process of its own. A file that declares
-`# shards: N` runs in N processes.
-
-To run one check file with Minitest's own options, run it directly:
-
-```console
-$ rake 'test:one[test/unit/wasm_test.rb,-n test_data_objects_share_a_segment]'
-```
-
-## Run every check
-
-```console
-$ rake test:unit
-```
-
-This takes several minutes. It runs up to four files at a time. To change that
-number, set `ZE0_JOBS`. A check that needs wasmtime skips when wasmtime
-is not installed.
+A check that needs wasmtime skips when wasmtime is not installed.
 
 ## Accept a new snapshot
 
@@ -49,7 +75,7 @@ When your change is meant to change one of these, write it again with
 `ZE0_BLESS=1`, then read the diff:
 
 ```console
-$ ZE0_BLESS=1 rake test:unit FILTER=description
+$ ZE0_BLESS=1 rake test:unit N=/Description/
 $ git diff rt/ext/os/
 ```
 
@@ -58,29 +84,20 @@ A change to a kernel def's signature, a struct or a constant under
 
 ## Run the specs that cover a change
 
-The specs are in `test/spec/<suite>/<area>/`, and `FILTER` gives part
-of each file name:
+The specs are in `test/spec/<suite>/<area>/`. Give the directory to
+`minitest`, or match on the example's own sentence with `N=`:
 
 ```console
-$ rake test:spec FILTER="string blocks"
-```
-
-One file runs standalone with minitest's own options, which is the
-fastest way to reach one example:
-
-```console
-$ ruby -Ilib -Itest test/spec/core/string/frozen_test.rb -n "/deduplicated/"
+$ bundle exec minitest test/spec/core/string
+$ rake test:spec N=/frozen/
 ```
 
 To collect at every allocation, add `GC=stress`. Use it for a change to
 the heap, the frames or the roots:
 
 ```console
-$ rake test:spec FILTER=blocks GC=stress
+$ rake test:spec N=/blocks/ GC=stress
 ```
-
-`rake test:spec` with no filter runs all of them: about twelve minutes,
-four files at a time. Set `ZE0_JOBS` to change that number.
 
 ## Run the end-to-end programs
 
@@ -89,14 +106,14 @@ own, and hold each binary to ruby's recording:
 
 ```console
 $ rake test:e2e
-$ ruby -Ilib -Itest test/e2e/binaries_test.rb -n /socket/
+$ bundle exec minitest test/e2e -n /socket/
 ```
 
 ## Run for another target
 
 ```console
 $ rake test:e2e TARGET=wasm32-wasi
-$ rake test:spec TARGET=aarch64-linux-musl FILTER=blocks
+$ rake test:spec TARGET=aarch64-linux-musl N=/blocks/
 ```
 
 A target on its way in is held to what it did rather than to the whole
@@ -136,11 +153,12 @@ memory, so run it alone. To learn why these matter, read
 
 ```console
 $ bundle exec rake                       # every test
-$ bundle exec rake test:unit             # ze0's internals, seconds
+$ bundle exec rake test:unit             # ze0's internals
 $ bundle exec rake test:spec             # Ruby held to ruby
-$ bundle exec rake test:spec FILTER=string
+$ bundle exec rake test:spec N=/string/
 $ bundle exec rake test:spec GC=stress
-$ bundle exec rake test:e2e             # whole programs through a real link
-$ bundle exec rake oracle               # every literal re-checked against ruby
+$ bundle exec rake test:e2e              # whole programs through a real link
+$ bundle exec rake test:spec:slow        # the slowest 25 examples
+$ bundle exec rake oracle                # every literal re-checked against ruby
 $ bundle exec rake stage1 stage2
 ```

@@ -76,7 +76,7 @@ Then write the eval descriptions again, since they list every kernel
 def:
 
 ```console
-$ ZE0_BLESS=1 rake test:unit FILTER=description
+$ ZE0_BLESS=1 rake test:unit N=/Description/
 ```
 
 ## 5. Add a new file, if the class has none
@@ -96,7 +96,7 @@ so it takes longer. Then run the class's directory, to see that nothing
 else changed:
 
 ```console
-$ rake test:spec FILTER=string
+$ rake test:spec N=/string/
 ```
 
 ## Mark helpers and Ruby-written methods

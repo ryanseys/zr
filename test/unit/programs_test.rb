@@ -15,19 +15,14 @@ require_relative "../support/harness/case"
 #
 # `ZE0_STRESS=1` adds the collect-at-every-allocation column.
 #
-# shards: 8
-#
 # Compiling a program peaks high, and ruby grows its heap to the peak
 # and does not give the pages back: over eight programs the live slots
 # barely move (617,088 to 618,493) while the allocated heap pages go
-# from 881 to 8,938, and `GC.compact` returns none of it. So this file
-# runs in shards -- `ZE0_SHARD=2/8` defines every eighth program
-# starting at the second -- and `ze0 check` reads the count above and
-# starts a process for each.
+# from 881 to 8,938, and `GC.compact` returns none of it. That is what
+# the fork pool is for: each program runs in a worker, and a worker
+# that has grown is closed and forked again.
 class ProgramsTest < Minitest::Test
-
-  # `[this shard, how many]`, counting from one.
-  SHARD, SHARDS = (ENV["ZE0_SHARD"] || "1/1").split("/").map { |n| Integer(n) }
+  parallelize_me!
 
   # `[stdout, stderr, status]` of `argv` under `env`. A run that passes
   # a bound is killed, and its status says which bound rather than
@@ -55,9 +50,7 @@ class ProgramsTest < Minitest::Test
     assert_equal scrub(want[1], rb), scrub(err, rb)
   end
 
-  Dir[File.join(ROOT, "test/programs/*.rb")].sort.each_with_index do |rb, at|
-    next unless (at % SHARDS) == (SHARD - 1)
-
+  Dir[File.join(ROOT, "test/programs/*.rb")].sort.each do |rb|
     name = File.basename(rb, ".rb")
     define_method("test_#{name}") do
       want = oracle(rb)

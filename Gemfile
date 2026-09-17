@@ -9,8 +9,12 @@ gemspec
 
 group :development, :test do
   gem "rake", "~> 13.0"
-  # Runs `bin/ze0 check`.
+  # The test framework. `rake test:*` is `Minitest::TestTask`, and the
+  # `minitest` command runs one file or one example.
   gem "minitest", "~> 6.0"
+  # A progress bar with an ETA, because the spec tier runs for minutes,
+  # and the JUnit file CI renders a failure from.
+  gem "minitest-reporters", "~> 1.8"
   # The arm64 encoder the checks hold ours to. It is generated from the ARM
   # specification, so it is the authority on an encoding; it builds its own
   # methods with `class_eval` on strings, so it never enters a program.
