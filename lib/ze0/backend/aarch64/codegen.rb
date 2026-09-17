@@ -165,8 +165,7 @@ module Ze0
         # An `icmp` whose one use is a `brif` or a `select` in the same
         # block, with nothing that writes the flags between them, needs no
         # boolean at all: the compare sets the flags and the branch or the
-        # select reads them. `docs/plan.md` has said so since the backend
-        # was specified.
+        # select reads them.
         #
         # Without it the pair costs `cmp`, `cset`, a store of the byte, a
         # load of it back, a `uxtb` and a `cbz`. `Zr::Function#checked`

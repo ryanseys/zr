@@ -1,4 +1,4 @@
-# Test format
+# The test format
 
 One `.rb` file is one test. The program is the file, and the answer is
 recorded under `__END__` at the bottom of it. Ruby stops lexing at `__END__`,

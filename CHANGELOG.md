@@ -24,3 +24,5 @@ The first release as a RubyGem.
 - `Obj::Exe` decides what libSystem defines from a committed list, so a
   link answers the same on every host.
 - MIT License; `THIRD_PARTY_NOTICES.md` names every vendored part.
+- Documentation in `docs/`: tutorials, how-to guides, reference and
+  explanation.

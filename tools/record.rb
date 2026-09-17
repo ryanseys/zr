@@ -1,6 +1,6 @@
 # Records the answer of the ruby the .ruby-version pins under `__END__`
 # of each case named on the command line, in the trailer format of
-# docs/test-format.md. A path is taken relative to test/, or as it
+# docs/reference/test-format.md. A path is taken relative to test/, or as it
 # stands when it already points into it.
 #
 #   ruby tools/record.rb core/io/a_stream_reads_what_it_holds.rb

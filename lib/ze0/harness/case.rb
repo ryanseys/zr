@@ -6,7 +6,7 @@ module Ze0
     # directives, and ruby's recorded answer below. The recording is the
     # oracle: ruby 4.0.6 wrote it once, and nothing here re-runs ruby.
     #
-    # The format is `docs/test-format.md`: a directive is a `#@ key: value`
+    # The format is `docs/reference/test-format.md`: a directive is a `#@ key: value`
     # line at column 0 above `__END__`; the trailer is stdout until a marker
     # line (`#@ stderr`, `#@ exit N`, `#@ signal N`, `#@ nonl`, and the
     # `#@ linux ...` and `#@ wasi ...` forms, which record where another
