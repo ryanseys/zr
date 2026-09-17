@@ -22,15 +22,12 @@ module OpenSSL
   class HMAC; end
 
   module Ossl
-    HMAC = DataType.new("OpenSSL/HMAC", OpenSSL::HMAC, :EVP_MD_CTX_free, [RuntimeError, "HMAC wasn't initialized"])
+    HMAC_CTX = DataType.new("OpenSSL/HMAC", OpenSSL::HMAC, :EVP_MD_CTX_free, [RuntimeError, "HMAC wasn't initialized"], alloc: lambda {
+      Lib.EVP_MD_CTX_new.tap { |ctx| raise Ossl.error(HMACError, "EVP_MD_CTX") if ctx.zero? }
+    })
 
-    # GetHMAC, over the context ossl_hmac_alloc makes with the object.
-    def self.hmac_ctx(hmac)
-      ctx = HMAC.get(hmac) || HMAC.set(hmac, Lib.EVP_MD_CTX_new)
-      raise error(HMACError, "EVP_MD_CTX") if ctx.zero?
-
-      ctx
-    end
+    # GetHMAC.
+    def self.hmac_ctx(hmac) = HMAC_CTX.fetch(hmac)
   end
 
   class HMAC
@@ -55,7 +52,7 @@ module OpenSSL
       Ossl.check_frozen(self)
       return self if equal?(other)
 
-      Ossl::HMAC.unshare(self, other)
+      Ossl::HMAC_CTX.unshare(self, other)
       raise Ossl.error(HMACError, "EVP_MD_CTX_copy") if Lib.EVP_MD_CTX_copy(Ossl.hmac_ctx(self), Ossl.hmac_ctx(other)) != 1
 
       self

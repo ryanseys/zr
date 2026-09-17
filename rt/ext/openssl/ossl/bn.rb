@@ -66,7 +66,7 @@ module OpenSSL
   class BN; end
 
   module Ossl
-    BN = DataType.new("OpenSSL/BN", OpenSSL::BN, :BN_clear_free, [RuntimeError, "BN wasn't initialized!"])
+    BIGNUM = DataType.new("OpenSSL/BN", OpenSSL::BN, :BN_clear_free, [RuntimeError, "BN wasn't initialized!"], alloc: -> { Ossl.new_bignum })
 
     class << self
       # ossl_bn_ctx_get: the BN_CTX every operation borrows, made once.
@@ -74,10 +74,8 @@ module OpenSSL
         @bn_ctx ||= Lib.BN_CTX_new.tap { |ctx| raise RuntimeError, "Cannot init BN_CTX" if ctx.zero? }
       end
 
-      # GetBN over the BIGNUM ossl_bn_alloc makes with the object.
-      def bn_of(object)
-        BN.get(object) || BN.set(object, new_bignum)
-      end
+      # GetBN.
+      def bn_of(object) = BIGNUM.fetch(object)
 
       def new_bignum
         bn = Lib.BN_new
@@ -91,7 +89,7 @@ module OpenSSL
         copy = Lib.BN_dup(bn)
         raise error(BNError, "BN_dup") if copy.zero?
 
-        BN.wrap(OpenSSL::BN, copy)
+        BIGNUM.wrap(OpenSSL::BN, copy)
       end
 
       # try_convert_to_bn: `object` as a BN, or nil.
@@ -100,7 +98,7 @@ module OpenSSL
         return nil unless object.is_a?(Integer)
 
         bn = Native.allocate(OpenSSL::BN)
-        BN.set(bn, integer_to_bignum(object, nil))
+        BIGNUM.set(bn, integer_to_bignum(object, nil))
         bn
       end
 
@@ -134,7 +132,7 @@ module OpenSSL
           Lib.BN_free(result)
           raise error(BNError)
         end
-        BN.wrap(klass, result)
+        BIGNUM.wrap(klass, result)
       end
 
       # The text OpenSSL allocated at `address`, freed once read.
@@ -186,7 +184,7 @@ module OpenSSL
       Ossl.check_frozen(self)
       return self if equal?(other)
 
-      Ossl::BN.unshare(self, other)
+      Ossl::BIGNUM.unshare(self, other)
       other = Ossl.to_bn(other)
       raise Ossl.error(BNError) if Lib.BN_copy(Ossl.bn_of(self), Ossl.bn_of(other)).zero?
 
@@ -282,7 +280,7 @@ module OpenSSL
         Lib.BN_free(remainder)
         raise Ossl.error(BNError)
       end
-      [Ossl::BN.wrap(self.class, quotient), Ossl::BN.wrap(self.class, remainder)]
+      [Ossl::BIGNUM.wrap(self.class, quotient), Ossl::BIGNUM.wrap(self.class, remainder)]
     end
 
     def mod_add(other1, other2) = ternary(other1, other2) { |r, a, b, m| Lib.BN_mod_add(r, a, b, m, Ossl.bn_ctx) }
@@ -326,7 +324,7 @@ module OpenSSL
         Lib.BN_free(result)
         raise Ossl.error(BNError, "BN_rand")
       end
-      Ossl::BN.wrap(self, result)
+      Ossl::BIGNUM.wrap(self, result)
     end
 
     def self.rand_range(range)
@@ -339,7 +337,7 @@ module OpenSSL
         Lib.BN_free(result)
         raise Ossl.error(BNError, "BN_rand_range")
       end
-      Ossl::BN.wrap(self, result)
+      Ossl::BIGNUM.wrap(self, result)
     end
 
     singleton_class.alias_method :pseudo_rand, :rand
@@ -441,7 +439,7 @@ module OpenSSL
       result = yield(a, Ossl.bn_of(other))
       raise Ossl.error(BNError) if result.zero?
 
-      Ossl::BN.wrap(self.class, result)
+      Ossl::BIGNUM.wrap(self.class, result)
     end
 
     # BIGNUM_3c.

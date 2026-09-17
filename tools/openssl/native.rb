@@ -72,6 +72,12 @@ module OpenSSL
 
       def hidden_set(object, key, value) = object.instance_variable_set(:"@__ossl_#{key}__", value)
 
+      PORT = File.expand_path("../../rt/ext/openssl", __dir__)
+      FIDDLE = File.dirname(Fiddle::Closure::BlockCaller.instance_method(:call).source_location.first)
+
+      # The port's frames, and the twin's and Fiddle's under it.
+      def internal_path?(path) = path.start_with?(PORT, __dir__) || (!FIDDLE.empty? && path.start_with?(FIDDLE))
+
       ALLOCATE = Class.instance_method(:allocate)
 
       def allocate(klass) = ALLOCATE.bind_call(klass)

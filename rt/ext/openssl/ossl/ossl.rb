@@ -25,6 +25,12 @@ module OpenSSL
   )
 
   module Lib
+    ERR_SYSTEM_FLAG = 0x8000_0000 # err.h
+    ERR_REASON_MASK = 0x7FFFFF
+
+    # ERR_GET_REASON (err.h).
+    def self.ERR_GET_REASON(code) = code & ERR_SYSTEM_FLAG == 0 ? code & ERR_REASON_MASK : code & 0x7fff_ffff
+
     OPENSSL_VERSION = 0 # crypto.h
     ERR_TXT_STRING = 0x02 # err.h
     PEM_BUFSIZE = 1024 # pem.h
@@ -153,7 +159,7 @@ module OpenSSL
             text = Lib.pointer_at(data)
             entry << " (#{text.zero? ? "(null)" : Lib.string(text)})"
           end
-          warn("error on stack: #{entry}", uplevel: 1) if debug
+          warn("error on stack: #{entry}") if debug
           into&.push(entry)
         end
       end
@@ -161,6 +167,72 @@ module OpenSSL
       # rb_check_frozen.
       def check_frozen(object)
         raise FrozenError.new("can't modify frozen #{object.class}: #{object.inspect}", receiver: object) if object.frozen?
+      end
+
+      # rb_warn: `message` at the program's line that called into the
+      # extension, the frames of the port itself skipped as the C
+      # extension has none.
+      def warn(message)
+        location = caller_locations.find { |frame| !Native.internal_path?(frame.path.to_s) }
+        return Kernel.warn(message) if location.nil?
+
+        Kernel.warn("#{location.path}:#{location.lineno}: warning: #{message}")
+      end
+
+      # OSSL_Check_Kind.
+      def check_kind(object, klass)
+        return if object.is_a?(klass)
+
+        raise error(TypeError, "wrong argument (#{object.class})! (Expected kind of #{klass})")
+      end
+
+      # Check_Type(value, T_ARRAY).
+      def check_array(value)
+        raise TypeError, "wrong argument type #{type_name(value)} (expected Array)" unless value.is_a?(Array)
+      end
+
+      # An Integer a C struct's ex_data or callback argument carries in
+      # place of a Ruby object, which #dereference gives back while
+      # something else keeps the object alive; 0 stands for nil.
+      def reference(object)
+        return 0 if object.nil?
+
+        @references ||= ObjectSpace::WeakMap.new
+        @reference_id = (@reference_id || 0) + 1
+        @references[@reference_id] = object
+        @reference_id
+      end
+
+      def dereference(id) = id.zero? ? nil : @references&.[](id)
+
+      # The DER an i2d function writes for `object`: its length first,
+      # then its bytes, raising `klass` with `message` when either fails.
+      def i2d(function, object, klass, message = nil)
+        length = Lib.public_send(function, object, nil)
+        raise error(klass, message) if length <= 0
+
+        out = Lib.buffer(length)
+        cursor = [Native.address(out)].pack("J")
+        raise error(klass, message) if Lib.public_send(function, object, cursor) <= 0
+
+        out.byteslice(0, cursor.unpack1("J") - Native.address(out))
+      end
+
+      # The struct a d2i function decodes from `der`, or 0.
+      def d2i(function, der) = Lib.public_send(function, nil, [Native.address(der)].pack("J"), der.bytesize)
+
+      # What `yield` writes into a new memory BIO, raising `klass` with
+      # `message` when it answers false or 0.
+      def bio_output(klass, message = nil)
+        bio = Lib.BIO_new(Lib.BIO_s_mem)
+        raise error(klass, message) if bio.zero?
+
+        written = yield(bio)
+        if written == false || written == 0
+          Lib.BIO_free(bio)
+          raise error(klass, message)
+        end
+        membio2str(bio)
       end
 
       # StringValue.
@@ -205,6 +277,9 @@ module OpenSSL
 
         number
       end
+
+      # An optional int argument: 0 when nil.
+      def optional_int(value) = value.nil? ? 0 : int(value)
 
       # NUM2UINT: an int's range, and an unsigned int's.
       def uint(value)
@@ -353,27 +428,41 @@ module OpenSSL
       def self.release(free, address)
         free.is_a?(Proc) ? proc { free.(address) } : proc { Lib.public_send(free, address) }
       end
+
+      # The address, which the handle no longer frees: the library took
+      # the struct over, or freed it itself.
+      def take
+        ObjectSpace.undefine_finalizer(self)
+        @address
+      end
     end
 
     # A C struct type the port wraps, as an rb_data_type_t describes one:
     # `name`, which a TypeError names, `klass`, whose instances hold one,
-    # `free`, which frees it, and what the Get macro raises for an object
-    # that holds none.
+    # `free`, which frees it, what the Get macro raises for an object that
+    # holds none, and `alloc`, the allocator that makes one with the
+    # object, where the C extension's allocation function does; it is
+    # given the object when it takes an argument.
     class DataType
       attr_reader :name
 
-      def initialize(name, klass, free, missing = nil)
+      def initialize(name, klass, free, missing = nil, alloc: nil)
         @name = name
         @klass = klass
         @free = free
         @missing = missing
+        @alloc = alloc
       end
 
       # TypedData_Get_Struct: the address `object` holds, or nil when
       # nothing set one yet; a TypeError for an object of another type.
       def get(object)
         check(object)
-        Native.hidden_get(object, :data)&.address
+        handle = Native.hidden_get(object, :data)
+        return handle.address if handle
+        return nil unless @alloc
+
+        set(object, @alloc.arity == 1 ? @alloc.call(object) : @alloc.call)
       end
 
       # The Get macro: #get, raising when nothing is set.
@@ -388,6 +477,23 @@ module OpenSSL
         address
       end
 
+      # The address `object` holds, which it no longer owns, for a library
+      # call that frees or replaces the struct; the object holds nothing
+      # until #set.
+      def take(object)
+        check(object)
+        handle = Native.hidden_get(object, :data)
+        Native.hidden_set(object, :data, nil)
+        handle&.take
+      end
+
+      # The object holds `address` without owning it: a struct the library
+      # lends for the length of a callback.
+      def borrow(object, address)
+        Native.hidden_set(object, :data, Handle.new(address, nil))
+        object
+      end
+
       # TypedData_Wrap_Struct: a new instance of `klass` owning `address`.
       def wrap(klass, address)
         object = Native.allocate(klass)
@@ -395,8 +501,8 @@ module OpenSSL
         object
       end
 
-      # A copy begins as allocate leaves an object, holding nothing: the
-      # handle it took from `original` stays the original's.
+      # A copy begins as allocate leaves an object: the handle it took
+      # from `original` stays the original's.
       def unshare(copy, original)
         Native.hidden_set(copy, :data, nil) if Native.hidden_get(copy, :data).equal?(Native.hidden_get(original, :data))
       end

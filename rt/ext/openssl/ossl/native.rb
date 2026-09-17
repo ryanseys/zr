@@ -66,6 +66,10 @@ module OpenSSL
       # #undef_allocator took `allocate` and `new` away from programs.
       def allocate(klass) = Primitive.zr_obj_alloc(klass)
 
+      # Whether a frame at `path` is the port's own, which the C
+      # extension has no frame for.
+      def internal_path?(path) = path.start_with?(File.dirname(__dir__))
+
       # rb_undef_alloc_func.
       def undef_allocator(klass) = Primitive.zr_undef_allocator(klass)
     end

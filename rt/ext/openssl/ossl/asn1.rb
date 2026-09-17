@@ -327,7 +327,7 @@ module OpenSSL
         raise error(TypeError, "ASN1_INTEGER is NULL!") if ai.nil? || ai.zero?
 
         number = bn_new(Lib.BN_value_one)
-        bn = BN.fetch(number)
+        bn = BIGNUM.fetch(number)
         converted = if Lib.ASN1_STRING_type(ai) == Lib::V_ASN1_ENUMERATED
                       Lib.ASN1_ENUMERATED_to_BN(ai, bn)
                     else

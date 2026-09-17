@@ -85,8 +85,10 @@ module OpenSSL
       # Integers pass as they are, nil as NULL, true and false as 1 and
       # 0. A :string argument is text C reads up to a NUL; a :buffer is a
       # String whose bytes C reads or writes in place; a :double, which
-      # only the last parameter may be, a Float.
-      def attach(name, params, returns)
+      # only the last parameter may be, a Float. With `errno`, the method
+      # answers [answer, errno] as errno stood when C returned; `as` names
+      # the method when it is not the function's own name.
+      def attach(name, params, returns, errno: false, as: name)
         address = Native.symbol(@handle, name.to_s)
         return if address.zero?
 
@@ -98,13 +100,17 @@ module OpenSSL
         arity = params.size
         strings = params.each_index.select { |i| params[i] == :string }
         double = params.last == :double
-        define_singleton_method(name) do |*args|
+        raise ArgumentError, "#{name}: a :double call has no errno" if double && errno
+        define_singleton_method(as) do |*args|
           raise ArgumentError, "wrong number of arguments (given #{args.size}, expected #{arity}) for #{name}" unless args.size == arity
 
           strings.each { |i| args[i] = Native.cstring(args[i]) if args[i].is_a?(String) }
           if double
             float = args.pop
             answer.(Native.call_double(address, args.map! { |arg| Lib.word(arg) }, float))
+          elsif errno
+            word, error = Native.call_errno(address, args.map! { |arg| Lib.word(arg) })
+            [answer.(word), error]
           else
             answer.(Native.call(address, args.map! { |arg| Lib.word(arg) }))
           end

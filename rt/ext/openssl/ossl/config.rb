@@ -19,18 +19,13 @@ module OpenSSL
   class ConfigError < OpenSSLError; end
 
   module Ossl
-    CONFIG = DataType.new("OpenSSL/CONF", Config, :NCONF_free, [RuntimeError, "CONF is not initialized"])
+    CONFIG = DataType.new("OpenSSL/CONF", Config, :NCONF_free, [RuntimeError, "CONF is not initialized"], alloc: lambda {
+      Lib.NCONF_new(nil).tap { |conf| raise Ossl.error(ConfigError, "NCONF_new") if conf.zero? }
+    })
 
     class << self
-      # GetConfig, over the CONF config_s_alloc makes with the object.
-      def config_of(object)
-        return CONFIG.get(object) if CONFIG.get(object)
-
-        conf = Lib.NCONF_new(nil)
-        raise error(ConfigError, "NCONF_new") if conf.zero?
-
-        CONFIG.set(object, conf)
-      end
+      # GetConfig.
+      def config_of(object) = CONFIG.fetch(object)
 
       # config_load_bio, which consumes the BIO.
       def config_load(conf, bio)
