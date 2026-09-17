@@ -153,7 +153,7 @@ class Regexp
         return format unless WITH_NAME.include?(code)
 
         name, over = to_ascii(par || "".b, enc, MAX_ERROR_PAR_LEN - 3)
-        format.sub("%n", name + (over ? "..." : ""))
+        format.sub("%n") { name + (over ? "..." : "") }
       end
 
       # to_ascii: single-byte-minimum encodings (both of ours) copy the

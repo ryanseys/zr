@@ -625,10 +625,8 @@ machine def zr_onig_op_anchor(m, op)
   end
   if op == OP_END_LINE
     if s == e
-      if str == e || !zr_onig_newline_p(sprev, e)
-        return ONIG_OP_FAIL if (mopts & ONIG_OPTION_NOTEOL) != 0
-        return ONIG_OP_NEXT
-      end
+      return ONIG_OP_FAIL if (mopts & ONIG_OPTION_NOTEOL) != 0
+      return ONIG_OP_NEXT
     elsif zr_onig_newline_p(s, e)
       return ONIG_OP_NEXT
     end
@@ -636,10 +634,8 @@ machine def zr_onig_op_anchor(m, op)
   end
   if op == OP_SEMI_END_BUF
     if s == e
-      if str == e || !zr_onig_newline_p(sprev, e)
-        return ONIG_OP_FAIL if (mopts & ONIG_OPTION_NOTEOL) != 0
-        return ONIG_OP_NEXT
-      end
+      return ONIG_OP_FAIL if (mopts & ONIG_OPTION_NOTEOL) != 0
+      return ONIG_OP_NEXT
     elsif zr_onig_newline_p(s, e)
       ss = s + zr_onig_enclen(enc, s, e)
       return ONIG_OP_NEXT if ss == e

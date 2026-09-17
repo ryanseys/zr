@@ -34,12 +34,11 @@
 #   SUCH DAMAGE.
 
 # `program` is the pattern the source's own encoding built, as the
-# program String of rt/core/regexp/onig/program.rb; `alt` is the
-# byte-oriented (or wide) twin a subject of the other kind asks for,
-# compiled by the core on first use from `text`, the engine text.
-# `names` holds [[name, [group numbers]], ...]. `limit` is the
-# pattern's own timeout in nanoseconds, 0 for none.
-Machine.struct :RRegexp, basic: RBasic, source: Value, options: Word, program: Value, names: Value, text: Value, alt: Value, limit: Word
+# program String of rt/core/regexp/onig/program.rb; `alt` is nil or the
+# Hash of programs Regexp#program_for compiled again for subjects of
+# other encodings. `names` holds [[name, [group numbers]], ...].
+# `limit` is the pattern's own timeout in nanoseconds, 0 for none.
+Machine.struct :RRegexp, basic: RBasic, source: Value, options: Word, program: Value, names: Value, alt: Value, limit: Word
 T_REGEXP = 31
 G_REGEXP = 42
 G_REGEXP_LITERALS = 43
@@ -52,7 +51,6 @@ sig [Value] => Value
 machine def zr_regexp_alloc(klass)
   re = zr_alloc(T_REGEXP, klass)
   RRegexp.set_source(re, Machine.value(QNIL))
-  RRegexp.set_text(re, Machine.value(QNIL))
   RRegexp.set_names(re, Machine.value(QNIL))
   RRegexp.set_program(re, Machine.value(QNIL))
   RRegexp.set_alt(re, Machine.value(QNIL))
@@ -60,56 +58,42 @@ machine def zr_regexp_alloc(klass)
 end
 
 # The pattern `other` holds, in the husk `re`: its source, options,
-# names and programs, which never change, so the copy shares them.
+# names and program, which never change, so the copy shares them. The
+# programs for other encodings are the copy's own to compile.
 sig [Value, Value] => Value
 machine def zr_regexp_copy_from(re, other)
   RRegexp.set_source(re, RRegexp.source(other))
   RRegexp.set_options(re, RRegexp.options(other))
   RRegexp.set_names(re, RRegexp.names(other))
-  RRegexp.set_text(re, RRegexp.text(other))
   RRegexp.set_program(re, RRegexp.program(other))
-  RRegexp.set_alt(re, RRegexp.alt(other))
+  RRegexp.set_alt(re, Machine.value(QNIL))
   RRegexp.set_limit(re, RRegexp.limit(other))
   re
 end
 
-# The compiled `program` of the engine `text`, seated in the husk `re`
-# with the `options` (Ruby's bits) it compiled under, `shown` (the text
-# as written, which the Regexp reports as its source) and its `names`.
-sig [Value, Value, Value, Value, Value, Value] => Value
-machine def zr_regexp_seat(re, program, text, shown, options, names)
+# The compiled `program`, seated in the husk `re` with the `options`
+# (Ruby's bits) it compiled under, `shown` (the text as written, which
+# the Regexp reports as its source) and its `names`.
+sig [Value, Value, Value, Value, Value] => Value
+machine def zr_regexp_seat(re, program, shown, options, names)
   RRegexp.set_program(re, program)
   RRegexp.set_alt(re, Machine.value(QNIL))
-  RRegexp.set_text(re, text)
   RRegexp.set_source(re, shown)
   RRegexp.set_options(re, zr_fix2long(options))
   RRegexp.set_names(re, names)
   re
 end
 
-# The program to search `str` with. A regexp built from ASCII source
-# reads any ASCII-compatible subject, so a byte-oriented subject gets a
-# byte-oriented program over the same engine text, which the core
-# compiles the first time (Regexp#alt_program); a text the other
-# encoding refuses keeps the program it has. The send can collect, so
-# a caller reads the subject's bytes after this.
-sig [Value, Value] => Value
-machine def zr_regexp_program_for(re, str)
-  wide = zr_str_wide_p(str)
-  if wide == zr_str_wide_p(RRegexp.text(re))
-    return RRegexp.program(re)
-  end
-  if RRegexp.alt(re) == QNIL
-    slot = Machine.slot(8)
-    Machine.store64(slot, 0, Machine.word(zr_bool(wide)))
-    alt = zr_send(re, Machine.id(:alt_program), 1, slot)
-    return alt if alt == QUNDEF
-    if alt == QFALSE
-      alt = RRegexp.program(re)
-    end
-    RRegexp.set_alt(re, alt)
-  end
+# The programs compiled for other encodings: nil or a Hash.
+sig [Value] => Value
+machine def zr_regexp_alt(re)
   RRegexp.alt(re)
+end
+
+sig [Value, Value] => Value
+machine def zr_regexp_alt_set(re, programs)
+  RRegexp.set_alt(re, programs)
+  programs
 end
 
 # The number of groups the program captures.
@@ -136,11 +120,13 @@ end
 # Search `str` from byte `start` (backwards to it when `backward`):
 # nil, or [position, begin0, end0, begin1, end1, ...]: the byte the
 # match started at (before a `\K`), then every group's offsets, -1
-# for a group that did not take part.
-sig [Value, Value, Value, Value] => Value
-machine def zr_regexp_search(re, str, start, backward)
-  program = zr_regexp_program_for(re, str)
-  return program if program == QUNDEF
+# for a group that did not take part. `program` is the one
+# Regexp#program_for chose, nil for the pattern's own.
+sig [Value, Value, Value, Value, Value] => Value
+machine def zr_regexp_search(re, program, str, start, backward)
+  if program == QNIL
+    program = RRegexp.program(re)
+  end
   prog = RString.ptr(program)
   region = zr_regexp_region_new(prog)
   base = RString.ptr(str)
@@ -169,10 +155,11 @@ machine def zr_regexp_failed(r)
 end
 
 # Match `str` at exactly byte `start`, as `\A`-anchored would.
-sig [Value, Value, Value] => Value
-machine def zr_regexp_match_at(re, str, start)
-  program = zr_regexp_program_for(re, str)
-  return program if program == QUNDEF
+sig [Value, Value, Value, Value] => Value
+machine def zr_regexp_match_at(re, program, str, start)
+  if program == QNIL
+    program = RRegexp.program(re)
+  end
   prog = RString.ptr(program)
   region = zr_regexp_region_new(prog)
   base = RString.ptr(str)
@@ -212,7 +199,6 @@ end
 sig [Value] => Void
 machine def zr_mark_regexp(re)
   zr_mark(RRegexp.source(re))
-  zr_mark(RRegexp.text(re))
   zr_mark(RRegexp.names(re))
   zr_mark(RRegexp.program(re))
   zr_mark(RRegexp.alt(re))
@@ -226,19 +212,6 @@ end
 sig [Value] => Value
 machine def zr_regexp_source(re)
   RRegexp.source(re)
-end
-
-# The engine text the pattern compiled from.
-sig [Value] => Value
-machine def zr_regexp_text(re)
-  RRegexp.text(re)
-end
-
-# Whether a String's encoding is wide (UTF-8 or a UTF-8-like one), as
-# the engine choice reads it.
-sig [Value] => Value
-machine def zr_str_wide_m(s)
-  zr_bool(zr_str_wide_p(s))
 end
 
 sig [Value] => Value

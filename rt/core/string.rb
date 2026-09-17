@@ -1373,8 +1373,10 @@ class String
     out = []
     at = 0
     size = Primitive.zr_str_bytesize(self)
+    # get_reg_grapheme_cluster: `\X` compiled for the String's encoding.
+    program = /\X/.send(:program_in, encoding)
     while at < size
-      offsets = Primitive.zr_regexp_match_at(/\X/, self, at)
+      offsets = Primitive.zr_regexp_match_at(/\X/, program, self, at)
       break if offsets.nil? || offsets[2] <= at
 
       out << Primitive.zr_str_byteslice(self, at, offsets[2] - at)

@@ -681,11 +681,11 @@ class Regexp
 
       # onig_vsnprintf_with_pattern: ": /pattern/" after the text, the
       # pattern's bytes written as it writes them, only when the whole
-      # fits the 256-byte buffer.
+      # fits the 256-byte buffer. The answer is BINARY.
       def self.with_pattern(text, pat, enc)
         n = text.bytesize
         need = pat.bytesize * 4 + 4
-        return text if n + need >= WARN_BUFSIZE
+        return text.b if n + need >= WARN_BUFSIZE
 
         out = text.b + ": /".b
         p = 0
@@ -713,8 +713,8 @@ class Regexp
             p += 1
           end
         end
+        # re_warn formats it with rb_warn, as bytes.
         out << "/".b
-        out.force_encoding(text.encoding)
       end
     end
   end

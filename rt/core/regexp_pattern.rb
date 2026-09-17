@@ -1,343 +1,585 @@
-# What the engine compiles for a Ruby pattern (rb_reg_preprocess). Ruby
-# decodes two families itself before Onigmo reads the text: `\u`
-# escapes and the `\M-`/`\C-`/`\c` byte escapes. `Regexp#source` and
-# every error message keep the text as written.
+# What Ruby does to a pattern around its engine (re.c): the preprocess
+# that decodes the escapes naming characters (rb_reg_preprocess), the
+# encoding a pattern takes and a match reads it in, a compile again
+# for a subject of another encoding, and the pattern as messages,
+# inspect and to_s show it. `Regexp#source` keeps the text as written.
+# Plain Ruby: it loads under CRuby too, for tools/regexp_diff.rb.
 class Regexp
   module Pattern
     BYTE_ESCAPES = { "n" => 0x0a, "t" => 0x09, "r" => 0x0d, "f" => 0x0c, "v" => 0x0b, "a" => 0x07, "e" => 0x1b, "\\" => 0x5c }.freeze
 
     module_function
 
-    # The engine's text for `source`, or raises RegexpError with the
-    # reason alone (the caller adds the pattern).
-    def engine_text(source, extended, binary)
-      text = unicode_escapes(source)
-      text = control_escapes(text, binary)
-      # The engine reads a binary pattern byte by byte, whatever the
-      # source it was written in.
-      binary ? text.dup.force_encoding(Encoding::BINARY) : text
+    ENGINE_OPTIONS = IGNORECASE | EXTENDED | MULTILINE
+    # The encodings whose characters the engine reads as UTF-8.
+    WIDE = %w[UTF-8 UTF8-MAC UTF8-DoCoMo UTF8-KDDI UTF8-SoftBank].freeze
+
+    # The engine for a pattern of `enc`: Onigmo's UTF-8 for a UTF-8-like
+    # encoding, its bytewise ASCII for any other.
+    def engine_for(enc) = WIDE.include?(enc.name) ? Onig::Enc::UTF8_ENC : Onig::Enc::ASCII_ENC
+
+    # rb_reg_initialize_str and rb_reg_initialize: `source` compiled under
+    # the option `bits`, as [encoding, bits, compiled, warnings]: the
+    # pattern's encoding, the bits with the flags ruby keeps beside them
+    # (FIXEDENCODING where a character or an escape fixed the encoding,
+    # or the option did), and what Regexp::Onig.compile answered. Ruby
+    # preprocesses under the source's own encoding (BINARY under /n), and
+    # the engine reads the text under the pattern's. RegexpError names
+    # the reason, then the pattern as written (rb_reg_raise_str).
+    def compile(source, bits)
+      enc = source.encoding
+      if bits & NOENCODING != 0 && enc != Encoding::BINARY
+        raise RegexpError, "/.../n has a non escaped non ASCII character in non ASCII-8BIT script" unless source.ascii_only?
+
+        enc = Encoding::BINARY
+      end
+      raise RegexpError, "can't make regexp with dummy encoding" if enc.dummy?
+
+      text, fixed = preprocess(source, enc, bits & EXTENDED != 0)
+      encoding, fixed_bits = fixed_encoding(enc, fixed, bits)
+      compiled, warnings = Onig.compile(text, fixed_bits & ENGINE_OPTIONS, engine_for(encoding))
+      [encoding, fixed_bits, compiled, warnings]
+    rescue RegexpError => e
+      raise RegexpError, error_desc(e.message, source, source.encoding, bits)
     end
 
-    # The most bytes one character takes, by encoding name.
-    MBMAXLEN = { "UTF-8" => 4, "EUC-JP" => 3, "Shift_JIS" => 2, "Windows-31J" => 2, "GBK" => 2, "GB18030" => 4,
-                 "Big5" => 2, "EUC-KR" => 2, "UTF-16LE" => 4, "UTF-16BE" => 4, "UTF-32LE" => 4, "UTF-32BE" => 4 }.freeze
+    # The encoding a pattern read in `enc` takes when its preprocess
+    # `fixed` one (or nil), and the option `bits` with FIXEDENCODING
+    # where the encoding is fixed.
+    def fixed_encoding(enc, fixed, bits)
+      if fixed
+        if (fixed != enc && bits & FIXEDENCODING != 0) || (fixed != Encoding::BINARY && bits & NOENCODING != 0)
+          raise RegexpError, "incompatible character encoding"
+        end
 
-    # rb_reg_preprocess, for what it decides of the encoding: the one the
-    # pattern's characters and escapes fix it to, or nil where it holds
-    # none; RegexpError, with the reason alone, for a pattern ruby
-    # refuses before its engine reads it.
-    def fixed_encoding(source, enc, extended)
-      fixed = enc.ascii_compatible? ? nil : enc
-      return fixed if source.ascii_only? && !source.include?("\\") && !(extended && enc == Encoding::UTF_8)
-
-      scan = Scan.new(source.b.bytes, enc, fixed, false)
-      scan.walk(extended, false)
-      scan.property && scan.fixed.nil? ? enc : scan.fixed
+        [fixed == Encoding::BINARY ? enc : fixed, bits | FIXEDENCODING]
+      elsif bits & FIXEDENCODING == 0
+        [Encoding::US_ASCII, bits]
+      else
+        [enc, bits]
+      end
     end
 
-    # The walk unescape_nonascii0 makes over a pattern's bytes.
-    Scan = Struct.new(:b, :enc, :fixed, :property, :i) do
-      def walk(extended, recurse)
-        self.i ||= 0
-        in_class = 0
-        parens = 1
-        while i < b.size
-          len = char_len(i)
-          if len > 1 || b[i] >= 0x80
-            self.i += len
-            fix(enc, "non ASCII character in UTF-8 regexp")
-            next
+    # rb_reg_prepare_enc: the encoding a match of a subject of
+    # `text_encoding` (`ascii`: all its bytes below 128) reads a pattern
+    # in, when the engine reads it in `engine` and the pattern's own is
+    # `encoding`, and the warning ruby gives of a /n pattern read as
+    # characters: [encoding, warning or nil]. A subject the pattern
+    # cannot read is refused.
+    def prepared_encoding(engine, encoding, bits, text_encoding, ascii)
+      return [engine, nil] if engine == text_encoding
+      return [engine, nil] if ascii && engine == Encoding::US_ASCII
+
+      incompatible(encoding, text_encoding) unless text_encoding.ascii_compatible?
+      if bits & FIXEDENCODING != 0
+        incompatible(encoding, text_encoding) unless engine.ascii_compatible? && ascii
+        return [engine, nil]
+      end
+      if bits & NOENCODING != 0 && text_encoding != Encoding::BINARY && !ascii
+        return [text_encoding, "historical binary regexp match /.../n against #{text_encoding} string"]
+      end
+
+      [text_encoding, nil]
+    end
+
+    def incompatible(encoding, text_encoding)
+      raise Encoding::CompatibilityError,
+            "incompatible encoding regexp match (#{inspect_name(encoding)} regexp with #{inspect_name(text_encoding)} string)"
+    end
+
+    # rb_enc_inspect_name.
+    def inspect_name(enc) = enc == Encoding::BINARY ? "BINARY (ASCII-8BIT)" : enc.name
+
+    # rb_reg_prepare_re: the pattern `source` (of a Regexp with the
+    # option `bits`) compiled again for a subject read in `enc`, as
+    # [compiled, warnings]. Ruby
+    # decodes the escapes under `enc`, as if no option were given; a
+    # text that refuses is an ArgumentError, and a text the engine
+    # refuses a RegexpError naming the Regexp (rb_reg_raise).
+    def recompile(source, bits, encoding, enc)
+      begin
+        text, = preprocess(source, enc, false)
+      rescue RegexpError => e
+        raise ArgumentError, "regexp preprocess failed: #{e.message}"
+      end
+      begin
+        Onig.compile(text, bits & ENGINE_OPTIONS, engine_for(enc))
+      rescue RegexpError => e
+        shown = desc(source, encoding, bits)
+        raise RegexpError, (c_text(e.message) << ": " << shown.b).force_encoding(shown.encoding)
+      end
+    end
+
+    # An engine message as ruby formats it, a C string: up to its first NUL.
+    def c_text(message) = message.b[/\A[^\0]*/]
+
+    # The encoding a reader of messages and inspect sees.
+    def result_encoding = Encoding.default_internal || Encoding.default_external
+
+    # rb_enc_reg_error_desc: `message`, then the pattern `source` (read in
+    # `enc`) as written between slashes with its option letters, in
+    # `enc`.
+    def error_desc(message, source, enc, bits)
+      out = c_text(message)
+      out << ": /" << expr_str(source, enc, result_encoding, "/") << "/" << option_letters(bits)
+      out.force_encoding(enc)
+    end
+
+    # rb_reg_desc: what Regexp#inspect shows of a pattern `source` of
+    # `encoding` with the option `bits`.
+    def desc(source, encoding, bits)
+      out = "/".b
+      out << expr_str(source, encoding, result_encoding, "/") << "/" << option_letters(bits)
+      out << "n" if bits & NOENCODING != 0
+      out.force_encoding(encoding.ascii_compatible? ? encoding : Encoding::US_ASCII)
+    end
+
+    # option_to_str.
+    def option_letters(bits)
+      "#{bits & MULTILINE != 0 ? 'm' : ''}#{bits & IGNORECASE != 0 ? 'i' : ''}#{bits & EXTENDED != 0 ? 'x' : ''}"
+    end
+
+    OPTION_BITS = { "m" => MULTILINE, "i" => IGNORECASE, "x" => EXTENDED }.freeze
+
+    # rb_reg_str_with_term: Regexp#to_s of a pattern `source` of `encoding`
+    # with the option `bits`. A source that is one `(?opts-opts:...)`
+    # group (or starts with `(?opts)` runs) folds its letters into the
+    # options when the engine takes the group's body alone.
+    def str_with_term(source, encoding, bits, term)
+      bytes = source.b
+      options = bits
+      at = 0
+      len = bytes.bytesize
+      while len >= 4 && bytes.getbyte(at) == 0x28 && bytes.getbyte(at + 1) == 0x3f
+        folded = options
+        at += 2
+        len -= 2
+        while len > 0 && (bit = OPTION_BITS[bytes.getbyte(at).chr])
+          folded |= bit
+          at += 1
+          len -= 1
+        end
+        if len > 1 && bytes.getbyte(at) == 0x2d
+          at += 1
+          len -= 1
+          while len > 0 && (bit = OPTION_BITS[bytes.getbyte(at).chr])
+            folded &= ~bit
+            at += 1
+            len -= 1
           end
-          c = b[i]
-          self.i += 1
-          case c
-          when 0x5c then escape
-          when 0x23
-            next unless extended && in_class.zero?
-
-            while i < b.size
-              byte = b[i]
-              self.i += 1
-              break if byte == 0x0a
-
-              self.fixed = enc if byte >= 0x80 && fixed.nil? && enc == Encoding::UTF_8
-            end
-          when 0x5b then in_class += 1
-          when 0x5d then in_class -= 1 if in_class.positive?
-          when 0x29
-            return if in_class.zero? && recurse && (parens -= 1).zero?
-          when 0x28
-            next if in_class.positive?
-
-            if b[i] == 0x3f && i + 1 < b.size
-              if b[i + 1] == 0x23
-                comment
-              else
-                parens += 1 if recurse
-                extended = group(extended)
-              end
-            elsif recurse
-              parens += 1
-            end
+        end
+        if bytes.getbyte(at) == 0x29
+          len -= 1
+          at += 1
+          options = folded
+          next
+        end
+        ok = false
+        if bytes.getbyte(at) == 0x3a && bytes.getbyte(at + len - 1) == 0x29
+          at += 1
+          len -= 2
+          begin
+            Onig.compile(bytes.byteslice(at, len), folded & ENGINE_OPTIONS, engine_for(encoding))
+            ok = true
+          rescue RegexpError
+            ok = false
           end
         end
-      end
-
-      def char_len(at)
-        return 1 if b[at] < 0x80 && enc.ascii_compatible?
-
-        max = [MBMAXLEN.fetch(enc.name, 1), b.size - at].min
-        char = b[at, max].pack("C*").force_encoding(enc)[0]
-        raise RegexpError, "invalid multibyte character" unless char.valid_encoding?
-
-        char.bytesize
-      end
-
-      def fix(encoding, message)
-        if fixed.nil?
-          self.fixed = encoding
-        elsif fixed != encoding
-          raise RegexpError, message
-        end
-      end
-
-      def escape
-        raise RegexpError, "too short escape sequence" if i >= b.size
-
-        len = char_len(i)
-        if len > 1
-          self.i += len
-          return fix(enc, "non ASCII character in UTF-8 regexp")
-        end
-        e = b[i]
-        self.i += 1
-        case e
-        when 0x31..0x37
-          digits = b[i - 1, 3].take_while { |x| x.between?(0x30, 0x37) }
-          return if digits.pack("C*").to_i(8) <= 0o177
-
-          escaped_nonascii
-        when 0x30, 0x78, 0x63, 0x43, 0x4d then escaped_nonascii
-        when 0x75 then unicode
-        when 0x70, 0x50 then self.property = true if fixed.nil?
-        end
-      end
-
-      # unescape_escaped_nonascii: the escaped bytes of one character.
-      def escaped_nonascii
-        self.i -= 2
-        if enc == Encoding::US_ASCII
-          _, self.i = Pattern.escaped_byte(b, i)
-          return
-        end
-        max = MBMAXLEN.fetch(enc.name, 1)
-        byte, self.i = Pattern.escaped_byte(b, i)
-        bytes = [byte]
-        while bytes.size < max && needs_more?(bytes)
-          byte, self.i = Pattern.escaped_byte(b, i)
-          bytes << byte
-        end
-        raise RegexpError, "invalid multibyte escape" unless bytes.pack("C*").force_encoding(enc).valid_encoding?
-
-        fix(enc, "escaped non ASCII character in UTF-8 regexp") if bytes.size > 1 || bytes[0] >= 0x80
-      end
-
-      def needs_more?(bytes)
-        text = bytes.pack("C*").force_encoding(enc)
-        return false if text.valid_encoding?
-        return Pattern.utf8_prefix?(bytes) if enc == Encoding::UTF_8
-
-        true
-      end
-
-      def unicode
-        raise RegexpError, "too short escape sequence" if i >= b.size
-
-        if b[i] == 0x7b
-          self.i += 1
-          self.i += 1 while i < b.size && space?(b[i])
-          any = false
-          loop do
-            start = i
-            self.i += 1 while i < b.size && hex?(b[i])
-            break if i == start
-            raise RegexpError, "invalid Unicode range" if i - start > 6
-
-            utf8(b[start...i].pack("C*").to_i(16))
-            any = true
-            self.i += 1 while i < b.size && space?(b[i])
-          end
-          raise RegexpError, "invalid Unicode list" unless any
-          raise RegexpError, "invalid Unicode list" unless b[i] == 0x7d
-
-          self.i += 1
+        if ok
+          options = folded
         else
-          digits = b[i, 4]
-          raise RegexpError, "invalid Unicode escape" unless digits.size == 4 && digits.all? { |x| hex?(x) }
-
-          utf8(digits.pack("C*").to_i(16))
-          self.i += 4
+          options = bits
+          at = 0
+          len = bytes.bytesize
         end
+        break
       end
-
-      # append_utf8.
-      def utf8(code)
-        raise RegexpError, "invalid Unicode range" if code.between?(0xd800, 0xdfff) || code > 0x10ffff
-
-        fix(Encoding::UTF_8, "UTF-8 character in non UTF-8 regexp") if code >= 0x80
-      end
-
-      # `(?#...)`, a comment whose high bytes still fix a UTF-8 pattern.
-      def comment
-        start = i
-        while i < b.size
-          byte = b[i]
-          self.i += 1
-          return if byte == 0x29
-          next unless byte == 0x5c || byte >= 0x80
-
-          if byte >= 0x80
-            self.fixed = enc if fixed.nil? && enc == Encoding::UTF_8
-            self.i -= 1
-          end
-          self.i += char_len(i) if i < b.size
-        end
-        self.i = start
-      end
-
-      # `(?x)`, `(?-x:`: the extended flag for the rest of the pattern, or
-      # for the group that follows, whose walk returns at its `)`.
-      def group(extended)
-        invert = false
-        local = 0
-        s = i + 1
-        while s < b.size
-          case b[s]
-          when 0x78 then local = invert ? -1 : 1
-          when 0x2d then invert = true
-          when 0x3a, 0x29
-            return extended if local.zero? || (local == -1 && !extended) || (local == 1 && extended)
-
-            if b[s] == 0x3a
-              walk(local == 1, true)
-              return extended
-            end
-            return local == 1
-          when 0x69, 0x6d, 0x61, 0x64, 0x75 then nil
-          else return extended
-          end
-          s += 1
-        end
-        extended
-      end
-
-      def space?(x) = x == 0x20 || x.between?(0x09, 0x0d)
-
-      def hex?(x) = x.between?(0x30, 0x39) || x.between?(0x41, 0x46) || x.between?(0x61, 0x66)
+      out = "(?".b
+      out << option_letters(options)
+      out << "-" << option_letters(~options) if options & ENGINE_OPTIONS != ENGINE_OPTIONS
+      out << ":"
+      out << expr_str(bytes.byteslice(at, len), encoding, nil, term) << ")"
+      out.force_encoding(encoding)
     end
 
-    # `\u{...}` is a space-separated list of code points and `\uHHHH`
-    # exactly four hex digits; an ASCII code point becomes `\xHH` so
-    # it stays literal.
-    def unicode_escapes(source)
-      return source unless source.include?("\\u")
+    # rb_reg_expr_str: `text` as a message or inspect shows it between
+    # `term`s. Read under `enc`; `resenc` is the encoding the reader
+    # sees (nil for none). Text that is all printable, has no bare
+    # `term` and no non-ASCII character a reader could not show goes
+    # as it is; otherwise an escape keeps its next character, a bare
+    # `term` takes a backslash, a non-ASCII character is written as
+    # \uXXXX (or \xHH) when there is a reader, a control character as
+    # \xHH, whitespace as itself. The answer is bytes; the caller sets
+    # the encoding.
+    def expr_str(text, enc, resenc, term)
+      bytes = text.b
+      typed = bytes.dup.force_encoding(enc)
+      need_escape = !(enc.ascii_compatible? && typed.valid_encoding?)
+      unless need_escape
+        typed.each_char do |c|
+          if c.bytesize > 1 || c.getbyte(0) >= 0x80
+            next if enc == resenc
 
-      out = +""
+            need_escape = true
+            break
+          end
+          next if c != term && c.getbyte(0).between?(0x20, 0x7e)
+
+          need_escape = true
+          break
+        end
+      end
+      return bytes unless need_escape
+
+      unicode = enc.name.start_with?("UTF-") || WIDE.include?(enc.name) || enc.name == "CESU-8"
+      out = "".b
       i = 0
-      while i < source.size
-        c = source[i]
-        if c != "\\"
+      while i < bytes.bytesize
+        c = bytes.getbyte(i)
+        if c == 0x5c && i + 1 < bytes.bytesize
+          n = 1 + (char_bytes(bytes, i + 1, enc) || 1)
+          out << bytes.byteslice(i, n)
+          i += n
+        elsif c >= 0x80 || !enc.ascii_compatible?
+          len = char_bytes(bytes, i, enc)
+          if len.nil?
+            out << format("\\x%02X", c)
+            i += 1
+          elsif resenc
+            code = bytes.byteslice(i, len).force_encoding(enc).ord
+            out << if unicode
+                     code < 0x10000 ? format("\\u%04X", code) : format("\\u{%X}", code)
+                   else
+                     code < 0x100 ? format("\\x%02X", code) : format("\\x{%X}", code)
+                   end
+            i += len
+          else
+            out << bytes.byteslice(i, len)
+            i += len
+          end
+        elsif c == term.ord
+          out << "\\" << c
+          i += 1
+        elsif c.between?(0x20, 0x7e) || c == 0x09 || c == 0x0a || c == 0x0b || c == 0x0c || c == 0x0d
           out << c
           i += 1
-          next
-        end
-        if source[i + 1] != "u"
-          out << "\\" << source[i + 1].to_s
-          i += 2
-          next
-        end
-        i += 2
-        if source[i] == "{"
-          i += 1
-          any = false
-          loop do
-            i += 1 while source[i] && source[i].match?(/[ \t\n\v\f\r]/)
-            start = i
-            i += 1 while source[i] && source[i].match?(/[0-9a-fA-F]/)
-            break if i == start
-            raise RegexpError, "invalid Unicode range" if i - start > 6
-
-            out << code_text(source[start...i].to_i(16))
-            any = true
-          end
-          raise RegexpError, "invalid Unicode list" if !any || source[i] != "}"
-
-          i += 1
         else
-          digits = source[i, 4]
-          raise RegexpError, "invalid Unicode escape" unless digits && digits.size == 4 && digits.match?(/\A[0-9a-fA-F]{4}\z/)
-
-          out << code_text(digits.to_i(16))
-          i += 4
+          out << format("\\x%02X", c)
+          i += 1
         end
       end
       out
     end
 
-    def code_text(code)
-      raise RegexpError, "invalid Unicode range" if code > 0x10FFFF || (code >= 0xD800 && code <= 0xDFFF)
-
-      code < 0x80 ? format("\\x%02X", code) : code.chr(Encoding::UTF_8)
+    # The byte length of the character at `i` in `bytes` under `enc`,
+    # or nil when the bytes there are not one.
+    def char_bytes(bytes, i, enc)
+      max = [MBMAXLEN.fetch(enc.name, 1), bytes.bytesize - i].min
+      (1..max).each do |len|
+        return len if bytes.byteslice(i, len).force_encoding(enc).valid_encoding?
+      end
+      nil
     end
 
-    # CRuby's `unescape_nonascii` for the escapes ruby decodes itself:
-    # `\M-x`, `\C-x` and `\cx` become the byte they name (as `\xHH` when
-    # ASCII, raw otherwise). In UTF-8 a high byte must complete a
-    # character through the escapes that follow it.
-    def control_escapes(source, binary)
-      return source unless source.include?("\\")
+    # rb_reg_preprocess: the text the engine compiles for `source` read in
+    # `enc`, and the encoding its characters and escapes fix, or nil:
+    # [text (BINARY), fixed]. Ruby decodes the `\u` escapes and the byte
+    # escapes that name a character past ASCII, drops comments, and
+    # keeps the rest as written. RegexpError carries the reason alone.
+    def preprocess(source, enc, extended)
+      scan = Preprocess.new(source.b, enc)
+      scan.walk(extended, false)
+      fixed = scan.fixed
+      fixed = enc if scan.property && fixed.nil?
+      [scan.buf, fixed]
+    end
 
-      b = source.bytes
-      out = "".b
-      i = 0
-      while i < b.size
-        if b[i] != 0x5c || i + 1 >= b.size
-          out << b[i]
-          i += 1
-          next
-        end
-        if b[i + 1] == 0x4d || b[i + 1] == 0x43 || b[i + 1] == 0x63
-          i = escaped_char(b, i, binary, out)
-        else
-          out << b[i] << b[i + 1]
-          i += 2
+    # unescape_nonascii0 and the escapes it reads, over a pattern's bytes.
+    class Preprocess
+      attr_reader :buf, :fixed, :property
+
+      def initialize(bytes, enc)
+        @s = bytes
+        @b = bytes.bytes
+        @end = @b.size
+        @enc = enc
+        @fixed = enc.ascii_compatible? ? nil : enc
+        @property = false
+        @p = 0
+        @buf = "".b
+      end
+
+      # The pattern from @p on; with `recurse`, only up to the `)` that
+      # closes the group whose `(` was just read.
+      def walk(extended, recurse)
+        in_class = 0
+        parens = 1
+        while @p < @end
+          len = char_len(@p)
+          if len > 1 || @b[@p] >= 0x80
+            multibyte(@p, len)
+            next
+          end
+          c = @b[@p]
+          @p += 1
+          case c
+          when 0x5c then escape
+          when 0x23
+            if extended && in_class.zero?
+              # A comment in an extended pattern is dropped.
+              while @p < @end
+                c = @b[@p]
+                @p += 1
+                break if c == 0x0a
+
+                @fixed = @enc if c >= 0x80 && @fixed.nil? && @enc == Encoding::UTF_8
+              end
+            else
+              @buf << c
+            end
+          when 0x5b
+            in_class += 1
+            @buf << c
+          when 0x5d
+            in_class -= 1 if in_class.positive?
+            @buf << c
+          when 0x29
+            @buf << c
+            return if in_class.zero? && recurse && (parens -= 1).zero?
+          when 0x28
+            if in_class.zero? && @p + 1 < @end && @b[@p] == 0x3f
+              if @b[@p + 1] == 0x23
+                comment
+                next
+              end
+              parens += 1 if recurse
+              changed = option_group(extended)
+              if changed == :group
+                @buf << c
+                walk(!extended, true)
+                next
+              end
+              extended = changed unless changed.nil?
+            elsif in_class.zero? && recurse
+              parens += 1
+            end
+            @buf << c
+          else
+            @buf << c
+          end
         end
       end
-      out.force_encoding(source.encoding)
-    end
 
-    # The escape run at `i`, spliced into `out` as the character it
-    # names; the index past it.
-    def escaped_char(b, i, binary, out)
-      byte, i = escaped_byte(b, i)
-      bytes = [byte]
-      unless binary
-        while bytes.size < 4
-          text = bytes.pack("C*").force_encoding(Encoding::UTF_8)
-          break if text.valid_encoding?
-          raise RegexpError, "invalid multibyte escape" unless utf8_prefix?(bytes)
+      # `(?opts:` or `(?opts)` at @p - 1 flipping the extended flag:
+      # :group for a group that flips it until its `)`, the new flag for
+      # the rest of the pattern, or nil for no change.
+      def option_group(extended)
+        invert = false
+        local = 0
+        s = @p + 1
+        while s < @end
+          case @b[s]
+          when 0x78 then local = invert ? -1 : 1
+          when 0x2d then invert = true
+          when 0x3a, 0x29
+            return nil if local.zero? || (local == -1 && !extended) || (local == 1 && extended)
+            return :group if @b[s] == 0x3a
 
-          byte, i = escaped_byte(b, i)
+            return local == 1
+          when 0x69, 0x6d, 0x61, 0x64, 0x75 then nil
+          else return nil
+          end
+          s += 1
+        end
+        nil
+      end
+
+      # `(?#...)`, dropped whole; one without its `)` is kept, so the
+      # engine names the error.
+      def comment
+        orig = @p
+        while @p < @end
+          c = @b[@p]
+          @p += 1
+          if c == 0x29
+            return
+          elsif c >= 0x80
+            @fixed = @enc if @fixed.nil? && @enc == Encoding::UTF_8
+            @p -= 1
+            @p += char_len(@p)
+          elsif c == 0x5c
+            @p += char_len(@p)
+          end
+        end
+        @p = orig
+        @buf << 0x28
+      end
+
+      def multibyte(at, len)
+        @buf << @s.byteslice(at, len)
+        @p = at + len
+        fix(@enc, "non ASCII character in UTF-8 regexp")
+      end
+
+      def escape
+        raise RegexpError, "too short escape sequence" if @p == @end
+
+        len = char_len(@p)
+        # A backslash before a character past ASCII keeps both.
+        return multibyte(@p - 1, len + 1) if len > 1
+
+        c = @b[@p]
+        @p += 1
+        case c
+        when 0x31..0x37
+          # A backreference or an octal escape of ASCII stays as written.
+          digits = @b[@p - 1, 3].take_while { |x| x.between?(0x30, 0x37) }
+          return asis(c) if digits.pack("C*").to_i(8) <= 0o177
+
+          escaped_nonascii
+        when 0x30, 0x78, 0x63, 0x43, 0x4d then escaped_nonascii
+        when 0x75 then unicode
+        when 0x70, 0x50
+          @property = true if @fixed.nil?
+          asis(c)
+        else asis(c)
+        end
+      end
+
+      def asis(c)
+        @buf << 0x5c << c
+      end
+
+      # The byte escape at @p - 2: kept as written in a US-ASCII pattern,
+      # else the character of the encoding it names.
+      def escaped_nonascii
+        @p -= 2
+        if @enc == Encoding::US_ASCII
+          start = @p
+          _, @p = Pattern.escaped_byte(@b, @p)
+          @buf << @s.byteslice(start, @p - start)
+          return
+        end
+        max = Pattern.mbmaxlen(@enc)
+        byte, @p = Pattern.escaped_byte(@b, @p)
+        bytes = [byte]
+        while bytes.size < max && Pattern.needs_more?(bytes, @enc)
+          byte, @p = Pattern.escaped_byte(@b, @p)
           bytes << byte
         end
-        raise RegexpError, "invalid multibyte escape" unless bytes.pack("C*").force_encoding(Encoding::UTF_8).valid_encoding?
+        raise RegexpError, "invalid multibyte escape" if Pattern.invalid?(bytes, @enc)
+
+        if bytes.size > 1 || bytes[0] >= 0x80
+          @buf << bytes.pack("C*")
+          fix(@enc, "escaped non ASCII character in UTF-8 regexp")
+        else
+          @buf << format("\\x%02X", bytes[0])
+        end
       end
-      if bytes.size > 1 || bytes[0] >= 0x80
-        bytes.each { |x| out << x }
-      else
-        out << format("\\x%02X", bytes[0]).b
+
+      # `\uHHHH` and `\u{H HH ...}`.
+      def unicode
+        raise RegexpError, "too short escape sequence" if @p == @end
+
+        if @b[@p] == 0x7b
+          @p += 1
+          unicode_list
+          raise RegexpError, "invalid Unicode list" if @p == @end || @b[@p] != 0x7d
+
+          @p += 1
+        else
+          raise RegexpError, "invalid Unicode escape" if @end < @p + 4 || !@b[@p, 4].all? { |x| Pattern.hex_byte?(x) }
+
+          utf8(@s.byteslice(@p, 4).to_i(16))
+          @p += 4
+        end
       end
-      i
+
+      def unicode_list
+        p = @p
+        p += 1 while p < @end && space?(@b[p])
+        any = false
+        loop do
+          start = p
+          p += 1 while p < @end && Pattern.hex_byte?(@b[p])
+          break if p == start
+          raise RegexpError, "invalid Unicode range" if p - start > 6
+
+          utf8(@s.byteslice(start, p - start).to_i(16))
+          any = true
+          p += 1 while p < @end && space?(@b[p])
+        end
+        raise RegexpError, "invalid Unicode list" unless any
+
+        @p = p
+      end
+
+      # append_utf8: a code point below 128 as `\xHH`, any other as its
+      # UTF-8 bytes, which fix the pattern to UTF-8.
+      def utf8(code)
+        raise RegexpError, "invalid Unicode range" if code.between?(0xd800, 0xdfff) || code > 0x10ffff
+
+        if code < 0x80
+          @buf << format("\\x%02X", code)
+        else
+          @buf << [code].pack("U").b
+          if @fixed.nil?
+            @fixed = Encoding::UTF_8
+          elsif @fixed != Encoding::UTF_8
+            raise RegexpError, "UTF-8 character in non UTF-8 regexp"
+          end
+        end
+      end
+
+      def fix(encoding, message)
+        if @fixed.nil?
+          @fixed = encoding
+        elsif @fixed != encoding
+          raise RegexpError, message
+        end
+      end
+
+      # rb_enc_precise_mbclen at `at`, refused when no character starts there.
+      def char_len(at)
+        raise RegexpError, "invalid multibyte character" if at >= @end
+        return 1 if @b[at] < 0x80 && @enc.ascii_compatible?
+
+        max = [Pattern.mbmaxlen(@enc), @end - at].min
+        (1..max).each do |len|
+          return len if @s.byteslice(at, len).force_encoding(@enc).valid_encoding?
+        end
+        raise RegexpError, "invalid multibyte character"
+      end
+
+      def space?(x) = x == 0x20 || x.between?(0x09, 0x0d)
+    end
+
+    # The most bytes one character takes, by encoding name.
+    MBMAXLEN = {
+      "UTF-8" => 4, "UTF8-MAC" => 4, "UTF8-DoCoMo" => 4, "UTF8-KDDI" => 4, "UTF8-SoftBank" => 4, "CESU-8" => 6,
+      "UTF-16LE" => 4, "UTF-16BE" => 4, "UTF-32LE" => 4, "UTF-32BE" => 4,
+      "EUC-JP" => 3, "eucJP-ms" => 3, "CP51932" => 3, "EUC-JIS-2004" => 3, "EUC-TW" => 4, "EUC-KR" => 2, "CP949" => 2,
+      "GB2312" => 2, "GB12345" => 2, "GBK" => 2, "GB18030" => 4, "Big5" => 2, "Big5-HKSCS" => 2, "Big5-UAO" => 2,
+      "Shift_JIS" => 2, "Windows-31J" => 2, "SJIS-DoCoMo" => 2, "SJIS-KDDI" => 2, "SJIS-SoftBank" => 2, "Emacs-Mule" => 4
+    }.freeze
+
+    def mbmaxlen(enc) = MBMAXLEN.fetch(enc.name, 1)
+
+    # MBCLEN_NEEDMORE_P: whether `bytes` are the start of a character of
+    # `enc` that more bytes complete.
+    def needs_more?(bytes, enc)
+      return false if bytes.pack("C*").force_encoding(enc).valid_encoding? || bytes.size >= mbmaxlen(enc)
+      return utf8_prefix?(bytes) if WIDE.include?(enc.name)
+
+      (0..255).any? do |x|
+        longer = bytes + [x]
+        longer.pack("C*").force_encoding(enc).valid_encoding? || needs_more?(longer, enc)
+      end
+    end
+
+    # MBCLEN_INVALID_P: `bytes` are neither a character nor the start of one.
+    def invalid?(bytes, enc)
+      !bytes.pack("C*").force_encoding(enc).valid_encoding? && !needs_more?(bytes, enc)
     end
 
     # Whether `bytes` can still grow into one UTF-8 character.

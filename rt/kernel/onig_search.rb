@@ -376,10 +376,9 @@ machine def zr_onig_forward_search_range(prog, str, text_end, s, range, low, hig
         again = true if !zr_onig_newline_p(prev, text_end)
       end
     elsif OnigProg.sub_anchor(prog) == ONIG_ANCHOR_END_LINE
-      if p == text_end
-        prev = zr_onig_prev_char_head(enc, pprev != 0 ? pprev : str, p, text_end)
-        again = true if prev != 0 && zr_onig_newline_p(prev, text_end)
-      elsif !zr_onig_newline_p(p, text_end)
+      # The empty line at the end of the text is a line
+      # (USE_NEWLINE_AT_END_OF_STRING_HAS_EMPTY_LINE).
+      if p != text_end && !zr_onig_newline_p(p, text_end)
         again = true
       end
     end
@@ -479,14 +478,7 @@ machine def zr_onig_backward_search_range(prog, str, text_end, s, range, adjrang
         end
       end
     elsif OnigProg.sub_anchor(prog) == ONIG_ANCHOR_END_LINE
-      if p == text_end
-        prev = zr_onig_prev_char_head(enc, adjrange, p, text_end)
-        return false if prev == 0
-        if zr_onig_newline_p(prev, text_end)
-          p = prev
-          again = true
-        end
-      elsif !zr_onig_newline_p(p, text_end)
+      if p != text_end && !zr_onig_newline_p(p, text_end)
         p = zr_onig_prev_char_head(enc, adjrange, p, text_end)
         return false if p == 0
         again = true

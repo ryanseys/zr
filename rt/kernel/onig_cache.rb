@@ -37,7 +37,8 @@ machine def zr_onig_cache_skip(m, op, p, pend)
   return p + 4 if op == OP_EXACT4 || op == OP_EXACTMB2N2
   return p + 5 if op == OP_EXACT5
   return p + 6 if op == OP_EXACTMB2N3
-  return p + 4 + zr_onig_get_i32(p) if op == OP_EXACTN || op == OP_EXACTN_IC || op == OP_CCLASS_MB || op == OP_CCLASS_MB_NOT || op == OP_LOOK_BEHIND
+  return p + 4 + zr_onig_get_i32(p) if op == OP_EXACTN || op == OP_EXACTN_IC || op == OP_CCLASS_MB || op == OP_CCLASS_MB_NOT
+  return p + 4 if op == OP_LOOK_BEHIND
   return p + 4 + (zr_onig_get_i32(p) * 2) if op == OP_EXACTMB2N
   return p + 4 + (zr_onig_get_i32(p) * 3) if op == OP_EXACTMB3N
   return p + 8 + (zr_onig_get_i32(p) * zr_onig_get_i32(p + 4)) if op == OP_EXACTMBN

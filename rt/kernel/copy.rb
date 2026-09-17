@@ -74,7 +74,6 @@ machine def zr_copy_payload(copy, orig)
     RFiber.set_transferred(copy, 0)
   elsif t == T_REGEXP
     RRegexp.set_source(copy, Machine.value(QNIL))
-    RRegexp.set_text(copy, Machine.value(QNIL))
     RRegexp.set_names(copy, Machine.value(QNIL))
     RRegexp.set_options(copy, 0)
     RRegexp.set_program(copy, Machine.value(QNIL))

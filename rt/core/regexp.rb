@@ -80,7 +80,7 @@ class Regexp
         encoding = Encoding::BINARY
       end
       begin
-        found = Pattern.fixed_encoding(fragment, encoding, bits & EXTENDED != 0)
+        _, found = Pattern.preprocess(fragment, encoding, bits & EXTENDED != 0)
       rescue RegexpError => e
         raise ArgumentError, e.message
       end
@@ -109,20 +109,12 @@ class Regexp
   # flags. A pattern that `warns` prints what the engine warned of.
   def self.seat(re, source, bits, warns: true)
     source = source.dup.freeze unless source.frozen?
-    written = "/#{source}/#{(bits & MULTILINE != 0 ? 'm' : '')}#{(bits & IGNORECASE != 0 ? 'i' : '')}#{(bits & EXTENDED != 0 ? 'x' : '')}"
-    begin
-      encoding, bits = encoding_for(source, bits)
-      text = Pattern.engine_text(source, bits & EXTENDED != 0, encoding == Encoding::BINARY)
-      compiled, warnings = Onig.compile(text, bits & (IGNORECASE | EXTENDED | MULTILINE), engine_encoding(text))
-    rescue RegexpError => e
-      raise RegexpError, "#{e.message}: #{written}"
-    end
+    encoding, bits, compiled, warnings = Pattern.compile(source, bits)
     # reg_set_source: the source reads in the pattern's encoding.
     source = source.dup.force_encoding(encoding).freeze unless source.encoding == encoding
-    text = text.dup.freeze unless text.frozen?
-    Primitive.zr_regexp_seat(re, Onig::Program.pack(compiled), text, source, bits, name_rows_of(compiled, encoding))
+    Primitive.zr_regexp_seat(re, Onig::Program.pack(compiled), source, bits, name_rows_of(compiled, encoding))
     Primitive.zr_state_set(re, :encoding, encoding)
-    warn_of(warnings, source) if warns
+    warn_of(warnings) if warns
     re
   end
   private_class_method :seat
@@ -131,43 +123,6 @@ class Regexp
   # one step, which the literal table and the copies ask for.
   def self.compile_source(source, bits, warns: true) = seat(allocate, source, bits, warns: warns)
   private_class_method :compile_source
-
-  # rb_reg_initialize_str and rb_reg_initialize: the encoding a pattern
-  # of `source` takes under the option `bits`, and the bits with the
-  # flags ruby keeps beside them -- FIXEDENCODING where a character or an
-  # escape fixed the encoding, or the option did.
-  def self.encoding_for(source, bits)
-    Primitive.attr! :hidden
-    encoding = source.encoding
-    if bits & NOENCODING != 0 && encoding != Encoding::BINARY
-      raise RegexpError, "/.../n has a non escaped non ASCII character in non ASCII-8BIT script" unless source.ascii_only?
-
-      encoding = Encoding::BINARY
-    end
-    raise RegexpError, "can't make regexp with dummy encoding" if encoding.dummy?
-
-    fixed = Pattern.fixed_encoding(source, encoding, bits & EXTENDED != 0)
-    if fixed
-      if (fixed != encoding && bits & FIXEDENCODING != 0) || (fixed != Encoding::BINARY && bits & NOENCODING != 0)
-        raise RegexpError, "incompatible character encoding"
-      end
-
-      encoding = fixed unless fixed == Encoding::BINARY
-      bits |= FIXEDENCODING
-    elsif bits & FIXEDENCODING == 0
-      encoding = Encoding::US_ASCII
-    end
-    [encoding, bits]
-  end
-  private_class_method :encoding_for
-
-  # The engine that reads `text`: Onigmo's UTF-8 for a wide (UTF-8-like)
-  # text, its bytewise ASCII for any other.
-  def self.engine_encoding(text)
-    Primitive.attr! :hidden
-    Primitive.zr_str_wide_m(text) ? Onig::Enc::UTF8_ENC : Onig::Enc::ASCII_ENC
-  end
-  private_class_method :engine_encoding
 
   # The named groups of a compiled pattern, [[name, [group numbers]], ...]
   # in definition order, the names in the pattern's encoding.
@@ -179,17 +134,15 @@ class Regexp
   end
   private_class_method :name_rows_of
 
-  # What the engine warned of as it compiled `source`, each warning
-  # naming the pattern as written. One ruby gives only when verbose
-  # waits for $VERBOSE.
-  def self.warn_of(warnings, source)
+  # What the engine warned of as it compiled the pattern (re_warn), each
+  # warning naming the engine's text as Onigmo writes it. One ruby
+  # gives only when verbose waits for $VERBOSE.
+  def self.warn_of(warnings)
     Primitive.attr! :hidden
     warnings.rows.each do |row|
       next if row.verbose && !$VERBOSE
 
-      message = row.text
-      message = "#{message[0, message.index(': /')]}: /#{source}/" if message.include?(": /")
-      Primitive.zr_warn_here_m(message)
+      Primitive.zr_warn_here_m(row.text)
     end
   end
   private_class_method :warn_of
@@ -209,18 +162,57 @@ class Regexp
   end
   private :initialize_copy
 
-  # The program a subject of the other width reads (wide: UTF-8-like):
-  # the engine text compiled again under that encoding, or false when
-  # it refuses the text, and then the program the pattern has serves.
-  def alt_program(wide)
+  # rb_reg_prepare_re: the program a match of `text` runs, or nil for the
+  # one the pattern has. The engine reads the pattern in one encoding at
+  # a time, at first the pattern's own; a subject that asks for another
+  # compiles the pattern again under it, and that compile takes the
+  # engine's place until a subject asks for another (ruby overwrites
+  # the pattern's regex_t). The Regexp keeps each compile by encoding,
+  # with its warnings, or with the refusal it gave, which each match
+  # that asks for it raises again.
+  def program_for(text)
     Primitive.attr! :hidden
-    text = Primitive.zr_regexp_text(self)
-    compiled, = Onig.compile(text, options & (IGNORECASE | EXTENDED | MULTILINE), wide ? Onig::Enc::UTF8_ENC : Onig::Enc::ASCII_ENC)
-    Onig::Program.pack(compiled)
-  rescue RegexpError
-    false
+    pattern
+    text_encoding = Encoding.at(Primitive.zr_str_encoding_index_m(text))
+    ascii = Primitive.zr_str_ascii_only_m(text)
+    raise ArgumentError, "invalid byte sequence in #{text_encoding}" unless ascii || Primitive.zr_str_valid_p(text)
+
+    programs = Primitive.zr_regexp_alt(self)
+    engine = programs ? programs[:engine] : encoding
+    unless engine == text_encoding || (ascii && engine == Encoding::US_ASCII)
+      enc, warning = Pattern.prepared_encoding(engine, encoding, options, text_encoding, ascii)
+      Primitive.zr_warn_here_m(warning) if warning
+      unless enc == engine
+        program_in(enc, warns: true)
+        engine = enc
+        Primitive.zr_regexp_alt(self)[:engine] = engine
+      end
+    end
+    engine == encoding ? nil : Primitive.zr_regexp_alt(self)[engine][0]
   end
-  private :alt_program
+
+  # The program of the pattern compiled again for `enc` (nil for the
+  # encoding the pattern has), printing what that compile warned of
+  # when `warns`.
+  def program_in(enc, warns: false)
+    Primitive.attr! :hidden
+    own = encoding
+    programs = Primitive.zr_regexp_alt(self)
+    Primitive.zr_regexp_alt_set(self, programs = { engine: own }) unless programs
+    return nil if enc == own
+
+    entry = programs[enc] ||= begin
+      compiled, warnings = Pattern.recompile(pattern, options, own, enc)
+      [Onig::Program.pack(compiled).freeze, warnings].freeze
+    rescue ArgumentError, RegexpError => e
+      [nil, e.class, e.message].freeze
+    end
+    raise entry[1], entry[2] if entry[0].nil?
+
+    Regexp.send(:warn_of, entry[1]) if warns
+    entry[0]
+  end
+  private :program_for, :program_in
 
   def self.compile(*args, **options) = new(*args, **options)
 
@@ -359,23 +351,12 @@ class Regexp
 
   def hash = [source, options].hash
 
-  def to_s
-    on = +""
-    off = +""
-    { "m" => MULTILINE, "i" => IGNORECASE, "x" => EXTENDED }.each { |letter, bit| (options & bit != 0 ? on : off) << letter }
-    # rb_reg_to_s: in the pattern's own encoding.
-    "(?#{on}#{off.empty? ? '' : "-#{off}"}:#{shown_source})".force_encoding(encoding)
-  end
+  def to_s = Pattern.str_with_term(pattern, encoding, options, "/")
 
   def inspect
     return Object.instance_method(:to_s).bind_call(self) unless Primitive.zr_regexp_source(self)
 
-    text = "/#{shown_source}/"
-    text << "m" if options & MULTILINE != 0
-    text << "i" if options & IGNORECASE != 0
-    text << "x" if options & EXTENDED != 0
-    text << "n" if options & NOENCODING != 0
-    encoding.ascii_compatible? ? text.force_encoding(encoding) : text.force_encoding(Encoding::US_ASCII)
+    Pattern.desc(pattern, encoding, options)
   end
 
   # The MatchData for `text` from character `pos`, or nil; `$~` is set
@@ -409,8 +390,7 @@ class Regexp
     pos += Primitive.zr_str_length_m(text) if pos < 0
     return false if pos < 0 || pos > Primitive.zr_str_length_m(text)
 
-    check_subject(text)
-    !Primitive.zr_regexp_search(self, text, Primitive.zr_str_char_offset_m(text, pos), false).nil?
+    !Primitive.zr_regexp_search(self, program_for(text), text, Primitive.zr_str_char_offset_m(text, pos), false).nil?
   end
 
   # The character the search matched at (before a `\K`), or nil.
@@ -511,26 +491,6 @@ class Regexp
 
   private
 
-  # The source as inspect and to_s show it: a bare `/` escaped, a
-  # control character as `\xHH`, whitespace as itself.
-  def shown_source
-    Primitive.attr! :hidden
-    text = +""
-    escaped = false
-    source.each_char do |c|
-      code = c.ord
-      if c == "/" && !escaped
-        text << "\\/"
-      elsif code < 0x20 && !" \t\n\v\f\r".include?(c) || code == 0x7f
-        text << format("\\x%02X", code)
-      else
-        text << c
-      end
-      escaped = c == "\\" && !escaped
-    end
-    text
-  end
-
   # The named groups in definition order: [[name, [group numbers]], ...].
   def name_rows
     Primitive.attr! :hidden
@@ -542,36 +502,15 @@ class Regexp
   # A regexp whose source holds a byte past ASCII reads one encoding
   # alone, so a subject in another one is an error unless the subject
   # is plain ASCII.
-  def check_subject(text)
-    Primitive.attr! :hidden
-    # The subject's own bytes, as rb_reg_prepare_enc reads them: never
-    # a subclass's encoding or ascii_only?.
-    text_encoding = Encoding.at(Primitive.zr_str_encoding_index_m(text))
-    ascii = Primitive.zr_str_ascii_only_m(text)
-    raise ArgumentError, "invalid byte sequence in #{text_encoding}" unless ascii || Primitive.zr_str_valid_p(text)
-    # UTF-16 and UTF-32 match no pattern: their ASCII is not ASCII bytes.
-    return unless !text_encoding.ascii_compatible? || (fixed_encoding? && text_encoding != encoding && !ascii)
-
-    raise Encoding::CompatibilityError,
-          "incompatible encoding regexp match (#{Encoding.shown(encoding)} regexp with #{Encoding.shown(text_encoding)} string)"
-  end
-  private :check_subject
-
   def search(text, from, backward)
     Primitive.attr! :hidden
-    pattern
-    check_subject(text)
-
-    offsets = Primitive.zr_regexp_search(self, text, from, backward)
+    offsets = Primitive.zr_regexp_search(self, program_for(text), text, from, backward)
     offsets && MatchData.send(:for, self, text, offsets)
   end
 
   def match_at(text, from)
     Primitive.attr! :hidden
-    pattern
-    check_subject(text)
-
-    offsets = Primitive.zr_regexp_match_at(self, text, from)
+    offsets = Primitive.zr_regexp_match_at(self, program_for(text), text, from)
     offsets && MatchData.send(:for, self, text, offsets)
   end
 end
