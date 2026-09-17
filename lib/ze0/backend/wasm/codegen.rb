@@ -3,13 +3,15 @@
 require_relative "../../backend"
 require_relative "../../ir/function"
 require_relative "../../obj/model"
+require_relative "locals"
 
 module Ze0
   module Backend
     module Wasm
       # The wasm32 emitter: IR functions and data objects to one WASI module.
       #
-      # Every value is a local of its type (an i8 is an i32 local; an i64
+      # Every value is kept in a local of its type, shared with values whose
+      # lives do not overlap (Locals; an i8 is an i32 local; an i64
       # stays i64, so a pointer is a 64-bit value whose address wraps to 32
       # bits at every memory access). Control flow is one `loop` around a
       # ladder of `block`s and a `br_table` on a block-index local: each IR
@@ -406,28 +408,30 @@ module Ze0
 
           private
 
-          # Parameters first, then every value, then the block index and the
-          # frame base.
+          # Parameters first, then the shared locals every other value is
+          # kept in, then the block index and the frame base. A constant has
+          # no local: it is written where it is read (`CONSTANTS`).
           def assign
             n = 0
+            @const = {}
             @f.blocks.each { |b| b.params.each { |v, t| @type[v] = t } }
             @f.blocks.first.params.each { |v, _| @local[v] = n; n += 1 }
-            @locals = []
+            values = []
             @f.blocks.each_with_index do |b, bi|
-              b.params.each do |v, t|
-                next if bi.zero?
-
-                @local[v] = n + @locals.size
-                @locals << Codegen::TYPE.fetch(t)
-              end
+              b.params.each { |v, t| values << [v, Codegen::TYPE.fetch(t)] unless bi.zero? }
               b.insts.each do |i|
                 i.results.each_with_index do |v, k|
                   @type[v] = result_type(i, k)
-                  @local[v] = n + @locals.size
-                  @locals << Codegen::TYPE.fetch(@type[v])
+                  if CONSTANTS.include?(i.op)
+                    @const[v] = i
+                  else
+                    values << [v, Codegen::TYPE.fetch(@type[v])]
+                  end
                 end
               end
             end
+            shared, @locals = Locals.of(@f, values, n)
+            @local.merge!(shared)
             @bb = n + @locals.size
             @locals << 0x7F
             @fp = n + @locals.size
@@ -514,7 +518,34 @@ module Ze0
           end
 
           def get(v)
+            i = @const[v]
+            return constant(i) if i
+
             @code << "\x20".b << @m.leb(@local.fetch(v))
+          end
+
+          # The instructions whose value is known without running anything,
+          # or from the frame base alone: read where they are used, they need
+          # no local, and the constants and slot addresses a function makes in
+          # its entry block are not live across every block after it. That
+          # life is most of what sharing locals costs.
+          CONSTANTS = %i[iconst symbol_value func_addr stack_addr].freeze
+
+          def constant(i)
+            case i.op
+            when :iconst
+              # A constant written unsigned wraps to its signed bits.
+              n = i.args[0]
+              n -= 1 << 64 if i.type == "i64" && n >= 1 << 63
+              n -= 1 << 32 if i.type != "i64" && n >= 1 << 31
+              @code << (i.type == "i64" ? "\x42".b : "\x41".b) << @m.sleb(n)
+            when :symbol_value
+              @code << "\x42".b << @m.sleb(@m.data_address(global(i.args[0]).symbol))
+            when :func_addr
+              @code << "\x42".b << @m.sleb(@m.table_index(callee(i.args[0]).symbol))
+            when :stack_addr
+              @code << "\x20".b << @m.leb(@fp) << @m.i32c(@slot_at[Integer(i.args[0].delete_prefix("ss"))]) << "\x6A".b << "\xAD".b
+            end
           end
 
           def set(v)
@@ -630,13 +661,9 @@ module Ze0
 
           def emit_inst(i)
             case i.op
-            when :iconst
-              # A constant written unsigned wraps to its signed bits.
-              n = i.args[0]
-              n -= 1 << 64 if i.type == "i64" && n >= 1 << 63
-              n -= 1 << 32 if i.type != "i64" && n >= 1 << 31
-              @code << (i.type == "i64" ? "\x42".b : "\x41".b) << @m.sleb(n)
-              set(i.results[0])
+            when *CONSTANTS
+              # Written where it is read.
+              nil
             when :load
               get(i.args[0])
               @code << "\xA7".b
@@ -647,16 +674,6 @@ module Ze0
               @code << "\xA7".b
               get(i.args[0])
               @code << { "i64" => "\x37\x03".b, "i32" => "\x36\x02".b, "i8" => "\x3A\x00".b, "f64" => "\x39\x03".b }.fetch(@type[i.args[0]]) << @m.leb(i.offset)
-            when :stack_addr
-              @code << "\x20".b << @m.leb(@fp) << @m.i32c(@slot_at[Integer(i.args[0].delete_prefix("ss"))]) << "\x6A".b << "\xAD".b
-              set(i.results[0])
-            when :symbol_value
-              g = global(i.args[0])
-              @code << "\x42".b << @m.sleb(@m.data_address(g.symbol))
-              set(i.results[0])
-            when :func_addr
-              @code << "\x42".b << @m.sleb(@m.table_index(callee(i.args[0]).symbol))
-              set(i.results[0])
             when :call_indirect
               ptr, *args = i.args
               args.each { |a| get(a) }
