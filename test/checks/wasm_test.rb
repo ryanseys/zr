@@ -4,7 +4,7 @@ require_relative "helper"
 require_relative "../../lib/ze0/machine/lower"
 require_relative "../../lib/ze0/native/build"
 require_relative "../../test/native/fixtures"
-require_relative "rt_test"
+require_relative "rt_programs"
 
 # The wasm road: every hand-written IR program, every kernel-dialect
 # program that names no raw function, and every kernel core becomes one
@@ -123,16 +123,15 @@ class WasmTest < Minitest::Test
   end
 
   # The kernel core, as `rt_test.rb` links it natively.
-  Dir[File.join(ROOT, "test/rt/*.rb")].sort.each do |rb|
+  RtPrograms::FILES.each do |rb|
     name = File.basename(rb, ".rb")
-    exit_file = rb.sub(/\.rb\z/, ".exit")
-    status = File.file?(exit_file) ? Integer(File.read(exit_file)) : 0
     define_method("test_rt_#{name}") do
-      functions, data, raw = RtTest.compile(rb, Ze0::Target::WASM32_WASI)
+      want, status = RtPrograms.expected(rb)
+      program = RtPrograms.compile(rb, Ze0::Target::WASM32_WASI)
       Dir.mktmpdir("ze0-wasm-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
-        assert_nil Ze0::Native::Build.wasm(functions, data, wasm, raw: raw)
-        run_module(wasm, File.binread(rb.sub(/\.rb\z/, ".stdout")), status: status)
+        assert_nil Ze0::Native::Build.wasm_program(program, wasm)
+        run_module(wasm, want, status: status)
       end
     end
   end

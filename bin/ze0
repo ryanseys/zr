@@ -192,7 +192,9 @@ when "check"
   # compiles, every runtime `rt_test` links and every module `wasm_test`
   # builds in a single heap, and ruby does not give heap pages back.
   # Separate processes bound that, say which file failed rather than
-  # which assertion, and let the machine run several at once.
+  # which assertion, and let the machine run several at once. Each runs
+  # under YJIT, as the CLI runs the compiler: most of a check is the
+  # compiler's own Ruby.
   require "etc"
   filters = ARGV.drop(1)
   files = Dir[File.join(ROOT, "test/checks/*_test.rb")].sort
@@ -224,7 +226,7 @@ when "check"
         file, shard = (queue.pop(true) rescue break)
         began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         out = IO.popen(shard ? { "ZE0_SHARD" => shard } : {},
-                       [RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", file], err: %i[child out], &:read)
+                       [RbConfig.ruby, "--yjit", "-I#{File.join(ROOT, "lib")}", file], err: %i[child out], &:read)
         ok = $?.success?
         say.synchronize do
           rows << [file, shard, ok, out]

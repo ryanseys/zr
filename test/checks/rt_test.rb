@@ -1,11 +1,9 @@
 # frozen_string_literal: true
 
-require_relative "helper"
-require_relative "../../lib/ze0/zr"
-require_relative "../../lib/ze0/native/build"
+require_relative "rt_programs"
 
 # The kernel core: each `test/rt/<name>.rb` is a hand-written toplevel
-# in the dialect, linked with `rt/kernel/` into a binary, and prints
+# in the dialect, linked beside the runtime into a binary, and prints
 # `<name>.stdout` (stderr folded in) and exits with `<name>.exit` (0
 # when absent), plain and with a collection at every allocation.
 #
@@ -13,23 +11,14 @@ require_relative "../../lib/ze0/native/build"
 # failure there is the wasm backend's and a failure here is the aarch64
 # one's.
 class RtTest < Minitest::Test
-  # Also read by `wasm_test.rb`, which runs these programs as modules.
-  def self.compile(rb, target = Ze0::Target.default)
-    symbols = Ze0::Machine::Symbols.new
-    unit = Ze0::Machine.unit(Ze0::Zr.kernel_files(target) + [rb], symbols: symbols)
-    functions, data = Ze0::Zr.core(unit, symbols, target)
-    [unit.functions + functions, unit.data + data + Ze0::Zr.symbol_names(symbols) + Ze0::Zr.load_tables(target: target), unit.raw]
-  end
-
-  Dir[File.join(ROOT, "test/rt/*.rb")].sort.each do |rb|
+  RtPrograms::FILES.each do |rb|
     name = File.basename(rb, ".rb")
-    want = File.binread(rb.sub(/\.rb\z/, ".stdout"))
-    status = File.file?(rb.sub(/\.rb\z/, ".exit")) ? Integer(File.read(rb.sub(/\.rb\z/, ".exit"))) : 0
     define_method("test_#{name}") do
-      functions, data, raw = self.class.compile(rb)
+      want, status = RtPrograms.expected(rb)
+      program = RtPrograms.compile(rb)
       Dir.mktmpdir("ze0-rt-") do |dir|
         bin = File.join(dir, name)
-        assert_nil Ze0::Native::Build.binary(functions, data, bin, work: dir, raw: raw)
+        assert_nil Ze0::Native::Build.program(program, bin, work: dir)
         [{}, { "ZR_GC_STRESS" => "1" }].each do |env|
           out = IO.popen(env, [bin], err: %i[child out], &:read)
           assert_equal status, $?.exitstatus, "#{name} (#{env}) exited #{$?.exitstatus}: #{out}"
