@@ -23,7 +23,7 @@ module Ze0
     # the order ruby defines them.
     # Regexp::Onig, the regular expression compiler (rt/core/regexp/onig),
     # in the order its files define what the next one reads.
-    ONIG_NAMES = %w[regexp/unicode_tables regexp/onig/syntax regexp/onig/errors regexp/onig/encoding regexp/onig/node regexp/onig/lexer regexp/onig/parser regexp/onig/tune regexp/onig/optimize regexp/onig/compile regexp/onig/program regexp/onig].freeze
+    ONIG_NAMES = %w[regexp/unicode_tables regexp/onig/syntax regexp/onig/errors regexp/onig/encoding_tables regexp/onig/encoding regexp/onig/encoding_unicode regexp/onig/encoding_multibyte regexp/onig/node regexp/onig/lexer regexp/onig/parser regexp/onig/tune regexp/onig/optimize regexp/onig/compile regexp/onig/program regexp/onig].freeze
     CORE_NAMES = (%w[module warning encodings transcode cjk exception enumerable enumerator comparable integer bignum array hash range struct unicode string converter iso2022 ruled emoji kernel float proc binding format os/errno os/io_constants io io_buffer os/process_constants process signal env os/file_constants file argf data os/clock_constants gc random thread builtin_lines trace_point monitor time set ractor marshal pack] + ONIG_NAMES + %w[regexp_pattern regexp pathname rational complex objectspace rubyvm box]).freeze
 
     # Regexp::Onig under the host ruby, for the tools and checks that

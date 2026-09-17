@@ -2,14 +2,15 @@
 # String holding a header of 64-bit little-endian words, the byte code
 # (Onigmo's own layout, ending in OP_END and then OP_FINISH as the
 # bottom-of-stack code), the repeat ranges, the exact bytes of the
-# optimizer and its byte map. The header's field order is the kernel's
+# optimizer, its byte map and the encoding's descriptor
+# (Enc::Base#descriptor). The header's field order is the kernel's
 # `Machine.struct :OnigProg` (rt/kernel/onig_match.rb) and nothing else
 # reads it.
 class Regexp
   module Onig
     module Program
       FIELDS = %i[
-        magic enc options num_mem num_repeat num_null_check num_call
+        magic enc_off options num_mem num_repeat num_null_check num_call
         bt_mem_start bt_mem_end pop_level code_off code_len repeat_off
         optimize threshold_len anchor sub_anchor anchor_dmin anchor_dmax
         dmin dmax exact_off exact_len map_off case_fold_flag
@@ -19,8 +20,6 @@ class Regexp
       # ONIG_INFINITE_DISTANCE as the kernel holds it: a signed word that
       # no real distance reaches, so signed comparisons stay valid.
       INFINITE = 1 << 62
-      ENC_ASCII = 0
-      ENC_UTF8 = 1
 
       # The program of a compiled `reg`.
       def self.pack(reg)
@@ -30,9 +29,10 @@ class Regexp
         exact_off = repeat_off + repeats.bytesize
         exact = reg.exact || "".b
         map_off = align(exact_off + exact.bytesize)
+        enc_off = map_off + 256
         header = {
           magic: MAGIC,
-          enc: reg.enc.equal?(Enc::UTF8_ENC) ? ENC_UTF8 : ENC_ASCII,
+          enc_off: enc_off,
           options: reg.options,
           num_mem: reg.num_mem,
           num_repeat: reg.num_repeat,
@@ -64,6 +64,7 @@ class Regexp
         out << exact
         out << "\0".b * (map_off - out.bytesize)
         out << (reg.map ? reg.map.pack("C*") : "\0".b * 256)
+        out << reg.enc.descriptor
         out.freeze
       end
 

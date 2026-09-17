@@ -86,8 +86,16 @@ module Ze0
 
         def match_quietly(re, subject, start, mode)
           char_start = subject.byteslice(0, start).length
+          if mode == "at" && (len = at_start(re, subject, start))
+            # The captures come from a search, which finds the same match
+            # first unless ruby's search optimizer passes over it (a map
+            # of folded bytes that misses a byte folding to one of them):
+            # then only the length is known.
+            md = re.match(subject, char_start)
+            return [len, :elsewhere] unless md && md.byteoffset(0)[0] == start
+          end
           md = case mode
-               when "at" then at_start(re, subject, start) && re.match(subject, char_start)
+               when "at" then len && md
                when "backward" then subject.rindex(re, char_start) && Regexp.last_match
                else re.match(subject, char_start)
                end
@@ -108,11 +116,12 @@ module Ze0
 
         private
 
-        # onig_match at byte `start`, as StringScanner#match? runs it: the
-        # length matched from `start` (to the end, past any `\K`) or nil.
-        # A search from `start` then finds that same match first.
+        # onig_match at byte `start` over the whole subject, as
+        # StringScanner#match? runs it with a fixed anchor: the length
+        # matched from `start` (to the end, past any `\K`) or nil. A
+        # search from `start` then finds that same match first.
         def at_start(re, subject, start)
-          scanner = StringScanner.new(subject)
+          scanner = StringScanner.new(subject, fixed_anchor: true)
           scanner.pos = start
           scanner.match?(re)
         end
@@ -206,17 +215,6 @@ module Ze0
         end
       end
 
-      # A case whose pattern or subject holds characters of an encoding
-      # the port has no Onigmo encoder for (it reads them bytewise, as
-      # the ASCII engine) or a property of one: a known gap, counted apart.
-      def self.unported?(kase)
-        ported = ->(e) { Regexp.const_get(:Pattern)::WIDE.include?(e.name) || e == Encoding::US_ASCII || e == Encoding::BINARY }
-        # A property fixes the pattern to its encoding, whose tables name it.
-        return true if !ported.(kase.pattern.encoding) && kase.pattern.b.match?(/\\[pP]/)
-
-        [kase.pattern, kase.subject].any? { |s| !s.ascii_only? && !ported.(s.encoding) }
-      end
-
       # One case compared: nil when the two agree, else a Divergence.
       Divergence = Struct.new(:kase, :what, :want, :got) do
         def to_s
@@ -225,7 +223,7 @@ module Ze0
       end
 
       class Runner
-        attr_reader :divergences, :count, :timings, :slow, :unported
+        attr_reader :divergences, :count, :timings, :slow
 
         def initialize(oracle: Oracle.new, candidate: Candidate.new, bench: false)
           @oracle = oracle
@@ -235,7 +233,6 @@ module Ze0
           @bench = bench
           @timings = []
           @slow = []
-          @unported = []
           @seen = {}
         end
 
@@ -266,17 +263,13 @@ module Ze0
             return nil
           end
           actual[0] = nil if actual.is_a?(Array) && expected.is_a?(Array) && expected[0].nil?
+          actual = [actual[0], :elsewhere] if actual.is_a?(Array) && actual[0] != :error && expected.is_a?(Array) && expected[1] == :elsewhere
           return nil if expected == actual
 
           diverge(kase, "match", expected, actual)
         end
 
         def diverge(kase, what, want, got)
-          if RegexpDiff.unported?(kase)
-            @unported << kase
-            return nil
-          end
-
           d = Divergence.new(kase, what, want, got)
           @divergences << d
           d
@@ -294,14 +287,21 @@ module Ze0
       ].map { |s| s.dup.force_encoding(Encoding::UTF_8).freeze }.freeze
       BINARY_SUBJECTS = ["\xFF\xFEab".b, "abc\xE9".b, "\xE3\x81\x82".b, "plain".b].map(&:freeze).freeze
 
-      # The cases of one pattern: the fixed subjects and `extra` ones,
-      # each searched from the start and from the middle, searched
-      # backward from the end and matched at the start.
-      def self.cases_for(pattern, options, extra = [])
-        subjects = SUBJECTS + BINARY_SUBJECTS + extra
+      # The cases of one pattern: the fixed subjects (unless `fixed` is
+      # false) and `extra` ones, each searched from the start and from
+      # the middle, searched backward from the end and matched at the start.
+      def self.cases_for(pattern, options, extra = [], fixed: true)
+        subjects = (fixed ? SUBJECTS + BINARY_SUBJECTS : []) + extra
         subjects.flat_map do |subject|
-          mid = subject.bytesize / 2
-          mid += 1 while mid < subject.bytesize && !subject.byteslice(mid, 1).force_encoding(subject.encoding).valid_encoding?
+          # The character boundary nearest the middle, as a character
+          # index ruby turns back into bytes lands on it.
+          half = subject.bytesize / 2
+          mid = 0
+          subject.each_char do |c|
+            break if mid >= half
+
+            mid += c.bytesize
+          end
           rows = [Case.new(pattern, options, subject, 0, "search"), Case.new(pattern, options, subject, subject.bytesize, "backward"),
                   Case.new(pattern, options, subject, 0, "at")]
           rows << Case.new(pattern, options, subject, mid, "search") if mid > 0
@@ -395,27 +395,32 @@ module Ze0
           end
         end
 
-        ENCODINGS = %w[US-ASCII BINARY EUC-JP Windows-31J ISO-8859-1 UTF-16LE].freeze
-        # The engine reads ASCII-compatible patterns only (the port carries
-        # Onigmo's UTF-8 and ASCII encoders).
-        PATTERN_ENCODINGS = (ENCODINGS - %w[UTF-16LE]).freeze
+        # Every encoding ruby reads a pattern or a subject in; the ones
+        # whose engine differs most from UTF-8's come up more often.
+        ENCODINGS = (Encoding.list.reject(&:dummy?).map(&:name) +
+                     %w[US-ASCII BINARY EUC-JP Windows-31J Shift_JIS ISO-8859-1 UTF-16LE UTF-16BE UTF-32LE UTF-32BE GB18030 Big5 EUC-TW CESU-8 Emacs-Mule]).freeze
 
         def subject
-          alphabet = ["a", "b", "c", "x", " ", "\n", "1", "A", "é", "日", "ß", "K", "-", "_", "\t", "\u{1F600}"]
-          recode((@rng.rand(12)).times.map { alphabet.sample(random: @rng) }.join)
+          alphabet = ["a", "b", "c", "x", " ", "\n", "1", "A", "é", "日", "ß", "K", "-", "_", "\t", "\u{1F600}", "あ", "ア", "Ａ", "ｱ", "Ω", "я", "Я", "ς", "Σ", "\u00FF", "\u0130", "ı", "中", "한"]
+          (@rng.rand(12)).times.map { alphabet.sample(random: @rng) }.join
         end
 
         # A String in UTF-8 most of the time, else carried to another
         # encoding: converted where it can be, its bytes relabeled where not.
         def recode(s, pattern: false)
-          return s if @rng.rand < 0.7
+          return s if @rng.rand < (pattern ? 0.5 : 0.4)
 
-          encoding = Encoding.find((pattern ? PATTERN_ENCODINGS : ENCODINGS).sample(random: @rng))
-          begin
-            s.encode(encoding)
-          rescue EncodingError
-            s.dup.force_encoding(encoding)
-          end
+          carry(s, Encoding.find(ENCODINGS.sample(random: @rng)))
+        end
+
+        # `s` in `encoding`: converted, a character the encoding lacks
+        # as "?", or now and then its bytes relabeled as they are.
+        def carry(s, encoding)
+          return s.dup.force_encoding(encoding) if @rng.rand < 0.1
+
+          s.encode(encoding, invalid: :replace, undef: :replace)
+        rescue EncodingError
+          s.dup.force_encoding(encoding)
         end
 
         def options
@@ -427,8 +432,154 @@ module Ze0
           while out.size < count
             pat = recode(@rng.rand < 0.5 ? malformed : pattern, pattern: true)
             opts = options
-            subjects = [subject, subject]
-            RegexpDiff.cases_for(pat, opts, subjects).each { |c| out << c }
+            subjects = [recode(subject), recode(subject)]
+            own = pat.encoding != Encoding::UTF_8
+            if own
+              alphabet_subjects = Array.new(4) { carry(subject, pat.encoding) }
+              subjects.concat(alphabet_subjects)
+            end
+            RegexpDiff.cases_for(pat, opts, subjects, fixed: !own || @rng.rand < 0.2).each { |c| out << c }
+          end
+          out.first(count)
+        end
+      end
+
+      # Well-formed patterns and subjects written in one encoding at a
+      # time, from characters that encoding holds: what the engine reads
+      # of each encoder (lengths, heads, folds, classes, properties,
+      # newlines) meets text it can match.
+      class EncodingFuzz
+        # One of each encoder family ruby has, and a replica or two.
+        ENCODINGS = %w[
+          US-ASCII ASCII-8BIT UTF-8 UTF8-MAC CESU-8 UTF-16LE UTF-16BE UTF-32LE UTF-32BE
+          EUC-JP eucJP-ms CP51932 Shift_JIS Windows-31J MacJapanese SJIS-KDDI Big5 Big5-HKSCS CP950 GBK CP949 EUC-KR GB2312
+          EUC-TW GB18030 Emacs-Mule stateless-ISO-2022-JP
+          ISO-8859-1 ISO-8859-2 ISO-8859-3 ISO-8859-4 ISO-8859-5 ISO-8859-6 ISO-8859-7 ISO-8859-8 ISO-8859-9 ISO-8859-10
+          ISO-8859-11 ISO-8859-13 ISO-8859-14 ISO-8859-15 ISO-8859-16 KOI8-R KOI8-U Windows-1250 Windows-1251 Windows-1252
+          Windows-1253 Windows-1254 Windows-1257 Windows-1255 Windows-1256 TIS-620 IBM437 macRoman
+        ].freeze
+
+        # Characters to look for in each encoding: Latin letters and
+        # their cases, the Latin-1 sharp s and dotted/dotless i, Greek,
+        # Cyrillic, fullwidth and halfwidth forms, kana, CJK, Hangul and
+        # a character past the BMP.
+        UNICODE = ("ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿĀāĄąĆćČčĘęŁłŃńŒœŠšŸŽžİı" \
+                   "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθικλμνξοπρσςτυφχψωΆάЁЂЃЄАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяёђѓє" \
+                   "ＡＢＣＺａｂｃｚ０１ｱｲｳﾝｰあいうえおかがアイウエオカガー日本語中文字漢字한국어가각" \
+                   "×÷€™£¥§¶°±²³µ¼½¾¿¡«»" \
+                   "\u{1F600}\u{10000}אבابกข").each_char.to_a.freeze
+        ASCII = ["a", "b", "k", "s", "z", "A", "B", "K", "S", "Z", "0", "9", " ", "\n", "_", "-", ".", "/", "(", "\t"].freeze
+        ATOMS = %w[. \\w \\W \\s \\S \\d \\h \\b \\B ^ $ \\A \\z \\Z \\G [[:alpha:]] [[:^alnum:]] [[:upper:]] [[:lower:]] [[:punct:]]
+                   [[:print:]] [[:graph:]] [[:space:]] [[:word:]] [[:^word:]] \\R \\X \\p{Alpha} \\p{^Alpha} \\p{Hiragana} \\p{Katakana} \\p{Han}
+                   \\p{Latin} \\p{Greek} \\p{Cyrillic} \\p{Word} \\p{Upper} \\1 \\k<n> (?i) (?-i) (?m) (?a) (?u) (?d)].freeze
+        QUANTS = ["", "", "", "", "*", "+", "?", "{2}", "{1,3}", "*?", "+?", "?+", "{0,2}?"].freeze
+
+        def initialize(seed)
+          @rng = Random.new(seed)
+          @repertoire = {}
+        end
+
+        # The characters of `enc` to build from: ASCII, what converts,
+        # and random byte sequences ruby calls valid.
+        def repertoire(enc)
+          @repertoire[enc] ||= begin
+            ascii = ASCII.map { |c| c.encode(enc) }
+            wide = UNICODE.filter_map do |c|
+              # A converter marks what it writes valid without looking; the
+              # bytes are scanned again under the encoding itself.
+              s = c.encode(enc).b.force_encoding(enc)
+              s.valid_encoding? && s.length == 1 ? s : nil
+            rescue EncodingError
+              nil
+            end
+            if wide.size < 12
+              rng = Random.new(enc.name.sum)
+              max = Regexp.const_get(:Pattern).mbmaxlen(enc)
+              4000.times do
+                len = 1 + rng.rand(max)
+                s = Array.new(len) { rng.rand(256) }.pack("C*").force_encoding(enc)
+                next unless s.valid_encoding? && s.length == 1 && !s.ascii_only?
+
+                wide << s
+                break if wide.size >= 40
+              end
+            end
+            (ascii + wide.uniq).freeze
+          end
+        end
+
+        def char(enc) = repertoire(enc).sample(random: @rng)
+
+        # A character written so the pattern means it literally.
+        def literal(enc)
+          c = char(enc)
+          c.ascii_only? || c.encode("UTF-8", invalid: :replace, undef: :replace).match?(/\A[\w\p{L}]\z/) ? Regexp.escape(c) : c
+        rescue EncodingError
+          c
+        end
+
+        def syntax(text, enc) = text.encode(enc)
+
+        def atom(enc, depth)
+          case @rng.rand(10)
+          when 0, 1, 2 then literal(enc)
+          when 3, 4 then syntax(ATOMS.sample(random: @rng), enc)
+          when 5
+            a, b = [char(enc), char(enc)].sort_by(&:ord)
+            s = syntax("[", enc)
+            s << syntax("^", enc) if @rng.rand < 0.3
+            s << Regexp.escape(a) << syntax("-", enc) << Regexp.escape(b) << literal(enc) << syntax("]", enc)
+          when 6
+            s = syntax("(?<=", enc) << literal(enc) << syntax(")", enc)
+            s
+          when 7, 8
+            return literal(enc) if depth > 2
+
+            open = ["(", "(?:", "(?<n>", "(?=", "(?!", "(?>", "(?i:", "(?<!"].sample(random: @rng)
+            s = syntax(open, enc) << pattern(enc, depth + 1)
+            s << syntax("|", enc) << pattern(enc, depth + 1) if @rng.rand < 0.3
+            s << syntax(")", enc)
+          else
+            s = literal(enc) << literal(enc) << literal(enc)
+            s
+          end
+        end
+
+        def pattern(enc, depth = 0)
+          out = String.new(encoding: enc)
+          (1 + @rng.rand(4)).times { out << atom(enc, depth) << syntax(QUANTS.sample(random: @rng), enc) }
+          out
+        end
+
+        def subject(enc)
+          out = String.new(encoding: enc)
+          @rng.rand(14).times { out << char(enc) }
+          out
+        end
+
+        def options
+          [0, 0, IGNORECASE, IGNORECASE, MULTILINE, IGNORECASE | MULTILINE, EXTENDED, FIXEDENCODING].sample(random: @rng)
+        end
+
+        # The cases of one pattern over subjects in its encoding: searched
+        # from each character boundary, backward from the end and from
+        # the middle, and matched at the start and a boundary.
+        def cases(count)
+          out = []
+          while out.size < count
+            enc = Encoding.find(ENCODINGS.sample(random: @rng))
+            pat = pattern(enc)
+            opts = options
+            5.times do
+              subj = subject(enc)
+              bounds = [0]
+              subj.each_char { |c| bounds << bounds.last + c.bytesize }
+              bounds.each { |at| out << Case.new(pat, opts, subj, at, "search") }
+              out << Case.new(pat, opts, subj, subj.bytesize, "backward")
+              out << Case.new(pat, opts, subj, bounds[bounds.size / 2], "backward")
+              out << Case.new(pat, opts, subj, 0, "at")
+              out << Case.new(pat, opts, subj, bounds.sample(random: @rng), "at")
+            end
           end
           out.first(count)
         end

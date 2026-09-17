@@ -49,7 +49,7 @@ class OnigMatchTest < Minitest::Test
 
   # The kernel's answer: nil, [:error, code], or [position, offsets].
   def kernel(pat, opts, subject, start: 0, backward: false, at: false, limit: 0)
-    enc = subject.encoding == Encoding::UTF_8 ? O::Enc::UTF8_ENC : O::Enc::ASCII_ENC
+    enc = O::Enc.for(subject.encoding)
     reg, = O.compile(pat.b, opts, enc)
     prog = O::Program.pack(reg)
     pbuf = Fiddle::Pointer.malloc(prog.bytesize, Fiddle::RUBY_FREE)

@@ -7,12 +7,18 @@ Machine.import "clock_gettime", [I32, Ptr] => I32
 
 # The program header, in rt/core/regexp/onig/program.rb's field order.
 Machine.struct :OnigProg,
-  magic: Word, enc: Word, options: Word, num_mem: Word, num_repeat: Word,
+  magic: Word, enc_off: Word, options: Word, num_mem: Word, num_repeat: Word,
   num_null_check: Word, num_call: Word, bt_mem_start: Word, bt_mem_end: Word,
   pop_level: Word, code_off: Word, code_len: Word, repeat_off: Word,
   optimize: Word, threshold_len: Word, anchor: Word, sub_anchor: Word,
   anchor_dmin: Word, anchor_dmax: Word, dmin: Word, dmax: Word,
   exact_off: Word, exact_len: Word, map_off: Word, case_fold_flag: Word
+
+# The encoding descriptor of a program (rt/kernel/onig_enc.rb).
+sig [Ptr] => Word
+machine def zr_onig_prog_enc(prog)
+  Machine.word(prog + OnigProg.enc_off(prog))
+end
 
 ONIG_MISMATCH = 0 - 1
 ONIGERR_MEMORY = 0 - 5
@@ -247,7 +253,7 @@ machine def zr_onig_op_exact(m, op)
     lowbuf = Machine.slot(ONIG_MBC_CASE_FOLD_MAXLEN)
     cell = Machine.slot(8)
     Machine.store64(cell, 0, Machine.word(s))
-    len = zr_onig_mbc_case_fold(OnigMatch.enc(m), cell, e, lowbuf)
+    len = zr_onig_mbc_case_fold(OnigMatch.enc(m), OnigMatch.case_fold(m), cell, e, lowbuf)
     s = Machine.ptr(Machine.load64(cell, 0))
     return ONIG_OP_FAIL if s > e
     q = lowbuf
@@ -273,7 +279,7 @@ machine def zr_onig_op_exact(m, op)
       sprev = s
       return ONIG_OP_FAIL if s + 1 > e
       Machine.store64(cell, 0, Machine.word(s))
-      len = zr_onig_mbc_case_fold(OnigMatch.enc(m), cell, e, lowbuf)
+      len = zr_onig_mbc_case_fold(OnigMatch.enc(m), OnigMatch.case_fold(m), cell, e, lowbuf)
       s = Machine.ptr(Machine.load64(cell, 0))
       return ONIG_OP_FAIL if s > e
       q = lowbuf
@@ -490,7 +496,7 @@ machine def zr_onig_op_anychar(m, op)
     n = zr_onig_enclen_approx(enc, s, e)
     return ONIG_OP_FAIL if s + n > e
     if op == OP_ANYCHAR
-      return ONIG_OP_FAIL if zr_onig_newline_p(s, e)
+      return ONIG_OP_FAIL if zr_onig_newline_p(enc, s, e)
     end
     OnigMatch.set_s(m, s + n)
     OnigMatch.set_sprev(m, sbegin)
@@ -530,7 +536,7 @@ machine def zr_onig_op_anychar(m, op)
       end
     else
       return ONIG_OP_FAIL if s + n > e
-      return ONIG_OP_FAIL if zr_onig_newline_p(s, e)
+      return ONIG_OP_FAIL if zr_onig_newline_p(enc, s, e)
       sprev = s
       s = s + n
     end
@@ -618,7 +624,7 @@ machine def zr_onig_op_anchor(m, op)
       return ONIG_OP_FAIL if (mopts & ONIG_OPTION_NOTBOL) != 0
       return ONIG_OP_NEXT
     end
-    if zr_onig_newline_p(sprev, e) && s != e
+    if zr_onig_newline_p(enc, sprev, e) && s != e
       return ONIG_OP_NEXT
     end
     return ONIG_OP_FAIL
@@ -627,7 +633,7 @@ machine def zr_onig_op_anchor(m, op)
     if s == e
       return ONIG_OP_FAIL if (mopts & ONIG_OPTION_NOTEOL) != 0
       return ONIG_OP_NEXT
-    elsif zr_onig_newline_p(s, e)
+    elsif zr_onig_newline_p(enc, s, e)
       return ONIG_OP_NEXT
     end
     return ONIG_OP_FAIL
@@ -636,7 +642,7 @@ machine def zr_onig_op_anchor(m, op)
     if s == e
       return ONIG_OP_FAIL if (mopts & ONIG_OPTION_NOTEOL) != 0
       return ONIG_OP_NEXT
-    elsif zr_onig_newline_p(s, e)
+    elsif zr_onig_newline_p(enc, s, e)
       ss = s + zr_onig_enclen(enc, s, e)
       return ONIG_OP_NEXT if ss == e
     end
@@ -665,7 +671,7 @@ machine def zr_onig_backref_one(m, mem, ic)
   return Machine.ptr(0) if s + n > e
   sprev = s
   if ic != 0
-    s = zr_onig_string_cmp_ic(enc, pstart, s, n, e)
+    s = zr_onig_string_cmp_ic(enc, OnigMatch.case_fold(m), pstart, s, n, e)
     return Machine.ptr(0) if s == 0
   else
     q = pstart
@@ -721,7 +727,7 @@ machine def zr_onig_op_backref(m, op)
         if s + n <= e
           sprev = s
           if op == OP_BACKREF_MULTI_IC
-            swork = zr_onig_string_cmp_ic(enc, pstart, s, n, e)
+            swork = zr_onig_string_cmp_ic(enc, OnigMatch.case_fold(m), pstart, s, n, e)
           else
             swork = s
             q = pstart

@@ -822,10 +822,10 @@ class Regexp
         node
       end
 
-      # propname2ctype
+      # propname2ctype: the encoding's lookup, reading the name as ASCII.
       def propname2ctype(propname)
         name = propname.b
-        ctype = @enc.property_name_to_ctype(name, 0, name.bytesize)
+        ctype = @enc.property_name_to_ctype(name, 0, name.bytesize, Enc::ASCII_ENC)
         raise Error.new(ctype, name, @enc) if ctype < 0
 
         ctype

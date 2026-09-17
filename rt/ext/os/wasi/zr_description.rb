@@ -1083,27 +1083,54 @@ module Ze0
         d zr_onig_push_cache_point Void m:Ptr index:Word mask:Word
         d zr_onig_check_match_cache Word m:Ptr pbegin:Ptr
         d zr_onig_fail_match_cache Word m:Ptr
+        d zr_onig_enc_kind Word enc:Word
+        d zr_onig_enc_single_byte_p Bool enc:Word
+        d zr_onig_enc_byte Word enc:Word field:Word i:Word
+        d zr_onig_enc_trans Word enc:Word state:Word c:Word
         d zr_onig_utf8_trans Word state:Word c:Word
         d zr_onig_utf8_precise_len Word p:Ptr e:Ptr
+        d zr_onig_mb_need Word enc:Word k:Word first:Word state:Word
+        d zr_onig_mb_precise_len Word enc:Word p:Ptr e:Ptr
+        d zr_onig_valid_codepoint_p Bool c:Word
+        d zr_onig_wide_precise_len Word enc:Word p:Ptr e:Ptr
+        d zr_onig_precise_len Word enc:Word p:Ptr e:Ptr
+        d zr_onig_mbclen Word enc:Word p:Ptr e:Ptr
         d zr_onig_enclen Word enc:Word p:Ptr e:Ptr
         d zr_onig_enclen_approx Word enc:Word p:Ptr e:Ptr
         d zr_onig_mbc_head_p Bool enc:Word p:Ptr e:Ptr
+        d zr_onig_mbn_to_code Word p:Ptr e:Ptr len:Word
+        d zr_onig_utf8_to_code Word p:Ptr e:Ptr
+        d zr_onig_cesu8_to_code Word enc:Word p:Ptr e:Ptr
+        d zr_onig_decode3 Word p:Ptr
         d zr_onig_mbc_to_code Word enc:Word p:Ptr e:Ptr
         d zr_onig_code_to_mbc Word enc:Word code:Word buf:Ptr
+        d zr_onig_store16 Void buf:Ptr v:Word big:Bool
+        d zr_onig_store_utf8_3 Void buf:Ptr code:Word
+        d zr_onig_adjust_tail Ptr s:Ptr q:Ptr len:Word
+        d zr_onig_euc_left_adjust Ptr enc:Word start:Ptr s:Ptr e:Ptr
+        d zr_onig_trail_left_adjust Ptr enc:Word start:Ptr s:Ptr e:Ptr
+        d zr_onig_gb18030_left_adjust Ptr enc:Word start:Ptr s:Ptr e:Ptr
+        d zr_onig_gb18030_moves Ptr
         d zr_onig_left_adjust Ptr enc:Word start:Ptr s:Ptr e:Ptr
         d zr_onig_right_adjust Ptr enc:Word start:Ptr s:Ptr e:Ptr
         d zr_onig_prev_char_head Ptr enc:Word start:Ptr s:Ptr e:Ptr
         d zr_onig_step_back Ptr enc:Word start:Ptr s:Ptr e:Ptr n:Word
-        d zr_onig_newline_p Bool p:Ptr e:Ptr
+        d zr_onig_newline_p Bool enc:Word p:Ptr e:Ptr
         d zr_onig_in_code_range_p Bool ranges:Ptr code:Word
+        d zr_onig_ascii_word_p Bool code:Word
+        d zr_onig_wide_code_p Bool enc:Word code:Word
         d zr_onig_code_word_p Bool enc:Word code:Word
         d zr_onig_mbc_word_p Bool enc:Word s:Ptr e:Ptr
         d zr_onig_mbc_ascii_word_p Bool enc:Word s:Ptr e:Ptr
         d zr_onig_ascii_lower Word c:Word
         d zr_onig_fold_lookup Ptr code:Word
-        d zr_onig_mbc_case_fold Word enc:Word pp:Ptr e:Ptr fold:Ptr
-        d zr_onig_string_cmp_ic Ptr enc:Word s1:Ptr s2:Ptr mblen:Word text_end:Ptr
-        d zr_onig_str_lower_case_match Bool enc:Word t:Ptr tend:Ptr p:Ptr e:Ptr
+        d zr_onig_unicode_case_fold Word enc:Word p:Ptr e:Ptr fold:Ptr
+        d zr_onig_jis_lower Word kind:Word code:Word
+        d zr_onig_jis_case_fold Word enc:Word p:Ptr e:Ptr fold:Ptr
+        d zr_onig_mbc_case_fold Word enc:Word flag:Word pp:Ptr e:Ptr fold:Ptr
+        d zr_onig_string_cmp_ic Ptr enc:Word flag:Word s1:Ptr s2:Ptr mblen:Word text_end:Ptr
+        d zr_onig_str_lower_case_match Bool enc:Word flag:Word t:Ptr tend:Ptr p:Ptr e:Ptr
+        d zr_onig_prog_enc Word prog:Ptr
         d zr_onig_get_i32 Word p:Ptr
         d zr_onig_bitset_at Bool p:Ptr c:Word
         d zr_onig_repeat_range Word m:Ptr id:Word which:Word
@@ -1139,9 +1166,9 @@ module Ze0
         d zr_onig_map Ptr prog:Ptr
         d zr_onig_map_at Word prog:Ptr c:Word
         d zr_onig_slow_search Ptr enc:Word target:Ptr target_end:Ptr text:Ptr text_end:Ptr text_range:Ptr
-        d zr_onig_slow_search_ic Ptr enc:Word target:Ptr target_end:Ptr text:Ptr text_end:Ptr text_range:Ptr
+        d zr_onig_slow_search_ic Ptr enc:Word flag:Word target:Ptr target_end:Ptr text:Ptr text_end:Ptr text_range:Ptr
         d zr_onig_slow_search_backward Ptr enc:Word target:Ptr target_end:Ptr text:Ptr adjust_text:Ptr text_end:Ptr text_start:Ptr
-        d zr_onig_slow_search_backward_ic Ptr enc:Word target:Ptr target_end:Ptr text:Ptr adjust_text:Ptr text_end:Ptr text_start:Ptr
+        d zr_onig_slow_search_backward_ic Ptr enc:Word flag:Word target:Ptr target_end:Ptr text:Ptr adjust_text:Ptr text_end:Ptr text_start:Ptr
         d zr_onig_bm_search_notrev Ptr prog:Ptr target:Ptr target_end:Ptr text:Ptr text_end:Ptr text_range:Ptr
         d zr_onig_bm_search Ptr prog:Ptr target:Ptr target_end:Ptr text:Ptr text_end:Ptr text_range:Ptr
         d zr_onig_bm_search_notrev_ic Ptr prog:Ptr target:Ptr target_end:Ptr text:Ptr text_end:Ptr text_range:Ptr
@@ -2205,10 +2232,24 @@ module Ze0
         c ONIG_LONG_MAX_LIMIT 4611686018427387904
         c STK_MATCH_CACHE_POINT 3328
         c STK_ATOMIC_MATCH_CACHE_POINT 3584
-        c ONIG_ENC_ASCII 0
-        c ONIG_ENC_UTF8 1
+        c ONIG_ENC_KIND_SINGLE_BYTE 0
+        c ONIG_ENC_KIND_UTF8 1
+        c ONIG_ENC_KIND_EUC_JP 2
+        c ONIG_ENC_KIND_SHIFT_JIS 3
+        c ONIG_ENC_KIND_TRAIL 4
+        c ONIG_ENC_KIND_EUC_KR 5
+        c ONIG_ENC_KIND_EUC_TW 6
+        c ONIG_ENC_KIND_GB18030 7
+        c ONIG_ENC_KIND_EMACS_MULE 8
+        c ONIG_ENC_KIND_CESU8 9
+        c ONIG_ENC_KIND_UTF16LE 10
+        c ONIG_ENC_KIND_UTF16BE 11
+        c ONIG_ENC_KIND_UTF32LE 12
+        c ONIG_ENC_KIND_UTF32BE 13
+        c ONIG_ENC_FLAG_SHARP_S 1
         c ONIG_CTYPE_WORD_BIT 4096
         c ONIG_MBC_CASE_FOLD_MAXLEN 18
+        c ONIG_CASE_FOLD_MULTI_CHAR 1073741824
         c ONIG_MISMATCH -1
         c ONIGERR_MEMORY -5
         c ONIGERR_UNDEFINED_BYTECODE -13
@@ -2672,7 +2713,8 @@ module Ze0
         s AllocTrace 32 8 rows:0:Ptr capa:8:Word used:16:Word on:24:Word
         s AllocRow 48 8 cell:0:Word file:8:Ptr file_len:16:Word line:24:Word meta:32:Ptr generation:40:Word
         s OnigCacheOp 56 8 addr:0:Ptr cache_point:8:Word outer_repeat_mem:16:Word at_outer:24:Word in_outer:32:Word lookaround_nesting:40:Word match_addr:48:Ptr
-        s OnigProg 200 8 magic:0:Word enc:8:Word options:16:Word num_mem:24:Word num_repeat:32:Word num_null_check:40:Word num_call:48:Word bt_mem_start:56:Word bt_mem_end:64:Word pop_level:72:Word code_off:80:Word code_len:88:Word repeat_off:96:Word optimize:104:Word threshold_len:112:Word anchor:120:Word sub_anchor:128:Word anchor_dmin:136:Word anchor_dmax:144:Word dmin:152:Word dmax:160:Word exact_off:168:Word exact_len:176:Word map_off:184:Word case_fold_flag:192:Word
+        s OnigEnc 80 8 kind:0:Word min_len:8:Word max_len:16:Word flags:24:Word len_off:32:Word trail_off:40:Word lower_off:48:Word word_off:56:Word trans_off:64:Word map_off:72:Word
+        s OnigProg 200 8 magic:0:Word enc_off:8:Word options:16:Word num_mem:24:Word num_repeat:32:Word num_null_check:40:Word num_call:48:Word bt_mem_start:56:Word bt_mem_end:64:Word pop_level:72:Word code_off:80:Word code_len:88:Word repeat_off:96:Word optimize:104:Word threshold_len:112:Word anchor:120:Word sub_anchor:128:Word anchor_dmin:136:Word anchor_dmax:144:Word dmin:152:Word dmax:160:Word exact_off:168:Word exact_len:176:Word map_off:184:Word case_fold_flag:192:Word
         s OnigStk 48 8 type:0:Word null_check:8:Word a:16:Word b:24:Word c:32:Word d:40:Word
         s OnigMatch 312 8 prog:0:Ptr code:8:Ptr enc:16:Word options:24:Word case_fold:32:Word num_mem:40:Word pop_level:48:Word bt_mem_start:56:Word bt_mem_end:64:Word str:72:Ptr text_end:80:Ptr sstart:88:Ptr gpos:96:Ptr region:104:Ptr mopts:112:Word stk_base:120:Ptr stk_end:128:Ptr stk:136:Ptr stk_alloc:144:Ptr stack_p:152:Ptr stack_n:160:Word repeat_stk:168:Ptr mem_start_stk:176:Ptr mem_end_stk:184:Ptr counter:192:Word end_time:200:Word limit:208:Word p:216:Ptr s:224:Ptr sprev:232:Ptr pkeep:240:Ptr aend:248:Ptr best_len:256:Word match_cache_status:264:Word num_fails:272:Word num_cache_opcodes:280:Word cache_opcodes:288:Ptr num_cache_points:296:Word match_cache_buf:304:Ptr
         s REnv 64 8 basic:0:RBasic parent:16:Value slots:24:Ptr nslots:32:Word names:40:Ptr cell:48:Value home:56:Ptr

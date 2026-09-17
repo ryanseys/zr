@@ -5,6 +5,7 @@
 # offsets (lib/ze0/harness/regexp_diff.rb).
 #
 #   ruby tools/regexp_diff.rb --fuzz 3000 [--seed 1]
+#   ruby tools/regexp_diff.rb --encodings 3000 [--seed 1]
 #   ruby tools/regexp_diff.rb --harvest [--roots test,spec,ruby] [--limit 20000]
 #   ruby tools/regexp_diff.rb --cases test/regexp/diff_sample.jsonl
 #   ruby tools/regexp_diff.rb --harvest --fuzz 2000 --sample 2000 --out test/regexp/diff_sample.jsonl
@@ -25,13 +26,14 @@ ROOTS = {
   "ruby" => File.expand_path("~/dev/github.com/ruby/ruby/test/ruby/test_regexp.rb"),
 }.freeze
 
-options = { show: 20, seed: 1, fuzz: 0, roots: %w[test], limit: 200_000 }
+options = { show: 20, seed: 1, fuzz: 0, encodings: 0, roots: %w[test], limit: 200_000 }
 cases = []
 argv = ARGV.dup
 until argv.empty?
   word = argv.shift
   case word
   when "--fuzz" then options[:fuzz] = Integer(argv.shift)
+  when "--encodings" then options[:encodings] = Integer(argv.shift)
   when "--seed" then options[:seed] = Integer(argv.shift)
   when "--harvest" then options[:harvest] = true
   when "--roots" then options[:roots] = argv.shift.split(",")
@@ -65,11 +67,11 @@ if options[:harvest]
   patterns.each_key { |pattern, opts| cases.concat(diff.cases_for(pattern, opts, subjects_by_pattern[[pattern, opts]].uniq.first(8))) }
 end
 cases.concat(diff::Fuzz.new(options[:seed]).cases(options[:fuzz])) if options[:fuzz] > 0
+cases.concat(diff::EncodingFuzz.new(options[:seed]).cases(options[:encodings])) if options[:encodings] > 0
 cases = cases.first(options[:limit])
 if options[:sample]
-  # As many patterns as the sample holds cases, then more cases of them;
-  # none the port has no encoder for.
-  shuffled = cases.shuffle(random: Random.new(options[:seed])).reject { |c| diff.unported?(c) }
+  # As many patterns as the sample holds cases, then more cases of them.
+  shuffled = cases.shuffle(random: Random.new(options[:seed]))
   distinct = shuffled.uniq { |c| [c.pattern.b, c.pattern.encoding, c.options] }
   cases = (distinct + (shuffled - distinct)).first(options[:sample])
   if options[:out]
@@ -77,7 +79,7 @@ if options[:sample]
     warn "wrote #{cases.size} cases to #{options[:out]}"
   end
 end
-abort "regexp_diff: no cases; --fuzz N, --harvest or --cases FILE" if cases.empty?
+abort "regexp_diff: no cases; --fuzz N, --encodings N, --harvest or --cases FILE" if cases.empty?
 
 Regexp.timeout = 2.0
 runner = diff::Runner.new(bench: options[:bench])
@@ -105,5 +107,5 @@ if options[:bench]
   puts format("total kernel %.3fs, ruby %.3fs, ratio %.2fx", total_k / 1e9, total_r / 1e9, total_k.to_f / total_r)
 end
 runner.slow.each { |kase, ns| puts format("SLOW %s (ruby %.2fs; the kernel ran past the limit)", kase.label, ns / 1e9) }
-puts "#{runner.count} cases, #{runner.divergences.size} divergences, #{runner.slow.size} slow, #{runner.unported.size} unported, #{elapsed.round(1)}s"
+puts "#{runner.count} cases, #{runner.divergences.size} divergences, #{runner.slow.size} slow, #{elapsed.round(1)}s"
 exit [runner.divergences.size, 255].min

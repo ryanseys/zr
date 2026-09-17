@@ -17,7 +17,7 @@ class Regexp
     STACK_POP_LEVEL_ALL = 2
 
     # The tree of `pattern` (bytes) under `options`, as [root, reg,
-    # warnings]. `enc` is Enc::UTF8_ENC or Enc::ASCII_ENC.
+    # warnings]. `enc` is an Enc encoding (Enc.for).
     def self.parse(pattern, options, enc)
       reg = Reg.new(options | Syntax::RUBY_OPTIONS, enc)
       warnings = Warnings.new

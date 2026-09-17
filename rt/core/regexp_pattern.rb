@@ -21,9 +21,9 @@ class Regexp
     # The encodings whose characters the engine reads as UTF-8.
     WIDE = %w[UTF-8 UTF8-MAC UTF8-DoCoMo UTF8-KDDI UTF8-SoftBank].freeze
 
-    # The engine for a pattern of `enc`: Onigmo's UTF-8 for a UTF-8-like
-    # encoding, its bytewise ASCII for any other.
-    def engine_for(enc) = WIDE.include?(enc.name) ? Onig::Enc::UTF8_ENC : Onig::Enc::ASCII_ENC
+    # The engine for a pattern of `enc`: the Onigmo encoding ruby reads
+    # it with.
+    def engine_for(enc) = Onig::Enc.for(enc)
 
     # rb_reg_initialize_str and rb_reg_initialize: `source` compiled under
     # the option `bits`, as [encoding, bits, compiled, warnings]: the
@@ -211,83 +211,116 @@ class Regexp
 
     # rb_reg_expr_str: `text` as a message or inspect shows it between
     # `term`s. Read under `enc`; `resenc` is the encoding the reader
-    # sees (nil for none). Text that is all printable, has no bare
-    # `term` and no non-ASCII character a reader could not show goes
-    # as it is; otherwise an escape keeps its next character, a bare
-    # `term` takes a backslash, a non-ASCII character is written as
-    # \uXXXX (or \xHH) when there is a reader, a control character as
-    # \xHH, whitespace as itself. The answer is bytes; the caller sets
-    # the encoding.
+    # sees (nil for none). Text of an ASCII-compatible encoding that is
+    # valid, all printable, has no bare `term` and no non-ASCII character
+    # a reader could not show goes as it is; otherwise an escape keeps
+    # its next character, a bare `term` takes a backslash, a character
+    # past ASCII is written as \uXXXX (or \xHH) when there is a reader, a
+    # character that is neither printable nor a space as \xHH, the rest
+    # as they are. "Printable" and "space" are the encoding's own
+    # classes. The answer is bytes; the caller sets the encoding.
     def expr_str(text, enc, resenc, term)
       bytes = text.b
-      typed = bytes.dup.force_encoding(enc)
-      need_escape = !(enc.ascii_compatible? && typed.valid_encoding?)
-      unless need_escape
-        typed.each_char do |c|
-          if c.bytesize > 1 || c.getbyte(0) >= 0x80
-            next if enc == resenc
-
-            need_escape = true
-            break
-          end
-          next if c != term && c.getbyte(0).between?(0x20, 0x7e)
-
+      onig = onig_for(enc)
+      compat = enc.ascii_compatible?
+      n = bytes.bytesize
+      need_escape = !(compat && bytes.dup.force_encoding(enc).valid_encoding?)
+      i = 0
+      while !need_escape && i < n
+        c = bytes.getbyte(i)
+        if c >= 0x80
+          need_escape = true unless enc == resenc
+          i += mbclen(bytes, i, onig)
+        elsif c != term.ord && onig.code_ctype?(c, Onig::CType::PRINT)
+          i += 1
+        else
           need_escape = true
-          break
         end
       end
       return bytes unless need_escape
-
-      unicode = enc.name.start_with?("UTF-") || WIDE.include?(enc.name) || enc.name == "CESU-8"
+    
       out = "".b
       i = 0
-      while i < bytes.bytesize
-        c = bytes.getbyte(i)
-        if c == 0x5c && i + 1 < bytes.bytesize
-          n = 1 + (char_bytes(bytes, i + 1, enc) || 1)
-          out << bytes.byteslice(i, n)
-          i += n
-        elsif c >= 0x80 || !enc.ascii_compatible?
-          len = char_bytes(bytes, i, enc)
-          if len.nil?
-            out << format("\\x%02X", c)
-            i += 1
+      while i < n
+        c, clen = ascget(bytes, i, compat, onig)
+        if c == 0x5c && i + clen < n
+          m = clen + mbclen(bytes, i + clen, onig)
+          out << bytes.byteslice(i, m)
+          i += m
+          next
+        elsif c.nil?
+          clen = precise_mbclen(bytes, i, onig)
+          if clen <= 0
+            out << format("\\x%02X", bytes.getbyte(i))
+            clen = 1
           elsif resenc
-            code = bytes.byteslice(i, len).force_encoding(enc).ord
-            out << if unicode
-                     code < 0x10000 ? format("\\u%04X", code) : format("\\u{%X}", code)
-                   else
-                     code < 0x100 ? format("\\x%02X", code) : format("\\x{%X}", code)
-                   end
-            i += len
+            out << escaped_char(onig.mbc_to_code(bytes, i, n), onig.unicode?)
           else
-            out << bytes.byteslice(i, len)
-            i += len
+            out << bytes.byteslice(i, clen)
           end
         elsif c == term.ord
-          out << "\\" << c
-          i += 1
-        elsif c.between?(0x20, 0x7e) || c == 0x09 || c == 0x0a || c == 0x0b || c == 0x0c || c == 0x0d
-          out << c
-          i += 1
-        else
+          out << "\\" << bytes.byteslice(i, clen)
+        elsif onig.code_ctype?(c, Onig::CType::PRINT)
+          out << bytes.byteslice(i, clen)
+        elsif !onig.code_ctype?(c, Onig::CType::SPACE)
           out << format("\\x%02X", c)
-          i += 1
+        else
+          out << bytes.byteslice(i, clen)
         end
+        i += clen
       end
       out
     end
-
-    # The byte length of the character at `i` in `bytes` under `enc`,
-    # or nil when the bytes there are not one.
-    def char_bytes(bytes, i, enc)
-      max = [MBMAXLEN.fetch(enc.name, 1), bytes.bytesize - i].min
-      (1..max).each do |len|
-        return len if bytes.byteslice(i, len).force_encoding(enc).valid_encoding?
+    
+    # The Onigmo encoding that reads `enc`; a dummy encoding reads as
+    # ASCII-8BIT, which ruby replicates it from.
+    def onig_for(enc) = enc.dummy? ? Onig::Enc::ASCII_ENC : Onig::Enc.for(enc)
+    
+    # rb_enc_ascget: [the ASCII character at `i` and its byte length], or
+    # nil when the character there is past ASCII or no character.
+    def ascget(bytes, i, compat, onig)
+      return nil if i >= bytes.bytesize
+    
+      if compat
+        c = bytes.getbyte(i)
+        return c < 0x80 ? [c, 1] : nil
       end
-      nil
+      len = precise_mbclen(bytes, i, onig)
+      return nil if len <= 0
+    
+      c = onig.mbc_to_code(bytes, i, bytes.bytesize)
+      c < 0x80 ? [c, len] : nil
     end
-
+    
+    # rb_enc_precise_mbclen: a positive length, or the negative
+    # ONIGENC_CONSTRUCT_MBCLEN_* of an invalid or cut character.
+    def precise_mbclen(bytes, i, onig)
+      left = bytes.bytesize - i
+      return -2 if left <= 0
+    
+      len = onig.precise_len(bytes, i, bytes.bytesize)
+      len > 0 && left < len ? -1 - (len - left) : len
+    end
+    
+    # rb_enc_mbclen: the character's length, or the encoding's shortest
+    # where no whole character starts.
+    def mbclen(bytes, i, onig)
+      left = bytes.bytesize - i
+      len = precise_mbclen(bytes, i, onig)
+      return len if len > 0 && len <= left
+    
+      onig.min_len <= left ? onig.min_len : left
+    end
+    
+    # rb_str_buf_cat_escaped_char, for a character past ASCII.
+    def escaped_char(code, unicode)
+      if unicode
+        code < 0x10000 ? format("\\u%04X", code) : format("\\u{%X}", code)
+      else
+        code < 0x100 ? format("\\x%02X", code) : format("\\x{%X}", code)
+      end
+    end
+    
     # rb_reg_preprocess: the text the engine compiles for `source` read in
     # `enc`, and the encoding its characters and escapes fix, or nil:
     # [text (BINARY), fixed]. Ruby decodes the `\u` escapes and the byte
@@ -548,57 +581,24 @@ class Regexp
 
       # rb_enc_precise_mbclen at `at`, refused when no character starts there.
       def char_len(at)
-        raise RegexpError, "invalid multibyte character" if at >= @end
-        return 1 if @b[at] < 0x80 && @enc.ascii_compatible?
+        len = Pattern.precise_mbclen(@s, at, Pattern.onig_for(@enc))
+        raise RegexpError, "invalid multibyte character" if len <= 0
 
-        max = [Pattern.mbmaxlen(@enc), @end - at].min
-        (1..max).each do |len|
-          return len if @s.byteslice(at, len).force_encoding(@enc).valid_encoding?
-        end
-        raise RegexpError, "invalid multibyte character"
+        len
       end
 
       def space?(x) = x == 0x20 || x.between?(0x09, 0x0d)
     end
 
-    # The most bytes one character takes, by encoding name.
-    MBMAXLEN = {
-      "UTF-8" => 4, "UTF8-MAC" => 4, "UTF8-DoCoMo" => 4, "UTF8-KDDI" => 4, "UTF8-SoftBank" => 4, "CESU-8" => 6,
-      "UTF-16LE" => 4, "UTF-16BE" => 4, "UTF-32LE" => 4, "UTF-32BE" => 4,
-      "EUC-JP" => 3, "eucJP-ms" => 3, "CP51932" => 3, "EUC-JIS-2004" => 3, "EUC-TW" => 4, "EUC-KR" => 2, "CP949" => 2,
-      "GB2312" => 2, "GB12345" => 2, "GBK" => 2, "GB18030" => 4, "Big5" => 2, "Big5-HKSCS" => 2, "Big5-UAO" => 2,
-      "Shift_JIS" => 2, "Windows-31J" => 2, "SJIS-DoCoMo" => 2, "SJIS-KDDI" => 2, "SJIS-SoftBank" => 2, "Emacs-Mule" => 4
-    }.freeze
-
-    def mbmaxlen(enc) = MBMAXLEN.fetch(enc.name, 1)
+    # rb_enc_mbmaxlen
+    def mbmaxlen(enc) = onig_for(enc).max_len
 
     # MBCLEN_NEEDMORE_P: whether `bytes` are the start of a character of
     # `enc` that more bytes complete.
-    def needs_more?(bytes, enc)
-      return false if bytes.pack("C*").force_encoding(enc).valid_encoding? || bytes.size >= mbmaxlen(enc)
-      return utf8_prefix?(bytes) if WIDE.include?(enc.name)
-
-      (0..255).any? do |x|
-        longer = bytes + [x]
-        longer.pack("C*").force_encoding(enc).valid_encoding? || needs_more?(longer, enc)
-      end
-    end
+    def needs_more?(bytes, enc) = precise_mbclen(bytes.pack("C*"), 0, onig_for(enc)) < -1
 
     # MBCLEN_INVALID_P: `bytes` are neither a character nor the start of one.
-    def invalid?(bytes, enc)
-      !bytes.pack("C*").force_encoding(enc).valid_encoding? && !needs_more?(bytes, enc)
-    end
-
-    # Whether `bytes` can still grow into one UTF-8 character.
-    def utf8_prefix?(bytes)
-      lead = bytes[0]
-      need = if lead >= 0xf0 && lead <= 0xf4 then 4
-             elsif lead >= 0xe0 && lead <= 0xef then 3
-             elsif lead >= 0xc2 && lead <= 0xdf then 2
-             else 0
-             end
-      bytes.size < need && bytes.drop(1).all? { |x| x >= 0x80 && x <= 0xbf }
-    end
+    def invalid?(bytes, enc) = precise_mbclen(bytes.pack("C*"), 0, onig_for(enc)) == -1
 
     # One `\M-X` / `\C-X` / `\cX` run at `i` as [byte, index past it].
     def escaped_byte(b, i)

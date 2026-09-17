@@ -691,9 +691,14 @@ class Regexp
         p = 0
         pat_end = pat.bytesize
         while p < pat_end
-          if enc.enclen(pat, p, pat_end) != 1
+          if enc.len(pat, p, pat_end) != 1
             len = enc.enclen(pat, p, pat_end)
-            out << pat.byteslice(p, len)
+            if enc.min_len == 1
+              out << pat.byteslice(p, len)
+            else
+              # UTF-16 and UTF-32: each byte as \xHH.
+              len.times { |i| out << format("\\x%02x", pat.getbyte(p + i)).b }
+            end
             p += len
           elsif pat.getbyte(p) == 0x5c
             out << "\\".b

@@ -1,12 +1,17 @@
-# The two encodings ruby hands Onigmo (OnigEncodingType): UTF-8 for a
-# Unicode subject (enc/utf_8.c, enc/unicode.c) and ASCII, the bytewise
-# one every other encoding matches under (enc/ascii.c, regenc.c). A
-# pattern or subject is a binary String and a position is a byte
-# offset into it. A port under the BSD-2-Clause license reproduced in
-# regexp.rb.
+# The encodings ruby hands Onigmo (OnigEncodingType): what the shared
+# helpers of regenc.c do over each encoding's primitives, the
+# single-byte encodings (enc/ascii.c, us_ascii.c, iso_8859_*.c,
+# koi8_*.c, windows_125*.c), and which one reads each of ruby's
+# encodings. The Unicode encodings are in encoding_unicode.rb, the
+# other multibyte ones in encoding_multibyte.rb. A pattern or subject
+# is a binary String and a position is a byte offset into it. A port
+# under the BSD-2-Clause license reproduced in regexp.rb.
 class Regexp
   module Onig
     module Enc
+      # ONIGENC_CONSTRUCT_MBCLEN_INVALID
+      INVALID = -1
+
       # The shared helpers of regenc.c, over the per-encoding primitives.
       class Base
         # onigenc_mbclen: the length of the character at `p`, cut at
@@ -92,7 +97,8 @@ class Regexp
           n.times do |i|
             return sascii.getbyte(i) if p >= e
 
-            c = ascii_lower(mbc_to_code(s, p, e))
+            c = mbc_to_code(s, p, e)
+            c = ascii_lower(c) if c < 0x80
             x = ascii_lower(sascii.getbyte(i)) - c
             return x if x != 0
 
@@ -104,42 +110,22 @@ class Regexp
         # ONIGENC_ASCII_CODE_TO_LOWER_CASE, for a code under 256.
         def ascii_lower(c) = c >= 0x41 && c <= 0x5a ? c + 0x20 : c
 
-        def ascii_code_ctype?(code, ctype) = code < 128 && Unicode.ctype_bit?(code, ctype)
+        # ONIGENC_IS_ASCII_CODE_CTYPE over OnigEncAsciiCtypeTable.
+        def ascii_code_ctype?(code, ctype) = code < 128 && Enc.ascii_ctype?(code, ctype)
+
+        # CTYPE_IS_WORD_GRAPH_PRINT
+        def word_graph_print?(ctype) = ctype == CType::WORD || ctype == CType::GRAPH || ctype == CType::PRINT
 
         def mbc_word?(s, p, e) = code_ctype?(mbc_to_code(s, p, e), CType::WORD)
         def mbc_ascii_word?(s, p, e) = ascii_code_ctype?(mbc_to_code(s, p, e), CType::WORD)
         def mbc_newline?(s, p, e) = p < e && s.getbyte(p) == 0x0a
         def allowed_reverse_match?(_s, _p, _e) = true
         def singlebyte? = max_len == 1
-      end
-
-      # OnigEncodingASCII: one byte per character, ASCII case folding,
-      # the fourteen POSIX property names and nothing more.
-      class ASCII < Base
-        def name = "ASCII-8BIT"
-        def max_len = 1
-        def min_len = 1
         def unicode? = false
-
-        def precise_len(_s, _p, _e) = 1
-        def mbc_to_code(s, p, _e) = s.getbyte(p)
-        def code_to_mbclen(code) = code > 0xff ? Err::INVALID_CODE_POINT_VALUE : 1
-
-        def code_to_mbc(code)
-          raise Error.new(Err::INVALID_CODE_POINT_VALUE) if code > 0xff
-
-          (code & 0xff).chr.b
-        end
-
-        def left_adjust_char_head(_s, _start, p, _e) = p
-        def code_ctype?(code, ctype) = ascii_code_ctype?(code, ctype)
         def ctype_code_range(_ctype) = nil
 
-        # onigenc_ascii_mbc_case_fold: [the folded bytes, the bytes read]
-        def mbc_case_fold(_flag, s, p, _e) = [ascii_lower(s.getbyte(p)).chr.b, 1]
-
         # onigenc_ascii_apply_all_case_fold
-        def apply_all_case_fold(_flag)
+        def ascii_apply_all_case_fold
           (0x41..0x5a).each do |upper|
             lower = upper + 0x20
             yield upper, [lower]
@@ -148,11 +134,43 @@ class Regexp
         end
 
         # onigenc_ascii_get_case_fold_codes_by_str: [[byte length, codes]]
-        def case_fold_codes_by_str(_flag, s, p, _e)
+        def ascii_case_fold_codes_by_str(s, p)
           c = s.getbyte(p)
           if c >= 0x41 && c <= 0x5a then [[1, [c + 0x20]]]
           elsif c >= 0x61 && c <= 0x7a then [[1, [c - 0x20]]]
           else []
+          end
+        end
+
+        # onigenc_apply_all_case_fold_with_map
+        def apply_all_case_fold_with_map(map, ess_tsett, &block)
+          ascii_apply_all_case_fold(&block)
+          map&.each_slice(2) do |from, to|
+            yield from, [to]
+            yield to, [from]
+          end
+          yield 0xdf, [0x73, 0x73] if ess_tsett
+        end
+
+        # onigenc_get_case_fold_codes_by_str_with_map, for a byte map.
+        def case_fold_codes_by_str_with_map(map, ess_tsett, s, p, e)
+          c = s.getbyte(p)
+          if c >= 0x41 && c <= 0x5a
+            items = [[1, [c + 0x20]]]
+            items << [2, [0xdf]] if c == 0x53 && ess_tsett && e > p + 1 && (s.getbyte(p + 1) == 0x53 || s.getbyte(p + 1) == 0x73)
+            items
+          elsif c >= 0x61 && c <= 0x7a
+            items = [[1, [c - 0x20]]]
+            items << [2, [0xdf]] if c == 0x73 && ess_tsett && e > p + 1 && (s.getbyte(p + 1) == 0x73 || s.getbyte(p + 1) == 0x53)
+            items
+          elsif c == 0xdf && ess_tsett
+            [[1, [0x73, 0x73]], [1, [0x53, 0x53]], [1, [0x73, 0x53]], [1, [0x53, 0x73]]]
+          else
+            map&.each_slice(2) do |from, to|
+              return [[1, [to]]] if c == from
+              return [[1, [from]]] if c == to
+            end
+            []
           end
         end
 
@@ -165,361 +183,224 @@ class Regexp
           "ASCII" => CType::ASCII, "Word" => CType::WORD,
         }.freeze
 
-        def property_name_to_ctype(s, p, e)
-          len = strlen(s, p, e)
+        # The name at `p` is read under `reader`: the encoding itself, or
+        # ASCII for the names the parser writes (propname2ctype).
+        def minimum_property_name_to_ctype(s, p, e, reader = self)
+          len = reader.strlen(s, p, e)
           MINIMUM_PROPERTIES.each do |name, ctype|
-            return ctype if len == name.bytesize && with_ascii_strnicmp(s, p, e, name, name.bytesize) == 0
+            return ctype if len == name.bytesize && reader.with_ascii_strnicmp(s, p, e, name, name.bytesize) == 0
           end
           Err::INVALID_CHAR_PROPERTY_NAME
         end
+
+        def property_name_to_ctype(s, p, e, reader = self) = minimum_property_name_to_ctype(s, p, e, reader)
+
+        # What the kernel's matcher reads of this encoding (rt/kernel/
+        # onig_enc.rb): the kind of its primitives, then the tables they
+        # read, as rt/core/regexp/onig/program.rb lays them out.
+        def descriptor
+          Enc.descriptors[name] ||= Enc.descriptor(kernel_kind, min_len, max_len, kernel_tables).freeze
+        end
+
+        def kernel_tables = {}
       end
 
-      # OnigEncodingUTF_8 with Unicode 17.0's tables.
-      class UTF8 < Base
-        INVALID_CODE_FE = 0xfffffffe
-        INVALID_CODE_FF = 0xffffffff
-        VALID_CODE_LIMIT = 0x10ffff
-        PROPERTY_NAME_MAX_SIZE = 46
+      # The kinds of encoding the kernel's matcher tells apart, in
+      # rt/kernel/onig_enc.rb's numbering.
+      KIND_SINGLE_BYTE = 0
+      KIND_UTF8 = 1
+      KIND_EUC_JP = 2
+      KIND_SHIFT_JIS = 3
+      KIND_TRAIL = 4
+      KIND_EUC_KR = 5
+      KIND_EUC_TW = 6
+      KIND_GB18030 = 7
+      KIND_EMACS_MULE = 8
+      KIND_CESU8 = 9
+      KIND_UTF16LE = 10
+      KIND_UTF16BE = 11
+      KIND_UTF32LE = 12
+      KIND_UTF32BE = 13
 
-        def name = "UTF-8"
-        def max_len = 4
-        def min_len = 1
-        def unicode? = true
+      # The descriptor's header: eight 64-bit words (kind, min_len,
+      # max_len, flags, then the offsets of the len, trail, lower and
+      # word tables), two more (trans, map) and the tables after it. An
+      # offset of 0 is a table the encoding has none of.
+      DESCRIPTOR_TABLES = %i[len trail lower word trans map].freeze
+      @descriptors = {}
 
-        ACCEPT = -1
-        FAILURE = -2
+      def self.descriptors = @descriptors
+      FLAG_SHARP_S = 1
 
-        # utf_8.c's `trans` automaton: the state a lead byte starts, and
-        # the state each continuation byte moves to.
-        LEAD = Array.new(256) do |b|
-          if b < 0x80 then ACCEPT
-          elsif b < 0xc2 then FAILURE
-          elsif b < 0xe0 then 1
-          elsif b == 0xe0 then 2
-          elsif b < 0xed then 3
-          elsif b == 0xed then 4
-          elsif b < 0xf0 then 3
-          elsif b == 0xf0 then 5
-          elsif b < 0xf4 then 6
-          elsif b == 0xf4 then 7
-          else FAILURE
-          end
-        end.freeze
+      def self.descriptor(kind, min_len, max_len, tables)
+        flags = tables[:sharp_s] ? FLAG_SHARP_S : 0
+        header_size = (4 + DESCRIPTOR_TABLES.size) * 8
+        body = "".b
+        offsets = DESCRIPTOR_TABLES.map do |name|
+          table = tables[name]
+          next 0 if table.nil?
 
-        # [low, high, next state] for each state 1..7.
-        TRANS = [
-          nil,
-          [0x80, 0xbf, ACCEPT],
-          [0xa0, 0xbf, 1],
-          [0x80, 0xbf, 1],
-          [0x80, 0x9f, 1],
-          [0x90, 0xbf, 3],
-          [0x80, 0xbf, 3],
-          [0x80, 0x8f, 3],
-        ].freeze
-
-        LENGTHS = Array.new(256) do |b|
-          if b < 0xc2 then 1
-          elsif b < 0xe0 then 2
-          elsif b < 0xf0 then 3
-          elsif b < 0xf5 then 4
-          else 1
-          end
-        end.freeze
-
-        # mbc_enc_len: the character's length, -1 for an invalid
-        # sequence, -1-n when n more bytes past `e` would be needed.
-        def precise_len(s, p, e)
-          first = s.getbyte(p)
-          state = LEAD[first]
-          return state == ACCEPT ? 1 : -1 if state < 0
-
-          n = 1
-          loop do
-            return -1 - (LENGTHS[first] - n) if p + n == e
-
-            lo, hi, nxt = TRANS[state]
-            byte = s.getbyte(p + n)
-            state = byte >= lo && byte <= hi ? nxt : FAILURE
-            n += 1
-            return state == ACCEPT ? n : -1 if state < 0
-          end
+          at = header_size + body.bytesize
+          body << table.b
+          body << "\0".b * (((body.bytesize + 7) & ~7) - body.bytesize)
+          at
         end
-
-        def mbc_to_code(s, p, e)
-          len = precise_len(s, p, e)
-          c = s.getbyte(p)
-          if len > 1
-            len -= 1
-            n = c & ((1 << (6 - len)) - 1)
-            i = 1
-            while len > 0
-              n = (n << 6) | (s.getbyte(p + i) & 0x3f)
-              i += 1
-              len -= 1
-            end
-            n
-          elsif c > 0xfd
-            c == 0xfe ? INVALID_CODE_FE : INVALID_CODE_FF
-          else
-            c
-          end
-        end
-
-        def code_to_mbclen(code)
-          if (code & 0xffffff80) == 0 then 1
-          elsif (code & 0xfffff800) == 0 then 2
-          elsif (code & 0xffff0000) == 0 then 3
-          elsif code <= VALID_CODE_LIMIT then 4
-          elsif code == INVALID_CODE_FE || code == INVALID_CODE_FF then 1
-          else Err::TOO_BIG_WIDE_CHAR_VALUE
-          end
-        end
-
-        def code_to_mbc(code)
-          if (code & 0xffffff80) == 0
-            code.chr.b
-          elsif (code & 0xfffff800) == 0
-            [((code >> 6) & 0x1f) | 0xc0, (code & 0x3f) | 0x80].pack("C*")
-          elsif (code & 0xffff0000) == 0
-            [((code >> 12) & 0x0f) | 0xe0, ((code >> 6) & 0x3f) | 0x80, (code & 0x3f) | 0x80].pack("C*")
-          elsif code <= VALID_CODE_LIMIT
-            [((code >> 18) & 0x07) | 0xf0, ((code >> 12) & 0x3f) | 0x80, ((code >> 6) & 0x3f) | 0x80, (code & 0x3f) | 0x80].pack("C*")
-          elsif code == INVALID_CODE_FE
-            "\xfe".b
-          elsif code == INVALID_CODE_FF
-            "\xff".b
-          else
-            raise Error.new(Err::TOO_BIG_WIDE_CHAR_VALUE)
-          end
-        end
-
-        def left_adjust_char_head(s, start, p, _e)
-          return p if p <= start
-
-          p -= 1 while (s.getbyte(p) & 0xc0) == 0x80 && p > start
-          p
-        end
-
-        # onigenc_unicode_is_code_ctype
-        def code_ctype?(code, ctype)
-          return Unicode.ctype_bit?(code, ctype) if ctype <= CType::MAX_STD && code < 256
-          raise Error.new(Err::TYPE_BUG) if ctype >= Unicode.table_count
-
-          Unicode.in_code_range?(Unicode.ranges(ctype), code)
-        end
-
-        # get_ctype_code_range: [sb_out, ranges]
-        def ctype_code_range(ctype)
-          raise Error.new(Err::TYPE_BUG) if ctype >= Unicode.table_count
-
-          [0x80, Unicode.ranges(ctype)]
-        end
-
-        # onigenc_unicode_property_name_to_ctype: the name with spaces,
-        # hyphens and underscores dropped and lowercased, looked up.
-        def property_name_to_ctype(s, p, e)
-          buf = +""
-          while p < e
-            code = mbc_to_code(s, p, e)
-            p += enclen(s, p, e)
-            next if code == 0x20 || code == 0x2d || code == 0x5f
-            return Err::INVALID_CHAR_PROPERTY_NAME if code >= 0x80
-
-            buf << ascii_lower(code).chr
-            return Err::INVALID_CHAR_PROPERTY_NAME if buf.size >= PROPERTY_NAME_MAX_SIZE
-          end
-          Unicode.properties.fetch(buf, Err::INVALID_CHAR_PROPERTY_NAME)
-        end
-
-        # utf_8.c mbc_case_fold over onigenc_unicode_mbc_case_fold
-        def mbc_case_fold(_flag, s, p, e)
-          byte = s.getbyte(p)
-          return [ascii_lower(byte).chr.b, 1] if byte < 128
-
-          code = mbc_to_code(s, p, e)
-          len = enclen(s, p, e)
-          to = Unicode.fold(code)
-          return [s.byteslice(p, len), len] if to.nil?
-
-          [to.map { |c| code_to_mbc(c) }.join, len]
-        end
-
-        # onigenc_unicode_apply_all_case_fold, without the Turkic branch.
-        def apply_all_case_fold(flag)
-          Unicode.folds(1).each do |from, to|
-            to.each_with_index do |code, j|
-              yield code, [from]
-              yield from, [code]
-              j.times do |k|
-                yield code, [to[k]]
-                yield to[k], [code]
-              end
-            end
-          end
-          return if (flag & CASE_FOLD_MULTI_CHAR) == 0
-
-          [Unicode.folds(2), Unicode.folds(3)].each do |table|
-            table.each do |from, to|
-              to.each_with_index do |code, j|
-                yield code, from
-                to.each_with_index do |other, k|
-                  next if k == j
-
-                  yield code, [other]
-                end
-              end
-            end
-          end
-        end
-
-        # onigenc_unicode_get_case_fold_codes_by_str: every string the
-        # character(s) at `p` match under case folding, as
-        # [byte length, codes] items.
-        def case_fold_codes_by_str(flag, s, p, e)
-          items = []
-          code = mbc_to_code(s, p, e)
-          len = enclen(s, p, e)
-
-          to = Unicode.fold(code)
-          if to
-            if to.size == 1
-              orig_code = code
-              items << [len, [to[0]]]
-              code = to[0]
-              unfold = Unicode.unfold1(code)
-              unfold&.each { |c| items << [len, [c]] if c != orig_code }
-            elsif (flag & CASE_FOLD_MULTI_CHAR) != 0
-              cs = to.map { |c| [c] + (Unicode.unfold1(c) || []) }
-              if to.size == 2
-                cs[0].each { |a| cs[1].each { |b| items << [len, [a, b]] } }
-                z2 = Unicode.unfold2(to)
-                z2&.each { |c| items << [len, [c]] if c != code }
-              else
-                cs[0].each { |a| cs[1].each { |b| cs[2].each { |c| items << [len, [a, b, c]] } } }
-                z3 = Unicode.unfold3(to)
-                z3&.each { |c| items << [len, [c]] if c != code }
-              end
-              # multi char folded code is not head of another folded multi char
-              flag = 0
-            end
-          else
-            unfold = Unicode.unfold1(code)
-            unfold&.each { |c| items << [len, [c]] }
-          end
-
-          if (flag & CASE_FOLD_MULTI_CHAR) != 0
-            p += len
-            if p < e
-              codes = [code]
-              code = mbc_to_code(s, p, e)
-              to = Unicode.fold(code)
-              codes << (to && to.size == 1 ? to[0] : code)
-              clen = enclen(s, p, e)
-              len += clen
-              z2 = Unicode.unfold2(codes)
-              z2&.each { |c| items << [len, [c]] }
-
-              p += clen
-              if p < e
-                code = mbc_to_code(s, p, e)
-                to = Unicode.fold(code)
-                codes << (to && to.size == 1 ? to[0] : code)
-                clen = enclen(s, p, e)
-                len += clen
-                z3 = Unicode.unfold3(codes)
-                z3&.each { |c| items << [len, [c]] }
-              end
-            end
-          end
-          items
-        end
+        ([kind, min_len, max_len, flags] + offsets).pack("q<*") << body
       end
 
-      ASCII_ENC = ASCII.new.freeze
-      UTF8_ENC = UTF8.new.freeze
-    end
-
-    # The Unicode tables as the engine reads them. The generated file
-    # holds each as a String; a table is decoded the first time a
-    # pattern needs it, so a program that uses no property and no case
-    # folding decodes none.
-    module Unicode
-      @ranges = {}
-      @folds = {}
-
-      # Each normalized property keyword to its table index.
-      def self.properties
-        @properties ||= PROPERTY_NAMES.split(" ").zip(PROPERTY_TABLES.unpack("w*")).to_h.freeze
-      end
-
-      def self.table_count = range_ends.size
-
-      def self.range_ends
-        @range_ends ||= RANGE_ENDS.unpack("w*").freeze
-      end
-
-      # Bit `ctype` of the Latin-1 entry for `code`, under 256.
-      def self.ctype_bit?(code, ctype)
-        bits = CTYPE_BITS.getbyte(code * 2) | (CTYPE_BITS.getbyte((code * 2) + 1) << 8)
+      # OnigEncAsciiCtypeTable
+      def self.ascii_ctype?(code, ctype)
+        bits = EncTables::ASCII_CTYPE.getbyte(code * 2) | (EncTables::ASCII_CTYPE.getbyte((code * 2) + 1) << 8)
         bits[ctype] == 1
       end
 
-      # The ranges of table `index` as a flat [low, high, ...] Array.
-      def self.ranges(index)
-        @ranges[index] ||= begin
-          ends = range_ends
-          from = index.zero? ? 0 : ends[index - 1]
-          out = []
-          last = -1
-          RANGES.byteslice(from, ends[index] - from).unpack("w*").each_slice(2) do |gap, span|
-            lo = last + gap + 1
-            out << lo << lo + span
-            last = lo + span
-          end
-          out.freeze
-        end
-      end
+      # A single-byte encoding: ASCII-8BIT and US-ASCII with the ASCII
+      # tables, the others with their own ctype bits, lower-case table
+      # and fold pairs (EncTables::SINGLE_BYTE).
+      class SingleByte < Base
+        attr_reader :name
 
-      # A fold table as a Hash from its key to the codes it maps to, in
-      # the table's order: 0 is CASE_FOLD and 1 to 3 the unfold tables
-      # by key width. A one-code key is the Integer, a wider one an Array.
-      def self.folds(width)
-        @folds[width] ||= begin
-          words = [CASE_FOLD, CASE_UNFOLD_1, CASE_UNFOLD_2, CASE_UNFOLD_3][width].unpack("w*")
-          keys = width.zero? ? 1 : width
-          table = {}
-          at = 0
-          while at < words.size
-            key = keys == 1 ? words[at] : words[at, keys].freeze
-            count = words[at + keys]
-            table[key] = words[at + keys + 1, count].freeze
-            at += keys + 1 + count
-          end
-          table.freeze
+        # `ctype` nil reads the ASCII table (onigenc_ascii_is_code_ctype);
+        # `fold` is :ascii (onigenc_ascii_*), :map (the *_with_map pair)
+        # or :iso_8859_1 (its own get_case_fold_codes_by_str).
+        def initialize(name, ctype, lower, fold, sharp_s, map, ess_tsett, us_ascii: false)
+          @name = name
+          @ctype = ctype
+          @lower = lower
+          @fold = fold
+          @sharp_s = sharp_s
+          @map = map&.bytes
+          @ess_tsett = ess_tsett != 0
+          @us_ascii = us_ascii
         end
-      end
 
-      # onig_is_in_code_range: a binary search of the (low, high) pairs.
-      def self.in_code_range?(ranges, code)
-        n = ranges.size / 2
-        low = 0
-        high = n
-        while low < high
-          x = (low + high) >> 1
-          if code > ranges[x * 2 + 1]
-            low = x + 1
+        def max_len = 1
+        def min_len = 1
+
+        # onigenc_single_byte_mbc_enc_len; us_ascii_mbc_enc_len refuses
+        # a byte past ASCII.
+        def precise_len(s, p, _e) = @us_ascii && s.getbyte(p) >= 0x80 ? INVALID : 1
+        def mbc_to_code(s, p, _e) = s.getbyte(p)
+
+        # onigenc_single_byte_code_to_mbclen and _code_to_mbc as ruby
+        # builds them: one byte for any code, and a code past a byte
+        # refused as ruby refuses it.
+        def code_to_mbclen(_code) = 1
+
+        def code_to_mbc(code)
+          raise RangeError, "#{code} out of char range" if code > 0xff
+
+          code.chr.b
+        end
+
+        def left_adjust_char_head(_s, _start, p, _e) = p
+
+        def code_ctype?(code, ctype)
+          return ascii_code_ctype?(code, ctype) if @ctype.nil?
+          return false if code >= 256
+
+          (@ctype.getbyte(code * 2) | (@ctype.getbyte((code * 2) + 1) << 8))[ctype] == 1
+        end
+
+        # [the folded bytes, the bytes read]
+        def mbc_case_fold(flag, s, p, _e)
+          c = s.getbyte(p)
+          return [ascii_lower(c).chr.b, 1] if @fold == :ascii
+          return ["ss".b, 1] if @sharp_s && c == 0xdf && (flag & CASE_FOLD_MULTI_CHAR) != 0
+
+          [@lower.getbyte(c).chr.b, 1]
+        end
+
+        def apply_all_case_fold(_flag, &block)
+          return ascii_apply_all_case_fold(&block) if @fold == :ascii
+
+          apply_all_case_fold_with_map(@map, @ess_tsett, &block)
+        end
+
+        def case_fold_codes_by_str(_flag, s, p, e)
+          case @fold
+          when :ascii then ascii_case_fold_codes_by_str(s, p)
+          when :map then case_fold_codes_by_str_with_map(@map, @ess_tsett, s, p, e)
+          else iso_8859_1_case_fold_codes_by_str(s, p, e)
+          end
+        end
+
+        # iso_8859_1.c get_case_fold_codes_by_str
+        def iso_8859_1_case_fold_codes_by_str(s, p, e)
+          c = s.getbyte(p)
+          if c >= 0x41 && c <= 0x5a
+            items = [[1, [c + 0x20]]]
+            items << [2, [0xdf]] if c == 0x53 && e > p + 1 && (s.getbyte(p + 1) == 0x53 || s.getbyte(p + 1) == 0x73)
+            items
+          elsif c >= 0x61 && c <= 0x7a
+            items = [[1, [c - 0x20]]]
+            items << [2, [0xdf]] if c == 0x73 && e > p + 1 && (s.getbyte(p + 1) == 0x73 || s.getbyte(p + 1) == 0x53)
+            items
+          elsif c >= 0xc0 && c <= 0xcf
+            [[1, [c + 0x20]]]
+          elsif c >= 0xd0 && c <= 0xdf
+            if c == 0xdf
+              [[1, [0x73, 0x73]], [1, [0x53, 0x53]], [1, [0x73, 0x53]], [1, [0x53, 0x73]]]
+            elsif c != 0xd7
+              [[1, [c + 0x20]]]
+            else
+              []
+            end
+          elsif c >= 0xe0 && c <= 0xef
+            [[1, [c - 0x20]]]
+          elsif c >= 0xf0 && c <= 0xfe && c != 0xf7
+            [[1, [c - 0x20]]]
           else
-            high = x
+            []
           end
         end
-        low < n && code >= ranges[low * 2]
+
+        def kernel_kind = KIND_SINGLE_BYTE
+
+        # The lower-case byte of each byte (the ASCII one for an :ascii
+        # fold) and whether each byte is a word character.
+        def kernel_tables
+          lower = Array.new(256) { |b| @fold == :ascii ? ascii_lower(b) : @lower.getbyte(b) }
+          word = Array.new(256) { |b| code_ctype?(b, CType::WORD) ? 1 : 0 }
+          { lower: lower.pack("C*"), word: word.pack("C*"), sharp_s: @fold != :ascii && @sharp_s }
+        end
       end
 
-      def self.fold(code) = folds(0)[code]
-      def self.unfold1(code) = folds(1)[code]
-      def self.unfold2(codes) = folds(2)[codes]
-      def self.unfold3(codes) = folds(3)[codes]
+      ASCII_ENC = SingleByte.new("ASCII-8BIT", nil, nil, :ascii, false, nil, 0).freeze
+      US_ASCII_ENC = SingleByte.new("US-ASCII", nil, nil, :ascii, false, nil, 0, us_ascii: true).freeze
+
+      @encodings = {}
+
+      # The Onigmo encoding that reads ruby's `encoding` (a replica reads
+      # with its base's), made once.
+      def self.for(encoding)
+        base = EncTables::BASES.fetch(encoding.name) { raise ArgumentError, "no Onigmo encoding reads #{encoding.name}" }
+        @encodings[base] ||= build(base)
+      end
+
+      def self.build(name)
+        case name
+        when "ASCII-8BIT" then ASCII_ENC
+        when "US-ASCII" then US_ASCII_ENC
+        when "UTF-8" then UTF8_ENC
+        when "UTF-16LE" then UTF16LE.new.freeze
+        when "UTF-16BE" then UTF16BE.new.freeze
+        when "UTF-32LE" then UTF32LE.new.freeze
+        when "UTF-32BE" then UTF32BE.new.freeze
+        when "CESU-8" then CESU8.new.freeze
+        when "EUC-JP" then EUCJP.new.freeze
+        when "Shift_JIS" then ShiftJIS.new(name, EncTables::SHIFT_JIS_PROPS).freeze
+        when "Windows-31J" then ShiftJIS.new(name, EncTables::WINDOWS_31J_PROPS).freeze
+        when "Big5" then Trail.new(name, EncTables::BIG5).freeze
+        when "GBK" then Trail.new(name, EncTables::GBK).freeze
+        when "CP949" then Trail.new(name, EncTables::CP949).freeze
+        when "EUC-KR" then EUCKR.new.freeze
+        when "EUC-TW" then EUCTW.new.freeze
+        when "GB18030" then GB18030.new.freeze
+        when "Emacs-Mule" then EmacsMule.new.freeze
+        else SingleByte.new(name, *EncTables::SINGLE_BYTE.fetch(name)).freeze
+        end
+      end
     end
   end
 end

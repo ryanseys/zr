@@ -582,7 +582,7 @@ machine def zr_onig_backref_at_nested_level(m, ignore_case, nest, mem_num, memp,
             s = Machine.ptr(Machine.load64(ps, 0))
             return false if pend - pstart > send - s
             if ignore_case != 0
-              ss = zr_onig_string_cmp_ic(OnigMatch.enc(m), pstart, s, Machine.word(pend - pstart), send)
+              ss = zr_onig_string_cmp_ic(OnigMatch.enc(m), OnigMatch.case_fold(m), pstart, s, Machine.word(pend - pstart), send)
               return false if ss == 0
             else
               p = pstart

@@ -156,10 +156,32 @@ class Regexp
         format.sub("%n") { name + (over ? "..." : "") }
       end
 
-      # to_ascii: single-byte-minimum encodings (both of ours) copy the
-      # bytes as they are, up to `size`.
-      def self.to_ascii(par, _enc, size)
-        [par.byteslice(0, size).b, par.bytesize > size]
+      # to_ascii: an encoding of one-byte characters copies the bytes as
+      # they are, up to `size`; a wider one (UTF-16, UTF-32) writes each
+      # character past ASCII as \xHHHH or \xHHHHHHHH, stopping at `size`.
+      def self.to_ascii(par, enc, size)
+        return [par.byteslice(0, size).b, par.bytesize > size] if enc.nil? || enc.min_len == 1
+
+        buf = "".b
+        p = 0
+        e = par.bytesize
+        while p < e
+          code = enc.mbc_to_code(par, p, e)
+          if code >= 0x80
+            if code > 0xffff && buf.bytesize + 10 <= size
+              buf << format("\\x%02x%02x%02x%02x", (code >> 24) & 0xff, (code >> 16) & 0xff, (code >> 8) & 0xff, code & 0xff)
+            elsif buf.bytesize + 6 <= size
+              buf << format("\\x%02x%02x", (code >> 8) & 0xff, code & 0xff)
+            else
+              break
+            end
+          else
+            buf << code
+          end
+          p += enc.enclen(par, p, e)
+          break if buf.bytesize >= size
+        end
+        [buf, p < e]
       end
     end
 
