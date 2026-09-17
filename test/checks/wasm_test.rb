@@ -132,10 +132,7 @@ class WasmTest < Minitest::Test
       Dir.mktmpdir("ze0-wasm-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
         assert_nil Ze0::Native::Build.wasm(functions, data, wasm, raw: raw)
-        # A wasm32 runtime carries no error_highlight, so a program whose
-        # report the gem annotates keeps a `.wasm32-wasi.stdout` of its own.
-        stdout = [rb.sub(/\.rb\z/, ".wasm32-wasi.stdout"), rb.sub(/\.rb\z/, ".stdout")].find { |f| File.file?(f) }
-        run_module(wasm, File.binread(stdout), status: status)
+        run_module(wasm, File.binread(rb.sub(/\.rb\z/, ".stdout")), status: status)
       end
     end
   end
