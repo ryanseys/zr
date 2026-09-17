@@ -126,9 +126,11 @@ module Ze0
       # The kernel's and the core's IR let go, once the runtime object
       # and the cache carry everything a build reads of them: a program
       # lowered after this never stands in memory beside them. What the
-      # IR answered is refused from then on rather than lowered again.
+      # IR answered is refused from then on rather than lowered again. A
+      # warm build never lowered the kernel, and lowers it not even now
+      # for the raw functions, which only the runtime object holds.
       def release
-        @raw = unit.raw
+        @raw = @unit&.raw
         @unit = @lowered = nil
         @released = true
       end
