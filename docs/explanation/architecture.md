@@ -77,9 +77,9 @@ is a second answer, so a miscompile shows as a disagreement.
 The backend writes an `Obj`: functions, data, relocations and symbols,
 with no file format. Three writers read it:
 
-- `Obj::MachO::Executable` is ze0's macOS linker. It reads Mach-O
-  objects back, links them, and writes a complete, signed executable
-  that imports only from libSystem.
+- `Obj::MachO::Executable` is ze0's macOS linker. It links a program
+  beside a `Prelink`, and writes a complete, signed executable that
+  imports only from libSystem.
 - The Mach-O and ELF object writers write objects: the cached runtime,
   `--emit obj`, and the ELF objects that `cc` links for Linux.
 - `Obj::JIT` loads code into the running process, for `eval`.
@@ -90,6 +90,19 @@ build lowers only the program, and ze0's linker links it beside the
 cached runtime.
 A cold build assembles the runtime in parallel worker processes, and
 the result is the same bytes for any number of workers.
+
+The runtime is also linked once. `Obj::MachO::Prelink` reads the
+runtime's object back (and the eval road's, for a program that evals),
+places it at fixed addresses, applies its relocations, and keeps the
+result in the cache (`prelink-<digest>.bin`). Every binary puts the
+runtime at those same addresses. The program's code goes in a
+`__PROGRAM` segment after the runtime's `__TEXT`, within a branch's
+reach of it. The program's data goes in a `__DATA_PROGRAM` segment after
+the runtime's `__DATA`. The runtime's `__DATA_CONST` starts a fixed
+distance after `__TEXT`, so the program's size moves no runtime address.
+A link relocates only the program. It writes the runtime's bytes and
+page hashes as they were kept, and writes again only the runtime's
+slots for names that the program or libSystem defines.
 
 ## The runtime
 

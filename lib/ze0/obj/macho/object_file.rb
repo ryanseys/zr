@@ -64,9 +64,21 @@ module Ze0
           def sect(index) = (symbols[index * 2] >> 40) & 0xFF
           def value(index) = symbols[(index * 2) + 1]
 
+          # A symbol's name. The table is split once and each name kept by
+          # its offset: a search for its end from the offset would count
+          # characters from the start of the table in the compiled runtime,
+          # once for each of hundreds of thousands of symbols.
           def name(index)
-            at = strx(index)
-            strings.byteslice(at, strings.index("\0", at) - at)
+            @names ||= begin
+              table = {}
+              at = 0
+              strings.split("\0").each do |name|
+                table[at] = name
+                at += name.bytesize + 1
+              end
+              table
+            end
+            @names.fetch(strx(index))
           end
         end
 
@@ -77,9 +89,11 @@ module Ze0
         module_function
 
         # An object this module wrote, read back: what a link needs of it.
-        # It reads the one shape `write` makes, and refuses any other.
+        # It reads the one shape `write` makes, and refuses any other. Each
+        # field is sliced out before it is unpacked: the compiled runtime's
+        # `unpack` copies the whole string it is given.
         def read(bytes)
-          magic, cpu, _sub, type, ncmds = bytes.unpack("L<5")
+          magic, cpu, _sub, type, ncmds = bytes.byteslice(0, 20).unpack("L<5")
           unless magic == MH_MAGIC_64 && cpu == CPU_TYPE_ARM64 && type == MH_OBJECT
             raise ArgumentError, "not an arm64 Mach-O object"
           end
@@ -88,20 +102,20 @@ module Ze0
           symbols = strings = nil
           at = 32
           ncmds.times do
-            cmd, size = bytes.unpack("@#{at}L<2")
+            cmd, size = bytes.byteslice(at, 8).unpack("L<2")
             case cmd
             when LC_SEGMENT_64
-              bytes.unpack1("@#{at + 64}L<").times do |i|
+              bytes.byteslice(at + 64, 4).unpack1("L<").times do |i|
                 s = at + 72 + (i * 80)
-                name, segment = bytes.unpack("@#{s}a16a16").map { |n| n.delete("\0") }
-                addr, size_, offset, align, reloff, nreloc, flags = bytes.unpack("@#{s + 32}Q<2L<6")
+                name, segment = bytes.byteslice(s, 32).unpack("a16a16").map { |n| n.delete("\0") }
+                addr, size_, offset, align, reloff, nreloc, flags = bytes.byteslice(s + 32, 40).unpack("Q<2L<6")
                 sections << Section.new(name: name, segment: segment, addr: addr, size: size_, align: align, flags: flags,
                                         bytes: flags == S_ZEROFILL ? nil : bytes.byteslice(offset, size_),
-                                        relocs: nreloc.zero? ? [] : bytes.unpack("@#{reloff}L<#{nreloc * 2}"))
+                                        relocs: nreloc.zero? ? [] : bytes.byteslice(reloff, nreloc * 8).unpack("L<*"))
               end
             when LC_SYMTAB
-              symoff, nsyms, stroff, strsize = bytes.unpack("@#{at + 8}L<4")
-              symbols = nsyms.zero? ? [] : bytes.unpack("@#{symoff}Q<#{nsyms * 2}")
+              symoff, nsyms, stroff, strsize = bytes.byteslice(at + 8, 16).unpack("L<4")
+              symbols = nsyms.zero? ? [] : bytes.byteslice(symoff, nsyms * 16).unpack("Q<*")
               strings = bytes.byteslice(stroff, strsize)
             end
             at += size

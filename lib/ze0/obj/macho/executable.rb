@@ -2,41 +2,40 @@
 
 require "digest"
 
-require_relative "../model"
-require_relative "../patch"
-require_relative "../../backend/aarch64/relocs"
-require_relative "object_file"
+require_relative "block"
+require_relative "prelink"
 require_relative "libsystem"
 
 module Ze0
   module Obj
     module MachO
-      # Objects to a complete, signed `MH_EXECUTE` that runs: the link
-      # step, in Ruby, for a program whose every import is libSystem's.
+      # A program's unit, linked beside a `Prelink`, to a complete, signed
+      # `MH_EXECUTE` that runs: the link step, in Ruby, for a program whose
+      # every import is libSystem's.
       #
-      # It links the objects `ObjectFile` writes -- a program's own, the
-      # runtime's and the eval road's, all read back with
-      # `ObjectFile.read` -- and nothing else. Each input section goes
-      # into the output section of its kind, in input order. A symbol
-      # one object leaves undefined is another object's global, or an
-      # import from libSystem. Each import gets a stub and a GOT slot,
-      # and every relocation is applied here. What is added is the
-      # Mach-O container, chained fixups so a position-independent image
-      # can be rebased and bound, an exports trie for a program whose
-      # JIT finds symbols by name, and the ad-hoc code signature Apple
-      # Silicon will not run a binary without.
+      # Beside a base -- the runtime's objects, linked once -- the base
+      # keeps the addresses it was linked at, and the program's parts go in
+      # segments of their own: `__PROGRAM` after `__TEXT`, and
+      # `__DATA_PROGRAM` after `__DATA`. Only the program is relocated here,
+      # and only the base's external slots are written again; the base's
+      # other pages keep the hashes they were kept with. Without a base the
+      # unit is the whole image, in `__TEXT`, `__DATA_CONST` and `__DATA`.
+      #
+      # What is added is the Mach-O container, chained fixups so a
+      # position-independent image can be rebased and bound, an exports
+      # trie for a program whose JIT finds symbols by name, and the ad-hoc
+      # code signature Apple Silicon will not run a binary without.
       #
       # It does not strip: nearly all of the runtime is reachable from its
       # dispatch tables, and `ld -dead_strip` removed less than one percent.
       #
-      # It refuses rather than guesses. A symbol no object defines and
+      # It refuses rather than guesses. A symbol nothing defines and
       # libSystem does not define either would not be found by dyld, and
       # this says which symbol it is.
       class Executable
-        PAGE = 0x4000
-        # Where the image goes, above the four unmapped gigabytes that make
-        # a null dereference a fault.
-        BASE = 0x1_0000_0000
+        PAGE = Prelink::PAGE
+        HASH_PAGE = Prelink::HASH_PAGE
+        BASE = Prelink::BASE
         # The main stack, which holds ruby frames as native frames. `ld`
         # writes this from `-stack_size`; nothing writes it for an image
         # that no linker touched, so this does, and the two roads give a
@@ -72,13 +71,6 @@ module Ze0
         S_ZEROFILL = 1
         CODE = 0x8000_0000 | 0x0000_0400 # PURE_INSTRUCTIONS | SOME_INSTRUCTIONS
 
-        # <mach-o/nlist.h>: a symbol's type byte.
-        N_STAB = 0xE0
-        N_TYPE = 0x0E
-        N_EXT = 0x01
-        N_UNDF = 0x0
-        N_SECT = 0xE
-
         DYLINKER = "/usr/lib/dyld"
         LIBSYSTEM = "/usr/lib/libSystem.B.dylib"
 
@@ -86,30 +78,36 @@ module Ze0
         # format an ordinary arm64 image needs.
         PTR_64_OFFSET = 6
         IMPORT_FORMAT = 1
-        START_NONE = 0xFFFF
-        STRIDE = 4
-        # `adrp x16, got@PAGE; ldr x16, [x16, got@PAGEOFF]; br x16`
-        STUB = 12
 
-        # The relocation kind of each arm64 relocation type an object holds.
-        KINDS = ObjectFile::RELOC.to_h { |kind, (type, _, _)| [type, kind] }.freeze
-        ABS64 = ObjectFile::RELOC.fetch(:abs64).first
-        BRANCH26 = ObjectFile::RELOC.fetch(:branch26).first
-        GOT = ObjectFile::RELOC.values_at(:got_page21, :got_pageoff12).map(&:first).freeze
+        # Each part's section: its name, and its flags.
+        SECTIONS = { text: ["__text", CODE], stubs: ["__stubs", CODE], const: ["__const", S_REGULAR],
+                     got: ["__got", S_REGULAR], dconst: ["__const", S_REGULAR], data: ["__data", S_REGULAR],
+                     bss: ["__bss", S_ZEROFILL] }.freeze
+        # The image sections a program's parts are beside a base: after
+        # `__TEXT`'s three, `__PROGRAM`'s; after `__DATA`'s, `__DATA_PROGRAM`'s.
+        TOP_ORDINALS = { text: 4, stubs: 5, const: 6, got: 11, dconst: 12, data: 13, bss: 14 }.freeze
+        # The segments of an image without a base, and the parts in each.
+        PLAIN = [["__TEXT", %i[text stubs const], READ | EXEC, 0],
+                 ["__DATA_CONST", %i[got dconst], READ | WRITE, SG_READ_ONLY],
+                 ["__DATA", %i[data bss], READ | WRITE, 0]].freeze
 
-        # A section of the image. `chunks` are the input sections in it, each
-        # `[input, section index, offset]`; `__stubs` and `__got` have none.
-        Part = Struct.new(:name, :segment, :flags, :from, :chunks, :size, :align, :at, :fixups, keyword_init: true)
+        # A segment of the image. `pieces` are its file bytes, one after
+        # another, each `[bytes, hashes, dirty pages]`: `hashes` are the
+        # pages' hashes kept with a base, and nil for bytes made here.
+        Segment = Struct.new(:name, :vm, :vmsize, :fileoff, :filesize, :prot, :flags, :sections, :pieces, :starts,
+                             keyword_init: true)
+        # A section: its name, address, size, alignment and flags.
+        Section = Struct.new(:name, :vm, :size, :align, :flags)
 
-        # These objects are not ones this links, and here is why.
-        class Refused < StandardError; end
+        Refused = MachO::Refused
 
-        # Writes `out` from `unit` and the object files `objects` (their
-        # bytes), and answers nil; or answers why it cannot link them and
-        # writes nothing. `exports` puts every global in the exports trie,
-        # where `dlsym` finds it.
-        def self.write(unit, out, objects: [], exports: false, stack: STACK, entry: "main")
-          new([ObjectFile.write(unit), *objects], out, exports: exports, stack: stack, entry: entry).write
+        # Writes `out` from `unit` beside `prelink`, or beside the object
+        # files `objects` (their bytes) linked now, and answers nil; or
+        # answers why it cannot link them and writes nothing. `exports`
+        # puts every global in the exports trie, where `dlsym` finds it.
+        def self.write(unit, out, objects: [], prelink: nil, exports: false, stack: STACK, entry: "main")
+          prelink ||= Prelink.build(objects)
+          new(unit, prelink, out, exports: exports, stack: stack, entry: entry).write
         rescue Refused => e
           e.message
         end
@@ -119,362 +117,190 @@ module Ze0
         # on every host; a name missing from the list is refused.
         def self.libsystem?(name) = LIBSYSTEM_NAMES.include?(name)
 
-        def initialize(objects, out, exports: false, stack: STACK, entry: "main")
-          @inputs = objects.map { |bytes| ObjectFile.read(bytes) }
+        def initialize(unit, prelink, out, exports: false, stack: STACK, entry: "main")
+          @base = prelink
           @out = out
           @exports = exports
           @stack = stack
           @entry = entry
-          @fixups = []
+          outside = prelink.empty? ? nil : ->(name) { prelink.global(name) }
+          @top = Block.new([ObjectFile.write(unit)], outside: outside)
         end
 
         def write
-          resolve
+          twice = @top.names.find { |name| @base.global(name) }
+          raise Refused, "#{twice.delete_prefix("_")} is defined twice" if twice
+
+          @imports = (@base.externals.reject { |name| @top.defines?("_#{name}") } + @top.externals).uniq.sort
           outside = @imports.reject { |name| self.class.libsystem?(name) }
           raise Refused, "#{outside.first} is not libSystem's" unless outside.empty?
 
-          @entry_symbol = entry_symbol or raise Refused, "nothing named #{@entry} to enter at"
-          got_slots
-          lay_out
-          File.binwrite(@out, stamped(assemble))
+          @ordinal = @imports.each_with_index.to_h
+          @base.empty? ? plain : beside_base
+          entry = @top.entry(@entry) || @base.global("_#{@entry}") or raise Refused, "nothing named #{@entry} to enter at"
+          @entry_at = entry - BASE
+          fill
+          linkedit
+          header
+          signed = signature
+          File.open(@out, "wb") do |file|
+            @segments.each { |s| s.pieces.each { |bytes, _, _| file.write(bytes) } }
+            file.write(@linkedit)
+            file.write(signed)
+          end
           File.chmod(0o755, @out)
           nil
         end
 
         private
 
-        # --- symbols -------------------------------------------------------
-
-        # Every global each input defines, then what each undefined symbol
-        # is: `[input, symbol]` for another input's global, or the name of
-        # an import. `@links[input]` holds the answer for each undefined
-        # symbol; a defined symbol is its own.
-        def resolve
-          @globals = {}
-          undefined = []
-          @inputs.each_with_index do |o, i|
-            o.count.times do |s|
-              type = o.type(s)
-              next unless (type & N_STAB).zero? && (type & N_EXT) != 0
-
-              if (type & N_TYPE) == N_SECT
-                name = o.name(s)
-                raise Refused, "#{name.delete_prefix("_")} is defined twice" if @globals.key?(name)
-
-                @globals[name] = [i, s]
-              elsif (type & N_TYPE) == N_UNDF
-                undefined << [i, s]
-              end
-            end
-          end
-          imports = {}
-          @links = Array.new(@inputs.size) { {} }
-          undefined.each do |i, s|
-            name = @inputs[i].name(s)
-            @links[i][s] = @globals[name] || (imports[name] = name.delete_prefix("_"))
-          end
-          @imports = imports.values.sort
-          @import_index = @imports.each_with_index.to_h
-        end
-
-        # `[input, symbol]` of the entry: a global, else a local of that name.
-        def entry_symbol
-          name = "_#{@entry}"
-          return @globals[name] if @globals.key?(name)
-
-          @inputs.each_with_index do |o, i|
-            o.count.times do |s|
-              return [i, s] if (o.type(s) & (N_STAB | N_TYPE)) == N_SECT && o.name(s) == name
-            end
-          end
-          nil
-        end
-
-        # What symbol `s` of input `i` stands for: an import's name, or the
-        # `[input, symbol]` that defines it.
-        def meaning(i, s) = @links[i].fetch(s) { [i, s] }
-
-        # One GOT slot an import, then one a defined symbol some code loads
-        # an address of through the GOT: dyld rebases that slot, so the code
-        # loads the symbol's address, never its bytes.
-        def got_slots
-          @got = @imports.dup
-          seen = @got.to_h { |name| [name, true] }
-          @inputs.each_with_index do |o, i|
-            o.sections.each do |section|
-              words = section.relocs
-              j = 1
-              while j < words.size
-                info = words[j]
-                j += 2
-                next unless GOT.include?(info >> 28)
-
-                key = meaning(i, info & 0xFF_FFFF)
-                next if seen[key]
-
-                seen[key] = true
-                @got << key
-              end
-            end
-          end
-        end
-
         # --- layout --------------------------------------------------------
 
-        # Every section's place. A section's address is its file offset
-        # above the image base, so the two never have to be reasoned about
-        # apart; `__bss` is the one exception, and it has no file bytes.
-        def lay_out
-          @parts = [
-            part("__text", "__TEXT", CODE, %w[__TEXT __text]),
-            part("__stubs", "__TEXT", CODE, nil, size: @imports.size * STUB),
-            part("__const", "__TEXT", S_REGULAR, %w[__TEXT __const]),
-            part("__got", "__DATA_CONST", S_REGULAR, nil, size: @got.size * 8, fixups: true),
-            part("__const", "__DATA_CONST", S_REGULAR, %w[__DATA __const], fixups: true),
-            part("__data", "__DATA", S_REGULAR, %w[__DATA __data], fixups: true),
-            part("__bss", "__DATA", S_ZEROFILL, %w[__DATA __bss])
-          ]
-          stray = @inputs.flat_map(&:sections).find { |s| s.size.positive? && @parts.none? { |p| p.from == [s.segment, s.name] } }
-          raise Refused, "a #{stray.segment},#{stray.name} section, which no part of the image holds" if stray
+        # Beside a base: the base's segments where it was linked, the
+        # program's code at the end of `__TEXT` and its data at the end of
+        # `__DATA`. The file holds the segments in address order.
+        def beside_base
+          b = @base
+          code_at = BASE + b.text_size
+          code_size = Patch.align(%i[text stubs const].inject(code_at) { |at, part| place(part, at) } - code_at, PAGE)
+          raise Refused, "a program with no code" if code_size.zero?
+          raise Refused, "#{code_size} bytes of code, past the room beside the runtime" if code_size > Prelink::RESERVE
 
-          # A section with nothing in it is not written, and a segment whose
-          # sections are all empty is not a segment: an image with a
-          # zero-length one does not load.
-          @parts.reject! { |p| p.size.zero? }
-          @segments = ["__PAGEZERO", *@parts.map(&:segment).uniq, "__LINKEDIT"]
-          head = Patch.align(32 + commands.bytesize, 16)
-          at = head
-          @parts.each_with_index do |p, i|
-            at = Patch.align(at, PAGE) if i.positive? && p.segment != @parts[i - 1].segment
-            p.at = Patch.align(at, 1 << p.align)
-            at = p.at + p.size
-          end
-          @text_size = Patch.align(segment_end("__TEXT"), PAGE)
-          last = @parts.last.segment
-          bss = part_named("__bss", "__DATA")&.size.to_i
-          @link_at = Patch.align(segment_end(last) - bss, PAGE)
-          @link_vm = Patch.align(BASE + segment_end(last), PAGE)
-          addresses
+          data_at = b.data_end
+          file_end = %i[got dconst data].inject(data_at) { |at, part| place(part, at) }
+          data_filesize = Patch.align(file_end - data_at, PAGE)
+          data_vmsize = Patch.align(place(:bss, file_end) - data_at, PAGE)
+          raise Refused, "a program with no data" if data_vmsize.zero?
+
+          @top.addresses!
+          @header = "\0".b * PAGE
+          text = segment("__TEXT", BASE, b.text_size, 0, READ | EXEC, 0, base_sections(%i[text stubs const]),
+                         [[@header, nil, []], [b.blobs[:text], b.hashes[:text], []]])
+          code = segment("__PROGRAM", code_at, code_size, after(text), READ | EXEC, 0, top_sections(%i[text stubs const]),
+                         [[top_bytes(%i[text stubs const], code_at, code_size), nil, []]])
+          got = segment("__DATA_CONST", b.got_vm, b.got_size, after(code), READ | WRITE, SG_READ_ONLY,
+                        base_sections(%i[got]), [[b.blobs[:got].dup, b.hashes[:got], []]])
+          got.starts = b.starts[:got]
+          data = segment("__DATA", b.data_vm, b.data_filesize, after(got), READ | WRITE, 0,
+                         base_sections(%i[dconst data bss]), [[b.blobs[:data].dup, b.hashes[:data], []]])
+          data.vmsize = b.data_vmsize
+          data.starts = b.starts[:data]
+          own = segment("__DATA_PROGRAM", data_at, data_filesize, after(data), READ | WRITE, 0,
+                        top_sections(%i[got dconst data bss]), [[top_bytes(%i[got dconst data], data_at, data_filesize), nil, []]])
+          own.vmsize = data_vmsize
+          @segments = [text, code, got, data, own]
+          @late = { got: got, data: data }
+          @ordinals = TOP_ORDINALS
         end
 
-        # A section of the image. `from` names the input sections that land
-        # in it, and a section with none -- `__stubs`, `__got` -- is given
-        # its size instead. Each input's section starts at its own
-        # alignment, and the whole section at the widest of them.
-        def part(name, segment, flags, from, size: nil, fixups: false)
-          chunks = nil
-          align = 4
-          if from
-            chunks = []
-            size = 0
-            @inputs.each_with_index do |o, i|
-              o.sections.each_with_index do |section, k|
-                next unless [section.segment, section.name] == from
-
-                align = [align, section.align].max
-                size = Patch.align(size, 1 << section.align) if section.size.positive?
-                chunks << [i, k, size]
-                size += section.size
-              end
-            end
+        # Without a base: the unit is the image. The header shares the
+        # first page with the code, so where the code starts depends on how
+        # long the load commands are, which depends only on how many
+        # segments and sections there are. A segment with nothing in it is
+        # not written: an image with a zero-length one does not load.
+        def plain
+          groups = PLAIN.select { |name, parts, _, _| name == "__TEXT" || parts.any? { |part| @top.size(part).positive? } }
+          at = BASE + Patch.align(32 + command_size(groups.size, groups.sum { |_, parts, _, _| parts.size }), 16)
+          placed = groups.map do |name, parts, prot, flags|
+            start = name == "__TEXT" ? BASE : at
+            file_end = (parts - [:bss]).inject(at) { |a, part| place(part, a) }
+            vm_end = parts.include?(:bss) ? place(:bss, file_end) : file_end
+            filesize = Patch.align(file_end - start, PAGE)
+            at = start + [Patch.align(vm_end - start, PAGE), filesize].max
+            [name, parts, prot, flags, start, filesize, at - start]
           end
-          Part.new(name: name, segment: segment, flags: flags, from: from, chunks: chunks, size: size, align: align, fixups: fixups)
+          # A part of a segment not written is empty, and has an address all
+          # the same.
+          (PLAIN.flat_map { |_, parts, _, _| parts } - placed.flat_map { |_, parts, *| parts }).each { |part| @top.place(part, at) }
+          @top.addresses!
+          @segments = placed.map do |name, parts, prot, flags, start, filesize, vmsize|
+            s = segment(name, start, filesize, start - BASE, prot, flags, top_sections(parts),
+                        [[top_bytes(parts - [:bss], start, filesize), nil, []]])
+            s.vmsize = vmsize
+            s
+          end
+          @header = @segments.first.pieces.first[0]
+          @late = {}
+          @ordinals = placed.flat_map { |_, parts, *| parts }.each_with_index.to_h { |part, n| [part, n + 1] }
         end
 
-        def part_named(name, segment) = @parts.find { |p| p.name == name && p.segment == segment }
-        def in_segment(name) = @parts.select { |p| p.segment == name }
-        def segment_start(name) = in_segment(name).first.at.to_i
-        def segment_end(name) = in_segment(name).then { |ps| ps.last.at.to_i + ps.last.size }
-
-        # Every symbol's address: an input section's symbols move with it,
-        # and an undefined one is where its definition went.
-        def addresses
-          # Per input, each section's address in the image and the ordinal
-          # of the image section that holds it.
-          @placed = @inputs.map { |o| Array.new(o.sections.size) }
-          @ordinal = @inputs.map { |o| Array.new(o.sections.size) }
-          @parts.each_with_index do |p, n|
-            p.chunks&.each do |i, k, off|
-              @placed[i][k] = BASE + p.at + off
-              @ordinal[i][k] = n + 1
-            end
-          end
-          @addr = @inputs.each_with_index.map do |o, i|
-            Array.new(o.count) do |s|
-              next unless (o.type(s) & (N_STAB | N_TYPE)) == N_SECT
-
-              # A section no bytes were placed for puts its symbols at the base.
-              k = o.sect(s) - 1
-              (@placed[i][k] || BASE) + o.value(s) - o.sections[k].addr
-            end
-          end
-          @links.each_with_index do |links, i|
-            links.each { |s, to| @addr[i][s] = @addr[to[0]][to[1]] if to.is_a?(Array) }
-          end
-          # A program with no imports has neither table.
-          stubs = part_named("__stubs", "__TEXT")&.at
-          got = part_named("__got", "__DATA_CONST")&.at
-          @stub_at = @imports.each_with_index.to_h { |n, i| [n, BASE + stubs + (i * STUB)] }
-          @got_at = @got.each_with_index.to_h { |key, i| [key, BASE + got + (i * 8)] }
-          @entry_at = @addr[@entry_symbol[0]][@entry_symbol[1]] - BASE
+        # Places the program's `part` at the first address at or after `at`
+        # its alignment allows, and answers where it ends.
+        def place(part, at)
+          at = Patch.align(at, 1 << @top.align(part))
+          @top.place(part, at)
+          at + @top.size(part)
         end
 
-        # --- bytes ---------------------------------------------------------
+        def after(segment) = segment.fileoff + segment.filesize
 
-        # The body first, because patching it is what finds the fixups;
-        # then the chains, which decide the size of __LINKEDIT; then the
-        # commands, which name all of it. A fixup slot holds a chain entry
-        # and not an address, so those eight bytes are written last.
-        def assemble
-          body = @parts.to_h { |p| [p, bytes_of(p)] }
-          thread
-          @linkedit = linkedit
-          blob = commands
-          file = +"".b
-          file << [MH_MAGIC_64, CPU_TYPE_ARM64, 0, MH_EXECUTE, @ncmds, @cmdsize, FLAGS, 0].pack("L<8")
-          file << blob
-          @parts.each do |p|
-            next if p.flags == S_ZEROFILL
-
-            pad(file, p.at)
-            file << body.fetch(p)
-          end
-          pad(file, @link_at)
-          file << @linkedit
-          @chain.each { |at, word| file[at, 8] = [word].pack("Q<") }
-          file
+        def segment(name, vm, filesize, fileoff, prot, flags, sections, pieces)
+          Segment.new(name: name, vm: vm, vmsize: filesize, fileoff: fileoff, filesize: filesize, prot: prot,
+                      flags: flags, sections: sections, pieces: pieces)
         end
 
-        # A section's bytes: the two tables build themselves, and every
-        # other section is its inputs' bytes, relocated, with the gaps
-        # between them zero. `__bss` has no bytes at all -- that is what it
-        # is.
-        def bytes_of(part)
-          return "".b if part.flags == S_ZEROFILL
-          return stub_bytes(part) if part.name == "__stubs"
-          return got_bytes(part) if part.name == "__got"
-
-          out = +"".b
-          part.chunks.each do |i, k, off|
-            pad(out, off)
-            out << @inputs[i].sections[k].bytes
+        def base_sections(parts)
+          parts.map do |part|
+            name, flags = SECTIONS.fetch(part)
+            vm, size, align = @base.parts.fetch(part)
+            Section.new(name, vm, size, align, flags)
           end
-          part.chunks.each { |i, k, off| relocate(part, out, off, i, @inputs[i].sections[k].relocs) }
+        end
+
+        def top_sections(parts)
+          parts.map do |part|
+            name, flags = SECTIONS.fetch(part)
+            Section.new(name, @top.at(part), @top.size(part), @top.align(part), flags)
+          end
+        end
+
+        # The program's `parts`, relocated, in `size` bytes from `start`.
+        # The parts are in address order, so each is appended.
+        def top_bytes(parts, start, size)
+          out = parts.inject(+"".b) do |bytes, part|
+            pad(bytes, @top.at(part) - start)
+            bytes << @top.bytes(part)
+          end
+          pad(out, size)
           out
         end
 
-        # Applies one input section's relocations to its bytes at `off` in
-        # `out`. A call reaches an import through its stub and an address
-        # through its GOT slot; everything else is at its own place in the
-        # image. An `abs64` slot holds a chain entry rather than the
-        # address, so it is recorded here and overwritten once the chains
-        # are threaded; its addend is what the slot held.
-        def relocate(part, out, off, i, words)
-          addr = @addr[i]
-          base = BASE + part.at + off
-          addend = 0
-          j = 0
-          while j < words.size
-            at = words[j]
-            info = words[j + 1]
-            j += 2
-            type = info >> 28
-            if type == ObjectFile::ARM64_RELOC_ADDEND
-              addend = ((info & 0xFF_FFFF) ^ 0x80_0000) - 0x80_0000
-              next
+        # --- fixups --------------------------------------------------------
+
+        # The slots dyld writes: each of the base's externals, a rebase to
+        # the program's definition or a bind; and every slot of the
+        # program's own, threaded page by page in its segment.
+        def fill
+          @base.late.each do |slot|
+            bytes, _, dirty = @late.fetch(slot.segment).pieces.first
+            name = "_#{slot.name}"
+            word = if @top.defines?(name)
+                     Chains.rebase(@top.global(name) + slot.addend - BASE, slot.next)
+                   else
+                     bound(slot.name, slot.addend, slot.next)
+                   end
+            Chains.put(bytes, slot.offset, word)
+            dirty << (slot.offset / HASH_PAGE)
+          end
+          # By index: a segment's hash would hash its bytes.
+          own = @segments.select { |s| s.pieces.first[1].nil? && (s.prot & WRITE) != 0 }
+          @top.fixups.group_by { |slot, *| own.index { |s| slot >= s.vm && slot < s.vm + s.vmsize } }.each do |n, rows|
+            raise Refused, "a fixup outside the data" unless n
+
+            s = own[n]
+            s.starts, nexts = Chains.thread(rows.map(&:first), s.vm, s.vmsize)
+            bytes = s.pieces.first[0]
+            rows.each do |slot, kind, target, addend|
+              word = kind == :rebase ? Chains.rebase(target - BASE, nexts[slot]) : bound(target, addend, nexts[slot])
+              Chains.put(bytes, slot - s.vm, word)
             end
-            raise Refused, "a relocation that names a section, not a symbol" if info[27].zero?
-
-            s = info & 0xFF_FFFF
-            here = off + at
-            place = base + at
-            target = addr[s]
-            if type == ABS64
-              raise Refused, "an absolute relocation in #{part.segment},#{part.name}" unless part.fixups
-
-              held = out.unpack1("q<", offset: here)
-              if target
-                @fixups << [part.segment, place - BASE, :rebase, target + held - BASE]
-              else
-                raise Refused, "an addend to #{@links[i][s]}, an import" unless held.zero?
-
-                @fixups << [part.segment, place - BASE, :bind, @import_index.fetch(@links[i][s])]
-              end
-            else
-              kind = KINDS[type] or raise Refused, "a relocation of type #{type}"
-              if GOT.include?(type)
-                target = @got_at.fetch(meaning(i, s))
-              elsif type == BRANCH26
-                target ||= @stub_at.fetch(@links[i][s])
-              elsif target.nil?
-                raise Refused, "#{@links[i][s]} has no place in the image"
-              end
-              word = Backend::Aarch64::Relocs.encode(kind, out.unpack1("L<", offset: here), target + addend, place)
-              raise Refused, "a #{kind} to #{@inputs[i].name(s).delete_prefix("_")} is out of reach" unless word
-
-              out.bytesplice(here, 4, [word].pack("L<"))
-            end
-            addend = 0
           end
         end
 
-        # One stub an import, jumping through the GOT slot dyld binds.
-        def stub_bytes(part)
-          @imports.each_with_index.inject(+"".b) do |out, (name, i)|
-            here = BASE + part.at + (i * STUB)
-            got = @got_at.fetch(name)
-            page = ((got & ~0xFFF) - (here & ~0xFFF)) >> 12
-            out << [0x9000_0010 | ((page & 3) << 29) | (((page >> 2) & 0x7FFFF) << 5),
-                    0xF940_0210 | (((got & 0xFFF) >> 3) << 10),
-                    0xD61F_0200].pack("L<3")
-          end
-        end
+        def bound(name, addend, nxt)
+          raise Refused, "an addend to #{name}, an import" unless addend.zero?
 
-        # A GOT slot an import, each one a bind for dyld to fill in; then
-        # one a defined symbol the code reaches through the GOT, each a
-        # rebase of that symbol's address.
-        def got_bytes(part)
-          @got.each_with_index do |key, n|
-            at = part.at + (n * 8)
-            @fixups << if key.is_a?(String)
-                         [part.segment, at, :bind, @import_index.fetch(key)]
-                       else
-                         [part.segment, at, :rebase, @addr[key[0]][key[1]] - BASE]
-                       end
-          end
-          "\0".b * (@got.size * 8)
-        end
-
-        # --- chained fixups ------------------------------------------------
-
-        # Every slot dyld has to write, threaded into one chain a page. The
-        # slot itself holds the chain entry: where the next one is, and
-        # either an address to rebase or an import to bind.
-        def thread
-          @chain = {}
-          @starts = {}
-          @fixups.group_by(&:first).each do |segment, rows|
-            at = segment_start(segment)
-            pages = Patch.align(segment_end(segment) - at, PAGE) / PAGE
-            starts = Array.new(pages, START_NONE)
-            rows.map { |(_, off, kind, target)| [off, kind, target] }.sort_by(&:first)
-                .group_by { |(off, _, _)| (off - at) / PAGE }.each do |page, slots|
-              starts[page] = (slots.first[0] - at) % PAGE
-              slots.each_with_index do |(off, kind, target), i|
-                nxt = slots[i + 1] ? (slots[i + 1][0] - off) / STRIDE : 0
-                @chain[off] = kind == :rebase ? rebase(target, nxt) : bind(target, nxt)
-              end
-            end
-            @starts[segment] = starts
-          end
-        end
-
-        # Where the slot points, as an offset from the image base: what the
-        # loader adds the slide to.
-        def rebase(target, nxt) = (target & ((1 << 36) - 1)) | (nxt << 51)
-
-        def bind(ordinal, nxt)
-          (ordinal & 0xFF_FFFF) | (nxt << 51) | (1 << 63)
+          Chains.bind(@ordinal.fetch(name), nxt)
         end
 
         # The `LC_DYLD_CHAINED_FIXUPS` blob: a header, one starts table a
@@ -486,28 +312,25 @@ module Ze0
             names << "_#{name}\0".b
             1 | (at << 9)
           end
-          order = @segments
-          starts = [order.size].pack("L<")
+          order = [nil, *@segments, nil]
           table = +"".b
-          offsets = order.map do |segment|
-            rows = @starts[segment]
-            next 0 unless rows
+          offsets = order.map do |s|
+            next 0 unless s&.starts
 
             here = 4 + (order.size * 4) + table.bytesize
             # size, page_size, pointer_format, segment_offset,
             # max_valid_pointer, page_count: twenty-two bytes before the
             # array of page starts.
-            table << [22 + (rows.size * 2), PAGE, PTR_64_OFFSET].pack("L<S<2")
-            table << [segment_start(segment)].pack("Q<") << [0, rows.size].pack("L<S<") << rows.pack("S<*")
+            table << [22 + (s.starts.size * 2), PAGE, PTR_64_OFFSET].pack("L<S<2")
+            table << [s.vm - BASE].pack("Q<") << [0, s.starts.size].pack("L<S<") << s.starts.pack("S<*")
             table << ("\0".b * (-table.bytesize % 4))
             here
           end
-          starts += offsets.pack("L<*") + table
+          starts = [order.size].pack("L<") + offsets.pack("L<*") + table
           head = 28
           imports_at = head + starts.bytesize
           names_at = imports_at + (imports.size * 4)
-          blob = [0, head, imports_at, names_at, imports.size, IMPORT_FORMAT, 0].pack("L<7")
-          blob + starts + imports.pack("L<*") + names
+          [0, head, imports_at, names_at, imports.size, IMPORT_FORMAT, 0].pack("L<7") + starts + imports.pack("L<*") + names
         end
 
         # --- __LINKEDIT ----------------------------------------------------
@@ -516,20 +339,25 @@ module Ze0
         # everything the loader reads and nothing the program runs. The
         # signature goes after it, and its size is fixed by where it starts.
         def linkedit
+          @link_at = after(@segments.last)
+          @link_vm = Patch.align(@segments.map { |s| s.vm + s.vmsize }.max, PAGE)
           fixups = chained_fixups
           trie = exports_trie
+          words, strings = @top.symbols(@ordinals, @base.strings.bytesize)
+          symbols = @base.symbols + words.pack("Q<*")
+          strings = @base.strings + strings
+          strings = "\0".b if strings.empty?
+          strings += "\0".b * (-strings.bytesize % 8)
           @fixups_at = @link_at
           @fixups_size = fixups.bytesize
           @trie_at = Patch.align(@fixups_at + @fixups_size, 8)
           @trie_size = trie.bytesize
           @symoff = Patch.align(@trie_at + @trie_size, 8)
-          symbols, strings = symbol_table
           @nsyms = symbols.bytesize / 16
           @stroff = @symoff + symbols.bytesize
           @strsize = strings.bytesize
           @sig_at = Patch.align(@stroff + @strsize, 16)
-          @sig_size = signature_size
-          @link_size = (@sig_at + @sig_size) - @link_at
+          @link_size = (@sig_at + signature_size) - @link_at
 
           out = +"".b
           out << fixups
@@ -538,7 +366,7 @@ module Ze0
           pad(out, @symoff - @link_at)
           out << symbols << strings
           pad(out, @sig_at - @link_at)
-          out
+          @linkedit = out
         end
 
         # The exports trie: the image's own header at offset zero, which is
@@ -548,9 +376,12 @@ module Ze0
         # offset of the node it leads to. An offset's size depends on where
         # the nodes land, so the layout runs until no offset moves.
         def exports_trie
-          names = { "__mh_execute_header" => 0 }
-          @globals.each { |name, (i, s)| names[name] = @addr[i][s] - BASE } if @exports
-          entries = names.sort_by(&:first)
+          entries = [["__mh_execute_header", 0]]
+          if @exports
+            @base.names.each_with_index { |name, n| entries << [name, @base.addresses[n] - BASE] }
+            @top.exports.each { |name, address| entries << [name, address - BASE] }
+          end
+          entries.sort_by!(&:first)
           nodes = []
           trie_node(entries, 0, entries.size, 0, nodes)
           # Each node's size less its offsets, which is all that moves.
@@ -628,54 +459,43 @@ module Ze0
           out << n
         end
 
-        # Every symbol an input defines, as a local symbol at its address in
-        # the image: `nm` can read the binary, and the exports trie says
-        # what is exported. The names are the inputs' own string tables, one
-        # after another.
-        def symbol_table
-          strings = +"".b
-          words = []
-          @inputs.each_with_index do |o, i|
-            base = strings.bytesize
-            strings << o.strings
-            o.count.times do |s|
-              next unless (o.type(s) & (N_STAB | N_TYPE)) == N_SECT && @ordinal[i][o.sect(s) - 1]
-
-              words << ((o.strx(s) + base) | (N_SECT << 32) | (@ordinal[i][o.sect(s) - 1] << 40))
-              words << @addr[i][s]
-            end
-          end
-          strings = "\0".b if strings.empty?
-          [words.pack("Q<*"), strings + ("\0".b * (-strings.bytesize % 8))]
-        end
-
         # --- load commands -------------------------------------------------
 
-        # Built twice: once to learn how long they are, which decides where
-        # the code goes, and once with the numbers that follow from that.
-        # Their size depends only on how many of each there are, so the two
-        # agree.
+        # How long the load commands are with `segments` segments of
+        # `sections` sections besides `__PAGEZERO` and `__LINKEDIT`: every
+        # other command is the same size in every image.
+        def command_size(segments, sections)
+          others = [16, 16, 24, 80, 32, 24, 24, 24, 56, 16].sum
+          (72 * (segments + 2)) + (80 * sections) + others
+        end
+
+        # The header and the load commands, at the start of the first page.
+        def header
+          blob = commands
+          head = [MH_MAGIC_64, CPU_TYPE_ARM64, 0, MH_EXECUTE, @ncmds, blob.bytesize, FLAGS, 0].pack("L<8") + blob
+          room = @base.empty? ? @top.at(:text) - BASE : PAGE
+          raise Refused, "#{head.bytesize} bytes of load commands, past the #{room} before the code" if head.bytesize > room
+
+          @header.bytesplice(0, head.bytesize, head)
+        end
+
         def commands
           out = []
-          out << segment("__PAGEZERO", 0, BASE, 0, 0, 0, [])
-          out << segment("__TEXT", BASE, @text_size.to_i, 0, @text_size.to_i, READ | EXEC, in_segment("__TEXT"))
-          out << data_segment("__DATA_CONST", READ | WRITE, SG_READ_ONLY) if in_segment("__DATA_CONST").any?
-          out << data_segment("__DATA", READ | WRITE, 0) if in_segment("__DATA").any?
-          out << segment("__LINKEDIT", @link_vm.to_i, Patch.align(@link_size.to_i, PAGE),
-                         @link_at.to_i, @link_size.to_i, READ, [])
-          out << command(LC_DYLD_CHAINED_FIXUPS, [@fixups_at.to_i, @fixups_size.to_i].pack("L<2"))
-          out << command(LC_DYLD_EXPORTS_TRIE, [@trie_at.to_i, @trie_size.to_i].pack("L<2"))
-          out << command(LC_SYMTAB, [@symoff.to_i, @nsyms.to_i, @stroff.to_i, @strsize.to_i].pack("L<4"))
-          out << command(LC_DYSYMTAB, ([0, @nsyms.to_i, @nsyms.to_i, 0, @nsyms.to_i, 0] + ([0] * 12)).pack("L<18"))
-          out << command(LC_LOAD_DYLINKER, [12].pack("L<") + name(DYLINKER))
+          out << segment_command("__PAGEZERO", 0, BASE, 0, 0, 0, 0, [])
+          @segments.each { |s| out << segment_command(s.name, s.vm, s.vmsize, s.fileoff, s.filesize, s.prot, s.flags, s.sections) }
+          out << segment_command("__LINKEDIT", @link_vm, Patch.align(@link_size, PAGE), @link_at, @link_size, READ, 0, [])
+          out << command(LC_DYLD_CHAINED_FIXUPS, [@fixups_at, @fixups_size].pack("L<2"))
+          out << command(LC_DYLD_EXPORTS_TRIE, [@trie_at, @trie_size].pack("L<2"))
+          out << command(LC_SYMTAB, [@symoff, @nsyms, @stroff, @strsize].pack("L<4"))
+          out << command(LC_DYSYMTAB, ([0, @nsyms, @nsyms, 0, @nsyms, 0] + ([0] * 12)).pack("L<18"))
+          out << command(LC_LOAD_DYLINKER, [12].pack("L<") + "#{DYLINKER}\0".b)
           out << command(LC_BUILD_VERSION, [1, MIN_MACOS, SDK, 0].pack("L<4"))
           @uuid_at = 32 + out.sum(&:bytesize) + 8
           out << command(LC_UUID, "\0".b * 16)
-          out << command(LC_MAIN, [@entry_at.to_i, @stack].pack("Q<2"))
-          out << command(LC_LOAD_DYLIB, [24, 0, 1 << 16, 1 << 16].pack("L<4") + name(LIBSYSTEM))
-          out << command(LC_CODE_SIGNATURE, [@sig_at.to_i, @sig_size.to_i].pack("L<2"))
+          out << command(LC_MAIN, [@entry_at, @stack].pack("Q<2"))
+          out << command(LC_LOAD_DYLIB, [24, 0, 1 << 16, 1 << 16].pack("L<4") + "#{LIBSYSTEM}\0".b)
+          out << command(LC_CODE_SIGNATURE, [@sig_at, signature_size].pack("L<2"))
           @ncmds = out.size
-          @cmdsize = out.sum(&:bytesize)
           out.join
         end
 
@@ -685,60 +505,62 @@ module Ze0
           [cmd, body.bytesize + 8].pack("L<2") + body
         end
 
-        def name(path) = "#{path}\0".b
-
-        def segment(name, vmaddr, vmsize, fileoff, filesize, prot, parts, flags: 0)
-          body = [name.ljust(16, "\0")].pack("a16") + [vmaddr, vmsize, fileoff, filesize].pack("Q<4")
-          body += [prot, prot, parts.size, flags].pack("L<4")
-          parts.each { |p| body += section(p) }
+        def segment_command(name, vmaddr, vmsize, fileoff, filesize, prot, flags, sections)
+          body = [name].pack("a16") + [vmaddr, vmsize, fileoff, filesize].pack("Q<4")
+          body += [prot, prot, sections.size, flags].pack("L<4")
+          sections.each do |section|
+            offset = section.flags == S_ZEROFILL ? 0 : fileoff + (section.vm - vmaddr)
+            body += [section.name, name].pack("a16a16") + [section.vm, section.size].pack("Q<2") +
+                    [offset, section.align, 0, 0, section.flags, 0, 0, 0].pack("L<8")
+          end
           command(LC_SEGMENT_64, body)
-        end
-
-        # A writable segment: its virtual size covers `__bss`, which has no
-        # bytes in the file, so the two sizes differ by exactly that much.
-        def data_segment(name, prot, flags)
-          parts = in_segment(name)
-          at = parts.first.at.to_i
-          zerofill = parts.select { |p| p.flags == S_ZEROFILL }.sum(&:size)
-          segment(name, BASE + at, Patch.align(segment_end(name) - at, PAGE), at,
-                  segment_end(name) - zerofill - at, prot, parts, flags: flags)
-        end
-
-        def section(part)
-          [part.name.ljust(16, "\0"), part.segment.ljust(16, "\0")].pack("a16a16") +
-            [BASE + part.at.to_i, part.size].pack("Q<2") +
-            [part.flags == S_ZEROFILL ? 0 : part.at.to_i, part.align, 0, 0, part.flags, 0, 0, 0].pack("L<8")
         end
 
         # --- the stamps ----------------------------------------------------
 
-        # The UUID is the image's own hash, so two links of the same program
-        # agree; `ld` gives every link a fresh one, which is why
-        # `Obj::MachO::Stamps` had to blank it. Then the signature, over everything
-        # the UUID is already in.
-        def stamped(file)
-          file[@uuid_at, 16] = Digest::SHA256.digest(file)[0, 16]
-          file + signature(file)
+        # The hash of every page before the signature. A base's pages keep
+        # the hashes they were kept with, less the pages its external slots
+        # were written into.
+        def page_hashes
+          hashes = +"".b
+          @segments.each do |s|
+            s.pieces.each do |bytes, kept, dirty|
+              if kept
+                pages = kept.dup
+                dirty.uniq.each do |n|
+                  pages.bytesplice(n * 32, 32, Digest::SHA256.digest(bytes.byteslice(n * HASH_PAGE, HASH_PAGE)))
+                end
+                hashes << pages
+              else
+                hashes << Prelink.page_hashes(bytes)
+              end
+            end
+          end
+          hashes << Prelink.page_hashes(@linkedit)
+        end
+
+        # The UUID is the hash of every page's hash, so two links of the
+        # same program agree; `ld` gives every link a fresh one, which is
+        # why `Obj::MachO::Stamps` blanks it. The signature then hashes the
+        # header's page again, now that the UUID is in it.
+        #
+        # `CSMAGIC_EMBEDDED_SIGNATURE` over one ad-hoc `CodeDirectory`, all of
+        # it big-endian.
+        def signature
+          hashes = page_hashes
+          @header.bytesplice(@uuid_at, 16, Digest::SHA256.digest(hashes)[0, 16])
+          hashes.bytesplice(0, 32, Digest::SHA256.digest(@header.byteslice(0, HASH_PAGE)))
+          ident = "#{File.basename(@out)}\0".b
+          cd = [0xFADE_0C02, 88 + ident.bytesize + hashes.bytesize, 0x20400, 0x2,
+                88 + ident.bytesize, 88, 0, hashes.bytesize / 32, @sig_at].pack("L>9")
+          cd += [32, 2, 0, 12].pack("C4") + ([0] * 4).pack("L>4")
+          cd += [0, 0, @segments.first.filesize, 1].pack("Q>4") + ident + hashes
+          [0xFADE_0CC0, 20 + cd.bytesize, 1, 0, 20].pack("L>5") + cd
         end
 
         def signature_size
-          slots = (@sig_at + 4095) / 4096
-          20 + 88 + identifier.bytesize + 1 + (slots * 32)
-        end
-
-        def identifier = File.basename(@out)
-
-        # `CSMAGIC_EMBEDDED_SIGNATURE` over one ad-hoc `CodeDirectory`, all
-        # of it big-endian, hashing every 4 KB page of what comes before it.
-        def signature(file)
-          slots = (@sig_at + 4095) / 4096
-          hashes = (0...slots).map { |i| Digest::SHA256.digest(file.byteslice(i * 4096, 4096)) }.join
-          ident = "#{identifier}\0".b
-          cd = [0xFADE_0C02, 88 + ident.bytesize + hashes.bytesize, 0x20400, 0x2,
-                88 + ident.bytesize, 88, 0, slots, @sig_at].pack("L>9")
-          cd += [32, 2, 0, 12].pack("C4") + ([0] * 4).pack("L>4")
-          cd += [0, 0, @text_size, 1].pack("Q>4") + ident + hashes
-          [0xFADE_0CC0, 20 + cd.bytesize, 1, 0, 20].pack("L>5") + cd
+          slots = (@sig_at + HASH_PAGE - 1) / HASH_PAGE
+          20 + 88 + File.basename(@out).bytesize + 1 + (slots * 32)
         end
 
         def pad(bytes, to)

@@ -18,9 +18,12 @@ The first release as a RubyGem.
   the install compiles nothing.
 - The runtime cache goes to the user's cache directory
   (`~/Library/Caches/ze0` on macOS), or to `ZE0_CACHE`.
-- `Obj::MachO::Executable` links a program's object with the cached
-  runtime's and writes the signed binary. `ZE0_LINK=cc` links with the
-  system linker instead, and `cc` links what ze0's linker refuses.
+- `Obj::MachO::Executable` links a program beside the runtime's objects
+  and writes the signed binary. The runtime is linked once, at fixed
+  addresses, and kept in the cache (`prelink-<digest>.bin`), so a link
+  relocates only the program: 0.08 s for a small program. `ZE0_LINK=cc`
+  links with the system linker instead, and `cc` links what ze0's linker
+  refuses.
 - `cc` runs with `DEVELOPER_DIR` and `SDKROOT` pinned to the
   install the SDK comes from, so ze0 links with the macOS 27.0 SDK when
   the selected Xcode is older than the Command Line Tools.

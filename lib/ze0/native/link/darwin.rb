@@ -3,15 +3,16 @@
 require_relative "../link"
 require_relative "../../obj/macho/object_file"
 require_relative "../../obj/macho/executable"
+require_relative "../../obj/macho/prelink"
 require_relative "../../obj/macho/stamps"
 
 module Ze0
   module Native
     module Link
       # A Mach-O binary for aarch64-apple-darwin. `Obj::MachO::Executable`
-      # links the program's object with the runtime's and writes the
-      # binary; `cc` links only what it refuses, or every program under
-      # `ZE0_LINK=cc`.
+      # links the program beside the runtime's objects, linked once and kept
+      # (`Native::Build.prelink`), and writes the binary; `cc` links only
+      # what it refuses, or every program under `ZE0_LINK=cc`.
       module Darwin
         # `ld` turns this into `LC_MAIN.stacksize`. `Obj::MachO::Executable`
         # writes that field itself from the same number, so a program gets
@@ -34,7 +35,11 @@ module Ze0
         # so every global is exported.
         def link(image, out, work:, objects:, strip:, road:, target:)
           unless road == "cc"
-            why = Obj::MachO::Executable.write(image, out, objects: objects.map { |o| File.binread(o) }, exports: !strip)
+            why = begin
+              Obj::MachO::Executable.write(image, out, prelink: Build.prelink(objects), exports: !strip)
+            rescue Obj::MachO::Refused => e
+              e.message
+            end
             return nil unless why
             return "Obj::MachO::Executable cannot link this: #{why}" if road == "ruby" || !target.tool("cc")
           end

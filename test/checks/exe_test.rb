@@ -205,6 +205,56 @@ class ExeTest < Minitest::Test
     end
   end
 
+  # The other object reaches back into the unit: a call to a function
+  # the unit defines, and a pointer to its data. A base's external slots
+  # are the ones the image writes again for each program.
+  def calling_object
+    f = Ze0::IR::Function.new("shout", %w[i64 i64], "i64")
+    f.ret(f.call_val(f.callee("hook", %w[i64 i64], "i64", colocated: false), [f.args[0], f.args[1]]))
+    table = Ze0::Obj::Data.new("b_table", :data, "\0".b * 8, relocs: [Ze0::Obj::Reloc.new(0, :abs64, "a_msg")], align: 8, linkage: :export)
+    data = [Ze0::Obj::Data.new("b_msg", :text_const, "unused from b\n", align: 8), table]
+    Ze0::Obj::MachO::ObjectFile.write(Ze0::Native::Build.unit([f], data, export: true))
+  end
+
+  def hooked_unit
+    hook = Ze0::IR::Function.new("hook", %w[i64 i64], "i64")
+    write = hook.callee("write", %w[i32 i64 i64], "i64", colocated: false)
+    hook.ret(hook.call_val(write, [hook.iconst("i32", 1), hook.args[0], hook.args[1]]))
+    f = Ze0::IR::Function.new("main", %w[i32 i64], "i32")
+    shout = f.callee("shout", %w[i64 i64], "i64", colocated: false)
+    f.call(shout, [f.fetch("i64", f.symbol_value(f.symbol("b_table", colocated: false))), f.iconst("i64", 6)])
+    f.ret(f.iconst("i32", 0))
+    data = [Ze0::Obj::Data.new("a_msg", :text_const, "hooks\n", align: 8, linkage: :export)]
+    Ze0::Native::Build.unit([f, hook], data)
+  end
+
+  def test_a_base_reaches_back_into_the_program
+    Dir.mktmpdir("ze0-exe-") do |dir|
+      bin = File.join(dir, "hooked")
+      assert_nil Ze0::Obj::MachO::Executable.write(hooked_unit, bin, objects: [calling_object])
+      assert_equal [0, "hooks\n"], ran(bin)
+      segments = IO.popen(["otool", "-l", bin], &:read).scan(/^ +segname (\S+)/).flatten.uniq
+      assert_equal %w[__PAGEZERO __TEXT __PROGRAM __DATA_CONST __DATA __DATA_PROGRAM __LINKEDIT], segments
+      assert system("codesign", "-v", bin, out: File::NULL, err: File::NULL), "codesign refused the signature"
+    end
+  end
+
+  # A base read back from its bytes links the same image as the base
+  # linked just now.
+  def test_a_kept_base_links_the_same_bytes
+    base = Ze0::Obj::MachO::Prelink.build([calling_object])
+    kept = Ze0::Obj::MachO::Prelink.load(base.dump)
+    refute_nil kept
+    assert_nil Ze0::Obj::MachO::Prelink.load(base.dump[0...-1]), "a base cut short is a miss"
+    Dir.mktmpdir("ze0-exe-") do |dir|
+      bins = [base, kept].map.with_index do |prelink, n|
+        File.join(dir, "hooked").tap { |bin| assert_nil Ze0::Obj::MachO::Executable.write(hooked_unit, bin, prelink: prelink) }
+            .then { |bin| File.binread(bin).tap { File.rename(bin, "#{bin}#{n}") } }
+      end
+      assert_equal bins[0], bins[1]
+    end
+  end
+
   # The same program, both roads, one answer.
   def test_both_linkers_agree
     Dir.mktmpdir("ze0-exe-") do |dir|

@@ -14,6 +14,7 @@ require_relative "../backend/aarch64"
 require_relative "../backend/wasm"
 require_relative "../obj/macho/object_file"
 require_relative "../obj/elf/object_file"
+require_relative "../obj/macho/prelink"
 require_relative "../machine/lower"
 require_relative "../zr"
 require_relative "../clock"
@@ -100,6 +101,24 @@ module Ze0
       def assemble(function, entry, target: Target.default)
         IR::Passes.prepare(function)
         backend(target).assemble(function, backend(target)::Spelled.new(entry))
+      end
+
+      # `objects` linked once, at the addresses every program links beside
+      # (`Obj::MachO::Prelink`). Objects in the cache are named by the
+      # digest of what made them, so their base is kept under the names;
+      # other objects are linked each time.
+      def prelink(objects)
+        cache = File.expand_path(Zr::CACHE)
+        named = !objects.empty? && objects.all? { |o| File.dirname(File.expand_path(o)) == cache }
+        return Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }) unless named
+
+        path = File.join(Zr::CACHE, "prelink-#{Digest::SHA256.hexdigest(objects.map { |o| File.basename(o) }.join("\n"))}.bin")
+        kept = File.exist?(path) && Obj::MachO::Prelink.load(File.binread(path))
+        return kept if kept
+
+        Ze0.clock("objects prelinked") do
+          Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }).tap { |base| Zr.write_cache(path, base.dump) }
+        end
       end
 
       # The compiler's object, built once per road.
