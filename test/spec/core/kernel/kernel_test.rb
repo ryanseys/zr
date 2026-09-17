@@ -86,7 +86,7 @@ describe "Kernel programs" do
   end
 
   it "boxs kernel method is not callable in main" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # A module reopened inside a box keeps its methods there -- `Kernel` is the
       # sharpest case, since a leak would give every object in main a new method.
 

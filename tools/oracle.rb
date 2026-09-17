@@ -25,6 +25,16 @@ require_relative "../test/support/reader"
 require_relative "../test/support/harness/case"
 require_relative "../test/support/harness/child"
 
+# What a guard asks of the machine. The real ones live in
+# `test/support/spec.rb`, which loads the whole compiler; a tool that
+# compiles nothing answers them itself.
+module Ze0
+  module Spec
+    def self.platform = "macos"
+    def self.need?(_name) = true
+  end
+end
+
 module Oracle
   ROOT = File.expand_path("..", __dir__)
 
@@ -58,7 +68,7 @@ module Oracle
         bytes.is_a?(Hash) ? File.symlink(bytes.fetch(:symlink), beside) : File.binwrite(beside, bytes)
       end
 
-      argv = [RbConfig.ruby, kwargs.fetch(:path, "spec.rb"), *kwargs.fetch(:argv, [])]
+      argv = [RbConfig.ruby, *kwargs.fetch(:ruby, []), kwargs.fetch(:path, "spec.rb"), *kwargs.fetch(:argv, [])]
       out, = Ze0::Harness::Child.run(argv, cwd: run, stdin: kwargs[:stdin], env: kwargs.fetch(:env, {}),
                                            seconds: LIMIT, megabytes: Ze0::Harness::Child::RUN_MB)
       return nil unless out.code.is_a?(Integer)

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Variables: instance and class variables" do
   it "boxs class ivar and class variable are its own" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # Class ivars and class variables, which live in tables of their own.
 
 

@@ -1,1 +1,0 @@
-puts "loud side effect"

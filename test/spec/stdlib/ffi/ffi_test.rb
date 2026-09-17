@@ -401,7 +401,7 @@ describe "FFI programs" do
   end
 
   it "every shape an eval once declined now compiles" do
-    result = ze0(<<~'RUBY')
+    result = ze0(<<~'RUBY', ruby: ["-W:no-experimental"])
       # There is no second evaluator to hand a declined shape to, so a shape
       # the compiler cannot lower raises `NotImplementedError` naming itself.
       # This test used to pin one such message -- and it had to be re-pointed

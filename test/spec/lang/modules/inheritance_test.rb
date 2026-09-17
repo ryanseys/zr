@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Modules: inheritance and ancestors" do
   it "boxs include is invisible to main" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # `include` from inside a box reaches the class's ancestry rather than its
       # own tables, and stays the box's.
 

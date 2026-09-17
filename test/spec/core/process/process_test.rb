@@ -85,7 +85,7 @@ describe "Process programs" do
   end
 
   it "boxs singleton alias is its own and does not abort" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # A class-method ALIAS written in a box's `class << self`. This ABORTED the
       # process before: the alias named the box's overlay class, which registers
       # no entry, and the registrar's `expect` on that lookup is reached across an

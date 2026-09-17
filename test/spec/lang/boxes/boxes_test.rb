@@ -22,7 +22,7 @@ describe "Boxes programs" do
   end
 
   it "box attr accessor is its own" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -38,7 +38,7 @@ describe "Boxes programs" do
   end
 
   it "box class ivar is not readable in the box" do
-    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})).must_answer "7\n"
+    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])).must_answer "7\n"
 
 
       b = Ruby::Box.new
@@ -48,7 +48,7 @@ describe "Boxes programs" do
   end
 
   it "box class method is absent from mains reflection" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -64,7 +64,7 @@ describe "Boxes programs" do
   end
 
   it "box class variable is its own" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -80,7 +80,7 @@ describe "Boxes programs" do
   end
 
   it "box const set reaches main" do
-    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})).must_answer ":namee\n"
+    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])).must_answer ":namee\n"
 
 
       b = Ruby::Box.new
@@ -90,7 +90,7 @@ describe "Boxes programs" do
   end
 
   it "box constant on a shared class is its own" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -106,7 +106,7 @@ describe "Boxes programs" do
   end
 
   it "box exceptions are rescuable in main" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"box_exceptions_are_rescuable_in_main/main.rb" => "box = Ruby::Box.new\nbox.require_relative \"thrower\"\nbegin\n  box::Thrower.go\nrescue StandardError => e\n  puts \"rescued: \#{e.message} (\#{e.class})\"\nend\n", "box_exceptions_are_rescuable_in_main/thrower.rb" => "class BoxError < StandardError\nend\nclass Thrower\n  def self.go\n    raise BoxError, \"from the box\"\n  end\nend\n"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"box_exceptions_are_rescuable_in_main/main.rb" => "box = Ruby::Box.new\nbox.require_relative \"thrower\"\nbegin\n  box::Thrower.go\nrescue StandardError => e\n  puts \"rescued: \#{e.message} (\#{e.class})\"\nend\n", "box_exceptions_are_rescuable_in_main/thrower.rb" => "class BoxError < StandardError\nend\nclass Thrower\n  def self.go\n    raise BoxError, \"from the box\"\n  end\nend\n"}, ruby: ["-W:no-experimental"])
       # Exceptions cross the boundary as plain references: a box-defined
       # `BoxError < StandardError` raised from box code is rescuable in main
       # through the SHARED bootstrap superclass chain, and `e.class` names it.
@@ -120,7 +120,7 @@ describe "Boxes programs" do
   end
 
   it "box handle carries cruby ids" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # The `Ruby::Box` handle surface, under CRuby's own gate.
@@ -199,7 +199,7 @@ describe "Boxes programs" do
   end
 
   it "box handle is a real ruby box" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # `Ruby::Box.new` answers a value that IS a `Ruby::Box`.
@@ -233,7 +233,7 @@ describe "Boxes programs" do
   end
 
   it "box include is invisible to main" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -249,7 +249,7 @@ describe "Boxes programs" do
   end
 
   it "box isolation and shared builtins" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"box_isolation_and_shared_builtins/main.rb" => "class Widget\n  def hi\n    \"main widget\"\n  end\nend\nbox = Ruby::Box.new\nbox.require_relative \"widget\"\np Widget.new.hi\nw = box::Widget.new\np w.hi\np box::Widget == Widget\np box::String == String\np box::WIDGET_CONST\np $box_g\np box\n", "box_isolation_and_shared_builtins/widget.rb" => "class Widget\n  def hi\n    \"box widget\"\n  end\nend\nWIDGET_CONST = 99\n$box_g = 5\n"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"box_isolation_and_shared_builtins/main.rb" => "class Widget\n  def hi\n    \"main widget\"\n  end\nend\nbox = Ruby::Box.new\nbox.require_relative \"widget\"\np Widget.new.hi\nw = box::Widget.new\np w.hi\np box::Widget == Widget\np box::String == String\np box::WIDGET_CONST\np $box_g\np box\n", "box_isolation_and_shared_builtins/widget.rb" => "class Widget\n  def hi\n    \"box widget\"\n  end\nend\nWIDGET_CONST = 99\n$box_g = 5\n"}, ruby: ["-W:no-experimental"])
       # The keystone: a box-required file's classes are DISTINCT from main's
       # (same file, different class objects), builtins are SHARED
       # (`box::String == String`), a box top-level constant is readable
@@ -273,7 +273,7 @@ describe "Boxes programs" do
   end
 
   it "box loads its own copy of a file" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"a_box_loads_its_own_copy_of_a_file/widget.rb" => "$boxed_widget_runs = ($boxed_widget_runs || 0) + 1\n\nclass BoxedWidget\n  def hi = \"widget \#{$boxed_widget_runs}\"\nend\n\nBOXED_WIDGET_CONST = 99\n"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"a_box_loads_its_own_copy_of_a_file/widget.rb" => "$boxed_widget_runs = ($boxed_widget_runs || 0) + 1\n\nclass BoxedWidget\n  def hi = \"widget \#{$boxed_widget_runs}\"\nend\n\nBOXED_WIDGET_CONST = 99\n"}, ruby: ["-W:no-experimental"])
 
 
       # A box requires from its OWN load path, and gets its own copy.
@@ -334,7 +334,7 @@ describe "Boxes programs" do
   end
 
   it "box nested class is reachable by path" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -449,7 +449,7 @@ describe "Boxes programs" do
   end
 
   it "box prepend is invisible to main" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -465,7 +465,7 @@ describe "Boxes programs" do
   end
 
   it "box removes only its own class method 2" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # `remove_method` in a box's `class << self` retires the box's own row and
       # leaves main's alone. The removal has to find the row first -- it asked
       # about the overlay id and was told the method did not exist.
@@ -486,7 +486,7 @@ describe "Boxes programs" do
   end
 
   it "box reopen after the first loses its mixin" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -528,7 +528,7 @@ describe "Boxes programs" do
   end
 
   it "box reopen in expression position stays in the box" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       b = Ruby::Box.new
@@ -581,7 +581,7 @@ describe "Boxes programs" do
   end
 
   it "box snippet names itself in a backtrace" do
-    result = ze0(<<~'RUBY', path: "lang/boxes/a_box_snippet_names_itself_in_a_backtrace.rb", env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', path: "lang/boxes/a_box_snippet_names_itself_in_a_backtrace.rb", env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # A box's snippet names itself differently from every other eval, in three
@@ -644,7 +644,7 @@ describe "Boxes programs" do
   end
 
   it "boxes" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # Phase 18 -- Ruby::Box: compile-time box namespaces. A class defined in a
@@ -715,7 +715,7 @@ describe "Boxes programs" do
   end
 
   it "boxes reexecute files and patch builtins privately" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"boxes_reexecute_files_and_patch_builtins_privately/blank.rb" => "class String\n  def blank?\n    strip.empty?\n  end\nend\nclass Foo\n  def self.blank_one?\n    \"   \".blank?\n  end\nend\nclass Counter\n  @@count = 0\n  def self.bump\n    @@count += 1\n  end\n  def self.count\n    @@count\n  end\nend\nputs \"loaded\"\n", "boxes_reexecute_files_and_patch_builtins_privately/main.rb" => "box = Ruby::Box.new\nbox.require_relative \"blank\"\nbox2 = Ruby::Box.new\nbox2.require_relative \"blank\"\np box::Foo.blank_one?\nbegin\n  \"foo\".blank?\nrescue NoMethodError => e\n  puts \"main: \#{e.message}\"\nend\nbox::Counter.bump\nbox::Counter.bump\nbox2::Counter.bump\np box::Counter.count\np box2::Counter.count\n"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"boxes_reexecute_files_and_patch_builtins_privately/blank.rb" => "class String\n  def blank?\n    strip.empty?\n  end\nend\nclass Foo\n  def self.blank_one?\n    \"   \".blank?\n  end\nend\nclass Counter\n  @@count = 0\n  def self.bump\n    @@count += 1\n  end\n  def self.count\n    @@count\n  end\nend\nputs \"loaded\"\n", "boxes_reexecute_files_and_patch_builtins_privately/main.rb" => "box = Ruby::Box.new\nbox.require_relative \"blank\"\nbox2 = Ruby::Box.new\nbox2.require_relative \"blank\"\np box::Foo.blank_one?\nbegin\n  \"foo\".blank?\nrescue NoMethodError => e\n  puts \"main: \#{e.message}\"\nend\nbox::Counter.bump\nbox::Counter.bump\nbox2::Counter.bump\np box::Counter.count\np box2::Counter.count\n"}, ruby: ["-W:no-experimental"])
       # Per-box re-execution (the same file `box.require`d into two boxes runs
       # twice, with independent class-variable state per box), and per-box
       # builtin MONKEYPATCHES: a box's `String#blank?` resolves from that box's
@@ -738,7 +738,7 @@ describe "Boxes programs" do
   end
 
   it "class written in a box stays in it" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # A `class` written in a box belongs to that box: main cannot reach it.
@@ -774,7 +774,7 @@ describe "Boxes programs" do
   end
 
   it "disabled box carries no gate rows" do
-    result = ze0(<<~'RUBY')
+    result = ze0(<<~'RUBY', ruby: ["-W:no-experimental"])
 
       # `Ruby::Box`'s gate-only rows exist only under `RUBY_BOX=1`, as CRuby's do.
       #
@@ -851,7 +851,7 @@ describe "Boxes programs" do
   end
 
   it "main definitions are invisible inside a box" do
-    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})).must_answer "invisible\n"
+    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])).must_answer "invisible\n"
       # A main-only class/constant is INVISIBLE inside a box (boxes dup from
       # MASTER, not main): resolving it inside box.eval raises NameError-shaped
       # failures rather than leaking main's definitions.
@@ -865,7 +865,7 @@ describe "Boxes programs" do
   end
 
   it "master constants stay visible inside a box" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # The other half of that line: a box IS a copy of master, so the constants
       # the runtime installed before main ran stay visible inside it -- the bare
       # read's fallback tail reaches those and stops, rather than continuing into
@@ -1083,7 +1083,7 @@ describe "Boxes programs" do
   end
 
   it "ruby box surface" do
-    result = ze0(<<~'RUBY')
+    result = ze0(<<~'RUBY', ruby: ["-W:no-experimental"])
 
       # The Ruby namespace + Ruby::Box census surface, disabled mode (no RUBY_BOX
       # in the environment -- the harness sets the gate only for a source that
@@ -1137,7 +1137,7 @@ describe "Boxes programs" do
   end
 
   it "run time box reads back its own constant" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # A box minted at RUN TIME, whose id the compiler never saw. Its constant
       # has to be written and read under the same box, which is the case that
       # broke when the write learned the box before the read did.
@@ -1184,7 +1184,7 @@ describe "Boxes programs" do
   end
 
   it "snippet mints no compile time box" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
       # `Ruby::Box.new` in a SNIPPET mints a real box.
@@ -1220,7 +1220,7 @@ describe "Boxes programs" do
   end
 
   it "top level def in a box stays in it" do
-    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})).must_answer "NameError\n"
+    _(ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])).must_answer "NameError\n"
 
 
       # A top-level `def` written in a box belongs to that box: main cannot call

@@ -182,7 +182,7 @@ describe "Exceptions: loading files" do
   end
 
   it "require that raises is rescuable" do
-    result = ze0(<<~'RUBY', path: "lang/exceptions/a_require_that_raises_is_rescuable.rb", files: {"../../fixtures/raising_feature/ok.rb" => "LOADED_CLEANLY = true\n", "../../fixtures/raising_feature/r7.rb" => "raise ArgumentError, \"raise from r7\"\n", "../../fixtures/raising_feature/r1.rb" => "raise ArgumentError, \"raise from r1\"\n", "../../fixtures/raising_feature/r2.rb" => "raise ArgumentError, \"raise from r2\"\n", "../../fixtures/raising_feature/r3.rb" => "raise ArgumentError, \"raise from r3\"\n", "../../fixtures/raising_feature/r4.rb" => "raise ArgumentError, \"raise from r4\"\n", "../../fixtures/raising_feature/r5.rb" => "raise ArgumentError, \"raise from r5\"\n", "../../fixtures/raising_feature/r6.rb" => "raise ArgumentError, \"raise from r6\"\n", "../../fixtures/raising_feature/r8.rb" => "raise ArgumentError, \"raise from r8\"\n"})
+    result = ze0(<<~'RUBY', path: "lang/exceptions/a_require_that_raises_is_rescuable.rb", files: {"../../fixtures/raising_feature/ok.rb" => "LOADED_CLEANLY = true\n", "../../fixtures/raising_feature/r7.rb" => "raise ArgumentError, \"raise from r7\"\n", "../../fixtures/raising_feature/r8.rb" => "raise ArgumentError, \"raise from r8\"\n"})
       # A `require` zeo resolves at COMPILE time is spliced in place, and the
       # spliced body has to land INSIDE the `begin` that wrote the require. CRuby
       # runs the required file during the `require` call, so a raise from the

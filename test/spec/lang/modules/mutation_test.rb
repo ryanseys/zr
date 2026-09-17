@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Modules: changing in place" do
   it "boxs prepend is invisible to main" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # `prepend`, which has to beat the builtin row for the box and leave main's
       # alone.
       #

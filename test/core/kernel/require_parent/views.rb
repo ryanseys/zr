@@ -1,1 +1,0 @@
-puts "views aggregator loaded"

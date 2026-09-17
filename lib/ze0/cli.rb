@@ -6,8 +6,10 @@ require_relative "paths"
 require_relative "target"
 
 module Ze0
-  # The `ze0` command a gem user runs. The checkout's bin/ze0 adds the
-  # commands that need the corpus and tools/, and hands the rest here.
+  # The `ze0` command, and the only one: `exe/ze0` in a checkout, and
+  # the gem's binstub once it is installed. Everything the repository
+  # itself needs -- the tests, the bootstrap, the benchmark bank, the
+  # generated tables -- is a rake task rather than a command here.
   module CLI
     USAGE = <<~TEXT
       ze0 run <file.rb> [args]              compile a Ruby program with the zr runtime, and run it

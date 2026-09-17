@@ -157,7 +157,7 @@ describe "IO programs" do
   end
 
   it "boxs required file patches a shared class privately" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"a_boxs_required_file_patches_a_shared_class_privately/main.rb" => "box = Ruby::Box.new\nbox.require_relative \"patch\"\np Array.respond_to?(:zzz)\np box::Owned.go\n", "a_boxs_required_file_patches_a_shared_class_privately/patch.rb" => "class Array\n  def self.zzz = 9\nend\nclass Owned\n  def self.go = 'go'\nend\n"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"a_boxs_required_file_patches_a_shared_class_privately/main.rb" => "box = Ruby::Box.new\nbox.require_relative \"patch\"\np Array.respond_to?(:zzz)\np box::Owned.go\n", "a_boxs_required_file_patches_a_shared_class_privately/patch.rb" => "class Array\n  def self.zzz = 9\nend\nclass Owned\n  def self.go = 'go'\nend\n"}, ruby: ["-W:no-experimental"])
       # A box loading a FILE (rather than an eval'd string) isolates the same
       # way. The two routes reach the compiler differently -- a literal
       # `box.eval` is spliced at compile time and a `require_relative` brings in

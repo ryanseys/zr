@@ -181,7 +181,7 @@ describe "Constants programs" do
   end
 
   it "boxs constant is its own" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # The CONSTANT channel, both halves. A box's `Object.const_set` is
       # unreachable from main, and reachable from the box -- which needs its own
       # record for `Object`, since a box's cref chain ends at its surrogate and

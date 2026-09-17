@@ -4,6 +4,7 @@ require "fileutils"
 require "minitest"
 require "tmpdir"
 require_relative "harness/case"
+require_relative "reader"
 require_relative "harness/child"
 require_relative "harness/runner"
 require_relative "../../lib/ze0/native/build"
@@ -209,7 +210,10 @@ module Ze0
     module DSL
       ROOT = File.expand_path("../..", __dir__)
 
-      def ze0(source, path: nil, argv: [], env: {}, stdin: nil, files: {}, seconds: nil)
+      # `ruby:` names flags for the oracle alone, which ze0 has no use
+      # for: it is carried so that `rake oracle` can ask ruby the same
+      # question this example asked ze0.
+      def ze0(source, path: nil, argv: [], env: {}, stdin: nil, files: {}, seconds: nil, ruby: [])
         out = Spec.build_and_run(source, path: path || default_path, argv: argv, env: env,
                                          stdin: stdin, files: files, seconds: seconds)
         return out if out.is_a?(Spec::Result)
@@ -223,7 +227,9 @@ module Ze0
 
       # The name the program answers to when an example does not name
       # one: its own, so a backtrace reads as the example reads.
-      def default_path = "#{name.gsub(/[^\w]+/, "_").delete_prefix("test_")}.rb"
+      # Minitest numbers the method it defines for an `it`; the number
+      # is not part of the sentence and is not part of the name.
+      def default_path = Reader.path_for(name.sub(/\Atest_\d+_/, ""))
 
       # The sentence a refusal names, with the file and line taken off,
       # so the census counts gaps and not places.

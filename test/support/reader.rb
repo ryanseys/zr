@@ -34,7 +34,9 @@ module Ze0
 
       def ze0(source, **kwargs)
         @current.source = source
-        @current.kwargs = kwargs
+        # The default the DSL would have filled in, filled in here, so
+        # that what reads the example sees the path the run would use.
+        @current.kwargs = { path: Reader.path_for(@current.name) }.merge(kwargs)
         Recorder.new(@current, :result)
       end
 
@@ -81,19 +83,18 @@ module Ze0
 
     module_function
 
+    # The name a program answers to when its example does not name one:
+    # the example's own sentence, so a backtrace reads as the example
+    # reads. `Ze0::Spec::DSL#default_path` is the other caller, and the
+    # two must agree or a program's own path differs between the run and
+    # the oracle.
+    def path_for(sentence) = "#{sentence.gsub(/[^\w]+/, "_")}.rb"
+
     # Every example a spec file holds.
     def read(path)
       box = Sandbox.new
       box.instance_eval(File.read(path).sub(/^require "spec_helper"$/, ""), path)
       box.seen
     end
-  end
-
-  # The guards a spec's examples ask about the machine. The real ones
-  # live in `test/support/spec.rb`, which loads the whole compiler; a
-  # reader that compiles nothing answers them itself.
-  module Spec
-    def self.platform = "macos"
-    def self.need?(_name) = true
   end
 end

@@ -23,7 +23,7 @@ describe "Classes: constants" do
   end
 
   it "boxs constant on a shared class is its own" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # A constant written on a SHARED class inside a box, read back by path.
       # `Array::BOXC` is a scope-operator read rather than a cref walk, so it is
       # a different path into the same table.

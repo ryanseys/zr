@@ -123,7 +123,7 @@ describe "Variables programs" do
   end
 
   it "box globals are fully separate" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # Gvar isolation is BIDIRECTIONAL (separate per-box tables, no fallback):
       # a box reads nil for main's `$g`, and a box's write never reaches main.
 

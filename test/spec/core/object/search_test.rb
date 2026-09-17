@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Object: searching and matching" do
   it "boxs class method is absent from mains reflection" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"})
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
       # Reflection agrees with dispatch. A name the box defined must not appear
       # in main's `singleton_methods`, which reads a name set with no box axis of
       # its own.
