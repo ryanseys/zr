@@ -104,7 +104,7 @@ class Regexp
         # ONIGENC_ASCII_CODE_TO_LOWER_CASE, for a code under 256.
         def ascii_lower(c) = c >= 0x41 && c <= 0x5a ? c + 0x20 : c
 
-        def ascii_code_ctype?(code, ctype) = code < 128 && (Unicode::CTYPE_BITS[code] & (1 << ctype)) != 0
+        def ascii_code_ctype?(code, ctype) = code < 128 && Unicode.ctype_bit?(code, ctype)
 
         def mbc_word?(s, p, e) = code_ctype?(mbc_to_code(s, p, e), CType::WORD)
         def mbc_ascii_word?(s, p, e) = ascii_code_ctype?(mbc_to_code(s, p, e), CType::WORD)
@@ -303,15 +303,15 @@ class Regexp
 
         # onigenc_unicode_is_code_ctype
         def code_ctype?(code, ctype)
-          return (Unicode::CTYPE_BITS[code] & (1 << ctype)) != 0 if ctype <= CType::MAX_STD && code < 256
-          raise Error.new(Err::TYPE_BUG) if ctype >= Unicode::PACKED_RANGES.size
+          return Unicode.ctype_bit?(code, ctype) if ctype <= CType::MAX_STD && code < 256
+          raise Error.new(Err::TYPE_BUG) if ctype >= Unicode.table_count
 
           Unicode.in_code_range?(Unicode.ranges(ctype), code)
         end
 
         # get_ctype_code_range: [sb_out, ranges]
         def ctype_code_range(ctype)
-          raise Error.new(Err::TYPE_BUG) if ctype >= Unicode::PACKED_RANGES.size
+          raise Error.new(Err::TYPE_BUG) if ctype >= Unicode.table_count
 
           [0x80, Unicode.ranges(ctype)]
         end
@@ -329,7 +329,7 @@ class Regexp
             buf << ascii_lower(code).chr
             return Err::INVALID_CHAR_PROPERTY_NAME if buf.size >= PROPERTY_NAME_MAX_SIZE
           end
-          Unicode::PROPERTIES.fetch(buf, Err::INVALID_CHAR_PROPERTY_NAME)
+          Unicode.properties.fetch(buf, Err::INVALID_CHAR_PROPERTY_NAME)
         end
 
         # utf_8.c mbc_case_fold over onigenc_unicode_mbc_case_fold
@@ -347,8 +347,7 @@ class Regexp
 
         # onigenc_unicode_apply_all_case_fold, without the Turkic branch.
         def apply_all_case_fold(flag)
-          Unicode::CASE_UNFOLD_1.each do |from, to|
-            to = Array(to)
+          Unicode.folds(1).each do |from, to|
             to.each_with_index do |code, j|
               yield code, [from]
               yield from, [code]
@@ -360,9 +359,8 @@ class Regexp
           end
           return if (flag & CASE_FOLD_MULTI_CHAR) == 0
 
-          [Unicode::CASE_UNFOLD_2, Unicode::CASE_UNFOLD_3].each do |table|
+          [Unicode.folds(2), Unicode.folds(3)].each do |table|
             table.each do |from, to|
-              to = Array(to)
               to.each_with_index do |code, j|
                 yield code, from
                 to.each_with_index do |other, k|
@@ -442,22 +440,63 @@ class Regexp
       UTF8_ENC = UTF8.new.freeze
     end
 
-    # The Unicode tables as the engine reads them: each property's
-    # ranges decoded once, the fold rows, and the membership test.
+    # The Unicode tables as the engine reads them. The generated file
+    # holds each as a String; a table is decoded the first time a
+    # pattern needs it, so a program that uses no property and no case
+    # folding decodes none.
     module Unicode
       @ranges = {}
+      @folds = {}
+
+      # Each normalized property keyword to its table index.
+      def self.properties
+        @properties ||= PROPERTY_NAMES.split(" ").zip(PROPERTY_TABLES.unpack("w*")).to_h.freeze
+      end
+
+      def self.table_count = range_ends.size
+
+      def self.range_ends
+        @range_ends ||= RANGE_ENDS.unpack("w*").freeze
+      end
+
+      # Bit `ctype` of the Latin-1 entry for `code`, under 256.
+      def self.ctype_bit?(code, ctype)
+        bits = CTYPE_BITS.getbyte(code * 2) | (CTYPE_BITS.getbyte((code * 2) + 1) << 8)
+        bits[ctype] == 1
+      end
 
       # The ranges of table `index` as a flat [low, high, ...] Array.
       def self.ranges(index)
         @ranges[index] ||= begin
+          ends = range_ends
+          from = index.zero? ? 0 : ends[index - 1]
           out = []
           last = -1
-          PACKED_RANGES[index].unpack("w*").each_slice(2) do |gap, span|
+          RANGES.byteslice(from, ends[index] - from).unpack("w*").each_slice(2) do |gap, span|
             lo = last + gap + 1
             out << lo << lo + span
             last = lo + span
           end
           out.freeze
+        end
+      end
+
+      # A fold table as a Hash from its key to the codes it maps to, in
+      # the table's order: 0 is CASE_FOLD and 1 to 3 the unfold tables
+      # by key width. A one-code key is the Integer, a wider one an Array.
+      def self.folds(width)
+        @folds[width] ||= begin
+          words = [CASE_FOLD, CASE_UNFOLD_1, CASE_UNFOLD_2, CASE_UNFOLD_3][width].unpack("w*")
+          keys = width.zero? ? 1 : width
+          table = {}
+          at = 0
+          while at < words.size
+            key = keys == 1 ? words[at] : words[at, keys].freeze
+            count = words[at + keys]
+            table[key] = words[at + keys + 1, count].freeze
+            at += keys + 1 + count
+          end
+          table.freeze
         end
       end
 
@@ -477,25 +516,10 @@ class Regexp
         low < n && code >= ranges[low * 2]
       end
 
-      def self.fold(code)
-        to = CASE_FOLD[code]
-        to.nil? ? nil : Array(to)
-      end
-
-      def self.unfold1(code)
-        to = CASE_UNFOLD_1[code]
-        to.nil? ? nil : Array(to)
-      end
-
-      def self.unfold2(codes)
-        to = CASE_UNFOLD_2[codes]
-        to.nil? ? nil : Array(to)
-      end
-
-      def self.unfold3(codes)
-        to = CASE_UNFOLD_3[codes]
-        to.nil? ? nil : Array(to)
-      end
+      def self.fold(code) = folds(0)[code]
+      def self.unfold1(code) = folds(1)[code]
+      def self.unfold2(codes) = folds(2)[codes]
+      def self.unfold3(codes) = folds(3)[codes]
     end
   end
 end

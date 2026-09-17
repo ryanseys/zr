@@ -253,17 +253,34 @@ end
 $stderr.puts "ruby agrees: #{order.size} tables, #{properties.size} keywords, #{case_fold.size} folds"
 
 # ---- the core file ----
+#
+# Every table is one String literal, which a module carries as data.
+# Written as Hash and Array literals, the file's body was one function
+# of 725 KB of wasm that alone cost wasmtime 3.6 GB to compile; as
+# Strings it is a handful of instructions, and the engine decodes a
+# table the first time a pattern needs it (Unicode in encoding.rb).
 
-# A String literal of `bytes` the Ruby parser reads back byte for byte.
+# A String literal of `bytes` the Ruby parser reads back byte for byte,
+# in lines of about 96 columns joined by escaped newlines.
 def literal(bytes)
-  body = bytes.each_byte.map do |b|
+  chars = bytes.each_byte.map do |b|
     if b >= 0x20 && b < 0x7F && b != 0x22 && b != 0x5C && b != 0x23
       b.chr
     else
       format("\\x%02X", b)
     end
-  end.join
-  "\"#{body}\".b"
+  end
+  rows = []
+  row = +""
+  chars.each do |c|
+    if row.size + c.size > 96
+      rows << row
+      row = +""
+    end
+    row << c
+  end
+  rows << row
+  "\"#{rows.join("\\\n")}\".b.freeze"
 end
 
 # A table as BER-packed (gap, span) pairs: gap from the end of the
@@ -278,11 +295,12 @@ def packed(ranges)
   words.pack("w*")
 end
 
-def hash_lines(hash, per_line, &value)
-  hash.map { |k, v| "#{k} => #{value.call(v)}" }.each_slice(per_line).map { |slice| "      #{slice.join(", ")}," }.join("\n")
-end
+# Fold rows as BER-packed words: the key's codes, how many codes it
+# maps to, then those codes, in the table's own order.
+def fold_words(hash) = hash.flat_map { |key, list| [*key, list.size, *list] }.pack("w*")
 
-def codes(list) = list.size == 1 ? format("0x%04x", list[0]) : "[#{list.map { |c| format("0x%04x", c) }.join(", ")}]"
+range_bytes = order.map { |name| packed(tables[name]) }
+range_ends = range_bytes.each_with_object([]) { |bytes, ends| ends << (ends.last || 0) + bytes.bytesize }
 
 core = +""
 core << <<~RUBY
@@ -290,56 +308,44 @@ core << <<~RUBY
   #
   # The tables Onigmo's parser reads: every property keyword and the
   # code ranges of the table it names, the case folds and their
-  # inverses, and the Latin-1 ctype bits.
+  # inverses, and the Latin-1 ctype bits. Each is a String the engine
+  # decodes on first use (Regexp::Onig::Unicode in encoding.rb).
   class Regexp
     module Onig
       module Unicode
         # Each keyword the way property_name_to_ctype normalizes it (no
-        # spaces, hyphens or underscores; lowercased) to its table.
-        PROPERTIES = {
-  #{hash_lines(properties.transform_keys(&:inspect), 6) { |i| i.to_s }.gsub(/^      /, "        ").sub(/\A  /, "")}
-        }.freeze
+        # spaces, hyphens or underscores; lowercased), space-separated,
+        # and the index of the table each names, BER-packed in the same
+        # order.
+        PROPERTY_NAMES = #{literal(properties.keys.join(" "))}
+        PROPERTY_TABLES = #{literal(properties.values.pack("w*"))}
 
-        # The tables in Onigmo's order, the first fifteen being the
-        # POSIX classes ([[:alpha:]] is 1) and NEWLINE 0. Each holds its
-        # ranges as BER-packed (gap, span) pairs; `Unicode.ranges` reads
-        # one back.
-        PACKED_RANGES = [
-RUBY
-order.each_with_index do |name, index|
-  core << "        #{literal(packed(tables[name]))}, # #{index} #{name.delete_prefix("CR_")}\n"
-end
-core << <<~RUBY
-        ].freeze
+        # The #{order.size} tables in Onigmo's order, the first fifteen being
+        # the POSIX classes ([[:alpha:]] is 1) and NEWLINE 0. Each holds
+        # its ranges as BER-packed (gap, span) pairs, one after another;
+        # RANGE_ENDS has the byte offset where each ends, BER-packed.
+        RANGES = #{literal(range_bytes.join)}
+        RANGE_ENDS = #{literal(range_ends.pack("w*"))}
 
-        # The 8859-1 ctype table: bit `ctype` of entry `code` says a
-        # code point under 256 has the class (unicode.c).
-        CTYPE_BITS = [
-  #{ctype_bits.each_slice(16).map { |row| "        #{row.map { |b| format("0x%04x", b) }.join(", ")}," }.join("\n").sub(/\A  /, "")}
-        ].freeze
+        # The 8859-1 ctype table: bit `ctype` of the little-endian 16-bit
+        # entry `code` says a code point under 256 has the class
+        # (unicode.c).
+        CTYPE_BITS = #{literal(ctype_bits.pack("v*"))}
 
         # Full case folding: a code point to the code(s) it folds to
-        # (CaseFold_11 with the locale rows).
-        CASE_FOLD = {
-  #{hash_lines(case_fold.transform_keys { |k| format("0x%04x", k) }, 4) { |v| codes(v) }.gsub(/^      /, "        ").sub(/\A  /, "")}
-        }.freeze
+        # (CaseFold_11 with the locale rows), as fold rows.
+        CASE_FOLD = #{literal(fold_words(case_fold))}
 
         # A folded code point to the other code points that fold to it
         # (CaseUnfold_11 with the locale row).
-        CASE_UNFOLD_1 = {
-  #{hash_lines(unfold1.transform_keys { |k| format("0x%04x", k) }, 4) { |v| codes(v) }.gsub(/^      /, "        ").sub(/\A  /, "")}
-        }.freeze
+        CASE_UNFOLD_1 = #{literal(fold_words(unfold1))}
 
         # A two-code fold to the code points that fold to it
         # (CaseUnfold_12 with the locale row).
-        CASE_UNFOLD_2 = {
-  #{hash_lines(unfold2.transform_keys { |k| codes(k) }, 2) { |v| codes(v) }.gsub(/^      /, "        ").sub(/\A  /, "")}
-        }.freeze
+        CASE_UNFOLD_2 = #{literal(fold_words(unfold2))}
 
         # A three-code fold to the code points that fold to it (CaseUnfold_13).
-        CASE_UNFOLD_3 = {
-  #{hash_lines(unfold3.transform_keys { |k| codes(k) }, 2) { |v| codes(v) }.gsub(/^      /, "        ").sub(/\A  /, "")}
-        }.freeze
+        CASE_UNFOLD_3 = #{literal(fold_words(unfold3))}
       end
     end
   end
