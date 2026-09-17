@@ -25,8 +25,10 @@ module Prism
       # PRISM_VERSION_MAJOR, _MINOR and _PATCH.
       VERSION = [1, 9, 0].freeze
 
-      # pm_diagnostic_id_t: errors first, then warnings.
-      DIAGNOSTIC_TYPES = [
+      # pm_diagnostic_id_t: errors first, then warnings. An error and a
+      # warning may share a name (invalid_character), so each list has its
+      # own numbers.
+      ERROR_TYPES = [
         :alias_argument,
         :alias_argument_numbered_reference,
         :ampampeq_multi_assign,
@@ -321,6 +323,9 @@ module Prism
         :write_target_readonly,
         :write_target_unexpected,
         :xstring_term,
+      ].each_with_index.to_h.freeze
+
+      WARNING_TYPES = [
         :ambiguous_binary_operator,
         :ambiguous_first_argument_minus,
         :ambiguous_first_argument_plus,
@@ -351,7 +356,7 @@ module Prism
         :unreachable_statement,
         :unused_local_variable,
         :void_statement,
-      ].each_with_index.to_h.freeze
+      ].each_with_index.to_h { |name, index| [name, ERROR_TYPES.size + index] }.freeze
 
       # pm_error_level_t and pm_warning_level_t.
       ERROR_LEVELS = { syntax: 0, argument: 1, load: 2 }.freeze
@@ -426,8 +431,8 @@ module Prism
         comments(result.comments)
         magic_comments(result.magic_comments)
         optional_location(result.data_loc)
-        diagnostics(result.errors, ERROR_LEVELS)
-        diagnostics(result.warnings, WARNING_LEVELS)
+        diagnostics(result.errors, ERROR_TYPES, ERROR_LEVELS)
+        diagnostics(result.warnings, WARNING_TYPES, WARNING_LEVELS)
       end
 
       # pm_serialize_comment_list
@@ -449,10 +454,10 @@ module Prism
       end
 
       # pm_serialize_diagnostic_list
-      def diagnostics(diagnostics, levels)
+      def diagnostics(diagnostics, types, levels)
         varuint(diagnostics.size)
         diagnostics.each do |diagnostic|
-          varuint(DIAGNOSTIC_TYPES.fetch(diagnostic.type))
+          varuint(types.fetch(diagnostic.type))
           embedded(diagnostic.message)
           location(diagnostic.location)
           byte(levels.fetch(diagnostic.level))

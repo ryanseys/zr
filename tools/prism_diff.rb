@@ -14,6 +14,8 @@
 # Corpora, comma-separated: fixtures and errors (prism 1.9.0's test/prism,
 # extracted from ~/dev/prism into tmp/prism-1.9.0 on first use), rt, lib,
 # test and vendor (ze0's own .rb files). The default is fixtures,errors.
+# --fuzz N makes N broken variants of each case (truncated, a range
+# deleted, a byte inserted; --seed picks them), named case~n.
 # The exit status is 1 when any case differs.
 require "fileutils"
 require "optparse"
@@ -25,6 +27,8 @@ corpora = %w[fixtures errors]
 only = nil
 states = false
 show = 20
+fuzz = nil
+seed = 1
 OptionParser.new do |o|
   o.on("--writer") { mode = :writer }
   o.on("--dump") { mode = :dump }
@@ -33,11 +37,14 @@ OptionParser.new do |o|
   o.on("--corpus NAMES") { |names| corpora = names.split(",") }
   o.on("--only GLOB") { |glob| only = glob }
   o.on("--show N", Integer) { |n| show = n }
+  o.on("--fuzz N", Integer) { |n| fuzz = n }
+  o.on("--seed N", Integer) { |n| seed = n }
 end.parse!
 abort "usage: ruby tools/prism_diff.rb --writer|--dump|--lex [--states] [--corpus NAMES] [--only GLOB] [--show N]" unless mode
 
 diff = Ze0::Harness::PrismDiff
 cases = diff.cases(corpora, only: only)
+cases = diff.fuzz(cases, fuzz, seed) if fuzz
 unsupported = 0
 failures =
   case mode

@@ -177,7 +177,7 @@ module Prism
       # (`error_location`) or at the digits when the bytes are the source.
       def named_capture_unicode_value(bytes, from, length, error_location)
         value = 0
-        length.times { |index| value = (value << 4) | escape_hexadecimal_digit(bytes.getbyte(from + index)) }
+        length.times { |index| value = ((value << 4) | escape_hexadecimal_digit(bytes.getbyte(from + index))) & 0xFFFF_FFFF }
         return value unless value >= 0xD800 && value <= 0xDFFF
 
         if error_location
@@ -336,11 +336,17 @@ module Prism
       def valid_local_bytes?(bytes)
         return false if bytes.empty?
 
+        with_source(bytes) { slice_valid_local?(0, bytes.bytesize) }
+      end
+
+      # The block's answer with `bytes` as the source the character
+      # questions read.
+      def with_source(bytes)
         saved_source = @source
         saved_end = @end
         @source = bytes
         @end = bytes.bytesize
-        slice_valid_local?(0, bytes.bytesize)
+        yield
       ensure
         @source = saved_source
         @end = saved_end

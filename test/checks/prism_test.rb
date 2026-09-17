@@ -54,6 +54,16 @@ class PrismTest < Minitest::Test
     assert_empty PrismDiff.dump(cases).first(5)
   end
 
+  # Broken sources: truncated, cut or with a stray byte, the parser recovers
+  # as the C does.
+  def test_the_parser_dumps_broken_fixtures_as_the_c_does
+    skip "no prism checkout at #{PrismDiff::CHECKOUT}" unless PrismDiff.upstream
+
+    cases = PrismDiff.fuzz(PrismDiff.cases(%w[fixtures errors], only: "**/*@4.1"), 2, 1)
+    assert_operator cases.size, :>, 2500
+    assert_empty PrismDiff.dump(cases).first(5)
+  end
+
   def test_the_writer_writes_prisms_fixtures_and_errors_as_the_c_does
     skip "no prism checkout at #{PrismDiff::CHECKOUT}" unless PrismDiff.upstream
 

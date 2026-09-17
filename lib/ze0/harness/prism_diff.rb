@@ -216,6 +216,30 @@ module Ze0
         end
       end
 
+      # Bytes the fuzzer inserts: the characters that open, close or join
+      # constructs.
+      FUZZ_BYTES = "()[]{}|&*,.:;=<>?!@$#%'\"`\\/\n -+^~_1aZ".b
+
+      # `count` broken variants of each case, seeded by `seed`: truncated at
+      # a random offset, a random range deleted, or a random byte inserted.
+      # Answers cases named `name~n`.
+      def fuzz(cases, count, seed)
+        random = Random.new(seed)
+        cases.flat_map do |c|
+          source = c.source.b
+          Array.new(count) do |index|
+            at = source.empty? ? 0 : random.rand(source.bytesize)
+            variant =
+              case index % 3
+              when 0 then source.byteslice(0, at)
+              when 1 then source.byteslice(0, at) + source.byteslice([at + random.rand(1..8), source.bytesize].min..)
+              else source.byteslice(0, at) + FUZZ_BYTES.byteslice(random.rand(FUZZ_BYTES.bytesize), 1) + source.byteslice(at..)
+              end
+            Case.new("#{c.name}~#{index}", variant, c.options)
+          end
+        end
+      end
+
       # The lexer alone against Prism.lex: each token's type and byte range,
       # and with `states` its lex state. A lexer with no parser behind it
       # differs wherever the parser moves the lex state, so this compares the
