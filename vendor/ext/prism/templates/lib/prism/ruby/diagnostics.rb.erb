@@ -1,0 +1,36 @@
+<%-
+  # The message table is C (templates/src/diagnostic.c.erb), not config.yml:
+  # read each `[PM_ERR_NAME] = { "text" PRIi32 "text", PM_ERROR_LEVEL_X }`
+  # row, joining the literal's pieces as the C compiler does.
+  table = File.read(File.expand_path("../../../src/diagnostic.c.erb", __dir__))
+  messages = table.scan(/^\s*\[PM_((?:ERR|WARN)_\w+)\]\s*=\s*\{\s*((?:"(?:[^"\\]|\\.)*"|PRIi32|\s)+),\s*PM_(?:ERROR|WARNING)_LEVEL_(\w+)\s*\}/).to_h do |name, text, level|
+    pieces = text.scan(/"((?:[^"\\]|\\.)*)"|PRIi32/).map { |(piece)| piece.nil? ? "d" : piece.gsub(/\\(.)/, "\\1") }
+    [name, [pieces.join, level.downcase.to_sym]]
+  end
+  ids = errors.map { |error| "ERR_#{error.name}" } + warnings.map { |warning| "WARN_#{warning.name}" }
+  # Two ids have no row (ARGUMENT_BLOCK_FORWARDING, EXPECT_EXPRESSION_AFTER_QUESTION):
+  # C never reports them, since pm_diagnostic_message asserts a message.
+  raise "diagnostic.c.erb names ids config.yml does not" unless (messages.keys - ids).empty?
+-%>
+module Prism
+  module Ruby
+    # diagnostic.c: every error and warning prism reports, by the name
+    # `ParseError#type` answers, with the message and the level
+    # pm_diagnostic_list_append gives it, or nil for an id C never reports.
+    # A message with conversions is a C format, which
+    # pm_diagnostic_list_append_format fills.
+    module Diagnostics
+      ERRORS = {
+        <%- errors.each do |error| -%>
+        <%= error.name.downcase.to_sym.inspect %> => <%= messages["ERR_#{error.name}"].inspect %>,
+        <%- end -%>
+      }.freeze
+
+      WARNINGS = {
+        <%- warnings.each do |warning| -%>
+        <%= warning.name.downcase.to_sym.inspect %> => <%= messages["WARN_#{warning.name}"].inspect %>,
+        <%- end -%>
+      }.freeze
+    end
+  end
+end
