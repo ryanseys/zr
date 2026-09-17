@@ -24,6 +24,7 @@ A binary that ze0 built reads these as it starts.
 | `ZR_GC_STRESS` | `1` | Collects at every allocation, and poisons freed cells, so a value the collector does not see fails at once. |
 | `ZR_MCACHE` | `0` | Fills no call-site cache: every send looks its method up. |
 | `ZR_MCACHE` | `verify` | Checks every cache hit against a fresh lookup, and stops at the first that differs. |
+| `OPENSSL_DIR` | a prefix | `require "openssl"` opens `libssl.3.dylib` in its `lib` directory and looks nowhere else. |
 
 ## The checks and the corpus
 

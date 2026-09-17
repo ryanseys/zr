@@ -16,6 +16,17 @@ The first release as a RubyGem.
   zlib is a port of zlib 1.3.1 in the kernel dialect, and `Regexp` a port
   of Onigmo, CRuby 4.0.6's engine, in Ruby. All of them work on wasm, and
   the install compiles nothing.
+- `require "openssl"` works in a macOS binary. The binary opens the
+  host's OpenSSL 3 (from `OPENSSL_DIR`, else Homebrew or MacPorts) when
+  the `require` runs, and raises `LoadError` naming the places it looked
+  when the library is absent. The gem's Ruby half is vendored unedited,
+  and its C half is Ruby over library calls, so the cryptography is the
+  library's own. ruby 4.0.6's `test/openssl` passes over the port.
+- A class method that the core library sends by name reaches a program
+  subclass's own definition: `OpenSSL::Digest.hexdigest("SHA1", data)`
+  called `Digest::Class.digest` and skipped the override.
+- A binary whose program data reaches 124 pages boots: the chained
+  fixup starts cover only a segment's file bytes, as ld64 writes them.
 - The runtime cache goes to the user's cache directory
   (`~/Library/Caches/ze0` on macOS), or to `ZE0_CACHE`.
 - `Obj::MachO::Executable` links a program beside the runtime's objects

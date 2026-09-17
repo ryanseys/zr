@@ -8,7 +8,8 @@ assembler source in the repository.
 | Dependency | Why | Needed for |
 |---|---|---|
 | ruby 4.0.6, or a later 4.0 release | runs the compiler | everything |
-| libSystem | the only dynamic library a macOS binary loads | macOS binaries |
+| libSystem | the only dynamic library a macOS binary links | macOS binaries |
+| OpenSSL 3 (libssl and libcrypto) | a macOS binary opens them when it runs `require "openssl"`: from `OPENSSL_DIR`, else Homebrew's or MacPorts' prefix. Without them that `require` raises `LoadError`; nothing else needs them | programs that require `openssl` |
 | `cc` (Xcode Command Line Tools) | links a macOS binary only under `ZE0_LINK=cc`, or when ze0's own linker refuses one | optional |
 | musl's `cc`, or `aarch64-linux-musl-gcc` | links a static binary | `aarch64-linux-musl` binaries |
 | wasmtime | runs a module; `ze0 run --emit wasm` calls it | running WASI modules |

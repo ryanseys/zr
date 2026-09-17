@@ -27,7 +27,10 @@ $ gem install ze0
 You need:
 
 - ruby 4.0.6, or a later 4.0 release;
-- [wasmtime](https://wasmtime.dev), to run WebAssembly modules.
+- [wasmtime](https://wasmtime.dev), to run WebAssembly modules;
+- OpenSSL 3 (`brew install openssl@3`), only for a macOS program that
+  requires `openssl`. The binary opens the library when that `require`
+  runs, and raises `LoadError` when the library is absent.
 
 The install compiles nothing. ze0 links a macOS binary itself, so it
 needs no C compiler and no linker.
