@@ -27,6 +27,9 @@ machine def zr_xmalloc(n)
   end
   h = zr_heap()
   Heap.set_malloced(h, Heap.malloced(h) + n)
+  if Heap.malloced(h) > Heap.malloc_limit(h)
+    Heap.set_slow(h, 1)
+  end
   p
 end
 

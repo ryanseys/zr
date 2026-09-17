@@ -273,6 +273,7 @@ end
 sig [Value] => Value
 machine def zr_alloc_trace_set(on)
   AllocTrace.set_on(zr_alloc_trace(), on == QTRUE ? 1 : 0)
+  zr_heap_slow_update()
   Machine.value(QNIL)
 end
 

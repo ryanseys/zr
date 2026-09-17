@@ -42,9 +42,10 @@ Machine.struct :SizeClass, free: Ptr, last: Ptr, freed: Word, arenas: Word, rese
 
 # Heap state: collections, stress flag, the arena count,
 # the time collecting, the arena table and its capacity, the malloc'd
-# payload bytes held (zr_xmalloc, zr_xfree) and the count of them that
-# runs the collector.
-Machine.struct :Heap, collections: Word, stress: Word, disabled: Word, arenas: Word, nanoseconds: Word, table: Ptr, capacity: Word, malloced: Word, malloc_limit: Word
+# payload bytes held (zr_xmalloc, zr_xfree), the count of them that
+# runs the collector, and whether an allocation takes the slow path
+# (zr_heap_slow_update).
+Machine.struct :Heap, collections: Word, stress: Word, disabled: Word, arenas: Word, nanoseconds: Word, table: Ptr, capacity: Word, malloced: Word, malloc_limit: Word, slow: Word
 
 # Payload the heap holds before a collection on that account: four
 # times CRuby's malloc_limit_min, since a collection here marks
@@ -245,6 +246,7 @@ machine def zr_heap_init
   if getenv(Machine.bytes("ZR_GC_STRESS\0")) != 0
     Heap.set_stress(h, 1)
   end
+  zr_heap_slow_update()
 end
 
 # The object whose children are being marked, so the abort below can
@@ -708,6 +710,7 @@ machine def zr_collect(wanting)
   end
   limit = Heap.malloced(h) * 2
   Heap.set_malloc_limit(h, limit < MALLOC_LIMIT ? MALLOC_LIMIT : limit)
+  zr_heap_slow_update()
   Heap.set_nanoseconds(h, Heap.nanoseconds(h) + (zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC))) - started))
 end
 
@@ -817,6 +820,7 @@ sig [Value] => Value
 machine def zr_gc_set_stress(flag)
   h = zr_heap()
   Heap.set_stress(h, flag == QNIL || flag == QFALSE ? 0 : 1)
+  zr_heap_slow_update()
   flag
 end
 
@@ -831,8 +835,48 @@ end
 # the cell, and under stress the payload is poison, so a field it left
 # out reads as 0xDEAD, not as an empty one. The caller stores the
 # result to its frame record before anything else can allocate.
+#
+# Inlined at every allocation: the head of the free list when there is
+# one and `Heap.slow` is clear, else `zr_alloc_slow`.
 sig [Word, Value, Word] => Value
 machine def zr_alloc(type, klass, bytes)
+  sc = zr_size_class(zr_size_class_for(bytes))
+  cell = SizeClass.free(sc)
+  if cell == 0 || Heap.slow(zr_heap()) != 0
+    zr_alloc_slow(type, klass, bytes)
+  else
+    zr_cell_take(sc, cell, type, klass)
+  end
+end
+Machine.inline :zr_alloc
+
+# `cell`, the head of size class `sc`'s free list, off the list with its
+# header written.
+sig [Ptr, Ptr, Word, Value] => Value
+machine def zr_cell_take(sc, cell, type, klass)
+  SizeClass.set_free(sc, Machine.load64(cell, 8))
+  SizeClass.set_last(sc, cell)
+  SizeClass.set_allocated(sc, SizeClass.allocated(sc) + 1)
+  Machine.store64(cell, 0, type | FL_ALLOCATED)
+  Machine.store64(cell, 8, Machine.word(klass))
+  Machine.value(cell)
+end
+
+# Whether an allocation must take `zr_alloc_slow`: under stress, while
+# allocations are traced, or once the payload passes its limit.
+# Written again wherever one of the three changes.
+sig [] => Void
+machine def zr_heap_slow_update
+  h = zr_heap()
+  slow = Heap.stress(h) != 0 || AllocTrace.on(zr_alloc_trace()) != 0 || Heap.malloced(h) > Heap.malloc_limit(h)
+  Heap.set_slow(h, slow ? 1 : 0)
+end
+
+# An allocation `zr_alloc` does not serve in place: a collection when
+# the list is empty, the payload is past its limit or stress asks for
+# one, the poison of stress and the trace's row.
+sig [Word, Value, Word] => Value
+machine def zr_alloc_slow(type, klass, bytes)
   h = zr_heap()
   c = zr_size_class_for(bytes)
   sc = zr_size_class(c)
@@ -857,18 +901,15 @@ machine def zr_alloc(type, klass, bytes)
     zr_arena_unreserve(sc)
     cell = SizeClass.free(sc)
   end
-  SizeClass.set_free(sc, Machine.load64(cell, 8))
-  SizeClass.set_last(sc, cell)
-  SizeClass.set_allocated(sc, SizeClass.allocated(sc) + 1)
-  Machine.store64(cell, 0, type | FL_ALLOCATED)
-  Machine.store64(cell, 8, Machine.word(klass))
+  v = zr_cell_take(sc, cell, type, klass)
   if Heap.stress(h) != 0
     zr_poison_payload(cell, CELL_MIN << c)
   end
   if AllocTrace.on(zr_alloc_trace()) != 0
     zr_alloc_trace_record(cell)
   end
-  Machine.value(cell)
+  zr_heap_slow_update()
+  v
 end
 
 # Every kernel function that may run the collector keeps its Values in
