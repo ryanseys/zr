@@ -32,8 +32,10 @@ class IO
 
   # A pipe's read and write ends, closed after the block when one is
   # given. The encodings are the read end's, and `binmode:` is both ends'.
+  # Both ends are instances of the class it is called on, as rb_io_s_pipe
+  # makes them.
   def self.pipe(external = nil, internal = nil, **options)
-    reader, writer = pipe_ends.map.with_index { |fd, i| IO.new(fd, i.zero? ? "r" : "w") }
+    reader, writer = pipe_ends.map.with_index { |fd, i| new(fd, i.zero? ? "r" : "w") }
     binmode = options.delete(:binmode)
     reader.set_encoding(external, internal, **options) if external
     [reader, writer].each(&:binmode) if binmode
