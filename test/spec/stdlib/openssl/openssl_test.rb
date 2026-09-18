@@ -644,7 +644,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "openssl bn" do
+  it "BN builds from every integer form, converts back, and reports its encodings" do
     skip "needs libssl" unless Ze0::Spec.need?("libssl")
 
     result = ze0(<<~'RUBY')
@@ -800,7 +800,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "openssl buffering" do
+  it "Buffering is a real module over sysread and syswrite, and it owns the read surface" do
     skip "needs libssl" unless Ze0::Spec.need?("libssl")
 
     result = ze0(<<~'RUBY')
@@ -997,7 +997,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "openssl cipher" do
+  it "Cipher reports its metadata and round-trips CBC, and a legacy name fails at new" do
     skip "needs libssl" unless Ze0::Spec.need?("libssl")
 
     result = ze0(<<~'RUBY')
@@ -1214,7 +1214,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "openssl digest hmac kdf" do
+  it "Digest, HMAC, KDF and Random each answer, and the version strings keep their shape" do
     skip "needs libssl" unless Ze0::Spec.need?("libssl")
 
     result = ze0(<<~'RUBY')
@@ -1401,7 +1401,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "openssl secure compare" do
+  it "secure_compare is length-independent, and fixed_length_secure_compare demands equal lengths" do
     skip "needs libssl" unless Ze0::Spec.need?("libssl")
 
     result = ze0(<<~'RUBY')
@@ -1433,7 +1433,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "openssl ssl surface" do
+  it "the constants, the context defaults and an unconnected SSLSocket all answer offline" do
     skip "needs libssl" unless Ze0::Spec.need?("libssl")
 
     result = ze0(<<~'RUBY')
@@ -1558,7 +1558,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "openssl tls client" do
+  it "an SSLSocket over an unconnected socket answers its configuration and forwards to the socket" do
     skip "needs libssl" unless Ze0::Spec.need?("libssl")
 
     result = ze0(<<~'RUBY')

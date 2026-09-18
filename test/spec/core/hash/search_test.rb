@@ -46,7 +46,7 @@ describe "Hash: searching and matching" do
     OUT
   end
 
-  it "hash enum with index chain" do
+  it "map.with_index and each.with_index ride the pair array, and a nil-tailed block keeps its side effects" do
     result = ze0(<<~'RUBY')
       # hash.map.with_index / hash.each.with_index interpose to_a and ride the
       # pair-array chain; a nil-typed block tail (puts) keeps its side effects
@@ -67,7 +67,7 @@ describe "Hash: searching and matching" do
     OUT
   end
 
-  it "hash index assign expression" do
+  it "(h[k] = v) mutates the hash and answers the assigned value" do
     result = ze0(<<~'RUBY')
       # Expression-form hash `[]=`: Ruby's `(h[k] = v)` mutates the hash and
       # evaluates to the assigned value. Covers str / sym keys and int / string
@@ -104,7 +104,7 @@ describe "Hash: searching and matching" do
     OUT
   end
 
-  it "hash index or write key variant" do
+  it "h[k] ||= a container picks the hash variant from the key, a parameter key included" do
     result = ze0(<<~'RUBY')
       # h[k] ||= <container> picks the hash variant from the key, param keys included
       def build(k)
@@ -143,7 +143,7 @@ describe "Hash: searching and matching" do
     OUT
   end
 
-  it "hash nil key lookup" do
+  it "nil is an ordinary key that no lookup finds until something stores it" do
     result = ze0(<<~'RUBY')
       NAMED = { "navy" => "#000080", "red" => "#ff0000" }
 
@@ -190,7 +190,7 @@ describe "Hash: searching and matching" do
     OUT
   end
 
-  it "hash param widen from callee slot" do
+  it "a callee that widened its hash slot to poly widens its caller's slot to the same variant" do
     result = ze0(<<~'RUBY')
       # Hash-typed parameter back-propagation from callee slot:
       # `def outer(into); inner(into); end` where `inner` already
@@ -240,7 +240,7 @@ describe "Hash: searching and matching" do
     _(result).must_answer "4\n"
   end
 
-  it "hash to a entries" do
+  it "to_a and entries answer the pairs in insertion order, for every typed-hash variant" do
     result = ze0(<<~'RUBY')
       # Hash#to_a / #entries materialize entries as an array of [key, value] pairs,
       # preserving insertion order, across every typed-hash variant. Each receiver

@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Array: conversion" do
-  it "array chain no arg" do
+  it "chain with no argument answers the receiver's own elements" do
     result = ze0(<<~'RUBY')
       # Array#chain with no argument: the eager .chain.to_a is just the receiver's
       # own elements.
@@ -24,7 +24,7 @@ describe "Array: conversion" do
     OUT
   end
 
-  it "array combination" do
+  it "combination(n) without a block materializes into the n-element combinations" do
     result = ze0(<<~'RUBY')
       # Array#combination(n) without a block materializes into the n-combinations via to_a.
       def s(x); x; end
@@ -44,7 +44,7 @@ describe "Array: conversion" do
     OUT
   end
 
-  it "array flatten to ary" do
+  it "flatten calls to_ary on an element that is not an Array" do
     result = ze0(<<~'RUBY')
       class Pair
         def to_ary = [1, 2]
@@ -66,7 +66,7 @@ describe "Array: conversion" do
     OUT
   end
 
-  it "array float conformance" do
+  it "sum, minmax and the float comparisons answer what CRuby answers" do
     result = ze0(<<~'RUBY')
       # Array/Float/Integer conformance (KieranP #2295-2302)
       p([1.1, 1.1, 2.2].uniq)          # #2295 FloatArray#uniq
@@ -102,7 +102,7 @@ describe "Array: conversion" do
     OUT
   end
 
-  it "array permutation" do
+  it "permutation answers the k-element permutations blockless, and yields each one with a block" do
     result = ze0(<<~'RUBY')
       # Array#permutation on integer arrays, mirroring combination: blockless returns
       # an array of the k-element permutations; the block form yields each one.
@@ -126,7 +126,7 @@ describe "Array: conversion" do
     OUT
   end
 
-  it "array to h pair check" do
+  it "to_h raises for an element that is not a pair, naming its index and length" do
     result = ze0(<<~'RUBY')
       # Array#to_h wants each element to be a two-element array. A longer or shorter
       # one is an ArgumentError and a non-array a TypeError; the extra elements were

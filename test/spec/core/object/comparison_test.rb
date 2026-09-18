@@ -811,7 +811,7 @@ describe "Object: comparison and equality" do
     OUT
   end
 
-  it "object display equal ivdefined" do
+  it "display writes, clone(freeze:) answers, and instance_variable_defined? takes a String or a Symbol" do
     result = ze0(<<~'RUBY')
       # Kernel#display, String clone(freeze:), equal?/eql? on nil/bool/symbol,
       # and instance_variable_defined? with string/symbol names.
@@ -853,7 +853,7 @@ describe "Object: comparison and equality" do
     OUT
   end
 
-  it "object dup copies" do
+  it "dup answers a separate object that is neither == nor equal? to the receiver" do
     result = ze0(<<~'RUBY')
       o = Object.new
       p(o.dup == o)
@@ -876,7 +876,7 @@ describe "Object: comparison and equality" do
     OUT
   end
 
-  it "object dup initialize copy" do
+  it "dup and clone answer a separate instance and call a user initialize_copy" do
     result = ze0(<<~'RUBY')
       # dup/clone of a user object must produce a SEPARATE instance (not alias the
       # original), and must invoke a user-defined initialize_copy hook so deep-copy
@@ -953,7 +953,7 @@ describe "Object: comparison and equality" do
     OUT
   end
 
-  it "object identity cluster" do
+  it "the identity and reflection rows answer what CRuby answers" do
     result = ze0(<<~'RUBY')
       # Object identity/reflection conformance (KieranP #2281-2286)
       a = ->(x) { x }
@@ -1006,7 +1006,7 @@ describe "Object: comparison and equality" do
     OUT
   end
 
-  it "object identity eq" do
+  it "== with no user == is identity, so an instance equals only itself" do
     result = ze0(<<~'RUBY')
       # Object#== with no user-defined == is identity comparison: an instance is
       # equal only to itself, and two distinct instances are never equal. Receivers
@@ -1049,7 +1049,7 @@ describe "Object: comparison and equality" do
     OUT
   end
 
-  it "object identity predicates" do
+  it "equal? is reference identity, and freeze answers the receiver" do
     result = ze0(<<~'RUBY')
       # Object#equal? is reference identity (a heap instance is its pointer);
       # freeze is a no-op returning self, so frozen? consistently reports false.

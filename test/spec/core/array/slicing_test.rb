@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Array: slicing" do
-  it "array enum materialize" do
+  it "a blockless cycle, repeated_permutation, slice_before, slice_after and each_entry all materialize" do
     result = ze0(<<~'RUBY')
       # Blockless enumerator materialization: cycle(n), repeated_permutation,
       # slice_before/slice_after with a pattern value, and each_entry.
@@ -36,7 +36,7 @@ describe "Array: slicing" do
     OUT
   end
 
-  it "array fill incompatible" do
+  it "fill with a value the element type refuses rebuilds the result as a poly array" do
     result = ze0(<<~'RUBY')
       # Array#fill with a value incompatible with the element type rebuilds the
       # result as a poly array (CRuby just mixes the element in); positional and
@@ -59,7 +59,7 @@ describe "Array: slicing" do
     OUT
   end
 
-  it "array fill range" do
+  it "fill over a range counts a negative end from the end, and an endless one stops at the last element" do
     result = ze0(<<~'RUBY')
       # fill(value, range): a negative end counts from the end and an endless one
       # runs to the last element. Unnormalized, `fill(v, 2..)` grew the array until
@@ -94,7 +94,7 @@ describe "Array: slicing" do
     OUT
   end
 
-  it "array first last empty" do
+  it "first and last on an empty array answer nil" do
     result = ze0(<<~'RUBY')
       # Array#first / Array#last on an empty array return nil,
       # not SP_INT_NIL printed as a huge negative number.
@@ -122,7 +122,7 @@ describe "Array: slicing" do
     OUT
   end
 
-  it "array push multi arg" do
+  it "push and append take any number of arguments and answer the array" do
     result = ze0(<<~'RUBY')
       # Array#push / #append take any number of arguments and return the
       # array. Both forms previously compiled only the first argument
@@ -172,7 +172,7 @@ describe "Array: slicing" do
     OUT
   end
 
-  it "array values at open range" do
+  it "values_at reads a beginless, endless or out-of-range span" do
     result = ze0(<<~'RUBY')
       a = [1, 2, 3, 4, 5]
       p a.values_at(2..)

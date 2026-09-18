@@ -1008,7 +1008,7 @@ describe "Numeric: conversion" do
     OUT
   end
 
-  it "numeric coerce" do
+  it "a built-in number asks a user object to coerce when the object is the right operand" do
     result = ze0(<<~'RUBY')
       # The coerce protocol lets a user numeric type take part in arithmetic even
       # when it is the RIGHT operand of a built-in number. When `5 + obj` finds that
@@ -1074,7 +1074,7 @@ describe "Numeric: conversion" do
     OUT
   end
 
-  it "numeric coerce div and predicates" do
+  it "coerce, ceildiv, i, finite? and div each answer on Integer and on Float" do
     result = ze0(<<~'RUBY')
       p 7.coerce(2)
       p 7.coerce(2.0)
@@ -1104,7 +1104,7 @@ describe "Numeric: conversion" do
     OUT
   end
 
-  it "numeric coerce protocol for user types" do
+  it "a class that writes coerce and + takes part in 5 + obj" do
     result = ze0(<<~'RUBY')
       class Money
         attr_reader :cents
@@ -1128,7 +1128,7 @@ describe "Numeric: conversion" do
     OUT
   end
 
-  it "numeric leaf methods" do
+  it "the Rational and Complex leaf rows and the rect and polar family all answer" do
     result = ze0(<<~'RUBY')
       # Rational and Complex leaf methods, plus the Numeric rect/polar family.
 
@@ -1205,7 +1205,7 @@ describe "Numeric: conversion" do
     OUT
   end
 
-  it "numeric method displaced by user" do
+  it "a class that writes abs takes over that name's poly dispatch, and an Integer still finds its arm" do
     result = ze0(<<~'RUBY')
       # A class defining `abs` (or `round`, `succ`) takes over that name's poly
       # dispatch. An Integer arriving there had no arm, so a boxed ivar holding one
@@ -1253,7 +1253,7 @@ describe "Numeric: conversion" do
     OUT
   end
 
-  it "numeric step zero" do
+  it "step with a zero stride raises, and every non-zero stride walks to its limit" do
     result = ze0(<<~'RUBY')
       r001 = (1.step(10, 0) { |i001| break } rescue $!.class); p r001
       r002 = (1.0.step(2.0, 0.0) { |i002| break } rescue $!.class); p r002
