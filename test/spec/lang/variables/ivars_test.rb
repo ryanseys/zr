@@ -178,7 +178,7 @@ describe "Variables: instance and class variables" do
     OUT
   end
 
-  it "class variables" do
+  it "a class variable is one slot the whole ancestry shares" do
     result = ze0(<<~'RUBY')
       # A class variable belongs to the class its source is written in, and the
       # storage is ONE slot the whole ancestry shares.

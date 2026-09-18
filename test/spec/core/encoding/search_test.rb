@@ -297,7 +297,7 @@ describe "Encoding: searching and matching" do
     OUT
   end
 
-  it "regexp unicode ctype" do
+  it "the word boundary and the POSIX brackets read unicode, not ASCII" do
     result = ze0(<<~'RUBY')
       p "日本語" =~ /\b/
       p "日本語".scan(/\b/).size

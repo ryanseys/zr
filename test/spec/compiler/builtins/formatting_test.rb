@@ -94,7 +94,7 @@ describe "Builtins: formatting and inspection" do
     OUT
   end
 
-  it "builtin reopen" do
+  it "a reopened builtin takes fresh methods, overrides, class-level state and protocol hooks" do
     result = ze0(<<~'RUBY')
       # Phase 16.3 -- reopening builtin classes in root: fresh methods, overrides
       # of native methods, class-level state, and protocol overrides all attach to

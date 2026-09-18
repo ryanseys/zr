@@ -748,7 +748,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "source encoding" do
+  it "__ENCODING__ names the source's encoding as its canonical name" do
     result = ze0(<<~'RUBY')
       # SourceEncodingNode — the `__ENCODING__` keyword.
       #
@@ -1034,7 +1034,7 @@ describe "Enumerable: regressions" do
     OUT
   end
 
-  it "bsearch finds the first element the block accepts" do
+  it "bsearch answers over an array built at run time, not only over a literal" do
     result = ze0(<<~'RUBY')
       def ins(arr, v) = arr.insert(0, v)
       s = []

@@ -925,7 +925,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "ruby version constants" do
+  it "RUBY_VERSION, RUBY_PLATFORM and RUBY_ENGINE are Strings" do
     result = ze0(<<~'RUBY')
       # Issue #890: RUBY_VERSION / RUBY_PLATFORM / RUBY_ENGINE built-in
       # string constants. Format-only check so the test stays stable

@@ -1475,7 +1475,7 @@ describe "Encoding: formatting and inspection" do
     OUT
   end
 
-  it "source encoding" do
+  it "__ENCODING__ is an Encoding value, so it compares and keys a hash as one" do
     result = ze0(<<~'RUBY')
       # Issue #843. `__ENCODING__` should behave like an Encoding value,
       # not a plain String.

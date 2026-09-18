@@ -1353,7 +1353,7 @@ describe "Regexp: encodings" do
     OUT
   end
 
-  it "regexp unicode ctype" do
+  it "a binary subject matches no word boundary and no POSIX bracket" do
     result = ze0(<<~'RUBY')
       p "\xB5".b =~ /\b/
       p "\xB5".b =~ /[[:word:]]/

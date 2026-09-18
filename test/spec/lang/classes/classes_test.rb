@@ -1524,7 +1524,7 @@ describe "Classes programs" do
     OUT
   end
 
-  it "class variables" do
+  it "a class variable declared in a module body is read and written by its module methods" do
     result = ze0(<<~'RUBY')
       # A class variable (`@@x`) is shared storage owned by the class or module
       # where it's first assigned. It can be declared in a module body and read

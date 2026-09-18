@@ -76,7 +76,7 @@ describe "Modules programs" do
     _(result).must_answer "hi\n"
   end
 
-  it "definition hooks" do
+  it "included, extended, prepended and inherited each fire after the edit they report" do
     result = ze0(<<~'RUBY')
       # `Module#included`/`#extended`/`#prepended` and `Class#inherited` -- the four
       # hooks a mixin or a subclass fires as it is written. The extend-on-include

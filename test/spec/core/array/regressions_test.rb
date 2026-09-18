@@ -2345,7 +2345,7 @@ describe "Array: regressions" do
     OUT
   end
 
-  it "bsearch finds the first element the block accepts" do
+  it "bsearch finds the first element the block accepts, or nil when none is" do
     result = ze0(<<~'RUBY')
       # Array#bsearch (find-minimum mode) on a sorted typed array: returns the
       # first element for which the block is truthy, or nil when none is.

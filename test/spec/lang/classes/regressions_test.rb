@@ -752,7 +752,7 @@ describe "Classes: regressions" do
     OUT
   end
 
-  it "exceptions" do
+  it "a rescue picks the first arm whose class matches, and a bare rescue catches all" do
     result = ze0(<<~'RUBY')
       # Test exception classes
 

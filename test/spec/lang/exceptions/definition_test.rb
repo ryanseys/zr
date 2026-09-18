@@ -188,7 +188,7 @@ describe "Exceptions: defining and naming methods" do
     OUT
   end
 
-  it "exceptions" do
+  it "begin, rescue, else and ensure run in order, and a subclass is caught by its parent's arm" do
     result = ze0(<<~'RUBY')
       begin
         puts "try"

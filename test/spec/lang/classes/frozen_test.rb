@@ -45,7 +45,7 @@ describe "Classes: frozen literals" do
     OUT
   end
 
-  it "builtin reopen" do
+  it "a class naming one the runtime carries reopens it, and the native half is still there" do
     result = ze0(<<~'RUBY')
       # frozen_string_literal: true
 
@@ -362,7 +362,7 @@ describe "Classes: frozen literals" do
     OUT
   end
 
-  it "definition hooks" do
+  it "method_added fires at the definition's own position, on a half-built class" do
     result = ze0(<<~'RUBY')
       # frozen_string_literal: true
 

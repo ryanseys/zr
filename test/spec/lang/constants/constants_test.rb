@@ -2893,7 +2893,7 @@ describe "Constants programs" do
     OUT
   end
 
-  it "ruby version constants" do
+  it "the RUBY_* build constants and the File::SEPARATOR family match the oracle's" do
     result = ze0(<<~'RUBY')
       # RUBY_* version/build constants and the File::SEPARATOR family that zeo
       # shares with its ruby 4.0.6 oracle. The platform/revision are machine- and
