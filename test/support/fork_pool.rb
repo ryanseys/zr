@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "etc"
+require "io/wait"
 require "minitest"
 
 module Ze0
@@ -52,6 +53,14 @@ module Ze0
       rescue StandardError, NotImplementedError
         8
       end
+
+      # How long one example may take before the run stops waiting for
+      # it, in seconds. A worker still silent past this is killed and the
+      # example it was holding is reported as a failure by name, so a
+      # compile that loops -- or a machine that has begun to swap -- costs
+      # one example and not the tier. `ZE0_TEST_TIMEOUT=0` waits forever,
+      # which is what a debugger session wants.
+      DEADLINE = Integer(ENV.fetch("ZE0_TEST_TIMEOUT", 180))
 
       # What a worker may reside in before it is retired, in megabytes.
       # The pilot measured a process at 426 MB over 388 compiles and at
@@ -198,7 +207,9 @@ module Ze0
         # portable way to ask -- macOS has no `/proc` -- so `ps`
         # answers, which costs one more child beside the one nearly
         # every example already starts.
-        def self.resident = `ps -o rss= -p #{Process.pid}`.to_i / 1024
+        def self.resident = resident_of(Process.pid)
+
+        def self.resident_of(pid) = `ps -o rss= -p #{pid}`.to_i / 1024
 
         def initialize(pid, jobs, back)
           @pid = pid
@@ -209,13 +220,27 @@ module Ze0
         end
 
         # The result of running `klass#name` here, or nil if this worker
-        # did not live to answer.
+        # did not live to answer, or took longer than `DEADLINE` over it.
         def ask(klass, name)
           Marshal.dump([Minitest::Runnable.runnables.index(klass), name], @jobs)
+          return nil unless answered?
+
           result, @resident = Marshal.load(@back)
           result
         rescue EOFError, IOError, ArgumentError, TypeError
           nil
+        end
+
+        # Whether the worker has begun to write an answer inside the
+        # deadline. Waiting on the pipe catches a worker stuck anywhere at
+        # all -- in the compiler's Ruby, in a C call, or on a machine that
+        # has started to swap -- where a timeout inside the worker would
+        # only catch the first of the three.
+        def answered?
+          return true if DEADLINE.zero? || @back.wait_readable(DEADLINE)
+
+          @overdue = self.class.resident_of(@pid)
+          false
         end
 
         # What killed it, asked for once the pipe has said it is gone.
@@ -231,7 +256,10 @@ module Ze0
               nil
             end
             _, @status = Process.wait2(@pid)
-            if @status.nil?
+            if @overdue
+              "the worker ran past #{DEADLINE}s on this example, holding #{@overdue} MB " \
+                "(ZE0_TEST_TIMEOUT changes the bound)"
+            elsif @status.nil?
               "the worker went without a status"
             elsif @status.signaled?
               "the worker died on SIG#{Signal.signame(@status.termsig)}, holding #{@resident} MB"
