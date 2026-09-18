@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 module Ze0
-  # The files a spec example hands its program, read from disk rather
-  # than pasted into the example as an escaped literal.
+  # The files a spec example needs, read from disk rather than pasted
+  # into the example as an escaped literal.
   #
   # A `files:` value is bytes, and an example that needs a whole Ruby
   # file beside its program used to carry that file as one line of
@@ -10,6 +10,11 @@ module Ze0
   # pasted six times in `stdlib/bigdecimal`. The bytes are the same
   # bytes; what changes is that a fixture is a file you can read, run
   # and diff.
+  #
+  # An expected ANSWER too large to read inline belongs here for the
+  # same reason and by the same call --
+  # `must_answer fixture("core/object/method_owners.out")` is 31,713
+  # bytes of ruby's own output, which was one line of the spec file.
   #
   # This is one module on purpose. `Ze0::Spec::DSL` and
   # `Ze0::Reader::Sandbox` are two implementations of one DSL, and a
