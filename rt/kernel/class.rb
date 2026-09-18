@@ -2180,6 +2180,32 @@ machine def zr_activation_rows(id)
   rows
 end
 
+# Every row the program was compiled with, taken before its first line.
+# A row is otherwise made where its `using` runs, and one under a
+# condition that never holds is never made -- so the table alone would
+# not say how far a program's rows reach, and a compile at run time
+# would number a row the program already holds.
+sig [Word] => Value
+machine def zr_activations_reserve(count)
+  if count > 0
+    zr_activation_rows(count - 1)
+  end
+  Machine.value(QNIL)
+end
+
+# The same, and how many rows stand taken, for the compiler a program
+# carries: it numbers a snippet's rows after them, then takes them.
+sig [Value] => Value
+machine def zr_activations_reserve_m(count)
+  zr_activations_reserve(zr_fix2long(count))
+end
+
+sig [] => Value
+machine def zr_activations_count
+  rows = zr_global(G_ACTIVATIONS)
+  zr_fix(zr_special_p(rows) ? 0 : RArray.len(rows))
+end
+
 # A `using` that a condition holds may never run. Until it does, its
 # row stands for row `from`, whatever that row holds when a call reads
 # it. A row a `using` already filled keeps its own.

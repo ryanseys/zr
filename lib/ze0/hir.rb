@@ -9,8 +9,9 @@ require_relative "hir/dump"
 
 module Ze0
   module Hir
-    def self.build(source, file, roots: [], road: true, line: 1, scopes: nil, method: nil, target: Target.default)
-      Build.program(source, file, roots: roots, road: road, line: line, scopes: scopes, method: method, target: target)
+    def self.build(source, file, roots: [], road: true, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default)
+      Build.program(source, file, roots: roots, road: road, line: line, scopes: scopes, method: method, activations: activations,
+                                  target: target)
     end
   end
 end

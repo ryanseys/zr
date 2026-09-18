@@ -80,9 +80,9 @@ module Ze0
       # inside, as Method#parameters answers them, or nil outside one: a
       # `yield` has a block to reach only inside a method, and a bare
       # `super` passes those parameters on.
-      def self.program(source, file, roots: [], road: true, line: 1, scopes: nil, method: nil, target: Target.default)
+      def self.program(source, file, roots: [], road: true, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default)
         built = lambda do |external, trace|
-          loader = Loader.new(roots + stdlib(target), eval: !road, external: external, trace: trace)
+          loader = Loader.new(roots + stdlib(target), eval: !road, external: external, trace: trace, activations: activations)
           [loader, loader.unit(file, source, line, scopes, method: method)]
         end
         loader, main = built.call(nil, false)
@@ -103,11 +103,17 @@ module Ze0
         preludes << normalizer(loader) if road && loader.normalizes?
         preludes << pretty_printer(loader) if road && loader.pretty_prints?
         preludes << ast_translator(loader) if road && loader.asts?
+        # A program that evals numbers its `using` rows here, but a
+        # build it makes while it runs cannot see how far they reach --
+        # a row under a condition is made only where the condition
+        # holds. So the rows are all taken before the first line, and a
+        # build at run time starts after the last of them.
+        preludes << Activations.new(loader.activations, 0) if road && evals && loader.activations.positive?
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
         coverable = loader.covers? ? loader.coverable : {}
         Program.new(main.file, main.locals, body, loader.units, main.warnings, road && evals, loader.entries, loader.tracing?, loader.node_ids, spots,
-                    coverable)
+                    coverable, loader.activations)
       end
 
       # The compiler alone, as the units a road holds: the loader has
@@ -233,7 +239,8 @@ module Ze0
         # there: in one, a require inside a method waits for the run, which
         # finds the file then and compiles it, and so does an autoload of
         # a file outside `booted`, the files the boot reads.
-        def initialize(roots, eval: false, external: nil, trace: false, deferred: [], preloaded: PRELOADED, ahead: AHEAD, booted: BOOTED)
+        def initialize(roots, eval: false, external: nil, trace: false, activations: nil, deferred: [], preloaded: PRELOADED,
+                       ahead: AHEAD, booted: BOOTED)
           @deferred = deferred
           @preloaded = preloaded
           @ahead = ahead
@@ -253,6 +260,13 @@ module Ze0
           @pretty_prints = external&.pretty_prints? || false
           @asts = false
           @configures = external&.configures? || false
+          # A `using` row is a place in one table the whole program
+          # shares, so a build must not number a row something already
+          # running holds. A program that evals goes on from the road's
+          # rows -- the road's own files activate refinements as they
+          # load, the prism port among them -- and a build at run time
+          # goes on from the rows the program it compiles for holds.
+          @activations = activations || external&.activations || 0
           @back_refs = {}
         end
 
@@ -313,10 +327,11 @@ module Ze0
           @coverable[file]&.last&.push(line)
         end
 
-        # The next `using` row this program holds.
-        def next_activation
-          @activations = (@activations || -1) + 1
-        end
+        # How many `using` rows stand taken once this build is done, and
+        # the next row it takes.
+        attr_reader :activations
+
+        def next_activation = @activations.tap { @activations += 1 }
 
         def back_ref!(new_name, old_name)
           @back_refs[new_name] = old_name

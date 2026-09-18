@@ -51,6 +51,29 @@ class EvalRoadTest < Minitest::Test
     assert carried?(%(require "json"\np JSON.name\n))
   end
 
+  # A `using` fills a row of one table the whole program shares, and it
+  # is the compiler that numbers the rows. The road holds `using`
+  # statements of its own -- the prism port reaches its node writers
+  # through one -- and it loads on the first eval, so a program that
+  # numbered its rows from zero as well would have the road take them
+  # back the moment it compiled anything. The rows go on from the
+  # road's, as the symbol ids and the site indices already do.
+  def test_a_program_numbers_its_using_rows_past_the_roads
+    road = Ze0::Zr.road(Ze0::Target.default)
+    assert_operator road.activations, :>, 0, "the road activates refinements of its own"
+
+    loader = Ze0::Hir::Build::Loader.new(Ze0::Hir::Build.stdlib(Ze0::Target.default), external: road)
+    assert_equal road.activations, loader.activations
+
+    Dir.mktmpdir("ze0-road-") do |work|
+      rb = File.join(work, "using.rb")
+      source = "module M; refine Integer do; def trip = self * 3; end; end\nusing M\np 7.trip\n"
+      File.write(rb, source)
+      loader.unit(rb, source)
+    end
+    assert_equal road.activations + 1, loader.activations
+  end
+
   private
 
   # Whether the program in `source` would be linked beside the compiler.

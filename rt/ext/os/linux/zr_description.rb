@@ -251,6 +251,9 @@ module Ze0
         d zr_activate Value id:Word
         d zr_activate_owner Value rec:Ptr
         d zr_activation_rows Value id:Word
+        d zr_activations_reserve Value count:Word
+        d zr_activations_reserve_m Value count:Value
+        d zr_activations_count Value
         d zr_using_default Value id:Word from:Word
         d zr_using_activate Value id:Word mod:Value from:Word
         d zr_using_holders Value list:Value mod:Value

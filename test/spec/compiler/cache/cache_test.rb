@@ -275,8 +275,6 @@ describe "Cache programs" do
   end
 
   it "snippet refines and uses at run time" do
-    skip "a run-time compile of a refinement stops in the prism port: Prism::CallNode has no location="
-
     result = ze0(<<~'RUBY')
 
       # Refinements are a compile-time decision in a program: a `refine` mints a

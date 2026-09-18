@@ -214,6 +214,12 @@ module Ze0
       # road's.
       def symbols = Machine::Symbols.new(meta.fetch("names"), sites: meta.fetch("sites"))
 
+      # How many `using` rows the road itself holds. The road's files
+      # activate refinements as they load -- the prism port reaches its
+      # node writers through one -- and they load on the first eval, so
+      # a program's rows must start past these or the road takes them.
+      def activations = meta.fetch("activations")
+
       def object_path = File.join(Zr.cache, "road-#{meta.fetch("key")}.o")
 
       def functions = lowered.fetch(:functions)
@@ -253,7 +259,7 @@ module Ze0
           meta = { "key" => files_key(files), "files" => files,
                    "units" => loader.entries.to_h { |path, i| [path, lower.unit_entry(i)] },
                    "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?, "gems" => loader.gems?,
-                   "names" => symbols.ids.keys, "sites" => symbols.sites }
+                   "names" => symbols.ids.keys, "sites" => symbols.sites, "activations" => loader.activations }
           Zr.write_cache(meta_path, JSON.generate(meta))
           { functions: functions, data: data, meta: meta }
         end

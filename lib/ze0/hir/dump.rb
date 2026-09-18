@@ -279,6 +279,8 @@ module Ze0
           lines[-1] += ")"
         when UsingDefaults
           lines << "#{pad}(using-defaults #{n.rows.map { |id, from| "#{id}<-#{from}" }.join(" ")})"
+        when Activations
+          lines << "#{pad}(activations #{n.count})"
         else
           raise ArgumentError, "no dump for #{n.class}"
         end

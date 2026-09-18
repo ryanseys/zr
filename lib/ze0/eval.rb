@@ -43,6 +43,7 @@ module Ze0
     end
 
     def initialize(runtime)
+      @runtime = runtime
       @description = Machine::Description.parse(Machine::Description::KERNEL)
       @symbols = Machine::Symbols.new(runtime.symbol_names, sites: runtime.sites, intern: runtime.method(:intern))
       @host = Obj::JIT.host
@@ -93,7 +94,14 @@ module Ze0
     def compiled(source, file, line, scopes, method)
       @count += 1
       name = "zr_eval_#{@count}"
-      hir = Hir.build(string(source), string(file), road: false, line: line.to_int, scopes: [*scopes.reverse, []], method: method)
+      # A `using` row is a place in one table the whole program shares.
+      # The rows this program holds were numbered when it was built, and
+      # they all stand taken before its first line, so a snippet takes
+      # the rows after them -- and takes them at once, since nothing
+      # runs between here and the next compile to take them for it.
+      hir = Hir.build(string(source), string(file), road: false, line: line.to_int, scopes: [*scopes.reverse, []], method: method,
+                                                    activations: @runtime.activations)
+      @runtime.take_activations(hir.activations)
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)
       metas = symbols.select { |symbol, _| symbol.start_with?("zr_meta_") }.values

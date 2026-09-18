@@ -22,7 +22,9 @@ module Ze0
     # came from.
     # `spots` holds each file's error_highlight spots (Hir::Spots), by
     # the file name its frames carry.
-    Program = Struct.new(:file, :locals, :body, :units, :warnings, :evals, :entries, :traced, :node_ids, :spots, :coverable)
+    # `activations` is how many `using` rows this program holds, which a
+    # build at run time takes its own rows after.
+    Program = Struct.new(:file, :locals, :body, :units, :warnings, :evals, :entries, :traced, :node_ids, :spots, :coverable, :activations)
     # `hidden` when the unit loads only for the runtime's own use, as the
     # eval road's files do.
     Unit = Struct.new(:file, :locals, :body, :warnings, :internal, :spots, :hidden)
@@ -30,6 +32,12 @@ module Ze0
     # is the file it resolved to and `unit` that file's index, or both
     # nil when no file answers.
     Require = Struct.new(:kind, :feature, :path, :unit, :line)
+
+    # The `using` rows a program holds, taken before its first line runs
+    # so that a build at run time can take the rows after them. Only a
+    # program that carries the compiler needs it: nothing else compiles
+    # anything once it has started.
+    Activations = Struct.new(:count, :line)
 
     # A form this runtime does not answer, held until the program runs
     # it. Reaching it stops the program by name; never reaching it costs

@@ -58,10 +58,7 @@ module Ze0
       "stdlib/ffi/ffi_libc_call" => { build_mb: 4096, run_mb: 3072 },
       "stdlib/rubygems/require_rubygems" => { build_mb: 4096, run_mb: 3072 },
       "stdlib/openssl/openssl_digest" => { needs: ["libssl"] },
-      "stdlib/testing/a_minitest_suite_runs" => { argv: %w[--seed 42] },
-      "stdlib/testing/a_test_unit_suite_runs" => {
-        skip: "power_assert's re-parse hits `Prism::CallNode#location=`, which the port does not define"
-      }
+      "stdlib/testing/a_minitest_suite_runs" => { argv: %w[--seed 42] }
     }.freeze
 
     # Long enough for the slowest of them -- one resolves a Gemfile --

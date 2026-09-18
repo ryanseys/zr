@@ -143,4 +143,60 @@ describe "Refinements programs" do
       NoMethodError
     OUT
   end
+
+  it "keeps a refinement in force after an eval loads the compiler" do
+    result = ze0(<<~'RUBY')
+      # A program that evals carries the compiler, and the compiler loads
+      # on the first eval, running each of its own files. Several of them
+      # activate a refinement as they load -- the prism port reaches its
+      # node writers through one. A `using` fills a row the compiler
+      # numbered, so the rows a program holds and the rows its road holds
+      # must not be the same rows, or the first eval takes this
+      # program's refinement back off.
+      module Tripler
+        refine Integer do
+          def trip = self * 3
+        end
+      end
+
+      using Tripler
+      p 7.trip
+
+      n = ARGV.size + 1
+      p eval("#{n} + 1")
+      p 7.trip
+      p [1, 2].map { |x| x.trip }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      21
+      2
+      21
+      [3, 6]
+    OUT
+  end
+
+  it "keeps a refinement a snippet activates out of the compiler's own rows" do
+    result = ze0(<<~'RUBY')
+      # The other way round: a snippet numbers rows too, and it is
+      # compiled while the program runs, so its rows have to start after
+      # every row the program already holds. One that started from zero
+      # took the compiler's, and the next parse stopped inside it --
+      # "undefined method 'value=' for an instance of Prism::IntegerNode".
+      module Tripler
+        refine Integer do
+          def trip = self * 3
+        end
+      end
+
+      n = ARGV.size + 1
+      p eval("using Tripler\n#{n}.trip")
+      p eval("#{n} + 2")
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      3
+      3
+    OUT
+  end
 end
