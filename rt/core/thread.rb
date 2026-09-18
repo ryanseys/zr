@@ -574,6 +574,7 @@ class Thread
   def body
     Primitive.attr! :hidden
     @status = :run
+    TracePoint.send(:thread_event, :thread_begin, self)
     begin
       Primitive.zr_catch(@kill_tag, proc do
         Kernel.raise @pending if @pending
@@ -587,6 +588,10 @@ class Thread
       @exception = e
       report(e) if @report_on_exception
     end
+    # After the scheduler is closed and before the joiners wake, which
+    # is where thread_start_func_2 fires it, whether the body ended or
+    # raised.
+    TracePoint.send(:thread_event, :thread_end, self)
     finish
     Thread.main.raise(@exception) if @exception && (@abort_on_exception || Thread.abort_on_exception)
     Thread.send(:switch)

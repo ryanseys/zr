@@ -216,7 +216,7 @@ machine def zr_fiber_resume(recv, argc, argv, cref, blk)
   RFiber.set_prev(recv, cur)
   RFiber.set_resuming(cur, recv)
   RFiber.set_yielding(recv, 0)
-  zr_fiber_run(cur, recv, argc, argv)
+  zr_trace_fiber_switched(zr_fiber_run(cur, recv, argc, argv), recv, Machine.id(:resume))
 end
 
 # `transfer(*args)`: control moves to the fiber with no way back but
@@ -245,7 +245,7 @@ machine def zr_fiber_transfer(recv, argc, argv, cref, blk)
   end
   RFiber.set_transferred(cur, 1)
   RFiber.set_status(cur, FIBER_SUSPENDED)
-  zr_fiber_run(cur, recv, argc, argv)
+  zr_trace_fiber_switched(zr_fiber_run(cur, recv, argc, argv), recv, Machine.id(:transfer))
 end
 
 # Hand `argc` arguments to `to` and run it until control comes back to
@@ -311,7 +311,7 @@ machine def zr_fiber_yield(recv, argc, argv, cref, blk)
   RFiber.set_yielding(cur, 0)
   v = RFiber.value(cur)
   RFiber.set_value(cur, Machine.value(QNIL))
-  v
+  zr_trace_fiber_switched(v, recv, Machine.id(:yield))
 end
 
 # A fresh fiber's first instruction: the block with the first resume's
@@ -320,8 +320,19 @@ end
 sig [] => Void
 machine def zr_fiber_start
   cur = zr_fiber_current()
-  args = RFiber.value(cur)
-  r = zr_yield(RFiber.blk(cur), RArray.len(args), RArray.ptr(args))
+  # Control arrived here by a switch, as it does at the other three
+  # places. A fiber that heads a thread is that thread and not a fiber
+  # of the program's, so a thread starting fires nothing. A handler
+  # that raises ends the fiber with what it raised, which is what a
+  # raise at the block's first instruction does.
+  r = Machine.value(QNIL)
+  if RFiber.home(cur) != cur
+    r = zr_trace_fiber_switch(Machine.value(QNIL), 0)
+  end
+  if r != QUNDEF
+    args = RFiber.value(cur)
+    r = zr_yield(RFiber.blk(cur), RArray.len(args), RArray.ptr(args))
+  end
   to = zr_fiber_return_to(cur, 1)
   if r == QUNDEF
     t = zr_task()

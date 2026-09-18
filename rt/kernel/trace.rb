@@ -14,6 +14,10 @@ TRACE_C = 96
 TRACE_SENDS = 120
 TRACE_RAISE = 128
 TRACE_RESCUE = 16384
+# The events the machine fires rather than a frame. A thread's two fire
+# from rt/core/thread.rb, where its body begins and ends; a fiber's
+# fires here, at each of the four places control arrives after a switch.
+TRACE_FIBER_SWITCH = 4096
 
 # The events every enabled TracePoint asks for, together. While a C
 # event is on, no send site keeps its answer: every send reaches
@@ -283,6 +287,67 @@ machine def zr_trace_row(event, value, meta, line)
   zr_ary_push(row, zr_str_new(FrameMeta.file(meta), FrameMeta.file_len(meta)))
   zr_ary_push(row, zr_fix(line))
   row
+end
+
+# `:fiber_switch`, fired where control arrives, as cont.c's
+# fiber_switch fires it in the fiber it reached. `self` is the thread,
+# which is what th->self is there, and not the fiber.
+#
+# EXEC_EVENT_HOOK passes 0 for the id and the class, and
+# fill_id_and_klass then takes them from the frame the switch stands
+# in: `Fiber#resume`, `Fiber.yield` or `Fiber#transfer`. `recv` is that
+# receiver and `mid` its name, or nil and 0 in a fiber that has run no
+# line yet, which stands nowhere.
+sig [Value, Word] => Value
+machine def zr_trace_fiber_switch(recv, mid)
+  if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_FIBER_SWITCH) == 0
+    return Machine.value(QNIL)
+  end
+  this = zr_send(zr_core_class(Machine.id(:Thread)), Machine.id(:current), 0, 0)
+  return this if this == QUNDEF
+
+  rec = zr_frame_with_file(Task.top(zr_task()))
+  row = zr_ary_new(11)
+  zr_ary_push(row, zr_fix(TRACE_FIBER_SWITCH))
+  zr_ary_push(row, Machine.value(QNIL))
+  if rec == 0 || mid == 0
+    zr_ary_push(row, Machine.value(QNIL))
+    zr_ary_push(row, zr_fix(0))
+  else
+    zr_ary_push(row, zr_str_new(FrameMeta.file(Frame.meta(rec)), FrameMeta.file_len(Frame.meta(rec))))
+    zr_ary_push(row, zr_fix(zr_frame_line(rec)))
+  end
+  zr_ary_push(row, mid == 0 ? Machine.value(QNIL) : zr_sym(mid))
+  zr_ary_push(row, mid == 0 ? Machine.value(QNIL) : zr_sym(mid))
+  zr_ary_push(row, mid == 0 ? Machine.value(QNIL) : zr_method_owner(zr_box_view(zr_class_of(recv)), mid))
+  zr_ary_push(row, this)
+  zr_ary_push(row, rec == 0 || mid == 0 ? Machine.value(QNIL) : zr_fix(zr_frame_serial(rec)))
+  zr_ary_push(row, zr_fix(0))
+  zr_ary_push(row, zr_fix(0))
+  zr_trace_run(row)
+end
+
+# The same where control came back carrying `v`, which is undef when the
+# fiber left a signal behind. The signal waits while the handlers run,
+# as zr_trace_fire holds one, and goes back after them.
+sig [Value, Value, Word] => Value
+machine def zr_trace_fiber_switched(v, recv, mid)
+  if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_FIBER_SWITCH) == 0
+    return v
+  end
+  t = zr_task()
+  kind = Task.pending_kind(t)
+  pending = Task.pending(t)
+  if v == QUNDEF
+    Task.set_pending(t, Machine.value(QNIL))
+  end
+  r = zr_trace_fiber_switch(recv, mid)
+  return r if r == QUNDEF
+  if v == QUNDEF
+    Task.set_pending_kind(t, kind)
+    Task.set_pending(t, pending)
+  end
+  v
 end
 
 sig [Value] => Value

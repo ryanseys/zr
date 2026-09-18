@@ -14,7 +14,11 @@ class TracePoint
   NAMES = EVENTS.first(15).to_h(&:reverse).freeze
   ALL = 0x7fff
   # The events a program here fires; the rest have no firing point yet.
-  FIRED = 0x43ff
+  # `:script_compiled` is the one left: this runtime compiles a file
+  # before the program runs, so the event has to be mapped onto the
+  # first run of a unit, and its accessors want an InstructionSequence
+  # for code no string was.
+  FIRED = 0x5fff
   C_EVENTS = 0x60
   # The events a set_trace_func hook takes, by the names it takes them.
   HOOK_NAMES = {
@@ -126,8 +130,29 @@ class TracePoint
     def rearm
       Primitive.attr! :hidden
       mask = enabled.inject(0) { |all, point| all | Primitive.zr_hidden_get(point, :__events__) }
+      Primitive.zr_hidden_set(self, :__armed__, mask)
       builtin_places if (mask & 0x78).nonzero?
       Primitive.zr_trace_events_set(mask & FIRED)
+    end
+
+    # The same mask, for an event Ruby fires rather than compiled code.
+    # A thread starts and ends far too rarely to be worth a word of the
+    # kernel's, and this is what keeps one that starts while nothing
+    # traces from building a row for no one.
+    def armed
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_get(self, :__armed__) || 0
+    end
+
+    # A thread's own events, which thread_start_func_2 fires around the
+    # thread's body: the row names no file, no line and no method, and
+    # `self` is the thread, as th->self is.
+    def thread_event(name, thread)
+      Primitive.attr! :hidden
+      bit = EVENTS.fetch(name)
+      return nil if (armed & bit).zero?
+
+      fire([bit, nil, nil, 0, nil, nil, nil, thread, nil, 0, 0])
     end
 
     # CRuby's own Ruby methods, marked the first time a TracePoint asks
@@ -256,6 +281,9 @@ class TracePoint
       return "#<TracePoint:line #{path}:#{lineno} in '#{method_id}'>" if method_id
     when :call, :c_call, :return, :c_return
       return "#<TracePoint:#{event} '#{method_id}' #{path}:#{lineno}>"
+    when :thread_begin, :thread_end
+      # These stand nowhere, so tracepoint_inspect names the thread.
+      return "#<TracePoint:#{event} #{row[7].inspect}>"
     end
     "#<TracePoint:#{event} #{path}:#{lineno}>"
   end
@@ -291,6 +319,10 @@ class TracePoint
 
   def parameters
     raise RuntimeError, "not supported by this event" if %i[raise line class end script_compiled rescue].include?(event)
+    # rb_tracearg_parameters answers a call's and a return's, refuses
+    # for the events above, and falls through to nil for the rest: an
+    # event the machine fires stands in no method and has none.
+    return nil if %i[thread_begin thread_end fiber_switch].include?(event)
 
     Primitive.zr_trace_parameters(row[9], row[10])
   end

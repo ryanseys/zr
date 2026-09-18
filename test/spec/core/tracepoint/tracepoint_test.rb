@@ -1171,4 +1171,80 @@ describe "TracePoint programs" do
       TracePoint
     OUT
   end
+
+  it "fires thread_begin and thread_end around a threads body, from nowhere" do
+    result = ze0(<<~'RUBY')
+      # thread_start_func_2 fires these from the VM and not from a frame,
+      # so the row names no file, no line and no method; `self` is the
+      # thread the events are for, which is the thread that runs the
+      # handler. A point enabled with no target_thread watches every
+      # thread, and one enabled without that watches only its own -- so
+      # the events of a thread it started would reach it otherwise.
+      seen = Queue.new
+      tp = TracePoint.new(:thread_begin, :thread_end) do |t|
+        seen << [t.event, t.self.class.to_s, t.self.equal?(Thread.current), t.path, t.lineno,
+                 t.method_id, t.defined_class, t.binding, t.parameters]
+      end
+      tp.enable(target_thread: nil)
+      Thread.new { 1 }.join
+      tp.disable
+      p seen.pop until seen.empty?
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:thread_begin, "Thread", true, nil, 0, nil, nil, nil, nil]
+      [:thread_end, "Thread", true, nil, 0, nil, nil, nil, nil]
+    OUT
+  end
+
+  it "fires fiber_switch where control arrives, naming the call that sent it" do
+    result = ze0(<<~'RUBY')
+      # cont.c fires this in the fiber control reached, so the row stands
+      # where that fiber stands: a fresh one has run no line and names
+      # nothing. `self` is the thread, which is what th->self is there,
+      # and the name and the class come from the frame the switch is in,
+      # as fill_id_and_klass takes them.
+      rows = []
+      fs = TracePoint.new(:fiber_switch) do |t|
+        rows << [t.self.class.to_s, t.lineno, t.method_id, t.callee_id, t.defined_class.inspect,
+                 (t.binding ? "Binding" : nil), t.parameters]
+      end
+      fs.enable do
+        f = Fiber.new { Fiber.yield 1; 2 }
+        f.resume
+        f.resume
+        root = Fiber.current
+        g = Fiber.new { root.transfer }
+        g.transfer
+      end
+      rows.each { |row| p row }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["Thread", 0, nil, nil, "nil", nil, nil]
+      ["Thread", 13, :resume, :resume, "Fiber", "Binding", nil]
+      ["Thread", 12, :yield, :yield, "#<Class:Fiber>", "Binding", nil]
+      ["Thread", 14, :resume, :resume, "Fiber", "Binding", nil]
+      ["Thread", 0, nil, nil, "nil", nil, nil]
+      ["Thread", 17, :transfer, :transfer, "Fiber", "Binding", nil]
+    OUT
+  end
+
+  it "counts no fiber switch where a thread hands the turn on" do
+    result = ze0(<<~'RUBY')
+      # A thread here runs on a fiber of its own, and the scheduler hands
+      # the turn on with the switch a fiber uses. CRuby's threads are the
+      # operating system's and fire nothing as they take turns, and
+      # neither does this: the fiber that heads a thread is that thread,
+      # not a fiber of the program's.
+      count = 0
+      tp = TracePoint.new(:fiber_switch) { count += 1 }
+      tp.enable(target_thread: nil)
+      3.times.map { Thread.new { 10.times { Thread.pass } } }.each(&:join)
+      tp.disable
+      p count
+    RUBY
+
+    _(result).must_answer "0\n"
+  end
 end
