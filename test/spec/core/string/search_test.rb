@@ -134,7 +134,7 @@ describe "String: searching and matching" do
     OUT
   end
 
-  it "string index accepts a start offset" do
+  it "index takes a start offset, counting from either end, and answers nil past the last match" do
     result = ze0(<<~'RUBY')
       p "hello world".index("o")
       p "hello world".index("o", 5)
@@ -152,7 +152,7 @@ describe "String: searching and matching" do
     OUT
   end
 
-  it "string index assign" do
+  it "[]= at a single integer index replaces one character, appends at the length, or widens" do
     result = ze0(<<~'RUBY')
       # String#[]= across every index shape.
 
@@ -220,7 +220,7 @@ describe "String: searching and matching" do
     OUT
   end
 
-  it "string index assign forms" do
+  it "[]= takes a Range, a (start, length), a substring or a pattern, and raises on a miss" do
     result = ze0(<<~'RUBY')
       # String#[]= beyond the single integer index: Range, (start, length),
       # substring, and Regexp forms, plus the raising misses.
@@ -272,7 +272,7 @@ describe "String: searching and matching" do
     OUT
   end
 
-  it "string index assign through container" do
+  it "[]= reaches the string a container holds, so rows[0][1] = x mutates it" do
     result = ze0(<<~'RUBY')
       # `rows[0][1] = "*"` mutates the string the container holds: `[]=` was not a
       # container-reaching mutator, so the Array form raised NoMethodError and the
@@ -332,7 +332,7 @@ describe "String: searching and matching" do
     OUT
   end
 
-  it "string index coderange" do
+  it "character indexing re-decides its byte shortcut after anything that changes the bytes" do
     result = ze0(<<~'RUBY')
       # Character indexing takes a byte-indexed shortcut when every character is one
       # byte. Whether that holds is a property of the CONTENT, not just the encoding,
@@ -414,7 +414,7 @@ describe "String: searching and matching" do
     OUT
   end
 
-  it "string index nil typeerror" do
+  it "index(nil) raises TypeError rather than reporting no match" do
     result = ze0(<<~'RUBY')
       # Issue #847: String#index(nil) used to silently return -1 / nil,
       # conflating "no implicit conversion" with "not found". MRI raises
@@ -430,7 +430,7 @@ describe "String: searching and matching" do
     _(result).must_answer "TypeError: no implicit conversion of nil into String\n"
   end
 
-  it "string index write boxed" do
+  it "[]= takes an index that is only known to be an Integer at run time" do
     result = ze0(<<~'RUBY')
       # `s[i] = v` took a statically Integer index only. A boxed one reaches it
       # whenever the value came out of a container -- a destructured block parameter,
@@ -485,7 +485,7 @@ describe "String: searching and matching" do
     OUT
   end
 
-  it "string nil arg typeerror" do
+  it "rindex, include?, start_with?, end_with? and count each raise TypeError on nil" do
     result = ze0(<<~'RUBY')
       # String methods that raise TypeError for nil arguments.
       # Issue #847 covered index(); this extends to rindex,
@@ -536,7 +536,7 @@ describe "String: searching and matching" do
     OUT
   end
 
-  it "string optional arg arities" do
+  it "count and delete take several char sets, and match, rindex and split take their optional arguments" do
     result = ze0(<<~'RUBY')
       # `count`/`delete` take one OR MORE char-set specs (intersected, `^`
       # negation honored); `match`/`match?`/`rindex` take an optional start

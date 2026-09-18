@@ -935,7 +935,7 @@ describe "String: changing in place" do
     OUT
   end
 
-  it "string append grows in place" do
+  it "<< through a helper grows the receiver, an ivar buffer included" do
     result = ze0(<<~'RUBY')
       def fill(str, n)
         n.times { |i| str << "ab" << i.to_s }
@@ -1006,7 +1006,7 @@ describe "String: changing in place" do
     OUT
   end
 
-  it "string bang mutators" do
+  it "gsub!, sub!, tr!, delete! and slice! change the receiver in place" do
     result = ze0(<<~'RUBY')
       # In-place gsub!/sub!/tr!/delete!/slice! reassign the transformed value
       # (statement position; the nil-when-unchanged return is not modeled, like
@@ -1049,7 +1049,7 @@ describe "String: changing in place" do
     OUT
   end
 
-  it "string bang mutators and sum chr" do
+  it "upcase! answers nil when nothing changed, and sum and chr read the bytes" do
     result = ze0(<<~'RUBY')
       s = "abc"; p s.upcase!; p s; p s.upcase!
       t = "  hi  "; t.strip!; p t
@@ -1073,7 +1073,7 @@ describe "String: changing in place" do
     OUT
   end
 
-  it "string bang returns self" do
+  it "a bang mutator on an empty string answers the receiver, not nil" do
     result = ze0(<<~'RUBY')
       p (+"").reverse!
       p (+"").succ!
@@ -1089,7 +1089,7 @@ describe "String: changing in place" do
     OUT
   end
 
-  it "string chomp bang mutates" do
+  it "chomp! writes back to the receiver, and a frozen literal raises" do
     result = ze0(<<~'RUBY')
       # Issue #859: String#chomp! on a mutable_str mutates in place.
       # Pre-fix, chomp! was a no-op (recursed into chomp which produces
@@ -1121,7 +1121,7 @@ describe "String: changing in place" do
     OUT
   end
 
-  it "string concat is variadic" do
+  it "concat takes any number of arguments, and an Integer appends its codepoint" do
     result = ze0(<<~'RUBY')
       s = "a"
       s.concat("b", "c", "d")
@@ -1143,7 +1143,7 @@ describe "String: changing in place" do
     OUT
   end
 
-  it "string concat variadic" do
+  it "concat mixes strings and codepoints, and no argument at all is a no-op" do
     result = ze0(<<~'RUBY')
       # String#concat accepts any number of arguments (appended left to right);
       # `<<` is the single-argument operator spelling.
@@ -1178,7 +1178,7 @@ describe "String: changing in place" do
     OUT
   end
 
-  it "string lines and prepend" do
+  it "lines splits on a given separator, and prepend inserts every argument in order" do
     result = ze0(<<~'RUBY')
       # String#lines / #each_line take an optional separator and a chomp: keyword.
       p "one\ntwo\nthree".lines
@@ -1206,7 +1206,7 @@ describe "String: changing in place" do
     OUT
   end
 
-  it "string lines chomp and prepend variadic" do
+  it "lines with chomp: strips a CRLF, and each_line yields the same lines to a block" do
     result = ze0(<<~'RUBY')
       p "a\nb\nc".lines
       p "a\nb\nc".lines(chomp: true)

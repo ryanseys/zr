@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Date: formatting and inspection" do
-  it "date and datetime surface" do
+  it "every Date and DateTime field answers what ruby answers, without reading the machine's zone" do
     result = ze0(<<~'RUBY')
       # The whole `Date`/`DateTime` surface, field by field, against ruby 4.0.6.
       # Nothing here reads the machine's zone: `to_time` appears only through
@@ -298,7 +298,7 @@ describe "Date: formatting and inspection" do
     OUT
   end
 
-  it "date calendar" do
+  it "the proleptic-Gregorian fields, day arithmetic, ordering and Julian day all answer" do
     result = ze0(<<~'RUBY')
       require "date"
 
@@ -352,7 +352,7 @@ describe "Date: formatting and inspection" do
     OUT
   end
 
-  it "date calendar navigation" do
+  it "next_month off the 31st lands on the last day the month has" do
     result = ze0(<<~'RUBY')
       require "date"
 
@@ -373,7 +373,7 @@ describe "Date: formatting and inspection" do
     OUT
   end
 
-  it "date calendar reform" do
+  it "julian?, gregorian? and start report the reform day the date was built with" do
     result = ze0(<<~'RUBY')
       require "date"
 
@@ -398,7 +398,7 @@ describe "Date: formatting and inspection" do
     OUT
   end
 
-  it "date conversions" do
+  it "to_date, to_datetime and to_time each keep the day they were given" do
     result = ze0(<<~'RUBY')
       require "date"
 
@@ -415,7 +415,7 @@ describe "Date: formatting and inspection" do
     OUT
   end
 
-  it "date iteration" do
+  it "upto, downto and step walk the days between two dates" do
     result = ze0(<<~'RUBY')
       require "date"
 
@@ -432,7 +432,7 @@ describe "Date: formatting and inspection" do
     OUT
   end
 
-  it "date month shift" do
+  it ">> and << move whole months, clamping to the last day the month has" do
     result = ze0(<<~'RUBY')
       require "date"
 
@@ -451,7 +451,7 @@ describe "Date: formatting and inspection" do
     OUT
   end
 
-  it "date parse heuristics" do
+  it "Date._parse records the fields in the order its cascade finds them" do
     result = ze0(<<~'RUBY')
       # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
       # `Time.parse` all read their fields out of. Every line here is oracle-verified
@@ -662,7 +662,7 @@ describe "Date: formatting and inspection" do
     OUT
   end
 
-  it "date rfc http formats" do
+  it "rfc3339, httpdate, xmlschema and jisx0301 each render the same day their own way" do
     result = ze0(<<~'RUBY')
       require "date"
 
@@ -681,7 +681,7 @@ describe "Date: formatting and inspection" do
     OUT
   end
 
-  it "date strptime reads a format" do
+  it "Date._strptime keys its answer in the order the directives matched" do
     result = ze0(<<~'RUBY')
       # `Date._strptime` is the format-DIRECTED scanner behind `Date.strptime`,
       # `DateTime.strptime` and the `time` gem's `Time.strptime`. aws-sigv4's
@@ -758,7 +758,7 @@ describe "Date: formatting and inspection" do
     OUT
   end
 
-  it "datetime keeps its time of day" do
+  it "a DateTime keeps its clock through parse, strptime and new" do
     result = ze0(<<~'RUBY')
       require "date"
 
