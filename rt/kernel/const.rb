@@ -54,6 +54,14 @@ machine def zr_cref_push_eval(klass, outer)
 end
 
 # The innermost cref that names a lexical scope.
+# Whether two Values are the same object, asked of neither of them. A
+# cref has no class, so `equal?` on one dispatches on nothing; the
+# walking eval road holds crefs and must be able to tell them apart.
+sig [Value, Value] => Value
+machine def zr_same_p(a, b)
+  zr_bool(a == b)
+end
+
 # `private`, `public`, `protected` and `module_function` written bare
 # in a class body set that body's own visibility, which lives in its
 # cref. Compiled code writes it where the body runs; the walking eval

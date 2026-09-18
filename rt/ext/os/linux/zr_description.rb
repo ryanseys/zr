@@ -260,6 +260,7 @@ module Ze0
         d zr_cref_push Value klass:Value outer:Value
         d zr_cref_klass Value cref:Value
         d zr_cref_push_eval Value klass:Value outer:Value
+        d zr_same_p Value a:Value b:Value
         d zr_cref_set_vis Value cref:Value vis:Value
         d zr_cref_set_modfn Value cref:Value
         d zr_cref_lexical Value cref:Value

@@ -44,7 +44,16 @@ module Ze0
     # ze0, or the answer is not an answer to the same question.
     HOW = {
       "core/process/argv_and_env" => { argv: %w[alpha beta], env: { "ZEO_AOT_SMOKE" => "on" } },
-      "stdlib/bundler/require_bundler" => { build_mb: 3072 },
+"stdlib/bundler/require_bundler" => { build_mb: 3072 },
+# A wasm module that evals holds the whole front end, since there is
+# no second object to link it in as: the emitter peaks near 4.5 GB
+# writing one. A native binary reads the road off the cache and
+# stays far under these.
+"core/io/file_io_roundtrip" => { build_mb: 5120 },
+"lang/eval/eval_in_a_binary" => { build_mb: 3584 },
+"lang/require/require_a_bundled_library" => { build_mb: 5120 },
+"stdlib/ffi/ffi_libc_call" => { build_mb: 5120 },
+"stdlib/rubygems/require_rubygems" => { build_mb: 5120 },
       "stdlib/openssl/openssl_digest" => { needs: ["libssl"] },
       "stdlib/testing/a_minitest_suite_runs" => { argv: %w[--seed 42] },
       "stdlib/testing/a_test_unit_suite_runs" => {

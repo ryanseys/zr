@@ -1,15 +1,15 @@
-      # frozen_string_literal: true
+# frozen_string_literal: true
 
-      # The walking eval road's half that only the runtime can answer.
-      #
-      # A program on wasm cannot write machine code while it runs: a module's
-      # code is fixed when the engine instantiates it, and nothing in WASI
-      # hands a guest a second module. So a program there carries the front
-      # end alone and walks the tree it builds (lib/ze0/eval/walk.rb). The
-      # walk is ordinary Ruby and reaches the program through ordinary calls
-      # -- `__send__`, `define_method`, `instance_variable_get` -- for
-      # everything but the tables the compiler reaches through inline caches.
-      # Those are here.
+# The walking eval road's half that only the runtime can answer.
+#
+# A program on wasm cannot write machine code while it runs: a module's
+# code is fixed when the engine instantiates it, and nothing in WASI
+# hands a guest a second module. So a program there carries the front
+# end alone and walks the tree it builds (lib/ze0/eval/walk.rb). The
+# walk is ordinary Ruby and reaches the program through ordinary calls
+# -- `__send__`, `define_method`, `instance_variable_get` -- for
+# everything but the tables the compiler reaches through inline caches.
+# Those are here.
 
 module Ze0
   class Eval
@@ -18,6 +18,16 @@ module Ze0
     # the compiler emits inline, and answers what that one answers.
     module World
       module_function
+
+      # The lexical scope of the frame that asked -- the caller's, since
+      # this method's own frame is the one on top. A block the walk made
+      # reads it to see whether `class_eval` or `instance_exec` gave it
+      # a scope other than the one it was written in.
+      def cref = Primitive.zr_eval_cref
+
+      # Two crefs, or any two Values, as the same object. A cref answers
+      # no message, so it cannot be asked itself.
+      def same?(a, b) = Primitive.zr_same_p(a, b)
 
       # The lexical scope the frame that asked for the eval stands in,
       # and one scope inside it.

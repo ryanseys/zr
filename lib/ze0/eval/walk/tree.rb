@@ -479,16 +479,27 @@ module Ze0
       # Blocks. A block is a Proc whose body this walks; `break`, `next`
       # and `redo` in it are the signals a walked body raises, and the
       # call that was given the block answers a `break`.
+      # `home` is the lexical scope every frame of this file runs under.
+      # A block that finds itself under another one was handed to
+      # `class_eval`, `instance_eval`, `class_exec` or `instance_exec`,
+      # which run a block under a self and a definee of their own -- and
+      # compiled code does that to blocks the walk made: `Forwardable`
+      # evaluates a string to a proc and hands it to `module_eval`. The
+      # walk follows it there.
       def make_proc(node, ctx, lambda:)
         tree = self
+        home = World.cref
         # The literal is what makes a lambda a lambda: `Kernel#lambda`
         # refuses a Proc that was not written as its block.
-        return ->(*args, **kwargs, &blk) { tree.__send__(:run_block, node, ctx, args, kwargs, blk, lambda: true) } if lambda
+        if lambda
+          return ->(*args, **kwargs, &blk) { tree.__send__(:run_block, node, ctx, args, kwargs, blk, lambda: true, home: home, here: World.cref, self_: self) }
+        end
 
-        proc { |*args, **kwargs, &blk| tree.__send__(:run_block, node, ctx, args, kwargs, blk, lambda: false) }
+        proc { |*args, **kwargs, &blk| tree.__send__(:run_block, node, ctx, args, kwargs, blk, lambda: false, home: home, here: World.cref, self_: self) }
       end
 
-      def run_block(node, ctx, args, kwargs, blk, lambda:)
+      def run_block(node, ctx, args, kwargs, blk, lambda:, home: nil, here: nil, self_: nil)
+        ctx = ctx.with(self_: self_, cref: here, name: nil, owner: nil, home: nil) if here && !World.same?(here, home)
         tag = node.__id__
         scope = Scope.new(node.locals)
         # A `yield` in a block reaches the block of the method the block
