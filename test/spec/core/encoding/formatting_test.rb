@@ -163,7 +163,7 @@ describe "Encoding: formatting and inspection" do
     OUT
   end
 
-  it "encoding convert" do
+  it "the encoding tables link, so transcoding, byte inspection and the registry all answer" do
     result = ze0(<<~'RUBY')
       # The encoding tables are linked: transcoding, byte inspection and the
       # encoding registry all answer in the binary.
@@ -187,7 +187,7 @@ describe "Encoding: formatting and inspection" do
     OUT
   end
 
-  it "encoding converter" do
+  it "Encoding::Converter converts a piece at a time, and stops where each kind of break demands" do
     result = ze0(<<~'RUBY')
       # The stateful face of the same engine `String#encode` runs on -- one
       # `Encoding::Converter`, fed a piece at a time. Note the wording of this
@@ -464,7 +464,7 @@ describe "Encoding: formatting and inspection" do
     OUT
   end
 
-  it "encoding converter buffer full" do
+  it "primitive_convert cuts where CRuby cuts under a dst_bytesize limit, and drains the rest next" do
     result = ze0(<<~'RUBY')
       # A converter's `#primitive_convert` cuts at CRuby's own point under a
       # `dst_bytesize` limit. (This first line avoids naming the class outright:
@@ -507,7 +507,7 @@ describe "Encoding: formatting and inspection" do
     OUT
   end
 
-  it "encoding registered only" do
+  it "the multibyte tables convert exactly as CRuby converts, and the gaps are gaps in ruby too" do
     result = ze0(<<~'RUBY')
       # The multibyte mapping tables landed, so the rows below convert exactly as
       # CRuby does: EUC-KR, GB18030, GB2312, CP949, Big5-HKSCS, UTF8-MAC, eucJP-ms
@@ -567,7 +567,7 @@ describe "Encoding: formatting and inspection" do
     OUT
   end
 
-  it "encoding rides through format and padding" do
+  it "interpolation, format, pack and the justify family all pick the result encoding by rb_enc_check" do
     result = ze0(<<~'RUBY')
       # The encoding a derived String carries, across the four places that build
       # one out of two others: interpolation, `%`/`format`, `Array#pack` and the

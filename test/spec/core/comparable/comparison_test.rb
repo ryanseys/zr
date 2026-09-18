@@ -67,7 +67,7 @@ describe "Comparable: comparison and equality" do
     OUT
   end
 
-  it "comparable cmp result validation" do
+  it "the operators and clamp read a Float <=> result by its sign" do
     result = ze0(<<~'RUBY')
       # Comparable operators/clamp validate the user <=> result type: a Float
       # result compares by sign. A statically non-Integer/nil <=> result (String,
@@ -101,7 +101,7 @@ describe "Comparable: comparison and equality" do
     OUT
   end
 
-  it "comparable descendant only impl" do
+  it "a base-class <=> that calls a name only its descendants write types as the unify of their returns" do
     result = ze0(<<~'RUBY')
       # A base-class method calling a name defined ONLY in descendants (here
       # Comparable's <=> reading `area`) types as the unify of the descendant
@@ -133,7 +133,7 @@ describe "Comparable: comparison and equality" do
     OUT
   end
 
-  it "comparable nil cmp mixed" do
+  it "a <=> that answers nil for a mixed operand raises, naming the operand by its inspect" do
     result = ze0(<<~'RUBY')
       # Comparable <,>,<=,>=,between?,clamp on a class whose `<=>` returns nil
       # for an incomparable (mixed-type) operand. The operators route through the
@@ -188,7 +188,7 @@ describe "Comparable: comparison and equality" do
     OUT
   end
 
-  it "comparable operator nil cmp" do
+  it "an incomparable pair raises for the operators and between?, while == is false without raising" do
     result = ze0(<<~'RUBY')
       # Object <, <=, >, >=, ==, != and between? via a user <=> that can return nil:
       # an incomparable pair raises the Comparable ArgumentError for the operators
@@ -277,7 +277,7 @@ describe "Comparable: comparison and equality" do
     OUT
   end
 
-  it "comparable protocol" do
+  it "a user <=> drives Comparable, and its result is validated the way rb_cmpint validates one" do
     result = ze0(<<~'RUBY')
       # The comparison protocol: a user `<=>` drives Comparable, and its result is
       # validated the way CRuby's `rb_cmpint` does.

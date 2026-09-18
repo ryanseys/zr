@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Array: formatting and inspection" do
-  it "array and hash to s use inspect form only puts flattens" do
+  it "to_s, print and interpolation all use the inspect form, and only puts flattens" do
     result = ze0(<<~'RUBY')
       p [1, 2].to_s
       print [1, 2]; puts
@@ -22,7 +22,7 @@ describe "Array: formatting and inspection" do
     OUT
   end
 
-  it "array at out of bounds" do
+  it "at answers nil past the end, for an Integer array and for a Float one" do
     result = ze0(<<~'RUBY')
       # Array#at returns nil for an out-of-range index. For a scalar element
       # array the result is now typed int?/float?, so the out-of-bounds
@@ -65,7 +65,7 @@ describe "Array: formatting and inspection" do
     OUT
   end
 
-  it "array get oob negative" do
+  it "a far negative index answers nil rather than reading below the buffer" do
     result = ze0(<<~'RUBY')
       # a[-100] with a 3-element array must not segfault.
       # Before the fix, sp_IntArray_get adjusted the negative index but
@@ -101,7 +101,7 @@ describe "Array: formatting and inspection" do
     OUT
   end
 
-  it "array product" do
+  it "product answers the Cartesian product of two arrays" do
     result = ze0(<<~'RUBY')
       # Array#product on two int_arrays: Cartesian product.
       puts [1, 2].product([3, 4]).inspect
@@ -117,7 +117,7 @@ describe "Array: formatting and inspection" do
     OUT
   end
 
-  it "array unresolved inspect no segv" do
+  it "a chained call on repeated_permutation computes the real value, and never degrades quietly" do
     result = ze0(<<~'RUBY')
       # Issue #1244: an unresolved Array method (originally repeated_permutation,
       # then unimplemented) used to emit a NULL placeholder whose chained

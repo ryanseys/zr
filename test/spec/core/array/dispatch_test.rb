@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Array: dispatch" do
-  it "array clone poly" do
+  it "clone of a nested array is a shallow copy, independent of the original at the top level" do
     result = ze0(<<~'RUBY')
       # Array#clone aliases Array#dup for poly (nested) arrays: a shallow top-level
       # copy independent of the original. Covers a bare poly array and the clone of a
@@ -38,7 +38,7 @@ describe "Array: dispatch" do
     OUT
   end
 
-  it "array fill poly" do
+  it "fill on a nested array boxes the value into the poly storage" do
     result = ze0(<<~'RUBY')
       # `arr.fill(val)` on a poly_array used to lower as
       # `sp_PolyArray_set(arr, i, val)` with the raw scalar `val`. The
@@ -62,7 +62,7 @@ describe "Array: dispatch" do
     _(result).must_answer "[42, 42, 42]\n"
   end
 
-  it "array literal empty elem" do
+  it "an empty container as an element makes the outer literal a poly array" do
     result = ze0(<<~'RUBY')
       # An empty container literal as an array element is a non-scalar value: the
       # outer literal must become a poly array, not collapse to an int array that
@@ -81,7 +81,7 @@ describe "Array: dispatch" do
     OUT
   end
 
-  it "array new poly size" do
+  it "Array.new coerces a size that arrives as a poly expression" do
     result = ze0(<<~'RUBY')
       # spinel-dev#24: Array.new(size, fill) where `size` is a poly expression.
       #
@@ -119,7 +119,7 @@ describe "Array: dispatch" do
     _(result).must_answer "6\n"
   end
 
-  it "array transpose poly elements" do
+  it "transpose swaps rows and columns of an untyped nested array, keeping each element's type" do
     result = ze0(<<~'RUBY')
       # Array#transpose on an untyped nested array (poly_array of rows) swaps
       # rows and columns, preserving each element's runtime type. The
