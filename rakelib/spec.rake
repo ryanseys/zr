@@ -157,6 +157,11 @@ module SpecStyle
   # file. The corpus conversion left single lines of 13 KB and more.
   COLUMNS = 120
 
+  # The tags whose body is what ruby said. What is inside one of these is
+  # not this file's to tidy: a trailing space in an answer is a byte ruby
+  # wrote, and removing it would be writing the answer ourselves.
+  ANSWERS = %w[OUT LINUX WASI].freeze
+
   # A program is `RUBY`, an answer is `OUT`, and a platform's answer is
   # its own name.
   #
@@ -176,7 +181,7 @@ module SpecStyle
     sentences = Hash.new { |h, k| h[k] = [] }
     File.readlines(path).each_with_index do |line, i|
       n = i + 1
-      out << [n, "trailing whitespace"] if line.rstrip != line.chomp
+      out << [n, "trailing whitespace"] if line.rstrip != line.chomp && !ANSWERS.include?(inside)
 
       # Inside a heredoc the DSL opened, the lines are the program under
       # test or the answer to it -- a row of a table is as long as the
