@@ -1599,7 +1599,7 @@ describe "Thread programs" do
     OUT
   end
 
-  it "thread basic" do
+  it "value answers the block's result, join blocks, and an unhandled raise reaches the joiner" do
     result = ze0(<<~'RUBY')
       # Thread.new runs a green thread on the cooperative scheduler (Phase 0, N=1):
       # #value returns the block result, #join blocks until it finishes, #alive?
@@ -1651,7 +1651,7 @@ describe "Thread programs" do
     OUT
   end
 
-  it "thread concurrent alloc" do
+  it "four threads allocating at once leave the heap sound and the sum deterministic" do
     result = ze0(<<~'RUBY')
       # Concurrent allocation from multiple threads must be thread-safe and
       # deterministic. Each worker thread allocates a fresh Array per work item
@@ -1692,7 +1692,7 @@ describe "Thread programs" do
     _(result).must_answer "sum=8052000.0\n"
   end
 
-  it "thread gc start" do
+  it "GC.start after threads have run takes the stop-the-world barrier and does not hang" do
     result = ze0(<<~'RUBY')
       # An explicit GC.start in a program that has run threads. The collection has to
       # take the stop-the-world barrier: its parallel sweep hands one slot to each
@@ -1738,7 +1738,7 @@ describe "Thread programs" do
     OUT
   end
 
-  it "thread index is fiber local" do
+  it "Thread#[] is fiber-local, so a write inside a Fiber is invisible after it ends" do
     result = ze0(<<~'RUBY')
       # Thread#[] / Thread#[]= are FIBER-local storage (thread_variable_get/set are
       # the thread-local pair). A write inside a Fiber must be invisible after the
@@ -1767,7 +1767,7 @@ describe "Thread programs" do
     OUT
   end
 
-  it "thread list" do
+  it "Thread.list holds the main thread plus every spawned thread still alive" do
     result = ze0(<<~'RUBY')
       # Thread.list returns the main thread plus every live spawned thread.
       p Thread.list.size                       # 1 (just main)
@@ -1797,7 +1797,7 @@ describe "Thread programs" do
     OUT
   end
 
-  it "thread new args" do
+  it "Thread.new(arg) gives the block its own value rather than a shared capture" do
     result = ze0(<<~'RUBY')
       # Thread.new(arg) passes the argument as the block's first parameter -- the
       # canonical way to give each thread its own value instead of capturing a shared
@@ -1832,7 +1832,7 @@ describe "Thread programs" do
     OUT
   end
 
-  it "thread new value" do
+  it "value answers a block that built an Integer and one that built a String" do
     result = ze0(<<~'RUBY')
       t = Thread.new { 21 * 2 }
       puts t.value

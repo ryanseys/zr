@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "FFI: packing and unpacking" do
-  it "ffi binstr ws frame" do
+  it "a binary payload's embedded NUL bytes survive the boundary through a byte-count read" do
     result = ze0(<<~'RUBY')
       # Ported from spinel's :binstr regression (matz/spinel#1466 / ac1e0d2c) to the
       # real ffi gem API: a binary payload's embedded NUL bytes must survive the FFI
@@ -50,7 +50,7 @@ describe "FFI: packing and unpacking" do
     OUT
   end
 
-  it "ffi buffer reader" do
+  it "a MemoryPointer comes up zero-filled, and every reader kind lines up at every offset" do
     result = ze0(<<~'RUBY')
       # Ported from spinel's ffi_buffer/ffi_read_* readers to the real ffi gem API:
       # an FFI::MemoryPointer allocation is zero-filled, so reading it back through
@@ -79,7 +79,7 @@ describe "FFI: packing and unpacking" do
     OUT
   end
 
-  it "ffi declaration list written indirectly" do
+  it "a layout list put through a splat or a hash lowers to the layout the program computes" do
     result = ze0(<<~'RUBY')
       # Three spellings that put the same declaration list through an expression
       # before the directive sees it. All are compile-time values, so all lower to
@@ -153,7 +153,7 @@ describe "FFI: packing and unpacking" do
     OUT
   end
 
-  it "ffi layout that pins its own offsets" do
+  it "a field may name its own byte offset, and the number given wins over the alignment" do
     result = ze0(<<~'RUBY')
       # ruby-ffi's third element per field: an explicit byte OFFSET. Every Win32
       # header struct in winwindow is written that way, and readline-ffi, PAPI,
@@ -263,7 +263,7 @@ describe "FFI: packing and unpacking" do
     OUT
   end
 
-  it "ffi pointer array accessors" do
+  it "the typed array accessors answer in all four spellings, at offset zero and beyond" do
     result = ze0(<<~'RUBY')
       # `FFI::Pointer`'s typed ARRAY accessors, in all four spellings ruby-ffi has:
       # `read_`/`write_` start at offset 0, `get_`/`put_` take one. zeo had six of
@@ -392,7 +392,7 @@ describe "FFI: packing and unpacking" do
     OUT
   end
 
-  it "ffi ptr nil" do
+  it "a live malloc result is not nil-equal, where a NULL pointer is" do
     result = ze0(<<~'RUBY')
       # Pointer/nil equality through the real ffi gem API (ported from spinel's
       # ffi_read_ptr): a live malloc result is not nil-equal, and a NULL pointer
@@ -431,7 +431,7 @@ describe "FFI: packing and unpacking" do
     OUT
   end
 
-  it "ffi read write widths" do
+  it "every typed accessor reads exactly its own width, never its neighbour's bytes" do
     result = ze0(<<~'RUBY')
       # Every typed accessor names the WIDTH of its access. The bytes below are laid
       # out by a wider write and read back one width at a time, so a reader that
@@ -492,7 +492,7 @@ describe "FFI: packing and unpacking" do
     OUT
   end
 
-  it "ffi struct declared against a wrapper struct" do
+  it "a subclass of a struct class is a struct class, but it inherits no layout" do
     result = ze0(<<~'RUBY')
       # A gem that wraps `FFI::Struct` once and declares every real struct against
       # the wrapper. gssapi does exactly this -- `GssUMStruct < FFI::Struct` exists
@@ -545,7 +545,7 @@ describe "FFI: packing and unpacking" do
     OUT
   end
 
-  it "ffi struct hash layout and type size count" do
+  it "layout takes one hash, a root-anchored superclass and a count computed from a type's size" do
     result = ze0(<<~'RUBY')
       # `layout` written as one hash (the gem's documented alternative), a
       # root-anchored `::FFI::Struct` superclass, and an inline-array count
@@ -570,7 +570,7 @@ describe "FFI: packing and unpacking" do
     OUT
   end
 
-  it "ffi struct nested by value and callback fields" do
+  it "a nested struct field views the parent's bytes, and a callback field reads back as a Function" do
     result = ze0(<<~'RUBY')
       # A layout field can be another struct BY VALUE, or a declared callback.
       # Reading a nested field yields the inner class VIEWING the same bytes (a
@@ -638,7 +638,7 @@ describe "FFI: packing and unpacking" do
     OUT
   end
 
-  it "ffi type has three spellings" do
+  it "a type position takes Struct.by_ref and an enum named by the constant it is assigned to" do
     result = ze0(<<~'RUBY')
       # A type position in an FFI declaration takes more than a literal symbol.
       #
