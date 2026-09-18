@@ -1324,25 +1324,54 @@ describe "Pattern: pattern matching" do
     OUT
   end
 
-  it "a capture, a leading splat and a middle splat each bind what they cover" do
+  it "a capture binds the value the pattern matched" do
     result = ze0(<<~'RUBY')
       case 5
       in Integer => n
         puts n + 1
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      6
+    OUT
+  end
+
+  it "an array pattern binds each element it names" do
+    result = ze0(<<~'RUBY')
       case [1, 2, 3]
       in [Integer => a, *rest]
         puts a
         puts rest.length
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+      2
+    OUT
+  end
+
+  it "a leading splat binds everything ahead of the fixed tail" do
+    result = ze0(<<~'RUBY')
       case [1, 2, 3, 4, 5]
       in [*pre, 3, *post]
         puts pre.length
         puts post.length
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2
+      2
+    OUT
+  end
+
+  it "a pin compares against the value the local already holds" do
+    result = ze0(<<~'RUBY')
       x = 5
       case 10
       in ^x
@@ -1351,6 +1380,15 @@ describe "Pattern: pattern matching" do
         puts "different"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      different
+    OUT
+  end
+
+  it "a range pattern matches by cover, and binds nothing" do
+    result = ze0(<<~'RUBY')
       case 3
       in 1 | 2 | 3
         puts "small"
@@ -1358,6 +1396,15 @@ describe "Pattern: pattern matching" do
         puts "big"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      small
+    OUT
+  end
+
+  it "a case/in inside a method classifies by class and by value" do
+    result = ze0(<<~'RUBY')
       class Classifier
         def classify(v)
           case v
@@ -1377,6 +1424,17 @@ describe "Pattern: pattern matching" do
       puts c.classify(3)
       puts c.classify("hi")
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      even int 4
+      odd int
+      string
+    OUT
+  end
+
+  it "an alternative pattern binds the arm that matched" do
+    result = ze0(<<~'RUBY')
       h = { a: 1, b: 2, c: 3 }
       case h
       in { a: Integer => av, **rest }
@@ -1384,21 +1442,58 @@ describe "Pattern: pattern matching" do
         puts rest.length
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+      2
+    OUT
+  end
+
+  it "an exact-length array pattern refuses a longer array" do
+    result = ze0(<<~'RUBY')
       case { a: 1 }
       in { a: 1, **nil }
         puts "exact match"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      exact match
+    OUT
+  end
+
+  it "a middle splat binds what lies between the fixed head and tail" do
+    result = ze0(<<~'RUBY')
       case [1, 2, 3, 4, 5]
       in [*, Integer => mid1, Integer => mid2, *]
         puts "#{mid1} #{mid2}"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1 2
+    OUT
+  end
+
+  it "a range pattern inside a hash pattern matches the value under its key" do
+    result = ze0(<<~'RUBY')
       case 5
       in 1..10
         puts "in range"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      in range
+    OUT
+  end
+
+  it "a constant pattern with a bracket list deconstructs what the constant names" do
+    result = ze0(<<~'RUBY')
       class Point
         def initialize(x, y)
           @x = x
@@ -1422,15 +1517,44 @@ describe "Pattern: pattern matching" do
         puts "constant: #{x}, #{y}"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      array: 1, 2
+      constant: 1, 2
+    OUT
+  end
+
+  it "a lambda used as a pattern matches whatever it answers truthy for" do
+    result = ze0(<<~'RUBY')
       if [1, 2] in [Integer, Integer]
         puts "matched predicate"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      matched predicate
+    OUT
+  end
+
+  it "a find pattern binds the run it found" do
+    result = ze0(<<~'RUBY')
       arr = [1, 2]
       arr => [first, second]
       puts first
       puts second
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+      2
+    OUT
+  end
+
+  it "a nil pattern matches nil alone" do
+    result = ze0(<<~'RUBY')
       case nil
       in nil
         puts "was nil"
@@ -1438,26 +1562,6 @@ describe "Pattern: pattern matching" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      6
-      1
-      2
-      2
-      2
-      different
-      small
-      even int 4
-      odd int
-      string
-      1
-      2
-      exact match
-      1 2
-      in range
-      array: 1, 2
-      constant: 1, 2
-      matched predicate
-      1
-      2
       was nil
     OUT
   end

@@ -93,7 +93,7 @@ describe "BigDecimal programs" do
     OUT
   end
 
-  it "construction, exact arithmetic, the division rule, the rounding modes and the error shapes all answer" do
+  it "the version and the double-precision limits carry the shape upstream gives them" do
     result = ze0(<<~'RUBY')
       # bigdecimal -- the native core: construction, engineering-notation to_s,
       # exact arithmetic, division to the documented precision rule, rounding
@@ -106,6 +106,22 @@ describe "BigDecimal programs" do
       p [BigDecimal::BASE, BigDecimal.double_fig]
       p [BigDecimal::ROUND_MODE, BigDecimal.mode(BigDecimal::ROUND_MODE), BigDecimal.mode(BigDecimal::EXCEPTION_ALL), BigDecimal.limit]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      [1000000000, 16]
+      [256, 3, 0, 0]
+    OUT
+  end
+
+  it "a BigDecimal built from a string prints in engineering notation" do
+    result = ze0(<<~'RUBY')
+      # bigdecimal -- the native core: construction, engineering-notation to_s,
+      # exact arithmetic, division to the documented precision rule, rounding
+      # modes, mode/limit state, conversions, and the error shapes.
+      require "bigdecimal"
+
       p [BigDecimal("1.5"), BigDecimal("1.5").to_s, BigDecimal("1.5").inspect]
       p [BigDecimal("-0.003"), BigDecimal("123456789.123456789"), BigDecimal("1e100")]
       p [BigDecimal("0"), BigDecimal("-0"), BigDecimal("0").to_s]
@@ -116,12 +132,52 @@ describe "BigDecimal programs" do
       p [BigDecimal("1_000"), BigDecimal(" 1.5 "), BigDecimal(".5"), BigDecimal("1.5e3")]
       p [BigDecimal("1.5").class, BigDecimal("1.5").frozen?]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [0.15e1, "0.15e1", "0.15e1"]
+      [-0.3e-2, 0.123456789123456789e9, 0.1e101]
+      [0.0, -0.0, "0.0"]
+      [Infinity, -Infinity, NaN]
+      [0.42e2, -0.7e1, 0.1e31]
+      [0.314e1, 0.314e1, 0.15e1, 0.1e101]
+      0.33333e0
+      [0.1e4, 0.15e1, 0.5e0, 0.15e4]
+      [BigDecimal, true]
+    OUT
+  end
+
+  it "to_s takes F, E, a digit grouping and a leading sign" do
+    result = ze0(<<~'RUBY')
+      # bigdecimal -- the native core: construction, engineering-notation to_s,
+      # exact arithmetic, division to the documented precision rule, rounding
+      # modes, mode/limit state, conversions, and the error shapes.
+      require "bigdecimal"
+
       s = BigDecimal("1234.5678")
       p [s.to_s("F"), s.to_s("E"), s.to_s(3), s.to_s("+"), s.to_s("3F")]
       p BigDecimal("0.000012345").to_s("F")
       p BigDecimal("1e30").to_s("F")
       p BigDecimal("-1234.5678").to_s
       p BigDecimal("-1234.5678").to_s("F")
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["1234.5678", "0.12345678e4", "0.123 456 78e4", "+0.12345678e4", "1 234.567 8"]
+      "0.000012345"
+      "1000000000000000000000000000000.0"
+      "-0.12345678e4"
+      "-1234.5678"
+    OUT
+  end
+
+  it "addition, subtraction, multiplication and division answer exactly" do
+    result = ze0(<<~'RUBY')
+      # bigdecimal -- the native core: construction, engineering-notation to_s,
+      # exact arithmetic, division to the documented precision rule, rounding
+      # modes, mode/limit state, conversions, and the error shapes.
+      require "bigdecimal"
 
       p BigDecimal("2") + BigDecimal("3.5")
       p BigDecimal("2") * BigDecimal("3.5")
@@ -139,17 +195,80 @@ describe "BigDecimal programs" do
       p [BigDecimal("-10").divmod(3), BigDecimal("-10") % 3, BigDecimal("-10").remainder(3)]
       p [BigDecimal("10.5") % 3, BigDecimal("10.5").divmod(3)]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      0.55e1
+      0.7e1
+      0.33333333333333333333333333333333e0
+      0.33333333333333333333333333333333e1
+      0.14285714285714285714285714285714e2
+      0.3333333333333333333322222222222222222e0
+      0.4115e0
+      Infinity
+      0.100000000000000000000000000000000000000000000000001e51
+      [0.2896e1, 0.358e1, -0.1111e1]
+      [3, 0.33333e1, Integer]
+      [[3, 0.1e1], Integer, BigDecimal]
+      [[-4, 0.2e1], 0.2e1, -0.1e1]
+      [0.15e1, [3, 0.15e1]]
+    OUT
+  end
+
+  it "a comparison answers against a BigDecimal, an Integer and a Float alike" do
+    result = ze0(<<~'RUBY')
+      # bigdecimal -- the native core: construction, engineering-notation to_s,
+      # exact arithmetic, division to the documented precision rule, rounding
+      # modes, mode/limit state, conversions, and the error shapes.
+      require "bigdecimal"
+
       p [BigDecimal("1.5") <=> 2, BigDecimal("1.5") == 1.5, BigDecimal("2") > 1, BigDecimal("1.5").eql?(1.5)]
       p [1 + BigDecimal("0.5"), 1.5 + BigDecimal("1"), BigDecimal("1") + 0.5, BigDecimal("1") * 2r]
       p BigDecimal("1.5").coerce(1)
       p [BigDecimal("NaN") == BigDecimal("NaN"), BigDecimal("NaN") <=> 1, BigDecimal("Infinity") > 10**100]
       p [BigDecimal("1.5") <=> "x", BigDecimal("1.5") == "x"]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [-1, true, true, true]
+      [0.15e1, 0.25e1, 0.15e1, 0.2e1]
+      [0.1e1, 0.15e1]
+      [false, nil, true]
+      [nil, false]
+    OUT
+  end
+
+  it "round takes a half: mode, a digit count and a negative precision" do
+    result = ze0(<<~'RUBY')
+      # bigdecimal -- the native core: construction, engineering-notation to_s,
+      # exact arithmetic, division to the documented precision rule, rounding
+      # modes, mode/limit state, conversions, and the error shapes.
+      require "bigdecimal"
+
       p [BigDecimal("2.5").round, BigDecimal("2.5").round(half: :even), BigDecimal("2.345").round(2, :down)]
       p [BigDecimal("1.23456789").round(3), BigDecimal("123.45").round(-1)]
       p [BigDecimal("3.7").floor, BigDecimal("3.2").ceil, BigDecimal("-3.7").truncate]
       p [BigDecimal("2.5").ceil(1).class, BigDecimal("2.5").ceil.class, BigDecimal("123.45").round(-1).class]
       p [BigDecimal("3.75").fix, BigDecimal("3.75").frac, BigDecimal("-1.5").abs]
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [3, 0.2e1, 0.234e1]
+      [0.1235e1, 120]
+      [3, 4, -3]
+      [BigDecimal, Integer, Integer]
+      [0.3e1, 0.75e0, 0.15e1]
+    OUT
+  end
+
+  it "to_i, to_f and to_r convert, and an infinity refuses to_i" do
+    result = ze0(<<~'RUBY')
+      # bigdecimal -- the native core: construction, engineering-notation to_s,
+      # exact arithmetic, division to the documented precision rule, rounding
+      # modes, mode/limit state, conversions, and the error shapes.
+      require "bigdecimal"
 
       p [BigDecimal("1.5").to_i, BigDecimal("1.5").to_f, BigDecimal("1.5").to_r]
       begin
@@ -164,6 +283,28 @@ describe "BigDecimal programs" do
       p [BigDecimal("1e20").precision, BigDecimal("1e-20").precision, BigDecimal("100").precision]
       p BigDecimal("123.45").split
       p BigDecimal("123.45").precision_scale
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 1.5, (3/2)]
+      [FloatDomainError, "Computation results in 'Infinity'"]
+      [false, true, 0.15e1, nil]
+      [true, true, -1]
+      [-2, 1, 0, 3]
+      [3, 5, 5]
+      [21, 20, 3]
+      [1, "12345", 10, 3]
+      [5, 2]
+    OUT
+  end
+
+  it "BigDecimal() raises ArgumentError for a string that names no number" do
+    result = ze0(<<~'RUBY')
+      # bigdecimal -- the native core: construction, engineering-notation to_s,
+      # exact arithmetic, division to the documented precision rule, rounding
+      # modes, mode/limit state, conversions, and the error shapes.
+      require "bigdecimal"
 
       begin
         BigDecimal("bogus")
@@ -186,6 +327,24 @@ describe "BigDecimal programs" do
         p [e.class, e.message]
       end
       p [BigDecimal("1.5", exception: false), BigDecimal("x", exception: false), BigDecimal(nil, exception: false)]
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [ArgumentError, "invalid value for BigDecimal(): \"bogus\""]
+      [TypeError, "can't convert nil into BigDecimal"]
+      [ArgumentError, "precision too large."]
+      [ArgumentError, "can't omit precision for a Rational."]
+      [0.15e1, nil, nil]
+    OUT
+  end
+
+  it "mode and limit are process-wide, and each experiment restores what it touched" do
+    result = ze0(<<~'RUBY')
+      # bigdecimal -- the native core: construction, engineering-notation to_s,
+      # exact arithmetic, division to the documented precision rule, rounding
+      # modes, mode/limit state, conversions, and the error shapes.
+      require "bigdecimal"
 
       # Mode and limit are process-wide; each experiment restores what it touched.
       begin
@@ -222,66 +381,9 @@ describe "BigDecimal programs" do
       p BigDecimal("0.25").round(1)
       BigDecimal.mode(BigDecimal::ROUND_MODE, :half_up)
 
-      p BigDecimal.interpret_loosely("1.5whatever")
-      p BigDecimal.interpret_loosely("junk")
     RUBY
 
     _(result).must_answer <<~'OUT'
-      true
-      [1000000000, 16]
-      [256, 3, 0, 0]
-      [0.15e1, "0.15e1", "0.15e1"]
-      [-0.3e-2, 0.123456789123456789e9, 0.1e101]
-      [0.0, -0.0, "0.0"]
-      [Infinity, -Infinity, NaN]
-      [0.42e2, -0.7e1, 0.1e31]
-      [0.314e1, 0.314e1, 0.15e1, 0.1e101]
-      0.33333e0
-      [0.1e4, 0.15e1, 0.5e0, 0.15e4]
-      [BigDecimal, true]
-      ["1234.5678", "0.12345678e4", "0.123 456 78e4", "+0.12345678e4", "1 234.567 8"]
-      "0.000012345"
-      "1000000000000000000000000000000.0"
-      "-0.12345678e4"
-      "-1234.5678"
-      0.55e1
-      0.7e1
-      0.33333333333333333333333333333333e0
-      0.33333333333333333333333333333333e1
-      0.14285714285714285714285714285714e2
-      0.3333333333333333333322222222222222222e0
-      0.4115e0
-      Infinity
-      0.100000000000000000000000000000000000000000000000001e51
-      [0.2896e1, 0.358e1, -0.1111e1]
-      [3, 0.33333e1, Integer]
-      [[3, 0.1e1], Integer, BigDecimal]
-      [[-4, 0.2e1], 0.2e1, -0.1e1]
-      [0.15e1, [3, 0.15e1]]
-      [-1, true, true, true]
-      [0.15e1, 0.25e1, 0.15e1, 0.2e1]
-      [0.1e1, 0.15e1]
-      [false, nil, true]
-      [nil, false]
-      [3, 0.2e1, 0.234e1]
-      [0.1235e1, 120]
-      [3, 4, -3]
-      [BigDecimal, Integer, Integer]
-      [0.3e1, 0.75e0, 0.15e1]
-      [1, 1.5, (3/2)]
-      [FloatDomainError, "Computation results in 'Infinity'"]
-      [false, true, 0.15e1, nil]
-      [true, true, -1]
-      [-2, 1, 0, 3]
-      [3, 5, 5]
-      [21, 20, 3]
-      [1, "12345", 10, 3]
-      [5, 2]
-      [ArgumentError, "invalid value for BigDecimal(): \"bogus\""]
-      [TypeError, "can't convert nil into BigDecimal"]
-      [ArgumentError, "precision too large."]
-      [ArgumentError, "can't omit precision for a Rational."]
-      [0.15e1, nil, nil]
       [FloatDomainError, "Divide by zero"]
       [FloatDomainError, "Computation results in 'NaN' (Not a Number)"]
       0
@@ -293,6 +395,21 @@ describe "BigDecimal programs" do
       3
       7
       0.2e0
+    OUT
+  end
+
+  it "interpret_loosely reads the leading number and ignores the rest" do
+    result = ze0(<<~'RUBY')
+      # bigdecimal -- the native core: construction, engineering-notation to_s,
+      # exact arithmetic, division to the documented precision rule, rounding
+      # modes, mode/limit state, conversions, and the error shapes.
+      require "bigdecimal"
+
+      p BigDecimal.interpret_loosely("1.5whatever")
+      p BigDecimal.interpret_loosely("junk")
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       0.15e1
       0.0
     OUT

@@ -1164,7 +1164,7 @@ describe "Zlib programs" do
     OUT
   end
 
-  it "inflate errors name the corruption" do
+  it "an invalid block type and a broken stored block each raise DataError" do
     result = ze0(<<~'RUBY')
       # Every message inflate gives for a broken stream, from hand-built
       # streams: the block types, the code length sets, the distances, the
@@ -1250,6 +1250,66 @@ describe "Zlib programs" do
       inflate(block { |b| b.put(1, 1); b.put(1, 2); fixed_lit(b, 0x61); fixed_lit(b, 0x62); fixed_lit(b, 256) }, -15, "a good fixed block")
       inflate(block { |b| b.put(1, 1); b.put(1, 2); fixed_lit(b, 0x61) }, -15, "cut before the end-of-block")
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      block type 3: Zlib::DataError: invalid block type
+      stored lengths: Zlib::DataError: invalid stored block lengths
+      stored block cut short: Zlib::BufError: buffer error
+      too many symbols: Zlib::DataError: too many length or distance symbols
+      code lengths over-subscribed: Zlib::DataError: invalid code lengths set
+      repeat with no previous length: Zlib::DataError: invalid bit length repeat
+      no end-of-block code: Zlib::DataError: invalid code -- missing end-of-block
+      repeat runs past the end: Zlib::DataError: invalid bit length repeat
+      literal lengths over-subscribed: Zlib::DataError: invalid literal/lengths set
+      distance lengths over-subscribed: Zlib::DataError: invalid distances set
+      distance before the start: Zlib::DataError: invalid distance too far back
+      distance code 30: Zlib::DataError: invalid distance code
+      literal code 286: Zlib::DataError: invalid literal/length code
+      a good fixed block: ok "ab"
+      cut before the end-of-block: Zlib::BufError: buffer error
+    OUT
+  end
+
+  it "a wrong header check raises DataError and says so" do
+    result = ze0(<<~'RUBY')
+      # Every message inflate gives for a broken stream, from hand-built
+      # streams: the block types, the code length sets, the distances, the
+      # wrappers' headers and trailers.
+      require "zlib"
+
+      # Bits packed least significant first, as deflate packs them; a Huffman
+      # code goes in most significant bit first.
+      class Bits
+        def initialize = @bits = []
+        def put(value, n) = n.times { |i| @bits << ((value >> i) & 1) }
+        def code(value, n) = n.times { |i| @bits << ((value >> (n - 1 - i)) & 1) }
+        def align = @bits.concat([0] * ((8 - @bits.size % 8) % 8))
+        def bytes = @bits.each_slice(8).map { |s| s.each_with_index.sum { |b, i| b << i } }.pack("C*")
+      end
+
+      def inflate(bytes, wbits, label)
+        i = Zlib::Inflate.new(wbits)
+        out = i.inflate(bytes)
+        out << i.finish if !i.finished? && i.avail_in.zero?
+        puts "#{label}: ok #{out.inspect}"
+      rescue Zlib::Error => e
+        puts "#{label}: #{e.class}: #{e.message}"
+      ensure
+        i&.close
+      end
+
+      def block(&build) = Bits.new.tap(&build).bytes
+
+      # A fixed-Huffman literal, length or distance symbol.
+      def fixed_lit(b, sym)
+        if sym <= 143 then b.code(0x30 + sym, 8)
+        elsif sym <= 255 then b.code(0x190 + sym - 144, 9)
+        elsif sym <= 279 then b.code(sym - 256, 7)
+        else b.code(0xC0 + sym - 280, 8)
+        end
+      end
+
       good = Zlib::Deflate.deflate("hello, hello, hello", 6)
       inflate("\x78\x9d".b, 15, "wrong header check")
       inflate("\x79\x18".b, 15, "compression method 9")
@@ -1263,6 +1323,63 @@ describe "Zlib programs" do
       inflate(good, -15, "zlib stream read as raw")
       inflate(good, 31, "zlib stream read as gzip")
       inflate(good, 47, "zlib stream with auto detection")
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      wrong header check: Zlib::DataError: incorrect header check
+      compression method 9: Zlib::DataError: unknown compression method
+      window 32K past the limit: Zlib::DataError: invalid window size
+      window larger than asked: Zlib::DataError: invalid window size
+      adler32 off by one: Zlib::DataError: incorrect data check
+      adler32 cut short: Zlib::BufError: buffer error
+      a flipped bit inside: Zlib::DataError: incorrect data check
+      nothing: Zlib::BufError: buffer error
+      good zlib stream: ok "hello, hello, hello"
+      zlib stream read as raw: Zlib::DataError: invalid stored block lengths
+      zlib stream read as gzip: Zlib::DataError: incorrect header check
+      zlib stream with auto detection: ok "hello, hello, hello"
+    OUT
+  end
+
+  it "a good gzip stream still reads, whatever the corrupt ones did" do
+    result = ze0(<<~'RUBY')
+      # Every message inflate gives for a broken stream, from hand-built
+      # streams: the block types, the code length sets, the distances, the
+      # wrappers' headers and trailers.
+      require "zlib"
+
+      # Bits packed least significant first, as deflate packs them; a Huffman
+      # code goes in most significant bit first.
+      class Bits
+        def initialize = @bits = []
+        def put(value, n) = n.times { |i| @bits << ((value >> i) & 1) }
+        def code(value, n) = n.times { |i| @bits << ((value >> (n - 1 - i)) & 1) }
+        def align = @bits.concat([0] * ((8 - @bits.size % 8) % 8))
+        def bytes = @bits.each_slice(8).map { |s| s.each_with_index.sum { |b, i| b << i } }.pack("C*")
+      end
+
+      def inflate(bytes, wbits, label)
+        i = Zlib::Inflate.new(wbits)
+        out = i.inflate(bytes)
+        out << i.finish if !i.finished? && i.avail_in.zero?
+        puts "#{label}: ok #{out.inspect}"
+      rescue Zlib::Error => e
+        puts "#{label}: #{e.class}: #{e.message}"
+      ensure
+        i&.close
+      end
+
+      def block(&build) = Bits.new.tap(&build).bytes
+
+      # A fixed-Huffman literal, length or distance symbol.
+      def fixed_lit(b, sym)
+        if sym <= 143 then b.code(0x30 + sym, 8)
+        elsif sym <= 255 then b.code(0x190 + sym - 144, 9)
+        elsif sym <= 279 then b.code(sym - 256, 7)
+        else b.code(0xC0 + sym - 280, 8)
+        end
+      end
 
       gz = Zlib.gzip("gzip payload, gzip payload")
       inflate(gz, 31, "good gzip")
@@ -1283,33 +1400,6 @@ describe "Zlib programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      block type 3: Zlib::DataError: invalid block type
-      stored lengths: Zlib::DataError: invalid stored block lengths
-      stored block cut short: Zlib::BufError: buffer error
-      too many symbols: Zlib::DataError: too many length or distance symbols
-      code lengths over-subscribed: Zlib::DataError: invalid code lengths set
-      repeat with no previous length: Zlib::DataError: invalid bit length repeat
-      no end-of-block code: Zlib::DataError: invalid code -- missing end-of-block
-      repeat runs past the end: Zlib::DataError: invalid bit length repeat
-      literal lengths over-subscribed: Zlib::DataError: invalid literal/lengths set
-      distance lengths over-subscribed: Zlib::DataError: invalid distances set
-      distance before the start: Zlib::DataError: invalid distance too far back
-      distance code 30: Zlib::DataError: invalid distance code
-      literal code 286: Zlib::DataError: invalid literal/length code
-      a good fixed block: ok "ab"
-      cut before the end-of-block: Zlib::BufError: buffer error
-      wrong header check: Zlib::DataError: incorrect header check
-      compression method 9: Zlib::DataError: unknown compression method
-      window 32K past the limit: Zlib::DataError: invalid window size
-      window larger than asked: Zlib::DataError: invalid window size
-      adler32 off by one: Zlib::DataError: incorrect data check
-      adler32 cut short: Zlib::BufError: buffer error
-      a flipped bit inside: Zlib::DataError: incorrect data check
-      nothing: Zlib::BufError: buffer error
-      good zlib stream: ok "hello, hello, hello"
-      zlib stream read as raw: Zlib::DataError: invalid stored block lengths
-      zlib stream read as gzip: Zlib::DataError: incorrect header check
-      zlib stream with auto detection: ok "hello, hello, hello"
       good gzip: ok "gzip payload, gzip payload"
       gzip with auto detection: ok "gzip payload, gzip payload"
       gzip read as zlib: Zlib::DataError: incorrect header check
@@ -1617,7 +1707,7 @@ describe "Zlib programs" do
     OUT
   end
 
-  it "Deflate and Inflate queue input and answer it back through the incremental surface" do
+  it "deflate hands back what has been flushed so far, and << queues the rest" do
     result = ze0(<<~'RUBY')
       # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
       # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
@@ -1660,6 +1750,38 @@ describe "Zlib programs" do
       show("compressed encoding") { Zlib::Deflate.deflate("hi").encoding.to_s }
       show("inflated encoding") { Zlib::Inflate.inflate(Zlib.deflate("hi")).encoding.to_s }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      streamed round-trip: "hello world"
+      shovel queues: "hello world"
+      sync flush mid-stream: [false, "hello"]
+      one-shot class methods: true
+      compressed encoding: "ASCII-8BIT"
+      inflated encoding: "ASCII-8BIT"
+    OUT
+  end
+
+  it "the window bits pick the container, which is how a client decodes a raw stream" do
+    result = ze0(<<~'RUBY')
+      # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
+      # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
+      # headers carry the current time, and deflate output is only guaranteed to
+      # ROUND-TRIP, not to be byte-identical across zlib implementations.
+      require "zlib"
+      require "stringio"
+
+      def show(label)
+        print "#{label}: "
+        p(yield)
+      rescue => e
+        puts "#{e.class}: #{e.message}"
+      end
+
+      TEXT = "the quick brown fox jumps over the lazy dog. " * 4
+
+      # -- Deflate/Inflate: the incremental surface -------------------------------
+
       # Window bits pick the container, and are the reason `Net::HTTP` can decode a
       # body before it knows which encoding arrived.
       show("raw deflate") do
@@ -1679,6 +1801,37 @@ describe "Zlib programs" do
         gz.each_byte { |b| out << z.inflate(b.chr) }
         out == TEXT
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      raw deflate: [203, "hi"]
+      gzip via window bits: [[31, 139], "hi"]
+      auto-detect gzip: "hello"
+      auto-detect zlib: "hello"
+      split across writes: true
+    OUT
+  end
+
+  it "the counters and the lifecycle a ZStream shares all answer" do
+    result = ze0(<<~'RUBY')
+      # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
+      # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
+      # headers carry the current time, and deflate output is only guaranteed to
+      # ROUND-TRIP, not to be byte-identical across zlib implementations.
+      require "zlib"
+      require "stringio"
+
+      def show(label)
+        print "#{label}: "
+        p(yield)
+      rescue => e
+        puts "#{e.class}: #{e.message}"
+      end
+
+      TEXT = "the quick brown fox jumps over the lazy dog. " * 4
+
+      # -- Deflate/Inflate: the incremental surface -------------------------------
 
       # The counters and lifecycle `ZStream` shares.
       show("counters") do
@@ -1719,6 +1872,39 @@ describe "Zlib programs" do
       end
       show("finish twice") { z = Zlib::Deflate.new; z.finish; z.finish }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      counters: [11, 436929629, 1, 0, true, false]
+      avail_out is a knob: 100
+      flush_next_out drains: "hello"
+      reset starts over: ["kept", 4]
+      close then use: [true, "Zlib::Error"]
+      deflate after finish: Zlib::StreamError: stream error
+      finish twice: ""
+    OUT
+  end
+
+  it "each failure mode of the incremental surface raises its own class" do
+    result = ze0(<<~'RUBY')
+      # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
+      # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
+      # headers carry the current time, and deflate output is only guaranteed to
+      # ROUND-TRIP, not to be byte-identical across zlib implementations.
+      require "zlib"
+      require "stringio"
+
+      def show(label)
+        print "#{label}: "
+        p(yield)
+      rescue => e
+        puts "#{e.class}: #{e.message}"
+      end
+
+      TEXT = "the quick brown fox jumps over the lazy dog. " * 4
+
+      # -- Deflate/Inflate: the incremental surface -------------------------------
+
       # Failure modes, each its own exception class.
       show("not compressed at all") { Zlib::Inflate.inflate("not compressed at all") }
       show("truncated stream") { Zlib::Inflate.inflate(Zlib.deflate(TEXT)[0..5]) }
@@ -1731,24 +1917,6 @@ describe "Zlib programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      streamed round-trip: "hello world"
-      shovel queues: "hello world"
-      sync flush mid-stream: [false, "hello"]
-      one-shot class methods: true
-      compressed encoding: "ASCII-8BIT"
-      inflated encoding: "ASCII-8BIT"
-      raw deflate: [203, "hi"]
-      gzip via window bits: [[31, 139], "hi"]
-      auto-detect gzip: "hello"
-      auto-detect zlib: "hello"
-      split across writes: true
-      counters: [11, 436929629, 1, 0, true, false]
-      avail_out is a knob: 100
-      flush_next_out drains: "hello"
-      reset starts over: ["kept", 4]
-      close then use: [true, "Zlib::Error"]
-      deflate after finish: Zlib::StreamError: stream error
-      finish twice: ""
       not compressed at all: Zlib::DataError: incorrect header check
       truncated stream: Zlib::BufError: buffer error
       trailing garbage: ["hi", true]
@@ -1756,7 +1924,7 @@ describe "Zlib programs" do
     OUT
   end
 
-  it "GzipWriter and GzipReader round-trip through the IO-shaped surface" do
+  it "a GzipWriter round-trips its payload and answers the io it closed" do
     result = ze0(<<~'RUBY')
       # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
       # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
@@ -1842,6 +2010,43 @@ describe "Zlib programs" do
         w.crc
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      writer round-trip: "hello world"
+      writer close answers the io: true
+      writer wrap answers the block: [42, "wrapped"]
+      writer header fields: ["f.txt", "a note", 1234567890, 3, "x"]
+      writer header is sealed by the first write: Zlib::GzipFile::Error: header is already written
+      writer print surface: "a\nbc007Z"
+      writer pos and write: [5, 5, 5, 907060870, true, false, true]
+      writer level in the header: 9
+      writer accessors after close: Zlib::GzipFile::Error: closed gzip stream
+    OUT
+  end
+
+  it "a GzipReader reads back the lines and the encoding it was given" do
+    result = ze0(<<~'RUBY')
+      # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
+      # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
+      # headers carry the current time, and deflate output is only guaranteed to
+      # ROUND-TRIP, not to be byte-identical across zlib implementations.
+      require "zlib"
+      require "stringio"
+
+      def show(label)
+        print "#{label}: "
+        p(yield)
+      rescue => e
+        puts "#{e.class}: #{e.message}"
+      end
+
+      TEXT = "the quick brown fox jumps over the lazy dog. " * 4
+
+      # -- GzipWriter/GzipReader --------------------------------------------------
+
+      GZ = Zlib.gzip("hello\nworld\n")
+
       show("reader read") { Zlib::GzipReader.new(StringIO.new(GZ)).read }
       show("reader read encoding") { Zlib::GzipReader.new(StringIO.new(GZ)).read.encoding.to_s }
       show("reader read(n) encoding") { Zlib::GzipReader.new(StringIO.new(GZ)).read(3).encoding.to_s }
@@ -1904,41 +2109,9 @@ describe "Zlib programs" do
         r.crc == Zlib.crc32("hello\nworld\n")
       end
 
-      # A file on disk, through both halves.
-      show("open round-trip") do
-        Zlib::GzipWriter.open("zlib_classes_tmp.gz") { |w| w.write("through a file") }
-        Zlib::GzipReader.open("zlib_classes_tmp.gz") { |r| r.read }
-      ensure
-        File.unlink("zlib_classes_tmp.gz")
-      end
-
-      # Corruption. CRuby checks a member's footer only once the buffer it filled
-      # has been fully handed out, so `read` (which answers everything at once)
-      # reports nothing and the line-at-a-time readers do -- reproduced faithfully.
-      def corrupt(offset)
-        bad = GZ.dup
-        bad.setbyte(bad.bytesize + offset, GZ.getbyte(GZ.bytesize + offset) ^ 0xff)
-        bad
-      end
-      show("not gzip at all") { Zlib::GzipReader.new(StringIO.new("not gzip at all")) }
-      show("bad crc via read") { Zlib::GzipReader.new(StringIO.new(corrupt(-8))).read }
-      show("bad crc via readlines") { Zlib::GzipReader.new(StringIO.new(corrupt(-8))).readlines }
-      show("bad length via gunzip") { Zlib.gunzip(corrupt(-4)) }
-      show("bad crc via gunzip") { Zlib.gunzip(corrupt(-8)) }
-      show("truncated member") { Zlib::GzipReader.new(StringIO.new(GZ[0..15])).read }
-
     RUBY
 
     _(result).must_answer <<~'OUT'
-      writer round-trip: "hello world"
-      writer close answers the io: true
-      writer wrap answers the block: [42, "wrapped"]
-      writer header fields: ["f.txt", "a note", 1234567890, 3, "x"]
-      writer header is sealed by the first write: Zlib::GzipFile::Error: header is already written
-      writer print surface: "a\nbc007Z"
-      writer pos and write: [5, 5, 5, 907060870, true, false, true]
-      writer level in the header: 9
-      writer accessors after close: Zlib::GzipFile::Error: closed gzip stream
       reader read: "hello\nworld\n"
       reader read encoding: "UTF-8"
       reader read(n) encoding: "ASCII-8BIT"
@@ -1961,7 +2134,86 @@ describe "Zlib programs" do
       reader wrap: "hello\nworld\n"
       reader zcat: "hello\nworld\nhello\nworld\n"
       reader crc after reading: true
+    OUT
+  end
+
+  it "a file on disk round-trips through both halves" do
+    result = ze0(<<~'RUBY')
+      # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
+      # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
+      # headers carry the current time, and deflate output is only guaranteed to
+      # ROUND-TRIP, not to be byte-identical across zlib implementations.
+      require "zlib"
+      require "stringio"
+
+      def show(label)
+        print "#{label}: "
+        p(yield)
+      rescue => e
+        puts "#{e.class}: #{e.message}"
+      end
+
+      TEXT = "the quick brown fox jumps over the lazy dog. " * 4
+
+      # -- GzipWriter/GzipReader --------------------------------------------------
+
+      GZ = Zlib.gzip("hello\nworld\n")
+
+      # A file on disk, through both halves.
+      show("open round-trip") do
+        Zlib::GzipWriter.open("zlib_classes_tmp.gz") { |w| w.write("through a file") }
+        Zlib::GzipReader.open("zlib_classes_tmp.gz") { |r| r.read }
+      ensure
+        File.unlink("zlib_classes_tmp.gz")
+      end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       open round-trip: "through a file"
+    OUT
+  end
+
+  it "a corrupt member raises GzipFile::Error once the buffer it filled is read" do
+    result = ze0(<<~'RUBY')
+      # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
+      # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
+      # headers carry the current time, and deflate output is only guaranteed to
+      # ROUND-TRIP, not to be byte-identical across zlib implementations.
+      require "zlib"
+      require "stringio"
+
+      def show(label)
+        print "#{label}: "
+        p(yield)
+      rescue => e
+        puts "#{e.class}: #{e.message}"
+      end
+
+      TEXT = "the quick brown fox jumps over the lazy dog. " * 4
+
+      # -- GzipWriter/GzipReader --------------------------------------------------
+
+      GZ = Zlib.gzip("hello\nworld\n")
+
+      # Corruption. CRuby checks a member's footer only once the buffer it filled
+      # has been fully handed out, so `read` (which answers everything at once)
+      # reports nothing and the line-at-a-time readers do -- reproduced faithfully.
+      def corrupt(offset)
+        bad = GZ.dup
+        bad.setbyte(bad.bytesize + offset, GZ.getbyte(GZ.bytesize + offset) ^ 0xff)
+        bad
+      end
+      show("not gzip at all") { Zlib::GzipReader.new(StringIO.new("not gzip at all")) }
+      show("bad crc via read") { Zlib::GzipReader.new(StringIO.new(corrupt(-8))).read }
+      show("bad crc via readlines") { Zlib::GzipReader.new(StringIO.new(corrupt(-8))).readlines }
+      show("bad length via gunzip") { Zlib.gunzip(corrupt(-4)) }
+      show("bad crc via gunzip") { Zlib.gunzip(corrupt(-8)) }
+      show("truncated member") { Zlib::GzipReader.new(StringIO.new(GZ[0..15])).read }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       not gzip at all: Zlib::GzipFile::Error: not in gzip format
       bad crc via read: "hello\nworld\n"
       bad crc via readlines: Zlib::GzipFile::CRCError: invalid compressed data -- crc error

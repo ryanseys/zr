@@ -991,7 +991,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "nested singleton body is the surrogates own singleton" do
+  it "a def nested two singleton bodies deep lands on the outer singleton" do
     result = ze0(<<~'RUBY')
       # `class << self` inside `class << self` opens the SINGLETON's own singleton --
       # the same construct one level deeper, so it takes the same route one level
@@ -1022,12 +1022,84 @@ describe "Singleton programs" do
       p Authorization.remove_user
       p Authorization.plain
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "deprecated:add_user"
+      "deprecated:remove_user"
+      :plain
+    OUT
+  end
+
+  it "the nested def stays private there, and a receiverless call reaches it" do
+    result = ze0(<<~'RUBY')
+      # `class << self` inside `class << self` opens the SINGLETON's own singleton --
+      # the same construct one level deeper, so it takes the same route one level
+      # deeper. Its body becomes a reopen of the `#<Class:self>` surrogate, where a
+      # `def` retagged as a class method of the surrogate IS an instance method of
+      # `Foo.singleton_class.singleton_class`, which is where ruby puts it.
+      #
+      # lita spells the corpus's whole cluster this way -- 565 rows behind one file --
+      # and its method is `private`, called by the DSL beside it.
+      class Authorization
+        def self.plain = :plain
+
+        class << self
+          class << self
+            private
+
+            def define_deprecated(name)
+              define_method(name) { "deprecated:#{name}" }
+            end
+          end
+
+          define_deprecated :add_user
+          define_deprecated :remove_user
+        end
+      end
+
       # The nested `def` lands two levels out, and stays private there. A call with
       # NO receiver is the only way ruby reaches it -- which is what the singleton
       # body beside it writes.
       p Authorization.singleton_class.singleton_class.private_method_defined?(:define_deprecated)
       p Authorization.singleton_class.singleton_class.public_method_defined?(:define_deprecated)
       p Authorization.singleton_class.instance_methods(false).sort
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      false
+      [:add_user, :plain, :remove_user]
+    OUT
+  end
+
+  it "a receiver the source wrote gets ruby's answer, not the rebound form's" do
+    result = ze0(<<~'RUBY')
+      # `class << self` inside `class << self` opens the SINGLETON's own singleton --
+      # the same construct one level deeper, so it takes the same route one level
+      # deeper. Its body becomes a reopen of the `#<Class:self>` surrogate, where a
+      # `def` retagged as a class method of the surrogate IS an instance method of
+      # `Foo.singleton_class.singleton_class`, which is where ruby puts it.
+      #
+      # lita spells the corpus's whole cluster this way -- 565 rows behind one file --
+      # and its method is `private`, called by the DSL beside it.
+      class Authorization
+        def self.plain = :plain
+
+        class << self
+          class << self
+            private
+
+            def define_deprecated(name)
+              define_method(name) { "deprecated:#{name}" }
+            end
+          end
+
+          define_deprecated :add_user
+          define_deprecated :remove_user
+        end
+      end
 
       # A receiver the SOURCE wrote gets ruby's answer, not the rebound form's --
       # only the rebound `self.singleton_class` zeo synthesizes for a receiverless
@@ -1037,6 +1109,40 @@ describe "Singleton programs" do
         Authorization.singleton_class.define_deprecated(:nope)
       rescue NoMethodError => e
         p e.class
+      end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      NoMethodError
+    OUT
+  end
+
+  it "a public nested def is an ordinary class method of the singleton class" do
+    result = ze0(<<~'RUBY')
+      # `class << self` inside `class << self` opens the SINGLETON's own singleton --
+      # the same construct one level deeper, so it takes the same route one level
+      # deeper. Its body becomes a reopen of the `#<Class:self>` surrogate, where a
+      # `def` retagged as a class method of the surrogate IS an instance method of
+      # `Foo.singleton_class.singleton_class`, which is where ruby puts it.
+      #
+      # lita spells the corpus's whole cluster this way -- 565 rows behind one file --
+      # and its method is `private`, called by the DSL beside it.
+      class Authorization
+        def self.plain = :plain
+
+        class << self
+          class << self
+            private
+
+            def define_deprecated(name)
+              define_method(name) { "deprecated:#{name}" }
+            end
+          end
+
+          define_deprecated :add_user
+          define_deprecated :remove_user
+        end
       end
 
       # A PUBLIC nested def is an ordinary class method of the singleton class, and
@@ -1050,6 +1156,41 @@ describe "Singleton programs" do
       end
       p Reflected.singleton_class.maker
       p Reflected.singleton_class.method(:maker).owner == Reflected.singleton_class.singleton_class
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :maker
+      true
+    OUT
+  end
+
+  it "a constant written in the nested body is read lexically by the def beside it" do
+    result = ze0(<<~'RUBY')
+      # `class << self` inside `class << self` opens the SINGLETON's own singleton --
+      # the same construct one level deeper, so it takes the same route one level
+      # deeper. Its body becomes a reopen of the `#<Class:self>` surrogate, where a
+      # `def` retagged as a class method of the surrogate IS an instance method of
+      # `Foo.singleton_class.singleton_class`, which is where ruby puts it.
+      #
+      # lita spells the corpus's whole cluster this way -- 565 rows behind one file --
+      # and its method is `private`, called by the DSL beside it.
+      class Authorization
+        def self.plain = :plain
+
+        class << self
+          class << self
+            private
+
+            def define_deprecated(name)
+              define_method(name) { "deprecated:#{name}" }
+            end
+          end
+
+          define_deprecated :add_user
+          define_deprecated :remove_user
+        end
+      end
 
       # A constant written in the nested body is read lexically by the `def` beside
       # it, and `RESULT` -- a constant whose value the statement order decides --
@@ -1066,6 +1207,40 @@ describe "Singleton programs" do
         end
       end
       p WithConst.singleton_class::RESULT
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "hi!"
+    OUT
+  end
+
+  it "an ordinary class written inside a singleton body ends the run" do
+    result = ze0(<<~'RUBY')
+      # `class << self` inside `class << self` opens the SINGLETON's own singleton --
+      # the same construct one level deeper, so it takes the same route one level
+      # deeper. Its body becomes a reopen of the `#<Class:self>` surrogate, where a
+      # `def` retagged as a class method of the surrogate IS an instance method of
+      # `Foo.singleton_class.singleton_class`, which is where ruby puts it.
+      #
+      # lita spells the corpus's whole cluster this way -- 565 rows behind one file --
+      # and its method is `private`, called by the DSL beside it.
+      class Authorization
+        def self.plain = :plain
+
+        class << self
+          class << self
+            private
+
+            def define_deprecated(name)
+              define_method(name) { "deprecated:#{name}" }
+            end
+          end
+
+          define_deprecated :add_user
+          define_deprecated :remove_user
+        end
+      end
 
       # An ordinary `class` written inside a singleton body ENDS the run: its own
       # `class << self` is its own singleton, not the surrogate's.
@@ -1085,6 +1260,41 @@ describe "Singleton programs" do
       p Outer.outer_side
       p Outer.singleton_class.singleton_class.method_defined?(:who)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :inners_class_method
+      false
+    OUT
+  end
+
+  it "three singleton bodies deep is the same recursion again" do
+    result = ze0(<<~'RUBY')
+      # `class << self` inside `class << self` opens the SINGLETON's own singleton --
+      # the same construct one level deeper, so it takes the same route one level
+      # deeper. Its body becomes a reopen of the `#<Class:self>` surrogate, where a
+      # `def` retagged as a class method of the surrogate IS an instance method of
+      # `Foo.singleton_class.singleton_class`, which is where ruby puts it.
+      #
+      # lita spells the corpus's whole cluster this way -- 565 rows behind one file --
+      # and its method is `private`, called by the DSL beside it.
+      class Authorization
+        def self.plain = :plain
+
+        class << self
+          class << self
+            private
+
+            def define_deprecated(name)
+              define_method(name) { "deprecated:#{name}" }
+            end
+          end
+
+          define_deprecated :add_user
+          define_deprecated :remove_user
+        end
+      end
+
       # Three levels deep is the same recursion again.
       class Deep
         class << self
@@ -1099,18 +1309,6 @@ describe "Singleton programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "deprecated:add_user"
-      "deprecated:remove_user"
-      :plain
-      true
-      false
-      [:add_user, :plain, :remove_user]
-      NoMethodError
-      :maker
-      true
-      "hi!"
-      :inners_class_method
-      false
       :level3
     OUT
   end

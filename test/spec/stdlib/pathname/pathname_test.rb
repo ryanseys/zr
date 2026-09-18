@@ -965,7 +965,7 @@ describe "Pathname programs" do
     OUT
   end
 
-  it "Pathname needs no require, and its algebra and its delegations both answer" do
+  it "Pathname is there with no require, and its ancestry and surface are fixed" do
     result = ze0(<<~'RUBY')
       # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
       # the first line. This covers the whole surface -- the path ALGEBRA, which is
@@ -990,6 +990,35 @@ describe "Pathname programs" do
       # `#path` is PROTECTED in ruby; see tests/gaps/builtin_protected_rows.rb.
       show("Kernel#Pathname is private") { Kernel.private_instance_methods(false).include?(:Pathname) }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ancestors: [Pathname, Object, Kernel, BasicObject]
+      own singleton: [:getwd, :glob, :mktmpdir, :pwd]
+      own instance count: 98
+      constants: [:SEPARATOR_PAT, :VERSION]
+      VERSION: "0.4.0"
+      SEPARATOR_PAT: /\//
+      Kernel#Pathname is private: true
+    OUT
+  end
+
+  it "a Pathname is built from a String, from another Pathname and from a frozen argument" do
+    result = ze0(<<~'RUBY')
+      # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
+      # the first line. This covers the whole surface -- the path ALGEBRA, which is
+      # pure string work and never touches disk, and the delegations, which must
+      # answer exactly what the same `File`/`Dir` call answers.
+
+      require "pathname"   # a no-op here and in ruby 4.0: the class is already there
+      require "tmpdir"
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
+
       # Construction.
       show("new") { Pathname.new("/a/b").to_s }
       show("new from Pathname") { Pathname.new(Pathname.new("a")).to_s }
@@ -998,6 +1027,35 @@ describe "Pathname programs" do
       show("new Integer") { Pathname.new(1) }
       show("new no args") { Pathname.new }
       show("Kernel#Pathname") { Pathname("/x").class }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      new: "/a/b"
+      new from Pathname: "a"
+      new frozen arg: "a"
+      new null byte: ArgumentError: path name contains null byte
+      new Integer: TypeError: Pathname.new requires a String, #to_path or #to_str
+      new no args: ArgumentError: wrong number of arguments (given 0, expected 1)
+      Kernel#Pathname: Pathname
+    OUT
+  end
+
+  it "to_s answers a fresh unfrozen String, and Pathname does not include Comparable" do
+    result = ze0(<<~'RUBY')
+      # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
+      # the first line. This covers the whole surface -- the path ALGEBRA, which is
+      # pure string work and never touches disk, and the delegations, which must
+      # answer exactly what the same `File`/`Dir` call answers.
+
+      require "pathname"   # a no-op here and in ruby 4.0: the class is already there
+      require "tmpdir"
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
 
       # Identity and ordering. `Pathname` does NOT include Comparable, however much
       # its `#<=>` suggests otherwise.
@@ -1016,6 +1074,43 @@ describe "Pathname programs" do
       show("no Comparable") { Pathname.new("a") < Pathname.new("b") }
       show("freeze") { p1 = Pathname.new("a"); p1.freeze; p1.frozen? }
       show("fresh is unfrozen") { Pathname.new("a").frozen? }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      to_s: "a"
+      to_s is a fresh String: true
+      to_s is unfrozen: false
+      mutating to_s leaves self: "a"
+      inspect: "#<Pathname:/a/b>"
+      == self: true
+      == String: false
+      ===: true
+      eql?: true
+      hash agrees with ==: true
+      <=>: -1
+      <=> String: nil
+      no Comparable: NoMethodError: undefined method '<' for an instance of Pathname
+      freeze: true
+      fresh is unfrozen: false
+    OUT
+  end
+
+  it "#+ resolves . and .. against the left operand without touching the disk" do
+    result = ze0(<<~'RUBY')
+      # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
+      # the first line. This covers the whole surface -- the path ALGEBRA, which is
+      # pure string work and never touches disk, and the delegations, which must
+      # answer exactly what the same `File`/`Dir` call answers.
+
+      require "pathname"   # a no-op here and in ruby 4.0: the class is already there
+      require "tmpdir"
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
 
       # `#+` resolves `.` and `..` against the LEFT operand's components, without
       # ever asking the filesystem.
@@ -1037,6 +1132,45 @@ describe "Pathname programs" do
       show("parent relative") { Pathname.new("a").parent.to_s }
       show("parent root") { Pathname.new("/").parent.to_s }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      plus: "/a/b"
+      plus absolute: "/b"
+      plus dot: "a"
+      plus dotdot: "a"
+      plus dotdot deep: "a/d"
+      plus empty left: "b"
+      plus root: "/a"
+      plus trailing sep: "a/b"
+      plus both relative: "a/b/c/d"
+      div: "a/b"
+      plus Pathname: "a/b"
+      join: "/a/b/c"
+      join none: "/a"
+      join absolute wins: "/c"
+      parent: "/a"
+      parent relative: "."
+      parent root: "/"
+    OUT
+  end
+
+  it "cleanpath removes what it can, and its conservative form keeps a .. it cannot" do
+    result = ze0(<<~'RUBY')
+      # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
+      # the first line. This covers the whole surface -- the path ALGEBRA, which is
+      # pure string work and never touches disk, and the delegations, which must
+      # answer exactly what the same `File`/`Dir` call answers.
+
+      require "pathname"   # a no-op here and in ruby 4.0: the class is already there
+      require "tmpdir"
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
+
       show("cleanpath") { Pathname.new("a/../b/./c//d").cleanpath.to_s }
       show("cleanpath conservative") { Pathname.new("a/../b/./c//d").cleanpath(true).to_s }
       show("cleanpath dot") { Pathname.new(".").cleanpath.to_s }
@@ -1046,12 +1180,70 @@ describe "Pathname programs" do
       show("cleanpath trailing") { Pathname.new("a/").cleanpath.to_s }
       show("cleanpath root") { Pathname.new("/").cleanpath.to_s }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      cleanpath: "b/c/d"
+      cleanpath conservative: "a/../b/c/d"
+      cleanpath dot: "."
+      cleanpath empty: "."
+      cleanpath dotdot: ".."
+      cleanpath above root: "/a"
+      cleanpath trailing: "a"
+      cleanpath root: "/"
+    OUT
+  end
+
+  it "relative_path_from answers the route from one path to another" do
+    result = ze0(<<~'RUBY')
+      # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
+      # the first line. This covers the whole surface -- the path ALGEBRA, which is
+      # pure string work and never touches disk, and the delegations, which must
+      # answer exactly what the same `File`/`Dir` call answers.
+
+      require "pathname"   # a no-op here and in ruby 4.0: the class is already there
+      require "tmpdir"
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
+
       show("relative_path_from") { Pathname.new("/a/b/c").relative_path_from("/a/d").to_s }
       show("relative_path_from same") { Pathname.new("/a/b").relative_path_from("/a/b").to_s }
       show("relative_path_from below") { Pathname.new("a/b").relative_path_from("a").to_s }
       show("relative_path_from above") { Pathname.new("a").relative_path_from("a/b/c").to_s }
       show("relative_path_from mixed") { Pathname.new("a").relative_path_from("/b") }
       show("relative_path_from dotdot base") { Pathname.new("a").relative_path_from("../b") }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      relative_path_from: "../b/c"
+      relative_path_from same: "."
+      relative_path_from below: "b"
+      relative_path_from above: "../.."
+      relative_path_from mixed: ArgumentError: different prefix: "" and "/b"
+      relative_path_from dotdot base: ArgumentError: base_directory has ..: "../b"
+    OUT
+  end
+
+  it "each_filename walks the components, .. included" do
+    result = ze0(<<~'RUBY')
+      # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
+      # the first line. This covers the whole surface -- the path ALGEBRA, which is
+      # pure string work and never touches disk, and the delegations, which must
+      # answer exactly what the same `File`/`Dir` call answers.
+
+      require "pathname"   # a no-op here and in ruby 4.0: the class is already there
+      require "tmpdir"
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
 
       show("each_filename") { Pathname.new("/a/b/c").each_filename.to_a }
       show("each_filename dotdot") { Pathname.new("a/b/../c").each_filename.to_a }
@@ -1060,6 +1252,35 @@ describe "Pathname programs" do
       show("ascend block") { r = []; Pathname.new("a/b").ascend { |x| r << x.to_s }; r }
       show("descend") { Pathname.new("/a/b/c").descend.map(&:to_s) }
       show("descend relative") { Pathname.new("a/b").descend.map(&:to_s) }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      each_filename: ["a", "b", "c"]
+      each_filename dotdot: ["a", "b", "..", "c"]
+      ascend: ["/a/b/c", "/a/b", "/a", "/"]
+      ascend relative: ["a/b", "a"]
+      ascend block: ["a/b", "a"]
+      descend: ["/", "/a", "/a/b", "/a/b/c"]
+      descend relative: ["a", "a/b"]
+    OUT
+  end
+
+  it "basename, dirname and extname split a path into its parts" do
+    result = ze0(<<~'RUBY')
+      # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
+      # the first line. This covers the whole surface -- the path ALGEBRA, which is
+      # pure string work and never touches disk, and the delegations, which must
+      # answer exactly what the same `File`/`Dir` call answers.
+
+      require "pathname"   # a no-op here and in ruby 4.0: the class is already there
+      require "tmpdir"
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
 
       show("basename") { Pathname.new("/a/b.rb").basename.to_s }
       show("basename suffix") { Pathname.new("/a/b.rb").basename(".rb").to_s }
@@ -1076,9 +1297,70 @@ describe "Pathname programs" do
       show("fnmatch") { Pathname.new("a/b.rb").fnmatch("*/*.rb") }
       show("fnmatch?") { Pathname.new("a/b.rb").fnmatch?("*.rb") }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      basename: "b.rb"
+      basename suffix: "b"
+      dirname: "/a"
+      extname: ".rb"
+      sub_ext: "a/b.txt"
+      sub_ext none: "a/b.txt"
+      sub_ext empty: "a/b"
+      split: ["/a", "b"]
+      split root: ["/", "/"]
+      sub: "/z/b"
+      sub block: "/A/b"
+      expand_path: "/a/b"
+      fnmatch: true
+      fnmatch?: true
+    OUT
+  end
+
+  it "absolute?, relative? and root? read the path's shape" do
+    result = ze0(<<~'RUBY')
+      # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
+      # the first line. This covers the whole surface -- the path ALGEBRA, which is
+      # pure string work and never touches disk, and the delegations, which must
+      # answer exactly what the same `File`/`Dir` call answers.
+
+      require "pathname"   # a no-op here and in ruby 4.0: the class is already there
+      require "tmpdir"
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
+
       show("absolute?") { [Pathname.new("/a").absolute?, Pathname.new("a").absolute?] }
       show("relative?") { [Pathname.new("/a").relative?, Pathname.new("a").relative?] }
       show("root?") { [Pathname.new("/").root?, Pathname.new("/a").root?, Pathname.new("").root?] }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      absolute?: [true, false]
+      relative?: [false, true]
+      root?: [true, false, false]
+    OUT
+  end
+
+  it "the delegations read and write a tree this program builds" do
+    result = ze0(<<~'RUBY')
+      # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
+      # the first line. This covers the whole surface -- the path ALGEBRA, which is
+      # pure string work and never touches disk, and the delegations, which must
+      # answer exactly what the same `File`/`Dir` call answers.
+
+      require "pathname"   # a no-op here and in ruby 4.0: the class is already there
+      require "tmpdir"
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
 
       # The delegations, over a tree this program builds.
       Dir.mktmpdir do |tmp|
@@ -1160,96 +1442,9 @@ describe "Pathname programs" do
         show("mountpoint? root") { Pathname.new("/").mountpoint? }
       end
 
-      show("getwd class") { Pathname.getwd.class }
-      show("pwd agrees with Dir") { Pathname.pwd.to_s == Dir.pwd }
-      show("Pathname.glob class") { Pathname.glob("*").class }
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ancestors: [Pathname, Object, Kernel, BasicObject]
-      own singleton: [:getwd, :glob, :mktmpdir, :pwd]
-      own instance count: 98
-      constants: [:SEPARATOR_PAT, :VERSION]
-      VERSION: "0.4.0"
-      SEPARATOR_PAT: /\//
-      Kernel#Pathname is private: true
-      new: "/a/b"
-      new from Pathname: "a"
-      new frozen arg: "a"
-      new null byte: ArgumentError: path name contains null byte
-      new Integer: TypeError: Pathname.new requires a String, #to_path or #to_str
-      new no args: ArgumentError: wrong number of arguments (given 0, expected 1)
-      Kernel#Pathname: Pathname
-      to_s: "a"
-      to_s is a fresh String: true
-      to_s is unfrozen: false
-      mutating to_s leaves self: "a"
-      inspect: "#<Pathname:/a/b>"
-      == self: true
-      == String: false
-      ===: true
-      eql?: true
-      hash agrees with ==: true
-      <=>: -1
-      <=> String: nil
-      no Comparable: NoMethodError: undefined method '<' for an instance of Pathname
-      freeze: true
-      fresh is unfrozen: false
-      plus: "/a/b"
-      plus absolute: "/b"
-      plus dot: "a"
-      plus dotdot: "a"
-      plus dotdot deep: "a/d"
-      plus empty left: "b"
-      plus root: "/a"
-      plus trailing sep: "a/b"
-      plus both relative: "a/b/c/d"
-      div: "a/b"
-      plus Pathname: "a/b"
-      join: "/a/b/c"
-      join none: "/a"
-      join absolute wins: "/c"
-      parent: "/a"
-      parent relative: "."
-      parent root: "/"
-      cleanpath: "b/c/d"
-      cleanpath conservative: "a/../b/c/d"
-      cleanpath dot: "."
-      cleanpath empty: "."
-      cleanpath dotdot: ".."
-      cleanpath above root: "/a"
-      cleanpath trailing: "a"
-      cleanpath root: "/"
-      relative_path_from: "../b/c"
-      relative_path_from same: "."
-      relative_path_from below: "b"
-      relative_path_from above: "../.."
-      relative_path_from mixed: ArgumentError: different prefix: "" and "/b"
-      relative_path_from dotdot base: ArgumentError: base_directory has ..: "../b"
-      each_filename: ["a", "b", "c"]
-      each_filename dotdot: ["a", "b", "..", "c"]
-      ascend: ["/a/b/c", "/a/b", "/a", "/"]
-      ascend relative: ["a/b", "a"]
-      ascend block: ["a/b", "a"]
-      descend: ["/", "/a", "/a/b", "/a/b/c"]
-      descend relative: ["a", "a/b"]
-      basename: "b.rb"
-      basename suffix: "b"
-      dirname: "/a"
-      extname: ".rb"
-      sub_ext: "a/b.txt"
-      sub_ext none: "a/b.txt"
-      sub_ext empty: "a/b"
-      split: ["/a", "b"]
-      split root: ["/", "/"]
-      sub: "/z/b"
-      sub block: "/A/b"
-      expand_path: "/a/b"
-      fnmatch: true
-      fnmatch?: true
-      absolute?: [true, false]
-      relative?: [false, true]
-      root?: [true, false, false]
       write returns count: 4
       read: "hello\nworld\n"
       read n: "hello"
@@ -1301,6 +1496,31 @@ describe "Pathname programs" do
       opendir: Dir
       mountpoint? tmp: false
       mountpoint? root: true
+    OUT
+  end
+
+  it "getwd and pwd answer a Pathname that agrees with Dir" do
+    result = ze0(<<~'RUBY')
+      # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
+      # the first line. This covers the whole surface -- the path ALGEBRA, which is
+      # pure string work and never touches disk, and the delegations, which must
+      # answer exactly what the same `File`/`Dir` call answers.
+
+      require "pathname"   # a no-op here and in ruby 4.0: the class is already there
+      require "tmpdir"
+
+      def show(label)
+        puts "#{label}: #{yield.inspect}"
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        puts "#{label}: #{e.class}: #{e.message}"
+      end
+
+      show("getwd class") { Pathname.getwd.class }
+      show("pwd agrees with Dir") { Pathname.pwd.to_s == Dir.pwd }
+      show("Pathname.glob class") { Pathname.glob("*").class }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       getwd class: Pathname
       pwd agrees with Dir: true
       Pathname.glob class: Array

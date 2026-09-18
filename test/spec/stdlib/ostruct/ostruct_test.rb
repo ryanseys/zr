@@ -111,7 +111,7 @@ describe "OpenStruct programs" do
     _(result).must_answer "\"lee\"\n"
   end
 
-  it "yaml ruby object revival" do
+  it "an object with plain ivars revives with each ivar set" do
     result = ze0(<<~'RUBY')
       # `!ruby/...` tags, and the three ways an object gets filled back in.
       #
@@ -171,16 +171,268 @@ describe "OpenStruct programs" do
         YAML.unsafe_load("--- !ruby/object:PlainIvars\nname: bolt\nsize: 3\n")
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      plain ivars	#<PlainIvars name="bolt" size=3>
+    OUT
+  end
+
+  it "a class that writes init_with revives through it" do
+    result = ze0(<<~'RUBY')
+      # `!ruby/...` tags, and the three ways an object gets filled back in.
+      #
+      # This is the half of psych that turns a document into OBJECTS rather than
+      # into hashes: `Gem::Specification.from_yaml` reads a `.gem` through it, and
+      # before it existed a `!ruby/object:Gem::Specification` loaded as a Hash and
+      # rubygems reported "YAML data doesn't evaluate to gem specification".
+      #
+      # Psych fills a revived object in a fixed order, and each rung is here:
+      # `init_with(coder)` first, `yaml_initialize(tag, map)` next, and plain ivar
+      # assignment last.
+
+      require "yaml"
+      require "ostruct"
+
+      # --- the three fill routes ------------------------------------------------
+      class PlainIvars
+        attr_reader :name, :size
+        def inspect = "#<PlainIvars name=#{@name.inspect} size=#{@size.inspect}>"
+      end
+
+      class KnowsInitWith
+        attr_reader :seen, :tag
+        def init_with(coder)
+          @tag = coder.tag
+          @seen = coder.map
+        end
+        def inspect = "#<KnowsInitWith tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      class KnowsYamlInitialize
+        attr_reader :seen, :tag
+        def yaml_initialize(tag, vals)
+          @tag = tag
+          @seen = vals
+        end
+        def inspect = "#<KnowsYamlInitialize tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      # A class whose `initialize` refuses no-argument construction: psych must
+      # ALLOCATE rather than call `new`, and this is what proves it does.
+      class RefusesNew
+        attr_reader :a
+        def initialize(a) = (@a = a)
+        def inspect = "#<RefusesNew a=#{@a.inspect}>"
+      end
+
+      Point = Struct.new(:x, :y)
+
+      def show(label)
+        puts "#{label}\t#{yield.inspect}"
+      rescue StandardError => e
+        puts "#{label}\t#{e.class}: #{e.message}"
+      end
+
       show("init_with") do
         YAML.unsafe_load("--- !ruby/object:KnowsInitWith\na: 1\nb: two\n")
+      end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      init_with	#<KnowsInitWith tag="!ruby/object:KnowsInitWith" seen={"a" => 1, "b" => "two"}>
+    OUT
+  end
+
+  it "a class that writes yaml_initialize revives through it" do
+    result = ze0(<<~'RUBY')
+      # `!ruby/...` tags, and the three ways an object gets filled back in.
+      #
+      # This is the half of psych that turns a document into OBJECTS rather than
+      # into hashes: `Gem::Specification.from_yaml` reads a `.gem` through it, and
+      # before it existed a `!ruby/object:Gem::Specification` loaded as a Hash and
+      # rubygems reported "YAML data doesn't evaluate to gem specification".
+      #
+      # Psych fills a revived object in a fixed order, and each rung is here:
+      # `init_with(coder)` first, `yaml_initialize(tag, map)` next, and plain ivar
+      # assignment last.
+
+      require "yaml"
+      require "ostruct"
+
+      # --- the three fill routes ------------------------------------------------
+      class PlainIvars
+        attr_reader :name, :size
+        def inspect = "#<PlainIvars name=#{@name.inspect} size=#{@size.inspect}>"
+      end
+
+      class KnowsInitWith
+        attr_reader :seen, :tag
+        def init_with(coder)
+          @tag = coder.tag
+          @seen = coder.map
+        end
+        def inspect = "#<KnowsInitWith tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      class KnowsYamlInitialize
+        attr_reader :seen, :tag
+        def yaml_initialize(tag, vals)
+          @tag = tag
+          @seen = vals
+        end
+        def inspect = "#<KnowsYamlInitialize tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      # A class whose `initialize` refuses no-argument construction: psych must
+      # ALLOCATE rather than call `new`, and this is what proves it does.
+      class RefusesNew
+        attr_reader :a
+        def initialize(a) = (@a = a)
+        def inspect = "#<RefusesNew a=#{@a.inspect}>"
+      end
+
+      Point = Struct.new(:x, :y)
+
+      def show(label)
+        puts "#{label}\t#{yield.inspect}"
+      rescue StandardError => e
+        puts "#{label}\t#{e.class}: #{e.message}"
       end
 
       show("yaml_initialize") do
         YAML.unsafe_load("--- !ruby/object:KnowsYamlInitialize\na: 1\n")
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      yaml_initialize	#<KnowsYamlInitialize tag=nil seen=nil>
+    OUT
+  end
+
+  it "a class that refuses new revives through allocate" do
+    result = ze0(<<~'RUBY')
+      # `!ruby/...` tags, and the three ways an object gets filled back in.
+      #
+      # This is the half of psych that turns a document into OBJECTS rather than
+      # into hashes: `Gem::Specification.from_yaml` reads a `.gem` through it, and
+      # before it existed a `!ruby/object:Gem::Specification` loaded as a Hash and
+      # rubygems reported "YAML data doesn't evaluate to gem specification".
+      #
+      # Psych fills a revived object in a fixed order, and each rung is here:
+      # `init_with(coder)` first, `yaml_initialize(tag, map)` next, and plain ivar
+      # assignment last.
+
+      require "yaml"
+      require "ostruct"
+
+      # --- the three fill routes ------------------------------------------------
+      class PlainIvars
+        attr_reader :name, :size
+        def inspect = "#<PlainIvars name=#{@name.inspect} size=#{@size.inspect}>"
+      end
+
+      class KnowsInitWith
+        attr_reader :seen, :tag
+        def init_with(coder)
+          @tag = coder.tag
+          @seen = coder.map
+        end
+        def inspect = "#<KnowsInitWith tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      class KnowsYamlInitialize
+        attr_reader :seen, :tag
+        def yaml_initialize(tag, vals)
+          @tag = tag
+          @seen = vals
+        end
+        def inspect = "#<KnowsYamlInitialize tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      # A class whose `initialize` refuses no-argument construction: psych must
+      # ALLOCATE rather than call `new`, and this is what proves it does.
+      class RefusesNew
+        attr_reader :a
+        def initialize(a) = (@a = a)
+        def inspect = "#<RefusesNew a=#{@a.inspect}>"
+      end
+
+      Point = Struct.new(:x, :y)
+
+      def show(label)
+        puts "#{label}\t#{yield.inspect}"
+      rescue StandardError => e
+        puts "#{label}\t#{e.class}: #{e.message}"
+      end
+
       show("allocate not new") do
         YAML.unsafe_load("--- !ruby/object:RefusesNew\na: 9\n")
+      end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      allocate not new	#<RefusesNew a=9>
+    OUT
+  end
+
+  it "a Struct, a Range and the other reviving tags each come back" do
+    result = ze0(<<~'RUBY')
+      # `!ruby/...` tags, and the three ways an object gets filled back in.
+      #
+      # This is the half of psych that turns a document into OBJECTS rather than
+      # into hashes: `Gem::Specification.from_yaml` reads a `.gem` through it, and
+      # before it existed a `!ruby/object:Gem::Specification` loaded as a Hash and
+      # rubygems reported "YAML data doesn't evaluate to gem specification".
+      #
+      # Psych fills a revived object in a fixed order, and each rung is here:
+      # `init_with(coder)` first, `yaml_initialize(tag, map)` next, and plain ivar
+      # assignment last.
+
+      require "yaml"
+      require "ostruct"
+
+      # --- the three fill routes ------------------------------------------------
+      class PlainIvars
+        attr_reader :name, :size
+        def inspect = "#<PlainIvars name=#{@name.inspect} size=#{@size.inspect}>"
+      end
+
+      class KnowsInitWith
+        attr_reader :seen, :tag
+        def init_with(coder)
+          @tag = coder.tag
+          @seen = coder.map
+        end
+        def inspect = "#<KnowsInitWith tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      class KnowsYamlInitialize
+        attr_reader :seen, :tag
+        def yaml_initialize(tag, vals)
+          @tag = tag
+          @seen = vals
+        end
+        def inspect = "#<KnowsYamlInitialize tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      # A class whose `initialize` refuses no-argument construction: psych must
+      # ALLOCATE rather than call `new`, and this is what proves it does.
+      class RefusesNew
+        attr_reader :a
+        def initialize(a) = (@a = a)
+        def inspect = "#<RefusesNew a=#{@a.inspect}>"
+      end
+
+      Point = Struct.new(:x, :y)
+
+      def show(label)
+        puts "#{label}\t#{yield.inspect}"
+      rescue StandardError => e
+        puts "#{label}\t#{e.class}: #{e.message}"
       end
 
       # --- the other reviving tags ----------------------------------------------
@@ -210,8 +462,153 @@ describe "OpenStruct programs" do
       show("omap map") { YAML.unsafe_load("--- !!omap\na: 1\nb: 2\n").class }
       show("omap seq") { YAML.unsafe_load("--- !!omap\n- a: 1\n- b: 2\n") }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      struct	#<struct Point x=1, y=2>
+      struct member order	[1, 2]
+      exception	#<ArgumentError: bad>
+      exception message	"bad"
+      class	String
+      module	Comparable
+      regexp	/ab+c/mi
+      regexp matches	1
+      regexp with slash	"a/b"
+      string subclass	"hello"
+      array subclass	[1, 2]
+      hash subclass	{"a" => 1}
+      complex	(1+2i)
+      rational	(1/2)
+      range	1..5
+      ostruct	#<OpenStruct a=1>
+      set	{"a" => nil, "b" => nil}
+      set class	Psych::Set
+      omap map	Psych::Omap
+      omap seq	{"a" => 1, "b" => 2}
+    OUT
+  end
+
+  it "a name nothing defines raises, rather than answering a bare Object" do
+    result = ze0(<<~'RUBY')
+      # `!ruby/...` tags, and the three ways an object gets filled back in.
+      #
+      # This is the half of psych that turns a document into OBJECTS rather than
+      # into hashes: `Gem::Specification.from_yaml` reads a `.gem` through it, and
+      # before it existed a `!ruby/object:Gem::Specification` loaded as a Hash and
+      # rubygems reported "YAML data doesn't evaluate to gem specification".
+      #
+      # Psych fills a revived object in a fixed order, and each rung is here:
+      # `init_with(coder)` first, `yaml_initialize(tag, map)` next, and plain ivar
+      # assignment last.
+
+      require "yaml"
+      require "ostruct"
+
+      # --- the three fill routes ------------------------------------------------
+      class PlainIvars
+        attr_reader :name, :size
+        def inspect = "#<PlainIvars name=#{@name.inspect} size=#{@size.inspect}>"
+      end
+
+      class KnowsInitWith
+        attr_reader :seen, :tag
+        def init_with(coder)
+          @tag = coder.tag
+          @seen = coder.map
+        end
+        def inspect = "#<KnowsInitWith tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      class KnowsYamlInitialize
+        attr_reader :seen, :tag
+        def yaml_initialize(tag, vals)
+          @tag = tag
+          @seen = vals
+        end
+        def inspect = "#<KnowsYamlInitialize tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      # A class whose `initialize` refuses no-argument construction: psych must
+      # ALLOCATE rather than call `new`, and this is what proves it does.
+      class RefusesNew
+        attr_reader :a
+        def initialize(a) = (@a = a)
+        def inspect = "#<RefusesNew a=#{@a.inspect}>"
+      end
+
+      Point = Struct.new(:x, :y)
+
+      def show(label)
+        puts "#{label}\t#{yield.inspect}"
+      rescue StandardError => e
+        puts "#{label}\t#{e.class}: #{e.message}"
+      end
+
       # A name nothing defines is an error, not a bare Object carrying the ivars.
       show("unknown class") { YAML.unsafe_load("--- !ruby/object:NoSuchClassHere\nx: 1\n") }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      unknown class	ArgumentError: undefined class/module NoSuchClassHere
+    OUT
+  end
+
+  it "safe_load refuses an object tag it was not told to permit" do
+    result = ze0(<<~'RUBY')
+      # `!ruby/...` tags, and the three ways an object gets filled back in.
+      #
+      # This is the half of psych that turns a document into OBJECTS rather than
+      # into hashes: `Gem::Specification.from_yaml` reads a `.gem` through it, and
+      # before it existed a `!ruby/object:Gem::Specification` loaded as a Hash and
+      # rubygems reported "YAML data doesn't evaluate to gem specification".
+      #
+      # Psych fills a revived object in a fixed order, and each rung is here:
+      # `init_with(coder)` first, `yaml_initialize(tag, map)` next, and plain ivar
+      # assignment last.
+
+      require "yaml"
+      require "ostruct"
+
+      # --- the three fill routes ------------------------------------------------
+      class PlainIvars
+        attr_reader :name, :size
+        def inspect = "#<PlainIvars name=#{@name.inspect} size=#{@size.inspect}>"
+      end
+
+      class KnowsInitWith
+        attr_reader :seen, :tag
+        def init_with(coder)
+          @tag = coder.tag
+          @seen = coder.map
+        end
+        def inspect = "#<KnowsInitWith tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      class KnowsYamlInitialize
+        attr_reader :seen, :tag
+        def yaml_initialize(tag, vals)
+          @tag = tag
+          @seen = vals
+        end
+        def inspect = "#<KnowsYamlInitialize tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      # A class whose `initialize` refuses no-argument construction: psych must
+      # ALLOCATE rather than call `new`, and this is what proves it does.
+      class RefusesNew
+        attr_reader :a
+        def initialize(a) = (@a = a)
+        def inspect = "#<RefusesNew a=#{@a.inspect}>"
+      end
+
+      Point = Struct.new(:x, :y)
+
+      def show(label)
+        puts "#{label}\t#{yield.inspect}"
+      rescue StandardError => e
+        puts "#{label}\t#{e.class}: #{e.message}"
+      end
 
       # --- what safe_load refuses, and what naming a class permits --------------
       GATED = {
@@ -239,49 +636,9 @@ describe "OpenStruct programs" do
         show("gated #{name}") { YAML.safe_load(doc) }
       end
 
-      # Naming the class is what lets it through.
-      show("permitted object") do
-        YAML.safe_load("--- !ruby/object:PlainIvars\nname: bolt\n", permitted_classes: ["PlainIvars"])
-      end
-      show("permitted struct") do
-        YAML.safe_load("--- !ruby/struct:Point\nx: 1\ny: 2\n", permitted_classes: ["Point"])
-      end
-      show("permitted set") do
-        YAML.safe_load("--- !!set\n? a\n", permitted_classes: ["Psych::Set"]).class
-      end
-
-      # --- a revived object survives a round trip through the tree --------------
-      show("parse then to_ruby") do
-        YAML.parse("--- !ruby/object:PlainIvars\nname: bolt\nsize: 3\n").to_ruby
-      end
     RUBY
 
     _(result).must_answer <<~'OUT'
-      plain ivars	#<PlainIvars name="bolt" size=3>
-      init_with	#<KnowsInitWith tag="!ruby/object:KnowsInitWith" seen={"a" => 1, "b" => "two"}>
-      yaml_initialize	#<KnowsYamlInitialize tag=nil seen=nil>
-      allocate not new	#<RefusesNew a=9>
-      struct	#<struct Point x=1, y=2>
-      struct member order	[1, 2]
-      exception	#<ArgumentError: bad>
-      exception message	"bad"
-      class	String
-      module	Comparable
-      regexp	/ab+c/mi
-      regexp matches	1
-      regexp with slash	"a/b"
-      string subclass	"hello"
-      array subclass	[1, 2]
-      hash subclass	{"a" => 1}
-      complex	(1+2i)
-      rational	(1/2)
-      range	1..5
-      ostruct	#<OpenStruct a=1>
-      set	{"a" => nil, "b" => nil}
-      set class	Psych::Set
-      omap map	Psych::Omap
-      omap seq	{"a" => 1, "b" => 2}
-      unknown class	ArgumentError: undefined class/module NoSuchClassHere
       gated object	Psych::DisallowedClass: Tried to load unspecified class: PlainIvars
       gated struct	Psych::DisallowedClass: Tried to load unspecified class: Point
       gated exception	Psych::DisallowedClass: Tried to load unspecified class: ArgumentError
@@ -298,9 +655,148 @@ describe "OpenStruct programs" do
       gated object seq	[1]
       gated range seq	[1]
       gated set seq	["a"]
+    OUT
+  end
+
+  it "naming the class is what lets the object tag through" do
+    result = ze0(<<~'RUBY')
+      # `!ruby/...` tags, and the three ways an object gets filled back in.
+      #
+      # This is the half of psych that turns a document into OBJECTS rather than
+      # into hashes: `Gem::Specification.from_yaml` reads a `.gem` through it, and
+      # before it existed a `!ruby/object:Gem::Specification` loaded as a Hash and
+      # rubygems reported "YAML data doesn't evaluate to gem specification".
+      #
+      # Psych fills a revived object in a fixed order, and each rung is here:
+      # `init_with(coder)` first, `yaml_initialize(tag, map)` next, and plain ivar
+      # assignment last.
+
+      require "yaml"
+      require "ostruct"
+
+      # --- the three fill routes ------------------------------------------------
+      class PlainIvars
+        attr_reader :name, :size
+        def inspect = "#<PlainIvars name=#{@name.inspect} size=#{@size.inspect}>"
+      end
+
+      class KnowsInitWith
+        attr_reader :seen, :tag
+        def init_with(coder)
+          @tag = coder.tag
+          @seen = coder.map
+        end
+        def inspect = "#<KnowsInitWith tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      class KnowsYamlInitialize
+        attr_reader :seen, :tag
+        def yaml_initialize(tag, vals)
+          @tag = tag
+          @seen = vals
+        end
+        def inspect = "#<KnowsYamlInitialize tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      # A class whose `initialize` refuses no-argument construction: psych must
+      # ALLOCATE rather than call `new`, and this is what proves it does.
+      class RefusesNew
+        attr_reader :a
+        def initialize(a) = (@a = a)
+        def inspect = "#<RefusesNew a=#{@a.inspect}>"
+      end
+
+      Point = Struct.new(:x, :y)
+
+      def show(label)
+        puts "#{label}\t#{yield.inspect}"
+      rescue StandardError => e
+        puts "#{label}\t#{e.class}: #{e.message}"
+      end
+
+      # Naming the class is what lets it through.
+      show("permitted object") do
+        YAML.safe_load("--- !ruby/object:PlainIvars\nname: bolt\n", permitted_classes: ["PlainIvars"])
+      end
+      show("permitted struct") do
+        YAML.safe_load("--- !ruby/struct:Point\nx: 1\ny: 2\n", permitted_classes: ["Point"])
+      end
+      show("permitted set") do
+        YAML.safe_load("--- !!set\n? a\n", permitted_classes: ["Psych::Set"]).class
+      end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       permitted object	#<PlainIvars name="bolt" size=nil>
       permitted struct	Psych::DisallowedClass: Tried to load unspecified class: Symbol
       permitted set	Psych::Set
+    OUT
+  end
+
+  it "a revived object survives a round trip through the parsed tree" do
+    result = ze0(<<~'RUBY')
+      # `!ruby/...` tags, and the three ways an object gets filled back in.
+      #
+      # This is the half of psych that turns a document into OBJECTS rather than
+      # into hashes: `Gem::Specification.from_yaml` reads a `.gem` through it, and
+      # before it existed a `!ruby/object:Gem::Specification` loaded as a Hash and
+      # rubygems reported "YAML data doesn't evaluate to gem specification".
+      #
+      # Psych fills a revived object in a fixed order, and each rung is here:
+      # `init_with(coder)` first, `yaml_initialize(tag, map)` next, and plain ivar
+      # assignment last.
+
+      require "yaml"
+      require "ostruct"
+
+      # --- the three fill routes ------------------------------------------------
+      class PlainIvars
+        attr_reader :name, :size
+        def inspect = "#<PlainIvars name=#{@name.inspect} size=#{@size.inspect}>"
+      end
+
+      class KnowsInitWith
+        attr_reader :seen, :tag
+        def init_with(coder)
+          @tag = coder.tag
+          @seen = coder.map
+        end
+        def inspect = "#<KnowsInitWith tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      class KnowsYamlInitialize
+        attr_reader :seen, :tag
+        def yaml_initialize(tag, vals)
+          @tag = tag
+          @seen = vals
+        end
+        def inspect = "#<KnowsYamlInitialize tag=#{@tag.inspect} seen=#{@seen.inspect}>"
+      end
+
+      # A class whose `initialize` refuses no-argument construction: psych must
+      # ALLOCATE rather than call `new`, and this is what proves it does.
+      class RefusesNew
+        attr_reader :a
+        def initialize(a) = (@a = a)
+        def inspect = "#<RefusesNew a=#{@a.inspect}>"
+      end
+
+      Point = Struct.new(:x, :y)
+
+      def show(label)
+        puts "#{label}\t#{yield.inspect}"
+      rescue StandardError => e
+        puts "#{label}\t#{e.class}: #{e.message}"
+      end
+
+      # --- a revived object survives a round trip through the tree --------------
+      show("parse then to_ruby") do
+        YAML.parse("--- !ruby/object:PlainIvars\nname: bolt\nsize: 3\n").to_ruby
+      end
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       parse then to_ruby	#<PlainIvars name="bolt" size=3>
     OUT
   end

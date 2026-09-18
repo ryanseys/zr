@@ -244,7 +244,7 @@ describe "Modules: changing in place" do
     OUT
   end
 
-  it "mro" do
+  it "an included module supplies a method the class does not write" do
     result = ze0(<<~'RUBY')
       class Animal
         def speak
@@ -255,6 +255,21 @@ describe "Modules: changing in place" do
       class Dog < Animal
       end
       puts Dog.new.speak
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      generic
+    OUT
+  end
+
+  it "the class's own method wins over an included module's" do
+    result = ze0(<<~'RUBY')
+      class Animal
+        def speak
+          "generic"
+        end
+      end
 
       module Greetable
         def greet
@@ -276,6 +291,22 @@ describe "Modules: changing in place" do
       puts Person.new.greet
       puts Robot.new.greet
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      overridden
+      hi
+    OUT
+  end
+
+  it "a prepended module's method wins over the class's own" do
+    result = ze0(<<~'RUBY')
+      class Animal
+        def speak
+          "generic"
+        end
+      end
+
       module Tagged
         def tag
           "base(#{super})"
@@ -289,6 +320,21 @@ describe "Modules: changing in place" do
         end
       end
       puts Widget.new.tag
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      widget
+    OUT
+  end
+
+  it "two included modules resolve with the later one closer" do
+    result = ze0(<<~'RUBY')
+      class Animal
+        def speak
+          "generic"
+        end
+      end
 
       module M1
         def label
@@ -310,6 +356,21 @@ describe "Modules: changing in place" do
       end
       puts Stacked.new.label
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      m2
+    OUT
+  end
+
+  it "a diamond of modules resolves each name once" do
+    result = ze0(<<~'RUBY')
+      class Animal
+        def speak
+          "generic"
+        end
+      end
+
       module D
         def who
           "D"
@@ -328,6 +389,22 @@ describe "Modules: changing in place" do
       puts A.new.who
       puts A.new.is_a?(D)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      D
+      true
+    OUT
+  end
+
+  it "extend puts a module's instance methods on the class" do
+    result = ze0(<<~'RUBY')
+      class Animal
+        def speak
+          "generic"
+        end
+      end
+
       module MathHelpers
         def double(x)
           x * 2
@@ -339,12 +416,42 @@ describe "Modules: changing in place" do
       end
       puts Calc.double(21)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      42
+    OUT
+  end
+
+  it "module_function makes a module's method its own singleton method" do
+    result = ze0(<<~'RUBY')
+      class Animal
+        def speak
+          "generic"
+        end
+      end
+
       module Utility
         def self.triple(x)
           x * 3
         end
       end
       puts Utility.triple(4)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      12
+    OUT
+  end
+
+  it "a module's state is shared by every class that includes it" do
+    result = ze0(<<~'RUBY')
+      class Animal
+        def speak
+          "generic"
+        end
+      end
 
       class Base
         @@count = 0
@@ -370,6 +477,22 @@ describe "Modules: changing in place" do
       puts b.count
       puts s.count
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      3
+      3
+    OUT
+  end
+
+  it "super from an included module reaches the next one along the chain" do
+    result = ze0(<<~'RUBY')
+      class Animal
+        def speak
+          "generic"
+        end
+      end
+
       class MyError < StandardError
       end
 
@@ -385,17 +508,6 @@ describe "Modules: changing in place" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      generic
-      overridden
-      hi
-      widget
-      m2
-      D
-      true
-      42
-      12
-      3
-      3
       10
     OUT
   end
