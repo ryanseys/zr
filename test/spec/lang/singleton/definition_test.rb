@@ -424,10 +424,7 @@ describe "Singleton: defining and naming methods" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :here
-      away is gone
-    OUT
+    _(result).must_answer ":here\naway is gone\n"
   end
 
   it "undef in a singleton body retires it for that object" do

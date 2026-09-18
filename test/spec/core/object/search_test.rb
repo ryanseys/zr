@@ -17,10 +17,7 @@ describe "Object: searching and matching" do
       p b.eval("Array.singleton_methods(false).include?(:zzz)")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      false
-      true
-    OUT
+    _(result).must_answer "false\ntrue\n"
   end
 
   it "core method owners match" do

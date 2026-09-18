@@ -945,10 +945,7 @@ describe "Modules programs" do
       puts check_after_set ? "nil" : "set"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      nil
-      set
-    OUT
+    _(result).must_answer "nil\nset\n"
   end
 
   it "module case conformance" do
@@ -1599,10 +1596,7 @@ describe "Modules programs" do
       puts M::Outer.new.via_local
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      10
-      20
-    OUT
+    _(result).must_answer "10\n20\n"
   end
 
   it "poly user include value" do

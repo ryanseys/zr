@@ -505,10 +505,7 @@ describe "String programs" do
       puts c2.show_content_type
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      application/json
-      text/html
-    OUT
+    _(result).must_answer "application/json\ntext/html\n"
   end
 
   it "io buffer for aliases its string" do
@@ -805,10 +802,7 @@ describe "String programs" do
       puts N.whisper("HI")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      HI
-      hi
-    OUT
+    _(result).must_answer "HI\nhi\n"
   end
 
   it "module function str method param" do

@@ -160,9 +160,7 @@ describe "Numeric programs" do
   end
 
   it "complex polar constructor" do
-    result = ze0(<<~'RUBY')
-      p Complex.polar(2, 0)
-    RUBY
+    result = ze0("p Complex.polar(2, 0)\n")
 
     _(result).must_answer "(2+0.0i)\n"
   end
@@ -439,10 +437,7 @@ describe "Numeric programs" do
       puts MathUtils.sum_of_squares(3, 4)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      made
-      25
-    OUT
+    _(result).must_answer "made\n25\n"
   end
 
   it "include math bare names" do
@@ -501,10 +496,7 @@ describe "Numeric programs" do
       p z.class
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      nil
-      NilClass
-    OUT
+    _(result).must_answer "nil\nNilClass\n"
   end
 
   it "integer bit predicates float argument" do
@@ -923,10 +915,7 @@ describe "Numeric programs" do
       puts Person.new("amy", 7).greet
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hi bob, you are 42
-      hi amy, you are 7
-    OUT
+    _(result).must_answer "hi bob, you are 42\nhi amy, you are 7\n"
   end
 
   it "interp single buffer" do

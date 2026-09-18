@@ -69,10 +69,7 @@ describe "Variables: searching and matching" do
       puts arr[1]
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      11
-      2
-    OUT
+    _(result).must_answer "11\n2\n"
   end
 
   it "compound assignment through a multi argument index" do

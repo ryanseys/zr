@@ -78,10 +78,7 @@ describe "Time programs" do
       puts obj.greeting
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      hello
-    OUT
+    _(result).must_answer "42\nhello\n"
   end
 
   it "compile time define method int" do
@@ -97,10 +94,7 @@ describe "Time programs" do
       puts obj.value_2
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      2
-    OUT
+    _(result).must_answer "1\n2\n"
   end
 
   it "compile time define method strings" do
@@ -116,10 +110,7 @@ describe "Time programs" do
       puts obj.label_blue
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      red
-      blue
-    OUT
+    _(result).must_answer "red\nblue\n"
   end
 
   it "cond poly truthy" do
@@ -645,10 +636,7 @@ describe "Time programs" do
       p t.dst?
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      false
-      false
-    OUT
+    _(result).must_answer "false\nfalse\n"
   end
 
   it "require of a boot preloaded feature is false even the first time" do
@@ -660,10 +648,7 @@ describe "Time programs" do
       p(require "monitor")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      false
-      false
-    OUT
+    _(result).must_answer "false\nfalse\n"
   end
 
   it "the argument's type picks: plus a number is a Time, minus a Time is a Float" do
@@ -821,10 +806,7 @@ describe "Time programs" do
       p t.clamp(a, b).year
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      2026
-    OUT
+    _(result).must_answer "true\n2026\n"
   end
 
   it "a civil field outside its range raises, and one that overflows rolls forward" do
@@ -880,10 +862,7 @@ describe "Time programs" do
       p t.deconstruct_keys([:hour, :min, :sec])
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      {year: 2026, month: 7, day: 16}
-      {hour: 13, min: 45, sec: 30}
-    OUT
+    _(result).must_answer "{year: 2026, month: 7, day: 16}\n{hour: 13, min: 45, sec: 30}\n"
   end
 
   it "Comparable falls out of <=>, and equality and hash go by instant" do
@@ -1101,10 +1080,7 @@ describe "Time programs" do
       p Time.local(2024, 1, 1).utc_offset
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      -28800
-      -28800
-    OUT
+    _(result).must_answer "-28800\n-28800\n"
   end
 
   it "mktime, local and utc are the three names of the civil constructors" do

@@ -155,10 +155,7 @@ describe "String: conversion" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ArgumentError
-      ArgumentError
-    OUT
+    _(result).must_answer "ArgumentError\nArgumentError\n"
   end
 
   it "string to f bare dot" do

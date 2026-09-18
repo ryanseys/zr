@@ -46,10 +46,7 @@ describe "Classes: defining and naming methods" do
       puts d.original_speak
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      woof
-      woof
-    OUT
+    _(result).must_answer "woof\nwoof\n"
   end
 
   it "anonymous class" do

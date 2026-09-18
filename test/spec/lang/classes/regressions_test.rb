@@ -24,10 +24,7 @@ describe "Classes: regressions" do
       puts m
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      2
-    OUT
+    _(result).must_answer "2\n2\n"
   end
 
   it "array plus" do
@@ -52,10 +49,7 @@ describe "Classes: regressions" do
       puts (c + d).length
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      4
-      2
-    OUT
+    _(result).must_answer "4\n2\n"
   end
 
   it "chained or assign collection poly array" do
@@ -238,10 +232,7 @@ describe "Classes: regressions" do
       puts f.name
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      hello
-    OUT
+    _(result).must_answer "42\nhello\n"
   end
 
   it "default argv narrows from string call site" do
@@ -280,9 +271,7 @@ describe "Classes: regressions" do
       T_default_argv_narrows_from_string_call_site_Entry.new("hello").show     # 5
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-    OUT
+    _(result).must_answer "5\n"
   end
 
   it "default nil param with hash lookup" do
@@ -320,9 +309,7 @@ describe "Classes: regressions" do
       puts b.s
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hello
-    OUT
+    _(result).must_answer "hello\n"
   end
 
   it "default nil param with sym hash lookup" do
@@ -348,9 +335,7 @@ describe "Classes: regressions" do
       puts b.s
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hello
-    OUT
+    _(result).must_answer "hello\n"
   end
 
   it "each block cmeth widen" do
@@ -449,10 +434,7 @@ describe "Classes: regressions" do
       puts d.each_pair(1)         # 100 + 0 + 5 + 0 = 105 (string `to_i` of "x" / "y" = 0)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      37
-      105
-    OUT
+    _(result).must_answer "37\n105\n"
   end
 
   it "empty hash ivar string value" do
@@ -541,9 +523,7 @@ describe "Classes: regressions" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      from-ensure
-    OUT
+    _(result).must_answer "from-ensure\n"
   end
 
   it "ensure runs on raise" do
@@ -669,10 +649,7 @@ describe "Classes: regressions" do
       T_ensure_runs_on_return_from_rescue_C.new.report
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      99
-      yes
-    OUT
+    _(result).must_answer "99\nyes\n"
   end
 
   it "ensure runs on return nested" do
@@ -746,10 +723,7 @@ describe "Classes: regressions" do
       puts "done"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      15
-      done
-    OUT
+    _(result).must_answer "15\ndone\n"
   end
 
   it "a rescue picks the first arm whose class matches, and a bare rescue catches all" do
@@ -955,9 +929,7 @@ describe "Classes: regressions" do
       File.delete(path)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      result-42
-    OUT
+    _(result).must_answer "result-42\n"
   end
 
   it "forward call class method inherited init" do
@@ -1015,9 +987,7 @@ describe "Classes: regressions" do
       puts o.report
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      outer
-    OUT
+    _(result).must_answer "outer\n"
   end
 
   it "forward call class method inherited init int array" do
@@ -1071,9 +1041,7 @@ describe "Classes: regressions" do
       puts d.report
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      4
-    OUT
+    _(result).must_answer "4\n"
   end
 
   it "forward call class method inherited init obj" do
@@ -1121,9 +1089,7 @@ describe "Classes: regressions" do
       puts o.report
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      h:alpha
-    OUT
+    _(result).must_answer "h:alpha\n"
   end
 
   it "forward call class method int array" do
@@ -1156,9 +1122,7 @@ describe "Classes: regressions" do
       puts c.length
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-    OUT
+    _(result).must_answer "3\n"
   end
 
   it "forward call class method nested" do
@@ -1200,9 +1164,7 @@ describe "Classes: regressions" do
       puts d.reach
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-    OUT
+    _(result).must_answer "42\n"
   end
 
   it "forward call class method obj" do
@@ -1245,9 +1207,7 @@ describe "Classes: regressions" do
       puts c.show
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      h:alpha
-    OUT
+    _(result).must_answer "h:alpha\n"
   end
 
   it "forward call param type int array" do
@@ -1288,9 +1248,7 @@ describe "Classes: regressions" do
       puts t.info
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      len=3 flag=false
-    OUT
+    _(result).must_answer "len=3 flag=false\n"
   end
 
   it "forward call param type obj" do
@@ -1335,9 +1293,7 @@ describe "Classes: regressions" do
       puts t.held_label
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      h:alpha
-    OUT
+    _(result).must_answer "h:alpha\n"
   end
 
   it "gc save double in new" do
@@ -1357,9 +1313,7 @@ describe "Classes: regressions" do
       puts o.step
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-    OUT
+    _(result).must_answer "3\n"
   end
 
   it "gc scan skip inherited ivar" do
@@ -1420,10 +1374,7 @@ describe "Classes: regressions" do
       puts "ok"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5000
-      ok
-    OUT
+    _(result).must_answer "5000\nok\n"
   end
 
   it "hash each param narrow" do
@@ -1509,10 +1460,7 @@ describe "Classes: regressions" do
       puts v2.is_a?(Hash) ? "hash" : "non-hash"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      7
-      hash
-    OUT
+    _(result).must_answer "7\nhash\n"
   end
 
   it "hash fetch hash default narrowing" do
@@ -1545,10 +1493,7 @@ describe "Classes: regressions" do
       puts T_hash_fetch_hash_default_narrowing_ArticleParams.from_raw({ "y" => 2 })
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      got-hash
-      got-hash
-    OUT
+    _(result).must_answer "got-hash\ngot-hash\n"
   end
 
   it "hash fetch string default on int leaf" do
@@ -1655,10 +1600,7 @@ describe "Classes: regressions" do
       T_heterogeneous_dispatch_int_return_narrow_Box.new.run
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      21
-      1
-    OUT
+    _(result).must_answer "21\n1\n"
   end
 
   it "if static false skips dead branch compile" do
@@ -1781,10 +1723,7 @@ describe "Classes: regressions" do
       puts r.status
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      got-x
-      4
-    OUT
+    _(result).must_answer "got-x\n4\n"
   end
 
   it "imeth override widen to poly" do
@@ -1853,9 +1792,7 @@ describe "Classes: regressions" do
       T_implicit_self_param_poly_TokenSink.new.run
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      done
-    OUT
+    _(result).must_answer "done\n"
   end
 
   it "inherit" do
@@ -1977,10 +1914,7 @@ describe "Classes: regressions" do
       puts c.body
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      art-7
-      comment-9
-    OUT
+    _(result).must_answer "art-7\ncomment-9\n"
   end
 
   it "inherited cmethod subclass dispatch" do
@@ -2038,9 +1972,7 @@ describe "Classes: regressions" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      got object
-    OUT
+    _(result).must_answer "got object\n"
   end
 
   it "inherited method param widen" do
@@ -2096,9 +2028,7 @@ describe "Classes: regressions" do
       T_inherited_method_param_widen_T2.new.test_it
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ok
-    OUT
+    _(result).must_answer "ok\n"
   end
 
   it "init locals" do
@@ -2179,10 +2109,7 @@ describe "Classes: regressions" do
       T_initialize_param_poly_call_sites_Box.new(42).show
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hello
-      42
-    OUT
+    _(result).must_answer "hello\n42\n"
   end
 
   it "initialize param through call" do
@@ -2204,9 +2131,7 @@ describe "Classes: regressions" do
       T_initialize_param_through_call_Greeter.new("hello")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hello
-    OUT
+    _(result).must_answer "hello\n"
   end
 
   it "initialize void wrapper gc save" do
@@ -2253,9 +2178,7 @@ describe "Classes: regressions" do
       puts all.length          # 2
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-    OUT
+    _(result).must_answer "2\n"
   end
 
   it "intarray slice assign from intarray ptr array first" do
@@ -2380,9 +2303,7 @@ describe "Classes: regressions" do
       puts b.visit({ "inner" => { "k" => "tokyo" } })
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      tokyo
-    OUT
+    _(result).must_answer "tokyo\n"
   end
 
   it "issue176 empty hash default" do
@@ -2507,9 +2428,7 @@ describe "Classes: regressions" do
       puts t.title
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hello
-    OUT
+    _(result).must_answer "hello\n"
   end
 
   it "issue207 full repro" do
@@ -2568,9 +2487,7 @@ describe "Classes: regressions" do
       puts ap.title
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hello
-    OUT
+    _(result).must_answer "hello\n"
   end
 
   it "issue208 inherited class method" do
@@ -2784,9 +2701,7 @@ describe "Classes: regressions" do
       puts T_ivar_c_keyword_KeywordIvar.new.value
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-    OUT
+    _(result).must_answer "42\n"
   end
 
   it "ivar float array" do
@@ -2908,10 +2823,7 @@ describe "Classes: regressions" do
       puts b.fetch("x")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ok
-      hello
-    OUT
+    _(result).must_answer "ok\nhello\n"
   end
 
   it "ivar lazy init push via getter" do
@@ -3125,10 +3037,7 @@ describe "Classes: regressions" do
       puts t.body
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hello
-      world
-    OUT
+    _(result).must_answer "hello\nworld\n"
   end
 
   it "ivar writer heterogeneity" do
@@ -3169,10 +3078,7 @@ describe "Classes: regressions" do
       puts d.v
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      string
-      7
-    OUT
+    _(result).must_answer "string\n7\n"
   end
 
   it "kernel module function call" do
@@ -3204,9 +3110,7 @@ describe "Classes: regressions" do
       puts "ok"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ok
-    OUT
+    _(result).must_answer "ok\n"
   end
 
   it "known constants" do
@@ -3279,9 +3183,7 @@ describe "Classes: regressions" do
       puts T_kwarg_default_empty_hash_kind_W.write(1, 404).to_s
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      0
-    OUT
+    _(result).must_answer "0\n"
   end
 
   it "kwargs into default hash param" do
@@ -3429,9 +3331,7 @@ describe "Classes: regressions" do
       puts h.chain    # 1
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-    OUT
+    _(result).must_answer "1\n"
   end
 
   it "array 3d nested" do
@@ -3964,10 +3864,7 @@ describe "Classes: regressions" do
       puts T_method_param_unify_to_poly_User.new(cpu).reset
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      30
-    OUT
+    _(result).must_answer "3\n30\n"
   end
 
   it "method redefinition warning" do
@@ -3999,10 +3896,7 @@ describe "Classes: regressions" do
       puts f.test
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      original
-      redefined
-    OUT
+    _(result).must_answer "original\nredefined\n"
   end
 
   it "multi arg block call" do
@@ -4111,9 +4005,7 @@ describe "Classes: regressions" do
       h.show
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      a.x=11 b.y=22 c.z=33
-    OUT
+    _(result).must_answer "a.x=11 b.y=22 c.z=33\n"
   end
 
   it "multi write const" do
@@ -4207,9 +4099,7 @@ describe "Classes: regressions" do
       puts c.name_lut_size(1, 0)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-    OUT
+    _(result).must_answer "1\n"
   end
 
   it "multi write ivar" do
@@ -4271,10 +4161,7 @@ describe "Classes: regressions" do
       puts p.y
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hello
-      world
-    OUT
+    _(result).must_answer "hello\nworld\n"
   end
 
   it "multi write map block" do
@@ -4699,10 +4586,7 @@ describe "Classes: regressions" do
       puts a.report
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      0,8
-      2,24
-    OUT
+    _(result).must_answer "0,8\n2,24\n"
   end
 
   it "nil scalar ivar widen" do
@@ -4946,10 +4830,7 @@ describe "Classes: regressions" do
       T_poly_aref_shift_via_block_param_C.new.run(0, 0, 0xff)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      3
-    OUT
+    _(result).must_answer "3\n3\n"
   end
 
   it "poly array literal callnode typed elem" do
@@ -5051,9 +4932,7 @@ describe "Classes: regressions" do
       puts T_poly_array_slot_literal_Holder.new.count    # 2
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-    OUT
+    _(result).must_answer "2\n"
   end
 
   it "poly array slot sized default" do
@@ -5093,9 +4972,7 @@ describe "Classes: regressions" do
       puts T_poly_array_slot_sized_default_Holder.new.count   # 3
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-    OUT
+    _(result).must_answer "3\n"
   end
 
   it "poly dispatch args ret" do
@@ -5195,10 +5072,7 @@ describe "Classes: regressions" do
       puts b.items[1].v   # 0
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      0
-      0
-    OUT
+    _(result).must_answer "0\n0\n"
   end
 
   it "poly dispatch arity truncate" do
@@ -5250,9 +5124,7 @@ describe "Classes: regressions" do
       puts b.poly.v   # 12  (T_poly_dispatch_arity_truncate_Heater: addr + data)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      12
-    OUT
+    _(result).must_answer "12\n"
   end
 
   it "poly hash literal from ivar" do
@@ -5462,10 +5334,7 @@ describe "Classes: regressions" do
       puts result == nil
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      subclass-ran: ok
-      true
-    OUT
+    _(result).must_answer "subclass-ran: ok\ntrue\n"
   end
 
   it "poly proc call" do
@@ -5543,9 +5412,7 @@ describe "Classes: regressions" do
       puts c.at(0)              # post-write: 100 (master: 0 — write dropped)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      100
-    OUT
+    _(result).must_answer "100\n"
   end
 
   it "poly recv dispatch includes subclasses" do
@@ -5588,10 +5455,7 @@ describe "Classes: regressions" do
       puts result[:sub]    # "UPPER" (subclass override invoked)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-
-      UPPER
-    OUT
+    _(result).must_answer "\nUPPER\n"
   end
 
   it "poly recv dispatch narrow" do
@@ -5772,10 +5636,7 @@ describe "Classes: regressions" do
       File.delete("spinel_poly_recv_ivar_narrow_b.txt")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      a
-      b!
-    OUT
+    _(result).must_answer "a\nb!\n"
   end
 
   it "poly recv setter widens ivar" do
@@ -5822,9 +5683,7 @@ describe "Classes: regressions" do
       puts receiver.data["name"]
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      foo
-    OUT
+    _(result).must_answer "foo\n"
   end
 
   it "poly return to str unbox" do
@@ -6034,9 +5893,7 @@ describe "Classes: regressions" do
       puts "ok"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ok
-    OUT
+    _(result).must_answer "ok\n"
   end
 
   it "ptr array delete at" do
@@ -6212,9 +6069,7 @@ describe "Classes: regressions" do
       puts b.sample    # ok
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ok
-    OUT
+    _(result).must_answer "ok\n"
   end
 
   it "scan ivars inherited slot" do
@@ -6253,9 +6108,7 @@ describe "Classes: regressions" do
       puts T_scan_ivars_inherited_slot_Child.new.read     # 42
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-    OUT
+    _(result).must_answer "42\n"
   end
 
   it "scan new calls class scope" do
@@ -6297,9 +6150,7 @@ describe "Classes: regressions" do
       puts c.b.a.n   # 7
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      7
-    OUT
+    _(result).must_answer "7\n"
   end
 
   it "self class subclass dispatch" do
@@ -6387,10 +6238,7 @@ describe "Classes: regressions" do
       puts a.add(5)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      15
-    OUT
+    _(result).must_answer "3\n15\n"
   end
 
   it "send double underscore" do
@@ -6638,9 +6486,7 @@ describe "Classes: regressions" do
       puts "ok"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ok
-    OUT
+    _(result).must_answer "ok\n"
   end
 
   it "subclass inherited attr reader" do
@@ -6816,10 +6662,7 @@ describe "Classes: regressions" do
       puts n.doubled
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      14
-    OUT
+    _(result).must_answer "5\n14\n"
   end
 
   it "super forwarding" do
@@ -6883,9 +6726,7 @@ describe "Classes: regressions" do
       T_super_with_block_Child.new.test
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      from child
-    OUT
+    _(result).must_answer "from child\n"
   end
 
   it "sym keyed hash ivar value" do
@@ -6985,10 +6826,7 @@ describe "Classes: regressions" do
       puts c.show
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      foo
-      bar
-    OUT
+    _(result).must_answer "foo\nbar\n"
   end
 
   it "unbox poly index in dispatch" do
@@ -7015,9 +6853,7 @@ describe "Classes: regressions" do
       puts T_unbox_poly_index_in_dispatch_C.new.at("i").to_s    # use .to_s (handled separately) instead of .to_i
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      300
-    OUT
+    _(result).must_answer "300\n"
   end
 
   it "uncalled method dce" do
@@ -7048,9 +6884,7 @@ describe "Classes: regressions" do
       puts "ok"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ok
-    OUT
+    _(result).must_answer "ok\n"
   end
 
   it "undef" do
@@ -7090,10 +6924,7 @@ describe "Classes: regressions" do
       puts T_undef_D.new.baz # baz
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      bar
-      baz
-    OUT
+    _(result).must_answer "bar\nbaz\n"
   end
 
   it "uninit attr accessor reads as nil" do
@@ -7218,10 +7049,7 @@ describe "Classes: regressions" do
       puts T_user_method_named_like_mutator_D.new.run(T_user_method_named_like_mutator_C.new)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      8
-      30
-    OUT
+    _(result).must_answer "8\n30\n"
   end
 
   it "value type constructor arg gc root" do
@@ -7268,9 +7096,7 @@ describe "Classes: regressions" do
       puts wrapper.tag.text
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      label1999
-    OUT
+    _(result).must_answer "label1999\n"
   end
 
   it "value type ctor gc save" do
@@ -7369,9 +7195,7 @@ describe "Classes: regressions" do
       puts wrappers[1999].tag.text
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      label1999
-    OUT
+    _(result).must_answer "label1999\n"
   end
 
   it "value type recycled field clear" do
@@ -7416,9 +7240,7 @@ describe "Classes: regressions" do
       puts holder.tag.text
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      new2999
-    OUT
+    _(result).must_answer "new2999\n"
   end
 
   it "volatile discarded at call" do
@@ -7446,9 +7268,7 @@ describe "Classes: regressions" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      v
-    OUT
+    _(result).must_answer "v\n"
   end
 
   it "while cond side effect" do
@@ -7486,9 +7306,7 @@ describe "Classes: regressions" do
       puts count
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-    OUT
+    _(result).must_answer "3\n"
   end
 
   it "while condition recomputed" do
@@ -7595,9 +7413,7 @@ describe "Classes: regressions" do
       puts T_widen_int_obj_to_poly_Holder.new.poly.n      # 5
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-    OUT
+    _(result).must_answer "5\n"
   end
 
   it "Kernel#rand truncates a Float bound to an Integer draw" do
@@ -7606,10 +7422,7 @@ describe "Classes: regressions" do
       p (0...3).include?(rand(3.5))
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Integer
-      true
-    OUT
+    _(result).must_answer "Integer\ntrue\n"
   end
 
   it "sort_by over a Hash orders by a two-element key" do
@@ -7621,10 +7434,7 @@ describe "Classes: regressions" do
       ranked.first(2).each { |w, n| puts "#{w}: #{n}" }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      the: 3
-      dog: 1
-    OUT
+    _(result).must_answer "the: 3\ndog: 1\n"
   end
 
   it "a class held in a Hash value constructs and dispatches through the lookup" do
@@ -7710,10 +7520,7 @@ describe "Classes: regressions" do
       p t
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1.5]
-      10.0
-    OUT
+    _(result).must_answer "[1.5]\n10.0\n"
   end
 
   it "sum with a block over objects rounds to the places asked for" do

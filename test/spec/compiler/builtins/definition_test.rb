@@ -251,10 +251,7 @@ describe "Builtins: defining and naming methods" do
       puts "s".echo(9, 8)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      12s
-      98s
-    OUT
+    _(result).must_answer "12s\n98s\n"
   end
 
   it "builtin reopen rest params and respond to" do
@@ -1210,10 +1207,7 @@ describe "Builtins: defining and naming methods" do
       puts "compiled fine"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ArgumentError: wrong number of arguments (given 3, expected 1..2)
-      compiled fine
-    OUT
+    _(result).must_answer "ArgumentError: wrong number of arguments (given 3, expected 1..2)\ncompiled fine\n"
   end
 
   it "numbered param arity" do

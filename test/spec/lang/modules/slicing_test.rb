@@ -168,10 +168,7 @@ describe "Modules: slicing" do
       p Widened.ancestors.first
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :from_module
-      Tagger
-    OUT
+    _(result).must_answer ":from_module\nTagger\n"
   end
 
   it "module class reflection" do
@@ -344,10 +341,7 @@ describe "Modules: slicing" do
       puts M.only_in_reopen
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      second
-      extra
-    OUT
+    _(result).must_answer "second\nextra\n"
   end
 
   it "reopen module and class" do

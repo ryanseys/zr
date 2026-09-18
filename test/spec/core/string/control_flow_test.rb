@@ -251,10 +251,7 @@ describe "String: control flow" do
       p [1, 2, 3, 4, 5].each_slice(2).map { |a, b| a }                      # [1, 3, 5]
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [0, 7]
-      [1, 3, 5]
-    OUT
+    _(result).must_answer "[0, 7]\n[1, 3, 5]\n"
   end
 
   it "param widens when body assigns string" do

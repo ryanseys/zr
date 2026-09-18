@@ -77,10 +77,7 @@ describe "String: splitting and joining" do
       puts r["b"]
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      x
-      y
-    OUT
+    _(result).must_answer "x\ny\n"
   end
 
   it "plain string split goes straight to the kernel" do

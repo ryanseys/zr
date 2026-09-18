@@ -12,10 +12,7 @@ describe "Marshal programs" do
       p back.instance_variable_get(:@meta)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1]
-      7
-    OUT
+    _(result).must_answer "[1]\n7\n"
   end
 
   it "data value and the numeric values round trip" do
@@ -758,10 +755,7 @@ describe "Marshal programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      singleton can't be dumped
-      can't dump IO
-    OUT
+    _(result).must_answer "singleton can't be dumped\ncan't dump IO\n"
   end
 
   it "stream holds one value after another" do

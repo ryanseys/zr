@@ -79,10 +79,7 @@ describe "Kernel programs" do
       puts Child.new.greet("given")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Parent(default)
-      Parent(given)
-    OUT
+    _(result).must_answer "Parent(default)\nParent(given)\n"
   end
 
   it "boxs kernel method is not callable in main" do
@@ -98,10 +95,7 @@ describe "Kernel programs" do
       p b.eval("kmeth")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :nome
-      1
-    OUT
+    _(result).must_answer ":nome\n1\n"
   end
 
   it "break bubbles through nested begins to the outer loop" do
@@ -193,10 +187,7 @@ describe "Kernel programs" do
       p r
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Object
-      :done
-    OUT
+    _(result).must_answer "Object\n:done\n"
   end
 
   it "catch throw tags values" do
@@ -414,10 +405,7 @@ describe "Kernel programs" do
       puts "after"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      rescued: uninitialized constant Mylib
-      after
-    OUT
+    _(result).must_answer "rescued: uninitialized constant Mylib\nafter\n"
   end
 
   it "conversion refusal names nil true and false" do
@@ -721,10 +709,7 @@ describe "Kernel programs" do
       puts first_record(right).label
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      alpha
-      beta
-    OUT
+    _(result).must_answer "alpha\nbeta\n"
   end
 
   it "implicit alloc site escape param" do
@@ -758,10 +743,7 @@ describe "Kernel programs" do
       puts use(right)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      2
-    OUT
+    _(result).must_answer "2\n2\n"
   end
 
   it "implicit alloc site escape scoped locals" do
@@ -812,10 +794,7 @@ describe "Kernel programs" do
       puts use(right)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      2
-    OUT
+    _(result).must_answer "2\n2\n"
   end
 
   it "implicit alloc site holder shared method" do
@@ -921,10 +900,7 @@ describe "Kernel programs" do
       puts b
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      10
-      20
-    OUT
+    _(result).must_answer "10\n20\n"
   end
 
   it "implicit self call dispatches to a sibling method" do
@@ -1002,10 +978,7 @@ describe "Kernel programs" do
       puts c.bump(2)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      7
-    OUT
+    _(result).must_answer "5\n7\n"
   end
 
   it "OpenStruct without its require raises NameError rather than failing to compile" do
@@ -1507,10 +1480,7 @@ describe "Kernel programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      matched
-      no2
-    OUT
+    _(result).must_answer "matched\nno2\n"
   end
 
   it "poly empty p user length" do
@@ -1604,10 +1574,7 @@ describe "Kernel programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      callable object is expected
-      callable object is expected
-    OUT
+    _(result).must_answer "callable object is expected\ncallable object is expected\n"
   end
 
   it "proc to proc self" do
@@ -1996,10 +1963,7 @@ describe "Kernel programs" do
       begin; Random.new(1).rand(-3); rescue ArgumentError => e; puts e.message; end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      invalid argument - 0
-      invalid argument - -3
-    OUT
+    _(result).must_answer "invalid argument - 0\ninvalid argument - -3\n"
   end
 
   it "random seeded sequence" do
@@ -2505,9 +2469,6 @@ describe "Kernel programs" do
       puts i
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      23
-      8
-    OUT
+    _(result).must_answer "23\n8\n"
   end
 end

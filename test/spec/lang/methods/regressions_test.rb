@@ -801,10 +801,7 @@ describe "Methods: regressions" do
       t_kw_nil_default_string_call
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hi
-
-    OUT
+    _(result).must_answer "hi\n\n"
   end
 
   it "optional string param method" do
@@ -853,10 +850,7 @@ describe "Methods: regressions" do
       t_poly_box_int_array
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      something
-      something
-    OUT
+    _(result).must_answer "something\nsomething\n"
   end
 
   it "poly or returns value" do
@@ -932,9 +926,7 @@ describe "Methods: regressions" do
       t_fetch_nil_default_int_lv
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      missing
-    OUT
+    _(result).must_answer "missing\n"
   end
 
   it "no keywords param" do
@@ -954,10 +946,7 @@ describe "Methods: regressions" do
       t_no_keywords_param
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      30
-    OUT
+    _(result).must_answer "3\n30\n"
   end
 
   it "sym case" do
@@ -1081,10 +1070,7 @@ describe "Methods: regressions" do
       p g
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      {1 => 100}
-      {x: 9, y: 8}
-    OUT
+    _(result).must_answer "{1 => 100}\n{x: 9, y: 8}\n"
   end
 
   it "include? and index use ==, where uniq uses eql?" do
@@ -1428,10 +1414,7 @@ describe "Methods: regressions" do
       p c.flags[0].is_a?(Flag)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      true
-    OUT
+    _(result).must_answer "1\ntrue\n"
   end
 
   it "sub and gsub take their pattern and replacement from attribute readers" do
@@ -1466,10 +1449,7 @@ describe "Methods: regressions" do
       p sw(maybe_string(true))
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      true
-    OUT
+    _(result).must_answer "true\ntrue\n"
   end
 
   it "a shared string stays shared across a method boundary and through a reader" do
@@ -2014,10 +1994,7 @@ describe "Methods: regressions" do
       p h
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Set-Cookie: flash=hello
-      {}
-    OUT
+    _(result).must_answer "Set-Cookie: flash=hello\n{}\n"
   end
 
   it "Integer#chr and String#chr both answer a one-character string" do

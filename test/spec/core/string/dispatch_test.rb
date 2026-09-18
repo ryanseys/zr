@@ -216,10 +216,7 @@ describe "String: dispatch" do
       puts read_val(SubHolder.new("b"))
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      a
-      b
-    OUT
+    _(result).must_answer "a\nb\n"
   end
 
   it "poly dispatch ptr array" do
@@ -571,10 +568,7 @@ describe "String: dispatch" do
       puts lookup(B.new, "beta")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      from-A:alpha
-      from-B:beta
-    OUT
+    _(result).must_answer "from-A:alpha\nfrom-B:beta\n"
   end
 
   it "poly recv two arg slice" do
@@ -668,10 +662,7 @@ describe "String: dispatch" do
       puts io2               # hellohello
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hello
-      hellohello
-    OUT
+    _(result).must_answer "hello\nhellohello\n"
   end
 
   it "poly str delete chain" do
@@ -1260,10 +1251,7 @@ describe "String: dispatch" do
       puts b.h["k2"]
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      v
-      /b
-    OUT
+    _(result).must_answer "v\n/b\n"
   end
 
   it "ptr array to poly array at call" do
@@ -1309,10 +1297,7 @@ describe "String: dispatch" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      homogeneous
-      mixed_a
-    OUT
+    _(result).must_answer "homogeneous\nmixed_a\n"
   end
 
   it "str poly hash dup widen" do

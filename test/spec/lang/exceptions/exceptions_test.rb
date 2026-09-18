@@ -114,10 +114,7 @@ describe "Exceptions programs" do
       p a.own
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      NoMethodError
-      1
-    OUT
+    _(result).must_answer "NoMethodError\n1\n"
   end
 
   it "begin rescue used as an expressions value" do
@@ -894,10 +891,7 @@ describe "Exceptions programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      no exception
-      ensure always
-    OUT
+    _(result).must_answer "no exception\nensure always\n"
   end
 
   it "env error shapes" do
@@ -917,10 +911,7 @@ describe "Exceptions programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      TypeError
-      KeyError
-    OUT
+    _(result).must_answer "TypeError\nKeyError\n"
   end
 
   it "errno messages name crubys call sites" do
@@ -1606,10 +1597,7 @@ describe "Exceptions programs" do
       p c.instance_methods(false)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      invalid attribute name '1bad'
-      []
-    OUT
+    _(result).must_answer "invalid attribute name '1bad'\n[]\n"
   end
 
   it "join separator slot" do
@@ -2225,10 +2213,7 @@ describe "Exceptions programs" do
       puts "still here"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      private method 'helper' called for an instance of Box
-      still here
-    OUT
+    _(result).must_answer "private method 'helper' called for an instance of Box\nstill here\n"
   end
 
   it "protected method called from outside any related class raises at runtime" do
@@ -2517,10 +2502,7 @@ describe "Exceptions programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      one-arg raise level=7 code=3
-      explicit level=8 code=9
-    OUT
+    _(result).must_answer "one-arg raise level=7 code=3\nexplicit level=8 code=9\n"
   end
 
   it "raise takes one keyword and collapses the rest" do
@@ -2886,10 +2868,7 @@ describe "Exceptions programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      caught: boom
-      type: nope
-    OUT
+    _(result).must_answer "caught: boom\ntype: nope\n"
   end
 
   it "rescue modifier assign" do

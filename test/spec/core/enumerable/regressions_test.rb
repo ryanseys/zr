@@ -241,9 +241,7 @@ describe "Enumerable: regressions" do
       p q.each_cons(2).with_index(1).map { |(x, y), i| [x - y, i] }.drop(a - 1).take(b - a + 1).max[1]
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-    OUT
+    _(result).must_answer "3\n"
   end
 
   it "ptr array pop" do
@@ -758,9 +756,7 @@ describe "Enumerable: regressions" do
       puts __ENCODING__.to_s
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      UTF-8
-    OUT
+    _(result).must_answer "UTF-8\n"
   end
 
   it "custom enumerable wave10" do
@@ -831,10 +827,7 @@ describe "Enumerable: regressions" do
       p Random.urandom(4).bytesize
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      4
-    OUT
+    _(result).must_answer "true\n4\n"
   end
 
   it "Hash#map hands the block a key and a value, or the pair as one array" do
@@ -987,10 +980,7 @@ describe "Enumerable: regressions" do
       p prod
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      (4-2i)
-      (-6+6i)
-    OUT
+    _(result).must_answer "(4-2i)\n(-6+6i)\n"
   end
 
   it "Complex#real and #imaginary answer through a map over a mixed array" do
@@ -1028,10 +1018,7 @@ describe "Enumerable: regressions" do
       p diag
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      15
-      [1, 5, 9]
-    OUT
+    _(result).must_answer "15\n[1, 5, 9]\n"
   end
 
   it "bsearch answers over an array built at run time, not only over a literal" do
@@ -1103,10 +1090,7 @@ describe "Enumerable: regressions" do
       p "10".chars.reduce(:a) { |s, c| T[s][c] }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :b
-      :a
-    OUT
+    _(result).must_answer ":b\n:a\n"
   end
 
   it "find and detect answer nil when the block accepts nothing" do
@@ -1389,10 +1373,7 @@ describe "Enumerable: regressions" do
       p([1, 2, 3].each.zip([4, 5, 6]))
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1, 2]
-      [[1, 4], [2, 5], [3, 6]]
-    OUT
+    _(result).must_answer "[1, 2]\n[[1, 4], [2, 5], [3, 6]]\n"
   end
 
   it "a lazy chain over an empty array answers empty" do
@@ -1661,9 +1642,7 @@ describe "Enumerable: regressions" do
   end
 
   it "a lazy each_cons over a range answers its first windows" do
-    result = ze0(<<~'RUBY')
-      p (2..10).lazy.each_cons(2).first(3)
-    RUBY
+    result = ze0("p (2..10).lazy.each_cons(2).first(3)\n")
 
     _(result).must_answer "[[2, 3], [3, 4], [4, 5]]\n"
   end
@@ -1709,10 +1688,7 @@ describe "Enumerable: regressions" do
       p total
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      (1/2)
-      (1/2)
-    OUT
+    _(result).must_answer "(1/2)\n(1/2)\n"
   end
 
   it "each(&:clear) empties every element, array or hash" do
@@ -2141,10 +2117,7 @@ describe "Enumerable: regressions" do
       p s2.each_cons(2).lazy.first(2)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [[2, 3], [3, 5]]
-      [[2, 3], [3, 5]]
-    OUT
+    _(result).must_answer "[[2, 3], [3, 5]]\n[[2, 3], [3, 5]]\n"
   end
 
   it "struct enumerable wave8" do

@@ -392,10 +392,7 @@ describe "Thread: splitting and joining" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      [false, false, false, false, false, false, false]
-    OUT
+    _(result).must_answer "42\n[false, false, false, false, false, false, false]\n"
   end
 
   it "spinning thread cannot starve a sibling" do
@@ -414,10 +411,7 @@ describe "Thread: splitting and joining" do
       p spinner.alive?
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      false
-    OUT
+    _(result).must_answer "42\nfalse\n"
   end
 
   it "thread condvar" do

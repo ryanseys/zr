@@ -871,10 +871,7 @@ describe "Classes: dispatch" do
       puts Widget.new.go
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      8
-    OUT
+    _(result).must_answer "42\n8\n"
   end
 
   it "self class cmethod dispatch" do

@@ -51,10 +51,7 @@ describe "Fusion: control flow" do
       puts z.ncols
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      1
-    OUT
+    _(result).must_answer "3\n1\n"
   end
 
   it "fused loop binds every block parameter shape" do
@@ -307,10 +304,7 @@ describe "Fusion: control flow" do
       p sum_of([1, 2, 3])
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      6
-      30
-    OUT
+    _(result).must_answer "6\n30\n"
   end
 
   it "inlined loop var capture" do

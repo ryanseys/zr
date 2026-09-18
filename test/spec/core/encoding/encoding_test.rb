@@ -623,10 +623,7 @@ describe "Encoding programs" do
       p STDOUT.write("")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [180, 97]
-      0
-    OUT
+    _(result).must_answer "[180, 97]\n0\n"
   end
 
   it "io write sends raw bytes and answers the byte count" do
@@ -640,10 +637,7 @@ describe "Encoding programs" do
       File.delete(path)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      [180, 195, 169, 52, 50]
-    OUT
+    _(result).must_answer "5\n[180, 195, 169, 52, 50]\n"
   end
 
   it "iso2022jp kddi converts through its stateless form" do
@@ -1024,10 +1018,7 @@ describe "Encoding programs" do
       p c
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      532
-      532
-    OUT
+    _(result).must_answer "532\n532\n"
   end
 
   it "poly string binary methods" do
@@ -1222,10 +1213,7 @@ describe "Encoding programs" do
       p Greeter.instance_method(:hello).arity
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hi
-      0
-    OUT
+    _(result).must_answer "hi\n0\n"
   end
 
   it "stdout receives a binary strings raw byte" do

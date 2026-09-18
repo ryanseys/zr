@@ -99,10 +99,7 @@ describe "Struct: inheritance and ancestors" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      #<data Point x=500, y=3>
-      err: missing keyword: :n
-    OUT
+    _(result).must_answer "#<data Point x=500, y=3>\nerr: missing keyword: :n\n"
   end
 
   it "data super kwarg" do

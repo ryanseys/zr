@@ -12,10 +12,7 @@ describe "Syntax programs" do
       puts ARGV.length
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      []
-      0
-    OUT
+    _(result).must_answer "[]\n0\n"
   end
 
   it "bang op ruby truthy" do

@@ -358,10 +358,7 @@ describe "Fusion: searching and matching" do
       p Store.lookup(21)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      7
-      42
-    OUT
+    _(result).must_answer "7\n42\n"
   end
 
   it "dup untyped index write shape" do

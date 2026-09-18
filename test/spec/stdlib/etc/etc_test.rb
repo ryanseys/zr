@@ -114,10 +114,7 @@ describe "Etc programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      user: ArgumentError
-      group: ArgumentError
-    OUT
+    _(result).must_answer "user: ArgumentError\ngroup: ArgumentError\n"
   end
 
   it "module paths and processor count" do

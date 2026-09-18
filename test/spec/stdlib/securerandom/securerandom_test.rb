@@ -272,9 +272,6 @@ describe "SecureRandom programs" do
       puts(SecureRandom.uuid_v4 =~ /\A\h{8}-\h{4}-4\h{3}-[89ab]\h{3}-\h{12}\z/ ? "v4_ok" : "v4_BAD")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      uuid_ok
-      v4_ok
-    OUT
+    _(result).must_answer "uuid_ok\nv4_ok\n"
   end
 end

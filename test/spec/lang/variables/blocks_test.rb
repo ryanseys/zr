@@ -18,10 +18,7 @@ describe "Variables: blocks and yields" do
       p outs
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      [[1], [2]]
-    OUT
+    _(result).must_answer "42\n[[1], [2]]\n"
   end
 
   it "block locals shadow an enclosing local and never write back" do
@@ -277,10 +274,7 @@ describe "Variables: blocks and yields" do
       p procs.map(&:call)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [101, 202, 303]
-      [11, 11, 21, 21]
-    OUT
+    _(result).must_answer "[101, 202, 303]\n[11, 11, 21, 21]\n"
   end
 
   it "ordinary method yield with no block raises rescuable local jump error" do
@@ -299,10 +293,7 @@ describe "Variables: blocks and yields" do
       puts m { "with-block" }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      caught LocalJumpError
-      with-block
-    OUT
+    _(result).must_answer "caught LocalJumpError\nwith-block\n"
   end
 
   it "ractor block capturing an outer local is rejected where ruby rejects it" do

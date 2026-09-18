@@ -11,10 +11,7 @@ describe "Pack: packing and unpacking" do
       puts result
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      Hi
-    OUT
+    _(result).must_answer "2\nHi\n"
   end
 
   it "array pack string unpack" do

@@ -514,10 +514,7 @@ describe "Blocks: formatting and inspection" do
       Collector.new.each_one(1) { |a, b| puts a; puts b }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-
-    OUT
+    _(result).must_answer "1\n\n"
   end
 
   it "by key block shapes" do
@@ -1131,10 +1128,7 @@ describe "Blocks: formatting and inspection" do
       double_then_emit { |r| puts r.to_s }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      15
-    OUT
+    _(result).must_answer "2\n15\n"
   end
 
   it "new with block no block param" do

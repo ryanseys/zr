@@ -776,10 +776,7 @@ describe "Pathname programs" do
       puts Pathname("/y").class
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      /x
-      Pathname
-    OUT
+    _(result).must_answer "/x\nPathname\n"
   end
 
   it "pathname private helpers" do

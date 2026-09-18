@@ -167,10 +167,7 @@ describe "Regexp programs" do
       puts DOUBLED                       # 45
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      12
-      45
-    OUT
+    _(result).must_answer "12\n45\n"
   end
 
   it "const nil and poly scan" do
@@ -291,10 +288,7 @@ describe "Regexp programs" do
       puts "payload=" + obj.payload
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      own=kept_7
-      payload=secret_42
-    OUT
+    _(result).must_answer "own=kept_7\npayload=secret_42\n"
   end
 
   it "hash default proc gc scan" do
@@ -320,10 +314,7 @@ describe "Regexp programs" do
       puts r.source
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      world
-    OUT
+    _(result).must_answer "true\nworld\n"
   end
 
   it "invalid interpolated pattern raises a catchable regexp error" do
@@ -622,9 +613,7 @@ describe "Regexp programs" do
       puts "ok"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ok
-    OUT
+    _(result).must_answer "ok\n"
   end
 
   it "Stage 2: UTF-8 character class" do

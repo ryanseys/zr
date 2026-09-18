@@ -101,10 +101,7 @@ describe "Process programs" do
       p b.eval("Array.zz2(1, 5)")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      false
-      [5]
-    OUT
+    _(result).must_answer "false\n[5]\n"
   end
 
   it "busy loop threads are killable and raisable" do
@@ -550,10 +547,7 @@ describe "Process programs" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', status: 3
-      first
-      #<SystemExit: exit>
-    OUT
+    _(result).must_answer "first\n#<SystemExit: exit>\n", status: 3
   end
 
   it "exit poly status" do
@@ -793,9 +787,7 @@ describe "Process programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      rescued: undefined method 'define_method' for an instance of Box
-    OUT
+    _(result).must_answer "rescued: undefined method 'define_method' for an instance of Box\n"
   end
 
   it "instance exec dynamic ivar" do
@@ -924,10 +916,7 @@ describe "Process programs" do
       puts "done"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1117
-      done
-    OUT
+    _(result).must_answer "1117\ndone\n"
   end
 
   it "instance exec module builder" do
@@ -1239,10 +1228,7 @@ describe "Process programs" do
       puts "done"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      7
-      done
-    OUT
+    _(result).must_answer "7\ndone\n"
   end
 
   it "instance exec trampoline" do
@@ -1528,10 +1514,7 @@ describe "Process programs" do
       p $$.is_a?(Integer) && $$ > 0
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      true
-    OUT
+    _(result).must_answer "true\ntrue\n"
   end
 
   it "leading assignment and kernel select follow cruby" do
@@ -1739,10 +1722,7 @@ describe "Process programs" do
       puts Process.ppid >= 0
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      true
-    OUT
+    _(result).must_answer "true\ntrue\n"
   end
 
   it "process spawn" do
@@ -2177,10 +2157,7 @@ describe "Process programs" do
       puts "after join"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      in thread
-      after join
-    OUT
+    _(result).must_answer "in thread\nafter join\n"
   end
 
   it "woken waiter is not a deadlock" do

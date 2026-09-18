@@ -31,10 +31,7 @@ describe "Boxes programs" do
       p b.eval("a = []; a.tag = 5; a.tag")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      false
-      5
-    OUT
+    _(result).must_answer "false\n5\n"
   end
 
   it "box class ivar is not readable in the box" do
@@ -59,10 +56,7 @@ describe "Boxes programs" do
       p b.eval("Array.singleton_methods(false).include?(:zzz)")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      false
-      true
-    OUT
+    _(result).must_answer "false\ntrue\n"
   end
 
   it "box class variable is its own" do
@@ -75,10 +69,7 @@ describe "Boxes programs" do
       p b.eval("Array.cv")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :nome
-      3
-    OUT
+    _(result).must_answer ":nome\n3\n"
   end
 
   it "box const set reaches main" do
@@ -103,10 +94,7 @@ describe "Boxes programs" do
       p b.eval("Array::BOXC")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :namee
-      11
-    OUT
+    _(result).must_answer ":namee\n11\n"
   end
 
   it "box exceptions are rescuable in main" do
@@ -464,10 +452,7 @@ describe "Boxes programs" do
       p b.eval("[1,2].size")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      99
-    OUT
+    _(result).must_answer "2\n99\n"
   end
 
   it "box removes only its own class method 2" do
@@ -485,10 +470,7 @@ describe "Boxes programs" do
       p String.respond_to?(:zz)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :nome
-      false
-    OUT
+    _(result).must_answer ":nome\nfalse\n"
   end
 
   it "box reopen after the first loses its mixin" do
@@ -647,10 +629,7 @@ describe "Boxes programs" do
       puts c.find(1).to_s
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      10
-      twenty
-    OUT
+    _(result).must_answer "10\ntwenty\n"
   end
 
   it "boxes" do
@@ -777,10 +756,7 @@ describe "Boxes programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      nil
-      NameError
-    OUT
+    _(result).must_answer "nil\nNameError\n"
   end
 
   it "disabled box carries no gate rows" do
@@ -856,10 +832,7 @@ describe "Boxes programs" do
       x = ba; y = bb; puts x.id; puts y.id
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      2
-    OUT
+    _(result).must_answer "1\n2\n"
   end
 
   it "main definitions are invisible inside a box" do
@@ -893,10 +866,7 @@ describe "Boxes programs" do
       box.eval("begin; p VERSION_COPY; rescue NameError; puts 'invisible'; end")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      4.0.6
-      invisible
-    OUT
+    _(result).must_answer "4.0.6\ninvisible\n"
   end
 
   it "module acc dispatch param box" do
@@ -949,10 +919,7 @@ describe "Boxes programs" do
       puts Backend.db.fetch("alpha")     # 5
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      5
-    OUT
+    _(result).must_answer "2\n5\n"
   end
 
   it "nullable array keyword box" do
@@ -1094,10 +1061,7 @@ describe "Boxes programs" do
       puts find_or_nil("no").inspect
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      found
-      nil
-    OUT
+    _(result).must_answer "found\nnil\n"
   end
 
   it "ruby box surface" do
@@ -1168,10 +1132,7 @@ describe "Boxes programs" do
       p defined?(RUNTIME_BOX_CONST)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      7
-      nil
-    OUT
+    _(result).must_answer "7\nnil\n"
   end
 
   it "shift operator boxes an object typed argument" do
@@ -1195,10 +1156,7 @@ describe "Boxes programs" do
       puts build[0].n
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      7
-    OUT
+    _(result).must_answer "1\n7\n"
   end
 
   it "snippet mints no compile time box" do

@@ -61,10 +61,7 @@ describe "OpenStruct programs" do
       puts defined?(OpenStruct) ? "visible after load" : "invisible"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      visible after load
-    OUT
+    _(result).must_answer "1\nvisible after load\n"
   end
 
   it "ostruct nil union to h" do

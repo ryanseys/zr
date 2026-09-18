@@ -357,10 +357,7 @@ describe "Pattern programs" do
       puts describe7({ type: :halt })
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      no movement
-      stopping
-    OUT
+    _(result).must_answer "no movement\nstopping\n"
   end
 
   it "a reduce accumulator widens to hold what the pattern-matching reducer answers" do
@@ -386,10 +383,7 @@ describe "Pattern programs" do
       puts history.length
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      2
-    OUT
+    _(result).must_answer "5\n2\n"
   end
 
   it "underscore name may bind inside an alternation" do

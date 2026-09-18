@@ -248,10 +248,7 @@ describe "Blocks: control flow" do
       puts result
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      stopped
-    OUT
+    _(result).must_answer "1\nstopped\n"
   end
 
   it "break leaves the define method call it was given to" do
@@ -972,10 +969,7 @@ describe "Blocks: control flow" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      rescued: boom
-      localjump: unexpected return
-    OUT
+    _(result).must_answer "rescued: boom\nlocaljump: unexpected return\n"
   end
 
   it "proc return scopes" do
@@ -1136,10 +1130,7 @@ describe "Blocks: control flow" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      n=1 attempts=2
-      n=2 attempts=3
-    OUT
+    _(result).must_answer "n=1 attempts=2\nn=2 attempts=3\n"
   end
 
   it "return in a block leaves the lambda around it" do
@@ -1450,10 +1441,7 @@ describe "Blocks: control flow" do
       puts f.maybe_yield
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      84
-      -1
-    OUT
+    _(result).must_answer "84\n-1\n"
   end
 
   it "yield call assigned return" do

@@ -299,10 +299,7 @@ describe "Exceptions: blocks and yields" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      123
-      localjump: unexpected return
-    OUT
+    _(result).must_answer "123\nlocaljump: unexpected return\n"
   end
 
   it "proc unknown tail raise" do

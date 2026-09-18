@@ -791,10 +791,7 @@ describe "Enumerable programs" do
       puts g.resume
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      suspended_mid_rescue
-      fiber's own
-    OUT
+    _(result).must_answer "suspended_mid_rescue\nfiber's own\n"
   end
 
   it "include enumerable block each" do
@@ -1026,10 +1023,7 @@ describe "Enumerable programs" do
       puts outer.resume
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      from_inner
-      inner_done
-    OUT
+    _(result).must_answer "from_inner\ninner_done\n"
   end
 
   it "never yields" do
@@ -1291,10 +1285,7 @@ describe "Enumerable programs" do
       puts (1..3).my_join
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      123
-      123
-    OUT
+    _(result).must_answer "123\n123\n"
   end
 
   it "resolves before method missing" do
@@ -1322,10 +1313,7 @@ describe "Enumerable programs" do
       puts s.nope
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [10, 20, 30]
-      mm:nope
-    OUT
+    _(result).must_answer "[10, 20, 30]\nmm:nope\n"
   end
 
   it "resuming a dead fiber raises a catchable fiber error" do
@@ -1575,9 +1563,6 @@ describe "Enumerable programs" do
       puts x.alive?
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      caught: boom in fiber
-      false
-    OUT
+    _(result).must_answer "caught: boom in fiber\nfalse\n"
   end
 end

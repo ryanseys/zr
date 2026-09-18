@@ -21,10 +21,7 @@ describe "Modules: changing in place" do
       p b.eval("[1, 2].size")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      99
-    OUT
+    _(result).must_answer "2\n99\n"
   end
 
   it "class prepend ancestors" do

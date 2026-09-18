@@ -87,10 +87,7 @@ describe "Blocks: dispatch" do
       puts "c2=#{c2}"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      count=1
-      c2=1
-    OUT
+    _(result).must_answer "count=1\nc2=1\n"
   end
 
   it "block forwarded into poly capture" do

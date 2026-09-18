@@ -96,10 +96,7 @@ describe "Exceptions: inheritance and ancestors" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      caught boom
-      caught direct
-    OUT
+    _(result).must_answer "caught boom\ncaught direct\n"
   end
 
   it "exception detailed message" do
@@ -412,10 +409,7 @@ describe "Exceptions: inheritance and ancestors" do
       T::Er.go("x") { |e| puts e.class; puts e.message }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      T::EE
-      x
-    OUT
+    _(result).must_answer "T::EE\nx\n"
   end
 
   it "exception subclass ivar" do
@@ -435,10 +429,7 @@ describe "Exceptions: inheritance and ancestors" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      boom
-      the-record
-    OUT
+    _(result).must_answer "boom\nthe-record\n"
   end
 
   it "exception subclass ivar reraise" do
@@ -528,10 +519,7 @@ describe "Exceptions: inheritance and ancestors" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      validation failed
-      the-rec
-    OUT
+    _(result).must_answer "validation failed\nthe-rec\n"
   end
 
   it "exception subclass result slot" do
@@ -569,10 +557,7 @@ describe "Exceptions: inheritance and ancestors" do
       p ok
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      nil
-      true
-    OUT
+    _(result).must_answer "nil\ntrue\n"
   end
 
   it "exception super message" do
@@ -1075,9 +1060,7 @@ describe "Exceptions: inheritance and ancestors" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      super: no superclass method 'as_json' for an instance of Rec
-    OUT
+    _(result).must_answer "super: no superclass method 'as_json' for an instance of Rec\n"
   end
 
   it "user exception subclass class method constructs via runtime" do

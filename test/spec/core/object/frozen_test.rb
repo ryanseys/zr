@@ -29,10 +29,7 @@ describe "Object: frozen literals" do
       puts Box.new.seal.items.inspect
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      [1, 2, 3]
-    OUT
+    _(result).must_answer "42\n[1, 2, 3]\n"
   end
 
   it "bool nil immediate edges" do
@@ -443,10 +440,7 @@ describe "Object: frozen literals" do
       puts b.frozen?
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      99
-      true
-    OUT
+    _(result).must_answer "99\ntrue\n"
   end
 
   it "freeze user object" do

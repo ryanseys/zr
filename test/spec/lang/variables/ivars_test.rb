@@ -172,10 +172,7 @@ describe "Variables: instance and class variables" do
       puts s.count
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      3
-    OUT
+    _(result).must_answer "3\n3\n"
   end
 
   it "a class variable is one slot the whole ancestry shares" do
@@ -305,10 +302,7 @@ describe "Variables: instance and class variables" do
       puts Conf.secret
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      0
-      hi
-    OUT
+    _(result).must_answer "0\nhi\n"
   end
 
   it "cvar empty container" do
@@ -474,10 +468,7 @@ describe "Variables: instance and class variables" do
       puts Counter.n
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      100
-      100
-    OUT
+    _(result).must_answer "100\n100\n"
   end
 
   it "instance variable reflection on objects" do
@@ -759,10 +750,7 @@ describe "Variables: instance and class variables" do
       puts r.total
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      12
-      12
-    OUT
+    _(result).must_answer "12\n12\n"
   end
 
   it "multi assign to ivar and global targets" do
@@ -779,10 +767,7 @@ describe "Variables: instance and class variables" do
       puts $g2
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      10
-      99
-    OUT
+    _(result).must_answer "10\n99\n"
   end
 
   it "reading the same ivar or captured local twice in one expression does not deadlock" do
@@ -821,10 +806,7 @@ describe "Variables: instance and class variables" do
       puts block_result
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      49
-      25
-    OUT
+    _(result).must_answer "49\n25\n"
   end
 
   it "top level class variable raises" do
@@ -847,10 +829,7 @@ describe "Variables: instance and class variables" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      class variable access from toplevel
-      class variable access from toplevel
-    OUT
+    _(result).must_answer "class variable access from toplevel\nclass variable access from toplevel\n"
   end
 
   it "unrelated class own cvar is independent storage" do
@@ -871,9 +850,6 @@ describe "Variables: instance and class variables" do
       puts Other.new.count
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      0
-      100
-    OUT
+    _(result).must_answer "0\n100\n"
   end
 end

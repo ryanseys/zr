@@ -254,10 +254,7 @@ describe "Methods: defining and naming methods" do
       puts g.hola
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hi
-      hi
-    OUT
+    _(result).must_answer "hi\nhi\n"
   end
 
   it "alias frame names the method it was born as" do
@@ -745,10 +742,7 @@ describe "Methods: defining and naming methods" do
       puts Farewell.new.bye
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      new(base)
-      later(bye)
-    OUT
+    _(result).must_answer "new(base)\nlater(bye)\n"
   end
 
   it "alias of inherited method" do
@@ -1542,10 +1536,7 @@ describe "Methods: defining and naming methods" do
       p c.new.two(1, 2)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      wrong number of arguments (given 1, expected 2)
-      [1, 2]
-    OUT
+    _(result).must_answer "wrong number of arguments (given 1, expected 2)\n[1, 2]\n"
   end
 
   it "define method from module unbound" do
@@ -1783,10 +1774,7 @@ describe "Methods: defining and naming methods" do
       p o.respond_to?(:bar)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      false
-    OUT
+    _(result).must_answer "1\nfalse\n"
   end
 
   it "issue229 uncalled cls method" do
@@ -2011,10 +1999,7 @@ describe "Methods: defining and naming methods" do
       p Builder.instance_methods(false)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      made node
-      [:self]
-    OUT
+    _(result).must_answer "made node\n[:self]\n"
   end
 
   it "module instance method unbound" do

@@ -597,10 +597,7 @@ describe "Numeric: comparison and equality" do
       puts temps.max.deg
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      9
-    OUT
+    _(result).must_answer "3\n9\n"
   end
 
   it "float bignum compare" do
@@ -868,10 +865,7 @@ describe "Numeric: comparison and equality" do
       p((a <=> b).class)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      0
-      Integer
-    OUT
+    _(result).must_answer "0\nInteger\n"
   end
 
   it "range eq across numeric" do

@@ -19,10 +19,7 @@ describe "Pattern: pattern matching" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      small
-      big
-    OUT
+    _(result).must_answer "small\nbig\n"
   end
 
   it "case in bare bind pattern matches anything" do
@@ -123,10 +120,7 @@ describe "Pattern: pattern matching" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      5
-    OUT
+    _(result).must_answer "5\n5\n"
   end
 
   it "case in deconstruct" do
@@ -184,10 +178,7 @@ describe "Pattern: pattern matching" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1 2
-      not found
-    OUT
+    _(result).must_answer "1 2\nnot found\n"
   end
 
   it "case in mixed result type" do

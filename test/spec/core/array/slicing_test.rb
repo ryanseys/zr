@@ -331,10 +331,7 @@ describe "Array: slicing" do
       puts result_pf[1]   # 2.5
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1.5
-      2.5
-    OUT
+    _(result).must_answer "1.5\n2.5\n"
   end
 
   it "Top-level def, [] stored in local first" do

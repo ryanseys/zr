@@ -522,10 +522,7 @@ describe "Hash: regressions" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      a: 1
-      b: 2
-    OUT
+    _(result).must_answer "a: 1\nb: 2\n"
   end
 
   it "merge between two hashes whose value types differ widens the result" do
@@ -972,10 +969,7 @@ describe "Hash: regressions" do
       puts :foo.name.length
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hello
-      3
-    OUT
+    _(result).must_answer "hello\n3\n"
   end
 
   it "time subtraction returns float" do
@@ -990,10 +984,7 @@ describe "Hash: regressions" do
       puts diff.class
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      Float
-    OUT
+    _(result).must_answer "true\nFloat\n"
   end
 
   it "the comparison operators, min, max, invert, values_at and default answer on an empty hash" do

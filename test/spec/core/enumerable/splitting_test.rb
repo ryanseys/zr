@@ -122,10 +122,7 @@ describe "Enumerable: splitting and joining" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ArgumentError
-      ArgumentError
-    OUT
+    _(result).must_answer "ArgumentError\nArgumentError\n"
   end
 
   it "enumerable breadth matches the oracle" do
@@ -213,9 +210,7 @@ describe "Enumerable: splitting and joining" do
   end
 
   it "enumerable chunk groups consecutive runs" do
-    result = ze0(<<~'RUBY')
-      p [1, 1, 2, 2, 2, 3].chunk { |x| x }.map { |k, v| [k, v.size] }
-    RUBY
+    result = ze0("p [1, 1, 2, 2, 2, 3].chunk { |x| x }.map { |k, v| [k, v.size] }\n")
 
     _(result).must_answer "[[1, 2], [2, 3], [3, 1]]\n"
   end

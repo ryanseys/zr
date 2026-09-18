@@ -99,10 +99,7 @@ describe "Hash: pattern matching" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      2
-    OUT
+    _(result).must_answer "1\n2\n"
   end
 
   it "case in hash pattern no more keys rejects extra keys" do
@@ -119,10 +116,7 @@ describe "Hash: pattern matching" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      exact match
-      extra keys rejected
-    OUT
+    _(result).must_answer "exact match\nextra keys rejected\n"
   end
 
   it "case in hash pattern object" do

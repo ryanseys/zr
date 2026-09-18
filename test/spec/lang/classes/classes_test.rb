@@ -160,10 +160,7 @@ describe "Classes programs" do
       p q.class
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :created
-      Object
-    OUT
+    _(result).must_answer ":created\nObject\n"
   end
 
   it "bigint operand rooted" do
@@ -199,10 +196,7 @@ describe "Classes programs" do
       p r.acc & 0xFFFF
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3768812167
-      33415
-    OUT
+    _(result).must_answer "3768812167\n33415\n"
   end
 
   it "call or write through writer" do
@@ -890,10 +884,7 @@ describe "Classes programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      TOP is not a class
-      lang/classes/classes_test.rb:5: previous definition of TOP was here
-    OUT
+    _(result).must_answer "TOP is not a class\nlang/classes/classes_test.rb:5: previous definition of TOP was here\n"
   end
 
   it "class new creates an anonymous runtime class" do
@@ -1611,10 +1602,7 @@ describe "Classes programs" do
       p K.who
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Keystore:k
-      K
-    OUT
+    _(result).must_answer "Keystore:k\nK\n"
   end
 
   it "constructor pushes the frames ruby pushes" do
@@ -1820,9 +1808,7 @@ describe "Classes programs" do
   end
 
   it "defined on a begin expression classifies as expression" do
-    result = ze0(<<~'RUBY')
-      puts defined?(begin; 1; end)
-    RUBY
+    result = ze0("puts defined?(begin; 1; end)\n")
 
     _(result).must_answer "expression\n"
   end
@@ -2181,10 +2167,7 @@ describe "Classes programs" do
       C.new.show                    # got: ivar!
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      got: global!
-      got: ivar!
-    OUT
+    _(result).must_answer "got: global!\ngot: ivar!\n"
   end
 
   it "harness batch 2453 2456" do
@@ -2510,10 +2493,7 @@ describe "Classes programs" do
       puts Bag.new([1]).n
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      0
-      1
-    OUT
+    _(result).must_answer "0\n1\n"
   end
 
   it "new on a class with no initialize rejects arguments" do
@@ -3515,10 +3495,7 @@ describe "Classes programs" do
       puts B1::Widget.new.tag
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      a
-      b
-    OUT
+    _(result).must_answer "a\nb\n"
   end
 
   it "scoped builtin class values" do
@@ -3570,10 +3547,7 @@ describe "Classes programs" do
       puts n.children.size
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      2
-    OUT
+    _(result).must_answer "3\n2\n"
   end
 
   it "superclass must be a plain class" do

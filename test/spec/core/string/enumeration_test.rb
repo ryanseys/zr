@@ -17,10 +17,7 @@ describe "String: enumeration" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      TypeError
-      TypeError
-    OUT
+    _(result).must_answer "TypeError\nTypeError\n"
   end
 
   it "filter map" do
@@ -413,9 +410,6 @@ describe "String: enumeration" do
       puts Conn.new("world").kind
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      string:hello
-      string:world
-    OUT
+    _(result).must_answer "string:hello\nstring:world\n"
   end
 end

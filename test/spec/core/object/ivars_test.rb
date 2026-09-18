@@ -108,10 +108,7 @@ describe "Object: instance and class variables" do
       puts c.b
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      1
-    OUT
+    _(result).must_answer "1\n1\n"
   end
 
   it "class body ivar write initializes class level state" do
@@ -1944,10 +1941,7 @@ describe "Object: instance and class variables" do
       puts M.get
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      100
-    OUT
+    _(result).must_answer "42\n100\n"
   end
 
   it "module ivar nil poly" do

@@ -73,9 +73,6 @@ describe "IO: the io/wait and io/nonblock libraries" do
       puts(w.wait_writable(1) ? "writable" : "timeout")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      readable
-      writable
-    OUT
+    _(result).must_answer "readable\nwritable\n"
   end
 end

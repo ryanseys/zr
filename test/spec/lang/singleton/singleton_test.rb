@@ -59,10 +59,7 @@ describe "Singleton programs" do
       puts Config.capped(9)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      cfg:host
-      3
-    OUT
+    _(result).must_answer "cfg:host\n3\n"
   end
 
   it "class shift self defines multiple class methods at once" do
@@ -81,10 +78,7 @@ describe "Singleton programs" do
       puts MathUtils.cube(3)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      16
-      27
-    OUT
+    _(result).must_answer "16\n27\n"
   end
 
   it "class singleton class p" do
@@ -95,10 +89,7 @@ describe "Singleton programs" do
       p M.singleton_class?
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      false
-      false
-    OUT
+    _(result).must_answer "false\nfalse\n"
   end
 
   it "constant free singleton body loses its cref" do
@@ -3295,10 +3286,7 @@ describe "Singleton programs" do
       puts Widget.direct
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      11
-    OUT
+    _(result).must_answer "5\n11\n"
   end
 
   it "value has no singleton class" do

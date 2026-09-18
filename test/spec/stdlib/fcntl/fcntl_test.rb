@@ -98,9 +98,6 @@ describe "Fcntl programs" do
       f.close
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1, 1]
-      1
-    OUT
+    _(result).must_answer "[1, 1]\n1\n"
   end
 end

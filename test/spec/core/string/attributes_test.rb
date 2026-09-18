@@ -183,10 +183,7 @@ describe "String: generated attribute methods" do
       puts p1.show_y
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      99
-    OUT
+    _(result).must_answer "1\n99\n"
   end
 
   it "attr reader override type" do
@@ -449,10 +446,7 @@ describe "String: generated attribute methods" do
       p o.y
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      99
-    OUT
+    _(result).must_answer "5\n99\n"
   end
 
   it "module attr alias include" do

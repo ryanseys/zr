@@ -285,10 +285,7 @@ describe "Variables: slicing" do
       puts $or_count     # 5
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      5
-    OUT
+    _(result).must_answer "5\n5\n"
   end
 
   it "And-write ($x &&= val)" do
@@ -309,10 +306,7 @@ describe "Variables: slicing" do
       puts $and_count    # 0
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      10
-      0
-    OUT
+    _(result).must_answer "10\n0\n"
   end
 
   it "Target (multi-assign LHS for globals)" do

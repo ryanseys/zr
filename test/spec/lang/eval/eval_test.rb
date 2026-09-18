@@ -1340,10 +1340,7 @@ describe "Eval programs" do
       p EvalKlass.instance_methods(false).sort
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      [:hi]
-    OUT
+    _(result).must_answer "42\n[:hi]\n"
   end
 
   it "class_eval writes a def on its receiver, and a bare private is a cursor the later defs read" do
@@ -1886,10 +1883,7 @@ describe "Eval programs" do
       p eval("2 * 3" + "")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      6
-    OUT
+    _(result).must_answer "2\n6\n"
   end
 
   it "instance eval binds the receiver and its singleton" do
@@ -1903,10 +1897,7 @@ describe "Eval programs" do
       p obj.dbl
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      6
-      12
-    OUT
+    _(result).must_answer "6\n12\n"
   end
 
   it "instance eval builtin receiver" do
@@ -2505,10 +2496,7 @@ describe "Eval programs" do
       puts eval("Widget".dup)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      Widget
-    OUT
+    _(result).must_answer "42\nWidget\n"
   end
 
   it "runtime eval defines classes and modules" do

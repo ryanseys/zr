@@ -10,10 +10,7 @@ describe "String: blocks and yields" do
       p h.default_proc.class
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Proc
-      Proc
-    OUT
+    _(result).must_answer "Proc\nProc\n"
   end
 
   it "kernel rational string zerodenom" do
@@ -68,10 +65,7 @@ describe "String: blocks and yields" do
       puts g.call
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      arrow
-      7
-    OUT
+    _(result).must_answer "arrow\n7\n"
   end
 
   it "map block string new join" do

@@ -27,10 +27,7 @@ describe "Variables programs" do
       puts handle2
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [world]
-      ok
-    OUT
+    _(result).must_answer "[world]\nok\n"
   end
 
   it "assignment rescue modifier" do
@@ -188,10 +185,7 @@ describe "Variables programs" do
       p n
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      60
-      7
-    OUT
+    _(result).must_answer "60\n7\n"
   end
 
   it "case in hash pattern shorthand binds local named after key" do
@@ -353,10 +347,7 @@ describe "Variables programs" do
       puts Robot.new.greet
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      overridden
-      hi
-    OUT
+    _(result).must_answer "overridden\nhi\n"
   end
 
   it "class stored in a variable constructs and dispatches" do
@@ -376,10 +367,7 @@ describe "Variables programs" do
       puts x.name
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      Widget
-    OUT
+    _(result).must_answer "5\nWidget\n"
   end
 
   it "compound assignment on a frozen array raises after the read" do
@@ -458,10 +446,7 @@ describe "Variables programs" do
       puts t.calls
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      1
-    OUT
+    _(result).must_answer "5\n1\n"
   end
 
   it "condition variable wait signal and broadcast coordinate threads" do
@@ -612,10 +597,7 @@ describe "Variables programs" do
       render(2)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      4.0
-      4.0
-    OUT
+    _(result).must_answer "4.0\n4.0\n"
   end
 
   it "defined asks every part as written" do
@@ -862,10 +844,7 @@ describe "Variables programs" do
       puts count
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      10
-      110
-    OUT
+    _(result).must_answer "10\n110\n"
   end
 
   it "fiber rebinding a captured local propagates to the enclosing scope" do
@@ -898,10 +877,7 @@ describe "Variables programs" do
       puts a[0]
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      can't modify frozen Array: [1, 2, 3]
-      1
-    OUT
+    _(result).must_answer "can't modify frozen Array: [1, 2, 3]\n1\n"
   end
 
   it "frozen hash assignment raises with the inspect bearing message" do
@@ -916,10 +892,7 @@ describe "Variables programs" do
       puts h.length
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      can't modify frozen Hash: {a: 1}
-      1
-    OUT
+    _(result).must_answer "can't modify frozen Hash: {a: 1}\n1\n"
   end
 
   it "frozen string assignment raises with the quoted inspect message" do
@@ -1317,10 +1290,7 @@ describe "Variables programs" do
       puts y
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      2
-    OUT
+    _(result).must_answer "5\n2\n"
   end
 
   it "local reassigned to a different class still compiles" do
@@ -1504,10 +1474,7 @@ describe "Variables programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1, -1]
-      [2, 0]
-    OUT
+    _(result).must_answer "[1, -1]\n[2, 0]\n"
   end
 
   it "massign underfill nil" do
@@ -1574,10 +1541,7 @@ describe "Variables programs" do
       p [c, d]
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [5, nil]
-      [1, 2]
-    OUT
+    _(result).must_answer "[5, nil]\n[1, 2]\n"
   end
 
   it "multi assign into attr targets correctly calls the setter" do
@@ -1879,10 +1843,7 @@ describe "Variables programs" do
       p [e, f, g, h, i]
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1, 2, 3, 4]
-      [10, 20, 30, 40, 50]
-    OUT
+    _(result).must_answer "[1, 2, 3, 4]\n[10, 20, 30, 40, 50]\n"
   end
 
   it "nested massign poly" do
@@ -2171,10 +2132,7 @@ describe "Variables programs" do
       puts p.pick(false).tag
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      foo
-      bar
-    OUT
+    _(result).must_answer "foo\nbar\n"
   end
 
   it "op assign tail return" do
@@ -2278,10 +2236,7 @@ describe "Variables programs" do
       puts local_stmt                # 17
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      15
-      17
-    OUT
+    _(result).must_answer "15\n17\n"
   end
 
   it "operators work on locals not just literals" do
@@ -2323,10 +2278,7 @@ describe "Variables programs" do
       puts MAX
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      100
-      100
-    OUT
+    _(result).must_answer "100\n100\n"
   end
 
   it "or assign on an attribute short circuits without calling the setter" do
@@ -2343,10 +2295,7 @@ describe "Variables programs" do
       puts b.n
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      42
-    OUT
+    _(result).must_answer "5\n42\n"
   end
 
   it "or assignment writes only when it has to" do
@@ -2550,10 +2499,7 @@ describe "Variables programs" do
       puts picker.pick(false).tag
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      foo
-      bar
-    OUT
+    _(result).must_answer "foo\nbar\n"
   end
 
   it "require relative splices in document order and shares the global namespace" do
@@ -2696,10 +2642,7 @@ describe "Variables programs" do
       puts eval("@iv + 1".dup)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      global
-      42
-    OUT
+    _(result).must_answer "global\n42\n"
   end
 
   it "std streams not reassigned" do
@@ -2779,10 +2722,7 @@ describe "Variables programs" do
       puts Sub.new.sub_x
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      99
-      99
-    OUT
+    _(result).must_answer "99\n99\n"
   end
 
   it "thread current name status and thread locals" do
@@ -2876,10 +2816,7 @@ describe "Variables programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      can't clone Uncopyable
-    OUT
+    _(result).must_answer "2\ncan't clone Uncopyable\n"
   end
 
   it "verbose global default" do

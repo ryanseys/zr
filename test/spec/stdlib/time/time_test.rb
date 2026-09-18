@@ -337,10 +337,7 @@ describe "Time: the time library" do
       t_times_map_nested_array
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [[1, 2, 3], [1, 2, 3]]
-      [[10, 20, 30], [10, 20, 30], [10, 20, 30]]
-    OUT
+    _(result).must_answer "[[1, 2, 3], [1, 2, 3]]\n[[10, 20, 30], [10, 20, 30], [10, 20, 30]]\n"
   end
 
   it "toplevel ivar array" do

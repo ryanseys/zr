@@ -261,10 +261,7 @@ describe "JSON programs" do
       p JSON.parse("[9007199254740993]").first
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      123456789012345678901234567890
-      9007199254740993
-    OUT
+    _(result).must_answer "123456789012345678901234567890\n9007199254740993\n"
   end
 
   it "generate on a self-referential array raises JSON::NestingError" do
@@ -1473,10 +1470,7 @@ describe "JSON programs" do
       puts "done"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ok
-      done
-    OUT
+    _(result).must_answer "ok\ndone\n"
   end
 
   it "require modifier" do
@@ -1511,10 +1505,7 @@ describe "JSON programs" do
       require "json"; puts JSON.generate([1, 2, 3])
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      start
-      [1,2,3]
-    OUT
+    _(result).must_answer "start\n[1,2,3]\n"
   end
 
   it "require unsupported lib" do
@@ -1528,10 +1519,7 @@ describe "JSON programs" do
       puts "ok"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1,2,3]
-      ok
-    OUT
+    _(result).must_answer "[1,2,3]\nok\n"
   end
 
   it "require works in non top level positions" do

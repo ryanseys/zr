@@ -133,10 +133,7 @@ describe "Array: formatting and inspection" do
       puts "after"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [[1, 1], [1, 2], [2, 1], [2, 2]]
-      after
-    OUT
+    _(result).must_answer "[[1, 1], [1, 2], [2, 1], [2, 2]]\nafter\n"
   end
 
   it "closure captures object array" do
@@ -246,10 +243,7 @@ describe "Array: formatting and inspection" do
       articles.each { |a| puts a.id.to_s + ": " + a.comments.length.to_s }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1: 2
-      2: 1
-    OUT
+    _(result).must_answer "1: 2\n2: 1\n"
   end
 
   it "empty int array min max" do

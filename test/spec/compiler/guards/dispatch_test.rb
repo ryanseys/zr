@@ -735,10 +735,7 @@ describe "Guards: dispatch" do
       puts C.which
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      taken
-      taken class method
-    OUT
+    _(result).must_answer "taken\ntaken class method\n"
   end
 
   it "logical pointer guard" do
@@ -765,10 +762,7 @@ describe "Guards: dispatch" do
       puts h.active?
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      false
-    OUT
+    _(result).must_answer "true\nfalse\n"
   end
 
   it "named build time predicate is still a build time guard" do

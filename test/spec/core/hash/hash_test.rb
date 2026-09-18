@@ -217,10 +217,7 @@ describe "Hash programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      true
-    OUT
+    _(result).must_answer "true\ntrue\n"
   end
 
   it "empty hash const value" do
@@ -1964,10 +1961,7 @@ describe "Hash programs" do
       p forward(9, k: 3)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [9, {k: 3}]
-      [9, [{k: 3}], 2, {}]
-    OUT
+    _(result).must_answer "[9, {k: 3}]\n[9, [{k: 3}], 2, {}]\n"
   end
 
   it "subclass sees only the calls ruby makes" do
@@ -2201,10 +2195,7 @@ describe "Hash programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      raised
-      true
-    OUT
+    _(result).must_answer "raised\ntrue\n"
   end
 
   it "thread value hash tail" do

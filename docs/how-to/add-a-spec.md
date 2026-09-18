@@ -152,11 +152,30 @@ bare over the whole suite before you push a batch of renames, or a
 sentence you wrote can collide with one in an area you were not looking
 at.
 
-A program is `<<~'RUBY'` and an answer is `<<~'OUT'`, both with the tag
-quoted — an unquoted tag makes `#{}` inside a Ruby program interpolate
-before ze0 ever sees it. Use `<<~'PROGRAM'` for a program that opens a
-`RUBY` heredoc of its own, since a `<<~` terminator may be indented and
-the inner one would otherwise end the outer.
+A program is `<<~'RUBY'`, what it printed is `<<~'OUT'` and what it
+wrote to stderr is `<<~'ERR'`, all with the tag quoted — an unquoted tag
+makes `#{}` inside a Ruby program interpolate before ze0 ever sees it.
+Use `<<~'PROGRAM'` for a program that opens a `RUBY` heredoc of its own,
+since a `<<~` terminator may be indented and the inner one would
+otherwise end the outer.
+
+A heredoc earns its keep when what it holds is **lines**. One or two
+lines that need no escaping are a string, and a string is one line of
+spec file instead of four:
+
+```ruby
+_(result).must_answer "6\n[3, 4, 5]\n"          # yes
+_(result).must_answer <<~'OUT'                  # not for two lines
+  6
+  [3, 4, 5]
+OUT
+```
+
+Three lines or more, anything holding a `"` or a `\`, and anything with
+a trailing space on a line stay heredocs — a string of those is a wall
+of escapes, which is what the heredocs are here to avoid. The same cut
+goes the other way: an answer too large to read at all belongs in
+`test/fixtures` behind `fixture("area/name.out")`.
 
 ## Run it
 

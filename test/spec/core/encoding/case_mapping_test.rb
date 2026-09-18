@@ -12,10 +12,7 @@ describe "Encoding: case mapping" do
       p "abc".casecmp?("ABC".encode("UTF-16LE"))
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      nil
-      nil
-    OUT
+    _(result).must_answer "nil\nnil\n"
   end
 
   it "cesu8 holds unicode code points" do

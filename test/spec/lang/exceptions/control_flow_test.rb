@@ -662,10 +662,7 @@ describe "Exceptions: control flow" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      inner ok after 2
-      outer ran 1 times
-    OUT
+    _(result).must_answer "inner ok after 2\nouter ran 1 times\n"
   end
 
   it "next inside begin rescue continues the enclosing native loop" do
@@ -1054,10 +1051,7 @@ describe "Exceptions: control flow" do
       Attempt.new.run
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      succeeded after 3 attempts
-      ensure ran, attempts=3
-    OUT
+    _(result).must_answer "succeeded after 3 attempts\nensure ran, attempts=3\n"
   end
 
   it "return from a rescue body still runs ensure exactly once" do
@@ -1076,10 +1070,7 @@ describe "Exceptions: control flow" do
       puts ReturnTester.new.m
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ensure ran before return
-      returned
-    OUT
+    _(result).must_answer "ensure ran before return\nreturned\n"
   end
 
   it "return from ensure overrides return from the begin body" do

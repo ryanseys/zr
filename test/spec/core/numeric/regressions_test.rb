@@ -189,10 +189,7 @@ describe "Numeric: regressions" do
       p 5.5.divmod(2)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [14, 2]
-      [2, 1.5]
-    OUT
+    _(result).must_answer "[14, 2]\n[2, 1.5]\n"
   end
 
   it "integer lcm" do
@@ -1156,10 +1153,7 @@ describe "Numeric: regressions" do
       puts $0.length > 0
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      true
-    OUT
+    _(result).must_answer "true\ntrue\n"
   end
 
   it "multi write as expression" do
@@ -1401,10 +1395,7 @@ describe "Numeric: regressions" do
       puts result.class
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      Integer
-    OUT
+    _(result).must_answer "1\nInteger\n"
   end
 
   it "integer nonzero" do
@@ -1432,10 +1423,7 @@ describe "Numeric: regressions" do
       puts (1...5).size
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      4
-    OUT
+    _(result).must_answer "5\n4\n"
   end
 
   it "range size string" do
@@ -1666,10 +1654,7 @@ describe "Numeric: regressions" do
       p f
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      12
-      5.0
-    OUT
+    _(result).must_answer "12\n5.0\n"
   end
 
   it "a Complex raised to a Rational power" do

@@ -644,10 +644,7 @@ describe "Hash: formatting and inspection" do
       puts build_attrs
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      class=primary id=go
-      class=btn id=foo
-    OUT
+    _(result).must_answer "class=primary id=go\nclass=btn id=foo\n"
   end
 
   it "a local and the ivar behind it settle on one hash layout, never two" do
@@ -1099,9 +1096,6 @@ describe "Hash: formatting and inspection" do
       puts h[Key.new("b")].inspect
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      nil
-    OUT
+    _(result).must_answer "1\nnil\n"
   end
 end

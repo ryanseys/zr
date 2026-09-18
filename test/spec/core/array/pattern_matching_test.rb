@@ -201,10 +201,7 @@ describe "Array: pattern matching" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      matched
-      too short
-    OUT
+    _(result).must_answer "matched\ntoo short\n"
   end
 
   it "case in array pattern binds pre and rest" do
@@ -216,10 +213,7 @@ describe "Array: pattern matching" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      2
-    OUT
+    _(result).must_answer "1\n2\n"
   end
 
   it "case in array pattern pre and post splat" do
@@ -231,10 +225,7 @@ describe "Array: pattern matching" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      2
-    OUT
+    _(result).must_answer "2\n2\n"
   end
 
   it "case in nested array" do

@@ -794,10 +794,7 @@ describe "Socket: reading and writing" do
       p r2
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      NameError
-      NameError
-    OUT
+    _(result).must_answer "NameError\nNameError\n"
   end
 
   it "a TCP pair carries bytes both ways through gets, puts, print and read" do

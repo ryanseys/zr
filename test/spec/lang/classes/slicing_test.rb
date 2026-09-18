@@ -706,10 +706,7 @@ describe "Classes: slicing" do
       puts Early.new.word
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      first
-      second
-    OUT
+    _(result).must_answer "first\nsecond\n"
   end
 
   it "reopening a user class adds and replaces methods" do
@@ -738,9 +735,6 @@ describe "Classes: slicing" do
       puts Foo.new.b
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      replaced
-      added
-    OUT
+    _(result).must_answer "replaced\nadded\n"
   end
 end

@@ -130,10 +130,7 @@ describe "Range: slicing" do
       p r.count
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Infinity
-      Infinity
-    OUT
+    _(result).must_answer "Infinity\nInfinity\n"
   end
 
   it "endless range refuses to set" do
@@ -175,10 +172,7 @@ describe "Range: slicing" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Enumerator
-      can't iterate from NilClass
-    OUT
+    _(result).must_answer "Enumerator\ncan't iterate from NilClass\n"
   end
 
   it "endless source stops at the first answer" do
@@ -386,10 +380,7 @@ describe "Range: slicing" do
       p r.lazy.select { |x| x.even? }.first(2)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1, 4, 9]
-      [2, 4]
-    OUT
+    _(result).must_answer "[1, 4, 9]\n[2, 4]\n"
   end
 
   it "lazy range method" do
@@ -400,10 +391,7 @@ describe "Range: slicing" do
       p src.lazy.map { |x| x * 2 }.first(4)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1, 2, 3]
-      [2, 4, 6, 8]
-    OUT
+    _(result).must_answer "[1, 2, 3]\n[2, 4, 6, 8]\n"
   end
 
   it "one sided range answers min and max without walking" do
@@ -828,9 +816,7 @@ describe "Range: slicing" do
       puts sum_step
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      560
-    OUT
+    _(result).must_answer "560\n"
   end
 
   it "cover?, include? and === answer false for an argument they cannot compare" do

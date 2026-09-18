@@ -16,10 +16,7 @@ describe "Classes: constants" do
       Config.new.show
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      5
-    OUT
+    _(result).must_answer "3\n5\n"
   end
 
   it "boxs constant on a shared class is its own" do
@@ -36,10 +33,7 @@ describe "Classes: constants" do
       p b.eval("Array::BOXC")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :namee
-      11
-    OUT
+    _(result).must_answer ":namee\n11\n"
   end
 
   it "class allocate builtin var" do

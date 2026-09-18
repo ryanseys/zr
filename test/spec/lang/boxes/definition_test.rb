@@ -54,10 +54,7 @@ describe "Boxes: defining and naming methods" do
       p String.respond_to?(:zz)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :nome
-      false
-    OUT
+    _(result).must_answer ":nome\nfalse\n"
   end
 
   it "box singleton alias aborts" do
@@ -82,10 +79,7 @@ describe "Boxes: defining and naming methods" do
       p b.eval("Hash.qq")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      false
-      1
-    OUT
+    _(result).must_answer "false\n1\n"
   end
 
   it "box singleton define method reaches main" do
@@ -177,10 +171,7 @@ describe "Boxes: defining and naming methods" do
       p b.eval("Array.dyn")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      false
-      42
-    OUT
+    _(result).must_answer "false\n42\n"
   end
 
   it "boxs singleton class body stays in the box" do
@@ -196,10 +187,7 @@ describe "Boxes: defining and naming methods" do
       p b.eval("Hash.qq")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      false
-      1
-    OUT
+    _(result).must_answer "false\n1\n"
   end
 
   it "class a box owns answers main" do

@@ -685,9 +685,7 @@ describe "Whole programs" do
   end
 
   it "the smallest program runs, and puts writes a symbol without its colon" do
-    result = ze0(<<~'RUBY')
-      puts :ok
-    RUBY
+    result = ze0("puts :ok\n")
 
     _(result).must_answer "ok\n"
   end

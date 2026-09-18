@@ -654,9 +654,6 @@ describe "Array: enumeration" do
       p r[2][2]
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5.0
-      29.0
-    OUT
+    _(result).must_answer "5.0\n29.0\n"
   end
 end

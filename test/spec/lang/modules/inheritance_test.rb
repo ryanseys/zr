@@ -242,10 +242,7 @@ describe "Modules: inheritance and ancestors" do
       puts Consumer.new.fetch_label
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      deep
-    OUT
+    _(result).must_answer "42\ndeep\n"
   end
 
   it "include constant path" do
@@ -784,10 +781,7 @@ describe "Modules: inheritance and ancestors" do
       puts c.b
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      a
-      b
-    OUT
+    _(result).must_answer "a\nb\n"
   end
 
   it "param include body widen" do
@@ -983,10 +977,7 @@ describe "Modules: inheritance and ancestors" do
       puts F.new.tag
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [hi]
-      F[M2(M1)]
-    OUT
+    _(result).must_answer "[hi]\nF[M2(M1)]\n"
   end
 
   it "three level super chain crosses a module boundary" do

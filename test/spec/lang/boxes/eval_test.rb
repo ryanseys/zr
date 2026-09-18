@@ -68,10 +68,7 @@ describe "Boxes: evaluating a string" do
       p b.eval("$boxg")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      nil
-      7
-    OUT
+    _(result).must_answer "nil\n7\n"
   end
 
   it "box kernel method is invisible to main" do
@@ -84,10 +81,7 @@ describe "Boxes: evaluating a string" do
       p b.eval("kmeth")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :nome
-      1
-    OUT
+    _(result).must_answer ":nome\n1\n"
   end
 
   it "box literal eval is spliced" do
@@ -120,10 +114,7 @@ describe "Boxes: evaluating a string" do
       p(begin; Array.a; rescue NoMethodError; :nome; end)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      :nome
-    OUT
+    _(result).must_answer "2\n:nome\n"
   end
 
   it "spliced box eval names its own file" do

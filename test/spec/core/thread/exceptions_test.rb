@@ -28,10 +28,7 @@ describe "Thread: raising and rescuing" do
       puts t2.value
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      rescued
-      3
-    OUT
+    _(result).must_answer "rescued\n3\n"
   end
 
   it "blockless thread and fiber raise" do
@@ -78,10 +75,7 @@ describe "Thread: raising and rescuing" do
       p v
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      main-throw
-      99
-    OUT
+    _(result).must_answer "main-throw\n99\n"
   end
 
   it "fiber exception boundary" do
@@ -391,10 +385,7 @@ describe "Thread: raising and rescuing" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      queue closed
-    OUT
+    _(result).must_answer "true\nqueue closed\n"
   end
 
   it "queue argument validation" do
@@ -417,10 +408,7 @@ describe "Thread: raising and rescuing" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ThreadError: queue empty
-      queue size must be positive
-    OUT
+    _(result).must_answer "ThreadError: queue empty\nqueue size must be positive\n"
   end
 
   it "ractor reports its uncaught exception" do
@@ -497,10 +485,7 @@ describe "Thread: raising and rescuing" do
       p f2.resume
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      0
-    OUT
+    _(result).must_answer "2\n0\n"
   end
 
   it "raise into sleep wakes the sleeper immediately" do
@@ -681,10 +666,7 @@ describe "Thread: raising and rescuing" do
       puts "after"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      caught self-raise
-      after
-    OUT
+    _(result).must_answer "caught self-raise\nafter\n"
   end
 
   it "thread report on exception" do

@@ -167,10 +167,7 @@ describe "Object: inheritance and ancestors" do
       puts b.size
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      2
-    OUT
+    _(result).must_answer "3\n2\n"
   end
 
   it "default arg ivar module subclass" do
@@ -572,10 +569,7 @@ describe "Object: inheritance and ancestors" do
       NS::IntegrationTest.new.post("/foo")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      session-obj
-      /foo
-    OUT
+    _(result).must_answer "session-obj\n/foo\n"
   end
 
   it "object protocol remove ivar singleton class method and extend" do

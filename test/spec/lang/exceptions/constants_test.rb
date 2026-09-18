@@ -100,10 +100,7 @@ describe "Exceptions: constants" do
       puts L1::L2::L3::L4::L5::L6.new.echo("hi")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      L1::L2::L3::L4::L5::L6
-      hi <- L1::L2::L3::L4::L5::L6
-    OUT
+    _(result).must_answer "L1::L2::L3::L4::L5::L6\nhi <- L1::L2::L3::L4::L5::L6\n"
   end
 
   it "const self ref raises name error" do
@@ -247,10 +244,7 @@ describe "Exceptions: constants" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :nope
-      :Nope
-    OUT
+    _(result).must_answer ":nope\n:Nope\n"
   end
 
   it "raise class value" do
@@ -370,10 +364,7 @@ describe "Exceptions: constants" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      no exception: ok
-      NameError: uninitialized constant NeverDefined
-    OUT
+    _(result).must_answer "no exception: ok\nNameError: uninitialized constant NeverDefined\n"
   end
 
   it "rescued missing constant quiet" do
@@ -482,10 +473,7 @@ describe "Exceptions: constants" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      uninit raised
-      self-ref raised
-    OUT
+    _(result).must_answer "uninit raised\nself-ref raised\n"
   end
 
   it "unset constant raises a name error" do

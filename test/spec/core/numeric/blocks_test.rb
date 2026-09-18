@@ -169,10 +169,7 @@ describe "Numeric: blocks and yields" do
       p n
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      4
-      26
-    OUT
+    _(result).must_answer "4\n26\n"
   end
 
   it "lambda float captures with float param" do

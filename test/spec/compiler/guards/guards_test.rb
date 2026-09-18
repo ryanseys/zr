@@ -538,10 +538,7 @@ describe "Guards programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      constant: 1, 2
-      plain: 1, 2
-    OUT
+    _(result).must_answer "constant: 1, 2\nplain: 1, 2\n"
   end
 
   it "case in unless guard" do
@@ -1207,10 +1204,7 @@ describe "Guards programs" do
       puts App::HAS_VALIDATE
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      modern
-      true
-    OUT
+    _(result).must_answer "modern\ntrue\n"
   end
 
   it "fiber error guards" do
@@ -1685,10 +1679,7 @@ describe "Guards programs" do
       puts C.const_defined?(:ONLY)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      real
-      false
-    OUT
+    _(result).must_answer "real\nfalse\n"
   end
 
   it "guarded def written last does not displace the earlier body" do
@@ -2369,10 +2360,7 @@ describe "Guards programs" do
       puts d.respond_to?(:meow)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      false
-    OUT
+    _(result).must_answer "true\nfalse\n"
   end
 
   it "run time compile handles aliases and guards" do
@@ -2938,10 +2926,7 @@ describe "Guards programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      here
-      not aliased
-    OUT
+    _(result).must_answer "here\nnot aliased\n"
   end
 
   it "two guarded bodies and one real one still answer the real one" do
@@ -3218,10 +3203,7 @@ describe "Guards programs" do
       puts Alive.new.status
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      plain widget
-      alive
-    OUT
+    _(result).must_answer "plain widget\nalive\n"
   end
 
   it "version gated def folds" do

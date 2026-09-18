@@ -144,10 +144,7 @@ describe "Methods: formatting and inspection" do
       puts kw(2, **h).inspect
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1, 2, {}]
-      [2, 2, {}]
-    OUT
+    _(result).must_answer "[1, 2, {}]\n[2, 2, {}]\n"
   end
 
   it "empty method returns nil" do
@@ -833,10 +830,7 @@ describe "Methods: formatting and inspection" do
       puts strict(2, 3).to_s   #=> 5
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      5
-    OUT
+    _(result).must_answer "3\n5\n"
   end
 
   it "kwrest does not fill optional" do
@@ -1761,10 +1755,7 @@ describe "Methods: formatting and inspection" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      found:20
-      not found
-    OUT
+    _(result).must_answer "found:20\nnot found\n"
   end
 
   it "op method shift" do

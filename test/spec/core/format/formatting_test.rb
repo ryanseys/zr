@@ -13,10 +13,7 @@ describe "Format: formatting and inspection" do
       puts format("%d/%s", f(2).to_i, "ok")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      L: 1.000; A: 2.500; X: 500.000
-      2000/ok
-    OUT
+    _(result).must_answer "L: 1.000; A: 2.500; X: 500.000\n2000/ok\n"
   end
 
   it "the full C directive set answers, plus ruby's named and positional references" do

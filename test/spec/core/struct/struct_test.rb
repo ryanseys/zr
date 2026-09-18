@@ -487,10 +487,7 @@ describe "Struct programs" do
       p(Point.new(**{ x: 3, y: 4 }))
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      #<data Point x=1, y=2>
-      #<data Point x=3, y=4>
-    OUT
+    _(result).must_answer "#<data Point x=1, y=2>\n#<data Point x=3, y=4>\n"
   end
 
   it "data new validation" do
@@ -753,10 +750,7 @@ describe "Struct programs" do
       p Trees::Arena.new.run
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      7
-      5
-    OUT
+    _(result).must_answer "7\n5\n"
   end
 
   it "poly dispatch struct arg arm" do
@@ -1375,10 +1369,7 @@ describe "Struct programs" do
       p V.new(3, 4).to_a
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1, 2, nil]
-      [3, 4, 7]
-    OUT
+    _(result).must_answer "[1, 2, nil]\n[3, 4, 7]\n"
   end
 
   it "a Struct and a Data match an array pattern and a hash pattern" do

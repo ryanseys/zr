@@ -710,10 +710,7 @@ describe "Methods: dispatch" do
       puts a.size
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      foobar
-      3
-    OUT
+    _(result).must_answer "foobar\n3\n"
   end
 
   it "poly dispatch builtin" do
@@ -736,10 +733,7 @@ describe "Methods: dispatch" do
       puts read0([100, 200, 300])
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      100
-    OUT
+    _(result).must_answer "42\n100\n"
   end
 
   it "poly dispatch builtin all" do
@@ -1184,10 +1178,7 @@ describe "Methods: dispatch" do
       puts call_x(B.new)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      from-x
-      from-x
-    OUT
+    _(result).must_answer "from-x\nfrom-x\n"
   end
 
   it "poly dispatch keyword args" do
@@ -1264,10 +1255,7 @@ describe "Methods: dispatch" do
       p b.size
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      4
-    OUT
+    _(result).must_answer "5\n4\n"
   end
 
   it "poly dispatch splat args" do
@@ -1745,10 +1733,7 @@ describe "Methods: dispatch" do
       puts sub.fetch("absent", "default").to_s
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      default
-    OUT
+    _(result).must_answer "1\ndefault\n"
   end
 
   it "poly empty with user method" do
@@ -1846,10 +1831,7 @@ describe "Methods: dispatch" do
       puts apply(Tripler.new, 5)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      10
-      15
-    OUT
+    _(result).must_answer "10\n15\n"
   end
 
   it "poly method mixed return" do
@@ -1879,10 +1861,7 @@ describe "Methods: dispatch" do
       puts show(Bar.new)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      bar
-    OUT
+    _(result).must_answer "42\nbar\n"
   end
 
   it "poly multi write index target" do
@@ -1934,10 +1913,7 @@ describe "Methods: dispatch" do
       p a.cnt
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      0
-    OUT
+    _(result).must_answer "2\n0\n"
   end
 
   it "poly predicate dispatch" do
@@ -2095,10 +2071,7 @@ describe "Methods: dispatch" do
       puts show(D.new)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      other
-    OUT
+    _(result).must_answer "42\nother\n"
   end
 
   it "poly user each index" do
@@ -2444,10 +2417,7 @@ describe "Methods: dispatch" do
       puts Factory.build
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      helped-body
-      helped-class-method
-    OUT
+    _(result).must_answer "helped-body\nhelped-class-method\n"
   end
 
   it "virtual dispatch void override" do

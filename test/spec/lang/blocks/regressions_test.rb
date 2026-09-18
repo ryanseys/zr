@@ -143,10 +143,7 @@ describe "Blocks: regressions" do
       puts result2.length
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      3
-    OUT
+    _(result).must_answer "3\n3\n"
   end
 
   it "reduce composes an array of lambdas into one" do

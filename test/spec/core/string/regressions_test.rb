@@ -771,10 +771,7 @@ describe "String: regressions" do
       puts s2  # Zy
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      CD
-      Zy
-    OUT
+    _(result).must_answer "CD\nZy\n"
   end
 
   it "a subscript takes an endless or beginless range" do
@@ -1185,10 +1182,7 @@ describe "String: regressions" do
       puts "abc".gsub("", "-")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      xhxexlxlxox
-      -a-b-c-
-    OUT
+    _(result).must_answer "xhxexlxlxox\n-a-b-c-\n"
   end
 
   it "splatting a String range into an array literal spreads it" do
@@ -1294,10 +1288,7 @@ describe "String: regressions" do
       puts :foo.itself.inspect
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hello
-      :foo
-    OUT
+    _(result).must_answer "hello\n:foo\n"
   end
 
   it "tr_s translates and then squeezes the run it made" do
@@ -1686,10 +1677,7 @@ describe "String: regressions" do
       puts r2.cookies[0]
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Set-Cookie: flash=hello; HttpOnly
-      sid=42; Path=/; HttpOnly; SameSite=Lax
-    OUT
+    _(result).must_answer "Set-Cookie: flash=hello; HttpOnly\nsid=42; Path=/; HttpOnly; SameSite=Lax\n"
   end
 
   it "prepend and concat with no argument leave the string alone" do

@@ -25,10 +25,7 @@ describe "Classes: inheritance and ancestors" do
       puts B.new.greet("bob", "?")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hi bob!.
-      hi bob!?
-    OUT
+    _(result).must_answer "hi bob!.\nhi bob!?\n"
   end
 
   it "bare super forwards rest and keyword params" do
@@ -62,10 +59,7 @@ describe "Classes: inheritance and ancestors" do
       puts F.new.kw(a: 1, b: 9)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      30
-      got a=1 b=9
-    OUT
+    _(result).must_answer "30\ngot a=1 b=9\n"
   end
 
   it "bare super forwards the current methods own params" do
@@ -98,10 +92,7 @@ describe "Classes: inheritance and ancestors" do
       puts d.greeting
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Rex
-      woof from Rex
-    OUT
+    _(result).must_answer "Rex\nwoof from Rex\n"
   end
 
   it "bare super from anonymous splat" do
@@ -873,10 +864,7 @@ describe "Classes: inheritance and ancestors" do
       Dog.new.speak
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      generic
-      woof
-    OUT
+    _(result).must_answer "generic\nwoof\n"
   end
 
   it "inherited cmethod self class" do
@@ -1279,10 +1267,7 @@ describe "Classes: inheritance and ancestors" do
       puts b.size
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      2
-    OUT
+    _(result).must_answer "3\n2\n"
   end
 
   it "initialize subclass construction" do
@@ -1908,10 +1893,7 @@ describe "Classes: inheritance and ancestors" do
       puts a.foo
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      result
-      bar
-    OUT
+    _(result).must_answer "result\nbar\n"
   end
 
   it "subclass a runtime class" do
@@ -2837,10 +2819,7 @@ describe "Classes: inheritance and ancestors" do
       puts "ok"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hi from 1
-      ok
-    OUT
+    _(result).must_answer "hi from 1\nok\n"
   end
 
   it "super reaches the root initialize" do
@@ -3089,10 +3068,7 @@ describe "Classes: inheritance and ancestors" do
       puts d.breed
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Rex
-      Lab
-    OUT
+    _(result).must_answer "Rex\nLab\n"
   end
 
   it "superclass never defined" do

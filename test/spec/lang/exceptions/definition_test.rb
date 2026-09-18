@@ -91,10 +91,7 @@ describe "Exceptions: defining and naming methods" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ensure ran
-      caught outside: boom
-    OUT
+    _(result).must_answer "ensure ran\ncaught outside: boom\n"
   end
 
   it "begin rescue catches and ensure always runs" do
@@ -384,10 +381,7 @@ describe "Exceptions: defining and naming methods" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      caught nope
-      caught via NameError
-    OUT
+    _(result).must_answer "caught nope\ncaught via NameError\n"
   end
 
   it "raise inside ensure replaces the original exception" do

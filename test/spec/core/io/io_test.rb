@@ -10,10 +10,7 @@ describe "IO programs" do
       puts ARGF.filename
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ARGF.class
-      -
-    OUT
+    _(result).must_answer "ARGF.class\n-\n"
   end
 
   it "argf reads args" do
@@ -51,10 +48,7 @@ describe "IO programs" do
       p data.bytesize
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :done
-      200000
-    OUT
+    _(result).must_answer ":done\n200000\n"
   end
 
   it "armed gvl holder blocked on a pipe read does not stall its siblings" do
@@ -261,10 +255,7 @@ describe "IO programs" do
       puts Dir.exist?("no_such_dir_xyz123")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      false
-    OUT
+    _(result).must_answer "true\nfalse\n"
   end
 
   it "dir glob semantics" do
@@ -671,10 +662,7 @@ describe "IO programs" do
       puts(ok == 1 ? "ok" : "corrupt")    # ok
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5000
-      ok
-    OUT
+    _(result).must_answer "5000\nok\n"
   end
 
   it "file constants module" do
@@ -906,10 +894,7 @@ describe "IO programs" do
       puts File.join("a", "b", "c")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      sounds/doom_rb
-      a/b/c
-    OUT
+    _(result).must_answer "sounds/doom_rb\na/b/c\n"
   end
 
   it "file open block form and positioned reads" do
@@ -997,10 +982,7 @@ describe "IO programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      rescued: boom
-      true
-    OUT
+    _(result).must_answer "rescued: boom\ntrue\n"
   end
 
   it "file predicates answer rather than raise" do
@@ -1364,10 +1346,7 @@ describe "IO programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      IOError: not opened for reading
-      IOError: not opened for writing
-    OUT
+    _(result).must_answer "IOError: not opened for reading\nIOError: not opened for writing\n"
   end
 
   it "io pipe" do
@@ -1535,10 +1514,7 @@ describe "IO programs" do
       puts __dir__.length > 0
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      true
-    OUT
+    _(result).must_answer "true\ntrue\n"
   end
 
   it "kernel puts override takes effect" do
@@ -1781,10 +1757,7 @@ describe "IO programs" do
       puts Counter
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Counter
-      Counter
-    OUT
+    _(result).must_answer "Counter\nCounter\n"
   end
 
   it "puts compound arg" do
@@ -2264,9 +2237,6 @@ describe "IO programs" do
       warn "w2", "w3"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "w1\nerr1\nerr2\nw2\nw3\n"
-      out1
-      out2
-    OUT
+    _(result).must_answer "out1\nout2\n", stderr: "w1\nerr1\nerr2\nw2\nw3\n"
   end
 end

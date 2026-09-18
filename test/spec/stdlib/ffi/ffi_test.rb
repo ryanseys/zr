@@ -160,10 +160,7 @@ describe "FFI programs" do
       p((0...4).map { |i| buf.get_int32(i * 4) })
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      FFI::Pointer
-      [20, 2, 30, 1]
-    OUT
+    _(result).must_answer "FFI::Pointer\n[20, 2, 30, 1]\n"
   end
 
   it "callback proc drives qsort and bsearch" do
@@ -559,10 +556,7 @@ describe "FFI programs" do
       p L.my_len("hello")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      5
-    OUT
+    _(result).must_answer "5\n5\n"
   end
 
   it "a constant in a library module resolves through a nested constant path" do
@@ -2249,10 +2243,7 @@ describe "FFI programs" do
       puts x
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      freed
-      42
-    OUT
+    _(result).must_answer "freed\n42\n"
   end
 
   it "every put_ writer round-trips through the matching get_ reader" do
@@ -2413,10 +2404,7 @@ describe "FFI programs" do
       puts(Net.getpid > 0 ? "pid-ok" : "pid-bad")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hello
-      pid-ok
-    OUT
+    _(result).must_answer "hello\npid-ok\n"
   end
 
   it "toplevel runs on the process main thread" do

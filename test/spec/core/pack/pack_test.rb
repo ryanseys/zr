@@ -223,10 +223,7 @@ describe "Pack programs" do
       puts v
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      2
-    OUT
+    _(result).must_answer "1\n2\n"
   end
 
   it "poly user pack unpack" do

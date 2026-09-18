@@ -395,10 +395,7 @@ describe "GC programs" do
       GC.start
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      true
-    OUT
+    _(result).must_answer "true\ntrue\n"
   end
 
   it "cycle is reclaimed" do
@@ -816,10 +813,7 @@ describe "GC programs" do
       puts "after gc"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      collected
-      after gc
-    OUT
+    _(result).must_answer "collected\nafter gc\n"
   end
 
   it "disabled collector grows the heap" do
@@ -976,10 +970,7 @@ describe "GC programs" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      true
-    OUT
+    _(result).must_answer "1\ntrue\n"
   end
 
   it "the heap survives a forced collection and the surviving objects keep their contents" do
@@ -1086,10 +1077,7 @@ describe "GC programs" do
       p GC.latest_gc_info(:state).class
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Symbol
-      Symbol
-    OUT
+    _(result).must_answer "Symbol\nSymbol\n"
   end
 
   it "a live set far past the mark stack's initial size walks iteratively" do
@@ -1818,10 +1806,7 @@ describe "GC programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      uncaught: UncaughtThrowError
-    OUT
+    _(result).must_answer "1\nuncaught: UncaughtThrowError\n"
   end
 
   it "range cycle block" do

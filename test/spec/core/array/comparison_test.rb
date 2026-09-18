@@ -234,10 +234,7 @@ describe "Array: comparison and equality" do
       p [c.new(1), c.new(2)].uniq { |x| x }.length
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      2
-    OUT
+    _(result).must_answer "2\n2\n"
   end
 
   it "bsearch find any mode follows the comparator protocol" do

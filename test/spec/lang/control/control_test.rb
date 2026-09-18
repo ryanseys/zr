@@ -220,10 +220,7 @@ describe "Control programs" do
       p kinds(ast).uniq.sort
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      13
-      [:BLOCK, :CASE, :CONST, :INTEGER, :LIST, :RESBODY, :RESCUE, :SCOPE, :SYM, :WHEN]
-    OUT
+    _(result).must_answer "13\n[:BLOCK, :CASE, :CONST, :INTEGER, :LIST, :RESBODY, :RESCUE, :SCOPE, :SYM, :WHEN]\n"
   end
 
   it "bang mutator return value" do
@@ -708,10 +705,7 @@ describe "Control programs" do
       p r
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      42
-    OUT
+    _(result).must_answer "5\n42\n"
   end
 
   it "control flow" do
@@ -1343,10 +1337,7 @@ describe "Control programs" do
       puts "HELLO".match?(/hello/)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      false
-    OUT
+    _(result).must_answer "true\nfalse\n"
   end
 
   it "TrueClass and FalseClass are the classes a boolean matches in a case" do
@@ -1799,10 +1790,7 @@ describe "Control programs" do
       p c.x
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      2
-    OUT
+    _(result).must_answer "true\n2\n"
   end
 
   it "poly recv while family" do

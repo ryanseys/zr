@@ -433,10 +433,7 @@ describe "Fusion programs" do
       puts a.title
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      alice
-      title!
-    OUT
+    _(result).must_answer "alice\ntitle!\n"
   end
 
   it "cmethod transitive specialization" do
@@ -727,10 +724,7 @@ describe "Fusion programs" do
       Once.new.run(42)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      true
-    OUT
+    _(result).must_answer "true\ntrue\n"
   end
 
   it "fused accumulator survives break and raise" do
@@ -1717,10 +1711,7 @@ describe "Fusion programs" do
       p s2.compute
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      NoMethodError
-      [10, 20]
-    OUT
+    _(result).must_answer "NoMethodError\n[10, 20]\n"
   end
 
   it "keywords refused message" do
@@ -1916,9 +1907,7 @@ describe "Fusion programs" do
   end
 
   it "numbered params work through the times inline path" do
-    result = ze0(<<~'RUBY')
-      3.times { puts _1 * 10 }
-    RUBY
+    result = ze0("3.times { puts _1 * 10 }\n")
 
     _(result).must_answer <<~'OUT'
       0
@@ -1965,10 +1954,7 @@ describe "Fusion programs" do
       puts step(c, 3)           # 103
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      15
-      103
-    OUT
+    _(result).must_answer "15\n103\n"
   end
 
   it "pattern rest from typed array" do
@@ -2067,10 +2053,7 @@ describe "Fusion programs" do
       p raises_before_a_range_loop(Object.new)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      NoMethodError
-      NoMethodError
-    OUT
+    _(result).must_answer "NoMethodError\nNoMethodError\n"
   end
 
   it "raise unless isa narrow" do
@@ -2316,10 +2299,7 @@ describe "Fusion programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      false
-    OUT
+    _(result).must_answer "true\nfalse\n"
   end
 
   it "runtime private on typed receiver" do
@@ -3371,10 +3351,7 @@ describe "Fusion programs" do
       p r
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      10
-      6
-    OUT
+    _(result).must_answer "10\n6\n"
   end
 
   it "unresolved into typed hash slot" do

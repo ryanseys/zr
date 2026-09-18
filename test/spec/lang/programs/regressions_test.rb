@@ -23,10 +23,7 @@ describe "Whole programs: regressions" do
       p(-1 << 4)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      -16
-      -16
-    OUT
+    _(result).must_answer "-16\n-16\n"
   end
 
   it "max_by, min_by, sort_by and sum splat the pairs of an each_with_index enumerator" do
@@ -88,10 +85,7 @@ describe "Whole programs: regressions" do
       p other
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ~
-      42
-    OUT
+    _(result).must_answer "~\n42\n"
   end
 
   it "each_with_object writes into the object it was handed" do
@@ -126,10 +120,7 @@ describe "Whole programs: regressions" do
       p pr[1].to_h
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      {b: 2, d: 4}
-      {a: 1, c: 3}
-    OUT
+    _(result).must_answer "{b: 2, d: 4}\n{a: 1, c: 3}\n"
   end
 
   it "a regexp built with %r{} escapes the slashes in its inspect but not in its source" do
@@ -369,9 +360,7 @@ describe "Whole programs: regressions" do
   end
 
   it "take_while chains through with_index" do
-    result = ze0(<<~'RUBY')
-      p [3, 3, 5, 2].take_while.with_index { |v, i| i < 2 }
-    RUBY
+    result = ze0("p [3, 3, 5, 2].take_while.with_index { |v, i| i < 2 }\n")
 
     _(result).must_answer "[3, 3]\n"
   end

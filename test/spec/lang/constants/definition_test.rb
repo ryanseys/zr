@@ -224,10 +224,7 @@ describe "Constants: defining and naming methods" do
       p Ns::Uses.new == Ns::Uses.new
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      true
-    OUT
+    _(result).must_answer "true\ntrue\n"
   end
 
   it "top level alias and undef target object" do

@@ -103,10 +103,7 @@ describe "IO: regressions" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Errno::EISDIR
-      true
-    OUT
+    _(result).must_answer "Errno::EISDIR\ntrue\n"
   end
 
   it "file write binary string" do
@@ -149,10 +146,7 @@ describe "IO: regressions" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Errno::EISDIR
-      true
-    OUT
+    _(result).must_answer "Errno::EISDIR\ntrue\n"
   end
 
   it "file binread" do
@@ -383,9 +377,7 @@ describe "IO: regressions" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      monotonic
-    OUT
+    _(result).must_answer "monotonic\n"
   end
 
   it "time" do
@@ -465,10 +457,7 @@ describe "IO: regressions" do
       Dir.rmdir(d)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Dir
-      Integer
-    OUT
+    _(result).must_answer "Dir\nInteger\n"
   end
 
   it "Dir#pos= answers the position it was given" do
@@ -494,10 +483,7 @@ describe "IO: regressions" do
       File.delete(path)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Time
-      true
-    OUT
+    _(result).must_answer "Time\ntrue\n"
   end
 
   it "lstat reports the link itself where stat follows it" do

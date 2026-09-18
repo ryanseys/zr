@@ -54,10 +54,7 @@ describe "Warning programs" do
       $stdout.puts "done"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "plain warning\nexperimental thing\nc\nd\n"
-      evaluated
-      done
-    OUT
+    _(result).must_answer "evaluated\ndone\n", stderr: "plain warning\nexperimental thing\nc\nd\n"
   end
 
   it "warn category and to i base0" do

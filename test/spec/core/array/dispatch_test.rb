@@ -301,10 +301,7 @@ describe "Array: dispatch" do
       puts c.call_via(5)             # via IntArray range → range[5] = 60
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      60
-    OUT
+    _(result).must_answer "42\n60\n"
   end
 
   it "nilable poly array" do

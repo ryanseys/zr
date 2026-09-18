@@ -163,10 +163,7 @@ describe "Classes: searching and matching" do
       puts result2
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      match
-      plain
-    OUT
+    _(result).must_answer "match\nplain\n"
   end
 
   it "class literal constructors" do

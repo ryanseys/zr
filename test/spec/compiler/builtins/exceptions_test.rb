@@ -71,10 +71,7 @@ describe "Builtins: raising and rescuing" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hey!?
-      undefined method 'nope' for an instance of String
-    OUT
+    _(result).must_answer "hey!?\nundefined method 'nope' for an instance of String\n"
   end
 
   it "exception object surface" do

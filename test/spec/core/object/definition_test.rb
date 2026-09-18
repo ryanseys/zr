@@ -201,9 +201,7 @@ describe "Object: defining and naming methods" do
   end
 
   it "dup dispatches dynamically through send" do
-    result = ze0(<<~'RUBY')
-      puts [1, 2].send(:dup).length
-    RUBY
+    result = ze0("puts [1, 2].send(:dup).length\n")
 
     _(result).must_answer "2\n"
   end
@@ -398,10 +396,7 @@ describe "Object: defining and naming methods" do
       p klass.new.respond_to?(:secret, true)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      false
-      true
-    OUT
+    _(result).must_answer "false\ntrue\n"
   end
 
   it "method missing explicit" do
@@ -424,10 +419,7 @@ describe "Object: defining and naming methods" do
       puts p.method_missing(:bar, 1, 2)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      px:foo/0
-      px:bar/2
-    OUT
+    _(result).must_answer "px:foo/0\npx:bar/2\n"
   end
 
   it "method missing fallback on a total miss" do
@@ -745,10 +737,7 @@ describe "Object: defining and naming methods" do
       puts Box.new.send(:secret)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      private method 'secret' called for an instance of Box
-      shh
-    OUT
+    _(result).must_answer "private method 'secret' called for an instance of Box\nshh\n"
   end
 
   it "public send visibility" do

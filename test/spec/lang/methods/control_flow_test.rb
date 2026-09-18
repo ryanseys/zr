@@ -18,10 +18,7 @@ describe "Methods: control flow" do
       puts ack(3, 3)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      9
-      61
-    OUT
+    _(result).must_answer "9\n61\n"
   end
 
   it "class method int table arg" do
@@ -99,10 +96,7 @@ describe "Methods: control flow" do
       puts Views::Articles.edit("b")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      rendered_a
-      edited_b
-    OUT
+    _(result).must_answer "rendered_a\nedited_b\n"
   end
 
   it "nonlocal return from proc unwinds the home method" do

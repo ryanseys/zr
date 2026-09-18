@@ -177,10 +177,7 @@ describe "Object programs" do
       puts echo("hi")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      MAIN
-      <hi>
-    OUT
+    _(result).must_answer "MAIN\n<hi>\n"
   end
 
   it "collection display" do
@@ -398,10 +395,7 @@ describe "Object programs" do
       p Later.mode
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :compiled
-      :runtime
-    OUT
+    _(result).must_answer ":compiled\n:runtime\n"
   end
 
   it "definition in expression position sends to self" do
@@ -611,10 +605,7 @@ describe "Object programs" do
       p a.clone.state
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [:@copied, :@dup]
-      [:@clone, :@copied]
-    OUT
+    _(result).must_answer "[:@copied, :@dup]\n[:@clone, :@copied]\n"
   end
 
   it "is a builtin classes" do

@@ -125,10 +125,7 @@ describe "Methods programs" do
       p many_explicit_arguments(1, 2, 3)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      70
-    OUT
+    _(result).must_answer "3\n70\n"
   end
 
   it "ast translator builds splat lists like parse y" do
@@ -1035,10 +1032,7 @@ describe "Methods programs" do
       puts "after"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      rescued: undefined method 'attributes' for class BadAttributes
-      after
-    OUT
+    _(result).must_answer "rescued: undefined method 'attributes' for class BadAttributes\nafter\n"
   end
 
   it "bound method obj recv" do
@@ -1638,10 +1632,7 @@ describe "Methods programs" do
       puts b.identity.value
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      42
-    OUT
+    _(result).must_answer "42\n42\n"
   end
 
   it "fallible class body constant and method default args" do
@@ -1780,10 +1771,7 @@ describe "Methods programs" do
       p c.size
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      4.0
-      2
-    OUT
+    _(result).must_answer "4.0\n2\n"
   end
 
   it "grapheme clusters alias" do
@@ -1840,10 +1828,7 @@ describe "Methods programs" do
       puts "done"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      0
-      done
-    OUT
+    _(result).must_answer "0\ndone\n"
   end
 
   it "isa scalar arm dead" do
@@ -2155,10 +2140,7 @@ describe "Methods programs" do
       bar(**h2)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      a=1 b=2
-      10,20,30
-    OUT
+    _(result).must_answer "a=1 b=2\n10,20,30\n"
   end
 
   it "kwargs param widen" do
@@ -2271,10 +2253,7 @@ describe "Methods programs" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      [1, 1]
-    OUT
+    _(result).must_answer "1\n[1, 1]\n"
   end
 
   it "kwsplat forward defaults" do
@@ -3326,10 +3305,7 @@ describe "Methods programs" do
       puts g.greet("Ada", "Hi")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Hello, Ada!
-      Hi, Ada!
-    OUT
+    _(result).must_answer "Hello, Ada!\nHi, Ada!\n"
   end
 
   it "param default references sibling" do
@@ -4522,9 +4498,6 @@ describe "Methods programs" do
       p $count
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "with opts\n"
-      stdout done
-      1
-    OUT
+    _(result).must_answer "stdout done\n1\n", stderr: "with opts\n"
   end
 end

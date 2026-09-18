@@ -190,10 +190,7 @@ describe "Units programs" do
       puts PART_B
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      alpha
-      beta
-    OUT
+    _(result).must_answer "alpha\nbeta\n"
   end
 
   it "guarded def in an earlier unit does not take a later units position" do
@@ -463,10 +460,7 @@ describe "Units programs" do
       p Outer::Foo::Thing.new(7, 2).val
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      50
-      14
-    OUT
+    _(result).must_answer "50\n14\n"
   end
 
   it "unit records its own path in loaded features" do

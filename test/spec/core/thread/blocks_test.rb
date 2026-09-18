@@ -524,10 +524,7 @@ describe "Thread: blocks and yields" do
       puts f.resume
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      from_deep
-      done
-    OUT
+    _(result).must_answer "from_deep\ndone\n"
   end
 
   it "fiber yield through a real escaping block" do

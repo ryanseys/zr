@@ -1296,10 +1296,7 @@ describe "Hash: blocks and yields" do
       puts h.fire           # 15
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      15
-    OUT
+    _(result).must_answer "42\n15\n"
   end
 
   it "struct to h block" do

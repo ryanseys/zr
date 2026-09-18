@@ -158,10 +158,7 @@ describe "Enumerable: enumeration" do
       p Nums.new(3, 1, 2).reduce(s)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      6
-      6
-    OUT
+    _(result).must_answer "6\n6\n"
   end
 
   it "each cons block destructure" do
@@ -1030,10 +1027,7 @@ describe "Enumerable: enumeration" do
       p (a + b).to_a
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1, 2, 3, 4]
-      [1, 2, 3, 4]
-    OUT
+    _(result).must_answer "[1, 2, 3, 4]\n[1, 2, 3, 4]\n"
   end
 
   it "enumerator each entry receiver" do
@@ -3079,10 +3073,7 @@ describe "Enumerable: enumeration" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      comparison of Float with NaN failed
-      comparison of String with 1 failed
-    OUT
+    _(result).must_answer "comparison of Float with NaN failed\ncomparison of String with 1 failed\n"
   end
 
   it "sort by tie order" do
@@ -3438,10 +3429,7 @@ describe "Enumerable: enumeration" do
       File.delete(present)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      0
-      true
-    OUT
+    _(result).must_answer "0\ntrue\n"
   end
 
   it "user enumerable each and for" do

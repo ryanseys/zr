@@ -952,10 +952,7 @@ describe "Blocks: enumeration" do
       Collector.new.each_num(7, 8) { puts it + 1 }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      8
-      9
-    OUT
+    _(result).must_answer "8\n9\n"
   end
 
   it "lambda escaping inside an escaping block" do
@@ -1156,10 +1153,7 @@ describe "Blocks: enumeration" do
       p procs.map(&:call)       # [11, 11, 21, 21]
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [101, 202, 303]
-      [11, 11, 21, 21]
-    OUT
+    _(result).must_answer "[101, 202, 303]\n[11, 11, 21, 21]\n"
   end
 
   it "numbered params work through a real escaping proc" do
@@ -1173,10 +1167,7 @@ describe "Blocks: enumeration" do
       Collector.new.each_num(5, 6) { puts _1 * 2 }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      10
-      12
-    OUT
+    _(result).must_answer "10\n12\n"
   end
 
   it "poly map empty block" do
@@ -1305,10 +1296,7 @@ describe "Blocks: enumeration" do
       puts r
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1, 2]
-      done
-    OUT
+    _(result).must_answer "[1, 2]\ndone\n"
   end
 
   it "splat map lambda into rest" do

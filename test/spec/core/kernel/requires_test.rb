@@ -204,10 +204,7 @@ describe "Kernel: loading files" do
       puts Outer::Feature.digest
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      policy
-      sha256
-    OUT
+    _(result).must_answer "policy\nsha256\n"
   end
 
   it "loaded features records require" do
@@ -217,10 +214,7 @@ describe "Kernel: loading files" do
       p $LOADED_FEATURES.empty?
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      false
-    OUT
+    _(result).must_answer "true\nfalse\n"
   end
 
   it "missing require names the library" do
@@ -307,10 +301,7 @@ describe "Kernel: loading files" do
       puts "continues"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      fallback: LoadError
-      continues
-    OUT
+    _(result).must_answer "fallback: LoadError\ncontinues\n"
   end
 
   it "plain require resolves against search roots including nested features" do
@@ -551,10 +542,7 @@ describe "Kernel: loading files" do
       require_relative "require_parent/views/articles/index"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      views aggregator loaded
-      index loaded
-    OUT
+    _(result).must_answer "views aggregator loaded\nindex loaded\n"
   end
 
   it "required feature inside eval installs its visibility" do
@@ -603,10 +591,7 @@ describe "Kernel: loading files" do
       puts FileUtils::Verbose.singleton_class.public_method_defined?(:cp)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      FileUtils::Verbose
-      true
-    OUT
+    _(result).must_answer "FileUtils::Verbose\ntrue\n"
   end
 
   it "resolve feature path answers where a require would land" do

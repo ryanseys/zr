@@ -329,10 +329,7 @@ describe "Builtins: blocks and yields" do
       puts f.call(1, 2)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      caught: wrong number of arguments (given 1, expected 2)
-      3
-    OUT
+    _(result).must_answer "caught: wrong number of arguments (given 1, expected 2)\n3\n"
   end
 
   it "lambda never auto splats and checks its arity" do
@@ -346,10 +343,7 @@ describe "Builtins: blocks and yields" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1, 2]
-      ArgumentError
-    OUT
+    _(result).must_answer "[1, 2]\nArgumentError\n"
   end
 
   it "lambda strict arity" do
@@ -675,10 +669,7 @@ describe "Builtins: blocks and yields" do
       p(add.curry(2)[10][20])
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      6
-      30
-    OUT
+    _(result).must_answer "6\n30\n"
   end
 
   it "proc forward arity" do

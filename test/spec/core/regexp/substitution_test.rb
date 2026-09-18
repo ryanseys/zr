@@ -15,10 +15,7 @@ describe "Regexp: substitution" do
       puts "hello".sub(/l/) { "L" }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      heLLo
-      heLlo
-    OUT
+    _(result).must_answer "heLLo\nheLlo\n"
   end
 
   it "gsub and sub with a string replacement including numbered backreferences" do

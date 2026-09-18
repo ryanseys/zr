@@ -274,10 +274,7 @@ describe "OpenStruct: regressions" do
       p r2
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      {a: nil, b: 3}
-    OUT
+    _(result).must_answer "true\n{a: nil, b: 3}\n"
   end
 
   it "an aliased reader works as a Symbol block through map and select" do

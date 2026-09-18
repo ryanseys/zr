@@ -404,10 +404,7 @@ describe "Constants: slicing" do
       puts FOO.first
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      1
-    OUT
+    _(result).must_answer "3\n1\n"
   end
 
   it "top level def last def wins" do

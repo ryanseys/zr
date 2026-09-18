@@ -4,9 +4,7 @@ require "spec_helper"
 
 describe "Numeric: arithmetic" do
   it "arith adds integer literals" do
-    result = ze0(<<~'RUBY')
-      puts 1 + 1
-    RUBY
+    result = ze0("puts 1 + 1\n")
 
     _(result).must_answer "2\n"
   end
@@ -386,10 +384,7 @@ describe "Numeric: arithmetic" do
       puts Adder.new.add(2.5, 1)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3.5
-      3.5
-    OUT
+    _(result).must_answer "3.5\n3.5\n"
   end
 
   it "float div int literal" do
@@ -1368,10 +1363,7 @@ describe "Numeric: arithmetic" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      mod zero div
-      param zero div
-    OUT
+    _(result).must_answer "mod zero div\nparam zero div\n"
   end
 
   it "integer literal no int32 overflow" do

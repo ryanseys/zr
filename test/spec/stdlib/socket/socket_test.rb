@@ -985,10 +985,7 @@ describe "Socket programs" do
       b.close
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      hello
-    OUT
+    _(result).must_answer "5\nhello\n"
   end
 
   it "systemcallerror hierarchy" do

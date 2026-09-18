@@ -425,10 +425,7 @@ describe "FFI: packing and unpacking" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      non_nil
-      zero_is_nil
-    OUT
+    _(result).must_answer "non_nil\nzero_is_nil\n"
   end
 
   it "every typed accessor reads exactly its own width, never its neighbour's bytes" do
@@ -564,10 +561,7 @@ describe "FFI: packing and unpacking" do
       puts Pt.size
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      12
-    OUT
+    _(result).must_answer "42\n12\n"
   end
 
   it "a nested struct field views the parent's bytes, and a callback field reads back as a Function" do

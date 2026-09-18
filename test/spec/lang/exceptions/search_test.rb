@@ -183,10 +183,7 @@ describe "Exceptions: searching and matching" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      found div
-      raised: no p
-    OUT
+    _(result).must_answer "found div\nraised: no p\n"
   end
 
   it "rescue matches a namespaced exception class by its full path" do

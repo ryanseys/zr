@@ -196,10 +196,7 @@ describe "Struct: formatting and inspection" do
       p({ k: x })
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [#<data I v=1>]
-      {k: #<data I v=1>}
-    OUT
+    _(result).must_answer "[#<data I v=1>]\n{k: #<data I v=1>}\n"
   end
 
   it "data positional args are keywords" do

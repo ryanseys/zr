@@ -20,10 +20,7 @@ describe "Blocks: defining and naming methods" do
       puts Foo.new.greet
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hi
-      hi
-    OUT
+    _(result).must_answer "hi\nhi\n"
   end
 
   it "curry through parameter" do

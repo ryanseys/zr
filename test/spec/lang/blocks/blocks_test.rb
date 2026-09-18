@@ -984,10 +984,7 @@ describe "Blocks programs" do
       puts lambda_patched
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      from inside
-      patched
-    OUT
+    _(result).must_answer "from inside\npatched\n"
   end
 
   it "closure capture float" do
@@ -1443,10 +1440,7 @@ describe "Blocks programs" do
       p collect([10, 1])
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [11, 2]
-      [11, 21]
-    OUT
+    _(result).must_answer "[11, 2]\n[11, 21]\n"
   end
 
   it "empty block body iterators" do
@@ -2047,10 +2041,7 @@ describe "Blocks programs" do
       puts g.call
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      inner
-    OUT
+    _(result).must_answer "42\ninner\n"
   end
 
   it "lowered block given" do
@@ -2092,10 +2083,7 @@ describe "Blocks programs" do
       puts e.call                 # reads the reassigned p through the closure
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      new
-    OUT
+    _(result).must_answer "5\nnew\n"
   end
 
   it "massign proc cell nil" do
@@ -2113,10 +2101,7 @@ describe "Blocks programs" do
       puts e.call
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      was nil
-    OUT
+    _(result).must_answer "5\nwas nil\n"
   end
 
   it "module nested reopen yield" do
@@ -2307,10 +2292,7 @@ describe "Blocks programs" do
       p m.z
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1, 1]
-      [2, 2]
-    OUT
+    _(result).must_answer "[1, 1]\n[2, 2]\n"
   end
 
   it "proc" do
@@ -3492,10 +3474,7 @@ describe "Blocks programs" do
       twice { |i| puts "got #{i}" }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      got 1
-      got 2
-    OUT
+    _(result).must_answer "got 1\ngot 2\n"
   end
 
   it "toplevel kwrest block param" do
@@ -3521,10 +3500,7 @@ describe "Blocks programs" do
       app("hello") { puts "ran" }.render
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hello
-      ran
-    OUT
+    _(result).must_answer "hello\nran\n"
   end
 
   it "uniq block" do

@@ -1121,10 +1121,7 @@ describe "Regexp: searching and matching" do
       puts b
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      hi
-    OUT
+    _(result).must_answer "1\nhi\n"
   end
 
   it "match predicate one liner is a boolean that never raises" do
@@ -1139,10 +1136,7 @@ describe "Regexp: searching and matching" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      matched
-      did not match
-    OUT
+    _(result).must_answer "matched\ndid not match\n"
   end
 
   it "match required one liner binds on success" do
@@ -1153,16 +1147,11 @@ describe "Regexp: searching and matching" do
       puts second
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      2
-    OUT
+    _(result).must_answer "1\n2\n"
   end
 
   it "match required one liner raises no matching pattern error on failure" do
-    result = ze0(<<~'RUBY')
-      5 => String
-    RUBY
+    result = ze0("5 => String\n")
 
     _(result).must_answer "", stderr: <<~'ERR', status: 1
       core/regexp/search_test.rb:1:in '<main>': 5: String === 5 does not return true (NoMatchingPatternError)
@@ -3746,10 +3735,7 @@ describe "Regexp: searching and matching" do
       puts Main.run_setup
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      /articles
-      opening /tmp/db
-    OUT
+    _(result).must_answer "/articles\nopening /tmp/db\n"
   end
 
   it "scan walkers def boundary" do
@@ -4298,9 +4284,6 @@ describe "Regexp: searching and matching" do
       puts pair[1]
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      label1999
-      pair1999
-    OUT
+    _(result).must_answer "label1999\npair1999\n"
   end
 end

@@ -102,10 +102,7 @@ describe "Hash: control flow" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      7
-    OUT
+    _(result).must_answer "3\n7\n"
   end
 
   it "hash filter bang return" do

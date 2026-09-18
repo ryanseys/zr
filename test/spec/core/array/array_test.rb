@@ -362,10 +362,7 @@ describe "Array programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      []
-      AE2: negative argument
-    OUT
+    _(result).must_answer "[]\nAE2: negative argument\n"
   end
 
   it "Array.new with no argument is an empty, unfrozen array that shift and pop still answer" do
@@ -659,10 +656,7 @@ describe "Array programs" do
       puts a.add3(1, *[2, 3])
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      6
-      6
-    OUT
+    _(result).must_answer "6\n6\n"
   end
 
   it "case in value nested array" do
@@ -919,10 +913,7 @@ describe "Array programs" do
       puts build_nested_arrays     # 2
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      2
-    OUT
+    _(result).must_answer "2\n2\n"
   end
 
   it "enum terminal chunk zip lazy" do
@@ -1491,10 +1482,7 @@ describe "Array programs" do
       puts TBL[1][2]          # 5
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      4
-      5
-    OUT
+    _(result).must_answer "4\n5\n"
   end
 
   it "integer digits accepts a bignum base" do
@@ -1507,10 +1495,7 @@ describe "Array programs" do
       p 255.digits(b).class
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [255]
-      Array
-    OUT
+    _(result).must_answer "[255]\nArray\n"
   end
 
   it "interp array container" do

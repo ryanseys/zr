@@ -25,10 +25,7 @@ describe "Process: blocks and yields" do
       p D.new.mm
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      4
-    OUT
+    _(result).must_answer "3\n4\n"
   end
 
   it "exit systemexit and block given" do
@@ -341,10 +338,7 @@ describe "Process: blocks and yields" do
       puts "done"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      done
-    OUT
+    _(result).must_answer "42\ndone\n"
   end
 
   it "instance exec nested" do

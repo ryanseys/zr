@@ -519,10 +519,7 @@ describe "Array: regressions" do
       puts arr[0]              # 7
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      7
-    OUT
+    _(result).must_answer "1\n7\n"
   end
 
   it "Array#* repeats the array, and times one is a copy the source cannot reach" do
@@ -1106,10 +1103,7 @@ describe "Array: regressions" do
       puts pa.length
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      4
-      4
-    OUT
+    _(result).must_answer "4\n4\n"
   end
 
   it "a three-argument []= replaces that many elements with the ones given" do
@@ -2015,10 +2009,7 @@ describe "Array: regressions" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ginza: 4.5
-      shibuya: 4.0
-    OUT
+    _(result).must_answer "ginza: 4.5\nshibuya: 4.0\n"
   end
 
   it "a symbol write through a subscripted element reaches the Hash it holds" do
@@ -2401,10 +2392,7 @@ describe "Array: regressions" do
       puts [1, 2, 3].find_index { |x| x > 10 }.inspect
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      nil
-    OUT
+    _(result).must_answer "2\nnil\n"
   end
 
   it "group_by buckets the elements by the block's value" do

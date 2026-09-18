@@ -955,10 +955,7 @@ describe "Methods: slicing" do
       p Below.added
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [:a]
-      [:b, :c]
-    OUT
+    _(result).must_answer "[:a]\n[:b, :c]\n"
   end
 
   it "param lengthlike body widen" do

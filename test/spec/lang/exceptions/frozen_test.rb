@@ -886,9 +886,6 @@ describe "Exceptions: frozen literals" do
       puts Ractor.shareable?(arr)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      false
-      true
-    OUT
+    _(result).must_answer "false\ntrue\n"
   end
 end

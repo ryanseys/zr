@@ -445,10 +445,7 @@ describe "Time: formatting and inspection" do
       puts t.to_s.length > 0
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2023-11-14 22:13:20 UTC
-      true
-    OUT
+    _(result).must_answer "2023-11-14 22:13:20 UTC\ntrue\n"
   end
 
   it "a fixed instant read in UTC answers every civil field the same on any machine" do

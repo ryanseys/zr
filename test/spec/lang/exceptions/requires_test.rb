@@ -191,10 +191,7 @@ describe "Exceptions: loading files" do
       puts defined?(Codec::Backend)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      pure ruby
-      constant
-    OUT
+    _(result).must_answer "pure ruby\nconstant\n"
   end
 
   it "require that raises is rescuable" do
@@ -345,9 +342,6 @@ describe "Exceptions: loading files" do
       puts "after"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      rescued: cannot load such file -- definitely_missing_optdep_xyz
-      after
-    OUT
+    _(result).must_answer "rescued: cannot load such file -- definitely_missing_optdep_xyz\nafter\n"
   end
 end

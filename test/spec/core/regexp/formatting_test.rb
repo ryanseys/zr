@@ -673,10 +673,7 @@ describe "Regexp: formatting and inspection" do
       puts ("x\033y" =~ /\033/).inspect
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      aredb
-      1
-    OUT
+    _(result).must_answer "aredb\n1\n"
   end
 
   it "regexp onig" do

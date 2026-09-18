@@ -195,10 +195,7 @@ describe "Constants programs" do
       p b.eval("BOXCONST")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :namee
-      5
-    OUT
+    _(result).must_answer ":namee\n5\n"
   end
 
   it "case when value constant" do
@@ -3293,10 +3290,7 @@ describe "Constants programs" do
       puts greet("you", "?")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hi world!
-      hi you?
-    OUT
+    _(result).must_answer "hi world!\nhi you?\n"
   end
 
   it "top level def used as a value is still private" do
@@ -3423,9 +3417,7 @@ describe "Constants programs" do
   end
 
   it "top level self is the main object" do
-    result = ze0(<<~'RUBY')
-      puts self.is_a?(Object)
-    RUBY
+    result = ze0("puts self.is_a?(Object)\n")
 
     _(result).must_answer "true\n"
   end

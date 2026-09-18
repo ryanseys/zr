@@ -36,10 +36,7 @@ describe "Numeric: raising and rescuing" do
       puts(1.0 / 0.0); puts(-1.0 / 0.0)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Infinity
-      -Infinity
-    OUT
+    _(result).must_answer "Infinity\n-Infinity\n"
   end
 
   it "float divmod zerodiv" do
@@ -733,10 +730,7 @@ describe "Numeric: raising and rescuing" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Math::DomainError: boom
-      Math::DomainError
-    OUT
+    _(result).must_answer "Math::DomainError: boom\nMath::DomainError\n"
   end
 
   it "numeric and collection error protocol edges" do

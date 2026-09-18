@@ -18,10 +18,7 @@ describe "Array: blocks and yields" do
       puts out.inspect
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      6
-      [3, 4, 5]
-    OUT
+    _(result).must_answer "6\n[3, 4, 5]\n"
   end
 
   it "fill's block form takes the index span positionally and the value from the block" do
@@ -489,9 +486,7 @@ describe "Array: blocks and yields" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      wrong argument type String (must be numeric, true, false or nil)
-    OUT
+    _(result).must_answer "wrong argument type String (must be numeric, true, false or nil)\n"
   end
 
   it "bsearch without block" do

@@ -98,9 +98,7 @@ describe "Process: raising and rescuing" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Errno::ENOENT: No such file or directory - /no/such/program-zeo
-    OUT
+    _(result).must_answer "Errno::ENOENT: No such file or directory - /no/such/program-zeo\n"
   end
 
   it "instance exec no block error" do
@@ -264,10 +262,7 @@ describe "Process: raising and rescuing" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', status: nil, signal: 15
-      handler
-      SignalException
-    OUT
+    _(result).must_answer "handler\nSignalException\n", status: nil, signal: 15
   end
 
   it "unrescued definition raise aborts where ruby aborts" do

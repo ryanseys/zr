@@ -197,10 +197,7 @@ describe "IO: substitution" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      Time
-      Integer
-    OUT
+    _(result).must_answer "Time\nInteger\n"
   end
 
   it "file path predicates" do

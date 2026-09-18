@@ -439,10 +439,7 @@ describe "Methods: inheritance and ancestors" do
       puts "OK"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      from-outer
-      OK
-    OUT
+    _(result).must_answer "from-outer\nOK\n"
   end
 
   it "issue239 cls method default args" do
@@ -546,10 +543,7 @@ describe "Methods: inheritance and ancestors" do
       p Child.seen
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [:a, :b]
-      [:one]
-    OUT
+    _(result).must_answer "[:a, :b]\n[:one]\n"
   end
 
   it "method super chain" do

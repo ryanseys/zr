@@ -168,10 +168,7 @@ describe "Methods: visibility" do
       puts(2 + 3)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hi world
-      5
-    OUT
+    _(result).must_answer "hi world\n5\n"
   end
 
   it "module function governs a runtime define method" do
@@ -330,10 +327,7 @@ describe "Methods: visibility" do
       puts B.new.pub_b
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      priv_a
-      priv_b
-    OUT
+    _(result).must_answer "priv_a\npriv_b\n"
   end
 
   it "protected method callable from a related classs own method" do

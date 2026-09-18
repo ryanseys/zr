@@ -295,10 +295,7 @@ describe "Object: blocks and yields" do
       p(->(a, b) { [a, b] }.call(1, 2))
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1, 2]
-      [1, 2]
-    OUT
+    _(result).must_answer "[1, 2]\n[1, 2]\n"
   end
 
   it "lambda return and break terminate only the lambda itself" do
@@ -507,10 +504,7 @@ describe "Object: blocks and yields" do
       puts obj.wrap
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      no block
-    OUT
+    _(result).must_answer "42\nno block\n"
   end
 
   it "singleton method yields params and multiple values" do
@@ -687,10 +681,7 @@ describe "Object: blocks and yields" do
       one([1, 2, 3]) { |a, b,| p [a, b] }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1
-      [1, 2]
-    OUT
+    _(result).must_answer "1\n[1, 2]\n"
   end
 
   it "yield tail tap value" do

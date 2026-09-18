@@ -317,10 +317,7 @@ describe "Set programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      wrong constant name lower
-      constant #<Module:0xN>::Nope not defined
-    OUT
+    _(result).must_answer "wrong constant name lower\nconstant #<Module:0xN>::Nope not defined\n"
   end
 
   it "container read combined set map bang" do
@@ -506,10 +503,7 @@ describe "Set programs" do
       puts c.block.x   # 0
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      0
-      0
-    OUT
+    _(result).must_answer "0\n0\n"
   end
 
   it "instance variable set value class" do
@@ -850,9 +844,7 @@ describe "Set programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      backtrace must be an Array of String or an Array of Thread::Backtrace::Location
-    OUT
+    _(result).must_answer "backtrace must be an Array of String or an Array of Thread::Backtrace::Location\n"
   end
 
   it "Set.new drops the equal elements, and each, include? and << answer over what is left" do
@@ -1435,10 +1427,7 @@ describe "Set programs" do
       p (k[1] | Set[2]).class == k
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      can't modify frozen Set: Set[1]
-      true
-    OUT
+    _(result).must_answer "can't modify frozen Set: Set[1]\ntrue\n"
   end
 
   it "Set.new takes the Array that map returns, and a plain class takes the same shape" do

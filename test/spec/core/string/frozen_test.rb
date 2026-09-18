@@ -26,10 +26,7 @@ describe "String: frozen literals" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      int slice!
-      str slice!
-    OUT
+    _(result).must_answer "int slice!\nstr slice!\n"
   end
 
   it "follows the magic comment rules" do
@@ -164,10 +161,7 @@ describe "String: frozen literals" do
       puts second
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      first literal
-      second literal
-    OUT
+    _(result).must_answer "first literal\nsecond literal\n"
   end
 
   it "frozen string literal per file" do
@@ -951,10 +945,7 @@ describe "String: frozen literals" do
       p((-c).equal?(c))
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      true
-    OUT
+    _(result).must_answer "true\ntrue\n"
   end
 
   it "string dedup intern" do

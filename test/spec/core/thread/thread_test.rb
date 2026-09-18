@@ -171,9 +171,7 @@ describe "Thread programs" do
       f.resume   # bumps to 3, prints 3
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-    OUT
+    _(result).must_answer "3\n"
   end
 
   it "fiber storage siblings" do
@@ -505,10 +503,7 @@ describe "Thread programs" do
       t2.join
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      t1 re-raised: from t1
-      t2 re-raised: from t2
-    OUT
+    _(result).must_answer "t1 re-raised: from t1\nt2 re-raised: from t2\n"
   end
 
   it "external iteration drives a real fiber" do
@@ -847,10 +842,7 @@ describe "Thread programs" do
       end.resume
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      conn
-      true
-    OUT
+    _(result).must_answer "conn\ntrue\n"
   end
 
   it "fiber wide router" do
@@ -1164,9 +1156,7 @@ describe "Thread programs" do
   end
 
   it "Thread.new with no block raises ThreadError" do
-    result = ze0(<<~'RUBY')
-      r = (Thread.new rescue $!.class); p r
-    RUBY
+    result = ze0("r = (Thread.new rescue $!.class); p r\n")
 
     _(result).must_answer "ThreadError\n"
   end
@@ -1352,10 +1342,7 @@ describe "Thread programs" do
       puts mu.locked?
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      false
-    OUT
+    _(result).must_answer "5\nfalse\n"
   end
 
   it "opposite order two container ops do not deadlock" do
@@ -1856,9 +1843,6 @@ describe "Thread programs" do
       puts s.value
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      hi!
-    OUT
+    _(result).must_answer "42\nhi!\n"
   end
 end

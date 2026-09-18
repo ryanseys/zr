@@ -50,9 +50,6 @@ describe "Open3 programs" do
       puts Open3.respond_to?(:popen3)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      true
-    OUT
+    _(result).must_answer "true\ntrue\n"
   end
 end

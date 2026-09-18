@@ -40,10 +40,7 @@ describe "Modules: constants" do
       puts Box.new.greet
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      wordy_42
-      hi from greeter
-    OUT
+    _(result).must_answer "wordy_42\nhi from greeter\n"
   end
 
   it "const source location of a module constant" do
@@ -460,10 +457,7 @@ describe "Modules: constants" do
       puts M::N::P::C.new.value
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      10
-      30
-    OUT
+    _(result).must_answer "10\n30\n"
   end
 
   it "module s constants answers for its receiver" do

@@ -408,10 +408,7 @@ describe "Blocks: evaluating a string" do
       p f.call(6)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      120
-      720
-    OUT
+    _(result).must_answer "120\n720\n"
   end
 
   it "runtime eval defines methods and runs blocks" do

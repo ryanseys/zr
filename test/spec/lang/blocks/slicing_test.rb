@@ -139,10 +139,7 @@ describe "Blocks: slicing" do
       p ViaYield.new.first
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1, 2]
-      [1, 2]
-    OUT
+    _(result).must_answer "[1, 2]\n[1, 2]\n"
   end
 
   it "block local cell in nested block" do

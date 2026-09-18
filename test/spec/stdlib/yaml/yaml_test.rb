@@ -302,10 +302,7 @@ describe "YAML programs" do
       p Psych.const_defined?(:VERSION)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      String
-      true
-    OUT
+    _(result).must_answer "String\ntrue\n"
   end
 
   it "yaml core tags" do

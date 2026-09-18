@@ -267,10 +267,7 @@ describe "Range programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      in range
-      out of range
-    OUT
+    _(result).must_answer "in range\nout of range\n"
   end
 
   it "collections convert and walk as cruby does" do
@@ -533,10 +530,7 @@ describe "Range programs" do
       puts c.safe_op(-5)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      10
-      -1
-    OUT
+    _(result).must_answer "10\n-1\n"
   end
 
   it "enumerator produce endless generator" do

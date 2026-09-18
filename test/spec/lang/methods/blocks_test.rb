@@ -208,10 +208,7 @@ describe "Methods: blocks and yields" do
       Collector.new("x").run(1, 2)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      tag=x:1
-      tag=x:2
-    OUT
+    _(result).must_answer "tag=x:1\ntag=x:2\n"
   end
 
   it "issue method name def in block" do
@@ -312,10 +309,7 @@ describe "Methods: blocks and yields" do
       p [1, 2].take_while { true }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [1, 2]
-      :array_own
-    OUT
+    _(result).must_answer "[1, 2]\n:array_own\n"
   end
 
   it "lifted block class method self cls" do

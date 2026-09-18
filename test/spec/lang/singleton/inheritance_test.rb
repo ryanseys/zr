@@ -126,10 +126,7 @@ describe "Singleton: inheritance and ancestors" do
       puts Both.new.instance_helper
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      10
-      inc
-    OUT
+    _(result).must_answer "10\ninc\n"
   end
 
   it "extend class and module" do
@@ -219,10 +216,7 @@ describe "Singleton: inheritance and ancestors" do
       puts Gadget.tag
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hello from Widget
-      tagged
-    OUT
+    _(result).must_answer "hello from Widget\ntagged\n"
   end
 
   it "extend in reopened class" do
@@ -609,10 +603,7 @@ describe "Singleton: inheritance and ancestors" do
       puts Wrapper.between?(Wrapper, Wrapper)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      true
-    OUT
+    _(result).must_answer "true\ntrue\n"
   end
 
   it "extend module with user module via runtime call" do
@@ -626,10 +617,7 @@ describe "Singleton: inheritance and ancestors" do
       puts Speaker.respond_to?(:say)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      said
-      true
-    OUT
+    _(result).must_answer "said\ntrue\n"
   end
 
   it "extended singleton class ancestors" do

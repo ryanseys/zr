@@ -283,10 +283,7 @@ describe "Date programs" do
       p r.map(&:day)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      [1, 2, 3]
-    OUT
+    _(result).must_answer "3\n[1, 2, 3]\n"
   end
 
   it "date weekday predicates" do

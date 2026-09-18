@@ -117,10 +117,7 @@ describe "Fusion: blocks and yields" do
       f { }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      false
-      true
-    OUT
+    _(result).must_answer "false\ntrue\n"
   end
 
   it "block next nil typed map" do
@@ -306,10 +303,7 @@ describe "Fusion: blocks and yields" do
       Top.new.process { |n| puts "start #{n}" }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      start 0
-      TOP: 10 20
-    OUT
+    _(result).must_answer "start 0\nTOP: 10 20\n"
   end
 
   it "inline yield method with return" do
@@ -349,10 +343,7 @@ describe "Fusion: blocks and yields" do
       puts w2.count_between(0, 10)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      -1
-    OUT
+    _(result).must_answer "5\n-1\n"
   end
 
   it "inline yield nested self ivar" do
@@ -389,10 +380,7 @@ describe "Fusion: blocks and yields" do
       o.process { |n| puts "start #{n}" }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      start 1
-      outer: 7
-    OUT
+    _(result).must_answer "start 1\nouter: 7\n"
   end
 
   it "inline yield return side effect" do
@@ -457,10 +445,7 @@ describe "Fusion: blocks and yields" do
       c.each { |k| puts k }
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      alpha
-      beta
-    OUT
+    _(result).must_answer "alpha\nbeta\n"
   end
 
   it "inlined yield self locals" do
@@ -768,10 +753,7 @@ describe "Fusion: blocks and yields" do
       puts Widget.new("daily").compute
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      value_for_hourly
-      value_for_daily
-    OUT
+    _(result).must_answer "value_for_hourly\nvalue_for_daily\n"
   end
 
   it "yield inline ctor self" do
@@ -818,10 +800,7 @@ describe "Fusion: blocks and yields" do
       p w.seed
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      100
-    OUT
+    _(result).must_answer "true\n100\n"
   end
 
   it "yield inline divergent accumulator" do
@@ -985,9 +964,6 @@ describe "Fusion: blocks and yields" do
       puts out2
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      v0,v1,
-      v0,v1,
-    OUT
+    _(result).must_answer "v0,v1,\nv0,v1,\n"
   end
 end

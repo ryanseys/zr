@@ -875,10 +875,7 @@ describe "Hash: dispatch" do
       puts p.stored_count   # 4 (every call appends)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      4
-    OUT
+    _(result).must_answer "2\n4\n"
   end
 
   it "poly length on scalar hash" do
@@ -1014,10 +1011,7 @@ describe "Hash: dispatch" do
       puts M.read(:missing).nil?
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      hello
-      true
-    OUT
+    _(result).must_answer "hello\ntrue\n"
   end
 
   it "poly recv aset poly key" do
@@ -1136,10 +1130,7 @@ describe "Hash: dispatch" do
       puts lookup({ "x" => { "title" => "real" } })
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      from-flash
-      real
-    OUT
+    _(result).must_answer "from-flash\nreal\n"
   end
 
   it "poly recv hash dup" do

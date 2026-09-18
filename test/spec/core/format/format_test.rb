@@ -10,9 +10,6 @@ describe "Format programs" do
       puts r.source
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      foo/bar
-    OUT
+    _(result).must_answer "true\nfoo/bar\n"
   end
 end

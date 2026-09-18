@@ -379,10 +379,7 @@ describe "Control: control flow" do
       puts result
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      negative
-      zero
-    OUT
+    _(result).must_answer "negative\nzero\n"
   end
 
   it "control" do
@@ -1081,10 +1078,7 @@ describe "Control: control flow" do
       puts JSON.instance_of?(Class)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      my own parser
-      true
-    OUT
+    _(result).must_answer "my own parser\ntrue\n"
   end
 
   it "heterogeneous tuple return" do
@@ -2583,10 +2577,7 @@ describe "Control: control flow" do
       t_each_with_object
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [10, 20, 30]
-      total=6
-    OUT
+    _(result).must_answer "[10, 20, 30]\ntotal=6\n"
   end
 
   it "Array#zip iteration" do
@@ -2769,10 +2760,7 @@ describe "Control: control flow" do
       puts attempts
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      3
-      6
-    OUT
+    _(result).must_answer "3\n6\n"
   end
 
   it "return inside while" do
@@ -2960,10 +2948,7 @@ describe "Control: control flow" do
       puts Host.new.stringify_keys({"a" => 1})
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      42
-      stringified
-    OUT
+    _(result).must_answer "42\nstringified\n"
   end
 
   it "return void and nullable object" do
@@ -3125,10 +3110,7 @@ describe "Control: control flow" do
       puts check("-qq")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      false
-      true
-    OUT
+    _(result).must_answer "false\ntrue\n"
   end
 
   it "valued break" do

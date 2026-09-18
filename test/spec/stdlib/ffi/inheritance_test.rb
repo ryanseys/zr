@@ -110,10 +110,7 @@ describe "FFI: inheritance and ancestors" do
       puts MathB.cos(0.0)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      1.5
-      1.0
-    OUT
+    _(result).must_answer "1.5\n1.0\n"
   end
 
   it "a C flag value is a plain Ruby constant on the library module, combinable with the bit ops" do
@@ -605,10 +602,7 @@ describe "FFI: inheritance and ancestors" do
       puts "ok"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      sentinel_non_null
-      ok
-    OUT
+    _(result).must_answer "sentinel_non_null\nok\n"
   end
 
   it "the runtime library tier passes a struct by value with the declaration's real field types" do
@@ -639,10 +633,7 @@ describe "FFI: inheritance and ancestors" do
       puts Net.inet_ntoa(a)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      127.0.0.1
-      255.255.255.255
-    OUT
+    _(result).must_answer "127.0.0.1\n255.255.255.255\n"
   end
 
   it "a :strptr return answers the decoded String and the raw Pointer together" do
@@ -770,10 +761,7 @@ describe "FFI: inheritance and ancestors" do
       puts Pathy.strlen("")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      5
-      0
-    OUT
+    _(result).must_answer "5\n0\n"
   end
 
   it "layoutless struct name still types a signature" do

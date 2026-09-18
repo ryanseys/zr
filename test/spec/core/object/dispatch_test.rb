@@ -46,10 +46,7 @@ describe "Object: dispatch" do
       p H2.new.run
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      ok: hi
-      [3, 1]
-    OUT
+    _(result).must_answer "ok: hi\n[3, 1]\n"
   end
 
   it "poly dispatch value type to s" do
@@ -169,10 +166,7 @@ describe "Object: dispatch" do
       puts Object.new.inspect.gsub(/0x[0-9a-f]+/, "0xADDR")
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      #<Object:0xADDR>
-      #<Object:0xADDR>
-    OUT
+    _(result).must_answer "#<Object:0xADDR>\n#<Object:0xADDR>\n"
   end
 
   it "poly to s user class" do
@@ -305,10 +299,7 @@ describe "Object: dispatch" do
       p (a + o).value
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      2
-      22
-    OUT
+    _(result).must_answer "2\n22\n"
   end
 
   it "poly user nil predicate" do

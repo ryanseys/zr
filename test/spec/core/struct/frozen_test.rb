@@ -235,10 +235,7 @@ describe "Struct: frozen literals" do
       a = P.new(1, 2); p(a.frozen?)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      true
-    OUT
+    _(result).must_answer "true\ntrue\n"
   end
 
   it "data new with no arguments passes no keywords" do

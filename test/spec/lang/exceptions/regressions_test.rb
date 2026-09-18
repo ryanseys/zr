@@ -471,10 +471,7 @@ describe "Exceptions: regressions" do
       begin; p001.call; rescue LocalJumpError => e002; p e002.exit_value; end
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      7
-      10
-    OUT
+    _(result).must_answer "7\n10\n"
   end
 
   it "ENV.fetch raises KeyError carrying the name it looked for" do
@@ -1237,10 +1234,7 @@ describe "Exceptions: regressions" do
       p n2
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      :some_undefined_local_x005
-      :some_other_undef
-    OUT
+    _(result).must_answer ":some_undefined_local_x005\n:some_other_undef\n"
   end
 
   it "a method that scans nil raises NoMethodError rather than failing to compile" do
@@ -1264,10 +1258,7 @@ describe "Exceptions: regressions" do
       puts "ok"
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      raised NoMethodError
-      ok
-    OUT
+    _(result).must_answer "raised NoMethodError\nok\n"
   end
 
   it "== evaluates its left operand before its right" do
@@ -1337,10 +1328,7 @@ describe "Exceptions: regressions" do
       p only_ints(1, 2, 3)
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      [true, false, true]
-      [2, 4, 6]
-    OUT
+    _(result).must_answer "[true, false, true]\n[2, 4, 6]\n"
   end
 
   it "two StringIO buffers filled the same way hold the same string" do
@@ -1383,10 +1371,7 @@ describe "Exceptions: regressions" do
       p([Rectangle.new(3, 4), Square.new(5)].sort.map(&:area))
     RUBY
 
-    _(result).must_answer <<~'OUT'
-      true
-      [12, 25]
-    OUT
+    _(result).must_answer "true\n[12, 25]\n"
   end
 
   it "tap hands the block the receiver and answers with the receiver" do
