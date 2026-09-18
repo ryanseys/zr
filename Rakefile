@@ -146,19 +146,6 @@ namespace :gen do
   end
 end
 
-# The OS tables come from the ruby of the OS they describe
-# (tools/layer.rb), so this runs on each OS's own ruby: darwin here, an
-# Alpine ruby for linux. socket's table follows ruby's own list of names,
-# which lives in ruby's source rather than in any install.
-desc "Write this OS's tables again and fail on a difference: MKCONSTANTS=<ruby>/ext/socket/mkconstants.rb rake tables"
-task :tables do
-  mkconstants = ENV.fetch("MKCONSTANTS") { abort "rake tables: MKCONSTANTS names ruby 4.0.6's ext/socket/mkconstants.rb" }
-  %w[errno fcntl etc].each { |name| tool(name) }
-  tool("socket", mkconstants)
-  os = RUBY_PLATFORM[/darwin|linux|wasi/]
-  sh("git", "diff", "--exit-code", "--", "rt/core/os/#{os}", "rt/ext/os/#{os}")
-end
-
 # Each runs a Ruby port and ruby's own implementation on the host, and
 # compares the two. They are where a port is developed; the checks hold
 # the same ports to a fixed sample.

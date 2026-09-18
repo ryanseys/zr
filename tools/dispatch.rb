@@ -3,8 +3,14 @@
 # Writes the programs that show which of its own methods a core class
 # calls on the way to answering another: the calls a subclass sees.
 #
-#   ruby tools/dispatch.rb            # writes every program below
-#   ruby tools/record.rb <each path>  # then ruby records what it calls
+#   rake gen:dispatch            # every program below
+#   rake 'gen:dispatch[Hash]'    # one of them
+#
+# Each program is already an example in the spec file named beside it,
+# so the tool prints rather than writes: read what it prints against the
+# heredoc that example carries, and where the two part, ruby says which
+# is right. `rake oracle` holds the example's answer to ruby as it holds
+# every other.
 #
 # CRuby's C calls a method by dispatch only where it means to -- Hash#each
 # for Enumerable, initialize_copy for dup -- and reaches the rest of its
@@ -30,16 +36,18 @@ TRIES = [[], [1], [0, 1], ["l"], [:a], [[1, 2]], [{ a: 1 }], %w[l L], [1, 2, 3],
 # Methods whose first answering call would never end or leave the process.
 SKIP = %i[cycle freeze display].freeze
 
+# The class, how a fresh receiver is made, and the spec file holding the
+# example this program is.
 CLASSES = {
-  "core/hash" => ["Hash", "Probe.new.tap { |h| h[:a] = 1; h[:b] = 2 }"],
-  "core/array" => ["Array", "Probe.new([3, 1, 2])"],
-  "core/string" => ["String", 'Probe.new(+"hello world")'],
-  "core/range" => ["Range", "Probe.new(1, 5)"],
-  "core/struct" => ["Struct", "Probe.new(1, 2)"],
-  "stdlib/set" => ["Set", "Probe.new([1, 2, 3])"]
+  "Hash" => ["Probe.new.tap { |h| h[:a] = 1; h[:b] = 2 }", "test/spec/core/hash/hash_test.rb"],
+  "Array" => ["Probe.new([3, 1, 2])", "test/spec/core/array/array_test.rb"],
+  "String" => ['Probe.new(+"hello world")', "test/spec/core/string/string_test.rb"],
+  "Range" => ["Probe.new(1, 5)", "test/spec/core/range/range_test.rb"],
+  "Struct" => ["Probe.new(1, 2)", "test/spec/core/struct/inheritance_test.rb"],
+  "Set" => ["Probe.new([1, 2, 3])", "test/spec/stdlib/set/set_test.rb"]
 }.freeze
 
-NAME = "a_subclass_sees_only_the_calls_ruby_makes.rb"
+EXAMPLE = "subclass sees only the calls ruby makes"
 
 def base_of(name) = Object.const_get(name)
 
@@ -132,8 +140,13 @@ def program(name, make)
   RUBY
 end
 
-CLASSES.each do |dir, (name, make)|
-  path = File.join(ROOT, "test", dir, NAME)
-  File.write(path, program(name, make))
-  puts "wrote #{path.delete_prefix("#{ROOT}/")}"
+wanted = ARGV.empty? ? CLASSES.keys : ARGV
+unknown = wanted - CLASSES.keys
+abort("tools/dispatch.rb: no program for #{unknown.join(", ")}") unless unknown.empty?
+
+wanted.each do |name|
+  make, spec = CLASSES.fetch(name)
+  puts "# #{spec}: it #{EXAMPLE.inspect}"
+  puts program(name, make)
+  puts
 end

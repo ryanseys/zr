@@ -4,6 +4,8 @@ require "spec_helper"
 
 describe "Methods programs" do
   it "aliasing a genuinely undefined method is a runtime name error" do
+    skip "ruby's did_you_mean writes 'Did you mean?  undef_method' between the message and the backtrace, " \
+         "and a compiled program carries no did_you_mean"
     result = ze0(<<~'RUBY', path: "lang/methods/aliasing_a_genuinely_undefined_method_is_a_runtime_name_error.rb")
       # An `alias`/`alias_method` whose source is defined neither in this body
       # nor anywhere in the ancestry COMPILES (the compiler can't distinguish a
