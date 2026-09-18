@@ -1076,7 +1076,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct" do
+  it "a Struct reads, writes and prints its members" do
     result = ze0(<<~'RUBY')
       # Test Struct
 
@@ -1117,7 +1117,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct binds its members without dispatch" do
+  it "a Struct binds each member from its position, and names the argument it cannot place" do
     result = ze0(<<~'RUBY')
       # A compiled `S = Struct.new(:a)` binds through the runtime kernel, so a
       # program that patches a core Array or Hash method cannot reach inside the
@@ -1169,7 +1169,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct block constant init" do
+  it "a constant assigned in a Struct.new block body is initialized" do
     result = ze0(<<~'RUBY')
       # A constant assigned inside a `Struct.new(...) do ... end` block body must be
       # initialized. register_structs consumes the block only for class/ivar/method
@@ -1200,7 +1200,7 @@ describe "Struct programs" do
     _(result).must_answer "", stderr: "core/struct/struct_test.rb:20:in '<main>': uninitialized constant Line::FLAGS (NameError)\n\nputs Line::FLAGS[:TWOSIDED]\n         ^^^^^^^\n", status: 1
   end
 
-  it "struct block overrides bracket" do
+  it "a method defined in the block body wins over the generated one" do
     result = ze0(<<~'RUBY')
       # A method defined in a Struct.new / Data.define block overrides the built-in
       # member accessor of the same name, as it does in CRuby. `[]` written in the
@@ -1276,7 +1276,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct class methods listing" do
+  it "a Struct class answers members and keyword_init?" do
     result = ze0(<<~'RUBY')
       S = Struct.new(:a, :b)
       p S.methods.include?(:members)
@@ -1293,7 +1293,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct conformance wave" do
+  it "each_pair yields the pair whole, and values_at pads past the last member" do
     result = ze0(<<~'RUBY')
       S = Struct.new(:a, :b, :c)
       s = S.new(1, 2, 3)
@@ -1350,7 +1350,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct custom initialize supers into the member setter" do
+  it "a custom initialize sets the members through super" do
     result = ze0(<<~'RUBY')
       # A custom `initialize` in the block calls `super` (bare or explicit,
       # positional) into the synthesized member-setter, reached via a two-level
@@ -1376,7 +1376,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct data deconstruct" do
+  it "a Struct and a Data match an array pattern and a hash pattern" do
     result = ze0(<<~'RUBY')
       # Struct and Data support pattern matching: #deconstruct (array patterns)
       # and #deconstruct_keys (hash patterns). Neither has an explicit method;
@@ -1447,7 +1447,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct data extended" do
+  it "values, values_at and dig, including a dig into a member that holds a Hash" do
     result = ze0(<<~'RUBY')
       # Struct: values / values_at / dig (including nested dig into a Hash)
       Point = Struct.new(:x, :y)
@@ -1496,7 +1496,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct index dynamic" do
+  it "a subscript that is not a literal reads by index, counting back from the end" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # The out-of-range Struct#[] message says "too large" for a negative
@@ -1536,7 +1536,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct int member unboxed" do
+  it "a Struct built with no arguments reads nil at every member" do
     result = ze0(<<~'RUBY')
       Rec = Struct.new(:id, :name)
 
@@ -1564,7 +1564,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct keywords by call shape" do
+  it "the call's shape decides whether a trailing Hash is keywords or a member" do
     result = ze0(<<~'RUBY')
       # KEYWORDS to a Struct constructor build the wrong instance. A Struct
       # declared WITHOUT `keyword_init:` still accepts keywords -- ruby decides by
@@ -1609,7 +1609,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct kw" do
+  it "a keyword_init Struct takes its members by name" do
     result = ze0(<<~'RUBY')
       # Test Struct with keyword_init
 
@@ -1638,7 +1638,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct local member types" do
+  it "a Struct class held in a local types its members the same as one in a constant" do
     result = ze0(<<~'RUBY')
       # A Struct held in a local is the same class as one held in a constant, so its
       # construction types the members the same way. It used to leave every member
@@ -1678,7 +1678,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct local reassigned" do
+  it "a local reassigned to a second anonymous Struct class dispatches at run time" do
     result = ze0(<<~'RUBY')
       # A local holding an anonymous Struct class, reassigned to a SECOND one. No
       # single class resolves for it any more, so `s.new` dispatches at run time --
@@ -1734,7 +1734,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct member arg rooted" do
+  it "a member value built in argument position survives until the constructor stores it" do
     result = ze0(<<~'RUBY')
       # A Struct member value built in argument position had to survive until the
       # constructor stored it. The constructor roots its parameters on entry, but that
@@ -1779,7 +1779,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct member dynamic key" do
+  it "a subscript takes an index, a name or a string, and raises for a member that is not there" do
     result = ze0(<<~'RUBY')
       S = Struct.new(:a, :b)
       s = S.new(1, 2)
@@ -1816,7 +1816,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct member in block" do
+  it "a member reader wins over a same-named String method through a block parameter" do
     result = ze0(<<~'RUBY')
       # A Struct / Data / attr_accessor read inside a block, where the receiver is a
       # poly array element: the member must win over a same-named String method, and
@@ -1857,7 +1857,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct member is not an instance variable" do
+  it "a member is not an instance variable of the same name" do
     result = ze0(<<~'RUBY')
       S = Struct.new(:a, :b)
       class S
@@ -1878,7 +1878,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct member name no global merge" do
+  it "a member name does not merge types with an unrelated method of that name" do
     result = ze0(<<~'RUBY')
       # A Struct member name must not globally type-merge with an unrelated
       # method of the same name. Here Struct member `b` (an Integer) shares
@@ -1917,7 +1917,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct methods" do
+  it "Struct.[], a negative-index write, entries, reverse_each, compact and each_with_index" do
     result = ze0(<<~'RUBY')
       # Struct method surface (#2488-2491, #2506, #2534-2539)
       S = Struct.new(:a, :b, :c)
@@ -1960,7 +1960,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct new with class name" do
+  it "Struct.new with a leading name defines the class under Struct" do
     result = ze0(<<~'RUBY')
       Struct.new("Named", :a)
       p Struct::Named.new(1).a
@@ -1973,7 +1973,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct self equality and keyword init tri state" do
+  it "keyword_init? is true, false or nil, and a Struct equals itself" do
     result = ze0(<<~'RUBY')
       # `s == s` must not deadlock: comparing a struct to itself used to lock the
       # same slots Mutex twice and hang. `keyword_init?` is tri-state, matching
@@ -1999,7 +1999,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct size differs on the compiled path" do
+  it "too many arguments raises, where too few fill with nil" do
     result = ze0(<<~'RUBY')
       # TOO MANY POSITIONALS to a Struct constructor say `struct size differs` on
       # BOTH paths: the compiled constant-assigned form (which once reported a
@@ -2034,7 +2034,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct value equality" do
+  it "two Structs are equal when their class and every member match" do
     result = ze0(<<~'RUBY')
       # Struct instances compare by member value (identity was compared before);
       # a string/array member compares by content, and eql? follows ==.
@@ -2065,7 +2065,7 @@ describe "Struct programs" do
     OUT
   end
 
-  it "struct yield initialize" do
+  it "a custom initialize that yields runs its block during construction" do
     result = ze0(<<~'RUBY')
       # A custom initialize that calls its block (yield / block_given? / a called
       # &blk) runs its body during construction. For a Struct/Data value class this
