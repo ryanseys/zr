@@ -158,7 +158,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 2874" do
+  it "reduce composes an array of lambdas into one" do
     result = ze0(<<~'RUBY')
       fns = [->(x) { x + 1 }, ->(x) { x * 2 }]
       composed = fns.reduce(->(x) { x }) { |acc, f| ->(x) { f.call(acc.call(x)) } }
@@ -177,7 +177,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 2880" do
+  it "reduce(:>>) and reduce(:<<) compose an array of lambdas either way round" do
     result = ze0(<<~'RUBY')
       fns = [->(x) { x + 1 }, ->(x) { x * 2 }]
       combined = fns.reduce(:>>)
@@ -196,7 +196,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 2883" do
+  it "a lambda read out of an array calls with the argument it is handed" do
     result = ze0(<<~'RUBY')
       callbacks = []
       callbacks << ->(e) { p e }
@@ -216,7 +216,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 2942" do
+  it "Array#last and #first are receivers a call can be chained onto" do
     result = ze0(<<~'RUBY')
       # Calling a Proc obtained via Array#last: `.last` must be a self-contained
       # expression (not a g_pre decl) so it works as the receiver of a following
@@ -235,7 +235,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 2958" do
+  it "reduce over a class that includes Enumerable folds through its each" do
     result = ze0(<<~'RUBY')
       class Tags
         include Enumerable
@@ -250,7 +250,7 @@ describe "Blocks: regressions" do
     _(result).must_answer "{1 => 1, 2 => 4, 3 => 9}\n"
   end
 
-  it "issue 2959" do
+  it "sum over an Enumerable answers a Float whatever seed it is given" do
     result = ze0(<<~'RUBY')
       class Nums
         include Enumerable
@@ -269,7 +269,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 2960" do
+  it "all?, any?, none? and one? take a pattern over an Enumerable" do
     result = ze0(<<~'RUBY')
       class Nums
         include Enumerable
@@ -296,7 +296,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 2981" do
+  it "each_slice, each_cons and each_with_index answer the receiver when given a block" do
     result = ze0(<<~'RUBY')
       class Nums
         include Enumerable
@@ -324,7 +324,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 2982" do
+  it "reduce over an Enumerable widens to Float when the block does" do
     result = ze0(<<~'RUBY')
       class Nums
         include Enumerable
@@ -349,7 +349,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3026" do
+  it "next inside a proc answers with the value it is given" do
     result = ze0(<<~'RUBY')
       p(proc { next 5 }.call)
       p(proc { |x| next x * 2 }.call(4))
@@ -368,7 +368,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3048" do
+  it "a duped or cloned Proc is a new object that shares the closure" do
     result = ze0(<<~'RUBY')
       pr = proc { |x| (x || 0) + 1 }
       d = pr.dup
@@ -398,7 +398,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3051" do
+  it "composing a lambda with a proc makes a lambda only when the left one is" do
     result = ze0(<<~'RUBY')
       f = proc { |x| x + 1 }
       g = proc { |x| x * 2 }
@@ -427,7 +427,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3053" do
+  it "Symbol#to_proc answers a lambda of arity -2" do
     result = ze0(<<~'RUBY')
       p :upcase.to_proc.arity
       p :+.to_proc.arity
@@ -450,7 +450,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3054" do
+  it "a parenthesised proc or lambda passes as a block through &" do
     result = ze0(<<~'RUBY')
       blk = proc { |x| x * 2 }
       p [1, 2].map(&(blk))
@@ -468,7 +468,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3117" do
+  it "a composed lambda passes as a block through &" do
     result = ze0(<<~'RUBY')
       p([1, 2, 3].map(&(->(x) { x + 1 } >> ->(x) { x * 2 })))
       p([1, 2, 3].map(&(->(x) { x + 1 } << ->(x) { x * 2 })))
@@ -489,7 +489,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3140" do
+  it "tap yields the receiver and answers with it, through a yield and directly" do
     result = ze0(<<~'RUBY')
       class Crash
         def hi = "hi"
@@ -515,7 +515,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3162" do
+  it "a value read out of a container keeps every method its class has" do
     result = ze0(<<~'RUBY')
       ranges = [(1..3)]
       p ranges[0].to_a
@@ -538,7 +538,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3163" do
+  it "a duped Proc is == to the original, and two identical literals are not" do
     result = ze0(<<~'RUBY')
       l = ->(a) { a }
       p l.dup == l
@@ -564,7 +564,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3166" do
+  it "a recursive method passes its block down with &" do
     result = ze0(<<~'RUBY')
       def hanoi(n, from, to, via, &block)
         return if n.zero?
@@ -581,7 +581,7 @@ describe "Blocks: regressions" do
     _(result).must_answer "[[:a, :b], [:a, :c], [:b, :c]]\n"
   end
 
-  it "issue 3167" do
+  it "a composed lambda built by reduce calls and passes as a block" do
     result = ze0(<<~'RUBY')
       pl = [->(x) { x * x }, ->(x) { x + 1 }].reduce(:>>)
       p pl.call(3)
@@ -600,7 +600,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3175" do
+  it "a lambda that returns a local written inside its own block answers the String" do
     result = ze0(<<~'RUBY')
       def seq(parsers)
         ->(s) {
@@ -622,7 +622,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3178" do
+  it "a splatted array fills a lambda's parameters, through a Hash and through a block store" do
     result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
@@ -654,7 +654,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3209" do
+  it "a bare & forwards the block to another constructor" do
     result = ze0(<<~'RUBY')
       class Foo
         def initialize = @hash = {}
@@ -671,7 +671,7 @@ describe "Blocks: regressions" do
     _(result).must_answer "true\n"
   end
 
-  it "issue 3241" do
+  it "a lambda with an early return of a different type answers both ways" do
     result = ze0(<<~'RUBY')
       # A lambda with an early (non-local) return whose type diverges from the
       # fall-through tail must publish the wider boxed return value.
@@ -698,7 +698,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3281" do
+  it "each block keeps its own _1 across a yield that is spliced inline" do
     result = ze0(<<~'RUBY')
       # Numbered block params across a yield-inline boundary: the callee's tap
       # block and the caller's block both use _1 with different types; each must
@@ -748,7 +748,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3309 lambda param reassign" do
+  it "a lambda may reassign its own parameter, even to another type" do
     result = ze0(<<~'RUBY')
       f = ->(s) { s = s[1..]; s }
       p f.call("abc")
@@ -765,7 +765,7 @@ describe "Blocks: regressions" do
     OUT
   end
 
-  it "issue 3337 yield local tail multistmt" do
+  it "a block whose tail is a local answers the object that local holds" do
     result = ze0(<<~'RUBY')
       class A; def id; 1; end; end
       class B; def id; 2; end; end
