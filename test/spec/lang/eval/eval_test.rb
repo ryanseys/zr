@@ -1663,7 +1663,7 @@ describe "Eval programs" do
     OUT
   end
 
-  it "eval reached through send, public_send or method still carries the compiler" do
+  it "send, public_send and method all reach eval, and the string still compiles where it runs" do
     result = ze0(<<~'RUBY')
       p send(:eval, "1 + 1")
       p __send__(:eval, "2 + 2")
@@ -1763,7 +1763,7 @@ describe "Eval programs" do
     _(result).must_answer "7\n"
   end
 
-  it "eval, class_eval and module_eval each compile a string where it runs" do
+  it "eval, class_eval and module_eval each link the run-time compiler for the string they are given" do
     result = ze0(<<~'RUBY')
       # frozen_string_literal: true
 

@@ -344,7 +344,7 @@ describe "Blocks: enumeration" do
     OUT
   end
 
-  it "blocks and closures" do
+  it "yield, block_given?, break, next and a closure over a local all answer" do
     result = ze0(<<~'RUBY', path: "ze0/blocks_and_closures.rb")
       def each_twice
         yield 1
@@ -487,7 +487,7 @@ describe "Blocks: enumeration" do
     ERR
   end
 
-  it "blocks procs" do
+  it "a method yields to its block, and a proc carries the enclosing scope wherever it is called" do
     result = ze0(<<~'RUBY')
       class Collector
         def each_num(a, b, c)

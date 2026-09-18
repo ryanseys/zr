@@ -967,7 +967,7 @@ describe "Object: frozen literals" do
     OUT
   end
 
-  it "object freeze flag" do
+  it "freeze marks the object, and frozen? answers it for a plain object and for a Struct" do
     result = ze0(<<~'RUBY')
       class C; end
       o = C.new
@@ -992,7 +992,7 @@ describe "Object: frozen literals" do
     OUT
   end
 
-  it "object freeze module isa" do
+  it "a Proc and an Enumerator carry a freeze state, and is_a? sees the builtin modules they include" do
     result = ze0(<<~'RUBY')
       # freeze state on Proc/Enumerator; is_a? for included builtin modules
       # (KieranP #2362, #2363)

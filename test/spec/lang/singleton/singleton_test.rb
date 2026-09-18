@@ -2749,7 +2749,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton_class.prepend puts a module's instance methods ahead of def self.x" do
+  it "prepending onto a singleton class puts the module's instance methods ahead of def self.x" do
     result = ze0(<<~'RUBY')
       # `C.singleton_class.prepend(M)` prepends a module onto a class's SINGLETON
       # class, so M's INSTANCE methods become C's CLASS methods at higher priority
@@ -3133,7 +3133,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "singleton_class.prepend works on a Class.new receiver and is visible through a subclass" do
+  it "the same prepend works on a Class.new receiver, and a subclass sees it through the ancestor walk" do
     result = ze0(<<~'RUBY')
       # `X.singleton_class.prepend(M)` where X only ever exists at RUNTIME (a
       # `Class.new` minting -- the same shape as a rails class behind a computed

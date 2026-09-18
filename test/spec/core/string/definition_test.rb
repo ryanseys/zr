@@ -247,7 +247,7 @@ describe "String: defining and naming methods" do
     _(result).must_answer "\"abz\"\n"
   end
 
-  it "string alias accessor read" do
+  it "a String reached through an accessor is the object the container holds, as through [] it is" do
     result = ze0(<<~'RUBY')
       # A String reached through an ACCESSOR call is the same object the container
       # holds, exactly as one reached through `[]` is. The shared-mutable-string
@@ -325,7 +325,7 @@ describe "String: defining and naming methods" do
     OUT
   end
 
-  it "string alias out of container" do
+  it "a String read out of a container into a local aliases the element, so a mutation shows in both" do
     result = ze0(<<~'RUBY')
       # Reading a mutable String out of a container into a local aliases the
       # element: an in-place mutation through the local must show in the container,

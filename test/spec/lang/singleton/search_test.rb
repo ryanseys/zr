@@ -273,7 +273,7 @@ describe "Singleton: searching and matching" do
     OUT
   end
 
-  it "singleton class membership" do
+  it "a value is_a? its own singleton class, and #class still reports the real one" do
     result = ze0(<<~'RUBY')
       # A value IS an instance of its own singleton class. CRuby gets this free --
       # `CLASS_OF(Foo)` literally IS `#<Class:Foo>`, and `#<Class:Sub>` inherits
@@ -355,7 +355,7 @@ describe "Singleton: searching and matching" do
     OUT
   end
 
-  it "singleton class mixin" do
+  it "include, prepend and extend inside class << obj route to the machinery extend uses" do
     result = ze0(<<~'RUBY')
       # `include`/`prepend`/`extend` inside `class << obj` on a PER-INSTANCE
       # singleton -- rdoc's `class << self; prepend Git; end` written inside a method

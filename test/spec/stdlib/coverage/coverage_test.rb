@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Coverage programs" do
-  it "coverage" do
+  it "the lifecycle, its error shapes and the measured line array all match the C extension" do
     result = ze0(<<~'RUBY', path: "coverage.rb", files: beside("coverage/target.rb"))
       # Line coverage over the AOT instrumentation: the lifecycle and its error
       # shapes, then the real measurement of coverage/target.rb -- required AFTER
@@ -81,7 +81,7 @@ describe "Coverage programs" do
     OUT
   end
 
-  it "coverage modes" do
+  it "lines and oneshot_lines answer as hashes of targets, and each state refuses what it must" do
     result = ze0(<<~'RUBY', files: beside("coverage_modes/lib_a.rb", "coverage_modes/lib_b.rb", "coverage/target.rb"))
       # Coverage's modes: lines and oneshot_lines as hashes of targets, the
       # counts a suspend leaves out, a result that keeps measuring, and the

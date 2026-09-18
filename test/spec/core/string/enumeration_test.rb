@@ -345,7 +345,7 @@ describe "String: enumeration" do
     OUT
   end
 
-  it "string each with index chain" do
+  it "each_line, each_byte and each_char all chain with_index, with an offset or without" do
     result = ze0(<<~'RUBY')
       Line = Struct.new(:number, :label)
       lines = []
@@ -388,7 +388,7 @@ describe "String: enumeration" do
     OUT
   end
 
-  it "string param dead each branch" do
+  it "a statically dead branch calling String#each lowers to a runtime stub, not a compile abort" do
     result = ze0(<<~'RUBY')
       # A String|Hash parameter that this program only ever calls with a String.
       # `opts` is therefore monomorphically String, so the `else` (Hash) branch is

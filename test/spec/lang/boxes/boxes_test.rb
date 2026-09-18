@@ -638,7 +638,7 @@ describe "Boxes programs" do
     _(result).must_answer "10\ntwenty\n"
   end
 
-  it "boxes" do
+  it "a class in a box is its own class, globals and constants are box-separate, and values cross as references" do
     result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, ruby: ["-W:no-experimental"])
 
 
@@ -709,7 +709,7 @@ describe "Boxes programs" do
     OUT
   end
 
-  it "boxes reexecute files and patch builtins privately" do
+  it "one file required into two boxes runs twice, and a box's builtin patch stays inside it" do
     files = beside("boxes_reexecute/blank.rb", "boxes_reexecute/main.rb")
 
     result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])

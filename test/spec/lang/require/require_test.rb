@@ -405,7 +405,7 @@ describe "Require programs" do
     _(result).must_answer "1\n"
   end
 
-  it "require relative" do
+  it "require_relative resolves here, splicing the target once however often it is written" do
     files = beside("require_relative/deeper.rb", "require_relative/shared.rb")
 
     result = ze0(<<~'RUBY', path: "ze0/require_relative.rb", files: files)
@@ -478,7 +478,7 @@ describe "Require programs" do
     OUT
   end
 
-  it "require relative in a method runs when the method does" do
+  it "a require_relative inside a def runs when the method runs, and a method never called never loads it" do
     files = beside("require_relative_in_method/counted.rb", "require_relative_in_method/late.rb")
 
     result = ze0(<<~'RUBY', files: files)

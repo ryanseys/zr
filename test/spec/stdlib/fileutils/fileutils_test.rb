@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "FileUtils programs" do
-  it "fileutils" do
+  it "the vendored gem compiles from its upstream source, and the core file operations answer" do
     result = ze0(<<~'RUBY')
       # FileUtils -- the vendored pure-Ruby stdlib gem (gems/fileutils), compiled
       # from its real upstream source, not reimplemented. Exercises the core file
@@ -46,7 +46,7 @@ describe "FileUtils programs" do
     OUT
   end
 
-  it "fileutils core commands run from the vendored gem" do
+  it "mkdir_p, cp, mv, rm_rf and their siblings all run out of the gem the lock resolves" do
     result = ze0(<<~'RUBY', files: {"fileutils.rb" => fixture("stdlib/fileutils/fileutils.rb")})
       # `require "fileutils"` compiles the real upstream gem the lock resolves,
       # including its load-time module metaprogramming (module_function, extend

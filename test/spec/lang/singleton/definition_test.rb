@@ -224,7 +224,7 @@ describe "Singleton: defining and naming methods" do
     OUT
   end
 
-  it "singleton alias and civ" do
+  it "attr_reader, attr_accessor and alias_method inside class << self all reach the class's own ivars" do
     result = ze0(<<~'RUBY')
       class C003
         @shown003 = true
@@ -265,7 +265,7 @@ describe "Singleton: defining and naming methods" do
     OUT
   end
 
-  it "singleton alias inherits its visibility" do
+  it "an alias_method on a singleton takes the visibility of the method it copies" do
     result = ze0(<<~'RUBY')
       # An `alias_method` on an object's SINGLETON class installs a public row even
       # when its source is private. Ruby gives an alias the visibility of the method
