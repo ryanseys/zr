@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Prime programs" do
-  it "prime library" do
+  it "Prime.first, Integer#prime? and prime_division each answer" do
     result = ze0(<<~'RUBY')
       require "prime"
 

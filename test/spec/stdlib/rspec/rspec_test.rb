@@ -81,7 +81,7 @@ describe "RSpec programs" do
     OUT
   end
 
-  it "rspec suite runs" do
+  it "a real suite runs and reports its examples, matchers, doubles, hooks, counts and exit status" do
     skip "rspec renders a suite through RSpec::Support::Source, which needs ripper, and ze0 declines ripper"
 
     result = ze0(<<~'RUBY')

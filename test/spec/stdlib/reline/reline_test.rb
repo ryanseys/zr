@@ -48,7 +48,7 @@ describe "Reline programs" do
     OUT
   end
 
-  it "reline line editor" do
+  it "the config, the width and grapheme arithmetic, and the module surface all run without a terminal" do
     result = ze0(<<~'RUBY')
       # reline -- the pure-Ruby line editor irb and every other Ruby REPL reads
       # through. Vendored whole; what is exercised here is the part that runs

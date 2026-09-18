@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Prism programs" do
-  it "prism parses ruby natively" do
+  it "the parser ruby itself uses compiles into the binary and parses a program" do
     result = ze0(<<~'RUBY')
       # native only: a program that requires prism carries the compiler, which the wasm road does not build
       # prism, the parser ruby itself uses: its Ruby half over ze0's Ruby port of

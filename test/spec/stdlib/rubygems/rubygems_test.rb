@@ -272,7 +272,7 @@ describe "RubyGems programs" do
     OUT
   end
 
-  it "rubygems then bundler" do
+  it "requiring rubygems then bundler installs the monkeypatches without a warning ruby does not print" do
     result = ze0(<<~'RUBY')
       # MILESTONE: `require "rubygems"` then `require "bundler"`, and the bundler
       # monkeypatches over RubyGems that the second require installs.

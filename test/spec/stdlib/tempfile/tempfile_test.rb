@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Tempfile programs" do
-  it "tempfile create yields a readable file" do
+  it "Tempfile.create yields a file the block can write and read back" do
     result = ze0(<<~'RUBY')
       require "tempfile"
       Tempfile.create("readable") do |f|

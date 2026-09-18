@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "RbConfig programs" do
-  it "rbconfig shim is built in" do
+  it "arch is the cpu and host_os with any -gnu suffix dropped, and both name this platform" do
     result = ze0(<<~'RUBY')
       # `host_os`/`arch` are the BUILD host's, so pinning them pinned this
       # test to one machine: it read `darwin25`/`arm64-darwin25`, which is

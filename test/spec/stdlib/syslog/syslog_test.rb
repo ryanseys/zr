@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Syslog programs" do
-  it "syslog" do
+  it "one process-wide connection follows CRuby's lifecycle, and a message travels as sprintf then %s" do
     result = ze0(<<~'RUBY', path: "syslog.rb")
       # syslog -- the system logger. One process-wide connection with CRuby's
       # lifecycle: closed accessors answer nil, a second open refuses, the mask

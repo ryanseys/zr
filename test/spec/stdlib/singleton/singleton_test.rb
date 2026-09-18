@@ -82,7 +82,7 @@ describe "Singleton: the singleton library" do
     OUT
   end
 
-  it "singleton new is private" do
+  it "including Singleton makes new private and instance answer one object" do
     result = ze0(<<~'RUBY')
       require "singleton"
 
