@@ -548,7 +548,7 @@ describe "IO: substitution" do
     OUT
   end
 
-  it "io readiness and dir fd" do
+  it "select, the wait family, IO.for_fd and Dir.for_fd all answer or raise as ruby does" do
     result = ze0(<<~'RUBY')
       # IO readiness and Dir-from-descriptor coverage, all implemented: IO.select
       # over pipes with a zero timeout, IO#wait_readable/_writable/_priority/#wait,
@@ -614,7 +614,7 @@ describe "IO: substitution" do
     OUT
   end
 
-  it "io stat from fd" do
+  it "IO.new(fd).stat reads the descriptor through fstat, and the accessors survive a local" do
     result = ze0(<<~'RUBY')
       # Ruby has no File.fstat / IO.fstat; the way to a File::Stat from a descriptor
       # is IO.new(fd).stat, which needed three things. IO.new(fd) is the descriptor

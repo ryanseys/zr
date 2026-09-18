@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Array: control flow" do
-  it "array filter bang return" do
+  it "select! answers nil when it removed nothing, and a frozen receiver raises whatever the kind" do
     result = ze0(<<~'RUBY')
       # Array#select! / #filter! / #reject! return nil when nothing was removed and
       # self otherwise; #keep_if / #delete_if always return self. Receivers route
@@ -68,7 +68,7 @@ describe "Array: control flow" do
     OUT
   end
 
-  it "array unshift return" do
+  it "unshift prepends its arguments in order and answers the receiver" do
     result = ze0(<<~'RUBY')
       # Array#unshift prepends its arguments and returns the (mutated) receiver.
       # The return value was lost (nil) for the assigned/expression form, and the

@@ -808,7 +808,7 @@ describe "Enumerable: enumeration" do
     OUT
   end
 
-  it "enumerable chain enumerator" do
+  it "chain and Enumerator#+ build a Chain over the concatenated sources" do
     result = ze0(<<~'RUBY')
       # Enumerable#chain / Enumerator#+ build an Enumerator::Chain over the
       # concatenated sources (#2545, #2548, #2551). The sources are materialized at
@@ -883,7 +883,7 @@ describe "Enumerable: enumeration" do
     OUT
   end
 
-  it "enumerable reduce proc arg" do
+  it "reduce with a &proc block publishes its own arguments on every iteration" do
     result = ze0(<<~'RUBY')
       # reduce/inject with a &proc block argument forwards through a literal
       # two-param block; the fold emitter keeps the proc call's prelude inside the

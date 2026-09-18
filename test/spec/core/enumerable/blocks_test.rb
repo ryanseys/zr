@@ -155,7 +155,7 @@ describe "Enumerable: blocks and yields" do
     OUT
   end
 
-  it "enumerable find ifnone" do
+  it "find calls the ifnone callable when nothing in the source matches" do
     result = ze0(<<~'RUBY')
       class Nums
         include Enumerable
@@ -181,7 +181,7 @@ describe "Enumerable: blocks and yields" do
     OUT
   end
 
-  it "enumerable multi value yield" do
+  it "an each that yields two values packs them into one element, and a lone for target drops the rest" do
     result = ze0(<<~'RUBY')
       # Imported from the spinel corpus at c55d9bdb.
       # `each` yielding more than one value per element. Enumerable packs them into

@@ -41,7 +41,7 @@ describe "Enumerable: slicing" do
     OUT
   end
 
-  it "enumerable chunking and slicing" do
+  it "slice_when, chunk_while, slice_before and slice_after cut on a block, a value or a pattern" do
     result = ze0(<<~'RUBY')
       a = [1, 2, 4, 9, 10, 11, 12, 15]
       p a.slice_when { |i, j| i + 1 != j }.to_a
@@ -66,7 +66,7 @@ describe "Enumerable: slicing" do
     OUT
   end
 
-  it "enumerable min and max take a count" do
+  it "min and max with a count answer that many, ordered, and never more than the source holds" do
     result = ze0(<<~'RUBY')
       p (1..10).min(3)
       p (1..10).max(3)

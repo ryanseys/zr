@@ -168,7 +168,7 @@ describe "Kernel: defining and naming methods" do
     OUT
   end
 
-  it "kernel fail alias" do
+  it "fail is an exact alias of raise, a bare one inside a rescue included" do
     result = ze0(<<~'RUBY')
       # Kernel#fail is an exact alias of Kernel#raise: a bare message raises a
       # RuntimeError, an explicit class + message raises that class, and a bare `fail`
@@ -224,7 +224,7 @@ describe "Kernel: defining and naming methods" do
     OUT
   end
 
-  it "kernel underscore id" do
+  it "__id__ is an alias of object_id" do
     result = ze0(<<~'RUBY')
       # Kernel#__id__ is an alias of #object_id.
       p(42.__id__ == 42.object_id)

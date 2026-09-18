@@ -189,7 +189,7 @@ describe "Hash: pattern matching" do
     OUT
   end
 
-  it "hash all pattern" do
+  it "all?, any?, none? and one? take a pattern argument" do
     result = ze0(<<~'RUBY')
       # Hash#all?/any?/none?/one? with a pattern argument (KieranP #2338)
       p({ a: 1 }.all?([:a, 1]))
@@ -212,7 +212,7 @@ describe "Hash: pattern matching" do
     OUT
   end
 
-  it "hash pattern class union" do
+  it "a hash pattern over a union of two classes reads each through its own deconstruct_keys" do
     result = ze0(<<~'RUBY')
       # A hash pattern whose subject is a UNION of two user classes. The match reads
       # the subject through the runtime to_h hook, which knew only Struct and Data --

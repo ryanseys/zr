@@ -141,7 +141,7 @@ describe "IO: packing and unpacking" do
     OUT
   end
 
-  it "io buffer moves bytes through a descriptor" do
+  it "read, write, pread and pwrite repeat the system call until length bytes moved" do
     result = ze0(<<~'RUBY')
       # IO::Buffer#read, #write, #pread and #pwrite make the system call over
       # the rest of the buffer until at least `length` bytes moved, and answer
@@ -197,7 +197,7 @@ describe "IO: packing and unpacking" do
     OUT
   end
 
-  it "io write stdout stderr" do
+  it "STDOUT and $stdout both write, and write answers the byte count" do
     result = ze0(<<~'RUBY')
       # STDOUT/STDERR (constants) and $stdout/$stderr (globals) must actually write.
       # Previously STDOUT.write / .puts / .print silently produced no output, and

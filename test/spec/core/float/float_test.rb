@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Float programs" do
-  it "float formatting" do
+  it "parsing and shortest-round-trip printing both link into the binary" do
     result = ze0(<<~'RUBY')
       # Float parsing and shortest-round-trip printing, both linked into the binary.
       puts 0.1 + 0.2
@@ -24,7 +24,7 @@ describe "Float programs" do
     OUT
   end
 
-  it "float mix" do
+  it "mixed Integer and Float arithmetic answers a Float, and inspect prints the shortest round trip" do
     result = ze0(<<~'RUBY')
       puts 1.5 + 2
       puts 2 * 3.0

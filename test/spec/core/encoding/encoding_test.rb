@@ -178,7 +178,7 @@ describe "Encoding programs" do
     OUT
   end
 
-  it "encoding compatible" do
+  it "compatible? answers by which side is empty, which is 7-bit, and the order the two are asked in" do
     result = ze0(<<~'RUBY')
       # `Encoding.compatible?` over the shapes that decide it: which side is empty,
       # which side is 7-bit, and whether either encoding is ascii-compatible. The
@@ -309,7 +309,7 @@ describe "Encoding programs" do
     OUT
   end
 
-  it "encoding constant compare" do
+  it "a well-known Encoding constant compares equal to the encoding a string carries" do
     result = ze0(<<~'RUBY')
       # Well-known Encoding constants resolve to the matching boxed encoding value,
       # so `str.encoding == Encoding::UTF_8` compiles and compares (it used to emit
