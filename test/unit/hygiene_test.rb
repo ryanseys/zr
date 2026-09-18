@@ -20,16 +20,29 @@ require_relative "../support/e2e"
 class HygieneTest < Minitest::Test
   DELIBERATE = %i[initialize to_s inspect].freeze
 
+  # The library, and only the library. The checks put modules of their
+  # own in `Ze0` too, and `test/support/reader.rb` names one `describe`
+  # on purpose, after minitest's own. Walking whatever a run happens to
+  # have loaded is the thing this check says it does not do.
+  LIB = File.join(ROOT, "lib")
+
   def under(mod, seen)
     mod.constants(false).each do |c|
       value = mod.const_get(c)
       next unless value.is_a?(Module) && value.name.to_s.start_with?("Ze0")
-      next if seen.key?(value)
+      next if seen.key?(value) || !library?(mod, c)
 
       seen[value] = true
       under(value, seen)
     end
     seen
+  end
+
+  # Where a constant was written. A module built at run time answers for
+  # the file that built it, and one that will not say at all is left
+  # out: this asks about the Ruby in `lib`.
+  def library?(mod, name)
+    mod.const_source_location(name)&.first&.start_with?(LIB)
   end
 
   def test_no_ze0_method_shadows_an_object_method
