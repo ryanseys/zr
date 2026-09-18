@@ -1543,7 +1543,7 @@ describe "String: slicing" do
     OUT
   end
 
-  it "string charset range notation" do
+  it "a-z in a delete, tr or count charset expands to the codepoint range" do
     result = ze0(<<~'RUBY')
       # Issue #858: `a-z` range notation inside the charset string
       # argument of String#delete / #tr / #tr_s / #count expands to
@@ -1565,7 +1565,7 @@ describe "String: slicing" do
     OUT
   end
 
-  it "string crypt" do
+  it "crypt answers libc's 13-character DES hash, keeping the salt as its first two characters" do
     result = ze0(<<~'RUBY')
       # String#crypt — real libc crypt(3) (traditional DES), matching MRI:
       # 13-char output whose first 2 chars are the salt.
@@ -1605,7 +1605,7 @@ describe "String: slicing" do
     OUT
   end
 
-  it "string range accessors" do
+  it "begin, end, first, last, min and max read a string-endpoint range's endpoints" do
     result = ze0(<<~'RUBY')
       # begin/end/first/last/min/max on a String-endpoint Range read the endpoints
       # as strings (the int-backed sp_Range stores their pointers), and first(n)/
@@ -1637,7 +1637,7 @@ describe "String: slicing" do
     OUT
   end
 
-  it "string range each inspect" do
+  it "each over a string-endpoint range walks the succ sequence" do
     result = ze0(<<~'RUBY')
       # String-endpoint ranges have no int sp_Range representation. Iterating one
       # with a block (materialized as a succ-sequence) and inspecting a literal now
@@ -1679,7 +1679,7 @@ describe "String: slicing" do
     _(result).must_answer "abcde\nabc\naa ab ac \n26\n\"a\"..\"c\"\n\"a\"...\"e\"\n\"aa\"..\"ac\"\n15\n1..5\n1...5\n"
   end
 
-  it "string range include iterates" do
+  it "include? walks a string range where cover? only compares the endpoints" do
     result = ze0(<<~'RUBY')
       # `Range#include?` WALKS the range; `Range#cover?` compares endpoints with
       # `<=>`. For a String range the two disagree, and zeo answers `cover?` for both.
@@ -1721,7 +1721,7 @@ describe "String: slicing" do
     OUT
   end
 
-  it "string range step" do
+  it "step and % walk a string range every n elements" do
     result = ze0(<<~'RUBY')
       r001 = []; ("a".."e").step(2) { |s001| r001 << s001 }; p r001
       sr = ("a".."e")
@@ -1742,7 +1742,7 @@ describe "String: slicing" do
     OUT
   end
 
-  it "string range to a" do
+  it "to_a expands a single-character string range, inclusive or exclusive" do
     result = ze0(<<~'RUBY')
       # String range to_a — single-char ASCII case (the common subset
       # shape). Multi-char ranges need full String#succ with cross-position
@@ -1764,7 +1764,7 @@ describe "String: slicing" do
     OUT
   end
 
-  it "string search slice" do
+  it "index by substring, start_with? with a pattern, sum and unpack1 each answer" do
     result = ze0(<<~'RUBY')
       # String search/slice coverage: index-by-substring (returns the substring or
       # nil), start_with? with a regex (anchored at index 0), the byte-sum checksum,
@@ -1807,7 +1807,7 @@ describe "String: slicing" do
     OUT
   end
 
-  it "string slice bang value" do
+  it "slice! answers the part it removed, or nil when it removed nothing" do
     result = ze0(<<~'RUBY')
       # String#slice! in value position returns the removed part (or nil).
       s = "hello world"
@@ -1838,7 +1838,7 @@ describe "String: slicing" do
     OUT
   end
 
-  it "string slice casecmp succ" do
+  it "the nil boundaries of [start, len], casecmp on a non-String, and succ's carry" do
     result = ze0(<<~'RUBY')
       # CRuby contracts for three String surfaces: the [start, len] / [range]
       # nil boundaries, casecmp/casecmp? answering nil for a non-String argument,
@@ -1937,7 +1937,7 @@ describe "String: slicing" do
     OUT
   end
 
-  it "string slice range" do
+  it "slice takes an inclusive, exclusive, endless, beginless or negative range" do
     result = ze0(<<~'RUBY')
       # String#slice(Range) — decompose the Range and reuse the same
       # runtime helper as String#[](Range). Inclusive, exclusive,
@@ -1973,7 +1973,7 @@ describe "String: slicing" do
     OUT
   end
 
-  it "string upto and range" do
+  it "upto walks from one string to another, and numeric strings order by succ" do
     result = ze0(<<~'RUBY')
       z = []
       r = "a".upto("c") { |s| z << s }

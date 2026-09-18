@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Array: blocks and yields" do
-  it "array combination block" do
+  it "combination with a block yields each combination without building them all" do
     result = ze0(<<~'RUBY')
       # Array#combination(k) with a block iterates each combination
       # without materialising a giant intermediate array.
@@ -24,7 +24,7 @@ describe "Array: blocks and yields" do
     OUT
   end
 
-  it "array fill block form" do
+  it "fill's block form takes the index span positionally and the value from the block" do
     result = ze0(<<~'RUBY')
       # Array#fill's block form takes NO value argument: the positional args are the
       # index span (start[, length] or a range) and the value at each index comes from
@@ -78,7 +78,7 @@ describe "Array: blocks and yields" do
     OUT
   end
 
-  it "array flat map scalar block" do
+  it "flat_map with a scalar block value is exactly map, and an array value splices" do
     result = ze0(<<~'RUBY')
       # flat_map whose block value is statically scalar is exactly map (CRuby
       # appends non-array values as-is); array/poly block values keep the
@@ -104,7 +104,7 @@ describe "Array: blocks and yields" do
     OUT
   end
 
-  it "array minmax block" do
+  it "minmax honours a two-parameter comparator block instead of < and >" do
     result = ze0(<<~'RUBY')
       # Array#minmax with a 2-param comparator block honours the block's
       # ordering instead of the default < / >.
@@ -134,7 +134,7 @@ describe "Array: blocks and yields" do
     OUT
   end
 
-  it "array new block nested int table" do
+  it "Array.new(n) { Array.new(m, 0) } is a table of integer arrays, not a boxed one" do
     result = ze0(<<~'RUBY')
       # `t = Array.new(n) { Array.new(m, 0) }` is a table of int arrays, but the
       # narrowing pass that gives an array of int-arrays its typed representation
@@ -189,7 +189,7 @@ describe "Array: blocks and yields" do
     OUT
   end
 
-  it "array new takes a size default and block" do
+  it "Array.new takes a size, a default and a block, and a bare call is empty" do
     result = ze0(<<~'RUBY')
       # The block form has to reach the runtime allocator, so `Array.new`
       # joins the block-keeping set in lowering -- routing it through
@@ -209,7 +209,7 @@ describe "Array: blocks and yields" do
     OUT
   end
 
-  it "array predicate no block" do
+  it "the blockless predicates read a value-typed array, where no element is nil or false" do
     result = ze0(<<~'RUBY')
       # any?/all?/none?/one? with NO block on value-typed arrays. Elements are never
       # nil/false, so all? is always true, any? is non-empty, none? is empty, one? is
@@ -242,7 +242,7 @@ describe "Array: blocks and yields" do
     OUT
   end
 
-  it "array predicate no block param" do
+  it "a predicate's block may take no parameter at all" do
     result = ze0(<<~'RUBY')
       # any?/all?/none?/one? with a block that takes NO parameter. The synthetic
       # iteration slot must not be bound (an empty block can't reference the yielded
@@ -274,7 +274,7 @@ describe "Array: blocks and yields" do
     OUT
   end
 
-  it "array sum float init" do
+  it "sum with a Float initial value answers a Float, even over an integer array" do
     result = ze0(<<~'RUBY')
       # Array#sum with a Float initial value returns a Float, even for an integer
       # array: CRuby accumulates in floating point. Spinel had truncated the float
@@ -317,7 +317,7 @@ describe "Array: blocks and yields" do
     OUT
   end
 
-  it "array sum kahan" do
+  it "sum over floats compensates, so 0.1 + 0.2 + 0.3 is 0.6" do
     result = ze0(<<~'RUBY')
       # Array#sum on floats must use Kahan-Babuska-Neumaier compensated
       # summation, matching CRuby: a naive left-fold of these values drifts
@@ -349,7 +349,7 @@ describe "Array: blocks and yields" do
     OUT
   end
 
-  it "array to h sort bang block" do
+  it "to_h builds a hash from pairs, and sort! sorts in place by its comparator block" do
     result = ze0(<<~'RUBY')
       # #1224 I1: Array#to_h builds a hash from [key, value] pairs. Verified
       # via lookups + length (Spinel's hash #inspect format is a separate,
