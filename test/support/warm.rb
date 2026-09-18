@@ -12,13 +12,13 @@ module Ze0
     # Those three are file caches named by a digest of what made them, so
     # the first build after any edit under `lib` or `rt` writes all of
     # them again: twenty-five megabytes of runtime, as much prelink, and
-    # forty-four of compiler. On a quiet machine that is twelve minutes.
+    # forty-four of compiler. Alone on a quiet machine that is 88 s.
     #
-    # A tier that starts cold pays it in every worker at once. Eight
-    # processes build the same three files, none of them answers, each
-    # one passes `ForkPool::DEADLINE`, and the run reports eight timeouts
-    # that are not defects -- which is what happened on 2026-09-18, four
-    # times over, to four examples that were all correct. Built here, in
+    # A tier that starts cold does not pay it once, though. Every worker
+    # builds the same three files at the same time, each one already
+    # forking six of its own, and on a twelve-core machine none of them
+    # finishes inside `ForkPool::DEADLINE`: on 2026-09-18 four correct
+    # examples were reported as four timeouts, twice over. Built here, in
     # the process that forks the workers, it happens once, nothing is
     # waiting on it, and the workers inherit it.
     module Warm
