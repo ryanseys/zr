@@ -196,7 +196,7 @@ describe "Struct: inheritance and ancestors" do
     OUT
   end
 
-  it "struct bare super initialize" do
+  it "a bare super in a custom initialize forwards the method's own parameters into the members" do
     result = ze0(<<~'RUBY')
       # A bare `super` (no parens) inside a Struct's custom initialize forwards the
       # method's own params into the members -- it must not leave them nil.
@@ -236,7 +236,7 @@ describe "Struct: inheritance and ancestors" do
     OUT
   end
 
-  it "struct constructor frame names the subclass" do
+  it "a Data subclass's constructor reports two frames and its Struct twin reports one" do
     result = ze0(<<~'RUBY')
       # A `Data` subclass's constructor reports the two frames ruby reports, and its
       # `Struct` twin still reports its one.
@@ -374,7 +374,7 @@ describe "Struct: inheritance and ancestors" do
     OUT
   end
 
-  it "struct custom initialize super" do
+  it "a custom initialize that calls super sets every member, computed arguments included" do
     result = ze0(<<~'RUBY')
       # A Struct with a custom initialize that calls super(...) must set every member
       # via super, including computed (Array) args -- not leave them nil.
@@ -406,7 +406,7 @@ describe "Struct: inheritance and ancestors" do
     OUT
   end
 
-  it "struct inherit" do
+  it "a class that inherits from Struct.new adds methods over the members it is given" do
     result = ze0(<<~'RUBY')
       class Point < Struct.new(:x, :y, keyword_init: true)
         def distance
@@ -449,7 +449,7 @@ describe "Struct: inheritance and ancestors" do
     OUT
   end
 
-  it "struct subclass" do
+  it "a Struct subclass keeps the members, the positional constructor and the member face" do
     result = ze0(<<~'RUBY')
       # `class Kid < Base` where Base is a Struct. The subclass is registered before
       # the anonymous Struct it inherits from, and the member merge ran strictly in
@@ -504,7 +504,7 @@ describe "Struct: inheritance and ancestors" do
     OUT
   end
 
-  it "struct subclass keeps its own ivars" do
+  it "a subclass's own ivars take slots of their own, clear of the inherited members" do
     result = ze0(<<~'RUBY')
       # A subclass of a Struct inherits the member list, so an instance of it has to
       # hold BOTH its ancestor's members and its own instance variables -- and the

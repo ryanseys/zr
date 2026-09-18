@@ -157,7 +157,7 @@ describe "Digest programs" do
     OUT
   end
 
-  it "digest api long tail" do
+  it "SHA2 refuses an unsupported bit length, and inspect carries the current hexdigest" do
     result = ze0(<<~'RUBY')
       # Digest rows beyond the (matching) core: `Digest::SHA2` (the
       # bit-length-parameterized class) is absent, `Digest::SHA256.file` is
@@ -184,7 +184,7 @@ describe "Digest programs" do
     OUT
   end
 
-  it "digest bang form resets the instance" do
+  it "a bang form answers the current digest and puts the instance back to empty" do
     result = ze0(<<~'RUBY')
       # `Digest::Instance`'s three bang forms answer the current digest and then put
       # the instance back to empty; the plain forms leave it alone. rubygems reaches
@@ -225,7 +225,7 @@ describe "Digest programs" do
     OUT
   end
 
-  it "digest class and streaming apis match ruby" do
+  it "the class form, << and update, and base64digest all answer what ruby answers" do
     result = ze0(<<~'RUBY')
       require "digest"
       puts Digest::SHA256.hexdigest("abc")
@@ -244,7 +244,7 @@ describe "Digest programs" do
     OUT
   end
 
-  it "digest framework ancestry and ruby half" do
+  it "the ancestry runs Base, Class and Instance, and .file reads a whole file" do
     result = ze0(<<~'RUBY')
       require "digest"
       def show(l); print l, ": "; p(yield); rescue Exception => e; puts "#{e.class}: #{e.message}"; end
@@ -289,7 +289,7 @@ describe "Digest programs" do
     OUT
   end
 
-  it "digest lengths and encodings" do
+  it "digest_length and block_length answer per algorithm, and == takes a Digest or a String" do
     result = ze0(<<~'RUBY')
       require "digest"
 
@@ -326,7 +326,7 @@ describe "Digest programs" do
     OUT
   end
 
-  it "digest sha256" do
+  it "the extension links, so native code in the binary computes the hash" do
     result = ze0(<<~'RUBY')
       # The digest extension links: the hash is computed by native code in the
       # binary.

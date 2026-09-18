@@ -135,7 +135,7 @@ describe "Date programs" do
     OUT
   end
 
-  it "date commercial week" do
+  it "cwday, cweek and cwyear answer the ISO commercial date" do
     result = ze0(<<~'RUBY')
       require "date"
 
@@ -154,7 +154,7 @@ describe "Date programs" do
     OUT
   end
 
-  it "date ctime asctime" do
+  it "ctime and asctime answer the C-library form of the date at midnight" do
     result = ze0(<<~'RUBY')
       require "date"
 
@@ -169,7 +169,7 @@ describe "Date programs" do
     OUT
   end
 
-  it "date error and infinity classes" do
+  it "require \"date\" defines Date::Error and Date::Infinity in the gem's Ruby half" do
     result = ze0(<<~'RUBY')
       # `require "date"` defines two classes the native half cannot: `Date::Error`
       # (an ArgumentError subclass every invalid-date raise uses) and
@@ -249,7 +249,7 @@ describe "Date programs" do
     OUT
   end
 
-  it "date julian day numbers" do
+  it "jd, mjd, ld, ajd, amjd and day_fraction answer the day numbers" do
     result = ze0(<<~'RUBY')
       require "date"
 
@@ -272,7 +272,7 @@ describe "Date programs" do
     OUT
   end
 
-  it "date range iterates" do
+  it "a Range of Dates iterates through succ" do
     result = ze0(<<~'RUBY')
       # A Range of Dates iterates via #succ (`to_a`, `each`, `step`); zeo
       # raises TypeError "can't iterate from Date". (Found by the 2026-08-24
@@ -286,7 +286,7 @@ describe "Date programs" do
     _(result).must_answer "3\n[1, 2, 3]\n"
   end
 
-  it "date weekday predicates" do
+  it "monday? through sunday? answer for the day the Date names" do
     result = ze0(<<~'RUBY')
       require "date"
 

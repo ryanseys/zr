@@ -1568,7 +1568,7 @@ describe "Zlib programs" do
     OUT
   end
 
-  it "zlib api long tail" do
+  it "an invalid compression level raises StreamError, and a corrupt gzip trailer still reads" do
     result = ze0(<<~'RUBY')
       # Zlib rows beyond the (matching) core: an invalid compression level
       # raises Zlib::StreamError (zeo compresses anyway); `Zlib.crc32_combine`
@@ -1602,7 +1602,7 @@ describe "Zlib programs" do
     OUT
   end
 
-  it "zlib checksums match ruby" do
+  it "crc32 and adler32 answer what ruby answers, with and without a seed" do
     result = ze0(<<~'RUBY')
       require "zlib"
       puts Zlib.crc32("abc")
@@ -1617,7 +1617,7 @@ describe "Zlib programs" do
     OUT
   end
 
-  it "zlib classes" do
+  it "the incremental ZStream pair and the IO-shaped gzip pair round-trip what they are given" do
     result = ze0(<<~'RUBY')
       # zlib's class surface: the incremental `ZStream` pair and the IO-shaped gzip
       # pair. Nothing here prints a timestamp or a whole compressed buffer -- gzip
@@ -1955,7 +1955,7 @@ describe "Zlib programs" do
     OUT
   end
 
-  it "zlib compression" do
+  it "deflate and inflate round-trip at every level, and inflate reads any zlib's bytes" do
     result = ze0(<<~'RUBY')
       require "zlib"
 
@@ -1988,7 +1988,7 @@ describe "Zlib programs" do
     OUT
   end
 
-  it "zlib constants" do
+  it "require \"zlib\" brings up the constants, the stream classes and the exception classes" do
     result = ze0(<<~'RUBY')
       # `require "zlib"` brings up the whole module: the 38 constants, the six
       # stream classes, and the thirteen exception classes the gem's Ruby half
@@ -2012,7 +2012,7 @@ describe "Zlib programs" do
     OUT
   end
 
-  it "zlib deflate bytes" do
+  it "the compressor writes ruby's own bytes on every target" do
     result = ze0(<<~'RUBY')
       # zlib on every target: the compressor writes ruby's bytes there too.
       require "zlib"
