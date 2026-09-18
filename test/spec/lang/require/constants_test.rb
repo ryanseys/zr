@@ -49,7 +49,7 @@ describe "Require: constants" do
   end
 
   it "autoload is defined before it loads" do
-    result = ze0(<<~'RUBY')
+    result = ze0(<<~'RUBY', path: "lang/require/an_autoload_is_defined_before_it_loads.rb", files: {"../../fixtures/autoload_target/autoload_deep.rb" => "# The NESTED-ask target: `defined?(Nested::Deep::Inner)` has to load this to\n# answer, because resolving the head is a real constant read.\n$autoload_deep_loaded = true\n\nmodule Nested\n  module Deep\n    module Inner; end\n  end\nend\n", "../../fixtures/autoload_target/autoload_gadget.rb" => "# Reached by an autoload written with an ABSOLUTE path, which is how rubygems\n# writes every one of its own.\nmodule ByPath\n  class Gadget\n    def name = \"gadget\"\n  end\nend\n", "../../fixtures/autoload_target/autoload_quiet.rb" => "# The target a BARE `defined?` must NOT load.\n$autoload_quiet_loaded = true\n\nmodule Untouched\n  class Quiet; end\nend\n", "../../fixtures/autoload_target/autoload_thing.rb" => "# Reached through `Object.const_get(\"Scoped::Thing\")`.\nmodule Scoped\n  class Thing; end\nend\n", "../../fixtures/autoload_target/autoload_widget.rb" => "# Loaded by an `autoload` in tests/an_autoload_runs_when_its_constant_is_read.rb.\n$autoload_widget_loads = ($autoload_widget_loads || 0) + 1\n\nmodule ByFeature\n  class Widget\n    def name = \"widget\"\n  end\nend\n"})
       # `defined?` and `const_defined?` announce an `autoload`ed constant the moment
       # the `autoload` is written -- and a NESTED ask loads the file to answer.
       #
@@ -161,7 +161,7 @@ describe "Require: constants" do
   end
 
   it "autoload runs when its constant is read" do
-    result = ze0(<<~'RUBY')
+    result = ze0(<<~'RUBY', path: "lang/require/an_autoload_runs_when_its_constant_is_read.rb", files: {"../../fixtures/autoload_target/autoload_deep.rb" => "# The NESTED-ask target: `defined?(Nested::Deep::Inner)` has to load this to\n# answer, because resolving the head is a real constant read.\n$autoload_deep_loaded = true\n\nmodule Nested\n  module Deep\n    module Inner; end\n  end\nend\n", "../../fixtures/autoload_target/autoload_gadget.rb" => "# Reached by an autoload written with an ABSOLUTE path, which is how rubygems\n# writes every one of its own.\nmodule ByPath\n  class Gadget\n    def name = \"gadget\"\n  end\nend\n", "../../fixtures/autoload_target/autoload_quiet.rb" => "# The target a BARE `defined?` must NOT load.\n$autoload_quiet_loaded = true\n\nmodule Untouched\n  class Quiet; end\nend\n", "../../fixtures/autoload_target/autoload_thing.rb" => "# Reached through `Object.const_get(\"Scoped::Thing\")`.\nmodule Scoped\n  class Thing; end\nend\n", "../../fixtures/autoload_target/autoload_widget.rb" => "# Loaded by an `autoload` in tests/an_autoload_runs_when_its_constant_is_read.rb.\n$autoload_widget_loads = ($autoload_widget_loads || 0) + 1\n\nmodule ByFeature\n  class Widget\n    def name = \"widget\"\n  end\nend\n"})
       # Reading a constant is what RUNS its `autoload`.
       #
       # zeo recorded the target and never ran it, except for the one internal case

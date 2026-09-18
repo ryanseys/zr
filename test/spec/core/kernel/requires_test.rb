@@ -654,7 +654,7 @@ describe "Kernel: loading files" do
   end
 
   it "run time compile reruns a loaded feature" do
-    _(ze0(<<~'RUBY')).must_answer "true\n"
+    _(ze0(<<~'RUBY', path: "core/kernel/a_run_time_compile_reruns_a_loaded_feature.rb", files: {"../../fixtures/reloaded_feature/wants_forwardable.rb" => "require \"forwardable\"\nmodule WantsForwardable\n  def self.ok = Forwardable::VERSION.is_a?(String)\nend\n"})).must_answer "true\n"
       require "forwardable"
       $LOAD_PATH.unshift(File.expand_path("../../fixtures/reloaded_feature", __dir__))
       name = "wants_forwardable"

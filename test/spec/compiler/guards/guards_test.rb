@@ -2362,7 +2362,7 @@ describe "Guards programs" do
   end
 
   it "run time compile handles aliases and guards" do
-    result = ze0(<<~'RUBY')
+    result = ze0(<<~'RUBY', path: "compiler/guards/a_run_time_compile_handles_aliases_and_guards.rb", files: {"../../fixtures/runtime_compiled/aliased_extend.rb" => "module AliasedExtend\n  def collect_impl(names)\n    names.each { |n| record_impl(n) }\n  end\n  def record_impl(n)\n    (@collected ||= []) << \"\#{n}@\#{self}\"\n  end\n  alias collect collect_impl\n  alias record record_impl\n  def collected = @collected\nend\n\nclass UsesAliasedExtend\n  extend AliasedExtend\n  collect([:a, :b])\n  record(:c)\nend\n", "../../fixtures/runtime_compiled/guarded_toplevel.rb" => "if ENV[\"ZEO_A_NAME_NOTHING_SETS\"]\n  def guarded_choice = :then_branch\n  GUARDED_WHICH = :then_branch\nelse\n  def guarded_choice = :else_branch\n  GUARDED_WHICH = :else_branch\nend\n\nclass GuardedHolder\n  def which = guarded_choice\nend\n"})
       # The RUN-TIME compiler on shapes real gems use. A `require` whose target only
       # the running program knows -- a computed feature name, or one reached through
       # a `$LOAD_PATH` the program just changed -- is compiled at run time by a
