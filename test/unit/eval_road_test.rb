@@ -37,12 +37,14 @@ class EvalRoadTest < Minitest::Test
     refute carried?(%(autoload :URI, "uri"\np URI.name\n))
   end
 
-  # What is left, and what it costs. `fileutils` and `json` define their
-  # methods by evaluating a heredoc: a literal string, in a scope written
-  # directly above it, which the compiler could read where it stands
-  # instead of carrying itself into the binary to read it later. Until it
-  # does, `require "fileutils"` hands 44 MB of compiler to a program that
-  # only wanted `mkdir_p`.
+  # What is left, and why it stays. `fileutils` and `json` define their
+  # methods by evaluating a heredoc, and the heredoc is built from names
+  # the program computes -- `names.each { |name| module_eval("def
+  # #{name}...") }` -- so there is no string for the compiler to read
+  # where it stands. Of the 36 heredoc evals in the vendored stdlib, 31
+  # interpolate. These libraries want a compiler because they write their
+  # own methods while they run, and `require "fileutils"` costs a
+  # program 44 MB for it.
   def test_a_library_that_evaluates_a_literal_string_still_carries_it
     assert carried?(%(class K; end\nK.class_eval <<~R\n  def a = 1\nR\n))
     assert carried?(%(require "fileutils"\np FileUtils.respond_to?(:mkdir_p)\n))
