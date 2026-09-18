@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "ERB programs" do
-  it "erb block tag" do
+  it "a block tag makes the snippet a block over the snippet's own _erbout local" do
     result = ze0(<<~'RUBY')
       # An ERB template compiles to a Ruby snippet the eval VM runs, and a block tag
       # makes that snippet a block over the snippet's OWN local: every `<%= %>`
@@ -42,7 +42,7 @@ describe "ERB programs" do
     OUT
   end
 
-  it "erb module function" do
+  it "module_function names a method the body did not write, so ERB::Util reaches html_escape" do
     result = ze0(<<~'RUBY')
       # `require "erb"` -- the vendored gem loads and templates render. `erb/util.rb`
       # reaches `html_escape` through `include ERB::Escape` and then
@@ -86,7 +86,7 @@ describe "ERB programs" do
     OUT
   end
 
-  it "erb util escapes html" do
+  it "ERB::Util.html_escape rewrites the markup characters" do
     result = ze0(<<~'RUBY')
       require "erb"
       puts ERB::Util.html_escape("<a & b>")

@@ -834,7 +834,7 @@ describe "Socket programs" do
     OUT
   end
 
-  it "socket binary write" do
+  it "a socket writes binary bytes, NUL included, and answers the count" do
     result = ze0(<<~'RUBY')
       # `TCPSocket#write_nonblock` is not implemented, so line 40 raises.
       require "socket"
@@ -893,7 +893,7 @@ describe "Socket programs" do
     OUT
   end
 
-  it "socket pack sockaddr" do
+  it "sockaddr_in and Addrinfo#to_sockaddr build the packed sockaddr that one-argument connect takes" do
     result = ze0(<<~'RUBY')
       # Socket.sockaddr_in and Addrinfo#to_sockaddr: the packed sockaddr String the
       # 1-argument connect_nonblock takes. Without them a caller had to build the
@@ -963,7 +963,7 @@ describe "Socket programs" do
     OUT
   end
 
-  it "socket send" do
+  it "BasicSocket#send writes bytes to the peer where the receiver types as a socket" do
     result = ze0(<<~'RUBY')
       # `BasicSocket#send` overrides `Kernel#send`: on a socket, `sock.send(data,
       # flags)` writes bytes to the peer and answers the count -- it does NOT invoke a

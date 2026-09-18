@@ -144,7 +144,7 @@ describe "Monitor programs" do
     OUT
   end
 
-  it "monitor condition variable hands off between threads" do
+  it "new_cond checks the owner, hands off between threads, times out, and keeps the nesting count" do
     result = ze0(<<~'RUBY')
       # monitor -- new_cond and MonitorMixin::ConditionVariable: the check-owner
       # rules, a producer/consumer handoff, the timeout return, and the nesting
@@ -252,7 +252,7 @@ describe "Monitor programs" do
     OUT
   end
 
-  it "monitor mixin layers over the native reentrant lock" do
+  it "MonitorMixin is the Ruby half over the native reentrant lock" do
     result = ze0(<<~'RUBY')
       # MonitorMixin is the Ruby half of `monitor` over the native reentrant lock.
 
@@ -282,7 +282,7 @@ describe "Monitor programs" do
     OUT
   end
 
-  it "monitor reentrant" do
+  it "a Monitor re-acquires for the thread that holds it, where a Mutex raises" do
     result = ze0(<<~'RUBY')
       # Monitor is a REENTRANT mutex, and that is the whole reason it exists: a
       # synchronized method calling another synchronized method of the same object

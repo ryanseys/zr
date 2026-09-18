@@ -305,7 +305,7 @@ describe "YAML programs" do
     _(result).must_answer "String\ntrue\n"
   end
 
-  it "yaml core tags" do
+  it "Psych applies the core and ruby tags, and gates the ones that build a class" do
     result = ze0(<<~'RUBY')
       # Psych applies core and ruby tags: `!!str` forces string, `!!int`/
       # `!!float` coerce a quoted scalar, `!!binary` base64-decodes, `!!set`
@@ -346,7 +346,7 @@ describe "YAML programs" do
     OUT
   end
 
-  it "yaml merge keys" do
+  it "a << merge key splices the referenced mapping in, as an alias, a list or an inline mapping" do
     result = ze0(<<~'RUBY')
       # The `<<` merge key splices the referenced mapping(s) into the host
       # mapping -- single alias, alias list, and inline mapping forms. zeo
@@ -365,7 +365,7 @@ describe "YAML programs" do
     OUT
   end
 
-  it "yaml symbol key roundtrip" do
+  it "dump writes a Symbol as a plain scalar and load reads that spelling back, so quoting carries the distinction" do
     result = ze0(<<~'RUBY')
       # `YAML.dump` emits a Symbol as the plain scalar `:name`, and `YAML.load` reads
       # that spelling back as a Symbol -- so a Hash with symbol keys survives the

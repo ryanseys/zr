@@ -124,7 +124,7 @@ describe "WeakRef programs" do
     OUT
   end
 
-  it "weakref delegates to a live referent" do
+  it "a WeakRef forwards every call to a referent that is still alive" do
     result = ze0(<<~'RUBY')
       require "weakref"
       s = "hello"
@@ -152,7 +152,7 @@ describe "WeakRef programs" do
     OUT
   end
 
-  it "weakref subclass is the native delegator" do
+  it "a subclass is the native delegator itself, and carries its own copy of the delegation rows" do
     result = ze0(<<~'RUBY')
       # `WeakRef`'s constructor takes the receiver class, so a subclass IS the
       # native delegator -- no payload wrapper, no re-tagging. What a subclass
@@ -201,7 +201,7 @@ describe "WeakRef programs" do
     OUT
   end
 
-  it "weakref subclass runs its own initialize" do
+  it "a subclass is allocated unseated, so its initialize runs and its super seats the referent" do
     result = ze0(<<~'RUBY')
       # `class TaggedRef < WeakRef` used to be registered with the ROOT's own
       # constructor, which seated the referent straight from the args -- the

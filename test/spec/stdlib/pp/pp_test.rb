@@ -163,7 +163,7 @@ describe "PP programs" do
     OUT
   end
 
-  it "pp guards its console require" do
+  it "pp asks io/console for the width under a rescue, so a wide structure prints either way" do
     result = ze0(<<~'RUBY')
       # pp asks io/console for the width under a `rescue LoadError`, so a
       # wide structure prints whether or not a console library is present.
@@ -209,7 +209,7 @@ describe "PP programs" do
     OUT
   end
 
-  it "pp pretty print" do
+  it "the pretty printer wraps, indents and groups every structure it is given" do
     result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
@@ -289,7 +289,7 @@ describe "PP programs" do
     OUT
   end
 
-  it "pp store float inf literal" do
+  it "pp prints inspect and answers its argument, store is the method form of []=, and a huge literal is Infinity" do
     result = ze0(<<~'RUBY')
       # Kernel#pp prints inspect like p (and returns its argument); Hash#store is
       # the method form of []=; an out-of-range float literal is Float::INFINITY

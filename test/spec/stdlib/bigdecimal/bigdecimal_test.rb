@@ -93,7 +93,7 @@ describe "BigDecimal programs" do
     OUT
   end
 
-  it "bigdecimal" do
+  it "construction, exact arithmetic, the division rule, the rounding modes and the error shapes all answer" do
     result = ze0(<<~'RUBY')
       # bigdecimal -- the native core: construction, engineering-notation to_s,
       # exact arithmetic, division to the documented precision rule, rounding
@@ -298,7 +298,7 @@ describe "BigDecimal programs" do
     OUT
   end
 
-  it "bigdecimal math" do
+  it "the gem's own Ruby half compiles, so power, sqrt, BigMath and to_d answer to the digit" do
     result = ze0(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
       # bigdecimal's RUBY half, compiled from the vendored gem: power/sqrt (in
       # lib/bigdecimal.rb), BigMath (math.rb), and util's to_d family. All of it
@@ -399,7 +399,7 @@ describe "BigDecimal programs" do
     OUT
   end
 
-  it "bigdecimal round with digits stays bigdecimal" do
+  it "round with a digits argument answers a BigDecimal, and only the bare form answers an Integer" do
     result = ze0(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
       # `BigDecimal#round` with an explicit digits argument answers a
       # BigDecimal (only the no-argument form answers Integer); zeo answers
