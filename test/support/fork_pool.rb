@@ -73,10 +73,20 @@ module Ze0
         klass.deadline
       end
 
-      # What a worker may reside in before it is retired, in megabytes.
-      # The pilot measured a process at 426 MB over 388 compiles and at
+      # What a worker may *add* before it is retired, in megabytes. The
+      # pilot measured a process at 426 MB over 388 compiles and at
       # 696 MB over the heaviest area, so this retires the heavy ones
       # and leaves the ordinary ones alone.
+      #
+      # What it counts is the growth since the fork, and not the whole
+      # of what the worker resides in. The parent warms the compiler
+      # before it forks, so a worker is born holding a few hundred
+      # megabytes it shares with every other worker and never dirties;
+      # against an absolute bound that head start would retire each of
+      # them after a handful of examples, and forking is the one thing
+      # here that is not free. Growth is also the honest measure: a
+      # worker is retired because Ruby does not give heap pages back,
+      # which is a fact about what it has allocated.
       RECYCLE_MB = Integer(ENV.fetch("ZE0_RECYCLE_MB", 600))
 
       attr_reader :size
@@ -97,6 +107,13 @@ module Ze0
         # Whatever the reporter has written must be out of the buffer
         # before a fork, or a worker inherits it and writes it again.
         $stdout.sync = true
+        # What this process holds, every worker inherits. `Process.warmup`
+        # is in ruby for exactly this moment: it collects, compacts, and
+        # promotes what is left to the old generation, so a worker's
+        # first major collection does not mark -- and so copy on write --
+        # the whole of the warmed compiler. Without it the pages are
+        # shared only until the first GC, which is to say hardly at all.
+        Process.warmup
         @threads = Array.new(@size) { Thread.new { serve } }
       end
 
@@ -125,7 +142,7 @@ module Ze0
             result = worker.epitaph(klass, name)
             @interrupted ||= worker.interrupted?
             worker = worker.close
-          elsif worker.resident > @recycle_mb
+          elsif worker.grown > @recycle_mb
             worker = worker.close
           end
           reporter.synchronize { reporter.record result }
@@ -136,7 +153,7 @@ module Ze0
 
       # One forked process, and the two pipes it answers on.
       class Worker
-        attr_reader :resident
+        attr_reader :resident, :grown
 
         def self.open
           jobs = IO.pipe
@@ -172,6 +189,10 @@ module Ze0
         def self.serve(jobs, back)
           Minitest.parallel_executor = nil
           back.sync = true
+          # What this worker was born holding: the parent's warm
+          # compiler, which it shares and does not own. Every answer
+          # reports its growth over this, and that is what retires it.
+          @forked_at = resident
           loop do
             # A suite is an anonymous class with a name of its own
             # ("GC programs"), so it cannot be looked up by constant. It
@@ -186,12 +207,14 @@ module Ze0
           exit!(0)
         end
 
-        # The result, and what this process now resides in. Even
-        # neutered, a result can hold something Marshal will not take;
-        # a bare one saying so beats dying and leaving the parent to
-        # report that a worker went quiet.
+        # The result, what this process now resides in, and how much of
+        # that it has added since it was forked. Even neutered, a result
+        # can hold something Marshal will not take; a bare one saying so
+        # beats dying and leaving the parent to report that a worker
+        # went quiet.
         def self.answer(result, back)
-          Marshal.dump([portable(result), resident], back)
+          now = resident
+          Marshal.dump([portable(result), now, now - @forked_at], back)
         rescue TypeError => e
           bare = Minitest::Result.new(result.name)
           bare.klass = result.klass
@@ -199,7 +222,7 @@ module Ze0
           bare.assertions = result.assertions
           bare.time = result.time
           bare.failures << Minitest::UnexpectedError.new(flat(RuntimeError.new("this result does not cross a pipe: #{e.message}")))
-          Marshal.dump([bare, resident], back)
+          Marshal.dump([bare, now, now - @forked_at], back)
         end
 
         # A failure holds an exception, and an exception the compiler
@@ -240,6 +263,7 @@ module Ze0
           @back = back
           @jobs.sync = true
           @resident = 0
+          @grown = 0
         end
 
         # The result of running `klass#name` here, or nil if this worker
@@ -249,7 +273,7 @@ module Ze0
           Marshal.dump([Minitest::Runnable.runnables.index(klass), name], @jobs)
           return nil unless answered?(ForkPool.deadline_for(klass))
 
-          result, @resident = Marshal.load(@back)
+          result, @resident, @grown = Marshal.load(@back)
           result
         rescue EOFError, IOError, ArgumentError, TypeError
           nil

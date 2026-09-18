@@ -36,6 +36,12 @@ class ProgramsTest < Minitest::Test
   # Defects of the wasm road, named so the run stays honest about them.
   # Each is a program whose native road is right and whose wasm road is
   # not, and each skips with what it does instead.
+  #
+  # `ZE0_WASM_DEFECTS=0` runs them anyway. A row here is a claim about
+  # what the road does today, and a claim goes stale: the only way to
+  # find out that one has is to ask, and asking should not mean editing
+  # this file. A row that passes under it comes out, with what it now
+  # answers in the commit.
   WASM_DEFECTS = {
     "exceptions" => "an uncaught exception traps out of bounds instead of reporting and exiting 1"
   }.freeze
@@ -87,7 +93,7 @@ class ProgramsTest < Minitest::Test
 
     define_method("test_wasm_#{name}") do
       skip "wasmtime is not installed" unless Checks.wasmtime?
-      skip WASM_DEFECTS[name] if WASM_DEFECTS.key?(name)
+      skip WASM_DEFECTS[name] if WASM_DEFECTS.key?(name) && ENV["ZE0_WASM_DEFECTS"] != "0"
 
       want = oracle(rb)
       program = Ze0::Zr.program(File.read(rb), rb, target: Ze0::Target::WASM32_WASI)

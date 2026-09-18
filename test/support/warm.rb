@@ -6,8 +6,8 @@ require_relative "../../lib/ze0/native/build"
 
 module Ze0
   module Test
-    # The runtime object, the prelink and the eval road, built once
-    # before a tier forks.
+    # The runtime object, the prelink and the eval road, built once in
+    # the tier's own process before it forks its first worker.
     #
     # Those three are file caches named by a digest of what made them, so
     # the first build after any edit under `lib` or `rt` writes all of
@@ -21,6 +21,16 @@ module Ze0
     # examples were reported as four timeouts, twice over. Built here, in
     # the process that forks the workers, it happens once, nothing is
     # waiting on it, and the workers inherit it.
+    #
+    # They inherit more than the files. The process that builds them is
+    # left holding what it read to do so -- the runtime's description,
+    # its symbol table, the prelinked image and the parse of every file
+    # under `rt` -- and a worker is a fork of that process, so the eight
+    # of them share one copy of all of it. That is why this is called
+    # here and not in a ruby of its own: warmed next door, the caches
+    # would be on disk and each worker would read and parse them again.
+    # `ForkPool#start` calls `Process.warmup` before the first fork, so
+    # what is shared stays shared past a worker's first collection.
     module Warm
       # A program that evals, so the eval road is made as well as the
       # runtime: nothing smaller reaches all three caches.

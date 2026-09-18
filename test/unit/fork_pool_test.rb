@@ -79,6 +79,43 @@ class ForkPoolTest < Minitest::Test
     end
   end
 
+  # A worker is retired for what it has allocated, and not for what it
+  # was born holding. The parent warms the compiler before it forks, so
+  # every worker starts out resident in a few hundred megabytes that it
+  # shares with the parent and never dirties. Counted against an
+  # absolute bound, that head start would retire each worker after a
+  # single example, and forking is the one thing here that is not free.
+  #
+  # Each example reads the whole of the inherited string, so the pages
+  # really are the worker's resident set and not merely mapped.
+  SHARER = <<~'RUBY'
+    require "test_helper"
+
+    # Held by the parent, so every worker is forked already resident in
+    # it -- which is what this suite is about.
+    BALLAST = "x" * (200 << 20)
+
+    class Thrifty < Minitest::Test
+      3.times do |n|
+        define_method(:"test_a_cheap_one_#{n}") do
+          File.write(ENV.fetch("ZE0_POOL_PIDS"), "#{Process.pid}\n", mode: "a")
+          assert_equal BALLAST.bytesize, BALLAST.count("x")
+        end
+      end
+    end
+  RUBY
+
+  def test_a_worker_is_retired_for_what_it_allocates_and_not_what_it_inherits
+    Dir.mktmpdir("ze0-pool-") do |work|
+      kept = File.join(work, "pids")
+      out, = child(SHARER, work, "ZE0_RECYCLE_MB" => "150", "MT_CPU" => "1", "ZE0_POOL_PIDS" => kept)
+
+      assert_match(/3 runs, 3 assertions, 0 failures, 0 errors/, out)
+      assert_equal 1, File.read(kept).lines.uniq.size,
+                   "the worker was retired for memory it shares with the parent"
+    end
+  end
+
   private
 
   # The suite run in a child, under `timeout` seconds an example.

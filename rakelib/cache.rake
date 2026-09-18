@@ -11,9 +11,12 @@
 #   rake cache:size                what is there, by kind
 #   rake cache:prune               all but what this checkout names
 #   rake 'cache:prune[3]'          ... keeping anything touched in 3 days
+#   rake cache:clear               all of it, this checkout's included
 #
 # What this checkout names is kept whatever its age, so a prune never
-# costs the next build the runtime, the road or either image. Everything
+# costs the next build the runtime, the road or either image. `clear`
+# takes those too, which is what a disk with no room left wants, and
+# what to reach for when the next build is a cold one anyway. Everything
 # else is content-addressed and comes back on demand, which is what the
 # day's grace is for: a wasm prelude and a gem prelude are named after
 # more than the runtime's digest -- the program's own pending symbols,
@@ -77,6 +80,14 @@ namespace :cache do
   desc "Which files this checkout names, and whether they are built"
   task :live do
     Caches.live.each { |path| puts format("%-5s %s", File.exist?(path) ? "have" : "want", File.basename(path)) }
+  end
+
+  desc "Empty the runtime cache, whatever this checkout names"
+  task :clear do
+    files = Caches.files
+    freed = Caches.megabytes(files)
+    files.each { |path| File.delete(path) }
+    puts format("cleared %d file(s), %d MB", files.size, freed)
   end
 
   desc "Sweep the runtime cache: rake 'cache:prune[days]'"
