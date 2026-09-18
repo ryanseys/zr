@@ -51,7 +51,21 @@ describe "Format: formatting and inspection" do
       puts("%<x>05.2f" % { x: 3.14159 })                         # 03.14
     RUBY
 
-    _(result).must_answer "Ada is 36\nHello, world!\n1010\n0b1010\n0xff / 010\n00001010\n   42|\n42   |\n3.14\nhello world\nFF\n0x1p-1\n03.14\n"
+    _(result).must_answer <<~'OUT'
+      Ada is 36
+      Hello, world!
+      1010
+      0b1010
+      0xff / 010
+      00001010
+         42|
+      42   |
+      3.14
+      hello world
+      FF
+      0x1p-1
+      03.14
+    OUT
   end
 
   it "format directives named positional star and alternate form" do
@@ -89,7 +103,19 @@ describe "Format: formatting and inspection" do
       end
     RUBY
 
-    _(result).must_answer "    3\n3    |\n3    |\n3.14\n0003.142\n42\n00042\n42\nx-9\n1.23\nKeyError\n"
+    _(result).must_answer <<~'OUT'
+          3
+      3    |
+      3    |
+      3.14
+      0003.142
+      42
+      00042
+      42
+      x-9
+      1.23
+      KeyError
+    OUT
   end
 
   it "format fixed precision rounding" do
@@ -119,7 +145,25 @@ describe "Format: formatting and inspection" do
       puts "%.2f" % 2.675
     RUBY
 
-    _(result).must_answer "2.68\n0.2\n2.68 1.00 8.84 0.14 1.12 2.34 3.04 1.26 0.62 4.98\n0.2 0.2 0.4 0.4 0.6 0.6 0.8 0.8\n-2.68 -2.34 -0.15\n0.10000000000000000555\n2.67499999999999982\n-0002.68\n+2.68\n      2.68|\n2.68      |\n2 4 0\n0.333333\n0.01\n2.68e+00 2.68\n2.68 2.34\n2.68\n"
+    _(result).must_answer <<~'OUT'
+      2.68
+      0.2
+      2.68 1.00 8.84 0.14 1.12 2.34 3.04 1.26 0.62 4.98
+      0.2 0.2 0.4 0.4 0.6 0.6 0.8 0.8
+      -2.68 -2.34 -0.15
+      0.10000000000000000555
+      2.67499999999999982
+      -0002.68
+      +2.68
+            2.68|
+      2.68      |
+      2 4 0
+      0.333333
+      0.01
+      2.68e+00 2.68
+      2.68 2.34
+      2.68
+    OUT
   end
 
   it "format flags mro errinfo" do

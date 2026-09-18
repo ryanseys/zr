@@ -1502,7 +1502,28 @@ describe "Eval programs" do
       end
     RUBY
 
-    _(result).must_answer "7\n[1, 2, 3]\nRUBY\n5\n30\nx squared is 25\n42\nyes\n15\nfallback\nInteger\n3.142\n12.0\n4\n2\n[1, 2, 3, 4, 5]\nhi\n42\nno implicit conversion of Integer into String\ncaught SyntaxError\n"
+    _(result).must_answer <<~'OUT'
+      7
+      [1, 2, 3]
+      RUBY
+      5
+      30
+      x squared is 25
+      42
+      yes
+      15
+      fallback
+      Integer
+      3.142
+      12.0
+      4
+      2
+      [1, 2, 3, 4, 5]
+      hi
+      42
+      no implicit conversion of Integer into String
+      caught SyntaxError
+    OUT
   end
 
   it "eval instance eval" do

@@ -1075,7 +1075,9 @@ describe "Exceptions: inheritance and ancestors" do
       end
     RUBY
 
-    _(result).must_answer "super: no superclass method 'as_json' for an instance of Rec\n"
+    _(result).must_answer <<~'OUT'
+      super: no superclass method 'as_json' for an instance of Rec
+    OUT
   end
 
   it "user exception subclass class method constructs via runtime" do

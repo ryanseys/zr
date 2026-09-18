@@ -980,7 +980,14 @@ describe "Methods: formatting and inspection" do
       p Attr.new.name
     RUBY
 
-    _(result).must_answer "  v -> 1\n  v -> 2\n2\n  name -> nil\n  name -> \"hand-written\"\n\"hand-written\"\n"
+    _(result).must_answer <<~'OUT'
+        v -> 1
+        v -> 2
+      2
+        name -> nil
+        name -> "hand-written"
+      "hand-written"
+    OUT
   end
 
   it "method added watermark" do
@@ -1066,7 +1073,25 @@ describe "Methods: formatting and inspection" do
       end
     RUBY
 
-    _(result).must_answer "first: own=[:first] defined?(later)=false respond_to=false\nlater: own=[:first, :later] defined?(later)=true respond_to=true\nlast: own=[:first, :last, :later] defined?(later)=true respond_to=true\n-- once the class is built, everything is visible again\n[[:first, :last, :later], true]\n-- instance_method raises for a name that does not exist yet\n  NameError: undefined method 'two' for class 'R'\n-- visibility predicates follow the same watermark\n  public?=false private?=false\n-- an INHERITED name is not hidden: it exists, whatever this class reached\n  shared defined?=true own=[:own]\n-- a redefinition does not hide the name it already defined\n  x: defined?=true\n  x: defined?=true\n-- a runtime definition needs no watermark: it really is the last one\n  runtime a: own=[:a]\n  runtime b: own=[:a, :b]\n"
+    _(result).must_answer <<~'OUT'
+      first: own=[:first] defined?(later)=false respond_to=false
+      later: own=[:first, :later] defined?(later)=true respond_to=true
+      last: own=[:first, :last, :later] defined?(later)=true respond_to=true
+      -- once the class is built, everything is visible again
+      [[:first, :last, :later], true]
+      -- instance_method raises for a name that does not exist yet
+        NameError: undefined method 'two' for class 'R'
+      -- visibility predicates follow the same watermark
+        public?=false private?=false
+      -- an INHERITED name is not hidden: it exists, whatever this class reached
+        shared defined?=true own=[:own]
+      -- a redefinition does not hide the name it already defined
+        x: defined?=true
+        x: defined?=true
+      -- a runtime definition needs no watermark: it really is the last one
+        runtime a: own=[:a]
+        runtime b: own=[:a, :b]
+    OUT
   end
 
   it "method in container" do

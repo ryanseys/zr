@@ -177,7 +177,15 @@ describe "Exceptions: defining and naming methods" do
 
     RUBY
 
-    _(result).must_answer "false\n\"constant\"\ntrue\nundefined method 'nope' for nil (NoMethodError)\n\n  nil.nope\n     ^^^^^\n"
+    _(result).must_answer <<~'OUT'
+      false
+      "constant"
+      true
+      undefined method 'nope' for nil (NoMethodError)
+      
+        nil.nope
+           ^^^^^
+    OUT
   end
 
   it "exceptions" do

@@ -379,7 +379,16 @@ describe "Require: constants" do
       p Object.autoload?(:NS)
     RUBY
 
-    _(result).must_answer "before\nafter the declaration\ntrue\nfirst read\n  ns.rb body ran\n\"deep\"\ntrue\nnil\n"
+    _(result).must_answer <<~'OUT'
+      before
+      after the declaration
+      true
+      first read
+        ns.rb body ran
+      "deep"
+      true
+      nil
+    OUT
   end
 
   it "superclass reference runs its autoload" do

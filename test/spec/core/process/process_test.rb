@@ -780,7 +780,9 @@ describe "Process programs" do
       end
     RUBY
 
-    _(result).must_answer "rescued: undefined method 'define_method' for an instance of Box\n"
+    _(result).must_answer <<~'OUT'
+      rescued: undefined method 'define_method' for an instance of Box
+    OUT
   end
 
   it "instance exec dynamic ivar" do
@@ -2253,6 +2255,8 @@ describe "Process programs" do
       p results
     RUBY
 
-    _(result).must_answer "[19900, 400, 100, :signalled, \"fatal: No live threads left. Deadlock?\"]\n"
+    _(result).must_answer <<~'OUT'
+      [19900, 400, 100, :signalled, "fatal: No live threads left. Deadlock?"]
+    OUT
   end
 end

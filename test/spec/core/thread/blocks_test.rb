@@ -880,7 +880,9 @@ describe "Thread: blocks and yields" do
       Holder.new.go
     RUBY
 
-    _(result).must_answer "cause: Ractor::IsolationError: can not access instance variables of shareable objects from non-main Ractors\n", stderr: "core/thread/a_ractor_block_reading_an_enclosing_ivar_raises_inside_the_ractor.rb:10: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: "core/thread/a_ractor_block_reading_an_enclosing_ivar_raises_inside_the_ractor.rb:10: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+      cause: Ractor::IsolationError: can not access instance variables of shareable objects from non-main Ractors
+    OUT
   end
 
   it "ractor new with proc arg" do

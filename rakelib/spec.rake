@@ -162,9 +162,21 @@ module SpecStyle
   # Every complaint about one file, as `[line, why]`.
   def faults(path)
     out = []
+    inside = nil
     File.readlines(path).each_with_index do |line, i|
       n = i + 1
       out << [n, "trailing whitespace"] if line.rstrip != line.chomp
+
+      # Inside a heredoc the DSL opened, the lines are the program under
+      # test or the answer to it -- a row of a table is as long as the
+      # row is, and reflowing it would change what the example asks.
+      # Only the file's own code is held to a width.
+      if inside
+        inside = nil if line.match?(/\A\s*#{inside}\s*\z/)
+        next
+      end
+      inside = line[/(?:\bze0\(|\bmust_answer )<<[-~]'?([A-Z_]+)/, 1]
+
       out << [n, "#{line.chomp.size} columns, over #{COLUMNS}"] if line.chomp.size > COLUMNS
       # Only a heredoc this file opens as an argument to the DSL. A
       # program under test may open one of its own -- `eval(<<~SRC)`, a

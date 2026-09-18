@@ -775,7 +775,9 @@ describe "Thread: raising and rescuing" do
       end
     RUBY
 
-    _(result).must_answer "rescued: thrown by remote Ractor. / RuntimeError / ractor boom\n", stderr: "core/thread/an_uncaught_exception_in_a_ractor_wraps_in_remote_error_at_value.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.\n#<Thread:0xADDR run> terminated with exception (report_on_exception is true):\ncore/thread/an_uncaught_exception_in_a_ractor_wraps_in_remote_error_at_value.rb:5:in 'block in <main>': ractor boom (RuntimeError)\n"
+    _(result).must_answer <<~'OUT', stderr: "core/thread/an_uncaught_exception_in_a_ractor_wraps_in_remote_error_at_value.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.\n#<Thread:0xADDR run> terminated with exception (report_on_exception is true):\ncore/thread/an_uncaught_exception_in_a_ractor_wraps_in_remote_error_at_value.rb:5:in 'block in <main>': ractor boom (RuntimeError)\n"
+      rescued: thrown by remote Ractor. / RuntimeError / ractor boom
+    OUT
   end
 
   it "uncaught exception in a thread reraises at join and value" do

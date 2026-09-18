@@ -540,7 +540,39 @@ describe "Exceptions: formatting and inspection" do
       end
     RUBY
 
-    _(result).must_answer "nil\n\"lang/exceptions/exception_full_message_without_backtrace.rb:7:in 'full_message': msg (StandardError)\\n\"\n\"lang/exceptions/exception_full_message_without_backtrace.rb:11:in 'full_message': unhandled exception\\n\"\n\"lang/exceptions/exception_full_message_without_backtrace.rb:12:in 'full_message': StandardError\\n\"\n\"StandardError\"\n\"\\e[1;4munhandled exception\\e[m\"\n\"a.rb:1:in 'x': msg (StandardError)\\n\\tfrom b.rb:2:in 'y'\\n\\tfrom c.rb:3:in 'z'\\n\"\n\"Traceback (most recent call last):\\n\\t2: from c.rb:3:in 'z'\\n\\t1: from b.rb:2:in 'y'\\na.rb:1:in 'x': msg (StandardError)\\n\"\n\"a.rb:1:in 'x': \\e[1mmsg (\\e[1;4mStandardError\\e[m\\e[1m)\\e[m\\n\\tfrom b.rb:2:in 'y'\\n\\tfrom c.rb:3:in 'z'\\n\"\n\"\\e[1mTraceback\\e[m (most recent call last):\\n\\t2: from c.rb:3:in 'z'\\n\\t1: from b.rb:2:in 'y'\\na.rb:1:in 'x': \\e[1mmsg (\\e[1;4mStandardError\\e[m\\e[1m)\\e[m\\n\"\nTraceback (most recent call last):\n\t11: from f12.rb:12:in 'g'\n\t10: from f11.rb:11:in 'g'\n\t 9: from f10.rb:10:in 'g'\n\t 8: from f9.rb:9:in 'g'\n\t 7: from f8.rb:8:in 'g'\n\t 6: from f7.rb:7:in 'g'\n\t 5: from f6.rb:6:in 'g'\n\t 4: from f5.rb:5:in 'g'\n\t 3: from f4.rb:4:in 'g'\n\t 2: from f3.rb:3:in 'g'\n\t 1: from f2.rb:2:in 'g'\nf1.rb:1:in 'g': m (StandardError)\n[ArgumentError, \"expected :top or :bottom as order: :sideways\"]\n[ArgumentError, \"expected true or false as highlight: 3\"]\n\"a.rb:1:in 'x': CUSTOM(false)\\n\"\n\"a.rb:1:in 'x': CUSTOM(true)\\n\"\n\"a.rb:1:in 'x': line one (Wide)\\nline two\\n\"\n\"a.rb:1:in 'x': \\e[1mline one (\\e[1;4mWide\\e[m\\e[1m)\\e[m\\n\\e[1mline two\\e[m\\n\"\n\"lang/exceptions/exception_full_message_without_backtrace.rb:55:in '<main>': outer (RuntimeError)\\nlang/exceptions/exception_full_message_without_backtrace.rb:53:in '<main>': inner (RuntimeError)\\n\"\n\"Traceback (most recent call last):\\nlang/exceptions/exception_full_message_without_backtrace.rb:53:in '<main>': inner (RuntimeError)\\nlang/exceptions/exception_full_message_without_backtrace.rb:55:in '<main>': outer (RuntimeError)\\n\"\n"
+    _(result).must_answer <<~'OUT'
+      nil
+      "lang/exceptions/exception_full_message_without_backtrace.rb:7:in 'full_message': msg (StandardError)\n"
+      "lang/exceptions/exception_full_message_without_backtrace.rb:11:in 'full_message': unhandled exception\n"
+      "lang/exceptions/exception_full_message_without_backtrace.rb:12:in 'full_message': StandardError\n"
+      "StandardError"
+      "\e[1;4munhandled exception\e[m"
+      "a.rb:1:in 'x': msg (StandardError)\n\tfrom b.rb:2:in 'y'\n\tfrom c.rb:3:in 'z'\n"
+      "Traceback (most recent call last):\n\t2: from c.rb:3:in 'z'\n\t1: from b.rb:2:in 'y'\na.rb:1:in 'x': msg (StandardError)\n"
+      "a.rb:1:in 'x': \e[1mmsg (\e[1;4mStandardError\e[m\e[1m)\e[m\n\tfrom b.rb:2:in 'y'\n\tfrom c.rb:3:in 'z'\n"
+      "\e[1mTraceback\e[m (most recent call last):\n\t2: from c.rb:3:in 'z'\n\t1: from b.rb:2:in 'y'\na.rb:1:in 'x': \e[1mmsg (\e[1;4mStandardError\e[m\e[1m)\e[m\n"
+      Traceback (most recent call last):
+      	11: from f12.rb:12:in 'g'
+      	10: from f11.rb:11:in 'g'
+      	 9: from f10.rb:10:in 'g'
+      	 8: from f9.rb:9:in 'g'
+      	 7: from f8.rb:8:in 'g'
+      	 6: from f7.rb:7:in 'g'
+      	 5: from f6.rb:6:in 'g'
+      	 4: from f5.rb:5:in 'g'
+      	 3: from f4.rb:4:in 'g'
+      	 2: from f3.rb:3:in 'g'
+      	 1: from f2.rb:2:in 'g'
+      f1.rb:1:in 'g': m (StandardError)
+      [ArgumentError, "expected :top or :bottom as order: :sideways"]
+      [ArgumentError, "expected true or false as highlight: 3"]
+      "a.rb:1:in 'x': CUSTOM(false)\n"
+      "a.rb:1:in 'x': CUSTOM(true)\n"
+      "a.rb:1:in 'x': line one (Wide)\nline two\n"
+      "a.rb:1:in 'x': \e[1mline one (\e[1;4mWide\e[m\e[1m)\e[m\n\e[1mline two\e[m\n"
+      "lang/exceptions/exception_full_message_without_backtrace.rb:55:in '<main>': outer (RuntimeError)\nlang/exceptions/exception_full_message_without_backtrace.rb:53:in '<main>': inner (RuntimeError)\n"
+      "Traceback (most recent call last):\nlang/exceptions/exception_full_message_without_backtrace.rb:53:in '<main>': inner (RuntimeError)\nlang/exceptions/exception_full_message_without_backtrace.rb:55:in '<main>': outer (RuntimeError)\n"
+    OUT
   end
 
   it "exception inspect" do

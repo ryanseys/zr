@@ -354,7 +354,27 @@ describe "Struct: inheritance and ancestors" do
       frames("top-level def called from a runtime method") { Leaky.new.outer }
     RUBY
 
-    _(result).must_answer "a_struct_constructor_frame_names_the_subclass.rb:32:in 'D2#initialize'\na_struct_constructor_frame_names_the_subclass.rb:37:in 'D.new'\na_struct_constructor_frame_names_the_subclass.rb:46:in 'S2#initialize'\na_struct_constructor_frame_names_the_subclass.rb:50:in '<main>'\nData sub-subclass:\n  a_struct_constructor_frame_names_the_subclass.rb:32:in 'D2#initialize'\n  a_struct_constructor_frame_names_the_subclass.rb:67:in 'D3#initialize'\nData direct, arity error:\n  a_struct_constructor_frame_names_the_subclass.rb:75:in 'DD.new'\n  a_struct_constructor_frame_names_the_subclass.rb:75:in 'block in <main>'\nnamed runtime class:\n  a_struct_constructor_frame_names_the_subclass.rb:81:in 'Named#boom'\nanonymous runtime class:\n  a_struct_constructor_frame_names_the_subclass.rb:88:in 'boom'\nsubclass of a runtime class:\n  a_struct_constructor_frame_names_the_subclass.rb:96:in 'NamedSub#other'\ntop-level def called from a runtime method:\n  a_struct_constructor_frame_names_the_subclass.rb:104:in 'Object#top_level_helper'\n  a_struct_constructor_frame_names_the_subclass.rb:108:in 'Leaky#outer'\n"
+    _(result).must_answer <<~'OUT'
+      a_struct_constructor_frame_names_the_subclass.rb:32:in 'D2#initialize'
+      a_struct_constructor_frame_names_the_subclass.rb:37:in 'D.new'
+      a_struct_constructor_frame_names_the_subclass.rb:46:in 'S2#initialize'
+      a_struct_constructor_frame_names_the_subclass.rb:50:in '<main>'
+      Data sub-subclass:
+        a_struct_constructor_frame_names_the_subclass.rb:32:in 'D2#initialize'
+        a_struct_constructor_frame_names_the_subclass.rb:67:in 'D3#initialize'
+      Data direct, arity error:
+        a_struct_constructor_frame_names_the_subclass.rb:75:in 'DD.new'
+        a_struct_constructor_frame_names_the_subclass.rb:75:in 'block in <main>'
+      named runtime class:
+        a_struct_constructor_frame_names_the_subclass.rb:81:in 'Named#boom'
+      anonymous runtime class:
+        a_struct_constructor_frame_names_the_subclass.rb:88:in 'boom'
+      subclass of a runtime class:
+        a_struct_constructor_frame_names_the_subclass.rb:96:in 'NamedSub#other'
+      top-level def called from a runtime method:
+        a_struct_constructor_frame_names_the_subclass.rb:104:in 'Object#top_level_helper'
+        a_struct_constructor_frame_names_the_subclass.rb:108:in 'Leaky#outer'
+    OUT
   end
 
   it "struct custom initialize super" do

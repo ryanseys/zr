@@ -85,7 +85,53 @@ describe "OpenSSL programs" do
 
     RUBY
 
-    _(result).must_answer "30819d0202ff7f020d100000000000000000000000000101ff0500040700ff62797465730c0668c3a96c6c6f13095072696e7461626c65160f696135406578616d706c652e636f6d06092a864886f70d01010b06042a030405170d3236303931373132333034355a180f32303531303130323033303430355a030205a00a01033106020102020101800107a10a0c086578706c69636974c20770726976617465\nSequence tag=16 class=UNIVERSAL\n  Integer tag=2 class=UNIVERSAL -129\n  Integer tag=2 class=UNIVERSAL 1267650600228229401496703205376\n  Boolean tag=1 class=UNIVERSAL true\n  Null tag=5 class=UNIVERSAL nil\n  OctetString tag=4 class=UNIVERSAL \"\\x00\\xFFbytes\"\n  UTF8String tag=12 class=UNIVERSAL \"h\\xC3\\xA9llo\"\n  PrintableString tag=19 class=UNIVERSAL \"Printable\"\n  IA5String tag=22 class=UNIVERSAL \"ia5@example.com\"\n  ObjectId tag=6 class=UNIVERSAL \"RSA-SHA256\"\n  ObjectId tag=6 class=UNIVERSAL \"1.2.3.4.5\"\n  UTCTime tag=23 class=UNIVERSAL 2026-09-17 12:30:45 UTC\n  GeneralizedTime tag=24 class=UNIVERSAL 2051-01-02 03:04:05 UTC\n  BitString tag=3 class=UNIVERSAL \"\\xA0\"\n  Enumerated tag=10 class=UNIVERSAL 3\n  Set tag=17 class=UNIVERSAL\n    Integer tag=2 class=UNIVERSAL 2\n    Integer tag=2 class=UNIVERSAL 1\n  ASN1Data tag=0 class=CONTEXT_SPECIFIC \"\\a\"\n  ASN1Data tag=1 class=CONTEXT_SPECIFIC\n    UTF8String tag=12 class=UNIVERSAL \"explicit\"\n  ASN1Data tag=2 class=PRIVATE \"private\"\ntrue\n\"RSA-SHA256\"\n\"sha256WithRSAEncryption\"\n\"1.2.840.113549.1.1.11\"\n\"1.2.3.4.5\"\ntrue\n\"3106020102020101\"\n-- traverse --\n[0, 0, 2, 6, true, :UNIVERSAL, 16]\n[1, 2, 2, 1, false, :UNIVERSAL, 2]\n[1, 5, 2, 1, false, :UNIVERSAL, 4]\n[1, false]\n-- indefinite length --\n\"30800201010000\"\ntrue\n-- errors --\nASN1Error too long\nASN1Error EOC missing in indefinite length encoding\nASN1Error d2i_ASN1_OBJECT: invalid object encoding\nASN1Error too small\nASN1Error invalid OBJECT ID not an oid: first num too large\nTypeError Cannot convert into OpenSSL::BN\n"
+    _(result).must_answer <<~'OUT'
+      30819d0202ff7f020d100000000000000000000000000101ff0500040700ff62797465730c0668c3a96c6c6f13095072696e7461626c65160f696135406578616d706c652e636f6d06092a864886f70d01010b06042a030405170d3236303931373132333034355a180f32303531303130323033303430355a030205a00a01033106020102020101800107a10a0c086578706c69636974c20770726976617465
+      Sequence tag=16 class=UNIVERSAL
+        Integer tag=2 class=UNIVERSAL -129
+        Integer tag=2 class=UNIVERSAL 1267650600228229401496703205376
+        Boolean tag=1 class=UNIVERSAL true
+        Null tag=5 class=UNIVERSAL nil
+        OctetString tag=4 class=UNIVERSAL "\x00\xFFbytes"
+        UTF8String tag=12 class=UNIVERSAL "h\xC3\xA9llo"
+        PrintableString tag=19 class=UNIVERSAL "Printable"
+        IA5String tag=22 class=UNIVERSAL "ia5@example.com"
+        ObjectId tag=6 class=UNIVERSAL "RSA-SHA256"
+        ObjectId tag=6 class=UNIVERSAL "1.2.3.4.5"
+        UTCTime tag=23 class=UNIVERSAL 2026-09-17 12:30:45 UTC
+        GeneralizedTime tag=24 class=UNIVERSAL 2051-01-02 03:04:05 UTC
+        BitString tag=3 class=UNIVERSAL "\xA0"
+        Enumerated tag=10 class=UNIVERSAL 3
+        Set tag=17 class=UNIVERSAL
+          Integer tag=2 class=UNIVERSAL 2
+          Integer tag=2 class=UNIVERSAL 1
+        ASN1Data tag=0 class=CONTEXT_SPECIFIC "\a"
+        ASN1Data tag=1 class=CONTEXT_SPECIFIC
+          UTF8String tag=12 class=UNIVERSAL "explicit"
+        ASN1Data tag=2 class=PRIVATE "private"
+      true
+      "RSA-SHA256"
+      "sha256WithRSAEncryption"
+      "1.2.840.113549.1.1.11"
+      "1.2.3.4.5"
+      true
+      "3106020102020101"
+      -- traverse --
+      [0, 0, 2, 6, true, :UNIVERSAL, 16]
+      [1, 2, 2, 1, false, :UNIVERSAL, 2]
+      [1, 5, 2, 1, false, :UNIVERSAL, 4]
+      [1, false]
+      -- indefinite length --
+      "30800201010000"
+      true
+      -- errors --
+      ASN1Error too long
+      ASN1Error EOC missing in indefinite length encoding
+      ASN1Error d2i_ASN1_OBJECT: invalid object encoding
+      ASN1Error too small
+      ASN1Error invalid OBJECT ID not an oid: first num too large
+      TypeError Cannot convert into OpenSSL::BN
+    OUT
   end
 
   it "certificate chain verifies through a store" do
@@ -184,7 +230,62 @@ describe "OpenSSL programs" do
 
     RUBY
 
-    _(result).must_answer "-- certificates --\n/C=CA/O=ze0/CN=root\nCN=root,O=ze0,C=CA\n1\n2\n2026-01-01 00:00:00 UTC\n2036-01-01 00:00:00 UTC\necdsa-with-SHA256\n  basicConstraints critical=true\n  keyUsage critical=true\n  subjectKeyIdentifier critical=false\n/C=CA/O=ze0/CN=example.com\nCN=root,O=ze0,C=CA\n2\n2\n2026-01-01 00:00:00 UTC\n2036-01-01 00:00:00 UTC\necdsa-with-SHA256\n  basicConstraints critical=true\n  subjectAltName critical=false\n  authorityKeyIdentifier critical=false\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\ntrue\nfalse\n[1, 2]\n-- request --\n[\"C\", \"O\", \"CN\"]\ntrue\nfalse\n[\"challengePassword\"]\n-- crl --\n[[3, 2026-01-15 00:00:00 UTC, [\"Key Compromise\"]]]\ntrue\ntrue\n-- store --\ntrue\n0\n\"ok\"\ntrue\ntrue\n[\"/C=CA/O=ze0/CN=example.com\", \"/C=CA/O=ze0/CN=root\"]\nfalse\ntrue\n\"certificate revoked\"\ntrue\ntrue\n[[true, 1], [true, 0]]\nfalse\ntrue\n"
+    _(result).must_answer <<~'OUT'
+      -- certificates --
+      /C=CA/O=ze0/CN=root
+      CN=root,O=ze0,C=CA
+      1
+      2
+      2026-01-01 00:00:00 UTC
+      2036-01-01 00:00:00 UTC
+      ecdsa-with-SHA256
+        basicConstraints critical=true
+        keyUsage critical=true
+        subjectKeyIdentifier critical=false
+      /C=CA/O=ze0/CN=example.com
+      CN=root,O=ze0,C=CA
+      2
+      2
+      2026-01-01 00:00:00 UTC
+      2036-01-01 00:00:00 UTC
+      ecdsa-with-SHA256
+        basicConstraints critical=true
+        subjectAltName critical=false
+        authorityKeyIdentifier critical=false
+      true
+      false
+      true
+      true
+      true
+      true
+      true
+      false
+      [1, 2]
+      -- request --
+      ["C", "O", "CN"]
+      true
+      false
+      ["challengePassword"]
+      -- crl --
+      [[3, 2026-01-15 00:00:00 UTC, ["Key Compromise"]]]
+      true
+      true
+      -- store --
+      true
+      0
+      "ok"
+      true
+      true
+      ["/C=CA/O=ze0/CN=example.com", "/C=CA/O=ze0/CN=root"]
+      false
+      true
+      "certificate revoked"
+      true
+      true
+      [[true, 1], [true, 0]]
+      false
+      true
+    OUT
   end
 
   it "https keepalive request completes" do

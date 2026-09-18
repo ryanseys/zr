@@ -158,7 +158,31 @@ describe "TracePoint programs" do
       end
     RUBY
 
-    _(result).must_answer "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:12:in 'Object#plain'\ncore/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:15:in 'Foo#m'\ncore/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:16:in 'Foo.cm'\ncore/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:21:in 'M.modfun'\ncore/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:22:in 'M#mixed'\ncore/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:28:in 'block in Object#with_block'\ncore/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:36:in 'block (2 levels) in Object#nested_blocks'\n[\"core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:50:in 'Object#c_mid'\", \"core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:51:in '<main>'\"]\ncore/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:45:in 'Object#c_inner'\n[\"core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:51:in '<main>'\"]\n[\"core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:50:in 'Object#c_mid'\"]\nnil\n[\"core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:52:in 'Object#rr_inner'\", \"core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:54:in 'Object#rr_outer'\", \"core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:59:in '<main>'\"]\n[\"fake.rb:1:in 'x'\", \"fake.rb:2:in 'y'\"]\n[\"one_line\"]\nnil\nnil\n[\"core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:75:in 'block in <main>'\", \"core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:74:in 'Object#proc_caller'\", \"core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:77:in '<main>'\"]\n[\"core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:81:in 'Object#sent'\", \"core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:83:in '<main>'\"]\ncore/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:88:in '<main>': fm (ArgumentError)\n\n  raise ArgumentError, \"fm\"\n        ^^^^^^^^^^^^^^^^^^^\n"
+    _(result).must_answer <<~'OUT'
+      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:12:in 'Object#plain'
+      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:15:in 'Foo#m'
+      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:16:in 'Foo.cm'
+      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:21:in 'M.modfun'
+      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:22:in 'M#mixed'
+      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:28:in 'block in Object#with_block'
+      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:36:in 'block (2 levels) in Object#nested_blocks'
+      ["core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:50:in 'Object#c_mid'", "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:51:in '<main>'"]
+      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:45:in 'Object#c_inner'
+      ["core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:51:in '<main>'"]
+      ["core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:50:in 'Object#c_mid'"]
+      nil
+      ["core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:52:in 'Object#rr_inner'", "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:54:in 'Object#rr_outer'", "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:59:in '<main>'"]
+      ["fake.rb:1:in 'x'", "fake.rb:2:in 'y'"]
+      ["one_line"]
+      nil
+      nil
+      ["core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:75:in 'block in <main>'", "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:74:in 'Object#proc_caller'", "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:77:in '<main>'"]
+      ["core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:81:in 'Object#sent'", "core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:83:in '<main>'"]
+      core/tracepoint/backtrace_frames_match_cruby_across_definition_kinds.rb:88:in '<main>': fm (ArgumentError)
+      
+        raise ArgumentError, "fm"
+              ^^^^^^^^^^^^^^^^^^^
+    OUT
   end
 
   it "backtrace names the scope and the call line" do
@@ -209,7 +233,34 @@ describe "TracePoint programs" do
 
     RUBY
 
-    _(result).must_answer "blocks at a required file's top level:\n  lib/backtrace_scopes.rb:6:in 'block (2 levels) in <top (required)>'\n  lib/backtrace_scopes.rb:5:in 'Array#each'\n  lib/backtrace_scopes.rb:5:in 'block in <top (required)>'\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:23:in 'block in <main>'\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:17:in 'Object#show'\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:23:in '<main>'\na method in a required file:\n  lib/backtrace_scopes.rb:11:in 'Object#a_method_here'\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:24:in 'block in <main>'\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:17:in 'Object#show'\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:24:in '<main>'\na chained call:\n  lib/backtrace_scopes.rb:15:in 'Chained.boom'\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:28:in 'block in <main>'\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:17:in 'Object#show'\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:26:in '<main>'\na call on a block's value:\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:34:in 'block in <main>'\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:17:in 'Object#show'\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:31:in '<main>'\na raise in the receiver of a chained call:\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:39:in 'Object#raises_while_evaluating'\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:41:in 'block in <main>'\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:17:in 'Object#show'\n  core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:40:in '<main>'\n"
+    _(result).must_answer <<~'OUT'
+      blocks at a required file's top level:
+        lib/backtrace_scopes.rb:6:in 'block (2 levels) in <top (required)>'
+        lib/backtrace_scopes.rb:5:in 'Array#each'
+        lib/backtrace_scopes.rb:5:in 'block in <top (required)>'
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:23:in 'block in <main>'
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:17:in 'Object#show'
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:23:in '<main>'
+      a method in a required file:
+        lib/backtrace_scopes.rb:11:in 'Object#a_method_here'
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:24:in 'block in <main>'
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:17:in 'Object#show'
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:24:in '<main>'
+      a chained call:
+        lib/backtrace_scopes.rb:15:in 'Chained.boom'
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:28:in 'block in <main>'
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:17:in 'Object#show'
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:26:in '<main>'
+      a call on a block's value:
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:34:in 'block in <main>'
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:17:in 'Object#show'
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:31:in '<main>'
+      a raise in the receiver of a chained call:
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:39:in 'Object#raises_while_evaluating'
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:41:in 'block in <main>'
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:17:in 'Object#show'
+        core/tracepoint/backtrace_names_the_scope_and_the_call_line.rb:40:in '<main>'
+    OUT
   end
 
   it "builtin ruby method fires call and return" do
@@ -360,7 +411,15 @@ describe "TracePoint programs" do
       p StandardError.new("").inspect
     RUBY
 
-    _(result).must_answer "[\"core/tracepoint/exception_backtrace_full_message_and_inspect.rb:8:in '<main>'\"]\n\"#<ArgumentError: bad>\"\ncore/tracepoint/exception_backtrace_full_message_and_inspect.rb:8:in '<main>': bad (ArgumentError)\n\n  raise ArgumentError, \"bad\"\n        ^^^^^^^^^^^^^^^^^^^^\n\"StandardError\"\n"
+    _(result).must_answer <<~'OUT'
+      ["core/tracepoint/exception_backtrace_full_message_and_inspect.rb:8:in '<main>'"]
+      "#<ArgumentError: bad>"
+      core/tracepoint/exception_backtrace_full_message_and_inspect.rb:8:in '<main>': bad (ArgumentError)
+      
+        raise ArgumentError, "bad"
+              ^^^^^^^^^^^^^^^^^^^^
+      "StandardError"
+    OUT
   end
 
   it "exception backtrace wired" do

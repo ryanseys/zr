@@ -489,7 +489,9 @@ describe "Array: blocks and yields" do
       end
     RUBY
 
-    _(result).must_answer "wrong argument type String (must be numeric, true, false or nil)\n"
+    _(result).must_answer <<~'OUT'
+      wrong argument type String (must be numeric, true, false or nil)
+    OUT
   end
 
   it "bsearch without block" do

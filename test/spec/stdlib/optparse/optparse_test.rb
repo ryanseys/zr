@@ -33,7 +33,12 @@ describe "Optparse programs" do
       end
     RUBY
 
-    _(result).must_answer ":v\nOptionParser::AmbiguousOption: ambiguous option: --fooba\nDid you mean?  foobar\n               foobaz\n"
+    _(result).must_answer <<~'OUT'
+      :v
+      OptionParser::AmbiguousOption: ambiguous option: --fooba
+      Did you mean?  foobar
+                     foobaz
+    OUT
   end
 
   it "optparse subset" do
@@ -85,7 +90,22 @@ describe "Optparse programs" do
       end
     RUBY
 
-    _(result).must_answer "[\"file.txt\", \"-notaflag\"]\n[\"file.txt\", \"-notaflag\"]\ntrue\n\"matz\"\n\"3\"\nUsage: demo [options] FILE\n\n    -v, --verbose                    run verbosely\n    -n, --name NAME                  the name\n    -c, --count=N                    how many\n[\"x\"]\n\"invalid option: --nope\"\ntrue\n\"missing argument: --name\"\n"
+    _(result).must_answer <<~'OUT'
+      ["file.txt", "-notaflag"]
+      ["file.txt", "-notaflag"]
+      true
+      "matz"
+      "3"
+      Usage: demo [options] FILE
+      
+          -v, --verbose                    run verbosely
+          -n, --name NAME                  the name
+          -c, --count=N                    how many
+      ["x"]
+      "invalid option: --nope"
+      true
+      "missing argument: --name"
+    OUT
   end
 
   it "require first line" do

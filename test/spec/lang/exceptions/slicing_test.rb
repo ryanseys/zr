@@ -409,7 +409,109 @@ describe "Exceptions: slicing" do
 
     RUBY
 
-    _(result).must_answer "undefined method 'lenght' for nil (NoMethodError)\n\nshow { x.lenght }\n        ^^^^^^^\n--\nundefined method 'bar' for nil (NoMethodError)\n\nshow { x&.foo.bar }\n             ^^^^\n--\nnil can't be coerced into Integer (TypeError)\n\nshow { 1 + nil }\n           ^^^\n--\ninvalid value for Integer(): \"zz\" (ArgumentError)\n\nshow { Integer(\"zz\") }\n               ^^^^\n--\nno implicit conversion of String into Integer (TypeError)\n\nshow { [1, 2].first(\"a\") }\n                    ^^^\n--\nwrong number of arguments (given 1, expected 2) (ArgumentError)\n\n    caller: lang/exceptions/an_error_names_the_code_it_came_from.rb:19\n    | show { two(1) }\n             ^^^\n    callee: lang/exceptions/an_error_names_the_code_it_came_from.rb:11\n    | def two(a, b) = a\n          ^^^\n--\nmissing keyword: :a (ArgumentError)\n\n    caller: lang/exceptions/an_error_names_the_code_it_came_from.rb:20\n    | show { kw }\n             ^^\n    callee: lang/exceptions/an_error_names_the_code_it_came_from.rb:12\n    | def kw(a:) = a\n          ^^\n--\nuninitialized constant UndefinedThing (NameError)\n\nshow { UndefinedThing }\n       ^^^^^^^^^^^^^^\n--\nuninitialized constant Comparable::Nope (NameError)\n\nshow { Comparable::Nope }\n                 ^^^^^^\n--\nundefined local variable or method 'foo_bar_baz' for main (NameError)\n\nshow { foo_bar_baz }\n       ^^^^^^^^^^^\n--\nundefined method 'foo=' for nil (NoMethodError)\n\nshow { x.foo = 1 }\n        ^^^^^^\n--\nundefined method '[]' for nil (NoMethodError)\n\nshow { h = nil; h[:a] += 1 }\n                 ^^^^\n--\nundefined method '+' for nil (NoMethodError)\n\nshow { a = nil; a += 1 }\n                  ^\n--\nwrong number of arguments (given 0, expected 1) (ArgumentError)\n\n    caller: lang/exceptions/an_error_names_the_code_it_came_from.rb:27\n    | show { ->(a) {}.call }\n                     ^^^^^\n    callee: lang/exceptions/an_error_names_the_code_it_came_from.rb:27\n    | show { ->(a) {}.call }\n             ^^\n--\nkey not found: :b (KeyError)\n--\nundefined method 'unknown_meth' for an instance of String (NoMethodError)\n\nshow { \"abc\".unknown_meth(1, 2) }\n            ^^^^^^^^^^^^^\n--\nundefined local variable or method 'lenghth' for main (NameError)\n\nshow { lengthh = 1; lenghth }\n                    ^^^^^^^\nDid you mean?  lengthh\n--\nundefined method 'frist' for an instance of Array (NoMethodError)\n\nshow { [1].frist }\n          ^^^^^^\nDid you mean?  first\n--\n"
+    _(result).must_answer <<~'OUT'
+      undefined method 'lenght' for nil (NoMethodError)
+      
+      show { x.lenght }
+              ^^^^^^^
+      --
+      undefined method 'bar' for nil (NoMethodError)
+      
+      show { x&.foo.bar }
+                   ^^^^
+      --
+      nil can't be coerced into Integer (TypeError)
+      
+      show { 1 + nil }
+                 ^^^
+      --
+      invalid value for Integer(): "zz" (ArgumentError)
+      
+      show { Integer("zz") }
+                     ^^^^
+      --
+      no implicit conversion of String into Integer (TypeError)
+      
+      show { [1, 2].first("a") }
+                          ^^^
+      --
+      wrong number of arguments (given 1, expected 2) (ArgumentError)
+      
+          caller: lang/exceptions/an_error_names_the_code_it_came_from.rb:19
+          | show { two(1) }
+                   ^^^
+          callee: lang/exceptions/an_error_names_the_code_it_came_from.rb:11
+          | def two(a, b) = a
+                ^^^
+      --
+      missing keyword: :a (ArgumentError)
+      
+          caller: lang/exceptions/an_error_names_the_code_it_came_from.rb:20
+          | show { kw }
+                   ^^
+          callee: lang/exceptions/an_error_names_the_code_it_came_from.rb:12
+          | def kw(a:) = a
+                ^^
+      --
+      uninitialized constant UndefinedThing (NameError)
+      
+      show { UndefinedThing }
+             ^^^^^^^^^^^^^^
+      --
+      uninitialized constant Comparable::Nope (NameError)
+      
+      show { Comparable::Nope }
+                       ^^^^^^
+      --
+      undefined local variable or method 'foo_bar_baz' for main (NameError)
+      
+      show { foo_bar_baz }
+             ^^^^^^^^^^^
+      --
+      undefined method 'foo=' for nil (NoMethodError)
+      
+      show { x.foo = 1 }
+              ^^^^^^
+      --
+      undefined method '[]' for nil (NoMethodError)
+      
+      show { h = nil; h[:a] += 1 }
+                       ^^^^
+      --
+      undefined method '+' for nil (NoMethodError)
+      
+      show { a = nil; a += 1 }
+                        ^
+      --
+      wrong number of arguments (given 0, expected 1) (ArgumentError)
+      
+          caller: lang/exceptions/an_error_names_the_code_it_came_from.rb:27
+          | show { ->(a) {}.call }
+                           ^^^^^
+          callee: lang/exceptions/an_error_names_the_code_it_came_from.rb:27
+          | show { ->(a) {}.call }
+                   ^^
+      --
+      key not found: :b (KeyError)
+      --
+      undefined method 'unknown_meth' for an instance of String (NoMethodError)
+      
+      show { "abc".unknown_meth(1, 2) }
+                  ^^^^^^^^^^^^^
+      --
+      undefined local variable or method 'lenghth' for main (NameError)
+      
+      show { lengthh = 1; lenghth }
+                          ^^^^^^^
+      Did you mean?  lengthh
+      --
+      undefined method 'frist' for an instance of Array (NoMethodError)
+      
+      show { [1].frist }
+                ^^^^^^
+      Did you mean?  first
+      --
+    OUT
   end
 
   it "jump across an ensure runs it" do

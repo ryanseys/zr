@@ -49,7 +49,16 @@ describe "Exceptions: loading files" do
 
     RUBY
 
-    _(result).must_answer "false\n\"constant\"\n[\"length\"]\nundefined local variable or method 'frist_name' for main (NameError)\n\n  frist_name\n  ^^^^^^^^^^\nDid you mean?  first_name\n"
+    _(result).must_answer <<~'OUT'
+      false
+      "constant"
+      ["length"]
+      undefined local variable or method 'frist_name' for main (NameError)
+      
+        frist_name
+        ^^^^^^^^^^
+      Did you mean?  first_name
+    OUT
   end
 
   it "load error path" do

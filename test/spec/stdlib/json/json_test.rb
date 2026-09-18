@@ -450,7 +450,16 @@ describe "JSON programs" do
       puts JSON.pretty_generate({"k" => [1, 2]})
     RUBY
 
-    _(result).must_answer "{\"a\":1,\"b\":[2,3.5,null,true]}\n{\"x\" => [1, 2, 3]}\n{\n  \"k\": [\n    1,\n    2\n  ]\n}\n"
+    _(result).must_answer <<~'OUT'
+      {"a":1,"b":[2,3.5,null,true]}
+      {"x" => [1, 2, 3]}
+      {
+        "k": [
+          1,
+          2
+        ]
+      }
+    OUT
   end
 
   it "json parse freeze" do
@@ -946,7 +955,14 @@ describe "JSON programs" do
       puts "still running\ttrue"
     RUBY
 
-    _(result).must_answer "outcomes\n  nesting\t2\n  parser\t25328\n  value\t920\nround trips\t21\nstill running\ttrue\n"
+    _(result).must_answer <<~'OUT'
+      outcomes
+        nesting	2
+        parser	25328
+        value	920
+      round trips	21
+      still running	true
+    OUT
   end
 
   it "json roundtrip" do
@@ -962,7 +978,17 @@ describe "JSON programs" do
       p JSON.parse('{"deep":{"list":[1,2,3]}}', symbolize_names: true)
     RUBY
 
-    _(result).must_answer "{\"name\":\"zeo\",\"tags\":[\"ruby\",\"aot\"],\"n\":42,\"ok\":true,\"nil\":null}\ntrue\n{\n  \"a\": [\n    1,\n    2\n  ]\n}\n{deep: {list: [1, 2, 3]}}\n"
+    _(result).must_answer <<~'OUT'
+      {"name":"zeo","tags":["ruby","aot"],"n":42,"ok":true,"nil":null}
+      true
+      {
+        "a": [
+          1,
+          2
+        ]
+      }
+      {deep: {list: [1, 2, 3]}}
+    OUT
   end
 
   it "json to json" do
@@ -1647,6 +1673,15 @@ describe "JSON programs" do
       puts JSON.pretty_generate([Point.new(5, 6)])
     RUBY
 
-    _(result).must_answer "\"{\\\"x\\\":1,\\\"y\\\":2}\"\n\"{\\\"points\\\":[{\\\"x\\\":1,\\\"y\\\":2},{\\\"x\\\":3,\\\"y\\\":4}],\\\"n\\\":2}\"\n[\n  {\n    \"x\": 5,\n    \"y\": 6\n  }\n]\n"
+    _(result).must_answer <<~'OUT'
+      "{\"x\":1,\"y\":2}"
+      "{\"points\":[{\"x\":1,\"y\":2},{\"x\":3,\"y\":4}],\"n\":2}"
+      [
+        {
+          "x": 5,
+          "y": 6
+        }
+      ]
+    OUT
   end
 end

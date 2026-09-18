@@ -161,7 +161,22 @@ describe "Kernel: loading files" do
       puts Etc.respond_to?(:getpwuid)
     RUBY
 
-    _(result).must_answer "before\n  StringIO\tabsent\n  StringScanner\tabsent\n  BigDecimal\tabsent\n  Etc\tabsent\nafter\n  StringIO\tStringIO\n  StringScanner\tStringScanner\n  BigDecimal\tBigDecimal\n  Etc\tEtc\nhello\nab\n0.15e1\ntrue\n"
+    _(result).must_answer <<~'OUT'
+      before
+        StringIO	absent
+        StringScanner	absent
+        BigDecimal	absent
+        Etc	absent
+      after
+        StringIO	StringIO
+        StringScanner	StringScanner
+        BigDecimal	BigDecimal
+        Etc	Etc
+      hello
+      ab
+      0.15e1
+      true
+    OUT
   end
 
   it "deferred require reopens container" do

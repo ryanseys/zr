@@ -174,7 +174,15 @@ describe "Marshal programs" do
       show { Marshal.load("\x09\x08T") }
     RUBY
 
-    _(result).must_answer "[4, 8]\n:sym\n[true, true]\n[\"Array\", \"Integer\", \"String\", \"TrueClass\"]\nArgumentError: exceed depth limit\nTypeError: incompatible marshal file format (can't be read)\n\tformat version 4.8 required; 9.8 given\n"
+    _(result).must_answer <<~'OUT'
+      [4, 8]
+      :sym
+      [true, true]
+      ["Array", "Integer", "String", "TrueClass"]
+      ArgumentError: exceed depth limit
+      TypeError: incompatible marshal file format (can't be read)
+      	format version 4.8 required; 9.8 given
+    OUT
   end
 
   it "marshal exceptions and extends" do

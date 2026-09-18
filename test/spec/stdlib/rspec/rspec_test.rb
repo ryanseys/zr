@@ -47,7 +47,38 @@ describe "Rspec programs" do
       end
     RUBY
 
-    _(result).must_answer "F*\n\nPending: (Failures listed here are expected and do not affect your suite's status)\n\n  1) arithmetic is pending\n     # not yet\n     Failure/Error: raise \"still broken\"\n\n     RuntimeError:\n       still broken\n     # ./milestones/pending/rspec_reports_a_failure.rb:35:in 'block (2 levels) in <main>'\n\nFailures:\n\n  1) arithmetic reports a failure\n     Failure/Error: expect(1).to eq(2)\n\n       expected: 2\n            got: 1\n\n       (compared using ==)\n     # ./milestones/pending/rspec_reports_a_failure.rb:30:in 'block (2 levels) in <main>'\n\nFinished in <time>\n2 examples, 1 failure, 1 pending\n\nFailed examples:\n\nrspec ./milestones/pending/rspec_reports_a_failure.rb:29 # arithmetic reports a failure\n\n", status: 1
+    _(result).must_answer <<~'OUT', status: 1
+      F*
+      
+      Pending: (Failures listed here are expected and do not affect your suite's status)
+      
+        1) arithmetic is pending
+           # not yet
+           Failure/Error: raise "still broken"
+      
+           RuntimeError:
+             still broken
+           # ./milestones/pending/rspec_reports_a_failure.rb:35:in 'block (2 levels) in <main>'
+      
+      Failures:
+      
+        1) arithmetic reports a failure
+           Failure/Error: expect(1).to eq(2)
+      
+             expected: 2
+                  got: 1
+      
+             (compared using ==)
+           # ./milestones/pending/rspec_reports_a_failure.rb:30:in 'block (2 levels) in <main>'
+      
+      Finished in <time>
+      2 examples, 1 failure, 1 pending
+      
+      Failed examples:
+      
+      rspec ./milestones/pending/rspec_reports_a_failure.rb:29 # arithmetic reports a failure
+      
+    OUT
   end
 
   it "rspec suite runs" do

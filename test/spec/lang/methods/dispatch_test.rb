@@ -616,7 +616,30 @@ describe "Methods: dispatch" do
       p [Narrow.new.wide, Other.new.wide]
     RUBY
 
-    _(result).must_answer "  NoMethodError: undefined method 'later' for an instance of Probe\n  NoMethodError: undefined method 'later' for an instance of Probe\n  NoMethodError: undefined method 'later' for an instance of Probe\n  NameError: undefined method 'later' for class 'Probe'\n  NameError: undefined method 'later' for class 'Probe'\n  ok: false\n  ok: false\n  ok: [:first]\n  ok: \"from Base\"\n  ok: String\n== and every one of them answers once the class is whole\n[2, \"from Probe\", [:first, :later, :shared]]\n== method_missing still gets its chance\n  method_missing(two)\n2\n== the truncation lifts as soon as the hook returns\n  added a, b reachable: false\n  added b, b reachable: true\n[1, 2]\n== an unrelated class is never truncated\n  Other#wide -> other\n[\"narrow\", \"other\"]\n"
+    _(result).must_answer <<~'OUT'
+        NoMethodError: undefined method 'later' for an instance of Probe
+        NoMethodError: undefined method 'later' for an instance of Probe
+        NoMethodError: undefined method 'later' for an instance of Probe
+        NameError: undefined method 'later' for class 'Probe'
+        NameError: undefined method 'later' for class 'Probe'
+        ok: false
+        ok: false
+        ok: [:first]
+        ok: "from Base"
+        ok: String
+      == and every one of them answers once the class is whole
+      [2, "from Probe", [:first, :later, :shared]]
+      == method_missing still gets its chance
+        method_missing(two)
+      2
+      == the truncation lifts as soon as the hook returns
+        added a, b reachable: false
+        added b, b reachable: true
+      [1, 2]
+      == an unrelated class is never truncated
+        Other#wide -> other
+      ["narrow", "other"]
+    OUT
   end
 
   it "nil default param widens to poly" do

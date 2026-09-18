@@ -1692,7 +1692,34 @@ describe "Classes programs" do
       frames("allocate then raise") { P1.allocate.instance_variable_get(:@nope) || raise("after allocate") }
     RUBY
 
-    _(result).must_answer "plain class:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:30:in 'P1#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:33:in 'block in <main>'\nstruct subclass:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:40:in 'S2#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:43:in 'block in <main>'\nexception subclass:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:49:in 'E1#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:52:in 'block in <main>'\narity error, no initialize:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:56:in 'BasicObject#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:56:in 'block in <main>'\nClass.new minting:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:59:in 'block (2 levels) in <main>'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:59:in 'Class#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:59:in 'Class#new'\nModule.new minting:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:60:in 'block (2 levels) in <main>'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:60:in 'Module#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:60:in 'Class#new'\nsubclass calling super:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:30:in 'P1#initialize'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:65:in 'P3#initialize'\nallocate then raise:\n  a_constructor_pushes_the_frames_ruby_pushes.rb:71:in 'block in <main>'\n  a_constructor_pushes_the_frames_ruby_pushes.rb:21:in 'Object#frames'\n"
+    _(result).must_answer <<~'OUT'
+      plain class:
+        a_constructor_pushes_the_frames_ruby_pushes.rb:30:in 'P1#initialize'
+        a_constructor_pushes_the_frames_ruby_pushes.rb:33:in 'block in <main>'
+      struct subclass:
+        a_constructor_pushes_the_frames_ruby_pushes.rb:40:in 'S2#initialize'
+        a_constructor_pushes_the_frames_ruby_pushes.rb:43:in 'block in <main>'
+      exception subclass:
+        a_constructor_pushes_the_frames_ruby_pushes.rb:49:in 'E1#initialize'
+        a_constructor_pushes_the_frames_ruby_pushes.rb:52:in 'block in <main>'
+      arity error, no initialize:
+        a_constructor_pushes_the_frames_ruby_pushes.rb:56:in 'BasicObject#initialize'
+        a_constructor_pushes_the_frames_ruby_pushes.rb:56:in 'block in <main>'
+      Class.new minting:
+        a_constructor_pushes_the_frames_ruby_pushes.rb:59:in 'block (2 levels) in <main>'
+        a_constructor_pushes_the_frames_ruby_pushes.rb:59:in 'Class#initialize'
+        a_constructor_pushes_the_frames_ruby_pushes.rb:59:in 'Class#new'
+      Module.new minting:
+        a_constructor_pushes_the_frames_ruby_pushes.rb:60:in 'block (2 levels) in <main>'
+        a_constructor_pushes_the_frames_ruby_pushes.rb:60:in 'Module#initialize'
+        a_constructor_pushes_the_frames_ruby_pushes.rb:60:in 'Class#new'
+      subclass calling super:
+        a_constructor_pushes_the_frames_ruby_pushes.rb:30:in 'P1#initialize'
+        a_constructor_pushes_the_frames_ruby_pushes.rb:65:in 'P3#initialize'
+      allocate then raise:
+        a_constructor_pushes_the_frames_ruby_pushes.rb:71:in 'block in <main>'
+        a_constructor_pushes_the_frames_ruby_pushes.rb:21:in 'Object#frames'
+    OUT
   end
 
   it "def with class receiver" do
@@ -1901,7 +1928,39 @@ describe "Classes programs" do
       p [MF.method(:after_modfunc).source_location, MF.instance_method(:after_modfunc).source_location]
     RUBY
 
-    _(result).must_answer "== top-level def, on Object\nObject added toplevel_one\n== every shape a class body can write\nC s_added singleton_method_added\nC added a\n  (an ordinary statement between defs keeps its place)\nC added b\nC added b\nC added acc\nC added acc=\nC added ro\nC added c\nC added d\nC s_added klass_method\nC s_added via_sclass\n== a reopen reports too, and `undef` has its own hook\nC added reopened\nC undefined a\n== a nested class has no hook of its own, so Object's answers\nObject added inner_method\nOuter added outer_method\n== a subclass inherits the hook\nC added sub_method\n== a bare `private` changes visibility, not whether the def reports\nV added hidden\nV added shown\n== bare `module_function` reports both halves\nMF s_added singleton_method_added\nMF added after_modfunc\nMF s_added after_modfunc\n[[\"lang/classes/definition_hooks_when_compiled.rb\", 72], [\"lang/classes/definition_hooks_when_compiled.rb\", 72]]\n"
+    _(result).must_answer <<~'OUT'
+      == top-level def, on Object
+      Object added toplevel_one
+      == every shape a class body can write
+      C s_added singleton_method_added
+      C added a
+        (an ordinary statement between defs keeps its place)
+      C added b
+      C added b
+      C added acc
+      C added acc=
+      C added ro
+      C added c
+      C added d
+      C s_added klass_method
+      C s_added via_sclass
+      == a reopen reports too, and `undef` has its own hook
+      C added reopened
+      C undefined a
+      == a nested class has no hook of its own, so Object's answers
+      Object added inner_method
+      Outer added outer_method
+      == a subclass inherits the hook
+      C added sub_method
+      == a bare `private` changes visibility, not whether the def reports
+      V added hidden
+      V added shown
+      == bare `module_function` reports both halves
+      MF s_added singleton_method_added
+      MF added after_modfunc
+      MF s_added after_modfunc
+      [["lang/classes/definition_hooks_when_compiled.rb", 72], ["lang/classes/definition_hooks_when_compiled.rb", 72]]
+    OUT
   end
 
   it "dot class reflects every receiver kind" do
@@ -3430,7 +3489,25 @@ describe "Classes programs" do
       frames("ordinary compiled class") { Plain.new.p1 }
     RUBY
 
-    _(result).must_answer "constant-named:\n  a_runtime_class_names_its_own_frames.rb:23:in 'K#m'\nanonymous:\n  a_runtime_class_names_its_own_frames.rb:31:in 'm'\nsubclass of a runtime class:\n  a_runtime_class_names_its_own_frames.rb:39:in 'Sub#n'\nruntime module method:\n  a_runtime_class_names_its_own_frames.rb:47:in 'M#mm'\nnested under a runtime namespace:\n  a_runtime_class_names_its_own_frames.rb:59:in 'NS::Inner#deep'\ntop-level def called from a runtime method:\n  a_runtime_class_names_its_own_frames.rb:68:in 'Object#helper'\n  a_runtime_class_names_its_own_frames.rb:72:in 'Caller#outer'\ndefine_method block:\n  a_runtime_class_names_its_own_frames.rb:80:in 'block (2 levels) in <main>'\nordinary compiled class:\n  a_runtime_class_names_its_own_frames.rb:87:in 'Plain#p1'\n"
+    _(result).must_answer <<~'OUT'
+      constant-named:
+        a_runtime_class_names_its_own_frames.rb:23:in 'K#m'
+      anonymous:
+        a_runtime_class_names_its_own_frames.rb:31:in 'm'
+      subclass of a runtime class:
+        a_runtime_class_names_its_own_frames.rb:39:in 'Sub#n'
+      runtime module method:
+        a_runtime_class_names_its_own_frames.rb:47:in 'M#mm'
+      nested under a runtime namespace:
+        a_runtime_class_names_its_own_frames.rb:59:in 'NS::Inner#deep'
+      top-level def called from a runtime method:
+        a_runtime_class_names_its_own_frames.rb:68:in 'Object#helper'
+        a_runtime_class_names_its_own_frames.rb:72:in 'Caller#outer'
+      define_method block:
+        a_runtime_class_names_its_own_frames.rb:80:in 'block (2 levels) in <main>'
+      ordinary compiled class:
+        a_runtime_class_names_its_own_frames.rb:87:in 'Plain#p1'
+    OUT
   end
 
   it "same leaf class name in two namespaces stays distinct" do

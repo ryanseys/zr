@@ -43,7 +43,54 @@ describe "YAML programs" do
 
     RUBY
 
-    _(result).must_answer "---\na:\n- 1\n-\n- true\nb:\n  c: 1\n  e:\n    f:\n    - 2\nd: x\n---\n- a:\n    b:\n    - 1\n  g: 3\n- 2\n---\n? - 1\n  - 2\n: x: 1\n\"y\": []\n{\"a\" => [1], \"b\" => {\"c\" => 1}}\n---\n? a: 1\n  b: 2\n: - 3\n  - z: 1\n? - - 1\n: 1\nk:\n  ? - 1\n  : ? - 2\n    : 3\n---\n- - - 1\n    - 2\n- a:\n    b:\n    - - 1\n---\np: &1\n- 1\nq: *1\nr:\n  s: *1\n"
+    _(result).must_answer <<~'OUT'
+      ---
+      a:
+      - 1
+      -
+      - true
+      b:
+        c: 1
+        e:
+          f:
+          - 2
+      d: x
+      ---
+      - a:
+          b:
+          - 1
+        g: 3
+      - 2
+      ---
+      ? - 1
+        - 2
+      : x: 1
+      "y": []
+      {"a" => [1], "b" => {"c" => 1}}
+      ---
+      ? a: 1
+        b: 2
+      : - 3
+        - z: 1
+      ? - - 1
+      : 1
+      k:
+        ? - 1
+        : ? - 2
+          : 3
+      ---
+      - - - 1
+          - 2
+      - a:
+          b:
+          - - 1
+      ---
+      p: &1
+      - 1
+      q: *1
+      r:
+        s: *1
+    OUT
   end
 
   it "psych parse node tree" do

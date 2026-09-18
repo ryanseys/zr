@@ -458,7 +458,96 @@ describe "Exceptions programs" do
 
     RUBY
 
-    _(result).must_answer "NoMethodError: undefined method 'foo' for an instance of String\na_core_error_shows_only_ruby_frames.rb:12:block (2 levels) in <main>\na_core_error_shows_only_ruby_frames.rb:12:Array#map\na_core_error_shows_only_ruby_frames.rb:12:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:12:<main>\nNoMethodError: undefined method 'zork' for an instance of Integer\na_core_error_shows_only_ruby_frames.rb:13:block (2 levels) in <main>\na_core_error_shows_only_ruby_frames.rb:13:Array#each\na_core_error_shows_only_ruby_frames.rb:13:Enumerable#sort_by\na_core_error_shows_only_ruby_frames.rb:13:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:13:<main>\nArgumentError: invalid value for Integer(): \"x\"\na_core_error_shows_only_ruby_frames.rb:14:Kernel#Integer\na_core_error_shows_only_ruby_frames.rb:14:block (2 levels) in <main>\na_core_error_shows_only_ruby_frames.rb:14:Array#map\na_core_error_shows_only_ruby_frames.rb:14:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:14:<main>\nJSON::ParserError: expected object key, got EOF at line 1 column 2\ncommon.rb:364:JSON::Ext::Parser.parse\ncommon.rb:364:JSON.parse\na_core_error_shows_only_ruby_frames.rb:15:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:15:<main>\nKeyError: key not found: :b\na_core_error_shows_only_ruby_frames.rb:16:Hash#fetch\na_core_error_shows_only_ruby_frames.rb:16:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:16:<main>\nIndexError: index 5 outside of array bounds: -1...1\na_core_error_shows_only_ruby_frames.rb:17:Array#fetch\na_core_error_shows_only_ruby_frames.rb:17:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:17:<main>\nArgumentError: comparison of Integer with String failed\na_core_error_shows_only_ruby_frames.rb:18:Array#sort\na_core_error_shows_only_ruby_frames.rb:18:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:18:<main>\nArgumentError: invalid slice size\na_core_error_shows_only_ruby_frames.rb:19:Enumerable#each_slice\na_core_error_shows_only_ruby_frames.rb:19:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:19:<main>\nArgumentError: @ outside of string\na_core_error_shows_only_ruby_frames.rb:20:String#unpack\na_core_error_shows_only_ruby_frames.rb:20:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:20:<main>\nRuntimeError: in min_by\na_core_error_shows_only_ruby_frames.rb:21:block (2 levels) in <main>\na_core_error_shows_only_ruby_frames.rb:21:Array#each\na_core_error_shows_only_ruby_frames.rb:21:Enumerable#min_by\na_core_error_shows_only_ruby_frames.rb:21:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:21:<main>\nRuntimeError: in each\na_core_error_shows_only_ruby_frames.rb:22:block (2 levels) in <main>\na_core_error_shows_only_ruby_frames.rb:22:Hash#each\na_core_error_shows_only_ruby_frames.rb:22:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:22:<main>\nSyntaxError: (eval at lang/exceptions/a_core_error_shows_only_ruby_frames.rb:23):1: syntax errors found\n> 1 | 1 +\n    |    ^ unexpected end-of-input, assuming it is closing the parent top level context\n    |    ^ unexpected end-of-input; expected an expression after the operator\na_core_error_shows_only_ruby_frames.rb:23:Kernel#eval\na_core_error_shows_only_ruby_frames.rb:23:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:23:<main>\nArgumentError: struct size differs\na_core_error_shows_only_ruby_frames.rb:24:Struct#initialize\na_core_error_shows_only_ruby_frames.rb:24:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:24:<main>\nEncoding::ConverterNotFoundError: code converter not found (UTF-8 to NOPE)\na_core_error_shows_only_ruby_frames.rb:25:String#encode\na_core_error_shows_only_ruby_frames.rb:25:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:25:<main>\nArgumentError: min argument must be less than or equal to max argument\na_core_error_shows_only_ruby_frames.rb:26:Comparable#clamp\na_core_error_shows_only_ruby_frames.rb:26:UnboundMethod#bind_call\na_core_error_shows_only_ruby_frames.rb:26:block in <main>\na_core_error_shows_only_ruby_frames.rb:7:Object#show\na_core_error_shows_only_ruby_frames.rb:26:<main>\n"
+    _(result).must_answer <<~'OUT'
+      NoMethodError: undefined method 'foo' for an instance of String
+      a_core_error_shows_only_ruby_frames.rb:12:block (2 levels) in <main>
+      a_core_error_shows_only_ruby_frames.rb:12:Array#map
+      a_core_error_shows_only_ruby_frames.rb:12:block in <main>
+      a_core_error_shows_only_ruby_frames.rb:7:Object#show
+      a_core_error_shows_only_ruby_frames.rb:12:<main>
+      NoMethodError: undefined method 'zork' for an instance of Integer
+      a_core_error_shows_only_ruby_frames.rb:13:block (2 levels) in <main>
+      a_core_error_shows_only_ruby_frames.rb:13:Array#each
+      a_core_error_shows_only_ruby_frames.rb:13:Enumerable#sort_by
+      a_core_error_shows_only_ruby_frames.rb:13:block in <main>
+      a_core_error_shows_only_ruby_frames.rb:7:Object#show
+      a_core_error_shows_only_ruby_frames.rb:13:<main>
+      ArgumentError: invalid value for Integer(): "x"
+      a_core_error_shows_only_ruby_frames.rb:14:Kernel#Integer
+      a_core_error_shows_only_ruby_frames.rb:14:block (2 levels) in <main>
+      a_core_error_shows_only_ruby_frames.rb:14:Array#map
+      a_core_error_shows_only_ruby_frames.rb:14:block in <main>
+      a_core_error_shows_only_ruby_frames.rb:7:Object#show
+      a_core_error_shows_only_ruby_frames.rb:14:<main>
+      JSON::ParserError: expected object key, got EOF at line 1 column 2
+      common.rb:364:JSON::Ext::Parser.parse
+      common.rb:364:JSON.parse
+      a_core_error_shows_only_ruby_frames.rb:15:block in <main>
+      a_core_error_shows_only_ruby_frames.rb:7:Object#show
+      a_core_error_shows_only_ruby_frames.rb:15:<main>
+      KeyError: key not found: :b
+      a_core_error_shows_only_ruby_frames.rb:16:Hash#fetch
+      a_core_error_shows_only_ruby_frames.rb:16:block in <main>
+      a_core_error_shows_only_ruby_frames.rb:7:Object#show
+      a_core_error_shows_only_ruby_frames.rb:16:<main>
+      IndexError: index 5 outside of array bounds: -1...1
+      a_core_error_shows_only_ruby_frames.rb:17:Array#fetch
+      a_core_error_shows_only_ruby_frames.rb:17:block in <main>
+      a_core_error_shows_only_ruby_frames.rb:7:Object#show
+      a_core_error_shows_only_ruby_frames.rb:17:<main>
+      ArgumentError: comparison of Integer with String failed
+      a_core_error_shows_only_ruby_frames.rb:18:Array#sort
+      a_core_error_shows_only_ruby_frames.rb:18:block in <main>
+      a_core_error_shows_only_ruby_frames.rb:7:Object#show
+      a_core_error_shows_only_ruby_frames.rb:18:<main>
+      ArgumentError: invalid slice size
+      a_core_error_shows_only_ruby_frames.rb:19:Enumerable#each_slice
+      a_core_error_shows_only_ruby_frames.rb:19:block in <main>
+      a_core_error_shows_only_ruby_frames.rb:7:Object#show
+      a_core_error_shows_only_ruby_frames.rb:19:<main>
+      ArgumentError: @ outside of string
+      a_core_error_shows_only_ruby_frames.rb:20:String#unpack
+      a_core_error_shows_only_ruby_frames.rb:20:block in <main>
+      a_core_error_shows_only_ruby_frames.rb:7:Object#show
+      a_core_error_shows_only_ruby_frames.rb:20:<main>
+      RuntimeError: in min_by
+      a_core_error_shows_only_ruby_frames.rb:21:block (2 levels) in <main>
+      a_core_error_shows_only_ruby_frames.rb:21:Array#each
+      a_core_error_shows_only_ruby_frames.rb:21:Enumerable#min_by
+      a_core_error_shows_only_ruby_frames.rb:21:block in <main>
+      a_core_error_shows_only_ruby_frames.rb:7:Object#show
+      a_core_error_shows_only_ruby_frames.rb:21:<main>
+      RuntimeError: in each
+      a_core_error_shows_only_ruby_frames.rb:22:block (2 levels) in <main>
+      a_core_error_shows_only_ruby_frames.rb:22:Hash#each
+      a_core_error_shows_only_ruby_frames.rb:22:block in <main>
+      a_core_error_shows_only_ruby_frames.rb:7:Object#show
+      a_core_error_shows_only_ruby_frames.rb:22:<main>
+      SyntaxError: (eval at lang/exceptions/a_core_error_shows_only_ruby_frames.rb:23):1: syntax errors found
+      > 1 | 1 +
+          |    ^ unexpected end-of-input, assuming it is closing the parent top level context
+          |    ^ unexpected end-of-input; expected an expression after the operator
+      a_core_error_shows_only_ruby_frames.rb:23:Kernel#eval
+      a_core_error_shows_only_ruby_frames.rb:23:block in <main>
+      a_core_error_shows_only_ruby_frames.rb:7:Object#show
+      a_core_error_shows_only_ruby_frames.rb:23:<main>
+      ArgumentError: struct size differs
+      a_core_error_shows_only_ruby_frames.rb:24:Struct#initialize
+      a_core_error_shows_only_ruby_frames.rb:24:block in <main>
+      a_core_error_shows_only_ruby_frames.rb:7:Object#show
+      a_core_error_shows_only_ruby_frames.rb:24:<main>
+      Encoding::ConverterNotFoundError: code converter not found (UTF-8 to NOPE)
+      a_core_error_shows_only_ruby_frames.rb:25:String#encode
+      a_core_error_shows_only_ruby_frames.rb:25:block in <main>
+      a_core_error_shows_only_ruby_frames.rb:7:Object#show
+      a_core_error_shows_only_ruby_frames.rb:25:<main>
+      ArgumentError: min argument must be less than or equal to max argument
+      a_core_error_shows_only_ruby_frames.rb:26:Comparable#clamp
+      a_core_error_shows_only_ruby_frames.rb:26:UnboundMethod#bind_call
+      a_core_error_shows_only_ruby_frames.rb:26:block in <main>
+      a_core_error_shows_only_ruby_frames.rb:7:Object#show
+      a_core_error_shows_only_ruby_frames.rb:26:<main>
+    OUT
   end
 
   it "core error shows only ruby frames pack" do
@@ -2090,7 +2179,9 @@ describe "Exceptions programs" do
       end
     RUBY
 
-    _(result).must_answer "\"[undefined method 'lenght' for an instance of String (NoMethodError)\\n\\n  \\\"abc\\\".lenght\\n       ^^^^^^^\\nDid you mean?  length]\"\n"
+    _(result).must_answer <<~'OUT'
+      "[undefined method 'lenght' for an instance of String (NoMethodError)\n\n  \"abc\".lenght\n       ^^^^^^^\nDid you mean?  length]"
+    OUT
   end
 
   it "private method called with an explicit receiver raises at runtime" do

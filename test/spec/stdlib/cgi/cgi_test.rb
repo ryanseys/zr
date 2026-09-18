@@ -415,7 +415,32 @@ describe "Cgi programs" do
       puts Zlib.adler32("hello")
     RUBY
 
-    _(result).must_answer "{\"a\":1,\"b\":[2,3.5,null,true]}\n{\"x\" => [1, 2, 3], \"y\" => \"hi\"}\n{\n  \"k\": [\n    1,\n    2\n  ]\n}\n---\nname: zeo\ntags:\n- aot\n- ruby\n{\"port\" => 8080, \"hosts\" => [\"a\", \"b\"]}\ngot: line one\ngot: line two\nkey\nvalue\nname%3Dzeo+rs%26v%3D1\n&lt;b&gt;bold &amp; &#39;quoted&#39;&lt;/b&gt;\n2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824\n5d41402abc4b2a76b9719d911017c592\n907060870\n103547413\n"
+    _(result).must_answer <<~'OUT'
+      {"a":1,"b":[2,3.5,null,true]}
+      {"x" => [1, 2, 3], "y" => "hi"}
+      {
+        "k": [
+          1,
+          2
+        ]
+      }
+      ---
+      name: zeo
+      tags:
+      - aot
+      - ruby
+      {"port" => 8080, "hosts" => ["a", "b"]}
+      got: line one
+      got: line two
+      key
+      value
+      name%3Dzeo+rs%26v%3D1
+      &lt;b&gt;bold &amp; &#39;quoted&#39;&lt;/b&gt;
+      2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+      5d41402abc4b2a76b9719d911017c592
+      907060870
+      103547413
+    OUT
   end
 
   it "is a class not a module" do

@@ -387,7 +387,9 @@ describe "Thread: formatting and inspection" do
       puts ts.map(&:value).inspect
     RUBY
 
-    _(result).must_answer "[300000, 300001, 300002, 300003, 300004, 300005, 300006, 300007]\n"
+    _(result).must_answer <<~'OUT'
+      [300000, 300001, 300002, 300003, 300004, 300005, 300006, 300007]
+    OUT
   end
 
   it "toplevel thread is the main thread" do

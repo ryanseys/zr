@@ -47,7 +47,20 @@ describe "Enumerable programs" do
       p AL.autoload?(:Late)
     RUBY
 
-    _(result).must_answer "before the module\n  module body, before the autoload\n  module body, after the autoload\nafter the module\ntrue\ntrue\nnil\nfirst read\n  late.rb body ran\n\"hi\"\n\"body\"\nnil\n"
+    _(result).must_answer <<~'OUT'
+      before the module
+        module body, before the autoload
+        module body, after the autoload
+      after the module
+      true
+      true
+      nil
+      first read
+        late.rb body ran
+      "hi"
+      "body"
+      nil
+    OUT
   end
 
   it "autoload lazy at declaration" do

@@ -408,7 +408,33 @@ describe "Constants programs" do
       p Quiet.constants.sort
     RUBY
 
-    _(result).must_answer "== a plain write, a class, a module\nOuter const_added X\nOuter const_added Inner\n  (inner body runs after its name is announced)\nOuter const_added M\nOuter const_added S\nOuter const_added D\nOuter const_added K\n== a reopen declares nothing\n  (inner reopened -- no announcement)\nOuter const_added Z\n== every assignment announces, re-assignment included\nOuter const_added Z\n== const_added, then inherited, then the body\nBase const_added Child\nBase inherited Base::Child\n  (child body)\n== the runtime shapes\nRuntime const_added VIA_SET\nRuntime const_added LAZY\nRuntime const_added LAZY\n== an explicit scope announces on that scope\nOuter const_added FROM_OUTSIDE\n== a module with no hook stays silent\n[:QUIET_CONST, :QuietInner]\n"
+    _(result).must_answer <<~'OUT'
+      == a plain write, a class, a module
+      Outer const_added X
+      Outer const_added Inner
+        (inner body runs after its name is announced)
+      Outer const_added M
+      Outer const_added S
+      Outer const_added D
+      Outer const_added K
+      == a reopen declares nothing
+        (inner reopened -- no announcement)
+      Outer const_added Z
+      == every assignment announces, re-assignment included
+      Outer const_added Z
+      == const_added, then inherited, then the body
+      Base const_added Child
+      Base inherited Base::Child
+        (child body)
+      == the runtime shapes
+      Runtime const_added VIA_SET
+      Runtime const_added LAZY
+      Runtime const_added LAZY
+      == an explicit scope announces on that scope
+      Outer const_added FROM_OUTSIDE
+      == a module with no hook stays silent
+      [:QUIET_CONST, :QuietInner]
+    OUT
   end
 
   it "const compound assign" do

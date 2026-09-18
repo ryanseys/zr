@@ -839,7 +839,9 @@ describe "Set programs" do
       end
     RUBY
 
-    _(result).must_answer "backtrace must be an Array of String or an Array of Thread::Backtrace::Location\n"
+    _(result).must_answer <<~'OUT'
+      backtrace must be an Array of String or an Array of Thread::Backtrace::Location
+    OUT
   end
 
   it "set basic" do

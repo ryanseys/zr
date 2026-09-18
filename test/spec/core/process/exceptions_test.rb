@@ -94,7 +94,9 @@ describe "Process: raising and rescuing" do
       end
     RUBY
 
-    _(result).must_answer "Errno::ENOENT: No such file or directory - /no/such/program-zeo\n"
+    _(result).must_answer <<~'OUT'
+      Errno::ENOENT: No such file or directory - /no/such/program-zeo
+    OUT
   end
 
   it "instance exec no block error" do

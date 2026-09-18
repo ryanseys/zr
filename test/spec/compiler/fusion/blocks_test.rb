@@ -89,7 +89,19 @@ describe "Fusion: blocks and yields" do
       puts "done"
     RUBY
 
-    _(result).must_answer "1-basic\n42\n3-mixed\n  body\n4-thrice\n4-thrice\n4-thrice\n5-arg=7\n150\n7-no-block\ndone\n"
+    _(result).must_answer <<~'OUT'
+      1-basic
+      42
+      3-mixed
+        body
+      4-thrice
+      4-thrice
+      4-thrice
+      5-arg=7
+      150
+      7-no-block
+      done
+    OUT
   end
 
   it "block given inline call site" do

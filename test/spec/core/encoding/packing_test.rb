@@ -47,7 +47,9 @@ describe "Encoding: packing and unpacking" do
       end
     RUBY
 
-    _(result).must_answer "Encoding::UndefinedConversionError: U+0416 from UTF-8 to Big5\n"
+    _(result).must_answer <<~'OUT'
+      Encoding::UndefinedConversionError: U+0416 from UTF-8 to Big5
+    OUT
   end
 
   it "binary read mode encoding" do
