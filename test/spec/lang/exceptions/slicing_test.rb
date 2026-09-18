@@ -634,7 +634,7 @@ describe "Exceptions: slicing" do
     OUT
   end
 
-  it "jump across an ensure runs it" do
+  it "a break, next or redo out of an ensure-carrying begin runs the ensure first" do
     result = ze0(<<~'RUBY')
       # A jump out of an ensure-carrying `begin` runs the ensure first: it
       # travels as a signal and the `begin` settles it onto its own target.
@@ -767,6 +767,79 @@ describe "Exceptions: slicing" do
       end
       p a
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      b0
+      e0
+      b1
+      e1
+      e2
+      ---
+      n1
+      ne1
+      ne2
+      n3
+      ne3
+      n4
+      ne4
+      ---
+      ke0
+      k0
+      ke0
+      k1
+      ke1
+      ---
+      me1
+      m2
+      me2
+      m3
+      me3
+      ---
+      n1
+      n2
+      done
+      ===
+      f1
+      fe1
+      fe2
+      fe3
+      ---
+      t0
+      te0
+      te1
+      t2
+      te2
+      ---
+      a1
+      ae1
+      a2
+      ae2
+      ae3
+      ---
+      u1
+      ui1
+      uo1
+      ui2
+      uo2
+      u3
+      ui3
+      uo3
+      ---
+      w1
+      wi1
+      wo1
+      wi2
+      wo2
+      done
+      ===
+      ensure a
+      1
+    OUT
+  end
+
+  it "a raise out of an ensure-carrying begin runs the ensure and carries the exception" do
+    result = ze0(<<~'RUBY')
       def b
         begin
           raise "boom"
@@ -778,6 +851,16 @@ describe "Exceptions: slicing" do
       end
       p b
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ensure b
+      "r:boom"
+    OUT
+  end
+
+  it "an ensure inside a loop body runs on every pass" do
+    result = ze0(<<~'RUBY')
       def c
         [10, 20].each do |x|
           begin
@@ -791,6 +874,18 @@ describe "Exceptions: slicing" do
       end
       p c
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      seen 10
+      ensure c 10
+      ensure c 20
+      20
+    OUT
+  end
+
+  it "nested ensures run inner first as the jump leaves" do
+    result = ze0(<<~'RUBY')
       def d
         begin
           begin
@@ -804,6 +899,17 @@ describe "Exceptions: slicing" do
       end
       p d
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      inner d
+      outer d
+      5
+    OUT
+  end
+
+  it "an ensure that the jump does not cross does not run" do
+    result = ze0(<<~'RUBY')
       def e
         begin
           return 1
@@ -813,6 +919,15 @@ describe "Exceptions: slicing" do
       end
       p e
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2
+    OUT
+  end
+
+  it "an ensure runs before the value the begin answers reaches its reader" do
+    result = ze0(<<~'RUBY')
       def f
         begin
           yield
@@ -887,81 +1002,6 @@ describe "Exceptions: slicing" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      b0
-      e0
-      b1
-      e1
-      e2
-      ---
-      n1
-      ne1
-      ne2
-      n3
-      ne3
-      n4
-      ne4
-      ---
-      ke0
-      k0
-      ke0
-      k1
-      ke1
-      ---
-      me1
-      m2
-      me2
-      m3
-      me3
-      ---
-      n1
-      n2
-      done
-      ===
-      f1
-      fe1
-      fe2
-      fe3
-      ---
-      t0
-      te0
-      te1
-      t2
-      te2
-      ---
-      a1
-      ae1
-      a2
-      ae2
-      ae3
-      ---
-      u1
-      ui1
-      uo1
-      ui2
-      uo2
-      u3
-      ui3
-      uo3
-      ---
-      w1
-      wi1
-      wo1
-      wi2
-      wo2
-      done
-      ===
-      ensure a
-      1
-      ensure b
-      "r:boom"
-      seen 10
-      ensure c 10
-      ensure c 20
-      20
-      inner d
-      outer d
-      5
-      2
       ensure f
       :after
       ===

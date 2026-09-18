@@ -1008,7 +1008,7 @@ describe "Methods: blocks and yields" do
     OUT
   end
 
-  it "recursive block method" do
+  it "a recursive method that yields reaches its block at every depth" do
     result = ze0(<<~'RUBY')
       # A method that drives its block (yield or block.call) and calls itself
       # recursively compiles as a real function with a proc-materialized block
@@ -1026,6 +1026,31 @@ describe "Methods: blocks and yields" do
 
       Walker.walk(2) { |n| puts n }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2
+      1
+      0
+    OUT
+  end
+
+  it "an instance method recurses and yields the same way" do
+    result = ze0(<<~'RUBY')
+      # A method that drives its block (yield or block.call) and calls itself
+      # recursively compiles as a real function with a proc-materialized block
+      # instead of hitting the inline depth cap: the &block param rides as an
+      # sp_Proc * and the self-call forwards it, so the recursion is plain C
+      # recursion.
+
+      # class method, block.call + &block self-forward
+      class Walker
+        def self.walk(depth, &block)
+          block.call(depth)
+          walk(depth - 1, &block) if depth > 0
+        end
+      end
+
       # instance method
       class IWalker
         def walk(depth, &block)
@@ -1036,6 +1061,31 @@ describe "Methods: blocks and yields" do
 
       IWalker.new.walk(2) { |n| puts n + 10 }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      12
+      11
+      10
+    OUT
+  end
+
+  it "a top-level def recurses and yields the same way" do
+    result = ze0(<<~'RUBY')
+      # A method that drives its block (yield or block.call) and calls itself
+      # recursively compiles as a real function with a proc-materialized block
+      # instead of hitting the inline depth cap: the &block param rides as an
+      # sp_Proc * and the self-call forwards it, so the recursion is plain C
+      # recursion.
+
+      # class method, block.call + &block self-forward
+      class Walker
+        def self.walk(depth, &block)
+          block.call(depth)
+          walk(depth - 1, &block) if depth > 0
+        end
+      end
+
       # top-level def
       def twalk(depth, &block)
         block.call(depth)
@@ -1043,6 +1093,31 @@ describe "Methods: blocks and yields" do
       end
 
       twalk(2) { |n| puts n + 20 }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      22
+      21
+      20
+    OUT
+  end
+
+  it "a declared &block beside a literal yield in the body recurses too" do
+    result = ze0(<<~'RUBY')
+      # A method that drives its block (yield or block.call) and calls itself
+      # recursively compiles as a real function with a proc-materialized block
+      # instead of hitting the inline depth cap: the &block param rides as an
+      # sp_Proc * and the self-call forwards it, so the recursion is plain C
+      # recursion.
+
+      # class method, block.call + &block self-forward
+      class Walker
+        def self.walk(depth, &block)
+          block.call(depth)
+          walk(depth - 1, &block) if depth > 0
+        end
+      end
 
       # declared &block with a literal `yield` in the body
       class YWalker
@@ -1053,6 +1128,31 @@ describe "Methods: blocks and yields" do
       end
 
       YWalker.walk(2) { |n| puts n + 30 }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      32
+      31
+      30
+    OUT
+  end
+
+  it "recursion through a receiver's own yielding method walks a tree" do
+    result = ze0(<<~'RUBY')
+      # A method that drives its block (yield or block.call) and calls itself
+      # recursively compiles as a real function with a proc-materialized block
+      # instead of hitting the inline depth cap: the &block param rides as an
+      # sp_Proc * and the self-call forwards it, so the recursion is plain C
+      # recursion.
+
+      # class method, block.call + &block self-forward
+      class Walker
+        def self.walk(depth, &block)
+          block.call(depth)
+          walk(depth - 1, &block) if depth > 0
+        end
+      end
 
       # recursion through a receiver's own yielding method (the tree-walk shape)
       class TNode
@@ -1081,14 +1181,86 @@ describe "Methods: blocks and yields" do
 
       TreeWalker.walk(TNode.new(2)) { |n| puts "leaf" }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      leaf
+      leaf
+      leaf
+    OUT
+  end
+
+  it "a real proc passed by the caller is reached at every depth" do
+    result = ze0(<<~'RUBY')
+      # A method that drives its block (yield or block.call) and calls itself
+      # recursively compiles as a real function with a proc-materialized block
+      # instead of hitting the inline depth cap: the &block param rides as an
+      # sp_Proc * and the self-call forwards it, so the recursion is plain C
+      # recursion.
+
+      # class method, block.call + &block self-forward
+      class Walker
+        def self.walk(depth, &block)
+          block.call(depth)
+          walk(depth - 1, &block) if depth > 0
+        end
+      end
+
       # caller passes a real proc
       pr = proc { |n| puts n + 40 }
       Walker.walk(1, &pr)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      41
+      40
+    OUT
+  end
+
+  it "a captured local mutated through the recursion holds every write" do
+    result = ze0(<<~'RUBY')
+      # A method that drives its block (yield or block.call) and calls itself
+      # recursively compiles as a real function with a proc-materialized block
+      # instead of hitting the inline depth cap: the &block param rides as an
+      # sp_Proc * and the self-call forwards it, so the recursion is plain C
+      # recursion.
+
+      # class method, block.call + &block self-forward
+      class Walker
+        def self.walk(depth, &block)
+          block.call(depth)
+          walk(depth - 1, &block) if depth > 0
+        end
+      end
 
       # a captured local mutated through the recursion
       total = 0
       Walker.walk(3) { |n| total += n }
       puts total
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      6
+    OUT
+  end
+
+  it "a yield-method inlined inside the recursive method keeps its own yield" do
+    result = ze0(<<~'RUBY')
+      # A method that drives its block (yield or block.call) and calls itself
+      # recursively compiles as a real function with a proc-materialized block
+      # instead of hitting the inline depth cap: the &block param rides as an
+      # sp_Proc * and the self-call forwards it, so the recursion is plain C
+      # recursion.
+
+      # class method, block.call + &block self-forward
+      class Walker
+        def self.walk(depth, &block)
+          block.call(depth)
+          walk(depth - 1, &block) if depth > 0
+        end
+      end
 
       # a yield-method inlined INSIDE the recursive method: the callee's own yield
       # splices its call-site block, while a yield in that spliced block still binds
@@ -1115,24 +1287,6 @@ describe "Methods: blocks and yields" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      2
-      1
-      0
-      12
-      11
-      10
-      22
-      21
-      20
-      32
-      31
-      30
-      leaf
-      leaf
-      leaf
-      41
-      40
-      6
       51
       50
     OUT

@@ -894,7 +894,7 @@ describe "Methods: dispatch" do
     OUT
   end
 
-  it "poly dispatch builtin enum arm" do
+  it "map over a poly receiver reaches the builtin arm and answers an Array" do
     result = ze0(<<~'RUBY')
       # A builtin Array receiver at a dispatch that exists only because a user class
       # defines the same name.
@@ -1033,22 +1033,884 @@ describe "Methods: dispatch" do
       p pick(1).map { |x| x * 2 }
       p pick(2).map { |x| x * 2 }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [2, 4]
+      [6, 8, 10, 12]
+    OUT
+  end
+
+  it "select over a poly receiver reaches the builtin arm" do
+    result = ze0(<<~'RUBY')
+      # A builtin Array receiver at a dispatch that exists only because a user class
+      # defines the same name.
+      #
+      # A block-carrying call on a builtin is normally served by splicing the block
+      # inline. That is not available once a user candidate takes the block as a real
+      # proc: the proc is materialized once and shared by every arm, and a second
+      # spliced copy would disagree with whichever arm ran. So the builtin had no arm
+      # at all and fell through to the raise -- NoMethodError on an Array, at a site
+      # where the call is plainly Array#map.
+      #
+      # The mirror of it is just as wrong and silent: the element-loop emitters walk
+      # a poly receiver as a container without asking whether a user class owns the
+      # name, so the user object iterated as an empty array and the call answered
+      # nothing. Only the cls_id dispatch can serve both, so those emitters decline
+      # to it and it grew a builtin arm that drives the same materialized proc.
+      #
+      # Reachable at all only since a yielding method became dispatchable.
+
+      class Rel
+        def map
+          out = []
+          [1, 2].each { |x| out << yield(x) }
+          out
+        end
+
+        def select
+          out = []
+          [1, 2, 3].each { |x| out << x if yield(x) }
+          out
+        end
+
+        def reject
+          out = []
+          [1, 2, 3].each { |x| out << x unless yield(x) }
+          out
+        end
+
+        def group_by
+          h = {}
+          [1, 2, 3, 4].each do |x|
+            k = yield(x)
+            h[k] = [] unless h.key?(k)
+            h[k] << x
+          end
+          h
+        end
+
+        def each
+          yield 7
+          yield 8
+          self
+        end
+
+        def find
+          yield 1
+          :rel_find
+        end
+
+        def find_index
+          yield 1
+          -7
+        end
+
+        def min_by
+          yield 1
+          :rel_min
+        end
+
+        def max_by
+          yield 1
+          :rel_max
+        end
+
+        def partition
+          yield 1
+          [[:a], [:b]]
+        end
+
+        def sum
+          yield 1
+          -8
+        end
+
+        def any?
+          yield 1
+          false
+        end
+
+        def all?
+          yield 1
+          false
+        end
+
+        def none?
+          yield 1
+          false
+        end
+
+        def take_while
+          yield 1
+          [:tw]
+        end
+
+        def drop_while
+          yield 1
+          [:dw]
+        end
+
+        def flat_map
+          yield 1
+          [:fm]
+        end
+
+        def each_with_index
+          yield 1
+          [:ewi]
+        end
+
+        # a non-yielding, blockless method of an Enumerable name: the dispatch still
+        # exists, and the builtin arm has to materialize the block itself because no
+        # candidate asked for one
+        def sort_by
+          [9]
+        end
+
+        def count
+          -1
+        end
+      end
+
+      def pick(n)
+        n == 1 ? Rel.new : [3, 4, 5, 6]
+      end
+
       p pick(1).select { |x| x > 1 }
       p pick(2).select { |x| x > 4 }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [2, 3]
+      [5, 6]
+    OUT
+  end
+
+  it "reject over a poly receiver reaches the builtin arm" do
+    result = ze0(<<~'RUBY')
+      # A builtin Array receiver at a dispatch that exists only because a user class
+      # defines the same name.
+      #
+      # A block-carrying call on a builtin is normally served by splicing the block
+      # inline. That is not available once a user candidate takes the block as a real
+      # proc: the proc is materialized once and shared by every arm, and a second
+      # spliced copy would disagree with whichever arm ran. So the builtin had no arm
+      # at all and fell through to the raise -- NoMethodError on an Array, at a site
+      # where the call is plainly Array#map.
+      #
+      # The mirror of it is just as wrong and silent: the element-loop emitters walk
+      # a poly receiver as a container without asking whether a user class owns the
+      # name, so the user object iterated as an empty array and the call answered
+      # nothing. Only the cls_id dispatch can serve both, so those emitters decline
+      # to it and it grew a builtin arm that drives the same materialized proc.
+      #
+      # Reachable at all only since a yielding method became dispatchable.
+
+      class Rel
+        def map
+          out = []
+          [1, 2].each { |x| out << yield(x) }
+          out
+        end
+
+        def select
+          out = []
+          [1, 2, 3].each { |x| out << x if yield(x) }
+          out
+        end
+
+        def reject
+          out = []
+          [1, 2, 3].each { |x| out << x unless yield(x) }
+          out
+        end
+
+        def group_by
+          h = {}
+          [1, 2, 3, 4].each do |x|
+            k = yield(x)
+            h[k] = [] unless h.key?(k)
+            h[k] << x
+          end
+          h
+        end
+
+        def each
+          yield 7
+          yield 8
+          self
+        end
+
+        def find
+          yield 1
+          :rel_find
+        end
+
+        def find_index
+          yield 1
+          -7
+        end
+
+        def min_by
+          yield 1
+          :rel_min
+        end
+
+        def max_by
+          yield 1
+          :rel_max
+        end
+
+        def partition
+          yield 1
+          [[:a], [:b]]
+        end
+
+        def sum
+          yield 1
+          -8
+        end
+
+        def any?
+          yield 1
+          false
+        end
+
+        def all?
+          yield 1
+          false
+        end
+
+        def none?
+          yield 1
+          false
+        end
+
+        def take_while
+          yield 1
+          [:tw]
+        end
+
+        def drop_while
+          yield 1
+          [:dw]
+        end
+
+        def flat_map
+          yield 1
+          [:fm]
+        end
+
+        def each_with_index
+          yield 1
+          [:ewi]
+        end
+
+        # a non-yielding, blockless method of an Enumerable name: the dispatch still
+        # exists, and the builtin arm has to materialize the block itself because no
+        # candidate asked for one
+        def sort_by
+          [9]
+        end
+
+        def count
+          -1
+        end
+      end
+
+      def pick(n)
+        n == 1 ? Rel.new : [3, 4, 5, 6]
+      end
 
       p pick(1).reject { |x| x > 1 }
       p pick(2).reject { |x| x > 4 }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1]
+      [3, 4]
+    OUT
+  end
+
+  it "group_by over a poly receiver reaches the builtin arm" do
+    result = ze0(<<~'RUBY')
+      # A builtin Array receiver at a dispatch that exists only because a user class
+      # defines the same name.
+      #
+      # A block-carrying call on a builtin is normally served by splicing the block
+      # inline. That is not available once a user candidate takes the block as a real
+      # proc: the proc is materialized once and shared by every arm, and a second
+      # spliced copy would disagree with whichever arm ran. So the builtin had no arm
+      # at all and fell through to the raise -- NoMethodError on an Array, at a site
+      # where the call is plainly Array#map.
+      #
+      # The mirror of it is just as wrong and silent: the element-loop emitters walk
+      # a poly receiver as a container without asking whether a user class owns the
+      # name, so the user object iterated as an empty array and the call answered
+      # nothing. Only the cls_id dispatch can serve both, so those emitters decline
+      # to it and it grew a builtin arm that drives the same materialized proc.
+      #
+      # Reachable at all only since a yielding method became dispatchable.
+
+      class Rel
+        def map
+          out = []
+          [1, 2].each { |x| out << yield(x) }
+          out
+        end
+
+        def select
+          out = []
+          [1, 2, 3].each { |x| out << x if yield(x) }
+          out
+        end
+
+        def reject
+          out = []
+          [1, 2, 3].each { |x| out << x unless yield(x) }
+          out
+        end
+
+        def group_by
+          h = {}
+          [1, 2, 3, 4].each do |x|
+            k = yield(x)
+            h[k] = [] unless h.key?(k)
+            h[k] << x
+          end
+          h
+        end
+
+        def each
+          yield 7
+          yield 8
+          self
+        end
+
+        def find
+          yield 1
+          :rel_find
+        end
+
+        def find_index
+          yield 1
+          -7
+        end
+
+        def min_by
+          yield 1
+          :rel_min
+        end
+
+        def max_by
+          yield 1
+          :rel_max
+        end
+
+        def partition
+          yield 1
+          [[:a], [:b]]
+        end
+
+        def sum
+          yield 1
+          -8
+        end
+
+        def any?
+          yield 1
+          false
+        end
+
+        def all?
+          yield 1
+          false
+        end
+
+        def none?
+          yield 1
+          false
+        end
+
+        def take_while
+          yield 1
+          [:tw]
+        end
+
+        def drop_while
+          yield 1
+          [:dw]
+        end
+
+        def flat_map
+          yield 1
+          [:fm]
+        end
+
+        def each_with_index
+          yield 1
+          [:ewi]
+        end
+
+        # a non-yielding, blockless method of an Enumerable name: the dispatch still
+        # exists, and the builtin arm has to materialize the block itself because no
+        # candidate asked for one
+        def sort_by
+          [9]
+        end
+
+        def count
+          -1
+        end
+      end
+
+      def pick(n)
+        n == 1 ? Rel.new : [3, 4, 5, 6]
+      end
+
       p pick(1).group_by { |x| x % 2 }
       p pick(2).group_by { |x| x % 2 }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      {1 => [1, 3], 0 => [2, 4]}
+      {1 => [3, 5], 0 => [4, 6]}
+    OUT
+  end
+
+  it "each over a poly receiver yields every element" do
+    result = ze0(<<~'RUBY')
+      # A builtin Array receiver at a dispatch that exists only because a user class
+      # defines the same name.
+      #
+      # A block-carrying call on a builtin is normally served by splicing the block
+      # inline. That is not available once a user candidate takes the block as a real
+      # proc: the proc is materialized once and shared by every arm, and a second
+      # spliced copy would disagree with whichever arm ran. So the builtin had no arm
+      # at all and fell through to the raise -- NoMethodError on an Array, at a site
+      # where the call is plainly Array#map.
+      #
+      # The mirror of it is just as wrong and silent: the element-loop emitters walk
+      # a poly receiver as a container without asking whether a user class owns the
+      # name, so the user object iterated as an empty array and the call answered
+      # nothing. Only the cls_id dispatch can serve both, so those emitters decline
+      # to it and it grew a builtin arm that drives the same materialized proc.
+      #
+      # Reachable at all only since a yielding method became dispatchable.
+
+      class Rel
+        def map
+          out = []
+          [1, 2].each { |x| out << yield(x) }
+          out
+        end
+
+        def select
+          out = []
+          [1, 2, 3].each { |x| out << x if yield(x) }
+          out
+        end
+
+        def reject
+          out = []
+          [1, 2, 3].each { |x| out << x unless yield(x) }
+          out
+        end
+
+        def group_by
+          h = {}
+          [1, 2, 3, 4].each do |x|
+            k = yield(x)
+            h[k] = [] unless h.key?(k)
+            h[k] << x
+          end
+          h
+        end
+
+        def each
+          yield 7
+          yield 8
+          self
+        end
+
+        def find
+          yield 1
+          :rel_find
+        end
+
+        def find_index
+          yield 1
+          -7
+        end
+
+        def min_by
+          yield 1
+          :rel_min
+        end
+
+        def max_by
+          yield 1
+          :rel_max
+        end
+
+        def partition
+          yield 1
+          [[:a], [:b]]
+        end
+
+        def sum
+          yield 1
+          -8
+        end
+
+        def any?
+          yield 1
+          false
+        end
+
+        def all?
+          yield 1
+          false
+        end
+
+        def none?
+          yield 1
+          false
+        end
+
+        def take_while
+          yield 1
+          [:tw]
+        end
+
+        def drop_while
+          yield 1
+          [:dw]
+        end
+
+        def flat_map
+          yield 1
+          [:fm]
+        end
+
+        def each_with_index
+          yield 1
+          [:ewi]
+        end
+
+        # a non-yielding, blockless method of an Enumerable name: the dispatch still
+        # exists, and the builtin arm has to materialize the block itself because no
+        # candidate asked for one
+        def sort_by
+          [9]
+        end
+
+        def count
+          -1
+        end
+      end
+
+      def pick(n)
+        n == 1 ? Rel.new : [3, 4, 5, 6]
+      end
 
       seen = []
       pick(1).each { |x| seen << x }
       pick(2).each { |x| seen << x }
       p seen
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [7, 8, 3, 4, 5, 6]
+    OUT
+  end
+
+  it "each over a poly receiver answers the receiver" do
+    result = ze0(<<~'RUBY')
+      # A builtin Array receiver at a dispatch that exists only because a user class
+      # defines the same name.
+      #
+      # A block-carrying call on a builtin is normally served by splicing the block
+      # inline. That is not available once a user candidate takes the block as a real
+      # proc: the proc is materialized once and shared by every arm, and a second
+      # spliced copy would disagree with whichever arm ran. So the builtin had no arm
+      # at all and fell through to the raise -- NoMethodError on an Array, at a site
+      # where the call is plainly Array#map.
+      #
+      # The mirror of it is just as wrong and silent: the element-loop emitters walk
+      # a poly receiver as a container without asking whether a user class owns the
+      # name, so the user object iterated as an empty array and the call answered
+      # nothing. Only the cls_id dispatch can serve both, so those emitters decline
+      # to it and it grew a builtin arm that drives the same materialized proc.
+      #
+      # Reachable at all only since a yielding method became dispatchable.
+
+      class Rel
+        def map
+          out = []
+          [1, 2].each { |x| out << yield(x) }
+          out
+        end
+
+        def select
+          out = []
+          [1, 2, 3].each { |x| out << x if yield(x) }
+          out
+        end
+
+        def reject
+          out = []
+          [1, 2, 3].each { |x| out << x unless yield(x) }
+          out
+        end
+
+        def group_by
+          h = {}
+          [1, 2, 3, 4].each do |x|
+            k = yield(x)
+            h[k] = [] unless h.key?(k)
+            h[k] << x
+          end
+          h
+        end
+
+        def each
+          yield 7
+          yield 8
+          self
+        end
+
+        def find
+          yield 1
+          :rel_find
+        end
+
+        def find_index
+          yield 1
+          -7
+        end
+
+        def min_by
+          yield 1
+          :rel_min
+        end
+
+        def max_by
+          yield 1
+          :rel_max
+        end
+
+        def partition
+          yield 1
+          [[:a], [:b]]
+        end
+
+        def sum
+          yield 1
+          -8
+        end
+
+        def any?
+          yield 1
+          false
+        end
+
+        def all?
+          yield 1
+          false
+        end
+
+        def none?
+          yield 1
+          false
+        end
+
+        def take_while
+          yield 1
+          [:tw]
+        end
+
+        def drop_while
+          yield 1
+          [:dw]
+        end
+
+        def flat_map
+          yield 1
+          [:fm]
+        end
+
+        def each_with_index
+          yield 1
+          [:ewi]
+        end
+
+        # a non-yielding, blockless method of an Enumerable name: the dispatch still
+        # exists, and the builtin arm has to materialize the block itself because no
+        # candidate asked for one
+        def sort_by
+          [9]
+        end
+
+        def count
+          -1
+        end
+      end
+
+      def pick(n)
+        n == 1 ? Rel.new : [3, 4, 5, 6]
+      end
+
       # Array#each answers the receiver
       p pick(2).each { |x| x }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [3, 4, 5, 6]
+    OUT
+  end
+
+  it "find, min, max and the rest of the search family reach the builtin arm" do
+    result = ze0(<<~'RUBY')
+      # A builtin Array receiver at a dispatch that exists only because a user class
+      # defines the same name.
+      #
+      # A block-carrying call on a builtin is normally served by splicing the block
+      # inline. That is not available once a user candidate takes the block as a real
+      # proc: the proc is materialized once and shared by every arm, and a second
+      # spliced copy would disagree with whichever arm ran. So the builtin had no arm
+      # at all and fell through to the raise -- NoMethodError on an Array, at a site
+      # where the call is plainly Array#map.
+      #
+      # The mirror of it is just as wrong and silent: the element-loop emitters walk
+      # a poly receiver as a container without asking whether a user class owns the
+      # name, so the user object iterated as an empty array and the call answered
+      # nothing. Only the cls_id dispatch can serve both, so those emitters decline
+      # to it and it grew a builtin arm that drives the same materialized proc.
+      #
+      # Reachable at all only since a yielding method became dispatchable.
+
+      class Rel
+        def map
+          out = []
+          [1, 2].each { |x| out << yield(x) }
+          out
+        end
+
+        def select
+          out = []
+          [1, 2, 3].each { |x| out << x if yield(x) }
+          out
+        end
+
+        def reject
+          out = []
+          [1, 2, 3].each { |x| out << x unless yield(x) }
+          out
+        end
+
+        def group_by
+          h = {}
+          [1, 2, 3, 4].each do |x|
+            k = yield(x)
+            h[k] = [] unless h.key?(k)
+            h[k] << x
+          end
+          h
+        end
+
+        def each
+          yield 7
+          yield 8
+          self
+        end
+
+        def find
+          yield 1
+          :rel_find
+        end
+
+        def find_index
+          yield 1
+          -7
+        end
+
+        def min_by
+          yield 1
+          :rel_min
+        end
+
+        def max_by
+          yield 1
+          :rel_max
+        end
+
+        def partition
+          yield 1
+          [[:a], [:b]]
+        end
+
+        def sum
+          yield 1
+          -8
+        end
+
+        def any?
+          yield 1
+          false
+        end
+
+        def all?
+          yield 1
+          false
+        end
+
+        def none?
+          yield 1
+          false
+        end
+
+        def take_while
+          yield 1
+          [:tw]
+        end
+
+        def drop_while
+          yield 1
+          [:dw]
+        end
+
+        def flat_map
+          yield 1
+          [:fm]
+        end
+
+        def each_with_index
+          yield 1
+          [:ewi]
+        end
+
+        # a non-yielding, blockless method of an Enumerable name: the dispatch still
+        # exists, and the builtin arm has to materialize the block itself because no
+        # candidate asked for one
+        def sort_by
+          [9]
+        end
+
+        def count
+          -1
+        end
+      end
+
+      def pick(n)
+        n == 1 ? Rel.new : [3, 4, 5, 6]
+      end
 
       p pick(1).find { |x| x > 0 }
       p pick(2).find { |x| x > 4 }
@@ -1074,50 +1936,9 @@ describe "Methods: dispatch" do
       p pick(1).each_with_index { |x, i| x }
       p pick(2).each_with_index { |x, i| x }
 
-      # no candidate asked for the block, so the builtin arm materializes it
-      p pick(1).sort_by { |x| -x }
-      p pick(2).sort_by { |x| -x }
-      p pick(1).count { |x| x.even? }
-      p pick(2).count { |x| x.even? }
-
-      # a captured local through the builtin arm: the proc is the one the user arm
-      # would have taken, so its capture cell has to work here too
-      base = 100
-      p pick(2).map { |x| base + x }
-
-      # strings, so the element rides the pointer channel
-      def pick_s(n)
-        n == 1 ? Rel.new : ["a", "bb", "ccc"]
-      end
-
-      p pick_s(2).map { |s| s.length }
-      p pick_s(2).sort_by { |s| -s.length }
-      p pick_s(2).group_by { |s| s.length.odd? }
-
-      # a Hash receiver: entries arrive as [k, v] pairs, and a two-parameter block
-      # autosplats them the way a spliced loop would
-      def pick_h(n)
-        n == 1 ? Rel.new : { "a" => 1, "b" => 2 }
-      end
-
-      p pick_h(2).map { |k, v| "#{k}#{v}" }
-      p pick_h(2).select { |k, v| v > 1 }
-      acc = []
-      pick_h(2).each { |k, v| acc << k }
-      p acc
     RUBY
 
     _(result).must_answer <<~'OUT'
-      [2, 4]
-      [6, 8, 10, 12]
-      [2, 3]
-      [5, 6]
-      [1]
-      [3, 4]
-      {1 => [1, 3], 0 => [2, 4]}
-      {1 => [3, 5], 0 => [4, 6]}
-      [7, 8, 3, 4, 5, 6]
-      [3, 4, 5, 6]
       :rel_find
       5
       -7
@@ -1141,14 +1962,613 @@ describe "Methods: dispatch" do
       [3, 3, 4, 4, 5, 5, 6, 6]
       [:ewi]
       [3, 4, 5, 6]
+    OUT
+  end
+
+  it "where no candidate asked for the block, the builtin arm materializes it" do
+    result = ze0(<<~'RUBY')
+      # A builtin Array receiver at a dispatch that exists only because a user class
+      # defines the same name.
+      #
+      # A block-carrying call on a builtin is normally served by splicing the block
+      # inline. That is not available once a user candidate takes the block as a real
+      # proc: the proc is materialized once and shared by every arm, and a second
+      # spliced copy would disagree with whichever arm ran. So the builtin had no arm
+      # at all and fell through to the raise -- NoMethodError on an Array, at a site
+      # where the call is plainly Array#map.
+      #
+      # The mirror of it is just as wrong and silent: the element-loop emitters walk
+      # a poly receiver as a container without asking whether a user class owns the
+      # name, so the user object iterated as an empty array and the call answered
+      # nothing. Only the cls_id dispatch can serve both, so those emitters decline
+      # to it and it grew a builtin arm that drives the same materialized proc.
+      #
+      # Reachable at all only since a yielding method became dispatchable.
+
+      class Rel
+        def map
+          out = []
+          [1, 2].each { |x| out << yield(x) }
+          out
+        end
+
+        def select
+          out = []
+          [1, 2, 3].each { |x| out << x if yield(x) }
+          out
+        end
+
+        def reject
+          out = []
+          [1, 2, 3].each { |x| out << x unless yield(x) }
+          out
+        end
+
+        def group_by
+          h = {}
+          [1, 2, 3, 4].each do |x|
+            k = yield(x)
+            h[k] = [] unless h.key?(k)
+            h[k] << x
+          end
+          h
+        end
+
+        def each
+          yield 7
+          yield 8
+          self
+        end
+
+        def find
+          yield 1
+          :rel_find
+        end
+
+        def find_index
+          yield 1
+          -7
+        end
+
+        def min_by
+          yield 1
+          :rel_min
+        end
+
+        def max_by
+          yield 1
+          :rel_max
+        end
+
+        def partition
+          yield 1
+          [[:a], [:b]]
+        end
+
+        def sum
+          yield 1
+          -8
+        end
+
+        def any?
+          yield 1
+          false
+        end
+
+        def all?
+          yield 1
+          false
+        end
+
+        def none?
+          yield 1
+          false
+        end
+
+        def take_while
+          yield 1
+          [:tw]
+        end
+
+        def drop_while
+          yield 1
+          [:dw]
+        end
+
+        def flat_map
+          yield 1
+          [:fm]
+        end
+
+        def each_with_index
+          yield 1
+          [:ewi]
+        end
+
+        # a non-yielding, blockless method of an Enumerable name: the dispatch still
+        # exists, and the builtin arm has to materialize the block itself because no
+        # candidate asked for one
+        def sort_by
+          [9]
+        end
+
+        def count
+          -1
+        end
+      end
+
+      def pick(n)
+        n == 1 ? Rel.new : [3, 4, 5, 6]
+      end
+
+      # no candidate asked for the block, so the builtin arm materializes it
+      p pick(1).sort_by { |x| -x }
+      p pick(2).sort_by { |x| -x }
+      p pick(1).count { |x| x.even? }
+      p pick(2).count { |x| x.even? }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       [9]
       [6, 5, 4, 3]
       -1
       2
+    OUT
+  end
+
+  it "a captured local reaches the builtin arm through the same proc the user arm gets" do
+    result = ze0(<<~'RUBY')
+      # A builtin Array receiver at a dispatch that exists only because a user class
+      # defines the same name.
+      #
+      # A block-carrying call on a builtin is normally served by splicing the block
+      # inline. That is not available once a user candidate takes the block as a real
+      # proc: the proc is materialized once and shared by every arm, and a second
+      # spliced copy would disagree with whichever arm ran. So the builtin had no arm
+      # at all and fell through to the raise -- NoMethodError on an Array, at a site
+      # where the call is plainly Array#map.
+      #
+      # The mirror of it is just as wrong and silent: the element-loop emitters walk
+      # a poly receiver as a container without asking whether a user class owns the
+      # name, so the user object iterated as an empty array and the call answered
+      # nothing. Only the cls_id dispatch can serve both, so those emitters decline
+      # to it and it grew a builtin arm that drives the same materialized proc.
+      #
+      # Reachable at all only since a yielding method became dispatchable.
+
+      class Rel
+        def map
+          out = []
+          [1, 2].each { |x| out << yield(x) }
+          out
+        end
+
+        def select
+          out = []
+          [1, 2, 3].each { |x| out << x if yield(x) }
+          out
+        end
+
+        def reject
+          out = []
+          [1, 2, 3].each { |x| out << x unless yield(x) }
+          out
+        end
+
+        def group_by
+          h = {}
+          [1, 2, 3, 4].each do |x|
+            k = yield(x)
+            h[k] = [] unless h.key?(k)
+            h[k] << x
+          end
+          h
+        end
+
+        def each
+          yield 7
+          yield 8
+          self
+        end
+
+        def find
+          yield 1
+          :rel_find
+        end
+
+        def find_index
+          yield 1
+          -7
+        end
+
+        def min_by
+          yield 1
+          :rel_min
+        end
+
+        def max_by
+          yield 1
+          :rel_max
+        end
+
+        def partition
+          yield 1
+          [[:a], [:b]]
+        end
+
+        def sum
+          yield 1
+          -8
+        end
+
+        def any?
+          yield 1
+          false
+        end
+
+        def all?
+          yield 1
+          false
+        end
+
+        def none?
+          yield 1
+          false
+        end
+
+        def take_while
+          yield 1
+          [:tw]
+        end
+
+        def drop_while
+          yield 1
+          [:dw]
+        end
+
+        def flat_map
+          yield 1
+          [:fm]
+        end
+
+        def each_with_index
+          yield 1
+          [:ewi]
+        end
+
+        # a non-yielding, blockless method of an Enumerable name: the dispatch still
+        # exists, and the builtin arm has to materialize the block itself because no
+        # candidate asked for one
+        def sort_by
+          [9]
+        end
+
+        def count
+          -1
+        end
+      end
+
+      def pick(n)
+        n == 1 ? Rel.new : [3, 4, 5, 6]
+      end
+
+      # a captured local through the builtin arm: the proc is the one the user arm
+      # would have taken, so its capture cell has to work here too
+      base = 100
+      p pick(2).map { |x| base + x }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       [103, 104, 105, 106]
+    OUT
+  end
+
+  it "a String element rides the pointer channel through the builtin arm" do
+    result = ze0(<<~'RUBY')
+      # A builtin Array receiver at a dispatch that exists only because a user class
+      # defines the same name.
+      #
+      # A block-carrying call on a builtin is normally served by splicing the block
+      # inline. That is not available once a user candidate takes the block as a real
+      # proc: the proc is materialized once and shared by every arm, and a second
+      # spliced copy would disagree with whichever arm ran. So the builtin had no arm
+      # at all and fell through to the raise -- NoMethodError on an Array, at a site
+      # where the call is plainly Array#map.
+      #
+      # The mirror of it is just as wrong and silent: the element-loop emitters walk
+      # a poly receiver as a container without asking whether a user class owns the
+      # name, so the user object iterated as an empty array and the call answered
+      # nothing. Only the cls_id dispatch can serve both, so those emitters decline
+      # to it and it grew a builtin arm that drives the same materialized proc.
+      #
+      # Reachable at all only since a yielding method became dispatchable.
+
+      class Rel
+        def map
+          out = []
+          [1, 2].each { |x| out << yield(x) }
+          out
+        end
+
+        def select
+          out = []
+          [1, 2, 3].each { |x| out << x if yield(x) }
+          out
+        end
+
+        def reject
+          out = []
+          [1, 2, 3].each { |x| out << x unless yield(x) }
+          out
+        end
+
+        def group_by
+          h = {}
+          [1, 2, 3, 4].each do |x|
+            k = yield(x)
+            h[k] = [] unless h.key?(k)
+            h[k] << x
+          end
+          h
+        end
+
+        def each
+          yield 7
+          yield 8
+          self
+        end
+
+        def find
+          yield 1
+          :rel_find
+        end
+
+        def find_index
+          yield 1
+          -7
+        end
+
+        def min_by
+          yield 1
+          :rel_min
+        end
+
+        def max_by
+          yield 1
+          :rel_max
+        end
+
+        def partition
+          yield 1
+          [[:a], [:b]]
+        end
+
+        def sum
+          yield 1
+          -8
+        end
+
+        def any?
+          yield 1
+          false
+        end
+
+        def all?
+          yield 1
+          false
+        end
+
+        def none?
+          yield 1
+          false
+        end
+
+        def take_while
+          yield 1
+          [:tw]
+        end
+
+        def drop_while
+          yield 1
+          [:dw]
+        end
+
+        def flat_map
+          yield 1
+          [:fm]
+        end
+
+        def each_with_index
+          yield 1
+          [:ewi]
+        end
+
+        # a non-yielding, blockless method of an Enumerable name: the dispatch still
+        # exists, and the builtin arm has to materialize the block itself because no
+        # candidate asked for one
+        def sort_by
+          [9]
+        end
+
+        def count
+          -1
+        end
+      end
+
+      def pick(n)
+        n == 1 ? Rel.new : [3, 4, 5, 6]
+      end
+
+      # strings, so the element rides the pointer channel
+      def pick_s(n)
+        n == 1 ? Rel.new : ["a", "bb", "ccc"]
+      end
+
+      p pick_s(2).map { |s| s.length }
+      p pick_s(2).sort_by { |s| -s.length }
+      p pick_s(2).group_by { |s| s.length.odd? }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       [1, 2, 3]
       ["ccc", "bb", "a"]
       {true => ["a", "ccc"], false => ["bb"]}
+    OUT
+  end
+
+  it "a Hash receiver yields pairs, and a two-parameter block takes them apart" do
+    result = ze0(<<~'RUBY')
+      # A builtin Array receiver at a dispatch that exists only because a user class
+      # defines the same name.
+      #
+      # A block-carrying call on a builtin is normally served by splicing the block
+      # inline. That is not available once a user candidate takes the block as a real
+      # proc: the proc is materialized once and shared by every arm, and a second
+      # spliced copy would disagree with whichever arm ran. So the builtin had no arm
+      # at all and fell through to the raise -- NoMethodError on an Array, at a site
+      # where the call is plainly Array#map.
+      #
+      # The mirror of it is just as wrong and silent: the element-loop emitters walk
+      # a poly receiver as a container without asking whether a user class owns the
+      # name, so the user object iterated as an empty array and the call answered
+      # nothing. Only the cls_id dispatch can serve both, so those emitters decline
+      # to it and it grew a builtin arm that drives the same materialized proc.
+      #
+      # Reachable at all only since a yielding method became dispatchable.
+
+      class Rel
+        def map
+          out = []
+          [1, 2].each { |x| out << yield(x) }
+          out
+        end
+
+        def select
+          out = []
+          [1, 2, 3].each { |x| out << x if yield(x) }
+          out
+        end
+
+        def reject
+          out = []
+          [1, 2, 3].each { |x| out << x unless yield(x) }
+          out
+        end
+
+        def group_by
+          h = {}
+          [1, 2, 3, 4].each do |x|
+            k = yield(x)
+            h[k] = [] unless h.key?(k)
+            h[k] << x
+          end
+          h
+        end
+
+        def each
+          yield 7
+          yield 8
+          self
+        end
+
+        def find
+          yield 1
+          :rel_find
+        end
+
+        def find_index
+          yield 1
+          -7
+        end
+
+        def min_by
+          yield 1
+          :rel_min
+        end
+
+        def max_by
+          yield 1
+          :rel_max
+        end
+
+        def partition
+          yield 1
+          [[:a], [:b]]
+        end
+
+        def sum
+          yield 1
+          -8
+        end
+
+        def any?
+          yield 1
+          false
+        end
+
+        def all?
+          yield 1
+          false
+        end
+
+        def none?
+          yield 1
+          false
+        end
+
+        def take_while
+          yield 1
+          [:tw]
+        end
+
+        def drop_while
+          yield 1
+          [:dw]
+        end
+
+        def flat_map
+          yield 1
+          [:fm]
+        end
+
+        def each_with_index
+          yield 1
+          [:ewi]
+        end
+
+        # a non-yielding, blockless method of an Enumerable name: the dispatch still
+        # exists, and the builtin arm has to materialize the block itself because no
+        # candidate asked for one
+        def sort_by
+          [9]
+        end
+
+        def count
+          -1
+        end
+      end
+
+      def pick(n)
+        n == 1 ? Rel.new : [3, 4, 5, 6]
+      end
+
+      # a Hash receiver: entries arrive as [k, v] pairs, and a two-parameter block
+      # autosplats them the way a spliced loop would
+      def pick_h(n)
+        n == 1 ? Rel.new : { "a" => 1, "b" => 2 }
+      end
+
+      p pick_h(2).map { |k, v| "#{k}#{v}" }
+      p pick_h(2).select { |k, v| v > 1 }
+      acc = []
+      pick_h(2).each { |k, v| acc << k }
+      p acc
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       ["a1", "b2"]
       {"b" => 2}
       ["a", "b"]
@@ -1337,7 +2757,7 @@ describe "Methods: dispatch" do
     OUT
   end
 
-  it "poly dispatch user return widens" do
+  it "a user join beside the builtin one widens the call's return" do
     result = ze0(<<~'RUBY')
       # A poly receiver's dispatch emits the user class's arm AND the builtin arms
       # into ONE C temp, so the call's type has to be one both can hold. Some arms
@@ -1363,6 +2783,37 @@ describe "Methods: dispatch" do
       p p_join(B_join.new)
       p p_join(["x", "y"])
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "seven"
+      "xby"
+    OUT
+  end
+
+  it "a user to_i beside the builtin one widens the call's return" do
+    result = ze0(<<~'RUBY')
+      # A poly receiver's dispatch emits the user class's arm AND the builtin arms
+      # into ONE C temp, so the call's type has to be one both can hold. Some arms
+      # asked that question and the rest did not, which is why the answer depended on
+      # which name you picked: `Chain#join` answering a Chain came back through the
+      # builtin's `const char *` as `.v.s` and printed "", `def to_i = "seven"` did
+      # not compile, and `def empty? = 0` came back as false -- 0 is truthy in Ruby.
+      #
+      # The question is now asked from both sides: on the way out of the poly section
+      # (does a user return disagree with the type this arm chose) and at the user
+      # dispatch (does the builtin surface disagree with what the user arms agreed
+      # on). This program walks the names the report enumerated, so a new arm that
+      # pins a concrete type has to survive them.
+
+      class B_join
+        def join(*p) = "seven"
+      end
+
+      def p_join(v)
+        v.join("b")
+      end
+
       class B_to_i
         def to_i = "seven"
       end
@@ -1373,6 +2824,37 @@ describe "Methods: dispatch" do
 
       p p_to_i(B_to_i.new)
       p p_to_i("12")
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "seven"
+      12
+    OUT
+  end
+
+  it "a user to_f beside the builtin one widens the call's return" do
+    result = ze0(<<~'RUBY')
+      # A poly receiver's dispatch emits the user class's arm AND the builtin arms
+      # into ONE C temp, so the call's type has to be one both can hold. Some arms
+      # asked that question and the rest did not, which is why the answer depended on
+      # which name you picked: `Chain#join` answering a Chain came back through the
+      # builtin's `const char *` as `.v.s` and printed "", `def to_i = "seven"` did
+      # not compile, and `def empty? = 0` came back as false -- 0 is truthy in Ruby.
+      #
+      # The question is now asked from both sides: on the way out of the poly section
+      # (does a user return disagree with the type this arm chose) and at the user
+      # dispatch (does the builtin surface disagree with what the user arms agreed
+      # on). This program walks the names the report enumerated, so a new arm that
+      # pins a concrete type has to survive them.
+
+      class B_join
+        def join(*p) = "seven"
+      end
+
+      def p_join(v)
+        v.join("b")
+      end
 
       class B_to_f
         def to_f = 7
@@ -1385,6 +2867,37 @@ describe "Methods: dispatch" do
       p p_to_f(B_to_f.new)
       p p_to_f("1.5")
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      7
+      1.5
+    OUT
+  end
+
+  it "a user empty? beside the builtin one widens the call's return" do
+    result = ze0(<<~'RUBY')
+      # A poly receiver's dispatch emits the user class's arm AND the builtin arms
+      # into ONE C temp, so the call's type has to be one both can hold. Some arms
+      # asked that question and the rest did not, which is why the answer depended on
+      # which name you picked: `Chain#join` answering a Chain came back through the
+      # builtin's `const char *` as `.v.s` and printed "", `def to_i = "seven"` did
+      # not compile, and `def empty? = 0` came back as false -- 0 is truthy in Ruby.
+      #
+      # The question is now asked from both sides: on the way out of the poly section
+      # (does a user return disagree with the type this arm chose) and at the user
+      # dispatch (does the builtin surface disagree with what the user arms agreed
+      # on). This program walks the names the report enumerated, so a new arm that
+      # pins a concrete type has to survive them.
+
+      class B_join
+        def join(*p) = "seven"
+      end
+
+      def p_join(v)
+        v.join("b")
+      end
+
       class B_empty
         def empty? = 0
       end
@@ -1395,6 +2908,37 @@ describe "Methods: dispatch" do
 
       p p_empty(B_empty.new)
       p p_empty([])
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      0
+      true
+    OUT
+  end
+
+  it "a user index beside the builtin one widens the call's return" do
+    result = ze0(<<~'RUBY')
+      # A poly receiver's dispatch emits the user class's arm AND the builtin arms
+      # into ONE C temp, so the call's type has to be one both can hold. Some arms
+      # asked that question and the rest did not, which is why the answer depended on
+      # which name you picked: `Chain#join` answering a Chain came back through the
+      # builtin's `const char *` as `.v.s` and printed "", `def to_i = "seven"` did
+      # not compile, and `def empty? = 0` came back as false -- 0 is truthy in Ruby.
+      #
+      # The question is now asked from both sides: on the way out of the poly section
+      # (does a user return disagree with the type this arm chose) and at the user
+      # dispatch (does the builtin surface disagree with what the user arms agreed
+      # on). This program walks the names the report enumerated, so a new arm that
+      # pins a concrete type has to survive them.
+
+      class B_join
+        def join(*p) = "seven"
+      end
+
+      def p_join(v)
+        v.join("b")
+      end
 
       class B_index
         def index(x) = "seven"
@@ -1407,6 +2951,37 @@ describe "Methods: dispatch" do
       p p_index(B_index.new)
       p p_index(["a", "b"])
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "seven"
+      0
+    OUT
+  end
+
+  it "a user rindex beside the builtin one widens the call's return" do
+    result = ze0(<<~'RUBY')
+      # A poly receiver's dispatch emits the user class's arm AND the builtin arms
+      # into ONE C temp, so the call's type has to be one both can hold. Some arms
+      # asked that question and the rest did not, which is why the answer depended on
+      # which name you picked: `Chain#join` answering a Chain came back through the
+      # builtin's `const char *` as `.v.s` and printed "", `def to_i = "seven"` did
+      # not compile, and `def empty? = 0` came back as false -- 0 is truthy in Ruby.
+      #
+      # The question is now asked from both sides: on the way out of the poly section
+      # (does a user return disagree with the type this arm chose) and at the user
+      # dispatch (does the builtin surface disagree with what the user arms agreed
+      # on). This program walks the names the report enumerated, so a new arm that
+      # pins a concrete type has to survive them.
+
+      class B_join
+        def join(*p) = "seven"
+      end
+
+      def p_join(v)
+        v.join("b")
+      end
+
       class B_rindex
         def rindex(x) = "seven"
       end
@@ -1417,6 +2992,37 @@ describe "Methods: dispatch" do
 
       p p_rindex(B_rindex.new)
       p p_rindex(["a", "b"])
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "seven"
+      0
+    OUT
+  end
+
+  it "a user find_index beside the builtin one widens the call's return" do
+    result = ze0(<<~'RUBY')
+      # A poly receiver's dispatch emits the user class's arm AND the builtin arms
+      # into ONE C temp, so the call's type has to be one both can hold. Some arms
+      # asked that question and the rest did not, which is why the answer depended on
+      # which name you picked: `Chain#join` answering a Chain came back through the
+      # builtin's `const char *` as `.v.s` and printed "", `def to_i = "seven"` did
+      # not compile, and `def empty? = 0` came back as false -- 0 is truthy in Ruby.
+      #
+      # The question is now asked from both sides: on the way out of the poly section
+      # (does a user return disagree with the type this arm chose) and at the user
+      # dispatch (does the builtin surface disagree with what the user arms agreed
+      # on). This program walks the names the report enumerated, so a new arm that
+      # pins a concrete type has to survive them.
+
+      class B_join
+        def join(*p) = "seven"
+      end
+
+      def p_join(v)
+        v.join("b")
+      end
 
       class B_findindex
         def find_index(x) = "seven"
@@ -1429,6 +3035,37 @@ describe "Methods: dispatch" do
       p p_findindex(B_findindex.new)
       p p_findindex(["a", "b"])
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "seven"
+      0
+    OUT
+  end
+
+  it "a user pack beside the builtin one widens the call's return" do
+    result = ze0(<<~'RUBY')
+      # A poly receiver's dispatch emits the user class's arm AND the builtin arms
+      # into ONE C temp, so the call's type has to be one both can hold. Some arms
+      # asked that question and the rest did not, which is why the answer depended on
+      # which name you picked: `Chain#join` answering a Chain came back through the
+      # builtin's `const char *` as `.v.s` and printed "", `def to_i = "seven"` did
+      # not compile, and `def empty? = 0` came back as false -- 0 is truthy in Ruby.
+      #
+      # The question is now asked from both sides: on the way out of the poly section
+      # (does a user return disagree with the type this arm chose) and at the user
+      # dispatch (does the builtin surface disagree with what the user arms agreed
+      # on). This program walks the names the report enumerated, so a new arm that
+      # pins a concrete type has to survive them.
+
+      class B_join
+        def join(*p) = "seven"
+      end
+
+      def p_join(v)
+        v.join("b")
+      end
+
       class B_pack
         def pack(x) = "seven"
       end
@@ -1439,6 +3076,37 @@ describe "Methods: dispatch" do
 
       p p_pack(B_pack.new)
       p p_pack([65, 66])
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "seven"
+      "AB"
+    OUT
+  end
+
+  it "a user size beside the builtin one widens the call's return" do
+    result = ze0(<<~'RUBY')
+      # A poly receiver's dispatch emits the user class's arm AND the builtin arms
+      # into ONE C temp, so the call's type has to be one both can hold. Some arms
+      # asked that question and the rest did not, which is why the answer depended on
+      # which name you picked: `Chain#join` answering a Chain came back through the
+      # builtin's `const char *` as `.v.s` and printed "", `def to_i = "seven"` did
+      # not compile, and `def empty? = 0` came back as false -- 0 is truthy in Ruby.
+      #
+      # The question is now asked from both sides: on the way out of the poly section
+      # (does a user return disagree with the type this arm chose) and at the user
+      # dispatch (does the builtin surface disagree with what the user arms agreed
+      # on). This program walks the names the report enumerated, so a new arm that
+      # pins a concrete type has to survive them.
+
+      class B_join
+        def join(*p) = "seven"
+      end
+
+      def p_join(v)
+        v.join("b")
+      end
 
       class B_size
         def size = "seven"
@@ -1451,6 +3119,37 @@ describe "Methods: dispatch" do
       p p_size(B_size.new)
       p p_size([1, 2])
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "seven"
+      2
+    OUT
+  end
+
+  it "a user length beside the builtin one widens the call's return" do
+    result = ze0(<<~'RUBY')
+      # A poly receiver's dispatch emits the user class's arm AND the builtin arms
+      # into ONE C temp, so the call's type has to be one both can hold. Some arms
+      # asked that question and the rest did not, which is why the answer depended on
+      # which name you picked: `Chain#join` answering a Chain came back through the
+      # builtin's `const char *` as `.v.s` and printed "", `def to_i = "seven"` did
+      # not compile, and `def empty? = 0` came back as false -- 0 is truthy in Ruby.
+      #
+      # The question is now asked from both sides: on the way out of the poly section
+      # (does a user return disagree with the type this arm chose) and at the user
+      # dispatch (does the builtin surface disagree with what the user arms agreed
+      # on). This program walks the names the report enumerated, so a new arm that
+      # pins a concrete type has to survive them.
+
+      class B_join
+        def join(*p) = "seven"
+      end
+
+      def p_join(v)
+        v.join("b")
+      end
+
       class B_length
         def length = "seven"
       end
@@ -1461,6 +3160,37 @@ describe "Methods: dispatch" do
 
       p p_length(B_length.new)
       p p_length([1, 2])
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "seven"
+      2
+    OUT
+  end
+
+  it "a user include? beside the builtin one widens the call's return" do
+    result = ze0(<<~'RUBY')
+      # A poly receiver's dispatch emits the user class's arm AND the builtin arms
+      # into ONE C temp, so the call's type has to be one both can hold. Some arms
+      # asked that question and the rest did not, which is why the answer depended on
+      # which name you picked: `Chain#join` answering a Chain came back through the
+      # builtin's `const char *` as `.v.s` and printed "", `def to_i = "seven"` did
+      # not compile, and `def empty? = 0` came back as false -- 0 is truthy in Ruby.
+      #
+      # The question is now asked from both sides: on the way out of the poly section
+      # (does a user return disagree with the type this arm chose) and at the user
+      # dispatch (does the builtin surface disagree with what the user arms agreed
+      # on). This program walks the names the report enumerated, so a new arm that
+      # pins a concrete type has to survive them.
+
+      class B_join
+        def join(*p) = "seven"
+      end
+
+      def p_join(v)
+        v.join("b")
+      end
 
       class B_includep
         def include?(x) = 0
@@ -1473,6 +3203,37 @@ describe "Methods: dispatch" do
       p p_includep(B_includep.new)
       p p_includep([1])
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      0
+      true
+    OUT
+  end
+
+  it "a user member? beside the builtin one widens the call's return" do
+    result = ze0(<<~'RUBY')
+      # A poly receiver's dispatch emits the user class's arm AND the builtin arms
+      # into ONE C temp, so the call's type has to be one both can hold. Some arms
+      # asked that question and the rest did not, which is why the answer depended on
+      # which name you picked: `Chain#join` answering a Chain came back through the
+      # builtin's `const char *` as `.v.s` and printed "", `def to_i = "seven"` did
+      # not compile, and `def empty? = 0` came back as false -- 0 is truthy in Ruby.
+      #
+      # The question is now asked from both sides: on the way out of the poly section
+      # (does a user return disagree with the type this arm chose) and at the user
+      # dispatch (does the builtin surface disagree with what the user arms agreed
+      # on). This program walks the names the report enumerated, so a new arm that
+      # pins a concrete type has to survive them.
+
+      class B_join
+        def join(*p) = "seven"
+      end
+
+      def p_join(v)
+        v.join("b")
+      end
+
       class B_memberp
         def member?(x) = 0
       end
@@ -1483,6 +3244,37 @@ describe "Methods: dispatch" do
 
       p p_memberp(B_memberp.new)
       p p_memberp([1])
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      0
+      true
+    OUT
+  end
+
+  it "a method answering an object of its own class widens where a builtin shares the name" do
+    result = ze0(<<~'RUBY')
+      # A poly receiver's dispatch emits the user class's arm AND the builtin arms
+      # into ONE C temp, so the call's type has to be one both can hold. Some arms
+      # asked that question and the rest did not, which is why the answer depended on
+      # which name you picked: `Chain#join` answering a Chain came back through the
+      # builtin's `const char *` as `.v.s` and printed "", `def to_i = "seven"` did
+      # not compile, and `def empty? = 0` came back as false -- 0 is truthy in Ruby.
+      #
+      # The question is now asked from both sides: on the way out of the poly section
+      # (does a user return disagree with the type this arm chose) and at the user
+      # dispatch (does the builtin surface disagree with what the user arms agreed
+      # on). This program walks the names the report enumerated, so a new arm that
+      # pins a concrete type has to survive them.
+
+      class B_join
+        def join(*p) = "seven"
+      end
+
+      def p_join(v)
+        v.join("b")
+      end
 
       # the reproduction: a method that answers an object of its own class, reached
       # through a widened receiver, with the receiver's own arm running (@asked is 1)
@@ -1511,6 +3303,38 @@ describe "Methods: dispatch" do
       p chain.asked
       p joined(["x", "y"])
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "/tmp/b"
+      1
+      "xby"
+    OUT
+  end
+
+  it "a user arm that agrees with the builtin keeps the concrete type" do
+    result = ze0(<<~'RUBY')
+      # A poly receiver's dispatch emits the user class's arm AND the builtin arms
+      # into ONE C temp, so the call's type has to be one both can hold. Some arms
+      # asked that question and the rest did not, which is why the answer depended on
+      # which name you picked: `Chain#join` answering a Chain came back through the
+      # builtin's `const char *` as `.v.s` and printed "", `def to_i = "seven"` did
+      # not compile, and `def empty? = 0` came back as false -- 0 is truthy in Ruby.
+      #
+      # The question is now asked from both sides: on the way out of the poly section
+      # (does a user return disagree with the type this arm chose) and at the user
+      # dispatch (does the builtin surface disagree with what the user arms agreed
+      # on). This program walks the names the report enumerated, so a new arm that
+      # pins a concrete type has to survive them.
+
+      class B_join
+        def join(*p) = "seven"
+      end
+
+      def p_join(v)
+        v.join("b")
+      end
+
       # a user arm that AGREES keeps the concrete type: this is what must not widen,
       # or every poly.size boxes a count the whole program reads as a number
       class Counted
@@ -1527,33 +3351,6 @@ describe "Methods: dispatch" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "seven"
-      "xby"
-      "seven"
-      12
-      7
-      1.5
-      0
-      true
-      "seven"
-      0
-      "seven"
-      0
-      "seven"
-      0
-      "seven"
-      "AB"
-      "seven"
-      2
-      "seven"
-      2
-      0
-      true
-      0
-      true
-      "/tmp/b"
-      1
-      "xby"
       3
       2
       4
@@ -1561,7 +3358,7 @@ describe "Methods: dispatch" do
     OUT
   end
 
-  it "poly dispatch yield method" do
+  it "a poly call to a yielding method reaches each candidate's own body" do
     result = ze0(<<~'RUBY')
       # A yielding method reached through a poly receiver.
       #
@@ -1632,23 +3429,480 @@ describe "Methods: dispatch" do
       p pick(1).go { |v| v % 2 }
       p pick(2).go { |v| v % 2 }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+      0
+    OUT
+  end
+
+  it "a guarded yield answers through the poly call the same" do
+    result = ze0(<<~'RUBY')
+      # A yielding method reached through a poly receiver.
+      #
+      # Blocks are fused, not passed: with a known receiver the method body is
+      # inlined at the call site with the block spliced into the yield. That leaves
+      # no symbol to call, so a poly dispatch dropped the arm and raised
+      # NoMethodError naming a class that plainly defines the method -- and with it
+      # went the whole block API of any class reached through a union.
+      #
+      # Such a method now also gets a second, ordinary definition taking the block as
+      # an sp_Proc *, with `yield` lowered to a call on it. Monomorphic call sites
+      # keep the splice; only the poly path pays for the closure.
+      #
+      # The clone is typed independently of the inlined original: its yield answers
+      # poly, so everything the yield feeds widens with it and one body serves every
+      # call site. That is what lets a yield nested inside a block work, and what
+      # lets two sites pass blocks of differing result type.
+
+      class A
+        def go
+          yield 5
+        end
+
+        def guarded
+          block_given? ? yield(1) : 99
+        end
+
+        def early
+          yield 1
+          return 42
+        end
+
+        def withargs(a, b)
+          yield a + b
+        end
+
+        def twice
+          yield(1) + yield(2)
+        end
+      end
+
+      class B
+        def go
+          0
+        end
+
+        def guarded
+          -1
+        end
+
+        def early
+          -3
+        end
+
+        def withargs(a, b)
+          a - b
+        end
+
+        def twice
+          -4
+        end
+      end
+
+      def pick(n)
+        n == 1 ? A.new : B.new
+      end
+
       p pick(1).guarded { |v| v + 100 }
       p pick(1).guarded
       p pick(2).guarded
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      101
+      99
+      -1
+    OUT
+  end
+
+  it "an early return out of a yielding method answers through the poly call" do
+    result = ze0(<<~'RUBY')
+      # A yielding method reached through a poly receiver.
+      #
+      # Blocks are fused, not passed: with a known receiver the method body is
+      # inlined at the call site with the block spliced into the yield. That leaves
+      # no symbol to call, so a poly dispatch dropped the arm and raised
+      # NoMethodError naming a class that plainly defines the method -- and with it
+      # went the whole block API of any class reached through a union.
+      #
+      # Such a method now also gets a second, ordinary definition taking the block as
+      # an sp_Proc *, with `yield` lowered to a call on it. Monomorphic call sites
+      # keep the splice; only the poly path pays for the closure.
+      #
+      # The clone is typed independently of the inlined original: its yield answers
+      # poly, so everything the yield feeds widens with it and one body serves every
+      # call site. That is what lets a yield nested inside a block work, and what
+      # lets two sites pass blocks of differing result type.
+
+      class A
+        def go
+          yield 5
+        end
+
+        def guarded
+          block_given? ? yield(1) : 99
+        end
+
+        def early
+          yield 1
+          return 42
+        end
+
+        def withargs(a, b)
+          yield a + b
+        end
+
+        def twice
+          yield(1) + yield(2)
+        end
+      end
+
+      class B
+        def go
+          0
+        end
+
+        def guarded
+          -1
+        end
+
+        def early
+          -3
+        end
+
+        def withargs(a, b)
+          a - b
+        end
+
+        def twice
+          -4
+        end
+      end
+
+      def pick(n)
+        n == 1 ? A.new : B.new
+      end
+
       p pick(1).early { |v| v }
       p pick(2).early { |v| v }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      42
+      -3
+    OUT
+  end
+
+  it "a yielding method with its own arguments takes them through the poly call" do
+    result = ze0(<<~'RUBY')
+      # A yielding method reached through a poly receiver.
+      #
+      # Blocks are fused, not passed: with a known receiver the method body is
+      # inlined at the call site with the block spliced into the yield. That leaves
+      # no symbol to call, so a poly dispatch dropped the arm and raised
+      # NoMethodError naming a class that plainly defines the method -- and with it
+      # went the whole block API of any class reached through a union.
+      #
+      # Such a method now also gets a second, ordinary definition taking the block as
+      # an sp_Proc *, with `yield` lowered to a call on it. Monomorphic call sites
+      # keep the splice; only the poly path pays for the closure.
+      #
+      # The clone is typed independently of the inlined original: its yield answers
+      # poly, so everything the yield feeds widens with it and one body serves every
+      # call site. That is what lets a yield nested inside a block work, and what
+      # lets two sites pass blocks of differing result type.
+
+      class A
+        def go
+          yield 5
+        end
+
+        def guarded
+          block_given? ? yield(1) : 99
+        end
+
+        def early
+          yield 1
+          return 42
+        end
+
+        def withargs(a, b)
+          yield a + b
+        end
+
+        def twice
+          yield(1) + yield(2)
+        end
+      end
+
+      class B
+        def go
+          0
+        end
+
+        def guarded
+          -1
+        end
+
+        def early
+          -3
+        end
+
+        def withargs(a, b)
+          a - b
+        end
+
+        def twice
+          -4
+        end
+      end
+
+      def pick(n)
+        n == 1 ? A.new : B.new
+      end
 
       p pick(1).withargs(3, 4) { |s| s * 10 }
       p pick(2).withargs(3, 4) { |s| s * 10 }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      70
+      -1
+    OUT
+  end
+
+  it "a method that yields twice yields twice through the poly call" do
+    result = ze0(<<~'RUBY')
+      # A yielding method reached through a poly receiver.
+      #
+      # Blocks are fused, not passed: with a known receiver the method body is
+      # inlined at the call site with the block spliced into the yield. That leaves
+      # no symbol to call, so a poly dispatch dropped the arm and raised
+      # NoMethodError naming a class that plainly defines the method -- and with it
+      # went the whole block API of any class reached through a union.
+      #
+      # Such a method now also gets a second, ordinary definition taking the block as
+      # an sp_Proc *, with `yield` lowered to a call on it. Monomorphic call sites
+      # keep the splice; only the poly path pays for the closure.
+      #
+      # The clone is typed independently of the inlined original: its yield answers
+      # poly, so everything the yield feeds widens with it and one body serves every
+      # call site. That is what lets a yield nested inside a block work, and what
+      # lets two sites pass blocks of differing result type.
+
+      class A
+        def go
+          yield 5
+        end
+
+        def guarded
+          block_given? ? yield(1) : 99
+        end
+
+        def early
+          yield 1
+          return 42
+        end
+
+        def withargs(a, b)
+          yield a + b
+        end
+
+        def twice
+          yield(1) + yield(2)
+        end
+      end
+
+      class B
+        def go
+          0
+        end
+
+        def guarded
+          -1
+        end
+
+        def early
+          -3
+        end
+
+        def withargs(a, b)
+          a - b
+        end
+
+        def twice
+          -4
+        end
+      end
+
+      def pick(n)
+        n == 1 ? A.new : B.new
+      end
+
       p pick(1).twice { |v| v * 3 }
       p pick(2).twice { |v| v * 3 }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      9
+      -4
+    OUT
+  end
+
+  it "a monomorphic call to the same method still fuses" do
+    result = ze0(<<~'RUBY')
+      # A yielding method reached through a poly receiver.
+      #
+      # Blocks are fused, not passed: with a known receiver the method body is
+      # inlined at the call site with the block spliced into the yield. That leaves
+      # no symbol to call, so a poly dispatch dropped the arm and raised
+      # NoMethodError naming a class that plainly defines the method -- and with it
+      # went the whole block API of any class reached through a union.
+      #
+      # Such a method now also gets a second, ordinary definition taking the block as
+      # an sp_Proc *, with `yield` lowered to a call on it. Monomorphic call sites
+      # keep the splice; only the poly path pays for the closure.
+      #
+      # The clone is typed independently of the inlined original: its yield answers
+      # poly, so everything the yield feeds widens with it and one body serves every
+      # call site. That is what lets a yield nested inside a block work, and what
+      # lets two sites pass blocks of differing result type.
+
+      class A
+        def go
+          yield 5
+        end
+
+        def guarded
+          block_given? ? yield(1) : 99
+        end
+
+        def early
+          yield 1
+          return 42
+        end
+
+        def withargs(a, b)
+          yield a + b
+        end
+
+        def twice
+          yield(1) + yield(2)
+        end
+      end
+
+      class B
+        def go
+          0
+        end
+
+        def guarded
+          -1
+        end
+
+        def early
+          -3
+        end
+
+        def withargs(a, b)
+          a - b
+        end
+
+        def twice
+          -4
+        end
+      end
+
+      def pick(n)
+        n == 1 ? A.new : B.new
+      end
 
       # a monomorphic call to the same method still fuses
       a = A.new
       p a.go { |v| v + 1 }
       p a.twice { |v| v }
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      6
+      3
+    OUT
+  end
+
+  it "a yield nested inside the method's own block keeps the clone's locals apart" do
+    result = ze0(<<~'RUBY')
+      # A yielding method reached through a poly receiver.
+      #
+      # Blocks are fused, not passed: with a known receiver the method body is
+      # inlined at the call site with the block spliced into the yield. That leaves
+      # no symbol to call, so a poly dispatch dropped the arm and raised
+      # NoMethodError naming a class that plainly defines the method -- and with it
+      # went the whole block API of any class reached through a union.
+      #
+      # Such a method now also gets a second, ordinary definition taking the block as
+      # an sp_Proc *, with `yield` lowered to a call on it. Monomorphic call sites
+      # keep the splice; only the poly path pays for the closure.
+      #
+      # The clone is typed independently of the inlined original: its yield answers
+      # poly, so everything the yield feeds widens with it and one body serves every
+      # call site. That is what lets a yield nested inside a block work, and what
+      # lets two sites pass blocks of differing result type.
+
+      class A
+        def go
+          yield 5
+        end
+
+        def guarded
+          block_given? ? yield(1) : 99
+        end
+
+        def early
+          yield 1
+          return 42
+        end
+
+        def withargs(a, b)
+          yield a + b
+        end
+
+        def twice
+          yield(1) + yield(2)
+        end
+      end
+
+      class B
+        def go
+          0
+        end
+
+        def guarded
+          -1
+        end
+
+        def early
+          -3
+        end
+
+        def withargs(a, b)
+          a - b
+        end
+
+        def twice
+          -4
+        end
+      end
+
+      def pick(n)
+        n == 1 ? A.new : B.new
+      end
 
       # a yield nested inside a block of the method's own body: the clone's locals
       # widen with the yield, so `t` is a boxed carrier rather than an mrb_int
@@ -1673,6 +3927,82 @@ describe "Methods: dispatch" do
       p pick_l(1).looped { |i| i * 2 }
       p pick_l(2).looped { |i| i * 2 }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      6
+      -2
+    OUT
+  end
+
+  it "two poly call sites whose blocks answer different types each get the right clone" do
+    result = ze0(<<~'RUBY')
+      # A yielding method reached through a poly receiver.
+      #
+      # Blocks are fused, not passed: with a known receiver the method body is
+      # inlined at the call site with the block spliced into the yield. That leaves
+      # no symbol to call, so a poly dispatch dropped the arm and raised
+      # NoMethodError naming a class that plainly defines the method -- and with it
+      # went the whole block API of any class reached through a union.
+      #
+      # Such a method now also gets a second, ordinary definition taking the block as
+      # an sp_Proc *, with `yield` lowered to a call on it. Monomorphic call sites
+      # keep the splice; only the poly path pays for the closure.
+      #
+      # The clone is typed independently of the inlined original: its yield answers
+      # poly, so everything the yield feeds widens with it and one body serves every
+      # call site. That is what lets a yield nested inside a block work, and what
+      # lets two sites pass blocks of differing result type.
+
+      class A
+        def go
+          yield 5
+        end
+
+        def guarded
+          block_given? ? yield(1) : 99
+        end
+
+        def early
+          yield 1
+          return 42
+        end
+
+        def withargs(a, b)
+          yield a + b
+        end
+
+        def twice
+          yield(1) + yield(2)
+        end
+      end
+
+      class B
+        def go
+          0
+        end
+
+        def guarded
+          -1
+        end
+
+        def early
+          -3
+        end
+
+        def withargs(a, b)
+          a - b
+        end
+
+        def twice
+          -4
+        end
+      end
+
+      def pick(n)
+        n == 1 ? A.new : B.new
+      end
+
       # two poly call sites whose blocks answer different types: one clone serves
       # both, because its yield is poly and each site unboxes into its own slot
       p pick(1).go { |v| v % 2 }
@@ -1681,21 +4011,6 @@ describe "Methods: dispatch" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      1
-      0
-      101
-      99
-      -1
-      42
-      -3
-      70
-      -1
-      9
-      -4
-      6
-      3
-      6
-      -2
       1
       "s5"
       0

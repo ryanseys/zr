@@ -185,7 +185,7 @@ describe "Exceptions: defining and naming methods" do
     OUT
   end
 
-  it "begin, rescue, else and ensure run in order, and a subclass is caught by its parent's arm" do
+  it "a raise takes the rescue arm and then the ensure" do
     result = ze0(<<~'RUBY')
       begin
         puts "try"
@@ -196,6 +196,17 @@ describe "Exceptions: defining and naming methods" do
         puts "ensure ran"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      try
+      caught: bad
+      ensure ran
+    OUT
+  end
+
+  it "a body that raises nothing takes the else arm and then the ensure" do
+    result = ze0(<<~'RUBY')
       begin
         puts "body"
       rescue => e
@@ -206,6 +217,17 @@ describe "Exceptions: defining and naming methods" do
         puts "ensure2 ran"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      body
+      else ran
+      ensure2 ran
+    OUT
+  end
+
+  it "a subclass is caught by its parent's arm" do
+    result = ze0(<<~'RUBY')
       class AppError < StandardError
       end
       class ValidationError < AppError
@@ -217,12 +239,30 @@ describe "Exceptions: defining and naming methods" do
         puts "caught as AppError: #{e.send(:message)}"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      caught as AppError: bad input
+    OUT
+  end
+
+  it "one arm naming several classes catches any of them" do
+    result = ze0(<<~'RUBY')
       begin
         raise TypeError, "wrong type"
       rescue ArgumentError, TypeError => e
         puts "caught one of: #{e.send(:message)}"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      caught one of: wrong type
+    OUT
+  end
+
+  it "a retry runs the body again, and the ensure sees how many attempts it took" do
+    result = ze0(<<~'RUBY')
       class Attempt
         def initialize
           @attempts = 0
@@ -246,6 +286,16 @@ describe "Exceptions: defining and naming methods" do
       end
       Attempt.new.run
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      succeeded after 3 attempts
+      ensure ran, attempts=3
+    OUT
+  end
+
+  it "a method-body rescue needs no begin of its own" do
+    result = ze0(<<~'RUBY')
       class Worker
         def safe
           raise "oops"
@@ -255,6 +305,15 @@ describe "Exceptions: defining and naming methods" do
       end
       puts Worker.new.safe
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      handled: oops
+    OUT
+  end
+
+  it "an ensure runs before the return it wraps" do
+    result = ze0(<<~'RUBY')
       class ReturnTester
         def m
           begin
@@ -268,6 +327,16 @@ describe "Exceptions: defining and naming methods" do
       end
       puts ReturnTester.new.m
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ensure ran before return
+      returned
+    OUT
+  end
+
+  it "a rescue modifier supplies the value where the expression raises" do
+    result = ze0(<<~'RUBY')
       class Unsafe
         def op(n)
           raise "negative" if n < 0
@@ -281,6 +350,16 @@ describe "Exceptions: defining and naming methods" do
       puts c.safe_op(5)
       puts c.safe_op(-5)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      10
+      -1
+    OUT
+  end
+
+  it "a rescue arm's value is the begin's value" do
+    result = ze0(<<~'RUBY')
       class TopRisk
         def risky_top
           raise "bad"
@@ -289,6 +368,15 @@ describe "Exceptions: defining and naming methods" do
       x = TopRisk.new.risky_top rescue "fallback"
       puts x
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      fallback
+    OUT
+  end
+
+  it "an exception carries its own readers out through an inner arm and an outer one" do
+    result = ze0(<<~'RUBY')
       class MyError < StandardError
         def initialize(msg, code)
           super(msg)
@@ -319,22 +407,6 @@ describe "Exceptions: defining and naming methods" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      try
-      caught: bad
-      ensure ran
-      body
-      else ran
-      ensure2 ran
-      caught as AppError: bad input
-      caught one of: wrong type
-      succeeded after 3 attempts
-      ensure ran, attempts=3
-      handled: oops
-      ensure ran before return
-      returned
-      10
-      -1
-      fallback
       inner saw code 42
       outer saw code 42
       outer message: failed with code 42
