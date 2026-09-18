@@ -40,9 +40,9 @@ module Ze0
       #
       # Memory bounds this and not cores. A machine short of it swaps,
       # and a run that swaps does not fail: it takes ten times as long.
-      # Twelve workers on this sixteen-gigabyte laptop turned a
-      # sixty-five second tier into eleven minutes and a hundred errors,
-      # which is the whole reason for the cap.
+      # Ten workers on a twelve-core, sixteen-gigabyte laptop turned a
+      # sixty-five second tier into eleven minutes and 104 errors, none
+      # of them real. That is what the cap is for.
       def self.size = Integer(ENV.fetch("MT_CPU") { [[Etc.nprocessors, gigabytes / WORKER_GB].min, 1].max })
 
       # What this machine has. POSIX answers on macOS and on musl
