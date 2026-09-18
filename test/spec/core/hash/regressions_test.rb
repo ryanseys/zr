@@ -760,24 +760,6 @@ describe "Hash: regressions" do
 
   it "comparable clamp string" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - comparable_clamp_string
-      #   - file_separator_constants
-      #   - hash_fetch_int_int
-      #   - i897
-      #   - i957
-      #   - i976
-      #   - i981
-      #   - kernel_rand_no_arg_float
-      #   - kernel_string_coercion
-      #   - nil_coercion
-      #   - nil_to_h
-      #   - ruby_version_constants
-      #   - sym_int_hash_key_value
-      #   - symbol_name
-      #   - time_subtraction_returns_float
-
-
       def t_comparable_clamp_string
       # Issue #899: Comparable#clamp on a string receiver via strcmp.
       puts "b".clamp("a", "c")
@@ -796,24 +778,6 @@ describe "Hash: regressions" do
 
   it "file separator constants" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - comparable_clamp_string
-      #   - file_separator_constants
-      #   - hash_fetch_int_int
-      #   - i897
-      #   - i957
-      #   - i976
-      #   - i981
-      #   - kernel_rand_no_arg_float
-      #   - kernel_string_coercion
-      #   - nil_coercion
-      #   - nil_to_h
-      #   - ruby_version_constants
-      #   - sym_int_hash_key_value
-      #   - symbol_name
-      #   - time_subtraction_returns_float
-
-
       def t_file_separator_constants
       # Issue #891: File::SEPARATOR / PATH_SEPARATOR / ALT_SEPARATOR
       # resolved at compile time as string literals.
@@ -833,24 +797,6 @@ describe "Hash: regressions" do
 
   it "hash fetch int int" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - comparable_clamp_string
-      #   - file_separator_constants
-      #   - hash_fetch_int_int
-      #   - i897
-      #   - i957
-      #   - i976
-      #   - i981
-      #   - kernel_rand_no_arg_float
-      #   - kernel_string_coercion
-      #   - nil_coercion
-      #   - nil_to_h
-      #   - ruby_version_constants
-      #   - sym_int_hash_key_value
-      #   - symbol_name
-      #   - time_subtraction_returns_float
-
-
       def t_hash_fetch_int_int
       # Hash#fetch on an int->int specialized hash: plain lookup and the 2-arg
       # default form (the int->int variant previously had #[] but not #fetch).
@@ -875,24 +821,6 @@ describe "Hash: regressions" do
 
   it "i897" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - comparable_clamp_string
-      #   - file_separator_constants
-      #   - hash_fetch_int_int
-      #   - i897
-      #   - i957
-      #   - i976
-      #   - i981
-      #   - kernel_rand_no_arg_float
-      #   - kernel_string_coercion
-      #   - nil_coercion
-      #   - nil_to_h
-      #   - ruby_version_constants
-      #   - sym_int_hash_key_value
-      #   - symbol_name
-      #   - time_subtraction_returns_float
-
-
       def t_i897
       puts (1..Float::INFINITY).lazy.select { |x| x.odd? }.first(5).inspect
       puts (1..Float::INFINITY).lazy.select { |x| x % 3 == 0 }.first(4).inspect
@@ -918,24 +846,6 @@ describe "Hash: regressions" do
 
   it "i957" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - comparable_clamp_string
-      #   - file_separator_constants
-      #   - hash_fetch_int_int
-      #   - i897
-      #   - i957
-      #   - i976
-      #   - i981
-      #   - kernel_rand_no_arg_float
-      #   - kernel_string_coercion
-      #   - nil_coercion
-      #   - nil_to_h
-      #   - ruby_version_constants
-      #   - sym_int_hash_key_value
-      #   - symbol_name
-      #   - time_subtraction_returns_float
-
-
       def t_i957
       h = {a: 1, b: 2}
       p = h.to_proc
@@ -959,24 +869,6 @@ describe "Hash: regressions" do
 
   it "i976" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - comparable_clamp_string
-      #   - file_separator_constants
-      #   - hash_fetch_int_int
-      #   - i897
-      #   - i957
-      #   - i976
-      #   - i981
-      #   - kernel_rand_no_arg_float
-      #   - kernel_string_coercion
-      #   - nil_coercion
-      #   - nil_to_h
-      #   - ruby_version_constants
-      #   - sym_int_hash_key_value
-      #   - symbol_name
-      #   - time_subtraction_returns_float
-
-
       def t_i976
       p = Proc.new { |a, b| puts "a=#{a.inspect} b=#{b.inspect}" }
       p.call(1)
@@ -1001,24 +893,6 @@ describe "Hash: regressions" do
 
   it "i981" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - comparable_clamp_string
-      #   - file_separator_constants
-      #   - hash_fetch_int_int
-      #   - i897
-      #   - i957
-      #   - i976
-      #   - i981
-      #   - kernel_rand_no_arg_float
-      #   - kernel_string_coercion
-      #   - nil_coercion
-      #   - nil_to_h
-      #   - ruby_version_constants
-      #   - sym_int_hash_key_value
-      #   - symbol_name
-      #   - time_subtraction_returns_float
-
-
       def t_i981
       puts ("a".."c").to_a.inspect
       puts ("A".."D").to_a.inspect
@@ -1040,24 +914,6 @@ describe "Hash: regressions" do
 
   it "kernel rand no arg float" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - comparable_clamp_string
-      #   - file_separator_constants
-      #   - hash_fetch_int_int
-      #   - i897
-      #   - i957
-      #   - i976
-      #   - i981
-      #   - kernel_rand_no_arg_float
-      #   - kernel_string_coercion
-      #   - nil_coercion
-      #   - nil_to_h
-      #   - ruby_version_constants
-      #   - sym_int_hash_key_value
-      #   - symbol_name
-      #   - time_subtraction_returns_float
-
-
       def t_kernel_rand_no_arg_float
       # Kernel#rand without args returns Float in [0.0, 1.0).
       puts rand.class
@@ -1077,24 +933,6 @@ describe "Hash: regressions" do
 
   it "kernel string coercion" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - comparable_clamp_string
-      #   - file_separator_constants
-      #   - hash_fetch_int_int
-      #   - i897
-      #   - i957
-      #   - i976
-      #   - i981
-      #   - kernel_rand_no_arg_float
-      #   - kernel_string_coercion
-      #   - nil_coercion
-      #   - nil_to_h
-      #   - ruby_version_constants
-      #   - sym_int_hash_key_value
-      #   - symbol_name
-      #   - time_subtraction_returns_float
-
-
       def t_kernel_string_coercion
       # Issue #879: Kernel#String() coercion routes through .to_s for
       # each primitive type. nil -> "". Pre-fix: silently emitted 0.
@@ -1120,24 +958,6 @@ describe "Hash: regressions" do
 
   it "nil coercion" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - comparable_clamp_string
-      #   - file_separator_constants
-      #   - hash_fetch_int_int
-      #   - i897
-      #   - i957
-      #   - i976
-      #   - i981
-      #   - kernel_rand_no_arg_float
-      #   - kernel_string_coercion
-      #   - nil_coercion
-      #   - nil_to_h
-      #   - ruby_version_constants
-      #   - sym_int_hash_key_value
-      #   - symbol_name
-      #   - time_subtraction_returns_float
-
-
       def t_nil_coercion
       # Issue #871: NilClass coercion methods. v1 covers to_i / to_f /
       # to_a. to_c, to_r, to_h deferred (Complex, Rational unsupported;
@@ -1158,24 +978,6 @@ describe "Hash: regressions" do
 
   it "nil to h" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - comparable_clamp_string
-      #   - file_separator_constants
-      #   - hash_fetch_int_int
-      #   - i897
-      #   - i957
-      #   - i976
-      #   - i981
-      #   - kernel_rand_no_arg_float
-      #   - kernel_string_coercion
-      #   - nil_coercion
-      #   - nil_to_h
-      #   - ruby_version_constants
-      #   - sym_int_hash_key_value
-      #   - symbol_name
-      #   - time_subtraction_returns_float
-
-
       def t_nil_to_h
       # NilClass#to_h returns an empty hash.
       p nil.to_h
@@ -1194,24 +996,6 @@ describe "Hash: regressions" do
 
   it "ruby version constants" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - comparable_clamp_string
-      #   - file_separator_constants
-      #   - hash_fetch_int_int
-      #   - i897
-      #   - i957
-      #   - i976
-      #   - i981
-      #   - kernel_rand_no_arg_float
-      #   - kernel_string_coercion
-      #   - nil_coercion
-      #   - nil_to_h
-      #   - ruby_version_constants
-      #   - sym_int_hash_key_value
-      #   - symbol_name
-      #   - time_subtraction_returns_float
-
-
       def t_ruby_version_constants
       # Issue #890: RUBY_VERSION / RUBY_PLATFORM / RUBY_ENGINE built-in
       # string constants. Format-only check so the test stays stable
@@ -1234,24 +1018,6 @@ describe "Hash: regressions" do
 
   it "sym int hash key value" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - comparable_clamp_string
-      #   - file_separator_constants
-      #   - hash_fetch_int_int
-      #   - i897
-      #   - i957
-      #   - i976
-      #   - i981
-      #   - kernel_rand_no_arg_float
-      #   - kernel_string_coercion
-      #   - nil_coercion
-      #   - nil_to_h
-      #   - ruby_version_constants
-      #   - sym_int_hash_key_value
-      #   - symbol_name
-      #   - time_subtraction_returns_float
-
-
       def t_sym_int_hash_key_value
       # Hash#key(value) / #value? / #has_value? on sym_int_hash.
       # Missing-key #key returns the empty-sym sentinel since the typed
@@ -1275,24 +1041,6 @@ describe "Hash: regressions" do
 
   it "symbol name" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - comparable_clamp_string
-      #   - file_separator_constants
-      #   - hash_fetch_int_int
-      #   - i897
-      #   - i957
-      #   - i976
-      #   - i981
-      #   - kernel_rand_no_arg_float
-      #   - kernel_string_coercion
-      #   - nil_coercion
-      #   - nil_to_h
-      #   - ruby_version_constants
-      #   - sym_int_hash_key_value
-      #   - symbol_name
-      #   - time_subtraction_returns_float
-
-
       def t_symbol_name
       # Symbol#name returns the symbol's name as a string (not a pointer
       # value cast as int).
@@ -1310,24 +1058,6 @@ describe "Hash: regressions" do
 
   it "time subtraction returns float" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - comparable_clamp_string
-      #   - file_separator_constants
-      #   - hash_fetch_int_int
-      #   - i897
-      #   - i957
-      #   - i976
-      #   - i981
-      #   - kernel_rand_no_arg_float
-      #   - kernel_string_coercion
-      #   - nil_coercion
-      #   - nil_to_h
-      #   - ruby_version_constants
-      #   - sym_int_hash_key_value
-      #   - symbol_name
-      #   - time_subtraction_returns_float
-
-
       def t_time_subtraction_returns_float
       # Issue #901: Time - Time returns Float (elapsed seconds). LV
       # slot inferred as sp_Time on pass 1, refined to float on pass 2

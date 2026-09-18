@@ -1382,16 +1382,6 @@ describe "Numeric: regressions" do
 
   it "float infinite nil" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - float_infinite_nil
-      #   - float_next_prev
-      #   - float_zero_p
-      #   - int_step_expr_block
-      #   - integer_nonzero
-      #   - range_size_exclusive
-      #   - range_size_string
-
-
       def t_float_infinite_nil
       # Float#infinite?: nil for a finite value, -1 / +1 for -Inf / +Inf.
       p 0.0.infinite?
@@ -1416,16 +1406,6 @@ describe "Numeric: regressions" do
 
   it "float next prev" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - float_infinite_nil
-      #   - float_next_prev
-      #   - float_zero_p
-      #   - int_step_expr_block
-      #   - integer_nonzero
-      #   - range_size_exclusive
-      #   - range_size_string
-
-
       def t_float_next_prev
       # Float#next_float / prev_float — adjacent IEEE 754 representable
       # values via libm's nextafter.
@@ -1447,16 +1427,6 @@ describe "Numeric: regressions" do
 
   it "float zero p" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - float_infinite_nil
-      #   - float_next_prev
-      #   - float_zero_p
-      #   - int_step_expr_block
-      #   - integer_nonzero
-      #   - range_size_exclusive
-      #   - range_size_string
-
-
       def t_float_zero_p
       # Float#zero?: true only for 0.0 / -0.0.
       p 0.0.zero?
@@ -1479,16 +1449,6 @@ describe "Numeric: regressions" do
 
   it "int step expr block" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - float_infinite_nil
-      #   - float_next_prev
-      #   - float_zero_p
-      #   - int_step_expr_block
-      #   - integer_nonzero
-      #   - range_size_exclusive
-      #   - range_size_string
-
-
       def t_int_step_expr_block
       # Integer#step with a block in expression position — CRuby returns
       # the receiver, not 0. Previously fell through to the unresolved-
@@ -1509,16 +1469,6 @@ describe "Numeric: regressions" do
 
   it "integer nonzero" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - float_infinite_nil
-      #   - float_next_prev
-      #   - float_zero_p
-      #   - int_step_expr_block
-      #   - integer_nonzero
-      #   - range_size_exclusive
-      #   - range_size_string
-
-
       def t_integer_nonzero
       # Issue #874: Integer#nonzero? returns nil when receiver is 0,
       # self otherwise. Surfaces as int? (nullable int).
@@ -1538,16 +1488,6 @@ describe "Numeric: regressions" do
 
   it "range size exclusive" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - float_infinite_nil
-      #   - float_next_prev
-      #   - float_zero_p
-      #   - int_step_expr_block
-      #   - integer_nonzero
-      #   - range_size_exclusive
-      #   - range_size_string
-
-
       def t_range_size_exclusive
       # Range#size with exclusive range
       # (1...5).size should return 4, not 5.
@@ -1566,16 +1506,6 @@ describe "Numeric: regressions" do
 
   it "range size string" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - float_infinite_nil
-      #   - float_next_prev
-      #   - float_zero_p
-      #   - int_step_expr_block
-      #   - integer_nonzero
-      #   - range_size_exclusive
-      #   - range_size_string
-
-
       def t_range_size_string
       # A String range has no integer size; CRuby Range#size returns nil.
       # Integer ranges keep returning their element count.

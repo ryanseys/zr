@@ -2491,21 +2491,6 @@ describe "Array: regressions" do
 
   it "array bsearch" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - array_bsearch
-      #   - array_each_index
-      #   - array_find_index_block
-      #   - array_group_by_standalone
-      #   - array_join_poly
-      #   - array_member_alias
-      #   - array_product_mixed
-      #   - array_repeated_combination
-      #   - int_array_fetch
-      #   - int_array_one_arg
-      #   - int_array_reduce_init_sym
-      #   - poly_array_zip
-
-
       def t_array_bsearch
       # Array#bsearch (find-minimum mode) on a sorted typed array: returns the
       # first element for which the block is truthy, or nil when none is.
@@ -2531,21 +2516,6 @@ describe "Array: regressions" do
 
   it "array each index" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - array_bsearch
-      #   - array_each_index
-      #   - array_find_index_block
-      #   - array_group_by_standalone
-      #   - array_join_poly
-      #   - array_member_alias
-      #   - array_product_mixed
-      #   - array_repeated_combination
-      #   - int_array_fetch
-      #   - int_array_one_arg
-      #   - int_array_reduce_init_sym
-      #   - poly_array_zip
-
-
       def t_array_each_index
       # Array#each_index { |i| } yields each index (0..length-1). Works on
       # any typed array; only the index is bound, no element.
@@ -2574,21 +2544,6 @@ describe "Array: regressions" do
 
   it "array find index block" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - array_bsearch
-      #   - array_each_index
-      #   - array_find_index_block
-      #   - array_group_by_standalone
-      #   - array_join_poly
-      #   - array_member_alias
-      #   - array_product_mixed
-      #   - array_repeated_combination
-      #   - int_array_fetch
-      #   - int_array_one_arg
-      #   - int_array_reduce_init_sym
-      #   - poly_array_zip
-
-
       def t_array_find_index_block
       # Issue #864: Enumerable#find_index with block returns the index
       # of the first element where the block is truthy, nil otherwise.
@@ -2607,21 +2562,6 @@ describe "Array: regressions" do
 
   it "array group by standalone" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - array_bsearch
-      #   - array_each_index
-      #   - array_find_index_block
-      #   - array_group_by_standalone
-      #   - array_join_poly
-      #   - array_member_alias
-      #   - array_product_mixed
-      #   - array_repeated_combination
-      #   - int_array_fetch
-      #   - int_array_one_arg
-      #   - int_array_reduce_init_sym
-      #   - poly_array_zip
-
-
       def t_array_group_by_standalone
       # Array#group_by — standalone (no fused .each) returns a hash
       # keyed by the block result with arrays of matching elements.
@@ -2641,21 +2581,6 @@ describe "Array: regressions" do
 
   it "array join poly" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - array_bsearch
-      #   - array_each_index
-      #   - array_find_index_block
-      #   - array_group_by_standalone
-      #   - array_join_poly
-      #   - array_member_alias
-      #   - array_product_mixed
-      #   - array_repeated_combination
-      #   - int_array_fetch
-      #   - int_array_one_arg
-      #   - int_array_reduce_init_sym
-      #   - poly_array_zip
-
-
       def t_array_join_poly
       # Array#join on a mixed-element (poly) array: each element is to_s'd and
       # joined with the separator. Homogeneous int_array/str_array have their
@@ -2678,21 +2603,6 @@ describe "Array: regressions" do
 
   it "array member alias" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - array_bsearch
-      #   - array_each_index
-      #   - array_find_index_block
-      #   - array_group_by_standalone
-      #   - array_join_poly
-      #   - array_member_alias
-      #   - array_product_mixed
-      #   - array_repeated_combination
-      #   - int_array_fetch
-      #   - int_array_one_arg
-      #   - int_array_reduce_init_sym
-      #   - poly_array_zip
-
-
       def t_array_member_alias
       # Enumerable#member? is the documented alias of #include?. Both
       # need dispatching on typed arrays so the alias doesn't fall
@@ -2715,21 +2625,6 @@ describe "Array: regressions" do
 
   it "array product mixed" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - array_bsearch
-      #   - array_each_index
-      #   - array_find_index_block
-      #   - array_group_by_standalone
-      #   - array_join_poly
-      #   - array_member_alias
-      #   - array_product_mixed
-      #   - array_repeated_combination
-      #   - int_array_fetch
-      #   - int_array_one_arg
-      #   - int_array_reduce_init_sym
-      #   - poly_array_zip
-
-
       def t_array_product_mixed
       # Array#product with a single array argument of a different element type
       # yields a poly_array of [recv_elem, arg_elem] pairs. Two int arrays keep
@@ -2754,21 +2649,6 @@ describe "Array: regressions" do
 
   it "array repeated combination" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - array_bsearch
-      #   - array_each_index
-      #   - array_find_index_block
-      #   - array_group_by_standalone
-      #   - array_join_poly
-      #   - array_member_alias
-      #   - array_product_mixed
-      #   - array_repeated_combination
-      #   - int_array_fetch
-      #   - int_array_one_arg
-      #   - int_array_reduce_init_sym
-      #   - poly_array_zip
-
-
       def t_array_repeated_combination
       # Array#repeated_combination(k) on an int array: k-element combinations
       # allowing repeats, materialised as an array of arrays via .to_a.
@@ -2790,21 +2670,6 @@ describe "Array: regressions" do
 
   it "int array fetch" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - array_bsearch
-      #   - array_each_index
-      #   - array_find_index_block
-      #   - array_group_by_standalone
-      #   - array_join_poly
-      #   - array_member_alias
-      #   - array_product_mixed
-      #   - array_repeated_combination
-      #   - int_array_fetch
-      #   - int_array_one_arg
-      #   - int_array_reduce_init_sym
-      #   - poly_array_zip
-
-
       def t_int_array_fetch
       a = [10, 20, 30]
       p a.fetch(0)
@@ -2828,21 +2693,6 @@ describe "Array: regressions" do
 
   it "int array one arg" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - array_bsearch
-      #   - array_each_index
-      #   - array_find_index_block
-      #   - array_group_by_standalone
-      #   - array_join_poly
-      #   - array_member_alias
-      #   - array_product_mixed
-      #   - array_repeated_combination
-      #   - int_array_fetch
-      #   - int_array_one_arg
-      #   - int_array_reduce_init_sym
-      #   - poly_array_zip
-
-
       def t_int_array_one_arg
       # Enumerable#one?(x) — true iff exactly one element equals x.
       # The block form was already supported; the no-block / arg-form
@@ -2867,21 +2717,6 @@ describe "Array: regressions" do
 
   it "int array reduce init sym" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - array_bsearch
-      #   - array_each_index
-      #   - array_find_index_block
-      #   - array_group_by_standalone
-      #   - array_join_poly
-      #   - array_member_alias
-      #   - array_product_mixed
-      #   - array_repeated_combination
-      #   - int_array_fetch
-      #   - int_array_one_arg
-      #   - int_array_reduce_init_sym
-      #   - poly_array_zip
-
-
       def t_int_array_reduce_init_sym
       # Enumerable#reduce(init, :op) — explicit init plus a symbol
       # operator. Single-arg sym form was already wired; the 2-arg form
@@ -2906,21 +2741,6 @@ describe "Array: regressions" do
 
   it "poly array zip" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - array_bsearch
-      #   - array_each_index
-      #   - array_find_index_block
-      #   - array_group_by_standalone
-      #   - array_join_poly
-      #   - array_member_alias
-      #   - array_product_mixed
-      #   - array_repeated_combination
-      #   - int_array_fetch
-      #   - int_array_one_arg
-      #   - int_array_reduce_init_sym
-      #   - poly_array_zip
-
-
       def t_poly_array_zip
       # Array#zip on heterogeneous (poly_array) receivers — result is a
       # poly_array_ptr_array (array of poly_array pairs). The result type

@@ -1090,27 +1090,6 @@ describe "String: regressions" do
 
   it "empty string to sym" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_empty_string_to_sym
       # Empty-string interning: "".to_sym and the :"" literal must resolve to the
       # same symbol id (an empty symbol once broke the C build).
@@ -1132,27 +1111,6 @@ describe "String: regressions" do
 
   it "str each line chomp" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_str_each_line_chomp
       # String#each_line(chomp: true) strips trailing line endings.
       "a\nb\nc".each_line(chomp: true) { |l| p l }
@@ -1180,27 +1138,6 @@ describe "String: regressions" do
 
   it "str lines chomp" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_str_lines_chomp
       # String#lines(chomp: true) strips line endings from each line.
       # Without the chomp: keyword, line endings are preserved.
@@ -1221,27 +1158,6 @@ describe "String: regressions" do
 
   it "str tr empty replacement" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_str_tr_empty_replacement
       # String#tr / tr_s with empty replacement string
       # When the to-string is empty, matched characters are deleted.
@@ -1262,27 +1178,6 @@ describe "String: regressions" do
 
   it "string ascii only" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_string_ascii_only
       # String#ascii_only? : true iff every byte is 7-bit ASCII.
       p "hello".ascii_only?
@@ -1305,27 +1200,6 @@ describe "String: regressions" do
 
   it "string chomp separator" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_string_chomp_separator
       # Issue #881: String#chomp with an explicit separator argument
       # strips that suffix. Without the fix the arg was silently dropped
@@ -1350,27 +1224,6 @@ describe "String: regressions" do
 
   it "string codepoints" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_string_codepoints
       # Issue #903: String#codepoints returns int_array of UTF-8
       # codepoints (not bytes).
@@ -1390,27 +1243,6 @@ describe "String: regressions" do
 
   it "string delete multi arg" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_string_delete_multi_arg
       # String#delete with multiple args deletes the intersection of the
       # charsets (each arg is a charset spec).
@@ -1436,27 +1268,6 @@ describe "String: regressions" do
 
   it "string gsub empty pat" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_string_gsub_empty_pat
       # Issue #850: String#gsub with empty pattern inserts the
       # replacement between every character (and at the start/end).
@@ -1475,27 +1286,6 @@ describe "String: regressions" do
 
   it "string range splat" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_string_range_splat
       # Splatting a string range into an array literal expands it into a
       # str_array (the runtime already has sp_StrArray_from_string_range; the
@@ -1519,27 +1309,6 @@ describe "String: regressions" do
 
   it "string scan capture" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_string_scan_capture
       # Issue #880: String#scan returns nested arrays for capture groups.
 
@@ -1561,27 +1330,6 @@ describe "String: regressions" do
 
   it "string spaceship" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_string_spaceship
       # Issue #900: String#<=> dispatches strcmp clamped to -1/0/1.
       # Pre-fix: always returned 0.
@@ -1603,27 +1351,6 @@ describe "String: regressions" do
 
   it "string squeeze multi arg" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_string_squeeze_multi_arg
       # String#squeeze with multiple args squeezes runs of chars in the
       # intersection of the charsets.
@@ -1645,27 +1372,6 @@ describe "String: regressions" do
 
   it "string strip nul" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_string_strip_nul
       # String#strip / #lstrip / #rstrip remove the NUL byte along with ASCII
       # whitespace, matching CRuby.
@@ -1691,27 +1397,6 @@ describe "String: regressions" do
 
   it "string symbol itself" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_string_symbol_itself
       # Kernel#itself on string and symbol returns self.
       puts "hello".itself
@@ -1728,27 +1413,6 @@ describe "String: regressions" do
 
   it "string tr s" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_string_tr_s
       # Issue #902: String#tr_s translates and squeezes adjacent
       # identical translated chars (untranslated runs keep their
@@ -1772,27 +1436,6 @@ describe "String: regressions" do
 
   it "string valid encoding" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_string_valid_encoding
       # String#valid_encoding? — true for ASCII / well-formed UTF-8,
       # false for invalid byte sequences.
@@ -1816,27 +1459,6 @@ describe "String: regressions" do
 
   it "string with nul byte" do
     result = ze0(<<~'RUBY')
-      # Bundled tiny tests (auto-grouped by bundler):
-      #   - empty_string_to_sym
-      #   - str_each_line_chomp
-      #   - str_lines_chomp
-      #   - str_tr_empty_replacement
-      #   - string_ascii_only
-      #   - string_chomp_separator
-      #   - string_codepoints
-      #   - string_delete_multi_arg
-      #   - string_gsub_empty_pat
-      #   - string_range_splat
-      #   - string_scan_capture
-      #   - string_spaceship
-      #   - string_squeeze_multi_arg
-      #   - string_strip_nul
-      #   - string_symbol_itself
-      #   - string_tr_s
-      #   - string_valid_encoding
-      #   - string_with_nul_byte
-
-
       def t_string_with_nul_byte
       # Issue #722: a string literal with an embedded NUL byte reports
       # the full length, and .bytes iterates all bytes (not strlen-
