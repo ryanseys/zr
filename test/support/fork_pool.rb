@@ -132,9 +132,21 @@ module Ze0
           back = IO.pipe
           $stdout.flush
           pid = Process.fork do
+            # A process group of its own, so a worker that has to be
+            # killed takes with it whatever it started. A ze0 build forks
+            # six more processes, and one orphaned by a killed worker
+            # holds its pipe open and a hundred megabytes of memory long
+            # after the run has given up on the example.
+            Process.setpgid(0, 0)
             jobs.last.close
             back.first.close
             serve(jobs.first, back.last)
+          end
+          # Both sides set it, because either may run first.
+          begin
+            Process.setpgid(pid, pid)
+          rescue Errno::ESRCH, Errno::EACCES
+            nil
           end
           jobs.first.close
           back.last.close
@@ -250,11 +262,7 @@ module Ze0
             # can talk to any more, and `wait2` would wait forever on
             # one that is somehow still alive. A signal to a process
             # already gone leaves the status it died with standing.
-            begin
-              Process.kill("KILL", @pid)
-            rescue Errno::ESRCH
-              nil
-            end
+            stop!
             _, @status = Process.wait2(@pid)
             if @overdue
               "the worker ran past #{DEADLINE}s on this example, holding #{@overdue} MB " \
@@ -287,12 +295,27 @@ module Ze0
           result
         end
 
+        # The worker and everything it started. The group goes first,
+        # since that is what a build's own forks are in; the worker
+        # itself follows, in case the group was never made.
+        def stop!
+          Process.kill("KILL", -@pid)
+        rescue Errno::ESRCH, Errno::EPERM
+          nil
+        ensure
+          begin
+            Process.kill("KILL", @pid)
+          rescue Errno::ESRCH
+            nil
+          end
+        end
+
         # Always nil, so a caller can write `worker = worker.close`.
         def close
           @jobs.close unless @jobs.closed?
           @back.close unless @back.closed?
           unless @why
-            Process.kill("KILL", @pid)
+            stop!
             Process.wait(@pid)
           end
           nil

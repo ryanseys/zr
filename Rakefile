@@ -47,6 +47,20 @@ ENV["ZR_GC_STRESS"] = "1" if ENV["GC"] == "stress"
 # passes anything else through, and `MT_CPU=` says how many workers.
 # It also defines `<tier>:slow` (the slowest 25), `<tier>:isolated`
 # (which files fail when run alone) and `<tier>:cmd` beside each tier.
+# The runtime, the prelink and the eval road, built before a tier forks
+# rather than in every worker at once; `test/support/warm.rb` says what
+# that cost. `cold` is false for a run that names only files under
+# `test/unit`, which are the compiler's own Ruby: a narrow run of those
+# should not wait minutes for caches it will not use.
+def ze0_warm(cold)
+  require "rbconfig"
+  sh(RbConfig.ruby, "-Ilib:test", "-e",
+     %(require "support/warm"; Ze0::Test::Warm.call(cold: #{cold})), verbose: false)
+end
+
+desc "Build the runtime caches a tier would otherwise build in every worker"
+task("test:warm") { ze0_warm(true) }
+
 def tier(name, glob, framework, what)
   Minitest::TestTask.create(name) do |t|
     t.libs = %w[lib test]
@@ -111,6 +125,7 @@ if ZE0_TEST_ARGV.empty?
 else
   task :test do
     require "rbconfig"
+    ze0_warm(ZE0_TEST_ARGV.any? { |path| !path.start_with?(File.join(ROOT, "test/unit", "")) })
     # The tier's own switches, so one file answers to what a whole tier
     # answers to: `N=` matches an example, `X=` leaves one out, `A=`
     # passes anything else through.
@@ -125,6 +140,8 @@ else
     end
   end
 end
+
+%w[test:unit test:spec test:e2e].each { |name| task name => "test:warm" }
 
 tier "test:unit", "test/unit/*_test.rb", "test_helper",
      "ze0's own internals"

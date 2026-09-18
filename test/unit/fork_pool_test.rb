@@ -44,18 +44,47 @@ class ForkPoolTest < Minitest::Test
     assert_equal 180, Ze0::Test::ForkPool::DEADLINE
   end
 
+  # A worker that has to be killed takes with it whatever it started. A
+  # ze0 build forks six more processes, and one orphaned by a killed
+  # worker held its pipe open, and a hundred megabytes, for eight minutes
+  # after the run had given up on the example.
+  SPAWNER = <<~'RUBY'
+    require "test_helper"
+
+    class Spawner < Minitest::Test
+      def test_one_that_leaves_a_child
+        File.write(ENV.fetch("ZE0_POOL_PID"), spawn("sleep 300").to_s)
+        sleep(300)
+      end
+    end
+  RUBY
+
+  def test_a_worker_past_the_deadline_takes_its_children_with_it
+    Dir.mktmpdir("ze0-pool-") do |work|
+      kept = File.join(work, "pid")
+      child(SPAWNER, work, "ZE0_TEST_TIMEOUT" => "3", "ZE0_POOL_PID" => kept)
+      pid = Integer(File.read(kept))
+
+      assert_raises(Errno::ESRCH, "the worker's child outlived it") { Process.kill(0, pid) }
+    end
+  end
+
   private
 
-  # The suite run in a child, under `timeout` seconds an example. The
-  # child gets a clean bundler environment: this process runs under one,
-  # and a nested `bundle exec` would refuse the load path we hand it.
+  # The suite run in a child, under `timeout` seconds an example.
   def suite(timeout)
-    Dir.mktmpdir("ze0-pool-") do |work|
-      file = File.join(work, "bounded_suite.rb")
-      File.write(file, SUITE)
-      out = IO.popen({ "ZE0_TEST_TIMEOUT" => timeout }, [RbConfig.ruby, "-I#{ROOT}/lib", "-I#{ROOT}/test", file],
-                     err: %i[child out], &:read)
-      [out, $?]
-    end
+    Dir.mktmpdir("ze0-pool-") { |work| child(SUITE, work, "ZE0_TEST_TIMEOUT" => timeout) }
+  end
+
+  # `source` run as a suite of its own in `work`, and what it said. Not
+  # `run`: that is `Minitest::Runnable`'s own, and a private one here
+  # would answer the pool in its place. The child gets a clean bundler
+  # environment, since this process runs under one and a nested `bundle
+  # exec` would refuse the load path we hand it.
+  def child(source, work, env)
+    file = File.join(work, "bounded_suite.rb")
+    File.write(file, source)
+    out = IO.popen(env, [RbConfig.ruby, "-I#{ROOT}/lib", "-I#{ROOT}/test", file], err: %i[child out], &:read)
+    [out, $?]
   end
 end
