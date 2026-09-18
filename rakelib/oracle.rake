@@ -2,9 +2,9 @@
 
 # Is every literal a spec asserts still ruby's word?
 #
-#   ruby tools/oracle.rb test/spec/core/string           # an area
-#   ruby tools/oracle.rb test/spec                       # all of them
-#   ruby tools/oracle.rb test/spec/core/string/frozen_test.rb -n frozen
+#   rake oracle                                     # every spec
+#   rake 'oracle[test/spec/core/string]'            # an area
+#   rake 'oracle[test/spec/core/string/frozen_test.rb -n frozen]'
 #
 # The contract is that ruby 4.0.6 is the only source of right answers.
 # The specs were written by lifting the answers ruby had already
@@ -124,16 +124,22 @@ module Oracle
   end
 end
 
-if $PROGRAM_NAME == __FILE__
+# Every literal a spec asserts was lifted from a trailer ruby wrote, and
+# this is what says it still is. It compiles nothing: each program is
+# run under the ruby the `.ruby-version` pins and held to what its
+# example claims.
+desc "Every spec literal re-checked against ruby 4.0.6: rake 'oracle[test/spec/core/string]'"
+task :oracle, [:path] do |_, args|
+  argv = args[:path].to_s.split
   filter = nil
   OptionParser.new do |o|
     o.on("-n PATTERN", "only examples whose name matches") { |v| filter = Regexp.new(v) }
-  end.parse!(ARGV)
-  abort "usage: ruby tools/oracle.rb [-n PATTERN] <spec file or directory>..." if ARGV.empty?
+  end.parse!(argv)
+  argv = ["test/spec"] if argv.empty?
 
   asked = skipped = 0
   apart = []
-  ARGV.flat_map { |path| Oracle.files(path) }.each do |file|
+  argv.flat_map { |path| Oracle.files(path) }.each do |file|
     a, s, why = Oracle.check(file, filter)
     asked += a
     skipped += s

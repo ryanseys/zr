@@ -21,6 +21,17 @@ def ze0_tune!
   RubyVM::YJIT.enable if defined?(RubyVM::YJIT.enable) && ENV["ZE0_YJIT"] != "0"
 end
 
+# A generated file, written whole: the task prints into a string and the
+# file is replaced only once all of it is there, so a generator that
+# stops half way leaves the old file standing.
+def ze0_write(path)
+  require "stringio"
+  io = StringIO.new
+  yield io
+  File.write(File.join(ROOT, path), io.string)
+  puts "wrote #{path} (#{io.string.lines.size} lines)"
+end
+
 # `TARGET=wasm32-wasi` builds every program for that triple and runs it
 # the way that triple is run, as the cross-target rows of CI do;
 # `GC=stress` collects at every allocation.
@@ -73,75 +84,6 @@ tier "test:spec", "test/spec/**/*_test.rb", "spec_helper",
      "Ruby held to ruby, program by program"
 tier "test:e2e", "test/e2e/**/*_test.rb", "test_helper",
      "Whole programs through a real link"
-
-# Every literal a spec asserts was lifted from a trailer ruby wrote, and
-# this is what says it still is. It compiles nothing: each program is
-# run under the ruby the `.ruby-version` pins and held to what its
-# example claims.
-desc "Every spec literal re-checked against ruby 4.0.6: rake 'oracle[test/spec/core/string]'"
-task :oracle, [:path] do |_, args|
-  tool("oracle", args[:path] || "test/spec")
-end
-
-# Each writes a file from an oracle: ruby, or a C source read at
-# development time. The output carries a header saying so and is never
-# edited by hand.
-#
-# `rt/ext/os/<os>/zr_description.rb` and `lib/ze0/obj/macho/libsystem.rb`
-# are not here: they are snapshots the checks hold, and
-# `ZE0_BLESS=1 rake test:unit FILTER=description` writes them again.
-namespace :gen do
-  # Tools that write their own files.
-  WRITES = {
-    features: "lib/ze0/hir/features.rb",
-    cjk: "rt/core/cjk.rb",
-    enc_mb: "rt/kernel/enc_mb.rb",
-    nkf: "rt/ext/nkf/tables.rb",
-    onig_unicode: "rt/core/regexp/unicode_tables.rb and rt/kernel/onig_tables.rb",
-    onig_encodings: "rt/core/regexp/onig/encoding_tables.rb",
-    prism_generate: "rt/ext/prism/ruby/*.rb",
-    prism_encoding_tables: "rt/ext/prism/ruby/encoding_tables.rb"
-  }.freeze
-
-  # Tools that write the file to stdout, so the task holds the pen.
-  PRINTS = {
-    unicode: "rt/core/unicode.rb",
-    encodings: "rt/core/encodings.rb",
-    transcode: "rt/core/transcode.rb",
-    emoji: "rt/core/emoji.rb",
-    builtin_lines: "rt/core/builtin_lines.rb",
-    zlib_tables: "rt/kernel/zlib_tables.rb"
-  }.freeze
-
-  WRITES.each do |name, writes|
-    desc "Write #{writes}"
-    task(name) { tool(name.to_s) }
-  end
-
-  PRINTS.each do |name, writes|
-    desc "Write #{writes}"
-    task name do
-      # The file is replaced only once the tool has written all of it: a
-      # tool that stops half way leaves the old file standing.
-      out = File.join(ROOT, writes)
-      text = IO.popen([Gem.ruby, "-I#{File.join(ROOT, "lib")}", File.join(ROOT, "tools/#{name}.rb")], &:read)
-      abort("rake gen:#{name}: the tool failed") unless $?.success?
-
-      File.write(out, text)
-      puts "wrote #{writes} (#{text.lines.size} lines)"
-    end
-  end
-
-  desc "Write rt/ext/openssl/ossl/constants.rb"
-  task :openssl_constants do
-    out = File.join(ROOT, "rt/ext/openssl/ossl/constants.rb")
-    text = IO.popen([Gem.ruby, File.join(ROOT, "tools/openssl/constants.rb")], &:read)
-    abort("rake gen:openssl_constants: the tool failed") unless $?.success?
-
-    File.write(out, text)
-    puts "wrote rt/ext/openssl/ossl/constants.rb (#{text.lines.size} lines)"
-  end
-end
 
 # Each runs a Ruby port and ruby's own implementation on the host, and
 # compares the two. They are where a port is developed; the checks hold
