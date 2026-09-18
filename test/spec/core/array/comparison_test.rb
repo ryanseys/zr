@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Array: comparison and equality" do
-  it "array bsearch find any" do
+  it "bsearch with an Integer block follows the comparator protocol, and a float miss answers nil" do
     result = ze0(<<~'RUBY')
       # Array#bsearch / #bsearch_index find-ANY mode: an Integer-valued block follows
       # the comparator protocol (0 found, negative searches left, positive right),
@@ -36,7 +36,7 @@ describe "Array: comparison and equality" do
     OUT
   end
 
-  it "array compact eq" do
+  it "compact's poly result compares equal to a typed literal, in both operand orders" do
     result = ze0(<<~'RUBY')
       # `[1, nil, 2].compact` yields a poly_array, but a literal like `[1, 2]`
       # stays an int_array, so `compact == [1, 2]` compared distinct pointer
@@ -70,7 +70,7 @@ describe "Array: comparison and equality" do
     OUT
   end
 
-  it "array eq cross kind" do
+  it "== compares by value, whatever storage kind each side holds" do
     result = ze0(<<~'RUBY')
       # Array == compares by value across storage kinds: a splat-rest rebuilds its
       # arguments as a poly array, while the literal it is compared against may box
@@ -92,7 +92,7 @@ describe "Array: comparison and equality" do
     OUT
   end
 
-  it "array eql strict" do
+  it "eql? and uniq compare class-strictly, so 1 and 1.0 stay apart" do
     result = ze0(<<~'RUBY')
       # Array#eql? and Array#uniq compare per element with eql? (class-strict:
       # 1 is == to 1.0 but not eql?), matching CRuby.
@@ -126,7 +126,7 @@ describe "Array: comparison and equality" do
     OUT
   end
 
-  it "array object id" do
+  it "object_id answers a stable integer per array, and two arrays never share one" do
     result = ze0(<<~'RUBY')
       # Array#object_id on typed arrays: a stable per-object integer. (Exact
       # values are pointer-dependent, so check identity/distinctness/type.)
@@ -152,7 +152,7 @@ describe "Array: comparison and equality" do
     OUT
   end
 
-  it "array spaceship" do
+  it "<=> compares element-wise with a length tiebreak, and terminates on a self-referential array" do
     result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
       # behind. A cycle alive at exit is not a defect: it is a ring the
@@ -218,7 +218,7 @@ describe "Array: comparison and equality" do
     OUT
   end
 
-  it "array uniq hash collision skips eql" do
+  it "uniq confirms a hash-equal candidate with eql? before it drops one" do
     result = ze0(<<~'RUBY')
       # `Array#uniq` confirms hash-equal candidates with `eql?`.
       #

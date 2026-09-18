@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Array: enumeration" do
-  it "array bad literal argument" do
+  it "rotate, sum, product, inject and fill raise on a bad argument instead of refusing to compile" do
     result = ze0(<<~'RUBY')
       r = ([1, 2].rotate("a") rescue $!.class)
       p r
@@ -32,7 +32,7 @@ describe "Array: enumeration" do
     OUT
   end
 
-  it "array dup sort gc" do
+  it "dup and sort keep an unnamed receiver rooted across the allocation the copy makes" do
     result = ze0(<<~'RUBY')
       # Array#dup and Array#sort copy the receiver into a freshly allocated array.
       # That allocation can trigger a collection, so the receiver must stay rooted
@@ -64,7 +64,7 @@ describe "Array: enumeration" do
     OUT
   end
 
-  it "array map bang" do
+  it "map! transforms in place, answers the receiver, and holds a typed array to its element type" do
     result = ze0(<<~'RUBY')
       # Array#map! / #collect! transform each element in place and return the
       # (mutated) receiver. Typed arrays are homogeneous, so the block must
@@ -107,7 +107,7 @@ describe "Array: enumeration" do
     OUT
   end
 
-  it "array reduce search methods" do
+  it "minmax_by answers the pair in one pass, and bsearch_index the leftmost index or nil" do
     result = ze0(<<~'RUBY')
       # Array reduction/search coverage: minmax_by (one-pass [min, max] by a block
       # key) and bsearch_index (find-minimum binary search returning an index or nil).
@@ -160,7 +160,7 @@ describe "Array: enumeration" do
     OUT
   end
 
-  it "array sort by bang" do
+  it "sort_by! orders in place and answers the receiver" do
     result = ze0(<<~'RUBY')
       a = [3, 1, 2]
       r = a.sort_by! { |x| -x }
@@ -194,7 +194,7 @@ describe "Array: enumeration" do
     OUT
   end
 
-  it "array sort by schwartzian" do
+  it "sort_by calls the key block once per element, in order, stably, and leaves the receiver alone" do
     result = ze0(<<~'RUBY')
       # sort_by lowers to a Schwartzian transform: the key block runs exactly ONCE per
       # element, in element order (not once per comparison like a naive sort), the sort
@@ -262,7 +262,7 @@ describe "Array: enumeration" do
     OUT
   end
 
-  it "array zip no args" do
+  it "zip with no argument wraps each element in a one-element array" do
     result = ze0(<<~'RUBY')
       # Array#zip with nothing to zip against: each element alone in a one-element
       # array. Every zip arm was written for at least one argument, so this was

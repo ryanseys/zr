@@ -175,7 +175,7 @@ describe "Enumerable programs" do
     OUT
   end
 
-  it "enumerable breadth" do
+  it "chunk_while and slice_when cut on opposite conditions, and every row rides the receiver's own each" do
     result = ze0(<<~'RUBY')
       # Enumerable chunking/slicing and Array combinatorics/search.
       #
@@ -382,7 +382,7 @@ describe "Enumerable programs" do
     OUT
   end
 
-  it "enumerable chain more" do
+  it "chain, reverse_each, compact and to_set read a user class the same as an Array" do
     result = ze0(<<~'RUBY')
       # Enumerable chain/reverse_each/compact/to_set on user classes + Array#chain (#2474-2478)
       class C
@@ -408,7 +408,7 @@ describe "Enumerable programs" do
     OUT
   end
 
-  it "enumerable pattern predicates" do
+  it "any?, all?, none? and one? match their pattern argument with ===" do
     result = ze0(<<~'RUBY')
       # any?/all?/none?/one? accept a pattern argument, matched with === (case
       # equality) against each element -- a class, range, regexp, or any === value.
@@ -446,7 +446,7 @@ describe "Enumerable programs" do
     OUT
   end
 
-  it "enumerable predicates accept a pattern" do
+  it "a class, a range, a regexp and a pair each serve as a predicate's pattern" do
     result = ze0(<<~'RUBY')
       p [1, 2, 3].any?(Integer)
       p [1, "a", 3].all?(Integer)
@@ -468,7 +468,7 @@ describe "Enumerable programs" do
     OUT
   end
 
-  it "enumerable surplus arguments raise" do
+  it "a surplus argument to an optional-argument row raises for the count, and names the right bound" do
     result = ze0(<<~'RUBY')
       # The Enumerable/Array rows that take an OPTIONAL argument must still count
       # what they were given: a surplus one is `wrong number of arguments`, not a
@@ -526,7 +526,7 @@ describe "Enumerable programs" do
     OUT
   end
 
-  it "enumerable tally accumulator" do
+  it "tally counts into the hash it is given and answers that same object" do
     result = ze0(<<~'RUBY')
       # Enumerable#tally(hash) counts into the given accumulator hash and returns it
       # (the same object), across hash variants (#2628).
@@ -551,7 +551,7 @@ describe "Enumerable programs" do
     OUT
   end
 
-  it "enumerable via each" do
+  it "a class that includes Enumerable and writes only each gets every Enumerable method" do
     result = ze0(<<~'RUBY')
       # A class that includes Enumerable and defines only #each gets the bare
       # Enumerable methods (map/select/to_a/sort/count/...) directly, with no explicit

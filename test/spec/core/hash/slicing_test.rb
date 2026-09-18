@@ -101,7 +101,7 @@ describe "Hash: slicing" do
     OUT
   end
 
-  it "hash const into defaulted param" do
+  it "a Hash constant passed to a parameter that defaults to {} both iterates and keeps its String keys" do
     result = ze0(<<~'RUBY')
       # A Hash constant passed to a parameter that defaults to `{}`. Two faults, both
       # silent: the loop ran zero times, and then its writes went nowhere (#4041).
@@ -176,7 +176,7 @@ describe "Hash: slicing" do
     OUT
   end
 
-  it "hash double splat" do
+  it "a literal with a double-splat merges the spread source instead of erasing the literal's type" do
     result = ze0(<<~'RUBY')
       # A hash literal with a double-splat (`{ **h, k: v }`) must merge the spread
       # source instead of erasing the literal's type to UNKNOWN and rejecting.
@@ -228,7 +228,7 @@ describe "Hash: slicing" do
     OUT
   end
 
-  it "hash enumerable batch" do
+  it "the Enumerable rows read a Hash as a sequence of pairs" do
     result = ze0(<<~'RUBY')
       # Hash Enumerable conformance (KieranP #2339,#2341,#2350,#2352)
       h = { a: 1, b: 2 }
@@ -266,7 +266,7 @@ describe "Hash: slicing" do
     OUT
   end
 
-  it "hash except" do
+  it "except answers a copy without the given keys, and passes over a key that is not there" do
     result = ze0(<<~'RUBY')
       # Hash#except returns a copy of the hash without the given keys.
 
@@ -314,7 +314,7 @@ describe "Hash: slicing" do
     OUT
   end
 
-  it "hash range enum extensions" do
+  it "min, max, minmax_by, flat_map and each_with_object redispatch over pairs and over a Range" do
     result = ze0(<<~'RUBY')
       # Hash min/max/minmax_by, flat_map splicing, and each_with_object over
       # hashes and ranges (the pair/array redispatch family).
@@ -341,7 +341,7 @@ describe "Hash: slicing" do
     OUT
   end
 
-  it "hash range key" do
+  it "two Ranges with the same bounds are one key, so a lookup finds what it stored" do
     result = ze0(<<~'RUBY')
       # Two Ranges with the same bounds are one Hash key. A fresh box hashed by
       # pointer, so a lookup never found the entry it had just stored.
@@ -384,7 +384,7 @@ describe "Hash: slicing" do
     OUT
   end
 
-  it "hash simple returns" do
+  it "clear answers the emptied hash, argumentless merge a copy, argumentless slice an empty hash, and to_hash self" do
     result = ze0(<<~'RUBY')
       # Hash: clear returns the emptied hash; no-arg merge is a copy; no-arg slice
       # is an empty hash; blockless one? is exactly-one-pair; to_hash is self.
