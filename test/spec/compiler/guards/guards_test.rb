@@ -790,7 +790,7 @@ describe "Guards programs" do
     OUT
   end
 
-  it "conditional def is conditional" do
+  it "a def under a false guard is absent to a call and to reflection alike" do
     result = ze0(<<~'RUBY')
       # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
       # the guard says so -- which means it must claim no compile-time method-table
@@ -820,6 +820,30 @@ describe "Guards programs" do
         p :no_method
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      false
+      []
+      :no_method
+    OUT
+  end
+
+  it "a def under a true guard is present by every one of those readings" do
+    result = ze0(<<~'RUBY')
+      # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
+      # the guard says so -- which means it must claim no compile-time method-table
+      # row, because that row would answer whether or not the branch ran. What the
+      # guard installs goes into the runtime overlay instead, and the overlay is what
+      # answers: it already outranks a class's own table and an inherited one both.
+      #
+      # The name still has to REGISTER, so the compile-time machinery that resolves
+      # `extend` and the method tables can see it. Registering it is not the same as
+      # promising it.
+
+      OFF = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "on"
+      ON = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "off"
+
       # The guard is true, so it is there, by every one of those readings.
       class Present
         if ON
@@ -829,6 +853,30 @@ describe "Guards programs" do
       p Present.new.only_when_on
       p Present.new.respond_to?(:only_when_on)
       p Present.instance_methods(false)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :on
+      true
+      [:only_when_on]
+    OUT
+  end
+
+  it "a conditional def does not displace one that always runs when its guard is false" do
+    result = ze0(<<~'RUBY')
+      # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
+      # the guard says so -- which means it must claim no compile-time method-table
+      # row, because that row would answer whether or not the branch ran. What the
+      # guard installs goes into the runtime overlay instead, and the overlay is what
+      # answers: it already outranks a class's own table and an inherited one both.
+      #
+      # The name still has to REGISTER, so the compile-time machinery that resolves
+      # `extend` and the method tables can see it. Registering it is not the same as
+      # promising it.
+
+      OFF = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "on"
+      ON = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "off"
 
       # A conditional `def` does not displace one that always runs: last-def-wins is
       # a rule about `def`s that RAN.
@@ -841,6 +889,29 @@ describe "Guards programs" do
       p Both.new.which
       p Both.instance_methods(false)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :always
+      [:which]
+    OUT
+  end
+
+  it "the conditional def wins when its guard is true, as last-def-wins says" do
+    result = ze0(<<~'RUBY')
+      # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
+      # the guard says so -- which means it must claim no compile-time method-table
+      # row, because that row would answer whether or not the branch ran. What the
+      # guard installs goes into the runtime overlay instead, and the overlay is what
+      # answers: it already outranks a class's own table and an inherited one both.
+      #
+      # The name still has to REGISTER, so the compile-time machinery that resolves
+      # `extend` and the method tables can see it. Registering it is not the same as
+      # promising it.
+
+      OFF = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "on"
+      ON = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "off"
+
       # ...and when the guard IS true, the overlay it writes wins, which is the same
       # answer from the other direction.
       class BothOn
@@ -850,6 +921,28 @@ describe "Guards programs" do
         end
       end
       p BothOn.new.which
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :guarded
+    OUT
+  end
+
+  it "a false-guarded def does not shadow an ancestor's, so the inherited body answers" do
+    result = ze0(<<~'RUBY')
+      # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
+      # the guard says so -- which means it must claim no compile-time method-table
+      # row, because that row would answer whether or not the branch ran. What the
+      # guard installs goes into the runtime overlay instead, and the overlay is what
+      # answers: it already outranks a class's own table and an inherited one both.
+      #
+      # The name still has to REGISTER, so the compile-time machinery that resolves
+      # `extend` and the method tables can see it. Registering it is not the same as
+      # promising it.
+
+      OFF = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "on"
+      ON = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "off"
 
       # Nor does it shadow an ancestor's: with the guard false the inherited body
       # answers, which takes the name not claiming a row on the subclass at all.
@@ -872,6 +965,30 @@ describe "Guards programs" do
       end
       p LoudSub.new.which
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :base
+      []
+      :sub
+    OUT
+  end
+
+  it "where both branches define the name, the taken branch is what answers" do
+    result = ze0(<<~'RUBY')
+      # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
+      # the guard says so -- which means it must claim no compile-time method-table
+      # row, because that row would answer whether or not the branch ran. What the
+      # guard installs goes into the runtime overlay instead, and the overlay is what
+      # answers: it already outranks a class's own table and an inherited one both.
+      #
+      # The name still has to REGISTER, so the compile-time machinery that resolves
+      # `extend` and the method tables can see it. Registering it is not the same as
+      # promising it.
+
+      OFF = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "on"
+      ON = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "off"
+
       # Both branches defining the same name is the compat-shim shape, and the taken
       # branch is the one that answers.
       class Either
@@ -882,6 +999,28 @@ describe "Guards programs" do
         end
       end
       p Either.new.which
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :else_branch
+    OUT
+  end
+
+  it "a top-level class X ... end if cond reopens through the same path" do
+    result = ze0(<<~'RUBY')
+      # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
+      # the guard says so -- which means it must claim no compile-time method-table
+      # row, because that row would answer whether or not the branch ran. What the
+      # guard installs goes into the runtime overlay instead, and the overlay is what
+      # answers: it already outranks a class's own table and an inherited one both.
+      #
+      # The name still has to REGISTER, so the compile-time machinery that resolves
+      # `extend` and the method tables can see it. Registering it is not the same as
+      # promising it.
+
+      OFF = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "on"
+      ON = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "off"
 
       # The top-level `class X ... end if cond` form reopens through the same
       # machinery (`analyze::try_conditional_reopen` pushes the guard into the class
@@ -897,6 +1036,29 @@ describe "Guards programs" do
 
       p Reopened.new.respond_to?(:added)
       p Reopened.instance_methods(false)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      false
+      [:base]
+    OUT
+  end
+
+  it "a definition carries more than one trailing modifier, and the pair is read together" do
+    result = ze0(<<~'RUBY')
+      # A `def` inside a class-body `if` whose guard zeo cannot decide runs only if
+      # the guard says so -- which means it must claim no compile-time method-table
+      # row, because that row would answer whether or not the branch ran. What the
+      # guard installs goes into the runtime overlay instead, and the overlay is what
+      # answers: it already outranks a class's own table and an inherited one both.
+      #
+      # The name still has to REGISTER, so the compile-time machinery that resolves
+      # `extend` and the method tables can see it. Registering it is not the same as
+      # promising it.
+
+      OFF = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "on"
+      ON = ENV.fetch("ZEO_CONDITIONAL_DEF_UNSET", "off") == "off"
 
       # Ruby lets a definition carry more than one trailing modifier, and the pair
       # pushes into the class body exactly as a single one does. sexp_processor
@@ -925,21 +1087,6 @@ describe "Guards programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      false
-      []
-      :no_method
-      :on
-      true
-      [:only_when_on]
-      :always
-      [:which]
-      :guarded
-      :base
-      []
-      :sub
-      :else_branch
-      false
-      [:base]
       :added
       [:added, :base]
       false
@@ -2768,7 +2915,7 @@ describe "Guards programs" do
     OUT
   end
 
-  it "top level guarded definitions" do
+  it "defined? of a constant the program never defines folds false" do
     result = ze0(<<~'RUBY')
       # A class or module defined inside a top-level `if`.
       #
@@ -2796,6 +2943,29 @@ describe "Guards programs" do
 
       p Provided.new.call
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "the guarded definition ran"
+    OUT
+  end
+
+  it "&& over two such probes waits on both" do
+    result = ze0(<<~'RUBY')
+      # A class or module defined inside a top-level `if`.
+      #
+      # zeo has to decide such a guard at compile time -- it registers definitions in
+      # one whole-program walk, so a definition it cannot prove reachable is a
+      # rejection rather than a runtime branch. `guard_fold` does the deciding, and
+      # two shapes it could not read cover most of the real gem guards.
+      #
+      #   !defined?(X)              a reload guard, and `static_bool` had no `!`
+      #   "".respond_to?(:m)        a capability probe on a LITERAL receiver, and
+      #                             `instance_class` mapped only `X.new` / bare `new`
+      #
+      # The gems: addressable writes the first; httpclient, em-websocket, highline and
+      # test-prof write the second.
+
       # `&&` over two of them, which is how a guard that waits on more than one
       # optional dependency is written.
       if !defined?(AbsentOne) && !defined?(AbsentTwo)
@@ -2805,6 +2975,29 @@ describe "Guards programs" do
       end
 
       p Both::OK
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "both absent"
+    OUT
+  end
+
+  it "a capability probe on a String literal answers from String's own surface" do
+    result = ze0(<<~'RUBY')
+      # A class or module defined inside a top-level `if`.
+      #
+      # zeo has to decide such a guard at compile time -- it registers definitions in
+      # one whole-program walk, so a definition it cannot prove reachable is a
+      # rejection rather than a runtime branch. `guard_fold` does the deciding, and
+      # two shapes it could not read cover most of the real gem guards.
+      #
+      #   !defined?(X)              a reload guard, and `static_bool` had no `!`
+      #   "".respond_to?(:m)        a capability probe on a LITERAL receiver, and
+      #                             `instance_class` mapped only `X.new` / bare `new`
+      #
+      # The gems: addressable writes the first; httpclient, em-websocket, highline and
+      # test-prof write the second.
 
       # A capability probe on a string literal. zeo answers `bytesize` from String's
       # own native surface, so the guard folds FALSE and the definition never reaches
@@ -2819,6 +3012,30 @@ describe "Guards programs" do
 
       p "hello".bytesize
       p "héllo".bytesize
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      5
+      6
+    OUT
+  end
+
+  it "the same probe answers on the other literal receivers and through a method" do
+    result = ze0(<<~'RUBY')
+      # A class or module defined inside a top-level `if`.
+      #
+      # zeo has to decide such a guard at compile time -- it registers definitions in
+      # one whole-program walk, so a definition it cannot prove reachable is a
+      # rejection rather than a runtime branch. `guard_fold` does the deciding, and
+      # two shapes it could not read cover most of the real gem guards.
+      #
+      #   !defined?(X)              a reload guard, and `static_bool` had no `!`
+      #   "".respond_to?(:m)        a capability probe on a LITERAL receiver, and
+      #                             `instance_class` mapped only `X.new` / bare `new`
+      #
+      # The gems: addressable writes the first; httpclient, em-websocket, highline and
+      # test-prof write the second.
 
       # The same probe on the other literal receivers, and through a method the
       # receiver inherits (`tap` comes from Kernel, not Array).
@@ -2850,6 +3067,31 @@ describe "Guards programs" do
       p({ a: 1 }.tap { |h| h[:b] = 2 })
       p 0.zero?
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      6
+      {a: 1, b: 2}
+      true
+    OUT
+  end
+
+  it "unless !x folds too, and keeps the branch this time" do
+    result = ze0(<<~'RUBY')
+      # A class or module defined inside a top-level `if`.
+      #
+      # zeo has to decide such a guard at compile time -- it registers definitions in
+      # one whole-program walk, so a definition it cannot prove reachable is a
+      # rejection rather than a runtime branch. `guard_fold` does the deciding, and
+      # two shapes it could not read cover most of the real gem guards.
+      #
+      #   !defined?(X)              a reload guard, and `static_bool` had no `!`
+      #   "".respond_to?(:m)        a capability probe on a LITERAL receiver, and
+      #                             `instance_class` mapped only `X.new` / bare `new`
+      #
+      # The gems: addressable writes the first; httpclient, em-websocket, highline and
+      # test-prof write the second.
+
       # `unless !x` -- the double negative folds too, and keeps the branch this time.
       unless !defined?(StillNotHere)
         class NeverRuns
@@ -2861,6 +3103,29 @@ describe "Guards programs" do
 
       p defined?(NeverRuns).nil?
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+    OUT
+  end
+
+  it "const_defined? is defined?'s reflective twin and reads the same state" do
+    result = ze0(<<~'RUBY')
+      # A class or module defined inside a top-level `if`.
+      #
+      # zeo has to decide such a guard at compile time -- it registers definitions in
+      # one whole-program walk, so a definition it cannot prove reachable is a
+      # rejection rather than a runtime branch. `guard_fold` does the deciding, and
+      # two shapes it could not read cover most of the real gem guards.
+      #
+      #   !defined?(X)              a reload guard, and `static_bool` had no `!`
+      #   "".respond_to?(:m)        a capability probe on a LITERAL receiver, and
+      #                             `instance_class` mapped only `X.new` / bare `new`
+      #
+      # The gems: addressable writes the first; httpclient, em-websocket, highline and
+      # test-prof write the second.
+
       # `const_defined?` -- `defined?`'s reflective twin, which guard-compat uses.
       unless Object.const_defined?("HostFrameworkIsAbsent")
         module Stubbed
@@ -2869,6 +3134,29 @@ describe "Guards programs" do
       end
 
       p Stubbed::NAME
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "stubbed"
+    OUT
+  end
+
+  it "a capability probe whose answer is genuinely no takes the other branch" do
+    result = ze0(<<~'RUBY')
+      # A class or module defined inside a top-level `if`.
+      #
+      # zeo has to decide such a guard at compile time -- it registers definitions in
+      # one whole-program walk, so a definition it cannot prove reachable is a
+      # rejection rather than a runtime branch. `guard_fold` does the deciding, and
+      # two shapes it could not read cover most of the real gem guards.
+      #
+      #   !defined?(X)              a reload guard, and `static_bool` had no `!`
+      #   "".respond_to?(:m)        a capability probe on a LITERAL receiver, and
+      #                             `instance_class` mapped only `X.new` / bare `new`
+      #
+      # The gems: addressable writes the first; httpclient, em-websocket, highline and
+      # test-prof write the second.
 
       # A capability probe whose answer is genuinely NO. String's surface is
       # projected in full, so the absence is a fact rather than an unfinished class,
@@ -2883,6 +3171,29 @@ describe "Guards programs" do
 
       p Parameterizer.new.call
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "activesupport is not loaded"
+    OUT
+  end
+
+  it "a standard stream is an IO instance, which is how a gem probes for one" do
+    result = ze0(<<~'RUBY')
+      # A class or module defined inside a top-level `if`.
+      #
+      # zeo has to decide such a guard at compile time -- it registers definitions in
+      # one whole-program walk, so a definition it cannot prove reachable is a
+      # rejection rather than a runtime branch. `guard_fold` does the deciding, and
+      # two shapes it could not read cover most of the real gem guards.
+      #
+      #   !defined?(X)              a reload guard, and `static_bool` had no `!`
+      #   "".respond_to?(:m)        a capability probe on a LITERAL receiver, and
+      #                             `instance_class` mapped only `X.new` / bare `new`
+      #
+      # The gems: addressable writes the first; httpclient, em-websocket, highline and
+      # test-prof write the second.
+
       # A standard stream is an IO instance, which is how highline probes.
       unless STDIN.respond_to?(:getbyte)
         class IO
@@ -2896,16 +3207,6 @@ describe "Guards programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "the guarded definition ran"
-      "both absent"
-      5
-      6
-      6
-      {a: 1, b: 2}
-      true
-      true
-      "stubbed"
-      "activesupport is not loaded"
       true
     OUT
   end

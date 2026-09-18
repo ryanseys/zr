@@ -1887,7 +1887,7 @@ describe "Process programs" do
     _(result).must_answer "true\ntrue\n"
   end
 
-  it "spawn answers a pid, and waitpid2 answers the Process::Status that describes how it ended" do
+  it "a child that exits 0 reports exited? and success?" do
     result = ze0(<<~'RUBY')
       # Process.spawn + Process.waitpid2 + Process::Status.
       #
@@ -1926,6 +1926,42 @@ describe "Process programs" do
       # status.pid is tested in (4) via the destructure, not via the boxed
       # == path that the spinel poly-comparison route doesn't handle yet.
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      true
+      true
+    OUT
+  end
+
+  it "spawn of a command that is not there raises Errno::ENOENT" do
+    result = ze0(<<~'RUBY')
+      # Process.spawn + Process.waitpid2 + Process::Status.
+      #
+      # true/false are spelled /usr/bin/... because that is where macOS keeps them;
+      # /bin/true and /bin/false do not exist there, and spawning them raised an
+      # uncaught Errno::ENOENT part way through this file. Both paths exist on Linux.
+      #
+      # CRuby semantics:
+      #   Process.spawn(cmd, *args, opts) -> Integer pid
+      #   Process.waitpid2(pid) -> [pid, Process::Status]
+      #   Process::Status#signaled?   -> true if killed by signal
+      #   Process::Status#exited?     -> true if exited normally
+      #   Process::Status#exitstatus  -> exit code (0..255) or nil
+      #   Process::Status#termsig     -> signal number or nil
+      #   Process::Status#coredump?   -> true if dumped core
+      #   Process::Status#success?    -> true if exited? and exitstatus == 0
+      #   Process::Status#pid         -> pid
+      #
+      # Process::Status has no public constructor in CRuby: the only way to
+      # obtain one is Process.waitpid2 on a real subprocess. Both CRuby and
+      # spinel must produce the same predicate answers here; the boxed-comparison
+      # path (status.exitstatus == 0) is exercised by other tests, this one
+      # focuses on the four predicates that the bash tool's signal-check path
+      # actually uses (exited? / success? / signaled? / pid).
+
       # 2) Nonexistent command -> Errno::ENOENT.
       ok = false
       begin
@@ -1939,6 +1975,39 @@ describe "Process programs" do
       end
       puts ok
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+    OUT
+  end
+
+  it "a child that exits 1 reports exited? true and success? false" do
+    result = ze0(<<~'RUBY')
+      # Process.spawn + Process.waitpid2 + Process::Status.
+      #
+      # true/false are spelled /usr/bin/... because that is where macOS keeps them;
+      # /bin/true and /bin/false do not exist there, and spawning them raised an
+      # uncaught Errno::ENOENT part way through this file. Both paths exist on Linux.
+      #
+      # CRuby semantics:
+      #   Process.spawn(cmd, *args, opts) -> Integer pid
+      #   Process.waitpid2(pid) -> [pid, Process::Status]
+      #   Process::Status#signaled?   -> true if killed by signal
+      #   Process::Status#exited?     -> true if exited normally
+      #   Process::Status#exitstatus  -> exit code (0..255) or nil
+      #   Process::Status#termsig     -> signal number or nil
+      #   Process::Status#coredump?   -> true if dumped core
+      #   Process::Status#success?    -> true if exited? and exitstatus == 0
+      #   Process::Status#pid         -> pid
+      #
+      # Process::Status has no public constructor in CRuby: the only way to
+      # obtain one is Process.waitpid2 on a real subprocess. Both CRuby and
+      # spinel must produce the same predicate answers here; the boxed-comparison
+      # path (status.exitstatus == 0) is exercised by other tests, this one
+      # focuses on the four predicates that the bash tool's signal-check path
+      # actually uses (exited? / success? / signaled? / pid).
+
       # 3) /usr/bin/false exits 1: exited? true, success? false.
       r, w = IO.pipe
       pid = Process.spawn("/usr/bin/false", out: w)
@@ -1947,6 +2016,40 @@ describe "Process programs" do
       _, status = Process.waitpid2(pid)
       puts status.exited?
       puts status.success? == false
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      true
+    OUT
+  end
+
+  it "the status waitpid2 answers reports signaled? and its siblings" do
+    result = ze0(<<~'RUBY')
+      # Process.spawn + Process.waitpid2 + Process::Status.
+      #
+      # true/false are spelled /usr/bin/... because that is where macOS keeps them;
+      # /bin/true and /bin/false do not exist there, and spawning them raised an
+      # uncaught Errno::ENOENT part way through this file. Both paths exist on Linux.
+      #
+      # CRuby semantics:
+      #   Process.spawn(cmd, *args, opts) -> Integer pid
+      #   Process.waitpid2(pid) -> [pid, Process::Status]
+      #   Process::Status#signaled?   -> true if killed by signal
+      #   Process::Status#exited?     -> true if exited normally
+      #   Process::Status#exitstatus  -> exit code (0..255) or nil
+      #   Process::Status#termsig     -> signal number or nil
+      #   Process::Status#coredump?   -> true if dumped core
+      #   Process::Status#success?    -> true if exited? and exitstatus == 0
+      #   Process::Status#pid         -> pid
+      #
+      # Process::Status has no public constructor in CRuby: the only way to
+      # obtain one is Process.waitpid2 on a real subprocess. Both CRuby and
+      # spinel must produce the same predicate answers here; the boxed-comparison
+      # path (status.exitstatus == 0) is exercised by other tests, this one
+      # focuses on the four predicates that the bash tool's signal-check path
+      # actually uses (exited? / success? / signaled? / pid).
 
       # 4) The boxed status: from waitpid2's second element, .signaled? /
       #    .exited? dispatch on the cls_id the poly path reads out of the boxed
@@ -1962,6 +2065,41 @@ describe "Process programs" do
       puts got_st.exited?
       puts got_st.success?
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      true
+    OUT
+  end
+
+  it "the status answers its accessors through a String consumer too" do
+    result = ze0(<<~'RUBY')
+      # Process.spawn + Process.waitpid2 + Process::Status.
+      #
+      # true/false are spelled /usr/bin/... because that is where macOS keeps them;
+      # /bin/true and /bin/false do not exist there, and spawning them raised an
+      # uncaught Errno::ENOENT part way through this file. Both paths exist on Linux.
+      #
+      # CRuby semantics:
+      #   Process.spawn(cmd, *args, opts) -> Integer pid
+      #   Process.waitpid2(pid) -> [pid, Process::Status]
+      #   Process::Status#signaled?   -> true if killed by signal
+      #   Process::Status#exited?     -> true if exited normally
+      #   Process::Status#exitstatus  -> exit code (0..255) or nil
+      #   Process::Status#termsig     -> signal number or nil
+      #   Process::Status#coredump?   -> true if dumped core
+      #   Process::Status#success?    -> true if exited? and exitstatus == 0
+      #   Process::Status#pid         -> pid
+      #
+      # Process::Status has no public constructor in CRuby: the only way to
+      # obtain one is Process.waitpid2 on a real subprocess. Both CRuby and
+      # spinel must produce the same predicate answers here; the boxed-comparison
+      # path (status.exitstatus == 0) is exercised by other tests, this one
+      # focuses on the four predicates that the bash tool's signal-check path
+      # actually uses (exited? / success? / signaled? / pid).
+
       # 5) The boxed status in a String consumer. The accessors are answered on a
       #    poly receiver by emit_poly_builtin_method, which emits an unboxed scalar,
       #    so the inference has to type them the same way -- otherwise the
@@ -1974,6 +2112,40 @@ describe "Process programs" do
       st = res[1]
       puts "exit #{st.exitstatus}"
       puts "pid=#{st.pid}" == "pid=#{pid}"
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      exit 1
+      true
+    OUT
+  end
+
+  it "a child that did not exit normally answers nil rather than false for exitstatus" do
+    result = ze0(<<~'RUBY')
+      # Process.spawn + Process.waitpid2 + Process::Status.
+      #
+      # true/false are spelled /usr/bin/... because that is where macOS keeps them;
+      # /bin/true and /bin/false do not exist there, and spawning them raised an
+      # uncaught Errno::ENOENT part way through this file. Both paths exist on Linux.
+      #
+      # CRuby semantics:
+      #   Process.spawn(cmd, *args, opts) -> Integer pid
+      #   Process.waitpid2(pid) -> [pid, Process::Status]
+      #   Process::Status#signaled?   -> true if killed by signal
+      #   Process::Status#exited?     -> true if exited normally
+      #   Process::Status#exitstatus  -> exit code (0..255) or nil
+      #   Process::Status#termsig     -> signal number or nil
+      #   Process::Status#coredump?   -> true if dumped core
+      #   Process::Status#success?    -> true if exited? and exitstatus == 0
+      #   Process::Status#pid         -> pid
+      #
+      # Process::Status has no public constructor in CRuby: the only way to
+      # obtain one is Process.waitpid2 on a real subprocess. Both CRuby and
+      # spinel must produce the same predicate answers here; the boxed-comparison
+      # path (status.exitstatus == 0) is exercised by other tests, this one
+      # focuses on the four predicates that the bash tool's signal-check path
+      # actually uses (exited? / success? / signaled? / pid).
 
       # 6) A status that did NOT exit normally. CRuby answers nil, not false, for
       #    success?, and nil for exitstatus; termsig carries the signal. The nil
@@ -1994,18 +2166,6 @@ describe "Process programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      true
-      true
-      true
-      true
-      true
-      true
-      true
-      true
-      true
-      true
-      exit 1
-      true
       true
       false
       9

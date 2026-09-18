@@ -717,7 +717,7 @@ describe "Constants programs" do
     ERR
   end
 
-  it "const probe and anchored shell" do
+  it "a gate on something the program never defines leaves its body unreachable" do
     result = ze0(<<~'RUBY')
       # Two constant-resolution rules rubygems and bundler lean on all through their
       # compatibility shims.
@@ -738,6 +738,25 @@ describe "Constants programs" do
       end
       p defined?(OnlyUnderTheGate)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      nil
+    OUT
+  end
+
+  it "a gate on something the program does define compiles and runs its body" do
+    result = ze0(<<~'RUBY')
+      # Two constant-resolution rules rubygems and bundler lean on all through their
+      # compatibility shims.
+      #
+      # 1. `if defined?(Const)` gates a whole definition. Whether the constant exists
+      #    is fixed for a whole-program target, so the branch is decided at compile
+      #    time -- and registration and emission have to decide it the SAME way, or a
+      #    class reaches codegen with nothing registered behind it.
+      # 2. A `::`-anchored path names the top level and nothing else, including when
+      #    the definition it names comes LATER in the flattened program.
+
       # A gate on something the program DOES define: the branch compiles and runs.
       # (Asked BEFORE the definition, zeo answers "constant" where ruby answers nil --
       # a constant's document-order visibility is a separate, pre-existing
@@ -751,6 +770,25 @@ describe "Constants programs" do
       end
       p GatedOnReal.new.call
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      42
+    OUT
+  end
+
+  it "the same gate reads a nested path and a plain constant alike" do
+    result = ze0(<<~'RUBY')
+      # Two constant-resolution rules rubygems and bundler lean on all through their
+      # compatibility shims.
+      #
+      # 1. `if defined?(Const)` gates a whole definition. Whether the constant exists
+      #    is fixed for a whole-program target, so the branch is decided at compile
+      #    time -- and registration and emission have to decide it the SAME way, or a
+      #    class reaches codegen with nothing registered behind it.
+      # 2. A `::`-anchored path names the top level and nothing else, including when
+      #    the definition it names comes LATER in the flattened program.
+
       # The same gate written against a nested path, and against a plain constant
       # assignment rather than a class.
       module Outer
@@ -759,6 +797,27 @@ describe "Constants programs" do
       p defined?(Outer::Inner)
       p defined?(Outer::Nope)
       p defined?(NEVER_ASSIGNED)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "constant"
+      nil
+      nil
+    OUT
+  end
+
+  it "a gate on a value constant, not a class, still answers" do
+    result = ze0(<<~'RUBY')
+      # Two constant-resolution rules rubygems and bundler lean on all through their
+      # compatibility shims.
+      #
+      # 1. `if defined?(Const)` gates a whole definition. Whether the constant exists
+      #    is fixed for a whole-program target, so the branch is decided at compile
+      #    time -- and registration and emission have to decide it the SAME way, or a
+      #    class reaches codegen with nothing registered behind it.
+      # 2. A `::`-anchored path names the top level and nothing else, including when
+      #    the definition it names comes LATER in the flattened program.
 
       # A VALUE constant, not a class: `resolve_class` has nothing to say about it,
       # so the const registry has to be consulted too.
@@ -776,6 +835,29 @@ describe "Constants programs" do
       p defined?(Holder::LIMIT)
       p defined?(Holder::MISSING)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "constant"
+      nil
+      "constant"
+      "constant"
+      nil
+    OUT
+  end
+
+  it "unless defined? is the vendored-shim spelling of the same gate" do
+    result = ze0(<<~'RUBY')
+      # Two constant-resolution rules rubygems and bundler lean on all through their
+      # compatibility shims.
+      #
+      # 1. `if defined?(Const)` gates a whole definition. Whether the constant exists
+      #    is fixed for a whole-program target, so the branch is decided at compile
+      #    time -- and registration and emission have to decide it the SAME way, or a
+      #    class reaches codegen with nothing registered behind it.
+      # 2. A `::`-anchored path names the top level and nothing else, including when
+      #    the definition it names comes LATER in the flattened program.
+
       # ...and `unless defined?` -- the vendored-shim spelling.
       unless defined?(Vendored)
         module Vendored
@@ -783,6 +865,25 @@ describe "Constants programs" do
         end
       end
       p Vendored::VERSION
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "0.1"
+    OUT
+  end
+
+  it "a top-anchored superclass resolves to a target defined later in the program" do
+    result = ze0(<<~'RUBY')
+      # Two constant-resolution rules rubygems and bundler lean on all through their
+      # compatibility shims.
+      #
+      # 1. `if defined?(Const)` gates a whole definition. Whether the constant exists
+      #    is fixed for a whole-program target, so the branch is decided at compile
+      #    time -- and registration and emission have to decide it the SAME way, or a
+      #    class reaches codegen with nothing registered behind it.
+      # 2. A `::`-anchored path names the top level and nothing else, including when
+      #    the definition it names comes LATER in the flattened program.
 
       # A top-anchored superclass whose target is defined later in the program.
       module Pkg
@@ -812,6 +913,27 @@ describe "Constants programs" do
         p [e.class, e.message]
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [Pkg::Net::OpenTimeout, Pkg::Timeout::Error, RuntimeError]
+      [Elsewhere::TimeoutError, Pkg::Timeout::Error, RuntimeError]
+      [Elsewhere::TimeoutError, "timed out"]
+    OUT
+  end
+
+  it "a ::-anchored name shadows a same-named constant in scope" do
+    result = ze0(<<~'RUBY')
+      # Two constant-resolution rules rubygems and bundler lean on all through their
+      # compatibility shims.
+      #
+      # 1. `if defined?(Const)` gates a whole definition. Whether the constant exists
+      #    is fixed for a whole-program target, so the branch is decided at compile
+      #    time -- and registration and emission have to decide it the SAME way, or a
+      #    class reaches codegen with nothing registered behind it.
+      # 2. A `::`-anchored path names the top level and nothing else, including when
+      #    the definition it names comes LATER in the flattened program.
+
       # A `::`-anchored name that shadows a same-named constant in scope.
       COLOUR = :top_level
       module Shadow
@@ -823,20 +945,6 @@ describe "Constants programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      nil
-      42
-      "constant"
-      nil
-      nil
-      "constant"
-      nil
-      "constant"
-      "constant"
-      nil
-      "0.1"
-      [Pkg::Net::OpenTimeout, Pkg::Timeout::Error, RuntimeError]
-      [Elsewhere::TimeoutError, Pkg::Timeout::Error, RuntimeError]
-      [Elsewhere::TimeoutError, "timed out"]
       :nested
       :top_level
     OUT

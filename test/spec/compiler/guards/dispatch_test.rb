@@ -199,7 +199,7 @@ describe "Guards: dispatch" do
     OUT
   end
 
-  it "defined guard asks about this moment" do
+  it "a guard that makes the namespace and fills it later reads the state of that moment" do
     result = ze0(<<~'RUBY')
       # `defined?` and its `const_defined?` / `constants.include?` spellings ask
       # whether a name is bound YET. A definition further down the program has not
@@ -221,6 +221,21 @@ describe "Guards: dispatch" do
       p Guard::Compat::Plugin.new.tag
       p Guard.instance_of?(Module)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "p"
+      true
+    OUT
+  end
+
+  it "the same guard skips its branch once the name is bound" do
+    result = ze0(<<~'RUBY')
+      # `defined?` and its `const_defined?` / `constants.include?` spellings ask
+      # whether a name is bound YET. A definition further down the program has not
+      # run, so at the guard the answer is no -- which is exactly what the
+      # define-it-if-nobody-else-did idiom is written for.
+
       # ...and the same guard once the name IS bound: the branch is skipped.
       module Already; end
       unless Object.const_defined?('Already')
@@ -237,6 +252,21 @@ describe "Guards: dispatch" do
       end
       p Thor.new.tag
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      nil
+      "stub"
+    OUT
+  end
+
+  it "a conjunction of defined? over a constant nothing has folds false" do
+    result = ze0(<<~'RUBY')
+      # `defined?` and its `const_defined?` / `constants.include?` spellings ask
+      # whether a name is bound YET. A definition further down the program has not
+      # run, so at the guard the answer is no -- which is exactly what the
+      # define-it-if-nobody-else-did idiom is written for.
+
       # A conjunction of `defined?`s over a constant nothing in the program has:
       # the branch never runs.
       if defined?(HTTP) && defined?(HTTP::VERSION)
@@ -245,6 +275,20 @@ describe "Guards: dispatch" do
         end
       end
       p defined?(Adapter)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      nil
+    OUT
+  end
+
+  it "a const_set pins down neither the constant it names nor the module it names it in" do
+    result = ze0(<<~'RUBY')
+      # `defined?` and its `const_defined?` / `constants.include?` spellings ask
+      # whether a name is bound YET. A definition further down the program has not
+      # run, so at the guard the answer is no -- which is exactly what the
+      # define-it-if-nobody-else-did idiom is written for.
 
       # A `const_set` that pins down NEITHER the constant it names nor the module it
       # sets it on is evidence about no constant in particular. webmock's
@@ -263,6 +307,21 @@ describe "Guards: dispatch" do
       end
       p defined?(Versioned)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1
+      nil
+    OUT
+  end
+
+  it "Module.constants names the top level's list, and a map over it reads the same" do
+    result = ze0(<<~'RUBY')
+      # `defined?` and its `const_defined?` / `constants.include?` spellings ask
+      # whether a name is bound YET. A definition further down the program has not
+      # run, so at the guard the answer is no -- which is exactly what the
+      # define-it-if-nobody-else-did idiom is written for.
+
       # `Module.constants` names the same list at the top level, and a `map` that
       # only respells each entry still holds the same names -- andand asks
       # `Module.constants.map { |c| c.to_s }.include?('BlankSlate')`.
@@ -279,6 +338,21 @@ describe "Guards: dispatch" do
         end
       end
       p Stringy::SEEN
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "blank"
+      true
+    OUT
+  end
+
+  it "Object.constants.include? asks the same question through the list" do
+    result = ze0(<<~'RUBY')
+      # `defined?` and its `const_defined?` / `constants.include?` spellings ask
+      # whether a name is bound YET. A definition further down the program has not
+      # run, so at the guard the answer is no -- which is exactly what the
+      # define-it-if-nobody-else-did idiom is written for.
 
       # `Object.constants.include?` is the same question through the list -- for an
       # `Object` receiver its own constants ARE the top-level ones.
@@ -297,6 +371,21 @@ describe "Guards: dispatch" do
       end
       p Present::SEEN
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "shim"
+      true
+    OUT
+  end
+
+  it "a global nothing in the program assigns is not defined" do
+    result = ze0(<<~'RUBY')
+      # `defined?` and its `const_defined?` / `constants.include?` spellings ask
+      # whether a name is bound YET. A definition further down the program has not
+      # run, so at the guard the answer is no -- which is exactly what the
+      # define-it-if-nobody-else-did idiom is written for.
+
       # A global nothing in the program assigns is not defined -- lockfile opens
       # with exactly this pair, and stamps the global on its last line. That stamp
       # is INSIDE the branch the guard controls, so at the guard it has not run:
@@ -310,6 +399,21 @@ describe "Guards: dispatch" do
       p Lockfile.new.tag
       p $__lockfile__.nil?
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "lock"
+      false
+    OUT
+  end
+
+  it "defined? of a literal is the string expression, so that branch always runs" do
+    result = ze0(<<~'RUBY')
+      # `defined?` and its `const_defined?` / `constants.include?` spellings ask
+      # whether a name is bound YET. A definition further down the program has not
+      # run, so at the guard the answer is no -- which is exactly what the
+      # define-it-if-nobody-else-did idiom is written for.
+
       # `defined?` of a LITERAL is the string "expression", so the branch always
       # runs. faraday-stack's `if defined?("Faraday::Env")` means this, whatever
       # its author had in mind.
@@ -319,6 +423,20 @@ describe "Guards: dispatch" do
         end
       end
       p Patch::APPLIED
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+    OUT
+  end
+
+  it "the constants the interpreter installs on Object are there before the first line" do
+    result = ze0(<<~'RUBY')
+      # `defined?` and its `const_defined?` / `constants.include?` spellings ask
+      # whether a name is bound YET. A definition further down the program has not
+      # run, so at the guard the answer is no -- which is exactly what the
+      # define-it-if-nobody-else-did idiom is written for.
 
       # The interpreter installs a handful of constants on `Object` before the first
       # line runs, and no `NAME = ...` in the program says so. Scanning for one and
@@ -333,6 +451,35 @@ describe "Guards: dispatch" do
          RUBY_REVISION RUBY_VERSION STDERR STDIN STDOUT].each do |name|
         p [name, Object.const_defined?(name)]
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["ARGF", true]
+      ["ARGV", true]
+      ["CROSS_COMPILING", true]
+      ["ENV", true]
+      ["RUBY_COPYRIGHT", true]
+      ["RUBY_DESCRIPTION", true]
+      ["RUBY_ENGINE", true]
+      ["RUBY_ENGINE_VERSION", true]
+      ["RUBY_PATCHLEVEL", true]
+      ["RUBY_PLATFORM", true]
+      ["RUBY_RELEASE_DATE", true]
+      ["RUBY_REVISION", true]
+      ["RUBY_VERSION", true]
+      ["STDERR", true]
+      ["STDIN", true]
+      ["STDOUT", true]
+    OUT
+  end
+
+  it "the mkmf gate is defined and nil before any require" do
+    result = ze0(<<~'RUBY')
+      # `defined?` and its `const_defined?` / `constants.include?` spellings ask
+      # whether a name is bound YET. A definition further down the program has not
+      # run, so at the guard the answer is no -- which is exactly what the
+      # define-it-if-nobody-else-did idiom is written for.
 
       # The mkmf gate itself: defined, and nil, before any require -- CRuby sets
       # it at the VM level. A fold that scans the program for `CROSS_COMPILING =`
@@ -364,6 +511,38 @@ describe "Guards: dispatch" do
       end
       p Engine::KNOWN
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "constant"
+      nil
+      "constant"
+      "constant"
+      "constant"
+      "constant"
+      "constant"
+      "constant"
+      "constant"
+      "constant"
+      "constant"
+      "constant"
+      "constant"
+      "constant"
+      "constant"
+      "constant"
+      "constant"
+      "constant"
+      true
+    OUT
+  end
+
+  it "the scope operator does not reach Object's constants" do
+    result = ze0(<<~'RUBY')
+      # `defined?` and its `const_defined?` / `constants.include?` spellings ask
+      # whether a name is bound YET. A definition further down the program has not
+      # run, so at the guard the answer is no -- which is exactly what the
+      # define-it-if-nobody-else-did idiom is written for.
+
       # The scope OPERATOR does not reach `Object`'s constants, so asking a real
       # namespace for one is nil -- the same rule every other qualified read follows.
       module Elsewhere; end
@@ -371,55 +550,6 @@ describe "Guards: dispatch" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "p"
-      true
-      nil
-      "stub"
-      nil
-      1
-      nil
-      "blank"
-      true
-      "shim"
-      true
-      "lock"
-      false
-      true
-      ["ARGF", true]
-      ["ARGV", true]
-      ["CROSS_COMPILING", true]
-      ["ENV", true]
-      ["RUBY_COPYRIGHT", true]
-      ["RUBY_DESCRIPTION", true]
-      ["RUBY_ENGINE", true]
-      ["RUBY_ENGINE_VERSION", true]
-      ["RUBY_PATCHLEVEL", true]
-      ["RUBY_PLATFORM", true]
-      ["RUBY_RELEASE_DATE", true]
-      ["RUBY_REVISION", true]
-      ["RUBY_VERSION", true]
-      ["STDERR", true]
-      ["STDIN", true]
-      ["STDOUT", true]
-      "constant"
-      nil
-      "constant"
-      "constant"
-      "constant"
-      "constant"
-      "constant"
-      "constant"
-      "constant"
-      "constant"
-      "constant"
-      "constant"
-      "constant"
-      "constant"
-      "constant"
-      "constant"
-      "constant"
-      "constant"
-      true
       nil
     OUT
   end

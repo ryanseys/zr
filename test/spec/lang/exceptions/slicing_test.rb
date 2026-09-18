@@ -114,7 +114,7 @@ describe "Exceptions: slicing" do
     OUT
   end
 
-  it "catch throw ensure" do
+  it "a proc return runs an intervening ensure, and then the home method returns" do
     result = ze0(<<~'RUBY')
       # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
       # `ensure` blocks it passes over before delivering, like an exception. An
@@ -131,6 +131,20 @@ describe "Exceptions: slicing" do
       end
       p ret_through_ensure
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ensure-ret
+      30
+    OUT
+  end
+
+  it "two nested ensures run inner first as a proc return unwinds" do
+    result = ze0(<<~'RUBY')
+      # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
+      # `ensure` blocks it passes over before delivering, like an exception. An
+      # uncaught `throw` raises a (catchable) UncaughtThrowError.
+
       # Two nested ensures run inner-first as the proc return unwinds.
       def ret_through_two_ensures
         begin
@@ -146,6 +160,21 @@ describe "Exceptions: slicing" do
       end
       p ret_through_two_ensures
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      inner
+      outer
+      1
+    OUT
+  end
+
+  it "a non-matching rescue is skipped, and the ensure still runs" do
+    result = ze0(<<~'RUBY')
+      # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
+      # `ensure` blocks it passes over before delivering, like an exception. An
+      # uncaught `throw` raises a (catchable) UncaughtThrowError.
+
       # A non-matching rescue is skipped; the ensure still runs.
       def ret_nonmatching_rescue
         begin
@@ -158,6 +187,20 @@ describe "Exceptions: slicing" do
       end
       p ret_nonmatching_rescue
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ensure-nonmatch
+      7
+    OUT
+  end
+
+  it "a proc return that passes no ensure goes straight home" do
+    result = ze0(<<~'RUBY')
+      # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
+      # `ensure` blocks it passes over before delivering, like an exception. An
+      # uncaught `throw` raises a (catchable) UncaughtThrowError.
+
       # A proc return that passes through no ensure goes straight home (regression).
       def ret_no_ensure
         proc { return 5 }.call
@@ -165,12 +208,38 @@ describe "Exceptions: slicing" do
       end
       p ret_no_ensure
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      5
+    OUT
+  end
+
+  it "a proc return through a rescue modifier still returns" do
+    result = ze0(<<~'RUBY')
+      # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
+      # `ensure` blocks it passes over before delivering, like an exception. An
+      # uncaught `throw` raises a (catchable) UncaughtThrowError.
+
       # proc return passing through a rescue modifier still returns home.
       def ret_through_rescue_modifier
         x = (proc { return 9 }.call rescue 0)
         x + 100
       end
       p ret_through_rescue_modifier
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      9
+    OUT
+  end
+
+  it "a throw runs an intervening ensure before it reaches its catch" do
+    result = ze0(<<~'RUBY')
+      # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
+      # `ensure` blocks it passes over before delivering, like an exception. An
+      # uncaught `throw` raises a (catchable) UncaughtThrowError.
 
       # `throw` runs an intervening ensure before reaching its catch.
       r = catch(:t) do
@@ -181,6 +250,20 @@ describe "Exceptions: slicing" do
         end
       end
       p r
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      throw-ensure
+      11
+    OUT
+  end
+
+  it "a throw to an outer tag passes an inner catch of another tag, running its ensure" do
+    result = ze0(<<~'RUBY')
+      # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
+      # `ensure` blocks it passes over before delivering, like an exception. An
+      # uncaught `throw` raises a (catchable) UncaughtThrowError.
 
       # A throw to an outer tag passes an inner catch of a different tag and runs the
       # ensure between throw and the matching catch.
@@ -196,8 +279,35 @@ describe "Exceptions: slicing" do
       end
       p r2
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      between-ensure
+      22
+    OUT
+  end
+
+  it "a throw that passes no ensure is delivered directly" do
+    result = ze0(<<~'RUBY')
+      # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
+      # `ensure` blocks it passes over before delivering, like an exception. An
+      # uncaught `throw` raises a (catchable) UncaughtThrowError.
+
       # A throw NOT passing any ensure delivers directly (regression).
       p(catch(:q) { throw :q, 33 })
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      33
+    OUT
+  end
+
+  it "an ordinary exception still runs its ensure" do
+    result = ze0(<<~'RUBY')
+      # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
+      # `ensure` blocks it passes over before delivering, like an exception. An
+      # uncaught `throw` raises a (catchable) UncaughtThrowError.
 
       # A normal exception still runs its ensure (regression).
       def raise_through_ensure
@@ -213,6 +323,20 @@ describe "Exceptions: slicing" do
         puts "caught: #{e.message}"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      exc-ensure
+      caught: boom
+    OUT
+  end
+
+  it "an uncaught throw raises UncaughtThrowError, which a bare rescue catches" do
+    result = ze0(<<~'RUBY')
+      # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
+      # `ensure` blocks it passes over before delivering, like an exception. An
+      # uncaught `throw` raises a (catchable) UncaughtThrowError.
+
       # An uncaught throw raises UncaughtThrowError -- catchable by its class and by a
       # bare rescue (it is a StandardError), with a CRuby-shaped message.
       begin
@@ -226,6 +350,20 @@ describe "Exceptions: slicing" do
       rescue => e
         puts "bare: #{e.message}"
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      uncaught throw :nope
+      bare: uncaught throw :nope
+    OUT
+  end
+
+  it "an uncaught throw runs the ensures it passes on its way out" do
+    result = ze0(<<~'RUBY')
+      # A non-local unwind -- a non-lambda proc's `return` and a `throw` -- runs the
+      # `ensure` blocks it passes over before delivering, like an exception. An
+      # uncaught `throw` raises a (catchable) UncaughtThrowError.
 
       # An uncaught throw runs intervening ensures on its way out (it is an exception).
       def uncaught_runs_ensure
@@ -243,24 +381,6 @@ describe "Exceptions: slicing" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ensure-ret
-      30
-      inner
-      outer
-      1
-      ensure-nonmatch
-      7
-      5
-      9
-      throw-ensure
-      11
-      between-ensure
-      22
-      33
-      exc-ensure
-      caught: boom
-      uncaught throw :nope
-      bare: uncaught throw :nope
       uncaught-ensure
       rescued-uncaught
     OUT

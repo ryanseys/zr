@@ -1808,9 +1808,7 @@ describe "OpenSSL programs" do
     OUT
   end
 
-  it "subclass of a native type wraps one" do
-    skip "needs libssl" unless Ze0::Spec.need?("libssl")
-
+  it "a Queue subclass builds its queue through an argumentless super" do
     result = ze0(<<~'RUBY')
       # A user class inheriting a native type has no struct of its own: its instances
       # wrap the real native value as a payload and carry their own ivars beside it.
@@ -1851,6 +1849,37 @@ describe "OpenSSL programs" do
       p Jobs.superclass
       p Jobs.ancestors.take(3)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "work"
+      3
+      1
+      Jobs
+      true
+      Thread::Queue
+      [Jobs, Thread::Queue, Object]
+    OUT
+  end
+
+  it "a File subclass takes its payload through super and keeps its own ivars" do
+    result = ze0(<<~'RUBY')
+      # A user class inheriting a native type has no struct of its own: its instances
+      # wrap the real native value as a payload and carry their own ivars beside it.
+      # `Queue` has a real empty form, so `super()` builds one; nothing in the IO
+      # family does -- no descriptor, peer or algorithm can be conjured -- so those
+      # subclasses seat the real payload through `super`, which is the whole reason
+      # gems subclass them.
+      #
+      # actionpool's `Queue < ::Queue`, kgio's `Kgio::Pipe < IO`, dalli's
+      # `TCP < TCPSocket`, and the `SSLSocket < OpenSSL::SSL::SSLSocket` that bunny,
+      # dalli and mongo each write -- the largest single subclassing bucket in the
+      # gem corpus.
+
+      require "socket"
+      require "openssl"
+      require "tmpdir"
+
       # The `File` shape: the payload arrives through `super`, and every inherited
       # method reads it. `IO.sysopen` hands over a descriptor nobody else owns.
       class Tagged < IO
@@ -1879,6 +1908,37 @@ describe "OpenSSL programs" do
 
       p Tagged.superclass
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      Tagged
+      :note
+      true
+      "note: alpha\n"
+      "beta\n"
+      true
+      IO
+    OUT
+  end
+
+  it "a subclass deeper in one family roots its payload at the nearest native ancestor" do
+    result = ze0(<<~'RUBY')
+      # A user class inheriting a native type has no struct of its own: its instances
+      # wrap the real native value as a payload and carry their own ivars beside it.
+      # `Queue` has a real empty form, so `super()` builds one; nothing in the IO
+      # family does -- no descriptor, peer or algorithm can be conjured -- so those
+      # subclasses seat the real payload through `super`, which is the whole reason
+      # gems subclass them.
+      #
+      # actionpool's `Queue < ::Queue`, kgio's `Kgio::Pipe < IO`, dalli's
+      # `TCP < TCPSocket`, and the `SSLSocket < OpenSSL::SSL::SSLSocket` that bunny,
+      # dalli and mongo each write -- the largest single subclassing bucket in the
+      # gem corpus.
+
+      require "socket"
+      require "openssl"
+      require "tmpdir"
+
       # Deeper in the same family: the payload root is the NEAREST native ancestor,
       # so a `TCPSocket` subclass is a TCPSocket, not the `IO` four links above it.
       class Named < TCPSocket
@@ -1893,6 +1953,33 @@ describe "OpenSSL programs" do
       p Named.superclass
       p Named.ancestors.include?(IO)
       p Named.instance_method(:name).owner
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      TCPSocket
+      true
+      Named
+    OUT
+  end
+
+  it "a socket wrapper and a cipher subclass are each named at construction" do
+    result = ze0(<<~'RUBY')
+      # A user class inheriting a native type has no struct of its own: its instances
+      # wrap the real native value as a payload and carry their own ivars beside it.
+      # `Queue` has a real empty form, so `super()` builds one; nothing in the IO
+      # family does -- no descriptor, peer or algorithm can be conjured -- so those
+      # subclasses seat the real payload through `super`, which is the whole reason
+      # gems subclass them.
+      #
+      # actionpool's `Queue < ::Queue`, kgio's `Kgio::Pipe < IO`, dalli's
+      # `TCP < TCPSocket`, and the `SSLSocket < OpenSSL::SSL::SSLSocket` that bunny,
+      # dalli and mongo each write -- the largest single subclassing bucket in the
+      # gem corpus.
+
+      require "socket"
+      require "openssl"
+      require "tmpdir"
 
       # A socket wrapper, and a cipher: both named at construction, both the same
       # shape.
@@ -1924,6 +2011,41 @@ describe "OpenSSL programs" do
       p d.label
       p d.hexdigest("abc")
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      OpenSSL::SSL::SSLSocket
+      :needs_a_socket
+      OpenSSL::Cipher
+      Loud
+      "LOUD"
+      "AES-256-CBC"
+      true
+      OpenSSL::Digest
+      Named2
+      "SHA256 digest"
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    OUT
+  end
+
+  it "a Fiber subclass takes the block as its body, the way a Thread subclass does" do
+    result = ze0(<<~'RUBY')
+      # A user class inheriting a native type has no struct of its own: its instances
+      # wrap the real native value as a payload and carry their own ivars beside it.
+      # `Queue` has a real empty form, so `super()` builds one; nothing in the IO
+      # family does -- no descriptor, peer or algorithm can be conjured -- so those
+      # subclasses seat the real payload through `super`, which is the whole reason
+      # gems subclass them.
+      #
+      # actionpool's `Queue < ::Queue`, kgio's `Kgio::Pipe < IO`, dalli's
+      # `TCP < TCPSocket`, and the `SSLSocket < OpenSSL::SSL::SSLSocket` that bunny,
+      # dalli and mongo each write -- the largest single subclassing bucket in the
+      # gem corpus.
+
+      require "socket"
+      require "openssl"
+      require "tmpdir"
+
       # `Fiber` is `Thread`'s shape: the block IS the body, so `super(&block)` is the
       # only way to seat one. hexapdf's `FiberWithLength` records a length it knows
       # before the fiber runs.
@@ -1948,34 +2070,6 @@ describe "OpenSSL programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      "work"
-      3
-      1
-      Jobs
-      true
-      Thread::Queue
-      [Jobs, Thread::Queue, Object]
-      Tagged
-      :note
-      true
-      "note: alpha\n"
-      "beta\n"
-      true
-      IO
-      TCPSocket
-      true
-      Named
-      OpenSSL::SSL::SSLSocket
-      :needs_a_socket
-      OpenSSL::Cipher
-      Loud
-      "LOUD"
-      "AES-256-CBC"
-      true
-      OpenSSL::Digest
-      Named2
-      "SHA256 digest"
-      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
       Fiber
       Measured
       3

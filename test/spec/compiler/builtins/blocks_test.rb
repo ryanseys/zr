@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Builtins: blocks and yields" do
-  it "block call arity" do
+  it "a block-carrying call checks its arity the same as the blockless spelling" do
     result = ze0(<<~'RUBY')
       # The arity guard on calls the bare-call spec cannot reach: block-carrying
       # calls (their accepted counts are probed separately -- `Array#fill` drops
@@ -47,6 +47,34 @@ describe "Builtins: blocks and yields" do
         p [e.class, e.message]
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+      [ArgumentError, "wrong number of arguments (given 2, expected 1)"]
+      [ArgumentError, "wrong number of arguments (given 3, expected 0..2)"]
+      [0, 9]
+      :stopped
+    OUT
+  end
+
+  it "the rows Method#arity never reported still check their own arity" do
+    result = ze0(<<~'RUBY')
+      # The arity guard on calls the bare-call spec cannot reach: block-carrying
+      # calls (their accepted counts are probed separately -- `Array#fill` drops
+      # to 0..2 under a block), zero-arity readers, Struct member access, native
+      # instances, and receivers beyond the original eight.
+      #
+      # Three things this file was FILED for, all fixed. `String#bytesplice`
+      # accepted 2..3 where CRuby has four shapes up to five arguments -- the
+      # replacement's own byte window was simply missing. A Struct MEMBER
+      # accessor counted nothing, so `s.a(2)` answered the member and
+      # `s.send(:a=)` indexed an empty slice. And `1.step(nil)` read the explicit
+      # nil as a BOUND, so the first comparison failed on a NilClass the caller
+      # never wrote, where ruby's endless form runs.
+
+      require "stringio"
+
       # methods the Method#arity dump missed
       begin
         p(1.5.div)
@@ -58,6 +86,31 @@ describe "Builtins: blocks and yields" do
       rescue TypeError, ArgumentError => e
         p [e.class, e.message]
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [ArgumentError, "wrong number of arguments (given 0, expected 1)"]
+      [ArgumentError, "wrong number of arguments (given 0, expected 2..5)"]
+    OUT
+  end
+
+  it "a receiver outside the original arity map checks its rows too" do
+    result = ze0(<<~'RUBY')
+      # The arity guard on calls the bare-call spec cannot reach: block-carrying
+      # calls (their accepted counts are probed separately -- `Array#fill` drops
+      # to 0..2 under a block), zero-arity readers, Struct member access, native
+      # instances, and receivers beyond the original eight.
+      #
+      # Three things this file was FILED for, all fixed. `String#bytesplice`
+      # accepted 2..3 where CRuby has four shapes up to five arguments -- the
+      # replacement's own byte window was simply missing. A Struct MEMBER
+      # accessor counted nothing, so `s.a(2)` answered the member and
+      # `s.send(:a=)` indexed an empty slice. And `1.step(nil)` read the explicit
+      # nil as a BOUND, so the first comparison failed on a NilClass the caller
+      # never wrote, where ruby's endless form runs.
+
+      require "stringio"
 
       # receivers beyond the original map
       begin
@@ -81,6 +134,33 @@ describe "Builtins: blocks and yields" do
         p [e.class, e.message]
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+    OUT
+  end
+
+  it "a user object falls back to Object's universal rows for its arity" do
+    result = ze0(<<~'RUBY')
+      # The arity guard on calls the bare-call spec cannot reach: block-carrying
+      # calls (their accepted counts are probed separately -- `Array#fill` drops
+      # to 0..2 under a block), zero-arity readers, Struct member access, native
+      # instances, and receivers beyond the original eight.
+      #
+      # Three things this file was FILED for, all fixed. `String#bytesplice`
+      # accepted 2..3 where CRuby has four shapes up to five arguments -- the
+      # replacement's own byte window was simply missing. A Struct MEMBER
+      # accessor counted nothing, so `s.a(2)` answered the member and
+      # `s.send(:a=)` indexed an empty slice. And `1.step(nil)` read the explicit
+      # nil as a BOUND, so the first comparison failed on a NilClass the caller
+      # never wrote, where ruby's endless form runs.
+
+      require "stringio"
+
       # a user object falls back to Object's universal rows
       class Widget; end
       w = Widget.new
@@ -99,6 +179,32 @@ describe "Builtins: blocks and yields" do
       rescue TypeError, ArgumentError => e
         p [e.class, e.message]
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+      [ArgumentError, "wrong number of arguments (given 3, expected 1..2)"]
+      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+    OUT
+  end
+
+  it "an attr and a Struct reader take no argument, where Struct's [] and dig want one" do
+    result = ze0(<<~'RUBY')
+      # The arity guard on calls the bare-call spec cannot reach: block-carrying
+      # calls (their accepted counts are probed separately -- `Array#fill` drops
+      # to 0..2 under a block), zero-arity readers, Struct member access, native
+      # instances, and receivers beyond the original eight.
+      #
+      # Three things this file was FILED for, all fixed. `String#bytesplice`
+      # accepted 2..3 where CRuby has four shapes up to five arguments -- the
+      # replacement's own byte window was simply missing. A Struct MEMBER
+      # accessor counted nothing, so `s.a(2)` answered the member and
+      # `s.send(:a=)` indexed an empty slice. And `1.step(nil)` read the explicit
+      # nil as a BOUND, so the first comparison failed on a NilClass the caller
+      # never wrote, where ruby's endless form runs.
+
+      require "stringio"
 
       # attr and Struct readers are zero-arity; Struct [] / dig want arguments
       class Holder
@@ -127,6 +233,33 @@ describe "Builtins: blocks and yields" do
         p [e.class, e.message]
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+      [ArgumentError, "wrong number of arguments (given 0, expected 1)"]
+      [ArgumentError, "wrong number of arguments (given 0, expected 1+)"]
+    OUT
+  end
+
+  it "a native-class instance and a Mutex check the rows a probe found on them" do
+    result = ze0(<<~'RUBY')
+      # The arity guard on calls the bare-call spec cannot reach: block-carrying
+      # calls (their accepted counts are probed separately -- `Array#fill` drops
+      # to 0..2 under a block), zero-arity readers, Struct member access, native
+      # instances, and receivers beyond the original eight.
+      #
+      # Three things this file was FILED for, all fixed. `String#bytesplice`
+      # accepted 2..3 where CRuby has four shapes up to five arguments -- the
+      # replacement's own byte window was simply missing. A Struct MEMBER
+      # accessor counted nothing, so `s.a(2)` answered the member and
+      # `s.send(:a=)` indexed an empty slice. And `1.step(nil)` read the explicit
+      # nil as a BOUND, so the first comparison failed on a NilClass the caller
+      # never wrote, where ruby's endless form runs.
+
+      require "stringio"
+
       # native-class instances and Mutex check their probed rows
       begin
         p(StringIO.new("x").eof?(1))
@@ -138,6 +271,31 @@ describe "Builtins: blocks and yields" do
       rescue TypeError, ArgumentError => e
         p [e.class, e.message]
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+    OUT
+  end
+
+  it "a constructor and a renamed class-method row each check their own arity" do
+    result = ze0(<<~'RUBY')
+      # The arity guard on calls the bare-call spec cannot reach: block-carrying
+      # calls (their accepted counts are probed separately -- `Array#fill` drops
+      # to 0..2 under a block), zero-arity readers, Struct member access, native
+      # instances, and receivers beyond the original eight.
+      #
+      # Three things this file was FILED for, all fixed. `String#bytesplice`
+      # accepted 2..3 where CRuby has four shapes up to five arguments -- the
+      # replacement's own byte window was simply missing. A Struct MEMBER
+      # accessor counted nothing, so `s.a(2)` answered the member and
+      # `s.send(:a=)` indexed an empty slice. And `1.step(nil)` read the explicit
+      # nil as a BOUND, so the first comparison failed on a NilClass the caller
+      # never wrote, where ruby's endless form runs.
+
+      require "stringio"
 
       # class-method rows: constructors and renamed forms
       begin
@@ -155,6 +313,32 @@ describe "Builtins: blocks and yields" do
       rescue TypeError, ArgumentError => e
         p [e.class, e.message]
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [ArgumentError, "wrong number of arguments (given 2, expected 0..1)"]
+      [ArgumentError, "wrong number of arguments (given 0, expected 1)"]
+      [ArgumentError, "wrong number of arguments (given 3, expected 0..2)"]
+    OUT
+  end
+
+  it "an attribute named like an Object method is the attribute, and its arity says so" do
+    result = ze0(<<~'RUBY')
+      # The arity guard on calls the bare-call spec cannot reach: block-carrying
+      # calls (their accepted counts are probed separately -- `Array#fill` drops
+      # to 0..2 under a block), zero-arity readers, Struct member access, native
+      # instances, and receivers beyond the original eight.
+      #
+      # Three things this file was FILED for, all fixed. `String#bytesplice`
+      # accepted 2..3 where CRuby has four shapes up to five arguments -- the
+      # replacement's own byte window was simply missing. A Struct MEMBER
+      # accessor counted nothing, so `s.a(2)` answered the member and
+      # `s.send(:a=)` indexed an empty slice. And `1.step(nil)` read the explicit
+      # nil as a BOUND, so the first comparison failed on a NilClass the caller
+      # never wrote, where ruby's endless form runs.
+
+      require "stringio"
 
       # review-found edges: an attribute named like an Object method is the
       # attribute; empty splats are zero arguments; the iterator path type-checks
@@ -179,29 +363,6 @@ describe "Builtins: blocks and yields" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
-      [ArgumentError, "wrong number of arguments (given 2, expected 1)"]
-      [ArgumentError, "wrong number of arguments (given 3, expected 0..2)"]
-      [0, 9]
-      :stopped
-      [ArgumentError, "wrong number of arguments (given 0, expected 1)"]
-      [ArgumentError, "wrong number of arguments (given 0, expected 2..5)"]
-      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
-      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
-      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
-      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
-      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
-      [ArgumentError, "wrong number of arguments (given 3, expected 1..2)"]
-      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
-      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
-      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
-      [ArgumentError, "wrong number of arguments (given 0, expected 1)"]
-      [ArgumentError, "wrong number of arguments (given 0, expected 1+)"]
-      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
-      [ArgumentError, "wrong number of arguments (given 1, expected 0)"]
-      [ArgumentError, "wrong number of arguments (given 2, expected 0..1)"]
-      [ArgumentError, "wrong number of arguments (given 0, expected 1)"]
-      [ArgumentError, "wrong number of arguments (given 3, expected 0..2)"]
       "GET"
       7
       [ArgumentError, "comparison of Integer with String failed"]

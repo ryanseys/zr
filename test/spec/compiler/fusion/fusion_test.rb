@@ -37,7 +37,7 @@ describe "Fusion programs" do
     OUT
   end
 
-  it "array splice exceptions" do
+  it "a splice of negative length raises IndexError" do
     result = ze0(<<~'RUBY')
       # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
@@ -49,6 +49,17 @@ describe "Fusion programs" do
         puts "#{e.class}: #{e.message}"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      IndexError: negative length (-2)
+    OUT
+  end
+
+  it "the start and length scalar form raises IndexError for a negative length too" do
+    result = ze0(<<~'RUBY')
+      # Array#[]= splice exceptional cases: exact CRuby exception class + message.
+
       # negative length via the start,len scalar form too
       begin
         a = [1, 2, 3]
@@ -56,6 +67,17 @@ describe "Fusion programs" do
       rescue IndexError => e
         puts "#{e.class}: #{e.message}"
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      IndexError: negative length (-1)
+    OUT
+  end
+
+  it "a splice into a frozen array raises FrozenError" do
+    result = ze0(<<~'RUBY')
+      # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # splicing into a frozen array raises FrozenError
       begin
@@ -65,6 +87,17 @@ describe "Fusion programs" do
         puts e.class
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      FrozenError
+    OUT
+  end
+
+  it "a splice starting before the front raises IndexError" do
+    result = ze0(<<~'RUBY')
+      # Array#[]= splice exceptional cases: exact CRuby exception class + message.
+
       # a start before the front raises IndexError
       begin
         a = [1, 2, 3]
@@ -72,6 +105,17 @@ describe "Fusion programs" do
       rescue IndexError => e
         puts e.class
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      IndexError
+    OUT
+  end
+
+  it "a splice through a poly receiver raises the same exceptions" do
+    result = ze0(<<~'RUBY')
+      # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # poly receiver (an element that is a typed array at runtime): same exceptions.
       # negative length
@@ -82,6 +126,17 @@ describe "Fusion programs" do
         puts "#{e.class}: #{e.message}"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      IndexError: negative length (-1)
+    OUT
+  end
+
+  it "a poly receiver raises for a start before the front as well" do
+    result = ze0(<<~'RUBY')
+      # Array#[]= splice exceptional cases: exact CRuby exception class + message.
+
       # start before the front
       begin
         a = [[1, 2, 3], "x"]
@@ -89,6 +144,17 @@ describe "Fusion programs" do
       rescue IndexError => e
         puts "#{e.class}: #{e.message}"
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      IndexError: index -5 too small for array; minimum: -3
+    OUT
+  end
+
+  it "a range whose begin is before the front raises RangeError, not IndexError" do
+    result = ze0(<<~'RUBY')
+      # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # a range whose begin is before the front raises RangeError (not IndexError)
       begin
@@ -98,6 +164,17 @@ describe "Fusion programs" do
         puts "#{e.class}: #{e.message}"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      RangeError: -10..1 out of range
+    OUT
+  end
+
+  it "an endless range whose begin is before the front raises RangeError too" do
+    result = ze0(<<~'RUBY')
+      # Array#[]= splice exceptional cases: exact CRuby exception class + message.
+
       # an endless range whose begin is before the front raises RangeError too
       begin
         a = [[1, 2, 3], "x"]
@@ -105,6 +182,17 @@ describe "Fusion programs" do
       rescue RangeError => e
         puts "#{e.class}: #{e.message}"
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      RangeError: -10.. out of range
+    OUT
+  end
+
+  it "promoting a frozen typed array to poly still raises FrozenError" do
+    result = ze0(<<~'RUBY')
+      # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # promoting a frozen typed array still raises FrozenError
       begin
@@ -114,6 +202,17 @@ describe "Fusion programs" do
         puts e.class
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      FrozenError
+    OUT
+  end
+
+  it "frozen is reported before a negative length" do
+    result = ze0(<<~'RUBY')
+      # Array#[]= splice exceptional cases: exact CRuby exception class + message.
+
       # check ORDER matches CRuby: frozen wins over negative length...
       begin
         a = [1, 2, 3].freeze
@@ -121,6 +220,17 @@ describe "Fusion programs" do
       rescue => e
         puts e.class
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      FrozenError
+    OUT
+  end
+
+  it "frozen is reported before a start that is too small" do
+    result = ze0(<<~'RUBY')
+      # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # ...over a too-small index...
       begin
@@ -130,6 +240,17 @@ describe "Fusion programs" do
         puts e.class
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      FrozenError
+    OUT
+  end
+
+  it "frozen is reported before a range that is out of its receiver" do
+    result = ze0(<<~'RUBY')
+      # Array#[]= splice exceptional cases: exact CRuby exception class + message.
+
       # ...and over an out-of-range range (typed receiver)
       begin
         a = [1, 2, 3].freeze
@@ -137,6 +258,17 @@ describe "Fusion programs" do
       rescue => e
         puts e.class
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      FrozenError
+    OUT
+  end
+
+  it "the poly runtime path reports the same checks in the same order" do
+    result = ze0(<<~'RUBY')
+      # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # the same order through the poly runtime path
       begin
@@ -152,6 +284,18 @@ describe "Fusion programs" do
         puts e.class
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      FrozenError
+      FrozenError
+    OUT
+  end
+
+  it "a negative length is reported before a start that is too small" do
+    result = ze0(<<~'RUBY')
+      # Array#[]= splice exceptional cases: exact CRuby exception class + message.
+
       # negative length is reported before a too-small index (CRuby checks length first)
       begin
         a = [1, 2, 3]
@@ -166,6 +310,18 @@ describe "Fusion programs" do
         puts "#{e.class}: #{e.message}"
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      IndexError: negative length (-1)
+      IndexError: negative length (-1)
+    OUT
+  end
+
+  it "a typed receiver raises RangeError for a range beginning before the front" do
+    result = ze0(<<~'RUBY')
+      # Array#[]= splice exceptional cases: exact CRuby exception class + message.
+
       # a range beginning before -len raises RangeError on a typed receiver too
       begin
         a = [1, 2, 3]
@@ -173,6 +329,17 @@ describe "Fusion programs" do
       rescue RangeError => e
         puts "#{e.class}: #{e.message}"
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      RangeError: -9..0 out of range
+    OUT
+  end
+
+  it "a typed receiver splices a beginless and an endless range" do
+    result = ze0(<<~'RUBY')
+      # Array#[]= splice exceptional cases: exact CRuby exception class + message.
 
       # typed receivers handle beginless / endless range splices
       b = [1, 2, 3]
@@ -184,23 +351,6 @@ describe "Fusion programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      IndexError: negative length (-2)
-      IndexError: negative length (-1)
-      FrozenError
-      IndexError
-      IndexError: negative length (-1)
-      IndexError: index -5 too small for array; minimum: -3
-      RangeError: -10..1 out of range
-      RangeError: -10.. out of range
-      FrozenError
-      FrozenError
-      FrozenError
-      FrozenError
-      FrozenError
-      FrozenError
-      IndexError: negative length (-1)
-      IndexError: negative length (-1)
-      RangeError: -9..0 out of range
       [9, 3]
       [1, 8]
     OUT

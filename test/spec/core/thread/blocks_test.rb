@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Thread: blocks and yields" do
-  it "block param into thread" do
+  it "a module method's &blk parameter is captured by the Thread.new block" do
     result = ze0(<<~'RUBY')
       # A method's &block parameter is reachable from a Thread.new / Fiber.new block
       # in that method's body. The block runs as an independent closure on its own
@@ -22,6 +22,23 @@ describe "Thread: blocks and yields" do
       end
       M.f { |i| puts "got #{i}" }            # got 0
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      got 0
+    OUT
+  end
+
+  it "an instance method's &blk parameter is captured through a thread the same way" do
+    result = ze0(<<~'RUBY')
+      # A method's &block parameter is reachable from a Thread.new / Fiber.new block
+      # in that method's body. The block runs as an independent closure on its own
+      # fiber stack, so the method must keep a heap-materialized &blk (not be
+      # yield-inlined) and the call site must pass the lowered block proc. Previously
+      # the escape went undetected: the method was inlined and the thread closure
+      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
+      # method -- the block was silently dropped at the call site.
+
       # instance method: same capture through a thread
       class C
         def run(&blk)
@@ -30,6 +47,23 @@ describe "Thread: blocks and yields" do
         end
       end
       C.new.run { |i| puts "run #{i}" }      # run 7
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      run 7
+    OUT
+  end
+
+  it "a positional parameter ahead of &blk is forwarded into the thread with it" do
+    result = ze0(<<~'RUBY')
+      # A method's &block parameter is reachable from a Thread.new / Fiber.new block
+      # in that method's body. The block runs as an independent closure on its own
+      # fiber stack, so the method must keep a heap-materialized &blk (not be
+      # yield-inlined) and the call site must pass the lowered block proc. Previously
+      # the escape went undetected: the method was inlined and the thread closure
+      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
+      # method -- the block was silently dropped at the call site.
 
       # a positional parameter ahead of &blk, forwarded into the thread
       module N
@@ -40,6 +74,23 @@ describe "Thread: blocks and yields" do
       end
       N.g("x") { |s| puts "pre #{s}" }       # pre x
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      pre x
+    OUT
+  end
+
+  it "Fiber.new captures the &blk parameter as Thread.new does" do
+    result = ze0(<<~'RUBY')
+      # A method's &block parameter is reachable from a Thread.new / Fiber.new block
+      # in that method's body. The block runs as an independent closure on its own
+      # fiber stack, so the method must keep a heap-materialized &blk (not be
+      # yield-inlined) and the call site must pass the lowered block proc. Previously
+      # the escape went undetected: the method was inlined and the thread closure
+      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
+      # method -- the block was silently dropped at the call site.
+
       # Fiber.new capture of the &blk param
       module F
         def self.h(&blk)
@@ -48,6 +99,23 @@ describe "Thread: blocks and yields" do
         end
       end
       F.h { |i| puts "fib #{i}" }            # fib 3
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      fib 3
+    OUT
+  end
+
+  it "a &blk assigned to a local and called later still reaches the thread" do
+    result = ze0(<<~'RUBY')
+      # A method's &block parameter is reachable from a Thread.new / Fiber.new block
+      # in that method's body. The block runs as an independent closure on its own
+      # fiber stack, so the method must keep a heap-materialized &blk (not be
+      # yield-inlined) and the call site must pass the lowered block proc. Previously
+      # the escape went undetected: the method was inlined and the thread closure
+      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
+      # method -- the block was silently dropped at the call site.
 
       # class-method &blk used as a value (assigned to a local, then called): the
       # call site must still pass the block proc (was dropped before the fix)
@@ -59,6 +127,23 @@ describe "Thread: blocks and yields" do
       end
       V.take { |i| puts "val #{i}" }         # val 9
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      val 9
+    OUT
+  end
+
+  it "a value-returning &blk sums across two invocations inside threads" do
+    result = ze0(<<~'RUBY')
+      # A method's &block parameter is reachable from a Thread.new / Fiber.new block
+      # in that method's body. The block runs as an independent closure on its own
+      # fiber stack, so the method must keep a heap-materialized &blk (not be
+      # yield-inlined) and the call site must pass the lowered block proc. Previously
+      # the escape went undetected: the method was inlined and the thread closure
+      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
+      # method -- the block was silently dropped at the call site.
+
       # class-method &blk with a value-returning call, summed across two invocations
       module S
         def self.calc(&blk)
@@ -66,6 +151,23 @@ describe "Thread: blocks and yields" do
         end
       end
       puts S.calc { |i| i * 10 }             # 30
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      30
+    OUT
+  end
+
+  it "a &blk read inside a block lifted to a standalone proc still resolves" do
+    result = ze0(<<~'RUBY')
+      # A method's &block parameter is reachable from a Thread.new / Fiber.new block
+      # in that method's body. The block runs as an independent closure on its own
+      # fiber stack, so the method must keep a heap-materialized &blk (not be
+      # yield-inlined) and the call site must pass the lowered block proc. Previously
+      # the escape went undetected: the method was inlined and the thread closure
+      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
+      # method -- the block was silently dropped at the call site.
 
       # &blk read inside a block that is *lifted* to a standalone proc (passed to a
       # method that keeps a real &block param): the same capture-escape as the
@@ -79,6 +181,23 @@ describe "Thread: blocks and yields" do
         pr.call
       end
       outer { |i| puts "lift #{i}" }         # lift 4
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      lift 4
+    OUT
+  end
+
+  it "a class method reached through a module singleton accessor passes its &blk on" do
+    result = ze0(<<~'RUBY')
+      # A method's &block parameter is reachable from a Thread.new / Fiber.new block
+      # in that method's body. The block runs as an independent closure on its own
+      # fiber stack, so the method must keep a heap-materialized &blk (not be
+      # yield-inlined) and the call site must pass the lowered block proc. Previously
+      # the escape went undetected: the method was inlined and the thread closure
+      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
+      # method -- the block was silently dropped at the call site.
 
       # a class method reached through a module singleton accessor must also pass
       # the block proc -- Stage-1: the accessor is bound to exactly one constant
@@ -97,6 +216,23 @@ describe "Thread: blocks and yields" do
 
       Reg1.handler = H1
       Reg1.handler.run(5) { |v| puts "reg1 #{v}" }   # reg1 5
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      reg1 5
+    OUT
+  end
+
+  it "an accessor written with two distinct constants passes each one's &blk" do
+    result = ze0(<<~'RUBY')
+      # A method's &block parameter is reachable from a Thread.new / Fiber.new block
+      # in that method's body. The block runs as an independent closure on its own
+      # fiber stack, so the method must keep a heap-materialized &blk (not be
+      # yield-inlined) and the call site must pass the lowered block proc. Previously
+      # the escape went undetected: the method was inlined and the thread closure
+      # referenced an undeclared lv_blk (C compile error), or -- for a class/module
+      # method -- the block was silently dropped at the call site.
 
       # Stage-2: the accessor is written with two distinct constants, so the call
       # dispatches over the stored class -- each branch passes the same block proc
@@ -127,14 +263,6 @@ describe "Thread: blocks and yields" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      got 0
-      run 7
-      pre x
-      fib 3
-      val 9
-      30
-      lift 4
-      reg1 5
       reg2a 11
       reg2b 12
     OUT

@@ -692,7 +692,7 @@ describe "Control: control flow" do
     OUT
   end
 
-  it "exc frame early return pops" do
+  it "an early return out of a begin pops its frame, so two hundred of them do not leak" do
     result = ze0(<<~'RUBY')
       # An early `return` from inside begin/rescue must pop the live setjmp
       # exception frames it exits. If codegen emits a bare C `return`, the frame
@@ -725,6 +725,41 @@ describe "Control: control flow" do
       1.upto(200) { |i| total += sc[7] }
       puts total
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2800
+    OUT
+  end
+
+  it "a raise after many early returns lands in the fresh handler" do
+    result = ze0(<<~'RUBY')
+      # An early `return` from inside begin/rescue must pop the live setjmp
+      # exception frames it exits. If codegen emits a bare C `return`, the frame
+      # stays on sp_exc_stack with a jmp_buf pointing into a dead C stack frame;
+      # the next raise longjmps into garbage (Doom's SoundManager#[] crashed this
+      # way), and repeated calls overflow the exception stack.
+
+      class SoundCache
+        def initialize
+          @cache = {}
+        end
+
+        def [](key)
+          begin
+            return @cache[key] if @cache.key?(key)
+            value = key * 2
+            @cache[key] = value
+            value
+          rescue
+            -1
+          end
+        end
+      end
+
+      sc = SoundCache.new
+      sc[7]  # populate: the non-early path pops its frame correctly
+
       # A raise must land in this fresh handler, not a stale leaked frame.
       begin
         sc[7]
@@ -732,6 +767,41 @@ describe "Control: control flow" do
       rescue => e
         puts "caught #{e.message}"
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      caught boom
+    OUT
+  end
+
+  it "an early return through two nested begin frames pops both" do
+    result = ze0(<<~'RUBY')
+      # An early `return` from inside begin/rescue must pop the live setjmp
+      # exception frames it exits. If codegen emits a bare C `return`, the frame
+      # stays on sp_exc_stack with a jmp_buf pointing into a dead C stack frame;
+      # the next raise longjmps into garbage (Doom's SoundManager#[] crashed this
+      # way), and repeated calls overflow the exception stack.
+
+      class SoundCache
+        def initialize
+          @cache = {}
+        end
+
+        def [](key)
+          begin
+            return @cache[key] if @cache.key?(key)
+            value = key * 2
+            @cache[key] = value
+            value
+          rescue
+            -1
+          end
+        end
+      end
+
+      sc = SoundCache.new
+      sc[7]  # populate: the non-early path pops its frame correctly
 
       # Early return through two nested begin frames pops both.
       def double_nested(flag)
@@ -755,6 +825,42 @@ describe "Control: control flow" do
       rescue => e
         puts "caught #{e.message}"
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      inner-out
+      caught deep
+    OUT
+  end
+
+  it "a return from a begin/rescue nested inside a begin/ensure runs the deferred clause" do
+    result = ze0(<<~'RUBY')
+      # An early `return` from inside begin/rescue must pop the live setjmp
+      # exception frames it exits. If codegen emits a bare C `return`, the frame
+      # stays on sp_exc_stack with a jmp_buf pointing into a dead C stack frame;
+      # the next raise longjmps into garbage (Doom's SoundManager#[] crashed this
+      # way), and repeated calls overflow the exception stack.
+
+      class SoundCache
+        def initialize
+          @cache = {}
+        end
+
+        def [](key)
+          begin
+            return @cache[key] if @cache.key?(key)
+            value = key * 2
+            @cache[key] = value
+            value
+          rescue
+            -1
+          end
+        end
+      end
+
+      sc = SoundCache.new
+      sc[7]  # populate: the non-early path pops its frame correctly
 
       # Return from a begin/rescue nested inside begin..ensure: the deferred
       # return must pop down to the frame depth at ensure entry (both the rescue
@@ -780,6 +886,42 @@ describe "Control: control flow" do
       rescue => e
         puts "caught #{e.message}"
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      200
+      caught after ensure
+    OUT
+  end
+
+  it "a return from a begin/ensure nested inside a begin/rescue carries on after the ensure" do
+    result = ze0(<<~'RUBY')
+      # An early `return` from inside begin/rescue must pop the live setjmp
+      # exception frames it exits. If codegen emits a bare C `return`, the frame
+      # stays on sp_exc_stack with a jmp_buf pointing into a dead C stack frame;
+      # the next raise longjmps into garbage (Doom's SoundManager#[] crashed this
+      # way), and repeated calls overflow the exception stack.
+
+      class SoundCache
+        def initialize
+          @cache = {}
+        end
+
+        def [](key)
+          begin
+            return @cache[key] if @cache.key?(key)
+            value = key * 2
+            @cache[key] = value
+            value
+          rescue
+            -1
+          end
+        end
+      end
+
+      sc = SoundCache.new
+      sc[7]  # populate: the non-early path pops its frame correctly
 
       # Return from a begin..ensure nested inside begin/rescue: after the ensure
       # runs, the deferred return must also pop the enclosing rescue frame.
@@ -808,19 +950,13 @@ describe "Control: control flow" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      2800
-      caught boom
-      inner-out
-      caught deep
-      200
-      caught after ensure
       200
       caught after ensure 2
       done
     OUT
   end
 
-  it "for and redo" do
+  it "for compiles to coll.each and performs no type dispatch of its own" do
     result = ze0(<<~'RUBY')
       # frozen_string_literal: true
 
@@ -846,10 +982,39 @@ describe "Control: control flow" do
       end
       p pairs, key, value
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      123
+      3
+      [1, 2]
+      [3, 4]
+      [3, 4]
+      [[:one, 1], [:two, 2]]
+      :two
+      2
+    OUT
+  end
+
+  it "a single for index over a multi-value yield binds the whole pair" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
       # A single index over a multi-value yield binds the WHOLE pair.
       for pair in { three: 3 }
         p pair
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:three, 3]
+    OUT
+  end
+
+  it "for walks a live Array, so what the body appends is reached" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
 
       # The Array is live: what the body appends is walked.
       grown = [1]
@@ -868,6 +1033,19 @@ describe "Control: control flow" do
       end
       p out, x
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      12
+      [1, 3]
+      4
+    OUT
+  end
+
+  it "for answers the collection when it runs out, and a break supplies its own value" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
       # Running out answers the collection; a `break` supplies its own.
       p(for c in [1, 2] do end)
       p(for d in (1...4) do print d end)
@@ -880,6 +1058,21 @@ describe "Control: control flow" do
         end
       end
       puts
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 2]
+      1231...4
+
+      20
+      1x 1y 2x 2y 
+    OUT
+  end
+
+  it "a raise inside a for body leaves the loop's own state behind cleanly" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
 
       # A raise inside the body leaves the loop's own state behind cleanly.
       begin
@@ -907,6 +1100,21 @@ describe "Control: control flow" do
 
       p first_over([1, 2, 3], 1), first_over([1], 9)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "stop"
+      2
+      "undefined method 'each' for an instance of Integer"
+      2
+      :none
+    OUT
+  end
+
+  it "an ensure the for jump crosses runs its clause, and the jump goes on" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
       # An `ensure` the jump crosses runs its clause and the jump goes on.
       def guarded(list)
         log = []
@@ -925,6 +1133,17 @@ describe "Control: control flow" do
 
       p guarded([1, 2, 3, 4, 5])
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, [:e, 1], [:e, 2], 3, [:e, 3], [:e, 4]]
+    OUT
+  end
+
+  it "redo in a native loop steps nothing" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
       # `redo` in a native loop steps nothing.
       turns = 0
       count = 0
@@ -941,6 +1160,18 @@ describe "Control: control flow" do
       end
       p [z, turns]
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [2, 2]
+      [2, 5]
+    OUT
+  end
+
+  it "redo in a block re-enters past the bindings, so the parameter keeps its value" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
       # `redo` in a block re-enters PAST the bindings, so the parameter keeps
       # what the body assigned to it.
       steps = []
@@ -952,6 +1183,17 @@ describe "Control: control flow" do
         end
       end
       p steps
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [10, 11, 12]
+    OUT
+  end
+
+  it "an ensure in the way of a redo runs each time round" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
 
       # ...and an `ensure` in the way runs each time round.
       log = []
@@ -966,6 +1208,17 @@ describe "Control: control flow" do
       end
       p log
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [1, 2, 3]
+    OUT
+  end
+
+  it "a block-local starts nil on every invocation and never touches the outer name" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
       # A block-local starts nil every invocation and never touches the name
       # outside it.
       scratch = :outer
@@ -976,6 +1229,18 @@ describe "Control: control flow" do
         seen << scratch
       end
       p seen, scratch
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [nil, 1, nil, 2]
+      :outer
+    OUT
+  end
+
+  it "a block-local survives a redo, exactly as a parameter does" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
 
       # It survives a redo, exactly as a parameter does.
       kept = []
@@ -990,35 +1255,6 @@ describe "Control: control flow" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      123
-      3
-      [1, 2]
-      [3, 4]
-      [3, 4]
-      [[:one, 1], [:two, 2]]
-      :two
-      2
-      [:three, 3]
-      12
-      [1, 3]
-      4
-      [1, 2]
-      1231...4
-
-      20
-      1x 1y 2x 2y 
-      "stop"
-      2
-      "undefined method 'each' for an instance of Integer"
-      2
-      :none
-      [1, [:e, 1], [:e, 2], 3, [:e, 3], [:e, 4]]
-      [2, 2]
-      [2, 5]
-      [10, 11, 12]
-      [1, 2, 3]
-      [nil, 1, nil, 2]
-      :outer
       [1, 2, 3]
     OUT
   end

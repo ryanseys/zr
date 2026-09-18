@@ -1515,7 +1515,7 @@ describe "Object: instance and class variables" do
     OUT
   end
 
-  it "ivar ternary mixed" do
+  it "an ivar written from a ternary of a String and an Integer holds both" do
     result = ze0(<<~'RUBY')
       # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
       # expression) with branches of different concrete types used to type
@@ -1542,6 +1542,28 @@ describe "Object: instance and class variables" do
       c1.init(false); c1.show              # 42
       c1.init(true);  c1.show              # hello
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      42
+      hello
+    OUT
+  end
+
+  it "an ivar written from a ternary of an Integer and a Float coerces neither" do
+    result = ze0(<<~'RUBY')
+      # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
+      # expression) with branches of different concrete types used to type
+      # the slot from `infer_ivar_init_type`'s default fallback ("int") and
+      # emit a raw `(cond ? then : else)` C ternary into a typed slot —
+      # pointer/integer mismatch warning, segfault at runtime.
+      #
+      # Fix: `infer_ivar_init_type` recurses into IfNode branches with strict
+      # unification (no "int is default" escape hatch); `box_expr_to_poly`
+      # always per-branch boxes IfNode in poly contexts. Slot widens to poly
+      # for mixed-type branches; same-type branches infer as that type and
+      # the existing path applies.
+
       # 2. Same shape with Integer/Float — silent-coerce in pre-fix codegen.
       class C2
         def init(use_int)
@@ -1553,6 +1575,28 @@ describe "Object: instance and class variables" do
       c2 = C2.new
       c2.init(true);  c2.show              # 100
       c2.init(false); c2.show              # 1.5
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      100
+      1.5
+    OUT
+  end
+
+  it "a mixed ternary followed by a concrete write keeps every type it saw" do
+    result = ze0(<<~'RUBY')
+      # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
+      # expression) with branches of different concrete types used to type
+      # the slot from `infer_ivar_init_type`'s default fallback ("int") and
+      # emit a raw `(cond ? then : else)` C ternary into a typed slot —
+      # pointer/integer mismatch warning, segfault at runtime.
+      #
+      # Fix: `infer_ivar_init_type` recurses into IfNode branches with strict
+      # unification (no "int is default" escape hatch); `box_expr_to_poly`
+      # always per-branch boxes IfNode in poly contexts. Slot widens to poly
+      # for mixed-type branches; same-type branches infer as that type and
+      # the existing path applies.
 
       # 3. Mixed-type ternary combined with later concrete write — must
       #    interact with #130's multi-write widening: poly + concrete = stay poly.
@@ -1571,6 +1615,29 @@ describe "Object: instance and class variables" do
       c3.overwrite_sym; c3.show            # sym
       c3.init(false); c3.show              # 42
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      hello
+      sym
+      42
+    OUT
+  end
+
+  it "a ternary whose branches share a type leaves the slot that type" do
+    result = ze0(<<~'RUBY')
+      # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
+      # expression) with branches of different concrete types used to type
+      # the slot from `infer_ivar_init_type`'s default fallback ("int") and
+      # emit a raw `(cond ? then : else)` C ternary into a typed slot —
+      # pointer/integer mismatch warning, segfault at runtime.
+      #
+      # Fix: `infer_ivar_init_type` recurses into IfNode branches with strict
+      # unification (no "int is default" escape hatch); `box_expr_to_poly`
+      # always per-branch boxes IfNode in poly contexts. Slot widens to poly
+      # for mixed-type branches; same-type branches infer as that type and
+      # the existing path applies.
+
       # 4. Same-type ternary — regression guard. Both branches int, slot
       #    stays mrb_int, no boxing overhead.
       class C4
@@ -1584,6 +1651,28 @@ describe "Object: instance and class variables" do
       c4.init(true);  c4.show              # 1000
       c4.init(false); c4.show              # 1
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      1000
+      1
+    OUT
+  end
+
+  it "a ternary of two Strings leaves the slot a String" do
+    result = ze0(<<~'RUBY')
+      # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
+      # expression) with branches of different concrete types used to type
+      # the slot from `infer_ivar_init_type`'s default fallback ("int") and
+      # emit a raw `(cond ? then : else)` C ternary into a typed slot —
+      # pointer/integer mismatch warning, segfault at runtime.
+      #
+      # Fix: `infer_ivar_init_type` recurses into IfNode branches with strict
+      # unification (no "int is default" escape hatch); `box_expr_to_poly`
+      # always per-branch boxes IfNode in poly contexts. Slot widens to poly
+      # for mixed-type branches; same-type branches infer as that type and
+      # the existing path applies.
+
       # 5. Same-type-string ternary — regression guard. Slot stays string.
       class C5
         def init(loud)
@@ -1595,6 +1684,28 @@ describe "Object: instance and class variables" do
       c5 = C5.new
       c5.init(true);  c5.show              # HEY
       c5.init(false); c5.show              # hi
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      HEY
+      hi
+    OUT
+  end
+
+  it "an if written as an expression widens the slot the same as a ternary" do
+    result = ze0(<<~'RUBY')
+      # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
+      # expression) with branches of different concrete types used to type
+      # the slot from `infer_ivar_init_type`'s default fallback ("int") and
+      # emit a raw `(cond ? then : else)` C ternary into a typed slot —
+      # pointer/integer mismatch warning, segfault at runtime.
+      #
+      # Fix: `infer_ivar_init_type` recurses into IfNode branches with strict
+      # unification (no "int is default" escape hatch); `box_expr_to_poly`
+      # always per-branch boxes IfNode in poly contexts. Slot widens to poly
+      # for mixed-type branches; same-type branches infer as that type and
+      # the existing path applies.
 
       # 6. if-as-expression form (statement-style) with mixed types.
       #    Same AST shape (IfNode) as ternary, just multi-line surface syntax.
@@ -1613,6 +1724,28 @@ describe "Object: instance and class variables" do
       c6.init(true);  c6.show              # world
       c6.init(false); c6.show              # 99
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      world
+      99
+    OUT
+  end
+
+  it "a ternary with a nil branch widens the slot to a nullable String" do
+    result = ze0(<<~'RUBY')
+      # Issue #131: a single-write ivar whose RHS is a ternary (or if-as-
+      # expression) with branches of different concrete types used to type
+      # the slot from `infer_ivar_init_type`'s default fallback ("int") and
+      # emit a raw `(cond ? then : else)` C ternary into a typed slot —
+      # pointer/integer mismatch warning, segfault at runtime.
+      #
+      # Fix: `infer_ivar_init_type` recurses into IfNode branches with strict
+      # unification (no "int is default" escape hatch); `box_expr_to_poly`
+      # always per-branch boxes IfNode in poly contexts. Slot widens to poly
+      # for mixed-type branches; same-type branches infer as that type and
+      # the existing path applies.
+
       # 7. Ternary with nil branch — should widen to nullable string,
       #    not poly. Let the existing nullable widening flow through.
       class C7
@@ -1628,19 +1761,6 @@ describe "Object: instance and class variables" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      42
-      hello
-      100
-      1.5
-      hello
-      sym
-      42
-      1000
-      1
-      HEY
-      hi
-      world
-      99
       yes
       nope
     OUT

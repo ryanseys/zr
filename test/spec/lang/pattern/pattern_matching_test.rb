@@ -377,7 +377,7 @@ describe "Pattern: pattern matching" do
     OUT
   end
 
-  it "every pattern form over one failure block" do
+  it "case/in, expr in pattern and expr => pattern each match the same patterns" do
     result = ze0(<<~'RUBY')
       # frozen_string_literal: true
 
@@ -422,6 +422,34 @@ describe "Pattern: pattern matching" do
         {}, 3, 20, 4.5, :zz,
       ].each { |v| p shape(v) }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :int
+      :str
+      :nil
+      :pair
+      :other
+      :empty
+      [:one, 7]
+      [:bracketed, [2, 3]]
+      :found
+      [:nested, 1, 2, 3]
+      [:person, "n"]
+      [:only, 5]
+      [:rest, {b: 2}]
+      :empty_hash
+      :small
+      :round
+      :small
+      :none
+    OUT
+  end
+
+  it "a class that writes both protocols answers an array pattern and a hash pattern" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
       # A class with the two protocols answers both an array and a hash
       # pattern. `**rest` hands `deconstruct_keys` nil, which is what tells it
       # the pattern will take everything.
@@ -445,6 +473,19 @@ describe "Pattern: pattern matching" do
       in { **all } then p [:all, all]
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:arr, "x", "y"]
+      [:keys, "x", [:a, :keys]]
+      [:all, {a: "x", b: "y", keys: nil}]
+    OUT
+  end
+
+  it "a Struct matches by brackets, by parentheses and through a scope" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
       # A Struct, and one named through a scope.
       Point = Struct.new(:x, :y)
       p(case Point.new(1, 2)
@@ -462,6 +503,19 @@ describe "Pattern: pattern matching" do
       in Geo::Line[a, b] then p [:scoped, a, b]
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:brackets, 1, 2]
+      [:parens, 3, 4]
+      [:scoped, 5, 6]
+    OUT
+  end
+
+  it "a pin matches a value the pattern cannot spell" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
       # A pin matches a value the pattern cannot spell, and any object whose
       # `===` answers.
       expected = 5
@@ -477,6 +531,19 @@ describe "Pattern: pattern matching" do
       case 5
       in ^over_three then p :pinned_proc
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :pinned
+      :pinned_expression
+      :pinned_proc
+    OUT
+  end
+
+  it "a guard is its own reason, so a matched pattern with a false guard does not match" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
 
       # A guard is its own reason: the pattern matched and the condition did
       # not.
@@ -497,12 +564,42 @@ describe "Pattern: pattern matching" do
       held => { a: }
       p a
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:guard, 1]
+      [:unless, 4]
+      true
+      true
+      true
+      false
+      1
+    OUT
+  end
+
+  it "a pattern's bindings reach the scope around the case" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
+
       # The bindings reach the scope around the `case`.
       case { name: "zeo", version: [0, 1, 0] }
       in { name: String => found, version: [major, minor, *] }
         nil
       end
       p found, major, minor
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "zeo"
+      0
+      1
+    OUT
+  end
+
+  it "an arm with no body answers nil" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
 
       # An arm with no body answers nil.
       p(case 1
@@ -518,6 +615,20 @@ describe "Pattern: pattern matching" do
       end
 
       p first_string([1, "hit", 2]), first_string([]), first_string([1])
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      nil
+      "hit"
+      :empty
+      :none
+    OUT
+  end
+
+  it "every refusal names the reason the runtime's own raise names" do
+    result = ze0(<<~'RUBY')
+      # frozen_string_literal: true
 
       # Every refusal names the same reason the runtime's own raise does.
       def refused
@@ -608,47 +719,6 @@ describe "Pattern: pattern matching" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      :int
-      :str
-      :nil
-      :pair
-      :other
-      :empty
-      [:one, 7]
-      [:bracketed, [2, 3]]
-      :found
-      [:nested, 1, 2, 3]
-      [:person, "n"]
-      [:only, 5]
-      [:rest, {b: 2}]
-      :empty_hash
-      :small
-      :round
-      :small
-      :none
-      [:arr, "x", "y"]
-      [:keys, "x", [:a, :keys]]
-      [:all, {a: "x", b: "y", keys: nil}]
-      [:brackets, 1, 2]
-      [:parens, 3, 4]
-      [:scoped, 5, 6]
-      :pinned
-      :pinned_expression
-      :pinned_proc
-      [:guard, 1]
-      [:unless, 4]
-      true
-      true
-      true
-      false
-      1
-      "zeo"
-      0
-      1
-      nil
-      "hit"
-      :empty
-      :none
       [NoMatchingPatternError, "5: String === 5 does not return true"]
       [NoMatchingPatternKeyError, "{a: 1}: key not found: :b", :b, {a: 1}]
       [NoMatchingPatternError, "9"]

@@ -414,7 +414,7 @@ describe "Classes: slicing" do
     OUT
   end
 
-  it "class var read" do
+  it "a class method bumping a shared counter reads it back through the class variable" do
     result = ze0(<<~'RUBY')
       # ClassVariableReadNode -- `@@var`, plus expression-form
       # ClassVariableWriteNode (the `@@x = ...` last-expression-as-return
@@ -453,6 +453,26 @@ describe "Classes: slicing" do
       puts Counter.new.instance_value   # 3 -- instance reads same slot
 
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      0
+      3
+      3
+    OUT
+  end
+
+  it "two unrelated classes with the same class-variable name keep their own" do
+    result = ze0(<<~'RUBY')
+      # ClassVariableReadNode -- `@@var`, plus expression-form
+      # ClassVariableWriteNode (the `@@x = ...` last-expression-as-return
+      # path) and several real-world class-var idioms.
+      #
+      # Spinel's class vars are independent per declaring class -- the
+      # ClassVariableWriteNode commit covers the storage-shape
+      # limitation in detail. This test exercises only patterns that
+      # stay inside one class's slot (no cross-hierarchy reads).
+
       # 2. Per-class isolation: two unrelated classes with the same cvar
       #    name get independent slots. Without the per-class qualification
       #    in cvar_qname, Counter.tick would have changed Other's count
@@ -467,6 +487,24 @@ describe "Classes: slicing" do
 
       puts Other.value             # 100, unaffected by Counter.tick calls
 
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      100
+    OUT
+  end
+
+  it "a class variable given a non-zero value in the class body keeps it" do
+    result = ze0(<<~'RUBY')
+      # ClassVariableReadNode -- `@@var`, plus expression-form
+      # ClassVariableWriteNode (the `@@x = ...` last-expression-as-return
+      # path) and several real-world class-var idioms.
+      #
+      # Spinel's class vars are independent per declaring class -- the
+      # ClassVariableWriteNode commit covers the storage-shape
+      # limitation in detail. This test exercises only patterns that
+      # stay inside one class's slot (no cross-hierarchy reads).
 
       # 3. Cvar with explicit non-zero initial value at class body. Spinel
       #    folds the literal into the static C decl (compile-time), so the
@@ -486,6 +524,25 @@ describe "Classes: slicing" do
       puts Config.debug?           # true (folded into static decl)
       puts Config.max_retries      # 5
 
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      5
+    OUT
+  end
+
+  it "a class variable updated across many class-method calls accumulates" do
+    result = ze0(<<~'RUBY')
+      # ClassVariableReadNode -- `@@var`, plus expression-form
+      # ClassVariableWriteNode (the `@@x = ...` last-expression-as-return
+      # path) and several real-world class-var idioms.
+      #
+      # Spinel's class vars are independent per declaring class -- the
+      # ClassVariableWriteNode commit covers the storage-shape
+      # limitation in detail. This test exercises only patterns that
+      # stay inside one class's slot (no cross-hierarchy reads).
 
       # 4. Cvar updated across many class-method calls -- the cumulative
       #    state lives in the cvar slot, not in any temporary. Chained
@@ -510,6 +567,24 @@ describe "Classes: slicing" do
       puts Tally.total             # 42
 
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      42
+    OUT
+  end
+
+  it "a class variable written from an instance method is read by a class method" do
+    result = ze0(<<~'RUBY')
+      # ClassVariableReadNode -- `@@var`, plus expression-form
+      # ClassVariableWriteNode (the `@@x = ...` last-expression-as-return
+      # path) and several real-world class-var idioms.
+      #
+      # Spinel's class vars are independent per declaring class -- the
+      # ClassVariableWriteNode commit covers the storage-shape
+      # limitation in detail. This test exercises only patterns that
+      # stay inside one class's slot (no cross-hierarchy reads).
+
       # 5. Cvar mutation across instance and class methods of the same
       #    class. Real Ruby code mixes these freely (e.g. ActiveRecord
       #    counter caches).
@@ -532,13 +607,6 @@ describe "Classes: slicing" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      0
-      3
-      3
-      100
-      true
-      5
-      42
       2
     OUT
   end

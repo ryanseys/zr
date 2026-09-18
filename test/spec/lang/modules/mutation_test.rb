@@ -497,7 +497,7 @@ describe "Modules: changing in place" do
     OUT
   end
 
-  it "prepend call form behavior" do
+  it "a prepend written as a call shows in the ancestry it edits" do
     result = ze0(<<~'RUBY')
       # Comprehensive behavior of the `C.prepend(M)` call-form desugar: reflection
       # (is_a?/kind_of?/ancestors/include?), diamond expansion (a prepended module
@@ -525,6 +525,26 @@ describe "Modules: changing in place" do
       puts Flow.include?(Track)
       puts f.step
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      [Track, Flow, Object, Kernel, BasicObject]
+      true
+      T:flow
+    OUT
+  end
+
+  it "a prepended module that includes another lands both in the ancestry" do
+    result = ze0(<<~'RUBY')
+      # Comprehensive behavior of the `C.prepend(M)` call-form desugar: reflection
+      # (is_a?/kind_of?/ancestors/include?), diamond expansion (a prepended module
+      # that itself includes another), multiple separate prepend calls, interaction
+      # with a class-body `prepend` on the same class, and `super` from a prepended
+      # module reaching an INCLUDED module's method -- all resolved through the
+      # ordinary compile-time-flattened MRO, matching ruby.
+
       # a prepended module that itself includes another (diamond expansion)
       module Base
         def label
@@ -545,6 +565,23 @@ describe "Modules: changing in place" do
       Card.prepend(Deco)
       puts Card.ancestors.inspect
       puts Card.new.label
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [Deco, Base, Card, Object, Kernel, BasicObject]
+      deco(base)
+    OUT
+  end
+
+  it "two separate prepend calls put the later one closer" do
+    result = ze0(<<~'RUBY')
+      # Comprehensive behavior of the `C.prepend(M)` call-form desugar: reflection
+      # (is_a?/kind_of?/ancestors/include?), diamond expansion (a prepended module
+      # that itself includes another), multiple separate prepend calls, interaction
+      # with a class-body `prepend` on the same class, and `super` from a prepended
+      # module reaching an INCLUDED module's method -- all resolved through the
+      # ordinary compile-time-flattened MRO, matching ruby.
 
       # multiple SEPARATE prepend calls: the later one is closer
       module P
@@ -567,6 +604,23 @@ describe "Modules: changing in place" do
       puts Item.ancestors.first(4).inspect
       puts Item.new.tag
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [Q, P, Item, Object]
+      QPitem
+    OUT
+  end
+
+  it "a prepend call and a class-body prepend on one class order together" do
+    result = ze0(<<~'RUBY')
+      # Comprehensive behavior of the `C.prepend(M)` call-form desugar: reflection
+      # (is_a?/kind_of?/ancestors/include?), diamond expansion (a prepended module
+      # that itself includes another), multiple separate prepend calls, interaction
+      # with a class-body `prepend` on the same class, and `super` from a prepended
+      # module reaching an INCLUDED module's method -- all resolved through the
+      # ordinary compile-time-flattened MRO, matching ruby.
+
       # a prepend call interacting with a class-body prepend on the same class
       module Early
         def val
@@ -588,6 +642,23 @@ describe "Modules: changing in place" do
       puts Mix.ancestors.first(4).inspect
       puts Mix.new.val
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [Late, Early, Mix, Object]
+      LEmix
+    OUT
+  end
+
+  it "super from a prepended module reaches an included module's copy" do
+    result = ze0(<<~'RUBY')
+      # Comprehensive behavior of the `C.prepend(M)` call-form desugar: reflection
+      # (is_a?/kind_of?/ancestors/include?), diamond expansion (a prepended module
+      # that itself includes another), multiple separate prepend calls, interaction
+      # with a class-body `prepend` on the same class, and `super` from a prepended
+      # module reaching an INCLUDED module's method -- all resolved through the
+      # ordinary compile-time-flattened MRO, matching ruby.
+
       # super from a prepended module reaching an INCLUDED module's method
       module Common
         def go
@@ -608,17 +679,6 @@ describe "Modules: changing in place" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      true
-      true
-      [Track, Flow, Object, Kernel, BasicObject]
-      true
-      T:flow
-      [Deco, Base, Card, Object, Kernel, BasicObject]
-      deco(base)
-      [Q, P, Item, Object]
-      QPitem
-      [Late, Early, Mix, Object]
-      LEmix
       hook(common)
       [Hook, Runner, Common, Object, Kernel, BasicObject]
     OUT

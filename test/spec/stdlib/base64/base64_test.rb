@@ -427,7 +427,7 @@ describe "Base64 programs" do
     OUT
   end
 
-  it "strict arg conversion" do
+  it "nil and a boolean in an Integer slot raise with the from-nil wording" do
     result = ze0(<<~'RUBY')
       # CRuby's argument-conversion TypeErrors, message included.
       #
@@ -511,6 +511,45 @@ describe "Base64 programs" do
         p [e.class, e.message]
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [TypeError, "no implicit conversion from nil to integer"]
+      [TypeError, "no implicit conversion from nil to integer"]
+      [TypeError, "no implicit conversion from nil to integer"]
+      [TypeError, "no implicit conversion from nil to integer"]
+      [TypeError, "no implicit conversion from nil to integer"]
+      [TypeError, "no implicit conversion from nil to integer"]
+      [TypeError, "no implicit conversion from nil to integer"]
+      [TypeError, "no implicit conversion from nil to integer"]
+      [TypeError, "no implicit conversion from nil to integer"]
+      [TypeError, "no implicit conversion from nil to integer"]
+      [TypeError, "no implicit conversion from nil to integer"]
+      [TypeError, "no implicit conversion of false into Integer"]
+    OUT
+  end
+
+  it "an rb_to_int slot raises with the of-nil wording instead" do
+    result = ze0(<<~'RUBY')
+      # CRuby's argument-conversion TypeErrors, message included.
+      #
+      # Four rules, each spelled where CRuby spells it: a `Check_Type` message
+      # (`wrong argument type X (expected Y)`) names `nil`/`true`/`false` as the
+      # VALUE rather than the class; `rb_num2long` says "no implicit conversion
+      # from nil to integer" where `rb_to_int` says "of nil into Integer";
+      # `StringScanner`'s pattern slot reads with `StringValue`, so its refusal
+      # is the STRING conversion's; and a rounding digit count, a radix and a
+      # random seed are conversions, never arithmetic coercions.
+      #
+      # The original header follows. It describes the PREDECESSOR project's
+      # version of this test and its own fix.
+      #
+      # CRuby's argument validation at builtin boundaries: a compile-time-known
+      # nil / true / false (or wrong-classed scalar) entering a String- or
+      # Integer-typed slot raises CRuby's TypeError, wording included, where the
+      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
+      # accepts nil in keep working.
+
       # rb_to_int slots ("of nil into Integer" wording)
       begin
         p(5.digits(nil))
@@ -527,6 +566,36 @@ describe "Base64 programs" do
       rescue TypeError, ArgumentError => e
         p [e.class, e.message]
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [TypeError, "no implicit conversion of nil into Integer"]
+      [TypeError, "no implicit conversion of nil into Integer"]
+      [TypeError, "no implicit conversion of nil into Integer"]
+    OUT
+  end
+
+  it "nil, a boolean and a wrong class in a String slot each raise" do
+    result = ze0(<<~'RUBY')
+      # CRuby's argument-conversion TypeErrors, message included.
+      #
+      # Four rules, each spelled where CRuby spells it: a `Check_Type` message
+      # (`wrong argument type X (expected Y)`) names `nil`/`true`/`false` as the
+      # VALUE rather than the class; `rb_num2long` says "no implicit conversion
+      # from nil to integer" where `rb_to_int` says "of nil into Integer";
+      # `StringScanner`'s pattern slot reads with `StringValue`, so its refusal
+      # is the STRING conversion's; and a rounding digit count, a radix and a
+      # random seed are conversions, never arithmetic coercions.
+      #
+      # The original header follows. It describes the PREDECESSOR project's
+      # version of this test and its own fix.
+      #
+      # CRuby's argument validation at builtin boundaries: a compile-time-known
+      # nil / true / false (or wrong-classed scalar) entering a String- or
+      # Integer-typed slot raises CRuby's TypeError, wording included, where the
+      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
+      # accepts nil in keep working.
 
       # nil / bool / wrong class into String slots
       begin
@@ -560,6 +629,39 @@ describe "Base64 programs" do
         p [e.class, e.message]
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [TypeError, "no implicit conversion of nil into String"]
+      [TypeError, "no implicit conversion of true into String"]
+      [TypeError, "no implicit conversion of nil into String"]
+      [TypeError, "no implicit conversion of nil into String"]
+      [TypeError, "no implicit conversion of Integer into String"]
+      [TypeError, "no implicit conversion of nil into String"]
+    OUT
+  end
+
+  it "a slot expecting a pattern raises with the wrong-argument-type wording" do
+    result = ze0(<<~'RUBY')
+      # CRuby's argument-conversion TypeErrors, message included.
+      #
+      # Four rules, each spelled where CRuby spells it: a `Check_Type` message
+      # (`wrong argument type X (expected Y)`) names `nil`/`true`/`false` as the
+      # VALUE rather than the class; `rb_num2long` says "no implicit conversion
+      # from nil to integer" where `rb_to_int` says "of nil into Integer";
+      # `StringScanner`'s pattern slot reads with `StringValue`, so its refusal
+      # is the STRING conversion's; and a rounding digit count, a radix and a
+      # random seed are conversions, never arithmetic coercions.
+      #
+      # The original header follows. It describes the PREDECESSOR project's
+      # version of this test and its own fix.
+      #
+      # CRuby's argument validation at builtin boundaries: a compile-time-known
+      # nil / true / false (or wrong-classed scalar) entering a String- or
+      # Integer-typed slot raises CRuby's TypeError, wording included, where the
+      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
+      # accepts nil in keep working.
+
       # the regexp-expected pattern family
       begin
         p("ab".match(nil))
@@ -587,6 +689,38 @@ describe "Base64 programs" do
         p [e.class, e.message]
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [TypeError, "wrong argument type nil (expected Regexp)"]
+      [TypeError, "wrong argument type nil (expected Regexp)"]
+      [TypeError, "wrong argument type nil (expected Regexp)"]
+      [TypeError, "wrong argument type false (expected Regexp)"]
+      [TypeError, "wrong argument type true (expected Regexp)"]
+    OUT
+  end
+
+  it "the Array-operand slots raise for an operand they cannot convert" do
+    result = ze0(<<~'RUBY')
+      # CRuby's argument-conversion TypeErrors, message included.
+      #
+      # Four rules, each spelled where CRuby spells it: a `Check_Type` message
+      # (`wrong argument type X (expected Y)`) names `nil`/`true`/`false` as the
+      # VALUE rather than the class; `rb_num2long` says "no implicit conversion
+      # from nil to integer" where `rb_to_int` says "of nil into Integer";
+      # `StringScanner`'s pattern slot reads with `StringValue`, so its refusal
+      # is the STRING conversion's; and a rounding digit count, a radix and a
+      # random seed are conversions, never arithmetic coercions.
+      #
+      # The original header follows. It describes the PREDECESSOR project's
+      # version of this test and its own fix.
+      #
+      # CRuby's argument validation at builtin boundaries: a compile-time-known
+      # nil / true / false (or wrong-classed scalar) entering a String- or
+      # Integer-typed slot raises CRuby's TypeError, wording included, where the
+      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
+      # accepts nil in keep working.
+
       # the Array-operand family
       begin
         p([1, 2].concat(nil))
@@ -598,6 +732,35 @@ describe "Base64 programs" do
       rescue TypeError, ArgumentError => e
         p [e.class, e.message]
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [TypeError, "no implicit conversion of nil into Array"]
+      [TypeError, "no implicit conversion of nil into Array"]
+    OUT
+  end
+
+  it "a MatchData index raises for a value it cannot convert" do
+    result = ze0(<<~'RUBY')
+      # CRuby's argument-conversion TypeErrors, message included.
+      #
+      # Four rules, each spelled where CRuby spells it: a `Check_Type` message
+      # (`wrong argument type X (expected Y)`) names `nil`/`true`/`false` as the
+      # VALUE rather than the class; `rb_num2long` says "no implicit conversion
+      # from nil to integer" where `rb_to_int` says "of nil into Integer";
+      # `StringScanner`'s pattern slot reads with `StringValue`, so its refusal
+      # is the STRING conversion's; and a rounding digit count, a radix and a
+      # random seed are conversions, never arithmetic coercions.
+      #
+      # The original header follows. It describes the PREDECESSOR project's
+      # version of this test and its own fix.
+      #
+      # CRuby's argument validation at builtin boundaries: a compile-time-known
+      # nil / true / false (or wrong-classed scalar) entering a String- or
+      # Integer-typed slot raises CRuby's TypeError, wording included, where the
+      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
+      # accepts nil in keep working.
 
       # MatchData indexes
       m = /a(b)/.match("ab")
@@ -611,6 +774,35 @@ describe "Base64 programs" do
       rescue TypeError, ArgumentError => e
         p [e.class, e.message]
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [TypeError, "no implicit conversion from nil to integer"]
+      [TypeError, "no implicit conversion of false into Integer"]
+    OUT
+  end
+
+  it "the native bindings and the module functions check their slots too" do
+    result = ze0(<<~'RUBY')
+      # CRuby's argument-conversion TypeErrors, message included.
+      #
+      # Four rules, each spelled where CRuby spells it: a `Check_Type` message
+      # (`wrong argument type X (expected Y)`) names `nil`/`true`/`false` as the
+      # VALUE rather than the class; `rb_num2long` says "no implicit conversion
+      # from nil to integer" where `rb_to_int` says "of nil into Integer";
+      # `StringScanner`'s pattern slot reads with `StringValue`, so its refusal
+      # is the STRING conversion's; and a rounding digit count, a radix and a
+      # random seed are conversions, never arithmetic coercions.
+      #
+      # The original header follows. It describes the PREDECESSOR project's
+      # version of this test and its own fix.
+      #
+      # CRuby's argument validation at builtin boundaries: a compile-time-known
+      # nil / true / false (or wrong-classed scalar) entering a String- or
+      # Integer-typed slot raises CRuby's TypeError, wording included, where the
+      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
+      # accepts nil in keep working.
 
       # native bindings and module functions
       require "json"
@@ -637,6 +829,37 @@ describe "Base64 programs" do
         p [e.class, e.message]
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [TypeError, "no implicit conversion of nil into String"]
+      [TypeError, "no implicit conversion of nil into String"]
+      [TypeError, "no implicit conversion of nil into String"]
+      [TypeError, "no implicit conversion of nil into Integer"]
+    OUT
+  end
+
+  it "a slot where CRuby accepts nil goes on accepting it" do
+    result = ze0(<<~'RUBY')
+      # CRuby's argument-conversion TypeErrors, message included.
+      #
+      # Four rules, each spelled where CRuby spells it: a `Check_Type` message
+      # (`wrong argument type X (expected Y)`) names `nil`/`true`/`false` as the
+      # VALUE rather than the class; `rb_num2long` says "no implicit conversion
+      # from nil to integer" where `rb_to_int` says "of nil into Integer";
+      # `StringScanner`'s pattern slot reads with `StringValue`, so its refusal
+      # is the STRING conversion's; and a rounding digit count, a radix and a
+      # random seed are conversions, never arithmetic coercions.
+      #
+      # The original header follows. It describes the PREDECESSOR project's
+      # version of this test and its own fix.
+      #
+      # CRuby's argument validation at builtin boundaries: a compile-time-known
+      # nil / true / false (or wrong-classed scalar) entering a String- or
+      # Integer-typed slot raises CRuby's TypeError, wording included, where the
+      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
+      # accepts nil in keep working.
+
       # slots where CRuby accepts nil stay accepting
       p "a b".split(nil)
       p "ab\n".chomp(nil)
@@ -648,6 +871,41 @@ describe "Base64 programs" do
       ENV["SPINEL_C3_T"] = "v"
       ENV["SPINEL_C3_T"] = nil
       p ENV["SPINEL_C3_T"].nil?
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["a", "b"]
+      "ab\n"
+      [1, 2]
+      [0, 0]
+      nil
+      nil
+      nil
+      true
+    OUT
+  end
+
+  it "a named-capture match against a nil subject, and fill's negative length, each answer" do
+    result = ze0(<<~'RUBY')
+      # CRuby's argument-conversion TypeErrors, message included.
+      #
+      # Four rules, each spelled where CRuby spells it: a `Check_Type` message
+      # (`wrong argument type X (expected Y)`) names `nil`/`true`/`false` as the
+      # VALUE rather than the class; `rb_num2long` says "no implicit conversion
+      # from nil to integer" where `rb_to_int` says "of nil into Integer";
+      # `StringScanner`'s pattern slot reads with `StringValue`, so its refusal
+      # is the STRING conversion's; and a rounding digit count, a radix and a
+      # random seed are conversions, never arithmetic coercions.
+      #
+      # The original header follows. It describes the PREDECESSOR project's
+      # version of this test and its own fix.
+      #
+      # CRuby's argument validation at builtin boundaries: a compile-time-known
+      # nil / true / false (or wrong-classed scalar) entering a String- or
+      # Integer-typed slot raises CRuby's TypeError, wording included, where the
+      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
+      # accepts nil in keep working.
 
       # review-found edges: named-capture =~ nil subject; fill's nil length is "to
       # the end"; a boolean =~ operand is NoMethodError; File.read's nil length
@@ -671,6 +929,38 @@ describe "Base64 programs" do
         File.delete("sac-frd.txt")
       end
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["a", "1"]
+      nil
+      [1, 9, 9]
+      [NoMethodError, "undefined method '=~' for true"]
+      "hello"
+    OUT
+  end
+
+  it "super(nil) into a builtin exception keeps CRuby's class-named message" do
+    result = ze0(<<~'RUBY')
+      # CRuby's argument-conversion TypeErrors, message included.
+      #
+      # Four rules, each spelled where CRuby spells it: a `Check_Type` message
+      # (`wrong argument type X (expected Y)`) names `nil`/`true`/`false` as the
+      # VALUE rather than the class; `rb_num2long` says "no implicit conversion
+      # from nil to integer" where `rb_to_int` says "of nil into Integer";
+      # `StringScanner`'s pattern slot reads with `StringValue`, so its refusal
+      # is the STRING conversion's; and a rounding digit count, a radix and a
+      # random seed are conversions, never arithmetic coercions.
+      #
+      # The original header follows. It describes the PREDECESSOR project's
+      # version of this test and its own fix.
+      #
+      # CRuby's argument validation at builtin boundaries: a compile-time-known
+      # nil / true / false (or wrong-classed scalar) entering a String- or
+      # Integer-typed slot raises CRuby's TypeError, wording included, where the
+      # slot's zero ("" / 0) used to stand in silently. The slots CRuby itself
+      # accepts nil in keep working.
+
       # super(nil) into a builtin exception keeps CRuby's class-name default
       class ConvE < StandardError
         def initialize; super(nil); end
@@ -679,53 +969,6 @@ describe "Base64 programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      [TypeError, "no implicit conversion from nil to integer"]
-      [TypeError, "no implicit conversion from nil to integer"]
-      [TypeError, "no implicit conversion from nil to integer"]
-      [TypeError, "no implicit conversion from nil to integer"]
-      [TypeError, "no implicit conversion from nil to integer"]
-      [TypeError, "no implicit conversion from nil to integer"]
-      [TypeError, "no implicit conversion from nil to integer"]
-      [TypeError, "no implicit conversion from nil to integer"]
-      [TypeError, "no implicit conversion from nil to integer"]
-      [TypeError, "no implicit conversion from nil to integer"]
-      [TypeError, "no implicit conversion from nil to integer"]
-      [TypeError, "no implicit conversion of false into Integer"]
-      [TypeError, "no implicit conversion of nil into Integer"]
-      [TypeError, "no implicit conversion of nil into Integer"]
-      [TypeError, "no implicit conversion of nil into Integer"]
-      [TypeError, "no implicit conversion of nil into String"]
-      [TypeError, "no implicit conversion of true into String"]
-      [TypeError, "no implicit conversion of nil into String"]
-      [TypeError, "no implicit conversion of nil into String"]
-      [TypeError, "no implicit conversion of Integer into String"]
-      [TypeError, "no implicit conversion of nil into String"]
-      [TypeError, "wrong argument type nil (expected Regexp)"]
-      [TypeError, "wrong argument type nil (expected Regexp)"]
-      [TypeError, "wrong argument type nil (expected Regexp)"]
-      [TypeError, "wrong argument type false (expected Regexp)"]
-      [TypeError, "wrong argument type true (expected Regexp)"]
-      [TypeError, "no implicit conversion of nil into Array"]
-      [TypeError, "no implicit conversion of nil into Array"]
-      [TypeError, "no implicit conversion from nil to integer"]
-      [TypeError, "no implicit conversion of false into Integer"]
-      [TypeError, "no implicit conversion of nil into String"]
-      [TypeError, "no implicit conversion of nil into String"]
-      [TypeError, "no implicit conversion of nil into String"]
-      [TypeError, "no implicit conversion of nil into Integer"]
-      ["a", "b"]
-      "ab\n"
-      [1, 2]
-      [0, 0]
-      nil
-      nil
-      nil
-      true
-      ["a", "1"]
-      nil
-      [1, 9, 9]
-      [NoMethodError, "undefined method '=~' for true"]
-      "hello"
       "ConvE"
     OUT
   end
