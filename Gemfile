@@ -22,6 +22,10 @@ group :development, :test do
   # Obj::JIT's in-process host for the checks. A bundled gem, not a default
   # one, in ruby 4.
   gem "fiddle", "~> 1.1"
+  # What prism's own test suite is written in, which `prism_test.rb` runs
+  # against the Ruby port. Bundled in ruby 4 as well, so a child started
+  # from inside this bundle cannot load it unless it is named here.
+  gem "test-unit", "~> 3.6"
 end
 
 # Never part of a build or a check: the sampling profiler the compiler's
