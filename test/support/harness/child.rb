@@ -18,8 +18,20 @@ module Ze0
       BUILD_MB = Integer(ENV.fetch("ZE0_BUILD_MB", "2048"))
       RUN_MB = Integer(ENV.fetch("ZE0_RUN_MB", "1024"))
 
-      # A case's build bound: its own `#@ build-mb`, where the program is
-      # known to need more, and never below what the environment gives.
+      # The environment a program gets when the question is "what does
+      # ruby say", which is not the environment `bundle exec rake` runs
+      # in: bundler puts its own `GEM_HOME` and `BUNDLE_GEMFILE` there,
+      # the child's `require` then finds bundler's gems rather than the
+      # ones ruby ships, and `Kernel#require` is not even the same
+      # method -- `[[:req, :name]]` under bundler where a bare ruby has
+      # rubygems' `[[:req, :path]]`.
+      #
+      # The recordings were made by a bare ruby, so a road that asks
+      # ruby for an answer merges this. A road that builds with ze0 does
+      # not: the compiler needs the gems bundler set up.
+      BARE_RUBY = { "GEM_HOME" => nil, "GEM_PATH" => nil, "BUNDLE_GEMFILE" => nil,
+                    "BUNDLE_BIN_PATH" => nil, "BUNDLE_LOCKFILE" => nil,
+                    "BUNDLER_SETUP" => nil, "BUNDLER_VERSION" => nil }.freeze
 
       # How often the group's memory is read, in seconds.
       EVERY = 0.2

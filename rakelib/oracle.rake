@@ -69,7 +69,10 @@ module Oracle
       end
 
       argv = [RbConfig.ruby, *kwargs.fetch(:ruby, []), kwargs.fetch(:path, "spec.rb"), *kwargs.fetch(:argv, [])]
-      out, = Ze0::Harness::Child.run(argv, cwd: run, stdin: kwargs[:stdin], env: kwargs.fetch(:env, {}),
+      # `BARE_RUBY` because the recordings were made by a bare ruby, not
+      # by one under `bundle exec`. An example's own `env:` still wins.
+      env = Ze0::Harness::Child::BARE_RUBY.merge(kwargs.fetch(:env, {}))
+      out, = Ze0::Harness::Child.run(argv, cwd: run, stdin: kwargs[:stdin], env: env,
                                            seconds: LIMIT, megabytes: Ze0::Harness::Child::RUN_MB)
       return nil unless out.code.is_a?(Integer)
 
