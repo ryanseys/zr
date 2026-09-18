@@ -774,7 +774,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "i897" do
+  it "a lazy select or reject over an endless range answers its first n" do
     result = ze0(<<~'RUBY')
       puts (1..Float::INFINITY).lazy.select { |x| x.odd? }.first(5).inspect
       puts (1..Float::INFINITY).lazy.select { |x| x % 3 == 0 }.first(4).inspect
@@ -796,7 +796,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "i957" do
+  it "Hash#to_proc answers a proc that looks a key up" do
     result = ze0(<<~'RUBY')
       h = {a: 1, b: 2}
       p = h.to_proc
@@ -816,7 +816,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "i976" do
+  it "a proc fills its missing parameters with nil" do
     result = ze0(<<~'RUBY')
       p = Proc.new { |a, b| puts "a=#{a.inspect} b=#{b.inspect}" }
       p.call(1)
@@ -837,7 +837,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "i981" do
+  it "a String range enumerates by succ, carrying into the next letter" do
     result = ze0(<<~'RUBY')
       puts ("a".."c").to_a.inspect
       puts ("A".."D").to_a.inspect
@@ -1172,7 +1172,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "issue 2916" do
+  it "a Hash literal whose values are all empty arrays still takes writes" do
     result = ze0(<<~'RUBY')
       # Hash literal whose only values are empty array literals (element kind
       # unresolved) must still type to a concrete poly-valued hash variant.
@@ -1193,7 +1193,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "issue 2935" do
+  it "sort, min, max and sort_by answer for a Hash read out of a container" do
     result = ze0(<<~'RUBY')
       # A Hash read out of a container keeps #sort / #min / #max / #sort_by --
       # the poly receiver must materialize its pairs, not degrade to NoMethodError/nil.
@@ -1214,7 +1214,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "issue 2998" do
+  it "ENV.update and #merge! take a conflict block, and #delete a not-found block" do
     result = ze0(<<~'RUBY')
       ENV["SP_A"] = "1"
       ENV.update({ "SP_A" => "2", "SP_B" => "9" }) { |k, o, n| o + n }
@@ -1239,7 +1239,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "issue 3040" do
+  it "nil.to_h is an empty Hash and compares equal to one" do
     result = ze0(<<~'RUBY')
       p(nil.to_h == {})
       p({} == nil.to_h)
@@ -1262,7 +1262,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "issue 3165" do
+  it "bsearch_index answers the index of the first element the block accepts" do
     result = ze0(<<~'RUBY')
       def ins(arr, v) = arr.insert(0, v)
       sorted = []
@@ -1289,7 +1289,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "issue 3173" do
+  it "transform_values answers a Hash in whatever type the block returns" do
     result = ze0(<<~'RUBY')
       p({ "a" => 85 }.transform_values { |v| v / 10.0 })
       p({ "a" => 1, "b" => 2 }.transform_values { |v| v.to_s })
@@ -1307,7 +1307,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "issue 3227 container read mutation" do
+  it "a string mutated through a container read shows through, and a Hash key does not" do
     result = ze0(<<~'RUBY')
       # Mutation THROUGH a container read: the element is the shared handle, so
       # the container (and any source local) observes it.

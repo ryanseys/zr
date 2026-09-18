@@ -138,7 +138,7 @@ describe "Regexp: regressions" do
     OUT
   end
 
-  it "issue 2896" do
+  it "a MatchData is truthy and its captures read by index" do
     result = ze0(<<~'RUBY')
       ["12-a", "xx", "999-z"].each do |s|
         m = s.match(/^(\d+)-/)
@@ -157,7 +157,7 @@ describe "Regexp: regressions" do
     OUT
   end
 
-  it "issue 3014" do
+  it "two MatchData hash alike when they matched the same text" do
     result = ze0(<<~'RUBY')
       m1 = "abc".match(/b/)
       m2 = "xbz".match(/b/)
@@ -174,7 +174,7 @@ describe "Regexp: regressions" do
     OUT
   end
 
-  it "issue 3015" do
+  it "MatchData#deconstruct_keys answers only the named captures asked for" do
     result = ze0(<<~'RUBY')
       m = "abc".match(/(?<x>b)(?<y>c)/)
       p m.deconstruct_keys([:x])
@@ -200,7 +200,7 @@ describe "Regexp: regressions" do
     OUT
   end
 
-  it "issue 3019" do
+  it "!~ is the negation of =~, for a Regexp and for a class that defines =~" do
     result = ze0(<<~'RUBY')
       class Pat
         def initialize(s); @s = s; end
@@ -226,7 +226,7 @@ describe "Regexp: regressions" do
     OUT
   end
 
-  it "issue 3055" do
+  it "Regexp.new takes the option bits and reports them back" do
     result = ze0(<<~'RUBY')
       puts Regexp.new("a", Regexp::EXTENDED).options
       puts Regexp.new("a", Regexp::MULTILINE).options
@@ -252,7 +252,7 @@ describe "Regexp: regressions" do
     OUT
   end
 
-  it "issue 3056" do
+  it "=~ and index answer a character offset, not a byte offset" do
     result = ze0(<<~'RUBY')
       p("あいうえお" =~ /う/)
       p "あいうえお".index(/う/)
@@ -275,7 +275,7 @@ describe "Regexp: regressions" do
     OUT
   end
 
-  it "issue 3187" do
+  it "scan with a block collects the captures of each match" do
     result = ze0(<<~'RUBY')
       def tok(expr)
         tokens = []
@@ -301,7 +301,7 @@ describe "Regexp: regressions" do
     OUT
   end
 
-  it "issue 3219" do
+  it "a regexp match inside a ||= memo reads the capture once" do
     result = ze0(<<~'RUBY')
       class Crash
         attr_reader :text
@@ -316,7 +316,7 @@ describe "Regexp: regressions" do
     _(result).must_answer "ok\n"
   end
 
-  it "issue 3301 case regex last match" do
+  it "a case arm that matches a regexp sets Regexp.last_match and the numbered globals" do
     result = ze0(<<~'RUBY')
       # A `case`/`when <regex>` arm does not set `Regexp.last_match` (`$~`), so every
       # `last_match` read after a matched arm answers nil. ruby's `Regexp#===` sets
@@ -382,7 +382,7 @@ describe "Regexp: regressions" do
     OUT
   end
 
-  it "issue 3322 regex escaped quote scan" do
+  it "a regexp holding an escaped quote is one token, not the end of a string" do
     result = ze0(<<~'RUBY')
       module YarnLockParser
         class Parser

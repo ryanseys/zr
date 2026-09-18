@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Ostruct: regressions" do
-  it "issue 3135" do
+  it "an OpenStruct reads and writes by method and by subscript, and inspects its members" do
     result = ze0(<<~'RUBY')
       require "ostruct"
 
@@ -68,7 +68,7 @@ describe "Ostruct: regressions" do
     OUT
   end
 
-  it "issue 3155" do
+  it "OpenStruct#class is OpenStruct" do
     result = ze0(<<~'RUBY')
       require "ostruct"
       def assert_equal(expected, actual)
@@ -82,7 +82,7 @@ describe "Ostruct: regressions" do
     _(result).must_answer "ok\n"
   end
 
-  it "issue 3193" do
+  it "an OpenStruct returned from a method keeps what the method wrote into it" do
     result = ze0(<<~'RUBY')
       require "ostruct"
 
@@ -108,7 +108,7 @@ describe "Ostruct: regressions" do
     _(result).must_answer "ok3193\n"
   end
 
-  it "issue 3194" do
+  it "OpenStruct.new takes a Hash held in a variable" do
     result = ze0(<<~'RUBY')
       require "ostruct"
       hash = {a: 1}
@@ -120,7 +120,7 @@ describe "Ostruct: regressions" do
     _(result).must_answer "ok3194\n"
   end
 
-  it "issue 3197" do
+  it "an OpenStruct returned from one arm of a method reads by method name" do
     result = ze0(<<~'RUBY')
       require "ostruct"
 
@@ -139,7 +139,7 @@ describe "Ostruct: regressions" do
     _(result).must_answer "ok3197\n"
   end
 
-  it "issue 3201" do
+  it "a subscript write to a returned OpenStruct shows through the reader" do
     result = ze0(<<~'RUBY')
       require "ostruct"
       class Main
@@ -157,7 +157,7 @@ describe "Ostruct: regressions" do
     _(result).must_answer "ok\n"
   end
 
-  it "issue 3270" do
+  it "OpenStruct#inspect lists the members it has when it is called" do
     result = ze0(<<~'RUBY')
       require "ostruct"
       o = OpenStruct.new
@@ -184,7 +184,7 @@ describe "Ostruct: regressions" do
     OUT
   end
 
-  it "issue 3272" do
+  it "a frozen OpenStruct refuses a new member by either spelling" do
     result = ze0(<<~'RUBY')
       require "ostruct"
       o = OpenStruct.new(a: 1)
@@ -220,7 +220,7 @@ describe "Ostruct: regressions" do
     OUT
   end
 
-  it "issue 3288" do
+  it "a member built from a nil default reads back nil" do
     result = ze0(<<~'RUBY')
       require "ostruct"
 
@@ -280,7 +280,7 @@ describe "Ostruct: regressions" do
     OUT
   end
 
-  it "issue 3296 aliased reader symbol proc" do
+  it "an aliased reader works as a Symbol block through map and select" do
     result = ze0(<<~'RUBY')
       require "ostruct"
 
@@ -312,7 +312,7 @@ describe "Ostruct: regressions" do
     OUT
   end
 
-  it "issue 3331 poly to sym arm" do
+  it "a case over a regexp constant parses switches into a frozen OpenStruct" do
     result = ze0(<<~'RUBY')
       require "ostruct"
       class Config
@@ -410,7 +410,7 @@ describe "Ostruct: regressions" do
     _(result).must_answer ""
   end
 
-  it "issue 3341 ostruct shadows builtin" do
+  it "an OpenStruct member named uniq or size shadows the method of that name" do
     result = ze0(<<~'RUBY')
       require "ostruct"
 

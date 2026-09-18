@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Time: regressions" do
-  it "issue 2865" do
+  it "Time.at keeps the fraction of a Float epoch" do
     result = ze0(<<~'RUBY')
       c = Time.at(1_600_000_000.5)
       p c.utc.to_f
@@ -12,7 +12,7 @@ describe "Time: regressions" do
     _(result).must_answer "1600000000.5\n"
   end
 
-  it "issue 2866" do
+  it "Time#deconstruct_keys answers every field, or only the ones asked for" do
     result = ze0(<<~'RUBY')
       t = Time.utc(2026, 7, 16, 13, 45, 30)
       p t.deconstruct_keys(nil)
@@ -25,7 +25,7 @@ describe "Time: regressions" do
     OUT
   end
 
-  it "issue 3089" do
+  it "floor, ceil and round take the number of sub-second digits to keep" do
     result = ze0(<<~'RUBY')
       t = Time.at(1234567890.123456789)
       p t.floor(1).nsec
@@ -55,7 +55,7 @@ describe "Time: regressions" do
     OUT
   end
 
-  it "issue 3090" do
+  it "strftime takes the - and _ flags to trim or pad a field" do
     result = ze0(<<~'RUBY')
       t = Time.utc(2001, 2, 3, 4, 5, 6)
       puts t.strftime("%-d/%-m")
@@ -71,7 +71,7 @@ describe "Time: regressions" do
     _(result).must_answer "3/2\n 3\n4:5:6\n 2\n03/02\n25 12 14\n0\n"
   end
 
-  it "issue 3091" do
+  it "the Time constructors take a Rational number of seconds" do
     result = ze0(<<~'RUBY')
       p Time.utc(2020,1,1,0,0,0, Rational(1,2)).nsec
       p Time.utc(2020,1,1,0,0,0, Rational(1,4)).nsec
@@ -89,7 +89,7 @@ describe "Time: regressions" do
     OUT
   end
 
-  it "issue 3092" do
+  it "the Time constructors take a fractional number of microseconds" do
     result = ze0(<<~'RUBY')
       puts Time.utc(2001,2,3,4,5,6,500.5).nsec
       puts Time.gm(2001,2,3,4,5,6,250000.5).nsec
@@ -106,7 +106,7 @@ describe "Time: regressions" do
     OUT
   end
 
-  it "issue 3093" do
+  it "getlocal and localtime take an offset as seconds or as +HH:MM" do
     result = ze0(<<~'RUBY')
       t = Time.utc(2001, 2, 3, 4, 5, 6)
       puts t.getlocal(3600).utc_offset
@@ -132,7 +132,7 @@ describe "Time: regressions" do
     OUT
   end
 
-  it "issue 3094" do
+  it "xmlschema takes the number of fractional digits to print" do
     result = ze0(<<~'RUBY')
       t = Time.utc(2001, 2, 3, 4, 5, 6, 500000)
       puts t.xmlschema
@@ -147,7 +147,7 @@ describe "Time: regressions" do
     OUT
   end
 
-  it "issue 3095" do
+  it "iso8601 takes the number of fractional digits to print" do
     result = ze0(<<~'RUBY')
       t = Time.utc(2001, 2, 3, 4, 5, 6, 500000)
       puts t.iso8601
@@ -167,7 +167,7 @@ describe "Time: regressions" do
     OUT
   end
 
-  it "issue 3099" do
+  it "the Time constructors refuse a field outside its range, but roll a leap second over" do
     result = ze0(<<~'RUBY')
       def cls; begin; yield; rescue => e; e.class; end; end
       p(cls { Time.utc(2020,13,1) })
@@ -196,7 +196,7 @@ describe "Time: regressions" do
     OUT
   end
 
-  it "issue 3311 time poly compare" do
+  it "min, sort and sort_by order Times read out of a container" do
     result = ze0(<<~'RUBY')
       p(Time.new(2026, 1, 2) <=> Time.new(2026, 1, 1))
       a = [Time.new(2026, 1, 2), Time.new(2026, 1, 1)]
