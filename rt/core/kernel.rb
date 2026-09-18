@@ -160,11 +160,15 @@ module Kernel
   end
 
   # A name no file answers: ruby's LoadError, or a stop by name for a
-  # feature ruby carries that this runtime has no file for.
+  # feature ruby carries that this runtime has no file for. A row of the
+  # table carries the reason after a tab where there is one to give, and
+  # that reason is the whole of what the stop says.
   def self.missing(feature, kind)
     Primitive.attr! :hidden
-    if kind == 0 && Primitive.zr_load_names(1).split("\n").include?(feature.delete_suffix(".rb"))
-      Primitive.zr_unloadable("require of #{feature.inspect}")
+    if kind == 0
+      name = feature.delete_suffix(".rb")
+      row = Primitive.zr_load_names(1).lines(chomp: true).find { |line| line.split("\t", 2).first == name }
+      Primitive.zr_unloadable(row.split("\t", 2)[1] || "require of #{feature.inspect}") if row
     end
     error = LoadError.new("cannot load such file -- #{feature}")
     error.instance_variable_set(:@path, feature)

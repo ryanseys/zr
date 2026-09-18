@@ -161,9 +161,9 @@ module Ze0
       PRETTY_PRINTER = File.join(EXT, "ze0/pretty_printer.rb")
       SYNTAX_TREE = File.join(EXT, "ze0/syntax_tree.rb")
 
-      # The file that arms RubyVM::AbstractSyntaxTree's load of its
-      # translator, which a program that names the module carries ahead of
-      # its body. Both stay out of $LOADED_FEATURES.
+      # The file that loads RubyVM::AbstractSyntaxTree's translator,
+      # which a program that names the module carries ahead of its body.
+      # Both stay out of $LOADED_FEATURES.
       def self.ast_translator(loader)
         Require.new(:eval_road, "ze0/syntax_tree", SYNTAX_TREE, loader.hidden(SYNTAX_TREE), 0)
       end
@@ -1862,14 +1862,24 @@ module Ze0
         Seq.new([activation, Require.new(:require, feature, path, @loader.add(path), line)], line)
       end
 
+      # Why a name ruby carries is not here, where the answer is a
+      # decision and not a gap. The stop reads "<reason> is not
+      # implemented yet" (`zr_unloadable`), so each of these finishes
+      # that sentence.
+      UNCARRIED = {
+        "mkmf" => "mkmf, which writes a C extension's Makefile: ze0 compiles no C, so an extension it configured",
+        "prism/ffi" => "prism/ffi, the FFI half of prism: this runtime's prism is a Ruby port of the C, so the C half"
+      }.freeze
+
       # A feature ruby carries, which this runtime has no file for. The
       # stop waits until the program runs the require: a guarded one that
       # the program never reaches costs it nothing.
       def stop_for(node, feature)
-        return unless FEATURES.include?(feature.to_s.delete_suffix(".rb"))
+        name = feature.to_s.delete_suffix(".rb")
+        return unless FEATURES.include?(name)
 
         line = node.location.start_line
-        Stop.new("#{node.name} of #{feature.inspect}", line)
+        Stop.new(UNCARRIED[name] || "#{node.name} of #{feature.inspect}", line)
       end
 
       # An autoload that registers nothing and answers nil, which is what

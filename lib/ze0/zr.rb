@@ -327,10 +327,34 @@ module Ze0
       obj/macho/block.rb obj/macho/executable.rb obj/macho/libsystem.rb obj/macho/prelink.rb
     ].map { |name| File.join(__dir__, name) }.freeze
 
+    # The compiler's own files that belong to one target: an instruction
+    # set's backend, and an object format's writer. A runtime object for
+    # another target holds no byte of either, so each stays out of every
+    # other target's digest, and a wasm backend edit no longer rebuilds
+    # the native runtime.
+    #
+    # The rule is the same as LINK_ONLY's: by name, and the default is to
+    # count. A directory not here belongs to every target until someone
+    # takes it out.
+    PER_TARGET = {
+      "backend/aarch64" => ->(target) { target.arch == :aarch64 },
+      "backend/wasm" => ->(target) { target.arch == :wasm32 },
+      "obj/macho" => ->(target) { target.object_format == :macho },
+      "obj/elf" => ->(target) { target.object_format == :elf }
+    }.freeze
+
     # The files `target`'s runtime is lowered from, and the compiler that
     # lowers them.
     def sources(target = Target.default)
-      kernel_files(target) + core_files(target) + (Dir[File.join(__dir__, "**/*.rb")].sort - LINK_ONLY)
+      kernel_files(target) + core_files(target) + compiler_files(target)
+    end
+
+    # The compiler's files that can reach `target`'s runtime object.
+    def compiler_files(target = Target.default)
+      (Dir[File.join(__dir__, "**/*.rb")].sort - LINK_ONLY).reject do |path|
+        name = path.delete_prefix("#{__dir__}/")
+        PER_TARGET.any? { |prefix, wants| name.start_with?(prefix) && !wants.call(target) }
+      end
     end
 
     # What the files above say, as one digest. A cache that the link
@@ -430,7 +454,11 @@ module Ze0
     # pairs; a unit that only stops has no path.
     def load_tables(units = [], evals: false, spots: {}, coverable: {}, target: Target.default)
       units = units.select { |path, _| path.start_with?("/") }.sort
-      names = evals ? [Hir::Build.stdlib(target), Hir::Build.missing_features(target), Hir::Build::PRELOADED, [Hir::Build::EXT]] : [[]] * 4
+      # A name ruby carries that no root here holds, and after a tab the
+      # reason where there is one to give, so a require the program
+      # computes stops for what a literal one stops for.
+      uncarried = Hir::Build.missing_features(target).map { |name| [name, *Hir::Build::UNCARRIED[name]].join("\t") }
+      names = evals ? [Hir::Build.stdlib(target), uncarried, Hir::Build::PRELOADED, [Hir::Build::EXT]] : [[]] * 4
       # error_highlight's spots, a file at a time: its name, a newline,
       # then its rows, and a form feed before the next file.
       names << [spots.map { |file, rows| "#{file}\n#{rows}" }.join("\f")]
