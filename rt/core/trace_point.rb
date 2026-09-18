@@ -14,7 +14,7 @@ class TracePoint
   NAMES = EVENTS.first(15).to_h(&:reverse).freeze
   ALL = 0x7fff
   # The events a program here fires; the rest have no firing point yet.
-  FIRED = 0x3ff
+  FIRED = 0x43ff
   C_EVENTS = 0x60
   # The events a set_trace_func hook takes, by the names it takes them.
   HOOK_NAMES = {

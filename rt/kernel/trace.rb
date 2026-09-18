@@ -13,6 +13,7 @@ TRACE_C = 96
 # writes in C, and one it writes in Ruby of its own.
 TRACE_SENDS = 120
 TRACE_RAISE = 128
+TRACE_RESCUE = 16384
 
 # The events every enabled TracePoint asks for, together. While a C
 # event is on, no send site keeps its answer: every send reaches
@@ -210,6 +211,26 @@ machine def zr_trace_raise(exc, top)
   zr_trace_send(rec, TRACE_RAISE, exc)
 end
 
+# A rescue clause entered fires `:rescue` from the frame that entered it,
+# with the exception it caught. Not where the raise happened, which the
+# `:raise` event already named: where it was answered, at the line of the
+# clause that matched.
+# `line` is the clause's own, which the frame does not hold: the frame
+# still reads where the raise left it, and a store to move it would cost
+# every rescue a program has, traced or not.
+sig [Word] => Value
+machine def zr_trace_rescue(line)
+  t = zr_task()
+  if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_RESCUE) == 0
+    return Machine.value(QNIL)
+  end
+  rec = Task.top(t)
+  if rec == 0 || FrameMeta.kind(Frame.meta(rec)) == KIND_BUILTIN || FrameMeta.kind(Frame.meta(rec)) == KIND_HIDDEN
+    return Machine.value(QNIL)
+  end
+  zr_trace_send_at(rec, TRACE_RESCUE, Task.errinfo(t), line)
+end
+
 # TracePoint.fire with the row for frame `rec`: the event, the value,
 # the path and line, the method's name and the name it was called by,
 # its owner, the frame's self, the frame's serial, which finds the
@@ -217,7 +238,14 @@ end
 # and of the method entry, which answer its parameters.
 sig [Ptr, Word, Value] => Value
 machine def zr_trace_send(rec, event, value)
-  row = zr_trace_row(event, value, Frame.meta(rec), zr_frame_line(rec))
+  zr_trace_send_at(rec, event, value, zr_frame_line(rec))
+end
+
+# The same, for an event whose line is not the one the frame is standing
+# on: a rescue clause fires from its own line.
+sig [Ptr, Word, Value, Word] => Value
+machine def zr_trace_send_at(rec, event, value, line)
+  row = zr_trace_row(event, value, Frame.meta(rec), line)
   method = zr_method_meta_of(rec)
   entry = zr_bmethod_entry(rec)
   if method != 0 && FrameMeta.kind(method) == KIND_DEF

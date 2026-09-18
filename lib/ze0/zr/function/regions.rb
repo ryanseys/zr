@@ -99,6 +99,12 @@ module Ze0
           handlers.each do |handler, clause|
             switch(handler)
             kernel("zr_rescue_enter")
+            # The clause that matched is where `:rescue` fires, so the
+            # call stands here and not in `zr_rescue_enter`, which
+            # `guarded` also uses to swallow a raise `defined?` made.
+            # ruby names the clause's first statement and not the
+            # `rescue` word, which is where its program counter lands.
+            kernel("zr_trace_rescue", imm((clause.body || clause).line))
             if clause.target
               prepared = clause.target.is_a?(Hir::Send) ? prepare(Hir::MultiTarget.new([clause.target], nil, [], clause.line)) : {}
               assign_target(clause.target, @f.fetch("i64", @rec, exc_at), prepared)

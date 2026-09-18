@@ -1806,7 +1806,9 @@ module Ze0
         d zr_trace_c_send Value event:Word e:Ptr owner:Value recv:Value value:Value
         d zr_trace_fire Value event:Word value:Value
         d zr_trace_raise Value exc:Value top:Ptr
+        d zr_trace_rescue Value line:Word
         d zr_trace_send Value rec:Ptr event:Word value:Value
+        d zr_trace_send_at Value rec:Ptr event:Word value:Value line:Word
         d zr_trace_row Value event:Word value:Value meta:Ptr line:Word
         d zr_trace_run Value row:Value
         d zr_trace_bmethod Value event:Word e:Ptr recv:Value value:Value
@@ -2479,6 +2481,7 @@ module Ze0
         c TRACE_C 96
         c TRACE_SENDS 120
         c TRACE_RAISE 128
+        c TRACE_RESCUE 16384
         c MENTRY_CRUBY_RUBY 2
         c QFALSE 0
         c QNIL 8
