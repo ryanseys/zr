@@ -13,19 +13,13 @@ class TracePoint
   }.freeze
   NAMES = EVENTS.first(15).to_h(&:reverse).freeze
   ALL = 0x7fff
-  # The events a program here fires; the rest have no firing point yet.
-  # `:script_compiled` is the one left: this runtime compiles a file
-  # before the program runs, so the event has to be mapped onto the
-  # first run of a unit, and its accessors want an InstructionSequence
-  # for code no string was.
-  FIRED = 0x5fff
   C_EVENTS = 0x60
   # The events a set_trace_func hook takes, by the names it takes them.
   HOOK_NAMES = {
     line: "line", class: "class", end: "end", call: "call", return: "return",
     c_call: "c-call", c_return: "c-return", raise: "raise"
   }.freeze
-  private_constant :EVENTS, :NAMES, :ALL, :FIRED, :C_EVENTS, :HOOK_NAMES
+  private_constant :EVENTS, :NAMES, :ALL, :C_EVENTS, :HOOK_NAMES
 
   Primitive.zr_undef_alloc(self)
 
@@ -132,7 +126,7 @@ class TracePoint
       mask = enabled.inject(0) { |all, point| all | Primitive.zr_hidden_get(point, :__events__) }
       Primitive.zr_hidden_set(self, :__armed__, mask)
       builtin_places if (mask & 0x78).nonzero?
-      Primitive.zr_trace_events_set(mask & FIRED)
+      Primitive.zr_trace_events_set(mask & ALL)
     end
 
     # The same mask, for an event Ruby fires rather than compiled code.
@@ -327,12 +321,23 @@ class TracePoint
     Primitive.zr_trace_parameters(row[9], row[10])
   end
 
+  # The string this code was compiled from, or nil where a file held
+  # it, as rb_tracearg_eval_script answers nil for an iseq alone.
   def eval_script
     raise RuntimeError, "not supported by this event" unless event == :script_compiled
+
+    row[1][0]
   end
 
+  # The code itself, which rb_tracearg_instruction_sequence wraps for
+  # the handler. This runtime has no bytecode to hand over, so the
+  # sequence carries what the row kept of it: the name it answers to,
+  # its label and its first line.
   def instruction_sequence
     raise RuntimeError, "not supported by this event" unless event == :script_compiled
+
+    _script, path, label, line = row[1]
+    RubyVM::InstructionSequence.send(:made, nil, nil, label, label, path, line)
   end
 
   private
@@ -361,8 +366,6 @@ class TracePoint
     Primitive.attr! :hidden
     points = TracePoint.send(:enabled)
     if on
-      unfired = Primitive.zr_hidden_get(self, :__events__) & ~FIRED
-      Primitive.zr_unimplemented("TracePoint events #{NAMES.select { |bit, _| (unfired & bit).nonzero? }.values.join(', ')}") if unfired.nonzero?
       points << self unless points.include?(self)
     else
       points.delete(self)

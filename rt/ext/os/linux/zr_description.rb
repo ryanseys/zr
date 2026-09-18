@@ -1845,6 +1845,10 @@ module Ze0
         d zr_trace_row Value event:Word value:Value meta:Ptr line:Word
         d zr_trace_fiber_switch Value recv:Value mid:Word
         d zr_trace_fiber_switched Value v:Value recv:Value mid:Word
+        d zr_trace_compiled_value Value script:Value path:Value label:Ptr label_len:Word line:Value
+        d zr_trace_compiled Value rec:Ptr value:Value this:Value mid:Word owner:Value
+        d zr_trace_script_compiled Value script:Value path:Value line:Value
+        d zr_trace_required Value path:Value kind:Word
         d zr_trace_run Value row:Value
         d zr_trace_bmethod Value event:Word e:Ptr recv:Value value:Value
         d zr_trace_binding Value serial:Value
@@ -2532,6 +2536,7 @@ module Ze0
         c TRACE_RAISE 128
         c TRACE_RESCUE 16384
         c TRACE_FIBER_SWITCH 4096
+        c TRACE_SCRIPT_COMPILED 8192
         c MENTRY_CRUBY_RUBY 2
         c QFALSE 0
         c QNIL 8

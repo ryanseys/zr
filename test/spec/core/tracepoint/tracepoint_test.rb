@@ -1247,4 +1247,73 @@ describe "TracePoint programs" do
 
     _(result).must_answer "0\n"
   end
+
+  it "fires script_compiled for each string a program evaluates" do
+    result = ze0(<<~'RUBY')
+      # `:script_compiled` fires once a string of Ruby has compiled and before
+      # it runs. `eval_script` is the string; `instruction_sequence` carries
+      # what the code answers to -- the name, the label and the first line
+      # `rb_iseqw_new` would give it.
+      #
+      # The event stands where the program called the eval form, because
+      # CRuby's form is a C frame with no place of its own and
+      # rb_tracearg_path walks out to the nearest Ruby one. The name, the
+      # owner and `self` come from the form itself, so `1.instance_eval`
+      # answers 1 and BasicObject, and `module_eval` answers the name it was
+      # called by rather than the one `class_eval` was defined under.
+      seen = []
+      tp = TracePoint.new(:script_compiled) do |t|
+        i = t.instruction_sequence
+        seen << [t.lineno, t.method_id, t.defined_class.to_s, t.self.inspect,
+                 t.eval_script, i.path, i.label, i.first_lineno]
+      end
+
+      tp.enable do
+        eval("1 + 1")
+        1.instance_eval("2")
+        String.class_eval("3")
+        String.module_eval("4")
+        eval("6", nil, "given.rb", 40)
+      end
+
+      seen.each { |row| p row }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [20, :eval, "Kernel", "main", "1 + 1", "(eval at core/tracepoint/tracepoint_test.rb:20)", "<compiled>", 1]
+      [21, :instance_eval, "BasicObject", "1", "2", "(eval at core/tracepoint/tracepoint_test.rb:21)", "<compiled>", 1]
+      [22, :class_eval, "Module", "String", "3", "(eval at core/tracepoint/tracepoint_test.rb:22)", "<compiled>", 1]
+      [23, :module_eval, "Module", "String", "4", "(eval at core/tracepoint/tracepoint_test.rb:23)", "<compiled>", 1]
+      [24, :eval, "Kernel", "main", "6", "given.rb", "<compiled>", 40]
+    OUT
+  end
+
+  it "fires script_compiled where a required file is about to run" do
+    result = ze0(<<~'RUBY', files: beside("script_compiled/loaded.rb"))
+      # A file a require reached fires the same event: `eval_script` is nil,
+      # because no string was compiled, and the sequence answers to the file
+      # and carries `<top (required)>`. ruby fires it where the file compiles;
+      # this runtime compiled it before the program began, so it fires at the
+      # one moment the program can see, which is the file's first run.
+      seen = []
+      tp = TracePoint.new(:script_compiled) do |t|
+        i = t.instruction_sequence
+        seen << [t.lineno, t.method_id, t.defined_class.to_s, t.self.inspect,
+                 t.eval_script, File.basename(i.path), i.label, i.first_lineno]
+      end
+
+      def load_it
+        require_relative "script_compiled/loaded"
+      end
+
+      tp.enable { load_it }
+      p LOADED_HERE
+      seen.each { |row| p row }
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      :loaded
+      [14, :require_relative, "Kernel", "main", nil, "loaded.rb", "<top (required)>", 0]
+    OUT
+  end
 end

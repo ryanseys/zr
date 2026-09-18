@@ -18,6 +18,9 @@ TRACE_RESCUE = 16384
 # from rt/core/thread.rb, where its body begins and ends; a fiber's
 # fires here, at each of the four places control arrives after a switch.
 TRACE_FIBER_SWITCH = 4096
+# Fired where a string of Ruby, or a file a require reached, has just
+# compiled and is about to run.
+TRACE_SCRIPT_COMPILED = 8192
 
 # The events every enabled TracePoint asks for, together. While a C
 # event is on, no send site keeps its answer: every send reaches
@@ -348,6 +351,91 @@ machine def zr_trace_fiber_switched(v, recv, mid)
     Task.set_pending(t, pending)
   end
   v
+end
+
+# What `eval_script` and `instruction_sequence` read: the string this
+# code was compiled from, or nil for a file; and the three things
+# `rb_iseqw_new` would answer for it -- the name it answers to, its
+# label, and its first line.
+sig [Value, Value, Ptr, Word, Value] => Value
+machine def zr_trace_compiled_value(script, path, label, label_len, line)
+  v = zr_ary_new(4)
+  zr_ary_push(v, script)
+  zr_ary_push(v, path)
+  zr_ary_push(v, zr_str_new(label, label_len))
+  zr_ary_push(v, line)
+  v
+end
+
+# The `:script_compiled` row both firing points make: `value` where
+# `rec` stands, named `mid`, owned by `owner`, with `this` as self.
+sig [Ptr, Value, Value, Word, Value] => Value
+machine def zr_trace_compiled(rec, value, this, mid, owner)
+  row = zr_ary_new(11)
+  zr_ary_push(row, zr_fix(TRACE_SCRIPT_COMPILED))
+  zr_ary_push(row, value)
+  if rec == 0
+    zr_ary_push(row, Machine.value(QNIL))
+    zr_ary_push(row, zr_fix(0))
+  else
+    zr_ary_push(row, zr_str_new(FrameMeta.file(Frame.meta(rec)), FrameMeta.file_len(Frame.meta(rec))))
+    zr_ary_push(row, zr_fix(zr_frame_line(rec)))
+  end
+  zr_ary_push(row, mid == 0 ? Machine.value(QNIL) : zr_sym(mid))
+  zr_ary_push(row, mid == 0 ? Machine.value(QNIL) : zr_sym(mid))
+  zr_ary_push(row, owner)
+  zr_ary_push(row, this)
+  zr_ary_push(row, rec == 0 ? Machine.value(QNIL) : zr_fix(zr_frame_serial(rec)))
+  zr_ary_push(row, zr_fix(0))
+  zr_ary_push(row, zr_fix(0))
+  zr_trace_run(row)
+end
+
+# `:script_compiled` for a string the program evaluated: `script` it,
+# compiled under the name `path` from the line `line`.
+#
+# The event belongs to the eval form the program called and stands
+# where the program called it. In CRuby that form is a C frame, which
+# carries the self, the name and the owner but no place of its own, so
+# `rb_tracearg_path` walks out to the nearest Ruby frame for the place.
+# These forms (rt/ext/ze0/eval/forms.rb) are ordinary Ruby, so the two
+# frames are this one and the one before it, and each half is read from
+# the frame CRuby reads it from: `1.instance_eval("...")` answers 1,
+# `:instance_eval` and BasicObject, at the line that called it.
+sig [Value, Value, Value] => Value
+machine def zr_trace_script_compiled(script, path, line)
+  if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_SCRIPT_COMPILED) == 0
+    return Machine.value(QNIL)
+  end
+  form = Task.top(zr_task())
+  meta = zr_method_meta_of(form)
+  zr_trace_compiled(zr_frame_with_file(Frame.prev(form)),
+                    zr_trace_compiled_value(script, path, Machine.bytes("<compiled>"), 10, line),
+                    Frame.self(form), zr_frame_mid(form),
+                    meta == 0 ? Machine.value(QNIL) : FrameMeta.owner(meta))
+end
+
+# `:script_compiled` for a file a require (kind 0), a require_relative
+# (1) or a load (2) is about to run. ruby fires it where the file
+# compiles, which for this runtime was before the program began, so it
+# fires here instead -- at the one moment the program can observe,
+# which is the first run of the file.
+#
+# There is no frame of `require`'s own to read: a require the compiler
+# saw stands inline in the frame that wrote it, and one the program
+# computed reaches here through hidden frames that `zr_frame_with_file`
+# walks past. Both leave the requiring frame, which is the frame ruby
+# names and whose self is the self ruby answers.
+sig [Value, Word] => Value
+machine def zr_trace_required(path, kind)
+  if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_SCRIPT_COMPILED) == 0
+    return Machine.value(QNIL)
+  end
+  rec = zr_frame_with_file(Task.top(zr_task()))
+  mid = kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require))
+  zr_trace_compiled(rec,
+                    zr_trace_compiled_value(Machine.value(QNIL), path, Machine.bytes("<top (required)>"), 16, zr_fix(0)),
+                    rec == 0 ? Machine.value(QNIL) : Frame.self(rec), mid, zr_global(G_KERNEL))
 end
 
 sig [Value] => Value

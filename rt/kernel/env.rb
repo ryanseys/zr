@@ -551,6 +551,13 @@ machine def zr_require_run(path, fn, kind, framed)
       zr_ary_push(visible, path)
     end
   end
+  # The file is compiled and about to run, which is where ruby fires
+  # `:script_compiled`. A file only the runtime loads is none of the
+  # program's business, so it fires nothing.
+  if !hidden
+    r = zr_trace_required(path, kind)
+    return r if r == QUNDEF
+  end
   outer = Machine.load64(zr_loading(), 0)
   outer_hidden = Machine.load64(zr_hidden_loader(), 0)
   Machine.store64(zr_loading(), 0, path)
