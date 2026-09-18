@@ -141,6 +141,45 @@ subject's own, the facet: `describe "Hash programs"` in
 `core/hash/comparison_test.rb`. Spell a library the way ruby does —
 `BigDecimal`, `CGI`, `FileUtils` — not the way its directory does.
 
+## Split a program that holds more than one behaviour
+
+A program over about a hundred lines usually holds several claims. Cut
+it, and let ruby say whether the cut held.
+
+The shape of a cut. One fragment is the **quiet setup** that came before
+it — the requires, the classes and modules, the values nothing prints —
+plus the one run of statements that makes its own answer. The printing
+rows of an earlier section do not come along, or the fragment says that
+section's answer again.
+
+The rule that makes a cut safe:
+
+> The fragments' answers, in order, concatenated, are the answer the
+> bundle asserted — byte for byte.
+
+That statement is exactly "these sections do not interact", which is the
+only thing that can make a split wrong. Where it does not hold, the
+sections lean on each other: merge two of them and try again, or leave
+the program whole.
+
+Ask ruby for each fragment's answer; never carry a slice of the old
+literal across by hand:
+
+```console
+$ rake 'spec:ask[test/spec/core/hash/hash_test.rb fragment.rb]'
+_(result).must_answer <<~'OUT'
+  {a: 1}
+  true
+OUT
+```
+
+Then `rake oracle` over the file, which re-asks every example in it.
+
+One fragment may need state an earlier section left behind — a file the
+write rows overwrote, a local a later row reads. Write that state into
+the fragment's own setup and say so in a comment. The program changed,
+so ask ruby again; the concatenation rule still judges the result.
+
 ## Keep the file in shape
 
 ```console
