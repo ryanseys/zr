@@ -49,7 +49,63 @@ end
 | `path:` | the name the program answers to, when its own output carries it |
 
 `path:` matters only for a program whose answer names its source — a
-backtrace, or `__FILE__`. Everything else takes the default.
+backtrace, or `__FILE__`. Everything else takes the default, which is the
+example's own sentence with every run of non-word characters turned into
+`_` (`Ze0::Reader.path_for`).
+
+Two things about those keywords are easy to get wrong:
+
+- A `files:` key is resolved against the directory the **program** sits in,
+  but a filename in `argv:` is resolved against the directory the program
+  **runs in**. When `path:` names a subdirectory the two differ, and the
+  same file needs two spellings — see `core/io/io_test.rb`, where
+  `files: {"argf_input.txt" => …}` is reached as
+  `argv: ["core/io/argf_input.txt"]`.
+- A `files:` value is bytes, not a filename. `{ symlink: "lib" }` in place
+  of the bytes makes a link instead, for a program that asks whether two
+  paths reach one file.
+
+## How an example is written
+
+One example is one behaviour. The call and the assertion are already
+separated everywhere in the suite — name the result, leave a blank line,
+then assert:
+
+```ruby
+it "keeps the receiver's encoding" do
+  result = ze0(<<~'RUBY')
+    # one sentence saying what this pins
+
+    s = "ab"
+    out = s.upcase
+    puts out.encoding
+  RUBY
+
+  _(result).must_answer "UTF-8\n"
+end
+```
+
+Assemble, act and assert cannot live in the spec file, because the program
+*is* the thing under test. So they live inside the heredoc, in that order,
+and the program prints exactly what the claim is about. A program that
+prints many rows should label them — `puts "#{name}\t#{value}"` — so a
+failure names the row that moved instead of showing a wall of output.
+
+Write the sentence for a reader who has not seen the program: present
+tense, no trailing period, and no repetition of what the `describe`
+already said. `describe "Hash: comparison and equality"` plus
+`it "hash equality ignores order"` says "hash" twice; the example is
+`it "ignores insertion order"`.
+
+## Keep the file in shape
+
+```console
+$ rake 'spec:check[test/spec/core/string]'   # line length, heredoc tags, trailing space
+```
+
+A program is `<<~'RUBY'` and an answer is `<<~'OUT'`, both with the tag
+quoted — an unquoted tag makes `#{}` inside a Ruby program interpolate
+before ze0 ever sees it.
 
 ## Run it
 

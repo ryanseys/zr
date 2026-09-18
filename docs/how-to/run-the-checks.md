@@ -132,6 +132,31 @@ $ rake 'oracle[test/spec/core/string]'
 $ rake oracle
 ```
 
+## Rewrite a spec file safely
+
+Editing a spec by hand is easy to get subtly wrong, and a wrong edit looks
+like a passing run. `Ze0::Reader` reads a file without compiling or running
+anything, so what each example *is* — its sentence, its program, its
+keywords, the answer it claims — can be compared before and after:
+
+```console
+$ rake 'spec:verify[HEAD]'                   # nothing moved since HEAD
+$ rake 'spec:verify[HEAD --renames]'         # ... except the sentences
+$ rake 'spec:verify[main test/spec/core]'    # one revision, one area
+$ rake spec:fingerprint > before.txt         # or keep the digests yourself
+```
+
+`--renames` lets a description change and still holds everything else, so a
+pass of renaming is checked as tightly as any other edit. Examples are
+compared by position, so a reordering or a dropped example is a failure and
+not a coincidence.
+
+What it cannot see: anything outside an example — file comments, `require`
+lines — and a guard is evaluated down one branch, as macOS with everything
+available. It proves the examples mean the same, not that the file is
+unchanged. Run `rake oracle` beside it, which asks ruby the same question
+the spec asks.
+
 ## Check the bootstrap
 
 Run these after a change to the compiler or the kernel's layouts:
