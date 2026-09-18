@@ -124,7 +124,7 @@ describe "Process: raising and rescuing" do
     OUT
   end
 
-  it "process cputime clocks" do
+  it "the CPU-time clock ids resolve to Integers, whatever the platform numbers them" do
     result = ze0(<<~'RUBY')
       # The CPU-time clock ids resolve to Integers. Their exact value is the
       # platform's own clock id (it differs between Linux and macOS), so assert the

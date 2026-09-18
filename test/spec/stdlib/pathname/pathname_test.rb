@@ -779,7 +779,7 @@ describe "Pathname programs" do
     _(result).must_answer "/x\nPathname\n"
   end
 
-  it "pathname private helpers" do
+  it "the private path-algebra helpers answer the shapes pathname_builtin declares" do
     result = ze0(<<~'RUBY')
       # Pathname's private path-algebra helpers -- the exact surface
       # pathname_builtin.rb declares, oracle-pinned shapes.
@@ -860,7 +860,7 @@ describe "Pathname programs" do
     OUT
   end
 
-  it "pathname rows" do
+  it "Pathname needs no require, and its algebra and its delegations both answer" do
     result = ze0(<<~'RUBY')
       # `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
       # the first line. This covers the whole surface -- the path ALGEBRA, which is

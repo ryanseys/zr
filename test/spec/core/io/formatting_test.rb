@@ -413,7 +413,7 @@ describe "IO: formatting and inspection" do
     OUT
   end
 
-  it "io reopen onto a file fails" do
+  it "reopen makes a missing file, truncates where the mode says to, and dup2s one handle onto another" do
     result = ze0(<<~'RUBY')
       require "tmpdir"
 

@@ -233,7 +233,7 @@ describe "Kernel: conversion" do
     OUT
   end
 
-  it "kernel conversion arguments" do
+  it "the conversion functions raise TypeError for a bad argument type and RangeError past the bound" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # Kernel conversion functions raise ArgumentError where ruby raises

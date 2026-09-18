@@ -379,7 +379,7 @@ describe "Object: blocks and yields" do
     OUT
   end
 
-  it "object truthy" do
+  it "a value-typed object used as a condition is truthy, and its side effects still run" do
     result = ze0(<<~'RUBY')
       # Regression test for issue #20: a value-typed object used directly
       # as a condition must be treated as truthy. C cannot use a struct as

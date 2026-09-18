@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Math programs" do
-  it "math call converts its argument without a name" do
+  it "a Math function reads its argument through to_f, and the refusal names no function" do
     result = ze0(<<~'RUBY')
       # Math's functions read a Float, an Integer or another Numeric through
       # its to_f, and refuse anything else with ruby's message, whatever

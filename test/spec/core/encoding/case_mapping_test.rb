@@ -66,7 +66,7 @@ describe "Encoding: case mapping" do
     OUT
   end
 
-  it "encoding registry" do
+  it "every row of Encoding.list carries the names, aliases, dummy? and ascii_compatible? the oracle gives it" do
     result = ze0(<<~'RUBY')
       # Every row of `Encoding.list`, generated from the ruby 4.0.6 oracle by
       # `tools/encoding_tables.rb`. The whole list is printed because the registry

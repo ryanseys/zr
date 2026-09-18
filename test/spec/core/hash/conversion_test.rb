@@ -21,7 +21,7 @@ describe "Hash: conversion" do
     OUT
   end
 
-  it "hash int int nested" do
+  it "an Integer-keyed, Integer-valued hash nests, boxes and reads back through a poly access" do
     result = ze0(<<~'RUBY')
       # Integer-keyed Integer-valued hash: nesting, boxing, poly access (KieranP #2345)
       p({ 1 => { 2 => 3 } })

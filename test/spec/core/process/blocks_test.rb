@@ -683,7 +683,7 @@ describe "Process: blocks and yields" do
     OUT
   end
 
-  it "process launch errors" do
+  it "system(exception: true) raises on failure, and a missing command names itself in the ENOENT message" do
     result = ze0(<<~'RUBY')
       # Process-launch error shapes: `system(cmd, exception: true)` raises
       # RuntimeError on failure and Errno::ENOENT on a missing command (zeo

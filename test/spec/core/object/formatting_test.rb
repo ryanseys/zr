@@ -1013,7 +1013,7 @@ describe "Object: formatting and inspection" do
     OUT
   end
 
-  it "object inspect ivar order" do
+  it "instance_variables and inspect report the ivars in assignment order, minted class or compiled" do
     result = ze0(<<~'RUBY')
       # An object's instance variables are reported in ASSIGNMENT order -- by
       # `instance_variables` and by the `inspect` built on it. For a class minted at

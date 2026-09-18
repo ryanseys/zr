@@ -659,7 +659,7 @@ describe "Encoding: packing and unpacking" do
     ERR
   end
 
-  it "encoding utf16 dummy" do
+  it "a dummy UTF-16 encoding writes a BOM and reads the endianness back off one" do
     result = ze0(<<~'RUBY')
       # The dummy UTF-16/UTF-32 encodings (no endianness in the name): encoding
       # TO one writes a BOM then big-endian code units; decoding FROM one reads

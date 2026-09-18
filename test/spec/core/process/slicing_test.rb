@@ -178,7 +178,7 @@ describe "Process: slicing" do
     OUT
   end
 
-  it "process exit family" do
+  it "Process.exit and Process.abort raise a rescuable SystemExit, and abort writes its message first" do
     result = ze0(<<~'RUBY')
       # Process.exit / Process.abort are the module-function twins of the Kernel
       # forms: both raise a RESCUABLE SystemExit carrying the status, unwinding

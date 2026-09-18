@@ -572,7 +572,7 @@ describe "Object: inheritance and ancestors" do
     _(result).must_answer "session-obj\n/foo\n"
   end
 
-  it "object protocol remove ivar singleton class method and extend" do
+  it "remove_instance_variable, singleton_class, singleton_method and extend each reach the object's own table" do
     result = ze0(<<~'RUBY')
       # Object/Kernel protocol: remove_instance_variable (value + NameError),
       # singleton_class (on an object and a builtin value), singleton_method, and

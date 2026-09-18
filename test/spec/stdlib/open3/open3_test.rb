@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Open3 programs" do
-  it "open3 capture" do
+  it "spawn takes the pipe ends popen2 and popen3 build, and the wait thread carries the status" do
     result = ze0(<<~'RUBY')
       # Open3 over the real spawn machinery: Kernel#spawn taking IO redirect
       # targets (the pipe ends popen2/popen3 build), plus Process.detach's wait
@@ -38,7 +38,7 @@ describe "Open3 programs" do
     OUT
   end
 
-  it "open3 lowers from the vendored gem with its jruby require pruned" do
+  it "the vendored gem loads with its JRuby-only require pruned rather than spliced" do
     result = ze0(<<~'RUBY')
       # open3's last line is `require 'open3/jruby_windows' if RUBY_ENGINE ==
       # 'jruby' && ...`; that file is JRuby-native (`require 'jruby'`, java_import)

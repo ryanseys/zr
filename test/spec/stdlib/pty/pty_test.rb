@@ -25,7 +25,7 @@ describe "PTY programs" do
     OUT
   end
 
-  it "pty spawn" do
+  it "a pty is a terminal, so the child's newline comes back as a carriage return and a newline" do
     result = ze0(<<~'RUBY')
       # pty -- a pseudo-terminal for a child process. A pty IS a terminal, so the
       # child's "\n" comes back "\r\n" (ONLCR) -- the observable difference from a
@@ -77,7 +77,7 @@ describe "PTY programs" do
     OUT
   end
 
-  it "pty spawn and check" do
+  it "spawn answers Files named for the slave device, and check polls without blocking" do
     result = ze0(<<~'RUBY')
       # `PTY` against CRuby's `ext/pty/pty.c`.
       #
