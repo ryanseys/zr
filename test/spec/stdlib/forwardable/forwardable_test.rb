@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Forwardable programs" do
-  it "issue 3300 forwardable" do
+  it "def_delegator forwards to an ivar and to a method, under a new name or its own" do
     result = ze0(<<~'RUBY')
       require "forwardable"
 

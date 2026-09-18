@@ -168,7 +168,7 @@ describe "Exceptions: searching and matching" do
     OUT
   end
 
-  it "i1015" do
+  it "a raise inside a method that yields stops before the block runs" do
     result = ze0(<<~'RUBY')
       def check(selector, body)
         tag = selector[/\A[a-z]+/]
@@ -189,7 +189,7 @@ describe "Exceptions: searching and matching" do
     OUT
   end
 
-  it "i1041" do
+  it "rescue matches a namespaced exception class by its full path" do
     result = ze0(<<~'RUBY')
       # rescue of a namespaced exception class (rescue M::Err) must match a
       # raised M::Err. Both the raise and the rescue clause need to resolve

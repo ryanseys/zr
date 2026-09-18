@@ -755,7 +755,7 @@ describe "Blocks: formatting and inspection" do
     _(result).must_answer "1/2/z/\"blk\"\n"
   end
 
-  it "i709" do
+  it "a block passed to a constructor is called once per element it builds" do
     result = ze0(<<~'RUBY')
       class Pool
         def initialize(size)
@@ -807,7 +807,7 @@ describe "Blocks: formatting and inspection" do
     OUT
   end
 
-  it "i997" do
+  it "yield fills the block's missing parameters with nil" do
     result = ze0(<<~'RUBY')
       def show2
         yield

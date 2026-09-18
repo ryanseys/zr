@@ -1008,7 +1008,7 @@ describe "Kernel programs" do
     OUT
   end
 
-  it "issue 3135 norequire" do
+  it "OpenStruct without its require raises NameError rather than failing to compile" do
     result = ze0(<<~'RUBY')
       # OpenStruct without `require "ostruct"` must raise a clean NameError (the same
       # path as any undefined constant), not fail C compilation. The general shape --

@@ -47,7 +47,7 @@ describe "Regexp: formatting and inspection" do
     OUT
   end
 
-  it "i1009" do
+  it "an escape byte is written \\033, \\e or \\x1b and matches the same either way" do
     result = ze0(<<~'RUBY')
       s = "a\e[31mred\e[0mb"
       puts s.gsub(/\033\[[0-9;]*[A-Za-z]/, "")
@@ -68,7 +68,7 @@ describe "Regexp: formatting and inspection" do
     OUT
   end
 
-  it "i974" do
+  it "MatchData reports each group's text, offsets, pre_match and post_match" do
     result = ze0(<<~'RUBY')
       m = /(\w+)(\s+)(\w+)/.match("hello world")
       puts m.offset(0).inspect

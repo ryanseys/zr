@@ -695,7 +695,7 @@ describe "Syntax programs" do
     OUT
   end
 
-  it "issue 3227 bang mutators" do
+  it "the transforming bang mutators show through a container that holds the string" do
     result = ze0(<<~'RUBY')
       # Shared-mutable strings: container-held aliases observe the in-place
       # transforming mutators, not just <<.

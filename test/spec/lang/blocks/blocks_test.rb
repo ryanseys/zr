@@ -1760,7 +1760,7 @@ describe "Blocks programs" do
     OUT
   end
 
-  it "i920" do
+  it "<< and >> compose a lambda and a proc alike" do
     result = ze0(<<~'RUBY')
       f = -> (x) { x * 2 }
       g = -> (x) { x + 1 }

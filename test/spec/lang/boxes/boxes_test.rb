@@ -842,7 +842,7 @@ describe "Boxes programs" do
     _(result).must_answer "a\n"
   end
 
-  it "issue 3329 yield local poly box" do
+  it "a method that answers with what it yielded hands back the object itself" do
     result = ze0(<<~'RUBY')
       class A; def id; 1; end; end
       class B; def id; 2; end; end

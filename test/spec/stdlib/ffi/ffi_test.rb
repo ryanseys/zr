@@ -2291,7 +2291,7 @@ describe "FFI programs" do
     OUT
   end
 
-  it "i1017" do
+  it "a block whose tail is an FFI pointer hands the pointer back intact" do
     result = ze0(<<~'RUBY')
       # Issue #1017, ported to the real ffi gem API: a block whose tail expression
       # is an FFI pointer value must flow that pointer out of the block intact

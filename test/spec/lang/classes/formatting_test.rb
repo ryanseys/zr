@@ -1539,7 +1539,7 @@ describe "Classes: formatting and inspection" do
     OUT
   end
 
-  it "i912" do
+  it "a Hash default block runs for a missing key and not for a written one" do
     result = ze0(<<~'RUBY')
       h = Hash.new { |hash, key| "missing: #{key}" }
       puts h[:a]

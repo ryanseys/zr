@@ -515,7 +515,7 @@ describe "IO: substitution" do
     _(result).must_answer "[\"sub/\"]\n"
   end
 
-  it "i1006" do
+  it "a file written, closed and read back answers its lines, then nil at the end" do
     result = ze0(<<~'RUBY')
       path = "i1006_tmp.txt"
       File.delete(path) if File.exist?(path)

@@ -259,7 +259,7 @@ describe "Modules programs" do
     OUT
   end
 
-  it "issue 2961" do
+  it "Comparable gives <, >, between? and sort to a class that defines <=>" do
     result = ze0(<<~'RUBY')
       # A user #<=> returning a non-Integer/nil value (Array/String/...) is a
       # protocol violation rejected at compile time (#2961); this guards that valid
@@ -286,7 +286,7 @@ describe "Modules programs" do
     OUT
   end
 
-  it "issue 3170" do
+  it "between? and clamp work on Comparable objects inside a block" do
     result = ze0(<<~'RUBY')
       class Money
         include Comparable
@@ -308,7 +308,7 @@ describe "Modules programs" do
     OUT
   end
 
-  it "issue 3177" do
+  it "a module method extended into a class calls the class's own new" do
     result = ze0(<<~'RUBY')
       module Factory
         def create(a, b)
@@ -336,7 +336,7 @@ describe "Modules programs" do
     OUT
   end
 
-  it "issue 3189" do
+  it "Comparable orders by an array of parts, and to_s prints through interpolation" do
     result = ze0(<<~'RUBY')
       class Version
         include Comparable
@@ -360,7 +360,7 @@ describe "Modules programs" do
     OUT
   end
 
-  it "issue 3227 poly mutators" do
+  it "replace, prepend, concat, clear, gsub! and sub! reach a string through a container read" do
     result = ze0(<<~'RUBY')
       # In-place mutators through a poly (container-read) receiver: replace,
       # prepend, concat, clear swap or extend the shared buffer.

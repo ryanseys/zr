@@ -2580,7 +2580,7 @@ describe "Array: regressions" do
     OUT
   end
 
-  it "issue 2912" do
+  it "scan with a block collects the matches, and without one the captures" do
     result = ze0(<<~'RUBY')
       r = []
       "a(b)c(d)".scan(/[()]/) { |t| r << t }
@@ -2598,7 +2598,7 @@ describe "Array: regressions" do
     OUT
   end
 
-  it "issue 2919" do
+  it "a parameter defaulted to an empty array answers every Array method" do
     result = ze0(<<~'RUBY')
       # A method returning a default-valued array parameter: the empty `[]` default
       # types the param (and the method's return) as a poly array, so the result
@@ -2625,7 +2625,7 @@ describe "Array: regressions" do
     OUT
   end
 
-  it "issue 2989" do
+  it "an array a method appended to takes elements of another type afterwards" do
     result = ze0(<<~'RUBY')
       def m(order)
         order << :sym
@@ -2650,7 +2650,7 @@ describe "Array: regressions" do
     OUT
   end
 
-  it "issue 3172" do
+  it "a string written through a subscript is the object the caller holds" do
     result = ze0(<<~'RUBY')
       def f(word)
         word[0] = "z"
@@ -2677,7 +2677,7 @@ describe "Array: regressions" do
     OUT
   end
 
-  it "issue 3213" do
+  it "a method that returns two arrays built side by side keeps them apart" do
     result = ze0(<<~'RUBY')
       def crash
         numbers, strings = [], []
@@ -2691,7 +2691,7 @@ describe "Array: regressions" do
     _(result).must_answer "[[1], [\"one\"]]\n"
   end
 
-  it "issue 3227 captured shared" do
+  it "a closure that appends to a captured string appends to the one the caller holds" do
     result = ze0(<<~'RUBY')
       # Shared-mutable strings captured by closures (P6): the handle rides a
       # typed-pointer cell, so capture+mutation and capture+rebinding both share.
@@ -2733,7 +2733,7 @@ describe "Array: regressions" do
     OUT
   end
 
-  it "issue 3254" do
+  it "start_with? and end_with? take several candidates on a string read out of a chain" do
     result = ze0(<<~'RUBY')
       # A multi-argument String#start_with? / #end_with? on a poly string (a String
       # element read out of an each_line -> each_with_object chain) must dispatch on
@@ -2750,7 +2750,7 @@ describe "Array: regressions" do
     OUT
   end
 
-  it "issue 3312 transpose reduce" do
+  it "sum, reduce and inject fold a column that transpose produced" do
     result = ze0(<<~'RUBY')
       cols = [[1, 2], [3, 4]].transpose
       p cols[0].sum
@@ -2767,7 +2767,7 @@ describe "Array: regressions" do
     OUT
   end
 
-  it "issue 3332 empty literal zip" do
+  it "zip on an empty array answers empty, whatever it is zipped with" do
     result = ze0(<<~'RUBY')
       p([].zip(["a"]))
       p([].zip([1]))
@@ -2792,7 +2792,7 @@ describe "Array: regressions" do
     OUT
   end
 
-  it "issue 3340 zero arg array mutators" do
+  it "push, append, concat, unshift and prepend with no argument leave the array alone" do
     result = ze0(<<~'RUBY')
       a001 = [1, 2]
       p a001.push

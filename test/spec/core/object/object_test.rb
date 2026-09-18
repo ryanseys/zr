@@ -689,7 +689,7 @@ describe "Object programs" do
     OUT
   end
 
-  it "issue 3227 ivar shared" do
+  it "an ivar string mutated in place is the same object every alias holds" do
     result = ze0(<<~'RUBY')
       # Shared-mutable strings, ivar slots (P4): an in-place-mutated ivar string
       # shares its handle with local aliases and containers; multiple instances

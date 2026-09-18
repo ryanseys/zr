@@ -1188,7 +1188,7 @@ describe "Variables programs" do
     OUT
   end
 
-  it "issue 3316 tail index assign value" do
+  it "a method whose tail is a subscript assignment answers the value assigned" do
     result = ze0(<<~'RUBY')
       module Slap
         class Flag

@@ -316,7 +316,7 @@ describe "Struct: formatting and inspection" do
     OUT
   end
 
-  it "i994" do
+  it "a Struct reads by name, by symbol and by index, and prints through its own to_s" do
     result = ze0(<<~'RUBY')
       Person = Struct.new(:name, :age)
       p = Person.new("Alice", 30)

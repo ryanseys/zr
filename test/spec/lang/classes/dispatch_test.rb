@@ -190,7 +190,7 @@ describe "Classes: dispatch" do
     OUT
   end
 
-  it "i960" do
+  it "Kernel#method answers a Method that reports its name and calls" do
     result = ze0(<<~'RUBY')
       # Kernel#method returns a Method object (not Integer 0). .class and
       # .name dispatch; for a top-level user method, .call works too.

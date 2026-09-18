@@ -272,7 +272,7 @@ describe "Pattern programs" do
     OUT
   end
 
-  it "issue 2931" do
+  it "a hash pattern matches a scrutinee whose type is only known at run time" do
     result = ze0(<<~'RUBY')
       # A hash pattern in case/in must match a poly scrutinee at runtime (checking
       # the value is a hash with the required keys), not fail closed.
@@ -316,7 +316,7 @@ describe "Pattern programs" do
     OUT
   end
 
-  it "issue 2947" do
+  it "a Hash does not match an array pattern" do
     result = ze0(<<~'RUBY')
       # A Hash must not match an array pattern `[x, y]` (a Hash has no #deconstruct
       # in CRuby); the array-pattern condition requires an array-kind poly value.
@@ -343,7 +343,7 @@ describe "Pattern programs" do
     OUT
   end
 
-  it "issue 3185" do
+  it "a guard on an in clause falls through to the next pattern" do
     result = ze0(<<~'RUBY')
       def describe7(event)
         case event
@@ -363,7 +363,7 @@ describe "Pattern programs" do
     OUT
   end
 
-  it "issue 3240" do
+  it "a reduce accumulator widens to hold what the pattern-matching reducer answers" do
     result = ze0(<<~'RUBY')
       # A method returning a hash, folded once via reduce (concrete seed) and once
       # pushed via each_with_object (poly), widens to poly; the reduce accumulator

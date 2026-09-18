@@ -2262,7 +2262,7 @@ describe "Classes programs" do
     OUT
   end
 
-  it "i1027" do
+  it "interpolating a String built by String.new and << prints its text" do
     result = ze0(<<~'RUBY')
       # Issue #1027: string interpolation of a method that returns sp_String *
       # (the mutable-string type backing `String.new` + `<<`) emitted the
@@ -2297,7 +2297,7 @@ describe "Classes programs" do
     _(result).must_answer "[hello]\n"
   end
 
-  it "i898" do
+  it "Random.new answers the same stream for the same seed" do
     result = ze0(<<~'RUBY')
       # Random uses a different RNG than CRuby, so values differ; the test
       # checks the interface (types, ranges, reproducibility), not exact

@@ -2111,7 +2111,7 @@ describe "Eval programs" do
     OUT
   end
 
-  it "issue 2956" do
+  it "instance_eval and instance_exec run against nil and against a number" do
     result = ze0(<<~'RUBY')
       a001 = (nil.instance_eval { 42 } rescue $!.class); p a001
       a002 = (nil.instance_exec(5) { |y| y } rescue $!.class); p a002

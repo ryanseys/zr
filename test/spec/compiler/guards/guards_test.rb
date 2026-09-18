@@ -1880,7 +1880,7 @@ describe "Guards programs" do
     OUT
   end
 
-  it "issue 3308 mixed fold seed" do
+  it "inject with an Integer seed folds to whatever type the elements widen it to" do
     result = ze0(<<~'RUBY')
       def horner(coeffs, x)
         coeffs.inject(0) { |acc, c| acc * x + c }

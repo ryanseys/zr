@@ -1786,7 +1786,7 @@ describe "Methods programs" do
     OUT
   end
 
-  it "i1020" do
+  it "an array built by + from two method calls keeps its length across many turns" do
     result = ze0(<<~'RUBY')
       class Item
         def initialize(tag); @tag = tag; end

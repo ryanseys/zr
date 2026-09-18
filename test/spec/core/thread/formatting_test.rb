@@ -172,7 +172,7 @@ describe "Thread: formatting and inspection" do
     OUT
   end
 
-  it "i1031" do
+  it "a parked fiber's locals survive a collection" do
     result = ze0(<<~'RUBY')
       # A fiber's captured locals must survive a GC that fires while the
       # fiber is parked. The capture struct holds the only reference to

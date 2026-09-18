@@ -2035,7 +2035,7 @@ describe "Constants programs" do
     OUT
   end
 
-  it "issue 3320 defined anchored const" do
+  it "defined?(::X) asks about the root namespace, not the enclosing one" do
     result = ze0(<<~'RUBY')
       module Underscore
         module Rails

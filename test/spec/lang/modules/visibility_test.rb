@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Modules: visibility" do
-  it "i1035" do
+  it "module_function with a name promotes an instance method already defined" do
     result = ze0(<<~'RUBY')
       # `module_function :name` (argument form) promotes an already-defined
       # instance method to a module (class) method callable as M.name.

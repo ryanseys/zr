@@ -1396,7 +1396,7 @@ describe "Process programs" do
     OUT
   end
 
-  it "issue 3043" do
+  it "uid, gid, getpgrp and getsid answer Integers" do
     result = ze0(<<~'RUBY')
       puts Process.uid.class
       puts Process.gid.class
@@ -1420,7 +1420,7 @@ describe "Process programs" do
     OUT
   end
 
-  it "issue 3044" do
+  it "Process.times answers a Process::Tms of Floats" do
     result = ze0(<<~'RUBY')
       p Process::Tms
       p Process.times.class
@@ -1440,7 +1440,7 @@ describe "Process programs" do
     OUT
   end
 
-  it "issue 3045" do
+  it "clock_getres answers in the unit it is asked for" do
     result = ze0(<<~'RUBY')
       r = Process.clock_getres(Process::CLOCK_MONOTONIC)
       puts r.class
@@ -1457,7 +1457,7 @@ describe "Process programs" do
     OUT
   end
 
-  it "issue 3046" do
+  it "getpriority, groups and the PRIO_ constants" do
     result = ze0(<<~'RUBY')
       puts Process.getpriority(Process::PRIO_PROCESS, 0).class
       g = Process.groups
@@ -1474,7 +1474,7 @@ describe "Process programs" do
     OUT
   end
 
-  it "issue 3132" do
+  it "Process.times answers a Process::Tms however its result is bound" do
     result = ze0(<<~'RUBY')
       r001 = (Process.times rescue $!.class); p r001.class
       t = (Process.times rescue nil)
@@ -1489,7 +1489,7 @@ describe "Process programs" do
     OUT
   end
 
-  it "issue 3207" do
+  it "an attribute named exit reads the attribute, not Kernel#exit" do
     result = ze0(<<~'RUBY')
       class Crash
         attr_accessor :exit

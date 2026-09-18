@@ -1038,7 +1038,7 @@ describe "Thread programs" do
     _(result).must_answer "", stderr: "core/thread/thread_test.rb:27:in '<main>': undefined method '>=' for nil (NoMethodError)\n\np after >= before\n        ^^\n", status: 1
   end
 
-  it "i1007" do
+  it "a fiber created inside a method closes over that method's parameter" do
     result = ze0(<<~'RUBY')
       class Server
         def self.run(sfd)
@@ -1126,7 +1126,7 @@ describe "Thread programs" do
     OUT
   end
 
-  it "issue 2976" do
+  it "Thread.new passes its arguments to the block and answers the block's value" do
     result = ze0(<<~'RUBY')
       p Thread.new(7, 8) { |a, b| [a, b] }.value
       p Thread.new(7) { |a| a }.value
@@ -1142,7 +1142,7 @@ describe "Thread programs" do
     OUT
   end
 
-  it "issue 2977" do
+  it "a finished Thread inspects as dead" do
     result = ze0(<<~'RUBY')
       t = Thread.new { 1 }
       t.join
@@ -1158,7 +1158,7 @@ describe "Thread programs" do
     OUT
   end
 
-  it "issue 2978" do
+  it "Thread.new with no block raises ThreadError" do
     result = ze0(<<~'RUBY')
       r = (Thread.new rescue $!.class); p r
     RUBY
@@ -1166,7 +1166,7 @@ describe "Thread programs" do
     _(result).must_answer "ThreadError\n"
   end
 
-  it "issue 3124" do
+  it "Thread, Mutex and Queue are the classes their constructors name" do
     result = ze0(<<~'RUBY')
       t = Thread.new { 1 }
       p t.class
@@ -1190,7 +1190,7 @@ describe "Thread programs" do
     OUT
   end
 
-  it "issue 3126" do
+  it "a Thread inspects with the file and line it was started at" do
     result = ze0(<<~'RUBY')
       t = Thread.new { 1 }
       t.join

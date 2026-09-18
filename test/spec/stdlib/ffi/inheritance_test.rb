@@ -752,7 +752,7 @@ describe "FFI: inheritance and ancestors" do
     OUT
   end
 
-  it "i1011" do
+  it "an attached strlen answers the length of the string it is handed" do
     result = ze0(<<~'RUBY')
       # i1011, ported to the real ffi gem API. The original exercised spinel's
       # ffi_cflags compile-time string folding (__dir__, File.expand_path,

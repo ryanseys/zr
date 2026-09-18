@@ -700,7 +700,7 @@ describe "Programs programs" do
     _(result).must_answer "Hello, world!\n"
   end
 
-  it "i1021" do
+  it "GC.stat has no bytes key, so reading one raises NoMethodError on nil" do
     result = ze0(<<~'RUBY')
       s = GC.stat
       puts s.key?("bytes")
@@ -725,7 +725,7 @@ describe "Programs programs" do
     OUT
   end
 
-  it "i919" do
+  it "curry takes a lambda's arguments one at a time" do
     result = ze0(<<~'RUBY')
       add = -> (a, b) { a + b }
       add5 = add.curry[5]

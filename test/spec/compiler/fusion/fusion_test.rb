@@ -1502,7 +1502,7 @@ describe "Fusion programs" do
     OUT
   end
 
-  it "issue 3327 strbuf push typed array" do
+  it "three methods that each build a line and push it keep their own buffers" do
     result = ze0(<<~'RUBY')
       class Res
         attr_accessor :cookies
@@ -1544,7 +1544,7 @@ describe "Fusion programs" do
     OUT
   end
 
-  it "issue 3330 unresolved at typed slots" do
+  it "an unresolved constant in extend raises NameError from the class body, at run time" do
     result = ze0(<<~'RUBY')
       # `include`/`extend`/`prepend` are ordinary method calls, so an unresolved
       # target is a RUNTIME NameError raised from the class body -- on the directive's

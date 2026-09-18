@@ -1445,7 +1445,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "issue 2889" do
+  it "a root-scoped class constant is the === receiver for its own instances" do
     result = ze0(<<~'RUBY')
       p(::Integer === 7)
       p(::Integer === "x")
@@ -1463,7 +1463,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "issue 2910" do
+  it "gsub and sub with a block hand the block the match and take what it answers" do
     result = ze0(<<~'RUBY')
       p "ab cd".gsub(/\b\w/) { |c| c.upcase }
       p "hello world".gsub(/\w+/) { |w| w.capitalize }
@@ -1481,7 +1481,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "issue 2924" do
+  it "a multiple assignment destructures what a method returned" do
     result = ze0(<<~'RUBY')
       def k
         [5, [[1, 2, 3], [4, 5, 6]]]
@@ -1508,7 +1508,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "issue 3063" do
+  it "flat_map flattens one level, whatever the block answers" do
     result = ze0(<<~'RUBY')
       p (1..3).flat_map { |x| x * 2 }
       p (1..3).flat_map { |x| [x, x] }
@@ -1528,7 +1528,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "issue 3164" do
+  it "each_line into each_with_object builds a Hash of the split lines" do
     result = ze0(<<~'RUBY')
       r = "a=b\nc=d".each_line.each_with_object({}) do |raw, config|
         key, value = raw.split("=", 2)
@@ -1540,7 +1540,7 @@ describe "String: regressions" do
     _(result).must_answer "{\"a\" => \"b\\n\", \"c\" => \"d\"}\n"
   end
 
-  it "issue 3227 full mutators" do
+  it "every in-place String mutator shows through an alias and through a container" do
     result = ze0(<<~'RUBY')
       # Shared-mutable strings: every in-place mutator shares through aliases and
       # containers (P1+P2 of the reference-semantics plan).
@@ -1614,7 +1614,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "issue 3317 reader concat splat" do
+  it "concat through a reader fills the ivar array the constructor made" do
     result = ze0(<<~'RUBY')
       class Config
         def str(*opts) = add_flag(Flag.new(opts))
@@ -1643,7 +1643,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "issue 3325 poly str shl store" do
+  it "a line built with + then appended to is stored whole" do
     result = ze0(<<~'RUBY')
       class Res
         attr_accessor :cookies
@@ -1692,7 +1692,7 @@ describe "String: regressions" do
     OUT
   end
 
-  it "issue 3339 zero arg string mutators" do
+  it "prepend and concat with no argument leave the string alone" do
     result = ze0(<<~'RUBY')
       m1 = +"hello"; r1 = (m1.prepend rescue $!.class); p r1
       f1 = "hello";  r2 = (f1.concat  rescue $!.class); p r2

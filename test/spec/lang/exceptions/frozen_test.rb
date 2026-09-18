@@ -287,7 +287,7 @@ describe "Exceptions: frozen literals" do
     _(result).must_answer "runtime-rescued\n"
   end
 
-  it "i918" do
+  it "a frozen Array and a frozen Hash refuse every write" do
     result = ze0(<<~'RUBY')
       a = [1, 2, 3].freeze
       puts a.frozen?
@@ -353,7 +353,7 @@ describe "Exceptions: frozen literals" do
     OUT
   end
 
-  it "i972" do
+  it "a frozen String refuses every write, and freeze after the fact is enough" do
     result = ze0(<<~'RUBY')
       s = "hello".freeze
       puts s.frozen?

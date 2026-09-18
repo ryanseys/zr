@@ -92,7 +92,7 @@ describe "JSON programs" do
     OUT
   end
 
-  it "issue 3342 threads with native packages" do
+  it "JSON and StringIO work inside a thread" do
     result = ze0(<<~'RUBY')
       require "json"
       require "stringio"

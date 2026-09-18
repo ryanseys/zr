@@ -361,7 +361,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "issue 3108" do
+  it "an attr_accessor in a singleton class body reads from a module method" do
     result = ze0(<<~'RUBY')
       module Config
         class << self
@@ -409,7 +409,7 @@ describe "Singleton programs" do
     OUT
   end
 
-  it "issue 3285 singleton name override" do
+  it "a module that defines self.name answers it, and one that does not answers its own name" do
     result = ze0(<<~'RUBY')
       module Foo
         def self.name

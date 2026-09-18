@@ -1302,7 +1302,7 @@ describe "Control programs" do
     OUT
   end
 
-  it "i916" do
+  it "loop answers with the value its break was given" do
     result = ze0(<<~'RUBY')
       r = loop { break 42 }
       puts r.inspect
@@ -1340,7 +1340,7 @@ describe "Control programs" do
     OUT
   end
 
-  it "issue 2966" do
+  it "TrueClass and FalseClass are the classes a boolean matches in a case" do
     result = ze0(<<~'RUBY')
       b = true
       p(TrueClass === b)
@@ -1362,7 +1362,7 @@ describe "Control programs" do
     OUT
   end
 
-  it "issue 2992" do
+  it "filter_map keeps what the block answers and drops what is nil" do
     result = ze0(<<~'RUBY')
       h = {a: 1, b: 2}
       p h.filter_map { |k, v| [k, v] if v > 1 }
@@ -1379,7 +1379,7 @@ describe "Control programs" do
     OUT
   end
 
-  it "issue 3297" do
+  it "break takes a value out of a while loop" do
     result = ze0(<<~'RUBY')
       list, kept = ["--", "x"], []
       while (i = list.shift)
@@ -1401,7 +1401,7 @@ describe "Control programs" do
     OUT
   end
 
-  it "issue 3310 lambda loop tail" do
+  it "a lambda whose body ends after a loop answers its tail" do
     result = ze0(<<~'RUBY')
       g = ->() { loop { break }; 42 }
       p g.call

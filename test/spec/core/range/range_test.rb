@@ -790,7 +790,7 @@ describe "Range programs" do
     OUT
   end
 
-  it "issue 2925" do
+  it "a sum block whose value comes out of a find still folds" do
     result = ze0(<<~'RUBY')
       # A `sum` block whose value indexes an Array#find result is poly; the sum
       # must fold through the block (regression alongside #2913).
@@ -801,7 +801,7 @@ describe "Range programs" do
     _(result).must_answer "5400\n"
   end
 
-  it "issue 2938" do
+  it "begin and end answer for a Range read out of a container" do
     result = ze0(<<~'RUBY')
       # begin/end on a Range read out of a poly container: the poly receiver reads
       # the sp_Range endpoints instead of returning an opaque value.
@@ -818,7 +818,7 @@ describe "Range programs" do
     OUT
   end
 
-  it "issue 3070" do
+  it "count over a String range counts the values it enumerates" do
     result = ze0(<<~'RUBY')
       puts ("a".."e").count
       puts ("a"..."e").count
@@ -832,7 +832,7 @@ describe "Range programs" do
     OUT
   end
 
-  it "issue 3084" do
+  it "slice! removes characters, not bytes" do
     result = ze0(<<~'RUBY')
       s = "あいうえお"
       s.slice!(1)
@@ -866,7 +866,7 @@ describe "Range programs" do
     OUT
   end
 
-  it "issue 3102" do
+  it "count takes a block, an argument, or nothing" do
     result = ze0(<<~'RUBY')
       p(("a".."e").count { |s| s < "c" })
       p(("a".."e").count)
@@ -882,7 +882,7 @@ describe "Range programs" do
     OUT
   end
 
-  it "issue 3221" do
+  it "Kernel#rand over a Range answers inside it, and nil for an empty one" do
     result = ze0(<<~'RUBY')
       a = (2..5)
       r = rand(a)

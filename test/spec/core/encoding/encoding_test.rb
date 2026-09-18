@@ -696,7 +696,7 @@ describe "Encoding programs" do
     OUT
   end
 
-  it "issue 3333 frozen byte mutators" do
+  it "append_as_bytes, bytesplice and scrub! answer the new text on a frozen receiver" do
     result = ze0(<<~'RUBY')
       s1 = "abc"; r1 = (s1.append_as_bytes("de") rescue $!.class); p r1
       s2 = "hello"; r2 = (s2.bytesplice(0, 2, "HE") rescue $!.class); p r2
@@ -718,7 +718,7 @@ describe "Encoding programs" do
     OUT
   end
 
-  it "issue 3334 frozen encoding setters" do
+  it "encode! and force_encoding answer the receiver's text on a frozen string" do
     result = ze0(<<~'RUBY')
       s1 = "hello"; r1 = (s1.encode!("UTF-8") rescue $!.class); p r1
       s2 = "hello"; r2 = (s2.force_encoding("UTF-8") rescue $!.class); p r2
@@ -737,7 +737,7 @@ describe "Encoding programs" do
     OUT
   end
 
-  it "issue 3338 scrub bang frozen clean" do
+  it "scrub! answers the string whether or not there was anything to scrub" do
     result = ze0(<<~'RUBY')
       s1 = "hello"; r1 = (s1.scrub! rescue $!.class); p r1
       s2 = "hello"; r2 = (s2.scrub!("?") rescue $!.class); p r2
