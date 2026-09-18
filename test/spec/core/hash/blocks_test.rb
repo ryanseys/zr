@@ -1052,7 +1052,7 @@ describe "Hash: blocks and yields" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # `f = ->(n) { memo[n] ||= f.call(...) }` -- a lambda reaching itself through a captured local.
       # At exit: cycle leak: 4 objects (cell x2, Hash x1, Proc x1)
       # `h[k] ||= rhs` must not evaluate any part of rhs when the key is present:

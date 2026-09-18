@@ -22,7 +22,7 @@ describe "String: regressions" do
         # Array#each on a str_array. The block param must shadow an outer
         # same-named mrb_int local. Body skips `puts i` to keep this scope-
         # shadow case separate from the format-specifier path.
-        
+
         3.times do |i|
           puts i
         end
@@ -38,33 +38,33 @@ describe "String: regressions" do
         # Array#map on a str_array. Issue #43: compile_map_expr had no
         # str_array branch, so `tt = foo.map { |s| ... }` silently emitted
         # `lv_tt = 0` and the subsequent iteration crashed.
-        
+
         # String -> string map (the original failure mode)
         foo = ["a", "b", "c"]
         tt = foo.map { |s| s.upcase }
         tt.each { |t| puts t }   # A B C
-        
+
         # String -> int map: codepoint length, returning int_array
         sizes = foo.map { |s| s.length }
         puts sizes.length         # 3
         puts sizes[0]             # 1
         puts sizes[1]             # 1
         puts sizes[2]             # 1
-        
+
         # Original receiver is unchanged
         puts foo[0]               # a
         puts foo[1]               # b
         puts foo[2]               # c
-        
+
         # .map { ... }.each { ... } chain (the issue's pattern)
         words = ["alpha", "beta", "gamma"]
         words.map { |w| w.upcase }.each { |w| puts w }   # ALPHA BETA GAMMA
-        
+
         # Empty input
         empty = "".split(",")
         e2 = empty.map { |s| s.upcase }
         puts e2.length            # 0
-        
+
         # Block parameter is block-local: reusing the same name as an outer
         # differently-typed local must not leak. Issue #43 originally hit this
         # (3.times do |i| ... end then foo.map {|i| ...} where the times-block
@@ -83,38 +83,38 @@ describe "String: regressions" do
         # StrArray slicing: a[range] and a[start, len].
         # Same regression class as IntArray: a[1..2] failed to compile and
         # a[1, 2] silently dropped the second arg.
-        
+
         a = "alpha,beta,gamma,delta,epsilon".split(",")
-        
+
         # Range form
         b = a[1..3]
         puts b.length      # 3
         puts b[0]          # beta
         puts b[1]          # gamma
         puts b[2]          # delta
-        
+
         # (start, len) form
         c = a[1, 2]
         puts c.length      # 2
         puts c[0]          # beta
         puts c[1]          # gamma
-        
+
         # Negative start
         d = a[-2, 2]
         puts d.length      # 2
         puts d[0]          # delta
         puts d[1]          # epsilon
-        
+
         # len exceeds remaining: clamped
         f = a[2, 100]
         puts f.length      # 3
         puts f[0]          # gamma
         puts f[2]          # epsilon
-        
+
         # Bare a[i] still returns a string
         puts a[0]          # alpha
         puts a[-1]         # epsilon
-        
+
         # Result is usable as a StrArray
         puts a[1..3].join(":")  # beta:gamma:delta
       end
@@ -125,22 +125,22 @@ describe "String: regressions" do
         # String#% with a str_array RHS, routed through sp_str_format_strarr.
         # The integer % path (sp_imod) is unchanged — only str_array RHS triggers
         # sprintf-style formatting.
-        
+
         # Single placeholder
         puts "hello, %s!" % ["world"]            # hello, world!
-        
+
         # Multiple placeholders
         puts "%s and %s" % ["a", "b"]            # a and b
-        
+
         # %% literal
         puts "100%% of %s" % ["coverage"]        # 100% of coverage
-        
+
         # %s after literal text
         puts "[%s][%s][%s]" % ["x", "y", "z"]    # [x][y][z]
-        
+
         # Extra args are ignored (matches CRuby tolerant behavior)
         puts "%s" % ["a", "b", "c"]              # a
-        
+
         # Format string with no placeholders, args ignored
         puts "no formatting here" % ["x"]        # no formatting here
       end
@@ -149,32 +149,32 @@ describe "String: regressions" do
       # === str_justify ===
       def t_str_justify
         # Test String#ljust, rjust, center with custom pad string
-        
+
         # center with default (space) pad
         puts "hi".center(10)        #     hi
         puts "hi".center(9)         #    hi
-        
+
         # center with single-char pad
         puts "hi".center(10, "-")   # ----hi----
         puts "hi".center(9,  "-")   # ---hi----
-        
+
         # center with multi-char pad (cycling)
         puts "hi".center(10, "ab")  # ababhiabab
         puts "hi".center(9,  "ab")  # abahiabab
-        
+
         # ljust with multi-char pad (cycling)
         puts "hi".ljust(8, "ab")    # hiababab
         puts "hi".ljust(8, "xyz")   # hixyzxyz
-        
+
         # rjust with multi-char pad (cycling)
         puts "hi".rjust(8, "ab")    # abababhi
         puts "hi".rjust(8, "xyz")   # xyzxyzhi
-        
+
         # no-op when string already long enough
         puts "hello".ljust(3, "x")  # hello
         puts "hello".rjust(3, "x")  # hello
         puts "hello".center(3, "x") # hello
-        
+
         puts "done"
       end
       t_str_justify
@@ -194,19 +194,19 @@ describe "String: regressions" do
       def t_string_chop
         # basic
         puts "hello".chop
-        
+
         # crlf removed together
         puts "hello\r\n".chop
-        
+
         # newline only
         puts "hello\n".chop
-        
+
         # empty string
         puts "".chop
-        
+
         # single char
         puts "x".chop
-        
+
         # already no trailing newline
         puts "abc".chop
       end
@@ -219,27 +219,27 @@ describe "String: regressions" do
         # a single-char substring. ASCII-only test pins parity with CRuby's
         # byte-level iteration. Multi-byte UTF-8 prints the underlying byte
         # values, not codepoints (matches CRuby).
-        
+
         # ASCII string
         "ab".each_byte { |b| puts b }
-        
+
         # Empty string yields nothing
         "".each_byte { |b| puts b }
-        
+
         # Mixed alphabetic and digit
         "A1z".each_byte { |b| puts b }
-        
+
         # Newline byte
         "a\n".each_byte { |b| puts b }
-        
+
         # Multi-byte UTF-8 (Latin Small Letter E with Acute): byte iteration, not codepoint
         "é".each_byte { |b| puts b }
-        
+
         # Counted iteration via accumulator
         total = 0
         "hello".each_byte { |b| total = total + b }
         puts total
-        
+
         # String#each_byte returns the receiver (CRuby parity). Pre-fix Spinel's
         # each_byte was statement-only and the assignment dropped the value.
         total2 = 0
@@ -256,7 +256,7 @@ describe "String: regressions" do
         puts "\\n".length     # 2
         puts "a\\nb".length   # 4
         puts "\\\\".length    # 2
-        
+
         # Standard runtime escape sequences must still work alongside the
         # fix — "\n" is one newline byte, "\t" tab, "\r" CR, "\"" quote.
         puts "\n".length      # 1
@@ -264,7 +264,7 @@ describe "String: regressions" do
         puts "\r".length      # 1
         puts "\"".length      # 1
         puts "a\nb".length    # 3
-        
+
         # Mixed escapes — literal backslash AND a real newline in the same
         # string. "a\\nb\nc" = a, \, n, b, <newline>, c → length 6.
         puts "a\\nb\nc".length
@@ -275,7 +275,7 @@ describe "String: regressions" do
       def t_string_format_single
         # `"fmt" % value` (the single-value form of String#%) used to fall
         # through to sp_imod, which rejected the format string as a non-int.
-        
+
         puts "%d" % 42
         puts "%05d" % 7
         puts "%.2f" % 3.14159
@@ -314,11 +314,11 @@ describe "String: regressions" do
       # === strings ===
       def t_strings
         # Test Symbol and String methods
-        
+
         # Symbol
         s = :hello
         puts s  # hello
-        
+
         # String methods
         str = "Hello, World!"
         puts str.length      # 13
@@ -326,13 +326,13 @@ describe "String: regressions" do
         puts str.downcase    # hello, world!
         puts str.include?("World")  # true
         puts str.include?("xyz")    # false
-        
+
         # String concatenation
         a = "foo"
         b = "bar"
         c = a + b
         puts c  # foobar
-        
+
         # to_s on integers
         n = 42
         puts n.to_s  # 42
@@ -342,11 +342,11 @@ describe "String: regressions" do
       # === strings2 ===
       def t_strings2
         # Test additional String methods
-        
+
         str = "  Hello, World!  "
         puts str.strip           # "Hello, World!"
         puts str.chomp           # "  Hello, World!  " (no trailing newline)
-        
+
         s = "hello world"
         puts s.capitalize        # "Hello world"
         puts s.reverse           # "dlrow olleh"
@@ -356,10 +356,10 @@ describe "String: regressions" do
         puts s.gsub("l", "L")   # heLLo worLd
         puts s.sub("o", "0")    # hell0 world
         puts s.split(" ").length # 2
-        
+
         # String repeat
         puts "ha" * 3            # hahaha
-        
+
         # String comparison
         puts "abc" == "abc"      # true
         puts "abc" == "def"      # false
@@ -370,47 +370,47 @@ describe "String: regressions" do
       # === strings3 ===
       def t_strings3
         # Test additional string methods
-        
+
         # ljust / rjust / center
         puts "hi".ljust(10)         # "hi        "
         puts "hi".rjust(10)         # "        hi"
         puts "hi".center(10)        # "    hi    "
         puts "hi".ljust(10, "*")    # "hi********"
         puts "hi".rjust(10, "0")    # "00000000hi"
-        
+
         # lstrip / rstrip
         puts "  hello  ".lstrip     # "hello  "
         puts "  hello  ".rstrip     # "  hello"
-        
+
         # tr / delete / squeeze
         puts "hello".tr("el", "ip")      # "hippo"
         puts "hello world".delete("lo")  # "he wrd"
         puts "aaabbbccc".squeeze          # "abc"
-        
+
         # chars / bytes
         puts "abc".chars.length     # 3
         puts "abc".bytes.length     # 3
-        
+
         # to_f
         puts ("3.14".to_f * 100).to_i  # 314
-        
+
         # slice
         puts "hello"[1..3]          # "ell"
         puts "hello"[0, 2]          # "he"
-        
+
         # hex / oct
         puts "ff".hex    # 255
         puts "77".oct    # 63
-        
+
         # dup / freeze / frozen?
         s = "hello"
         puts s.dup       # "hello"
         puts s.freeze    # "hello"
         puts s.frozen?   # true
-        
+
         # to_s
         puts "test".to_s  # "test"
-        
+
         puts "done"
       end
       t_strings3
@@ -421,14 +421,14 @@ describe "String: regressions" do
         # index access, gsub/sub, split, ljust/rjust, downcase/strip/...,
         # start_with?/end_with?/empty?/include?, to_s/to_i. Combines what
         # was previously split across mutable_str.rb / _2.rb / _3.rb.
-        
+
         # << (true mutation, not reassignment)
         a = "hello"
         a << " world"
         a << "!"
         puts a          # hello world!
         puts a.length   # 12
-        
+
         # Build string incrementally
         buf = ""
         5.times do |i|
@@ -436,50 +436,50 @@ describe "String: regressions" do
           buf << ","
         end
         puts buf        # 0,1,2,3,4,
-        
+
         # upcase / reverse / include? on mutable receiver
         b = "Hello World"
         puts b.upcase                 # HELLO WORLD
         puts b.reverse                # dlroW olleH
         puts b.include?("World")      # true
-        
+
         # replace / clear
         c = "hello"
         c.replace("world")
         puts c          # world
         c.clear
         puts c.length   # 0
-        
+
         # [] on mutable string
         d = "abcdef"
         d << "ghi"
         puts d[0]       # a
         puts d[-1]      # i
         puts d.length   # 9
-        
+
         # gsub on mutable receiver
         e = "hello"
         e << " world"
         puts e.gsub("o", "0")  # hell0 w0rld
-        
+
         # split on mutable receiver
         f = "a"
         f << ",b,c"
         parts = f.split(",")
         puts parts.length  # 3
-        
+
         # + creates a new string, does not mutate the receiver
         g = "foo"
         g << "bar"
         h = g + "baz"
         puts g        # foobar (unchanged)
         puts h        # foobarbaz
-        
+
         # to_s on mutable receiver
         tst = "test"
         tst << "ing"
         puts tst.to_s   # testing
-        
+
         # downcase / strip / capitalize / start_with? / end_with? / empty?
         j = ""
         j << "Hello"
@@ -492,26 +492,26 @@ describe "String: regressions" do
         puts j.start_with?("Hello")  # true
         puts j.end_with?("World")    # true
         puts j.empty?             # false
-        
+
         # sub / gsub on mutable receiver
         puts j.gsub("l", "r")        # Herro Worrd
         puts j.sub("World", "Ruby")  # Hello Ruby
-        
+
         # to_i via mutable receiver
         n = ""
         n << "42"
         puts n.to_i    # 42
-        
+
         # ljust / rjust
         t = ""
         t << "hi"
         puts t.ljust(10)   # "hi        "
         puts t.rjust(10)   # "        hi"
-        
+
         # include?
         puts j.include?("World")  # true
         puts j.include?("xyz")    # false
-        
+
         puts "done"
       end
       t_mutable_str
@@ -544,20 +544,20 @@ describe "String: regressions" do
         # Fix: the single-char fast path bails out when the `[]` arg is a
         # Range or a 2-arg `s[start, len]` form, so the call falls through
         # to the proper sp_str_sub_range dispatch + string compare.
-        
+
         s = "abc/def"
         i = 3
         if s[i..i] == "/"
           puts "match"
         end
-        
+
         # Range literal as the [] arg (no LV indirection).
         puts s[1..2]            # "bc"
         puts s[3..3] == "/"     # true
-        
+
         # Exclusive range.
         puts s[3...4] == "/"    # true
-        
+
         # `s[start, len]` 2-arg form must also fall through cleanly.
         puts s[3, 1] == "/"     # true
       end
@@ -573,13 +573,13 @@ describe "String: regressions" do
         #
         # This test pins the heap-mutate path. Literal -> FrozenError is
         # covered by test/str_setbyte_frozen_literal.
-        
+
         # Dup'd string: setbyte mutates.
         s = "ab".dup
         s.setbyte(0, 67)  # 'C'
         s.setbyte(1, 68)  # 'D'
         puts s   # CD
-        
+
         # String#+ produces a fresh heap buffer too.
         s2 = "x" + "y"
         s2.setbyte(0, 90)  # 'Z'
@@ -607,18 +607,18 @@ describe "String: regressions" do
         #   - missing right -> "-1" (s[k..] == s[k..-1])
         # The exclusive flag is ignored on the missing endpoint (CRuby
         # semantics: `s[1..]` == `s[1...]` == `s[1..-1]`).
-        
+
         s = "hello"
-        
+
         # Endless from inclusive lower bound.
         puts s[1..]      # ello
         puts s[1...]     # ello  (CRuby treats endless ... same as ..)
         puts s[-2..]     # lo
-        
+
         # Beginless to inclusive upper bound.
         puts s[..2]      # hel
         puts s[...2]     # he   (exclusive upper)
-        
+
         # The Sam Ruby repro shape: strip the leading char.
         pp = ":id"
         puts pp[1..]     # id
@@ -636,32 +636,32 @@ describe "String: regressions" do
         # not-found, matching CRuby. `puts nil.to_s` prints an empty
         # line; the walk-all-dots loop checks `pos.nil?` instead of
         # `pos < 0`.
-        
+
         s = "a.b.c.d"
-        
+
         # 1-arg form -- baseline.
         puts s.index(".").to_s          # 1
-        
+
         # 2-arg form -- the fix.
         puts s.index(".", 0).to_s       # 1   (no skip, finds the same first dot)
         puts s.index(".", 1).to_s       # 1   (start at the dot itself, finds it)
         puts s.index(".", 2).to_s       # 3   (skip past the first dot, find the second)
         puts s.index(".", 4).to_s       # 5
         puts s.index(".", 6).to_s       # "" (nil.to_s; CRuby would print blank)
-        
+
         # Negative start counts from end.
         puts s.index(".", -1).to_s      # "" (not found, nil.to_s)
         puts s.index(".", -2).to_s      # 5    (last dot)
         puts s.index(".", -100).to_s    # 1    (clamps to 0)
-        
+
         # Out-of-range positive start.
         puts s.index(".", 100).to_s     # "" (not found, nil.to_s)
-        
+
         # Multibyte: codepoint indexing, not byte indexing.
         m = "α.β.γ"
         puts m.index(".").to_s          # 1   (one cp before the first dot)
         puts m.index(".", 2).to_s       # 3   (after the first dot)
-        
+
         # Walk-all-dots loop -- the JWT use case that surfaced this bug.
         # Idiomatic post-#532: `break if pos.nil?` instead of `pos < 0`.
         t = "header.payload.sig"
@@ -702,28 +702,28 @@ describe "String: regressions" do
         # need to unbox. compile_expr_as_int / compile_arg0_as_int in
         # the codegen handle the int-expecting C helper signatures
         # (sp_str_sub_range etc.).
-        
+
         s = "hello world"
-        
+
         # Found and not-found inspect (formerly "6" / "-1"; now "6" / "nil").
         puts s.index("world").inspect    # 6
         puts s.index("xyz").inspect      # nil
         puts s.index("hello").inspect    # 0   (real index 0, not nil)
-        
+
         # CRuby's nil-lens idiom now works without rewrites.
         pos = s.index("xyz")
         puts pos.nil?                    # true
         puts (pos == nil)                # true
         puts (pos != nil)                # false
-        
+
         pos = s.index("hello")
         puts pos.nil?                    # false (real index 0 is NOT nil)
         puts (pos != nil)                # true
-        
+
         # rindex inherits the same shape.
         puts "abcdabcd".rindex("c").inspect    # 6
         puts "abcdabcd".rindex("z").inspect    # nil
-        
+
         # Walk-all idiom from the issue's GPT-2 BPE example.
         body = "header.payload.sig"
         i = 0
@@ -763,7 +763,7 @@ describe "String: regressions" do
         # `(mrb_int)atoll(s)` which stops at the first `_`, returning 1
         # for "1_2_3asdf" instead of 123. Now routes through
         # sp_str_to_i_cruby. Issue #619 puzzle 1.
-        
+
         p("1_2_3asdf".to_i)
         p("-5_0".to_i)
         p("hello".to_i)

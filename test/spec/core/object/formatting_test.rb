@@ -473,7 +473,7 @@ describe "Object: formatting and inspection" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # A container holding itself, which is what the golden inspects.
       # At exit: cycle leak: 2 objects (Array x1, Hash x1)
       # An element's `inspect`/`to_s` may read the very container being printed.

@@ -1726,7 +1726,7 @@ describe "Object: instance and class variables" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # `c.neighbours` is filled with the cells including `c` itself.
       # At exit: cycle leak: 6 objects (Array x3, Cell x3)
       # An ivar seeded empty in initialize (`@n = []` -> int-array) must widen when an
@@ -2309,7 +2309,7 @@ describe "Object: instance and class variables" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # The golden's whole subject: an ivar pointing at its own owner.
       # At exit: cycle leak: 3 objects (Cell3 x1, Column x1, Column2 x1)
       class Node

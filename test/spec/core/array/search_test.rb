@@ -9,7 +9,7 @@ describe "Array: searching and matching" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # Self-referential arrays, built on purpose.
       # At exit: cycle leak: 3 objects (Array x3)
       # Array#assoc / #rassoc match the first / second element of each sub-array.

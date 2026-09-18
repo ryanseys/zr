@@ -9,7 +9,7 @@ describe "Optparse programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # OptionParser's own graph. A List holds its Switches and every Switch's block closes over the parser. Two parsers here, where optparse_subset.rb builds four.
       # At exit: cycle leak: 72 objects (Array x15, Hash x12, Proc x11, cell x9, OptionParser::OptionMap x8, OptionParser::Switch::NoArgument x5, OptionParser::List x4, OptionParser::Switch::OptionalArgument x4, OptionParser x2, OptionParser::Switch::RequiredArgument x2)
       # OptionParser resolves a unique long-option PREFIX (`--verb` finds
@@ -42,7 +42,7 @@ describe "Optparse programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # OptionParser's own graph. A List holds its Switches and every Switch's block closes over the parser.
       # At exit: cycle leak: 149 objects (Array x33, Hash x25, Proc x23, cell x17, OptionParser::OptionMap x16, OptionParser::List x8, OptionParser::Switch::NoArgument x8, OptionParser::Switch::OptionalArgument x8, OptionParser::Switch::RequiredArgument x7, OptionParser x4)
       # The bundled `optparse` package (packages/optparse), exercised against the
@@ -94,7 +94,7 @@ describe "Optparse programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # OptionParser's own graph, reached through the required file. See optparse_subset.rb.gccheck.
       # At exit: cycle leak: 28 objects (Hash x6, OptionParser::OptionMap x4, Proc x4, cell x4, Array x3, OptionParser::List x2, OptionParser::Switch::OptionalArgument x2, OptionParser x1, OptionParser::Switch::NoArgument x1, OptionParser::Switch::RequiredArgument x1)
       # Regression for #1150 bug 2: a `require` on the very first line (byte 0)

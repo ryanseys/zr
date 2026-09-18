@@ -20,7 +20,7 @@ describe "Enumerable: dispatch" do
         # inferred map result), `lv_out = 0` was emitted, and any
         # `.length` / `[i]` on the accumulator dereferenced NULL,
         # crashing at runtime.
-        
+
         # (1) poly_array → IntArray (int-return block).
         arr = [1, "two", :three, 4.5]
         out = arr.map { |x| x.to_s.length }
@@ -29,7 +29,7 @@ describe "Enumerable: dispatch" do
         puts out[1]          # 3
         puts out[2]          # 5
         puts out[3]          # 3
-        
+
         # (2) poly_array → StrArray (string-return block).
         strs = arr.map { |x| x.to_s }
         puts strs.length     # 4
@@ -37,7 +37,7 @@ describe "Enumerable: dispatch" do
         puts strs[1]         # two
         puts strs[2]         # three
         puts strs[3]         # 4.5
-        
+
         # (3) poly_array → IntArray (different int expression).
         sizes = arr.map { |x| x.to_s.length * 2 }
         puts sizes.length    # 4
@@ -57,7 +57,7 @@ describe "Enumerable: dispatch" do
         # Repro: a heterogeneous literal lowers to poly_array; then both
         # `arr << v` (expr / stmt-without-receiver-rewrite) and
         # `arr.push(v)` exercise the dispatch.
-        
+
         arr = [1, "two", :three]
         arr << 42
         arr.push("four")
@@ -73,19 +73,19 @@ describe "Enumerable: dispatch" do
       # === poly_hash ===
       def t_poly_hash
         # Test heterogeneous Hash
-        
+
         h = {name: "Alice", age: 30, active: true}
         puts h[:name]     # Alice
         puts h[:age]      # 30
         puts h[:active]   # true
         puts h.length     # 3
-        
+
         # Iteration
         h.each do |k, v|
           puts k
         end
         # name, age, active
-        
+
         puts "done"
       end
       t_poly_hash
@@ -94,7 +94,7 @@ describe "Enumerable: dispatch" do
       def t_primitive_is_a
         # is_a? / kind_of? / instance_of? on primitive receivers — answer
         # decided at compile time based on Ruby's class hierarchy.
-        
+
         # === Integer ===
         p 5.is_a?(Integer)
         p 5.is_a?(Numeric)
@@ -106,7 +106,7 @@ describe "Enumerable: dispatch" do
         p 5.kind_of?(Numeric)
         p 5.instance_of?(Integer)
         p 5.instance_of?(Numeric)   # false — instance_of? doesn't follow superclass
-        
+
         # === Float ===
         p 1.5.is_a?(Float)
         p 1.5.is_a?(Numeric)
@@ -115,7 +115,7 @@ describe "Enumerable: dispatch" do
         p 1.5.kind_of?(Numeric)
         p 1.5.instance_of?(Float)
         p 1.5.instance_of?(Numeric)
-        
+
         # === String ===
         p "hi".is_a?(String)
         p "hi".is_a?(Comparable)
@@ -124,14 +124,14 @@ describe "Enumerable: dispatch" do
         p "hi".kind_of?(String)
         p "hi".instance_of?(String)
         p "hi".instance_of?(Comparable)
-        
+
         # === Symbol ===
         p :hi.is_a?(Symbol)
         p :hi.is_a?(Comparable)
         p :hi.is_a?(String)
         p :hi.kind_of?(Symbol)
         p :hi.instance_of?(Symbol)
-        
+
         # === Top-level ancestors (Kernel / BasicObject) ===
         # Every value is in the Object hierarchy, so is_a? returns true for
         # Kernel and BasicObject as well as Object. instance_of? still

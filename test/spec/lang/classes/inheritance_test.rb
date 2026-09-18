@@ -556,7 +556,7 @@ describe "Classes: inheritance and ancestors" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # Dancing Links. The whole data structure is a ring of Columns and Nodes by definition.
       # At exit: cycle leak: 10 objects (Node x6, Column x4)
       # A ring whose fields hold both a base class and its subclass: reading one
@@ -2138,7 +2138,7 @@ describe "Classes: inheritance and ancestors" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # A ring of Columns and Nodes, which is the dispatch shape under test.
       # At exit: cycle leak: 7 objects (Column x4, Node x3)
       # A circular doubly-linked structure whose left/right/up/down fields hold both
@@ -2377,7 +2377,7 @@ describe "Classes: inheritance and ancestors" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # A parent method writes `self` into its own accessor.
       # At exit: cycle leak: 1 objects (Column x1)
       # A parent holds an accessor pointing at another object of the same family, and

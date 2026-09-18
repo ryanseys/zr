@@ -37,20 +37,20 @@ describe "Methods: regressions" do
         # Surfaced via optcarrot's `def load_battery; ...; @wrk.replace(sav.bytes); end`,
         # where the call sits at the tail of the method (its value is
         # the implicit return).
-        
+
         a = [1, 2, 3]
         b = [10, 20, 30, 40]
-        
+
         # Expression position: assigned. Should yield the (mutated) `a`.
         c = a.replace(b)
-        
+
         # `a` mutated in place
         puts a[0]
         puts a[1]
         puts a[2]
         puts a[3]
         puts a.length
-        
+
         # `c` is the same array (replace returns the receiver)
         puts c[0]
         puts c.length
@@ -74,24 +74,24 @@ describe "Methods: regressions" do
         # honestly, so users who need to distinguish missing-vs-stored
         # zero have to reach for `Hash#has_key?` / `Hash#fetch`, as
         # documented in the issue comment.
-        
+
         # Pure int (no hash)
         v = 0
         puts (v == nil).inspect   # false
         puts (v != nil).inspect   # true
-        
+
         w = 5
         puts (w == nil).inspect   # false
         puts (w != nil).inspect   # true
-        
+
         # Float / bool same.
         f = 0.0
         puts (f == nil).inspect   # false
         puts (f != nil).inspect   # true
-        
+
         b = false
         puts (b == nil).inspect   # false
-        
+
         # Hash<String,Int> stored 0 case now reports != nil correctly.
         h = {}
         h["x"] = 0
@@ -102,7 +102,7 @@ describe "Methods: regressions" do
         puts (vx != nil).inspect  # true  (was false)
         puts (vy == nil).inspect  # false
         puts (vy != nil).inspect  # true
-        
+
         # Symmetric: nil == int is also false.
         puts (nil == 0).inspect   # false
         puts (nil != 0).inspect   # true
@@ -160,14 +160,14 @@ describe "Methods: regressions" do
         # (which carries `+`, `-`, `*`, etc. via a binary_operator field).
         # Without dedicated parser cases the prism nodes were dropped on
         # the floor, so `a ||= b` produced no C output.
-        
+
         # (1) Statement-form ||=
         a = nil
         a ||= 10
         puts a       # 10
         a ||= 99     # already truthy → no-op
         puts a       # 10
-        
+
         # (2) Statement-form &&=
         b = 5
         b &&= b + 1
@@ -175,13 +175,13 @@ describe "Methods: regressions" do
         c = nil
         c &&= 99     # nil → no-op
         puts c.nil? ? "nil" : c.to_s   # nil
-        
+
         # (3) Expression-form ||=
         x = nil
         y = (x ||= 7)
         puts x       # 7
         puts y       # 7
-        
+
         # (4) Expression-form &&=
         p = 3
         q = (p &&= p * 2)
@@ -202,13 +202,13 @@ describe "Methods: regressions" do
         # The inner-array RHS slot must be a typed-array (int_array, str_array,
         # or float_array). Two-level nesting where intermediate slots are
         # heterogeneous (poly_array) is out of scope -- documented inline.
-        
+
         a, (b, c), d = 1, [2, 3], 4
         puts a    # 1
         puts b    # 2
         puts c    # 3
         puts d    # 4
-        
+
         # String-typed inner array
         x, (s, t), y = 10, ["hello", "world"], 20
         puts x    # 10
@@ -227,35 +227,35 @@ describe "Methods: regressions" do
         # 3.4) was emitted as PM_IT_PARAMETERS_NODE / PM_IT_LOCAL_VARIABLE_READ_NODE
         # which the codegen had no handler for. spinel_parse now lowers both
         # to their `_1` equivalents so the codegen reuses the existing path.
-        
+
         # 1. `_1` over an int array — each.
         [1, 2, 3].each { puts _1 }
         # 1
         # 2
         # 3
-        
+
         # 2. `_1` over a map+each chain.
         [10, 20].map { _1 * 2 }.each { puts _1 }
         # 20
         # 40
-        
+
         # 3. `it` over an int array — each with arithmetic.
         [1, 2, 3].each { puts it * 2 }
         # 2
         # 4
         # 6
-        
+
         # 4. `it` over a map+each chain.
         [10, 20, 30].map { it * 2 }.each { puts it }
         # 20
         # 40
         # 60
-        
+
         # 5. `it` mixed with arithmetic and comparison.
         [1, 2, 3, 4].select { it > 2 }.each { puts it }
         # 3
         # 4
-        
+
         # 6. `it` over a string array.
         ["alice", "bob"].each { puts it }
         # alice
@@ -269,23 +269,23 @@ describe "Methods: regressions" do
         # the yielded sub-array. Pre-fix: `_1` binds to the whole element
         # (the sp_IntArray pointer) and `_2` is uninitialized -> "<ptr>=0".
         # CRuby ref: arity-N blocks over a single Array argument auto-destructure.
-        
+
         # Plain int-tuple sub-arrays - max=2 destructure
         [[1, 10], [2, 20], [3, 30]].each { puts "#{_1}=#{_2}" }
-        
+
         # Three-element sub-arrays exercise _3
         [[1, 2, 3], [10, 20, 30]].each { puts "#{_1}-#{_2}-#{_3}" }
-        
+
         # Sum of paired elements via destructured slots in `.each`
         total = 0
         [[1, 100], [2, 200], [3, 300]].each { total = total + _1 + _2 }
         puts total
-        
+
         # Two-stage: outer each with _1+_2, inner reuse outside the block
         running = 0
         [[10, 1], [20, 2], [30, 3]].each { running = running + _1 - _2 }
         puts running
-        
+
         # Short sub-array regression — pre-fix the destructure read past the
         # sub-array's data buffer (OOB) when the yielded element was shorter
         # than the block's max numbered param. The fix bounds-checks each slot
@@ -306,19 +306,19 @@ describe "Methods: regressions" do
         #   side effects; the value of the parens is the last expression.
         # - `local = expr` and `local OP= expr` used as expressions —
         #   they assign and yield the new value of the local.
-        
+
         # (1) Multi-stmt parens — leading side effects must run.
         x = 0
         y = (x = x + 1; x = x + 1; x)
         puts x      # 2
         puts y      # 2
-        
+
         # (2) `local = expr` as the value of an outer expression.
         a = 0
         b = (a = 5)
         puts a      # 5
         puts b      # 5
-        
+
         # (3) `local OP= expr` as the value of an outer expression.
         c = 10
         d = (c += 3)
@@ -330,24 +330,24 @@ describe "Methods: regressions" do
       # === sort_reduce ===
       def t_sort_reduce
         # Test Array#sort, reduce, min, max, sum
-        
+
         arr = (1..10).to_a
         arr.reverse!
-        
+
         # sort
         sorted = arr.sort
         puts sorted.first  # 1
         puts sorted.last   # 10
-        
+
         # min/max/sum
         puts arr.min   # 1
         puts arr.max   # 10
         puts arr.sum   # 55
-        
+
         # reduce
         puts arr.reduce(0) { |sum, x| sum + x }   # 55
         puts arr.reduce(1) { |prod, x| prod * x } # 3628800
-        
+
         # inject (alias)
         puts arr.inject(0) { |s, x| s + x }  # 55
       end
@@ -366,7 +366,7 @@ describe "Methods: regressions" do
         # (each block iteration allocates a discarded scratch string
         # alongside the kept result), so the outer accumulator must be
         # rooted to survive a collection.
-        
+
         # (1) int_array recv → StrArray accumulator (string-return block).
         ints = []
         i = 0
@@ -374,7 +374,7 @@ describe "Methods: regressions" do
           ints << i
           i += 1
         end
-        
+
         r1 = ints.map do |x|
           _scratch = "scratch-#{x}-discarded-inner-allocation-padding"
           "kept-string-value-#{x}"
@@ -382,7 +382,7 @@ describe "Methods: regressions" do
         puts r1.length            # 20000
         puts r1[0]                # kept-string-value-0
         puts r1[19999][-3, 3]     # 999
-        
+
         # (2) int_array recv → IntArray accumulator (int-return block).
         r2 = ints.map do |x|
           _scratch = "scratch-#{x}-discarded-inner-allocation-padding"
@@ -391,7 +391,7 @@ describe "Methods: regressions" do
         puts r2.length            # 20000
         puts r2[0]                # 0
         puts r2[19999]            # 39998
-        
+
         # (3) str_array recv → StrArray accumulator (string-return block).
         strs = []
         i = 0
@@ -399,7 +399,7 @@ describe "Methods: regressions" do
           strs << "src-#{i}"
           i += 1
         end
-        
+
         r3 = strs.map do |s|
           _scratch = "scratch-#{s}-discarded-inner-allocation-padding"
           "out-#{s}"
@@ -407,7 +407,7 @@ describe "Methods: regressions" do
         puts r3.length            # 20000
         puts r3[0]                # out-src-0
         puts r3[19999][-3, 3]     # 999
-        
+
         # (4) str_array recv → IntArray accumulator (int-return block).
         r4 = strs.map do |s|
           _scratch = "scratch-#{s}-discarded-inner-allocation-padding"
@@ -431,13 +431,13 @@ describe "Methods: regressions" do
         # `int_array` / `str_array` recv branches already root the
         # accumulator (PR #198). This covers the missing branches:
         # `Range#map` and `N.times.map`.
-        
+
         # (1) Range#map with string-allocating block.
         r1 = (0..3000).map { |i| "padded-string-#{i}-with-some-extra-text" }
         puts r1.length          # 3001
         puts r1[0][0, 6]        # padded
         puts r1[3000][-3, 3]    # ext
-        
+
         # (2) Range#map with int block (heap pressure from inner allocations).
         r2 = (0...3000).map do |i|
           _scratch = "scratch-#{i}-discarded-inner-allocation-padding"
@@ -446,13 +446,13 @@ describe "Methods: regressions" do
         puts r2.length          # 3000
         puts r2[0]              # 0
         puts r2[2999]           # 5998
-        
+
         # (3) N.times.map.
         r3 = 3000.times.map { |i| "kept-#{i}-with-extra-padding-text" }
         puts r3.length          # 3000
         puts r3[0]              # kept-0-with-extra-padding-text
         puts r3[2999][-3, 3]    # ext
-        
+
         # (4) N.times.map with int block + scratch allocations.
         r4 = 3000.times.map do |i|
           _scratch = "scratch-#{i}-discarded-inner-allocation-padding"
@@ -476,7 +476,7 @@ describe "Methods: regressions" do
         # Trigger: a transpose of a large array-of-arrays. Optcarrot's
         # `(0..7).map { (0...0x10000).map {...} }.transpose` allocates
         # 8 outer + 65536 × 8 inner ints in close succession.
-        
+
         big = (0..7).map { |a| (0..1023).map { |b| a * 1000 + b } }.transpose
         puts big.length        # 1024
         puts big[0].length     # 8
@@ -488,16 +488,16 @@ describe "Methods: regressions" do
       # === utf8 ===
       def t_utf8
         s = "あいうえお"
-        
+
         puts s.length          # 5
         puts s.size            # 5
         puts s.bytesize        # 15
-        
+
         puts s.chars.length    # 5
         s.chars.each { |c| puts c }
-        
+
         puts s.reverse         # おえういあ
-        
+
         puts s[0]              # あ
         puts s[1]              # い
         puts s[4]              # お
@@ -505,37 +505,37 @@ describe "Methods: regressions" do
         puts s[1, 2]           # いう
         puts s[1..3]           # いうえ
         puts s.slice(2, 2)     # うえ
-        
+
         puts "hello#{s}world".index(s)   # 5  (char index, not byte)
         puts s.index("う")               # 2
         puts "あいあい".rindex("い")    # 3
-        
+
         puts "あいう".tr("い", "X")     # あXう
         puts "ababab".count("a")        # 3
         puts "あいあいあ".count("あ")   # 3
         puts "あいあいあ".delete("い")  # あああ
         puts "ああいいうう".squeeze     # あいう
-        
+
         puts "あ".ljust(5, "*")          # あ****
         puts "あ".rjust(5, "*")          # ****あ
         puts "あ".center(5)              # _あ__   (with spaces)
         puts "あ".ljust(5).length        # 5   (chars, including padding)
-        
+
         puts "あ".succ                  # ぃ
         puts "az".succ                  # ba
-        
+
         puts s.include?("うえ")          # true
         puts s.start_with?("あい")       # true
         puts s.end_with?("えお")         # true
-        
+
         # each_char with non-ASCII
         out = ""
         "日本語".each_char { |c| out = out + "[" + c + "]" }
         puts out                          # [日][本][語]
-        
+
         # split on empty separator
         "あいう".split("").each { |c| puts c }   # あ\nい\nう
-        
+
         # bytes is still byte-based
         puts "あ".bytes.length            # 3
       end
@@ -575,7 +575,7 @@ describe "Methods: regressions" do
         #
         # Concat already round-trips NULs correctly (sp_str_concat uses
         # sp_str_byte_len for both inputs).
-        
+
         nul = 0.chr
         s = "abc" + nul + "def"
         puts "len=#{s.length}"
@@ -621,19 +621,19 @@ describe "Methods: regressions" do
         #     box_str copy path).
         #   - mixed-value seed + str_poly_hash override (the direct
         #     merge path; verifies it's still reachable post-fix).
-        
+
         h = { "a" => 1, "b" => "two" }  # str_poly_hash
         m = h.merge({ "c" => 3 })       # str_int_hash arg
         puts m.length                    # 3
         puts m["a"] == 1 ? "a-ok" : "a-bad"
         puts m["c"] == 3 ? "c-ok" : "c-bad"
-        
+
         # str_str_hash override of a str_poly_hash recv.
         h2 = { "x" => 1, "y" => "two" }
         m2 = h2.merge({ "z" => "three" })
         puts m2.length                   # 3
         puts m2["z"] == "three" ? "z-ok" : "z-bad"
-        
+
         # str_poly_hash override of a str_poly_hash recv.
         h3 = { "p" => 1, "q" => "two" }
         extra = { "r" => 3, "s" => "four" }

@@ -63,10 +63,10 @@ describe "Thread programs" do
       def t_fiber_storage_basic
         Fiber[:user_id] = 42
         puts Fiber[:user_id]
-        
+
         Fiber[:user_id] = 43
         puts Fiber[:user_id]
-        
+
         # Unset key reads as nil.
         v = Fiber[:not_set]
         if v.nil?
@@ -82,10 +82,10 @@ describe "Thread programs" do
         # `Fiber.current[:k]` and `Fiber.current[:k] = v` are aliases for
         # `Fiber[:k]` and `Fiber[:k] = v` — both target the same storage Hash
         # on the currently-running fiber.
-        
+
         Fiber.current[:via_current] = 100
         puts Fiber[:via_current]                       # 100 — reads via Fiber[]
-        
+
         Fiber[:via_bare] = 200
         puts Fiber.current[:via_bare]                  # 200 — reads via Fiber.current[]
       end
@@ -103,9 +103,9 @@ describe "Thread programs" do
         # strings, each becoming garbage on the next iteration) to push
         # sp_gc_bytes past the 256KB threshold. Then verify the storage
         # value still reads back.
-        
+
         Fiber[:answer] = 42
-        
+
         i = 0
         while i < 10000
           # Each iteration allocates a fresh PolyArray + a String element;
@@ -114,7 +114,7 @@ describe "Thread programs" do
           garbage = ["garbage_" + i.to_s, "more_" + i.to_s, "still_" + i.to_s]
           i = i + 1
         end
-        
+
         # If sp_fiber_root.storage wasn't marked, the SymPolyHash holding
         # :answer would have been freed and read would return nil.
         v = Fiber[:answer]
@@ -148,7 +148,7 @@ describe "Thread programs" do
         # Fiber.new time. Subsequent writes on either side are independent
         # (shallow copy).
         Fiber[:user] = "alice"
-        
+
         f = Fiber.new do
           # Inherited at creation.
           puts Fiber[:user]
@@ -157,7 +157,7 @@ describe "Thread programs" do
           puts Fiber[:user]
         end
         f.resume
-        
+
         # Parent's value is unchanged by the child's write.
         puts Fiber[:user]
       end
@@ -177,7 +177,7 @@ describe "Thread programs" do
           Fiber[:n] = Fiber[:n] + 1
           puts Fiber[:n]
         end
-        
+
         f.resume   # sets :n = 1
         f.resume   # bumps to 2, yields
         f.resume   # bumps to 3, prints 3
@@ -189,22 +189,22 @@ describe "Thread programs" do
         # Sibling fibers have independent storage. A write in one does not
         # affect the other even if they share a parent.
         Fiber[:tag] = "parent"
-        
+
         a = Fiber.new do
           Fiber[:tag] = "a"
           puts Fiber[:tag]
         end
-        
+
         b = Fiber.new do
           # b was created BEFORE a ran, so it inherited "parent", not "a".
           puts Fiber[:tag]
           Fiber[:tag] = "b"
           puts Fiber[:tag]
         end
-        
+
         a.resume
         b.resume
-        
+
         # Parent's storage still reads "parent" — neither child leaked back.
         puts Fiber[:tag]
       end

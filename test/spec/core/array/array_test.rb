@@ -1605,7 +1605,7 @@ describe "Array programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # A Syn holds its source Neu and that Neu's `syns_out` holds the Syn back.
       # At exit: cycle leak: 10 objects (Array x4, Syn x4, Neu x2)
       class Syn
@@ -2110,7 +2110,7 @@ describe "Array programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # A self-containing array, which is what `flatten` is supposed to refuse.
       # At exit: cycle leak: 1 objects (Array x1)
       # A self-referential array kills the process with a native stack overflow where
@@ -2155,7 +2155,7 @@ describe "Array programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # Two rings: `a << a`, and `b << [2, b]` whose inner array is the third array. The nested one is the row that proves the guard is a stack.
       # At exit: cycle leak: 3 objects (Array x3)
       # `Array#join` on a self-referential array raises ArgumentError

@@ -41,7 +41,7 @@ describe "Blocks: regressions" do
         # for the SymbolNode shape). The explicit-block form `{ |p| p.call }`
         # is the closest equivalent that works today; the &:sym lowering is
         # a separate concern.
-        
+
         [
           proc { puts "a" },
           proc { print "b\n" },
@@ -64,34 +64,34 @@ describe "Blocks: regressions" do
         # the current variant. The LV-write emit then builds the literal
         # init as the widened poly variant directly (boxing each value).
         # Issue #589.
-        
+
         # str_str_hash → str_poly_hash via int value
         m = {"a" => "1"}
         m["k"] = 42
         puts m.length          # 2
         puts m["a"]            # "1"
         puts m["k"]            # 42
-        
+
         # str_int_hash → str_poly_hash via string value
         n = {"x" => 10, "y" => 20}
         n["z"] = "thirty"
         puts n.length          # 3
         puts n["x"]            # 10
         puts n["z"]            # "thirty"
-        
+
         # sym_int_hash → sym_poly_hash via string value
         o = {a: 1, b: 2}
         o[:c] = "three"
         puts o.length          # 3
         puts o[:a]             # 1
         puts o[:c]             # "three"
-        
+
         # sym_str_hash unchanged when same value-type written
         p = {x: "one", y: "two"}
         p[:z] = "three"
         puts p.length          # 3
         puts p[:y]             # two
-        
+
         # str_str_hash unchanged when same value-type written -- the widening
         # arm only fires on a real key/value mismatch, so consistent writes
         # stay on the narrow variant.
@@ -116,13 +116,13 @@ describe "Blocks: regressions" do
         # (infer_call_type's map branch -> mutable_str_ptr_array) and the
         # codegen (int_array recv branch -> sp_PtrArray accumulator with
         # `(void *)val` push).
-        
+
         xs = [1, 2, 3]
-        
+
         # Block returns String.new directly.
         result = xs.map { |x| String.new }
         puts result.length
-        
+
         # Block returns a local widened to mutable_str.
         result2 = xs.map { |x| s = String.new; s << "v"; s }
         puts result2.length
@@ -619,7 +619,7 @@ describe "Blocks: regressions" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # A D holds `@h`, whose default proc closed over the D.
       # At exit: cycle leak: 5 objects (Proc x2, Array x1, D x1, Hash x1)
       h = { a: ->(x) { "got #{x}" } }

@@ -269,7 +269,7 @@ describe "JSON programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # `a << a` -- the circular reference the generator is supposed to name.
       # At exit: cycle leak: 1 objects (Array x1)
       # `JSON.generate` on a self-referential array raises JSON::NestingError
@@ -1087,7 +1087,7 @@ describe "JSON programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # The three `a << a` rings the cycle rows build, plus the two more that the Marshal and YAML round trips revive.
       # At exit: cycle leak: 5 objects (Array x5)
       # Differential probe: ROUND-TRIP INTEGRITY.

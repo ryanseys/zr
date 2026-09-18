@@ -178,7 +178,7 @@ describe "Pathname programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # One ring: `loop_a = ["x"]; loop_a << loop_a`, the self-referential array
       # that makes `File.join` raise ArgumentError. `ZEO_RT_GCRINGS=1` names it --
       # "Array[2] (held by Array[2], holds Array[2])" is a two-element array that

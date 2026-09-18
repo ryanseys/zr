@@ -1901,7 +1901,7 @@ describe "Variables programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # A Deferred holds the proc whose home it is, so the object and its proc own each other.
       # At exit: cycle leak: 2 objects (Deferred x1, Proc x1)
       # A non-lambda Proc's `return` is a NON-LOCAL return: it returns from the
@@ -1981,7 +1981,7 @@ describe "Variables programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # `@right = self`, plus a Node and a Column pointing at each other. The ring IS the subject.
       # At exit: cycle leak: 2 objects (Column x1, Node x1)
       # An attribute that holds a base class AND its subclass reads as a boxed value.

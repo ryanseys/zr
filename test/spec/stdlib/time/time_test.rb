@@ -26,29 +26,29 @@ describe "Time programs" do
         # box_expr_to_poly so the ternary's arms agree on sp_RbVal type.
         # Analyze: fetch on sym_poly_hash / str_poly_hash returns poly
         # (so the receiving LV slot widens to sp_RbVal).
-        
+
         # sym_str_hash.merge
         base = { href: "/path" }
         extra = { class: "btn" }
         puts base.merge(extra).length
-        
+
         # sym_str_hash.dup
         h = { a: "1", b: "2" }
         d = h.dup
         puts d.length
-        
+
         # sym_str_hash.delete
         h2 = { a: "1", b: "2", c: "3" }
         h2.delete(:b)
         puts h2.length
-        
+
         # sym_poly_hash.fetch with default
         opts = { method: :delete, form_class: "btn-form", id: 42 }
         m = opts.fetch(:method, :nope)
         puts m
         n = opts.fetch(:missing, :fallback)
         puts n
-        
+
         # sym_poly_hash.dup + delete
         od = opts.dup
         od.delete(:method)
@@ -78,7 +78,7 @@ describe "Time programs" do
         puts u.dst?
         p u
         puts u
-        
+
         t = Time.new(2026, 5, 16, 9, 30, 15)
         puts t.year
         puts t.mon
@@ -89,7 +89,7 @@ describe "Time programs" do
         puts Time.new(2026).mon
         puts Time.new(2026).mday
         puts Time.new(2026).hour
-        
+
         a = Time.at(0).utc
         b = Time.at(1).utc
         puts(a < b)
@@ -145,25 +145,25 @@ describe "Time programs" do
         # previous attempts relied on POSIX %z (±HHMM) but Windows MSVCRT
         # emits the timezone *name* instead, blowing past any reasonable
         # length cap.
-        
+
         t = Time.now
         iso = t.iso8601
-        
+
         # iso8601 produces exactly "YYYY-MM-DDTHH:MM:SS[+-]HH:MM":
         # 19 chars for the date+time prefix + 6 chars for the offset = 25.
         puts iso.length == 25 ? "iso-len-ok" : "iso-len-bad"
-        
+
         # Per-position shape: dashes at 4/7, T at 10, colons at 13/16,
         # sign at 19, colon at 22.
         puts iso[4] == "-" && iso[7] == "-" && iso[10] == "T" &&
              iso[13] == ":" && iso[16] == ":" &&
              (iso[19] == "+" || iso[19] == "-") && iso[22] == ":" ? "iso-shape-ok" : "iso-shape-bad"
-        
+
         # strftime: a fixed-format that survives clock variation.
         ymd = t.strftime("%Y-%m-%d")
         puts ymd.length == 10 ? "ymd-len-ok" : "ymd-len-bad"
         puts ymd[4] == "-" && ymd[7] == "-" ? "ymd-shape-ok" : "ymd-shape-bad"
-        
+
         # strftime year-only: 4 digits.
         yr = t.strftime("%Y")
         puts yr.length == 4 ? "yr-ok" : "yr-bad"
@@ -267,25 +267,25 @@ describe "Time programs" do
         #     strftime path.
         #   - utc-then-non-utc (no double-flip): subsequent .utc on an
         #     already-utc time keeps the same shape (idempotent).
-        
+
         t = Time.now.utc
         iso = t.iso8601
-        
+
         # UTC iso8601 form: "YYYY-MM-DDTHH:MM:SSZ" -- 20 chars, ends in Z.
         puts iso.length == 20 ? "utc-iso-len-ok" : "utc-iso-len-bad"
         puts iso[19] == "Z" ? "utc-iso-zulu-ok" : "utc-iso-zulu-bad"
-        
+
         # strftime against UTC: %H is the hour-of-day, which differs from
         # local hour by the timezone offset (unless we're already in
         # UTC). We can't assert an exact value (depends on system clock),
         # but we can verify it's a 2-digit number.
         hh = t.strftime("%H")
         puts hh.length == 2 && hh[0] >= "0" && hh[0] <= "2" ? "utc-hh-ok" : "utc-hh-bad"
-        
+
         # Idempotent: utc on an already-utc time keeps the same shape.
         iso2 = t.utc.iso8601
         puts iso2.length == 20 && iso2[19] == "Z" ? "utc-idempotent-ok" : "utc-idempotent-bad"
-        
+
         # Local iso8601 still works (regression check on #414's path).
         puts Time.now.iso8601.length == 25 ? "local-iso-still-ok" : "local-iso-broken"
       end
@@ -306,10 +306,10 @@ describe "Time programs" do
         # `<inner>_ptr_array` static type already existed for the
         # normal `recv.map { array }` arm and the inspect helpers
         # (sp_IntArrayPtrArray_inspect etc.) know how to format it.
-        
+
         a = 2.times.map { (0..2).map { |i| i + 1 } }
         p a
-        
+
         b = 3.times.map { [10, 20, 30] }
         p b
       end
@@ -325,12 +325,12 @@ describe "Time programs" do
         # through type inference and gets defaulted to `int`, producing a
         # bogus "cannot resolve call to 'push' on int" warning before the
         # hard error.
-        
+
         @n = 0
         @n = @n + 1
         @n = @n + 1
         puts @n
-        
+
         @arr = []
         @arr.push(7)
         @arr.push(8)

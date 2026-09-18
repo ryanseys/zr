@@ -442,7 +442,7 @@ describe "Blocks: slicing" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # A Foo stores a block that captured `self`.
       # At exit: cycle leak: 3 objects (Array x1, Foo x1, Proc x1)
       # A block that escapes inlining -- stored in an ivar, so it becomes a real

@@ -1004,7 +1004,7 @@ describe "Date: formatting and inspection" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # Three self-referential documents: a sequence that aliases itself, a mapping that aliases itself, and the `a` / `b` pair where `c: *a` closes the ring.
       # At exit: cycle leak: 4 objects (Hash x3, Array x1)
       # Every hostile shape the YAML loader has to survive, as ANSWERS rather

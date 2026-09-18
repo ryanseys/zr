@@ -339,7 +339,7 @@ describe "GC programs" do
       # `ZEO_RT_GCCHECK=1` leg gates against. A cycle alive at exit is not a
       # defect: it is a ring the program never broke. What the leg gates is a
       # CHANGE to the line below.
-      # 
+      #
       # The golden's whole subject: it allocates rings until the trigger fires. The residue is the last generation, still live at exit.
 
       # The collector runs on its own once the live registry has grown enough --
@@ -413,7 +413,7 @@ describe "GC programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # The golden's whole subject: three Node rings built on purpose and never broken.
 
       # At exit: cycle leak: 3 objects (Node x3)
@@ -1919,7 +1919,7 @@ describe "GC programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # A Struct holding itself, which is what the golden inspects.
       # At exit: cycle leak: 1 objects (S x1)
       S = Struct.new(:x)

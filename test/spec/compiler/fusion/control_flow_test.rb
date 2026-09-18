@@ -319,7 +319,7 @@ describe "Fusion: control flow" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # A torus grid: every Cell holds its neighbours and the wraparound closes the ring.
       # At exit: cycle leak: 24 objects (Array x12, Cell x12)
       # A proc lifted out of a NESTED block reads the enclosing INLINED loop's

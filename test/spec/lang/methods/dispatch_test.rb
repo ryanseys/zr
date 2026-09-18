@@ -1868,7 +1868,7 @@ describe "Methods: dispatch" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # A maze grid: every Cell2 holds the neighbours that hold it back.
       # At exit: cycle leak: 16 objects (Array x8, Cell2 x8)
       class Cell1

@@ -158,7 +158,7 @@ describe "Array: comparison and equality" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # A self-referential array, built on purpose to prove the comparison terminates.
       # At exit: cycle leak: 1 objects (Array x1)
       # Array#<=>: lexicographic element-wise comparison with a length tiebreak,
@@ -306,7 +306,7 @@ describe "Array: comparison and equality" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # `a << a` -- a self-referential container, built on purpose to prove the walk terminates.
       # At exit: cycle leak: 2 objects (Array x1, Hash x1)
       h = { a: 1 }
@@ -417,7 +417,7 @@ describe "Array: comparison and equality" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # Four rings: `a`, `b`, `c` and `d` each hold themselves, which is the graph the paired guard has to walk.
       # At exit: cycle leak: 4 objects (Array x4)
       # `<=>` between self-referential arrays uses CRuby's PAIRED recursion

@@ -9,7 +9,7 @@ describe "PP programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # PrettyPrint's own graph, reached through `pp`. See pp_pretty_print.rb.gccheck.
 
       # At exit: cycle leak: 11 objects (Array x7, PP x1, PrettyPrint::Group x1, PrettyPrint::GroupQueue x1, Proc x1)
@@ -160,7 +160,7 @@ describe "PP programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # PrettyPrint's own graph. A Group holds its GroupQueue and the queue holds the group back.
       # At exit: cycle leak: 219 objects (Array x155, PP x16, PrettyPrint::Group x16, PrettyPrint::GroupQueue x16, Proc x16)
       # `pp` -- the gap this closes was three separate defects, each of which the

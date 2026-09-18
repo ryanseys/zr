@@ -128,7 +128,7 @@ describe "YAML: loading files" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # The last row loads a mapping whose `*x` alias resolves to the mapping itself, which is why it prints `{...}`.
       # At exit: cycle leak: 1 objects (Hash x1)
       # `YAML.safe_load`'s option machinery: an alias without `aliases: true`

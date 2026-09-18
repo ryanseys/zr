@@ -13,12 +13,12 @@ describe "Regexp: regressions" do
       # === regexp ===
       def t_regexp
         # Test Regexp support
-        
+
         # match operator
         if "hello 123 world" =~ /\d+/
           puts "matched"
         end
-        
+
         # match with capture
         str = "2024-03-17"
         if str =~ /(\d{4})-(\d{2})-(\d{2})/
@@ -26,23 +26,23 @@ describe "Regexp: regressions" do
           puts $2  # 03
           puts $3  # 17
         end
-        
+
         # String#match?
         puts "hello".match?(/ell/)    # true
         puts "hello".match?(/xyz/)    # false
-        
+
         # String#gsub with regexp
         puts "hello world".gsub(/o/, "0")   # hell0 w0rld
-        
+
         # String#sub with regexp
         puts "hello world".sub(/o/, "0")    # hell0 world
-        
+
         # String#scan
         "one 1 two 2 three 3".scan(/\d+/) do |m|
           puts m
         end
         # 1, 2, 3
-        
+
         # String#split with regexp
         parts = "a, b,  c".split(/,\s*/)
         puts parts.length  # 3
@@ -58,16 +58,16 @@ describe "Regexp: regressions" do
         # parse_escape only fires for the inside-class meaning. Pre-fix
         # spinel treated `[\b]` as `[b]`, stripping the letter b from any
         # `gsub(/[\b]/, ...)`. Issue #632.
-        
+
         puts "Ruby".gsub(/[\b]/, "X")
         puts "a\bc".gsub(/[\b]/, "X")
         puts "no backspace here".gsub(/[\b]/, "X")
         puts "back\bspace".gsub(/[\b]/, "X")
-        
+
         # `\b` outside a character class stays a word boundary.
         puts "hello world".gsub(/\bworld\b/, "earth")
         puts "hello worldwide".gsub(/\bworld\b/, "earth")
-        
+
         # Combined char class with `\b` plus other escapes.
         puts "a\tb\nc\bd".gsub(/[\t\n\b]/, "_")
       end
@@ -95,18 +95,18 @@ describe "Regexp: regressions" do
         # (whitespace inside `(?x:body)` for layout only) match the same
         # as the spinel literal would; patterns relying on the strip
         # would behave differently, but no longer hang.
-        
+
         # `(?x:...)` with no whitespace in body. /foo/ matches "foo".
         puts (/(?x:foo)/ =~ "foobar").to_s     # 0
         puts (/(?x:foo)/ =~ "barbaz").nil?     # true
-        
+
         # `(?:...)` non-capturing still works.
         puts (/(?:hello) (?:world)/ =~ "hello world").to_s  # 0
-        
+
         # `(?i:...)` consumes the flag; spinel doesn't honor case-insensitivity
         # inside the group, but the parse no longer hangs.
         puts (/(?i:abc)/ =~ "abc").to_s       # 0
-        
+
         # `(?m:...)` similar.
         puts (/(?m:foo)/ =~ "foo").to_s       # 0
       end

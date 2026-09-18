@@ -1981,7 +1981,7 @@ describe "Blocks programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # A Holder holds a lambda that closed over the Holder.
       # At exit: cycle leak: 2 objects (Holder x1, Proc x1)
       # A lambda held in a constant (or an ivar) and passed to a method that calls

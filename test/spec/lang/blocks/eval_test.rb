@@ -392,7 +392,7 @@ describe "Blocks: evaluating a string" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # A proc reaching itself through a captured local.
       # At exit: cycle leak: 4 objects (Proc x2, cell x2)
       # A proc/lambda that refers to its own binding recurses through the

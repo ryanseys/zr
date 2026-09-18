@@ -164,32 +164,32 @@ describe "Array: regressions" do
       # === array2 ===
       def t_array2
         # Test additional Array methods
-        
+
         arr = (1..10).to_a
-        
+
         # reject
         odds = arr.reject do |x|
           x % 2 == 0
         end
         puts odds.length  # 5
-        
+
         # reduce/inject via each
         total = 0
         arr.each do |x|
           total += x
         end
         puts total  # 55
-        
+
         # reverse
         nums = (1..10).to_a
         nums.reverse!
         puts nums[0]  # 10
         puts nums[9]  # 1
-        
+
         # Array#first / Array#last
         puts nums.first  # 10
         puts nums.last   # 1
-        
+
         # Array#min / Array#max
         mn = nums[0]
         mx = nums[0]
@@ -203,7 +203,7 @@ describe "Array: regressions" do
         end
         puts mn  # 1
         puts mx  # 10
-        
+
         # Array#include?
         if nums.include?(5)
           puts "true"
@@ -215,7 +215,7 @@ describe "Array: regressions" do
         else
           puts "false"
         end  # false
-        
+
         # Array#compact (remove nils) - simplified: just test count
         puts nums.length  # 10
       end
@@ -224,32 +224,32 @@ describe "Array: regressions" do
       # === array3 ===
       def t_array3
         # Test additional array methods
-        
+
         arr = Array.new
         arr.push(5); arr.push(3); arr.push(8); arr.push(1)
         arr.push(4); arr.push(2); arr.push(7); arr.push(6)
-        
+
         # count with block
         puts arr.count { |x| x > 4 }   # 4 (5,8,7,6)
-        
+
         # count without block
         puts arr.count                   # 8
-        
+
         # min_by / max_by
         puts arr.min_by { |x| x }       # 1
         puts arr.max_by { |x| x }       # 8
-        
+
         # sort_by
         sorted = arr.sort_by { |x| -x }
         puts sorted[0]    # 8
         puts sorted[1]    # 7
         puts sorted[7]    # 1
-        
+
         # StrArray count
         words = "hello world foo bar".split(" ")
         puts words.count { |w| w.length > 3 }  # 2 (hello, world)
         puts words.count                         # 4
-        
+
         puts "done"
       end
       t_array3
@@ -260,21 +260,21 @@ describe "Array: regressions" do
         # aren't in the RHS. CRuby semantics:
         #   [1, 1, 2, 3] - [3]  → [1, 1, 2]   (NOT [1, 2])
         #   [1, 1, 2, 3] - [1]  → [2, 3]      (every 1 removed)
-        
+
         # int_array
         puts ([1, 1, 2, 3] - [3]).inspect
         puts ([1, 1, 2, 3] - [1]).inspect
         puts ([1, 1, 1, 2, 2] - [1]).inspect
         puts ([1, 2, 1, 3, 1] - [3]).inspect
-        
+
         # str_array
         puts (["a", "a", "b", "c"] - ["c"]).inspect
         puts (["a", "b", "a", "c", "a"] - ["c"]).inspect
-        
+
         # float_array
         puts ([1.0, 1.0, 2.0, 3.0] - [3.0]).inspect
         puts ([1.5, 1.5, 2.5] - [2.5]).inspect
-        
+
         # method form
         puts [1, 1, 2, 3].difference([3]).inspect
         puts ["a", "a", "b"].difference(["b"]).inspect
@@ -286,13 +286,13 @@ describe "Array: regressions" do
         # Array#fill: 1-arg, 2-arg, 3-arg forms.
         # Previously the 2-/3-arg forms silently ignored start/length and
         # filled the entire array.
-        
+
         # 1-arg: fill all
         a = [1, 2, 3, 4, 5]
         a.fill(9)
         puts a[0]    # 9
         puts a[4]    # 9
-        
+
         # 2-arg: fill from start to end
         b = [1, 2, 3, 4, 5]
         b.fill(9, 2)
@@ -300,7 +300,7 @@ describe "Array: regressions" do
         puts b[1]    # 2
         puts b[2]    # 9
         puts b[4]    # 9
-        
+
         # 3-arg: fill from start, length elements
         c = [1, 2, 3, 4, 5]
         c.fill(0, 1, 3)
@@ -308,7 +308,7 @@ describe "Array: regressions" do
         puts c[1]    # 0
         puts c[3]    # 0
         puts c[4]    # 5
-        
+
         # Negative start
         d = [1, 2, 3, 4, 5]
         d.fill(7, -2)
@@ -316,7 +316,7 @@ describe "Array: regressions" do
         puts d[2]    # 3
         puts d[3]    # 7
         puts d[4]    # 7
-        
+
         # 3-arg with start beyond length: array grows.
         # CRuby fills the gap with nil; Spinel's IntArray can't hold nil so it
         # uses 0. The grown length and the explicit fill values are the same;
@@ -327,13 +327,13 @@ describe "Array: regressions" do
         puts e[2]       # 3
         puts e[5]       # 9
         puts e[6]       # 9
-        
+
         # 2-arg with start beyond length: no-op, array unchanged.
         f = [1, 2, 3]
         f.fill(9, 5)
         puts f.length   # 3
         puts f[2]       # 3
-        
+
         # Very-negative start: clamped to 0 after wrap (start + len < 0).
         # CRuby: [1,2,3].fill(9, -5, 2) #=> [9, 9, 3]
         g = [1, 2, 3]
@@ -347,7 +347,7 @@ describe "Array: regressions" do
       # === array_lit ===
       def t_array_lit
         # Test array literals as IntArray/StrArray
-        
+
         # Integer array literal
         arr = [5, 3, 8, 1, 4]
         puts arr.length    # 5
@@ -357,32 +357,32 @@ describe "Array: regressions" do
         puts arr.sum       # 21
         puts arr.min       # 1
         puts arr.max       # 8
-        
+
         # IntArray.size after mutation
         arr.push(99)
         puts arr.size      # 6  (length+1 after push)
         arr.pop
         puts arr.size      # 5  (length-1 after pop)
-        
+
         # Symbol array literal -- size shares the same dispatch as IntArray
         syms = [:foo, :bar, :baz]
         puts syms.length   # 3
         puts syms.size     # 3
-        
+
         # String array literal
         words = ["hello", "world", "foo"]
         puts words.length  # 3
         puts words.size    # 3
         puts words[0]      # hello
         puts words.join(", ") # hello, world, foo
-        
+
         # Empty array
         empty = []
         empty.push(42)
         puts empty.length  # 1
         puts empty.size    # 1
         puts empty[0]      # 42
-        
+
         # Hoisted-length optimisation: .size should behave the same as
         # .length when used as a loop bound. Both compile to a single
         # read of the array's len field, hoisted out of the loop body.
@@ -393,7 +393,7 @@ describe "Array: regressions" do
           i += 1
         end
         puts sum           # 21
-        
+
         ssum = 0
         si = 0
         while si < syms.size
@@ -401,7 +401,7 @@ describe "Array: regressions" do
           si += 1
         end
         puts ssum          # 3
-        
+
         wlen = 0
         wi = 0
         while wi < words.size
@@ -409,7 +409,7 @@ describe "Array: regressions" do
           wi += 1
         end
         puts wlen          # 13
-        
+
         puts "done"
       end
       t_array_lit
@@ -424,7 +424,7 @@ describe "Array: regressions" do
         # argument 2 of sp_IntArray_push". The fix unboxes the int payload
         # via `.v.i`. Caller code is responsible for keeping the poly slot
         # integer-tagged at the moment the literal is built.
-        
+
         addr = 7
         flag = 0
         if flag > 0
@@ -432,7 +432,7 @@ describe "Array: regressions" do
           # the array literal lands on the unboxing path.
           addr = "x"
         end
-        
+
         # `addr` is poly at compile time (sp_RbVal) but always int=7 at
         # runtime. The `[addr]` literal infers as int_array (a single poly
         # element falls through to the IntArray branch).
@@ -446,52 +446,52 @@ describe "Array: regressions" do
       def t_array_mul
         # Array#* (repeat). Works uniformly across every typed array kind
         # is_array_type() recognises (int / float / str / sym / poly).
-        
+
         # IntArray
         ints = [1, 2, 3] * 3
         puts ints.length      # 9
         puts ints[0]          # 1
         puts ints[3]          # 1
         puts ints[8]          # 3
-        
+
         # IntArray * 0 → empty
         empty = [1, 2, 3] * 0
         puts empty.length     # 0
-        
+
         # IntArray * 1 → copy (independent of source)
         arr = [1, 2]
         copy = arr * 1
         arr.push(99)
         puts copy.length      # 2
-        
+
         # FloatArray
         floats = [1.5, 2.5] * 2
         puts floats.length    # 4
         puts floats[0]        # 1.5
         puts floats[3]        # 2.5
-        
+
         # StrArray
         strs = ["a", "b"] * 3
         puts strs.length      # 6
         puts strs[0]          # a
         puts strs[5]          # b
-        
+
         # SymArray
         syms = [:x, :y] * 2
         puts syms.length      # 4
         puts syms[0]          # x
         puts syms[3]          # y
-        
+
         # PolyArray (mixed types)
         mixed = [1, "two", 3.0] * 2
         puts mixed.length     # 6
-        
+
         # Pre-fill an array
         zeros = [0] * 5
         puts zeros.length     # 5
         puts zeros[0]         # 0
         puts zeros[4]         # 0
-        
+
         puts "done"
       end
       t_array_mul
@@ -500,7 +500,7 @@ describe "Array: regressions" do
       def t_array_new_block
         # Array.new(N) { |i| ... }: block form with index parameter.
         # Previously returned an empty IntArray (the block was ignored).
-        
+
         # Block uses index
         a = Array.new(5) { |i| i * 2 }
         puts a.length      # 5
@@ -508,13 +508,13 @@ describe "Array: regressions" do
         puts a[2]          # 4
         puts a[4]          # 8
         puts a.sum         # 20
-        
+
         # Block returns constant
         b = Array.new(3) { 42 }
         puts b.length      # 3
         puts b[0]          # 42
         puts b[2]          # 42
-        
+
         # Zero-length
         c = Array.new(0) { 99 }
         puts c.length      # 0
@@ -526,18 +526,18 @@ describe "Array: regressions" do
         # Array of arrays (2-level nesting)
         a = [[1, 2], [3, 4], [5, 6]]
         puts a.length
-        
+
         # Iterate nested arrays
         a.each { |sub|
           puts sub[0] + sub[1]
         }
-        
+
         # String array of arrays
         b = [["hello", "world"], ["foo", "bar"]]
         b.each { |pair|
           puts pair.join(" ")
         }
-        
+
         # Push to array of arrays
         c = [[10, 20]]
         c.push([30, 40])
@@ -573,18 +573,18 @@ describe "Array: regressions" do
       def t_array_ptr_array_inspect
         # Issue #169: p / inspect on nested arrays whose element type is one
         # of the four built-in T_array shapes (int/str/float/sym).
-        
+
         p [[1, 2], [3, 4]]
         p [[1, 2, 3], [4, 5, 6]]
         p [[10]]
         p [[1, 2], [3, 4]].transpose
-        
+
         p [["a", "b"], ["c", "d"]]
         p [["hello", "world"]]
-        
+
         p [[1.5, 2.5], [3.5, 4.5]]
         p [[0.1]]
-        
+
         p [[:a, :b], [:c, :d]]
         p [[:foo]]
       end
@@ -595,14 +595,14 @@ describe "Array: regressions" do
         # Array#push across typed-array variants.
         # Previously push only dispatched for IntArray and StrArray; FloatArray
         # and SymArray (and PtrArray) silently fell through to a no-op expression.
-        
+
         ints = [1, 2, 3]
         ints.push(4)
         ints.push(5)
         puts ints.length          # 5
         puts ints[3]              # 4
         puts ints[4]              # 5
-        
+
         # Float values use non-integer fractional parts so Spinel's float-puts
         # (which strips a trailing ".0") matches CRuby's output.
         floats = [1.5, 2.5]
@@ -611,19 +611,19 @@ describe "Array: regressions" do
         puts floats.length        # 4
         puts floats[2]            # 3.5
         puts floats[3]            # 4.25
-        
+
         strs = ["a", "b"]
         strs.push("c")
         strs.push("d")
         puts strs.length          # 4
         puts strs[2]              # c
         puts strs[3]              # d
-        
+
         syms = [:x, :y]
         syms.push(:z)
         puts syms.length          # 3
         puts syms[2]              # z
-        
+
         # << on every typed-array variant. Previously << did not dispatch
         # for sym_array, so `syms << :z` silently fell through.
         ints2 = [10]
@@ -631,17 +631,17 @@ describe "Array: regressions" do
         ints2 << 30
         puts ints2.length         # 3
         puts ints2[2]             # 30
-        
+
         floats2 = [1.5]
         floats2 << 2.5
         puts floats2.length       # 2
         puts floats2[1]           # 2.5
-        
+
         strs2 = ["x"]
         strs2 << "y"
         puts strs2.length         # 2
         puts strs2[1]             # y
-        
+
         syms2 = [:p]
         syms2 << :q
         puts syms2.length         # 2
@@ -655,44 +655,44 @@ describe "Array: regressions" do
         # Previously a[1..2] failed with `incompatible type for argument 2 of
         # 'sp_IntArray_get'` (Range passed where mrb_int was expected), and
         # a[1, 2] silently dropped the second arg and returned a single int.
-        
+
         a = [10, 20, 30, 40, 50]
-        
+
         # Range form
         b = a[1..3]
         puts b.length      # 3
         puts b[0]          # 20
         puts b[1]          # 30
         puts b[2]          # 40
-        
+
         # (start, len) form
         c = a[1, 2]
         puts c.length      # 2
         puts c[0]          # 20
         puts c[1]          # 30
-        
+
         # Negative start (counts from end)
         d = a[-2, 2]
         puts d.length      # 2
         puts d[0]          # 40
         puts d[1]          # 50
-        
+
         # len exceeds remaining: clamped
         f = a[2, 100]
         puts f.length      # 3
         puts f[0]          # 30
         puts f[2]          # 50
-        
+
         # Range to last index
         g = a[2..4]
         puts g.length      # 3
         puts g[0]          # 30
         puts g[2]          # 50
-        
+
         # Bare a[i] still works as scalar get
         puts a[0]          # 10
         puts a[-1]         # 50
-        
+
         # Result is usable as an IntArray
         puts a[1..3].sum   # 90
       end
@@ -702,33 +702,33 @@ describe "Array: regressions" do
       def t_array_replace
         # Array#replace: mutating in-place copy from another array.
         # Previously a silent no-op for arrays; only String/MutableString worked.
-        
+
         a = [1, 2, 3, 4, 5]
         a.replace([10, 20, 30])
         puts a.length    # 3
         puts a[0]        # 10
         puts a[2]        # 30
-        
+
         # Replace into smaller -> larger triggers grow
         b = [1]
         b.replace([100, 200, 300, 400, 500, 600, 700, 800, 900])
         puts b.length    # 9
         puts b[8]        # 900
-        
+
         # String array
         s = ["a", "b", "c"]
         s.replace(["x", "y"])
         puts s.length    # 2
         puts s[0]        # x
         puts s[1]        # y
-        
+
         # Float array
         f = [1.0, 2.0, 3.0]
         f.replace([7.5, 8.5])
         puts f.length    # 2
         puts f[0]        # 7.5
         puts f[1]        # 8.5
-        
+
         # Mutable string (existing path; <<-promoted)
         ms = ""
         ms << "hello"
@@ -742,32 +742,32 @@ describe "Array: regressions" do
         # Array#reverse! across typed-array variants.
         # Previously only IntArray dispatched; SymArray, StrArray, FloatArray
         # silently fell through.
-        
+
         ints = [1, 2, 3, 4, 5]
         ints.reverse!
         ints.each { |i| puts i }   # 5 4 3 2 1
-        
+
         floats = [1.5, 2.5, 3.5, 4.25]
         floats.reverse!
         floats.each { |f| puts f }  # 4.25 3.5 2.5 1.5
-        
+
         strs = ["alpha", "beta", "gamma"]
         strs.reverse!
         strs.each { |s| puts s }    # gamma beta alpha
-        
+
         syms = [:a, :b, :c, :d]
         syms.reverse!
         syms.each { |y| puts y }    # d c b a
-        
+
         # Even-length and single-element edge cases
         even = [10, 20]
         even.reverse!
         even.each { |i| puts i }   # 20 10
-        
+
         one = [42]
         one.reverse!
         one.each { |i| puts i }    # 42
-        
+
         empty = []
         empty.reverse!
         puts empty.length          # 0
@@ -782,7 +782,7 @@ describe "Array: regressions" do
         # parallel — one file per operator was duplicating the matrix.
         # Element semantics live in test/array_{intersection,difference,union}.rb;
         # this file only exercises the operator dispatch path.
-        
+
         # &
         puts ([1, 2, 3, 4] & [3, 4, 5]).inspect
         puts (["a", "b", "c"] & ["b", "c"]).inspect
@@ -791,7 +791,7 @@ describe "Array: regressions" do
         amp = [1, 2, 3, 4]
         puts (amp & [3, 4, 5]).inspect
         puts ([1, 2, 3, 4] & [2, 3, 4] & [3, 4]).inspect
-        
+
         # -
         puts ([1, 2, 3, 4] - [2, 4]).inspect
         puts (["a", "b", "c"] - ["b"]).inspect
@@ -800,7 +800,7 @@ describe "Array: regressions" do
         mns = [1, 2, 3, 4]
         puts (mns - [2, 4]).inspect
         puts ([1, 2, 3, 4, 5] - [2] - [4]).inspect
-        
+
         # |
         puts ([1, 2, 3] | [3, 4, 5]).inspect
         puts (["a", "b"] | ["b", "c"]).inspect
@@ -825,24 +825,24 @@ describe "Array: regressions" do
         # mutates again. Both the codegen path and `infer_call_type` need
         # to know the result is the recv's array type so the outer operand
         # type-checks.
-        
+
         ints = [1]
         (ints << 2) << 3
         puts ints.length    # 3
         puts ints[0]        # 1
         puts ints[1]        # 2
         puts ints[2]        # 3
-        
+
         floats = [1.5]
         (floats << 2.5) << 3.5
         puts floats.length  # 3
         puts floats[2]      # 3.5
-        
+
         strs = ["a"]
         (strs << "b") << "c"
         puts strs.length    # 3
         puts strs[2]        # c
-        
+
         syms = [:x]
         (syms << :y) << :z
         puts syms.length    # 3
@@ -855,11 +855,11 @@ describe "Array: regressions" do
         # Array#shuffle / Array#shuffle! used to skip sym_array and poly_array.
         # For sym_array the dispatcher silently fell through (bin output empty);
         # for poly_array the runtime had no shuffle helper at all.
-        
+
         # sym_array
         sa = [:a, :b, :c, :d].shuffle
         puts sa.length
-        
+
         # poly_array
         pa = [1, "a", :s, 2.0].shuffle
         puts pa.length
@@ -876,16 +876,16 @@ describe "Array: regressions" do
         # Without this, the codegen path for `[]=` only looked at args
         # 0 and 1, so `a[2, 8] = [10, 20, ...]` lowered to `a[2] = 8`,
         # silently treating the length argument as the value.
-        
+
         a = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         a[2, 8] = [10, 20, 30, 40, 50, 60, 70, 80]
         p a
-        
+
         # Float array
         f = [0.0, 0.0, 0.0, 0.0]
         f[1, 2] = [3.5, 4.5]
         p f
-        
+
         # String array
         s = ["", "", "", ""]
         s[0, 3] = ["a", "b", "c"]
@@ -898,28 +898,28 @@ describe "Array: regressions" do
         # Array#sort! across typed-array variants.
         # Previously only IntArray and SymArray dispatched; StrArray and
         # FloatArray silently fell through.
-        
+
         ints = [3, 1, 4, 1, 5, 9, 2, 6]
         ints.sort!
         ints.each { |i| puts i }   # 1 1 2 3 4 5 6 9
-        
+
         floats = [3.5, 1.25, 4.75, 1.5, 0.25]
         floats.sort!
         floats.each { |f| puts f }  # 0.25 1.25 1.5 3.5 4.75
-        
+
         strs = ["banana", "apple", "cherry", "date"]
         strs.sort!
         strs.each { |s| puts s }    # apple banana cherry date
-        
+
         syms = [:c, :a, :d, :b]
         syms.sort!
         syms.each { |y| puts y }    # a b c d
-        
+
         # Single-element and empty edge cases
         one = [99]
         one.sort!
         one.each { |i| puts i }     # 99
-        
+
         empty = []
         empty.sort!
         puts empty.length           # 0
@@ -1085,18 +1085,18 @@ describe "Array: regressions" do
         # bound), so `[*0..4096]` produced a 1-element array. This broke
         # optcarrot's dummy palette and made every `palette[i]` for i > 0
         # read out-of-bounds garbage.
-        
+
         a = [*0..5]
         puts a.length
         puts a[0]
         puts a[3]
         puts a[5]
-        
+
         b = [*0...4]
         puts b.length
         puts b[0]
         puts b[3]
-        
+
         src = [10, 20, 30]
         c = [*src]
         puts c.length
@@ -1110,29 +1110,29 @@ describe "Array: regressions" do
         # Array#take_while and Array#drop_while for int_array (the common case).
         # take_while collects elements from the front while the block stays
         # truthy; drop_while skips them and returns the rest.
-        
+
         # take_while
         puts [1, 2, 3, 1].take_while { |x| x < 3 }.inspect
         puts [1, 2, 3].take_while { |x| x < 10 }.inspect
         puts [5, 6, 7].take_while { |x| x < 0 }.inspect
         puts [].take_while { |x| x > 0 }.inspect
-        
+
         # drop_while
         puts [1, 2, 3, 1].drop_while { |x| x < 3 }.inspect
         puts [1, 2, 3].drop_while { |x| x < 10 }.inspect
         puts [5, 6, 7].drop_while { |x| x < 0 }.inspect
         puts [].drop_while { |x| x > 0 }.inspect
-        
+
         # take_while + drop_while round-trip preserves total count
         arr = [1, 2, 3, 4, 5, 1, 2]
         puts(arr.take_while { |x| x < 4 }.length + arr.drop_while { |x| x < 4 }.length)
-        
+
         # Multi-stmt block — preceding statements must execute (regression for the
         # "only last expr is compiled" bug).
         counter = 0
         [1, 2, 3, 4].take_while { |x| counter = counter + 1; x < 3 }
         puts counter
-        
+
         # sym_array path (regression for the bp-hardcoded-int bug).
         puts [:a, :b, :c, :d].take_while { |s| s != :c }.inspect
         puts [:a, :b, :c, :d].drop_while { |s| s != :c }.inspect
@@ -1145,23 +1145,23 @@ describe "Array: regressions" do
         # extends it to symbol arrays via a sp_SymArray_tally runtime helper
         # that produces a sym_int_hash mapping each unique element to its
         # occurrence count.
-        
+
         # Basic tally over symbol array
         puts [:a, :b, :a, :c, :a, :b].tally[:a]
         puts [:a, :b, :a, :c, :a, :b].tally[:b]
         puts [:a, :b, :a, :c, :a, :b].tally[:c]
-        
+
         # Single element
         puts [:foo].tally[:foo]
-        
+
         # All same
         puts [:x, :x, :x, :x].tally[:x]
-        
+
         # Length of result
         puts [:a, :b, :a, :c, :a, :b].tally.length
         puts [:foo].tally.length
         puts [:x, :x, :x, :x].tally.length
-        
+
         # has_key? confirms membership
         puts [:a, :b, :c].tally.has_key?(:a)
         puts [:a, :b, :c].tally.has_key?(:z)
@@ -1173,7 +1173,7 @@ describe "Array: regressions" do
         # Issue #156: transpose for nested int arrays.
         # Inspect of nested arrays still prints "#<Object>" (separate issue),
         # so each test reads element-wise to keep the comparison meaningful.
-        
+
         m = [[1, 2], [3, 4]]
         t = m.transpose
         puts t.length
@@ -1181,7 +1181,7 @@ describe "Array: regressions" do
         puts t[0][1]
         puts t[1][0]
         puts t[1][1]
-        
+
         # 2x3 -> 3x2
         m2 = [[1, 2, 3], [4, 5, 6]]
         t2 = m2.transpose
@@ -1192,7 +1192,7 @@ describe "Array: regressions" do
         puts t2[1][1]
         puts t2[2][0]
         puts t2[2][1]
-        
+
         # 1x3 -> 3x1
         m3 = [[7, 8, 9]]
         t3 = m3.transpose
@@ -1209,7 +1209,7 @@ describe "Array: regressions" do
         items = []
         items.push(1)
         items.push("x")
-        
+
         puts items.length
         puts items[0]
         puts items[1]
@@ -1315,7 +1315,7 @@ describe "Array: regressions" do
         # Array#difference for typed arrays (int/sym/str/float).
         # Mirrors Array#intersection (c31b618) and Array#union — keep only
         # elements of self NOT present in other (deduplicated).
-        
+
         # int_array
         puts [1, 2, 3, 4].difference([2, 4]).inspect
         puts [1, 2, 3].difference([4, 5]).inspect
@@ -1324,18 +1324,18 @@ describe "Array: regressions" do
         puts [1, 2].difference([]).inspect
         puts [1, 1, 2, 3].difference([1]).inspect
         puts [].difference([]).inspect
-        
+
         # str_array
         puts ["a", "b", "c"].difference(["b"]).inspect
         puts ["x", "y"].difference(["a"]).inspect
         puts ["a", "b"].difference(["a", "b"]).inspect
         puts ["a", "a", "b"].difference(["a"]).inspect
-        
+
         # float_array
         puts [1.0, 2.0, 3.0].difference([2.0]).inspect
         puts [1.5, 2.5].difference([3.5]).inspect
         puts [1.0, 1.0, 2.0].difference([1.0]).inspect
-        
+
         # sym_array
         puts [:a, :b, :c].difference([:b]).inspect
         puts [:x, :y].difference([:a]).inspect
@@ -1349,75 +1349,75 @@ describe "Array: regressions" do
         a = [1, 2, 3, 4]
         b = [3, 4, 5, 6]
         puts a.intersection(b).inspect
-        
+
         # no common elements -> empty
         puts [1, 2].intersection([3, 4]).inspect
-        
+
         # all in common
         puts [1, 2, 3].intersection([1, 2, 3]).inspect
-        
+
         # duplicates in self are deduplicated
         puts [1, 1, 2, 3].intersection([1, 2]).inspect
-        
+
         # empty self -> empty
         puts [].intersection([1, 2, 3]).inspect
-        
+
         # empty other -> empty
         puts [1, 2, 3].intersection([]).inspect
-        
+
         # both empty
         puts [].intersection([]).inspect
-        
+
         # single element match
         puts [42].intersection([42]).inspect
-        
+
         # single element no match
         puts [42].intersection([99]).inspect
-        
+
         # str_array
         x = "a b c d".split(" ")
         y = "c d e f".split(" ")
         puts x.intersection(y).inspect
-        
+
         # str no common -> empty
         puts "a b".split(" ").intersection("c d".split(" ")).inspect
-        
+
         # str all common
         puts "x y".split(" ").intersection("x y".split(" ")).inspect
-        
+
         # str empty self
         puts "".split(" ").intersection("a b".split(" ")).inspect
-        
+
         # str duplicates in self are deduplicated
         puts "a a b c".split(" ").intersection("a b".split(" ")).inspect
-        
+
         # str empty other -> empty
         puts "a b".split(" ").intersection("".split(" ")).inspect
-        
+
         # float_array
         puts [1.0, 2.0, 3.0].intersection([2.0, 3.0, 4.0]).inspect
-        
+
         # float no common -> empty
         puts [1.1, 2.2].intersection([3.3, 4.4]).inspect
-        
+
         # float all common
         puts [1.5, 2.5].intersection([1.5, 2.5]).inspect
-        
+
         # float duplicates in self are deduplicated
         puts [1.0, 1.0, 2.0].intersection([1.0]).inspect
-        
+
         # float single no match -> empty
         puts [9.9].intersection([1.0, 2.0]).inspect
-        
+
         # sym_array
         puts [:a, :b, :c, :d].intersection([:c, :d, :e]).inspect
-        
+
         # sym no common -> empty
         puts [:a, :b].intersection([:c, :d]).inspect
-        
+
         # sym all common
         puts [:x, :y].intersection([:x, :y]).inspect
-        
+
         # sym duplicates in self are deduplicated
         puts [:a, :a, :b].intersection([:a]).inspect
       end
@@ -1428,7 +1428,7 @@ describe "Array: regressions" do
         # Array#union for typed arrays (int/sym/str/float).
         # Mirrors Array#intersection (c31b618). Returns a new array with all
         # unique elements from `self` followed by unique elements from `other`.
-        
+
         # int_array
         puts [1, 2, 3].union([3, 4, 5]).inspect
         puts [1, 2].union([3, 4]).inspect
@@ -1437,18 +1437,18 @@ describe "Array: regressions" do
         puts [1, 2].union([]).inspect
         puts [1, 1, 2].union([2, 3]).inspect
         puts [].union([]).inspect
-        
+
         # str_array
         puts ["a", "b"].union(["b", "c"]).inspect
         puts ["x"].union(["y", "z"]).inspect
         puts ["a", "b", "c"].union(["a", "b", "c"]).inspect
         puts ["a", "a", "b"].union(["b", "c"]).inspect
-        
+
         # float_array
         puts [1.0, 2.0].union([2.0, 3.0]).inspect
         puts [1.5, 2.5].union([3.5]).inspect
         puts [1.0, 1.0, 2.0].union([2.0, 3.0]).inspect
-        
+
         # sym_array
         puts [:a, :b].union([:b, :c]).inspect
         puts [:x].union([:y, :z]).inspect
@@ -1574,17 +1574,17 @@ describe "Array: regressions" do
         # `int_array` (the analyzer leaves the static type alone), so the
         # guard's "different static types" condition doesn't fire and
         # IntArray_eq continues to apply. Issue #600 puzzle 1.
-        
+
         p [0, 0, 0] != %i[a a a]                 # true
         p [0, 0, 0] == %i[a a a]                 # false
         p %i[a a a] != [0, 0, 0]                 # true
-        
+
         # Sibling shapes -- arrays of the same element-kind still compare
         # correctly via IntArray_eq.
         p [1, 2, 3] == [1, 2, 3]                 # true
         p %i[a b c] == %i[a b c]                 # true
         p %i[a b c] != %i[a b]                   # true (length differs)
-        
+
         # Issue #555 test #6 shape: int_array with sym pushes at runtime.
         # Both sides resolve to lt == at == "int_array" statically, so the
         # new guard doesn't engage and IntArray_eq compares element ids
@@ -1612,7 +1612,7 @@ describe "Array: regressions" do
         #
         # The raw `_index` helpers (returning -1) stay for any internal
         # caller that needs the sentinel.
-        
+
         # Int arrays
         ints = [10, 20, 30, 40]
         puts ints.index(20).inspect       # 1
@@ -1620,7 +1620,7 @@ describe "Array: regressions" do
         puts ints.index(999).nil?         # true
         puts ints.index(20).nil?          # false
         puts ints.find_index(30).inspect  # 2
-        
+
         # String arrays
         strs = ["alpha", "beta", "gamma"]
         puts strs.index("beta").inspect   # 1
@@ -1644,7 +1644,7 @@ describe "Array: regressions" do
         # content hash + comparison. Two IntArray instances with the same
         # elements now hash and eql? identically — array-keyed Hash
         # behaves like CRuby's `Hash` with the [a,b]-style key idiom.
-        
+
         entries = {}
         entries[[1, 2]] = "a"
         entries[[3, 4]] = "b"
@@ -1652,7 +1652,7 @@ describe "Array: regressions" do
         puts entries[[1, 2]]      # "a"
         puts entries[[3, 4]]      # "b"
         puts entries.length       # 2
-        
+
         # Heterogeneous keys still work — int / IntArray / string mixed.
         mixed = {}
         mixed[42] = "int-key"
@@ -1705,7 +1705,7 @@ describe "Array: regressions" do
         # "[0, 0, 0]". Lowering must produce a sp_PolyArray so the slot
         # can carry the nil tag and `.inspect` / `[i].nil?` / etc. see
         # the actual nil.
-        
+
         ary = Array.new(3, nil)
         puts ary.inspect
         puts ary[0].nil?
@@ -1730,42 +1730,42 @@ describe "Array: regressions" do
         # and seed the accumulator with it; codegen forwards
         # compile_arg0(nid) at every sum dispatch. compile_array_sum_block
         # initialises tmp_sum from compile_arg0(nid).
-        
+
         # IntArray, no block
         puts [1, 2, 3].sum(10)            # 16
         puts [1, 2, 3].sum                # 6   (no-init regression check)
         puts [].sum(7)                    # 7   (empty + init survives)
         puts [].sum                       # 0   (empty default still 0)
         puts [1, 2].sum(-5)               # -2  (negative init)
-        
+
         # IntArray, with block
         puts [1, 2, 3].sum(10) { |x| x * 2 }   # 22
         puts [1, 2, 3].sum { |x| x * 2 }       # 12  (block, no init)
         puts [].sum(7) { |x| x * 2 }           # 7   (empty + init w/ block)
-        
+
         # FloatArray, no block
         puts [1.5, 2.5].sum(0.5)          # 4.5
         puts [1.5, 2.5].sum               # 4.0 (no-init regression check)
         puts [1.5, 2.5].sum(1)            # 5.0 (int init implicitly widens)
         puts [1.5, 2.5].sum(-0.5)         # 3.5 (negative float init)
-        
+
         # Poly init: a heterogeneous-array element resolves to a poly local.
         # compile_arg0_as_int / compile_arg0_as_float unbox via `.v.i` / `.v.f`;
         # without them gcc rejects passing sp_RbVal to mrb_int / mrb_float.
         poly_arr = [10, "x"]
         init_p = poly_arr[0]
         puts [1, 2].sum(init_p)           # 13 (poly init unboxed as mrb_int)
-        
+
         fpoly_arr = [1.5, "x"]
         finit_p = fpoly_arr[0]
         puts [1.0, 2.0].sum(finit_p)      # 4.5 (poly init unboxed as mrb_float)
-        
+
         # Tag-mixed: poly is INT-tagged but the FloatArray expects mrb_float.
         # sp_poly_to_f dispatches on the tag so the int value is coerced to
         # float rather than reinterpreted bit-for-bit from `.v.f`.
         ipoly_for_float = [1, "x"][0]
         puts [1.0, 2.0].sum(ipoly_for_float)   # 4.0 (poly INT->float via sp_poly_to_f)
-        
+
         # FloatArray + block + float init: compile_array_sum_block now picks
         # an mrb_float accumulator and compile_arg0_as_float when recv_type is
         # float_array, so the 0.5 seed and the float block result are no
@@ -1775,7 +1775,7 @@ describe "Array: regressions" do
         # limitation outside this PR's scope.
         puts [1.5, 2.5].sum(0.5) { |fx| fx }      # 4.5
         puts [1.0, 2.0].sum { |fy| fy * 1.5 }     # 4.5
-        
+
         puts "done"
       end
       t_array_sum_init
@@ -1868,14 +1868,14 @@ describe "Array: regressions" do
         # int-tagged elements (the shape the .map produces for `_1[:int_key]`).
         # Float interpolation also routes through sp_float_to_s so 4.0 renders
         # as "4.0" (matching Ruby's Float#to_s) rather than "4" (printf %g).
-        
+
         scores = [
           { shop: "ginza", score: 5 },
           { shop: "ginza", score: 4 },
           { shop: "shibuya", score: 3 },
           { shop: "shibuya", score: 5 }
         ]
-        
+
         scores.group_by { _1[:shop] }.each do |shop, rows|
           avg = rows.map { _1[:score] }.sum.to_f / rows.size
           puts "#{shop}: #{avg}"
@@ -1905,17 +1905,17 @@ describe "Array: regressions" do
         # `[]=` dispatch (SymIntHash + SymPolyHash), and a poly-recv +
         # symbol-idx arm to `compile_index_op_assign` (SymIntHash;
         # SymPolyHash compound-assign needs poly-op semantics, deferred).
-        
+
         # T1: direct `[]=` on poly_array of sym_int_hash
         arr1 = [{x: 1}]
         arr1[0][:x] = 99
         puts arr1[0][:x].to_s
-        
+
         # T2: compound `[]+=` on poly_array of sym_int_hash
         arr2 = [{x: 1}]
         arr2[0][:x] += 100
         puts arr2[0][:x].to_s
-        
+
         # T3: `each` block mutating each hash via `f[:k] += v`
         arr3 = []
         arr3 << {x: 1}
@@ -1923,7 +1923,7 @@ describe "Array: regressions" do
         arr3.each { |f| f[:x] += 100 }
         puts arr3[0][:x].to_s
         puts arr3[1][:x].to_s
-        
+
         # T4: `each_with_index` block doing direct `f[:k] = v`
         arr4 = [{x: 1}, {x: 3}]
         arr4.each_with_index { |f, i| f[:x] = i * 10 }
@@ -1939,10 +1939,10 @@ describe "Array: regressions" do
         # the inner arrays were swept while the tuple was still alive, and a
         # subsequent allocation reused the freed memory — `parts[0].length`
         # came back as the length of whatever object now sat there.
-        
+
         arr = [1, 2, 3, 4, 5, 6]
         parts = arr.partition { |x| x.odd? }
-        
+
         # Force many GCs by allocating lots of GC-managed objects.
         i = 0
         while i < 200000
@@ -1950,7 +1950,7 @@ describe "Array: regressions" do
           tmp.push(i)
           i += 1
         end
-        
+
         puts parts[0].length   # 3
         puts parts[1].length   # 3
         puts "done"
@@ -1968,7 +1968,7 @@ describe "Array: regressions" do
         # array and rhs is an array of a different element type. compile_+
         # detects the same shape and builds an sp_PolyArray, boxing each
         # source element via sp_box_* (sp_box_obj with cls_id for ptr).
-        
+
         a1 = [1, 2, 3]
         a2 = ["x", "y", "z"]
         a3 = a1 + a2
@@ -1976,7 +1976,7 @@ describe "Array: regressions" do
         puts a3[0]
         puts a3[3]
         puts "ok"
-        
+
         # Float + Int round-trip
         b1 = [1.5, 2.5]
         b2 = [10, 20]
@@ -2001,7 +2001,7 @@ describe "Array: regressions" do
         # Fix: scan_locals's push/<< inference now widens to poly_array
         # when the slot is already a non-target concrete array type and
         # the next push is of a different family.
-        
+
         arr = []
         arr << 1
         arr << "string"
@@ -2061,7 +2061,7 @@ describe "Array: regressions" do
         # index block param must be block-local mrb_int (not leak the outer
         # `j`). Body skips reading the params to keep this scope-shadow case
         # separate from the format-specifier path.
-        
+
         i = "hi"
         j = "ho"
         puts i
@@ -2082,7 +2082,7 @@ describe "Array: regressions" do
         # reading the params to keep this scope-shadow case separate from
         # the separate type-inferer behavior when reading the param inside
         # the block.
-        
+
         i = "hi"
         acc = "ho"
         puts i
@@ -2100,14 +2100,14 @@ describe "Array: regressions" do
         # distinct dispatch entries. Cover both so a divergence at either
         # entry surfaces. The block param `i` must also shadow an outer
         # same-named local of a different C type without leaking back out.
-        
+
         i = "hi"
         puts i
-        
+
         foo = [1, 2, 3, 4, 5]
         sum_inject = foo.inject(0) { |acc, i| acc + i }
         puts sum_inject   # 15
-        
+
         sum_reduce = foo.reduce(0) { |acc, i| acc + i }
         puts sum_reduce   # 15
       end
@@ -2119,7 +2119,7 @@ describe "Array: regressions" do
         # same-named local of a different C type. Body uses a constant
         # predicate so this isolates the shadow case from the separate
         # type-inferer behavior when reading the param inside the block.
-        
+
         i = "hi"
         puts i
         foo = [10, 20, 30]
@@ -2139,7 +2139,7 @@ describe "Array: regressions" do
         # same-named local of a different C type. Body uses a constant
         # predicate so this isolates the shadow case from the separate
         # type-inferer behavior when reading the param inside the block.
-        
+
         i = "hi"
         puts i
         foo = [10, 20, 30]
@@ -2158,7 +2158,7 @@ describe "Array: regressions" do
         # Array#zip with a block on int_arrays. Both block params must shadow
         # outer same-named locals of a different C type. Body uses a counter
         # so this isolates the scope-shadow case from any param-read path.
-        
+
         a = "ha"
         b = "hb"
         puts a

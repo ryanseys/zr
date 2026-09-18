@@ -282,7 +282,7 @@ describe "Marshal programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # Marshal's object-link table needs shared references and cycles to exercise it.
       # At exit: cycle leak: 2 objects (Array x2)
       # Marshal.dump / Marshal.load round-trip (Phase 1): primitives, Array, Hash.
@@ -512,7 +512,7 @@ describe "Marshal programs" do
       # behind. A cycle alive at exit is not a defect: it is a ring the
       # program never broke, so the census below is recorded as an
       # observation rather than gated on.
-      # 
+      #
       # Marshal's object-link table needs shared references and cycles to exercise it.
       # At exit: cycle leak: 2 objects (Array x2)
       # `Marshal` must round-trip a value to something `==` to it. Two shapes come
