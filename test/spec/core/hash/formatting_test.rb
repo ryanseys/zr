@@ -904,7 +904,13 @@ describe "Hash: formatting and inspection" do
       grab(b.contents)
     RUBY
 
-    _(result).must_answer "", stderr: "core/hash/formatting_test.rb:43:in 'Object#consume': undefined method '[]' for nil (NoMethodError)\n\n  puts \"id=\" + row[\"id\"].to_s\n                  ^^^^^^\n\tfrom core/hash/formatting_test.rb:51:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      core/hash/formatting_test.rb:43:in 'Object#consume': undefined method '[]' for nil (NoMethodError)
+
+        puts "id=" + row["id"].to_s
+                        ^^^^^^
+      	from core/hash/formatting_test.rb:51:in '<main>'
+    ERR
   end
 
   it "raising hash reaches the caller" do

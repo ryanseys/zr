@@ -1197,7 +1197,12 @@ describe "Struct programs" do
       puts l.flag(:SECRET)
     RUBY
 
-    _(result).must_answer "", stderr: "core/struct/struct_test.rb:20:in '<main>': uninitialized constant Line::FLAGS (NameError)\n\nputs Line::FLAGS[:TWOSIDED]\n         ^^^^^^^\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      core/struct/struct_test.rb:20:in '<main>': uninitialized constant Line::FLAGS (NameError)
+
+      puts Line::FLAGS[:TWOSIDED]
+               ^^^^^^^
+    ERR
   end
 
   it "a method defined in the block body wins over the generated one" do

@@ -99,10 +99,12 @@ describe "Thread: frozen literals" do
       puts sink.value + 1
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/thread/frozen_test.rb:12: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       true
       42
     OUT
+      core/thread/frozen_test.rb:12: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 
   it "fiber thread object face" do
@@ -632,7 +634,7 @@ describe "Thread: frozen literals" do
       puts echo.value
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/thread/frozen_test.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       42
       70
       true
@@ -643,6 +645,8 @@ describe "Thread: frozen literals" do
       100
       200
     OUT
+      core/thread/frozen_test.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 
   it "unfrozen object sent across a ractor boundary deep copies" do
@@ -669,6 +673,8 @@ describe "Thread: frozen literals" do
       p [out, b.v]
     RUBY
 
-    _(result).must_answer "[\"payload-seen\", \"payload\"]\n", stderr: "core/thread/frozen_test.rb:12: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer "[\"payload-seen\", \"payload\"]\n", stderr: <<~'ERR'
+      core/thread/frozen_test.rb:12: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 end

@@ -1035,7 +1035,12 @@ describe "Thread programs" do
       p keep[0].length
     RUBY
 
-    _(result).must_answer "", stderr: "core/thread/thread_test.rb:27:in '<main>': undefined method '>=' for nil (NoMethodError)\n\np after >= before\n        ^^\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      core/thread/thread_test.rb:27:in '<main>': undefined method '>=' for nil (NoMethodError)
+
+      p after >= before
+              ^^
+    ERR
   end
 
   it "a fiber created inside a method closes over that method's parameter" do
@@ -1477,7 +1482,7 @@ describe "Thread programs" do
       puts Ractor.new { 4 }.value
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/thread/thread_test.rb:9: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       before
       1
       2
@@ -1486,6 +1491,8 @@ describe "Thread programs" do
       false
       4
     OUT
+      core/thread/thread_test.rb:9: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 
   it "ractor message passing send and receive" do
@@ -1498,7 +1505,9 @@ describe "Thread programs" do
       puts worker.value
     RUBY
 
-    _(result).must_answer "70\n", stderr: "core/thread/thread_test.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer "70\n", stderr: <<~'ERR'
+      core/thread/thread_test.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 
   it "ractor messages are received in fifo order" do
@@ -1515,7 +1524,9 @@ describe "Thread programs" do
       puts r.value
     RUBY
 
-    _(result).must_answer "123\n", stderr: "core/thread/thread_test.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer "123\n", stderr: <<~'ERR'
+      core/thread/thread_test.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 
   it "ractor runs in parallel and returns its value" do
@@ -1526,7 +1537,9 @@ describe "Thread programs" do
       puts r.value
     RUBY
 
-    _(result).must_answer "42\n", stderr: "core/thread/thread_test.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer "42\n", stderr: <<~'ERR'
+      core/thread/thread_test.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 
   it "several ractors run in parallel and all values collect" do
@@ -1537,7 +1550,9 @@ describe "Thread programs" do
       puts r1.value + r2.value + r3.value
     RUBY
 
-    _(result).must_answer "60\n", stderr: "core/thread/thread_test.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer "60\n", stderr: <<~'ERR'
+      core/thread/thread_test.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 
   it "sleep forever parks until interrupted" do

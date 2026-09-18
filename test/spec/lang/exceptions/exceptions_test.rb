@@ -312,7 +312,9 @@ describe "Exceptions programs" do
       end
     RUBY
 
-    _(result).must_answer "", stderr: "lang/exceptions/exceptions_test.rb:4:in '<main>': 5: String === 5 does not return true (NoMatchingPatternError)\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      lang/exceptions/exceptions_test.rb:4:in '<main>': 5: String === 5 does not return true (NoMatchingPatternError)
+    ERR
   end
 
   it "catch throw delivers values and uncaught throw raises" do
@@ -1730,7 +1732,14 @@ describe "Exceptions programs" do
       raise ArgumentError, "first\nsecond\nthird"
     RUBY
 
-    _(result).must_answer "", stderr: "lang/exceptions/exceptions_test.rb:9:in '<main>': first (ArgumentError)\nsecond\nthird\n\nraise ArgumentError, \"first\\nsecond\\nthird\"\n      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      lang/exceptions/exceptions_test.rb:9:in '<main>': first (ArgumentError)
+      second
+      third
+
+      raise ArgumentError, "first\nsecond\nthird"
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ERR
   end
 
   it "native exception hides its message ivar" do
@@ -2644,7 +2653,10 @@ describe "Exceptions programs" do
       Box.new.check
     RUBY
 
-    _(result).must_answer "", stderr: "lang/exceptions/exceptions_test.rb:10:in 'Box#check': MyError (MyError)\n\tfrom lang/exceptions/exceptions_test.rb:13:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      lang/exceptions/exceptions_test.rb:10:in 'Box#check': MyError (MyError)
+      	from lang/exceptions/exceptions_test.rb:13:in '<main>'
+    ERR
   end
 
   it "raise with an exception hook" do
@@ -3351,7 +3363,13 @@ describe "Exceptions programs" do
 
     RUBY
 
-    _(result).must_answer "", stderr: "lang/exceptions/exceptions_test.rb:10:in 'Object#b': b (Outer)\n\tfrom lang/exceptions/exceptions_test.rb:13:in '<main>'\nlang/exceptions/exceptions_test.rb:5:in 'Object#a': a (RuntimeError)\n\tfrom lang/exceptions/exceptions_test.rb:8:in 'Object#b'\n\tfrom lang/exceptions/exceptions_test.rb:13:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      lang/exceptions/exceptions_test.rb:10:in 'Object#b': b (Outer)
+      	from lang/exceptions/exceptions_test.rb:13:in '<main>'
+      lang/exceptions/exceptions_test.rb:5:in 'Object#a': a (RuntimeError)
+      	from lang/exceptions/exceptions_test.rb:8:in 'Object#b'
+      	from lang/exceptions/exceptions_test.rb:13:in '<main>'
+    ERR
   end
 
   it "uncaught exception report matches cruby shape" do
@@ -3364,7 +3382,11 @@ describe "Exceptions programs" do
       outer
     RUBY
 
-    _(result).must_answer "", stderr: "lang/exceptions/exceptions_test.rb:4:in 'Object#inner': boom (RuntimeError)\n\tfrom lang/exceptions/exceptions_test.rb:5:in 'Object#outer'\n\tfrom lang/exceptions/exceptions_test.rb:6:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      lang/exceptions/exceptions_test.rb:4:in 'Object#inner': boom (RuntimeError)
+      	from lang/exceptions/exceptions_test.rb:5:in 'Object#outer'
+      	from lang/exceptions/exceptions_test.rb:6:in '<main>'
+    ERR
   end
 
   it "unshareable message is deep copied across the boundary" do
@@ -3384,9 +3406,11 @@ describe "Exceptions programs" do
       puts echo.value
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/exceptions/exceptions_test.rb:7: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       100
       200
     OUT
+      lang/exceptions/exceptions_test.rb:7: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 end

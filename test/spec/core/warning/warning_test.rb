@@ -181,6 +181,10 @@ describe "Warning programs" do
       warn "no uplevel control"
     RUBY
 
-    _(result).must_answer "", stderr: "core/warning/warning_test.rb:5: warning: inside helper\ncore/warning/warning_test.rb:9: warning: callers fault\nno uplevel control\n"
+    _(result).must_answer "", stderr: <<~'ERR'
+      core/warning/warning_test.rb:5: warning: inside helper
+      core/warning/warning_test.rb:9: warning: callers fault
+      no uplevel control
+    ERR
   end
 end

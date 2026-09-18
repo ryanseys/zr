@@ -489,7 +489,7 @@ describe "Object: slicing" do
       p({ n => :first, 2 => :second })
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/object/slicing_test.rb:11: warning: key :k is duplicated and overwritten on line 11\ncore/object/slicing_test.rb:12: warning: key \"s\" is duplicated and overwritten on line 12\ncore/object/slicing_test.rb:13: warning: key 1 is duplicated and overwritten on line 13\ncore/object/slicing_test.rb:17: warning: key :dup is duplicated and overwritten on line 19\ncore/object/slicing_test.rb:24: warning: key :a is duplicated and overwritten on line 24\ncore/object/slicing_test.rb:27: warning: key :x is duplicated and overwritten on line 27\ncore/object/slicing_test.rb:28: warning: key :y is duplicated and overwritten on line 28\ncore/object/slicing_test.rb:31: warning: key :m is duplicated and overwritten on line 31\ncore/object/slicing_test.rb:33: warning: key :b is duplicated and overwritten on line 33\ncore/object/slicing_test.rb:36: warning: key :t is duplicated and overwritten on line 36\ncore/object/slicing_test.rb:36: warning: key :t is duplicated and overwritten on line 36\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       {k: 2}
       {"s" => 2}
       {1 => :b}
@@ -505,6 +505,18 @@ describe "Object: slicing" do
       {1 => :int, "1" => :str, "1": :sym}
       {1 => :first, 2 => :second}
     OUT
+      core/object/slicing_test.rb:11: warning: key :k is duplicated and overwritten on line 11
+      core/object/slicing_test.rb:12: warning: key "s" is duplicated and overwritten on line 12
+      core/object/slicing_test.rb:13: warning: key 1 is duplicated and overwritten on line 13
+      core/object/slicing_test.rb:17: warning: key :dup is duplicated and overwritten on line 19
+      core/object/slicing_test.rb:24: warning: key :a is duplicated and overwritten on line 24
+      core/object/slicing_test.rb:27: warning: key :x is duplicated and overwritten on line 27
+      core/object/slicing_test.rb:28: warning: key :y is duplicated and overwritten on line 28
+      core/object/slicing_test.rb:31: warning: key :m is duplicated and overwritten on line 31
+      core/object/slicing_test.rb:33: warning: key :b is duplicated and overwritten on line 33
+      core/object/slicing_test.rb:36: warning: key :t is duplicated and overwritten on line 36
+      core/object/slicing_test.rb:36: warning: key :t is duplicated and overwritten on line 36
+    ERR
   end
 
   it "runtime class with a superclass is a real class" do

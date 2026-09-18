@@ -2516,7 +2516,12 @@ describe "Guards programs" do
       puts JSON.generate([1])
     RUBY
 
-    _(result).must_answer "", stderr: "compiler/guards/guards_test.rb:5:in '<main>': uninitialized constant JSON (NameError)\n\nputs JSON.generate([1])\n     ^^^^\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      compiler/guards/guards_test.rb:5:in '<main>': uninitialized constant JSON (NameError)
+
+      puts JSON.generate([1])
+           ^^^^
+    ERR
   end
 
   it "singleton class rescue guard" do

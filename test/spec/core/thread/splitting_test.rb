@@ -841,7 +841,7 @@ describe "Thread: splitting and joining" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "#<Thread:0xADDR core/thread/splitting_test.rb:14 run> terminated with exception (report_on_exception is true):\ncore/thread/splitting_test.rb:14:in 'block in <main>': thread boom (RuntimeError)\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       in thread
       after join
       42
@@ -852,6 +852,9 @@ describe "Thread: splitting and joining" do
       6
       queue closed
     OUT
+      #<Thread:0xADDR core/thread/splitting_test.rb:14 run> terminated with exception (report_on_exception is true):
+      core/thread/splitting_test.rb:14:in 'block in <main>': thread boom (RuntimeError)
+    ERR
   end
 
   it "three threads join out of creation order" do

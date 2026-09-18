@@ -614,7 +614,11 @@ describe "Boxes programs" do
       p b.eval(src)
     RUBY
 
-    _(result).must_answer "", stderr: "eval:1:in '<compiled>': uninitialized constant K (NameError)\n\tfrom lang/boxes/boxes_test.rb:24:in 'Ruby::Box#eval'\n\tfrom lang/boxes/boxes_test.rb:24:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      eval:1:in '<compiled>': uninitialized constant K (NameError)
+      	from lang/boxes/boxes_test.rb:24:in 'Ruby::Box#eval'
+      	from lang/boxes/boxes_test.rb:24:in '<main>'
+    ERR
   end
 
   it "box unbox local assign cond" do

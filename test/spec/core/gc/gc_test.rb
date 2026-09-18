@@ -1071,7 +1071,12 @@ describe "GC programs" do
       puts "old generation bounded: " + (g["old_bytes"] < 10_000_000 ? "yes" : "no")
     RUBY
 
-    _(result).must_answer "live set: 1000\n", stderr: "core/gc/gc_test.rb:32:in '<main>': undefined method '>' for nil (NoMethodError)\n\nputs \"full sweeps kept running: \" + (g[\"full_runs\"] > 6 ? \"yes\" : \"no\")\n                                                    ^\n", status: 1
+    _(result).must_answer "live set: 1000\n", stderr: <<~'ERR', status: 1
+      core/gc/gc_test.rb:32:in '<main>': undefined method '>' for nil (NoMethodError)
+
+      puts "full sweeps kept running: " + (g["full_runs"] > 6 ? "yes" : "no")
+                                                          ^
+    ERR
   end
 
   it "latest_gc_info answers a Symbol for :major_by and :state" do
@@ -1365,7 +1370,12 @@ describe "GC programs" do
       puts "heap bounded: " + (g["bytes"] < 400_000_000 ? "yes" : "no")
     RUBY
 
-    _(result).must_answer "retained: 7\n", stderr: "core/gc/gc_test.rb:32:in '<main>': undefined method '>' for nil (NoMethodError)\n\nputs \"threshold positive: \" + (g[\"threshold\"] > 0 ? \"yes\" : \"no\")\n                                              ^\n", status: 1
+    _(result).must_answer "retained: 7\n", stderr: <<~'ERR', status: 1
+      core/gc/gc_test.rb:32:in '<main>': undefined method '>' for nil (NoMethodError)
+
+      puts "threshold positive: " + (g["threshold"] > 0 ? "yes" : "no")
+                                                    ^
+    ERR
   end
 
   it "generator element cycle" do

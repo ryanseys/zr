@@ -1787,7 +1787,23 @@ describe "Syntax programs" do
       # below never is.
     RUBY
 
-    _(result).must_answer "", stderr: "lang/syntax/syntax_test.rb: --> lang/syntax/syntax_test.rb\n\ninvalid method name; a setter method cannot be defined in an endless method definition\n\n> 3  puts \"never printed\"\n> 4  class O; def s=(v) = @s = v; end\n\nlang/syntax/syntax_test.rb:4: syntax error found (SyntaxError)\n  2 | # running any of it.\n  3 | puts \"never printed\"\n> 4 | class O; def s=(v) = @s = v; end\n    |              ^~ invalid method name; a setter method cannot be defined in an endless method definition\n  5 | # The two lines after the error are in the report, so the recording\n  6 | # below never is.\n\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      lang/syntax/syntax_test.rb: --> lang/syntax/syntax_test.rb
+
+      invalid method name; a setter method cannot be defined in an endless method definition
+
+      > 3  puts "never printed"
+      > 4  class O; def s=(v) = @s = v; end
+
+      lang/syntax/syntax_test.rb:4: syntax error found (SyntaxError)
+        2 | # running any of it.
+        3 | puts "never printed"
+      > 4 | class O; def s=(v) = @s = v; end
+          |              ^~ invalid method name; a setter method cannot be defined in an endless method definition
+        5 | # The two lines after the error are in the report, so the recording
+        6 | # below never is.
+
+    ERR
   end
 
   it "ruby engine identifies as ruby" do

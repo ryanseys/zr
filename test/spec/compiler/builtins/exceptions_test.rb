@@ -375,7 +375,10 @@ describe "Builtins: raising and rescuing" do
       end
     RUBY
 
-    _(result).must_answer "at join: can't modify frozen Array: [1]\n", stderr: "#<Thread:0xADDR compiler/builtins/exceptions_test.rb:3 run> terminated with exception (report_on_exception is true):\ncompiler/builtins/exceptions_test.rb:3:in 'block in <main>': can't modify frozen Array: [1] (FrozenError)\n"
+    _(result).must_answer "at join: can't modify frozen Array: [1]\n", stderr: <<~'ERR'
+      #<Thread:0xADDR compiler/builtins/exceptions_test.rb:3 run> terminated with exception (report_on_exception is true):
+      compiler/builtins/exceptions_test.rb:3:in 'block in <main>': can't modify frozen Array: [1] (FrozenError)
+    ERR
   end
 
   it "kernel raise is a real dispatch row reachable through send" do

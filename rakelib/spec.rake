@@ -160,17 +160,17 @@ module SpecStyle
   # The tags whose body is what ruby said. What is inside one of these is
   # not this file's to tidy: a trailing space in an answer is a byte ruby
   # wrote, and removing it would be writing the answer ourselves.
-  ANSWERS = %w[OUT LINUX WASI].freeze
+  ANSWERS = %w[OUT ERR LINUX WASI].freeze
 
-  # A program is `RUBY`, an answer is `OUT`, and a platform's answer is
-  # its own name.
+  # A program is `RUBY`, what it printed is `OUT`, what it wrote to
+  # stderr is `ERR`, and a platform's answer is its own name.
   #
   # `PROGRAM` is the other spelling of a program, and it is not a stray:
   # a `<<~` terminator may be indented, so a program that contains its
   # own `eval <<~RUBY ... RUBY` would end the outer heredoc early. Eight
   # examples need it -- see `core/object/formatting_test.rb`, where the
   # program defines a method through `eval`.
-  TAGS = %w[RUBY PROGRAM OUT LINUX WASI].freeze
+  TAGS = %w[RUBY PROGRAM OUT ERR LINUX WASI].freeze
 
   # Sentences a generator writes into more than one file on purpose, as
   # they are spelled in the source. `rake gen:dispatch`
@@ -180,6 +180,13 @@ module SpecStyle
   # sentence would only repeat what the `describe` already said.
   GENERATED = ["subclass sees only the calls ruby makes"].map(&:inspect).freeze
 
+  # Where the DSL opens a heredoc: the program, what it printed, and
+  # what it wrote to stderr. Only these -- a program under test may open
+  # one of its own (`eval(<<~SRC)`, a Gemfile, a PEM), and an expected
+  # answer may quote the text of one, as the Ripper examples do. Neither
+  # is this file's shape to hold.
+  OPENS = /(?:\bze0\(|\bmust_answer |\bstderr: )<<[-~]'?([A-Z_]+)/
+
   module_function
 
   # Each line of a spec file with what encloses it: the tag of the
@@ -187,14 +194,17 @@ module SpecStyle
   # One implementation, because every rule below needs to know the
   # difference and two copies of it would drift.
   def each_line(path)
-    inside = nil
+    open = []
     File.readlines(path).each_with_index do |line, i|
-      yield line, i + 1, inside
-      if inside
+      yield line, i + 1, open.first
+      if open.any?
         # A `<<~` terminator may be indented, so the tag is what closes it.
-        inside = nil if line.match?(/\A\s*#{inside}\s*\z/)
+        open.shift if line.match?(/\A\s*#{open.first}\s*\z/)
       else
-        inside = line[/(?:\bze0\(|\bmust_answer )<<[-~]'?([A-Z_]+)/, 1]
+        # One line may open two: `must_answer <<~'OUT', stderr: <<~'ERR'`
+        # is stdout and stderr side by side, and ruby reads their bodies
+        # in the order the openers appear.
+        open = line.scan(OPENS).flatten
       end
     end
   end
@@ -240,12 +250,7 @@ module SpecStyle
       next if inside
 
       out << [n, "#{line.chomp.size} columns, over #{COLUMNS}"] if line.chomp.size > COLUMNS
-      # Only a heredoc this file opens as an argument to the DSL. A
-      # program under test may open one of its own -- `eval(<<~SRC)`, a
-      # Gemfile, a PEM -- and an expected answer may quote the text of
-      # one, as the Ripper and AST examples do. Neither is this file's
-      # shape to hold.
-      line.scan(/(?:\bze0\(|\bmust_answer )<<([-~])('?)([A-Z_]+)/) do |squiggly, quote, tag|
+      line.scan(/(?:\bze0\(|\bmust_answer |\bstderr: )<<([-~])('?)([A-Z_]+)/) do |squiggly, quote, tag|
         out << [n, "heredoc <<#{squiggly}#{tag}: use <<~"] if squiggly != "~"
         out << [n, "heredoc #{tag}: not one of #{TAGS.join(", ")}"] unless TAGS.include?(tag)
         # A Ruby program in an interpolating heredoc has live `#{}` in

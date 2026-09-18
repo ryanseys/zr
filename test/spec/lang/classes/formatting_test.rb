@@ -895,7 +895,7 @@ describe "Classes: formatting and inspection" do
       blow_up
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "ze0/classes_and_modules.rb:356:in 'Object#blow_up': went wrong (Louder)\n\tfrom ze0/classes_and_modules.rb:358:in '<main>'\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR', status: 1
       "cat says ..."
       "rex says woof"
       "bit says yip"
@@ -983,6 +983,9 @@ describe "Classes: formatting and inspection" do
       NameError
       "private constant Ledger::SECRET referenced"
     OUT
+      ze0/classes_and_modules.rb:356:in 'Object#blow_up': went wrong (Louder)
+      	from ze0/classes_and_modules.rb:358:in '<main>'
+    ERR
   end
 
   it "compiled class allocates directly" do

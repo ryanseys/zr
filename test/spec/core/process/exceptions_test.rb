@@ -13,11 +13,13 @@ describe "Process: raising and rescuing" do
       puts "body"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/process/exceptions_test.rb:4:in 'block in <main>': handler boom (RuntimeError)\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR', status: 1
       body
       h-before
       h-after
     OUT
+      core/process/exceptions_test.rb:4:in 'block in <main>': handler boom (RuntimeError)
+    ERR
   end
 
   it "at exit handler that raises sets status 1" do
@@ -30,10 +32,12 @@ describe "Process: raising and rescuing" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/process/exceptions_test.rb:4:in 'block in <main>': x (RuntimeError)\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR', status: 1
       1
       second
     OUT
+      core/process/exceptions_test.rb:4:in 'block in <main>': x (RuntimeError)
+    ERR
   end
 
   it "class bodies execute at their document position and rerun per reopen" do
@@ -209,7 +213,9 @@ describe "Process: raising and rescuing" do
       raise "through the boundary"
     RUBY
 
-    _(result).must_answer "", stderr: "core/process/exceptions_test.rb:4:in '<main>': through the boundary (RuntimeError)\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      core/process/exceptions_test.rb:4:in '<main>': through the boundary (RuntimeError)
+    ERR
   end
 
   it "uncaught interrupt is reported and ends by sigint" do
@@ -221,7 +227,9 @@ describe "Process: raising and rescuing" do
 
     RUBY
 
-    _(result).must_answer "handler\n", stderr: "core/process/exceptions_test.rb:4:in '<main>': Interrupt (Interrupt)\n", status: nil, signal: 2
+    _(result).must_answer "handler\n", stderr: <<~'ERR', status: nil, signal: 2
+      core/process/exceptions_test.rb:4:in '<main>': Interrupt (Interrupt)
+    ERR
   end
 
   it "uncaught no method error exits via the ordinary top level handler" do
@@ -231,7 +239,12 @@ describe "Process: raising and rescuing" do
       Plain.new.send(:missing)
     RUBY
 
-    _(result).must_answer "", stderr: "core/process/exceptions_test.rb:3:in '<main>': undefined method 'missing' for an instance of Plain (NoMethodError)\n\nPlain.new.send(:missing)\n         ^^^^^\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      core/process/exceptions_test.rb:3:in '<main>': undefined method 'missing' for an instance of Plain (NoMethodError)
+
+      Plain.new.send(:missing)
+               ^^^^^
+    ERR
   end
 
   it "uncaught raise with no rescue anywhere exits with the message" do
@@ -276,6 +289,8 @@ describe "Process: raising and rescuing" do
       puts "after"
     RUBY
 
-    _(result).must_answer "before\n", stderr: "core/process/exceptions_test.rb:11:in '<main>': superclass mismatch for class Sub (TypeError)\n", status: 1
+    _(result).must_answer "before\n", stderr: <<~'ERR', status: 1
+      core/process/exceptions_test.rb:11:in '<main>': superclass mismatch for class Sub (TypeError)
+    ERR
   end
 end

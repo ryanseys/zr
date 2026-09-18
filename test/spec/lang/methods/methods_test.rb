@@ -20,7 +20,10 @@ describe "Methods programs" do
       end
     RUBY
 
-    _(result).must_answer "", stderr: "lang/methods/methods_test.rb:10:in '<class:Foo>': undefined method 'undefined_method' for class 'Foo' (NameError)\n\tfrom lang/methods/methods_test.rb:9:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      lang/methods/methods_test.rb:10:in '<class:Foo>': undefined method 'undefined_method' for class 'Foo' (NameError)
+      	from lang/methods/methods_test.rb:9:in '<main>'
+    ERR
   end
 
   it "arg forwarding fixed callee" do
@@ -3778,7 +3781,25 @@ describe "Methods programs" do
 
     RUBY
 
-    _(result).must_answer "", stderr: "lang/methods/methods_test.rb:8: warning: method redefined; discarding old m\nlang/methods/methods_test.rb:7: warning: previous definition of m was here\nlang/methods/methods_test.rb:14: warning: method redefined; discarding old x\nlang/methods/methods_test.rb:14: warning: method redefined; discarding old x=\nlang/methods/methods_test.rb:16: warning: method redefined; discarding old d\nlang/methods/methods_test.rb:15: warning: previous definition of d was here\nlang/methods/methods_test.rb:17: warning: method redefined; discarding old d\nlang/methods/methods_test.rb:16: warning: previous definition of d was here\nlang/methods/methods_test.rb:25: warning: method redefined; discarding old s\nlang/methods/methods_test.rb:24: warning: previous definition of s was here\nlang/methods/methods_test.rb:29: warning: method redefined; discarding old p1\nlang/methods/methods_test.rb:26: warning: previous definition of p1 was here\nlang/methods/methods_test.rb:36: warning: method redefined; discarding old upcase\nlang/methods/methods_test.rb:39: warning: method redefined; discarding old puts\nlang/methods/methods_test.rb:52: warning: method redefined; discarding old q\nlang/methods/methods_test.rb:51: warning: previous definition of q was here\nlang/methods/methods_test.rb:53: warning: method redefined; discarding old a\n"
+    _(result).must_answer "", stderr: <<~'ERR'
+      lang/methods/methods_test.rb:8: warning: method redefined; discarding old m
+      lang/methods/methods_test.rb:7: warning: previous definition of m was here
+      lang/methods/methods_test.rb:14: warning: method redefined; discarding old x
+      lang/methods/methods_test.rb:14: warning: method redefined; discarding old x=
+      lang/methods/methods_test.rb:16: warning: method redefined; discarding old d
+      lang/methods/methods_test.rb:15: warning: previous definition of d was here
+      lang/methods/methods_test.rb:17: warning: method redefined; discarding old d
+      lang/methods/methods_test.rb:16: warning: previous definition of d was here
+      lang/methods/methods_test.rb:25: warning: method redefined; discarding old s
+      lang/methods/methods_test.rb:24: warning: previous definition of s was here
+      lang/methods/methods_test.rb:29: warning: method redefined; discarding old p1
+      lang/methods/methods_test.rb:26: warning: previous definition of p1 was here
+      lang/methods/methods_test.rb:36: warning: method redefined; discarding old upcase
+      lang/methods/methods_test.rb:39: warning: method redefined; discarding old puts
+      lang/methods/methods_test.rb:52: warning: method redefined; discarding old q
+      lang/methods/methods_test.rb:51: warning: previous definition of q was here
+      lang/methods/methods_test.rb:53: warning: method redefined; discarding old a
+    ERR
   end
 
   it "repeated optional parameter default writes the name" do

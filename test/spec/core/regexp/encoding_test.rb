@@ -1267,7 +1267,7 @@ describe "Regexp: encodings" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/regexp/encoding_test.rb:29: warning: character class has duplicated range: /\\x5b\\x00\\x61\\x00\\x61\\x00\\x5d\\x00\\x5d\\x00/\ncore/regexp/encoding_test.rb:29: warning: regular expression has ']' without escape: /\\x5b\\x00\\x61\\x00\\x61\\x00\\x5d\\x00\\x5d\\x00/\ncore/regexp/encoding_test.rb:30: warning: regular expression has redundant nested repeat operator '*': /\\x00\\x00\\x00\\x78\\x00\\x00\\x00\\x2a\\x00\\x00\\x00\\x2a/\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       "UTF-16LE"
       [8, 18]
       ["e", "世界"]
@@ -1351,6 +1351,10 @@ describe "Regexp: encodings" do
       Encoding::CompatibilityError
       "incompatible encoding regexp match (UTF-16LE regexp with UTF-8 string)"
     OUT
+      core/regexp/encoding_test.rb:29: warning: character class has duplicated range: /\x5b\x00\x61\x00\x61\x00\x5d\x00\x5d\x00/
+      core/regexp/encoding_test.rb:29: warning: regular expression has ']' without escape: /\x5b\x00\x61\x00\x61\x00\x5d\x00\x5d\x00/
+      core/regexp/encoding_test.rb:30: warning: regular expression has redundant nested repeat operator '*': /\x00\x00\x00\x78\x00\x00\x00\x2a\x00\x00\x00\x2a/
+    ERR
   end
 
   it "a binary subject matches no word boundary and no POSIX bracket" do
@@ -1416,7 +1420,7 @@ describe "Regexp: encodings" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "--\ncore/regexp/encoding_test.rb:8: warning: historical binary regexp match /.../n against UTF-8 string\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       [#<Encoding:US-ASCII>, false]
       nil
       [[255], 0]
@@ -1435,5 +1439,8 @@ describe "Regexp: encodings" do
       [Encoding::CompatibilityError, "incompatible encoding regexp match (UTF-8 regexp with UTF-16LE string)"]
       nil
     OUT
+      --
+      core/regexp/encoding_test.rb:8: warning: historical binary regexp match /.../n against UTF-8 string
+    ERR
   end
 end

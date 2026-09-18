@@ -42,13 +42,17 @@ describe "Variables: slicing" do
       puts "done"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/variables/slicing_test.rb:15: warning: found '= literal' in conditional, should be ==\nlang/variables/slicing_test.rb:19: warning: found '= literal' in conditional, should be ==\nlang/variables/slicing_test.rb:23: warning: found '= literal' in conditional, should be ==\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       literal assign taken
       unless:
       idiom ok: value
       call ok: 1
       done
     OUT
+      lang/variables/slicing_test.rb:15: warning: found '= literal' in conditional, should be ==
+      lang/variables/slicing_test.rb:19: warning: found '= literal' in conditional, should be ==
+      lang/variables/slicing_test.rb:23: warning: found '= literal' in conditional, should be ==
+    ERR
   end
 
   it "begin value body local" do

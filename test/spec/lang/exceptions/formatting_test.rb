@@ -1298,10 +1298,16 @@ describe "Exceptions: formatting and inspection" do
       boom(nil)
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/exceptions/formatting_test.rb:5:in 'Object#boom': undefined method 'length' for nil (NoMethodError)\n\n  v.length\n   ^^^^^^^\n\tfrom lang/exceptions/formatting_test.rb:15:in '<main>'\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR', status: 1
       "undefined method 'length' for nil"
       "before"
     OUT
+      lang/exceptions/formatting_test.rb:5:in 'Object#boom': undefined method 'length' for nil (NoMethodError)
+
+        v.length
+         ^^^^^^^
+      	from lang/exceptions/formatting_test.rb:15:in '<main>'
+    ERR
   end
 
   it "unresolved call raises" do

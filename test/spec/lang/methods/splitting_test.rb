@@ -317,7 +317,7 @@ describe "Methods: splitting and joining" do
       p capture(**HasToHash.new, w: 1)
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/methods/splitting_test.rb:12: warning: key :x is duplicated and overwritten on line 12\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       {a: 1, b: 2, c: 3}
       {c: 3, a: 1, b: 2}
       {x: 1, y: 2}
@@ -328,6 +328,8 @@ describe "Methods: splitting and joining" do
       [1, {k: 2, j: 3}]
       {z: 99, w: 1}
     OUT
+      lang/methods/splitting_test.rb:12: warning: key :x is duplicated and overwritten on line 12
+    ERR
   end
 
   it "kwargs double splat forward" do
@@ -495,7 +497,7 @@ describe "Methods: splitting and joining" do
       p pr.ruby2_keywords.equal?(pr)
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/methods/splitting_test.rb:59: warning: Skipping set of ruby2_keywords flag for proc (proc accepts keywords or post arguments or proc does not accept argument splat)\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       [9, [], 3, {}]
       [9, [{k: 3}], 2, {}]
       [9, [{k: 3}], 2, {}]
@@ -512,6 +514,8 @@ describe "Methods: splitting and joining" do
       [9, [], 3, {z: 4}]
       true
     OUT
+      lang/methods/splitting_test.rb:59: warning: Skipping set of ruby2_keywords flag for proc (proc accepts keywords or post arguments or proc does not accept argument splat)
+    ERR
   end
 
   it "self receiver runs no visibility check" do

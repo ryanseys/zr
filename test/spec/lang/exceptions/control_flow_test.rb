@@ -755,7 +755,10 @@ describe "Exceptions: control flow" do
       puts r.check(-1)
     RUBY
 
-    _(result).must_answer "10\n", stderr: "lang/exceptions/control_flow_test.rb:5:in 'Risky#check': bad value: -1 (MyError)\n\tfrom lang/exceptions/control_flow_test.rb:11:in '<main>'\n", status: 1
+    _(result).must_answer "10\n", stderr: <<~'ERR', status: 1
+      lang/exceptions/control_flow_test.rb:5:in 'Risky#check': bad value: -1 (MyError)
+      	from lang/exceptions/control_flow_test.rb:11:in '<main>'
+    ERR
   end
 
   it "rescue" do

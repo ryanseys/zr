@@ -2424,7 +2424,12 @@ describe "Classes programs" do
       p klass.class_variables
     RUBY
 
-    _(result).must_answer "", stderr: "lang/classes/classes_test.rb:8:in 'block in <main>': class variable access from toplevel (RuntimeError)\n\tfrom lang/classes/classes_test.rb:7:in 'Class#initialize'\n\tfrom lang/classes/classes_test.rb:7:in 'Class#new'\n\tfrom lang/classes/classes_test.rb:7:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      lang/classes/classes_test.rb:8:in 'block in <main>': class variable access from toplevel (RuntimeError)
+      	from lang/classes/classes_test.rb:7:in 'Class#initialize'
+      	from lang/classes/classes_test.rb:7:in 'Class#new'
+      	from lang/classes/classes_test.rb:7:in '<main>'
+    ERR
   end
 
   it "masgn classvar target" do

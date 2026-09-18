@@ -1742,7 +1742,7 @@ describe "Classes: frozen literals" do
       Bare.new.respond_to?(:to_s)
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "ze0/superclasses.rb:82:in '<main>': undefined method 'respond_to?' for an instance of Bare (NoMethodError)\n\nBare.new.respond_to?(:to_s)\n        ^^^^^^^^^^^^\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR', status: 1
       "leaf/mid/base"
       "deep/mid/base"
       "Outer::Mid"
@@ -1768,5 +1768,10 @@ describe "Classes: frozen literals" do
       2
       [:two]
     OUT
+      ze0/superclasses.rb:82:in '<main>': undefined method 'respond_to?' for an instance of Bare (NoMethodError)
+
+      Bare.new.respond_to?(:to_s)
+              ^^^^^^^^^^^^
+    ERR
   end
 end

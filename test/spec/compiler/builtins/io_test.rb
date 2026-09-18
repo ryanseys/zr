@@ -174,7 +174,7 @@ describe "Builtins: reading and writing" do
       puts "ran to the end"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "compiler/builtins/io_test.rb:65: warning: File::new() does not take block; use File::open() instead\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       IO.open owner	"#<Class:IO>"
       File.open owner	"#<Class:IO>"
       IO.new owner	"#<Class:IO>"
@@ -206,6 +206,8 @@ describe "Builtins: reading and writing" do
       ["File", "hello"]
       ran to the end
     OUT
+      compiler/builtins/io_test.rb:65: warning: File::new() does not take block; use File::open() instead
+    ERR
   end
 
   it "file stat surface" do

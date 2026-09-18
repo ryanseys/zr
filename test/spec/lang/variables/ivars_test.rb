@@ -588,9 +588,11 @@ describe "Variables: instance and class variables" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/variables/ivars_test.rb:7: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       [Ractor::IsolationError, "can not access instance variables of shareable objects from non-main Ractors"]
     OUT
+      lang/variables/ivars_test.rb:7: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 
   it "ivar site shared by an object and a module writes the modules table" do

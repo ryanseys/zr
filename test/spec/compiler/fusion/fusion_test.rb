@@ -1568,7 +1568,13 @@ describe "Fusion programs" do
       puts "ok"
     RUBY
 
-    _(result).must_answer "", stderr: "compiler/fusion/fusion_test.rb:5:in '<module:Sock>': uninitialized constant Sock::FFI (NameError)\n\n  extend FFI\n         ^^^\n\tfrom compiler/fusion/fusion_test.rb:4:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      compiler/fusion/fusion_test.rb:5:in '<module:Sock>': uninitialized constant Sock::FFI (NameError)
+
+        extend FFI
+               ^^^
+      	from compiler/fusion/fusion_test.rb:4:in '<main>'
+    ERR
   end
 
   it "ivar int table narrowing" do
@@ -3001,7 +3007,13 @@ describe "Fusion programs" do
       puts(ok ? "ok" : "bad")
     RUBY
 
-    _(result).must_answer "", stderr: "compiler/fusion/fusion_test.rb:7:in 'Object#churn_gc': undefined method '<=' for nil (NoMethodError)\n\n  while GC.stat[\"bytes\"] <= GC.stat[\"threshold\"] && keep.length < 64\n                         ^^\n\tfrom compiler/fusion/fusion_test.rb:43:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      compiler/fusion/fusion_test.rb:7:in 'Object#churn_gc': undefined method '<=' for nil (NoMethodError)
+
+        while GC.stat["bytes"] <= GC.stat["threshold"] && keep.length < 64
+                               ^^
+      	from compiler/fusion/fusion_test.rb:43:in '<main>'
+    ERR
   end
 
   it "typed array include cross type" do

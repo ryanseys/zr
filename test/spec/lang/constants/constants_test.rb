@@ -475,7 +475,7 @@ describe "Constants programs" do
       p H          # 99
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/constants/constants_test.rb:6: warning: already initialized constant A\nlang/constants/constants_test.rb:5: warning: previous definition of A was here\nlang/constants/constants_test.rb:9: warning: already initialized constant B\nlang/constants/constants_test.rb:8: warning: previous definition of B was here\nlang/constants/constants_test.rb:12: warning: already initialized constant C\nlang/constants/constants_test.rb:11: warning: previous definition of C was here\nlang/constants/constants_test.rb:15: warning: already initialized constant D\nlang/constants/constants_test.rb:14: warning: previous definition of D was here\nlang/constants/constants_test.rb:18: warning: already initialized constant E\nlang/constants/constants_test.rb:17: warning: previous definition of E was here\nlang/constants/constants_test.rb:21: warning: already initialized constant F\nlang/constants/constants_test.rb:20: warning: previous definition of F was here\nlang/constants/constants_test.rb:30: warning: already initialized constant G\nlang/constants/constants_test.rb:29: warning: previous definition of G was here\nlang/constants/constants_test.rb:33: warning: already initialized constant H\nlang/constants/constants_test.rb:32: warning: previous definition of H was here\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       2
       7
       20
@@ -487,6 +487,23 @@ describe "Constants programs" do
       99
       99
     OUT
+      lang/constants/constants_test.rb:6: warning: already initialized constant A
+      lang/constants/constants_test.rb:5: warning: previous definition of A was here
+      lang/constants/constants_test.rb:9: warning: already initialized constant B
+      lang/constants/constants_test.rb:8: warning: previous definition of B was here
+      lang/constants/constants_test.rb:12: warning: already initialized constant C
+      lang/constants/constants_test.rb:11: warning: previous definition of C was here
+      lang/constants/constants_test.rb:15: warning: already initialized constant D
+      lang/constants/constants_test.rb:14: warning: previous definition of D was here
+      lang/constants/constants_test.rb:18: warning: already initialized constant E
+      lang/constants/constants_test.rb:17: warning: previous definition of E was here
+      lang/constants/constants_test.rb:21: warning: already initialized constant F
+      lang/constants/constants_test.rb:20: warning: previous definition of F was here
+      lang/constants/constants_test.rb:30: warning: already initialized constant G
+      lang/constants/constants_test.rb:29: warning: previous definition of G was here
+      lang/constants/constants_test.rb:33: warning: already initialized constant H
+      lang/constants/constants_test.rb:32: warning: previous definition of H was here
+    ERR
   end
 
   it "const defined invalid name" do
@@ -675,12 +692,19 @@ describe "Constants programs" do
       p M::Z       # 8
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/constants/constants_test.rb:8: warning: already initialized constant M::X\nlang/constants/constants_test.rb:4: warning: previous definition of X was here\nlang/constants/constants_test.rb:10: warning: already initialized constant M::Y\nlang/constants/constants_test.rb:5: warning: previous definition of Y was here\nlang/constants/constants_test.rb:14: warning: already initialized constant M::Z\nlang/constants/constants_test.rb:6: warning: previous definition of Z was here\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       2
       7
       0
       8
     OUT
+      lang/constants/constants_test.rb:8: warning: already initialized constant M::X
+      lang/constants/constants_test.rb:4: warning: previous definition of X was here
+      lang/constants/constants_test.rb:10: warning: already initialized constant M::Y
+      lang/constants/constants_test.rb:5: warning: previous definition of Y was here
+      lang/constants/constants_test.rb:14: warning: already initialized constant M::Z
+      lang/constants/constants_test.rb:6: warning: previous definition of Z was here
+    ERR
   end
 
   it "const probe and anchored shell" do
@@ -1313,7 +1337,7 @@ describe "Constants programs" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/constants/constants_test.rb:69: warning: already initialized constant Counter::START\nlang/constants/constants_test.rb:65: warning: previous definition of START was here\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       1
       :set
       :set
@@ -1339,6 +1363,9 @@ describe "Constants programs" do
       :inherited
       [1, 2, 1, 2]
     OUT
+      lang/constants/constants_test.rb:69: warning: already initialized constant Counter::START
+      lang/constants/constants_test.rb:65: warning: previous definition of START was here
+    ERR
   end
 
   it "constant path off a dynamic scope resolves at runtime" do
@@ -1419,7 +1446,7 @@ describe "Constants programs" do
       p E::TBL                   # {}
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/constants/constants_test.rb:11: warning: already initialized constant M::COUNT\nlang/constants/constants_test.rb:7: warning: previous definition of COUNT was here\nlang/constants/constants_test.rb:14: warning: already initialized constant M::NAME\nlang/constants/constants_test.rb:8: warning: previous definition of NAME was here\nlang/constants/constants_test.rb:18: warning: already initialized constant M::COUNT\nlang/constants/constants_test.rb:11: warning: previous definition of COUNT was here\nlang/constants/constants_test.rb:27: warning: already initialized constant A::B::LEVEL\nlang/constants/constants_test.rb:24: warning: previous definition of LEVEL was here\nlang/constants/constants_test.rb:34: warning: already initialized constant N::V\nlang/constants/constants_test.rb:32: warning: previous definition of V was here\nlang/constants/constants_test.rb:35: warning: already initialized constant N::V\nlang/constants/constants_test.rb:34: warning: previous definition of V was here\nlang/constants/constants_test.rb:45: warning: already initialized constant E::NUMS\nlang/constants/constants_test.rb:42: warning: previous definition of NUMS was here\nlang/constants/constants_test.rb:47: warning: already initialized constant E::TBL\nlang/constants/constants_test.rb:43: warning: previous definition of TBL was here\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       5
       "SPINEL"
       15
@@ -1429,6 +1456,23 @@ describe "Constants programs" do
       []
       {}
     OUT
+      lang/constants/constants_test.rb:11: warning: already initialized constant M::COUNT
+      lang/constants/constants_test.rb:7: warning: previous definition of COUNT was here
+      lang/constants/constants_test.rb:14: warning: already initialized constant M::NAME
+      lang/constants/constants_test.rb:8: warning: previous definition of NAME was here
+      lang/constants/constants_test.rb:18: warning: already initialized constant M::COUNT
+      lang/constants/constants_test.rb:11: warning: previous definition of COUNT was here
+      lang/constants/constants_test.rb:27: warning: already initialized constant A::B::LEVEL
+      lang/constants/constants_test.rb:24: warning: previous definition of LEVEL was here
+      lang/constants/constants_test.rb:34: warning: already initialized constant N::V
+      lang/constants/constants_test.rb:32: warning: previous definition of V was here
+      lang/constants/constants_test.rb:35: warning: already initialized constant N::V
+      lang/constants/constants_test.rb:34: warning: previous definition of V was here
+      lang/constants/constants_test.rb:45: warning: already initialized constant E::NUMS
+      lang/constants/constants_test.rb:42: warning: previous definition of NUMS was here
+      lang/constants/constants_test.rb:47: warning: already initialized constant E::TBL
+      lang/constants/constants_test.rb:43: warning: previous definition of TBL was here
+    ERR
   end
 
   it "constant path write undeclared" do
@@ -1468,7 +1512,7 @@ describe "Constants programs" do
       p M::C                    # 2
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/constants/constants_test.rb:12: warning: already initialized constant M::S\nlang/constants/constants_test.rb:11: warning: previous definition of S was here\nlang/constants/constants_test.rb:32: warning: already initialized constant M::C\nlang/constants/constants_test.rb:31: warning: previous definition of C was here\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       5
       "hi!"
       5
@@ -1477,6 +1521,11 @@ describe "Constants programs" do
       3
       2
     OUT
+      lang/constants/constants_test.rb:12: warning: already initialized constant M::S
+      lang/constants/constants_test.rb:11: warning: previous definition of S was here
+      lang/constants/constants_test.rb:32: warning: already initialized constant M::C
+      lang/constants/constants_test.rb:31: warning: previous definition of C was here
+    ERR
   end
 
   it "constant visibility is positional" do
@@ -2230,10 +2279,15 @@ describe "Constants programs" do
       p [b, M::Y]
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/constants/constants_test.rb:8: warning: already initialized constant M::X\nlang/constants/constants_test.rb:5: warning: previous definition of X was here\nlang/constants/constants_test.rb:10: warning: already initialized constant M::Y\nlang/constants/constants_test.rb:6: warning: previous definition of Y was here\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       [1, 2]
       [10, 20]
     OUT
+      lang/constants/constants_test.rb:8: warning: already initialized constant M::X
+      lang/constants/constants_test.rb:5: warning: previous definition of X was here
+      lang/constants/constants_test.rb:10: warning: already initialized constant M::Y
+      lang/constants/constants_test.rb:6: warning: previous definition of Y was here
+    ERR
   end
 
   it "namespaced constant read via double colon" do
@@ -2829,7 +2883,7 @@ describe "Constants programs" do
       p ApiNotify::ActiveRecord::Logger.superclass
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/constants/constants_test.rb:60:in '<module:ActiveRecord>': uninitialized constant ApiNotify::ActiveRecord::Logger (NameError)\n\n    class Logger < Logger\n                   ^^^^^^\n\tfrom lang/constants/constants_test.rb:59:in '<module:ApiNotify>'\n\tfrom lang/constants/constants_test.rb:58:in '<main>'\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR', status: 1
       HTTPX::Error
       HTTPX::Connection::HTTP2::Error
       "h2"
@@ -2839,6 +2893,13 @@ describe "Constants programs" do
       NameError
       :top
     OUT
+      lang/constants/constants_test.rb:60:in '<module:ActiveRecord>': uninitialized constant ApiNotify::ActiveRecord::Logger (NameError)
+
+          class Logger < Logger
+                         ^^^^^^
+      	from lang/constants/constants_test.rb:59:in '<module:ApiNotify>'
+      	from lang/constants/constants_test.rb:58:in '<main>'
+    ERR
   end
 
   it "qualified missing constant value" do
@@ -3788,7 +3849,7 @@ describe "Constants programs" do
       include NeverDefined
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/constants/constants_test.rb:35:in '<main>': uninitialized constant NeverDefined (NameError)\n\ninclude NeverDefined\n        ^^^^^^^^^^^^\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR', status: 1
       uninitialized constant Outer::Wrap::Missing | name=:Missing | :5:in 'Outer::Wrap.bare'
       uninitialized constant Outer::Wrap::Deep | name=:Deep | :6:in 'Outer::Wrap.scoped'
       uninitialized constant Nowhere | name=:Nowhere | :21:in 'block in <main>'
@@ -3796,6 +3857,11 @@ describe "Constants programs" do
       uninitialized constant Pkg::Inner::Gone | name=:Gone | :28:in 'block in <module:Inner>'
       reached the include
     OUT
+      lang/constants/constants_test.rb:35:in '<main>': uninitialized constant NeverDefined (NameError)
+
+      include NeverDefined
+              ^^^^^^^^^^^^
+    ERR
   end
 
   it "writes" do
@@ -3848,7 +3914,7 @@ describe "Constants programs" do
       p head
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "ze0/constant_writes.rb:14: warning: already initialized constant EMPTY\nze0/constant_writes.rb:13: warning: previous definition of EMPTY was here\nze0/constant_writes.rb:18: warning: already initialized constant BOTH\nze0/constant_writes.rb:17: warning: previous definition of BOTH was here\nze0/constant_writes.rb:25: warning: already initialized constant Holder::COUNT\nze0/constant_writes.rb:22: warning: previous definition of COUNT was here\nze0/constant_writes.rb:31: warning: already initialized constant Holder::COUNT\nze0/constant_writes.rb:25: warning: previous definition of COUNT was here\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       2
       5
       7
@@ -3862,5 +3928,14 @@ describe "Constants programs" do
       :other
       1
     OUT
+      ze0/constant_writes.rb:14: warning: already initialized constant EMPTY
+      ze0/constant_writes.rb:13: warning: previous definition of EMPTY was here
+      ze0/constant_writes.rb:18: warning: already initialized constant BOTH
+      ze0/constant_writes.rb:17: warning: previous definition of BOTH was here
+      ze0/constant_writes.rb:25: warning: already initialized constant Holder::COUNT
+      ze0/constant_writes.rb:22: warning: previous definition of COUNT was here
+      ze0/constant_writes.rb:31: warning: already initialized constant Holder::COUNT
+      ze0/constant_writes.rb:25: warning: previous definition of COUNT was here
+    ERR
   end
 end

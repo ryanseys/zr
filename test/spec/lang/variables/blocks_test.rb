@@ -321,10 +321,12 @@ describe "Variables: blocks and yields" do
       puts "still running"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/variables/blocks_test.rb:8: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       raised: ArgumentError: can not isolate a Proc because it accesses outer variables (x).
       still running
     OUT
+      lang/variables/blocks_test.rb:8: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 
   it "singleton method yield with no block raises rescuable local jump error" do

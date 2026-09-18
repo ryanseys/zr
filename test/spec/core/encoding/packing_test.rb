@@ -599,7 +599,7 @@ describe "Encoding: packing and unpacking" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/encoding/packing_test.rb:53: warning: setting Encoding.default_external\ncore/encoding/packing_test.rb:54: warning: setting Encoding.default_internal\ncore/encoding/packing_test.rb:55: warning: setting Encoding.default_external\ncore/encoding/packing_test.rb:56: warning: setting Encoding.default_internal\ncore/encoding/packing_test.rb:61: warning: setting Encoding.default_internal\ncore/encoding/packing_test.rb:64: warning: setting Encoding.default_internal\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       #<Encoding:UTF-8>
       nil
       "ISO-8859-1"
@@ -652,6 +652,13 @@ describe "Encoding: packing and unpacking" do
       "a\xFF&lt;"
       "a\uFFFD"
     OUT
+      core/encoding/packing_test.rb:53: warning: setting Encoding.default_external
+      core/encoding/packing_test.rb:54: warning: setting Encoding.default_internal
+      core/encoding/packing_test.rb:55: warning: setting Encoding.default_external
+      core/encoding/packing_test.rb:56: warning: setting Encoding.default_internal
+      core/encoding/packing_test.rb:61: warning: setting Encoding.default_internal
+      core/encoding/packing_test.rb:64: warning: setting Encoding.default_internal
+    ERR
   end
 
   it "encoding utf16 dummy" do

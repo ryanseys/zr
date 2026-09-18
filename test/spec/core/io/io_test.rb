@@ -1197,7 +1197,9 @@ describe "IO programs" do
       p b.size
     RUBY
 
-    _(result).must_answer "8\n", stderr: "core/io/io_test.rb:1: warning: IO::Buffer is experimental and both the Ruby and C interface may change in the future!\n"
+    _(result).must_answer "8\n", stderr: <<~'ERR'
+      core/io/io_test.rb:1: warning: IO::Buffer is experimental and both the Ruby and C interface may change in the future!
+    ERR
   end
 
   it "io buffered read position" do

@@ -508,7 +508,15 @@ describe "Hash: enumeration" do
       puts result2.inspect
     RUBY
 
-    _(result).must_answer "[10, 20, 30]\n", stderr: "core/hash/enumeration_test.rb:15:in 'block in <main>': undefined method '<<' for nil (NoMethodError)\n\nresult2 = h.each_with_object([]) { |k, v, memo| memo << v * 100 }\n                                                     ^^\n\tfrom core/hash/enumeration_test.rb:15:in 'Hash#each'\n\tfrom core/hash/enumeration_test.rb:15:in 'Enumerable#each_with_object'\n\tfrom core/hash/enumeration_test.rb:15:in '<main>'\n", status: 1
+    _(result).must_answer "[10, 20, 30]\n", stderr: <<~'ERR', status: 1
+      core/hash/enumeration_test.rb:15:in 'block in <main>': undefined method '<<' for nil (NoMethodError)
+
+      result2 = h.each_with_object([]) { |k, v, memo| memo << v * 100 }
+                                                           ^^
+      	from core/hash/enumeration_test.rb:15:in 'Hash#each'
+      	from core/hash/enumeration_test.rb:15:in 'Enumerable#each_with_object'
+      	from core/hash/enumeration_test.rb:15:in '<main>'
+    ERR
   end
 
   it "an empty literal answers the object queries, and a block returning nil maps to nils" do
@@ -849,7 +857,7 @@ describe "Hash: enumeration" do
       p ps.last[0]
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/hash/enumeration_test.rb:16: warning: key 10 is duplicated and overwritten on line 16\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       [[:a, 1], [:b, 2], [:c, 3]]
       [["a", 3], ["c", 2], ["d", 1]]
       [[1, "z"], [2, "y"], [3, "x"]]
@@ -859,6 +867,8 @@ describe "Hash: enumeration" do
       :a
       :z
     OUT
+      core/hash/enumeration_test.rb:16: warning: key 10 is duplicated and overwritten on line 16
+    ERR
   end
 
   it "inject(:+) folds the boxed elements that values and map return" do

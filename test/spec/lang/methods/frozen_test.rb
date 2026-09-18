@@ -744,7 +744,7 @@ describe "Methods: frozen literals" do
       p Both.public_instance_methods(false).sort
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "ze0/tail_forms_two.rb:45: warning: already initialized constant A::B::LEVEL\nze0/tail_forms_two.rb:42: warning: previous definition of LEVEL was here\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       [3, 4, 5]
       [3]
       [3, 4, 5, 6]
@@ -762,5 +762,8 @@ describe "Methods: frozen literals" do
       [:one, :two]
       [:three]
     OUT
+      ze0/tail_forms_two.rb:45: warning: already initialized constant A::B::LEVEL
+      ze0/tail_forms_two.rb:42: warning: previous definition of LEVEL was here
+    ERR
   end
 end

@@ -488,7 +488,9 @@ describe "Thread: blocks and yields" do
       puts r.value
     RUBY
 
-    _(result).must_answer "3\n", stderr: "core/thread/blocks_test.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer "3\n", stderr: <<~'ERR'
+      core/thread/blocks_test.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 
   it "fiber yield at the root raises a fiber error" do
@@ -758,7 +760,7 @@ describe "Thread: blocks and yields" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "ze0/ractor.rb:6: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       21
       "worker"
       7
@@ -768,6 +770,8 @@ describe "Thread: blocks and yields" do
       can not isolate a Proc because it accesses outer variables (outer).
       must be called with a block
     OUT
+      ze0/ractor.rb:6: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 
   it "ractor block isolates at runtime" do
@@ -880,9 +884,11 @@ describe "Thread: blocks and yields" do
       Holder.new.go
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/thread/blocks_test.rb:10: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       cause: Ractor::IsolationError: can not access instance variables of shareable objects from non-main Ractors
     OUT
+      core/thread/blocks_test.rb:10: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 
   it "ractor new with proc arg" do
@@ -939,7 +945,7 @@ describe "Thread: blocks and yields" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/thread/blocks_test.rb:6: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       42
       15
       2
@@ -948,6 +954,8 @@ describe "Thread: blocks and yields" do
       can not isolate a Proc because it accesses outer variables (outer).
       must be called with a block
     OUT
+      core/thread/blocks_test.rb:6: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 
   it "shareable proc copies only what cannot change" do

@@ -216,10 +216,16 @@ describe "Process: threads, fibers and ractors" do
       puts worker.value
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "#<Thread:0xADDR core/process/threads_test.rb:7 run> terminated with exception (report_on_exception is true):\ncore/process/threads_test.rb:7:in 'block in <main>': undefined method 'missing_in_thread' for an instance of Plain (NoMethodError)\n\nbad = Thread.new { Plain.new.send(:missing_in_thread) }\n                            ^^^^^\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       joined the failure
       42
     OUT
+      #<Thread:0xADDR core/process/threads_test.rb:7 run> terminated with exception (report_on_exception is true):
+      core/process/threads_test.rb:7:in 'block in <main>': undefined method 'missing_in_thread' for an instance of Plain (NoMethodError)
+
+      bad = Thread.new { Plain.new.send(:missing_in_thread) }
+                                  ^^^^^
+    ERR
   end
 
   it "thread kill raise" do

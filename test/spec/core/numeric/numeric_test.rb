@@ -1706,7 +1706,15 @@ describe "Numeric programs" do
       end
     RUBY
 
-    _(result).must_answer "", stderr: "core/numeric/numeric_test.rb:27:in 'Comparable#<': comparison of Deg with 0 failed (ArgumentError)\n\n  p n.i\n    ^^^\n\tfrom core/numeric/numeric_test.rb:27:in 'Complex#inspect'\n\tfrom core/numeric/numeric_test.rb:27:in 'Kernel#p'\n\tfrom core/numeric/numeric_test.rb:27:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      core/numeric/numeric_test.rb:27:in 'Comparable#<': comparison of Deg with 0 failed (ArgumentError)
+
+        p n.i
+          ^^^
+      	from core/numeric/numeric_test.rb:27:in 'Complex#inspect'
+      	from core/numeric/numeric_test.rb:27:in 'Kernel#p'
+      	from core/numeric/numeric_test.rb:27:in '<main>'
+    ERR
   end
 
   it "polyarray insert delete at" do

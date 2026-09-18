@@ -1164,7 +1164,9 @@ describe "Regexp: searching and matching" do
       5 => String
     RUBY
 
-    _(result).must_answer "", stderr: "core/regexp/search_test.rb:1:in '<main>': 5: String === 5 does not return true (NoMatchingPatternError)\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      core/regexp/search_test.rb:1:in '<main>': 5: String === 5 does not return true (NoMatchingPatternError)
+    ERR
   end
 
   it "match tilde pre post" do
@@ -1751,7 +1753,7 @@ describe "Regexp: searching and matching" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/regexp/search_test.rb:9: warning: character class has '-' without escape: /[a-b[x]-z]/\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       ["[[[:alnum:]]-_.]", ["a", "b", "_", "-", ".", "x", "y", "z", "5"]]
       ["[a[x]-c]", ["a", "b", "x"]]
       ["[[x]a-c]", ["a", "b", "x"]]
@@ -1761,6 +1763,8 @@ describe "Regexp: searching and matching" do
       ["[x[y]]", ["x", "y"]]
       ["[[a-c]&&[b]]", ["b"]]
     OUT
+      core/regexp/search_test.rb:9: warning: character class has '-' without escape: /[a-b[x]-z]/
+    ERR
   end
 
   it "nil match op variable" do
@@ -1835,7 +1839,7 @@ describe "Regexp: searching and matching" do
       p(Regexp.new("a***").match?("aaa"))
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/regexp/search_test.rb:16: warning: regular expression has redundant nested repeat operator '*': /a***/\ncore/regexp/search_test.rb:16: warning: regular expression has redundant nested repeat operator '*': /a***/\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       1
       2
       false
@@ -1848,6 +1852,9 @@ describe "Regexp: searching and matching" do
       [nil, nil, "c"]
       true
     OUT
+      core/regexp/search_test.rb:16: warning: regular expression has redundant nested repeat operator '*': /a***/
+      core/regexp/search_test.rb:16: warning: regular expression has redundant nested repeat operator '*': /a***/
+    ERR
   end
 
   it "regex atomic group" do

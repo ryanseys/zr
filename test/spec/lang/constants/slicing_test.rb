@@ -214,7 +214,14 @@ describe "Constants: slicing" do
       Object.const_set(:G, 6)
     RUBY
 
-    _(result).must_answer "2\n", stderr: "lang/constants/slicing_test.rb:17: warning: already initialized constant D\nlang/constants/slicing_test.rb:16: warning: previous definition of D was here\nlang/constants/slicing_test.rb:22: warning: already initialized constant M::E\nlang/constants/slicing_test.rb:21: warning: previous definition of E was here\nlang/constants/slicing_test.rb:33: warning: already initialized constant G\nlang/constants/slicing_test.rb:32: warning: previous definition of G was here\n"
+    _(result).must_answer "2\n", stderr: <<~'ERR'
+      lang/constants/slicing_test.rb:17: warning: already initialized constant D
+      lang/constants/slicing_test.rb:16: warning: previous definition of D was here
+      lang/constants/slicing_test.rb:22: warning: already initialized constant M::E
+      lang/constants/slicing_test.rb:21: warning: previous definition of E was here
+      lang/constants/slicing_test.rb:33: warning: already initialized constant G
+      lang/constants/slicing_test.rb:32: warning: previous definition of G was here
+    ERR
   end
 
   it "scoped names" do

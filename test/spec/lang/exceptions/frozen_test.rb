@@ -437,12 +437,14 @@ describe "Exceptions: frozen literals" do
       puts sink.value
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/exceptions/frozen_test.rb:18: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       true
       true
       true
       1
     OUT
+      lang/exceptions/frozen_test.rb:18: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 
   it "name validation family" do

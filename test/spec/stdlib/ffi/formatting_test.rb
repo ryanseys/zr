@@ -48,7 +48,7 @@ describe "FFI: formatting and inspection" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "stdlib/ffi/formatting_test.rb:35: warning: calling free on non allocated pointer #<FFI::Pointer address=0xADDR> from stdlib/ffi/formatting_test.rb:35:in 'block in <main>'\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       int8: TypeError: no implicit conversion from nil to integer | TypeError: no implicit conversion of String into Integer | TypeError: no implicit conversion of Symbol into Integer | TypeError: no implicit conversion of true into Integer | 3 | -1 | RangeError: integer 2147483648 too big to convert to 'int' | RangeError: integer -2147483649 too small to convert to 'int' | RangeError: integer 4294967296 too big to convert to 'int' | RangeError: bignum too big to convert into 'long' | RangeError: bignum too big to convert into 'long' | RangeError: bignum too big to convert into 'long' | 0 | TypeError: no implicit conversion of Object into Integer | RangeError: float 1e+30 out of range of integer | RangeError: float NaN out of range of integer
       uint8: TypeError: no implicit conversion of nil into Integer | TypeError: no implicit conversion of String into Integer | TypeError: no implicit conversion of Symbol into Integer | TypeError: no implicit conversion of true into Integer | 3 | 255 | 0 | RangeError: integer -2147483649 too small to convert to 'unsigned int' | RangeError: integer 4294967296 too big to convert to 'unsigned int' | RangeError: integer 9223372036854775808 too big to convert to 'unsigned int' | RangeError: bignum too big to convert into 'unsigned long' | RangeError: bignum out of range of unsigned long | 0 | TypeError: no implicit conversion of Object into Integer | RangeError: float 1e+30 out of range of integer | RangeError: float NaN out of range of integer
       int16: TypeError: no implicit conversion from nil to integer | TypeError: no implicit conversion of String into Integer | TypeError: no implicit conversion of Symbol into Integer | TypeError: no implicit conversion of true into Integer | 3 | -1 | RangeError: integer 2147483648 too big to convert to 'int' | RangeError: integer -2147483649 too small to convert to 'int' | RangeError: integer 4294967296 too big to convert to 'int' | RangeError: bignum too big to convert into 'long' | RangeError: bignum too big to convert into 'long' | RangeError: bignum too big to convert into 'long' | 0 | TypeError: no implicit conversion of Object into Integer | RangeError: float 1e+30 out of range of integer | RangeError: float NaN out of range of integer
@@ -95,6 +95,8 @@ describe "FFI: formatting and inspection" do
       ok
       RuntimeError: Struct size is zero
     OUT
+      stdlib/ffi/formatting_test.rb:35: warning: calling free on non allocated pointer #<FFI::Pointer address=0xADDR> from stdlib/ffi/formatting_test.rb:35:in 'block in <main>'
+    ERR
   end
 
   it "a ruby array's numeric contents cross the boundary as a contiguous C buffer" do

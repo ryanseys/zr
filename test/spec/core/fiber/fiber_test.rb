@@ -391,13 +391,15 @@ describe "Fiber programs" do
       p((Fiber.schedule {} rescue $!))
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/fiber/fiber_test.rb:16: warning: Scheduler should implement #fiber_interrupt\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       true
       [:sleep]
       :close
       "Scheduler must implement #block"
       #<RuntimeError: No scheduler is available!>
     OUT
+      core/fiber/fiber_test.rb:16: warning: Scheduler should implement #fiber_interrupt
+    ERR
   end
 
   it "transferred fiber ends in its threads root" do

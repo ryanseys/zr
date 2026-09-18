@@ -365,11 +365,18 @@ describe "Thread: raising and rescuing" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/thread/exceptions_test.rb:9: warning: Ractor API is experimental and may change in future versions of Ruby.\n#<Thread:0xADDR run> terminated with exception (report_on_exception is true):\ncore/thread/exceptions_test.rb:9:in 'block in <main>': undefined method 'nope' for an instance of Bare (NoMethodError)\n\nr = Ractor.new { Bare.new.send(:nope) }\n                         ^^^^^\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       rescued in resumer
       false
       rescued at value: NoMethodError
     OUT
+      core/thread/exceptions_test.rb:9: warning: Ractor API is experimental and may change in future versions of Ruby.
+      #<Thread:0xADDR run> terminated with exception (report_on_exception is true):
+      core/thread/exceptions_test.rb:9:in 'block in <main>': undefined method 'nope' for an instance of Bare (NoMethodError)
+
+      r = Ractor.new { Bare.new.send(:nope) }
+                               ^^^^^
+    ERR
   end
 
   it "push to a closed queue raises closed queue error" do
@@ -456,11 +463,16 @@ describe "Thread: raising and rescuing" do
       puts "done"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "#<Thread:0xADDR run> terminated with exception (report_on_exception is true):\ncore/thread/exceptions_test.rb:17:in 'block in <main>': boom (RuntimeError)\n#<Thread:0xADDR run> terminated with exception (report_on_exception is true):\ncore/thread/exceptions_test.rb:34:in 'block in <main>': unattended (NotImplementedError)\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       value raised Ractor::RemoteError: RuntimeError
       quiet raised Ractor::RemoteError: hushed
       done
     OUT
+      #<Thread:0xADDR run> terminated with exception (report_on_exception is true):
+      core/thread/exceptions_test.rb:17:in 'block in <main>': boom (RuntimeError)
+      #<Thread:0xADDR run> terminated with exception (report_on_exception is true):
+      core/thread/exceptions_test.rb:34:in 'block in <main>': unattended (NotImplementedError)
+    ERR
   end
 
   it "raise inside a fiber backtraces only the fibers own frames" do
@@ -744,7 +756,7 @@ describe "Thread: raising and rescuing" do
       puts "done"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "#<Thread:0xADDR core/thread/exceptions_test.rb:7 run> terminated with exception (report_on_exception is true):\ncore/thread/exceptions_test.rb:7:in 'block in <main>': reported (RuntimeError)\n#<Thread:0xADDR core/thread/exceptions_test.rb:45 run> terminated with exception (report_on_exception is true):\ncore/thread/exceptions_test.rb:45:in 'block in <main>': loud again (RuntimeError)\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       joined: reported
       joined: silent
       false
@@ -758,6 +770,11 @@ describe "Thread: raising and rescuing" do
       2
       done
     OUT
+      #<Thread:0xADDR core/thread/exceptions_test.rb:7 run> terminated with exception (report_on_exception is true):
+      core/thread/exceptions_test.rb:7:in 'block in <main>': reported (RuntimeError)
+      #<Thread:0xADDR core/thread/exceptions_test.rb:45 run> terminated with exception (report_on_exception is true):
+      core/thread/exceptions_test.rb:45:in 'block in <main>': loud again (RuntimeError)
+    ERR
   end
 
   it "uncaught exception in a ractor wraps in remote error at value" do
@@ -775,9 +792,13 @@ describe "Thread: raising and rescuing" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/thread/exceptions_test.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.\n#<Thread:0xADDR run> terminated with exception (report_on_exception is true):\ncore/thread/exceptions_test.rb:5:in 'block in <main>': ractor boom (RuntimeError)\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       rescued: thrown by remote Ractor. / RuntimeError / ractor boom
     OUT
+      core/thread/exceptions_test.rb:4: warning: Ractor API is experimental and may change in future versions of Ruby.
+      #<Thread:0xADDR run> terminated with exception (report_on_exception is true):
+      core/thread/exceptions_test.rb:5:in 'block in <main>': ractor boom (RuntimeError)
+    ERR
   end
 
   it "uncaught exception in a thread reraises at join and value" do
@@ -800,9 +821,14 @@ describe "Thread: raising and rescuing" do
       end
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "#<Thread:0xADDR core/thread/exceptions_test.rb:5 run> terminated with exception (report_on_exception is true):\ncore/thread/exceptions_test.rb:5:in 'block in <main>': thread boom (RuntimeError)\n#<Thread:0xADDR core/thread/exceptions_test.rb:11 run> terminated with exception (report_on_exception is true):\ncore/thread/exceptions_test.rb:11:in 'block in <main>': thread boom2 (RuntimeError)\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       joined error: thread boom
       valued error: thread boom2
     OUT
+      #<Thread:0xADDR core/thread/exceptions_test.rb:5 run> terminated with exception (report_on_exception is true):
+      core/thread/exceptions_test.rb:5:in 'block in <main>': thread boom (RuntimeError)
+      #<Thread:0xADDR core/thread/exceptions_test.rb:11 run> terminated with exception (report_on_exception is true):
+      core/thread/exceptions_test.rb:11:in 'block in <main>': thread boom2 (RuntimeError)
+    ERR
   end
 end

@@ -610,12 +610,14 @@ describe "Control: control flow" do
       puts local_variables.grep(/__loop/).length
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/control/control_flow_test.rb:13: warning: Ractor API is experimental and may change in future versions of Ruby.\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       3
       2
       [1, 2]
       0
     OUT
+      lang/control/control_flow_test.rb:13: warning: Ractor API is experimental and may change in future versions of Ruby.
+    ERR
   end
 
   it "exc frame break next pops" do

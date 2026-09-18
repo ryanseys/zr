@@ -1006,7 +1006,13 @@ describe "Array: slicing" do
       puts "after reset: #{Net.sp_net_poll_add(0, 1)}"
     RUBY
 
-    _(result).must_answer "", stderr: "core/array/slicing_test.rb:11:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)\n\n  ffi_func :sp_net_poll_reset, [],          :int\n  ^^^^^^^^\n\tfrom core/array/slicing_test.rb:10:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      core/array/slicing_test.rb:11:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)
+
+        ffi_func :sp_net_poll_reset, [],          :int
+        ^^^^^^^^
+      	from core/array/slicing_test.rb:10:in '<main>'
+    ERR
   end
 
   it "stack operations take a count in the kernel" do

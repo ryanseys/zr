@@ -367,7 +367,12 @@ describe "String programs" do
       puts "retained: " + arr.length.to_s
     RUBY
 
-    _(result).must_answer "", stderr: "core/string/string_test.rb:13:in '<main>': undefined method '>=' for nil (NoMethodError)\n\nputs \"str_count >= 1000: \" + (g[\"str_count\"] >= 1000 ? \"yes\" : \"no\")\n                                             ^^\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      core/string/string_test.rb:13:in '<main>': undefined method '>=' for nil (NoMethodError)
+
+      puts "str_count >= 1000: " + (g["str_count"] >= 1000 ? "yes" : "no")
+                                                   ^^
+    ERR
   end
 
   it "gc str arg rooted" do
@@ -865,7 +870,10 @@ describe "String programs" do
       Risky.new.check
     RUBY
 
-    _(result).must_answer "", stderr: "core/string/string_test.rb:3:in 'Risky#check': plain string error (RuntimeError)\n\tfrom core/string/string_test.rb:6:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      core/string/string_test.rb:3:in 'Risky#check': plain string error (RuntimeError)
+      	from core/string/string_test.rb:6:in '<main>'
+    ERR
   end
 
   it "ruby engine name" do

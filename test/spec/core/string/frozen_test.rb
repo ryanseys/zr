@@ -784,7 +784,14 @@ describe "String: frozen literals" do
       puts str2  # "b" (heap, mutates)
     RUBY
 
-    _(result).must_answer "", stderr: "core/string/frozen_test.rb:19:in 'String#count': wrong number of arguments (given 0, expected 1+) (ArgumentError)\n\n    caller: core/string/frozen_test.rb:19\n    |   \"foo\".count\n             ^^^^^^\n\tfrom core/string/frozen_test.rb:19:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      core/string/frozen_test.rb:19:in 'String#count': wrong number of arguments (given 0, expected 1+) (ArgumentError)
+
+          caller: core/string/frozen_test.rb:19
+          |   "foo".count
+                   ^^^^^^
+      	from core/string/frozen_test.rb:19:in '<main>'
+    ERR
   end
 
   it "string arg conformance" do
@@ -1420,7 +1427,7 @@ describe "String: frozen literals" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\ncore/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\ncore/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\ncore/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\ncore/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\ncore/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\ncore/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\ncore/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\ncore/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\ncore/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\ncore/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\ncore/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n0\ncore/string/frozen_test.rb:18: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n1\ncore/string/frozen_test.rb:19: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n2\ncore/string/frozen_test.rb:20: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n3\ncore/string/frozen_test.rb:21: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n4\ncore/string/frozen_test.rb:22: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n5\ncore/string/frozen_test.rb:23: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n6\ncore/string/frozen_test.rb:24: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n7\ncore/string/frozen_test.rb:25: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n8\ncore/string/frozen_test.rb:26: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n9\ncore/string/frozen_test.rb:27: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n10\ncore/string/frozen_test.rb:28: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n11\ncore/string/frozen_test.rb:29: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n12\ncore/string/frozen_test.rb:30: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n13\n14\n15\n16\n17\ncore/string/frozen_test.rb:35: warning: string returned by :sym.to_s will be frozen in the future\n18\n19\ncore/string/frozen_test.rb:37: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n20\ncore/string/frozen_test.rb:38: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n21\ncore/string/frozen_test.rb:39: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       false
       false
       "abc"
@@ -1430,5 +1437,57 @@ describe "String: frozen literals" do
       true
       true
     OUT
+      core/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      core/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      core/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      core/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      core/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      core/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      core/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      core/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      core/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      core/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      core/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      core/string/frozen_test.rb:15: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      0
+      core/string/frozen_test.rb:18: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      1
+      core/string/frozen_test.rb:19: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      2
+      core/string/frozen_test.rb:20: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      3
+      core/string/frozen_test.rb:21: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      4
+      core/string/frozen_test.rb:22: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      5
+      core/string/frozen_test.rb:23: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      6
+      core/string/frozen_test.rb:24: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      7
+      core/string/frozen_test.rb:25: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      8
+      core/string/frozen_test.rb:26: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      9
+      core/string/frozen_test.rb:27: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      10
+      core/string/frozen_test.rb:28: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      11
+      core/string/frozen_test.rb:29: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      12
+      core/string/frozen_test.rb:30: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      13
+      14
+      15
+      16
+      17
+      core/string/frozen_test.rb:35: warning: string returned by :sym.to_s will be frozen in the future
+      18
+      19
+      core/string/frozen_test.rb:37: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      20
+      core/string/frozen_test.rb:38: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+      21
+      core/string/frozen_test.rb:39: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
+    ERR
   end
 end

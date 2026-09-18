@@ -420,10 +420,15 @@ describe "Variables programs" do
       puts MAX
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/variables/variables_test.rb:14: warning: already initialized constant MAX\nlang/variables/variables_test.rb:13: warning: previous definition of MAX was here\nlang/variables/variables_test.rb:16: warning: already initialized constant MAX\nlang/variables/variables_test.rb:14: warning: previous definition of MAX was here\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       101
       51
     OUT
+      lang/variables/variables_test.rb:14: warning: already initialized constant MAX
+      lang/variables/variables_test.rb:13: warning: previous definition of MAX was here
+      lang/variables/variables_test.rb:16: warning: already initialized constant MAX
+      lang/variables/variables_test.rb:14: warning: previous definition of MAX was here
+    ERR
   end
 
   it "compound assignment on an attribute evaluates the receiver exactly once" do
@@ -2385,7 +2390,7 @@ describe "Variables programs" do
 
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/variables/variables_test.rb:31: warning: already initialized constant K\nlang/variables/variables_test.rb:30: warning: previous definition of K was here\nlang/variables/variables_test.rb:36: warning: already initialized constant Holder::X\nlang/variables/variables_test.rb:33: warning: previous definition of X was here\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       1
       nil
       FrozenError
@@ -2403,6 +2408,11 @@ describe "Variables programs" do
       nil
       3
     OUT
+      lang/variables/variables_test.rb:31: warning: already initialized constant K
+      lang/variables/variables_test.rb:30: warning: previous definition of K was here
+      lang/variables/variables_test.rb:36: warning: already initialized constant Holder::X
+      lang/variables/variables_test.rb:33: warning: previous definition of X was here
+    ERR
   end
 
   it "other compound assignment operators still raise on an undefined constant" do
@@ -2418,7 +2428,9 @@ describe "Variables programs" do
 
     RUBY
 
-    _(result).must_answer "", stderr: "lang/variables/variables_test.rb:8:in '<main>': uninitialized constant UNDEF (NameError)\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      lang/variables/variables_test.rb:8:in '<main>': uninitialized constant UNDEF (NameError)
+    ERR
   end
 
   it "output separator globals are honoured" do

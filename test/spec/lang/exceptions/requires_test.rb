@@ -136,7 +136,12 @@ describe "Exceptions: loading files" do
       puts Base64.strict_encode64("hi")
     RUBY
 
-    _(result).must_answer "", stderr: "lang/exceptions/requires_test.rb:9:in '<main>': uninitialized constant Base64 (NameError)\n\nputs Base64.strict_encode64(\"hi\")\n     ^^^^^^\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      lang/exceptions/requires_test.rb:9:in '<main>': uninitialized constant Base64 (NameError)
+
+      puts Base64.strict_encode64("hi")
+           ^^^^^^
+    ERR
   end
 
   it "require gated extension name error is rescuable" do

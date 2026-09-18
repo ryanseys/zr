@@ -716,13 +716,18 @@ describe "Whole programs" do
       puts "done"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/programs/programs_test.rb:7:in '<main>': undefined method '>=' for nil (NoMethodError)\n\nputs s[\"bytes\"] >= 0\n                ^^\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR', status: 1
       false
       false
       false
       false
       false
     OUT
+      lang/programs/programs_test.rb:7:in '<main>': undefined method '>=' for nil (NoMethodError)
+
+      puts s["bytes"] >= 0
+                      ^^
+    ERR
   end
 
   it "curry takes a lambda's arguments one at a time" do

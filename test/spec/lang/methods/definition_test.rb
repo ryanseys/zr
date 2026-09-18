@@ -880,7 +880,14 @@ describe "Methods: defining and naming methods" do
       puts "unreached"
     RUBY
 
-    _(result).must_answer "", stderr: "lang/methods/definition_test.rb:6:in 'Module#alias_method': undefined method 'nope_missing' for class 'Typo' (NameError)\n\n  alias_method :foo, :nope_missing\n  ^^^^^^^^^^^^\n\tfrom lang/methods/definition_test.rb:6:in '<class:Typo>'\n\tfrom lang/methods/definition_test.rb:5:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      lang/methods/definition_test.rb:6:in 'Module#alias_method': undefined method 'nope_missing' for class 'Typo' (NameError)
+
+        alias_method :foo, :nope_missing
+        ^^^^^^^^^^^^
+      	from lang/methods/definition_test.rb:6:in '<class:Typo>'
+      	from lang/methods/definition_test.rb:5:in '<main>'
+    ERR
   end
 
   it "arg forwarding to rest callee" do
@@ -2715,7 +2722,17 @@ describe "Methods: defining and naming methods" do
       puts two(1)
     RUBY
 
-    _(result).must_answer "3\n", stderr: "ze0/wrong_arity.rb:1:in 'Object#two': wrong number of arguments (given 1, expected 2) (ArgumentError)\n\n    caller: ze0/wrong_arity.rb:5\n    | puts two(1)\n           ^^^\n    callee: ze0/wrong_arity.rb:1\n    | def two(a, b)\n          ^^^\n\tfrom ze0/wrong_arity.rb:5:in '<main>'\n", status: 1
+    _(result).must_answer "3\n", stderr: <<~'ERR', status: 1
+      ze0/wrong_arity.rb:1:in 'Object#two': wrong number of arguments (given 1, expected 2) (ArgumentError)
+
+          caller: ze0/wrong_arity.rb:5
+          | puts two(1)
+                 ^^^
+          callee: ze0/wrong_arity.rb:1
+          | def two(a, b)
+                ^^^
+      	from ze0/wrong_arity.rb:5:in '<main>'
+    ERR
   end
 
   it "zsuper in define method" do

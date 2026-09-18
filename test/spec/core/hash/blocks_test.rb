@@ -300,7 +300,7 @@ describe "Hash: blocks and yields" do
       $VERBOSE = false
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/hash/blocks_test.rb:8: warning: block supersedes default value argument\ncore/hash/blocks_test.rb:9: warning: block supersedes default value argument\ncore/hash/blocks_test.rb:10: warning: block supersedes default value argument\ncore/hash/blocks_test.rb:11: warning: block supersedes default value argument\ncore/hash/blocks_test.rb:12: warning: block supersedes default value argument\ncore/hash/blocks_test.rb:15: warning: block supersedes default value argument\ncore/hash/blocks_test.rb:16: warning: block supersedes default value argument\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       [:blk, 9]
       [:blk, :z]
       "blk ZEO_NO_SUCH_VAR"
@@ -320,6 +320,14 @@ describe "Hash: blocks and yields" do
       [:fill, :fill]
       :blk
     OUT
+      core/hash/blocks_test.rb:8: warning: block supersedes default value argument
+      core/hash/blocks_test.rb:9: warning: block supersedes default value argument
+      core/hash/blocks_test.rb:10: warning: block supersedes default value argument
+      core/hash/blocks_test.rb:11: warning: block supersedes default value argument
+      core/hash/blocks_test.rb:12: warning: block supersedes default value argument
+      core/hash/blocks_test.rb:15: warning: block supersedes default value argument
+      core/hash/blocks_test.rb:16: warning: block supersedes default value argument
+    ERR
   end
 
   it "forwarded block stored" do

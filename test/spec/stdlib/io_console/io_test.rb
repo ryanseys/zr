@@ -566,6 +566,9 @@ describe "IO::console: reading and writing" do
       p STDOUT.winsize
     RUBY
 
-    _(result).must_answer "", stderr: "stdlib/io_console/io_test.rb:11:in 'IO#winsize': Inappropriate ioctl for device - <STDOUT> (Errno::ENOTTY)\n\tfrom stdlib/io_console/io_test.rb:11:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      stdlib/io_console/io_test.rb:11:in 'IO#winsize': Inappropriate ioctl for device - <STDOUT> (Errno::ENOTTY)
+      	from stdlib/io_console/io_test.rb:11:in '<main>'
+    ERR
   end
 end

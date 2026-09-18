@@ -506,7 +506,7 @@ describe "Methods: slicing" do
       with_config { |n, cfg| p [n, cfg] }   # [1, {width: 80, height: 24}]
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/methods/slicing_test.rb:24: warning: key :k is duplicated and overwritten on line 24\nlang/methods/slicing_test.rb:25: warning: key :k is duplicated and overwritten on line 25\nlang/methods/slicing_test.rb:31: warning: key :x is duplicated and overwritten on line 31\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       {a: 1, b: 2, c: 3}
       {c: 3, a: 1, b: 2}
       {a: 1, b: 2, c: 3}
@@ -524,6 +524,10 @@ describe "Methods: slicing" do
       {mode: :fast, level: 3}
       [1, {width: 80, height: 24}]
     OUT
+      lang/methods/slicing_test.rb:24: warning: key :k is duplicated and overwritten on line 24
+      lang/methods/slicing_test.rb:25: warning: key :k is duplicated and overwritten on line 25
+      lang/methods/slicing_test.rb:31: warning: key :x is duplicated and overwritten on line 31
+    ERR
   end
 
   it "keyword table to a def without keywords roots no stale slot" do
@@ -700,10 +704,12 @@ describe "Methods: slicing" do
       puts Greeter.new.f(y: 5, **{x: 2, y: 9})
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/methods/slicing_test.rb:11: warning: key :y is duplicated and overwritten on line 11\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       1/0
       2/9
     OUT
+      lang/methods/slicing_test.rb:11: warning: key :y is duplicated and overwritten on line 11
+    ERR
   end
 
   it "kwargs splat unknown keyword" do

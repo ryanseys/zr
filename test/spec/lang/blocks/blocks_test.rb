@@ -2992,7 +2992,9 @@ describe "Blocks programs" do
       p :done
     RUBY
 
-    _(result).must_answer ":done\n", stderr: "lang/blocks/blocks_test.rb:2: warning: Skipping set of ruby2_keywords flag for proc (proc accepts keywords or post arguments or proc does not accept argument splat)\n"
+    _(result).must_answer ":done\n", stderr: <<~'ERR'
+      lang/blocks/blocks_test.rb:2: warning: Skipping set of ruby2_keywords flag for proc (proc accepts keywords or post arguments or proc does not accept argument splat)
+    ERR
   end
 
   it "procs own block param receives the call site block" do

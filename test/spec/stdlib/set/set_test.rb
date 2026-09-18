@@ -665,7 +665,7 @@ describe "Set programs" do
       p Box::X
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "stdlib/set/set_test.rb:6: warning: already initialized constant Box::X\nstdlib/set/set_test.rb:5: warning: previous definition of X was here\nstdlib/set/set_test.rb:8: warning: already initialized constant Box::S\nstdlib/set/set_test.rb:5: warning: previous definition of S was here\nstdlib/set/set_test.rb:10: warning: already initialized constant Box::F\nstdlib/set/set_test.rb:5: warning: previous definition of F was here\nstdlib/set/set_test.rb:13: warning: already initialized constant Y\nstdlib/set/set_test.rb:12: warning: previous definition of Y was here\nstdlib/set/set_test.rb:16: warning: already initialized constant Box::X\nstdlib/set/set_test.rb:6: warning: previous definition of X was here\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       99
       99
       "zz"
@@ -677,6 +677,17 @@ describe "Set programs" do
       7
       7
     OUT
+      stdlib/set/set_test.rb:6: warning: already initialized constant Box::X
+      stdlib/set/set_test.rb:5: warning: previous definition of X was here
+      stdlib/set/set_test.rb:8: warning: already initialized constant Box::S
+      stdlib/set/set_test.rb:5: warning: previous definition of S was here
+      stdlib/set/set_test.rb:10: warning: already initialized constant Box::F
+      stdlib/set/set_test.rb:5: warning: previous definition of F was here
+      stdlib/set/set_test.rb:13: warning: already initialized constant Y
+      stdlib/set/set_test.rb:12: warning: previous definition of Y was here
+      stdlib/set/set_test.rb:16: warning: already initialized constant Box::X
+      stdlib/set/set_test.rb:6: warning: previous definition of X was here
+    ERR
   end
 
   it "reduce array set ops" do

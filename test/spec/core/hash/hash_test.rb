@@ -1680,7 +1680,7 @@ describe "Hash programs" do
       p Hash(nil)
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/hash/hash_test.rb:14: warning: block supersedes default value argument\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       true
       true
       false
@@ -1707,6 +1707,8 @@ describe "Hash programs" do
       {}
       {}
     OUT
+      core/hash/hash_test.rb:14: warning: block supersedes default value argument
+    ERR
   end
 
   it "module ivar empty hash reset" do

@@ -389,7 +389,10 @@ describe "Process programs" do
 
     RUBY
 
-    _(result).must_answer "system(''): [nil, 127, false]\nsystem(' '): [nil, 127]\nsystem('', exception: true): Errno::ENOENT: No such file or directory - \nspawn(''): Errno::ENOENT: No such file or directory - \nbacktick(''): Errno::ENOENT: No such file or directory - \nsystem(nil): TypeError: no implicit conversion of nil into String\nsystem('true', 1): TypeError: no implicit conversion of Integer into String\nsystem(): ArgumentError: wrong number of arguments (given 0, expected 1+)\nsystem(';'): [false, 2]\n", stderr: "sh: -c: line 0: syntax error near unexpected token `;'\nsh: -c: line 0: `;'\n"
+    _(result).must_answer "system(''): [nil, 127, false]\nsystem(' '): [nil, 127]\nsystem('', exception: true): Errno::ENOENT: No such file or directory - \nspawn(''): Errno::ENOENT: No such file or directory - \nbacktick(''): Errno::ENOENT: No such file or directory - \nsystem(nil): TypeError: no implicit conversion of nil into String\nsystem('true', 1): TypeError: no implicit conversion of Integer into String\nsystem(): ArgumentError: wrong number of arguments (given 0, expected 1+)\nsystem(';'): [false, 2]\n", stderr: <<~'ERR'
+      sh: -c: line 0: syntax error near unexpected token `;'
+      sh: -c: line 0: `;'
+    ERR
   end
 
   it "every blocking wait is supervised" do

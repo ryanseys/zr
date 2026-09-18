@@ -1302,7 +1302,7 @@ describe "Encoding: formatting and inspection" do
       puts "ran to the end"
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/encoding/formatting_test.rb:33: warning: Unsupported encoding NoSuchEnc ignored\ncore/encoding/formatting_test.rb:34: warning: Unsupported encoding NoSuchEnc ignored\ncore/encoding/formatting_test.rb:35: warning: Unsupported encoding NoSuchEnc ignored\ncore/encoding/formatting_test.rb:36: warning: Unsupported encoding NoSuchEnc ignored\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       mode tail unknown	["UTF-8", nil]
       encoding: unknown	["UTF-8", nil]
       encoding: pair, internal unknown	["UTF-8", nil]
@@ -1327,6 +1327,11 @@ describe "Encoding: formatting and inspection" do
       open with opts, no perm	["EUC-JP", nil]
       ran to the end
     OUT
+      core/encoding/formatting_test.rb:33: warning: Unsupported encoding NoSuchEnc ignored
+      core/encoding/formatting_test.rb:34: warning: Unsupported encoding NoSuchEnc ignored
+      core/encoding/formatting_test.rb:35: warning: Unsupported encoding NoSuchEnc ignored
+      core/encoding/formatting_test.rb:36: warning: Unsupported encoding NoSuchEnc ignored
+    ERR
   end
 
   it "open mode string carries its encodings" do

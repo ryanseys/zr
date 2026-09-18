@@ -826,7 +826,13 @@ describe "Modules: inheritance and ancestors" do
       puts consume(b.v)
     RUBY
 
-    _(result).must_answer "", stderr: "lang/modules/inheritance_test.rb:16:in 'Object#consume': undefined method 'include?' for nil (NoMethodError)\n\n  coll.include?(:x)\n      ^^^^^^^^^\n\tfrom lang/modules/inheritance_test.rb:24:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      lang/modules/inheritance_test.rb:16:in 'Object#consume': undefined method 'include?' for nil (NoMethodError)
+
+        coll.include?(:x)
+            ^^^^^^^^^
+      	from lang/modules/inheritance_test.rb:24:in '<main>'
+    ERR
   end
 
   it "subclass inherits module parent" do

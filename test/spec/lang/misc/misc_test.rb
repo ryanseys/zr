@@ -273,7 +273,13 @@ describe "Misc programs" do
       puts "registered: #{Net.sp_net_poll_registered}"
     RUBY
 
-    _(result).must_answer "", stderr: "lang/misc/misc_test.rb:10:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)\n\n  ffi_func :sp_net_poll_register,   [:int, :int], :int\n  ^^^^^^^^\n\tfrom lang/misc/misc_test.rb:9:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      lang/misc/misc_test.rb:10:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)
+
+        ffi_func :sp_net_poll_register,   [:int, :int], :int
+        ^^^^^^^^
+      	from lang/misc/misc_test.rb:9:in '<main>'
+    ERR
   end
 
   it "sp net write partial" do
@@ -347,6 +353,12 @@ describe "Misc programs" do
       File.unlink(path)
     RUBY
 
-    _(result).must_answer "", stderr: "lang/misc/misc_test.rb:9:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)\n\n  ffi_func :sp_net_unix_listen,   [:str, :int],        :int\n  ^^^^^^^^\n\tfrom lang/misc/misc_test.rb:8:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      lang/misc/misc_test.rb:9:in '<module:Net>': undefined method 'ffi_func' for module Net (NoMethodError)
+
+        ffi_func :sp_net_unix_listen,   [:str, :int],        :int
+        ^^^^^^^^
+      	from lang/misc/misc_test.rb:8:in '<main>'
+    ERR
   end
 end

@@ -19,11 +19,14 @@ describe "Regexp: formatting and inspection" do
       t("pL")     { Regexp.new("\\pL").match("pL")[0] }
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/regexp/formatting_test.rb:11: warning: invalid Unicode Property \\p: /\\p/\ncore/regexp/formatting_test.rb:12: warning: invalid Unicode Property \\p: /\\pL/\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       bs-K | 0
       bare-p | "p"
       pL | "pL"
     OUT
+      core/regexp/formatting_test.rb:11: warning: invalid Unicode Property \p: /\p/
+      core/regexp/formatting_test.rb:12: warning: invalid Unicode Property \p: /\pL/
+    ERR
   end
 
   it "group name holds any character" do

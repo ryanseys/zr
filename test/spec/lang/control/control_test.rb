@@ -321,7 +321,7 @@ describe "Control programs" do
       p(~/4/)
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "lang/control/control_test.rb:12: warning: regex literal in condition\nlang/control/control_test.rb:14: warning: regex literal in condition\nlang/control/control_test.rb:15: warning: regex literal in condition\nlang/control/control_test.rb:17: warning: regex literal in condition\nlang/control/control_test.rb:20: warning: regex literal in condition\nlang/control/control_test.rb:31: warning: regex literal in condition\nlang/control/control_test.rb:33: warning: regex literal in condition\nlang/control/control_test.rb:36: warning: regex literal in condition\n"
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR'
       :yes
       0
       :yes
@@ -335,6 +335,15 @@ describe "Control programs" do
       "no implicit conversion of Integer into String"
       nil
     OUT
+      lang/control/control_test.rb:12: warning: regex literal in condition
+      lang/control/control_test.rb:14: warning: regex literal in condition
+      lang/control/control_test.rb:15: warning: regex literal in condition
+      lang/control/control_test.rb:17: warning: regex literal in condition
+      lang/control/control_test.rb:20: warning: regex literal in condition
+      lang/control/control_test.rb:31: warning: regex literal in condition
+      lang/control/control_test.rb:33: warning: regex literal in condition
+      lang/control/control_test.rb:36: warning: regex literal in condition
+    ERR
   end
 
   it "begin and end" do

@@ -270,7 +270,12 @@ describe "String: arithmetic" do
       puts(after > before ? "collected" : "NO COLLECTION")
     RUBY
 
-    _(result).must_answer "", stderr: "core/string/arithmetic_test.rb:20:in '<main>': undefined method '>' for nil (NoMethodError)\n\nputs(after > before ? \"collected\" : \"NO COLLECTION\")\n           ^\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      core/string/arithmetic_test.rb:20:in '<main>': undefined method '>' for nil (NoMethodError)
+
+      puts(after > before ? "collected" : "NO COLLECTION")
+                 ^
+    ERR
   end
 
   it "string sum bits" do

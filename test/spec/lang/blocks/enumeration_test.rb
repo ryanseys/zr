@@ -442,7 +442,7 @@ describe "Blocks: enumeration" do
       boom
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "ze0/blocks_and_closures.rb:92:in 'block in Object#boom': inside (RuntimeError)\n\tfrom ze0/blocks_and_closures.rb:92:in 'Array#each'\n\tfrom ze0/blocks_and_closures.rb:92:in 'Object#boom'\n\tfrom ze0/blocks_and_closures.rb:94:in '<main>'\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR', status: 1
       1
       2
       3
@@ -480,6 +480,11 @@ describe "Blocks: enumeration" do
       [1, 2]
       [3, 6]
     OUT
+      ze0/blocks_and_closures.rb:92:in 'block in Object#boom': inside (RuntimeError)
+      	from ze0/blocks_and_closures.rb:92:in 'Array#each'
+      	from ze0/blocks_and_closures.rb:92:in 'Object#boom'
+      	from ze0/blocks_and_closures.rb:94:in '<main>'
+    ERR
   end
 
   it "blocks procs" do

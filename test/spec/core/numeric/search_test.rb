@@ -44,10 +44,12 @@ describe "Numeric: searching and matching" do
       p [1, 2].values_at(B)
     RUBY
 
-    _(result).must_answer <<~'OUT', stderr: "core/numeric/search_test.rb:34:in '<main>': bignum too big to convert into 'long' (RangeError)\n", status: 1
+    _(result).must_answer <<~'OUT', stderr: <<~'ERR', status: 1
       [:ary, RangeError, "bignum too big to convert into 'long'"]
       [:str, RangeError, "bignum too big to convert into 'long'"]
     OUT
+      core/numeric/search_test.rb:34:in '<main>': bignum too big to convert into 'long' (RangeError)
+    ERR
   end
 
   it "index op write nested" do

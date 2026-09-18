@@ -183,7 +183,10 @@ describe "String: splitting and joining" do
       puts Child.new.run
     RUBY
 
-    _(result).must_answer "", stderr: "core/string/splitting_test.rb:25:in '<module:M>': superclass mismatch for class Sub (TypeError)\n\tfrom core/string/splitting_test.rb:7:in '<main>'\n", status: 1
+    _(result).must_answer "", stderr: <<~'ERR', status: 1
+      core/string/splitting_test.rb:25:in '<module:M>': superclass mismatch for class Sub (TypeError)
+      	from core/string/splitting_test.rb:7:in '<main>'
+    ERR
   end
 
   it "split default separator global" do
