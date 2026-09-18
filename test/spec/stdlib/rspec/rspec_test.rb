@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "RSpec programs" do
   it "reports a failure" do
-    skip "rspec renders a failing example by extracting its source with ripper, which ze0 declines"
+    skip "rspec is not installed: neither engine has it, so there is nothing to compare"
 
     result = ze0(<<~'RUBY')
 
@@ -12,12 +12,12 @@ describe "RSpec programs" do
       # snippet for the line that raised, and `RSpec::Support::Source#ast` does that
       # with `require "ripper"`.
       #
-      # zeo declines ripper on purpose: it exposes the reduction event stream of
-      # CRuby's parse.y, and zeo's front end embeds prism -- a different parser with
-      # a different event model, so there is nothing to bind. rspec asks for it
-      # unconditionally on CRuby, deciding from RUBY_VERSION rather than probing, so
-      # the LoadError escapes through the formatter and the run dies after the
-      # progress dots.
+      # That was once the reason this file was held back, and it is no longer
+      # true: `rt/ext/ripper.so.rb` answers `require "ripper"` over
+      # `Prism::Translation::Ripper`, and `test/spec/stdlib/ripper/` holds it to
+      # ruby. What holds this back now is that rspec is not installed -- it is
+      # deliberately not vendored, and both engines are meant to read the same
+      # copy -- so there is nothing here to compare against.
       #
       # A suite whose examples all pass never reaches that path, which is what
       # `../an_rspec_suite_runs.rb` holds. This file is the other half: the day zeo
@@ -82,7 +82,7 @@ describe "RSpec programs" do
   end
 
   it "a real suite runs and reports its examples, matchers, doubles, hooks, counts and exit status" do
-    skip "rspec renders a suite through RSpec::Support::Source, which needs ripper, and ze0 declines ripper"
+    skip "rspec is not installed: neither engine has it, so there is nothing to compare"
 
     result = ze0(<<~'RUBY')
 
@@ -90,10 +90,9 @@ describe "RSpec programs" do
       # zeo and reports what rspec reports -- examples, matchers, doubles, hooks,
       # the counts and the exit status.
       #
-      # No FAILING or PENDING example here: rspec renders those by extracting the
-      # source snippet, which needs `ripper`, and zeo declines ripper (prism has a
-      # different event model -- see docs/COMPATIBILITY.md). That half is
-      # `pending/rspec_reports_a_failure.rb`.
+      # A failing or a pending example renders through `RSpec::Support::Source`,
+      # which asks for `ripper`; ze0 answers that over
+      # `Prism::Translation::Ripper`. The other half of this file holds that.
       #
       # Both engines read the SAME rspec, from `vendor/bundle` -- the Gemfile.lock
       # set that `make deps` resolves. The oracle reaches it through
