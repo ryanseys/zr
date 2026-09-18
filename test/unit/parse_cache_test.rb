@@ -50,6 +50,29 @@ class ParseCacheTest < Minitest::Test
     assert_includes files, File.join(File.dirname(gem), "prism/node.rb")
   end
 
+  # The second ask for a source this process has parsed answers with the
+  # tree it already holds, and reads no file. A worker of the spec tier
+  # runs a hundred examples that each require "set", and unmarshalling
+  # set.rb's tree a hundred times is the whole of what that costs.
+  def test_a_source_parsed_before_answers_without_reading_the_cache_again
+    source = "def memoized(a) = a + 1\n"
+    first = ParseCache.parse(source, filepath: "memo.rb")
+    File.delete(File.join(ParseCache.directory, "#{ParseCache.key(source, { filepath: "memo.rb" })}.marshal"))
+    assert_same first, ParseCache.parse(source, filepath: "memo.rb")
+  ensure
+    ParseCache.memo.clear
+  end
+
+  def test_each_source_keeps_a_memo_of_its_own
+    one = ParseCache.parse("memo_one = 1\n", filepath: "memo.rb")
+    two = ParseCache.parse("memo_two = 2\n", filepath: "memo.rb")
+
+    refute_same one, two
+    assert_same one, ParseCache.parse("memo_one = 1\n", filepath: "memo.rb")
+  ensure
+    ParseCache.memo.clear
+  end
+
   def test_a_result_read_back_answers_as_the_parse_did
     Dir.mktmpdir("ze0-parse-") do |dir|
       path = File.join(dir, "result.marshal")

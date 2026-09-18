@@ -25,8 +25,24 @@ module Ze0
     module_function
 
     def parse(source, **options)
-      path = File.join(directory, "#{key(source, options)}.marshal")
-      read(path) || Prism.parse(source, **options).tap { |result| write(path, Marshal.dump(result)) }
+      key = key(source, options)
+      memo[key] ||= begin
+        path = File.join(directory, "#{key}.marshal")
+        read(path) || Prism.parse(source, **options).tap { |result| write(path, Marshal.dump(result)) }
+      end
+    end
+
+    # The parses this process has made or read back, by their key. A
+    # worker of the test tier runs a hundred examples that each require
+    # "set", and unmarshalling set.rb's tree a hundred times is the
+    # whole of what that costs.
+    #
+    # One result then answers every caller. That is sound because a
+    # ParseResult is written once and read after: the port's setters
+    # (rt/ext/prism/ruby/mutation.rb) run while it builds the tree, and
+    # nothing downstream writes to a node.
+    def memo
+      @memo ||= {}
     end
 
     def key(source, options)
