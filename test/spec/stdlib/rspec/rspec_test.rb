@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Rspec programs" do
+describe "RSpec programs" do
   it "reports a failure" do
     skip "rspec renders a failing example by extracting its source with ripper, which ze0 declines"
 

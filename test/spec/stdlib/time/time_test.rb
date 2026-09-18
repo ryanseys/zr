@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Time programs" do
+describe "Time: the time library" do
   it "sym hash method dispatch" do
     result = ze0(<<~'RUBY')
       require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)

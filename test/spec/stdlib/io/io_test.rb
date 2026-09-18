@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "IO programs" do
+describe "IO: the io/wait and io/nonblock libraries" do
   it "io nonblock" do
     result = ze0(<<~'RUBY')
       # `require "io/nonblock"` -- `IO#nonblock?`, `#nonblock=`, and the block form

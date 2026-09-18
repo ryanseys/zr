@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Singleton programs" do
+describe "Singleton: the singleton library" do
   it "private class method on an inherited new" do
     result = ze0(<<~'RUBY')
       # `private_class_method :new` marks a name the class does not DEFINE -- it

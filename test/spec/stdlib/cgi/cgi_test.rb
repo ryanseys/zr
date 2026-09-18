@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Cgi programs" do
+describe "CGI programs" do
   it "cgi element escapes span one tag" do
     result = ze0(<<~'RUBY')
       # `CGI.escapeElement` / `CGI.unescapeElement` rewrite only the tags they were

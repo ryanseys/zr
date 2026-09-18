@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Weakref programs" do
+describe "WeakRef programs" do
   it "is a real delegator" do
     result = ze0(<<~'RUBY')
       # `WeakRef` is CRuby's own pure-Ruby file now (`gems/weakref`), so it really

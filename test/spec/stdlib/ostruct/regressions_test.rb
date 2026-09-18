@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Ostruct: regressions" do
+describe "OpenStruct: regressions" do
   it "an OpenStruct reads and writes by method and by subscript, and inspects its members" do
     result = ze0(<<~'RUBY')
       require "ostruct"

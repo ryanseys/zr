@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Thread programs" do
+describe "Thread: the thread library" do
   it "class level accessors and hooks" do
     result = ze0(<<~'RUBY')
       # Three things minitest's own bootstrap needs, none of which worked.

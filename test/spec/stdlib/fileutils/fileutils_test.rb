@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Fileutils programs" do
+describe "FileUtils programs" do
   it "fileutils" do
     result = ze0(<<~'RUBY')
       # FileUtils -- the vendored pure-Ruby stdlib gem (gems/fileutils), compiled

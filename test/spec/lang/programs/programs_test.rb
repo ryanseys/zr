@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Programs programs" do
+describe "Whole programs" do
   it "bitwise mask over int64" do
     result = ze0(<<~'RUBY')
       # A bitwise op whose literal operand exceeds int64 (a 64-bit mask such as

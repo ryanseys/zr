@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Rubygems programs" do
+describe "RubyGems programs" do
   it "bundler registers its thor commands" do
     result = ze0(<<~'RUBY')
       # MILESTONE: bundler's whole command table, which Thor builds through

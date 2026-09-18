@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Securerandom programs" do
+describe "SecureRandom programs" do
   it "builtin row reports its parameter names" do
     result = ze0(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
       # `Method#parameters` on a native row used to answer the anonymous descriptor

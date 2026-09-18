@@ -63,10 +63,17 @@ module SpecNet
   # `File.binwrite`, so the tag is not something any run can see.
   def examples(path, renames: false)
     Ze0::Reader.read(path).map do |e|
-      parts = [e.about, e.source&.b, bytes(e.given), bytes(e.want)]
-      parts.unshift(e.name, e.kwargs[:path]) unless renames
-      [rel(path), e.name, Digest::SHA256.hexdigest(Marshal.dump(parts)), e]
+      parts = { "describe" => e.about, "program" => e.source&.b,
+                "keywords" => bytes(e.given), "answer" => bytes(e.want) }
+      parts = { "sentence" => e.name, "path" => e.kwargs[:path] }.merge(parts) unless renames
+      [rel(path), e.name, Digest::SHA256.hexdigest(Marshal.dump(parts.values)), e, parts]
     end
+  end
+
+  # Which parts of an example differ, by name, so a report says what
+  # moved rather than that something did.
+  def moved(was, now)
+    was.keys.select { |k| was[k] != now[k] }
   end
 
   # A hash or array with every string in it reduced to its bytes, so a
@@ -125,11 +132,12 @@ namespace :spec do
           apart << "#{rel}: #{old.size} example(s) became #{new.size}"
           next
         end
-        old.zip(new).each do |(_, was_name, was_digest, _), (_, name, digest, e)|
+        old.zip(new).each do |(_, was_name, was_digest, _, was_parts), (_, name, digest, e, parts)|
           apart << "#{rel}: #{name}: the example raised #{e.want[:error].class}" if e.want[:error]
           next if was_digest == digest
 
-          apart << "#{rel}: #{was_name.inspect} -> #{name.inspect}: #{renames ? "more than the sentence" : "the example"} changed"
+          why = SpecNet.moved(was_parts, parts).join(", ")
+          apart << "#{rel}: #{was_name.inspect} -> #{name.inspect}: #{why} changed"
         end
       end
     end

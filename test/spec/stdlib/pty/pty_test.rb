@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Pty programs" do
+describe "PTY programs" do
   it "expect answers a prompt over a pty" do
     result = ze0(<<~'RUBY')
       # expect, as ruby's pty extension ships it, reads a PTY child's prompt,

@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Ostruct programs" do
+describe "OpenStruct programs" do
   it "alias reader bool and ostruct" do
     result = ze0(<<~'RUBY')
       require "ostruct"

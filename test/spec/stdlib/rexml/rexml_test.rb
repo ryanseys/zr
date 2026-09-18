@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Rexml programs" do
+describe "REXML programs" do
   it "requiring rexml document survives the ambient encoding class" do
     skip "REXML::Functions.send reaches @@context before XPath sets it"
 

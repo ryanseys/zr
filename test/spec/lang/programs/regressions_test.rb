@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Programs: regressions" do
+describe "Whole programs: regressions" do
   it "max, min and sample with a count answer empty for an empty array" do
     result = ze0(<<~'RUBY')
       p [].max(2)

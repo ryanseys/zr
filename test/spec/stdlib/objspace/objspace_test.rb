@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Objspace programs" do
+describe "ObjectSpace: the objspace library" do
   it "gc weak" do
     result = ze0(<<~'RUBY')
       # Weak references and finalizers: ObjectSpace::WeakMap (identity-keyed, holding

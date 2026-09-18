@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Bigdecimal programs" do
+describe "BigDecimal programs" do
   it "allocate refuses where ruby refuses" do
     result = ze0(<<~'RUBY', files: {"bigdecimal.rb" => fixture("stdlib/bigdecimal/bigdecimal.rb")})
       # `Class#allocate` on a native class zeo has no blank value for must RAISE,

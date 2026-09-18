@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe "Optparse programs" do
+describe "OptionParser programs" do
   it "optparse abbreviation resolves" do
     result = ze0(<<~'RUBY')
       # The cycle this program builds on purpose, and the census it leaves
