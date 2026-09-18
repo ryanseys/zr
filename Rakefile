@@ -1,6 +1,12 @@
 # frozen_string_literal: true
 
-require "bundler/gem_tasks"
+# bundler's own `build`, `install` and `release`, under `gem:`. They
+# name each other by the bare names inside this block, so the namespace
+# holds for the whole family, and `rake build` is left to mean what
+# anyone working here builds: the runtime.
+namespace :gem do
+  require "bundler/gem_tasks"
+end
 require "minitest/test_task"
 
 ROOT = __dir__
@@ -61,10 +67,15 @@ ENV["ZR_GC_STRESS"] = "1" if ENV["GC"] == "stress"
 # fork of that process, so all of them share one copy. Warmed next door
 # instead, the files would be on disk and each of the eight workers
 # would read and parse them for itself.
+#
+# `rake build` is the same work asked for on its own, which is what to
+# reach for after an edit under `lib` or `rt`: it takes minutes, and
+# taken here it is taken once, alone, rather than in the middle of a
+# run that is waiting for it.
 def ze0_warm_line(cold) = %(require "support/warm"; Ze0::Test::Warm.call(cold: #{cold}))
 
-desc "Build the runtime caches a tier would otherwise build in every worker"
-task("test:warm") do
+desc "Build the runtime: its object, the prelinked image and the eval road"
+task("build") do
   require "rbconfig"
   sh(RbConfig.ruby, "-Ilib:test", "-e", ze0_warm_line(true), verbose: false)
 end

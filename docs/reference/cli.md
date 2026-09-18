@@ -61,6 +61,7 @@ build for it now.
 
 | Task | Runs |
 |---|---|
+| `rake build` | the runtime: its object, the prelinked image and the eval road |
 | `rake` or `rake test` | the units, the specs and the end-to-end programs |
 | `rake test:unit [N=/Exe/]` | ze0's own internals |
 | `rake test:spec [N=] [GC=stress] [TARGET=]` | Ruby held to ruby, one compile an example |
@@ -68,6 +69,12 @@ build for it now.
 | `rake test:spec:slow` | the slowest 25 files |
 | `rake test:unit:isolated` | which files fail when run on their own |
 | `minitest test/unit/zr_test.rb -n /gc/` | one file, or one example |
+
+A tier builds the runtime itself, in its own process before it forks
+its first worker, so the eight of them share one warm compiler. After
+an edit under `lib` or `rt` that build is a cold one and takes minutes;
+`rake build` asks for it on its own, which is the thing to do before a
+run rather than in the middle of one.
 
 Each tier is a `Minitest::TestTask`, so `N=` names the examples to run,
 `X=` the ones to leave out, `A=` passes anything else to minitest, and
@@ -98,4 +105,4 @@ That is the same division the buckets used to draw.
 | `rake gen:*` | writes a generated file from its oracle; see [Tools](tools.md) |
 | `rake diff:*` | holds a Ruby port to ruby's own implementation |
 | `rake 'codesize[--all]'` | counts the instructions the backend writes for the runtime |
-| `rake build`, `rake release` | Bundler's gem tasks |
+| `rake gem:build`, `rake gem:release` | Bundler's gem tasks |
