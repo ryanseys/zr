@@ -65,7 +65,7 @@ build for it now.
 | `rake test:unit [N=/Exe/]` | ze0's own internals |
 | `rake test:spec [N=] [GC=stress] [TARGET=]` | Ruby held to ruby, one compile an example |
 | `rake test:e2e [TARGET=]` | whole programs through a real link |
-| `rake test:spec:slow` | the slowest 25 examples |
+| `rake test:spec:slow` | the slowest 25 files |
 | `rake test:unit:isolated` | which files fail when run on their own |
 | `minitest test/unit/zr_test.rb -n /gc/` | one file, or one example |
 

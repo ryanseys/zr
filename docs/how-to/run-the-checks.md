@@ -24,7 +24,7 @@ switches rather than a language of ours:
 | `MT_CPU=4` | run four workers instead of the default |
 
 A tier also defines three tasks beside it: `rake test:spec:slow` names
-the slowest 25 examples, `rake test:unit:isolated` says which files
+the slowest 25 files, `rake test:unit:isolated` says which files
 fail when run on their own, and `rake test:spec:cmd` prints the command
 without running it.
 
@@ -158,7 +158,7 @@ $ bundle exec rake test:spec             # Ruby held to ruby
 $ bundle exec rake test:spec N=/string/
 $ bundle exec rake test:spec GC=stress
 $ bundle exec rake test:e2e              # whole programs through a real link
-$ bundle exec rake test:spec:slow        # the slowest 25 examples
+$ bundle exec rake test:spec:slow        # the slowest 25 files
 $ bundle exec rake oracle                # every literal re-checked against ruby
 $ bundle exec rake stage1 stage2
 ```

@@ -38,6 +38,18 @@ def tier(name, glob, framework, what)
     t.test_globs = [File.join(ROOT, glob)]
     t.warning = false
   end
+  # `<tier>:slow` as TestTask writes it reads minitest's own per-test
+  # timings out of a verbose run, which the progress bar does not print
+  # and which forked workers would interleave anyway. The reporter that
+  # keeps the times reports by suite -- a file, in the spec tier -- and
+  # keeps them between runs, so a file that has grown slower shows.
+  Rake::Task["#{name}:slow"].clear
+  desc "#{what} -- and which 25 files took the longest"
+  task "#{name}:slow" do
+    ENV["SLOW"] = "1"
+    Rake::Task[name].invoke
+  end
+
   # Rake joins descriptions rather than replacing them, so the generic
   # one TestTask wrote comes off before ours goes on.
   Rake::Task[name].clear_comments

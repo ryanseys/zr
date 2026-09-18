@@ -20,10 +20,15 @@ Minitest::Test.parallelize_me!
 
 # How far along, and how much longer. A tier runs for minutes, and a
 # line of dots says neither. CI writes the JUnit file as well, which is
-# what renders a failure in the web view.
+# what renders a failure in the web view, and `rake <tier>:slow` asks
+# for the times instead of the bar.
 Minitest::Reporters.use!(
-  [Minitest::Reporters::ProgressReporter.new,
-   *(Minitest::Reporters::JUnitReporter.new(File.expand_path("../tmp/junit", __dir__)) if ENV["CI"])]
+  if ENV["SLOW"]
+    [Minitest::Reporters::MeanTimeReporter.new(show_count: 25, show_all_runs: false)]
+  else
+    [Minitest::Reporters::ProgressReporter.new,
+     *(Minitest::Reporters::JUnitReporter.new(File.expand_path("../tmp/junit", __dir__)) if ENV["CI"])]
+  end
 )
 
 ROOT = File.expand_path("..", __dir__)
