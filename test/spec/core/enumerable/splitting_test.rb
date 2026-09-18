@@ -125,7 +125,7 @@ describe "Enumerable: splitting and joining" do
     _(result).must_answer "ArgumentError\nArgumentError\n"
   end
 
-  it "enumerable breadth matches the oracle" do
+  it "sort_by, min_by, group_by, partition, flat_map and filter_map all match the oracle" do
     result = ze0(<<~'RUBY')
       p [3, 1, 2].sort_by { |x| -x }
       p [1, 2, 3, 4].min_by { |x| (x - 3).abs }
@@ -179,7 +179,7 @@ describe "Enumerable: splitting and joining" do
     OUT
   end
 
-  it "enumerable chunk" do
+  it "the chunk family groups consecutive elements by a block-computed key" do
     result = ze0(<<~'RUBY')
       # The chunk family groups CONSECUTIVE elements of an enumerable.
 
@@ -209,7 +209,7 @@ describe "Enumerable: splitting and joining" do
     OUT
   end
 
-  it "enumerable chunk groups consecutive runs" do
+  it "chunk answers one pair per run, so a repeated key opens a new run" do
     result = ze0("p [1, 1, 2, 2, 2, 3].chunk { |x| x }.map { |k, v| [k, v.size] }\n")
 
     _(result).must_answer "[[1, 2], [2, 3], [3, 1]]\n"

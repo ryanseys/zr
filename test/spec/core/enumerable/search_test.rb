@@ -33,7 +33,7 @@ describe "Enumerable: searching and matching" do
     OUT
   end
 
-  it "enumerable grep sum entry" do
+  it "grep, grep_v, sum and each_entry answer on a user class that writes each" do
     result = ze0(<<~'RUBY')
       # Enumerable (via a user class with #each) versions of grep/grep_v/sum/each_entry,
       # the receiver KieranP's #2479/#2480/#2504/#2516 duplicates exercise. The bug was
@@ -63,7 +63,7 @@ describe "Enumerable: searching and matching" do
     OUT
   end
 
-  it "enumerable infinite each" do
+  it "the short-circuiting rows stop an endless each, and a user break still belongs to its own call" do
     result = ze0(<<~'RUBY')
       # A user class whose `each` never ends is still usable, because the
       # short-circuiting Enumerable methods stop the SOURCE rather than scanning a
@@ -114,7 +114,7 @@ describe "Enumerable: searching and matching" do
     OUT
   end
 
-  it "enumerable methods" do
+  it "the Enumerator rows answer, and a bad argument raises TypeError" do
     result = ze0(<<~'RUBY')
       # Enumerable/Enumerator surface (#2479, #2480, #2486, #2504, #2505, #2516)
       class C

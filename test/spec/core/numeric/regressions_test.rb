@@ -964,7 +964,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "numeric" do
+  it "the arithmetic, rounding, predicate and conversion rows each answer" do
     result = ze0(<<~'RUBY')
       # Test numeric methods and conversions
 
@@ -2067,7 +2067,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "numeric conformance batch2" do
+  it "a bignum negates and rounds at a negative precision, Float <=> NaN is nil, and arg answers by sign" do
     result = ze0(<<~'RUBY')
       # Bignum -@ / round / ceil / floor (incl. negative precision); Float <=> NaN
       # is nil; Float arg/angle/phase (Integer 0 or Float PI by sign).
@@ -2106,7 +2106,7 @@ describe "Numeric: regressions" do
     OUT
   end
 
-  it "numeric edges wave10" do
+  it "the bit slice, gcd, divmod, clamp and round(half:) edges raise or answer as CRuby does" do
     result = ze0(<<~'RUBY')
       # Integer bit-slice n[range], gcd/lcm TypeError on Float, divmod/modulo
       # with Float divisors, clamp with Float-bounded ranges (both receivers),

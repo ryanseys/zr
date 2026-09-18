@@ -53,7 +53,7 @@ describe "IO: encodings" do
     OUT
   end
 
-  it "io buffer" do
+  it "IO::Buffer reads typed values, shares a slice, maps a file and transfers straight to an IO" do
     result = ze0(<<~'RUBY')
       # IO::Buffer: typed value access, slices over shared backing, masks, file
       # mapping, and direct IO transfer. Addresses are scrubbed (the one
@@ -480,7 +480,7 @@ describe "IO: encodings" do
     OUT
   end
 
-  it "io over a descriptor takes the open options" do
+  it "IO.new over a descriptor takes the mode and the options File.open takes, and means the same by them" do
     result = ze0(<<~'RUBY')
       # `IO.new(fd, mode, **opts)` -- the same mode and the same options `File.open`
       # takes, and they mean the same things.
@@ -631,7 +631,7 @@ describe "IO: encodings" do
     OUT
   end
 
-  it "io write with an offset makes the file and keeps the rest" do
+  it "IO.write truncates only when no offset says where the write goes" do
     result = ze0(<<~'RUBY')
       # IO.write opens with O_WRONLY|O_CREAT and truncates only when no offset
       # says where the write goes, as io_s_write does; binwrite writes binary.

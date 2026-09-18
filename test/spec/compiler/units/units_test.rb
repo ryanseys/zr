@@ -696,7 +696,7 @@ describe "Units programs" do
     OUT
   end
 
-  it "units module hook does not announce" do
+  it "a method_added hook in a unit nothing required yet is not installed, so no def announces to it" do
     result = ze0(<<~'RUBY', files: beside("unit_module_hook/tracer.rb"))
       # A `class ::Module; def method_added` in a file nothing has required yet is
       # not installed, so nothing announces itself to it.
@@ -747,7 +747,7 @@ describe "Units programs" do
     OUT
   end
 
-  it "units superclass can live in a later unit" do
+  it "a unit's superclass may live in a unit that lowers later, and a sibling constant does not claim the name" do
     files = beside("unit_superclass/child.rb", "unit_superclass/root.rb", "unit_superclass/settings.rb",
                    "unit_superclass/zpath.rb")
 
@@ -798,7 +798,7 @@ describe "Units programs" do
     OUT
   end
 
-  it "units undef of a builtin row waits for the unit" do
+  it "the default method_added row stays a no-op until the unit that undefines it loads" do
     result = ze0(<<~'RUBY', files: beside("unit_undef/tracer.rb"))
       if ARGV.include?("--debug")
         require_relative "unit_undef/tracer"

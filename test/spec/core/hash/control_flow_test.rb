@@ -105,7 +105,7 @@ describe "Hash: control flow" do
     _(result).must_answer "3\n7\n"
   end
 
-  it "hash filter bang return" do
+  it "select! answers nil when it removed nothing, and keep_if always answers self" do
     result = ze0(<<~'RUBY')
       # Hash#select! / #filter! / #reject! return nil when nothing was removed and
       # self otherwise; #keep_if / #delete_if always return self. These now work in
@@ -158,7 +158,7 @@ describe "Hash: control flow" do
     OUT
   end
 
-  it "hash int and or assign" do
+  it "h[k] &&= and h[k] ||= ask has_key, so a stored 0 stays truthy" do
     result = ze0(<<~'RUBY')
       # h[k] &&= and h[k] ||= on int-valued hashes must use has_key
       # for the truthy check, not the raw _get return. C treats 0 as
@@ -204,7 +204,7 @@ describe "Hash: control flow" do
     OUT
   end
 
-  it "hash return backprop polypoly" do
+  it "a method answering Hash.new(default) takes the int-keyed, float-valued shape its caller pins" do
     result = ze0(<<~'RUBY')
       # A method returning Hash.new(default) where the caller pins the int-keyed,
       # float-valued shape (PolyPolyHash): the backprop exclusion this variant
