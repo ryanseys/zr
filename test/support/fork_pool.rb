@@ -189,10 +189,7 @@ module Ze0
         def self.serve(jobs, back)
           Minitest.parallel_executor = nil
           back.sync = true
-          # What this worker was born holding: the parent's warm
-          # compiler, which it shares and does not own. Every answer
-          # reports its growth over this, and that is what retires it.
-          @forked_at = resident
+          @settled = nil
           loop do
             # A suite is an anonymous class with a name of its own
             # ("GC programs"), so it cannot be looked up by constant. It
@@ -208,13 +205,24 @@ module Ze0
         end
 
         # The result, what this process now resides in, and how much of
-        # that it has added since it was forked. Even neutered, a result
+        # that it has added since it settled. Even neutered, a result
         # can hold something Marshal will not take; a bare one saying so
         # beats dying and leaving the parent to report that a worker
         # went quiet.
+        #
+        # Settled means "once one example has run", and not "at the
+        # fork". A page the parent holds is not resident for a worker
+        # until the worker touches it, so a freshly forked process reads
+        # as a few megabytes and climbs to the parent's size as it walks
+        # the compiler it inherited. Counted from the fork, that climb
+        # is growth and retires the worker at once, which is what the
+        # check in test/unit/fork_pool_test.rb found. The first example
+        # is what touches the inherited half; what it leaves is this
+        # worker's floor, and only what it gathers past that is its own.
         def self.answer(result, back)
           now = resident
-          Marshal.dump([portable(result), now, now - @forked_at], back)
+          @settled ||= now
+          Marshal.dump([portable(result), now, now - @settled], back)
         rescue TypeError => e
           bare = Minitest::Result.new(result.name)
           bare.klass = result.klass
@@ -222,7 +230,7 @@ module Ze0
           bare.assertions = result.assertions
           bare.time = result.time
           bare.failures << Minitest::UnexpectedError.new(flat(RuntimeError.new("this result does not cross a pipe: #{e.message}")))
-          Marshal.dump([bare, now, now - @forked_at], back)
+          Marshal.dump([bare, now, now - @settled], back)
         end
 
         # A failure holds an exception, and an exception the compiler

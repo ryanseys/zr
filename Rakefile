@@ -153,7 +153,7 @@ else
     opts += ["-e", ENV["X"]] if ENV["X"]
     opts += ENV["A"].split if ENV["A"]
     ze0_test_files(ZE0_TEST_ARGV).each do |framework, files|
-      line = %(RubyVM::YJIT.enable; ) + ze0_warm_line(cold) + %(require "#{framework}"; ) +
+      line = "RubyVM::YJIT.enable; #{ze0_warm_line(cold)}; " + %(require "#{framework}"; ) +
              files.map { |f| %(require "#{f}"; ) }.join
       sh(RbConfig.ruby, "-Ilib:test", "-e", line, "--", *opts)
     end

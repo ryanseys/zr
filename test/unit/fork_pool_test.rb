@@ -81,13 +81,17 @@ class ForkPoolTest < Minitest::Test
 
   # A worker is retired for what it has allocated, and not for what it
   # was born holding. The parent warms the compiler before it forks, so
-  # every worker starts out resident in a few hundred megabytes that it
-  # shares with the parent and never dirties. Counted against an
-  # absolute bound, that head start would retire each worker after a
-  # single example, and forking is the one thing here that is not free.
+  # every worker comes to hold a few hundred megabytes that it shares
+  # with the parent and never dirties, and counted against that a worker
+  # would be retired after a single example. Forking is the one thing
+  # here that is not free.
   #
-  # Each example reads the whole of the inherited string, so the pages
-  # really are the worker's resident set and not merely mapped.
+  # Each example reads the whole of the inherited string, which is what
+  # makes this a real question: a page the parent holds is not resident
+  # for the worker until the worker touches it, so the worker's own
+  # figure climbs to the parent's as it reads. Both a fork-time floor
+  # and an absolute bound report that climb as this worker's doing; only
+  # a floor taken once an example has run does not.
   SHARER = <<~'RUBY'
     require "test_helper"
 
