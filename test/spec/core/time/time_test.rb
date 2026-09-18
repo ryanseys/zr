@@ -224,11 +224,8 @@ describe "Time programs" do
   end
 
   it "file the compiler never saw loads at run time" do
-    files = beside("a_file_the_compiler_never_saw_loads_at_run_time/boom.rb",
-                "a_file_the_compiler_never_saw_loads_at_run_time/cycle_a.rb",
-                "a_file_the_compiler_never_saw_loads_at_run_time/cycle_b.rb",
-                "a_file_the_compiler_never_saw_loads_at_run_time/deep/inner.rb",
-                "a_file_the_compiler_never_saw_loads_at_run_time/top.rb")
+    files = beside("never_saw/boom.rb", "never_saw/cycle_a.rb", "never_saw/cycle_b.rb", "never_saw/deep/inner.rb",
+                   "never_saw/top.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # A file the compiler never saw is compiled and run where it is FOUND.
@@ -250,7 +247,7 @@ describe "Time programs" do
       # straight back to the load path -- including `require_relative`, which
       # resolves against the CALLING file the frame carries, since a snippet has
       # no compile-time directory to resolve against.
-      root = File.join(__dir__, "a_file_the_compiler_never_saw_loads_at_run_time")
+      root = File.join(__dir__, "never_saw")
       $LOAD_PATH.unshift(root)
 
       # Once only, and the answer says which time it was.
@@ -311,8 +308,8 @@ describe "Time programs" do
       true
       2
       from inner
-      a_file_the_compiler_never_saw_loads_at_run_time/deep/inner.rb:6:in 'RuntimeInner.boom'
-      a_file_the_compiler_never_saw_loads_at_run_time/top.rb:10:in 'Raiser#boom'
+      never_saw/deep/inner.rb:6:in 'RuntimeInner.boom'
+      never_saw/top.rb:10:in 'Raiser#boom'
       core/time/time_test.rb:58:in '<main>'
     OUT
   end

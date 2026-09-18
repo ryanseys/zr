@@ -195,9 +195,9 @@ describe "Exceptions: loading files" do
   end
 
   it "require that raises is rescuable" do
-    files = fixtures("raising_feature/ok.rb", "raising_feature/r7.rb", "raising_feature/r1.rb",
-                     "raising_feature/r2.rb", "raising_feature/r3.rb", "raising_feature/r4.rb",
-                     "raising_feature/r5.rb", "raising_feature/r6.rb", "raising_feature/r8.rb")
+    files = fixtures("raising_feature/ok.rb", "raising_feature/r7.rb", "raising_feature/r1.rb", "raising_feature/r2.rb",
+                     "raising_feature/r3.rb", "raising_feature/r4.rb", "raising_feature/r5.rb", "raising_feature/r6.rb",
+                     "raising_feature/r8.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # A `require` zeo resolves at COMPILE time is spliced in place, and the

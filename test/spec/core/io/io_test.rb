@@ -153,8 +153,7 @@ describe "IO programs" do
   end
 
   it "boxs required file patches a shared class privately" do
-    files = beside("box_required_file/main.rb",
-                "box_required_file/patch.rb")
+    files = beside("box_required_file/main.rb", "box_required_file/patch.rb")
 
     result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
       # A box loading a FILE (rather than an eval'd string) isolates the same
@@ -240,10 +239,8 @@ describe "IO programs" do
   end
 
   it "diamond requires execute the shared file exactly once" do
-    files = beside("diamond_requires/liba.rb",
-                "diamond_requires/libb.rb",
-                "diamond_requires/main.rb",
-                "diamond_requires/shared.rb")
+    files = beside("diamond_requires/liba.rb", "diamond_requires/libb.rb", "diamond_requires/main.rb",
+                   "diamond_requires/shared.rb")
 
     result = ze0(<<~'RUBY', files: files)
       require_relative "diamond_requires/main"

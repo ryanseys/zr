@@ -34,8 +34,7 @@ describe "Boxes: evaluating a string" do
   end
 
   it "box eval dynamic source routes through the vm" do
-    files = beside("box_eval/lib.rb",
-                "box_eval/main.rb")
+    files = beside("box_eval/lib.rb", "box_eval/main.rb")
 
     result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
       # A NON-literal `box.eval` source (a variable, a computed string) routes

@@ -406,8 +406,7 @@ describe "Require programs" do
   end
 
   it "require relative" do
-    files = beside("require_relative/deeper.rb",
-                "require_relative/shared.rb")
+    files = beside("require_relative/deeper.rb", "require_relative/shared.rb")
 
     result = ze0(<<~'RUBY', path: "ze0/require_relative.rb", files: files)
       # frozen_string_literal: true
@@ -480,8 +479,7 @@ describe "Require programs" do
   end
 
   it "require relative in a method runs when the method does" do
-    files = beside("require_relative_in_method/counted.rb",
-                "require_relative_in_method/late.rb")
+    files = beside("require_relative_in_method/counted.rb", "require_relative_in_method/late.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # A `require_relative` written inside a `def` runs when the METHOD runs, not
@@ -531,12 +529,8 @@ describe "Require programs" do
   end
 
   it "top level return ends only its file" do
-    files = beside("top_level_return/guarded.rb",
-                "top_level_return/nested.rb",
-                "top_level_return/nested_dep.rb",
-                "top_level_return/never_required.rb",
-                "top_level_return/runs.rb",
-                "top_level_return/stops.rb")
+    files = beside("top_level_return/guarded.rb", "top_level_return/nested.rb", "top_level_return/nested_dep.rb",
+                   "top_level_return/never_required.rb", "top_level_return/runs.rb", "top_level_return/stops.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # ruby's top-level `return` ends the FILE it is written in; reading
@@ -584,10 +578,8 @@ describe "Require programs" do
   end
 
   it "two files named version each load their own" do
-    files = beside("two_versions/a/lib.rb",
-                "two_versions/a/version.rb",
-                "two_versions/b/lib.rb",
-                "two_versions/b/version.rb")
+    files = beside("two_versions/a/lib.rb", "two_versions/a/version.rb", "two_versions/b/lib.rb",
+                   "two_versions/b/version.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # Two compiled-in files can share a basename, and each `require_relative

@@ -4,9 +4,8 @@ require "spec_helper"
 
 describe "Units programs" do
   it "autoload and a guarded require of one file share its unit" do
-    files = beside("autoload_and_guard/lib/pkg/target.rb",
-                "autoload_and_guard/lib/pkg.rb",
-                "autoload_and_guard/prog.rb")
+    files = beside("autoload_and_guard/lib/pkg/target.rb", "autoload_and_guard/lib/pkg.rb",
+                   "autoload_and_guard/prog.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # One file demanded twice under two different names: an `autoload` naming it
@@ -35,10 +34,7 @@ describe "Units programs" do
   end
 
   it "autoload target compiled as a unit" do
-    files = beside("autoload_unit/cmd.rb",
-                "autoload_unit/demo.rb",
-                "autoload_unit/spec.rb",
-                "autoload_unit/thing.rb")
+    files = beside("autoload_unit/cmd.rb", "autoload_unit/demo.rb", "autoload_unit/spec.rb", "autoload_unit/thing.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # An `autoload` declared inside a file that is itself compiled as a LOAD-PATH
@@ -71,10 +67,8 @@ describe "Units programs" do
   end
 
   it "autoload target is a unit only target" do
-    files = beside("unit_only_target/cmd.rb",
-                "unit_only_target/lib.rb",
-                "unit_only_target/rule.rb",
-                "unit_only_target/spec.rb")
+    files = beside("unit_only_target/cmd.rb", "unit_only_target/lib.rb", "unit_only_target/rule.rb",
+                   "unit_only_target/spec.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # An `autoload` target is a UNIT-ONLY target: every other require site that
@@ -194,9 +188,7 @@ describe "Units programs" do
   end
 
   it "glob require units" do
-    files = beside("glob_require_units/loader.rb",
-                "glob_require_units/part_a.rb",
-                "glob_require_units/part_b.rb")
+    files = beside("glob_require_units/loader.rb", "glob_require_units/part_a.rb", "glob_require_units/part_b.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # A glob-driven require loop -- how a test suite (tzinfo's ts_all.rb) or a
@@ -212,9 +204,7 @@ describe "Units programs" do
   end
 
   it "guarded def in an earlier unit does not take a later units position" do
-    files = beside("guarded_def_unit/guarded.rb",
-                "guarded_def_unit/main.rb",
-                "guarded_def_unit/real.rb")
+    files = beside("guarded_def_unit/guarded.rb", "guarded_def_unit/main.rb", "guarded_def_unit/real.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # The failing shape ACROSS FILES, which is how bundler and rubygems meet:
@@ -233,10 +223,7 @@ describe "Units programs" do
   end
 
   it "lazy units" do
-    files = beside("lazy_units/counted.rb",
-                "lazy_units/guarded.rb",
-                "lazy_units/nested.rb",
-                "lazy_units/reloaded.rb")
+    files = beside("lazy_units/counted.rb", "lazy_units/guarded.rb", "lazy_units/nested.rb", "lazy_units/reloaded.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # frozen_string_literal: true
@@ -761,10 +748,8 @@ describe "Units programs" do
   end
 
   it "units superclass can live in a later unit" do
-    files = beside("unit_superclass/child.rb",
-                "unit_superclass/root.rb",
-                "unit_superclass/settings.rb",
-                "unit_superclass/zpath.rb")
+    files = beside("unit_superclass/child.rb", "unit_superclass/root.rb", "unit_superclass/settings.rb",
+                   "unit_superclass/zpath.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # A unit's `class Child < Path` names a superclass another unit defines, and

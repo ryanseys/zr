@@ -109,8 +109,7 @@ describe "Methods: defining and naming methods" do
   end
 
   it "alias binds a body from another stream" do
-    files = beside("alias_other_stream/lib/thing_core.rb",
-                "alias_other_stream/lib/thing_ext.rb")
+    files = beside("alias_other_stream/lib/thing_core.rb", "alias_other_stream/lib/thing_ext.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # `alias_method :eql?, :==` in one file, `def ==` in another. The alias must

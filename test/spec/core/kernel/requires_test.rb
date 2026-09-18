@@ -305,9 +305,8 @@ describe "Kernel: loading files" do
   end
 
   it "plain require resolves against search roots including nested features" do
-    files = beside("plain_require/main.rb",
-                "plain_require/vendorlib/util/strings.rb",
-                "plain_require/vendorlib/util.rb")
+    files = beside("plain_require/main.rb", "plain_require/vendorlib/util/strings.rb",
+                   "plain_require/vendorlib/util.rb")
 
     result = ze0(<<~'RUBY', files: files)
       $LOAD_PATH.unshift(File.expand_path("plain_require/vendorlib", __dir__))
@@ -380,11 +379,8 @@ describe "Kernel: loading files" do
   end
 
   it "require in a block runs when the block runs" do
-    files = beside("require_in_block/in_body.rb",
-                "require_in_block/lazy.rb",
-                "require_in_block/never.rb",
-                "require_in_block/once.rb",
-                "require_in_block/repeat.rb")
+    files = beside("require_in_block/in_body.rb", "require_in_block/lazy.rb", "require_in_block/never.rb",
+                   "require_in_block/once.rb", "require_in_block/repeat.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # A block body runs only when something yields to it, and how many times is a

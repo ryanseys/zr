@@ -183,9 +183,7 @@ describe "Process programs" do
   end
 
   it "circular requires compose in rubys execution order" do
-    files = beside("circular_requires/ca.rb",
-                "circular_requires/cb.rb",
-                "circular_requires/main.rb")
+    files = beside("circular_requires/ca.rb", "circular_requires/cb.rb", "circular_requires/main.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # CRuby registers a feature as loading BEFORE executing it, so the

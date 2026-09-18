@@ -828,10 +828,8 @@ describe "Modules: formatting and inspection" do
   end
 
   it "superclass clause skips an outer module" do
-    files = beside("superclass_clause/bench.rb",
-                "superclass_clause/outer.rb",
-                "superclass_clause/root.rb",
-                "superclass_clause/zprobe.rb")
+    files = beside("superclass_clause/bench.rb", "superclass_clause/outer.rb", "superclass_clause/root.rb",
+                   "superclass_clause/zprobe.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # `class Bench < Probe` inside `module Mini` names `Mini::Probe`, even when an

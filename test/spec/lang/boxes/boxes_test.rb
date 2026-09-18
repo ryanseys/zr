@@ -98,8 +98,7 @@ describe "Boxes programs" do
   end
 
   it "box exceptions are rescuable in main" do
-    files = beside("box_exceptions/main.rb",
-                "box_exceptions/thrower.rb")
+    files = beside("box_exceptions/main.rb", "box_exceptions/thrower.rb")
 
     result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
       # Exceptions cross the boundary as plain references: a box-defined
@@ -244,8 +243,7 @@ describe "Boxes programs" do
   end
 
   it "box isolation and shared builtins" do
-    files = beside("box_isolation/main.rb",
-                "box_isolation/widget.rb")
+    files = beside("box_isolation/main.rb", "box_isolation/widget.rb")
 
     result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
       # The keystone: a box-required file's classes are DISTINCT from main's
@@ -712,8 +710,7 @@ describe "Boxes programs" do
   end
 
   it "boxes reexecute files and patch builtins privately" do
-    files = beside("boxes_reexecute/blank.rb",
-                "boxes_reexecute/main.rb")
+    files = beside("boxes_reexecute/blank.rb", "boxes_reexecute/main.rb")
 
     result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
       # Per-box re-execution (the same file `box.require`d into two boxes runs

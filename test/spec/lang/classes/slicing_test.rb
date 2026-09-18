@@ -321,9 +321,7 @@ describe "Classes: slicing" do
   end
 
   it "class is not its own superclass" do
-    files = beside("own_superclass/abstract.rb",
-                "own_superclass/adapter.rb",
-                "own_superclass/base.rb")
+    files = beside("own_superclass/abstract.rb", "own_superclass/adapter.rb", "own_superclass/base.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # Ruby evaluates a superclass expression BEFORE it binds the class's own name,

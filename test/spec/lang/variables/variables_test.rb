@@ -794,9 +794,7 @@ describe "Variables programs" do
   end
 
   it "earlier i root shadows a later same named stdlib file" do
-    files = beside("earlier_root/main.rb",
-                "earlier_root/stdliblib/patched.rb",
-                "earlier_root/userlib/patched.rb")
+    files = beside("earlier_root/main.rb", "earlier_root/stdliblib/patched.rb", "earlier_root/userlib/patched.rb")
 
     result = ze0(<<~'RUBY', files: files)
       # The documented precedence: `-I` roots are searched in order, first hit
