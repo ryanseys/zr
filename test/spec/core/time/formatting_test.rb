@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe "Time: formatting and inspection" do
-  it "time and strftime" do
+  it "strftime, arithmetic and the epoch readers answer without a system ruby" do
     result = ze0(<<~'RUBY')
       # The time library is linked: parsing, arithmetic and formatting all work
       # without a system ruby.
@@ -23,7 +23,7 @@ describe "Time: formatting and inspection" do
     OUT
   end
 
-  it "time at kinds string ctor" do
+  it "Time.at takes a Rational or a Time, refuses what is not numeric, and Time.new parses a string" do
     result = ze0(<<~'RUBY')
       # Time.at with Rational / Time / non-numeric arguments, the 10-argument
       # reversed constructor form, and the string-parsing Time.new.
@@ -101,7 +101,7 @@ describe "Time: formatting and inspection" do
     OUT
   end
 
-  it "time at time ten arg and string constructors" do
+  it "a UTC string and a numeric +00:00 render alike but disagree on #utc?" do
     result = ze0(<<~'RUBY')
       # Time.at(Time) copies the instant; the 10-arg to_a order; the string
       # form (offset / UTC / local / fractional); and UTC vs a numeric +00:00
@@ -136,7 +136,7 @@ describe "Time: formatting and inspection" do
     OUT
   end
 
-  it "time civil constructors and their seventh argument" do
+  it "Time.utc's seventh argument is microseconds where Time.new's is a UTC offset" do
     result = ze0(<<~'RUBY')
       # The civil constructors disagree about their 7th argument on purpose:
       # `Time.utc`'s is MICROSECONDS, `Time.new`'s is a UTC OFFSET in seconds.
@@ -186,7 +186,7 @@ describe "Time: formatting and inspection" do
     OUT
   end
 
-  it "time inspect shows trimmed subseconds" do
+  it "inspect shows the sub-second digits with the trailing zeros trimmed, and to_s never does" do
     result = ze0(<<~'RUBY')
       # `inspect` shows sub-second digits (trailing zeros trimmed); `to_s` never
       # does.
@@ -204,7 +204,7 @@ describe "Time: formatting and inspection" do
     OUT
   end
 
-  it "time marshal wire" do
+  it "the marshal wire format is the bit-packed civil words with the nano and zone ivars" do
     result = ze0(<<~'RUBY')
       # Time's marshal wire format, byte-for-byte (time.c time_mdump/mload): the
       # 8-byte bit-packed UTC civil words, the year-extension tail, and the
@@ -264,7 +264,7 @@ describe "Time: formatting and inspection" do
     OUT
   end
 
-  it "time mutating converters versus their copies" do
+  it "utc and localtime convert in place, where the get forms answer a copy" do
     result = ze0(<<~'RUBY')
       # `utc`/`gmtime`/`localtime` convert the receiver IN PLACE and answer self;
       # the `get*` forms answer a copy and leave the receiver alone.
@@ -286,7 +286,7 @@ describe "Time: formatting and inspection" do
     OUT
   end
 
-  it "time negative year padding" do
+  it "a negative year pads to four digits after the sign" do
     result = ze0(<<~'RUBY')
       p Time.utc(-1).to_s
       p Time.gm(-1).to_s
@@ -302,7 +302,7 @@ describe "Time: formatting and inspection" do
     OUT
   end
 
-  it "time new rejects unparseable strings" do
+  it "Time.new tells an unparseable string from one carrying no time" do
     result = ze0(<<~'RUBY')
       [["garbage", "can't parse"], ["2021-12-25", "no time information"]].each do |s, _|
         begin
@@ -319,7 +319,7 @@ describe "Time: formatting and inspection" do
     OUT
   end
 
-  it "time subsec offset family" do
+  it "usec, nsec and subsec read the fraction, and two equal instants hash alike" do
     result = ze0(<<~'RUBY')
       # Time sub-second precision, fixed utc_offset construction, exact Float
       # shifts, and value-based hash.
@@ -436,7 +436,7 @@ describe "Time: formatting and inspection" do
     OUT
   end
 
-  it "time to s" do
+  it "to_s renders YYYY-MM-DD HH:MM:SS +ZZZZ with no fraction" do
     result = ze0(<<~'RUBY')
       # Time#to_s renders the "YYYY-MM-DD HH:MM:SS +ZZZZ" form (no subsecond
       # fraction). Use .utc for a timezone-independent, deterministic string.
@@ -451,7 +451,7 @@ describe "Time: formatting and inspection" do
     OUT
   end
 
-  it "time utc civil fields" do
+  it "a fixed instant read in UTC answers every civil field the same on any machine" do
     result = ze0(<<~'RUBY')
       # A fixed instant read in UTC -- zone-independent, so these are safe to
       # assert on any machine. Oracle-read for epoch 1700000000.
@@ -481,7 +481,7 @@ describe "Time: formatting and inspection" do
     OUT
   end
 
-  it "time year zero padded" do
+  it "a year under four digits zero-pads in to_s, inspect and %Y alike" do
     result = ze0(<<~'RUBY')
       [[1, 1, 1], [9, 2, 3], [99, 3, 4], [999, 12, 31], [1000, 1, 1],
        [2024, 1, 1], [10000, 1, 1]].each do |y, m, d|

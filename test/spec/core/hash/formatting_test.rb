@@ -109,7 +109,7 @@ describe "Hash: formatting and inspection" do
     OUT
   end
 
-  it "hash and regexp as hash keys" do
+  it "a Hash used as a key is found by its pairs whatever their order, never by identity" do
     result = ze0(<<~'RUBY')
       # A Hash used as a Hash KEY was keyed by identity, not by value: two equal
       # literals were two different keys, and `#hash` disagreed between them.
@@ -208,7 +208,7 @@ describe "Hash: formatting and inspection" do
     OUT
   end
 
-  it "hash default through derived hashes" do
+  it "dup, clone, merge and compact carry the default block or value to the copy" do
     result = ze0(<<~'RUBY')
       g = Hash.new { |hh, k| hh[k] = k * 2 }
       g["a"] = "x"
@@ -271,7 +271,7 @@ describe "Hash: formatting and inspection" do
     OUT
   end
 
-  it "hash enumerable eql batch" do
+  it "eql? compares by value, and replace widens the receiver to hold what it is given" do
     result = ze0(<<~'RUBY')
       # Hash Enumerable wiring, eql?, replace widening (KieranP #2361,#2372,#2373,#2374)
       p({ a: 1 }.eql?({ a: 1 }))
@@ -330,7 +330,7 @@ describe "Hash: formatting and inspection" do
     OUT
   end
 
-  it "hash fetch keyerror message" do
+  it "fetch's KeyError names the missing key as it inspects" do
     result = ze0(<<~'RUBY')
       # Hash#fetch's KeyError must carry the missing key: "key not found: <key.inspect>".
       # The suffix was dropped, so the message was a bare "key not found". Each key type
@@ -371,7 +371,7 @@ describe "Hash: formatting and inspection" do
     OUT
   end
 
-  it "hash inspect poly" do
+  it "a mixed-value hash inspects with the key spelling ruby uses for its key kind" do
     result = ze0(<<~'RUBY')
       h_sym_poly = { a: "x", b: 1, c: :sym }
       p h_sym_poly
@@ -398,7 +398,7 @@ describe "Hash: formatting and inspection" do
     OUT
   end
 
-  it "hash many composite keys" do
+  it "a Float or an Array key spreads over the table rather than piling on a few slots" do
     result = ze0(<<~'RUBY')
       # The bucket index takes the low bits of a key's hash, and several key kinds
       # leave their information out of those (a Float's mantissa bits are zero for a
@@ -459,7 +459,7 @@ describe "Hash: formatting and inspection" do
     OUT
   end
 
-  it "hash new default empty" do
+  it "an empty Hash.new(default) answers size and inspect before a key is written" do
     result = ze0(<<~'RUBY')
       # An empty Hash.new(default) is a real hash: size/inspect/p work before any
       # key is inserted (it used to raise "uninitialized constant Hash"), and the
@@ -490,7 +490,7 @@ describe "Hash: formatting and inspection" do
     OUT
   end
 
-  it "hash new direct receiver" do
+  it "a Hash.new called on directly answers every method, with no key usage to go on" do
     result = ze0(<<~'RUBY')
       # A Hash.new called on directly has no key usage to decide its variant, and
       # staying unknown made every method on it an unresolved call (#3823).
@@ -525,7 +525,7 @@ describe "Hash: formatting and inspection" do
     OUT
   end
 
-  it "hash that holds itself compares and inspects" do
+  it "a hash that holds itself compares equal and inspects the inner one as ..." do
     result = ze0(<<~'RUBY')
       # A Hash, an Array or an object that holds itself ends its walk where
       # CRuby does: the same two objects compared again inside their own
@@ -572,7 +572,7 @@ describe "Hash: formatting and inspection" do
     OUT
   end
 
-  it "hash transform keys accepts a mapping" do
+  it "transform_keys takes a mapping hash, and a block covers the keys the mapping misses" do
     result = ze0(<<~'RUBY')
       p({ a: 1, b: 2 }.transform_keys(a: :x))
       p({ a: 1, b: 2 }.transform_keys(a: :x) { |k| k.to_s })
@@ -588,7 +588,7 @@ describe "Hash: formatting and inspection" do
     OUT
   end
 
-  it "hash transform keys cross" do
+  it "a block that changes the key type changes the hash's own key kind" do
     result = ze0(<<~'RUBY')
       # Hash#transform_keys with a sym → string block: result is a
       # str_*_hash (key-type swap). Same-type blocks preserve the variant.
@@ -613,7 +613,7 @@ describe "Hash: formatting and inspection" do
     OUT
   end
 
-  it "hash variant call boundary sym" do
+  it "a symbol-keyed literal converts at the boundary of a callee that wants a wider hash" do
     result = ze0(<<~'RUBY')
       # #690: Symbol-keyed hash literal passed to a sym_poly_hash-typed
       # callee param must convert at the call boundary; the post-#676
@@ -650,7 +650,7 @@ describe "Hash: formatting and inspection" do
     OUT
   end
 
-  it "hash variant unify" do
+  it "a local and the ivar behind it settle on one hash layout, never two" do
     result = ze0(<<~'RUBY')
       # Hash variants (SymPolyHash, StrPolyHash, PolyPolyHash, ...) have different
       # struct layouts. Type inference must not let a local and the ivar backing it
