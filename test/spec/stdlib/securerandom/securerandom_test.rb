@@ -137,7 +137,7 @@ describe "SecureRandom programs" do
     OUT
   end
 
-  it "securerandom" do
+  it "every generator answers the length, format, range and encoding its contract names" do
     result = ze0(<<~'RUBY')
       # SecureRandom: cryptographically secure random values, built on OS entropy
       # (Random.urandom) and the Random::Formatter mixin. Random output can't be
@@ -195,7 +195,7 @@ describe "SecureRandom programs" do
     OUT
   end
 
-  it "securerandom formatted lengths and types" do
+  it "hex, base64, random_bytes and alphanumeric answer the length and class each promises" do
     result = ze0(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
       require "securerandom"
       puts SecureRandom.hex(8).length          # 2*n
@@ -220,7 +220,7 @@ describe "SecureRandom programs" do
     OUT
   end
 
-  it "securerandom random number bounds" do
+  it "random_number answers an Integer, a Float or a value in the Range it is given" do
     result = ze0(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
       require "securerandom"
       puts SecureRandom.random_number(10).class
@@ -245,7 +245,7 @@ describe "SecureRandom programs" do
     OUT
   end
 
-  it "securerandom urlsafe base64 padding rules" do
+  it "urlsafe_base64 drops the padding by default and keeps it when asked" do
     result = ze0(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
       require "securerandom"
       # Default: no padding, URL/filename-safe alphabet only. n=5 isn't a
@@ -264,7 +264,7 @@ describe "SecureRandom programs" do
     OUT
   end
 
-  it "securerandom uuid is a valid v4" do
+  it "uuid and uuid_v4 both answer a well-formed version 4 UUID" do
     result = ze0(<<~'RUBY', files: {"securerandom.rb" => fixture("stdlib/securerandom/securerandom.rb")})
       require "securerandom"
       u = SecureRandom.uuid

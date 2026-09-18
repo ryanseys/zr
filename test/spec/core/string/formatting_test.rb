@@ -422,7 +422,7 @@ describe "String: formatting and inspection" do
     OUT
   end
 
-  it "string embedded nul core" do
+  it "a NUL is a byte of the string for length, bytes, == and a Hash key" do
     result = ze0(<<~'RUBY')
       s = "a\0b"
       puts s.length
@@ -468,7 +468,7 @@ describe "String: formatting and inspection" do
     OUT
   end
 
-  it "string embedded nul transform" do
+  it "repeat, +@, the justify family and the character walk all keep a NUL and what follows it" do
     result = ze0(<<~'RUBY')
       # A NUL is an ordinary byte in a Ruby String, but repeat, unary plus, the
       # justify family and the character walk all sized themselves with strlen and
@@ -516,7 +516,7 @@ describe "String: formatting and inspection" do
     OUT
   end
 
-  it "string enum inspect source" do
+  it "a blockless each_char or each_line answers an Enumerator stamped with the string and the method" do
     result = ze0(<<~'RUBY')
       # Blockless String#each_char / each_line / each_byte / each_codepoint
       # return Enumerators stamped with the ORIGINAL string receiver and creating
@@ -546,7 +546,7 @@ describe "String: formatting and inspection" do
     OUT
   end
 
-  it "string inspect dump escapes" do
+  it "inspect and dump escape an interpolation, a global, an ivar and a non-ASCII character" do
     result = ze0(<<~'RUBY')
       p "a\#{x}".inspect
       p "a#b".dump
@@ -572,7 +572,7 @@ describe "String: formatting and inspection" do
     OUT
   end
 
-  it "string undump" do
+  it "undump is the inverse of dump, so the pair round-trips" do
     result = ze0(<<~'RUBY')
       # String#undump is the inverse of String#dump. Round-tripping a string
       # through dump then undump returns the original (each engine round-trips

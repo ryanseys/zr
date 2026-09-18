@@ -132,7 +132,7 @@ describe "String: arithmetic" do
     OUT
   end
 
-  it "string multiply overflow" do
+  it "* with a huge count raises before it allocates, and a negative count raises too" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # String#* overflow raises "string size too big"; ruby 4.0.6 says "argument
@@ -168,7 +168,7 @@ describe "String: arithmetic" do
     OUT
   end
 
-  it "string mutation plus" do
+  it "+@ answers a mutable copy, concat and []= mutate in place, and -@ answers the string unchanged" do
     result = ze0(<<~'RUBY')
       # Unary +@ on a string returns a mutable copy (so a literal can be built up),
       # and concat / []= mutate a mutable string local in place (statement position,
@@ -246,7 +246,7 @@ describe "String: arithmetic" do
     OUT
   end
 
-  it "string plus heap gc" do
+  it "a + loop that touches only the string heap still drives a collection" do
     result = ze0(<<~'RUBY')
       # Regression for matz/spinel#1450. A `String#+` loop allocates only on the
       # string heap (no object-heap allocation), and before the fix the string heap
@@ -278,7 +278,7 @@ describe "String: arithmetic" do
     ERR
   end
 
-  it "string sum bits" do
+  it "sum answers the byte checksum modulo 2 to the bits, and leaves it whole outside 0...64" do
     result = ze0(<<~'RUBY')
       # String#sum(bits): byte checksum modulo 2**bits (default 16; <= 0 or
       # >= 64 untruncated like CRuby).
@@ -296,7 +296,7 @@ describe "String: arithmetic" do
     OUT
   end
 
-  it "string to i overflow raises" do
+  it "to_i and Integer() raise RangeError past int64 rather than saturate" do
     result = ze0(<<~'RUBY')
       # String#to_i / Integer() on input exceeding int64 raises
       # RangeError rather than saturating silently. spinel's int model

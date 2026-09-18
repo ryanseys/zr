@@ -158,7 +158,7 @@ describe "String: conversion" do
     _(result).must_answer "ArgumentError\nArgumentError\n"
   end
 
-  it "string to f bare dot" do
+  it "to_f reads a bare leading or trailing dot" do
     result = ze0(<<~'RUBY')
       p ".5".to_f
       p "5.".to_f
@@ -174,7 +174,7 @@ describe "String: conversion" do
     OUT
   end
 
-  it "string to i base" do
+  it "to_i honours an explicit base argument" do
     result = ze0(<<~'RUBY')
       # Issue #883: String#to_i with explicit base argument. Without the
       # fix, the base was silently dropped and the call returned 0 for
@@ -197,7 +197,7 @@ describe "String: conversion" do
     OUT
   end
 
-  it "string to i base prefix" do
+  it "to_i with a base accepts the matching literal prefix, and a sign before it" do
     result = ze0(<<~'RUBY')
       p "0x1f".to_i(16)
       p "-0x1f".to_i(16)
@@ -213,7 +213,7 @@ describe "String: conversion" do
     OUT
   end
 
-  it "string to i base zero" do
+  it "to_i(0) takes the base from the literal prefix" do
     result = ze0(<<~'RUBY')
       # String#to_i(0) auto-detects the base from the literal prefix.
       puts "0xff".to_i(0)
@@ -237,7 +237,7 @@ describe "String: conversion" do
     OUT
   end
 
-  it "string to i base zero auto detects the prefix" do
+  it "to_i(0) reads 0x, 0b, 0o, a bare leading zero, and a sign" do
     result = ze0(<<~'RUBY')
       puts "0xff".to_i(0)
       puts "0b101".to_i(0)

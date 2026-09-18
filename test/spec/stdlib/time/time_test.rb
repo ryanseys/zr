@@ -62,7 +62,7 @@ describe "Time: the time library" do
     OUT
   end
 
-  it "time accessors" do
+  it "the broken-down accessors, utc_offset and zone all answer whatever the host zone is" do
     result = ze0(<<~'RUBY')
       require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)
 
@@ -172,7 +172,7 @@ describe "Time: the time library" do
     OUT
   end
 
-  it "time iso8601 strftime" do
+  it "iso8601 and strftime resolve on a Time receiver and answer a String" do
     result = ze0(<<~'RUBY')
       require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)
 
@@ -241,7 +241,7 @@ describe "Time: the time library" do
     OUT
   end
 
-  it "time utc" do
+  it "utc resolves on a Time receiver, and chaining iso8601 onto it answers a Zulu string" do
     result = ze0(<<~'RUBY')
       require "time"  # Time#iso8601 is require-gated stdlib (matches CRuby)
 
@@ -377,7 +377,7 @@ describe "Time: the time library" do
     OUT
   end
 
-  it "time fixed offset formatters" do
+  it "a fixed-offset Time keeps its own clock fields through strftime, iso8601 and xmlschema" do
     result = ze0(<<~'RUBY')
       # A fixed-offset Time (is_utc kind 2) renders its CIVIL fields shifted by
       # utc_off. sp_time_vtm has always done that -- so #hour, #to_s and #inspect
@@ -450,7 +450,7 @@ describe "Time: the time library" do
     OUT
   end
 
-  it "time parse" do
+  it "Time.parse and its stricter siblings read every shape the gem builds on Date._parse" do
     result = ze0(<<~'RUBY')
       # `Time.parse` and its stricter siblings, from the vendored `time` gem. All of
       # them delegate to `Date._parse` (see `tests/date_parse_heuristics.rb`); this
