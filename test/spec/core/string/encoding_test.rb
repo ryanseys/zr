@@ -185,7 +185,7 @@ describe "String: encodings" do
     OUT
   end
 
-  it "string case tables" do
+  it "the unicode case-mapping and normalization tables reach the binary's data" do
     result = ze0(<<~'RUBY')
       # Unicode case mapping and normalization tables reach the binary's data.
       puts "straße".upcase
@@ -205,7 +205,7 @@ describe "String: encodings" do
     OUT
   end
 
-  it "string dump undump" do
+  it "dump writes a re-parseable literal and undump reads it back" do
     result = ze0(<<~'RUBY')
       # String#dump: a re-parseable literal; String#undump: its inverse.
 
@@ -276,7 +276,7 @@ describe "String: encodings" do
     OUT
   end
 
-  it "string methods read wide and legacy text by characters" do
+  it "String's own methods read wide and legacy text one character at a time" do
     result = ze0(<<~'RUBY')
       # String's own methods read wide and legacy text a character at a time:
       # length and each_char, reverse and slicing, justification, strip and
@@ -681,7 +681,7 @@ describe "String: encodings" do
     OUT
   end
 
-  it "string new" do
+  it "String.new builds a fresh mutable buffer, copying a source's contents and encoding" do
     result = ze0(<<~'RUBY')
       # `String.new` builds a fresh, mutable String. With no argument it is an empty
       # ASCII-8BIT buffer; given a source string it copies that string's contents and
@@ -714,7 +714,7 @@ describe "String: encodings" do
     OUT
   end
 
-  it "string new capacity" do
+  it "capacity: and encoding: are hints, so the positional content survives them" do
     result = ze0(<<~'RUBY')
       # The capacity: and encoding keyword arguments to String.new are hints that do
       # not change the value -- the content is the leading positional argument. Spinel
@@ -755,7 +755,7 @@ describe "String: encodings" do
     OUT
   end
 
-  it "string shift chain" do
+  it "a chained append evaluates each link once and lands every one on the base" do
     result = ze0(<<~'RUBY')
       # chained string appends (`s << a << b`) evaluate each link exactly once and
       # every append lands on the base. The tail form used to re-run the inner
@@ -830,7 +830,7 @@ describe "String: encodings" do
     OUT
   end
 
-  it "string try convert" do
+  it "try_convert asks only to_str, answers nil for anything else, and refuses a lying one" do
     result = ze0(<<~'RUBY')
       # `String.try_convert(obj)` -- the `to_str` check-conversion, exposed. Unlike
       # `String(obj)` it never falls back to `to_s` and never raises for an object
@@ -911,7 +911,7 @@ describe "String: encodings" do
     OUT
   end
 
-  it "string with embedded nul" do
+  it "length, bytesize and slicing read the header's byte count, not up to the first NUL" do
     result = ze0(<<~'RUBY')
       # Spinel-allocated strings encode their byte length in the heap
       # header (sp_str_hdr.len), but several runtime helpers and one

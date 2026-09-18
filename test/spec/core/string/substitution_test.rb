@@ -167,7 +167,7 @@ describe "String: substitution" do
     OUT
   end
 
-  it "string case delete affix" do
+  it "swapcase, delete_prefix and delete_suffix each answer a new string" do
     result = ze0(<<~'RUBY')
       # String#swapcase, #delete_prefix, and #delete_suffix return new strings. Each
       # has a runtime helper already; this exercises the typed-String dispatch arms and
@@ -209,7 +209,7 @@ describe "String: substitution" do
     OUT
   end
 
-  it "string charset escape" do
+  it "a backslash in a tr or count character set escapes the next character rather than opening a range" do
     result = ze0(<<~'RUBY')
       # GAP -- imported from the spinel corpus at c55d9bdb.
       # A character-set escape in a String method argument is not expanded, so
@@ -244,7 +244,7 @@ describe "String: substitution" do
     OUT
   end
 
-  it "string delete prefix suffix bang" do
+  it "delete_prefix! and delete_suffix! change the receiver, and a frozen literal raises" do
     result = ze0(<<~'RUBY')
       # frozen_string_literal: true
       # String#delete_prefix! / delete_suffix! on a mutable_str mutate in
@@ -287,7 +287,7 @@ describe "String: substitution" do
     OUT
   end
 
-  it "string enum arg forms" do
+  it "a blockless gsub is an Enumerator, and each_line takes any separator" do
     result = ze0(<<~'RUBY')
       # Blockless String#gsub(/re/) is an Enumerator over the matches, and
       # each_line(sep) / lines(sep) split on an arbitrary separator (kept on
@@ -309,7 +309,7 @@ describe "String: substitution" do
     OUT
   end
 
-  it "string replace prepend insert clear" do
+  it "replace, prepend, insert and clear change the string a local holds" do
     result = ze0(<<~'RUBY')
       # String#replace / prepend / insert / clear mutate a string held in a
       # local variable. The analyzer widens such a local to a mutable_str
@@ -358,7 +358,7 @@ describe "String: substitution" do
     OUT
   end
 
-  it "string squeeze no trailing nul" do
+  it "squeeze shrinks the header, so length and bytes report what is left" do
     result = ze0(<<~'RUBY')
       # Issue #921: String#squeeze shrinks the heap-string header
       # so length / bytes report the post-squeeze size, not the
@@ -383,7 +383,7 @@ describe "String: substitution" do
     OUT
   end
 
-  it "string tr bang identity" do
+  it "tr! answers nil when nothing moved, and the receiver when something did" do
     result = ze0(<<~'RUBY')
       p (+"Hello").tr!("l", "l")
       p (+"Hello").tr!("z", "y")
@@ -397,7 +397,7 @@ describe "String: substitution" do
     OUT
   end
 
-  it "string tr duplicate from char uses the last mapping" do
+  it "a character repeated in tr's from takes its last corresponding to" do
     result = ze0(<<~'RUBY')
       # A char repeated in `from` takes its LAST corresponding `to` char
       # (CRuby's rule) -- previously the FIRST mapping wrongly won.

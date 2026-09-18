@@ -96,7 +96,7 @@ describe "Hash: substitution" do
     OUT
   end
 
-  it "hash delete if select reject bang" do
+  it "delete_if, select! and reject! change the receiver in place" do
     result = ze0(<<~'RUBY')
       # Hash#delete_if / #select! / #reject! on typed hashes mutate
       # the receiver in place.
@@ -127,7 +127,7 @@ describe "Hash: substitution" do
     OUT
   end
 
-  it "hash delete returns value" do
+  it "delete answers the value it removed, and the element kind's zero for a miss" do
     result = ze0(<<~'RUBY')
       h_si = { a: 1, b: 2, c: 3 }
       v1 = h_si.delete(:a)
@@ -164,7 +164,7 @@ describe "Hash: substitution" do
     OUT
   end
 
-  it "hash fetch values delete block subset" do
+  it "fetch_values and delete take a block for a miss, and the subset operators compare" do
     result = ze0(<<~'RUBY')
       # Hash#fetch_values with a block for missing keys, Hash#delete with a block,
       # hash subset/superset comparison operators, and Enumerable none?/one?/find_all
@@ -227,7 +227,7 @@ describe "Hash: substitution" do
     OUT
   end
 
-  it "hash int keyed delete" do
+  it "the delete family and shift answer on an integer-keyed hash" do
     result = ze0(<<~'RUBY')
       # Integer-keyed Hash delete-family + Hash#shift (KieranP #2344,#2349,#2353)
       p({ 1 => "a", 2 => "b" }.delete(1))         # #2344 delete
@@ -263,7 +263,7 @@ describe "Hash: substitution" do
     OUT
   end
 
-  it "hash key mutate rehash" do
+  it "a key string mutated in place has its cached hash dropped, so a later lookup still finds it" do
     result = ze0(<<~'RUBY')
       # Guards the cached-key-hash optimization: a heap string used as a hash
       # lookup key caches its hash in the string header. If the string is then
@@ -307,7 +307,7 @@ describe "Hash: substitution" do
     OUT
   end
 
-  it "hash local widened past initializer" do
+  it "a local widened past its initializer's hash variant is converted, not reinterpreted" do
     result = ze0(<<~'RUBY')
       # A local the analysis widened past its initializer's hash variant. The
       # variants are separate C structs, so the pointer went into the slot with no
@@ -387,7 +387,7 @@ describe "Hash: substitution" do
     OUT
   end
 
-  it "hash mutation during each" do
+  it "adding a key during each raises, while deleting or rewriting one does not" do
     result = ze0(<<~'RUBY')
       h001 = { a: 1, b: 2 }
       r001 = (h001.each { |_k001, _v001| h001[:c] = 3 } rescue $!.class)
@@ -415,7 +415,7 @@ describe "Hash: substitution" do
     OUT
   end
 
-  it "hash replace variants" do
+  it "replace empties the receiver, copies the other's entries in order, and answers itself" do
     result = ze0(<<~'RUBY')
       # Hash#replace on the 4 common typed-hash variants — empty
       # receiver and copy entries from `other` in original-key order.

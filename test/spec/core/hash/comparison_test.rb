@@ -110,7 +110,7 @@ describe "Hash: comparison and equality" do
     OUT
   end
 
-  it "hash compare by identity" do
+  it "compare_by_identity keys by equal?, so two equal strings are two keys" do
     result = ze0(<<~'RUBY')
       # Hash#compare_by_identity — keys compared by object identity (equal?),
       # not structure (eql?/hash).
@@ -193,7 +193,7 @@ describe "Hash: comparison and equality" do
     OUT
   end
 
-  it "hash compare by identity keys by object not value" do
+  it "compare_by_identity answers the receiver, and the mode holds for every later write" do
     result = ze0(<<~'RUBY')
       h = {}
       puts h.compare_by_identity?          # false
@@ -233,7 +233,7 @@ describe "Hash: comparison and equality" do
     OUT
   end
 
-  it "hash eq boxed" do
+  it "a hash inside a container compares by value, like every other container" do
     result = ze0(<<~'RUBY')
       # Boxed hashes compare by value like every other container: the poly-eq
       # object arm had no hash cases, so [h] == [same-content-h] was pointer
@@ -256,7 +256,7 @@ describe "Hash: comparison and equality" do
     OUT
   end
 
-  it "hash to h identity" do
+  it "to_h with no block answers the receiver itself" do
     result = ze0(<<~'RUBY')
       # Hash#to_h with no block is the identity (returns self). Verified via class,
       # length, and key access to avoid the 3.2-vs-3.4 hash-inspect spacing diff.
@@ -292,7 +292,7 @@ describe "Hash: comparison and equality" do
     OUT
   end
 
-  it "hash update multi arg" do
+  it "update folds several hashes in order and answers the receiver" do
     result = ze0(<<~'RUBY')
       # Hash#update / #merge! with several hash arguments folds each in order and
       # returns the receiver (a value the caller can use, not nil).
@@ -310,7 +310,7 @@ describe "Hash: comparison and equality" do
     OUT
   end
 
-  it "hash user key" do
+  it "a user object with #hash and #eql? is a key a freshly built equal one finds" do
     result = ze0(<<~'RUBY')
       # A user object with #hash + #eql? works as a Hash key: two value-equal keys
       # collide to the same slot and compare equal, so a freshly-built key finds the
@@ -380,7 +380,7 @@ describe "Hash: comparison and equality" do
     OUT
   end
 
-  it "hash user key eql" do
+  it "a user #eql? is called with a poly operand, and an alias of == resolves to it" do
     result = ze0(<<~'RUBY')
       # A Hash keyed by a custom object honors user-defined #hash / #eql?: an
       # equal-but-distinct key finds the entry (sp_gen_obj_hash / sp_gen_obj_eql
@@ -437,7 +437,7 @@ describe "Hash: comparison and equality" do
     OUT
   end
 
-  it "hash value p" do
+  it "value? answers whether any value equals the argument" do
     result = ze0(<<~'RUBY')
       # Issue #738 (partial -- value? / has_value?). Hash#value?(v) returns
       # true if any value in the hash equals v, else false. spinel used to
