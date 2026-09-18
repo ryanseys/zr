@@ -277,18 +277,8 @@ describe "Pathname programs" do
     OUT
   end
 
-  it "implicit conversion protocol runs at every typed slot" do
+  it "File's readers take an object that answers to_path" do
     result = ze0(<<~'RUBY')
-      # The cycle this program builds on purpose, and the census it leaves
-      # behind. A cycle alive at exit is not a defect: it is a ring the
-      # program never broke, so the census below is recorded as an
-      # observation rather than gated on.
-      #
-      # One ring: `loop_a = ["x"]; loop_a << loop_a`, the self-referential array
-      # that makes `File.join` raise ArgumentError. `ZEO_RT_GCRINGS=1` names it --
-      # "Array[2] (held by Array[2], holds Array[2])" is a two-element array that
-      # holds itself, and the only such array in the file.
-      # At exit: cycle leak: 1 objects (Array x1)
       require "pathname"
       require "stringio"
 
@@ -344,6 +334,25 @@ describe "Pathname programs" do
       end
 
       pl = PathLike.new(file)
+      dl = PathLike.new(dir)
+      pn = Pathname.new(file)
+      DIR = dir
+      class Payload
+        def to_s
+          "payload"
+        end
+      end
+
+      class Churn
+        def initialize(n)
+          @n = n
+        end
+        def to_path
+          2000.times { "z" * 40 }
+          "#{DIR}/churn#{@n}.txt"
+        end
+      end
+
       p File.exist?(pl)
       p File.file?(pl)
       p File.read(pl)
@@ -377,11 +386,121 @@ describe "Pathname programs" do
       end
       p File.atime(pl).class
       p File.owned?(pl)
-      p File.realdirpath(PathLike.new("a.txt"), dl = PathLike.new(dir)) == File.realpath(file)
+      p File.realdirpath(PathLike.new("a.txt"), dl) == File.realpath(file)
       p File.expand_path("a.txt", PathLike.new(dir)) == file
       p File.absolute_path("a.txt", PathLike.new(dir)) == file
       p File.utime(Time.at(0), Time.at(0), pl)
       p File.join(["a", PathLike.new("b")], "c")
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      "abcdef\n"
+      "a.txt"
+      true
+      ".txt"
+      true
+      7
+      ["abcdef\n"]
+      ["abcdef"]
+      "abcdef\n"
+      ["abcdef\n"]
+      ["abcdef\n"]
+      "abc"
+      "abcdef\n"
+      "a/b/c"
+      7
+      true
+      "abcdef\n"
+      true
+      true
+      [TypeError, "no implicit conversion of nil into String"]
+      Time
+      true
+      true
+      true
+      true
+      1
+      "a/b/c"
+    OUT
+  end
+
+  it "Dir's rows take an object that answers to_path" do
+    result = ze0(<<~'RUBY')
+      require "pathname"
+      require "stringio"
+
+      dir = "/tmp/spinel_implicit_conversion_protocol"
+      if Dir.exist?(dir)
+        Dir.children(dir).each { |e| File.delete("#{dir}/#{e}") }
+        Dir.rmdir(dir)
+      end
+      Dir.mkdir(dir)
+      file = "#{dir}/a.txt"
+      File.write(file, "abcdef\n")
+
+      class Conf
+        attr_accessor :path
+
+        def to_path
+          @path
+        end
+      end
+
+      class PathLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+      end
+
+      class StrLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_str
+          @path
+        end
+      end
+
+      class Both
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+
+        def to_str
+          "/nonexistent/#{@path}"
+        end
+      end
+
+      pl = PathLike.new(file)
+      dl = PathLike.new(dir)
+      pn = Pathname.new(file)
+      DIR = dir
+      class Payload
+        def to_s
+          "payload"
+        end
+      end
+
+      class Churn
+        def initialize(n)
+          @n = n
+        end
+        def to_path
+          2000.times { "z" * 40 }
+          "#{DIR}/churn#{@n}.txt"
+        end
+      end
 
       p Dir.exist?(dl)
       p Dir.entries(dl).sort
@@ -395,12 +514,187 @@ describe "Pathname programs" do
       p Dir.mkdir(sub)
       p Dir.exist?(sub)
       p Dir.rmdir(sub)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      [".", "..", "a.txt"]
+      ["a.txt"]
+      ["a.txt"]
+      true
+      false
+      0
+      true
+      0
+    OUT
+  end
+
+  it "a Pathname is accepted wherever a to_path object is" do
+    result = ze0(<<~'RUBY')
+      require "pathname"
+      require "stringio"
+
+      dir = "/tmp/spinel_implicit_conversion_protocol"
+      if Dir.exist?(dir)
+        Dir.children(dir).each { |e| File.delete("#{dir}/#{e}") }
+        Dir.rmdir(dir)
+      end
+      Dir.mkdir(dir)
+      file = "#{dir}/a.txt"
+      File.write(file, "abcdef\n")
+
+      class Conf
+        attr_accessor :path
+
+        def to_path
+          @path
+        end
+      end
+
+      class PathLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+      end
+
+      class StrLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_str
+          @path
+        end
+      end
+
+      class Both
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+
+        def to_str
+          "/nonexistent/#{@path}"
+        end
+      end
+
+      pl = PathLike.new(file)
+      dl = PathLike.new(dir)
+      pn = Pathname.new(file)
+      DIR = dir
+      class Payload
+        def to_s
+          "payload"
+        end
+      end
+
+      class Churn
+        def initialize(n)
+          @n = n
+        end
+        def to_path
+          2000.times { "z" * 40 }
+          "#{DIR}/churn#{@n}.txt"
+        end
+      end
 
       pn = Pathname.new(file)
       p File.exist?(pn)
       p File.basename(pn)
       p File.join(Pathname.new("a"), "b")
       p IO.read(pn)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      "a.txt"
+      "a/b"
+      "abcdef\n"
+    OUT
+  end
+
+  it "a converting object reaches a typed slot through a method parameter" do
+    result = ze0(<<~'RUBY')
+      require "pathname"
+      require "stringio"
+
+      dir = "/tmp/spinel_implicit_conversion_protocol"
+      if Dir.exist?(dir)
+        Dir.children(dir).each { |e| File.delete("#{dir}/#{e}") }
+        Dir.rmdir(dir)
+      end
+      Dir.mkdir(dir)
+      file = "#{dir}/a.txt"
+      File.write(file, "abcdef\n")
+
+      class Conf
+        attr_accessor :path
+
+        def to_path
+          @path
+        end
+      end
+
+      class PathLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+      end
+
+      class StrLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_str
+          @path
+        end
+      end
+
+      class Both
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+
+        def to_str
+          "/nonexistent/#{@path}"
+        end
+      end
+
+      pl = PathLike.new(file)
+      dl = PathLike.new(dir)
+      pn = Pathname.new(file)
+      DIR = dir
+      class Payload
+        def to_s
+          "payload"
+        end
+      end
+
+      class Churn
+        def initialize(n)
+          @n = n
+        end
+        def to_path
+          2000.times { "z" * 40 }
+          "#{DIR}/churn#{@n}.txt"
+        end
+      end
 
       def size_of(path)
         File.size(path)
@@ -411,6 +705,93 @@ describe "Pathname programs" do
       p size_of(StrLike.new(file))
       p size_of(Both.new(file))
       p IO.sysopen(pl).class
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      7
+      7
+      7
+      7
+      7
+      Integer
+    OUT
+  end
+
+  it "copy_stream, reopen, rename, symlink and delete each convert their paths" do
+    result = ze0(<<~'RUBY')
+      require "pathname"
+      require "stringio"
+
+      dir = "/tmp/spinel_implicit_conversion_protocol"
+      if Dir.exist?(dir)
+        Dir.children(dir).each { |e| File.delete("#{dir}/#{e}") }
+        Dir.rmdir(dir)
+      end
+      Dir.mkdir(dir)
+      file = "#{dir}/a.txt"
+      File.write(file, "abcdef\n")
+
+      class Conf
+        attr_accessor :path
+
+        def to_path
+          @path
+        end
+      end
+
+      class PathLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+      end
+
+      class StrLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_str
+          @path
+        end
+      end
+
+      class Both
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+
+        def to_str
+          "/nonexistent/#{@path}"
+        end
+      end
+
+      pl = PathLike.new(file)
+      dl = PathLike.new(dir)
+      pn = Pathname.new(file)
+      DIR = dir
+      class Payload
+        def to_s
+          "payload"
+        end
+      end
+
+      class Churn
+        def initialize(n)
+          @n = n
+        end
+        def to_path
+          2000.times { "z" * 40 }
+          "#{DIR}/churn#{@n}.txt"
+        end
+      end
 
       copy = "#{dir}/b.txt"
       p IO.copy_stream(pl, PathLike.new(copy))
@@ -426,6 +807,96 @@ describe "Pathname programs" do
       p File.readlink(PathLike.new(link)) == moved
       p File.delete(PathLike.new(link), PathLike.new(moved))
       p File.exist?(moved)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      7
+      "abcdef\n"
+      "abcdef\n"
+      0
+      true
+      0
+      true
+      2
+      false
+    OUT
+  end
+
+  it "the mode and permission arguments convert through to_int and to_str" do
+    result = ze0(<<~'RUBY')
+      require "pathname"
+      require "stringio"
+
+      dir = "/tmp/spinel_implicit_conversion_protocol"
+      if Dir.exist?(dir)
+        Dir.children(dir).each { |e| File.delete("#{dir}/#{e}") }
+        Dir.rmdir(dir)
+      end
+      Dir.mkdir(dir)
+      file = "#{dir}/a.txt"
+      File.write(file, "abcdef\n")
+
+      class Conf
+        attr_accessor :path
+
+        def to_path
+          @path
+        end
+      end
+
+      class PathLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+      end
+
+      class StrLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_str
+          @path
+        end
+      end
+
+      class Both
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+
+        def to_str
+          "/nonexistent/#{@path}"
+        end
+      end
+
+      pl = PathLike.new(file)
+      dl = PathLike.new(dir)
+      pn = Pathname.new(file)
+      DIR = dir
+      class Payload
+        def to_s
+          "payload"
+        end
+      end
+
+      class Churn
+        def initialize(n)
+          @n = n
+        end
+        def to_path
+          2000.times { "z" * 40 }
+          "#{DIR}/churn#{@n}.txt"
+        end
+      end
 
       class ReadMode
         def to_int
@@ -492,6 +963,104 @@ describe "Pathname programs" do
       end
       File.open(made, "wx+", 0600) { |f| f.write("zz"); f.rewind; p f.read }
       File.delete(made)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "ab"
+      "ab"
+      "ab"
+      "600"
+      "600"
+      "600"
+      "640"
+      true
+      "600"
+      "644"
+      true
+      Errno::EEXIST
+      ""
+      "invalid access mode +"
+      "invalid access mode rx"
+      "invalid access mode ax"
+      "zz"
+    OUT
+  end
+
+  it "to_path is called once for one slot, not once per use of the value" do
+    result = ze0(<<~'RUBY')
+      require "pathname"
+      require "stringio"
+
+      dir = "/tmp/spinel_implicit_conversion_protocol"
+      if Dir.exist?(dir)
+        Dir.children(dir).each { |e| File.delete("#{dir}/#{e}") }
+        Dir.rmdir(dir)
+      end
+      Dir.mkdir(dir)
+      file = "#{dir}/a.txt"
+      File.write(file, "abcdef\n")
+
+      class Conf
+        attr_accessor :path
+
+        def to_path
+          @path
+        end
+      end
+
+      class PathLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+      end
+
+      class StrLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_str
+          @path
+        end
+      end
+
+      class Both
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+
+        def to_str
+          "/nonexistent/#{@path}"
+        end
+      end
+
+      pl = PathLike.new(file)
+      dl = PathLike.new(dir)
+      pn = Pathname.new(file)
+      DIR = dir
+      class Payload
+        def to_s
+          "payload"
+        end
+      end
+
+      class Churn
+        def initialize(n)
+          @n = n
+        end
+        def to_path
+          2000.times { "z" * 40 }
+          "#{DIR}/churn#{@n}.txt"
+        end
+      end
 
       class Counted
         def initialize(path)
@@ -508,6 +1077,88 @@ describe "Pathname programs" do
       end
       counted = Counted.new(file)
       p [File.file?(counted), counted.calls]
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [true, 1]
+    OUT
+  end
+
+  it "a zone object converts through to_str at Time's slot" do
+    result = ze0(<<~'RUBY')
+      require "pathname"
+      require "stringio"
+
+      dir = "/tmp/spinel_implicit_conversion_protocol"
+      if Dir.exist?(dir)
+        Dir.children(dir).each { |e| File.delete("#{dir}/#{e}") }
+        Dir.rmdir(dir)
+      end
+      Dir.mkdir(dir)
+      file = "#{dir}/a.txt"
+      File.write(file, "abcdef\n")
+
+      class Conf
+        attr_accessor :path
+
+        def to_path
+          @path
+        end
+      end
+
+      class PathLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+      end
+
+      class StrLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_str
+          @path
+        end
+      end
+
+      class Both
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+
+        def to_str
+          "/nonexistent/#{@path}"
+        end
+      end
+
+      pl = PathLike.new(file)
+      dl = PathLike.new(dir)
+      pn = Pathname.new(file)
+      DIR = dir
+      class Payload
+        def to_s
+          "payload"
+        end
+      end
+
+      class Churn
+        def initialize(n)
+          @n = n
+        end
+        def to_path
+          2000.times { "z" * 40 }
+          "#{DIR}/churn#{@n}.txt"
+        end
+      end
 
       class Zone
         def to_str
@@ -519,12 +1170,91 @@ describe "Pathname programs" do
       t = Time.at(0)
       t.localtime(Zone.new)
       p t.utc_offset
+    RUBY
 
+    _(result).must_answer <<~'OUT'
+      3600
+      3600
+      3600
+    OUT
+  end
+
+  it "a write slot converts its payload through to_s" do
+    result = ze0(<<~'RUBY')
+      require "pathname"
+      require "stringio"
+
+      dir = "/tmp/spinel_implicit_conversion_protocol"
+      if Dir.exist?(dir)
+        Dir.children(dir).each { |e| File.delete("#{dir}/#{e}") }
+        Dir.rmdir(dir)
+      end
+      Dir.mkdir(dir)
+      file = "#{dir}/a.txt"
+      File.write(file, "abcdef\n")
+
+      class Conf
+        attr_accessor :path
+
+        def to_path
+          @path
+        end
+      end
+
+      class PathLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+      end
+
+      class StrLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_str
+          @path
+        end
+      end
+
+      class Both
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+
+        def to_str
+          "/nonexistent/#{@path}"
+        end
+      end
+
+      pl = PathLike.new(file)
+      dl = PathLike.new(dir)
+      pn = Pathname.new(file)
+      DIR = dir
       class Payload
         def to_s
           "payload"
         end
       end
+
+      class Churn
+        def initialize(n)
+          @n = n
+        end
+        def to_path
+          2000.times { "z" * 40 }
+          "#{DIR}/churn#{@n}.txt"
+        end
+      end
+
       sio = StringIO.new
       p sio.write(Payload.new)
       p (sio << Payload.new).equal?(sio)
@@ -562,6 +1292,109 @@ describe "Pathname programs" do
       p File.write(pl, payload(true))
       p File.size(file)
       p File.write(pl, payload(false))
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      7
+      true
+      2
+      true
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      "payloadpayload42sympayload1payload\n\nassigned\na\u0000bsym[1, 2]#<Plain:0xADDR>\n"
+      "1\na\nb\n"
+      [7, "apayload"]
+      7
+      "payload"
+      7
+      2
+      3
+      "pasymad42"
+      3
+      3
+      7
+    OUT
+  end
+
+  it "a converter that allocates heavily still answers the same path" do
+    result = ze0(<<~'RUBY')
+      require "pathname"
+      require "stringio"
+
+      dir = "/tmp/spinel_implicit_conversion_protocol"
+      if Dir.exist?(dir)
+        Dir.children(dir).each { |e| File.delete("#{dir}/#{e}") }
+        Dir.rmdir(dir)
+      end
+      Dir.mkdir(dir)
+      file = "#{dir}/a.txt"
+      File.write(file, "abcdef\n")
+
+      class Conf
+        attr_accessor :path
+
+        def to_path
+          @path
+        end
+      end
+
+      class PathLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+      end
+
+      class StrLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_str
+          @path
+        end
+      end
+
+      class Both
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+
+        def to_str
+          "/nonexistent/#{@path}"
+        end
+      end
+
+      pl = PathLike.new(file)
+      dl = PathLike.new(dir)
+      pn = Pathname.new(file)
+      DIR = dir
+      class Payload
+        def to_s
+          "payload"
+        end
+      end
+
+      class Churn
+        def initialize(n)
+          @n = n
+        end
+        def to_path
+          2000.times { "z" * 40 }
+          "#{DIR}/churn#{@n}.txt"
+        end
+      end
 
       class Fresh
         def initialize(n)
@@ -577,22 +1410,14 @@ describe "Pathname programs" do
         bad += 1 unless r == "seg#{i}/seg#{i + 1}/seg#{i + 2}"
       end
       p bad
-      class Churn
-        def initialize(n)
-          @n = n
-        end
-        def to_path
-          2000.times { "z" * 40 }
-          "#{DIR}/churn#{@n}.txt"
-        end
-      end
+
       class Loud
         def to_s
           2000.times { "z" * 40 }
           "PAY"
         end
       end
-      DIR = dir
+
       p File.write(Churn.new(1), Loud.new)
       File.rename(Churn.new(1), Churn.new(2))
       p [File.exist?("#{dir}/churn1.txt"), File.exist?("#{dir}/churn2.txt")]
@@ -615,7 +1440,98 @@ describe "Pathname programs" do
       rescue ArgumentError => e
         p e.message
       end
+    RUBY
 
+    _(result).must_answer <<~'OUT'
+      0
+      3
+      [false, true]
+      false
+      0
+      "recursive array"
+    OUT
+  end
+
+  it "a converter that prints shows where in the argument order it runs" do
+    result = ze0(<<~'RUBY')
+      require "pathname"
+      require "stringio"
+
+      dir = "/tmp/spinel_implicit_conversion_protocol"
+      if Dir.exist?(dir)
+        Dir.children(dir).each { |e| File.delete("#{dir}/#{e}") }
+        Dir.rmdir(dir)
+      end
+      Dir.mkdir(dir)
+      file = "#{dir}/a.txt"
+      File.write(file, "abcdef\n")
+
+      class Conf
+        attr_accessor :path
+
+        def to_path
+          @path
+        end
+      end
+
+      class PathLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+      end
+
+      class StrLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_str
+          @path
+        end
+      end
+
+      class Both
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+
+        def to_str
+          "/nonexistent/#{@path}"
+        end
+      end
+
+      pl = PathLike.new(file)
+      dl = PathLike.new(dir)
+      pn = Pathname.new(file)
+      DIR = dir
+      class Payload
+        def to_s
+          "payload"
+        end
+      end
+
+      class Churn
+        def initialize(n)
+          @n = n
+        end
+        def to_path
+          2000.times { "z" * 40 }
+          "#{DIR}/churn#{@n}.txt"
+        end
+      end
+
+      # The rows below read this file, which the write rows left holding
+      # a converted payload rather than the bytes the setup wrote.
+      File.write(file, "payload")
+      sio = StringIO.new
       class Noisy
         def initialize(n)
           @n = n
@@ -697,119 +1613,9 @@ describe "Pathname programs" do
       spoken = Spoken.new
       File.open(file, "w") { |f| p f.write(spoken, sideff("Z")) }
       p File.read(file)
-
-      File.delete(file)
-      Dir.rmdir(dir)
-      p Dir.exist?(dl)
     RUBY
 
     _(result).must_answer <<~'OUT'
-      true
-      true
-      "abcdef\n"
-      "a.txt"
-      true
-      ".txt"
-      true
-      7
-      ["abcdef\n"]
-      ["abcdef"]
-      "abcdef\n"
-      ["abcdef\n"]
-      ["abcdef\n"]
-      "abc"
-      "abcdef\n"
-      "a/b/c"
-      7
-      true
-      "abcdef\n"
-      true
-      true
-      [TypeError, "no implicit conversion of nil into String"]
-      Time
-      true
-      true
-      true
-      true
-      1
-      "a/b/c"
-      true
-      [".", "..", "a.txt"]
-      ["a.txt"]
-      ["a.txt"]
-      true
-      false
-      0
-      true
-      0
-      true
-      "a.txt"
-      "a/b"
-      "abcdef\n"
-      7
-      7
-      7
-      7
-      7
-      Integer
-      7
-      "abcdef\n"
-      "abcdef\n"
-      0
-      true
-      0
-      true
-      2
-      false
-      "ab"
-      "ab"
-      "ab"
-      "600"
-      "600"
-      "600"
-      "640"
-      true
-      "600"
-      "644"
-      true
-      Errno::EEXIST
-      ""
-      "invalid access mode +"
-      "invalid access mode rx"
-      "invalid access mode ax"
-      "zz"
-      [true, 1]
-      3600
-      3600
-      3600
-      7
-      true
-      2
-      true
-      nil
-      nil
-      nil
-      nil
-      nil
-      nil
-      "payloadpayload42sympayload1payload\n\nassigned\na\u0000bsym[1, 2]#<Plain:0xADDR>\n"
-      "1\na\nb\n"
-      [7, "apayload"]
-      7
-      "payload"
-      7
-      2
-      3
-      "pasymad42"
-      3
-      3
-      7
-      0
-      3
-      [false, true]
-      false
-      0
-      "recursive array"
       [c5]<5>[c6]<6>
       named
       named
@@ -830,6 +1636,91 @@ describe "Pathname programs" do
       convert
       5
       "paylZ"
+    OUT
+  end
+
+  it "the tree the setup built is removed again" do
+    result = ze0(<<~'RUBY')
+      require "pathname"
+      require "stringio"
+
+      dir = "/tmp/spinel_implicit_conversion_protocol"
+      if Dir.exist?(dir)
+        Dir.children(dir).each { |e| File.delete("#{dir}/#{e}") }
+        Dir.rmdir(dir)
+      end
+      Dir.mkdir(dir)
+      file = "#{dir}/a.txt"
+      File.write(file, "abcdef\n")
+
+      class Conf
+        attr_accessor :path
+
+        def to_path
+          @path
+        end
+      end
+
+      class PathLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+      end
+
+      class StrLike
+        def initialize(path)
+          @path = path
+        end
+
+        def to_str
+          @path
+        end
+      end
+
+      class Both
+        def initialize(path)
+          @path = path
+        end
+
+        def to_path
+          @path
+        end
+
+        def to_str
+          "/nonexistent/#{@path}"
+        end
+      end
+
+      pl = PathLike.new(file)
+      dl = PathLike.new(dir)
+      pn = Pathname.new(file)
+      DIR = dir
+      class Payload
+        def to_s
+          "payload"
+        end
+      end
+
+      class Churn
+        def initialize(n)
+          @n = n
+        end
+        def to_path
+          2000.times { "z" * 40 }
+          "#{DIR}/churn#{@n}.txt"
+        end
+      end
+
+      File.delete(file)
+      Dir.rmdir(dir)
+      p Dir.exist?(dl)
+    RUBY
+
+    _(result).must_answer <<~'OUT'
       false
     OUT
   end
