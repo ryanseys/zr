@@ -44,12 +44,14 @@ into programs, and the host ruby never loads them. A file such as
 | Path | Holds |
 |---|---|
 | `lib/ze0/prism_backend/` | makes `require "prism/prism"` load the port on the host |
-| `tools/` | the recording, test and table tools; see [Tools](tools.md) |
+| `rakelib/` | every task's body, one file a subject; see [Tasks](tools.md) |
+| `bootstrap/stage.rb` | the compiler as a program ze0 compiles; `rake stage1` and `stage2` |
 | `docs/` | this documentation |
 | `test/test_helper.rb` | what every test file requires |
 | `test/spec_helper.rb` | what a spec file requires: the helper, plus `ze0` |
 | `test/support/` | the test library: the harness, the spec road, the fork pool |
 | `test/support/harness/` | what ruby answered, the child bound, the benchmark runner, and the diff harnesses |
+| `test/support/oracle/` | the four generators a check runs on every `rake test:unit` |
 | `test/unit/` | ze0's own internals: minitest files `rake test:unit` runs |
 | `test/spec/` | Ruby held to ruby, program by program: `rake test:spec` |
 | `test/e2e/` | whole programs through a real link: `rake test:e2e`, filed by area as the specs are, each with what ruby answered beside it |

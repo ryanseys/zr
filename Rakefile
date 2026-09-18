@@ -85,23 +85,4 @@ tier "test:spec", "test/spec/**/*_test.rb", "spec_helper",
 tier "test:e2e", "test/e2e/**/*_test.rb", "test_helper",
      "Whole programs through a real link"
 
-# Each runs a Ruby port and ruby's own implementation on the host, and
-# compares the two. They are where a port is developed; the checks hold
-# the same ports to a fixed sample.
-namespace :diff do
-  { prism: "the prism port with ruby's prism",
-    regexp: "the Onigmo port with ruby's regexp engine",
-    zlib: "the zlib port with ruby's zlib, byte for byte",
-    ast: "rt/ext/ze0/ast.rb with ruby's RubyVM::AbstractSyntaxTree" }.each do |name, what|
-    desc "Hold #{what}: rake 'diff:#{name}[--fuzz 100]'"
-    task(name, [:opts]) { |_, args| tool("#{name}_diff", *args[:opts].to_s.split) }
-  end
-
-  desc "Run prism 1.9.0's own test suite on the port"
-  task(:prism_upstream, [:opts]) { |_, args| tool("prism_upstream_tests", *args[:opts].to_s.split) }
-
-  desc "Run ruby 4.0.6's test/openssl against the port"
-  task(:openssl, [:opts]) { |_, args| ruby_run(File.join(ROOT, "tools/openssl/suite.rb"), *args[:opts].to_s.split) }
-end
-
 task default: :test

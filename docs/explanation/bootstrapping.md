@@ -8,7 +8,7 @@ This page explains why that matters, and what `rake stage1` and
 
 - **Stage 0** is ze0 running on CRuby: `exe/ze0`.
 - **Stage 1** is the compiler that stage 0 builds: a native binary of
-  `tools/stage.rb`, which is ze0's compiler as a program.
+  `bootstrap/stage.rb`, which is ze0's compiler as a program.
 - **Stage 2** is the compiler that stage 1 builds from the same source.
 
 If ze0 compiles its own source correctly, stage 1 behaves as stage 0

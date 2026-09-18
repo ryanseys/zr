@@ -24,8 +24,8 @@ Gem::Specification.new do |spec|
     "rubygems_mfa_required" => "true"
   }
 
-  # The compiler, its runtime and the vendored sources. The corpus, the
-  # checks, tools/ and test/ stay in the repository.
+  # The compiler, its runtime and the vendored sources. The tests, the
+  # tasks and the bootstrap source stay in the repository.
   spec.files = Dir.chdir(__dir__) do
     `git ls-files -z`.split("\x0").select do |file|
       file.match?(%r{\A(exe|lib|rt|vendor/(ext|lib))/}) ||

@@ -14,8 +14,8 @@ class DescriptionTest < Minitest::Test
 
   TARGETS.each do |target|
     define_method("test_the_#{target.os_layer}_description_matches_its_kernel") do
-      text = IO.popen([RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", File.join(ROOT, "tools/description.rb"), target.triple], &:read)
-      assert $?.success?, "tools/description.rb failed"
+      text = IO.popen([RbConfig.ruby, "-I#{File.join(ROOT, "lib")}", File.join(ROOT, "test/support/oracle/description.rb"), target.triple], &:read)
+      assert $?.success?, "test/support/oracle/description.rb failed"
 
       if ENV["ZE0_BLESS"] == "1"
         File.write(path(target), text)

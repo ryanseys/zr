@@ -5,7 +5,7 @@ require_relative "../support/harness/prism_diff"
 require_relative "../../rt/ext/prism/ruby"
 require "stringio"
 
-# The pure-Ruby prism held to ruby's C prism (tools/prism_diff.rb): its
+# The pure-Ruby prism held to ruby's C prism: its
 # generated files current with the vendored config.yml and templates,
 # Prism.dump's writer equal to the C byte for byte on every dump read back,
 # the parser's dumps equal to the C's, and the C extension's entry points
@@ -14,9 +14,9 @@ class PrismTest < Minitest::Test
   PrismDiff = Ze0::Harness::PrismDiff
 
   def test_the_generated_files_are_current
-    out = IO.popen([RbConfig.ruby, File.join(ROOT, "tools/prism_generate.rb"), "--check"], err: %i[child out], &:read)
+    out = IO.popen([RbConfig.ruby, File.join(ROOT, "test/support/oracle/prism_generate.rb"), "--check"], err: %i[child out], &:read)
     assert $?.success?, out
-    out = IO.popen([RbConfig.ruby, File.join(ROOT, "tools/prism_encoding_tables.rb"), "--check"], err: %i[child out], &:read)
+    out = IO.popen([RbConfig.ruby, File.join(ROOT, "test/support/oracle/prism_encoding_tables.rb"), "--check"], err: %i[child out], &:read)
     assert $?.success?, out
   end
 
@@ -162,9 +162,8 @@ end
     assert_empty failures.first(5)
   end
 
-  # prism 1.9.0's own test suite on the Ruby port (tools/prism_upstream_tests.rb
-  # runs it beside the C extension). A file that returns before its tests,
-  # on a ruby whose own parser is prism, runs none.
+  # prism 1.9.0's own test suite on the Ruby port. A file that returns
+  # before its tests, on a ruby whose own parser is prism, runs none.
   def test_prisms_own_test_suite_passes_on_the_ruby_port
     skip "no prism checkout at #{PrismDiff::CHECKOUT}" unless PrismDiff.upstream
 

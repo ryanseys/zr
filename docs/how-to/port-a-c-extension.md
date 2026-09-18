@@ -48,10 +48,11 @@ calls. A program can call any method of the extension.
 
 ## 3. Put a large port under test on ruby first
 
-For a large C half, write the port so that it also runs on CRuby. Then
-compare it with the real extension on the host, case by case, before
-ze0 compiles it. `tools/zlib_diff.rb`, `tools/regexp_diff.rb` and
-`tools/prism_diff.rb` do this for zlib, Onigmo and prism.
+For a large C half, write the port so that it also runs on CRuby. It can
+then be compared with the real extension on the host, in one process and
+object for object, before ze0 compiles it: `test/unit/prism_test.rb` and
+`regexp_diff_test.rb` do this for prism and Onigmo, each over a
+committed sample.
 
 ## 4. Mind instance variables
 
@@ -62,17 +63,19 @@ the class body, so those instance variables stay visible.
 
 ## 5. Add cases
 
-Record cases under `test/stdlib/<gem>/` that use the gem as its users
-do, and run them:
+Add examples under `test/spec/stdlib/<gem>/` that use the gem as its
+users do, and run them:
 
 ```console
-$ ruby tools/record.rb stdlib/digest/sha256_of_a_file.rb
-$ bundle exec minitest test/spec/stdlib/digest
+$ bundle exec minitest test/spec/stdlib/digest -n /sha256/
+$ rake 'oracle[test/spec/stdlib/digest]'
 ```
+
+`rake oracle` is what says the answer you wrote down is still ruby's.
 
 ## Platform tables
 
 When the extension needs numbers that each OS defines (errno values,
-socket constants, `fcntl` flags), do not write them by hand. The table
-tools in `tools/` write them from the ruby of each OS, into
-`rt/core/os/<os>/` and `rt/ext/os/<os>/`.
+socket constants, `fcntl` flags), do not write them by hand. `rake
+tables` writes them from the ruby of each OS, into `rt/core/os/<os>/`
+and `rt/ext/os/<os>/`.

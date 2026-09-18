@@ -38,7 +38,7 @@ at exit.
 `.ruby-version` pins and writes the files above. ruby 4.0.6 is the only
 source of right answers, so nothing else writes them and none of them
 is written by hand. A program that is already recorded is left alone;
-`ruby tools/record.rb --again <path>` is how you say you mean to
+`rake 'record[--again <path>]'` is how you say you mean to
 replace an answer, and a change of answer should be a change of
 program.
 

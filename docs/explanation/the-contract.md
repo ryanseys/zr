@@ -45,9 +45,12 @@ in the files beside it, written by `rake record`. A recording is made once. If
 the right answer changes, the program has changed, so it is a new
 program.
 
-The ports follow the same rule. `tools/prism_diff.rb`,
-`tools/regexp_diff.rb` and `tools/zlib_diff.rb` compare the Ruby ports
-with ruby's own C on the host, case by case.
+The ports follow the same rule. Each one answers for itself in
+`test/spec/stdlib/`, program by program, against what ruby's own C
+answered -- `zlib`, `prism`, `openssl` and the rest are areas there like
+any other. prism and Onigmo are held twice over: `test/unit/prism_test.rb`
+and `regexp_diff_test.rb` compare the port with ruby's C on the host,
+object for object, over a committed sample.
 
 ## How the specs keep the promise
 

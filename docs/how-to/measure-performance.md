@@ -33,12 +33,12 @@ to measure the cold build.
 
 ## Measure the size of the generated code
 
-`tools/codesize.rb` counts the instructions the backend writes for the
+`rake codesize` counts the instructions the backend writes for the
 whole runtime. Save a run before your change and compare after it:
 
 ```console
-$ ruby -Ilib tools/codesize.rb --all > tmp/codesize-before.tsv
-$ ruby -Ilib tools/codesize.rb tmp/codesize-before.tsv
+$ rake 'codesize[--all]' > tmp/codesize-before.tsv
+$ rake 'codesize[tmp/codesize-before.tsv]'
 ```
 
 ## Profile the compiler

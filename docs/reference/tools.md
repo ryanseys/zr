@@ -1,9 +1,9 @@
-# Tools
+# Tasks
 
-`rake -T` names every task. The scripts live in `tools/`, and each
-script's header comment gives its full usage; a task is the spelling to
-reach for, since it puts the compiler and the test support on the load
-path itself.
+`rake -T` names every task. There is no `tools/` directory: a task's
+body lives in `rakelib/*.rake`, which rake loads after the `Rakefile`,
+and `rake` is the only way to run one. Each file's header comment gives
+its full usage.
 
 ## Tests
 
@@ -19,25 +19,11 @@ path itself.
 | `rake 'bench[--runs 5 fib]'` | how long does what ze0 built take? |
 | `rake stage1`, `rake stage2` | the bootstrap |
 
-## Holding ports to ruby
-
-Each runs a Ruby port and ruby's own implementation on the host, and
-compares the two.
-
-| Task | Compares |
-|---|---|
-| `rake 'diff:prism[--writer]'` | the prism port with ruby's prism |
-| `rake diff:prism_upstream` | prism 1.9.0's own test suite on the port |
-| `rake 'diff:regexp[--fuzz 3000]'` | the Onigmo port with ruby's regexp engine |
-| `rake 'diff:zlib[--deflate]'` | the zlib port with ruby's zlib, byte for byte |
-| `rake diff:ast` | `rt/ext/ze0/ast.rb` with ruby's `RubyVM::AbstractSyntaxTree` |
-| `rake diff:openssl` | ruby 4.0.6's `test/openssl` against the port |
-
 ## Generated files
 
-Each writes a file from an oracle: ruby, or a C source read at
-development time. The output carries a header saying so. Do not edit it
-by hand.
+Each writes a file from an oracle: ruby itself, or a CRuby source read
+at ruby 4.0.6's revision. The output carries a header saying so. Do not
+edit it by hand.
 
 | Task | Writes |
 |---|---|
@@ -45,23 +31,43 @@ by hand.
 | `rake gen:unicode` | `rt/core/unicode.rb`: case mappings |
 | `rake gen:encodings` | `rt/core/encodings.rb`: the encoding registry |
 | `rake gen:transcode` | `rt/core/transcode.rb`: single-byte encoding tables |
-| `rake gen:cjk`, `gen:enc_mb`, `gen:emoji` | multibyte encoding tables |
-| `rake gen:onig_unicode`, `gen:onig_encodings` | the Onigmo port's tables |
-| `rake gen:zlib_tables` | `rt/kernel/zlib_tables.rb` |
+| `rake gen:cjk`, `gen:enc_mb` | multibyte encoding tables |
+| `rake gen:emoji` | `rt/core/emoji.rb` |
 | `rake gen:builtin_lines` | `rt/core/builtin_lines.rb` |
-| `rake gen:nkf` | `rt/ext/nkf/tables.rb` |
-| `rake gen:prism_generate`, `gen:prism_encoding_tables` | `rt/ext/prism/ruby/*.rb` |
-| `rake gen:openssl_constants` | `rt/ext/openssl/ossl/constants.rb` |
-| `rake gen:dispatch` | the programs that show which of its own methods a core class calls |
 | `rake tables` | this OS's errno, fcntl, etc and socket tables, then fails on a difference |
+| `rake 'gen:dispatch[Hash]'` | prints the program a spec example carries, so a stale one shows |
 
-`rt/ext/os/<os>/zr_description.rb` and `lib/ze0/obj/macho/libsystem.rb`
-are snapshots the checks hold rather than tasks:
-`ZE0_BLESS=1 rake test:unit N=/Description/` writes them again.
+Four more are written again on every `rake test:unit` and compared with
+what is committed, so a stale one is a failing test rather than
+something to remember. Their generators live in `test/support/oracle/`,
+beside the tests that run them.
+
+| Task | Writes | Held by |
+|---|---|---|
+| `rake gen:description` | `rt/ext/os/<os>/zr_description.rb` | `test/unit/description_test.rb` |
+| `rake gen:libsystem` | `lib/ze0/obj/macho/libsystem.rb` | `test/unit/libsystem_test.rb` |
+| `rake gen:prism_generate` | `rt/ext/prism/ruby/*.rb` | `test/unit/prism_test.rb` |
+| `rake gen:prism_encoding_tables` | `rt/ext/prism/ruby/encoding_tables.rb` | `test/unit/prism_test.rb` |
+
+`ZE0_BLESS=1 rake test:unit N=/Description/` writes the first two again
+from inside the check.
+
+### Tables with no generator here
+
+Five tables were written once from a version that does not move, and
+the generators are not carried: `git log` finds them.
+
+| File | Written from |
+|---|---|
+| `rt/ext/nkf/tables.rb` | nkf 0.3.0's `utf8tbl.c` |
+| `rt/core/regexp/unicode_tables.rb`, `rt/kernel/onig_tables.rb` | ruby 4.0.6's `enc/unicode/17.0.0` headers |
+| `rt/core/regexp/onig/encoding_tables.rb` | CRuby 4.0.6's `enc/*.c` |
+| `rt/kernel/zlib_tables.rb` | zlib's `crc32.c` and `trees.c` |
+| `rt/ext/openssl/ossl/constants.rb` | ruby 4.0.6's openssl 4.0.2 |
 
 ## Measurement and bootstrap
 
 | Task | Does |
 |---|---|
 | `rake 'codesize[--all]'` | counts the instructions the backend writes for the runtime |
-| `tools/stage.rb` | the compiler as a program; `rake stage1` and `stage2` compile it |
+| `bootstrap/stage.rb` | the compiler as a program; `rake stage1` and `stage2` compile it |

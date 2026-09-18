@@ -3,9 +3,8 @@
 # The reach into C the port stands on, over the kernel's calls
 # (rt/kernel/ffi.rb): dlopen and dlsym, a call through an address with
 # up to eight integer or pointer arguments, or through libffi with more,
-# raw memory by address, and the kernel's callback entries. This is the one file of the port that
-# names Primitive; tools/openssl/native.rb is its twin over Fiddle, so
-# the rest runs on ruby itself as well.
+# raw memory by address, and the kernel's callback entries. This is the one file of the port
+# that names Primitive.
 module OpenSSL
   module Native
     # dlopen's mode: every symbol bound now, and none of them seen by a

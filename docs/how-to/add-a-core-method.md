@@ -4,17 +4,19 @@ This guide shows you how to add or fix a method of a core class, such
 as `String` or `Array`, in a checkout. To learn how the core library
 and the kernel fit together, read [The runtime](../explanation/the-runtime.md).
 
-## 1. Write the case first
+## 1. Write the example first
 
-Write a small program that uses the method the way ruby answers it, and
-record ruby's answer:
+Add an example to the class's area under `test/spec/`, holding a small
+program to what ruby answers. Ask ruby yourself for the answer you write
+down -- it is the only source of right ones -- then run the example and
+hold what you wrote to ruby again:
 
 ```console
-$ ruby tools/record.rb core/string/squeeze_keeps_one_of_each_run.rb
-$ ruby -Ilib -Itest test/spec/core/string/string_test.rb -n "/squeeze/"
+$ bundle exec minitest test/spec/core/string -n /squeeze/
+$ rake 'oracle[test/spec/core/string]'
 ```
 
-The case diverges or fails to build now. It is the proof of your fix.
+The example diverges or refuses to build now. It is the proof of your fix.
 Cover the edge cases ruby has: empty input, a frozen receiver, the wrong
 argument types, and the error messages.
 

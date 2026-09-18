@@ -45,15 +45,19 @@ check a function against its original side by side.
 
 ## How the ports stay correct
 
-Each port runs on host CRuby as well as inside ze0. So a tool can
-compare it with ruby's own C, case by case, before ze0 compiles it:
+Each port answers for itself in `test/spec/stdlib/<gem>/`, program by
+program, against what ruby answered.
 
-- `tools/prism_diff.rb` compares every node, token, comment and
-  diagnostic, object for object, over prism's fixtures and ze0's own
-  source files. prism's own test suite also passes on the port.
-- `tools/regexp_diff.rb` compares errors, warnings and every capture's
-  offsets, over every pattern the tests hold and a fuzzer.
-- `tools/zlib_diff.rb` compares compressed bytes, byte for byte.
+A port also runs on host CRuby, so two of them are held a second way --
+beside ruby's own C, in one process, object for object:
+
+- `test/unit/prism_test.rb` compares every node, token, comment and
+  diagnostic over prism's fixtures and ze0's own source files, holds
+  `Prism.dump`'s writer to the C byte for byte, and runs prism 1.9.0's
+  own test suite on the port.
+- `test/unit/regexp_diff_test.rb` compares errors, warnings and every
+  capture's offsets over a committed sample of harvested and fuzzed
+  patterns.
 
 The host compiler uses the prism port too, so every build of ze0 is a
 test of it.

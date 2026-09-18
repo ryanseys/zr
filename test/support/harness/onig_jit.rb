@@ -12,7 +12,7 @@ module Ze0
   module Harness
     # The kernel matcher (rt/kernel/onig_*.rb) JIT-loaded into this ruby,
     # searching programs the core compiled under this ruby: what the
-    # checks and tools/regexp_diff.rb hold to ruby's own engine.
+    # checks hold to ruby's own engine.
     class OnigJIT
       TYPES = { "Word" => Fiddle::TYPE_LONG, "Ptr" => Fiddle::TYPE_VOIDP, "I32" => Fiddle::TYPE_INT, "I8" => Fiddle::TYPE_CHAR,
                 "Bool" => Fiddle::TYPE_CHAR, "Void" => Fiddle::TYPE_VOID }.freeze

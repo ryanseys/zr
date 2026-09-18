@@ -44,5 +44,4 @@ The portable runtime calls a fixed set of OS functions, which
 | `rt/core/os/<os>/` | the numbers the OS gives errno, IO, File and Process constants |
 | `rt/ext/os/<os>/` | extension tables (fcntl, etc, socket) and the eval description |
 
-The table files come from the ruby of that OS (`tools/errno.rb`,
-`tools/fcntl.rb`, `tools/etc.rb`, `tools/socket.rb`).
+The table files come from the ruby of that OS (`rake tables`).
