@@ -34,7 +34,10 @@ describe "Boxes: evaluating a string" do
   end
 
   it "box eval dynamic source routes through the vm" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"box_eval/lib.rb" => "WIDGET_CONST = \"widget!\"\nclass Widget\n  def self.describe = \"a widget\"\nend\n", "box_eval/main.rb" => "box = Ruby::Box.new\nbox.require_relative \"lib\"\ncode = \"1 + 2\"\np box.eval(code)\np box.eval(\"WIDGET_CONST\")\np box.eval(\"Widget.describe\")\n$g = \"main value\"\nread = \"$g\"\np box.eval(read)\nbox.eval(\"$g = 'box value'\")\np $g\np box.eval(read)\nbegin\n  box.eval(123)\nrescue TypeError => e\n  puts \"rescued: \#{e.message}\"\nend\n"}, ruby: ["-W:no-experimental"])
+    files = beside("box_eval/lib.rb",
+                "box_eval/main.rb")
+
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
       # A NON-literal `box.eval` source (a variable, a computed string) routes
       # through the runtime `eval` in the box's dimension -- the same fall-through
       # `Kernel#eval` uses for a dynamic source, but carrying `box_id`. A dynamic

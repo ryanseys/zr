@@ -195,7 +195,11 @@ describe "Exceptions: loading files" do
   end
 
   it "require that raises is rescuable" do
-    result = ze0(<<~'RUBY', files: fixtures("raising_feature/ok.rb", "raising_feature/r7.rb", "raising_feature/r1.rb", "raising_feature/r2.rb", "raising_feature/r3.rb", "raising_feature/r4.rb", "raising_feature/r5.rb", "raising_feature/r6.rb", "raising_feature/r8.rb"))
+    files = fixtures("raising_feature/ok.rb", "raising_feature/r7.rb", "raising_feature/r1.rb",
+                     "raising_feature/r2.rb", "raising_feature/r3.rb", "raising_feature/r4.rb",
+                     "raising_feature/r5.rb", "raising_feature/r6.rb", "raising_feature/r8.rb")
+
+    result = ze0(<<~'RUBY', files: files)
       # A `require` zeo resolves at COMPILE time is spliced in place, and the
       # spliced body has to land INSIDE the `begin` that wrote the require. CRuby
       # runs the required file during the `require` call, so a raise from the
@@ -304,7 +308,7 @@ describe "Exceptions: loading files" do
   end
 
   it "rescued require load error" do
-    result = ze0(<<~'RUBY', files: {"rescued_require/probe.rb" => "# The power_assert shape: a load-time probe that raises LoadError before any\n# definitions, so the file contributes nothing when the probe fails.\nraise LoadError, \"probe says no\"\nGOOD = 1\n"})
+    result = ze0(<<~'RUBY', files: beside("rescued_require/probe.rb"))
       # A require inside `begin ... rescue LoadError` whose FILE RESOLVES but whose
       # top level RAISES LoadError when it runs -- power_assert's TracePoint probe,
       # which test-unit requires exactly this way and degrades by rescuing. The

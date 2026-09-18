@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Kernel: loading files" do
   it "bare require needs a load path root" do
-    result = ze0(<<~'RUBY', files: {"bare_require/lib/thing.rb" => "module Thing\n  WHICH = :real\nend\n", "bare_require/vendor/thing/lib/thing.rb" => "module Vendored\n  THING = :vendored\nend\n"})
+    result = ze0(<<~'RUBY', files: beside("bare_require/lib/thing.rb", "bare_require/vendor/thing/lib/thing.rb"))
       # `require "thing"` names the `thing.rb` sitting under a `$LOAD_PATH` root --
       # not every loaded file whose path happens to end in `/thing.rb`. zeo compared
       # `$LOADED_FEATURES` by path SUFFIX alone, so a vendored copy already loaded
@@ -180,7 +180,7 @@ describe "Kernel: loading files" do
   end
 
   it "deferred require reopens container" do
-    result = ze0(<<~'RUBY', files: {"deferred_require/lib.rb" => "# Pulled in by the deferred require above; reopens the forward-declared\n# container (adds a module method) and its nested class via a compact path.\nmodule Outer::Feature\n  def self.digest = \"sha256\"\nend\n\nclass Outer::Feature::Policy\n  def name = \"policy\"\nend\n"})
+    result = ze0(<<~'RUBY', files: beside("deferred_require/lib.rb"))
       # A deferred (in-method) require whose file reopens a compact-path class
       # (`class Outer::Feature::Policy`) BEFORE the forward-declaration it depends on
       # (`module Outer::Feature`) registers -- the rubygems `Gem::Security` shape.
@@ -305,7 +305,11 @@ describe "Kernel: loading files" do
   end
 
   it "plain require resolves against search roots including nested features" do
-    result = ze0(<<~'RUBY', files: {"plain_require/main.rb" => "require \"util\"\nputs UTIL\nputs Spacer.doubled(21)\n", "plain_require/vendorlib/util/strings.rb" => "module Spacer\n  def self.doubled(n)\n    n * 2\n  end\nend\nputs \"util/strings loaded\"\n", "plain_require/vendorlib/util.rb" => "require \"util/strings\"\nUTIL = \"util root\"\nputs \"util loaded\"\n"})
+    files = beside("plain_require/main.rb",
+                "plain_require/vendorlib/util/strings.rb",
+                "plain_require/vendorlib/util.rb")
+
+    result = ze0(<<~'RUBY', files: files)
       $LOAD_PATH.unshift(File.expand_path("plain_require/vendorlib", __dir__))
       require_relative "plain_require/main"
     RUBY
@@ -319,7 +323,7 @@ describe "Kernel: loading files" do
   end
 
   it "re require answers false" do
-    result = ze0(<<~'RUBY', files: {"re_require/dep.rb" => "puts \"dep.rb ran\"\nDEP = :dep\n", "re_require/other.rb" => "p require_relative(\"dep\")\n", "re_require/pair.rb" => "puts \"pair.rb ran\"\nPAIR = :pair\n"})
+    result = ze0(<<~'RUBY', files: beside("re_require/dep.rb", "re_require/other.rb", "re_require/pair.rb"))
       # `require` answers true the first time and false every time after -- the
       # question is whether the FEATURE loaded, not whether this call site ran.
       #
@@ -376,7 +380,13 @@ describe "Kernel: loading files" do
   end
 
   it "require in a block runs when the block runs" do
-    result = ze0(<<~'RUBY', files: {"require_in_block/in_body.rb" => "puts \"in_body.rb ran\"\nmodule Holder\n  IN_BODY_MARKER = :in_body\nend\n", "require_in_block/lazy.rb" => "puts \"lazy.rb ran\"\nLAZY_MARKER = :lazy\n", "require_in_block/never.rb" => "puts \"never.rb ran\"\nNEVER_MARKER = :never\n", "require_in_block/once.rb" => "puts \"once.rb ran\"\nONCE_MARKER = :once\n", "require_in_block/repeat.rb" => "puts \"repeat.rb ran\"\nREPEAT_MARKER = :repeat\n"})
+    files = beside("require_in_block/in_body.rb",
+                "require_in_block/lazy.rb",
+                "require_in_block/never.rb",
+                "require_in_block/once.rb",
+                "require_in_block/repeat.rb")
+
+    result = ze0(<<~'RUBY', files: files)
       # A block body runs only when something yields to it, and how many times is a
       # runtime fact -- so a `require` written inside one is not a load this compile
       # can perform ahead of time. rack's test helper is the shape that found it:
@@ -474,7 +484,7 @@ describe "Kernel: loading files" do
   end
 
   it "require in a block that never yields does not load" do
-    result = ze0(<<~'RUBY', files: {"require_in_unyielded_block/dep.rb" => "puts \"dep ran\"\nDEP = :dep\n", "require_in_unyielded_block/prog.rb" => "def self.never_yields\n  :no_yield\nend\nnever_yields do\n  require_relative \"dep\"\nend\np Object.const_defined?(:DEP)\np [1, 2].map { require_relative \"dep\" }\np DEP\n"})
+    result = ze0(<<~'RUBY', files: beside("require_in_unyielded_block/dep.rb", "require_in_unyielded_block/prog.rb"))
       # A block body runs only when something yields to it, so a `require` written
       # inside one is not a load this compile can perform ahead of time. rack's
       # test helper is the shape: `separate_testing do require_relative "..." end`,
@@ -533,7 +543,7 @@ describe "Kernel: loading files" do
   end
 
   it "require parent" do
-    result = ze0(<<~'RUBY', files: {"require_parent/views/articles/index.rb" => "require_relative \"..\"\nputs \"index loaded\"\n", "require_parent/views.rb" => "puts \"views aggregator loaded\"\n"})
+    result = ze0(<<~'RUBY', files: beside("require_parent/views/articles/index.rb", "require_parent/views.rb"))
       # Regression: `require_relative ".."` must load the parent directory's
       # `<dir>.rb`. Ruby normalizes "views/articles/.." -> "views" and appends
       # ".rb" -> "views.rb"; Spinel must not glue ".rb" onto a literal ".." to

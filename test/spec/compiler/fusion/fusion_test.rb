@@ -341,7 +341,7 @@ describe "Fusion programs" do
   end
 
   it "autoload nested in a module eagerly splices the feature file" do
-    result = ze0(<<~'RUBY', files: {"autoload_nested/lib/greeter.rb" => "module App\n  module Greeter\n    def self.hi(n); \"hi \#{n}\"; end\n  end\nend\n", "autoload_nested/main.rb" => "module App\n  autoload :Greeter, \"greeter\"\nend\nputs App::Greeter.hi(\"bob\")\n"})
+    result = ze0(<<~'RUBY', files: beside("autoload_nested/lib/greeter.rb", "autoload_nested/main.rb"))
       # #101: `autoload :Const, "feature"` is treated as a compile-time
       # require -- the loader's eager pre-pass splices the feature file (at any
       # structural nesting) so the constant is defined; the `autoload` call
@@ -2770,7 +2770,7 @@ describe "Fusion programs" do
   end
 
   it "spliced files locals stay isolated through control flow" do
-    result = ze0(<<~'RUBY', files: {"spliced_locals/inner.rb" => "# The required file: same local names, different values, each assigned from\n# inside the same control-flow shapes.\nname = \"inner\"\ncount = 100\n\nif name == \"inner\"\n  count = 200\nend\n\nwhile count < 202\n  count += 1\nend\n\ncase count\nwhen 202 then tag = \"two-oh-two\"\nelse tag = \"other\"\nend\n\nbegin\n  parts = [\"x\"]\nrescue StandardError\n  parts = []\nend\n\ninterp = \"\#{name}-\#{count}-\#{tag}\"\nlisted = [name, count, tag].map { |v| v.to_s }\n\ndef inner_report\n  :inner_ran\nend\n\np [name, count, tag, parts, interp, listed]\n"})
+    result = ze0(<<~'RUBY', files: beside("spliced_locals/inner.rb"))
       # Real Ruby gives every `require`d file its own top-level local scope. zeo
       # splices every file into one `Program`, so it renames each file's top-level
       # locals to keep them apart. That renaming walk had a hand-written arm for

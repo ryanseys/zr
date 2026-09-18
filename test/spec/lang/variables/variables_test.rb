@@ -794,7 +794,11 @@ describe "Variables programs" do
   end
 
   it "earlier i root shadows a later same named stdlib file" do
-    result = ze0(<<~'RUBY', files: {"earlier_root/main.rb" => "require \"patched\"\nputs Patched.source\n", "earlier_root/stdliblib/patched.rb" => "module Patched\n  def self.source = \"stdlib original\"\nend\n", "earlier_root/userlib/patched.rb" => "module Patched\n  def self.source = \"user override\"\nend\n"})
+    files = beside("earlier_root/main.rb",
+                "earlier_root/stdliblib/patched.rb",
+                "earlier_root/userlib/patched.rb")
+
+    result = ze0(<<~'RUBY', files: files)
       # The documented precedence: `-I` roots are searched in order, first hit
       # wins (Ruby's own `$LOAD_PATH` rule) -- so a user root placed BEFORE the
       # stdlib checkout shadows the stdlib copy of a same-named feature, and the
@@ -1262,7 +1266,7 @@ describe "Variables programs" do
   end
 
   it "load reexecutes every time with fresh locals and never registers the feature" do
-    result = ze0(<<~'RUBY', files: {"load_reexecutes/main.rb" => "load \"./tick.rb\"\nload \"./tick.rb\"\nrequire_relative \"tick\"\nputs \"end total=\#{$total}\"\n", "load_reexecutes/tick.rb" => "ticks = 0\nticks += 1\n$total = ($total || 0) + ticks\nputs \"tick! total=\#{$total}\"\n"})
+    result = ze0(<<~'RUBY', files: beside("load_reexecutes/main.rb", "load_reexecutes/tick.rb"))
       # Three executions: two `load`s plus a `require` -- load never adds to
       # the feature table in real Ruby, so the require still fires. `ticks`
       # restarts at 0 each execution (fresh local scope per load), which the
@@ -2503,7 +2507,7 @@ describe "Variables programs" do
   end
 
   it "require relative splices in document order and shares the global namespace" do
-    result = ze0(<<~'RUBY', files: {"require_relative_order/greeter.rb" => "GREETING = \"hello\"\nclass Greeter\n  def greet(name)\n    \"\#{GREETING}, \#{name}!\"\n  end\nend\nputs \"greeter loaded\"\n", "require_relative_order/main.rb" => "puts \"before require\"\nrequire_relative \"greeter\"\nputs \"after require\"\ng = Greeter.new\nputs g.greet(\"world\")\nputs GREETING\n"})
+    result = ze0(<<~'RUBY', files: beside("require_relative_order/greeter.rb", "require_relative_order/main.rb"))
       # Top-level `def` in ANY file (main or required) is a separate,
       # pre-existing gap ("unexpected top-level-only node"), routed
       # around with classes/module functions here exactly like every
@@ -2522,7 +2526,7 @@ describe "Variables programs" do
   end
 
   it "required files top level locals are isolated from the main file" do
-    result = ze0(<<~'RUBY', files: {"required_file_locals/counterlib.rb" => "count = 100\n3.times do\n  count += 1\nend\n$lib_count = count\nclass CounterBox\n  def initialize\n    @n = 0\n  end\n  def bump\n    @n += 1\n  end\n  def n\n    @n\n  end\nend\n", "required_file_locals/main.rb" => "count = 5\nrequire_relative \"counterlib\"\nputs count\nputs $lib_count\nb = CounterBox.new\nb.bump\nb.bump\nputs b.n\n"})
+    result = ze0(<<~'RUBY', files: beside("required_file_locals/counterlib.rb", "required_file_locals/main.rb"))
       # Real Ruby gives every file its own top-level local scope: main's
       # `count` and the lib's `count` (mutated through a block, exercising
       # the rename pass inside shared-scope block bodies) never touch. The

@@ -1201,7 +1201,7 @@ describe "Encoding programs" do
   end
 
   it "source file is bytes not utf8" do
-    result = ze0(<<~'RUBY', files: {"source_bytes/latin1_comment.rb" => "# Copyright \xA9 2007 Someone -- a Latin-1 sign byte, invalid UTF-8.\n=begin\nA block comment may hold them too: \xE0\xC0\n=end\nclass Greeter\n  def hello = \"hi\" # trailing comment \xB7\nend\n"})
+    result = ze0(<<~'RUBY', files: beside("source_bytes/latin1_comment.rb"))
       # Ruby source is a byte stream, not text. CRuby reads a file with the
       # default UTF-8 source encoding and simply SKIPS a byte that is not valid
       # UTF-8 when it sits in a comment -- only code has to decode. A required

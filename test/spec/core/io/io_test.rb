@@ -71,7 +71,7 @@ describe "IO programs" do
   end
 
   it "autoload feature composes dir and expand path" do
-    result = ze0(<<~'RUBY', files: {"autoload_dir_expand/sub/also.rb" => "puts \"also ran\"\nmodule Sibling\n  class Also\n    def self.tag = :also\n  end\nend\n", "autoload_dir_expand/sub/target.rb" => "puts \"target ran\"\nmodule Holder\n  module Composed\n    MARK = :composed\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: beside("autoload_dir_expand/sub/also.rb", "autoload_dir_expand/sub/target.rb"))
       # An `autoload` target's feature text is folded at compile time from three
       # forms: a string literal, an interpolation whose computed part is `__dir__`,
       # and a whole `File.expand_path("<literal>", __dir__)`. They now COMPOSE --
@@ -119,7 +119,7 @@ describe "IO programs" do
   end
 
   it "autoload with file expand path dir resolves a sibling file" do
-    result = ze0(<<~'RUBY', files: {"autoload_sibling/main.rb" => "class Config\n  autoload :Mirror, File.expand_path(\"mirror\", __dir__)\nend\nputs Config::Mirror.name\n", "autoload_sibling/mirror.rb" => "class Config\n  class Mirror\n    def self.name; \"mirror!\"; end\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: beside("autoload_sibling/main.rb", "autoload_sibling/mirror.rb"))
       # The dominant stdlib/bundler idiom: `autoload :C, File.expand_path("c",
       # __dir__)` -- a computed sibling path. Resolved at compile time from the
       # requiring file's directory.
@@ -153,7 +153,10 @@ describe "IO programs" do
   end
 
   it "boxs required file patches a shared class privately" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"box_required_file/main.rb" => "box = Ruby::Box.new\nbox.require_relative \"patch\"\np Array.respond_to?(:zzz)\np box::Owned.go\n", "box_required_file/patch.rb" => "class Array\n  def self.zzz = 9\nend\nclass Owned\n  def self.go = 'go'\nend\n"}, ruby: ["-W:no-experimental"])
+    files = beside("box_required_file/main.rb",
+                "box_required_file/patch.rb")
+
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
       # A box loading a FILE (rather than an eval'd string) isolates the same
       # way. The two routes reach the compiler differently -- a literal
       # `box.eval` is spliced at compile time and a `require_relative` brings in
@@ -237,7 +240,12 @@ describe "IO programs" do
   end
 
   it "diamond requires execute the shared file exactly once" do
-    result = ze0(<<~'RUBY', files: {"diamond_requires/liba.rb" => "require_relative \"shared\"\nputs \"liba loaded\"\n", "diamond_requires/libb.rb" => "require_relative \"shared\"\nputs \"libb loaded\"\n", "diamond_requires/main.rb" => "require_relative \"liba\"\nrequire_relative \"libb\"\nrequire_relative \"shared\"\nputs SHARED\n", "diamond_requires/shared.rb" => "puts \"shared executed\"\nSHARED = 7\n"})
+    files = beside("diamond_requires/liba.rb",
+                "diamond_requires/libb.rb",
+                "diamond_requires/main.rb",
+                "diamond_requires/shared.rb")
+
+    result = ze0(<<~'RUBY', files: files)
       require_relative "diamond_requires/main"
     RUBY
 
@@ -2017,7 +2025,7 @@ describe "IO programs" do
   end
 
   it "self test block in a required file" do
-    result = ze0(<<~'RUBY', files: {"self_test_block/lib.rb" => "class Memcache\n  def get = \"get a\\r\\n\"\nend\n\nif __FILE__ == $0\n  class TestConnection < Memcache\n    def initialize = raise(\"the self-test block ran\")\n  end\n\n  Memcache.new.get\nend\n"})
+    result = ze0(<<~'RUBY', files: beside("self_test_block/lib.rb"))
       # `if __FILE__ == $0` -- the self-test block every second library file ends
       # with. In a file something else REQUIRED it is false whatever `$0` holds: the
       # entry point is, by definition, a different file. The definitions it guards

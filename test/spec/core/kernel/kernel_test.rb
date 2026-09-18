@@ -341,7 +341,7 @@ describe "Kernel programs" do
   end
 
   it "class body require runs in place" do
-    result = ze0(<<~'RUBY', files: {"class_body_require/inner.rb" => "puts \"inner runs\"\nINNER_TOP = 1\n\nclass InnerClass\n  def self.hi = \"inner-class\"\nend\n"})
+    result = ze0(<<~'RUBY', files: beside("class_body_require/inner.rb"))
       # A `require` written in a `class`/`module` BODY runs AT ITS OWN POSITION in
       # CRuby, at the top-level cref -- not after the whole enclosing file.
       #

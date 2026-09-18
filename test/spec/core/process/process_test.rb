@@ -183,7 +183,11 @@ describe "Process programs" do
   end
 
   it "circular requires compose in rubys execution order" do
-    result = ze0(<<~'RUBY', files: {"circular_requires/ca.rb" => "puts \"ca start\"\nrequire_relative \"cb\"\nputs \"ca end\"\n", "circular_requires/cb.rb" => "puts \"cb start\"\nrequire_relative \"ca\"\nputs \"cb end\"\n", "circular_requires/main.rb" => "require_relative \"ca\"\nputs \"main done\"\n"})
+    files = beside("circular_requires/ca.rb",
+                "circular_requires/cb.rb",
+                "circular_requires/main.rb")
+
+    result = ze0(<<~'RUBY', files: files)
       # CRuby registers a feature as loading BEFORE executing it, so the
       # inner require of an in-progress file is a no-op and execution order
       # is ca-start, all of cb, ca-end -- the dedup-before-lowering rule

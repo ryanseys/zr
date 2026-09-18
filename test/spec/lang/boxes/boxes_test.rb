@@ -98,7 +98,10 @@ describe "Boxes programs" do
   end
 
   it "box exceptions are rescuable in main" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"box_exceptions/main.rb" => "box = Ruby::Box.new\nbox.require_relative \"thrower\"\nbegin\n  box::Thrower.go\nrescue StandardError => e\n  puts \"rescued: \#{e.message} (\#{e.class})\"\nend\n", "box_exceptions/thrower.rb" => "class BoxError < StandardError\nend\nclass Thrower\n  def self.go\n    raise BoxError, \"from the box\"\n  end\nend\n"}, ruby: ["-W:no-experimental"])
+    files = beside("box_exceptions/main.rb",
+                "box_exceptions/thrower.rb")
+
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
       # Exceptions cross the boundary as plain references: a box-defined
       # `BoxError < StandardError` raised from box code is rescuable in main
       # through the SHARED bootstrap superclass chain, and `e.class` names it.
@@ -241,7 +244,10 @@ describe "Boxes programs" do
   end
 
   it "box isolation and shared builtins" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"box_isolation/main.rb" => "class Widget\n  def hi\n    \"main widget\"\n  end\nend\nbox = Ruby::Box.new\nbox.require_relative \"widget\"\np Widget.new.hi\nw = box::Widget.new\np w.hi\np box::Widget == Widget\np box::String == String\np box::WIDGET_CONST\np $box_g\np box\n", "box_isolation/widget.rb" => "class Widget\n  def hi\n    \"box widget\"\n  end\nend\nWIDGET_CONST = 99\n$box_g = 5\n"}, ruby: ["-W:no-experimental"])
+    files = beside("box_isolation/main.rb",
+                "box_isolation/widget.rb")
+
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
       # The keystone: a box-required file's classes are DISTINCT from main's
       # (same file, different class objects), builtins are SHARED
       # (`box::String == String`), a box top-level constant is readable
@@ -265,7 +271,9 @@ describe "Boxes programs" do
   end
 
   it "box loads its own copy of a file" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"box_own_copy/widget.rb" => "$boxed_widget_runs = ($boxed_widget_runs || 0) + 1\n\nclass BoxedWidget\n  def hi = \"widget \#{$boxed_widget_runs}\"\nend\n\nBOXED_WIDGET_CONST = 99\n"}, ruby: ["-W:no-experimental"])
+    files = beside("box_own_copy/widget.rb")
+
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
 
 
       # A box requires from its OWN load path, and gets its own copy.
@@ -704,7 +712,10 @@ describe "Boxes programs" do
   end
 
   it "boxes reexecute files and patch builtins privately" do
-    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: {"boxes_reexecute/blank.rb" => "class String\n  def blank?\n    strip.empty?\n  end\nend\nclass Foo\n  def self.blank_one?\n    \"   \".blank?\n  end\nend\nclass Counter\n  @@count = 0\n  def self.bump\n    @@count += 1\n  end\n  def self.count\n    @@count\n  end\nend\nputs \"loaded\"\n", "boxes_reexecute/main.rb" => "box = Ruby::Box.new\nbox.require_relative \"blank\"\nbox2 = Ruby::Box.new\nbox2.require_relative \"blank\"\np box::Foo.blank_one?\nbegin\n  \"foo\".blank?\nrescue NoMethodError => e\n  puts \"main: \#{e.message}\"\nend\nbox::Counter.bump\nbox::Counter.bump\nbox2::Counter.bump\np box::Counter.count\np box2::Counter.count\n"}, ruby: ["-W:no-experimental"])
+    files = beside("boxes_reexecute/blank.rb",
+                "boxes_reexecute/main.rb")
+
+    result = ze0(<<~'RUBY', env: {"RUBY_BOX" => "1"}, files: files, ruby: ["-W:no-experimental"])
       # Per-box re-execution (the same file `box.require`d into two boxes runs
       # twice, with independent class-variable state per box), and per-box
       # builtin MONKEYPATCHES: a box's `String#blank?` resolves from that box's

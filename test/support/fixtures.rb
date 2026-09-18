@@ -46,5 +46,18 @@ module Ze0
     def fixtures(*names)
       names.to_h { |name| ["../../fixtures/#{name}", fixture(name)] }
     end
+
+    # The `files:` hash for a program's OWN files, which it reaches by
+    # the name it gives them -- so the key and the fixture are one name,
+    # said once.
+    #
+    #   files: beside("autoload_nested/lib/greeter.rb", "autoload_nested/main.rb")
+    #
+    # The directory is the program's, not this tree's: the program says
+    # `require_relative "autoload_nested/main"`, so renaming it renames
+    # the program too and `rake oracle` is what says the rename held.
+    def beside(*names)
+      names.to_h { |name| [name, fixture(name)] }
+    end
   end
 end

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Enumerable programs" do
   it "autoload is lazy" do
-    result = ze0(<<~'RUBY', files: {"autoload_fixture/late.rb" => "puts \"  late.rb body ran\"\nmodule AL\n  LOADED_AT = \"body\"\n  class Late\n    def self.hi = \"hi\"\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: beside("autoload_fixture/late.rb"))
       # `Module#autoload` runs its target at the DECLARATION, where ruby runs it at
       # the constant's first READ.
       #
@@ -64,7 +64,7 @@ describe "Enumerable programs" do
   end
 
   it "autoload lazy at declaration" do
-    result = ze0(<<~'RUBY', files: {"autoload_lazy/differ.rb" => "module Outer\n  module Foo\n    class Differ\n      ORIGIN = Outer::Foo.tag(\"differ\")\n      def self.origin = ORIGIN\n    end\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: beside("autoload_lazy/differ.rb"))
       # An `autoload` target no longer loads BEFORE the statement holding it:
       # differ.rb calls a singleton method this module body installs a few
       # statements earlier (rspec-support's exact shape) -- the old eager splice

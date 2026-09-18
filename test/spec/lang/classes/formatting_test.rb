@@ -44,7 +44,7 @@ describe "Classes: formatting and inspection" do
   end
 
   it "bare reopen does not steal a declaring site" do
-    result = ze0(<<~'RUBY', files: {"bare_reopen/aitem.rb" => "# Reopened BARE, in a file the compiler walks BEFORE the one that declares\n# the class with its superclass.\nmodule Store\n  class Item\n    class Nested\n      def where = \"aitem\"\n    end\n  end\nend\n", "bare_reopen/item.rb" => "module Store\n  class Base\n    def base = \"base\"\n  end\n  class Item < Base\n    autoload :Nested, File.expand_path(\"aitem\", __dir__)\n    def own = \"own\"\n  end\nend\n", "bare_reopen/root.rb" => "module Store\n  autoload :Item, File.expand_path(\"item\", __dir__)\nend\n"})
+    result = ze0(<<~'RUBY', files: beside("bare_reopen/aitem.rb", "bare_reopen/item.rb", "bare_reopen/root.rb"))
       # One file REOPENS `class Item` bare; another DECLARES it with a superclass.
       # The compiler walks units in demand order, so the bare reopen can come first
       # -- and the declaration must still be the one that fixes the superclass and

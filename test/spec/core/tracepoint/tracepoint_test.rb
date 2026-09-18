@@ -186,7 +186,7 @@ describe "TracePoint programs" do
   end
 
   it "backtrace names the scope and the call line" do
-    result = ze0(<<~'RUBY', files: {"lib/backtrace_scopes.rb" => "# Required by `backtrace_names_the_scope_and_the_call_line.rb`. Its own\n# top level is a scope of its own -- ruby calls it `<top (required)>` --\n# even though zeo SPLICES this file into the requiring one.\nNESTED_BLOCKS = lambda do\n  [1].each do\n    raise \"raised two blocks deep at a required file's top level\"\n  end\nend\n\ndef a_method_here\n  raise \"raised in a method defined in a required file\"\nend\n\nclass Chained\n  def self.boom = raise(\"raised through a chained call\")\n  def self.itself_ = self\nend\n"})
+    result = ze0(<<~'RUBY', files: beside("lib/backtrace_scopes.rb"))
       # Two questions a backtrace answers that zeo used to answer differently
       # from ruby, both about WHERE a frame is rather than what it does.
       #

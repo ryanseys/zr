@@ -4,7 +4,10 @@ require "spec_helper"
 
 describe "IO: formatting and inspection" do
   it "argf walk reads every named file" do
-    result = ze0(<<~'RUBY', argv: ["core/io/argf_walk/a.txt", "core/io/argf_walk/b.txt"], files: {"argf_walk/a.txt" => "one\ntwo\n", "argf_walk/b.txt" => "three\n"})
+    files = beside("argf_walk/a.txt",
+                "argf_walk/b.txt")
+
+    result = ze0(<<~'RUBY', argv: ["core/io/argf_walk/a.txt", "core/io/argf_walk/b.txt"], files: files)
 
       # ARGF is one stream over the files ARGV names: each opens as the walk
       # reaches it, the line numbers run on across the whole set, and ARGV

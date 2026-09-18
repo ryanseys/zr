@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe "Coverage programs" do
   it "coverage" do
-    result = ze0(<<~'RUBY', path: "coverage.rb", files: {"coverage/target.rb" => "def cov_add(a, b)\n  a + b\nend\n\ndef cov_never(x)\n  x * 100\nend\n\nclass CovCounter\n  def initialize(start)\n    @n = start\n  end\n\n  def bump\n    @n += 1\n    @n\n  end\n\n  def big?\n    if @n > 10\n      true\n    else\n      false\n    end\n  end\nend\n\nCOV_LIMIT = 3\n\nCOV_LIMIT.times do |i|\n  cov_add(i, i)\nend\n"})
+    result = ze0(<<~'RUBY', path: "coverage.rb", files: beside("coverage/target.rb"))
       # Line coverage over the AOT instrumentation: the lifecycle and its error
       # shapes, then the real measurement of coverage/target.rb -- required AFTER
       # Coverage.start, so it is reported (this file, loaded before, is not --
@@ -82,7 +82,7 @@ describe "Coverage programs" do
   end
 
   it "coverage modes" do
-    result = ze0(<<~'RUBY', files: {"coverage_modes/lib_a.rb" => "def twice(n)\n  n * 2\nend\n\ndef pick(flag)\n  if flag\n    :yes\n  else\n    :no\n  end\nend\n", "coverage_modes/lib_b.rb" => "class Tally\n  def initialize = @n = 0\n\n  def add\n    @n += 1\n  end\nend\n", "coverage/target.rb" => "def cov_add(a, b)\n  a + b\nend\n\ndef cov_never(x)\n  x * 100\nend\n\nclass CovCounter\n  def initialize(start)\n    @n = start\n  end\n\n  def bump\n    @n += 1\n    @n\n  end\n\n  def big?\n    if @n > 10\n      true\n    else\n      false\n    end\n  end\nend\n\nCOV_LIMIT = 3\n\nCOV_LIMIT.times do |i|\n  cov_add(i, i)\nend\n"})
+    result = ze0(<<~'RUBY', files: beside("coverage_modes/lib_a.rb", "coverage_modes/lib_b.rb", "coverage/target.rb"))
       # Coverage's modes: lines and oneshot_lines as hashes of targets, the
       # counts a suspend leaves out, a result that keeps measuring, and the
       # errors each state refuses with.

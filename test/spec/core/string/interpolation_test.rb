@@ -43,7 +43,7 @@ describe "String: interpolation" do
   end
 
   it "autoload interpolated dir feature" do
-    result = ze0(<<~'RUBY', files: {"autoload_interp/sprocket.rb" => "class Sprocket\n  def self.size = 42\nend\n\nmodule Widget\n  NAME = \"widget\"\nend\n"})
+    result = ze0(<<~'RUBY', files: beside("autoload_interp/sprocket.rb"))
       # `autoload :Const, "#{__dir__}/sibling"` -- how puma, rack and sidekiq name a
       # sibling file. zeo splices the target at compile time, so the interpolation
       # has to fold then; only a plain literal and `File.expand_path` did.

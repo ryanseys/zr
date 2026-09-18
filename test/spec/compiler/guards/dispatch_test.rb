@@ -71,7 +71,7 @@ describe "Guards: dispatch" do
   end
 
   it "class body guard asks about the class" do
-    result = ze0(<<~'RUBY', files: {"class_body_guard/ext.rb" => "# Each reopen's body is ONE statement, which is the shape that used to break:\n# the guard was lifted out of the class-body function and asked of `Gm`.\nmodule Gm\n  require_relative \"plat\"\n\n  class Plat\n    unless respond_to?(:generic)\n      WIDTH = 2\n    end\n  end\n\n  class Plat\n    if respond_to?(:generic)\n      HEIGHT = 3\n    end\n  end\n\n  class Plat\n    unless const_defined?(:WIDTH)\n      DEPTH = 4\n    end\n  end\nend\n", "class_body_guard/plat.rb" => "# The half a later reopen probes: a singleton method and a constant, both\n# already installed by the time the reopen's guard runs.\nmodule Gm\n  class Plat\n    WIDTH = 1\n\n    class << self\n      def generic(name) = name\n    end\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: beside("class_body_guard/ext.rb", "class_body_guard/plat.rb"))
       # A guard the SOURCE wrote inside a class body asks about the CLASS, and runs
       # where it is written -- inside the class-body frame, with `self` bound to the
       # class.

@@ -97,7 +97,10 @@ describe "Require programs" do
   end
 
   it "file reached through a symlink loads once" do
-    result = ze0(<<~'RUBY', files: {"symlinked_file/lib/alpha.rb" => "module Alpha\n  LOADS = (defined?(LOADS) ? LOADS : 0) + 1\nend\n", "symlinked_file/lib/deep/beta.rb" => "Beta = :beta\n", "symlinked_file/lib/fails.rb" => "require_relative \"deep/beta\"\nraise \"boom\"\n", "symlinked_file/linked" => {symlink: "lib"}})
+    files = beside("symlinked_file/lib/alpha.rb", "symlinked_file/lib/deep/beta.rb", "symlinked_file/lib/fails.rb")
+            .merge("symlinked_file/linked" => { symlink: "lib" })
+
+    result = ze0(<<~'RUBY', files: files)
       # A require keys a file by its real path too, as CRuby's
       # loaded_features_realpaths does: the same file reached again through a
       # symlinked $LOAD_PATH directory runs no second time, and
@@ -171,7 +174,7 @@ describe "Require programs" do
   end
 
   it "load with a wrap argument lowers to a runtime loaderror" do
-    result = ze0(<<~'RUBY', files: {"load_wrap/main.rb" => "begin\n  load \"./w.rb\", true\nrescue LoadError => e\n  puts e.message\nend\n", "load_wrap/w.rb" => "puts 1\n"})
+    result = ze0(<<~'RUBY', files: beside("load_wrap/main.rb", "load_wrap/w.rb"))
       # `load "file", wrap` needs load-time anonymous-module scoping this compiler
       # lacks, so the wrap form lowers to a runtime `Kernel#load` that raises
       # LoadError (the literal no-wrap form is spliced and executed instead).
@@ -394,7 +397,7 @@ describe "Require programs" do
   end
 
   it "reopening via load twice merges cleanly" do
-    result = ze0(<<~'RUBY', files: {"reopen_via_load/counter.rb" => "class Counter\n  def bump\n    1\n  end\nend\n", "reopen_via_load/main.rb" => "load \"./counter.rb\"\nload \"./counter.rb\"\nputs Counter.new.bump\n"})
+    result = ze0(<<~'RUBY', files: beside("reopen_via_load/counter.rb", "reopen_via_load/main.rb"))
       Dir.chdir(File.expand_path("reopen_via_load", __dir__))
       require_relative "reopen_via_load/main"
     RUBY
@@ -403,7 +406,10 @@ describe "Require programs" do
   end
 
   it "require relative" do
-    result = ze0(<<~'RUBY', path: "ze0/require_relative.rb", files: {"require_relative/deeper.rb" => "# frozen_string_literal: true\n\n# A required file's top level is its own scope: this `mark` and the one\n# in the file that required it are two names with two slots.\nmark = \"deeper\"\n\nmodule Spliced\n  module Deeper\n    EXTRA = \"+\"\n  end\nend\n\nDEEPER_MARK = mark\n", "require_relative/shared.rb" => "# frozen_string_literal: true\n\nrequire_relative \"deeper\"\n\nmark = \"shared\"\n[\"!\"].each { |s| mark += s }\n\nmodule Spliced\n  MARK = \"!\"\n\n  class Helper\n    def self.help = \"helped\#{Deeper::EXTRA}\#{MARK}\"\n    def self.boom = raise(ArgumentError, \"from the spliced file\")\n  end\nend\n\nSHARED_MARK = mark\n"})
+    files = beside("require_relative/deeper.rb",
+                "require_relative/shared.rb")
+
+    result = ze0(<<~'RUBY', path: "ze0/require_relative.rb", files: files)
       # frozen_string_literal: true
 
       # `require_relative` resolves here, not at run time: the target's
@@ -474,7 +480,10 @@ describe "Require programs" do
   end
 
   it "require relative in a method runs when the method does" do
-    result = ze0(<<~'RUBY', files: {"require_relative_in_method/counted.rb" => "puts \"counted ran\"\nCOUNTED_RUNS = 1\n", "require_relative_in_method/late.rb" => "puts \"late ran\"\nmodule Late\n  def self.name_of = \"late\"\nend\n"})
+    files = beside("require_relative_in_method/counted.rb",
+                "require_relative_in_method/late.rb")
+
+    result = ze0(<<~'RUBY', files: files)
       # A `require_relative` written inside a `def` runs when the METHOD runs, not
       # where the file that defines it is loaded. So the target's constants are
       # absent until the first call, the first call answers true and the second
@@ -507,7 +516,7 @@ describe "Require programs" do
   end
 
   it "stdlib style feature drops in through an i search root" do
-    result = ze0(<<~'RUBY', files: {"stdlib_style/main.rb" => "require \"shellish\"\nputs Shellish.escape(\"a b c\")\n", "stdlib_style/rubylib/shellish.rb" => "module Shellish\n  def self.escape(s)\n    s.gsub(\" \", \"\\\\ \")\n  end\nend\n"})
+    result = ze0(<<~'RUBY', files: beside("stdlib_style/main.rb", "stdlib_style/rubylib/shellish.rb"))
       # stdlib is delivered as ordinary `-I <lib>` load-path roots (no
       # bespoke flag) -- pointing `-I` at a Ruby checkout's `lib` makes each
       # `require "feature"` resolve a real stdlib `.rb`. This models that with a
@@ -522,7 +531,14 @@ describe "Require programs" do
   end
 
   it "top level return ends only its file" do
-    result = ze0(<<~'RUBY', files: {"top_level_return/guarded.rb" => "puts \"guarded: start\"\nif STOPS_MARK\n  begin\n    return\n  rescue StandardError\n    puts \"guarded: rescue\"\n  end\nend\nputs \"guarded: never\"\n", "top_level_return/nested.rb" => "puts \"nested: start\"\nrequire_relative \"nested_dep\"\nreturn\nputs \"nested: never\"\n", "top_level_return/nested_dep.rb" => "puts \"nested_dep: ran\"\n", "top_level_return/never_required.rb" => "puts \"never_required ran\"\n", "top_level_return/runs.rb" => "puts \"runs: start\"\nreturn if [].any?\n\nputs \"runs: end\"\n", "top_level_return/stops.rb" => "puts \"stops: start\"\nSTOPS_MARK = :set\nreturn if STOPS_MARK\n\nputs \"stops: never\"\nrequire_relative \"never_required\"\n"})
+    files = beside("top_level_return/guarded.rb",
+                "top_level_return/nested.rb",
+                "top_level_return/nested_dep.rb",
+                "top_level_return/never_required.rb",
+                "top_level_return/runs.rb",
+                "top_level_return/stops.rb")
+
+    result = ze0(<<~'RUBY', files: files)
       # ruby's top-level `return` ends the FILE it is written in; reading
       # resumes in the file that required it. zeo ends `<main>` instead, so
       # everything after the first required file's `return` is lost.
@@ -568,7 +584,12 @@ describe "Require programs" do
   end
 
   it "two files named version each load their own" do
-    result = ze0(<<~'RUBY', files: {"two_versions/a/lib.rb" => "require_relative \"version\" if ENV[\"NEVER\"]\n\ndef load_a_version\n  require_relative \"version\"\nend\n", "two_versions/a/version.rb" => "A_VERSION = \"a\"\n", "two_versions/b/lib.rb" => "require_relative \"version\" if ENV[\"NEVER\"]\n\ndef load_b_version\n  require_relative \"version\"\nend\n", "two_versions/b/version.rb" => "B_VERSION = \"b\"\n"})
+    files = beside("two_versions/a/lib.rb",
+                "two_versions/a/version.rb",
+                "two_versions/b/lib.rb",
+                "two_versions/b/version.rb")
+
+    result = ze0(<<~'RUBY', files: files)
       # Two compiled-in files can share a basename, and each `require_relative
       # "version"` must load ITS OWN sibling.
       #

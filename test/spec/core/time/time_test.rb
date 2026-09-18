@@ -224,7 +224,13 @@ describe "Time programs" do
   end
 
   it "file the compiler never saw loads at run time" do
-    result = ze0(<<~'RUBY', files: {"a_file_the_compiler_never_saw_loads_at_run_time/boom.rb" => "raise ArgumentError, \"boom from the file\"\n", "a_file_the_compiler_never_saw_loads_at_run_time/cycle_a.rb" => "require \"cycle_b\"\nCYCLE_A = 1\n", "a_file_the_compiler_never_saw_loads_at_run_time/cycle_b.rb" => "require \"cycle_a\"\nCYCLE_B = 2\n", "a_file_the_compiler_never_saw_loads_at_run_time/deep/inner.rb" => "$inner_runs = ($inner_runs || 0) + 1\n\nmodule RuntimeInner\n  def self.n = 7\n\n  def self.boom = raise(\"from inner\")\nend\n", "a_file_the_compiler_never_saw_loads_at_run_time/top.rb" => "require_relative \"deep/inner\"\nLOADED_TOP_FILE = __FILE__\n$top_runs = ($top_runs || 0) + 1\n\nmodule RuntimeTop\n  def self.hi = \"top \#{RuntimeInner.n}\"\nend\n\nclass Raiser\n  def boom = RuntimeInner.boom\nend\n"})
+    files = beside("a_file_the_compiler_never_saw_loads_at_run_time/boom.rb",
+                "a_file_the_compiler_never_saw_loads_at_run_time/cycle_a.rb",
+                "a_file_the_compiler_never_saw_loads_at_run_time/cycle_b.rb",
+                "a_file_the_compiler_never_saw_loads_at_run_time/deep/inner.rb",
+                "a_file_the_compiler_never_saw_loads_at_run_time/top.rb")
+
+    result = ze0(<<~'RUBY', files: files)
       # A file the compiler never saw is compiled and run where it is FOUND.
       #
       # Whole-program AOT resolves an ordinary `require` at compile time and
