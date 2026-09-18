@@ -462,6 +462,7 @@ module Marshal
       when "S" then struct
       when "o" then object
       when "C" then subclass
+      when "d" then data
       when "u" then user_dump
       when "U" then user_marshal
       else raise ArgumentError, "dump format error(0x#{tag.ord.to_s(16)})"
@@ -625,6 +626,22 @@ module Marshal
       built = keep(Primitive.zr_class_allocate(klass))
       built.send(:marshal_load, read)
       built
+    end
+
+    # `d`, what CRuby's `_dump_data` writes for a T_DATA object. The name
+    # comes first, so an absent class raises what it raises for every
+    # other tag; then marshal.c allocates the class and refuses unless
+    # what it made is T_DATA.
+    #
+    # Only a C extension makes a T_DATA object, and this runtime writes
+    # no C: a class that would be one there is an ordinary class here.
+    # So that check refuses every `d` a program can hand this reader,
+    # which is what ruby does with the same bytes -- `_load_data` is
+    # unreachable in both, and writing the call would answer where ruby
+    # refuses. The payload is left unread, as marshal.c leaves it.
+    def data
+      constant(symbol_or_link.to_s, Class)
+      raise ArgumentError, "dump format error"
     end
 
     def symbol_or_link
