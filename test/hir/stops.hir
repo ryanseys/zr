@@ -1,0 +1,13 @@
+(seq
+  (if
+    (send include?
+      (const ARGV)
+      (str "--build-extension"))
+    (seq
+      (stop "require of \"mkmf\"")
+      (send self p
+        (send self have_header
+          (str "stdio.h"))))
+    (none))
+  (send self p
+    (sym :compiled)))

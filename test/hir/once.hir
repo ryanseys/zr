@@ -1,0 +1,51 @@
+(seq
+  (seq
+    (send self p
+      (sym :first)))
+  (once
+    (send at_exit
+      (core Kernel)
+      (block () locals ()
+        (seq
+          (send self p
+            (sym :last))))))
+  (def match (pattern subject) locals (pattern subject)
+    (seq
+      (send =~
+        (local subject)
+        (regexp-once
+          (send interpolated
+            (const Regexp)
+            (array
+              (interp
+                (str ""))
+              (interp
+                (seq
+                  (local pattern))))
+            (int 0)
+            (const nil))))))
+  (send self p
+    (send self match
+      (str "a")
+      (str "abc")))
+  (send self p
+    (send self match
+      (str "z")
+      (str "abc")))
+  (assign x
+    (str "b"))
+  (send self p
+    (send source
+      (regexp-once
+        (send interpolated
+          (const Regexp)
+          (array
+            (interp
+              (str ""))
+            (interp
+              (seq
+                (local x))))
+          (int 0)
+          (const nil)))))
+  (send self p
+    (sym :body)))

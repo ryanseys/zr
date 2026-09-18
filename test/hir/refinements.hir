@@ -1,0 +1,53 @@
+(seq
+  (module Shout
+    (seq
+      (send self refine
+        (const String)
+        (block () locals ()
+          (seq
+            (def shout () locals ()
+              (seq
+                (send +
+                  (vcall self upcase)
+                  (str "!")))))))))
+  (module Quiet
+    (seq
+      (send self refine
+        (const String)
+        (block () locals ()
+          (seq
+            (def quiet () locals ()
+              (seq
+                (vcall self downcase))))))))
+  (using 0 from -1
+    (const Shout))
+  (send self p
+    (send shout
+      (str "a")))
+  (seq
+    (using-defaults 1<-0)
+    (if
+      (send empty?
+        (const ARGV))
+      (seq
+        (using 1 from 0
+          (const Quiet))
+        (send self p
+          (send quiet
+            (str "B"))))
+      (none)))
+  (seq
+    (using-defaults 2<-1)
+    (class K
+      (seq
+        (using 2 from 1
+          (const Shout))
+        (def call (s) locals (s)
+          (seq
+            (send shout
+              (local s)))))))
+  (send self p
+    (send call
+      (send new
+        (const K))
+      (str "b"))))

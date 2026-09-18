@@ -19,4 +19,22 @@ class HirTest < Minitest::Test
       end
     end
   end
+
+  # The two nodes no fixture can hold. `Trace` is placed only where the
+  # program arms line events, which `Hir.build` has no way to ask for,
+  # and `Slot` is the lowering's own node for a receiver it has already
+  # evaluated -- `Hir::Build` never writes one. Their arms are asked for
+  # here, so that all of `Hir`'s nodes are covered between the two.
+  def test_the_nodes_no_program_of_ours_holds
+    assert_equal "(trace line)", dump(Ze0::Hir::Trace.new(:line, 1))
+    assert_equal "(slot 3)", dump(Ze0::Hir::Slot.new(3, 1))
+  end
+
+  private
+
+  def dump(node)
+    lines = []
+    Ze0::Hir::Dump.node(node, 0, lines)
+    lines.join("\n")
+  end
 end

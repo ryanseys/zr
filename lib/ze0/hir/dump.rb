@@ -133,6 +133,10 @@ module Ze0
           lines[-1] += ")"
         when Undef
           lines << "#{pad}(undef #{n.names.join(" ")})"
+        when UndefValue
+          lines << "#{pad}(undef-value"
+          n.names.each { |name| node(name, depth + 1, lines) }
+          lines[-1] += ")"
         when Retry
           lines << "#{pad}(retry)"
         when Redo
@@ -179,7 +183,15 @@ module Ze0
           lines << "#{pad}(hash"
           n.pairs.each { |e| node(e, depth + 1, lines) }
           lines[-1] += ")"
+        when KwSplatElement
+          lines << "#{pad}(kwsplat-element"
+          node(n.pairs, depth + 1, lines)
+          lines[-1] += ")"
         when RegexpLit then lines << "#{pad}(regexp #{n.source.inspect} #{n.options})"
+        when RegexpOnce
+          lines << "#{pad}(regexp-once"
+          node(n.value, depth + 1, lines)
+          lines[-1] += ")"
         when FrozenString then lines << "#{pad}(frozen #{n.value.inspect})"
         when Interp
           lines << "#{pad}(interp"
@@ -193,6 +205,8 @@ module Ze0
           lines << "#{pad}(ivar #{n.name})"
         when GvarRead
           lines << "#{pad}(gvar #{n.name})"
+        when BackRef
+          lines << "#{pad}(backref #{n.kind}#{n.kind == :nth ? " #{n.number}" : ""})"
         when GvarWrite, CvarWrite
           lines << "#{pad}(#{n.is_a?(GvarWrite) ? "gvar" : "cvar"}-set #{n.name}"
           node(n.value, depth + 1, lines)
@@ -206,6 +220,11 @@ module Ze0
           lines[-1] += ")"
         when Alias, GvarAlias
           lines << "#{pad}(alias #{n.new_name} #{n.old_name})"
+        when AliasValue
+          lines << "#{pad}(alias-value"
+          node(n.new_name, depth + 1, lines)
+          node(n.old_name, depth + 1, lines)
+          lines[-1] += ")"
         when Defined
           lines << "#{pad}(defined? #{n.kind}#{n.target.is_a?(Symbol) ? " #{n.target}" : ""}"
           node(n.target, depth + 1, lines) if n.target.is_a?(Struct)
@@ -242,6 +261,24 @@ module Ze0
           lines << "#{pad}(ivar-set #{n.name}"
           node(n.value, depth + 1, lines) if n.value
           lines[-1] += ")"
+        when Core
+          lines << "#{pad}(core #{n.name})"
+        when Slot
+          lines << "#{pad}(slot #{n.index})"
+        when Once
+          lines << "#{pad}(once"
+          node(n.body, depth + 1, lines)
+          lines[-1] += ")"
+        when Trace
+          lines << "#{pad}(trace #{n.event})"
+        when Stop
+          lines << "#{pad}(stop #{n.what.inspect})"
+        when Using
+          lines << "#{pad}(using #{n.id} from #{n.from}"
+          node(n.value, depth + 1, lines)
+          lines[-1] += ")"
+        when UsingDefaults
+          lines << "#{pad}(using-defaults #{n.rows.map { |id, from| "#{id}<-#{from}" }.join(" ")})"
         else
           raise ArgumentError, "no dump for #{n.class}"
         end

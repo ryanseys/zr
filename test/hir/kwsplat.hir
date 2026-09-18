@@ -1,0 +1,54 @@
+(seq
+  (assign h
+    (hash
+      (sym :a)
+      (int 1)
+      (sym :b)
+      (int 2)))
+  (send self p
+    (array
+      (splat
+        (kwsplat-element
+          (hash
+            (double-splat
+              (local h))
+            (none))))))
+  (send self p
+    (array
+      (splat
+        (kwsplat-element
+          (hash
+            (double-splat
+              (hash))
+            (none))))))
+  (send self p
+    (array
+      (splat
+        (kwsplat-element
+          (hash
+            (double-splat
+              (local h))
+            (none)
+            (double-splat
+              (hash
+                (sym :c)
+                (int 3)))
+            (none))))))
+  (def take (*args) locals (args)
+    (seq
+      (local args)))
+  (send self p
+    (send self take
+      (hash
+        (double-splat
+          (local h))
+        (none))))
+  (send self p
+    (send self take
+      (splat
+        (array
+          (int 1)))
+      (hash
+        (double-splat
+          (local h))
+        (none)))))
