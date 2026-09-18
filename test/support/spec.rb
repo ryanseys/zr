@@ -180,19 +180,33 @@ module Ze0
       Native::Build.lower("$stderr.write(#{report.inspect})\nexit 1\n", rb, target: target)
     end
 
+    # The program a bare ruby runs to write the report. It names the file
+    # the way it was given it, since that is the name the binary carries.
+    REPORT = <<~'RUBY'
+      begin
+        RubyVM::InstructionSequence.compile_file(ARGV[0])
+      rescue SyntaxError => e
+        print ARGV[0], ": ", e.detailed_message(highlight: false), "\n"
+      end
+    RUBY
+
     # ruby's own report for a file that does not parse, or nil when ruby
     # parses it and the stop came from something it required.
+    #
+    # A bare ruby writes it, not this process. The report goes through
+    # syntax_suggest, and `bundle exec` hides a gem this Gemfile does not
+    # name: what answers here is the older copy ruby keeps under
+    # lib/ruby, 2.0.3 against the gem's 3.0.0, and the two write
+    # different sentences for the same program. The recordings were made
+    # by a bare ruby, so this asks one, as every other road that asks
+    # "what does ruby say" already does. `Ze0::CLI.lower` asks the ruby
+    # it runs under, which for someone building a program is this same
+    # bare one.
     def syntax_report(rb)
-      begin
-        require "rubygems"
-        require "syntax_suggest/core_ext"
-      rescue LoadError
-        nil
-      end
-      RubyVM::InstructionSequence.compile_file(rb)
-      nil
-    rescue SyntaxError => own
-      "#{rb}: #{own.detailed_message(highlight: false)}\n"
+      out, = Harness::Child.run([RbConfig.ruby, "-e", REPORT, rb], cwd: Dir.pwd, seconds: Spec.limit,
+                                                                   megabytes: Harness::Child::RUN_MB,
+                                                                   env: Harness::Child::BARE_RUBY)
+      out.stdout.empty? ? nil : Spec.text(out.stdout)
     end
 
     # What the binary said, or why it does not count as an answer.
