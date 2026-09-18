@@ -1189,7 +1189,7 @@ describe "Object programs" do
     _(result).must_answer "present\n"
   end
 
-  it "singleton method object" do
+  it "a def on a constant receiver installs on that object alone" do
     result = ze0(<<~'RUBY')
       # Singleton methods on a constant/local that statically holds one object:
       # synthesized as an anonymous subclass that masquerades as its parent.
@@ -1218,6 +1218,40 @@ describe "Object programs" do
       p CONFIG.is_a?(Config)
       p CONFIG.instance_of?(Config)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      10
+      "reloaded-10"
+      30
+      Config
+      "Config"
+      true
+      true
+    OUT
+  end
+
+  it "a singleton method overrides its class's and reaches it through super" do
+    result = ze0(<<~'RUBY')
+      # Singleton methods on a constant/local that statically holds one object:
+      # synthesized as an anonymous subclass that masquerades as its parent.
+      class Config
+        def initialize
+          @base = 10
+        end
+        def base
+          @base
+        end
+      end
+
+      CONFIG = Config.new
+      def CONFIG.reload
+        "reloaded-#{base}"
+      end
+      def CONFIG.scale(n)
+        base * n
+      end
+
       # override a parent method + super
       class Widget
         def initialize(n)
@@ -1240,6 +1274,37 @@ describe "Object programs" do
       # poly dispatch alongside a plain instance
       [W1, Widget.new(2)].each { |w| puts w.label }
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "custom-widget-1"
+      "T"
+      custom-widget-1
+      widget-2
+    OUT
+  end
+
+  it "a def on a local receiver installs on that object alone" do
+    result = ze0(<<~'RUBY')
+      # Singleton methods on a constant/local that statically holds one object:
+      # synthesized as an anonymous subclass that masquerades as its parent.
+      class Config
+        def initialize
+          @base = 10
+        end
+        def base
+          @base
+        end
+      end
+
+      CONFIG = Config.new
+      def CONFIG.reload
+        "reloaded-#{base}"
+      end
+      def CONFIG.scale(n)
+        base * n
+      end
+
       # local receiver
       class Thing
         def base
@@ -1253,6 +1318,35 @@ describe "Object programs" do
       p x.special
       p x.class
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      "s-b"
+      Thing
+    OUT
+  end
+
+  it "define_singleton_method installs the same way a def on the object does" do
+    result = ze0(<<~'RUBY')
+      # Singleton methods on a constant/local that statically holds one object:
+      # synthesized as an anonymous subclass that masquerades as its parent.
+      class Config
+        def initialize
+          @base = 10
+        end
+        def base
+          @base
+        end
+      end
+
+      CONFIG = Config.new
+      def CONFIG.reload
+        "reloaded-#{base}"
+      end
+      def CONFIG.scale(n)
+        base * n
+      end
+
       # define_singleton_method
       class Box
         def v
@@ -1262,6 +1356,34 @@ describe "Object programs" do
       B = Box.new
       B.define_singleton_method(:doubled) { v * 2 }
       p B.doubled
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      2
+    OUT
+  end
+
+  it "extend transplants a module's methods onto the object's singleton" do
+    result = ze0(<<~'RUBY')
+      # Singleton methods on a constant/local that statically holds one object:
+      # synthesized as an anonymous subclass that masquerades as its parent.
+      class Config
+        def initialize
+          @base = 10
+        end
+        def base
+          @base
+        end
+      end
+
+      CONFIG = Config.new
+      def CONFIG.reload
+        "reloaded-#{base}"
+      end
+      def CONFIG.scale(n)
+        base * n
+      end
 
       # obj.extend(Mod): transplant module methods onto the singleton subclass
       module Loud
@@ -1295,20 +1417,6 @@ describe "Object programs" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      10
-      "reloaded-10"
-      30
-      Config
-      "Config"
-      true
-      true
-      "custom-widget-1"
-      "T"
-      custom-widget-1
-      widget-2
-      "s-b"
-      Thing
-      2
       "HI"
       "hi"
       "HI/hi"

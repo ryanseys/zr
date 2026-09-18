@@ -210,7 +210,7 @@ describe "Numeric: raising and rescuing" do
     OUT
   end
 
-  it "integer argument error" do
+  it "Integer() reads a decimal string, signed or not" do
     result = ze0(<<~'RUBY')
       # Integer(s) raises ArgumentError on unparseable input, matching
       # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
@@ -234,6 +234,30 @@ describe "Numeric: raising and rescuing" do
       d = (Integer("+5") rescue -1)
       puts d
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      42
+      0
+      -7
+      5
+    OUT
+  end
+
+  it "Integer() allows the leading and trailing whitespace CRuby allows" do
+    result = ze0(<<~'RUBY')
+      # Integer(s) raises ArgumentError on unparseable input, matching
+      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
+      # which silently returned 0 for invalid input — that meant
+      # `Integer(s) rescue 0` always took the main branch and the rescue
+      # never fired.
+      #
+      # Test uses same-type rescue fallbacks (int + int) to avoid the
+      # int+string type-mismatch issue (a separate poly-boxing PR). For
+      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
+      # `puts e` directly — exception .message dispatch lives on a
+      # separate exception-bindings PR.
+
       # Whitespace handling per CRuby (leading/trailing whitespace ok).
       # Includes \t \n \r \v \f — all should be skipped (isspace covers
       # them; the previous manual `c == ' ' || c == '\t' || c == '\n' ||
@@ -253,6 +277,33 @@ describe "Numeric: raising and rescuing" do
       e_mix = (Integer("  \t\n -7 \r\f ") rescue -1)
       puts e_mix
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      -7
+      42
+      42
+      42
+      42
+      42
+      -7
+    OUT
+  end
+
+  it "Integer() reads a sign, and a sign on its own is not a number" do
+    result = ze0(<<~'RUBY')
+      # Integer(s) raises ArgumentError on unparseable input, matching
+      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
+      # which silently returned 0 for invalid input — that meant
+      # `Integer(s) rescue 0` always took the main branch and the rescue
+      # never fired.
+      #
+      # Test uses same-type rescue fallbacks (int + int) to avoid the
+      # int+string type-mismatch issue (a separate poly-boxing PR). For
+      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
+      # `puts e` directly — exception .message dispatch lives on a
+      # separate exception-bindings PR.
+
       # Sign handling
       sign_pos_zero = (Integer("+0") rescue -1); puts sign_pos_zero
       sign_neg_zero = (Integer("-0") rescue -1); puts sign_neg_zero
@@ -261,9 +312,57 @@ describe "Numeric: raising and rescuing" do
       sign_double   = (Integer("++7") rescue -1); puts sign_double    # double-sign → invalid
       sign_bare     = (Integer("+")   rescue -1); puts sign_bare      # bare sign → invalid
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      0
+      0
+      -1
+      -1
+      -1
+      -1
+    OUT
+  end
+
+  it "Integer() reads the edges of the machine word" do
+    result = ze0(<<~'RUBY')
+      # Integer(s) raises ArgumentError on unparseable input, matching
+      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
+      # which silently returned 0 for invalid input — that meant
+      # `Integer(s) rescue 0` always took the main branch and the rescue
+      # never fired.
+      #
+      # Test uses same-type rescue fallbacks (int + int) to avoid the
+      # int+string type-mismatch issue (a separate poly-boxing PR). For
+      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
+      # `puts e` directly — exception .message dispatch lives on a
+      # separate exception-bindings PR.
+
       # Edge magnitudes within mrb_int range
       ll_max = (Integer("9223372036854775807")  rescue -1); puts ll_max   # LLONG_MAX
       ll_min = (Integer("-9223372036854775808") rescue -1); puts ll_min   # LLONG_MIN
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      9223372036854775807
+      -9223372036854775808
+    OUT
+  end
+
+  it "Integer() raises for a string that names no number" do
+    result = ze0(<<~'RUBY')
+      # Integer(s) raises ArgumentError on unparseable input, matching
+      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
+      # which silently returned 0 for invalid input — that meant
+      # `Integer(s) rescue 0` always took the main branch and the rescue
+      # never fired.
+      #
+      # Test uses same-type rescue fallbacks (int + int) to avoid the
+      # int+string type-mismatch issue (a separate poly-boxing PR). For
+      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
+      # `puts e` directly — exception .message dispatch lives on a
+      # separate exception-bindings PR.
 
       # Invalid inputs now raise (caught by rescue, returns -1)
       f = (Integer("xyz") rescue -1); puts f
@@ -272,15 +371,86 @@ describe "Numeric: raising and rescuing" do
       ii = (Integer("12abc") rescue -1); puts ii
       j = (Integer("12.5") rescue -1); puts j
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      -1
+      -1
+      -1
+      -1
+      -1
+    OUT
+  end
+
+  it "Integer() raises for trailing junk after the digits" do
+    result = ze0(<<~'RUBY')
+      # Integer(s) raises ArgumentError on unparseable input, matching
+      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
+      # which silently returned 0 for invalid input — that meant
+      # `Integer(s) rescue 0` always took the main branch and the rescue
+      # never fired.
+      #
+      # Test uses same-type rescue fallbacks (int + int) to avoid the
+      # int+string type-mismatch issue (a separate poly-boxing PR). For
+      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
+      # `puts e` directly — exception .message dispatch lives on a
+      # separate exception-bindings PR.
+
       # Trailing-junk variants
       trail_junk      = (Integer("42x") rescue -1);          puts trail_junk
       trail_junk_ws   = (Integer("42 x") rescue -1);         puts trail_junk_ws       # whitespace then junk
       trail_nl_junk   = (Integer("42\n garbage") rescue -1); puts trail_nl_junk
       trail_only_ws   = (Integer("42 ") rescue -1);          puts trail_only_ws       # bare trailing whitespace OK
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      -1
+      -1
+      -1
+      42
+    OUT
+  end
+
+  it "Integer() raises for leading junk before the digits" do
+    result = ze0(<<~'RUBY')
+      # Integer(s) raises ArgumentError on unparseable input, matching
+      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
+      # which silently returned 0 for invalid input — that meant
+      # `Integer(s) rescue 0` always took the main branch and the rescue
+      # never fired.
+      #
+      # Test uses same-type rescue fallbacks (int + int) to avoid the
+      # int+string type-mismatch issue (a separate poly-boxing PR). For
+      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
+      # `puts e` directly — exception .message dispatch lives on a
+      # separate exception-bindings PR.
+
       # Leading-junk variants
       lead_junk    = (Integer("x42") rescue -1);    puts lead_junk
       lead_ws_junk = (Integer(" x 42") rescue -1);  puts lead_ws_junk
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      -1
+      -1
+    OUT
+  end
+
+  it "a bare rescue catches the ArgumentError, whose message quotes the string" do
+    result = ze0(<<~'RUBY')
+      # Integer(s) raises ArgumentError on unparseable input, matching
+      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
+      # which silently returned 0 for invalid input — that meant
+      # `Integer(s) rescue 0` always took the main branch and the rescue
+      # never fired.
+      #
+      # Test uses same-type rescue fallbacks (int + int) to avoid the
+      # int+string type-mismatch issue (a separate poly-boxing PR). For
+      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
+      # `puts e` directly — exception .message dispatch lives on a
+      # separate exception-bindings PR.
 
       # Hex prefixes ("0x10") and underscore separators ("12_345") are
       # CRuby-supported but Spinel's base-10 strtoll path doesn't parse
@@ -298,6 +468,27 @@ describe "Numeric: raising and rescuing" do
       rescue ArgumentError => err
         puts "msg: #{err}"
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      msg: invalid value for Integer(): "nope"
+    OUT
+  end
+
+  it "a hundred raises in succession leave the allocator sound" do
+    result = ze0(<<~'RUBY')
+      # Integer(s) raises ArgumentError on unparseable input, matching
+      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
+      # which silently returned 0 for invalid input — that meant
+      # `Integer(s) rescue 0` always took the main branch and the rescue
+      # never fired.
+      #
+      # Test uses same-type rescue fallbacks (int + int) to avoid the
+      # int+string type-mismatch issue (a separate poly-boxing PR). For
+      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
+      # `puts e` directly — exception .message dispatch lives on a
+      # separate exception-bindings PR.
 
       # Stress the GC-root fix: many raises in succession force allocator
       # churn. Each `Integer("bad...")` builds an sp_sprintf-allocated
@@ -320,6 +511,27 @@ describe "Numeric: raising and rescuing" do
       end
       puts "stress ok: #{ok}"
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      stress ok: 100
+    OUT
+  end
+
+  it "an endless method with a rescue clause still answers" do
+    result = ze0(<<~'RUBY')
+      # Integer(s) raises ArgumentError on unparseable input, matching
+      # CRuby semantics. Previously spinel emitted bare strtoll(s, NULL, 10)
+      # which silently returned 0 for invalid input — that meant
+      # `Integer(s) rescue 0` always took the main branch and the rescue
+      # never fired.
+      #
+      # Test uses same-type rescue fallbacks (int + int) to avoid the
+      # int+string type-mismatch issue (a separate poly-boxing PR). For
+      # the bare-rescue path, e.g. `rescue ArgumentError => e`, we use
+      # `puts e` directly — exception .message dispatch lives on a
+      # separate exception-bindings PR.
+
       # Pre-existing endless_method_rescue.rb shape continues to work.
       # Integer("abc") now raises but the rescue catches and returns 0,
       # so the observed behaviour is unchanged.
@@ -331,38 +543,6 @@ describe "Numeric: raising and rescuing" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      42
-      0
-      -7
-      5
-      -7
-      42
-      42
-      42
-      42
-      42
-      -7
-      0
-      0
-      -1
-      -1
-      -1
-      -1
-      9223372036854775807
-      -9223372036854775808
-      -1
-      -1
-      -1
-      -1
-      -1
-      -1
-      -1
-      -1
-      42
-      -1
-      -1
-      msg: invalid value for Integer(): "nope"
-      stress ok: 100
       42
       0
       0

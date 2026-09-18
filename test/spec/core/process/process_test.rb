@@ -1393,7 +1393,7 @@ describe "Process programs" do
     _(result).must_answer "7\ndone\n"
   end
 
-  it "instance exec trampoline" do
+  it "instance_exec runs the block against the receiver, so its ivars are the receiver's" do
     result = ze0(<<~'RUBY')
       # Inline-at-call-site instance_exec trampoline.
       #
@@ -1461,6 +1461,75 @@ describe "Process programs" do
       b.configure(12) { |n| add(n) }
       puts b.total              #=> 42
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      42
+    OUT
+  end
+
+  it "instance_exec passes its fixed arguments to the block" do
+    result = ze0(<<~'RUBY')
+      # Inline-at-call-site instance_exec trampoline.
+      #
+      # Sibling of test/instance_eval_trampoline.rb. instance_exec differs
+      # from instance_eval by forwarding positional args from the call site
+      # into the block's parameters:
+      #
+      #   def configure(x, &block)
+      #     instance_exec(x, &block)   # x flows into block param at call site
+      #   end
+      #   b.configure(10) { |n| add(n) }   # n == 10 inside the spliced block
+      #
+      # Same AOT compromise as instance_eval: detected at compile time by
+      # shape match (def m(p1..pN, &b); instance_exec(p1..pN, &b); end),
+      # inlined at the call site with self rebound to the receiver and block
+      # params bound to fresh suffixed C locals carrying the call-site arg
+      # values. A non-trampoline shape falls through to ordinary dispatch; an
+      # arity mismatch between block params and forwarded args is a hard error.
+      #
+      # Limitations exercised by the asymmetry note in section A below:
+      #   - Direct `recv.instance_exec(args) { ... }` (outside a trampoline
+      #     method) lifts to a static function and cannot capture outer
+      #     locals (a follow-up adds pointer capture on the direct path).
+      #   - Trampoline body must forward params 1:1, no literals / ivars /
+      #     splat (relaxed in follow-ups).
+      #   - Value-typed receivers crash on the pointer cast in the splice
+      #     today; multi-instance classes (which Spinel keeps heap-allocated)
+      #     are the workaround until the TODO in
+      #     compile_instance_exec_inlined_stmt is fixed.
+
+      # A. Asymmetry note
+      #
+      # Outer-local capture works on THIS path (trampoline) because the
+      # block body is spliced at the call site, so outer locals are in
+      # scope. The direct form `obj.instance_exec(args) { ... }` does NOT
+      # capture outer locals -- its lifted static function cannot see the
+      # caller's locals. Use the trampoline form when you need capture; a
+      # follow-up closes this gap on the direct path.
+
+      # 1. Single fixed arg, statement form: forwards the call-site arg
+      #    into the block param, then bare method calls dispatch against
+      #    the receiver's class (same rebound-self mechanism as
+      #    instance_eval).
+      class Builder
+        def initialize
+          @sum = 0
+        end
+
+        def add(n)
+          @sum = @sum + n
+        end
+
+        def total
+          @sum
+        end
+
+        def configure(x, &block)
+          instance_exec(x, &block)
+        end
+      end
+
       # 2. Two fixed args, ivar read/write inside the block: each arg
       #    becomes a typed C local, the block body computes against them
       #    and the rebound receiver's @ivars. Validates that the
@@ -1483,6 +1552,76 @@ describe "Process programs" do
       puts a1.total                 #=> 13
       puts a2.total                 #=> 14
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      13
+      14
+    OUT
+  end
+
+  it "instance_exec keeps the outer local the block closed over" do
+    result = ze0(<<~'RUBY')
+      # Inline-at-call-site instance_exec trampoline.
+      #
+      # Sibling of test/instance_eval_trampoline.rb. instance_exec differs
+      # from instance_eval by forwarding positional args from the call site
+      # into the block's parameters:
+      #
+      #   def configure(x, &block)
+      #     instance_exec(x, &block)   # x flows into block param at call site
+      #   end
+      #   b.configure(10) { |n| add(n) }   # n == 10 inside the spliced block
+      #
+      # Same AOT compromise as instance_eval: detected at compile time by
+      # shape match (def m(p1..pN, &b); instance_exec(p1..pN, &b); end),
+      # inlined at the call site with self rebound to the receiver and block
+      # params bound to fresh suffixed C locals carrying the call-site arg
+      # values. A non-trampoline shape falls through to ordinary dispatch; an
+      # arity mismatch between block params and forwarded args is a hard error.
+      #
+      # Limitations exercised by the asymmetry note in section A below:
+      #   - Direct `recv.instance_exec(args) { ... }` (outside a trampoline
+      #     method) lifts to a static function and cannot capture outer
+      #     locals (a follow-up adds pointer capture on the direct path).
+      #   - Trampoline body must forward params 1:1, no literals / ivars /
+      #     splat (relaxed in follow-ups).
+      #   - Value-typed receivers crash on the pointer cast in the splice
+      #     today; multi-instance classes (which Spinel keeps heap-allocated)
+      #     are the workaround until the TODO in
+      #     compile_instance_exec_inlined_stmt is fixed.
+
+      # A. Asymmetry note
+      #
+      # Outer-local capture works on THIS path (trampoline) because the
+      # block body is spliced at the call site, so outer locals are in
+      # scope. The direct form `obj.instance_exec(args) { ... }` does NOT
+      # capture outer locals -- its lifted static function cannot see the
+      # caller's locals. Use the trampoline form when you need capture; a
+      # follow-up closes this gap on the direct path.
+
+      # 1. Single fixed arg, statement form: forwards the call-site arg
+      #    into the block param, then bare method calls dispatch against
+      #    the receiver's class (same rebound-self mechanism as
+      #    instance_eval).
+      class Builder
+        def initialize
+          @sum = 0
+        end
+
+        def add(n)
+          @sum = @sum + n
+        end
+
+        def total
+          @sum
+        end
+
+        def configure(x, &block)
+          instance_exec(x, &block)
+        end
+      end
+
       # 3. Outer-local capture via the splice: total is in scope at the
       #    call site, so the block body reads and writes it. Validates
       #    that the trampoline path does NOT lift the block to a static
@@ -1495,15 +1634,80 @@ describe "Process programs" do
       puts b2.total             #=> 12
       puts total                #=> 12
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      12
+      12
+    OUT
+  end
+
+  it "instance_exec runs to the end and the program carries on" do
+    result = ze0(<<~'RUBY')
+      # Inline-at-call-site instance_exec trampoline.
+      #
+      # Sibling of test/instance_eval_trampoline.rb. instance_exec differs
+      # from instance_eval by forwarding positional args from the call site
+      # into the block's parameters:
+      #
+      #   def configure(x, &block)
+      #     instance_exec(x, &block)   # x flows into block param at call site
+      #   end
+      #   b.configure(10) { |n| add(n) }   # n == 10 inside the spliced block
+      #
+      # Same AOT compromise as instance_eval: detected at compile time by
+      # shape match (def m(p1..pN, &b); instance_exec(p1..pN, &b); end),
+      # inlined at the call site with self rebound to the receiver and block
+      # params bound to fresh suffixed C locals carrying the call-site arg
+      # values. A non-trampoline shape falls through to ordinary dispatch; an
+      # arity mismatch between block params and forwarded args is a hard error.
+      #
+      # Limitations exercised by the asymmetry note in section A below:
+      #   - Direct `recv.instance_exec(args) { ... }` (outside a trampoline
+      #     method) lifts to a static function and cannot capture outer
+      #     locals (a follow-up adds pointer capture on the direct path).
+      #   - Trampoline body must forward params 1:1, no literals / ivars /
+      #     splat (relaxed in follow-ups).
+      #   - Value-typed receivers crash on the pointer cast in the splice
+      #     today; multi-instance classes (which Spinel keeps heap-allocated)
+      #     are the workaround until the TODO in
+      #     compile_instance_exec_inlined_stmt is fixed.
+
+      # A. Asymmetry note
+      #
+      # Outer-local capture works on THIS path (trampoline) because the
+      # block body is spliced at the call site, so outer locals are in
+      # scope. The direct form `obj.instance_exec(args) { ... }` does NOT
+      # capture outer locals -- its lifted static function cannot see the
+      # caller's locals. Use the trampoline form when you need capture; a
+      # follow-up closes this gap on the direct path.
+
+      # 1. Single fixed arg, statement form: forwards the call-site arg
+      #    into the block param, then bare method calls dispatch against
+      #    the receiver's class (same rebound-self mechanism as
+      #    instance_eval).
+      class Builder
+        def initialize
+          @sum = 0
+        end
+
+        def add(n)
+          @sum = @sum + n
+        end
+
+        def total
+          @sum
+        end
+
+        def configure(x, &block)
+          instance_exec(x, &block)
+        end
+      end
+
       puts "done"
     RUBY
 
     _(result).must_answer <<~'OUT'
-      42
-      13
-      14
-      12
-      12
       done
     OUT
   end

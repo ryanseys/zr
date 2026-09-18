@@ -480,7 +480,7 @@ describe "Object: instance and class variables" do
     OUT
   end
 
-  it "if ivar generated writer" do
+  it "an ivar a generated writer may fill is not folded away" do
     result = ze0(<<~'RUBY')
       # `if obj.attr` had its live branch dropped when the backing ivar's only
       # VISIBLE write was the constructor's nil and the real value arrived through a
@@ -512,6 +512,39 @@ describe "Object: instance and class variables" do
       puts c.w.nil?
       puts c.w.is_a?(Array)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      truthy
+      false
+      true
+    OUT
+  end
+
+  it "a generated writer beside a direct read of the same ivar keeps it" do
+    result = ze0(<<~'RUBY')
+      # `if obj.attr` had its live branch dropped when the backing ivar's only
+      # VISIBLE write was the constructor's nil and the real value arrived through a
+      # generated setter. emit_if folds a branch away when every program-wide write
+      # to the ivar assigns nil, but attr_writer / attr_accessor synthesize the
+      # setter, so `c.w = [0.5]` is a CallNode against a body that has no AST and the
+      # scan never saw it. The program took the else branch forever, silently.
+      # (matz/spinel#4107)
+      class Ctx
+        attr_accessor :w
+        def initialize
+          @w = nil
+        end
+      end
+
+      def probe(c)
+        if c.w
+          "truthy"
+        else
+          "falsy"
+        end
+      end
+
       # The other entry point: a generated writer plus a direct @w read inside the
       # class, which reaches the fold through static_nil_ivar_cond instead.
       class Direct
@@ -532,11 +565,73 @@ describe "Object: instance and class variables" do
       d.v = 7
       puts d.check
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      set
+    OUT
+  end
+
+  it "a Struct's members count as generated writers" do
+    result = ze0(<<~'RUBY')
+      # `if obj.attr` had its live branch dropped when the backing ivar's only
+      # VISIBLE write was the constructor's nil and the real value arrived through a
+      # generated setter. emit_if folds a branch away when every program-wide write
+      # to the ivar assigns nil, but attr_writer / attr_accessor synthesize the
+      # setter, so `c.w = [0.5]` is a CallNode against a body that has no AST and the
+      # scan never saw it. The program took the else branch forever, silently.
+      # (matz/spinel#4107)
+      class Ctx
+        attr_accessor :w
+        def initialize
+          @w = nil
+        end
+      end
+
+      def probe(c)
+        if c.w
+          "truthy"
+        else
+          "falsy"
+        end
+      end
+
       # A Struct's members are generated writers too.
       Point = Struct.new(:x)
       pt = Point.new(nil)
       pt.x = 3
       puts(pt.x ? "struct-set" : "struct-unset")
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      struct-set
+    OUT
+  end
+
+  it "a writer inherited from the superclass counts as generated too" do
+    result = ze0(<<~'RUBY')
+      # `if obj.attr` had its live branch dropped when the backing ivar's only
+      # VISIBLE write was the constructor's nil and the real value arrived through a
+      # generated setter. emit_if folds a branch away when every program-wide write
+      # to the ivar assigns nil, but attr_writer / attr_accessor synthesize the
+      # setter, so `c.w = [0.5]` is a CallNode against a body that has no AST and the
+      # scan never saw it. The program took the else branch forever, silently.
+      # (matz/spinel#4107)
+      class Ctx
+        attr_accessor :w
+        def initialize
+          @w = nil
+        end
+      end
+
+      def probe(c)
+        if c.w
+          "truthy"
+        else
+          "falsy"
+        end
+      end
 
       # A writer reached through the superclass counts as generated as well.
       class Base
@@ -558,6 +653,37 @@ describe "Object: instance and class variables" do
       dd.z = "here"
       puts dd.check
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      inherited-set
+    OUT
+  end
+
+  it "a hand-written setter is the boundary: its body holds the write" do
+    result = ze0(<<~'RUBY')
+      # `if obj.attr` had its live branch dropped when the backing ivar's only
+      # VISIBLE write was the constructor's nil and the real value arrived through a
+      # generated setter. emit_if folds a branch away when every program-wide write
+      # to the ivar assigns nil, but attr_writer / attr_accessor synthesize the
+      # setter, so `c.w = [0.5]` is a CallNode against a body that has no AST and the
+      # scan never saw it. The program took the else branch forever, silently.
+      # (matz/spinel#4107)
+      class Ctx
+        attr_accessor :w
+        def initialize
+          @w = nil
+        end
+      end
+
+      def probe(c)
+        if c.w
+          "truthy"
+        else
+          "falsy"
+        end
+      end
+
       # A hand-written setter is the boundary on the other side: its body holds a
       # real write node, which the scan already counts, so nothing about the fold
       # changes for it. (This case comes from bartleusink's #4108, which found the
@@ -575,6 +701,37 @@ describe "Object: instance and class variables" do
       hw.h = [2.0]
       puts(hw.h ? "hand-written-set" : "hand-written-unset")
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      hand-written-set
+    OUT
+  end
+
+  it "with no writer of any kind, an ivar that is never written folds falsy" do
+    result = ze0(<<~'RUBY')
+      # `if obj.attr` had its live branch dropped when the backing ivar's only
+      # VISIBLE write was the constructor's nil and the real value arrived through a
+      # generated setter. emit_if folds a branch away when every program-wide write
+      # to the ivar assigns nil, but attr_writer / attr_accessor synthesize the
+      # setter, so `c.w = [0.5]` is a CallNode against a body that has no AST and the
+      # scan never saw it. The program took the else branch forever, silently.
+      # (matz/spinel#4107)
+      class Ctx
+        attr_accessor :w
+        def initialize
+          @w = nil
+        end
+      end
+
+      def probe(c)
+        if c.w
+          "truthy"
+        else
+          "falsy"
+        end
+      end
+
       # The fold itself is still wanted: with no writer of any kind, an ivar written
       # only nil really is statically falsy, and the branch really is dead.
       class NoWriter
@@ -588,13 +745,6 @@ describe "Object: instance and class variables" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      truthy
-      false
-      true
-      set
-      struct-set
-      inherited-set
-      hand-written-set
       correctly-falsy
     OUT
   end
@@ -1025,7 +1175,7 @@ describe "Object: instance and class variables" do
     OUT
   end
 
-  it "ivar empty seed explicit grow" do
+  it "an ivar seeded with an empty array grows from an explicit push" do
     result = ze0(<<~'RUBY')
       class B
         def initialize
@@ -1047,6 +1197,31 @@ describe "Object: instance and class variables" do
       b.add("z")
       p b.get
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["z"]
+    OUT
+  end
+
+  it "the same slot takes several pushes and reads back in order" do
+    result = ze0(<<~'RUBY')
+      class B
+        def initialize
+          @a = []
+          nil
+        end
+
+        def add(x)
+          @a = @a + [x]
+          nil
+        end
+
+        def get
+          @a
+        end
+      end
+
       m = B.new
       m.add("x")
       m.add("y")
@@ -1054,6 +1229,33 @@ describe "Object: instance and class variables" do
       p m.get
       p m.get.length
       p m.get.join(",")
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["x", "y", "z"]
+      3
+      "x,y,z"
+    OUT
+  end
+
+  it "an empty seed grows for a Symbol, a Float, a boolean and an Integer alike" do
+    result = ze0(<<~'RUBY')
+      class B
+        def initialize
+          @a = []
+          nil
+        end
+
+        def add(x)
+          @a = @a + [x]
+          nil
+        end
+
+        def get
+          @a
+        end
+      end
 
       class S
         def initialize
@@ -1075,6 +1277,34 @@ describe "Object: instance and class variables" do
         s = S.new
         s.add(v)
         p s.get
+      end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      [:z]
+      [1.5]
+      [true]
+      [1]
+    OUT
+  end
+
+  it "the desugared and mutating spellings grow the same slot" do
+    result = ze0(<<~'RUBY')
+      class B
+        def initialize
+          @a = []
+          nil
+        end
+
+        def add(x)
+          @a = @a + [x]
+          nil
+        end
+
+        def get
+          @a
+        end
       end
 
       # the desugared and mutating spellings already worked; keep them pinned
@@ -1103,6 +1333,31 @@ describe "Object: instance and class variables" do
       t.plus("p")
       t.shovel("s")
       p t.get
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      ["p", "s"]
+    OUT
+  end
+
+  it "a value computed inside the class reaches the same slot" do
+    result = ze0(<<~'RUBY')
+      class B
+        def initialize
+          @a = []
+          nil
+        end
+
+        def add(x)
+          @a = @a + [x]
+          nil
+        end
+
+        def get
+          @a
+        end
+      end
 
       # computed inside the class, which was correct before too
       class U
@@ -1133,15 +1388,6 @@ describe "Object: instance and class variables" do
     RUBY
 
     _(result).must_answer <<~'OUT'
-      ["z"]
-      ["x", "y", "z"]
-      3
-      "x,y,z"
-      [:z]
-      [1.5]
-      [true]
-      [1]
-      ["p", "s"]
       "b,a"
       "a,b"
     OUT

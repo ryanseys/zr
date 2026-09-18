@@ -250,7 +250,7 @@ describe "Object: inheritance and ancestors" do
     OUT
   end
 
-  it "extend is a" do
+  it "an extended object answers is_a? for the module, and its class does not" do
     result = ze0(<<~'RUBY')
       # `extend` changes what a receiver IS, not only what it answers: the module
       # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
@@ -288,10 +288,87 @@ describe "Object: inheritance and ancestors" do
       p a.singleton_class.ancestors.include?(Greet)
       p Person.new("c").is_a?(Greet)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      hey a
+      true
+      false
+      true
+      true
+      false
+      false
+      Person
+      false
+      true
+      false
+    OUT
+  end
+
+  it "is_a? answers the same through a call, where the receiver is not statically known" do
+    result = ze0(<<~'RUBY')
+      # `extend` changes what a receiver IS, not only what it answers: the module
+      # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
+      # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
+      # receiver's class -- and every other instance of it -- stay untouched.
+
+      module Greet
+        def greet = "hey #{name}"
+      end
+
+      module Tagged; end
+
+      module Nested
+        include Tagged
+      end
+
+      class Person
+        def initialize(name) = @name = name
+        def name = @name
+      end
+
+      a = Person.new("a")
+      b = Person.new("b")
+      a.extend(Greet)
+
       # Through a call, so the receiver is not statically known at the call site.
       def greetable?(x) = x.is_a?(Greet)
       p greetable?(a)
       p greetable?(b)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      false
+    OUT
+  end
+
+  it "case/when and a pattern-match in reach the same answer" do
+    result = ze0(<<~'RUBY')
+      # `extend` changes what a receiver IS, not only what it answers: the module
+      # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
+      # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
+      # receiver's class -- and every other instance of it -- stay untouched.
+
+      module Greet
+        def greet = "hey #{name}"
+      end
+
+      module Tagged; end
+
+      module Nested
+        include Tagged
+      end
+
+      class Person
+        def initialize(name) = @name = name
+        def name = @name
+      end
+
+      a = Person.new("a")
+      b = Person.new("b")
+      a.extend(Greet)
 
       # `case`/`when` and a pattern-match `in` reach the same answer.
       [a, b].each do |x|
@@ -308,11 +385,82 @@ describe "Object: inheritance and ancestors" do
       end
       p [a, b].grep(Greet).size
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      when: yes
+      when: no
+      in: yes
+      in: no
+      1
+    OUT
+  end
+
+  it "an extended module carries its own includes with it" do
+    result = ze0(<<~'RUBY')
+      # `extend` changes what a receiver IS, not only what it answers: the module
+      # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
+      # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
+      # receiver's class -- and every other instance of it -- stay untouched.
+
+      module Greet
+        def greet = "hey #{name}"
+      end
+
+      module Tagged; end
+
+      module Nested
+        include Tagged
+      end
+
+      class Person
+        def initialize(name) = @name = name
+        def name = @name
+      end
+
+      a = Person.new("a")
+      b = Person.new("b")
+      a.extend(Greet)
+
       # An extended module carries its own includes.
       n = Person.new("n")
       n.extend(Nested)
       p n.is_a?(Nested)
       p n.is_a?(Tagged)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      true
+    OUT
+  end
+
+  it "a bare collection, a String and nil each take an extend, where an Integer refuses" do
+    result = ze0(<<~'RUBY')
+      # `extend` changes what a receiver IS, not only what it answers: the module
+      # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
+      # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
+      # receiver's class -- and every other instance of it -- stay untouched.
+
+      module Greet
+        def greet = "hey #{name}"
+      end
+
+      module Tagged; end
+
+      module Nested
+        include Tagged
+      end
+
+      class Person
+        def initialize(name) = @name = name
+        def name = @name
+      end
+
+      a = Person.new("a")
+      b = Person.new("b")
+      a.extend(Greet)
 
       # Non-Object receivers: a bare collection, a string, and nil all take one.
       p [1, 2].extend(Tagged).is_a?(Tagged)
@@ -323,6 +471,42 @@ describe "Object: inheritance and ancestors" do
       rescue TypeError => e
         puts "TypeError: #{e.message}"
       end
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      true
+      true
+      TypeError: can't define singleton
+    OUT
+  end
+
+  it "a class takes an extend in its body and after it, and both reach its singleton" do
+    result = ze0(<<~'RUBY')
+      # `extend` changes what a receiver IS, not only what it answers: the module
+      # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
+      # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
+      # receiver's class -- and every other instance of it -- stay untouched.
+
+      module Greet
+        def greet = "hey #{name}"
+      end
+
+      module Tagged; end
+
+      module Nested
+        include Tagged
+      end
+
+      class Person
+        def initialize(name) = @name = name
+        def name = @name
+      end
+
+      a = Person.new("a")
+      b = Person.new("b")
+      a.extend(Greet)
 
       # A CLASS receiver, both spellings. `extend` in the body and a later
       # `.extend` call put the module on the class's singleton chain -- an
@@ -347,6 +531,46 @@ describe "Object: inheritance and ancestors" do
       p Widget.new.is_a?(Registry)
       p Gadget.new.is_a?(Registry)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      registered Widget
+      registered Gadget
+      true
+      true
+      true
+      true
+      false
+      false
+    OUT
+  end
+
+  it "extend self makes a module's instance methods its own module functions" do
+    result = ze0(<<~'RUBY')
+      # `extend` changes what a receiver IS, not only what it answers: the module
+      # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
+      # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
+      # receiver's class -- and every other instance of it -- stay untouched.
+
+      module Greet
+        def greet = "hey #{name}"
+      end
+
+      module Tagged; end
+
+      module Nested
+        include Tagged
+      end
+
+      class Person
+        def initialize(name) = @name = name
+        def name = @name
+      end
+
+      a = Person.new("a")
+      b = Person.new("b")
+      a.extend(Greet)
+
       # `extend self` -- the module-function idiom, whose whole point is that the
       # module becomes an instance of itself.
       module Util
@@ -355,6 +579,40 @@ describe "Object: inheritance and ancestors" do
       end
       p Util.double(21)
       p Util.is_a?(Util)
+
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      42
+      true
+    OUT
+  end
+
+  it "two extends layer newest closest, and a repeat is a no-op" do
+    result = ze0(<<~'RUBY')
+      # `extend` changes what a receiver IS, not only what it answers: the module
+      # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
+      # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
+      # receiver's class -- and every other instance of it -- stay untouched.
+
+      module Greet
+        def greet = "hey #{name}"
+      end
+
+      module Tagged; end
+
+      module Nested
+        include Tagged
+      end
+
+      class Person
+        def initialize(name) = @name = name
+        def name = @name
+      end
+
+      a = Person.new("a")
+      b = Person.new("b")
+      a.extend(Greet)
 
       # Two extends layer, newest closest to the singleton, and a repeat is a no-op.
       module First
@@ -372,6 +630,42 @@ describe "Object: inheritance and ancestors" do
       p layered.is_a?(Second)
       p layered.singleton_class.ancestors.take(3).drop(1)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      second
+      true
+      true
+      [Second, First]
+    OUT
+  end
+
+  it "a singleton class asked for before the extend reports the same chain after it" do
+    result = ze0(<<~'RUBY')
+      # `extend` changes what a receiver IS, not only what it answers: the module
+      # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
+      # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
+      # receiver's class -- and every other instance of it -- stay untouched.
+
+      module Greet
+        def greet = "hey #{name}"
+      end
+
+      module Tagged; end
+
+      module Nested
+        include Tagged
+      end
+
+      class Person
+        def initialize(name) = @name = name
+        def name = @name
+      end
+
+      a = Person.new("a")
+      b = Person.new("b")
+      a.extend(Greet)
+
       # A singleton class asked for BEFORE the extend reports the same chain as one
       # asked for after -- it is one class, not two.
       late = Person.new("late")
@@ -380,51 +674,45 @@ describe "Object: inheritance and ancestors" do
       p sc.equal?(late.singleton_class)
       p sc.ancestors.include?(Greet)
 
+    RUBY
+
+    _(result).must_answer <<~'OUT'
+      true
+      true
+    OUT
+  end
+
+  it "dup drops the extension, as it drops every singleton" do
+    result = ze0(<<~'RUBY')
+      # `extend` changes what a receiver IS, not only what it answers: the module
+      # joins that ONE object's singleton chain, so `is_a?`, `===`, `case`/`when`,
+      # a `ClassCheck` pattern and `singleton_class.ancestors` all see it while the
+      # receiver's class -- and every other instance of it -- stay untouched.
+
+      module Greet
+        def greet = "hey #{name}"
+      end
+
+      module Tagged; end
+
+      module Nested
+        include Tagged
+      end
+
+      class Person
+        def initialize(name) = @name = name
+        def name = @name
+      end
+
+      a = Person.new("a")
+      b = Person.new("b")
+      a.extend(Greet)
+
       # `dup` drops the extension, as it drops every singleton.
       p a.dup.is_a?(Greet)
     RUBY
 
     _(result).must_answer <<~'OUT'
-      hey a
-      true
-      false
-      true
-      true
-      false
-      false
-      Person
-      false
-      true
-      false
-      true
-      false
-      when: yes
-      when: no
-      in: yes
-      in: no
-      1
-      true
-      true
-      true
-      true
-      true
-      TypeError: can't define singleton
-      registered Widget
-      registered Gadget
-      true
-      true
-      true
-      true
-      false
-      false
-      42
-      true
-      second
-      true
-      true
-      [Second, First]
-      true
-      true
       false
     OUT
   end
