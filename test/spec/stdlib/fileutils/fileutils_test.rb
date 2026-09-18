@@ -47,7 +47,7 @@ describe "Fileutils programs" do
   end
 
   it "fileutils core commands run from the vendored gem" do
-    result = ze0(<<~'RUBY', files: {"fileutils.rb" => "# FileUtils -- the vendored pure-Ruby stdlib gem (gems/fileutils), compiled\n# from its real upstream source, not reimplemented. Exercises the core file\n# operations rubygems/bundler rely on; every line is oracle-matched.\nrequire \"fileutils\"\n\nputs FileUtils::VERSION\nputs FileUtils.respond_to?(:mkdir_p)\n\nd = \"/tmp/zeo_fileutils_example\"\nFileUtils.rm_rf(d) # a clean slate, idempotent across runs\n\nFileUtils.mkdir_p(\"\#{d}/a/b/c\")\nputs Dir.exist?(\"\#{d}/a/b/c\")\n\nFile.write(\"\#{d}/a/src.txt\", \"hello\")\nFileUtils.cp(\"\#{d}/a/src.txt\", \"\#{d}/a/copy.txt\")\nputs File.read(\"\#{d}/a/copy.txt\")\n\nFileUtils.mv(\"\#{d}/a/copy.txt\", \"\#{d}/a/moved.txt\")\nputs File.exist?(\"\#{d}/a/moved.txt\")\nputs File.exist?(\"\#{d}/a/copy.txt\")\n\nFileUtils.touch(\"\#{d}/a/t.txt\")\nputs File.exist?(\"\#{d}/a/t.txt\")\n\nFileUtils.rm_rf(d)\nputs Dir.exist?(d)\n__END__\n1.8.0\ntrue\ntrue\nhello\ntrue\nfalse\ntrue\nfalse\n"})
+    result = ze0(<<~'RUBY', files: {"fileutils.rb" => fixture("stdlib/fileutils/fileutils.rb")})
       # `require "fileutils"` compiles the real upstream gem the lock resolves,
       # including its load-time module metaprogramming (module_function, extend
       # self, class << self, a platform-conditional StreamUtils_), and the core
