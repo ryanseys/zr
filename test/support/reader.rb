@@ -14,7 +14,11 @@ module Ze0
   # records the answer. Nothing compiles, nothing runs, and a guard that
   # asks about the machine is answered here rather than by the compiler.
   module Reader
-    Example = Struct.new(:name, :source, :kwargs, :want, keyword_init: true)
+    # `given` is what the spec file wrote; `kwargs` is that with the
+    # defaults the DSL would have filled in. A tool that rewrites a spec
+    # reasons about `given` -- it is the only place an explicit `path:`
+    # can be told apart from one this reader supplied.
+    Example = Struct.new(:name, :about, :source, :kwargs, :given, :want, keyword_init: true)
 
     # The world a spec file is loaded into.
     class Sandbox
@@ -22,23 +26,38 @@ module Ze0
 
       def initialize = @seen = []
 
-      def describe(_name, &block) = instance_eval(&block)
+      def describe(name, &block)
+        @about = name
+        instance_eval(&block)
+      end
 
       def it(name, &block)
-        @current = Example.new(name: name, want: {})
+        @current = Example.new(name: name, about: @about, want: {})
         @seen << @current
         instance_eval(&block)
       rescue StandardError => e
         @current.want[:error] = e
       end
 
-      def ze0(source, **kwargs)
+      # The keys are named rather than swept up in `**kwargs`, and they
+      # are `Ze0::Spec::DSL#ze0`'s keys exactly. A reader that took
+      # anything would record a misspelled keyword happily, and
+      # `rake oracle` would pass a spec that no run could compile.
+      def ze0(source, path: nil, argv: [], env: {}, stdin: nil, files: {}, seconds: nil, ruby: [])
+        given = { path: path, argv: argv, env: env, stdin: stdin, files: files,
+                  seconds: seconds, ruby: ruby }.reject { |k, v| v == DEFAULTS[k] }
         @current.source = source
+        @current.given = given
         # The default the DSL would have filled in, filled in here, so
         # that what reads the example sees the path the run would use.
-        @current.kwargs = { path: Reader.path_for(@current.name) }.merge(kwargs)
+        @current.kwargs = { path: Reader.path_for(@current.name) }.merge(given)
         Recorder.new(@current, :result)
       end
+
+      # What each keyword means when an example does not name it, so
+      # `given` holds what was written and nothing else.
+      DEFAULTS = { path: nil, argv: [], env: {}, stdin: nil, files: {},
+                   seconds: nil, ruby: [] }.freeze
 
       # `_(result.stdout)` hands back the stream the chain already
       # named; `_(ze0(...).stdout)` is the same chain in one line.

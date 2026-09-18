@@ -110,6 +110,13 @@ module Oracle
     apart = []
     Ze0::Reader.read(path).each do |example|
       next if filter && !example.name.match?(filter)
+      # An example the reader could not load is a broken spec, not a
+      # skipped one. Counting it as skipped would let a bad edit shrink
+      # the asked set while the run still reported nothing apart.
+      if (e = example.want[:error])
+        next apart << "#{rel}: #{example.name}: the example raised #{e.class}: #{e.message}"
+      end
+
       # An example that skips makes no claim about ruby, and one that
       # never called `ze0` has nothing to ask about.
       next skipped += 1 if example.want.key?(:skip) || example.source.nil?
