@@ -982,7 +982,7 @@ describe "GC programs" do
     OUT
   end
 
-  it "gc churn" do
+  it "the heap survives a forced collection and the surviving objects keep their contents" do
     result = ze0(<<~'RUBY')
       # Allocation and collection under the linked runtime: the heap survives a
       # forced collection and the surviving objects keep their contents.
@@ -1000,7 +1000,7 @@ describe "GC programs" do
     OUT
   end
 
-  it "gc count after start" do
+  it "GC.count and the :count stat are both positive after an explicit GC.start" do
     result = ze0(<<~'RUBY')
       # GC.count is the number of GCs run and GC.stat carries a :count key; after
       # an explicit GC.start both must be positive. zeo answers 0 and its stat hash
@@ -1018,7 +1018,7 @@ describe "GC programs" do
     OUT
   end
 
-  it "gc enable disable previous state" do
+  it "GC.enable and GC.disable each answer the state they replaced" do
     result = ze0(<<~'RUBY')
       p GC.disable
       p GC.disable
@@ -1034,7 +1034,7 @@ describe "GC programs" do
     OUT
   end
 
-  it "gc full cycle space bound" do
+  it "the old generation stays bounded when a later phase promotes harder than the first" do
     result = ze0(<<~'RUBY')
       # The adaptive full-cycle interval bounds the TIME between full sweeps and
       # nothing bounded the SPACE. Once the cadence has ratcheted up, a phase that
@@ -1074,7 +1074,7 @@ describe "GC programs" do
     _(result).must_answer "live set: 1000\n", stderr: "core/gc/gc_test.rb:32:in '<main>': undefined method '>' for nil (NoMethodError)\n\nputs \"full sweeps kept running: \" + (g[\"full_runs\"] > 6 ? \"yes\" : \"no\")\n                                                    ^\n", status: 1
   end
 
-  it "gc latest gc info key" do
+  it "latest_gc_info answers a Symbol for :major_by and :state" do
     result = ze0(<<~'RUBY')
       GC.start
       p GC.latest_gc_info(:major_by).class
@@ -1087,7 +1087,7 @@ describe "GC programs" do
     OUT
   end
 
-  it "gc mark stack growth" do
+  it "a live set far past the mark stack's initial size walks iteratively" do
     result = ze0(<<~'RUBY')
       # A live set far larger than the mark stack's initial size (1024 cells):
       # the walk has to stay iterative rather than recursing per object.
@@ -1109,7 +1109,7 @@ describe "GC programs" do
     OUT
   end
 
-  it "gc poly local int" do
+  it "a poly local holding an integer is marked tag-aware, never dereferenced" do
     result = ze0(<<~'RUBY')
       # A poly local holding a non-pointer (int) value must be marked
       # tag-aware: rooting routes through sp_mark_rbval, which skips INT
@@ -1127,7 +1127,7 @@ describe "GC programs" do
     _(result).must_answer "101\n"
   end
 
-  it "gc poly local root" do
+  it "a poly local assigned from a method whose return unifies to poly stays rooted" do
     result = ze0(<<~'RUBY')
       # A poly (sp_RbVal) local assigned from a method whose return type
       # unifies to poly must be GC-rooted, or a collection while it's live
@@ -1153,7 +1153,7 @@ describe "GC programs" do
     _(result).must_answer "keep_5\n"
   end
 
-  it "gc poly local setjmp" do
+  it "a poly local live across a rescue survives a collection inside it" do
     result = ze0(<<~'RUBY')
       # A poly local live across a rescue (setjmp scope) with a GC: it must
       # be both volatile (longjmp-stable) and GC-rooted.
@@ -1176,7 +1176,7 @@ describe "GC programs" do
     _(result).must_answer "keep_9\n"
   end
 
-  it "gc root call args" do
+  it "a call's argument temporaries stay rooted while its sibling arguments evaluate" do
     result = ze0(<<~'RUBY')
       # Regression for #1057: a call's argument temporaries must stay GC-
       # rooted across evaluation of its sibling arguments. Each case puts a
@@ -1222,7 +1222,7 @@ describe "GC programs" do
     OUT
   end
 
-  it "gc root heap param" do
+  it "a heap-typed parameter stays rooted across a collection inside the method" do
     result = ze0(<<~'RUBY')
       # A heap-typed (poly / string) method parameter must stay GC-rooted
       # across a collection triggered inside the method, so a later read of it
@@ -1250,7 +1250,7 @@ describe "GC programs" do
     _(result).must_answer "G-P_7\n"
   end
 
-  it "gc rooted builders" do
+  it "a runtime array builder and its string argument survive a collection mid-build" do
     result = ze0(<<~'RUBY')
       # GC roots for runtime array builders and their string arguments. Each of
       # these allocates per element while building (or while walking a pattern
@@ -1297,7 +1297,7 @@ describe "GC programs" do
     OUT
   end
 
-  it "gc stat answers every key ruby names" do
+  it "GC.stat names every key ruby names, fills a Hash it is given, and refuses one it does not know" do
     result = ze0(<<~'RUBY')
       # GC.stat answers every key CRuby's collector names, in its order, fills a
       # Hash it is given, and refuses a key it does not know.
@@ -1327,7 +1327,7 @@ describe "GC programs" do
     OUT
   end
 
-  it "gc threshold no runaway" do
+  it "the live-byte counter never wraps, so the threshold stays a real number" do
     result = ze0(<<~'RUBY')
       # The collector recomputes its live-byte counter from the live set and THEN
       # sweeps, so a dead object's finalizer subtracted buffer bytes the fresh total

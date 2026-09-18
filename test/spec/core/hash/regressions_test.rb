@@ -70,7 +70,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "hash" do
+  it "a string-keyed hash answers [], length, each, keys, has_key? and delete" do
     result = ze0(<<~'RUBY')
       # Test Hash support
 
@@ -112,7 +112,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "hash delete order" do
+  it "delete compacts the insertion order, so keys and values skip the entry" do
     result = ze0(<<~'RUBY')
       # Regression test: Hash#delete must compact the insertion-order array
       # so that subsequent #keys / #values / each iteration skip the deleted
@@ -154,7 +154,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "hash keys each" do
+  it "keys.each yields the keys of every hash kind" do
     result = ze0(<<~'RUBY')
       # Test hash.keys.each fusion for all hash types
 
@@ -223,7 +223,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "hash transform keys" do
+  it "transform_keys runs the block once per key and rekeys the result" do
     result = ze0(<<~'RUBY')
       # Hash#transform_keys for str_int_hash. The block runs once per key,
       # its return value becomes the new key. Mirrors transform_values'
@@ -273,7 +273,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "hash transform values" do
+  it "transform_values runs the block once per value and keeps the keys and order" do
     result = ze0(<<~'RUBY')
       # Hash#transform_values across hash variants. The block runs once
       # per value, its return becomes the new value, keys and order
@@ -447,7 +447,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "hash dup str int str" do
+  it "dup answers a copy for a string-keyed and an integer-keyed hash" do
     result = ze0(<<~'RUBY')
       # Hash#dup was missing from the str_str_hash and int_str_hash codegen
       # dispatch tables -- the runtime helpers exist (sp_StrStrHash_dup,
@@ -497,7 +497,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "hash each block param types" do
+  it "an each block's k and v carry the hash's own key and value types" do
     result = ze0(<<~'RUBY')
       # `h.each do |k, v|` previously had its block params typed via
       # elem_type_of_array(recv_type), which only knows about typed
@@ -528,7 +528,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "hash merge cross variant" do
+  it "merge between two hashes whose value types differ widens the result" do
     result = ze0(<<~'RUBY')
       # Issue #661: Hash#merge across hash variants with different value
       # types. Previously the codegen used the receiver's prefix
@@ -567,7 +567,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "hash new default value" do
+  it "Hash.new(v) gives each instance a default that the misses answer" do
     result = ze0(<<~'RUBY')
       # `Hash.new(default_value)` per-instance default support.
       #
@@ -679,7 +679,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "hash or fallback missing key" do
+  it "h[k] || rhs answers rhs on a miss, not the value type's zero" do
     result = ze0(<<~'RUBY')
       # Issue #660: `hash[k] || rhs` on a typed-hash receiver must return
       # rhs when the key is missing -- not the value-type zero (0 / "").
@@ -753,7 +753,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "hash fetch int int" do
+  it "fetch answers on an integer-keyed hash, with and without a default" do
     result = ze0(<<~'RUBY')
       # Hash#fetch on an int->int specialized hash: plain lookup and the 2-arg
       # default form (the int->int variant previously had #[] but not #fetch).
@@ -996,7 +996,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "hash conformance batch7" do
+  it "the comparison operators, min, max, invert, values_at and default answer on an empty hash" do
     result = ze0(<<~'RUBY')
       # Hash conformance (KieranP #2399,#2406-#2410,#2416,#2417)
       p({} < { a: 1 })
@@ -1039,7 +1039,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "hash numeric wave11" do
+  it "any?, none?, one? and count take a pair argument, and a hash serves as a block" do
     result = ze0(<<~'RUBY')
       # Hash#any?/none?/one?/count with a pair argument; blockless none? on {} local
       p({ a: 1 }.any?([:a, 1]))
@@ -1105,7 +1105,7 @@ describe "Hash: regressions" do
     OUT
   end
 
-  it "hash predicates merge minby wave10" do
+  it "the blockless predicates, Hash[], deconstruct_keys, a merge conflict block and min_by(n)" do
     result = ze0(<<~'RUBY')
       # Hash: blockless any?/all?/none?, Hash[kwargs], deconstruct_keys,
       # multi-arg merge with a conflict block, min_by(n)/max_by(n) (hash receivers),
