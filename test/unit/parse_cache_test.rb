@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "rbconfig"
 require_relative "../../lib/ze0/prism"
+require_relative "../../lib/ze0/parse_cache"
 require_relative "../support/harness/prism_diff"
 
 # The host parses with the Ruby port, and keeps each parse in the cache
@@ -10,11 +12,18 @@ require_relative "../support/harness/prism_diff"
 class ParseCacheTest < Minitest::Test
   ParseCache = Ze0::ParseCache
 
+  # Asked in a child, and not of this process. A process that loaded
+  # ruby's own C prism first keeps it (`lib/ze0/prism.rb` says so), and
+  # this tier holds the harness that loads the C on purpose -- so what
+  # this process ended up with says nothing about what the compiler uses.
+  # A fresh ruby that requires `ze0/prism` is the compiler's own case.
   def test_the_host_parses_with_the_ruby_port_and_the_vendored_ruby_half
-    assert_equal File.join(ROOT, "rt/ext/prism/prism.rb"), Prism.method(:parse).source_location.first
-    assert_equal File.join(ROOT, "vendor/ext/prism/lib/prism.rb"), $LOAD_PATH.resolve_feature_path("prism").last
-    assert_includes $LOADED_FEATURES, File.join(ROOT, "vendor/ext/prism/lib/prism/node.rb")
-    assert_empty $LOADED_FEATURES.grep(/prism\.(bundle|so)\z/)
+    parse, gem, node, native = compiler_process.lines(chomp: true)
+
+    assert_equal File.join(ROOT, "rt/ext/prism/prism.rb"), parse
+    assert_equal File.join(ROOT, "vendor/ext/prism/lib/prism.rb"), gem
+    assert_equal "true", node
+    assert_equal "[]", native
   end
 
   def test_each_input_of_a_parse_changes_the_key
@@ -66,5 +75,21 @@ class ParseCacheTest < Minitest::Test
       File.binwrite(path, Marshal.dump([1, 2]))
       assert_nil ParseCache.read(path)
     end
+  end
+
+  private
+
+  # What a fresh `require "ze0/prism"` leaves standing, one fact a line.
+  def compiler_process
+    said = IO.popen(Ze0::Harness::Unbundled.env, [RbConfig.ruby, "-I#{ROOT}/lib", "-e", <<~RUBY], unsetenv_others: true, &:read)
+      require "ze0/prism"
+      gem = $LOAD_PATH.resolve_feature_path("prism").last
+      puts Prism.method(:parse).source_location.first
+      puts gem
+      puts $LOADED_FEATURES.include?(File.join(File.dirname(gem), "prism/node.rb"))
+      puts $LOADED_FEATURES.grep(/prism[.](bundle|so)\z/).inspect
+    RUBY
+    assert_predicate $?, :success?, "the child did not answer: #{said}"
+    said
   end
 end
