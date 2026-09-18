@@ -151,22 +151,15 @@ class RubyVM
     class Node; end
     class Location; end
 
-    TRANSLATOR = []
-    private_constant :TRANSLATOR
-
-    def self.translator=(load)
-      Primitive.attr! :hidden
-      TRANSLATOR[0] = load
-    end
-
     # The translator a program that names this module carries
-    # (rt/ext/ze0/ast.rb), loaded on the first parse.
+    # (rt/ext/ze0/ast.rb), loaded ahead of the program's first line by
+    # rt/ext/ze0/syntax_tree.rb. It defines the two classes above, so a
+    # program that only names one of them finds it whole.
     def self.translator
       Primitive.attr! :hidden
-      TRANSLATOR.pop&.call
       ::Ze0::AST
     end
-    private_class_method :translator=, :translator
+    private_class_method :translator
 
     # The tree parse.y would build, which the translator rebuilds from
     # prism's.
