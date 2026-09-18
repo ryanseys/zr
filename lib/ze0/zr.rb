@@ -36,7 +36,7 @@ module Ze0
     # everything they depend on: the runtime sources and the compiler.
     # A stage of the bootstrap takes its own, so that it emits the
     # runtime itself instead of reading a form another stage wrote.
-    CACHE = Paths::CACHE
+    def self.cache = Paths.cache
 
     # The kernel and the core library, lowered once per process, and as
     # little of them as a build needs: a program's lowering reads the
@@ -90,7 +90,7 @@ module Ze0
       # again.
       def gem_prelude_files
         @gem_prelude_files ||= begin
-          path = File.join(CACHE, "gem-prelude-#{digest_of(sources.keys)}.json")
+          path = File.join(Zr.cache, "gem-prelude-#{digest_of(sources.keys)}.json")
           files = JSON.parse(File.read(path)) if File.exist?(path)
           unless files&.all? { |file| File.file?(file) }
             files = [GEM_PRELUDE, *Zr.gem_prelude(target).units.map(&:file).select { |file| File.file?(file) }].uniq.sort
@@ -148,7 +148,7 @@ module Ze0
         @cached ||= read_cached || write_cached
       end
 
-      def cache_path = File.join(CACHE, "symbols-#{digest}.json")
+      def cache_path = File.join(Zr.cache, "symbols-#{digest}.json")
 
       def read_cached
         return unless File.exist?(cache_path)
@@ -214,14 +214,19 @@ module Ze0
       # road's.
       def symbols = Machine::Symbols.new(meta.fetch("names"), sites: meta.fetch("sites"))
 
-      def object_path = File.join(CACHE, "road-#{meta.fetch("key")}.o")
+      def object_path = File.join(Zr.cache, "road-#{meta.fetch("key")}.o")
 
       def functions = lowered.fetch(:functions)
       def data = lowered.fetch(:data)
 
       private
 
-      def meta_path = File.join(CACHE, "road-#{@runtime.digest}.json")
+      # The road the target runs names the cache beside the digest: the
+      # compiling road and the walking one hold different files, and a
+      # meta of one must never answer for the other.
+      def kind = Hir::Build.eval_road_file(target) == Hir::Build::EVAL_ROAD ? "jit" : "walk"
+
+      def meta_path = File.join(Zr.cache, "road-#{@runtime.digest}-#{kind}.json")
 
       def meta
         @meta ||= begin
@@ -240,7 +245,7 @@ module Ze0
       def lowered
         @lowered ||= Ze0.clock("eval road lowered") do
           loader = Hir::Build.road(target)
-          program = Hir::Program.new(Hir::Build::EVAL_ROAD, [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
+          program = Hir::Program.new(Hir::Build.eval_road_file(target), [], Hir::Seq.new([], 0), loader.units, [], true, loader.entries)
           symbols = Machine::Symbols.new(@runtime.symbols.ids.keys, sites: @runtime.symbols.sites)
           lower = Lower.new(program, @runtime.description, symbols, entry: "zr_road", target: target)
           functions, data = lower.run
@@ -333,8 +338,8 @@ module Ze0
     # `content` at `path` under the cache, written whole: a parallel
     # build never reads a half-written file.
     def write_cache(path, content)
-      FileUtils.mkdir_p(CACHE)
-      Dir.mktmpdir("ze0-rt-", CACHE) do |work|
+      FileUtils.mkdir_p(Zr.cache)
+      Dir.mktmpdir("ze0-rt-", Zr.cache) do |work|
         fresh = File.join(work, File.basename(path))
         File.binwrite(fresh, content)
         File.rename(fresh, path)

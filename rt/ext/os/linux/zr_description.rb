@@ -73,6 +73,7 @@ module Ze0
         d zr_proc_binding Value p:Value
         d zr_proc_scope Value p:Value
         d zr_binding_of Value meta:Ptr env:Value self_:Value cref:Value
+        d zr_binding_cref Value b:Value
         d zr_binding_scopes Value b:Value
         d zr_binding_receiver Value b:Value
         d zr_binding_file Value b:Value
@@ -161,6 +162,9 @@ module Ze0
         d zr_cvar_get Value cref:Value id:Word
         d zr_cvar_defined Value cref:Value id:Word
         d zr_cvar_set Value cref:Value id:Word v:Value
+        d zr_cvar_get_m Value cref:Value name:Value
+        d zr_cvar_defined_m Value cref:Value name:Value
+        d zr_cvar_set_m Value cref:Value name:Value v:Value
         d zr_mod_ancestors Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_mod_include_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
         d zr_singleton_p Bool klass:Value
@@ -181,6 +185,8 @@ module Ze0
         d zr_define_method_as Value klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value vis:Word
         d zr_meta_owned Ptr meta:Ptr owner:Value
         d zr_definition_vis Word mid:Word cref:Value
+        d zr_definition_vis_m Value name:Value cref:Value
+        d zr_cref_modfn_p Value cref:Value
         d zr_define_bmethod Value klass:Value mid:Word meta:Ptr body:Value cref:Value
         d zr_method_added Value klass:Value mid:Word
         d zr_method_add Void klass:Value mid:Word fn:Ptr arity:Word kind:Word meta:Ptr cref:Value
@@ -254,6 +260,8 @@ module Ze0
         d zr_cref_push Value klass:Value outer:Value
         d zr_cref_klass Value cref:Value
         d zr_cref_push_eval Value klass:Value outer:Value
+        d zr_cref_set_vis Value cref:Value vis:Value
+        d zr_cref_set_modfn Value cref:Value
         d zr_cref_lexical Value cref:Value
         d zr_cref_lexical_class Value cref:Value
         d zr_const_index_drop Void ext:Ptr
@@ -319,6 +327,11 @@ module Ze0
         d zr_const_searched Value e:Ptr gone:Ptr
         d zr_const_loaded Value e:Ptr gone:Ptr
         d zr_mod_autoload_p Value recv:Value argc:Word argv:Ptr cref:Value blk:Value
+        d zr_const_get_m Value cref:Value name:Value
+        d zr_const_defined_m Value cref:Value name:Value
+        d zr_const_get_at_m Value scope:Value name:Value
+        d zr_const_defined_at_m Value scope:Value name:Value
+        d zr_const_set_m Value klass:Value name:Value v:Value
         d zr_cont_side_ctx Ptr
         d zr_cont_side Void
         d zr_cont_stack_high Word
@@ -409,6 +422,10 @@ module Ze0
         d zr_loading Ptr
         d zr_hidden_loader Ptr
         d zr_loading_hidden Bool
+        d zr_walking Ptr
+        d zr_walking_now Bool
+        d zr_walk_enter Value
+        d zr_walk_leave Value
         d zr_hidden_loading_path Value
         d zr_hidden_now Bool
         d zr_asking_frame Ptr
@@ -828,6 +845,10 @@ module Ze0
         d zr_gvar_traced Value
         d zr_gvar_resolve_m Value name:Value
         d zr_gvar_defined_m Value name:Value
+        d zr_gvar_get_m Value name:Value
+        d zr_gvar_hooked_m Value shown:Value name:Value v:Value
+        d zr_gvar_assign_m Value name:Value v:Value
+        d zr_gvar_alias_m Value new_name:Value old_name:Value
         d zr_mark_roots Void
         d zr_mark_task Void t:Ptr
         d zr_free_cell Void cell:Ptr bytes:Word

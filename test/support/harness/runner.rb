@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rbconfig"
+require "tmpdir"
 require_relative "../../../lib/ze0/cli"
 require_relative "../../../lib/ze0/target"
 
@@ -59,10 +60,18 @@ module Ze0
 
       # The run of `out` with `args` under `env`: the command, and the
       # environment the process itself takes.
+      #
+      # A module is asked the same question as a binary or it is not the
+      # same question, so the guest gets the test directory and a
+      # temporary directory of its own. Without the second, `Dir.tmpdir`
+      # finds nothing to answer with -- a WASI guest sees no filesystem
+      # it was not given and no environment it was not passed -- and a
+      # program that writes a file fails where the binary does not.
       def run(out, args, env)
         return [[out, *args], env] unless wasm?
 
-        [["wasmtime", "run", "--dir", ".", *env.flat_map { |key, value| ["--env", "#{key}=#{value}"] }, out, *args], {}]
+        named = env.flat_map { |key, value| ["--env", "#{key}=#{value}"] }
+        [["wasmtime", "run", "--dir", ".", "--dir", "#{Dir.tmpdir}::/tmp", "--env", "TMPDIR=/tmp", *named, out, *args], {}]
       end
 
       # wasmtime's report of a trap, which ends the module as abort(3)

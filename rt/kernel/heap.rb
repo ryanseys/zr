@@ -509,6 +509,32 @@ machine def zr_gvar_defined_m(name)
   zr_gvar_defined(zr_sym2id(name))
 end
 
+# `$name` and `$name = v` for the walking eval road, which names a
+# global by Symbol where compiled code names it by id. A write goes
+# through the hooked form, since the road is the program's own code
+# running a string the program wrote: `$stdout = 1` must raise there
+# as it does anywhere else.
+sig [Value] => Value
+machine def zr_gvar_get_m(name)
+  zr_gvar_get(zr_sym2id(name))
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_gvar_hooked_m(shown, name, v)
+  zr_gvar_hooked(zr_sym2id(shown), zr_sym2id(name), v)
+end
+
+sig [Value, Value] => Value
+machine def zr_gvar_assign_m(name, v)
+  zr_gvar_assign(zr_sym2id(name), v)
+end
+
+sig [Value, Value] => Value
+machine def zr_gvar_alias_m(new_name, old_name)
+  zr_gvar_alias(zr_sym2id(new_name), zr_sym2id(old_name))
+  Machine.value(QNIL)
+end
+
 sig [] => Void
 machine def zr_mark_roots
   i = 0

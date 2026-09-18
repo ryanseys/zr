@@ -30,6 +30,13 @@ module Ze0
 
     # Where the runtime's built forms live. A checkout keeps them in its
     # own tmp/; an installed gem writes nothing under itself.
-    CACHE = ENV["ZE0_CACHE"] || (checkout? ? File.join(ROOT, "tmp/rt") : File.join(user_cache, "rt"))
+    #
+    # Found when a build asks, and never as this file loads. A program
+    # that evals carries the eval road, the road carries this file, and
+    # that program will never build anything. Reading the home directory
+    # there cost a program its whole run on a target that has none: on
+    # wasi `getpwuid` has no wasm form, so the module stopped before its
+    # first line.
+    def self.cache = @cache ||= ENV["ZE0_CACHE"] || (checkout? ? File.join(ROOT, "tmp/rt") : File.join(user_cache, "rt"))
   end
 end

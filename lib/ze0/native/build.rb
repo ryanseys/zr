@@ -113,7 +113,7 @@ module Ze0
       # digest of what made them, so their base is kept under the names;
       # other objects are linked each time.
       def prelink(objects)
-        cache = File.expand_path(Zr::CACHE)
+        cache = File.expand_path(Zr.cache)
         named = !objects.empty? && objects.all? { |o| File.dirname(File.expand_path(o)) == cache }
         return Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }) unless named
 
@@ -122,7 +122,7 @@ module Ze0
         # depends on: the linker's own files, which that digest leaves
         # out on purpose.
         key = Digest::SHA256.hexdigest([*objects.map { |o| File.basename(o) }, Zr.link_digest].join("\n"))
-        path = File.join(Zr::CACHE, "prelink-#{key}.bin")
+        path = File.join(Zr.cache, "prelink-#{key}.bin")
         # Kept for the life of the process as well as on disk: reading
         # and parsing the 25 MB image was 21% of a link, and a check tier
         # links thousands of times. Nothing a link does writes to it.
@@ -151,7 +151,7 @@ module Ze0
 
       # The runtime's object, built once per digest (which names the target).
       def runtime_object(runtime, jobs: Build.jobs)
-        obj = File.join(Zr::CACHE, "rt-#{runtime.digest}.o")
+        obj = File.join(Zr.cache, "rt-#{runtime.digest}.o")
         return obj if File.exist?(obj)
 
         Dir.mktmpdir("ze0-rt-") do |work|
@@ -210,14 +210,24 @@ module Ze0
 
       # A `Zr::Program` as one WASI module, its runtime from the cached
       # prelude: only the program's own functions are emitted now.
+      #
+      # A program that evals carries a road, and the module holds it as the
+      # binary does: there is no second object to link on wasm, so the
+      # road's functions and data go in beside the program's own. The road
+      # a wasm program carries is the walk (lib/ze0/eval/walk.rb) -- the
+      # front end and no backend -- so what it adds is the parser and the
+      # tree it builds.
       def wasm_program(program, out)
         rt = program.runtime
-        pending = { functions: rt.wants[:functions] & program.functions.map(&:name),
-                    data: rt.wants[:data] & program.data.map(&:name) }
+        road = program.evals
+        functions = road ? program.functions + road.functions : program.functions
+        data = road ? program.data + road.data : program.data
+        pending = { functions: rt.wants[:functions] & functions.map(&:name),
+                    data: rt.wants[:data] & data.map(&:name) }
         pre = wasm_prelude(rt, pending)
-        data = program.data.dup
-        zero_words(program.functions, data, pre.data_at.keys)
-        functions = program.functions + stops(program.functions, [], data, pre.functions)
+        data = data.dup
+        zero_words(functions, data, pre.data_at.keys)
+        functions += stops(functions, [], data, pre.functions)
         IR::Passes.inline(functions).each { |f| IR::Passes.prepare(f) }
         File.binwrite(out, Backend::Wasm.emit(functions, data, prelude: pre))
         nil
@@ -229,7 +239,7 @@ module Ze0
       # symbols it waits on, and kept under the cache.
       def wasm_prelude(runtime, pending)
         key = Digest::SHA256.hexdigest("#{runtime.digest}\n#{pending.inspect}")
-        path = File.join(Zr::CACHE, "wasm-#{key}.marshal")
+        path = File.join(Zr.cache, "wasm-#{key}.marshal")
         return Marshal.load(File.binread(path)) if File.exist?(path)
 
         data = runtime.data.dup

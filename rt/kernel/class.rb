@@ -617,6 +617,25 @@ machine def zr_cvar_set(cref, id, v)
   v
 end
 
+# `@@name` for the walking eval road, which has a Symbol where
+# compiled code has an id. The lookup is the kernel's own, so a
+# string it evaluates reads and writes the class variable compiled
+# code reaches.
+sig [Value, Value] => Value
+machine def zr_cvar_get_m(cref, name)
+  zr_cvar_get(cref, zr_sym2id(name))
+end
+
+sig [Value, Value] => Value
+machine def zr_cvar_defined_m(cref, name)
+  zr_cvar_defined(cref, zr_sym2id(name))
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_cvar_set_m(cref, name, v)
+  zr_cvar_set(cref, zr_sym2id(name), v)
+end
+
 # `Module#ancestors`: the chain, proxies as the modules they stand for.
 sig [Value, Word, Ptr, Value, Value] => Value
 machine def zr_mod_ancestors(recv, argc, argv, cref, blk)
@@ -1004,6 +1023,22 @@ machine def zr_definition_vis(mid, cref)
     return VIS_PRIVATE
   end
   RCref.vis(cref)
+end
+
+# The visibility and the `module_function` copy a `def` gets under
+# `cref`, for the walking eval road: it defines a method the way
+# `Module#define_method` does and then owes the body its own rules,
+# which only the cref knows. 0 public, 1 private, 2 protected.
+sig [Value, Value] => Value
+machine def zr_definition_vis_m(name, cref)
+  zr_fix(zr_definition_vis(zr_sym2id(name), cref))
+end
+
+# Whether a `def` under `cref` also copies itself to the singleton
+# class, which `module_function` asks for.
+sig [Value] => Value
+machine def zr_cref_modfn_p(cref)
+  zr_bool(cref != QNIL && RCref.modfn(cref) != 0)
 end
 
 # A method whose body is the Proc `body`, kept in the entry's cref

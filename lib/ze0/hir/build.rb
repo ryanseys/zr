@@ -55,8 +55,19 @@ module Ze0
         (@stdlib ||= {})[target.triple] ||= [VENDOR, File.join(EXT, "os", target.os_layer), EXT, *GEMS, *BUNDLED].freeze
       end
 
-      # The compiler itself, which a program that evals carries.
+      # The compiler itself, which a program that evals carries, and the
+      # walk a program carries where it cannot write machine code into
+      # itself. Both hold the same front end; `Ze0::Eval` names the back
+      # half each one runs.
       EVAL_ROAD = File.expand_path("../eval.rb", __dir__)
+      WALK_ROAD = File.expand_path("../eval/walk.rb", __dir__)
+
+      # The road for `target`. `ZE0_EVAL=walk` asks for the walk where
+      # machine code would do, which is how the walk is checked against
+      # the answers the compiling road gives.
+      def self.eval_road_file(target = Target.default)
+        target.jits? && ENV["ZE0_EVAL"] != "walk" ? EVAL_ROAD : WALK_ROAD
+      end
 
       # `road` is false for an eval: the program it runs inside already
       # carries the compiler, so the eval must not compile it again. It is
@@ -87,7 +98,7 @@ module Ze0
         end
         preludes = []
         preludes << rbconfig(loader) if road && loader.configures?
-        preludes << eval_road(loader) if road && evals
+        preludes << eval_road(loader, target) if road && evals
         preludes.concat(rubygems(loader)) if road && loader.gems?
         preludes << normalizer(loader) if road && loader.normalizes?
         preludes << pretty_printer(loader) if road && loader.pretty_prints?
@@ -107,7 +118,7 @@ module Ze0
       # are lowered once, not with every such program.
       def self.road(target = Target.default)
         Loader.new(stdlib(target)).tap do |loader|
-          eval_road(loader)
+          eval_road(loader, target)
           rubygems(loader)
           rbconfig(loader)
           normalizer(loader)
@@ -168,8 +179,9 @@ module Ze0
       # Only a program that names an eval carries the compiler, so an
       # eval-free one links nothing extra. The program never asked for
       # it, so what it loads stays out of $LOADED_FEATURES.
-      def self.eval_road(loader)
-        Require.new(:eval_road, "ze0/eval", EVAL_ROAD, loader.hidden(EVAL_ROAD), 0)
+      def self.eval_road(loader, target = Target.default)
+        path = eval_road_file(target)
+        Require.new(:eval_road, "ze0/eval", path, loader.hidden(path), 0)
       end
 
       # A program that names one of these compiles ruby while it runs.

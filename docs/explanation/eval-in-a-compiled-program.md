@@ -21,6 +21,18 @@ equal to ruby's. ze0 takes the third: evaluated code goes through the
 same compiler, the same runtime, and the same checks as the rest of the
 program.
 
+On wasm the third answer is not available. A module's code is fixed
+when the engine instantiates it, and WASI hands a guest no way to make
+a second module, so there is nowhere to put what the compiler emits.
+A program there takes the second answer instead, and pays for it as
+little as it can: the **front end is the same one** -- the same prism
+port, the same `Hir.build`, the same desugaring and name resolution --
+and only the back half is a second implementation, a walk of the tree
+the front end already built. What the walk does not carry it refuses
+by name, at its line, rather than guessing. The two roads are
+`lib/ze0/eval.rb` and `lib/ze0/eval/walk.rb`, and
+`Hir::Build.eval_road_file` picks between them from the target.
+
 ## Which programs carry the compiler
 
 The HIR build decides, from the source, whether a program can reach the
@@ -61,10 +73,47 @@ functions, layouts and symbol ids. The program carries the kernel's
 *description* for this (`rt/ext/os/<os>/zr_description.rb`), and the
 eval's symbol table starts from the one the program runs on.
 
+## The walking road
+
+`ZE0_EVAL=walk` builds a native program with the walk, which is how the
+walk is held to the compiling road's own answers: the same program, the
+same runtime, and two back halves that must agree with ruby.
+
+The walk evaluates HIR node by node and reaches the program through the
+calls any Ruby program makes -- `__send__`, `define_method`,
+`instance_variable_get`. What only the runtime can answer it asks
+through `Ze0::Eval::World` (`rt/ext/ze0/eval/walking.rb`): the lexical
+scope a cref stands for, the scopes a Binding names, and the constant,
+class-variable and global tables, each one standing for something the
+compiler emits inline.
+
+While it walks, the runtime is told that what asks is the program and
+not the road's own file (`zr_walk_enter`). The road's files load out of
+the program's sight, and without that a constant a string defines on
+Object would be concealed as a hidden file's own.
+
+What it does not carry, and refuses by name:
+
+- `$~`, `$_`, `$&` and the numbered groups. They are registers of the
+  frame that last matched, and the walk has no frame of its own to keep
+  them in.
+- `return` from an eval inside a method: the walk cannot unwind the
+  compiled frame that called it.
+- `super` written at the top of an eval rather than inside a `def` the
+  eval itself holds.
+- `using`, and a call written under a refinement.
+- A `require` of a file the program was not compiled with, which wants
+  a toplevel address the walk has none of.
+- `RubyVM::InstructionSequence.compile`, which asks for code to run
+  later.
+
+Backtraces name the walk's own files rather than the string's line.
+
 ## Limits
 
-- A static Linux binary and a WASI module cannot load code, so programs
-  that eval work only on macOS.
+- A WASI module holds the whole front end where a binary holds a
+  cached object, so a wasm program that evals is about 90 MB and takes
+  about three minutes to build.
 - A binary that carries the compiler names the absolute paths of the
   gem's `rt/ext`, `vendor/lib` and `vendor/ext/*/lib`. A computed
   `require` in such a binary works only while that version of the gem

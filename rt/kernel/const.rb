@@ -54,6 +54,23 @@ machine def zr_cref_push_eval(klass, outer)
 end
 
 # The innermost cref that names a lexical scope.
+# `private`, `public`, `protected` and `module_function` written bare
+# in a class body set that body's own visibility, which lives in its
+# cref. Compiled code writes it where the body runs; the walking eval
+# road has the cref in hand and no frame of the body's to write it in,
+# so it writes it here. 0 public, 1 private, 2 protected.
+sig [Value, Value] => Value
+machine def zr_cref_set_vis(cref, vis)
+  RCref.set_vis(cref, zr_fix2long(vis))
+  Machine.value(QNIL)
+end
+
+sig [Value] => Value
+machine def zr_cref_set_modfn(cref)
+  RCref.set_modfn(cref, 1)
+  Machine.value(QNIL)
+end
+
 sig [Value] => Value
 machine def zr_cref_lexical(cref)
   while RCref.eval(cref) != 0
@@ -1258,4 +1275,34 @@ machine def zr_mod_autoload_p(recv, argc, argv, cref, blk)
   r = zr_const_name_id(recv, Machine.value(Machine.load64(argv, 0)), slot)
   return r if r == QUNDEF
   zr_autoload_feature(recv, Machine.load64(slot, 0))
+end
+
+# The walking eval road (lib/ze0/eval/walk.rb) reads and writes
+# constants through the kernel's own lookup, so a string it evaluates
+# finds what compiled code finds. It has no inline cache to hand over
+# and no symbol id to spell, so these take the name as a Symbol and
+# stand in for the cached forms the compiler emits.
+sig [Value, Value] => Value
+machine def zr_const_get_m(cref, name)
+  zr_const_get(cref, zr_sym2id(name))
+end
+
+sig [Value, Value] => Value
+machine def zr_const_defined_m(cref, name)
+  zr_const_defined(cref, zr_sym2id(name))
+end
+
+sig [Value, Value] => Value
+machine def zr_const_get_at_m(scope, name)
+  zr_const_get_at(scope, zr_sym2id(name))
+end
+
+sig [Value, Value] => Value
+machine def zr_const_defined_at_m(scope, name)
+  zr_const_defined_at(scope, zr_sym2id(name))
+end
+
+sig [Value, Value, Value] => Value
+machine def zr_const_set_m(klass, name, v)
+  zr_const_set(klass, zr_sym2id(name), v)
 end

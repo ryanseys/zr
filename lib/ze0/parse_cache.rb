@@ -16,7 +16,7 @@ module Ze0
   # ParseResult is a miss. A result read back holds the same values as a
   # parse, though its Strings are not frozen.
   module ParseCache
-    DIRECTORY = File.join(Paths::CACHE, "parse")
+    def self.directory = File.join(Paths.cache, "parse")
 
     # The files a parse runs, beside the gem's Ruby half.
     OWN = [File.expand_path("../../rt/ext/prism/{prism.rb,ruby/**/*.rb}", __dir__), File.join(__dir__, "prism_backend/**/*.rb"),
@@ -25,7 +25,7 @@ module Ze0
     module_function
 
     def parse(source, **options)
-      path = File.join(DIRECTORY, "#{key(source, options)}.marshal")
+      path = File.join(directory, "#{key(source, options)}.marshal")
       read(path) || Prism.parse(source, **options).tap { |result| write(path, Marshal.dump(result)) }
     end
 
@@ -57,7 +57,7 @@ module Ze0
 
     # The file written whole: a parallel build never reads half of one.
     def write(path, bytes)
-      FileUtils.mkdir_p(DIRECTORY)
+      FileUtils.mkdir_p(directory)
       fresh = "#{path}.#{Process.pid}.#{Thread.current.object_id}"
       File.binwrite(fresh, bytes)
       File.rename(fresh, path)

@@ -25,7 +25,7 @@ require_relative "../lib/ze0/native/build"
 module Caches
   module_function
 
-  def files = Dir[File.join(Ze0::Zr::CACHE, "*")].select { |path| File.file?(path) }
+  def files = Dir[File.join(Ze0::Zr.cache, "*")].select { |path| File.file?(path) }
 
   # The names this checkout's compiler asks for, over every target it
   # builds: the runtime object, the eval road and its meta, and the
@@ -39,23 +39,23 @@ module Caches
 
   def live_for(target)
     runtime = Ze0::Zr.runtime(target)
-    object = File.join(Ze0::Zr::CACHE, "rt-#{runtime.digest}.o")
-    meta = File.join(Ze0::Zr::CACHE, "road-#{runtime.digest}.json")
+    object = File.join(Ze0::Zr.cache, "rt-#{runtime.digest}.o")
+    meta = File.join(Ze0::Zr.cache, "road-#{runtime.digest}.json")
     road = road_object(meta)
     [object, meta, road, prelink([object]), road && prelink([object, road])] +
-      Dir[File.join(Ze0::Zr::CACHE, "*-#{runtime.digest}.*")]
+      Dir[File.join(Ze0::Zr.cache, "*-#{runtime.digest}.*")]
   end
 
   # The road's object, which only its meta names.
   def road_object(meta)
     key = JSON.parse(File.read(meta)).fetch("key") if File.exist?(meta)
-    key && File.join(Ze0::Zr::CACHE, "road-#{key}.o")
+    key && File.join(Ze0::Zr.cache, "road-#{key}.o")
   end
 
   # The image `Native::Build.prelink` writes for those objects.
   def prelink(objects)
     key = Digest::SHA256.hexdigest([*objects.map { |o| File.basename(o) }, Ze0::Zr.link_digest].join("\n"))
-    File.join(Ze0::Zr::CACHE, "prelink-#{key}.bin")
+    File.join(Ze0::Zr.cache, "prelink-#{key}.bin")
   end
 
   def megabytes(paths) = paths.sum { |path| File.size(path) } / (1 << 20)

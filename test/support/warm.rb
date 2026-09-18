@@ -49,7 +49,7 @@ module Ze0
 
       # Whether the runtime's object is already made. The prelink and the
       # road follow it, so this one file answers for all three.
-      def self.warm?(target) = File.exist?(File.join(Zr::CACHE, "rt-#{Zr.runtime(target).digest}.o"))
+      def self.warm?(target) = File.exist?(File.join(Zr.cache, "rt-#{Zr.runtime(target).digest}.o"))
 
       def self.build(target)
         program = Zr.program(SOURCE, "warm.rb", target: target)

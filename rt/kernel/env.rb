@@ -314,6 +314,35 @@ machine def zr_loading_hidden
   Machine.load64(zr_hidden_loader(), 0) != 0
 end
 
+# The walking eval road (lib/ze0/eval/walk.rb) runs the program's own
+# code inside the road's own files, which load out of the program's
+# sight. While it walks, what asks is the program: a constant a string
+# it evaluates defines on Object is the program's own and is never
+# concealed, and a require the string makes is the program's require.
+# The compiling road needs none of this -- the code it writes runs in
+# frames of its own, which are the program's already.
+sig [] => Ptr
+machine def zr_walking
+  Machine.static(:walking, 8)
+end
+
+sig [] => Bool
+machine def zr_walking_now
+  Machine.load64(zr_walking(), 0) != 0
+end
+
+sig [] => Value
+machine def zr_walk_enter
+  Machine.store64(zr_walking(), 0, Machine.load64(zr_walking(), 0) + 1)
+  Machine.value(QNIL)
+end
+
+sig [] => Value
+machine def zr_walk_leave
+  Machine.store64(zr_walking(), 0, Machine.load64(zr_walking(), 0) - 1)
+  Machine.value(QNIL)
+end
+
 # The path of the hidden file loading now, or nil.
 sig [] => Value
 machine def zr_hidden_loading_path
@@ -332,6 +361,9 @@ sig [] => Bool
 machine def zr_hidden_now
   if zr_loading_hidden()
     return true
+  end
+  if zr_walking_now()
+    return false
   end
   rec = zr_asking_frame()
   if rec == 0 || FrameMeta.hidden(Frame.meta(rec)) == 0
@@ -414,7 +446,11 @@ end
 # `id`: remembered, so a require of the file reveals the constant.
 sig [Word] => Void
 machine def zr_hidden_defined(id)
-  i = zr_hidden_row(zr_hidden_loading_path())
+  path = zr_hidden_loading_path()
+  if path == QNIL
+    return
+  end
+  i = zr_hidden_row(path)
   if i < 0
     return
   end

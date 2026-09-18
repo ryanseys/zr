@@ -78,6 +78,14 @@ module Ze0
 
     def native? = Target.host_triple == triple
 
+    # Whether a program for this target can write machine code into
+    # itself while it runs, which is what the compiler a program that
+    # evals carries does. A wasm module's code is fixed when the engine
+    # instantiates it, and WASI hands a guest no way to make a second
+    # module, so a program there walks the tree instead
+    # (lib/ze0/eval/walk.rb).
+    def jits? = arch != :wasm32
+
     # The output `emit` names: `:native` for nil, else the symbol.
     def self.road(emit) = emit ? emit.to_sym : :native
 

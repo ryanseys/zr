@@ -195,6 +195,14 @@ machine def zr_binding_of(meta, env, self_, cref)
   b
 end
 
+# The lexical scope a Binding names, which `binding.eval` runs its
+# string under. The walking eval road reads it; the compiling one
+# hands the Binding to `zr_binding_run` and never sees it.
+sig [Value] => Value
+machine def zr_binding_cref(b)
+  RProc.cref(b)
+end
+
 sig [Value] => Value
 machine def zr_binding_scopes(b)
   out = zr_ary_new(0)
